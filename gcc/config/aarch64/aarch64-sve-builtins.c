@@ -147,9 +147,28 @@ typedef enum type_suffix type_suffix_pair[2];
 
 /* Enumerates the function base names, such as "svadd".  */
 enum function {
-#define DEF_SVE_FUNCTION(NAME, SHAPE, TYPES, PRED) FUNC_ ## NAME,
+  FUNC_svabd,
+  FUNC_svadd,
+  FUNC_svasrd,
+  FUNC_svdup,
+  FUNC_svindex,
+  FUNC_svmax,
+  FUNC_svmin,
+  FUNC_svmul,
+  FUNC_svptrue,
+  FUNC_svqadd,
+  FUNC_svqsub,
+  FUNC_svsub,
+  FUNC_svsubr
+};
+
+/* Enumerates the function groups defined in aarch64-sve-builtins.def.  */
+#define GROUP_ID(NAME, SHAPE, TYPES, PREDS) \
+  GROUP_##NAME##_##SHAPE##_##TYPES##_##PREDS
+enum group_id {
+#define DEF_SVE_FUNCTION(NAME, SHAPE, TYPES, PREDS) \
+  GROUP_ID (NAME, SHAPE, TYPES, PREDS),
 #include "aarch64-sve-builtins.def"
-  NUM_FUNCS
 };
 
 /* Static information about each single-predicate or single-vector
@@ -187,6 +206,9 @@ struct type_suffix_info {
 
 /* Static information about a set of functions.  */
 struct function_group {
+  /* The unique identifier of the group.  */
+  group_id id;
+
   /* The base name, as a string and an enum.  */
   const char *name;
   function func;
@@ -209,8 +231,7 @@ struct function_group {
 /* Describes a fully-resolved function (i.e. one that has a unique full
    name).  */
 struct GTY(()) function_instance {
-  function_instance () {}
-  function_instance (function, function_mode, const type_suffix_pair &,
+  function_instance (group_id, function_mode, const type_suffix_pair &,
 		     predication);
 
   bool operator== (const function_instance &) const;
@@ -221,7 +242,7 @@ struct GTY(()) function_instance {
   tree vector_type (unsigned int) const;
 
   /* The explicit "enum"s are required for gengtype.  */
-  enum function func;
+  enum group_id group;
   enum function_mode mode;
   type_suffix_pair types;
   enum predication pred;
@@ -391,6 +412,7 @@ private:
 
   /* The function being called.  */
   const function_instance &m_fi;
+  const function_group &m_group;
 
   /* The call we're folding.  */
   gcall *m_call;
@@ -448,6 +470,7 @@ private:
   /* The function being called.  */
   const registered_function &m_rfn;
   const function_instance &m_fi;
+  const function_group &m_group;
 
   /* The function call expression.  */
   tree m_exp;
@@ -552,7 +575,8 @@ static const predication preds_mxznone[] = { PRED_m, PRED_x, PRED_z,
 /* A list of all SVE ACLE functions.  */
 static const function_group function_groups[] = {
 #define DEF_SVE_FUNCTION(NAME, SHAPE, TYPES, PREDS) \
-  { #NAME, FUNC_##NAME, SHAPE_##SHAPE, types_##TYPES, preds_##PREDS },
+  { GROUP_ID (NAME, SHAPE, TYPES, PREDS), #NAME, FUNC_##NAME, SHAPE_##SHAPE, \
+    types_##TYPES, preds_##PREDS },
 #include "aarch64-sve-builtins.def"
 };
 
@@ -610,11 +634,11 @@ report_out_of_range (location_t location, tree decl, unsigned int argno,
 }
 
 inline
-function_instance::function_instance (function func_in,
+function_instance::function_instance (group_id group_in,
 				      function_mode mode_in,
 				      const type_suffix_pair &types_in,
 				      predication pred_in)
-  : func (func_in), mode (mode_in), pred (pred_in)
+  : group (group_in), mode (mode_in), pred (pred_in)
 {
   memcpy (types, types_in, sizeof (types));
 }
@@ -622,7 +646,7 @@ function_instance::function_instance (function func_in,
 inline bool
 function_instance::operator== (const function_instance &other) const
 {
-  return (func == other.func
+  return (group == other.group
 	  && mode == other.mode
 	  && pred == other.pred
 	  && types[0] == other.types[0]
@@ -639,7 +663,7 @@ hashval_t
 function_instance::hash () const
 {
   inchash::hash h;
-  h.add_int (func);
+  h.add_int (group);
   h.add_int (mode);
   h.add_int (types[0]);
   h.add_int (types[1]);
@@ -748,7 +772,7 @@ arm_sve_h_builder::build_all (function_signature signature,
   for (unsigned int pi = 0; group.preds[pi] != NUM_PREDS; ++pi)
     for (unsigned int ti = 0; group.types[ti][0] != NUM_TYPE_SUFFIXES; ++ti)
       {
-	function_instance instance (group.func, mode, group.types[ti],
+	function_instance instance (group.id, mode, group.types[ti],
 				    group.preds[pi]);
 	(this->*signature) (instance, types);
 	apply_predication (instance, types);
@@ -888,9 +912,8 @@ arm_sve_h_builder::add_overloaded_functions (const function_group &group,
       type_suffix_pair prev_types = { NUM_TYPE_SUFFIXES, NUM_TYPE_SUFFIXES };
       if (explicit_types == 0)
 	/* One overloaded function for all type combinations.  */
-	add_overloaded_function
-	  (function_instance (group.func, mode, prev_types,
-			      group.preds[pi]));
+	add_overloaded_function (function_instance (group.id, mode, prev_types,
+						    group.preds[pi]));
       else
 	for (unsigned int ti = 0; group.types[ti][0] != NUM_TYPE_SUFFIXES;
 	     ++ti)
@@ -907,8 +930,8 @@ arm_sve_h_builder::add_overloaded_functions (const function_group &group,
 		&& types[0] == prev_types[0]
 		&& types[1] == prev_types[1])
 	      continue;
-	    add_overloaded_function
-	      (function_instance (group.func, mode, types, group.preds[pi]));
+	    add_overloaded_function (function_instance (group.id, mode, types,
+							group.preds[pi]));
 	    memcpy (prev_types, types, sizeof (types));
 	  }
     }
@@ -957,7 +980,7 @@ tree
 arm_sve_h_builder::get_attributes (const function_instance &instance)
 {
   tree attrs = NULL_TREE;
-  switch (instance.func)
+  switch (function_groups[instance.group].func)
     {
     case FUNC_svabd:
     case FUNC_svadd:
@@ -990,9 +1013,6 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
       attrs = add_attribute ("const", attrs);
       attrs = add_attribute ("nothrow", attrs);
       break;
-
-    case NUM_FUNCS:
-      break;
     }
   return add_attribute ("leaf", attrs);
 }
@@ -1022,7 +1042,7 @@ char *
 arm_sve_h_builder::get_name (const function_instance &instance,
 			     bool overloaded_p)
 {
-  const function_group &group = function_groups[instance.func];
+  const function_group &group = function_groups[instance.group];
   unsigned int explicit_types
     = (overloaded_p ? get_explicit_types (group.shape) : 3);
 
@@ -1064,7 +1084,7 @@ function_resolver::function_resolver (location_t location,
 				      const registered_function &rfn,
 				      vec<tree, va_gc> &arglist)
   : m_location (location), m_rfn (rfn), m_arglist (arglist),
-    m_group (function_groups[rfn.instance.func])
+    m_group (function_groups[rfn.instance.group])
 {
 }
 
@@ -1333,7 +1353,7 @@ function_resolver::lookup_form (function_mode mode, type_suffix type0,
 				type_suffix type1)
 {
   type_suffix_pair types = { type0, type1 };
-  function_instance instance (m_rfn.instance.func, mode, types,
+  function_instance instance (m_rfn.instance.group, mode, types,
 			      m_rfn.instance.pred);
   registered_function *rfn
     = function_table->find_with_hash (instance, instance.hash ());
@@ -1344,7 +1364,7 @@ function_checker::function_checker (location_t location,
 				    const function_instance &fi, tree decl,
 				    unsigned int nargs, tree *args)
   : m_location (location), m_fi (fi), m_decl (decl), m_nargs (nargs),
-    m_args (args), m_group (function_groups[m_fi.func])
+    m_args (args), m_group (function_groups[m_fi.group])
 {
 }
 
@@ -1527,8 +1547,9 @@ check_builtin_call (location_t location, vec<location_t>, unsigned int code,
 /* Construct a folder for CALL, which calls the SVE function with
    subcode CODE.  */
 gimple_folder::gimple_folder (unsigned int code, gcall *call)
-  : m_fi ((*registered_functions)[code]->instance), m_call (call),
-    m_lhs (gimple_call_lhs (call))
+  : m_fi ((*registered_functions)[code]->instance),
+    m_group (function_groups[m_fi.group]),
+    m_call (call), m_lhs (gimple_call_lhs (call))
 {
 }
 
@@ -1537,7 +1558,7 @@ gimple_folder::gimple_folder (unsigned int code, gcall *call)
 gimple *
 gimple_folder::fold ()
 {
-  switch (m_fi.func)
+  switch (m_group.func)
     {
     case FUNC_svabd:
     case FUNC_svadd:
@@ -1551,7 +1572,6 @@ gimple_folder::fold ()
     case FUNC_svqsub:
     case FUNC_svsub:
     case FUNC_svsubr:
-    case NUM_FUNCS:
       return NULL;
 
     case FUNC_svptrue:
@@ -1592,6 +1612,7 @@ gimple_fold_builtin (unsigned int code, gcall *stmt)
 function_expander::function_expander (unsigned int code, tree exp, rtx target)
   : m_rfn (*(*registered_functions)[code]),
     m_fi (m_rfn.instance),
+    m_group (function_groups[m_fi.group]),
     m_exp (exp), m_location (EXPR_LOCATION (exp)), m_target (target)
 {
 }
@@ -1605,7 +1626,7 @@ function_expander::expand ()
   for (unsigned int i = 0; i < nargs; ++i)
     m_args.quick_push (expand_normal (CALL_EXPR_ARG (m_exp, i)));
 
-  switch (m_fi.func)
+  switch (m_group.func)
     {
     case FUNC_svabd:
       return expand_abd ();
@@ -1645,9 +1666,6 @@ function_expander::expand ()
 
     case FUNC_svsubr:
       return expand_sub (true);
-
-    case NUM_FUNCS:
-      break;
     }
   gcc_unreachable ();
 }
