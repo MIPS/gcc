@@ -1,5 +1,9 @@
 2019-01-06 Jan Hubicka  <hubicka@ucw.cz>
 
+	* decrease unit-growth to 20
+
+2019-01-06 Jan Hubicka  <hubicka@ucw.cz>
+
 	* increase unit-growth to 40
 
 2019-01-06 Jan Hubicka  <hubicka@ucw.cz>
