@@ -40,8 +40,6 @@ c-common.h, not after.
 #include "c-family/c-common.h"
 #include "diagnostic.h"
 
-#include "print-tree.h"
-
 /* A tree node, together with a location, so that we can track locations
    (and ranges) during parsing.
 

@@ -34,7 +34,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-fold.h"
 #include "timevar.h"
 #include "fold-const-call.h"
-#include "print-tree.h"
 
 static bool verify_constant (tree, bool, bool *, bool *);
 #define VERIFY_CONSTANT(X)						\

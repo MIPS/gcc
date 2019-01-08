@@ -35,7 +35,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "internal-fn.h"
 #include "gcc-rich-location.h"
 #include "cp-name-hint.h"
-#include "print-tree.h"
 
 #define pp_separate_with_comma(PP) pp_cxx_separate_with (PP, ',')
 #define pp_separate_with_semicolon(PP) pp_cxx_separate_with (PP, ';')

@@ -46,7 +46,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "decl.h"
 #include "toplev.h"
 #include "type-utils.h"
-#include "print-tree.h"
 
 static bool 
 parameter_mapping_equivalent_p (tree t1, tree t2)
