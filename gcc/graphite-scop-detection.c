@@ -1292,6 +1292,93 @@ build_cross_bb_scalars_use (scop_p scop, tree use, gimple *use_stmt,
     add_read (reads, use, use_stmt);
 }
 
+static int
+pbb_index (int i, vec<int> &comp)
+{
+  if (i == -1)
+    return i;
+  while (comp[i] != -1)
+    i = comp[i];
+  return i;
+}
+
+static int
+merge_pbb_index (int a, int b, vec<int> &comp)
+{
+  a = pbb_index (a, comp);
+  b = pbb_index (b, comp);
+  if (a == -1 || a == b)
+    return b;
+  if (b == -1)
+    return a;
+  comp[b] = a;
+  return a;
+}
+
+static void
+start_pbb_at_stmt (scop_p scop, gimple *stmt, vec<int> &comp)
+{
+  if (is_gimple_debug (stmt))
+    return;
+  /* XXX this early-out needs different handling for scop liveouts
+  tree def = gimple_get_lhs (stmt);
+  if (def && is_gimple_reg (def)
+      && scev_analyzable_p (def, scop->scop_info->region))
+    return;*/
+
+  int uid = -1;
+
+  ssa_op_iter iter;
+  tree use;
+  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_USE)
+    if (is_gimple_reg (use)
+	/* Do not gather scalar variables that can be analyzed by SCEV
+	   as they can be generated out of the induction variables.  */
+	&& !scev_analyzable_p (use, scop->scop_info->region))
+      {
+	gimple *def_stmt = SSA_NAME_DEF_STMT (use);
+	if (gimple_bb (stmt) == gimple_bb (def_stmt))
+	  uid = merge_pbb_index (uid, gimple_uid (def_stmt), comp);
+      }
+  if (uid == -1)
+    {
+      uid = comp.length ();
+      comp.safe_push (-1);
+    }
+  gimple_set_uid (stmt, uid);
+}
+
+static void
+start_pbb_at_phi (scop_p scop, gphi *phi, vec<int> &comp)
+{
+  int uid = -1;
+
+  tree def = gimple_phi_result (phi);
+  if (!is_gimple_reg (def)
+      || scev_analyzable_p (def, scop->scop_info->region))
+    return;
+  for (int i = 0, n = gimple_phi_num_args (phi); i < n; i++)
+    {
+      tree use = gimple_phi_arg_def (phi, i);
+      if (is_gimple_reg (use)
+	  /* Do not gather scalar variables that can be analyzed by SCEV
+	     as they can be generated out of the induction variables.  */
+	  && !scev_analyzable_p (use, scop->scop_info->region))
+	{
+	  gimple *def_stmt = SSA_NAME_DEF_STMT (use);
+	  if (gimple_bb (phi) == gimple_bb (def_stmt)
+	      && gimple_uid (def_stmt) != -1)
+	    uid = merge_pbb_index (uid, gimple_uid (def_stmt), comp);
+	}
+    }
+  if (uid == -1)
+    {
+      uid = comp.length ();
+      comp.safe_push (-1);
+    }
+  gimple_set_uid (phi, uid);
+}
+
 /* Generates a polyhedral black box only if the bb contains interesting
    information.  */
 
@@ -1301,6 +1388,8 @@ try_generate_gimple_bb (scop_p scop, basic_block bb)
   vec<data_reference_p> drs = vNULL;
   vec<tree> writes = vNULL;
   vec<scalar_use> reads = vNULL;
+  vec<int> comp = vNULL;
+  gimple_poly_bb_p gbb = NULL;
 
   sese_l region = scop->scop_info->region;
   edge nest = region.entry;
@@ -1308,15 +1397,32 @@ try_generate_gimple_bb (scop_p scop, basic_block bb)
   if (!loop_in_sese_p (loop, region))
     loop = NULL;
 
+  for (gphi_iterator psi = gsi_start_phis (bb); !gsi_end_p (psi);
+       gsi_next (&psi))
+    gimple_set_uid (gsi_stmt (psi), -1);
   for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
        gsi_next (&gsi))
     gimple_set_uid (gsi_stmt (gsi), -1);
+  for (gphi_iterator psi = gsi_start_phis (bb); !gsi_end_p (psi);
+       gsi_next (&psi))
+    if (gimple_uid (gsi_stmt (psi)) == -1)
+      start_pbb_at_phi (scop, psi.phi (), comp);
+  for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
+       gsi_next (&gsi))
+    if (gimple_uid (gsi_stmt (gsi)) == -1)
+      start_pbb_at_stmt (scop, gsi_stmt (gsi), comp);
+  //printf ("comp: %d\n", comp.length ());
 
+  for (int i = 0, n = comp.length (); i < n; i++)
+    {
+      int ind = pbb_index (i, comp);
   for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
        gsi_next (&gsi))
     {
       gimple *stmt = gsi_stmt (gsi);
-      if (is_gimple_debug (stmt))
+      if (is_gimple_debug (stmt)
+	  || pbb_index (gimple_uid (stmt), comp) != ind
+	  )
 	continue;
 
       graphite_find_data_references_in_stmt (nest, loop, stmt, &drs);
@@ -1340,6 +1446,7 @@ try_generate_gimple_bb (scop_p scop, basic_block bb)
       gphi *phi = psi.phi ();
       tree res = gimple_phi_result (phi);
       if (virtual_operand_p (res)
+	  || pbb_index (gimple_uid (phi), comp) != ind
 	  || scev_analyzable_p (res, scop->scop_info->region))
 	continue;
       /* To simulate out-of-SSA the block containing the PHI node has
@@ -1349,6 +1456,8 @@ try_generate_gimple_bb (scop_p scop, basic_block bb)
       add_read (&reads, res, phi);
       add_write (&writes, res);
     }
+    }
+  comp.release ();
   basic_block bb_for_succs = bb;
   if (bb_for_succs == bb_for_succs->loop_father->latch
       && bb_in_sese_p (bb_for_succs, scop->scop_info->region)

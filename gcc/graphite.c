@@ -405,7 +405,8 @@ graphite_transform_loops (void)
   if (parallelized_function_p (cfun->decl))
     return;
 
-  split_memrefs ();
+  if (0)
+    split_memrefs ();
 
   calculate_dominance_info (CDI_DOMINATORS);
 
