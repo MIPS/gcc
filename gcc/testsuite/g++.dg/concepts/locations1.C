@@ -1,10 +1,5 @@
-<<<<<<< HEAD
-// { dg-do compile { target c++17 } }
-// { dg-additional-options "-fconcepts" }
-=======
 // needs lines updated, still works
 // { dg-additional-options "-std=c++17 -fconcepts" }
->>>>>>> 594131fbad3... move ported tests; note more issues and needs port after fixes
 
 struct S
 {

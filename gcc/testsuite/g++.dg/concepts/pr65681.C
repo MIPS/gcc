@@ -1,9 +1,4 @@
-<<<<<<< HEAD
-// { dg-do compile { target c++17 } }
-// { dg-options "-fconcepts" }
-=======
 // { dg-options "-std=c++2a" }
->>>>>>> eda685858ca... move more ported tests
 
 template<typename T>
 concept C = requires (T t) { t.mf(); };
