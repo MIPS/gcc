@@ -1,0 +1,126 @@
+2019-01-08  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* decl.c (grok_reference_init): Improve error location.
+	(grokdeclarator): Likewise, improve two locations.
+
+2019-01-08  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/88538 - braced-init-list in template-argument-list.
+	* parser.c (cp_parser_template_argument): Handle braced-init-list when
+	in C++20.
+
+	PR c++/88548 - this accepted in static member functions.
+	* parser.c (cp_debug_parser): Adjust printing of
+	local_variables_forbidden_p.
+	(cp_parser_new): Set local_variables_forbidden_p to 0 rather than false.
+	(cp_parser_primary_expression): When checking
+	local_variables_forbidden_p, use THIS_FORBIDDEN or
+	LOCAL_VARS_FORBIDDEN.
+	(cp_parser_lambda_body): Update the type of
+	local_variables_forbidden_p.  Set it to 0 rather than false.
+	(cp_parser_condition): Adjust call to cp_parser_declarator.
+	(cp_parser_explicit_instantiation): Likewise.
+	(cp_parser_init_declarator): Likewise.
+	(cp_parser_declarator): New parameter.  Use it.
+	(cp_parser_direct_declarator): New parameter.  Use it to set
+	local_variables_forbidden_p.  Adjust call to cp_parser_declarator.
+	(cp_parser_type_id_1): Adjust call to cp_parser_declarator.
+	(cp_parser_parameter_declaration): Likewise.
+	(cp_parser_default_argument): Update the type of
+	local_variables_forbidden_p.  Set it to LOCAL_VARS_AND_THIS_FORBIDDEN
+	rather than true.
+	(cp_parser_member_declaration): Tell cp_parser_declarator if we saw
+	'static' or 'friend'.
+	(cp_parser_exception_declaration): Adjust call to cp_parser_declarator.
+	(cp_parser_late_parsing_default_args): Update the type of
+	local_variables_forbidden_p.  Set it to LOCAL_VARS_AND_THIS_FORBIDDEN
+	rather than true.
+	(cp_parser_cache_defarg): Adjust call to cp_parser_declarator.
+	(cp_parser_objc_class_ivars): Likewise.
+	(cp_parser_objc_struct_declaration): Likewise.
+	(cp_parser_omp_for_loop_init): Likewise.
+	* parser.h (cp_parser): Change the type of local_variables_forbidden_p
+	to unsigned char.
+	(LOCAL_VARS_FORBIDDEN, LOCAL_VARS_AND_THIS_FORBIDDEN, THIS_FORBIDDEN):
+	Define.
+
+2019-01-08  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* decl.c (start_decl): Improve permerror location.
+
+2019-01-08  Jonathan Wakely  <jwakely@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/88554
+	* decl.c (finish_function): For -Wreturn-type don't add a return *this;
+	fixit hint if current_class_ref is NULL.  Use a single if instead of
+	two nested ones.
+
+2019-01-07  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* decl.c (start_decl): Improve two error_at locations.
+	(expand_static_init): Likewise.
+
+2019-01-07  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/88741 - wrong error with initializer-string.
+	* decl.c (cp_complete_array_type): Strip any location wrappers.
+
+2019-01-07  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR c++/88261
+	PR c++/69338
+	PR c++/69696
+	PR c++/69697
+	* cp-tree.h (LOOKUP_ALLOW_FLEXARRAY_INIT): New flag value.
+	* typeck2.c (digest_init_r): Raise an error for non-static
+	initialization of a flexible array member.
+	(process_init_constructor, massage_init_elt,
+	process_init_constructor_array, process_init_constructor_record,
+	process_init_constructor_union, process_init_constructor): Add the
+	flags parameter and pass it thru.
+	(store_init_value): Pass LOOKUP_ALLOW_FLEXARRAY_INIT parameter to
+	digest_init_flags for static decls.
+
+2019-01-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/85052
+	* cp-tree.h (cp_build_vec_convert): Declare.
+	* parser.c (cp_parser_postfix_expression): Parse
+	__builtin_convertvector.
+	* constexpr.c: Include fold-const-call.h.
+	(cxx_eval_internal_function): Handle IFN_VEC_CONVERT.
+	(potential_constant_expression_1): Likewise.
+	* semantics.c (cp_build_vec_convert): New function.
+	* pt.c (tsubst_copy_and_build): Handle CALL_EXPR to
+	IFN_VEC_CONVERT.
+
+2019-01-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/88636
+	* decl.c (builtin_function_1): Return result of pushdecl_top_level
+	or pushdecl rather than decl.
+
+2019-01-03  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* tree.c (handle_nodiscard_attribute): Improve warning location.
+
+2019-01-02  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/88612 - ICE with -Waddress-of-packed-member.
+	* call.c (convert_for_arg_passing): Only give warnings with tf_warning.
+	* typeck.c (convert_for_assignment): Likewise.
+
+	PR c++/88631 - CTAD failing for value-initialization.
+	* typeck2.c (build_functional_cast): Try deducing the template
+	arguments even if there are no arguments to deduce from.
+
+2019-01-01  Jakub Jelinek  <jakub@redhat.com>
+
+	Update copyright years.
+
+Copyright (C) 2019 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
