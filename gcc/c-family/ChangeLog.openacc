@@ -1,3 +1,7 @@
+2019-01-09  Julian Brown  <julian@codesourcery.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Update _OPENACC define to 201711.
+
 2018-12-20  Julian Brown  <julian@codesourcery.com>
 	    Maciej W. Rozycki  <macro@codesourcery.com>
 

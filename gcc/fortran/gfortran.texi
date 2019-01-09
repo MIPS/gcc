@@ -538,7 +538,7 @@ Additionally, the GNU Fortran compilers supports the OpenMP specification
 (version 4.0 and most of the features of the 4.5 version,
 @url{http://openmp.org/@/wp/@/openmp-specifications/}).
 There also is support for the OpenACC specification (targeting
-version 2.5, @uref{http://www.openacc.org/}).  See
+version 2.6, @uref{http://www.openacc.org/}).  See
 @uref{https://gcc.gnu.org/wiki/OpenACC} for more information.
 
 @node Varying Length Character Strings
@@ -2132,7 +2132,7 @@ influence run-time behavior.
 
 GNU Fortran strives to be compatible to the
 @uref{http://www.openacc.org/, OpenACC Application Programming
-Interface v2.5}.
+Interface v2.6}.
 
 To enable the processing of the OpenACC directive @code{!$acc} in
 free-form source code; the @code{c$acc}, @code{*$acc} and @code{!$acc}

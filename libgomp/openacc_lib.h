@@ -50,7 +50,7 @@
       integer (acc_handle_kind), parameter :: acc_async_noval = -1
       integer (acc_handle_kind), parameter :: acc_async_sync = -2
 
-      integer, parameter :: openacc_version = 201510
+      integer, parameter :: openacc_version = 201711
 
       interface acc_get_num_devices
         function acc_get_num_devices_h (d)

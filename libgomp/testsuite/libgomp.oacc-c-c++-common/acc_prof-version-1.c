@@ -11,7 +11,7 @@ void cb_any_event (acc_prof_info *prof_info, acc_event_info *event_info, acc_api
 {
   DEBUG_printf ("%s %d\n", __FUNCTION__, prof_info->event_type);
 
-  assert (prof_info->version == 201510);
+  assert (prof_info->version == 201711);
 }
 
 void acc_register_library (acc_prof_reg reg_, acc_prof_reg unreg_, acc_prof_lookup_func lookup_)

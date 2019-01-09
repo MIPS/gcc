@@ -1,3 +1,16 @@
+2019-01-09  Julian Brown  <julian@codesourcery.com>
+
+	* acc_prof.h (_ACC_PROF_INFO_VERSION): Update to 201711.
+	* libgomp.texi: Update mentions of OpenACC version to 2.6.  Update
+	section numbers to match version 2.6 of the spec.
+	* openacc.f90 (openacc_version): Update to 201711.
+	* openacc_lib.h (openacc_version): Update to 201711.
+	* testsuite/libgomp.oacc-c-c++-common/acc_prof-version-1.c
+	(cb_any_event): Update expected profiling info version to 201711.
+	* testsuite/libgomp.oacc-fortran/openacc_version-1.f: Update expected
+	openacc_version to 201711.
+	* testsuite/libgomp.oacc-fortran/openacc_version-2.f90: Likewise.
+
 2018-12-21  Gergö Barany  <gergo@codesourcery.com>
 
 	* libgomp.h (enum gomp_map_vars_kind): Add

@@ -1837,7 +1837,7 @@ good practice then to initialize the runtime with an explicit
 
 A complete description of all OpenACC directives accepted may be found in 
 the @uref{https://www.openacc.org, OpenACC} Application Programming
-Interface manual, version 2.5.
+Interface manual, version 2.6.
 
 See @uref{https://gcc.gnu.org/wiki/OpenACC} for more information.
 
@@ -1851,14 +1851,14 @@ See @uref{https://gcc.gnu.org/wiki/OpenACC} for more information.
 @chapter OpenACC Runtime Library Routines
 
 The runtime routines described here are defined by section 3 of the OpenACC
-specification in version 2.0.
+specification in version 2.6.
 They have C linkage, and do not throw exceptions.
 Generally, they are available only for the host, with the exception of
 @code{acc_on_device}, which is available for both the host and the
 acceleration device.
 
 This list has not yet been updated for the OpenACC specification in
-version 2.5.
+version 2.6.
 
 @menu
 * acc_get_num_devices::         Get number of devices for the given device
@@ -1940,7 +1940,7 @@ for the device type specified in @var{devicetype}.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
 3.2.1.
 @end table
 
@@ -1965,7 +1965,7 @@ in @var{devicetype}, to use when executing a parallel or kernels region.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
 3.2.2.
 @end table
 
@@ -1990,7 +1990,7 @@ parallel or kernels region.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
 3.2.3.
 @end table
 
@@ -2017,7 +2017,7 @@ type @var{devicetype}.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
 3.2.4.
 @end table
 
@@ -2044,7 +2044,7 @@ region.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
 3.2.5.
 @end table
 
@@ -2111,8 +2111,8 @@ a zero and Fortran returns a @code{false}.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
-3.2.6.
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
+3.2.9.
 @end table
 
 
@@ -2139,8 +2139,8 @@ Fortran returns a @code{false}.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
-3.2.7.
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
+3.2.10.
 @end table
 
 
@@ -2167,8 +2167,8 @@ specified in @var{arg}.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
-3.2.8.
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
+3.2.11.
 @end table
 
 
@@ -2192,8 +2192,8 @@ This function waits for the completion of all asynchronous operations.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
-3.2.10.
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
+3.2.13.
 @end table
 
 
@@ -2218,8 +2218,8 @@ any queue.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
-3.2.11.
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
+3.2.14.
 @end table
 
 
@@ -2243,8 +2243,8 @@ asynchronous operations enqueued on queue @var{arg}.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
-3.2.9.
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
+3.2.12.
 @end table
 
 
@@ -2268,8 +2268,8 @@ This function initializes the runtime for the device type specified in
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
-3.2.12.
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
+3.2.7.
 @end table
 
 
@@ -2293,8 +2293,8 @@ This function shuts down the runtime for the device type specified in
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
-3.2.13.
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
+3.2.8.
 @end table
 
 
@@ -2324,8 +2324,8 @@ return @code{false}.
 
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
-3.2.14.
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
+3.2.17.
 @end table
 
 
@@ -2343,8 +2343,8 @@ the device address of the allocated memory.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
-3.2.15.
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
+3.2.18.
 @end table
 
 
@@ -2361,8 +2361,8 @@ Free previously allocated device memory at the device address @code{a}.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
-3.2.16.
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
+3.2.19.
 @end table
 
 
@@ -2394,8 +2394,8 @@ variable or array element and @var{len} specifies the length in bytes.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
-3.2.17.
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
+3.2.20.
 @end table
 
 
@@ -2434,8 +2434,8 @@ array element and @var{len} specifies the length in bytes.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
-3.2.18.
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
+3.2.20.
 @end table
 
 
@@ -2467,8 +2467,8 @@ array element and @var{len} specifies the length in bytes.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
-3.2.19.
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
+3.2.21.
 @end table
 
 
@@ -2508,8 +2508,8 @@ array element and @var{len} specifies the length in bytes.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
-3.2.20.
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
+3.2.21.
 @end table
 
 
@@ -2540,8 +2540,8 @@ array element and @var{len} specifies the length in bytes.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
-3.2.21.
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
+3.2.22.
 @end table
 
 
@@ -2572,8 +2572,8 @@ array element and @var{len} specifies the length in bytes.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
-3.2.22.
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
+3.2.23.
 @end table
 
 
@@ -2605,8 +2605,8 @@ array element and @var{len} specifies the length in bytes.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
-3.2.23.
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
+3.2.24.
 @end table
 
 
@@ -2638,8 +2638,8 @@ array element and @var{len} specifies the length in bytes.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
-3.2.24.
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
+3.2.25.
 @end table
 
 
@@ -2658,8 +2658,8 @@ specified with the host address @var{h} and a length of @var{len}.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
-3.2.25.
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
+3.2.26.
 @end table
 
 
@@ -2677,8 +2677,8 @@ specified by @var{h}.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
-3.2.26.
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
+3.2.27.
 @end table
 
 
@@ -2696,8 +2696,8 @@ host address specified by @var{h}.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
-3.2.27.
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
+3.2.28.
 @end table
 
 
@@ -2715,8 +2715,8 @@ device address specified by @var{d}.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
-3.2.28.
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
+3.2.29.
 @end table
 
 
@@ -2754,8 +2754,8 @@ a @code{false} is return to indicate the mapped memory is not present.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
-3.2.29.
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
+3.2.30.
 @end table
 
 
@@ -2774,8 +2774,8 @@ device memory specified by the device address @var{dest} for a length of
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
-3.2.30.
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
+3.2.31.
 @end table
 
 
@@ -2794,8 +2794,8 @@ device memory specified by the device address @var{dest} for a length of
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
-3.2.31.
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
+3.2.32.
 @end table
 
 
@@ -2813,7 +2813,7 @@ as used by the CUDA Runtime or Driver API's.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
 A.2.1.1.
 @end table
 
@@ -2832,7 +2832,7 @@ as used by the CUDA Runtime or Driver API's.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
 A.2.1.2.
 @end table
 
@@ -2851,7 +2851,7 @@ as used by the CUDA Runtime or Driver API's.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
 A.2.1.3.
 @end table
 
@@ -2870,7 +2870,7 @@ the asynchronous value specified by @var{async}.
 @end multitable
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.0}, section
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
 A.2.1.4.
 @end table
 
@@ -2885,7 +2885,7 @@ A.2.1.4.
 
 The variables @env{ACC_DEVICE_TYPE}, @env{ACC_DEVICE_NUM},
 and @code{ACC_PROFLIB}
-are defined by section 4 of the OpenACC specification in version 2.5.
+are defined by section 4 of the OpenACC specification in version 2.6.
 The variable @env{GCC_ACC_NOTIFY} is used for diagnostic purposes.
 
 @menu
@@ -2901,7 +2901,7 @@ The variable @env{GCC_ACC_NOTIFY} is used for diagnostic purposes.
 @section @code{ACC_DEVICE_TYPE}
 @table @asis
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.5}, section
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
 4.1.
 @end table
 
@@ -2911,7 +2911,7 @@ The variable @env{GCC_ACC_NOTIFY} is used for diagnostic purposes.
 @section @code{ACC_DEVICE_NUM}
 @table @asis
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.5}, section
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
 4.2.
 @end table
 
@@ -2924,7 +2924,7 @@ The variable @env{GCC_ACC_NOTIFY} is used for diagnostic purposes.
 @ref{OpenACC Profiling Interface}
 
 @item @emph{Reference}:
-@uref{https://www.openacc.org, OpenACC specification v2.5}, section
+@uref{https://www.openacc.org, OpenACC specification v2.6}, section
 4.3.
 @end table
 
@@ -3141,7 +3141,7 @@ is called prior to a call to an OpenACC function, then you must call
 @code{acc_set_device_num()}@footnote{More complete information
 about @env{ACC_DEVICE_TYPE} and @env{ACC_DEVICE_NUM} can be found in
 sections 4.1 and 4.2 of the @uref{https://www.openacc.org, OpenACC
-Application Programming Interface}, version 2.5.}
+Application Programming Interface}, version 2.6.}
 
 
 
@@ -3155,7 +3155,7 @@ Application Programming Interface}, version 2.5.}
 @section Implementation Status and Implementation-Defined Behavior
 
 We're implementing most of the Profiling Interface as defined by
-the OpenACC 2.5 specification.  The specification doesn't
+the OpenACC 2.6 specification.  The specification doesn't
 clearly define some aspects of its Profiling Interface, so we're
 clarifying these as @emph{implementation-defined behavior} here.  We
 already have reported to the OpenACC Technical Committee some issues,
