@@ -6489,6 +6489,7 @@ extern void finish_eh_spec_block		(tree, tree);
 extern tree build_eh_type_type			(tree);
 extern tree cp_protect_cleanup_actions		(void);
 extern tree create_try_catch_expr               (tree, tree);
+extern tree template_parms_to_args		(tree);
 
 /* in expr.c */
 extern tree cplus_expand_constant		(tree);

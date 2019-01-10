@@ -16453,15 +16453,7 @@ cp_parser_template_id (cp_parser *parser,
 
       if (TREE_CODE (template_id) == TEMPLATE_ID_EXPR)
 	SET_EXPR_LOCATION (template_id, combined_loc);
-
     }
-  /* A template-like identifier may be a partial concept id.  */
-  else if (flag_concepts
-           && (template_id = (cp_parser_maybe_partial_concept_id
-			      (parser, templ, arguments))))
-    /* FIXME: This probably does the wrong thing for function and
-       variable concepts.  */
-    return template_id;
   else if (variable_template_p (templ))
     {
       template_id = lookup_template_variable (templ, arguments);

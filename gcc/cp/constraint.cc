@@ -1497,27 +1497,19 @@ satisfy_check (tree check, tree args, subst_info info)
     return error_mark_node;
 
   /* Unpack the template-id from the instantiated check. */
-  /* FIXME: Substitution through function concepts gives a funtion
-     template. Through variable concepts gives a var decl? It
-     shouldn't.  */
   tree id = unpack_concept_check (expr);
 
+  /* Note that, for the purpose of substituting through the definition,
+     we use the substituted arguments from the check as a single-level
+     template argument list.  We should never have a multi-level template
+     argument list here.  */
   gcc_assert (TREE_CODE (id) == TEMPLATE_ID_EXPR);
   tree tmpl = TREE_OPERAND (id, 0);
   tree targs = TREE_OPERAND (id, 1);
-
-  /* Reconstitute the parameter mapping by making the innermost arguments
-     those instantiated with the concept check.  */
-  int n = TREE_VEC_LENGTH (args);
-  tree subst = make_tree_vec (n);
-  for (int i = 2; i <= n; ++i)
-    SET_TMPL_ARGS_LEVEL (subst, i, TMPL_ARGS_LEVEL (args, i));
-  SET_TMPL_ARGS_LEVEL (subst, 1, targs);
-
   tree def = get_concept_definition (tmpl);
 
   info.in_decl = tmpl;
-  return satisfy_expression (def, subst, info);
+  return satisfy_expression (def, targs, info);
 }
 
 /* Ensures that T is a truth value and not (accidentally, as sometimes
@@ -1600,12 +1592,12 @@ satisfy_expression (tree expr, tree args, subst_info info)
 
   switch (TREE_CODE (expr))
     {
-      case TRUTH_ANDIF_EXPR:
-	return satisfy_conjunction (expr, args, info);
-      case TRUTH_ORIF_EXPR:
-	return satisfy_disjunction (expr, args, info);
-      default:
-	return satisfy_atom (expr, args, info);
+    case TRUTH_ANDIF_EXPR:
+      return satisfy_conjunction (expr, args, info);
+    case TRUTH_ORIF_EXPR:
+      return satisfy_disjunction (expr, args, info);
+    default:
+      return satisfy_atom (expr, args, info);
     }
 }
 
@@ -1711,7 +1703,7 @@ evaluate_concept (tree c, tree args)
   if (function_concept_p (c))
     return evaluate_function_concept (c, args);
 
-  tree t = build_nt (TEMPLATE_ID_EXPR, c, args);
+  tree t = build_concept_check (c, args, tf_none);
   return evaluate_concept_check (t);
 }
 
@@ -1735,7 +1727,7 @@ evaluate_function_concept (tree fn, tree args)
 tree
 evaluate_variable_concept (tree var, tree args)
 {
-  tree t = build_nt (TEMPLATE_ID_EXPR, DECL_TI_TEMPLATE (var), args);
+  tree t = build_concept_check (DECL_TI_TEMPLATE (var), args, tf_none);
   return evaluate_concept_check (t);
 }
 
@@ -1977,6 +1969,29 @@ get_normalized_constraints_from_info (tree ci, tree args, tree in_decl)
   return normalize_expression (CI_ASSOCIATED_CONSTRAINTS (ci), args, info);
 }
 
+/* Rebuild a template argument list ARGS using INNER as the innermost
+   template arguments.  */
+static tree
+rebuild_template_arguments (tree args, tree parms)
+{
+  if (!args)
+    return NULL_TREE;
+
+  tree inner = template_parms_to_args (parms);
+
+  /* If there's only one level of ARGS, we can directly substitute INNER.  */
+  if (!TMPL_ARGS_HAVE_MULTIPLE_LEVELS (args))
+    return inner;
+
+  int n = TMPL_ARGS_DEPTH (args);
+  tree subst = make_tree_vec (n);
+  for (int i = 1; i <= n - 1; ++i)
+    SET_TMPL_ARGS_LEVEL (subst, i, TMPL_ARGS_LEVEL (args, i));
+  SET_TMPL_ARGS_LEVEL (subst, n, inner);
+
+  return subst;
+}
+
 /* Returns the normalized constraints for the declaration D.  */
 
 static tree
@@ -1997,15 +2012,21 @@ get_normalized_constraints_from_decl (tree d)
 	tmpl = NULL_TREE;
       decl = d;
     }
+  tree parms = tmpl ? DECL_TEMPLATE_PARMS (tmpl) : NULL_TREE;
 
+  /* Get the complete multi-argument list for the declaration.  */
   tree args;
   if (TREE_CODE (decl) == TYPE_DECL)
     args = CLASSTYPE_TI_ARGS (TREE_TYPE (decl));
   else
     args = tmpl ? DECL_TI_ARGS (decl) : NULL_TREE;
 
-  tree ci = get_constraints (decl);
+  /* Build an initial parameter mapping by replacing the innermost
+     template arguments with those of the template declaration.  */
+  if (args)
+    args = rebuild_template_arguments (args, parms);
 
+  tree ci = get_constraints (decl);
   return get_normalized_constraints_from_info (ci, args, tmpl);
 }
 
