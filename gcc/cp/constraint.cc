@@ -260,8 +260,7 @@ resolve_function_concept_check (tree call)
   tree ovl = TREE_OPERAND (target, 0);
 
   /* This is a function call of a variable concept... ill-formed.
-
-     FIXME: Why is this diagnosed here? */
+     FIXME: Why is this diagnosed here? This seems wrong.  */
   if (TREE_CODE (ovl) == TEMPLATE_DECL)
     {
       error_at (location_of (call),
