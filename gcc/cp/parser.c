@@ -16204,6 +16204,29 @@ cp_parser_type_parameter (cp_parser* parser, bool *is_parameter_pack)
   return parameter;
 }
 
+static tree
+cp_parser_check_constrained_type_specifier(tree result, tree tmpl, tree args)
+{
+  /* The template-id was a constrained-type-specifier.  */
+  if (result && TREE_CODE (result) == TYPE_DECL)
+    return result;
+
+  /* If it's not a constrained-type specifier, and we didn't build a
+     normal concept check when deducing that, then build a normal
+     check now.  */
+  if (!result || !concept_check_p (result))
+    result = build_concept_check (tmpl, args, tf_warning_or_error);
+  else
+    gcc_assert (concept_check_p (result));
+
+  /* The build_concept_check will prematurely generate call
+     expressions. Extract the template-id from the call.  */
+  if (TREE_CODE (result) == CALL_EXPR)
+    result = CALL_EXPR_FN (result);
+
+  return result;
+}
+
 /* Parse a template-id.
 
    template-id:
@@ -16422,27 +16445,15 @@ cp_parser_template_id (cp_parser *parser,
 							templ,
 							arguments);
 
-      /* We deduced a constrained type specifier.  */
-      if (template_id && TREE_CODE (template_id) == TYPE_DECL)
-      	return template_id;
-
-      /* If it's not a constrained-type specifier, and we didn't build a
-         normal concept check when deducing that, then build a normal
-         check now.  */
-      if (!template_id || !concept_check_p (template_id))
-	template_id = build_concept_check (templ,
-					   arguments,
-					   tf_warning_or_error);
-      if (template_id == error_mark_node)
-        return error_mark_node;
-
-      /* The build_concept_check will prematurely generate call
-         expressions. Extract the template-id from the call.  */
-      if (TREE_CODE (template_id) == CALL_EXPR)
-        template_id = CALL_EXPR_FN (template_id);
+      /* Handle any adjustments resulting from concept-id deduction.  */
+      template_id =
+	cp_parser_check_constrained_type_specifier (template_id,
+						    templ,
+						    arguments);
 
       if (TREE_CODE (template_id) == TEMPLATE_ID_EXPR)
 	SET_EXPR_LOCATION (template_id, combined_loc);
+
     }
   /* A template-like identifier may be a partial concept id.  */
   else if (flag_concepts

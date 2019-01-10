@@ -1,4 +1,11 @@
-2019-12-17  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2019-12-18  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Don't return early when deducing constrained-type-specifiers.
+	* parser.c (cp_parser_check_constrained_type_specifier): New. Factor
+	out post-deduction checks to analyze the result.
+	(cp_parser_template_id): Use the function above.
+
+2019-12-18  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Fixing broken commit and cleaning up dead code.
 	* constraint.cc (push_down_pack_expansion): Remove.
@@ -8,7 +15,7 @@
 	* pt.c (finish_template_variable): Don't process concepts here.
 	(instantiation_dependent_r): Use concept_check_p.
 
-2019-12-17  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2019-12-18  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Cleaning up handling of different kinds of concepts.
 	* constraint.cc (function_concept_check_p): Removed.
