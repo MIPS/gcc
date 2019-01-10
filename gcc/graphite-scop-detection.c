@@ -1175,12 +1175,13 @@ scan_tree_for_params (sese_info_p s, tree e)
    access functions, conditions and loop bounds.  */
 
 static void
-find_params_in_bb (sese_info_p region, gimple_poly_bb_p gbb)
+find_params_in_bb (sese_info_p region, poly_bb_p pbb)
 {
+  gimple_poly_bb_p gbb = PBB_BLACK_BOX (pbb);
   /* Find parameters in the access functions of data references.  */
   int i;
   data_reference_p dr;
-  FOR_EACH_VEC_ELT (GBB_DATA_REFS (gbb), i, dr)
+  FOR_EACH_VEC_ELT (pbb->data_refs, i, dr)
     for (unsigned j = 0; j < DR_NUM_DIMENSIONS (dr); j++)
       scan_tree_for_params (region, DR_ACCESS_FN (dr, j));
 
@@ -1215,7 +1216,7 @@ find_scop_parameters (scop_p scop)
   /* Find the parameters used in data accesses.  */
   poly_bb_p pbb;
   FOR_EACH_VEC_ELT (scop->pbbs, i, pbb)
-    find_params_in_bb (region, PBB_BLACK_BOX (pbb));
+    find_params_in_bb (region, pbb);
 
   int nbp = sese_nb_params (region);
   scop_set_nb_params (scop, nbp);
@@ -1390,6 +1391,7 @@ try_generate_gimple_bb (scop_p scop, basic_block bb)
   vec<scalar_use> reads = vNULL;
   vec<int> comp = vNULL;
   gimple_poly_bb_p gbb = NULL;
+  poly_bb_p pbb = NULL;
 
   sese_l region = scop->scop_info->region;
   edge nest = region.entry;
@@ -1516,12 +1518,12 @@ try_generate_gimple_bb (scop_p scop, basic_block bb)
   if (drs.is_empty () && writes.is_empty () && reads.is_empty ())
     return NULL;
 
-  gbb = new_gimple_poly_bb (bb, drs, reads, writes);
-  poly_bb_p pbb = new_poly_bb (scop, gbb);
+  gbb = new_gimple_poly_bb (bb);
+  pbb = new_poly_bb (scop, gbb, drs, reads, writes);
 
   int i;
   data_reference_p dr;
-  FOR_EACH_VEC_ELT (gbb->data_refs, i, dr)
+  FOR_EACH_VEC_ELT (pbb->data_refs, i, dr)
     {
       DEBUG_PRINT (dp << "Adding memory ";
 		   if (dr->is_read)

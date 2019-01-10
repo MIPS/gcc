@@ -256,13 +256,9 @@ typedef struct gimple_poly_bb
      CASE_LABEL_EXPR.  */
   vec<gimple *> conditions;
   vec<gimple *> condition_cases;
-  vec<data_reference_p> data_refs;
-  vec<scalar_use> read_scalar_refs;
-  vec<tree> write_scalar_refs;
 } *gimple_poly_bb_p;
 
 #define GBB_BB(GBB) (GBB)->bb
-#define GBB_DATA_REFS(GBB) (GBB)->data_refs
 #define GBB_CONDITIONS(GBB) (GBB)->conditions
 #define GBB_CONDITION_CASES(GBB) (GBB)->condition_cases
 

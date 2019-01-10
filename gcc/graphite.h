@@ -233,6 +233,10 @@ struct poly_bb
   /* Pointer to the SCOP containing this PBB.  */
   scop_p scop;
 
+  vec<data_reference_p> data_refs;
+  vec<scalar_use> read_scalar_refs;
+  vec<tree> write_scalar_refs;
+
   /* The iteration domain of this bb.  The layout of this polyhedron
      is I|G with I the iteration domain, G the context parameters.
 
@@ -269,7 +273,8 @@ struct poly_bb
 #define PBB_SCOP(PBB) (PBB->scop)
 #define PBB_DRS(PBB) (PBB->drs)
 
-extern poly_bb_p new_poly_bb (scop_p, gimple_poly_bb_p);
+extern poly_bb_p new_poly_bb (scop_p, gimple_poly_bb_p, vec<data_reference_p>,
+			      vec<scalar_use>, vec<tree>);
 extern void print_pbb_domain (FILE *, poly_bb_p);
 extern void print_pbb (FILE *, poly_bb_p);
 extern void print_scop_context (FILE *, scop_p);
@@ -418,8 +423,7 @@ struct scop
 
 extern scop_p new_scop (edge, edge);
 extern void free_scop (scop_p);
-extern gimple_poly_bb_p new_gimple_poly_bb (basic_block, vec<data_reference_p>,
-					    vec<scalar_use>, vec<tree>);
+extern gimple_poly_bb_p new_gimple_poly_bb (basic_block);
 extern bool apply_poly_transforms (scop_p);
 
 /* Set the region of SCOP to REGION.  */
