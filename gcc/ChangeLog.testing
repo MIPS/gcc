@@ -1,3 +1,7 @@
+2019-01-10 Jan Hubicka  <hubicka@ucw.cz>
+
+	* re-add compensation.
+
 2019-01-06 Jan Hubicka  <hubicka@ucw.cz>
 
 	* decrease unit-growth to 20
