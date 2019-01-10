@@ -18362,22 +18362,29 @@ tsubst_copy_and_build (tree t,
 	    RETURN (templ);
 	  }
 
-	if (variable_template_p (templ))
-	  RETURN (lookup_and_finish_template_variable (templ, targs, complain));
-
 	if (concept_definition_p (templ))
 	  {
 	    tree check = build_concept_check (templ, targs, complain);
 	    if (check == error_mark_node)
 	      RETURN (error_mark_node);
-	    tree args = TREE_OPERAND (check, 1);
+
+	    tree id = unpack_concept_check (check);
+
+	    /* If we built a function concept check, return the underlying
+	       template-id. So we can evaluate it as a function call.  */
+	    if (function_concept_p (TREE_OPERAND (id, 0)))
+	      RETURN (id);
 
 	    /* Evaluate the concept, if needed.  */
+	    tree args = TREE_OPERAND (id, 1);
 	    if (!uses_template_parms (args) && !satisfying_constraint_p ())
 	      RETURN (evaluate_concept_check (check));
-	    else
-	      RETURN (check);
+
+	    RETURN (check);
 	  }
+
+	if (variable_template_p (templ))
+	  RETURN (lookup_and_finish_template_variable (templ, targs, complain));
 
 	if (TREE_CODE (templ) == COMPONENT_REF)
 	  {
@@ -19099,11 +19106,31 @@ tsubst_copy_and_build (tree t,
 		       /*fn_p=*/NULL,
 		       complain));
 	  }
+	else if (concept_check_p (function))
+	  {
+	    /* FUNCTION is a template-id referring to a concept definition.  */
+	    tree id = unpack_concept_check (function);
+	    tree tmpl = TREE_OPERAND (id, 0);
+	    tree args = TREE_OPERAND (id, 1);
+
+	    /* Calls to standard and variable concepts should have been
+	       previously diagnosed.  */
+	    gcc_assert (function_concept_p (tmpl));
+
+	    /* Ensure the result is wrapped as a call expression.  */
+	    ret = build_concept_check (tmpl, args, tf_warning_or_error);
+
+	    /* Possibly evaluate the check if it is non-dependent.   */
+	    if (!uses_template_parms (args) && !satisfying_constraint_p ())
+	      ret = evaluate_concept_check (ret);
+	  }
 	else
-	  ret = finish_call_expr (function, &call_args,
+	  {
+	    ret = finish_call_expr (function, &call_args,
 				  /*disallow_virtual=*/qualified_p,
 				  koenig_p,
 				  complain);
+	  }
 
 	release_tree_vector (call_args);
 

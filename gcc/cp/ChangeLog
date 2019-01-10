@@ -1,3 +1,31 @@
+2019-12-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Unify handling for standard, variable, and function concepts.
+	* call.c (build_new_function_call): Don't evaluate concepts here.
+	* constraint.cc (unpack_concept_check): Just return the template-id.
+	(resolve_constraint_check): Renamed.
+	(resolve_constraint_check): Renamed.
+	(resolve_concept_definition_check): Removed.
+	(resolve_variable_concept_check): Removed.
+	(resolve_concept_check): Handle checks of overloaded function concepts.
+	(deduce_constrained_parameter): Use resolve_concept_check.
+	(deduce_concept_introduction): Use resolve_concept_check.
+	(normalize_variable_concept_check): Removed.
+	(normalize_function_concept_check): Removed.
+	(normalize_concept_check): Handle concepts in a uniform way.
+	(build_function_check): Do overload resolution to produce a single
+	check of a single concept.
+	(satisfy_check): Handle concepts uniformly.
+	(evaluate_function_concept): Build a real concept check.
+	(diagnose_check): Handle concepts uniformly.
+	* cp-tree.h (unpack_concept_check): New.
+	* pt.c (tsubst_copy_and_build): Defer checks of function concepts.
+	Handle concepts before variable templates. Handle calls to function
+	concepts explicitly.
+	* semantics.c (finish_call_expr): Handle concept checks explicitly.
+	(finish_id_expression): Don't treat variable concepts as variables,
+	and don't process function concepts as plain id-expressions.
+
 2019-12-18  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Don't return early when deducing constrained-type-specifiers.

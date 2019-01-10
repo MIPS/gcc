@@ -7578,6 +7578,7 @@ struct parsing_constraint_expression_sentinel
 extern bool parsing_constraint_expression_p	();
 extern bool satisfying_constraint_p		();
 
+extern tree unpack_concept_check		(tree);
 extern tree evaluate_constraints                (tree, tree);
 extern tree evaluate_concept_check              (tree);
 extern tree evaluate_concept                    (tree, tree);

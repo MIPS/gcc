@@ -4383,22 +4383,7 @@ build_new_function_call (tree fn, vec<tree, va_gc> **args,
          through flags so that later we can use it to decide whether to warn
          about peculiar null pointer conversion.  */
       if (TREE_CODE (fn) == TEMPLATE_ID_EXPR)
-        {
-          /* If overload resolution selects a specialization of a
-             function concept for non-dependent template arguments,
-             the expression is true if the constraints are satisfied
-             and false otherwise.  */
-          if (flag_concepts && !processing_template_decl)
-            {
-              tree tmpl = DECL_TI_TEMPLATE (cand->fn);
-              tree targs = DECL_TI_ARGS (cand->fn);
-              tree decl = DECL_TEMPLATE_RESULT (tmpl);
-              if (DECL_DECLARED_CONCEPT_P (decl))
-		return evaluate_function_concept (decl, targs);
-            }
-
-          flags |= LOOKUP_EXPLICIT_TMPL_ARGS;
-        }
+        flags |= LOOKUP_EXPLICIT_TMPL_ARGS;
 
       result = build_over_call (cand, flags, complain);
     }
