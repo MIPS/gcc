@@ -18116,7 +18116,7 @@ cp_parser_maybe_constrained_type_specifier (cp_parser *parser,
       /* Allow `auto` after a concept-id.  */
       if (cp_lexer_next_token_is_keyword (parser->lexer, RID_AUTO))
         cp_lexer_consume_token (parser->lexer);
-      else if (!flag_concepts_ts)
+      else if (cxx_dialect >= cxx2a && !flag_concepts_ts)
 	warning (0, "using a concept to declare a parameter is only "
 		    "supported with %<-fconcepts-ts%>");
 

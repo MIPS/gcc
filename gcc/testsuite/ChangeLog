@@ -1,3 +1,8 @@
+2018-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Update diagnostics and build errors.
+	* g++.dg/concepts/decl-diagnose.C: Update diagnostics.
+
 2018-12-18  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Clean up handling of different kinds of concepts.
