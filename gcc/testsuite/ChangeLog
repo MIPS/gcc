@@ -1,22 +1,30 @@
-2018-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2019-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Update introduction tests.
+	* g++dg/concepts/intro4.C: Update diagnostics to match newer template 
+	introduction implementation.
+	* g++dg/concepts/intro5.C: Add error for disallowed deduction of
+	defaulted template parameters.
+
+2019-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Update tests.
 	* g++dg/concepts/expression2.C: Add error about private member. This
 	is emitted during diagnostics; fix typos.
 
-2018-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2019-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Update tests.
 	* g++.dg/concepts/equiv.C: Change compile test to link test.
 	* g++.dg/concepts/equiv2.C: Change run test to link test; update
 	examples to match the independent binding rule.
 
-2018-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2019-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Update diagnostics.
 	* g++.dg/concepts/dr1430.C: Update diagnostics.
 
-2018-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2019-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Update diagnostics and build errors.
 	* g++.dg/concepts/decl-diagnose.C: Update diagnostics.

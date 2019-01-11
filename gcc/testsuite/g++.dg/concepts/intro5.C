@@ -7,10 +7,5 @@ template<typename T, typename U = int>
      return sizeof(U) == sizeof(int);
   }
 
-C{A} void f1() {}
+C{A} void f1() {} // { dg-error "all template parameters" }
 
-int main()
-{
-  f1<char>();
-  return 0;
-}
