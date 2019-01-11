@@ -211,7 +211,8 @@ FP_ASM_SPEC "\
 #define LINK_SPEC "\
 %(endian_spec) \
 %{shared} \
-%{!mno-relax:--relax}"
+%{!mno-relax:--relax} \
+%{mcmodel=medium|mcmodel=large:--no-expand}"
 
 #undef DEFAULT_SIGNED_CHAR
 #define DEFAULT_SIGNED_CHAR 0
