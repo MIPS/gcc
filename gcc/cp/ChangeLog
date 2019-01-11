@@ -1,4 +1,15 @@
-2018-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2019-01-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix function concept deduction bugs and comparison bug.
+	* constraint.cc (build_function_check): Always do overload resolution
+	in order to force conversion of template arguments (i.e., actually
+	check that the use of a concept is valid).
+	* decl.c (function_requirements_equivalent_p): Compare constraints
+	of different functions.
+	* parser.c (is_constrained_parameter): Rename parameter.
+	(cp_parser_maybe_constrained_type_specifier): Remove nonessential else.
+
+2019-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Actually make nested requirements work.
 	* constraint.cc (tsubst_nested_requirement): Evaluate nested
@@ -7,7 +18,7 @@
 	(satisfy_associated_constraints): Remove if 0'd code.
 	(diagnose_nested_requirement): Evaluate the right AST.
 
-2018-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2019-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Update pre-C++20 declaration comparisons.
 	* decl.c (function_requirements_equivalent_p): Compare combined
@@ -15,7 +26,7 @@
 	* pt.c (template_heads_equivalent_p): Revert pre-C++20 comparison so
 	that requirements are compared in decls_match.
 
-2018-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2019-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Compare template requires-clauses for C++ < 20.
 	* pt.c (template_requirements_equivalent_p): New. Factored out of
@@ -23,7 +34,7 @@
 	(template_heads_equivalent_p): Compare requires-clauses in both
 	paths.
 
-2018-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2019-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Don't warn on abbreviated templates for C++ < 20.
 	* parser.c (cp_parser_maybe_constrained_type_specifier): Update warning

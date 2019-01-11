@@ -190,7 +190,7 @@ contains_wildcard_p (tree args)
    the complete set of arguments substituted into the parameter list.  */
 
 static tree
-resolve_function_concept_overload(tree ovl, tree args)
+resolve_function_concept_overload (tree ovl, tree args)
 {
   int nerrs = 0;
   tree cands = NULL_TREE;
@@ -650,35 +650,37 @@ build_function_check(tree tmpl, tree args, tsubst_flags_t /*complain*/)
 {
   if (TREE_CODE (tmpl) == TEMPLATE_DECL)
     {
-      /* Wrap the template in an overload set for consistency.  */
+      /* If we just got a template, Wrap it in an overload, so its going
+         to like any other template-id. */
       tmpl = ovl_make (tmpl);
       TREE_TYPE (tmpl) = boolean_type_node;
     }
-  else if (!OVL_SINGLE_P (tmpl))
+
+  /* Perform function concept resolution now so we always have a single
+     function of the overload set (even if we started with only one; the
+     resolution function converts template arguments). Note that we still
+     wrap this in an overload set so we don't upset other parts of the
+     compiler that expect template-ids referring to function concepts
+     to have an overload set.  */
+  tree info = resolve_function_concept_overload (tmpl, args);
+  if (info == error_mark_node)
+    return error_mark_node;
+  if (!info)
     {
-      /* Perform function concept resolution now, so we always a single
-	 element of the overload set. Note that we still wrap this in
-	 an overload set so we don't upset other parts of the compiler.  */
-      tree info = resolve_function_concept_overload(tmpl, args);
-      if (info == error_mark_node)
-	return error_mark_node;
-      if (!info)
-	{
-	  error ("no matching concepts for %qE", tmpl);
-	  return error_mark_node;
-	}
-    args = TREE_PURPOSE (info);
-    tmpl = DECL_TI_TEMPLATE (TREE_VALUE (info));
+      error ("no matching concepts for %qE", tmpl);
+      return error_mark_node;
+    }
+  args = TREE_PURPOSE (info);
+  tmpl = DECL_TI_TEMPLATE (TREE_VALUE (info));
 
-    /* Rebuild the singleton overload set; mark the type bool.  */
-    tmpl = ovl_make (tmpl, NULL_TREE);
-    TREE_TYPE (tmpl) = boolean_type_node;
-  }
+  /* Rebuild the singleton overload set; mark the type bool.  */
+  tmpl = ovl_make (tmpl, NULL_TREE);
+  TREE_TYPE (tmpl) = boolean_type_node;
 
-  /* Build the id-expression around TMPL.  */
+  /* Build the id-expression around the overload set.  */
   tree id = build2 (TEMPLATE_ID_EXPR, boolean_type_node, tmpl, args);
 
-  /* Build the call expression around the overload.  */
+  /* Finally, build the call expression around the overload.  */
   ++processing_template_decl;
   vec<tree, va_gc> *fargs = make_tree_vector();
   tree call = build_min_nt_call_vec (id, fargs);

@@ -920,6 +920,7 @@ determine_local_discriminator (tree decl)
 }
 
 
+
 /* Returns true if functions FN1 and FN2 have equivalent trailing
    requires clauses.  */
 
@@ -929,7 +930,7 @@ function_requirements_equivalent_p (tree newfn, tree oldfn)
   /* In the concepts TS, the combined constrains are compared.  */
   if (cxx_dialect < cxx2a)
     {
-      tree ci1 = get_constraints (newfn);
+      tree ci1 = get_constraints (oldfn);
       tree ci2 = get_constraints (newfn);
       tree req1 = ci1 ? CI_ASSOCIATED_CONSTRAINTS (ci1) : nullptr;
       tree req2 = ci2 ? CI_ASSOCIATED_CONSTRAINTS (ci2) : nullptr;

@@ -15666,15 +15666,15 @@ get_unqualified_id (cp_declarator *declarator)
     return NULL_TREE;
 }
 
-/* Returns true if DECL represents a constrained-parameter.  */
+/* Returns true if TYPE would declare a constrained constrained-parameter.  */
 
 static inline bool
-is_constrained_parameter (tree decl)
+is_constrained_parameter (tree type)
 {
-  return (decl
-          && TREE_CODE (decl) == TYPE_DECL
-          && CONSTRAINED_PARM_CONCEPT (decl)
-          && DECL_P (CONSTRAINED_PARM_CONCEPT (decl)));
+  return (type
+          && TREE_CODE (type) == TYPE_DECL
+          && CONSTRAINED_PARM_CONCEPT (type)
+          && DECL_P (CONSTRAINED_PARM_CONCEPT (type)));
 }
 
 /* Returns true if PARM declares a constrained-parameter. */
@@ -18104,9 +18104,10 @@ cp_parser_maybe_constrained_type_specifier (cp_parser *parser,
 	  cp_lexer_consume_token (parser->lexer);
 	  return make_constrained_auto (con, args);
         }
-      else
-      	/* Otherwise, this is a constrained type parameter.  */
-        return build_constrained_parameter (con, proto, args);
+
+
+      /* Otherwise, this is a constrained type parameter.  */
+      return build_constrained_parameter (con, proto, args);
     }
 
   /* In a parameter-declaration-clause, constrained-type
