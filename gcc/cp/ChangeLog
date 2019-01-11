@@ -1,5 +1,12 @@
 2019-01-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Disallow introduction of defaulted template parameters.
+	* constraint.cc (check_introduction_list): New. Fail if not enough
+	names are introduced.
+	(finish_template_introduction): Check for insufficient introductions.
+
+2019-01-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Fix a crash extracting constraints from template template parameters.
 	* constraint.cc (get_normalized_constraints_from_decl): Handle
 	template template parameters.

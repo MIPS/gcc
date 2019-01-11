@@ -987,6 +987,32 @@ process_introduction_parms (tree parms, tree wildcards, int& index)
     return introduce_template_parameter (parms, wildcards, index);
 }
 
+/* Ensure that all template parameters have been introduced for the concept
+   named in CHECK.  If not, emit a diagnostic.
+
+   Note that implicitly introducing a parameter with a default argument
+     creates a case where a parameter is declared, but unnamed, making
+     it unusable in the definition.  */
+
+static bool
+check_introduction_list (tree intros, tree check)
+{
+  check = unpack_concept_check (check);
+  tree tmpl = TREE_OPERAND (check, 0);
+  if (OVL_P (tmpl))
+    tmpl = OVL_FIRST (tmpl);
+
+  tree parms = DECL_INNERMOST_TEMPLATE_PARMS (tmpl);
+  if (TREE_VEC_LENGTH (intros) < TREE_VEC_LENGTH (parms))
+    {
+      error_at (input_location, "all template parameters of %qD must "
+				"be introduced", tmpl);
+      return false;
+    }
+
+   return true;
+}
+
 /* Associates a constraint check to the current template based on the
    introduction parameters.  INTRO_LIST must be a TREE_VEC of WILDCARD_DECLs
    containing a chained PARM_DECL which contains the identifier as well as
@@ -997,6 +1023,7 @@ process_introduction_parms (tree parms, tree wildcards, int& index)
 
    Returns NULL_TREE if no concept could be matched and error_mark_node if
    an error occurred when matching.  */
+
 tree
 finish_template_introduction (tree tmpl_decl, tree intro_list)
 {
@@ -1009,6 +1036,10 @@ finish_template_introduction (tree tmpl_decl, tree intro_list)
 				"introduction list");
       return error_mark_node;
     }
+
+  if (!check_introduction_list (intro_list, expr))
+    return error_mark_node;
+
   tree parms = deduce_concept_introduction (expr);
   if (!parms)
     return NULL_TREE;
@@ -1021,7 +1052,8 @@ finish_template_introduction (tree tmpl_decl, tree intro_list)
     parm_list = process_introduction_parms (parm_list, parms, n);
   parm_list = end_template_parm_list (parm_list);
 
-  /* Update the number of arguments to reflect the number of introductions.  */
+  /* Update the number of arguments to reflect the number of deduced
+     template parameter introductions.  */
   nargs = TREE_VEC_LENGTH (parm_list);
 
   /* Determine if any errors occurred during matching.  */
