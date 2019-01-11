@@ -1,3 +1,636 @@
+2019-01-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/88714
+	* passes.c (finish_optimization_passes): Call print_combine_total_stats
+	inside of pass_combine_1 dump rather than pass_profile_1.
+
+2019-01-11  Tom de Vries  <tdevries@suse.de>
+
+	* config/nvptx/nvptx.c (PTX_CTA_NUM_BARRIERS, PTX_PER_CTA_BARRIER)
+	(PTX_NUM_PER_CTA_BARRIER, PTX_FIRST_PER_WORKER_BARRIER)
+	(PTX_NUM_PER_WORKER_BARRIERS): Define.
+	(nvptx_apply_dim_limits): Prevent vector_length 64 and
+	num_workers 16.
+
+2019-01-11  Tom de Vries  <tdevries@suse.de>
+
+	* config/nvptx/nvptx.c (PTX_CTA_SIZE): Move up.
+
+2019-01-11  Jan Beulich  <jbeulich@suse.com>
+
+	* config/i386/i386.md (rex64suffix): Add L suffix for SI.
+	* config/i386/sse.md (cvtusi2<ssescalarmodesuffix>32<round_name>,
+	sse2_cvtsi2sd): Add {l}.
+	(sse2_cvtsi2sdq<round_name>): Make q conditional upon AT&T
+	syntax.
+
+2019-01-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/88785
+	* config/i386/sse.md (float<floatunssuffix>v2div2sf2): Turn into
+	define_expand.
+	(*float<floatunssuffix>v2div2sf2): New define_insn.
+	(float<floatunssuffix>v2div2sf2_mask): Turn into define_expand.
+	(*float<floatunssuffix>v2div2sf2_mask): New define_insn.
+	(*float<floatunssuffix>v2div2sf2_mask_1): Replace
+	subrtxes (const_vector:V2SF [(const_int 0) (const_int 0)]) with
+	match_operands with "const0_operand" "C".
+
+2019-01-10  Tamar Christina  <tamar.christina@arm.com>
+
+	* config/aarch64/aarch64-builtins.c
+	(aarch64_init_builtins): Move aarch64_init_fcmla_laneq_builtins...
+	(aarch64_init_simd_builtins): ...Here
+
+2019-01-10  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/87305
+	* lra-assigns.c
+	(setup_live_pseudos_and_spill_after_risky_transforms): Check
+	allocation for big endian pseudos used as paradoxical subregs and
+	spill them if it is wrong.
+	* lra-constraints.c (lra_constraints): Add a comment.
+
+2019-01-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/88792
+	* tree-ssa-pre.c (get_representative_for): Do not return a
+	value-number here.
+
+2019-01-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/84877
+	PR bootstrap/88450
+	* function.c (assign_stack_local_1): Revert the 2018-11-21 changes.
+	(assign_parm_setup_block): Do the argument slot realignment here
+	instead.
+
+2019-01-10  Stefan Agner  <stefan@agner.ch>
+
+	PR target/88648
+	* config/arm/arm.c (arm_option_override_internal): Force
+	opts->x_inline_asm_unified to true only if TARGET_THUMB2_P.
+
+2019-01-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/88568
+	* attribs.c (handle_dll_attribute): Clear TREE_STATIC after setting
+	DECL_EXTERNAL.
+
+2019-01-10  Tamar Christina  <tamar.christina@arm.com>
+
+	* config/arm/arm-builtins.c
+	(enum arm_type_qualifiers): Add qualifier_lane_pair_index.
+	(MAC_LANE_PAIR_QUALIFIERS): New.
+	(arm_expand_builtin_args): Use it.
+	(arm_expand_builtin_1): Likewise.
+	* config/arm/arm-protos.h (neon_vcmla_lane_prepare_operands): New.
+	* config/arm/arm.c (neon_vcmla_lane_prepare_operands): New.
+	* config/arm/arm-c.c (arm_cpu_builtins): Add __ARM_FEATURE_COMPLEX.
+	* config/arm/arm_neon.h:
+	(vcadd_rot90_f16): New.
+	(vcaddq_rot90_f16): New.
+	(vcadd_rot270_f16): New.
+	(vcaddq_rot270_f16): New.
+	(vcmla_f16): New.
+	(vcmlaq_f16): New.
+	(vcmla_lane_f16): New.
+	(vcmla_laneq_f16): New.
+	(vcmlaq_lane_f16): New.
+	(vcmlaq_laneq_f16): New.
+	(vcmla_rot90_f16): New.
+	(vcmlaq_rot90_f16): New.
+	(vcmla_rot90_lane_f16): New.
+	(vcmla_rot90_laneq_f16): New.
+	(vcmlaq_rot90_lane_f16): New.
+	(vcmlaq_rot90_laneq_f16): New.
+	(vcmla_rot180_f16): New.
+	(vcmlaq_rot180_f16): New.
+	(vcmla_rot180_lane_f16): New.
+	(vcmla_rot180_laneq_f16): New.
+	(vcmlaq_rot180_lane_f16): New.
+	(vcmlaq_rot180_laneq_f16): New.
+	(vcmla_rot270_f16): New.
+	(vcmlaq_rot270_f16): New.
+	(vcmla_rot270_lane_f16): New.
+	(vcmla_rot270_laneq_f16): New.
+	(vcmlaq_rot270_lane_f16): New.
+	(vcmlaq_rot270_laneq_f16): New.
+	(vcadd_rot90_f32): New.
+	(vcaddq_rot90_f32): New.
+	(vcadd_rot270_f32): New.
+	(vcaddq_rot270_f32): New.
+	(vcmla_f32): New.
+	(vcmlaq_f32): New.
+	(vcmla_lane_f32): New.
+	(vcmla_laneq_f32): New.
+	(vcmlaq_lane_f32): New.
+	(vcmlaq_laneq_f32): New.
+	(vcmla_rot90_f32): New.
+	(vcmlaq_rot90_f32): New.
+	(vcmla_rot90_lane_f32): New.
+	(vcmla_rot90_laneq_f32): New.
+	(vcmlaq_rot90_lane_f32): New.
+	(vcmlaq_rot90_laneq_f32): New.
+	(vcmla_rot180_f32): New.
+	(vcmlaq_rot180_f32): New.
+	(vcmla_rot180_lane_f32): New.
+	(vcmla_rot180_laneq_f32): New.
+	(vcmlaq_rot180_lane_f32): New.
+	(vcmlaq_rot180_laneq_f32): New.
+	(vcmla_rot270_f32): New.
+	(vcmlaq_rot270_f32): New.
+	(vcmla_rot270_lane_f32): New.
+	(vcmla_rot270_laneq_f32): New.
+	(vcmlaq_rot270_lane_f32): New.
+	(vcmlaq_rot270_laneq_f32): New.
+	* config/arm/arm_neon_builtins.def (vcadd90, vcadd270, vcmla0, vcmla90,
+	vcmla180, vcmla270, vcmla_lane0, vcmla_lane90, vcmla_lane180, vcmla_lane270,
+	vcmla_laneq0, vcmla_laneq90, vcmla_laneq180, vcmla_laneq270,
+	vcmlaq_lane0, vcmlaq_lane90, vcmlaq_lane180, vcmlaq_lane270): New.
+	* config/arm/neon.md (neon_vcmla_lane<rot><mode>,
+	neon_vcmla_laneq<rot><mode>, neon_vcmlaq_lane<rot><mode>): New.
+	* config/arm/arm.c (arm_arch8_3, arm_arch8_4): New.
+	* config/arm/arm.h (TARGET_COMPLEX, arm_arch8_3, arm_arch8_4): New.
+	(arm_option_reconfigure_globals): Use them.
+	* config/arm/iterators.md (VDF, VQ_HSF): New.
+	(VCADD, VCMLA): New.
+	(VF_constraint, rot, rotsplit1, rotsplit2): Add V4HF and V8HF.
+	* config/arm/neon.md (neon_vcadd<rot><mode>, neon_vcmla<rot><mode>): New.
+	* config/arm/unspecs.md (UNSPEC_VCADD90, UNSPEC_VCADD270,
+	UNSPEC_VCMLA, UNSPEC_VCMLA90, UNSPEC_VCMLA180, UNSPEC_VCMLA270): New.
+
+2019-01-10  Tamar Christina  <tamar.christina@arm.com>
+
+	* config/aarch64/aarch64-builtins.c (enum aarch64_type_qualifiers): Add qualifier_lane_pair_index.
+	(emit-rtl.h): Include.
+	(TYPES_QUADOP_LANE_PAIR): New.
+	(aarch64_simd_expand_args): Use it.
+	(aarch64_simd_expand_builtin): Likewise.
+	(AARCH64_SIMD_FCMLA_LANEQ_BUILTINS, aarch64_fcmla_laneq_builtin_datum): New.
+	(FCMLA_LANEQ_BUILTIN, AARCH64_SIMD_FCMLA_LANEQ_BUILTIN_BASE,
+	AARCH64_SIMD_FCMLA_LANEQ_BUILTINS, aarch64_fcmla_lane_builtin_data,
+	aarch64_init_fcmla_laneq_builtins, aarch64_expand_fcmla_builtin): New.
+	(aarch64_init_builtins): Add aarch64_init_fcmla_laneq_builtins.
+	(aarch64_expand_buildin): Add AARCH64_SIMD_BUILTIN_FCMLA_LANEQ0_V2SF,
+	AARCH64_SIMD_BUILTIN_FCMLA_LANEQ90_V2SF, AARCH64_SIMD_BUILTIN_FCMLA_LANEQ180_V2SF,
+ 	AARCH64_SIMD_BUILTIN_FCMLA_LANEQ2700_V2SF, AARCH64_SIMD_BUILTIN_FCMLA_LANEQ0_V4HF,
+	AARCH64_SIMD_BUILTIN_FCMLA_LANEQ90_V4HF, AARCH64_SIMD_BUILTIN_FCMLA_LANEQ180_V4HF,
+	AARCH64_SIMD_BUILTIN_FCMLA_LANEQ270_V4HF.
+	* config/aarch64/iterators.md (FCMLA_maybe_lane): New.
+	* config/aarch64/aarch64-c.c (aarch64_update_cpp_builtins): Add __ARM_FEATURE_COMPLEX.
+	* config/aarch64/aarch64-simd-builtins.def (fcadd90, fcadd270, fcmla0, fcmla90,
+	fcmla180, fcmla270, fcmla_lane0, fcmla_lane90, fcmla_lane180, fcmla_lane270,
+	fcmla_laneq0, fcmla_laneq90, fcmla_laneq180, fcmla_laneq270,
+	fcmlaq_lane0, fcmlaq_lane90, fcmlaq_lane180, fcmlaq_lane270): New.
+	* config/aarch64/aarch64-simd.md (aarch64_fcmla_lane<rot><mode>,
+	aarch64_fcmla_laneq<rot>v4hf, aarch64_fcmlaq_lane<rot><mode>,aarch64_fcadd<rot><mode>,
+	aarch64_fcmla<rot><mode>): New.
+	* config/aarch64/arm_neon.h:
+	(vcadd_rot90_f16): New.
+	(vcaddq_rot90_f16): New.
+	(vcadd_rot270_f16): New.
+	(vcaddq_rot270_f16): New.
+	(vcmla_f16): New.
+	(vcmlaq_f16): New.
+	(vcmla_lane_f16): New.
+	(vcmla_laneq_f16): New.
+	(vcmlaq_lane_f16): New.
+	(vcmlaq_rot90_lane_f16): New.
+	(vcmla_rot90_laneq_f16): New.
+	(vcmla_rot90_lane_f16): New.
+	(vcmlaq_rot90_f16): New.
+	(vcmla_rot90_f16): New.
+	(vcmlaq_laneq_f16): New.
+	(vcmla_rot180_laneq_f16): New.
+	(vcmla_rot180_lane_f16): New.
+	(vcmlaq_rot180_f16): New.
+	(vcmla_rot180_f16): New.
+	(vcmlaq_rot90_laneq_f16): New.
+	(vcmlaq_rot270_laneq_f16): New.
+	(vcmlaq_rot270_lane_f16): New.
+	(vcmla_rot270_laneq_f16): New.
+	(vcmlaq_rot270_f16): New.
+	(vcmla_rot270_f16): New.
+	(vcmlaq_rot180_laneq_f16): New.
+	(vcmlaq_rot180_lane_f16): New.
+	(vcmla_rot270_lane_f16): New.
+	(vcadd_rot90_f32): New.
+	(vcaddq_rot90_f32): New.
+	(vcaddq_rot90_f64): New.
+	(vcadd_rot270_f32): New.
+	(vcaddq_rot270_f32): New.
+	(vcaddq_rot270_f64): New.
+	(vcmla_f32): New.
+	(vcmlaq_f32): New.
+	(vcmlaq_f64): New.
+	(vcmla_lane_f32): New.
+	(vcmla_laneq_f32): New.
+	(vcmlaq_lane_f32): New.
+	(vcmlaq_laneq_f32): New.
+	(vcmla_rot90_f32): New.
+	(vcmlaq_rot90_f32): New.
+	(vcmlaq_rot90_f64): New.
+	(vcmla_rot90_lane_f32): New.
+	(vcmla_rot90_laneq_f32): New.
+	(vcmlaq_rot90_lane_f32): New.
+	(vcmlaq_rot90_laneq_f32): New.
+	(vcmla_rot180_f32): New.
+	(vcmlaq_rot180_f32): New.
+	(vcmlaq_rot180_f64): New.
+	(vcmla_rot180_lane_f32): New.
+	(vcmla_rot180_laneq_f32): New.
+	(vcmlaq_rot180_lane_f32): New.
+	(vcmlaq_rot180_laneq_f32): New.
+	(vcmla_rot270_f32): New.
+	(vcmlaq_rot270_f32): New.
+	(vcmlaq_rot270_f64): New.
+	(vcmla_rot270_lane_f32): New.
+	(vcmla_rot270_laneq_f32): New.
+	(vcmlaq_rot270_lane_f32): New.
+	(vcmlaq_rot270_laneq_f32): New.
+	* config/aarch64/aarch64.h (TARGET_COMPLEX): New.
+	* config/aarch64/iterators.md (UNSPEC_FCADD90, UNSPEC_FCADD270,
+	UNSPEC_FCMLA, UNSPEC_FCMLA90, UNSPEC_FCMLA180, UNSPEC_FCMLA270): New.
+	(FCADD, FCMLA): New.
+	(rot): New.
+	* config/arm/types.md (neon_fcadd, neon_fcmla): New.
+
+2019-01-09  Sandra Loosemore  <sandra@codesourcery.com>
+
+	PR other/16615
+
+	* config/pa/pa.c: Change "can not" to "cannot".
+	* gimple-ssa-evrp-analyze.c: Likewise.
+	* ipa-icf.c: Likewise.
+	* ipa-polymorphic-call.c: Likewise.
+	* ipa-pure-const.c: Likewise.
+	* lra-constraints.c: Likewise.
+	* lra-remat.c: Likewise.
+	* reload1.c: Likewise.
+	* reorg.c: Likewise.
+	* tree-ssa-uninit.c: Likewise.
+
+2019-01-09  Sandra Loosemore  <sandra@codesourcery.com>
+
+	PR other/16615
+
+	* Makefile.in: Mechanically replace "can not" with "cannot".
+	* alias.c: Likewise.
+	* builtins.c: Likewise.
+	* calls.c: Likewise.
+	* cgraph.c: Likewise.
+	* cgraph.h: Likewise.
+	* cgraphclones.c: Likewise.
+	* cgraphunit.c: Likewise.
+	* combine-stack-adj.c: Likewise.
+	* combine.c: Likewise.
+	* common/config/i386/i386-common.c: Likewise.
+	* config/aarch64/aarch64.c: Likewise.
+	* config/alpha/sync.md: Likewise.
+	* config/arc/arc.c: Likewise.
+	* config/arc/predicates.md: Likewise.
+	* config/arm/arm-c.c: Likewise.
+	* config/arm/arm.c: Likewise.
+	* config/arm/arm.h: Likewise.
+	* config/arm/arm.md: Likewise.
+	* config/arm/cortex-r4f.md: Likewise.
+	* config/csky/csky.c: Likewise.
+	* config/csky/csky.h: Likewise.
+	* config/darwin-f.c: Likewise.
+	* config/epiphany/epiphany.md: Likewise.
+	* config/i386/i386.c: Likewise.
+	* config/i386/sol2.h: Likewise.
+	* config/m68k/m68k.c: Likewise.
+	* config/mcore/mcore.h: Likewise.
+	* config/microblaze/microblaze.md: Likewise.
+	* config/mips/20kc.md: Likewise.
+	* config/mips/sb1.md: Likewise.
+	* config/nds32/nds32.c: Likewise.
+	* config/nds32/predicates.md: Likewise.
+	* config/pa/pa.c: Likewise.
+	* config/rs6000/e300c2c3.md: Likewise.
+	* config/rs6000/rs6000.c: Likewise.
+	* config/s390/s390.h: Likewise.
+	* config/sh/sh.c: Likewise.
+	* config/sh/sh.md: Likewise.
+	* config/spu/vmx2spu.h: Likewise.
+	* cprop.c: Likewise.
+	* dbxout.c: Likewise.
+	* df-scan.c: Likewise.
+	* doc/cfg.texi: Likewise.
+	* doc/extend.texi: Likewise.
+	* doc/fragments.texi: Likewise.
+	* doc/gty.texi: Likewise.
+	* doc/invoke.texi: Likewise.
+	* doc/lto.texi: Likewise.
+	* doc/md.texi: Likewise.
+	* doc/objc.texi: Likewise.
+	* doc/rtl.texi: Likewise.
+	* doc/tm.texi: Likewise.
+	* dse.c: Likewise.
+	* emit-rtl.c: Likewise.
+	* emit-rtl.h: Likewise.
+	* except.c: Likewise.
+	* expmed.c: Likewise.
+	* expr.c: Likewise.
+	* fold-const.c: Likewise.
+	* genautomata.c: Likewise.
+	* gimple-fold.c: Likewise.
+	* hard-reg-set.h: Likewise.
+	* ifcvt.c: Likewise.
+	* ipa-comdats.c: Likewise.
+	* ipa-cp.c: Likewise.
+	* ipa-devirt.c: Likewise.
+	* ipa-fnsummary.c: Likewise.
+	* ipa-icf.c: Likewise.
+	* ipa-inline-transform.c: Likewise.
+	* ipa-inline.c: Likewise.
+	* ipa-polymorphic-call.c: Likewise.
+	* ipa-profile.c: Likewise.
+	* ipa-prop.c: Likewise.
+	* ipa-pure-const.c: Likewise.
+	* ipa-reference.c: Likewise.
+	* ipa-split.c: Likewise.
+	* ipa-visibility.c: Likewise.
+	* ipa.c: Likewise.
+	* ira-build.c: Likewise.
+	* ira-color.c: Likewise.
+	* ira-conflicts.c: Likewise.
+	* ira-costs.c: Likewise.
+	* ira-int.h: Likewise.
+	* ira-lives.c: Likewise.
+	* ira.c: Likewise.
+	* ira.h: Likewise.
+	* loop-invariant.c: Likewise.
+	* loop-unroll.c: Likewise.
+	* lower-subreg.c: Likewise.
+	* lra-assigns.c: Likewise.
+	* lra-constraints.c: Likewise.
+	* lra-eliminations.c: Likewise.
+	* lra-lives.c: Likewise.
+	* lra-remat.c: Likewise.
+	* lra-spills.c: Likewise.
+	* lra.c: Likewise.
+	* lto-cgraph.c: Likewise.
+	* lto-streamer-out.c: Likewise.
+	* postreload-gcse.c: Likewise.
+	* predict.c: Likewise.
+	* profile-count.h: Likewise.
+	* profile.c: Likewise.
+	* recog.c: Likewise.
+	* ree.c: Likewise.
+	* reload.c: Likewise.
+	* reload1.c: Likewise.
+	* reorg.c: Likewise.
+	* resource.c: Likewise.
+	* rtl.def: Likewise.
+	* rtl.h: Likewise.
+	* rtlanal.c: Likewise.
+	* sched-deps.c: Likewise.
+	* sched-ebb.c: Likewise.
+	* sched-rgn.c: Likewise.
+	* sel-sched-ir.c: Likewise.
+	* sel-sched.c: Likewise.
+	* shrink-wrap.c: Likewise.
+	* simplify-rtx.c: Likewise.
+	* symtab.c: Likewise.
+	* target.def: Likewise.
+	* toplev.c: Likewise.
+	* tree-call-cdce.c: Likewise.
+	* tree-cfg.c: Likewise.
+	* tree-complex.c: Likewise.
+	* tree-core.h: Likewise.
+	* tree-eh.c: Likewise.
+	* tree-inline.c: Likewise.
+	* tree-loop-distribution.c: Likewise.
+	* tree-nrv.c: Likewise.
+	* tree-profile.c: Likewise.
+	* tree-sra.c: Likewise.
+	* tree-ssa-alias.c: Likewise.
+	* tree-ssa-dce.c: Likewise.
+	* tree-ssa-dom.c: Likewise.
+	* tree-ssa-forwprop.c: Likewise.
+	* tree-ssa-loop-im.c: Likewise.
+	* tree-ssa-loop-ivcanon.c: Likewise.
+	* tree-ssa-loop-ivopts.c: Likewise.
+	* tree-ssa-loop-niter.c: Likewise.
+	* tree-ssa-phionlycprop.c: Likewise.
+	* tree-ssa-phiopt.c: Likewise.
+	* tree-ssa-propagate.c: Likewise.
+	* tree-ssa-threadedge.c: Likewise.
+	* tree-ssa-threadupdate.c: Likewise.
+	* tree-ssa-uninit.c: Likewise.
+	* tree-ssanames.c: Likewise.
+	* tree-streamer-out.c: Likewise.
+	* tree.c: Likewise.
+	* tree.h: Likewise.
+	* vr-values.c: Likewise.
+
+2019-01-09  Uroš Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386-protos.h (ix86_expand_xorsign): New prototype.
+	(ix86_split_xorsign): Ditto.
+	* config/i386/i386.c (ix86_expand_xorsign): New function.
+	(ix86_split_xorsign): Ditto.
+	* config/i386/i386.md (UNSPEC_XORSIGN): New unspec.
+	(xorsign<mode>3): New expander.
+	(xorsign<mode>3_1): New insn_and_split pattern.
+	* config/i386/sse.md (xorsign<mode>3): New expander.
+
+2019-01-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sparc.md (*tablejump_sp32): Merge into...
+	(*tablejump_sp64): Likewise.
+	(*tablejump<P:mode>): ...this.
+	(*call_address_sp32): Merge into...
+	(*call_address_sp64): Likewise.
+	(*call_address<P:mode>): ...this.
+	(*call_symbolic_sp32): Merge into...
+	(*call_symbolic_sp64): Likewise.
+	(*call_symbolic<P:mode>): ...this.
+	(call_value): Remove constraint and add predicate.
+	(*call_value_address_sp32): Merge into...
+	(*call_value_address_sp64): Likewise.
+	(*call_value_address<P:mode>): ...this.
+	(*call_value_symbolic_sp32): Merge into...
+	(*call_value_symbolic_sp64): Likewise.
+	(*call_value_symbolic<P:mode>): ...this.
+	(*sibcall_symbolic_sp32): Merge into...
+	(*sibcall_symbolic_sp64): Likewise.
+	(*sibcall_symbolic<P:mode>): ...this.
+	(sibcall_value): Remove constraint and add predicate.
+	(*sibcall_value_symbolic_sp32): Merge into...
+	(*sibcall_value_symbolic_sp64): Likewise.
+	(*sibcall_value_symbolic<P:mode>): ...this.
+	(window_save): Minor tweak.
+	(*branch_sp32): Merge into...
+	(*branch_sp64): Likewise.
+	(*branch<P:mode>): ...this.
+
+2019-01-09  Eric Botcazou  <ebotcazou@adacore.com>
+            James Clarke  <jrtc27@jrtc27.com>
+
+	PR target/84010
+	* config/sparc/sparc.c (sparc_legitimize_tls_address): Only use Pmode
+	consistently in TLS address generation and adjust code to the renaming
+	of patterns.  Mark calls to __tls_get_addr as const.
+	* config/sparc/sparc.md (tgd_hi22): Turn into...
+	(tgd_hi22<P:mode>): ...this and use Pmode throughout.
+	(tgd_lo10): Turn into...
+	(tgd_lo10<P:mode>): ...this and use Pmode throughout.
+	(tgd_add32): Merge into...
+	(tgd_add64): Likewise.
+	(tgd_add<P:mode>): ...this and use Pmode throughout.
+	(tldm_hi22): Turn into...
+	(tldm_hi22<P:mode>): ...this and use Pmode throughout.
+	(tldm_lo10): Turn into...
+	(tldm_lo10<P:mode>): ...this and use Pmode throughout.
+	(tldm_add32): Merge into...
+	(tldm_add64): Likewise.
+	(tldm_add<P:mode>): ...this and use Pmode throughout.
+	(tldm_call32): Merge into...
+	(tldm_call64): Likewise.
+	(tldm_call<P:mode>): ...this and use Pmode throughout.
+	(tldo_hix22): Turn into...
+	(tldo_hix22<P:mode>): ...this and use Pmode throughout.
+	(tldo_lox10): Turn into...
+	(tldo_lox10<P:mode>): ...this and use Pmode throughout.
+	(tldo_add32): Merge into...
+	(tldo_add64): Likewise.
+	(tldo_add<P:mode>): ...this and use Pmode throughout.
+	(tie_hi22): Turn into...
+	(tie_hi22<P:mode>): ...this and use Pmode throughout.
+	(tie_lo10): Turn into...
+	(tie_lo10<P:mode>): ...this and use Pmode throughout.
+	(tie_ld64): Use DImode throughout.
+	(tie_add32): Merge into...
+	(tie_add64): Likewise.
+	(tie_add<P:mode>): ...this and use Pmode throughout.
+	(tle_hix22_sp32): Merge into...
+	(tle_hix22_sp64): Likewise.
+	(tle_hix22<P:mode>): ...this and use Pmode throughout.
+	(tle_lox22_sp32): Merge into...
+	(tle_lox22_sp64): Likewise.
+	(tle_lox22<P:mode>): ...this and use Pmode throughout.
+	(*tldo_ldub_sp32): Merge into...
+	(*tldo_ldub_sp64): Likewise.
+	(*tldo_ldub<P:mode>): ...this and use Pmode throughout.
+	(*tldo_ldub1_sp32): Merge into...
+	(*tldo_ldub1_sp64): Likewise.
+	(*tldo_ldub1<P:mode>): ...this and use Pmode throughout.
+	(*tldo_ldub2_sp32): Merge into...
+	(*tldo_ldub2_sp64): Likewise.
+	(*tldo_ldub2<P:mode>): ...this and use Pmode throughout.
+	(*tldo_ldsb1_sp32): Merge into...
+	(*tldo_ldsb1_sp64): Likewise.
+	(*tldo_ldsb1<P:mode>): ...this and use Pmode throughout.
+	(*tldo_ldsb2_sp32): Merge into...
+	(*tldo_ldsb2_sp64): Likewise.
+	(*tldo_ldsb2<P:mode>): ...this and use Pmode throughout.
+	(*tldo_ldub3_sp64): Use DImode throughout.
+	(*tldo_ldsb3_sp64): Likewise.
+	(*tldo_lduh_sp32): Merge into...
+	(*tldo_lduh_sp64): Likewise.
+	(*tldo_lduh<P:mode>): ...this and use Pmode throughout.
+	(*tldo_lduh1_sp32): Merge into...
+	(*tldo_lduh1_sp64): Likewise.
+	(*tldo_lduh1<P:mode>): ...this and use Pmode throughout.
+	(*tldo_ldsh1_sp32): Merge into...
+	(*tldo_ldsh1_sp64): Likewise.
+	(*tldo_ldsh1<P:mode>): ...this and use Pmode throughout.
+	(*tldo_lduh2_sp64): Use DImode throughout.
+	(*tldo_ldsh2_sp64): Likewise.
+	(*tldo_lduw_sp32): Merge into...
+	(*tldo_lduw_sp64): Likewise.
+	(*tldo_lduw<P:mode>): ...this and use Pmode throughout.
+	(*tldo_lduw1_sp64): Use DImode throughout.
+	(*tldo_ldsw1_sp64): Likewise.
+	(*tldo_ldx_sp64): Likewise.
+	(*tldo_stb_sp32): Merge into...
+	(*tldo_stb_sp64): Likewise.
+	(*tldo_stb<P:mode>): ...this and use Pmode throughout.
+	(*tldo_sth_sp32): Merge into...
+	(*tldo_sth_sp64): Likewise.
+	(*tldo_sth<P:mode>): ...this and use Pmode throughout.
+	(*tldo_stw_sp32): Merge into...
+	(*tldo_stw_sp64): Likewise.
+	(*tldo_stw<P:mode>): ...this and use Pmode throughout.
+	(*tldo_stx_sp64): Use DImode throughout.
+
+2018-01-09  Sudakshina Das  <sudi.das@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_override_options): Add case to
+	check configure option to set BTI and Return Address Signing.
+	* configure.ac: Add --enable-standard-branch-protection and
+	--disable-standard-branch-protection.
+	* configure: Regenerated.
+	* doc/install.texi: Document the same.
+
+2018-01-09  Sudakshina Das  <sudi.das@arm.com>
+	    Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* config.gcc (aarch64*-*-*): Add aarch64-bti-insert.o.
+	* config/aarch64/aarch64.h: Update comment for TRAMPOLINE_SIZE.
+	* config/aarch64/aarch64.c (aarch64_asm_trampoline_template): Update
+	if bti is enabled.
+	* config/aarch64/aarch64-bti-insert.c: New file.
+	* config/aarch64/aarch64-passes.def (INSERT_PASS_BEFORE): Insert bti
+	pass.
+	* config/aarch64/aarch64-protos.h (make_pass_insert_bti): Declare the
+	new bti pass.
+	* config/aarch64/aarch64.md (unspecv): Add UNSPECV_BTI_NOARG,
+	UNSPECV_BTI_C, UNSPECV_BTI_J and UNSPECV_BTI_JC.
+	(bti_noarg, bti_j, bti_c, bti_jc): New define_insns.
+	* config/aarch64/t-aarch64: Add rule for aarch64-bti-insert.o.
+
+2018-01-09  Sudakshina Das  <sudi.das@arm.com>
+
+	* config/aarch64/aarch64-protos.h (aarch64_bti_enabled): Declare.
+	* config/aarch64/aarch64.c (aarch64_handle_no_branch_protection):
+	Disable bti for -mbranch-protection=none.
+	(aarch64_handle_standard_branch_protection): Enable bti for
+	-mbranch-protection=standard.
+	(aarch64_handle_bti_protection): Enable bti for "bti" in the string to
+	-mbranch-protection.
+	(aarch64_bti_enabled): Check if bti is enabled.
+	* config/aarch64/aarch64.opt: Declare target variable.
+	* doc/invoke.texi: Add bti to the -mbranch-protection documentation.
+
+2018-01-09  Sudakshina Das  <sudi.das@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_expand_prologue): Use new
+	epilogue/prologue scratch registers EP0_REGNUM and EP1_REGNUM.
+	(aarch64_expand_epilogue): Likewise.
+	(aarch64_output_mi_thunk): Likewise
+	* config/aarch64/aarch64.h (REG_CLASS_CONTENTS): Change
+	TAILCALL_ADDR_REGS to x16 and x17.
+	* config/aarch64/aarch64.md: Define EP0_REGNUM and EP1_REGNUM.
+
+2018-01-09  Sudakshina Das  <sudi.das@arm.com>
+
+	* config/aarch64/aarch64-option-extensions.def: Define
+	AARCH64_OPT_EXTENSION for memtag, rng, sb, ssbs and predres.
+	* gcc/config/aarch64/aarch64.h (AARCH64_FL_RNG): New.
+	(AARCH64_FL_MEMTAG, ARCH64_FL_SB, AARCH64_FL_SSBS): New.
+	(AARCH64_FL_PREDRES): New.
+	(AARCH64_FL_FOR_ARCH8_5): Add AARCH64_FL_SB, AARCH64_FL_SSBS and
+	AARCH64_FL_PREDRES by default.
+	* gcc/doc/invoke.texi: Document rng, memtag, sb, ssbs and predres.
+
+2018-01-09  Sudakshina Das  <sudi.das@arm.com>
+
+	* config/aarch64/aarch64-arches.def: Define AARCH64_ARCH for
+	ARMv8.5-A.
+	* gcc/config/aarch64/aarch64.h (AARCH64_FL_V8_5): New.
+	(AARCH64_FL_FOR_ARCH8_5, AARCH64_ISA_V8_5): New.
+	* gcc/doc/invoke.texi: Document ARMv8.5-A.
+
+2019-01-09  Alejandro Martinez  <alejandro.martinezvicente@arm.com>
+
+	* config/aarch64/aarch64-sve.md (copysign<mode>3): New define_expand.
+	(xorsign<mode>3): Likewise.
+
 2010-06-30  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/rs6000/rs6000.c (rs6000_elf_end_indicate_exec_stack): New.

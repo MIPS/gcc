@@ -1087,7 +1087,7 @@ end:
 		if (!finite_loop_p (loop))
 		  {
 		    if (dump_file)
-		      fprintf (dump_file, "    can not prove finiteness of "
+		      fprintf (dump_file, "    cannot prove finiteness of "
 			       "loop %i\n", loop->num);
 		    l->looping =true;
 		    break;
@@ -1186,7 +1186,7 @@ pure_const_generate_summary (void)
 
   /* Process all of the functions.
 
-     We process AVAIL_INTERPOSABLE functions.  We can not use the results
+     We process AVAIL_INTERPOSABLE functions.  We cannot use the results
      by default, but the info can be used at LTO with -fwhole-program or
      when function got cloned and the clone is AVAILABLE.  */
 
@@ -1792,8 +1792,8 @@ propagate_nothrow (void)
 				   function_or_virtual_thunk_symbol (&avail,
 								     e->caller);
 
-		  /* We can use info about the callee only if we know it can
-		     not be interposed.
+		  /* We can use info about the callee only if we know it
+		     cannot be interposed.
 		     When callee is compiled with non-call exceptions we also
 		     must check that the declaration is bound to current
 		     body as other semantically equivalent body may still
@@ -2292,7 +2292,7 @@ pass_nothrow::execute (function *)
 
   node = cgraph_node::get (current_function_decl);
 
-  /* We run during lowering, we can not really use availability yet.  */
+  /* We run during lowering, we cannot really use availability yet.  */
   if (cgraph_node::get (current_function_decl)->get_availability ()
       <= AVAIL_INTERPOSABLE)
     {

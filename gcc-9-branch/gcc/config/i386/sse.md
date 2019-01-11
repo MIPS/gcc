@@ -3423,6 +3423,20 @@
   operands[5] = gen_reg_rtx (<MODE>mode);
 })
 
+(define_expand "xorsign<mode>3"
+  [(set (match_dup 4)
+	(and:VF (match_dup 3)
+		(match_operand:VF 2 "vector_operand")))
+   (set (match_operand:VF 0 "register_operand")
+	(xor:VF (match_dup 4)
+		(match_operand:VF 1 "vector_operand")))]
+  "TARGET_SSE"
+{
+  operands[3] = ix86_build_signbit_mask (<MODE>mode, 1, 0);
+
+  operands[4] = gen_reg_rtx (<MODE>mode);
+})
+
 ;; Also define scalar versions.  These are used for abs, neg, and
 ;; conditional move.  Using subregs into vector modes causes register
 ;; allocation lossage.  These patterns do not allow memory operands
@@ -4767,7 +4781,7 @@
 	  (match_operand:VF_128 1 "register_operand" "v")
 	  (const_int 1)))]
   "TARGET_AVX512F && <round_modev4sf_condition>"
-  "vcvtusi2<ssescalarmodesuffix>\t{%2, <round_op3>%1, %0|%0, %1<round_op3>, %2}"
+  "vcvtusi2<ssescalarmodesuffix>{l}\t{%2, <round_op3>%1, %0|%0, %1<round_op3>, %2}"
   [(set_attr "type" "sseicvt")
    (set_attr "prefix" "evex")
    (set_attr "mode" "<ssescalarmode>")])
@@ -5026,9 +5040,9 @@
 	  (const_int 1)))]
   "TARGET_SSE2"
   "@
-   cvtsi2sd\t{%2, %0|%0, %2}
-   cvtsi2sd\t{%2, %0|%0, %2}
-   vcvtsi2sd\t{%2, %1, %0|%0, %1, %2}"
+   cvtsi2sd{l}\t{%2, %0|%0, %2}
+   cvtsi2sd{l}\t{%2, %0|%0, %2}
+   vcvtsi2sd{l}\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "isa" "noavx,noavx,avx")
    (set_attr "type" "sseicvt")
    (set_attr "athlon_decode" "double,direct,*")
@@ -5048,9 +5062,9 @@
 	  (const_int 1)))]
   "TARGET_SSE2 && TARGET_64BIT"
   "@
-   cvtsi2sdq\t{%2, %0|%0, %2}
-   cvtsi2sdq\t{%2, %0|%0, %2}
-   vcvtsi2sdq\t{%2, <round_op3>%1, %0|%0, %1<round_op3>, %2}"
+   cvtsi2sd{q}\t{%2, %0|%0, %2}
+   cvtsi2sd{q}\t{%2, %0|%0, %2}
+   vcvtsi2sd{q}\t{%2, <round_op3>%1, %0|%0, %1<round_op3>, %2}"
   [(set_attr "isa" "noavx,noavx,avx")
    (set_attr "type" "sseicvt")
    (set_attr "athlon_decode" "double,direct,*")
@@ -5208,11 +5222,19 @@
    (set_attr "prefix" "evex")
    (set_attr "mode" "<MODE>")])
 
-(define_insn "float<floatunssuffix>v2div2sf2"
+(define_expand "float<floatunssuffix>v2div2sf2"
   [(set (match_operand:V4SF 0 "register_operand" "=v")
 	(vec_concat:V4SF
 	    (any_float:V2SF (match_operand:V2DI 1 "nonimmediate_operand" "vm"))
-	    (const_vector:V2SF [(const_int 0) (const_int 0)])))]
+	    (match_dup 2)))]
+  "TARGET_AVX512DQ && TARGET_AVX512VL"
+  "operands[2] = CONST0_RTX (V2SFmode);")
+
+(define_insn "*float<floatunssuffix>v2div2sf2"
+  [(set (match_operand:V4SF 0 "register_operand" "=v")
+	(vec_concat:V4SF
+	    (any_float:V2SF (match_operand:V2DI 1 "nonimmediate_operand" "vm"))
+	    (match_operand:V2SF 2 "const0_operand" "C")))]
   "TARGET_AVX512DQ && TARGET_AVX512VL"
   "vcvt<floatsuffix>qq2ps{x}\t{%1, %0|%0, %1}"
   [(set_attr "type" "ssecvt")
@@ -5246,16 +5268,29 @@
   DONE;
 })
 
-(define_insn "float<floatunssuffix>v2div2sf2_mask"
+(define_expand "float<floatunssuffix>v2div2sf2_mask"
   [(set (match_operand:V4SF 0 "register_operand" "=v")
     (vec_concat:V4SF
         (vec_merge:V2SF
-	        (any_float:V2SF (match_operand:V2DI 1 "nonimmediate_operand" "vm"))
+	    (any_float:V2SF (match_operand:V2DI 1 "nonimmediate_operand" "vm"))
             (vec_select:V2SF
                 (match_operand:V4SF 2 "nonimm_or_0_operand" "0C")
                 (parallel [(const_int 0) (const_int 1)]))
             (match_operand:QI 3 "register_operand" "Yk"))
-	    (const_vector:V2SF [(const_int 0) (const_int 0)])))]
+	    (match_dup 4)))]
+  "TARGET_AVX512DQ && TARGET_AVX512VL"
+  "operands[4] = CONST0_RTX (V2SFmode);")
+
+(define_insn "*float<floatunssuffix>v2div2sf2_mask"
+  [(set (match_operand:V4SF 0 "register_operand" "=v")
+    (vec_concat:V4SF
+        (vec_merge:V2SF
+	    (any_float:V2SF (match_operand:V2DI 1 "nonimmediate_operand" "vm"))
+            (vec_select:V2SF
+                (match_operand:V4SF 2 "nonimm_or_0_operand" "0C")
+                (parallel [(const_int 0) (const_int 1)]))
+            (match_operand:QI 3 "register_operand" "Yk"))
+	    (match_operand:V2SF 4 "const0_operand" "C")))]
   "TARGET_AVX512DQ && TARGET_AVX512VL"
   "vcvt<floatsuffix>qq2ps{x}\t{%1, %0%{%3%}%N2|%0%{%3%}%N2, %1}"
   [(set_attr "type" "ssecvt")
@@ -5268,9 +5303,9 @@
 	(vec_merge:V2SF
 		(any_float:V2SF (match_operand:V2DI 1
 				  "nonimmediate_operand" "vm"))
-	    (const_vector:V2SF [(const_int 0) (const_int 0)])
+	    (match_operand:V2SF 3 "const0_operand" "C")
 	    (match_operand:QI 2 "register_operand" "Yk"))
-	    (const_vector:V2SF [(const_int 0) (const_int 0)])))]
+	    (match_operand:V2SF 4 "const0_operand" "C")))]
   "TARGET_AVX512DQ && TARGET_AVX512VL"
   "vcvt<floatsuffix>qq2ps{x}\t{%1, %0%{%2%}%{z%}|%0%{%2%}%{z%}, %1}"
   [(set_attr "type" "ssecvt")

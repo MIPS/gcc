@@ -1,3 +1,185 @@
+2019-01-11  Tamar Christina  <tamar.christina@arm.com>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vector-complex_f16.c: Require neon
+	and add options.
+
+2019-01-11  Martin Liska  <mliska@suse.cz>
+
+	PR middle-end/88758
+	* g++.dg/lto/pr88758_0.C: New test.
+	* g++.dg/lto/pr88758_1.C: New test.
+
+2019-01-11  Jan Beulich  <jbeulich@suse.com>
+
+	* gcc.target/i386/avx512f-vcvtsd2si-1.c,
+	gcc.target/i386/avx512f-vcvtss2si-1.c,
+	gcc.target/i386/avx512f-vcvttsd2si-1.c,
+	gcc.target/i386/avx512f-vcvttss2si-1.c: Permit l suffix.
+	* gcc.target/i386/avx512f-vcvtsi2ss-1.c,
+	gcc.target/i386/avx512f-vcvtusi2sd-1.c,
+	gcc.target/i386/avx512f-vcvtusi2ss-1.c: Expect l suffix.
+	* gcc.target/i386/avx512f-vcvtusi2sd-2.c,
+	gcc.target/i386/avx512f-vcvtusi2sd64-2.c,
+	gcc.target/i386/avx512f-vcvtusi2ss-2.c,
+	gcc.target/i386/avx512f-vcvtusi2ss64-2.c: Add asm volatile().
+	gcc.target/i386/pr19398.c: Permit l or q suffix.
+
+2019-01-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/88296
+	* gcc.target/i386/pr88296.c: New test.
+
+2019-01-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/diagnostic/extern-initialized.C: New.
+	* g++.dg/ext/dllimport-initialized.C: Likewise.
+
+2019-01-11  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/59345
+	* gfortran.dg/internal_pack_16.f90: New test.
+
+2019-01-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/88785
+	* g++.target/i386/pr88785.C: New test.
+
+2019-01-10  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/87305
+	* gcc.target/aarch64/pr87305.c: New.
+
+2019-01-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/88792
+	* gcc.dg/torture/pr88792.c: New testcase.
+
+2019-01-10  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/86322
+	* gfortran.dg/pr86322_1.f90: New test.
+	* gfortran.dg/pr86322_2.f90: Ditto.
+	* gfortran.dg/pr86322_3.f90: Ditto.
+
+2019-01-10  Sudakshina Das  <sudi.das@arm.com>
+
+	* gcc.target/aarch64/bti-1.c: Exempt for ilp32.
+	* gcc.target/aarch64/bti-2.c: Likewise.
+	* gcc.target/aarch64/bti-3.c: Likewise.
+
+2019-01-10  Stefan Agner  <stefan@agner.ch>
+
+	PR target/88648
+	* gcc.target/arm/pr88648-asm-syntax-unified.c: Add test to
+	check if -masm-syntax-unified gets applied properly.
+
+2019-01-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/88568
+	* gcc.dg/pr88568.c: New test.
+
+2019-01-10  Tamar Christina  <tamar.christina@arm.com>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vector-complex.c: Add AArch32 regexpr.
+	* gcc.target/aarch64/advsimd-intrinsics/vector-complex_f16.c: Likewise.
+
+2019-01-10  Tamar Christina  <tamar.christina@arm.com>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vector-complex.c: New test.
+	* gcc.target/aarch64/advsimd-intrinsics/vector-complex_f16.c: New test.
+
+2019-01-10  Tamar Christina  <tamar.christina@arm.com>
+
+	* lib/target-supports.exp
+	(check_effective_target_arm_v8_3a_complex_neon_ok_nocache,
+	check_effective_target_arm_v8_3a_complex_neon_ok,
+	add_options_for_arm_v8_3a_complex_neon,
+	check_effective_target_arm_v8_3a_complex_neon_hw,
+	check_effective_target_vect_complex_rot_N): New.
+
+2019-01-09  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/88376
+	* gfortran.dg/pr88376.f90: New test.
+
+2019-01-09  Sandra Loosemore  <sandra@codesourcery.com>
+
+	PR other/16615
+	* g++.dg/lto/odr-1_1.C: Update diagnostic message patterns to replace
+	"can not" with "cannot".
+	* gfortran.dg/common_15.f90: Likewise.
+	* gfortran.dg/derived_result_2.f90: Likewise.
+	* gfortran.dg/do_check_6.f90: Likewise.
+	* gfortran.dg/namelist_args.f90: Likewise.
+	* gfortran.dg/negative_unit_check.f90: Likewise.
+	* gfortran.dg/pure_formal_3.f90: Likewise.
+	* obj-c++.dg/attributes/method-attribute-2.mm: Likewise.
+	* obj-c++.dg/exceptions-3.mm: Likewise.
+	* obj-c++.dg/exceptions-4.mm: Likewise.
+	* obj-c++.dg/exceptions-5.mm: Likewise.
+	* obj-c++.dg/property/at-property-23.mm: Likewise.
+	* obj-c++.dg/property/dotsyntax-17.mm: Likewise.
+	* obj-c++.dg/property/property-neg-7.mm: Likewise.
+	* objc.dg/attributes/method-attribute-2.m: Likewise.
+	* objc.dg/exceptions-3.m: Likewise.
+	* objc.dg/exceptions-4.m: Likewise.
+	* objc.dg/exceptions-5.m: Likewise.
+	* objc.dg/param-1.m: Likewise.
+	* objc.dg/property/at-property-23.m: Likewise.
+	* objc.dg/property/dotsyntax-17.m: Likewise.
+	* objc.dg/property/property-neg-7.m: Likewise.
+
+2019-01-09  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/68426
+	* gfortran.dg/spread_simplify_1.f90: New test.
+
+2019-01-09  Uroš Bizjak  <ubizjak@gmail.com>
+
+	* lib/target-supports.exp
+	(check_effective_target_xorsign): Add i?86-*-* and x86_64-*-* targets.
+	* gcc.target/i386/xorsign.c: New test.
+
+2019-01-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/sparc/tls-ld-int8.c: New test.
+	* gcc.target/sparc/tls-ld-int16.c: Likewise.
+	* gcc.target/sparc/tls-ld-int32.c: Likewise.
+	* gcc.target/sparc/tls-ld-uint8.c: Likewise.
+	* gcc.target/sparc/tls-ld-uint16.c: Likewise.
+	* gcc.target/sparc/tls-ld-uint32.c: Likewise.
+
+2018-01-09  Sudakshina Das  <sudi.das@arm.com>
+
+	* gcc.target/aarch64/bti-1.c: Update test to not add command line
+	option when configure with bti.
+	* gcc.target/aarch64/bti-2.c: Likewise.
+	* lib/target-supports.exp
+	(check_effective_target_default_branch_protection):
+	Add configure check for --enable-standard-branch-protection.
+
+2018-01-09  Sudakshina Das  <sudi.das@arm.com>
+
+	* gcc.target/aarch64/bti-1.c: New test.
+	* gcc.target/aarch64/bti-2.c: New test.
+	* gcc.target/aarch64/bti-3.c: New test.
+	* lib/target-supports.exp
+	(check_effective_target_aarch64_bti_hw): Add new check for BTI hw.
+
+2018-01-09  Sudakshina Das  <sudi.das@arm.com>
+
+	* gcc.target/aarch64/test_frame_17.c: Update to check for EP0_REGNUM
+	instead of IP0_REGNUM and add test case.
+
+2019-01-09  Alejandro Martinez  <alejandro.martinezvicente@arm.com>
+
+	* gcc.target/aarch64/sve/copysign_1.c: New test for SVE vectorized
+	copysign.
+	* gcc.target/aarch64/sve/copysign_1_run.c: Likewise.
+	* gcc.target/aarch64/sve/xorsign_1.c: New test for SVE vectorized
+	xorsign.
+	* gcc.target/aarch64/sve/xorsign_1_run.c: Likewise.
+
 2010-06-30  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/opt/ctor1.C: New test.

@@ -1,3 +1,51 @@
+2019-01-11  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/59345
+	* trans-array.c (gfc_conv_parameter_array):  Temporary
+	arrays generated for expressions do not need to be repacked.
+
+2019-01-10  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/86322
+	* decl.c (top_var_list): Set locus of expr.
+	(gfc_match_data): Detect pointer on non-rightmost part-refs.
+
+2019-01-09  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/88376
+	* resolve.c (is_illegal_recursion): Remove an assert().
+
+2019-01-09  Sandra Loosemore  <sandra@codesourcery.com>
+
+	PR other/16615
+	* expr.c: Change "can not" to "cannot".
+
+2019-01-09  Sandra Loosemore  <sandra@codesourcery.com>
+
+	PR other/16615
+	* class.c: Mechanically replace "can not" with "cannot".
+	* decl.c: Likewise.
+	* expr.c: Likewise.
+	* gfc-internals.texi: Likewise.
+	* intrinsic.texi: Likewise.
+	* invoke.texi: Likewise.
+	* io.c: Likewise.
+	* match.c: Likewise.
+	* parse.c: Likewise.
+	* primary.c: Likewise.
+	* resolve.c: Likewise.
+	* symbol.c: Likewise.
+	* trans-array.c: Likewise.
+	* trans-decl.c: Likewise.
+	* trans-intrinsic.c: Likewise.
+	* trans-stmt.c: Likewise.
+
+2019-01-09  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/68426
+	* simplify.c (gfc_simplify_spread): Also simplify if the
+	type of source is an EXPR_STRUCTURE.
+
 2019-01-08  Janus Weil  <janus@gcc.gnu.org>
 
 	PR fortran/88047

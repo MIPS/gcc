@@ -7866,6 +7866,12 @@ gfc_conv_array_parameter (gfc_se * se, gfc_expr * expr, bool g77,
 
   no_pack = contiguous && no_pack;
 
+  /* If we have an expression, an array temporary will be
+     generated which does not need to be packed / unpacked
+     if passed to an explicit-shape dummy array.  */
+
+  no_pack = no_pack || (g77 && expr->expr_type == EXPR_OP);
+
   /* Array constructors are always contiguous and do not need packing.  */
   array_constructor = g77 && !this_array_result && expr->expr_type == EXPR_ARRAY;
 
@@ -9078,7 +9084,7 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 				     TREE_TYPE (len), len, tmp);
 	      gfc_add_expr_to_block (&fnblock, tmp);
 	      size = size_of_string_in_bytes (c->ts.kind, len);
-	      /* This component can not have allocatable components,
+	      /* This component cannot have allocatable components,
 		 therefore add_when_allocated of duplicate_allocatable ()
 		 is always NULL.  */
 	      tmp = duplicate_allocatable (dcmp, comp, ctype, rank,

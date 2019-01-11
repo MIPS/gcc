@@ -13064,7 +13064,7 @@ most of benefits of whole program optimizations are however lost.
 During the incremental link (by @option{-r}) the linker plugin will default to
 @option{rel}. With current interfaces to GNU Binutils it is however not
 possible to link incrementally LTO objects and non-LTO objects into a single
-mixed object file.  In the case any of object files in incremental link can not
+mixed object file.  In the case any of object files in incremental link cannot
 be used for link-time optimization the linker plugin will output warning and
 use @samp{nolto-rel}. To maintain the whole program optimization it is
 recommended to link such objects into static library instead. Alternatively it
@@ -15628,8 +15628,11 @@ more feature modifiers.  This option has the form
 @option{-march=@var{arch}@r{@{}+@r{[}no@r{]}@var{feature}@r{@}*}}.
 
 The permissible values for @var{arch} are @samp{armv8-a},
-@samp{armv8.1-a}, @samp{armv8.2-a}, @samp{armv8.3-a} or @samp{armv8.4-a}
-or @var{native}.
+@samp{armv8.1-a}, @samp{armv8.2-a}, @samp{armv8.3-a}, @samp{armv8.4-a},
+@samp{armv8.5-a} or @var{native}.
+
+The value @samp{armv8.5-a} implies @samp{armv8.4-a} and enables compiler
+support for the ARMv8.5-A architecture extensions.
 
 The value @samp{armv8.4-a} implies @samp{armv8.3-a} and enables compiler
 support for the ARMv8.4-A architecture extensions.
@@ -15754,6 +15757,7 @@ level: signing functions that save the return address to memory (non-leaf
 functions will practically always do this) using the a-key.  The optional
 argument @samp{leaf} can be used to extend the signing to include leaf
 functions.
+@samp{bti} turns on branch target identification mechanism.
 
 @item -msve-vector-bits=@var{bits}
 @opindex msve-vector-bits
@@ -15833,6 +15837,27 @@ Use of this option with architectures prior to Armv8.2-A is not supported.
 @item profile
 Enable the Statistical Profiling extension.  This option is only to enable the
 extension at the assembler level and does not affect code generation.
+@item rng
+Enable the Armv8.5-a Random Number instructions.  This option is only to
+enable the extension at the assembler level and does not affect code
+generation.
+@item memtag
+Enable the Armv8.5-a Memory Tagging Extensions.  This option is only to
+enable the extension at the assembler level and does not affect code
+generation.
+@item sb
+Enable the Armv8-a Speculation Barrier instruction.  This option is only to
+enable the extension at the assembler level and does not affect code
+generation.  This option is enabled by default for @option{-march=armv8.5-a}.
+@item ssbs
+Enable the Armv8-a Speculative Store Bypass Safe instruction.  This option
+is only to enable the extension at the assembler level and does not affect code
+generation.  This option is enabled by default for @option{-march=armv8.5-a}.
+@item predres
+Enable the Armv8-a Execution and Data Prediction Restriction instructions.
+This option is only to enable the extension at the assembler level and does
+not affect code generation.  This option is enabled by default for
+@option{-march=armv8.5-a}.
 
 @end table
 
@@ -25746,7 +25771,7 @@ if this option were not present.
 @item -mfixed-range=@var{register-range}
 @opindex mfixed-range
 Generate code treating the given register range as fixed registers.
-A fixed register is one that the register allocator can not use.  This is
+A fixed register is one that the register allocator cannot use.  This is
 useful when compiling kernel code.  A register range is specified as
 two registers separated by a dash.  Multiple register ranges can be
 specified separated by a comma.
@@ -28438,7 +28463,7 @@ Note that @option{-mcmodel=large} is incompatible with
 not be reachable in the large code model.
 
 Note that @option{-mindirect-branch=thunk-extern} is incompatible with
-@option{-fcf-protection=branch} since the external thunk can not be modified
+@option{-fcf-protection=branch} since the external thunk cannot be modified
 to disable control-flow check.
 
 @item -mfunction-return=@var{choice}

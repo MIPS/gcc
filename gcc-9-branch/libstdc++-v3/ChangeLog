@@ -1,3 +1,84 @@
+2019-01-11  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/88125
+	* config/abi/pre/gnu.ver (GLIBCXX_3.4.6): Remove unused duplicate
+	pattern for std::basic_stringbuf::str().
+
+	* config/abi/pre/gnu.ver (GLIBCXX_3.4): Correct recent changes to
+	basic_ostream::operator<< patterns.
+
+2019-01-10  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/27_io/filesystem/operations/last_write_time.cc: Fix
+	test failures on targets with 32-bit time_t.
+
+	* include/bits/erase_if.h: Define __cpp_lib_erase_if.
+	* include/std/deque: Likewise.
+	* include/std/forward_list: Likewise.
+	* include/std/list: Likewise.
+	* include/std/string: Likewise.
+	* include/std/vector: Likewise.
+	* include/std/version: Likewise.
+	* testsuite/21_strings/basic_string/erasure.cc: Test macro.
+	* testsuite/23_containers/deque/erasure.cc: Likewise.
+	* testsuite/23_containers/forward_list/erasure.cc: Likewise.
+	* testsuite/23_containers/list/erasure.cc: Likewise.
+	* testsuite/23_containers/map/erasure.cc: Likewise.
+	* testsuite/23_containers/set/erasure.cc: Likewise.
+	* testsuite/23_containers/unordered_map/erasure.cc: Likewise.
+	* testsuite/23_containers/unordered_set/erasure.cc: Likewise.
+	* testsuite/23_containers/vector/erasure.cc: Likewise.
+
+	* include/experimental/internet [AI_NUMERICSERV]
+	(resolver_base::numeric_service): Define conditionally.
+	* testsuite/experimental/net/internet/resolver/base.cc: Test it
+	conditionally.
+	* testsuite/experimental/net/internet/resolver/ops/lookup.cc:
+	Likewise.
+
+2019-01-10  Ville Voutilainen  <ville.voutilainen@gmail.com>
+	    Jonathan Wakely  <jwakely@redhat.com>
+
+	Implement LWG 2221
+	* config/abi/pre/gnu.ver (GLIBCXX_3.4): Tighten patterns.
+	(GLIBCXX_3.4.26): Add new exports.
+	* include/Makefile.am: Add ostream-inst.cc. Move string-inst.cc to
+	correct list of sources.
+	* include/Makefile.in: Regenerate.
+	* include/std/ostream (operator<<(nullptr_t)): New member function.
+	* src/c++17/ostream-inst.cc: New file.
+	* testsuite/27_io/basic_ostream/inserters_other/char/lwg2221.cc: New
+	test.
+
+2019-01-10  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/util/testsuite_fs.h (nonexistent_path): Include name
+	of the source file containing the caller.
+	* testsuite/27_io/filesystem/iterators/directory_iterator.cc: Remove
+	directories created by test.
+	* testsuite/27_io/filesystem/iterators/recursive_directory_iterator.cc:
+	Likewise.
+	* testsuite/experimental/filesystem/iterators/directory_iterator.cc:
+	Likewise.
+	* testsuite/experimental/filesystem/iterators/
+	recursive_directory_iterator.cc: Likewise.
+
+2019-01-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/88775
+	* include/bits/stl_function.h (greater<_Tp*>::operator(),
+	less<_Tp*>::operator(), greater_equal<_Tp*>::operator(),
+	less_equal<_Tp*>::operator()): Use __builtin_is_constant_evaluated
+	instead of __builtin_constant_p if available.  Don't bother with
+	the pointer comparison in C++11 and earlier.
+
+2019-01-09  Sandra Loosemore  <sandra@codesourcery.com>
+
+	PR other/16615
+
+	* include/ext/bitmap_allocator.h: Mechanically replace "can not"
+	with "cannot".
+
 2019-01-09  Jonathan Wakely  <jwakely@redhat.com>
 
 	* testsuite/libstdc++-prettyprinters/cxx17.cc: Fix expected output

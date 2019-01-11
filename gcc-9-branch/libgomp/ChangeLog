@@ -1,3 +1,35 @@
+2019-01-11  Thomas Schwinge  <thomas@codesourcery.com>
+            James Norris  <jnorris@codesourcery.com>
+
+	* libgomp.texi: Better distinguish OpenACC and OpenMP "Runtime
+	Library Routines", and "Environment Variables".
+
+2019-01-11  Tom de Vries  <tdevries@suse.de>
+
+	* plugin/plugin-nvptx.c (nvptx_exec): Prevent vector_length 64 and
+	num_workers 16.
+
+2019-01-11  Tom de Vries  <tdevries@suse.de>
+
+	* testsuite/libgomp.oacc-c-c++-common/reduction-1.c: Remove
+	-foffload=-w.
+	* testsuite/libgomp.oacc-c-c++-common/reduction-2.c: Same.
+	* testsuite/libgomp.oacc-c-c++-common/reduction-3.c: Same.
+	* testsuite/libgomp.oacc-c-c++-common/reduction-4.c: Same.
+	* testsuite/libgomp.oacc-c-c++-common/reduction-5.c: Same.
+
+2019-01-11  Tom de Vries  <tdevries@suse.de>
+
+	* testsuite/libgomp.oacc-c-c++-common/insufficient-resources.c: New
+	test.
+
+2019-01-10  Nathan Sidwell  <nathan@acm.org>
+	    Julian Brown  <julian@codesourcery.com>
+
+	PR lto/71959
+	* testsuite/libgomp.oacc-c++/pr71959-aux.cc: New.
+	* testsuite/libgomp.oacc-c++/pr71959.C: New.
+
 2019-01-09  Sebastian Huber  <sebastian.huber@embedded-brains.de>
 
 	* config/rtems/bar.c: Include "../linux/bar.c" and delete copy
