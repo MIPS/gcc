@@ -27609,14 +27609,17 @@ do_auto_deduction (tree type, tree init, tree auto_node,
 
   /* Check any placeholder constraints against the deduced type.  */
   if (flag_concepts && !processing_template_decl)
-    if (tree constr = NON_ERROR (PLACEHOLDER_TYPE_CONSTRAINTS (auto_node)))
+    if (tree check = NON_ERROR (PLACEHOLDER_TYPE_CONSTRAINTS (auto_node)))
       {
         /* Use the deduced type to check the associated constraints. If we
            have a partial-concept-id, rebuild the argument list so that
            we check using the extra arguments. */
-      	gcc_assert (TREE_CODE (constr) == TEMPLATE_ID_EXPR);
-      	tree cdecl = TREE_OPERAND (constr, 0);
-        tree cargs = TREE_OPERAND (constr, 1);
+	check = unpack_concept_check (check);
+	gcc_assert (TREE_CODE (check) == TEMPLATE_ID_EXPR);
+	tree cdecl = TREE_OPERAND (check, 0);
+	if (OVL_P (cdecl))
+	  cdecl = OVL_FIRST (cdecl);
+        tree cargs = TREE_OPERAND (check, 1);
         if (TREE_VEC_LENGTH (cargs) > 1)
           {
             cargs = copy_node (cargs);
@@ -27626,9 +27629,9 @@ do_auto_deduction (tree type, tree init, tree auto_node,
           cargs = targs;
 
   	/* Rebuild the check using the deduced arguments.  */
-  	constr = build_concept_check (cdecl, cargs, tf_none);
+	check = build_concept_check (cdecl, cargs, tf_none);
 
-	if (!constraints_satisfied_p (constr, cargs))
+	if (!constraints_satisfied_p (check, cargs))
 	  {
 	    if (complain & tf_warning_or_error)
 	      {
@@ -27653,7 +27656,7 @@ do_auto_deduction (tree type, tree init, tree auto_node,
 			   "placeholder constraints");
 		    break;
 		  }
-		diagnose_constraints (input_location, constr, targs);
+		diagnose_constraints (input_location, check, targs);
 	      }
 	    return error_mark_node;
 	  }

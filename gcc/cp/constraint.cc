@@ -1055,16 +1055,19 @@ finish_template_introduction (tree tmpl_decl, tree intro_list)
 }
 
 
-/* Given the predicate constraint T from a constrained-type-specifier, extract
+/* Given the concept check T from a constrained-type-specifier, extract
    its TMPL and ARGS.  FIXME why do we need two different forms of
    constrained-type-specifier?  */
 
 void
 placeholder_extract_concept_and_args (tree t, tree &tmpl, tree &args)
 {
-  if (TREE_CODE (t) == TEMPLATE_ID_EXPR)
+  if (concept_check_p (t))
     {
+      t = unpack_concept_check (t);
       tmpl = TREE_OPERAND (t, 0);
+      if (TREE_CODE (tmpl) == OVERLOAD)
+        tmpl = OVL_FIRST (tmpl);
       args = TREE_OPERAND (t, 1);
       return;
     }

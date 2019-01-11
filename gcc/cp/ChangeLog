@@ -1,4 +1,12 @@
-2018-12-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2019-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix crashes when using function concepts and generalized auto.
+	* constraint.cc (placeholder_extract_concept_and_args): The check
+	can be a call expression. Use new facilities to unpack it.
+	* pt.c (do_auto_deduction): Extract the function concept correctly;
+	rename constr to check to reflect the kind of node.
+
+2019-01-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	* constraint.cc (satisfy_check): Don't rebuild multi-level template
 	arguments; we shouldn't need them after substituting through the
