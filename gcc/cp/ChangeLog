@@ -1,5 +1,13 @@
 2018-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Compare template requires-clauses for C++ < 20.
+	* pt.c (template_requirements_equivalent_p): New. Factored out of
+	template_heads_equivalent_p.
+	(template_heads_equivalent_p): Compare requires-clauses in both
+	paths.
+
+2018-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Don't warn on abbreviated templates for C++ < 20.
 	* parser.c (cp_parser_maybe_constrained_type_specifier): Update warning
 	condition.

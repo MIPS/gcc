@@ -3352,6 +3352,21 @@ template_parameter_lists_equivalent_p (const_tree parms1, const_tree parms2)
   return true;
 }
 
+/* Return true if the requires-clause of the template parameter lists are
+   equivalent and false otherwise.  */
+static bool
+template_requirements_equivalent_p (const_tree parms1, const_tree parms2)
+{
+  tree req1 = TEMPLATE_PARMS_CONSTRAINTS (parms1);
+  tree req2 = TEMPLATE_PARMS_CONSTRAINTS (parms2);
+  if ((req1 != NULL_TREE) != (req2 != NULL_TREE))
+    return false;
+  if (!cp_tree_equal (req1, req2))
+    return false;
+
+  return true;
+}
+
 /* Returns true if two template heads are equivalent. 17.6.6.1p6:
    Two template heads are equivalent if their template parameter
    lists are equivalent and their requires clauses are equivalent.
@@ -3367,7 +3382,13 @@ template_heads_equivalent_p (const_tree tmpl1, const_tree tmpl2)
 
   /* Don't change the matching rules for pre-C++20.  */
   if (cxx_dialect < cxx2a)
-    return comp_template_parms (parms1, parms2);
+  {
+    if (!comp_template_parms (parms1, parms2))
+      return false;
+
+    /* Use the template's requires-clause to differentiate.  */
+    return template_requirements_equivalent_p (parms1, parms2);
+  }
 
   /* ... have the same number of template parameters, and their
      corresponding parameters are equivalent.  */
@@ -3376,14 +3397,7 @@ template_heads_equivalent_p (const_tree tmpl1, const_tree tmpl2)
 
   /* ... if either has a requires-clause, they both do and their
      corresponding constraint-expressions are equivalent.  */
-  tree req1 = TEMPLATE_PARMS_CONSTRAINTS (parms1);
-  tree req2 = TEMPLATE_PARMS_CONSTRAINTS (parms2);
-  if ((req1 != NULL_TREE) != (req2 != NULL_TREE))
-    return false;
-  if (!cp_tree_equal (req1, req2))
-    return false;
-
-  return true;
+  return template_requirements_equivalent_p (parms1, parms2);
 }
 
 /* Determine whether PARM is a parameter pack.  */
