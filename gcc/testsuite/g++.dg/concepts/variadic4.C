@@ -7,13 +7,14 @@ template<typename...> struct list {};
 template<typename Seq>
 concept bool Sequence = true;
 
-template<Sequence... Seqs>
+template<Sequence... Seqs> // requires (Sequence<Seqs> && ...)
 struct zip;
 
 template<Sequence... Seqs>
-    requires requires { typename list<Seqs...>; }
-// main.cpp:12:8: internal compiler error: in non_atomic_constraint_p, at cp/logic.cc:315
-struct zip<Seqs...> {};
+    requires requires { typename list<Seqs...>; } // && (Sequence<Seqs> && ...)
+struct zip<Seqs...> {}; // { dg-error "does not specialize" }
+// The constraints of the specialization and the sequence are not
+// comparable; the specializations are unordered.
 
 int main()
 {

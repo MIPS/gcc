@@ -18,5 +18,5 @@ template<typename T>
 struct X { } x;
 
 int main() {
-  S2<X> s = x;
+  S2<X> s(0);
 }

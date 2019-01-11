@@ -1,9 +1,10 @@
 // PR c++/84330
+// { dg-do compile { target c++14 } }
 // { dg-options "-fconcepts" }
 
 struct A
 {
-  template<typename T> requires sizeof(T) >> 0 void foo(T);  // { dg-error "predicate constraint" }
+  template<typename T> requires sizeof(T) >> 0 void foo(T);
 
   void bar()
   {

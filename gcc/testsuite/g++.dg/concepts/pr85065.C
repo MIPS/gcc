@@ -3,4 +3,4 @@
 
 template<int> concept bool C = true;
 
-C c = 0;  // { dg-error "invalid reference to concept" }
+C c = 0;  // { dg-error "does not designate a type|does not name a type" }

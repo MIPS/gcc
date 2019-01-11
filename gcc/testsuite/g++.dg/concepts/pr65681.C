@@ -1,25 +1,26 @@
-// { dg-options "-std=c++2a" }
+// { dg-do compile { target c++17 } }
+// { dg-options "-fconcepts" }
 
 template<typename T>
-concept C = requires (T t) { t.mf(); };
+concept bool C = requires (T t) { t.mf(); };
 
 template<typename T>
-concept CA1 = C<typename T::ca1_type>;
+concept bool CA1 = C<typename T::ca1_type>;
 
 template<typename T>
-concept CA2 = CA1<T> && requires () { typename T::ca2_type; };
+concept bool CA2 = CA1<T> && requires () { typename T::ca2_type; };
 
 template<typename T>
-concept CA3 = CA2<T> && requires () { typename T::ca3_type; };
+concept bool CA3 = CA2<T> && requires () { typename T::ca3_type; };
 
 template<typename T>
-concept CB1 = requires () { typename T::cb1_type; };
+concept bool CB1 = requires () { typename T::cb1_type; };
 
 template<typename T>
-concept CB2 = CB1<T> && requires () { typename T::cb2_type; };
+concept bool CB2 = CB1<T> && requires () { typename T::cb2_type; };
 
 template<typename T>
-concept CB3 = CB2<T> && requires () { typename T::cb3_type; };
+concept bool CB3 = CB2<T> && requires () { typename T::cb3_type; };
 
 
 struct MC { void mf(); };
@@ -63,16 +64,6 @@ struct S<T1, T2> // Specialization #3
 {
   static constexpr int value = 3;
 };
-
-S<MA1,MB1> s11;
-S<MA1,MB2> s12;
-S<MA1,MB3> s13;
-S<MA2,MB1> s21;
-S<MA2,MB2> s22;
-S<MA2,MB3> s23;
-S<MA3,MB1> s31;
-S<MA3,MB2> s32;
-S<MA3,MB3> s33;
 
 static_assert(S<MA1,MB1>::value == 1, "");
 static_assert(S<MA1,MB2>::value == 2, "");

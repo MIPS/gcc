@@ -1,5 +1,22 @@
 2019-01-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Update tests, options, and diagnostics.
+	* g++dg/concepts/inherit-ctor3.C: Directly invoke the constructor.
+	* g++dg/concepts/placeholder2.C: Revert to use the concepts TS; also
+	make the test valid; there are no errors here.
+	* g++dg/concepts/placeholder6.C: Update diagnostics.
+	* g++dg/concepts/pr65681.C: Revert to use the concepts TS. Simplify
+	the test to only static assertions. (The test should be invalid).
+	* g++dg/concepts/pr71127.C: Update diagnostics.
+	* g++dg/concepts/pr71131.C: Likewise.
+	* g++dg/concepts/pr84330.C: Only for C++14 and later. Remove a
+	diagnostic that is no longer emitted.
+	* g++dg/concepts/pr85065.C: Update diagnostics.
+	* g++dg/concepts/variadic2.C: Add diagnostics for new error.
+	* g++dg/concepts/variadic4.C: Add diagnostics for new error.
+
+2019-01-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Make tests not fail.
 	* g++dg/concepts/generic-fn-err.C: XFail tests related to placeholders
 	using variadic concepts.
