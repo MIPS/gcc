@@ -1,5 +1,11 @@
 2019-01-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Diagnose introduction of non-types.
+	* parser.c (cp_parser_maybe_constrained_type_specifier): Emit
+	errors if a concept introduces a non-type placeholder.
+
+2019-01-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Disallow introduction of defaulted template parameters.
 	* constraint.cc (check_introduction_list): New. Fail if not enough
 	names are introduced.

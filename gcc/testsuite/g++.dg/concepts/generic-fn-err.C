@@ -10,10 +10,10 @@ template<int N>
 template<template<typename> class X>
   concept bool Template() { return true; }
 
-struct S { };
+void f1(Int) { }      // { dg-error "does not designate a type" }
+void f2(Template) { } // { dg-error "does not designate a type" }
 
-void f1(Int) { }      // { dg-error "" }
-void f2(Template) { } // { dg-error "" }
+struct S { };
 
 struct S1 {
   void f1(auto x) { }

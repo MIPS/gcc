@@ -1,5 +1,10 @@
 2019-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Add error diagnostics.
+	* g++dg/concepts/generic-fn-err.C: Add diagnostics for invalid cases.
+
+2019-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Update introduction tests.
 	* g++dg/concepts/intro4.C: Update diagnostics to match newer template 
 	introduction implementation.

@@ -18105,16 +18105,27 @@ cp_parser_maybe_constrained_type_specifier (cp_parser *parser,
 	  return make_constrained_auto (con, args);
         }
 
-
       /* Otherwise, this is a constrained type parameter.  */
       return build_constrained_parameter (con, proto, args);
+    }
+
+  /* In other contexts, concepts can only introduce types.
+     FIXME: In P1141, constrained-type-specifiers only introduce types,
+     so this needs to apply more broadly (i.e., check just after
+     deduction).  */
+  if (TREE_CODE (proto) != TYPE_DECL)
+    {
+      error_at (input_location, "%qE does not designate a type", con);
+      inform (DECL_SOURCE_LOCATION (proto), "prototype declared here");
+      return error_mark_node;
     }
 
   /* In a parameter-declaration-clause, constrained-type
      specifiers result in invented template parameters.  */
   if (parser->auto_is_implicit_function_template_parm_p)
     {
-      /* Allow `auto` after a concept-id.  */
+      /* Allow `auto` after a concept-id.
+         FIXME: P1141 requires this.  */
       if (cp_lexer_next_token_is_keyword (parser->lexer, RID_AUTO))
         cp_lexer_consume_token (parser->lexer);
       else if (cxx_dialect >= cxx2a && !flag_concepts_ts)
