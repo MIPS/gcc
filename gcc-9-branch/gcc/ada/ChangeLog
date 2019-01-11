@@ -1,3 +1,7 @@
+2010-06-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* gnat-style.texi: Change dircategory to GNU Ada tools.
+
 2019-01-08  Justin Squirek  <squirek@adacore.com>
 
 	Revert:
