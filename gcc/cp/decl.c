@@ -926,6 +926,17 @@ determine_local_discriminator (tree decl)
 static bool
 function_requirements_equivalent_p (tree newfn, tree oldfn)
 {
+  /* In the concepts TS, the combined constrains are compared.  */
+  if (cxx_dialect < cxx2a)
+    {
+      tree ci1 = get_constraints (newfn);
+      tree ci2 = get_constraints (newfn);
+      tree req1 = ci1 ? CI_ASSOCIATED_CONSTRAINTS (ci1) : nullptr;
+      tree req2 = ci2 ? CI_ASSOCIATED_CONSTRAINTS (ci2) : nullptr;
+      return cp_tree_equal (req1, req2);
+    }
+
+  /* Compare only trailing requirements.  */
   tree reqs1 = get_trailing_function_requirements (newfn);
   tree reqs2 = get_trailing_function_requirements (oldfn);
   if ((reqs1 != NULL_TREE) != (reqs2 != NULL_TREE))

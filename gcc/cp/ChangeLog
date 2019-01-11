@@ -1,5 +1,13 @@
 2018-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Update pre-C++20 declaration comparisons.
+	* decl.c (function_requirements_equivalent_p): Compare combined
+	constraints in pre-C++20 mode.
+	* pt.c (template_heads_equivalent_p): Revert pre-C++20 comparison so
+	that requirements are compared in decls_match.
+
+2018-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Compare template requires-clauses for C++ < 20.
 	* pt.c (template_requirements_equivalent_p): New. Factored out of
 	template_heads_equivalent_p.

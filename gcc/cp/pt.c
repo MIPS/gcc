@@ -3363,7 +3363,6 @@ template_requirements_equivalent_p (const_tree parms1, const_tree parms2)
     return false;
   if (!cp_tree_equal (req1, req2))
     return false;
-
   return true;
 }
 
@@ -3382,13 +3381,7 @@ template_heads_equivalent_p (const_tree tmpl1, const_tree tmpl2)
 
   /* Don't change the matching rules for pre-C++20.  */
   if (cxx_dialect < cxx2a)
-  {
-    if (!comp_template_parms (parms1, parms2))
-      return false;
-
-    /* Use the template's requires-clause to differentiate.  */
-    return template_requirements_equivalent_p (parms1, parms2);
-  }
+    return comp_template_parms (parms1, parms2);
 
   /* ... have the same number of template parameters, and their
      corresponding parameters are equivalent.  */
