@@ -2020,9 +2020,23 @@ get_normalized_constraints_from_decl (tree d)
   /* Get the complete multi-argument list for the declaration.  */
   tree args;
   if (TREE_CODE (decl) == TYPE_DECL)
-    args = CLASSTYPE_TI_ARGS (TREE_TYPE (decl));
+    {
+      tree type = TREE_TYPE (decl);
+      if (TREE_CODE (type) == TEMPLATE_TEMPLATE_PARM)
+	{
+	  tree templ = TEMPLATE_TEMPLATE_PARM_TEMPLATE_DECL (type);
+	  tree parms = DECL_TEMPLATE_PARMS (tmpl);
+	  args = template_parms_to_args (parms);
+	}
+      else
+	{
+	  args = CLASSTYPE_TI_ARGS (TREE_TYPE (decl));
+	}
+    }
   else
-    args = tmpl ? DECL_TI_ARGS (decl) : NULL_TREE;
+    {
+      args = tmpl ? DECL_TI_ARGS (decl) : NULL_TREE;
+    }
 
   /* Build an initial parameter mapping by replacing the innermost
      template arguments with those of the template declaration.  */

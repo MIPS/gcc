@@ -1,5 +1,11 @@
 2019-01-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Fix a crash extracting constraints from template template parameters.
+	* constraint.cc (get_normalized_constraints_from_decl): Handle
+	template template parameters.
+
+2019-01-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Fix function concept deduction bugs and comparison bug.
 	* constraint.cc (build_function_check): Always do overload resolution
 	in order to force conversion of template arguments (i.e., actually

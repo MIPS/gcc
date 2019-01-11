@@ -1,7 +1,6 @@
-// needs port; ICE on line 11
-// Conceptized version of template/ttp23.C
 // { dg-do compile { target c++17 } }
 // { dg-options "-fconcepts" }
+// Conceptized version of template/ttp23.C
 
 template <class T> concept bool Foo = true;
 
