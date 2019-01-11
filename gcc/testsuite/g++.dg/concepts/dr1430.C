@@ -1,4 +1,3 @@
-// needs fixed
 // PR c++/66092
 // { dg-do compile { target c++17 } }
 // { dg-options "-fconcepts" }
@@ -30,11 +29,11 @@ template <typename T, typename U, typename... Args>
   concept bool Similar = true;
 
 template <typename... Args>
-requires Same<Args...>() // { dg-error "invalid reference" }
+requires Same<Args...>() // { dg-error "pack expansion" }
   void foo( Args... args ) {}
 
 template <typename... Args>
-requires Similar<Args...> // { dg-error "invalid reference" }
+requires Similar<Args...> // { dg-error "pack expansion" }
   void bar( Args... args ) {}
 
 int main()

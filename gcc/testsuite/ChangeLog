@@ -1,5 +1,10 @@
 2018-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Update diagnostics.
+	* g++.dg/concepts/dr1430.C: Update diagnostics.
+
+2018-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Update diagnostics and build errors.
 	* g++.dg/concepts/decl-diagnose.C: Update diagnostics.
 
