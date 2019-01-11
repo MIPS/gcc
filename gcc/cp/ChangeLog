@@ -1,5 +1,14 @@
 2018-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Actually make nested requirements work.
+	* constraint.cc (tsubst_nested_requirement): Evaluate nested
+	requirements.
+	(satisfaction_value): Fold integer results into boolean values.
+	(satisfy_associated_constraints): Remove if 0'd code.
+	(diagnose_nested_requirement): Evaluate the right AST.
+
+2018-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Update pre-C++20 declaration comparisons.
 	* decl.c (function_requirements_equivalent_p): Compare combined
 	constraints in pre-C++20 mode.

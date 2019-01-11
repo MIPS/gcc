@@ -1290,6 +1290,14 @@ tsubst_nested_requirement (tree t, tree args, subst_info info)
   if (expr == error_mark_node)
     return error_mark_node;
 
+  /* Ensure that concrete results are satisfied.  */
+  if (!uses_template_parms (args))
+    {
+      expr = evaluate_constraints (expr, NULL_TREE);
+      if (expr != boolean_true_node)
+	return error_mark_node;
+    }
+
   return finish_nested_requirement (expr);
 }
 
@@ -1524,9 +1532,9 @@ satisfaction_value (tree t)
   if (t == error_mark_node)
     return t;
   if (t == boolean_true_node || t == integer_one_node)
-    return t;
+    return boolean_true_node;
   if (t == boolean_false_node || t == integer_zero_node)
-    return t;
+    return boolean_false_node;
 
   /* Anything else should be invalid.  */
   gcc_assert (false);
@@ -1646,16 +1654,6 @@ satisfy_associated_constraints (tree ci, tree args)
     return boolean_true_node;
 
   return satisfy_constraint (CI_ASSOCIATED_CONSTRAINTS (ci), args);
-
-#if 0
-  /* Check if we've seen a previous result. */
-  if (tree prev = lookup_constraint_satisfaction (ci, args))
-    return prev;
-
-  /* Actually test for satisfaction. */
-  tree result = satisfy_constraint (CI_ASSOCIATED_CONSTRAINTS (ci), args);
-  return memoize_constraint_satisfaction (ci, args, result);
-#endif
 }
 
 /* Evaluate the given constraint, returning boolean_true_node if the
@@ -2376,7 +2374,7 @@ static void
 diagnose_nested_requirement (tree req, tree args)
 {
   tree expr = TREE_OPERAND (req, 0);
-  if (constraints_satisfied_p (req, args))
+  if (constraints_satisfied_p (expr, args))
     return;
   location_t loc = get_constraint_location (expr);
   inform (loc, "nested requirement %qE is not satisfied", expr);

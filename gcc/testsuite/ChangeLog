@@ -1,6 +1,12 @@
 2018-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Update tests.
+	* g++dg/concepts/expression2.C: Add error about private member. This
+	is emitted during diagnostics; fix typos.
+
+2018-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Update tests.
 	* g++.dg/concepts/equiv.C: Change compile test to link test.
 	* g++.dg/concepts/equiv2.C: Change run test to link test; update
 	examples to match the independent binding rule.

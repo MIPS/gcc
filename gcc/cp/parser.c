@@ -26942,7 +26942,6 @@ cp_parser_compound_requirement (cp_parser *parser)
 static tree
 cp_parser_nested_requirement (cp_parser *parser)
 {
-  // FIXME: Make sure that this is the right token.
   gcc_assert (cp_lexer_next_token_is_keyword (parser->lexer, RID_REQUIRES));
   cp_lexer_consume_token (parser->lexer);
   tree req = cp_parser_constraint_expression (parser);
