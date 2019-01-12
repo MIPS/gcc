@@ -1161,7 +1161,7 @@ edge_badness (struct cgraph_edge *edge, bool dump)
 	      overall_growth = caller_growth;
 	    }
 	}
-      if (0 && overall_growth > 0)
+      if (overall_growth > 0)
         {
 	  /* Strongly preffer functions with few callers that can be inlined
 	     fully.  The square root here leads to smaller binaries at average.
@@ -1173,7 +1173,7 @@ edge_badness (struct cgraph_edge *edge, bool dump)
 	    overall_growth += 256 * 256 - 256;
 	  denominator *= overall_growth;
         }
-      /*denominator *= ipa_fn_summaries->get (caller)->self_size + growth;*/
+      denominator *= ipa_fn_summaries->get (caller)->self_size + growth;
 
       badness = - numerator / denominator;
 
