@@ -932,8 +932,8 @@ function_requirements_equivalent_p (tree newfn, tree oldfn)
     {
       tree ci1 = get_constraints (oldfn);
       tree ci2 = get_constraints (newfn);
-      tree req1 = ci1 ? CI_ASSOCIATED_CONSTRAINTS (ci1) : nullptr;
-      tree req2 = ci2 ? CI_ASSOCIATED_CONSTRAINTS (ci2) : nullptr;
+      tree req1 = ci1 ? CI_ASSOCIATED_CONSTRAINTS (ci1) : NULL_TREE;
+      tree req2 = ci2 ? CI_ASSOCIATED_CONSTRAINTS (ci2) : NULL_TREE;
       return cp_tree_equal (req1, req2);
     }
 

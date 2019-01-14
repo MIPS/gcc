@@ -414,7 +414,7 @@ normalize_logical_operation (tree t, tree args, tree_code c, subst_info info)
 }
 
 static tree
-normalize_concept_check (tree check, tree args, subst_info info)
+normalize_concept_check (tree check, tree /*args*/, subst_info info)
 {
   tree id = unpack_concept_check (check);
   tree tmpl = TREE_OPERAND (id, 0);
@@ -2056,7 +2056,7 @@ get_normalized_constraints_from_decl (tree d)
       if (TREE_CODE (type) == TEMPLATE_TEMPLATE_PARM)
 	{
 	  tree templ = TEMPLATE_TEMPLATE_PARM_TEMPLATE_DECL (type);
-	  tree parms = DECL_TEMPLATE_PARMS (tmpl);
+	  tree parms = DECL_TEMPLATE_PARMS (templ);
 	  args = template_parms_to_args (parms);
 	}
       else
