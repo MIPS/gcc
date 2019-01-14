@@ -108,6 +108,10 @@ enum function_shape {
      sv<t0>_t svfoo[_n_t0](sv<t0>_t, <t0>_t).  */
   SHAPE_binary_opt_n,
 
+  /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t, sv<t0>_t)
+     sv<t0>_t svfoo[_n_t0](sv<t0>_t, sv<t0>_t, <t0>_t).  */
+  SHAPE_ternary_opt_n,
+
   /* sv<t0>_t svfoo[_n_t0])(sv<t0>_t, uint64_t)
 
      The final argument must be an integer constant expression in the
@@ -153,7 +157,11 @@ enum function {
   FUNC_svdup,
   FUNC_svindex,
   FUNC_svmax,
+  FUNC_svmad,
   FUNC_svmin,
+  FUNC_svmla,
+  FUNC_svmls,
+  FUNC_svmsb,
   FUNC_svmul,
   FUNC_svptrue,
   FUNC_svqadd,
@@ -298,6 +306,8 @@ private:
   void scalar_sig_000 (const function_instance &, vec<tree> &);
   void sig_000 (const function_instance &, vec<tree> &);
   void sig_n_000 (const function_instance &, vec<tree> &);
+  void sig_0000 (const function_instance &, vec<tree> &);
+  void sig_n_0000 (const function_instance &, vec<tree> &);
   void sig_n_00i (const function_instance &, vec<tree> &);
 
   void apply_predication (const function_instance &, vec<tree> &);
@@ -436,6 +446,10 @@ private:
   rtx expand_index ();
   rtx expand_max ();
   rtx expand_min ();
+  rtx expand_mad (unsigned int);
+  rtx expand_msb (unsigned int);
+  rtx expand_mla ();
+  rtx expand_mls ();
   rtx expand_mul ();
   rtx expand_ptrue ();
   rtx expand_qadd ();
@@ -744,6 +758,12 @@ arm_sve_h_builder::build (const function_group &group)
       build_all (&arm_sve_h_builder::sig_n_000, group, MODE_n);
       break;
 
+    case SHAPE_ternary_opt_n:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_0000, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_n_0000, group, MODE_n);
+      break;
+
     case SHAPE_inherent:
       /* No overloaded functions here.  */
       build_all (&arm_sve_h_builder::sig_inherent, group, MODE_none);
@@ -821,6 +841,16 @@ arm_sve_h_builder::sig_000 (const function_instance &instance,
     types.quick_push (instance.vector_type (0));
 }
 
+/* Describe the signature "sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t, sv<t0>_t)"
+   for INSTANCE in TYPES.  */
+void
+arm_sve_h_builder::sig_0000 (const function_instance &instance,
+			    vec<tree> &types)
+{
+  for (unsigned int i = 0; i < 4; ++i)
+    types.quick_push (instance.vector_type (0));
+}
+
 /* Describe the signature "sv<t0>_t svfoo[_n_t0](sv<t0>_t, <t0>_t)"
    for INSTANCE in TYPES.  */
 void
@@ -828,6 +858,17 @@ arm_sve_h_builder::sig_n_000 (const function_instance &instance,
 			      vec<tree> &types)
 {
   for (unsigned int i = 0; i < 2; ++i)
+    types.quick_push (instance.vector_type (0));
+  types.quick_push (instance.scalar_type (0));
+}
+
+/* Describe the signature "sv<t0>_t svfoo[_n_t0](sv<t0>_t, sv<t0>_t, <t0>_t)"
+   for INSTANCE in TYPES.  */
+void
+arm_sve_h_builder::sig_n_0000 (const function_instance &instance,
+			      vec<tree> &types)
+{
+  for (unsigned int i = 0; i < 3; ++i)
     types.quick_push (instance.vector_type (0));
   types.quick_push (instance.scalar_type (0));
 }
@@ -989,7 +1030,11 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svdup:
     case FUNC_svindex:
     case FUNC_svmax:
+    case FUNC_svmad:
     case FUNC_svmin:
+    case FUNC_svmla:
+    case FUNC_svmls:
+    case FUNC_svmsb:
     case FUNC_svmul:
     case FUNC_svqadd:
     case FUNC_svqsub:
@@ -1031,6 +1076,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_binary_scalar:
       return 1;
     case SHAPE_binary_opt_n:
+    case SHAPE_ternary_opt_n:
     case SHAPE_shift_right_imm:
       return 0;
     }
@@ -1098,6 +1144,8 @@ function_resolver::resolve ()
     {
     case SHAPE_binary_opt_n:
       return resolve_uniform (2);
+    case SHAPE_ternary_opt_n:
+      return resolve_uniform (3);
     case SHAPE_shift_right_imm:
       return resolve_uniform_imm (2, 1);
     case SHAPE_unary_n:
@@ -1383,6 +1431,7 @@ function_checker::check ()
     case SHAPE_inherent:
     case SHAPE_binary_opt_n:
     case SHAPE_binary_scalar:
+    case SHAPE_ternary_opt_n:
       return true;
     }
   gcc_unreachable ();
@@ -1567,7 +1616,11 @@ gimple_folder::fold ()
     case FUNC_svdup:
     case FUNC_svindex:
     case FUNC_svmax:
+    case FUNC_svmad:
     case FUNC_svmin:
+    case FUNC_svmla:
+    case FUNC_svmls:
+    case FUNC_svmsb:
     case FUNC_svmul:
     case FUNC_svqadd:
     case FUNC_svqsub:
@@ -1647,8 +1700,20 @@ function_expander::expand ()
     case FUNC_svmax:
       return expand_max ();
 
+    case FUNC_svmad:
+      return expand_mad (1);
+
     case FUNC_svmin:
       return expand_min ();
+
+    case FUNC_svmla:
+      return expand_mla ();
+
+    case FUNC_svmls:
+      return expand_mls ();
+
+    case FUNC_svmsb:
+      return expand_msb (1);
 
     case FUNC_svmul:
       return expand_mul ();
@@ -1745,6 +1810,94 @@ rtx
 function_expander::expand_min ()
 {
   return expand_signed_pred_op (SMIN, UMIN, UNSPEC_COND_FMIN);
+}
+
+/* Expand a call to svmad.
+   svmad (pg, a, b, c) maps directly to cond_fma_optab and aarch64_pred_fma
+   with the same operand order:
+   op2 -> a
+   op3 -> b
+   op4 -> c
+   and then:
+   op5 -> a
+   MERGE_ARGNO is the argument that should be used as the fallback
+   value in a merging operation.  */
+rtx
+function_expander::expand_mad (unsigned int merge_argno)
+{
+  if (m_fi.pred == PRED_x)
+    {
+      insn_code icode;
+      if (type_suffixes[m_fi.types[0]].integer_p)
+	icode = code_for_aarch64_pred_fma (get_mode (0));
+      else
+	icode = code_for_aarch64_pred (UNSPEC_COND_FMLA, get_mode (0));
+      return expand_via_pred_x_insn (icode);
+    }
+  else
+    return expand_via_pred_direct_optab (cond_fma_optab, merge_argno);
+}
+
+/* Expand a call to svmsb.
+   svmsb (pg, a, b, c) maps directly to cond_fnma_optab and aarch64_pred_fnma
+   with the same operand order:
+   op2 -> a
+   op3 -> b
+   op4 -> c
+   and then:
+   op5 -> a
+   MERGE_ARGNO is the argument that should be used as the fallback
+   value in a merging operation.  */
+rtx
+function_expander::expand_msb (unsigned int merge_argno)
+{
+  if (m_fi.pred == PRED_x)
+    {
+      insn_code icode;
+      if (type_suffixes[m_fi.types[0]].integer_p)
+	icode = code_for_aarch64_pred_fnma (get_mode (0));
+      else
+	icode = code_for_aarch64_pred (UNSPEC_COND_FMLS, get_mode (0));
+      return expand_via_pred_x_insn (icode);
+    }
+  else
+    return expand_via_pred_direct_optab (cond_fnma_optab, merge_argno);
+}
+
+/* Expand a call to svmla.
+   svmla (pg, a, b, c) reorders the operands so that the
+   accumulator comes last, and then uses cond_fma_optab/aarch64_pred_fma:
+   op2 -> b
+   op3 -> c
+   op4 -> a
+   and then:
+   op5 -> a.  */
+rtx
+function_expander::expand_mla ()
+{
+  rtx t = m_args[1];
+  m_args[1] = m_args[2];
+  m_args[2] = m_args[3];
+  m_args[3] = t;
+  return expand_mad (3);
+}
+
+/* Expand a call to svmls.
+   svmls (pg, a, b, c) reorders the operands so that the
+   accumulator comes last, and then uses cond_fnma_optab/aacrh64_pred_fnma:
+   op2 -> b
+   op3 -> c
+   op4 -> a
+   and then:
+   op5 -> a.  */
+rtx
+function_expander::expand_mls ()
+{
+  rtx t = m_args[1];
+  m_args[1] = m_args[2];
+  m_args[2] = m_args[3];
+  m_args[3] = t;
+  return expand_msb (3);
 }
 
 /* Expand a call to svmul.  */
