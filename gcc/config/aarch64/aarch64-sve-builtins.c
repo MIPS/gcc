@@ -101,6 +101,9 @@ enum function_shape {
   /* sv<t0>_t svfoo[_n]_t0(<t0>_t).  */
   SHAPE_unary_n,
 
+  /* sv<t0>_t svfoo[_t0](sv<t0>_t).  */
+  SHAPE_unary,
+
   /* sv<t0>_t svfoo_t0(<t0>_t, <t0>_t).  */
   SHAPE_binary_scalar,
 
@@ -151,6 +154,7 @@ typedef enum type_suffix type_suffix_pair[2];
 
 /* Enumerates the function base names, such as "svadd".  */
 enum function {
+  FUNC_svabs,
   FUNC_svabd,
   FUNC_svadd,
   FUNC_svasrd,
@@ -163,9 +167,12 @@ enum function {
   FUNC_svmls,
   FUNC_svmsb,
   FUNC_svmul,
+  FUNC_svneg,
+  FUNC_svnot,
   FUNC_svptrue,
   FUNC_svqadd,
   FUNC_svqsub,
+  FUNC_svsqrt,
   FUNC_svsub,
   FUNC_svsubr
 };
@@ -302,6 +309,7 @@ private:
   void build_all (function_signature, const function_group &, function_mode,
 		  bool = false);
   void sig_inherent (const function_instance &, vec<tree> &);
+  void sig_00 (const function_instance &, vec<tree> &);
   void sig_n_00 (const function_instance &, vec<tree> &);
   void scalar_sig_000 (const function_instance &, vec<tree> &);
   void sig_000 (const function_instance &, vec<tree> &);
@@ -440,6 +448,7 @@ public:
 
 private:
   rtx expand_abd ();
+  rtx expand_abs ();
   rtx expand_add (unsigned int);
   rtx expand_asrd ();
   rtx expand_dup ();
@@ -451,11 +460,15 @@ private:
   rtx expand_mla ();
   rtx expand_mls ();
   rtx expand_mul ();
+  rtx expand_neg ();
+  rtx expand_not ();
   rtx expand_ptrue ();
   rtx expand_qadd ();
   rtx expand_qsub ();
+  rtx expand_sqrt ();
   rtx expand_sub (bool);
 
+  rtx expand_pred_op (rtx_code, int);
   rtx expand_signed_pred_op (rtx_code, rtx_code, int);
   rtx expand_signed_pred_op (int, int, int);
   rtx expand_via_unpred_direct_optab (optab);
@@ -556,6 +569,11 @@ static const type_suffix_info type_suffixes[NUM_TYPE_SUFFIXES + 1] = {
 #define TYPES_all_data(S, D) \
   TYPES_all_float (S, D), TYPES_all_integer (S, D)
 
+/*     _f16 _f32 _f64
+   _s8 _s16 _s32 _s64.  */
+#define TYPES_all_signed_and_float(S, D) \
+  TYPES_all_float (S, D), TYPES_all_signed (S, D)
+
 /* Describe a pair of type suffixes in which only the first is used.  */
 #define DEF_VECTOR_TYPE(X) { TYPE_SUFFIX_ ## X, NUM_TYPE_SUFFIXES }
 
@@ -576,6 +594,7 @@ DEF_SVE_TYPES_ARRAY (all_signed);
 DEF_SVE_TYPES_ARRAY (all_float);
 DEF_SVE_TYPES_ARRAY (all_integer);
 DEF_SVE_TYPES_ARRAY (all_data);
+DEF_SVE_TYPES_ARRAY (all_signed_and_float);
 
 /* Used by functions in aarch64-sve-builtins.def that have no governing
    predicate.  */
@@ -744,6 +763,11 @@ arm_sve_h_builder::build (const function_group &group)
 {
   switch (group.shape)
     {
+    case SHAPE_unary:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_00, group, MODE_none);
+      break;
+
     case SHAPE_unary_n:
       build_all (&arm_sve_h_builder::sig_n_00, group, MODE_n, true);
       break;
@@ -810,11 +834,21 @@ arm_sve_h_builder::sig_inherent (const function_instance &instance,
   types.quick_push (instance.vector_type (0));
 }
 
+/* Describe the signature "sv<t0>_t svfoo[_t0](sv<t0>_t)"
+   for INSTANCE in TYPES.  */
+void
+arm_sve_h_builder::sig_00 (const function_instance &instance,
+			   vec<tree> &types)
+{
+  types.quick_push (instance.vector_type (0));
+  types.quick_push (instance.vector_type (0));
+}
+
 /* Describe the signature "sv<t0>_t svfoo[_n_t0](<t0>_t)"
    for INSTANCE in TYPES.  */
 void
 arm_sve_h_builder::sig_n_00 (const function_instance &instance,
-			      vec<tree> &types)
+			     vec<tree> &types)
 {
   types.quick_push (instance.vector_type (0));
   types.quick_push (instance.scalar_type (0));
@@ -1025,6 +1059,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
   switch (function_groups[instance.group].func)
     {
     case FUNC_svabd:
+    case FUNC_svabs:
     case FUNC_svadd:
     case FUNC_svasrd:
     case FUNC_svdup:
@@ -1036,8 +1071,11 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svmls:
     case FUNC_svmsb:
     case FUNC_svmul:
+    case FUNC_svneg:
+    case FUNC_svnot:
     case FUNC_svqadd:
     case FUNC_svqsub:
+    case FUNC_svsqrt:
     case FUNC_svsub:
     case FUNC_svsubr:
       if (type_suffixes[instance.types[0]].integer_p)
@@ -1075,6 +1113,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_unary_n:
     case SHAPE_binary_scalar:
       return 1;
+    case SHAPE_unary:
     case SHAPE_binary_opt_n:
     case SHAPE_ternary_opt_n:
     case SHAPE_shift_right_imm:
@@ -1142,6 +1181,8 @@ function_resolver::resolve ()
 {
   switch (m_group.shape)
     {
+    case SHAPE_unary:
+      return resolve_uniform (1);
     case SHAPE_binary_opt_n:
       return resolve_uniform (2);
     case SHAPE_ternary_opt_n:
@@ -1228,10 +1269,24 @@ function_resolver::check_first_vector_argument (unsigned int nops,
   nargs = nops;
   type = NUM_VECTOR_TYPES;
 
+  /* For unary merge operations, the first argument is a vector with
+     the same type as the result.  */
+  if (nops == 1 && m_rfn.instance.pred == PRED_m)
+    nargs += 1;
   if (m_rfn.instance.pred != PRED_none)
     nargs += 1;
   if (!check_num_arguments (nargs))
     return false;
+
+  /* For unary merge operations, the first argument is a vector with
+     the same type as the result.  */
+  if (nops == 1 && m_rfn.instance.pred == PRED_m)
+    {
+      type = require_vector_type (i);
+      if (type == NUM_VECTOR_TYPES)
+	return false;
+      i += 1;
+    }
 
   /* Check the predicate argument.  */
   if (m_rfn.instance.pred != PRED_none)
@@ -1241,11 +1296,13 @@ function_resolver::check_first_vector_argument (unsigned int nops,
       i += 1;
     }
 
-  /* The next argument is always a vector.  */
-  type = require_vector_type (i);
   if (type == NUM_VECTOR_TYPES)
-    return false;
-
+    {
+      /* The next argument is always a vector.  */
+      type = require_vector_type (i);
+      if (type == NUM_VECTOR_TYPES)
+	return false;
+    }
   return true;
 }
 
@@ -1427,6 +1484,7 @@ function_checker::check ()
     case SHAPE_shift_right_imm:
       return check_shift_right_imm ();
 
+    case SHAPE_unary:
     case SHAPE_unary_n:
     case SHAPE_inherent:
     case SHAPE_binary_opt_n:
@@ -1611,6 +1669,7 @@ gimple_folder::fold ()
   switch (m_group.func)
     {
     case FUNC_svabd:
+    case FUNC_svabs:
     case FUNC_svadd:
     case FUNC_svasrd:
     case FUNC_svdup:
@@ -1622,8 +1681,11 @@ gimple_folder::fold ()
     case FUNC_svmls:
     case FUNC_svmsb:
     case FUNC_svmul:
+    case FUNC_svneg:
+    case FUNC_svnot:
     case FUNC_svqadd:
     case FUNC_svqsub:
+    case FUNC_svsqrt:
     case FUNC_svsub:
     case FUNC_svsubr:
       return NULL;
@@ -1685,6 +1747,9 @@ function_expander::expand ()
     case FUNC_svabd:
       return expand_abd ();
 
+    case FUNC_svabs:
+      return expand_abs ();
+
     case FUNC_svadd:
       return expand_add (1);
 
@@ -1718,6 +1783,12 @@ function_expander::expand ()
     case FUNC_svmul:
       return expand_mul ();
 
+    case FUNC_svneg:
+      return expand_neg ();
+
+    case FUNC_svnot:
+      return expand_not ();
+
     case FUNC_svptrue:
       return expand_ptrue ();
 
@@ -1726,6 +1797,9 @@ function_expander::expand ()
 
     case FUNC_svqsub:
       return expand_qsub ();
+
+    case FUNC_svsqrt:
+      return expand_sqrt ();
 
     case FUNC_svsub:
       return expand_sub (false);
@@ -1742,6 +1816,13 @@ function_expander::expand_abd ()
 {
   return expand_signed_pred_op (UNSPEC_COND_SABD, UNSPEC_COND_UABD,
 				UNSPEC_COND_FABD);
+}
+
+/* Expand a call to svabs.  */
+rtx
+function_expander::expand_abs ()
+{
+  return expand_pred_op (ABS, UNSPEC_COND_FABS);
 }
 
 /* Expand a call to svadd, or svsub(r) with a negated operand.
@@ -1913,6 +1994,20 @@ function_expander::expand_mul ()
     return expand_via_pred_direct_optab (cond_smul_optab);
 }
 
+/* Expand a call to svneg.  */
+rtx
+function_expander::expand_neg ()
+{
+  return expand_pred_op (NEG, UNSPEC_COND_FNEG);
+}
+
+/* Expand a call to svnot.  */
+rtx
+function_expander::expand_not ()
+{
+  return expand_pred_op (NOT, -1);
+}
+
 /* Expand a call to sqadd.  */
 rtx
 function_expander::expand_qadd ()
@@ -1940,6 +2035,14 @@ function_expander::expand_ptrue ()
   for (unsigned int i = 1; i < num_bytes; ++i)
     builder.quick_push (const0_rtx);
   return builder.build ();
+}
+
+/* Expand a call to svsqrt.  */
+rtx
+function_expander::expand_sqrt ()
+{
+  gcc_checking_assert (!type_suffixes[m_fi.types[0]].integer_p);
+  return expand_pred_op (UNKNOWN, UNSPEC_COND_FSQRT);
 }
 
 /* Expand a call to svsub or svsubr; REVERSED_P says which.  */
@@ -2089,6 +2192,19 @@ function_expander::expand_via_pred_x_insn (insn_code icode)
     }
 
   return generate_insn (icode);
+}
+
+/* Implement the call using an @aarch64_pred instruction for _x
+   predication and a @cond instruction for _z and _m predication.
+   The integer instructions are parameterized by an rtx_code while
+   the floating-point instructions are parameterized by an unspec code.
+   CODE is the rtx code to use for integer operations and UNSPEC_COND
+   is the unspec code to use for floating-point operations.  There is
+   no distinction between signed and unsigned operations.  */
+rtx
+function_expander::expand_pred_op (rtx_code code, int unspec_cond)
+{
+  return expand_signed_pred_op (code, code, unspec_cond);
 }
 
 /* Implement the call using an @aarch64_cond instruction for _x

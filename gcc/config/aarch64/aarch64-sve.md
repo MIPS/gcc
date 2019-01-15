@@ -1270,8 +1270,8 @@
   }
 )
 
-;; NEG, NOT and POPCOUNT predicated with a PTRUE.
-(define_insn "*<optab><mode>2"
+;; NEG, NOT, ABS and POPCOUNT predicated with a PTRUE.
+(define_insn "@aarch64_pred_<optab><mode>"
   [(set (match_operand:SVE_I 0 "register_operand" "=w")
 	(unspec:SVE_I
 	  [(match_operand:<VPRED> 1 "register_operand" "Upl")
@@ -1280,6 +1280,22 @@
 	  UNSPEC_MERGE_PTRUE))]
   "TARGET_SVE"
   "<sve_int_op>\t%0.<Vetype>, %1/m, %2.<Vetype>"
+)
+
+;; Predicated NEG, NOT, ABS and POPCOUNT with select.
+(define_insn "@cond_<optab><mode>"
+  [(set (match_operand:SVE_I 0 "register_operand" "=w, &w, ?&w")
+	(unspec:SVE_I
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl, Upl")
+	   (SVE_INT_UNARY:SVE_I (match_operand:SVE_I 2 "register_operand" "w, w, w"))
+	   (match_operand:SVE_I 3 "aarch64_simd_reg_or_zero" "0, Dz, w")]
+	  UNSPEC_SEL))]
+  "TARGET_SVE"
+  "@
+   <sve_int_op>\t%0.<Vetype>, %1/m, %2.<Vetype>
+   movprfx\t%0.<Vetype>, %1/z, %0.<Vetype>\;<sve_int_op>\t%0.<Vetype>, %1/m, %2.<Vetype>
+   movprfx\t%0, %3\;<sve_int_op>\t%0.<Vetype>, %1/m, %2.<Vetype>"
+  [(set_attr "movprfx" "*,yes,yes")]
 )
 
 ;; Vector AND, ORR and XOR.
@@ -2864,23 +2880,43 @@
   [(set (match_operand:SVE_F 0 "register_operand")
 	(unspec:SVE_F
 	  [(match_dup 2)
-	   (SVE_FP_UNARY:SVE_F (match_operand:SVE_F 1 "register_operand"))]
-	  UNSPEC_MERGE_PTRUE))]
+	   (const_int SVE_ALLOW_NEW_FAULTS)
+	   (match_operand:SVE_F 1 "register_operand")]
+	  SVE_COND_FP_UNARY))]
   "TARGET_SVE"
   {
     operands[2] = force_reg (<VPRED>mode, CONSTM1_RTX (<VPRED>mode));
   }
 )
 
-;; FNEG, FABS and FSQRT predicated with a PTRUE.
-(define_insn "*<optab><mode>2"
+;; Predicated FNEG, FABS and FSQRT.
+(define_insn "@aarch64_pred_<optab><mode>"
   [(set (match_operand:SVE_F 0 "register_operand" "=w")
 	(unspec:SVE_F
 	  [(match_operand:<VPRED> 1 "register_operand" "Upl")
-	   (SVE_FP_UNARY:SVE_F (match_operand:SVE_F 2 "register_operand" "w"))]
-	  UNSPEC_MERGE_PTRUE))]
+	   (match_operand:SI 3 "const_int_operand" "i")
+	   (match_operand:SVE_F 2 "register_operand" "w")]
+	  SVE_COND_FP_UNARY))]
   "TARGET_SVE"
   "<sve_fp_op>\t%0.<Vetype>, %1/m, %2.<Vetype>"
+)
+
+;; Predicated FNEG, FABS and FSQRT with select.
+(define_insn "@cond_<optab><mode>"
+  [(set (match_operand:SVE_F 0 "register_operand" "=w, &w, ?&w")
+	(unspec:SVE_F
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl, Upl")
+	   (unspec:SVE_F
+	     [(match_operand:SVE_F 2 "register_operand" "w, w, w")]
+	     SVE_COND_FP_UNARY)
+	   (match_operand:SVE_F 3 "aarch64_simd_reg_or_zero" "0, Dz, w")]
+	  UNSPEC_SEL))]
+  "TARGET_SVE"
+  "@
+   <sve_fp_op>\t%0.<Vetype>, %1/m, %2.<Vetype>
+   movprfx\t%0.<Vetype>, %1/z, %0.<Vetype>\;<sve_fp_op>\t%0.<Vetype>, %1/m, %2.<Vetype>
+   movprfx\t%0, %3\;<sve_fp_op>\t%0.<Vetype>, %1/m, %2.<Vetype>"
+  [(set_attr "movprfx" "*,yes,yes")]
 )
 
 ;; Unpredicated FRINTy.

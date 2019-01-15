@@ -465,6 +465,9 @@
     UNSPEC_XORF		; Used in aarch64-sve.md.
     UNSPEC_SMUL_HIGHPART ; Used in aarch64-sve.md.
     UNSPEC_UMUL_HIGHPART ; Used in aarch64-sve.md.
+    UNSPEC_COND_FABS	; Used in aarch64-sve.md.
+    UNSPEC_COND_FNEG	; Used in aarch64-sve.md.
+    UNSPEC_COND_FSQRT	; Used in aarch64-sve.md.
     UNSPEC_COND_ADD	; Used in aarch64-sve.md.
     UNSPEC_COND_SUB	; Used in aarch64-sve.md.
     UNSPEC_COND_SABD	; Used in aarch64-sve.md.
@@ -1214,7 +1217,7 @@
 (define_code_iterator FAC_COMPARISONS [lt le ge gt])
 
 ;; SVE integer unary operations.
-(define_code_iterator SVE_INT_UNARY [neg not popcount])
+(define_code_iterator SVE_INT_UNARY [neg not popcount abs])
 
 ;; SVE floating-point unary operations.
 (define_code_iterator SVE_FP_UNARY [neg abs sqrt])
@@ -1412,6 +1415,7 @@
 			      (ior "orr")
 			      (xor "eor")
 			      (not "not")
+			      (abs "abs")
 			      (popcount "cnt")])
 
 (define_code_attr sve_int_op_rev [(plus "add")
@@ -1582,6 +1586,10 @@
 (define_int_iterator SVE_COND_MAXMIN [UNSPEC_COND_FMAXNM UNSPEC_COND_FMINNM
 				      UNSPEC_COND_FMAX UNSPEC_COND_FMIN])
 
+(define_int_iterator SVE_COND_FP_UNARY [UNSPEC_COND_FABS
+					UNSPEC_COND_FNEG
+				        UNSPEC_COND_FSQRT])
+
 (define_int_iterator SVE_COND_IABD [UNSPEC_COND_SABD UNSPEC_COND_UABD])
 (define_int_iterator SVE_COND_FABD [UNSPEC_COND_FABD])
 
@@ -1617,6 +1625,9 @@
 			(UNSPEC_ANDV "and")
 			(UNSPEC_IORV "ior")
 			(UNSPEC_XORV "xor")
+			(UNSPEC_COND_FABS "abs")
+			(UNSPEC_COND_FNEG "neg")
+			(UNSPEC_COND_FSQRT "sqrt")
 			(UNSPEC_COND_MUL "mul")
 			(UNSPEC_COND_DIV "div")
 			(UNSPEC_COND_FMAX "smax_nan")
@@ -1865,6 +1876,9 @@
 
 (define_int_attr sve_fp_op [(UNSPEC_COND_MUL "fmul")
 			    (UNSPEC_COND_DIV "fdiv")
+			    (UNSPEC_COND_FABS "fabs")
+			    (UNSPEC_COND_FNEG "fneg")
+			    (UNSPEC_COND_FSQRT "fsqrt")
 			    (UNSPEC_COND_FMAX "fmax")
 			    (UNSPEC_COND_FMIN "fmin")
 			    (UNSPEC_COND_FMAXNM "fmaxnm")
