@@ -7480,6 +7480,9 @@
       break;
     }
 
+  output_asm_insn (".reloc\t1f,R_NANOMIPS_JUMPTABLE_LOAD,%1\n1:\t",
+		  operands);
+
   switch (GET_MODE (diff_vec))
     {
     case QImode:

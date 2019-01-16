@@ -1,8 +1,3 @@
-/* Test jump-table-opt link-time relaxation.  */
-/* { dg-do run } */
-/* { dg-options "-march=32r6 -m32 -ffat-lto-objects" } */
-/* { dg-additional-options "-mjump-table-opt -fno-pic -mpid" } */
-
 #define F(n)								\
 __attribute__((noclone, noinline)) int					\
 f##n (int fa1, int fa2, int fa3, int fa4, int fa5, int fa6, int fa7, int fa8) \
@@ -26,10 +21,16 @@ volatile int a1, a2, a3, a4, a5, a6, a7, a8;
 
 TESTS
 #undef F
-#define F(n) case n: ret = f##n (a1+a2, a2, a3+a4, a4, a5+a6, a6, a7*a8, a8-a1); break;
+#define F(n)					\
+  case n:					\
+  {						\
+    ret = f##n (a1+a2, a2, a3+a4, a4,		\
+		a5+a6, a6, a7*a8, a8-a1);	\
+    break;					\
+  }
 
 int
-main (void) 
+main (void)
 {
   int i;
   for (i = 0; i <= 5; i++)
