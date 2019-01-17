@@ -4575,7 +4575,7 @@
 
 (define_insn "mov_ualw"
   [(set (match_operand:SI 0 "register_operand" "=d")
-	(unspec:SI [(match_operand:BLK 1 "memory_operand" "ZA")]
+	(unspec:SI [(match_operand:BLK 1 "ualwm_uaswm_operand" "ZA")]
 		    UNSPEC_UALW))]
   "ISA_HAS_UALW_UASW"
   "ualw %0,%1"
@@ -4645,7 +4645,7 @@
 })
 
 (define_insn "mov_uasw"
-  [(set (match_operand:BLK 0 "memory_operand" "=ZA")
+  [(set (match_operand:BLK 0 "ualwm_uaswm_operand" "=ZA")
 	(unspec:BLK [(match_operand:SI 1 "reg_or_0_operand" "dJ")]
 		    UNSPEC_UASW))]
   "ISA_HAS_UALW_UASW"

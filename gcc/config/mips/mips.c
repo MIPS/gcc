@@ -4389,7 +4389,6 @@ umips_12bit_offset_address_p (rtx x, machine_mode mode)
 }
 
 /* Return true if X is a legitimate address with a 9-bit offset.
-   The offset for nanoMIPS requires the 2 least-significant bits cleared.
    MODE is the mode of the value being accessed.  */
 
 bool
@@ -4400,9 +4399,24 @@ mips_9bit_offset_address_p (rtx x, machine_mode mode)
   return (mips_classify_address (&addr, x, mode, false)
 	  && addr.type == ADDRESS_REG
 	  && CONST_INT_P (addr.offset)
-	  && (!TARGET_NANOMIPS
-	      || (TARGET_NANOMIPS && (INTVAL (addr.offset) & 0x3) == 0))
 	  && MIPS_9BIT_OFFSET_P (INTVAL (addr.offset)));
+}
+
+/* Return true if X is a legitimate address with a 9-bit offset
+   and 2 least-significant bits cleared as required by LL and SC
+   instructions on nanoMIPS.
+   MODE is the mode of the value being accessed.  */
+
+bool
+nanomips_llsc_address_p (rtx x, machine_mode mode)
+{
+  struct mips_address_info addr;
+
+  return (mips_classify_address (&addr, x, mode, false)
+          && addr.type == ADDRESS_REG
+          && CONST_INT_P (addr.offset)
+          && ((INTVAL (addr.offset) & 0x3) == 0)
+          && MIPS_9BIT_OFFSET_P (INTVAL (addr.offset)));
 }
 
 /* Return the number of instructions needed to load constant X,
@@ -10381,6 +10395,55 @@ mips_store_by_pieces_p (unsigned HOST_WIDE_INT size, unsigned int align)
 	      && !(ISA_HAS_LWL_LWR || ISA_HAS_UALW_UASW)));
 }
 
+/* Helper functions for doing a straight-line block operation on memory
+   reference MEM.
+
+   We precompute MEM address into register upfront if we think that latter
+   offset adjustment by mips_block_move_straight would trigger it anyways
+   down the line.
+   TODO: Does not take into account the mips_use_multi_memcpy path that has
+   limited offset on nanoMIPS */
+
+static bool mips_block_move_offset_p (HOST_WIDE_INT offset, bool aligned)
+{
+    if (aligned)
+     return SMALL_OPERAND (offset);
+
+    if (TARGET_NANOMIPS || ISA_HAS_MIPS16E2)
+     return MIPS_9BIT_OFFSET_P (offset);
+
+    if (TARGET_MICROMIPS)
+     return UMIPS_12BIT_OFFSET_P (offset);
+
+    return SMALL_OPERAND (offset);
+}
+
+static rtx
+mips_adjust_block_mem_straight (rtx mem, HOST_WIDE_INT length,
+                                unsigned HOST_WIDE_INT bits)
+{
+    rtx base, new_mem;
+    HOST_WIDE_INT offset;
+    HOST_WIDE_INT end_adjustment = length - bits / BITS_PER_UNIT;
+    bool aligned = MEM_ALIGN (mem) >= bits;
+    mips_split_plus (XEXP (mem, 0), &base, &offset);
+
+    /* For unaligned move our last offset would be offset + lenght -1
+       except for nanoMIPS in case that lenght is word sized */
+    if (!aligned && (!TARGET_NANOMIPS || (length % BITS_PER_WORD != 0)))
+     end_adjustment = length - 1;
+
+    if (REG_P (base) &&
+        mips_block_move_offset_p (offset, aligned) &&
+        mips_block_move_offset_p (offset + end_adjustment, aligned))
+     return mem;
+
+    rtx dest_reg = copy_addr_to_reg (XEXP (mem, 0));
+    new_mem = replace_equiv_address (mem, dest_reg);
+    gcc_assert (MEM_ALIGN (new_mem) == MEM_ALIGN (mem));
+    return new_mem;
+}
+
 /* Emit straight-line code to move LENGTH bytes from SRC to DEST.
    Assume that the areas do not overlap.  */
 
@@ -10415,6 +10478,8 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length,
 	bits = BITS_PER_WORD;
     }
 
+  dest = mips_adjust_block_mem_straight (dest, length, bits);
+  src  = mips_adjust_block_mem_straight (src, length, bits);
   mode = mode_for_size (bits, MODE_INT, 0);
   delta = bits / BITS_PER_UNIT;
 
@@ -10511,7 +10576,7 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length,
    register.  Store them in *LOOP_REG and *LOOP_MEM respectively.  */
 
 static void
-mips_adjust_block_mem (rtx mem, HOST_WIDE_INT length,
+mips_adjust_block_mem_loop (rtx mem, HOST_WIDE_INT length,
 		       rtx *loop_reg, rtx *loop_mem)
 {
   *loop_reg = copy_addr_to_reg (XEXP (mem, 0));
@@ -10539,8 +10604,8 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
   length -= leftover;
 
   /* Create registers and memory references for use within the loop.  */
-  mips_adjust_block_mem (src, bytes_per_iter, &src_reg, &src);
-  mips_adjust_block_mem (dest, bytes_per_iter, &dest_reg, &dest);
+  mips_adjust_block_mem_loop (src, bytes_per_iter, &src_reg, &src);
+  mips_adjust_block_mem_loop (dest, bytes_per_iter, &dest_reg, &dest);
 
   /* Calculate the value that SRC_REG should have after the last iteration
      of the loop.  */
@@ -10957,7 +11022,13 @@ mips_expand_ext_as_unaligned_load (rtx dest, rtx src, HOST_WIDE_INT width,
 	  || bitpos % BITS_PER_UNIT != 0
 	  || MEM_ALIGN (src) >= width)
 	return false;
-      emit_insn (gen_mov_ualw (dest, copy_rtx (src)));
+
+      rtx src_copy = copy_rtx (src);
+      if (!ualwm_uaswm_operand (src_copy, GET_MODE (src_copy)))
+       replace_equiv_address (src_copy,
+                              force_reg (SImode, XEXP (src_copy, 0)), true);
+
+      emit_insn (gen_mov_ualw (dest, src_copy));
     }
   else
     {
@@ -11022,7 +11093,11 @@ mips_expand_ins_as_unaligned_store (rtx dest, rtx src, HOST_WIDE_INT width,
 
   if (ISA_HAS_UALW_UASW)
     {
-      emit_insn (gen_mov_uasw (copy_rtx (dest), copy_rtx (src)));
+      rtx dest_copy = copy_rtx (dest);
+      if (!ualwm_uaswm_operand (dest_copy, GET_MODE (dest_copy)))
+       replace_equiv_address (dest_copy,
+                              force_reg (SImode, XEXP (dest_copy, 0)), true);
+      emit_insn (gen_mov_uasw (dest_copy, copy_rtx (src)));
       return true;
     }
 

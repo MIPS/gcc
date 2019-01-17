@@ -261,6 +261,10 @@
   (and (match_code "mem")
        (match_test "lwm_swm_address_p (XEXP (op, 0), mode)")))
 
+(define_predicate "ualwm_uaswm_operand"
+  (and (match_code "mem")
+       (match_test "mips_9bit_offset_address_p (XEXP (op, 0), mode)")))
+
 (define_predicate "lwsp_swsp_operand"
   (and (match_code "mem")
        (match_test "lwsp_swsp_address_p (XEXP (op, 0), mode)")))
