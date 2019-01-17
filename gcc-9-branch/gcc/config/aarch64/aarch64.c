@@ -1083,6 +1083,32 @@ static const struct tune_params thunderx2t99_tunings =
   &thunderx2t99_prefetch_tune
 };
 
+static const struct tune_params ares_tunings =
+{
+  &cortexa57_extra_costs,
+  &generic_addrcost_table,
+  &generic_regmove_cost,
+  &cortexa57_vector_cost,
+  &generic_branch_cost,
+  &generic_approx_modes,
+  SVE_NOT_IMPLEMENTED, /* sve_width  */
+  4, /* memmov_cost  */
+  3, /* issue_rate  */
+  AARCH64_FUSE_AES_AESMC, /* fusible_ops  */
+  "32:16",	/* function_align.  */
+  "32:16",	/* jump_align.  */
+  "32:16",	/* loop_align.  */
+  2,	/* int_reassoc_width.  */
+  4,	/* fp_reassoc_width.  */
+  2,	/* vec_reassoc_width.  */
+  2,	/* min_div_recip_mul_sf.  */
+  2,	/* min_div_recip_mul_df.  */
+  0,	/* max_case_values.  */
+  tune_params::AUTOPREFETCHER_WEAK,	/* autoprefetcher_model.  */
+  (AARCH64_EXTRA_TUNE_NONE),	/* tune_flags.  */
+  &generic_prefetch_tune
+};
+
 /* Support for fine-grained override of the tuning structures.  */
 struct aarch64_tuning_override_function
 {
@@ -1655,14 +1681,69 @@ aarch64_reg_save_mode (tree fndecl, unsigned regno)
 	   : (aarch64_simd_decl_p (fndecl) ? E_TFmode : E_DFmode);
 }
 
+/* Return true if the instruction is a call to a SIMD function, false
+   if it is not a SIMD function or if we do not know anything about
+   the function.  */
+
+static bool
+aarch64_simd_call_p (rtx_insn *insn)
+{
+  rtx symbol;
+  rtx call;
+  tree fndecl;
+
+  gcc_assert (CALL_P (insn));
+  call = get_call_rtx_from (insn);
+  symbol = XEXP (XEXP (call, 0), 0);
+  if (GET_CODE (symbol) != SYMBOL_REF)
+    return false;
+  fndecl = SYMBOL_REF_DECL (symbol);
+  if (!fndecl)
+    return false;
+
+  return aarch64_simd_decl_p (fndecl);
+}
+
+/* Implement TARGET_REMOVE_EXTRA_CALL_PRESERVED_REGS.  If INSN calls
+   a function that uses the SIMD ABI, take advantage of the extra
+   call-preserved registers that the ABI provides.  */
+
+void
+aarch64_remove_extra_call_preserved_regs (rtx_insn *insn,
+					  HARD_REG_SET *return_set)
+{
+  if (aarch64_simd_call_p (insn))
+    {
+      for (int regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
+	if (FP_SIMD_SAVED_REGNUM_P (regno))
+	  CLEAR_HARD_REG_BIT (*return_set, regno);
+    }
+}
+
 /* Implement TARGET_HARD_REGNO_CALL_PART_CLOBBERED.  The callee only saves
    the lower 64 bits of a 128-bit register.  Tell the compiler the callee
    clobbers the top 64 bits when restoring the bottom 64 bits.  */
 
 static bool
-aarch64_hard_regno_call_part_clobbered (unsigned int regno, machine_mode mode)
+aarch64_hard_regno_call_part_clobbered (rtx_insn *insn, unsigned int regno,
+					machine_mode mode)
 {
-  return FP_REGNUM_P (regno) && maybe_gt (GET_MODE_SIZE (mode), 8);
+  bool simd_p = insn && CALL_P (insn) && aarch64_simd_call_p (insn);
+  return FP_REGNUM_P (regno)
+	 && maybe_gt (GET_MODE_SIZE (mode), simd_p ? 16 : 8);
+}
+
+/* Implement TARGET_RETURN_CALL_WITH_MAX_CLOBBERS.  */
+
+rtx_insn *
+aarch64_return_call_with_max_clobbers (rtx_insn *call_1, rtx_insn *call_2)
+{
+  gcc_assert (CALL_P (call_1) && CALL_P (call_2));
+
+  if (!aarch64_simd_call_p (call_1) || aarch64_simd_call_p (call_2))
+    return call_1;
+  else
+    return call_2;
 }
 
 /* Implement REGMODE_NATURAL_SIZE.  */
@@ -5262,11 +5343,11 @@ aarch64_allocate_and_probe_stack_space (rtx temp1, rtx temp2,
 	{
 	  /* This is done to provide unwinding information for the stack
 	     adjustments we're about to do, however to prevent the optimizers
-	     from removing the R15 move and leaving the CFA note (which would be
+	     from removing the R11 move and leaving the CFA note (which would be
 	     very wrong) we tie the old and new stack pointer together.
 	     The tie will expand to nothing but the optimizers will not touch
 	     the instruction.  */
-	  rtx stack_ptr_copy = gen_rtx_REG (Pmode, R15_REGNUM);
+	  rtx stack_ptr_copy = gen_rtx_REG (Pmode, STACK_CLASH_SVE_CFA_REGNUM);
 	  emit_move_insn (stack_ptr_copy, stack_pointer_rtx);
 	  emit_insn (gen_stack_tie (stack_ptr_copy, stack_pointer_rtx));
 
@@ -5493,7 +5574,19 @@ aarch64_add_cfa_expression (rtx_insn *insn, unsigned int reg,
    to the stack we track as implicit probes are the FP/LR stores.
 
    For outgoing arguments we probe if the size is larger than 1KB, such that
-   the ABI specified buffer is maintained for the next callee.  */
+   the ABI specified buffer is maintained for the next callee.
+
+   The following registers are reserved during frame layout and should not be
+   used for any other purpose:
+
+   - r11: Used by stack clash protection when SVE is enabled.
+   - r12(EP0) and r13(EP1): Used as temporaries for stack adjustment.
+   - r14 and r15: Used for speculation tracking.
+   - r16(IP0), r17(IP1): Used by indirect tailcalls.
+   - r30(LR), r29(FP): Used by standard frame layout.
+
+   These registers must be avoided in frame layout related code unless the
+   explicit intention is to interact with one of the features listed above.  */
 
 /* Generate the prologue instructions for entry into a function.
    Establish the stack frame by decreasing the stack pointer with a
@@ -7034,9 +7127,12 @@ aarch64_emit_call_insn (rtx pat)
 machine_mode
 aarch64_select_cc_mode (RTX_CODE code, rtx x, rtx y)
 {
+  machine_mode mode_x = GET_MODE (x);
+  rtx_code code_x = GET_CODE (x);
+
   /* All floating point compares return CCFP if it is an equality
      comparison, and CCFPE otherwise.  */
-  if (GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT)
+  if (GET_MODE_CLASS (mode_x) == MODE_FLOAT)
     {
       switch (code)
 	{
@@ -7067,55 +7163,65 @@ aarch64_select_cc_mode (RTX_CODE code, rtx x, rtx y)
      using the TST instruction with the appropriate bitmask.  */
   if (y == const0_rtx && REG_P (x)
       && (code == EQ || code == NE)
-      && (GET_MODE (x) == HImode || GET_MODE (x) == QImode))
+      && (mode_x == HImode || mode_x == QImode))
     return CC_NZmode;
 
   /* Similarly, comparisons of zero_extends from shorter modes can
      be performed using an ANDS with an immediate mask.  */
-  if (y == const0_rtx && GET_CODE (x) == ZERO_EXTEND
-      && (GET_MODE (x) == SImode || GET_MODE (x) == DImode)
+  if (y == const0_rtx && code_x == ZERO_EXTEND
+      && (mode_x == SImode || mode_x == DImode)
       && (GET_MODE (XEXP (x, 0)) == HImode || GET_MODE (XEXP (x, 0)) == QImode)
       && (code == EQ || code == NE))
     return CC_NZmode;
 
-  if ((GET_MODE (x) == SImode || GET_MODE (x) == DImode)
+  if ((mode_x == SImode || mode_x == DImode)
       && y == const0_rtx
       && (code == EQ || code == NE || code == LT || code == GE)
-      && (GET_CODE (x) == PLUS || GET_CODE (x) == MINUS || GET_CODE (x) == AND
-	  || GET_CODE (x) == NEG
-	  || (GET_CODE (x) == ZERO_EXTRACT && CONST_INT_P (XEXP (x, 1))
+      && (code_x == PLUS || code_x == MINUS || code_x == AND
+	  || code_x == NEG
+	  || (code_x == ZERO_EXTRACT && CONST_INT_P (XEXP (x, 1))
 	      && CONST_INT_P (XEXP (x, 2)))))
     return CC_NZmode;
 
   /* A compare with a shifted operand.  Because of canonicalization,
      the comparison will have to be swapped when we emit the assembly
      code.  */
-  if ((GET_MODE (x) == SImode || GET_MODE (x) == DImode)
+  if ((mode_x == SImode || mode_x == DImode)
       && (REG_P (y) || GET_CODE (y) == SUBREG || y == const0_rtx)
-      && (GET_CODE (x) == ASHIFT || GET_CODE (x) == ASHIFTRT
-	  || GET_CODE (x) == LSHIFTRT
-	  || GET_CODE (x) == ZERO_EXTEND || GET_CODE (x) == SIGN_EXTEND))
+      && (code_x == ASHIFT || code_x == ASHIFTRT
+	  || code_x == LSHIFTRT
+	  || code_x == ZERO_EXTEND || code_x == SIGN_EXTEND))
     return CC_SWPmode;
 
   /* Similarly for a negated operand, but we can only do this for
      equalities.  */
-  if ((GET_MODE (x) == SImode || GET_MODE (x) == DImode)
+  if ((mode_x == SImode || mode_x == DImode)
       && (REG_P (y) || GET_CODE (y) == SUBREG)
       && (code == EQ || code == NE)
-      && GET_CODE (x) == NEG)
+      && code_x == NEG)
     return CC_Zmode;
 
-  /* A test for unsigned overflow.  */
-  if ((GET_MODE (x) == DImode || GET_MODE (x) == TImode)
-      && code == NE
-      && GET_CODE (x) == PLUS
-      && GET_CODE (y) == ZERO_EXTEND)
+  /* A test for unsigned overflow from an addition.  */
+  if ((mode_x == DImode || mode_x == TImode)
+      && (code == LTU || code == GEU)
+      && code_x == PLUS
+      && rtx_equal_p (XEXP (x, 0), y))
     return CC_Cmode;
 
+  /* A test for unsigned overflow from an add with carry.  */
+  if ((mode_x == DImode || mode_x == TImode)
+      && (code == LTU || code == GEU)
+      && code_x == PLUS
+      && CONST_SCALAR_INT_P (y)
+      && (rtx_mode_t (y, mode_x)
+	  == (wi::shwi (1, mode_x)
+	      << (GET_MODE_BITSIZE (mode_x).to_constant () / 2))))
+    return CC_ADCmode;
+
   /* A test for signed overflow.  */
-  if ((GET_MODE (x) == DImode || GET_MODE (x) == TImode)
+  if ((mode_x == DImode || mode_x == TImode)
       && code == NE
-      && GET_CODE (x) == PLUS
+      && code_x == PLUS
       && GET_CODE (y) == SIGN_EXTEND)
     return CC_Vmode;
 
@@ -7219,8 +7325,17 @@ aarch64_get_condition_code_1 (machine_mode mode, enum rtx_code comp_code)
     case E_CC_Cmode:
       switch (comp_code)
 	{
-	case NE: return AARCH64_CS;
-	case EQ: return AARCH64_CC;
+	case LTU: return AARCH64_CS;
+	case GEU: return AARCH64_CC;
+	default: return -1;
+	}
+      break;
+
+    case E_CC_ADCmode:
+      switch (comp_code)
+	{
+	case GEU: return AARCH64_CS;
+	case LTU: return AARCH64_CC;
 	default: return -1;
 	}
       break;
@@ -18824,6 +18939,14 @@ aarch64_libgcc_floating_mode_supported_p
 #undef TARGET_HARD_REGNO_CALL_PART_CLOBBERED
 #define TARGET_HARD_REGNO_CALL_PART_CLOBBERED \
   aarch64_hard_regno_call_part_clobbered
+
+#undef TARGET_REMOVE_EXTRA_CALL_PRESERVED_REGS
+#define TARGET_REMOVE_EXTRA_CALL_PRESERVED_REGS \
+  aarch64_remove_extra_call_preserved_regs
+
+#undef TARGET_RETURN_CALL_WITH_MAX_CLOBBERS
+#define TARGET_RETURN_CALL_WITH_MAX_CLOBBERS \
+  aarch64_return_call_with_max_clobbers
 
 #undef TARGET_CONSTANT_ALIGNMENT
 #define TARGET_CONSTANT_ALIGNMENT aarch64_constant_alignment

@@ -286,6 +286,8 @@ extern int backtrace_initialize (struct backtrace_state *state,
 				 void *data,
 				 fileline *fileline_fn);
 
+struct dwarf_data;
+
 /* Add file/line information for a DWARF module.  */
 
 extern int backtrace_dwarf_add (struct backtrace_state *state,
@@ -301,8 +303,10 @@ extern int backtrace_dwarf_add (struct backtrace_state *state,
 				const unsigned char *dwarf_str,
 				size_t dwarf_str_size,
 				int is_bigendian,
+				struct dwarf_data *fileline_altlink,
 				backtrace_error_callback error_callback,
-				void *data, fileline *fileline_fn);
+				void *data, fileline *fileline_fn,
+				struct dwarf_data **fileline_entry);
 
 /* A test-only hook for elf_uncompress_zdebug.  */
 

@@ -1,3 +1,62 @@
+2019-01-15  Tom de Vries  <tdevries@suse.de>
+
+	PR target/80547
+	* testsuite/libgomp.oacc-c-c++-common/gang-reduction-var-assignment.c:
+	New test.
+
+2019-01-12  Tom de Vries  <tdevries@suse.de>
+
+	* testsuite/libgomp.oacc-c-c++-common/pr85486-2.c: New test.
+	* testsuite/libgomp.oacc-c-c++-common/vector-length-128-2.c: New test.
+	* testsuite/libgomp.oacc-c-c++-common/vector-length-128-5.c: New test.
+	* testsuite/libgomp.oacc-fortran/gemm-2.f90: New test.
+
+2019-01-12  Tom de Vries  <tdevries@suse.de>
+
+	* plugin/plugin-nvptx.c (nvptx_exec): Update error message.
+
+2019-01-12  Tom de Vries  <tdevries@suse.de>
+
+	* testsuite/libgomp.oacc-c-c++-common/vector-length-64-1.c: New test.
+	* testsuite/libgomp.oacc-c-c++-common/vector-length-64-2.c: New test.
+	* testsuite/libgomp.oacc-c-c++-common/vector-length-64-3.c: New test.
+
+2019-01-12  Tom de Vries  <tdevries@suse.de>
+
+	PR target/85486
+	* testsuite/libgomp.oacc-c-c++-common/pr85486-3.c: New test.
+	* testsuite/libgomp.oacc-c-c++-common/pr85486.c: New test.
+
+2019-01-12  Tom de Vries  <tdevries@suse.de>
+
+	PR target/85381
+	* testsuite/libgomp.oacc-c-c++-common/pr85381-5.c: New test.
+	* testsuite/libgomp.oacc-c-c++-common/pr85381.c: New test.
+
+2019-01-12  Tom de Vries  <tdevries@suse.de>
+
+	* testsuite/libgomp.oacc-c-c++-common/vred2d-128.c: New test.
+	* testsuite/libgomp.oacc-fortran/gemm.f90: New test.
+	* testsuite/libgomp.oacc-c-c++-common/vector-length-128-10.c: New test.
+
+2019-01-12  Tom de Vries  <tdevries@suse.de>
+
+	* testsuite/libgomp.oacc-c-c++-common/vector-length-128-7.c: New test.
+	* testsuite/libgomp.oacc-c-c++-common/vector-length-128-4.c: New test.
+	* testsuite/libgomp.oacc-c-c++-common/vector-length-128-6.c: New test.
+
+2019-01-12  Tom de Vries  <tdevries@suse.de>
+
+	* plugin/plugin-nvptx.c (nvptx_exec): Update insufficient hardware
+	resources diagnostic.
+
+2019-01-12  Tom de Vries  <tdevries@suse.de>
+
+	* testsuite/libgomp.oacc-c-c++-common/vector-length-128-1.c: Expect
+	vector length to be 128.
+	* testsuite/libgomp.oacc-c-c++-common/parallel-dims.c: Expect vector
+	length 2097152 to be reduced to 1024 instead of 32.
+
 2019-01-11  Thomas Schwinge  <thomas@codesourcery.com>
             James Norris  <jnorris@codesourcery.com>
 

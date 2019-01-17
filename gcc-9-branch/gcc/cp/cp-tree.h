@@ -442,6 +442,7 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
       OVL_HIDDEN_P (in OVERLOAD)
       SWITCH_STMT_NO_BREAK_P (in SWITCH_STMT)
       LAMBDA_EXPR_CAPTURE_OPTIMIZED (in LAMBDA_EXPR)
+      IMPLICIT_CONV_EXPR_BRACED_INIT (in IMPLICIT_CONV_EXPR)
    3: (TREE_REFERENCE_EXPR) (in NON_LVALUE_EXPR) (commented-out).
       ICS_BAD_FLAG (in _CONV)
       FN_TRY_BLOCK_P (in TRY_BLOCK)
@@ -1625,6 +1626,7 @@ struct GTY(()) saved_scope {
 
   int x_processing_template_decl;
   int x_processing_specialization;
+  int suppress_location_wrappers;
   BOOL_BITFIELD x_processing_explicit_instantiation : 1;
   BOOL_BITFIELD need_pop_function_context : 1;
 
@@ -4228,6 +4230,11 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
    argument.  Set by maybe_convert_nontype_argument.  */
 #define IMPLICIT_CONV_EXPR_NONTYPE_ARG(NODE) \
   (TREE_LANG_FLAG_1 (IMPLICIT_CONV_EXPR_CHECK (NODE)))
+
+/* True if NODE represents a conversion for braced-init-list in a
+   template.  Set by perform_implicit_conversion_flags.  */
+#define IMPLICIT_CONV_EXPR_BRACED_INIT(NODE) \
+  (TREE_LANG_FLAG_2 (IMPLICIT_CONV_EXPR_CHECK (NODE)))
 
 /* Nonzero means that an object of this type cannot be initialized using
    an initializer list.  */
@@ -7488,6 +7495,7 @@ extern tree store_init_value			(tree, tree, vec<tree, va_gc>**, int);
 extern tree split_nonconstant_init		(tree, tree);
 extern bool check_narrowing			(tree, tree, tsubst_flags_t,
 						 bool = false);
+extern bool ordinary_char_type_p		(tree);
 extern tree digest_init				(tree, tree, tsubst_flags_t);
 extern tree digest_init_flags			(tree, tree, int, tsubst_flags_t);
 extern tree digest_nsdmi_init		        (tree, tree, tsubst_flags_t);

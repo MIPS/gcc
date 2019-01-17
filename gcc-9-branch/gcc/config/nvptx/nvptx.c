@@ -96,7 +96,7 @@
 #define PTX_NUM_PER_WORKER_BARRIERS (PTX_CTA_NUM_BARRIERS - PTX_NUM_PER_CTA_BARRIERS)
 
 #define PTX_DEFAULT_VECTOR_LENGTH PTX_WARP_SIZE
-#define PTX_MAX_VECTOR_LENGTH PTX_WARP_SIZE
+#define PTX_MAX_VECTOR_LENGTH PTX_CTA_SIZE
 #define PTX_WORKER_LENGTH 32
 #define PTX_DEFAULT_RUNTIME_DIM 0 /* Defer to runtime.  */
 
@@ -5549,13 +5549,14 @@ has_vector_partitionable_routine_calls_p (tree fndecl)
    DIMS has changed.  */
 
 static void
-nvptx_goacc_validate_dims_1 (tree decl, int dims[], int fn_level)
+nvptx_goacc_validate_dims_1 (tree decl, int dims[], int fn_level, unsigned used)
 {
   bool oacc_default_dims_p = false;
   bool oacc_min_dims_p = false;
   bool offload_region_p = false;
   bool routine_p = false;
   bool routine_seq_p = false;
+  int default_vector_length = -1;
 
   if (decl == NULL_TREE)
     {
@@ -5654,6 +5655,12 @@ nvptx_goacc_validate_dims_1 (tree decl, int dims[], int fn_level)
       gcc_assert (dims[GOMP_DIM_GANG] >= -1);
     }
 
+  if (offload_region_p)
+    default_vector_length = oacc_get_default_dim (GOMP_DIM_VECTOR);
+  else
+    /* oacc_default_dims_p.  */
+    default_vector_length = PTX_DEFAULT_VECTOR_LENGTH;
+
   int old_dims[GOMP_DIM_MAX];
   unsigned int i;
   for (i = 0; i < GOMP_DIM_MAX; ++i)
@@ -5662,6 +5669,8 @@ nvptx_goacc_validate_dims_1 (tree decl, int dims[], int fn_level)
   const char *vector_reason = NULL;
   if (offload_region_p && has_vector_partitionable_routine_calls_p (decl))
     {
+      default_vector_length = PTX_WARP_SIZE;
+
       if (dims[GOMP_DIM_VECTOR] > PTX_WARP_SIZE)
 	{
 	  vector_reason = G_("using vector_length (%d) due to call to"
@@ -5673,12 +5682,12 @@ nvptx_goacc_validate_dims_1 (tree decl, int dims[], int fn_level)
   if (dims[GOMP_DIM_VECTOR] == 0)
     {
       vector_reason = G_("using vector_length (%d), ignoring runtime setting");
-      dims[GOMP_DIM_VECTOR] = PTX_DEFAULT_VECTOR_LENGTH;
+      dims[GOMP_DIM_VECTOR] = default_vector_length;
     }
 
   if (dims[GOMP_DIM_VECTOR] > 0
       && !nvptx_welformed_vector_length_p (dims[GOMP_DIM_VECTOR]))
-    dims[GOMP_DIM_VECTOR] = PTX_DEFAULT_VECTOR_LENGTH;
+    dims[GOMP_DIM_VECTOR] = default_vector_length;
 
   nvptx_apply_dim_limits (dims);
 
@@ -5696,11 +5705,31 @@ nvptx_goacc_validate_dims_1 (tree decl, int dims[], int fn_level)
 
   if (oacc_default_dims_p)
     {
-      dims[GOMP_DIM_VECTOR] = PTX_DEFAULT_VECTOR_LENGTH;
+      if (dims[GOMP_DIM_VECTOR] < 0)
+	dims[GOMP_DIM_VECTOR] = default_vector_length;
       if (dims[GOMP_DIM_WORKER] < 0)
 	dims[GOMP_DIM_WORKER] = PTX_DEFAULT_RUNTIME_DIM;
       if (dims[GOMP_DIM_GANG] < 0)
 	dims[GOMP_DIM_GANG] = PTX_DEFAULT_RUNTIME_DIM;
+      nvptx_apply_dim_limits (dims);
+    }
+
+  if (offload_region_p)
+    {
+      for (i = 0; i < GOMP_DIM_MAX; i++)
+	{
+	  if (!(dims[i] < 0))
+	    continue;
+
+	  if ((used & GOMP_DIM_MASK (i)) == 0)
+	    /* Function oacc_validate_dims will apply the minimal dimension.  */
+	    continue;
+
+	  dims[i] = (i == GOMP_DIM_VECTOR
+		     ? default_vector_length
+		     : oacc_get_default_dim (i));
+	}
+
       nvptx_apply_dim_limits (dims);
     }
 }
@@ -5711,7 +5740,7 @@ nvptx_goacc_validate_dims_1 (tree decl, int dims[], int fn_level)
    DECL is null, we are validating the default dimensions.  */
 
 static bool
-nvptx_goacc_validate_dims (tree decl, int dims[], int fn_level)
+nvptx_goacc_validate_dims (tree decl, int dims[], int fn_level, unsigned used)
 {
   int old_dims[GOMP_DIM_MAX];
   unsigned int i;
@@ -5719,7 +5748,7 @@ nvptx_goacc_validate_dims (tree decl, int dims[], int fn_level)
   for (i = 0; i < GOMP_DIM_MAX; ++i)
     old_dims[i] = dims[i];
 
-  nvptx_goacc_validate_dims_1 (decl, dims, fn_level);
+  nvptx_goacc_validate_dims_1 (decl, dims, fn_level, used);
 
   gcc_assert (dims[GOMP_DIM_VECTOR] != 0);
   if (dims[GOMP_DIM_WORKER] > 0 && dims[GOMP_DIM_VECTOR] > 0)
@@ -6213,7 +6242,8 @@ nvptx_goacc_reduction_init (gcall *call, offload_attrs *oa)
 	    init = var;
 	}
 
-      gimplify_assign (lhs, init, &seq);
+      if (lhs != NULL_TREE)
+	gimplify_assign (lhs, init, &seq);
     }
 
   pop_gimplify_context (NULL);

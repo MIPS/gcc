@@ -4873,7 +4873,7 @@ resolve_array_ref (gfc_array_ref *ar)
 
 
 static bool
-resolve_substring (gfc_ref *ref)
+resolve_substring (gfc_ref *ref, bool *equal_length)
 {
   int k = gfc_validate_kind (BT_INTEGER, gfc_charlen_int_kind, false);
 
@@ -4944,6 +4944,13 @@ resolve_substring (gfc_ref *ref)
 		     &ref->u.ss.end->where);
 	  return false;
 	}
+      /*  If the substring has the same length as the original
+	  variable, the reference itself can be deleted.  */
+
+      if (ref->u.ss.length != NULL
+	  && compare_bound (ref->u.ss.end, ref->u.ss.length->length) == CMP_EQ
+	  && compare_bound_int (ref->u.ss.start, 1) == CMP_EQ)
+	*equal_length = true;
     }
 
   return true;
@@ -5037,7 +5044,8 @@ static bool
 resolve_ref (gfc_expr *expr)
 {
   int current_part_dimension, n_components, seen_part_dimension;
-  gfc_ref *ref;
+  gfc_ref *ref, **prev;
+  bool equal_length;
 
   for (ref = expr->ref; ref; ref = ref->next)
     if (ref->type == REF_ARRAY && ref->u.ar.as == NULL)
@@ -5046,7 +5054,8 @@ resolve_ref (gfc_expr *expr)
 	break;
       }
 
-  for (ref = expr->ref; ref; ref = ref->next)
+  
+  for (ref = expr->ref, prev = &expr->ref; ref; prev = &ref->next, ref = ref->next)
     switch (ref->type)
       {
       case REF_ARRAY:
@@ -5059,8 +5068,19 @@ resolve_ref (gfc_expr *expr)
 	break;
 
       case REF_SUBSTRING:
-	if (!resolve_substring (ref))
+	equal_length = false;
+	if (!resolve_substring (ref, &equal_length))
 	  return false;
+
+	if (expr->expr_type != EXPR_SUBSTRING && equal_length)
+	  {
+	    /* Remove the reference and move the charlen, if any.  */
+	    *prev = ref->next;
+	    ref->next = NULL;
+	    expr->ts.u.cl = ref->u.ss.length;
+	    ref->u.ss.length = NULL;
+	    gfc_free_ref_list (ref);
+	  }
 	break;
       }
 
@@ -11789,11 +11809,12 @@ gfc_verify_binding_labels (gfc_symbol *sym)
 		 sym->binding_label, &sym->declared_at, &gsym->where);
       /* Clear the binding label to prevent checking multiple times.  */
       sym->binding_label = NULL;
-
+      return;
     }
-  else if (sym->attr.flavor == FL_VARIABLE && module
-	   && (strcmp (module, gsym->mod_name) != 0
-	       || strcmp (sym->name, gsym->sym_name) != 0))
+
+  if (sym->attr.flavor == FL_VARIABLE && module
+      && (strcmp (module, gsym->mod_name) != 0
+	  || strcmp (sym->name, gsym->sym_name) != 0))
     {
       /* This can only happen if the variable is defined in a module - if it
 	 isn't the same module, reject it.  */
@@ -11802,14 +11823,16 @@ gfc_verify_binding_labels (gfc_symbol *sym)
 		 sym->name, module, sym->binding_label,
 		 &sym->declared_at, &gsym->where, gsym->mod_name);
       sym->binding_label = NULL;
+      return;
     }
-  else if ((sym->attr.function || sym->attr.subroutine)
-	   && ((gsym->type != GSYM_SUBROUTINE && gsym->type != GSYM_FUNCTION)
-	       || (gsym->defined && sym->attr.if_source != IFSRC_IFBODY))
-	   && sym != gsym->ns->proc_name
-	   && (module != gsym->mod_name
-	       || strcmp (gsym->sym_name, sym->name) != 0
-	       || (module && strcmp (module, gsym->mod_name) != 0)))
+
+  if ((sym->attr.function || sym->attr.subroutine)
+      && ((gsym->type != GSYM_SUBROUTINE && gsym->type != GSYM_FUNCTION)
+	   || (gsym->defined && sym->attr.if_source != IFSRC_IFBODY))
+      && (sym != gsym->ns->proc_name && sym->attr.entry == 0)
+      && (module != gsym->mod_name
+	  || strcmp (gsym->sym_name, sym->name) != 0
+	  || (module && strcmp (module, gsym->mod_name) != 0)))
     {
       /* Print an error if the procedure is defined multiple times; we have to
 	 exclude references to the same procedure via module association or
@@ -15342,7 +15365,7 @@ resolve_symbol (gfc_symbol *sym)
   /* Set the formal_arg_flag so that check_conflict will not throw
      an error for host associated variables in the specification
      expression for an array_valued function.  */
-  if (sym->attr.function && sym->as)
+  if ((sym->attr.function || sym->attr.result) && sym->as)
     formal_arg_flag = true;
 
   saved_specification_expr = specification_expr;

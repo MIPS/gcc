@@ -9441,6 +9441,15 @@ When the compiler selects which registers to use to represent input and output
 operands, it does not use any of the clobbered registers. As a result, 
 clobbered registers are available for any use in the assembler code.
 
+Another restriction is that the clobber list should not contain the
+stack pointer register.  This is because the compiler requires the
+value of the stack pointer to be the same after an @code{asm}
+statement as it was on entry to the statement.  However, previous
+versions of GCC did not enforce this rule and allowed the stack
+pointer to appear in the list, with unclear semantics.  This behavior
+is deprecated and listing the stack pointer may become an error in
+future versions of GCC@.
+
 Here is a realistic example for the VAX showing the use of clobbered 
 registers: 
 
@@ -18451,6 +18460,10 @@ vector double vec_div (vector double, vector double);
 vector long vec_div (vector long, vector long);
 vector unsigned long vec_div (vector unsigned long, vector unsigned long);
 vector double vec_floor (vector double);
+vector signed long long vec_ld (int, const vector signed long long *);
+vector signed long long vec_ld (int, const signed long long *);
+vector unsigned long long vec_ld (int, const vector unsigned long long *);
+vector unsigned long long vec_ld (int, const unsigned long long *);
 vector __int128 vec_ld (int, const vector __int128 *);
 vector unsigned __int128 vec_ld (int, const vector unsigned __int128 *);
 vector __int128 vec_ld (int, const __int128 *);
@@ -18529,6 +18542,13 @@ vector signed long vec_splats (signed long);
 vector unsigned long vec_splats (unsigned long);
 vector float vec_sqrt (vector float);
 vector double vec_sqrt (vector double);
+void vec_st (vector signed long long, int, vector signed long long *);
+void vec_st (vector signed long long, int, signed long long *);
+void vec_st (vector unsigned long long, int, vector unsigned long long *);
+void vec_st (vector unsigned long long, int, unsigned long long *);
+void vec_st (vector bool long long, int, vector bool long long *);
+void vec_st (vector bool long long, int, signed long long *);
+void vec_st (vector bool long long, int, unsigned long long *);
 void vec_st (vector double, int, vector double *);
 void vec_st (vector double, int, double *);
 vector double vec_sub (vector double, vector double);
@@ -22397,10 +22417,14 @@ bit-fields.  See the Solaris man page for @code{cmn_err} for more information.
 @node Darwin Format Checks
 @subsection Darwin Format Checks
 
-Darwin targets support the @code{CFString} (or @code{__CFString__}) in the format
-attribute context.  Declarations made with such attribution are parsed for correct syntax
-and format argument types.  However, parsing of the format string itself is currently undefined
-and is not carried out by this version of the compiler.
+In addition to the full set of format archetypes (attribute format style
+arguments such as @code{printf}, @code{scanf}, @code{strftime}, and
+@code{strfmon}), Darwin targets also support the @code{CFString} (or
+@code{__CFString__}) archetype in the @code{format} attribute.
+Declarations with this archetype are parsed for correct syntax
+and argument types.  However, parsing of the format string itself and
+validating arguments against it in calls to such functions is currently
+not performed.
 
 Additionally, @code{CFStringRefs} (defined by the @code{CoreFoundation} headers) may
 also be used as format arguments.  Note that the relevant headers are only likely to be

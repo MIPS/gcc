@@ -5059,7 +5059,8 @@ start_decl (const cp_declarator *declarator,
   if (initialized
       && TREE_CODE (decl) == TYPE_DECL)
     {
-      error ("typedef %qD is initialized (use decltype instead)", decl);
+      error_at (DECL_SOURCE_LOCATION (decl),
+		"typedef %qD is initialized (use decltype instead)", decl);
       return error_mark_node;
     }
 
@@ -7293,7 +7294,10 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 		    synthesize_method (decl);
 		}
 	      else
-		error ("function %q#D is initialized like a variable", decl);
+		error_at (cp_expr_loc_or_loc (init,
+					      DECL_SOURCE_LOCATION (decl)),
+			  "function %q#D is initialized like a variable",
+			  decl);
 	    }
 	  /* else no initialization required.  */
 	}
@@ -10767,7 +10771,9 @@ grokdeclarator (const cp_declarator *declarator,
 	  error_at (&richloc, "%<long%> and %<short%> specified together");
 	}
       else if (TREE_CODE (type) != INTEGER_TYPE
-	       || type == char16_type_node || type == char32_type_node
+	       || type == char8_type_node
+	       || type == char16_type_node
+	       || type == char32_type_node
 	       || ((long_p || short_p)
 		   && (explicit_char || explicit_intN)))
 	error_at (loc, "%qs specified with %qT", key, type);
@@ -11896,39 +11902,48 @@ grokdeclarator (const cp_declarator *declarator,
 
   if (storage_class == sc_mutable)
     {
+      location_t sloc = declspecs->locations[ds_storage_class];
       if (decl_context != FIELD || friendp)
 	{
-	  error ("non-member %qs cannot be declared %<mutable%>", name);
+	  error_at (sloc, "non-member %qs cannot be declared %<mutable%>",
+		    name);
 	  storage_class = sc_none;
 	}
       else if (decl_context == TYPENAME || typedef_p)
 	{
-	  error ("non-object member %qs cannot be declared %<mutable%>", name);
+	  error_at (sloc,
+		    "non-object member %qs cannot be declared %<mutable%>",
+		    name);
 	  storage_class = sc_none;
 	}
       else if (TREE_CODE (type) == FUNCTION_TYPE
 	       || TREE_CODE (type) == METHOD_TYPE)
 	{
-	  error ("function %qs cannot be declared %<mutable%>", name);
+	  error_at (sloc, "function %qs cannot be declared %<mutable%>",
+		    name);
 	  storage_class = sc_none;
 	}
       else if (staticp)
 	{
-	  error ("static %qs cannot be declared %<mutable%>", name);
+	  error_at (sloc, "%<static%> %qs cannot be declared %<mutable%>",
+		    name);
 	  storage_class = sc_none;
 	}
       else if (type_quals & TYPE_QUAL_CONST)
 	{
-	  error ("const %qs cannot be declared %<mutable%>", name);
+	  error_at (sloc, "%<const%> %qs cannot be declared %<mutable%>",
+		    name);
 	  storage_class = sc_none;
 	}
       else if (TYPE_REF_P (type))
 	{
-	  permerror (input_location, "reference %qs cannot be declared "
-	             "%<mutable%>", name);
+	  permerror (sloc, "reference %qs cannot be declared %<mutable%>",
+		     name);
 	  storage_class = sc_none;
 	}
     }
+
+  location_t loc = declarator ? declarator->id_loc : input_location;
 
   /* If this is declaring a typedef name, return a TYPE_DECL.  */
   if (typedef_p && decl_context != TYPENAME)
@@ -11975,9 +11990,9 @@ grokdeclarator (const cp_declarator *declarator,
 	}
 
       if (decl_context == FIELD)
-	decl = build_lang_decl (TYPE_DECL, unqualified_id, type);
+	decl = build_lang_decl_loc (loc, TYPE_DECL, unqualified_id, type);
       else
-	decl = build_decl (input_location, TYPE_DECL, unqualified_id, type);
+	decl = build_decl (loc, TYPE_DECL, unqualified_id, type);
 
       if (decl_context != FIELD)
 	{
@@ -12218,7 +12233,6 @@ grokdeclarator (const cp_declarator *declarator,
 
   {
     tree decl = NULL_TREE;
-    location_t loc = declarator ? declarator->id_loc : input_location;
 
     if (decl_context == PARM)
       {

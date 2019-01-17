@@ -1174,10 +1174,14 @@ setup_live_pseudos_and_spill_after_risky_transforms (bitmap
 		      - hard_regno_nregs (hard_regno, PSEUDO_REGNO_MODE (i)));
 	enum reg_class rclass = lra_get_allocno_class (i);
 
-	if (WORDS_BIG_ENDIAN
-	    && (hard_regno - nregs_diff < 0
-		|| !TEST_HARD_REG_BIT (reg_class_contents[rclass],
-				       hard_regno - nregs_diff)))
+	if ((WORDS_BIG_ENDIAN
+	     && (hard_regno - nregs_diff < 0
+		 || !TEST_HARD_REG_BIT (reg_class_contents[rclass],
+					hard_regno - nregs_diff)))
+	    || (!WORDS_BIG_ENDIAN
+		&& (hard_regno + nregs_diff >= FIRST_PSEUDO_REGISTER
+		    || !TEST_HARD_REG_BIT (reg_class_contents[rclass],
+					   hard_regno + nregs_diff))))
 	  {
 	    /* Hard registers of paradoxical sub-registers are out of
 	       range of pseudo register class.  Spill the pseudo.  */
@@ -1640,7 +1644,7 @@ lra_assign (bool &fails_p)
        asm is removed and it can result in incorrect allocation.  */
     for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
       if (lra_reg_info[i].nrefs != 0 && reg_renumber[i] >= 0
-	  && lra_reg_info[i].call_p
+	  && lra_reg_info[i].call_insn
 	  && overlaps_hard_reg_set_p (call_used_reg_set,
 				      PSEUDO_REGNO_MODE (i), reg_renumber[i]))
 	gcc_unreachable ();
