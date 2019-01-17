@@ -1348,14 +1348,16 @@
 
 ;; Vector AND, ORR and XOR.
 (define_insn "<optab><mode>3"
-  [(set (match_operand:SVE_I 0 "register_operand" "=w, w")
+  [(set (match_operand:SVE_I 0 "register_operand" "=w, ?w, w")
 	(LOGICAL:SVE_I
-	  (match_operand:SVE_I 1 "register_operand" "%0, w")
-	  (match_operand:SVE_I 2 "aarch64_sve_logical_operand" "vsl, w")))]
+	  (match_operand:SVE_I 1 "register_operand" "%0, w, w")
+	  (match_operand:SVE_I 2 "aarch64_sve_logical_operand" "vsl, vsl, w")))]
   "TARGET_SVE"
   "@
    <logical>\t%0.<Vetype>, %0.<Vetype>, #%C2
+   movprfx\t%0, %1\;<logical>\t%0.<Vetype>, %0.<Vetype>, #%C2
    <logical>\t%0.d, %1.d, %2.d"
+  [(set_attr "movprfx" "*,yes,*")]
 )
 
 ;; Vector AND, ORR and XOR on floating-point modes.  We avoid subregs

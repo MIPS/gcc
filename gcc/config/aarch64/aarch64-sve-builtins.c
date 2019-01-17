@@ -157,10 +157,12 @@ enum function {
   FUNC_svabs,
   FUNC_svabd,
   FUNC_svadd,
+  FUNC_svand,
   FUNC_svasrd,
   FUNC_svdiv,
   FUNC_svdivr,
   FUNC_svdup,
+  FUNC_sveor,
   FUNC_svindex,
   FUNC_svmax,
   FUNC_svmad,
@@ -172,6 +174,7 @@ enum function {
   FUNC_svmulh,
   FUNC_svneg,
   FUNC_svnot,
+  FUNC_svorr,
   FUNC_svptrue,
   FUNC_svqadd,
   FUNC_svqsub,
@@ -453,9 +456,11 @@ private:
   rtx expand_abd ();
   rtx expand_abs ();
   rtx expand_add (unsigned int);
+  rtx expand_and ();
   rtx expand_asrd ();
   rtx expand_div (bool);
   rtx expand_dup ();
+  rtx expand_eor ();
   rtx expand_index ();
   rtx expand_max ();
   rtx expand_min ();
@@ -467,6 +472,7 @@ private:
   rtx expand_mulh ();
   rtx expand_neg ();
   rtx expand_not ();
+  rtx expand_orr ();
   rtx expand_ptrue ();
   rtx expand_qadd ();
   rtx expand_qsub ();
@@ -1078,10 +1084,12 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svabd:
     case FUNC_svabs:
     case FUNC_svadd:
+    case FUNC_svand:
     case FUNC_svasrd:
     case FUNC_svdiv:
     case FUNC_svdivr:
     case FUNC_svdup:
+    case FUNC_sveor:
     case FUNC_svindex:
     case FUNC_svmax:
     case FUNC_svmad:
@@ -1093,6 +1101,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svmulh:
     case FUNC_svneg:
     case FUNC_svnot:
+    case FUNC_svorr:
     case FUNC_svqadd:
     case FUNC_svqsub:
     case FUNC_svsqrt:
@@ -1691,10 +1700,12 @@ gimple_folder::fold ()
     case FUNC_svabd:
     case FUNC_svabs:
     case FUNC_svadd:
+    case FUNC_svand:
     case FUNC_svasrd:
     case FUNC_svdiv:
     case FUNC_svdivr:
     case FUNC_svdup:
+    case FUNC_sveor:
     case FUNC_svindex:
     case FUNC_svmax:
     case FUNC_svmad:
@@ -1706,6 +1717,7 @@ gimple_folder::fold ()
     case FUNC_svmulh:
     case FUNC_svneg:
     case FUNC_svnot:
+    case FUNC_svorr:
     case FUNC_svqadd:
     case FUNC_svqsub:
     case FUNC_svsqrt:
@@ -1776,6 +1788,9 @@ function_expander::expand ()
     case FUNC_svadd:
       return expand_add (1);
 
+    case FUNC_svand:
+      return expand_and ();
+
     case FUNC_svasrd:
       return expand_asrd ();
 
@@ -1787,6 +1802,9 @@ function_expander::expand ()
 
     case FUNC_svdup:
       return expand_dup ();
+
+    case FUNC_sveor:
+      return expand_eor ();
 
     case FUNC_svindex:
       return expand_index ();
@@ -1820,6 +1838,9 @@ function_expander::expand ()
 
     case FUNC_svnot:
       return expand_not ();
+
+    case FUNC_svorr:
+      return expand_orr ();
 
     case FUNC_svptrue:
       return expand_ptrue ();
@@ -1878,6 +1899,16 @@ function_expander::expand_add (unsigned int merge_argno)
   return expand_via_pred_direct_optab (cond_add_optab, merge_argno);
 }
 
+/* Expand a call to svand.  */
+rtx
+function_expander::expand_and ()
+{
+  if (m_fi.pred == PRED_x)
+    return expand_via_unpred_direct_optab (and_optab);
+  else
+    return expand_via_pred_direct_optab (cond_and_optab);
+}
+
 /* Expand a call to svasrd.  */
 rtx
 function_expander::expand_asrd ()
@@ -1916,6 +1947,16 @@ function_expander::expand_dup ()
 	icode = code_for_aarch64_sel_dup (get_mode (0));
       return expand_via_sel_insn (icode);
     }
+}
+
+/* Expand a call to sveor.  */
+rtx
+function_expander::expand_eor ()
+{
+  if (m_fi.pred == PRED_x)
+    return expand_via_unpred_direct_optab (xor_optab);
+  else
+    return expand_via_pred_direct_optab (cond_xor_optab);
 }
 
 /* Expand a call to svindex.  */
@@ -2073,6 +2114,16 @@ rtx
 function_expander::expand_qsub ()
 {
   return expand_via_signed_unpred_insn (SS_MINUS, US_MINUS);
+}
+
+/* Expand a call to svorr.  */
+rtx
+function_expander::expand_orr ()
+{
+  if (m_fi.pred == PRED_x)
+    return expand_via_unpred_direct_optab (ior_optab);
+  else
+    return expand_via_pred_direct_optab (cond_ior_optab);
 }
 
 /* Expand a call to svptrue.  */
