@@ -3839,3 +3839,17 @@
    insr\t%0.<Vetype>, %<vwcore>2
    insr\t%0.<Vetype>, %<Vetype>2"
 )
+
+;; Unpredicated DOT product.
+(define_insn "<sur>dot_prod<mode>"
+  [(set (match_operand:SVE_SDI 0 "register_operand" "=w, ?&w")
+	(plus:SVE_SDI (unspec:SVE_SDI [(match_operand:<VSI2QI> 2 "register_operand" "w, w")
+				       (match_operand:<VSI2QI> 3 "register_operand" "w, w")]
+		       DOTPROD)
+	(match_operand:SVE_SDI 1 "register_operand" "0, w")))]
+  "TARGET_SVE"
+  "@
+   <sur>dot\\t%0.<Vetype>, %2.<Vetype_fourth>, %3.<Vetype_fourth>
+   movprfx\t%0, %1\;<sur>dot\\t%0.<Vetype>, %2.<Vetype_fourth>, %3.<Vetype_fourth>"
+  [(set_attr "movprfx" "*,yes")]
+)

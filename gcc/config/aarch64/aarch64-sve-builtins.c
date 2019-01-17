@@ -115,6 +115,10 @@ enum function_shape {
      sv<t0>_t svfoo[_n_t0](sv<t0>_t, sv<t0>_t, <t0>_t).  */
   SHAPE_ternary_opt_n,
 
+  /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0.quarter>_t, sv<t0.quarter>_t)
+     sv<t0>_t svfoo[_n_t0](sv<t0>_t, sv<t0.quarter>_t, <t0.quarter>_t).  */
+  SHAPE_ternary_qq_opt_n,
+
   /* sv<t0>_t svfoo[_n_t0])(sv<t0>_t, uint64_t)
 
      The final argument must be an integer constant expression in the
@@ -161,6 +165,7 @@ enum function {
   FUNC_svasrd,
   FUNC_svdiv,
   FUNC_svdivr,
+  FUNC_svdot,
   FUNC_svdup,
   FUNC_sveor,
   FUNC_svindex,
@@ -261,6 +266,8 @@ struct GTY(()) function_instance {
 
   tree scalar_type (unsigned int) const;
   tree vector_type (unsigned int) const;
+  tree quarter_vector_type (unsigned int i) const;
+  tree quarter_scalar_type (unsigned int i) const;
 
   /* The explicit "enum"s are required for gengtype.  */
   enum group_id group;
@@ -321,7 +328,9 @@ private:
   void sig_000 (const function_instance &, vec<tree> &);
   void sig_n_000 (const function_instance &, vec<tree> &);
   void sig_0000 (const function_instance &, vec<tree> &);
+  void sig_qq_0000 (const function_instance &, vec<tree> &);
   void sig_n_0000 (const function_instance &, vec<tree> &);
+  void sig_qq_n_0000 (const function_instance &, vec<tree> &);
   void sig_n_00i (const function_instance &, vec<tree> &);
 
   void apply_predication (const function_instance &, vec<tree> &);
@@ -361,6 +370,7 @@ public:
 
 private:
   tree resolve_uniform (unsigned int);
+  tree resolve_dot ();
   tree resolve_uniform_imm (unsigned int, unsigned int);
 
   bool check_first_vector_argument (unsigned int, unsigned int &,
@@ -459,6 +469,7 @@ private:
   rtx expand_and ();
   rtx expand_asrd ();
   rtx expand_div (bool);
+  rtx expand_dot ();
   rtx expand_dup ();
   rtx expand_eor ();
   rtx expand_index ();
@@ -618,6 +629,7 @@ DEF_SVE_TYPES_ARRAY (all_integer);
 DEF_SVE_TYPES_ARRAY (all_data);
 DEF_SVE_TYPES_ARRAY (all_sdi_and_float);
 DEF_SVE_TYPES_ARRAY (all_signed_and_float);
+DEF_SVE_TYPES_ARRAY (sdi);
 
 /* Used by functions in aarch64-sve-builtins.def that have no governing
    predicate.  */
@@ -666,6 +678,43 @@ find_vector_type (const_tree type)
     if (TYPE_MAIN_VARIANT (type) == abi_vector_types[i])
       return (vector_type) i;
   return NUM_VECTOR_TYPES;
+}
+
+/* Return the type suffix associated with integer elements that have
+   ELEM_BITS bits and the signedness given by UNSIGNED_P.  Return
+   NUM_TYPE_SUFFIXES if no such element exists.  */
+static type_suffix
+maybe_find_integer_type_suffix (bool unsigned_p, unsigned int elem_bits)
+{
+  for (unsigned int i = 0; i < NUM_TYPE_SUFFIXES; ++i)
+    {
+      if (type_suffixes[i].integer_p
+	  && type_suffixes[i].unsigned_p == unsigned_p
+	  && type_suffixes[i].elem_bits == elem_bits)
+	return type_suffix (i);
+    }
+  return NUM_TYPE_SUFFIXES;
+}
+
+/* Return the type suffix for elements that are a quarter the size of integer
+   type suffix TYPE.  Return NUM_TYPE_SUFFIXES if no such element exists.  */
+static type_suffix
+maybe_find_quarter_type_suffix (type_suffix type)
+{
+  return maybe_find_integer_type_suffix (type_suffixes[type].unsigned_p,
+				   type_suffixes[type].elem_bits / 4);
+}
+
+/* Same as maybe_find_quarter_type_suffix but asserts if no such element
+   exists.  */
+static type_suffix
+find_quarter_type_suffix (type_suffix type)
+{
+  type_suffix ret
+    = maybe_find_integer_type_suffix (type_suffixes[type].unsigned_p,
+				      type_suffixes[type].elem_bits / 4);
+  gcc_assert (ret != NUM_TYPE_SUFFIXES);
+  return ret;
 }
 
 /* Report that LOCATION has a call to DECL in which argument ARGNO
@@ -742,6 +791,22 @@ function_instance::vector_type (unsigned int i) const
   return acle_vector_types[type_suffixes[types[i]].type];
 }
 
+/* Return the quarter size vector type associated with type suffix I.  */
+tree
+function_instance::quarter_vector_type (unsigned int i) const
+{
+  type_suffix quarter_type = find_quarter_type_suffix (types[i]);
+  return acle_vector_types[type_suffixes[quarter_type].type];
+}
+
+/* Return the quarter size scalar type associated with type suffix I.  */
+tree
+function_instance::quarter_scalar_type (unsigned int i) const
+{
+  type_suffix quarter_type = find_quarter_type_suffix (types[i]);
+  return scalar_types[type_suffixes[quarter_type].type];
+}
+
 inline hashval_t
 registered_function_hasher::hash (value_type value)
 {
@@ -809,6 +874,12 @@ arm_sve_h_builder::build (const function_group &group)
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_0000, group, MODE_none);
       build_all (&arm_sve_h_builder::sig_n_0000, group, MODE_n);
+      break;
+
+    case SHAPE_ternary_qq_opt_n:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_qq_0000, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_qq_n_0000, group, MODE_n);
       break;
 
     case SHAPE_inherent:
@@ -908,6 +979,20 @@ arm_sve_h_builder::sig_0000 (const function_instance &instance,
     types.quick_push (instance.vector_type (0));
 }
 
+/* Describe the signature
+   "sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0.quarter>_t, sv<t0.quarter>_t)"
+   for INSTANCE in TYPES.  */
+void
+arm_sve_h_builder::sig_qq_0000 (const function_instance &instance,
+				vec<tree> &types)
+{
+  tree quarter_type = instance.quarter_vector_type (0);
+  types.quick_push (instance.vector_type (0));
+  types.quick_push (instance.vector_type (0));
+  types.quick_push (quarter_type);
+  types.quick_push (quarter_type);
+}
+
 /* Describe the signature "sv<t0>_t svfoo[_n_t0](sv<t0>_t, <t0>_t)"
    for INSTANCE in TYPES.  */
 void
@@ -928,6 +1013,19 @@ arm_sve_h_builder::sig_n_0000 (const function_instance &instance,
   for (unsigned int i = 0; i < 3; ++i)
     types.quick_push (instance.vector_type (0));
   types.quick_push (instance.scalar_type (0));
+}
+
+/* Describe the signature
+   "sv<t0>_t svfoo[_n_t0](sv<t0>_t, sv<t0.quarter>_t, <t0.quarter>_t)"
+   for INSTANCE in TYPES.  */
+void
+arm_sve_h_builder::sig_qq_n_0000 (const function_instance &instance,
+				  vec<tree> &types)
+{
+  for (unsigned int i = 0; i < 2; ++i)
+    types.quick_push (instance.vector_type (0));
+  types.quick_push (instance.quarter_vector_type (0));
+  types.quick_push (instance.quarter_scalar_type (0));
 }
 
 /* Describe the signature "sv<t0>_t svfoo[_n_t0](sv<t0>_t, uint64_t)"
@@ -1088,6 +1186,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svasrd:
     case FUNC_svdiv:
     case FUNC_svdivr:
+    case FUNC_svdot:
     case FUNC_svdup:
     case FUNC_sveor:
     case FUNC_svindex:
@@ -1145,6 +1244,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_unary:
     case SHAPE_binary_opt_n:
     case SHAPE_ternary_opt_n:
+    case SHAPE_ternary_qq_opt_n:
     case SHAPE_shift_right_imm:
       return 0;
     }
@@ -1218,6 +1318,8 @@ function_resolver::resolve ()
       return resolve_uniform (3);
     case SHAPE_shift_right_imm:
       return resolve_uniform_imm (2, 1);
+    case SHAPE_ternary_qq_opt_n:
+      return resolve_dot ();
     case SHAPE_unary_n:
       return NULL_TREE;
     case SHAPE_binary_scalar:
@@ -1249,6 +1351,37 @@ function_resolver::resolve_uniform (unsigned int nops)
       if (!require_matching_type (i, type))
 	return error_mark_node;
     }
+  return require_form (m_rfn.instance.mode, get_type_suffix (type));
+}
+
+/* Resolve functions like svdot in which the elements of the result and
+   the first argument are four times wider than the elements of the other
+   arguments.  The final argument can be a vector or a scalar.  */
+tree
+function_resolver::resolve_dot ()
+{
+  /* Check that we have the right number of arguments.  */
+  unsigned int i, nargs;
+  vector_type type;
+
+  if (!check_first_vector_argument (3, i, nargs, type))
+    return error_mark_node;
+
+  /* Handle subsequent arguments.  */
+  type_suffix ts = maybe_find_quarter_type_suffix (get_type_suffix (type));
+  if (ts != NUM_TYPE_SUFFIXES)
+    {
+      vector_type arg_type = type_suffixes[ts].type;
+      if (!check_argument (1, arg_type))
+	return error_mark_node;
+
+      /* Allow the final argument to be scalar, if an _n form exists.  */
+      if (scalar_argument_p (2))
+	return require_n_form (get_type_suffix (type));
+      else if (!check_argument (2, arg_type))
+	return error_mark_node;
+    }
+
   return require_form (m_rfn.instance.mode, get_type_suffix (type));
 }
 
@@ -1519,6 +1652,7 @@ function_checker::check ()
     case SHAPE_binary_opt_n:
     case SHAPE_binary_scalar:
     case SHAPE_ternary_opt_n:
+    case SHAPE_ternary_qq_opt_n:
       return true;
     }
   gcc_unreachable ();
@@ -1704,6 +1838,7 @@ gimple_folder::fold ()
     case FUNC_svasrd:
     case FUNC_svdiv:
     case FUNC_svdivr:
+    case FUNC_svdot:
     case FUNC_svdup:
     case FUNC_sveor:
     case FUNC_svindex:
@@ -1799,6 +1934,9 @@ function_expander::expand ()
 
     case FUNC_svdivr:
       return expand_div (true);
+
+    case FUNC_svdot:
+      return expand_dot ();
 
     case FUNC_svdup:
       return expand_dup ();
@@ -1928,6 +2066,16 @@ function_expander::expand_div (bool reversed_p)
     }
 
   return expand_signed_pred_op (DIV, UDIV, UNSPEC_COND_DIV, merge_argno);
+}
+
+/* Expand a call to svdot.  */
+rtx
+function_expander::expand_dot ()
+{
+  if (type_suffixes[m_fi.types[0]].unsigned_p)
+    return expand_via_unpred_direct_optab (udot_prod_optab);
+  else
+    return expand_via_unpred_direct_optab (sdot_prod_optab);
 }
 
 /* Expand a call to svdup.  */

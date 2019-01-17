@@ -26,6 +26,8 @@
      asm volatile ("" :: "r" (XN))
 #  define BIND_OUTPUT_D(DN) \
      asm volatile ("" :: "w" (DN))
+#  define DECLARE_RESULT(TYPE, ZN) \
+     register TYPE ZN##_res asm (#ZN)
 #else
 #  define BIND_INPUT_Z(TYPE, ZN) TYPE ZN
 #  define BIND_INPUT_P(PN) svbool_t PN
@@ -35,6 +37,7 @@
 #  define BIND_OUTPUT_P(PN) (void) PN
 #  define BIND_OUTPUT_X(XN) (void) XN
 #  define BIND_OUTPUT_D(DN) (void) DN
+#  define DECLARE_RESULT(TYPE, ZN) TYPE ZN##_res
 #endif
 
 #if defined (TEST_OVERLOADS)
@@ -51,6 +54,16 @@
   BIND_INPUT_Z (TYPE, z2);			\
   BIND_INPUT_Z (TYPE, z3);			\
   BIND_INPUT_Z (TYPE, z4)
+
+#define BIND_INPUT_ZS_FROM_Z16(TYPE)		\
+  BIND_INPUT_Z (TYPE, z16);			\
+  BIND_INPUT_Z (TYPE, z17);			\
+  BIND_INPUT_Z (TYPE, z18)			\
+
+#define DECLARE_RESULT_ZS_FROM_Z16(TYPE)	\
+  DECLARE_RESULT (TYPE, z16);			\
+  DECLARE_RESULT (TYPE, z17);			\
+  DECLARE_RESULT (TYPE, z18)
 
 #define BIND_OUTPUT_ZS				\
   BIND_OUTPUT_Z (z0);				\
@@ -73,6 +86,11 @@
   BIND_OUTPUT_P (p3);				\
   BIND_OUTPUT_P (p4)
 
+#define BIND_RESULT_ZS_FROM_Z16			\
+  BIND_OUTPUT_Z (z16_res);			\
+  BIND_OUTPUT_Z (z17_res);			\
+  BIND_OUTPUT_Z (z18_res)
+
 #ifdef __cplusplus
 #define START(NAME) extern "C" void NAME (void); void NAME (void)
 #else
@@ -89,6 +107,19 @@
     BIND_OUTPUT_P (p0);					\
   }
 
+#define TEST_DUAL_Z(NAME, TYPE1, TYPE2, CODE1, CODE2)	\
+  START (NAME)						\
+  {							\
+    BIND_INPUT_ZS (TYPE1);				\
+    BIND_INPUT_ZS_FROM_Z16 (TYPE2);			\
+    DECLARE_RESULT_ZS_FROM_Z16 (TYPE1);			\
+    BIND_INPUT_P (p0);					\
+    INVOKE (CODE1, CODE2);				\
+    BIND_OUTPUT_ZS;					\
+    BIND_OUTPUT_P (p0);					\
+    BIND_RESULT_ZS_FROM_Z16;				\
+  }
+
 #define TEST_UNIFORM_ZS(NAME, ZTYPE, STYPE, CODE1, CODE2)	\
   START (NAME)							\
   {								\
@@ -101,6 +132,23 @@
     BIND_OUTPUT_X (x0);						\
     BIND_OUTPUT_D (d0);						\
     BIND_OUTPUT_P (p0);						\
+  }
+
+#define TEST_DUAL_ZS(NAME, ZTYPE1, ZTYPE2, STYPE, CODE1, CODE2)	\
+  START (NAME)							\
+  {								\
+    BIND_INPUT_ZS (ZTYPE1);					\
+    BIND_INPUT_ZS_FROM_Z16 (ZTYPE2);				\
+    DECLARE_RESULT_ZS_FROM_Z16 (ZTYPE1);			\
+    BIND_INPUT_P (p0);						\
+    BIND_INPUT_X (STYPE, x0);					\
+    BIND_INPUT_D (STYPE, d0);					\
+    INVOKE (CODE1, CODE2);					\
+    BIND_OUTPUT_ZS;						\
+    BIND_OUTPUT_X (x0);						\
+    BIND_OUTPUT_D (d0);						\
+    BIND_OUTPUT_P (p0);						\
+    BIND_RESULT_ZS_FROM_Z16;					\
   }
 
 #define TEST_P(NAME, CODE1, CODE2)	\
