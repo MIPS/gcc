@@ -158,6 +158,8 @@ enum function {
   FUNC_svabd,
   FUNC_svadd,
   FUNC_svasrd,
+  FUNC_svdiv,
+  FUNC_svdivr,
   FUNC_svdup,
   FUNC_svindex,
   FUNC_svmax,
@@ -451,6 +453,7 @@ private:
   rtx expand_abs ();
   rtx expand_add (unsigned int);
   rtx expand_asrd ();
+  rtx expand_div (bool);
   rtx expand_dup ();
   rtx expand_index ();
   rtx expand_max ();
@@ -469,7 +472,8 @@ private:
   rtx expand_sub (bool);
 
   rtx expand_pred_op (rtx_code, int);
-  rtx expand_signed_pred_op (rtx_code, rtx_code, int);
+  rtx expand_signed_pred_op (rtx_code, rtx_code, int,
+			     unsigned int = DEFAULT_MERGE_ARGNO);
   rtx expand_signed_pred_op (int, int, int);
   rtx expand_via_unpred_direct_optab (optab);
   rtx expand_via_unpred_insn (insn_code);
@@ -563,11 +567,21 @@ static const type_suffix_info type_suffixes[NUM_TYPE_SUFFIXES + 1] = {
 #define TYPES_all_integer(S, D) \
   TYPES_all_signed (S, D), TYPES_all_unsigned (S, D)
 
+/* _u32, _u64 _s32 _s64.  */
+#define TYPES_sdi(S, D) \
+  S (u32), S (u64), S (s32), S (s64)
+
 /*     _f16 _f32 _f64
    _u8 _u16 _u32 _u64
    _s8 _s16 _s32 _s64.  */
 #define TYPES_all_data(S, D) \
   TYPES_all_float (S, D), TYPES_all_integer (S, D)
+
+/* _f16 _f32 _f64
+        _u32 _u64
+        _s32 _s64.  */
+#define TYPES_all_sdi_and_float(S, D) \
+  TYPES_all_float (S, D), TYPES_sdi (S, D)
 
 /*     _f16 _f32 _f64
    _s8 _s16 _s32 _s64.  */
@@ -594,6 +608,7 @@ DEF_SVE_TYPES_ARRAY (all_signed);
 DEF_SVE_TYPES_ARRAY (all_float);
 DEF_SVE_TYPES_ARRAY (all_integer);
 DEF_SVE_TYPES_ARRAY (all_data);
+DEF_SVE_TYPES_ARRAY (all_sdi_and_float);
 DEF_SVE_TYPES_ARRAY (all_signed_and_float);
 
 /* Used by functions in aarch64-sve-builtins.def that have no governing
@@ -1062,6 +1077,8 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svabs:
     case FUNC_svadd:
     case FUNC_svasrd:
+    case FUNC_svdiv:
+    case FUNC_svdivr:
     case FUNC_svdup:
     case FUNC_svindex:
     case FUNC_svmax:
@@ -1672,6 +1689,8 @@ gimple_folder::fold ()
     case FUNC_svabs:
     case FUNC_svadd:
     case FUNC_svasrd:
+    case FUNC_svdiv:
+    case FUNC_svdivr:
     case FUNC_svdup:
     case FUNC_svindex:
     case FUNC_svmax:
@@ -1755,6 +1774,12 @@ function_expander::expand ()
 
     case FUNC_svasrd:
       return expand_asrd ();
+
+    case FUNC_svdiv:
+      return expand_div (false);
+
+    case FUNC_svdivr:
+      return expand_div (true);
 
     case FUNC_svdup:
       return expand_dup ();
@@ -1851,6 +1876,20 @@ rtx
 function_expander::expand_asrd ()
 {
   return expand_pred_shift_right_imm (code_for_cond_asrd (get_mode (0)));
+}
+
+/* Expand a call to svdiv.  */
+rtx
+function_expander::expand_div (bool reversed_p)
+{
+  unsigned int merge_argno = 1;
+  if (reversed_p)
+    {
+      std::swap (m_args[1], m_args[2]);
+      merge_argno = 2;
+    }
+
+  return expand_signed_pred_op (DIV, UDIV, UNSPEC_COND_DIV, merge_argno);
 }
 
 /* Expand a call to svdup.  */
@@ -2213,11 +2252,14 @@ function_expander::expand_pred_op (rtx_code code, int unspec_cond)
    the floating-point instructions are parameterized by an unspec code.
    CODE_FOR_SINT is the rtx_code for signed integer operations,
    CODE_FOR_UINT is the rtx_code for unsigned integer operations
-   and UNSPEC_COND is the unspec code for floating-point operations.  */
+   and UNSPEC_COND is the unspec code for floating-point operations.
+   MERGE_ARGNO is the argument that should be used as the fallback
+   value in a merging operation.  */
 rtx
 function_expander::expand_signed_pred_op (rtx_code code_for_sint,
 					  rtx_code code_for_uint,
-					  int unspec_cond)
+					  int unspec_cond,
+					  unsigned int merge_argno)
 {
   insn_code icode;
 
@@ -2245,7 +2287,7 @@ function_expander::expand_signed_pred_op (rtx_code code_for_sint,
 	}
       else
 	icode = code_for_cond (unspec_cond, get_mode (0));
-      return expand_via_pred_insn (icode);
+      return expand_via_pred_insn (icode, merge_argno);
     }
 }
 
