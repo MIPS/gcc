@@ -169,6 +169,7 @@ enum function {
   FUNC_svmls,
   FUNC_svmsb,
   FUNC_svmul,
+  FUNC_svmulh,
   FUNC_svneg,
   FUNC_svnot,
   FUNC_svptrue,
@@ -463,6 +464,7 @@ private:
   rtx expand_mla ();
   rtx expand_mls ();
   rtx expand_mul ();
+  rtx expand_mulh ();
   rtx expand_neg ();
   rtx expand_not ();
   rtx expand_ptrue ();
@@ -1088,6 +1090,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svmls:
     case FUNC_svmsb:
     case FUNC_svmul:
+    case FUNC_svmulh:
     case FUNC_svneg:
     case FUNC_svnot:
     case FUNC_svqadd:
@@ -1700,6 +1703,7 @@ gimple_folder::fold ()
     case FUNC_svmls:
     case FUNC_svmsb:
     case FUNC_svmul:
+    case FUNC_svmulh:
     case FUNC_svneg:
     case FUNC_svnot:
     case FUNC_svqadd:
@@ -1807,6 +1811,9 @@ function_expander::expand ()
 
     case FUNC_svmul:
       return expand_mul ();
+
+    case FUNC_svmulh:
+      return expand_mulh ();
 
     case FUNC_svneg:
       return expand_neg ();
@@ -2031,6 +2038,13 @@ function_expander::expand_mul ()
     }
   else
     return expand_via_pred_direct_optab (cond_smul_optab);
+}
+
+/* Expand a call to svmulh.  */
+rtx
+function_expander::expand_mulh ()
+{
+  return expand_signed_pred_op (UNSPEC_SMUL_HIGHPART, UNSPEC_UMUL_HIGHPART, 0);
 }
 
 /* Expand a call to svneg.  */

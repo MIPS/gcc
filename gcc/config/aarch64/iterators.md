@@ -1629,6 +1629,8 @@
 			(UNSPEC_COND_FNEG "neg")
 			(UNSPEC_COND_FSQRT "sqrt")
 			(UNSPEC_COND_MUL "mul")
+		        (UNSPEC_SMUL_HIGHPART "smulh")
+		        (UNSPEC_UMUL_HIGHPART "umulh")
 			(UNSPEC_COND_DIV "div")
 			(UNSPEC_COND_FMAX "smax_nan")
 			(UNSPEC_COND_FMIN "smin_nan")
