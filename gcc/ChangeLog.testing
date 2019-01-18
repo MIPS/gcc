@@ -1,5 +1,9 @@
 2019-01-15 Jan Hubicka  <hubicka@ucw.cz>
 
+	* inline-insns-single to 200, min speedup to 5.
+	
+2019-01-15 Jan Hubicka  <hubicka@ucw.cz>
+
 	* inline-insns-single to 200.
 	* run once again.
 	
