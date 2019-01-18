@@ -2138,12 +2138,15 @@ get_group_load_store_type (stmt_vec_info stmt_info, tree vectype, bool slp,
   vec_info *vinfo = stmt_info->vinfo;
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   struct loop *loop = loop_vinfo ? LOOP_VINFO_LOOP (loop_vinfo) : NULL;
-  stmt_vec_info first_stmt_info = DR_GROUP_FIRST_ELEMENT (stmt_info);
+  stmt_vec_info first_stmt_info = DR_GROUP_FIRST_ELEMENT (stmt_info)
+      ? DR_GROUP_FIRST_ELEMENT (stmt_info) : stmt_info;
   dr_vec_info *first_dr_info = STMT_VINFO_DR_INFO (first_stmt_info);
-  unsigned int group_size = DR_GROUP_SIZE (first_stmt_info);
+  unsigned int group_size = DR_GROUP_FIRST_ELEMENT (stmt_info)
+      ? DR_GROUP_SIZE (first_stmt_info) : 1;
   bool single_element_p = (stmt_info == first_stmt_info
 			   && !DR_GROUP_NEXT_ELEMENT (stmt_info));
-  unsigned HOST_WIDE_INT gap = DR_GROUP_GAP (first_stmt_info);
+  unsigned HOST_WIDE_INT gap = DR_GROUP_FIRST_ELEMENT (stmt_info)
+      ? DR_GROUP_GAP (first_stmt_info) : 0;
   poly_uint64 nunits = TYPE_VECTOR_SUBPARTS (vectype);
 
   /* True if the vectorized statements would access beyond the last
@@ -2389,10 +2392,20 @@ get_load_store_type (stmt_vec_info stmt_info, tree vectype, bool slp,
 	  return false;
 	}
     }
-  else if (STMT_VINFO_GROUPED_ACCESS (stmt_info))
+  else if ((slp
+	    && (STMT_VINFO_STRIDED_P (stmt_info)
+		|| compare_step_with_zero (stmt_info) != 0))
+	   || STMT_VINFO_GROUPED_ACCESS (stmt_info))
     {
-      if (!get_group_load_store_type (stmt_info, vectype, slp, masked_p,
-				      vls_type, memory_access_type, gs_info))
+      if (!STMT_VINFO_STRIDED_P (stmt_info)
+	  && compare_step_with_zero (stmt_info) < 0)
+	/* ???  We currently fail to detect groups with negative step,
+	   once this is fixed the following simple won't work.  */
+	*memory_access_type = get_negative_load_store_type
+	  (stmt_info, vectype, vls_type, ncopies);
+      else if (!get_group_load_store_type (stmt_info, vectype, slp, masked_p,
+					   vls_type, memory_access_type,
+					   gs_info))
 	return false;
     }
   else if (STMT_VINFO_STRIDED_P (stmt_info))
@@ -6661,27 +6674,28 @@ vectorizable_store (stmt_vec_info stmt_info, gimple_stmt_iterator *gsi,
 	  return true;
 	}
 
-      if (slp)
-        {
-          grouped_store = false;
-          /* VEC_NUM is the number of vect stmts to be created for this 
-             group.  */
-          vec_num = SLP_TREE_NUMBER_OF_VEC_STMTS (slp_node);
-	  first_stmt_info = SLP_TREE_SCALAR_STMTS (slp_node)[0];
-	  gcc_assert (DR_GROUP_FIRST_ELEMENT (first_stmt_info)
-		      == first_stmt_info);
-	  first_dr_info = STMT_VINFO_DR_INFO (first_stmt_info);
-	  op = vect_get_store_rhs (first_stmt_info);
-        } 
-      else
-        /* VEC_NUM is the number of vect stmts to be created for this 
-           group.  */
-	vec_num = group_size;
+      /* VEC_NUM is the number of vect stmts to be created for this 
+	 group.  */
+      vec_num = group_size;
 
       ref_type = get_group_alias_ptr_type (first_stmt_info);
     }
   else
     ref_type = reference_alias_ptr_type (DR_REF (first_dr_info->dr));
+
+  if (slp)
+    {
+      /* VEC_NUM is the number of vect stmts to be created for this 
+	 group.  */
+      vec_num = SLP_TREE_NUMBER_OF_VEC_STMTS (slp_node);
+      first_stmt_info = SLP_TREE_SCALAR_STMTS (slp_node)[0];
+      gcc_assert (!grouped_store
+		  || (DR_GROUP_FIRST_ELEMENT (first_stmt_info)
+		      == first_stmt_info));
+      first_dr_info = STMT_VINFO_DR_INFO (first_stmt_info);
+      op = vect_get_store_rhs (first_stmt_info);
+      grouped_store = false;
+    } 
 
   if (dump_enabled_p ())
     dump_printf_loc (MSG_NOTE, vect_location,
@@ -8079,7 +8093,8 @@ vectorizable_load (stmt_vec_info stmt_info, gimple_stmt_iterator *gsi,
     {
       first_stmt_info = stmt_info;
       first_dr_info = dr_info;
-      group_size = vec_num = 1;
+      group_size = 1;
+      vec_num = slp ? SLP_TREE_NUMBER_OF_VEC_STMTS (slp_node) : 1;
       group_gap_adj = 0;
       ref_type = reference_alias_ptr_type (DR_REF (first_dr_info->dr));
     }
@@ -9614,6 +9629,10 @@ vect_analyze_stmt (stmt_vec_info stmt_info, bool *need_to_vectorize,
 			 "handled only by SLP analysis\n");
       return opt_result::success ();
     }
+
+  if (!node)
+    return opt_result::failure_at (stmt_info->stmt, "non-SLP but pure "
+				   "SLP forced\n");
 
   ok = true;
   if (!bb_vinfo
