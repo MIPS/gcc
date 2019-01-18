@@ -1549,6 +1549,65 @@
   }
 )
 
+(define_insn "@aarch64_pred_<sve_int_op><mode>"
+  [(set (match_operand:SVE_BHSI 0 "register_operand" "=w, ?&w")
+        (unspec:SVE_BHSI
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl")
+	  (unspec:SVE_BHSI
+	    [(match_operand:SVE_BHSI 2 "register_operand" "0, w")
+	     (match_operand:VNx2DI 3 "register_operand" "w, w")]
+	    SVE_ASHIFT_WIDE)]
+	  UNSPEC_MERGE_PTRUE))]
+  "TARGET_SVE"
+  "@
+   <sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.d
+   movprfx\t%0, %2\;<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.d"
+  [(set_attr "movprfx" "*,yes")]
+)
+
+(define_expand "@cond_<sve_int_op><mode>"
+  [(set (match_operand:SVE_BHSI 0 "register_operand")
+	(unspec:SVE_BHSI
+	  [(match_operand:<VPRED> 1 "register_operand")
+	   (unspec:SVE_BHSI
+	     [(match_operand:SVE_BHSI 2 "register_operand")
+	      (match_operand:VNx2DI 3 "register_operand")]
+	     SVE_ASHIFT_WIDE)
+	   (match_operand:SVE_BHSI 4 "aarch64_simd_reg_or_zero")]
+	  UNSPEC_SEL))]
+  "TARGET_SVE"
+)
+
+(define_insn "*cond<sve_int_op><mode>_m"
+  [(set (match_operand:SVE_BHSI 0 "register_operand" "=w, ?&w")
+	(unspec:SVE_BHSI
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl")
+	   (unspec:SVE_BHSI
+	     [(match_operand:SVE_BHSI 2 "register_operand" "0, w")
+	      (match_operand:VNx2DI 3 "register_operand" "w, w")]
+	     SVE_ASHIFT_WIDE)
+	   (match_dup 2)]
+	 UNSPEC_SEL))]
+  "TARGET_SVE"
+  "@
+   <sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.d
+   movprfx\t%0, %2\;<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.d"
+  [(set_attr "movprfx" "*, yes")])
+
+(define_insn "*cond<sve_int_op><mode>_z"
+  [(set (match_operand:SVE_BHSI 0 "register_operand" "=&w")
+        (unspec:SVE_BHSI
+          [(match_operand:<VPRED> 1 "register_operand" "Upl")
+           (unspec:SVE_BHSI
+             [(match_operand:SVE_BHSI 2 "register_operand" "0w")
+              (match_operand:VNx2DI 3 "register_operand" "w")]
+             SVE_ASHIFT_WIDE)
+           (match_operand:SVE_BHSI 4 "aarch64_simd_imm_zero")]
+         UNSPEC_SEL))]
+  "TARGET_SVE"
+  "movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.d"
+  [(set_attr "movprfx" "yes")])
+
 ;; Test all bits of operand 1.  Operand 0 is a GP that is known to hold PTRUE.
 ;;
 ;; Using UNSPEC_PTEST_PTRUE allows combine patterns to assume that the GP

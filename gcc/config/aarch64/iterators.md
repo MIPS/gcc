@@ -490,6 +490,7 @@
     UNSPEC_COND_GE	; Used in aarch64-sve.md.
     UNSPEC_COND_GT	; Used in aarch64-sve.md.
     UNSPEC_LASTB	; Used in aarch64-sve.md.
+    UNSPEC_ASHIFT_WIDE  ; Used in aarch64-sve.md.
 ])
 
 ;; ------------------------------------------------------------------
@@ -1616,6 +1617,8 @@
  [(UNSPECV_ATOMIC_LDOP_OR "set") (UNSPECV_ATOMIC_LDOP_BIC "clr")
   (UNSPECV_ATOMIC_LDOP_XOR "eor") (UNSPECV_ATOMIC_LDOP_PLUS "add")])
 
+(define_int_iterator SVE_ASHIFT_WIDE [UNSPEC_ASHIFT_WIDE])
+
 ;; -------------------------------------------------------------------
 ;; Int Iterators Attributes.
 ;; -------------------------------------------------------------------
@@ -1879,6 +1882,8 @@
 			 (UNSPEC_COND_NE "ne")
 			 (UNSPEC_COND_GE "ge")
 			 (UNSPEC_COND_GT "gt")])
+
+(define_int_attr sve_int_op [(UNSPEC_ASHIFT_WIDE "lsl")])
 
 (define_int_attr sve_fp_op [(UNSPEC_COND_MUL "fmul")
 			    (UNSPEC_COND_DIV "fdiv")

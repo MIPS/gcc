@@ -123,7 +123,10 @@ enum function_shape {
 
      The final argument must be an integer constant expression in the
      range [1, <t0>_BITS].  */
-  SHAPE_shift_right_imm
+  SHAPE_shift_right_imm,
+
+  /* sv<t0>_t svfoo_wide[_t0](sv<t0>_t, svuint64_t).  */
+  SHAPE_binary_wide
 };
 
 /* Classifies an operation into "modes"; for example, to distinguish
@@ -169,6 +172,7 @@ enum function {
   FUNC_svdup,
   FUNC_sveor,
   FUNC_svindex,
+  FUNC_svlsl_wide,
   FUNC_svmax,
   FUNC_svmad,
   FUNC_svmin,
@@ -331,6 +335,7 @@ private:
   void sig_qq_0000 (const function_instance &, vec<tree> &);
   void sig_n_0000 (const function_instance &, vec<tree> &);
   void sig_qq_n_0000 (const function_instance &, vec<tree> &);
+  void sig_00i (const function_instance &, vec<tree> &);
   void sig_n_00i (const function_instance &, vec<tree> &);
 
   void apply_predication (const function_instance &, vec<tree> &);
@@ -371,6 +376,7 @@ public:
 private:
   tree resolve_uniform (unsigned int);
   tree resolve_dot ();
+  tree resolve_binary_wide ();
   tree resolve_uniform_imm (unsigned int, unsigned int);
 
   bool check_first_vector_argument (unsigned int, unsigned int &,
@@ -473,6 +479,7 @@ private:
   rtx expand_dup ();
   rtx expand_eor ();
   rtx expand_index ();
+  rtx expand_lsl_wide ();
   rtx expand_max ();
   rtx expand_min ();
   rtx expand_mad (unsigned int);
@@ -581,6 +588,12 @@ static const type_suffix_info type_suffixes[NUM_TYPE_SUFFIXES + 1] = {
 #define TYPES_all_unsigned(S, D) \
   S (u8), S (u16), S (u32), S (u64)
 
+/* _s8 _s16 _s32
+   _u8 _u16 _u32.  */
+#define TYPES_all_bhsi(S, D) \
+  S (s8), S (s16), S (s32), \
+  S (u8), S (u16), S (u32)
+
 /* _s8 _s16 _s32 _s64
    _u8 _u16 _u32 _u64.  */
 #define TYPES_all_integer(S, D) \
@@ -625,6 +638,7 @@ DEF_SVE_TYPES_ARRAY (all_pred);
 DEF_SVE_TYPES_ARRAY (all_unsigned);
 DEF_SVE_TYPES_ARRAY (all_signed);
 DEF_SVE_TYPES_ARRAY (all_float);
+DEF_SVE_TYPES_ARRAY (all_bhsi);
 DEF_SVE_TYPES_ARRAY (all_integer);
 DEF_SVE_TYPES_ARRAY (all_data);
 DEF_SVE_TYPES_ARRAY (all_sdi_and_float);
@@ -891,6 +905,11 @@ arm_sve_h_builder::build (const function_group &group)
       add_overloaded_functions (group, MODE_n);
       build_all (&arm_sve_h_builder::sig_n_00i, group, MODE_n);
       break;
+
+    case SHAPE_binary_wide:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_00i, group, MODE_none);
+      break;
     }
 }
 
@@ -1026,6 +1045,17 @@ arm_sve_h_builder::sig_qq_n_0000 (const function_instance &instance,
     types.quick_push (instance.vector_type (0));
   types.quick_push (instance.quarter_vector_type (0));
   types.quick_push (instance.quarter_scalar_type (0));
+}
+
+/* Describe the signature "sv<t0>_t svfoo[_t0](sv<t0>_t, svuint64_t)"
+   for INSTANCE in TYPES.  */
+void
+arm_sve_h_builder::sig_00i (const function_instance& instance,
+			    vec<tree> &types)
+{
+  for (unsigned i = 0; i < 2; ++i)
+    types.quick_push (instance.vector_type (0));
+  types.quick_push (acle_vector_types[VECTOR_TYPE_svuint64_t]);
 }
 
 /* Describe the signature "sv<t0>_t svfoo[_n_t0](sv<t0>_t, uint64_t)"
@@ -1190,6 +1220,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svdup:
     case FUNC_sveor:
     case FUNC_svindex:
+    case FUNC_svlsl_wide:
     case FUNC_svmax:
     case FUNC_svmad:
     case FUNC_svmin:
@@ -1246,6 +1277,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_ternary_opt_n:
     case SHAPE_ternary_qq_opt_n:
     case SHAPE_shift_right_imm:
+    case SHAPE_binary_wide:
       return 0;
     }
   gcc_unreachable ();
@@ -1325,6 +1357,8 @@ function_resolver::resolve ()
     case SHAPE_binary_scalar:
     case SHAPE_inherent:
       break;
+    case SHAPE_binary_wide:
+      return resolve_binary_wide ();
     }
   gcc_unreachable ();
 }
@@ -1381,6 +1415,22 @@ function_resolver::resolve_dot ()
       else if (!check_argument (2, arg_type))
 	return error_mark_node;
     }
+
+  return require_form (m_rfn.instance.mode, get_type_suffix (type));
+}
+
+/* Resolve a function that has SHAPE_binary_wide.  */
+
+tree
+function_resolver::resolve_binary_wide ()
+{
+  unsigned i, nargs;
+  vector_type type;
+
+  if (!check_first_vector_argument (2, i, nargs, type)
+      || !require_matching_type (i, type)
+      || !check_argument (i + 1, VECTOR_TYPE_svuint64_t))
+    return error_mark_node;
 
   return require_form (m_rfn.instance.mode, get_type_suffix (type));
 }
@@ -1653,6 +1703,7 @@ function_checker::check ()
     case SHAPE_binary_scalar:
     case SHAPE_ternary_opt_n:
     case SHAPE_ternary_qq_opt_n:
+    case SHAPE_binary_wide:
       return true;
     }
   gcc_unreachable ();
@@ -1842,6 +1893,7 @@ gimple_folder::fold ()
     case FUNC_svdup:
     case FUNC_sveor:
     case FUNC_svindex:
+    case FUNC_svlsl_wide:
     case FUNC_svmax:
     case FUNC_svmad:
     case FUNC_svmin:
@@ -1946,6 +1998,9 @@ function_expander::expand ()
 
     case FUNC_svindex:
       return expand_index ();
+
+    case FUNC_svlsl_wide:
+      return expand_lsl_wide ();
 
     case FUNC_svmax:
       return expand_max ();
@@ -2112,6 +2167,24 @@ rtx
 function_expander::expand_index ()
 {
   return expand_via_unpred_direct_optab (vec_series_optab);
+}
+
+/* Expand a call to svlsl_wide.  */
+rtx
+function_expander::expand_lsl_wide ()
+{
+  machine_mode mode = get_mode (0);
+
+  if (m_fi.pred == PRED_x)
+    {
+      insn_code icode = code_for_aarch64_pred (UNSPEC_ASHIFT_WIDE, mode);
+      return expand_via_pred_x_insn (icode);
+    }
+  else
+    {
+      insn_code icode = code_for_cond (UNSPEC_ASHIFT_WIDE, mode);
+      return expand_via_pred_insn (icode);
+    }
 }
 
 /* Expand a call to svmax.  */

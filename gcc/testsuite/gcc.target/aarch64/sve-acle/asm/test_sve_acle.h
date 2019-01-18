@@ -120,6 +120,9 @@
     BIND_RESULT_ZS_FROM_Z16;				\
   }
 
+#define TEST_WIDE_Z(NAME, TYPE, CODE1, CODE2)		\
+  TEST_DUAL_Z (NAME, TYPE, svuint64_t, CODE1, CODE2)
+
 #define TEST_UNIFORM_ZS(NAME, ZTYPE, STYPE, CODE1, CODE2)	\
   START (NAME)							\
   {								\
