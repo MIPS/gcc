@@ -633,7 +633,9 @@ Objective-C and Objective-C++ Dialects}.
 -msign-return-address=@var{scope} @gol
 -mbranch-protection=@var{none}|@var{standard}|@var{pac-ret}[+@var{leaf}] @gol
 -march=@var{name}  -mcpu=@var{name}  -mtune=@var{name}  @gol
--moverride=@var{string}  -mverbose-cost-dump  -mtrack-speculation} 
+-moverride=@var{string}  -mverbose-cost-dump @gol
+-mstack-protector-guard=@var{guard} -mstack-protector-guard-reg=@var{sysreg} @gol
+-mstack-protector-guard-offset=@var{offset} -mtrack-speculation }
 
 @emph{Adapteva Epiphany Options}
 @gccoptlist{-mhalf-reg-file  -mprefer-short-insn-regs @gol
@@ -15606,6 +15608,42 @@ object boundary as described in the architecture specification.
 Omit or keep the frame pointer in leaf functions.  The former behavior is the
 default.
 
+@item -mstack-protector-guard=@var{guard}
+@itemx -mstack-protector-guard-reg=@var{reg}
+@itemx -mstack-protector-guard-offset=@var{offset}
+@opindex mstack-protector-guard
+@opindex mstack-protector-guard-reg
+@opindex mstack-protector-guard-offset
+Generate stack protection code using canary at @var{guard}.  Supported
+locations are @samp{global} for a global canary or @samp{sysreg} for a
+canary in an appropriate system register.
+
+With the latter choice the options
+@option{-mstack-protector-guard-reg=@var{reg}} and
+@option{-mstack-protector-guard-offset=@var{offset}} furthermore specify
+which system register to use as base register for reading the canary,
+and from what offset from that base register. There is no default
+register or offset as this is entirely for use within the Linux
+kernel.
+
+@item -mstack-protector-guard=@var{guard}
+@itemx -mstack-protector-guard-reg=@var{reg}
+@itemx -mstack-protector-guard-offset=@var{offset}
+@opindex mstack-protector-guard
+@opindex mstack-protector-guard-reg
+@opindex mstack-protector-guard-offset
+Generate stack protection code using canary at @var{guard}.  Supported
+locations are @samp{global} for a global canary or @samp{sysreg} for a
+canary in an appropriate system register.
+
+With the latter choice the options
+@option{-mstack-protector-guard-reg=@var{reg}} and
+@option{-mstack-protector-guard-offset=@var{offset}} furthermore specify
+which system register to use as base register for reading the canary,
+and from what offset from that base register. There is no default
+register or offset as this is entirely for use within the Linux
+kernel.
+
 @item -mtls-dialect=desc
 @opindex mtls-dialect=desc
 Use TLS descriptors as the thread-local storage mechanism for dynamic accesses
@@ -17052,6 +17090,12 @@ Disable the floating-point instructions.
 
 @item armv7-a
 @table @samp
+@item +mp
+The multiprocessing extension.
+
+@item +sec
+The security extension.
+
 @item +fp
 The VFPv3 floating-point instructions, with 16 double-precision
 registers.  The extension @samp{+vfpv3-d16} can be used as an alias
@@ -17480,11 +17524,11 @@ Enables the cryptographic instructions on @samp{cortex-a32},
 
 Additionally the @samp{generic-armv7-a} pseudo target defaults to
 VFPv3 with 16 double-precision registers.  It supports the following
-extension options: @samp{vfpv3-d16}, @samp{vfpv3},
-@samp{vfpv3-d16-fp16}, @samp{vfpv3-fp16}, @samp{vfpv4-d16},
-@samp{vfpv4}, @samp{neon}, @samp{neon-vfpv3}, @samp{neon-fp16},
-@samp{neon-vfpv4}.  The meanings are the same as for the extensions to
-@option{-march=armv7-a}.
+extension options: @samp{mp}, @samp{sec}, @samp{vfpv3-d16},
+@samp{vfpv3}, @samp{vfpv3-d16-fp16}, @samp{vfpv3-fp16},
+@samp{vfpv4-d16}, @samp{vfpv4}, @samp{neon}, @samp{neon-vfpv3},
+@samp{neon-fp16}, @samp{neon-vfpv4}.  The meanings are the same as for
+the extensions to @option{-march=armv7-a}.
 
 @option{-mcpu=generic-@var{arch}} is also permissible, and is
 equivalent to @option{-march=@var{arch} -mtune=generic-@var{arch}}.

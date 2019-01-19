@@ -1,3 +1,147 @@
+2019-01-19  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* gfortran.dg/loop_versioning_1.f90: Bump the number of identified
+	inner strides.
+	* gfortran.dg/loop_versioning_9.f90: New test.
+	* gfortran.dg/loop_versioning_10.f90: Likewise.
+
+2019-01-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/88902
+	* gfortran.dg/pr88902.f90: New test.
+
+2019-01-18  Martin Sebor  <msebor@redhat.com>
+
+	* c-c++-common/attr-nonstring-3.c: Remove an xfail.
+
+2019-01-18  Ian Lance Taylor  <iant@golang.org>
+
+	* go.go-torture/execute/names-1.go: Stop using debug/xcoff, which
+	is no longer externally visible.
+
+2019-01-18  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/86926
+	* g++.dg/cpp1z/constexpr-lambda23.C: New test.
+
+2019-01-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/88587
+	* g++.target/i386/pr88587.C (dg-do): Add { target ia32 }.
+	(dg-options): Replace -m32 with -fno-pic.
+	* gcc.target/i386/mvc13.c (dg-do): Add { target ia32 }.
+	(dg-options): Remove -m32.
+
+2019-01-18  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/88903
+	* gcc.dg/vect/pr88903-1.c: New testcase.
+	* gcc.dg/vect/pr88903-2.c: Likewise.
+
+2019-01-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c/51628
+	PR c/88664
+	* c-c++-common/pr51628-33.c: New test.
+	* c-c++-common/pr51628-35.c: New test.
+	* c-c++-common/pr88664-1.c: Likewise.
+	* c-c++-common/pr88664-2.c: Likewise.
+	* gcc.dg/pr51628-34.c: Likewise.
+
+2019-01-18  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/88799
+	* gcc.target/arm/multilib.exp (config "aprofile"): Add tests for
+	mp and sec extensions to armv7-a.
+
+2019-01-18  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/no_profile_instrument_function-attr-1.c: Update
+	expected function name.
+
+2019-01-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/86214
+	* g++.dg/opt/pr86214-1.C: New test.
+	* g++.dg/opt/pr86214-2.C: New test.
+
+2019-01-18  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/arm/pr77904.c: Add dg-warning for sp clobber.
+
+2019-01-18  Jakub Jelinek  <jakub@redhat.com>
+
+	Reapply:
+	2018-12-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/88489
+	* gcc.target/i386/avx512vl-vfixupimmsd-2.c: New test.
+	* gcc.target/i386/avx512vl-vfixupimmss-2.c: New test.
+
+2019-01-18  Martin Liska  <mliska@suse.cz>
+
+	PR middle-end/88587
+	* g++.target/i386/pr88587.C: New test.
+	* gcc.target/i386/mvc13.c: New test.
+
+2018-01-17  Steve Ellcey  <sellcey@cavium.com>
+
+	PR fortran/88898
+	* gfortran.dg/gomp/declare-simd-2.f90: Add aarch64 target specifier to
+	warning checks.
+	* gfortran.dg/gomp/pr79154-1.f90: Ditto.
+	* gfortran.dg/gomp/pr83977.f90: Ditto.
+
+2019-01-17  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/88273
+	* gcc.dg/Warray-bounds-38.c: New test.
+
+2018-01-17  Steve Ellcey  <sellcey@cavium.com>
+
+	* c-c++-common/gomp/pr60823-1.c: Add aarch64 specific
+	warning checks and assembler scans.
+	* c-c++-common/gomp/pr60823-3.c: Ditto.
+	* c-c++-common/gomp/pr63328.c: Ditto.
+	* g++.dg/gomp/declare-simd-1.C: Ditto.
+	* g++.dg/gomp/declare-simd-3.C: Ditto.
+	* g++.dg/gomp/declare-simd-4.C: Ditto.
+	* g++.dg/gomp/declare-simd-7.C: Ditto.
+	* g++.dg/gomp/pr88182.C: Ditto.
+	* g++.dg/vect/simd-clone-7.cc: Ditto.
+	* gcc.dg/gomp/declare-simd-1.c: Ditto.
+	* gcc.dg/gomp/declare-simd-3.c: Ditto.
+	* gcc.dg/gomp/pr59669-2.c: Ditto.
+	* gcc.dg/gomp/pr87895-1.c: Ditto.
+	* gcc.dg/gomp/pr87895-2.c: Ditto.
+	* gcc.dg/gomp/simd-clones-2.c: Ditto.
+	* gfortran.dg/gomp/declare-simd-2.f90: Ditto.
+	* gfortran.dg/gomp/pr79154-1.f90: Ditto.
+	* gfortran.dg/gomp/pr83977.f90: Ditto.
+
+2019-01-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/cpp0x/auto52.C: Test locations too.
+	* g++.dg/cpp0x/trailing2.C: Likewise.
+	* g++.dg/cpp1y/auto-fn18.C: Likewise.
+	* g++.dg/cpp1y/auto-fn25.C: Likewise.
+	* g++.dg/cpp1y/auto-fn52.C: Likewise.
+	* g++.dg/cpp1y/auto-fn53.C: Likewise.
+	* g++.dg/cpp1y/auto-fn54.C: Likewise.
+
+2019-01-17  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/88699
+	* g++.dg/template/pr88699.C: New test.
+
+2019-01-17  Martin Sebor  <msebor@redhat.com>
+
+	PR tree-optimization/88800
+	* c-c++-common/Wrestrict.c: Adjust.
+	* gcc.dg/Warray-bounds-37.c: New test.
+	* gcc.dg/builtin-memcpy-2.c: New test.
+	* gcc.dg/builtin-memcpy.c: New test.
+
 2019-01-17  Tamar Christina  <tamar.christina@arm.com>
 
 	PR target/88850
@@ -257,7 +401,7 @@
 
 2019-01-15  Paul Thomas  <pault@gcc.gnu.org>
 
-	* gfortran.dg/ISO_Fortran_binding_2.c : Change reference to
+	* gfortran.dg/ISO_Fortran_binding_2.c: Change reference to
 	ISO_Fortran_binding_2.h.
 
 2019-01-15  Marek Polacek  <polacek@redhat.com>
@@ -374,17 +518,17 @@
 
 2019-01-12  Paul Thomas  <pault@gcc.gnu.org>
 
-	* gfortran.dg/ISO_Fortran_binding_2.f90 : Remove because of
+	* gfortran.dg/ISO_Fortran_binding_2.f90: Remove because of
 	reports of ICEs.
-	* gfortran.dg/ISO_Fortran_binding_2.c : Ditto.
+	* gfortran.dg/ISO_Fortran_binding_2.c: Ditto.
 
 2019-01-12  Paul Thomas  <pault@gcc.gnu.org>
 
-	* gfortran.dg/ISO_Fortran_binding_1.f90 : New test.
-	* gfortran.dg/ISO_Fortran_binding_1.c : Auxilliary file for test.
-	* gfortran.dg/ISO_Fortran_binding_2.f90 : New test.
-	* gfortran.dg/ISO_Fortran_binding_2.c : Auxilliary file for test.
-	* gfortran.dg/bind_c_array_params_2.f90 : Change search string
+	* gfortran.dg/ISO_Fortran_binding_1.f90: New test.
+	* gfortran.dg/ISO_Fortran_binding_1.c: Auxilliary file for test.
+	* gfortran.dg/ISO_Fortran_binding_2.f90: New test.
+	* gfortran.dg/ISO_Fortran_binding_2.c: Auxilliary file for test.
+	* gfortran.dg/bind_c_array_params_2.f90: Change search string
 	for dump tree scan.
 
 2019-01-11  Steven G. Kargl  <kargl@gcc.gnu.org>

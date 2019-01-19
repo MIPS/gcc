@@ -1,3 +1,158 @@
+2019-01-19  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* gimple-loop-versioning.cc (loop_versioning::dump_inner_likelihood):
+	New function, split out from...
+	(loop_versioning::analyze_stride): ...here.
+	(loop_versioning::find_per_loop_multiplication): Use gassign.
+	(loop_versioning::analyze_term_using_scevs): Return a success code.
+	(loop_versioning::analyze_arbitrary_term): New function.
+	(loop_versioning::analyze_address_fragment): Use
+	analyze_arbitrary_term if all else fails.
+
+2019-01-18  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/88892
+	* config/rs6000/rs6000.md (*movsi_from_df): Allow only register
+	operands.
+
+2019-01-18  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/88903
+	* tree-vect-stmts.c (vectorizable_shift): Verify we see all
+	scalar stmts a SLP shift amount is composed of when detecting
+	shifts by scalars.
+
+2019-01-18  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/88799
+	* config/arm/arm-cpus.in (mp): New feature.
+	(sec): New feature.
+	(fgroup ARMv7ve): Add mp and sec features.
+	(arch armv7-a): Add options to allow mp and sec extensions.
+	(cpu generic-armv7-a): Add options to allow mp and sec extensions.
+	(cpu cortex-a5, cpu cortex-7, cpu cortex-a9): Add mp and sec
+	extenstions to the base architecture.
+	(cpu cortex-a8): Add sec extension to the base architecture.
+	(cpu marvell-pj4): Add mp and sec extensions to the base architecture.
+	* config/arm/t-aprofile (MULTILIB_MATCHES): Map all armv7-a arch
+	variants down to the base v7-a varaint.
+	* config/arm/t-multilib (v7_a_arch_variants): New variable.
+	* doc/invoke.texi (ARM Options): Add +mp and +sec to the list
+	of permitted extensions for -march=armv7-a and for
+	-mcpu=generic-armv7-a.
+
+2019-01-18  Martin Liska  <mliska@suse.cz>
+
+	* params.def: Fix comment.
+	* tree-profile.c (gimple_init_gcov_profiler): Bump function
+	name.
+	(gimple_gen_ic_func_profiler): Likewise.
+
+2019-01-18  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+        * config/aarch64/aarch64-opts.h (enum stack_protector_guard): New
+        * config/aarch64/aarch64.c (aarch64_override_options_internal): Handle
+        and put in error checks for stack protector guard options.
+        (aarch64_stack_protect_guard): New.
+        (TARGET_STACK_PROTECT_GUARD): Define.
+        * config/aarch64/aarch64.md (UNSPEC_SSP_SYSREG): New.
+        (reg_stack_protect_address<mode>): New.
+        (stack_protect_set): Adjust for SSP_GLOBAL.
+        (stack_protect_test): Likewise.
+        * config/aarch64/aarch64.opt (-mstack-protector-guard-reg): New.
+        (-mstack-protector-guard): Likewise.
+        (-mstack-protector-guard-offset): Likewise.
+
+2019-01-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/86214
+	* tree-inline.h (struct copy_body_data): Add
+	add_clobbers_to_eh_landing_pads member.
+	* tree-inline.c (add_clobbers_to_eh_landing_pad): New function.
+	(copy_edges_for_bb): Call it if EH edge destination is <
+	id->add_clobbers_to_eh_landing_pads.  Fix a comment typo.
+	(expand_call_inline): Set id->add_clobbers_to_eh_landing_pads
+	if flag_stack_reuse != SR_NONE and clear it afterwards.
+
+2019-01-18  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	PR target/85596
+	* doc/install.texi (with-multilib-list): Document for aarch64.
+
+2019-01-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/88734
+	* config/arm/arm_neon.h: Fix #pragma GCC target syntax - replace
+	(("..."))) with ("...").
+
+2019-01-18  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* doc/extend.texi (Built-in Functions for Memory Model Aware
+	Atomic Operations): Document atomic fetch and nand.
+
+2019-01-18  Martin Liska  <mliska@suse.cz>
+	    Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/88587
+	* cgraph.h (create_version_clone_with_body): Add new argument
+	with attributes.
+	* cgraphclones.c (cgraph_node::create_version_clone): Add
+	DECL_ATTRIBUTES to a newly created decl.  And call
+	valid_attribute_p so that proper cl_target_optimization_node
+	is set for the newly created declaration.
+	* multiple_target.c (create_target_clone): Set DECL_ATTRIBUTES
+	for declaration.
+	(expand_target_clones): Do not call valid_attribute_p, it must
+	be already done.
+	* tree-inline.c (copy_decl_for_dup_finish): Reset mode for
+	vector types.
+
+2019-01-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/88734
+	* config/aarch64/arm_neon.h: Fix #pragma GCC target syntax - replace
+	(("..."))) with ("...").  Use arch=armv8.2-a+sha3 instead of
+	arch=armv8.2-a+crypto for vsha512hq_u64 etc. intrinsics.
+
+2019-01-17  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/88273
+	* gimple-ssa-warn-restrict.c (builtin_memref::extend_offset_range):
+	Handle anti-ranges the same as no range at all.
+
+2018-01-17  Steve Ellcey  <sellcey@cavium.com>
+
+	* config/aarch64/aarch64.c (cgraph.h): New include.
+	(intl.h): New include.
+	(supported_simd_type): New function.
+	(currently_supported_simd_type): Ditto.
+	(aarch64_simd_clone_compute_vecsize_and_simdlen): Ditto.
+	(aarch64_simd_clone_adjust): Ditto.
+	(aarch64_simd_clone_usable): Ditto.
+	(TARGET_SIMD_CLONE_COMPUTE_VECSIZE_AND_SIMDLEN): New macro.
+	(TARGET_SIMD_CLONE_ADJUST): Ditto.
+	(TARGET_SIMD_CLONE_USABLE): Ditto.
+	* config/i386/i386.c (ix86_simd_clone_adjust): Add definition check.
+	* omp-simd-clone.c (expand_simd_clones): Add targetm.simd_clone.adjust
+	call.
+
+2019-01-17  Martin Sebor  <msebor@redhat.com>
+
+	PR tree-optimization/88800
+	* gimple-fold.c (gimple_fold_builtin_memory_op): Avoid checking
+	NO_WARNING bit here.  Avoid folding out-of-bounds calls.
+	* gimple-ssa-warn-restrict.c (maybe_diag_offset_bounds): Remove
+	redundant argument.  Add new argument and issue diagnostics under
+	its control.  Detect out-of-bounds access even with warnings
+	disabled.
+	(check_bounds_or_overlap): Change return type.  Add argument.
+	(wrestrict_dom_walker::check_call): Adjust.
+	* gimple-ssa-warn-restrict.h (check_bounds_or_overlap): Add argument.
+	* tree-ssa-strlen.c (handle_builtin_strcpy): Adjust to change in
+	check_bounds_or_overlap's return value.
+	(handle_builtin_stxncpy): Same.
+	(handle_builtin_strcat): Same.
+
 2019-01-17  Andrew Stubbs  <ams@codesourcery.com>
 	    Kwok Cheung Yeung  <kcy@codesourcery.com>
 	    Julian Brown  <julian@codesourcery.com>
