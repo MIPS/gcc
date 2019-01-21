@@ -1,6 +1,9 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -fipa-sra -fdump-tree-eipa_sra-slim"  } */
+/* { dg-options "-O2 -fipa-sra"  } */
 /* { dg-require-effective-target non_strict_align } */
+
+/* Functionality no longer available with IPA IPA-SRA.  Test should be removed
+   altogether when committing the branch to trunk.  */
 
 struct bovid
 {
@@ -30,4 +33,3 @@ int main (int argc, char *argv[])
   return foo (&cow, 0);
 }
 
-/* { dg-final { scan-tree-dump-times "foo " 1 "eipa_sra"  } } */

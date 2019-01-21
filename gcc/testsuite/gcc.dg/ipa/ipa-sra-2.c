@@ -1,5 +1,8 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -fipa-sra -fdump-tree-eipa_sra-details"  } */
+/* { dg-options "-O2 -fipa-sra"  } */
+
+/* Functionality no longer available with IPA IPA-SRA.  Test should be removed
+   altogether when committing the branch to trunk.  */
 
 struct bovid
 {
@@ -45,7 +48,3 @@ int main (int argc, char *argv[])
   return 0;
 }
 
-/* { dg-final { scan-tree-dump "About to replace expr cow_.*D.->red with \\*ISRA" "eipa_sra"  } } */
-/* { dg-final { scan-tree-dump "About to replace expr cow_.*D.->green with ISRA" "eipa_sra"  } } */
-/* { dg-final { scan-tree-dump "About to replace expr calf_.*D.->red with \\*ISRA" "eipa_sra"  } } */
-/* { dg-final { scan-tree-dump "About to replace expr calf_.*D.->green with ISRA" "eipa_sra"  } } */
