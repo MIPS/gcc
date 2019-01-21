@@ -3198,6 +3198,44 @@ gfc_scan_nodesc_arrays (gfc_expr **e, int *walk_subtrees ATTRIBUTE_UNUSED,
   return 0;
 }
 
+/* Reinitialize any arrays used inside CODE.  Place the initialization
+   sequences in CODE.  */
+
+static void
+gfc_reinitialize_privatized_arrays (gfc_code *code, stmtblock_t *block)
+{
+  hash_set <gfc_symbol *> *array_set = new hash_set <gfc_symbol *> ();
+  gfc_code_walker (&code, gfc_dummy_code_callback, gfc_scan_nodesc_arrays,
+		   array_set);
+
+  hash_set<gfc_symbol *>::iterator its = array_set->begin ();
+
+  for (; its != array_set->end (); ++its)
+    {
+      gfc_symbol *sym = *its;
+      tree parm = gfc_get_symbol_decl (sym);
+      tree type = TREE_TYPE (parm);
+      tree offset, tmp;
+
+      /* Evaluate the bounds of the array.  */
+      gfc_trans_array_bounds (type, sym, &offset, block, false);
+
+      /* Set the offset.  */
+      if (TREE_CODE (GFC_TYPE_ARRAY_OFFSET (type)) == VAR_DECL)
+        gfc_add_modify (block, GFC_TYPE_ARRAY_OFFSET (type), offset);
+
+      /* Set the pointer itself if we aren't using the parameter
+         directly.  */
+      if (TREE_CODE (parm) != PARM_DECL && DECL_LANG_SPECIFIC (parm)
+          && GFC_DECL_SAVED_DESCRIPTOR (parm))
+        {
+          tmp = convert (TREE_TYPE (parm),
+                         GFC_DECL_SAVED_DESCRIPTOR (parm));
+          gfc_add_modify (block, parm, tmp);
+        }
+    }
+}
+
 /* Build a set of internal array variables (lbound, ubound, stride, etc.)
    that need privatization.  */
 
@@ -3219,41 +3257,12 @@ gfc_privatize_nodesc_arrays_1 (tree *tp, int *walk_subtrees, void *data)
   return NULL;
 }
 
-/* Reinitialize all of the arrays inside ARRAY_SET in BLOCK.  Append private
-   clauses for those arrays in CLAUSES.  */
+/* Append private clauses for the arrays in BLOCK to CLAUSES.  */
 
 static tree
-gfc_privatize_nodesc_arrays (hash_set<gfc_symbol *> *array_set,
-			     stmtblock_t *block, tree clauses)
+gfc_privatize_nodesc_array_clauses (stmtblock_t *block, tree clauses)
 {
-  hash_set<gfc_symbol *>::iterator its = array_set->begin ();
   hash_set<tree> *private_decls = new hash_set<tree>;
-
-  for (; its != array_set->end (); ++its)
-    {
-      gfc_symbol *sym = *its;
-      tree parm = gfc_get_symbol_decl (sym);
-      tree type = TREE_TYPE (parm);
-      tree offset, tmp;
-
-      /* Evaluate the bounds of the array.  */
-      gfc_trans_array_bounds (type, sym, &offset, block, false);
-
-      /* Set the offset.  */
-      if (TREE_CODE (GFC_TYPE_ARRAY_OFFSET (type)) == VAR_DECL)
-	gfc_add_modify (block, GFC_TYPE_ARRAY_OFFSET (type), offset);
-
-      /* Set the pointer itself if we aren't using the parameter
-	 directly.  */
-      if (TREE_CODE (parm) != PARM_DECL && DECL_LANG_SPECIFIC (parm)
-	  && GFC_DECL_SAVED_DESCRIPTOR (parm))
-	{
-	  tmp = convert (TREE_TYPE (parm),
-			 GFC_DECL_SAVED_DESCRIPTOR (parm));
-	  gfc_add_modify (block, parm, tmp);
-	}
-    }
-
   /* Add private clauses for any variables that are used by
      gfc_trans_array_bounds.  */
   walk_tree_without_duplicates (&block->head, gfc_privatize_nodesc_arrays_1,
@@ -3274,10 +3283,9 @@ gfc_privatize_nodesc_arrays (hash_set<gfc_symbol *> *array_set,
   return clauses;
 }
 
-/* Reinitialize any arrays in CLAUSES used inside CODE which do not contain
-   array descriptors if SCAN_NODESC_ARRAYS is TRUE.  Place the initialization
-   sequences in CODE.  Update CLAUSES to contain OMP_CLAUSE_PRIVATE for any
-   arrays which were initialized.  */
+/* Collect any arrays in CLAUSES used inside CODE which do not contain
+   array descriptors if SCAN_NODESC_ARRAYS is TRUE.  Update CLAUSES to
+   contain OMP_CLAUSE_PRIVATE for any arrays found.  */
 
 static hash_set<gfc_symbol *> *
 gfc_init_nodesc_arrays (stmtblock_t *inner, tree *clauses, gfc_code *code,
@@ -3296,7 +3304,7 @@ gfc_init_nodesc_arrays (stmtblock_t *inner, tree *clauses, gfc_code *code,
     {
       gfc_start_block (inner);
       pushlevel ();
-      *clauses = gfc_privatize_nodesc_arrays (array_set, inner, *clauses);
+      *clauses = gfc_privatize_nodesc_array_clauses (inner, *clauses);
     }
   else
     {
@@ -3855,6 +3863,12 @@ gfc_trans_omp_do (gfc_code *code, gfc_exec_op op, stmtblock_t *pblock,
   do_clauses->sched_simd = false;
 
   omp_clauses = gfc_trans_omp_clauses (pblock, do_clauses, code->loc);
+
+  /* Make sure that setup code reinitializing array bounds, offsets, and
+     strides immediately precedes the loop.  This is where the conversion of
+     OpenACC kernels to parallel regions expects it.  */
+  if (op == EXEC_OACC_LOOP)
+    gfc_reinitialize_privatized_arrays (code, pblock);
 
   for (i = 0; i < collapse; i++)
     {

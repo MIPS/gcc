@@ -1,3 +1,10 @@
+2019-01-29  Gergö Barany  <gergo@codesourcery.com>
+
+	* trans-openmp.c (gfc_privatize_nodesc_array_clauses): Renamed from
+	gfc_privatize_nodesc_arrays, initialization part factored out to...
+	(gfc_reinitialize_privatized_arrays): ... this new function, called...
+	(gfc_trans_omp_do): ... from here for OpenACC loops.
+
 2019-01-09  Julian Brown  <julian@codesourcery.com>
 
 	* cpp.c (cpp_define_builtins): Update _OPENACC define to 201711.

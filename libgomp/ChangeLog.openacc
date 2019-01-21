@@ -1,3 +1,7 @@
+2019-01-29  Gergö Barany  <gergo@codesourcery.com>
+
+	* testsuite/libgomp.oacc-fortran/initialize_kernels_loops.f90: New test.
+
 2019-01-09  Julian Brown  <julian@codesourcery.com>
 
 	* acc_prof.h (_ACC_PROF_INFO_VERSION): Update to 201711.
