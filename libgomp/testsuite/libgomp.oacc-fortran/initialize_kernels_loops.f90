@@ -1,16 +1,18 @@
 ! { dg-do run }
+! { dg-additional-options "-fopenacc-kernels=split" }
+! { dg-additional-options "-fopt-info-optimized-omp" }
 
 subroutine kernel(lo, hi, a, b, c)
     implicit none
     integer :: lo, hi, i
     real, dimension(lo:hi) :: a, b, c
 
-!$acc kernels ! { dg-bogus "OpenACC kernels construct will be executed sequentially; will by default avoid offloading to prevent data copy penalty" "TODO" { xfail { openacc_nvidia_accel_selected && opt_levels_2_plus } } }
-!$acc loop independent
+!$acc kernels
+!$acc loop independent ! { dg-warning "note: parallelized loop nest in OpenACC .kernels. construct" }
     do i = lo, hi
       b(i) = a(i)
     end do
-!$acc loop independent
+!$acc loop independent ! { dg-warning "note: parallelized loop nest in OpenACC .kernels. construct" }
     do i = lo, hi
       c(i) = b(i)
     end do

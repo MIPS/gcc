@@ -1,5 +1,8 @@
 2019-01-31  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* testsuite/libgomp.oacc-fortran/initialize_kernels_loops.f90:
+	Update.
+
 	* testsuite/libgomp.oacc-c-c++-common/kernels-alias-ipa-pta-2.c:
 	Add "-fopenacc-kernels=parloops".
 	* testsuite/libgomp.oacc-c-c++-common/kernels-alias-ipa-pta-3.c:
