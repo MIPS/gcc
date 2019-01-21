@@ -1,3 +1,24 @@
+2019-01-18  Martin Liska  <mliska@suse.cz>
+
+	* libgcov-profiler.c (__gcov_indirect_call_profiler_v2): Rename
+	to ...
+	(__gcov_indirect_call_profiler_v3): ... this.
+	* libgcov.h (__gcov_indirect_call_profiler_v2): Likewise.
+	(__gcov_indirect_call_profiler_v3): Likewise.
+	* Makefile.in: Bump function name.
+
+2019-01-18  Martin Liska  <mliska@suse.cz>
+
+	* libgcov-driver.c (GCOV_PROF_PREFIX): Define.
+	(gcov_version): Use in gcov_error.
+	(merge_one_data): Likewise.
+	(dump_one_gcov): Likewise.
+
+2019-01-18  Martin Liska  <mliska@suse.cz>
+
+	* libgcov-driver.c (gcov_version_string): New function.
+	(gcov_version): Convert version integer into string.
+
 2019-01-17  Andrew Stubbs  <ams@codesourcery.com>
 	    Kwok Cheung Yeung  <kcy@codesourcery.com>
 	    Julian Brown  <julian@codesourcery.com>

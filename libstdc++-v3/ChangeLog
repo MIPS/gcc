@@ -1,3 +1,156 @@
+2019-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libstdc++/86590
+	* include/bits/char_traits.h (__constant_string_p,
+	__constant_char_array_p): Use __builtin_is_constant_evaluated if
+	available.
+
+2019-01-20  Ulrich Drepper  <drepper@redhat.com>
+
+	Implement C++20 P0600r1.
+	* include/backward/hash_map: Add nodiscard attribute to empty.
+	* include/backward/hash_set: Likewise.
+	* backward/hashtable.h: Likewise.
+	* include/bits/basic_string.h: Likewise.
+	* include/bits/forward_list.h: Likewise.
+	* include/bits/hashtable.h: Likewise.
+	* include/bits/regex.h: Likewise.
+	* include/bits/stl_deque.h: Likewise.
+	* include/bits/stl_list.h: Likewise.
+	* include/bits/stl_map.h: Likewise.
+	* include/bits/stl_multimap.h: Likewise.
+	* include/bits/stl_multiset.h: Likewise.
+	* include/bits/stl_queue.h: Likewise.
+	* include/bits/stl_set.h: Likewise.
+	* include/bits/stl_stack.h: Likewise.
+	* include/bits/stl_tree.h: Likewise.
+	* include/bits/stl_vector.h: Likewise.
+	* include/bits/unordered_map.h: Likewise.
+	* include/bits/unordered_set.h: Likewise.
+	* include/debug/array: Likewise.
+	* include/experimental/any: Likewise.
+	* include/experimental/bits/fs_path.h: Likewise.
+	* include/experimental/internet: Likewise.
+	* include/experimental/string_view: Likewise.
+	* include/ext/pb_ds/detail/bin_search_tree_/info_fn_imps.hpp:
+	Likewise.
+	* include/ext/pb_ds/detail/binary_heap_/binary_heap_.hpp:
+	Likewise.
+	* include/ext/pb_ds/detail/binary_heap_/info_fn_imps.hpp:
+	Likewise.
+	* include/ext/pb_ds/detail/cc_hash_table_map_/cc_ht_map_.hpp:
+	Likewise.
+	* include/ext/pb_ds/detail/cc_hash_table_map_/info_fn_imps.hpp:
+	Likewise.
+	* include/ext/pb_ds/detail/cc_hash_table_map_/size_fn_imps.hpp:
+	Likewise.
+	* include/ext/pb_ds/detail/gp_hash_table_map_/gp_ht_map_.hpp:
+	Likewise.
+	* include/ext/pb_ds/detail/gp_hash_table_map_/info_fn_imps.hpp:
+	Likewise.
+	* include/ext/pb_ds/detail/left_child_next_sibling_heap_/
+	info_fn_imps.hpp: Likewise.
+	* include/ext/pb_ds/detail/left_child_next_sibling_heap_/
+	left_child_next_sibling_heap_.hpp: Likewise.
+	* include/ext/pb_ds/detail/list_update_map_/info_fn_imps.hpp:
+	Likewise.
+	* include/ext/pb_ds/detail/list_update_map_/lu_map_.hpp:
+	Likewise.
+	* include/ext/pb_ds/detail/ov_tree_map_/info_fn_imps.hpp:
+	Likewise.
+	* include/ext/pb_ds/detail/ov_tree_map_/ov_tree_map_.hp:
+	Likewise.
+	* include/ext/pb_ds/detail/pat_trie_/info_fn_imps.hpp:
+	Likewise.
+	* include/ext/pb_ds/detail/pat_trie_/pat_trie_.hpp:
+	Likewise.
+	* include/ext/pb_ds/detail/rc_binomial_heap_/rc.hpp:
+	Likewise.
+	* include/ext/pb_ds/detail/tree_trace_base.hpp: Likewise.
+	* include/ext/pb_ds/trie_policy.hpp: Likewise.
+	* include/ext/rope: Likewise.
+	* include/ext/slist: Likewise.
+	* include/ext/vstring.h: Likewise.
+	* include/profile/array: Likewise.
+	* include/std/array: Likewise.
+	* include/tr1/array: Likewise.
+	* include/tr1/hashtable.h: Likewise.
+	* include/tr1/regex: Likewise.
+	* include/tr2/dynamic_bitset: Likewise.
+	* include/bits/alloc_traits.h: Add nodiscard attribute to
+	allocate.
+	* include/experimental/memory_resource: Likewise.
+	* include/ext/alloc_traits.h: Likewise.
+	* include/ext/array_allocator.h: Likewise.
+	* include/ext/bitmap_allocator.h: Likewise.
+	* include/ext/debug_allocator.h: Likewise.
+	* include/ext/extptr_allocator.h: Likewise.
+	* include/ext/mt_allocator.h: Likewise.
+	* include/ext/new_allocator.h: Likewise.
+	* include/ext/pool_allocator.h: Likewise.
+	* include/ext/throw_allocator.h: Likewise.
+	* include/std/scoped_allocator: Likewise.
+	* libsupc++/eh_alloc.cc: Likewise.
+	* include/std/future: Add nodiscard attribute to async.
+	* libsupc++/new: Add nodiscard attribute to new.
+
+2019-01-18  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/87514
+	PR libstdc++/87520
+	PR libstdc++/88782
+	* config/abi/pre/gnu.ver (GLIBCXX_3.4.26): Export new symbol.
+	* include/bits/shared_ptr.h
+	(shared_ptr(_Sp_make_shared_tag, const Alloc&, Args&&...))
+	(allocate_shared): Change to use new tag type.
+	* include/bits/shared_ptr_base.h (_Sp_make_shared_tag::_S_eq):
+	Declare new member function.
+	(_Sp_alloc_shared_tag): Define new type.
+	(_Sp_counted_ptr_inplace): Declare __shared_count<_Lp> as a friend.
+	(_Sp_counted_ptr_inplace::_M_get_deleter) [!__cpp_rtti]: Use
+	_Sp_make_shared_tag::_S_eq to check type_info.
+	(__shared_count(Ptr, Deleter),__shared_count(Ptr, Deleter, Alloc)):
+	Constrain to prevent being called with _Sp_alloc_shared_tag.
+	(__shared_count(_Sp_make_shared_tag, const _Alloc&, Args&&...)):
+	Replace constructor with ...
+	(__shared_count(Tp*&, _Sp_alloc_shared_tag<_Alloc>, Args&&...)): Use
+	reference parameter so address of the new object can be returned to
+	the caller. Obtain the allocator from the tag type.
+	(__shared_ptr(_Sp_make_shared_tag, const Alloc&, Args&&...)): Replace
+	constructor with ...
+	(__shared_ptr(_Sp_alloc_shared_tag<Alloc>, Args&&...)): Pass _M_ptr
+	to the __shared_count constructor.
+	(__allocate_shared): Change to use new tag type.
+	* src/c++11/shared_ptr.cc (_Sp_make_shared_tag::_S_eq): Define.
+
+2019-01-17  Jonathan Wakely  <jwakely@redhat.com>
+
+	* src/c++17/fs_ops.cc
+	(equivalent(const path&, const path&, error_code&))
+	[_GLIBCXX_FILESYSTEM_IS_WINDOWS]: Use GetFileInformationByHandle to
+	compare files instead of relying on incomplete info returned by stat.
+
+	PR libstdc++/88884
+	* src/c++17/fs_ops.cc (absolute(const path&, error_code&)): Do nothing
+	if the path is already absolute.
+	[_GLIBCXX_FILESYSTEM_IS_WINDOWS]: Normalize root-directory.
+	[!_GLIBCXX_FILESYSTEM_IS_WINDOWS]: Pass error_code to current_path.
+
+	PR libstdc++/88881
+	* src/c++17/fs_ops.cc (canonical(const path&, error_code&))
+	[_GLIBCXX_FILESYSTEM_IS_WINDOWS]: Normalize path, to match behaviour
+	of filesystem::exists.
+	(create_directories(const path&, error_code&)): Add assertions.
+	(status(const path&, error_code&)) [_GLIBCXX_FILESYSTEM_IS_WINDOWS]:
+	Add workaround for bug in _wstat for paths with trailing slash.
+	* testsuite/27_io/filesystem/operations/create_directories.cc: Adjust
+	for expected behaviour on mingw.
+	* testsuite/experimental/filesystem/operations/create_directories.cc:
+	Likewise.
+	* testsuite/27_io/filesystem/operations/temp_directory_path.cc: Use
+	"TMP" instead of "TMPDIR" and clean environment before each test. Do
+	not test permissions on mingw targets.
+
 2019-01-16  Jonathan Wakely  <jwakely@redhat.com>
 
 	* config/abi/pre/gnu.ver (GLIBCXX_3.4.26): Add exports for fstream

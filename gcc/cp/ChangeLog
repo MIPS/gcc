@@ -1,3 +1,39 @@
+2019-01-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/88875 - error with explicit list constructor.
+	* call.c (reference_binding): Don't modify EXPR.  Set
+	need_temporary_p on the ck_user conversion for a temporary.
+	(convert_like_real): Check it.
+
+2019-01-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c/51628
+	PR c/88664
+	* call.c (convert_for_arg_passing): Upate the
+	warn_for_address_or_pointer_of_packed_member call.
+	* typeck.c (convert_for_assignment): Likewise.
+
+2019-01-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/86205 - ICE with ?: of throw and template-id.
+	* pt.c (resolve_nondeduced_context_or_error): Split out from...
+	* typeck.c (decay_conversion): ...here.
+	* call.c (build_conditional_expr_1): Use it.
+
+	PR c++/86740, ICE with constexpr if and nested generic lambdas.
+	* tree.c (cp_walk_subtrees): Handle LAMBDA_EXPR.
+
+2019-01-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* decl.c (grokdeclarator): Use typespec_loc in error messages
+	about 'auto' and trailing return type.
+
+2019-01-17  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/88699
+	* class.c (add_method): Don't use DECL_DESTRUCTOR_P on
+	USING_DECLs.
+
 2019-01-17  Nathan Sidwell  <nathan@acm.org>
 
 	PR c++/86610
