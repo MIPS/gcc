@@ -1903,37 +1903,39 @@
 ;; vcond_mask operand order: true, false, mask
 ;; UNSPEC_SEL operand order: mask, true, false (as for VEC_COND_EXPR)
 ;; SEL operand order:        mask, true, false
-(define_insn "@vcond_mask_<mode><vpred>"
-  [(set (match_operand:SVE_I 0 "register_operand" "=w, w, ?&w, w, ?&w")
-	(unspec:SVE_I
-	  [(match_operand:<VPRED> 3 "register_operand" "Upa, Upa, Upl, Upa, Upl")
-	   (match_operand:SVE_I 1 "aarch64_sve_dup_reg_or_imm" "w, vss, w, vss, vss")
-	   (match_operand:SVE_I 2 "aarch64_simd_reg_or_zero" "w, 0, Dz, Dz, w")]
+(define_expand "@vcond_mask_<mode><vpred>"
+  [(set (match_operand:SVE_ALL 0 "register_operand")
+	(unspec:SVE_ALL
+	  [(match_operand:<VPRED> 3 "register_operand")
+	   (match_operand:SVE_ALL 1 "aarch64_sve_dup_reg_or_imm")
+	   (match_operand:SVE_ALL 2 "aarch64_simd_reg_or_zero")]
 	  UNSPEC_SEL))]
   "TARGET_SVE"
-  "@
-   sel\t%0.<Vetype>, %3, %1.<Vetype>, %2.<Vetype>
-   mov\t%0.<Vetype>, %3/m, #%1
-   movprfx\t%0.<Vetype>, %3/z, %0.<Vetype>\;mov\t%0.<Vetype>, %3/m, %1.<Vetype>
-   mov\t%0.<Vetype>, %3/z, #%1
-   movprfx\t%0, %2\;mov\t%0.<Vetype>, %3/m, #%1"
-  [(set_attr "movprfx" "*,*,yes,*,yes")]
+  {
+    if (register_operand (operands[1], <MODE>mode))
+      operands[2] = force_reg (<MODE>mode, operands[2]);
+  }
 )
 
-(define_insn "@vcond_mask_<mode><vpred>"
-  [(set (match_operand:SVE_F 0 "register_operand" "=w, w, ?&w, ?&w")
-	(unspec:SVE_F
-	  [(match_operand:<VPRED> 3 "register_operand" "Upa, Upl, Upl, Upl")
-	   (match_operand:SVE_F 1 "aarch64_nonmemory_operand" "w, Dn, w, Dn")
-	   (match_operand:SVE_F 2 "aarch64_simd_reg_or_zero" "w, 0, Dz, Dz")]
+(define_insn "*vcond_mask_<mode><vpred>"
+  [(set (match_operand:SVE_ALL 0 "register_operand" "=w, w, w, w, ?w, ?&w, ?&w")
+	(unspec:SVE_ALL
+	  [(match_operand:<VPRED> 3 "register_operand" "Upa, Upa, Upa, Upa, Upl, Upl, Upl")
+	   (match_operand:SVE_ALL 1 "aarch64_sve_dup_reg_or_imm" "w, vss, vss, Ufc, Ufc, vss, Ufc")
+	   (match_operand:SVE_ALL 2 "aarch64_simd_reg_or_zero" "w, 0, Dz, 0, Dz, w, w")]
 	  UNSPEC_SEL))]
-  "TARGET_SVE"
+  "TARGET_SVE
+   && (!register_operand (operands[1], <MODE>mode)
+       || register_operand (operands[2], <MODE>mode))"
   "@
    sel\t%0.<Vetype>, %3, %1.<Vetype>, %2.<Vetype>
-   * return aarch64_output_sve_mov_immediate (operands[1], 3, true);
-   movprfx\t%0.<Vetype>, %3/z, %0.<Vetype>\;mov\t%0.<Vetype>, %3/m, %<Vetype>1
-   * return aarch64_output_sve_mov_immediate (operands[1], 3, false);"
-  [(set_attr "movprfx" "*,yes,yes,yes")]
+   mov\t%0.<Vetype>, %3/m, #%I1
+   mov\t%0.<Vetype>, %3/z, #%I1
+   fmov\t%0.<Vetype>, %3/m, #%1
+   movprfx\t%0.<Vetype>, %3/z, %0.<Vetype>\;fmov\t%0.<Vetype>, %3/m, #%1
+   movprfx\t%0, %2\;mov\t%0.<Vetype>, %3/m, #%I1
+   movprfx\t%0, %2\;fmov\t%0.<Vetype>, %3/m, #%1"
+  [(set_attr "movprfx" "*,*,*,*,yes,yes,yes")]
 )
 
 (define_insn "@aarch64_sel_dup<mode>"

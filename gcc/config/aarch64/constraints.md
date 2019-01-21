@@ -278,7 +278,7 @@
 (define_constraint "Ufc"
   "A floating point constant which can be used with an\
    FMOV immediate operation."
-  (and (match_code "const_double")
+  (and (match_code "const_double,const_vector")
        (match_test "aarch64_float_const_representable_p (op)")))
 
 (define_constraint "Uvi"

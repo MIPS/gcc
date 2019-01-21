@@ -1171,6 +1171,16 @@ aarch64_dbx_register_number (unsigned regno)
    return DWARF_FRAME_REGISTERS;
 }
 
+/* If X is a CONST_DOUBLE, return its bit representation as a constant
+   integer, otherwise return X unmodified.  */
+static rtx
+aarch64_bit_representation (rtx x)
+{
+  if (CONST_DOUBLE_P (x))
+    x = gen_lowpart (int_mode_for_mode (GET_MODE (x)).require (), x);
+  return x;
+}
+
 /* Return true if MODE is any of the Advanced SIMD structure modes.  */
 static bool
 aarch64_advsimd_struct_mode_p (machine_mode mode)
@@ -6562,7 +6572,8 @@ aarch64_print_vector_float_operand (FILE *f, rtx x, bool negate)
   if (negate)
     r = real_value_negate (&r);
 
-  /* We only handle the SVE single-bit immediates here.  */
+  /* Handle the SVE single-bit immediates specially, since they have a
+     fixed form in the assembly syntax.  */
   if (real_equal (&r, &dconst0))
     asm_fprintf (f, "0.0");
   else if (real_equal (&r, &dconst2))
@@ -6572,7 +6583,13 @@ aarch64_print_vector_float_operand (FILE *f, rtx x, bool negate)
   else if (real_equal (&r, &dconsthalf))
     asm_fprintf (f, "0.5");
   else
-    return false;
+    {
+      const int buf_size = 20;
+      char float_buf[buf_size] = {'\0'};
+      real_to_decimal_for_mode (float_buf, &r, buf_size, buf_size,
+				1, GET_MODE (elt));
+      asm_fprintf (f, "%s", float_buf);
+    }
 
   return true;
 }
@@ -6601,6 +6618,11 @@ sizetochar (int size)
 			and print it as an unsigned integer, in decimal.
      'e':		Print the sign/zero-extend size as a character 8->b,
 			16->h, 32->w.
+     'I':		If the operand is a duplicated vector constant,
+			replace it with the duplicated scalar.  If the
+			operand is then a floating-point constant, replace
+			it with the integer bit representation.  Print the
+			transformed constant as a signed decimal number.
      'p':		Prints N such that 2^N == X (X must be power of 2 and
 			const int).
      'P':		Print the number of non-zero bits in X (a const_int).
@@ -6726,6 +6748,19 @@ aarch64_print_operand (FILE *f, rtx x, int code)
 
       asm_fprintf (f, "%s", reg_names [REGNO (x) + 1]);
       break;
+
+    case 'I':
+      {
+	x = aarch64_bit_representation (unwrap_const_vec_duplicate (x));
+	if (CONST_INT_P (x))
+	  asm_fprintf (f, "%wd", INTVAL (x));
+	else
+	  {
+	    output_operand_lossage ("invalid operand for '%%%c'", code);
+	    return;
+	  }
+	break;
+      }
 
     case 'M':
     case 'm':
@@ -13028,13 +13063,11 @@ aarch64_sve_bitmask_immediate_p (rtx x)
 bool
 aarch64_sve_dup_immediate_p (rtx x)
 {
-  rtx elt;
-
-  if (!const_vec_duplicate_p (x, &elt)
-      || !CONST_INT_P (elt))
+  x = aarch64_bit_representation (unwrap_const_vec_duplicate (x));
+  if (!CONST_INT_P (x))
     return false;
 
-  HOST_WIDE_INT val = INTVAL (elt);
+  HOST_WIDE_INT val = INTVAL (x);
   if (val & 0xff)
     return IN_RANGE (val, -0x80, 0x7f);
   return IN_RANGE (val, -0x8000, 0x7f00);
@@ -14676,6 +14709,7 @@ aarch64_float_const_representable_p (rtx x)
   REAL_VALUE_TYPE r, m;
   bool fail;
 
+  x = unwrap_const_vec_duplicate (x);
   if (!CONST_DOUBLE_P (x))
     return false;
 
@@ -14852,15 +14886,12 @@ aarch64_output_scalar_simd_mov_immediate (rtx immediate, scalar_int_mode mode)
 }
 
 /* Return the output string to use for moving immediate CONST_VECTOR
-   into an SVE register.  If the move is predicated, PRED_REG is the
-   number of the operand that contains the predicate register,
-   otherwise it is -1.  MERGE_P is true if a predicated move should
-   use merge predication rather than zero predication.  */
+   into an SVE register.  */
 
 char *
-aarch64_output_sve_mov_immediate (rtx const_vector, int pred_reg, bool merge_p)
+aarch64_output_sve_mov_immediate (rtx const_vector)
 {
-  static char templ[60];
+  static char templ[40];
   struct simd_immediate_info info;
   char element_char;
 
@@ -14904,40 +14935,14 @@ aarch64_output_sve_mov_immediate (rtx const_vector, int pred_reg, bool merge_p)
 				    CONST_DOUBLE_REAL_VALUE (info.value),
 				    buf_size, buf_size, 1, info.elt_mode);
 
-	  if (pred_reg == -1)
-	    snprintf (templ, sizeof (templ), "fmov\t%%0.%c, #%s",
-		      element_char, float_buf);
-	  else
-	    {
-	      if (merge_p)
-		snprintf (templ, sizeof (templ), "fmov\t%%0.%c, %%%d/m, #%s",
-			  element_char,
-			  pred_reg,
-			  float_buf);
-	      else
-		snprintf (templ, sizeof (templ),
-			  "movprfx\t%%0.%c, %%%d/z, %%0.%c\n"
-			  "\tfmov\t%%0.%c, %%%d/m, #%s",
-			  element_char,
-			  pred_reg,
-			  element_char,
-			  element_char,
-			  pred_reg,
-			  float_buf);
-	    }
+	  snprintf (templ, sizeof (templ), "fmov\t%%0.%c, #%s",
+		    element_char, float_buf);
 	  return templ;
 	}
     }
 
-  if (pred_reg == -1)
-    snprintf (templ, sizeof (templ), "mov\t%%0.%c, #" HOST_WIDE_INT_PRINT_DEC,
-	      element_char, INTVAL (info.value));
-  else
-    snprintf (templ, sizeof (templ),
-	      "mov\t%%0.%c, %%%d%s, #" HOST_WIDE_INT_PRINT_DEC,
-	      element_char,
-	      pred_reg, merge_p ? "/m" : "/z",
-	      INTVAL (info.value));
+  snprintf (templ, sizeof (templ), "mov\t%%0.%c, #" HOST_WIDE_INT_PRINT_DEC,
+	    element_char, INTVAL (info.value));
   return templ;
 }
 

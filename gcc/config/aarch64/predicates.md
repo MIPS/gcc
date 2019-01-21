@@ -543,7 +543,8 @@
 
 (define_predicate "aarch64_sve_dup_immediate"
   (and (match_code "const,const_vector")
-       (match_test "aarch64_sve_dup_immediate_p (op)")))
+       (ior (match_test "aarch64_sve_dup_immediate_p (op)")
+	    (match_test "aarch64_float_const_representable_p (op)"))))
 
 (define_predicate "aarch64_sve_dup_reg_or_imm"
   (ior (match_operand 0 "register_operand")
