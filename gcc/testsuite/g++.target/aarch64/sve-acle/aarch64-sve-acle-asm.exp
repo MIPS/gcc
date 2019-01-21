@@ -52,7 +52,7 @@ set-torture-options {
     "-std=c++14 -O2 -g"
     "-std=c++17 -O2 -g"
     "-std=c++2a -O2 -g"
-    "-std=gnu++98 -O2 -fno-schedule-insns -DCHECK_ASM"
+    "-std=gnu++98 -O2 -fno-schedule-insns -DCHECK_ASM --save-temps"
     "-std=gnu++11 -O2 -g"
     "-std=gnu++17 -O2 -g"
     "-std=gnu++2a -O2 -g"
@@ -64,7 +64,14 @@ set-torture-options {
 # Main loop.
 set gcc_subdir [string replace $subdir 0 2 gcc]
 set files [glob -nocomplain $srcdir/$gcc_subdir/asm/*.c]
+set save-dg-do-what-default ${dg-do-what-default}
+if { [check_effective_target_aarch64_asm_sve_ok] } {
+    set dg-do-what-default assemble
+} else {
+    set dg-do-what-default compile
+}
 gcc-dg-runtest [lsort $files] "" "$sve_flags -fno-ipa-icf"
+set dg-do-what-default ${save-dg-do-what-default}
 
 torture-finish
 

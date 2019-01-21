@@ -1,4 +1,3 @@
-/* { dg-do compile } */
 /* { dg-final { check-function-bodies "**" "" "-DCHECK_ASM" } } */
 
 #include <stdbool.h>

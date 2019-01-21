@@ -1,4 +1,3 @@
-/* { dg-do compile } */
 /* { dg-additional-options "-msve-vector-bits=scalable" } */
 /* { dg-final { check-function-bodies "**" "" "-DCHECK_ASM" } } */
 

@@ -1,4 +1,3 @@
-/* { dg-do compile } */
 /* { dg-additional-options "-fno-trapping-math" } */
 /* { dg-final { check-function-bodies "**" "" "-DCHECK_ASM" } } */
 
