@@ -501,7 +501,7 @@ private:
   rtx expand_signed_pred_op (rtx_code, rtx_code, int,
 			     unsigned int = DEFAULT_MERGE_ARGNO);
   rtx expand_signed_pred_op (int, int, int);
-  rtx expand_via_unpred_direct_optab (optab);
+  rtx expand_via_unpred_direct_optab (optab, machine_mode = VOIDmode);
   rtx expand_via_unpred_insn (insn_code);
   rtx expand_via_pred_direct_optab (optab, unsigned int = DEFAULT_MERGE_ARGNO);
   rtx expand_via_sel_insn (insn_code);
@@ -512,9 +512,11 @@ private:
 
   void require_immediate_range (unsigned int, HOST_WIDE_INT, HOST_WIDE_INT);
 
+  void rotate_inputs_left (unsigned int, unsigned int);
   bool try_negating_argument (unsigned int, machine_mode);
 
   machine_mode get_mode (unsigned int);
+  machine_mode get_quarter_mode (unsigned int);
   machine_mode get_pred_mode (unsigned int);
   rtx get_fallback_value (machine_mode, unsigned int,
 			  unsigned int, unsigned int &);
@@ -2127,10 +2129,14 @@ function_expander::expand_div (bool reversed_p)
 rtx
 function_expander::expand_dot ()
 {
+  /* In the optab, the multiplication operands come before the
+     accumulator operand.  */
+  rotate_inputs_left (0, 3);
+  machine_mode mode = get_quarter_mode (0);
   if (type_suffixes[m_fi.types[0]].unsigned_p)
-    return expand_via_unpred_direct_optab (udot_prod_optab);
+    return expand_via_unpred_direct_optab (udot_prod_optab, mode);
   else
-    return expand_via_unpred_direct_optab (sdot_prod_optab);
+    return expand_via_unpred_direct_optab (sdot_prod_optab, mode);
 }
 
 /* Expand a call to svdup.  */
@@ -2264,10 +2270,7 @@ function_expander::expand_msb (unsigned int merge_argno)
 rtx
 function_expander::expand_mla ()
 {
-  rtx t = m_args[1];
-  m_args[1] = m_args[2];
-  m_args[2] = m_args[3];
-  m_args[3] = t;
+  rotate_inputs_left (1, 4);
   return expand_mad (3);
 }
 
@@ -2282,10 +2285,7 @@ function_expander::expand_mla ()
 rtx
 function_expander::expand_mls ()
 {
-  rtx t = m_args[1];
-  m_args[1] = m_args[2];
-  m_args[2] = m_args[3];
-  m_args[3] = t;
+  rotate_inputs_left (1, 4);
   return expand_msb (3);
 }
 
@@ -2401,11 +2401,14 @@ function_expander::expand_sub (bool reversed_p)
 }
 
 /* Implement the call using optab OP, which is an unpredicated direct
-   (i.e. single-mode) optab.  */
+   (i.e. single-mode) optab.  MODE is the mode of the operation,
+   or VOIDmode if the mode associated with type suffix 0 is correct.  */
 rtx
-function_expander::expand_via_unpred_direct_optab (optab op)
+function_expander::expand_via_unpred_direct_optab (optab op,
+						   machine_mode mode)
 {
-  machine_mode mode = get_mode (0);
+  if (mode == VOIDmode)
+    mode = get_mode (0);
   insn_code icode = direct_optab_handler (op, mode);
   return expand_via_unpred_insn (icode);
 }
@@ -2664,6 +2667,17 @@ function_expander::require_immediate_range (unsigned int argno,
   m_args[argno] = GEN_INT (min);
 }
 
+/* Rotate inputs m_args[START:END] one position to the left, so that
+   m_args[START] becomes m_args[END - 1].  */
+void
+function_expander::rotate_inputs_left (unsigned int start, unsigned int end)
+{
+  rtx new_last = m_args[start];
+  for (unsigned int i = start; i < end - 1; ++i)
+    m_args[i] = m_args[i + 1];
+  m_args[end - 1] = new_last;
+}
+
 /* Return true if argument I is a constant argument that can be negated
    at compile time, replacing it with the negated value if so.  MODE is the
    associated vector mode, but the argument could be a single element.  */
@@ -2687,6 +2701,14 @@ machine_mode
 function_expander::get_mode (unsigned int i)
 {
   return TYPE_MODE (m_fi.vector_type (i));
+}
+
+/* Return the vector mode for elements that are a quarter the size of integer
+   type suffix I.  */
+machine_mode
+function_expander::get_quarter_mode (unsigned int i)
+{
+  return TYPE_MODE (m_fi.quarter_vector_type (i));
 }
 
 /* Return the predicate mode associated with type suffix I.  */
