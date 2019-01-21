@@ -31,4 +31,4 @@ bar (int a)
   return 0;
 }
 
-/* { dg-final { scan-ipa-dump "Will remove parameter 0" "eipa_sra" } } */
+/* { dg-final { scan-ipa-dump "Will remove parameter 0" "sra" } } */
