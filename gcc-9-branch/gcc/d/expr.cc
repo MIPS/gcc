@@ -282,12 +282,21 @@ public:
 	tree t1 = d_save_expr (build_expr (e->e1));
 	tree t2 = d_save_expr (build_expr (e->e2));
 
-	tree tmemcmp = builtin_decl_explicit (BUILT_IN_MEMCMP);
-	tree size = size_int (TYPE_PRECISION (TREE_TYPE (t1)) / BITS_PER_UNIT);
+	if (!tb1->iscomplex ())
+	  this->result_ = build_float_identity (code, t1, t2);
+	else
+	  {
+	    /* Compare the real and imaginary parts separately.  */
+	    tree req = build_float_identity (code, real_part (t1),
+					     real_part (t2));
+	    tree ieq = build_float_identity (code, imaginary_part (t1),
+					     imaginary_part (t2));
 
-	tree result = build_call_expr (tmemcmp, 3, build_address (t1),
-				       build_address (t2), size);
-	this->result_ = build_boolop (code, result, integer_zero_node);
+	    if (code == EQ_EXPR)
+	      this->result_ = build_boolop (TRUTH_ANDIF_EXPR, req, ieq);
+	    else
+	      this->result_ = build_boolop (TRUTH_ORIF_EXPR, req, ieq);
+	  }
       }
     else if (tb1->ty == Tstruct)
       {

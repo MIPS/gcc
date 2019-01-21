@@ -1,3 +1,95 @@
+2019-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/88949
+	* g++.dg/gomp/pr88949.C: New test.
+
+2019-01-21  Manfred Schwarb  <manfred99@gmx.ch>
+
+	* class_66.f90: Fix a dg directive.
+	* debug/pr35154-stabs.f: Likewise.
+	* dec_d_lines_3.f: Likewise.
+	* dec_d_lines_3.f: Likewise.
+	* dec_structure_12.f90: Likewise.
+	* dec_structure_15.f90: Likewise.
+	* deferred_character_31.f90: Likewise.
+	* dtio_31.f03: Likewise.
+	* dtio_32.f03: Likewise.
+	* extends_11.f03: Likewise.
+	* integer_plus.f90: Likewise.
+	* pdt_25.f03: Likewise.
+	* pr58968.f: Likewise.
+	* pr78259.f90: Likewise.
+	* vect/vect-2.f90: Likewise.
+	* matmul_const.f90: Likewise.
+
+2019-01-21  Uroš Bizjak  <ubizjak@gmail.com>
+
+	PR target/88938
+	* gcc.target/i386/pr88938.c: New test.
+
+2019-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/88901
+	* g++.dg/asan/pr88901.C: New test.
+
+2019-01-21  Tamar Christina  <tamar.christina@arm.com>
+
+	* g++.dg/vect/simd-clone-7.cc: Fix assembler scan.
+
+2019-01-21  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR c/88928
+	* c-c++-common/Waddress-of-packed-member-1.c: New test case.
+	* gcc.dg/pr88928.c: New test case.
+
+2019-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/utf-array.c: Allow wchar_t to be printed as
+	{long ,short ,}{unsigned ,}int.
+
+2019-01-21  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/88934
+	* gfortran.dg/pr88934.f90: New testcase.
+
+2019-01-20  Ulrich Drepper  <drepper@redhat.com>
+
+	Fix after C++ P0600 implementation.
+	* g++.dg/init/new39.C: Don't just ignore result of new.
+
+2019-01-20  Iain Buclaw  <ibuclaw@gdcproject.org>
+
+	* gdc.dg/runnable.d: Add more tests for comparing complex types.
+
+2019-01-20  Johannes Pfau  <johannespfau@gmail.com>
+
+	* gdc.dg/runnable.d: Add tests for comparing complex types.
+
+2019-01-20  Kewen Lin  <linkw@gcc.gnu.org>
+
+	* gcc.target/powerpc/altivec_vld_vst_addr.c: Remove, split into 
+	altivec_vld_vst_addr-1.c and altivec_vld_vst_addr-2.c.
+	* gcc.target/powerpc/altivec_vld_vst_addr-1.c: New test.
+	* gcc.target/powerpc/altivec_vld_vst_addr-2.c: Ditto.
+
+2019-01-18  Dominique d'Humieres  <dominiq@gcc.gnu.org>
+
+	PR fortran/37835
+	* gfortran.dg/no-automatic.f90: New test.
+
+2019-01-19  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77960
+	* gfortran.dg/pr77960.f90: New test.
+
+2018-01-19  Thomas Koenig  <tkoenig@gcc.gnu.org>
+	Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/56789
+	* gfortran.dg/contiguous_3.f90: Make code compilant.  Remove
+	scan-tree tests that fail with patch.
+	* gfortran.dg/contiguous_8.f90: New test.
+
 2019-01-19  Richard Sandiford  <richard.sandiford@arm.com>
 
 	* gfortran.dg/loop_versioning_1.f90: Bump the number of identified
