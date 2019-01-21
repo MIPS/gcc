@@ -1040,6 +1040,10 @@ ipa_param_body_adjustments::common_initialization (bool copy_parm_decls,
 	  DECL_CONTEXT (new_parm) = m_fndecl;
 	  TREE_USED (new_parm) = 1;
 	  DECL_IGNORED_P (new_parm) = 1;
+	  /* We assume all newly created arguments are not addressable.  */
+	  if (TREE_CODE (new_type) == COMPLEX_TYPE
+	      || TREE_CODE (new_type) == VECTOR_TYPE)
+	    DECL_GIMPLE_REG_P (new_parm) = 1;
 	  layout_decl (new_parm, 0);
 	  m_new_decls.quick_push (new_parm);
 

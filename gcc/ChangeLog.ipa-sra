@@ -1,4 +1,4 @@
-2018-12-20  Martin Jambor  <mjambor@suse.cz>
+2019-01-21  Martin Jambor  <mjambor@suse.cz>
 
         * coretypes.h (cgraph_edge): Declare.
         * ipa-param-manipulation.c: Rewrite.
@@ -120,7 +120,7 @@
 	* gcc.dg/ipa/ipa-sra-16.c: Likewise.
 	* gcc.dg/ipa/ipa-sra-17.c: Likewise.
 	* gcc.dg/ipa/ipa-sra-18.c: Likewise.
-
+	* gcc.dg/ipa/ipa-sra-19.c: Likewise.
 
 	* gcc.dg/ipa/ipa-sra-2.c: Remove dumping, mark to be removed.
 	* gcc.dg/ipa/ipa-sra-6.c: Likewise.
