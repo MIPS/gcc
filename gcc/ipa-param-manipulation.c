@@ -524,9 +524,12 @@ init_transitive_splits (vec<ipa_param_performed_split,
 	      struct transitive_split_map tsm;
 	      tsm.repl = arg;
 	      tsm.base_index = base_index;
-	      gcc_assert (caller_split->unit_offset >= unit_offset_delta);
-	      tsm.unit_offset = (caller_split->unit_offset - unit_offset_delta);
-	      trans_map->safe_push (tsm);
+	      if (caller_split->unit_offset >= unit_offset_delta)
+		{
+		  tsm.unit_offset
+		    = (caller_split->unit_offset - unit_offset_delta);
+		  trans_map->safe_push (tsm);
+		}
 
 	      phony_arguments++;
 	      stmt_idx++;
