@@ -1637,7 +1637,7 @@ vect_finish_replace_stmt (gimple *stmt, gimple *vec_stmt)
   gcc_assert (gimple_get_lhs (stmt) == gimple_get_lhs (vec_stmt));
 
   gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
-  gsi_replace (&gsi, vec_stmt, false);
+  gsi_replace (&gsi, vec_stmt, true);
 
   vect_finish_stmt_generation_1 (stmt, vec_stmt);
 }
@@ -3745,7 +3745,7 @@ vectorizable_simd_clone_call (gimple *stmt, gimple_stmt_iterator *gsi,
 	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 			 "not considering SIMD clones; not yet supported"
 			 " for variable-width vectors.\n");
-      return NULL;
+      return false;
     }
 
   unsigned int badness = 0;
@@ -9602,7 +9602,7 @@ vect_transform_stmt (gimple *stmt, gimple_stmt_iterator *gsi,
       if (gimple_code (stmt) == GIMPLE_PHI)
         scalar_dest = PHI_RESULT (stmt);
       else
-        scalar_dest = gimple_assign_lhs (stmt);
+        scalar_dest = gimple_get_lhs (stmt);
 
       FOR_EACH_IMM_USE_FAST (use_p, imm_iter, scalar_dest)
        {

@@ -21,6 +21,9 @@
   ;; SSE
   UNSPEC_MOVNT
 
+  ;; SSE2
+  UNSPEC_MOVDI_TO_SSE
+
   ;; SSE3
   UNSPEC_LDDQU
 
@@ -1224,10 +1227,10 @@
 ;; from there.
 
 (define_insn_and_split "movdi_to_sse"
-  [(parallel
-    [(set (match_operand:V4SI 0 "register_operand" "=?x,x")
-	  (subreg:V4SI (match_operand:DI 1 "nonimmediate_operand" "r,m") 0))
-     (clobber (match_scratch:V4SI 2 "=&x,X"))])]
+  [(set (match_operand:V4SI 0 "register_operand" "=?x,x")
+	(unspec:V4SI [(match_operand:DI 1 "nonimmediate_operand" "r,m")]
+		     UNSPEC_MOVDI_TO_SSE))
+     (clobber (match_scratch:V4SI 2 "=&x,X"))]
   "!TARGET_64BIT && TARGET_SSE2 && TARGET_INTER_UNIT_MOVES_TO_VEC"
   "#"
   "&& reload_completed"
@@ -16242,9 +16245,11 @@
   switch (INTVAL (operands[4]))
     {
     case 3:
-      return "vgatherpf0<ssemodesuffix>ps\t{%5%{%0%}|%5%{%0%}}";
+      /* %X5 so that we don't emit any *WORD PTR for -masm=intel, as
+	 gas changed what it requires incompatibly.  */
+      return "vgatherpf0<ssemodesuffix>ps\t{%5%{%0%}|%X5%{%0%}}";
     case 2:
-      return "vgatherpf1<ssemodesuffix>ps\t{%5%{%0%}|%5%{%0%}}";
+      return "vgatherpf1<ssemodesuffix>ps\t{%5%{%0%}|%X5%{%0%}}";
     default:
       gcc_unreachable ();
     }
@@ -16287,9 +16292,11 @@
   switch (INTVAL (operands[4]))
     {
     case 3:
-      return "vgatherpf0<ssemodesuffix>pd\t{%5%{%0%}|%5%{%0%}}";
+      /* %X5 so that we don't emit any *WORD PTR for -masm=intel, as
+	 gas changed what it requires incompatibly.  */
+      return "vgatherpf0<ssemodesuffix>pd\t{%5%{%0%}|%X5%{%0%}}";
     case 2:
-      return "vgatherpf1<ssemodesuffix>pd\t{%5%{%0%}|%5%{%0%}}";
+      return "vgatherpf1<ssemodesuffix>pd\t{%5%{%0%}|%X5%{%0%}}";
     default:
       gcc_unreachable ();
     }
@@ -16333,10 +16340,12 @@
     {
     case 3:
     case 7:
-      return "vscatterpf0<ssemodesuffix>ps\t{%5%{%0%}|%5%{%0%}}";
+      /* %X5 so that we don't emit any *WORD PTR for -masm=intel, as
+	 gas changed what it requires incompatibly.  */
+      return "vscatterpf0<ssemodesuffix>ps\t{%5%{%0%}|%X5%{%0%}}";
     case 2:
     case 6:
-      return "vscatterpf1<ssemodesuffix>ps\t{%5%{%0%}|%5%{%0%}}";
+      return "vscatterpf1<ssemodesuffix>ps\t{%5%{%0%}|%X5%{%0%}}";
     default:
       gcc_unreachable ();
     }
@@ -16380,10 +16389,12 @@
     {
     case 3:
     case 7:
-      return "vscatterpf0<ssemodesuffix>pd\t{%5%{%0%}|%5%{%0%}}";
+      /* %X5 so that we don't emit any *WORD PTR for -masm=intel, as
+	 gas changed what it requires incompatibly.  */
+      return "vscatterpf0<ssemodesuffix>pd\t{%5%{%0%}|%X5%{%0%}}";
     case 2:
     case 6:
-      return "vscatterpf1<ssemodesuffix>pd\t{%5%{%0%}|%5%{%0%}}";
+      return "vscatterpf1<ssemodesuffix>pd\t{%5%{%0%}|%X5%{%0%}}";
     default:
       gcc_unreachable ();
     }
@@ -17475,7 +17486,7 @@
 
   for (regno = 0; regno < nregs; regno++)
     XVECEXP (operands[0], 0, regno + 1)
-      = gen_rtx_SET (gen_rtx_REG (V8SImode, SSE_REGNO (regno)),
+      = gen_rtx_SET (gen_rtx_REG (V8SImode, GET_SSE_REGNO (regno)),
 		     CONST0_RTX (V8SImode));
 })
 
@@ -19258,12 +19269,6 @@
    (set_attr "prefix" "vex")
    (set_attr "mode" "<sseinsnmode>")])
 
-;; Memory operand override for -masm=intel of the v*gatherq* patterns.
-(define_mode_attr gatherq_mode
-  [(V4SI "q") (V2DI "x") (V4SF "q") (V2DF "x")
-   (V8SI "x") (V4DI "t") (V8SF "x") (V4DF "t")
-   (V16SI "t") (V8DI "g") (V16SF "t") (V8DF "g")])
-
 (define_expand "<avx512>_gathersi<mode>"
   [(parallel [(set (match_operand:VI48F 0 "register_operand")
 		   (unspec:VI48F
@@ -19297,7 +19302,9 @@
 	  UNSPEC_GATHER))
    (clobber (match_scratch:<avx512fmaskmode> 2 "=&Yk"))]
   "TARGET_AVX512F"
-  "v<sseintprefix>gatherd<ssemodesuffix>\t{%6, %0%{%2%}|%0%{%2%}, %<xtg_mode>6}"
+;; %X6 so that we don't emit any *WORD PTR for -masm=intel, as
+;; gas changed what it requires incompatibly.
+  "v<sseintprefix>gatherd<ssemodesuffix>\t{%6, %0%{%2%}|%0%{%2%}, %X6}"
   [(set_attr "type" "ssemov")
    (set_attr "prefix" "evex")
    (set_attr "mode" "<sseinsnmode>")])
@@ -19316,7 +19323,9 @@
 	  UNSPEC_GATHER))
    (clobber (match_scratch:<avx512fmaskmode> 1 "=&Yk"))]
   "TARGET_AVX512F"
-  "v<sseintprefix>gatherd<ssemodesuffix>\t{%5, %0%{%1%}|%0%{%1%}, %<xtg_mode>5}"
+;; %X5 so that we don't emit any *WORD PTR for -masm=intel, as
+;; gas changed what it requires incompatibly.
+  "v<sseintprefix>gatherd<ssemodesuffix>\t{%5, %0%{%1%}|%0%{%1%}, %X5}"
   [(set_attr "type" "ssemov")
    (set_attr "prefix" "evex")
    (set_attr "mode" "<sseinsnmode>")])
@@ -19355,9 +19364,9 @@
 	  UNSPEC_GATHER))
    (clobber (match_scratch:QI 2 "=&Yk"))]
   "TARGET_AVX512F"
-{
-  return "v<sseintprefix>gatherq<ssemodesuffix>\t{%6, %1%{%2%}|%1%{%2%}, %<gatherq_mode>6}";
-}
+;; %X6 so that we don't emit any *WORD PTR for -masm=intel, as
+;; gas changed what it requires incompatibly.
+  "v<sseintprefix>gatherq<ssemodesuffix>\t{%6, %1%{%2%}|%1%{%2%}, %X6}"
   [(set_attr "type" "ssemov")
    (set_attr "prefix" "evex")
    (set_attr "mode" "<sseinsnmode>")])
@@ -19377,14 +19386,16 @@
    (clobber (match_scratch:QI 1 "=&Yk"))]
   "TARGET_AVX512F"
 {
+  /* %X5 so that we don't emit any *WORD PTR for -masm=intel, as
+     gas changed what it requires incompatibly.  */
   if (<MODE>mode != <VEC_GATHER_SRCDI>mode)
     {
       if (<MODE_SIZE> != 64)
-	return "v<sseintprefix>gatherq<ssemodesuffix>\t{%5, %x0%{%1%}|%x0%{%1%}, %<gatherq_mode>5}";
+	return "v<sseintprefix>gatherq<ssemodesuffix>\t{%5, %x0%{%1%}|%x0%{%1%}, %X5}";
       else
-	return "v<sseintprefix>gatherq<ssemodesuffix>\t{%5, %t0%{%1%}|%t0%{%1%}, %t5}";
+	return "v<sseintprefix>gatherq<ssemodesuffix>\t{%5, %t0%{%1%}|%t0%{%1%}, %X5}";
     }
-  return "v<sseintprefix>gatherq<ssemodesuffix>\t{%5, %0%{%1%}|%0%{%1%}, %<gatherq_mode>5}";
+  return "v<sseintprefix>gatherq<ssemodesuffix>\t{%5, %0%{%1%}|%0%{%1%}, %X5}";
 }
   [(set_attr "type" "ssemov")
    (set_attr "prefix" "evex")
@@ -19421,7 +19432,9 @@
 	  UNSPEC_SCATTER))
    (clobber (match_scratch:<avx512fmaskmode> 1 "=&Yk"))]
   "TARGET_AVX512F"
-  "v<sseintprefix>scatterd<ssemodesuffix>\t{%3, %5%{%1%}|%5%{%1%}, %3}"
+;; %X5 so that we don't emit any *WORD PTR for -masm=intel, as
+;; gas changed what it requires incompatibly.
+  "v<sseintprefix>scatterd<ssemodesuffix>\t{%3, %5%{%1%}|%X5%{%1%}, %3}"
   [(set_attr "type" "ssemov")
    (set_attr "prefix" "evex")
    (set_attr "mode" "<sseinsnmode>")])
@@ -19457,11 +19470,9 @@
 	  UNSPEC_SCATTER))
    (clobber (match_scratch:QI 1 "=&Yk"))]
   "TARGET_AVX512F"
-{
-  if (GET_MODE_SIZE (GET_MODE_INNER (<MODE>mode)) == 8)
-    return "v<sseintprefix>scatterq<ssemodesuffix>\t{%3, %5%{%1%}|%5%{%1%}, %3}";
-  return "v<sseintprefix>scatterq<ssemodesuffix>\t{%3, %5%{%1%}|%t5%{%1%}, %3}";
-}
+;; %X5 so that we don't emit any *WORD PTR for -masm=intel, as
+;; gas changed what it requires incompatibly.
+  "v<sseintprefix>scatterq<ssemodesuffix>\t{%3, %5%{%1%}|%X5%{%1%}, %3}"
   [(set_attr "type" "ssemov")
    (set_attr "prefix" "evex")
    (set_attr "mode" "<sseinsnmode>")])

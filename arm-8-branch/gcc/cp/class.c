@@ -278,6 +278,9 @@ build_base_path (enum tree_code code,
   probe = TYPE_MAIN_VARIANT (TREE_TYPE (expr));
   if (want_pointer)
     probe = TYPE_MAIN_VARIANT (TREE_TYPE (probe));
+  if (dependent_type_p (probe))
+    if (tree open = currently_open_class (probe))
+      probe = open;
 
   if (code == PLUS_EXPR
       && !SAME_BINFO_TYPE_P (BINFO_TYPE (d_binfo), probe))
@@ -1954,6 +1957,7 @@ fixup_attribute_variants (tree t)
   unsigned align = TYPE_ALIGN (t);
   bool user_align = TYPE_USER_ALIGN (t);
   bool may_alias = lookup_attribute ("may_alias", attrs);
+  bool packed = TYPE_PACKED (t);
 
   if (may_alias)
     fixup_may_alias (t);
@@ -1971,6 +1975,7 @@ fixup_attribute_variants (tree t)
       else
 	TYPE_USER_ALIGN (variants) = user_align;
       SET_TYPE_ALIGN (variants, valign);
+      TYPE_PACKED (variants) = packed;
       if (may_alias)
 	fixup_may_alias (variants);
     }
@@ -6243,6 +6248,7 @@ layout_class_type (tree t, tree *virtuals_p)
 				  bitsize_int (BITS_PER_UNIT)));
       SET_TYPE_ALIGN (base_t, rli->record_align);
       TYPE_USER_ALIGN (base_t) = TYPE_USER_ALIGN (t);
+      TYPE_TYPELESS_STORAGE (base_t) = TYPE_TYPELESS_STORAGE (t);
 
       /* Copy the non-static data members of T. This will include its
 	 direct non-virtual bases & vtable.  */
@@ -7030,6 +7036,20 @@ finish_struct (tree t, tree attributes)
 	  }
 	else if (DECL_DECLARES_FUNCTION_P (x))
 	  DECL_IN_AGGR_P (x) = false;
+
+      /* Also add a USING_DECL for operator=.  We know there'll be (at
+	 least) one, but we don't know the signature(s).  We want name
+	 lookup not to fail or recurse into bases.  This isn't added
+	 to the template decl list so we drop this at instantiation
+	 time.  */
+      tree ass_op = build_lang_decl (USING_DECL, assign_op_identifier,
+				     NULL_TREE);
+      DECL_CONTEXT (ass_op) = t;
+      USING_DECL_SCOPE (ass_op) = t;
+      DECL_DEPENDENT_P (ass_op) = true;
+      DECL_ARTIFICIAL (ass_op) = true;
+      DECL_CHAIN (ass_op) = TYPE_FIELDS (t);
+      TYPE_FIELDS (t) = ass_op;
 
       TYPE_SIZE (t) = bitsize_zero_node;
       TYPE_SIZE_UNIT (t) = size_zero_node;

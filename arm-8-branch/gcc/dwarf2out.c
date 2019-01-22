@@ -304,6 +304,10 @@ static unsigned int rnglist_idx;
 #define FUNC_BEGIN_LABEL	"LFB"
 #endif
 
+#ifndef FUNC_SECOND_SECT_LABEL
+#define FUNC_SECOND_SECT_LABEL	"LFSB"
+#endif
+
 #ifndef FUNC_END_LABEL
 #define FUNC_END_LABEL		"LFE"
 #endif
@@ -1219,21 +1223,24 @@ static void set_cur_line_info_table (section *);
 void
 dwarf2out_switch_text_section (void)
 {
+  char label[MAX_ARTIFICIAL_LABEL_BYTES];
   section *sect;
   dw_fde_ref fde = cfun->fde;
 
   gcc_assert (cfun && fde && fde->dw_fde_second_begin == NULL);
 
+  ASM_GENERATE_INTERNAL_LABEL (label, FUNC_SECOND_SECT_LABEL,
+			       current_function_funcdef_no);
+
+  fde->dw_fde_second_begin = ggc_strdup (label);
   if (!in_cold_section_p)
     {
       fde->dw_fde_end = crtl->subsections.cold_section_end_label;
-      fde->dw_fde_second_begin = crtl->subsections.hot_section_label;
       fde->dw_fde_second_end = crtl->subsections.hot_section_end_label;
     }
   else
     {
       fde->dw_fde_end = crtl->subsections.hot_section_end_label;
-      fde->dw_fde_second_begin = crtl->subsections.cold_section_label;
       fde->dw_fde_second_end = crtl->subsections.cold_section_end_label;
     }
   have_multiple_function_sections = true;
@@ -9013,8 +9020,9 @@ build_abbrev_table (dw_die_ref die, external_ref_hash_type *extern_map)
 	struct external_ref *ref_p;
 	gcc_assert (AT_ref (a)->comdat_type_p || AT_ref (a)->die_id.die_symbol);
 
-	ref_p = lookup_external_ref (extern_map, c);
-	if (ref_p->stub && ref_p->stub != die)
+	if (is_type_die (c)
+	    && (ref_p = lookup_external_ref (extern_map, c))
+	    && ref_p->stub && ref_p->stub != die)
 	  change_AT_die_ref (a, ref_p->stub);
 	else
 	  /* We aren't changing this reference, so mark it external.  */
@@ -13136,6 +13144,8 @@ modified_type_die (tree type, int cv_quals, bool reverse,
 	       && TYPE_PRECISION (sizetype) == TYPE_PRECISION (size_type_node)
 	       && TYPE_UNSIGNED (sizetype) == TYPE_UNSIGNED (size_type_node))
 	qualified_type = size_type_node;
+      if (type == sizetype)
+	type = qualified_type;
     }
 
   /* If we do, then we can just use its DIE, if it exists.  */
@@ -16737,7 +16747,15 @@ secname_for_decl (const_tree decl)
       && DECL_SECTION_NAME (decl))
     secname = DECL_SECTION_NAME (decl);
   else if (current_function_decl && DECL_SECTION_NAME (current_function_decl))
-    secname = DECL_SECTION_NAME (current_function_decl);
+    {
+      if (in_cold_section_p)
+	{
+	  section *sec = current_function_section ();
+	  if (sec->common.flags & SECTION_NAMED)
+	    return sec->named.name;
+	}
+      secname = DECL_SECTION_NAME (current_function_decl);
+    }
   else if (cfun && in_cold_section_p)
     secname = crtl->subsections.cold_section_label;
   else
@@ -23872,6 +23890,10 @@ gen_label_die (tree decl, dw_die_ref context_die)
 static inline void
 add_call_src_coords_attributes (tree stmt, dw_die_ref die)
 {
+  /* We can end up with BUILTINS_LOCATION here.  */
+  if (RESERVED_LOCATION_P (BLOCK_SOURCE_LOCATION (stmt)))
+    return;
+
   expanded_location s = expand_location (BLOCK_SOURCE_LOCATION (stmt));
 
   if (dwarf_version >= 3 || !dwarf_strict)
@@ -26378,7 +26400,7 @@ dwarf2out_early_global_decl (tree decl)
 		 enough so that it lands in its own context.  This avoids type
 		 pruning issues later on.  */
 	      if (context_die == NULL || is_declaration_die (context_die))
-		dwarf2out_decl (context);
+		dwarf2out_early_global_decl (context);
 	    }
 
 	  /* Emit an abstract origin of a function first.  This happens
@@ -28472,7 +28494,7 @@ init_sections_and_labels (bool early_lto_debug)
       debug_str_section = get_section (DEBUG_LTO_STR_SECTION,
 				       DEBUG_STR_SECTION_FLAGS
 				       | SECTION_EXCLUDE, NULL);
-      if (!dwarf_split_debug_info && !output_asm_line_debug_info ())
+      if (!dwarf_split_debug_info)
 	debug_line_str_section
 	  = get_section (DEBUG_LTO_LINE_STR_SECTION,
 			 DEBUG_STR_SECTION_FLAGS | SECTION_EXCLUDE, NULL);
@@ -31074,6 +31096,11 @@ dwarf2out_finish (const char *)
 
       /* Remove indirect string decisions.  */
       debug_str_hash->traverse<void *, reset_indirect_string> (NULL);
+      if (debug_line_str_hash)
+	{
+	  debug_line_str_hash->traverse<void *, reset_indirect_string> (NULL);
+	  debug_line_str_hash = NULL;
+	}
     }
 
 #if ENABLE_ASSERT_CHECKING
@@ -31082,6 +31109,8 @@ dwarf2out_finish (const char *)
     FOR_EACH_CHILD (die, c, gcc_assert (! c->die_mark));
   }
 #endif
+  for (ctnode = comdat_type_list; ctnode != NULL; ctnode = ctnode->next)
+    resolve_addr (ctnode->root_die);
   resolve_addr (comp_unit_die ());
   move_marked_base_types ();
 
@@ -31330,8 +31359,8 @@ dwarf2out_finish (const char *)
       switch_to_section (debug_loc_section);
       if (dwarf_version >= 5)
 	{
-	  ASM_GENERATE_INTERNAL_LABEL (l1, DEBUG_LOC_SECTION_LABEL, 1);
-	  ASM_GENERATE_INTERNAL_LABEL (l2, DEBUG_LOC_SECTION_LABEL, 2);
+	  ASM_GENERATE_INTERNAL_LABEL (l1, DEBUG_LOC_SECTION_LABEL, 2);
+	  ASM_GENERATE_INTERNAL_LABEL (l2, DEBUG_LOC_SECTION_LABEL, 3);
 	  if (DWARF_INITIAL_LENGTH_SIZE - DWARF_OFFSET_SIZE == 4)
 	    dw2_asm_output_data (4, 0xffffffff,
 				 "Initial length escape value indicating "
@@ -31950,6 +31979,13 @@ dwarf2out_early_finish (const char *filename)
   /* If we emitted any indirect strings, output the string table too.  */
   if (debug_str_hash || skeleton_debug_str_hash)
     output_indirect_strings ();
+  if (debug_line_str_hash)
+    {
+      switch_to_section (debug_line_str_section);
+      const enum dwarf_form form = DW_FORM_line_strp;
+      debug_line_str_hash->traverse<enum dwarf_form,
+				    output_indirect_string> (form);
+    }
 
   /* Switch back to the text section.  */
   switch_to_section (text_section);

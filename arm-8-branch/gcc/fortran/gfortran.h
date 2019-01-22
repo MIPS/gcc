@@ -191,7 +191,8 @@ enum gfc_intrinsic_op
 /* Arithmetic results.  */
 enum arith
 { ARITH_OK = 1, ARITH_OVERFLOW, ARITH_UNDERFLOW, ARITH_NAN,
-  ARITH_DIV0, ARITH_INCOMMENSURATE, ARITH_ASYMMETRIC, ARITH_PROHIBIT
+  ARITH_DIV0, ARITH_INCOMMENSURATE, ARITH_ASYMMETRIC, ARITH_PROHIBIT,
+  ARITH_WRONGCONCAT
 };
 
 /* Statements.  */
@@ -3345,7 +3346,7 @@ bool gfc_resolve_open (gfc_open *);
 void gfc_free_close (gfc_close *);
 bool gfc_resolve_close (gfc_close *);
 void gfc_free_filepos (gfc_filepos *);
-bool gfc_resolve_filepos (gfc_filepos *);
+bool gfc_resolve_filepos (gfc_filepos *, locus *);
 void gfc_free_inquire (gfc_inquire *);
 bool gfc_resolve_inquire (gfc_inquire *);
 void gfc_free_dt (gfc_dt *);

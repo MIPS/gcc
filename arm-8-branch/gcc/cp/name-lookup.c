@@ -560,11 +560,14 @@ name_lookup::search_namespace (tree scope)
 
   /* Look in exactly namespace. */
   bool found = search_namespace_only (scope);
-  
-  /* Recursively look in its inline children.  */
-  if (vec<tree, va_gc> *inlinees = DECL_NAMESPACE_INLINEES (scope))
-    for (unsigned ix = inlinees->length (); ix--;)
-      found |= search_namespace ((*inlinees)[ix]);
+
+  /* Don't look into inline children, if we're looking for an
+     anonymous name -- it must be in the current scope, if anywhere.  */
+  if (name)
+    /* Recursively look in its inline children.  */
+    if (vec<tree, va_gc> *inlinees = DECL_NAMESPACE_INLINEES (scope))
+      for (unsigned ix = inlinees->length (); ix--;)
+	found |= search_namespace ((*inlinees)[ix]);
 
   if (found)
     mark_found (scope);
@@ -1237,17 +1240,6 @@ get_class_binding_direct (tree klass, tree name, int type_or_fns)
 	}
       else if (STAT_HACK_P (val))
 	val = STAT_DECL (val);
-
-      if (val && TREE_CODE (val) == OVERLOAD
-	  && TREE_CODE (OVL_FUNCTION (val)) == USING_DECL)
-	{
-	  /* An overload with a dependent USING_DECL.  Does the caller
-	     want the USING_DECL or the functions?  */
-	  if (type_or_fns < 0)
-	    val = OVL_CHAIN (val);
-	  else
-	    val = OVL_FUNCTION (val);  
-	}
     }
   else
     {
@@ -2737,6 +2729,13 @@ check_local_shadow (tree decl)
 	       && (same_type_p (TREE_TYPE (old), TREE_TYPE (decl))
 		   || (!dependent_type_p (TREE_TYPE (decl))
 		       && !dependent_type_p (TREE_TYPE (old))
+		       /* If the new decl uses auto, we don't yet know
+			  its type (the old type cannot be using auto
+			  at this point, without also being
+			  dependent).  This is an indication we're
+			  (now) doing the shadow checking too
+			  early.  */
+		       && !type_uses_auto (TREE_TYPE (decl))
 		       && can_convert (TREE_TYPE (old), TREE_TYPE (decl),
 				       tf_none))))
 	warning_code = OPT_Wshadow_compatible_local;
