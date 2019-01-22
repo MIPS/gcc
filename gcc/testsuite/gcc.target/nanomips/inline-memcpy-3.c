@@ -1,17 +1,15 @@
-/* { dg-options "-m32 -march=32r6 (REQUIRES_STDLIB)" } */
+/* { dg-options "-m32 -march=32r6" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" "-Os"} { "" } } */
 
-#include <string.h>
-
-extern int g_i32[4];
-extern char g_i8[16];
+short g_i16[8];
+char g_i8[16];
 
 void
 foo (char *a)
 {
-  memcpy(a, &g_i32, sizeof g_i32);
-  memcpy(a, &g_i8, sizeof g_i8);
+  __builtin_memcpy(a, &g_i16, sizeof g_i16);
+  __builtin_memcpy(a, &g_i8, sizeof g_i8);
 }
 
-/* { dg-final { scan-assembler-times "g_i32 " 1 } } */
-/* { dg-final { scan-assembler-times "g_i8 " 1 } } */
+/* { dg-final { scan-assembler-not "%lo(g_i8)" } } */
+/* { dg-final { scan-assembler-not "%lo(g_i16)" } } */
