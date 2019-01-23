@@ -1,3 +1,28 @@
+2019-01-23  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/88757 - qualified name treated wrongly as type.
+	* parser.c (cp_parser_direct_declarator): Don't treat qualified-ids
+	in parameter-list as types if name lookup for declarator-id didn't
+	find one or more function templates.
+
+2019-01-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/44715
+	* cp-gimplify.c (genericize_cp_loop): Call begin_bc_block only
+	after genericizing cond and incr expressions.
+
+	PR c++/88984
+	* cp-gimplify.c (genericize_switch_stmt): Move cond genericization
+	before the begin_bc_block call.
+
+2019-01-21  Jason Merrill  <jason@redhat.com>
+
+	PR c++/87893 - constexpr ctor ICE on ARM.
+	PR c++/88293 - ICE with comma expression.
+	* constexpr.c (initialized_type): Don't shortcut non-void type.
+	Handle COMPOUND_EXPR.
+	(cxx_eval_outermost_constant_expr): Return early for void type.
+
 2019-01-21  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/88949

@@ -1,3 +1,141 @@
+2019-01-23  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/88757 - qualified name treated wrongly as type.
+	* g++.dg/cpp0x/dependent2.C: New test.
+	* g++.dg/cpp2a/typename10.C: Remove dg-error.
+	* g++.dg/cpp2a/typename12.C: New test.
+	* g++.dg/template/static30.C: Remove dg-error.
+
+2019-01-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/44715
+	* c-c++-common/pr44715.c: New test.
+
+	PR c++/88984
+	* c-c++-common/pr88984.c: New test.
+
+2019-01-23  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/89008
+	* gcc.dg/torture/pr89008.c: New testcase.
+
+2019-01-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/specs/opt4.ads: New test.
+
+2019-01-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/88964
+	* gfortran.dg/pr88964.f90: New test.
+
+2019-01-22  Martin Sebor  <msebor@redhat.com>
+
+	* c-c++-common/Warray-bounds-2.c: Include headers only if they exist.
+	* c-c++-common/Warray-bounds-3.c: Make xfails conditional on target
+	non_strict_align.
+	* c-c++-common/Wrestrict-2.c: Include headers only if they exist.
+	* c-c++-common/Wrestrict.c: Make xfails conditional on target
+	non_strict_align.
+
+2018-01-22  Steve Ellcey  <sellcey@marvell.com>
+
+	* c-c++-common/gomp/pr60823-1.c: Change aarch64-*-* target
+	to aarch64*-*-* target.
+	* c-c++-common/gomp/pr60823-3.c: Ditto.
+	* g++.dg/gomp/declare-simd-1.C: Ditto.
+	* g++.dg/gomp/declare-simd-3.C: Ditto.
+	* g++.dg/gomp/declare-simd-4.C: Ditto.
+	* g++.dg/gomp/declare-simd-7.C: Ditto.
+	* g++.dg/gomp/pr88182.C: Ditto.
+	* gcc.dg/gomp/declare-simd-1.c: Ditto.
+	* gcc.dg/gomp/declare-simd-3.c: Ditto.
+	* gcc.dg/gomp/pr59669-2.c: Ditto.
+	* gcc.dg/gomp/pr87895-1.c: Ditto.
+	* gcc.dg/gomp/simd-clones-2.c: Ditto.
+	* gfortran.dg/gomp/declare-simd-2.f90: Ditto.
+	* gfortran.dg/gomp/pr79154-1.f90: Ditto.
+	* gfortran.dg/gomp/pr83977.f90: Ditto.
+
+2019-01-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/88965
+	* gcc.target/powerpc/pr88965.c: New test.
+
+	PR middle-end/88968
+	* c-c++-common/gomp/atomic-23.c: New test.
+
+2019-01-22  Harald Anlauf  <anlauf@gmx.de>
+
+	PR fortran/88579
+	* gfortran.dg/power_8.f90: New test.
+
+2019-01-22  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* g++.dg/lto/pr87906_0.C: Add dg-require-effective-target fpic.
+	* g++.dg/vec-init-1.C: Likewise.
+	* gcc.dg/pr87793.c: Likewise.
+
+2019-01-22  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* g++.dg/cpp0x/pr86397-1.C: Add -fdelete-null-pointer-checks.
+	* g++.dg/cpp0x/pr86397-2.C: Likewise.
+
+2019-01-22  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/88469
+	* gcc.target/arm/aapcs/bitfield2.c: New test.
+	* gcc.target/arm/aapcs/bitfield3.c: New test.
+
+2019-01-22  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	PR rtl-optimization/87763
+	* gcc.dg/vect/vect-nop-move.c: Fix testcase on AArch64.
+
+2019-01-22  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/88954
+	* gcc.target/i386/pr88954-1.c: New test.
+	* gcc.target/i386/pr88954-2.c: Likewise.
+
+2019-01-22  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/88469
+	* gcc.target/arm/aapcs/bitfield1.c: New test.
+	* gcc.target/arm/aapcs/overalign_rec1.c: New test.
+	* gcc.target/arm/aapcs/overalign_rec2.c: New test.
+	* gcc.target/arm/aapcs/overalign_rec3.c: New test.
+
+2019-01-22  Manfred Schwarb  <manfred99@gmx.ch>
+
+	* gfortran.dg/array_function_5.f90: Fix a dg directive.
+	* gfortran.dg/block_16.f08: Likewise.
+	* gfortran.dg/dec_structure_14.f90: Likewise.
+	* gfortran.dg/namelist_96.f90: Likewise.
+	* gfortran.dg/newunit_5.f90.f90: Moved to
+	* gfortran.dg/newunit_5.f90: here.
+	* gfortran.dg/pdt_28.f03: Likewise.
+	* gfortran.dg/spread_simplify_1.f90: Likewise.
+
+2019-01-22  Tamar Christina  <tamar.christina@arm.com>
+
+	PR/tree-optimization 88903
+	* gcc.dg/vect/pr88903-1.c: Add explicit &.
+
+2019-01-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/88904
+	* gcc.c-torture/execute/pr88904.c: New test.
+
+	PR target/88905
+	* gcc.dg/pr88905.c: New test.
+
+	PR rtl-optimization/49429
+	PR target/49454
+	PR rtl-optimization/86334
+	PR target/88906
+	* gcc.target/i386/pr86334.c: New test.
+	* gcc.target/i386/pr88906.c: New test.
+
 2019-01-21  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/88949

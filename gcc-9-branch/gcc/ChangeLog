@@ -1,3 +1,185 @@
+2019-01-23  David Malcolm  <dmalcolm@redhat.com>
+
+	PR driver/89014
+	* config/aarch64/driver-aarch64.c (host_detect_local_cpu): Fix
+	use-after-free of the result of
+	aarch64_get_extension_string_for_isa_flags.
+
+2019-01-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/44715
+	* doc/extend.texi: Document break and continue behavior in
+	statement expressions.
+
+2019-01-23  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/89008
+	* tree-ssa-reassoc.c (eliminate_using_constants): For * 0 do
+	not leave another stray operand.
+
+2019-01-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* BASE-VER: Bump to 9.0.1.
+
+2019-01-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* cgraphunit.c (cgraph_node::expand_thunk): When expanding a GIMPLE
+	thunk that returns by reference, use the type of the return object
+	of the thunk instead of that of the alias to build the dereference.
+
+2019-01-23  Vineet Gupta  <vgupta@synopsys.com>
+
+	* config/arc/atomic.md: Add operand to DMB instruction.
+
+2019-01-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/88964
+	* gimple-loop-interchange.cc (loop_cand::analyze_induction_var): Use
+	build_zero_cst instead of build_int_cst.  Return false for loop
+	invariants which honor signed zeros.
+
+2019-01-22  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* doc/invoke.texi (-fsplit-paths): This is enabled by default at -O3.
+
+2019-01-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/88965
+	* config/rs6000/rs6000.c: Include tree-vrp.h and tree-ssanames.h.
+	(rs6000_gimple_fold_builtin): If MEM_REF address doesn't satisfy
+	is_gimple_mem_ref_addr predicate, force it into a SSA_NAME first.
+
+	PR middle-end/88968
+	* gimplify.c (gimplify_omp_atomic): Handle bitfield atomics with
+	non-integral DECL_BIT_FIELD_REPRESENTATIVEs.
+
+	PR target/87064
+	* config/rs6000/vsx.md (*vsx_reduc_<VEC_reduc_name>_v2df_scalar):
+	Disable for little endian.
+
+2019-01-22  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/88469
+	* config/arm/arm.c (arm_needs_double_word_align): Check
+	DECL_BIT_FIELD_TYPE.
+
+2019-01-22  Hongtao Liu  <hongtao.liu@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/88909
+	* config/i386/i386-builtin.def: Add mask2 to all builtin
+	initializations.  Merge ARGS2 and SPECIAL_ARGS2 into ARGS and
+	SPECIAL_ARGS.
+	* config/i386/i386.c (BDESC): Add mask2 to the definition.
+	(BDESC_FIRST): Likewise.
+	(define_builtin): Add an argument for mask2.  Updated to handle
+	both ix86_isa_flags and ix86_isa_flags2.
+	(define_builtin_const): Likewise.
+	(define_builtin_pure): Likewise.
+	(define_builtin2): Deleted.
+	(define_builtin_const2): Likewise.
+	(builtin_description): Add a member, mask2.
+	(bdesc_*): Add mask2 to builtin initializations.
+	(ix86_init_mmx_sse_builtins): Update calls to def_builtin,
+	def_builtin_const and def_builtin_pure.  Remove SPECIAL_ARGS2
+	support.
+	(ix86_get_builtin_func_type): Remove SPECIAL_ARGS2 support.
+
+2019-01-22  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/88954
+	* config/i386/i386.c (ix86_force_load_from_GOT_p): Also check
+	noplt attribute.
+
+2019-01-22  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/88469
+	* config/arm/arm.c (arm_needs_doubleword_align): Return 2 if a record's
+	alignment is dominated by a bitfield with 64-bit aligned base type.
+	(arm_function_arg): Emit a warning if the alignment has changed since
+	earlier GCC releases.
+	(arm_function_arg_boundary): Likewise.
+	(arm_setup_incoming_varargs): Likewise.
+
+2019-01-22  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/88862
+	* graphite-scop-detection.c
+	(scop_detection::graphite_can_represent_scev): Reject ADDR_EXPR.
+
+2019-01-22  Andrew Stubbs  <ams@codesourcery.com>
+
+	* doc/extend.tex (AMD GCN Function Attributes): New section.
+	* doc/install.texi (amdgcn-unknown-amdhsa): New instructions.
+	* doc/invoke.texi (AMD GCN Options): New section.
+	* doc/md.texi (Constraints for Particular Machines): Add AMD GCN.
+
+2019-01-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sparc.c (parc_delegitimize_address): Recognize the GOT
+	register and decoded HIGH/LO_SUM combinations for labels in PIC mode.
+
+2019-01-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/88044
+	* tree-ssa-loop-niter.c (number_of_iterations_cond): If condition
+	is false in the first iteration, but !every_iteration, return false
+	instead of true with niter->niter zero.
+
+	PR rtl-optimization/88904
+	* cfgcleanup.c (thread_jump): Verify cond2 doesn't mention
+	any nonequal registers before processing BB_END (b).
+
+	PR target/88905
+	* optabs.c (add_equal_note): Add op0_mode argument, use it instead of
+	GET_MODE (op0).
+	(expand_binop_directly, expand_doubleword_clz,
+	expand_doubleword_popcount, expand_ctz, expand_ffs,
+	expand_unop_direct, maybe_emit_unop_insn): Adjust callers.
+
+	PR rtl-optimization/49429
+	PR target/49454
+	PR rtl-optimization/86334
+	PR target/88906
+	* expr.c (emit_block_move_hints): Move marking of MEM_EXPRs
+	addressable from here...
+	(emit_block_op_via_libcall): ... to here.
+
+2019-01-22  Richard Biener  <rguenther@suse.de>
+
+	* tree-vect-loop.c (vect_analyze_loop_operations): Use
+	auto_vec for cost vector to fix memleak.
+	(vectorize_fold_left_reduction): Properly gather SLP defs.
+	(vectorizable_comparison): Do not swap operands to properly
+	gather SLP defs.
+
+2019-01-22  Alan Modra  <amodra@gmail.com>
+
+	PR target/88614
+	* config/rs6000/predicates.md (unspec_tls): Ensure GOT reg
+	stays a reg.  Allow a const_int.
+	* config/rs6000/rs6000-protos.h (rs6000_output_tlsargs): Declare.
+	* config/rs6000/rs6000.h (IS_V4_FP_ARGS): Define.
+	(IS_NOMARK_TLSGETADDR): Define.
+	* config/rs6000/rs6000.c (edit_tls_call_insn): Delete.
+	(rs6000_output_tlsargs): New function.
+	(rs6000_legitimize_tls_address): Don't say a !TARGET_TLS_MARKERS
+	__tls_get_addr call takes an arg.
+	(rs6000_call_sysv): Generate sysv4 secure plt call pattern here..
+	* config/rs6000/rs6000.md (call_nonlocal_sysv): ..rather than here,
+	delete split..
+	(call_value_nonlocal_sysv): ..or here, delete split.
+	(tls_gdld_nomark): Delete.
+	(call_value_indirect_nonlocal_sysv): Use unspec_tls as operand2
+	predicate.  Call rs6000_output_tlsargs.  Adjust length to suit.
+	(call_value_nonlocal_sysv): Likewise.
+	(call_value_nonlocal_sysv_secure): Likewise.
+	(call_value_nonlocal_aix): Likewise.
+	(call_value_indirect_aix): Likewise.
+	(call_value_indirect_elfv2): Likewise.
+	(call_value_local32, call_value_local64): Disable for no-mark tls.
+	(call_value_local_aix): Likewise.
+
 2019-01-21  Uroš Bizjak  <ubizjak@gmail.com>
 
 	PR target/88938
