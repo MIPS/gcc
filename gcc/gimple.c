@@ -1757,9 +1757,9 @@ gimple_assign_set_rhs_with_ops (gimple_stmt_iterator *gsi, enum tree_code code,
 
 
 /* Return the LHS of a statement that performs an assignment,
-   either a GIMPLE_ASSIGN or a GIMPLE_CALL.  Returns NULL_TREE
-   for a call to a function that returns no value, or for a
-   statement other than an assignment or a call.  */
+   either a GIMPLE_ASSIGN, a GIMPLE_CALL or a GIMPLE_PHI.
+   Returns NULL_TREE for a call to a function that returns no value,
+   or for a statement other than an assignment or a call.  */
 
 tree
 gimple_get_lhs (const gimple *stmt)
@@ -1770,6 +1770,8 @@ gimple_get_lhs (const gimple *stmt)
     return gimple_assign_lhs (stmt);
   else if (code == GIMPLE_CALL)
     return gimple_call_lhs (stmt);
+  else if (code == GIMPLE_PHI)
+    return gimple_phi_result (stmt);
   else
     return NULL_TREE;
 }

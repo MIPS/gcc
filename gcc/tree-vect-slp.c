@@ -116,7 +116,7 @@ vect_create_new_slp_node (vec<stmt_vec_info> scalar_stmts)
 	nops++;
     }
   else if (is_a <gphi *> (stmt_info->stmt))
-    nops = 0;
+    nops = gimple_phi_num_args (stmt_info->stmt);
   else
     return NULL;
 
@@ -342,6 +342,8 @@ vect_get_and_check_slp_defs (vec_info *vinfo, unsigned char *swap,
       else
 	commutative_op = commutative_tree_code (code) ? 0U : -1U;
     }
+  else if (gphi *stmt = dyn_cast <gphi *> (stmt_info->stmt))
+    number_of_oprnds = gimple_phi_num_args (stmt);
   else
     return -1;
 
@@ -350,7 +352,9 @@ vect_get_and_check_slp_defs (vec_info *vinfo, unsigned char *swap,
   for (i = 0; i < number_of_oprnds; i++)
     {
 again:
-      if (first_op_cond)
+      if (is_a <gphi *> (stmt_info->stmt))
+	oprnd = gimple_phi_arg_def (stmt_info->stmt, i);
+      else if (first_op_cond)
 	{
 	  /* Map indicating how operands of cond_expr should be swapped.  */
 	  int maps[3][4] = {{0, 1, 2, 3}, {1, 0, 2, 3}, {0, 1, 3, 2}};
@@ -443,6 +447,8 @@ again:
 
 	case vect_reduction_def:
 	case vect_induction_def:
+	case vect_double_reduction_def:
+	case vect_nested_cycle:
 	case vect_internal_def:
 	  oprnd_info->def_stmts.quick_push (def_stmt_info);
 	  break;
@@ -682,8 +688,8 @@ vect_build_slp_tree_1 (unsigned char *swap,
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			     "Build SLP failed: not GIMPLE_ASSIGN nor "
-			     "GIMPLE_CALL %G", stmt);
+			     "Build SLP failed: not GIMPLE_ASSIGN, "
+			     "GIMPLE_CALL or GIMPLE_PHI %G", stmt);
 	  /* Fatal mismatch.  */
 	  matches[0] = false;
 	  return false;
@@ -723,6 +729,8 @@ vect_build_slp_tree_1 (unsigned char *swap,
 	      return false;
 	    }
 	}
+      else if (is_a <gphi *> (stmt))
+	rhs_code = TREE_LIST;
       else
 	rhs_code = gimple_assign_rhs_code (stmt);
 
@@ -855,6 +863,19 @@ vect_build_slp_tree_1 (unsigned char *swap,
 		  continue;
 		}
 	    }
+
+	  if (rhs_code == TREE_LIST)
+	    {
+	      if (gimple_bb (stmts[0]->stmt) != gimple_bb (stmt))
+		{
+		  if (dump_enabled_p ())
+		    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+				     "Build SLP failed: different BBs in %G",
+				     stmt);
+		  /* Mismatch.  */
+		  continue;
+		}
+	    }
 	}
 
       /* Store or load.  */
@@ -899,7 +920,8 @@ vect_build_slp_tree_1 (unsigned char *swap,
 	      && TREE_CODE_CLASS (rhs_code) != tcc_expression
 	      && TREE_CODE_CLASS (rhs_code) != tcc_comparison
 	      && rhs_code != VIEW_CONVERT_EXPR
-	      && rhs_code != CALL_EXPR)
+	      && rhs_code != CALL_EXPR
+	      && rhs_code != TREE_LIST)
 	    {
 	      if (dump_enabled_p ())
 		dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -1090,13 +1112,18 @@ vect_build_slp_tree_2 (vec_info *vinfo,
       if (gimple_assign_rhs_code (stmt) == COND_EXPR)
 	nops++;
     }
-  else if (is_a <gphi *> (stmt_info->stmt))
-    nops = 0;
+  else if (is_a <loop_vec_info> (vinfo)
+	   && is_a <gphi *> (stmt_info->stmt))
+    /* Continue for both loop-closed and inner loop header PHIs.  */
+    nops = ((gimple_bb (stmt_info->stmt)
+	     != as_a <loop_vec_info> (vinfo)->loop->header)
+	    ? gimple_phi_num_args (stmt_info->stmt) : 0);
   else
     return NULL;
 
   /* If the SLP node is a PHI (induction or reduction), terminate
      the recursion.  */
+  if (nops == 0)
   if (gphi *stmt = dyn_cast <gphi *> (stmt_info->stmt))
     {
       tree scalar_type = TREE_TYPE (PHI_RESULT (stmt));
@@ -1183,6 +1210,8 @@ vect_build_slp_tree_2 (vec_info *vinfo,
 
       if (oprnd_info->first_dt != vect_internal_def
 	  && oprnd_info->first_dt != vect_reduction_def
+	  && oprnd_info->first_dt != vect_double_reduction_def
+	  && oprnd_info->first_dt != vect_nested_cycle
 	  && oprnd_info->first_dt != vect_induction_def)
         continue;
 
