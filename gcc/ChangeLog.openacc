@@ -1,3 +1,8 @@
+2019-01-28  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* omp-offload.c (inform_oacc_loop, execute_oacc_device_lower):
+	Update.
+
 2019-01-09  Julian Brown  <julian@codesourcery.com>
 
 	* doc/invoke.texi: Update mention of OpenACC version to 2.6.

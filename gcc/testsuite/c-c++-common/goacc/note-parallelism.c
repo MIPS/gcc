@@ -1,59 +1,113 @@
-/* Test the output of -fopt-info-note-omp.  */
+/* Test the output of "-fopt-info-optimized-omp".  */
 
-/* { dg-additional-options "-fopt-info-note-omp" } */
+/* { dg-additional-options "-fopt-info-optimized-omp" } */
+
+/* See also "../../gfortran.dg/goacc/note-parallelism.f90".  */
 
 int
 main ()
 {
   int x, y, z;
 
-#pragma acc parallel loop seq /* { dg-message "note: Detected parallelism <acc loop seq>" } */
+#pragma acc parallel
   for (x = 0; x < 10; x++)
     ;
 
-#pragma acc parallel loop gang /* { dg-message "note: Detected parallelism <acc loop gang>" } */
+#pragma acc parallel loop seq /* { dg-message "note: assigned OpenACC seq loop parallelism" } */
   for (x = 0; x < 10; x++)
     ;
 
-#pragma acc parallel loop worker /* { dg-message "note: Detected parallelism <acc loop worker>" } */
+#pragma acc parallel loop gang /* { dg-message "note: assigned OpenACC gang loop parallelism" } */
   for (x = 0; x < 10; x++)
     ;
 
-#pragma acc parallel loop vector /* { dg-message "note: Detected parallelism <acc loop vector>" } */
+#pragma acc parallel loop worker /* { dg-message "note: assigned OpenACC worker loop parallelism" } */
   for (x = 0; x < 10; x++)
     ;
 
-#pragma acc parallel loop gang vector /* { dg-message "note: Detected parallelism <acc loop gang vector>" } */
+#pragma acc parallel loop vector /* { dg-message "note: assigned OpenACC vector loop parallelism" } */
   for (x = 0; x < 10; x++)
     ;
 
-#pragma acc parallel loop gang worker /* { dg-message "note: Detected parallelism <acc loop gang worker>" } */
+#pragma acc parallel loop gang vector /* { dg-message "note: assigned OpenACC gang vector loop parallelism" } */
   for (x = 0; x < 10; x++)
     ;
 
-#pragma acc parallel loop worker vector /* { dg-message "note: Detected parallelism <acc loop worker vector>" } */
+#pragma acc parallel loop gang worker /* { dg-message "note: assigned OpenACC gang worker loop parallelism" } */
   for (x = 0; x < 10; x++)
     ;
 
-#pragma acc parallel loop gang worker vector /* { dg-message "note: Detected parallelism <acc loop gang worker vector>" } */
+#pragma acc parallel loop worker vector /* { dg-message "note: assigned OpenACC worker vector loop parallelism" } */
   for (x = 0; x < 10; x++)
     ;
 
-#pragma acc parallel loop /* { dg-message "note: Detected parallelism <acc loop gang vector>" } */
+#pragma acc parallel loop gang worker vector /* { dg-message "note: assigned OpenACC gang worker vector loop parallelism" } */
   for (x = 0; x < 10; x++)
     ;
 
-#pragma acc parallel loop /* { dg-message "note: Detected parallelism <acc loop gang worker>" } */
+#pragma acc parallel loop gang /* { dg-message "note: assigned OpenACC gang loop parallelism" } */
   for (x = 0; x < 10; x++)
-#pragma acc loop /* { dg-message "note: Detected parallelism <acc loop vector>" } */
+#pragma acc loop worker /* { dg-message "note: assigned OpenACC worker loop parallelism" } */
+    for (y = 0; y < 10; y++)
+#pragma acc loop vector /* { dg-message "note: assigned OpenACC vector loop parallelism" } */
+      for (z = 0; z < 10; z++)
+	;
+
+#pragma acc parallel loop /* { dg-message "note: assigned OpenACC gang vector loop parallelism" } */
+  for (x = 0; x < 10; x++)
+    ;
+
+#pragma acc parallel loop /* { dg-message "note: assigned OpenACC gang worker loop parallelism" } */
+  for (x = 0; x < 10; x++)
+#pragma acc loop /* { dg-message "note: assigned OpenACC vector loop parallelism" } */
     for (y = 0; y < 10; y++)
       ;
 
-#pragma acc parallel loop gang /* { dg-message "note: Detected parallelism <acc loop gang>" } */
+#pragma acc parallel loop /* { dg-message "note: assigned OpenACC gang loop parallelism" } */
   for (x = 0; x < 10; x++)
-#pragma acc loop worker /* { dg-message "note: Detected parallelism <acc loop worker>" } */
+#pragma acc loop /* { dg-message "note: assigned OpenACC worker loop parallelism" } */
     for (y = 0; y < 10; y++)
-#pragma acc loop vector /* { dg-message "note: Detected parallelism <acc loop vector>" } */
+#pragma acc loop /* { dg-message "note: assigned OpenACC vector loop parallelism" } */
+      for (z = 0; z < 10; z++)
+	;
+
+#pragma acc parallel
+  for (x = 0; x < 10; x++)
+#pragma acc loop /* { dg-message "note: assigned OpenACC gang worker loop parallelism" } */
+    for (y = 0; y < 10; y++)
+#pragma acc loop /* { dg-message "note: assigned OpenACC vector loop parallelism" } */
+      for (z = 0; z < 10; z++)
+	;
+
+#pragma acc parallel loop seq /* { dg-message "note: assigned OpenACC seq loop parallelism" } */
+  for (x = 0; x < 10; x++)
+#pragma acc loop /* { dg-message "note: assigned OpenACC gang worker loop parallelism" } */
+    for (y = 0; y < 10; y++)
+#pragma acc loop /* { dg-message "note: assigned OpenACC vector loop parallelism" } */
+      for (z = 0; z < 10; z++)
+	;
+
+#pragma acc parallel loop /* { dg-message "note: assigned OpenACC gang worker loop parallelism" } */
+  for (x = 0; x < 10; x++)
+#pragma acc loop seq /* { dg-message "note: assigned OpenACC seq loop parallelism" } */
+    for (y = 0; y < 10; y++)
+#pragma acc loop /* { dg-message "note: assigned OpenACC vector loop parallelism" } */
+      for (z = 0; z < 10; z++)
+	;
+
+#pragma acc parallel loop /* { dg-message "note: assigned OpenACC gang worker loop parallelism" } */
+  for (x = 0; x < 10; x++)
+#pragma acc loop /* { dg-message "note: assigned OpenACC vector loop parallelism" } */
+    for (y = 0; y < 10; y++)
+#pragma acc loop seq /* { dg-message "note: assigned OpenACC seq loop parallelism" } */
+      for (z = 0; z < 10; z++)
+	;
+
+#pragma acc parallel loop seq /* { dg-message "note: assigned OpenACC seq loop parallelism" } */
+  for (x = 0; x < 10; x++)
+#pragma acc loop /* { dg-message "note: assigned OpenACC gang vector loop parallelism" } */
+    for (y = 0; y < 10; y++)
+#pragma acc loop seq /* { dg-message "note: assigned OpenACC seq loop parallelism" } */
       for (z = 0; z < 10; z++)
 	;
 

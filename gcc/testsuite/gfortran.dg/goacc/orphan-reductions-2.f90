@@ -1,14 +1,14 @@
 ! Ensure that the middle end does not assign gang level parallelism to
 ! orphan loop containing reductions.
 
-! { dg-additional-options "-fopt-info-note-omp" }
+! { dg-additional-options "-fopt-info-optimized-omp" }
 
 subroutine s1 ! { dg-warning "region is gang partitioned but does not contain gang partitioned code" }
   implicit none
   !$acc routine gang
   integer i, sum
 
-  !$acc loop reduction (+:sum) ! { dg-message "Detected parallelism <acc loop worker vector>" }
+  !$acc loop reduction (+:sum) ! { dg-message "note: assigned OpenACC worker vector loop parallelism" }
   do i = 1, 10
      sum = sum + 1
   end do
@@ -19,9 +19,9 @@ subroutine s2 ! { dg-warning "region is gang partitioned but does not contain ga
   !$acc routine gang
   integer i, j, sum
 
-  !$acc loop reduction (+:sum) ! { dg-message "Detected parallelism <acc loop worker>" }
+  !$acc loop reduction (+:sum) ! { dg-message "note: assigned OpenACC worker loop parallelism" }
   do i = 1, 10
-     !$acc loop reduction (+:sum) ! { dg-message "Detected parallelism <acc loop vector>" }
+     !$acc loop reduction (+:sum) ! { dg-message "note: assigned OpenACC vector loop parallelism" }
      do j = 1, 10
         sum = sum + 1
      end do
@@ -33,12 +33,12 @@ subroutine s3 ! { dg-warning "region is gang partitioned but does not contain ga
   !$acc routine gang
   integer i, j, k, sum
 
-  !$acc loop reduction (+:sum) ! { dg-message "Detected parallelism <acc loop worker>" }
+  !$acc loop reduction (+:sum) ! { dg-message "note: assigned OpenACC worker loop parallelism" }
   do i = 1, 10
-     !$acc loop reduction (+:sum) ! { dg-message "Detected parallelism <acc loop seq>" }
+     !$acc loop reduction (+:sum) ! { dg-message "note: assigned OpenACC seq loop parallelism" }
      ! { dg-warning "insufficient partitioning available to parallelize loop" "" { target *-*-* } .-1 }
      do j = 1, 10
-        !$acc loop reduction (+:sum) ! { dg-message "Detected parallelism <acc loop vector>" }
+        !$acc loop reduction (+:sum) ! { dg-message "note: assigned OpenACC vector loop parallelism" }
         do k = 1, 10
            sum = sum + 1
         end do
@@ -52,16 +52,16 @@ subroutine s4
   integer i, j, k, sum
 
   !$acc parallel copy(sum)
-  !$acc loop reduction (+:sum) ! { dg-message "Detected parallelism <acc loop gang vector>" }
+  !$acc loop reduction (+:sum) ! { dg-message "note: assigned OpenACC gang vector loop parallelism" }
   do i = 1, 10
      sum = sum + 1
   end do
   !$acc end parallel
 
   !$acc parallel copy(sum)
-  !$acc loop reduction (+:sum) ! { dg-message "Detected parallelism <acc loop gang worker>" }
+  !$acc loop reduction (+:sum) ! { dg-message "note: assigned OpenACC gang worker loop parallelism" }
   do i = 1, 10
-     !$acc loop reduction (+:sum) ! { dg-message "Detected parallelism <acc loop vector>" }
+     !$acc loop reduction (+:sum) ! { dg-message "note: assigned OpenACC vector loop parallelism" }
      do j = 1, 10
         sum = sum + 1
      end do
@@ -69,11 +69,11 @@ subroutine s4
   !$acc end parallel
 
   !$acc parallel copy(sum)
-  !$acc loop reduction (+:sum) ! { dg-message "Detected parallelism <acc loop gang>" }
+  !$acc loop reduction (+:sum) ! { dg-message "note: assigned OpenACC gang loop parallelism" }
   do i = 1, 10
-     !$acc loop reduction (+:sum) ! { dg-message "Detected parallelism <acc loop worker>" }
+     !$acc loop reduction (+:sum) ! { dg-message "note: assigned OpenACC worker loop parallelism" }
      do j = 1, 10
-        !$acc loop reduction (+:sum) ! { dg-message "Detected parallelism <acc loop vector>" }
+        !$acc loop reduction (+:sum) ! { dg-message "note: assigned OpenACC vector loop parallelism" }
         do k = 1, 10
            sum = sum + 1
         end do

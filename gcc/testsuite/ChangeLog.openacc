@@ -1,3 +1,25 @@
+2019-01-28  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc/classify-kernels-unparallelized.c: Update.
+	* c-c++-common/goacc/classify-kernels.c: Likewise.
+	* c-c++-common/goacc/classify-parallel.c: Likewise.
+	* c-c++-common/goacc/classify-routine.c: Likewise.
+	* c-c++-common/goacc/kernels-1.c: Likewise.
+	* c-c++-common/goacc/kernels-double-reduction-n.c: Likewise.
+	* c-c++-common/goacc/kernels-double-reduction.c: Likewise.
+	* c-c++-common/goacc/loop-auto-3.c: Likewise.
+	* c-c++-common/goacc/note-parallelism.c: Likewise.
+	* c-c++-common/goacc/orphan-reductions-2.c: Likewise.
+	* gcc.target/nvptx/oacc-autopar.c: Likewise.
+	* gfortran.dg/goacc/classify-kernels-unparallelized.f95: Likewise.
+	* gfortran.dg/goacc/classify-kernels.f95: Likewise.
+	* gfortran.dg/goacc/classify-parallel.f95: Likewise.
+	* gfortran.dg/goacc/classify-routine.f95: Likewise.
+	* gfortran.dg/goacc/kernels-loop-inner.f95: Likewise.
+	* gfortran.dg/goacc/loop-auto-1.f90: Likewise.
+	* gfortran.dg/goacc/note-parallelism.f90: Likewise.
+	* gfortran.dg/goacc/orphan-reductions-2.f90: Likewise.
+
 2019-01-09  Julian Brown  <julian@codesourcery.com>
 
 	* c-c++-common/cpp/openacc-define-3.c: Update expected value for

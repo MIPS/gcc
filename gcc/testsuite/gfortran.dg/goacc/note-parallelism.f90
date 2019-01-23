@@ -1,62 +1,131 @@
-! Test the output of -fopt-info-note-omp.
+! Test the output of "-fopt-info-optimized-omp".
 
-! { dg-additional-options "-fopt-info-note-omp" }
+! { dg-additional-options "-fopt-info-optimized-omp" }
+
+! See also "../../c-c++-common/goacc/note-parallelism.c".
 
 program test
   implicit none
 
   integer x, y, z
 
-  !$acc parallel loop seq ! { dg-message "note: Detected parallelism <acc loop seq>" }
+  !$acc parallel
+  do x = 1, 10
+  end do
+  !$acc end parallel
+
+  !$acc parallel loop seq ! { dg-message "note: assigned OpenACC seq loop parallelism" }
   do x = 1, 10
   end do
 
-  !$acc parallel loop gang ! { dg-message "note: Detected parallelism <acc loop gang>" }
+  !$acc parallel loop gang ! { dg-message "note: assigned OpenACC gang loop parallelis" }
   do x = 1, 10
   end do
 
-  !$acc parallel loop worker ! { dg-message "note: Detected parallelism <acc loop worker>" }
+  !$acc parallel loop worker ! { dg-message "note: assigned OpenACC worker loop parallelism" }
   do x = 1, 10
   end do
 
-  !$acc parallel loop vector ! { dg-message "note: Detected parallelism <acc loop vector>" }
+  !$acc parallel loop vector ! { dg-message "note: assigned OpenACC vector loop parallelism" }
   do x = 1, 10
   end do
 
-  !$acc parallel loop gang vector ! { dg-message "note: Detected parallelism <acc loop gang vector>" }
+  !$acc parallel loop gang vector ! { dg-message "note: assigned OpenACC gang vector loop parallelism" }
   do x = 1, 10
   end do
 
-  !$acc parallel loop gang worker ! { dg-message "note: Detected parallelism <acc loop gang worker>" }
+  !$acc parallel loop gang worker ! { dg-message "note: assigned OpenACC gang worker loop parallelism" }
   do x = 1, 10
   end do
 
-  !$acc parallel loop worker vector ! { dg-message "note: Detected parallelism <acc loop worker vector>" }
+  !$acc parallel loop worker vector ! { dg-message "note: assigned OpenACC worker vector loop parallelism" }
   do x = 1, 10
   end do
 
-  !$acc parallel loop gang worker vector ! { dg-message "note: Detected parallelism <acc loop gang worker vector>" }
+  !$acc parallel loop gang worker vector ! { dg-message "note: assigned OpenACC gang worker vector loop parallelism" }
   do x = 1, 10
   end do
 
-  !$acc parallel loop ! { dg-message "note: Detected parallelism <acc loop gang vector>" }
+  !$acc parallel loop gang ! { dg-message "note: assigned OpenACC gang loop parallelism" }
   do x = 1, 10
-  end do
-
-  !$acc parallel loop ! { dg-message "note: Detected parallelism <acc loop gang worker>" }
-  do x = 1, 10
-     !$acc loop ! { dg-message "note: Detected parallelism <acc loop vector>" }
+     !$acc loop worker ! { dg-message "note: assigned OpenACC worker loop parallelism" }
      do y = 1, 10
-     end do
-  end do
-
-  !$acc parallel loop gang ! { dg-message "note: Detected parallelism <acc loop gang>" }
-  do x = 1, 10
-     !$acc loop worker ! { dg-message "note: Detected parallelism <acc loop worker>" }
-     do y = 1, 10
-        !$acc loop vector ! { dg-message "note: Detected parallelism <acc loop vector>" }
+        !$acc loop vector ! { dg-message "note: assigned OpenACC vector loop parallelism" }
         do z = 1, 10
         end do
      end do
   end do
+
+  !$acc parallel loop ! { dg-message "note: assigned OpenACC gang vector loop parallelism" }
+  do x = 1, 10
+  end do
+
+  !$acc parallel loop ! { dg-message "note: assigned OpenACC gang worker loop parallelism" }
+  do x = 1, 10
+     !$acc loop ! { dg-message "note: assigned OpenACC vector loop parallelism" }
+     do y = 1, 10
+     end do
+  end do
+
+  !$acc parallel loop ! { dg-message "note: assigned OpenACC gang loop parallelism" }
+  do x = 1, 10
+     !$acc loop ! { dg-message "note: assigned OpenACC worker loop parallelism" }
+     do y = 1, 10
+        !$acc loop ! { dg-message "note: assigned OpenACC vector loop parallelism" }
+        do z = 1, 10
+        end do
+     end do
+  end do
+
+  !$acc parallel
+  do x = 1, 10
+     !$acc loop ! { dg-message "note: assigned OpenACC gang worker loop parallelism" }
+     do y = 1, 10
+        !$acc loop ! { dg-message "note: assigned OpenACC vector loop parallelism" }
+        do z = 1, 10
+        end do
+     end do
+  end do
+  !$acc end parallel
+
+  !$acc parallel loop seq ! { dg-message "note: assigned OpenACC seq loop parallelism" }
+  do x = 1, 10
+     !$acc loop ! { dg-message "note: assigned OpenACC gang worker loop parallelism" }
+     do y = 1, 10
+        !$acc loop ! { dg-message "note: assigned OpenACC vector loop parallelism" }
+        do z = 1, 10
+        end do
+     end do
+  end do
+
+  !$acc parallel loop ! { dg-message "note: assigned OpenACC gang worker loop parallelism" }
+  do x = 1, 10
+     !$acc loop seq ! { dg-message "note: assigned OpenACC seq loop parallelism" }
+     do y = 1, 10
+        !$acc loop ! { dg-message "note: assigned OpenACC vector loop parallelism" }
+        do z = 1, 10
+        end do
+     end do
+  end do
+
+  !$acc parallel loop ! { dg-message "note: assigned OpenACC gang worker loop parallelism" }
+  do x = 1, 10
+     !$acc loop ! { dg-message "note: assigned OpenACC vector loop parallelism" }
+     do y = 1, 10
+        !$acc loop seq ! { dg-message "note: assigned OpenACC seq loop parallelism" }
+        do z = 1, 10
+        end do
+     end do
+  end do
+
+  !$acc parallel loop seq ! { dg-message "note: assigned OpenACC seq loop parallelism" }
+  do x = 1, 10
+     !$acc loop ! { dg-message "note: assigned OpenACC gang vector loop parallelism" }
+     do y = 1, 10
+        !$acc loop seq ! { dg-message "note: assigned OpenACC seq loop parallelism" }
+        do z = 1, 10
+        end do
+     end do
+  end do
+
 end program test

@@ -873,7 +873,7 @@ dump_oacc_loop_part (FILE *file, gcall *from, int depth,
     }
 }
 
-/* Dump OpenACC loops LOOP, its siblings and its children.  */
+/* Dump OpenACC loop LOOP, its children, and its siblings.  */
 
 static void
 dump_oacc_loop (FILE *file, oacc_loop *loop, int depth)
@@ -916,23 +916,22 @@ debug_oacc_loop (oacc_loop *loop)
   dump_oacc_loop (stderr, loop, 0);
 }
 
-/* Provide diagnostics on OpenACC loops LOOP, its siblings and its
-   children.  */
+/* Provide diagnostics on OpenACC loop LOOP, its children, and its
+   siblings.  */
 
 static void
-inform_oacc_loop (oacc_loop *loop)
+inform_oacc_loop (const oacc_loop *loop)
 {
+  const char *gang
+    = loop->mask & GOMP_DIM_MASK (GOMP_DIM_GANG) ? " gang" : "";
+  const char *worker
+    = loop->mask & GOMP_DIM_MASK (GOMP_DIM_WORKER) ? " worker" : "";
+  const char *vector
+    = loop->mask & GOMP_DIM_MASK (GOMP_DIM_VECTOR) ? " vector" : "";
   const char *seq = loop->mask == 0 ? " seq" : "";
-  const char *gang = loop->mask & GOMP_DIM_MASK (GOMP_DIM_GANG)
-    ? " gang" : "";
-  const char *worker = loop->mask & GOMP_DIM_MASK (GOMP_DIM_WORKER)
-    ? " worker" : "";
-  const char *vector = loop->mask & GOMP_DIM_MASK (GOMP_DIM_VECTOR)
-    ? " vector" : "";
-
-  dump_printf_loc (MSG_NOTE, loop->loc,
-		   "Detected parallelism <acc loop%s%s%s%s>\n", seq, gang,
-		   worker, vector);
+  dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, loop->loc,
+		   "assigned OpenACC%s%s%s%s loop parallelism\n", gang, worker,
+		   vector, seq);
 
   if (loop->child)
     inform_oacc_loop (loop->child);
@@ -1664,8 +1663,28 @@ execute_oacc_device_lower ()
       dump_oacc_loop (dump_file, loops, 0);
       fprintf (dump_file, "\n");
     }
-  if (dump_enabled_p () && loops->child)
-    inform_oacc_loop (loops->child);
+  if (dump_enabled_p ())
+    {
+      oacc_loop *l = loops;
+      /* OpenACC kernels constructs are special: they currently don't use the
+	 generic oacc_loop infrastructure.  */
+      if (is_oacc_kernels)
+	{
+	  /* Create a fake oacc_loop for diagnostic purposes.  */
+	  l = new_oacc_loop_raw (NULL,
+				 DECL_SOURCE_LOCATION (current_function_decl));
+	  l->mask = used_mask;
+	}
+      else
+	{
+	  /* Skip the outermost, dummy OpenACC loop  */
+	  l = l->child;
+	}
+      if (l)
+	inform_oacc_loop (l);
+      if (is_oacc_kernels)
+	free_oacc_loop (l);
+    }
 
   /* Offloaded targets may introduce new basic blocks, which require
      dominance information to update SSA.  */

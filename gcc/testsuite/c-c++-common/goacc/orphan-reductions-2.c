@@ -1,7 +1,7 @@
 /* Ensure that the middle end does not assign gang level parallelism
    to orphan loop containing reductions.  */
 
-/* { dg-additional-options "-fopt-info-note-omp" } */
+/* { dg-additional-options "-fopt-info-optimized-omp" } */
 
 #pragma acc routine gang
 int
@@ -9,7 +9,7 @@ f1 () /* { dg-warning "region is gang partitioned but does not contain gang part
 {
   int sum = 0, i;
 
-#pragma acc loop reduction (+:sum) /* { dg-message "Detected parallelism <acc loop worker vector>" } */
+#pragma acc loop reduction (+:sum) /* { dg-message "note: assigned OpenACC worker vector loop parallelism" } */
   for (i = 0; i < 100; i++)
     sum++;
 
@@ -22,9 +22,9 @@ f2 () /* { dg-warning "region is gang partitioned but does not contain gang part
 {
   int sum = 0, i, j;
 
-#pragma acc loop reduction (+:sum) /* { dg-message "Detected parallelism <acc loop worker>" } */
+#pragma acc loop reduction (+:sum) /* { dg-message "note: assigned OpenACC worker loop parallelism" } */
   for (i = 0; i < 100; i++)
-#pragma acc loop reduction (+:sum) /* { dg-message "Detected parallelism <acc loop vector>" } */
+#pragma acc loop reduction (+:sum) /* { dg-message "note: assigned OpenACC vector loop parallelism" } */
     for (j = 0; j < 100; j++)
       sum++;
 
@@ -37,12 +37,12 @@ f3 () /* { dg-warning "region is gang partitioned but does not contain gang part
 {
   int sum = 0, i, j, k;
 
-#pragma acc loop reduction (+:sum) /* { dg-message "Detected parallelism <acc loop worker>" } */
+#pragma acc loop reduction (+:sum) /* { dg-message "note: assigned OpenACC worker loop parallelism" } */
   for (i = 0; i < 100; i++)
-#pragma acc loop reduction (+:sum) /* { dg-message "Detected parallelism <acc loop seq>" } */
+#pragma acc loop reduction (+:sum) /* { dg-message "note: assigned OpenACC seq loop parallelism" } */
     /* { dg-warning "insufficient partitioning available to parallelize loop" "" { target *-*-* } .-1 } */
     for (j = 0; j < 100; j++)
-#pragma acc loop reduction (+:sum) /* { dg-message "Detected parallelism <acc loop vector>" } */
+#pragma acc loop reduction (+:sum) /* { dg-message "note: assigned OpenACC vector loop parallelism" } */
       for (k = 0; k < 100; k++)
 	sum++;
 
@@ -56,27 +56,27 @@ main ()
 
 #pragma acc parallel copy (sum)
   {
-#pragma acc loop reduction (+:sum) /* { dg-message "Detected parallelism <acc loop gang vector>" } */
+#pragma acc loop reduction (+:sum) /* { dg-message "note: assigned OpenACC gang vector loop parallelism" } */
   for (i = 0; i < 100; i++)
     sum++;
   }
 
 #pragma acc parallel copy (sum)
   {
-#pragma acc loop reduction (+:sum) /* { dg-message "Detected parallelism <acc loop gang worker>" } */
+#pragma acc loop reduction (+:sum) /* { dg-message "note: assigned OpenACC gang worker loop parallelism" } */
   for (i = 0; i < 100; i++)
-#pragma acc loop reduction (+:sum) /* { dg-message "Detected parallelism <acc loop vector>" } */
+#pragma acc loop reduction (+:sum) /* { dg-message "note: assigned OpenACC vector loop parallelism" } */
     for (j = 0; j < 100; j++)
       sum++;
   }
 
 #pragma acc parallel copy (sum)
   {
-#pragma acc loop reduction (+:sum) /* { dg-message "Detected parallelism <acc loop gang>" } */
+#pragma acc loop reduction (+:sum) /* { dg-message "note: assigned OpenACC gang loop parallelism" } */
   for (i = 0; i < 100; i++)
-#pragma acc loop reduction (+:sum) /* { dg-message "Detected parallelism <acc loop worker>" } */
+#pragma acc loop reduction (+:sum) /* { dg-message "note: assigned OpenACC worker loop parallelism" } */
     for (j = 0; j < 100; j++)
-#pragma acc loop reduction (+:sum) /* { dg-message "Detected parallelism <acc loop vector>" } */
+#pragma acc loop reduction (+:sum) /* { dg-message "note: assigned OpenACC vector loop parallelism" } */
       for (k = 0; k < 100; k++)
 	sum++;
   }
