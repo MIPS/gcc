@@ -1,6 +1,13 @@
 2019-01-31  Thomas Schwinge  <thomas@codesourcery.com>
 	    Gergö Barany  <gergo@codesourcery.com>
 
+	* c-c++-common/goacc/kernels-conversion.c: Add test for conditionally
+	executed code.
+	* gfortran.dg/goacc/kernels-conversion.f95: Likewise.
+
+2019-01-31  Thomas Schwinge  <thomas@codesourcery.com>
+	    Gergö Barany  <gergo@codesourcery.com>
+
 	* c-c++-common/goacc/kernels-conversion.c: Test for a gang-single
 	region.
 	* gfortran.dg/goacc/kernels-conversion.f95: Likewise.
