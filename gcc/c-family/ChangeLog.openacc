@@ -1,5 +1,9 @@
 2019-01-31  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* c.opt (fopenacc-kernels): Default to "split".
+
+2019-01-31  Thomas Schwinge  <thomas@codesourcery.com>
+
 	* c.opt (fopenacc-kernels): New flag.
 
 2019-01-09  Julian Brown  <julian@codesourcery.com>

@@ -34,6 +34,7 @@ static int state = -1;
 static acc_device_t acc_device_type;
 static int acc_device_num;
 static int num_gangs, num_workers, vector_length;
+static int async;
 
 void cb_enqueue_launch_start (acc_prof_info *prof_info, acc_event_info *event_info, acc_api_info *api_info)
 {
@@ -50,7 +51,7 @@ void cb_enqueue_launch_start (acc_prof_info *prof_info, acc_event_info *event_in
   assert (prof_info->device_type == acc_device_type);
   assert (prof_info->device_number == acc_device_num);
   assert (prof_info->thread_id == -1);
-  assert (prof_info->async == acc_async_sync);
+  assert (prof_info->async == async);
   assert (prof_info->async_queue == prof_info->async);
   assert (prof_info->src_file == NULL);
   assert (prof_info->func_name == NULL);
@@ -142,8 +143,10 @@ int main()
   acc_device_num = acc_get_device_num (acc_device_type);
   assert (state == 0);
 
-  /* Parallelism dimensions: compiler/runtime decides.  */
   STATE_OP (state, = 0);
+  /* Implicit async.  */
+  async = acc_async_noval;
+  /* Parallelism dimensions: compiler/runtime decides.  */
   num_gangs = num_workers = vector_length = 0;
   {
 #define N 100
@@ -172,8 +175,10 @@ int main()
 #undef N
   }
 
-  /* Parallelism dimensions: literal.  */
   STATE_OP (state, = 0);
+  /* Explicit async: without argument.  */
+  async = acc_async_noval;
+  /* Parallelism dimensions: literal.  */
   num_gangs = 30;
   num_workers = 3;
   vector_length = 5;
@@ -181,6 +186,7 @@ int main()
 #define N 100
     int x[N];
 #pragma acc kernels \
+  async \
   num_gangs (30) num_workers (3) vector_length (5)
     /* { dg-prune-output "using vector_length \\(32\\), ignoring 5" } */
     {
@@ -206,8 +212,10 @@ int main()
 #undef N
   }
 
-  /* Parallelism dimensions: variable.  */
   STATE_OP (state, = 0);
+  /* Explicit async: variable.  */
+  async = 123;
+  /* Parallelism dimensions: variable.  */
   num_gangs = 22;
   num_workers = 5;
   vector_length = 7;
@@ -215,6 +223,7 @@ int main()
 #define N 100
     int x[N];
 #pragma acc kernels \
+  async (async) \
   num_gangs (num_gangs) num_workers (num_workers) vector_length (vector_length)
     /* { dg-prune-output "using vector_length \\(32\\), ignoring runtime setting" } */
     {

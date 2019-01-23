@@ -1,6 +1,8 @@
 /* Test that a user can override the compiler's "avoid offloading"
    decision.  */
 
+/* { dg-additional-options "-fopt-info-optimized-omp" } */
+
 #include <openacc.h>
 
 int main(void)
@@ -19,8 +21,19 @@ int main(void)
   int x, y;
 
 #pragma acc data copyout(x, y)
-#pragma acc kernels /* { dg-warning "OpenACC kernels construct will be executed sequentially; will by default avoid offloading to prevent data copy penalty" "" { target { openacc_nvidia_accel_selected && opt_levels_2_plus } } } */
-  *((volatile int *) &x) = 33, y = acc_on_device (acc_device_host);
+#pragma acc kernels
+  *((volatile int *) &x) = 33, y = acc_on_device (acc_device_host); /* { dg-warning "note: beginning .gang-single. region in OpenACC .kernels. construct" } */
+
+  /* The following will trigger "avoid offloading".  */
+#pragma acc kernels
+  {
+#pragma acc loop auto /* { dg-warning "note: forwarded loop nest in OpenACC .kernels. construct to .parloops. for analysis" } */
+    /* { dg-warning "OpenACC kernels construct will be executed sequentially; will by default avoid offloading to prevent data copy penalty" "" { target { openacc_nvidia_accel_selected && opt_levels_2_plus } } 30 } */
+    /* { dg-warning "note: assigned OpenACC seq loop parallelism" "" { target *-*-* } 30 } */
+    for (int i = 0; i < x; ++i)
+      if (x == 0)
+	x = 1;
+  }
 
   if (x != 33)
     __builtin_abort();

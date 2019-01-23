@@ -35,7 +35,7 @@ void K(void)
 	for (j = 0; j < 10; j++)
 	  { }
       }
-#pragma acc loop seq gang // { dg-error "'seq' overrides" }
+#pragma acc loop seq gang // { dg-error "'seq' overrides" "TODO" { xfail *-*-* } }
     for (i = 0; i < 10; i++)
       { }
 
@@ -61,7 +61,7 @@ void K(void)
 	for (j = 0; j < 10; j++)
 	  { }
       }
-#pragma acc loop seq worker // { dg-error "'seq' overrides" }
+#pragma acc loop seq worker // { dg-error "'seq' overrides" "TODO" { xfail *-*-* } }
     for (i = 0; i < 10; i++)
       { }
 #pragma acc loop gang worker
@@ -90,7 +90,7 @@ void K(void)
 	for (j = 1; j < 10; j++)
 	  { }
       }
-#pragma acc loop seq vector // { dg-error "'seq' overrides" }
+#pragma acc loop seq vector // { dg-error "'seq' overrides" "TODO" { xfail *-*-* } }
     for (i = 0; i < 10; i++)
       { }
 #pragma acc loop gang vector
@@ -103,7 +103,7 @@ void K(void)
 #pragma acc loop auto
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop seq auto // { dg-error "'seq' overrides" }
+#pragma acc loop seq auto // { dg-error "'seq' overrides" "TODO" { xfail *-*-* } }
     for (i = 0; i < 10; i++)
       { }
 #pragma acc loop gang auto
@@ -145,7 +145,7 @@ void K(void)
 #pragma acc kernels loop worker(num:5)
   for (i = 0; i < 10; i++)
     { }
-#pragma acc kernels loop seq worker // { dg-error "'seq' overrides" }
+#pragma acc kernels loop seq worker // { dg-error "'seq' overrides" "TODO" { xfail *-*-* } }
   for (i = 0; i < 10; i++)
     { }
 #pragma acc kernels loop gang worker
@@ -161,7 +161,7 @@ void K(void)
 #pragma acc kernels loop vector(length:5)
   for (i = 0; i < 10; i++)
     { }
-#pragma acc kernels loop seq vector // { dg-error "'seq' overrides" }
+#pragma acc kernels loop seq vector // { dg-error "'seq' overrides" "TODO" { xfail *-*-* } }
   for (i = 0; i < 10; i++)
     { }
 #pragma acc kernels loop gang vector
@@ -174,7 +174,7 @@ void K(void)
 #pragma acc kernels loop auto
   for (i = 0; i < 10; i++)
     { }
-#pragma acc kernels loop seq auto // { dg-error "'seq' overrides" }
+#pragma acc kernels loop seq auto // { dg-error "'seq' overrides" "TODO" { xfail *-*-* } }
   for (i = 0; i < 10; i++)
     { }
 #pragma acc kernels loop gang auto

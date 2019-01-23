@@ -1,5 +1,4 @@
 ! { dg-do run }
-! { dg-additional-options "-fopenacc-kernels=split" }
 ! { dg-additional-options "-fopt-info-optimized-omp" }
 
 subroutine kernel(lo, hi, a, b, c)
