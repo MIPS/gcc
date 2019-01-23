@@ -463,7 +463,7 @@ again:
     {
       /* If there are already uses of this stmt in a SLP instance then
          we've committed to the operand order and can't swap it.  */
-      if (STMT_VINFO_NUM_SLP_USES (stmt_info) != 0)
+      if (STMT_VINFO_NUM_SLP_USES (stmt_info) != 1)
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -1021,9 +1021,9 @@ typedef hash_map <vec <gimple *>, slp_tree,
 		  simple_hashmap_traits <bst_traits, slp_tree> >
   scalar_stmts_to_slp_tree_map_t;
 
-static slp_tree
+static bool 
 vect_build_slp_tree_2 (vec_info *vinfo,
-		       vec<stmt_vec_info> stmts, unsigned int group_size,
+		       slp_tree node, unsigned int group_size,
 		       poly_uint64 *max_nunits,
 		       bool *matches, unsigned *npermutes, unsigned *tree_size,
 		       scalar_stmts_to_slp_tree_map_t *bst_map);
@@ -1044,12 +1044,20 @@ vect_build_slp_tree (vec_info *vinfo,
 	(*leader)->refcnt++;
       return *leader;
     }
-  slp_tree res = vect_build_slp_tree_2 (vinfo, stmts, group_size, max_nunits,
-					matches, npermutes, tree_size, bst_map);
+
+  slp_tree res = vect_create_new_slp_node (stmts);
   /* Keep a reference for the bst_map use.  */
-  if (res)
-    res->refcnt++;
+  res->refcnt++;
   bst_map->put (stmts.copy (), res);
+
+  if (!vect_build_slp_tree_2 (vinfo, res, group_size, max_nunits,
+			      matches, npermutes, tree_size, bst_map))
+    {
+      bst_map->put (res->stmts, NULL);
+      vect_free_slp_tree (res, false);
+      return NULL;
+    }
+
   return res;
 }
 
@@ -1060,16 +1068,16 @@ vect_build_slp_tree (vec_info *vinfo,
    The value returned is the depth in the SLP tree where a mismatch
    was found.  */
 
-static slp_tree
+static bool 
 vect_build_slp_tree_2 (vec_info *vinfo,
-		       vec<stmt_vec_info> stmts, unsigned int group_size,
+		       slp_tree node, unsigned int group_size,
 		       poly_uint64 *max_nunits,
 		       bool *matches, unsigned *npermutes, unsigned *tree_size,
 		       scalar_stmts_to_slp_tree_map_t *bst_map)
 {
+  vec<stmt_vec_info> stmts = node->stmts;
   unsigned nops, i, this_tree_size = 0;
   poly_uint64 this_max_nunits = *max_nunits;
-  slp_tree node;
 
   matches[0] = false;
 
@@ -1124,8 +1132,7 @@ vect_build_slp_tree_2 (vec_info *vinfo,
       else
 	return NULL;
       (*tree_size)++;
-      node = vect_create_new_slp_node (stmts);
-      return node;
+      return true;
     }
 
 
@@ -1141,8 +1148,7 @@ vect_build_slp_tree_2 (vec_info *vinfo,
     {
       *max_nunits = this_max_nunits;
       (*tree_size)++;
-      node = vect_create_new_slp_node (stmts);
-      return node;
+      return true;
     }
 
   /* Get at the operands, verifying they are compatible.  */
@@ -1293,7 +1299,7 @@ vect_build_slp_tree_2 (vec_info *vinfo,
 		     node and temporarily do that when processing it
 		     (or wrap operand accessors in a helper).  */
 		  else if (swap[j] != 0
-			   || STMT_VINFO_NUM_SLP_USES (stmt_info))
+			   || STMT_VINFO_NUM_SLP_USES (stmt_info) != 1)
 		    {
 		      if (!swap_not_matching)
 			{
@@ -1413,10 +1419,9 @@ fail:
   *tree_size += this_tree_size + 1;
   *max_nunits = this_max_nunits;
 
-  node = vect_create_new_slp_node (stmts);
   SLP_TREE_TWO_OPERATORS (node) = two_operators;
   SLP_TREE_CHILDREN (node).splice (children);
-  return node;
+  return true;
 }
 
 /* Dump a slp tree NODE using flags specified in DUMP_KIND.  */
