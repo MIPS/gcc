@@ -125,6 +125,7 @@ vect_create_new_slp_node (vec<stmt_vec_info> scalar_stmts)
   SLP_TREE_VEC_STMTS (node).create (0);
   SLP_TREE_NUMBER_OF_VEC_STMTS (node) = 0;
   SLP_TREE_CHILDREN (node).create (nops);
+  node->backedge_use = NULL;
   SLP_TREE_LOAD_PERMUTATION (node) = vNULL;
   SLP_TREE_TWO_OPERATORS (node) = false;
   SLP_TREE_DEF_TYPE (node) = vect_internal_def;
@@ -1080,6 +1081,27 @@ vect_build_slp_tree (vec_info *vinfo,
       return NULL;
     }
 
+  /* Record backedge def->use edge.  */
+  if (gphi *phi = dyn_cast <gphi *> (stmts[0]->stmt))
+    {
+      edge_iterator ei;
+      edge e;
+      FOR_EACH_EDGE (e, ei, gimple_bb (phi)->preds)
+	if (dominated_by_p (CDI_DOMINATORS, e->src, e->dest))
+	  {
+	    tree use = gimple_phi_arg_def (phi, e->dest_idx);
+	    slp_tree child;
+	    unsigned i;
+	    FOR_EACH_VEC_ELT (SLP_TREE_CHILDREN (res), i, child)
+	      if (gimple_get_lhs (SLP_TREE_SCALAR_STMTS (child)[0]->stmt)
+		  == use)
+		{
+		  gcc_assert (!child->backedge_use
+			      || child->backedge_use == res);
+		  child->backedge_use = res;
+		}
+	  }
+    }
   return res;
 }
 
@@ -3354,7 +3376,6 @@ vect_get_constant_vectors (tree op, slp_tree slp_node,
   voprnds.create (number_of_vectors);
   bool constant_p, is_store;
   tree neutral_op = NULL;
-  enum tree_code code = gimple_expr_code (stmt);
   gimple_seq ctor_seq = NULL;
   auto_vec<tree, 16> permute_results;
 
@@ -3411,9 +3432,11 @@ vect_get_constant_vectors (tree op, slp_tree slp_node,
 	  stmt = stmt_vinfo->stmt;
           if (is_store)
             op = gimple_assign_rhs1 (stmt);
-          else
+          else if (gimple_code (stmt) == GIMPLE_PHI)
+	    op = gimple_phi_arg_def (stmt, op_num);
+	  else
 	    {
-	      switch (code)
+	      switch (gimple_expr_code (stmt))
 		{
 		  case COND_EXPR:
 		    {
@@ -3961,9 +3984,20 @@ vect_schedule_slp_instance (slp_tree node, slp_instance instance,
       return;
     }
 
-  bst_map->put (SLP_TREE_SCALAR_STMTS (node).copy (), node);
+  /* ???  This puts cycle PHIs in and on recursing through backedge
+     children may reach SLP nodes not yet reached, feeding them with
+     the above early out for this PHIs result.  Not doing this pre-caching
+     for nested-cycle and induction defs helps.  */
+  if (SLP_TREE_SCALAR_STMTS (node)[0]->def_type != vect_nested_cycle
+      && SLP_TREE_SCALAR_STMTS (node)[0]->def_type != vect_induction_def)
+    bst_map->put (SLP_TREE_SCALAR_STMTS (node).copy (), node);
   FOR_EACH_VEC_ELT (SLP_TREE_CHILDREN (node), i, child)
     vect_schedule_slp_instance (child, instance, bst_map);
+  /* But then notice when we vectorized the node during the recursion.  */
+  if ((SLP_TREE_SCALAR_STMTS (node)[0]->def_type == vect_nested_cycle
+       || SLP_TREE_SCALAR_STMTS (node)[0]->def_type == vect_induction_def)
+      && SLP_TREE_VEC_STMTS (node).exists ())
+    return;
 
   /* Push SLP node def-type to stmts.  */
   FOR_EACH_VEC_ELT (SLP_TREE_CHILDREN (node), i, child)

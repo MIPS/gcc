@@ -582,7 +582,7 @@ vect_analyze_scalar_cycles_1 (loop_vec_info loop_vinfo, struct loop *loop)
 				     "Detected vectorizable nested cycle.\n");
 
                   STMT_VINFO_DEF_TYPE (stmt_vinfo) = vect_nested_cycle;
-		  STMT_VINFO_DEF_TYPE (reduc_stmt_info) = vect_nested_cycle;
+		  STMT_VINFO_DEF_TYPE (reduc_stmt_info) = vect_internal_def;
                 }
               else
                 {
@@ -5984,7 +5984,9 @@ vectorizable_reduction (stmt_vec_info stmt_info, gimple_stmt_iterator *gsi,
 
   /* Make sure it was already recognized as a reduction computation.  */
   if (STMT_VINFO_DEF_TYPE (stmt_info) != vect_reduction_def
-      && STMT_VINFO_DEF_TYPE (stmt_info) != vect_nested_cycle)
+      /* SLP nested cycles are handled by vectorizable_nested_cycle.  */
+      && (STMT_VINFO_DEF_TYPE (stmt_info) != vect_nested_cycle
+	  || slp_node))
     return false;
 
   if (nested_in_vect_loop_p (loop, stmt_info))
@@ -7094,6 +7096,109 @@ vectorizable_reduction (stmt_vec_info stmt_info, gimple_stmt_iterator *gsi,
 
   return true;
 }
+
+/* Vectorizes nested cycles.  */
+
+bool
+vectorizable_nested_cycle (stmt_vec_info stmt_info, gimple_stmt_iterator *gsi,
+			   stmt_vec_info *vec_stmt, slp_tree slp_node,
+			   stmt_vector_for_cost *cost_vec)
+{
+  loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
+  
+  if (!slp_node)
+    return false;
+
+  if (!loop_vinfo
+      || !is_a <gphi *> (stmt_info->stmt)
+      || gimple_phi_num_args (stmt_info->stmt) != 2)
+    return false;
+
+  if (!vec_stmt) /* transformation not required.  */
+    {
+      STMT_VINFO_TYPE (stmt_info) = nested_cycle_info_type;
+      return true;
+    }
+
+  loop_p loop = loop_vinfo->loop->inner;
+  tree vectype_out = STMT_VINFO_VECTYPE (stmt_info);
+  tree scalar_dest = gimple_phi_result (stmt_info->stmt);
+  tree vec_dest = vect_create_destination_var (scalar_dest, vectype_out);
+  unsigned phe_idx = loop_preheader_edge (loop)->dest_idx;
+  vec<tree> vec_oprnds0 = vNULL;
+  vec<tree> vec_oprnds1 = vNULL;
+  vect_get_vec_defs (phe_idx == 0 ? gimple_phi_arg_def (as_a <gphi *> (stmt_info->stmt), 0) : NULL_TREE,
+		     phe_idx == 1 ? gimple_phi_arg_def (as_a <gphi *> (stmt_info->stmt), 1) : NULL_TREE,
+		     stmt_info, &vec_oprnds0, &vec_oprnds1, slp_node);
+  vec<tree> *vec_oprnds = phe_idx == 0 ? &vec_oprnds0 : &vec_oprnds1;
+  unsigned vec_num = SLP_TREE_NUMBER_OF_VEC_STMTS (slp_node);
+  for (unsigned i = 0; i < vec_num; i++)
+    {
+      /* Create the reduction-phi that defines the reduction
+	 operand.  */
+      gphi *new_phi = create_phi_node (vec_dest, loop->header);
+      add_phi_arg (new_phi, (*vec_oprnds)[i], loop_preheader_edge (loop),
+		   gimple_phi_arg_location (as_a <gphi *> (stmt_info->stmt),
+					    phe_idx));
+      stmt_vec_info new_phi_info = loop_vinfo->add_stmt (new_phi);
+      SLP_TREE_VEC_STMTS (slp_node).quick_push (new_phi_info);
+    }
+  vec_oprnds0.release ();
+  vec_oprnds1.release ();
+
+  return true;
+}
+
+/* Vectorizes LC PHIs of nested cycles (sofar).  */
+
+bool
+vectorizable_lc_phi (stmt_vec_info stmt_info, gimple_stmt_iterator *gsi,
+		     stmt_vec_info *vec_stmt, slp_tree slp_node,
+		     stmt_vector_for_cost *cost_vec)
+{
+  loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
+  
+  if (!slp_node)
+    return false;
+
+  /* ???  Make sure to not catch other LC PHI nodes.  */
+
+  if (!loop_vinfo
+      || !is_a <gphi *> (stmt_info->stmt)
+      || gimple_phi_num_args (stmt_info->stmt) != 1)
+    return false;
+
+  if (!vec_stmt) /* transformation not required.  */
+    {
+      STMT_VINFO_TYPE (stmt_info) = lc_phi_info_type;
+      return true;
+    }
+
+  tree vectype_out = STMT_VINFO_VECTYPE (stmt_info);
+  tree scalar_dest = gimple_phi_result (stmt_info->stmt);
+  tree vec_dest = vect_create_destination_var (scalar_dest, vectype_out);
+  vec<tree> vec_oprnds = vNULL;
+  vect_get_vec_defs (gimple_phi_arg_def (stmt_info->stmt, 0), NULL_TREE,
+		     stmt_info, &vec_oprnds, NULL, slp_node);
+  unsigned vec_num = SLP_TREE_NUMBER_OF_VEC_STMTS (slp_node);
+  gcc_assert (vec_oprnds.length () == vec_num);
+  loop_p loop = loop_vinfo->loop->inner;
+  basic_block bb = gimple_bb (stmt_info->stmt);
+  edge e = single_pred_edge (bb);
+  for (unsigned i = 0; i < vec_num; i++)
+    {
+      /* Create the vectorized LC PHI node.  */
+      gphi *new_phi = create_phi_node (vec_dest, bb);
+      add_phi_arg (new_phi, vec_oprnds[i],
+		   e, gimple_location (stmt_info->stmt));
+      stmt_vec_info new_phi_info = loop_vinfo->add_stmt (new_phi);
+      SLP_TREE_VEC_STMTS (slp_node).quick_push (new_phi_info);
+    }
+  vec_oprnds.release ();
+
+  return true;
+}
+
 
 /* Function vect_min_worthwhile_factor.
 

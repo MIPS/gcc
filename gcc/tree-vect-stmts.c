@@ -574,7 +574,10 @@ process_use (stmt_vec_info stmt_vinfo, tree use, loop_vec_info loop_vinfo,
 	   && ! STMT_VINFO_LIVE_P (stmt_vinfo)
 	   && (PHI_ARG_DEF_FROM_EDGE (stmt_vinfo->stmt,
 				      loop_latch_edge (bb->loop_father))
-	       == use))
+	       == use)
+	   /* Unless we're looking at a nested induction which we process
+	      as nested cycle.  */
+	   && !nested_in_vect_loop_p (LOOP_VINFO_LOOP (loop_vinfo), stmt_vinfo))
     {
       if (dump_enabled_p ())
 	dump_printf_loc (MSG_NOTE, vect_location,
@@ -9657,7 +9660,9 @@ vect_analyze_stmt (stmt_vec_info stmt_info, bool *need_to_vectorize,
 	  || vectorizable_condition (stmt_info, NULL, NULL, false, node,
 				     cost_vec)
 	  || vectorizable_comparison (stmt_info, NULL, NULL, node,
-				      cost_vec));
+				      cost_vec)
+	  || vectorizable_lc_phi (stmt_info, NULL, NULL, node, cost_vec)
+	  || vectorizable_nested_cycle (stmt_info, NULL, NULL, node, cost_vec));
   else
     {
       if (bb_vinfo)
@@ -9806,6 +9811,17 @@ vect_transform_stmt (stmt_vec_info stmt_info, gimple_stmt_iterator *gsi,
       gcc_assert (done);
       break;
 
+    case nested_cycle_info_type:
+      done = vectorizable_nested_cycle (stmt_info, gsi, &vec_stmt, slp_node,
+					NULL);
+      gcc_assert (done);
+      break;
+
+    case lc_phi_info_type:
+      done = vectorizable_lc_phi (stmt_info, gsi, &vec_stmt, slp_node, NULL);
+      gcc_assert (done);
+      break;
+
     default:
       if (!STMT_VINFO_LIVE_P (stmt_info))
 	{
@@ -9865,6 +9881,20 @@ vect_transform_stmt (stmt_vec_info stmt_info, gimple_stmt_iterator *gsi,
       done = can_vectorize_live_stmts (stmt_info, gsi, slp_node, &vec_stmt,
 				       NULL);
       gcc_assert (done);
+    }
+
+  /* If this node defines a value used on backedges in the SLP graph
+     update the vectorized PHIs backedge values.  */
+  if (slp_node
+      && slp_node->backedge_use)
+    {
+      slp_tree phi_node = slp_node->backedge_use;
+      gphi *phi = as_a <gphi *> (SLP_TREE_SCALAR_STMTS (phi_node)[0]->stmt);
+      edge e = loop_latch_edge (gimple_bb (phi)->loop_father);
+      for (unsigned i = 0; i < SLP_TREE_NUMBER_OF_VEC_STMTS (phi_node); ++i)
+	add_phi_arg (as_a <gphi *> (SLP_TREE_VEC_STMTS (phi_node)[i]->stmt),
+		     gimple_get_lhs (SLP_TREE_VEC_STMTS (slp_node)[i]->stmt),
+		     e, gimple_phi_arg_location (phi, e->dest_idx));
     }
 
   if (vec_stmt)

@@ -118,6 +118,8 @@ typedef struct _slp_tree *slp_tree;
 struct _slp_tree {
   /* Nodes that contain def-stmts of this node statements operands.  */
   vec<slp_tree> children;
+  /* The SLP node(s?) this node has a backedge use on.  */
+  slp_tree backedge_use;
   /* A group of scalar stmts to be vectorized together.  */
   vec<stmt_vec_info> stmts;
   /* Load permutation relative to the stores, NULL if there is no
@@ -668,6 +670,8 @@ enum stmt_vec_info_type {
   type_promotion_vec_info_type,
   type_demotion_vec_info_type,
   type_conversion_vec_info_type,
+  nested_cycle_info_type,
+  lc_phi_info_type,
   loop_exit_ctrl_vec_info_type
 };
 
@@ -1584,6 +1588,12 @@ extern bool vectorizable_reduction (stmt_vec_info, gimple_stmt_iterator *,
 extern bool vectorizable_induction (stmt_vec_info, gimple_stmt_iterator *,
 				    stmt_vec_info *, slp_tree,
 				    stmt_vector_for_cost *);
+extern bool vectorizable_nested_cycle (stmt_vec_info, gimple_stmt_iterator *,
+				       stmt_vec_info *, slp_tree,
+				       stmt_vector_for_cost *);
+extern bool vectorizable_lc_phi (stmt_vec_info, gimple_stmt_iterator *,
+				 stmt_vec_info *, slp_tree,
+				 stmt_vector_for_cost *);
 extern tree get_initial_def_for_reduction (stmt_vec_info, tree, tree *);
 extern bool vect_worthwhile_without_simd_p (vec_info *, tree_code);
 extern int vect_get_known_peeling_cost (loop_vec_info, int, int *,
