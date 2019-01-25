@@ -122,6 +122,7 @@
 	* gcc.dg/ipa/ipa-sra-18.c: Likewise.
 	* gcc.dg/ipa/ipa-sra-19.c: Likewise.
 	* gcc.dg/ipa/ipa-sra-20.c: Likewise.
+	* gcc.dg/ipa/ipa-sra-21.c: Likewise.
 
 	* gcc.dg/ipa/ipa-sra-2.c: Remove dumping, mark to be removed.
 	* gcc.dg/ipa/ipa-sra-6.c: Likewise.

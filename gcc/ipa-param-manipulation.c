@@ -997,7 +997,7 @@ ipa_param_body_adjustments::common_initialization (bool copy_parm_decls,
       auto_vec<tree,16> oparms;
       ipa_fill_vector_with_formal_parms (&oparms, fndecl);
       unsigned ocount = oparms.length ();
-      m_new_types.reserve_exact (ocount);
+      otypes.reserve_exact (ocount);
       for (unsigned i = 0; i < ocount; i++)
 	otypes.quick_push (TREE_TYPE (oparms[i]));
     }
