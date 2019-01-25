@@ -5936,6 +5936,7 @@ update_clone_info (copy_body_data * id)
    trees. If UPDATE_CLONES is set, the call_stmt fields
    of edges of clones of the function will be updated.  
 
+   !!!Doc
    If non-NULL ARGS_TO_SKIP determine function parameters to remove
    from new version.
    If SKIP_RETURN is true, the new version will return void.
@@ -6121,6 +6122,11 @@ tree_function_versioning (tree old_decl, tree new_decl,
   else if (param_adjustments && param_adjustments->m_skip_return
 	   && !VOID_TYPE_P (TREE_TYPE (DECL_RESULT (old_decl))))
     {
+      tree resdecl_repl = copy_result_decl_to_var (DECL_RESULT (old_decl),
+						   &id);
+      declare_inline_vars (NULL, resdecl_repl);
+      insert_decl_map (&id, DECL_RESULT (old_decl), resdecl_repl);
+
       DECL_RESULT (new_decl)
 	= build_decl (DECL_SOURCE_LOCATION (DECL_RESULT (old_decl)),
 		      RESULT_DECL, NULL_TREE, void_type_node);
