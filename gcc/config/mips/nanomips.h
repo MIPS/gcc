@@ -355,3 +355,28 @@ FP_ASM_SPEC "\
   { "$r30",	30 + GP_REG_FIRST },					\
   { "$r31",	31 + GP_REG_FIRST },					\
 }
+
+#undef  ASM_OUTPUT_CASE_LABEL
+#define ASM_OUTPUT_CASE_LABEL(FILE, PREFIX, NUM, JUMPTABLE)		\
+  do									\
+    {									\
+      ASM_OUTPUT_BEFORE_CASE_LABEL (FILE, PREFIX, NUM, JUMPTABLE)	\
+	if (TARGET_NANOMIPS_JUMPTABLE_OPT)				\
+	  {								\
+	    rtx body = PATTERN (JUMPTABLE);				\
+	    int esize; 							\
+	    int nsize = XVECLEN (body, GET_CODE (body) == ADDR_DIFF_VEC); \
+	    int offset_unsigned = (ADDR_DIFF_VEC_FLAGS (body).offset_unsigned \
+				   ?  1 : 0);				\
+	    if (GET_MODE (body) == HImode)				\
+	      esize = 2;						\
+	    else if (GET_MODE (body) == QImode)				\
+	      esize = 1;						\
+	    else							\
+	      esize = 4;						\
+	    fprintf ((FILE), "\t.jumptable %d,%d,%d\n", esize, nsize,	\
+		     offset_unsigned);					\
+	  }								\
+      (*targetm.asm_out.internal_label) (FILE, PREFIX, NUM);		\
+    }									\
+  while (0)

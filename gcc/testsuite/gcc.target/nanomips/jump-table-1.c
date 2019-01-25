@@ -1,4 +1,5 @@
 /* { dg-options "-march=32r6 -mcmodel=auto -mgpopt -fno-pic -mpid -ffat-lto-objects" } */
+/* { dg-additional-options "-mno-jump-table-opt" } */
 /* { dg-skip-if ".half requires -O" { *-*-* } { "-O0" "-Os" } { "" } } */
 int x0;
 
