@@ -223,7 +223,6 @@ FP_ASM_SPEC "\
 #define FRAME_ADDR_RTX(frame) \
    plus_constant (Pmode, frame, MIPS_FRAME_BIAS)
 
-#define LABEL_ALIGN(LABEL) nanomips_label_align(LABEL)
 #define ADDR_VEC_ALIGN(VEC_INSN) \
    (GET_MODE (PATTERN (VEC_INSN)) == QImode ? \
      1 : exact_log2 (GET_MODE_SIZE (GET_MODE (PATTERN (VEC_INSN)))))
@@ -356,6 +355,15 @@ FP_ASM_SPEC "\
   { "$r31",	31 + GP_REG_FIRST },					\
 }
 
+
+/* For TARGET_NANOMIPS_JUMPTABLE_OPT we output a label in the text*
+   section which will act as base for ADDR_DIFF_VEC while the actual
+   jumptable label would be output in rodata*. The base label points
+   to the middle of preceding casesi instruction sequence, just before
+   BRSC instruction instead of after it. This is done to ensure that
+   base label position is not affected by align directives that may
+   follow casesi sequence.  */
+
 #undef  ASM_OUTPUT_CASE_LABEL
 #define ASM_OUTPUT_CASE_LABEL(FILE, PREFIX, NUM, JUMPTABLE)		\
   do									\
@@ -378,5 +386,11 @@ FP_ASM_SPEC "\
 		     offset_unsigned);					\
 	  }								\
       (*targetm.asm_out.internal_label) (FILE, PREFIX, NUM);		\
+          section *case_section = in_section;                           \
+          switch_to_section (current_function_section ());              \
+          fprintf(FILE, "%s%sTB%d = . - %d\n",                          \
+                  LOCAL_LABEL_PREFIX, PREFIX, NUM,                      \
+                  NANOMIPS_JUMPTABLE_BASE_BIAS);                        \
+          switch_to_section(case_section);                              \
     }									\
   while (0)

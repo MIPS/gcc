@@ -3262,6 +3262,7 @@ while (0)
 /* This is how to output an element of a case-vector.  We can make the
    entries PC-relative in MIPS16 code and GP-relative when .gp(d)word
    is supported.  */
+#define NANOMIPS_JUMPTABLE_BASE_BIAS 4
 
 #define ASM_OUTPUT_ADDR_DIFF_ELT(STREAM, BODY, VALUE, REL)		\
 do {									\
@@ -3279,14 +3280,17 @@ do {									\
       const char *s							\
        = ADDR_DIFF_VEC_FLAGS (BODY).offset_unsigned ? "" : "s";		\
       if (GET_MODE (BODY) == HImode)					\
-	fprintf (STREAM, "\t.%shword\t(%sL%d-%sL%d)>>1\n",		\
-		 s, LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL);\
+	fprintf (STREAM, "\t.%shword\t(%sL%d-(%sLTB%d+%d))>>1\n",	\
+		 s, LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL, \
+                 NANOMIPS_JUMPTABLE_BASE_BIAS);                         \
       else if (GET_MODE (BODY) == QImode)				\
-	fprintf (STREAM, "\t.%sbyte\t(%sL%d-%sL%d)>>1\n",		\
-		 s, LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL);\
+	fprintf (STREAM, "\t.%sbyte\t(%sL%d-(%sLTB%d+%d))>>1\n",	\
+		 s, LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL, \
+                 NANOMIPS_JUMPTABLE_BASE_BIAS);                         \
       else								\
-	fprintf (STREAM, "\t.word\t(%sL%d-%sL%d)>>1\n",			\
-		 LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL);	\
+	fprintf (STREAM, "\t.word\t(%sL%d-(%sLTB%d+%d))>>1\n",		\
+		 LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL,    \
+                 NANOMIPS_JUMPTABLE_BASE_BIAS);	                        \
     }									\
   else if (TARGET_GPWORD)						\
     fprintf (STREAM, "\t%s\t%sL%d\n",					\
