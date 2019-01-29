@@ -7191,57 +7191,54 @@ oacc_default_clause (struct gimplify_omp_ctx *ctx, tree decl, unsigned flags)
       flags |= GOVD_MAP_TO_ONLY;
     }
 
+  unsigned private_mapping_flag = 0;
+  unsigned default_scalar_flags = 0;
+  /* Aggregates default to 'present_or_copy', or 'present'.  */
+  unsigned aggregate_flags
+    = (ctx->default_kind != OMP_CLAUSE_DEFAULT_PRESENT
+        ? GOVD_MAP
+        : GOVD_MAP | GOVD_MAP_FORCE_PRESENT);
+
   switch (ctx->region_type)
     {
     case ORT_ACC_KERNELS:
       rkind = "kernels";
-
-      if (is_private)
-	flags |= GOVD_MAP;
-      else if (AGGREGATE_TYPE_P (type))
-	{
-	  /* Aggregates default to 'present_or_copy', or 'present'.  */
-	  if (ctx->default_kind != OMP_CLAUSE_DEFAULT_PRESENT)
-	    flags |= GOVD_MAP;
-	  else
-	    flags |= GOVD_MAP | GOVD_MAP_FORCE_PRESENT;
-	}
-      else
-	/* Scalars default to 'copy'.  */
-	flags |= GOVD_MAP | GOVD_MAP_FORCE;
-
+      /* Scalars default to 'copy'.  */
+      default_scalar_flags = GOVD_MAP | GOVD_MAP_FORCE;
+      /* There are no private mappings on kernels regions.  */
+      gcc_assert (!is_private);
       break;
-
     case ORT_ACC_PARALLEL:
+      rkind = "parallel";
+      /* Scalars default to 'firstprivate'.  */
+      default_scalar_flags = GOVD_FIRSTPRIVATE;
+      private_mapping_flag = GOVD_FIRSTPRIVATE;
+      break;
     case ORT_ACC_SERIAL:
-      rkind = ctx->region_type == ORT_ACC_PARALLEL ? "parallel" : "serial";
-
-      if (TREE_CODE (type) == REFERENCE_TYPE
-	  && TREE_CODE (TREE_TYPE (type)) == POINTER_TYPE)
-	flags |= GOVD_MAP | GOVD_MAP_0LEN_ARRAY;
-      else if (!lang_GNU_Fortran () && TREE_CODE (type) == POINTER_TYPE)
-	flags |= GOVD_MAP | GOVD_MAP_0LEN_ARRAY;
-      else if (is_private)
-	flags |= GOVD_FIRSTPRIVATE;
-      else if (on_device || declared)
-	flags |= GOVD_MAP;
-      else if (AGGREGATE_TYPE_P (type))
-	{
-	  /* Aggregates default to 'present_or_copy', or 'present'.  */
-	  if (ctx->default_kind != OMP_CLAUSE_DEFAULT_PRESENT)
-	    flags |= GOVD_MAP;
-	  else
-	    flags |= GOVD_MAP | GOVD_MAP_FORCE_PRESENT;
-	}
-      else
-	/* Scalars default to 'firstprivate'.  */
-	flags |= GOVD_FIRSTPRIVATE;
-
+      rkind = "serial";
+      /* Scalars default to 'firstprivate'.  */
+      default_scalar_flags = GOVD_FIRSTPRIVATE;
+      private_mapping_flag = GOVD_FIRSTPRIVATE;
       break;
 
     default:
       gcc_unreachable ();
     }
+
+  if (TREE_CODE (type) == REFERENCE_TYPE
+      && TREE_CODE (TREE_TYPE (type)) == POINTER_TYPE)
+    flags |= GOVD_MAP | GOVD_MAP_0LEN_ARRAY;
+  else if (!lang_GNU_Fortran () && TREE_CODE (type) == POINTER_TYPE)
+    flags |= GOVD_MAP | GOVD_MAP_0LEN_ARRAY;
+  else if (is_private)
+    flags |= private_mapping_flag;
+  else if (on_device || declared)
+    flags |= GOVD_MAP;
+  else if (AGGREGATE_TYPE_P (type))
+    flags |= aggregate_flags;
+  else
+    /* This is a scalar getting the default mapping.  */
+    flags |= default_scalar_flags;
 
   if (DECL_ARTIFICIAL (decl))
     ; /* We can get compiler-generated decls, and should not complain
