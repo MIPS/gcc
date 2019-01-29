@@ -1,3 +1,27 @@
+2019-01-25  Nathan Sidwell  <nathan@acm.org>
+
+	* elf.c (elf_add): Pass "" filename to recursive call with
+	separated debug.
+
+2019-01-25  Tom de Vries  <tdevries@suse.de>
+
+	* elf.c (elf_add): When handling .gnu_debugaltlink, call elf_add with
+	filename == "".
+	* Makefile.am (TESTS): Add btest_dwz_gnudebuglink.
+	* Makefile.in: Regenerate.
+
+2019-01-25  Tom de Vries  <tdevries@suse.de>
+
+	* Makefile.am: Rewrite dtest rule into "%_gnudebuglink" pattern rule.
+	(TESTS): Rename dtest to btest_gnudebuglink.
+	* Makefile.in: Regenerate.
+
+2019-01-23  Tom de Vries  <tdevries@suse.de>
+
+	* dwarf.c (struct unit): Use size_t for low_offset/high_offset fields.
+	(units_search, find_unit): Use size_t for offset.
+	(build_address_map): Use size_t for unit_offset.
+
 2019-01-20  Gerald Pfeifer  <gerald@pfeifer.com>
 
 	* allocfail.c (main): Increase portability of printf statement.
