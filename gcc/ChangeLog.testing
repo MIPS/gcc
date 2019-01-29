@@ -1,3 +1,7 @@
+2019-01-29 Jan Hubicka  <hubicka@ucw.cz>
+
+	* inline-insns-small to 4, inline-insns-size to 2.
+
 2019-01-15 Jan Hubicka  <hubicka@ucw.cz>
 
 	* inline-insns-single to 200, min speedup to 5.
