@@ -90,13 +90,13 @@ void P(void)
 #pragma acc loop seq auto // { dg-error "'seq' overrides" }
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop gang auto // { dg-error "'auto' conflicts" }
+#pragma acc loop gang auto
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop worker auto // { dg-error "'auto' conflicts" }
+#pragma acc loop worker auto
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop vector auto // { dg-error "'auto' conflicts" }
+#pragma acc loop vector auto
     for (i = 0; i < 10; i++)
       { }
 
@@ -150,13 +150,13 @@ void P(void)
 #pragma acc parallel loop seq auto // { dg-error "'seq' overrides" }
   for (i = 0; i < 10; i++)
     { }
-#pragma acc parallel loop gang auto // { dg-error "'auto' conflicts" }
+#pragma acc parallel loop gang auto
   for (i = 0; i < 10; i++)
     { }
-#pragma acc parallel loop worker auto // { dg-error "'auto' conflicts" }
+#pragma acc parallel loop worker auto
   for (i = 0; i < 10; i++)
     { }
-#pragma acc parallel loop vector auto // { dg-error "'auto' conflicts" }
+#pragma acc parallel loop vector auto
   for (i = 0; i < 10; i++)
     { }
 }

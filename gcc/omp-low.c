@@ -2397,9 +2397,6 @@ check_oacc_kernel_gwv (gomp_for *stmt, omp_context *ctx)
       if (has_seq && (this_mask || has_auto))
 	error_at (gimple_location (stmt), "%<seq%> overrides other"
 		  " OpenACC loop specifiers");
-      else if (has_auto && this_mask)
-	error_at (gimple_location (stmt), "%<auto%> conflicts with other"
-		  " OpenACC loop specifiers");
 
       if (this_mask & outer_mask)
 	error_at (gimple_location (stmt), "inner loop uses same"

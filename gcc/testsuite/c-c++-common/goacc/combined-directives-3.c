@@ -12,9 +12,9 @@ main ()
     for (y = 0; y < 10; y++)
       ;
 
-#pragma acc parallel loop gang auto /* { dg-error "'auto' conflicts with other OpenACC loop specifiers" } */
+#pragma acc parallel loop gang seq /* { dg-error "'seq' overrides other OpenACC loop specifiers" } */
   for (x = 0; x < 10; x++)
-#pragma acc loop worker auto /* { dg-error "'auto' conflicts with other OpenACC loop specifiers" } */
+#pragma acc loop worker seq /* { dg-error "'seq' overrides other OpenACC loop specifiers" } */
     for (y = 0; y < 10; y++)
 #pragma acc loop vector
       for (z = 0; z < 10; z++)

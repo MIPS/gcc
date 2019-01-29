@@ -106,13 +106,13 @@ void K(void)
 #pragma acc loop seq auto // { dg-error "'seq' overrides" }
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop gang auto // { dg-error "'auto' conflicts" }
+#pragma acc loop gang auto
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop worker auto // { dg-error "'auto' conflicts" }
+#pragma acc loop worker auto
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop vector auto // { dg-error "'auto' conflicts" }
+#pragma acc loop vector auto
     for (i = 0; i < 10; i++)
       { }
   }
@@ -177,13 +177,13 @@ void K(void)
 #pragma acc kernels loop seq auto // { dg-error "'seq' overrides" }
   for (i = 0; i < 10; i++)
     { }
-#pragma acc kernels loop gang auto // { dg-error "'auto' conflicts" }
+#pragma acc kernels loop gang auto
   for (i = 0; i < 10; i++)
     { }
-#pragma acc kernels loop worker auto // { dg-error "'auto' conflicts" }
+#pragma acc kernels loop worker auto
   for (i = 0; i < 10; i++)
     { }
-#pragma acc kernels loop vector auto // { dg-error "'auto' conflicts" }
+#pragma acc kernels loop vector auto
   for (i = 0; i < 10; i++)
     { }
 }

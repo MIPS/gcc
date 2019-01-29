@@ -1,3 +1,9 @@
+2019-01-29  Gergö Barany  <gergo@codesourcery.com>
+
+	* c-c++-common/goacc/combined-directives-3.c: Adjust test.
+	* c-c++-common/goacc/loop-2-kernels.c: Likewise.
+	* c-c++-common/goacc/loop-2-parallel.c: Likewise.
+
 2019-01-28  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-c++-common/goacc/classify-kernels-unparallelized.c: Update.
