@@ -1,7 +1,3 @@
-/* FIXME: OpenACC kernels stopped working with the firstprivate subarray
-   changes.  */
-/* { dg-prune-output "OpenACC kernels construct will be executed sequentially" } */
-
 #include <stdlib.h>
 
 #define N (1024 * 512)
@@ -33,7 +29,9 @@ main (void)
       b[i] = i * 4;
   }
 
-#pragma acc kernels present (a[0:N], b[0:N], c[0:N])
+#pragma acc kernels present (a[0:N], b[0:N], c[0:N]) /* { dg-bogus "OpenACC kernels construct will be executed sequentially; will by default avoid offloading to prevent data copy penalty" "TODO" { xfail { openacc_nvidia_accel_selected && opt_levels_2_plus } } }
+    FIXME: OpenACC kernels stopped working with the firstprivate subarray
+    changes.  */
   {
     for (COUNTERTYPE ii = 0; ii < N; ii++)
       c[ii] = a[ii] + b[ii];

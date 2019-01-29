@@ -1,7 +1,4 @@
 ! { dg-do run }
-! TODO, <https://gcc.gnu.org/PR80995>.
-! warning: OpenACC kernels construct will be executed sequentially; will by default avoid offloading to prevent data copy penalty
-! { dg-xfail-if "TODO" { openacc_nvidia_accel_selected } { "-Os" } { "" } }
 
 program main
   implicit none
@@ -18,7 +15,7 @@ program main
   end do
 
   !$acc kernels copyin (a(0:n-1), b(0:n-1)) copyout (c(0:n-1))
-  do ii = 0, n - 1
+  do ii = 0, n - 1 ! { dg-bogus "OpenACC kernels construct will be executed sequentially; will by default avoid offloading to prevent data copy penalty" "PR80995" { xfail { openacc_nvidia_accel_selected && opt_levels_size } } }
      c(ii) = a(ii) + b(ii)
   end do
   !$acc end kernels

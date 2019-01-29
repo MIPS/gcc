@@ -1,7 +1,4 @@
 ! { dg-do run }
-! TODO, <https://gcc.gnu.org/PR80995>.
-! warning: OpenACC kernels construct will be executed sequentially; will by default avoid offloading to prevent data copy penalty
-! { dg-xfail-if "TODO" { openacc_nvidia_accel_selected } { "-Os" } { "" } }
 
 program main
   implicit none
@@ -11,7 +8,7 @@ program main
 
   ! Parallelism dimensions: compiler/runtime decides.
   !$acc kernels copyout (a(0:n-1))
-  do i = 0, n - 1
+  do i = 0, n - 1 ! { dg-bogus "OpenACC kernels construct will be executed sequentially; will by default avoid offloading to prevent data copy penalty" "PR80995" { xfail { openacc_nvidia_accel_selected && opt_levels_size } } }
      a(i) = i * 2
   end do
   !$acc end kernels
@@ -20,7 +17,7 @@ program main
   !$acc kernels copyout (b(0:n-1)) &
   !$acc num_gangs (3 + a(3)) num_workers (5 + a(5)) vector_length (7 + a(7))
   ! { dg-prune-output "using vector_length \\(32\\), ignoring runtime setting" }
-  do i = 0, n -1
+  do i = 0, n -1 ! { dg-bogus "OpenACC kernels construct will be executed sequentially; will by default avoid offloading to prevent data copy penalty" "PR80995" { xfail { openacc_nvidia_accel_selected && opt_levels_size } } }
      b(i) = i * 4
   end do
   !$acc end kernels
@@ -29,7 +26,7 @@ program main
   !$acc kernels copyin (a(0:n-1), b(0:n-1)) copyout (c(0:n-1)) &
   !$acc num_gangs (3) num_workers (5) vector_length (7)
   ! { dg-prune-output "using vector_length \\(32\\), ignoring 7" }
-  do ii = 0, n - 1
+  do ii = 0, n - 1 ! { dg-bogus "OpenACC kernels construct will be executed sequentially; will by default avoid offloading to prevent data copy penalty" "PR80995" { xfail { openacc_nvidia_accel_selected && opt_levels_size } } }
      c(ii) = a(ii) + b(ii)
   end do
   !$acc end kernels

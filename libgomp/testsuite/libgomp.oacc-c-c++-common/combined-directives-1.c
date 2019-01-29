@@ -1,11 +1,6 @@
 /* This test exercises combined directives.  */
 
-/* This test falls back to host execution because struct alias
-   analysis is deactivated on OpenACC parallel regions.  Consequently,
-   parloops can no longer disambiguate arrays a and b.  */
-
 /* { dg-do run } */
-/* { dg-xfail-if "n/a" { openacc_nvidia_accel_selected } { "-O2" } { "" } } */
 
 #include <stdlib.h>
 
@@ -38,7 +33,10 @@ main (int argc, char **argv)
 	abort ();
     }
 
-#pragma acc kernels loop copy (a[0:N]) copy (b[0:N])
+#pragma acc kernels loop copy (a[0:N]) copy (b[0:N]) /* { dg-bogus "OpenACC kernels construct will be executed sequentially; will by default avoid offloading to prevent data copy penalty" "TODO" { xfail { openacc_nvidia_accel_selected && opt_levels_2_plus } } }
+    This runs into "avoid offloading" because struct alias analysis is
+    deactivated on OpenACC parallel regions.  Consequently, parloops can no
+    longer disambiguate arrays a and b.  */
   for (i = 0; i < N; i++)
     {
       b[i] = 3.0;

@@ -3,9 +3,6 @@
 ! the deviceptr variable is implied.
 
 ! { dg-do run }
-! TODO, <https://gcc.gnu.org/PR80995>.
-! warning: OpenACC kernels construct will be executed sequentially; will by default avoid offloading to prevent data copy penalty
-! { dg-xfail-if "TODO" { openacc_nvidia_accel_selected } { "-Os" } { "" } }
 
 subroutine subr1 (a, b)
   implicit none
@@ -52,7 +49,7 @@ subroutine subr3 (a, b)
   integer :: b(N)
   integer :: i = 0
 
-  !$acc kernels copy (b)
+  !$acc kernels copy (b) ! { dg-bogus "OpenACC kernels construct will be executed sequentially; will by default avoid offloading to prevent data copy penalty" "PR80995" { xfail { openacc_nvidia_accel_selected && opt_levels_size } } }
     do i = 1, N
       a(i) = i * 8
       b(i) = a(i)
@@ -84,7 +81,7 @@ subroutine subr5 (a, b)
   integer :: b(N)
   integer :: i = 0
 
-  !$acc kernels deviceptr (a) copy (b)
+  !$acc kernels deviceptr (a) copy (b) ! { dg-bogus "OpenACC kernels construct will be executed sequentially; will by default avoid offloading to prevent data copy penalty" "PR80995" { xfail { openacc_nvidia_accel_selected && opt_levels_size } } }
     do i = 1, N
       a(i) = i * 32
       b(i) = a(i)

@@ -1,3 +1,34 @@
+2019-01-31  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/avoid-offloading-1.c:
+	Update.
+	* testsuite/libgomp.oacc-c-c++-common/avoid-offloading-2.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/combined-directives-1.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-parallel-loop-data-enter-exit.c:
+	Likewise.
+	* testsuite/libgomp.oacc-fortran/asyncwait-1.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/avoid-offloading-1.f: Likewise.
+	* testsuite/libgomp.oacc-fortran/avoid-offloading-2.f: Likewise.
+	* testsuite/libgomp.oacc-fortran/deviceptr-1.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/initialize_kernels_loops.f90:
+	Likewise.
+	* testsuite/libgomp.oacc-fortran/kernels-loop-2.f95: Likewise.
+	* testsuite/libgomp.oacc-fortran/kernels-loop-data-2.f95:
+	Likewise.
+	* testsuite/libgomp.oacc-fortran/kernels-loop-data-enter-exit-2.f95:
+	Likewise.
+	* testsuite/libgomp.oacc-fortran/kernels-loop-data-enter-exit.f95:
+	Likewise.
+	* testsuite/libgomp.oacc-fortran/kernels-loop-data-update.f95:
+	Likewise.
+	* testsuite/libgomp.oacc-fortran/kernels-loop-data.f95: Likewise.
+	* testsuite/libgomp.oacc-fortran/kernels-loop.f95: Likewise.
+	* testsuite/libgomp.oacc-fortran/kernels-parallel-loop-data-enter-exit.f95:
+	Likewise.
+	* testsuite/libgomp.oacc-fortran/non-scalar-data.f90: Likewise.
+
 2019-01-31  Julian Brown  <julian@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c++/deep-copy-12.C: New test.

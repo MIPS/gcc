@@ -9326,3 +9326,13 @@ proc check_effective_target_cet { } {
 	}
     } "-O2" ]
 }
+
+# Return 1 if we have optimization level -O2 or higher.
+proc check_effective_target_opt_levels_2_plus { } {
+    return [check-flags [list "" { *-*-* } { "-O*" } { "-O0" "-Og" "-O" "-O1" }]];
+}
+
+# Return 1 if we have optimization level -Os.
+proc check_effective_target_opt_levels_size { } {
+    return [check-flags [list "" { *-*-* } { "-Os" } { "" }]];
+}

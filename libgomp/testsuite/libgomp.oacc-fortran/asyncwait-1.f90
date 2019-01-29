@@ -1,7 +1,4 @@
 ! { dg-do run }
-! TODO, <https://gcc.gnu.org/PR80995>.
-! warning: OpenACC kernels construct will be executed sequentially; will by default avoid offloading to prevent data copy penalty
-! { dg-xfail-if "TODO" { openacc_nvidia_accel_selected } { "-Os" } { "" } }
 
 program asyncwait
   integer, parameter :: N = 64
@@ -183,13 +180,13 @@ program asyncwait
 
   !$acc data copy (a(1:N)) copy (b(1:N)) copy (c(1:N)) copy (d(1:N))
 
-  !$acc kernels async (1)
+  !$acc kernels async (1) ! { dg-bogus "OpenACC kernels construct will be executed sequentially; will by default avoid offloading to prevent data copy penalty" "PR80995" { xfail { openacc_nvidia_accel_selected && opt_levels_size } } }
   do i = 1, N
      b(i) = (a(i) * a(i) * a(i)) / a(i)
   end do
   !$acc end kernels
 
-  !$acc kernels async (1)
+  !$acc kernels async (1) ! { dg-bogus "OpenACC kernels construct will be executed sequentially; will by default avoid offloading to prevent data copy penalty" "PR80995" { xfail { openacc_nvidia_accel_selected && opt_levels_size } } }
   do i = 1, N
      c(i) = (a(i) * 4) / a(i)
   end do
@@ -220,7 +217,7 @@ program asyncwait
 
   !$acc data copy (a(1:N), b(1:N), c(1:N), d(1:N), e(1:N))
 
-  !$acc kernels async (1)
+  !$acc kernels async (1) ! { dg-bogus "OpenACC kernels construct will be executed sequentially; will by default avoid offloading to prevent data copy penalty" "PR80995" { xfail { openacc_nvidia_accel_selected && opt_levels_size } } }
   do i = 1, N
      b(i) = (a(i) * a(i) * a(i)) / a(i)
   end do

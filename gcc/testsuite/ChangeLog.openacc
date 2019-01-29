@@ -1,3 +1,9 @@
+2019-01-31  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* lib/target-supports.exp
+	(check_effective_target_opt_levels_2_plus)
+	(check_effective_target_opt_levels_size): New.
+
 2019-01-31  Julian Brown  <julian@codesourcery.com>
 
 	* c-c++-common/goacc/deep-copy-arrayofstruct.c: New test.

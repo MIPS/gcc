@@ -1,8 +1,5 @@
 /* Test that the compiler decides to "avoid offloading".  */
 
-/* The warning is only triggered for -O2 and higher.
-   { dg-xfail-if "n/a" { openacc_nvidia_accel_selected } { "-O0" "-O1" } { "" } } */
-
 #include <openacc.h>
 
 int main(void)
@@ -10,7 +7,7 @@ int main(void)
   int x, y;
 
 #pragma acc data copyout(x, y)
-#pragma acc kernels /* { dg-warning "OpenACC kernels construct will be executed sequentially; will by default avoid offloading to prevent data copy penalty" "" { target openacc_nvidia_accel_selected } } */
+#pragma acc kernels /* { dg-warning "OpenACC kernels construct will be executed sequentially; will by default avoid offloading to prevent data copy penalty" "" { target { openacc_nvidia_accel_selected && opt_levels_2_plus } } } */
   *((volatile int *) &x) = 33, y = acc_on_device (acc_device_host);
 
   if (x != 33)
