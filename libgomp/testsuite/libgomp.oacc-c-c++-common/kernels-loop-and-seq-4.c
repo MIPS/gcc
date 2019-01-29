@@ -1,7 +1,3 @@
-/* FIXME: OpenACC kernels stopped working with the firstprivate subarray
-   changes.  */
-/* { dg-prune-output "OpenACC kernels construct will be executed sequentially" } */
-
 #include <stdlib.h>
 
 #define N 32

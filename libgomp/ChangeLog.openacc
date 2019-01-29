@@ -1,3 +1,10 @@
+2019-01-30  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-and-seq-3.c:
+	Remove "dg-prune-output".
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-and-seq-4.c:
+	Likewise.
+
 2019-01-29  Gergö Barany  <gergo@codesourcery.com>
 
 	* testsuite/libgomp.oacc-fortran/initialize_kernels_loops.f90: New test.
