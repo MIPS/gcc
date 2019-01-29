@@ -7111,7 +7111,8 @@ vectorizable_nested_cycle (stmt_vec_info stmt_info, gimple_stmt_iterator *gsi,
 
   if (!loop_vinfo
       || !is_a <gphi *> (stmt_info->stmt)
-      || gimple_phi_num_args (stmt_info->stmt) != 2)
+      || gimple_phi_num_args (stmt_info->stmt) != 2
+      || !nested_in_vect_loop_p (LOOP_VINFO_LOOP (loop_vinfo), stmt_info))
     return false;
 
   if (!vec_stmt) /* transformation not required.  */

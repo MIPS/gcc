@@ -4753,8 +4753,14 @@ vect_create_data_ref_ptr (stmt_vec_info stmt_info, tree aggr_type,
 
       standard_iv_increment_position (loop, &incr_gsi, &insert_after);
 
+      tree iv_step2 = iv_step;
+      if (nested_in_vect_loop)
+	iv_step2 = const_binop (MULT_EXPR, TREE_TYPE (iv_step),
+				step, build_int_cst (TREE_TYPE (iv_step),
+						     LOOP_VINFO_VECT_FACTOR (loop_vinfo)));
+
       create_iv (aggr_ptr_init,
-		 fold_convert (aggr_ptr_type, iv_step),
+		 fold_convert (aggr_ptr_type, iv_step2),
 		 aggr_ptr, loop, &incr_gsi, insert_after,
 		 &indx_before_incr, &indx_after_incr);
       incr = gsi_stmt (incr_gsi);
@@ -4797,7 +4803,7 @@ vect_create_data_ref_ptr (stmt_vec_info stmt_info, tree aggr_type,
 	  vect_duplicate_ssa_name_ptr_info (indx_after_incr, dr_info);
 	}
       if (ptr_incr)
-	*ptr_incr = incr;
+	*ptr_incr = NULL;
 
       return indx_before_incr;
     }
