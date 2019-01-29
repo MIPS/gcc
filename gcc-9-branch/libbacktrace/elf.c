@@ -809,6 +809,8 @@ elf_readlink (struct backtrace_state *state, const char *filename,
     }
 }
 
+#define SYSTEM_BUILD_ID_DIR "/usr/lib/debug/.build-id/"
+
 /* Open a separate debug info file, using the build ID to find it.
    Returns an open file descriptor, or -1.
 
@@ -821,7 +823,7 @@ elf_open_debugfile_by_buildid (struct backtrace_state *state,
 			       backtrace_error_callback error_callback,
 			       void *data)
 {
-  const char * const prefix = "/usr/lib/debug/.build-id/";
+  const char * const prefix = SYSTEM_BUILD_ID_DIR;
   const size_t prefix_len = strlen (prefix);
   const char * const suffix = ".debug";
   const size_t suffix_len = strlen (suffix);
@@ -3041,7 +3043,7 @@ elf_add (struct backtrace_state *state, const char *filename, int descriptor,
 	  if (debugaltlink_view_valid)
 	    backtrace_release_view (state, &debugaltlink_view, error_callback,
 				    data);
-	  ret = elf_add (state, NULL, d, base_address, error_callback, data,
+	  ret = elf_add (state, "", d, base_address, error_callback, data,
 			 fileline_fn, found_sym, found_dwarf, NULL, 0, 1, NULL,
 			 0);
 	  if (ret < 0)
@@ -3080,7 +3082,7 @@ elf_add (struct backtrace_state *state, const char *filename, int descriptor,
 	  if (debugaltlink_view_valid)
 	    backtrace_release_view (state, &debugaltlink_view, error_callback,
 				    data);
-	  ret = elf_add (state, NULL, d, base_address, error_callback, data,
+	  ret = elf_add (state, "", d, base_address, error_callback, data,
 			 fileline_fn, found_sym, found_dwarf, NULL, 0, 1, NULL,
 			 0);
 	  if (ret < 0)

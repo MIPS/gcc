@@ -1,3 +1,59 @@
+2019-01-28  Jason Merrill  <jason@redhat.com>
+
+	PR c++/89089 - ICE with [[no_unique_address]].
+	PR c++/88865 - wrong layout with [[no_unique_address]].
+	* class.c (check_field_decls): A potentially-overlapping field makes
+	the class non-layout-POD, but not non-empty.
+	(end_of_class): Always consider empty data members.
+	(layout_class_type): Set DECL_SIZE for empty fields.
+
+2019-01-28  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/88358 - name wrongly treated as type.
+	* parser.c (cp_parser_direct_declarator): Don't assume a qualified-id
+	in parameter-list is a type if the function's declarator-id is not
+	qualified.
+
+2019-01-27  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/88815 - narrowing conversion lost in decltype.
+	PR c++/78244 - narrowing conversion in template not detected.
+	* cp-tree.h (CONSTRUCTOR_IS_DEPENDENT): New.
+	* pt.c (instantiation_dependent_r): Consider a CONSTRUCTOR with
+	CONSTRUCTOR_IS_DEPENDENT instantiation-dependent.
+	* semantics.c (finish_compound_literal): When the compound literal
+	isn't instantiation-dependent and the type isn't type-dependent,
+	fall back to the normal processing.  Set CONSTRUCTOR_IS_DEPENDENT.
+
+	PR c++/89024 - ICE with incomplete enum type.
+	* call.c (standard_conversion): When converting an
+	ARITHMETIC_TYPE_P to an incomplete type, return NULL.
+	
+2019-01-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/88969
+	* call.c (build_op_delete_call): Implement 7.6.2.5/(10.1).
+	* decl2.c (coerce_delete_type): Use build_pointer_type instead
+	of TYPE_POINTER_TO.
+
+2019-01-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/89001 - mangling of reference temporaries
+	* cp-tree.h (struct saved_scope): Add ref_temp_count.
+	(current_ref_temp_count): New macro.
+	* mangle.c (mangle_ref_init_variable): Use it.
+	* typeck2.c (store_init_value): Clear it.
+	* call.c (make_temporary_var_for_ref_to_temp): Copy public and
+	comdat.
+
+2019-01-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/88976
+	* semantics.c (finish_omp_cancel): Diagnose more than one if
+	on #pragma omp cancel with different modifiers.  Use
+	maybe_convert_cond when not in template or build_x_binary_op
+	otherwise.
+
 2019-01-23  Marek Polacek  <polacek@redhat.com>
 
 	PR c++/88757 - qualified name treated wrongly as type.

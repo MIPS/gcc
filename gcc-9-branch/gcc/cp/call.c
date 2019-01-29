@@ -1412,6 +1412,13 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
 	     || (fcode == REAL_TYPE && !(flags & LOOKUP_NO_NON_INTEGRAL)))
           || SCOPED_ENUM_P (from))
 	return NULL;
+
+      /* If we're parsing an enum with no fixed underlying type, we're
+	 dealing with an incomplete type, which renders the conversion
+	 ill-formed.  */
+      if (!COMPLETE_TYPE_P (from))
+	return NULL;
+
       conv = build_conv (ck_std, to, conv);
 
       /* Give this a better rank if it's a promotion.  */
@@ -6461,6 +6468,19 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 		continue;
 	      }
 
+	    /* -- If any of the deallocation functions is a destroying
+	       operator delete, all deallocation functions that are not
+	       destroying operator deletes are eliminated from further
+	       consideration.  */
+	    bool fn_destroying = destroying_delete_p (fn);
+	    bool elt_destroying = destroying_delete_p (elt);
+	    if (elt_destroying != fn_destroying)
+	      {
+		if (elt_destroying)
+		  fn = elt;
+		continue;
+	      }
+
 	    /* -- If the type has new-extended alignment, a function with a
 	       parameter of type std::align_val_t is preferred; otherwise a
 	       function without such a parameter is preferred. If exactly one
@@ -11174,9 +11194,21 @@ make_temporary_var_for_ref_to_temp (tree decl, tree type)
       && (TREE_STATIC (decl) || CP_DECL_THREAD_LOCAL_P (decl)))
     {
       /* Namespace-scope or local static; give it a mangled name.  */
-      /* FIXME share comdat with decl?  */
+
+      /* If an initializer is visible to multiple translation units, those
+	 translation units must agree on the addresses of the
+	 temporaries. Therefore the temporaries must be given a consistent name
+	 and vague linkage. The mangled name of a temporary is the name of the
+	 non-temporary object in whose initializer they appear, prefixed with
+	 GR and suffixed with a sequence number mangled using the usual rules
+	 for a seq-id. Temporaries are numbered with a pre-order, depth-first,
+	 left-to-right walk of the complete initializer.  */
 
       TREE_STATIC (var) = TREE_STATIC (decl);
+      TREE_PUBLIC (var) = TREE_PUBLIC (decl);
+      if (vague_linkage_p (decl))
+	comdat_linkage (var);
+
       CP_DECL_THREAD_LOCAL_P (var) = CP_DECL_THREAD_LOCAL_P (decl);
       set_decl_tls_model (var, DECL_TLS_MODEL (decl));
 

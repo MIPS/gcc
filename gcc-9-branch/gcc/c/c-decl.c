@@ -1631,43 +1631,107 @@ c_bind (location_t loc, tree decl, bool is_global)
   bind (DECL_NAME (decl), decl, scope, false, nested, loc);
 }
 
+
+/* Stores the first FILE*, const struct tm* etc. argument type (whatever it
+   is) seen in a declaration of a file I/O etc. built-in.  Subsequent
+   declarations of such built-ins are expected to refer to it rather than to
+   fileptr_type_node etc. which is just void* (or to any other type).
+   Used only by match_builtin_function_types.  */
+
+static GTY(()) tree last_structptr_types[6];
+
 /* Subroutine of compare_decls.  Allow harmless mismatches in return
-   and argument types provided that the type modes match.  This function
-   return a unified type given a suitable match, and 0 otherwise.  */
+   and argument types provided that the type modes match.  Set *STRICT
+   and *ARGNO to the expected argument type and number in case of
+   an argument type mismatch or null and zero otherwise.  Return
+   a unified type given a suitable match, and 0 otherwise.  */
 
 static tree
-match_builtin_function_types (tree newtype, tree oldtype)
+match_builtin_function_types (tree newtype, tree oldtype,
+			      tree *strict, unsigned *argno)
 {
-  tree newrettype, oldrettype;
-  tree newargs, oldargs;
-  tree trytype, tryargs;
-
   /* Accept the return type of the new declaration if same modes.  */
-  oldrettype = TREE_TYPE (oldtype);
-  newrettype = TREE_TYPE (newtype);
+  tree oldrettype = TREE_TYPE (oldtype);
+  tree newrettype = TREE_TYPE (newtype);
+
+  *argno = 0;
+  *strict = NULL_TREE;
 
   if (TYPE_MODE (oldrettype) != TYPE_MODE (newrettype))
     return NULL_TREE;
 
-  oldargs = TYPE_ARG_TYPES (oldtype);
-  newargs = TYPE_ARG_TYPES (newtype);
-  tryargs = newargs;
+  if (!comptypes (TYPE_MAIN_VARIANT (oldrettype),
+		  TYPE_MAIN_VARIANT (newrettype)))
+    *strict = oldrettype;
 
-  while (oldargs || newargs)
+  tree oldargs = TYPE_ARG_TYPES (oldtype);
+  tree newargs = TYPE_ARG_TYPES (newtype);
+  tree tryargs = newargs;
+
+  gcc_checking_assert ((sizeof (last_structptr_types)
+			/ sizeof (last_structptr_types[0]))
+		       == (sizeof (builtin_structptr_types)
+			   / sizeof (builtin_structptr_types[0])));
+  for (unsigned i = 1; oldargs || newargs; ++i)
     {
       if (!oldargs
 	  || !newargs
 	  || !TREE_VALUE (oldargs)
-	  || !TREE_VALUE (newargs)
-	  || TYPE_MODE (TREE_VALUE (oldargs))
-	     != TYPE_MODE (TREE_VALUE (newargs)))
+	  || !TREE_VALUE (newargs))
 	return NULL_TREE;
+
+      tree oldtype = TYPE_MAIN_VARIANT (TREE_VALUE (oldargs));
+      tree newtype = TYPE_MAIN_VARIANT (TREE_VALUE (newargs));
+
+      /* Fail for types with incompatible modes/sizes.  */
+      if (TYPE_MODE (TREE_VALUE (oldargs))
+	  != TYPE_MODE (TREE_VALUE (newargs)))
+	return NULL_TREE;
+
+      /* Fail for function and object pointer mismatches.  */
+      if ((FUNCTION_POINTER_TYPE_P (oldtype)
+	   != FUNCTION_POINTER_TYPE_P (newtype))
+	  || POINTER_TYPE_P (oldtype) != POINTER_TYPE_P (newtype))
+	return NULL_TREE;
+
+      unsigned j = (sizeof (builtin_structptr_types)
+		    / sizeof (builtin_structptr_types[0]));
+      if (POINTER_TYPE_P (oldtype))
+	for (j = 0; j < (sizeof (builtin_structptr_types)
+			 / sizeof (builtin_structptr_types[0])); ++j)
+	  {
+	    if (TREE_VALUE (oldargs) != builtin_structptr_types[j].node)
+	      continue;
+	    /* Store the first FILE* etc. argument type (whatever it is), and
+	       expect any subsequent declarations of file I/O etc. built-ins
+	       to refer to it rather than to fileptr_type_node etc. which is
+	       just void* (or const void*).  */
+	    if (last_structptr_types[j])
+	      {
+		if (!comptypes (last_structptr_types[j], newtype))
+		  {
+		    *argno = i;
+		    *strict = last_structptr_types[j];
+		  }
+	      }
+	    else
+	      last_structptr_types[j] = newtype;
+	    break;
+	  }
+      if (j == (sizeof (builtin_structptr_types)
+		/ sizeof (builtin_structptr_types[0]))
+	  && !*strict
+	  && !comptypes (oldtype, newtype))
+	{
+	  *argno = i;
+	  *strict = oldtype;
+	}
 
       oldargs = TREE_CHAIN (oldargs);
       newargs = TREE_CHAIN (newargs);
     }
 
-  trytype = build_function_type (newrettype, tryargs);
+  tree trytype = build_function_type (newrettype, tryargs);
 
   /* Allow declaration to change transaction_safe attribute.  */
   tree oldattrs = TYPE_ATTRIBUTES (oldtype);
@@ -1881,14 +1945,26 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
       if (TREE_CODE (olddecl) == FUNCTION_DECL
 	  && fndecl_built_in_p (olddecl) && !C_DECL_DECLARED_BUILTIN (olddecl))
 	{
-	  /* Accept harmless mismatch in function types.
-	     This is for the ffs and fprintf builtins.  */
-	  tree trytype = match_builtin_function_types (newtype, oldtype);
+	  /* Accept "harmless" mismatches in function types such
+	     as missing qualifiers or pointer vs same size integer
+	     mismatches.  This is for the ffs and fprintf builtins.
+	     However, with -Wextra in effect, diagnose return and
+	     argument types that are incompatible according to
+	     language rules.  */
+	  tree mismatch_expect;
+	  unsigned mismatch_argno;
+
+	  tree trytype = match_builtin_function_types (newtype, oldtype,
+						       &mismatch_expect,
+						       &mismatch_argno);
 
 	  if (trytype && comptypes (newtype, trytype))
 	    *oldtypep = oldtype = trytype;
 	  else
 	    {
+	      /* If types don't match for a built-in, throw away the
+		 built-in.  No point in calling locate_old_decl here, it
+		 won't print anything.  */
 	      const char *header
 		= header_for_builtin_fn (DECL_FUNCTION_CODE (olddecl));
 	      location_t loc = DECL_SOURCE_LOCATION (newdecl);
@@ -1905,10 +1981,24 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 		  inform (&richloc,
 			  "%qD is declared in header %qs", olddecl, header);
 		}
-	      /* If types don't match for a built-in, throw away the
-		 built-in.  No point in calling locate_old_decl here, it
-		 won't print anything.  */
 	      return false;
+	    }
+
+	  if (mismatch_expect && extra_warnings)
+	    {
+	      /* If types match only loosely, print a warning but accept
+		 the redeclaration.  */
+	      location_t newloc = DECL_SOURCE_LOCATION (newdecl);
+	      if (mismatch_argno)
+		warning_at (newloc, OPT_Wbuiltin_declaration_mismatch,
+			    "mismatch in argument %u type of built-in "
+			    "function %qD; expected %qT",
+			    mismatch_argno, newdecl, mismatch_expect);
+	      else
+		warning_at (newloc, OPT_Wbuiltin_declaration_mismatch,
+			    "mismatch in return type of built-in "
+			    "function %qD; expected %qT",
+			    newdecl, mismatch_expect);
 	    }
 	}
       else if (TREE_CODE (olddecl) == FUNCTION_DECL
@@ -5438,7 +5528,7 @@ build_compound_literal (location_t loc, tree type, tree init, bool non_const,
       pushdecl (decl);
       rest_of_decl_compilation (decl, 1, 0);
     }
-  else if (current_function_decl)
+  else if (current_function_decl && !current_scope->parm_flag)
     pushdecl (decl);
 
   if (non_const)

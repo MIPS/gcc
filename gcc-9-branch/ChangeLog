@@ -1,3 +1,16 @@
+2019-01-26  Harald Anlauf  <anlauf@gmx.de>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2019-01-25  Kwok Cheung Yeung  <kcy@codesourcery.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2019-01-24  Xiong Hu Luo  <luoxhu@linux.vnet.ibm.com>
+
+	* ChangeLog: Replace space with tab.
+	* MAINTAINERS: Delete 1 tab to keep alignment.
+
 2019-01-21  Jiufu Guo  <guojiufu@linux.ibm.com>
 
 	* MAINTAINERS (Write After Approval): Add myself.
@@ -21,9 +34,9 @@
 
 	* MAINTAINERS (Write After Approval): Add myself.
 
- 2019-01-16  Xiong Hu Luo <luoxhu@linux.vnet.ibm.com>
+2019-01-16  Xiong Hu Luo  <luoxhu@linux.vnet.ibm.com>
 
- * MAINTAINERS (Write After Approval): Add myself.
+	* MAINTAINERS (Write After Approval): Add myself.
 
 2019-01-03  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
