@@ -920,6 +920,7 @@ vect_build_slp_tree_1 (unsigned char *swap,
 	      && TREE_CODE_CLASS (rhs_code) != tcc_unary
 	      && TREE_CODE_CLASS (rhs_code) != tcc_expression
 	      && TREE_CODE_CLASS (rhs_code) != tcc_comparison
+	      && TREE_CODE_CLASS (rhs_code) != tcc_constant
 	      && rhs_code != VIEW_CONVERT_EXPR
 	      && rhs_code != CALL_EXPR
 	      && rhs_code != TREE_LIST)
