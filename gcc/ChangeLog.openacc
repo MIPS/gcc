@@ -1,3 +1,7 @@
+2019-01-30  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* doc/invoke.texi (C Language Options): List "-fopenacc-dim".
+
 2019-01-29  Gergö Barany  <gergo@codesourcery.com>
 
 	* omp-low.c (check_oacc_kernel_gwv): Remove spurious error message.
