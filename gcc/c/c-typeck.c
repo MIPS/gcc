@@ -12445,9 +12445,16 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 		  return error_mark_node;
 		}
 	      t = TREE_OPERAND (t, 0);
+	      if (ort == C_ORT_ACC && TREE_CODE (t) == MEM_REF)
+		{
+		  if (maybe_ne (mem_ref_offset (t), 0))
+	            error_at (OMP_CLAUSE_LOCATION (c),
+			      "cannot dereference %qE in %qs clause", t,
+			      omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+		  else
+		    t = TREE_OPERAND (t, 0);
+		}
 	    }
-	  if (TREE_CODE (t) == MEM_REF)
-	    t = TREE_OPERAND (t, 0);
 	}
       if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
 	{
@@ -13750,11 +13757,18 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 		      break;
 		    }
 		  t = TREE_OPERAND (t, 0);
+		  if (ort == C_ORT_ACC && TREE_CODE (t) == MEM_REF)
+	            {
+		      if (maybe_ne (mem_ref_offset (t), 0))
+			error_at (OMP_CLAUSE_LOCATION (c),
+				  "cannot dereference %qE in %qs clause", t,
+				  omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+		      else
+			t = TREE_OPERAND (t, 0);
+		    }
 		}
 	      if (remove)
 		break;
-	      if (TREE_CODE (t) == MEM_REF)
-		t = TREE_OPERAND (t, 0);
 	      if (VAR_P (t) || TREE_CODE (t) == PARM_DECL)
 		{
 		  if (bitmap_bit_p (&map_field_head, DECL_UID (t)))
