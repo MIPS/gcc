@@ -1,3 +1,5 @@
+/* { dg-additional-options "-fopenacc-kernels=parloops" } as this is
+   specifically testing "parloops" handling.  */
 /* { dg-additional-options "-foffload-alias=all -fipa-pta" } */
 /* Override the compiler's "avoid offloading" decision.
    { dg-additional-options "-foffload-force" } */

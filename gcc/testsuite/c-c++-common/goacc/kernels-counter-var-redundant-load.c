@@ -1,3 +1,5 @@
+/* { dg-additional-options "-fopenacc-kernels=parloops" } as this is
+   specifically testing "parloops" handling.  */
 /* { dg-additional-options "-O2 -foffload-alias=all" } */
 /* { dg-additional-options "-fdump-tree-dom3" } */
 

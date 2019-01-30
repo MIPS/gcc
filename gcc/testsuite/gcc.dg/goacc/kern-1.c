@@ -1,3 +1,5 @@
+/* { dg-additional-options "-fopenacc-kernels=parloops" } as this is
+   specifically testing "parloops" handling.  */
 /* { dg-additional-options "-O2" } */
 
 /* The reduction on sum could cause an ICE with a non-simple latch loop.   */

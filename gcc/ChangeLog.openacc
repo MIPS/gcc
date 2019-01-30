@@ -1,3 +1,7 @@
+2019-01-31  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* flag-types.h (enum openacc_kernels): New type.
+
 2019-01-31  Kwok Cheung Yeung  <kcy@codesourcery.com>
 
 	* omp-low.c (lower_omp_target): For use_device clauses, generate
