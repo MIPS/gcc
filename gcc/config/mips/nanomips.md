@@ -508,7 +508,7 @@
   "&& reload_completed"
   [(const_int 0)]
 {
-  nanomips_load_store_multiple_split (operands[0], operands[1], 8);
+  nanomips_load_store_multiple_split (operands[0], operands[1], 8, 1);
   DONE;
 }
  [(set_attr "move_type" "store")
@@ -529,7 +529,7 @@
   "&& reload_completed"
   [(const_int 0)]
 {
-  nanomips_load_store_multiple_split (operands[0], operands[1], 7);
+  nanomips_load_store_multiple_split (operands[0], operands[1], 7, 1);
   DONE;
 }
  [(set_attr "move_type" "store")
@@ -549,7 +549,7 @@
   "&& reload_completed"
   [(const_int 0)]
 {
-  nanomips_load_store_multiple_split (operands[0], operands[1], 6);
+  nanomips_load_store_multiple_split (operands[0], operands[1], 6, 1);
   DONE;
 }
  [(set_attr "move_type" "store")
@@ -568,7 +568,7 @@
   "&& reload_completed"
   [(const_int 0)]
 {
-  nanomips_load_store_multiple_split (operands[0], operands[1], 5);
+  nanomips_load_store_multiple_split (operands[0], operands[1], 5, 1);
   DONE;
 }
  [(set_attr "move_type" "store")
@@ -586,7 +586,7 @@
   "&& reload_completed"
   [(const_int 0)]
 {
-  nanomips_load_store_multiple_split (operands[0], operands[1], 4);
+  nanomips_load_store_multiple_split (operands[0], operands[1], 4, 1);
   DONE;
 }
  [(set_attr "move_type" "store")
@@ -603,7 +603,7 @@
   "&& reload_completed"
   [(const_int 0)]
 {
-  nanomips_load_store_multiple_split (operands[0], operands[1], 3);
+  nanomips_load_store_multiple_split (operands[0], operands[1], 3, 1);
   DONE;
 }
  [(set_attr "move_type" "store")
@@ -619,11 +619,460 @@
   "&& reload_completed"
   [(const_int 0)]
 {
-  nanomips_load_store_multiple_split (operands[0], operands[1], 2);
+  nanomips_load_store_multiple_split (operands[0], operands[1], 2, 1);
   DONE;
 }
  [(set_attr "move_type" "store")
   (set_attr "mode" "SI")])
+
+(define_expand "uamovmemsi_multireg"
+  [(parallel
+    [(set (match_operand 0 "" "")
+	  (match_operand 1 "" ""))
+     (use (match_operand 2 "" ""))])]
+  "TARGET_NANOMIPS == NANOMIPS_NMF"
+{
+  gcc_assert (TARGET_NANOMIPS == NANOMIPS_NMF
+	      && IN_RANGE (INTVAL (operands[2]), 1, 8));
+  nanomips_expand_uamovmemsi_multireg (operands[0], operands[1],
+				     INTVAL (operands[2]));
+  DONE;
+})
+
+(define_insn_and_split "load_store_ua_multiple8"
+  [(set (match_operand:BLK 0 "memory_operand" "=ZA")
+	(unspec:BLK [(match_operand:BLK 1 "memory_operand" "ZA")]
+		    UNSPEC_MEM_BLOCK))
+   (clobber (reg:SI 12))
+   (clobber (reg:SI 13))
+   (clobber (reg:SI 14))
+   (clobber (reg:SI 15))
+   (clobber (reg:SI 16))
+   (clobber (reg:SI 17))
+   (clobber (reg:SI 18))
+   (clobber (reg:SI 19))]
+  "TARGET_NANOMIPS == NANOMIPS_NMF"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+{
+  nanomips_load_store_multiple_split (operands[0], operands[1], 8, 0);
+  DONE;
+}
+ [(set_attr "move_type" "store")
+  (set_attr "mode" "SI")])
+
+(define_insn_and_split "load_store_ua_multiple7"
+  [(set (match_operand:BLK 0 "memory_operand" "=ZA")
+	(unspec:BLK [(match_operand:BLK 1 "memory_operand" "ZA")]
+		    UNSPEC_MEM_BLOCK))
+   (clobber (reg:SI 12))
+   (clobber (reg:SI 13))
+   (clobber (reg:SI 14))
+   (clobber (reg:SI 15))
+   (clobber (reg:SI 16))
+   (clobber (reg:SI 17))
+   (clobber (reg:SI 18))]
+  "TARGET_NANOMIPS == NANOMIPS_NMF"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+{
+  nanomips_load_store_multiple_split (operands[0], operands[1], 7, 0);
+  DONE;
+}
+ [(set_attr "move_type" "store")
+  (set_attr "mode" "SI")])
+
+(define_insn_and_split "load_store_ua_multiple6"
+  [(set (match_operand:BLK 0 "memory_operand" "=ZA")
+	(unspec:BLK [(match_operand:BLK 1 "memory_operand" "ZA")]
+		    UNSPEC_MEM_BLOCK))
+   (clobber (reg:SI 12))
+   (clobber (reg:SI 13))
+   (clobber (reg:SI 14))
+   (clobber (reg:SI 15))
+   (clobber (reg:SI 16))
+   (clobber (reg:SI 17))]
+  "TARGET_NANOMIPS == NANOMIPS_NMF"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+{
+  nanomips_load_store_multiple_split (operands[0], operands[1], 6, 0);
+  DONE;
+}
+ [(set_attr "move_type" "store")
+  (set_attr "mode" "SI")])
+
+(define_insn_and_split "load_store_ua_multiple5"
+  [(set (match_operand:BLK 0 "memory_operand" "=ZA")
+	(unspec:BLK [(match_operand:BLK 1 "memory_operand" "ZA")]
+		    UNSPEC_MEM_BLOCK))
+   (clobber (reg:SI 12))
+   (clobber (reg:SI 13))
+   (clobber (reg:SI 14))
+   (clobber (reg:SI 15))
+   (clobber (reg:SI 16))]
+  "TARGET_NANOMIPS == NANOMIPS_NMF"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+{
+  nanomips_load_store_multiple_split (operands[0], operands[1], 5, 0);
+  DONE;
+}
+ [(set_attr "move_type" "store")
+  (set_attr "mode" "SI")])
+
+(define_insn_and_split "load_store_ua_multiple4"
+  [(set (match_operand:BLK 0 "memory_operand" "=ZA")
+	(unspec:BLK [(match_operand:BLK 1 "memory_operand" "ZA")]
+		    UNSPEC_MEM_BLOCK))
+   (clobber (reg:SI 12))
+   (clobber (reg:SI 13))
+   (clobber (reg:SI 14))
+   (clobber (reg:SI 15))]
+  "TARGET_NANOMIPS == NANOMIPS_NMF"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+{
+  nanomips_load_store_multiple_split (operands[0], operands[1], 4, 0);
+  DONE;
+}
+ [(set_attr "move_type" "store")
+  (set_attr "mode" "SI")])
+
+(define_insn_and_split "load_store_ua_multiple3"
+  [(set (match_operand:BLK 0 "memory_operand" "=ZA")
+	(unspec:BLK [(match_operand:BLK 1 "memory_operand" "ZA")]
+		    UNSPEC_MEM_BLOCK))
+
+   (clobber (reg:SI 12))
+   (clobber (reg:SI 13))
+   (clobber (reg:SI 14))]
+  "TARGET_NANOMIPS == NANOMIPS_NMF"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+{
+  nanomips_load_store_multiple_split (operands[0], operands[1], 3, 0);
+  DONE;
+}
+ [(set_attr "move_type" "store")
+  (set_attr "mode" "SI")])
+
+(define_insn_and_split "load_store_ua_multiple2"
+  [(set (match_operand:BLK 0 "memory_operand" "=ZA")
+	(unspec:BLK [(match_operand:BLK 1 "memory_operand" "ZA")]
+		    UNSPEC_MEM_BLOCK))
+   (clobber (reg:SI 12))
+   (clobber (reg:SI 13))]
+  "TARGET_NANOMIPS == NANOMIPS_NMF"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+{
+  nanomips_load_store_multiple_split (operands[0], operands[1], 2, 0);
+  DONE;
+}
+ [(set_attr "move_type" "store")
+  (set_attr "mode" "SI")])
+
+(define_insn "*store_word_ua_multiple8"
+  [(match_parallel 0 "store_multiple_operation"
+    [(set (match_operand:BLK 1 "memory_operand" "=ZA")
+	  (unspec:BLK [(match_operand:SI 2 "register_operand" "r")]
+		      UNSPEC_UASW))
+     (set (match_operand:BLK 3 "memory_operand" "=m")
+	  (unspec:BLK [(match_operand:SI 4 "register_operand" "r")]
+		      UNSPEC_UASW))
+     (set (match_operand:BLK 5 "memory_operand" "=m")
+	  (unspec:BLK [(match_operand:SI 6 "register_operand" "r")]
+		      UNSPEC_UASW))
+     (set (match_operand:BLK 7 "memory_operand" "=m")
+	  (unspec:BLK [(match_operand:SI 8 "register_operand" "r")]
+		      UNSPEC_UASW))
+     (set (match_operand:BLK 9 "memory_operand" "=m")
+	  (unspec:BLK [(match_operand:SI 10 "register_operand" "r")]
+		      UNSPEC_UASW))
+     (set (match_operand:BLK 11 "memory_operand" "=m")
+	  (unspec:BLK [(match_operand:SI 12 "register_operand" "r")]
+		      UNSPEC_UASW))
+     (set (match_operand:BLK 13 "memory_operand" "=m")
+	  (unspec:BLK [(match_operand:SI 14 "register_operand" "r")]
+		      UNSPEC_UASW))
+     (set (match_operand:BLK 15 "memory_operand" "=m")
+	  (unspec:BLK [(match_operand:SI 16 "register_operand" "r")]
+		      UNSPEC_UASW))])]
+  "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 8"
+  { return nanomips_output_word_ua_multiple (true, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*store_word_ua_multiple7"
+  [(match_parallel 0 "store_multiple_operation"
+    [(set (match_operand:BLK 1 "memory_operand" "=ZA")
+	  (unspec:BLK [(match_operand:SI 2 "register_operand" "r")]
+		      UNSPEC_UASW))
+     (set (match_operand:BLK 3 "memory_operand" "=m")
+	  (unspec:BLK [(match_operand:SI 4 "register_operand" "r")]
+		      UNSPEC_UASW))
+     (set (match_operand:BLK 5 "memory_operand" "=m")
+	  (unspec:BLK [(match_operand:SI 6 "register_operand" "r")]
+		      UNSPEC_UASW))
+     (set (match_operand:BLK 7 "memory_operand" "=m")
+	  (unspec:BLK [(match_operand:SI 8 "register_operand" "r")]
+		      UNSPEC_UASW))
+     (set (match_operand:BLK 9 "memory_operand" "=m")
+	  (unspec:BLK [(match_operand:SI 10 "register_operand" "r")]
+		      UNSPEC_UASW))
+     (set (match_operand:BLK 11 "memory_operand" "=m")
+	  (unspec:BLK [(match_operand:SI 12 "register_operand" "r")]
+		      UNSPEC_UASW))
+     (set (match_operand:BLK 13 "memory_operand" "=m")
+	  (unspec:BLK [(match_operand:SI 14 "register_operand" "r")]
+		      UNSPEC_UASW))])]
+  "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 7"
+  { return nanomips_output_word_ua_multiple (true, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*store_word_ua_multiple6"
+  [(match_parallel 0 "store_multiple_operation"
+    [(set (match_operand:BLK 1 "memory_operand" "=ZA")
+	  (unspec:BLK [(match_operand:SI 2 "register_operand" "r")]
+		      UNSPEC_UASW))
+     (set (match_operand:BLK 3 "memory_operand" "=m")
+	  (unspec:BLK [(match_operand:SI 4 "register_operand" "r")]
+		      UNSPEC_UASW))
+     (set (match_operand:BLK 5 "memory_operand" "=m")
+	  (unspec:BLK [(match_operand:SI 6 "register_operand" "r")]
+		      UNSPEC_UASW))
+     (set (match_operand:BLK 7 "memory_operand" "=m")
+	  (unspec:BLK [(match_operand:SI 8 "register_operand" "r")]
+		      UNSPEC_UASW))
+     (set (match_operand:BLK 9 "memory_operand" "=m")
+	  (unspec:BLK [(match_operand:SI 10 "register_operand" "r")]
+		      UNSPEC_UASW))
+     (set (match_operand:BLK 11 "memory_operand" "=m")
+	  (unspec:BLK [(match_operand:SI 12 "register_operand" "r")]
+		      UNSPEC_UASW))])]
+  "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 6"
+  { return nanomips_output_word_ua_multiple (true, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*store_word_ua_multiple5"
+  [(match_parallel 0 "store_multiple_operation"
+    [(set (match_operand:BLK 1 "memory_operand" "=ZA")
+	  (unspec:BLK [(match_operand:SI 2 "register_operand" "r")]
+		      UNSPEC_UASW))
+     (set (match_operand:BLK 3 "memory_operand" "=m")
+	  (unspec:BLK [(match_operand:SI 4 "register_operand" "r")]
+		      UNSPEC_UASW))
+     (set (match_operand:BLK 5 "memory_operand" "=m")
+	  (unspec:BLK [(match_operand:SI 6 "register_operand" "r")]
+		      UNSPEC_UASW))
+     (set (match_operand:BLK 7 "memory_operand" "=m")
+	  (unspec:BLK [(match_operand:SI 8 "register_operand" "r")]
+		      UNSPEC_UASW))
+     (set (match_operand:BLK 9 "memory_operand" "=m")
+	  (unspec:BLK [(match_operand:SI 10 "register_operand" "r")]
+		      UNSPEC_UASW))])]
+  "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 5"
+  { return nanomips_output_word_ua_multiple (true, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*store_word_ua_multiple4"
+  [(match_parallel 0 "store_multiple_operation"
+    [(set (match_operand:BLK 1 "memory_operand" "=ZA")
+	  (unspec:BLK [(match_operand:SI 2 "register_operand" "r")]
+		      UNSPEC_UASW))
+     (set (match_operand:BLK 3 "memory_operand" "=m")
+	  (unspec:BLK [(match_operand:SI 4 "register_operand" "r")]
+		      UNSPEC_UASW))
+     (set (match_operand:BLK 5 "memory_operand" "=m")
+	  (unspec:BLK [(match_operand:SI 6 "register_operand" "r")]
+		      UNSPEC_UASW))
+     (set (match_operand:BLK 7 "memory_operand" "=m")
+	  (unspec:BLK [(match_operand:SI 8 "register_operand" "r")]
+		      UNSPEC_UASW))])]
+  "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 4"
+  { return nanomips_output_word_ua_multiple (true, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*store_word_ua_multiple3"
+  [(match_parallel 0 "store_multiple_operation"
+    [(set (match_operand:BLK 1 "memory_operand" "=ZA")
+	  (unspec:BLK [(match_operand:SI 2 "register_operand" "r")]
+		      UNSPEC_UASW))
+     (set (match_operand:BLK 3 "memory_operand" "=m")
+	  (unspec:BLK [(match_operand:SI 4 "register_operand" "r")]
+		      UNSPEC_UASW))
+     (set (match_operand:BLK 5 "memory_operand" "=m")
+	  (unspec:BLK [(match_operand:SI 6 "register_operand" "r")]
+		      UNSPEC_UASW))])]
+  "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 3"
+  { return nanomips_output_word_ua_multiple (true, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*store_word_ua_multiple2"
+  [(match_parallel 0 "store_multiple_operation"
+    [(set (match_operand:BLK 1 "memory_operand" "=ZA")
+	  (unspec:BLK [(match_operand:SI 2 "register_operand" "r")]
+		      UNSPEC_UASW))
+     (set (match_operand:BLK 3 "memory_operand" "=m")
+	  (unspec:BLK [(match_operand:SI 4 "register_operand" "r")]
+		      UNSPEC_UASW))])]
+  "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 2"
+  { return nanomips_output_word_ua_multiple (true, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*load_word_ua_multiple8"
+  [(match_parallel 0 "load_multiple_operation"
+    [(set (match_operand:SI 1 "register_operand" "=&r")
+	  (unspec:SI [(match_operand:SI 2 "memory_operand" "ZA")] UNSPEC_UALW))
+     (set (match_operand:SI 3 "register_operand" "=&r")
+	  (unspec:SI [(match_operand:SI 4 "memory_operand" "m")] UNSPEC_UALW))
+     (set (match_operand:SI 5 "register_operand" "=&r")
+	  (unspec:SI [(match_operand:SI 6 "memory_operand" "m")] UNSPEC_UALW))
+     (set (match_operand:SI 7 "register_operand" "=&r")
+	  (unspec:SI [(match_operand:SI 8 "memory_operand" "m")] UNSPEC_UALW))
+     (set (match_operand:SI 9 "register_operand" "=&r")
+	  (unspec:SI [(match_operand:SI 10 "memory_operand" "m")] UNSPEC_UALW))
+     (set (match_operand:SI 11 "register_operand" "=&r")
+	  (unspec:SI [(match_operand:SI 12 "memory_operand" "m")] UNSPEC_UALW))
+     (set (match_operand:SI 13 "register_operand" "=&r")
+	  (unspec:SI [(match_operand:SI 14 "memory_operand" "m")] UNSPEC_UALW))
+     (set (match_operand:SI 15 "register_operand" "=r")
+	  (unspec:SI [(match_operand:SI 16 "memory_operand" "m")]
+		     UNSPEC_UALW))])]
+  "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 8"
+  { return nanomips_output_word_ua_multiple (false, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*load_word_ua_multiple7"
+  [(match_parallel 0 "load_multiple_operation"
+    [(set (match_operand:SI 1 "register_operand" "=&r")
+	  (unspec:SI [(match_operand:SI 2 "memory_operand" "ZA")] UNSPEC_UALW))
+     (set (match_operand:SI 3 "register_operand" "=&r")
+	  (unspec:SI [(match_operand:SI 4 "memory_operand" "m")] UNSPEC_UALW))
+     (set (match_operand:SI 5 "register_operand" "=&r")
+	  (unspec:SI [(match_operand:SI 6 "memory_operand" "m")] UNSPEC_UALW))
+     (set (match_operand:SI 7 "register_operand" "=&r")
+	  (unspec:SI [(match_operand:SI 8 "memory_operand" "m")] UNSPEC_UALW))
+     (set (match_operand:SI 9 "register_operand" "=&r")
+	  (unspec:SI [(match_operand:SI 10 "memory_operand" "m")] UNSPEC_UALW))
+     (set (match_operand:SI 11 "register_operand" "=&r")
+	  (unspec:SI [(match_operand:SI 12 "memory_operand" "m")] UNSPEC_UALW))
+     (set (match_operand:SI 13 "register_operand" "=r")
+	  (unspec:SI [(match_operand:SI 14 "memory_operand" "m")]
+		     UNSPEC_UALW))])]
+  "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 7"
+  { return nanomips_output_word_ua_multiple (false, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*load_word_ua_multiple6"
+  [(match_parallel 0 "load_multiple_operation"
+    [(set (match_operand:SI 1 "register_operand" "=&r")
+	  (unspec:SI [(match_operand:SI 2 "memory_operand" "ZA")] UNSPEC_UALW))
+     (set (match_operand:SI 3 "register_operand" "=&r")
+	  (unspec:SI [(match_operand:SI 4 "memory_operand" "m")] UNSPEC_UALW))
+     (set (match_operand:SI 5 "register_operand" "=&r")
+	  (unspec:SI [(match_operand:SI 6 "memory_operand" "m")] UNSPEC_UALW))
+     (set (match_operand:SI 7 "register_operand" "=&r")
+	  (unspec:SI [(match_operand:SI 8 "memory_operand" "m")] UNSPEC_UALW))
+     (set (match_operand:SI 9 "register_operand" "=&r")
+	  (unspec:SI [(match_operand:SI 10 "memory_operand" "m")] UNSPEC_UALW))
+     (set (match_operand:SI 11 "register_operand" "=r")
+	  (unspec:SI [(match_operand:SI 12 "memory_operand" "m")]
+		     UNSPEC_UALW))])]
+  "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 6"
+  { return nanomips_output_word_ua_multiple (false, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*load_word_ua_multiple5"
+  [(match_parallel 0 "load_multiple_operation"
+    [(set (match_operand:SI 1 "register_operand" "=&r")
+	  (unspec:SI [(match_operand:SI 2 "memory_operand" "ZA")] UNSPEC_UALW))
+     (set (match_operand:SI 3 "register_operand" "=&r")
+	  (unspec:SI [(match_operand:SI 4 "memory_operand" "m")] UNSPEC_UALW))
+     (set (match_operand:SI 5 "register_operand" "=&r")
+	  (unspec:SI [(match_operand:SI 6 "memory_operand" "m")] UNSPEC_UALW))
+     (set (match_operand:SI 7 "register_operand" "=&r")
+	  (unspec:SI [(match_operand:SI 8 "memory_operand" "m")] UNSPEC_UALW))
+     (set (match_operand:SI 9 "register_operand" "=r")
+	  (unspec:SI [(match_operand:SI 10 "memory_operand" "m")]
+		     UNSPEC_UALW))])]
+  "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 5"
+  { return nanomips_output_word_ua_multiple (false, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*load_word_ua_multiple4"
+  [(match_parallel 0 "load_multiple_operation"
+    [(set (match_operand:SI 1 "register_operand" "=&r")
+	  (unspec:SI [(match_operand:SI 2 "memory_operand" "ZA")] UNSPEC_UALW))
+     (set (match_operand:SI 3 "register_operand" "=&r")
+	  (unspec:SI [(match_operand:SI 4 "memory_operand" "m")] UNSPEC_UALW))
+     (set (match_operand:SI 5 "register_operand" "=&r")
+	  (unspec:SI [(match_operand:SI 6 "memory_operand" "m")] UNSPEC_UALW))
+     (set (match_operand:SI 7 "register_operand" "=r")
+	  (unspec:SI [(match_operand:SI 8 "memory_operand" "m")]
+		     UNSPEC_UALW))])]
+  "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 4"
+  { return nanomips_output_word_ua_multiple (false, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*load_word_ua_multiple3"
+  [(match_parallel 0 "load_multiple_operation"
+    [(set (match_operand:SI 1 "register_operand" "=&r")
+	  (unspec:SI [(match_operand:SI 2 "memory_operand" "ZA")] UNSPEC_UALW))
+     (set (match_operand:SI 3 "register_operand" "=&r")
+	  (unspec:SI [(match_operand:SI 4 "memory_operand" "m")] UNSPEC_UALW))
+     (set (match_operand:SI 5 "register_operand" "=r")
+	  (unspec:SI [(match_operand:SI 6 "memory_operand" "m")]
+		     UNSPEC_UALW))])]
+  "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 3"
+  { return nanomips_output_word_ua_multiple (false, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*load_word_ua_multiple2"
+  [(match_parallel 0 "load_multiple_operation"
+    [(set (match_operand:SI 1 "register_operand" "=&r")
+	  (unspec:SI [(match_operand:SI 2 "memory_operand" "ZA")] UNSPEC_UALW))
+     (set (match_operand:SI 3 "register_operand" "=r")
+	  (unspec:SI [(match_operand:SI 4 "memory_operand" "m")]
+		     UNSPEC_UALW))])]
+  "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 2"
+  { return nanomips_output_word_ua_multiple (false, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
 
 ;; Load word pair as LWM.
 (define_peephole2

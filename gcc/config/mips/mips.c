@@ -10519,6 +10519,17 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length,
 	    }
 	  for (; offset + delta <= this_length; offset += delta, i++);
 	}
+      else if (mips_use_multi_memcpy && TARGET_NANOMIPS == NANOMIPS_NMF
+	       && IN_RANGE (num_units, 2, 8))
+	{
+	  rtx part_src = adjust_address (src, BLKmode, offset);
+	  set_mem_size (part_src, num_units * delta);
+	  rtx part_dest = adjust_address (dest, BLKmode, offset);
+	  set_mem_size (part_dest, num_units * delta);
+	  emit_insn (gen_uamovmemsi_multireg (part_dest, part_src,
+					      GEN_INT (num_units)));
+	  for (; offset + delta <= this_length; offset += delta, i++);
+	}
       else
 	{
 	  /* Load as many BITS-sized chunks as possible.  Use a normal load if
@@ -27509,6 +27520,11 @@ nanomips_word_multiple_pattern_p (bool store_p, rtx pattern)
       /* Check that the SET is a load (if restoring) or a store
 	 (if saving).  */
       mem = store_p ? SET_DEST (set) : SET_SRC (set);
+
+      /* For unaligned memory access.  */
+      if (GET_CODE (mem) == UNSPEC && XINT (mem, 1) == UNSPEC_UALW)
+	mem = XVECEXP (mem, 0, 0);
+
       if (!MEM_P (mem) || MEM_VOLATILE_P (mem))
 	return false;
 
@@ -27520,6 +27536,11 @@ nanomips_word_multiple_pattern_p (bool store_p, rtx pattern)
 
       /* Check that SET's other operand is a register.  */
       reg = store_p ? SET_SRC (set) : SET_DEST (set);
+
+      /* For unaligned memory access.  */
+      if (GET_CODE (reg) == UNSPEC && XINT (reg, 1) == UNSPEC_UASW)
+	reg = XVECEXP (reg, 0, 0);
+
       if (!REG_P (reg))
 	return false;
 
@@ -27627,6 +27648,18 @@ nanomips_output_word_multiple (bool store_p, rtx pattern)
 
   n = XVECLEN (pattern, 0);
   sprintf (buffer, store_p ? "swm\t%%2, %%1, %d" : "lwm\t%%1, %%2, %d", n);
+
+  return buffer;
+}
+
+const char *
+nanomips_output_word_ua_multiple (bool store_p, rtx pattern)
+{
+  static char buffer[300];
+  int n;
+
+  n = XVECLEN (pattern, 0);
+  sprintf (buffer, store_p ? "uaswm\t%%2, %%1, %d" : "ualwm\t%%1, %%2, %d", n);
 
   return buffer;
 }
@@ -31018,8 +31051,23 @@ void nanomips_expand_movmemsi_multireg (rtx dest, rtx src, unsigned int count)
   emit_insn (pat);
 }
 
+void nanomips_expand_uamovmemsi_multireg (rtx dest, rtx src, unsigned int count)
+{
+  rtx pat = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (count + 1));
+  rtvec src_vec = gen_rtvec (1, src);
+  rtx src_unspec = gen_rtx_UNSPEC (BLKmode, src_vec, UNSPEC_MEM_BLOCK);
+
+  XVECEXP (pat, 0, 0) = gen_rtx_SET (dest, src_unspec);
+  for (unsigned int i = 0; i < count; i++)
+    XVECEXP (pat, 0, i + 1) =
+      gen_rtx_CLOBBER (VOIDmode,
+		       gen_rtx_REG (SImode, MIPS_FIRST_MOVE_REG + i));
+  emit_insn (pat);
+}
+
 void nanomips_load_store_multiple_split (rtx dest, rtx src,
-					 unsigned int count)
+					 unsigned int count,
+					 unsigned int align)
 {
   rtx dest_base, src_base;
   HOST_WIDE_INT dest_offset, src_offset;
@@ -31040,10 +31088,20 @@ void nanomips_load_store_multiple_split (rtx dest, rtx src,
       rtx src_plus_constant = plus_constant (SImode, src_base,
 					     src_offset + i * UNITS_PER_WORD);
       rtx reg = gen_rtx_REG (SImode, MIPS_FIRST_MOVE_REG + i);
-      XVECEXP (load, 0, i) =
-	gen_rtx_SET (reg, gen_rtx_MEM (SImode, src_plus_constant));
-      XVECEXP (store, 0, i) =
-	gen_rtx_SET (gen_rtx_MEM (SImode, dest_plus_constant), reg);
+      if (align)
+	{
+	  XVECEXP (load, 0, i) =
+	    gen_rtx_SET (reg, gen_rtx_MEM (SImode, src_plus_constant));
+	  XVECEXP (store, 0, i) =
+	    gen_rtx_SET (gen_rtx_MEM (SImode, dest_plus_constant), reg);
+	}
+      else
+	{
+	  XVECEXP (load, 0, i) =
+	    gen_mov_ualw (reg, gen_rtx_MEM (SImode, src_plus_constant));
+	  XVECEXP (store, 0, i) =
+	    gen_mov_uasw (gen_rtx_MEM (BLKmode, dest_plus_constant), reg);
+	}
     }
   emit_insn (load);
   emit_insn (store);

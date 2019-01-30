@@ -29,6 +29,7 @@
   UNSPEC_STORE_LEFT
   UNSPEC_STORE_RIGHT
   UNSPEC_UASW
+  UNSPEC_MEM_BLOCK
 
   ;; Integer operations that are too cumbersome to describe directly.
   UNSPEC_WSBH
