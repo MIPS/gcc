@@ -3491,7 +3491,8 @@ propagate_unused_ret_first_stage (cgraph_node *node, void *)
    if appropriate.  */
 
 static void
-process_isra_node_results (cgraph_node *node)
+process_isra_node_results (cgraph_node *node,
+			   hash_map<const char *, unsigned> *clone_num_suffixes)
 {
   isra_func_summary *ifs = func_sums->get (node);
   if (!ifs)
@@ -3588,9 +3589,14 @@ process_isra_node_results (cgraph_node *node)
       new_adjustments->dump (dump_file);
     }
 
-  vec<cgraph_edge *> callers = node->collect_callers ();;
+  unsigned &suffix_counter = clone_num_suffixes->get_or_insert (
+			       IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (
+				 node->decl)));
+  vec<cgraph_edge *> callers = node->collect_callers ();
   cgraph_node *new_node
-    = node->create_virtual_clone (callers, NULL, new_adjustments, "isra", 0);
+    = node->create_virtual_clone (callers, NULL, new_adjustments, "isra",
+				  suffix_counter);
+  suffix_counter++;
 
   if (dump_file)
     fprintf (dump_file, "  Created new node %s\n", new_node->dump_name ());
@@ -3759,10 +3765,14 @@ ipa_sra_analysis (void)
       fprintf (dump_file, "\n========== IPA-SRA decisions ==========\n");
     }
 
+  hash_map<const char *, unsigned> *clone_num_suffixes
+    = new hash_map<const char *, unsigned>;
+
   cgraph_node *node;
   FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (node)
-    process_isra_node_results (node);
+    process_isra_node_results (node, clone_num_suffixes);
 
+  delete clone_num_suffixes;
   func_sums->release ();
   func_sums = NULL;
   call_sums->release ();
