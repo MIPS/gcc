@@ -3320,7 +3320,12 @@ mips_classify_symbol_1 (const_rtx x, enum mips_symbol_context context,
 	{
 	  if (flag_pic && !mips_symbol_binds_local_p (x))
 	    {
-	      if (symbol_pic_model == NANO_PIC_AUTO
+	      if (context == SYMBOL_CONTEXT_CALL
+                   && SYMBOL_REF_FUNCTION_P (x)
+                   && (symbol_pic_model != NANO_PIC_LARGE)
+                   && !SYMBOL_REF_WEAK (x))
+                return SYMBOL_GOT_CALL;
+              else if (symbol_pic_model == NANO_PIC_AUTO
 		  && !SYMBOL_REF_WEAK (x))
 		return SYMBOL_GOT_PAGE_OFST;
 	      else if (symbol_pic_model == NANO_PIC_MEDIUM
