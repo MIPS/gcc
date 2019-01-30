@@ -110,14 +110,14 @@ ipa_dump_adjusted_parameters (FILE *f,
   unsigned i, len = vec_safe_length (adj_params);
   bool first = true;
 
-  fprintf (f, "IPA adjusted parameters: ");
+  fprintf (f, "    IPA adjusted parameters: ");
   for (i = 0; i < len; i++)
     {
       struct ipa_adjusted_param *apm;
       apm = &(*adj_params)[i];
 
       if (!first)
-	fprintf (f, "                         ");
+	fprintf (f, "                             ");
       else
 	first = false;
 
@@ -919,10 +919,10 @@ ipa_param_adjustments::modify_call (struct cgraph_edge *cs)
 void
 ipa_param_adjustments::dump (FILE *f)
 {
-  fprintf (f, "m_always_copy_start: %i\n", m_always_copy_start);
+  fprintf (f, "    m_always_copy_start: %i\n", m_always_copy_start);
   ipa_dump_adjusted_parameters (f, m_adj_params);
   if (m_skip_return)
-    fprintf (f, "Will SKIP return.\n");
+    fprintf (f, "     Will SKIP return.\n");
 }
 
 /* Dump information contained in the object in textual form to stderr.  */

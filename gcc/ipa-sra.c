@@ -3497,20 +3497,10 @@ process_isra_node_results (cgraph_node *node)
   if (!ifs)
     return;
 
-  if (dump_file)
-    {
-      fprintf (dump_file, "\nEvaluating analysis results for %s\n",
-	       node->dump_name ());
-    }
-
   unsigned param_count = vec_safe_length (ifs->m_parameters);
   bool will_change_function = false;
   if (ifs->m_returns_value && ifs->m_return_ignored)
-    {
-      will_change_function = true;
-      if (dump_file)
-	fprintf (dump_file, "  Will remove return value.\n");
-    }
+    will_change_function = true;
   else
     for (unsigned i = 0; i < param_count; i++)
       {
@@ -3525,6 +3515,14 @@ process_isra_node_results (cgraph_node *node)
       }
   if (!will_change_function)
     return;
+
+  if (dump_file)
+    {
+      fprintf (dump_file, "\nEvaluating analysis results for %s\n",
+	       node->dump_name ());
+      if (ifs->m_returns_value && ifs->m_return_ignored)
+	fprintf (dump_file, "  Will remove return value.\n");
+    }
 
   /* Currently IPA-SRA is the first IPA pass creating param_adjustments.  If
      that ever changes, we'll have to add logic to combine pre-existing
@@ -3591,7 +3589,11 @@ process_isra_node_results (cgraph_node *node)
     }
 
   vec<cgraph_edge *> callers = node->collect_callers ();;
-  node->create_virtual_clone (callers, NULL, new_adjustments, "isra", 0);
+  cgraph_node *new_node
+    = node->create_virtual_clone (callers, NULL, new_adjustments, "isra", 0);
+
+  if (dump_file)
+    fprintf (dump_file, "  Created new node %s\n", new_node->dump_name ());
   callers.release ();
 }
 
@@ -3602,14 +3604,12 @@ ipa_sra_analysis (void)
 {
   if (dump_file)
     {
-      fprintf (dump_file, "\n============ IPA SRA IPA stage ============\n");
+      fprintf (dump_file, "\n========== IPA-SRA IPA stage ==========\n");
       ipa_sra_dump_all_summaries (dump_file);
     }
 
-  /* !!! In LTO, this will fail, we ned to strem in the summaries. */
   gcc_checking_assert (func_sums);
   gcc_checking_assert (call_sums);
-
   cgraph_node **order = XCNEWVEC (cgraph_node *, symtab->cgraph_count);
   auto_vec <cgraph_node *, 16> stack;
   int node_scc_count = ipa_reduced_postorder (order, true, true, NULL);
@@ -3745,17 +3745,21 @@ ipa_sra_analysis (void)
       cycle_nodes.release ();
     }
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fprintf (dump_file, "\n============ IPA SRA PROP RESULTS ============\n");
-      ipa_sra_dump_all_summaries (dump_file);
-    }
-
   ipa_free_postorder_info ();
   free (order);
 
-  cgraph_node *node;
+  if (dump_file)
+    {
+      if (dump_flags & TDF_DETAILS)
+	{
+	  fprintf (dump_file, "\n========== IPA-SRA propagation final state "
+		   " ==========\n");
+	  ipa_sra_dump_all_summaries (dump_file);
+	}
+      fprintf (dump_file, "\n========== IPA-SRA decisions ==========\n");
+    }
 
+  cgraph_node *node;
   FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (node)
     process_isra_node_results (node);
 
@@ -3765,7 +3769,8 @@ ipa_sra_analysis (void)
   call_sums = NULL;
 
   if (dump_file)
-    fprintf (dump_file, "\nIPA SRA IPA analysis done\n\n");
+    fprintf (dump_file, "\n========== IPA SRA IPA analysis done "
+	     "==========\n\n");
   return 0;
 }
 
