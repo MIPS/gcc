@@ -1709,7 +1709,8 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 		 cost for every peeling option.  */
               if (unlimited_cost_model (LOOP_VINFO_LOOP (loop_vinfo)))
 		{
-		  poly_uint64 nscalars = (STMT_SLP_TYPE (stmt_info)
+		  poly_uint64 nscalars = ((STMT_VINFO_GROUPED_ACCESS (stmt_info)
+					   && STMT_SLP_TYPE (stmt_info))
 					  ? vf * DR_GROUP_SIZE (stmt_info) : vf);
 		  possible_npeel_number
 		    = vect_get_num_vectors (nscalars, vectype);
@@ -6474,6 +6475,7 @@ vect_supportable_dr_alignment (dr_vec_info *dr_info,
 	  /* If we are doing SLP then the accesses need not have the
 	     same alignment, instead it depends on the SLP group size.  */
 	  if (loop_vinfo
+	      && STMT_VINFO_GROUPED_ACCESS (stmt_info)
 	      && STMT_SLP_TYPE (stmt_info)
 	      && !multiple_p (LOOP_VINFO_VECT_FACTOR (loop_vinfo)
 			      * (DR_GROUP_SIZE
