@@ -191,9 +191,9 @@ class translate_isl_ast_to_gimple
 
   tree get_rename_from_scev (tree old_name, gimple_seq *stmts, loop_p loop,
 			     vec<tree> iv_map);
-  void graphite_copy_stmts_from_block (basic_block bb, basic_block new_bb,
+  void graphite_copy_stmts_from_block (poly_bb_p pbb, basic_block new_bb,
 				       vec<tree> iv_map);
-  edge copy_bb_and_scalar_dependences (basic_block bb, edge next_e,
+  edge copy_bb_and_scalar_dependences (poly_bb_p pbb, edge next_e,
 				       vec<tree> iv_map);
   void set_rename (tree old_name, tree expr);
   void gsi_insert_earliest (gimple_seq seq);
@@ -829,7 +829,7 @@ translate_isl_ast_node_user (__isl_keep isl_ast_node *node,
       print_loops_bb (dump_file, GBB_BB (gbb), 0, 3);
     }
 
-  next_e = copy_bb_and_scalar_dependences (old_bb, next_e, iv_map);
+  next_e = copy_bb_and_scalar_dependences (pbb, next_e, iv_map);
 
   iv_map.release ();
 
@@ -1150,20 +1150,24 @@ should_copy_to_new_region (gimple *stmt, sese_info_p region)
   return true;
 }
 
-/* Duplicates the statements of basic block BB into basic block NEW_BB
+/* Duplicates the statements of black box PBB into basic block NEW_BB
    and compute the new induction variables according to the IV_MAP.  */
 
 void translate_isl_ast_to_gimple::
-graphite_copy_stmts_from_block (basic_block bb, basic_block new_bb,
+graphite_copy_stmts_from_block (poly_bb_p pbb, basic_block new_bb,
 				vec<tree> iv_map)
 {
-  /* Iterator poining to the place where new statement (s) will be inserted.  */
+  basic_block bb = pbb_bb (pbb);
+  /* Iterator pointing to the place where new statement(s) will be inserted.  */
   gimple_stmt_iterator gsi_tgt = gsi_last_bb (new_bb);
+  int i;
+  gimple *stmt;
 
-  for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
-       gsi_next (&gsi))
+  FOR_EACH_VEC_ELT (pbb->stmts, i, stmt)
+  /*for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
+       gsi_next (&gsi))*/
     {
-      gimple *stmt = gsi_stmt (gsi);
+      //gimple *stmt = gsi_stmt (gsi);
       if (!should_copy_to_new_region (stmt, region))
 	continue;
 
@@ -1241,8 +1245,9 @@ graphite_copy_stmts_from_block (basic_block bb, basic_block new_bb,
    and returns the next edge following this new block.  */
 
 edge translate_isl_ast_to_gimple::
-copy_bb_and_scalar_dependences (basic_block bb, edge next_e, vec<tree> iv_map)
+copy_bb_and_scalar_dependences (poly_bb_p pbb, edge next_e, vec<tree> iv_map)
 {
+  basic_block bb = pbb_bb (pbb);
   basic_block new_bb = split_edge (next_e);
   gimple_stmt_iterator gsi_tgt = gsi_last_bb (new_bb);
   for (gphi_iterator psi = gsi_start_phis (bb); !gsi_end_p (psi);
@@ -1269,7 +1274,7 @@ copy_bb_and_scalar_dependences (basic_block bb, edge next_e, vec<tree> iv_map)
       gsi_insert_after (&gsi_tgt, ass, GSI_NEW_STMT);
     }
 
-  graphite_copy_stmts_from_block (bb, new_bb, iv_map);
+  graphite_copy_stmts_from_block (pbb, new_bb, iv_map);
 
   /* Insert out-of SSA copies on the original BB outgoing edges.  */
   gsi_tgt = gsi_last_bb (new_bb);

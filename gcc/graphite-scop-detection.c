@@ -1294,7 +1294,7 @@ build_cross_bb_scalars_use (scop_p scop, tree use, gimple *use_stmt,
 }
 
 static int
-pbb_index (int i, vec<int> &comp)
+pbb_comp (int i, vec<int> &comp)
 {
   if (i == -1)
     return i;
@@ -1304,10 +1304,10 @@ pbb_index (int i, vec<int> &comp)
 }
 
 static int
-merge_pbb_index (int a, int b, vec<int> &comp)
+merge_pbb_comp (int a, int b, vec<int> &comp)
 {
-  a = pbb_index (a, comp);
-  b = pbb_index (b, comp);
+  a = pbb_comp (a, comp);
+  b = pbb_comp (b, comp);
   if (a == -1 || a == b)
     return b;
   if (b == -1)
@@ -1339,7 +1339,7 @@ start_pbb_at_stmt (scop_p scop, gimple *stmt, vec<int> &comp)
       {
 	gimple *def_stmt = SSA_NAME_DEF_STMT (use);
 	if (gimple_bb (stmt) == gimple_bb (def_stmt))
-	  uid = merge_pbb_index (uid, gimple_uid (def_stmt), comp);
+	  uid = merge_pbb_comp (uid, gimple_uid (def_stmt), comp);
       }
   if (uid == -1)
     {
@@ -1369,7 +1369,7 @@ start_pbb_at_phi (scop_p scop, gphi *phi, vec<int> &comp)
 	  gimple *def_stmt = SSA_NAME_DEF_STMT (use);
 	  if (gimple_bb (phi) == gimple_bb (def_stmt)
 	      && gimple_uid (def_stmt) != -1)
-	    uid = merge_pbb_index (uid, gimple_uid (def_stmt), comp);
+	    uid = merge_pbb_comp (uid, gimple_uid (def_stmt), comp);
 	}
     }
   if (uid == -1)
@@ -1389,6 +1389,7 @@ try_generate_gimple_bb (scop_p scop, basic_block bb)
   vec<data_reference_p> drs = vNULL;
   vec<tree> writes = vNULL;
   vec<scalar_use> reads = vNULL;
+  vec<gimple*> stmts = vNULL;
   vec<int> comp = vNULL;
   gimple_poly_bb_p gbb = NULL;
   poly_bb_p pbb = NULL;
@@ -1417,16 +1418,18 @@ try_generate_gimple_bb (scop_p scop, basic_block bb)
 
   for (int i = 0, n = comp.length (); i < n; i++)
     {
-      int ind = pbb_index (i, comp);
+      if (comp[i] != -1)
+	continue;
   for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
        gsi_next (&gsi))
     {
       gimple *stmt = gsi_stmt (gsi);
       if (is_gimple_debug (stmt)
-	  || pbb_index (gimple_uid (stmt), comp) != ind
+	  || pbb_comp (gimple_uid (stmt), comp) != i
 	  )
 	continue;
 
+      stmts.safe_push (stmt);
       graphite_find_data_references_in_stmt (nest, loop, stmt, &drs);
 
       tree def = gimple_get_lhs (stmt);
@@ -1448,7 +1451,7 @@ try_generate_gimple_bb (scop_p scop, basic_block bb)
       gphi *phi = psi.phi ();
       tree res = gimple_phi_result (phi);
       if (virtual_operand_p (res)
-	  || pbb_index (gimple_uid (phi), comp) != ind
+	  || pbb_comp (gimple_uid (phi), comp) != i
 	  || scev_analyzable_p (res, scop->scop_info->region))
 	continue;
       /* To simulate out-of-SSA the block containing the PHI node has
@@ -1458,6 +1461,32 @@ try_generate_gimple_bb (scop_p scop, basic_block bb)
       add_read (&reads, res, phi);
       add_write (&writes, res);
     }
+      if (!drs.is_empty () || !writes.is_empty () || !reads.is_empty ())
+	{
+	  if (!gbb)
+	    gbb = new_gimple_poly_bb (scop, bb);
+	  pbb = new_poly_bb (scop, gbb, drs, reads, writes, stmts);
+
+	  int j;
+	  data_reference_p dr;
+	  FOR_EACH_VEC_ELT (pbb->data_refs, j, dr)
+	    {
+	      DEBUG_PRINT (dp << "Adding memory ";
+			   if (dr->is_read)
+			   dp << "read: ";
+			   else
+			   dp << "write: ";
+			   print_generic_expr (dump_file, dr->ref);
+			   dp << "\nFrom stmt: ";
+			   print_gimple_stmt (dump_file, dr->stmt, 0));
+
+	      scop->drs.safe_push (dr_info (dr, pbb));
+	    }
+	  drs = vNULL;
+	  reads = vNULL;
+	  writes = vNULL;
+	}
+      stmts = vNULL;
     }
   comp.release ();
   basic_block bb_for_succs = bb;
@@ -1516,10 +1545,11 @@ try_generate_gimple_bb (scop_p scop, basic_block bb)
     }
 
   if (drs.is_empty () && writes.is_empty () && reads.is_empty ())
-    return NULL;
+    return gbb;
 
-  gbb = new_gimple_poly_bb (bb);
-  pbb = new_poly_bb (scop, gbb, drs, reads, writes);
+  if (!gbb)
+    gbb = new_gimple_poly_bb (scop, bb);
+  pbb = new_poly_bb (scop, gbb, drs, reads, writes, stmts);
 
   int i;
   data_reference_p dr;

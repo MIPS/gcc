@@ -131,7 +131,8 @@ free_poly_dr (poly_dr_p pdr)
 
 poly_bb_p
 new_poly_bb (scop_p scop, gimple_poly_bb_p black_box,
-	     vec<data_reference_p> drs, vec<scalar_use> reads, vec<tree> writes)
+	     vec<data_reference_p> drs, vec<scalar_use> reads, vec<tree> writes,
+	     vec<gimple*> stmts)
 {
   poly_bb_p pbb = XNEW (struct poly_bb);
 
@@ -140,7 +141,9 @@ new_poly_bb (scop_p scop, gimple_poly_bb_p black_box,
   pbb->data_refs = drs;
   pbb->read_scalar_refs = reads;
   pbb->write_scalar_refs = writes;
+  pbb->stmts = stmts;
   PBB_SCOP (pbb) = scop;
+  pbb->ind = scop->pbbs.length ();
   scop->pbbs.safe_push (pbb);
   pbb_set_black_box (pbb, black_box);
   PBB_DRS (pbb).create (3);
@@ -164,6 +167,7 @@ free_poly_bb (poly_bb_p pbb)
   free_data_refs (pbb->data_refs);
   pbb->read_scalar_refs.release ();
   pbb->write_scalar_refs.release ();
+  pbb->stmts.release ();
 
   if (PBB_DRS (pbb).exists ())
     FOR_EACH_VEC_ELT (PBB_DRS (pbb), i, pdr)
@@ -218,12 +222,13 @@ debug_pdr (poly_dr_p pdr)
 /* Store the GRAPHITE representation of BB.  */
 
 gimple_poly_bb_p
-new_gimple_poly_bb (basic_block bb)
+new_gimple_poly_bb (scop_p scop, basic_block bb)
 {
   gimple_poly_bb_p gbb = XNEW (struct gimple_poly_bb);
   GBB_BB (gbb) = bb;
   GBB_CONDITIONS (gbb).create (0);
   GBB_CONDITION_CASES (gbb).create (0);
+  scop->gbbs.safe_push (gbb);
 
   return gbb;
 }
@@ -244,10 +249,11 @@ static void
 remove_gbbs_in_scop (scop_p scop)
 {
   int i;
-  poly_bb_p pbb;
+  gimple_poly_bb_p gbb;
 
-  FOR_EACH_VEC_ELT (scop->pbbs, i, pbb)
-    free_gimple_poly_bb (PBB_BLACK_BOX (pbb));
+  FOR_EACH_VEC_ELT (scop->gbbs, i, gbb)
+    free_gimple_poly_bb (gbb);
+  scop->gbbs.release ();
 }
 
 /* Creates a new SCOP containing the region (ENTRY, EXIT).  */
@@ -263,6 +269,7 @@ new_scop (edge entry, edge exit)
   s->param_context = NULL;
   scop_set_region (s, region);
   s->pbbs.create (3);
+  s->gbbs.create (3);
   s->drs.create (3);
   s->dependence = NULL;
   return s;
