@@ -52,7 +52,7 @@ DEFPARAM (PARAM_PREDICTABLE_BRANCH_OUTCOME,
 DEFPARAM (PARAM_INLINE_MIN_SPEEDUP,
 	  "inline-min-speedup",
 	  "The minimal estimated speedup allowing inliner to ignore inline-insns-single and inline-insns-auto.",
-	  5, 0, 0)
+	  15, 0, 0)
 
 /* The single function inlining limit. This is the maximum size
    of a function counted in internal gcc instructions (not in
@@ -86,12 +86,12 @@ DEFPARAM (PARAM_MAX_INLINE_INSNS_AUTO,
 DEFPARAM (PARAM_MAX_INLINE_INSNS_SMALL,
 	  "max-inline-insns-small",
 	  "The maximum number of instructions when automatically inlining small functions.",
-	  4, 0, 0)
+	  2, 0, 0)
 
 DEFPARAM (PARAM_MAX_INLINE_INSNS_SIZE,
 	  "max-inline-insns-size",
 	  "The maximum number of instructions when inlining for size.",
-	  2, 0, 0)
+	  1, 0, 0)
 
 DEFPARAM (PARAM_UNINLINED_FUNCTION_INSNS,
 	  "uninlined-function-insns",
