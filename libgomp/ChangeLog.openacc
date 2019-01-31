@@ -1,5 +1,8 @@
 2019-01-31  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* testsuite/libgomp.oacc-c-c++-common/lib-43.c: Remove.
+	* testsuite/libgomp.oacc-c-c++-common/lib-47.c: Likewise.
+
 	* testsuite/libgomp.oacc-c-c++-common/avoid-offloading-1.c:
 	Update.
 	* testsuite/libgomp.oacc-c-c++-common/avoid-offloading-2.c:
