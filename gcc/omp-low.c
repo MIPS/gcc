@@ -9016,9 +9016,9 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		    if (TREE_CODE (type) != ARRAY_TYPE)
 		      var = build_simple_mem_ref (var);
 		    var = fold_convert (TREE_TYPE (x), var);
-		    gimplify_assign (x, var, &ilist);
 		  }
 
+		gimplify_assign (x, var, &ilist);
 		if (optional_arg_p)
 		  gimple_seq_add_stmt (&ilist,
 				       gimple_build_label (opt_arg_label));

@@ -1,3 +1,8 @@
+2019-02-01  Kwok Cheung Yeung  <kcy@codesourcery.com>
+
+	* omp-low.c (lower_omp_target): Move gimplify_assign out from innermost
+	if statement.
+
 2019-02-01  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* omp-oacc-kernels.c (struct adjust_nested_loop_clauses_wi_info): New.
