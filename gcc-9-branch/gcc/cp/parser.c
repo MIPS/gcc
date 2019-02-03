@@ -23167,7 +23167,9 @@ cp_parser_class_name (cp_parser *parser,
   decl = cp_parser_maybe_treat_template_as_class (decl, class_head_p);
 
   /* If this is a typename, create a TYPENAME_TYPE.  */
-  if (typename_p && decl != error_mark_node)
+  if (typename_p
+      && decl != error_mark_node
+      && !is_overloaded_fn (decl))
     {
       decl = make_typename_type (scope, decl, typename_type,
 				 /*complain=*/tf_error);
@@ -25768,9 +25770,11 @@ cp_parser_gnu_attributes_opt (cp_parser* parser)
       cp_lexer_consume_token (parser->lexer);
       /* Look for the two `(' tokens.  */
       matching_parens outer_parens;
-      outer_parens.require_open (parser);
+      if (!outer_parens.require_open (parser))
+	ok = false;
       matching_parens inner_parens;
-      inner_parens.require_open (parser);
+      if (!inner_parens.require_open (parser))
+	ok = false;
 
       /* Peek at the next token.  */
       token = cp_lexer_peek_token (parser->lexer);
