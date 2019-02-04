@@ -288,7 +288,7 @@ struct isra_param_flow
   char length;
   /* Indices of formal parameters that feed into the described actual
      argument.  */
-  char inputs[IPA_SRA_MAX_PARAM_FLOW_LEN];
+  unsigned char inputs[IPA_SRA_MAX_PARAM_FLOW_LEN];
 
   /* True when the value of this actual copy is a portion of a formal
      parameter.  */
@@ -702,7 +702,7 @@ static bool
 add_src_to_param_flow (isra_param_flow *param_flow, int src)
 {
   gcc_checking_assert (src >= 0);
-  if (src > CHAR_MAX
+  if (src > UCHAR_MAX
       || param_flow->length == IPA_SRA_MAX_PARAM_FLOW_LEN)
     return false;
 
@@ -959,7 +959,6 @@ create_parameter_descriptors (cgraph_node *node,
   function *fun = DECL_STRUCT_FUNCTION (node->decl);
   bool ret = false;
 
-  decl2desc = new hash_map<tree, gensum_param_desc *>;
   int num = 0;
   for (tree parm = DECL_ARGUMENTS (node->decl);
        parm;
@@ -967,8 +966,7 @@ create_parameter_descriptors (cgraph_node *node,
     {
       const char *msg;
       gensum_param_desc *desc = &(*param_descriptions)[num];
-      /* !!? the vector is grown cleared in the caller  */
-      memset (desc, 0, sizeof (*desc));
+      /* param_descriptions vector is grown cleared in the caller.  */
       desc->m_param_number = num;
       decl2desc->put (parm, desc);
 
@@ -1048,19 +1046,19 @@ create_parameter_descriptors (cgraph_node *node,
 			 "not a gimple register (probably addressable)\n");
 	      continue;
 	    }
+	  if (is_va_list_type (type))
+	    {
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		fprintf (dump_file, " not a candidate, reference to "
+			 "a va list\n");
+	      continue;
+	    }
 	  if (ptr_parm_has_nonarg_uses (node, fun, parm, num,
 					     &desc->ptr_pt_count))
 	    {
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		fprintf (dump_file, " not a candidate, reference has "
 			 "nonarg uses\n");
-	      continue;
-	    }
-	  if (is_va_list_type (type))
-	    {
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-		fprintf (dump_file, " not a candidate, reference to "
-			 "a va list\n");
 	      continue;
 	    }
 	  desc->m_by_ref = true;
@@ -2291,17 +2289,18 @@ ipa_sra_summarize_function (cgraph_node *node)
   tree ret = TREE_TYPE (TREE_TYPE (node->decl));
   ifs->m_returns_value = (TREE_CODE (ret) != VOID_TYPE);
 
+  decl2desc = new hash_map<tree, gensum_param_desc *>;
   unsigned count = 0;
   for (tree parm = DECL_ARGUMENTS (node->decl); parm; parm = DECL_CHAIN (parm))
     count++;
 
-  struct function *fun = DECL_STRUCT_FUNCTION (node->decl);
   if (count > 0)
     {
       auto_vec<gensum_param_desc, 16> param_descriptions (count);
       param_descriptions.reserve_exact (count);
       param_descriptions.quick_grow_cleared (count);
 
+      struct function *fun = DECL_STRUCT_FUNCTION (node->decl);
       if (create_parameter_descriptors (node, &param_descriptions))
 	{
 	  final_bbs = BITMAP_ALLOC (NULL);
