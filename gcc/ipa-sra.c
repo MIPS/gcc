@@ -83,10 +83,11 @@ struct GTY(()) param_access
   /* Values returned by get_ref_base_and_extent but converted to bytes and
      stored as unsigned ints.  */
   unsigned unit_offset;
-  unsigned unit_size;
+  unsigned unit_size : ISRA_ARG_SIZE_LIMIT;
 
   /* Set once we are sure that the access will really end up in a potentially
-     transformed function - initially not set for function arguments.  */
+     transformed function - initially not set for portions of formal parameters
+     that are only used as actual function arguments passed to callees.  */
   unsigned definitive : 1;
   /* Set when initially we have allowed overlaps for this access and so it
      eventually needs checking for overlaps.  */
@@ -2175,7 +2176,7 @@ process_scan_results (cgraph_node *node, struct function *fun,
 	     ISRA_ARG_SIZE_LIMIT bits.  */
 	  desc->param_size_limit = param_size_limit / BITS_PER_UNIT;
 	  desc->nonarg_acc_size = nonarg_acc_size / BITS_PER_UNIT;
-	  if (desc->m_split_candidate &&  desc->ptr_pt_count)
+	  if (desc->m_split_candidate && desc->ptr_pt_count)
 	    {
 	      gcc_assert (desc->m_by_ref); /* TODO: Remove after testing.  */
 	      check_pass_throughs = true;
@@ -2716,7 +2717,7 @@ ipa_sra_ipa_function_checks (cgraph_node *node)
 
 struct caller_issues
 {
-  /* THere is a thunk among callers.  */
+  /* There is a thunk among callers.  */
   bool thunk;
   /* Call site with no available information.  */
   bool unknown_callsite;
@@ -2839,6 +2840,9 @@ static param_access *
 find_param_access (isra_param_desc *param_desc, unsigned offset, unsigned size)
 {
   unsigned pclen = vec_safe_length (param_desc->m_accesses);
+
+  /* The search is linear but the number of stored accesses is bound by
+     PARAM_IPA_SRA_MAX_REPLACEMENTS, so most probably 8.  */
 
   for (unsigned i = 0; i < pclen; i++)
     if ((*param_desc->m_accesses)[i]->unit_offset == offset
@@ -3095,8 +3099,10 @@ enum acc_prop_kind {ACC_PROP_DONT, ACC_PROP_COPY, ACC_PROP_DEFINITIVE};
 /* Attempt to propagate all definite accesses from ARG_DESC to PARAM_DESC, if
    they would not violate some constraint there.  If successful, return NULL,
    otherwise return the string reason for failure (which can be written to the
-   dump file).  In case of success, set *CHANGE_P to true if propagation
-   actually changed anything.  */
+   dump file).  DELTA_OFFSET is the known offset of the actual argument withing
+   the formal parameter (so of ARG_DESCS within PARAM_DESCS), ARG_SIZE is the
+   size of the actual argument or zero, if not known. In case of success, set
+   *CHANGE_P to true if propagation actually changed anything.  */
 
 static const char *
 pull_accesses_from_callee (isra_param_desc *param_desc,
@@ -3129,8 +3135,7 @@ pull_accesses_from_callee (isra_param_desc *param_desc,
 	 searches could be written more efficiently (if we kept the ordering
 	 when copying). But the number of accesses is capped at
 	 PARAM_IPA_SRA_MAX_REPLACEMENTS (so most likely 8) and the code gets
-	 messy quickly, so let's improve on that only if necessary and above
-	 all incrementally.  */
+	 messy quickly, so let's improve on that only if necessary.  */
 
       bool exact_match = false;
       for (unsigned i = 0; i < pclen; i++)
