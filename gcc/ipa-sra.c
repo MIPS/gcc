@@ -144,9 +144,6 @@ struct GTY(()) isra_param_desc
   /* How many of the call uses are passes to nodes in other SCC components.  */
   int m_scc_uses;
 
-  /* Number of times this parameter has been directly passed to  */
-  unsigned ptr_pt_count;	/* !!! Probably entirerely unnecessary */
-
   /* Unit size limit of total size of all replacements.  */
   unsigned m_param_size_limit : ISRA_ARG_SIZE_LIMIT;
   /* Sum of unit sizes of all definitive replacements.  */
@@ -376,7 +373,6 @@ public:
 
 	d->m_call_uses = s->m_call_uses;
 	d->m_scc_uses = s->m_scc_uses;
-	d->ptr_pt_count = s->ptr_pt_count;
 	d->m_param_size_limit = s->m_param_size_limit;
 	d->m_size_reached = s->m_size_reached;
 	d->m_locally_unused = s->m_locally_unused;
@@ -662,10 +658,9 @@ dump_isra_param_descriptor (FILE *f, isra_param_desc *desc)
       fprintf (f, "    not a candidate\n");
       return;
     }
-  fprintf (f, "    param_size_limit: %u, size_reached: %u\n",
-	   desc->m_param_size_limit, desc->m_size_reached);
-  if (desc->m_by_ref)
-    fprintf (f, "    by_ref with %u pass throughs\n", desc->ptr_pt_count);
+  fprintf (f, "    param_size_limit: %u, size_reached: %u%s\n",
+	   desc->m_param_size_limit, desc->m_size_reached,
+	   desc->m_by_ref ? ", by_ref" : "");
 
   for (unsigned i = 0; i < vec_safe_length (desc->m_accesses); ++i)
     {
@@ -2266,7 +2261,6 @@ process_scan_results (cgraph_node *node, struct function *fun,
       isra_param_desc *d = &(*ifs->m_parameters)[desc_index];
 
       d->m_call_uses = s->m_call_uses;
-      d->ptr_pt_count = s->ptr_pt_count;
       d->m_param_size_limit = s->param_size_limit;
       d->m_size_reached = s->nonarg_acc_size;
       d->m_locally_unused = s->m_locally_unused;
@@ -2429,7 +2423,6 @@ isra_write_node_summary (output_block *ob, cgraph_node *node)
 	}
       streamer_write_hwi (ob, desc->m_call_uses);
       gcc_assert (desc->m_scc_uses == 0);
-      streamer_write_uhwi (ob, desc->ptr_pt_count);
       streamer_write_uhwi (ob, desc->m_param_size_limit);
       streamer_write_uhwi (ob, desc->m_size_reached);
       bitpack_d bp = bitpack_create (ob->main_stream);
@@ -2551,7 +2544,6 @@ isra_read_node_info (struct lto_input_block *ib, cgraph_node *node,
 	}
       desc->m_call_uses = streamer_read_hwi (ib);
       desc->m_scc_uses = 0;
-      desc->ptr_pt_count = streamer_read_uhwi (ib);
       desc->m_param_size_limit = streamer_read_uhwi (ib);
       desc->m_size_reached = streamer_read_uhwi (ib);
       bitpack_d bp = streamer_read_bitpack (ib);
