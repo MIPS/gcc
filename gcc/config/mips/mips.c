@@ -13846,6 +13846,7 @@ nanomips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust, bool jrc_p)
 		       && INTVAL (XEXP (set_src, 1)) > 0)
 		   ? true : false;
   bool fp_p = false;
+  rtx operands[1];
 
   /* Parse the pattern.  */
   if (!nanomips_save_restore_pattern_p (pattern, adjust, &info, &fp_p, jrc_p))
@@ -13861,6 +13862,15 @@ nanomips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust, bool jrc_p)
   else
     {
       s = buffer;
+
+      if (cfun->machine->use_saverestore_gp_relaxation)
+       {
+         gcc_assert(BITSET_P (info.mask, GLOBAL_POINTER_REGNUM));
+         operands[0] = XEXP (DECL_RTL (current_function_decl), 0);
+         /* TODO: This produces an unnecessary newline after 1: label  */
+         output_asm_insn (".reloc\t1f,R_NANOMIPS_SAVERESTORE,%0\n1:", operands);
+       }
+
       s += sprintf (s, "%s", restore_p ? "restore" : "save");
       s += sprintf (s, "%s\t", jrc_p ? ".jrc" : "");
     }
@@ -14708,6 +14718,29 @@ mips_compute_frame_info_oabi_nabi (void)
     frame->cop0_save_offset = frame->cop0_sp_offset - offset;
 }
 
+static bool
+mips_use_saverestore_gp_relaxation_p (struct mips_frame_info *frame)
+{
+
+  if (TARGET_NANOMIPS != NANOMIPS_NMF)
+   return false;
+
+  if (!TARGET_LINKRELAX || !flag_pic)
+   return false;
+
+  if (!TARGET_RELAX_SAVERESTORE_GP)
+   return false;
+
+  if (!BITSET_P (frame->mask, GLOBAL_POINTER_REGNUM))
+   return false;
+
+  /* For now disable for hot/cold splits.  */
+  if (crtl->has_bb_partition)
+   return false;
+
+  return true;
+}
+
 /* Populate the current function's mips_frame_info structure.
 
    MIPS stack frames look like:
@@ -14931,6 +14964,10 @@ mips_compute_frame_info_pabi (void)
      size also.  */
   gcc_assert (crtl->args.pretend_args_size == 0);
   frame->total_size = offset;
+
+  cfun->machine->use_saverestore_gp_relaxation =
+                 (cfun->machine->safe_to_use_save_restore &&
+                  mips_use_saverestore_gp_relaxation_p (frame));
 
   /* Work out the offsets of the save areas from the top of the frame.  */
   if ((frame_pointer_needed || mips_use_frame_pointer)
