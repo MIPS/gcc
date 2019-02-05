@@ -380,3 +380,5 @@ FP_ASM_SPEC "\
       (*targetm.asm_out.internal_label) (FILE, PREFIX, NUM);		\
     }									\
   while (0)
+
+#define ASM_OUTPUT_CFI_DIRECTIVE nanomips_output_cfi_directive

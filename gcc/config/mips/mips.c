@@ -67,6 +67,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "print-rtl.h"
 #include "ira.h"
 #include "ira-int.h"
+#include "dwarf2out.h"
+#include "debug.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -14737,6 +14739,19 @@ mips_use_saverestore_gp_relaxation_p (struct mips_frame_info *frame)
   /* For now disable for hot/cold splits.  */
   if (crtl->has_bb_partition)
    return false;
+
+  /* We provide frame fixups via ASM_OUTPUT_CFI_DIRECTIVE
+     which does not cover compiler generated .eh_frame. sections.  */
+  if (dwarf2out_do_frame () && !flag_dwarf2_cfi_asm)
+   return false;
+
+  /* We asume that save/restore 16, gp can be removed by the linker
+     relaxation. Dwarf 3 debug info uses .debug_frame for function's
+     "frame base". So there is no need for aditional debug information
+     fixups in this case.  */
+  if (write_symbols != NO_DEBUG && dwarf_version < 3 &&
+      frame->total_size == 16)
+    return false;
 
   return true;
 }
@@ -31264,6 +31279,53 @@ nanomips_label_align (rtx label)
        && GET_CODE (PATTERN (next)) == ADDR_DIFF_VEC)
      return 0;
    return align_labels_log;
+}
+
+/* Implement ASM_OUTPUT_CFI_DIRECTIVE.  */
+
+void
+nanomips_output_cfi_directive (FILE* file , dw_cfi_ref cfi)
+{
+   gcc_assert (file == asm_out_file);
+   rtx operands[1];
+   switch (cfi->dw_cfi_opc)
+   {
+   case DW_CFA_offset:
+     if (cfun->machine->use_saverestore_gp_relaxation &&
+         cfi->dw_cfi_oprnd1.dw_cfi_reg_num == GLOBAL_POINTER_REGNUM)
+      {
+       operands[0] = XEXP (DECL_RTL (current_function_decl), 0);
+       output_asm_insn (".reloc\t.LFF%=,R_NANOMIPS_FRAME_REG,%0\n\t"
+                        ".reloc\t.LFF%=+1,R_NANOMIPS_FRAME_REG,%0\n\t"
+                        ".cfi_label .LFF%=",
+                        operands);
+      }
+      break;
+   case DW_CFA_restore:
+     if (cfun->machine->use_saverestore_gp_relaxation &&
+         cfi->dw_cfi_oprnd1.dw_cfi_reg_num == GLOBAL_POINTER_REGNUM)
+      {
+       operands[0] = XEXP (DECL_RTL (current_function_decl), 0);
+       output_asm_insn (".reloc\t.LFF%=,R_NANOMIPS_FRAME_REG,%0\n\t"
+                        ".cfi_label .LFF%=",
+                        operands);
+      }
+      break;
+   case DW_CFA_def_cfa_offset:
+      if (cfun->machine->use_saverestore_gp_relaxation &&
+          cfun->machine->frame.total_size == 16 &&
+          cfi->dw_cfi_oprnd1.dw_cfi_offset == cfun->machine->frame.total_size)
+      {
+       operands[0] = XEXP (DECL_RTL (current_function_decl), 0);
+       output_asm_insn (".reloc\t.LFF%=+1,R_NANOMIPS_FRAME_REG,%0\n\t"
+                        ".cfi_label .LFF%=",
+                        operands);
+      }
+      break;
+    default:
+    break;
+   }
+   output_cfi_directive (file, cfi);
 }
 
 /* Initialize the GCC target structure.  */

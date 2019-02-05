@@ -215,6 +215,8 @@ enum mips_split_type {
 
 #ifdef NANOMIPS_SUPPORT
 extern int nanomips_label_align (rtx);
+typedef struct dw_cfi_node *dw_cfi_ref;
+extern void nanomips_output_cfi_directive(FILE*, dw_cfi_ref);
 #endif
 extern void nanomips_expand_movmemsi_multireg (rtx, rtx, unsigned int);
 extern void nanomips_expand_uamovmemsi_multireg (rtx, rtx, unsigned int);
