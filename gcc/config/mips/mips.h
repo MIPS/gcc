@@ -3735,6 +3735,8 @@ struct GTY(())  machine_function {
   /* True if we are safe to use SAVE/RESTORE instruction in the
      prologue/epilogue.  */
   bool safe_to_use_save_restore;
+
+  bool use_saverestore_gp_relaxation;
 };
 #endif
 
