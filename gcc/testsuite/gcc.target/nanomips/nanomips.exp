@@ -831,6 +831,7 @@ proc mips-dg-options { args } {
     mips_option_dependency options "-mrelax-pic-calls" "-mno-plt"
     mips_option_dependency options "-mno-plt" "addressing=unknown"
     mips_option_dependency options "-mpid" "-mgpopt"
+    mips_option_dependency options "-fpic" "-mpcrel"
 
     # Work out information about the current ABI.
     set abi_test_option_p [mips_test_option_p options abi]
