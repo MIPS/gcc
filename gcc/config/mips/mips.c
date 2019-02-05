@@ -14015,7 +14015,8 @@ mips_cfun_has_flexible_gp_ref_p (void)
 
      In cases like these, reload will have added the constant to the
      pool but no instruction will yet refer to it.  */
-  if (TARGET_ABICALLS_PIC2 && !reload_completed && crtl->uses_const_pool)
+  if ((TARGET_ABICALLS_PIC2 || TARGET_NANOMIPS) &&
+        !reload_completed && crtl->uses_const_pool)
     return true;
 
   return mips_find_gp_ref (&cfun->machine->has_flexible_gp_insn_p,
@@ -14043,7 +14044,8 @@ mips_global_pointer (void)
 
   /* If there are no current references to $gp, then the only uses
      we can introduce later are those involved in long branches.  */
-  if (TARGET_ABSOLUTE_JUMPS && !mips_cfun_has_flexible_gp_ref_p ())
+  if ((TARGET_ABSOLUTE_JUMPS || TARGET_NANOMIPS) &&
+        !mips_cfun_has_flexible_gp_ref_p ())
     return INVALID_REGNUM;
 
   /* If the global pointer is call-saved, try to use a call-clobbered
@@ -14231,7 +14233,7 @@ mips_cfun_call_saved_reg_p (unsigned int regno)
      we want the ABI property rather than the default call_insn
      property here.  */
   return (regno == GLOBAL_POINTER_REGNUM
-	  ? TARGET_CALL_SAVED_GP
+	  ? (TARGET_CALL_SAVED_GP && !TARGET_NANOMIPS)
 	  : !call_really_used_regs[regno]);
 }
 
@@ -14850,6 +14852,12 @@ mips_compute_frame_info_pabi (void)
 	frame->num_gp++;
 	frame->mask |= 1 << (regno - GP_REG_FIRST);
       }
+
+   if (TARGET_USE_GOT && mips_cfun_has_flexible_gp_ref_p ())
+     {
+        frame->num_gp++;
+        frame->mask |= 1 << GLOBAL_POINTER_REGNUM;
+     }
 
   /* If this function calls eh_return, we must also save and restore the
      EH data registers.  */
