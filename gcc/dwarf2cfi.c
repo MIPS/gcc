@@ -3326,7 +3326,13 @@ void
 dwarf2out_emit_cfi (dw_cfi_ref cfi)
 {
   if (dwarf2out_do_cfi_asm ())
+   {
+#ifdef ASM_OUTPUT_CFI_DIRECTIVE
+    ASM_OUTPUT_CFI_DIRECTIVE (asm_out_file, cfi);
+#else
     output_cfi_directive (asm_out_file, cfi);
+#endif
+   }
 }
 
 static void
