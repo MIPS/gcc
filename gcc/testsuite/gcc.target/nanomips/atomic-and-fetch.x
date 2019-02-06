@@ -5,9 +5,9 @@ extern void abort(void);
 
 /* The op_fetch routines return the result of the operation.  */
 void
-test_and_fetch (int op)
+test_and_fetch (unsigned int op)
 {
-  _Atomic int v;
+  _Atomic unsigned int v;
   __atomic_store_n (&v, ~0, __ATOMIC_RELAXED);
 
   if (__atomic_and_fetch (&v, op, __ATOMIC_RELAXED) != ~2)
