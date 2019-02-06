@@ -18683,6 +18683,7 @@ mips_sync_insn1_template (enum attr_sync_insn1 type, bool is_64bit_p)
     case SYNC_INSN1_ADDU:
       return is_64bit_p ? "daddu\t%0,%1,%z2" : "addu\t%0,%1,%z2";
     case SYNC_INSN1_ADDIU:
+    case SYNC_INSN1_SUBIU:
       return is_64bit_p ? "daddiu\t%0,%1,%2" : "addiu\t%0,%1,%2";
     case SYNC_INSN1_SUBU:
       return is_64bit_p ? "dsubu\t%0,%1,%z2" : "subu\t%0,%1,%z2";
@@ -18738,12 +18739,11 @@ mips_get_sync_operand (rtx *operands, int index, rtx default_value)
    sequence for it.  */
 
 static void
-mips_process_sync_loop (rtx_insn *insn, rtx *operands)
+mips_process_sync_loop1 (rtx_insn *insn, rtx *operands, attr_sync_insn1 insn1)
 {
   rtx at, mem, oldval, newval, inclusive_mask, exclusive_mask;
   rtx required_oldval, insn1_op2, tmp1, tmp2, tmp3, cmp;
   unsigned int tmp3_insn;
-  enum attr_sync_insn1 insn1;
   enum attr_sync_insn2 insn2;
   bool is_64bit_p;
   int memmodel_attr;
@@ -18770,7 +18770,6 @@ mips_process_sync_loop (rtx_insn *insn, rtx *operands)
   READ_OPERAND (exclusive_mask, 0);
   READ_OPERAND (required_oldval, 0);
   READ_OPERAND (insn1_op2, 0);
-  insn1 = get_attr_sync_insn1 (insn);
   insn2 = get_attr_sync_insn2 (insn);
 
   /* Don't bother setting CMP result that is never used.  */
@@ -18862,6 +18861,13 @@ mips_process_sync_loop (rtx_insn *insn, rtx *operands)
   if (insn1 == SYNC_INSN1_MOVE
       && (tmp1 != const0_rtx || insn2 != SYNC_INSN2_NOP))
     tmp2 = insn1_op2;
+  else if (insn1 == SYNC_INSN1_SUBIU)
+    {
+      mips_multi_add_insn (mips_sync_insn1_template (insn1, is_64bit_p),
+			   newval, oldval, GEN_INT (-INTVAL (insn1_op2)),
+			   NULL);
+      tmp2 = newval;
+    }
   else
     {
       mips_multi_add_insn (mips_sync_insn1_template (insn1, is_64bit_p),
@@ -18935,6 +18941,14 @@ mips_process_sync_loop (rtx_insn *insn, rtx *operands)
 #undef READ_OPERAND
 }
 
+
+static void
+mips_process_sync_loop (rtx_insn *insn, rtx *operands)
+{
+  enum attr_sync_insn1 insn1 = get_attr_sync_insn1 (insn);
+  mips_process_sync_loop1 (insn, operands, insn1);
+}
+
 /* Output and/or return the asm template for sync loop INSN, which has
    the operands given by OPERANDS.  */
 
@@ -18946,6 +18960,50 @@ mips_output_sync_loop (rtx_insn *insn, rtx *operands)
   mips_branch_likely = TARGET_FIX_R10000;
 
   mips_process_sync_loop (insn, operands);
+
+  mips_push_asm_switch (&mips_noreorder);
+  mips_push_asm_switch (&mips_nomacro);
+  mips_push_asm_switch (&mips_noat);
+  mips_start_ll_sc_sync_block ();
+
+  mips_multi_write ();
+
+  mips_end_ll_sc_sync_block ();
+  mips_pop_asm_switch (&mips_noat);
+  mips_pop_asm_switch (&mips_nomacro);
+  mips_pop_asm_switch (&mips_noreorder);
+
+  return "";
+}
+
+const char *
+nanomips_output_sync_loop (enum rtx_code code,
+			  rtx_insn *insn, rtx *operands)
+{
+  /* Use branch-likely instructions to work around the LL/SC R10000
+     errata.  */
+  attr_sync_insn1 insn1;
+  mips_branch_likely = FALSE;
+  if (which_alternative == 0)
+    switch (code)
+      {
+      case XOR: insn1 = SYNC_INSN1_XORI; break;
+      case AND: insn1 = SYNC_INSN1_ANDI; break;
+      case IOR: insn1 = SYNC_INSN1_ORI; break;
+      case MINUS: insn1 = SYNC_INSN1_SUBIU; break;
+      default: insn1 = SYNC_INSN1_ADDIU; break;
+      }
+  else
+    switch (code)
+      {
+      case XOR: insn1 = SYNC_INSN1_XOR; break;
+      case AND: insn1 = SYNC_INSN1_AND; break;
+      case IOR: insn1 = SYNC_INSN1_OR; break;
+      case MINUS: insn1 = SYNC_INSN1_SUBU; break;
+      default: insn1 = SYNC_INSN1_ADDU; break;
+      }
+
+  mips_process_sync_loop1 (insn, operands, insn1);
 
   mips_push_asm_switch (&mips_noreorder);
   mips_push_asm_switch (&mips_nomacro);

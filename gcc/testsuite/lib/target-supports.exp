@@ -1184,7 +1184,7 @@ proc check_effective_target_mips_newabi_large_long_double { } {
 # to the LL and SC instructions.
 
 proc check_effective_target_mips_llsc { } {
-    if { ![istarget mips*-*-*] } {
+    if { ![istarget mips*-*-*] && ![istarget nanomips*-*-*] } {
 	return 0
     }
     # Assume that these instructions are always implemented for

@@ -259,7 +259,7 @@
 (define_attr "sync_exclusive_mask" "none,0,1,2,3,4,5" (const_string "none"))
 (define_attr "sync_required_oldval" "none,0,1,2,3,4,5" (const_string "none"))
 (define_attr "sync_insn1_op2" "none,0,1,2,3,4,5" (const_string "none"))
-(define_attr "sync_insn1" "move,li,addu,addiu,subu,and,andi,or,ori,xor,xori"
+(define_attr "sync_insn1" "move,li,addu,addiu,subu,subiu,and,andi,or,ori,xor,xori"
   (const_string "move"))
 (define_attr "sync_insn2" "nop,and,xor,not"
   (const_string "nop"))

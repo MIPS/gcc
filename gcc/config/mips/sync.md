@@ -793,3 +793,59 @@
   "ISA_HAS_LDADD"
   "ldadd<size>\t%0,%b1"
   [(set_attr "type" "atomic")])
+
+(define_code_attr fetchop_bit_tab
+  [(ior "or") (xor "xor") (and "and")])
+
+(define_insn "atomic_fetch_<fetchop_bit_tab><mode>"
+  [(set (match_operand:GPR 0 "register_operand" "=&d,&d")
+	(unspec_volatile:GPR [(match_operand:GPR 1 "memory_operand" "+ZC,ZC")]
+	 UNSPEC_ATOMIC_FETCH_OP))
+   (set (match_dup 1)
+	(unspec_volatile:GPR
+	 [(fetchop_bit:GPR (match_dup 1)
+		    (match_operand:GPR 2 "arith_operand" "K,d"))]
+	 UNSPEC_ATOMIC_FETCH_OP))
+   (unspec_volatile:GPR [(match_operand:SI 3 "const_int_operand")]
+    UNSPEC_ATOMIC_FETCH_OP)]
+  "TARGET_NANOMIPS"
+  { return nanomips_output_sync_loop (<CODE>, insn, operands); }
+  [(set_attr "sync_oldval" "0")
+   (set_attr "sync_mem" "1")
+   (set_attr "sync_insn1_op2" "2")
+   (set_attr "sync_memmodel" "3")])
+
+(define_insn "atomic_fetch_sub<mode>"
+  [(set (match_operand:GPR 0 "register_operand" "=&d,&d")
+	(unspec_volatile:GPR [(match_operand:GPR 1 "memory_operand" "+ZC,ZC")]
+	 UNSPEC_ATOMIC_FETCH_OP))
+   (set (match_dup 1)
+	(unspec_volatile:GPR
+	 [(minus:GPR (match_dup 1)
+		    (match_operand:GPR 2 "arith_operand" "I,d"))]
+	 UNSPEC_ATOMIC_FETCH_OP))
+   (unspec_volatile:GPR [(match_operand:SI 3 "const_int_operand")]
+    UNSPEC_ATOMIC_FETCH_OP)]
+  "TARGET_NANOMIPS"
+  { return mips_output_sync_loop (insn, operands); }
+  [(set_attr "sync_insn1" "subiu,subu")
+   (set_attr "sync_oldval" "0")
+   (set_attr "sync_mem" "1")
+   (set_attr "sync_insn1_op2" "2")
+   (set_attr "sync_memmodel" "3")])
+
+(define_insn "atomic_<fetchop_bit_tab>_fetch<mode>"
+  [(set (match_operand:GPR 0 "register_operand" "=&d,&d")
+  	(fetchop_bit:GPR (unspec_volatile:GPR
+	[(match_operand:GPR 1 "memory_operand" "+ZC,ZC")]
+	 UNSPEC_ATOMIC_FETCH_OP)
+		    (match_operand:GPR 2 "arith_operand" "K,d")))
+   (set (match_dup 1) (match_dup 0))
+   (unspec_volatile:GPR [(match_operand:SI 3 "const_int_operand")]
+    UNSPEC_ATOMIC_FETCH_OP)]
+  "TARGET_NANOMIPS"
+  { return nanomips_output_sync_loop (<CODE>, insn, operands); }
+  [(set_attr "sync_newval" "0")
+   (set_attr "sync_mem" "1")
+   (set_attr "sync_insn1_op2" "2")
+   (set_attr "sync_memmodel" "3")])
