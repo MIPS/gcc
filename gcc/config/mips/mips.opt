@@ -582,4 +582,4 @@ mssdata
 Target Undocumented Var(TARGET_SSDATA) Init(1)
 
 mrelax-saverestore-gp
-Target Undocumented Var(TARGET_RELAX_SAVERESTORE_GP) Init(0)
+Target Undocumented Var(TARGET_RELAX_SAVERESTORE_GP) Init(1)
