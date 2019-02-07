@@ -1203,6 +1203,15 @@ old_insns_match_p (int mode ATTRIBUTE_UNUSED, rtx_insn *i1, rtx_insn *i2)
 		}
 	    }
 	}
+
+      n1 = find_reg_note (i1, REG_CALL_DECL, 0);
+      n2 = find_reg_note (i2, REG_CALL_DECL, 0);
+
+      if (!n1 && n2)
+        return dir_none;
+
+      if (n1 && (!n2 || !rtx_equal_p (XEXP (n1, 0), XEXP (n2, 0))))
+        return dir_none;
     }
 
 #ifdef STACK_REGS
