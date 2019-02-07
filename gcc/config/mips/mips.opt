@@ -579,4 +579,4 @@ mjump-table-opt
 Target Undocumented Var(TARGET_JUMPTABLE_OPT) Init(1)
 
 mrelax-saverestore-gp
-Target Undocumented Var(TARGET_RELAX_SAVERESTORE_GP) Init(0)
+Target Undocumented Var(TARGET_RELAX_SAVERESTORE_GP) Init(1)
