@@ -65,6 +65,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts.h"
 #include "tm-constrs.h"
 #include "print-rtl.h"
+#include "ifcvt.h"
+#include "params.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -5471,6 +5473,12 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	  return true;
 	}
       return false;
+
+    case IF_THEN_ELSE:
+          if (reg_or_0_operand (XEXP (x, 1), VOIDmode)
+              || reg_or_0_operand (XEXP (x, 2), VOIDmode))
+         *total = 0;
+         return false;
 
     default:
       return false;
@@ -24928,6 +24936,53 @@ mips_bit_clear_p (enum machine_mode mode, unsigned HOST_WIDE_INT m)
 
   return false;
 }
+
+/* Implement TARGET_MAX_NOCE_IFCVT_SEQ_COST.  */
+
+static unsigned int
+mips_max_noce_ifcvt_seq_cost (edge e)
+{
+  bool predictable_p = predictable_edge_p (e);
+
+  enum compiler_param param
+    = (predictable_p
+       ? PARAM_MAX_RTL_IF_CONVERSION_PREDICTABLE_COST
+       : PARAM_MAX_RTL_IF_CONVERSION_UNPREDICTABLE_COST);
+
+  /* If we have a parameter set, use that, otherwise take a guess using
+     BRANCH_COST.  */
+  if (global_options_set.x_param_values[param])
+    return PARAM_VALUE (param);
+  else
+    return BRANCH_COST (true, predictable_p) * COSTS_N_INSNS (4);
+}
+
+/* Return true if SEQ is a good candidate as a replacement for the
+   if-convertible sequence described in IF_INFO.  */
+
+static bool
+mips_noce_conversion_profitable_p (rtx_insn *seq, struct noce_if_info *if_info)
+{
+  bool speed = if_info->speed_p;
+  unsigned cost = 0;
+  rtx set;
+
+    for (rtx_insn *insn = seq; insn; insn = NEXT_INSN (insn))
+    {
+      set = single_set (insn);
+      if (set)
+        cost += insn_rtx_cost (set, speed);
+      else
+        cost++;
+    }
+
+  if (cost <= if_info->original_cost)
+    return true;
+  /* When compiling for size, we can make a reasonably accurately guess
+     at the size growth.  When compiling for speed, use the maximum.  */
+  return speed && cost <= if_info->max_seq_cost;
+}
+
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -25228,6 +25283,12 @@ mips_bit_clear_p (enum machine_mode mode, unsigned HOST_WIDE_INT m)
 
 #undef TARGET_SCHED_FUSION_PRIORITY
 #define TARGET_SCHED_FUSION_PRIORITY mips_sched_fusion_priority
+
+#undef TARGET_MAX_NOCE_IFCVT_SEQ_COST
+#define TARGET_MAX_NOCE_IFCVT_SEQ_COST mips_max_noce_ifcvt_seq_cost
+
+#undef TARGET_NOCE_CONVERSION_PROFITABLE_P
+#define TARGET_NOCE_CONVERSION_PROFITABLE_P mips_noce_conversion_profitable_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
