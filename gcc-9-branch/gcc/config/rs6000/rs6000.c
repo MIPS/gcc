@@ -21609,10 +21609,47 @@ rs6000_indirect_call_template_1 (rtx *operands, unsigned int funop,
 				 bool sibcall)
 {
   /* -Wformat-overflow workaround, without which gcc thinks that %u
-      might produce 10 digits.  */
+     might produce 10 digits.  Note that -Wformat-overflow will not
+     currently warn here for str[], so do not rely on a warning to
+     ensure str[] is correctly sized.  */
   gcc_assert (funop <= MAX_RECOG_OPERANDS);
 
-  static char str[144];  /* 1 spare */
+  /* Currently, funop is either 0 or 1.  The maximum string is always
+     a !speculate 64-bit __tls_get_addr call.
+
+     ABI_AIX:
+     .  9	ld 2,%3\n\t
+     . 27	.reloc .,R_PPC64_TLSGD,%2\n\t
+     . 29	.reloc .,R_PPC64_PLTSEQ,%z1\n\t
+     .  9	crset 2\n\t
+     . 27	.reloc .,R_PPC64_TLSGD,%2\n\t
+     . 30	.reloc .,R_PPC64_PLTCALL,%z1\n\t
+     . 10	beq%T1l-\n\t
+     . 10	ld 2,%4(1)
+     .---
+     .151
+
+     ABI_ELFv2:
+     . 27	.reloc .,R_PPC64_TLSGD,%2\n\t
+     . 29	.reloc .,R_PPC64_PLTSEQ,%z1\n\t
+     .  9	crset 2\n\t
+     . 27	.reloc .,R_PPC64_TLSGD,%2\n\t
+     . 30	.reloc .,R_PPC64_PLTCALL,%z1\n\t
+     . 10	beq%T1l-\n\t
+     . 10	ld 2,%3(1)
+     .---
+     .142
+
+     ABI_V4:
+     . 27	.reloc .,R_PPC64_TLSGD,%2\n\t
+     . 35	.reloc .,R_PPC64_PLTSEQ,%z1+32768\n\t
+     .  9	crset 2\n\t
+     . 27	.reloc .,R_PPC64_TLSGD,%2\n\t
+     . 36	.reloc .,R_PPC64_PLTCALL,%z1+32768\n\t
+     .  8	beq%T1l-
+     .---
+     .141  */
+  static char str[160];  /* 8 spare */
   char *s = str;
   const char *ptrload = TARGET_64BIT ? "d" : "wz";
 
@@ -21633,7 +21670,7 @@ rs6000_indirect_call_template_1 (rtx *operands, unsigned int funop,
       const char *rel64 = TARGET_64BIT ? "64" : "";
       char tls[29];
       tls[0] = 0;
-      if (GET_CODE (operands[funop + 1]) == UNSPEC)
+      if (TARGET_TLS_MARKERS && GET_CODE (operands[funop + 1]) == UNSPEC)
 	{
 	  if (XINT (operands[funop + 1], 1) == UNSPEC_TLSGD)
 	    sprintf (tls, ".reloc .,R_PPC%s_TLSGD,%%%u\n\t",
@@ -21722,7 +21759,7 @@ rs6000_pltseq_template (rtx *operands, int which)
   const char *rel64 = TARGET_64BIT ? "64" : "";
   char tls[28];
   tls[0] = 0;
-  if (GET_CODE (operands[3]) == UNSPEC)
+  if (TARGET_TLS_MARKERS && GET_CODE (operands[3]) == UNSPEC)
     {
       if (XINT (operands[3], 1) == UNSPEC_TLSGD)
 	sprintf (tls, ".reloc .,R_PPC%s_TLSGD,%%3\n\t",
@@ -23971,21 +24008,30 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 static bool
 save_reg_p (int reg)
 {
-  /* We need to mark the PIC offset register live for the same conditions
-     as it is set up, or otherwise it won't be saved before we clobber it.  */
-
   if (reg == RS6000_PIC_OFFSET_TABLE_REGNUM && !TARGET_SINGLE_PIC_BASE)
     {
       /* When calling eh_return, we must return true for all the cases
 	 where conditional_register_usage marks the PIC offset reg
-	 call used.  */
-      if (TARGET_TOC && TARGET_MINIMAL_TOC
-	  && (crtl->calls_eh_return
-	      || df_regs_ever_live_p (reg)
-	      || !constant_pool_empty_p ()))
+	 call used or fixed.  */
+      if (crtl->calls_eh_return
+	  && ((DEFAULT_ABI == ABI_V4 && flag_pic)
+	      || (DEFAULT_ABI == ABI_DARWIN && flag_pic)
+	      || (TARGET_TOC && TARGET_MINIMAL_TOC)))
 	return true;
 
-      if ((DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_DARWIN)
+      /* We need to mark the PIC offset register live for the same
+	 conditions as it is set up in rs6000_emit_prologue, or
+	 otherwise it won't be saved before we clobber it.  */
+      if (TARGET_TOC && TARGET_MINIMAL_TOC
+	  && !constant_pool_empty_p ())
+	return true;
+
+      if (DEFAULT_ABI == ABI_V4
+	  && (flag_pic == 1 || (flag_pic && TARGET_SECURE_PLT))
+	  && df_regs_ever_live_p (RS6000_PIC_OFFSET_TABLE_REGNUM))
+	return true;
+
+      if (DEFAULT_ABI == ABI_DARWIN
 	  && flag_pic && crtl->uses_pic_offset_table)
 	return true;
     }
@@ -32782,7 +32828,6 @@ rs6000_longcall_ref (rtx call_ref, rtx arg)
     }
 
   if (HAVE_AS_PLTSEQ
-      && TARGET_TLS_MARKERS
       && (DEFAULT_ABI == ABI_ELFv2 || DEFAULT_ABI == ABI_V4))
     {
       rtx base = const0_rtx;
@@ -37798,7 +37843,6 @@ rs6000_call_aix (rtx value, rtx func_desc, rtx tlsarg, rtx cookie)
 							   stack_toc_offset));
 	  MEM_VOLATILE_P (stack_toc_mem) = 1;
 	  if (HAVE_AS_PLTSEQ
-	      && TARGET_TLS_MARKERS
 	      && DEFAULT_ABI == ABI_ELFv2
 	      && GET_CODE (func_desc) == SYMBOL_REF)
 	    {
@@ -37823,7 +37867,6 @@ rs6000_call_aix (rtx value, rtx func_desc, rtx tlsarg, rtx cookie)
 	     this insn for linker plt sequence editing too.  */
 	  func_addr = gen_rtx_REG (Pmode, CTR_REGNO);
 	  if (HAVE_AS_PLTSEQ
-	      && TARGET_TLS_MARKERS
 	      && GET_CODE (func_desc) == SYMBOL_REF)
 	    {
 	      rtvec v = gen_rtvec (3, abi_reg, func_desc, tlsarg);
@@ -37964,8 +38007,7 @@ rs6000_call_sysv (rtx value, rtx func_desc, rtx tlsarg, rtx cookie)
       func = rs6000_longcall_ref (func_desc, tlsarg);
       /* If the longcall was implemented using PLT16 relocs, then r11
 	 needs to be valid at the call for lazy linking.  */
-      if (HAVE_AS_PLTSEQ
-	  && TARGET_TLS_MARKERS)
+      if (HAVE_AS_PLTSEQ)
 	abi_reg = func;
     }
 
@@ -37979,7 +38021,6 @@ rs6000_call_sysv (rtx value, rtx func_desc, rtx tlsarg, rtx cookie)
 	 this insn for linker plt sequence editing too.  */
       func_addr = gen_rtx_REG (Pmode, CTR_REGNO);
       if (HAVE_AS_PLTSEQ
-	  && TARGET_TLS_MARKERS
 	  && GET_CODE (func_desc) == SYMBOL_REF)
 	{
 	  rtvec v = gen_rtvec (3, func, func_desc, tlsarg);
@@ -38036,8 +38077,7 @@ rs6000_sibcall_sysv (rtx value, rtx func_desc, rtx tlsarg, rtx cookie)
       func = rs6000_longcall_ref (func_desc, tlsarg);
       /* If the longcall was implemented using PLT16 relocs, then r11
 	 needs to be valid at the call for lazy linking.  */
-      if (HAVE_AS_PLTSEQ
-	  && TARGET_TLS_MARKERS)
+      if (HAVE_AS_PLTSEQ)
 	abi_reg = func;
     }
 
@@ -38050,7 +38090,6 @@ rs6000_sibcall_sysv (rtx value, rtx func_desc, rtx tlsarg, rtx cookie)
 	 this insn for linker plt sequence editing too.  */
       func_addr = gen_rtx_REG (Pmode, CTR_REGNO);
       if (HAVE_AS_PLTSEQ
-	  && TARGET_TLS_MARKERS
 	  && GET_CODE (func_desc) == SYMBOL_REF)
 	{
 	  rtvec v = gen_rtvec (3, func, func_desc, tlsarg);

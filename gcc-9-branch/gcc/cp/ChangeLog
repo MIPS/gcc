@@ -1,3 +1,38 @@
+2019-02-07  Alexandre Oliva <aoliva@redhat.com>
+
+	PR c++/86218
+	* call.c (compare_ics): Deal with ck_aggr in either cs.
+
+2019-02-06  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/71302
+	* call.c (get_location_for_expr_unwinding_for_system_header): New
+	function.
+	(conversion_null_warnings): Use it when getting locations for
+	EXPR, effectively adding a call to
+	get_location_for_expr_unwinding_for_system_header for
+	-Wconversion-null and making use of EXPR_LOCATION for
+	-Wzero-as-null-pointer-constant.
+
+2019-02-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/89187
+	* optimize.c (maybe_thunk_body): Clear TREE_ADDRESSABLE on
+	PARM_DECLs of the thunk.
+	* lambda.c (maybe_add_lambda_conv_op): Likewise.
+
+2019-02-05  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/89158 - by-value capture of constexpr variable broken.
+	* call.c (convert_like_real) <case ck_user>: Call mark_exp_read
+	instead of mark_rvalue_use.
+
+2019-02-05  Alexandre Oliva <aoliva@redhat.com>
+
+	PR c++/87770
+	* pt.c (instantiates_primary_template_p): New.
+	(type_dependent_expression_p): Use it.
+
 2019-02-01  Jason Merrill  <jason@redhat.com>
 
 	PR c++/88761 - ICE with reference capture of constant.
