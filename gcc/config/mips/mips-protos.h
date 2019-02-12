@@ -237,6 +237,8 @@ extern rtx_insn *mips_emit_move (rtx, rtx);
 #ifdef RTX_CODE
 extern void nanomips_expand_64bit_shift (enum rtx_code, rtx, rtx, rtx);
 extern void mips_emit_binary (enum rtx_code, rtx, rtx, rtx);
+extern const char *nanomips_output_sync_loop (enum rtx_code, rtx_insn *,
+					      rtx *);
 #endif
 extern rtx mips_pic_base_register (rtx);
 extern rtx mips_got_load (rtx, rtx, enum mips_symbol_type);

@@ -1,7 +1,7 @@
 /* { dg-do compile } */
 /* { dg-options "-ffat-lto-objects" } */
 
-#include "atomic-fetch-add.x"
+#include "atomic-add-fetch.x"
 
 /* One acquire fence for each RWM: consume, acquire, acq-rel */
 /* { dg-final { scan-assembler-times "\tsync\t17" 3 } } */
