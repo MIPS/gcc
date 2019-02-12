@@ -1510,20 +1510,21 @@
 ;; actually need the predicate for the first alternative, but using Upa
 ;; or X isn't likely to gain much and would make the instruction seem
 ;; less uniform to the register allocator.
-(define_insn "*v<optab><mode>3"
-  [(set (match_operand:SVE_I 0 "register_operand" "=w, w, ?&w")
+(define_insn "@aarch64_pred_<optab><mode>"
+  [(set (match_operand:SVE_I 0 "register_operand" "=w, w, w, ?&w")
 	(unspec:SVE_I
-	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl, Upl")
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl, Upl, Upl")
 	   (ASHIFT:SVE_I
-	     (match_operand:SVE_I 2 "register_operand" "w, 0, w")
-	     (match_operand:SVE_I 3 "aarch64_sve_<lr>shift_operand" "D<lr>, w, w"))]
+	     (match_operand:SVE_I 2 "register_operand" "w, 0, w, w")
+	     (match_operand:SVE_I 3 "aarch64_sve_<lr>shift_operand" "D<lr>, w, 0, w"))]
 	  UNSPEC_MERGE_PTRUE))]
   "TARGET_SVE"
   "@
    <shift>\t%0.<Vetype>, %2.<Vetype>, #%3
    <shift>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
+   <shift>r\t%0.<Vetype>, %1/m, %3.<Vetype>, %2.<Vetype>
    movprfx\t%0, %2\;<shift>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
-  [(set_attr "movprfx" "*,*,yes")]
+  [(set_attr "movprfx" "*,*,*,yes")]
 )
 
 ;; LSL, LSR and ASR by a scalar, which expands into one of the vector
@@ -1551,6 +1552,53 @@
     emit_insn (gen_v<optab><mode>3 (operands[0], operands[1], amount));
     DONE;
   }
+)
+
+(define_expand "@cond_<optab><mode>"
+  [(set (match_operand:SVE_I 0 "register_operand")
+	(unspec:SVE_I
+	   [(match_operand:<VPRED> 1 "register_operand")
+	    (ASHIFT:SVE_I
+	      (match_operand:SVE_I 2 "register_operand")
+	      (match_operand:SVE_I 3 "aarch64_sve_<lr>shift_operand"))
+	    (match_operand:SVE_I 4 "aarch64_simd_reg_or_zero")]
+	 UNSPEC_SEL))]
+  "TARGET_SVE"
+)
+
+(define_insn "*cond<optab><mode>_m"
+  [(set (match_operand:SVE_I 0 "register_operand" "=w, w, ?&w, ?&w")
+	(unspec:SVE_I
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl, Upl, Upl")
+	   (ASHIFT:SVE_I
+	      (match_operand:SVE_I 2 "register_operand" "0, 0, w, w")
+	      (match_operand:SVE_I 3 "aarch64_sve_<lr>shift_operand" "D<lr>, w, D<lr>, w"))
+	   (match_dup 2)]
+	 UNSPEC_SEL))]
+  "TARGET_SVE"
+  "@
+   <shift>\t%0.<Vetype>, %1/m, %2.<Vetype>, #%3
+   <shift>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
+   movprfx\t%0, %2\;<shift>\t%0.<Vetype>, %1/m, %0.<Vetype>, #%3
+   movprfx\t%0, %2\;<shift>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
+  [(set_attr "movprfx" "*,*,yes,yes")]
+)
+
+(define_insn "*cond<optab><mode>_z"
+  [(set (match_operand:SVE_I 0 "register_operand" "=w, &w, ?&w")
+	(unspec:SVE_I
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl, Upl")
+	   (ASHIFT:SVE_I
+	     (match_operand:SVE_I 2 "register_operand" "w, w, 0w")
+	     (match_operand:SVE_I 3 "aarch64_sve_<lr>shift_operand" "D<lr>, 0, w"))
+	   (match_operand:SVE_I 4 "aarch64_simd_imm_zero")]
+	 UNSPEC_SEL))]
+  "TARGET_SVE"
+  "@
+   movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;<shift>\t%0.<Vetype>, %1/m, %0.<Vetype>, #%3
+   movprfx\t%0.<Vetype>, %1/z, %3.<Vetype>\;<shift>r\t%0.<Vetype>, %1/m, %3.<Vetype>, %2.<Vetype>
+   movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;<shift>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
+  [(set_attr "movprfx" "yes,yes,yes")]
 )
 
 (define_insn "@aarch64_pred_<sve_int_op><mode>"

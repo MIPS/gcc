@@ -126,7 +126,11 @@ enum function_shape {
   SHAPE_shift_right_imm,
 
   /* sv<t0>_t svfoo_wide[_t0](sv<t0>_t, svuint64_t).  */
-  SHAPE_binary_wide
+  SHAPE_binary_wide,
+
+  /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t)
+     sv<t0>_t svfoo[_t0](sv<t0>_t, uint64_t).  */
+  SHAPE_shift_opt_n
 };
 
 /* Classifies an operation into "modes"; for example, to distinguish
@@ -172,6 +176,7 @@ enum function {
   FUNC_svdup,
   FUNC_sveor,
   FUNC_svindex,
+  FUNC_svlsl,
   FUNC_svlsl_wide,
   FUNC_svmax,
   FUNC_svmad,
@@ -479,6 +484,7 @@ private:
   rtx expand_dup ();
   rtx expand_eor ();
   rtx expand_index ();
+  rtx expand_lsl ();
   rtx expand_lsl_wide ();
   rtx expand_max ();
   rtx expand_min ();
@@ -912,6 +918,12 @@ arm_sve_h_builder::build (const function_group &group)
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_00i, group, MODE_none);
       break;
+
+    case SHAPE_shift_opt_n:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_000, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_n_00i, group, MODE_n);
+      break;
     }
 }
 
@@ -1222,6 +1234,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svdup:
     case FUNC_sveor:
     case FUNC_svindex:
+    case FUNC_svlsl:
     case FUNC_svlsl_wide:
     case FUNC_svmax:
     case FUNC_svmad:
@@ -1280,6 +1293,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_ternary_qq_opt_n:
     case SHAPE_shift_right_imm:
     case SHAPE_binary_wide:
+    case SHAPE_shift_opt_n:
       return 0;
     }
   gcc_unreachable ();
@@ -1347,6 +1361,7 @@ function_resolver::resolve ()
     case SHAPE_unary:
       return resolve_uniform (1);
     case SHAPE_binary_opt_n:
+    case SHAPE_shift_opt_n:
       return resolve_uniform (2);
     case SHAPE_ternary_opt_n:
       return resolve_uniform (3);
@@ -1706,6 +1721,7 @@ function_checker::check ()
     case SHAPE_ternary_opt_n:
     case SHAPE_ternary_qq_opt_n:
     case SHAPE_binary_wide:
+    case SHAPE_shift_opt_n:
       return true;
     }
   gcc_unreachable ();
@@ -1895,6 +1911,7 @@ gimple_folder::fold ()
     case FUNC_svdup:
     case FUNC_sveor:
     case FUNC_svindex:
+    case FUNC_svlsl:
     case FUNC_svlsl_wide:
     case FUNC_svmax:
     case FUNC_svmad:
@@ -2000,6 +2017,9 @@ function_expander::expand ()
 
     case FUNC_svindex:
       return expand_index ();
+
+    case FUNC_svlsl:
+      return expand_lsl ();
 
     case FUNC_svlsl_wide:
       return expand_lsl_wide ();
@@ -2173,6 +2193,30 @@ rtx
 function_expander::expand_index ()
 {
   return expand_via_unpred_direct_optab (vec_series_optab);
+}
+
+/* Expand a call to svlsl.  */
+rtx
+function_expander::expand_lsl ()
+{
+  machine_mode mode = get_mode (0);
+  machine_mode elem_mode = GET_MODE_INNER (mode);
+
+  if (m_fi.mode == MODE_n
+      && mode != VNx2DImode
+      && !aarch64_simd_shift_imm_p (m_args[2], elem_mode, true))
+    return expand_lsl_wide ();
+
+  if (m_fi.pred == PRED_x)
+    {
+      insn_code icode = code_for_aarch64_pred (ASHIFT, mode);
+      return expand_via_pred_x_insn (icode);
+    }
+  else
+    {
+      insn_code icode = code_for_cond (ASHIFT, mode);
+      return expand_via_pred_insn (icode);
+    }
 }
 
 /* Expand a call to svlsl_wide.  */
