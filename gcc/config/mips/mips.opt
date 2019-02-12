@@ -577,3 +577,6 @@ Target RejectNegative Joined UInteger Var(mips_jumptable_density) Init(0)
 
 mjump-table-opt
 Target Undocumented Var(TARGET_JUMPTABLE_OPT) Init(1)
+
+mssdata
+Target Undocumented Var(TARGET_SSDATA) Init(1)

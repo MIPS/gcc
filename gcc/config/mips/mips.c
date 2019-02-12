@@ -12181,6 +12181,43 @@ ultimate_transparent_alias_target (tree *alias)
   return target;
 }
 
+static bool
+nanomips_type_for_ssdata_p (tree type)
+{
+  switch (TREE_CODE (type))
+    {
+     case BOOLEAN_TYPE:
+          return true;
+     case ENUMERAL_TYPE:
+     case INTEGER_TYPE:
+         return TYPE_PRECISION (type) < BITS_PER_WORD;
+     case POINTER_TYPE:
+     case REFERENCE_TYPE:
+     case OFFSET_TYPE:
+     case NULLPTR_TYPE:
+      return false;
+     case REAL_TYPE:
+      return TARGET_HARD_FLOAT;
+     case RECORD_TYPE:
+     case UNION_TYPE:
+     case QUAL_UNION_TYPE:
+        tree field;
+        for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
+           if (TREE_CODE (field) == FIELD_DECL
+                && nanomips_type_for_ssdata_p (TREE_TYPE (field)))
+            return true;
+
+        return false;
+    case VECTOR_TYPE:
+    case COMPLEX_TYPE:
+    case ARRAY_TYPE:
+      return nanomips_type_for_ssdata_p (TREE_TYPE (type));
+    default:
+       gcc_unreachable();
+    }
+  return false;
+}
+
 /* Implement TARGET_ASM_UNIQUE_SECTION.  */
 
 void
@@ -12210,6 +12247,23 @@ mips_asm_unique_section (tree decl, int reloc)
 
   const char *name = DECL_SECTION_NAME (decl);
 
+  if (TARGET_NANOMIPS
+      && TARGET_SSDATA
+      && old_secname == NULL
+      && (strncmp (".sdata", name, 6) == 0
+          || strncmp (".sbss", name, 5) == 0))
+    {
+      if (DECL_ALIGN (decl) < BITS_PER_WORD
+          || nanomips_type_for_ssdata_p (TREE_TYPE (decl)))
+      {
+        size_t len = strlen (name) + 1;
+        char *sec_name = (char *) alloca (len + 1);
+        memcpy (sec_name, ".s", 2);
+        memcpy (sec_name + 2, name + 1, len -1);
+        set_decl_section_name (decl, sec_name);
+      }
+    }
+
   if (old_secname == NULL
       && mips_sdata_section_num > -1
       && (strncmp (".sdata", name, 6) == 0
@@ -12235,6 +12289,25 @@ mips_asm_select_section (tree exp, int reloc, unsigned HOST_WIDE_INT align)
 
   s = default_elf_select_section (exp, reloc, align);
 
+  if (TARGET_NANOMIPS && TARGET_SSDATA)
+   {
+     bool bss = false;
+     unsigned int flags = SECTION_WRITE;
+     if (s->named.common.flags & SECTION_NAMED
+         && (strcmp (s->named.name, ".sdata") == 0
+             || (bss = (strcmp (s->named.name, ".sbss") == 0))))
+     {
+          if (align < BITS_PER_WORD
+              || nanomips_type_for_ssdata_p (TREE_TYPE (exp)))
+          {
+              if (bss)
+                flags |= SECTION_BSS;
+
+              s = get_section (bss ? ".ssbss" : ".ssdata", flags, exp);
+          }
+     }
+   }
+
   if (mips_sdata_section_num > -1
       && (s->named.common.flags & SECTION_NAMED)
       && (strncmp (".sdata", s->named.name, 6) == 0
@@ -12257,8 +12330,10 @@ mips_section_type_flags (tree decl, const char *name, int reloc)
 {
   unsigned int flags = default_section_type_flags (decl, name, reloc);
 
-  if (mips_sdata_section_num > -1
-      && strncmp (name, ".sbss_", 6) == 0)
+  if (strcmp (name, ".ssbss") == 0
+      || strncmp (name, ".ssbss.", 6) == 0
+      || (mips_sdata_section_num > -1
+      && strncmp (name, ".sbss_", 6) == 0))
     flags |= SECTION_BSS;
 
   return flags;
@@ -12272,7 +12347,12 @@ mips_select_rtx_section (machine_mode mode, rtx x,
 {
   /* ??? Consider using mergeable small data sections.  */
   if (mips_rtx_constant_in_small_data_p (mode))
-    return get_named_section (NULL, ".sdata", 0);
+  {
+    if (TARGET_NANOMIPS && TARGET_SSDATA && TARGET_HARD_FLOAT)
+      return get_named_section (NULL, ".ssdata", 0);
+    else
+      return get_named_section (NULL, ".sdata", 0);
+  }
 
   return default_elf_select_rtx_section (mode, x, align);
 }
@@ -12343,6 +12423,7 @@ mips_in_small_data_p (const_tree decl)
       /* Reject anything that isn't in a known small-data section.  */
       name = DECL_SECTION_NAME (decl);
       if (strcmp (name, ".sdata") != 0 && strcmp (name, ".sbss") != 0
+          && strcmp (name, ".ssdata") != 0 && strcmp (name, ".ssbss") != 0
 	  && strncmp (name, ".sdata_", 7) != 0
 	  && strncmp (name, ".sbss_", 6) != 0)
 	return false;
