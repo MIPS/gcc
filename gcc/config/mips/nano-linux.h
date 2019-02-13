@@ -51,8 +51,10 @@ along with GCC; see the file COPYING3.  If not see
   BASE_DRIVER_SELF_SPECS						\
 									\
   /* Use the standard linux specs for everything else.  */		\
-  LINUX_DRIVER_SELF_SPECS
-
+  LINUX_DRIVER_SELF_SPECS						\
+									\
+  /* Assume -fno-pic to imply static link.  */				\
+  "%{fno-pic: -static}"
 
 #undef LINK_SPEC
 #define LINK_SPEC "%{!mno-relax:--relax} \
