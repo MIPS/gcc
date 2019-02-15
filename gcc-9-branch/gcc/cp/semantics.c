@@ -2096,7 +2096,8 @@ finish_qualified_id_expr (tree qualifying_class,
     {
       /* See if any of the functions are non-static members.  */
       /* If so, the expression may be relative to 'this'.  */
-      if (!shared_member_p (expr)
+      if ((type_dependent_expression_p (expr)
+	   || !shared_member_p (expr))
 	  && current_class_ptr
 	  && DERIVED_FROM_P (qualifying_class,
 			     current_nonlambda_class_type ()))
@@ -2826,9 +2827,13 @@ finish_compound_literal (tree type, tree compound_literal,
     return error_mark_node;
   compound_literal = reshape_init (type, compound_literal, complain);
   if (SCALAR_TYPE_P (type)
-      && !BRACE_ENCLOSED_INITIALIZER_P (compound_literal)
-      && !check_narrowing (type, compound_literal, complain))
-    return error_mark_node;
+      && !BRACE_ENCLOSED_INITIALIZER_P (compound_literal))
+    {
+      tree t = instantiate_non_dependent_expr_sfinae (compound_literal,
+						      complain);
+      if (!check_narrowing (type, t, complain))
+	return error_mark_node;
+    }
   if (TREE_CODE (type) == ARRAY_TYPE
       && TYPE_DOMAIN (type) == NULL_TREE)
     {
@@ -5867,7 +5872,8 @@ finish_omp_declare_simd_methods (tree t)
 
   for (tree x = TYPE_FIELDS (t); x; x = DECL_CHAIN (x))
     {
-      if (TREE_CODE (TREE_TYPE (x)) != METHOD_TYPE)
+      if (TREE_CODE (x) == USING_DECL
+	  || !DECL_NONSTATIC_MEMBER_FUNCTION_P (x))
 	continue;
       tree ods = lookup_attribute ("omp declare simd", DECL_ATTRIBUTES (x));
       if (!ods || !TREE_VALUE (ods))

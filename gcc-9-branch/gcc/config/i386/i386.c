@@ -4165,14 +4165,9 @@ ix86_option_override_internal (bool main_args_p,
       opts->x_target_flags
 	|= TARGET_SUBTARGET64_DEFAULT & ~opts_set->x_target_flags;
 
-      /* Enable by default the SSE and MMX builtins.  Do allow the user to
-	 explicitly disable any of these.  In particular, disabling SSE and
-	 MMX for kernel code is extremely useful.  */
       if (!ix86_arch_specified)
-      opts->x_ix86_isa_flags
-	|= ((OPTION_MASK_ISA_SSE2 | OPTION_MASK_ISA_SSE | OPTION_MASK_ISA_MMX
-	     | TARGET_SUBTARGET64_ISA_DEFAULT)
-            & ~opts->x_ix86_isa_flags_explicit);
+	opts->x_ix86_isa_flags
+	  |= TARGET_SUBTARGET64_ISA_DEFAULT & ~opts->x_ix86_isa_flags_explicit;
 
       if (TARGET_RTD_P (opts->x_target_flags))
 	warning (0,
@@ -8324,8 +8319,6 @@ ix86_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
   else
     nregs = function_arg_advance_32 (cum, mode, type, bytes, words);
 
-  /* For pointers passed in memory we expect bounds passed in Bounds
-     Table.  */
   if (!nregs)
     {
       /* Track if there are outgoing arguments on stack.  */
@@ -30421,8 +30414,6 @@ struct builtin_isa {
   enum ix86_builtin_func_type tcode; /* type to use in the declaration */
   unsigned char const_p:1;	/* true if the declaration is constant */
   unsigned char pure_p:1;	/* true if the declaration has pure attribute */
-  bool leaf_p;			/* true if the declaration has leaf attribute */
-  bool nothrow_p;		/* true if the declaration has nothrow attribute */
   bool set_and_not_built_p;
 };
 
@@ -30493,8 +30484,6 @@ def_builtin (HOST_WIDE_INT mask, HOST_WIDE_INT mask2,
 	  ix86_builtins[(int) code] = NULL_TREE;
 	  ix86_builtins_isa[(int) code].tcode = tcode;
 	  ix86_builtins_isa[(int) code].name = name;
-	  ix86_builtins_isa[(int) code].leaf_p = false;
-	  ix86_builtins_isa[(int) code].nothrow_p = false;
 	  ix86_builtins_isa[(int) code].const_p = false;
 	  ix86_builtins_isa[(int) code].pure_p = false;
 	  ix86_builtins_isa[(int) code].set_and_not_built_p = true;
@@ -30574,13 +30563,6 @@ ix86_add_new_builtins (HOST_WIDE_INT isa, HOST_WIDE_INT isa2)
 	  ix86_builtins[i] = decl;
 	  if (ix86_builtins_isa[i].const_p)
 	    TREE_READONLY (decl) = 1;
-	  if (ix86_builtins_isa[i].pure_p)
-	    DECL_PURE_P (decl) = 1;
-	  if (ix86_builtins_isa[i].leaf_p)
-	    DECL_ATTRIBUTES (decl) = build_tree_list (get_identifier ("leaf"),
-						      NULL_TREE);
-	  if (ix86_builtins_isa[i].nothrow_p)
-	    TREE_NOTHROW (decl) = 1;
 	}
     }
 

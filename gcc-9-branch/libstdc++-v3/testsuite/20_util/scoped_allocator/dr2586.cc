@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2019 Free Software Foundation, Inc.
+// Copyright (C) 2019 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -16,7 +16,19 @@
 // <http://www.gnu.org/licenses/>.
 
 // { dg-do compile { target c++11 } }
-// { dg-require-normal-mode "" }
 
-#define _GLIBCXX_PARALLEL
-#include <regex>
+#include <memory>
+#include <scoped_allocator>
+
+// DR 2586. Wrong value category used in scoped_allocator_adaptor::construct()
+
+struct X {
+  using allocator_type = std::allocator<X>;
+  X(std::allocator_arg_t, allocator_type&&) { }
+  X(const allocator_type&) { }
+};
+
+int main() {
+  std::scoped_allocator_adaptor<std::allocator<X>> sa;
+  sa.construct(sa.allocate(1));
+}

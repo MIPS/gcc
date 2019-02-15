@@ -1,3 +1,80 @@
+2019-02-13  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/89297 - ICE with OVERLOAD in template.
+	* semantics.c (finish_compound_literal): Call
+	instantiate_non_dependent_expr_sfinae.
+
+2019-02-13  Alexandre Oliva <aoliva@redhat.com>
+
+	PR c++/86379
+	* cp-tree.h (USING_DECL_SCOPE): Use result rather than type.
+	* name-lookup.c (strip_using_decl): Use USING_DECL_SCOPE.
+	* search.c (protected_accessible_p): Follow USING_DECL_DECLS.
+	(shared_member_p): Likewise.
+	(lookup_member): Likewise.
+	* decl.c (grok_special_member_properties): Skip USING_DECLs.
+	* semantics.c (finish_omp_declare_simd_methods): Likewise.
+	(finish_qualified_id_expr): Do not call shared_member_p with
+	a dependent expr.
+
+	PR c++/87322
+	* pt.c (tsubst_lambda_expr): Avoid duplicate tsubsting.
+	Move cp_evaluated resetting before signature tsubsting.
+	(gen_elem_of_pack_expansion_instantiation): Separate local
+	specializations per index.
+
+2019-02-13  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/89036
+	* class.c (add_method): Drop destructor assertion.
+
+2019-02-13  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/88986
+	* decl.c (make_typename_type): Allow for TYPE_PACK_EXPANSION as
+	context (the first argument).
+	* pt.c (tsubst, case TYPENAME_TYPE): Handle TYPE_PACK_EXPANSION
+	as context.
+
+2019-02-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/89144 - link error with constexpr initializer_list.
+	* call.c (convert_like_real) [ck_list]: Don't allocate a temporary
+	array for an empty list.
+	* typeck2.c (store_init_value): Don't use cxx_constant_init in a
+	template.
+
+2019-02-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/89241 - ICE with __func__ in lambda in template.
+	* pt.c (enclosing_instantiation_of): Also check
+	instantiated_lambda_fn_p for the template context.
+
+2019-02-11  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/89212 - ICE converting nullptr to pointer-to-member-function.
+	* pt.c (tsubst_copy_and_build) <case CONSTRUCTOR>: Return early for
+	null member pointer value.
+
+2019-02-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/88977
+	* pt.c (convert_nontype_argument): Pass true as manifestly_const_eval
+	to maybe_constant_value calls.
+
+2019-02-11  Marek Polacek  <polacek@redhat.com>
+
+	* typeck2.c (digest_init_r): Remove commented code.
+
+2019-02-11  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/87996
+	* decl.c (compute_array_index_type_loc): Preserve signed sizes
+	for diagnostics.  Call valid_array_size_p instead of error.
+	* init.c (build_new_1): Compute size for diagnostic.  Call
+	invalid_array_size_error
+	(build_new): Call valid_array_size_p instead of error.
+
 2019-02-07  Alexandre Oliva <aoliva@redhat.com>
 
 	PR c++/86218

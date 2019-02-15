@@ -1,3 +1,67 @@
+2019-02-14  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/status_cxx2020.xml: Update P0887R1 status.
+	* doc/html/*: Regenerate.
+
+	* doc/xml/manual/status_cxx2017.xml: Add P0063R3 to status table.
+	* doc/html/*: Regenerate.
+
+	* doc/xml/manual/intro.xml: Document LWG 2586 status.
+	* include/bits/uses_allocator.h (__uses_alloc): Use const lvalue
+	allocator type in is_constructible checks.
+	* testsuite/20_util/scoped_allocator/69293_neg.cc: Adjust dg-error.
+	* testsuite/20_util/scoped_allocator/dr2586.cc: New test.
+	* testsuite/20_util/tuple/cons/allocators.cc: Add test using
+	problematic type from LWG 2586 discussion.
+	* testsuite/20_util/uses_allocator/69293_neg.cc: Adjust dg-error.
+	* testsuite/20_util/uses_allocator/cons_neg.cc: Likewise.
+
+	* configure.ac: Check for C11 timespec_get function.
+	* crossconfig.m4 (freebsd, linux, gnu, cygwin, solaris, netbsd)
+	(openbsd): Likewise
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* include/c_global/ctime (timespec, timespec_get): Add to namespace
+	std for C++17 and up.
+
+	* doc/xml/manual/intro.xml: Document LWG 2537 status.
+	* include/bits/stl_queue.h
+	(priority_queue(const Compare&, const Container&, const Alloc&))
+	(priority_queue(const Compare&, Container&&, const Alloc&)): Call
+	make_heap.
+	* testsuite/23_containers/priority_queue/dr2537.cc: New test.
+
+	* doc/xml/manual/intro.xml: Document LWG 2566 status.
+	* include/bits/stl_queue.h (queue, priority_queue): Add static
+	assertions to enforce LWG 2566 requirement on value_type.
+	* include/bits/stl_stack.h (stack): Likewise.
+
+	PR middle-end/89303
+	* testsuite/20_util/enable_shared_from_this/89303.cc: New test.
+
+	* doc/xml/manual/intro.xml: Document LWG 2735 status.
+	* include/bits/std_abs.h: Add comment about LWG 2735.
+	* testsuite/26_numerics/headers/cstdlib/dr2735.cc: New test.
+
+2019-02-13  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/89345
+	* include/std/version [__cpp_impl_destroying_delete]
+	(__cpp_lib_destroying_delete): Only define for C++2a and later.
+	* libsupc++/new [__cpp_impl_destroying_delete]
+	(__cpp_lib_destroying_delete): Likewise.
+	(destroying_delete_t, destroying_delete): Likewise, but define even
+	when __cpp_impl_destroying_delete is not defined.
+	* testsuite/18_support/destroying_delete.cc: New test.
+
+2019-02-11  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/89023
+	* testsuite/17_intro/headers/c++2011/parallel_mode.cc: New test.
+	* testsuite/17_intro/headers/c++2014/parallel_mode.cc: New test.
+	* testsuite/17_intro/headers/c++2017/parallel_mode.cc: New test.
+	* testsuite/28_regex/headers/regex/parallel_mode.cc: Remove.
+
 2019-02-09  Jonathan Wakely  <jwakely@redhat.com>
 
 	PR libstdc++/71044
