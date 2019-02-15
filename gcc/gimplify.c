@@ -8289,8 +8289,6 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		      *list_p = c2;
 		      OMP_CLAUSE_CHAIN (c2) = c3;
 		      OMP_CLAUSE_CHAIN (c3) = c;
-		      c = c3;
-		      list_p = &OMP_CLAUSE_CHAIN (c3);
 
 		      struct_deref_set->add (decl);
 		    }
