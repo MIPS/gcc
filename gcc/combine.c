@@ -7687,6 +7687,7 @@ make_extraction (machine_mode mode, rtx inner, HOST_WIDE_INT pos,
 	      /* We can't do this if we are widening INNER_MODE (it
 		 may not be aligned, for one thing).  */
 	      && !paradoxical_subreg_p (tmode, inner_mode)
+	      && known_le (pos + len, GET_MODE_PRECISION (is_mode))
 	      && (inner_mode == tmode
 		  || (! mode_dependent_address_p (XEXP (inner, 0),
 						  MEM_ADDR_SPACE (inner))
@@ -7828,6 +7829,10 @@ make_extraction (machine_mode mode, rtx inner, HOST_WIDE_INT pos,
   if (mode != VOIDmode
       && partial_subreg_p (extraction_mode, mode))
     extraction_mode = mode;
+
+  /* Punt if len is too large for extraction_mode.  */
+  if (maybe_gt (len, GET_MODE_PRECISION (extraction_mode)))
+    return NULL_RTX;
 
   if (!MEM_P (inner))
     wanted_inner_mode = wanted_inner_reg_mode;

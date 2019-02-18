@@ -1,3 +1,105 @@
+2019-02-18  Martin Liska  <mliska@suse.cz>
+
+	* decl.c (gfc_match_gcc_builtin): Add support for filtering
+	of builtin directive based on multilib ABI name.
+
+2019-02-17  Harald Anlauf  <anlauf@gmx.de>
+
+	PR fortran/88299
+	* resolve.c (resolve_common_blocks,resolve_common_vars): Move
+	check for obsolent COMMON feature in F2018 to better place.
+
+2019-02-17  Harald Anlauf  <anlauf@gmx.de>
+
+	PR fortran/89077
+	* decl.c (gfc_set_constant_character_len): Clear original string
+	representation after padding has been performed to target length.
+
+2019-02-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/88074
+	* simplify.c (simplify_transformation_to_array): Run post_op
+	immediately after processing corresponding row, rather than at the
+	end.
+	(norm2_scale): New variable.
+	(add_squared): Rename to ...
+	(norm2_add_squared): ... this.  Scale down operand and/or result
+	if needed.
+	(do_sqrt): Rename to ...
+	(norm2_do_sqrt): ... this.  Handle the result == e case.  Scale up
+	result and clear norm2_scale.
+	(gfc_simplify_norm2): Clear norm2_scale.  Change add_squared to
+	norm2_add_squared and &do_sqrt to norm2_do_sqrt.  Scale up result
+	and clear norm2_scale again.
+
+2019-02-17  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/71066
+	* trans-decl.c (generate_coarray_sym_init):  For an array
+	constructor in a DATA statement of a coarray variable, set the
+	rank to 1 to avoid confusion later on.  If the constructor
+	contains only one value, use that for initiailizig.
+
+2019-02-14  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR fortran/81552
+	* gfortran.h (gfc_option_t): Make flag_init_integer_value a long.
+	* options.c (gfc_handle_option): Use strtol instead of atoi.
+	* invoke.texi: Document -finit-integer behavior in more detail.
+
+2019-02-14  Harald Anlauf  <anlauf@gmx.de>
+
+	PR fortran/88248
+	* symbol.c: Move check for labeled DO statement from
+	gfc_define_st_label to gfc_reference_st_label.
+
+2019-02-14  Cesar Philippidis  <cesar@codesourcery.com>
+
+	PR fortran/72715
+	* openmp.c (resolve_oacc_nested_loops): Error on do concurrent
+	loops.
+
+2019-02-13  Martin Liska  <mliska@suse.cz>
+
+	PR fortran/88649
+	* resolve.c (resolve_operator): Initialize 't' right
+	after function entry.  Skip switch (e->value.op.op)
+	for -fdec operands that become function calls.
+
+2019-02-10  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/71723
+	* expr.c (gfc_check_assign): Add argument is_init_expr.  If we are
+	looking at an init expression, issue error if the target is not a
+	TARGET and we are not looking at a procedure pointer.
+	* gfortran.h (gfc_check_assign): Add optional argument
+	is_init_expr.
+
+2019-02-09  Harald Anlauf  <anlauf@gmx.de>
+
+	PR fortran/89077
+	* resolve.c (gfc_resolve_substring_charlen): Check substring
+	length for constantness prior to general calculation of length.
+
+2019-02-09  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/89200
+	* trans-array.c (gfc_trans_create_temp_array): Set the 'span'
+	field for derived types.
+
+2019-02-04  Harald Anlauf  <anlauf@gmx.de>
+
+	PR fortran/89077
+	* decl.c (add_init_expr_to_sym): Copy length of string initializer
+	to declared symbol.
+
+2019-02-04  Martin Liska  <mliska@suse.cz>
+
+	PR fortran/89185
+	* resolve.c (resolve_ref): Remove breakout variable as
+	we need to prevent prev = &(*prev)->next to happen
+	with *prev == NULL.
+
 2019-02-04  Martin Liska  <mliska@suse.cz>
 
 	PR fortran/88912

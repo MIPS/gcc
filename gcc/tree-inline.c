@@ -4590,7 +4590,6 @@ expand_call_inline (basic_block bb, gimple *stmt, copy_body_data *id)
 
   /* We will be inlining this callee.  */
   id->eh_lp_nr = lookup_stmt_eh_lp (stmt);
-  id->assign_stmts.create (0);
 
   /* Update the callers EH personality.  */
   if (DECL_FUNCTION_PERSONALITY (fn))
@@ -4984,7 +4983,6 @@ expand_call_inline (basic_block bb, gimple *stmt, copy_body_data *id)
       TREE_USED (gimple_assign_rhs1 (stmt)) = 1;
     }
 
-  id->assign_stmts.release ();
   id->add_clobbers_to_eh_landing_pads = 0;
 
   /* Output the inlining info for this abstract function, since it has been

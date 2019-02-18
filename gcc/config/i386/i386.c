@@ -4165,14 +4165,9 @@ ix86_option_override_internal (bool main_args_p,
       opts->x_target_flags
 	|= TARGET_SUBTARGET64_DEFAULT & ~opts_set->x_target_flags;
 
-      /* Enable by default the SSE and MMX builtins.  Do allow the user to
-	 explicitly disable any of these.  In particular, disabling SSE and
-	 MMX for kernel code is extremely useful.  */
       if (!ix86_arch_specified)
-      opts->x_ix86_isa_flags
-	|= ((OPTION_MASK_ISA_SSE2 | OPTION_MASK_ISA_SSE | OPTION_MASK_ISA_MMX
-	     | TARGET_SUBTARGET64_ISA_DEFAULT)
-            & ~opts->x_ix86_isa_flags_explicit);
+	opts->x_ix86_isa_flags
+	  |= TARGET_SUBTARGET64_ISA_DEFAULT & ~opts->x_ix86_isa_flags_explicit;
 
       if (TARGET_RTD_P (opts->x_target_flags))
 	warning (0,
@@ -8324,8 +8319,6 @@ ix86_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
   else
     nregs = function_arg_advance_32 (cum, mode, type, bytes, words);
 
-  /* For pointers passed in memory we expect bounds passed in Bounds
-     Table.  */
   if (!nregs)
     {
       /* Track if there are outgoing arguments on stack.  */
@@ -13579,8 +13572,9 @@ ix86_expand_prologue (void)
 	}
       m->fs.sp_offset += allocate;
 
-      /* Use stack_pointer_rtx for relative addressing so that code
-	 works for realigned stack, too.  */
+      /* Use stack_pointer_rtx for relative addressing so that code works for
+	 realigned stack.  But this means that we need a blockage to prevent
+	 stores based on the frame pointer from being scheduled before.  */
       if (r10_live && eax_live)
         {
 	  t = gen_rtx_PLUS (Pmode, stack_pointer_rtx, eax);
@@ -13589,6 +13583,7 @@ ix86_expand_prologue (void)
 	  t = plus_constant (Pmode, t, UNITS_PER_WORD);
 	  emit_move_insn (gen_rtx_REG (word_mode, AX_REG),
 			  gen_frame_mem (word_mode, t));
+	  emit_insn (gen_memory_blockage ());
 	}
       else if (eax_live || r10_live)
 	{
@@ -13596,6 +13591,7 @@ ix86_expand_prologue (void)
 	  emit_move_insn (gen_rtx_REG (word_mode,
 				       (eax_live ? AX_REG : R10_REG)),
 			  gen_frame_mem (word_mode, t));
+	  emit_insn (gen_memory_blockage ());
 	}
     }
   gcc_assert (m->fs.sp_offset == frame.stack_pointer_offset);
@@ -29583,6 +29579,19 @@ ix86_warn_parameter_passing_abi (cumulative_args_t cum_v, tree type)
   cum->warn_empty = false;
 }
 
+/* This hook returns name of multilib ABI.  */
+
+static const char *
+ix86_get_multilib_abi_name (void)
+{
+  if (!(TARGET_64BIT_P (ix86_isa_flags)))
+    return "i386";
+  else if (TARGET_X32_P (ix86_isa_flags))
+    return "x32";
+  else
+    return "x86_64";
+}
+
 /* Compute the alignment for a variable for Intel MCU psABI.  TYPE is
    the data type, and ALIGN is the alignment that the object would
    ordinarily have.  */
@@ -30418,8 +30427,6 @@ struct builtin_isa {
   enum ix86_builtin_func_type tcode; /* type to use in the declaration */
   unsigned char const_p:1;	/* true if the declaration is constant */
   unsigned char pure_p:1;	/* true if the declaration has pure attribute */
-  bool leaf_p;			/* true if the declaration has leaf attribute */
-  bool nothrow_p;		/* true if the declaration has nothrow attribute */
   bool set_and_not_built_p;
 };
 
@@ -30490,8 +30497,6 @@ def_builtin (HOST_WIDE_INT mask, HOST_WIDE_INT mask2,
 	  ix86_builtins[(int) code] = NULL_TREE;
 	  ix86_builtins_isa[(int) code].tcode = tcode;
 	  ix86_builtins_isa[(int) code].name = name;
-	  ix86_builtins_isa[(int) code].leaf_p = false;
-	  ix86_builtins_isa[(int) code].nothrow_p = false;
 	  ix86_builtins_isa[(int) code].const_p = false;
 	  ix86_builtins_isa[(int) code].pure_p = false;
 	  ix86_builtins_isa[(int) code].set_and_not_built_p = true;
@@ -30571,13 +30576,6 @@ ix86_add_new_builtins (HOST_WIDE_INT isa, HOST_WIDE_INT isa2)
 	  ix86_builtins[i] = decl;
 	  if (ix86_builtins_isa[i].const_p)
 	    TREE_READONLY (decl) = 1;
-	  if (ix86_builtins_isa[i].pure_p)
-	    DECL_PURE_P (decl) = 1;
-	  if (ix86_builtins_isa[i].leaf_p)
-	    DECL_ATTRIBUTES (decl) = build_tree_list (get_identifier ("leaf"),
-						      NULL_TREE);
-	  if (ix86_builtins_isa[i].nothrow_p)
-	    TREE_NOTHROW (decl) = 1;
 	}
     }
 
@@ -50444,28 +50442,34 @@ ix86_simd_clone_compute_vecsize_and_simdlen (struct cgraph_node *node,
 
   tree t;
   int i;
+  tree type_arg_types = TYPE_ARG_TYPES (TREE_TYPE (node->decl));
+  bool decl_arg_p = (node->definition || type_arg_types == NULL_TREE);
 
-  for (t = DECL_ARGUMENTS (node->decl), i = 0; t; t = DECL_CHAIN (t), i++)
-    switch (TYPE_MODE (TREE_TYPE (t)))
-      {
-      case E_QImode:
-      case E_HImode:
-      case E_SImode:
-      case E_DImode:
-      case E_SFmode:
-      case E_DFmode:
-      /* case E_SCmode: */
-      /* case E_DCmode: */
-	if (!AGGREGATE_TYPE_P (TREE_TYPE (t)))
-	  break;
-	/* FALLTHRU */
-      default:
-	if (clonei->args[i].arg_type == SIMD_CLONE_ARG_TYPE_UNIFORM)
-	  break;
-	warning_at (DECL_SOURCE_LOCATION (node->decl), 0,
-		    "unsupported argument type %qT for simd", TREE_TYPE (t));
-	return 0;
-      }
+  for (t = (decl_arg_p ? DECL_ARGUMENTS (node->decl) : type_arg_types), i = 0;
+       t && t != void_list_node; t = TREE_CHAIN (t), i++)
+    {
+      tree arg_type = decl_arg_p ? TREE_TYPE (t) : TREE_VALUE (t);
+      switch (TYPE_MODE (arg_type))
+	{
+	case E_QImode:
+	case E_HImode:
+	case E_SImode:
+	case E_DImode:
+	case E_SFmode:
+	case E_DFmode:
+	/* case E_SCmode: */
+	/* case E_DCmode: */
+	  if (!AGGREGATE_TYPE_P (arg_type))
+	    break;
+	  /* FALLTHRU */
+	default:
+	  if (clonei->args[i].arg_type == SIMD_CLONE_ARG_TYPE_UNIFORM)
+	    break;
+	  warning_at (DECL_SOURCE_LOCATION (node->decl), 0,
+		      "unsupported argument type %qT for simd", arg_type);
+	  return 0;
+	}
+    }
 
   if (!TREE_PUBLIC (node->decl))
     {
@@ -51814,6 +51818,10 @@ ix86_run_selftests (void)
 
 #undef TARGET_WARN_PARAMETER_PASSING_ABI
 #define TARGET_WARN_PARAMETER_PASSING_ABI ix86_warn_parameter_passing_abi
+
+#undef TARGET_GET_MULTILIB_ABI_NAME
+#define TARGET_GET_MULTILIB_ABI_NAME \
+  ix86_get_multilib_abi_name
 
 #if CHECKING_P
 #undef TARGET_RUN_TARGET_SELFTESTS
