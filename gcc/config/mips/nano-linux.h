@@ -57,7 +57,6 @@ along with GCC; see the file COPYING3.  If not see
   "%{fno-pic: -static}"
 
 #undef LINK_SPEC
-#define LINK_SPEC "%{!mno-relax:--relax} \
-%{mcmodel=medium|mcmodel=large:--no-expand} " 				\
+#define LINK_SPEC "%{!mno-relax:--relax}"				\
   LINUX_OR_ANDROID_LD (GNU_USER_TARGET_LINK_SPEC,			\
 		       GNU_USER_TARGET_LINK_SPEC " " ANDROID_LINK_SPEC)
