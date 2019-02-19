@@ -7576,7 +7576,7 @@ extern tree cp_fully_fold			(tree);
 extern tree cp_fully_fold_init			(tree);
 extern void clear_fold_cache			(void);
 extern tree lookup_hotness_attribute		(tree);
-extern tree process_stmt_hotness_attribute	(tree);
+extern tree process_stmt_hotness_attribute	(tree, location_t);
 
 /* in name-lookup.c */
 extern tree strip_using_decl                    (tree);
@@ -7710,6 +7710,7 @@ extern void explain_invalid_constexpr_fn        (tree);
 extern vec<tree> cx_error_context               (void);
 extern tree fold_sizeof_expr			(tree);
 extern void clear_cv_and_fold_caches		(void);
+extern tree unshare_constructor			(tree);
 
 /* In cp-ubsan.c */
 extern void cp_ubsan_maybe_instrument_member_call (tree);

@@ -1,3 +1,51 @@
+2019-02-19  Chung-Lin Tang <cltang@codesourcery.com>
+
+	PR c/87924
+	* parser.c (cp_parser_oacc_clause_wait): Add representation of wait
+	clause without argument as 'wait (GOMP_ASYNC_NOVAL)', adjust comments.
+
+2019-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/89387
+	* lambda.c (maybe_generic_this_capture): Don't check
+	DECL_NONSTATIC_MEMBER_FUNCTION_P on USING_DECLs.
+
+	PR c++/89391
+	* typeck.c (build_reinterpret_cast_1): Don't handle void to
+	&& conversion go through build_target_expr_with_type.
+
+	PR c++/89390
+	* error.c (qualified_name_lookup_error): Only call
+	suggest_alternative_in_scoped_enum if name is IDENTIFIER_NODE.
+
+2019-02-19  Tom Honermann  <tom@honermann.net>
+
+	* name-lookup.c (get_std_name_hint): Added u8string as a name hint.
+
+2019-02-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/89336 - multiple stores in constexpr stmt.
+	* constexpr.c (cxx_eval_store_expression): Preevaluate scalar or
+	assigned value.
+
+	* pt.c (check_explicit_specialization): If the declarator is a
+	template-id, only check whether the arguments are dependent.
+
+	Improve duplicate [[likely]] diagnostic.
+	* parser.c (cp_parser_statement): Make attrs_loc a range.  Pass it
+	to process_stmt_hotness_attribute.
+	* cp-gimplify.c (process_stmt_hotness_attribute): Take attrs_loc.
+	(genericize_if_stmt): Use likely/unlikely instead of predictor_name.
+
+2019-02-17  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/89217 - ICE with list-initialization in range-based for loop.
+	* constexpr.c (unshare_constructor): No longer static.
+	* cp-tree.h (unshare_constructor): Declare.
+	* semantics.c (finish_compound_literal): When dealing with a
+	non-dependent expression in a template, return the original
+	expression.  Pass LOOKUP_NO_NARROWING to digest_init_flags.
+
 2019-02-13  Marek Polacek  <polacek@redhat.com>
 
 	PR c++/89297 - ICE with OVERLOAD in template.

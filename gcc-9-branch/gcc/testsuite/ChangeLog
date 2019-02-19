@@ -1,3 +1,137 @@
+2019-02-19  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR c/87924
+	* c-c++-common/goacc/asyncwait-5.c: Remove XFAILs.
+	* gfortran.dg/goacc/asyncwait-5.f: Likewise.
+
+2019-02-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/89397
+	* gcc.target/i386/pr89397.c: New test.
+
+2019-02-19  Richard Biener  <rguenther@suse.de>
+
+        PR middle-end/88074
+	* gcc.dg/pr88074.c: New testcase.
+
+2019-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/89303
+	* g++.dg/torture/pr89303.C: Move everything from std namespace to my
+	namespace.
+
+	PR c++/89387
+	* g++.dg/cpp0x/lambda/lambda-89387.C: New test.
+
+	PR c++/89391
+	* g++.dg/cpp0x/reinterpret_cast2.C: New test.
+
+	PR c++/89390
+	* g++.dg/diagnostic/pr89390.C: New test.
+
+2019-02-18  Sharon Dvir  <unapologtic@gmail.com>
+
+	* README: Fix typos.
+
+2019-02-18  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* g++.dg/torture/pr89303.C (bad_weak_ptr): Rename to
+	bad_weak_ptr_.
+
+2019-02-18  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/87689
+	* gfortran.dg/lto/20091028-1_0.f90: Add -Wno-lto-type-mismatch to
+	options.
+	* gfortran.dg/lto/20091028-2_0.f90: Likewise.
+	* gfortran.dg/lto/pr87689_0.f: New file.
+	* gfortran.dg/lto/pr87689_1.f: New file.
+
+2019-02-18  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* g++.dg/wrappers/pr88680.C: Add -fno-short-enums.
+
+2019-02-18  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gdc.dg/dg.exp: Tabify.
+	* gdc.dg/lto/lto.exp: Likewise.
+	* gdc.test/gdc-test.exp: Likewise.
+	* lib/gdc-dg.exp: Likewise.
+	* lib/gdc.exp: Likewise.
+
+2019-02-18  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/89296
+	* gcc.dg/uninit-pr89296.c: New testcase.
+
+2019-02-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/89369
+	* gcc.c-torture/execute/pr89369.c: New test.
+	* gcc.target/s390/md/rXsbg_mode_sXl.c (rosbg_si_srl,
+	rxsbg_si_srl): Expect last 3 operands 32,63,62 rather than
+	34,63,62.
+
+2019-02-18  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/89209
+	* gcc.dg/tree-ssa/pr89209.c: New test.
+
+2019-02-18  Martin Liska  <mliska@suse.cz>
+
+	* gfortran.dg/simd-builtins-7.f90: New test.
+	* gfortran.dg/simd-builtins-7.h: New test.
+
+2019-02-17  Harald Anlauf  <anlauf@gmx.de>
+
+	PR fortran/88299
+	* gfortran.dg/pr88299.f90: New test.
+
+2019-02-17  Harald Anlauf  <anlauf@gmx.de>
+
+	PR fortran/89077
+	* gfortran.dg/transfer_simplify_12.f90: New test.
+
+2019-02-17  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/89217 - ICE with list-initialization in range-based for loop.
+	* g++.dg/cpp0x/range-for37.C: New test.
+
+	* g++.old-deja/g++.robertl/eb82.C: Tweak dg-error.
+
+	PR c++/89315
+	* g++.dg/cpp0x/initlist114.C: New test.
+
+	PR c++/89356
+	* g++.dg/abi/mangle68.C: New test.
+	* g++.dg/cpp0x/decltype69.C: New test.
+
+2019-02-16  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/88680
+	* g++.dg/wrappers/pr88680.C: New test.
+
+2019-02-17  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/71066
+	* gfortran.dg/coarray_data_1.f90: New test.
+
+2019-02-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* c-c++-common/patchable_function_entry-decl.c: Add -fno-pie on SPARC.
+	* c-c++-common/patchable_function_entry-default.c: Likewise.
+	* c-c++-common/patchable_function_entry-definition.c: Likewise.
+
+2019-02-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/66152
+	* gcc.target/i386/pr66152.c: New test.
+
+2019-02-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* g++.dg/asan/asan_oob_test.cc: Skip OOB_int on SPARC.
+	* g++.dg/asan/function-argument-3.C: Tweak for 32-bit SPARC.
+
 2019-02-15  Tamar Christina  <tamar.christina@arm.com>
 
 	* lib/target-supports.exp

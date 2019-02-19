@@ -1,3 +1,188 @@
+2019-02-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/89397
+	* config/i386/i386.c (ix86_option_override_internal): Set
+	opts->x_ix86_fpmath to FPMATH_387 when SSE is disabled.
+
+2019-02-19  Richard Biener  <rguenther@suse.de>
+
+        PR middle-end/88074
+	* toplev.c (do_compile): Initialize mpfr's exponent range
+	based on available float modes.
+
+2019-02-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* rtlanal.c (get_initial_register_offset): Fall back to the estimate
+	as long as the epilogue isn't completed.
+
+2019-02-18  Martin Sebor  <msebor@redhat.com>
+
+	* doc/cpp.texi (Conditional syntax): Add __has_attribute,
+	__has_cpp_attribute, and __has_include.
+
+2019-02-18  Martin Sebor  <msebor@redhat.com>
+
+	* doc/invoke.texi (-Wreturn-type): Correct and expand.
+
+2019-02-18  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/89294
+	* tree.c (valid_constant_size_p): Avoid assuming size is a constant
+	expression.
+	* tree.h (cst_size_error): Add the cst_size_not_constant enumerator.
+
+2019-02-18  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/89296
+	* tree-ssa-loop-ch.c (ch_base::copy_headers): Restrict setting
+	of no-warning flag to cases that might emit the bogus warning.
+
+2019-02-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/88714
+	* config/arm/arm.md (*arm_movdi, *movdf_soft_insn): Use "r" instead of
+	"q" constraint.
+	* config/arm/vfp.md (*movdi_vfp): Likewise.
+	* config/arm/ldrdstrd.md (*arm_ldrd, *arm_strd): Use "r" instead of
+	"q" constraint for operands[0].
+
+	PR target/89369
+	* config/s390/s390.md (*r<noxa>sbg_<mode>_srl_bitmask,
+	*r<noxa>sbg_<mode>_sll, *r<noxa>sbg_<mode>_srl): Don't construct
+	pattern in a temporary buffer.
+	(*r<noxa>sbg_sidi_srl): Likewise.  Always use 32 as I3 rather
+	than 64-operands[2].
+
+	PR target/89361
+	* config/s390/s390.c (s390_indirect_branch_attrvalue,
+	s390_indirect_branch_settings): Define unconditionally.
+	(s390_set_current_function): Likewise, but guard the whole body except
+	the s390_indirect_branch_settings call with
+	#if S390_USE_TARGET_ATTRIBUTE.
+	(TARGET_SET_CURRENT_FUNCTION): Redefine unconditionally.
+
+	* config/s390/s390.md (*<risbg_n>_ior_and_sr_ze,
+	*<risbg_n>_<mode>_ior_and_lshiftrt, *<risbg_n>_sidi_ior_and_lshiftrt):
+	Use HOST_WIDE_INT_M1U instead of ~(0ULL).
+	(*<risbg_n>_and_subregdi_rotr, *<risbg_n>_and_subregdi_rotl): Use
+	HOST_WIDE_INT_1U instead of 1ULL.
+	(*pre_z10_extzv<mode>, *pre_z10_extv<mode>): Change mask type from int
+	to unsigned HOST_WIDE_INT, use HOST_WIDE_INT_1U instead of 1ul.
+	(*insv<mode><clobbercc_or_nocc>_appendbitsleft,
+	z = (x << c) | (y >> d) splitters): Use HOST_WIDE_INT_1U
+	instead of 1UL.
+	(*insv<mode>_mem_reg, *insvdi_mem_reghigh): Use HOST_WIDE_INT_1U
+	instead of 1ul.
+
+2019-02-18  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/89209
+	* tree-sra.c (create_access_replacement): New optional parameter
+	reg_tree.  Use it as a type if non-NULL and access type is not of
+	a register type.
+	(get_repl_default_def_ssa_name): New parameter REG_TYPE, pass it
+	to create_access_replacement.
+	(sra_modify_assign): Pass LHS type to get_repl_default_def_ssa_name.
+	Check lacc is non-NULL before attempting to re-create it on the RHS.
+
+2019-02-18  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/89306
+	* cgraph.c (symbol_table::create_edge): Set m_summary_id to -1
+	by default.
+	(symbol_table::free_edge): Recycle m_summary_id.
+	* cgraph.h (get_summary_id): New.
+	(symbol_table::release_symbol): Set m_summary_id to -1
+	by default.
+	(symbol_table::allocate_cgraph_symbol): Recycle m_summary_id.
+	* ipa-fnsummary.c (ipa_fn_summary_t): Switch from
+	function_summary to fast_function_summary.
+	* ipa-fnsummary.h (ipa_fn_summary_t): Likewise.
+	* ipa-pure-const.c (class funct_state_summary_t):
+	Switch from function_summary to fast_function_summary.
+	* ipa-reference.c (class ipa_ref_var_info_summary_t): Likewise.
+	(class ipa_ref_opt_summary_t): Switch from function_summary
+	to fast_function_summary.
+	* symbol-summary.h (class function_summary_base): New class
+	that is created from base of former function_summary.
+	(function_summary_base::unregister_hooks): New.
+	(class function_summary): Inherit from function_summary_base.
+	(class call_summary_base): New class
+	that is created from base of former call_summary.
+	(class call_summary): Inherit from call_summary_base.
+	(struct is_same): New.
+	(class fast_function_summary): New summary class.
+	(class fast_call_summary): New summary class.
+	* vec.h (vec_safe_grow_cleared): New function.
+
+2019-02-18  Martin Liska  <mliska@suse.cz>
+
+	* config/i386/i386.c (ix86_get_multilib_abi_name): New function.
+	(TARGET_GET_MULTILIB_ABI_NAME): New macro defined.
+	* doc/tm.texi: Document new target hook.
+	* doc/tm.texi.in: Likewise.
+	* target.def: Add new target macro.
+	* gcc.c (find_fortran_preinclude_file): Do not search multilib
+	suffixes.
+
+2019-02-17  Alan Modra  <amodra@gmail.com>
+
+	PR target/89271
+	* config/rs6000/rs6000.md (<bd>_<mode> split): Check for an int
+	output reg on add insn.
+	(<bd>tf_<mode> split): Likewise.  Match predicates with insn.
+
+2019-02-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/89372
+	* config/i386/sse.md (ssedoublemode): Remove V4HI.
+	(PMULHRSW): Likewise.
+	(<ssse3_avx2>_pmulhrsw<mode>3): Require TARGET_SSSE3, not
+	TARGET_AVX2.
+	(ssse3_pmulhrswv4hi3): New expander.
+
+2019-02-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/mmx.md (*vec_extractv2si_zext_mem): Doesn't require
+	MMX.  Add isa attribute.
+
+2019-02-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/66152
+	* builtins.h (c_readstr): Declare.
+	* builtins.c (c_readstr): Remove forward declaration.  Add
+	null_terminated_p argument, if false, read all bytes from the
+	string instead of stopping after '\0'.
+	* expr.c (string_cst_read_str): New function.
+	(store_expr): Use string_cst_read_str instead of
+	builtin_strncpy_read_str.  Try to store by pieces the whole
+	exp_len first, and only if that fails, split it up into
+	store by pieces followed by clear_storage.  Formatting fix.
+
+	* config/i386/i386.md (*movqi_internal): Remove static from
+	buf variable.  Use output_asm_insn (buf, operands); return "";
+	instead of return buf;.
+	* config/i386/sse.md (<sse>_andnot<mode>3<mask_name>,
+	*<code><mode>3<mask_name>, *andnot<mode>3, *andnottf3, *<code><mode>3,
+	*<code>tf3, <mask_codefor><code><mode>3<mask_name>): Likewise.
+
+2019-02-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/linux.h (ASAN_CC1_SPEC): Define.
+	(CC1_SPEC): Use GNU_USER_TARGET_CC1_SPEC and ASAN_CC1_SPEC.
+	* config/sparc/linux64.h (ASAN_CC1_SPEC): Likewise.
+	(CC1_SPEC): Likewise.
+	* config/sparc/sparc.c (sparc_asan_shadow_offset): Adjust for 64-bit.
+
+2019-02-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* asan.c (asan_emit_stack_protection): Use full-sized mask to align
+	the base address on 64-bit strict-alignment platforms.
+
+2019-02-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.h (VALID_MMX_REG_MODE): Correct the misplaced ')'.
+
 2019-02-15  Uroš Bizjak  <ubizjak@gmail.com>
 
 	* config/i386/darwin.h (TARGET_FPMATH_DEFAULT_P): New define.
