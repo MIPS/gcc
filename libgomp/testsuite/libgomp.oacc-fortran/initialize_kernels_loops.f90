@@ -6,7 +6,7 @@ subroutine kernel(lo, hi, a, b, c)
     integer :: lo, hi, i
     real, dimension(lo:hi) :: a, b, c
 
-!$acc kernels
+!$acc kernels copyin(lo, hi)
 !$acc loop independent ! { dg-warning "note: parallelized loop nest in OpenACC .kernels. construct" }
     do i = lo, hi
       b(i) = a(i)
