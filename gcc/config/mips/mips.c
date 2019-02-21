@@ -3201,8 +3201,14 @@ mips_classify_symbol_1 (const_rtx x, enum mips_symbol_context context,
       if (TARGET_MIPS16_PCREL_LOADS && context == SYMBOL_CONTEXT_MEM)
 	return SYMBOL_PC_RELATIVE;
 
-      if (mips_rtx_constant_in_small_data_p (get_pool_mode (x)))
-	return SYMBOL_GP_RELATIVE;
+      machine_mode mode = get_pool_mode (x);
+      if (mips_rtx_constant_in_small_data_p (mode))
+        {
+          if (TARGET_NANOMIPS && GET_MODE_UNIT_SIZE(mode) >= 4)
+            return SYMBOL_GPREL_WORD_NANO;
+          else
+	    return SYMBOL_GP_RELATIVE;
+        }
     }
 
   if (TARGET_NANOMIPS)
@@ -3259,22 +3265,33 @@ mips_classify_symbol_1 (const_rtx x, enum mips_symbol_context context,
 		  && !(TARGET_GPOPT
 		       && SYMBOL_REF_SMALL_P (x)))
 		return SYMBOL_PCREL_4K_NANO;
+              else if (TARGET_GPOPT
+                       && VAR_P (SYMBOL_REF_DECL (x))
+                       && SYMBOL_REF_SMALL_P (x)
+                       && !SYMBOL_REF_WEAK (x)
+                       && (symbol_pic_model == NANO_PIC_AUTO
+                           || symbol_pic_model == NANO_PIC_MEDIUM)
+                       && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) >= 4
+                       && offset % 4 == 0)
+                return SYMBOL_GPREL_WORD_NANO;
+              else if (TARGET_GPOPT
+                       && VAR_P (SYMBOL_REF_DECL (x))
+                       && SYMBOL_REF_SMALL_P (x)
+                       && !SYMBOL_REF_WEAK (x)
+                       && (symbol_pic_model == NANO_PIC_AUTO
+                           || symbol_pic_model == NANO_PIC_MEDIUM)
+                       && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) >= 2
+                       && offset % 2 == 0)
+                return SYMBOL_GPREL_HWORD_NANO;
 	      else if (TARGET_GPOPT
 		       && VAR_P (SYMBOL_REF_DECL (x))
 		       && SYMBOL_REF_SMALL_P (x)
 		       && !SYMBOL_REF_WEAK (x)
 		       && (symbol_pic_model == NANO_PIC_AUTO
 			   || symbol_pic_model == NANO_PIC_MEDIUM)
-		       && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) <= 2)
+		       && (DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) < 2
+                       || offset % 4 != 0))
 		return SYMBOL_GP_RELATIVE;
-	      else if (TARGET_GPOPT
-		       && VAR_P (SYMBOL_REF_DECL (x))
-		       && SYMBOL_REF_SMALL_P (x)
-		       && !SYMBOL_REF_WEAK (x)
-		       && (symbol_pic_model == NANO_PIC_AUTO
-			   || symbol_pic_model == NANO_PIC_MEDIUM)
-		       && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) >= 4)
-		return SYMBOL_GPREL_WORD_NANO;
 	      else if (TARGET_GPOPT
 		       && VAR_P (SYMBOL_REF_DECL (x))
 		       && SYMBOL_REF_SMALL_P (x)
@@ -3535,15 +3552,16 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
     case SYMBOL_GP_RELATIVE:
     case SYMBOL_GPREL32_NANO:
     case SYMBOL_GPREL_SPLIT_NANO:
+    case SYMBOL_GPREL_HWORD_NANO:
+
       /* Make sure that the offset refers to something within the
 	 same object block.  This should guarantee that the final
 	 PC- or GP-relative offset is within the 16-bit limit.  */
       return offset_within_block_p (x, INTVAL (offset));
 
     case SYMBOL_GPREL_WORD_NANO:
-      if (INTVAL (offset) % 4 == 0)
+        gcc_assert (INTVAL (offset) % 4 == 0);
 	return offset_within_block_p (x, INTVAL (offset));
-      return false;
 
     case SYMBOL_GOT_PAGE_OFST:
     case SYMBOL_GOTOFF_PAGE:
@@ -3653,6 +3671,19 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
       return 3;
 
     case SYMBOL_GP_RELATIVE:
+        if (mode == MAX_MACHINE_MODE
+            || GET_MODE_SIZE (mode) == 1)
+          return 1;
+
+      return 0;
+
+    case SYMBOL_GPREL_HWORD_NANO:
+        if (mode == MAX_MACHINE_MODE
+            || GET_MODE_SIZE (mode) <= 2)
+          return 1;
+
+      return 0;
+
     case SYMBOL_GPREL_WORD_NANO:
       /* Treat GP-relative accesses as taking a single instruction on
 	 MIPS16 too; the copy of $gp can often be shared.  */
@@ -4978,6 +5009,7 @@ mips_split_symbol (rtx temp, rtx addr, machine_mode mode, rtx *low_out)
 	      case SYMBOL_GP_RELATIVE:
 	      case SYMBOL_GPREL_WORD_NANO:
 	      case SYMBOL_GPREL32_NANO:
+              case SYMBOL_GPREL_HWORD_NANO:
 		high = mips_pic_base_register (temp);
 		*low_out = gen_rtx_LO_SUM (Pmode, high, addr);
 		break;
@@ -5544,6 +5576,12 @@ mips_rewrite_small_data_p (rtx x, enum mips_symbol_context context)
   if (mips_lo_relocs[SYMBOL_GPREL_SPLIT_NANO]
       && mips_symbolic_constant_p (x, context, &symbol_type)
       && symbol_type == SYMBOL_GPREL_SPLIT_NANO)
+    return true;
+
+  if (mips_lo_relocs[SYMBOL_GPREL_HWORD_NANO]
+      && !mips_split_p[SYMBOL_GPREL_HWORD_NANO]
+      && mips_symbolic_constant_p (x, context, &symbol_type)
+      && symbol_type == SYMBOL_GPREL_HWORD_NANO)
     return true;
 
   return false;
@@ -6966,7 +7004,8 @@ mips_constant_pool_symbol_in_sdata (rtx x, enum mips_symbol_context context)
 	  && (symbol_type == SYMBOL_GP_RELATIVE
 	      || symbol_type == SYMBOL_GPREL_WORD_NANO
 	      || symbol_type == SYMBOL_GPREL32_NANO
-	      || symbol_type == SYMBOL_GPREL_SPLIT_NANO)
+	      || symbol_type == SYMBOL_GPREL_SPLIT_NANO
+              || symbol_type == SYMBOL_GPREL_HWORD_NANO)
 	  && CONSTANT_POOL_ADDRESS_P (base));
 }
 
@@ -11363,6 +11402,9 @@ mips_init_relocs (void)
       mips_split_p[SYMBOL_GPREL_SPLIT_NANO] = true;
     }
 
+  if (TARGET_PABI)
+    mips_lo_relocs[SYMBOL_GPREL_HWORD_NANO] = "%gprel(";
+
   if (TARGET_EXPLICIT_RELOCS)
     {
       mips_split_p[SYMBOL_GOT_PAGE_OFST] = true;
@@ -12448,6 +12490,7 @@ mips_in_small_data_p (const_tree decl)
 	  || mips_lo_relocs[SYMBOL_GPREL_WORD_NANO]
 	  || mips_lo_relocs[SYMBOL_GPREL32_NANO]
 	  || mips_lo_relocs[SYMBOL_GPREL_SPLIT_NANO]
+          || mips_lo_relocs[SYMBOL_GPREL_HWORD_NANO]
 	  || !DECL_EXTERNAL (decl))
 	return true;
     }

@@ -670,7 +670,7 @@
 {
   enum mips_symbol_type type;
   return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
-	  && type == SYMBOL_GP_RELATIVE);
+	  && (type == SYMBOL_GP_RELATIVE || type == SYMBOL_GPREL_HWORD_NANO));
 })
 
 (define_predicate "gprel_word_nano_operand"

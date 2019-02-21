@@ -3,29 +3,31 @@
 /* { dg-skip-if "" { *-*-* } { "-O1" "-O2" "-O3" "-Os" } { "" } } */
 
 /* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%gprel\\(a_sta_4Kaligned\\)\\(\\\$gp\\)" } } */
-/* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%gprel\\(a_sta_2aligned\\)\\(\\\$gp\\)" } } */
+/* { dg-final { scan-assembler "addiu\\.b\t\\$\[ast0-9\]+,\\\$gp,%gprel\\(a_sta_2aligned\\)" } } */
+/* "lw\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" no. 1.  */
 /* { dg-final { scan-assembler "lbu\t\\\$\[ast0-9\]+,%gprel\\(a_sta_char\\)\\(\\\$gp\\)" } } */
 /* { dg-final { scan-assembler "lhu\t\\\$\[ast0-9\]+,%gprel\\(a_sta_short\\)\\(\\\$gp\\)" } } */
 /* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%gprel\\(a_sta_int\\)\\(\\\$gp\\)" } } */
 
 /* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%gprel\\(m_sta_4Kaligned\\)\\(\\\$gp\\)" } } */
-/* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%gprel\\(m_sta_2aligned\\)\\(\\\$gp\\)" } } */
+/* { dg-final { scan-assembler "addiu\\.b\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(m_sta_2aligned\\)" } } */
+/* "lw\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" no. 2.  */
 /* { dg-final { scan-assembler "lbu\t\\\$\[ast0-9\]+,%gprel\\(m_sta_char\\)\\(\\\$gp\\)" } } */
 /* { dg-final { scan-assembler "lhu\t\\\$\[ast0-9\]+,%gprel\\(m_sta_short\\)\\(\\\$gp\\)" } } */
 /* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%gprel\\(m_sta_int\\)\\(\\\$gp\\)" } } */
 
 /* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(l_sta_4Kaligned\\)" } } */
-/* "lw\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" no. 1.  */
+/* "lw\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" no. 3.  */
 /* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(l_sta_2aligned\\)" } } */
-/* "lw\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" no. 2.  */
+/* "lw\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" no. 4.  */
 /* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(l_sta_char\\)" } } */
 /* { dg-final { scan-assembler "lbu\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" } } */
 /* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(l_sta_short\\)" } } */
 /* { dg-final { scan-assembler "lhu\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" } } */
 /* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(l_sta_int\\)" } } */
-/* "lw\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" no. 3.  */
+/* "lw\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" no. 5.  */
 
-/* { dg-final { scan-assembler-times "lw\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" 3 } } */
+/* { dg-final { scan-assembler-times "lw\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" 5 } } */
 
 static char a_sta_char __attribute__ ((cmodel("auto"))) = 13;
 static short a_sta_short __attribute__ ((cmodel("auto"))) = 14;
