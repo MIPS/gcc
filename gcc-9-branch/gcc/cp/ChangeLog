@@ -1,3 +1,76 @@
+2019-02-20  Jason Merrill  <jason@redhat.com>
+
+	PR c++/88690 - C++17 ICE with empty base in aggregate.
+	* typeck2.c (process_init_constructor_record): Skip trivial
+	initialization of an empty base.
+
+2019-02-21  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/89392
+	* vtable-class-hierarchy.c (vtv_generate_init_routine): Do not
+	make symtab process new functions here.
+
+2019-02-20  Jason Merrill  <jason@redhat.com>
+
+	PR c++/87921 - wrong error with inline static data member.
+	* decl2.c (finish_static_data_member_decl): Don't set DECL_IN_AGGR_P
+	for a non-template inline variable.  Do nothing for an
+	already-instantiated variable.
+	(c_parse_final_cleanups): Check DECL_IN_AGGR_P without
+	DECL_INLINE_VAR_P.
+	* decl.c (check_initializer): Likewise.
+	(make_rtl_for_nonlocal_decl): Likewise.
+	* pt.c (instantiate_decl): Likewise.
+	* typeck2.c (store_init_value): Likewise.
+
+2019-02-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/89403
+	* decl2.c (c_parse_final_cleanups): Move TREE_ASM_WRITTEN setting
+	for flag_syntax_only from here...
+	* semantics.c (expand_or_defer_fn_1): ... here.
+
+	PR c++/89405
+	* decl.c (maybe_commonize_var): When clearing TREE_PUBLIC and
+	DECL_COMMON, set DECL_INTERFACE_KNOWN.
+
+	PR c++/89336
+	* constexpr.c (cxx_eval_store_expression): Diagnose changing of active
+	union member for -std=c++17 and earlier.
+
+2019-02-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/87513 - 'sorry' mangling PMF template-id.
+	* mangle.c (write_expression): Handle SCOPE_REF to BASELINK.
+
+2019-02-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/88380 - wrong-code with flexible array and NSDMI.
+	* typeck2.c (process_init_constructor_record): Skip flexarrays.
+
+2019-02-20  will wray  <wjwray@gmail.com>
+
+	PR c++/88572 - wrong handling of braces on scalar init.
+	* decl.c (reshape_init_r): Allow braces around scalar initializer
+	within aggregate init.  Reject double braced-init of scalar
+	variable.
+
+2019-02-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/84536
+	* pt.c (tsubst_init): Diagnose an initializer expanding to an
+	empty list of expressions; tweak wrt dependent types.
+	(regenerate_decl_from_template): For VAR_DECLs call tsubst_init
+	instead of tsubst_expr.
+
+2019-02-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/88368 - wrong 'use of deleted function'
+	* method.c (walk_field_subobs): Remember errors from get_nsdmi.
+	(get_defaulted_eh_spec): Call push_tinst_level.
+	* pt.c (maybe_instantiate_noexcept): Keep error_mark_node.
+	* typeck2.c (merge_exception_specifiers): Handle error_mark_node.
+
 2019-02-19  Chung-Lin Tang <cltang@codesourcery.com>
 
 	PR c/87924

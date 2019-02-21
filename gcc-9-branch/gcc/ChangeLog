@@ -1,8 +1,85 @@
-2019-02-19  H.J. Lu  <hongjiu.lu@intel.com>
+2019-02-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/87412
+	* config/i386/i386.c (ix86_set_indirect_branch_type): Issue an
+	error for -mindirect-branch/-mfunction-return with incompatible
+	-fcf-protection.
+
+2019-02-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/88714
+	* constraints.md (q): Remove.
+	* config/arm/ldrdstrd.md (*arm_ldrd, *arm_strd): Use rk constraint
+	instead of q.
+
+2019-02-21  Martin Jambor  <mjambor@suse.cz>
+
+	PR hsa/89302
+	* omp-general.c (omp_extract_for_data): Removed a duplicate call
+	to omp_adjust_for_condition, moved NE_EXPR code_cond processing...
+	(omp_adjust_for_condition): ...here.  Added necessary parameters.
+	* omp-general.h (omp_adjust_for_condition): Updated declaration.
+	* omp-grid.c (grid_attempt_target_gridification): Adjust to pass
+	proper values to new parameters of omp_adjust_for_condition.
+
+2019-02-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/89412
+	* expr.c (expand_assignment): If result is a MEM, use change_address
+	instead of simplify_gen_subreg.
+
+2019-02-20  Jakub Jelinek  <jakub@redhat.com>
+	    David Malcolm  <dmalcolm@redhat.com>
+
+	PR middle-end/89091
+	* fold-const.c (decode_field_reference): Return NULL_TREE if
+	lang_hooks.types.type_for_size returns NULL.  Check it before
+	overwriting *exp_.  Use return NULL_TREE instead of return 0.
+
+2019-02-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/88074
+	PR middle-end/89415
+	* toplev.c (do_compile): Double the emin/emax exponents to workaround
+	buggy mpc_norm.
+
+2019-02-20  Uroš Bizjak  <ubizjak@gmail.com>
 
 	PR target/89397
-	* config/i386/i386.c (ix86_option_override_internal): Set
-	opts->x_ix86_fpmath to FPMATH_387 when SSE is disabled.
+	* config/i386/i386.c (ix86_atomic_assign_expand_fenv): Check
+	TARGET_SSE in addition to TARGET_SSE_MATH.
+
+	(ix86_excess_precision): Ditto.
+	(ix86_float_exceptions_rounding_supported_p): Ditto.
+	(use_rsqrt_p): Ditto.
+	* config/i386/sse.md (rsqrt<mode>2): Ditto.
+
+2019-02-20  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/89410
+	* diagnostic-show-locus.c (layout::calculate_line_spans): Use
+	linenum_arith_t when determining if two adjacent line spans are
+	close enough to merge.
+	(diagnostic_show_locus): Use linenum_arith_t when iterating over
+	lines within each line_span.
+
+2019-02-20 Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	PR target/86487
+	* lra-constraints.c(uses_hard_regs_p): Fix handling of
+	paradoxical SUBREGS.
+
+2019-02-20  Li Jia He  <helijia@linux.ibm.com>
+
+	PR target/88100
+	* gcc/config/rs6000/rs6000.c (rs6000_gimple_fold_builtin)
+	<case ALTIVEC_BUILTIN_VSPLTISB, ALTIVEC_BUILTIN_VSPLTISH,
+	ALTIVEC_BUILTIN_VSPLTISW>: Don't convert the operand before
+	range checking it.
+
+2019-02-19  Jonathan Wakely  <jwakely@redhat.com>
+
+	* config/gcn/gcn.c (print_operand): Fix typo.
 
 2019-02-19  Richard Biener  <rguenther@suse.de>
 

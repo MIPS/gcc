@@ -1,3 +1,21 @@
+2019-02-21  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/89416
+	* include/bits/alloc_traits.h (__is_alloc_insertable_impl): Replace
+	class template with class. Replace move and copy member types with
+	member alias templates, so they are only instantiated when needed.
+	(__is_copy_insertable, __is_move_insertable): Adjust base class.
+	* testsuite/23_containers/vector/modifiers/push_back/89130.cc: Enable
+	test for C++11/14/17 as well.
+	* testsuite/23_containers/vector/modifiers/push_back/89416.cc: New
+	test.
+
+2019-02-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libstdc++/89402
+	* src/c++98/compatibility-ldbl.cc (_ZNKSt4hashIeEclEe): Add
+	_GLIBCXX_PURE to the alias declaration.
+
 2019-02-19  Jonathan Wakely  <jwakely@redhat.com>
 
 	* testsuite/21_strings/basic_string/literals/types.cc
