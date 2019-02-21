@@ -24823,7 +24823,7 @@ mips_lra_p (void)
 
 static reg_class_t
 mips_ira_change_pseudo_allocno_class (int regno, reg_class_t allocno_class,
-				      reg_class_t best_class ATTRIBUTE_UNUSED)
+				      reg_class_t best_class)
 {
   /* LRA will allocate an FPR for an integer mode pseudo instead of spilling
      to memory if an FPR is present in the allocno class.  It is rare that
@@ -24833,7 +24833,9 @@ mips_ira_change_pseudo_allocno_class (int regno, reg_class_t allocno_class,
      to reload into FPRs in LRA.  Such reloads are sometimes eliminated and
      sometimes only partially eliminated.  We choose to take this penalty
      in order to eliminate usage of FPRs in code that does not use floating
-     point data.
+     point data. In the case when IRA computes both allocno class and best
+     cost class as ALL_REGS, do not force integer mode pseudo into GR_REGS
+     as it is probably best to be placed into FPR.
 
      This change has a similar effect to increasing the cost of FPR->GPR
      register moves for integer modes so that they are higher than the cost
@@ -24842,12 +24844,14 @@ mips_ira_change_pseudo_allocno_class (int regno, reg_class_t allocno_class,
      This is also similar to forbidding integer mode values in FPRs entirely
      but this would lead to an inconsistency in the integer to/from float
      instructions that say integer mode values must be placed in FPRs.  */
-  if (INTEGRAL_MODE_P (PSEUDO_REGNO_MODE (regno)) && allocno_class == ALL_REGS)
+  if (INTEGRAL_MODE_P (PSEUDO_REGNO_MODE (regno)) && allocno_class == ALL_REGS
+      && allocno_class != best_class)
     return GR_REGS;
 
   /* Likewise for the mirror case of floating mode pseudos being allocated in
      a GPR.  */
-  if (FLOAT_MODE_P (PSEUDO_REGNO_MODE (regno)) && allocno_class == ALL_REGS)
+  if (FLOAT_MODE_P (PSEUDO_REGNO_MODE (regno)) && allocno_class == ALL_REGS
+      && allocno_class != best_class)
     return FP_REGS;
 
   return allocno_class;
