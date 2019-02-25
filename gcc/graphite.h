@@ -228,6 +228,7 @@ pdr_may_write_p (poly_dr_p pdr)
 struct poly_bb
 {
   unsigned ind;
+  unsigned succ_phis : 1;
   /* Pointer to a basic block or a statement in the compiler.  */
   gimple_poly_bb_p black_box;
 

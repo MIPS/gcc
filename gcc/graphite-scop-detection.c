@@ -1418,7 +1418,7 @@ try_generate_gimple_bb (scop_p scop, basic_block bb)
 
   for (int i = 0, n = comp.length (); i < n; i++)
     {
-      if (comp[i] != -1)
+      if (1 && comp[i] != -1)
 	continue;
   for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
        gsi_next (&gsi))
@@ -1461,6 +1461,7 @@ try_generate_gimple_bb (scop_p scop, basic_block bb)
       add_read (&reads, res, phi);
       add_write (&writes, res);
     }
+      //break;
       if (!drs.is_empty () || !writes.is_empty () || !reads.is_empty ())
 	{
 	  if (!gbb)
@@ -1487,6 +1488,7 @@ try_generate_gimple_bb (scop_p scop, basic_block bb)
 	  writes = vNULL;
 	}
       stmts = vNULL;
+      //break;
     }
   comp.release ();
   basic_block bb_for_succs = bb;
@@ -1515,7 +1517,7 @@ try_generate_gimple_bb (scop_p scop, basic_block bb)
 	      tree use = PHI_ARG_DEF_FROM_EDGE (phi, e);
 	      if (TREE_CODE (use) == SSA_NAME
 		  && ! SSA_NAME_IS_DEFAULT_DEF (use)
-		  && gimple_bb (SSA_NAME_DEF_STMT (use)) != bb_for_succs
+		  //&& gimple_bb (SSA_NAME_DEF_STMT (use)) != bb_for_succs
 		  && ! scev_analyzable_p (use, scop->scop_info->region))
 		add_read (&reads, use, phi);
 	    }
@@ -1550,6 +1552,7 @@ try_generate_gimple_bb (scop_p scop, basic_block bb)
   if (!gbb)
     gbb = new_gimple_poly_bb (scop, bb);
   pbb = new_poly_bb (scop, gbb, drs, reads, writes, stmts);
+  pbb->succ_phis = 1;
 
   int i;
   data_reference_p dr;

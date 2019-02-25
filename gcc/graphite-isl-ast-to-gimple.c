@@ -1277,6 +1277,8 @@ copy_bb_and_scalar_dependences (poly_bb_p pbb, edge next_e, vec<tree> iv_map)
   graphite_copy_stmts_from_block (pbb, new_bb, iv_map);
 
   /* Insert out-of SSA copies on the original BB outgoing edges.  */
+  if (pbb->succ_phis)
+    {
   gsi_tgt = gsi_last_bb (new_bb);
   basic_block bb_for_succs = bb;
   if (bb_for_succs == bb_for_succs->loop_father->latch
@@ -1330,6 +1332,7 @@ copy_bb_and_scalar_dependences (poly_bb_p pbb, edge next_e, vec<tree> iv_map)
 	    latch = e->dest;
 	}
       bb_for_succs = latch;
+    }
     }
 
   return single_succ_edge (new_bb);
@@ -1523,7 +1526,10 @@ graphite_regenerate_ast_isl (scop_p scop)
 				     if_region->false_region->region.exit,
 				     if_region->true_region->region.exit);
       if (dump_file)
-	fprintf (dump_file, "[codegen] isl AST to Gimple succeeded.\n");
+	{
+	  fprintf (dump_file, "[codegen] isl AST to Gimple succeeded.\n");
+	  dump_function_to_file (current_function_decl, dump_file, dump_flags);
+	}
     }
 
   if (t.codegen_error_p ())
