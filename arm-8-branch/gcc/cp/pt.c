@@ -14506,6 +14506,15 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 		     && !PLACEHOLDER_TYPE_CONSTRAINTS (r))
 	      /* Break infinite recursion when substituting the constraints
 		 of a constrained placeholder.  */;
+	    else if (TREE_CODE (t) == TEMPLATE_TYPE_PARM
+		     && !PLACEHOLDER_TYPE_CONSTRAINTS (t)
+		     && !CLASS_PLACEHOLDER_TEMPLATE (t)
+		     && (arg = TEMPLATE_TYPE_PARM_INDEX (t),
+			 r = TEMPLATE_PARM_DESCENDANTS (arg))
+		     && (TEMPLATE_PARM_LEVEL (r)
+			 == TEMPLATE_PARM_LEVEL (arg) - levels))
+		/* Cache the simple case of lowering a type parameter.  */
+	      r = TREE_TYPE (r);
 	    else
 	      {
 		r = copy_type (t);
@@ -18519,10 +18528,6 @@ tsubst_copy_and_build (tree t,
 		CALL_EXPR_REVERSE_ARGS (function) = rev;
 		if (thk)
 		  {
-		    if (TREE_CODE (function) == CALL_EXPR)
-		      CALL_FROM_THUNK_P (function) = true;
-		    else
-		      AGGR_INIT_FROM_THUNK_P (function) = true;
 		    /* The thunk location is not interesting.  */
 		    SET_EXPR_LOCATION (function, UNKNOWN_LOCATION);
 		  }
@@ -18995,6 +19000,11 @@ tsubst_copy_and_build (tree t,
 
     case REQUIRES_EXPR:
       RETURN (tsubst_requires_expr (t, args, complain, in_decl));
+
+    case RANGE_EXPR:
+      /* No need to substitute further, a RANGE_EXPR will always be built
+	 with constant operands.  */
+      RETURN (t);
 
     case NON_LVALUE_EXPR:
     case VIEW_CONVERT_EXPR:
@@ -26464,6 +26474,8 @@ build_deduction_guide (tree ctor, tree outer_args, tsubst_flags_t complain)
 	  targs = template_parms_to_args (tparms);
 	  fparms = tsubst_arg_types (fparms, tsubst_args, NULL_TREE,
 				     complain, ctor);
+	  if (fparms == error_mark_node)
+	    ok = false;
 	  fargs = tsubst (fargs, tsubst_args, complain, ctor);
 	  if (ci)
 	    ci = tsubst_constraint_info (ci, tsubst_args, complain, ctor);

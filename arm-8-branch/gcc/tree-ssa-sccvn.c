@@ -1864,7 +1864,16 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 	 VN_WALKREWRITE guard).  */
       if (vn_walk_kind == VN_WALKREWRITE
 	  && is_gimple_reg_type (TREE_TYPE (lhs))
-	  && types_compatible_p (TREE_TYPE (lhs), vr->type))
+	  && types_compatible_p (TREE_TYPE (lhs), vr->type)
+	  /* The overlap restriction breaks down when either access
+	     alias-set is zero.  Still for accesses of the size of
+	     an addressable unit there can be no overlaps.  Overlaps
+	     between different union members are not an issue since
+	     activation of a union member via a store makes the
+	     values of untouched bytes unspecified.  */
+	  && (known_eq (ref->size, BITS_PER_UNIT)
+	      || (get_alias_set (lhs) != 0
+		  && ao_ref_alias_set (ref) != 0)))
 	{
 	  tree *saved_last_vuse_ptr = last_vuse_ptr;
 	  /* Do not update last_vuse_ptr in vn_reference_lookup_2.  */
@@ -2070,6 +2079,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
       base2 = get_ref_base_and_extent (gimple_assign_lhs (def_stmt),
 				       &offset2, &size2, &maxsize2,
 				       &reverse);
+      tree def_rhs = gimple_assign_rhs1 (def_stmt);
       if (!reverse
 	  && known_size_p (maxsize2)
 	  && known_eq (maxsize2, size2)
@@ -2081,11 +2091,13 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 	     according to endianness.  */
 	  && (! INTEGRAL_TYPE_P (vr->type)
 	      || known_eq (ref->size, TYPE_PRECISION (vr->type)))
-	  && multiple_p (ref->size, BITS_PER_UNIT))
+	  && multiple_p (ref->size, BITS_PER_UNIT)
+	  && (! INTEGRAL_TYPE_P (TREE_TYPE (def_rhs))
+	      || type_has_mode_precision_p (TREE_TYPE (def_rhs))))
 	{
 	  code_helper rcode = BIT_FIELD_REF;
 	  tree ops[3];
-	  ops[0] = SSA_VAL (gimple_assign_rhs1 (def_stmt));
+	  ops[0] = SSA_VAL (def_rhs);
 	  ops[1] = bitsize_int (ref->size);
 	  ops[2] = bitsize_int (offset - offset2);
 	  tree val = vn_nary_build_or_lookup (rcode, vr->type, ops);
@@ -3607,7 +3619,17 @@ visit_nary_op (tree lhs, gassign *stmt)
 		  ops[0] = vn_nary_op_lookup_pieces
 		      (2, gimple_assign_rhs_code (def), type, ops, NULL);
 		  /* We have wider operation available.  */
-		  if (ops[0])
+		  if (ops[0]
+		      /* If the leader is a wrapping operation we can
+			 insert it for code hoisting w/o introducing
+			 undefined overflow.  If it is not it has to
+			 be available.  See PR86554.  */
+		      && (TYPE_OVERFLOW_WRAPS (TREE_TYPE (ops[0]))
+			  || TREE_CODE (ops[0]) != SSA_NAME
+			  || SSA_NAME_IS_DEFAULT_DEF (ops[0])
+			  || dominated_by_p_w_unex
+			       (gimple_bb (stmt),
+				gimple_bb (SSA_NAME_DEF_STMT (ops[0])))))
 		    {
 		      unsigned lhs_prec = TYPE_PRECISION (type);
 		      unsigned rhs_prec = TYPE_PRECISION (TREE_TYPE (rhs1));

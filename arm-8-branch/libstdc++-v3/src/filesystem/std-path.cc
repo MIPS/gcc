@@ -85,10 +85,11 @@ path::replace_extension(const path& replacement)
 	_M_pathname.erase(ext.second);
       else
 	{
-	  const auto& back = _M_cmpts.back();
+	  auto& back = _M_cmpts.back();
 	  if (ext.first != &back._M_pathname)
 	    _GLIBCXX_THROW_OR_ABORT(
 		std::logic_error("path::replace_extension failed"));
+	  back._M_pathname.erase(ext.second);
 	  _M_pathname.erase(back._M_pos + ext.second);
 	}
     }
@@ -474,10 +475,12 @@ path::lexically_relative(const path& base) const
       const path& p = *b;
       if (is_dotdot(p))
 	--n;
-      else if (!is_dot(p))
+      else if (!p.empty() && !is_dot(p))
 	++n;
     }
-    if (n >= 0)
+    if (n == 0 && (a == end() || a->empty()))
+      ret = ".";
+    else if (n >= 0)
     {
       const path dotdot("..");
       while (n--)
