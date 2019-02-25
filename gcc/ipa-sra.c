@@ -3614,7 +3614,7 @@ ipa_sra_analysis (void)
   gcc_checking_assert (call_sums);
   cgraph_node **order = XCNEWVEC (cgraph_node *, symtab->cgraph_count);
   auto_vec <cgraph_node *, 16> stack;
-  int node_scc_count = ipa_reduced_postorder (order, true, true, NULL);
+  int node_scc_count = ipa_reduced_postorder (order, true, NULL);
 
   /* One swoop from callees to callers for parameter removal and splitting.  */
   for (int i = 0; i < node_scc_count; i++)
