@@ -5262,13 +5262,16 @@ without a value).
 For C only, warn about a @code{return} statement with an expression in a
 function whose return type is @code{void}, unless the expression type is
 also @code{void}.  As a GNU extension, the latter case is accepted
-without a warning unless @option{-Wpedantic} is used.
+without a warning unless @option{-Wpedantic} is used.  Attempting
+to use the return value of a non-@code{void} function other than @code{main}
+that flows off the end by reaching the closing curly brace that terminates
+the function is undefined.
 
-For C++, a function without return type always produces a diagnostic
-message, even when @option{-Wno-return-type} is specified.  The only
-exceptions are @code{main} and functions defined in system headers.
+Unlike in C, in C++, flowing off the end of a non-@code{void} function other
+than @code{main} results in undefined behavior even when the value of
+the function is not used.
 
-This warning is enabled by default for C++ and is enabled by @option{-Wall}.
+This warning is enabled by default in C++ and by @option{-Wall} otherwise.
 
 @item -Wshift-count-negative
 @opindex Wshift-count-negative
@@ -15772,10 +15775,11 @@ performance of the code.  Permissible values for this option are:
 @samp{generic}, @samp{cortex-a35}, @samp{cortex-a53}, @samp{cortex-a55},
 @samp{cortex-a57}, @samp{cortex-a72}, @samp{cortex-a73}, @samp{cortex-a75},
 @samp{cortex-a76}, @samp{ares}, @samp{exynos-m1}, @samp{emag}, @samp{falkor},
-@samp{qdf24xx}, @samp{saphira}, @samp{phecda}, @samp{xgene1}, @samp{vulcan},
-@samp{octeontx}, @samp{octeontx81},  @samp{octeontx83},
-@samp{thunderx}, @samp{thunderxt88}, @samp{thunderxt88p1}, @samp{thunderxt81},
-@samp{tsv110}, @samp{thunderxt83}, @samp{thunderx2t99},
+@samp{neoverse-e1},@samp{neoverse-n1},@samp{qdf24xx}, @samp{saphira},
+@samp{phecda}, @samp{xgene1}, @samp{vulcan}, @samp{octeontx},
+@samp{octeontx81},  @samp{octeontx83}, @samp{thunderx}, @samp{thunderxt88},
+@samp{thunderxt88p1}, @samp{thunderxt81}, @samp{tsv110},
+@samp{thunderxt83}, @samp{thunderx2t99},
 @samp{cortex-a57.cortex-a53}, @samp{cortex-a72.cortex-a53},
 @samp{cortex-a73.cortex-a35}, @samp{cortex-a73.cortex-a53},
 @samp{cortex-a75.cortex-a55}, @samp{cortex-a76.cortex-a55}
@@ -17471,9 +17475,9 @@ Permissible names are: @samp{arm7tdmi}, @samp{arm7tdmi-s}, @samp{arm710t},
 @samp{cortex-m4}, @samp{cortex-m7}, @samp{cortex-m23}, @samp{cortex-m33},
 @samp{cortex-m1.small-multiply}, @samp{cortex-m0.small-multiply},
 @samp{cortex-m0plus.small-multiply}, @samp{exynos-m1}, @samp{marvell-pj4},
-@samp{xscale}, @samp{iwmmxt}, @samp{iwmmxt2}, @samp{ep9312}, @samp{fa526},
-@samp{fa626}, @samp{fa606te}, @samp{fa626te}, @samp{fmp626}, @samp{fa726te},
-@samp{xgene1}.
+@samp{neoverse-n1}, @samp{xscale}, @samp{iwmmxt}, @samp{iwmmxt2},
+@samp{ep9312}, @samp{fa526}, @samp{fa626}, @samp{fa606te}, @samp{fa626te},
+@samp{fmp626}, @samp{fa726te}, @samp{xgene1}.
 
 Additionally, this option can specify that GCC should tune the performance
 of the code for a big.LITTLE system.  Permissible names are:

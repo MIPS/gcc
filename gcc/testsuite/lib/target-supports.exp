@@ -6047,7 +6047,9 @@ proc check_effective_target_vect_usad_char { } {
       expr { [istarget i?86-*-*]
 	      || [istarget x86_64-*-*]
 	      || ([istarget aarch64*-*-*]
-		  && ![check_effective_target_aarch64_sve])}}]
+		  && ![check_effective_target_aarch64_sve])
+	      || ([istarget powerpc*-*-*]
+		  && [check_p9vector_hw_available])}}]
 }
 
 # Return 1 if the target plus current options supports both signed
@@ -8896,14 +8898,6 @@ proc check_effective_target_vect_max_reduc { } {
 	return 1
     }
     return 0
-}
-
-# Return 1 if there is an nvptx offload compiler.
-
-proc check_effective_target_offload_nvptx { } {
-    return [check_no_compiler_messages offload_nvptx object {
-	int main () {return 0;}
-    } "-foffload=nvptx-none" ]
 }
 
 # Return 1 if the compiler has been configured with hsa offloading.

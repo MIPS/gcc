@@ -5634,6 +5634,7 @@ maybe_commonize_var (tree decl)
 		 be merged.  */
 	      TREE_PUBLIC (decl) = 0;
 	      DECL_COMMON (decl) = 0;
+	      DECL_INTERFACE_KNOWN (decl) = 1;
 	      const char *msg;
 	      if (DECL_INLINE_VAR_P (decl))
 		msg = G_("sorry: semantics of inline variable "
@@ -6062,13 +6063,21 @@ reshape_init_r (tree type, reshape_iter *d, bool first_initializer_p,
 	{
 	  if (SCALAR_TYPE_P (type))
 	    {
-	      if (cxx_dialect < cxx11
-		  /* Isn't value-initialization.  */
-		  || CONSTRUCTOR_NELTS (stripped_init) > 0)
+	      if (cxx_dialect < cxx11)
 		{
 		  if (complain & tf_error)
 		    error ("braces around scalar initializer for type %qT",
 			   type);
+		  init = error_mark_node;
+		}
+	      else if (first_initializer_p
+		       || (CONSTRUCTOR_NELTS (stripped_init) > 0
+			   && (BRACE_ENCLOSED_INITIALIZER_P
+			       (CONSTRUCTOR_ELT (stripped_init,0)->value))))
+		{
+		  if (complain & tf_error)
+		    error ("too many braces around scalar initializer"
+		           "for type %qT", type);
 		  init = error_mark_node;
 		}
 	    }
@@ -6554,9 +6563,8 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
     }
 
   if (init_code
-      && (DECL_IN_AGGR_P (decl)
-	  && DECL_INITIALIZED_IN_CLASS_P (decl)
-	  && !DECL_VAR_DECLARED_INLINE_P (decl)))
+      && DECL_IN_AGGR_P (decl)
+      && DECL_INITIALIZED_IN_CLASS_P (decl))
     {
       static int explained = 0;
 
@@ -6624,8 +6632,7 @@ make_rtl_for_nonlocal_decl (tree decl, tree init, const char* asmspec)
 	 external; it is only a declaration, and not a definition.  */
       if (init == NULL_TREE)
 	gcc_assert (DECL_EXTERNAL (decl)
-		    || !TREE_PUBLIC (decl)
-		    || DECL_INLINE_VAR_P (decl));
+		    || !TREE_PUBLIC (decl));
     }
 
   /* We don't create any RTL for local variables.  */
@@ -16680,12 +16687,14 @@ require_deduced_type (tree decl, tsubst_flags_t complain)
 tree
 build_explicit_specifier (tree expr, tsubst_flags_t complain)
 {
-  if (processing_template_decl && value_dependent_expression_p (expr))
+  if (instantiation_dependent_expression_p (expr))
     /* Wait for instantiation, tsubst_function_decl will handle it.  */
     return expr;
 
+  expr = instantiate_non_dependent_expr_sfinae (expr, complain);
+  /* Don't let convert_like_real create more template codes.  */
+  processing_template_decl_sentinel s;
   expr = build_converted_constant_expr (boolean_type_node, expr, complain);
-  expr = instantiate_non_dependent_expr (expr);
   expr = cxx_constant_value (expr);
   return expr;
 }

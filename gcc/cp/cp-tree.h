@@ -2956,8 +2956,8 @@ struct GTY(()) lang_decl {
 /* Nonzero for _DECL means that this decl appears in (or will appear
    in) as a member in a RECORD_TYPE or UNION_TYPE node.  It is also for
    detecting circularity in case members are multiply defined.  In the
-   case of a VAR_DECL, it is also used to determine how program storage
-   should be allocated.  */
+   case of a VAR_DECL, it means that no definition has been seen, even
+   if an initializer has been.  */
 #define DECL_IN_AGGR_P(NODE) (DECL_LANG_FLAG_3 (NODE))
 
 /* Nonzero for a VAR_DECL means that the variable's initialization (if
@@ -7151,7 +7151,7 @@ extern bool is_capture_proxy			(tree);
 extern bool is_normal_capture_proxy             (tree);
 extern bool is_constant_capture_proxy           (tree);
 extern void register_capture_members		(tree);
-extern tree lambda_expr_this_capture            (tree, bool);
+extern tree lambda_expr_this_capture            (tree, int);
 extern void maybe_generic_this_capture		(tree, tree);
 extern tree maybe_resolve_dummy			(tree, bool);
 extern tree current_nonlambda_function		(void);
@@ -7576,7 +7576,7 @@ extern tree cp_fully_fold			(tree);
 extern tree cp_fully_fold_init			(tree);
 extern void clear_fold_cache			(void);
 extern tree lookup_hotness_attribute		(tree);
-extern tree process_stmt_hotness_attribute	(tree);
+extern tree process_stmt_hotness_attribute	(tree, location_t);
 
 /* in name-lookup.c */
 extern tree strip_using_decl                    (tree);

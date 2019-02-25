@@ -1,3 +1,15 @@
+2019-02-22  Richard Biener  <rguenther@suse.de>
+
+	* c-pch.c (no_checksum): Remove.
+	(pch_init): Remove assertion that executable_checksum is not
+	all zero.
+	(c_common_valid_pch): Likewise.
+
+2019-02-18  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/89294
+	* c-common.c (invalid_array_size_error): Handle cst_size_not_constant.
+
 2019-02-16  David Malcolm  <dmalcolm@redhat.com>
 
 	PR c++/88680
