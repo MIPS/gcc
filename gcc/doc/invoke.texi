@@ -19679,7 +19679,7 @@ possible, into @code{move.balc}.  The default is @option{-mopt-movebalc}.
 @opindex mjump-table-opt
 @opindex mno-jump-table-opt
 The switch enables jump-tables that contain relative addresses.
-The default is @option{-mno-jump-table-opt}.
+The default is @option{-mjump-table-opt}.
 
 @item -mshrink-offsets
 @itemx -mno-shrink-offsets
@@ -19691,12 +19691,26 @@ for loads and stores.  This is at the expense of one additional setup
 instruction to adjust the base pointer for several memory references.
 This optimisation is enabled by default with @option{-Os}.
 
-@item mbranch-cost=@var{num}
+@item -mbranch-cost=@var{num}
 @opindex mbranch-cost
 Set the cost of branches to roughly @var{num} ``simple'' instructions.
 This cost is only a heuristic and is not guaranteed to produce
 consistent results across releases.  A zero cost redundantly selects
 the default, which is based on the @option{-mtune} setting.
+
+@item -mssdata
+@itemx -mno-ssdata
+@opindex mssdata
+@opindex mno-ssdata
+Enable (disable) the partitioning of small data types based on their
+directly accessible range from @code{$gp}. Data types of size 1 or 2
+bytes and floating-point types for hard-float configurations can only be
+directly accessed within the first 256KiB positive offset of @code{$gp}.
+If @option{-mssdata} is enabled, initialized variables of such type will
+be placed in the section @code{.ssdata} and uninitialized variables in
+the section @code{.ssbss}. All other types of small data variables will
+be placed in the usual @code{.sdata} and @code{.sbss} sections. This
+option is enabled by default.
 
 @end table
 
