@@ -13088,6 +13088,11 @@ tsubst_function_decl (tree t, tree args, tsubst_flags_t complain,
 	set_constraints (r, ci);
       }
 
+  if (DECL_FRIEND_P (t) && DECL_FRIEND_CONTEXT (t))
+    SET_DECL_FRIEND_CONTEXT (r,
+			     tsubst (DECL_FRIEND_CONTEXT (t),
+				     args, complain, in_decl));
+
   /* Set up the DECL_TEMPLATE_INFO for R.  There's no need to do
      this in the special friend case mentioned above where
      GEN_TMPL is NULL.  */
@@ -13148,11 +13153,6 @@ tsubst_function_decl (tree t, tree args, tsubst_flags_t complain,
 	   && IDENTIFIER_ANY_OP_P (DECL_NAME (r))
 	   && !grok_op_properties (r, /*complain=*/true))
     return error_mark_node;
-
-  if (DECL_FRIEND_P (t) && DECL_FRIEND_CONTEXT (t))
-    SET_DECL_FRIEND_CONTEXT (r,
-			     tsubst (DECL_FRIEND_CONTEXT (t),
-				     args, complain, in_decl));
 
   /* Possibly limit visibility based on template args.  */
   DECL_VISIBILITY (r) = VISIBILITY_DEFAULT;
@@ -24203,12 +24203,39 @@ maybe_instantiate_noexcept (tree fn, tsubst_flags_t complain)
 	  push_access_scope (fn);
 	  push_deferring_access_checks (dk_no_deferred);
 	  input_location = DECL_SOURCE_LOCATION (fn);
-	  noex = tsubst_copy_and_build (DEFERRED_NOEXCEPT_PATTERN (noex),
-					DEFERRED_NOEXCEPT_ARGS (noex),
-					tf_warning_or_error, fn,
-					/*function_p=*/false,
-					/*integral_constant_expression_p=*/true);
-	  spec = build_noexcept_spec (noex, tf_warning_or_error);
+
+	  /* A new stack interferes with pop_access_scope.  */
+	  {
+	    /* Set up the list of local specializations.  */
+	    local_specialization_stack lss (lss_copy);
+
+	    tree save_ccp = current_class_ptr;
+	    tree save_ccr = current_class_ref;
+	    /* If needed, set current_class_ptr for the benefit of
+	       tsubst_copy/PARM_DECL.  */
+	    tree tdecl = DECL_TEMPLATE_RESULT (DECL_TI_TEMPLATE (fn));
+	    if (DECL_NONSTATIC_MEMBER_FUNCTION_P (tdecl))
+	      {
+		tree this_parm = DECL_ARGUMENTS (tdecl);
+		current_class_ptr = NULL_TREE;
+		current_class_ref = cp_build_fold_indirect_ref (this_parm);
+		current_class_ptr = this_parm;
+	      }
+
+	    /* Create substitution entries for the parameters.  */
+	    register_parameter_specializations (tdecl, fn);
+
+	    /* Do deferred instantiation of the noexcept-specifier.  */
+	    noex = tsubst_copy_and_build (DEFERRED_NOEXCEPT_PATTERN (noex),
+					  DEFERRED_NOEXCEPT_ARGS (noex),
+					  tf_warning_or_error, fn,
+					  /*function_p=*/false,
+					  /*i_c_e_p=*/true);
+	    current_class_ptr = save_ccp;
+	    current_class_ref = save_ccr;
+	    spec = build_noexcept_spec (noex, tf_warning_or_error);
+	  }
+
 	  pop_deferring_access_checks ();
 	  pop_access_scope (fn);
 	  pop_tinst_level ();
@@ -26619,8 +26646,10 @@ make_auto (void)
 tree
 make_template_placeholder (tree tmpl)
 {
-  tree t = make_auto_1 (auto_identifier, true);
+  tree t = make_auto_1 (auto_identifier, false);
   CLASS_PLACEHOLDER_TEMPLATE (t) = tmpl;
+  /* Our canonical type depends on the placeholder.  */
+  TYPE_CANONICAL (t) = canonical_type_parameter (t);
   return t;
 }
 
@@ -27222,7 +27251,7 @@ do_class_deduction (tree ptype, tree tmpl, tree init, int flags,
 
   tree outer_args = NULL_TREE;
   if (DECL_CLASS_SCOPE_P (tmpl)
-      && CLASSTYPE_TEMPLATE_INFO (DECL_CONTEXT (tmpl)))
+      && CLASSTYPE_TEMPLATE_INSTANTIATION (DECL_CONTEXT (tmpl)))
     {
       outer_args = CLASSTYPE_TI_ARGS (DECL_CONTEXT (tmpl));
       type = TREE_TYPE (most_general_template (tmpl));
