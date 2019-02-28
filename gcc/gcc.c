@@ -4289,6 +4289,19 @@ driver_handle_option (struct gcc_options *opts,
       handle_foffload_option (arg);
       break;
 
+    case OPT__analyzer:
+      {
+	validated = true;
+#ifdef ENABLE_ANALYZER
+	save_switch ("-fplugin=analyzer_plugin", 0, NULL, validated, true);
+#else
+	sorry ("%qs was not enabled in this build of GCC"
+	       " (missing configure-time option %qs)",
+	       "--analyzer", "--enable-plugins=analyzer");
+#endif
+      }
+      break;
+
     default:
       /* Various driver options need no special processing at this
 	 point, having been handled in a prescan above or being
