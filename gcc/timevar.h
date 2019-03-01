@@ -256,6 +256,39 @@ class auto_timevar
   timevar_id_t m_tv;
 };
 
+/* An RAII class analogous to auto_timevar, but for a client item,
+   for use by plugins.  */
+
+class auto_client_timevar
+{
+ public:
+  auto_client_timevar (timer *t, const char *item_name)
+    : m_timer (t)
+  {
+    if (m_timer)
+      m_timer->push_client_item (item_name);
+  }
+
+  explicit auto_client_timevar (const char *item_name)
+    : m_timer (g_timer)
+  {
+    if (m_timer)
+      m_timer->push_client_item (item_name);
+  }
+
+  ~auto_client_timevar ()
+  {
+    if (m_timer)
+      m_timer->pop_client_item ();
+  }
+
+ private:
+  // Private to disallow copies.
+  auto_client_timevar (const auto_client_timevar &);
+
+  timer *m_timer;
+};
+
 extern void print_time (const char *, long);
 
 #endif /* ! GCC_TIMEVAR_H */
