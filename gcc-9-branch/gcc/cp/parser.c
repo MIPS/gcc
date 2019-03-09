@@ -2251,7 +2251,7 @@ static cp_expr cp_parser_initializer_clause
 static cp_expr cp_parser_braced_list
   (cp_parser*, bool*);
 static vec<constructor_elt, va_gc> *cp_parser_initializer_list
-  (cp_parser *, bool *);
+  (cp_parser *, bool *, bool *);
 
 static void cp_parser_ctor_initializer_opt_and_function_body
   (cp_parser *, bool);
@@ -19412,7 +19412,8 @@ cp_parser_using_declaration (cp_parser* parser,
 						  /*is_declaration=*/true);
   if (!qscope)
     qscope = global_namespace;
-  else if (UNSCOPED_ENUM_P (qscope))
+  else if (UNSCOPED_ENUM_P (qscope)
+	   && !TYPE_FUNCTION_SCOPE_P (qscope))
     qscope = CP_TYPE_CONTEXT (qscope);
 
   if (access_declaration_p && cp_parser_error_occurred (parser))
@@ -19765,8 +19766,9 @@ cp_parser_asm_definition (cp_parser* parser)
   location_t volatile_loc = UNKNOWN_LOCATION;
   location_t inline_loc = UNKNOWN_LOCATION;
   location_t goto_loc = UNKNOWN_LOCATION;
+  location_t first_loc = UNKNOWN_LOCATION;
 
-  if (cp_parser_allow_gnu_extensions_p (parser) && parser->in_function_body)
+  if (cp_parser_allow_gnu_extensions_p (parser))
     for (;;)
       {
 	cp_token *token = cp_lexer_peek_token (parser->lexer);
@@ -19780,7 +19782,12 @@ cp_parser_asm_definition (cp_parser* parser)
 		inform (volatile_loc, "first seen here");
 	      }
 	    else
-	      volatile_loc = loc;
+	      {
+		if (!parser->in_function_body)
+		  warning_at (loc, 0, "asm qualifier %qT ignored outside of "
+				      "function body", token->u.value);
+		volatile_loc = loc;
+	      }
 	    cp_lexer_consume_token (parser->lexer);
 	    continue;
 
@@ -19792,6 +19799,8 @@ cp_parser_asm_definition (cp_parser* parser)
 	      }
 	    else
 	      inline_loc = loc;
+	    if (!first_loc)
+	      first_loc = loc;
 	    cp_lexer_consume_token (parser->lexer);
 	    continue;
 
@@ -19803,6 +19812,8 @@ cp_parser_asm_definition (cp_parser* parser)
 	      }
 	    else
 	      goto_loc = loc;
+	    if (!first_loc)
+	      first_loc = loc;
 	    cp_lexer_consume_token (parser->lexer);
 	    continue;
 
@@ -19821,6 +19832,12 @@ cp_parser_asm_definition (cp_parser* parser)
   bool volatile_p = (volatile_loc != UNKNOWN_LOCATION);
   bool inline_p = (inline_loc != UNKNOWN_LOCATION);
   bool goto_p = (goto_loc != UNKNOWN_LOCATION);
+
+  if (!parser->in_function_body && (inline_p || goto_p))
+    {
+      error_at (first_loc, "asm qualifier outside of function body");
+      inline_p = goto_p = false;
+    }
 
   /* Look for the opening `('.  */
   if (!cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN))
@@ -22589,10 +22606,24 @@ cp_parser_ctor_initializer_opt_and_function_body (cp_parser *parser,
 						  bool in_function_try_block)
 {
   tree body, list;
-  const bool check_body_p =
-     DECL_CONSTRUCTOR_P (current_function_decl)
-     && DECL_DECLARED_CONSTEXPR_P (current_function_decl);
+  const bool check_body_p
+     = (DECL_CONSTRUCTOR_P (current_function_decl)
+	&& DECL_DECLARED_CONSTEXPR_P (current_function_decl));
   tree last = NULL;
+
+  if (in_function_try_block
+      && DECL_DECLARED_CONSTEXPR_P (current_function_decl)
+      && cxx_dialect < cxx2a)
+    {
+      if (DECL_CONSTRUCTOR_P (current_function_decl))
+	pedwarn (input_location, 0,
+		 "function-try-block body of %<constexpr%> constructor only "
+		 "available with -std=c++2a or -std=gnu++2a");
+      else
+	pedwarn (input_location, 0,
+		 "function-try-block body of %<constexpr%> function only "
+		 "available with -std=c++2a or -std=gnu++2a");
+    }
 
   /* Begin the function body.  */
   body = begin_function_body ();
@@ -22753,9 +22784,11 @@ cp_parser_braced_list (cp_parser* parser, bool* non_constant_p)
   /* If it's not a `}', then there is a non-trivial initializer.  */
   if (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_BRACE))
     {
+      bool designated;
       /* Parse the initializer list.  */
       CONSTRUCTOR_ELTS (initializer)
-	= cp_parser_initializer_list (parser, non_constant_p);
+	= cp_parser_initializer_list (parser, non_constant_p, &designated);
+      CONSTRUCTOR_IS_DESIGNATED_INIT (initializer) = designated;
       /* A trailing `,' token is allowed.  */
       if (cp_lexer_next_token_is (parser->lexer, CPP_COMMA))
 	cp_lexer_consume_token (parser->lexer);
@@ -22875,10 +22908,12 @@ cp_parser_array_designator_p (cp_parser *parser)
    Returns a vec of constructor_elt.  The VALUE of each elt is an expression
    for the initializer.  If the INDEX of the elt is non-NULL, it is the
    IDENTIFIER_NODE naming the field to initialize.  NON_CONSTANT_P is
-   as for cp_parser_initializer.  */
+   as for cp_parser_initializer.  Set *DESIGNATED to a boolean whether there
+   are any designators.  */
 
 static vec<constructor_elt, va_gc> *
-cp_parser_initializer_list (cp_parser* parser, bool* non_constant_p)
+cp_parser_initializer_list (cp_parser* parser, bool* non_constant_p,
+			    bool *designated)
 {
   vec<constructor_elt, va_gc> *v = NULL;
   bool first_p = true;
@@ -23055,6 +23090,7 @@ cp_parser_initializer_list (cp_parser* parser, bool* non_constant_p)
 	  IDENTIFIER_MARKED (designator) = 0;
     }
 
+  *designated = first_designator != NULL_TREE;
   return v;
 }
 
@@ -24001,8 +24037,11 @@ cp_parser_class_head (cp_parser* parser,
   cp_parser_check_class_key (class_key, type);
 
   /* If this type was already complete, and we see another definition,
-     that's an error.  */
-  if (type != error_mark_node && COMPLETE_TYPE_P (type))
+     that's an error.  Likewise if the type is already being defined:
+     this can happen, eg, when it's defined from within an expression 
+     (c++/84605).  */
+  if (type != error_mark_node
+      && (COMPLETE_TYPE_P (type) || TYPE_BEING_DEFINED (type)))
     {
       error_at (type_start_token->location, "redefinition of %q#T",
 		type);
@@ -25328,8 +25367,11 @@ cp_parser_try_block (cp_parser* parser)
 
   cp_parser_require_keyword (parser, RID_TRY, RT_TRY);
   if (parser->in_function_body
-      && DECL_DECLARED_CONSTEXPR_P (current_function_decl))
-    error ("%<try%> in %<constexpr%> function");
+      && DECL_DECLARED_CONSTEXPR_P (current_function_decl)
+      && cxx_dialect < cxx2a)
+    pedwarn (input_location, 0,
+	     "%<try%> in %<constexpr%> function only "
+	     "available with -std=c++2a or -std=gnu++2a");
 
   try_block = begin_try_block ();
   cp_parser_compound_statement (parser, NULL, BCS_TRY_BLOCK, false);
@@ -27823,7 +27865,7 @@ cp_parser_template_declaration_after_parameters (cp_parser* parser,
 	  if (cxx_dialect > cxx17)
 	    error ("literal operator template %qD has invalid parameter list;"
 		   "  Expected non-type template parameter pack <char...> "
-		   "  or single non-type parameter of class type",
+		   "or single non-type parameter of class type",
 		   decl);
 	  else
 	    error ("literal operator template %qD has invalid parameter list."

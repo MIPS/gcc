@@ -1,3 +1,17 @@
+2019-03-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/89550
+	* c-decl.c (finish_function): Only set TREE_NO_WARNING if warning_at
+	returned true.
+	(c_write_global_declarations_1): Only set TREE_NO_WARNING if pedwarn
+	or warning returned true.
+
+2019-02-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/89525
+	* c-typeck.c (convert_arguments): Call inform_declaration only if
+	the previous warning_at call returned true.
+
 2019-02-22  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-parser.c (c_parser_oacc_shape_clause): Add loc formal

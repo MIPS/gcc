@@ -6278,6 +6278,9 @@ reshape_init (tree type, tree init, tsubst_flags_t complain)
   if (CONSTRUCTOR_IS_DIRECT_INIT (init)
       && BRACE_ENCLOSED_INITIALIZER_P (new_init))
     CONSTRUCTOR_IS_DIRECT_INIT (new_init) = true;
+  if (CONSTRUCTOR_IS_DESIGNATED_INIT (init)
+      && BRACE_ENCLOSED_INITIALIZER_P (new_init))
+    CONSTRUCTOR_IS_DESIGNATED_INIT (new_init) = true;
 
   return new_init;
 }
@@ -15550,6 +15553,8 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
 
   store_parm_decls (current_function_parms);
 
+  push_operator_bindings ();
+
   if (!processing_template_decl
       && (flag_lifetime_dse > 1)
       && DECL_CONSTRUCTOR_P (decl1)
@@ -16166,9 +16171,9 @@ finish_function (bool inline_p)
 					    global_dc->option_state))
 	    add_return_star_this_fixit (&richloc, fndecl);
 	}
-      warning_at (&richloc, OPT_Wreturn_type,
-		  "no return statement in function returning non-void");
-      TREE_NO_WARNING (fndecl) = 1;
+      if (warning_at (&richloc, OPT_Wreturn_type,
+	  "no return statement in function returning non-void"))
+	TREE_NO_WARNING (fndecl) = 1;
     }
 
   /* Store the end of the function, so that we get good line number

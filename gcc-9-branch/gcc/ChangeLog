@@ -1,3 +1,484 @@
+2019-03-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/79645
+	* common.opt (fdiagnostics-show-labels,
+	fdiagnostics-show-line-numbers, fdiagnostics-format=,
+	fdiagnostics-minimum-margin-width=, fgnat-encodings=, gas-loc-support,
+	gas-locview-support, ginline-points, ginternal-reset-location-views):
+	Terminate description text with a dot.
+	* config/microblaze/microblaze.opt (mxl-prefetch): Likewise.
+	* config/mcore/mcore.opt (m210, m340): Likewise.
+	* config/epiphany/epiphany.opt (mprefer-short-insn-regs, mcmove,
+	mnops=): Start description text with a capital letter.
+	* config/arc/arc.opt (msize-level=): Likewise.
+	* config/sh/sh.opt (minline-ic_invalidate): Likewise.
+	* config/rs6000/sysv4.opt (mno-toc, mtoc, mno-traceback, mshlib,
+	mnewlib): Likewise.
+	* config/ft32/ft32.opt (msim): Likewise.
+	(mft32b, mcompress): Likewise.  Terminate description text with a dot.
+	(mnodiv, mnopm): Terminate description text with a dot.
+	* config/c6x/c6x.opt (c6x_sdata): Terminate Enum description with
+	a colon.
+	* config/i386/i386.opt (prefer_vector_width, instrument_return):
+	Likewise.
+	* config/rx/rx.opt (nofpu): Remove trailing spaces from description
+	text.
+
+	PR rtl-optimization/89634
+	* cfgcleanup.c (thread_jump): Punt if registers mentioned in cond1
+	are modified in BB_END (e->src) instruction.
+
+2019-03-08  David Malcolm  <dmalcolm@redhat.com>
+
+	PR target/79926
+	* config/i386/i386.c (ix86_set_current_function): Make "sorry"
+	messages more amenable to translation, and improve wording.
+
+2019-03-08  Bill Schmidt  <wschmidt@linux.ibm.com>
+
+	* config/rs6000/rs6000-p8swap.c (rs6000_analyze_swaps): Rebuild
+	ud- and du-chains between phases.
+
+2019-03-08  Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR debug/89631
+	* dwarf2cfi.c (dwarf2out_frame_debug_expr): Use CONST_POLY_INT
+	instead of POLY_INT_CST.
+
+2019-03-08  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	* config/arm/arm.h (TARGET_FP16_TO_DOUBLE): Add TARGET_VFP_DOUBLE
+	requirement.
+
+2019-03-08  Uroš Bizjak  <ubizjak@gmail.com>
+
+	PR target/68924
+	PR target/78782
+	PR target/87558
+	* config/i386/emmintrin.h (_mm_loadu_si64): New intrinsic.
+	(_mm_storeu_si64): Ditto.
+
+2019-03-08  Martin Liska  <mliska@suse.cz>
+
+	PR target/86952
+	* config/i386/i386.c (ix86_option_override_internal): Disable
+	jump tables when retpolines are used.
+
+2019-03-08  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR go/63560
+	* ipa-split.c (execute_split_functions): Do not split
+	'noinline' or 'section' function.
+
+2019-03-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/79846
+	* config/s390/s390.c (s390_const_operand_ok): Use %wu instead of
+	HOST_WIDE_INT_PRINT_UNSIGNED and %wd instead of
+	HOST_WIDE_INT_PRINT_DEC.  Formatting fixes.
+
+	PR ipa/80000
+	* ipa-devirt.c (compare_virtual_tables): Remove two trailing spaces
+	from diagnostics.  Formatting fixes.
+
+	PR target/85665
+	* ipa-devirt.c (odr_types_equivalent_p): Fix grammar in
+	warn_odr diagnostics.
+
+	PR other/80058
+	* lra-constraints.c (process_alt_operands): Avoid one space before
+	" at the end of line and another after " on another line in a string
+	literal.
+	* attribs.c (handle_dll_attribute): Likewise.
+	* config/avr/avr-devices.c (avr_texinfo): Likewise.
+
+	* gimple-ssa-warn-alloca.c (pass_walloca::execute): Don't wrap
+	warning_at or inform messages in G_() if there is no ?:.
+
+	PR tree-optimization/89550
+	* builtins.c (c_strlen): Only set TREE_NO_WARNING if warning_at
+	returned true.  Formatting fixes.
+	(expand_builtin_strnlen): Formatting fixes.
+	* tree-vrp.c (vrp_prop::check_mem_ref): Only set TREE_NO_WARNING
+	if warning_at returned true.
+	* tree-cfg.c (pass_warn_function_return::execute): Likewise.
+
+2019-03-08  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/89578
+	* cfgloop.h (struct loop): Add owned_clique field.
+	* cfgloopmanip.c (copy_loop_info): Copy it.
+	* tree-cfg.c (gimple_duplicate_bb): Do not remap owned_clique
+	cliques.
+	* tree-inline.c (copy_loops): Remap owned_clique.
+	* lto-streamer-in.c (input_cfg): Stream owned_clique.
+	* lto-streamer-out.c (output_cfg): Likewise.
+
+2019-03-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/80190
+	* config/darwin.c: Include intl.h.
+	(darwin_build_constant_cfstring): Improve i18n of diagnostics by not
+	composing the message out of two separate parts.
+
+2019-03-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/80003
+	* config/i386/i386.c (ix86_set_func_type): Make sure diagnostics
+	doesn't start with a capital letter and doesn't end with a dot.
+	(ix86_function_arg_boundary): Make sure diagnostics doesn't start
+	with a capital letter.
+	(ix86_mangle_function_version_assembler_name): Likewise.
+	(ix86_generate_version_dispatcher_body): Likewise.
+	(fold_builtin_cpu): Likewise.
+	(get_builtin_code_for_version): Likewise.  Remove extraneous space.
+	(ix86_handle_interrupt_attribute): Make the diagnostics easier for
+	translators, wrap full type name in %qs.
+
+	PR translation/79999
+	* gimplify.c (gimplify_omp_ordered): Reword diagnostics to talk about
+	depend clause with source (or sink) modifier.
+	* omp-expand.c (expand_omp_ordered_sink): Likewise.
+
+	PR target/89602
+	* config/i386/sse.md (avx512f_mov<ssescalarmodelower>_mask,
+	*avx512f_load<mode>_mask, avx512f_store<mode>_mask): New define_insns.
+	(avx512f_load<mode>_mask): New define_expand.
+	* config/i386/i386-builtin.def (__builtin_ia32_loadsd_mask,
+	__builtin_ia32_loadss_mask, __builtin_ia32_storesd_mask,
+	__builtin_ia32_storess_mask, __builtin_ia32_movesd_mask,
+	__builtin_ia32_movess_mask): New builtins.
+	* config/i386/avx512fintrin.h (_mm_mask_load_ss, _mm_maskz_load_ss,
+	_mm_mask_load_sd, _mm_maskz_load_sd, _mm_mask_move_ss,
+	_mm_maskz_move_ss, _mm_mask_move_sd, _mm_maskz_move_sd,
+	_mm_mask_store_ss, _mm_mask_store_sd): New intrinsics.
+
+2019-03-07  Martin Jambor  <mjambor@suse.cz>
+
+	PR lto/87525
+	* ipa-cp.c (perform_estimation_of_a_value): Account zero time benefit
+	for extern inline functions.
+
+2019-03-07  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/88235
+	* cgraph.h (cgraph_node): New inline method former_thunk_p.
+	* cgraph.c (cgraph_node::dump): Dump a note if node is a former thunk.
+	(clone_of_p): Treat expanded thunks like thunks, be optimistic if they
+	have multiple callees.  At the end check if declarations match as
+	opposed to cgraph_nodes.
+
+2019-03-07  Martin Liska  <mliska@suse.cz>
+
+	* cgraph.c (cgraph_node::verify_node): Verify with a neighbour
+	which is equivalent to searching for this in clones chain.
+	* symtab.c (symtab_node::verify_base): Similarly compare ASM
+	names with a neighbour and special case first node in a chain.
+
+2019-01-25  Jason Merrill  <jason@redhat.com>
+
+	PR c++/80916 - spurious "static but not defined" warning.
+	* gimple-fold.c (can_refer_decl_in_current_unit_p): Return false
+	for an internal symbol with DECL_EXTERNAL.
+
+2019-04-07  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/89618
+	* cfgloopmanip.c (copy_loop_info): Copy forgotten fields.
+	* tree-inline.c (copy_loops): Simplify.
+
+2019-03-07  Martin Liska  <mliska@suse.cz>
+
+	* dwarf2out.c (add_AT_vms_delta): Revert function removal.
+
+2019-03-07  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/89595
+	* tree-ssa-dom.c (dom_opt_dom_walker::optimize_stmt): Take
+	stmt iterator as reference, take boolean output parameter to
+	indicate whether the stmt was removed and thus the iterator
+	already advanced.
+	(dom_opt_dom_walker::before_dom_children): Re-iterate over
+	stmts created by folding.
+
+2019-03-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/89585
+	* doc/extend.texi (Basic Asm): Document qualifiers are not allowed
+	at toplevel.
+
+2019-03-06  Peter Bergner  <bergner@linux.ibm.com>
+
+	PR rtl-optimization/88845
+	* config/rs6000/rs6000.c (rs6000_emit_move_si_sf_subreg): Enable during
+	LRA.
+	* lra.c (remove_scratches_1): New function.
+	(remove_scratches): Use it.
+	(lra_emit_move): Likewise.
+
+2019-03-06  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/arc-c.def (__ARC_UNALIGNED__): Set it on
+	unaligned_access variable.
+	* config/arc/arc.c (arc_override_options): Set unaligned access
+	default on for HS CPUs.
+	* config/arc/arc.h (STRICT_ALIGNMENT): Fix logic.
+
+2019-03-06  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/89577
+	* doc/gcov.texi: Prefer to use --coverage.
+	* doc/sourcebuild.texi: Likewise.
+
+2019-03-02  Jason Merrill  <jason@redhat.com>
+
+	PR c++/86485 - -Wmaybe-unused with empty class ?:
+	* gimplify.c (gimplify_cond_expr): Use INIT_EXPR.
+
+2019-03-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/89587
+	* config/rs6000/t-linux (MULTIARCH_DIRNAME): Set to non-empty only
+	if_multiarch.
+
+	PR middle-end/89590
+	* builtins.c (maybe_emit_free_warning): Punt if free doesn't have
+	exactly one argument.
+
+2019-03-05  Jakub Jelinek  <jakub@redhat.com>
+	    Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR tree-optimization/89570
+	* match.pd (vec_cond into cond_op simplification): Don't use
+	get_conditional_internal_fn, use as_internal_fn (cond_op).
+
+2019-03-05  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	PR target/89222
+	* config/arm/arm.md (movsi): Use targetm.cannot_force_const_mem
+	to decide when to split off a non-zero offset from a symbol.
+	* config/arm/arm.c (arm_cannot_force_const_mem): Disallow offsets
+	in function symbols.
+
+2019-03-05  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/89594
+	* tree-if-conv.c (pass_if_conversion::execute): Handle
+	case where .LOOP_VECTORIZED_FUNCTION was removed.
+
+2019-03-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/89560
+	* fold-const.c (fold_checksum_tree): Don't use fixed size buffer,
+	instead alloca it only when needed with the needed size.
+
+	PR tree-optimization/89570
+	* match.pd (vec_cond into cond_op simplification): Guard with
+	vectorized_internal_fn_supported_p test and #if GIMPLE.
+
+	PR tree-optimization/89566
+	* gimple-ssa-sprintf.c (sprintf_dom_walker::handle_gimple_call):
+	Set info.fncode to BUILT_IN_NONE if gimple_call_builtin_p failed.
+	Punt if get_user_idx_format succeeds, but idx_format argument is
+	not provided or doesn't have pointer type, or if idx_args is above
+	number of provided arguments.
+
+2019-03-04  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	PR tree-optimization/89437
+	* match.pd: Use lt in sin(atan(x)) and cos(atan(x)) simplifications.
+
+2019-03-04  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/89572
+	* tree-scalar-evolution.c: (get_loop_exit_condition): Use
+	safe_dyn_cast.
+
+2019-03-04  Bin Cheng  <bin.cheng@linux.alibaba.com>
+
+	PR tree-optimization/89487
+	* tree-loop-distribution.c (has_nonaddressable_dataref_p): New.
+	(create_rdg_vertices): Compute has_nonaddressable_dataref_p.
+	(distribute_loop): Don't do runtime alias check if there is non-
+	addressable data reference.
+	* tree-ssa-loop-ivopts.c (may_be_nonaddressable_p): Check if VAR_DECL
+	is a register variable.
+
+2019-03-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/89506
+	* config/arm/arm.md (cmpsi2_addneg): Use
+	trunc_int_for_mode (-INTVAL (...), SImode) instead of -INTVAL (...).
+	If operands[2] is 0 or INT_MIN, force use of subs.
+	(*compare_scc splitter): Use gen_int_mode.
+	(*negscc): Likewise.
+	* config/arm/thumb2.md (*thumb2_negscc): Likewise.
+
+2019-03-01  Kito Cheng  <kito.cheng@gmail.com>
+	    Monk Chiang  <sh.chiang04@gmail.com>
+
+	* common/config/riscv/riscv-common.c: Include sstream.
+	(riscv_subset_list::to_string): New.
+	(riscv_arch_str): Likewise.
+	* config.gcc (riscv*-*-*): Handle --with-riscv-attribute=
+	* config.in: Regen.
+	* config/riscv/riscv-protos.h (riscv_arch_str): New.
+	* config/riscv/riscv.c (INCLUDE_STRING): Defined.
+	(riscv_emit_attribute): New.
+	(riscv_file_start): Emit attribute if needed.
+	(riscv_option_override): Init riscv_emit_attribute_p.
+	* config/riscv/riscv.opt (mriscv-attribute): New option.
+	* configure.ac (riscv*-*-*): Check binutils is supporting ELF
+	* configure: Regen.
+	* doc/install.texi: Document --with-riscv-attribute.
+	* doc/invoke.texi: Document -mriscv-attribute.
+
+	* common/config/riscv/riscv-common.c:
+	Include config/riscv/riscv-protos.h.
+	(INCLUDE_STRING): Defined.
+	(RISCV_DONT_CARE_VERSION): Defined.
+	(riscv_subset_t): Declare.
+	(riscv_subset_t::riscv_subset_t): New.
+	(riscv_subset_list): Declare.
+	(riscv_subset_list::riscv_subset_list): New.
+	(riscv_subset_list::~riscv_subset_list): Likewise.
+	(riscv_subset_list::parsing_subset_version): Likewise.
+	(riscv_subset_list::parse_std_ext): Likewise.
+	(riscv_subset_list::parse_sv_or_non_std_ext): Likewise.
+	(riscv_subset_list::add): Likewise.
+	(riscv_subset_list::lookup): Likewise.
+	(riscv_subset_list::xlen): Likewise.
+	(riscv_subset_list::parse): Likewise.
+	(riscv_supported_std_ext): Likewise.
+	(current_subset_list): Likewise.
+	(riscv_parse_arch_string): Using riscv_subset_list::parse to
+	parse.
+
+2019-03-01  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): If
+	rs6000_dejagnu_cpu_index is set, use that to override rs6000_cpu_index.
+	* config/rs6000/rs6000.opt (mdejagnu-cpu=): New option.
+
+2019-03-01  Alexander Monakov  <amonakov@ispras.ru>
+
+	PR rtl-optimization/85899
+	* haifa-sched.c (find_fallthru_edge_from): Relax assert to account for
+	fallthru edges leading to the exit block.
+
+2019-03-01  Tamar Christina  <tamar.christina@arm.com>
+
+	PR target/89517
+	* config/aarch64/aarch64-option-extensions.def (fp, simd, crypto, fp16,
+	rdma, dotprod, sha2, sha3, sm4, fp16fml, sve): Collapse line.
+
+2019-03-01  Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR tree-optimization/89535
+	* tree-vect-stmts.c (vectorizable_call): Record the vector types
+	for each operand.  Calculate the fallback choice for mask operands
+	and pass it to vect_get_vec_def_for_operand.
+
+2019-03-01  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/89541
+	* tree-ssa-operands.c (add_stmt_operand): CONST_DECL may
+	get virtual operands.
+	(get_expr_operands): Handle CONST_DECL like other decls.
+
+2019-03-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/89503
+	* fold-const.c (fold_checksum_tree): Ignore TREE_NO_WARNING bit
+	on DECL_P and EXPR_P.
+
+2019-03-01  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/89497
+	* tree-cfgcleanup.h (cleanup_tree_cfg): Add SSA update flags
+	argument, defaulted to zero.
+	* passes.c (execute_function_todo): Pass down SSA update flags
+	to cleanup_tree_cfg.
+	* tree-cfgcleanup.c: Include tree-into-ssa.h and tree-cfgcleanup.h.
+	(cleanup_tree_cfg_noloop): After cleanup_control_flow_pre update SSA
+	form if requested.
+	(cleanup_tree_cfg): Get and pass down SSA update flags.
+
+2019-03-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/89539
+	* dwarf2out.c (output_comdat_type_unit): Add ATTRIBUTE_UNUSED to
+	early_lto_debug argument.
+
+2019-02-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR tree-optimization/89536
+	* tree-ssa-dom.c (edge_info::derive_equivalences) <BIT_NOT_EXPR>: Test
+	only whether bit #0 of the value is 0 instead of the entire value.
+
+2019-02-28  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/87068 - missing diagnostic with fallthrough statement.
+	* gimplify.c (expand_FALLTHROUGH_r): If IFN_FALLTHROUGH was found
+	at the end of a seq, save its location to walk_stmt_info.
+	(expand_FALLTHROUGH): Warn if IFN_FALLTHROUGH is at the end of
+	a switch.
+
+2019-02-28  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR lto/88585
+	* tree.c (find_atomic_core_type): Move ahead in file.
+	(check_base_type): Correctly compare alignments of atomic types.
+
+2019-02-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/89455
+	* config/i386/i386.c (get_builtin_code_for_version): Identify
+	Westmere from PCLMUL, instead of AES.
+
+2019-02-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/89434
+	* config/arm/arm.md (*subsi3_carryin_compare_const): Use
+	trunc_int_for_mode (-INTVAL (...), SImode), just instead of
+	-UINTVAL (...).
+
+2019-02-28  Tamar Christina  <tamar.christina@arm.com>
+
+	PR target/88530
+	* config/aarch64/aarch64-option-extensions.def: Document it.
+	* config/aarch64/driver-aarch64.c (host_detect_local_cpu): Skip feature
+	if empty hwcaps.
+
+2019-02-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/89520
+	* convert.c (convert_to_real_1, convert_to_integer_1): Punt for
+	builtins if they don't have a single scalar floating point argument.
+	Formatting fixes.
+
+2019-02-27  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR rtl-optimization/89490
+	* varasm.c (get_block_for_section): Bail out for mergeable sections.
+	(default_use_anchors_for_symbol_p, output_object_block): Assert the
+	block section is not mergeable.
+
+2019-02-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/70341
+	* config/arm/arm.md (arm_casesi_internal): New define_expand.  Rename
+	old define_insn to ...
+	(*arm_casesi_internal): ... this.  Add mode to LABEL_REFs.
+	* config/arm/thumb2.md (thumb2_casesi_internal): New define_expand.
+	Rename old define_insn to ...
+	(*thumb2_casesi_internal): ... this.  Add mode to LABEL_REFs.
+	(thumb2_casesi_internal_pic): New define_expand.  Rename old
+	define_insn to ...
+	(*thumb2_casesi_internal_pic): ... this.  Add mode to LABEL_REFs.
+	* config/aarch64/aarch64.md (casesi): Create the casesi_dispatch
+	MEM manually here, set MEM_READONLY_P and MEM_NOTRAP_P on it.
+
 2019-02-27  Richard Biener  <rguenther@suse.de>
 
 	PR debug/88878
