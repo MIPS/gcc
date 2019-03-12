@@ -3444,8 +3444,8 @@ verify_gimple_call (gcall *stmt)
 		 __builtin_unreachable internally, for example when IPA figures
 		 out a call cannot happen in a legal program.  In such cases,
 		 we must make sure arguments are stripped off.  */
-	      error ("__builtin_unreachable or __builtin_trap call with "
-		     "arguments");
+	      error ("%<__builtin_unreachable%> or %<__builtin_trap%> call "
+		     "with arguments");
 	      return true;
 	    }
 	  break;
@@ -4827,7 +4827,7 @@ verify_gimple_label (glabel *stmt)
   if (!DECL_NONLOCAL (decl) && !FORCED_LABEL (decl)
       && DECL_CONTEXT (decl) != current_function_decl)
     {
-      error ("label's context is not the current function decl");
+      error ("label%'s context is not the current function decl");
       err |= true;
     }
 

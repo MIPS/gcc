@@ -1642,7 +1642,7 @@ find_array_section (gfc_expr *expr, gfc_ref *ref)
         {
 	  gfc_error ("The number of elements in the array constructor "
 		     "at %L requires an increase of the allowed %d "
-		     "upper limit.   See -fmax-array-constructor "
+		     "upper limit.  See %<-fmax-array-constructor%> "
 		     "option", &expr->where, flag_max_array_constructor);
 	  return false;
 	}
@@ -4321,7 +4321,7 @@ gfc_check_assign_symbol (gfc_symbol *sym, gfc_component *comp, gfc_expr *rvalue)
   if (!r)
     return r;
 
-  if (pointer && rvalue->expr_type != EXPR_NULL)
+  if (pointer && rvalue->expr_type != EXPR_NULL && !proc_pointer)
     {
       /* F08:C461. Additional checks for pointer initialization.  */
       symbol_attribute attr;

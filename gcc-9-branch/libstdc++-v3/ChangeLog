@@ -1,3 +1,39 @@
+2019-03-11  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/89460
+	* configure.ac: Check for sockatmark.
+	* crossconfig.m4: Check for sockatmark.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* include/experimental/internet (address_v4::_S_hton): Rename
+	overloaded functions to _S_hton_16 and _S_ntoh_16.
+	(address_v4::_S_ntoh): Rename to _S_ntoh_16 and _S_ntoh_32.
+	(basic_endpoint): Adjust calls to _S_hton and _S_ntoh.
+	* include/experimental/socket (basic_socket::at_mark): Check
+	_GLIBCXX_HAVE_SOCKATMARK.
+
+	* testsuite/29_atomics/atomic_flag/test_and_set/explicit-hle.cc: Use
+	const variables instead of macros.
+
+	PR libstdc++/89629
+	* libsupc++/hash_bytes.cc [__SIZEOF_SIZE_T__ == 8] (_Hash_bytes):
+	Use correct type for len_aligned.
+	* testsuite/20_util/hash/89629.cc: New test.
+
+2019-03-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libstdc++/89641
+	* include/std/atomic (atomic<T>::store, atomic<T>::load,
+	atomic<T>::exchange, atomic<T>::compare_exchange_weak,
+	atomic<T>::compare_exchange_strong): Cast __m or __s and __f to int.
+	* include/bits/atomic_base.h (__atomic_base<T>::operator++,
+	__atomic_base<T>::operator--, __atomic_base<T>::operator+=,
+	__atomic_base<T>::operator-=, __atomic_base<T>::operator&=,
+	__atomic_base<T>::operator|=, __atomic_base<T>::operator^=,
+	__atomic_base<T*>::operator++, __atomic_base<T*>::operator--,
+	__atomic_base<T*>::operator+=, __atomic_base<T*>::operator-=): Cast
+	memory_order_seq_cst to int.
+
 2019-03-08  Jonathan Wakely  <jwakely@redhat.com>
 
 	* doc/xml/manual/using.xml: Use link element instead of xref.

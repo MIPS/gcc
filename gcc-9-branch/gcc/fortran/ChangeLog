@@ -1,3 +1,53 @@
+2019-03-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/89651
+	* trans-openmp.c (gfc_omp_clause_default_ctor): Set TREE_NO_WARNING
+	on decl if adding COND_EXPR for allocatable.
+	(gfc_omp_clause_copy_ctor): Set TREE_NO_WARNING on dest.
+
+2019-03-11  Martin Liska  <mliska@suse.cz>
+
+	* decl.c (match_record_decl): Wrap an option name
+	in a string format message and fix GNU coding style.
+	(gfc_match_pointer): Likewise.
+	* expr.c (find_array_section): Likewise.
+	* intrinsic.c (gfc_is_intrinsic): Likewise.
+	* options.c (gfc_post_options): Likewise.
+	* primary.c (match_integer_constant): Likewise.
+	* trans-common.c (translate_common): Likewise.
+
+2019-03-10  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/66089
+	* trans-array.c (gfc_scalar_elemental_arg_saved_as_reference):
+	Return false if a scalar tempoary is needed.
+	(gfc_walk_variable_expr): Fix up class refs.
+
+2019-03-10  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/87734
+	* symbol.c (gfc_add_procedure): Only throw an error if the
+	procedure has not been declared either PUBLIC or PRIVATE.
+
+2019-03-09  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/71544
+	* trans-types.c (gfc_typenode_for_spec) Set ts->is_c_interop of
+	C_PTR and C_FUNPTR.
+	(create_fn_spec): Mark argument as escaping if ts->is_c_interop is set.
+
+2019-03-09  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/84504
+	* expr.c (gfc_check_assign_symbol): Deal with procedure pointers to
+	pointer-valued functions.
+
+2019-03-09  Thomas König  <tkoenig@gcc.gnu.org>
+
+	PR fortran/71203
+	* decl.c (add_init_expr_to_sym):  Add shape if init has none.  Add
+	asserts that it has to be an EXPR_ARRAY in this case.
+
 2019-03-08  Jakub Jelinek  <jakub@redhat.com>
 
 	PR other/80058
