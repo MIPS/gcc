@@ -205,6 +205,7 @@ enum group_id {
 #define DEF_SVE_FUNCTION(NAME, SHAPE, TYPES, PREDS) \
   GROUP_ID (NAME, SHAPE, TYPES, PREDS),
 #include "aarch64-sve-builtins.def"
+  NUM_GROUPS
 };
 
 /* Static information about each single-predicate or single-vector
@@ -639,7 +640,7 @@ static const type_suffix_info type_suffixes[NUM_TYPE_SUFFIXES + 1] = {
 /* Create an array that can be used in aarch64-sve-builtins.def to
    select the type suffixes in TYPES_<NAME>.  */
 #define DEF_SVE_TYPES_ARRAY(NAME) \
-  static const type_suffix_pair types_##NAME[] { \
+  static const type_suffix_pair types_##NAME[] = { \
     TYPES_##NAME (DEF_VECTOR_TYPE, DEF_DOUBLE_TYPE), \
     { NUM_TYPE_SUFFIXES, NUM_TYPE_SUFFIXES } \
   }
