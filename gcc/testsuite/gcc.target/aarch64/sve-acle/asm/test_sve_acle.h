@@ -50,12 +50,14 @@
 #define BIND_INPUT_ZS_FROM_Z16(TYPE)		\
   BIND_INPUT_Z (TYPE, z16);			\
   BIND_INPUT_Z (TYPE, z17);			\
-  BIND_INPUT_Z (TYPE, z18)			\
+  BIND_INPUT_Z (TYPE, z18);			\
+  BIND_INPUT_Z (TYPE, z19)
 
 #define DECLARE_RESULT_ZS_FROM_Z16(TYPE)	\
   DECLARE_RESULT (TYPE, z16);			\
   DECLARE_RESULT (TYPE, z17);			\
-  DECLARE_RESULT (TYPE, z18)
+  DECLARE_RESULT (TYPE, z18);			\
+  DECLARE_RESULT (TYPE, z19)
 
 #define BIND_OUTPUT_ZS				\
   BIND_OUTPUT_Z (z0);				\
@@ -81,7 +83,8 @@
 #define BIND_RESULT_ZS_FROM_Z16			\
   BIND_OUTPUT_Z (z16_res);			\
   BIND_OUTPUT_Z (z17_res);			\
-  BIND_OUTPUT_Z (z18_res)
+  BIND_OUTPUT_Z (z18_res);			\
+  BIND_OUTPUT_Z (z19_res)
 
 #ifdef __cplusplus
 #define START(NAME) extern "C" void NAME (void); void NAME (void)
@@ -172,6 +175,17 @@
     DEF_REGISTER (TYPE, z0);		\
     CODE;				\
     BIND_OUTPUT_Z (z0);			\
+  }
+
+#define TEST_GET(NAME, TTYPE, ZTYPE, CODE1, CODE2)	\
+  START (NAME)						\
+  {							\
+    DEF_REGISTER (ZTYPE, z0);				\
+    BIND_INPUT_Z (TTYPE, z16);				\
+    DECLARE_RESULT_ZS_FROM_Z16 (ZTYPE);			\
+    INVOKE (CODE1, CODE2);				\
+    BIND_OUTPUT_Z (z0);					\
+    BIND_RESULT_ZS_FROM_Z16;				\
   }
 
 #endif

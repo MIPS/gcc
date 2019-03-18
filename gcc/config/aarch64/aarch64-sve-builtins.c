@@ -109,6 +109,11 @@ enum function_shape {
   /* sv<t0>_t svfoo_wide[_t0](sv<t0>_t, svuint64_t).  */
   SHAPE_binary_wide,
 
+  /* sv<t0>_t svfoo[_t0](sv<t0>xN_t, uint64_t).  */
+  SHAPE_get2,
+  SHAPE_get3,
+  SHAPE_get4,
+
   /* sv<t0>_t svfoo[_t0]().  */
   SHAPE_inherent,
 
@@ -185,6 +190,9 @@ enum function {
   FUNC_svdot,
   FUNC_svdup,
   FUNC_sveor,
+  FUNC_svget2,
+  FUNC_svget3,
+  FUNC_svget4,
   FUNC_svindex,
   FUNC_svlsl,
   FUNC_svlsl_wide,
@@ -362,6 +370,8 @@ private:
   void build_all (function_signature, const function_group &, function_mode,
 		  bool = false);
   template <unsigned int N>
+  void sig_get_00i (const function_instance &, vec<tree> &);
+  template <unsigned int N>
   void sig_inherent (const function_instance &, vec<tree> &);
   void sig_00 (const function_instance &, vec<tree> &);
   void sig_n_00 (const function_instance &, vec<tree> &);
@@ -413,6 +423,7 @@ public:
 private:
   tree resolve_uniform (unsigned int);
   tree resolve_dot ();
+  tree resolve_get (unsigned int);
   tree resolve_binary_wide ();
   tree resolve_uniform_imm (unsigned int, unsigned int);
 
@@ -421,6 +432,7 @@ private:
   bool check_num_arguments (unsigned int);
   bool check_argument (unsigned int, vector_type);
   vector_type require_vector_type (unsigned int);
+  vector_type require_tuple_type (unsigned int, unsigned int);
   bool require_matching_type (unsigned int, vector_type);
   bool scalar_argument_p (unsigned int);
   bool require_integer_immediate (unsigned int);
@@ -488,6 +500,7 @@ public:
   gimple *fold ();
 
 private:
+  gimple *fold_get ();
   gimple *fold_ptrue ();
   gimple *fold_undef ();
 
@@ -520,6 +533,7 @@ private:
   rtx expand_dot ();
   rtx expand_dup ();
   rtx expand_eor ();
+  rtx expand_get ();
   rtx expand_index ();
   rtx expand_lsl ();
   rtx expand_lsl_wide ();
@@ -788,6 +802,16 @@ find_quarter_type_suffix (type_suffix type)
   return ret;
 }
 
+/* Return the single field in tuple type TYPE.  */
+static tree
+tuple_type_field (tree type)
+{
+  for (tree field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
+    if (TREE_CODE (field) == FIELD_DECL)
+      return field;
+  gcc_unreachable ();
+}
+
 /* Report an error against LOCATION that the user has tried to use
    function DECL when feature FEATURE is disabled.  */
 static void
@@ -989,6 +1013,21 @@ arm_sve_h_builder::build (const function_group &group)
       build_all (&arm_sve_h_builder::sig_00i, group, MODE_none);
       break;
 
+    case SHAPE_get2:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_get_00i<2>, group, MODE_none);
+      break;
+
+    case SHAPE_get3:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_get_00i<3>, group, MODE_none);
+      break;
+
+    case SHAPE_get4:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_get_00i<4>, group, MODE_none);
+      break;
+
     case SHAPE_inherent:
       /* No overloaded functions here.  */
       build_all (&arm_sve_h_builder::sig_inherent<1>, group, MODE_none);
@@ -1130,6 +1169,18 @@ arm_sve_h_builder::build_all (function_signature signature,
 	add_function_instance (instance, types, force_direct_overloads);
 	types.truncate (0);
       }
+}
+
+/* Describe the signature "sv<t0>_t svfoo[_t0](sv<t0>xN_t, uint64_t)"
+   for INSTANCE in TYPES.  */
+template<unsigned int N>
+void
+arm_sve_h_builder::sig_get_00i (const function_instance &instance,
+				vec<tree> &types)
+{
+  types.quick_push (instance.vector_type (0));
+  types.quick_push (instance.tuple_type (N, 0));
+  types.quick_push (scalar_types[VECTOR_TYPE_svuint64_t]);
 }
 
 /* Describe the signature "sv<t0>[xN]_t svfoo_t0()" for INSTANCE
@@ -1449,6 +1500,9 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
       break;
 
     case FUNC_svdup:
+    case FUNC_svget2:
+    case FUNC_svget3:
+    case FUNC_svget4:
     case FUNC_svptrue:
     case FUNC_svundef:
     case FUNC_svundef2:
@@ -1471,6 +1525,9 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     {
     case SHAPE_binary_opt_n:
     case SHAPE_binary_wide:
+    case SHAPE_get2:
+    case SHAPE_get3:
+    case SHAPE_get4:
     case SHAPE_shift_opt_n:
     case SHAPE_shift_right_imm:
     case SHAPE_ternary_opt_n:
@@ -1558,6 +1615,12 @@ function_resolver::resolve ()
       break;
     case SHAPE_binary_wide:
       return resolve_binary_wide ();
+    case SHAPE_get2:
+      return resolve_get (2);
+    case SHAPE_get3:
+      return resolve_get (3);
+    case SHAPE_get4:
+      return resolve_get (4);
     case SHAPE_shift_right_imm:
       return resolve_uniform_imm (2, 1);
     case SHAPE_ternary_opt_n:
@@ -1628,8 +1691,20 @@ function_resolver::resolve_dot ()
   return require_form (m_rfn.instance.mode, get_type_suffix (type));
 }
 
-/* Resolve a function that has SHAPE_binary_wide.  */
+/* Resolve a function that has SHAPE_get<NUM_VECTORS>.  */
+tree
+function_resolver::resolve_get (unsigned int num_vectors)
+{
+  vector_type type;
+  if (!check_num_arguments (2)
+      || (type = require_tuple_type (0, num_vectors)) == NUM_VECTOR_TYPES
+      || !require_integer_immediate (1))
+    return error_mark_node;
 
+  return require_form (m_rfn.instance.mode, get_type_suffix (type));
+}
+
+/* Resolve a function that has SHAPE_binary_wide.  */
 tree
 function_resolver::resolve_binary_wide ()
 {
@@ -1739,19 +1814,54 @@ function_resolver::check_num_arguments (unsigned int expected)
   return m_arglist.length () == expected;
 }
 
+/* Require argument I to be a tuple of NUM_VECTORS vectors, with
+   NUM_VECTORS == 1 selecting a single vector.  Return the type of
+   the vector on success and NUM_VECTOR_TYPES on failure.  */
+vector_type
+function_resolver::require_tuple_type (unsigned int i,
+				       unsigned int num_vectors)
+{
+  tree actual = get_argument_type (i);
+  if (actual == error_mark_node)
+    return NUM_VECTOR_TYPES;
+  /* A linear search should be OK here, since the code isn't hot and
+     the number of types is only small.  */
+  for (unsigned int size_i = 0; size_i < MAX_TUPLE_SIZE; ++size_i)
+    for (unsigned int type_i = 0; type_i < NUM_VECTOR_TYPES; ++type_i)
+      if (tree type = acle_vector_types[size_i][type_i])
+	if (TYPE_MAIN_VARIANT (actual) == TYPE_MAIN_VARIANT (type))
+	  {
+	    if (size_i + 1 == num_vectors)
+	      return (vector_type) type_i;
+	    if (num_vectors == 1)
+	      error_at (m_location, "passing %qT to argument %d of %qE, which"
+			" expects a single SVE vector rather than a tuple",
+			actual, i + 1, m_rfn.decl);
+	    else if (size_i == 0 && type_i != VECTOR_TYPE_svbool_t)
+	      error_at (m_location, "passing single vector %qT to argument %d"
+			" of %qE, which expects a tuple of %d vectors",
+			actual, i + 1, m_rfn.decl, num_vectors);
+	    else
+	      error_at (m_location, "passing %qT to argument %d of %qE, which"
+			" expects a tuple of %d vectors", actual, i + 1,
+			m_rfn.decl, num_vectors);
+	    return NUM_VECTOR_TYPES;
+	  }
+  if (num_vectors == 1)
+    error_at (m_location, "passing %qT to argument %d of %qE, which"
+	      " expects an SVE vector type", actual, i + 1, m_rfn.decl);
+  else
+    error_at (m_location, "passing %qT to argument %d of %qE, which"
+	      " expects an SVE tuple type", actual, i + 1, m_rfn.decl);
+  return NUM_VECTOR_TYPES;
+}
+
 /* Require argument I to have some form of vector type.  Return the
    type of the vector on success and NUM_VECTOR_TYPES on failure.  */
 vector_type
 function_resolver::require_vector_type (unsigned int i)
 {
-  tree actual = get_argument_type (i);
-  if (actual == error_mark_node)
-    return NUM_VECTOR_TYPES;
-  vector_type type = find_vector_type (actual);
-  if (type == NUM_VECTOR_TYPES)
-    error_at (m_location, "passing %qT to argument %d of %qE, which"
-	      " expects an SVE vector type", actual, i + 1, m_rfn.decl);
-  return type;
+  return require_tuple_type (i, 1);
 }
 
 /* Require argument I to have the vector type associated with TYPE,
@@ -1935,6 +2045,15 @@ function_checker::check ()
     case SHAPE_unary:
     case SHAPE_unary_n:
       return true;
+
+    case SHAPE_get2:
+      return require_immediate_range (1, 0, 1);
+
+    case SHAPE_get3:
+      return require_immediate_range (1, 0, 2);
+
+    case SHAPE_get4:
+      return require_immediate_range (1, 0, 3);
 
     case SHAPE_shift_right_imm:
       return check_shift_right_imm ();
@@ -2171,6 +2290,11 @@ gimple_folder::fold ()
     case FUNC_svundef:
       return NULL;
 
+    case FUNC_svget2:
+    case FUNC_svget3:
+    case FUNC_svget4:
+      return fold_get ();
+
     case FUNC_svptrue:
       return fold_ptrue ();
 
@@ -2180,6 +2304,20 @@ gimple_folder::fold ()
       return fold_undef ();
     }
   gcc_unreachable ();
+}
+
+/* Fold a call to svget.  */
+gimple *
+gimple_folder::fold_get ()
+{
+  tree tuple = gimple_call_arg (m_call, 0);
+  tree index = gimple_call_arg (m_call, 1);
+  tree field = tuple_type_field (TREE_TYPE (tuple));
+  tree ref = build3 (COMPONENT_REF, TREE_TYPE (field),
+		     tuple, field, NULL_TREE);
+  ref = build4 (ARRAY_REF, TREE_TYPE (m_lhs),
+		ref, index, NULL_TREE, NULL_TREE);
+  return gimple_build_assign (m_lhs, ref);
 }
 
 /* Fold a call to svptrue.  */
@@ -2275,6 +2413,11 @@ function_expander::expand ()
 
     case FUNC_sveor:
       return expand_eor ();
+
+    case FUNC_svget2:
+    case FUNC_svget3:
+    case FUNC_svget4:
+      return expand_get ();
 
     case FUNC_svindex:
       return expand_index ();
@@ -2476,6 +2619,14 @@ function_expander::expand_eor ()
     return expand_via_unpred_direct_optab (xor_optab);
   else
     return expand_via_pred_direct_optab (cond_xor_optab);
+}
+
+/* Expand a call to svget.  */
+rtx
+function_expander::expand_get ()
+{
+  return simplify_gen_subreg (get_mode (0), m_args[0], GET_MODE (m_args[0]),
+			      INTVAL (m_args[1]) * BYTES_PER_SVE_VECTOR);
 }
 
 /* Expand a call to svindex.  */
