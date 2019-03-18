@@ -95,29 +95,22 @@ enum predication {
    present only in the full name, not the overloaded name.  Governing
    predicate arguments and predicate suffixes are not shown.  */
 enum function_shape {
-  /* sv<t0>_t svfoo[_t0]().  */
-  SHAPE_inherent,
-
-  /* sv<t0>_t svfoo[_n]_t0(<t0>_t).  */
-  SHAPE_unary_n,
-
-  /* sv<t0>_t svfoo[_t0](sv<t0>_t).  */
-  SHAPE_unary,
-
-  /* sv<t0>_t svfoo_t0(<t0>_t, <t0>_t).  */
-  SHAPE_binary_scalar,
-
   /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t)
      sv<t0>_t svfoo[_n_t0](sv<t0>_t, <t0>_t).  */
   SHAPE_binary_opt_n,
 
-  /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t, sv<t0>_t)
-     sv<t0>_t svfoo[_n_t0](sv<t0>_t, sv<t0>_t, <t0>_t).  */
-  SHAPE_ternary_opt_n,
+  /* sv<t0>_t svfoo_t0(<t0>_t, <t0>_t).  */
+  SHAPE_binary_scalar,
 
-  /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0.quarter>_t, sv<t0.quarter>_t)
-     sv<t0>_t svfoo[_n_t0](sv<t0>_t, sv<t0.quarter>_t, <t0.quarter>_t).  */
-  SHAPE_ternary_qq_opt_n,
+  /* sv<t0>_t svfoo_wide[_t0](sv<t0>_t, svuint64_t).  */
+  SHAPE_binary_wide,
+
+  /* sv<t0>_t svfoo[_t0]().  */
+  SHAPE_inherent,
+
+  /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t)
+     sv<t0>_t svfoo[_t0](sv<t0>_t, uint64_t).  */
+  SHAPE_shift_opt_n,
 
   /* sv<t0>_t svfoo[_n_t0])(sv<t0>_t, uint64_t)
 
@@ -125,12 +118,19 @@ enum function_shape {
      range [1, <t0>_BITS].  */
   SHAPE_shift_right_imm,
 
-  /* sv<t0>_t svfoo_wide[_t0](sv<t0>_t, svuint64_t).  */
-  SHAPE_binary_wide,
+  /* sv<t0>_t svfoo[_t0](sv<t0>_t).  */
+  SHAPE_unary,
 
-  /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t)
-     sv<t0>_t svfoo[_t0](sv<t0>_t, uint64_t).  */
-  SHAPE_shift_opt_n
+  /* sv<t0>_t svfoo[_n]_t0(<t0>_t).  */
+  SHAPE_unary_n,
+
+  /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t, sv<t0>_t)
+     sv<t0>_t svfoo[_n_t0](sv<t0>_t, sv<t0>_t, <t0>_t).  */
+  SHAPE_ternary_opt_n,
+
+  /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0.quarter>_t, sv<t0.quarter>_t)
+     sv<t0>_t svfoo[_n_t0](sv<t0>_t, sv<t0.quarter>_t, <t0.quarter>_t).  */
+  SHAPE_ternary_qq_opt_n
 };
 
 /* Classifies an operation into "modes"; for example, to distinguish
@@ -165,8 +165,8 @@ typedef enum type_suffix type_suffix_pair[2];
 
 /* Enumerates the function base names, such as "svadd".  */
 enum function {
-  FUNC_svabs,
   FUNC_svabd,
+  FUNC_svabs,
   FUNC_svadd,
   FUNC_svand,
   FUNC_svasrd,
@@ -179,8 +179,8 @@ enum function {
   FUNC_svindex,
   FUNC_svlsl,
   FUNC_svlsl_wide,
-  FUNC_svmax,
   FUNC_svmad,
+  FUNC_svmax,
   FUNC_svmin,
   FUNC_svmla,
   FUNC_svmls,
@@ -489,12 +489,12 @@ private:
   rtx expand_index ();
   rtx expand_lsl ();
   rtx expand_lsl_wide ();
+  rtx expand_mad (unsigned int);
   rtx expand_max ();
   rtx expand_min ();
-  rtx expand_mad (unsigned int);
-  rtx expand_msb (unsigned int);
   rtx expand_mla ();
   rtx expand_mls ();
+  rtx expand_msb (unsigned int);
   rtx expand_mul ();
   rtx expand_mulh ();
   rtx expand_neg ();
@@ -876,23 +876,35 @@ arm_sve_h_builder::build (const function_group &group)
 {
   switch (group.shape)
     {
-    case SHAPE_unary:
+    case SHAPE_binary_opt_n:
       add_overloaded_functions (group, MODE_none);
-      build_all (&arm_sve_h_builder::sig_00, group, MODE_none);
-      break;
-
-    case SHAPE_unary_n:
-      build_all (&arm_sve_h_builder::sig_n_00, group, MODE_n, true);
+      build_all (&arm_sve_h_builder::sig_000, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_n_000, group, MODE_n);
       break;
 
     case SHAPE_binary_scalar:
       build_all (&arm_sve_h_builder::scalar_sig_000, group, MODE_none);
       break;
 
-    case SHAPE_binary_opt_n:
+    case SHAPE_binary_wide:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_00i, group, MODE_none);
+      break;
+
+    case SHAPE_inherent:
+      /* No overloaded functions here.  */
+      build_all (&arm_sve_h_builder::sig_inherent, group, MODE_none);
+      break;
+
+    case SHAPE_shift_opt_n:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_000, group, MODE_none);
-      build_all (&arm_sve_h_builder::sig_n_000, group, MODE_n);
+      build_all (&arm_sve_h_builder::sig_n_00i, group, MODE_n);
+      break;
+
+    case SHAPE_shift_right_imm:
+      add_overloaded_functions (group, MODE_n);
+      build_all (&arm_sve_h_builder::sig_n_00i, group, MODE_n);
       break;
 
     case SHAPE_ternary_opt_n:
@@ -907,25 +919,13 @@ arm_sve_h_builder::build (const function_group &group)
       build_all (&arm_sve_h_builder::sig_qq_n_0000, group, MODE_n);
       break;
 
-    case SHAPE_inherent:
-      /* No overloaded functions here.  */
-      build_all (&arm_sve_h_builder::sig_inherent, group, MODE_none);
-      break;
-
-    case SHAPE_shift_right_imm:
-      add_overloaded_functions (group, MODE_n);
-      build_all (&arm_sve_h_builder::sig_n_00i, group, MODE_n);
-      break;
-
-    case SHAPE_binary_wide:
+    case SHAPE_unary:
       add_overloaded_functions (group, MODE_none);
-      build_all (&arm_sve_h_builder::sig_00i, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_00, group, MODE_none);
       break;
 
-    case SHAPE_shift_opt_n:
-      add_overloaded_functions (group, MODE_none);
-      build_all (&arm_sve_h_builder::sig_000, group, MODE_none);
-      build_all (&arm_sve_h_builder::sig_n_00i, group, MODE_n);
+    case SHAPE_unary_n:
+      build_all (&arm_sve_h_builder::sig_n_00, group, MODE_n, true);
       break;
     }
 }
@@ -1240,8 +1240,8 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svindex:
     case FUNC_svlsl:
     case FUNC_svlsl_wide:
-    case FUNC_svmax:
     case FUNC_svmad:
+    case FUNC_svmax:
     case FUNC_svmin:
     case FUNC_svmla:
     case FUNC_svmls:
@@ -1287,18 +1287,18 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
 {
   switch (shape)
     {
-    case SHAPE_inherent:
-    case SHAPE_unary_n:
-    case SHAPE_binary_scalar:
-      return 1;
-    case SHAPE_unary:
     case SHAPE_binary_opt_n:
-    case SHAPE_ternary_opt_n:
-    case SHAPE_ternary_qq_opt_n:
-    case SHAPE_shift_right_imm:
     case SHAPE_binary_wide:
     case SHAPE_shift_opt_n:
+    case SHAPE_shift_right_imm:
+    case SHAPE_ternary_opt_n:
+    case SHAPE_ternary_qq_opt_n:
+    case SHAPE_unary:
       return 0;
+    case SHAPE_binary_scalar:
+    case SHAPE_inherent:
+    case SHAPE_unary_n:
+      return 1;
     }
   gcc_unreachable ();
 }
@@ -1362,24 +1362,24 @@ function_resolver::resolve ()
 {
   switch (m_group.shape)
     {
-    case SHAPE_unary:
-      return resolve_uniform (1);
     case SHAPE_binary_opt_n:
     case SHAPE_shift_opt_n:
       return resolve_uniform (2);
-    case SHAPE_ternary_opt_n:
-      return resolve_uniform (3);
-    case SHAPE_shift_right_imm:
-      return resolve_uniform_imm (2, 1);
-    case SHAPE_ternary_qq_opt_n:
-      return resolve_dot ();
-    case SHAPE_unary_n:
-      return NULL_TREE;
     case SHAPE_binary_scalar:
     case SHAPE_inherent:
       break;
     case SHAPE_binary_wide:
       return resolve_binary_wide ();
+    case SHAPE_shift_right_imm:
+      return resolve_uniform_imm (2, 1);
+    case SHAPE_ternary_opt_n:
+      return resolve_uniform (3);
+    case SHAPE_ternary_qq_opt_n:
+      return resolve_dot ();
+    case SHAPE_unary:
+      return resolve_uniform (1);
+    case SHAPE_unary_n:
+      return NULL_TREE;
     }
   gcc_unreachable ();
 }
@@ -1714,19 +1714,19 @@ function_checker::check ()
 {
   switch (m_group.shape)
     {
-    case SHAPE_shift_right_imm:
-      return check_shift_right_imm ();
-
-    case SHAPE_unary:
-    case SHAPE_unary_n:
-    case SHAPE_inherent:
     case SHAPE_binary_opt_n:
     case SHAPE_binary_scalar:
+    case SHAPE_binary_wide:
+    case SHAPE_inherent:
+    case SHAPE_shift_opt_n:
     case SHAPE_ternary_opt_n:
     case SHAPE_ternary_qq_opt_n:
-    case SHAPE_binary_wide:
-    case SHAPE_shift_opt_n:
+    case SHAPE_unary:
+    case SHAPE_unary_n:
       return true;
+
+    case SHAPE_shift_right_imm:
+      return check_shift_right_imm ();
     }
   gcc_unreachable ();
 }
@@ -1918,8 +1918,8 @@ gimple_folder::fold ()
     case FUNC_svindex:
     case FUNC_svlsl:
     case FUNC_svlsl_wide:
-    case FUNC_svmax:
     case FUNC_svmad:
+    case FUNC_svmax:
     case FUNC_svmin:
     case FUNC_svmla:
     case FUNC_svmls:
@@ -2005,6 +2005,9 @@ function_expander::expand ()
     case FUNC_svasrd:
       return expand_asrd ();
 
+    case FUNC_svbic:
+      return expand_bic ();
+
     case FUNC_svdiv:
       return expand_div (false);
 
@@ -2013,9 +2016,6 @@ function_expander::expand ()
 
     case FUNC_svdot:
       return expand_dot ();
-
-    case FUNC_svbic:
-      return expand_bic ();
 
     case FUNC_svdup:
       return expand_dup ();
@@ -2032,11 +2032,11 @@ function_expander::expand ()
     case FUNC_svlsl_wide:
       return expand_lsl_wide ();
 
-    case FUNC_svmax:
-      return expand_max ();
-
     case FUNC_svmad:
       return expand_mad (1);
+
+    case FUNC_svmax:
+      return expand_max ();
 
     case FUNC_svmin:
       return expand_min ();
@@ -2068,7 +2068,7 @@ function_expander::expand ()
     case FUNC_svptrue:
       return expand_ptrue ();
 
-     case FUNC_svqadd:
+    case FUNC_svqadd:
       return expand_qadd ();
 
     case FUNC_svqsub:
@@ -2139,6 +2139,29 @@ function_expander::expand_asrd ()
   return expand_pred_shift_right_imm (code_for_cond_asrd (get_mode (0)));
 }
 
+/* Expand a call to svbic.  */
+rtx
+function_expander::expand_bic ()
+{
+  if (CONST_INT_P (m_args[2]))
+    {
+      machine_mode mode = GET_MODE_INNER (get_mode (0));
+      m_args[2] = simplify_unary_operation (NOT, mode, m_args[2], mode);
+      return expand_and ();
+    }
+
+  if (m_fi.pred == PRED_x)
+    {
+      insn_code icode = code_for_aarch64_bic (get_mode (0));
+      return expand_via_unpred_insn (icode);
+    }
+  else
+    {
+      insn_code icode = code_for_cond_bic (get_mode (0));
+      return expand_via_pred_insn (icode);
+    }
+}
+
 /* Expand a call to svdiv.  */
 rtx
 function_expander::expand_div (bool reversed_p)
@@ -2165,29 +2188,6 @@ function_expander::expand_dot ()
     return expand_via_unpred_direct_optab (udot_prod_optab, mode);
   else
     return expand_via_unpred_direct_optab (sdot_prod_optab, mode);
-}
-
-/* Expand a call to svbic.  */
-rtx
-function_expander::expand_bic ()
-{
-  if (CONST_INT_P (m_args[2]))
-    {
-      machine_mode mode = GET_MODE_INNER (get_mode (0));
-      m_args[2] = simplify_unary_operation (NOT, mode, m_args[2], mode);
-      return expand_and ();
-    }
-
-  if (m_fi.pred == PRED_x)
-    {
-      insn_code icode = code_for_aarch64_bic (get_mode (0));
-      return expand_via_unpred_insn (icode);
-    }
-  else
-    {
-      insn_code icode = code_for_cond_bic (get_mode (0));
-      return expand_via_pred_insn (icode);
-    }
 }
 
 /* Expand a call to svdup.  */
@@ -2268,20 +2268,6 @@ function_expander::expand_lsl_wide ()
     }
 }
 
-/* Expand a call to svmax.  */
-rtx
-function_expander::expand_max ()
-{
-  return expand_signed_pred_op (SMAX, UMAX, UNSPEC_COND_FMAX);
-}
-
-/* Expand a call to svmin.  */
-rtx
-function_expander::expand_min ()
-{
-  return expand_signed_pred_op (SMIN, UMIN, UNSPEC_COND_FMIN);
-}
-
 /* Expand a call to svmad.
    svmad (pg, a, b, c) maps directly to cond_fma_optab and aarch64_pred_fma
    with the same operand order:
@@ -2308,30 +2294,18 @@ function_expander::expand_mad (unsigned int merge_argno)
     return expand_via_pred_direct_optab (cond_fma_optab, merge_argno);
 }
 
-/* Expand a call to svmsb.
-   svmsb (pg, a, b, c) maps directly to cond_fnma_optab and aarch64_pred_fnma
-   with the same operand order:
-   op2 -> a
-   op3 -> b
-   op4 -> c
-   and then:
-   op5 -> a
-   MERGE_ARGNO is the argument that should be used as the fallback
-   value in a merging operation.  */
+/* Expand a call to svmax.  */
 rtx
-function_expander::expand_msb (unsigned int merge_argno)
+function_expander::expand_max ()
 {
-  if (m_fi.pred == PRED_x)
-    {
-      insn_code icode;
-      if (type_suffixes[m_fi.types[0]].integer_p)
-	icode = code_for_aarch64_pred_fnma (get_mode (0));
-      else
-	icode = code_for_aarch64_pred (UNSPEC_COND_FMLS, get_mode (0));
-      return expand_via_pred_x_insn (icode);
-    }
-  else
-    return expand_via_pred_direct_optab (cond_fnma_optab, merge_argno);
+  return expand_signed_pred_op (SMAX, UMAX, UNSPEC_COND_FMAX);
+}
+
+/* Expand a call to svmin.  */
+rtx
+function_expander::expand_min ()
+{
+  return expand_signed_pred_op (SMIN, UMIN, UNSPEC_COND_FMIN);
 }
 
 /* Expand a call to svmla.
@@ -2362,6 +2336,32 @@ function_expander::expand_mls ()
 {
   rotate_inputs_left (1, 4);
   return expand_msb (3);
+}
+
+/* Expand a call to svmsb.
+   svmsb (pg, a, b, c) maps directly to cond_fnma_optab and aarch64_pred_fnma
+   with the same operand order:
+   op2 -> a
+   op3 -> b
+   op4 -> c
+   and then:
+   op5 -> a
+   MERGE_ARGNO is the argument that should be used as the fallback
+   value in a merging operation.  */
+rtx
+function_expander::expand_msb (unsigned int merge_argno)
+{
+  if (m_fi.pred == PRED_x)
+    {
+      insn_code icode;
+      if (type_suffixes[m_fi.types[0]].integer_p)
+	icode = code_for_aarch64_pred_fnma (get_mode (0));
+      else
+	icode = code_for_aarch64_pred (UNSPEC_COND_FMLS, get_mode (0));
+      return expand_via_pred_x_insn (icode);
+    }
+  else
+    return expand_via_pred_direct_optab (cond_fnma_optab, merge_argno);
 }
 
 /* Expand a call to svmul.  */
