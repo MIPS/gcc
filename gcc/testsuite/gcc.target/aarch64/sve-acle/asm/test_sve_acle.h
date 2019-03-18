@@ -6,39 +6,31 @@
 #pragma GCC aarch64 "arm_sve.h"
 
 #ifdef CHECK_ASM
-#  define BIND_INPUT_Z(TYPE, ZN) \
-     register TYPE ZN asm (#ZN); \
-     asm volatile ("" : "=w" (ZN))
-#  define BIND_INPUT_P(PN) \
-     register svbool_t PN asm (#PN); \
-     asm volatile ("" : "=Upa" (PN))
-#  define BIND_INPUT_X(TYPE, XN) \
-     register TYPE XN asm (#XN); \
-     asm volatile ("" : "=r" (XN))
-#  define BIND_INPUT_D(TYPE, DN) \
-     register TYPE DN asm (#DN); \
-     asm volatile ("" : "=w" (DN))
-#  define BIND_OUTPUT_Z(ZN) \
-     asm volatile ("" :: "w" (ZN))
-#  define BIND_OUTPUT_P(PN) \
-     asm volatile ("" :: "Upa" (PN))
-#  define BIND_OUTPUT_X(XN) \
-     asm volatile ("" :: "r" (XN))
-#  define BIND_OUTPUT_D(DN) \
-     asm volatile ("" :: "w" (DN))
+#  define DEF_REGISTER(TYPE, NAME) \
+     register TYPE NAME asm (#NAME)
+#  define BIND_INPUT(TYPE, NAME, CONSTRAINT) \
+     DEF_REGISTER (TYPE, NAME); \
+     asm volatile ("" : "=" CONSTRAINT (NAME))
+#  define BIND_OUTPUT(NAME, CONSTRAINT) \
+     asm volatile ("" :: CONSTRAINT (NAME))
 #  define DECLARE_RESULT(TYPE, ZN) \
      register TYPE ZN##_res asm (#ZN)
 #else
-#  define BIND_INPUT_Z(TYPE, ZN) TYPE ZN
-#  define BIND_INPUT_P(PN) svbool_t PN
-#  define BIND_INPUT_X(TYPE, XN) TYPE XN
-#  define BIND_INPUT_D(TYPE, DN) TYPE DN
-#  define BIND_OUTPUT_Z(ZN) (void) ZN
-#  define BIND_OUTPUT_P(PN) (void) PN
-#  define BIND_OUTPUT_X(XN) (void) XN
-#  define BIND_OUTPUT_D(DN) (void) DN
+#  define DEF_REGISTER(TYPE, NAME) TYPE NAME
+#  define BIND_INPUT(TYPE, NAME, CONSTRAINT) DEF_REGISTER (TYPE, NAME)
+#  define BIND_OUTPUT(NAME, CONSTRAINT) (void) NAME
 #  define DECLARE_RESULT(TYPE, ZN) TYPE ZN##_res
 #endif
+
+#define BIND_INPUT_Z(TYPE, ZN) BIND_INPUT (TYPE, ZN, "w");
+#define BIND_INPUT_P(PN) BIND_INPUT (svbool_t, PN, "Upa");
+#define BIND_INPUT_X(TYPE, XN) BIND_INPUT (TYPE, XN, "r");
+#define BIND_INPUT_D(TYPE, DN) BIND_INPUT (TYPE, DN, "w");
+
+#define BIND_OUTPUT_Z(ZN) BIND_OUTPUT (ZN, "w")
+#define BIND_OUTPUT_P(PN) BIND_OUTPUT (PN, "Upa")
+#define BIND_OUTPUT_X(XN) BIND_OUTPUT (XN, "r")
+#define BIND_OUTPUT_D(DN) BIND_OUTPUT (DN, "w")
 
 #if defined (TEST_OVERLOADS)
 #define INVOKE(CODE1, CODE2) CODE2
@@ -172,6 +164,14 @@
     BIND_OUTPUT_ZS;						\
     BIND_OUTPUT_X (x0);						\
     BIND_OUTPUT_X (x1);						\
+  }
+
+#define TEST_UNDEF(NAME, TYPE, CODE)	\
+  START (NAME)				\
+  {					\
+    DEF_REGISTER (TYPE, z0);		\
+    CODE;				\
+    BIND_OUTPUT_Z (z0);			\
   }
 
 #endif

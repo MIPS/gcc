@@ -91,6 +91,10 @@ DEF_SVE_FUNCTION (svqsub, binary_opt_n, all_data, none)
 DEF_SVE_FUNCTION (svsqrt, unary, all_float, mxz)
 DEF_SVE_FUNCTION (svsub, binary_opt_n, all_data, mxz)
 DEF_SVE_FUNCTION (svsubr, binary_opt_n, all_data, mxz)
+DEF_SVE_FUNCTION (svundef, inherent, all_data, none)
+DEF_SVE_FUNCTION (svundef2, inherent2, all_data, none)
+DEF_SVE_FUNCTION (svundef3, inherent3, all_data, none)
+DEF_SVE_FUNCTION (svundef4, inherent4, all_data, none)
 
 #undef DEF_SVE_FUNCTION
 #undef DEF_SVE_TYPE_SUFFIX

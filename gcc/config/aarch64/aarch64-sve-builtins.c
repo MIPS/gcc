@@ -112,6 +112,11 @@ enum function_shape {
   /* sv<t0>_t svfoo[_t0]().  */
   SHAPE_inherent,
 
+  /* sv<t0>xN_t svfoo_t0().  */
+  SHAPE_inherent2,
+  SHAPE_inherent3,
+  SHAPE_inherent4,
+
   /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t)
      sv<t0>_t svfoo[_t0](sv<t0>_t, uint64_t).  */
   SHAPE_shift_opt_n,
@@ -194,6 +199,10 @@ enum function {
   FUNC_svneg,
   FUNC_svnot,
   FUNC_svorr,
+  FUNC_svundef,
+  FUNC_svundef2,
+  FUNC_svundef3,
+  FUNC_svundef4,
   FUNC_svptrue,
   FUNC_svqadd,
   FUNC_svqsub,
@@ -281,6 +290,7 @@ struct GTY(()) function_instance {
 
   tree scalar_type (unsigned int) const;
   tree vector_type (unsigned int) const;
+  tree tuple_type (unsigned int, unsigned int) const;
   tree quarter_vector_type (unsigned int i) const;
   tree quarter_scalar_type (unsigned int i) const;
 
@@ -351,6 +361,7 @@ private:
 
   void build_all (function_signature, const function_group &, function_mode,
 		  bool = false);
+  template <unsigned int N>
   void sig_inherent (const function_instance &, vec<tree> &);
   void sig_00 (const function_instance &, vec<tree> &);
   void sig_n_00 (const function_instance &, vec<tree> &);
@@ -478,6 +489,7 @@ public:
 
 private:
   gimple *fold_ptrue ();
+  gimple *fold_undef ();
 
   /* The function being called.  */
   const function_instance &m_fi;
@@ -527,6 +539,7 @@ private:
   rtx expand_qsub ();
   rtx expand_sqrt ();
   rtx expand_sub (bool);
+  rtx expand_undef ();
 
   rtx expand_pred_op (rtx_code, int);
   rtx expand_signed_pred_op (rtx_code, rtx_code, int,
@@ -866,6 +879,14 @@ function_instance::vector_type (unsigned int i) const
   return acle_vector_types[0][type_suffixes[types[i]].type];
 }
 
+/* Return the tuple type with NUM_VECTORS vectors associated with type
+   suffix I.  */
+inline tree
+function_instance::tuple_type (unsigned int num_vectors, unsigned int i) const
+{
+  return acle_vector_types[num_vectors - 1][type_suffixes[types[i]].type];
+}
+
 /* Return the quarter size vector type associated with type suffix I.  */
 tree
 function_instance::quarter_vector_type (unsigned int i) const
@@ -970,7 +991,19 @@ arm_sve_h_builder::build (const function_group &group)
 
     case SHAPE_inherent:
       /* No overloaded functions here.  */
-      build_all (&arm_sve_h_builder::sig_inherent, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_inherent<1>, group, MODE_none);
+      break;
+
+    case SHAPE_inherent2:
+      build_all (&arm_sve_h_builder::sig_inherent<2>, group, MODE_none);
+      break;
+
+    case SHAPE_inherent3:
+      build_all (&arm_sve_h_builder::sig_inherent<3>, group, MODE_none);
+      break;
+
+    case SHAPE_inherent4:
+      build_all (&arm_sve_h_builder::sig_inherent<4>, group, MODE_none);
       break;
 
     case SHAPE_shift_opt_n:
@@ -1099,12 +1132,14 @@ arm_sve_h_builder::build_all (function_signature signature,
       }
 }
 
-/* Describe the signature "sv<t0>_t svfoo[_t0]()" for INSTANCE in TYPES.  */
+/* Describe the signature "sv<t0>[xN]_t svfoo_t0()" for INSTANCE
+   in TYPES.  */
+template<unsigned int N>
 void
 arm_sve_h_builder::sig_inherent (const function_instance &instance,
 				 vec<tree> &types)
 {
-  types.quick_push (instance.vector_type (0));
+  types.quick_push (instance.tuple_type (N, 0));
 }
 
 /* Describe the signature "sv<t0>_t svfoo[_t0](sv<t0>_t)"
@@ -1378,7 +1413,6 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svdiv:
     case FUNC_svdivr:
     case FUNC_svdot:
-    case FUNC_svdup:
     case FUNC_sveor:
     case FUNC_svindex:
     case FUNC_svlsl:
@@ -1414,7 +1448,12 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
 	}
       break;
 
+    case FUNC_svdup:
     case FUNC_svptrue:
+    case FUNC_svundef:
+    case FUNC_svundef2:
+    case FUNC_svundef3:
+    case FUNC_svundef4:
       attrs = add_attribute ("const", attrs);
       attrs = add_attribute ("nothrow", attrs);
       break;
@@ -1440,6 +1479,9 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
       return 0;
     case SHAPE_binary_scalar:
     case SHAPE_inherent:
+    case SHAPE_inherent2:
+    case SHAPE_inherent3:
+    case SHAPE_inherent4:
     case SHAPE_unary_n:
       return 1;
     }
@@ -1510,6 +1552,9 @@ function_resolver::resolve ()
       return resolve_uniform (2);
     case SHAPE_binary_scalar:
     case SHAPE_inherent:
+    case SHAPE_inherent2:
+    case SHAPE_inherent3:
+    case SHAPE_inherent4:
       break;
     case SHAPE_binary_wide:
       return resolve_binary_wide ();
@@ -1881,6 +1926,9 @@ function_checker::check ()
     case SHAPE_binary_scalar:
     case SHAPE_binary_wide:
     case SHAPE_inherent:
+    case SHAPE_inherent2:
+    case SHAPE_inherent3:
+    case SHAPE_inherent4:
     case SHAPE_shift_opt_n:
     case SHAPE_ternary_opt_n:
     case SHAPE_ternary_qq_opt_n:
@@ -2117,10 +2165,19 @@ gimple_folder::fold ()
     case FUNC_svsqrt:
     case FUNC_svsub:
     case FUNC_svsubr:
+    /* Don't fold svundef at the gimple level.  There's no exact
+       correspondence for SSA_NAMEs, and we explicitly don't want
+       to generate a specific value (like an all-zeros vector).  */
+    case FUNC_svundef:
       return NULL;
 
     case FUNC_svptrue:
       return fold_ptrue ();
+
+    case FUNC_svundef2:
+    case FUNC_svundef3:
+    case FUNC_svundef4:
+      return fold_undef ();
     }
   gcc_unreachable ();
 }
@@ -2140,6 +2197,13 @@ gimple_folder::fold_ptrue ()
   for (unsigned int i = 1; i < num_bytes; ++i)
     builder.quick_push (build_int_cst (elttype, 0));
   return gimple_build_assign (m_lhs, builder.build ());
+}
+
+/* Fold a call to svundef*.  */
+gimple *
+gimple_folder::fold_undef ()
+{
+  return gimple_build_assign (m_lhs, build_clobber (TREE_TYPE (m_lhs)));
 }
 
 /* Attempt to fold STMT, given that it's a call to the SVE function
@@ -2271,6 +2335,12 @@ function_expander::expand ()
 
     case FUNC_svsubr:
       return expand_sub (true);
+
+    case FUNC_svundef:
+    case FUNC_svundef2:
+    case FUNC_svundef3:
+    case FUNC_svundef4:
+      return expand_undef ();
     }
   gcc_unreachable ();
 }
@@ -2662,6 +2732,14 @@ function_expander::expand_sub (bool reversed_p)
 	}
     }
   return expand_via_pred_direct_optab (cond_sub_optab, merge_argno);
+}
+
+/* Expand a call to svundef*.  */
+rtx
+function_expander::expand_undef ()
+{
+  emit_clobber (copy_rtx (m_target));
+  return m_target;
 }
 
 /* Implement the call using optab OP, which is an unpredicated direct
