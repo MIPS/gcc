@@ -1364,6 +1364,52 @@
   [(set_attr "movprfx" "*,yes,*")]
 )
 
+;; Predicated BIC with select.
+(define_expand "@cond_bic<mode>"
+  [(set (match_operand:SVE_I 0 "register_operand")
+	(unspec:SVE_I
+	  [(match_operand:<VPRED> 1 "register_operand")
+	   (and:SVE_I
+	     (not:SVE_I (match_operand:SVE_I 3 "register_operand"))
+	     (match_operand:SVE_I 2 "aarch64_sve_logical_operand"))
+	   (match_operand:SVE_I 4 "aarch64_simd_reg_or_zero")]
+	  UNSPEC_SEL))]
+  "TARGET_SVE"
+)
+
+;; Predicated BIC with select 2nd operand.
+(define_insn "*cond_bic<mode>_2"
+  [(set (match_operand:SVE_I 0 "register_operand" "=w, ?&w")
+	(unspec:SVE_I
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl")
+	   (and:SVE_I
+	     (not:SVE_I (match_operand:SVE_I 3 "register_operand" "w, w"))
+	     (match_operand:SVE_I 2 "aarch64_sve_logical_operand" "0, w"))
+	   (match_dup 2)]
+	  UNSPEC_SEL))]
+  "TARGET_SVE"
+  "@
+   bic\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
+   movprfx\t%0, %2\;bic\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
+  [(set_attr "movprfx" "*,yes")]
+)
+
+;; Predicated BIC with select matching zero.
+(define_insn "*cond_bic<mode>_z"
+  [(set (match_operand:SVE_I 0 "register_operand" "=&w, &w")
+	(unspec:SVE_I
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl")
+	   (and:SVE_I
+	     (not:SVE_I (match_operand:SVE_I 3 "register_operand" "w, w"))
+	     (match_operand:SVE_I 2 "aarch64_sve_logical_operand" "0, w"))
+	   (match_operand:SVE_I 4 "aarch64_simd_imm_zero")]
+	  UNSPEC_SEL))]
+  "TARGET_SVE"
+  "@
+   movprfx\t%0.<Vetype>, %1/z, %0.<Vetype>\;bic\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
+   movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;bic\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
+  [(set_attr "movprfx" "yes")]
+)
 ;; Vector AND, ORR and XOR on floating-point modes.  We avoid subregs
 ;; by providing this, but we need to use UNSPECs since rtx logical ops
 ;; aren't defined for floating-point modes.
@@ -1378,13 +1424,13 @@
 
 ;; REG_EQUAL notes on "not<mode>3" should ensure that we can generate
 ;; this pattern even though the NOT instruction itself is predicated.
-(define_insn "bic<mode>3"
+(define_insn "@aarch64_bic<mode>"
   [(set (match_operand:SVE_I 0 "register_operand" "=w")
 	(and:SVE_I
-	  (not:SVE_I (match_operand:SVE_I 1 "register_operand" "w"))
-	  (match_operand:SVE_I 2 "register_operand" "w")))]
+	  (not:SVE_I (match_operand:SVE_I 2 "register_operand" "w"))
+	  (match_operand:SVE_I 1 "register_operand" "w")))]
   "TARGET_SVE"
-  "bic\t%0.d, %2.d, %1.d"
+  "bic\t%0.d, %1.d, %2.d"
 )
 
 ;; Predicate AND.  We can reuse one of the inputs as the GP.

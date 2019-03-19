@@ -170,6 +170,7 @@ enum function {
   FUNC_svadd,
   FUNC_svand,
   FUNC_svasrd,
+  FUNC_svbic,
   FUNC_svdiv,
   FUNC_svdivr,
   FUNC_svdot,
@@ -479,6 +480,7 @@ private:
   rtx expand_add (unsigned int);
   rtx expand_and ();
   rtx expand_asrd ();
+  rtx expand_bic ();
   rtx expand_div (bool);
   rtx expand_dot ();
   rtx expand_dup ();
@@ -1228,6 +1230,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svadd:
     case FUNC_svand:
     case FUNC_svasrd:
+    case FUNC_svbic:
     case FUNC_svdiv:
     case FUNC_svdivr:
     case FUNC_svdot:
@@ -1905,6 +1908,7 @@ gimple_folder::fold ()
     case FUNC_svadd:
     case FUNC_svand:
     case FUNC_svasrd:
+    case FUNC_svbic:
     case FUNC_svdiv:
     case FUNC_svdivr:
     case FUNC_svdot:
@@ -2008,6 +2012,9 @@ function_expander::expand ()
 
     case FUNC_svdot:
       return expand_dot ();
+
+    case FUNC_svbic:
+      return expand_bic ();
 
     case FUNC_svdup:
       return expand_dup ();
@@ -2157,6 +2164,29 @@ function_expander::expand_dot ()
     return expand_via_unpred_direct_optab (udot_prod_optab, mode);
   else
     return expand_via_unpred_direct_optab (sdot_prod_optab, mode);
+}
+
+/* Expand a call to svbic.  */
+rtx
+function_expander::expand_bic ()
+{
+  if (CONST_INT_P (m_args[2]))
+    {
+      machine_mode mode = GET_MODE_INNER (get_mode (0));
+      m_args[2] = simplify_unary_operation (NOT, mode, m_args[2], mode);
+      return expand_and ();
+    }
+
+  if (m_fi.pred == PRED_x)
+    {
+      insn_code icode = code_for_aarch64_bic (get_mode (0));
+      return expand_via_unpred_insn (icode);
+    }
+  else
+    {
+      insn_code icode = code_for_cond_bic (get_mode (0));
+      return expand_via_pred_insn (icode);
+    }
 }
 
 /* Expand a call to svdup.  */
