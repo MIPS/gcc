@@ -18810,7 +18810,7 @@ aarch64_gimple_fold_builtin (gimple_stmt_iterator *gsi)
       break;
 
     case AARCH64_BUILTIN_SVE:
-      new_stmt = aarch64_sve::gimple_fold_builtin (subcode, stmt);
+      new_stmt = aarch64_sve::gimple_fold_builtin (subcode, gsi, stmt);
       break;
     }
 

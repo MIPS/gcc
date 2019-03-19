@@ -619,7 +619,7 @@ namespace aarch64_sve {
 				   vec<tree, va_gc> *);
   bool check_builtin_call (location_t, vec<location_t>, unsigned int,
 			   tree, unsigned int, tree *);
-  gimple *gimple_fold_builtin (unsigned int, gcall *);
+  gimple *gimple_fold_builtin (unsigned int, gimple_stmt_iterator *, gcall *);
   rtx expand_builtin (unsigned int, tree, rtx);
 }
 

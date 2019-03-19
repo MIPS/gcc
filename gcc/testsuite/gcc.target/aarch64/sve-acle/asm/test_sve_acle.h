@@ -188,4 +188,16 @@
     BIND_RESULT_ZS_FROM_Z16;				\
   }
 
+#define TEST_SET(NAME, TTYPE, ZTYPE, CODE1, CODE2)	\
+  START (NAME)						\
+  {							\
+    DEF_REGISTER (TTYPE, z0);				\
+    BIND_INPUT_Z (ZTYPE, z4);				\
+    BIND_INPUT_Z (TTYPE, z16);				\
+    INVOKE (CODE1, CODE2);				\
+    BIND_OUTPUT_Z (z0);					\
+    BIND_OUTPUT_Z (z4);					\
+    BIND_OUTPUT_Z (z16);				\
+  }
+
 #endif

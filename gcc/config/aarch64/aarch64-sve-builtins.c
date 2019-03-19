@@ -38,6 +38,8 @@
 #include "function.h"
 #include "fold-const.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimplify.h"
 #include "tree-vector-builder.h"
 #include "rtx-vector-builder.h"
 #include "stor-layout.h"
@@ -121,6 +123,11 @@ enum function_shape {
   SHAPE_inherent2,
   SHAPE_inherent3,
   SHAPE_inherent4,
+
+  /* sv<t0>xN_t svfoo[_t0](sv<t0>xN_t, uint64_t, sv<t0>_t).  */
+  SHAPE_set2,
+  SHAPE_set3,
+  SHAPE_set4,
 
   /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t)
      sv<t0>_t svfoo[_t0](sv<t0>_t, uint64_t).  */
@@ -207,6 +214,9 @@ enum function {
   FUNC_svneg,
   FUNC_svnot,
   FUNC_svorr,
+  FUNC_svset2,
+  FUNC_svset3,
+  FUNC_svset4,
   FUNC_svundef,
   FUNC_svundef2,
   FUNC_svundef3,
@@ -373,6 +383,8 @@ private:
   void sig_get_00i (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_inherent (const function_instance &, vec<tree> &);
+  template <unsigned int N>
+  void sig_set_00i0 (const function_instance &, vec<tree> &);
   void sig_00 (const function_instance &, vec<tree> &);
   void sig_n_00 (const function_instance &, vec<tree> &);
   void scalar_sig_000 (const function_instance &, vec<tree> &);
@@ -424,6 +436,7 @@ private:
   tree resolve_uniform (unsigned int);
   tree resolve_dot ();
   tree resolve_get (unsigned int);
+  tree resolve_set (unsigned int);
   tree resolve_binary_wide ();
   tree resolve_uniform_imm (unsigned int, unsigned int);
 
@@ -496,17 +509,21 @@ private:
 class gimple_folder
 {
 public:
-  gimple_folder (unsigned int, gcall *);
+  gimple_folder (unsigned int, gimple_stmt_iterator *, gcall *);
   gimple *fold ();
 
 private:
   gimple *fold_get ();
   gimple *fold_ptrue ();
+  gimple *fold_set ();
   gimple *fold_undef ();
 
   /* The function being called.  */
   const function_instance &m_fi;
   const function_group &m_group;
+
+  /* Where to insert extra statements that feed the final replacement.  */
+  gimple_stmt_iterator *m_gsi;
 
   /* The call we're folding.  */
   gcall *m_call;
@@ -551,6 +568,7 @@ private:
   rtx expand_ptrue ();
   rtx expand_qadd ();
   rtx expand_qsub ();
+  rtx expand_set ();
   rtx expand_sqrt ();
   rtx expand_sub (bool);
   rtx expand_undef ();
@@ -1045,6 +1063,21 @@ arm_sve_h_builder::build (const function_group &group)
       build_all (&arm_sve_h_builder::sig_inherent<4>, group, MODE_none);
       break;
 
+    case SHAPE_set2:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_set_00i0<2>, group, MODE_none);
+      break;
+
+    case SHAPE_set3:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_set_00i0<3>, group, MODE_none);
+      break;
+
+    case SHAPE_set4:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_set_00i0<4>, group, MODE_none);
+      break;
+
     case SHAPE_shift_opt_n:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_000, group, MODE_none);
@@ -1191,6 +1224,20 @@ arm_sve_h_builder::sig_inherent (const function_instance &instance,
 				 vec<tree> &types)
 {
   types.quick_push (instance.tuple_type (N, 0));
+}
+
+/* Describe the signature
+   "sv<t0>xN_t svfoo[_t0](sv<t0>xN_t, uint64_t, sv<t0>_t)"
+   for INSTANCE in TYPES.  */
+template<unsigned int N>
+void
+arm_sve_h_builder::sig_set_00i0 (const function_instance &instance,
+				 vec<tree> &types)
+{
+  types.quick_push (instance.tuple_type (N, 0));
+  types.quick_push (instance.tuple_type (N, 0));
+  types.quick_push (scalar_types[VECTOR_TYPE_svuint64_t]);
+  types.quick_push (instance.vector_type (0));
 }
 
 /* Describe the signature "sv<t0>_t svfoo[_t0](sv<t0>_t)"
@@ -1504,6 +1551,9 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svget3:
     case FUNC_svget4:
     case FUNC_svptrue:
+    case FUNC_svset2:
+    case FUNC_svset3:
+    case FUNC_svset4:
     case FUNC_svundef:
     case FUNC_svundef2:
     case FUNC_svundef3:
@@ -1528,6 +1578,9 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_get2:
     case SHAPE_get3:
     case SHAPE_get4:
+    case SHAPE_set2:
+    case SHAPE_set3:
+    case SHAPE_set4:
     case SHAPE_shift_opt_n:
     case SHAPE_shift_right_imm:
     case SHAPE_ternary_opt_n:
@@ -1621,6 +1674,12 @@ function_resolver::resolve ()
       return resolve_get (3);
     case SHAPE_get4:
       return resolve_get (4);
+    case SHAPE_set2:
+      return resolve_set (2);
+    case SHAPE_set3:
+      return resolve_set (3);
+    case SHAPE_set4:
+      return resolve_set (4);
     case SHAPE_shift_right_imm:
       return resolve_uniform_imm (2, 1);
     case SHAPE_ternary_opt_n:
@@ -1699,6 +1758,20 @@ function_resolver::resolve_get (unsigned int num_vectors)
   if (!check_num_arguments (2)
       || (type = require_tuple_type (0, num_vectors)) == NUM_VECTOR_TYPES
       || !require_integer_immediate (1))
+    return error_mark_node;
+
+  return require_form (m_rfn.instance.mode, get_type_suffix (type));
+}
+
+/* Resolve a function that has SHAPE_set<NUM_VECTORS>.  */
+tree
+function_resolver::resolve_set (unsigned int num_vectors)
+{
+  vector_type type;
+  if (!check_num_arguments (3)
+      || (type = require_tuple_type (0, num_vectors)) == NUM_VECTOR_TYPES
+      || !require_integer_immediate (1)
+      || !check_argument (2, type))
     return error_mark_node;
 
   return require_form (m_rfn.instance.mode, get_type_suffix (type));
@@ -2047,12 +2120,15 @@ function_checker::check ()
       return true;
 
     case SHAPE_get2:
+    case SHAPE_set2:
       return require_immediate_range (1, 0, 1);
 
     case SHAPE_get3:
+    case SHAPE_set3:
       return require_immediate_range (1, 0, 2);
 
     case SHAPE_get4:
+    case SHAPE_set4:
       return require_immediate_range (1, 0, 3);
 
     case SHAPE_shift_right_imm:
@@ -2234,11 +2310,12 @@ check_builtin_call (location_t location, vec<location_t>, unsigned int code,
 }
 
 /* Construct a folder for CALL, which calls the SVE function with
-   subcode CODE.  */
-gimple_folder::gimple_folder (unsigned int code, gcall *call)
+   subcode CODE.  Insert any other new statements at GSI.  */
+gimple_folder::gimple_folder (unsigned int code, gimple_stmt_iterator *gsi,
+			      gcall *call)
   : m_fi ((*registered_functions)[code]->instance),
     m_group (function_groups[m_fi.group]),
-    m_call (call), m_lhs (gimple_call_lhs (call))
+    m_gsi (gsi), m_call (call), m_lhs (gimple_call_lhs (call))
 {
 }
 
@@ -2298,6 +2375,11 @@ gimple_folder::fold ()
     case FUNC_svptrue:
       return fold_ptrue ();
 
+    case FUNC_svset2:
+    case FUNC_svset3:
+    case FUNC_svset4:
+      return fold_set ();
+
     case FUNC_svundef2:
     case FUNC_svundef3:
     case FUNC_svundef4:
@@ -2337,6 +2419,24 @@ gimple_folder::fold_ptrue ()
   return gimple_build_assign (m_lhs, builder.build ());
 }
 
+/* Fold a call to svset*.  */
+gimple *
+gimple_folder::fold_set ()
+{
+  tree tuple = gimple_call_arg (m_call, 0);
+  tree index = gimple_call_arg (m_call, 1);
+  tree vector = gimple_call_arg (m_call, 2);
+  gassign *assign = gimple_build_assign (unshare_expr (m_lhs), tuple);
+
+  tree field = tuple_type_field (TREE_TYPE (m_lhs));
+  tree ref = build3 (COMPONENT_REF, TREE_TYPE (field),
+		     m_lhs, field, NULL_TREE);
+  ref = build4 (ARRAY_REF, TREE_TYPE (vector),
+		ref, index, NULL_TREE, NULL_TREE);
+  gsi_insert_after (m_gsi, gimple_build_assign (ref, vector), GSI_SAME_STMT);
+  return assign;
+}
+
 /* Fold a call to svundef*.  */
 gimple *
 gimple_folder::fold_undef ()
@@ -2346,11 +2446,11 @@ gimple_folder::fold_undef ()
 
 /* Attempt to fold STMT, given that it's a call to the SVE function
    with subcode CODE.  Return the new statement on success and null
-   on failure.  */
+   on failure.  Insert any other new statements at GSI.  */
 gimple *
-gimple_fold_builtin (unsigned int code, gcall *stmt)
+gimple_fold_builtin (unsigned int code, gimple_stmt_iterator *gsi, gcall *stmt)
 {
-  return gimple_folder (code, stmt).fold ();
+  return gimple_folder (code, gsi, stmt).fold ();
 }
 
 /* Construct an expander for a call to the SVE function with subcode CODE.
@@ -2472,6 +2572,11 @@ function_expander::expand ()
 
     case FUNC_svsqrt:
       return expand_sqrt ();
+
+    case FUNC_svset2:
+    case FUNC_svset3:
+    case FUNC_svset4:
+      return expand_set ();
 
     case FUNC_svsub:
       return expand_sub (false);
@@ -2845,6 +2950,27 @@ function_expander::expand_ptrue ()
   for (unsigned int i = 1; i < num_bytes; ++i)
     builder.quick_push (const0_rtx);
   return builder.build ();
+}
+
+/* Expand a call to svset.  */
+rtx
+function_expander::expand_set ()
+{
+  rtx tuple = m_args[0];
+  unsigned int index = INTVAL (m_args[1]);
+  rtx vector = m_args[2];
+
+  if (!m_target
+      || !REG_P (m_target)
+      || reg_overlap_mentioned_p (m_target, vector))
+    m_target = gen_reg_rtx (GET_MODE (tuple));
+  emit_move_insn (m_target, tuple);
+
+  rtx piece = simplify_gen_subreg (GET_MODE (vector),
+				   m_target, GET_MODE (m_target),
+				   index * BYTES_PER_SVE_VECTOR);
+  emit_move_insn (piece, vector);
+  return m_target;
 }
 
 /* Expand a call to svsqrt.  */
