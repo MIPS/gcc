@@ -25,10 +25,12 @@ along with GCC; see the file COPYING3.  If not see
 #undef  LINK_GCC_C_SEQUENCE_SPEC
 #define LINK_GCC_C_SEQUENCE_SPEC \
 "%:version-compare(>= 10.6 mmacosx-version-min= -no_compact_unwind) \
+   %{!nostdlib:%:version-compare(>< 10.6 10.7 mmacosx-version-min= -ld10-uwfef.o)} \
    %{!static:%{!static-libgcc: \
       %:version-compare(>= 10.6 mmacosx-version-min= -lSystem) } } \
    %{fno-pic|fno-PIC|fno-pie|fno-PIE|fapple-kext|mkernel|static|mdynamic-no-pic: \
-      %:version-compare(>= 10.7 mmacosx-version-min= -no_pie) } %G %L"
+      %:version-compare(>= 10.7 mmacosx-version-min= -no_pie) } \
+   %G %L"
 
 #undef DEF_MIN_OSX_VERSION
 #define DEF_MIN_OSX_VERSION "10.6"
