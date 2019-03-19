@@ -52,7 +52,7 @@ set-torture-options {
     "-std=c++14 -O2 -g"
     "-std=c++17 -O2 -g"
     "-std=c++2a -O2 -g"
-    "-std=gnu++98 -O2 -DCHECK_ASM"
+    "-std=gnu++98 -O2 -fno-schedule-insns -DCHECK_ASM"
     "-std=gnu++11 -O2 -g"
     "-std=gnu++17 -O2 -g"
     "-std=gnu++2a -O2 -g"

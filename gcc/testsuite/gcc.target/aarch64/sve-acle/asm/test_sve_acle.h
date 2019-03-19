@@ -177,6 +177,15 @@
     BIND_OUTPUT_Z (z0);			\
   }
 
+#define TEST_CREATE(NAME, TTYPE, ZTYPE, CODE1, CODE2)	\
+  START (NAME)						\
+  {							\
+    BIND_INPUT_ZS (ZTYPE);				\
+    DEF_REGISTER (TTYPE, z16);				\
+    INVOKE (CODE1, CODE2);				\
+    BIND_OUTPUT_Z (z16);				\
+  }
+
 #define TEST_GET(NAME, TTYPE, ZTYPE, CODE1, CODE2)	\
   START (NAME)						\
   {							\

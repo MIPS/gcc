@@ -111,6 +111,15 @@ enum function_shape {
   /* sv<t0>_t svfoo_wide[_t0](sv<t0>_t, svuint64_t).  */
   SHAPE_binary_wide,
 
+  /* sv<t0>x2_t svfoo[_t0](sv<t0>_t, sv<t0>_t).  */
+  SHAPE_create2,
+
+  /* sv<t0>x3_t svfoo[_t0](sv<t0>_t, sv<t0>_t, sv<t0>_t).  */
+  SHAPE_create3,
+
+  /* sv<t0>x4_t svfoo[_t0](sv<t0>_t, sv<t0>_t, sv<t0>_t, sv<t0>_t).  */
+  SHAPE_create4,
+
   /* sv<t0>_t svfoo[_t0](sv<t0>xN_t, uint64_t).  */
   SHAPE_get2,
   SHAPE_get3,
@@ -192,6 +201,9 @@ enum function {
   FUNC_svand,
   FUNC_svasrd,
   FUNC_svbic,
+  FUNC_svcreate2,
+  FUNC_svcreate3,
+  FUNC_svcreate4,
   FUNC_svdiv,
   FUNC_svdivr,
   FUNC_svdot,
@@ -380,6 +392,8 @@ private:
   void build_all (function_signature, const function_group &, function_mode,
 		  bool = false);
   template <unsigned int N>
+  void sig_create (const function_instance &, vec<tree> &);
+  template <unsigned int N>
   void sig_get_00i (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_inherent (const function_instance &, vec<tree> &);
@@ -434,6 +448,7 @@ public:
 
 private:
   tree resolve_uniform (unsigned int);
+  tree resolve_create (unsigned int);
   tree resolve_dot ();
   tree resolve_get (unsigned int);
   tree resolve_set (unsigned int);
@@ -513,6 +528,7 @@ public:
   gimple *fold ();
 
 private:
+  gimple *fold_create ();
   gimple *fold_get ();
   gimple *fold_ptrue ();
   gimple *fold_set ();
@@ -546,6 +562,7 @@ private:
   rtx expand_and ();
   rtx expand_asrd ();
   rtx expand_bic ();
+  rtx expand_create ();
   rtx expand_div (bool);
   rtx expand_dot ();
   rtx expand_dup ();
@@ -590,6 +607,7 @@ private:
 
   void rotate_inputs_left (unsigned int, unsigned int);
   bool try_negating_argument (unsigned int, machine_mode);
+  bool overlaps_input_p (rtx);
 
   machine_mode get_mode (unsigned int);
   machine_mode get_quarter_mode (unsigned int);
@@ -1031,6 +1049,21 @@ arm_sve_h_builder::build (const function_group &group)
       build_all (&arm_sve_h_builder::sig_00i, group, MODE_none);
       break;
 
+    case SHAPE_create2:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_create<2>, group, MODE_none);
+      break;
+
+    case SHAPE_create3:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_create<3>, group, MODE_none);
+      break;
+
+    case SHAPE_create4:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_create<4>, group, MODE_none);
+      break;
+
     case SHAPE_get2:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_get_00i<2>, group, MODE_none);
@@ -1202,6 +1235,18 @@ arm_sve_h_builder::build_all (function_signature signature,
 	add_function_instance (instance, types, force_direct_overloads);
 	types.truncate (0);
       }
+}
+
+/* Describe the signature "sv<t0>xM_t svfoo[_t0](sv<t0>_t, ..., sv<t0>_t)"
+   for INSTANCE in TYPES.  */
+template<unsigned int N>
+void
+arm_sve_h_builder::sig_create (const function_instance &instance,
+			       vec<tree> &types)
+{
+  types.quick_push (instance.tuple_type (N, 0));
+  for (unsigned int i = 0; i < N; ++i)
+    types.quick_push (instance.vector_type (0));
 }
 
 /* Describe the signature "sv<t0>_t svfoo[_t0](sv<t0>xN_t, uint64_t)"
@@ -1546,6 +1591,9 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
 	}
       break;
 
+    case FUNC_svcreate2:
+    case FUNC_svcreate3:
+    case FUNC_svcreate4:
     case FUNC_svdup:
     case FUNC_svget2:
     case FUNC_svget3:
@@ -1575,6 +1623,9 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     {
     case SHAPE_binary_opt_n:
     case SHAPE_binary_wide:
+    case SHAPE_create2:
+    case SHAPE_create3:
+    case SHAPE_create4:
     case SHAPE_get2:
     case SHAPE_get3:
     case SHAPE_get4:
@@ -1668,6 +1719,12 @@ function_resolver::resolve ()
       break;
     case SHAPE_binary_wide:
       return resolve_binary_wide ();
+    case SHAPE_create2:
+      return resolve_create (2);
+    case SHAPE_create3:
+      return resolve_create (3);
+    case SHAPE_create4:
+      return resolve_create (4);
     case SHAPE_get2:
       return resolve_get (2);
     case SHAPE_get3:
@@ -1716,6 +1773,22 @@ function_resolver::resolve_uniform (unsigned int nops)
       if (!require_matching_type (i, type))
 	return error_mark_node;
     }
+  return require_form (m_rfn.instance.mode, get_type_suffix (type));
+}
+
+/* Resolve a function that has SHAPE_create<NUM_VECTORS>.  */
+tree
+function_resolver::resolve_create (unsigned int num_vectors)
+{
+  vector_type type;
+  if (!check_num_arguments (num_vectors)
+      || (type = require_vector_type (0)) == NUM_VECTOR_TYPES)
+    return error_mark_node;
+
+  for (unsigned int i = 1; i < num_vectors; ++i)
+    if (!require_matching_type (i, type))
+      return error_mark_node;
+
   return require_form (m_rfn.instance.mode, get_type_suffix (type));
 }
 
@@ -2108,6 +2181,9 @@ function_checker::check ()
     case SHAPE_binary_opt_n:
     case SHAPE_binary_scalar:
     case SHAPE_binary_wide:
+    case SHAPE_create2:
+    case SHAPE_create3:
+    case SHAPE_create4:
     case SHAPE_inherent:
     case SHAPE_inherent2:
     case SHAPE_inherent3:
@@ -2367,6 +2443,11 @@ gimple_folder::fold ()
     case FUNC_svundef:
       return NULL;
 
+    case FUNC_svcreate2:
+    case FUNC_svcreate3:
+    case FUNC_svcreate4:
+      return fold_create ();
+
     case FUNC_svget2:
     case FUNC_svget3:
     case FUNC_svget4:
@@ -2386,6 +2467,28 @@ gimple_folder::fold ()
       return fold_undef ();
     }
   gcc_unreachable ();
+}
+
+/* Fold a call to svcreate*.  */
+gimple *
+gimple_folder::fold_create ()
+{
+  unsigned int nargs = gimple_call_num_args (m_call);
+  tree lhs_type = TREE_TYPE (m_lhs);
+  gassign *assign = gimple_build_assign (m_lhs, build_clobber (lhs_type));
+
+  for (unsigned int i = nargs; i-- > 0; )
+    {
+      tree vector = gimple_call_arg (m_call, i);
+      tree field = tuple_type_field (TREE_TYPE (m_lhs));
+      tree ref = build3 (COMPONENT_REF, TREE_TYPE (field),
+			 unshare_expr (m_lhs), field, NULL_TREE);
+      ref = build4 (ARRAY_REF, TREE_TYPE (vector),
+		    ref, size_int (i), NULL_TREE, NULL_TREE);
+      gsi_insert_after (m_gsi, gimple_build_assign (ref, vector),
+			GSI_SAME_STMT);
+    }
+  return assign;
 }
 
 /* Fold a call to svget.  */
@@ -2498,6 +2601,11 @@ function_expander::expand ()
 
     case FUNC_svbic:
       return expand_bic ();
+
+    case FUNC_svcreate2:
+    case FUNC_svcreate3:
+    case FUNC_svcreate4:
+      return expand_create ();
 
     case FUNC_svdiv:
       return expand_div (false);
@@ -2667,6 +2775,26 @@ function_expander::expand_bic ()
       insn_code icode = code_for_cond_bic (get_mode (0));
       return expand_via_pred_insn (icode);
     }
+}
+
+/* Expand a call to svcreate*.  */
+rtx
+function_expander::expand_create ()
+{
+  machine_mode tuple_mode = TYPE_MODE (TREE_TYPE (m_exp));
+
+  if (!m_target || !REG_P (m_target) || overlaps_input_p (m_target))
+    m_target = gen_reg_rtx (tuple_mode);
+
+  for (unsigned int i = 0; i < m_args.length (); ++i)
+    {
+      rtx piece = simplify_gen_subreg (GET_MODE (m_args[i]),
+				       m_target, tuple_mode,
+				       i * BYTES_PER_SVE_VECTOR);
+      emit_move_insn (piece, m_args[i]);
+    }
+
+  return m_target;
 }
 
 /* Expand a call to svdiv.  */
@@ -3313,6 +3441,16 @@ function_expander::try_negating_argument (unsigned int i, machine_mode mode)
 
   m_args[i] = x;
   return true;
+}
+
+/* Return true if X overlaps any input.  */
+bool
+function_expander::overlaps_input_p (rtx x)
+{
+  for (unsigned int i = 0; i < m_args.length (); ++i)
+    if (reg_overlap_mentioned_p (x, m_args[i]))
+      return true;
+  return false;
 }
 
 /* Return the mode associated with type suffix I.  */

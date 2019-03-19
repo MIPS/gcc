@@ -50,7 +50,7 @@ set-torture-options {
     "-std=c90 -O2 -g"
     "-std=c99 -O2 -g"
     "-std=c11 -O2 -g"
-    "-std=gnu90 -O2 -DCHECK_ASM"
+    "-std=gnu90 -O2 -fno-schedule-insns -DCHECK_ASM"
     "-std=gnu99 -O2 -g"
     "-std=gnu11 -O2 -g"
 } {
