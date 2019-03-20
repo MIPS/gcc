@@ -11,6 +11,11 @@ extern ta ta_extern; /* { dg-error {sizeless variable 'ta_extern' cannot have st
 __thread ta tls_ta; /* { dg-error {sizeless variable 'tls_ta' cannot have static storage duration} } */
 _Atomic ta atomic_ta; /* { dg-error {sizeless variable 'atomic_ta' cannot have static storage duration} } */
 
+/* Sizeless arrays.  */
+
+typedef ta array_type[2]; /* { dg-error {array type has incomplete element type 'ta'} } */
+extern ta extern_array[]; /* { dg-error {array type has incomplete element type 'ta'} } */
+
 /* Pointers to sizeless types.  */
 
 ta *global_ta_ptr;
@@ -53,6 +58,14 @@ statements (int n)
   /* Compound literals.  */
 
   (int) { ta1 }; /* { dg-error {incompatible types when initializing type 'int' using type 'ta'} } */
+
+  /* Arrays.  */
+
+  ta array[2]; /* { dg-error {array type has incomplete element type 'ta'} } */
+  ta zero_length_array[0]; /* { dg-error {array type has incomplete element type 'ta'} } */
+  ta empty_init_array[] = {}; /* { dg-error {array type has incomplete element type 'ta'} } */
+			      /* { dg-error {empty scalar initializer} "" { target *-*-* } .-1 } */
+  typedef ta vla_type[n]; /* { dg-error {array type has incomplete element type 'ta'} } */
 
   /* Assignment.  */
 
