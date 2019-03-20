@@ -84,6 +84,13 @@ statements (int n)
   ta *ta_ptr = &ta1;
   ta1 = *ta_ptr;
 
+  /* Pointer arithmetic.  */
+
+  ++ta_ptr; /* { dg-error {increment of pointer to an incomplete type 'ta'} } */
+  --ta_ptr; /* { dg-error {decrement of pointer to an incomplete type 'ta'} } */
+  ta_ptr++; /* { dg-error {increment of pointer to an incomplete type 'ta'} } */
+  ta_ptr--; /* { dg-error {decrement of pointer to an incomplete type 'ta'} } */
+
   /* Conditional expressions.  */
 
   0 ? ta1 : ta1;

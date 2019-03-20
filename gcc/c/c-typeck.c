@@ -1822,7 +1822,7 @@ c_size_in_bytes (const_tree type)
   enum tree_code code = TREE_CODE (type);
 
   if (code == FUNCTION_TYPE || code == VOID_TYPE || code == ERROR_MARK
-      || !COMPLETE_TYPE_P (type))
+      || !sized_complete_type_p (type))
     return size_one_node;
 
   /* Convert in case a char is more than one unit.  */
@@ -4594,9 +4594,11 @@ build_unary_op (location_t location, enum tree_code code, tree xarg,
 
 	if (typecode == POINTER_TYPE)
 	  {
-	    /* If pointer target is an incomplete type,
-	       we just cannot know how to do the arithmetic.  */
-	    if (!COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (argtype)))
+	    /* If pointer target is an incomplete type (including all
+	       sizeless types), we just cannot know how to do the
+	       arithmetic.  */
+	    if (!sized_complete_type_p (TREE_TYPE (argtype))
+		&& !VOID_TYPE_P (TREE_TYPE (argtype)))
 	      {
 		if (code == PREINCREMENT_EXPR || code == POSTINCREMENT_EXPR)
 		  error_at (location,
