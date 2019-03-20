@@ -94,6 +94,7 @@ statements (int n)
   ta_ptr += 1; /* { dg-error {invalid use of sizeless typedef 'ta'} } */
   ta_ptr -= 0; /* { dg-error {invalid use of sizeless typedef 'ta'} } */
   ta_ptr -= 1; /* { dg-error {invalid use of sizeless typedef 'ta'} } */
+  ta_ptr - ta_ptr; /* { dg-error {arithmetic on pointer to an incomplete type} } */
   ta1 = ta_ptr[0]; /* { dg-error {invalid use of sizeless typedef 'ta'} } */
   ta1 = ta_ptr[1]; /* { dg-error {invalid use of sizeless typedef 'ta'} } */
 
