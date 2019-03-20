@@ -17,6 +17,16 @@ _Atomic ta atomic_ta; /* { dg-error {sizeless variable 'atomic_ta' cannot have s
 typedef ta array_type[2]; /* { dg-error {array type has incomplete element type 'ta'} } */
 extern ta extern_array[]; /* { dg-error {array type has incomplete element type 'ta'} } */
 
+/* Sizeless fields.  */
+
+struct struct1 {
+  ta a; /* { dg-error {field 'a' has incomplete type} } */
+};
+
+union union1 {
+  ta a; /* { dg-error {field 'a' has incomplete type} } */
+};
+
 /* Pointers to sizeless types.  */
 
 ta *global_ta_ptr;

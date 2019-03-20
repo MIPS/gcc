@@ -7072,7 +7072,9 @@ grokdeclarator (const struct c_declarator *declarator,
 	    type = build_pointer_type (type);
 	  }
 	else if (TREE_CODE (type) != ERROR_MARK
-		 && !COMPLETE_OR_UNBOUND_ARRAY_TYPE_P (type))
+		 /* Fields cannot have sizeless type.  */
+		 && !sized_complete_type_p (TREE_CODE (type) == ARRAY_TYPE
+					    ? TREE_TYPE (type) : type))
 	  {
 	    if (name)
 	      error_at (loc, "field %qE has incomplete type", name);
