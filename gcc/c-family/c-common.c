@@ -4594,6 +4594,7 @@ c_common_nodes_and_builtins (void)
 
   c_define_sizeless_type ("__sizeless_1", unsigned_char_type_node, 2);
   c_define_sizeless_type ("__sizeless_2", intHI_type_node, 2);
+  c_define_sizeless_type ("__sizeless_3", intSI_type_node, 2);
 
   /* Since builtin_types isn't gc'ed, don't export these nodes.  */
   memset (builtin_types, 0, sizeof (builtin_types));

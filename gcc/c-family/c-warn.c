@@ -703,7 +703,7 @@ strict_aliasing_warning (location_t loc, tree type, tree expr)
     {
       /* Casting the address of an object to non void pointer. Warn
 	 if the cast breaks type based aliasing.  */
-      if (!COMPLETE_TYPE_P (TREE_TYPE (type)) && warn_strict_aliasing == 2)
+      if (!DEFINED_TYPE_P (TREE_TYPE (type)) && warn_strict_aliasing == 2)
 	{
 	  warning_at (loc, OPT_Wstrict_aliasing,
 		      "type-punning to incomplete type "
