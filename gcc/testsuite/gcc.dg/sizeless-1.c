@@ -34,6 +34,7 @@ statements (int n)
 {
   /* Local declarations.  */
 
+  unsigned char va __attribute__((__vector_size__(2)));
   ta ta1, ta2;
   vta vta1;
   tb tb1;
@@ -112,6 +113,10 @@ statements (int n)
 
   ta_ptr == &ta1;
   ta_ptr != &ta1;
+  ta_ptr < &ta1;
+  ta_ptr <= &ta1;
+  ta_ptr > &ta1;
+  ta_ptr >= &ta1;
   vta_ptr == ta_ptr; /* { dg-warning {comparison of distinct pointer types lacks a cast} } */
   vta_ptr != ta_ptr; /* { dg-warning {comparison of distinct pointer types lacks a cast} } */
   vta_ptr < ta_ptr; /* { dg-warning {comparison of distinct pointer types lacks a cast} } */

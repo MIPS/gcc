@@ -12149,8 +12149,10 @@ build_binary_op (location_t location, enum tree_code code,
 	  if (comp_target_types (location, type0, type1))
 	    {
 	      result_type = common_pointer_type (type0, type1);
-	      if (!COMPLETE_TYPE_P (TREE_TYPE (type0))
-		  != !COMPLETE_TYPE_P (TREE_TYPE (type1)))
+	      /* Treat defined sizeless types in the same way as complete
+		 types; only undefined types are a problem.  */
+	      if (!DEFINED_TYPE_P (TREE_TYPE (type0))
+		  != !DEFINED_TYPE_P (TREE_TYPE (type1)))
 		pedwarn (location, 0,
 			 "comparison of complete and incomplete pointers");
 	      else if (TREE_CODE (TREE_TYPE (type0)) == FUNCTION_TYPE)
