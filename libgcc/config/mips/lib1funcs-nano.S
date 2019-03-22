@@ -31,6 +31,11 @@
 #define A1 $a1
 #endif
 
+	/* Set PIC mode according to compiler invocation.  */
+#define TOK(X,Y) X##Y
+#define MODULE(X,Y) .module TOK(X,Y)
+	MODULE(pic,__pic__)
+
 #if defined(__ELF__) && defined(__linux__)
 	.section .note.GNU-stack,"",@progbits
 	.previous
