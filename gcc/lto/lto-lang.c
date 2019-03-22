@@ -840,7 +840,7 @@ lto_post_options (const char **pfilename ATTRIBUTE_UNUSED)
       break;
 
     case LTO_LINKER_OUTPUT_EXEC: /* Normal executable */
-      flag_pic = 0;
+      /* flag_pic = 0; */
       flag_pie = 0;
       break;
 
