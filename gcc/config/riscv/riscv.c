@@ -2349,8 +2349,7 @@ riscv_flatten_aggregate_field (const_tree type,
     {
     case RECORD_TYPE:
      /* Can't handle incomplete types nor sizes that are not fixed.  */
-     if (!COMPLETE_TYPE_P (type)
-	 || TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST
+     if (!type_size_known_constant_p (type)
 	 || !tree_fits_uhwi_p (TYPE_SIZE (type)))
        return -1;
 
@@ -2378,8 +2377,7 @@ riscv_flatten_aggregate_field (const_tree type,
 
 	/* Can't handle incomplete types nor sizes that are not fixed.  */
 	if (n_subfields <= 0
-	    || !COMPLETE_TYPE_P (type)
-	    || TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST
+	    || !type_size_known_constant_p (type)
 	    || !index
 	    || !TYPE_MAX_VALUE (index)
 	    || !tree_fits_uhwi_p (TYPE_MAX_VALUE (index))

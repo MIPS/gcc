@@ -13859,8 +13859,7 @@ aapcs_vfp_sub_candidate (const_tree type, machine_mode *modep)
 
 	/* Can't handle incomplete types nor sizes that are not
 	   fixed.  */
-	if (!COMPLETE_TYPE_P (type)
-	    || TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+	if (!type_size_known_constant_p (type))
 	  return -1;
 
 	count = aapcs_vfp_sub_candidate (TREE_TYPE (type), modep);
@@ -13892,8 +13891,7 @@ aapcs_vfp_sub_candidate (const_tree type, machine_mode *modep)
 
 	/* Can't handle incomplete types nor sizes that are not
 	   fixed.  */
-	if (!COMPLETE_TYPE_P (type)
-	    || TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+	if (!type_size_known_constant_p (type))
 	  return -1;
 
 	for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
@@ -13925,8 +13923,7 @@ aapcs_vfp_sub_candidate (const_tree type, machine_mode *modep)
 
 	/* Can't handle incomplete types nor sizes that are not
 	   fixed.  */
-	if (!COMPLETE_TYPE_P (type)
-	    || TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+	if (!type_size_known_constant_p (type))
 	  return -1;
 
 	for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))

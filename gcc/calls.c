@@ -911,7 +911,7 @@ pass_by_reference (CUMULATIVE_ARGS *ca, machine_mode mode,
 	return true;
 
       /* GCC post 3.4 passes *all* variable sized types by reference.  */
-      if (!TYPE_SIZE (type) || TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+      if (!type_size_known_constant_p (type))
 	return true;
 
       /* If a record type should be passed the same as its first (and only)
@@ -2051,8 +2051,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 		 function being called.  */
 	      rtx copy;
 
-	      if (!COMPLETE_TYPE_P (type)
-		  || TREE_CODE (TYPE_SIZE_UNIT (type)) != INTEGER_CST
+	      if (!type_size_known_constant_p (type)
 		  || (flag_stack_check == GENERIC_STACK_CHECK
 		      && compare_tree_int (TYPE_SIZE_UNIT (type),
 					   STACK_CHECK_MAX_VAR_SIZE) > 0))

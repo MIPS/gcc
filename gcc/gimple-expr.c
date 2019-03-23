@@ -169,10 +169,8 @@ useless_type_conversion_p (tree outer_type, tree inner_type)
 
       /* Nor are conversions from array types with non-constant size to
          array types with constant size or to different size.  */
-      if (TYPE_SIZE (outer_type)
-	  && TREE_CODE (TYPE_SIZE (outer_type)) == INTEGER_CST
-	  && (!TYPE_SIZE (inner_type)
-	      || TREE_CODE (TYPE_SIZE (inner_type)) != INTEGER_CST
+      if (type_size_known_constant_p (outer_type)
+	  && (!type_size_known_constant_p (inner_type)
 	      || !tree_int_cst_equal (TYPE_SIZE (outer_type),
 				      TYPE_SIZE (inner_type))))
 	return false;

@@ -1137,8 +1137,7 @@ dr_analyze_indices (struct data_reference *dr, edge nest, loop_p loop)
 	     to produce partial overlaps (which the access_fn machinery
 	     cannot handle).  */
 	  wide_int rem;
-	  if (TYPE_SIZE_UNIT (TREE_TYPE (ref))
-	      && TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (ref))) == INTEGER_CST
+	  if (type_size_known_constant_p (TREE_TYPE (ref))
 	      && !integer_zerop (TYPE_SIZE_UNIT (TREE_TYPE (ref))))
 	    rem = wi::mod_trunc
 	      (wi::to_wide (off),

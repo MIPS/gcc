@@ -683,8 +683,7 @@ layout_decl (tree decl, unsigned int known_align)
 	  /* See if we can use an ordinary integer mode for a bit-field.
 	     Conditions are: a fixed size that is correct for another mode,
 	     occupying a complete byte or bytes on proper boundary.  */
-	  if (TYPE_SIZE (type) != 0
-	      && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
+	  if (type_size_known_constant_p (type)
 	      && GET_MODE_CLASS (TYPE_MODE (type)) == MODE_INT)
 	    {
 	      machine_mode xmode;
@@ -2545,8 +2544,7 @@ layout_type (tree type)
 	  TYPE_TYPELESS_STORAGE (type) = TYPE_TYPELESS_STORAGE (element);
 	/* When the element size is constant, check that it is at least as
 	   large as the element alignment.  */
-	if (TYPE_SIZE_UNIT (element)
-	    && TREE_CODE (TYPE_SIZE_UNIT (element)) == INTEGER_CST
+	if (type_size_known_constant_p (element)
 	    /* If TYPE_SIZE_UNIT overflowed, then it is certainly larger than
 	       TYPE_ALIGN_UNIT.  */
 	    && !TREE_OVERFLOW (TYPE_SIZE_UNIT (element))

@@ -2119,8 +2119,7 @@ cxx_fold_pointer_plus_expression (const constexpr_ctx *ctx, tree t,
   if (TREE_CODE (lhs) == ARRAY_REF
       && TREE_CODE (TREE_OPERAND (lhs, 1)) == INTEGER_CST
       && TREE_CODE (rhs) == INTEGER_CST
-      && TYPE_SIZE_UNIT (TREE_TYPE (lhs))
-      && TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (lhs))) == INTEGER_CST)
+      && type_size_known_constant_p (TREE_TYPE (lhs)))
     {
       tree orig_type = TREE_TYPE (t);
       location_t loc = EXPR_LOCATION (t);

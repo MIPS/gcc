@@ -8307,8 +8307,7 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
 
   layout_type (t);
 
-  if (TYPE_SIZE_UNIT (t)
-      && TREE_CODE (TYPE_SIZE_UNIT (t)) == INTEGER_CST
+  if (type_size_known_constant_p (t)
       && !TREE_OVERFLOW (TYPE_SIZE_UNIT (t))
       && !valid_constant_size_p (TYPE_SIZE_UNIT (t)))
     error ("type %qT is too large", t);

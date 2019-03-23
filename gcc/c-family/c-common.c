@@ -6637,8 +6637,7 @@ complete_array_type (tree *ptype, tree initial_value, bool do_default)
   else
     type = c_build_qualified_type (main_type, quals);
 
-  if (COMPLETE_TYPE_P (type)
-      && TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST
+  if (type_size_known_constant_p (type)
       && (overflow_p || TREE_OVERFLOW (TYPE_SIZE_UNIT (type))))
     {
       error ("size of array is too large");

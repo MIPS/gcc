@@ -5315,8 +5315,7 @@ expand_assignment (tree to, tree from, bool nontemporal)
      needs to be done.  Handling this in the normal way is safe because no
      computation is done before the call.  The same is true for SSA names.  */
   if (TREE_CODE (from) == CALL_EXPR && ! aggregate_value_p (from, from)
-      && COMPLETE_TYPE_P (TREE_TYPE (from))
-      && TREE_CODE (TYPE_SIZE (TREE_TYPE (from))) == INTEGER_CST
+      && type_size_known_constant_p (TREE_TYPE (from))
       && ! (((VAR_P (to)
 	      || TREE_CODE (to) == PARM_DECL
 	      || TREE_CODE (to) == RESULT_DECL)

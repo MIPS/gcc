@@ -1475,8 +1475,7 @@ check_stmt_for_type_change (ao_ref *ao ATTRIBUTE_UNUSED, tree vdef, void *data)
 	    op = walk_ssa_copies (op);
 	  }
 	if (operand_equal_p (op, tci->instance, 0)
-	    && TYPE_SIZE (type)
-	    && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
+	    && type_size_known_constant_p (type)
 	    && tree_fits_shwi_p (TYPE_SIZE (type))
 	    && tree_to_shwi (TYPE_SIZE (type)) + offset > tci->offset
 	    /* Some inlined constructors may look as follows:
@@ -2156,9 +2155,7 @@ ipa_polymorphic_call_context::combine_with (ipa_polymorphic_call_context ctx,
   /* If types are known to be same, merging is quite easy.  */
   else if (types_must_be_same_for_odr (outer_type, ctx.outer_type))
     {
-      if (offset != ctx.offset
-	  && TYPE_SIZE (outer_type)
-	  && TREE_CODE (TYPE_SIZE (outer_type)) == INTEGER_CST)
+      if (offset != ctx.offset && type_size_known_constant_p (outer_type))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "Outer types match, offset mismatch -> invalid\n");
@@ -2480,9 +2477,7 @@ ipa_polymorphic_call_context::meet_with (ipa_polymorphic_call_context ctx,
   /* If types are known to be same, merging is quite easy.  */
   else if (types_must_be_same_for_odr (outer_type, ctx.outer_type))
     {
-      if (offset != ctx.offset
-	  && TYPE_SIZE (outer_type)
-	  && TREE_CODE (TYPE_SIZE (outer_type)) == INTEGER_CST)
+      if (offset != ctx.offset && type_size_known_constant_p (outer_type))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "Outer types match, offset mismatch -> clearing\n");

@@ -5906,8 +5906,7 @@ finish_omp_reduction_clause (tree c, bool *need_default_ctor, bool *need_dtor)
       return true;
     }
   if (TREE_CODE (OMP_CLAUSE_DECL (c)) == MEM_REF)
-    gcc_assert (TYPE_SIZE_UNIT (type)
-		&& TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST);
+    gcc_assert (type_size_known_constant_p (type));
   return false;
 }
 

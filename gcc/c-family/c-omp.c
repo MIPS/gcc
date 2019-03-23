@@ -434,8 +434,7 @@ c_omp_depend_t_p (tree type)
 	      == get_identifier ("omp_depend_t"))
 	  && (!TYPE_CONTEXT (type)
 	      || TREE_CODE (TYPE_CONTEXT (type)) == TRANSLATION_UNIT_DECL)
-	  && COMPLETE_TYPE_P (type)
-	  && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
+	  && type_size_known_constant_p (type)
 	  && !compare_tree_int (TYPE_SIZE (type),
 				2 * tree_to_uhwi (TYPE_SIZE (ptr_type_node))));
 }

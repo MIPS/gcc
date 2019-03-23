@@ -4644,8 +4644,7 @@ vrp_prop::check_mem_ref (location_t location, tree ref,
      not known.  */
   tree reftype = TREE_TYPE (arg);
   if (POINTER_TYPE_P (reftype)
-      || !COMPLETE_TYPE_P (reftype)
-      || TREE_CODE (TYPE_SIZE_UNIT (reftype)) != INTEGER_CST
+      || !type_size_known_constant_p (reftype)
       || RECORD_OR_UNION_TYPE_P (reftype))
     return;
 

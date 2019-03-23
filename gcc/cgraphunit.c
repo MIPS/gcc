@@ -2212,8 +2212,8 @@ cgraph_node::expand (void)
     {
       tree ret_type = TREE_TYPE (TREE_TYPE (decl));
 
-      if (ret_type && TYPE_SIZE_UNIT (ret_type)
-	  && TREE_CODE (TYPE_SIZE_UNIT (ret_type)) == INTEGER_CST
+      if (ret_type
+	  && type_size_known_constant_p (ret_type)
 	  && compare_tree_int (TYPE_SIZE_UNIT (ret_type),
 			       warn_larger_than_size) > 0)
 	{

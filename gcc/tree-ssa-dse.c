@@ -255,8 +255,7 @@ compute_trims (ao_ref *ref, sbitmap live, int *trim_head, int *trim_tail,
 	 We could have a type with no TYPE_SIZE_UNIT or we could have a VLA
 	 where TYPE_SIZE_UNIT is not a constant.  */
       if (*trim_tail
-	  && TYPE_SIZE_UNIT (TREE_TYPE (ref->base))
-	  && TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (ref->base))) == INTEGER_CST
+	  && type_size_known_constant_p (TREE_TYPE (ref->base))
 	  && compare_tree_int (TYPE_SIZE_UNIT (TREE_TYPE (ref->base)),
 			       last_orig) <= 0)
 	*trim_tail = 0;

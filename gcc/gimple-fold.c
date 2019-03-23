@@ -6723,8 +6723,7 @@ fold_array_ctor_reference (tree type, tree ctor,
      an initializer for a zero-length array or an empty struct.  */
   if (elt_size == 0
       || (type
-	  && (!TYPE_SIZE_UNIT (type)
-	      || TREE_CODE (TYPE_SIZE_UNIT (type)) != INTEGER_CST
+	  && (!type_size_known_constant_p (type)
 	      || elt_size < wi::to_offset (TYPE_SIZE_UNIT (type)))))
     return NULL_TREE;
 

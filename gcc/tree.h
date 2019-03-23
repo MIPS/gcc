@@ -4960,6 +4960,15 @@ type_size_known_variable_p (const_tree type)
   return TYPE_SIZE (type) && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST;
 }
 
+/* Return true if TYPE's size is defined and is a compile-time constant
+   (an INTEGER_CST).  */
+
+inline bool
+type_size_known_constant_p (const_tree type)
+{
+  return TYPE_SIZE (type) && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST;
+}
+
 /* Return true if the argument is a complete type or an array
    of unknown bound (whose type is incomplete but) whose elements
    have complete type.  */

@@ -2662,8 +2662,7 @@ canonicalize_addr_expr (tree *expr_p)
     return;
 
   /* The lower bound and element sizes must be constant.  */
-  if (!TYPE_SIZE_UNIT (ddatype)
-      || TREE_CODE (TYPE_SIZE_UNIT (ddatype)) != INTEGER_CST
+  if (!type_size_known_constant_p (ddatype)
       || !TYPE_DOMAIN (datype) || !TYPE_MIN_VALUE (TYPE_DOMAIN (datype))
       || TREE_CODE (TYPE_MIN_VALUE (TYPE_DOMAIN (datype))) != INTEGER_CST)
     return;
@@ -8518,8 +8517,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		  tree stype = TREE_TYPE (decl);
 		  if (TREE_CODE (stype) == REFERENCE_TYPE)
 		    stype = TREE_TYPE (stype);
-		  if (TYPE_SIZE_UNIT (stype) == NULL
-		      || TREE_CODE (TYPE_SIZE_UNIT (stype)) != INTEGER_CST)
+		  if (!type_size_known_constant_p (stype))
 		    {
 		      error_at (OMP_CLAUSE_LOCATION (c),
 				"mapping field %qE of variable length "

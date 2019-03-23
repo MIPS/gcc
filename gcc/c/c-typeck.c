@@ -7757,8 +7757,7 @@ digest_init (location_t init_loc, tree type, tree init, tree origtype,
             }
 
 	  if (TYPE_DOMAIN (type) != NULL_TREE
-	      && TYPE_SIZE (type) != NULL_TREE
-	      && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST)
+	      && type_size_known_constant_p (type))
 	    {
 	      unsigned HOST_WIDE_INT len = TREE_STRING_LENGTH (inside_init);
 	      unsigned unit = TYPE_PRECISION (typ1) / BITS_PER_UNIT;

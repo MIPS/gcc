@@ -242,13 +242,12 @@ warn_type_compatibility_p (tree prevailing_type, tree type,
 
   /* We cannot use types_compatible_p because we permit some changes
      across types.  For example unsigned size_t and "signed size_t" may be
-     compatible when merging C and Fortran types.  */
-  if (COMPLETE_TYPE_P (prevailing_type)
-      && COMPLETE_TYPE_P (type)
-      /* While global declarations are never variadic, we can recurse here
-	 for function parameter types.  */
-      && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
-      && TREE_CODE (TYPE_SIZE (prevailing_type)) == INTEGER_CST
+     compatible when merging C and Fortran types.
+
+     While global declarations are never variadic, we can recurse here
+     for function parameter types.  */
+  if (type_size_known_constant_p (type)
+      && type_size_known_constant_p (prevailing_type)
       && !tree_int_cst_equal (TYPE_SIZE (type), TYPE_SIZE (prevailing_type)))
     {
        /* As a special case do not warn about merging
