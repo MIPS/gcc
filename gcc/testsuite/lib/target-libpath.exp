@@ -85,6 +85,35 @@ proc set_ld_library_path_env_vars { } {
     return
   }
 
+  if { [istarget *-*-darwin*] } {
+    # Do nothign.
+    return
+    set orig_environment_saved 1
+    # If DYLD_LIBRARY_PATH is set, save it away.
+    if [info exists env(DYLD_LIBRARY_PATH)] {
+      set orig_dyld_library_path "$env(DYLD_LIBRARY_PATH)"
+      set orig_dyld_library_path_saved 1
+    }
+    # To allow operation on systems with SIP enabled, which will strip
+    # DYLD_* from any use by a protected exe (such as /bin/sh) preventing
+    # the exports from arriving here, we push the paths into the
+    # environment with a local name, and recover them here.
+    #if { [info exists env(GCC_LIBRARY_PATH)] } {
+    # setenv DYLD_LIBRARY_PATH "$ld_library_path:$env(GCC_LIBRARY_PATH)"
+    #} else {
+      # Just set the minimum.
+      setenv DYLD_LIBRARY_PATH "$ld_library_path"
+    #}
+    # We have to stash this to prevent it being trashed.
+    # (even tho we don't want to change it).
+    if [info exists env(PATH)] {
+      set orig_path "$env(PATH)"
+      set orig_path_saved 1
+    }
+    # We're done.
+    return
+  }
+
   if { $orig_environment_saved == 0 } {
     set orig_environment_saved 1
 
@@ -108,10 +137,6 @@ proc set_ld_library_path_env_vars { } {
     if [info exists env(LD_LIBRARY_PATH_64)] {
       set orig_ld_library_path_64 "$env(LD_LIBRARY_PATH_64)"
       set orig_ld_library_path_64_saved 1
-    }
-    if [info exists env(DYLD_LIBRARY_PATH)] {
-      set orig_dyld_library_path "$env(DYLD_LIBRARY_PATH)"
-      set orig_dyld_library_path_saved 1
     }
     if [info exists env(PATH)] {
       set orig_path "$env(PATH)"
