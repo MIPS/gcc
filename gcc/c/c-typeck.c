@@ -2659,8 +2659,7 @@ build_array_ref (location_t loc, tree array, tree index)
 	 address arithmetic on its address.
 	 Likewise an array of elements of variable size.  */
       if (TREE_CODE (index) != INTEGER_CST
-	  || (COMPLETE_TYPE_P (TREE_TYPE (TREE_TYPE (array)))
-	      && TREE_CODE (TYPE_SIZE (TREE_TYPE (TREE_TYPE (array)))) != INTEGER_CST))
+	  || type_size_known_variable_p (TREE_TYPE (TREE_TYPE (array))))
 	{
 	  if (!c_mark_addressable (array, true))
 	    return error_mark_node;
@@ -7973,7 +7972,7 @@ digest_init (location_t init_loc, tree type, tree init, tree origtype,
 
   /* Come here only for records and arrays.  */
 
-  if (COMPLETE_TYPE_P (type) && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+  if (type_size_known_variable_p (type))
     {
       error_init (init_loc, "variable-sized object may not be initialized");
       return error_mark_node;

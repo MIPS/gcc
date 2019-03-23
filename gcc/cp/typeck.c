@@ -1633,9 +1633,7 @@ cxx_sizeof_or_alignof_type (tree type, enum tree_code op, bool std_alignof,
 	 constant expression in that case.  And, if we do try to
 	 compute the value, we'll likely end up with SAVE_EXPRs, which
 	 the template substitution machinery does not expect to see.  */
-      || (processing_template_decl 
-	  && COMPLETE_TYPE_P (type)
-	  && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST))
+      || (processing_template_decl && type_size_known_variable_p (type)))
     {
       tree value = build_min (op, size_type_node, type);
       TREE_READONLY (value) = 1;

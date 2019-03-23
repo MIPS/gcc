@@ -6630,8 +6630,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 
 	  /* Emit a DECL_EXPR for the VLA type.  */
 	  tmp = TREE_TYPE (type);
-	  if (TYPE_SIZE (tmp)
-	      && TREE_CODE (TYPE_SIZE (tmp)) != INTEGER_CST)
+	  if (type_size_known_variable_p (tmp))
 	    {
 	      tmp = build_decl (input_location, TYPE_DECL, NULL_TREE, tmp);
 	      DECL_ARTIFICIAL (tmp) = 1;

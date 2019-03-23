@@ -5264,8 +5264,7 @@ expand_assignment (tree to, tree from, bool nontemporal)
 	 of the VLA type.  */
       else if (!MEM_P (to_rtx)
 	       && TREE_CODE (from) == CALL_EXPR
-	       && COMPLETE_TYPE_P (TREE_TYPE (from))
-	       && TREE_CODE (TYPE_SIZE (TREE_TYPE (from))) != INTEGER_CST)
+	       && type_size_known_variable_p (TREE_TYPE (from)))
 	{
 	  rtx temp = assign_stack_temp (GET_MODE (to_rtx),
 					GET_MODE_SIZE (GET_MODE (to_rtx)));
@@ -7583,8 +7582,8 @@ safe_from_p (const_rtx x, tree exp, int top_p)
 	 So we assume here that something at a higher level has prevented a
 	 clash.  This is somewhat bogus, but the best we can do.  Only
 	 do this when X is BLKmode and when we are at the top level.  */
-      || (top_p && TREE_TYPE (exp) != 0 && COMPLETE_TYPE_P (TREE_TYPE (exp))
-	  && TREE_CODE (TYPE_SIZE (TREE_TYPE (exp))) != INTEGER_CST
+      || (top_p && TREE_TYPE (exp) != 0
+	  && type_size_known_variable_p (TREE_TYPE (exp))
 	  && (TREE_CODE (TREE_TYPE (exp)) != ARRAY_TYPE
 	      || TYPE_ARRAY_MAX_SIZE (TREE_TYPE (exp)) == NULL_TREE
 	      || TREE_CODE (TYPE_ARRAY_MAX_SIZE (TREE_TYPE (exp)))
@@ -10609,9 +10608,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	orig_op0 = op0
 	  = expand_expr_real (tem,
 			      (TREE_CODE (TREE_TYPE (tem)) == UNION_TYPE
-			       && COMPLETE_TYPE_P (TREE_TYPE (tem))
-			       && (TREE_CODE (TYPE_SIZE (TREE_TYPE (tem)))
-				   != INTEGER_CST)
+			       && type_size_known_variable_p (TREE_TYPE (tem))
 			       && modifier != EXPAND_STACK_PARM
 			       ? target : NULL_RTX),
 			      VOIDmode,

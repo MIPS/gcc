@@ -153,8 +153,7 @@ create_tmp_var_for (struct nesting_info *info, tree type, const char *prefix)
      frontend, something is wrong.  Note that we explicitly allow
      incomplete types here, since we create them ourselves here.  */
   gcc_assert (!TREE_ADDRESSABLE (type));
-  gcc_assert (!TYPE_SIZE_UNIT (type)
-	      || TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST);
+  gcc_assert (!type_size_known_variable_p (type));
 
   tmp_var = create_tmp_var_raw (type, prefix);
   DECL_CONTEXT (tmp_var) = info->context;
