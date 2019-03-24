@@ -1,6 +1,7 @@
 /* { dg-options "-fno-common" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
-/* { dg-final { scan-assembler-not "\tlbu\t"  { xfail { ! nonpic } } } } */
+/* { dg-final { scan-assembler-not "\tlbu\t" } } */
+/* { dg-require-effective-target nonpic } */
 
 #include <string.h>
 
