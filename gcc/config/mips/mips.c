@@ -12255,8 +12255,7 @@ mips_asm_unique_section (tree decl, int reloc)
       && (strncmp (".sdata", name, 6) == 0
           || strncmp (".sbss", name, 5) == 0))
     {
-      if (DECL_ALIGN (decl) < BITS_PER_WORD
-          || nanomips_type_for_ssdata_p (TREE_TYPE (decl)))
+      if (nanomips_type_for_ssdata_p (TREE_TYPE (decl)))
       {
         size_t len = strlen (name) + 1;
         char *sec_name = (char *) alloca (len + 1);
@@ -12299,8 +12298,7 @@ mips_asm_select_section (tree exp, int reloc, unsigned HOST_WIDE_INT align)
          && (strcmp (s->named.name, ".sdata") == 0
              || (bss = (strcmp (s->named.name, ".sbss") == 0))))
      {
-          if (align < BITS_PER_WORD
-              || nanomips_type_for_ssdata_p (TREE_TYPE (exp)))
+          if (nanomips_type_for_ssdata_p (TREE_TYPE (exp)))
           {
               if (bss)
                 flags |= SECTION_BSS;

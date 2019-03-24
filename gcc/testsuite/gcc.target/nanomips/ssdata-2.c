@@ -1,6 +1,7 @@
 /* { dg-do compile } */
 /* { dg-options "-m32 -mpid -msoft-float -fno-common" } */
 /* { dg-additional-options "-mssdata -fdata-sections" } */
+/* { dg-skip-if "need GP optimization" { *-*-* } { "-mno-gpopt" } { "" } } */
 
 /* { dg-final { scan-assembler "\\.section\t\\.ssbss\\.var_i8,\"aw\",@nobits" } } */
 /* { dg-final { scan-assembler "\\.section\t\\.ssbss\\.var_i16,\"aw\",@nobits" } } */
@@ -68,7 +69,9 @@ char* var_ptr_char;
 
 char var_i8_i = 1;
 
-/* { dg-final { scan-assembler "\\.section\t\\.ssdata\\.var_s_misaligned,\"aw\",@progbits" } } */
+/* Note, this case is historically potentially broken. It happens to work if the
+   unaligned object end up at an aligned address.  */
+/* { dg-final { scan-assembler "\\.section\t\\.sdata\\.var_s_misaligned,\"aw\",@progbits" } } */
 
 struct { int val; } var_s_misaligned __attribute__((aligned(1))) = {1};
 

@@ -1,6 +1,7 @@
 /* { dg-do compile } */
 /* { dg-options "-fno-pic" } */
 /* { dg-skip-if "need auto or medium" { *-*-* } { "-mcmodel=large" } { "" } } */
+/* { dg-skip-if "need GP optimization" { *-*-* } { "-mno-gpopt" } { "" } } */
 
 /* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%gprel\\(var_data\\)" } } */
 /* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%gprel\\(var_bss\\)" } } */
