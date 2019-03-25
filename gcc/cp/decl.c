@@ -5571,7 +5571,8 @@ layout_var_decl (tree decl)
     complete_type (type);
   if (!DECL_SIZE (decl)
       && TREE_TYPE (decl) != error_mark_node
-      && complete_or_array_type_p (type))
+      && TYPE_LAID_OUT_P (TREE_CODE (type) == ARRAY_TYPE
+			  ? TREE_TYPE (type) : type))
     layout_decl (decl, 0);
 
   if (!DECL_EXTERNAL (decl) && DECL_SIZE (decl) == NULL_TREE)

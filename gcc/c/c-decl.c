@@ -5188,7 +5188,7 @@ finish_decl (tree decl, location_t init_loc, tree init,
       complete_flexible_array_elts (DECL_INITIAL (decl));
 
       if (DECL_SIZE (decl) == NULL_TREE && TREE_TYPE (decl) != error_mark_node
-	  && COMPLETE_TYPE_P (TREE_TYPE (decl)))
+	  && TYPE_LAID_OUT_P (TREE_TYPE (decl)))
 	layout_decl (decl, 0);
 
       if (DECL_SIZE (decl) == NULL_TREE

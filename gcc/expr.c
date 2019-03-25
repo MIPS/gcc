@@ -9967,7 +9967,8 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
       /* If a static var's type was incomplete when the decl was written,
 	 but the type is complete now, lay out the decl now.  */
       if (DECL_SIZE (exp) == 0
-	  && COMPLETE_OR_UNBOUND_ARRAY_TYPE_P (TREE_TYPE (exp))
+	  && TYPE_LAID_OUT_P (TREE_CODE (type) == ARRAY_TYPE
+			     ? TREE_TYPE (type) : type)
 	  && (TREE_STATIC (exp) || DECL_EXTERNAL (exp)))
 	layout_decl (exp, 0);
 
