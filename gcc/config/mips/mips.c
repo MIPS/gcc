@@ -15323,20 +15323,24 @@ nanomips_save_restore_gprs (HOST_WIDE_INT sp_offset, HOST_WIDE_INT step,
       else if (BITSET_P (cfun->machine->frame.mask, RETURN_ADDR_REGNUM))
 	cfun->machine->frame.ra_fp_offset = cfun->machine->frame.gp_sp_offset;
 
+      if (restore)
+	mips_frame_barrier();
+
       /* Create the actual SAVE or RESTORE instruction.  */
       save_restore = nanomips_build_save_restore (restore, &mask, step, false);
       insn = emit_insn (save_restore);
 
       if (!restore)
-	RTX_FRAME_RELATED_P (insn) = 1;
+        {
+	  RTX_FRAME_RELATED_P (insn) = 1;
+          mips_frame_barrier ();
+        }
       else
 	{
 	  mips_epilogue_emit_cfa_restores ();
 	  mips_epilogue_set_cfa (stack_pointer_rtx,
 				 mips_epilogue.cfa_restore_sp_offset);
 	}
-
-      mips_frame_barrier ();
 
       return true;
     }
@@ -15445,6 +15449,7 @@ mips_for_each_saved_fpr (HOST_WIDE_INT sp_offset, mips_save_restore_fn fn)
     {
       rtx save_restore = nanomips_build_savef_restoref (restore_p, &fmask,
 							&offset);
+      /*  TODO(fpu):  Does not affect the stack pointer  */
       if (!restore_p)
 	RTX_FRAME_RELATED_P (emit_insn (save_restore)) = 1;
       else
@@ -24755,7 +24760,7 @@ nanomips_restore_jrc_opt ()
 {
   basic_block bb;
   rtx_insn *insn, *prev;
-  rtx_insn *restore_insn, *blockage_insn;
+  rtx_insn *restore_insn;
   rtx_insn *addiusp_insn;
 
   if (dump_file)
@@ -24764,7 +24769,6 @@ nanomips_restore_jrc_opt ()
   FOR_EACH_BB_REVERSE_FN (bb, cfun)
     {
       restore_insn = NULL;
-      blockage_insn = NULL;
       addiusp_insn = NULL;
       FOR_BB_INSNS_SAFE (bb, insn, prev)
 	{
@@ -24786,30 +24790,13 @@ nanomips_restore_jrc_opt ()
 	      && INTVAL (XEXP (src, 1)) > 0
 	      && nanomips_save_restore_pattern_p (pattern, INTVAL (XEXP (src, 1)),
 						  NULL, NULL, false))
-	    restore_insn = insn;
-
-	  if (restore_insn != NULL && blockage_insn == NULL
-	      && GET_CODE (pattern) == UNSPEC_VOLATILE
-	      && XINT (pattern, 1) == UNSPEC_BLOCKAGE)
-	    blockage_insn = insn;
-
-	  if (restore_insn != NULL && blockage_insn != NULL
-	      && restore_insn != insn && blockage_insn != insn)
 	    {
-	      subrtx_iterator::array_type array;
-	      FOR_EACH_SUBRTX (iter, array, pattern, NONCONST)
-		{
-		  const_rtx reg = *iter;
-		/* Cancel the merge if there is any use of the stack pointer
-		   between the restore and return.  */
-		if (REG_P (reg) && REGNO (reg) == STACK_POINTER_REGNUM)
-		  restore_insn = NULL;
-		}
+	      restore_insn = insn;
+	      addiusp_insn = NULL;
+	      continue;
 	    }
 
 	  if (restore_insn != NULL
-	      && blockage_insn != NULL
-	      && addiusp_insn == NULL
 	      && JUMP_P (insn)
 	      && GET_CODE ((pattern = PATTERN (insn))) == PARALLEL
 	      && GET_CODE (XVECEXP (pattern, 0, 0)) == SIMPLE_RETURN)
@@ -24836,11 +24823,10 @@ nanomips_restore_jrc_opt ()
 		  print_rtl_single (dump_file, new_insn);
 		}
 	      delete_insn (restore_insn);
-	      delete_insn (blockage_insn);
 	      delete_insn (insn);
 	      insn = NULL;
 	      restore_insn = NULL;
-	      blockage_insn = NULL;
+	      break;
 	    }
 
 	  /* Find restore.jrc opportunity:
@@ -24856,11 +24842,13 @@ nanomips_restore_jrc_opt ()
 	      && GET_CODE (XEXP (XEXP (pattern, 1), 1)) == CONST_INT
 	      && IN_RANGE (INTVAL (XEXP (XEXP (pattern, 1), 1)), 0,
 			   MIPS_MAX_FIRST_STACK_STEP))
-	    addiusp_insn = insn;
+	    {
+	      addiusp_insn = insn;
+	      restore_insn = NULL;
+	      continue;
+	    }
 
-	  if (restore_insn == NULL
-	      && blockage_insn == NULL
-	      && addiusp_insn != NULL
+	  if (addiusp_insn != NULL
 	      && JUMP_P (insn)
 	      && GET_CODE ((pattern = PATTERN (insn))) == PARALLEL
 	      && GET_CODE (XVECEXP (pattern, 0, 0)) == SIMPLE_RETURN)
@@ -24888,7 +24876,11 @@ nanomips_restore_jrc_opt ()
 	      delete_insn (insn);
 	      insn = NULL;
 	      addiusp_insn = NULL;
+              break;
 	    }
+
+            restore_insn = NULL;
+            addiusp_insn = NULL;
 	}
     }
 }
