@@ -1882,6 +1882,7 @@ begin
       Clean_Link_Option_Set : declare
          J                  : Natural;
          Shared_Libgcc_Seen : Boolean := False;
+         Static_Libgcc_Seen : Boolean := False;
 
       begin
          J := Linker_Options.First;
@@ -1914,6 +1915,20 @@ begin
 
                else
                   Shared_Libgcc_Seen := True;
+               end if;
+            end if;
+
+            --  Remove duplicate -static-libgcc switch
+
+            if Linker_Options.Table (J).all = Static_Libgcc_String then
+               if Shared_Libgcc_Seen then
+                  Linker_Options.Table (J .. Linker_Options.Last - 1) :=
+                    Linker_Options.Table (J + 1 .. Linker_Options.Last);
+                  Linker_Options.Decrement_Last;
+                  Num_Args := Num_Args - 1;
+
+               else
+                  Static_Libgcc_Seen := True;
                end if;
             end if;
 
@@ -1954,6 +1969,16 @@ begin
             then
                Linker_Options.Increment_Last;
                Linker_Options.Table (Linker_Options.Last) := Static_Libgcc;
+               Num_Args := Num_Args + 1;
+            end if;
+
+            --  Likwise if the reverse.
+
+            if Shared_Libgcc_Default = 'H'
+              and then not Static_Libgcc_Seen
+            then
+               Linker_Options.Increment_Last;
+               Linker_Options.Table (Linker_Options.Last) := Shared_Libgcc;
                Num_Args := Num_Args + 1;
             end if;
          end if;
