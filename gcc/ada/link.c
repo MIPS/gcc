@@ -120,7 +120,14 @@ const char *__gnat_default_libgcc_subdir = "lib";
 const char *__gnat_object_file_option = "-Wl,-filelist,";
 const char *__gnat_run_path_option = "-Wl,-rpath,";
 char __gnat_shared_libgnat_default = STATIC;
+#if defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) && \
+ __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ < 1060
+ /* We need to link libgcc_s to get the unwinder.  */
 char __gnat_shared_libgcc_default = SHARED;
+#else
+ /* The unwinder is in libSystem, which is always linked.  */
+char __gnat_shared_libgcc_default = STATIC;
+#endif
 int __gnat_link_max = 262144;
 unsigned char __gnat_objlist_file_supported = 1;
 const char *__gnat_object_library_extension = ".a";
