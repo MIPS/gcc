@@ -476,6 +476,13 @@ cxx_incomplete_type_diagnostic (location_t loc, const_tree value,
  retry:
   /* We must print an error message.  Be clever about what it says.  */
 
+  if (TYPE_SIZELESS_P (type))
+    {
+      emit_diagnostic (diag_kind, loc, 0,
+		       "invalid use of sizeless type %qT", type);
+      return;
+    }
+
   switch (TREE_CODE (type))
     {
     case RECORD_TYPE:

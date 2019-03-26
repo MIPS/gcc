@@ -7349,7 +7349,8 @@ extern tree require_complete_type		(tree);
 extern tree require_complete_type_sfinae	(tree, tsubst_flags_t);
 extern tree complete_type			(tree);
 extern tree complete_type_or_else		(tree, tree);
-extern tree complete_type_or_maybe_complain	(tree, tree, tsubst_flags_t);
+extern tree complete_type_or_maybe_complain	(tree, tree, tsubst_flags_t,
+						 int = -1);
 inline bool type_unknown_p			(const_tree);
 enum { ce_derived, ce_type, ce_normal, ce_exact };
 extern bool comp_except_specs			(const_tree, const_tree, int);
@@ -7785,6 +7786,17 @@ static inline bool
 complete_or_array_type_p (const_tree type)
 {
   return COMPLETE_TYPE_P (type) || array_of_complete_type_p (type);
+}
+
+/* Like complete_type_or_maybe_complain, but explicitly reject sizeless types.
+   This should be used in cases that specifically want the language's normal
+   completeness rules to apply to sizeless types (which are always
+   incomplete).  */
+inline tree
+sized_complete_type_or_maybe_complain (tree type, tree value,
+				       tsubst_flags_t complain)
+{
+  return complete_type_or_maybe_complain (type, value, complain, false);
 }
 
 #if CHECKING_P

@@ -3800,10 +3800,11 @@ build_new (vec<tree, va_gc> **placement, tree type, tree nelts,
       return error_mark_node;
     }
 
-  /* The type allocated must be complete.  If the new-type-id was
-     "T[N]" then we are just checking that "T" is complete here, but
-     that is equivalent, since the value of "N" doesn't matter.  */
-  if (!complete_type_or_maybe_complain (type, NULL_TREE, complain))
+  /* The type allocated must be complete (and cannot be sizeless).
+     If the new-type-id was "T[N]" then we are just checking that "T"
+     is complete here, but that is equivalent, since the value of "N"
+     doesn't matter.  */
+  if (!sized_complete_type_or_maybe_complain (type, NULL_TREE, complain))
     return error_mark_node;
 
   rval = build_new_1 (placement, type, nelts, init, use_global_new, complain);

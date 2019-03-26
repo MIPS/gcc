@@ -141,18 +141,30 @@ complete_type (tree type)
   return type;
 }
 
-/* Like complete_type, but issue an error if the TYPE cannot be completed.
-   VALUE is used for informative diagnostics.
-   Returns NULL_TREE if the type cannot be made complete.  */
+/* Like complete_type, but check whether the result is defined or complete.
+   ALLOW_SIZELESS is:
+
+   - 1 if defined sizeless types are allowed
+   - 0 if they are not allowed (and so the type must be complete rather
+     than simply defined) and
+   - -1 if no decision has been made either way.
+
+   Return NULL_TREE if the type doesn't meet this condition, and also
+   report an error if COMPLAIN allows.  VALUE is used for informative
+   diagnostics.  */
 
 tree
-complete_type_or_maybe_complain (tree type, tree value, tsubst_flags_t complain)
+complete_type_or_maybe_complain (tree type, tree value,
+				 tsubst_flags_t complain,
+				 int allow_sizeless)
 {
   type = complete_type (type);
   if (type == error_mark_node)
     /* We already issued an error.  */
     return NULL_TREE;
-  else if (!COMPLETE_TYPE_P (type))
+  else if (allow_sizeless > 0 ? !DEFINED_TYPE_P (type)
+	   : allow_sizeless == 0 ? !sized_complete_type_p (type)
+	   : !COMPLETE_TYPE_P (type))
     {
       if (complain & tf_error)
 	cxx_incomplete_type_diagnostic (value, type, DK_ERROR);

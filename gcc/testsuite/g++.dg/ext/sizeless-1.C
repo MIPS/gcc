@@ -1,3 +1,6 @@
+typedef __SIZE_TYPE__ size_t;
+inline void *operator new (size_t, void *__p) throw() { return __p; }
+
 typedef __sizeless_1 ta;
 
 // Sizeless member variables.
@@ -30,4 +33,11 @@ ta ext_produce_ta ();
 void
 statements (int n)
 {
+  // New and delete.
+
+  new ta; // { dg-error {invalid use of sizeless type 'ta'} }
+  new ta (); // { dg-error {invalid use of sizeless type 'ta'} }
+
+  new (global_ta_ptr) ta; // { dg-error {invalid use of sizeless type 'ta'} }
+  new (global_ta_ptr) ta (); // { dg-error {invalid use of sizeless type 'ta'} }
 }
