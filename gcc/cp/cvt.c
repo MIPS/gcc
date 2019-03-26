@@ -1352,9 +1352,9 @@ convert_to_void (tree expr, impl_conv_void implicit, tsubst_flags_t complain)
       {
 	/* External variables might be incomplete.  */
 	tree type = TREE_TYPE (expr);
-	int is_complete = COMPLETE_TYPE_P (complete_type (type));
+	int is_defined = DEFINED_TYPE_P (complete_type (type));
 
-	if (TYPE_VOLATILE (type) && !is_complete && (complain & tf_warning))
+	if (TYPE_VOLATILE (type) && !is_defined && (complain & tf_warning))
 	  switch (implicit)
 	    {
 	      case ICV_CAST:

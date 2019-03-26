@@ -50,6 +50,7 @@ statements (int n)
   // Local declarations.
 
   ta ta1, ta2;
+  volatile ta volatile_ta1;
   vta vta1;
 
   // Layout queries.
@@ -70,6 +71,11 @@ statements (int n)
   // Assignment.
 
   n = ta1; // { dg-error {cannot convert 'ta'[^\n]* to 'int' in assignment} }
+
+  // Casting.
+
+  (void) ta1;
+  (void) volatile_ta1;
 
   // Addressing and dereferencing.
 
@@ -130,6 +136,7 @@ statements (int n)
 
   // Conditional expressions.
 
+  0 ? ta1 : ta1;
   0 ? ta_ptr : ta_ptr;
   0 ? ta_ptr : vta_ptr; // { dg-error {conditional expression between distinct pointer types [^\n]*lacks a cast} }
   0 ? vta_ptr : ta_ptr; // { dg-error {conditional expression between distinct pointer types [^\n]*lacks a cast} }
