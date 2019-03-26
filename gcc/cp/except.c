@@ -38,7 +38,6 @@ static tree do_end_catch (tree);
 static void initialize_handler_parm (tree, tree);
 static tree do_allocate_exception (tree);
 static tree wrap_cleanups_r (tree *, int *, void *);
-static int complete_ptr_ref_or_void_ptr_p (tree, tree);
 static bool is_admissible_throw_operand_or_catch_parameter (tree, bool);
 static int can_convert_eh (tree, tree);
 
@@ -876,17 +875,18 @@ build_throw (tree exp)
 }
 
 /* Make sure TYPE is complete, pointer to complete, reference to
-   complete, or pointer to cv void. Issue diagnostic on failure.
-   Return the zero on failure and nonzero on success. FROM can be
-   the expr or decl from whence TYPE came, if available.  */
+   complete, or pointer to cv void, rejecting sizeless types in
+   all cases.  Issue diagnostic on failure.  Return zero on failure
+   and nonzero on success.  FROM can be the expr or decl from which
+   TYPE came, if available.  */
 
 static int
-complete_ptr_ref_or_void_ptr_p (tree type, tree from)
+sized_complete_ptr_ref_or_void_ptr_p (tree type, tree from)
 {
   int is_ptr;
 
   /* Check complete.  */
-  type = complete_type_or_else (type, from);
+  type = sized_complete_type_or_else (type, from);
   if (!type)
     return 0;
 
@@ -898,7 +898,7 @@ complete_ptr_ref_or_void_ptr_p (tree type, tree from)
 
       if (is_ptr && VOID_TYPE_P (core))
 	/* OK */;
-      else if (!complete_type_or_else (core, from))
+      else if (!sized_complete_type_or_else (core, from))
 	return 0;
     }
   return 1;
@@ -927,7 +927,7 @@ is_admissible_throw_operand_or_catch_parameter (tree t, bool is_throw)
 	    restrictions on type matching mentioned in 15.3, the operand
 	    of throw is treated exactly as a function argument in a call
 	    (5.2.2) or the operand of a return statement.  */
-  if (!complete_ptr_ref_or_void_ptr_p (type, expr))
+  if (!sized_complete_ptr_ref_or_void_ptr_p (type, expr))
     return false;
 
   /* 10.4/3 An abstract class shall not be used as a parameter type,

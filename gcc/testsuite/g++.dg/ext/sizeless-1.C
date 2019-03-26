@@ -163,6 +163,9 @@ statements (int n)
 
   // Exceptions
 
+  try {} catch (ta x) {} // { dg-error {invalid use of sizeless type 'ta'} }
+  try {} catch (ta &x) {} // { dg-error {invalid use of sizeless type 'ta'} }
+  try {} catch (ta *x) {} // { dg-error {invalid use of sizeless type 'ta'} }
 #if __cplusplus < 201103L
   thrower2 ();
 #endif
