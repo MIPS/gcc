@@ -58,6 +58,15 @@ statements (int n)
   sizeof (ta1); // { dg-error {invalid application of 'sizeof' to incomplete type} }
   __alignof (ta); // { dg-error {invalid application of '__alignof__' to incomplete type} }
 
+  // Initialization.
+
+  int init_int1 = ta1; // { dg-error {cannot convert 'ta'[^\n]* to 'int' in initialization} }
+  int init_int2 = { ta1 }; // { dg-error {cannot convert 'ta'[^\n]* to 'int' in initialization} }
+
+  // Assignment.
+
+  n = ta1; // { dg-error {cannot convert 'ta'[^\n]* to 'int' in assignment} }
+
   // Addressing and dereferencing.
 
   ta *ta_ptr = &ta1;

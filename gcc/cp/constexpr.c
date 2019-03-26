@@ -6117,7 +6117,8 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict, bool now,
 	      || !CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (t))
 	      || (DECL_INITIAL (t)
 		  && !DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (t)))
-	  && COMPLETE_TYPE_P (TREE_TYPE (t))
+	  /* Defined sizeless types are never compile-time constants.  */
+	  && DEFINED_TYPE_P (TREE_TYPE (t))
 	  && !is_really_empty_class (TREE_TYPE (t), /*ignore_vptr*/false))
         {
           if (flags & tf_error)
