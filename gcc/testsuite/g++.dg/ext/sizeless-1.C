@@ -11,6 +11,7 @@ typedef __sizeless_2 tb;
 
 ta global_ta; // { dg-error {sizeless variable 'ta global_ta' cannot have static storage duration} }
 static ta local_ta; // { dg-error {sizeless variable 'ta local_ta' cannot have static storage duration} }
+extern ta extern_ta; // { dg-error {sizeless variable 'ta extern_ta' cannot have static storage duration} }
 __thread ta tls_ta; // { dg-error {sizeless variable 'ta tls_ta' cannot have static storage duration} }
 
 // Sizeless member variables.
@@ -36,6 +37,7 @@ ta *global_ta_ptr;
 
 // Sizeless arguments and return values.
 
+void ext_consume_ta (ta);
 void ext_consume_const_int_ref (const int &);
 void ext_consume_varargs (int, ...);
 ta ext_produce_ta ();

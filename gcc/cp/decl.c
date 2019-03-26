@@ -16394,7 +16394,7 @@ maybe_register_incomplete_var (tree var)
 	inner_type = TREE_TYPE (inner_type);
       inner_type = TYPE_MAIN_VARIANT (inner_type);
 
-      if ((!COMPLETE_TYPE_P (inner_type) && CLASS_TYPE_P (inner_type))
+      if ((CLASS_TYPE_P (inner_type) && !COMPLETE_TYPE_P (inner_type))
 	  /* RTTI TD entries are created while defining the type_info.  */
 	  || (TYPE_LANG_SPECIFIC (inner_type)
 	      && TYPE_BEING_DEFINED (inner_type)))
