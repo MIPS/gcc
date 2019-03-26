@@ -5287,7 +5287,7 @@ void
 start_decl_1 (tree decl, bool initialized)
 {
   tree type;
-  bool complete_p;
+  bool defined_p;
   bool aggregate_definition_p;
 
   gcc_assert (!processing_template_decl);
@@ -5298,31 +5298,41 @@ start_decl_1 (tree decl, bool initialized)
   gcc_assert (VAR_P (decl));
 
   type = TREE_TYPE (decl);
-  complete_p = COMPLETE_TYPE_P (type);
+  defined_p = DEFINED_TYPE_P (type);
   aggregate_definition_p = MAYBE_CLASS_TYPE_P (type) && !DECL_EXTERNAL (decl);
 
   /* If an explicit initializer is present, or if this is a definition
-     of an aggregate, then we need a complete type at this point.
-     (Scalars are always complete types, so there is nothing to
-     check.)  This code just sets COMPLETE_P; errors (if necessary)
+     of an aggregate, then we need a defined type at this point; either
+     a defined sizeless type or a complete type.  (Note that scalars are
+     always defined types, so there is nothing to check.)
+
+     This code just sets DEFINED_P; errors (if necessary)
      are issued below.  */
   if ((initialized || aggregate_definition_p) 
-      && !complete_p
-      && COMPLETE_TYPE_P (complete_type (type)))
+      && !defined_p
+      && DEFINED_TYPE_P (complete_type (type)))
     {
-      complete_p = true;
+      defined_p = true;
       /* We will not yet have set TREE_READONLY on DECL if the type
-	 was "const", but incomplete, before this point.  But, now, we
-	 have a complete type, so we can try again.  */
+	 was "const", but undefined, before this point.  But, now, we
+	 have a defined type, so we can try again.  */
       cp_apply_type_quals_to_decl (cp_type_quals (type), decl);
     }
 
-  if (initialized)
+  if ((TREE_STATIC (decl) || DECL_EXTERNAL (decl))
+      && TYPE_SIZELESS_P (type))
+    {
+      error_at (DECL_SOURCE_LOCATION (decl),
+		"sizeless variable %q#D cannot have static storage duration",
+		decl);
+      type = TREE_TYPE (decl) = error_mark_node;
+    }
+  else if (initialized)
     /* Is it valid for this decl to have an initializer at all?  */
     {
-      /* Don't allow initializations for incomplete types except for
+      /* Don't allow initializations for undefined types except for
 	 arrays which might be completed by the initialization.  */
-      if (complete_p)
+      if (defined_p)
 	;			/* A complete type is ok.  */
       else if (type_uses_auto (type))
 	; 			/* An auto type is ok.  */
@@ -5338,7 +5348,7 @@ start_decl_1 (tree decl, bool initialized)
 	  /* else we already gave an error in start_decl.  */
 	}
     }
-  else if (aggregate_definition_p && !complete_p)
+  else if (aggregate_definition_p && !defined_p)
     {
       if (type_uses_auto (type))
 	gcc_assert (CLASS_PLACEHOLDER_TEMPLATE (type));
@@ -6380,7 +6390,8 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
       if (check_array_initializer (decl, type, init))
 	return NULL_TREE;
     }
-  else if (!COMPLETE_TYPE_P (type))
+  /* Defined sizeless types can be initialized.  */
+  else if (!DEFINED_TYPE_P (type))
     {
       error_at (DECL_SOURCE_LOCATION (decl),
 		"%q#D has incomplete type", decl);
