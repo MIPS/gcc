@@ -63,6 +63,10 @@ statements (int n)
   int init_int1 = ta1; // { dg-error {cannot convert 'ta'[^\n]* to 'int' in initialization} }
   int init_int2 = { ta1 }; // { dg-error {cannot convert 'ta'[^\n]* to 'int' in initialization} }
 
+  // Compound literals.
+
+  (int) { ta1 }; // { dg-error {cannot convert 'ta'[^\n]* to 'int' in initialization} }
+
   // Assignment.
 
   n = ta1; // { dg-error {cannot convert 'ta'[^\n]* to 'int' in assignment} }
