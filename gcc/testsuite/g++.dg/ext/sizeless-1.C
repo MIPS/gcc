@@ -161,6 +161,12 @@ statements (int n)
   ext_consume_const_int_ref (ta1); // { dg-error {invalid initialization of reference of type 'const int&' from expression of type 'ta'} }
   ext_consume_varargs (ta1); // { dg-error {cannot convert 'ta'[^\n]* to 'int'} }
 
+  // Exceptions
+
+#if __cplusplus < 201103L
+  thrower2 ();
+#endif
+
   // Use in traits.  Doesn't use static_assert so that tests work with
   // earlier -std=s.
 

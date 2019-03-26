@@ -2472,7 +2472,9 @@ require_complete_eh_spec_types (tree fntype, tree decl)
        raises = TREE_CHAIN (raises))
     {
       tree type = TREE_VALUE (raises);
-      if (type && !COMPLETE_TYPE_P (type))
+      /* Don't error for sizeless types, since we did that for the
+	 definition.  */
+      if (type && !DEFINED_TYPE_P (type))
 	{
 	  if (decl)
 	    error
