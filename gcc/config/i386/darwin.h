@@ -62,11 +62,11 @@ along with GCC; see the file COPYING3.  If not see
 #undef WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 32
 
-/* Generate branch islands stubs if this is true.  */
-extern int darwin_emit_branch_islands;
+/* Generate pic symbol indirection stubs if this is true.  */
+extern int darwin_emit_picsym_stub;
 
-#undef TARGET_MACHO_BRANCH_ISLANDS
-#define TARGET_MACHO_BRANCH_ISLANDS darwin_emit_branch_islands
+#undef TARGET_MACHO_PICSYM_STUB
+#define TARGET_MACHO_PICSYM_STUB darwin_emit_picsym_stub
 
 /* For compatibility with OSX system tools, use the new style of pic stub
    if this is set.  */

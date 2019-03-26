@@ -17313,7 +17313,7 @@ output_pic_addr_const (FILE *file, rtx x, int code)
       break;
 
     case SYMBOL_REF:
-      if (TARGET_64BIT || ! TARGET_MACHO_BRANCH_ISLANDS)
+      if (TARGET_64BIT || ! TARGET_MACHO_PICSYM_STUB)
 	output_addr_const (file, x);
       else
 	{

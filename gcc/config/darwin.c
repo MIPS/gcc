@@ -77,11 +77,11 @@ along with GCC; see the file COPYING3.  If not see
    of MACHO_SYMBOL_STATIC for the code that handles @code{static}
    symbol indirection.  */
 
-/* For darwin >= 9  (OSX 10.5) the linker is capable of making the necessary
-   branch islands and we no longer need to emit darwin stubs.
-   However, if we are generating code for earlier systems (or for use in the 
+/* Linkers >= 85.2 are capable of making the necessary PIC indirections and
+   we no longer need to emit pic symbol stubs.
+   However, if we are generating code for earlier ones (or for use in the 
    kernel) the stubs might still be required, and this will be set true.  */
-int darwin_emit_branch_islands = false;
+int darwin_emit_picsym_stub = false;
 
 typedef struct GTY(()) cdtor_record {
   rtx symbol;
@@ -789,7 +789,7 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
 rtx
 machopic_indirect_call_target (rtx target)
 {
-  if (! darwin_emit_branch_islands)
+  if (! darwin_emit_picsym_stub)
     return target;
 
   if (GET_CODE (target) != MEM)
@@ -3236,7 +3236,7 @@ darwin_override_options (void)
       flag_unwind_tables = 0;
       flag_asynchronous_unwind_tables = 0;
       /* We still need to emit branch islands for kernel context.  */
-      darwin_emit_branch_islands = true;
+      darwin_emit_picsym_stub = true;
     }
 
   if (flag_var_tracking_uninit == 0
@@ -3260,11 +3260,17 @@ darwin_override_options (void)
       flag_pic = 2;
     }
 
-  /* It is assumed that branch island stubs are needed for earlier systems.  */
-  if (generating_for_darwin_version < 9)
-    darwin_emit_branch_islands = true;
-  else
-    emit_aligned_common = true; /* Later systems can support aligned common.  */
+  /* Don't emit picsym stubs unless we need to.  */
+  if (darwin_target_linker) {
+    if (strverscmp (darwin_target_linker, MIN_LD64_OMIT_STUBS) < 0)
+      darwin_emit_picsym_stub = true;
+  } else if (generating_for_darwin_version < 9)
+    /* We know no better than to assume the use of an earlier linker.  */
+    darwin_emit_picsym_stub = true;
+
+  if (generating_for_darwin_version >= 9)
+    /* Later systems can support aligned common.  */
+    emit_aligned_common = true;
 
   /* The c_dialect...() macros are not available to us here.  */
   darwin_running_cxx = (strstr (lang_hooks.name, "C++") != 0);
