@@ -1680,7 +1680,7 @@ cxx_sizeof_nowarn (tree type)
       || VOID_TYPE_P (type)
       || TREE_CODE (type) == ERROR_MARK)
     return size_one_node;
-  else if (!COMPLETE_TYPE_P (type))
+  else if (!sized_complete_type_p (type))
     return size_zero_node;
   else
     return cxx_sizeof_or_alignof_type (type, SIZEOF_EXPR, false, false);
@@ -6419,7 +6419,8 @@ cp_build_unary_op (enum tree_code code, tree xarg, bool noconvert,
 	  {
 	    tree type = complete_type (TREE_TYPE (argtype));
 
-	    if (!COMPLETE_OR_VOID_TYPE_P (type))
+	    /* ++ and -- can't be used with pointers to sizeless types.  */
+	    if (!sized_complete_type_p (type) && !VOID_TYPE_P (type))
               {
                 if (complain & tf_error)
                   error (((code == PREINCREMENT_EXPR

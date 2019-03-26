@@ -89,6 +89,10 @@ statements (int n)
 
   // Pointer arithmetic.
 
+  ++ta_ptr; // { dg-error {cannot increment a pointer to incomplete type 'ta'} }
+  --ta_ptr; // { dg-error {cannot decrement a pointer to incomplete type 'ta'} }
+  ta_ptr++; // { dg-error {cannot increment a pointer to incomplete type 'ta'} }
+  ta_ptr--; // { dg-error {cannot decrement a pointer to incomplete type 'ta'} }
   ta_ptr += 0; // { dg-error {invalid use of sizeless type 'ta'} }
 	       // { dg-error {in evaluation of} "" { target *-*-* } .-1 }
   ta_ptr += 1; // { dg-error {invalid use of sizeless type 'ta'} }
