@@ -5650,7 +5650,8 @@ pointer_diff (location_t loc, tree op0, tree op1, tree ptrtype,
   tree restype = ptrdiff_type_node;
   tree target_type = TREE_TYPE (ptrtype);
 
-  if (!complete_type_or_else (target_type, NULL_TREE))
+  /* It isn't valid to subtract pointers to sizeless types.  */
+  if (!sized_complete_type_or_else (target_type, NULL_TREE))
     return error_mark_node;
 
   if (VOID_TYPE_P (target_type))
@@ -5714,8 +5715,9 @@ pointer_diff (location_t loc, tree op0, tree op1, tree ptrtype,
   else
     op0 = build2_loc (loc, POINTER_DIFF_EXPR, inttype, op0, op1);
 
-  /* This generates an error if op1 is a pointer to an incomplete type.  */
-  if (!COMPLETE_TYPE_P (TREE_TYPE (TREE_TYPE (op1))))
+  /* This generates an error if op1 is a pointer to an incomplete type,
+     including a pointer to a sizeless type.  */
+  if (!sized_complete_type_p (TREE_TYPE (TREE_TYPE (op1))))
     {
       if (complain & tf_error)
 	error_at (loc, "invalid use of a pointer to an incomplete type in "

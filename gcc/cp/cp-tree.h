@@ -7798,6 +7798,16 @@ defined_type_or_else (tree type, tree value)
   return complete_type_or_else (type, value, true);
 }
 
+/* Like complete_type_or_else, but explicitly reject sizeless types.
+   This should be used in cases that specifically want the language's
+   normal completeness rules to apply to sizeless types (which are
+   always incomplete).  */
+inline tree
+sized_complete_type_or_else (tree type, tree value)
+{
+  return complete_type_or_else (type, value, false);
+}
+
 /* Like complete_type_or_maybe_complain, but explicitly reject sizeless types.
    This should be used in cases that specifically want the language's normal
    completeness rules to apply to sizeless types (which are always

@@ -101,6 +101,9 @@ statements (int n)
 	       // { dg-error {in evaluation of} "" { target *-*-* } .-1 }
   ta_ptr -= 1; // { dg-error {invalid use of sizeless type 'ta'} }
 	       // { dg-error {in evaluation of} "" { target *-*-* } .-1 }
+  ta_ptr - ta_ptr; // { dg-error {invalid use of sizeless type 'ta'} }
+  vta_ptr - ta_ptr; // { dg-error {invalid operands of types 'vta\*'[^\n]* and 'ta\*'[^\n]* to binary 'operator-'} }
+  ta_ptr - vta_ptr; // { dg-error {invalid operands of types 'ta\*'[^\n]* and 'vta\*'[^\n]* to binary 'operator-'} }
   ta1 = ta_ptr[0]; // { dg-error {invalid use of sizeless type 'ta'} }
   ta1 = ta_ptr[1]; // { dg-error {invalid use of sizeless type 'ta'} }
 
