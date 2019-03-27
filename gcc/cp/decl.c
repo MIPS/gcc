@@ -6324,8 +6324,9 @@ check_array_initializer (tree decl, tree type, tree init)
 
   /* The array type itself need not be complete, because the
      initializer may tell us how many elements are in the array.
-     But, the elements of the array must be complete.  */
-  if (!COMPLETE_TYPE_P (complete_type (element_type)))
+     But, the elements of the array must be complete (and must not
+     be sizeless).  */
+  if (!sized_complete_type_p (complete_type (element_type)))
     {
       if (decl)
 	error_at (DECL_SOURCE_LOCATION (decl),

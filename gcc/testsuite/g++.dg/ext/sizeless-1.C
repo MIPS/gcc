@@ -34,6 +34,7 @@ struct templated_struct1 {
 #if __cplusplus >= 201103L
 template<int N> using typedef_sizeless1 = ta;
 template<int N> using typedef_sizeless1 = ta; // { dg-error {redefinition of 'template<int N> using typedef_sizeless1 = ta'} "" { target c++11 } }
+template<typename T> using array = T[2];
 #endif
 
 // Pointers to sizeless types.
@@ -72,6 +73,10 @@ statements (int n)
   sizeof (ta); // { dg-error {invalid application of 'sizeof' to incomplete type} }
   sizeof (ta1); // { dg-error {invalid application of 'sizeof' to incomplete type} }
   __alignof (ta); // { dg-error {invalid application of '__alignof__' to incomplete type} }
+
+#if __cplusplus >= 201103L
+  array<ta> foo = {}; // { dg-error {elements of array '[^']*' have incomplete type} "" { target c++11 } }
+#endif
 
   // Initialization.
 
