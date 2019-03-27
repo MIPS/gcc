@@ -8896,7 +8896,7 @@ maybe_warn_class_memaccess (location_t loc, tree fndecl,
      a complete class type.  */
   tree desttype = TREE_TYPE (TREE_TYPE (dest));
 
-  if (!desttype || !COMPLETE_TYPE_P (desttype) || !CLASS_TYPE_P (desttype))
+  if (!desttype || !CLASS_TYPE_P (desttype) || !COMPLETE_TYPE_P (desttype))
     return;
 
   /* Check to see if the raw memory call is made by a non-static member

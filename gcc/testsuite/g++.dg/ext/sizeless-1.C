@@ -1,4 +1,4 @@
-// { dg-options "" }
+// { dg-options "-Wclass-memaccess" }
 
 typedef __SIZE_TYPE__ size_t;
 inline void *operator new (size_t, void *__p) throw() { return __p; }
@@ -222,6 +222,7 @@ statements (int n)
   // Other built-ins
 
   __builtin_launder (ta1); // { dg-error {non-pointer argument to '__builtin_launder'} }
+  __builtin_memcpy (&ta1, &ta2, 2);
 
   // Lambdas
 
