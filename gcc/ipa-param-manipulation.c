@@ -1303,8 +1303,8 @@ get_ssa_base_param (tree t, bool ignore_default_def)
    PARM_DECLs.  */
 
 ipa_param_body_replacement *
-ipa_param_body_adjustments::get_expr_replacement_1 (tree expr,
-						    bool ignore_default_def)
+ipa_param_body_adjustments::get_expr_replacement (tree expr,
+						  bool ignore_default_def)
 {
   tree base;
   unsigned unit_offset;
@@ -1316,23 +1316,6 @@ ipa_param_body_adjustments::get_expr_replacement_1 (tree expr,
   if (!base || TREE_CODE (base) != PARM_DECL)
     return NULL;
   return lookup_replacement_1 (base, unit_offset);
-}
-
-/* Given an expression, return the structure describing how it should be
-   replaced just like in the previous function but return directly the
-   expression assuming that it is known it does not hold value by reference or
-   in reverse storage order.  */
-
-tree
-ipa_param_body_adjustments::get_expr_replacement (tree expr,
-						  bool ignore_default_def)
-{
-  ipa_param_body_replacement *pbr = get_expr_replacement_1 (expr,
-							    ignore_default_def);
-  if (!pbr)
-    return NULL;
-  gcc_assert (!pbr->by_ref && !pbr->reverse);
-  return pbr->repl;
 }
 
 /* Given OLD_DECL, which is a PARM_DECL of a parameter that is being removed
@@ -1422,7 +1405,7 @@ ipa_param_body_adjustments::modify_expr (tree *expr_p, bool convert)
       convert = true;
     }
 
-  ipa_param_body_replacement *pbr = get_expr_replacement_1 (expr, false);
+  ipa_param_body_replacement *pbr = get_expr_replacement (expr, false);
   if (!pbr)
     return false;
 

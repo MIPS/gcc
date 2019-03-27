@@ -851,8 +851,14 @@ ipa_simd_modify_stmt_ops (tree *tp, int *walk_subtrees, void *data)
     tp = &TREE_OPERAND (*tp, 0);
 
   tree repl = NULL_TREE;
+  ipa_param_body_replacement *pbr = NULL;
+
   if (TREE_CODE (*tp) == PARM_DECL)
-    repl = info->adjustments->get_expr_replacement (*tp, true);
+    {
+      pbr = info->adjustments->get_expr_replacement (*tp, true);
+      if (pbr)
+	repl = pbr->repl;
+    }
   else if (TYPE_P (*tp))
     *walk_subtrees = 0;
 
@@ -880,6 +886,18 @@ ipa_simd_modify_stmt_ops (tree *tp, int *walk_subtrees, void *data)
 
   if (tp != orig_tp)
     {
+      if (gimple_code (info->stmt) == GIMPLE_PHI
+	  && pbr
+	  && TREE_CODE (*orig_tp) == ADDR_EXPR
+	  && TREE_CODE (TREE_OPERAND (*orig_tp, 0)) == PARM_DECL
+	  && pbr->dummy)
+	{
+	  gcc_assert (TREE_CODE (pbr->dummy) == SSA_NAME);
+	  *orig_tp = pbr->dummy;
+	  info->modified = true;
+	  return NULL_TREE;
+	}
+
       repl = build_fold_addr_expr (repl);
       gimple *stmt;
       if (is_gimple_debug (info->stmt))
@@ -896,7 +914,21 @@ ipa_simd_modify_stmt_ops (tree *tp, int *walk_subtrees, void *data)
 	  stmt = gimple_build_assign (make_ssa_name (TREE_TYPE (repl)), repl);
 	  repl = gimple_assign_lhs (stmt);
 	}
-      gimple_stmt_iterator gsi = gsi_for_stmt (info->stmt);
+      gimple_stmt_iterator gsi;
+      if (gimple_code (info->stmt) == GIMPLE_PHI)
+	{
+	  gsi = gsi_after_labels (single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
+	  /* Cache SSA_NAME for next time.  */
+	  if (pbr
+	      && TREE_CODE (*orig_tp) == ADDR_EXPR
+	      && TREE_CODE (TREE_OPERAND (*orig_tp, 0)) == PARM_DECL)
+	    {
+	      gcc_assert (!pbr->dummy);
+	      pbr->dummy = repl;
+	    }
+	}
+      else
+	gsi = gsi_for_stmt (info->stmt);
       gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
       *orig_tp = repl;
     }
@@ -982,6 +1014,31 @@ ipa_simd_modify_function_body (struct cgraph_node *node,
   FOR_EACH_BB_FN (bb, DECL_STRUCT_FUNCTION (node->decl))
     {
       gimple_stmt_iterator gsi;
+
+      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	{
+	  gphi *phi = as_a <gphi *> (gsi_stmt (gsi));
+	  int i, n = gimple_phi_num_args (phi);
+	  info.stmt = phi;
+	  struct walk_stmt_info wi;
+	  memset (&wi, 0, sizeof (wi));
+	  info.modified = false;
+	  wi.info = &info;
+	  for (i = 0; i < n; ++i)
+	    {
+	      int walk_subtrees = 1;
+	      tree arg = gimple_phi_arg_def (phi, i);
+	      tree op = arg;
+	      ipa_simd_modify_stmt_ops (&op, &walk_subtrees, &wi);
+	      if (op != arg)
+		{
+		  SET_PHI_ARG_DEF (phi, i, op);
+		  gcc_assert (TREE_CODE (op) == SSA_NAME);
+		  if (gimple_phi_arg_edge (phi, i)->flags & EDGE_ABNORMAL)
+		    SSA_NAME_OCCURS_IN_ABNORMAL_PHI (op) = 1;
+		}
+	    }
+	}
 
       gsi = gsi_start_bb (bb);
       while (!gsi_end_p (gsi))

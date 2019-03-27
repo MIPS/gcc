@@ -212,7 +212,8 @@ public:
   void register_replacement (ipa_adjusted_param *apm, tree replacement,
 			     tree dummy = NULL_TREE);
   tree lookup_replacement (tree base, unsigned unit_offset);
-  tree get_expr_replacement (tree expr, bool ignore_default_def);
+  ipa_param_body_replacement *get_expr_replacement (tree expr,
+						    bool ignore_default_def);
   tree get_replacement_ssa_base (tree old_decl);
   bool modify_gimple_stmt (gimple **stmt, gimple_seq *extra_stmts);
   tree get_new_param_chain ();
@@ -236,8 +237,6 @@ private:
   unsigned get_base_index (ipa_adjusted_param *apm);
   ipa_param_body_replacement *lookup_replacement_1 (tree base,
 						    unsigned unit_offset);
-  ipa_param_body_replacement *get_expr_replacement_1 (tree expr,
-						      bool ignore_default_def);
   tree replace_removed_params_ssa_names (tree old_name, gimple *stmt);
   bool modify_expr (tree *expr_p, bool convert);
   bool modify_assignment (gimple *stmt, gimple_seq *extra_stmts);
