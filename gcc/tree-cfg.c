@@ -3444,8 +3444,8 @@ verify_gimple_call (gcall *stmt)
 		 __builtin_unreachable internally, for example when IPA figures
 		 out a call cannot happen in a legal program.  In such cases,
 		 we must make sure arguments are stripped off.  */
-	      error ("__builtin_unreachable or __builtin_trap call with "
-		     "arguments");
+	      error ("%<__builtin_unreachable%> or %<__builtin_trap%> call "
+		     "with arguments");
 	      return true;
 	    }
 	  break;
@@ -4827,7 +4827,7 @@ verify_gimple_label (glabel *stmt)
   if (!DECL_NONLOCAL (decl) && !FORCED_LABEL (decl)
       && DECL_CONTEXT (decl) != current_function_decl)
     {
-      error ("label's context is not the current function decl");
+      error ("label%'s context is not the current function decl");
       err |= true;
     }
 
@@ -6244,7 +6244,8 @@ gimple_duplicate_bb (basic_block bb, copy_bb_data *id)
 	      op = TREE_OPERAND (op, 0);
 	    if ((TREE_CODE (op) == MEM_REF
 		 || TREE_CODE (op) == TARGET_MEM_REF)
-		&& MR_DEPENDENCE_CLIQUE (op) > 1)
+		&& MR_DEPENDENCE_CLIQUE (op) > 1
+		&& MR_DEPENDENCE_CLIQUE (op) != bb->loop_father->owned_clique)
 	      {
 		if (!id->dependence_map)
 		  id->dependence_map = new hash_map<dependence_hash,
@@ -9328,9 +9329,9 @@ pass_warn_function_return::execute (function *fun)
 	      location = gimple_location (last);
 	      if (LOCATION_LOCUS (location) == UNKNOWN_LOCATION)
 		location = fun->function_end_locus;
-	      warning_at (location, OPT_Wreturn_type,
-			  "control reaches end of non-void function");
-	      TREE_NO_WARNING (fun->decl) = 1;
+	      if (warning_at (location, OPT_Wreturn_type,
+			      "control reaches end of non-void function"))
+		TREE_NO_WARNING (fun->decl) = 1;
 	      break;
 	    }
 	}
@@ -9360,9 +9361,9 @@ pass_warn_function_return::execute (function *fun)
 		    location = gimple_location (prev);
 		  if (LOCATION_LOCUS (location) == UNKNOWN_LOCATION)
 		    location = fun->function_end_locus;
-		  warning_at (location, OPT_Wreturn_type,
-			      "control reaches end of non-void function");
-		  TREE_NO_WARNING (fun->decl) = 1;
+		  if (warning_at (location, OPT_Wreturn_type,
+				  "control reaches end of non-void function"))
+		    TREE_NO_WARNING (fun->decl) = 1;
 		  break;
 		}
 	    }

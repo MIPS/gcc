@@ -323,7 +323,8 @@ enum oacc_routine_lop
   OACC_ROUTINE_LOP_GANG,
   OACC_ROUTINE_LOP_WORKER,
   OACC_ROUTINE_LOP_VECTOR,
-  OACC_ROUTINE_LOP_SEQ
+  OACC_ROUTINE_LOP_SEQ,
+  OACC_ROUTINE_LOP_ERROR
 };
 
 /* Strings for all symbol attributes.  We use these for dumping the
@@ -1890,6 +1891,7 @@ typedef struct gfc_gsymbol
   enum gfc_symbol_type type;
 
   int defined, used;
+  bool bind_c;
   locus where;
   gfc_namespace *ns;
 }
@@ -3113,7 +3115,7 @@ void gfc_enforce_clean_symbol_state (void);
 void gfc_free_dt_list (void);
 
 
-gfc_gsymbol *gfc_get_gsymbol (const char *);
+gfc_gsymbol *gfc_get_gsymbol (const char *, bool bind_c);
 gfc_gsymbol *gfc_find_gsymbol (gfc_gsymbol *, const char *);
 gfc_gsymbol *gfc_find_case_gsymbol (gfc_gsymbol *, const char *);
 

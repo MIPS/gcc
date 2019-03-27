@@ -527,7 +527,7 @@ add_capture (tree lambda, tree id, tree orig_init, bool by_reference_p,
   if (type == error_mark_node)
     return error_mark_node;
 
-  if (array_of_runtime_bound_p (type))
+  if (!dependent_type_p (type) && array_of_runtime_bound_p (type))
     {
       vla = true;
       if (!by_reference_p)

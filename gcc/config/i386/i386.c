@@ -2835,7 +2835,14 @@ remove_partial_avx_dependency (void)
 	    continue;
 
 	  if (!v4sf_const0)
-	    v4sf_const0 = gen_reg_rtx (V4SFmode);
+	    {
+	      calculate_dominance_info (CDI_DOMINATORS);
+	      df_set_flags (DF_DEFER_INSN_RESCAN);
+	      df_chain_add_problem (DF_DU_CHAIN | DF_UD_CHAIN);
+	      df_md_add_problem ();
+	      df_analyze ();
+	      v4sf_const0 = gen_reg_rtx (V4SFmode);
+	    }
 
 	  /* Convert PARTIAL_XMM_UPDATE_TRUE insns, DF -> SF, SF -> DF,
 	     SI -> SF, SI -> DF, DI -> SF, DI -> DF, to vec_dup and
@@ -2883,12 +2890,6 @@ remove_partial_avx_dependency (void)
 
   if (v4sf_const0)
     {
-      calculate_dominance_info (CDI_DOMINATORS);
-      df_set_flags (DF_DEFER_INSN_RESCAN);
-      df_chain_add_problem (DF_DU_CHAIN | DF_UD_CHAIN);
-      df_md_add_problem ();
-      df_analyze ();
-
       /* (Re-)discover loops so that bb->loop_father can be used in the
 	 analysis below.  */
       loop_optimizer_init (AVOID_CFG_MODIFICATIONS);
@@ -2904,11 +2905,23 @@ remove_partial_avx_dependency (void)
 	bb = get_immediate_dominator (CDI_DOMINATORS,
 				      bb->loop_father->header);
 
-      insn = BB_HEAD (bb);
-      if (!NONDEBUG_INSN_P (insn))
-	insn = next_nonnote_nondebug_insn (insn);
       set = gen_rtx_SET (v4sf_const0, CONST0_RTX (V4SFmode));
-      set_insn = emit_insn_before (set, insn);
+
+      insn = BB_HEAD (bb);
+      while (insn && !NONDEBUG_INSN_P (insn))
+	{
+	  if (insn == BB_END (bb))
+	    {
+	      insn = NULL;
+	      break;
+	    }
+	  insn = NEXT_INSN (insn);
+	}
+      if (insn == BB_HEAD (bb))
+        set_insn = emit_insn_before (set, insn);
+      else
+	set_insn = emit_insn_after (set,
+				    insn ? PREV_INSN (insn) : BB_END (bb));
       df_insn_rescan (set_insn);
       df_process_deferred_rescans ();
       loop_optimizer_finalize ();
@@ -3540,8 +3553,8 @@ parse_mtune_ctrl_str (bool dump)
             }
         }
       if (i == X86_TUNE_LAST)
-        error ("unknown parameter to option -mtune-ctrl: %s",
-               clear ? curr_feature_string - 1 : curr_feature_string);
+	error ("unknown parameter to option %<-mtune-ctrl%>: %s",
+	       clear ? curr_feature_string - 1 : curr_feature_string);
       curr_feature_string = next_feature_string;
     }
   while (curr_feature_string);
@@ -3737,7 +3750,7 @@ ix86_option_override_internal (bool main_args_p,
       && !TARGET_64BIT_P (opts->x_ix86_isa_flags))
     {
       /* rep; movq isn't available in 32-bit code.  */
-      error ("-mstringop-strategy=rep_8byte not supported for 32-bit code");
+      error ("%<-mstringop-strategy=rep_8byte%> not supported for 32-bit code");
       opts->x_ix86_stringop_alg = no_stringop;
     }
 
@@ -3766,7 +3779,7 @@ ix86_option_override_internal (bool main_args_p,
     opts->x_ix86_abi = DEFAULT_ABI;
 
   if (opts->x_ix86_abi == MS_ABI && TARGET_X32_P (opts->x_ix86_isa_flags))
-    error ("-mabi=ms not supported with X32 ABI");
+    error ("%<-mabi=ms%> not supported with X32 ABI");
   gcc_assert (opts->x_ix86_abi == SYSV_ABI || opts->x_ix86_abi == MS_ABI);
 
   if ((opts->x_flag_sanitize & SANITIZE_USER_ADDRESS) && opts->x_ix86_abi == MS_ABI)
@@ -3858,7 +3871,7 @@ ix86_option_override_internal (bool main_args_p,
     }
   if (TARGET_MACHO && opts->x_ix86_asm_dialect == ASM_INTEL)
     {
-      error ("-masm=intel not supported in this configuration");
+      error ("%<-masm=intel%> not supported in this configuration");
       opts->x_ix86_asm_dialect = ASM_ATT;
     }
   if ((TARGET_64BIT_P (opts->x_ix86_isa_flags) != 0)
@@ -4313,12 +4326,12 @@ ix86_option_override_internal (bool main_args_p,
   if (opts_set->x_ix86_regparm)
     {
       if (TARGET_64BIT_P (opts->x_ix86_isa_flags))
-	warning (0, "-mregparm is ignored in 64-bit mode");
+	warning (0, "%<-mregparm%> is ignored in 64-bit mode");
       else if (TARGET_IAMCU_P (opts->x_target_flags))
-	warning (0, "-mregparm is ignored for Intel MCU psABI");
+	warning (0, "%<-mregparm%> is ignored for Intel MCU psABI");
       if (opts->x_ix86_regparm > REGPARM_MAX)
 	{
-	  error ("-mregparm=%d is not between 0 and %d",
+	  error ("%<-mregparm=%d%> is not between 0 and %d",
 		 opts->x_ix86_regparm, REGPARM_MAX);
 	  opts->x_ix86_regparm = 0;
 	}
@@ -4426,10 +4439,10 @@ ix86_option_override_internal (bool main_args_p,
 	  || opts->x_ix86_preferred_stack_boundary_arg > max)
 	{
 	  if (min == max)
-	    error ("-mpreferred-stack-boundary is not supported "
+	    error ("%<-mpreferred-stack-boundary%> is not supported "
 		   "for this target");
 	  else
-	    error ("-mpreferred-stack-boundary=%d is not between %d and %d",
+	    error ("%<-mpreferred-stack-boundary=%d%> is not between %d and %d",
 		   opts->x_ix86_preferred_stack_boundary_arg, min, max);
 	}
       else
@@ -4452,7 +4465,7 @@ ix86_option_override_internal (bool main_args_p,
 
       if (opts->x_ix86_incoming_stack_boundary_arg < min
 	  || opts->x_ix86_incoming_stack_boundary_arg > 12)
-	error ("-mincoming-stack-boundary=%d is not between %d and 12",
+	error ("%<-mincoming-stack-boundary=%d%> is not between %d and 12",
 	       opts->x_ix86_incoming_stack_boundary_arg, min);
       else
 	{
@@ -4465,10 +4478,10 @@ ix86_option_override_internal (bool main_args_p,
 
 #ifndef NO_PROFILE_COUNTERS
   if (flag_nop_mcount)
-    error ("-mnop-mcount is not compatible with this target");
+    error ("%<-mnop-mcount%> is not compatible with this target");
 #endif
   if (flag_nop_mcount && flag_pic)
-    error ("-mnop-mcount is not implemented for -fPIC");
+    error ("%<-mnop-mcount%> is not implemented for %<-fPIC%>");
 
   /* Accept -msseregparm only if at least SSE support is enabled.  */
   if (TARGET_SSEREGPARM_P (opts->x_target_flags)
@@ -4670,14 +4683,14 @@ ix86_option_override_internal (bool main_args_p,
     {
       if (!TARGET_64BIT_P (opts->x_ix86_isa_flags) && opts->x_flag_pic
 	  && opts->x_flag_fentry)
-	sorry ("-mfentry isn%'t supported for 32-bit in combination "
-	       "with -fpic");
+	sorry ("%<-mfentry%> isn%'t supported for 32-bit in combination "
+	       "with %<-fpic%>");
       else if (TARGET_SEH && !opts->x_flag_fentry)
-	sorry ("-mno-fentry isn%'t compatible with SEH");
+	sorry ("%<-mno-fentry%> isn%'t compatible with SEH");
     }
 
   if (TARGET_SEH && TARGET_CALL_MS2SYSV_XLOGUES)
-    sorry ("-mcall-ms2sysv-xlogues isn%'t currently supported with SEH");
+    sorry ("%<-mcall-ms2sysv-xlogues%> isn%'t currently supported with SEH");
 
   if (!(opts_set->x_target_flags & MASK_VZEROUPPER)
       && TARGET_EMIT_VZEROUPPER)
@@ -4742,7 +4755,7 @@ ix86_option_override_internal (bool main_args_p,
 
 	      if (i == ARRAY_SIZE (recip_options))
 		{
-		  error ("unknown option for -mrecip=%s", q);
+		  error ("unknown option for %<-mrecip=%s%>", q);
 		  invert = false;
 		  mask = RECIP_MASK_NONE;
 		}
@@ -4802,12 +4815,12 @@ ix86_option_override_internal (bool main_args_p,
 
       if (!*str || *endp || errno)
 	error ("%qs is not a valid number "
-	       "in -mstack-protector-guard-offset=", str);
+	       "in %<-mstack-protector-guard-offset=%>", str);
 
       if (!IN_RANGE (offset, HOST_WIDE_INT_C (-0x80000000),
 		     HOST_WIDE_INT_C (0x7fffffff)))
 	error ("%qs is not a valid offset "
-	       "in -mstack-protector-guard-offset=", str);
+	       "in %<-mstack-protector-guard-offset=%>", str);
 
       opts->x_ix86_stack_protector_guard_offset = offset;
     }
@@ -4835,7 +4848,7 @@ ix86_option_override_internal (bool main_args_p,
 
       if (seg == ADDR_SPACE_GENERIC)
 	error ("%qs is not a valid base register "
-	       "in -mstack-protector-guard-reg=",
+	       "in %<-mstack-protector-guard-reg=%>",
 	       opts->x_ix86_stack_protector_guard_reg_str);
 
       opts->x_ix86_stack_protector_guard_reg = seg;
@@ -4880,6 +4893,12 @@ ix86_option_override_internal (bool main_args_p,
     maybe_set_param_value (PARAM_AVOID_FMA_MAX_BITS, 128,
 			   opts->x_param_values,
 			   opts_set->x_param_values);
+
+  /* PR86952: jump table usage with retpolines is slow.
+     The PR provides some numbers about the slowness.  */
+  if (ix86_indirect_branch != indirect_branch_keep
+      && !opts_set->x_flag_jump_tables)
+    opts->x_flag_jump_tables = 0;
 
   return true;
 }
@@ -5787,8 +5806,8 @@ ix86_set_func_type (tree fndecl)
 
 	  /* Only dwarf2out.c can handle -WORD(AP) as a pointer argument.  */
 	  if (write_symbols != NO_DEBUG && write_symbols != DWARF2_DEBUG)
-	    sorry ("Only DWARF debug format is supported for interrupt "
-		   "service routine.");
+	    sorry ("only DWARF debug format is supported for interrupt "
+		   "service routine");
 	}
       else
 	{
@@ -5980,12 +5999,15 @@ ix86_set_current_function (tree fndecl)
       if (isa != NULL)
 	{
 	  if (cfun->machine->func_type != TYPE_NORMAL)
-	    sorry ("%s instructions aren't allowed in %s service routine",
-		   isa, (cfun->machine->func_type == TYPE_EXCEPTION
-			 ? "exception" : "interrupt"));
+	    sorry (cfun->machine->func_type == TYPE_EXCEPTION
+		   ? G_("%s instructions aren%'t allowed in an"
+			" exception service routine")
+		   : G_("%s instructions aren%'t allowed in an"
+			" interrupt service routine"),
+		   isa);
 	  else
-	    sorry ("%s instructions aren't allowed in function with "
-		   "no_caller_saved_registers attribute", isa);
+	    sorry ("%s instructions aren%'t allowed in a function with "
+		   "the %<no_caller_saved_registers%> attribute", isa);
 	  /* Don't issue the same error twice.  */
 	  cfun->machine->func_type = TYPE_NORMAL;
 	  cfun->machine->no_caller_saved_registers = false;
@@ -9056,7 +9078,7 @@ ix86_function_arg_boundary (machine_mode mode, const_tree type)
 	{
 	  warned = true;
 	  inform (input_location,
-		  "The ABI for passing parameters with %d-byte"
+		  "the ABI for passing parameters with %d-byte"
 		  " alignment has changed in GCC 4.6",
 		  align / BITS_PER_UNIT);
 	}
@@ -11314,7 +11336,7 @@ static void warn_once_call_ms2sysv_xlogues (const char *feature)
   static bool warned_once = false;
   if (!warned_once)
     {
-      warning (0, "-mcall-ms2sysv-xlogues is not compatible with %s",
+      warning (0, "%<-mcall-ms2sysv-xlogues%> is not compatible with %s",
 	       feature);
       warned_once = true;
     }
@@ -13314,7 +13336,7 @@ ix86_expand_prologue (void)
          prologue variant. If so sorry.  */
       if (crtl->profile && flag_fentry != 0)
         sorry ("ms_hook_prologue attribute isn%'t compatible "
-	       "with -mfentry for 32-bit");
+	       "with %<-mfentry%> for 32-bit");
 
       /* In ix86_asm_output_function_label we emitted:
 	 8b ff     movl.s %edi,%edi
@@ -14693,7 +14715,7 @@ split_stack_prologue_scratch_regno (void)
 	{
 	  if (DECL_STATIC_CHAIN (cfun->decl))
 	    {
-	      sorry ("-fsplit-stack does not support fastcall with "
+	      sorry ("%<-fsplit-stack%> does not support fastcall with "
 		     "nested function");
 	      return INVALID_REGNUM;
 	    }
@@ -14713,7 +14735,7 @@ split_stack_prologue_scratch_regno (void)
 	    {
 	      if (regparm >= 2)
 		{
-		  sorry ("-fsplit-stack does not support 2 register "
+		  sorry ("%<-fsplit-stack%> does not support 2 register "
 			 "parameters for a nested function");
 		  return INVALID_REGNUM;
 		}
@@ -14724,7 +14746,7 @@ split_stack_prologue_scratch_regno (void)
 	{
 	  /* FIXME: We could make this work by pushing a register
 	     around the addition and comparison.  */
-	  sorry ("-fsplit-stack does not support 3 register parameters");
+	  sorry ("%<-fsplit-stack%> does not support 3 register parameters");
 	  return INVALID_REGNUM;
 	}
     }
@@ -28377,7 +28399,7 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
       if (fndecl
 	  && (lookup_attribute ("interrupt",
 				TYPE_ATTRIBUTES (TREE_TYPE (fndecl)))))
-	error ("interrupt service routine can't be called directly");
+	error ("interrupt service routine can%'t be called directly");
     }
   else
     fndecl = NULL_TREE;
@@ -29757,7 +29779,7 @@ ix86_warn_parameter_passing_abi (cumulative_args_t cum_v, tree type)
     return;
 
   warning (OPT_Wabi, "empty class %qT parameter passing ABI "
-	   "changes in -fabi-version=12 (GCC 8)", type);
+	   "changes in %<-fabi-version=12%> (GCC 8)", type);
 
   /* Only warn once.  */
   cum->warn_empty = false;
@@ -31979,10 +32001,10 @@ get_builtin_code_for_version (tree decl, tree *predicate_list)
 	      priority = P_PROC_SSSE3;
 	      break;
 	    case PROCESSOR_NEHALEM:
-	      if (new_target->x_ix86_isa_flags & OPTION_MASK_ISA_AES)
+	      if (new_target->x_ix86_isa_flags & OPTION_MASK_ISA_PCLMUL)
 		{
 		  arg_str = "westmere";
-		  priority = P_AES;
+		  priority = P_PCLMUL;
 		}
 	      else
 		{
@@ -32103,7 +32125,7 @@ get_builtin_code_for_version (tree decl, tree *predicate_list)
       if (predicate_list && arg_str == NULL)
 	{
 	  error_at (DECL_SOURCE_LOCATION (decl),
-	    	"No dispatcher found for the versioning attributes");
+		    "no dispatcher found for the versioning attributes");
 	  return 0;
 	}
     
@@ -32153,7 +32175,7 @@ get_builtin_code_for_version (tree decl, tree *predicate_list)
       if (predicate_list && i == NUM_FEATURES)
 	{
 	  error_at (DECL_SOURCE_LOCATION (decl),
-		    "No dispatcher found for %s", token);
+		    "no dispatcher found for %s", token);
 	  return 0;
 	}
       token = strtok (NULL, ",");
@@ -32163,7 +32185,7 @@ get_builtin_code_for_version (tree decl, tree *predicate_list)
   if (predicate_list && predicate_chain == NULL_TREE)
     {
       error_at (DECL_SOURCE_LOCATION (decl),
-	        "No dispatcher found for the versioning attributes : %s",
+	        "no dispatcher found for the versioning attributes: %s",
 	        attrs_str);
       return 0;
     }
@@ -32325,12 +32347,12 @@ ix86_mangle_function_version_assembler_name (tree decl, tree id)
       && lookup_attribute ("gnu_inline",
 			   DECL_ATTRIBUTES (decl)))
     error_at (DECL_SOURCE_LOCATION (decl),
-	      "Function versions cannot be marked as gnu_inline,"
+	      "function versions cannot be marked as gnu_inline,"
 	      " bodies have to be generated");
 
   if (DECL_VIRTUAL_P (decl)
       || DECL_VINDEX (decl))
-    sorry ("Virtual function multiversioning not supported");
+    sorry ("virtual function multiversioning not supported");
 
   version_attr = lookup_attribute ("target", DECL_ATTRIBUTES (decl));
 
@@ -32606,7 +32628,7 @@ ix86_generate_version_dispatcher_body (void *node_p)
 	 virtual methods in base classes but are not explicitly marked as
 	 virtual.  */
       if (DECL_VINDEX (versn->decl))
-	sorry ("Virtual function multiversioning not supported");
+	sorry ("virtual function multiversioning not supported");
 
       fn_ver_vec.safe_push (versn->decl);
     }
@@ -32885,7 +32907,7 @@ fold_builtin_cpu (tree fndecl, tree *args)
 	 STRING_CST.   */
       if (!EXPR_P (param_string_cst))
  	{
-	  error ("Parameter to builtin must be a string constant or literal");
+	  error ("parameter to builtin must be a string constant or literal");
 	  return integer_zero_node;
 	}
       param_string_cst = TREE_OPERAND (EXPR_CHECK (param_string_cst), 0);
@@ -32910,7 +32932,7 @@ fold_builtin_cpu (tree fndecl, tree *args)
 
       if (i == NUM_ARCH_NAMES)
 	{
-	  error ("Parameter to builtin not valid: %s",
+	  error ("parameter to builtin not valid: %s",
 	         TREE_STRING_POINTER (param_string_cst));
 	  return integer_zero_node;
 	}
@@ -32960,7 +32982,7 @@ fold_builtin_cpu (tree fndecl, tree *args)
 
       if (i == NUM_ISA_NAMES)
 	{
-	  error ("Parameter to builtin not valid: %s",
+	  error ("parameter to builtin not valid: %s",
 	       	 TREE_STRING_POINTER (param_string_cst));
 	  return integer_zero_node;
 	}
@@ -38353,7 +38375,8 @@ rdseed_step:
       mode0 = insn_data[icode].operand[0].mode;
       if (!insn_data[icode].operand[0].predicate (op0, mode0))
 	{
-	  error ("the xabort's argument must be an 8-bit immediate");
+	  error ("the argument to %<xabort%> intrinsic must "
+		 "be an 8-bit immediate");
 	  return const0_rtx;
 	}
       emit_insn (gen_xabort (op0));
@@ -41404,11 +41427,12 @@ ix86_handle_interrupt_attribute (tree *node, tree, tree, int, bool *)
 	{
 	  if (TREE_CODE (TREE_VALUE (current_arg_type)) != INTEGER_TYPE
 	      || TYPE_MODE (TREE_VALUE (current_arg_type)) != word_mode)
-	    error ("interrupt service routine should have unsigned %s"
-		   "int as the second argument",
+	    error ("interrupt service routine should have %qs "
+		   "as the second argument",
 		   TARGET_64BIT
-		   ? (TARGET_X32 ? "long long " : "long ")
-		   : "");
+		   ? (TARGET_X32 ? "unsigned long long int"
+				 : "unsigned long int")
+		   : "unsigned int");
 	}
       nargs++;
       current_arg_type = TREE_CHAIN (current_arg_type);
@@ -41417,7 +41441,7 @@ ix86_handle_interrupt_attribute (tree *node, tree, tree, int, bool *)
     error ("interrupt service routine can only have a pointer argument "
 	   "and an optional integer argument");
   if (! VOID_TYPE_P (return_type))
-    error ("interrupt service routine can't have non-void return value");
+    error ("interrupt service routine can%'t have non-void return value");
 
   return NULL_TREE;
 }

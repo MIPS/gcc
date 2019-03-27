@@ -205,6 +205,8 @@ b2test_LDADD = libbacktrace_elf_for_test.la
 check_PROGRAMS += b2test
 TESTS += b2test_buildid
 
+if HAVE_DWZ
+
 b3test_SOURCES = $(btest_SOURCES)
 b3test_CFLAGS = $(btest_CFLAGS)
 b3test_LDFLAGS = -Wl,--build-id
@@ -212,6 +214,8 @@ b3test_LDADD = libbacktrace_elf_for_test.la
 
 check_PROGRAMS += b3test
 TESTS += b3test_dwz_buildid
+
+endif HAVE_DWZ
 
 endif HAVE_OBJCOPY_DEBUGLINK
 endif HAVE_ELF
@@ -268,6 +272,8 @@ stest_alloc_LDADD = libbacktrace_alloc.la
 
 BUILDTESTS += stest_alloc
 
+if HAVE_ELF
+
 ztest_SOURCES = ztest.c testlib.c
 ztest_CFLAGS = -DSRCDIR=\"$(srcdir)\"
 ztest_LDADD = libbacktrace.la
@@ -286,6 +292,8 @@ ztest_alloc_SOURCES = $(ztest_SOURCES)
 ztest_alloc_CFLAGS = $(ztest_CFLAGS)
 
 BUILDTESTS += ztest_alloc
+
+endif HAVE_ELF
 
 edtest_SOURCES = edtest.c edtest2_build.c testlib.c
 edtest_LDADD = libbacktrace.la

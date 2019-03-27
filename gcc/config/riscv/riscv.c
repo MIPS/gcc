@@ -21,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #define IN_TARGET_CODE 1
 
+#define INCLUDE_STRING
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -328,7 +329,7 @@ riscv_parse_cpu (const char *cpu_string)
     if (strcmp (riscv_cpu_info_table[i].name, cpu_string) == 0)
       return riscv_cpu_info_table + i;
 
-  error ("unknown cpu %qs for -mtune", cpu_string);
+  error ("unknown cpu %qs for %<-mtune%>", cpu_string);
   return riscv_cpu_info_table;
 }
 
@@ -4177,6 +4178,20 @@ riscv_issue_rate (void)
   return tune_info->issue_rate;
 }
 
+/* Auxiliary function to emit RISC-V ELF attribute. */
+static void
+riscv_emit_attribute ()
+{
+  fprintf (asm_out_file, "\t.attribute arch, \"%s\"\n",
+	   riscv_arch_str ().c_str ());
+
+  fprintf (asm_out_file, "\t.attribute unaligned_access, %d\n",
+           TARGET_STRICT_ALIGN ? 0 : 1);
+
+  fprintf (asm_out_file, "\t.attribute stack_align, %d\n",
+           riscv_stack_boundary / 8);
+}
+
 /* Implement TARGET_ASM_FILE_START.  */
 
 static void
@@ -4191,6 +4206,9 @@ riscv_file_start (void)
      relaxation in the assembler.  */
   if (! riscv_mrelax)
     fprintf (asm_out_file, "\t.option norelax\n");
+
+  if (riscv_emit_attribute_p)
+    riscv_emit_attribute ();
 }
 
 /* Implement TARGET_ASM_OUTPUT_MI_THUNK.  Generate rtl rather than asm text
@@ -4298,7 +4316,7 @@ riscv_option_override (void)
   if (TARGET_MUL && (target_flags_explicit & MASK_DIV) == 0)
     target_flags |= MASK_DIV;
   else if (!TARGET_MUL && TARGET_DIV)
-    error ("-mdiv requires -march to subsume the %<M%> extension");
+    error ("%<-mdiv%> requires %<-march%> to subsume the %<M%> extension");
 
   /* Likewise floating-point division and square root.  */
   if (TARGET_HARD_FLOAT && (target_flags_explicit & MASK_FDIV) == 0)
@@ -4338,7 +4356,7 @@ riscv_option_override (void)
 
   /* Require that the ISA supports the requested floating-point ABI.  */
   if (UNITS_PER_FP_ARG > (TARGET_HARD_FLOAT ? UNITS_PER_FP_REG : 0))
-    error ("requested ABI requires -march to subsume the %qc extension",
+    error ("requested ABI requires %<-march%> to subsume the %qc extension",
 	   UNITS_PER_FP_ARG > 8 ? 'Q' : (UNITS_PER_FP_ARG > 4 ? 'D' : 'F'));
 
   if (TARGET_RVE && riscv_abi != ABI_ILP32E)
@@ -4346,7 +4364,7 @@ riscv_option_override (void)
 
   /* We do not yet support ILP32 on RV64.  */
   if (BITS_PER_WORD != POINTER_SIZE)
-    error ("ABI requires -march=rv%d", POINTER_SIZE);
+    error ("ABI requires %<-march=rv%d%>", POINTER_SIZE);
 
   /* Validate -mpreferred-stack-boundary= value.  */
   riscv_stack_boundary = ABI_STACK_BOUNDARY;
@@ -4356,11 +4374,22 @@ riscv_option_override (void)
       int max = 8;
 
       if (!IN_RANGE (riscv_preferred_stack_boundary_arg, min, max))
-	error ("-mpreferred-stack-boundary=%d must be between %d and %d",
+	error ("%<-mpreferred-stack-boundary=%d%> must be between %d and %d",
 	       riscv_preferred_stack_boundary_arg, min, max);
 
       riscv_stack_boundary = 8 << riscv_preferred_stack_boundary_arg;
     }
+
+  if (riscv_emit_attribute_p < 0)
+#ifdef HAVE_AS_RISCV_ATTRIBUTE
+    riscv_emit_attribute_p = TARGET_RISCV_ATTRIBUTE;
+#else
+    riscv_emit_attribute_p = 0;
+
+  if (riscv_emit_attribute_p)
+    error ("%<-mriscv-attribute%> RISC-V ELF attribute requires GNU as 2.32"
+	   " [%<-mriscv-attribute%>]");
+#endif
 }
 
 /* Implement TARGET_CONDITIONAL_REGISTER_USAGE.  */
