@@ -11286,7 +11286,9 @@ instantiate_class_template_1 (tree type)
 			  if (can_complete_type_without_circularity (rtype))
 			    complete_type (rtype);
 
-			  if (!complete_or_array_type_p (rtype))
+			  /* Member variables cannot have sizeless type.  */
+			  if (!sized_complete_type_p (rtype)
+			      && !array_of_complete_type_p (rtype))
 			    {
 			      /* If R's type couldn't be completed and
 				 it isn't a flexible array member (whose

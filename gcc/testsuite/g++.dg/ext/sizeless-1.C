@@ -31,6 +31,21 @@ struct templated_struct1 {
   ta a; // { dg-error {field 'a' has incomplete type} }
 };
 
+template<typename T>
+struct templated_struct2 {
+  T a; // { dg-error {'templated_struct2<T>::a' has incomplete type} }
+       // { dg-error {invalid use of sizeless type} "" { target *-*-* } .-1 }
+};
+
+template class templated_struct2<ta>;
+
+template<typename T>
+struct templated_struct3 {
+  T &a;
+};
+
+template class templated_struct3<ta>;
+
 #if __cplusplus >= 201103L
 template<int N> using typedef_sizeless1 = ta;
 template<int N> using typedef_sizeless1 = ta; // { dg-error {redefinition of 'template<int N> using typedef_sizeless1 = ta'} "" { target c++11 } }
