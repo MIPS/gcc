@@ -6488,7 +6488,8 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict, bool now,
 	 might be a constexpr user-defined conversion.  */
       else if (cxx_dialect >= cxx11
 	       && (dependent_type_p (TREE_TYPE (t))
-		   || !COMPLETE_TYPE_P (TREE_TYPE (t))
+		   /* Casts to sizeless types are never constant.  */
+		   || !DEFINED_TYPE_P (TREE_TYPE (t))
 		   || literal_type_p (TREE_TYPE (t)))
 	       && TREE_OPERAND (t, 0))
 	{

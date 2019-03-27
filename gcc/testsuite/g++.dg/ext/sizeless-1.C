@@ -336,6 +336,15 @@ bad_ret_st1 (tb param)
   return param; // { dg-error {cannot convert 'tb'[^\n]* to 'ta'[^\n]* in return} }
 }
 
+#if __cplusplus >= 201103L
+template<typename T>
+void
+const_to_ta (T i)
+{
+  constexpr ta a = (ta) i;
+}
+#endif
+
 #if __cplusplus < 201103L
 void thrower3 () throw (ta) {} // { dg-error {invalid use of sizeless type 'ta'} "" { target c++98_only } }
 #endif
