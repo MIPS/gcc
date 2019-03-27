@@ -84,6 +84,23 @@ extern int darwin_emit_branch_islands;
 
 #define RS6000_DEFAULT_LONG_DOUBLE_SIZE 128
 
+/* Machine dependent libraries.  Include libmx when compiling on
+   Darwin 7.0 and above, but before libSystem, since the functions are
+   actually in libSystem but for 7.x compatibility we want them to be
+   looked for in libmx first---but only do this if 7.x compatibility
+   is a concern, which it's not in 64-bit mode.  Include
+   libSystemStubs when compiling on (not necessarily for) 8.0 and
+   above and not 64-bit long double.  */
+
+#undef LIB_SPEC
+#define LIB_SPEC \
+"%{!static:								\
+  %{!mlong-double-64:							\
+    %{pg:%:version-compare(!> 10.5 mmacosx-version-min= -lSystemStubs_profile)} \
+    %{!pg:%:version-compare(!> 10.5 mmacosx-version-min= -lSystemStubs)}}\
+  %{!m64:%:version-compare(>< 10.3 10.4 mmacosx-version-min= -lmx)}	\
+  -lSystem								\
+}"
 
 /* We want -fPIC by default, unless we're using -static to compile for
    the kernel or some such.  The "-faltivec" option should have been
@@ -98,11 +115,10 @@ extern int darwin_emit_branch_islands;
   %<faltivec %<fno-altivec " \
   DARWIN_CC1_SPEC
 
-#define DARWIN_ARCH_SPEC "%{m64:ppc64;:ppc}"
+/* Default to PPC for single arch builds.  */
+#define DARWIN_ARCH_SPEC "ppc"
 
 #define DARWIN_SUBARCH_SPEC "			\
- %{m64: ppc64}					\
- %{!m64:					\
  %{mcpu=601:ppc601;				\
    mcpu=603:ppc603;				\
    mcpu=603e:ppc603;				\
@@ -117,7 +133,7 @@ extern int darwin_emit_branch_islands;
    mcpu=970:ppc970;				\
    mcpu=power4:ppc970;				\
    mcpu=G5:ppc970;				\
-   :ppc}}"
+   :ppc}"
 
 /* We need to jam the crt to 10.5 for 10.6 (Rosetta) use.  */
 #undef DARWIN_CRT1_SPEC

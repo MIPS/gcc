@@ -1,5 +1,6 @@
-/* Target definitions for Darwin 8.0 and above (Mac OS X) systems.
-   Copyright (C) 2004-2018 Free Software Foundation, Inc.
+/* Target definitions for i386 running Darwin.
+   Copyright (C) 2019 Free Software Foundation, Inc.
+   Contributed by Apple Computer Inc.
 
 This file is part of GCC.
 
@@ -17,5 +18,15 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-#undef DEF_MIN_OSX_VERSION
-#define DEF_MIN_OSX_VERSION "10.4"
+#undef DARWIN_ARCH_SPEC
+#define DARWIN_ARCH_SPEC "%{m64:x86_64;:i386}"
+
+#undef  DARWIN_SUBARCH_SPEC
+#define DARWIN_SUBARCH_SPEC DARWIN_ARCH_SPEC
+
+#undef SUBTARGET_EXTRA_SPECS
+#define SUBTARGET_EXTRA_SPECS                                   \
+  DARWIN_EXTRA_SPECS                                            \
+  { "darwin_arch", DARWIN_ARCH_SPEC },                          \
+  { "darwin_crt2", "" },                                        \
+  { "darwin_subarch", DARWIN_SUBARCH_SPEC },

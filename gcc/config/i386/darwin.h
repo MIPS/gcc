@@ -112,9 +112,6 @@ extern int darwin_emit_branch_islands;
   " ASM_OPTIONS " -force_cpusubtype_ALL \
   %{static}" ASM_MMACOSX_VERSION_MIN_SPEC
 
-#define DARWIN_ARCH_SPEC "%{m64:x86_64;:i386}"
-#define DARWIN_SUBARCH_SPEC DARWIN_ARCH_SPEC
-
 #undef ENDFILE_SPEC
 #define ENDFILE_SPEC \
   "%{Ofast|ffast-math|funsafe-math-optimizations:crtfastmath.o%s} \
@@ -122,12 +119,15 @@ extern int darwin_emit_branch_islands;
    %{mpc64:crtprec64.o%s} \
    %{mpc80:crtprec80.o%s}" TM_DESTRUCTOR
 
+#define DARWIN_ARCH_SPEC "x86_64"
+
+/* We default to x86_64 for single-arch builds, bi-arch overrides.  */
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS                                   \
   DARWIN_EXTRA_SPECS                                            \
-  { "darwin_arch", DARWIN_ARCH_SPEC },                          \
+  { "darwin_arch", DARWIN_ARCH_SPEC },				\
   { "darwin_crt2", "" },                                        \
-  { "darwin_subarch", DARWIN_SUBARCH_SPEC },
+  { "darwin_subarch", DARWIN_ARCH_SPEC },
 
 /* The Darwin assembler mostly follows AT&T syntax.  */
 #undef ASSEMBLER_DIALECT
