@@ -59,7 +59,12 @@ struct templated_struct4 {
 };
 
 template class templated_struct4<ta>;
+#endif
 
+template<typename T> struct templated_struct5 : T {}; // { dg-error {base type '[^']*' fails to be a struct or class type} }
+template class templated_struct5<ta>;
+
+#if __cplusplus >= 201103L
 template<int N> using typedef_sizeless1 = ta;
 template<int N> using typedef_sizeless1 = ta; // { dg-error {redefinition of 'template<int N> using typedef_sizeless1 = ta'} "" { target c++11 } }
 template<typename T> using array = T[2];
