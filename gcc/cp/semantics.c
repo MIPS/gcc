@@ -7780,7 +7780,9 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	  if (t == error_mark_node)
 	    remove = true;
 	  else if (TYPE_REF_P (TREE_TYPE (t))
-		   && !complete_type_or_else (TREE_TYPE (TREE_TYPE (t)), t))
+		   /* ...or references to sizeless types.  */
+		   && !sized_complete_type_or_else (TREE_TYPE (TREE_TYPE (t)),
+						    t))
 	    remove = true;
 	}
       if (need_implicitly_determined)
