@@ -9600,7 +9600,8 @@ check_static_variable_definition (tree decl, tree type)
     ;
   else if (cxx_dialect >= cxx11 && !INTEGRAL_OR_ENUMERATION_TYPE_P (type))
     {
-      if (!COMPLETE_TYPE_P (type))
+      /* Member variables cannot have sizeless type.  */
+      if (!sized_complete_type_p (type))
 	error_at (DECL_SOURCE_LOCATION (decl),
 		  "in-class initialization of static data member %q#D of "
 		  "incomplete type", decl);

@@ -24,6 +24,12 @@ union union1 {
   ta a; // { dg-error {field 'a' has incomplete type} }
 };
 
+#if __cplusplus >= 201103L
+struct static_ta {
+  static ta ta1 = {}; // { dg-error {in-class initialization of static data member 'ta static_ta::ta1' of incomplete type} "" { target c++11 } }
+};
+#endif
+
 // Sizeless member variables in templated structures.
 
 template<typename T>
@@ -47,6 +53,13 @@ struct templated_struct3 {
 template class templated_struct3<ta>;
 
 #if __cplusplus >= 201103L
+template<typename T>
+struct templated_struct4 {
+  static T a = {}; // { dg-error {in-class initialization of static data member '[^']*' of incomplete type} "" { target c++11 } }
+};
+
+template class templated_struct4<ta>;
+
 template<int N> using typedef_sizeless1 = ta;
 template<int N> using typedef_sizeless1 = ta; // { dg-error {redefinition of 'template<int N> using typedef_sizeless1 = ta'} "" { target c++11 } }
 template<typename T> using array = T[2];
