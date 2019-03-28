@@ -7645,7 +7645,10 @@ cp_parser_postfix_dot_deref_expression (cp_parser *parser,
 	  && !currently_open_class (scope))
 	{
 	  scope = complete_type (scope);
-	  if (!COMPLETE_TYPE_P (scope)
+	  /* We get better errors if we accept defined sizeless types
+	     here and deal with them in the same way as other defined
+	     non-class types.  */
+	  if (!DEFINED_TYPE_P (scope)
 	      && cp_parser_dot_deref_incomplete (&scope, &postfix_expression,
 						 &dependent_p))
 	    return error_mark_node;
