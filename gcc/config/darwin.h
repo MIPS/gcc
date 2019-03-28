@@ -339,16 +339,13 @@ extern GTY(()) int darwin_ms_struct;
 #define REAL_LIBGCC_SPEC						   \
    "%{static-libgcc|static:						   \
         %:version-compare(!> 10.6 mmacosx-version-min= -lgcc_eh);	   \
-      shared-libgcc:							   \
+      shared-libgcc: -lgcc_s.2						   \
        %:version-compare(!> 10.5 mmacosx-version-min= -lgcc_s.10.4)	   \
-       %:version-compare(>< 10.5 10.6 mmacosx-version-min= -lgcc_s.10.5)   \
-       %:version-compare(!> 10.5 mmacosx-version-min= -lgcc_ext.10.4)	   \
-       %:version-compare(>< 10.5 10.6 mmacosx-version-min= -lgcc_ext.10.5) \
-       %:version-compare(>= 10.6 mmacosx-version-min= -lgcc_ext.10.6);	   \
-      fexceptions|fgnu-runtime:						   \
+       %:version-compare(>< 10.5 10.6 mmacosx-version-min= -lgcc_s.10.5);  \
+      fexceptions|fgnu-runtime:	-lgcc					   \
        %:version-compare(!> 10.5 mmacosx-version-min= -lgcc_s.10.4)	   \
-       %:version-compare(>< 10.5 10.6 mmacosx-version-min= -lgcc_s.10.5)   \
-     } -lgcc "
+       %:version-compare(>< 10.5 10.6 mmacosx-version-min= -lgcc_s.10.5)  \
+      } -lgcc "
 
 /* We specify crt0.o as -lcrt0.o so that ld will search the library path.
 
