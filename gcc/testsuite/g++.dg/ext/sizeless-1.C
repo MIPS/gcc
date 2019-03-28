@@ -283,6 +283,13 @@ statements (int n)
   thrower2 ();
 #endif
 
+  // Structured bindings
+
+#if __cplusplus >= 201703L
+  ta &ta_ref = ta1;
+  auto &[x1, x2] = ta_ref;
+#endif
+
   // Use in traits.  Doesn't use static_assert so that tests work with
   // earlier -std=s.
 

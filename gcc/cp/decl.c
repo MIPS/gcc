@@ -7693,7 +7693,8 @@ cp_finish_decomp (tree decl, tree first, unsigned int count)
       type = complete_type (TREE_TYPE (type));
       if (type == error_mark_node)
 	goto error_out;
-      if (!COMPLETE_TYPE_P (type))
+      /* Structured bindings can in principle be used with sizeless types.  */
+      if (!DEFINED_TYPE_P (type))
 	{
 	  error_at (loc, "structured binding refers to incomplete type %qT",
 		    type);
