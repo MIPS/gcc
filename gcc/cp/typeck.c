@@ -2966,9 +2966,10 @@ finish_class_member_access_expr (cp_expr object, tree name, bool template_p,
   /* [expr.ref]
 
      The type of the first expression shall be "class object" (of a
-     complete type).  */
+     complete type).  Don't reject defined sizeless types here; we get
+     better error messages with the code below.  */
   if (!currently_open_class (object_type)
-      && !complete_type_or_maybe_complain (object_type, object, complain))
+      && !defined_type_or_maybe_complain (object_type, object, complain))
     return error_mark_node;
   if (!CLASS_TYPE_P (object_type))
     {

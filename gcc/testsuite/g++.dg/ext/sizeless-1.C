@@ -390,6 +390,14 @@ const_to_ta (T i)
 }
 #endif
 
+template<typename T>
+int
+get_x (T *a)
+{
+  return a->a; // { dg-error {request for member 'a' in '\* a', which is of non-class type} }
+}
+template int get_x<ta>(ta *);
+
 #if __cplusplus < 201103L
 void thrower3 () throw (ta) {} // { dg-error {invalid use of sizeless type 'ta'} "" { target c++98_only } }
 #endif
