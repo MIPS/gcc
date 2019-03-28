@@ -24797,7 +24797,8 @@ get_movep_insn_location (rtx_insn *move1, rtx_insn *move2,
 	  && ! reg_set_between_p (dest1, move1, check_insn)
 	  && ! reg_used_between_p (dest2, move2, check_insn)
 	  && ! reg_set_between_p (src2, move2, check_insn)
-	  && ! reg_set_between_p (dest2, move2, check_insn))
+	  && ! reg_set_between_p (dest2, move2, check_insn)
+          && ! reg_set_between_p (src2, move1, move2))
 	  /* (3): Emit movep at MOVE2 or at next suitable program point.  */
 	{
 	  rsrc1 = tmp_src1;
