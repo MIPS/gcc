@@ -143,8 +143,22 @@ extern int darwin_emit_branch_islands;
    %{fgnu-tm: -lcrttms.o}"
 
 /* crt2.o is at least partially required for 10.3.x and earlier.  */
+#undef DARWIN_CRT2_SPEC
 #define DARWIN_CRT2_SPEC \
   "%{!m64:%:version-compare(!> 10.4 mmacosx-version-min= crt2.o%s)}"
+
+/* Use a version of crt3 built for < 10.4 when needed.  */
+#undef DARWIN_CRT3_SPEC
+#define DARWIN_CRT3_SPEC \
+"%{shared-libgcc:							\
+   %:version-compare(>< 10.4 10.5 mmacosx-version-min= crt3.o%s)	\
+   %:version-compare(!> 10.4 mmacosx-version-min= crt3_2.o%s)	\
+  }"
+
+/* The PPC regs save/restore functions are leaves and could, conceivably
+   be used by the tm destructor.  */
+#undef ENDFILE_SPEC
+#define ENDFILE_SPEC TM_DESTRUCTOR "ef_ppc.a%s"
 
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS			\
