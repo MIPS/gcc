@@ -610,7 +610,7 @@ class Type_dumper
                      const char *tag);
   std::pair<bool, unsigned> lookup(const Type*);
 
-  static constexpr unsigned notag = 0xffffffff;
+  static const unsigned notag = 0xffffffff;
 
  private:
   const Type* top_;
@@ -766,7 +766,7 @@ void Type_dumper::visit_function_type(const Function_type* ft)
   if (rec != NULL)
     {
       this->emitpre(notag, NULL);
-      this->typeref("receiver ", rec->type(), NULL);
+      this->typeref("receiver ", rec->type(), "\n");
     }
   const Typed_identifier_list* parameters = ft->parameters();
   if (parameters != NULL)

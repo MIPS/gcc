@@ -2350,6 +2350,8 @@ process_alt_operands (int only_alternative)
 		  break;
 
 		reg:
+		  if (mode == BLKmode)
+		    break;
 		  this_alternative = reg_class_subunion[this_alternative][cl];
 		  IOR_HARD_REG_SET (this_alternative_set,
 				    reg_class_contents[cl]);
@@ -2360,8 +2362,6 @@ process_alt_operands (int only_alternative)
 		      IOR_HARD_REG_SET (this_costly_alternative_set,
 					reg_class_contents[cl]);
 		    }
-		  if (mode == BLKmode)
-		    break;
 		  winreg = true;
 		  if (REG_P (op))
 		    {
@@ -4256,6 +4256,20 @@ curr_insn_transform (bool check_only_p)
 			   || MEM_P (SET_DEST (curr_insn_set))
 			   || GET_CODE (SET_DEST (curr_insn_set)) == SUBREG))))
 	    optional_p = true;
+	  else if (goal_alt_matched[i][0] != -1
+		   && curr_static_id->operand[i].type == OP_OUT
+		   && (curr_static_id->operand_alternative
+		       [goal_alt_number * n_operands + i].earlyclobber))
+	    {
+	      /* Generate reloads for output and matched inputs.  This
+		 is the easiest way to avoid creation of non-existing
+		 conflicts in lra-lives.c.  */
+	      match_reload (i, goal_alt_matched[i], outputs, goal_alt[i], &before,
+			    &after, TRUE);
+	      outputs[n_outputs++] = i;
+	      outputs[n_outputs] = -1;
+	      continue;
+	    }
 	  else
 	    continue;
 	}
@@ -5839,6 +5853,9 @@ invariant_p (const_rtx x)
   enum rtx_code code;
   int i, j;
 
+  if (side_effects_p (x))
+    return false;
+
   code = GET_CODE (x);
   mode = GET_MODE (x);
   if (code == SUBREG)
@@ -6365,6 +6382,7 @@ inherit_in_ebb (rtx_insn *head, rtx_insn *tail)
 			add_to_hard_reg_set (&s, PSEUDO_REGNO_MODE (dst_regno),
 					     reg_renumber[dst_regno]);
 		      AND_COMPL_HARD_REG_SET (live_hard_regs, s);
+		      AND_COMPL_HARD_REG_SET (potential_reload_hard_regs, s);
 		    }
 		  /* We should invalidate potential inheritance or
 		     splitting for the current insn usages to the next
