@@ -18,6 +18,7 @@
 // <http://www.gnu.org/licenses/>.
 
 // { dg-options "-std=c++98" }
+// { dg-additional-options "-U__STRICT_ANSI__" { target { *-*-darwin9* *-*-darwin10* } } }
 
 #include <cmath>
 using std::pow;

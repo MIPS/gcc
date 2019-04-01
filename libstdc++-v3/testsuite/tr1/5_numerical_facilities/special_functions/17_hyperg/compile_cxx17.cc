@@ -17,6 +17,7 @@
 
 // { dg-options "-std=c++17" }
 // { dg-do compile { target c++17 } }
+// { dg-additional-options "-U__STRICT_ANSI__" { target { *-*-darwin9* *-*-darwin10* } } }
 
 #include <tr1/cmath>
 
