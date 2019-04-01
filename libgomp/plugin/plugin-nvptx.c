@@ -1273,8 +1273,9 @@ GOMP_OFFLOAD_load_image (int ord, unsigned version, const void *target_data,
 	      dev->register_allocation_unit_size = 256;
 	      dev->register_allocation_granularity = 2;
 	    }
-	  else if (dev->binary_version <= 62)
+	  else if (dev->binary_version <= 70)
 	    {
+	      /* Compute Capability 6.1, 6.2, 7.0 share same parameters.  */
 	      dev->register_allocation_unit_size = 256;
 	      dev->register_allocation_granularity = 4;
 	    }
