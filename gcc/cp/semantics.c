@@ -1861,7 +1861,7 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 
   if (current_class_ptr)
     TREE_USED (current_class_ptr) = 1;
-  if (processing_template_decl && !qualifying_scope)
+  if (processing_template_decl)
     {
       tree type = TREE_TYPE (decl);
 
@@ -1882,17 +1882,16 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 	  type = cp_build_qualified_type (type, quals);
 	}
 
-      ret = (convert_from_reference
-	      (build_min (COMPONENT_REF, type, object, decl, NULL_TREE)));
+      if (qualifying_scope)
+	/* Wrap this in a SCOPE_REF for now.  */
+	ret = build_qualified_name (type, qualifying_scope, decl,
+				    /*template_p=*/false);
+      else
+	ret = (convert_from_reference
+	       (build_min (COMPONENT_REF, type, object, decl, NULL_TREE)));
     }
   /* If PROCESSING_TEMPLATE_DECL is nonzero here, then
-     QUALIFYING_SCOPE is also non-null.  Wrap this in a SCOPE_REF
-     for now.  */
-  else if (processing_template_decl)
-    ret = build_qualified_name (TREE_TYPE (decl),
-				qualifying_scope,
-				decl,
-				/*template_p=*/false);
+     QUALIFYING_SCOPE is also non-null.  */
   else
     {
       tree access_type = TREE_TYPE (object);
@@ -3042,6 +3041,12 @@ begin_class_definition (tree t)
 {
   if (error_operand_p (t) || error_operand_p (TYPE_MAIN_DECL (t)))
     return error_mark_node;
+
+  if (processing_template_parmlist && !LAMBDA_TYPE_P (t))
+    {
+      error ("definition of %q#T inside template parameter list", t);
+      return error_mark_node;
+    }
 
   /* According to the C++ ABI, decimal classes defined in ISO/IEC TR 24733
      are passed the same as decimal scalar types.  */
@@ -8997,6 +9002,11 @@ finish_omp_atomic (location_t loc, enum tree_code code, enum tree_code opcode,
       OMP_ATOMIC_MEMORY_ORDER (stmt) = mo;
       SET_EXPR_LOCATION (stmt, loc);
     }
+
+  /* Avoid -Wunused-value warnings here, the whole construct has side-effects
+     and even if it might be wrapped from fold-const.c or c-omp.c wrapped
+     in some tree that appears to be unused, the value is not unused.  */
+  warning_sentinel w (warn_unused_value);
   finish_expr_stmt (stmt);
 }
 

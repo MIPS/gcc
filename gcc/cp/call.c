@@ -1853,6 +1853,9 @@ reference_binding (tree rto, tree rfrom, tree expr, bool c_cast_p, int flags,
 	    && DECL_CONV_FN_P (t->cand->fn))
 	  {
 	    tree ftype = TREE_TYPE (TREE_TYPE (t->cand->fn));
+	    /* A prvalue of non-class type is cv-unqualified.  */
+	    if (!TYPE_REF_P (ftype) && !CLASS_TYPE_P (ftype))
+	      ftype = cv_unqualified (ftype);
 	    int sflags = (flags|LOOKUP_NO_CONVERSION)&~LOOKUP_NO_TEMP_BIND;
 	    conversion *new_second
 	      = reference_binding (rto, ftype, NULL_TREE, c_cast_p,
@@ -4172,18 +4175,11 @@ build_user_type_conversion (tree totype, tree expr, int flags,
   return ret;
 }
 
-/* Subroutine of convert_nontype_argument.
+/* Worker for build_converted_constant_expr.  */
 
-   EXPR is an expression used in a context that requires a converted
-   constant-expression, such as a template non-type parameter.  Do any
-   necessary conversions (that are permitted for converted
-   constant-expressions) to convert it to the desired type.
-
-   If conversion is successful, returns the converted expression;
-   otherwise, returns error_mark_node.  */
-
-tree
-build_converted_constant_expr (tree type, tree expr, tsubst_flags_t complain)
+static tree
+build_converted_constant_expr_internal (tree type, tree expr,
+					int flags, tsubst_flags_t complain)
 {
   conversion *conv;
   void *p;
@@ -4197,8 +4193,7 @@ build_converted_constant_expr (tree type, tree expr, tsubst_flags_t complain)
   p = conversion_obstack_alloc (0);
 
   conv = implicit_conversion (type, TREE_TYPE (expr), expr,
-			      /*c_cast_p=*/false,
-			      LOOKUP_IMPLICIT, complain);
+			      /*c_cast_p=*/false, flags, complain);
 
   /* A converted constant expression of type T is an expression, implicitly
      converted to type T, where the converted expression is a constant
@@ -4299,6 +4294,38 @@ build_converted_constant_expr (tree type, tree expr, tsubst_flags_t complain)
   obstack_free (&conversion_obstack, p);
 
   return expr;
+}
+
+/* Subroutine of convert_nontype_argument.
+
+   EXPR is an expression used in a context that requires a converted
+   constant-expression, such as a template non-type parameter.  Do any
+   necessary conversions (that are permitted for converted
+   constant-expressions) to convert it to the desired type.
+
+   This function doesn't consider explicit conversion functions.  If
+   you mean to use "a contextually converted constant expression of type
+   bool", use build_converted_constant_bool_expr.
+
+   If conversion is successful, returns the converted expression;
+   otherwise, returns error_mark_node.  */
+
+tree
+build_converted_constant_expr (tree type, tree expr, tsubst_flags_t complain)
+{
+  return build_converted_constant_expr_internal (type, expr, LOOKUP_IMPLICIT,
+						 complain);
+}
+
+/* Used to create "a contextually converted constant expression of type
+   bool".  This differs from build_converted_constant_expr in that it
+   also considers explicit conversion functions.  */
+
+tree
+build_converted_constant_bool_expr (tree expr, tsubst_flags_t complain)
+{
+  return build_converted_constant_expr_internal (boolean_type_node, expr,
+						 LOOKUP_NORMAL, complain);
 }
 
 /* Do any initial processing on the arguments to a function call.  */
@@ -7419,7 +7446,8 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 
     case ck_qual:
       /* Warn about deprecated conversion if appropriate.  */
-      string_conv_p (totype, expr, 1);
+      if (complain & tf_warning)
+	string_conv_p (totype, expr, 1);
       break;
 
     case ck_ptr:

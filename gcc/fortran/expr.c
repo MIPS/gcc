@@ -1080,8 +1080,10 @@ is_subref_array (gfc_expr * e)
   for (ref = e->ref; ref; ref = ref->next)
     {
       /* If we haven't seen the array reference and this is an intrinsic,
-	 what follows cannot be a subreference array.  */
+	 what follows cannot be a subreference array, unless there is a
+	 substring reference.  */
       if (!seen_array && ref->type == REF_COMPONENT
+	  && ref->u.c.component->ts.type != BT_CHARACTER
 	  && ref->u.c.component->ts.type != BT_CLASS
 	  && !gfc_bt_struct (ref->u.c.component->ts.type))
 	return false;
@@ -4403,6 +4405,20 @@ gfc_check_assign_symbol (gfc_symbol *sym, gfc_component *comp, gfc_expr *rvalue)
 	{
 	  gfc_error ("Procedure pointer initialization target at %L "
 		     "may not be a procedure pointer", &rvalue->where);
+	  return false;
+	}
+      if (attr.proc == PROC_INTERNAL)
+	{
+	  gfc_error ("Internal procedure %qs is invalid in "
+		     "procedure pointer initialization at %L",
+		     rvalue->symtree->name, &rvalue->where);
+	  return false;
+	}
+      if (attr.dummy)
+	{
+	  gfc_error ("Dummy procedure %qs is invalid in "
+		     "procedure pointer initialization at %L",
+		     rvalue->symtree->name, &rvalue->where);
 	  return false;
 	}
     }
