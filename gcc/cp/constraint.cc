@@ -394,7 +394,7 @@ get_concept_definition (tree decl)
 }
 
 /*---------------------------------------------------------------------------
-		Stepwise normalization of expressions
+		      Normalization of expressions
 
 This set of functions will transform an expression into a constraint
 in a sequence of steps.
@@ -414,19 +414,20 @@ normalize_logical_operation (tree t, tree args, tree_code c, subst_info info)
 }
 
 static tree
-normalize_concept_check (tree check, tree /*args*/, subst_info info)
+normalize_concept_check (tree check, tree args, subst_info info)
 {
   tree id = unpack_concept_check (check);
   tree tmpl = TREE_OPERAND (id, 0);
   tree targs = TREE_OPERAND (id, 1);
 
-  /* FIXME: When is there a difference between args and targs? Do we need
-     to substitute args through targs? Should we ever have non-dependent
-     arguments here? */
-
   /* A function concept is wrapped in an overload.  */
   if (TREE_CODE (tmpl) == OVERLOAD)
     tmpl = OVL_FIRST (tmpl);
+
+  /* Substitute through the check arguments.  */
+  targs = tsubst_template_args (targs, args, info.complain, info.in_decl);
+  if (targs == error_mark_node)
+    return error_mark_node;
 
   /* Build the substitution for the concept definition.  */
   tree parms = TREE_VALUE (DECL_TEMPLATE_PARMS (tmpl));
@@ -2000,7 +2001,10 @@ get_normalized_constraints_from_info (tree ci, tree args, tree in_decl)
 
   /* Substitution errors during normalization are fatal.  */
   subst_info info (tf_warning_or_error, in_decl);
-  return normalize_expression (CI_ASSOCIATED_CONSTRAINTS (ci), args, info);
+  ++processing_template_decl;
+  tree t = normalize_expression (CI_ASSOCIATED_CONSTRAINTS (ci), args, info);
+  --processing_template_decl;
+  return t;
 }
 
 /* Rebuild a template argument list ARGS using INNER as the innermost

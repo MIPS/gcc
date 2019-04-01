@@ -1,3 +1,14 @@
+2019-04-01  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix normalization bug that was causing subsumption errors.
+	* constraint.cc (normalize_concept_check): Substitute through
+	written template arguments before normalizing the definition.
+	(get_normalized_constraints_from_info): Turn on template processing
+	prior to normalization.
+	* cp-tree.h (tsubst_template_args): Make this visible to constraint
+	processing.
+	* pt.c (tsubst_template_args): Same.
+
 2019-01-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Diagnose introduction of non-types.
