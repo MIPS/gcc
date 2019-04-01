@@ -1,5 +1,22 @@
 2019-04-01  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Replace subproblem estimation with an exact count.
+	* logic.cc (distributes_p): Removed; no longer needed.
+	(count_conjunction): Same.
+	(count_disjunction): Same.
+	(count_terms): Same.
+	(add_clamped): Same.
+	(mul_clamped): Same.
+	(disjunction_p): New query for constraints.
+	(conjunction_p): Same.
+	(atomic_p): Same.
+	(dnf_size_r): Recursively count subproblems for a DNF rewrite.
+	(cnf_size_r): Same but for a CNF rewrite.
+	(dnf_size): Rewrite to use new subproblem counts.
+	(cnf_size): Same.
+
+2019-04-01  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Fix normalization bug that was causing subsumption errors.
 	* constraint.cc (normalize_concept_check): Substitute through
 	written template arguments before normalizing the definition.
