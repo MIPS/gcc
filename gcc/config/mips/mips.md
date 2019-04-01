@@ -6583,6 +6583,12 @@
   else
     {
       mips_output_load_label (operands[0]);
+
+      if (TARGET_FIX_I6500)
+       {
+         output_asm_insn ("ehb", NULL);
+       }
+
       if (TARGET_CB_MAYBE)
 	return "%*jr%:\t%@%]";
       else
