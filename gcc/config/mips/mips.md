@@ -1106,7 +1106,8 @@
 
 (define_delay (and (eq_attr "type" "branch")
 		   (not (match_test "TARGET_MIPS16"))
-		   (eq_attr "branch_likely" "yes"))
+		   (eq_attr "branch_likely" "yes")
+                   (not (match_test "TARGET_FIX_I6500")))
   [(eq_attr "can_delay" "yes")
    (nil)
    (eq_attr "can_delay" "yes")])
@@ -1119,7 +1120,8 @@
 			(and (eq_attr "compact_form" "maybe")
 			     (not (match_test "TARGET_CB_ALWAYS")))
 			(eq_attr "compact_form" "never"))
-		   (eq_attr "branch_likely" "no"))
+		   (eq_attr "branch_likely" "no")
+                   (not (match_test "TARGET_FIX_I6500")))
   [(eq_attr "can_delay" "yes")
    (nil)
    (nil)])
@@ -1128,7 +1130,8 @@
 		   (ior (match_test "TARGET_CB_NEVER")
 			(and (eq_attr "compact_form" "maybe")
 			     (not (match_test "TARGET_CB_ALWAYS")))
-			(eq_attr "compact_form" "never")))
+			(eq_attr "compact_form" "never"))
+              (not (match_test "TARGET_FIX_I6500")))
   [(eq_attr "can_delay" "yes")
    (nil)
    (nil)])
@@ -1138,10 +1141,11 @@
 ;; branch detection condition in anyway.
 (define_delay (and (eq_attr "type" "call")
 		   (eq_attr "jal_macro" "no")
-		   (ior (match_test "TARGET_CB_NEVER")
+		   (and (ior (match_test "TARGET_CB_NEVER")
 			(and (eq_attr "compact_form" "maybe")
 			     (not (match_test "TARGET_CB_ALWAYS")))
-			(eq_attr "compact_form" "never")))
+			(eq_attr "compact_form" "never"))
+              (not (match_test "TARGET_FIX_I6500"))))
   [(eq_attr "can_delay" "yes")
    (nil)
    (nil)])
@@ -6583,6 +6587,18 @@
   else
     {
       mips_output_load_label (operands[0]);
+
+      if (TARGET_FIX_I6500)
+       {
+        gcc_assert (final_sequence);
+        if (recog_memoized (final_sequence->insn (1))
+             == CODE_FOR_hazard_nop)
+         {
+           PATTERN (final_sequence->insn (1)) = gen_mips_ehb ();
+           INSN_CODE (final_sequence->insn (1)) = CODE_FOR_mips_ehb;
+         }
+       }
+
       if (TARGET_CB_MAYBE)
 	return "%*jr%:\t%@%]";
       else

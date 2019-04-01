@@ -175,7 +175,7 @@ static int *consumer_luid = NULL;
    available use JALR $0, DEST.  */
 #define MIPS_JR(DEST) \
   (TARGET_CB_ALWAYS ? ((0x1b << 27) | ((DEST) << 16)) \
-		    : (((DEST) << 21) | (ISA_HAS_JR ? 0x8 : 0x9)))
+		    : ((((DEST) << 21) | (ISA_HAS_JR ? 0x8 : 0x9)) | TARGET_FIX_I6500 << 10))
 
 /* Return the opcode for:
 
@@ -185,6 +185,8 @@ static int *consumer_luid = NULL;
 
 /* Return the usual opcode for a nop.  */
 #define MIPS_NOP 0
+
+#define MIPS_EHB 0xc0
 
 /* Classifies an address.
 
@@ -3907,7 +3909,7 @@ mips_idiv_insns (machine_mode mode)
       if (GENERATE_DIVIDE_TRAPS && !MSA_SUPPORTED_MODE_P (mode))
         count++;
       else
-        count += 2;
+        count += TARGET_FIX_I6500 ? 3 : 2;
     }
 
   if (TARGET_FIX_R4000 || TARGET_FIX_R4400)
@@ -15092,6 +15094,17 @@ mips_output_conditional_branch (rtx_insn *insn, rtx *operands,
   operands[0] = not_taken;
   output_asm_insn (branch_if_false, operands);
 
+  if (TARGET_FIX_I6500)
+   {
+    gcc_assert (final_sequence);
+    if (recog_memoized (final_sequence->insn (1))
+         == CODE_FOR_hazard_nop)
+     {
+       PATTERN (final_sequence->insn (1)) = gen_mips_ehb ();
+       INSN_CODE (final_sequence->insn (1)) = CODE_FOR_mips_ehb;
+     }
+   }
+
   /* If INSN has a delay slot, we must provide delay slots for both the
      branch to NOT_TAKEN and the conditional jump.  We must also ensure
      that INSN's delay slot is executed in the appropriate cases.  */
@@ -15143,6 +15156,8 @@ mips_output_conditional_branch (rtx_insn *insn, rtx *operands,
 			   asm_out_file, optimize, 1, NULL);
 	  final_sequence->insn (1)->set_deleted ();
 	}
+      else if (TARGET_FIX_I6500)
+        output_asm_insn ("ehb", 0);
       else if (TARGET_CB_NEVER)
 	output_asm_insn ("nop", 0);
       fprintf (asm_out_file, "\n");
@@ -15506,14 +15521,19 @@ mips_process_sync_loop (rtx_insn *insn, rtx *operands)
 			       at, oldval, inclusive_mask, NULL);
 	  tmp1 = at;
 	}
-      if (TARGET_CB_NEVER)
+      if (TARGET_CB_NEVER && !TARGET_FIX_I6500)
 	mips_multi_add_insn ("bne\t%0,%z1,2f", tmp1, required_oldval, NULL);
 
       /* CMP = 0 [delay slot].  */
       if (cmp)
         mips_multi_add_insn ("li\t%0,0", cmp, NULL);
 
-      if (TARGET_CB_MAYBE && required_oldval == const0_rtx)
+      if (TARGET_FIX_I6500)
+       {
+          mips_multi_add_insn ("bne\t%0,%z1,2f", tmp1, required_oldval, NULL);
+          mips_multi_add_insn ("ehb", NULL);
+       }
+      else if (TARGET_CB_MAYBE && required_oldval == const0_rtx)
 	mips_multi_add_insn ("bnezc\t%0,2f", tmp1, NULL);
       else if (TARGET_CB_MAYBE)
 	mips_multi_add_insn ("bnec\t%0,%1,2f", tmp1, required_oldval, NULL);
@@ -15580,7 +15600,14 @@ mips_process_sync_loop (rtx_insn *insn, rtx *operands)
      be annulled.  To ensure this behavior unconditionally use a NOP
      in the delay slot for the branch likely case.  */
 
-  if (TARGET_CB_MAYBE)
+   gcc_assert(!TARGET_FIX_I6500 || !mips_branch_likely);
+
+  if (TARGET_FIX_I6500)
+   {
+     mips_multi_add_insn ("beq\t%0,%.,1b", at, NULL);
+     mips_multi_add_insn ("ehb", NULL);
+   }
+  else if (TARGET_CB_MAYBE)
     mips_multi_add_insn ("beqzc\t%0,1b", at, NULL);
   else
     mips_multi_add_insn ("beq%?\t%0,%.,1b%~", at, NULL);
@@ -15751,6 +15778,9 @@ mips_output_division (const char *division, rtx *operands)
     }
   if (TARGET_CHECK_ZERO_DIV)
     {
+
+      gcc_assert (GENERATE_DIVIDE_TRAPS || !TARGET_FIX_I6500);
+
       if (TARGET_MIPS16)
 	{
 	  output_asm_insn (s, operands);
@@ -15798,9 +15828,18 @@ mips_msa_output_division (const char *division, rtx *operands)
   s = division;
   if (TARGET_CHECK_ZERO_DIV)
     {
-      output_asm_insn ("%(bnz.%v0\t%w2,1f", operands);
-      output_asm_insn (s, operands);
-      s = "break\t7%)\n1:";
+      if (!TARGET_FIX_I6500)
+       {
+        output_asm_insn ("%(bnz.%v0\t%w2,1f", operands);
+        output_asm_insn (s, operands);
+        s = "break\t7%)\n1:";
+       }
+      else
+       {
+        output_asm_insn ("%(%<bnz.%v0\t%w2,1f", operands);
+        output_asm_insn ("ehb%>", NULL);
+        output_asm_insn ("break\t7%)\n1:", NULL);
+       }
     }
   return s;
 }
@@ -20519,6 +20558,119 @@ mips_break_sequence (rtx_insn *insn)
   return ds;
 }
 
+static rtx_insn *
+mips_make_sequence (rtx_insn *insn, rtx pat)
+{
+  rtx seq = gen_rtx_SEQUENCE (VOIDmode, rtvec_alloc (2));
+  rtx_insn *seq_insn = make_insn_raw (seq);
+  INSN_LOCATION (seq_insn) = INSN_LOCATION (insn);
+  rtx_insn *after = PREV_INSN (insn);
+  remove_insn (insn);
+  SET_NEXT_INSN (insn) = SET_PREV_INSN (insn) = NULL;
+
+  start_sequence ();
+  XVECEXP (seq, 0, 0) = emit_insn (insn);
+  XVECEXP (seq, 0, 1) = emit_insn (pat);
+  end_sequence ();
+
+  add_insn_after (seq_insn, after, NULL);
+  return seq_insn;
+}
+
+static bool
+mips_check_i6500_hazard (rtx_insn *insn, int limit)
+{
+  int count = 0;
+  rtx_insn* subinsn;
+
+  for (; insn; insn = NEXT_INSN (insn))
+    FOR_EACH_SUBINSN (subinsn, insn)
+      {
+       if (!USEFUL_INSN_P (subinsn))
+         continue;
+
+       if (JUMP_TABLE_DATA_P (subinsn))
+         continue;
+
+       int length = get_attr_length (insn);
+       if (!length)
+         continue;
+
+       rtx pattern = PATTERN (subinsn);
+
+       if (GET_CODE (pattern) == ASM_INPUT
+           || asm_noperands (pattern) >= 0)
+         return true;
+
+       if (JUMP_P (subinsn))
+         return true;
+
+       if (CALL_P (subinsn))
+         return true;
+
+       if (TARGET_CHECK_ZERO_DIV &&
+           get_attr_type(insn) == TYPE_SIMD_DIV)
+         return true;
+
+       count += length / 4;
+
+       if (count >= limit)
+         return false;
+      }
+  return true;
+}
+
+static void
+mips_reorg_fix_i6500 (void)
+{
+  if (!TARGET_FIX_I6500)
+   return;
+
+  rtx_insn *insn, *target, *next_insn;
+
+  for (insn = get_insns (); insn != 0; insn = next_insn)
+  {
+    next_insn = NEXT_INSN (insn);
+
+    if (!USEFUL_INSN_P (insn))
+      continue;
+
+    switch (get_attr_type (SEQ_BEGIN (insn)))
+      {
+       case TYPE_BRANCH:
+         break;
+       case TYPE_JUMP:
+       case TYPE_CALL:
+         /* Can't check the target. Allways use EHB.  */
+         insn = mips_make_sequence (insn, gen_mips_ehb ());
+         /* Fall through.  */
+       default:
+         continue;
+      }
+
+    target =  next_active_insn (JUMP_LABEL (SEQ_BEGIN (insn)));
+
+    int search_limit = mips_fix_i6500_path_length;
+
+    gcc_assert (TARGET_CB_NEVER);
+
+    if (search_limit > 0)
+      search_limit -= 1;
+
+    bool safe = (search_limit == 0) ||
+                (!mips_check_i6500_hazard (next_insn, search_limit)
+                 && !mips_check_i6500_hazard (target, search_limit));
+
+    gcc_assert (GET_CODE (PATTERN (insn)) != SEQUENCE);
+
+    insn = mips_make_sequence (insn,
+                               !safe ? gen_mips_ehb () :
+                                       gen_hazard_nop ());
+
+    }
+}
+
+
 /* Go through the instruction stream and insert nops where necessary.
    Also delete any high-part relocations whose partnering low parts
    are now all dead.  See if the whole function can then be put into
@@ -20997,6 +21149,7 @@ mips_machine_reorg2 (void)
     mips_reorg_process_insns ();
   mips16_split_long_branches ();
   mips_insert_insn_pseudos ();
+  mips_reorg_fix_i6500 ();
   return 0;
 }
 
@@ -22063,6 +22216,18 @@ mips_option_override (void)
          will be produced.  */
       target_flags |= MASK_ODD_SPREG;
     }
+
+  if (mips_isa_rev < 6 || TARGET_MICROMIPS)
+    TARGET_FIX_I6500 = 0;
+
+  if (TARGET_FIX_I6500)
+   {
+     /* Override -mcompact-branches=..  */
+     mips_cb = MIPS_CB_NEVER;
+     /* Disable delay slot filler.  */
+     flag_delayed_branch = 0;
+   }
+
 
   if (!ISA_HAS_COMPACT_BRANCHES && mips_cb == MIPS_CB_ALWAYS)
     {
@@ -23394,7 +23559,7 @@ mips_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
 	where 12 is the offset of "1:" from the start of the code block.  */
       trampoline[i++] = OP (MIPS_MOVE (AT_REGNUM, RETURN_ADDR_REGNUM));
       trampoline[i++] = OP (MIPS_BAL (1));
-      trampoline[i++] = OP (MIPS_NOP);
+      trampoline[i++] = OP (TARGET_FIX_I6500 ? MIPS_EHB : MIPS_NOP);
       trampoline[i++] = OP (MIPS_LOAD_PTR (PIC_FUNCTION_ADDR_REGNUM,
 					   target_function_offset - 12,
 					   RETURN_ADDR_REGNUM));
