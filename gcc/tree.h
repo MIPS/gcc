@@ -4961,17 +4961,6 @@ type_size_known_constant_p (const_tree type)
   return TYPE_SIZE (type) && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST;
 }
 
-/* Return true if the argument is a complete type or an array
-   of unknown bound (whose type is incomplete but) whose elements
-   have complete type.  */
-static inline bool
-complete_or_array_type_p (const_tree type)
-{
-  return COMPLETE_TYPE_P (type)
-         || (TREE_CODE (type) == ARRAY_TYPE
-	     && COMPLETE_TYPE_P (TREE_TYPE (type)));
-}
-
 /* Return true if the value of T could be represented as a poly_widest_int.  */
 
 inline bool

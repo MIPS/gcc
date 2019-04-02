@@ -7778,6 +7778,17 @@ null_node_p (const_tree expr)
   return expr == null_node;
 }
 
+/* Return true if the argument is a complete type or an array
+   of unknown bound (whose type is incomplete but) whose elements
+   have complete type.  */
+static inline bool
+complete_or_array_type_p (const_tree type)
+{
+  return COMPLETE_TYPE_P (type)
+         || (TREE_CODE (type) == ARRAY_TYPE
+	     && COMPLETE_TYPE_P (TREE_TYPE (type)));
+}
+
 #if CHECKING_P
 namespace selftest {
   extern void run_cp_tests (void);
