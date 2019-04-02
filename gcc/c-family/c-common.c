@@ -6731,10 +6731,7 @@ speculation_safe_value_resolve_call (tree function, vec<tree, va_gc> *params)
   if (POINTER_TYPE_P (type))
     return BUILT_IN_SPECULATION_SAFE_VALUE_PTR;
 
-  if (!INTEGRAL_TYPE_P (type))
-    goto incompatible;
-
-  if (!COMPLETE_TYPE_P (type))
+  if (!complete_integral_type_p (type))
     goto incompatible;
 
   size = tree_to_uhwi (TYPE_SIZE_UNIT (type));
@@ -6851,10 +6848,7 @@ sync_resolve_size (tree function, vec<tree, va_gc> *params, bool fetch)
     goto incompatible;
 
   type = TREE_TYPE (type);
-  if (!INTEGRAL_TYPE_P (type) && !POINTER_TYPE_P (type))
-    goto incompatible;
-
-  if (!COMPLETE_TYPE_P (type))
+  if (!complete_integral_type_p (type) && !POINTER_TYPE_P (type))
     goto incompatible;
 
   if (fetch && TREE_CODE (type) == BOOLEAN_TYPE)

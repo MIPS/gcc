@@ -1472,15 +1472,12 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
   /* As an extension, allow conversion to complex type.  */
   else if (ARITHMETIC_TYPE_P (to))
     {
-      if (! (INTEGRAL_CODE_P (fcode)
-	     || (fcode == REAL_TYPE && !(flags & LOOKUP_NO_NON_INTEGRAL)))
-          || SCOPED_ENUM_P (from))
-	return NULL;
-
       /* If we're parsing an enum with no fixed underlying type, we're
 	 dealing with an incomplete type, which renders the conversion
 	 ill-formed.  */
-      if (!COMPLETE_TYPE_P (from))
+      if (! (complete_integral_type_p (from)
+	     || (fcode == REAL_TYPE && !(flags & LOOKUP_NO_NON_INTEGRAL)))
+          || SCOPED_ENUM_P (from))
 	return NULL;
 
       conv = build_conv (ck_std, to, conv);
@@ -7734,8 +7731,7 @@ type_passed_as (tree type)
       type = cp_build_qualified_type (type, TYPE_QUAL_RESTRICT);
     }
   else if (targetm.calls.promote_prototypes (NULL_TREE)
-	   && INTEGRAL_TYPE_P (type)
-	   && COMPLETE_TYPE_P (type)
+	   && complete_integral_type_p (type)
 	   && tree_int_cst_lt (TYPE_SIZE (type), TYPE_SIZE (integer_type_node)))
     type = integer_type_node;
 
@@ -7774,8 +7770,7 @@ convert_for_arg_passing (tree type, tree val, tsubst_flags_t complain)
   else if (TREE_ADDRESSABLE (type))
     val = build1 (ADDR_EXPR, build_reference_type (type), val);
   else if (targetm.calls.promote_prototypes (NULL_TREE)
-	   && INTEGRAL_TYPE_P (type)
-	   && COMPLETE_TYPE_P (type)
+	   && complete_integral_type_p (type)
 	   && tree_int_cst_lt (TYPE_SIZE (type), TYPE_SIZE (integer_type_node)))
     val = cp_perform_integral_promotions (val, complain);
   if (complain & tf_warning)

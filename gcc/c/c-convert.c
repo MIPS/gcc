@@ -112,7 +112,7 @@ convert (tree type, tree expr)
       if (sanitize_flags_p (SANITIZE_FLOAT_CAST)
 	  && current_function_decl != NULL_TREE
 	  && TREE_CODE (TREE_TYPE (expr)) == REAL_TYPE
-	  && COMPLETE_TYPE_P (type))
+	  && complete_integral_type_p (type))
 	{
 	  expr = save_expr (expr);
 	  expr = c_fully_fold (expr, false, NULL);

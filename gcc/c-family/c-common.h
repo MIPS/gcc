@@ -1388,6 +1388,15 @@ extern tree braced_lists_to_strings (tree, tree);
 
 extern bool has_attribute (location_t, tree, tree, tree (*)(tree));
 
+/* Return true if T is a complete integral type; i.e. if it is an integral
+   type that is not an incomplete enum.  */
+
+inline bool
+complete_integral_type_p (const_tree t)
+{
+  return INTEGRAL_TYPE_P (t) && COMPLETE_TYPE_P (t);
+}
+
 #if CHECKING_P
 namespace selftest {
   /* Declarations for specific families of tests within c-family,
