@@ -11058,7 +11058,8 @@ c_process_expr_stmt (location_t loc, tree expr)
     verify_sequence_points (expr);
 
   if (TREE_TYPE (expr) != error_mark_node
-      && !COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (expr))
+      /* Statement expressions can have sizeless type.  */
+      && !defined_or_void_type_p (TREE_TYPE (expr))
       && TREE_CODE (TREE_TYPE (expr)) != ARRAY_TYPE)
     error_at (loc, "expression statement has incomplete type");
 

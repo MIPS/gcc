@@ -1451,6 +1451,15 @@ array_of_complete_type_p (const_tree type)
 	  && COMPLETE_TYPE_P (TREE_TYPE (type)));
 }
 
+/* Return true if type TYPE has been fully defined (as for DEFINED_TYPE_P)
+   or if TYPE is "void", and thus will never be defined.  */
+
+inline bool
+defined_or_void_type_p (const_tree type)
+{
+  return DEFINED_TYPE_P (type) || VOID_TYPE_P (type);
+}
+
 #if CHECKING_P
 namespace selftest {
   /* Declarations for specific families of tests within c-family,

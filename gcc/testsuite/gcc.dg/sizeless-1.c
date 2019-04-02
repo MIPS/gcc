@@ -46,4 +46,8 @@ statements (int n)
   /* Generic associations.  */
 
   _Generic (ta1, default: 100);
+
+  /* Statement expressions.  */
+
+  ({ ta1; });
 }
