@@ -12517,11 +12517,10 @@ grokdeclarator (const cp_declarator *declarator,
 	  }
 	else if (!staticp && !dependent_type_p (type)
 		 && !COMPLETE_TYPE_P (complete_type (type))
-		 && (!complete_or_array_type_p (type)
+		 && (!array_of_complete_type_p (type)
 		     || initialized == 0))
 	  {
-	    if (TREE_CODE (type) != ARRAY_TYPE
-		|| !COMPLETE_TYPE_P (TREE_TYPE (type)))
+	    if (!array_of_complete_type_p (type))
 	      {
 		if (unqualified_id)
 		  {

@@ -420,10 +420,9 @@ build_value_init_noctor (tree type, tsubst_flags_t complain)
 		continue;
 
 	      /* Ignore flexible array members for value initialization.  */
-	      if (TREE_CODE (ftype) == ARRAY_TYPE
+	      if (array_of_complete_type_p (ftype)
 		  && !COMPLETE_TYPE_P (ftype)
 		  && !TYPE_DOMAIN (ftype)
-		  && COMPLETE_TYPE_P (TREE_TYPE (ftype))
 		  && (next_initializable_field (DECL_CHAIN (field))
 		      == NULL_TREE))
 		continue;

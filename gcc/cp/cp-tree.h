@@ -7784,9 +7784,7 @@ null_node_p (const_tree expr)
 static inline bool
 complete_or_array_type_p (const_tree type)
 {
-  return COMPLETE_TYPE_P (type)
-         || (TREE_CODE (type) == ARRAY_TYPE
-	     && COMPLETE_TYPE_P (TREE_TYPE (type)));
+  return COMPLETE_TYPE_P (type) || array_of_complete_type_p (type);
 }
 
 #if CHECKING_P

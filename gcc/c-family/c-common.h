@@ -1406,6 +1406,15 @@ array_of_incomplete_type_p (const_tree type)
 	  && !COMPLETE_TYPE_P (TREE_TYPE (type)));
 }
 
+/* Return true if TYPE is an array with a complete element type.  */
+
+static inline bool
+array_of_complete_type_p (const_tree type)
+{
+  return (TREE_CODE (type) == ARRAY_TYPE
+	  && COMPLETE_TYPE_P (TREE_TYPE (type)));
+}
+
 #if CHECKING_P
 namespace selftest {
   /* Declarations for specific families of tests within c-family,

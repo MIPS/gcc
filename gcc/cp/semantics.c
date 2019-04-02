@@ -9709,8 +9709,7 @@ check_trait_type (tree type)
     return (check_trait_type (TREE_VALUE (type))
 	    && check_trait_type (TREE_CHAIN (type)));
 
-  if (TREE_CODE (type) == ARRAY_TYPE && !TYPE_DOMAIN (type)
-      && COMPLETE_TYPE_P (TREE_TYPE (type)))
+  if (array_of_complete_type_p (type) && !TYPE_DOMAIN (type))
     return true;
 
   if (VOID_TYPE_P (type))
