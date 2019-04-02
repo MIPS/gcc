@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "stringpool.h"
 #include "tree.h"
+#include "c-common.h"
 #include "c-ada-spec.h"
 #include "fold-const.h"
 #include "c-pragma.h"

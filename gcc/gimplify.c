@@ -13287,7 +13287,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 
 	  *expr_p = NULL;
 	}
-      else if (COMPLETE_TYPE_P (TREE_TYPE (*expr_p))
+      else if (TYPE_LAID_OUT_P (TREE_TYPE (*expr_p))
 	       && TYPE_MODE (TREE_TYPE (*expr_p)) != BLKmode)
 	{
 	  /* Historically, the compiler has treated a bare reference

@@ -594,7 +594,7 @@ bool
 lhd_omp_mappable_type (tree type)
 {
   /* Mappable type has to be complete.  */
-  if (type == error_mark_node || !COMPLETE_TYPE_P (type))
+  if (type == error_mark_node || !TYPE_LAID_OUT_P (type))
     return false;
   return true;
 }

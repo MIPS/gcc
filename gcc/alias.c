@@ -915,7 +915,7 @@ get_alias_set (tree t)
     return TYPE_ALIAS_SET (t);
 
   /* We don't want to set TYPE_ALIAS_SET for incomplete types.  */
-  if (!COMPLETE_TYPE_P (t))
+  if (!TYPE_LAID_OUT_P (t))
     {
       /* For arrays with unknown size the conservative answer is the
 	 alias set of the element type.  */
@@ -998,7 +998,7 @@ get_alias_set (tree t)
       for (p = t; POINTER_TYPE_P (p)
 	   || (TREE_CODE (p) == ARRAY_TYPE
 	       && (!TYPE_NONALIASED_COMPONENT (p)
-		   || !COMPLETE_TYPE_P (p)
+		   || !TYPE_LAID_OUT_P (p)
 		   || TYPE_STRUCTURAL_EQUALITY_P (p)))
 	   || TREE_CODE (p) == VECTOR_TYPE;
 	   p = TREE_TYPE (p))

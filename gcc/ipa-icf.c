@@ -1530,7 +1530,7 @@ sem_item::add_type (const_tree type, inchash::hash &hstate)
   else if (RECORD_OR_UNION_TYPE_P (type))
     {
       /* Incomplete types must be skipped here.  */
-      if (!COMPLETE_TYPE_P (type))
+      if (!TYPE_LAID_OUT_P (type))
 	{
 	  hstate.add_int (RECORD_TYPE);
 	  return;

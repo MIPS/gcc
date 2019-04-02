@@ -2126,7 +2126,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, bool definition)
 	   Var are also built later with the fields of the final type, the
 	   aliasing machinery may consider that the accesses are distinct
 	   if the FIELD_DECLs are distinct as objects.  */
-	if (COMPLETE_TYPE_P (gnu_fat_type))
+	if (TYPE_LAID_OUT_P (gnu_fat_type))
 	  {
 	    tem = TYPE_FIELDS (gnu_fat_type);
 	    TREE_TYPE (tem) = ptr_type_node;

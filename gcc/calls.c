@@ -1962,7 +1962,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
       machine_mode mode;
 
       /* Replace erroneous argument with constant zero.  */
-      if (type == error_mark_node || !COMPLETE_TYPE_P (type))
+      if (type == error_mark_node || !TYPE_LAID_OUT_P (type))
 	args[i].tree_value = integer_zero_node, type = integer_type_node;
 
       /* If TYPE is a transparent union or record, pass things the way

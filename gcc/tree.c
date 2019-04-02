@@ -5172,7 +5172,7 @@ fld_type_variant_equal_p (tree t, tree v, tree inner_type)
   if (TYPE_QUALS (t) != TYPE_QUALS (v)
       /* We want to match incomplete variants with complete types.
 	 In this case we need to ignore alignment.   */
-      || ((!RECORD_OR_UNION_TYPE_P (t) || COMPLETE_TYPE_P (v))
+      || ((!RECORD_OR_UNION_TYPE_P (t) || TYPE_LAID_OUT_P (v))
 	  && (TYPE_ALIGN (t) != TYPE_ALIGN (v)
 	      || TYPE_USER_ALIGN (t) != TYPE_USER_ALIGN (v)))
       || fld_simplified_type_name (t) != fld_simplified_type_name (v)
@@ -5207,7 +5207,7 @@ fld_type_variant (tree first, tree t, struct free_lang_data_d *fld,
   TYPE_CANONICAL (v) = TYPE_CANONICAL (t);
   /* Variants of incomplete types should have alignment 
      set to BITS_PER_UNIT.  Do not copy the actual alignment.  */
-  if (!RECORD_OR_UNION_TYPE_P (v) || COMPLETE_TYPE_P (v))
+  if (!RECORD_OR_UNION_TYPE_P (v) || TYPE_LAID_OUT_P (v))
     {
       SET_TYPE_ALIGN (v, TYPE_ALIGN (t));
       TYPE_USER_ALIGN (v) = TYPE_USER_ALIGN (t);
@@ -5311,7 +5311,7 @@ fld_incomplete_type_of (tree t, struct free_lang_data_d *fld)
 				   fld_incomplete_type_of (TREE_TYPE (t), fld),
 				   fld_incomplete_types, fld);
   if ((!RECORD_OR_UNION_TYPE_P (t) && TREE_CODE (t) != ENUMERAL_TYPE)
-      || !COMPLETE_TYPE_P (t))
+      || !TYPE_LAID_OUT_P (t))
     return t;
   if (TYPE_MAIN_VARIANT (t) == t)
     {
@@ -6915,7 +6915,7 @@ type_cache_hasher::equal (type_hash *a, type_hash *b)
   /* Be careful about comparing arrays before and after the element type
      has been completed; don't compare TYPE_ALIGN unless both types are
      complete.  */
-  if (COMPLETE_TYPE_P (a->type) && COMPLETE_TYPE_P (b->type)
+  if (TYPE_LAID_OUT_P (a->type) && TYPE_LAID_OUT_P (b->type)
       && (TYPE_ALIGN (a->type) != TYPE_ALIGN (b->type)
 	  || TYPE_MODE (a->type) != TYPE_MODE (b->type)))
     return 0;
@@ -8797,7 +8797,7 @@ build_complex_type (tree component_type, bool named)
       /* We created a new type.  The hash insertion will have laid
 	 out the type.  We need to check the canonicalization and
 	 maybe set the name.  */
-      gcc_checking_assert (COMPLETE_TYPE_P (t)
+      gcc_checking_assert (TYPE_LAID_OUT_P (t)
 			   && !TYPE_NAME (t)
 			   && TYPE_CANONICAL (t) == t);
 
@@ -13817,12 +13817,12 @@ verify_type_variant (const_tree t, tree tv)
   else
     verify_variant_match (TYPE_SATURATING);
   /* FIXME: This check trigger during libstdc++ build.  */
-  if (RECORD_OR_UNION_TYPE_P (t) && COMPLETE_TYPE_P (t) && 0)
+  if (RECORD_OR_UNION_TYPE_P (t) && TYPE_LAID_OUT_P (t) && 0)
     verify_variant_match (TYPE_FINAL_P);
 
   /* tree_type_common checks.  */
 
-  if (COMPLETE_TYPE_P (t))
+  if (TYPE_LAID_OUT_P (t))
     {
       verify_variant_match (TYPE_MODE);
       if (TREE_CODE (TYPE_SIZE (t)) != PLACEHOLDER_EXPR
@@ -13875,7 +13875,7 @@ verify_type_variant (const_tree t, tree tv)
       debug_tree (tv);
       return false;
     }
-  if ((TREE_CODE (t) == ENUMERAL_TYPE && COMPLETE_TYPE_P (t))
+  if ((TREE_CODE (t) == ENUMERAL_TYPE && TYPE_LAID_OUT_P (t))
        || TREE_CODE (t) == INTEGER_TYPE
        || TREE_CODE (t) == BOOLEAN_TYPE
        || TREE_CODE (t) == REAL_TYPE
@@ -13894,7 +13894,7 @@ verify_type_variant (const_tree t, tree tv)
      or even type's main variant.  This is needed to make bootstrap pass
      and the bug seems new in GCC 5.
      C++ FE should be updated to make this consistent and we should check
-     that TYPE_BINFO is always NULL for !COMPLETE_TYPE_P and otherwise there
+     that TYPE_BINFO is always NULL for !TYPE_LAID_OUT_P and otherwise there
      is a match with main variant.
 
      Also disable the check for Java for now because of parser hack that builds
@@ -13925,7 +13925,7 @@ verify_type_variant (const_tree t, tree tv)
   /* Permit incomplete variants of complete type.  While FEs may complete
      all variants, this does not happen for C++ templates in all cases.  */
   else if (RECORD_OR_UNION_TYPE_P (t)
-	   && COMPLETE_TYPE_P (t)
+	   && TYPE_LAID_OUT_P (t)
 	   && TYPE_FIELDS (t) != TYPE_FIELDS (tv))
     {
       tree f1, f2;
@@ -14227,7 +14227,7 @@ gimple_canonical_types_compatible_p (const_tree t1, const_tree t2,
 
 	/* Don't try to compare variants of an incomplete type, before
 	   TYPE_FIELDS has been copied around.  */
-	if (!COMPLETE_TYPE_P (t1) && !COMPLETE_TYPE_P (t2))
+	if (!TYPE_LAID_OUT_P (t1) && !TYPE_LAID_OUT_P (t2))
 	  return true;
 
 
@@ -14319,14 +14319,14 @@ verify_type (const_tree t)
 	      gimplified to different variables.  */
 	   && !variably_modified_type_p (ct, NULL)
 	   && !gimple_canonical_types_compatible_p (t, ct, false)
-	   && COMPLETE_TYPE_P (t))
+	   && TYPE_LAID_OUT_P (t))
     {
       error ("TYPE_CANONICAL is not compatible");
       debug_tree (ct);
       error_found = true;
     }
 
-  if (COMPLETE_TYPE_P (t) && TYPE_CANONICAL (t)
+  if (TYPE_LAID_OUT_P (t) && TYPE_CANONICAL (t)
       && TYPE_MODE (t) != TYPE_MODE (TYPE_CANONICAL (t)))
     {
       error ("TYPE_MODE of TYPE_CANONICAL is not compatible");
@@ -14500,7 +14500,7 @@ verify_type (const_tree t)
     }
   else if (RECORD_OR_UNION_TYPE_P (t))
     {
-      if (TYPE_FIELDS (t) && !COMPLETE_TYPE_P (t) && in_lto_p)
+      if (TYPE_FIELDS (t) && !TYPE_LAID_OUT_P (t) && in_lto_p)
 	{
 	  error ("TYPE_FIELDS defined in incomplete type");
 	  error_found = true;

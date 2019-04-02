@@ -2578,7 +2578,7 @@ create_function_arglist (gfc_symbol * sym)
 	  && TREE_CODE (type) == POINTER_TYPE
 	  && GFC_ARRAY_TYPE_P (type)
 	  && f->sym->as->type != AS_ASSUMED_SIZE
-	  && ! COMPLETE_TYPE_P (TREE_TYPE (type)))
+	  && ! TYPE_LAID_OUT_P (TREE_TYPE (type)))
 	{
 	  if (f->sym->attr.flavor == FL_PROCEDURE)
 	    type = build_pointer_type (gfc_get_function_type (f->sym));

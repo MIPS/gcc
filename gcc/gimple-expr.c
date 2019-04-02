@@ -474,7 +474,7 @@ create_tmp_var (tree type, const char *prefix)
      The processing for variable sizes is performed in gimple_add_tmp_var,
      point at which it really matters and possibly reached via paths not going
      through this function, e.g. after direct calls to create_tmp_var_raw.  */
-  gcc_assert (!TREE_ADDRESSABLE (type) && COMPLETE_TYPE_P (type));
+  gcc_assert (!TREE_ADDRESSABLE (type) && TYPE_LAID_OUT_P (type));
 
   tmp_var = create_tmp_var_raw (type, prefix);
   gimple_add_tmp_var (tmp_var);

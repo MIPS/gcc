@@ -625,7 +625,7 @@ void
 set_type_binfo (tree type, tree binfo)
 {
   for (; type; type = TYPE_NEXT_VARIANT (type))
-    if (COMPLETE_TYPE_P (type))
+    if (TYPE_LAID_OUT_P (type))
       TYPE_BINFO (type) = binfo;
     else
       gcc_assert (!TYPE_BINFO (type));
@@ -644,7 +644,7 @@ type_variants_equivalent_p (tree t1, tree t2)
   if (comp_type_attributes (t1, t2) != 1)
     return false;
 
-  if (COMPLETE_TYPE_P (t1) && COMPLETE_TYPE_P (t2)
+  if (TYPE_LAID_OUT_P (t1) && TYPE_LAID_OUT_P (t2)
       && TYPE_ALIGN (t1) != TYPE_ALIGN (t2))
     return false;
 
@@ -1198,7 +1198,7 @@ warn_types_mismatch (tree t1, tree t2, location_t loc1, location_t loc2)
       if (TREE_CODE (t1) == TREE_CODE (t2))
 	{
 	  if (TREE_CODE (t1) == ARRAY_TYPE
-	      && COMPLETE_TYPE_P (t1) && COMPLETE_TYPE_P (t2))
+	      && TYPE_LAID_OUT_P (t1) && TYPE_LAID_OUT_P (t2))
 	    {
 	      tree i1 = TYPE_DOMAIN (t1);
 	      tree i2 = TYPE_DOMAIN (t2);
@@ -1527,7 +1527,7 @@ odr_types_equivalent_p (tree t1, tree t2, bool warn, bool *warned,
 	tree f1, f2;
 
 	/* For aggregate types, all the fields must be the same.  */
-	if (COMPLETE_TYPE_P (t1) && COMPLETE_TYPE_P (t2))
+	if (TYPE_LAID_OUT_P (t1) && TYPE_LAID_OUT_P (t2))
 	  {
 	    if (TYPE_BINFO (t1) && TYPE_BINFO (t2)
 	        && polymorphic_type_binfo_p (TYPE_BINFO (t1))
@@ -1706,13 +1706,13 @@ add_type_duplicate (odr_type val, tree type)
       build_bases = true;
     }
   /* Always prefer complete type to be the leader.  */
-  else if (!COMPLETE_TYPE_P (val->type) && COMPLETE_TYPE_P (type))
+  else if (!TYPE_LAID_OUT_P (val->type) && TYPE_LAID_OUT_P (type))
     {
       prevail = true;
       if (TREE_CODE (type) == RECORD_TYPE)
         build_bases = TYPE_BINFO (type);
     }
-  else if (COMPLETE_TYPE_P (val->type) && !COMPLETE_TYPE_P (type))
+  else if (TYPE_LAID_OUT_P (val->type) && !TYPE_LAID_OUT_P (type))
     ;
   else if (TREE_CODE (val->type) == ENUMERAL_TYPE
 	   && TREE_CODE (type) == ENUMERAL_TYPE
@@ -1749,7 +1749,7 @@ add_type_duplicate (odr_type val, tree type)
   vec_safe_push (val->types, type);
 
   /* If both are class types, compare the bases.  */
-  if (COMPLETE_TYPE_P (type) && COMPLETE_TYPE_P (val->type)
+  if (TYPE_LAID_OUT_P (type) && TYPE_LAID_OUT_P (val->type)
       && TREE_CODE (val->type) == RECORD_TYPE
       && TREE_CODE (type) == RECORD_TYPE
       && TYPE_BINFO (val->type) && TYPE_BINFO (type))
@@ -1893,7 +1893,7 @@ add_type_duplicate (odr_type val, tree type)
   gcc_assert (val->odr_violated || !odr_must_violate);
   /* Sanity check that all bases will be build same way again.  */
   if (flag_checking
-      && COMPLETE_TYPE_P (type) && COMPLETE_TYPE_P (val->type)
+      && TYPE_LAID_OUT_P (type) && TYPE_LAID_OUT_P (val->type)
       && TREE_CODE (val->type) == RECORD_TYPE
       && TREE_CODE (type) == RECORD_TYPE
       && TYPE_BINFO (val->type) && TYPE_BINFO (type)
@@ -2100,7 +2100,7 @@ get_odr_type (tree type, bool insert)
         val->anonymous_namespace = type_in_anonymous_namespace_p (type);
       else
 	val->anonymous_namespace = 0;
-      build_bases = COMPLETE_TYPE_P (val->type);
+      build_bases = TYPE_LAID_OUT_P (val->type);
       insert_to_odr_array = true;
       if (slot)
         *slot = val;
@@ -2173,7 +2173,7 @@ register_odr_type (tree type)
     {
       /* To get ODR warings right, first register all sub-types.  */
       if (RECORD_OR_UNION_TYPE_P (type)
-	  && COMPLETE_TYPE_P (type))
+	  && TYPE_LAID_OUT_P (type))
 	{
 	  /* Limit recursion on types which are already registered.  */
 	  odr_type ot = get_odr_type (type, false);
@@ -2281,8 +2281,8 @@ dump_type_inheritance_graph (FILE *f)
 
       /* It is normal to have one duplicate and one normal variant.  */
       if (odr_types[i]->types->length () == 1
-	  && COMPLETE_TYPE_P (odr_types[i]->type)
-	  && !COMPLETE_TYPE_P ((*odr_types[i]->types)[0]))
+	  && TYPE_LAID_OUT_P (odr_types[i]->type)
+	  && !TYPE_LAID_OUT_P ((*odr_types[i]->types)[0]))
 	continue;
 
       num_types ++;

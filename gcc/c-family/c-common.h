@@ -756,6 +756,9 @@ extern bool done_lexing;
 #define C_TYPE_OBJECT_OR_INCOMPLETE_P(type) \
   (!C_TYPE_FUNCTION_P (type))
 
+/* Nonzero if this type is a complete type.  */
+#define COMPLETE_TYPE_P(NODE) (TYPE_SIZE (NODE) != NULL_TREE)
+
 /* Nonzero if this type is complete or is cv void.  */
 #define COMPLETE_OR_VOID_TYPE_P(NODE) \
   (COMPLETE_TYPE_P (NODE) || VOID_TYPE_P (NODE))

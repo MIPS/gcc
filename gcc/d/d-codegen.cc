@@ -2542,7 +2542,7 @@ build_closure (FuncDeclaration *fd)
     return;
 
   tree type = FRAMEINFO_TYPE (ffi);
-  gcc_assert (COMPLETE_TYPE_P (type));
+  gcc_assert (TYPE_LAID_OUT_P (type));
 
   tree decl, decl_ref;
 
@@ -2652,7 +2652,7 @@ get_frameinfo (FuncDeclaration *fd)
 	      FRAMEINFO_CREATES_FRAME (ffi) = 0;
 	      FRAMEINFO_STATIC_CHAIN (ffi) = 1;
 	      FRAMEINFO_IS_CLOSURE (ffi) = FRAMEINFO_IS_CLOSURE (ffo);
-	      gcc_assert (COMPLETE_TYPE_P (FRAMEINFO_TYPE (ffo)));
+	      gcc_assert (TYPE_LAID_OUT_P (FRAMEINFO_TYPE (ffo)));
 	      FRAMEINFO_TYPE (ffi) = FRAMEINFO_TYPE (ffo);
 	      break;
 	    }

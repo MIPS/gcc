@@ -11390,7 +11390,7 @@ add_pubtype (tree decl, dw_die_ref die)
 
   if ((TREE_PUBLIC (decl)
        || is_cu_die (die->die_parent) || is_namespace_die (die->die_parent))
-      && (die->die_tag == DW_TAG_typedef || COMPLETE_TYPE_P (decl)))
+      && (die->die_tag == DW_TAG_typedef || TYPE_LAID_OUT_P (decl)))
     {
       tree scope = NULL;
       const char *scope_name = "";
@@ -13534,7 +13534,7 @@ gen_generic_params_dies (tree t)
   dw_die_ref die = NULL;
   int non_default;
 
-  if (!t || (TYPE_P (t) && !COMPLETE_TYPE_P (t)))
+  if (!t || (TYPE_P (t) && !TYPE_LAID_OUT_P (t)))
     return;
 
   if (TYPE_P (t))
@@ -21093,7 +21093,7 @@ add_subscript_info (dw_die_ref type_die, tree type, bool collapse_p)
 	    {
 	      if (upper)
 		add_bound_info (subrange_die, DW_AT_upper_bound, upper, NULL);
-	      else if ((is_c () || is_cxx ()) && COMPLETE_TYPE_P (type))
+	      else if ((is_c () || is_cxx ()) && TYPE_LAID_OUT_P (type))
 		/* Zero-length array.  */
 		add_bound_info (subrange_die, DW_AT_count,
 				build_int_cst (TREE_TYPE (lower), 0), NULL);
@@ -27204,7 +27204,7 @@ gen_scheduled_generic_parms_dies (void)
     return;
   
   FOR_EACH_VEC_ELT (*generic_type_instances, i, t)
-    if (COMPLETE_TYPE_P (t))
+    if (TYPE_LAID_OUT_P (t))
       gen_generic_params_dies (t);
 
   generic_type_instances = NULL;

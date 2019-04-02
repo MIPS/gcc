@@ -605,9 +605,6 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    whether the type is "complete".  */
 #define TYPE_LAID_OUT_P(TYPE) (TYPE_SIZE (TYPE) != NULL_TREE)
 
-/* Nonzero if this type is a complete type.  */
-#define COMPLETE_TYPE_P(NODE) (TYPE_SIZE (NODE) != NULL_TREE)
-
 /* Nonzero if this type is the (possibly qualified) void type.  */
 #define VOID_TYPE_P(NODE) (TREE_CODE (NODE) == VOID_TYPE)
 
@@ -5881,12 +5878,12 @@ type_with_alias_set_p (const_tree t)
   if (TREE_CODE (t) == FUNCTION_TYPE || TREE_CODE (t) == METHOD_TYPE)
     return false;
 
-  if (COMPLETE_TYPE_P (t))
+  if (TYPE_LAID_OUT_P (t))
     return true;
 
   /* Incomplete types cannot be accessed in general except for arrays
      where we can fetch its element despite we have no array bounds.  */
-  if (TREE_CODE (t) == ARRAY_TYPE && COMPLETE_TYPE_P (TREE_TYPE (t)))
+  if (TREE_CODE (t) == ARRAY_TYPE && TYPE_LAID_OUT_P (TREE_TYPE (t)))
     return true;
 
   return false;

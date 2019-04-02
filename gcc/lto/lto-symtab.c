@@ -798,8 +798,8 @@ lto_symtab_merge_decls_1 (symtab_node *first)
 	{
 	  for (e = prevailing->next_sharing_asm_name;
 	       e; e = e->next_sharing_asm_name)
-	    if (!COMPLETE_TYPE_P (TREE_TYPE (prevailing->decl))
-		&& COMPLETE_TYPE_P (TREE_TYPE (e->decl))
+	    if (!TYPE_LAID_OUT_P (TREE_TYPE (prevailing->decl))
+		&& TYPE_LAID_OUT_P (TREE_TYPE (e->decl))
 		&& lto_symtab_symbol_p (e))
 	      prevailing = e;
 	}

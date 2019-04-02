@@ -552,7 +552,7 @@ convert_to_integer_1 (tree type, tree expr, bool dofold)
 
   /* An INTEGER_TYPE cannot be incomplete, but an ENUMERAL_TYPE can
      be.  Consider `enum E = { a, b = (enum E) 3 };'.  */
-  if (!COMPLETE_TYPE_P (type))
+  if (!TYPE_LAID_OUT_P (type))
     {
       error ("conversion to incomplete type");
       return error_mark_node;

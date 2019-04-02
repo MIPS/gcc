@@ -1055,7 +1055,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	      break;
 	    }
 	  gcc_assert (is_taskreg_ctx (ctx));
-	  gcc_assert (!COMPLETE_TYPE_P (TREE_TYPE (decl))
+	  gcc_assert (!TYPE_LAID_OUT_P (TREE_TYPE (decl))
 		      || !is_variable_sized (decl));
 	  /* Global variables don't need to be copied,
 	     the receiver side will use them directly.  */
@@ -1510,7 +1510,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	      if ((OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER
 		   || OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FIRSTPRIVATE_POINTER)
 		  && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE
-		  && !COMPLETE_TYPE_P (TREE_TYPE (decl)))
+		  && !TYPE_LAID_OUT_P (TREE_TYPE (decl)))
 		{
 		  tree new_decl = lookup_decl (decl, ctx);
 		  TREE_TYPE (new_decl)
