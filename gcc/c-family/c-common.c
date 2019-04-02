@@ -3777,8 +3777,7 @@ c_sizeof_or_alignof_type (location_t loc,
 		  op_name, type);
       return error_mark_node;
     }
-  else if (c_dialect_cxx () && type_code == ARRAY_TYPE
-	   && !COMPLETE_TYPE_P (TREE_TYPE (type)))
+  else if (c_dialect_cxx () && array_of_incomplete_type_p (type))
     {
       if (complain)
 	error_at (loc, "invalid application of %qs to array type %qT of "
