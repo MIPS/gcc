@@ -5191,6 +5191,14 @@ finish_decl (tree decl, location_t init_loc, tree init,
 	  && TYPE_LAID_OUT_P (TREE_TYPE (decl)))
 	layout_decl (decl, 0);
 
+      if (TREE_TYPE (decl) != error_mark_node
+	  && TYPE_SIZELESS_P (type)
+	  && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
+	{
+	  error ("sizeless variable %q+D cannot have static storage duration", decl);
+	  TREE_TYPE (decl) = error_mark_node;
+	}
+
       if (DECL_SIZE (decl) == NULL_TREE
 	  /* Don't give an error if we already gave one earlier.  */
 	  && TREE_TYPE (decl) != error_mark_node

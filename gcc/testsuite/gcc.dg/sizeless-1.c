@@ -2,6 +2,14 @@
 
 typedef __sizeless_1 ta;
 
+/* Sizeless objects with global scope.  */
+
+ta global_ta; /* { dg-error {sizeless variable 'global_ta' cannot have static storage duration} } */
+static ta local_ta; /* { dg-error {sizeless variable 'local_ta' cannot have static storage duration} } */
+extern ta ta_extern; /* { dg-error {sizeless variable 'ta_extern' cannot have static storage duration} } */
+__thread ta tls_ta; /* { dg-error {sizeless variable 'tls_ta' cannot have static storage duration} } */
+_Atomic ta atomic_ta; /* { dg-error {sizeless variable 'atomic_ta' cannot have static storage duration} } */
+
 /* Pointers to sizeless types.  */
 
 ta *global_ta_ptr;
@@ -18,6 +26,7 @@ statements (int n)
   /* Local declarations.  */
 
   ta ta1;
+  static ta local_static_ta; /* { dg-error {sizeless variable 'local_static_ta' cannot have static storage duration} } */
 
   /* Casting.  */
 
