@@ -697,6 +697,10 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 /* Nonzero if this type is "empty" according to the particular psABI.  */
 #define TYPE_EMPTY_P(NODE) (TYPE_CHECK (NODE)->type_common.empty_flag)
 
+/* True if this type is "sizeless" according to the SVE extensions to C
+   and C++.  */
+#define TYPE_SIZELESS_P(NODE) (TYPE_CHECK (NODE)->type_common.sizeless)
+
 /* Used to indicate that this TYPE represents a compiler-generated entity.  */
 #define TYPE_ARTIFICIAL(NODE) (TYPE_CHECK (NODE)->base.nowarning_flag)
 

@@ -756,9 +756,6 @@ extern bool done_lexing;
 #define C_TYPE_OBJECT_OR_INCOMPLETE_P(type) \
   (!C_TYPE_FUNCTION_P (type))
 
-/* Nonzero if this type is a complete type.  */
-#define COMPLETE_TYPE_P(NODE) (TYPE_SIZE (NODE) != NULL_TREE)
-
 /* Nonzero if this type is complete or is cv void.  */
 #define COMPLETE_OR_VOID_TYPE_P(NODE) \
   (COMPLETE_TYPE_P (NODE) || VOID_TYPE_P (NODE))
@@ -1387,6 +1384,18 @@ extern void maybe_suggest_missing_token_insertion (rich_location *richloc,
 extern tree braced_lists_to_strings (tree, tree);
 
 extern bool has_attribute (location_t, tree, tree, tree (*)(tree));
+
+/* Given that type TYPE could conceivably be defined in standard C or C++,
+   return true if TYPE is "complete" according to the C and C++ definition.  */
+
+inline bool
+complete_type_p (const_tree type)
+{
+  /* Sizeless types do not exist in standard C and C++.  */
+  gcc_checking_assert (!TYPE_SIZELESS_P (type));
+  return TYPE_LAID_OUT_P (type);
+}
+#define COMPLETE_TYPE_P(NODE) complete_type_p (NODE)
 
 /* Return true if T is a complete integral type; i.e. if it is an integral
    type that is not an incomplete enum.  */
