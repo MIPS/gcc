@@ -121,9 +121,12 @@ can_refer_decl_in_current_unit_p (tree decl, tree from_decl)
       || !VAR_OR_FUNCTION_DECL_P (decl))
     return true;
 
-  /* Static objects can be referred only if they was not optimized out yet.  */
-  if (!TREE_PUBLIC (decl) && !DECL_EXTERNAL (decl))
+  /* Static objects can be referred only if they are defined and not optimized
+     out yet.  */
+  if (!TREE_PUBLIC (decl))
     {
+      if (DECL_EXTERNAL (decl))
+	return false;
       /* Before we start optimizing unreachable code we can be sure all
 	 static objects are defined.  */
       if (symtab->function_flags_ready)
@@ -380,8 +383,8 @@ fold_gimple_assign (gimple_stmt_iterator *si)
 			STRIP_USELESS_TYPE_CONVERSION (val);
 		      }
 		    else
-		      /* We can not use __builtin_unreachable here because it
-			 can not have address taken.  */
+		      /* We cannot use __builtin_unreachable here because it
+			 cannot have address taken.  */
 		      val = build_int_cst (TREE_TYPE (val), 0);
 		    return val;
 		  }
@@ -697,8 +700,6 @@ gimple_fold_builtin_memory_op (gimple_stmt_iterator *gsi,
   tree destvar, srcvar;
   location_t loc = gimple_location (stmt);
 
-  bool nowarn = gimple_no_warning_p (stmt);
-
   /* If the LEN parameter is a constant zero or in range where
      the only valid value is zero, return DEST.  */
   if (size_must_be_zero_p (len))
@@ -766,12 +767,16 @@ gimple_fold_builtin_memory_op (gimple_stmt_iterator *gsi,
 	  unsigned ilen = tree_to_uhwi (len);
 	  if (pow2p_hwi (ilen))
 	    {
-	      /* Detect invalid bounds and overlapping copies and issue
-		 either -Warray-bounds or -Wrestrict.  */
-	      if (!nowarn
-		  && check_bounds_or_overlap (as_a <gcall *>(stmt),
-					      dest, src, len, len))
-	      	gimple_set_no_warning (stmt, true);
+	      /* Detect out-of-bounds accesses without issuing warnings.
+		 Avoid folding out-of-bounds copies but to avoid false
+		 positives for unreachable code defer warning until after
+		 DCE has worked its magic.
+		 -Wrestrict is still diagnosed.  */
+	      if (int warning = check_bounds_or_overlap (as_a <gcall *>(stmt),
+							 dest, src, len, len,
+							 false, false))
+		if (warning != OPT_Wrestrict)
+		  return false;
 
 	      scalar_int_mode mode;
 	      tree type = lang_hooks.types.type_for_size (ilen * 8, 1);
@@ -1038,10 +1043,16 @@ gimple_fold_builtin_memory_op (gimple_stmt_iterator *gsi,
 	    }
 	}
 
-      /* Detect invalid bounds and overlapping copies and issue either
-	 -Warray-bounds or -Wrestrict.  */
-      if (!nowarn)
-	check_bounds_or_overlap (as_a <gcall *>(stmt), dest, src, len, len);
+      /* Same as above, detect out-of-bounds accesses without issuing
+	 warnings.  Avoid folding out-of-bounds copies but to avoid
+	 false positives for unreachable code defer warning until
+	 after DCE has worked its magic.
+	 -Wrestrict is still diagnosed.  */
+      if (int warning = check_bounds_or_overlap (as_a <gcall *>(stmt),
+						 dest, src, len, len,
+						 false, false))
+	if (warning != OPT_Wrestrict)
+	  return false;
 
       gimple *new_stmt;
       if (is_gimple_reg_type (TREE_TYPE (srcvar)))
@@ -6694,25 +6705,27 @@ fold_array_ctor_reference (tree type, tree ctor,
     domain_type = TYPE_DOMAIN (TREE_TYPE (ctor));
   if (domain_type && TYPE_MIN_VALUE (domain_type))
     {
-      /* Static constructors for variably sized objects makes no sense.  */
+      /* Static constructors for variably sized objects make no sense.  */
       if (TREE_CODE (TYPE_MIN_VALUE (domain_type)) != INTEGER_CST)
 	return NULL_TREE;
       low_bound = wi::to_offset (TYPE_MIN_VALUE (domain_type));
     }
   else
     low_bound = 0;
-  /* Static constructors for variably sized objects makes no sense.  */
+  /* Static constructors for variably sized objects make no sense.  */
   if (TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (ctor)))) != INTEGER_CST)
     return NULL_TREE;
   elt_size = wi::to_offset (TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (ctor))));
 
   /* When TYPE is non-null, verify that it specifies a constant-sized
-     accessed not larger than size of array element.  */
-  if (type
-      && (!TYPE_SIZE_UNIT (type)
-	  || TREE_CODE (TYPE_SIZE_UNIT (type)) != INTEGER_CST
-	  || elt_size < wi::to_offset (TYPE_SIZE_UNIT (type))
-	  || elt_size == 0))
+     accessed not larger than size of array element.  Avoid division
+     by zero below when ELT_SIZE is zero, such as with the result of
+     an initializer for a zero-length array or an empty struct.  */
+  if (elt_size == 0
+      || (type
+	  && (!TYPE_SIZE_UNIT (type)
+	      || TREE_CODE (TYPE_SIZE_UNIT (type)) != INTEGER_CST
+	      || elt_size < wi::to_offset (TYPE_SIZE_UNIT (type)))))
     return NULL_TREE;
 
   /* Compute the array index we look for.  */
@@ -6988,7 +7001,7 @@ fold_const_aggregate_ref_1 (tree t, tree (*valueize) (tree))
 		     but don't fold.  */
 		  if (maybe_lt (offset, 0))
 		    return NULL_TREE;
-		  /* We can not determine ctor.  */
+		  /* We cannot determine ctor.  */
 		  if (!ctor)
 		    return NULL_TREE;
 		  return fold_ctor_reference (TREE_TYPE (t), ctor, offset,
@@ -7013,7 +7026,7 @@ fold_const_aggregate_ref_1 (tree t, tree (*valueize) (tree))
       /* We do not know precise address.  */
       if (!known_size_p (max_size) || maybe_ne (max_size, size))
 	return NULL_TREE;
-      /* We can not determine ctor.  */
+      /* We cannot determine ctor.  */
       if (!ctor)
 	return NULL_TREE;
 

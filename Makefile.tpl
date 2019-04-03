@@ -390,7 +390,7 @@ MAKEINFO = @MAKEINFO@
 EXPECT = @EXPECT@
 RUNTEST = @RUNTEST@
 
-AUTO_PROFILE = gcc-auto-profile -c 1000000
+AUTO_PROFILE = gcc-auto-profile -c 10000000
 
 # This just becomes part of the MAKEINFO definition passed down to
 # sub-makes.  It lets flags be given on the command line while still
@@ -1759,8 +1759,8 @@ stageprofile-end::
 stagefeedback-start::
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	for i in stageprofile-*; do \
-	  j=`echo $$i | sed s/^stageprofile-//`; \
+	for i in prev-*; do \
+	  j=`echo $$i | sed s/^prev-//`; \
 	  cd $$r/$$i && \
 	  { find . -type d | sort | sed 's,.*,$(SHELL) '"$$s"'/mkinstalldirs "../'$$j'/&",' | $(SHELL); } && \
 	  { find . -name '*.*da' | sed 's,.*,$(LN) -f "&" "../'$$j'/&",' | $(SHELL); }; \

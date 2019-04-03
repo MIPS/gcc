@@ -18,12 +18,12 @@
 # This requires that you have your environment set-up to use explicit
 # versions of automake and autoconf.
 #
-#    export ACLOCAL=/usr/bin/aclocal-1.11
-#    export AUTOMAKE=/usr/bin/automake-1.11
-#    export AUTOM4TE=/usr/bin/autom4te2.64
-#    export AUTOCONF=/usr/bin/autoconf2.64
+#    export ACLOCAL=/usr/bin/aclocal-1.15
+#    export AUTOMAKE=/usr/bin/automake-1.15
+#    export AUTOM4TE=/usr/bin/autom4te2.69
+#    export AUTOCONF=/usr/bin/autoconf2.69
 #
-#    autoreconf2.64
+#    autoreconf2.69
 #
 
 AC_INIT(package-unused, version-unused,, libphobos)
@@ -126,6 +126,7 @@ DRUNTIME_OS_SOURCES
 DRUNTIME_OS_THREAD_MODEL
 DRUNTIME_OS_ARM_EABI_UNWINDER
 DRUNTIME_OS_MINFO_BRACKETING
+DRUNTIME_LIBRARIES_CLIB
 
 WITH_LOCAL_DRUNTIME([
   AC_LANG_PUSH([D])
@@ -140,8 +141,17 @@ WITH_LOCAL_DRUNTIME([
 DRUNTIME_LIBRARIES_ATOMIC
 DRUNTIME_LIBRARIES_BACKTRACE
 DRUNTIME_LIBRARIES_DLOPEN
+DRUNTIME_LIBRARIES_NET
 DRUNTIME_LIBRARIES_ZLIB
 DRUNTIME_INSTALL_DIRECTORIES
+
+# Add drtbegin.o/drtend.o to startfile/endfile specs in libgphobos.spec
+if test "$DCFG_MINFO_BRACKETING" = "false"; then
+    DRTSTUFF_SPEC=$srcdir/src/drtstuff.spec
+else
+    DRTSTUFF_SPEC=/dev/null
+fi
+AC_SUBST_FILE(DRTSTUFF_SPEC)
 
 # Add dependencies for libgphobos.spec file
 SPEC_PHOBOS_DEPS="$LIBS"

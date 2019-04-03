@@ -59,7 +59,7 @@ along with GCC; see the file COPYING3.  If not see
 	 optimization) and thus improve quality of analysis done by real IPA
 	 optimizers.
 
-	 Because of lack of whole unit knowledge, the pass can not really make
+	 Because of lack of whole unit knowledge, the pass cannot really make
 	 good code size/performance tradeoffs.  It however does very simple
 	 speculative inlining allowing code size to grow by
 	 EARLY_INLINING_INSNS when callee is leaf function.  In this case the
@@ -262,6 +262,12 @@ static bool
 sanitize_attrs_match_for_inline_p (const_tree caller, const_tree callee)
 {
   if (!caller || !callee)
+    return true;
+
+  /* Allow inlining always_inline functions into no_sanitize_address
+     functions.  */
+  if (!sanitize_flags_p (SANITIZE_ADDRESS, caller)
+      && lookup_attribute ("always_inline", DECL_ATTRIBUTES (callee)))
     return true;
 
   return ((sanitize_flags_p (SANITIZE_ADDRESS, caller)
@@ -562,7 +568,7 @@ can_early_inline_edge_p (struct cgraph_edge *e)
 {
   struct cgraph_node *callee = e->callee->ultimate_alias_target ();
   /* Early inliner might get called at WPA stage when IPA pass adds new
-     function.  In this case we can not really do any of early inlining
+     function.  In this case we cannot really do any of early inlining
      because function bodies are missing.  */
   if (cgraph_inline_failed_type (e->inline_failed) == CIF_FINAL_ERROR)
     return false;
@@ -1772,7 +1778,7 @@ inline_small_functions (void)
      metrics.  */
 
   max_count = profile_count::uninitialized ();
-  ipa_reduced_postorder (order, true, true, NULL);
+  ipa_reduced_postorder (order, true, NULL);
   free (order);
 
   FOR_EACH_DEFINED_FUNCTION (node)

@@ -2356,7 +2356,7 @@ class Call_expression : public Expression
   check_argument_type(int, const Type*, const Type*, Location, bool);
 
   Expression*
-  lower_to_builtin(Named_object**, const char*, int);
+  lower_to_builtin(Named_object**, const char*, int*);
 
   Expression*
   interface_method_function(Interface_field_reference_expression*,
@@ -2854,7 +2854,7 @@ class Array_index_expression : public Expression
 			 Expression* end, Expression* cap, Location location)
     : Expression(EXPRESSION_ARRAY_INDEX, location),
       array_(array), start_(start), end_(end), cap_(cap), type_(NULL),
-      is_lvalue_(false)
+      is_lvalue_(false), needs_bounds_check_(true)
   { }
 
   // Return the array.
@@ -2898,6 +2898,10 @@ class Array_index_expression : public Expression
   set_is_lvalue()
   { this->is_lvalue_ = true; }
 
+  void
+  set_needs_bounds_check(bool b)
+  { this->needs_bounds_check_ = b; }
+
  protected:
   int
   do_traverse(Traverse*);
@@ -2917,15 +2921,17 @@ class Array_index_expression : public Expression
   Expression*
   do_copy()
   {
-    return Expression::make_array_index(this->array_->copy(),
-					this->start_->copy(),
-					(this->end_ == NULL
-					 ? NULL
-					 : this->end_->copy()),
-					(this->cap_ == NULL
-					 ? NULL
-					 : this->cap_->copy()),
-					this->location());
+    Expression* ret = Expression::make_array_index(this->array_->copy(),
+                                                   this->start_->copy(),
+                                                   (this->end_ == NULL
+                                                    ? NULL
+                                                    : this->end_->copy()),
+                                                   (this->cap_ == NULL
+                                                    ? NULL
+                                                    : this->cap_->copy()),
+                                                   this->location());
+    ret->array_index_expression()->set_needs_bounds_check(this->needs_bounds_check_);
+    return ret;
   }
 
   bool
@@ -2962,6 +2968,8 @@ class Array_index_expression : public Expression
   Type* type_;
   // Whether expr appears in an lvalue context.
   bool is_lvalue_;
+  // Whether bounds check is needed.
+  bool needs_bounds_check_;
 };
 
 // A string index.  This is used for both indexing and slicing.
@@ -4163,6 +4171,10 @@ class Numeric_constant
 
   Numeric_constant& operator=(const Numeric_constant&);
 
+  // Check equality with another numeric constant.
+  bool
+  equals(const Numeric_constant&) const;
+
   // Set to an unsigned long value.
   void
   set_unsigned_long(Type*, unsigned long);
@@ -4281,6 +4293,10 @@ class Numeric_constant
   // Return an Expression for this value.
   Expression*
   expression(Location) const;
+
+  // Calculate a hash code with a given seed.
+  unsigned int
+  hash(unsigned int seed) const;
 
  private:
   void

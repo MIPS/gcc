@@ -495,7 +495,8 @@ GLIBCXX_3.4 {
     _ZNSo8_M_writeEPKc[ilx];
     _ZNSo3put*;
     _ZNSo[5-9][a-z]*;
-    _ZNSolsE*[^g];
+    _ZNSolsE[^g];
+    _ZNSolsEP*;
 
     # std::basic_ostream<wchar_t>
     _ZNSt13basic_ostreamIwSt11char_traitsIwEEC[12]Ev;
@@ -509,7 +510,8 @@ GLIBCXX_3.4 {
     _ZNSt13basic_ostreamIwSt11char_traitsIwEE5writeEPKw*;
     _ZNSt13basic_ostreamIwSt11char_traitsIwEE6sentry*;
     _ZNSt13basic_ostreamIwSt11char_traitsIwEE8_M_writeEPKw[ilx];
-    _ZNSt13basic_ostreamIwSt11char_traitsIwEElsE*[^g];
+    _ZNSt13basic_ostreamIwSt11char_traitsIwEElsE[^g];
+    _ZNSt13basic_ostreamIwSt11char_traitsIwEElsEP*;
 
     # std::ostream operators and inserters
     _ZSt4end[ls]I[cw]St11char_traitsI[cw]EERSt13basic_ostream*;
@@ -1162,10 +1164,6 @@ GLIBCXX_3.4.6 {
     _ZNSt6locale5facet13_S_get_c_nameEv;
 
     _ZNSt15basic_stringbufI[cw]St11char_traitsI[cw]ESaI[cw]EE9showmanycEv;
-
-#ifdef HAVE_SYMVER_SYMBOL_RENAMING_RUNTIME_SUPPORT
-    _ZNKSt15basic_stringbufIwSt11char_traitsIwESaIwEE3strEv;
-#endif
 
     _ZN9__gnu_cxx6__poolILb1EE13_M_initializeEv;
 
@@ -2062,6 +2060,10 @@ GLIBCXX_3.4.26 {
     _ZNSt13basic_istreamIwSt11char_traitsIwEE6ignoreExt;
     # std::basic_filebuf::open(const wchar_t*, openmode)
     _ZNSt13basic_filebufI[cw]St11char_traitsI[cw]EE4openEPKwSt13_Ios_Openmode;
+    _ZNSt13basic_fstreamI[cw]St11char_traitsI[cw]EEC[12]EPKwSt13_Ios_Openmode;
+    _ZNSt13basic_fstreamI[cw]St11char_traitsI[cw]EE4openEPKwSt13_Ios_Openmode;
+    _ZNSt14basic_[io]fstreamI[cw]St11char_traitsI[cw]EEC[12]EPKwSt13_Ios_Openmode;
+    _ZNSt14basic_[io]fstreamI[cw]St11char_traitsI[cw]EE4openEPKwSt13_Ios_Openmode;
 
     _ZN11__gnu_debug25_Safe_local_iterator_base16_M_attach_singleEPNS_19_Safe_sequence_baseEb;
 
@@ -2124,7 +2126,7 @@ GLIBCXX_3.4.26 {
     _ZNKSt10filesystem4path5_List3endEv;
     _ZNKSt10filesystem4path5_List5beginEv;
     _ZNKSt10filesystem4path7compareERKS0_;
-    _ZNKSt10filesystem4path7compareESt17basic_string_viewIcSt11char_traitsIcEE;
+    _ZNKSt10filesystem4path7compareESt17basic_string_viewI[cw]St11char_traitsI[cw]EE;
     _ZNKSt10filesystem4path9root_*Ev;
     _ZNSt10filesystem10hash_valueERKNS_4pathE;
     _ZNSt10filesystem16filesystem_errorC[12]E*;
@@ -2134,8 +2136,8 @@ GLIBCXX_3.4.26 {
     _ZNSt10filesystem4path1[567]re*;
     _ZNSt10filesystem4path5_ListC1ERKS1_;
     _ZNSt10filesystem4path5_ListC1Ev;
-    _ZNSt10filesystem4path9_M_appendESt17basic_string_viewIcSt11char_traitsIcEE;
-    _ZNSt10filesystem4path9_M_concatESt17basic_string_viewIcSt11char_traitsIcEE;
+    _ZNSt10filesystem4path9_M_appendESt17basic_string_viewI[cw]St11char_traitsI[cw]EE;
+    _ZNSt10filesystem4path9_M_concatESt17basic_string_viewI[cw]St11char_traitsI[cw]EE;
     _ZNSt10filesystem4pathaSERKS0_;
     _ZNSt10filesystem4pathdVERKS0_;
     _ZNSt10filesystem4pathpLERKS0_;
@@ -2150,7 +2152,7 @@ GLIBCXX_3.4.26 {
     _ZNKSt10filesystem7__cxx114path5_List3endEv;
     _ZNKSt10filesystem7__cxx114path5_List5beginEv;
     _ZNKSt10filesystem7__cxx114path7compareERKS1_;
-    _ZNKSt10filesystem7__cxx114path7compareESt17basic_string_viewIcSt11char_traitsIcEE;
+    _ZNKSt10filesystem7__cxx114path7compareESt17basic_string_viewI[cw]St11char_traitsI[cw]EE;
     _ZNKSt10filesystem7__cxx114path9root_*Ev;
     _ZNSt10filesystem7__cxx1110hash_valueERKNS0_4pathE;
     _ZNSt10filesystem7__cxx1116filesystem_errorC[12]E*;
@@ -2160,8 +2162,8 @@ GLIBCXX_3.4.26 {
     _ZNSt10filesystem7__cxx114path1[567]re*;
     _ZNSt10filesystem7__cxx114path5_ListC1ERKS2_;
     _ZNSt10filesystem7__cxx114path5_ListC1Ev;
-    _ZNSt10filesystem7__cxx114path9_M_appendESt17basic_string_viewIcSt11char_traitsIcEE;
-    _ZNSt10filesystem7__cxx114path9_M_concatESt17basic_string_viewIcSt11char_traitsIcEE;
+    _ZNSt10filesystem7__cxx114path9_M_appendESt17basic_string_viewI[cw]St11char_traitsI[cw]EE;
+    _ZNSt10filesystem7__cxx114path9_M_concatESt17basic_string_viewI[cw]St11char_traitsI[cw]EE;
     _ZNSt10filesystem7__cxx114pathaSERKS1_;
     _ZNSt10filesystem7__cxx114pathdVERKS1_;
     _ZNSt10filesystem7__cxx114pathpLERKS1_;
@@ -2222,6 +2224,36 @@ GLIBCXX_3.4.26 {
     _ZNSt10filesystem7__cxx1128recursive_directory_iteratorD[12]Ev;
     _ZNSt10filesystem7__cxx1128recursive_directory_iteratoraSEOS1_;
     _ZNSt10filesystem7__cxx1128recursive_directory_iteratorppEv;
+
+    _ZNSt12__shared_ptrINSt10filesystem4_DirELN9__gnu_cxx12_Lock_policyE2EEC1Ev;
+    _ZNSt12__shared_ptrINSt10filesystem4_DirELN9__gnu_cxx12_Lock_policyE2EEC1EOS4_;
+    _ZNSt12__shared_ptrINSt10filesystem4_DirELN9__gnu_cxx12_Lock_policyE2EEaSEOS4_;
+    _ZNSt12__shared_ptrINSt10filesystem28recursive_directory_iterator10_Dir_stackELN9__gnu_cxx12_Lock_policyE2EEC1Ev;
+    _ZNSt12__shared_ptrINSt10filesystem28recursive_directory_iterator10_Dir_stackELN9__gnu_cxx12_Lock_policyE2EEC1EOS5_;
+
+    _ZNSt12__shared_ptrINSt10filesystem7__cxx114_DirELN9__gnu_cxx12_Lock_policyE2EEC1Ev;
+    _ZNSt12__shared_ptrINSt10filesystem7__cxx114_DirELN9__gnu_cxx12_Lock_policyE2EEC1EOS5_;
+    _ZNSt12__shared_ptrINSt10filesystem7__cxx114_DirELN9__gnu_cxx12_Lock_policyE2EEaSEOS5_;
+    _ZNSt12__shared_ptrINSt10filesystem7__cxx1128recursive_directory_iterator10_Dir_stackELN9__gnu_cxx12_Lock_policyE2EEC1Ev;
+    _ZNSt12__shared_ptrINSt10filesystem7__cxx1128recursive_directory_iterator10_Dir_stackELN9__gnu_cxx12_Lock_policyE2EEC1EOS6_;
+
+    # basic_ostream::operator<<(nullptr_t)
+    _ZNSolsEDn;
+    _ZNSt13basic_ostreamIwSt11char_traitsIwEElsEDn;
+
+    # _Sp_make_shared_tag::_S_eq
+    _ZNSt19_Sp_make_shared_tag5_S_eqERKSt9type_info;
+
+    # numeric_limits<char8_t>
+    _ZNSt14numeric_limitsIDuE[5-9]*;
+    _ZNSt14numeric_limitsIDuE1[0-7][hirt]*;
+    _ZNSt14numeric_limitsIDuE1[0-7]mi*;
+    _ZNSt14numeric_limitsIDuE1[0-7]max_e*;
+
+    # codecvt<char16_t, char8_t, mbstate_t>, codecvt<char32_t, char8_t, mbstate_t>
+    _ZNKSt7codecvtID[is]Du*;
+    _ZNSt7codecvtID[is]Du*;
+    _ZT[ISV]St7codecvtID[is]Du*E;
 
 } GLIBCXX_3.4.25;
 
@@ -2513,6 +2545,15 @@ CXXABI_1.3.11 {
 #endif
 
 } CXXABI_1.3.10;
+
+CXXABI_1.3.12 {
+
+    # typeinfo for char8_t
+    _ZTIDu;
+    _ZTIPDu;
+    _ZTIPKDu;
+
+} CXXABI_1.3.11;
 
 # Symbols in the support library (libsupc++) supporting transactional memory.
 CXXABI_TM_1 {

@@ -2298,6 +2298,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
       base2 = get_ref_base_and_extent (gimple_assign_lhs (def_stmt),
 				       &offset2, &size2, &maxsize2,
 				       &reverse);
+      tree def_rhs = gimple_assign_rhs1 (def_stmt);
       if (!reverse
 	  && known_size_p (maxsize2)
 	  && known_eq (maxsize2, size2)
@@ -2309,11 +2310,13 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 	     according to endianness.  */
 	  && (! INTEGRAL_TYPE_P (vr->type)
 	      || known_eq (ref->size, TYPE_PRECISION (vr->type)))
-	  && multiple_p (ref->size, BITS_PER_UNIT))
+	  && multiple_p (ref->size, BITS_PER_UNIT)
+	  && (! INTEGRAL_TYPE_P (TREE_TYPE (def_rhs))
+	      || type_has_mode_precision_p (TREE_TYPE (def_rhs))))
 	{
 	  gimple_match_op op (gimple_match_cond::UNCOND,
 			      BIT_FIELD_REF, vr->type,
-			      vn_valueize (gimple_assign_rhs1 (def_stmt)),
+			      vn_valueize (def_rhs),
 			      bitsize_int (ref->size),
 			      bitsize_int (offset - offset2));
 	  tree val = vn_nary_build_or_lookup (&op);
@@ -3743,10 +3746,13 @@ set_ssa_val_to (tree from, tree to)
 	    }
 	  return false;
 	}
-      else if (currval != VN_TOP
-	       && ! is_gimple_min_invariant (currval)
-	       && ! ssa_undefined_value_p (currval, false)
-	       && is_gimple_min_invariant (to))
+      bool curr_invariant = is_gimple_min_invariant (currval);
+      bool curr_undefined = (TREE_CODE (currval) == SSA_NAME
+			     && ssa_undefined_value_p (currval, false));
+      if (currval != VN_TOP
+	  && !curr_invariant
+	  && !curr_undefined
+	  && is_gimple_min_invariant (to))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
@@ -3758,6 +3764,24 @@ set_ssa_val_to (tree from, tree to)
 	      fprintf (dump_file, " (non-constant) to ");
 	      print_generic_expr (dump_file, to);
 	      fprintf (dump_file, " (constant)\n");
+	    }
+	  to = from;
+	}
+      else if (currval != VN_TOP
+	       && !curr_undefined
+	       && TREE_CODE (to) == SSA_NAME
+	       && ssa_undefined_value_p (to, false))
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "Forcing VARYING instead of changing "
+		       "value number of ");
+	      print_generic_expr (dump_file, from);
+	      fprintf (dump_file, " from ");
+	      print_generic_expr (dump_file, currval);
+	      fprintf (dump_file, " (non-undefined) to ");
+	      print_generic_expr (dump_file, to);
+	      fprintf (dump_file, " (undefined)\n");
 	    }
 	  to = from;
 	}
@@ -5275,7 +5299,7 @@ eliminate_dom_walker::eliminate_stmt (basic_block b, gimple_stmt_iterator *gsi)
 	  ipa_polymorphic_call_context context (current_function_decl,
 						fn, stmt, &instance);
 	  context.get_dynamic_type (instance, OBJ_TYPE_REF_OBJECT (fn),
-				    otr_type, stmt);
+				    otr_type, stmt, NULL);
 	  bool final;
 	  vec <cgraph_node *> targets
 	      = possible_polymorphic_call_targets (obj_type_ref_class (fn),

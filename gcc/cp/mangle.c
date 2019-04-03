@@ -2473,10 +2473,12 @@ write_builtin_type (tree type)
       break;
 
     case INTEGER_TYPE:
-      /* TYPE may still be wchar_t, char16_t, or char32_t, since that
+      /* TYPE may still be wchar_t, char8_t, char16_t, or char32_t, since that
 	 isn't in integer_type_nodes.  */
       if (type == wchar_type_node)
 	write_char ('w');
+      else if (type == char8_type_node)
+	write_string ("Du");
       else if (type == char16_type_node)
 	write_string ("Ds");
       else if (type == char32_type_node)
@@ -3001,7 +3003,8 @@ write_expression (tree expr)
 	{
 	  scope = TREE_OPERAND (expr, 0);
 	  member = TREE_OPERAND (expr, 1);
-	  gcc_assert (!BASELINK_P (member));
+	  if (BASELINK_P (member))
+	    member = BASELINK_FUNCTIONS (member);
 	}
       else
 	{
@@ -4152,18 +4155,18 @@ maybe_check_abi_tags (tree t, tree for_decl, int ver)
       if (for_decl && DECL_THUNK_P (for_decl))
 	warning_at (DECL_SOURCE_LOCATION (t), OPT_Wabi,
 		    "the mangled name of a thunk for %qD changes between "
-		    "-fabi-version=%d and -fabi-version=%d",
+		    "%<-fabi-version=%d%> and %<-fabi-version=%d%>",
 		    t, flag_abi_version, warn_abi_version);
       else if (for_decl)
 	warning_at (DECL_SOURCE_LOCATION (for_decl), OPT_Wabi,
 		    "the mangled name of %qD changes between "
-		    "-fabi-version=%d and -fabi-version=%d",
+		    "%<-fabi-version=%d%> and %<-fabi-version=%d%>",
 		    for_decl, flag_abi_version, warn_abi_version);
       else
 	warning_at (DECL_SOURCE_LOCATION (t), OPT_Wabi,
 		    "the mangled name of the initialization guard variable "
-		    "for %qD changes between -fabi-version=%d and "
-		    "-fabi-version=%d",
+		    "for %qD changes between %<-fabi-version=%d%> and "
+		    "%<-fabi-version=%d%>",
 		    t, flag_abi_version, warn_abi_version);
     }
 }
@@ -4238,10 +4241,7 @@ decl_tls_wrapper_p (const tree fn)
 }
 
 /* Return an identifier for the name of a temporary variable used to
-   initialize a static reference.  This isn't part of the ABI, but we might
-   as well call them something readable.  */
-
-static GTY(()) int temp_count;
+   initialize a static reference.  This is now part of the ABI.  */
 
 tree
 mangle_ref_init_variable (const tree variable)
@@ -4252,7 +4252,7 @@ mangle_ref_init_variable (const tree variable)
   write_name (variable, /*ignore_local_scope=*/0);
   /* Avoid name clashes with aggregate initialization of multiple
      references at once.  */
-  write_unsigned_number (temp_count++);
+  write_compact_number (current_ref_temp_count++);
   return finish_mangling_get_identifier ();
 }
 
