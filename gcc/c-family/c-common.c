@@ -3769,7 +3769,8 @@ c_sizeof_or_alignof_type (location_t loc,
         return error_mark_node;
       value = size_one_node;
     }
-  else if (!COMPLETE_TYPE_P (type)
+  /* Cannot use sizeof or _Alignof for sizeless types.  */
+  else if (!sized_complete_type_p (type)
 	   && (!c_dialect_cxx () || is_sizeof || type_code != ARRAY_TYPE))
     {
       if (complain)

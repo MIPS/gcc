@@ -28,6 +28,12 @@ statements (int n)
   ta ta1;
   static ta local_static_ta; /* { dg-error {sizeless variable 'local_static_ta' cannot have static storage duration} } */
 
+  /* Layout queries.  */
+
+  sizeof (ta); /* { dg-error {invalid application of 'sizeof' to incomplete type} } */
+  sizeof (ta1); /* { dg-error {invalid application of 'sizeof' to incomplete type} } */
+  _Alignof (ta); /* { dg-error {invalid application of '(_Alignof|__alignof__)' to incomplete type} } */
+
   /* Casting.  */
 
   (void) ta1;

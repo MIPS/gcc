@@ -1408,6 +1408,22 @@ complete_type_p (const_tree type)
 }
 #define COMPLETE_TYPE_P(NODE) complete_type_p (NODE)
 
+/* Return true if type TYPE could conceivably be defined in standard C or C++
+   and is "complete" according to the C and C++ definition.  This means that
+   C/C++ queries like sizeof and _Alignof are valid on the type, and that the
+   layout of the type follows C and C++ rules.
+
+   Sizeless types are defined to be permanently incomplete.  Tests that
+   explicitly want to exclude sizeless types should use this function
+   instead of COMPLETE_TYPE_P to make clear that a decision about
+   sizeless types has been made.  */
+
+inline bool
+sized_complete_type_p (const_tree type)
+{
+  return DEFINED_TYPE_P (type) && !TYPE_SIZELESS_P (type);
+}
+
 /* Return true if T is a complete integral type; i.e. if it is an integral
    type that is not an incomplete enum.  */
 
