@@ -12516,7 +12516,8 @@ grokdeclarator (const cp_declarator *declarator,
 	      store_explicit_specifier (decl, declspecs->explicit_specifier);
 	  }
 	else if (!staticp && !dependent_type_p (type)
-		 && !COMPLETE_TYPE_P (complete_type (type))
+		 /* Member variables cannot have sizeless type.  */
+		 && !sized_complete_type_p (complete_type (type))
 		 && (!array_of_complete_type_p (type)
 		     || initialized == 0))
 	  {

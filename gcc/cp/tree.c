@@ -1661,7 +1661,7 @@ strip_typedefs (tree t, bool *remove_attributes)
     }
   gcc_assert (!typedef_variant_p (result));
 
-  if (COMPLETE_TYPE_P (result) && !COMPLETE_TYPE_P (t))
+  if (DEFINED_TYPE_P (result) && !DEFINED_TYPE_P (t))
   /* If RESULT is complete and T isn't, it's likely the case that T
      is a variant of RESULT which hasn't been updated yet.  Skip the
      attribute handling.  */;
