@@ -1,3 +1,9 @@
+2019-04-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix ICE normalizing constraints for template template parameters.
+	* constraint.cc (normalize_concept_check): Only substitute the
+	innermost template arguments.
+
 2019-04-01  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Replace subproblem estimation with an exact count.

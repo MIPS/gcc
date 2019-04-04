@@ -424,7 +424,11 @@ normalize_concept_check (tree check, tree args, subst_info info)
   if (TREE_CODE (tmpl) == OVERLOAD)
     tmpl = OVL_FIRST (tmpl);
 
-  /* Substitute through the check arguments.  */
+  /* Substitute through the check arguments. Note that args can be
+     a multilevel template argument list when normalizing constraints
+     on template template parameters; only substitute the innermost
+     arguments.  */
+  args = INNERMOST_TEMPLATE_ARGS (args);
   targs = tsubst_template_args (targs, args, info.complain, info.in_decl);
   if (targs == error_mark_node)
     return error_mark_node;
