@@ -7346,7 +7346,8 @@ extern int string_conv_p			(const_tree, const_tree, int);
 extern tree cp_truthvalue_conversion		(tree);
 extern tree condition_conversion		(tree);
 extern tree require_complete_type		(tree);
-extern tree require_complete_type_sfinae	(tree, tsubst_flags_t);
+extern tree require_complete_type_sfinae	(tree, tsubst_flags_t,
+						 int = -1);
 extern tree complete_type			(tree);
 extern tree complete_type_or_else		(tree, tree, int = -1);
 extern tree complete_type_or_maybe_complain	(tree, tree, tsubst_flags_t,
@@ -7827,6 +7828,15 @@ sized_complete_type_or_maybe_complain (tree type, tree value,
 				       tsubst_flags_t complain)
 {
   return complete_type_or_maybe_complain (type, value, complain, false);
+}
+
+/* Like require_complete_type_sfinae, but accept any defined type (in
+   the sense of DEFINED_TYPE_P).  This should be used if defined sizeless
+   types and normal complete types are both OK.  */
+inline tree
+require_defined_type_sfinae (tree value, tsubst_flags_t complain)
+{
+  return require_complete_type_sfinae (value, complain, true);
 }
 
 #if CHECKING_P

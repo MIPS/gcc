@@ -67,13 +67,24 @@ static int convert_arguments (tree, vec<tree, va_gc> **, tree, int,
 static bool is_std_move_p (tree);
 static bool is_std_forward_p (tree);
 
-/* Do `exp = require_complete_type (exp);' to make sure exp
-   does not have an incomplete type.  (That includes void types.)
-   Returns error_mark_node if the VALUE does not have
-   complete type when this function returns.  */
+/* Do:
+
+     value = require_complete_type_maybe_complain (type, value, complain,
+						   allow_sizeless);
+
+   to make sure VALUE does not have an incomplete type or an undefined type
+   (void types are both).  ALLOW_SIZELESS is:
+
+   - 1 if defined sizeless types are allowed
+   - 0 if they are not allowed (and so the type must be complete rather
+     than simply defined) and
+   - -1 if no decision has been made either way.
+
+   Return error_mark_node if VALUE does not meet the condition.  */
 
 tree
-require_complete_type_sfinae (tree value, tsubst_flags_t complain)
+require_complete_type_sfinae (tree value, tsubst_flags_t complain,
+			      int allow_sizeless)
 {
   tree type;
 
@@ -88,11 +99,13 @@ require_complete_type_sfinae (tree value, tsubst_flags_t complain)
   if (type == error_mark_node)
     return error_mark_node;
 
-  /* First, detect a valid value with a complete type.  */
-  if (COMPLETE_TYPE_P (type))
+  /* First, detect a valid value with a complete or defined type.  */
+  if (allow_sizeless == 1 ? DEFINED_TYPE_P (type)
+      : allow_sizeless == 0 ? sized_complete_type_p (type)
+      : COMPLETE_TYPE_P (type))
     return value;
 
-  if (complete_type_or_maybe_complain (type, value, complain))
+  if (complete_type_or_maybe_complain (type, value, complain, allow_sizeless))
     return value;
   else
     return error_mark_node;
@@ -8247,7 +8260,7 @@ cp_build_modify_expr (location_t loc, tree lhs, enum tree_code modifycode,
     }
   else
     {
-      lhs = require_complete_type_sfinae (lhs, complain);
+      lhs = require_defined_type_sfinae (lhs, complain);
       if (lhs == error_mark_node)
 	return error_mark_node;
 

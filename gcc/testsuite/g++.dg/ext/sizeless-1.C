@@ -60,6 +60,7 @@ statements (int n)
   ta ta1, ta2;
   volatile ta volatile_ta1;
   vta vta1;
+  tb tb1;
 
   // Layout queries.
 
@@ -79,6 +80,12 @@ statements (int n)
   // Assignment.
 
   n = ta1; // { dg-error {cannot convert 'ta'[^\n]* to 'int' in assignment} }
+
+  ta1 = 0; // { dg-error {cannot convert 'int' to 'ta'[^\n]* in assignment} }
+  ta1 = ta1;
+  ta1 = vta1;
+  vta1 = ta1;
+  ta1 = tb1; // { dg-error {cannot convert 'tb'[^\n]* to 'ta'[^\n]* in assignment} }
 
   // Casting.
 
@@ -172,6 +179,8 @@ statements (int n)
   [ta1] () {}; // { dg-error {capture by copy of incomplete type 'ta'} "" { target c++11 } }
   [=] () { &ta1; }; // { dg-error {capture by copy of incomplete type 'ta'} "" { target c++11 } }
   [&ta1] () { ta1 = ta2; }; // { dg-error {'ta2' is not captured} "" { target c++11 } }
+  [&ta1, &ta2] () { ta1 = ta2; };
+  [&] () { ta1 = ta2; };
 #endif
 
   // Exceptions
@@ -216,6 +225,21 @@ statements (int n)
   { typedef int f[__is_trivial (ta) ? 1 : -1]; }
   { typedef int f[!__is_union (ta) ? 1 : -1]; }
   { typedef int f[__is_trivially_copyable (ta) ? 1 : -1]; }
+  /* The intention is that ta should behave like vta here.  If the behavior
+     for vta changes then the behavior for ta should change in the same
+     way.  */
+  { typedef int f[!__is_trivially_assignable (vta, vta) ? 1 : -1]; }
+  { typedef int f[!__is_trivially_assignable (ta, ta) ? 1 : -1]; }
+  { typedef int f[!__is_trivially_assignable (ta, vta) ? 1 : -1]; }
+  { typedef int f[!__is_trivially_assignable (vta, ta) ? 1 : -1]; }
+  { typedef int f[!__is_trivially_assignable (ta, int) ? 1 : -1]; }
+  { typedef int f[!__is_trivially_assignable (ta, tb) ? 1 : -1]; }
+  { typedef int f[!__is_assignable (vta, vta) ? 1 : -1]; }
+  { typedef int f[!__is_assignable (ta, ta) ? 1 : -1]; }
+  { typedef int f[!__is_assignable (ta, vta) ? 1 : -1]; }
+  { typedef int f[!__is_assignable (vta, ta) ? 1 : -1]; }
+  { typedef int f[!__is_assignable (ta, int) ? 1 : -1]; }
+  { typedef int f[!__is_assignable (ta, tb) ? 1 : -1]; }
 }
 
 #if __cplusplus < 201103L
