@@ -112,9 +112,10 @@ require_complete_type_sfinae (tree value, tsubst_flags_t complain,
 }
 
 tree
-require_complete_type (tree value)
+require_complete_type (tree value, int allow_sizeless)
 {
-  return require_complete_type_sfinae (value, tf_warning_or_error);
+  return require_complete_type_sfinae (value, tf_warning_or_error,
+				       allow_sizeless);
 }
 
 /* Try to complete TYPE, if it is incomplete.  For example, if TYPE is

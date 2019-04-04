@@ -7345,7 +7345,7 @@ extern bool cxx_mark_addressable		(tree, bool = false);
 extern int string_conv_p			(const_tree, const_tree, int);
 extern tree cp_truthvalue_conversion		(tree);
 extern tree condition_conversion		(tree);
-extern tree require_complete_type		(tree);
+extern tree require_complete_type		(tree, int = -1);
 extern tree require_complete_type_sfinae	(tree, tsubst_flags_t,
 						 int = -1);
 extern tree complete_type			(tree);
@@ -7828,6 +7828,16 @@ sized_complete_type_or_maybe_complain (tree type, tree value,
 				       tsubst_flags_t complain)
 {
   return complete_type_or_maybe_complain (type, value, complain, false);
+}
+
+/* Like require_complete_type, but explicitly reject sizeless types.
+   This should be used in cases that specifically want the language's normal
+   completeness rules to apply to sizeless types (which are always
+   incomplete).  */
+inline tree
+require_sized_complete_type (tree type)
+{
+  return require_complete_type (type, false);
 }
 
 /* Like require_complete_type_sfinae, but accept any defined type (in
