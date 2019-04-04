@@ -158,8 +158,13 @@ statements (int n)
 
   // Function arguments.
 
+  ext_consume_ta (ta1);
   ext_consume_const_int_ref (ta1); // { dg-error {invalid initialization of reference of type 'const int&' from expression of type 'ta'} }
   ext_consume_varargs (ta1); // { dg-error {cannot convert 'ta'[^\n]* to 'int'} }
+
+  // Other built-ins
+
+  __builtin_launder (ta1); // { dg-error {non-pointer argument to '__builtin_launder'} }
 
   // Lambdas
 

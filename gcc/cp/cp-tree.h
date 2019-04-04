@@ -7808,6 +7808,16 @@ sized_complete_type_or_else (tree type, tree value)
   return complete_type_or_else (type, value, false);
 }
 
+/* Like complete_type_or_maybe_complain, but accept any defined type (in
+   the sense of DEFINED_TYPE_P).  This should be used if defined sizeless
+   types and normal complete types are both OK.  */
+inline tree
+defined_type_or_maybe_complain (tree type, tree value,
+				tsubst_flags_t complain)
+{
+  return complete_type_or_maybe_complain (type, value, complain, true);
+}
+
 /* Like complete_type_or_maybe_complain, but explicitly reject sizeless types.
    This should be used in cases that specifically want the language's normal
    completeness rules to apply to sizeless types (which are always

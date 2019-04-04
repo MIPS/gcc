@@ -2134,7 +2134,8 @@ decay_conversion (tree exp,
   if (!CLASS_TYPE_P (type) && cv_qualified_p (type))
     exp = build_nop (cv_unqualified (type), exp);
 
-  if (!complete_type_or_maybe_complain (type, exp, complain))
+  /* Conversions of defined sizeless types are OK.  */
+  if (!defined_type_or_maybe_complain (type, exp, complain))
     return error_mark_node;
 
   return exp;
