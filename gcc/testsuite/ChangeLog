@@ -1,6 +1,13 @@
 2019-04-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Correctly diagnose misuse of variable concept.
+	* g++.dg/concepts/inherit-ctor1.C: Update tests and diagnostics.
+	* g++.dg/concepts/inherit-ctor3.C: Update diagnostics.
+	* g++.dg/cpp2a/inherit-ctor4.C: Update diagnostics.
+
+2019-04-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Correctly diagnose misuse of variable concept.
 	* g++.dg/concepts/var-concept3.C: Update diagnostics.
 
 2019-01-11  Andrew Sutton  <andrew.n.sutton@gmail.com>

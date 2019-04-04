@@ -1801,6 +1801,11 @@ evaluate_constraint_expression (tree expr)
 bool
 constraints_satisfied_p (tree decl)
 {
+  /* For inherited constructors, consider the original declaration;
+     it has the correct template information attached. */
+  if (tree ctor = DECL_INHERITED_CTOR (decl))
+    decl = ctor;
+
   /* Get the constraints to check for satisfaction. This depends
      on whether we're looking at a template specialization or not. */
   tree ci;
@@ -2614,6 +2619,10 @@ static void
 diagnose_declaration_constraints (location_t loc, tree decl, tree args)
 {
   inform (loc, "constraints not satisfied");
+
+  /* Adjust the inherited constructors.  */
+  if (tree ctor = DECL_INHERITED_CTOR (decl))
+    decl = ctor;
 
   /* Constraints are attached to the template.  */
   if (tree ti = DECL_TEMPLATE_INFO (decl))

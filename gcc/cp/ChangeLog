@@ -1,5 +1,12 @@
 2019-04-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Check constraints on inherited constructors.
+	* constraint.cc (evaluate_constraint_expression): Adjust declaration
+	for inherited constructor.
+	(diagnose_declaration_constraints). Likewise.
+
+2019-04-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Correctly diagnose misuse of variable concept.
 	* constraint.cc (satisfy_check): Diagnose misuse of concept.
 
