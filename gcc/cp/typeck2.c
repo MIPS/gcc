@@ -2355,9 +2355,11 @@ add_exception_specifier (tree list, tree spec, tsubst_flags_t complain)
       /* 15.4/1 says that types in an exception specifier must be complete,
 	 but it seems more reasonable to only require this on definitions
 	 and calls.  So just give a pedwarn at this point; we will give an
-	 error later if we hit one of those two cases.  */
-      if (!COMPLETE_TYPE_P (complete_type (core)))
-	diag_type = DK_PEDWARN; /* pedwarn */
+	 error later if we hit one of those two cases.
+
+	 Sizeless types are always invalid, so treat them as an error.  */
+      if (!sized_complete_type_p (complete_type (core)))
+	diag_type = (TYPE_SIZELESS_P (core) ? DK_ERROR : DK_PEDWARN);
     }
 
   if (ok)

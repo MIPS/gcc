@@ -42,6 +42,14 @@ void ext_consume_const_int_ref (const int &);
 void ext_consume_varargs (int, ...);
 ta ext_produce_ta ();
 
+// Sizeless types in throw specifications.
+
+#if __cplusplus < 201103L
+void thrower1 () throw (ta); // { dg-error {invalid use of sizeless type 'ta'} "" { target c++98_only } }
+void thrower2 () throw (ta); // { dg-error {invalid use of sizeless type 'ta'} "" { target c++98_only } }
+void thrower3 () throw (ta); // { dg-error {invalid use of sizeless type 'ta'} "" { target c++98_only } }
+#endif
+
 // Main tests for statements and expressions.
 
 void
@@ -187,3 +195,7 @@ statements (int n)
   { typedef int f[!__is_union (ta) ? 1 : -1]; }
   { typedef int f[__is_trivially_copyable (ta) ? 1 : -1]; }
 }
+
+#if __cplusplus < 201103L
+void thrower3 () throw (ta) {} // { dg-error {invalid use of sizeless type 'ta'} "" { target c++98_only } }
+#endif
