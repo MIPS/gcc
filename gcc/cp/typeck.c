@@ -174,10 +174,15 @@ complete_type_or_maybe_complain (tree type, tree value,
     return type;
 }
 
+/* Like complete_type, but check whether the result is defined or complete.
+   ALLOW_SIZELESS is as for complete_type_or_maybe_complain.  Report an error
+   and return NULL_TREE if the type doesn't meet this condition.  */
+
 tree
-complete_type_or_else (tree type, tree value)
+complete_type_or_else (tree type, tree value, int allow_sizeless)
 {
-  return complete_type_or_maybe_complain (type, value, tf_warning_or_error);
+  return complete_type_or_maybe_complain (type, value, tf_warning_or_error,
+					  allow_sizeless);
 }
 
 

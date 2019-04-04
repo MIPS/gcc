@@ -7348,7 +7348,7 @@ extern tree condition_conversion		(tree);
 extern tree require_complete_type		(tree);
 extern tree require_complete_type_sfinae	(tree, tsubst_flags_t);
 extern tree complete_type			(tree);
-extern tree complete_type_or_else		(tree, tree);
+extern tree complete_type_or_else		(tree, tree, int = -1);
 extern tree complete_type_or_maybe_complain	(tree, tree, tsubst_flags_t,
 						 int = -1);
 inline bool type_unknown_p			(const_tree);
@@ -7786,6 +7786,16 @@ static inline bool
 complete_or_array_type_p (const_tree type)
 {
   return COMPLETE_TYPE_P (type) || array_of_complete_type_p (type);
+}
+
+/* Like complete_type, but report an error and return NULL_TREE if the
+   result isn't a defined type (in the sense of DEFINED_TYPE_P).
+   This should be used if defined sizeless types and normal complete
+   types are both OK.  */
+inline tree
+defined_type_or_else (tree type, tree value)
+{
+  return complete_type_or_else (type, value, true);
 }
 
 /* Like complete_type_or_maybe_complain, but explicitly reject sizeless types.

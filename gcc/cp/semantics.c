@@ -9715,7 +9715,8 @@ check_trait_type (tree type)
   if (VOID_TYPE_P (type))
     return true;
 
-  return !!complete_type_or_else (strip_array_types (type), NULL_TREE);
+  /* Traits can be applied to defined sizeless types.  */
+  return defined_type_or_else (strip_array_types (type), NULL_TREE);
 }
 
 /* Process a trait expression.  */
