@@ -580,9 +580,10 @@ add_capture (tree lambda, tree id, tree orig_init, bool by_reference_p,
 	}
       else
 	{
-	  /* Capture by copy requires a complete type.  */
+	  /* Capture by copy requires a complete type.  Sizeless types
+	     aren't allowed.  */
 	  type = complete_type (type);
-	  if (!COMPLETE_TYPE_P (type))
+	  if (!sized_complete_type_p (type))
 	    {
 	      error ("capture by copy of incomplete type %qT", type);
 	      cxx_incomplete_type_inform (type);

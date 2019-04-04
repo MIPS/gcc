@@ -161,6 +161,14 @@ statements (int n)
   ext_consume_const_int_ref (ta1); // { dg-error {invalid initialization of reference of type 'const int&' from expression of type 'ta'} }
   ext_consume_varargs (ta1); // { dg-error {cannot convert 'ta'[^\n]* to 'int'} }
 
+  // Lambdas
+
+#if __cplusplus >= 201103L
+  [ta1] () {}; // { dg-error {capture by copy of incomplete type 'ta'} "" { target c++11 } }
+  [=] () { &ta1; }; // { dg-error {capture by copy of incomplete type 'ta'} "" { target c++11 } }
+  [&ta1] () { ta1 = ta2; }; // { dg-error {'ta2' is not captured} "" { target c++11 } }
+#endif
+
   // Exceptions
 
   try {} catch (ta x) {} // { dg-error {invalid use of sizeless type 'ta'} }
