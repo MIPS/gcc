@@ -2867,8 +2867,10 @@ redeclaration_error_message (tree newdecl, tree olddecl)
 
       if (TREE_CODE (DECL_TEMPLATE_RESULT (newdecl)) == TYPE_DECL)
 	{
-	  if (COMPLETE_TYPE_P (TREE_TYPE (newdecl))
-	      && COMPLETE_TYPE_P (TREE_TYPE (olddecl)))
+	  /* Give an error for both defined sizeless types and
+	     complete types.  */
+	  if (DEFINED_TYPE_P (TREE_TYPE (newdecl))
+	      && DEFINED_TYPE_P (TREE_TYPE (olddecl)))
 	    return G_("redefinition of %q#D");
 	  return NULL;
 	}

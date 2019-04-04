@@ -31,6 +31,11 @@ struct templated_struct1 {
   ta a; // { dg-error {field 'a' has incomplete type} }
 };
 
+#if __cplusplus >= 201103L
+template<int N> using typedef_sizeless1 = ta;
+template<int N> using typedef_sizeless1 = ta; // { dg-error {redefinition of 'template<int N> using typedef_sizeless1 = ta'} "" { target c++11 } }
+#endif
+
 // Pointers to sizeless types.
 
 ta *global_ta_ptr;
