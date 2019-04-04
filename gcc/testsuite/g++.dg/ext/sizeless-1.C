@@ -1,6 +1,7 @@
 typedef __SIZE_TYPE__ size_t;
 inline void *operator new (size_t, void *__p) throw() { return __p; }
 
+typedef unsigned char vta __attribute__((__vector_size__(2)));
 typedef __sizeless_1 ta;
 typedef __sizeless_2 tb;
 
@@ -65,6 +66,11 @@ statements (int n)
   { typedef int f[__is_pod (ta) ? 1 : -1]; }
   { typedef int f[!__is_polymorphic (ta) ? 1 : -1]; }
   { typedef int f[__is_same_as (ta, ta) ? 1 : -1]; }
+  { typedef int f[!__is_same_as (ta, vta) ? 1 : -1]; }
+  { typedef int f[!__is_same_as (vta, ta) ? 1 : -1]; }
+  { typedef int f[__is_same_as (ta *, ta *) ? 1 : -1]; }
+  { typedef int f[!__is_same_as (ta *, vta *) ? 1 : -1]; }
+  { typedef int f[!__is_same_as (vta *, ta *) ? 1 : -1]; }
   { typedef int f[!__is_same_as (ta, int) ? 1 : -1]; }
   { typedef int f[!__is_same_as (ta, tb) ? 1 : -1]; }
   { typedef int f[__is_trivial (ta) ? 1 : -1]; }

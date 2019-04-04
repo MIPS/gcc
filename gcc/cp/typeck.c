@@ -1480,6 +1480,11 @@ comptypes (tree t1, tree t2, int strict)
       if (t1 == error_mark_node || t2 == error_mark_node)
 	return false;
 
+      /* A sized type is never "the same as" a sizeless type, since the
+	 two have different usage rules.  */
+      if (TYPE_SIZELESS_P (t1) != TYPE_SIZELESS_P (t2))
+	return false;
+
       if (TYPE_STRUCTURAL_EQUALITY_P (t1) || TYPE_STRUCTURAL_EQUALITY_P (t2))
 	/* At least one of the types requires structural equality, so
 	   perform a deep check. */
