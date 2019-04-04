@@ -1557,6 +1557,14 @@ satisfy_check (tree check, tree args, subst_info info)
   tree targs = TREE_OPERAND (id, 1);
   tree def = get_concept_definition (tmpl);
 
+  /* Diagnose mis-written checks against function concepts. Don't fail
+     though, we can still check the concept.  */
+  if (TREE_CODE (tmpl) == OVERLOAD && TREE_CODE (check) != CALL_EXPR)
+    {
+      error_at (EXPR_LOC_OR_LOC (check, input_location),
+		"%qE must be a function call", check);
+    }
+
   info.in_decl = tmpl;
   return satisfy_expression (def, targs, info);
 }

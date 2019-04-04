@@ -1,43 +1,48 @@
+2019-04-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Correctly diagnose misuse of variable concept.
+	* g++.dg/concepts/var-concept3.C: Update diagnostics.
+
 2019-01-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Update tests, options, and diagnostics.
-	* g++dg/concepts/inherit-ctor3.C: Directly invoke the constructor.
-	* g++dg/concepts/placeholder2.C: Revert to use the concepts TS; also
+	* g++.dg/concepts/inherit-ctor3.C: Directly invoke the constructor.
+	* g++.dg/concepts/placeholder2.C: Revert to use the concepts TS; also
 	make the test valid; there are no errors here.
-	* g++dg/concepts/placeholder6.C: Update diagnostics.
-	* g++dg/concepts/pr65681.C: Revert to use the concepts TS. Simplify
+	* g++.dg/concepts/placeholder6.C: Update diagnostics.
+	* g++.dg/concepts/pr65681.C: Revert to use the concepts TS. Simplify
 	the test to only static assertions. (The test should be invalid).
-	* g++dg/concepts/pr71127.C: Update diagnostics.
-	* g++dg/concepts/pr71131.C: Likewise.
-	* g++dg/concepts/pr84330.C: Only for C++14 and later. Remove a
+	* g++.dg/concepts/pr71127.C: Update diagnostics.
+	* g++.dg/concepts/pr71131.C: Likewise.
+	* g++.dg/concepts/pr84330.C: Only for C++14 and later. Remove a
 	diagnostic that is no longer emitted.
-	* g++dg/concepts/pr85065.C: Update diagnostics.
-	* g++dg/concepts/variadic2.C: Add diagnostics for new error.
-	* g++dg/concepts/variadic4.C: Add diagnostics for new error.
+	* g++.dg/concepts/pr85065.C: Update diagnostics.
+	* g++.dg/concepts/variadic2.C: Add diagnostics for new error.
+	* g++.dg/concepts/variadic4.C: Add diagnostics for new error.
 
 2019-01-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Make tests not fail.
-	* g++dg/concepts/generic-fn-err.C: XFail tests related to placeholders
+	* g++.dg/concepts/generic-fn-err.C: XFail tests related to placeholders
 	using variadic concepts.
 
 2019-01-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Add error diagnostics.
-	* g++dg/concepts/generic-fn-err.C: Add diagnostics for invalid cases.
+	* g++.dg/concepts/generic-fn-err.C: Add diagnostics for invalid cases.
 
 2019-01-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Update introduction tests.
-	* g++dg/concepts/intro4.C: Update diagnostics to match newer template 
+	* g++.dg/concepts/intro4.C: Update diagnostics to match newer template 
 	introduction implementation.
-	* g++dg/concepts/intro5.C: Add error for disallowed deduction of
+	* g++.dg/concepts/intro5.C: Add error for disallowed deduction of
 	defaulted template parameters.
 
 2019-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Update tests.
-	* g++dg/concepts/expression2.C: Add error about private member. This
+	* g++.dg/concepts/expression2.C: Add error about private member. This
 	is emitted during diagnostics; fix typos.
 
 2019-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
