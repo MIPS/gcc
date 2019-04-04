@@ -1,3 +1,7 @@
+2019-04-04 Jan Hubicka  <hubicka@ucw.cz>
+
+	* try TBAA.
+
 2019-01-29 Jan Hubicka  <hubicka@ucw.cz>
 
 	* inline-insns-small to 4, inline-insns-size to 2.

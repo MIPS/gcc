@@ -106,6 +106,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-utils.h"
 #include "builtins.h"
 
+extern void analyze_tbaa_modref (cgraph_node *);
 /* Enumeration of all aggregate reductions we can do.  */
 enum sra_mode { SRA_MODE_EARLY_IPA,   /* early call regularization */
 		SRA_MODE_EARLY_INTRA, /* early intraprocedural SRA */
@@ -5310,7 +5311,10 @@ convert_callers_for_node (struct cgraph_node *node,
   for (cs = node->callers; cs; cs = cs->next_caller)
     if (bitmap_set_bit (recomputed_callers, cs->caller->get_uid ())
 	&& gimple_in_ssa_p (DECL_STRUCT_FUNCTION (cs->caller->decl)))
-      compute_fn_summary (cs->caller, true);
+      {
+        compute_fn_summary (cs->caller, true);
+	analyze_tbaa_modref (cs->caller);
+      }
   BITMAP_FREE (recomputed_callers);
 
   return true;

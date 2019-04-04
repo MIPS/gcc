@@ -1384,6 +1384,7 @@ OBJS = \
 	ipa-icf.o \
 	ipa-icf-gimple.o \
 	ipa-reference.o \
+	ipa-tbaa-modref.o \
 	ipa-hsa.o \
 	ipa-ref.o \
 	ipa-utils.o \
