@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2019, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -126,8 +126,8 @@ package Sem_Util is
       Loc    : Source_Ptr := No_Location;
       Rep    : Boolean    := True;
       Warn   : Boolean    := False);
-   --  N is a subexpression which will raise constraint error when evaluated
-   --  at runtime. Msg is a message that explains the reason for raising the
+   --  N is a subexpression that will raise Constraint_Error when evaluated
+   --  at run time. Msg is a message that explains the reason for raising the
    --  exception. The last character is ? if the message is always a warning,
    --  even in Ada 95, and is not a ? if the message represents an illegality
    --  (because of violation of static expression rules) in Ada 95 (but not
@@ -585,7 +585,7 @@ package Sem_Util is
 
    function Denotes_Same_Object (A1, A2 : Node_Id) return Boolean;
    --  Detect suspicious overlapping between actuals in a call, when both are
-   --  writable (RM 2012 6.4.1(6.4/3))
+   --  writable (RM 2012 6.4.1(6.4/3)).
 
    function Denotes_Same_Prefix (A1, A2 : Node_Id) return Boolean;
    --  Functions to detect suspicious overlapping between actuals in a call,
@@ -614,19 +614,19 @@ package Sem_Util is
    --  Emit an error if iterated component association N is actually an illegal
    --  quantified expression lacking a quantifier.
 
-   function Dynamic_Accessibility_Level (Expr : Node_Id) return Node_Id;
-   --  Expr should be an expression of an access type. Builds an integer
-   --  literal except in cases involving anonymous access types where
-   --  accessibility levels are tracked at runtime (access parameters and Ada
-   --  2012 stand-alone objects).
-
    function Discriminated_Size (Comp : Entity_Id) return Boolean;
    --  If a component size is not static then a warning will be emitted
    --  in Ravenscar or other restricted contexts. When a component is non-
    --  static because of a discriminant constraint we can specialize the
    --  warning by mentioning discriminants explicitly. This was created for
    --  private components of protected objects, but is generally useful when
-   --  retriction (No_Implicit_Heap_Allocation) is active.
+   --  restriction No_Implicit_Heap_Allocation is active.
+
+   function Dynamic_Accessibility_Level (Expr : Node_Id) return Node_Id;
+   --  Expr should be an expression of an access type. Builds an integer
+   --  literal except in cases involving anonymous access types, where
+   --  accessibility levels are tracked at run time (access parameters and
+   --  Ada 2012 stand-alone objects).
 
    function Effective_Extra_Accessibility (Id : Entity_Id) return Entity_Id;
    --  Same as Einfo.Extra_Accessibility except thtat object renames
@@ -705,7 +705,8 @@ package Sem_Util is
    function Entity_Of (N : Node_Id) return Entity_Id;
    --  Obtain the entity of arbitrary node N. If N is a renaming, return the
    --  entity of the earliest renamed source abstract state or whole object.
-   --  If no suitable entity is available, return Empty.
+   --  If no suitable entity is available, return Empty. This routine carries
+   --  out actions that are tied to SPARK semantics.
 
    procedure Explain_Limited_Type (T : Entity_Id; N : Node_Id);
    --  This procedure is called after issuing a message complaining about an
@@ -872,7 +873,7 @@ package Sem_Util is
       Placement : out State_Space_Kind;
       Pack_Id   : out Entity_Id);
    --  Determine the state space placement of an item. Item_Id denotes the
-   --  entity of an abstract state, object or package instantiation. Placement
+   --  entity of an abstract state, object, or package instantiation. Placement
    --  captures the precise placement of the item in the enclosing state space.
    --  If the state space is that of a package, Pack_Id denotes its entity,
    --  otherwise Pack_Id is Empty.
@@ -1005,7 +1006,7 @@ package Sem_Util is
    function Get_Default_External_Name (E : Node_Or_Entity_Id) return Node_Id;
    --  This is used to construct the string literal node representing a
    --  default external name, i.e. one that is constructed from the name of an
-   --  entity, or (in the case of extended DEC import/export pragmas, an
+   --  entity, or (in the case of extended DEC import/export pragmas) an
    --  identifier provided as the external name. Letters in the name are
    --  according to the setting of Opt.External_Name_Default_Casing.
 
@@ -1312,6 +1313,9 @@ package Sem_Util is
    function Has_Preelaborable_Initialization (E : Entity_Id) return Boolean;
    --  Return True iff type E has preelaborable initialization as defined in
    --  Ada 2005 (see AI-161 for details of the definition of this attribute).
+
+   function Has_Prefix (N : Node_Id) return Boolean;
+   --  Return True if N has attribute Prefix
 
    function Has_Private_Component (Type_Id : Entity_Id) return Boolean;
    --  Check if a type has a (sub)component of a private type that has not
@@ -1997,8 +2001,8 @@ package Sem_Util is
 
    function Is_Subprogram_Stub_Without_Prior_Declaration
      (N : Node_Id) return Boolean;
-   --  Return True if N is a subprogram stub with no prior subprogram
-   --  declaration.
+   --  Given an N_Subprogram_Body_Stub node N, return True if N is a subprogram
+   --  stub with no prior subprogram declaration.
 
    function Is_Suitable_Primitive (Subp_Id : Entity_Id) return Boolean;
    --  Determine whether arbitrary subprogram Subp_Id may act as a primitive of
@@ -2022,7 +2026,7 @@ package Sem_Util is
 
    function Is_Transfer (N : Node_Id) return Boolean;
    --  Returns True if the node N is a statement which is known to cause an
-   --  unconditional transfer of control at runtime, i.e. the following
+   --  unconditional transfer of control at run time, i.e. the following
    --  statement definitely will not be executed.
 
    function Is_True (U : Uint) return Boolean;
@@ -2237,10 +2241,11 @@ package Sem_Util is
    --  nodes (entities) either directly or indirectly using this function.
 
    function New_Copy_Tree
-     (Source    : Node_Id;
-      Map       : Elist_Id   := No_Elist;
-      New_Sloc  : Source_Ptr := No_Location;
-      New_Scope : Entity_Id  := Empty) return Node_Id;
+     (Source           : Node_Id;
+      Map              : Elist_Id   := No_Elist;
+      New_Sloc         : Source_Ptr := No_Location;
+      New_Scope        : Entity_Id  := Empty;
+      Scopes_In_EWA_OK : Boolean    := False) return Node_Id;
    --  Perform a deep copy of the subtree rooted at Source. Entities, itypes,
    --  and nodes are handled separately as follows:
    --
@@ -2310,6 +2315,10 @@ package Sem_Util is
    --
    --  Parameter New_Scope may be used to specify a new scope for all copied
    --  entities and itypes.
+   --
+   --  Parameter Scopes_In_EWA_OK may be used to force the replication of both
+   --  scoping entities and non-scoping entities found within expression with
+   --  actions nodes.
 
    function New_External_Entity
      (Kind         : Entity_Kind;
@@ -2317,7 +2326,7 @@ package Sem_Util is
       Sloc_Value   : Source_Ptr;
       Related_Id   : Entity_Id;
       Suffix       : Character;
-      Suffix_Index : Nat := 0;
+      Suffix_Index : Int := 0;
       Prefix       : Character := ' ') return Entity_Id;
    --  This function creates an N_Defining_Identifier node for an internal
    --  created entity, such as an implicit type or subtype, or a record
@@ -2800,6 +2809,10 @@ package Sem_Util is
    --  subcomponent. If Op is TSS_Null, a type that lacks either Read or Write
    --  prevents the construction of a composite stream operation. If Op is
    --  specified we check only for the given stream operation.
+
+   function Ultimate_Prefix (N : Node_Id) return Node_Id;
+   --  Obtain the "outermost" prefix of arbitrary node N. Return N if no such
+   --  prefix exists.
 
    function Unique_Defining_Entity (N : Node_Id) return Entity_Id;
    --  Return the entity that represents declaration N, so that different

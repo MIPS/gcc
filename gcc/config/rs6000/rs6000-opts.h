@@ -1,6 +1,6 @@
 /* Definitions of target machine needed for option handling for GNU compiler,
    for IBM RS/6000.
-   Copyright (C) 2010-2018 Free Software Foundation, Inc.
+   Copyright (C) 2010-2019 Free Software Foundation, Inc.
    Contributed by Michael Meissner (meissner@linux.vnet.ibm.com)
 
    This file is part of GCC.
@@ -137,8 +137,7 @@ enum rs6000_vector {
   VECTOR_NONE,			/* Type is not  a vector or not supported */
   VECTOR_ALTIVEC,		/* Use altivec for vector processing */
   VECTOR_VSX,			/* Use VSX for vector processing */
-  VECTOR_P8_VECTOR,		/* Use ISA 2.07 VSX for vector processing */
-  VECTOR_OTHER			/* Some other vector unit */
+  VECTOR_P8_VECTOR		/* Use ISA 2.07 VSX for vector processing */
 };
 
 /* Where to get the canary for the stack protector.  */

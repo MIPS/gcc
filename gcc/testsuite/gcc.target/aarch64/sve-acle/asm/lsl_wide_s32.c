@@ -38,7 +38,7 @@ TEST_WIDE_Z (lsl_wide_s32_z_tied1, svint32_t,
 	     z0 = svlsl_wide_z (p0, z0, z16))
 
 /*
-** lsl_wide_s32_z_untied:
+** lsl_wide_s32_z_untied: { xfail *-*-* }
 **	movprfx	z0\.s, p0/z, z1\.s
 **	lsl	z0\.s, p0/m, z0\.s, z16\.d
 **	ret

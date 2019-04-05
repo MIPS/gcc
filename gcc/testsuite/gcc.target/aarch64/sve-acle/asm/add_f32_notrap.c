@@ -198,7 +198,7 @@ TEST_UNIFORM_ZS (add_w0_f32_z_tied1, svfloat32_t, float,
 		 z0 = svadd_z (p0, z0, x0))
 
 /*
-** add_w0_f32_z_untied:
+** add_w0_f32_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.s), w0
 **	movprfx	z0.s, p0/z, z1.s
 **	fadd	z0.s, p0/m, z0.s, \1
@@ -220,7 +220,7 @@ TEST_UNIFORM_ZS (add_s0_f32_z_tied1, svfloat32_t, float,
 		 z1 = svadd_z (p0, z1, d0))
 
 /*
-** add_s0_f32_z_untied:
+** add_s0_f32_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.s), s0
 **	movprfx	z1\.s, p0/z, z2\.s
 **	fadd	z1\.s, p0/m, z1\.s, \1

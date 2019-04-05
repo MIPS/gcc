@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.
-   Copyright (C) 1999-2018 Free Software Foundation, Inc.
+   Copyright (C) 1999-2019 Free Software Foundation, Inc.
    Contributed by James E. Wilson <wilson@cygnus.com> and
 		  David Mosberger <davidm@hpl.hp.com>.
 
@@ -6024,7 +6024,7 @@ fix_range (const char *const_str)
       dash = strchr (str, '-');
       if (!dash)
 	{
-	  warning (0, "value of -mfixed-range must have form REG1-REG2");
+	  warning (0, "value of %<-mfixed-range%> must have form REG1-REG2");
 	  return;
 	}
       *dash = '\0';

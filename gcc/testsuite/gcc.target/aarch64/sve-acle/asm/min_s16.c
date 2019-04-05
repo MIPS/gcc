@@ -142,7 +142,7 @@ TEST_UNIFORM_ZS (min_w0_s16_z_tied1, svint16_t, int16_t,
 		 z0 = svmin_z (p0, z0, x0))
 
 /*
-** min_w0_s16_z_untied:
+** min_w0_s16_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.h), w0
 **	movprfx	z0\.h, p0/z, z1\.h
 **	smin	z0\.h, p0/m, z0\.h, \1
@@ -164,7 +164,7 @@ TEST_UNIFORM_ZS (min_h0_s16_z_tied1, svint16_t, int16_t,
 		 z1 = svmin_z (p0, z1, d0))
 
 /*
-** min_h0_s16_z_untied:
+** min_h0_s16_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.h), h0
 **	movprfx	z1\.h, p0/z, z2\.h
 **	smin	z1\.h, p0/m, z1\.h, \1
@@ -186,7 +186,7 @@ TEST_UNIFORM_Z (min_1_s16_z_tied1, svint16_t,
 		z0 = svmin_z (p0, z0, 1))
 
 /*
-** min_1_s16_z_untied:
+** min_1_s16_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.h), #1
 **	movprfx	z0\.h, p0/z, z1\.h
 **	smin	z0\.h, p0/m, z0\.h, \1

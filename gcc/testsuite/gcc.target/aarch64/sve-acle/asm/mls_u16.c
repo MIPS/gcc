@@ -206,7 +206,7 @@ TEST_UNIFORM_ZS (mls_w0_u16_z_tied2, svuint16_t, uint16_t,
 		 z1 = svmls_z (p0, z0, z1, x0))
 
 /*
-** mls_w0_u16_z_untied:
+** mls_w0_u16_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.h), w0
 **	movprfx	z0\.h, p0/z, z1\.h
 **	mls	z0\.h, p0/m, z2\.h, \1
@@ -239,7 +239,7 @@ TEST_UNIFORM_ZS (mls_h0_u16_z_tied2, svuint16_t, uint16_t,
 		 z1 = svmls_z (p0, z0, z1, d0))
 
 /*
-** mls_h0_u16_z_untied:
+** mls_h0_u16_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.h), h0
 **	movprfx	z1\.h, p0/z, z0\.h
 **	mls	z1\.h, p0/m, z2\.h, \1

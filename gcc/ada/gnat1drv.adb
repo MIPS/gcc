@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2019, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -159,6 +159,12 @@ procedure Gnat1drv is
 
       if Debug_Flag_Dot_U then
          Modify_Tree_For_C := True;
+      end if;
+
+      --  -gnatd_A disables generation of ALI files
+
+      if Debug_Flag_Underscore_AA then
+         Disable_ALI_File := True;
       end if;
 
       --  Set all flags required when generating C code
@@ -466,6 +472,12 @@ procedure Gnat1drv is
          --  contracts.
 
          Ineffective_Inline_Warnings := True;
+
+         --  Do not issue warnings for possible propagation of exception.
+         --  GNATprove already issues messages about possible exceptions.
+
+         No_Warn_On_Non_Local_Exception := True;
+         Warn_On_Non_Local_Exception := False;
 
          --  Disable front-end optimizations, to keep the tree as close to the
          --  source code as possible, and also to avoid inconsistencies between
@@ -1149,8 +1161,22 @@ begin
       --  gnat1 is invoked from gcc in the normal case.
 
       if Osint.Number_Of_Files /= 1 then
-         Usage;
-         Write_Eol;
+
+         --  In GNATprove mode, gcc is not called, so we may end up with
+         --  switches wrongly interpreted as source file names when they are
+         --  written by mistake without a starting hyphen. Issue a specific
+         --  error message but do not print the internal 'usage' message.
+
+         if GNATprove_Mode then
+            Write_Str
+              ("one of the following is not a valid switch or source file "
+               & "name: ");
+            Osint.Dump_Command_Line_Source_File_Names;
+         else
+            Usage;
+            Write_Eol;
+         end if;
+
          Osint.Fail ("you must provide one source file");
 
       elsif Usage_Requested then
@@ -1426,10 +1452,11 @@ begin
          Tree_Gen;
 
          --  Generate ALI file if specially requested, or for missing subunits,
-         --  subunits or predefined generic.
+         --  subunits or predefined generic. For ignored ghost code, the object
+         --  file IS generated, so Object should be True.
 
          if Opt.Force_ALI_Tree_File then
-            Write_ALI (Object => False);
+            Write_ALI (Object => Is_Ignored_Ghost_Unit (Main_Unit_Node));
          end if;
 
          Namet.Finalize;

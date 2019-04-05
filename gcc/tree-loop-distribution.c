@@ -1,5 +1,5 @@
 /* Loop distribution.
-   Copyright (C) 2006-2018 Free Software Foundation, Inc.
+   Copyright (C) 2006-2019 Free Software Foundation, Inc.
    Contributed by Georges-Andre Silber <Georges-Andre.Silber@ensmp.fr>
    and Sebastian Pop <sebastian.pop@amd.com>.
 
@@ -90,7 +90,6 @@ along with GCC; see the file COPYING3.  If not see
 	data reuse.  */
 
 #include "config.h"
-#define INCLUDE_ALGORITHM /* stable_sort */
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
@@ -115,6 +114,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-scalar-evolution.h"
 #include "params.h"
 #include "tree-vectorizer.h"
+#include "tree-eh.h"
 
 
 #define MAX_DATAREFS_NUM \
@@ -159,6 +159,9 @@ static vec<loop_p> loop_nest;
 
 /* Vector of data references in the loop to be distributed.  */
 static vec<data_reference_p> datarefs_vec;
+
+/* If there is nonaddressable data reference in above vector.  */
+static bool has_nonaddressable_dataref_p;
 
 /* Store index of data reference in aux field.  */
 #define DR_INDEX(dr)      ((uintptr_t) (dr)->aux)
@@ -467,6 +470,7 @@ create_rdg_vertices (struct graph *rdg, vec<gimple *> stmts, loop_p loop)
 	  else
 	    RDGV_HAS_MEM_WRITE (v) = true;
 	  RDGV_DATAREFS (v).safe_push (dr);
+	  has_nonaddressable_dataref_p |= may_be_nonaddressable_p (dr->ref);
 	}
     }
   return true;
@@ -997,7 +1001,7 @@ generate_memset_builtin (struct loop *loop, partition *partition)
   /* The new statements will be placed before LOOP.  */
   gsi = gsi_last_bb (loop_preheader_edge (loop)->src);
 
-  nb_bytes = builtin->size;
+  nb_bytes = rewrite_to_non_trapping_overflow (builtin->size);
   nb_bytes = force_gimple_operand_gsi (&gsi, nb_bytes, true, NULL_TREE,
 				       false, GSI_CONTINUE_LINKING);
   mem = builtin->dst_base;
@@ -1049,7 +1053,7 @@ generate_memcpy_builtin (struct loop *loop, partition *partition)
   /* The new statements will be placed before LOOP.  */
   gsi = gsi_last_bb (loop_preheader_edge (loop)->src);
 
-  nb_bytes = builtin->size;
+  nb_bytes = rewrite_to_non_trapping_overflow (builtin->size);
   nb_bytes = force_gimple_operand_gsi (&gsi, nb_bytes, true, NULL_TREE,
 				       false, GSI_CONTINUE_LINKING);
   dest = builtin->dst_base;
@@ -1897,7 +1901,7 @@ pg_add_dependence_edges (struct graph *rdg, int dir,
 	      /* Be conservative.  If data references are not well analyzed,
 		 or the two data references have the same base address and
 		 offset, add dependence and consider it alias to each other.
-		 In other words, the dependence can not be resolved by
+		 In other words, the dependence cannot be resolved by
 		 runtime alias check.  */
 	      if (!DR_BASE_ADDRESS (dr1) || !DR_BASE_ADDRESS (dr2)
 		  || !DR_OFFSET (dr1) || !DR_OFFSET (dr2)
@@ -1922,7 +1926,8 @@ pg_add_dependence_edges (struct graph *rdg, int dir,
 	      if (DDR_NUM_DIST_VECTS (ddr) != 1)
 		this_dir = 2;
 	      /* If the overlap is exact preserve stmt order.  */
-	      else if (lambda_vector_zerop (DDR_DIST_VECT (ddr, 0), 1))
+	      else if (lambda_vector_zerop (DDR_DIST_VECT (ddr, 0),
+					    DDR_NB_LOOPS (ddr)))
 		;
 	      /* Else as the distance vector is lexicographic positive swap
 		 the dependence direction.  */
@@ -2109,7 +2114,7 @@ build_partition_graph (struct graph *rdg,
 
 	  /* Add edge to partition graph if there exists dependence.  There
 	     are two types of edges.  One type edge is caused by compilation
-	     time known dependence, this type can not be resolved by runtime
+	     time known dependence, this type cannot be resolved by runtime
 	     alias check.  The other type can be resolved by runtime alias
 	     check.  */
 	  if (dir == 1 || dir == 2
@@ -2561,12 +2566,14 @@ version_for_distribution_p (vec<struct partition *> *partitions,
 
 /* Compare base offset of builtin mem* partitions P1 and P2.  */
 
-static bool
-offset_cmp (struct partition *p1, struct partition *p2)
+static int
+offset_cmp (const void *vp1, const void *vp2)
 {
-  gcc_assert (p1 != NULL && p1->builtin != NULL);
-  gcc_assert (p2 != NULL && p2->builtin != NULL);
-  return p1->builtin->dst_base_offset < p2->builtin->dst_base_offset;
+  struct partition *p1 = *(struct partition *const *) vp1;
+  struct partition *p2 = *(struct partition *const *) vp2;
+  unsigned HOST_WIDE_INT o1 = p1->builtin->dst_base_offset;
+  unsigned HOST_WIDE_INT o2 = p2->builtin->dst_base_offset;
+  return (o2 < o1) - (o1 < o2);
 }
 
 /* Fuse adjacent memset builtin PARTITIONS if possible.  This is a special
@@ -2618,8 +2625,8 @@ fuse_memset_builtins (vec<struct partition *> *partitions)
 	}
 
       /* Stable sort is required in order to avoid breaking dependence.  */
-      std::stable_sort (&(*partitions)[i],
-			&(*partitions)[i] + j - i, offset_cmp);
+      gcc_stablesort (&(*partitions)[i], j - i, sizeof (*partitions)[i],
+		      offset_cmp);
       /* Continue with next partition.  */
       i = j;
     }
@@ -2754,6 +2761,7 @@ distribute_loop (struct loop *loop, vec<gimple *> stmts,
     }
 
   datarefs_vec.create (20);
+  has_nonaddressable_dataref_p = false;
   rdg = build_rdg (loop, cd);
   if (!rdg)
     {
@@ -2882,8 +2890,10 @@ distribute_loop (struct loop *loop, vec<gimple *> stmts,
   if (partitions.length () > 1)
     {
       /* Don't support loop nest distribution under runtime alias check
-	 since it's not likely to enable many vectorization opportunities.  */
-      if (loop->inner)
+	 since it's not likely to enable many vectorization opportunities.
+	 Also if loop has any data reference which may be not addressable
+	 since alias check needs to take, compare address of the object.  */
+      if (loop->inner || has_nonaddressable_dataref_p)
 	merge_dep_scc_partitions (rdg, &partitions, false);
       else
 	{
@@ -3137,10 +3147,11 @@ pass_loop_distribution::execute (function *fun)
 	  if (nb_generated_loops + nb_generated_calls > 0)
 	    {
 	      changed = true;
-	      dump_printf_loc (MSG_OPTIMIZED_LOCATIONS,
-			       loc, "Loop%s %d distributed: split to %d loops "
-			       "and %d library calls.\n", str, loop->num,
-			       nb_generated_loops, nb_generated_calls);
+	      if (dump_enabled_p ())
+		dump_printf_loc (MSG_OPTIMIZED_LOCATIONS,
+				 loc, "Loop%s %d distributed: split to %d loops "
+				 "and %d library calls.\n", str, loop->num,
+				 nb_generated_loops, nb_generated_calls);
 
 	      break;
 	    }

@@ -1,5 +1,5 @@
 /* Natural loop functions
-   Copyright (C) 1987-2018 Free Software Foundation, Inc.
+   Copyright (C) 1987-2019 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -226,6 +226,10 @@ struct GTY ((chain_next ("%h.next"))) loop {
      A value of USHRT_MAX means unroll with no specific unrolling factor.
      Other values means unroll with the given unrolling factor.  */
   unsigned short unroll;
+
+  /* If this loop was inlined the main clique of the callee which does
+     not need remapping when copying the loop body.  */
+  unsigned short owned_clique;
 
   /* For SIMD loops, this is a unique identifier of the loop, referenced
      by IFN_GOMP_SIMD_VF, IFN_GOMP_SIMD_LANE and IFN_GOMP_SIMD_LAST_LANE

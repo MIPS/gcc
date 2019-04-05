@@ -1,5 +1,5 @@
 /* Handle errors.
-   Copyright (C) 2000-2018 Free Software Foundation, Inc.
+   Copyright (C) 2000-2019 Free Software Foundation, Inc.
    Contributed by Andy Vaught & Niels Kristian Bech Jensen
 
 This file is part of GCC.
@@ -953,7 +953,7 @@ gfc_format_decoder (pretty_printer *pp, text_info *text, const char *spec,
 	  = linemap_position_for_loc_and_offset (line_table,
 						 loc->lb->location,
 						 offset);
-	text->set_location (loc_num, src_loc, true);
+	text->set_location (loc_num, src_loc, SHOW_RANGE_WITH_CARET);
 	pp_string (pp, result[loc_num]);
 	return true;
       }
@@ -1132,7 +1132,8 @@ gfc_diagnostic_start_span (diagnostic_context *context,
 
 static void
 gfc_diagnostic_finalizer (diagnostic_context *context,
-			  diagnostic_info *diagnostic ATTRIBUTE_UNUSED)
+			  diagnostic_info *diagnostic ATTRIBUTE_UNUSED,
+			  diagnostic_t orig_diag_kind ATTRIBUTE_UNUSED)
 {
   pp_destroy_prefix (context->printer);
   pp_newline_and_flush (context->printer);

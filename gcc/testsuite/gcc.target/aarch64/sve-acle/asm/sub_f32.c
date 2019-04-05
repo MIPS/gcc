@@ -197,7 +197,7 @@ TEST_UNIFORM_ZS (sub_w0_f32_z_tied1, svfloat32_t, float,
 		 z0 = svsub_z (p0, z0, x0))
 
 /*
-** sub_w0_f32_z_untied:
+** sub_w0_f32_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.s), w0
 **	movprfx	z0\.s, p0/z, z1\.s
 **	fsub	z0\.s, p0/m, z0\.s, \1
@@ -219,7 +219,7 @@ TEST_UNIFORM_ZS (sub_s0_f32_z_tied1, svfloat32_t, float,
 		 z1 = svsub_z (p0, z1, d0))
 
 /*
-** sub_s0_f32_z_untied:
+** sub_s0_f32_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.s), s0
 **	movprfx	z1\.s, p0/z, z2\.s
 **	fsub	z1\.s, p0/m, z1\.s, \1

@@ -17,7 +17,7 @@ GNAT and Program Execution
 This chapter covers several topics:
 
 * `Running and Debugging Ada Programs`_
-* `Code Coverage and Profiling`_
+* `Profiling`_
 * `Improving Performance`_
 * `Overflow Check Handling in GNAT`_
 * `Performing Dimensionality Analysis in GNAT`_
@@ -1206,103 +1206,16 @@ documentation
 for more information.
 
 
-.. index:: Code Coverage
 .. index:: Profiling
 
 
-.. _Code_Coverage_and_Profiling:
+.. _Profiling:
 
-Code Coverage and Profiling
-===========================
+Profiling
+=========
 
-This section describes how to use the ``gcov`` coverage testing tool and
-the ``gprof`` profiler tool on Ada programs.
-
-.. index:: !  gcov
-
-.. _Code_Coverage_of_Ada_Programs_with_gcov:
-
-Code Coverage of Ada Programs with gcov
----------------------------------------
-
-``gcov`` is a test coverage program: it analyzes the execution of a given
-program on selected tests, to help you determine the portions of the program
-that are still untested.
-
-``gcov`` is part of the GCC suite, and is described in detail in the GCC
-User's Guide. You can refer to this documentation for a more complete
-description.
-
-This chapter provides a quick startup guide, and
-details some GNAT-specific features.
-
-.. _Quick_startup_guide:
-
-Quick startup guide
-^^^^^^^^^^^^^^^^^^^
-
-In order to perform coverage analysis of a program using ``gcov``, several
-steps are needed:
-
-#. Instrument the code during the compilation process,
-#. Execute the instrumented program, and
-#. Invoke the ``gcov`` tool to generate the coverage results.
-
-.. index:: -fprofile-arcs (gcc)
-.. index:: -ftest-coverage (gcc
-.. index:: -fprofile-arcs (gnatbind)
-
-The code instrumentation needed by gcov is created at the object level.
-The source code is not modified in any way, because the instrumentation code is
-inserted by gcc during the compilation process. To compile your code with code
-coverage activated, you need to recompile your whole project using the
-switches
-:switch:`-fprofile-arcs` and :switch:`-ftest-coverage`, and link it using
-:switch:`-fprofile-arcs`.
-
-  ::
-
-     $ gnatmake -P my_project.gpr -f -cargs -fprofile-arcs -ftest-coverage \\
-        -largs -fprofile-arcs
-
-This compilation process will create :file:`.gcno` files together with
-the usual object files.
-
-Once the program is compiled with coverage instrumentation, you can
-run it as many times as needed -- on portions of a test suite for
-example. The first execution will produce :file:`.gcda` files at the
-same location as the :file:`.gcno` files.  Subsequent executions
-will update those files, so that a cumulative result of the covered
-portions of the program is generated.
-
-Finally, you need to call the ``gcov`` tool. The different options of
-``gcov`` are described in the GCC User's Guide, section *Invoking gcov*.
-
-This will create annotated source files with a :file:`.gcov` extension:
-:file:`my_main.adb` file will be analyzed in :file:`my_main.adb.gcov`.
-
-
-.. _GNAT_specifics:
-
-GNAT specifics
-^^^^^^^^^^^^^^
-
-Because of Ada semantics, portions of the source code may be shared among
-several object files. This is the case for example when generics are
-involved, when inlining is active  or when declarations generate  initialisation
-calls. In order to take
-into account this shared code, you need to call ``gcov`` on all
-source files of the tested program at once.
-
-The list of source files might exceed the system's maximum command line
-length. In order to bypass this limitation, a new mechanism has been
-implemented in ``gcov``: you can now list all your project's files into a
-text file, and provide this file to gcov as a parameter,  preceded by a ``@``
-(e.g. :samp:`gcov @mysrclist.txt`).
-
-Note that on AIX compiling a static library with :switch:`-fprofile-arcs` is
-not supported as there can be unresolved symbols during the final link.
-
+This section describes how to use the the ``gprof`` profiler tool on Ada
+programs.
 
 .. index:: !  gprof
 .. index:: Profiling
@@ -1324,7 +1237,6 @@ better handle Ada programs and multitasking.
 It is currently supported on the following platforms
 
 * linux x86/x86_64
-* solaris sparc/sparc64/x86
 * windows x86
 
 In order to profile a program using ``gprof``, several steps are needed:
@@ -3368,19 +3280,18 @@ to use the proper subtypes in object declarations.
 .. index:: MKS_Type type
 
 The simplest way to impose dimensionality checking on a computation is to make
-use of the package ``System.Dim.Mks``,
-which is part of the GNAT library. This
-package defines a floating-point type ``MKS_Type``,
-for which a sequence of
-dimension names are specified, together with their conventional abbreviations.
-The following should be read together with the full specification of the
-package, in file :file:`s-dimmks.ads`.
+use of one of the instantiations of the package ``System.Dim.Generic_Mks``, which
+are part of the GNAT library. This generic package defines a floating-point
+type ``MKS_Type``, for which a sequence of dimension names are specified,
+together with their conventional abbreviations.  The following should be read
+together with the full specification of the package, in file
+:file:`s-digemk.ads`.
 
-  .. index:: s-dimmks.ads file
+  .. index:: s-digemk.ads file
 
   .. code-block:: ada
 
-     type Mks_Type is new Long_Long_Float
+     type Mks_Type is new Float_Type
        with
         Dimension_System => (
           (Unit_Name => Meter,    Unit_Symbol => 'm',   Dim_Symbol => 'L'),
@@ -3424,10 +3335,16 @@ as well as useful multiples of these units:
      day : constant Time   := 60.0 * 24.0 * min;
     ...
 
-Using this package, you can then define a derived unit by
-providing the aspect that
-specifies its dimensions within the MKS system, as well as the string to
-be used for output of a value of that unit:
+There are three instantiations of ``System.Dim.Generic_Mks`` defined in the
+GNAT library:
+
+* ``System.Dim.Float_Mks`` based on ``Float`` defined in :file:`s-diflmk.ads`.
+* ``System.Dim.Long_Mks`` based on ``Long_Float`` defined in :file:`s-dilomk.ads`.
+* ``System.Dim.Mks`` based on ``Long_Long_Float`` defined in :file:`s-dimmks.ads`.
+
+Using one of these packages, you can then define a derived unit by providing
+the aspect that specifies its dimensions within the MKS system, as well as the
+string to be used for output of a value of that unit:
 
   .. code-block:: ada
 

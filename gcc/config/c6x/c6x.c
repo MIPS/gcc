@@ -1,5 +1,5 @@
 /* Target Code for TI C6X
-   Copyright (C) 2010-2018 Free Software Foundation, Inc.
+   Copyright (C) 2010-2019 Free Software Foundation, Inc.
    Contributed by Andrew Jenner <andrew@codesourcery.com>
    Contributed by Bernd Schmidt <bernds@codesourcery.com>
 
@@ -239,7 +239,8 @@ c6x_option_override (void)
 
   if (flag_pic && !TARGET_DSBT)
     {
-      error ("-fpic and -fPIC not supported without -mdsbt on this target");
+      error ("%<-fpic%> and %<-fPIC%> not supported without %<-mdsbt%> "
+	     "on this target");
       flag_pic = 0;
     }
   c6x_initial_flag_pic = flag_pic;

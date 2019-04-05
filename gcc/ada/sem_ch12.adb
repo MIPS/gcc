@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2019, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1031,23 +1031,18 @@ package body Sem_Ch12 is
 
    procedure Add_Pending_Instantiation (Inst : Node_Id; Act_Decl : Node_Id) is
    begin
-
-      --  Add to the instantiation node and the corresponding unit declaration
-      --  the current values of global flags to be used when analyzing the
-      --  instance body.
+      --  Capture the body of the generic instantiation along with its context
+      --  for later processing by Instantiate_Bodies.
 
       Pending_Instantiations.Append
-        ((Inst_Node                => Inst,
-          Act_Decl                 => Act_Decl,
-          Expander_Status          => Expander_Active,
+        ((Act_Decl                 => Act_Decl,
+          Config_Switches          => Save_Config_Switches,
           Current_Sem_Unit         => Current_Sem_Unit,
-          Scope_Suppress           => Scope_Suppress,
+          Expander_Status          => Expander_Active,
+          Inst_Node                => Inst,
           Local_Suppress_Stack_Top => Local_Suppress_Stack_Top,
-          Version                  => Ada_Version,
-          Version_Pragma           => Ada_Version_Pragma,
-          Warnings                 => Save_Warnings,
-          SPARK_Mode               => SPARK_Mode,
-          SPARK_Mode_Pragma        => SPARK_Mode_Pragma));
+          Scope_Suppress           => Scope_Suppress,
+          Warnings                 => Save_Warnings));
    end Add_Pending_Instantiation;
 
    ----------------------------------
@@ -4216,35 +4211,47 @@ package body Sem_Ch12 is
 
             else
                declare
-                  ASN1, ASN2 : Node_Id;
+                  Inherited_Aspects : constant List_Id :=
+                                        New_Copy_List_Tree
+                                          (Aspect_Specifications (Gen_Spec));
+
+                  ASN1         : Node_Id;
+                  ASN2         : Node_Id;
+                  Pool_Present : Boolean := False;
 
                begin
                   ASN1 := First (Aspect_Specifications (N));
                   while Present (ASN1) loop
-                     if Chars (Identifier (ASN1)) = Name_Default_Storage_Pool
+                     if Chars (Identifier (ASN1)) =
+                          Name_Default_Storage_Pool
                      then
-                        --  If generic carries a default storage pool, remove
-                        --  it in favor of the instance one.
-
-                        ASN2 := First (Aspect_Specifications (Gen_Spec));
-                        while Present (ASN2) loop
-                           if Chars (Identifier (ASN2)) =
-                                                    Name_Default_Storage_Pool
-                           then
-                              Remove (ASN2);
-                              exit;
-                           end if;
-
-                           Next (ASN2);
-                        end loop;
+                        Pool_Present := True;
+                        exit;
                      end if;
 
                      Next (ASN1);
                   end loop;
 
-                  Prepend_List_To (Aspect_Specifications (N),
-                    (New_Copy_List_Tree
-                      (Aspect_Specifications (Gen_Spec))));
+                  if Pool_Present then
+
+                     --  If generic carries a default storage pool, remove it
+                     --  in favor of the instance one.
+
+                     ASN2 := First (Inherited_Aspects);
+                     while Present (ASN2) loop
+                        if Chars (Identifier (ASN2)) =
+                             Name_Default_Storage_Pool
+                        then
+                           Remove (ASN2);
+                           exit;
+                        end if;
+
+                        Next (ASN2);
+                     end loop;
+                  end if;
+
+                  Prepend_List_To
+                    (Aspect_Specifications (N), Inherited_Aspects);
                end;
             end if;
          end if;
@@ -4770,16 +4777,12 @@ package body Sem_Ch12 is
       Gen_Unit : Entity_Id;
       Act_Decl : Node_Id)
    is
+      Config_Attrs : constant Config_Switches_Type := Save_Config_Switches;
+
       Curr_Comp : constant Node_Id   := Cunit (Current_Sem_Unit);
       Curr_Unit : constant Entity_Id := Cunit_Entity (Current_Sem_Unit);
       Gen_Comp  : constant Entity_Id :=
                     Cunit_Entity (Get_Source_Unit (Gen_Unit));
-
-      Saved_SM  : constant SPARK_Mode_Type := SPARK_Mode;
-      Saved_SMP : constant Node_Id         := SPARK_Mode_Pragma;
-      --  Save the SPARK mode-related data to restore on exit. Removing
-      --  enclosing scopes to provide a clean environment for analysis of
-      --  the inlined body will eliminate any previously set SPARK_Mode.
 
       Scope_Stack_Depth : constant Pos :=
                             Scope_Stack.Last - Scope_Stack.First + 1;
@@ -4922,25 +4925,25 @@ package body Sem_Ch12 is
 
          pragma Assert (Num_Inner < Num_Scopes);
 
-         --  The inlined package body must be analyzed with the SPARK_Mode of
-         --  the enclosing context, otherwise the body may cause bogus errors
-         --  if a configuration SPARK_Mode pragma in in effect.
-
          Push_Scope (Standard_Standard);
          Scope_Stack.Table (Scope_Stack.Last).Is_Active_Stack_Base := True;
+
+         --  The inlined package body is analyzed with the configuration state
+         --  of the context prior to the scope manipulations performed above.
+
+         --  ??? shouldn't this also use the warning state of the context prior
+         --  to the scope manipulations?
+
          Instantiate_Package_Body
            (Body_Info =>
-             ((Inst_Node                => N,
-               Act_Decl                 => Act_Decl,
-               Expander_Status          => Expander_Active,
+             ((Act_Decl                 => Act_Decl,
+               Config_Switches          => Config_Attrs,
                Current_Sem_Unit         => Current_Sem_Unit,
-               Scope_Suppress           => Scope_Suppress,
+               Expander_Status          => Expander_Active,
+               Inst_Node                => N,
                Local_Suppress_Stack_Top => Local_Suppress_Stack_Top,
-               Version                  => Ada_Version,
-               Version_Pragma           => Ada_Version_Pragma,
-               Warnings                 => Save_Warnings,
-               SPARK_Mode               => Saved_SM,
-               SPARK_Mode_Pragma        => Saved_SMP)),
+               Scope_Suppress           => Scope_Suppress,
+               Warnings                 => Save_Warnings)),
             Inlined_Body => True);
 
          Pop_Scope;
@@ -5047,17 +5050,14 @@ package body Sem_Ch12 is
       else
          Instantiate_Package_Body
            (Body_Info =>
-             ((Inst_Node                => N,
-               Act_Decl                 => Act_Decl,
-               Expander_Status          => Expander_Active,
+             ((Act_Decl                 => Act_Decl,
+               Config_Switches          => Save_Config_Switches,
                Current_Sem_Unit         => Current_Sem_Unit,
-               Scope_Suppress           => Scope_Suppress,
+               Expander_Status          => Expander_Active,
+               Inst_Node                => N,
                Local_Suppress_Stack_Top => Local_Suppress_Stack_Top,
-               Version                  => Ada_Version,
-               Version_Pragma           => Ada_Version_Pragma,
-               Warnings                 => Save_Warnings,
-               SPARK_Mode               => SPARK_Mode,
-               SPARK_Mode_Pragma        => SPARK_Mode_Pragma)),
+               Scope_Suppress           => Scope_Suppress,
+               Warnings                 => Save_Warnings)),
             Inlined_Body => True);
       end if;
    end Inline_Instance_Body;
@@ -8982,7 +8982,7 @@ package body Sem_Ch12 is
       --  Save configuration switches. These may be reset if the unit is a
       --  predefined unit, and the current mode is not Ada 2005.
 
-      Save_Opt_Config_Switches (Saved.Switches);
+      Saved.Switches := Save_Config_Switches;
 
       Instance_Envs.Append (Saved);
 
@@ -11097,6 +11097,9 @@ package body Sem_Ch12 is
                 Expression             => New_Copy_Tree
                                             (Default_Expression (Formal)));
 
+            Set_Corresponding_Generic_Association
+              (Decl_Node, Expression (Decl_Node));
+
             Append (Decl_Node, List);
             Set_Analyzed (Expression (Decl_Node), False);
 
@@ -11202,10 +11205,6 @@ package body Sem_Ch12 is
       Gen_Decl    : constant Node_Id    := Unit_Declaration_Node (Gen_Unit);
       Loc         : constant Source_Ptr := Sloc (Inst_Node);
 
-      Saved_ISMP        : constant Boolean :=
-                           Ignore_SPARK_Mode_Pragmas_In_Instance;
-      Saved_Style_Check : constant Boolean := Style_Check;
-
       procedure Check_Initialized_Types;
       --  In a generic package body, an entity of a generic private type may
       --  appear uninitialized. This is suspicious, unless the actual is a
@@ -11276,20 +11275,30 @@ package body Sem_Ch12 is
 
       --  Local variables
 
-      Saved_GM  : constant Ghost_Mode_Type := Ghost_Mode;
-      Saved_IGR : constant Node_Id         := Ignored_Ghost_Region;
-      Saved_SM  : constant SPARK_Mode_Type := SPARK_Mode;
-      Saved_SMP : constant Node_Id         := SPARK_Mode_Pragma;
-      --  Save the Ghost and SPARK mode-related data to restore on exit
+      --  The following constants capture the context prior to instantiating
+      --  the package body.
 
-      Act_Body         : Node_Id;
-      Act_Body_Id      : Entity_Id;
-      Act_Body_Name    : Node_Id;
-      Gen_Body         : Node_Id;
-      Gen_Body_Id      : Node_Id;
-      Par_Ent          : Entity_Id := Empty;
-      Par_Vis          : Boolean   := False;
-      Parent_Installed : Boolean := False;
+      Saved_CS   : constant Config_Switches_Type     := Save_Config_Switches;
+      Saved_GM   : constant Ghost_Mode_Type          := Ghost_Mode;
+      Saved_IGR  : constant Node_Id                  := Ignored_Ghost_Region;
+      Saved_ISMP : constant Boolean                  :=
+                     Ignore_SPARK_Mode_Pragmas_In_Instance;
+      Saved_LSST : constant Suppress_Stack_Entry_Ptr :=
+                     Local_Suppress_Stack_Top;
+      Saved_SC   : constant Boolean                  := Style_Check;
+      Saved_SM   : constant SPARK_Mode_Type          := SPARK_Mode;
+      Saved_SMP  : constant Node_Id                  := SPARK_Mode_Pragma;
+      Saved_SS   : constant Suppress_Record          := Scope_Suppress;
+      Saved_Warn : constant Warning_Record           := Save_Warnings;
+
+      Act_Body      : Node_Id;
+      Act_Body_Id   : Entity_Id;
+      Act_Body_Name : Node_Id;
+      Gen_Body      : Node_Id;
+      Gen_Body_Id   : Node_Id;
+      Par_Ent       : Entity_Id := Empty;
+      Par_Installed : Boolean := False;
+      Par_Vis       : Boolean   := False;
 
       Vis_Prims_List : Elist_Id := No_Elist;
       --  List of primitives made temporarily visible in the instantiation
@@ -11322,13 +11331,9 @@ package body Sem_Ch12 is
 
       Local_Suppress_Stack_Top := Body_Info.Local_Suppress_Stack_Top;
       Scope_Suppress           := Body_Info.Scope_Suppress;
-      Opt.Ada_Version          := Body_Info.Version;
-      Opt.Ada_Version_Pragma   := Body_Info.Version_Pragma;
-      Restore_Warnings (Body_Info.Warnings);
 
-      --  Install the SPARK mode which applies to the package body
-
-      Install_SPARK_Mode (Body_Info.SPARK_Mode, Body_Info.SPARK_Mode_Pragma);
+      Restore_Config_Switches (Body_Info.Config_Switches);
+      Restore_Warnings        (Body_Info.Warnings);
 
       if No (Gen_Body_Id) then
 
@@ -11456,13 +11461,13 @@ package body Sem_Ch12 is
             Par_Ent := Entity (Prefix (Gen_Id));
             Par_Vis := Is_Immediately_Visible (Par_Ent);
             Install_Parent (Par_Ent, In_Body => True);
-            Parent_Installed := True;
+            Par_Installed := True;
 
          elsif Is_Child_Unit (Gen_Unit) then
             Par_Ent := Scope (Gen_Unit);
             Par_Vis := Is_Immediately_Visible (Par_Ent);
             Install_Parent (Par_Ent, In_Body => True);
-            Parent_Installed := True;
+            Par_Installed := True;
          end if;
 
          --  If the instantiation is a library unit, and this is the main unit,
@@ -11531,7 +11536,7 @@ package body Sem_Ch12 is
          --  Remove the parent instances if they have been placed on the scope
          --  stack to compile the body.
 
-         if Parent_Installed then
+         if Par_Installed then
             Remove_Parent (In_Body => True);
 
             --  Restore the previous visibility of the parent
@@ -11603,13 +11608,21 @@ package body Sem_Ch12 is
          end if;
       end if;
 
-      Expander_Mode_Restore;
-
    <<Leave>>
+
+      --  Restore the context that was in effect prior to instantiating the
+      --  package body.
+
       Ignore_SPARK_Mode_Pragmas_In_Instance := Saved_ISMP;
-      Restore_Ghost_Region (Saved_GM, Saved_IGR);
-      Restore_SPARK_Mode   (Saved_SM, Saved_SMP);
-      Style_Check := Saved_Style_Check;
+      Local_Suppress_Stack_Top              := Saved_LSST;
+      Scope_Suppress                        := Saved_SS;
+      Style_Check                           := Saved_SC;
+
+      Expander_Mode_Restore;
+      Restore_Config_Switches (Saved_CS);
+      Restore_Ghost_Region    (Saved_GM, Saved_IGR);
+      Restore_SPARK_Mode      (Saved_SM, Saved_SMP);
+      Restore_Warnings        (Saved_Warn);
    end Instantiate_Package_Body;
 
    ---------------------------------
@@ -11634,27 +11647,31 @@ package body Sem_Ch12 is
       Pack_Id     : constant Entity_Id  :=
                       Defining_Unit_Name (Parent (Act_Decl));
 
-      Saved_GM   : constant Ghost_Mode_Type := Ghost_Mode;
-      Saved_IGR  : constant Node_Id         := Ignored_Ghost_Region;
-      Saved_ISMP : constant Boolean         :=
+      --  The following constants capture the context prior to instantiating
+      --  the subprogram body.
+
+      Saved_CS   : constant Config_Switches_Type     := Save_Config_Switches;
+      Saved_GM   : constant Ghost_Mode_Type          := Ghost_Mode;
+      Saved_IGR  : constant Node_Id                  := Ignored_Ghost_Region;
+      Saved_ISMP : constant Boolean                  :=
                      Ignore_SPARK_Mode_Pragmas_In_Instance;
-      Saved_SM   : constant SPARK_Mode_Type := SPARK_Mode;
-      Saved_SMP  : constant Node_Id         := SPARK_Mode_Pragma;
-      --  Save the Ghost and SPARK mode-related data to restore on exit
+      Saved_LSST : constant Suppress_Stack_Entry_Ptr :=
+                     Local_Suppress_Stack_Top;
+      Saved_SC   : constant Boolean                  := Style_Check;
+      Saved_SM   : constant SPARK_Mode_Type          := SPARK_Mode;
+      Saved_SMP  : constant Node_Id                  := SPARK_Mode_Pragma;
+      Saved_SS   : constant Suppress_Record          := Scope_Suppress;
+      Saved_Warn : constant Warning_Record           := Save_Warnings;
 
-      Saved_Style_Check : constant Boolean        := Style_Check;
-      Saved_Warnings    : constant Warning_Record := Save_Warnings;
-
-      Act_Body    : Node_Id;
-      Act_Body_Id : Entity_Id;
-      Gen_Body    : Node_Id;
-      Gen_Body_Id : Node_Id;
-      Pack_Body   : Node_Id;
-      Par_Ent     : Entity_Id := Empty;
-      Par_Vis     : Boolean   := False;
-      Ret_Expr    : Node_Id;
-
-      Parent_Installed : Boolean := False;
+      Act_Body      : Node_Id;
+      Act_Body_Id   : Entity_Id;
+      Gen_Body      : Node_Id;
+      Gen_Body_Id   : Node_Id;
+      Pack_Body     : Node_Id;
+      Par_Ent       : Entity_Id := Empty;
+      Par_Installed : Boolean   := False;
+      Par_Vis       : Boolean   := False;
+      Ret_Expr      : Node_Id;
 
    begin
       Gen_Body_Id := Corresponding_Body (Gen_Decl);
@@ -11682,15 +11699,9 @@ package body Sem_Ch12 is
 
       Local_Suppress_Stack_Top := Body_Info.Local_Suppress_Stack_Top;
       Scope_Suppress           := Body_Info.Scope_Suppress;
-      Opt.Ada_Version          := Body_Info.Version;
-      Opt.Ada_Version_Pragma   := Body_Info.Version_Pragma;
-      Restore_Warnings (Body_Info.Warnings);
 
-      --  Install the SPARK mode which applies to the subprogram body from the
-      --  instantiation context. This may be refined further if an explicit
-      --  SPARK_Mode pragma applies to the generic body.
-
-      Install_SPARK_Mode (Body_Info.SPARK_Mode, Body_Info.SPARK_Mode_Pragma);
+      Restore_Config_Switches (Body_Info.Config_Switches);
+      Restore_Warnings        (Body_Info.Warnings);
 
       if No (Gen_Body_Id) then
 
@@ -11802,13 +11813,13 @@ package body Sem_Ch12 is
             Par_Ent := Entity (Prefix (Gen_Id));
             Par_Vis := Is_Immediately_Visible (Par_Ent);
             Install_Parent (Par_Ent, In_Body => True);
-            Parent_Installed := True;
+            Par_Installed := True;
 
          elsif Is_Child_Unit (Gen_Unit) then
             Par_Ent := Scope (Gen_Unit);
             Par_Vis := Is_Immediately_Visible (Par_Ent);
             Install_Parent (Par_Ent, In_Body => True);
-            Parent_Installed := True;
+            Par_Installed := True;
          end if;
 
          --  Subprogram body is placed in the body of wrapper package,
@@ -11853,7 +11864,7 @@ package body Sem_Ch12 is
 
          Restore_Private_Views (Pack_Id, False);
 
-         if Parent_Installed then
+         if Par_Installed then
             Remove_Parent (In_Body => True);
 
             --  Restore the previous visibility of the parent
@@ -11862,7 +11873,6 @@ package body Sem_Ch12 is
          end if;
 
          Restore_Env;
-         Restore_Warnings (Saved_Warnings);
 
       --  Body not found. Error was emitted already. If there were no previous
       --  errors, this may be an instance whose scope is a premature instance.
@@ -11933,13 +11943,21 @@ package body Sem_Ch12 is
          Analyze (Pack_Body);
       end if;
 
-      Expander_Mode_Restore;
-
    <<Leave>>
+
+      --  Restore the context that was in effect prior to instantiating the
+      --  subprogram body.
+
       Ignore_SPARK_Mode_Pragmas_In_Instance := Saved_ISMP;
-      Restore_Ghost_Region (Saved_GM, Saved_IGR);
-      Restore_SPARK_Mode   (Saved_SM, Saved_SMP);
-      Style_Check := Saved_Style_Check;
+      Local_Suppress_Stack_Top              := Saved_LSST;
+      Scope_Suppress                        := Saved_SS;
+      Style_Check                           := Saved_SC;
+
+      Expander_Mode_Restore;
+      Restore_Config_Switches (Saved_CS);
+      Restore_Ghost_Region    (Saved_GM, Saved_IGR);
+      Restore_SPARK_Mode      (Saved_SM, Saved_SMP);
+      Restore_Warnings        (Saved_Warn);
    end Instantiate_Subprogram_Body;
 
    ----------------------
@@ -13723,20 +13741,17 @@ package body Sem_Ch12 is
                         Decl := First_Elmt (Previous_Instances);
                         while Present (Decl) loop
                            Info :=
-                             (Inst_Node                => Node (Decl),
-                              Act_Decl                 =>
+                             (Act_Decl                 =>
                                 Instance_Spec (Node (Decl)),
-                              Expander_Status          => Exp_Status,
+                              Config_Switches          => Save_Config_Switches,
                               Current_Sem_Unit         =>
                                 Get_Code_Unit (Sloc (Node (Decl))),
-                              Scope_Suppress           => Scope_Suppress,
+                              Expander_Status          => Exp_Status,
+                              Inst_Node                => Node (Decl),
                               Local_Suppress_Stack_Top =>
                                 Local_Suppress_Stack_Top,
-                              Version                  => Ada_Version,
-                              Version_Pragma           => Ada_Version_Pragma,
-                              Warnings                 => Save_Warnings,
-                              SPARK_Mode               => SPARK_Mode,
-                              SPARK_Mode_Pragma        => SPARK_Mode_Pragma);
+                              Scope_Suppress           => Scope_Suppress,
+                              Warnings                 => Save_Warnings);
 
                            --  Package instance
 
@@ -13786,18 +13801,15 @@ package body Sem_Ch12 is
 
                   Instantiate_Package_Body
                     (Body_Info =>
-                       ((Inst_Node                => Inst_Node,
-                         Act_Decl                 => True_Parent,
+                       ((Act_Decl                 => True_Parent,
+                         Config_Switches          => Save_Config_Switches,
+                         Current_Sem_Unit         =>
+                           Get_Code_Unit (Sloc (Inst_Node)),
                          Expander_Status          => Exp_Status,
-                         Current_Sem_Unit         => Get_Code_Unit
-                                                       (Sloc (Inst_Node)),
-                         Scope_Suppress           => Scope_Suppress,
+                         Inst_Node                => Inst_Node,
                          Local_Suppress_Stack_Top => Local_Suppress_Stack_Top,
-                         Version                  => Ada_Version,
-                         Version_Pragma           => Ada_Version_Pragma,
-                         Warnings                 => Save_Warnings,
-                         SPARK_Mode               => SPARK_Mode,
-                         SPARK_Mode_Pragma        => SPARK_Mode_Pragma)),
+                         Scope_Suppress           => Scope_Suppress,
+                         Warnings                 => Save_Warnings)),
                      Body_Optional => Body_Optional);
                end;
             end if;
@@ -14393,7 +14405,7 @@ package body Sem_Ch12 is
       Parent_Unit_Visible         := Saved.Parent_Unit_Visible;
       Instance_Parent_Unit        := Saved.Instance_Parent_Unit;
 
-      Restore_Opt_Config_Switches (Saved.Switches);
+      Restore_Config_Switches (Saved.Switches);
 
       Instance_Envs.Decrement_Last;
    end Restore_Env;
@@ -15968,11 +15980,10 @@ package body Sem_Ch12 is
       Act_Unit : Entity_Id)
    is
       Saved_AE  : constant Boolean         := Assertions_Enabled;
+      Saved_CPL : constant Node_Id         := Check_Policy_List;
+      Saved_DEC : constant Boolean         := Dynamic_Elaboration_Checks;
       Saved_SM  : constant SPARK_Mode_Type := SPARK_Mode;
       Saved_SMP : constant Node_Id         := SPARK_Mode_Pragma;
-      --  Save the SPARK mode-related data because utilizing the configuration
-      --  values of pragmas and switches will eliminate any previously set
-      --  SPARK_Mode.
 
    begin
       --  Regardless of the current mode, predefined units are analyzed in the
@@ -15981,20 +15992,20 @@ package body Sem_Ch12 is
       --  These are always analyzed in the current mode.
 
       if In_Internal_Unit (Gen_Unit) then
-         Set_Opt_Config_Switches (True, Current_Sem_Unit = Main_Unit);
 
-         --  In Ada2012 we may want to enable assertions in an instance of a
-         --  predefined unit, in which case we need to preserve the current
-         --  setting for the Assertions_Enabled flag. This will become more
-         --  critical when pre/postconditions are added to predefined units,
-         --  as is already the case for some numeric libraries.
+         --  The following call resets all configuration attributes to default
+         --  or the xxx_Config versions of the attributes when the current sem
+         --  unit is the main unit. At the same time, internal units must also
+         --  inherit certain configuration attributes from their context. It
+         --  is unclear what these two sets are.
 
-         if Ada_Version >= Ada_2012 then
-            Assertions_Enabled := Saved_AE;
-         end if;
+         Set_Config_Switches (True, Current_Sem_Unit = Main_Unit);
 
-         --  Reinstall the SPARK_Mode which was in effect at the point of
-         --  instantiation.
+         --  Reinstall relevant configuration attributes of the context
+
+         Assertions_Enabled         := Saved_AE;
+         Check_Policy_List          := Saved_CPL;
+         Dynamic_Elaboration_Checks := Saved_DEC;
 
          Install_SPARK_Mode (Saved_SM, Saved_SMP);
       end if;

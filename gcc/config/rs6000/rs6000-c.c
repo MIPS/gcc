@@ -1,5 +1,5 @@
 /* Subroutines for the C front end on the PowerPC architecture.
-   Copyright (C) 2002-2018 Free Software Foundation, Inc.
+   Copyright (C) 2002-2019 Free Software Foundation, Inc.
 
    Contributed by Zack Weinberg <zack@codesourcery.com>
    and Paolo Bonzini <bonzini@gnu.org>
@@ -220,21 +220,23 @@ rs6000_macro_to_expand (cpp_reader *pfile, const cpp_token *tok)
       else if (ident && (ident != C_CPP_HASHNODE (__vector_keyword)))
 	{
 	  enum rid rid_code = (enum rid)(ident->rid_code);
-	  enum node_type itype = ident->type;
+	  bool is_macro = cpp_macro_p (ident);
+
 	  /* If there is a function-like macro, check if it is going to be
 	     invoked with or without arguments.  Without following ( treat
 	     it like non-macro, otherwise the following cpp_get_token eats
 	     what should be preserved.  */
-	  if (itype == NT_MACRO && cpp_fun_like_macro_p (ident))
+	  if (is_macro && cpp_fun_like_macro_p (ident))
 	    {
 	      int idx2 = idx;
 	      do
 		tok = cpp_peek_token (pfile, idx2++);
 	      while (tok->type == CPP_PADDING);
 	      if (tok->type != CPP_OPEN_PAREN)
-		itype = NT_VOID;
+		is_macro = false;
 	    }
-	  if (itype == NT_MACRO)
+
+	  if (is_macro)
 	    {
 	      do
 		(void) cpp_get_token (pfile);
@@ -1529,11 +1531,18 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
 
   { ALTIVEC_BUILTIN_VEC_LD, ALTIVEC_BUILTIN_LVX_V2DF,
     RS6000_BTI_V2DF, RS6000_BTI_INTSI, ~RS6000_BTI_V2DF, 0 },
+  { ALTIVEC_BUILTIN_VEC_LD, ALTIVEC_BUILTIN_LVX_V2DF,
+    RS6000_BTI_V2DF, RS6000_BTI_INTSI, ~RS6000_BTI_double, 0 },
   { ALTIVEC_BUILTIN_VEC_LD, ALTIVEC_BUILTIN_LVX_V2DI,
     RS6000_BTI_V2DI, RS6000_BTI_INTSI, ~RS6000_BTI_V2DI, 0 },
   { ALTIVEC_BUILTIN_VEC_LD, ALTIVEC_BUILTIN_LVX_V2DI,
+    RS6000_BTI_V2DI, RS6000_BTI_INTSI, ~RS6000_BTI_long_long, 0 },
+  { ALTIVEC_BUILTIN_VEC_LD, ALTIVEC_BUILTIN_LVX_V2DI,
     RS6000_BTI_unsigned_V2DI, RS6000_BTI_INTSI,
     ~RS6000_BTI_unsigned_V2DI, 0 },
+  { ALTIVEC_BUILTIN_VEC_LD, ALTIVEC_BUILTIN_LVX_V2DI,
+    RS6000_BTI_unsigned_V2DI, RS6000_BTI_INTSI,
+    ~RS6000_BTI_unsigned_long_long, 0 },
   { ALTIVEC_BUILTIN_VEC_LD, ALTIVEC_BUILTIN_LVX_V2DI,
     RS6000_BTI_bool_V2DI, RS6000_BTI_INTSI, ~RS6000_BTI_bool_V2DI, 0 },
   { ALTIVEC_BUILTIN_VEC_LD, ALTIVEC_BUILTIN_LVX_V4SF,
@@ -3735,14 +3744,27 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
 
   { ALTIVEC_BUILTIN_VEC_ST, ALTIVEC_BUILTIN_STVX_V2DF,
     RS6000_BTI_void, RS6000_BTI_V2DF, RS6000_BTI_INTSI, ~RS6000_BTI_V2DF },
+  { ALTIVEC_BUILTIN_VEC_ST, ALTIVEC_BUILTIN_STVX_V2DF,
+    RS6000_BTI_void, RS6000_BTI_V2DF, RS6000_BTI_INTSI, ~RS6000_BTI_double },
   { ALTIVEC_BUILTIN_VEC_ST, ALTIVEC_BUILTIN_STVX_V2DI,
     RS6000_BTI_void, RS6000_BTI_V2DI, RS6000_BTI_INTSI, ~RS6000_BTI_V2DI },
+  { ALTIVEC_BUILTIN_VEC_ST, ALTIVEC_BUILTIN_STVX_V2DI,
+    RS6000_BTI_void, RS6000_BTI_V2DI, RS6000_BTI_INTSI, ~RS6000_BTI_long_long },
   { ALTIVEC_BUILTIN_VEC_ST, ALTIVEC_BUILTIN_STVX_V2DI,
     RS6000_BTI_void, RS6000_BTI_unsigned_V2DI, RS6000_BTI_INTSI,
     ~RS6000_BTI_unsigned_V2DI },
   { ALTIVEC_BUILTIN_VEC_ST, ALTIVEC_BUILTIN_STVX_V2DI,
+    RS6000_BTI_void, RS6000_BTI_unsigned_V2DI, RS6000_BTI_INTSI,
+    ~RS6000_BTI_unsigned_long_long },
+  { ALTIVEC_BUILTIN_VEC_ST, ALTIVEC_BUILTIN_STVX_V2DI,
     RS6000_BTI_void, RS6000_BTI_bool_V2DI, RS6000_BTI_INTSI,
     ~RS6000_BTI_bool_V2DI },
+  { ALTIVEC_BUILTIN_VEC_ST, ALTIVEC_BUILTIN_STVX_V2DI,
+    RS6000_BTI_void, RS6000_BTI_bool_V2DI, RS6000_BTI_INTSI,
+    ~RS6000_BTI_long_long },
+  { ALTIVEC_BUILTIN_VEC_ST, ALTIVEC_BUILTIN_STVX_V2DI,
+    RS6000_BTI_void, RS6000_BTI_bool_V2DI, RS6000_BTI_INTSI,
+    ~RS6000_BTI_unsigned_long_long },
   { ALTIVEC_BUILTIN_VEC_ST, ALTIVEC_BUILTIN_STVX_V4SF,
     RS6000_BTI_void, RS6000_BTI_V4SF, RS6000_BTI_INTSI, ~RS6000_BTI_V4SF },
   { ALTIVEC_BUILTIN_VEC_ST, ALTIVEC_BUILTIN_STVX_V4SF,
@@ -5059,14 +5081,22 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
   { P9V_BUILTIN_VEC_VSIEDP, P9V_BUILTIN_VSIEQPF,
     RS6000_BTI_ieee128_float, RS6000_BTI_ieee128_float, RS6000_BTI_UINTDI, 0 },
 
-  { P9V_BUILTIN_VEC_VSCEDPGT, P9V_BUILTIN_VSCEDPGT,
+  { P9V_BUILTIN_VEC_VSCEGT, P9V_BUILTIN_VSCEDPGT,
     RS6000_BTI_INTSI, RS6000_BTI_double, RS6000_BTI_double, 0 },
-  { P9V_BUILTIN_VEC_VSCEDPLT, P9V_BUILTIN_VSCEDPLT,
+  { P9V_BUILTIN_VEC_VSCEGT, P9V_BUILTIN_VSCEQPGT,
+    RS6000_BTI_INTSI, RS6000_BTI_ieee128_float, RS6000_BTI_ieee128_float, 0 },
+  { P9V_BUILTIN_VEC_VSCELT, P9V_BUILTIN_VSCEDPLT,
     RS6000_BTI_INTSI, RS6000_BTI_double, RS6000_BTI_double, 0 },
-  { P9V_BUILTIN_VEC_VSCEDPEQ, P9V_BUILTIN_VSCEDPEQ,
+  { P9V_BUILTIN_VEC_VSCELT, P9V_BUILTIN_VSCEQPLT,
+    RS6000_BTI_INTSI, RS6000_BTI_ieee128_float, RS6000_BTI_ieee128_float, 0 },
+  { P9V_BUILTIN_VEC_VSCEEQ, P9V_BUILTIN_VSCEDPEQ,
     RS6000_BTI_INTSI, RS6000_BTI_double, RS6000_BTI_double, 0 },
-  { P9V_BUILTIN_VEC_VSCEDPUO, P9V_BUILTIN_VSCEDPUO,
+  { P9V_BUILTIN_VEC_VSCEEQ, P9V_BUILTIN_VSCEQPEQ,
+    RS6000_BTI_INTSI, RS6000_BTI_ieee128_float, RS6000_BTI_ieee128_float, 0 },
+  { P9V_BUILTIN_VEC_VSCEUO, P9V_BUILTIN_VSCEDPUO,
     RS6000_BTI_INTSI, RS6000_BTI_double, RS6000_BTI_double, 0 },
+  { P9V_BUILTIN_VEC_VSCEUO, P9V_BUILTIN_VSCEQPUO,
+    RS6000_BTI_INTSI, RS6000_BTI_ieee128_float, RS6000_BTI_ieee128_float, 0 },
 
   { P9V_BUILTIN_VEC_XL_LEN_R, P9V_BUILTIN_XL_LEN_R,
     RS6000_BTI_unsigned_V16QI, ~RS6000_BTI_UINTQI,
@@ -6535,12 +6565,14 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 
 	  arg2 = fold_for_warn (arg2);
 
-	  /* If the second argument is an integer constant, if the value is in
-	     the expected range, generate the built-in code if we can.  We need
-	     64-bit and direct move to extract the small integer vectors.  */
-	  if (TREE_CODE (arg2) == INTEGER_CST
-	      && wi::ltu_p (wi::to_wide (arg2), nunits))
+	  /* If the second argument is an integer constant, generate
+	     the built-in code if we can.  We need 64-bit and direct
+	     move to extract the small integer vectors.  */
+	  if (TREE_CODE (arg2) == INTEGER_CST)
 	    {
+	      wide_int selector = wi::to_wide (arg2);
+	      selector = wi::umod_trunc (selector, nunits);
+	      arg2 = wide_int_to_tree (TREE_TYPE (arg2), selector);
 	      switch (mode)
 		{
 		default:
@@ -6615,7 +6647,13 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 	    }
 
 	  if (call)
-	    return build_call_expr (call, 2, arg1, arg2);
+	    {
+	      tree result = build_call_expr (call, 2, arg1, arg2);
+	      /* Coerce the result to vector element type.  May be no-op.  */
+	      arg1_inner_type = TREE_TYPE (arg1_type);
+	      result = fold_convert (arg1_inner_type, result);
+	      return result;
+	    }
 	}
 
       /* Build *(((arg1_inner_type*)&(vector type){arg1})+arg2). */

@@ -1,5 +1,5 @@
 /* Header file for modules that link with gcc.c
-   Copyright (C) 1999-2018 Free Software Foundation, Inc.
+   Copyright (C) 1999-2019 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -71,7 +71,6 @@ struct spec_function
 /* These are exported by gcc.c.  */
 extern int do_spec (const char *);
 extern void record_temp_file (const char *, int, int);
-extern void pfatal_with_name (const char *) ATTRIBUTE_NORETURN;
 extern void set_input (const char *);
 
 /* Spec files linked with gcc.c must provide definitions for these.  */

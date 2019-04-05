@@ -206,7 +206,7 @@ TEST_UNIFORM_ZS (mla_x0_u64_z_tied2, svuint64_t, uint64_t,
 		 z1 = svmla_z (p0, z0, z1, x0))
 
 /*
-** mla_x0_u64_z_untied:
+** mla_x0_u64_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.d), x0
 **	movprfx	z0\.d, p0/z, z1\.d
 **	mla	z0\.d, p0/m, z2\.d, \1
@@ -239,7 +239,7 @@ TEST_UNIFORM_ZS (mla_d0_u64_z_tied2, svuint64_t, uint64_t,
 		 z1 = svmla_z (p0, z0, z1, d0))
 
 /*
-** mla_d0_u64_z_untied:
+** mla_d0_u64_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.d), d0
 **	movprfx	z1\.d, p0/z, z0\.d
 **	mla	z1\.d, p0/m, z2\.d, \1

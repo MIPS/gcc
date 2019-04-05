@@ -1,5 +1,5 @@
 /* Declarations for C++ name lookup routines.
-   Copyright (C) 2003-2018 Free Software Foundation, Inc.
+   Copyright (C) 2003-2019 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -330,5 +330,8 @@ extern void push_nested_namespace (tree);
 extern void pop_nested_namespace (tree);
 extern void push_to_top_level (void);
 extern void pop_from_top_level (void);
+extern void maybe_save_operator_binding (tree);
+extern void push_operator_bindings (void);
+extern void discard_operator_bindings (tree);
 
 #endif /* GCC_CP_NAME_LOOKUP_H */

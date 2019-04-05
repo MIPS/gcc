@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on TI MSP430 processors.
-   Copyright (C) 2012-2018 Free Software Foundation, Inc.
+   Copyright (C) 2012-2019 Free Software Foundation, Inc.
    Contributed by Red Hat.
 
    This file is part of GCC.
@@ -797,26 +797,31 @@ msp430_option_override (void)
 	    if (msp430_warn_mcu)
 	      {
 		if (target_cpu&& msp430x != xisa)
-		  warning (0, "MCU '%s' supports %s ISA but -mcpu option is set to %s",
+		  warning (0, "MCU '%s' supports %s ISA but %<-mcpu%> option "
+			   "is set to %s",
 			   target_mcu, xisa ? "430X" : "430", msp430x ? "430X" : "430");
 
 		if (msp430_mcu_data[i].hwmpy == 0
 		    && msp430_hwmult_type != MSP430_HWMULT_AUTO
 		    && msp430_hwmult_type != MSP430_HWMULT_NONE)
-		  warning (0, "MCU '%s' does not have hardware multiply support, but -mhwmult is set to %s",
+		  warning (0, "MCU '%s' does not have hardware multiply "
+			   "support, but %<-mhwmult%> is set to %s",
 			   target_mcu,
 			   msp430_hwmult_type == MSP430_HWMULT_SMALL ? "16-bit"
 			   : msp430_hwmult_type == MSP430_HWMULT_LARGE ? "32-bit" : "f5series");
 		else if (msp430_hwmult_type == MSP430_HWMULT_SMALL
 		    && msp430_mcu_data[i].hwmpy != 1
 		    && msp430_mcu_data[i].hwmpy != 2 )
-		  warning (0, "MCU '%s' supports %s hardware multiply, but -mhwmult is set to 16-bit",
+		  warning (0, "MCU '%s' supports %s hardware multiply, "
+			   "but %<-mhwmult%> is set to 16-bit",
 			   target_mcu, hwmult_name (msp430_mcu_data[i].hwmpy));
 		else if (msp430_hwmult_type == MSP430_HWMULT_LARGE && msp430_mcu_data[i].hwmpy != 4)
-		  warning (0, "MCU '%s' supports %s hardware multiply, but -mhwmult is set to 32-bit",
+		  warning (0, "MCU '%s' supports %s hardware multiply, "
+			   "but %<-mhwmult%> is set to 32-bit",
 			   target_mcu, hwmult_name (msp430_mcu_data[i].hwmpy));
 		else if (msp430_hwmult_type == MSP430_HWMULT_F5SERIES && msp430_mcu_data[i].hwmpy != 8)
-		  warning (0, "MCU '%s' supports %s hardware multiply, but -mhwmult is set to f5series",
+		  warning (0, "MCU '%s' supports %s hardware multiply, "
+			   "but %<-mhwmult%> is set to f5series",
 			   target_mcu, hwmult_name (msp430_mcu_data[i].hwmpy));
 	      }
 
@@ -834,13 +839,13 @@ msp430_option_override (void)
 		    warning (0,
 			     "Unrecognized MCU name '%s', assuming that it is "
 			     "just a MSP430 with no hardware multiply.\n"
-			     "Use the -mcpu and -mhwmult options to set "
-			     "these explicitly.",
+			     "Use the %<-mcpu%> and %<-mhwmult%> options to "
+			     "set these explicitly.",
 			     target_mcu);
 		  else
 		    warning (0,
 			     "Unrecognized MCU name '%s', assuming that it "
-			     "has no hardware multiply.\nUse the -mhwmult "
+			     "has no hardware multiply.\nUse the %<-mhwmult%> "
 			     "option to set this explicitly.",
 			     target_mcu);
 		}
@@ -852,8 +857,8 @@ msp430_option_override (void)
 	      if (msp430_warn_mcu)
 		warning (0,
 			 "Unrecognized MCU name '%s', assuming that it just "
-			 "supports the MSP430 ISA.\nUse the -mcpu option to "
-			 "set the ISA explicitly.",
+			 "supports the MSP430 ISA.\nUse the %<-mcpu%> option "
+			 "to set the ISA explicitly.",
 			 target_mcu);
 
 	      msp430x = false;
@@ -868,12 +873,12 @@ msp430_option_override (void)
     msp430x = true;
 
   if (TARGET_LARGE && !msp430x)
-    error ("-mlarge requires a 430X-compatible -mmcu=");
+    error ("%<-mlarge%> requires a 430X-compatible %<-mmcu=%>");
 
   if (msp430_code_region == MSP430_REGION_UPPER && ! msp430x)
-    error ("-mcode-region=upper requires 430X-compatible cpu");
+    error ("%<-mcode-region=upper%> requires 430X-compatible cpu");
   if (msp430_data_region == MSP430_REGION_UPPER && ! msp430x)
-    error ("-mdata-region=upper requires 430X-compatible cpu");
+    error ("%<-mdata-region=upper%> requires 430X-compatible cpu");
 
   if (flag_exceptions || flag_non_call_exceptions
       || flag_unwind_tables || flag_asynchronous_unwind_tables)
@@ -1946,6 +1951,13 @@ msp430_attr (tree * node,
 	  TREE_USED (* node) = 1;
 	  DECL_PRESERVE_P (* node) = 1;
 	}
+      if (is_critical_func (* node))
+	{
+	  warning (OPT_Wattributes,
+		   "critical attribute has no effect on interrupt functions");
+	  DECL_ATTRIBUTES (*node) = remove_attribute (ATTR_CRIT,
+						      DECL_ATTRIBUTES (* node));
+	}
     }
   else if (TREE_NAME_EQ (name, ATTR_REENT))
     {
@@ -1960,6 +1972,8 @@ msp430_attr (tree * node,
 	message = "naked functions cannot be critical";
       else if (is_reentrant_func (* node))
 	message = "reentrant functions cannot be critical";
+      else if (is_interrupt_func ( *node))
+	message = "critical attribute has no effect on interrupt functions";
     }
   else if (TREE_NAME_EQ (name, ATTR_NAKED))
     {
@@ -3469,6 +3483,11 @@ msp430_print_operand_raw (FILE * file, rtx op)
     }
 }
 
+#undef  TARGET_ASM_ALIGNED_PSI_OP
+#define TARGET_ASM_ALIGNED_PSI_OP "\t.long\t"
+#undef  TARGET_ASM_UNALIGNED_PSI_OP
+#define TARGET_ASM_UNALIGNED_PSI_OP TARGET_ASM_ALIGNED_PSI_OP
+
 #undef  TARGET_PRINT_OPERAND_ADDRESS
 #define TARGET_PRINT_OPERAND_ADDRESS	msp430_print_operand_addr
 
@@ -3871,6 +3890,9 @@ msp430_can_change_mode_class (machine_mode from, machine_mode to, reg_class_t)
   return true;
 }
 
+#undef  TARGET_HAVE_SPECULATION_SAFE_VALUE
+#define TARGET_HAVE_SPECULATION_SAFE_VALUE speculation_safe_value_not_needed
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 #include "gt-msp430.h"

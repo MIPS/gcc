@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2019, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -206,6 +206,10 @@ package body Sem_Ch6 is
    --  Create the declaration for an inequality operator that is implicitly
    --  created by a user-defined equality operator that yields a boolean.
 
+   procedure Preanalyze_Formal_Expression (N : Node_Id; T : Entity_Id);
+   --  Preanalysis of default expressions of subprogram formals. N is the
+   --  expression to be analyzed and T is the expected type.
+
    procedure Set_Formal_Validity (Formal_Id : Entity_Id);
    --  Formal_Id is an formal parameter entity. This procedure deals with
    --  setting the proper validity status for this entity, which depends on
@@ -280,208 +284,6 @@ package body Sem_Ch6 is
       Loc  : constant Source_Ptr := Sloc (N);
       LocX : constant Source_Ptr := Sloc (Expr);
       Spec : constant Node_Id    := Specification (N);
-
-      procedure Freeze_Expr_Types (Def_Id : Entity_Id);
-      --  N is an expression function that is a completion and Def_Id its
-      --  defining entity. Freeze before N all the types referenced by the
-      --  expression of the function.
-
-      -----------------------
-      -- Freeze_Expr_Types --
-      -----------------------
-
-      procedure Freeze_Expr_Types (Def_Id : Entity_Id) is
-         function Cloned_Expression return Node_Id;
-         --  Build a duplicate of the expression of the return statement that
-         --  has no defining entities shared with the original expression.
-
-         function Freeze_Type_Refs (Node : Node_Id) return Traverse_Result;
-         --  Freeze all types referenced in the subtree rooted at Node
-
-         -----------------------
-         -- Cloned_Expression --
-         -----------------------
-
-         function Cloned_Expression return Node_Id is
-            function Clone_Id (Node : Node_Id) return Traverse_Result;
-            --  Tree traversal routine that clones the defining identifier of
-            --  iterator and loop parameter specification nodes.
-
-            --------------
-            -- Clone_Id --
-            --------------
-
-            function Clone_Id (Node : Node_Id) return Traverse_Result is
-            begin
-               if Nkind_In (Node, N_Iterator_Specification,
-                                  N_Loop_Parameter_Specification)
-               then
-                  Set_Defining_Identifier (Node,
-                    New_Copy (Defining_Identifier (Node)));
-               end if;
-
-               return OK;
-            end Clone_Id;
-
-            procedure Clone_Def_Ids is new Traverse_Proc (Clone_Id);
-
-            --  Local variable
-
-            Dup_Expr : constant Node_Id := New_Copy_Tree (Expr);
-
-         --  Start of processing for Cloned_Expression
-
-         begin
-            --  We must duplicate the expression with semantic information to
-            --  inherit the decoration of global entities in generic instances.
-            --  Set the parent of the new node to be the parent of the original
-            --  to get the proper context, which is needed for complete error
-            --  reporting and for semantic analysis.
-
-            Set_Parent (Dup_Expr, Parent (Expr));
-
-            --  Replace the defining identifier of iterators and loop param
-            --  specifications by a clone to ensure that the cloned expression
-            --  and the original expression don't have shared identifiers;
-            --  otherwise, as part of the preanalysis of the expression, these
-            --  shared identifiers may be left decorated with itypes which
-            --  will not be available in the tree passed to the backend.
-
-            Clone_Def_Ids (Dup_Expr);
-
-            return Dup_Expr;
-         end Cloned_Expression;
-
-         ----------------------
-         -- Freeze_Type_Refs --
-         ----------------------
-
-         function Freeze_Type_Refs (Node : Node_Id) return Traverse_Result is
-            procedure Check_And_Freeze_Type (Typ : Entity_Id);
-            --  Check that Typ is fully declared and freeze it if so
-
-            ---------------------------
-            -- Check_And_Freeze_Type --
-            ---------------------------
-
-            procedure Check_And_Freeze_Type (Typ : Entity_Id) is
-            begin
-               --  Skip Itypes created by the preanalysis, and itypes whose
-               --  scope is another type (i.e. component subtypes that depend
-               --  on a discriminant),
-
-               if Is_Itype (Typ)
-                 and then (Scope_Within_Or_Same (Scope (Typ), Def_Id)
-                            or else Is_Type (Scope (Typ)))
-               then
-                  return;
-               end if;
-
-               --  This provides a better error message than generating
-               --  primitives whose compilation fails much later. Refine
-               --  the error message if possible.
-
-               Check_Fully_Declared (Typ, Node);
-
-               if Error_Posted (Node) then
-                  if Has_Private_Component (Typ)
-                    and then not Is_Private_Type (Typ)
-                  then
-                     Error_Msg_NE ("\type& has private component", Node, Typ);
-                  end if;
-
-               else
-                  Freeze_Before (N, Typ);
-               end if;
-            end Check_And_Freeze_Type;
-
-         --  Start of processing for Freeze_Type_Refs
-
-         begin
-            --  Check that a type referenced by an entity can be frozen
-
-            if Is_Entity_Name (Node) and then Present (Entity (Node)) then
-               Check_And_Freeze_Type (Etype (Entity (Node)));
-
-               --  Check that the enclosing record type can be frozen
-
-               if Ekind_In (Entity (Node), E_Component, E_Discriminant) then
-                  Check_And_Freeze_Type (Scope (Entity (Node)));
-               end if;
-
-            --  Freezing an access type does not freeze the designated type,
-            --  but freezing conversions between access to interfaces requires
-            --  that the interface types themselves be frozen, so that dispatch
-            --  table entities are properly created.
-
-            --  Unclear whether a more general rule is needed ???
-
-            elsif Nkind (Node) = N_Type_Conversion
-              and then Is_Access_Type (Etype (Node))
-              and then Is_Interface (Designated_Type (Etype (Node)))
-            then
-               Check_And_Freeze_Type (Designated_Type (Etype (Node)));
-            end if;
-
-            --  An implicit dereference freezes the designated type. In the
-            --  case of a dispatching call whose controlling argument is an
-            --  access type, the dereference is not made explicit, so we must
-            --  check for such a call and freeze the designated type.
-
-            if Nkind (Node) in N_Has_Etype
-              and then Present (Etype (Node))
-              and then Is_Access_Type (Etype (Node))
-              and then Nkind (Parent (Node)) = N_Function_Call
-              and then Node = Controlling_Argument (Parent (Node))
-            then
-               Check_And_Freeze_Type (Designated_Type (Etype (Node)));
-            end if;
-
-            --  No point in posting several errors on the same expression
-
-            if Serious_Errors_Detected > 0 then
-               return Abandon;
-            else
-               return OK;
-            end if;
-         end Freeze_Type_Refs;
-
-         procedure Freeze_References is new Traverse_Proc (Freeze_Type_Refs);
-
-         --  Local variables
-
-         Saved_First_Entity : constant Entity_Id := First_Entity (Def_Id);
-         Saved_Last_Entity  : constant Entity_Id := Last_Entity  (Def_Id);
-         Dup_Expr           : constant Node_Id   := Cloned_Expression;
-
-      --  Start of processing for Freeze_Expr_Types
-
-      begin
-         --  Preanalyze a duplicate of the expression to have available the
-         --  minimum decoration needed to locate referenced unfrozen types
-         --  without adding any decoration to the function expression.
-
-         Push_Scope (Def_Id);
-         Install_Formals (Def_Id);
-
-         Preanalyze_Spec_Expression (Dup_Expr, Etype (Def_Id));
-         End_Scope;
-
-         --  Restore certain attributes of Def_Id since the preanalysis may
-         --  have introduced itypes to this scope, thus modifying attributes
-         --  First_Entity and Last_Entity.
-
-         Set_First_Entity (Def_Id, Saved_First_Entity);
-         Set_Last_Entity  (Def_Id, Saved_Last_Entity);
-
-         if Present (Last_Entity (Def_Id)) then
-            Set_Next_Entity (Last_Entity (Def_Id), Empty);
-         end if;
-
-         --  Freeze all types referenced in the expression
-
-         Freeze_References (Dup_Expr);
-      end Freeze_Expr_Types;
 
       --  Local variables
 
@@ -596,7 +398,11 @@ package body Sem_Ch6 is
          --  As elsewhere, we do not emit freeze nodes within a generic unit.
 
          if not Inside_A_Generic then
-            Freeze_Expr_Types (Def_Id);
+            Freeze_Expr_Types
+              (Def_Id => Def_Id,
+               Typ    => Etype (Def_Id),
+               Expr   => Expr,
+               N      => N);
          end if;
 
          --  For navigation purposes, indicate that the function is a body
@@ -761,7 +567,7 @@ package body Sem_Ch6 is
                if not Inside_A_Generic then
                   Push_Scope (Def_Id);
                   Install_Formals (Def_Id);
-                  Preanalyze_Spec_Expression (Expr, Typ);
+                  Preanalyze_Formal_Expression (Expr, Typ);
                   Check_Limited_Return (Original_Node (N), Expr, Typ);
                   End_Scope;
                end if;
@@ -1254,6 +1060,16 @@ package body Sem_Ch6 is
 
          Apply_Constraint_Check (Expr, R_Type);
 
+         --  The return value is converted to the return type of the function,
+         --  which implies a predicate check if the return type is predicated.
+         --  We do not apply the check to a case expression because it will
+         --  be expanded into a series of return statements, each of which
+         --  will receive a predicate check.
+
+         if Nkind (Expr) /= N_Case_Expression then
+            Apply_Predicate_Check (Expr, R_Type);
+         end if;
+
          --  Ada 2005 (AI-318-02): When the result type is an anonymous access
          --  type, apply an implicit conversion of the expression to that type
          --  to force appropriate static and run-time accessibility checks.
@@ -1580,12 +1396,23 @@ package body Sem_Ch6 is
    -- Analyze_Null_Procedure --
    ----------------------------
 
+   --  WARNING: This routine manages Ghost regions. Return statements must be
+   --  replaced by gotos that jump to the end of the routine and restore the
+   --  Ghost mode.
+
    procedure Analyze_Null_Procedure
      (N             : Node_Id;
       Is_Completion : out Boolean)
    is
-      Loc        : constant Source_Ptr := Sloc (N);
-      Spec       : constant Node_Id    := Specification (N);
+      Loc  : constant Source_Ptr := Sloc (N);
+      Spec : constant Node_Id    := Specification (N);
+
+      Saved_GM   : constant Ghost_Mode_Type := Ghost_Mode;
+      Saved_IGR  : constant Node_Id         := Ignored_Ghost_Region;
+      Saved_ISMP : constant Boolean         :=
+                     Ignore_SPARK_Mode_Pragmas_In_Instance;
+      --  Save the Ghost and SPARK mode-related data to restore on exit
+
       Designator : Entity_Id;
       Form       : Node_Id;
       Null_Body  : Node_Id := Empty;
@@ -1593,6 +1420,17 @@ package body Sem_Ch6 is
       Prev       : Entity_Id;
 
    begin
+      Prev := Current_Entity_In_Scope (Defining_Entity (Spec));
+
+      --  A null procedure is Ghost when it is stand-alone and is subject to
+      --  pragma Ghost, or when the corresponding spec is Ghost. Set the mode
+      --  now, to ensure that any nodes generated during analysis and expansion
+      --  are properly marked as Ghost.
+
+      if Present (Prev) then
+         Mark_And_Set_Ghost_Body (N, Prev);
+      end if;
+
       --  Capture the profile of the null procedure before analysis, for
       --  expansion at the freeze point and at each point of call. The body is
       --  used if the procedure has preconditions, or if it is a completion. In
@@ -1637,8 +1475,6 @@ package body Sem_Ch6 is
       --  and set minimal semantic information on the original declaration,
       --  which is rewritten as a null statement.
 
-      Prev := Current_Entity_In_Scope (Defining_Entity (Spec));
-
       if Present (Prev) and then Is_Generic_Subprogram (Prev) then
          Insert_Before (N, Null_Body);
          Set_Ekind (Defining_Entity (N), Ekind (Prev));
@@ -1646,7 +1482,8 @@ package body Sem_Ch6 is
          Rewrite (N, Make_Null_Statement (Loc));
          Analyze_Generic_Subprogram_Body (Null_Body, Prev);
          Is_Completion := True;
-         return;
+
+         goto Leave;
 
       else
          --  Resolve the types of the formals now, because the freeze point may
@@ -1719,6 +1556,10 @@ package body Sem_Ch6 is
          Rewrite (N, Null_Body);
          Analyze (N);
       end if;
+
+   <<Leave>>
+      Ignore_SPARK_Mode_Pragmas_In_Instance := Saved_ISMP;
+      Restore_Ghost_Region (Saved_GM, Saved_IGR);
    end Analyze_Null_Procedure;
 
    -----------------------------
@@ -1767,7 +1608,7 @@ package body Sem_Ch6 is
    ----------------------------
 
    --  WARNING: This routine manages Ghost regions. Return statements must be
-   --  replaced by gotos which jump to the end of the routine and restore the
+   --  replaced by gotos that jump to the end of the routine and restore the
    --  Ghost mode.
 
    procedure Analyze_Procedure_Call (N : Node_Id) is
@@ -2433,7 +2274,7 @@ package body Sem_Ch6 is
    --  the subprogram, or to perform conformance checks.
 
    --  WARNING: This routine manages Ghost regions. Return statements must be
-   --  replaced by gotos which jump to the end of the routine and restore the
+   --  replaced by gotos that jump to the end of the routine and restore the
    --  Ghost mode.
 
    procedure Analyze_Subprogram_Body_Helper (N : Node_Id) is
@@ -3343,8 +3184,12 @@ package body Sem_Ch6 is
                end if;
 
                if not Is_Frozen (Typ) then
-                  Set_Is_Frozen (Typ);
-                  Append_New_Elmt (Typ, Result);
+                  if Scope (Typ) /= Current_Scope then
+                     Set_Is_Frozen (Typ);
+                     Append_New_Elmt (Typ, Result);
+                  else
+                     Freeze_Before (N, Typ);
+                  end if;
                end if;
             end Mask_Type;
 
@@ -3525,6 +3370,7 @@ package body Sem_Ch6 is
 
       Saved_GM   : constant Ghost_Mode_Type := Ghost_Mode;
       Saved_IGR  : constant Node_Id         := Ignored_Ghost_Region;
+      Saved_EA   : constant Boolean         := Expander_Active;
       Saved_ISMP : constant Boolean         :=
                      Ignore_SPARK_Mode_Pragmas_In_Instance;
       --  Save the Ghost and SPARK mode-related data to restore on exit
@@ -3574,7 +3420,7 @@ package body Sem_Ch6 is
          if Is_Generic_Subprogram (Prev_Id) then
             Spec_Id := Prev_Id;
 
-            --  A subprogram body is Ghost when it is stand alone and subject
+            --  A subprogram body is Ghost when it is stand-alone and subject
             --  to pragma Ghost or when the corresponding spec is Ghost. Set
             --  the mode now to ensure that any nodes generated during analysis
             --  and expansion are properly marked as Ghost.
@@ -3626,7 +3472,7 @@ package body Sem_Ch6 is
             if Is_Private_Concurrent_Primitive (Body_Id) then
                Spec_Id := Disambiguate_Spec;
 
-               --  A subprogram body is Ghost when it is stand alone and
+               --  A subprogram body is Ghost when it is stand-alone and
                --  subject to pragma Ghost or when the corresponding spec is
                --  Ghost. Set the mode now to ensure that any nodes generated
                --  during analysis and expansion are properly marked as Ghost.
@@ -3642,7 +3488,7 @@ package body Sem_Ch6 is
             else
                Spec_Id := Find_Corresponding_Spec (N);
 
-               --  A subprogram body is Ghost when it is stand alone and
+               --  A subprogram body is Ghost when it is stand-alone and
                --  subject to pragma Ghost or when the corresponding spec is
                --  Ghost. Set the mode now to ensure that any nodes generated
                --  during analysis and expansion are properly marked as Ghost.
@@ -3749,7 +3595,7 @@ package body Sem_Ch6 is
          else
             Spec_Id := Corresponding_Spec (N);
 
-            --  A subprogram body is Ghost when it is stand alone and subject
+            --  A subprogram body is Ghost when it is stand-alone and subject
             --  to pragma Ghost or when the corresponding spec is Ghost. Set
             --  the mode now to ensure that any nodes generated during analysis
             --  and expansion are properly marked as Ghost.
@@ -3763,6 +3609,18 @@ package body Sem_Ch6 is
 
             Install_Elaboration_Model (Spec_Id);
          end if;
+      end if;
+
+      --  Deactivate expansion inside the body of ignored Ghost entities,
+      --  as this code will ultimately be ignored. This avoids requiring the
+      --  presence of run-time units which are not needed. Only do this for
+      --  user entities, as internally generated entitities might still need
+      --  to be expanded (e.g. those generated for types).
+
+      if Present (Ignored_Ghost_Region)
+        and then Comes_From_Source (Body_Id)
+      then
+         Expander_Active := False;
       end if;
 
       --  Previously we scanned the body to look for nested subprograms, and
@@ -3834,40 +3692,42 @@ package body Sem_Ch6 is
          --  They are necessary in any case to insure order of elaboration
          --  in gigi.
 
-         if not Is_Frozen (Spec_Id)
+         if Nkind (N) = N_Subprogram_Body
+           and then Was_Expression_Function (N)
+           and then not Has_Completion (Spec_Id)
+           and then Serious_Errors_Detected = 0
            and then (Expander_Active
                       or else ASIS_Mode
-                      or else (Operating_Mode = Check_Semantics
-                                and then Serious_Errors_Detected = 0))
+                      or else Operating_Mode = Check_Semantics)
          then
             --  The body generated for an expression function that is not a
             --  completion is a freeze point neither for the profile nor for
             --  anything else. That's why, in order to prevent any freezing
             --  during analysis, we need to mask types declared outside the
-            --  expression that are not yet frozen.
+            --  expression (and in an outer scope) that are not yet frozen.
 
-            if Nkind (N) = N_Subprogram_Body
-              and then Was_Expression_Function (N)
-              and then not Has_Completion (Spec_Id)
-            then
-               Set_Is_Frozen (Spec_Id);
-               Mask_Types := Mask_Unfrozen_Types (Spec_Id);
-            else
-               Set_Has_Delayed_Freeze (Spec_Id);
-               Freeze_Before (N, Spec_Id);
-            end if;
+            Set_Is_Frozen (Spec_Id);
+            Mask_Types := Mask_Unfrozen_Types (Spec_Id);
+
+         elsif not Is_Frozen (Spec_Id)
+           and then Serious_Errors_Detected = 0
+         then
+            Set_Has_Delayed_Freeze (Spec_Id);
+            Freeze_Before (N, Spec_Id);
          end if;
       end if;
 
       --  If the subprogram has a class-wide clone, build its body as a copy
       --  of the original body, and rewrite body of original subprogram as a
       --  wrapper that calls the clone. If N is a stub, this construction will
-      --  take place when the proper body is analyzed.
+      --  take place when the proper body is analyzed. No action needed if this
+      --  subprogram has been eliminated.
 
       if Present (Spec_Id)
         and then Present (Class_Wide_Clone (Spec_Id))
         and then (Comes_From_Source (N) or else Was_Expression_Function (N))
         and then Nkind (N) /= N_Subprogram_Body_Stub
+        and then not (Expander_Active and then Is_Eliminated (Spec_Id))
       then
          Build_Class_Wide_Clone_Body (Spec_Id, N);
 
@@ -4741,6 +4601,10 @@ package body Sem_Ch6 is
       end if;
 
    <<Leave>>
+      if Present (Ignored_Ghost_Region) then
+         Expander_Active := Saved_EA;
+      end if;
+
       Ignore_SPARK_Mode_Pragmas_In_Instance := Saved_ISMP;
       Restore_Ghost_Region (Saved_GM, Saved_IGR);
    end Analyze_Subprogram_Body_Helper;
@@ -7433,14 +7297,16 @@ package body Sem_Ch6 is
                   end if;
                end;
 
-            --  Functions can override abstract interface functions
+            --  Functions can override abstract interface functions. Return
+            --  types must be subtype conformant.
 
             elsif Ekind (Def_Id) = E_Function
               and then Ekind (Subp) = E_Function
               and then Matches_Prefixed_View_Profile
                          (Parameter_Specifications (Parent (Def_Id)),
                           Parameter_Specifications (Parent (Subp)))
-              and then Etype (Def_Id) = Etype (Subp)
+              and then Conforming_Types
+                         (Etype (Def_Id), Etype (Subp), Subtype_Conformant)
             then
                Candidate := Subp;
 
@@ -8575,14 +8441,10 @@ package body Sem_Ch6 is
 
       if Is_Frozen (Typ) then
 
-         --  If the type is not declared in a package, or if we are in the body
-         --  of the package or in some other scope, the new operation is not
-         --  primitive, and therefore legal, though suspicious. Should we
-         --  generate a warning in this case ???
+         --  The check applies to a primitive operation, so check that type
+         --  and equality operation are in the same scope.
 
-         if Ekind (Scope (Typ)) /= E_Package
-           or else Scope (Typ) /= Current_Scope
-         then
+         if Scope (Typ) /= Current_Scope then
             return;
 
          --  If the type is a generic actual (sub)type, the operation is not
@@ -8625,7 +8487,7 @@ package body Sem_Ch6 is
                     ("\move declaration to package spec (Ada 2012)?y?", Eq_Op);
                end if;
 
-            --  Otherwise try to find the freezing point
+            --  Otherwise try to find the freezing point for better message.
 
             else
                Obj_Decl := Next (Parent (Typ));
@@ -8653,6 +8515,13 @@ package body Sem_Ch6 is
                      end if;
 
                      exit;
+
+                  --  If we reach generated code for subprogram declaration
+                  --  or body, it is the body that froze the type and the
+                  --  declaration is legal.
+
+                  elsif Sloc (Obj_Decl) = Sloc (Decl) then
+                     return;
                   end if;
 
                   Next (Obj_Decl);
@@ -8971,7 +8840,8 @@ package body Sem_Ch6 is
 
    function Fully_Conformant_Expressions
      (Given_E1 : Node_Id;
-      Given_E2 : Node_Id) return Boolean
+      Given_E2 : Node_Id;
+      Report   : Boolean := False) return Boolean
    is
       E1 : constant Node_Id := Original_Node (Given_E1);
       E2 : constant Node_Id := Original_Node (Given_E2);
@@ -8979,23 +8849,33 @@ package body Sem_Ch6 is
       --  for analysis and/or expansion to make things look as though they
       --  conform when they do not, e.g. by converting 1+2 into 3.
 
-      function FCE (Given_E1, Given_E2 : Node_Id) return Boolean
-        renames Fully_Conformant_Expressions;
+      function FCE (Given_E1 : Node_Id; Given_E2 : Node_Id) return Boolean;
+      --  ???
 
-      function FCL (L1, L2 : List_Id) return Boolean;
+      function FCL (L1 : List_Id; L2 : List_Id) return Boolean;
       --  Compare elements of two lists for conformance. Elements have to be
       --  conformant, and actuals inserted as default parameters do not match
       --  explicit actuals with the same value.
 
-      function FCO (Op_Node, Call_Node : Node_Id) return Boolean;
+      function FCO (Op_Node : Node_Id; Call_Node : Node_Id) return Boolean;
       --  Compare an operator node with a function call
+
+      ---------
+      -- FCE --
+      ---------
+
+      function FCE (Given_E1 : Node_Id; Given_E2 : Node_Id) return Boolean is
+      begin
+         return Fully_Conformant_Expressions (Given_E1, Given_E2, Report);
+      end FCE;
 
       ---------
       -- FCL --
       ---------
 
-      function FCL (L1, L2 : List_Id) return Boolean is
-         N1, N2 : Node_Id;
+      function FCL (L1 : List_Id; L2 : List_Id) return Boolean is
+         N1 : Node_Id;
+         N2 : Node_Id;
 
       begin
          if L1 = No_List then
@@ -9035,7 +8915,7 @@ package body Sem_Ch6 is
       -- FCO --
       ---------
 
-      function FCO (Op_Node, Call_Node : Node_Id) return Boolean is
+      function FCO (Op_Node : Node_Id; Call_Node : Node_Id) return Boolean is
          Actuals : constant List_Id := Parameter_Associations (Call_Node);
          Act     : Node_Id;
 
@@ -9062,9 +8942,15 @@ package body Sem_Ch6 is
          end if;
       end FCO;
 
+      --  Local variables
+
+      Result : Boolean;
+
    --  Start of processing for Fully_Conformant_Expressions
 
    begin
+      Result := True;
+
       --  Nonconformant if paren count does not match. Note: if some idiot
       --  complains that we don't do this right for more than 3 levels of
       --  parentheses, they will be treated with the respect they deserve.
@@ -9077,7 +8963,7 @@ package body Sem_Ch6 is
 
       elsif Is_Entity_Name (E1) and then Is_Entity_Name (E2) then
          if Present (Entity (E1)) then
-            return Entity (E1) = Entity (E2)
+            Result := Entity (E1) = Entity (E2)
 
               --  One may be a discriminant that has been replaced by the
               --  corresponding discriminal.
@@ -9098,14 +8984,32 @@ package body Sem_Ch6 is
                  and then Discriminal_Link (Entity (E1)) =
                           Discriminal_Link (Entity (E2)))
 
-             --  AI12-050: The loop variables of quantified expressions
-             --  match if they have the same identifier, even though they
-             --  are different entities.
+             --  AI12-050: The loop variables of quantified expressions match
+             --  if they have the same identifier, even though they may have
+             --  different entities.
 
               or else
                 (Chars (Entity (E1)) = Chars (Entity (E2))
                   and then Ekind (Entity (E1)) = E_Loop_Parameter
-                  and then Ekind (Entity (E2)) = E_Loop_Parameter);
+                  and then Ekind (Entity (E2)) = E_Loop_Parameter)
+
+              --  A call to an instantiation of Unchecked_Conversion is
+              --  rewritten with the name of the generated function created for
+              --  the instance, and this must be special-cased.
+
+              or else
+                 (Ekind (Entity (E1)) = E_Function
+                   and then Is_Intrinsic_Subprogram (Entity (E1))
+                   and then Is_Generic_Instance (Entity (E1))
+                   and then Entity (E2) = Alias (Entity (E1)));
+            if Report and not Result then
+               Error_Msg_Sloc :=
+                 Text_Ptr'Max (Sloc (Entity (E1)), Sloc (Entity (E2)));
+               Error_Msg_NE
+                 ("Meaning of& differs because of declaration#", E1, E2);
+            end if;
+
+            return Result;
 
          elsif Nkind (E1) = N_Expanded_Name
            and then Nkind (E2) = N_Expanded_Name
@@ -11333,6 +11237,18 @@ package body Sem_Ch6 is
          end if;
    end New_Overloaded_Entity;
 
+   ----------------------------------
+   -- Preanalyze_Formal_Expression --
+   ----------------------------------
+
+   procedure Preanalyze_Formal_Expression (N : Node_Id; T : Entity_Id) is
+      Save_In_Spec_Expression : constant Boolean := In_Spec_Expression;
+   begin
+      In_Spec_Expression := True;
+      Preanalyze_With_Freezing_And_Resolve (N, T);
+      In_Spec_Expression := Save_In_Spec_Expression;
+   end Preanalyze_Formal_Expression;
+
    ---------------------
    -- Process_Formals --
    ---------------------
@@ -11625,7 +11541,7 @@ package body Sem_Ch6 is
             --  Do the special preanalysis of the expression (see section on
             --  "Handling of Default Expressions" in the spec of package Sem).
 
-            Preanalyze_Spec_Expression (Default, Formal_Type);
+            Preanalyze_Formal_Expression (Default, Formal_Type);
 
             --  An access to constant cannot be the default for
             --  an access parameter that is an access to variable.

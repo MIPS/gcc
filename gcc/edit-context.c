@@ -1,5 +1,5 @@
 /* Determining the results of applying fix-it hints.
-   Copyright (C) 2016-2018 Free Software Foundation, Inc.
+   Copyright (C) 2016-2019 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -182,7 +182,7 @@ class line_event
 {
  public:
   line_event (int start, int next, int len) : m_start (start),
-    m_next (next), m_delta (len - (next - start)) {}
+    m_delta (len - (next - start)) {}
 
   int get_effective_column (int orig_column) const
   {
@@ -194,7 +194,6 @@ class line_event
 
  private:
   int m_start;
-  int m_next;
   int m_delta;
 };
 

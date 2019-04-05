@@ -1,5 +1,5 @@
 /* Definitions of target machine of Andes NDS32 cpu for GNU compiler
-   Copyright (C) 2012-2018 Free Software Foundation, Inc.
+   Copyright (C) 2012-2019 Free Software Foundation, Inc.
    Contributed by Andes Technology Corporation.
 
    This file is part of GCC.
@@ -367,7 +367,8 @@ enum nds32_isr_nested_type
 {
   NDS32_NESTED,
   NDS32_NOT_NESTED,
-  NDS32_NESTED_READY
+  NDS32_NESTED_READY,
+  NDS32_CRITICAL
 };
 
 /* Define structure to record isr information.
@@ -394,6 +395,13 @@ struct nds32_isr_info
      It should be set to NDS32_NOT_NESTED by default
      unless user specifies attribute to change it.  */
   enum nds32_isr_nested_type nested_type;
+
+  /* Secure isr level.
+     Currently we have 0-3 security level.
+     It should be set to 0 by default.
+     For security processors, this is determined by secure
+     attribute or compiler options.  */
+  unsigned int security_level;
 
   /* Total vectors.
      The total vectors = interrupt + exception numbers + reset.
@@ -849,8 +857,10 @@ enum nds32_builtins
 
 /* ------------------------------------------------------------------------ */
 
-#define TARGET_ISA_V2   (nds32_arch_option == ARCH_V2)
+#define TARGET_ISR_VECTOR_SIZE_4_BYTE \
+  (nds32_isr_vector_size == 4)
 
+#define TARGET_ISA_V2   (nds32_arch_option == ARCH_V2)
 #define TARGET_ISA_V3 \
   (nds32_arch_option == ARCH_V3 \
    || nds32_arch_option == ARCH_V3J \
@@ -1630,13 +1640,16 @@ enum reg_class
 #define DWARF2_UNWIND_INFO 1
 
 #define JUMP_ALIGN(x) \
-  (align_jumps_log ? align_jumps_log : nds32_target_alignment (x))
+  (align_jumps.levels[0].log \
+   ? align_jumps : align_flags (nds32_target_alignment (x)))
 
 #define LOOP_ALIGN(x) \
-  (align_loops_log ? align_loops_log : nds32_target_alignment (x))
+  (align_loops.levels[0].log \
+   ? align_loops : align_flags (nds32_target_alignment (x)))
 
 #define LABEL_ALIGN(x) \
-  (align_labels_log ? align_labels_log : nds32_target_alignment (x))
+  (align_labels.levels[0].log \
+   ? align_labels : align_flags (nds32_target_alignment (x)))
 
 #define ASM_OUTPUT_ALIGN(stream, power) \
   fprintf (stream, "\t.align\t%d\n", power)

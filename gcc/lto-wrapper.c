@@ -1,5 +1,5 @@
 /* Wrapper to call lto.  Used by collect2 and the linker plugin.
-   Copyright (C) 2009-2018 Free Software Foundation, Inc.
+   Copyright (C) 2009-2019 Free Software Foundation, Inc.
 
    Factored out of collect2 by Rafael Espindola <espindola@google.com>
 
@@ -71,7 +71,8 @@ static char **output_names;
 static char **offload_names;
 static char *offload_objects_file_name;
 static char *makefile;
-static char *debug_obj;
+static unsigned int num_deb_objs;
+static const char **early_debug_object_names;
 
 const char tool_name[] = "lto-wrapper";
 
@@ -90,8 +91,10 @@ tool_cleanup (bool)
     maybe_unlink (offload_objects_file_name);
   if (makefile)
     maybe_unlink (makefile);
-  if (debug_obj)
-    maybe_unlink (debug_obj);
+  if (early_debug_object_names)
+    for (i = 0; i < num_deb_objs; ++i)
+      if (early_debug_object_names[i])
+	maybe_unlink (early_debug_object_names[i]);
   for (i = 0; i < nr; ++i)
     {
       maybe_unlink (input_names[i]);
@@ -245,6 +248,7 @@ merge_and_complain (struct cl_decoded_option **decoded_options,
 	{
 	case OPT_SPECIAL_unknown:
 	case OPT_SPECIAL_ignore:
+	case OPT_SPECIAL_deprecated:
 	case OPT_SPECIAL_program_name:
 	case OPT_SPECIAL_input_file:
 	  break;
@@ -255,6 +259,8 @@ merge_and_complain (struct cl_decoded_option **decoded_options,
 
 	  /* Fallthru.  */
 	case OPT_fdiagnostics_show_caret:
+	case OPT_fdiagnostics_show_labels:
+	case OPT_fdiagnostics_show_line_numbers:
 	case OPT_fdiagnostics_show_option:
 	case OPT_fdiagnostics_show_location_:
 	case OPT_fshow_column:
@@ -283,7 +289,6 @@ merge_and_complain (struct cl_decoded_option **decoded_options,
 
 	case OPT_fopenmp:
 	case OPT_fopenacc:
-	case OPT_fcheck_pointer_bounds:
 	  /* For selected options we can merge conservatively.  */
 	  for (j = 0; j < *decoded_options_count; ++j)
 	    if ((*decoded_options)[j].opt_index == foption->opt_index)
@@ -291,8 +296,7 @@ merge_and_complain (struct cl_decoded_option **decoded_options,
 	  if (j == *decoded_options_count)
 	    append_option (decoded_options, decoded_options_count, foption);
 	  /* -fopenmp > -fno-openmp,
-	     -fopenacc > -fno-openacc,
-	     -fcheck_pointer_bounds > -fcheck_pointer_bounds  */
+	     -fopenacc > -fno-openacc  */
 	  else if (foption->value > (*decoded_options)[j].value)
 	    (*decoded_options)[j] = *foption;
 	  break;
@@ -408,6 +412,11 @@ merge_and_complain (struct cl_decoded_option **decoded_options,
      It is a common mistake to mix few -fPIC compiled objects into otherwise
      non-PIC code.  We do not want to build everything with PIC then.
 
+     Similarly we merge PIE options, however in addition we keep
+      -fPIC + -fPIE = -fPIE
+      -fpic + -fPIE = -fpie
+      -fPIC/-fpic + -fpie = -fpie
+
      It would be good to warn on mismatches, but it is bit hard to do as
      we do not know what nothing translates to.  */
     
@@ -415,11 +424,38 @@ merge_and_complain (struct cl_decoded_option **decoded_options,
     if ((*decoded_options)[j].opt_index == OPT_fPIC
         || (*decoded_options)[j].opt_index == OPT_fpic)
       {
-	if (!pic_option
-	    || (pic_option->value > 0) != ((*decoded_options)[j].value > 0))
-	  remove_option (decoded_options, j, decoded_options_count);
-	else if (pic_option->opt_index == OPT_fPIC
-		 && (*decoded_options)[j].opt_index == OPT_fpic)
+	/* -fno-pic in one unit implies -fno-pic everywhere.  */
+	if ((*decoded_options)[j].value == 0)
+	  j++;
+	/* If we have no pic option or merge in -fno-pic, we still may turn
+	   existing pic/PIC mode into pie/PIE if -fpie/-fPIE is present.  */
+	else if ((pic_option && pic_option->value == 0)
+		 || !pic_option)
+	  {
+	    if (pie_option)
+	      {
+		bool big = (*decoded_options)[j].opt_index == OPT_fPIC
+			   && pie_option->opt_index == OPT_fPIE;
+	        (*decoded_options)[j].opt_index = big ? OPT_fPIE : OPT_fpie;
+		if (pie_option->value)
+	          (*decoded_options)[j].canonical_option[0] = big ? "-fPIE" : "-fpie";
+		else
+	          (*decoded_options)[j].canonical_option[0] = big ? "-fno-pie" : "-fno-pie";
+		(*decoded_options)[j].value = pie_option->value;
+	        j++;
+	      }
+	    else if (pic_option)
+	      {
+	        (*decoded_options)[j] = *pic_option;
+	        j++;
+	      }
+	    /* We do not know if target defaults to pic or not, so just remove
+	       option if it is missing in one unit but enabled in other.  */
+	    else
+	      remove_option (decoded_options, j, decoded_options_count);
+	  }
+	else if (pic_option->opt_index == OPT_fpic
+		 && (*decoded_options)[j].opt_index == OPT_fPIC)
 	  {
 	    (*decoded_options)[j] = *pic_option;
 	    j++;
@@ -430,11 +466,42 @@ merge_and_complain (struct cl_decoded_option **decoded_options,
    else if ((*decoded_options)[j].opt_index == OPT_fPIE
             || (*decoded_options)[j].opt_index == OPT_fpie)
       {
-	if (!pie_option
-	    || pie_option->value != (*decoded_options)[j].value)
-	  remove_option (decoded_options, j, decoded_options_count);
-	else if (pie_option->opt_index == OPT_fPIE
-		 && (*decoded_options)[j].opt_index == OPT_fpie)
+	/* -fno-pie in one unit implies -fno-pie everywhere.  */
+	if ((*decoded_options)[j].value == 0)
+	  j++;
+	/* If we have no pie option or merge in -fno-pie, we still preserve
+	   PIE/pie if pic/PIC is present.  */
+	else if ((pie_option && pie_option->value == 0)
+		 || !pie_option)
+	  {
+	    /* If -fPIC/-fpic is given, merge it with -fPIE/-fpie.  */
+	    if (pic_option)
+	      {
+		if (pic_option->opt_index == OPT_fpic
+		    && (*decoded_options)[j].opt_index == OPT_fPIE)
+		  {
+	            (*decoded_options)[j].opt_index = OPT_fpie;
+	            (*decoded_options)[j].canonical_option[0]
+			 = pic_option->value ? "-fpie" : "-fno-pie";
+		  }
+		else if (!pic_option->value)
+		  (*decoded_options)[j].canonical_option[0] = "-fno-pie";
+		(*decoded_options)[j].value = pic_option->value;
+		j++;
+	      }
+	    else if (pie_option)
+	      {
+	        (*decoded_options)[j] = *pie_option;
+		j++;
+	      }
+	    /* Because we always append pic/PIE options this code path should
+	       not happen unless the LTO object was built by old lto1 which
+	       did not contain that logic yet.  */
+	    else
+	      remove_option (decoded_options, j, decoded_options_count);
+	  }
+	else if (pie_option->opt_index == OPT_fpie
+		 && (*decoded_options)[j].opt_index == OPT_fPIE)
 	  {
 	    (*decoded_options)[j] = *pie_option;
 	    j++;
@@ -536,6 +603,8 @@ append_compiler_options (obstack *argv_obstack, struct cl_decoded_option *opts,
       switch (option->opt_index)
 	{
 	case OPT_fdiagnostics_show_caret:
+	case OPT_fdiagnostics_show_labels:
+	case OPT_fdiagnostics_show_line_numbers:
 	case OPT_fdiagnostics_show_option:
 	case OPT_fdiagnostics_show_location_:
 	case OPT_fshow_column:
@@ -553,7 +622,6 @@ append_compiler_options (obstack *argv_obstack, struct cl_decoded_option *opts,
 	case OPT_Ofast:
 	case OPT_Og:
 	case OPT_Os:
-	case OPT_fcheck_pointer_bounds:
 	  break;
 
 	default:
@@ -581,7 +649,10 @@ append_diag_options (obstack *argv_obstack, struct cl_decoded_option *opts,
       switch (option->opt_index)
 	{
 	case OPT_fdiagnostics_color_:
+	case OPT_fdiagnostics_format_:
 	case OPT_fdiagnostics_show_caret:
+	case OPT_fdiagnostics_show_labels:
+	case OPT_fdiagnostics_show_line_numbers:
 	case OPT_fdiagnostics_show_option:
 	case OPT_fdiagnostics_show_location_:
 	case OPT_fshow_column:
@@ -889,7 +960,7 @@ find_crtoffloadtable (void)
       }
   if (i == n_paths)
     fatal_error (input_location,
-		 "installation error, can't find crtoffloadtable.o");
+		 "installation error, can%'t find crtoffloadtable.o");
 
   free_array_of_ptrs ((void **) paths, n_paths);
 }
@@ -968,7 +1039,7 @@ find_and_merge_options (int fd, off_t file_offset, const char *prefix,
 const char *
 debug_objcopy (const char *infile, bool rename)
 {
-  const char *outfile;
+  char *outfile;
   const char *errmsg;
   int err;
 
@@ -1007,7 +1078,15 @@ debug_objcopy (const char *infile, bool rename)
       return NULL;
     }
 
-  outfile = make_temp_file ("debugobjtem");
+  if (save_temps)
+    {
+      outfile = (char *) xmalloc (strlen (infile)
+				  + sizeof (".debug.temp.o") + 1);
+      strcpy (outfile, infile);
+      strcat (outfile, ".debug.temp.o");
+    }
+  else
+    outfile = make_temp_file (".debug.temp.o");
   errmsg = simple_object_copy_lto_debug_sections (inobj, outfile, &err, rename);
   if (errmsg)
     {
@@ -1344,9 +1423,16 @@ cont1:
 
   if (lto_mode == LTO_MODE_LTO)
     {
-      flto_out = make_temp_file (".lto.o");
       if (linker_output)
-	obstack_ptr_grow (&argv_obstack, linker_output);
+	{
+	  obstack_ptr_grow (&argv_obstack, linker_output);
+	  flto_out = (char *) xmalloc (strlen (linker_output)
+				       + sizeof (".lto.o") + 1);
+	  strcpy (flto_out, linker_output);
+	  strcat (flto_out, ".lto.o");
+	}
+      else
+	flto_out = make_temp_file (".lto.o");
       obstack_ptr_grow (&argv_obstack, "-o");
       obstack_ptr_grow (&argv_obstack, flto_out);
     }
@@ -1373,7 +1459,19 @@ cont1:
 	  strcat (ltrans_output_file, ".ltrans.out");
 	}
       else
-	ltrans_output_file = make_temp_file (".ltrans.out");
+	{
+	  char *prefix = NULL;
+	  if (linker_output)
+	    {
+	      prefix = (char *) xmalloc (strlen (linker_output) + 2);
+	      strcpy (prefix, linker_output);
+	      strcat (prefix, ".");
+	    }
+
+	  ltrans_output_file = make_temp_file_with_prefix (prefix,
+							   ".ltrans.out");
+	  free (prefix);
+	}
       list_option_full = (char *) xmalloc (sizeof (char) *
 		         (strlen (ltrans_output_file) + list_option_len + 1));
       tmp = list_option_full;
@@ -1407,82 +1505,23 @@ cont1:
   argv_ptr = &new_argv[new_head_argc];
   fork_execute (new_argv[0], CONST_CAST (char **, new_argv), true);
 
-  /* Handle early generated debug information.  At compile-time
-     we output early DWARF debug info into .gnu.debuglto_ prefixed
-     sections.  LTRANS object DWARF debug info refers to that.
-     So we need to transfer the .gnu.debuglto_ sections to the final
-     link.  Ideally the linker plugin interface would allow us to
-     not claim those sections and instruct the linker to keep
-     them, renaming them in the process.  For now we extract and
-     rename those sections via a simple-object interface to produce
-     regular objects containing only the early debug info.  We
-     then partially link those to a single early debug info object
-     and pass that as additional output back to the linker plugin.  */
-
-  /* Prepare the partial link to gather the compile-time generated
-     debug-info into a single input for the final link.  */
-  debug_obj = make_temp_file ("debugobj");
-  obstack_ptr_grow (&argv_obstack, collect_gcc);
-  for (i = 1; i < decoded_options_count; ++i)
-    {
-      /* Retain linker choice and -B.  */
-      if (decoded_options[i].opt_index == OPT_B
-	  || decoded_options[i].opt_index == OPT_fuse_ld_bfd
-	  || decoded_options[i].opt_index == OPT_fuse_ld_gold)
-	append_linker_options (&argv_obstack, &decoded_options[i-1], 2);
-      /* Retain all target options, this preserves -m32 for example.  */
-      if (cl_options[decoded_options[i].opt_index].flags & CL_TARGET)
-	append_linker_options (&argv_obstack, &decoded_options[i-1], 2);
-      /* Recognize -g0.  */
-      if (decoded_options[i].opt_index == OPT_g
-	  && strcmp (decoded_options[i].arg, "0") == 0)
-	skip_debug = true;
-    }
-  obstack_ptr_grow (&argv_obstack, "-r");
-  obstack_ptr_grow (&argv_obstack, "-nostdlib");
-  obstack_ptr_grow (&argv_obstack, "-o");
-  obstack_ptr_grow (&argv_obstack, debug_obj);
-
   /* Copy the early generated debug info from the objects to temporary
      files and append those to the partial link commandline.  */
   n_debugobj = 0;
+  early_debug_object_names = NULL;
   if (! skip_debug)
-    for (i = 0; i < ltoobj_argc; ++i)
-      {
-	const char *tem;
-	if ((tem = debug_objcopy (ltoobj_argv[i], !linker_output_rel)))
-	  {
-	    obstack_ptr_grow (&argv_obstack, tem);
-	    n_debugobj++;
-	  }
-      }
-
-  /* Link them all into a single object.  Ideally this would reduce
-     disk space usage mainly due to .debug_str merging but unfortunately
-     GNU ld doesn't perform this with -r.  */
-  if (n_debugobj)
     {
-      obstack_ptr_grow (&argv_obstack, NULL);
-      const char **debug_link_argv = XOBFINISH (&argv_obstack, const char **);
-      fork_execute (debug_link_argv[0],
-		    CONST_CAST (char **, debug_link_argv), false);
-
-      /* And dispose the temporaries.  */
-      for (i = 0; debug_link_argv[i]; ++i)
-	;
-      for (--i; i > 0; --i)
+      early_debug_object_names = XCNEWVEC (const char *, ltoobj_argc+ 1);
+      num_deb_objs = ltoobj_argc;
+      for (i = 0; i < ltoobj_argc; ++i)
 	{
-	  if (strcmp (debug_link_argv[i], debug_obj) == 0)
-	    break;
-	  maybe_unlink (debug_link_argv[i]);
+	  const char *tem;
+	  if ((tem = debug_objcopy (ltoobj_argv[i], !linker_output_rel)))
+	    {
+	      early_debug_object_names[i] = tem;
+	      n_debugobj++;
+	    }
 	}
-    }
-  else
-    {
-      unlink_if_ordinary (debug_obj);
-      free (debug_obj);
-      debug_obj = NULL;
-      skip_debug = true;
     }
 
   if (lto_mode == LTO_MODE_LTO)
@@ -1490,12 +1529,15 @@ cont1:
       printf ("%s\n", flto_out);
       if (!skip_debug)
 	{
-	  printf ("%s\n", debug_obj);
-	  free (debug_obj);
-	  debug_obj = NULL;
+	  for (i = 0; i < ltoobj_argc; ++i)
+	    if (early_debug_object_names[i] != NULL)
+	      printf ("%s\n", early_debug_object_names[i]);	      
 	}
+      /* These now belong to collect2.  */
       free (flto_out);
       flto_out = NULL;
+      free (early_debug_object_names);
+      early_debug_object_names = NULL;
     }
   else
     {
@@ -1623,7 +1665,9 @@ cont:
 	  struct pex_obj *pex;
 	  char jobs[32];
 
-	  fprintf (mstream, "all:");
+	  fprintf (mstream,
+		   ".PHONY: all\n"
+		   "all:");
 	  for (i = 0; i < nr; ++i)
 	    {
 	      int j = ltrans_priorities[i*2 + 1];
@@ -1659,21 +1703,24 @@ cont:
 	  for (i = 0; i < nr; ++i)
 	    maybe_unlink (input_names[i]);
 	}
-      if (!skip_debug)
-	{
-	  printf ("%s\n", debug_obj);
-	  free (debug_obj);
-	  debug_obj = NULL;
-	}
       for (i = 0; i < nr; ++i)
 	{
 	  fputs (output_names[i], stdout);
 	  putc ('\n', stdout);
 	  free (input_names[i]);
 	}
+      if (!skip_debug)
+	{
+	  for (i = 0; i < ltoobj_argc; ++i)
+	    if (early_debug_object_names[i] != NULL)
+	      printf ("%s\n", early_debug_object_names[i]);	      
+	}
       nr = 0;
       free (ltrans_priorities);
       free (output_names);
+      output_names = NULL;
+      free (early_debug_object_names);
+      early_debug_object_names = NULL;
       free (input_names);
       free (list_option_full);
       obstack_free (&env_obstack, NULL);

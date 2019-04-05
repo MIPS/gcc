@@ -1,7 +1,7 @@
 // { dg-options "-std=gnu++17" }
 // { dg-do compile }
 
-// Copyright (C) 2016-2018 Free Software Foundation, Inc.
+// Copyright (C) 2016-2019 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -488,12 +488,12 @@ void test_triviality()
   TEST_TEMPLATE(=default, =default,         , =default,         ,  true, false,  true, false)
   TEST_TEMPLATE(=default, =default,         ,         , =default,  true, false, false,  true)
   TEST_TEMPLATE(=default, =default,         ,         ,         ,  true, false, false, false)
-  TEST_TEMPLATE(=default,         , =default, =default, =default, false,  true,  true,  true)
-  TEST_TEMPLATE(=default,         , =default, =default,         , false,  true,  true, false)
+  TEST_TEMPLATE(=default,         , =default, =default, =default, false,  true,  false,  true)
+  TEST_TEMPLATE(=default,         , =default, =default,         , false,  true,  false, false)
   TEST_TEMPLATE(=default,         , =default,         , =default, false,  true, false,  true)
   TEST_TEMPLATE(=default,         , =default,         ,         , false,  true, false, false)
-  TEST_TEMPLATE(=default,         ,         , =default, =default, false, false,  true,  true)
-  TEST_TEMPLATE(=default,         ,         , =default,         , false, false,  true, false)
+  TEST_TEMPLATE(=default,         ,         , =default, =default, false, false,  false,  true)
+  TEST_TEMPLATE(=default,         ,         , =default,         , false, false,  false, false)
   TEST_TEMPLATE(=default,         ,         ,         , =default, false, false, false,  true)
   TEST_TEMPLATE(=default,         ,         ,         ,         , false, false, false, false)
   TEST_TEMPLATE(        , =default, =default, =default, =default, false, false, false, false)

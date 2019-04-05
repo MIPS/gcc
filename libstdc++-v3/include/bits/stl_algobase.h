@@ -1,6 +1,6 @@
 // Core algorithmic facilities -*- C++ -*-
 
-// Copyright (C) 2001-2018 Free Software Foundation, Inc.
+// Copyright (C) 2001-2019 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -69,6 +69,9 @@
 #include <debug/debug.h>
 #include <bits/move.h> // For std::swap
 #include <bits/predefined_ops.h>
+#if __cplusplus >= 201103L
+# include <type_traits>
+#endif
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
@@ -275,6 +278,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename _Iterator>
     inline _Iterator
     __niter_base(_Iterator __it)
+    _GLIBCXX_NOEXCEPT_IF(std::is_nothrow_copy_constructible<_Iterator>::value)
     { return __it; }
 
   // Reverse the __niter_base transformation to get a
@@ -288,7 +292,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   // No need to wrap, iterator already has the right type.
   template<typename _Iterator>
     inline _Iterator
-    __niter_wrap(_Iterator, _Iterator __res)
+    __niter_wrap(const _Iterator&, _Iterator __res)
     { return __res; }
 
   // All of these auxiliary structs serve two purposes.  (1) Replace
@@ -391,7 +395,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       typedef typename iterator_traits<_II>::value_type _ValueTypeI;
       typedef typename iterator_traits<_OI>::value_type _ValueTypeO;
       typedef typename iterator_traits<_II>::iterator_category _Category;
-      const bool __simple = (__is_trivial(_ValueTypeI)
+      const bool __simple = (__is_trivially_copyable(_ValueTypeI)
 			     && __is_pointer<_II>::__value
 			     && __is_pointer<_OI>::__value
 			     && __are_same<_ValueTypeI, _ValueTypeO>::__value);
@@ -593,7 +597,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       typedef typename iterator_traits<_BI1>::value_type _ValueType1;
       typedef typename iterator_traits<_BI2>::value_type _ValueType2;
       typedef typename iterator_traits<_BI1>::iterator_category _Category;
-      const bool __simple = (__is_trivial(_ValueType1)
+      const bool __simple = (__is_trivially_copyable(_ValueType1)
 			     && __is_pointer<_BI1>::__value
 			     && __is_pointer<_BI2>::__value
 			     && __are_same<_ValueType1, _ValueType2>::__value);
@@ -1014,27 +1018,27 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   //  Precondition: __n > 0.
   inline _GLIBCXX_CONSTEXPR int
   __lg(int __n)
-  { return sizeof(int) * __CHAR_BIT__  - 1 - __builtin_clz(__n); }
+  { return (int)sizeof(int) * __CHAR_BIT__  - 1 - __builtin_clz(__n); }
 
   inline _GLIBCXX_CONSTEXPR unsigned
   __lg(unsigned __n)
-  { return sizeof(int) * __CHAR_BIT__  - 1 - __builtin_clz(__n); }
+  { return (int)sizeof(int) * __CHAR_BIT__  - 1 - __builtin_clz(__n); }
 
   inline _GLIBCXX_CONSTEXPR long
   __lg(long __n)
-  { return sizeof(long) * __CHAR_BIT__ - 1 - __builtin_clzl(__n); }
+  { return (int)sizeof(long) * __CHAR_BIT__ - 1 - __builtin_clzl(__n); }
 
   inline _GLIBCXX_CONSTEXPR unsigned long
   __lg(unsigned long __n)
-  { return sizeof(long) * __CHAR_BIT__ - 1 - __builtin_clzl(__n); }
+  { return (int)sizeof(long) * __CHAR_BIT__ - 1 - __builtin_clzl(__n); }
 
   inline _GLIBCXX_CONSTEXPR long long
   __lg(long long __n)
-  { return sizeof(long long) * __CHAR_BIT__ - 1 - __builtin_clzll(__n); }
+  { return (int)sizeof(long long) * __CHAR_BIT__ - 1 - __builtin_clzll(__n); }
 
   inline _GLIBCXX_CONSTEXPR unsigned long long
   __lg(unsigned long long __n)
-  { return sizeof(long long) * __CHAR_BIT__ - 1 - __builtin_clzll(__n); }
+  { return (int)sizeof(long long) * __CHAR_BIT__ - 1 - __builtin_clzll(__n); }
 
 _GLIBCXX_BEGIN_NAMESPACE_ALGO
 

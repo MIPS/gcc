@@ -1,5 +1,5 @@
 /* Top-level LTO routines.
-   Copyright (C) 2009-2018 Free Software Foundation, Inc.
+   Copyright (C) 2009-2019 Free Software Foundation, Inc.
    Contributed by CodeSourcery, Inc.
 
 This file is part of GCC.
@@ -290,7 +290,7 @@ hash_canonical_type (tree type)
   enum tree_code code;
 
   /* We compute alias sets only for types that needs them.
-     Be sure we do not recurse to something else as we can not hash incomplete
+     Be sure we do not recurse to something else as we cannot hash incomplete
      types in a way they would have same hash value as compatible complete
      types.  */
   gcc_checking_assert (type_with_alias_set_p (type));
@@ -894,7 +894,7 @@ lto_maybe_register_decl (struct data_in *data_in, tree t, unsigned ix)
   if (TREE_CODE (t) == VAR_DECL)
     lto_register_var_decl_in_symtab (data_in, t, ix);
   else if (TREE_CODE (t) == FUNCTION_DECL
-	   && !DECL_BUILT_IN (t))
+	   && !fndecl_built_in_p (t))
     lto_register_function_decl_in_symtab (data_in, t, ix);
 }
 
@@ -1638,6 +1638,21 @@ unify_scc (struct data_in *data_in, unsigned from,
 	     to the tree node mapping computed by compare_tree_sccs.  */
 	  if (len == 1)
 	    {
+	      /* If we got a debug reference queued, see if the prevailing
+	         tree has a debug reference and if not, register the one
+		 for the tree we are about to throw away.  */
+	      if (dref_queue.length () == 1)
+		{
+		  dref_entry e = dref_queue.pop ();
+		  gcc_assert (e.decl
+			      == streamer_tree_cache_get_tree (cache, from));
+		  const char *sym;
+		  unsigned HOST_WIDE_INT off;
+		  if (!debug_hooks->die_ref_for_decl (pscc->entries[0], &sym,
+						      &off))
+		    debug_hooks->register_external_die (pscc->entries[0],
+							e.sym, e.off);
+		}
 	      lto_maybe_register_decl (data_in, pscc->entries[0], from);
 	      streamer_tree_cache_replace_tree (cache, pscc->entries[0], from);
 	    }
@@ -1669,7 +1684,9 @@ unify_scc (struct data_in *data_in, unsigned from,
 	      free_node (scc->entries[i]);
 	    }
 
-	  /* Drop DIE references.  */
+	  /* Drop DIE references.
+	     ???  Do as in the size-one SCC case which involves sorting
+	     the queue.  */
 	  dref_queue.truncate (0);
 
 	  break;
@@ -1695,36 +1712,6 @@ unify_scc (struct data_in *data_in, unsigned from,
 }
 
 
-/* Compare types based on source file location.  */
-
-static int
-cmp_type_location (const void *p1_, const void *p2_)
-{
-  tree *p1 = (tree*)(const_cast<void *>(p1_));
-  tree *p2 = (tree*)(const_cast<void *>(p2_));
-  if (*p1 == *p2)
-    return 0;
-
-  tree tname1 = TYPE_NAME (*p1);
-  tree tname2 = TYPE_NAME (*p2);
-  expanded_location xloc1 = expand_location (DECL_SOURCE_LOCATION (tname1));
-  expanded_location xloc2 = expand_location (DECL_SOURCE_LOCATION (tname2));
-
-  const char *f1 = lbasename (xloc1.file);
-  const char *f2 = lbasename (xloc2.file);
-  int r = strcmp (f1, f2);
-  if (r == 0)
-    {
-      int l1 = xloc1.line;
-      int l2 = xloc2.line;
-      if (l1 != l2)
-	return l1 - l2;
-      return xloc1.column - xloc2.column;
-    }
-  else
-    return r;
-}
-
 /* Read all the symbols from buffer DATA, using descriptors in DECL_DATA.
    RESOLUTIONS is the set of symbols picked by the linker (read from the
    resolution file when the linker plugin is being used).  */
@@ -1741,7 +1728,6 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
   unsigned int i;
   const uint32_t *data_ptr, *data_end;
   uint32_t num_decl_states;
-  auto_vec<tree> odr_types;
 
   lto_input_block ib_main ((const char *) data + main_offset,
 			   header->main_size, decl_data->mode_table);
@@ -1778,7 +1764,8 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
 						     from);
 	  if (len == 1
 	      && (TREE_CODE (first) == IDENTIFIER_NODE
-		  || TREE_CODE (first) == INTEGER_CST))
+		  || (TREE_CODE (first) == INTEGER_CST
+		      && !TREE_OVERFLOW (first))))
 	    continue;
 
 	  /* Try to unify the SCC with already existing ones.  */
@@ -1810,8 +1797,8 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
 		     type canonical of a derived type in the same SCC.  */
 		  if (!TYPE_CANONICAL (t))
 		    gimple_register_canonical_type (t);
-		  if (odr_type_p (t))
-		    odr_types.safe_push (t);
+		  if (TYPE_MAIN_VARIANT (t) == t && odr_type_p (t))
+		    register_odr_type (t);
 		}
 	      /* Link shared INTEGER_CSTs into TYPE_CACHED_VALUEs of its
 		 type which is also member of this SCC.  */
@@ -1872,15 +1859,6 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
       gcc_assert (*slot == NULL);
       *slot = state;
     }
-
-  /* Sort types for the file before registering in ODR machinery.  */
-  if (lto_location_cache::current_cache)
-    lto_location_cache::current_cache->apply_location_cache ();
-  odr_types.qsort (cmp_type_location);
-
-  /* Register ODR types.  */
-  for (unsigned i = 0; i < odr_types.length (); i++)
-    register_odr_type (odr_types[i]);
 
   if (data_ptr != data_end)
     internal_error ("bytecode stream: garbage at the end of symbols section");
@@ -2906,7 +2884,8 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
   FOR_EACH_SYMBOL (snode)
     if (snode->externally_visible && snode->real_symbol_p ()
 	&& snode->lto_file_data && snode->lto_file_data->resolution_map
-	&& !is_builtin_fn (snode->decl)
+	&& !(TREE_CODE (snode->decl) == FUNCTION_DECL
+	     && fndecl_built_in_p (snode->decl))
 	&& !(VAR_P (snode->decl) && DECL_HARD_REGISTER (snode->decl)))
       {
 	ld_plugin_symbol_resolution_t *res;
@@ -3402,7 +3381,9 @@ lto_main (void)
 	    lto_promote_statics_nonwpa ();
 
 	  /* Annotate the CU DIE and mark the early debug phase as finished.  */
+	  debuginfo_early_start ();
 	  debug_hooks->early_finish ("<artificial>");
+	  debuginfo_early_stop ();
 
 	  /* Let the middle end know that we have read and merged all of
 	     the input files.  */ 

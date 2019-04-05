@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2019, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -141,6 +141,12 @@ package body Sem_Res is
    --  builtin has convention Intrinsic, but is expected to be rewritten into
    --  a call, so such an operator is not treated as predefined by this
    --  predicate.
+
+   procedure Preanalyze_And_Resolve
+     (N             : Node_Id;
+      T             : Entity_Id;
+      With_Freezing : Boolean);
+   --  Subsidiary of public versions of Preanalyze_And_Resolve.
 
    procedure Replace_Actual_Discriminants (N : Node_Id; Default : Node_Id);
    --  If a default expression in entry call N depends on the discriminants
@@ -1660,10 +1666,24 @@ package body Sem_Res is
    -- Preanalyze_And_Resolve --
    ----------------------------
 
-   procedure Preanalyze_And_Resolve (N : Node_Id; T : Entity_Id) is
-      Save_Full_Analysis : constant Boolean := Full_Analysis;
-
+   procedure Preanalyze_And_Resolve
+     (N             : Node_Id;
+      T             : Entity_Id;
+      With_Freezing : Boolean)
+   is
+      Save_Full_Analysis     : constant Boolean := Full_Analysis;
+      Save_Must_Not_Freeze   : constant Boolean := Must_Not_Freeze (N);
+      Save_Preanalysis_Count : constant Nat :=
+                                 Inside_Preanalysis_Without_Freezing;
    begin
+      pragma Assert (Nkind (N) in N_Subexpr);
+
+      if not With_Freezing then
+         Set_Must_Not_Freeze (N);
+         Inside_Preanalysis_Without_Freezing :=
+           Inside_Preanalysis_Without_Freezing + 1;
+      end if;
+
       Full_Analysis := False;
       Expander_Mode_Save_And_Set (False);
 
@@ -1690,6 +1710,24 @@ package body Sem_Res is
 
       Expander_Mode_Restore;
       Full_Analysis := Save_Full_Analysis;
+      Set_Must_Not_Freeze (N, Save_Must_Not_Freeze);
+
+      if not With_Freezing then
+         Inside_Preanalysis_Without_Freezing :=
+           Inside_Preanalysis_Without_Freezing - 1;
+      end if;
+
+      pragma Assert
+        (Inside_Preanalysis_Without_Freezing = Save_Preanalysis_Count);
+   end Preanalyze_And_Resolve;
+
+   ----------------------------
+   -- Preanalyze_And_Resolve --
+   ----------------------------
+
+   procedure Preanalyze_And_Resolve (N : Node_Id; T : Entity_Id) is
+   begin
+      Preanalyze_And_Resolve (N, T, With_Freezing => False);
    end Preanalyze_And_Resolve;
 
    --  Version without context type
@@ -1707,6 +1745,18 @@ package body Sem_Res is
       Expander_Mode_Restore;
       Full_Analysis := Save_Full_Analysis;
    end Preanalyze_And_Resolve;
+
+   ------------------------------------------
+   -- Preanalyze_With_Freezing_And_Resolve --
+   ------------------------------------------
+
+   procedure Preanalyze_With_Freezing_And_Resolve
+     (N : Node_Id;
+      T : Entity_Id)
+   is
+   begin
+      Preanalyze_And_Resolve (N, T, With_Freezing => True);
+   end Preanalyze_With_Freezing_And_Resolve;
 
    ----------------------------------
    -- Replace_Actual_Discriminants --
@@ -3759,6 +3809,7 @@ package body Sem_Res is
             if Ekind (F) /= E_In_Parameter
               and then Nkind (A) = N_Type_Conversion
               and then not Is_Class_Wide_Type (Etype (Expression (A)))
+              and then not Is_Interface (Etype (A))
             then
                if Ekind (F) = E_In_Out_Parameter
                  and then Is_Array_Type (Etype (F))
@@ -4976,9 +5027,10 @@ package body Sem_Res is
                if In_Instance_Body then
                   Error_Msg_Warn := SPARK_Mode /= On;
                   Error_Msg_N
-                    ("type in allocator has deeper level than "
-                     & "designated class-wide type<<", E);
+                    ("type in allocator has deeper level than designated "
+                     & "class-wide type<<", E);
                   Error_Msg_N ("\Program_Error [<<", E);
+
                   Rewrite (N,
                     Make_Raise_Program_Error (Sloc (N),
                       Reason => PE_Accessibility_Check_Failed));
@@ -4989,16 +5041,22 @@ package body Sem_Res is
                --  type. A run-time check will be performed in the instance.
 
                elsif not Is_Generic_Type (Exp_Typ) then
-                  Error_Msg_N ("type in allocator has deeper level than "
-                               & "designated class-wide type", E);
+                  Error_Msg_N
+                    ("type in allocator has deeper level than designated "
+                     & "class-wide type", E);
                end if;
             end if;
          end;
       end if;
 
-      --  Check for allocation from an empty storage pool
+      --  Check for allocation from an empty storage pool. But do not complain
+      --  if it's a return statement for a build-in-place function, because the
+      --  allocator is there just in case the caller uses an allocator. If the
+      --  caller does use an allocator, it will be caught at the call site.
 
-      if No_Pool_Assigned (Typ) then
+      if No_Pool_Assigned (Typ)
+        and then not Alloc_For_BIP_Return (N)
+      then
          Error_Msg_N ("allocation from empty storage pool!", N);
 
       --  If the context is an unchecked conversion, as may happen within an
@@ -5374,7 +5432,7 @@ package body Sem_Res is
 
          --  A universal real conditional expression can appear in a fixed-type
          --  context and must be resolved with that context to facilitate the
-         --  code generation to the backend.
+         --  code generation in the back end.
 
          elsif Nkind_In (N, N_Case_Expression, N_If_Expression)
            and then Etype (N) = Universal_Real
@@ -6010,7 +6068,10 @@ package body Sem_Res is
       --  (including the body of another expression function) which would
       --  place the freeze node in the wrong scope. An expression function
       --  is frozen in the usual fashion, by the appearance of a real body,
-      --  or at the end of a declarative part.
+      --  or at the end of a declarative part. However an implicit call to
+      --  an expression function may appear when it is part of a default
+      --  expression in a call to an initialiation procedure, and must be
+      --  frozen now, even if the body is inserted at a later point.
 
       if Is_Entity_Name (Subp)
         and then not In_Spec_Expression
@@ -6019,12 +6080,20 @@ package body Sem_Res is
           (not Is_Expression_Function_Or_Completion (Entity (Subp))
             or else Scope (Entity (Subp)) = Current_Scope)
       then
+         if Is_Expression_Function (Entity (Subp)) then
+
+            --  Force freeze of expression function in call
+
+            Set_Comes_From_Source (Subp, True);
+            Set_Must_Not_Freeze   (Subp, False);
+         end if;
+
          Freeze_Expression (Subp);
       end if;
 
       --  For a predefined operator, the type of the result is the type imposed
       --  by context, except for a predefined operation on universal fixed.
-      --  Otherwise The type of the call is the type returned by the subprogram
+      --  Otherwise the type of the call is the type returned by the subprogram
       --  being called.
 
       if Is_Predefined_Op (Nam) then
@@ -6060,7 +6129,25 @@ package body Sem_Res is
             Ret_Type   : constant Entity_Id := Etype (Nam);
 
          begin
-            if Is_Access_Type (Ret_Type)
+            --  If this is a parameterless call there is no ambiguity and the
+            --  call has the type of the function.
+
+            if No (First_Actual (N)) then
+               Set_Etype (N, Etype (Nam));
+
+               if Present (First_Formal (Nam)) then
+                  Resolve_Actuals (N, Nam);
+               end if;
+
+               --  Annotate the tree by creating a call marker in case the
+               --  original call is transformed by expansion. The call marker
+               --  is automatically saved for later examination by the ABE
+               --  Processing phase.
+
+               Build_Call_Marker (N);
+
+            elsif Is_Access_Type (Ret_Type)
+
               and then Ret_Type = Component_Type (Designated_Type (Ret_Type))
             then
                Error_Msg_N
@@ -6376,7 +6463,7 @@ package body Sem_Res is
          null;
 
       elsif Expander_Active
-        and then Ekind (Nam) = E_Function
+        and then Ekind_In (Nam, E_Function, E_Subprogram_Type)
         and then Requires_Transient_Scope (Etype (Nam))
       then
          Establish_Transient_Scope (N, Manage_Sec_Stack => True);
@@ -6685,22 +6772,43 @@ package body Sem_Res is
 
             elsif Full_Analysis then
 
-               --  Do not inline calls inside expression functions, as this
+               --  Do not inline calls inside expression functions or functions
+               --  generated by the front end for subtype predicates, as this
                --  would prevent interpreting them as logical formulas in
                --  GNATprove. Only issue a message when the body has been seen,
                --  otherwise this leads to spurious messages on callees that
                --  are themselves expression functions.
 
                if Present (Current_Subprogram)
-                 and then Is_Expression_Function_Or_Completion
-                            (Current_Subprogram)
+                 and then
+                   (Is_Expression_Function_Or_Completion (Current_Subprogram)
+                     or else Is_Predicate_Function (Current_Subprogram)
+                     or else Is_Invariant_Procedure (Current_Subprogram)
+                     or else Is_DIC_Procedure (Current_Subprogram))
                then
                   if Present (Body_Id)
                     and then Present (Body_To_Inline (Nam_Decl))
                   then
-                     Cannot_Inline
-                       ("cannot inline & (inside expression function)?",
-                        N, Nam_UA);
+                     if Is_Predicate_Function (Current_Subprogram) then
+                        Cannot_Inline
+                          ("cannot inline & (inside predicate)?",
+                           N, Nam_UA);
+
+                     elsif Is_Invariant_Procedure (Current_Subprogram) then
+                        Cannot_Inline
+                          ("cannot inline & (inside invariant)?",
+                           N, Nam_UA);
+
+                     elsif Is_DIC_Procedure (Current_Subprogram) then
+                        Cannot_Inline
+                        ("cannot inline & (inside Default_Initial_Condition)?",
+                         N, Nam_UA);
+
+                     else
+                        Cannot_Inline
+                          ("cannot inline & (inside expression function)?",
+                           N, Nam_UA);
+                     end if;
                   end if;
 
                --  With the one-pass inlining technique, a call cannot be
@@ -6734,9 +6842,15 @@ package body Sem_Res is
                     ("cannot inline & (possible check on input parameters)?",
                      N, Nam_UA);
 
-               --  Otherwise, inline the call
+               --  Otherwise, inline the call, issuing an info message when
+               --  -gnatd_f is set.
 
                else
+                  if Debug_Flag_Underscore_F then
+                     Error_Msg_NE
+                       ("info: analyzing call to & in context?", N, Nam_UA);
+                  end if;
+
                   Expand_Inlined_Call (N, Nam_UA, Nam);
                end if;
             end if;
@@ -8343,11 +8457,51 @@ package body Sem_Res is
    ---------------------------
 
    procedure Resolve_If_Expression (N : Node_Id; Typ : Entity_Id) is
+      procedure Apply_Check (Expr : Node_Id);
+      --  When a dependent expression is of a subtype different from
+      --  the context subtype, then insert a qualification to ensure
+      --  the generation of a constraint check. This was previously
+      --  for scalar types. For array types apply a length check, given
+      --  that the context in general allows sliding, while a qualified
+      --  expression forces equality of bounds.
+
+      -----------------
+      -- Apply_Check --
+      -----------------
+
+      procedure Apply_Check (Expr : Node_Id) is
+         Expr_Typ : constant Entity_Id  := Etype (Expr);
+         Loc      : constant Source_Ptr := Sloc (Expr);
+
+      begin
+         if Expr_Typ = Typ
+           or else Is_Tagged_Type (Typ)
+           or else Is_Access_Type (Typ)
+           or else not Is_Constrained (Typ)
+           or else Inside_A_Generic
+         then
+            null;
+
+         elsif Is_Array_Type (Typ) then
+            Apply_Length_Check (Expr, Typ);
+
+         else
+            Rewrite (Expr,
+              Make_Qualified_Expression (Loc,
+                Subtype_Mark => New_Occurrence_Of (Typ, Loc),
+                Expression   => Relocate_Node (Expr)));
+
+            Analyze_And_Resolve (Expr, Typ);
+         end if;
+      end Apply_Check;
+
+      --  Local variables
+
       Condition : constant Node_Id := First (Expressions (N));
-      Then_Expr : Node_Id;
       Else_Expr : Node_Id;
-      Else_Typ  : Entity_Id;
-      Then_Typ  : Entity_Id;
+      Then_Expr : Node_Id;
+
+   --  Start of processing for Resolve_If_Expression
 
    begin
       --  Defend against malformed expressions
@@ -8366,17 +8520,7 @@ package body Sem_Res is
 
       Resolve (Condition, Any_Boolean);
       Resolve (Then_Expr, Typ);
-      Then_Typ := Etype (Then_Expr);
-
-      --  When the "then" expression is of a scalar subtype different from the
-      --  result subtype, then insert a conversion to ensure the generation of
-      --  a constraint check. The same is done for the else part below, again
-      --  comparing subtypes rather than base types.
-
-      if Is_Scalar_Type (Then_Typ) and then Then_Typ /= Typ then
-         Rewrite (Then_Expr, Convert_To (Typ, Then_Expr));
-         Analyze_And_Resolve (Then_Expr, Typ);
-      end if;
+      Apply_Check (Then_Expr);
 
       --  If ELSE expression present, just resolve using the determined type
       --  If type is universal, resolve to any member of the class.
@@ -8392,16 +8536,12 @@ package body Sem_Res is
             Resolve (Else_Expr, Typ);
          end if;
 
-         Else_Typ := Etype (Else_Expr);
-
-         if Is_Scalar_Type (Else_Typ) and then Else_Typ /= Typ then
-            Rewrite (Else_Expr, Convert_To (Typ, Else_Expr));
-            Analyze_And_Resolve (Else_Expr, Typ);
+         Apply_Check (Else_Expr);
 
          --  Apply RM 4.5.7 (17/3): whether the expression is statically or
          --  dynamically tagged must be known statically.
 
-         elsif Is_Tagged_Type (Typ) and then not Is_Class_Wide_Type (Typ) then
+         if Is_Tagged_Type (Typ) and then not Is_Class_Wide_Type (Typ) then
             if Is_Dynamically_Tagged (Then_Expr) /=
                Is_Dynamically_Tagged (Else_Expr)
             then
@@ -11728,11 +11868,12 @@ package body Sem_Res is
          --  for the subtype, but not in the context of a loop iteration
          --  scheme).
 
-         Set_Scalar_Range (Index_Subtype, New_Copy_Tree (Drange));
-         Set_Parent       (Scalar_Range (Index_Subtype), Index_Subtype);
-         Set_Etype        (Index_Subtype, Index_Type);
-         Set_Size_Info    (Index_Subtype, Index_Type);
-         Set_RM_Size      (Index_Subtype, RM_Size (Index_Type));
+         Set_Scalar_Range   (Index_Subtype, New_Copy_Tree (Drange));
+         Set_Parent         (Scalar_Range (Index_Subtype), Index_Subtype);
+         Set_Etype          (Index_Subtype, Index_Type);
+         Set_Size_Info      (Index_Subtype, Index_Type);
+         Set_RM_Size        (Index_Subtype, RM_Size (Index_Type));
+         Set_Is_Constrained (Index_Subtype);
       end if;
 
       Slice_Subtype := Create_Itype (E_Array_Subtype, N);
@@ -11854,7 +11995,7 @@ package body Sem_Res is
             Analyze_And_Resolve (String_Literal_Low_Bound (Subtype_Id));
 
             --  Build bona fide subtype for the string, and wrap it in an
-            --  unchecked conversion, because the backend expects the
+            --  unchecked conversion, because the back end expects the
             --  String_Literal_Subtype to have a static lower bound.
 
             Index_Subtype :=
@@ -11864,7 +12005,7 @@ package body Sem_Res is
             Set_Parent (Drange, N);
             Analyze_And_Resolve (Drange, Index_Type);
 
-            --  In the context, the Index_Type may already have a constraint,
+            --  In this context, the Index_Type may already have a constraint,
             --  so use common base type on string subtype. The base type may
             --  be used when generating attributes of the string, for example
             --  in the context of a slice assignment.

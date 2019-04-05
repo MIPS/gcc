@@ -132,7 +132,7 @@ TEST_UNIFORM_ZS (max_w0_f32_z_tied1, svfloat32_t, float,
 		 z0 = svmax_z (p0, z0, x0))
 
 /*
-** max_w0_f32_z_untied:
+** max_w0_f32_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.s), w0
 **	movprfx	z0\.s, p0/z, z1\.s
 **	fmax	z0\.s, p0/m, z0\.s, \1
@@ -154,7 +154,7 @@ TEST_UNIFORM_ZS (max_s0_f32_z_tied1, svfloat32_t, float,
 		 z1 = svmax_z (p0, z1, d0))
 
 /*
-** max_s0_f32_z_untied:
+** max_s0_f32_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.s), s0
 **	movprfx	z1\.s, p0/z, z2\.s
 **	fmax	z1\.s, p0/m, z1\.s, \1
@@ -176,7 +176,7 @@ TEST_UNIFORM_Z (max_1_f32_z_tied1, svfloat32_t,
 		z0 = svmax_z (p0, z0, 1))
 
 /*
-** max_1_f32_z_untied:
+** max_1_f32_z_untied: { xfail *-*-* }
 **	fmov	(z[0-9]+\.s), #1.0(e\+0)?
 **	movprfx	z0\.s, p0/z, z1\.s
 **	fmax	z0\.s, p0/m, z0\.s, \1

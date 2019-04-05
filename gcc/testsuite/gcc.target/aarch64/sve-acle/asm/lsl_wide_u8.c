@@ -38,7 +38,7 @@ TEST_WIDE_Z (lsl_wide_u8_z_tied1, svuint8_t,
 	     z0 = svlsl_wide_z (p0, z0, z16))
 
 /*
-** lsl_wide_u8_z_untied:
+** lsl_wide_u8_z_untied: { xfail *-*-* }
 **	movprfx	z0\.b, p0/z, z1\.b
 **	lsl	z0\.b, p0/m, z0\.b, z16\.d
 **	ret

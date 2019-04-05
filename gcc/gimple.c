@@ -1,6 +1,6 @@
 /* Gimple IR support functions.
 
-   Copyright (C) 2007-2018 Free Software Foundation, Inc.
+   Copyright (C) 2007-2019 Free Software Foundation, Inc.
    Contributed by Aldy Hernandez <aldyh@redhat.com>
 
 This file is part of GCC.
@@ -44,6 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "attribs.h"
 #include "asan.h"
+#include "langhooks.h"
 
 
 /* All the tuples have their operand vector (if present) at the very bottom
@@ -376,7 +377,7 @@ gimple_build_call_from_tree (tree t, tree fnptrtype)
   gimple_call_set_must_tail (call, CALL_EXPR_MUST_TAIL_CALL (t));
   gimple_call_set_return_slot_opt (call, CALL_EXPR_RETURN_SLOT_OPT (t));
   if (fndecl
-      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+      && fndecl_built_in_p (fndecl, BUILT_IN_NORMAL)
       && ALLOCA_FUNCTION_CODE_P (DECL_FUNCTION_CODE (fndecl)))
     gimple_call_set_alloca_for_var (call, CALL_ALLOCA_FOR_VAR_P (t));
   else
@@ -924,7 +925,7 @@ gimple_build_omp_critical (gimple_seq body, tree name, tree clauses)
 
    BODY is sequence of statements inside the for loop.
    KIND is the `for' variant.
-   CLAUSES, are any of the construct's clauses.
+   CLAUSES are any of the construct's clauses.
    COLLAPSE is the collapse count.
    PRE_BODY is the sequence of statements that are loop invariant.  */
 
@@ -950,7 +951,7 @@ gimple_build_omp_for (gimple_seq body, int kind, tree clauses, size_t collapse,
 /* Build a GIMPLE_OMP_PARALLEL statement.
 
    BODY is sequence of statements which are executed in parallel.
-   CLAUSES, are the OMP parallel construct's clauses.
+   CLAUSES are the OMP parallel construct's clauses.
    CHILD_FN is the function created for the parallel threads to execute.
    DATA_ARG are the shared data argument(s).  */
 
@@ -973,7 +974,7 @@ gimple_build_omp_parallel (gimple_seq body, tree clauses, tree child_fn,
 /* Build a GIMPLE_OMP_TASK statement.
 
    BODY is sequence of statements which are executed by the explicit task.
-   CLAUSES, are the OMP parallel construct's clauses.
+   CLAUSES are the OMP task construct's clauses.
    CHILD_FN is the function created for the parallel threads to execute.
    DATA_ARG are the shared data argument(s).
    COPY_FN is the optional function for firstprivate initialization.
@@ -1044,12 +1045,14 @@ gimple_build_omp_grid_body (gimple_seq body)
 /* Build a GIMPLE_OMP_TASKGROUP statement.
 
    BODY is the sequence of statements to be executed by the taskgroup
-   construct.  */
+   construct.
+   CLAUSES are any of the construct's clauses.  */
 
 gimple *
-gimple_build_omp_taskgroup (gimple_seq body)
+gimple_build_omp_taskgroup (gimple_seq body, tree clauses)
 {
   gimple *p = gimple_alloc (GIMPLE_OMP_TASKGROUP, 0);
+  gimple_omp_taskgroup_set_clauses (p, clauses);
   if (body)
     gimple_omp_set_body (p, body);
 
@@ -1192,12 +1195,13 @@ gimple_build_omp_teams (gimple_seq body, tree clauses)
 /* Build a GIMPLE_OMP_ATOMIC_LOAD statement.  */
 
 gomp_atomic_load *
-gimple_build_omp_atomic_load (tree lhs, tree rhs)
+gimple_build_omp_atomic_load (tree lhs, tree rhs, enum omp_memory_order mo)
 {
   gomp_atomic_load *p
     = as_a <gomp_atomic_load *> (gimple_alloc (GIMPLE_OMP_ATOMIC_LOAD, 0));
   gimple_omp_atomic_load_set_lhs (p, lhs);
   gimple_omp_atomic_load_set_rhs (p, rhs);
+  gimple_omp_atomic_set_memory_order (p, mo);
   return p;
 }
 
@@ -1206,11 +1210,12 @@ gimple_build_omp_atomic_load (tree lhs, tree rhs)
    VAL is the value we are storing.  */
 
 gomp_atomic_store *
-gimple_build_omp_atomic_store (tree val)
+gimple_build_omp_atomic_store (tree val, enum omp_memory_order mo)
 {
   gomp_atomic_store *p
     = as_a <gomp_atomic_store *> (gimple_alloc (GIMPLE_OMP_ATOMIC_STORE, 0));
   gimple_omp_atomic_store_set_val (p, val);
+  gimple_omp_atomic_set_memory_order (p, mo);
   return p;
 }
 
@@ -1442,15 +1447,17 @@ gimple_call_same_target_p (const gimple *c1, const gimple *c2)
 int
 gimple_call_flags (const gimple *stmt)
 {
-  int flags;
-  tree decl = gimple_call_fndecl (stmt);
+  int flags = 0;
 
-  if (decl)
-    flags = flags_from_decl_or_type (decl);
-  else if (gimple_call_internal_p (stmt))
+  if (gimple_call_internal_p (stmt))
     flags = internal_fn_flags (gimple_call_internal_fn (stmt));
   else
-    flags = flags_from_decl_or_type (gimple_call_fntype (stmt));
+    {
+      tree decl = gimple_call_fndecl (stmt);
+      if (decl)
+	flags = flags_from_decl_or_type (decl);
+      flags |= flags_from_decl_or_type (gimple_call_fntype (stmt));
+    }
 
   if (stmt->subcode & GF_CALL_NOTHROW)
     flags |= ECF_NOTHROW;
@@ -1723,16 +1730,15 @@ gimple_assign_set_rhs_with_ops (gimple_stmt_iterator *gsi, enum tree_code code,
 {
   unsigned new_rhs_ops = get_gimple_rhs_num_ops (code);
   gimple *stmt = gsi_stmt (*gsi);
+  gimple *old_stmt = stmt;
 
   /* If the new CODE needs more operands, allocate a new statement.  */
   if (gimple_num_ops (stmt) < new_rhs_ops + 1)
     {
-      tree lhs = gimple_assign_lhs (stmt);
-      gimple *new_stmt = gimple_alloc (gimple_code (stmt), new_rhs_ops + 1);
-      memcpy (new_stmt, stmt, gimple_size (gimple_code (stmt)));
-      gimple_init_singleton (new_stmt);
-      gsi_replace (gsi, new_stmt, false);
-      stmt = new_stmt;
+      tree lhs = gimple_assign_lhs (old_stmt);
+      stmt = gimple_alloc (gimple_code (old_stmt), new_rhs_ops + 1);
+      memcpy (stmt, old_stmt, gimple_size (gimple_code (old_stmt)));
+      gimple_init_singleton (stmt);
 
       /* The LHS needs to be reset as this also changes the SSA name
 	 on the LHS.  */
@@ -1746,6 +1752,8 @@ gimple_assign_set_rhs_with_ops (gimple_stmt_iterator *gsi, enum tree_code code,
     gimple_assign_set_rhs2 (stmt, op2);
   if (new_rhs_ops > 2)
     gimple_assign_set_rhs3 (stmt, op3);
+  if (stmt != old_stmt)
+    gsi_replace (gsi, stmt, false);
 }
 
 
@@ -1935,6 +1943,11 @@ gimple_copy (gimple *stmt)
 	  gimple_omp_ordered_set_clauses (as_a <gomp_ordered *> (copy), t);
 	  goto copy_omp_body;
 
+	case GIMPLE_OMP_TASKGROUP:
+	  t = unshare_expr (gimple_omp_taskgroup_clauses (stmt));
+	  gimple_omp_taskgroup_set_clauses (copy, t);
+	  goto copy_omp_body;
+
 	case GIMPLE_OMP_SECTIONS:
 	  t = unshare_expr (gimple_omp_sections_clauses (stmt));
 	  gimple_omp_sections_set_clauses (copy, t);
@@ -1971,7 +1984,6 @@ gimple_copy (gimple *stmt)
 
 	case GIMPLE_OMP_SECTION:
 	case GIMPLE_OMP_MASTER:
-	case GIMPLE_OMP_TASKGROUP:
 	case GIMPLE_OMP_GRID_BODY:
 	copy_omp_body:
 	  new_seq = gimple_seq_copy (gimple_omp_body (stmt));
@@ -2149,15 +2161,16 @@ dump_gimple_statistics (void)
   fprintf (stderr, "---------------------------------------\n");
   for (i = 0; i < (int) gimple_alloc_kind_all; ++i)
     {
-      fprintf (stderr, "%-20s %7" PRIu64 " %10" PRIu64 "\n",
-	       gimple_alloc_kind_names[i], gimple_alloc_counts[i],
-	       gimple_alloc_sizes[i]);
+      fprintf (stderr, "%-20s %7" PRIu64 "%c %10" PRIu64 "%c\n",
+	       gimple_alloc_kind_names[i],
+	       SIZE_AMOUNT (gimple_alloc_counts[i]),
+	       SIZE_AMOUNT (gimple_alloc_sizes[i]));
       total_tuples += gimple_alloc_counts[i];
       total_bytes += gimple_alloc_sizes[i];
     }
   fprintf (stderr, "---------------------------------------\n");
-  fprintf (stderr, "%-20s %7" PRIu64 " %10" PRIu64 "\n", "Total",
-	   total_tuples, total_bytes);
+  fprintf (stderr, "%-20s %7" PRIu64 "%c %10" PRIu64 "%c\n", "Total",
+	   SIZE_AMOUNT (total_tuples), SIZE_AMOUNT (total_bytes));
   fprintf (stderr, "---------------------------------------\n");
 }
 
@@ -2575,6 +2588,16 @@ gimple_get_alias_set (tree t)
 	return get_alias_set (t1);
     }
 
+  /* Allow aliasing between enumeral types and the underlying
+     integer type.  This is required for C since those are
+     compatible types.  */
+  else if (TREE_CODE (t) == ENUMERAL_TYPE)
+    {
+      tree t1 = lang_hooks.types.type_for_size (tree_to_uhwi (TYPE_SIZE (t)),
+						false /* short-cut above */);
+      return get_alias_set (t1);
+    }
+
   return -1;
 }
 
@@ -2681,8 +2704,7 @@ gimple_call_builtin_p (const gimple *stmt, enum built_in_function code)
   tree fndecl;
   if (is_gimple_call (stmt)
       && (fndecl = gimple_call_fndecl (stmt)) != NULL_TREE
-      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL 
-      && DECL_FUNCTION_CODE (fndecl) == code)
+      && fndecl_built_in_p (fndecl, code))
     return gimple_builtin_call_types_compatible_p (stmt, fndecl);
   return false;
 }
@@ -2701,7 +2723,7 @@ gimple_call_combined_fn (const gimple *stmt)
 
       tree fndecl = gimple_call_fndecl (stmt);
       if (fndecl
-	  && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+	  && fndecl_built_in_p (fndecl, BUILT_IN_NORMAL)
 	  && gimple_builtin_call_types_compatible_p (stmt, fndecl))
 	return as_combined_fn (DECL_FUNCTION_CODE (fndecl));
     }

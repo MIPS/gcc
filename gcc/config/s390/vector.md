@@ -1,5 +1,5 @@
 ;;- Instruction patterns for the System z vector facility
-;;  Copyright (C) 2015-2018 Free Software Foundation, Inc.
+;;  Copyright (C) 2015-2019 Free Software Foundation, Inc.
 ;;  Contributed by Andreas Krebbel (Andreas.Krebbel@de.ibm.com)
 
 ;; This file is part of GCC.
@@ -33,6 +33,8 @@
 (define_mode_iterator V_HW2 [V16QI V8HI V4SI V2DI V2DF (V4SF "TARGET_VXE") (V1TF "TARGET_VXE")])
 
 (define_mode_iterator V_HW_64 [V2DI V2DF])
+(define_mode_iterator VT_HW_HSDT [V8HI V4SI V4SF V2DI V2DF V1TI V1TF TI TF])
+(define_mode_iterator V_HW_HSD [V8HI V4SI (V4SF "TARGET_VXE") V2DI V2DF])
 
 ; Including TI for instructions that support it (va, vn, ...)
 (define_mode_iterator VT_HW [V16QI V8HI V4SI V2DI V2DF V1TI TI (V4SF "TARGET_VXE") (V1TF "TARGET_VXE")])
@@ -67,6 +69,10 @@
 (define_mode_iterator V_128 [V16QI V8HI V4SI V4SF V2DI V2DF V1TI V1TF])
 
 (define_mode_iterator V_128_NOSINGLE [V16QI V8HI V4SI V4SF V2DI V2DF])
+
+; 32 bit int<->fp vector conversion instructions are available since VXE2 (arch13).
+(define_mode_iterator VX_VEC_CONV_BFP [V2DF (V4SF "TARGET_VXE2")])
+(define_mode_iterator VX_VEC_CONV_INT [V2DI (V4SI "TARGET_VXE2")])
 
 ; Empty string for all but TImode.  This is used to hide the TImode
 ; expander name in case it is defined already.  See addti3 for an
@@ -198,8 +204,8 @@
   ""
   "@
    vlr\t%v0,%v1
-   vl\t%v0,%1
-   vst\t%v1,%0
+   vl\t%v0,%1%A1
+   vst\t%v1,%0%A0
    vzero\t%v0
    vone\t%v0
    vgbm\t%v0,%t1
@@ -543,6 +549,25 @@
    #"
   [(set_attr "op_type" "VRX,VRI,VRI,*")])
 
+; vlbrreph, vlbrrepf, vlbrrepg
+(define_insn "*vec_splats_bswap_vec<mode>"
+  [(set (match_operand:V_HW_HSD                           0 "register_operand" "=v")
+	(bswap:V_HW_HSD
+	 (vec_duplicate:V_HW_HSD (match_operand:<non_vec> 1 "memory_operand"    "R"))))]
+  "TARGET_VXE2"
+  "vlbrrep<bhfgq>\t%v0,%1"
+  [(set_attr "op_type" "VRX")])
+
+; Why do we need both? Shouldn't there be a canonical form?
+; vlbrreph, vlbrrepf, vlbrrepg
+(define_insn "*vec_splats_bswap_elem<mode>"
+  [(set (match_operand:V_HW_HSD                    0 "register_operand" "=v")
+	(vec_duplicate:V_HW_HSD
+	 (bswap:<non_vec> (match_operand:<non_vec> 1 "memory_operand"    "R"))))]
+  "TARGET_VXE2"
+  "vlbrrep<bhfgq>\t%v0,%1"
+  [(set_attr "op_type" "VRX")])
+
 ; A TFmode operand resides in FPR register pairs while V1TF is in a
 ; single vector register.
 (define_insn "*vec_tf_to_v1tf"
@@ -551,8 +576,8 @@
   "TARGET_VX"
   "@
    vmrhg\t%v0,%1,%N1
-   vl\t%v0,%1
-   vst\t%v1,%0
+   vl\t%v0,%1%A1
+   vst\t%v1,%0%A0
    vzero\t%v0
    vlvgp\t%v0,%1,%N1"
   [(set_attr "op_type" "VRR,VRX,VRX,VRI,VRR")])
@@ -563,8 +588,8 @@
   "TARGET_VX"
   "@
    vlr\t%v0,%v1
-   vl\t%v0,%1
-   vst\t%v1,%0
+   vl\t%v0,%1%A1
+   vst\t%v1,%0%A0
    vzero\t%v0
    vone\t%v0
    vlvgp\t%v0,%1,%N1"
@@ -1362,6 +1387,31 @@
   operands[4] = CONST0_RTX (V2DImode);
 })
 
+; Vector copysign, implement using vector select
+(define_expand "copysign<mode>3"
+  [(set (match_operand:VFT 0 "register_operand" "")
+	(if_then_else:VFT
+	 (eq (match_dup 3)
+	     (match_dup 4))
+	 (match_operand:VFT 1 "register_operand"  "")
+	 (match_operand:VFT 2 "register_operand"  "")))]
+  "TARGET_VX"
+{
+  int sz = GET_MODE_BITSIZE (GET_MODE_INNER (<MODE>mode));
+  int prec = GET_MODE_PRECISION (GET_MODE_INNER (<tointvec>mode));
+  wide_int mask_val = wi::shwi (1l << (sz - 1), prec);
+
+  rtx mask = gen_reg_rtx (<tointvec>mode);
+
+  int nunits = GET_MODE_NUNITS (<tointvec>mode);
+  rtvec v = rtvec_alloc (nunits);
+  for (int i = 0; i < nunits; i++)
+    RTVEC_ELT (v, i) = GEN_INT (mask_val.to_shwi ());
+
+  mask = gen_rtx_CONST_VECTOR (<tointvec>mode, v);
+  operands[3] = force_reg (<tointvec>mode, mask);
+  operands[4] = CONST0_RTX (<tointvec>mode);
+})
 
 ;;
 ;; Integer compares
@@ -1959,6 +2009,127 @@
   operands[5] = force_reg (V16QImode, constv);
   operands[6] = gen_reg_rtx (V16QImode);
 })
+
+;
+; BFP <-> integer conversions
+;
+
+; signed integer to floating point
+
+; op2: inexact exception not suppressed (IEEE 754 2008)
+; op3: according to current rounding mode
+; vcdgb, vcefb
+(define_insn "float<VX_VEC_CONV_INT:mode><VX_VEC_CONV_BFP:mode>2"
+  [(set (match_operand:VX_VEC_CONV_BFP                        0 "register_operand" "=v")
+	(float:VX_VEC_CONV_BFP (match_operand:VX_VEC_CONV_INT 1 "register_operand"  "v")))]
+  "TARGET_VX
+   && GET_MODE_UNIT_SIZE (<VX_VEC_CONV_INT:MODE>mode) == GET_MODE_UNIT_SIZE (<VX_VEC_CONV_BFP:MODE>mode)"
+  "vc<VX_VEC_CONV_BFP:xde><VX_VEC_CONV_INT:bhfgq>b\t%v0,%v1,0,0"
+  [(set_attr "op_type" "VRR")])
+
+; unsigned integer to floating point
+
+; op2: inexact exception not suppressed (IEEE 754 2008)
+; op3: according to current rounding mode
+; vcdlgb, vcelfb
+(define_insn "floatuns<VX_VEC_CONV_INT:mode><VX_VEC_CONV_BFP:mode>2"
+  [(set (match_operand:VX_VEC_CONV_BFP                                 0 "register_operand" "=v")
+	(unsigned_float:VX_VEC_CONV_BFP (match_operand:VX_VEC_CONV_INT 1 "register_operand"  "v")))]
+  "TARGET_VX
+   && GET_MODE_UNIT_SIZE (<VX_VEC_CONV_INT:MODE>mode) == GET_MODE_UNIT_SIZE (<VX_VEC_CONV_BFP:MODE>mode)"
+  "vc<VX_VEC_CONV_BFP:xde>l<VX_VEC_CONV_INT:bhfgq>b\t%v0,%v1,0,0"
+  [(set_attr "op_type" "VRR")])
+
+; floating point to signed integer
+
+; op2: inexact exception not suppressed (IEEE 754 2008)
+; op3: rounding mode 5 (round towards 0 C11 6.3.1.4)
+; vcgdb, vcfeb
+(define_insn "fix_trunc<VX_VEC_CONV_BFP:mode><VX_VEC_CONV_INT:mode>2"
+  [(set (match_operand:VX_VEC_CONV_INT                      0 "register_operand" "=v")
+	(fix:VX_VEC_CONV_INT (match_operand:VX_VEC_CONV_BFP 1 "register_operand"  "v")))]
+  "TARGET_VX
+   && GET_MODE_UNIT_SIZE (<VX_VEC_CONV_INT:MODE>mode) == GET_MODE_UNIT_SIZE (<VX_VEC_CONV_BFP:MODE>mode)"
+  "vc<VX_VEC_CONV_INT:bhfgq><VX_VEC_CONV_BFP:xde>b\t%v0,%v1,0,5"
+  [(set_attr "op_type" "VRR")])
+
+; floating point to unsigned integer
+
+; op2: inexact exception not suppressed (IEEE 754 2008)
+; op3: rounding mode 5 (round towards 0 C11 6.3.1.4)
+; vclgdb, vclfeb
+(define_insn "fixuns_trunc<VX_VEC_CONV_BFP:mode><VX_VEC_CONV_INT:mode>2"
+  [(set (match_operand:VX_VEC_CONV_INT                               0 "register_operand" "=v")
+	(unsigned_fix:VX_VEC_CONV_INT (match_operand:VX_VEC_CONV_BFP 1 "register_operand"  "v")))]
+  "TARGET_VX
+   && GET_MODE_UNIT_SIZE (<VX_VEC_CONV_INT:MODE>mode) == GET_MODE_UNIT_SIZE (<VX_VEC_CONV_BFP:MODE>mode)"
+  "vcl<VX_VEC_CONV_INT:bhfgq><VX_VEC_CONV_BFP:xde>b\t%v0,%v1,0,5"
+  [(set_attr "op_type" "VRR")])
+
+;
+; Vector byte swap patterns
+;
+
+; FIXME: The bswap rtl standard name currently does not appear to be
+; used for vector modes.
+(define_expand "bswap<mode>"
+  [(set (match_operand:VT_HW_HSDT                   0 "nonimmediate_operand" "")
+	(bswap:VT_HW_HSDT (match_operand:VT_HW_HSDT 1 "nonimmediate_operand" "")))]
+  "TARGET_VX")
+
+; vlbrh, vlbrf, vlbrg, vlbrq, vstbrh, vstbrf, vstbrg, vstbrq
+(define_insn "*bswap<mode>"
+  [(set (match_operand:VT_HW_HSDT                   0 "nonimmediate_operand" "=v,v,R")
+	(bswap:VT_HW_HSDT (match_operand:VT_HW_HSDT 1 "nonimmediate_operand"  "v,R,v")))]
+  "TARGET_VXE2"
+  "@
+   #
+   vlbr<bhfgq>\t%v0,%v1
+   vstbr<bhfgq>\t%v1,%v0"
+  [(set_attr "op_type" "*,VRX,VRX")])
+
+(define_insn_and_split "*bswap<mode>_emu"
+  [(set (match_operand:VT_HW_HSDT                   0 "nonimmediate_operand" "=vR")
+	(bswap:VT_HW_HSDT (match_operand:VT_HW_HSDT 1 "nonimmediate_operand" "vR")))]
+  "TARGET_VX && can_create_pseudo_p ()"
+  "#"
+  "&& ((!memory_operand (operands[1], <MODE>mode)
+        && !memory_operand (operands[0], <MODE>mode))
+        || !TARGET_VXE2)"
+  [(set (match_dup 3)
+	(unspec:V16QI [(match_dup 4)
+		       (match_dup 4)
+		       (match_dup 2)]
+		      UNSPEC_VEC_PERM))
+   (set (match_dup 0) (subreg:VT_HW_HSDT (match_dup 3) 0))]
+{
+  static char p[4][16] =
+    { { 1,  0,  3,  2,  5,  4,  7, 6, 9,  8,  11, 10, 13, 12, 15, 14 },   /* H */
+      { 3,  2,  1,  0,  7,  6,  5, 4, 11, 10, 9,  8,  15, 14, 13, 12 },   /* S */
+      { 7,  6,  5,  4,  3,  2,  1, 0, 15, 14, 13, 12, 11, 10, 9,  8  },   /* D */
+      { 15, 14, 13, 12, 11, 10, 9, 8, 7,  6,  5,  4,  3,  2,  1,  0  } }; /* T */
+  char *perm;
+  rtx perm_rtx[16], constv;
+
+  switch (GET_MODE_SIZE (GET_MODE_INNER (<MODE>mode)))
+    {
+    case 2: perm = p[0]; break;
+    case 4: perm = p[1]; break;
+    case 8: perm = p[2]; break;
+    case 16: perm = p[3]; break;
+    default: gcc_unreachable ();
+    }
+  for (int i = 0; i < 16; i++)
+    perm_rtx[i] = GEN_INT (perm[i]);
+
+  operands[1] = force_reg (<MODE>mode, operands[1]);
+  operands[2] = gen_reg_rtx (V16QImode);
+  operands[3] = gen_reg_rtx (V16QImode);
+  operands[4] = simplify_gen_subreg (V16QImode, operands[1], <MODE>mode, 0);
+  constv = force_const_mem (V16QImode, gen_rtx_CONST_VECTOR (V16QImode, gen_rtvec_v (16, perm_rtx)));
+  emit_move_insn (operands[2], constv);
+})
+
 
 ; reduc_smin
 ; reduc_smax

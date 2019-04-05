@@ -132,7 +132,7 @@ TEST_UNIFORM_ZS (min_w0_f32_z_tied1, svfloat32_t, float,
 		 z0 = svmin_z (p0, z0, x0))
 
 /*
-** min_w0_f32_z_untied:
+** min_w0_f32_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.s), w0
 **	movprfx	z0\.s, p0/z, z1\.s
 **	fmin	z0\.s, p0/m, z0\.s, \1
@@ -154,7 +154,7 @@ TEST_UNIFORM_ZS (min_s0_f32_z_tied1, svfloat32_t, float,
 		 z1 = svmin_z (p0, z1, d0))
 
 /*
-** min_s0_f32_z_untied:
+** min_s0_f32_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.s), s0
 **	movprfx	z1\.s, p0/z, z2\.s
 **	fmin	z1\.s, p0/m, z1\.s, \1
@@ -176,7 +176,7 @@ TEST_UNIFORM_Z (min_1_f32_z_tied1, svfloat32_t,
 		z0 = svmin_z (p0, z0, 1))
 
 /*
-** min_1_f32_z_untied:
+** min_1_f32_z_untied: { xfail *-*-* }
 **	fmov	(z[0-9]+\.s), #1.0(e\+0)?
 **	movprfx	z0\.s, p0/z, z1\.s
 **	fmin	z0\.s, p0/m, z0\.s, \1

@@ -1,5 +1,5 @@
 /* Processing rules for constraints.
-   Copyright (C) 2013-2018 Free Software Foundation, Inc.
+   Copyright (C) 2013-2019 Free Software Foundation, Inc.
    Contributed by Andrew Sutton (andrew.n.sutton@gmail.com)
 
 This file is part of GCC.
@@ -1257,6 +1257,9 @@ finish_shorthand_constraint (tree decl, tree constr)
 {
   /* No requirements means no constraints.  */
   if (!constr)
+    return NULL_TREE;
+
+  if (error_operand_p (constr))
     return NULL_TREE;
 
   tree proto = CONSTRAINED_PARM_PROTOTYPE (constr);

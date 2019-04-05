@@ -427,6 +427,7 @@ GNATRTL_NONTASKING_OBJS= \
   g-htable$(objext) \
   g-io$(objext) \
   g-io_aux$(objext) \
+  g-lists$(objext) \
   g-locfil$(objext) \
   g-mbdira$(objext) \
   g-mbflra$(objext) \
@@ -444,6 +445,7 @@ GNATRTL_NONTASKING_OBJS= \
   g-sehash$(objext) \
   g-sercom$(objext) \
   g-sestin$(objext) \
+  g-sets$(objext) \
   g-sha1$(objext) \
   g-sha224$(objext) \
   g-sha256$(objext) \
@@ -522,12 +524,20 @@ GNATRTL_NONTASKING_OBJS= \
   s-conca9$(objext) \
   s-crc32$(objext)  \
   s-crtl$(objext)   \
+  s-dfmkio$(objext) \
+  s-dfmopr$(objext) \
+  s-dgmgop$(objext) \
+  s-dlmopr$(objext) \
   s-diflio$(objext) \
+  s-diflmk$(objext) \
+  s-digemk$(objext) \
   s-diinio$(objext) \
+  s-dilomk$(objext) \
   s-dim$(objext)    \
   s-dimkio$(objext) \
   s-dimmks$(objext) \
   s-direio$(objext) \
+  s-dlmkio$(objext) \
   s-dmotpr$(objext) \
   s-dsaser$(objext) \
   s-elaall$(objext) \
@@ -847,16 +857,6 @@ VX_SIGTRAMP_EXTRA_SRCS=sigtramp.h sigtramp-vxworks-target.inc
 # aside the library itself. Typically useful for crtbegin/crtend kind of files.
 EXTRA_ADALIB_OBJS=
 
-# crt files for VxWorks exception tables registration, referenced by
-# spec files in the runtime library.
-VX_CRTBE_EXTRA_ADALIB_OBJS=vx_crtbegin.o vx_crtbegin_array.o vx_crtend.o
-
-# Contructor attributes (with priorities) are only supported on VxWorks 7
-# or for RTPs.
-ifneq ($(strip $(filter vxworks7% rtp%,$(target_os) $(THREAD_KIND))),)
-VX_CRTBE_EXTRA_ADALIB_OBJS+=vx_crtbegin_attr.o
-endif
-
 # GCC spec files to be installed in $(libsubdir), so --specs=<spec-filename>
 # finds them at runtime.
 GCC_SPEC_FILES=
@@ -884,7 +884,6 @@ ifeq ($(strip $(filter-out powerpc% wrs vxworks vxworksspe vxworks7 vxworks7spe,
 
   VX=$(strip $(if $(filter vxworks7%, $(target_os)), vxworks7, vxworks))
   SVX=system-$(VX)
-  GCC_SPEC_FILES+=$(VX)-gnat-crtbe-link.spec
 
   LIBGNAT_TARGET_PAIRS = \
   a-intnam.ads<libgnarl/a-intnam__vxworks.ads \
@@ -980,9 +979,6 @@ ifeq ($(strip $(filter-out powerpc% wrs vxworks vxworksspe vxworks7 vxworks7spe,
   EXTRA_GNATRTL_TASKING_OBJS += s-vxwork.o s-vxwext.o
 
   EXTRA_LIBGNAT_OBJS+=vx_stack_info.o
-
-  EXTRA_ADALIB_OBJS+=$(VX_CRTBE_EXTRA_ADALIB_OBJS)
-  EXTRA_LIBGNAT_SRCS+=vx_crtbegin.inc
 
   ifeq ($(strip $(filter-out vxworks7%, $(target_os))),)
     ifeq ($(strip $(filter-out powerpc64, $(target_cpu))),)
@@ -1127,7 +1123,6 @@ ifeq ($(strip $(filter-out %86 x86_64 wrs vxworks vxworks7,$(target_cpu) $(targe
 
   VX=$(strip $(if $(filter vxworks7%, $(target_os)), vxworks7, vxworks))
   SVX=system-$(VX)
-  GCC_SPEC_FILES+=$(VX)-gnat-crtbe-link.spec
 
   ifeq ($(strip $(filter-out x86_64, $(target_cpu))),)
      X86CPU=x86_64
@@ -1252,9 +1247,6 @@ ifeq ($(strip $(filter-out %86 x86_64 wrs vxworks vxworks7,$(target_cpu) $(targe
   EXTRA_LIBGNAT_OBJS+=sigtramp-vxworks.o
   EXTRA_LIBGNAT_SRCS+=$(VX_SIGTRAMP_EXTRA_SRCS)
 
-  EXTRA_ADALIB_OBJS+=$(VX_CRTBE_EXTRA_ADALIB_OBJS)
-  EXTRA_LIBGNAT_SRCS+=vx_crtbegin.inc
-
   ifeq ($(strip $(filter-out vxworks7%, $(target_os))),)
     GCC_SPEC_FILES+=vxworks7-$(X86CPU)-rtp-base-link.spec
   else
@@ -1290,7 +1282,6 @@ ifeq ($(strip $(filter-out aarch64 arm% coff wrs vx%,$(target_cpu) $(target_vend
   endif
 
   SVX=system-$(VX)
-  GCC_SPEC_FILES+=$(VX)-gnat-crtbe-link.spec
 
   LIBGNAT_TARGET_PAIRS = \
   a-intnam.ads<libgnarl/a-intnam__vxworks.ads \
@@ -1369,8 +1360,6 @@ ifeq ($(strip $(filter-out aarch64 arm% coff wrs vx%,$(target_cpu) $(target_vend
     ifeq ($(strip $(filter-out aarch64, $(target_cpu))),)
       GCC_SPEC_FILES+=vxworks7-rtp-base-link.spec
     endif
-    EXTRA_ADALIB_OBJS+=$(VX_CRTBE_EXTRA_ADALIB_OBJS)
-    EXTRA_LIBGNAT_SRCS+=vx_crtbegin.inc
 
     ifneq ($(strip $(filter-out vxworks7%, $(target_os))),)
       GCC_SPEC_FILES+=vxworks-arm-link.spec
@@ -1960,19 +1949,17 @@ endif
 # Cygwin/Mingw32
 ifeq ($(strip $(filter-out cygwin% mingw32% pe,$(target_os))),)
   # Cygwin provides a full Posix environment, and so we use the default
-  # versions of s-memory and g-socthi rather than the Windows-specific
-  # MinGW versions.  Ideally we would use all the default versions for
-  # Cygwin and none of the MinGW versions, but for historical reasons
-  # the Cygwin port has always been a CygMing frankenhybrid and it is
-  # a long-term project to disentangle them.
+  # versions g-socthi rather than the Windows-specific MinGW version.
+  # Ideally we would use all the default versions for Cygwin and none
+  # of the MinGW versions, but for historical reasons the Cygwin port
+  # has always been a CygMing frankenhybrid and it is a long-term project
+  # to disentangle them.
   ifeq ($(strip $(filter-out cygwin%,$(target_os))),)
     LIBGNAT_TARGET_PAIRS = \
-    s-memory.adb<libgnat/s-memory.adb \
     g-socthi.ads<libgnat/g-socthi.ads \
     g-socthi.adb<libgnat/g-socthi.adb
   else
     LIBGNAT_TARGET_PAIRS = \
-    s-memory.adb<libgnat/s-memory__mingw.adb \
     g-socthi.ads<libgnat/g-socthi__mingw.ads \
     g-socthi.adb<libgnat/g-socthi__mingw.adb
   endif
@@ -2133,15 +2120,10 @@ ifeq ($(strip $(filter-out arm% linux-gnueabi%,$(target_cpu) $(target_os))),)
   $(ATOMICS_BUILTINS_TARGET_PAIRS) \
   system.ads<libgnat/system-linux-arm.ads
 
-  ifeq ($(strip $(filter-out arm%b,$(target_cpu))),)
-    EH_MECHANISM=
-  else
-    EH_MECHANISM=-arm
-  endif
-
   TOOLS_TARGET_PAIRS = indepsw.adb<indepsw-gnu.adb
 
   EXTRA_GNATRTL_TASKING_OBJS=s-linux.o
+  EH_MECHANISM=-arm
   THREADSLIB = -lpthread
   GNATLIB_SHARED = gnatlib-shared-dual
   GMEM_LIB = gmemlib
@@ -2763,4 +2745,3 @@ a-tags.o  : a-tags.adb a-tags.ads
 s-memory.o  : s-memory.adb s-memory.ads
 	$(ADAC) -c $(ALL_ADAFLAGS) $(NO_SIBLING_ADAFLAGS) $(ADA_INCLUDES) \
 	  $< $(OUTPUT_OPTION)
-

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2019, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -350,6 +350,18 @@ package body Exp_Ch7 is
    --  Build the deep Initialize/Adjust/Finalize for a record Typ with
    --  Has_Component_Component set and store them using the TSS mechanism.
 
+   -------------------------------------------
+   -- Unnesting procedures for CCG and LLVM --
+   -------------------------------------------
+
+   --  Expansion generates subprograms for controlled types management that
+   --  may appear in declarative lists in package declarations and bodies.
+   --  These subprograms appear within generated blocks that contain local
+   --  declarations and a call to finalization procedures. To ensure that
+   --  such subprograms get activation records when needed, we transform the
+   --  block into a procedure body, followed by a call to it in the same
+   --  declarative list.
+
    procedure Check_Unnesting_Elaboration_Code (N : Node_Id);
    --  The statement part of a package body that is a compilation unit may
    --  contain blocks that declare local subprograms. In Subprogram_Unnesting
@@ -359,6 +371,17 @@ package body Exp_Ch7 is
    --  to contain blocks and inner subprograms, The statement part becomes
    --  a call to this subprogram. This is only done if blocks are present
    --  in the statement list of the body.
+
+   procedure Check_Unnesting_In_Declarations (Decls : List_Id);
+   --  Similarly, the declarations in the package body may have created
+   --  blocks with nested subprograms. Such a block must be transformed into a
+   --  procedure followed by a call to it, so that unnesting can handle uplevel
+   --  references within these nested subprograms (typically generated
+   --  subprograms to handle finalization actions).
+
+   function Contains_Subprogram (Blk : Entity_Id) return Boolean;
+   --  Check recursively whether a loop or block contains a subprogram that
+   --  may need an activation record.
 
    procedure Check_Visibly_Controlled
      (Prim : Final_Primitives;
@@ -1337,7 +1360,7 @@ package body Exp_Ch7 is
                              or else
                                (Present (Clean_Stmts)
                                  and then Is_Non_Empty_List (Clean_Stmts));
-      Exceptions_OK    : constant Boolean := Exceptions_In_Finalization_OK;
+
       For_Package_Body : constant Boolean := Nkind (N) = N_Package_Body;
       For_Package_Spec : constant Boolean := Nkind (N) = N_Package_Declaration;
       For_Package      : constant Boolean :=
@@ -3984,30 +4007,166 @@ package body Exp_Ch7 is
       end if;
    end Cleanup_Task;
 
-   -----------------------------------
+   --------------------------------------
    -- Check_Unnesting_Elaboration_Code --
-   -----------------------------------
+   --------------------------------------
 
    procedure Check_Unnesting_Elaboration_Code (N : Node_Id) is
       Loc       : constant Source_Ptr := Sloc (N);
-      Elab_Body : Node_Id;
-      Elab_Call : Node_Id;
-      Elab_Proc : Entity_Id;
-      Stat      : Node_Id;
+      First_Ent : Entity_Id := Empty;
+      Loop_Id   : Entity_Id := Empty;
 
-   begin
-      if Unnest_Subprogram_Mode
-        and then Present (Handled_Statement_Sequence (N))
-        and then Is_Compilation_Unit (Current_Scope)
-      then
-         Stat := First (Statements (Handled_Statement_Sequence (N)));
+      function First_Local_Scope (L : List_Id) return Entity_Id;
+      --  Find first entity in the elaboration code of the body that contains
+      --  or represents a subprogram body. A body can appear within a block or
+      --  a loop or can appear by itself if generated for an object declaration
+      --  that involves controlled actions. The first such entity encountered
+      --  is used to reset the scopes of all entities that become local to the
+      --  new elaboration procedure. This is needed for subsequent unnesting,
+      --  which depends on the scope links to determine the nesting level of
+      --  each subprogram.
+
+      -----------------------
+      --  Find_Local_Scope --
+      -----------------------
+
+      function First_Local_Scope (L : List_Id) return Entity_Id is
+         Id   : Entity_Id;
+         Scop : Entity_Id;
+         Stat : Node_Id;
+
+      begin
+         Stat := First (L);
          while Present (Stat) loop
-            exit when Nkind (Stat) = N_Block_Statement
-              and then Present (Identifier (Stat));
+            case Nkind (Stat) is
+               when N_Block_Statement =>
+                  Id := Entity (Identifier (Stat));
+
+                  if No (First_Ent) then
+                     First_Ent := Id;
+                  end if;
+
+                  if Present (Id) and then Contains_Subprogram (Id) then
+                     return Id;
+                  end if;
+
+               when N_Loop_Statement =>
+                  Id := Entity (Identifier (Stat));
+
+                  if No (First_Ent) then
+                     First_Ent := Id;
+                  end if;
+
+                  if Contains_Subprogram (Id) then
+                     if Scope (Id) = Current_Scope then
+                        Loop_Id := Id;
+                     end if;
+
+                     return Id;
+                  end if;
+
+               when N_If_Statement =>
+                  Scop := First_Local_Scope (Then_Statements (Stat));
+
+                  if Present (Scop) then
+                     return Scop;
+                  end if;
+
+                  Scop := First_Local_Scope (Else_Statements (Stat));
+
+                  if Present (Scop) then
+                     return Scop;
+                  end if;
+
+                  declare
+                     Elif : Node_Id;
+
+                  begin
+                     Elif := First (Elsif_Parts (Stat));
+                     while Present (Elif) loop
+                        Scop := First_Local_Scope (Statements (Elif));
+
+                        if Present (Scop) then
+                           return Scop;
+                        end if;
+
+                        Next (Elif);
+                     end loop;
+                  end;
+
+               when N_Case_Statement =>
+                  declare
+                     Alt : Node_Id;
+
+                  begin
+                     Alt := First (Alternatives (Stat));
+                     while Present (Alt) loop
+                        Scop := First_Local_Scope (Statements (Alt));
+
+                        if Present (Scop) then
+                           return Scop;
+                        end if;
+
+                        Next (Alt);
+                     end loop;
+                  end;
+
+               when N_Subprogram_Body =>
+                  Id := Defining_Entity (Stat);
+
+                  if No (First_Ent) then
+                     First_Ent := Id;
+                  end if;
+
+                  return Id;
+
+               when others =>
+                  null;
+            end case;
+
             Next (Stat);
          end loop;
 
-         if Present (Stat) then
+         return Empty;
+      end First_Local_Scope;
+
+      --  Local variables
+
+      H_Seq     : constant Node_Id := Handled_Statement_Sequence (N);
+      Elab_Body : Node_Id;
+      Elab_Call : Node_Id;
+      Elab_Proc : Entity_Id;
+      Ent       : Entity_Id;
+
+   --  Start of processing for Check_Unnesting_Elaboration_Code
+
+   begin
+      if Unnest_Subprogram_Mode
+        and then Present (H_Seq)
+        and then Is_Compilation_Unit (Current_Scope)
+      then
+         Ent := First_Local_Scope (Statements (H_Seq));
+
+         --  There msy be subprograms declared in the exception handlers
+         --  of the current body.
+
+         if No (Ent) and then Present (Exception_Handlers (H_Seq)) then
+            declare
+               Handler : Node_Id := First (Exception_Handlers (H_Seq));
+            begin
+               while Present (Handler) loop
+                  Ent := First_Local_Scope (Statements (Handler));
+                  if Present (Ent) then
+                     First_Ent := Ent;
+                     exit;
+                  end if;
+
+                  Next (Handler);
+               end loop;
+            end;
+         end if;
+
+         if Present (Ent) then
             Elab_Proc :=
               Make_Defining_Identifier (Loc,
                 Chars => New_Internal_Name ('I'));
@@ -4035,26 +4194,85 @@ package body Exp_Ch7 is
 
             Analyze (Elab_Call);
 
-            --  The scope of all blocks in the elaboration code is now the
-            --  constructed elaboration procedure. Nested subprograms within
-            --  those blocks will have activation records if they contain
-            --  references to entities in the enclosing block.
+            --  The scope of all blocks and loops in the elaboration code is
+            --  now the constructed elaboration procedure. Nested subprograms
+            --  within those blocks will have activation records if they
+            --  contain references to entities in the enclosing block or
+            --  the package itself.
 
-            Stat :=
-              First (Statements (Handled_Statement_Sequence (Elab_Body)));
-
-            while Present (Stat) loop
-               if Nkind (Stat) = N_Block_Statement
-                 and then Present (Identifier (Stat))
-               then
-                  Set_Scope (Entity (Identifier (Stat)), Elab_Proc);
-               end if;
-
-               Next (Stat);
+            Ent := First_Ent;
+            while Present (Ent) loop
+               Set_Scope (Ent, Elab_Proc);
+               Next_Entity (Ent);
             end loop;
+
+            if Present (Loop_Id) then
+               Set_Scope (Loop_Id, Elab_Proc);
+            end if;
          end if;
       end if;
    end Check_Unnesting_Elaboration_Code;
+
+   -------------------------------------
+   -- Check_Unnesting_In_Declarations --
+   -------------------------------------
+
+   procedure Check_Unnesting_In_Declarations (Decls : List_Id) is
+      Decl       : Node_Id;
+      Ent        : Entity_Id;
+      Loc        : Source_Ptr;
+      Local_Body : Node_Id;
+      Local_Call : Node_Id;
+      Local_Proc : Entity_Id;
+
+   begin
+      Local_Call := Empty;
+
+      if Unnest_Subprogram_Mode
+        and then Present (Decls)
+        and then Is_Compilation_Unit (Current_Scope)
+      then
+         Decl := First (Decls);
+         while Present (Decl) loop
+            if Nkind (Decl) = N_Block_Statement
+               and then Contains_Subprogram (Entity (Identifier (Decl)))
+            then
+               Ent := First_Entity (Entity (Identifier (Decl)));
+               Loc := Sloc (Decl);
+               Local_Proc :=
+                 Make_Defining_Identifier (Loc,
+                   Chars => New_Internal_Name ('P'));
+
+               Local_Body :=
+                 Make_Subprogram_Body (Loc,
+                   Specification              =>
+                     Make_Procedure_Specification (Loc,
+                       Defining_Unit_Name => Local_Proc),
+                       Declarations       => Declarations (Decl),
+                   Handled_Statement_Sequence =>
+                     Handled_Statement_Sequence (Decl));
+
+               Rewrite (Decl, Local_Body);
+               Analyze (Decl);
+               Set_Has_Nested_Subprogram (Local_Proc);
+
+               Local_Call :=
+                 Make_Procedure_Call_Statement (Loc,
+                   Name => New_Occurrence_Of (Local_Proc, Loc));
+
+               Insert_After (Decl, Local_Call);
+               Analyze (Local_Call);
+
+               while Present (Ent) loop
+                  Set_Scope (Ent, Local_Proc);
+                  Next_Entity (Ent);
+               end loop;
+            end if;
+
+            Next (Decl);
+         end loop;
+      end if;
+   end Check_Unnesting_In_Declarations;
 
    ------------------------------
    -- Check_Visibly_Controlled --
@@ -4096,6 +4314,32 @@ package body Exp_Ch7 is
          end if;
       end if;
    end Check_Visibly_Controlled;
+
+   --------------------------
+   --  Contains_Subprogram --
+   --------------------------
+
+   function Contains_Subprogram (Blk : Entity_Id) return Boolean is
+      E : Entity_Id;
+
+   begin
+      E := First_Entity (Blk);
+
+      while Present (E) loop
+         if Is_Subprogram (E) then
+            return True;
+
+         elsif Ekind_In (E, E_Block, E_Loop)
+           and then Contains_Subprogram (E)
+         then
+            return True;
+         end if;
+
+         Next_Entity (E);
+      end loop;
+
+      return False;
+   end Contains_Subprogram;
 
    ------------------
    -- Convert_View --
@@ -4785,6 +5029,7 @@ package body Exp_Ch7 is
 
          Expand_Pragma_Initial_Condition (Spec_Id, N);
          Check_Unnesting_Elaboration_Code (N);
+         Check_Unnesting_In_Declarations (Declarations (N));
 
          Pop_Scope;
       end if;
@@ -4942,6 +5187,8 @@ package body Exp_Ch7 is
 
          Set_Finalizer (Id, Fin_Id);
       end if;
+      Check_Unnesting_In_Declarations (Visible_Declarations (Spec));
+      Check_Unnesting_In_Declarations (Private_Declarations (Spec));
    end Expand_N_Package_Declaration;
 
    ----------------------------
@@ -5220,8 +5467,6 @@ package body Exp_Ch7 is
          Last_Object  : Node_Id;
          Related_Node : Node_Id)
       is
-         Exceptions_OK : constant Boolean := Exceptions_In_Finalization_OK;
-
          Must_Hook : Boolean := False;
          --  Flag denoting whether the context requires transient object
          --  export to the outer finalizer.
@@ -5889,8 +6134,6 @@ package body Exp_Ch7 is
      (Prim : Final_Primitives;
       Typ  : Entity_Id) return List_Id
    is
-      Exceptions_OK : constant Boolean := Exceptions_In_Finalization_OK;
-
       function Build_Adjust_Or_Finalize_Statements
         (Typ : Entity_Id) return List_Id;
       --  Create the statements necessary to adjust or finalize an array of
@@ -6721,8 +6964,6 @@ package body Exp_Ch7 is
       Typ      : Entity_Id;
       Is_Local : Boolean := False) return List_Id
    is
-      Exceptions_OK : constant Boolean := Exceptions_In_Finalization_OK;
-
       function Build_Adjust_Statements (Typ : Entity_Id) return List_Id;
       --  Build the statements necessary to adjust a record type. The type may
       --  have discriminants and contain variant parts. Generate:
@@ -8664,6 +8905,9 @@ package body Exp_Ch7 is
       function Manages_Sec_Stack (Id : Entity_Id) return Boolean;
       --  Determine whether scoping entity Id manages the secondary stack
 
+      function Within_Loop_Statement (N : Node_Id) return Boolean;
+      --  Return True when N appears within a loop and no block is containing N
+
       -----------------------
       -- Manages_Sec_Stack --
       -----------------------
@@ -8692,6 +8936,26 @@ package body Exp_Ch7 is
                return False;
          end case;
       end Manages_Sec_Stack;
+
+      ---------------------------
+      -- Within_Loop_Statement --
+      ---------------------------
+
+      function Within_Loop_Statement (N : Node_Id) return Boolean is
+         Par : Node_Id := Parent (N);
+
+      begin
+         while not (Nkind_In (Par, N_Handled_Sequence_Of_Statements,
+                                   N_Loop_Statement,
+                                   N_Package_Specification)
+                      or else Nkind (Par) in N_Proper_Body)
+         loop
+            pragma Assert (Present (Par));
+            Par := Parent (Par);
+         end loop;
+
+         return Nkind (Par) = N_Loop_Statement;
+      end Within_Loop_Statement;
 
       --  Local variables
 
@@ -8744,6 +9008,16 @@ package body Exp_Ch7 is
             --  each iteration.
 
             elsif Ekind (Scop) = E_Loop then
+               exit;
+
+            --  Ditto when the block appears without a block that does not
+            --  manage the secondary stack and is located within a loop.
+
+            elsif Ekind (Scop) = E_Block
+              and then not Manages_Sec_Stack (Scop)
+              and then Present (Block_Node (Scop))
+              and then Within_Loop_Statement (Block_Node (Scop))
+            then
                exit;
 
             --  The transient block does not need to manage the secondary stack

@@ -1,5 +1,5 @@
 /* Deal with interfaces.
-   Copyright (C) 2000-2018 Free Software Foundation, Inc.
+   Copyright (C) 2000-2019 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -122,9 +122,9 @@ fold_unary_intrinsic (gfc_intrinsic_op op)
 static gfc_intrinsic_op
 dtio_op (char* mode)
 {
-  if (strncmp (mode, "formatted", 9) == 0)
+  if (strcmp (mode, "formatted") == 0)
     return INTRINSIC_FORMATTED;
-  if (strncmp (mode, "unformatted", 9) == 0)
+  if (strcmp (mode, "unformatted") == 0)
     return INTRINSIC_UNFORMATTED;
   return INTRINSIC_NONE;
 }
@@ -692,6 +692,16 @@ gfc_compare_types (gfc_typespec *ts1, gfc_typespec *ts2)
   if (ts1->type == BT_VOID || ts2->type == BT_VOID)
     return true;
 
+  /* Special case for our C interop types.  FIXME: There should be a
+     better way of doing this.  When ISO C binding is cleared up,
+     this can probably be removed.  See PR 57048.  */
+
+  if (((ts1->type == BT_INTEGER && ts2->type == BT_DERIVED)
+       || (ts1->type == BT_DERIVED && ts2->type == BT_INTEGER))
+      && ts1->u.derived && ts2->u.derived
+      && ts1->u.derived == ts2->u.derived)
+    return true;
+
   /* The _data component is not always present, therefore check for its
      presence before assuming, that its derived->attr is available.
      When the _data component is not present, then nevertheless the
@@ -735,13 +745,20 @@ compare_type (gfc_symbol *s1, gfc_symbol *s2)
   if (s2->attr.ext_attr & (1 << EXT_ATTR_NO_ARG_CHECK))
     return true;
 
+  return gfc_compare_types (&s1->ts, &s2->ts) || s2->ts.type == BT_ASSUMED;
+}
+
+
+static bool
+compare_type_characteristics (gfc_symbol *s1, gfc_symbol *s2)
+{
   /* TYPE and CLASS of the same declared type are type compatible,
      but have different characteristics.  */
   if ((s1->ts.type == BT_CLASS && s2->ts.type == BT_DERIVED)
       || (s1->ts.type == BT_DERIVED && s2->ts.type == BT_CLASS))
     return false;
 
-  return gfc_compare_types (&s1->ts, &s2->ts) || s2->ts.type == BT_ASSUMED;
+  return compare_type (s1, s2);
 }
 
 
@@ -1309,7 +1326,8 @@ gfc_check_dummy_characteristics (gfc_symbol *s1, gfc_symbol *s2,
   /* Check type and rank.  */
   if (type_must_agree)
     {
-      if (!compare_type (s1, s2) || !compare_type (s2, s1))
+      if (!compare_type_characteristics (s1, s2)
+	  || !compare_type_characteristics (s2, s1))
 	{
 	  snprintf (errmsg, err_len, "Type mismatch in argument '%s' (%s/%s)",
 		    s1->name, gfc_typename (&s1->ts), gfc_typename (&s2->ts));
@@ -1528,7 +1546,7 @@ gfc_check_result_characteristics (gfc_symbol *s1, gfc_symbol *s2,
     return true;
 
   /* Check type and rank.  */
-  if (!compare_type (r1, r2))
+  if (!compare_type_characteristics (r1, r2))
     {
       snprintf (errmsg, err_len, "Type mismatch in function result (%s/%s)",
 		gfc_typename (&r1->ts), gfc_typename (&r2->ts));
@@ -1776,7 +1794,7 @@ gfc_compare_interfaces (gfc_symbol *s1, gfc_symbol *s2, const char *name2,
 	  }
 	else
 	  {
-	    /* Only check type and rank.  */
+	    /* Operators: Only check type and rank of arguments.  */
 	    if (!compare_type (f2->sym, f1->sym))
 	      {
 		if (errmsg != NULL)
@@ -1792,6 +1810,15 @@ gfc_compare_interfaces (gfc_symbol *s1, gfc_symbol *s2, const char *name2,
 		  snprintf (errmsg, err_len, "Rank mismatch in argument '%s' "
 			    "(%i/%i)", f1->sym->name, symbol_rank (f1->sym),
 			    symbol_rank (f2->sym));
+		return false;
+	      }
+	    if ((gfc_option.allow_std & GFC_STD_F2008)
+		&& (compare_ptr_alloc(f1->sym, f2->sym)
+		    || compare_ptr_alloc(f2->sym, f1->sym)))
+	      {
+    		if (errmsg != NULL)
+		  snprintf (errmsg, err_len, "Mismatching POINTER/ALLOCATABLE "
+			    "attribute in argument '%s' ", f1->sym->name);
 		return false;
 	      }
 	  }
@@ -2942,17 +2969,19 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 
       if (f->sym == NULL)
 	{
+	  /* These errors have to be issued, otherwise an ICE can occur.
+	     See PR 78865.  */
 	  if (where)
-	    gfc_error ("Missing alternate return spec in subroutine call "
-		       "at %L", where);
+	    gfc_error_now ("Missing alternate return specifier in subroutine "
+			   "call at %L", where);
 	  return false;
 	}
 
       if (a->expr == NULL)
 	{
 	  if (where)
-	    gfc_error ("Unexpected alternate return spec in subroutine "
-		       "call at %L", where);
+	    gfc_error_now ("Unexpected alternate return specifier in "
+			   "subroutine call at %L", where);
 	  return false;
 	}
 
@@ -4525,7 +4554,7 @@ gfc_check_typebound_override (gfc_symtree* proc, gfc_symtree* old)
   /* If the overwritten procedure is GENERIC, this is an error.  */
   if (old->n.tb->is_generic)
     {
-      gfc_error ("Can't overwrite GENERIC %qs at %L",
+      gfc_error ("Cannot overwrite GENERIC %qs at %L",
 		 old->name, &proc->n.tb->where);
       return false;
     }

@@ -1,5 +1,5 @@
 /* Implementation of selftests.
-   Copyright (C) 2015-2018 Free Software Foundation, Inc.
+   Copyright (C) 2015-2019 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -72,11 +72,16 @@ selftest::run_tests ()
   typed_splay_tree_c_tests ();
   unique_ptr_tests_cc_tests ();
   opt_proposer_c_tests ();
+  json_cc_tests ();
+  cgraph_c_tests ();
+  optinfo_emit_json_cc_tests ();
+  opt_problem_cc_tests ();
 
   /* Mid-level data structures.  */
   input_c_tests ();
   vec_perm_indices_c_tests ();
   tree_c_tests ();
+  convert_c_tests ();
   gimple_c_tests ();
   rtl_tests_c_tests ();
   read_rtl_function_c_tests ();

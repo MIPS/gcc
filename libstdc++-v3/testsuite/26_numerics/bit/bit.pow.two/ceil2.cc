@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Free Software Foundation, Inc.
+// Copyright (C) 2018-2019 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -54,6 +54,14 @@ test(UInt x)
     static_assert( std::ceil2(UInt(1) << 64) == (UInt(1) << 64) );
     static_assert( std::ceil2(UInt(3) << 64) == (UInt(4) << 64) );
   }
+
+  constexpr UInt msb = UInt(1) << (std::numeric_limits<UInt>::digits - 1);
+  static_assert( std::ceil2( msb ) == msb );
+  // Larger values cannot be represented so the return value is unspecified,
+  // but must still be valid in constant expressions, i.e. not undefined.
+  static_assert( std::ceil2( UInt(msb + 1) ) != 77 );
+  static_assert( std::ceil2( UInt(msb + 2) ) != 77 );
+  static_assert( std::ceil2( UInt(msb + 77) ) != 77 );
 
   return true;
 }

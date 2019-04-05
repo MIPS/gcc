@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2019, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -2069,6 +2069,22 @@ package body Sinfo is
       return Flag16 (N);
    end Is_Null_Loop;
 
+   function Is_OpenAcc_Environment
+      (N : Node_Id) return Boolean is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Loop_Statement);
+      return Flag13 (N);
+   end Is_OpenAcc_Environment;
+
+   function Is_OpenAcc_Loop
+      (N : Node_Id) return Boolean is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Loop_Statement);
+      return Flag14 (N);
+   end Is_OpenAcc_Loop;
+
    function Is_Overloaded
       (N : Node_Id) return Boolean is
    begin
@@ -3521,14 +3537,6 @@ package body Sinfo is
         or else NT (N).Nkind = N_Task_Body);
       return Flag13 (N);
    end Was_Originally_Stub;
-
-   function Withed_Body
-      (N : Node_Id) return Node_Id is
-   begin
-      pragma Assert (False
-        or else NT (N).Nkind = N_With_Clause);
-      return Node1 (N);
-   end Withed_Body;
 
    --------------------------
    -- Field Set Procedures --
@@ -5535,6 +5543,22 @@ package body Sinfo is
       Set_Flag16 (N, Val);
    end Set_Is_Null_Loop;
 
+   procedure Set_Is_OpenAcc_Environment
+      (N : Node_Id; Val : Boolean := True) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Loop_Statement);
+      Set_Flag13 (N, Val);
+   end Set_Is_OpenAcc_Environment;
+
+   procedure Set_Is_OpenAcc_Loop
+      (N : Node_Id; Val : Boolean := True) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Loop_Statement);
+      Set_Flag14 (N, Val);
+   end Set_Is_OpenAcc_Loop;
+
    procedure Set_Is_Overloaded
       (N : Node_Id; Val : Boolean := True) is
    begin
@@ -6989,14 +7013,6 @@ package body Sinfo is
         or else NT (N).Nkind = N_Task_Body);
       Set_Flag13 (N, Val);
    end Set_Was_Originally_Stub;
-
-   procedure Set_Withed_Body
-     (N : Node_Id; Val : Node_Id) is
-   begin
-      pragma Assert (False
-        or else NT (N).Nkind = N_With_Clause);
-      Set_Node1 (N, Val);
-   end Set_Withed_Body;
 
    -------------------------
    -- Iterator Procedures --

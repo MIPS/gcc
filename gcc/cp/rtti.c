@@ -1,5 +1,5 @@
 /* RunTime Type Identification
-   Copyright (C) 1995-2018 Free Software Foundation, Inc.
+   Copyright (C) 1995-2019 Free Software Foundation, Inc.
    Mostly written by Jason Merrill (jason@cygnus.com).
 
 This file is part of GCC.
@@ -273,7 +273,7 @@ get_tinfo_decl_dynamic (tree exp, tsubst_flags_t complain)
   exp = resolve_nondeduced_context (exp, complain);
 
   /* peel back references, so they match.  */
-  type = non_reference (TREE_TYPE (exp));
+  type = non_reference (unlowered_expr_type (exp));
 
   /* Peel off cv qualifiers.  */
   type = TYPE_MAIN_VARIANT (type);
@@ -310,14 +310,14 @@ typeid_ok_p (void)
 {
   if (! flag_rtti)
     {
-      error ("cannot use %<typeid%> with -fno-rtti");
+      error ("cannot use %<typeid%> with %<-fno-rtti%>");
       return false;
     }
 
   if (!COMPLETE_TYPE_P (const_type_info_type_node))
     {
       gcc_rich_location richloc (input_location);
-      maybe_add_include_fixit (&richloc, "<typeinfo>");
+      maybe_add_include_fixit (&richloc, "<typeinfo>", false);
       error_at (&richloc,
 		"must %<#include <typeinfo>%> before using"
 		" %<typeid%>");
@@ -719,7 +719,7 @@ build_dynamic_cast_1 (tree type, tree expr, tsubst_flags_t complain)
 	  if (!flag_rtti)
 	    {
               if (complain & tf_error)
-                error ("%<dynamic_cast%> not permitted with -fno-rtti");
+		error ("%<dynamic_cast%> not permitted with %<-fno-rtti%>");
 	      return error_mark_node;
 	    }
 
@@ -1539,7 +1539,7 @@ emit_support_tinfos (void)
   {
     &void_type_node,
     &boolean_type_node,
-    &wchar_type_node, &char16_type_node, &char32_type_node,
+    &wchar_type_node, &char8_type_node, &char16_type_node, &char32_type_node,
     &char_type_node, &signed_char_type_node, &unsigned_char_type_node,
     &short_integer_type_node, &short_unsigned_type_node,
     &integer_type_node, &unsigned_type_node,

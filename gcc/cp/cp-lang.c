@@ -1,5 +1,5 @@
 /* Language-dependent hooks for C++.
-   Copyright (C) 2001-2018 Free Software Foundation, Inc.
+   Copyright (C) 2001-2019 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -82,6 +82,9 @@ static tree cxx_enum_underlying_base_type (const_tree);
 #undef LANG_HOOKS_RUN_LANG_SELFTESTS
 #define LANG_HOOKS_RUN_LANG_SELFTESTS selftest::run_cp_tests
 #endif /* #if CHECKING_P */
+
+#undef LANG_HOOKS_GET_SUBSTRING_LOCATION
+#define LANG_HOOKS_GET_SUBSTRING_LOCATION c_get_substring_location
 
 /* Each front end provides its own lang hook initializer.  */
 struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;

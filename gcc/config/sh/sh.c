@@ -1,5 +1,5 @@
 /* Output routines for GCC for Renesas / SuperH SH.
-   Copyright (C) 1993-2018 Free Software Foundation, Inc.
+   Copyright (C) 1993-2019 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -921,7 +921,7 @@ sh_option_override (void)
 	 to the pressure on R0.  */
       /* Enable sched1 for SH4 if the user explicitly requests.
 	 When sched1 is enabled, the ready queue will be reordered by
-	 the target hooks if pressure is high.  We can not do this for
+	 the target hooks if pressure is high.  We cannot do this for
 	 PIC, SH3 and lower as they give spill failures for R0.  */
       if (!TARGET_HARD_SH4 || flag_pic)
 	flag_schedule_insns = 0;
@@ -933,7 +933,7 @@ sh_option_override (void)
       else if (flag_exceptions)
 	{
 	  if (flag_schedule_insns && global_options_set.x_flag_schedule_insns)
-	    warning (0, "ignoring -fschedule-insns because of exception "
+	    warning (0, "ignoring %<-fschedule-insns%> because of exception "
 			"handling bug");
 	  flag_schedule_insns = 0;
 	}
@@ -951,7 +951,7 @@ sh_option_override (void)
       && flag_omit_frame_pointer && !TARGET_ACCUMULATE_OUTGOING_ARGS)
     {
       warning (0, "unwind tables currently require either a frame pointer "
-	       "or -maccumulate-outgoing-args for correctness");
+	       "or %<-maccumulate-outgoing-args%> for correctness");
       TARGET_ACCUMULATE_OUTGOING_ARGS = 1;
     }
 
@@ -1015,7 +1015,7 @@ sh_override_options_after_change (void)
   parse_alignment_opts ();
   if (flag_align_jumps && !str_align_jumps)
     str_align_jumps = "2";
-  else if (align_jumps_value < 2)
+  else if (align_jumps.levels[0].get_value () < 2)
     str_align_jumps = "2";
 
   if (flag_align_functions && !str_align_functions)
@@ -1028,12 +1028,13 @@ sh_override_options_after_change (void)
     {
       /* Parse values so that we can compare for current value.  */
       parse_alignment_opts ();
-      int min_align = MAX (align_loops_value, align_jumps_value);
+      int min_align = MAX (align_loops.levels[0].get_value (),
+			   align_jumps.levels[0].get_value ());
 
       /* Also take possible .long constants / mova tables into account.	*/
       if (min_align < 4)
 	min_align = 4;
-      if (align_functions_value < min_align)
+      if (align_functions.levels[0].get_value () < min_align)
 	{
 	  char *r = XNEWVEC (char, 16);
 	  sprintf (r, "%d", min_align);
@@ -4986,7 +4987,7 @@ find_barrier (int num_mova, rtx_insn *mova, rtx_insn *from)
 	  && CODE_LABEL_NUMBER (from) <= max_labelno_before_reorg)
 	{
 	  if (optimize)
-	    new_align = 1 << label_to_alignment (from);
+	    new_align = 1 << label_to_alignment (from).levels[0].log;
 	  else if (BARRIER_P (prev_nonnote_insn (from)))
 	    new_align = 1 << barrier_align (from);
 	  else
@@ -5118,7 +5119,7 @@ find_barrier (int num_mova, rtx_insn *mova, rtx_insn *from)
 		  && (prev_nonnote_insn (from)
 		      == XEXP (MOVA_LABELREF (mova), 0))))
 	    num_mova--;
-	  if (barrier_align (next_real_insn (from)) == align_jumps_log)
+	  if (barrier_align (next_real_insn (from)) == align_jumps.levels[0].log)
 	    {
 	      /* We have just passed the barrier in front of the
 		 ADDR_DIFF_VEC, which is stored in found_barrier.  Since
@@ -5752,7 +5753,7 @@ barrier_align (rtx_insn *barrier_or_label)
       return ((optimize_size
 	       || ((unsigned) XVECLEN (pat, 1) * GET_MODE_SIZE (GET_MODE (pat))
 		   <= (unsigned) 1 << (CACHE_LOG - 2)))
-	      ? 1 : align_jumps_log);
+	      ? 1 : align_jumps.levels[0].log);
     }
 
   rtx_insn *next = next_active_insn (barrier_or_label);
@@ -5770,7 +5771,7 @@ barrier_align (rtx_insn *barrier_or_label)
     return 0;
 
   if (! TARGET_SH2 || ! optimize)
-    return align_jumps_log;
+    return align_jumps.levels[0].log;
 
   /* When fixing up pcloads, a constant table might be inserted just before
      the basic block that ends with the barrier.  Thus, we can't trust the
@@ -5848,7 +5849,7 @@ barrier_align (rtx_insn *barrier_or_label)
 	}
     }
 
-  return align_jumps_log;
+  return align_jumps.levels[0].log;
 }
 
 /* If we are inside a phony loop, almost any kind of label can turn up as the
@@ -5874,7 +5875,7 @@ sh_loop_align (rtx_insn *label)
       || recog_memoized (next) == CODE_FOR_consttable_2)
     return 0;
 
-  return align_loops_log;
+  return align_loops.levels[0].log;
 }
 
 /* Do a final pass over the function, just before delayed branch
@@ -7412,7 +7413,7 @@ sh_builtin_saveregs (void)
 
   if (!TARGET_FPU_ANY)
     {
-      error ("__builtin_saveregs not supported by this subtarget");
+      error ("%<__builtin_saveregs%> not supported by this subtarget");
       return const0_rtx;
     }
 
@@ -8278,7 +8279,7 @@ sh_fix_range (const char *const_str)
       char* dash = strchr (str, '-');
       if (!dash)
 	{
-	  warning (0, "value of -mfixed-range must have form REG1-REG2");
+	  warning (0, "value of %<-mfixed-range%> must have form REG1-REG2");
 	  return;
 	}
       *dash = '\0';

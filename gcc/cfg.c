@@ -1,5 +1,5 @@
 /* Control flow graph manipulation code for GNU compiler.
-   Copyright (C) 1987-2018 Free Software Foundation, Inc.
+   Copyright (C) 1987-2019 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -79,6 +79,8 @@ init_flow (struct function *the_fun)
     = EXIT_BLOCK_PTR_FOR_FN (the_fun);
   EXIT_BLOCK_PTR_FOR_FN (the_fun)->prev_bb
     = ENTRY_BLOCK_PTR_FOR_FN (the_fun);
+  the_fun->cfg->edge_flags_allocated = EDGE_ALL_FLAGS;
+  the_fun->cfg->bb_flags_allocated = BB_ALL_FLAGS;
 }
 
 /* Helper function for remove_edge and clear_edges.  Frees edge structure

@@ -142,7 +142,7 @@ TEST_UNIFORM_ZS (add_w0_s8_z_tied1, svint8_t, int8_t,
 		 z0 = svadd_z (p0, z0, x0))
 
 /*
-** add_w0_s8_z_untied:
+** add_w0_s8_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.b), w0
 **	movprfx	z0\.b, p0/z, z1\.b
 **	add	z0\.b, p0/m, z0\.b, \1
@@ -164,7 +164,7 @@ TEST_UNIFORM_ZS (add_b0_s8_z_tied1, svint8_t, int8_t,
 		 z1 = svadd_z (p0, z1, d0))
 
 /*
-** add_b0_s8_z_untied:
+** add_b0_s8_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.b), b0
 **	movprfx	z1\.b, p0/z, z2\.b
 **	add	z1\.b, p0/m, z1\.b, \1

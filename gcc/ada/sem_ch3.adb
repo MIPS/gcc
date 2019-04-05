@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2019, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -604,6 +604,10 @@ package body Sem_Ch3 is
       Def : Node_Id);
    --  Create a new ordinary fixed point type, and apply the constraint to
    --  obtain subtype of it.
+
+   procedure Preanalyze_Default_Expression (N : Node_Id; T : Entity_Id);
+   --  Wrapper on Preanalyze_Spec_Expression for default expressions, so that
+   --  In_Default_Expr can be properly adjusted.
 
    procedure Prepare_Private_Subtype_Completion
      (Id          : Entity_Id;
@@ -1915,8 +1919,8 @@ package body Sem_Ch3 is
          if Is_Limited_Record (Typ) then
             return True;
 
-         --  If the root type is limited (and not a limited interface)
-         --  so is the current type
+         --  If the root type is limited (and not a limited interface) so is
+         --  the current type.
 
          elsif Is_Limited_Record (R)
            and then (not Is_Interface (R) or else not Is_Limited_Interface (R))
@@ -1924,9 +1928,12 @@ package body Sem_Ch3 is
             return True;
 
          --  Else the type may have a limited interface progenitor, but a
-         --  limited record parent.
+         --  limited record parent that is not an interface.
 
-         elsif R /= P and then Is_Limited_Record (P) then
+         elsif R /= P
+           and then Is_Limited_Record (P)
+           and then not Is_Interface (P)
+         then
             return True;
 
          else
@@ -3650,7 +3657,7 @@ package body Sem_Ch3 is
       Prev_Entity : Entity_Id := Empty;
 
       procedure Check_Dynamic_Object (Typ : Entity_Id);
-      --  A library-level object with non-static discriminant constraints may
+      --  A library-level object with nonstatic discriminant constraints may
       --  require dynamic allocation. The declaration is illegal if the
       --  profile includes the restriction No_Implicit_Heap_Allocations.
 
@@ -3665,7 +3672,7 @@ package body Sem_Ch3 is
       --  This function is called when a non-generic library level object of a
       --  task type is declared. Its function is to count the static number of
       --  tasks declared within the type (it is only called if Has_Task is set
-      --  for T). As a side effect, if an array of tasks with non-static bounds
+      --  for T). As a side effect, if an array of tasks with nonstatic bounds
       --  or a variant record type is encountered, Check_Restriction is called
       --  indicating the count is unknown.
 
@@ -4271,20 +4278,25 @@ package body Sem_Ch3 is
            and then Nkind (E) = N_Aggregate
            and then
              ((Present (Following_Address_Clause (N))
-                            and then not Ignore_Rep_Clauses)
+                 and then not Ignore_Rep_Clauses)
               or else Delayed_Aspect_Present)
          then
             Set_Etype (E, T);
 
+            --  If the aggregate is limited it will be built in place, and its
+            --  expansion is deferred until the object declaration is expanded.
+
+            if Is_Limited_Type (T) then
+               Set_Expansion_Delayed (E);
+            end if;
+
          else
-
             --  If the expression is a formal that is a "subprogram pointer"
-            --  this is illegal in accessibility terms. Add an explicit
-            --  conversion to force the corresponding check, as is done for
-            --  assignments.
+            --  this is illegal in accessibility terms (see RM 3.10.2 (13.1/2)
+            --  and AARM 3.10.2 (13.b/2)). Add an explicit conversion to force
+            --  the corresponding check, as is done for assignments.
 
-            if Comes_From_Source (N)
-              and then Is_Entity_Name (E)
+            if Is_Entity_Name (E)
               and then Present (Entity (E))
               and then Is_Formal (Entity (E))
               and then
@@ -4353,6 +4365,20 @@ package body Sem_Ch3 is
 
          elsif Is_Scalar_Type (T) and then Is_OK_Static_Expression (E) then
             Set_Is_Known_Valid (Id);
+
+         --  If it is a constant initialized with a valid nonstatic entity,
+         --  the constant is known valid as well, and can inherit the subtype
+         --  of the entity if it is a subtype of the given type. This info
+         --  is preserved on the actual subtype of the constant.
+
+         elsif Is_Scalar_Type (T)
+           and then Is_Entity_Name (E)
+           and then Is_Known_Valid (Entity (E))
+           and then In_Subrange_Of (Etype (Entity (E)), T)
+         then
+            Set_Is_Known_Valid (Id);
+            Set_Ekind (Id, E_Constant);
+            Set_Actual_Subtype (Id, Etype (Entity (E)));
          end if;
 
          --  Deal with setting of null flags
@@ -4428,11 +4454,16 @@ package body Sem_Ch3 is
       --  default initialization when we have at least one case of an explicit
       --  default initial value and then this is not an internal declaration
       --  whose initialization comes later (as for an aggregate expansion).
+      --  If expression is an aggregate it may be expanded into assignments
+      --  and the declaration itself is marked with No_Initialization, but
+      --  the predicate still applies.
 
       if not Suppress_Assignment_Checks (N)
         and then Present (Predicate_Function (T))
         and then not Predicates_Ignored (T)
-        and then not No_Initialization (N)
+        and then
+          (not No_Initialization (N)
+            or else (Present (E) and then Nkind (E) = N_Aggregate))
         and then
           (Present (E)
             or else
@@ -5393,7 +5424,7 @@ package body Sem_Ch3 is
                        ("subtype mark required", One_Cstr);
 
                   --  String subtype must have a lower bound of 1 in SPARK.
-                  --  Note that we do not need to test for the non-static case
+                  --  Note that we do not need to test for the nonstatic case
                   --  here, since that was already taken care of in
                   --  Process_Range_Expr_In_Decl.
 
@@ -9449,6 +9480,7 @@ package body Sem_Ch3 is
               (Derived_Type, Save_Discr_Constr);
             Set_Stored_Constraint
               (Derived_Type, Expand_To_Stored_Constraint (Parent_Type, Discs));
+
             Replace_Components (Derived_Type, New_Decl);
          end if;
 
@@ -10341,12 +10373,13 @@ package body Sem_Ch3 is
          --  If Nod is a library unit entity, then Insert_After won't work,
          --  because Nod is not a member of any list. Therefore, we use
          --  Add_Global_Declaration in this case. This can happen if we have a
-         --  build-in-place library function.
+         --  build-in-place library function, child unit or not.
 
          if (Nkind (Nod) in N_Entity and then Is_Compilation_Unit (Nod))
            or else
-             (Nkind (Nod) = N_Defining_Program_Unit_Name
-               and then Is_Compilation_Unit (Defining_Identifier (Nod)))
+             (Nkind_In (Nod,
+                N_Defining_Program_Unit_Name, N_Subprogram_Declaration)
+               and then Is_Compilation_Unit (Defining_Entity (Nod)))
          then
             Add_Global_Declaration (IR);
          else
@@ -12297,6 +12330,9 @@ package body Sem_Ch3 is
       --  Note that the type of the full view is the same entity as the type
       --  of the partial view. In this fashion, the subtype has access to the
       --  correct view of the parent.
+      --  The list below included access types, but this leads to several
+      --  regressions. How should the base type of the full view be
+      --  set consistently for subtypes completed by access types?
 
       Save_Next_Entity := Next_Entity (Full);
       Save_Homonym     := Homonym (Priv);
@@ -12464,7 +12500,7 @@ package body Sem_Ch3 is
       end if;
 
       --  It is unsafe to share the bounds of a scalar type, because the Itype
-      --  is elaborated on demand, and if a bound is non-static then different
+      --  is elaborated on demand, and if a bound is nonstatic, then different
       --  orders of elaboration in different units will lead to different
       --  external symbols.
 
@@ -13688,7 +13724,12 @@ package body Sem_Ch3 is
       Related_Nod : Node_Id) return Entity_Id
    is
       T_Sub : constant Entity_Id :=
-                Create_Itype (E_Record_Subtype, Related_Nod, Corr_Rec, 'C');
+                Create_Itype
+                  (Ekind        => E_Record_Subtype,
+                   Related_Nod  => Related_Nod,
+                   Related_Id   => Corr_Rec,
+                   Suffix       => 'C',
+                   Suffix_Index => -1);
 
    begin
       Set_Etype             (T_Sub, Corr_Rec);
@@ -16409,7 +16450,7 @@ package body Sem_Ch3 is
 
       --  Because the implicit base is used in the conversion of the bounds, we
       --  have to freeze it now. This is similar to what is done for numeric
-      --  types, and it equally suspicious, but otherwise a non-static bound
+      --  types, and it equally suspicious, but otherwise a nonstatic bound
       --  will have a reference to an unfrozen type, which is rejected by Gigi
       --  (???). This requires specific care for definition of stream
       --  attributes. For details, see comments at the end of
@@ -18615,11 +18656,13 @@ package body Sem_Ch3 is
       --  A named subtype does not inherit the predicate function of its
       --  parent but an itype declared for a loop index needs the discrete
       --  predicate information of its parent to execute the loop properly.
+      --  A non-discrete type may has a static predicate (for example True)
+      --  but has no static_discrete_predicate.
 
       if Is_Itype (Subt) and then Present (Predicate_Function (Par)) then
          Set_Subprograms_For_Type (Subt, Subprograms_For_Type (Par));
 
-         if Has_Static_Predicate (Par) then
+         if Has_Static_Predicate (Par) and then Is_Discrete_Type (Par) then
             Set_Static_Discrete_Predicate
               (Subt, Static_Discrete_Predicate (Par));
          end if;
@@ -19329,8 +19372,8 @@ package body Sem_Ch3 is
          end if;
 
          --  In the subtype indication case, if the immediate parent of the
-         --  new subtype is non-static, then the subtype we create is non-
-         --  static, even if its bounds are static.
+         --  new subtype is nonstatic, then the subtype we create is nonstatic,
+         --  even if its bounds are static.
 
          if Nkind (N) = N_Subtype_Indication
            and then not Is_OK_Static_Subtype (Entity (Subtype_Mark (N)))
@@ -19816,11 +19859,17 @@ package body Sem_Ch3 is
    -----------------------------------
 
    procedure Preanalyze_Default_Expression (N : Node_Id; T : Entity_Id) is
-      Save_In_Default_Expr : constant Boolean := In_Default_Expr;
+      Save_In_Default_Expr    : constant Boolean := In_Default_Expr;
+      Save_In_Spec_Expression : constant Boolean := In_Spec_Expression;
+
    begin
-      In_Default_Expr := True;
-      Preanalyze_Spec_Expression (N, T);
-      In_Default_Expr := Save_In_Default_Expr;
+      In_Default_Expr    := True;
+      In_Spec_Expression := True;
+
+      Preanalyze_With_Freezing_And_Resolve (N, T);
+
+      In_Default_Expr    := Save_In_Default_Expr;
+      In_Spec_Expression := Save_In_Spec_Expression;
    end Preanalyze_Default_Expression;
 
    --------------------------------
@@ -20125,7 +20174,7 @@ package body Sem_Ch3 is
             end if;
          end if;
 
-         --  A discriminant cannot be effectively volatile (SPARK RM 7.1.3(6)).
+         --  A discriminant cannot be effectively volatile (SPARK RM 7.1.3(4)).
          --  This check is relevant only when SPARK_Mode is on as it is not a
          --  standard Ada legality rule.
 

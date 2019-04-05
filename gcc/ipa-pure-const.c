@@ -1,5 +1,5 @@
 /* Callgraph based analysis of static variables.
-   Copyright (C) 2004-2018 Free Software Foundation, Inc.
+   Copyright (C) 2004-2019 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -128,11 +128,12 @@ typedef struct funct_state_d * funct_state;
    possibility that it may be desirable to move this to the cgraph
    local info.  */
 
-class funct_state_summary_t: public function_summary <funct_state_d *>
+class funct_state_summary_t:
+  public fast_function_summary <funct_state_d *, va_heap>
 {
 public:
   funct_state_summary_t (symbol_table *symtab):
-    function_summary <funct_state_d *> (symtab) {}
+    fast_function_summary <funct_state_d *, va_heap> (symtab) {}
 
   virtual void insert (cgraph_node *, funct_state_d *state);
   virtual void duplicate (cgraph_node *src_node, cgraph_node *dst_node,
@@ -339,7 +340,7 @@ check_decl (funct_state local,
   if (DECL_EXTERNAL (t) || TREE_PUBLIC (t))
     {
       /* Readonly reads are safe.  */
-      if (TREE_READONLY (t) && !TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (t)))
+      if (TREE_READONLY (t))
 	return; /* Read of a constant, do not change the function state.  */
       else
 	{
@@ -555,9 +556,9 @@ check_call (funct_state local, gcall *call, bool ipa)
 {
   int flags = gimple_call_flags (call);
   tree callee_t = gimple_call_fndecl (call);
-  bool possibly_throws = stmt_could_throw_p (call);
+  bool possibly_throws = stmt_could_throw_p (cfun, call);
   bool possibly_throws_externally = (possibly_throws
-  				     && stmt_can_throw_external (call));
+  				     && stmt_can_throw_external (cfun, call));
 
   if (possibly_throws)
     {
@@ -770,7 +771,7 @@ check_stmt (gimple_stmt_iterator *gsip, funct_state local, bool ipa)
 			    ipa ? check_ipa_store :  check_store);
 
   if (gimple_code (stmt) != GIMPLE_CALL
-      && stmt_could_throw_p (stmt))
+      && stmt_could_throw_p (cfun, stmt))
     {
       if (cfun->can_throw_non_call_exceptions)
 	{
@@ -778,7 +779,7 @@ check_stmt (gimple_stmt_iterator *gsip, funct_state local, bool ipa)
 	    fprintf (dump_file, "    can throw; looping\n");
 	  local->looping = true;
 	}
-      if (stmt_can_throw_external (stmt))
+      if (stmt_can_throw_external (cfun, stmt))
 	{
 	  if (dump_file)
 	    fprintf (dump_file, "    can throw externally\n");
@@ -869,14 +870,6 @@ check_retval_uses (tree retval, gimple *stmt)
       and return_stmt (and likewise a phi arg has immediate use only within comparison
       or the phi stmt).  */
 
-static bool
-malloc_candidate_p (function *fun, bool ipa)
-{
-  basic_block exit_block = EXIT_BLOCK_PTR_FOR_FN (fun);
-  edge e;
-  edge_iterator ei;
-  cgraph_node *node = cgraph_node::get_create (fun->decl);
-
 #define DUMP_AND_RETURN(reason)  \
 {  \
   if (dump_file && (dump_flags & TDF_DETAILS))  \
@@ -885,10 +878,104 @@ malloc_candidate_p (function *fun, bool ipa)
   return false;  \
 }
 
+static bool
+malloc_candidate_p_1 (function *fun, tree retval, gimple *ret_stmt, bool ipa,
+		      bitmap visited)
+{
+  cgraph_node *node = cgraph_node::get_create (fun->decl);
+  if (!bitmap_set_bit (visited, SSA_NAME_VERSION (retval)))
+    return true;
+
+  if (!check_retval_uses (retval, ret_stmt))
+    DUMP_AND_RETURN("Return value has uses outside return stmt"
+		    " and comparisons against 0.")
+
+  gimple *def = SSA_NAME_DEF_STMT (retval);
+
+  if (gcall *call_stmt = dyn_cast<gcall *> (def))
+    {
+      tree callee_decl = gimple_call_fndecl (call_stmt);
+      if (!callee_decl)
+	return false;
+
+      if (!ipa && !DECL_IS_MALLOC (callee_decl))
+	DUMP_AND_RETURN("callee_decl does not have malloc attribute for"
+			" non-ipa mode.")
+
+      cgraph_edge *cs = node->get_edge (call_stmt);
+      if (cs)
+	{
+	  ipa_call_summary *es = ipa_call_summaries->get_create (cs);
+	  es->is_return_callee_uncaptured = true;
+	}
+    }
+
+    else if (gphi *phi = dyn_cast<gphi *> (def))
+      {
+	bool all_args_zero = true;
+	for (unsigned i = 0; i < gimple_phi_num_args (phi); ++i)
+	  {
+	    tree arg = gimple_phi_arg_def (phi, i);
+	    if (integer_zerop (arg))
+	      continue;
+
+	    all_args_zero = false;
+	    if (TREE_CODE (arg) != SSA_NAME)
+	      DUMP_AND_RETURN ("phi arg is not SSA_NAME.");
+	    if (!check_retval_uses (arg, phi))
+	      DUMP_AND_RETURN ("phi arg has uses outside phi"
+				 " and comparisons against 0.")
+
+	    gimple *arg_def = SSA_NAME_DEF_STMT (arg);
+	    if (is_a<gphi *> (arg_def))
+	      {
+		if (!malloc_candidate_p_1 (fun, arg, phi, ipa, visited))
+		    DUMP_AND_RETURN ("nested phi fail")
+		continue;
+	      }
+
+	    gcall *call_stmt = dyn_cast<gcall *> (arg_def);
+	    if (!call_stmt)
+	      DUMP_AND_RETURN ("phi arg is a not a call_stmt.")
+
+	    tree callee_decl = gimple_call_fndecl (call_stmt);
+	    if (!callee_decl)
+	      return false;
+	    if (!ipa && !DECL_IS_MALLOC (callee_decl))
+	      DUMP_AND_RETURN("callee_decl does not have malloc attribute"
+			      " for non-ipa mode.")
+
+	    cgraph_edge *cs = node->get_edge (call_stmt);
+	    if (cs)
+	      {
+		ipa_call_summary *es = ipa_call_summaries->get_create (cs);
+		es->is_return_callee_uncaptured = true;
+	      }
+	  }
+
+	if (all_args_zero)
+	  DUMP_AND_RETURN ("Return value is a phi with all args equal to 0.")
+      }
+
+    else
+      DUMP_AND_RETURN("def_stmt of return value is not a call or phi-stmt.")
+
+  return true;
+}
+
+static bool
+malloc_candidate_p (function *fun, bool ipa)
+{
+  basic_block exit_block = EXIT_BLOCK_PTR_FOR_FN (fun);
+  edge e;
+  edge_iterator ei;
+  cgraph_node *node = cgraph_node::get_create (fun->decl);
+
   if (EDGE_COUNT (exit_block->preds) == 0
       || !flag_delete_null_pointer_checks)
     return false;
 
+  auto_bitmap visited;
   FOR_EACH_EDGE (e, ei, exit_block->preds)
     {
       gimple_stmt_iterator gsi = gsi_last_bb (e->src);
@@ -905,81 +992,17 @@ malloc_candidate_p (function *fun, bool ipa)
 	  || TREE_CODE (TREE_TYPE (retval)) != POINTER_TYPE)
 	DUMP_AND_RETURN("Return value is not SSA_NAME or not a pointer type.")
 
-      if (!check_retval_uses (retval, ret_stmt))
-	DUMP_AND_RETURN("Return value has uses outside return stmt"
-			" and comparisons against 0.")
-
-      gimple *def = SSA_NAME_DEF_STMT (retval);
-      if (gcall *call_stmt = dyn_cast<gcall *> (def))
-	{
-	  tree callee_decl = gimple_call_fndecl (call_stmt);
-	  if (!callee_decl)
-	    return false;
-
-	  if (!ipa && !DECL_IS_MALLOC (callee_decl))
-	    DUMP_AND_RETURN("callee_decl does not have malloc attribute for"
-			    " non-ipa mode.")
-
-	  cgraph_edge *cs = node->get_edge (call_stmt);
-	  if (cs)
-	    {
-	      ipa_call_summary *es = ipa_call_summaries->get_create (cs);
-	      es->is_return_callee_uncaptured = true;
-	    }
-	}
-
-      else if (gphi *phi = dyn_cast<gphi *> (def))
-	{
-	  bool all_args_zero = true;
-	  for (unsigned i = 0; i < gimple_phi_num_args (phi); ++i)
-	    {
-	      tree arg = gimple_phi_arg_def (phi, i);
-	      if (integer_zerop (arg))
-		continue;
-
-	      all_args_zero = false;
-	      if (TREE_CODE (arg) != SSA_NAME)
-		DUMP_AND_RETURN ("phi arg is not SSA_NAME.");
-	      if (!check_retval_uses (arg, phi))
-		DUMP_AND_RETURN ("phi arg has uses outside phi"
-				 " and comparisons against 0.")
-
-	      gimple *arg_def = SSA_NAME_DEF_STMT (arg);
-	      gcall *call_stmt = dyn_cast<gcall *> (arg_def);
-	      if (!call_stmt)
-		return false;
-	      tree callee_decl = gimple_call_fndecl (call_stmt);
-	      if (!callee_decl)
-		return false;
-	      if (!ipa && !DECL_IS_MALLOC (callee_decl))
-		DUMP_AND_RETURN("callee_decl does not have malloc attribute"
-				" for non-ipa mode.")
-
-	      cgraph_edge *cs = node->get_edge (call_stmt);
-	      if (cs)
-		{
-		  ipa_call_summary *es = ipa_call_summaries->get (cs);
-		  gcc_assert (es);
-		  es->is_return_callee_uncaptured = true;
-		}
-	    }
-
-	  if (all_args_zero)
-	    DUMP_AND_RETURN ("Return value is a phi with all args equal to 0.");
-	}
-
-      else
-	DUMP_AND_RETURN("def_stmt of return value is not a call or phi-stmt.")
+      if (!malloc_candidate_p_1 (fun, retval, ret_stmt, ipa, visited))
+	return false;
     }
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\nFound %s to be candidate for malloc attribute\n",
 	     IDENTIFIER_POINTER (DECL_NAME (fun->decl)));
   return true;
-
-#undef DUMP_AND_RETURN
 }
 
+#undef DUMP_AND_RETURN
 
 /* This is the main routine for finding the reference patterns for
    global variables within a function FN.  */
@@ -1069,7 +1092,7 @@ end:
 		if (!finite_loop_p (loop))
 		  {
 		    if (dump_file)
-		      fprintf (dump_file, "    can not prove finiteness of "
+		      fprintf (dump_file, "    cannot prove finiteness of "
 			       "loop %i\n", loop->num);
 		    l->looping =true;
 		    break;
@@ -1168,7 +1191,7 @@ pure_const_generate_summary (void)
 
   /* Process all of the functions.
 
-     We process AVAIL_INTERPOSABLE functions.  We can not use the results
+     We process AVAIL_INTERPOSABLE functions.  We cannot use the results
      by default, but the info can be used at LTO with -fwhole-program or
      when function got cloned and the clone is AVAILABLE.  */
 
@@ -1400,7 +1423,7 @@ propagate_pure_const (void)
   bool remove_p = false;
   bool has_cdtor;
 
-  order_pos = ipa_reduced_postorder (order, true, false,
+  order_pos = ipa_reduced_postorder (order, true,
 				     ignore_edge_for_pure_const);
   if (dump_file)
     {
@@ -1476,7 +1499,8 @@ propagate_pure_const (void)
 		}
 	      if (avail > AVAIL_INTERPOSABLE)
 		{
-		  funct_state y_l = funct_state_summaries->get (y);
+		  funct_state y_l = funct_state_summaries->get_create (y);
+
 		  if (dump_file && (dump_flags & TDF_DETAILS))
 		    {
 		      fprintf (dump_file,
@@ -1729,7 +1753,7 @@ propagate_nothrow (void)
   int i;
   struct ipa_dfs_info * w_info;
 
-  order_pos = ipa_reduced_postorder (order, true, false,
+  order_pos = ipa_reduced_postorder (order, true,
 				     ignore_edge_for_nothrow);
   if (dump_file)
     {
@@ -1774,8 +1798,8 @@ propagate_nothrow (void)
 				   function_or_virtual_thunk_symbol (&avail,
 								     e->caller);
 
-		  /* We can use info about the callee only if we know it can
-		     not be interposed.
+		  /* We can use info about the callee only if we know it
+		     cannot be interposed.
 		     When callee is compiled with non-call exceptions we also
 		     must check that the declaration is bound to current
 		     body as other semantically equivalent body may still
@@ -2274,7 +2298,7 @@ pass_nothrow::execute (function *)
 
   node = cgraph_node::get (current_function_decl);
 
-  /* We run during lowering, we can not really use availability yet.  */
+  /* We run during lowering, we cannot really use availability yet.  */
   if (cgraph_node::get (current_function_decl)->get_availability ()
       <= AVAIL_INTERPOSABLE)
     {
@@ -2289,7 +2313,7 @@ pass_nothrow::execute (function *)
       for (gimple_stmt_iterator gsi = gsi_start_bb (this_block);
 	   !gsi_end_p (gsi);
 	   gsi_next (&gsi))
-        if (stmt_can_throw_external (gsi_stmt (gsi)))
+        if (stmt_can_throw_external (cfun, gsi_stmt (gsi)))
 	  {
 	    if (is_gimple_call (gsi_stmt (gsi)))
 	      {

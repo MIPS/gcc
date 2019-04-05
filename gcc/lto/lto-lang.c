@@ -1,5 +1,5 @@
 /* Language-dependent hooks for LTO.
-   Copyright (C) 2009-2018 Free Software Foundation, Inc.
+   Copyright (C) 2009-2019 Free Software Foundation, Inc.
    Contributed by CodeSourcery, Inc.
 
 This file is part of GCC.
@@ -303,8 +303,7 @@ handle_const_attribute (tree *node, tree ARG_UNUSED (name),
 			tree ARG_UNUSED (args), int ARG_UNUSED (flags),
 			bool * ARG_UNUSED (no_add_attrs))
 {
-  if (TREE_CODE (*node) != FUNCTION_DECL
-      || !DECL_BUILT_IN (*node))
+  if (!fndecl_built_in_p (*node))
     inform (UNKNOWN_LOCATION, "%s:%s: %E: %E", __FILE__, __func__, *node, name);
 
   tree type = TREE_TYPE (*node);
@@ -827,7 +826,8 @@ lto_init_options_struct (struct gcc_options *opts)
 const char *resolution_file_name;
 static bool
 lto_handle_option (size_t scode, const char *arg,
-		   int value ATTRIBUTE_UNUSED, int kind ATTRIBUTE_UNUSED,
+		   HOST_WIDE_INT value ATTRIBUTE_UNUSED,
+		   int kind ATTRIBUTE_UNUSED,
 		   location_t loc ATTRIBUTE_UNUSED,
 		   const struct cl_option_handlers *handlers ATTRIBUTE_UNUSED)
 {
@@ -864,7 +864,7 @@ lto_post_options (const char **pfilename ATTRIBUTE_UNUSED)
 {
   /* -fltrans and -fwpa are mutually exclusive.  Check for that here.  */
   if (flag_wpa && flag_ltrans)
-    error ("-fwpa and -fltrans are mutually exclusive");
+    error ("%<-fwpa%> and %<-fltrans%> are mutually exclusive");
 
   if (flag_ltrans)
     {
@@ -898,7 +898,8 @@ lto_post_options (const char **pfilename ATTRIBUTE_UNUSED)
       lang_hooks.lto.append_data = lhd_append_data;
       lang_hooks.lto.end_section = lhd_end_section;
       if (flag_ltrans)
-	error ("-flinker-output=rel and -fltrans are mutually exclussive");
+	error ("%<-flinker-output=rel%> and %<-fltrans%> are mutually "
+	       "exclussive");
       break;
 
     case LTO_LINKER_OUTPUT_NOLTOREL: /* .o: incremental link producing asm  */

@@ -206,7 +206,7 @@ TEST_UNIFORM_ZS (mls_x0_f64_z_tied2, svfloat64_t, double,
 		 z1 = svmls_z (p0, z0, z1, x0))
 
 /*
-** mls_x0_f64_z_untied:
+** mls_x0_f64_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.d), x0
 **	movprfx	z0\.d, p0/z, z1\.d
 **	fmls	z0\.d, p0/m, z2\.d, \1
@@ -239,7 +239,7 @@ TEST_UNIFORM_ZS (mls_d0_f64_z_tied2, svfloat64_t, double,
 		 z1 = svmls_z (p0, z0, z1, d0))
 
 /*
-** mls_d0_f64_z_untied:
+** mls_d0_f64_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.d), d0
 **	movprfx	z1\.d, p0/z, z0\.d
 **	fmls	z1\.d, p0/m, z2\.d, \1

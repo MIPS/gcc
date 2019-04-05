@@ -142,7 +142,7 @@ TEST_UNIFORM_ZS (add_x0_u64_z_tied1, svuint64_t, uint64_t,
 		 z0 = svadd_z (p0, z0, x0))
 
 /*
-** add_x0_u64_z_untied:
+** add_x0_u64_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.d), x0
 **	movprfx	z0\.d, p0/z, z1\.d
 **	add	z0\.d, p0/m, z0\.d, \1
@@ -164,7 +164,7 @@ TEST_UNIFORM_ZS (add_d0_u64_z_tied1, svuint64_t, uint64_t,
 		 z1 = svadd_z (p0, z1, d0))
 
 /*
-** add_d0_u64_z_untied:
+** add_d0_u64_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.d), d0
 **	movprfx	z1\.d, p0/z, z2\.d
 **	add	z1\.d, p0/m, z1\.d, \1

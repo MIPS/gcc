@@ -1,6 +1,6 @@
 /* Write the GIMPLE representation to a file stream.
 
-   Copyright (C) 2009-2018 Free Software Foundation, Inc.
+   Copyright (C) 2009-2019 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
    Re-implemented by Diego Novillo <dnovillo@google.com>
 
@@ -306,7 +306,6 @@ lto_is_streamable (tree expr)
      name version in lto_output_tree_ref (see output_ssa_names).  */
   return !is_lang_specific (expr)
 	 && code != SSA_NAME
-	 && code != CALL_EXPR
 	 && code != LANG_TYPE
 	 && code != MODIFY_EXPR
 	 && code != INIT_EXPR
@@ -837,7 +836,7 @@ DFS::DFS_write_tree_body (struct output_block *ob,
 
   if (CODE_CONTAINS_STRUCT (code, TS_FUNCTION_DECL))
     {
-      DFS_follow_tree_edge (DECL_VINDEX (expr));
+      gcc_checking_assert (DECL_VINDEX (expr) == NULL);
       DFS_follow_tree_edge (DECL_FUNCTION_PERSONALITY (expr));
       DFS_follow_tree_edge (DECL_FUNCTION_SPECIFIC_TARGET (expr));
       DFS_follow_tree_edge (DECL_FUNCTION_SPECIFIC_OPTIMIZATION (expr));
@@ -857,7 +856,9 @@ DFS::DFS_write_tree_body (struct output_block *ob,
       DFS_follow_tree_edge (TYPE_CONTEXT (expr));
       /* TYPE_CANONICAL is re-computed during type merging, so no need
 	 to follow it here.  */
-      DFS_follow_tree_edge (TYPE_STUB_DECL (expr));
+      /* Do not stream TYPE_STUB_DECL; it is not needed by LTO but currently
+	 it cannot be freed by free_lang_data without triggering ICEs in
+	 langhooks.  */
     }
 
   if (CODE_CONTAINS_STRUCT (code, TS_TYPE_NON_COMMON))
@@ -1145,7 +1146,6 @@ hash_tree (struct streamer_tree_cache_d *cache, hash_map<tree, hashval_t> *map, 
       hstate.add_flag (TYPE_STRING_FLAG (t));
       /* TYPE_NO_FORCE_BLK is private to stor-layout and need
  	 no streaming.  */
-      hstate.add_flag (TYPE_NEEDS_CONSTRUCTING (t));
       hstate.add_flag (TYPE_PACKED (t));
       hstate.add_flag (TYPE_RESTRICT (t));
       hstate.add_flag (TYPE_USER_ALIGN (t));
@@ -1253,7 +1253,6 @@ hash_tree (struct streamer_tree_cache_d *cache, hash_map<tree, hashval_t> *map, 
 
   if (CODE_CONTAINS_STRUCT (code, TS_FUNCTION_DECL))
     {
-      visit (DECL_VINDEX (t));
       visit (DECL_FUNCTION_PERSONALITY (t));
       visit (DECL_FUNCTION_SPECIFIC_TARGET (t));
       visit (DECL_FUNCTION_SPECIFIC_OPTIMIZATION (t));
@@ -1270,7 +1269,6 @@ hash_tree (struct streamer_tree_cache_d *cache, hash_map<tree, hashval_t> *map, 
 	;
       else
 	visit (TYPE_CONTEXT (t));
-      visit (TYPE_STUB_DECL (t));
     }
 
   if (CODE_CONTAINS_STRUCT (code, TS_TYPE_NON_COMMON))
@@ -1357,6 +1355,8 @@ hash_tree (struct streamer_tree_cache_d *cache, hash_map<tree, hashval_t> *map, 
 	  val = OMP_CLAUSE_PROC_BIND_KIND (t);
 	  break;
 	case OMP_CLAUSE_REDUCTION:
+	case OMP_CLAUSE_TASK_REDUCTION:
+	case OMP_CLAUSE_IN_REDUCTION:
 	  val = OMP_CLAUSE_REDUCTION_CODE (t);
 	  break;
 	default:
@@ -1938,6 +1938,7 @@ output_cfg (struct output_block *ob, struct function *fn)
       /* Write OMP SIMD related info.  */
       streamer_write_hwi (ob, loop->safelen);
       streamer_write_hwi (ob, loop->unroll);
+      streamer_write_hwi (ob, loop->owned_clique);
       streamer_write_hwi (ob, loop->dont_vectorize);
       streamer_write_hwi (ob, loop->force_vectorize);
       stream_write_tree (ob, loop->simduid, true);
@@ -2037,6 +2038,14 @@ output_struct_function_base (struct output_block *ob, struct function *fn)
   /* Output the function start and end loci.  */
   stream_output_location (ob, &bp, fn->function_start_locus);
   stream_output_location (ob, &bp, fn->function_end_locus);
+
+  /* Save the instance discriminator if present.  */
+  int *instance_number_p = NULL;
+  if (decl_to_instance_map)
+    instance_number_p = decl_to_instance_map->get (fn->decl);
+  bp_pack_value (&bp, !!instance_number_p, 1);
+  if (instance_number_p)
+    bp_pack_value (&bp, *instance_number_p, sizeof (int) * CHAR_BIT);
 
   streamer_write_bitpack (&bp);
 }
@@ -2404,8 +2413,7 @@ lto_output (void)
       if (cgraph_node *node = dyn_cast <cgraph_node *> (snode))
 	{
 	  if (lto_symtab_encoder_encode_body_p (encoder, node)
-	      && !node->alias
-	      && (!node->thunk.thunk_p || !node->thunk.add_pointer_bounds_args))
+	      && !node->alias)
 	    {
 	      if (flag_checking)
 		{
@@ -2610,7 +2618,8 @@ write_symbol (struct streamer_tree_cache_d *cache,
   unsigned char c;
 
   gcc_checking_assert (TREE_PUBLIC (t)
-		       && !is_builtin_fn (t)
+		       && (TREE_CODE (t) != FUNCTION_DECL
+			   || !fndecl_built_in_p (t))
 		       && !DECL_ABSTRACT_P (t)
 		       && (!VAR_P (t) || !DECL_HARD_REGISTER (t)));
 

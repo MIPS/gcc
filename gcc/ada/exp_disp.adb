@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2019, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -809,7 +809,7 @@ package body Exp_Disp is
                Prec := Next_Pragma (Prec);
             end loop;
 
-            if No (Prec) then
+            if No (Prec) or else Is_Ignored (Prec) then
                return;
             end if;
 
@@ -1339,9 +1339,35 @@ package body Exp_Disp is
             Opnd := Designated_Type (Opnd);
          end if;
 
+         Opnd := Underlying_Record_Type (Opnd);
+
          if not Is_Interface (Opnd)
            and then Is_Ancestor (Iface_Typ, Opnd, Use_Full_View => True)
          then
+            return;
+         end if;
+
+         --  When the type of the operand and the target interface type match,
+         --  it is generally safe to skip generating code to displace the
+         --  pointer to the object to reference the secondary dispatch table
+         --  associated with the target interface type. The exception to this
+         --  general rule is when the underlying object of the type conversion
+         --  is an object built by means of a dispatching constructor (since in
+         --  such case the expansion of the constructor call is a direct call
+         --  to an object primitive, i.e. without thunks, and the expansion of
+         --  the constructor call adds an explicit conversion to the target
+         --  interface type to force the displacement of the pointer to the
+         --  object to reference the corresponding secondary dispatch table
+         --  (cf. Make_DT and Expand_Dispatching_Constructor_Call)).
+
+         --  At this stage we cannot identify whether the underlying object is
+         --  a BIP object and hence we cannot skip generating the code to try
+         --  displacing the pointer to the object. However, under configurable
+         --  runtime it is safe to skip generating code to displace the pointer
+         --  to the object, because generic dispatching constructors are not
+         --  supported.
+
+         if Opnd = Iface_Typ and then not RTE_Available (RE_Displace) then
             return;
          end if;
       end;
@@ -1454,7 +1480,7 @@ package body Exp_Disp is
       end if;
 
       Iface_Tag := Find_Interface_Tag (Operand_Typ, Iface_Typ);
-      pragma Assert (Iface_Tag /= Empty);
+      pragma Assert (Present (Iface_Tag));
 
       --  Keep separate access types to interfaces because one internal
       --  function is used to handle the null value (see following comments)
@@ -1802,6 +1828,9 @@ package body Exp_Disp is
       Formal        : Node_Id;
       Ftyp          : Entity_Id;
       Iface_Formal  : Node_Id := Empty;  -- initialize to prevent warning
+      Is_Predef_Op  : constant Boolean :=
+                        Is_Predefined_Dispatching_Operation (Prim)
+                          or else Is_Predefined_Dispatching_Operation (Target);
       New_Arg       : Node_Id;
       Offset_To_Top : Node_Id;
       Target_Formal : Entity_Id;
@@ -1812,7 +1841,7 @@ package body Exp_Disp is
 
       --  No thunk needed if the primitive has been eliminated
 
-      if Is_Eliminated (Ultimate_Alias (Prim)) then
+      if Is_Eliminated (Target) then
          return;
 
       --  In case of primitives that are functions without formals and a
@@ -1833,9 +1862,10 @@ package body Exp_Disp is
       --  actual object) generate code that modify its contents.
 
       --  Note: This special management is not done for predefined primitives
-      --  because???
+      --  because they don't have available the Interface_Alias attribute (see
+      --  Sem_Ch3.Add_Internal_Interface_Entities).
 
-      if not Is_Predefined_Dispatching_Operation (Prim) then
+      if not Is_Predef_Op then
          Iface_Formal := First_Formal (Interface_Alias (Prim));
       end if;
 
@@ -1846,9 +1876,7 @@ package body Exp_Disp is
          --  Use the interface type as the type of the controlling formal (see
          --  comment above).
 
-         if not Is_Controlling_Formal (Formal)
-           or else Is_Predefined_Dispatching_Operation (Prim)
-         then
+         if not Is_Controlling_Formal (Formal) or else Is_Predef_Op then
             Ftyp := Etype (Formal);
             Expr := New_Copy_Tree (Expression (Parent (Formal)));
          else
@@ -1866,7 +1894,7 @@ package body Exp_Disp is
              Parameter_Type => New_Occurrence_Of (Ftyp, Loc),
              Expression => Expr));
 
-         if not Is_Predefined_Dispatching_Operation (Prim) then
+         if not Is_Predef_Op then
             Next_Formal (Iface_Formal);
          end if;
 
@@ -2046,6 +2074,7 @@ package body Exp_Disp is
       Set_Ekind (Thunk_Id, Ekind (Prim));
       Set_Is_Thunk (Thunk_Id);
       Set_Convention (Thunk_Id, Convention (Prim));
+      Set_Needs_Debug_Info (Thunk_Id, Needs_Debug_Info (Target));
       Set_Thunk_Entity (Thunk_Id, Target);
 
       --  Procedure case
@@ -2458,7 +2487,8 @@ package body Exp_Disp is
      (Typ : Entity_Id) return Node_Id
    is
       Loc    : constant Source_Ptr := Sloc (Typ);
-      Def_Id : constant Node_Id    :=
+      B_Id   : constant Entity_Id  := Make_Defining_Identifier (Loc, Name_uB);
+      Def_Id : constant Entity_Id  :=
                  Make_Defining_Identifier (Loc,
                    Name_uDisp_Asynchronous_Select);
       Params : constant List_Id    := New_List;
@@ -2471,6 +2501,10 @@ package body Exp_Disp is
       --  P : Address;                        --  Wrapped parameters
       --  B : out Dummy_Communication_Block;  --  Communication block dummy
       --  F : out Boolean;                    --  Status flag
+
+      --  The B parameter may be left uninitialized
+
+      Set_Warnings_Off (B_Id);
 
       Append_List_To (Params, New_List (
 
@@ -2489,7 +2523,7 @@ package body Exp_Disp is
           Parameter_Type      => New_Occurrence_Of (RTE (RE_Address), Loc)),
 
         Make_Parameter_Specification (Loc,
-          Defining_Identifier => Make_Defining_Identifier (Loc, Name_uB),
+          Defining_Identifier => B_Id,
           Parameter_Type      =>
             New_Occurrence_Of (RTE (RE_Dummy_Communication_Block), Loc),
           Out_Present         => True),
@@ -4029,8 +4063,7 @@ package body Exp_Disp is
                           Alias (Prim);
 
                      else
-                        Expand_Interface_Thunk
-                          (Ultimate_Alias (Prim), Thunk_Id, Thunk_Code);
+                        Expand_Interface_Thunk (Prim, Thunk_Id, Thunk_Code);
 
                         if Present (Thunk_Id) then
                            Append_To (Result, Thunk_Code);
@@ -7179,7 +7212,7 @@ package body Exp_Disp is
          Analyze_List (Result);
 
       --     Generate:
-      --       type Typ_DT is array (1 .. Nb_Prims) of Prim_Ptr;
+      --       subtype Typ_DT is Address_Array (1 .. Nb_Prims);
       --       type Typ_DT_Acc is access Typ_DT;
 
       else
@@ -7196,25 +7229,25 @@ package body Exp_Disp is
                                     Name_DT_Prims_Acc);
          begin
             Append_To (Result,
-              Make_Full_Type_Declaration (Loc,
+              Make_Subtype_Declaration (Loc,
                 Defining_Identifier => DT_Prims,
-                Type_Definition =>
-                  Make_Constrained_Array_Definition (Loc,
-                    Discrete_Subtype_Definitions => New_List (
-                      Make_Range (Loc,
-                        Low_Bound  => Make_Integer_Literal (Loc, 1),
-                        High_Bound => Make_Integer_Literal (Loc,
-                                       DT_Entry_Count
-                                         (First_Tag_Component (Typ))))),
-                    Component_Definition =>
-                      Make_Component_Definition (Loc,
-                        Subtype_Indication =>
-                          New_Occurrence_Of (RTE (RE_Prim_Ptr), Loc)))));
+                Subtype_Indication  =>
+                  Make_Subtype_Indication (Loc,
+                    Subtype_Mark =>
+                      New_Occurrence_Of (RTE (RE_Address_Array), Loc),
+                    Constraint   =>
+                      Make_Index_Or_Discriminant_Constraint (Loc, New_List (
+                        Make_Range (Loc,
+                          Low_Bound  => Make_Integer_Literal (Loc, 1),
+                          High_Bound =>
+                            Make_Integer_Literal (Loc,
+                              DT_Entry_Count
+                                (First_Tag_Component (Typ)))))))));
 
             Append_To (Result,
               Make_Full_Type_Declaration (Loc,
                 Defining_Identifier => DT_Prims_Acc,
-                Type_Definition =>
+                Type_Definition     =>
                    Make_Access_To_Object_Definition (Loc,
                      Subtype_Indication =>
                        New_Occurrence_Of (DT_Prims, Loc))));
@@ -8181,7 +8214,8 @@ package body Exp_Disp is
 
       function Gen_Parameters_Profile (E : Entity_Id) return List_Id;
       --  Duplicate the parameters profile of the imported C++ constructor
-      --  adding an access to the object as an additional parameter.
+      --  adding the "this" pointer to the object as the additional first
+      --  parameter under the usual form _Init : in out Typ.
 
       ----------------------------
       -- Gen_Parameters_Profile --
@@ -8198,6 +8232,8 @@ package body Exp_Disp is
              Make_Parameter_Specification (Loc,
                Defining_Identifier =>
                  Make_Defining_Identifier (Loc, Name_uInit),
+               In_Present          => True,
+               Out_Present         => True,
                Parameter_Type      => New_Occurrence_Of (Typ, Loc)));
 
          if Present (Parameter_Specifications (Parent (E))) then
@@ -8244,9 +8280,7 @@ package body Exp_Disp is
             Found := True;
             Loc   := Sloc (E);
             Parms := Gen_Parameters_Profile (E);
-            IP    :=
-              Make_Defining_Identifier (Loc,
-                Chars => Make_Init_Proc_Name (Typ));
+            IP    := Make_Defining_Identifier (Loc, Make_Init_Proc_Name (Typ));
 
             --  Case 1: Constructor of untagged type
 
@@ -8273,14 +8307,14 @@ package body Exp_Disp is
 
             --  Case 2: Constructor of a tagged type
 
-            --  In this case we generate the IP as a wrapper of the the
-            --  C++ constructor because IP must also save copy of the _tag
+            --  In this case we generate the IP routine as a wrapper of the
+            --  C++ constructor because IP must also save a copy of the _tag
             --  generated in the C++ side. The copy of the _tag is used by
             --  Build_CPP_Init_Procedure to elaborate derivations of C++ types.
 
             --  Generate:
-            --     procedure IP (_init : Typ; ...) is
-            --        procedure ConstructorP (_init : Typ; ...);
+            --     procedure IP (_init : in out Typ; ...) is
+            --        procedure ConstructorP (_init : in out Typ; ...);
             --        pragma Import (ConstructorP);
             --     begin
             --        ConstructorP (_init, ...);
@@ -8352,7 +8386,7 @@ package body Exp_Disp is
                      loop
                         --  Skip the following assertion with primary tags
                         --  because Related_Type is not set on primary tag
-                        --  components
+                        --  components.
 
                         pragma Assert
                           (Tag_Comp = First_Tag_Component (Typ)

@@ -720,9 +720,9 @@ is passed to ``gcc`` (e.g., :switch:`-O`, :switch:`-gnato,` etc.)
 .. index:: --RTS  (gnatmake)
 
 :switch:`--RTS={rts-path}`
-  Specifies the default location of the runtime library. GNAT looks for the
-  runtime
-  in the following directories, and stops as soon as a valid runtime is found
+  Specifies the default location of the run-time library. GNAT looks for the
+  run-time
+  in the following directories, and stops as soon as a valid run-time is found
   (:file:`adainclude` or :file:`ada_source_path`, and :file:`adalib` or
   :file:`ada_object_path` present):
 
@@ -1243,6 +1243,13 @@ Alphabetical List of All Switches
   :file:`scos.adb`.
 
 
+.. index:: -fgnat-encodings  (gcc)
+
+:switch:`-fgnat-encodings=[all|gdb|minimal]`
+  This switch controls the balance between GNAT encodings and standard DWARF
+  emitted in the debug information.
+
+
 .. index:: -flto  (gcc)
 
 :switch:`-flto[={n}]`
@@ -1505,7 +1512,7 @@ Alphabetical List of All Switches
 
 
   In the example above, the first call to ``Detect_Aliasing`` fails with a
-  ``Program_Error`` at runtime because the actuals for ``Val_1`` and
+  ``Program_Error`` at run time because the actuals for ``Val_1`` and
   ``Val_2`` denote the same object. The second call executes without raising
   an exception because ``Self(Obj)`` produces an anonymous object which does
   not share the memory location of ``Obj``.
@@ -1692,12 +1699,43 @@ Alphabetical List of All Switches
     Maximum_Alignment          : Pos; -- Maximum permitted alignment
     Max_Unaligned_Field        : Pos; -- Maximum size for unaligned bit field
     Pointer_Size               : Pos; -- System.Address'Size
-    Short_Enums                : Nat; -- Short foreign convention enums?
+    Short_Enums                : Nat; -- Foreign enums use short size?
     Short_Size                 : Pos; -- Standard.Short_Integer'Size
     Strict_Alignment           : Nat; -- Strict alignment?
     System_Allocator_Alignment : Nat; -- Alignment for malloc calls
     Wchar_T_Size               : Pos; -- Interfaces.C.wchar_t'Size
     Words_BE                   : Nat; -- Words stored big-endian?
+
+  ``Bits_Per_Unit`` is the number of bits in a storage unit, the equivalent of
+  GCC macro ``BITS_PER_UNIT`` documented as follows: `Define this macro to be
+  the number of bits in an addressable storage unit (byte); normally 8.`
+
+  ``Bits_Per_Word`` is the number of bits in a machine word, the equivalent of
+  GCC macro ``BITS_PER_WORD`` documented as follows: `Number of bits in a word;
+  normally 32.`
+
+  ``Double_Scalar_Alignment`` is the alignment for a scalar whose size is two
+  machine words. It should be the same as the alignment for C ``long_long`` on
+  most targets.
+
+  ``Maximum_Alignment`` is the maximum alignment that the compiler might choose
+  by default for a type or object, which is also the maximum alignment that can
+  be specified in GNAT. It is computed for GCC backends as ``BIGGEST_ALIGNMENT
+  / BITS_PER_UNIT`` where GCC macro ``BIGGEST_ALIGNMENT`` is documented as
+  follows: `Biggest alignment that any data type can require on this machine,
+  in bits.`
+
+  ``Max_Unaligned_Field`` is the maximum size for unaligned bit field, which is
+  64 for the majority of GCC targets (but can be different on some targets like
+  AAMP).
+
+  ``Strict_Alignment`` is the equivalent of GCC macro ``STRICT_ALIGNMENT``
+  documented as follows: `Define this macro to be the value 1 if instructions
+  will fail to work if given data not on the nominal alignment. If instructions
+  will merely go slower in that case, define this macro as 0.`
+
+  ``System_Allocator_Alignment`` is the guaranteed alignment of data returned
+  by calls to ``malloc``.
 
 
   The format of the input file is as follows. First come the values of
@@ -1817,14 +1855,12 @@ Alphabetical List of All Switches
 .. index:: -gnatg  (gcc)
 
 :switch:`-gnatg`
-  Internal GNAT implementation mode. This should not be used for
-  applications programs, it is intended only for use by the compiler
-  and its run-time library. For documentation, see the GNAT sources.
-  Note that :switch:`-gnatg` implies
-  :switch:`-gnatw.ge` and
-  :switch:`-gnatyg`
-  so that all standard warnings and all standard style options are turned on.
-  All warnings and style messages are treated as errors.
+  Internal GNAT implementation mode. This should not be used for applications
+  programs, it is intended only for use by the compiler and its run-time
+  library. For documentation, see the GNAT sources. Note that :switch:`-gnatg`
+  implies :switch:`-gnatw.ge` and :switch:`-gnatyg` so that all standard
+  warnings and all standard style options are turned on. All warnings and style
+  messages are treated as errors.
 
 
 .. index:: -gnatG[nn]  (gcc)
@@ -1837,6 +1873,13 @@ Alphabetical List of All Switches
 
 :switch:`-gnath`
   Output usage information. The output is written to :file:`stdout`.
+
+
+.. index:: -gnatH  (gcc)
+
+:switch:`-gnatH`
+  Legacy elaboration-checking mode enabled. When this switch is in effect, the
+  pre-18.x access-before-elaboration model becomes the de facto model.
 
 
 .. index:: -gnati  (gcc)
@@ -1872,6 +1915,27 @@ Alphabetical List of All Switches
 
 :switch:`-gnatj{nn}`
   Reformat error messages to fit on ``nn`` character lines
+
+
+.. index:: -gnatJ  (gcc)
+
+:switch:`-gnatJ`
+  Permissive elaboration-checking mode enabled. When this switch is in effect,
+  the post-18.x access-before-elaboration model ignores potential issues with:
+
+  - Accept statements
+  - Activations of tasks defined in instances
+  - Assertion pragmas
+  - Calls from within an instance to its enclosing context
+  - Calls through generic formal parameters
+  - Calls to subprograms defined in instances
+  - Entry calls
+  - Indirect calls using 'Access
+  - Requeue statements
+  - Select statements
+  - Synchronous task suspension
+
+  and does not emit compile-time diagnostics or run-time checks.
 
 
 .. index:: -gnatk  (gcc)
@@ -2024,7 +2088,7 @@ Alphabetical List of All Switches
 
 .. index:: -gnatR  (gcc)
 
-:switch:`-gnatR[0|1|2|3][e][j][m][s]`
+:switch:`-gnatR[0|1|2|3|4][e][j][m][s]`
   Output representation information for declared types, objects and
   subprograms. Note that this switch is not allowed if a previous
   :switch:`-gnatD` switch has been given, since these two switches
@@ -2195,7 +2259,7 @@ Alphabetical List of All Switches
 .. index:: --RTS  (gcc)
 
 :switch:`--RTS={rts-path}`
-  Specifies the default location of the runtime library. Same meaning as the
+  Specifies the default location of the run-time library. Same meaning as the
   equivalent ``gnatmake`` flag (:ref:`Switches_for_gnatmake`).
 
 
@@ -5062,7 +5126,7 @@ switches refine this default behavior.
   that a certain check will necessarily fail, it will generate code to
   do an unconditional 'raise', even if checks are suppressed. The
   compiler warns in this case. Another case in which checks may not be
-  eliminated is when they are embedded in certain run time routines such
+  eliminated is when they are embedded in certain run-time routines such
   as math library routines.
 
   Of course, run-time checks are omitted whenever the compiler can prove
@@ -5786,13 +5850,14 @@ Debugging Control
 
 .. index:: -gnatR  (gcc)
 
-:switch:`-gnatR[0|1|2|3][e][j][m][s]`
+:switch:`-gnatR[0|1|2|3|4][e][j][m][s]`
   This switch controls output from the compiler of a listing showing
   representation information for declared types, objects and subprograms.
   For :switch:`-gnatR0`, no information is output (equivalent to omitting
   the :switch:`-gnatR` switch). For :switch:`-gnatR1` (which is the default,
   so :switch:`-gnatR` with no parameter has the same effect), size and
   alignment information is listed for declared array and record types.
+
   For :switch:`-gnatR2`, size and alignment information is listed for all
   declared types and objects. The ``Linker_Section`` is also listed for any
   entity for which the ``Linker_Section`` is set explicitly or implicitly (the
@@ -5805,9 +5870,13 @@ Debugging Control
   n'th discriminant. See source files :file:`repinfo.ads/adb` in the
   GNAT sources for full details on the format of :switch:`-gnatR3` output.
 
+  For :switch:`-gnatR4`, information for relevant compiler-generated types
+  is also listed, i.e. when they are structurally part of other declared
+  types and objects.
+
   If the switch is followed by an ``e`` (e.g. :switch:`-gnatR2e`), then
   extended representation information for record sub-components of records
-  are included.
+  is included.
 
   If the switch is followed by an ``m`` (e.g. :switch:`-gnatRm`), then
   subprogram conventions and parameter passing mechanisms for all the
@@ -5853,12 +5922,42 @@ Debugging Control
   suppresses this information. This saves some space and may slightly
   speed up compilation, but means that these tools cannot be used.
 
+
+.. index:: -fgnat-encodings  (gcc)
+
+:switch:`-fgnat-encodings=[all|gdb|minimal]`
+  This switch controls the balance between GNAT encodings and standard DWARF
+  emitted in the debug information.
+
+  Historically, old debug formats like stabs were not powerful enough to
+  express some Ada types (for instance, variant records or fixed-point types).
+  To work around this, GNAT introduced proprietary encodings that embed the
+  missing information ("GNAT encodings").
+
+  Recent versions of the DWARF debug information format are now able to
+  correctly describe most of these Ada constructs ("standard DWARF"). As
+  third-party tools started to use this format, GNAT has been enhanced to
+  generate it. However, most tools (including GDB) are still relying on GNAT
+  encodings.
+
+  To support all tools, GNAT needs to be versatile about the balance between
+  generation of GNAT encodings and standard DWARF. This is what
+  :switch:`-fgnat-encodings` is about.
+
+  * ``=all``: Emit all GNAT encodings, and then emit as much standard DWARF as
+    possible so it does not conflict with GNAT encodings.
+  * ``=gdb``: Emit as much standard DWARF as possible as long as the current
+    GDB handles it. Emit GNAT encodings for the rest.
+  * ``=minimal``: Emit as much standard DWARF as possible and emit GNAT
+    encodings for the rest.
+
+
 .. _Exception_Handling_Control:
 
 Exception Handling Control
 --------------------------
 
-GNAT uses two methods for handling exceptions at run-time. The
+GNAT uses two methods for handling exceptions at run time. The
 ``setjmp/longjmp`` method saves the context when entering
 a frame with an exception handler. Then when an exception is
 raised, the context can be restored immediately, without the
@@ -6367,7 +6466,7 @@ be presented in subsequent sections.
   .. index:: --RTS  (gnatbind)
 
 :switch:`--RTS={rts-path}`
-  Specifies the default location of the runtime library. Same meaning as the
+  Specifies the default location of the run-time library. Same meaning as the
   equivalent ``gnatmake`` flag (:ref:`Switches_for_gnatmake`).
 
   .. index:: -o   (gnatbind)
@@ -6470,13 +6569,13 @@ be presented in subsequent sections.
 .. index:: -static  (gnatbind)
 
 :switch:`-static`
-  Link against a static GNAT run time.
+  Link against a static GNAT run-time.
 
 
   .. index:: -shared  (gnatbind)
 
 :switch:`-shared`
-  Link against a shared GNAT run time when available.
+  Link against a shared GNAT run-time when available.
 
 
   .. index:: -t  (gnatbind)
@@ -6495,7 +6594,7 @@ be presented in subsequent sections.
   nonzero value will activate round-robin scheduling.
 
   A value of zero is treated specially. It turns off time
-  slicing, and in addition, indicates to the tasking run time that the
+  slicing, and in addition, indicates to the tasking run-time that the
   semantics should match as closely as possible the Annex D
   requirements of the Ada RM, and in particular sets the default
   scheduling policy to ``FIFO_Within_Priorities``.
@@ -6939,7 +7038,7 @@ The output is an Ada unit in source form that can be compiled with GNAT.
 This compilation occurs automatically as part of the ``gnatlink``
 processing.
 
-Currently the GNAT run time requires a FPU using 80 bits mode
+Currently the GNAT run-time requires a FPU using 80 bits mode
 precision. Under targets where this is not the default it is required to
 call GNAT.Float_Control.Reset before using floating point numbers (this
 include float computation, float input and output) in the Ada code. A
@@ -7040,7 +7139,7 @@ directories searched are:
 
 * The content of the :file:`ada_object_path` file which is part of the GNAT
   installation tree and is used to store standard libraries such as the
-  GNAT Run Time Library (RTL) unless the switch :switch:`-nostdlib` is
+  GNAT Run-Time Library (RTL) unless the switch :switch:`-nostdlib` is
   specified. See :ref:`Installing_a_library`
 
 .. index:: -I  (gnatbind)

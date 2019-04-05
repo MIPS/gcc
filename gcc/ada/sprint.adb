@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2019, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -660,7 +660,7 @@ package body Sprint is
                   Write_Source_Lines (Last_Source_Line (Current_Source_File));
                   Write_Eol;
                   Close_Debug_Source;
-                  Set_Special_Output (null);
+                  Cancel_Special_Output;
 
                --  Normal output to standard output file
 
@@ -3540,15 +3540,14 @@ package body Sprint is
       --  where the aspects are printed inside the package specification.
 
       if Has_Aspects (Node)
-         and then not Nkind_In (Node, N_Package_Declaration,
-                                      N_Generic_Package_Declaration)
+        and then not Nkind_In (Node, N_Generic_Package_Declaration,
+                                     N_Package_Declaration)
+        and then not Is_Empty_List (Aspect_Specifications (Node))
       then
          Sprint_Aspect_Specifications (Node, Semicolon => True);
       end if;
 
-      if Nkind (Node) in N_Subexpr
-        and then Do_Range_Check (Node)
-      then
+      if Nkind (Node) in N_Subexpr and then Do_Range_Check (Node) then
          Write_Str ("}");
       end if;
 

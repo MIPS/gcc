@@ -1,5 +1,5 @@
 ;; Machine description for RISC-V for GNU compiler.
-;; Copyright (C) 2011-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2011-2019 Free Software Foundation, Inc.
 ;; Contributed by Andrew Waterman (andrew@sifive.com).
 ;; Based on MIPS target for GNU compiler.
 
@@ -156,7 +156,7 @@
 (define_attr "type"
   "unknown,branch,jump,call,load,fpload,store,fpstore,
    mtc,mfc,const,arith,logical,shift,slt,imul,idiv,move,fmove,fadd,fmul,
-   fmadd,fdiv,fcmp,fcvt,fsqrt,multi,nop,ghost"
+   fmadd,fdiv,fcmp,fcvt,fsqrt,multi,auipc,nop,ghost"
   (cond [(eq_attr "got" "load") (const_string "load")
 
 	 ;; If a doubleword move uses these expensive instructions,
@@ -235,6 +235,12 @@
 ;; Is copying of this instruction disallowed?
 (define_attr "cannot_copy" "no,yes" (const_string "no"))
 
+;; Microarchitectures we know how to tune for.
+;; Keep this in sync with enum riscv_microarchitecture.
+(define_attr "tune"
+  "generic,sifive_7"
+  (const (symbol_ref "((enum attr_tune) riscv_microarchitecture)")))
+
 ;; Describe a user's asm statement.
 (define_asm_attributes
   [(set_attr "type" "multi")])
@@ -269,9 +275,6 @@
 ;; Iterator for QImode extension patterns.
 (define_mode_iterator SUPERQI [HI SI (DI "TARGET_64BIT")])
 
-;; Iterator for extending loads.
-(define_mode_iterator ZERO_EXTEND_LOAD [QI HI (SI "TARGET_64BIT")])
-
 ;; Iterator for hardware integer modes narrower than XLEN.
 (define_mode_iterator SUBX [QI HI (SI "TARGET_64BIT")])
 
@@ -282,6 +285,9 @@
 (define_mode_iterator ANYF [(SF "TARGET_HARD_FLOAT")
 			    (DF "TARGET_DOUBLE_FLOAT")])
 
+;; Iterator for floating-point modes that can be loaded into X registers.
+(define_mode_iterator SOFTF [SF (DF "TARGET_64BIT")])
+
 ;; This attribute gives the length suffix for a sign- or zero-extension
 ;; instruction.
 (define_mode_attr size [(QI "b") (HI "h")])
@@ -289,8 +295,18 @@
 ;; Mode attributes for loads.
 (define_mode_attr load [(QI "lb") (HI "lh") (SI "lw") (DI "ld") (SF "flw") (DF "fld")])
 
+;; Instruction names for integer loads that aren't explicitly sign or zero
+;; extended.  See riscv_output_move and LOAD_EXTEND_OP.
+(define_mode_attr default_load [(QI "lbu") (HI "lhu") (SI "lw") (DI "ld")])
+
+;; Mode attribute for FP loads into integer registers.
+(define_mode_attr softload [(SF "lw") (DF "ld")])
+
 ;; Instruction names for stores.
 (define_mode_attr store [(QI "sb") (HI "sh") (SI "sw") (DI "sd") (SF "fsw") (DF "fsd")])
+
+;; Instruction names for FP stores from integer registers.
+(define_mode_attr softstore [(SF "sw") (DF "sd")])
 
 ;; This attribute gives the best constraint to use for registers of
 ;; a given mode.
@@ -504,13 +520,48 @@
    (set_attr "mode" "SI")])
 
 (define_insn "*subsi3_extended2"
-  [(set (match_operand:DI                        0 "register_operand" "=r")
+  [(set (match_operand:DI                        0 "register_operand" "= r")
 	(sign_extend:DI
-	  (subreg:SI (minus:DI (match_operand:DI 1 "reg_or_0_operand" " r")
-			       (match_operand:DI 2 "register_operand" " r"))
+	  (subreg:SI (minus:DI (match_operand:DI 1 "reg_or_0_operand" " rJ")
+			       (match_operand:DI 2 "register_operand" "  r"))
 		     0)))]
   "TARGET_64BIT"
   "subw\t%0,%z1,%2"
+  [(set_attr "type" "arith")
+   (set_attr "mode" "SI")])
+
+(define_insn "negdi2"
+  [(set (match_operand:DI         0 "register_operand" "=r")
+	(neg:DI (match_operand:DI 1 "register_operand" " r")))]
+  "TARGET_64BIT"
+  "neg\t%0,%1"
+  [(set_attr "type" "arith")
+   (set_attr "mode" "DI")])
+
+(define_insn "negsi2"
+  [(set (match_operand:SI         0 "register_operand" "=r")
+	(neg:SI (match_operand:SI 1 "register_operand" " r")))]
+  ""
+  { return TARGET_64BIT ? "negw\t%0,%1" : "neg\t%0,%1"; }
+  [(set_attr "type" "arith")
+   (set_attr "mode" "SI")])
+
+(define_insn "*negsi2_extended"
+  [(set (match_operand:DI          0 "register_operand" "=r")
+	(sign_extend:DI
+	 (neg:SI (match_operand:SI 1 "register_operand" " r"))))]
+  "TARGET_64BIT"
+  "negw\t%0,%1"
+  [(set_attr "type" "arith")
+   (set_attr "mode" "SI")])
+
+(define_insn "*negsi2_extended2"
+  [(set (match_operand:DI                     0 "register_operand" "=r")
+	(sign_extend:DI
+	 (subreg:SI (neg:DI (match_operand:DI 1 "register_operand" " r"))
+	 	    0)))]
+  "TARGET_64BIT"
+  "negw\t%0,%1"
   [(set_attr "type" "arith")
    (set_attr "mode" "SI")])
 
@@ -1202,7 +1253,7 @@
 	    UNSPEC_AUIPC))]
   ""
   ".LA%2: auipc\t%0,%h1"
-  [(set_attr "type" "arith")
+  [(set_attr "type" "auipc")
    (set_attr "cannot_copy" "yes")])
 
 ;; Instructions for adding the low 12 bits of an address to a register.
@@ -1912,18 +1963,40 @@
   [(set_attr "type" "fcmp")
    (set_attr "mode" "<UNITMODE>")])
 
-(define_insn "f<quiet_pattern>_quiet<ANYF:mode><X:mode>4"
-   [(set (match_operand:X         0 "register_operand" "=r")
+(define_expand "f<quiet_pattern>_quiet<ANYF:mode><X:mode>4"
+   [(parallel [(set (match_operand:X      0 "register_operand")
+		    (unspec:X
+		     [(match_operand:ANYF 1 "register_operand")
+		      (match_operand:ANYF 2 "register_operand")]
+		     QUIET_COMPARISON))
+	       (clobber (match_scratch:X 3))])]
+  "TARGET_HARD_FLOAT")
+
+(define_insn "*f<quiet_pattern>_quiet<ANYF:mode><X:mode>4_default"
+   [(set (match_operand:X      0 "register_operand" "=r")
 	 (unspec:X
-	     [(match_operand:ANYF 1 "register_operand" " f")
-	      (match_operand:ANYF 2 "register_operand" " f")]
-	     QUIET_COMPARISON))
+	  [(match_operand:ANYF 1 "register_operand" " f")
+	   (match_operand:ANYF 2 "register_operand" " f")]
+	  QUIET_COMPARISON))
     (clobber (match_scratch:X 3 "=&r"))]
-  "TARGET_HARD_FLOAT"
+  "TARGET_HARD_FLOAT && ! HONOR_SNANS (<ANYF:MODE>mode)"
   "frflags\t%3\n\tf<quiet_pattern>.<fmt>\t%0,%1,%2\n\tfsflags %3"
   [(set_attr "type" "fcmp")
    (set_attr "mode" "<UNITMODE>")
    (set (attr "length") (const_int 12))])
+
+(define_insn "*f<quiet_pattern>_quiet<ANYF:mode><X:mode>4_snan"
+   [(set (match_operand:X      0 "register_operand" "=r")
+	 (unspec:X
+	  [(match_operand:ANYF 1 "register_operand" " f")
+	   (match_operand:ANYF 2 "register_operand" " f")]
+	  QUIET_COMPARISON))
+    (clobber (match_scratch:X 3 "=&r"))]
+  "TARGET_HARD_FLOAT && HONOR_SNANS (<ANYF:MODE>mode)"
+  "frflags\t%3\n\tf<quiet_pattern>.<fmt>\t%0,%1,%2\n\tfsflags %3\n\tfeq.<fmt>\tzero,%1,%2"
+  [(set_attr "type" "fcmp")
+   (set_attr "mode" "<UNITMODE>")
+   (set (attr "length") (const_int 16))])
 
 (define_insn "*seq_zero_<X:mode><GPR:mode>"
   [(set (match_operand:GPR       0 "register_operand" "=r")
@@ -2355,7 +2428,25 @@
   [(set_attr "length" "0")]
 )
 
+;; This fixes a failure with gcc.c-torture/execute/pr64242.c at -O2 for a
+;; 32-bit target when using -mtune=sifive-7-series.  The first sched pass
+;; runs before register elimination, and we have a non-obvious dependency
+;; between a use of the soft fp and a set of the hard fp.  We fix this by
+;; emitting a clobber using the hard fp between the two insns.
+(define_expand "restore_stack_nonlocal"
+  [(match_operand 0 "register_operand")
+   (match_operand 1 "memory_operand")]
+  ""
+{
+  emit_move_insn (operands[0], operands[1]);
+  /* Prevent the following hard fp restore from being moved before the move
+     insn above which uses a copy of the soft fp reg.  */
+  emit_clobber (gen_rtx_MEM (BLKmode, hard_frame_pointer_rtx));
+  DONE;
+})
+
 (include "sync.md")
 (include "peephole.md")
 (include "pic.md")
 (include "generic.md")
+(include "sifive-7.md")

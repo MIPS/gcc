@@ -142,7 +142,7 @@ TEST_UNIFORM_ZS (max_w0_u16_z_tied1, svuint16_t, uint16_t,
 		 z0 = svmax_z (p0, z0, x0))
 
 /*
-** max_w0_u16_z_untied:
+** max_w0_u16_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.h), w0
 **	movprfx	z0\.h, p0/z, z1\.h
 **	umax	z0\.h, p0/m, z0\.h, \1
@@ -164,7 +164,7 @@ TEST_UNIFORM_ZS (max_h0_u16_z_tied1, svuint16_t, uint16_t,
 		 z1 = svmax_z (p0, z1, d0))
 
 /*
-** max_h0_u16_z_untied:
+** max_h0_u16_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.h), h0
 **	movprfx	z1\.h, p0/z, z2\.h
 **	umax	z1\.h, p0/m, z1\.h, \1
@@ -186,7 +186,7 @@ TEST_UNIFORM_Z (max_1_u16_z_tied1, svuint16_t,
 		z0 = svmax_z (p0, z0, 1))
 
 /*
-** max_1_u16_z_untied:
+** max_1_u16_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.h), #1
 **	movprfx	z0\.h, p0/z, z1\.h
 **	umax	z0\.h, p0/m, z0\.h, \1

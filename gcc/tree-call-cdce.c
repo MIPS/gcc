@@ -1,5 +1,5 @@
 /* Conditional Dead Call Elimination pass for the GNU compiler.
-   Copyright (C) 2008-2018 Free Software Foundation, Inc.
+   Copyright (C) 2008-2019 Free Software Foundation, Inc.
    Contributed by Xinliang David Li <davidxl@google.com>
 
 This file is part of GCC.
@@ -172,7 +172,7 @@ check_target_format (tree arg)
       || (mode == DFmode
 	  && (rfmt == &ieee_double_format || rfmt == &mips_double_format
 	      || rfmt == &motorola_double_format))
-      /* For long double, we can not really check XFmode
+      /* For long double, we cannot really check XFmode
          which is only defined on intel platforms.
          Candidate pre-selection using builtin function
          code guarantees that we are checking formats
@@ -737,7 +737,7 @@ gen_shrink_wrap_conditions (gcall *bi_call, vec<gimple *> conds,
 
   call = bi_call;
   fn = gimple_call_fndecl (call);
-  gcc_assert (fn && DECL_BUILT_IN (fn));
+  gcc_assert (fn && fndecl_built_in_p (fn));
   fnc = DECL_FUNCTION_CODE (fn);
   *nconds = 0;
 

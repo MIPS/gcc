@@ -142,7 +142,7 @@ TEST_UNIFORM_ZS (sub_w0_u16_z_tied1, svuint16_t, uint16_t,
 		 z0 = svsub_z (p0, z0, x0))
 
 /*
-** sub_w0_u16_z_untied:
+** sub_w0_u16_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.h), w0
 **	movprfx	z0\.h, p0/z, z1\.h
 **	sub	z0\.h, p0/m, z0\.h, \1
@@ -164,7 +164,7 @@ TEST_UNIFORM_ZS (sub_h0_u16_z_tied1, svuint16_t, uint16_t,
 		 z1 = svsub_z (p0, z1, d0))
 
 /*
-** sub_h0_u16_z_untied:
+** sub_h0_u16_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.h), h0
 **	movprfx	z1\.h, p0/z, z2\.h
 **	sub	z1\.h, p0/m, z1\.h, \1

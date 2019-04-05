@@ -1,5 +1,5 @@
 /* Utility functions used by tools like collect2 and lto-wrapper.
-   Copyright (C) 2009-2018 Free Software Foundation, Inc.
+   Copyright (C) 2009-2019 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -65,7 +65,7 @@ collect_wait (const char *prog, struct pex_obj *pex)
   int status;
 
   if (!pex_get_status (pex, 1, &status))
-    fatal_error (input_location, "can't get program status: %m");
+    fatal_error (input_location, "can%'t get program status: %m");
   pex_free (pex);
 
   if (response_file && !save_temps)

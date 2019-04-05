@@ -1,6 +1,6 @@
 ; Options for the rs6000 port of the compiler
 ;
-; Copyright (C) 2005-2018 Free Software Foundation, Inc.
+; Copyright (C) 2005-2019 Free Software Foundation, Inc.
 ; Contributed by Aldy Hernandez <aldy@quesejoda.com>.
 ;
 ; This file is part of GCC.
@@ -177,7 +177,7 @@ mno-string
 Target RejectNegative Undocumented Ignore
 
 mstring
-Target RejectNegative Undocumented Warn(%<-mstring%> is deprecated)
+Target RejectNegative Undocumented Deprecated
 
 msoft-float
 Target Report RejectNegative Mask(SOFT_FLOAT) Var(rs6000_isa_flags)
@@ -326,7 +326,7 @@ Target Report Var(rs6000_block_move_inline_limit) Init(0) RejectNegative Joined 
 Max number of bytes to move inline.
 
 mblock-compare-inline-limit=
-Target Report Var(rs6000_block_compare_inline_limit) Init(31) RejectNegative Joined UInteger Save
+Target Report Var(rs6000_block_compare_inline_limit) Init(63) RejectNegative Joined UInteger Save
 Max number of bytes to compare without loops.
 
 mblock-compare-inline-loop-limit=
@@ -334,20 +334,12 @@ Target Report Var(rs6000_block_compare_inline_loop_limit) Init(-1) RejectNegativ
 Max number of bytes to compare with loops.
 
 mstring-compare-inline-limit=
-Target Report Var(rs6000_string_compare_inline_limit) Init(8) RejectNegative Joined UInteger Save
-Max number of pairs of load insns for compare.
+Target Report Var(rs6000_string_compare_inline_limit) Init(64) RejectNegative Joined UInteger Save
+Max number of bytes to compare.
 
 misel
 Target Report Mask(ISEL) Var(rs6000_isa_flags)
 Generate isel instructions.
-
-misel=no
-Target RejectNegative Alias(misel) NegativeAlias Warn(%<-misel=no%> is deprecated; use %<-mno-isel%> instead)
-Deprecated option.  Use -mno-isel instead.
-
-misel=yes
-Target RejectNegative Alias(misel) Warn(%<-misel=yes%> is deprecated; use %<-misel%> instead)
-Deprecated option.  Use -misel instead.
 
 mdebug=
 Target RejectNegative Joined
@@ -392,6 +384,13 @@ Target RejectNegative Joined Var(rs6000_cpu_index) Init(-1) Enum(rs6000_cpu_opt_
 mtune=
 Target RejectNegative Joined Var(rs6000_tune_index) Init(-1) Enum(rs6000_cpu_opt_value) Save
 -mtune=	Schedule code for given CPU.
+
+; Only for use in the testsuite.  This simply overrides -mcpu=.  With older
+; versions of Dejagnu the command line arguments you set in RUNTESTFLAGS
+; override those set in the testcases; with this option, the testcase will
+; always win.
+mdejagnu-cpu=
+Target Undocumented RejectNegative Joined Var(rs6000_dejagnu_cpu_index) Init(-1) Enum(rs6000_cpu_opt_value) Save
 
 mtraceback=
 Target RejectNegative Joined Enum(rs6000_traceback_type) Var(rs6000_traceback)
@@ -484,7 +483,7 @@ Target Report Mask(CRYPTO) Var(rs6000_isa_flags)
 Use ISA 2.07 Category:Vector.AES and Category:Vector.SHA2 instructions.
 
 mdirect-move
-Target Undocumented Mask(DIRECT_MOVE) Var(rs6000_isa_flags) Ignore Warn(%qs is deprecated)
+Target Undocumented Mask(DIRECT_MOVE) Var(rs6000_isa_flags) Deprecated
 
 mhtm
 Target Report Mask(HTM) Var(rs6000_isa_flags)
@@ -505,10 +504,6 @@ Generate aggregate parameter passing code with at most 64-bit alignment.
 moptimize-swaps
 Target Undocumented Var(rs6000_optimize_swaps) Init(1) Save
 Analyze and remove doubleword swaps from VSX computations.
-
-mpower9-fusion
-Target Undocumented Report Mask(P9_FUSION) Var(rs6000_isa_flags)
-Fuse certain operations together for better performance on power9.
 
 mpower9-misc
 Target Undocumented Report Mask(P9_MISC) Var(rs6000_isa_flags)

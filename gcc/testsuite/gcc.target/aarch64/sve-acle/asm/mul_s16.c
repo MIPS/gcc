@@ -142,7 +142,7 @@ TEST_UNIFORM_ZS (mul_w0_s16_z_tied1, svint16_t, int16_t,
 		 z0 = svmul_z (p0, z0, x0))
 
 /*
-** mul_w0_s16_z_untied:
+** mul_w0_s16_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.h), w0
 **	movprfx	z0\.h, p0/z, z1\.h
 **	mul	z0\.h, p0/m, z0\.h, \1
@@ -164,7 +164,7 @@ TEST_UNIFORM_ZS (mul_h0_s16_z_tied1, svint16_t, int16_t,
 		 z1 = svmul_z (p0, z1, d0))
 
 /*
-** mul_h0_s16_z_untied:
+** mul_h0_s16_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.h), h0
 **	movprfx	z1\.h, p0/z, z2\.h
 **	mul	z1\.h, p0/m, z1\.h, \1

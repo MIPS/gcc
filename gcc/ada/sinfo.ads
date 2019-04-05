@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2019, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1106,9 +1106,11 @@ package Sinfo is
    --  Corresponding_Generic_Association (Node5-Sem)
    --    This field is defined for object declarations and object renaming
    --    declarations. It is set for the declarations within an instance that
-   --    map generic formals to their actuals. If set, the field points to
-   --    a generic_association which is the original parent of the expression
-   --    or name appearing in the declaration. This simplifies ASIS queries.
+   --    map generic formals to their actuals. If set, the field points either
+   --    to a copy of a default expression for an actual of mode IN or to a
+   --    generic_association which is the original parent of the expression or
+   --    name appearing in the declaration. This simplifies ASIS and GNATprove
+   --    queries.
 
    --  Corresponding_Integer_Value (Uint4-Sem)
    --    This field is set in real literals of fixed-point types (it is not
@@ -1896,6 +1898,14 @@ package Sinfo is
    --    can be determined to be null at compile time. This is used to remove
    --    the loop entirely at expansion time.
 
+   --  Is_OpenAcc_Environment (Flag13-Sem)
+   --    This flag is set in an N_Loop_Statement node if it contains an
+   --    Acc_Data, Acc_Parallel or Add_Kernels pragma.
+
+   --  Is_OpenAcc_Loop (Flag14-Sem)
+   --    This flag is set in an N_Loop_Statement node if it contains an
+   --    OpenAcc_Loop pragma.
+
    --  Is_Overloaded (Flag5-Sem)
    --    A flag present in all expression nodes. Used temporarily during
    --    overloading determination. The setting of this flag is not relevant
@@ -1956,12 +1966,7 @@ package Sinfo is
 
    --  Is_Static_Expression (Flag6-Sem)
    --    Indicates that an expression is a static expression according to the
-   --    rules in (RM 4.9). Note that it is possible for this flag to be set
-   --    when Raises_Constraint_Error is also set. In practice almost all cases
-   --    where a static expression is required do not allow an expression which
-   --    raises Constraint_Error, so almost always, callers should call the
-   --    Is_Ok_Static_Expression routine instead of testing this flag. See
-   --    spec of package Sem_Eval for full details on the use of this flag.
+   --    rules in RM-4.9. See Sem_Eval for details.
 
    --  Is_Subprogram_Descriptor (Flag16-Sem)
    --    Present in N_Object_Declaration, and set only for the object
@@ -2287,15 +2292,7 @@ package Sinfo is
 
    --  Raises_Constraint_Error (Flag7-Sem)
    --    Set on an expression whose evaluation will definitely fail constraint
-   --    error check. In the case of static expressions, this flag must be set
-   --    accurately (and if it is set, the expression is typically illegal
-   --    unless it appears as a non-elaborated branch of a short-circuit form).
-   --    For a non-static expression, this flag may be set whenever an
-   --    expression (e.g. an aggregate) is known to raise constraint error. If
-   --    set, the expression definitely will raise CE if elaborated at runtime.
-   --    If not set, the expression may or may not raise CE. In other words, on
-   --    static expressions, the flag is set accurately, on non-static
-   --    expressions it is set conservatively.
+   --    error check. See Sem_Eval for details.
 
    --  Redundant_Use (Flag13-Sem)
    --    Present in nodes that can appear as an operand in a use clause or use
@@ -2503,12 +2500,6 @@ package Sinfo is
    --    this happened. Note that it is not good enough to rely on the use of
    --    Original_Node here because of the case of nested instantiations where
    --    the substituted node can be copied.
-
-   --  Withed_Body (Node1-Sem)
-   --    Present in N_With_Clause nodes. Set if the unit in whose context
-   --    the with_clause appears instantiates a generic contained in the
-   --    library unit of the with_clause and as a result loads its body.
-   --    Used for a more precise unit traversal for CodePeer.
 
    --------------------------------------------------
    -- Note on Use of End_Label and End_Span Fields --
@@ -4680,7 +4671,7 @@ package Sinfo is
 
       --------------------------
       -- 4.5.7  If Expression --
-      ----------------------------
+      --------------------------
 
       --  IF_EXPRESSION ::=
       --    if CONDITION then DEPENDENT_EXPRESSION
@@ -5132,6 +5123,8 @@ package Sinfo is
       --  Iteration_Scheme (Node2) (set to Empty if no iteration scheme)
       --  Statements (List3)
       --  End_Label (Node4)
+      --  Is_OpenAcc_Environment (Flag13-Sem)
+      --  Is_OpenAcc_Loop (Flag14-Sem)
       --  Has_Created_Identifier (Flag15)
       --  Is_Null_Loop (Flag16)
       --  Suppress_Loop_Warnings (Flag17)
@@ -6743,7 +6736,6 @@ package Sinfo is
 
       --  N_With_Clause
       --  Sloc points to first token of library unit name
-      --  Withed_Body (Node1-Sem)
       --  Name (Node2)
       --  Private_Present (Flag15) set if with_clause has private keyword
       --  Limited_Present (Flag17) set if LIMITED is present
@@ -9854,6 +9846,12 @@ package Sinfo is
    function Is_Null_Loop
      (N : Node_Id) return Boolean;    -- Flag16
 
+   function Is_OpenAcc_Environment
+     (N : Node_Id) return Boolean;    -- Flag13
+
+   function Is_OpenAcc_Loop
+     (N : Node_Id) return Boolean;    -- Flag14
+
    function Is_Overloaded
      (N : Node_Id) return Boolean;    -- Flag5
 
@@ -10306,9 +10304,6 @@ package Sinfo is
 
    function Was_Originally_Stub
      (N : Node_Id) return Boolean;    -- Flag13
-
-   function Withed_Body
-     (N : Node_Id) return Node_Id;    -- Node1
 
    --  End functions (note used by xsinfo utility program to end processing)
 
@@ -10955,6 +10950,12 @@ package Sinfo is
    procedure Set_Is_Null_Loop
      (N : Node_Id; Val : Boolean := True);    -- Flag16
 
+   procedure Set_Is_OpenAcc_Environment
+     (N : Node_Id; Val : Boolean := True);    -- Flag13
+
+   procedure Set_Is_OpenAcc_Loop
+     (N : Node_Id; Val : Boolean := True);    -- Flag14
+
    procedure Set_Is_Overloaded
      (N : Node_Id; Val : Boolean := True);    -- Flag5
 
@@ -11407,9 +11408,6 @@ package Sinfo is
 
    procedure Set_Was_Originally_Stub
      (N : Node_Id; Val : Boolean := True);    -- Flag13
-
-   procedure Set_Withed_Body
-     (N : Node_Id; Val : Node_Id);            -- Node1
 
    -------------------------
    -- Iterator Procedures --
@@ -13463,6 +13461,8 @@ package Sinfo is
    pragma Inline (Is_Known_Guaranteed_ABE);
    pragma Inline (Is_Machine_Number);
    pragma Inline (Is_Null_Loop);
+   pragma Inline (Is_OpenAcc_Environment);
+   pragma Inline (Is_OpenAcc_Loop);
    pragma Inline (Is_Overloaded);
    pragma Inline (Is_Power_Of_2_For_Shift);
    pragma Inline (Is_Prefixed_Call);
@@ -13613,7 +13613,6 @@ package Sinfo is
    pragma Inline (Was_Attribute_Reference);
    pragma Inline (Was_Expression_Function);
    pragma Inline (Was_Originally_Stub);
-   pragma Inline (Withed_Body);
 
    pragma Inline (Set_Abort_Present);
    pragma Inline (Set_Abortable_Part);
@@ -13826,6 +13825,8 @@ package Sinfo is
    pragma Inline (Set_Is_Known_Guaranteed_ABE);
    pragma Inline (Set_Is_Machine_Number);
    pragma Inline (Set_Is_Null_Loop);
+   pragma Inline (Set_Is_OpenAcc_Environment);
+   pragma Inline (Set_Is_OpenAcc_Loop);
    pragma Inline (Set_Is_Overloaded);
    pragma Inline (Set_Is_Power_Of_2_For_Shift);
    pragma Inline (Set_Is_Prefixed_Call);
@@ -13975,6 +13976,5 @@ package Sinfo is
    pragma Inline (Set_Was_Attribute_Reference);
    pragma Inline (Set_Was_Expression_Function);
    pragma Inline (Set_Was_Originally_Stub);
-   pragma Inline (Set_Withed_Body);
 
 end Sinfo;

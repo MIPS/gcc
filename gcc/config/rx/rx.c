@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on Renesas RX processors.
-   Copyright (C) 2008-2018 Free Software Foundation, Inc.
+   Copyright (C) 2008-2019 Free Software Foundation, Inc.
    Contributed by Red Hat.
 
    This file is part of GCC.
@@ -2593,9 +2593,9 @@ valid_psw_flag (rtx op, const char *which)
 	return 1;
       }
 
-  error ("__builtin_rx_%s takes 'C', 'Z', 'S', 'O', 'I', or 'U'", which);
+  error ("%<__builtin_rx_%s%> takes 'C', 'Z', 'S', 'O', 'I', or 'U'", which);
   if (!mvtc_inform_done)
-    error ("use __builtin_rx_mvtc (0, ... ) to write arbitrary values to PSW");
+    error ("use %<__builtin_rx_mvtc%> (0, ... ) to write arbitrary values to PSW");
   mvtc_inform_done = 1;
 
   return 0;
@@ -2642,7 +2642,8 @@ rx_expand_builtin (tree exp,
       if (rx_allow_string_insns)
 	emit_insn (gen_rmpa ());
       else
-	error ("-mno-allow-string-insns forbids the generation of the RMPA instruction");
+	error ("%<-mno-allow-string-insns%> forbids the generation "
+	       "of the RMPA instruction");
       return NULL_RTX;
     case RX_BUILTIN_MVFC:    return rx_expand_builtin_mvfc (arg, target);
     case RX_BUILTIN_MVTC:    return rx_expand_builtin_mvtc (exp);
@@ -3308,23 +3309,6 @@ rx_match_ccmode (rtx insn, machine_mode cc_mode)
   return true;
 }
 
-int
-rx_align_for_label (rtx lab, int uses_threshold)
-{
-  /* This is a simple heuristic to guess when an alignment would not be useful
-     because the delay due to the inserted NOPs would be greater than the delay
-     due to the misaligned branch.  If uses_threshold is zero then the alignment
-     is always useful.  */
-  if (LABEL_P (lab) && LABEL_NUSES (lab) < uses_threshold)
-    return 0;
-
-  if (optimize_size)
-    return 0;
-  /* These values are log, not bytes.  */
-  if (rx_cpu_type == RX100 || rx_cpu_type == RX200)
-    return 2; /* 4 bytes */
-  return 3;   /* 8 bytes */
-}
 
 static int
 rx_max_skip_for_label (rtx_insn *lab)
@@ -3350,8 +3334,39 @@ rx_max_skip_for_label (rtx_insn *lab)
 
   opsize = get_attr_length (op);
   if (opsize >= 0 && opsize < 8)
-    return opsize - 1;
+    return MAX (0, opsize - 1);
   return 0;
+}
+
+static int
+rx_align_log_for_label (rtx_insn *lab, int uses_threshold)
+{
+  /* This is a simple heuristic to guess when an alignment would not be useful
+     because the delay due to the inserted NOPs would be greater than the delay
+     due to the misaligned branch.  If uses_threshold is zero then the alignment
+     is always useful.  */
+  if (LABEL_P (lab) && LABEL_NUSES (lab) < uses_threshold)
+    return 0;
+
+  if (optimize_size)
+    return 0;
+
+  /* Return zero if max_skip not a positive number.  */
+  int max_skip = rx_max_skip_for_label (lab);
+  if (max_skip <= 0)
+    return 0;
+
+  /* These values are log, not bytes.  */
+  if (rx_cpu_type == RX100 || rx_cpu_type == RX200)
+    return 2; /* 4 bytes */
+  return 3;   /* 8 bytes */
+}
+
+align_flags
+rx_align_for_label (rtx_insn *lab, int uses_threshold)
+{
+  return align_flags (rx_align_log_for_label (lab, uses_threshold),
+		      rx_max_skip_for_label (lab));
 }
 
 /* Compute the real length of the extending load-and-op instructions.  */
@@ -3633,15 +3648,6 @@ rx_modes_tieable_p (machine_mode mode1, machine_mode mode2)
 #undef  TARGET_CAN_INLINE_P
 #define TARGET_CAN_INLINE_P			rx_ok_to_inline
 
-#undef  TARGET_ASM_JUMP_ALIGN_MAX_SKIP
-#define TARGET_ASM_JUMP_ALIGN_MAX_SKIP			rx_max_skip_for_label
-#undef  TARGET_ASM_LOOP_ALIGN_MAX_SKIP
-#define TARGET_ASM_LOOP_ALIGN_MAX_SKIP			rx_max_skip_for_label
-#undef  TARGET_LABEL_ALIGN_AFTER_BARRIER_MAX_SKIP
-#define TARGET_LABEL_ALIGN_AFTER_BARRIER_MAX_SKIP	rx_max_skip_for_label
-#undef  TARGET_ASM_LABEL_ALIGN_MAX_SKIP
-#define TARGET_ASM_LABEL_ALIGN_MAX_SKIP			rx_max_skip_for_label
-
 #undef  TARGET_FUNCTION_VALUE
 #define TARGET_FUNCTION_VALUE		rx_function_value
 
@@ -3790,6 +3796,9 @@ rx_modes_tieable_p (machine_mode mode1, machine_mode mode2)
 
 #undef  TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS rx_rtx_costs
+
+#undef  TARGET_HAVE_SPECULATION_SAFE_VALUE
+#define TARGET_HAVE_SPECULATION_SAFE_VALUE speculation_safe_value_not_needed
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

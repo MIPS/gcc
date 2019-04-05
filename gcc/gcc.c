@@ -1,5 +1,5 @@
 /* Compiler driver program that can handle many languages.
-   Copyright (C) 1987-2018 Free Software Foundation, Inc.
+   Copyright (C) 1987-2019 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -355,12 +355,12 @@ static inline void mark_matching_switches (const char *, const char *, int);
 static inline void process_marked_switches (void);
 static const char *process_brace_body (const char *, const char *, const char *, int, int);
 static const struct spec_function *lookup_spec_function (const char *);
-static const char *eval_spec_function (const char *, const char *);
-static const char *handle_spec_function (const char *, bool *);
+static const char *eval_spec_function (const char *, const char *, const char *);
+static const char *handle_spec_function (const char *, bool *, const char *);
 static char *save_string (const char *, int);
 static void set_collect_gcc_options (void);
 static int do_spec_1 (const char *, int, const char *);
-static int do_spec_2 (const char *);
+static int do_spec_2 (const char *, const char *);
 static void do_option_spec (const char *, const char *);
 static void do_self_spec (const char *);
 static const char *find_file (const char *);
@@ -372,7 +372,6 @@ static void give_switch (int, int);
 static int default_arg (const char *, int);
 static void set_multilib_dir (void);
 static void print_multilib_info (void);
-static void perror_with_name (const char *);
 static void display_help (void);
 static void add_preprocessor_option (const char *, int);
 static void add_assembler_option (const char *, int);
@@ -409,6 +408,7 @@ static const char *pass_through_libs_spec_func (int, const char **);
 static const char *replace_extension_spec_func (int, const char **);
 static const char *greater_than_spec_func (int, const char **);
 static const char *debug_level_greater_than_spec_func (int, const char **);
+static const char *find_fortran_preinclude_file (int, const char **);
 static char *convert_white_space (char *);
 
 /* The Specs Language
@@ -872,7 +872,7 @@ proper position among the other output files.  */
    -lgcc and -lc order specially, yet not require them to override all
    of LINK_COMMAND_SPEC.  */
 #ifndef LINK_GCC_C_SEQUENCE_SPEC
-#define LINK_GCC_C_SEQUENCE_SPEC "%G %L %G"
+#define LINK_GCC_C_SEQUENCE_SPEC "%G %{!nolibc:%L %G}"
 #endif
 
 #ifndef LINK_SSP_SPEC
@@ -981,20 +981,20 @@ proper position among the other output files.  */
 /* Linker command line options for -fsanitize= early on the command line.  */
 #ifndef SANITIZER_EARLY_SPEC
 #define SANITIZER_EARLY_SPEC "\
-%{!nostdlib:%{!nodefaultlibs:%{%:sanitize(address):" LIBASAN_EARLY_SPEC "} \
+%{!nostdlib:%{!r:%{!nodefaultlibs:%{%:sanitize(address):" LIBASAN_EARLY_SPEC "} \
     %{%:sanitize(thread):" LIBTSAN_EARLY_SPEC "} \
-    %{%:sanitize(leak):" LIBLSAN_EARLY_SPEC "}}}"
+    %{%:sanitize(leak):" LIBLSAN_EARLY_SPEC "}}}}"
 #endif
 
 /* Linker command line options for -fsanitize= late on the command line.  */
 #ifndef SANITIZER_SPEC
 #define SANITIZER_SPEC "\
-%{!nostdlib:%{!nodefaultlibs:%{%:sanitize(address):" LIBASAN_SPEC "\
+%{!nostdlib:%{!r:%{!nodefaultlibs:%{%:sanitize(address):" LIBASAN_SPEC "\
     %{static:%ecannot specify -static with -fsanitize=address}}\
     %{%:sanitize(thread):" LIBTSAN_SPEC "\
     %{static:%ecannot specify -static with -fsanitize=thread}}\
     %{%:sanitize(undefined):" LIBUBSAN_SPEC "}\
-    %{%:sanitize(leak):" LIBLSAN_SPEC "}}}"
+    %{%:sanitize(leak):" LIBLSAN_SPEC "}}}}"
 #endif
 
 #ifndef POST_LINK_SPEC
@@ -1008,8 +1008,8 @@ proper position among the other output files.  */
 #ifndef VTABLE_VERIFICATION_SPEC
 #if ENABLE_VTABLE_VERIFY
 #define VTABLE_VERIFICATION_SPEC "\
-%{!nostdlib:%{fvtable-verify=std: -lvtv -u_vtable_map_vars_start -u_vtable_map_vars_end}\
-    %{fvtable-verify=preinit: -lvtv -u_vtable_map_vars_start -u_vtable_map_vars_end}}"
+%{!nostdlib:%{!r:%{fvtable-verify=std: -lvtv -u_vtable_map_vars_start -u_vtable_map_vars_end}\
+    %{fvtable-verify=preinit: -lvtv -u_vtable_map_vars_start -u_vtable_map_vars_end}}}"
 #else
 #define VTABLE_VERIFICATION_SPEC "\
 %{fvtable-verify=none:} \
@@ -1041,7 +1041,7 @@ proper position among the other output files.  */
     %{flto} %{fno-lto} %{flto=*} %l " LINK_PIE_SPEC \
    "%{fuse-ld=*:-fuse-ld=%*} " LINK_COMPRESS_DEBUG_SPEC \
    "%X %{o*} %{e*} %{N} %{n} %{r}\
-    %{s} %{t} %{u*} %{z} %{Z} %{!nostdlib:%{!nostartfiles:%S}} \
+    %{s} %{t} %{u*} %{z} %{Z} %{!nostdlib:%{!r:%{!nostartfiles:%S}}} \
     %{static|no-pie|static-pie:} %@{L*} %(mfwrap) %(link_libgcc) " \
     VTABLE_VERIFICATION_SPEC " " SANITIZER_EARLY_SPEC " %o "" \
     %{fopenacc|fopenmp|%:gt(%{ftree-parallelize-loops=*:%*} 1):\
@@ -1049,8 +1049,8 @@ proper position among the other output files.  */
     %{fgnu-tm:%:include(libitm.spec)%(link_itm)}\
     %(mflib) " STACK_SPLIT_SPEC "\
     %{fprofile-arcs|fprofile-generate*|coverage:-lgcov} " SANITIZER_SPEC " \
-    %{!nostdlib:%{!nodefaultlibs:%(link_ssp) %(link_gcc_c_sequence)}}\
-    %{!nostdlib:%{!nostartfiles:%E}} %{T*}  \n%(post_link) }}}}}}"
+    %{!nostdlib:%{!r:%{!nodefaultlibs:%(link_ssp) %(link_gcc_c_sequence)}}}\
+    %{!nostdlib:%{!r:%{!nostartfiles:%E}}} %{T*}  \n%(post_link) }}}}}}"
 #endif
 
 #ifndef LINK_LIBGCC_SPEC
@@ -1306,6 +1306,7 @@ static const struct compiler default_compilers[] =
   {".f08", "#Fortran", 0, 0, 0}, {".F08", "#Fortran", 0, 0, 0},
   {".r", "#Ratfor", 0, 0, 0},
   {".go", "#Go", 0, 1, 0},
+  {".d", "#D", 0, 1, 0}, {".dd", "#D", 0, 1, 0}, {".di", "#D", 0, 1, 0},
   /* Next come the entries for C.  */
   {".c", "@c", 0, 0, 1},
   {"@c",
@@ -1647,6 +1648,7 @@ static const struct spec_function static_spec_functions[] =
   { "replace-extension",	replace_extension_spec_func },
   { "gt",			greater_than_spec_func },
   { "debug-level-gt",		debug_level_greater_than_spec_func },
+  { "fortran-preinclude-file",	find_fortran_preinclude_file},
 #ifdef EXTRA_SPEC_FUNCTIONS
   EXTRA_SPEC_FUNCTIONS
 #endif
@@ -2100,15 +2102,20 @@ load_specs (const char *filename)
   /* Open and stat the file.  */
   desc = open (filename, O_RDONLY, 0);
   if (desc < 0)
-    pfatal_with_name (filename);
+    {
+    failed:
+      /* This leaves DESC open, but the OS will save us.  */
+      fatal_error (input_location, "cannot read spec file %qs: %m", filename);
+    }
+
   if (stat (filename, &statbuf) < 0)
-    pfatal_with_name (filename);
+    goto failed;
 
   /* Read contents of file into BUFFER.  */
   buffer = XNEWVEC (char, statbuf.st_size + 1);
   readlen = read (desc, buffer, (unsigned) statbuf.st_size);
   if (readlen < 0)
-    pfatal_with_name (filename);
+    goto failed;
   buffer[readlen] = 0;
   close (desc);
 
@@ -2489,7 +2496,7 @@ do                                                      \
     if (stat (NAME, &ST) >= 0 && S_ISREG (ST.st_mode))  \
       if (unlink (NAME) < 0)                            \
 	if (VERBOSE_FLAG)                               \
-	  perror_with_name (NAME);                      \
+	  error ("%s: %m", (NAME));			\
   } while (0)
 #endif
 
@@ -2969,6 +2976,44 @@ add_sysrooted_prefix (struct path_prefix *pprefix, const char *prefix,
   add_prefix (pprefix, prefix, component, priority,
 	      require_machine_suffix, os_multilib);
 }
+
+/* Same as add_prefix, but prepending target_sysroot_hdrs_suffix to prefix.  */
+
+static void
+add_sysrooted_hdrs_prefix (struct path_prefix *pprefix, const char *prefix,
+			   const char *component,
+			   /* enum prefix_priority */ int priority,
+			   int require_machine_suffix, int os_multilib)
+{
+  if (!IS_ABSOLUTE_PATH (prefix))
+    fatal_error (input_location, "system path %qs is not absolute", prefix);
+
+  if (target_system_root)
+    {
+      char *sysroot_no_trailing_dir_separator = xstrdup (target_system_root);
+      size_t sysroot_len = strlen (target_system_root);
+
+      if (sysroot_len > 0
+	  && target_system_root[sysroot_len - 1] == DIR_SEPARATOR)
+	sysroot_no_trailing_dir_separator[sysroot_len - 1] = '\0';
+
+      if (target_sysroot_hdrs_suffix)
+	prefix = concat (sysroot_no_trailing_dir_separator,
+			 target_sysroot_hdrs_suffix, prefix, NULL);
+      else
+	prefix = concat (sysroot_no_trailing_dir_separator, prefix, NULL);
+
+      free (sysroot_no_trailing_dir_separator);
+
+      /* We have to override this because GCC's notion of sysroot
+	 moves along with GCC.  */
+      component = "GCC";
+    }
+
+  add_prefix (pprefix, prefix, component, priority,
+	      require_machine_suffix, os_multilib);
+}
+
 
 /* Execute the command specified by the arguments on the current line of spec.
    When using pipes, this includes several piped-together commands
@@ -3030,7 +3075,7 @@ execute (void)
     if (arg && strcmp (arg, "|") == 0)
       {				/* each command.  */
 #if defined (__MSDOS__) || defined (OS2) || defined (VMS)
-	fatal_error (input_location, "-pipe not supported");
+	fatal_error (input_location, "%<-pipe%> not supported");
 #endif
 	argbuf[i] = 0; /* Termination of
 						     command args.  */
@@ -3168,13 +3213,11 @@ execute (void)
 			NULL, NULL, &err);
       if (errmsg != NULL)
 	{
-	  if (err == 0)
-	    fatal_error (input_location, errmsg);
-	  else
-	    {
-	      errno = err;
-	      pfatal_with_name (errmsg);
-	    }
+	  errno = err;
+	  fatal_error (input_location,
+		       err ? G_("cannot execute %qs: %s: %m")
+		       : G_("cannot execute %qs: %s"),
+		       string, errmsg);
 	}
 
       if (i && string != commands[i].prog)
@@ -3998,6 +4041,11 @@ driver_handle_option (struct gcc_options *opts,
       diagnostic_color_init (dc, value);
       break;
 
+    case OPT_fdiagnostics_format_:
+      diagnostic_output_format_init (dc,
+				     (enum diagnostics_output_format)value);
+      break;
+
     case OPT_Wa_:
       {
 	int prev, j;
@@ -4100,7 +4148,7 @@ driver_handle_option (struct gcc_options *opts,
 	       || strcmp (arg, "object") == 0)
 	save_temps_flag = SAVE_TEMPS_OBJ;
       else
-	fatal_error (input_location, "%qs is an unknown -save-temps option",
+	fatal_error (input_location, "%qs is an unknown %<-save-temps%> option",
 		     decoded->orig_option_with_args_text);
       break;
 
@@ -4544,10 +4592,8 @@ process_command (unsigned int decoded_options_count,
 
           if (strcmp (fname, "-") != 0 && access (fname, F_OK) < 0)
 	    {
-	      if (fname[0] == '@' && access (fname + 1, F_OK) < 0)
-		perror_with_name (fname + 1);
-	      else
-		perror_with_name (fname);
+	      bool resp = fname[0] == '@' && access (fname + 1, F_OK) < 0;
+	      error ("%s: %m", fname + resp);
 	    }
           else
 	    add_infile (arg, spec_lang);
@@ -4605,7 +4651,7 @@ process_command (unsigned int decoded_options_count,
     {
       /* -save-temps overrides -pipe, so that temp files are produced */
       if (save_temps_flag)
-	warning (0, "-pipe ignored because -save-temps specified");
+	warning (0, "%<-pipe%> ignored because %<-save-temps%> specified");
       use_pipes = 0;
     }
 
@@ -4939,7 +4985,7 @@ do_spec (const char *spec)
 {
   int value;
 
-  value = do_spec_2 (spec);
+  value = do_spec_2 (spec, NULL);
 
   /* Force out any unfinished command.
      If -pipe, this forces out the last command if it ended in `|'.  */
@@ -4958,8 +5004,11 @@ do_spec (const char *spec)
   return value;
 }
 
+/* Process the spec SPEC, with SOFT_MATCHED_PART designating the current value
+   of a matched * pattern which may be re-injected by way of %*.  */
+
 static int
-do_spec_2 (const char *spec)
+do_spec_2 (const char *spec, const char *soft_matched_part)
 {
   int result;
 
@@ -4972,13 +5021,12 @@ do_spec_2 (const char *spec)
   input_from_pipe = 0;
   suffix_subst = NULL;
 
-  result = do_spec_1 (spec, 0, NULL);
+  result = do_spec_1 (spec, 0, soft_matched_part);
 
   end_going_arg ();
 
   return result;
 }
-
 
 /* Process the given spec string and add any new options to the end
    of the switches/n_switches array.  */
@@ -5037,7 +5085,7 @@ do_self_spec (const char *spec)
 {
   int i;
 
-  do_spec_2 (spec);
+  do_spec_2 (spec, NULL);
   do_spec_1 (" ", 0, NULL);
 
   /* Mark %<S switches processed by do_self_spec to be ignored permanently.
@@ -5877,7 +5925,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	    break;
 
 	  case ':':
-	    p = handle_spec_function (p, NULL);
+	    p = handle_spec_function (p, NULL, soft_matched_part);
 	    if (p == 0)
 	      return -1;
 	    break;
@@ -6039,7 +6087,8 @@ lookup_spec_function (const char *name)
 /* Evaluate a spec function.  */
 
 static const char *
-eval_spec_function (const char *func, const char *args)
+eval_spec_function (const char *func, const char *args,
+		    const char *soft_matched_part)
 {
   const struct spec_function *sf;
   const char *funcval;
@@ -6089,7 +6138,7 @@ eval_spec_function (const char *func, const char *args)
      arguments.  */
 
   alloc_args ();
-  if (do_spec_2 (args) < 0)
+  if (do_spec_2 (args, soft_matched_part) < 0)
     fatal_error (input_location, "error in args to spec function %qs", func);
 
   /* argbuf_index is an index for the next argument to be inserted, and
@@ -6126,10 +6175,14 @@ eval_spec_function (const char *func, const char *args)
    NULL if no processing is required.
 
    If RETVAL_NONNULL is not NULL, then store a bool whether function
-   returned non-NULL.  */
+   returned non-NULL.
+
+   SOFT_MATCHED_PART holds the current value of a matched * pattern, which
+   may be re-expanded with a %* as part of the function arguments.  */
 
 static const char *
-handle_spec_function (const char *p, bool *retval_nonnull)
+handle_spec_function (const char *p, bool *retval_nonnull,
+		      const char *soft_matched_part)
 {
   char *func, *args;
   const char *endp, *funcval;
@@ -6172,7 +6225,7 @@ handle_spec_function (const char *p, bool *retval_nonnull)
 
   /* p now points to just past the end of the spec function expression.  */
 
-  funcval = eval_spec_function (func, args);
+  funcval = eval_spec_function (func, args, soft_matched_part);
   if (funcval != NULL && do_spec_1 (funcval, 0, NULL) < 0)
     p = NULL;
   if (retval_nonnull)
@@ -6326,7 +6379,7 @@ handle_braces (const char *p)
 	{
 	  atom = NULL;
 	  end_atom = NULL;
-	  p = handle_spec_function (p + 2, &a_matched);
+	  p = handle_spec_function (p + 2, &a_matched, NULL);
 	}
       else
 	{
@@ -6878,13 +6931,11 @@ run_attempt (const char **new_argv, const char *out_temp,
 		    err_temp, &err);
   if (errmsg != NULL)
     {
-      if (err == 0)
-	fatal_error (input_location, errmsg);
-      else
-	{
-	  errno = err;
-	  pfatal_with_name (errmsg);
-	}
+      errno = err;
+      fatal_error (input_location,
+		   err ? G_ ("cannot execute %qs: %s: %m")
+		   : G_ ("cannot execute %qs: %s"),
+		   new_argv[0], errmsg);
     }
 
   if (!pex_get_status (pex, 1, &exit_status))
@@ -7192,7 +7243,7 @@ compare_files (char *cmpfile[])
 
     if (!ret && length[0] != length[1])
       {
-	error ("%s: -fcompare-debug failure (length)", gcc_input_filename);
+	error ("%s: %<-fcompare-debug%> failure (length)", gcc_input_filename);
 	ret = 1;
       }
 
@@ -7222,7 +7273,7 @@ compare_files (char *cmpfile[])
       {
 	if (memcmp (map[0], map[1], length[0]) != 0)
 	  {
-	    error ("%s: -fcompare-debug failure", gcc_input_filename);
+	    error ("%s: %<-fcompare-debug%> failure", gcc_input_filename);
 	    ret = 1;
 	  }
       }
@@ -7259,7 +7310,7 @@ compare_files (char *cmpfile[])
 
 	if (c0 != c1)
 	  {
-	    error ("%s: -fcompare-debug failure",
+	    error ("%s: %<-fcompare-debug%> failure",
 		   gcc_input_filename);
 	    ret = 1;
 	    break;
@@ -7561,7 +7612,7 @@ driver::set_up_specs () const
   /* Process sysroot_suffix_spec.  */
   if (*sysroot_suffix_spec != 0
       && !no_sysroot_suffix
-      && do_spec_2 (sysroot_suffix_spec) == 0)
+      && do_spec_2 (sysroot_suffix_spec, NULL) == 0)
     {
       if (argbuf.length () > 1)
         error ("spec failure: more than one arg to SYSROOT_SUFFIX_SPEC");
@@ -7585,7 +7636,7 @@ driver::set_up_specs () const
   /* Process sysroot_hdrs_suffix_spec.  */
   if (*sysroot_hdrs_suffix_spec != 0
       && !no_sysroot_suffix
-      && do_spec_2 (sysroot_hdrs_suffix_spec) == 0)
+      && do_spec_2 (sysroot_hdrs_suffix_spec, NULL) == 0)
     {
       if (argbuf.length () > 1)
         error ("spec failure: more than one arg to SYSROOT_HEADERS_SUFFIX_SPEC");
@@ -7595,7 +7646,7 @@ driver::set_up_specs () const
 
   /* Look for startfiles in the standard places.  */
   if (*startfile_prefix_spec != 0
-      && do_spec_2 (startfile_prefix_spec) == 0
+      && do_spec_2 (startfile_prefix_spec, NULL) == 0
       && do_spec_1 (" ", 0, NULL) == 0)
     {
       const char *arg;
@@ -7950,7 +8001,7 @@ driver::maybe_print_and_exit () const
     {
       printf (_("%s %s%s\n"), progname, pkgversion_string,
 	      version_string);
-      printf ("Copyright %s 2018 Free Software Foundation, Inc.\n",
+      printf ("Copyright %s 2019 Free Software Foundation, Inc.\n",
 	      _("(C)"));
       fputs (_("This is free software; see the source for copying conditions.  There is NO\n\
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"),
@@ -8035,7 +8086,8 @@ driver::prepare_infiles ()
 
   if (!combine_inputs && have_c && have_o && lang_n_infiles > 1)
     fatal_error (input_location,
-		 "cannot specify -o with -c, -S or -E with multiple files");
+		 "cannot specify %<-o%> with %<-c%>, %<-S%> or %<-E%> "
+		 "with multiple files");
 
   /* No early exit needed from main; we can continue.  */
   return false;
@@ -8101,7 +8153,7 @@ driver::do_spec_on_infiles () const
 		{
 		  if (verbose_flag)
 		    inform (UNKNOWN_LOCATION,
-			    "recompiling with -fcompare-debug");
+			    "recompiling with %<-fcompare-debug%>");
 
 		  compare_debug = -compare_debug;
 		  n_switches = n_switches_debug_check[1];
@@ -8117,7 +8169,7 @@ driver::do_spec_on_infiles () const
 
 		  if (value < 0)
 		    {
-		      error ("during -fcompare-debug recompilation");
+		      error ("during %<-fcompare-debug%> recompilation");
 		      this_file_error = 1;
 		    }
 
@@ -8243,7 +8295,7 @@ driver::maybe_run_linker (const char *argv0) const
 					     false);
 	      if (!temp_spec)
 		fatal_error (input_location,
-			     "-fuse-linker-plugin, but %s not found",
+			     "%<-fuse-linker-plugin%>, but %s not found",
 			     LTOPLUGINSONAME);
 	      linker_plugin_file_spec = convert_white_space (temp_spec);
 	    }
@@ -8399,19 +8451,6 @@ save_string (const char *s, int len)
   return result;
 }
 
-void
-pfatal_with_name (const char *name)
-{
-  perror_with_name (name);
-  delete_temp_files ();
-  exit (1);
-}
-
-static void
-perror_with_name (const char *name)
-{
-  error ("%s: %m", name);
-}
 
 static inline void
 validate_switches_from_spec (const char *spec, bool user)
@@ -9244,7 +9283,11 @@ print_multilib_info (void)
    Returns the value of the environment variable given by its first argument,
    concatenated with the second argument.  If the variable is not defined, a
    fatal error is issued unless such undefs are internally allowed, in which
-   case the variable name is used as the variable value.  */
+   case the variable name prefixed by a '/' is used as the variable value.
+
+   The leading '/' allows using the result at a spot where a full path would
+   normally be expected and when the actual value doesn't really matter since
+   undef vars are allowed.  */
 
 static const char *
 getenv_spec_function (int argc, const char **argv)
@@ -9262,8 +9305,15 @@ getenv_spec_function (int argc, const char **argv)
   varname = argv[0];
   value = env.get (varname);
 
+  /* If the variable isn't defined and this is allowed, craft our expected
+     return value.  Assume variable names used in specs strings don't contain
+     any active spec character so don't need escaping.  */
   if (!value && spec_undefvar_allowed)
-    value = varname;
+    {
+      result = XNEWVAR (char, strlen(varname) + 2);
+      sprintf (result, "/%s", varname);
+      return result;
+    }
 
   if (!value)
     fatal_error (input_location,
@@ -9629,7 +9679,7 @@ compare_debug_dump_opt_spec_function (int arg,
     fatal_error (input_location,
 		 "too many arguments to %%:compare-debug-dump-opt");
 
-  do_spec_2 ("%{fdump-final-insns=*:%*}");
+  do_spec_2 ("%{fdump-final-insns=*:%*}", NULL);
   do_spec_1 (" ", 0, NULL);
 
   if (argbuf.length () > 0
@@ -9647,13 +9697,13 @@ compare_debug_dump_opt_spec_function (int arg,
 
       if (argbuf.length () > 0)
 	{
-	  do_spec_2 ("%{o*:%*}%{!o:%{!S:%b%O}%{S:%b.s}}");
+	  do_spec_2 ("%{o*:%*}%{!o:%{!S:%b%O}%{S:%b.s}}", NULL);
 	  ext = ".gkd";
 	}
       else if (!compare_debug)
 	return NULL;
       else
-	do_spec_2 ("%g.gkd");
+	do_spec_2 ("%g.gkd", NULL);
 
       do_spec_1 (" ", 0, NULL);
 
@@ -9705,7 +9755,7 @@ compare_debug_self_opt_spec_function (int arg,
   if (compare_debug >= 0)
     return NULL;
 
-  do_spec_2 ("%{c|S:%{o*:%*}}");
+  do_spec_2 ("%{c|S:%{o*:%*}}", NULL);
   do_spec_1 (" ", 0, NULL);
 
   if (argbuf.length () > 0)
@@ -9885,6 +9935,64 @@ debug_level_greater_than_spec_func (int argc, const char **argv)
   return NULL;
 }
 
+static void
+path_prefix_reset (path_prefix *prefix)
+{
+  struct prefix_list *iter, *next;
+  iter = prefix->plist;
+  while (iter)
+    {
+      next = iter->next;
+      free (const_cast <char *> (iter->prefix));
+      XDELETE (iter);
+      iter = next;
+    }
+  prefix->plist = 0;
+  prefix->max_len = 0;
+}
+
+/* The function takes 3 arguments: OPTION name, file name and location
+   where we search for Fortran modules.
+   When the FILE is found by find_file, return OPTION=path_to_file.  */
+
+static const char *
+find_fortran_preinclude_file (int argc, const char **argv)
+{
+  char *result = NULL;
+  if (argc != 3)
+    return NULL;
+
+  struct path_prefix prefixes = { 0, 0, "preinclude" };
+
+  /* Search first for 'finclude' folder location for a header file
+     installed by the compiler (similar to omp_lib.h).  */
+  add_prefix (&prefixes, argv[2], NULL, 0, 0, 0);
+#ifdef TOOL_INCLUDE_DIR
+  /* Then search: <prefix>/<target>/<include>/finclude */
+  add_prefix (&prefixes, TOOL_INCLUDE_DIR "/finclude/",
+	      NULL, 0, 0, 0);
+#endif
+#ifdef NATIVE_SYSTEM_HEADER_DIR
+  /* Then search: <sysroot>/usr/include/finclude/<multilib> */
+  add_sysrooted_hdrs_prefix (&prefixes, NATIVE_SYSTEM_HEADER_DIR "/finclude/",
+			     NULL, 0, 0, 0);
+#endif
+
+  const char *path = find_a_file (&include_prefixes, argv[1], R_OK, false);
+  if (path != NULL)
+    result = concat (argv[0], path, NULL);
+  else
+    {
+      path = find_a_file (&prefixes, argv[1], R_OK, false);
+      if (path != NULL)
+	result = concat (argv[0], path, NULL);
+    }
+
+  path_prefix_reset (&prefixes);
+  return result;
+}
+
+
 /* Insert backslash before spaces in ORIG (usually a file path), to 
    avoid being broken by spec parser.
 
@@ -9931,22 +10039,6 @@ convert_white_space (char *orig)
   }
   else
     return orig;
-}
-
-static void
-path_prefix_reset (path_prefix *prefix)
-{
-  struct prefix_list *iter, *next;
-  iter = prefix->plist;
-  while (iter)
-    {
-      next = iter->next;
-      free (const_cast <char *> (iter->prefix));
-      XDELETE (iter);
-      iter = next;
-    }
-  prefix->plist = 0;
-  prefix->max_len = 0;
 }
 
 /* Restore all state within gcc.c to the initial state, so that the driver

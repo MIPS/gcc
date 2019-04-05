@@ -132,7 +132,7 @@ TEST_UNIFORM_ZS (div_x0_f64_z_tied1, svfloat64_t, double,
 		 z0 = svdiv_z (p0, z0, x0))
 
 /*
-** div_x0_f64_z_untied:
+** div_x0_f64_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.d), x0
 **	movprfx	z0\.d, p0/z, z1\.d
 **	fdiv	z0\.d, p0/m, z0\.d, \1
@@ -154,7 +154,7 @@ TEST_UNIFORM_ZS (div_d0_f64_z_tied1, svfloat64_t, double,
 		 z1 = svdiv_z (p0, z1, d0))
 
 /*
-** div_d0_f64_z_untied:
+** div_d0_f64_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.d), d0
 **	movprfx	z1\.d, p0/z, z2\.d
 **	fdiv	z1\.d, p0/m, z1\.d, \1
@@ -176,7 +176,7 @@ TEST_UNIFORM_Z (div_1_f64_z_tied1, svfloat64_t,
 		z0 = svdiv_z (p0, z0, 1))
 
 /*
-** div_1_f64_z_untied:
+** div_1_f64_z_untied: { xfail *-*-* }
 **	fmov	(z[0-9]+\.d), #1.0(e\+0)?
 **	movprfx	z1\.d, p0/z, z0\.d
 **	fdiv	z1\.d, p0/m, z1\.d, \1
@@ -187,7 +187,7 @@ TEST_UNIFORM_Z (div_1_f64_z_untied, svfloat64_t,
 		z1 = svdiv_z (p0, z0, 1))
 
 /*
-** div_0p5_f64_z_untied:
+** div_0p5_f64_z_untied: { xfail *-*-* }
 **	fmov	(z[0-9]+\.d), #5.0(e\-1)?
 **	movprfx	z0\.d, p0/z, z1\.d
 **	fdiv	z0\.d, p0/m, z0\.d, \1

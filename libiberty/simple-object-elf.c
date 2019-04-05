@@ -1,5 +1,5 @@
 /* simple-object-elf.c -- routines to manipulate ELF object files.
-   Copyright (C) 2010-2018 Free Software Foundation, Inc.
+   Copyright (C) 2010-2019 Free Software Foundation, Inc.
    Written by Ian Lance Taylor, Google.
 
 This program is free software; you can redistribute it and/or modify it
@@ -22,6 +22,10 @@ Boston, MA 02110-1301, USA.  */
 #include "simple-object.h"
 
 #include <errno.h>
+/* mingw.org's MinGW doesn't have ENOTSUP.  */
+#ifndef ENOTSUP
+# define ENOTSUP ENOSYS
+#endif
 #include <stddef.h>
 
 #ifdef HAVE_STDLIB_H

@@ -1,5 +1,5 @@
 ;; Machine description for AArch64 architecture.
-;; Copyright (C) 2009-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2019 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 ;;
 ;; This file is part of GCC.
@@ -34,6 +34,9 @@
 
 ;; Iterator for all integer modes (up to 64-bit)
 (define_mode_iterator ALLI [QI HI SI DI])
+
+;; Iterator for all integer modes (up to 128-bit)
+(define_mode_iterator ALLI_TI [QI HI SI DI TI])
 
 ;; Iterator for all integer modes that can be extended (up to 64-bit)
 (define_mode_iterator ALLX [QI HI SI])
@@ -491,6 +494,12 @@
     UNSPEC_COND_GT	; Used in aarch64-sve.md.
     UNSPEC_LASTB	; Used in aarch64-sve.md.
     UNSPEC_ASHIFT_WIDE  ; Used in aarch64-sve.md.
+    UNSPEC_FCADD90	; Used in aarch64-simd.md.
+    UNSPEC_FCADD270	; Used in aarch64-simd.md.
+    UNSPEC_FCMLA	; Used in aarch64-simd.md.
+    UNSPEC_FCMLA90	; Used in aarch64-simd.md.
+    UNSPEC_FCMLA180	; Used in aarch64-simd.md.
+    UNSPEC_FCMLA270	; Used in aarch64-simd.md.
 ])
 
 ;; ------------------------------------------------------------------
@@ -509,7 +518,6 @@
     UNSPECV_ATOMIC_CAS		; Represent an atomic CAS.
     UNSPECV_ATOMIC_SWP		; Represent an atomic SWP.
     UNSPECV_ATOMIC_OP		; Represent an atomic operation.
-    UNSPECV_ATOMIC_LDOP		; Represent an atomic load-operation
     UNSPECV_ATOMIC_LDOP_OR	; Represent an atomic load-or
     UNSPECV_ATOMIC_LDOP_BIC	; Represent an atomic load-bic
     UNSPECV_ATOMIC_LDOP_XOR	; Represent an atomic load-xor
@@ -608,7 +616,8 @@
 (define_mode_attr sizen [(QI "8") (HI "16") (SI "32") (DI "64")])
 
 ;; Give the ordinal of the MSB in the mode
-(define_mode_attr sizem1 [(QI "#7") (HI "#15") (SI "#31") (DI "#63")])
+(define_mode_attr sizem1 [(QI "#7") (HI "#15") (SI "#31") (DI "#63")
+			  (HF "#15") (SF "#31") (DF "#63")])
 
 ;; Attribute to describe constants acceptable in logical operations
 (define_mode_attr lconst [(SI "K") (DI "L")])
@@ -697,7 +706,7 @@
 			  (V8HF "16b") (V2SF  "8b")
 			  (V4SF "16b") (V2DF  "16b")
 			  (DI   "8b")  (DF    "8b")
-			  (SI   "8b")])
+			  (SI   "8b")  (SF    "8b")])
 
 ;; Define element mode for each vector mode.
 (define_mode_attr VEL [(V8QI  "QI") (V16QI "QI") (VNx16QI "QI")
@@ -1057,6 +1066,9 @@
 
 (define_code_attr f16mac [(plus "a") (minus "s")])
 
+;; Map smax to smin and umax to umin.
+(define_code_attr max_opp [(smax "smin") (umax "umin")])
+
 ;; The number of subvectors in an SVE_STRUCT.
 (define_mode_attr vector_count [(VNx32QI "2") (VNx16HI "2")
 				(VNx8SI  "2") (VNx4DI  "2")
@@ -1145,6 +1157,13 @@
 			 (VNx16SI "vnx4bi") (VNx16SF "vnx4bi")
 			 (VNx8DI "vnx2bi") (VNx8DF "vnx2bi")])
 
+;; On AArch64 the By element instruction doesn't have a 2S variant.
+;; However because the instruction always selects a pair of values
+;; The normal 3SAME instruction can be used here instead.
+(define_mode_attr FCMLA_maybe_lane [(V2SF "<Vtype>") (V4SF "<Vetype>[%4]")
+				    (V4HF "<Vetype>[%4]") (V8HF "<Vetype>[%4]")
+				    ])
+
 ;; -------------------------------------------------------------------
 ;; Code Iterators
 ;; -------------------------------------------------------------------
@@ -1198,6 +1217,9 @@
 
 (define_code_iterator FMAXMIN [smax smin])
 
+;; Signed and unsigned max operations.
+(define_code_iterator USMAX [smax umax])
+
 ;; Code iterator for variants of vector max and min.
 (define_code_iterator ADDSUB [plus minus])
 
@@ -1223,10 +1245,10 @@
 (define_code_iterator FAC_COMPARISONS [lt le ge gt])
 
 ;; SVE integer unary operations.
-(define_code_iterator SVE_INT_UNARY [neg not popcount abs])
+(define_code_iterator SVE_INT_UNARY [abs neg not popcount])
 
 ;; SVE floating-point unary operations.
-(define_code_iterator SVE_FP_UNARY [neg abs sqrt])
+(define_code_iterator SVE_FP_UNARY [abs neg sqrt])
 
 ;; SVE integer binary operations.
 (define_code_iterator SVE_INT_BINARY [plus minus mult smax umax smin umin
@@ -1234,6 +1256,9 @@
 
 ;; SVE integer binary division operations.
 (define_code_iterator SVE_INT_BINARY_SD [div udiv])
+
+;; SVE floating-point operations with an unpredicated all-register form.
+(define_code_iterator SVE_UNPRED_FP_BINARY [plus minus mult])
 
 ;; SVE integer comparisons.
 (define_code_iterator SVE_INT_CMP [lt le eq ne ge gt ltu leu geu gtu])
@@ -1412,6 +1437,7 @@
 			      (mult "mul")
 			      (div "sdiv")
 			      (udiv "udiv")
+			      (abs "abs")
 			      (neg "neg")
 			      (smin "smin")
 			      (smax "smax")
@@ -1439,6 +1465,8 @@
 
 ;; The floating-point SVE instruction that implements an rtx code.
 (define_code_attr sve_fp_op [(plus "fadd")
+			     (minus "fsub")
+			     (mult "fmul")
 			     (neg "fneg")
 			     (abs "fabs")
 			     (sqrt "fsqrt")])
@@ -1552,8 +1580,6 @@
 (define_int_iterator FCVT_F2FIXED [UNSPEC_FCVTZS UNSPEC_FCVTZU])
 (define_int_iterator FCVT_FIXED2F [UNSPEC_SCVTF UNSPEC_UCVTF])
 
-(define_int_iterator FRECP [UNSPEC_FRECPE UNSPEC_FRECPX])
-
 (define_int_iterator CRC [UNSPEC_CRC32B UNSPEC_CRC32H UNSPEC_CRC32W
                           UNSPEC_CRC32X UNSPEC_CRC32CB UNSPEC_CRC32CH
                           UNSPEC_CRC32CW UNSPEC_CRC32CX])
@@ -1608,6 +1634,16 @@
 				      UNSPEC_COND_EQ UNSPEC_COND_NE
 				      UNSPEC_COND_GE UNSPEC_COND_GT])
 
+(define_int_iterator SVE_ASHIFT_WIDE [UNSPEC_ASHIFT_WIDE])
+
+(define_int_iterator FCADD [UNSPEC_FCADD90
+			    UNSPEC_FCADD270])
+
+(define_int_iterator FCMLA [UNSPEC_FCMLA
+			    UNSPEC_FCMLA90
+			    UNSPEC_FCMLA180
+			    UNSPEC_FCMLA270])
+
 ;; Iterators for atomic operations.
 
 (define_int_iterator ATOMIC_LDOP
@@ -1618,7 +1654,9 @@
  [(UNSPECV_ATOMIC_LDOP_OR "set") (UNSPECV_ATOMIC_LDOP_BIC "clr")
   (UNSPECV_ATOMIC_LDOP_XOR "eor") (UNSPECV_ATOMIC_LDOP_PLUS "add")])
 
-(define_int_iterator SVE_ASHIFT_WIDE [UNSPEC_ASHIFT_WIDE])
+(define_int_attr atomic_ldoptab
+ [(UNSPECV_ATOMIC_LDOP_OR "ior") (UNSPECV_ATOMIC_LDOP_BIC "bic")
+  (UNSPECV_ATOMIC_LDOP_XOR "xor") (UNSPECV_ATOMIC_LDOP_PLUS "add")])
 
 ;; -------------------------------------------------------------------
 ;; Int Iterators Attributes.
@@ -1844,8 +1882,6 @@
 				 (UNSPEC_UNPACKSLO "BYTES_BIG_ENDIAN")
 				 (UNSPEC_UNPACKULO "BYTES_BIG_ENDIAN")])
 
-(define_int_attr frecp_suffix  [(UNSPEC_FRECPE "e") (UNSPEC_FRECPX "x")])
-
 (define_int_attr crc_variant [(UNSPEC_CRC32B "crc32b") (UNSPEC_CRC32H "crc32h")
                         (UNSPEC_CRC32W "crc32w") (UNSPEC_CRC32X "crc32x")
                         (UNSPEC_CRC32CB "crc32cb") (UNSPEC_CRC32CH "crc32ch")
@@ -1902,6 +1938,13 @@
 			        (UNSPEC_COND_FMIN "fmin")
 			        (UNSPEC_COND_FMAXNM "fmaxnm")
 			        (UNSPEC_COND_FMINNM "fminnm")])
+
+(define_int_attr rot [(UNSPEC_FCADD90 "90")
+		      (UNSPEC_FCADD270 "270")
+		      (UNSPEC_FCMLA "0")
+		      (UNSPEC_FCMLA90 "90")
+		      (UNSPEC_FCMLA180 "180")
+		      (UNSPEC_FCMLA270 "270")])
 
 (define_int_attr sve_fmla_op [(UNSPEC_COND_FMLA "fmla")
 			      (UNSPEC_COND_FMLS "fmls")

@@ -1,5 +1,5 @@
 /* Function splitting pass
-   Copyright (C) 2010-2018 Free Software Foundation, Inc.
+   Copyright (C) 2010-2019 Free Software Foundation, Inc.
    Contributed by Jan Hubicka  <jh@suse.cz>
 
 This file is part of GCC.
@@ -104,6 +104,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "ipa-fnsummary.h"
 #include "cfgloop.h"
+#include "attribs.h"
 
 /* Per basic block info.  */
 
@@ -452,7 +453,7 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
        < (ENTRY_BLOCK_PTR_FOR_FN (cfun)->count.apply_scale
 	   (PARAM_VALUE (PARAM_PARTIAL_INLINING_ENTRY_PROBABILITY), 100))))
     {
-      /* When profile is guessed, we can not expect it to give us
+      /* When profile is guessed, we cannot expect it to give us
 	 realistic estimate on likelyness of function taking the
 	 complex path.  As a special case, when tail of the function is
 	 a loop, enable splitting since inlining code skipping the loop
@@ -729,7 +730,7 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
    of the form:
    <retval> = tmp_var;
    return <retval>
-   but return_bb can not be more complex than this (except for
+   but return_bb cannot be more complex than this (except for
    -fsanitize=thread we allow TSAN_FUNC_EXIT () internal call in there).
    If nothing is found, return the exit block.
 
@@ -878,7 +879,7 @@ visit_bb (basic_block bb, basic_block return_bb,
       if (gimple_clobber_p (stmt))
 	continue;
 
-      /* FIXME: We can split regions containing EH.  We can not however
+      /* FIXME: We can split regions containing EH.  We cannot however
 	 split RESX, EH_DISPATCH and EH_POINTER referring to same region
 	 into different partitions.  This would require tracking of
 	 EH regions and checking in consider_split_point if they 
@@ -899,8 +900,7 @@ visit_bb (basic_block bb, basic_block return_bb,
       /* Check builtins that prevent splitting.  */
       if (gimple_code (stmt) == GIMPLE_CALL
 	  && (decl = gimple_call_fndecl (stmt)) != NULL_TREE
-	  && DECL_BUILT_IN (decl)
-	  && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
+	  && fndecl_built_in_p (decl, BUILT_IN_NORMAL))
 	switch (DECL_FUNCTION_CODE (decl))
 	  {
 	  /* FIXME: once we will allow passing non-parm values to split part,
@@ -1004,7 +1004,7 @@ struct stack_entry
   sreal overall_time;
   int overall_size;
 
-  /* When false we can not split on this BB.  */
+  /* When false we cannot split on this BB.  */
   bool can_split;
 };
 
@@ -1072,7 +1072,7 @@ find_split_points (basic_block return_bb, sreal overall_time, int overall_size)
 	  if (pos <= entry->earliest && !entry->can_split
 	      && dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file,
-		     "found articulation at bb %i but can not split\n",
+		     "found articulation at bb %i but cannot split\n",
 		     entry->bb->index);
 	  if (pos <= entry->earliest && entry->can_split)
 	     {
@@ -1345,9 +1345,9 @@ split_function (basic_block return_bb, struct split_point *split_point,
   node->tp_first_run = cur_node->tp_first_run + 1;
 
   /* For usual cloning it is enough to clear builtin only when signature
-     changes.  For partial inlining we however can not expect the part
+     changes.  For partial inlining we however cannot expect the part
      of builtin implementation to have same semantic as the whole.  */
-  if (DECL_BUILT_IN (node->decl))
+  if (fndecl_built_in_p (node->decl))
     {
       DECL_BUILT_IN_CLASS (node->decl) = NOT_BUILT_IN;
       DECL_FUNCTION_CODE (node->decl) = (enum built_in_function) 0;
@@ -1749,6 +1749,20 @@ execute_split_functions (void)
       if (dump_file)
 	fprintf (dump_file, "Not splitting: not autoinlining and function"
 		 " is not inline.\n");
+      return 0;
+    }
+
+  if (lookup_attribute ("noinline", DECL_ATTRIBUTES (current_function_decl)))
+    {
+      if (dump_file)
+	fprintf (dump_file, "Not splitting: function is noinline.\n");
+      return 0;
+    }
+  if (lookup_attribute ("section", DECL_ATTRIBUTES (current_function_decl)))
+    {
+      if (dump_file)
+	fprintf (dump_file, "Not splitting: function is in user defined "
+		 "section.\n");
       return 0;
     }
 

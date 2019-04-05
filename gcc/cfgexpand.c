@@ -1,5 +1,5 @@
 /* A pass for lowering trees to RTL.
-   Copyright (C) 2004-2018 Free Software Foundation, Inc.
+   Copyright (C) 2004-2019 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -470,6 +470,8 @@ add_stack_var_conflict (size_t x, size_t y)
 {
   struct stack_var *a = &stack_vars[x];
   struct stack_var *b = &stack_vars[y];
+  if (x == y)
+    return;
   if (!a->conflicts)
     a->conflicts = BITMAP_ALLOC (&stack_var_bitmap_obstack);
   if (!b->conflicts)
@@ -1124,14 +1126,23 @@ expand_stack_vars (bool (*pred) (size_t), struct stack_vars_data *data)
 	      && frame_offset.is_constant (&prev_offset)
 	      && stack_vars[i].size.is_constant ())
 	    {
+	      if (data->asan_vec.is_empty ())
+		{
+		  alloc_stack_frame_space (0, ASAN_RED_ZONE_SIZE);
+		  prev_offset = frame_offset.to_constant ();
+		}
 	      prev_offset = align_base (prev_offset,
-					MAX (alignb, ASAN_RED_ZONE_SIZE),
+					ASAN_MIN_RED_ZONE_SIZE,
 					!FRAME_GROWS_DOWNWARD);
 	      tree repr_decl = NULL_TREE;
-	      offset
-		= alloc_stack_frame_space (stack_vars[i].size
-					   + ASAN_RED_ZONE_SIZE,
-					   MAX (alignb, ASAN_RED_ZONE_SIZE));
+	      unsigned HOST_WIDE_INT size
+		= asan_var_and_redzone_size (stack_vars[i].size.to_constant ());
+	      if (data->asan_vec.is_empty ())
+		size = MAX (size, ASAN_RED_ZONE_SIZE);
+
+	      unsigned HOST_WIDE_INT alignment = MAX (alignb,
+						      ASAN_MIN_RED_ZONE_SIZE);
+	      offset = alloc_stack_frame_space (size, alignment);
 
 	      data->asan_vec.safe_push (prev_offset);
 	      /* Allocating a constant amount of space from a constant
@@ -1155,6 +1166,20 @@ expand_stack_vars (bool (*pred) (size_t), struct stack_vars_data *data)
 	      if (repr_decl == NULL_TREE)
 		repr_decl = stack_vars[i].decl;
 	      data->asan_decl_vec.safe_push (repr_decl);
+
+	      /* Make sure a representative is unpoison if another
+		 variable in the partition is handled by
+		 use-after-scope sanitization.  */
+	      if (asan_handled_variables != NULL
+		  && !asan_handled_variables->contains (repr_decl))
+		{
+		  for (j = i; j != EOC; j = stack_vars[j].next)
+		    if (asan_handled_variables->contains (stack_vars[j].decl))
+		      break;
+		  if (j != EOC)
+		    asan_handled_variables->add (repr_decl);
+		}
+
 	      data->asan_alignb = MAX (data->asan_alignb, alignb);
 	      if (data->asan_base == NULL)
 		data->asan_base = gen_reg_rtx (Pmode);
@@ -1257,10 +1282,10 @@ set_parm_rtl (tree parm, rtx x)
 	 allocate it, which means that in-frame portion is just a
 	 pointer.  ??? We've got a pseudo for sure here, do we
 	 actually dynamically allocate its spilling area if needed?
-	 ??? Isn't it a problem when POINTER_SIZE also exceeds
-	 MAX_SUPPORTED_STACK_ALIGNMENT, as on cris and lm32?  */
+	 ??? Isn't it a problem when Pmode alignment also exceeds
+	 MAX_SUPPORTED_STACK_ALIGNMENT, as can happen on cris and lm32?  */
       if (align > MAX_SUPPORTED_STACK_ALIGNMENT)
-	align = POINTER_SIZE;
+	align = GET_MODE_ALIGNMENT (Pmode);
 
       record_alignment_for_reg_var (align);
     }
@@ -1381,7 +1406,7 @@ expand_one_ssa_partition (tree var)
   /* If the variable alignment is very large we'll dynamicaly allocate
      it, which means that in-frame portion is just a pointer.  */
   if (align > MAX_SUPPORTED_STACK_ALIGNMENT)
-    align = POINTER_SIZE;
+    align = GET_MODE_ALIGNMENT (Pmode);
 
   record_alignment_for_reg_var (align);
 
@@ -1608,7 +1633,7 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
       /* If the variable alignment is very large we'll dynamicaly allocate
 	 it, which means that in-frame portion is just a pointer.  */
       if (align > MAX_SUPPORTED_STACK_ALIGNMENT)
-	align = POINTER_SIZE;
+	align = GET_MODE_ALIGNMENT (Pmode);
     }
 
   record_alignment_for_reg_var (align);
@@ -1660,7 +1685,12 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
       /* Reject variables which cover more than half of the address-space.  */
       if (really_expand)
 	{
-	  error ("size of variable %q+D is too large", var);
+	  if (DECL_NONLOCAL_FRAME (var))
+	    error_at (DECL_SOURCE_LOCATION (current_function_decl),
+		      "total size of local objects is too large");
+	  else
+	    error_at (DECL_SOURCE_LOCATION (var),
+		      "size of variable %q+D is too large", var);
 	  expand_one_error_var (var);
 	}
     }
@@ -2477,6 +2507,13 @@ expand_gimple_cond (basic_block bb, gcond *stmt)
 	}
     }
 
+  /* Optimize (x % C1) == C2 or (x % C1) != C2 if it is beneficial
+     into (x - C2) * C3 < C4.  */
+  if ((code == EQ_EXPR || code == NE_EXPR)
+      && TREE_CODE (op0) == SSA_NAME
+      && TREE_CODE (op1) == INTEGER_CST)
+    code = maybe_optimize_mod_cmp (code, &op0, &op1);
+
   last2 = last = get_last_insn ();
 
   extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
@@ -2616,7 +2653,7 @@ expand_call_stmt (gcall *stmt)
   exp = build_vl_exp (CALL_EXPR, gimple_call_num_args (stmt) + 3);
 
   CALL_EXPR_FN (exp) = gimple_call_fn (stmt);
-  builtin_p = decl && DECL_BUILT_IN (decl);
+  builtin_p = decl && fndecl_built_in_p (decl);
 
   /* If this is not a builtin function, the function type through which the
      call is made may be different from the type of the function.  */
@@ -2655,7 +2692,7 @@ expand_call_stmt (gcall *stmt)
   CALL_EXPR_MUST_TAIL_CALL (exp) = gimple_call_must_tail_p (stmt);
   CALL_EXPR_RETURN_SLOT_OPT (exp) = gimple_call_return_slot_opt_p (stmt);
   if (decl
-      && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
+      && fndecl_built_in_p (decl, BUILT_IN_NORMAL)
       && ALLOCA_FUNCTION_CODE_P (DECL_FUNCTION_CODE (decl)))
     CALL_ALLOCA_FOR_VAR_P (exp) = gimple_call_alloca_for_var_p (stmt);
   else
@@ -2815,6 +2852,42 @@ tree_conflicts_with_clobbers_p (tree t, HARD_REG_SET *clobbered_regs)
   return false;
 }
 
+/* Check that the given REGNO spanning NREGS is a valid
+   asm clobber operand.  Some HW registers cannot be
+   saved/restored, hence they should not be clobbered by
+   asm statements.  */
+static bool
+asm_clobber_reg_is_valid (int regno, int nregs, const char *regname)
+{
+  bool is_valid = true;
+  HARD_REG_SET regset;
+
+  CLEAR_HARD_REG_SET (regset);
+
+  add_range_to_hard_reg_set (&regset, regno, nregs);
+
+  /* Clobbering the PIC register is an error.  */
+  if (PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM
+      && overlaps_hard_reg_set_p (regset, Pmode, PIC_OFFSET_TABLE_REGNUM))
+    {
+      /* ??? Diagnose during gimplification?  */
+      error ("PIC register clobbered by %qs in %<asm%>", regname);
+      is_valid = false;
+    }
+  /* Clobbering the stack pointer register is deprecated.  GCC expects
+     the value of the stack pointer after an asm statement to be the same
+     as it was before, so no asm can validly clobber the stack pointer in
+     the usual sense.  Adding the stack pointer to the clobber list has
+     traditionally had some undocumented and somewhat obscure side-effects.  */
+  if (overlaps_hard_reg_set_p (regset, Pmode, STACK_POINTER_REGNUM)
+      && warning (OPT_Wdeprecated, "listing the stack pointer register"
+		  " %qs in a clobber list is deprecated", regname))
+    inform (input_location, "the value of the stack pointer after an %<asm%>"
+	    " statement must be the same as it was before the statement");
+
+  return is_valid;
+}
+
 /* Generate RTL for an asm statement with arguments.
    STRING is the instruction template.
    OUTPUTS is a list of output arguments (lvalues); INPUTS a list of inputs.
@@ -2947,14 +3020,8 @@ expand_asm_stmt (gasm *stmt)
 	  else
 	    for (int reg = j; reg < j + nregs; reg++)
 	      {
-		/* Clobbering the PIC register is an error.  */
-		if (reg == (int) PIC_OFFSET_TABLE_REGNUM)
-		  {
-		    /* ??? Diagnose during gimplification?  */
-		    error ("PIC register clobbered by %qs in %<asm%>",
-			   regname);
-		    return;
-		  }
+		if (!asm_clobber_reg_is_valid (reg, nregs, regname))
+		  return;
 
 	        SET_HARD_REG_BIT (clobbered_regs, reg);
 	        rtx x = gen_rtx_REG (reg_raw_mode[reg], reg);
@@ -2983,6 +3050,55 @@ expand_asm_stmt (gasm *stmt)
       if (!parse_output_constraint (&constraint, i, ninputs, noutputs,
 				    &allows_mem, &allows_reg, &is_inout))
 	return;
+
+      /* If the output is a hard register, verify it doesn't conflict with
+	 any other operand's possible hard register use.  */
+      if (DECL_P (val)
+	  && REG_P (DECL_RTL (val))
+	  && HARD_REGISTER_P (DECL_RTL (val)))
+	{
+	  unsigned j, output_hregno = REGNO (DECL_RTL (val));
+	  bool early_clobber_p = strchr (constraints[i], '&') != NULL;
+	  unsigned long match;
+
+	  /* Verify the other outputs do not use the same hard register.  */
+	  for (j = i + 1; j < noutputs; ++j)
+	    if (DECL_P (output_tvec[j])
+		&& REG_P (DECL_RTL (output_tvec[j]))
+		&& HARD_REGISTER_P (DECL_RTL (output_tvec[j]))
+		&& output_hregno == REGNO (DECL_RTL (output_tvec[j])))
+	      error ("invalid hard register usage between output operands");
+
+	  /* Verify matching constraint operands use the same hard register
+	     and that the non-matching constraint operands do not use the same
+	     hard register if the output is an early clobber operand.  */
+	  for (j = 0; j < ninputs; ++j)
+	    if (DECL_P (input_tvec[j])
+		&& REG_P (DECL_RTL (input_tvec[j]))
+		&& HARD_REGISTER_P (DECL_RTL (input_tvec[j])))
+	      {
+		unsigned input_hregno = REGNO (DECL_RTL (input_tvec[j]));
+		switch (*constraints[j + noutputs])
+		  {
+		  case '0':  case '1':  case '2':  case '3':  case '4':
+		  case '5':  case '6':  case '7':  case '8':  case '9':
+		    match = strtoul (constraints[j + noutputs], NULL, 10);
+		    break;
+		  default:
+		    match = ULONG_MAX;
+		    break;
+		  }
+		if (i == match
+		    && output_hregno != input_hregno)
+		  error ("invalid hard register usage between output operand "
+			 "and matching constraint operand");
+		else if (early_clobber_p
+			 && i != match
+			 && output_hregno == input_hregno)
+		  error ("invalid hard register usage between earlyclobber "
+			 "operand and input operand");
+	      }
+	}
 
       if (! allows_reg
 	  && (allows_mem
@@ -3239,7 +3355,7 @@ expand_asm_stmt (gasm *stmt)
 	     may insert further instructions into the same basic block after
 	     asm goto and if we don't do this, insertion of instructions on
 	     the fallthru edge might misbehave.  See PR58670.  */
-	  if (fallthru_bb && label_to_block_fn (cfun, label) == fallthru_bb)
+	  if (fallthru_bb && label_to_block (cfun, label) == fallthru_bb)
 	    {
 	      if (fallthru_label == NULL_RTX)
 	        fallthru_label = gen_label_rtx ();
@@ -3750,6 +3866,7 @@ expand_gimple_stmt (gimple *stmt)
 	      /* If we want exceptions for non-call insns, any
 		 may_trap_p instruction may throw.  */
 	      && GET_CODE (PATTERN (insn)) != CLOBBER
+	      && GET_CODE (PATTERN (insn)) != CLOBBER_HIGH
 	      && GET_CODE (PATTERN (insn)) != USE
 	      && insn_could_throw_p (insn))
 	    make_reg_eh_region_note (insn, 0, lp_nr);
@@ -5809,6 +5926,8 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
     last = PREV_INSN (last);
   if (JUMP_TABLE_DATA_P (last))
     last = PREV_INSN (PREV_INSN (last));
+  if (BARRIER_P (last))
+    last = PREV_INSN (last);
   BB_END (bb) = last;
 
   update_bb_for_insn (bb);
@@ -6106,7 +6225,25 @@ stack_protect_prologue (void)
   tree guard_decl = targetm.stack_protect_guard ();
   rtx x, y;
 
+  crtl->stack_protect_guard_decl = guard_decl;
   x = expand_normal (crtl->stack_protect_guard);
+
+  if (targetm.have_stack_protect_combined_set () && guard_decl)
+    {
+      gcc_assert (DECL_P (guard_decl));
+      y = DECL_RTL (guard_decl);
+
+      /* Allow the target to compute address of Y and copy it to X without
+	 leaking Y into a register.  This combined address + copy pattern
+	 allows the target to prevent spilling of any intermediate results by
+	 splitting it after register allocator.  */
+      if (rtx_insn *insn = targetm.gen_stack_protect_combined_set (x, y))
+	{
+	  emit_insn (insn);
+	  return;
+	}
+    }
+
   if (guard_decl)
     y = expand_normal (guard_decl);
   else
@@ -6481,18 +6618,20 @@ pass_expand::execute (function *fun)
   find_many_sub_basic_blocks (blocks);
   purge_all_dead_edges ();
 
+  /* After initial rtl generation, call back to finish generating
+     exception support code.  We need to do this before cleaning up
+     the CFG as the code does not expect dead landing pads.  */
+  if (fun->eh->region_tree != NULL)
+    finish_eh_generation ();
+
+  /* Call expand_stack_alignment after finishing all
+     updates to crtl->preferred_stack_boundary.  */
   expand_stack_alignment ();
 
   /* Fixup REG_EQUIV notes in the prologue if there are tailcalls in this
      function.  */
   if (crtl->tail_call_emit)
     fixup_tail_calls ();
-
-  /* After initial rtl generation, call back to finish generating
-     exception support code.  We need to do this before cleaning up
-     the CFG as the code does not expect dead landing pads.  */
-  if (fun->eh->region_tree != NULL)
-    finish_eh_generation ();
 
   /* BB subdivision may have created basic blocks that are are only reachable
      from unlikely bbs but not marked as such in the profile.  */

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GCC,
    for ARM with targeting the VXWorks run time environment. 
-   Copyright (C) 1999-2018 Free Software Foundation, Inc.
+   Copyright (C) 1999-2019 Free Software Foundation, Inc.
 
    Contributed by: Mike Stump <mrs@wrs.com>
    Brought up to date by CodeSourcery, LLC.
@@ -125,7 +125,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 #undef ARM_TARGET2_DWARF_FORMAT
 #define ARM_TARGET2_DWARF_FORMAT \
-  (TARGET_VXWORKS_RTP ? DW_EH_PE_pcrel : DW_EH_PE_absptr)
+  (TARGET_VXWORKS_RTP ? (DW_EH_PE_pcrel | DW_EH_PE_indirect) : DW_EH_PE_absptr)
 
 /* There is no default multilib.  */
 #undef MULTILIB_DEFAULTS

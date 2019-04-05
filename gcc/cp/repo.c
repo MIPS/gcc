@@ -1,5 +1,5 @@
 /* Code to maintain a C++ template repository.
-   Copyright (C) 1995-2018 Free Software Foundation, Inc.
+   Copyright (C) 1995-2019 Free Software Foundation, Inc.
    Contributed by Jason Merrill (jason@cygnus.com)
 
 This file is part of GCC.
@@ -110,7 +110,7 @@ get_base_filename (const char *filename)
 
   if (p && ! compiling)
     {
-      warning (0, "-frepo must be used with -c");
+      warning (0, "%<-frepo%> must be used with %<-c%>");
       flag_use_repository = 0;
       return NULL;
     }

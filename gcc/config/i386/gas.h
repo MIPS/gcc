@@ -1,5 +1,5 @@
 /* Definitions for Intel 386 using GAS.
-   Copyright (C) 1988-2018 Free Software Foundation, Inc.
+   Copyright (C) 1988-2019 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -69,7 +69,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifdef HAVE_GAS_MAX_SKIP_P2ALIGN
 #  define ASM_OUTPUT_MAX_SKIP_ALIGN(FILE,LOG,MAX_SKIP) \
     if ((LOG) != 0) { \
-      if ((MAX_SKIP) == 0 || (MAX_SKIP) >= (1<<(LOG))-1)		\
+      if ((MAX_SKIP) == 0 || (MAX_SKIP) >= (1 << (LOG)) - 1)		\
 	fprintf ((FILE), "\t.p2align %d\n", (LOG));			\
       else								\
 	fprintf ((FILE), "\t.p2align %d,,%d\n", (LOG), (MAX_SKIP));	\

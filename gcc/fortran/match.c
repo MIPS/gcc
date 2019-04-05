@@ -1,5 +1,5 @@
 /* Matching subroutines in all sizes, shapes and colors.
-   Copyright (C) 2000-2018 Free Software Foundation, Inc.
+   Copyright (C) 2000-2019 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -1350,6 +1350,14 @@ gfc_match_assignment (void)
 
   rvalue = NULL;
   m = gfc_match (" %e%t", &rvalue);
+
+  if (lvalue->expr_type == EXPR_CONSTANT)
+    {
+      /* This clobbers %len and %kind.  */
+      m = MATCH_ERROR;
+      gfc_error ("Assignment to a constant expression at %C");
+    }
+
   if (m != MATCH_YES)
     {
       gfc_current_locus = old_loc;
@@ -1365,6 +1373,9 @@ gfc_match_assignment (void)
   new_st.expr2 = rvalue;
 
   gfc_check_do_variable (lvalue->symtree);
+
+  if (lvalue->ts.type == BT_CLASS)
+    gfc_find_vtab (&rvalue->ts);
 
   return MATCH_YES;
 }
@@ -1889,17 +1900,21 @@ gfc_match_associate (void)
       gfc_association_list* a;
 
       /* Match the next association.  */
-      if (gfc_match (" %n => %e", newAssoc->name, &newAssoc->target)
-	    != MATCH_YES)
+      if (gfc_match (" %n =>", newAssoc->name) != MATCH_YES)
+	{
+	  gfc_error ("Expected association at %C");
+	  goto assocListError;
+	}
+
+      if (gfc_match (" %e", &newAssoc->target) != MATCH_YES)
 	{
 	  /* Have another go, allowing for procedure pointer selectors.  */
 	  gfc_matching_procptr_assignment = 1;
-	  if (gfc_match (" %n => %e", newAssoc->name, &newAssoc->target)
- 	      != MATCH_YES)
- 	    {
- 	      gfc_error ("Expected association at %C");
- 	      goto assocListError;
- 	    }
+	  if (gfc_match (" %e", &newAssoc->target) != MATCH_YES)
+	    {
+	      gfc_error ("Invalid association target at %C");
+	      goto assocListError;
+	    }
 	  gfc_matching_procptr_assignment = 0;
 	}
       newAssoc->where = gfc_current_locus;
@@ -2107,8 +2122,6 @@ gfc_match_type_spec (gfc_typespec *ts)
       ts->type = BT_CHARACTER;
 
       m = gfc_match_char_spec (ts);
-      if (ts->u.cl && ts->u.cl->length)
-	gfc_resolve_expr (ts->u.cl->length);
 
       if (m == MATCH_NO)
 	m = MATCH_YES;
@@ -2210,6 +2223,9 @@ found:
 	      return MATCH_NO;
 	    }
 
+	  if (e->expr_type != EXPR_CONSTANT)
+	    goto ohno;
+
 	  gfc_next_char (); /* Burn the ')'. */
 	  ts->kind = (int) mpz_get_si (e->value.integer);
 	  if (gfc_validate_kind (ts->type, ts->kind , true) == -1)
@@ -2223,6 +2239,8 @@ found:
 	  return MATCH_YES;
 	}
     }
+
+ohno:
 
   /* If a type is not matched, simply return MATCH_NO.  */
   gfc_current_locus = old_locus;
@@ -5124,7 +5142,7 @@ gfc_match_common (void)
                 }
 
               if (sym->attr.is_bind_c == 1)
-                gfc_error_now ("Variable %qs in common block %qs at %C can not "
+                gfc_error_now ("Variable %qs in common block %qs at %C cannot "
                                "be bind(c) since it is not global", sym->name,
 			       t->name);
             }

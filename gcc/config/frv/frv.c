@@ -1,4 +1,4 @@
-/* Copyright (C) 1997-2018 Free Software Foundation, Inc.
+/* Copyright (C) 1997-2019 Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
 This file is part of GCC.
@@ -527,6 +527,9 @@ static bool frv_modes_tieable_p			(machine_mode, machine_mode);
 #define TARGET_MODES_TIEABLE_P frv_modes_tieable_p
 #undef TARGET_CONSTANT_ALIGNMENT
 #define TARGET_CONSTANT_ALIGNMENT constant_alignment_word_strings
+
+#undef  TARGET_HAVE_SPECULATION_SAFE_VALUE
+#define TARGET_HAVE_SPECULATION_SAFE_VALUE speculation_safe_value_not_needed
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -7936,7 +7939,7 @@ frv_align_label (void)
     {
       if (LABEL_P (x))
 	{
-	  unsigned int subalign = 1 << label_to_alignment (x);
+	  unsigned int subalign = 1 << label_to_alignment (x).levels[0].log;
 	  alignment = MAX (alignment, subalign);
 	  label = x;
 	}
@@ -9112,7 +9115,7 @@ frv_expand_builtin (tree exp,
 
   if (fcode < FRV_BUILTIN_FIRST_NONMEDIA && !TARGET_MEDIA)
     {
-      error ("media functions are not available unless -mmedia is used");
+      error ("media functions are not available unless %<-mmedia%> is used");
       return NULL_RTX;
     }
 

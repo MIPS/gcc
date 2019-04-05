@@ -1361,7 +1361,13 @@ Escape_analysis_assign::statement(Block*, size_t*, Statement* s)
       {
         Expression* init = s->temporary_statement()->init();
         if (init != NULL)
-          this->assign(Node::make_node(s), Node::make_node(init));
+	  {
+	    Node* n = Node::make_node(init);
+	    if (s->temporary_statement()->value_escapes())
+	      this->assign(this->context_->sink(), n);
+	    else
+	      this->assign(Node::make_node(s), n);
+	  }
       }
       break;
 
@@ -1616,15 +1622,6 @@ Escape_analysis_assign::expression(Expression** pexpr)
                 }
                 break;
 
-              case Runtime::SELECTSEND:
-                {
-                  // Send to a channel, lose track. The last argument is
-                  // the address of the value to send.
-                  Node* arg_node = Node::make_node(call->args()->back());
-                  this->assign_deref(this->context_->sink(), arg_node);
-                }
-                break;
-
               case Runtime::IFACEE2T2:
               case Runtime::IFACEI2T2:
                 {
@@ -1737,6 +1734,16 @@ Escape_analysis_assign::expression(Expression** pexpr)
 		  this->assign(struct_node, Node::make_node(*p));
 	      }
 	  }
+      }
+      break;
+
+    case Expression::EXPRESSION_SLICE_VALUE:
+      {
+	// Connect the pointer field to the slice value.
+	Node* slice_node = Node::make_node(*pexpr);
+	Node* ptr_node =
+	  Node::make_node((*pexpr)->slice_value_expression()->valmem());
+	this->assign(slice_node, ptr_node);
       }
       break;
 
@@ -2082,7 +2089,8 @@ Escape_analysis_assign::call(Call_expression* call)
       else
 	{
 	  if (!Type::are_identical(fntype->receiver()->type(),
-			       (*p)->expr()->type(), true, NULL))
+				   (*p)->expr()->type(), Type::COMPARE_TAGS,
+				   NULL))
 	    {
 	      // This will be converted later, preemptively track it instead
 	      // of its conversion expression which will show up in a later pass.
@@ -2101,7 +2109,7 @@ Escape_analysis_assign::call(Call_expression* call)
 	   ++pn, ++p)
 	{
 	  if (!Type::are_identical(pn->type(), (*p)->expr()->type(),
-				   true, NULL))
+				   Type::COMPARE_TAGS, NULL))
 	    {
 	      // This will be converted later, preemptively track it instead
 	      // of its conversion expression which will show up in a later pass.
@@ -2228,8 +2236,12 @@ Escape_analysis_assign::assign(Node* dst, Node* src)
         case Expression::EXPRESSION_TEMPORARY_REFERENCE:
           {
             // Temporary is tracked through the underlying Temporary_statement.
-            Statement* t = dst->expr()->temporary_reference_expression()->statement();
-            dst = Node::make_node(t);
+            Temporary_statement* t =
+	      dst->expr()->temporary_reference_expression()->statement();
+	    if (t->value_escapes())
+	      dst = this->context_->sink();
+	    else
+	      dst = Node::make_node(t);
           }
           break;
 
@@ -2261,6 +2273,8 @@ Escape_analysis_assign::assign(Node* dst, Node* src)
 	  // DST = map[T]V{...}.
 	case Expression::EXPRESSION_STRUCT_CONSTRUCTION:
 	  // DST = T{...}.
+	case Expression::EXPRESSION_SLICE_VALUE:
+	  // DST = slice{ptr, len, cap}
 	case Expression::EXPRESSION_ALLOCATION:
 	  // DST = new(T).
 	case Expression::EXPRESSION_BOUND_METHOD:

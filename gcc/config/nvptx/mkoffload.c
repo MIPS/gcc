@@ -1,6 +1,6 @@
 /* Offload image generation tool for PTX.
 
-   Copyright (C) 2014-2018 Free Software Foundation, Inc.
+   Copyright (C) 2014-2019 Free Software Foundation, Inc.
 
    Contributed by Nathan Sidwell <nathan@codesourcery.com> and
    Bernd Schmidt <bernds@codesourcery.com>.
@@ -488,7 +488,8 @@ main (int argc, char **argv)
 	verbose = true;
     }
   if (!(fopenacc ^ fopenmp))
-    fatal_error (input_location, "either -fopenacc or -fopenmp must be set");
+    fatal_error (input_location, "either %<-fopenacc%> or %<-fopenmp%> "
+		 "must be set");
 
   struct obstack argv_obstack;
   obstack_init (&argv_obstack);

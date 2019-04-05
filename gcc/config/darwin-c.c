@@ -1,5 +1,5 @@
 /* Darwin support needed only by C/C++ frontends.
-   Copyright (C) 2001-2018 Free Software Foundation, Inc.
+   Copyright (C) 2001-2019 Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
 This file is part of GCC.
@@ -715,7 +715,7 @@ macosx_version_as_macro (void)
   return version_macro;
 
  fail:
-  error ("unknown value %qs of -mmacosx-version-min",
+  error ("unknown value %qs of %<-mmacosx-version-min%>",
          darwin_macosx_version_min);
   return "1000";
 }

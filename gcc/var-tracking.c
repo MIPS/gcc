@@ -1,5 +1,5 @@
 /* Variable tracking routines for the GNU compiler.
-   Copyright (C) 2002-2018 Free Software Foundation, Inc.
+   Copyright (C) 2002-2019 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -7182,7 +7182,7 @@ vt_find_locations (void)
 		  if (MAY_HAVE_DEBUG_BIND_INSNS)
 		    inform (DECL_SOURCE_LOCATION (cfun->decl),
 			    "variable tracking size limit exceeded with "
-			    "-fvar-tracking-assignments, retrying without");
+			    "%<-fvar-tracking-assignments%>, retrying without");
 		  else
 		    inform (DECL_SOURCE_LOCATION (cfun->decl),
 			    "variable tracking size limit exceeded");
