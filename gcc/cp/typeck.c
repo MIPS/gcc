@@ -9987,7 +9987,7 @@ ptr_reasonably_similar (const_tree to, const_tree from)
 	{
 	  /* When either type is incomplete avoid DERIVED_FROM_P,
 	     which may call complete_type (c++/57942).  */
-	  bool b = !COMPLETE_TYPE_P (to) || !COMPLETE_TYPE_P (from);
+	  bool b = !DEFINED_TYPE_P (to) || !DEFINED_TYPE_P (from);
 	  return comptypes
 	    (TYPE_MAIN_VARIANT (to), TYPE_MAIN_VARIANT (from),
 	     b ? COMPARE_STRICT : COMPARE_BASE | COMPARE_DERIVED);

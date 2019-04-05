@@ -160,6 +160,7 @@ statements (int n)
 
   ta *ta_ptr = &ta1;
   vta *vta_ptr = &vta1;
+  ta_ptr = (tb *) 0; // { dg-error {cannot convert 'tb\*'[^\n]* to 'ta\*'[^\n]* in assignment} }
 
   // Pointer assignment.
 
