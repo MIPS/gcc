@@ -44,21 +44,12 @@ if { [check_effective_target_aarch64_sve] } {
     set sve_flags "-march=armv8.2-a+sve"
 }
 
-# Force fixed-length vectors for now, until the ACLE is properly
-# vector-length agnostic.  We arbitrarily pick the smallest length
-# that doesn't generate VLA code.
-if { ![string equal $sve_flags ""] || [aarch64_sve_bits] == 0 } {
-    set sve_length "-msve-vector-bits=256"
-} else {
-    set sve_length ""
-}
-
 # Main loop.
 set gcc_subdir [string replace $subdir 0 2 gcc]
 set files [glob -nocomplain \
 	       "$srcdir/$gcc_subdir/general/*.c" \
 	       "$srcdir/$subdir/general-c++/*.\[cC\]"]
-dg-runtest [lsort $files] "$sve_flags $sve_length" $DEFAULT_CXXFLAGS
+dg-runtest [lsort $files] "$sve_flags" $DEFAULT_CXXFLAGS
 
 # All done.
 dg-finish

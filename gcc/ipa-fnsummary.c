@@ -947,7 +947,8 @@ unmodified_parm_1 (ipa_func_body_info *fbi, gimple *stmt, tree op,
   /* SSA_NAME referring to parm default def?  */
   if (TREE_CODE (op) == SSA_NAME
       && SSA_NAME_IS_DEFAULT_DEF (op)
-      && TREE_CODE (SSA_NAME_VAR (op)) == PARM_DECL)
+      && TREE_CODE (SSA_NAME_VAR (op)) == PARM_DECL
+      && tree_fits_shwi_p (TYPE_SIZE (TREE_TYPE (op))))
     {
       if (size_p)
 	*size_p = tree_to_shwi (TYPE_SIZE (TREE_TYPE (op)));

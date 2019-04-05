@@ -1578,7 +1578,8 @@ emit_support_tinfos (void)
 	emit_support_tinfo_1 (int_n_trees[ix].unsigned_type);
       }
   for (tree t = registered_builtin_types; t; t = TREE_CHAIN (t))
-    emit_support_tinfo_1 (TREE_VALUE (t));
+    if (!TYPE_SIZELESS_P (TREE_VALUE (t)))
+      emit_support_tinfo_1 (TREE_VALUE (t));
   input_location = saved_loc;
 }
 

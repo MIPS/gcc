@@ -1790,6 +1790,7 @@ register_builtin_types ()
       vectype = build_distinct_type_copy (vectype);
       SET_TYPE_STRUCTURAL_EQUALITY (vectype);
       TYPE_ARTIFICIAL (vectype) = 1;
+      TYPE_SIZELESS_P (vectype) = 1;
       abi_vector_types[i] = vectype;
       lang_hooks.types.register_builtin_type (vectype,
 					      vector_types[i].abi_name);
