@@ -38,15 +38,6 @@ if { [check_effective_target_aarch64_sve] } {
     set sve_flags "-march=armv8.2-a+sve"
 }
 
-# Force fixed-length vectors for now, until the ACLE is properly
-# vector-length agnostic.  We arbitrarily pick the smallest length
-# that doesn't generate VLA code.
-if { ![string equal $sve_flags ""] || [aarch64_sve_bits] == 0 } {
-    set sve_length "-msve-vector-bits=256"
-} else {
-    set sve_length ""
-}
-
 global gcc_runtest_parallelize_limit_minor
 if { [info exists gcc_runtest_parallelize_limit_minor] } {
     set old_limit_minor $gcc_runtest_parallelize_limit_minor
@@ -73,8 +64,7 @@ set-torture-options {
 # Main loop.
 set gcc_subdir [string replace $subdir 0 2 gcc]
 set files [glob -nocomplain $srcdir/$gcc_subdir/asm/*.c]
-gcc-dg-runtest [lsort $files] \
-    "" "$sve_flags $sve_length -fno-ipa-icf"
+gcc-dg-runtest [lsort $files] "" "$sve_flags -fno-ipa-icf"
 
 torture-finish
 
