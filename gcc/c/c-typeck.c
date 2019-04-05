@@ -1287,6 +1287,11 @@ comp_target_types (location_t location, tree ttl, tree ttr)
   if (!addr_space_superset (asl, asr, &as_common))
     return 0;
 
+  /* Force an explicit cast when dealing with a pair of pointers in
+     which only one points to a sizeless type.  */
+  if (TYPE_SIZELESS_P (mvl) != TYPE_SIZELESS_P (mvr))
+    return 0;
+
   /* For pedantic record result of comptypes on arrays before losing
      qualifiers on the element type below. */
   val_ped = 1;

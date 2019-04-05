@@ -1,5 +1,6 @@
 /* { dg-options "-std=gnu99 -Wshadow" } */
 
+typedef unsigned char vta __attribute__((__vector_size__(2)));
 typedef __sizeless_1 ta;
 typedef __sizeless_2 tb;
 
@@ -34,6 +35,7 @@ statements (int n)
   /* Local declarations.  */
 
   ta ta1, ta2;
+  vta vta1;
   tb tb1;
   static ta local_static_ta; /* { dg-error {sizeless variable 'local_static_ta' cannot have static storage duration} } */
 
@@ -82,7 +84,13 @@ statements (int n)
   /* Addressing and dereferencing.  */
 
   ta *ta_ptr = &ta1;
+  vta *vta_ptr = &vta1;
   ta1 = *ta_ptr;
+
+  /* Pointer assignment.  */
+
+  vta_ptr = ta_ptr; /* { dg-warning {assignment to '[^']*' from incompatible pointer type} } */
+  ta_ptr = vta_ptr; /* { dg-warning {assignment to '[^']*' from incompatible pointer type} } */
 
   /* Pointer arithmetic.  */
 
@@ -95,8 +103,27 @@ statements (int n)
   ta_ptr -= 0; /* { dg-error {invalid use of sizeless typedef 'ta'} } */
   ta_ptr -= 1; /* { dg-error {invalid use of sizeless typedef 'ta'} } */
   ta_ptr - ta_ptr; /* { dg-error {arithmetic on pointer to an incomplete type} } */
+  vta_ptr - ta_ptr; /* { dg-error {invalid operands to binary -} } */
+  ta_ptr - vta_ptr; /* { dg-error {invalid operands to binary -} } */
   ta1 = ta_ptr[0]; /* { dg-error {invalid use of sizeless typedef 'ta'} } */
   ta1 = ta_ptr[1]; /* { dg-error {invalid use of sizeless typedef 'ta'} } */
+
+  /* Pointer comparison.  */
+
+  ta_ptr == &ta1;
+  ta_ptr != &ta1;
+  vta_ptr == ta_ptr; /* { dg-warning {comparison of distinct pointer types lacks a cast} } */
+  vta_ptr != ta_ptr; /* { dg-warning {comparison of distinct pointer types lacks a cast} } */
+  vta_ptr < ta_ptr; /* { dg-warning {comparison of distinct pointer types lacks a cast} } */
+  vta_ptr <= ta_ptr; /* { dg-warning {comparison of distinct pointer types lacks a cast} } */
+  vta_ptr > ta_ptr; /* { dg-warning {comparison of distinct pointer types lacks a cast} } */
+  vta_ptr >= ta_ptr; /* { dg-warning {comparison of distinct pointer types lacks a cast} } */
+  ta_ptr == vta_ptr; /* { dg-warning {comparison of distinct pointer types lacks a cast} } */
+  ta_ptr != vta_ptr; /* { dg-warning {comparison of distinct pointer types lacks a cast} } */
+  ta_ptr < vta_ptr; /* { dg-warning {comparison of distinct pointer types lacks a cast} } */
+  ta_ptr <= vta_ptr; /* { dg-warning {comparison of distinct pointer types lacks a cast} } */
+  ta_ptr > vta_ptr; /* { dg-warning {comparison of distinct pointer types lacks a cast} } */
+  ta_ptr >= vta_ptr; /* { dg-warning {comparison of distinct pointer types lacks a cast} } */
 
   /* Conditional expressions.  */
 
@@ -105,6 +132,9 @@ statements (int n)
   0 ? ta1 : 0; /* { dg-error {type mismatch in conditional expression} } */
   0 ? 0 : ta1; /* { dg-error {type mismatch in conditional expression} } */
   0 ?: ta1; /* { dg-error {type mismatch in conditional expression} } */
+  0 ? ta_ptr : ta_ptr;
+  0 ? ta_ptr : vta_ptr; /* { dg-warning {pointer type mismatch in conditional expression} } */
+  0 ? vta_ptr : ta_ptr; /* { dg-warning {pointer type mismatch in conditional expression} } */
 
   /* Generic associations.  */
 
