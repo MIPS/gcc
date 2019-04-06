@@ -3195,7 +3195,7 @@ complete_size_in_bytes (location_t loc, const_tree type, bool complain)
   if (type == error_mark_node)
     return error_mark_node;
 
-  if (!COMPLETE_TYPE_P (type))
+  if (!sized_complete_type_p (type))
     {
       if (complain)
 	lang_hooks.types.incomplete_type_error (loc, NULL_TREE, type);

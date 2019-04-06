@@ -222,10 +222,26 @@ c_incomplete_type_error (location_t loc, const_tree value, const_tree type)
     return;
 
   if (value != NULL_TREE && (VAR_P (value) || TREE_CODE (value) == PARM_DECL))
-    error_at (loc, "%qD has an incomplete type %qT", value, type);
+    {
+      if (TYPE_SIZELESS_P (type))
+	error_at (loc, "%qD has sizeless type %qT", value, type);
+      else
+	error_at (loc, "%qD has an incomplete type %qT", value, type);
+    }
   else
     {
     retry:
+      if (TYPE_SIZELESS_P (type))
+	{
+	  if (TREE_CODE (TYPE_NAME (type)) == IDENTIFIER_NODE)
+	    error_at (loc, "invalid use of sizeless type %qT", type);
+	  else
+	    /* If this type has a typedef-name, the TYPE_NAME is a
+	       TYPE_DECL.  */
+	    error_at (loc, "invalid use of sizeless typedef %qT", type);
+	  return;
+	}
+
       /* We must print an error message.  Be clever about what it says.  */
 
       switch (TREE_CODE (type))

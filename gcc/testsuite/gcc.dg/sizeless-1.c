@@ -90,6 +90,12 @@ statements (int n)
   --ta_ptr; /* { dg-error {decrement of pointer to an incomplete type 'ta'} } */
   ta_ptr++; /* { dg-error {increment of pointer to an incomplete type 'ta'} } */
   ta_ptr--; /* { dg-error {decrement of pointer to an incomplete type 'ta'} } */
+  ta_ptr += 0; /* { dg-error {invalid use of sizeless typedef 'ta'} } */
+  ta_ptr += 1; /* { dg-error {invalid use of sizeless typedef 'ta'} } */
+  ta_ptr -= 0; /* { dg-error {invalid use of sizeless typedef 'ta'} } */
+  ta_ptr -= 1; /* { dg-error {invalid use of sizeless typedef 'ta'} } */
+  ta1 = ta_ptr[0]; /* { dg-error {invalid use of sizeless typedef 'ta'} } */
+  ta1 = ta_ptr[1]; /* { dg-error {invalid use of sizeless typedef 'ta'} } */
 
   /* Conditional expressions.  */
 
