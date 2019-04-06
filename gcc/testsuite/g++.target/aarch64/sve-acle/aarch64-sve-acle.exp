@@ -29,9 +29,9 @@ if {![istarget aarch64*-*-*] } {
 load_lib g++-dg.exp
 
 # If a testcase doesn't have special options, use these.
-global DEFAULT_CFLAGS
-if ![info exists DEFAULT_CFLAGS] then {
-    set DEFAULT_CFLAGS " -ansi -pedantic-errors"
+global DEFAULT_CXXFLAGS
+if ![info exists DEFAULT_CXXFLAGS] then {
+    set DEFAULT_CXXFLAGS " -pedantic-errors -Wno-long-long"
 }
 
 # Initialize `dg'.
@@ -58,7 +58,7 @@ set gcc_subdir [string replace $subdir 0 2 gcc]
 set files [glob -nocomplain \
 	       "$srcdir/$gcc_subdir/general/*.c" \
 	       "$srcdir/$subdir/general-c++/*.\[cC\]"]
-dg-runtest [lsort $files] "$sve_flags $sve_length" $DEFAULT_CFLAGS
+dg-runtest [lsort $files] "$sve_flags $sve_length" $DEFAULT_CXXFLAGS
 
 # All done.
 dg-finish
