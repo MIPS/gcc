@@ -20,4 +20,5 @@ void
 fn1 (void)
 {
   1234, A += 1; /* { dg-error "11:invalid use of array with unspecified bounds" } */
+  /* { dg-error {in evaluation of 'operator\+=} "" { target c++ } .-1 } */
 }

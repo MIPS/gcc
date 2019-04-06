@@ -5972,12 +5972,12 @@ cp_finish_omp_clause_depend_sink (tree sink_clause)
 	  tree t2 = pointer_int_sum (OMP_CLAUSE_LOCATION (sink_clause),
 				     neg ? MINUS_EXPR : PLUS_EXPR,
 				     decl, offset);
+	  if (t2 == error_mark_node)
+	    return true;
 	  t2 = fold_build2_loc (OMP_CLAUSE_LOCATION (sink_clause),
 				MINUS_EXPR, sizetype,
 				fold_convert (sizetype, t2),
 				fold_convert (sizetype, decl));
-	  if (t2 == error_mark_node)
-	    return true;
 	  TREE_PURPOSE (t) = t2;
 	}
     }
@@ -6051,6 +6051,11 @@ cp_omp_finish_iterators (tree iter)
 	{
 	  begin = save_expr (begin);
 	  step = pointer_int_sum (loc, PLUS_EXPR, begin, step);
+	  if (step == error_mark_node)
+	    {
+	      ret = true;
+	      continue;
+	    }
 	  step = fold_build2_loc (loc, MINUS_EXPR, sizetype,
 				  fold_convert (sizetype, step),
 				  fold_convert (sizetype, begin));
@@ -6323,15 +6328,15 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 		      tree d = fold_convert (type, OMP_CLAUSE_DECL (c));
 		      t = pointer_int_sum (OMP_CLAUSE_LOCATION (c), PLUS_EXPR,
 					   d, t);
-		      t = fold_build2_loc (OMP_CLAUSE_LOCATION (c),
-					   MINUS_EXPR, sizetype,
-					   fold_convert (sizetype, t),
-					   fold_convert (sizetype, d));
 		      if (t == error_mark_node)
 			{
 			  remove = true;
 			  break;
 			}
+		      t = fold_build2_loc (OMP_CLAUSE_LOCATION (c),
+					   MINUS_EXPR, sizetype,
+					   fold_convert (sizetype, t),
+					   fold_convert (sizetype, d));
 		    }
 		  else if (TYPE_PTR_P (type)
 			   /* Can't multiply the step yet if *this
@@ -6346,15 +6351,15 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 		      tree d = convert_from_reference (OMP_CLAUSE_DECL (c));
 		      t = pointer_int_sum (OMP_CLAUSE_LOCATION (c), PLUS_EXPR,
 					   d, t);
-		      t = fold_build2_loc (OMP_CLAUSE_LOCATION (c),
-					   MINUS_EXPR, sizetype,
-					   fold_convert (sizetype, t),
-					   fold_convert (sizetype, d));
 		      if (t == error_mark_node)
 			{
 			  remove = true;
 			  break;
 			}
+		      t = fold_build2_loc (OMP_CLAUSE_LOCATION (c),
+					   MINUS_EXPR, sizetype,
+					   fold_convert (sizetype, t),
+					   fold_convert (sizetype, d));
 		    }
 		  else
 		    t = fold_convert (type, t);

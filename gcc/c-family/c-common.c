@@ -3179,6 +3179,32 @@ shorten_compare (location_t loc, tree *op0_ptr, tree *op1_ptr,
   return NULL_TREE;
 }
 
+/* Return the size nominally occupied by an object of type TYPE
+   when it resides in memory.  The value is measured in units of bytes,
+   and its data type is that normally used for type sizes
+   (which is the first type created by make_signed_type or
+   make_unsigned_type).
+
+   Return error_mark_node if TYPE is incomplete, and in addition
+   raise an error if COMPLAIN is true.  LOC is the location to use
+   for reporting error messages.  */
+
+static tree
+complete_size_in_bytes (location_t loc, const_tree type, bool complain)
+{
+  if (type == error_mark_node)
+    return error_mark_node;
+
+  if (!COMPLETE_TYPE_P (type))
+    {
+      if (complain)
+	lang_hooks.types.incomplete_type_error (loc, NULL_TREE, type);
+      return error_mark_node;
+    }
+
+  return TYPE_SIZE_UNIT (TYPE_MAIN_VARIANT (type));
+}
+
 /* Return a tree for the sum or difference (RESULTCODE says which)
    of pointer PTROP and integer INTOP.  */
 
@@ -3210,7 +3236,12 @@ pointer_int_sum (location_t loc, enum tree_code resultcode,
       size_exp = integer_one_node;
     }
   else
-    size_exp = size_in_bytes_loc (loc, TREE_TYPE (result_type));
+    {
+      size_exp = complete_size_in_bytes (loc, TREE_TYPE (result_type),
+					 complain);
+      if (size_exp == error_mark_node)
+	return error_mark_node;
+    }
 
   /* We are manipulating pointer values, so we don't need to warn
      about relying on undefined signed overflow.  We disable the

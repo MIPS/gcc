@@ -12510,7 +12510,8 @@ build_binary_op (location_t location, enum tree_code code,
     ret = convert (final_type, ret);
 
  return_build_binary_op:
-  gcc_assert (ret != error_mark_node);
+  if (ret == error_mark_node)
+    return error_mark_node;
   if (TREE_CODE (ret) == INTEGER_CST && !TREE_OVERFLOW (ret) && !int_const)
     ret = (int_operands
 	   ? note_integer_operands (ret)
@@ -13575,6 +13576,11 @@ c_omp_finish_iterators (tree iter)
 	{
 	  begin = save_expr (begin);
 	  step = pointer_int_sum (loc, PLUS_EXPR, begin, step);
+	  if (step == error_mark_node)
+	    {
+	      ret = true;
+	      continue;
+	    }
 	  step = fold_build2_loc (loc, MINUS_EXPR, sizetype,
 				  fold_convert (sizetype, step),
 				  fold_convert (sizetype, begin));
@@ -14025,12 +14031,13 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	      tree s = OMP_CLAUSE_LINEAR_STEP (c);
 	      s = pointer_int_sum (OMP_CLAUSE_LOCATION (c), PLUS_EXPR,
 				   OMP_CLAUSE_DECL (c), s);
-	      s = fold_build2_loc (OMP_CLAUSE_LOCATION (c), MINUS_EXPR,
-				   sizetype, fold_convert (sizetype, s),
-				   fold_convert
-				     (sizetype, OMP_CLAUSE_DECL (c)));
 	      if (s == error_mark_node)
 		s = size_one_node;
+	      else
+		s = fold_build2_loc (OMP_CLAUSE_LOCATION (c), MINUS_EXPR,
+				     sizetype, fold_convert (sizetype, s),
+				     fold_convert
+				       (sizetype, OMP_CLAUSE_DECL (c)));
 	      OMP_CLAUSE_LINEAR_STEP (c) = s;
 	    }
 	  else
@@ -14211,15 +14218,15 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 		      tree t2 = pointer_int_sum (OMP_CLAUSE_LOCATION (c),
 						 neg ? MINUS_EXPR : PLUS_EXPR,
 						 decl, offset);
-		      t2 = fold_build2_loc (OMP_CLAUSE_LOCATION (c), MINUS_EXPR,
-					    sizetype,
-					    fold_convert (sizetype, t2),
-					    fold_convert (sizetype, decl));
 		      if (t2 == error_mark_node)
 			{
 			  remove = true;
 			  break;
 			}
+		      t2 = fold_build2_loc (OMP_CLAUSE_LOCATION (c), MINUS_EXPR,
+					    sizetype,
+					    fold_convert (sizetype, t2),
+					    fold_convert (sizetype, decl));
 		      TREE_PURPOSE (t) = t2;
 		    }
 		}
