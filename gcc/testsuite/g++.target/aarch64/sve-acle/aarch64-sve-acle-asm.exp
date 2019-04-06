@@ -46,16 +46,16 @@ if { [info exists gcc_runtest_parallelize_limit_minor] } {
 
 torture-init
 set-torture-options {
-    "-std=c++98 -O0"
-    "-std=c++98 -O2"
-    "-std=c++11 -O2"
-    "-std=c++14 -O2"
-    "-std=c++17 -O2"
-    "-std=c++2a -O2"
+    "-std=c++98 -O0 -g"
+    "-std=c++98 -O2 -g"
+    "-std=c++11 -O2 -g"
+    "-std=c++14 -O2 -g"
+    "-std=c++17 -O2 -g"
+    "-std=c++2a -O2 -g"
     "-std=gnu++98 -O2 -DCHECK_ASM"
-    "-std=gnu++11 -O2"
-    "-std=gnu++17 -O2"
-    "-std=gnu++2a -O2"
+    "-std=gnu++11 -O2 -g"
+    "-std=gnu++17 -O2 -g"
+    "-std=gnu++2a -O2 -g"
 } {
     "-DTEST_FULL"
     "-DTEST_OVERLOADS"

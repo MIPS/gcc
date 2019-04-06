@@ -18564,6 +18564,24 @@ loc_list_from_tree_1 (tree loc, int want_address,
 	}
       break;
 
+    case POLY_INT_CST:
+      {
+	if (want_address)
+	  {
+	    expansion_failed (loc, NULL_RTX,
+			      "constant address with a runtime component");
+	    return 0;
+	  }
+	poly_int64 value;
+	if (!poly_int_tree_p (loc, &value))
+	  {
+	    expansion_failed (loc, NULL_RTX, "constant too big");
+	    return 0;
+	  }
+	ret = int_loc_descriptor (value);
+      }
+      break;
+
     case CONSTRUCTOR:
     case REAL_CST:
     case STRING_CST:

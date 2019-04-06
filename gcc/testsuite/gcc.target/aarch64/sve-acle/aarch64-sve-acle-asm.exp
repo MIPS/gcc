@@ -46,13 +46,13 @@ if { [info exists gcc_runtest_parallelize_limit_minor] } {
 
 torture-init
 set-torture-options {
-    "-std=c90 -O0"
-    "-std=c90 -O2"
-    "-std=c99 -O2"
-    "-std=c11 -O2"
+    "-std=c90 -O0 -g"
+    "-std=c90 -O2 -g"
+    "-std=c99 -O2 -g"
+    "-std=c11 -O2 -g"
     "-std=gnu90 -O2 -DCHECK_ASM"
-    "-std=gnu99 -O2"
-    "-std=gnu11 -O2"
+    "-std=gnu99 -O2 -g"
+    "-std=gnu11 -O2 -g"
 } {
     "-DTEST_FULL"
     "-DTEST_OVERLOADS"
