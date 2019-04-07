@@ -3748,6 +3748,11 @@ combine_and_move_insns (void)
   auto_bitmap cleared_regs;
   int max = max_reg_num ();
 
+  /* Don't move insns if register pressure-sensitive scheduling was
+     done because it will not improve allocation but likely worsen insn
+     scheduling.  */
+  bool allow_move_p = !(flag_sched_pressure && flag_schedule_insns);
+
   for (int regno = FIRST_PSEUDO_REGISTER; regno < max; regno++)
     {
       if (!reg_equiv[regno].replace)
@@ -3829,7 +3834,7 @@ combine_and_move_insns (void)
 
       /* Move the initialization of the register to just before
 	 USE_INSN.  Update the flow information.  */
-      else if (prev_nondebug_insn (use_insn) != def_insn)
+      else if (allow_move_p && prev_nondebug_insn (use_insn) != def_insn)
 	{
 	  rtx_insn *new_insn;
 
@@ -5301,12 +5306,8 @@ ira (FILE *f)
   reg_equiv = XCNEWVEC (struct equivalence, max_reg_num ());
   update_equiv_regs ();
 
-  /* Don't move insns if live range shrinkage or register
-     pressure-sensitive scheduling were done because it will not
-     improve allocation but likely worsen insn scheduling.  */
-  if (optimize
-      && !flag_live_range_shrinkage
-      && !(flag_sched_pressure && flag_schedule_insns))
+  /* This subpass could undo the effects of live range shrinkage.  */
+  if (optimize && !flag_live_range_shrinkage)
     combine_and_move_insns ();
 
   /* Gather additional equivalences with memory.  */

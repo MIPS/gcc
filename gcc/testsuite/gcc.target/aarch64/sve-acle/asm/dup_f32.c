@@ -44,8 +44,7 @@ TEST_UNIFORM_Z (dup_512_f32, svfloat32_t,
 ** dup_513_f32:
 **	mov	(w[0-7]+), 16384
 **	movk	\1, 0x4400, lsl 16
-**	fmov	(s[0-7]+), \1
-**	mov	z0\.s, \2
+**	mov	z0\.s, \1
 **	ret
 */
 TEST_UNIFORM_Z (dup_513_f32, svfloat32_t,
@@ -228,8 +227,7 @@ TEST_UNIFORM_Z (dup_512_f32_x, svfloat32_t,
 ** dup_513_f32_x:
 **	mov	(w[0-7]+), 16384
 **	movk	\1, 0x4400, lsl 16
-**	fmov	(s[0-7]+), \1
-**	mov	z0\.s, \2
+**	mov	z0\.s, \1
 **	ret
 */
 TEST_UNIFORM_Z (dup_513_f32_x, svfloat32_t,
