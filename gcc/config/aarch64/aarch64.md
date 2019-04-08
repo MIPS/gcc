@@ -1231,14 +1231,24 @@
         && ! (GET_CODE (operands[1]) == CONST_DOUBLE
 	      && aarch64_float_const_zero_rtx_p (operands[1])))
       operands[1] = force_reg (<MODE>mode, operands[1]);
+
+    if (aarch64_move_float_via_int_p (operands[1]))
+      {
+	rtx imm = simplify_gen_subreg (<FCVT_TARGET>mode, operands[1],
+				       <MODE>mode, 0);
+	rtx tmp = force_reg (<FCVT_TARGET>mode, imm);
+	operands[1] = gen_lowpart (<MODE>mode, tmp);
+      }
   }
 )
 
 (define_insn "*movhf_aarch64"
   [(set (match_operand:HF 0 "nonimmediate_operand" "=w,w  , w,?r,w,w  ,w  ,w,m,r,m ,r")
 	(match_operand:HF 1 "general_operand"      "Y ,?rY,?r, w,w,Ufc,Uvi,m,w,m,rY,r"))]
-  "TARGET_FLOAT && (register_operand (operands[0], HFmode)
-    || aarch64_reg_or_fp_zero (operands[1], HFmode))"
+  "TARGET_FLOAT
+   && (register_operand (operands[0], HFmode)
+       || aarch64_reg_or_fp_zero (operands[1], HFmode))
+   && !aarch64_move_float_via_int_p (operands[1])"
   "@
    movi\\t%0.4h, #0
    fmov\\t%h0, %w1
@@ -1260,8 +1270,10 @@
 (define_insn "*movsf_aarch64"
   [(set (match_operand:SF 0 "nonimmediate_operand" "=w,w  ,?r,w,w  ,w  ,w,m,r,m ,r,r")
 	(match_operand:SF 1 "general_operand"      "Y ,?rY, w,w,Ufc,Uvi,m,w,m,rY,r,M"))]
-  "TARGET_FLOAT && (register_operand (operands[0], SFmode)
-    || aarch64_reg_or_fp_zero (operands[1], SFmode))"
+  "TARGET_FLOAT
+   && (register_operand (operands[0], SFmode)
+       || aarch64_reg_or_fp_zero (operands[1], SFmode))
+   && !aarch64_move_float_via_int_p (operands[1])"
   "@
    movi\\t%0.2s, #0
    fmov\\t%s0, %w1
@@ -1284,8 +1296,10 @@
 (define_insn "*movdf_aarch64"
   [(set (match_operand:DF 0 "nonimmediate_operand" "=w, w  ,?r,w,w  ,w  ,w,m,r,m ,r,r")
 	(match_operand:DF 1 "general_operand"      "Y , ?rY, w,w,Ufc,Uvi,m,w,m,rY,r,N"))]
-  "TARGET_FLOAT && (register_operand (operands[0], DFmode)
-    || aarch64_reg_or_fp_zero (operands[1], DFmode))"
+  "TARGET_FLOAT
+   && (register_operand (operands[0], DFmode)
+       || aarch64_reg_or_fp_zero (operands[1], DFmode))
+   && !aarch64_move_float_via_int_p (operands[1])"
   "@
    movi\\t%d0, #0
    fmov\\t%d0, %x1
@@ -1303,26 +1317,6 @@
 		     f_loadd,f_stored,load_8,store_8,mov_reg,\
 		     fconstd")
    (set_attr "arch" "simd,*,*,*,*,simd,*,*,*,*,*,*")]
-)
-
-(define_split
-  [(set (match_operand:GPF_HF 0 "nonimmediate_operand")
-	(match_operand:GPF_HF 1 "general_operand"))]
-  "can_create_pseudo_p ()
-   && !aarch64_can_const_movi_rtx_p (operands[1], <MODE>mode)
-   && !aarch64_float_const_representable_p (operands[1])
-   &&  aarch64_float_const_rtx_p (operands[1])"
-  [(const_int 0)]
-  {
-    unsigned HOST_WIDE_INT ival;
-    if (!aarch64_reinterpret_float_as_int (operands[1], &ival))
-      FAIL;
-
-    rtx tmp = gen_reg_rtx (<FCVT_TARGET>mode);
-    emit_move_insn (tmp, gen_int_mode (ival, <FCVT_TARGET>mode));
-    emit_move_insn (operands[0], gen_lowpart (<MODE>mode, tmp));
-    DONE;
-  }
 )
 
 (define_insn "*movtf_aarch64"

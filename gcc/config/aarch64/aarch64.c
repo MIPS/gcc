@@ -3250,6 +3250,22 @@ aarch64_expand_sve_const_vector (rtx dest, rtx src)
   gcc_assert (vectors[0] == dest);
 }
 
+/* Return true if floating-point value SRC should be moved into an
+   integer register first and then moved into a floating-point register.
+   This means that SRC is a constant that cannot be moved directly into
+   floating-point registers but assembling it in integer registers is
+   better than forcing it to memory.  */
+bool
+aarch64_move_float_via_int_p (rtx src)
+{
+  return (GET_MODE (src) != TFmode
+	  && GET_CODE (src) == CONST_DOUBLE
+	  && can_create_pseudo_p ()
+	  && !aarch64_can_const_movi_rtx_p (src, GET_MODE (src))
+	  && !aarch64_float_const_representable_p (src)
+	  && aarch64_float_const_rtx_p (src));
+}
+
 /* Set DEST to immediate IMM.  For SVE vector modes, GEN_VEC_DUPLICATE
    is a pattern that can be used to set DEST to a replicated scalar
    element.  */
