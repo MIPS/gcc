@@ -1,3 +1,90 @@
+2019-04-08  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/89914
+	* semantics.c (trait_expr_value): Don't use TYPE_NOTHROW_P
+	when maybe_instantiate_noexcept fails.
+	(classtype_has_nothrow_assign_or_copy_p): Likewise.
+	* method.c (implicitly_declare_fn): Avoid passing error_mark_node
+	to build_exception_variant.
+
+2019-04-05  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/87145 - bogus error converting class type in template arg list.
+	* pt.c (convert_nontype_argument): Don't call
+	build_converted_constant_expr if it could involve calling a conversion
+	function with a instantiation-dependent constructor as its argument.
+
+2019-04-05  Martin Sebor  <msebor@redhat.com>
+
+	PR bootstrap/89980
+	* decl.c (reshape_init_array_1): Avoid treating empty strings
+	as zeros in array initializers.
+	Use trivial_type_p () instead of TYPE_HAS_TRIVIAL_DFLT().
+
+2019-04-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/89948 - ICE with break in statement-expr.
+	* constexpr.c (cxx_eval_statement_list): Jumping out of a
+	statement-expr is non-constant.
+
+2019-04-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/89966 - error with non-type auto tparm.
+	* pt.c (do_auto_deduction): Clear tf_partial.
+
+2019-04-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/86986 - ICE with TTP with parameter pack.
+	* pt.c (coerce_template_parameter_pack): Only look at the type of a
+	non-type parameter pack.
+	(fixed_parameter_pack_p_1): Don't recurse into the type of a
+	non-type parameter pack.
+	(coerce_template_template_parms): Call add_outermost_template_args.
+
+2019-04-04  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/89974
+	PR c++/89878
+	PR c++/89833
+	PR c++/47488
+	* decl.c (reshape_init_array_1): Strip trailing zero-initializers
+	from arrays of trivial type and known size.
+        * mangle.c (write_expression): Convert braced initializer lists
+        to STRING_CSTs.
+	(write_expression): Trim trailing zero-initializers from arrays
+	of trivial type.
+        (write_template_arg_literal): Mangle strings the same as braced
+        initializer lists.
+
+2019-04-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/81866 - ICE with member template and default targ.
+	* pt.c (tsubst_template_decl): Handle getting a type from
+	retrieve_specialization.
+
+	PR c++/86586 - -fcompare-debug=-Wsign-compare.
+	* typeck.c (cp_build_binary_op): Don't fold for -Wsign-compare.
+
+	PR c++/89331 - ICE with offsetof in incomplete class.
+	* semantics.c (finish_offsetof): Handle error_mark_node.
+	* typeck.c (build_class_member_access_expr): Call
+	complete_type_or_maybe_complain before converting to base.
+
+	PR c++/89917 - ICE with lambda in variadic mem-init.
+	* pt.c (make_pack_expansion): Change type_pack_expansion_p to false.
+
+2019-04-01  Jason Merrill  <jason@redhat.com>
+
+	PR c++/86946 - ICE with function call in template argument.
+	DR 1321
+	* pt.c (iterative_hash_template_arg) [CALL_EXPR]: Use
+	dependent_name.
+
+2019-04-01  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/62207
+	* pt.c (tsubst_copy): Deal with lookup_name not returing a variable.
+
 2019-03-31  Marek Polacek  <polacek@redhat.com>
 
 	PR c++/89852 - ICE with C++11 functional cast with { }.

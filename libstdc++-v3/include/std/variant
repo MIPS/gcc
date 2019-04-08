@@ -138,7 +138,7 @@ namespace __variant
     constexpr variant_alternative_t<_Np, variant<_Types...>> const&&
     get(const variant<_Types...>&&);
 
-  template<typename _Visitor, typename... _Variants>
+  template<bool __use_index=false, typename _Visitor, typename... _Variants>
     constexpr decltype(auto)
     __do_visit(_Visitor&& __visitor, _Variants&&... __variants);
 
@@ -175,6 +175,10 @@ namespace __variant
 
   // used for raw visitation
   struct __variant_cookie {};
+  // used for raw visitation with indices passed in
+  struct __variant_idx_cookie {};
+  // a more explanatory name than 'true'
+  inline constexpr auto __visit_with_index = bool_constant<true>{};
 
   // _Uninitialized<T> is guaranteed to be a literal type, even if T is not.
   // We have to do this, because [basic.types]p10.5.3 (n4606) is not implemented
@@ -323,11 +327,31 @@ namespace __variant
       _Variadic_union<_Rest...> _M_rest;
     };
 
+  // _Never_valueless_alt is true for variant alternatives that can
+  // always be placed in a variant without it becoming valueless.
+
+  // For suitably-small, trivially copyable types we can create temporaries
+  // on the stack and then memcpy them into place.
+  template<typename _Tp>
+    struct _Never_valueless_alt
+    : __and_<bool_constant<sizeof(_Tp) <= 256>, is_trivially_copyable<_Tp>>
+    { };
+
+  // Specialize _Never_valueless_alt for other types which have a
+  // non-throwing and cheap move assignment operator, so that emplacing
+  // the type will provide the strong exception-safety guarantee,
+  // by creating and moving a temporary.
+  // Whether _Never_valueless_alt<T> is true or not affects the ABI of a
+  // variant using that alternative, so we can't change the value later!
+
+  // True if every alternative in _Types... can be emplaced in a variant
+  // without it becoming valueless. If this is true, variant<_Types...>
+  // can never be valueless, which enables some minor optimizations.
   template <typename... _Types>
-  constexpr bool __never_valueless()
-  {
-    return (is_trivially_copyable_v<_Types> && ...);
-  }
+    constexpr bool __never_valueless()
+    {
+      return (_Never_valueless_alt<_Types>::value && ...);
+    }
 
   // Defines index and the dtor, possibly trivial.
   template<bool __trivially_destructible, typename... _Types>
@@ -570,46 +594,44 @@ namespace __variant
       operator=(const _Copy_assign_base& __rhs)
 	  noexcept(_Traits<_Types...>::_S_nothrow_copy_assign)
       {
-	__do_visit([this, &__rhs](auto&& __this_mem, auto&& __rhs_mem) mutable
-		   -> __detail::__variant::__variant_cookie
+	__do_visit<__visit_with_index>([this](auto&& __rhs_mem,
+					      auto __rhs_index) mutable
+	    -> __detail::__variant::__variant_idx_cookie
 	  {
-	    if constexpr (is_same_v<
-			    remove_reference_t<decltype(__this_mem)>,
-			    remove_reference_t<decltype(__rhs_mem)>>)
+	    if constexpr (__rhs_index != variant_npos)
 	      {
-		if constexpr (!is_same_v<
-			        remove_reference_t<decltype(__rhs_mem)>,
-			        __variant_cookie>)
-		  __this_mem = __rhs_mem;
-	      }
-	    else
-	      {
-		if constexpr (!is_same_v<
-			        remove_reference_t<decltype(__rhs_mem)>,
-			        __variant_cookie>)
+		if (this->_M_index == __rhs_index)
 		  {
-		    using __rhs_type =
-		      remove_reference_t<decltype(__rhs_mem)>;
-		    if constexpr (is_nothrow_copy_constructible_v<__rhs_type>
-		      || !is_nothrow_move_constructible_v<__rhs_type>)
+		    if constexpr (__rhs_index != variant_npos)
 		      {
-			this->_M_destructive_copy(__rhs._M_index, __rhs_mem);
-		      }
-		    else
-		      {
-			auto __tmp(__rhs_mem);
-			this->_M_destructive_move(__rhs._M_index,
-						  std::move(__tmp));
+			auto& __this_mem =
+			  __variant::__get<__rhs_index>(*this);
+			if constexpr (is_same_v<
+				      remove_reference_t<decltype(__this_mem)>,
+				      remove_reference_t<decltype(__rhs_mem)>>)
+			  __this_mem = __rhs_mem;
 		      }
 		  }
 		else
 		  {
-		    this->_M_reset();
+		    using __rhs_type =
+		      remove_reference_t<decltype(__rhs_mem)>;
+		    if constexpr
+		      (is_nothrow_copy_constructible_v<__rhs_type>
+		       || !is_nothrow_move_constructible_v<__rhs_type>)
+			this->_M_destructive_copy(__rhs_index, __rhs_mem);
+		    else
+		      {
+			auto __tmp(__rhs_mem);
+			this->_M_destructive_move(__rhs_index,
+						  std::move(__tmp));
+		      }
 		  }
 	      }
-	  return {};
-	}, __variant_cast<_Types...>(*this), __variant_cast<_Types...>(__rhs));
-	__glibcxx_assert(this->_M_index == __rhs._M_index);
+	    else
+	      this->_M_reset();
+	    return {};
+	  }, __variant_cast<_Types...>(__rhs));
 	return *this;
       }
 
@@ -641,26 +663,32 @@ namespace __variant
       operator=(_Move_assign_base&& __rhs)
 	  noexcept(_Traits<_Types...>::_S_nothrow_move_assign)
       {
-	__do_visit([this, &__rhs](auto&& __this_mem, auto&& __rhs_mem) mutable
-		   -> __detail::__variant::__variant_cookie
+	__do_visit<__visit_with_index>([this](auto&& __rhs_mem,
+					      auto __rhs_index) mutable
+	    -> __detail::__variant::__variant_idx_cookie
 	  {
-	    if constexpr (is_same_v<
-			    remove_reference_t<decltype(__this_mem)>,
-			    remove_reference_t<decltype(__rhs_mem)>>)
+	    if constexpr (__rhs_index != variant_npos)
 	      {
-		if constexpr (!is_same_v<
-			        remove_reference_t<decltype(__rhs_mem)>,
-			        __variant_cookie>)
-		  __this_mem = std::move(__rhs_mem);
+		if (this->_M_index == __rhs_index)
+		  {
+		    if constexpr (__rhs_index != variant_npos)
+		      {
+			auto& __this_mem =
+			  __variant::__get<__rhs_index>(*this);
+			if constexpr (is_same_v<
+				      remove_reference_t<decltype(__this_mem)>,
+				      remove_reference_t<decltype(__rhs_mem)>>)
+			  __this_mem = std::move(__rhs_mem);
+		      }
+		  }
+		else
+		  this->_M_destructive_move(__rhs_index,
+					    std::move(__rhs_mem));
 	      }
 	    else
-	      {
-		auto __tmp(std::move(__rhs_mem));
-		this->_M_destructive_move(__rhs._M_index, std::move(__tmp));
-	      }
-	  return {};
-	}, __variant_cast<_Types...>(*this), __variant_cast<_Types...>(__rhs));
-	__glibcxx_assert(this->_M_index == __rhs._M_index);
+	      this->_M_reset();
+	    return {};
+	  }, __variant_cast<_Types...>(__rhs));
 	return *this;
       }
 
@@ -768,18 +796,19 @@ namespace __variant
     { return __v._M_storage(); }
 
   template <typename _Maybe_variant_cookie, typename _Variant>
-  struct _Extra_visit_slot_needed
-  {
-    template <typename> struct _Variant_never_valueless;
+    struct _Extra_visit_slot_needed
+    {
+      template <typename> struct _Variant_never_valueless;
 
-    template <typename... _Types>
-    struct _Variant_never_valueless<variant<_Types...>>
-      : bool_constant<__never_valueless<_Types...>()> {};
+      template <typename... _Types>
+	struct _Variant_never_valueless<variant<_Types...>>
+	: bool_constant<__never_valueless<_Types...>()> {};
 
-    static constexpr bool value =
-      is_same_v<_Maybe_variant_cookie, __variant_cookie>
-      && !_Variant_never_valueless<__remove_cvref_t<_Variant>>::value;
-  };
+      static constexpr bool value =
+	(is_same_v<_Maybe_variant_cookie, __variant_cookie>
+	 || is_same_v<_Maybe_variant_cookie, __variant_idx_cookie>)
+	&& !_Variant_never_valueless<__remove_cvref_t<_Variant>>::value;
+    };
 
   // Used for storing multi-dimensional vtable.
   template<typename _Tp, size_t... _Dimensions>
@@ -925,7 +954,13 @@ namespace __variant
       static constexpr decltype(auto)
       __visit_invoke(_Visitor&& __visitor, _Variants... __vars)
       {
-	return std::__invoke(std::forward<_Visitor>(__visitor),
+	if constexpr (is_same_v<_Result_type, __variant_idx_cookie>)
+	  return std::__invoke(std::forward<_Visitor>(__visitor),
+	    __element_by_index_or_cookie<__indices>(
+	      std::forward<_Variants>(__vars))...,
+	      integral_constant<size_t, __indices>()...);
+	else
+	  return std::__invoke(std::forward<_Visitor>(__visitor),
 	    __element_by_index_or_cookie<__indices>(
 	      std::forward<_Variants>(__vars))...);
       }
@@ -1082,25 +1117,25 @@ namespace __variant
 				 const variant<_Types...>& __rhs) \
     { \
       bool __ret = true; \
-      __do_visit([&__ret, &__lhs, __rhs] \
-		 (auto&& __this_mem, auto&& __rhs_mem) mutable	\
-		   -> __detail::__variant::__variant_cookie \
+      __do_visit<__detail::__variant::__visit_with_index>( \
+        [&__ret, &__lhs, __rhs] \
+		 (auto&& __rhs_mem, auto __rhs_index) mutable \
+		   -> __detail::__variant::__variant_idx_cookie \
         { \
-	  if constexpr (!is_same_v< \
-			  remove_reference_t<decltype(__this_mem)>, \
-			  remove_reference_t<decltype(__rhs_mem)>> \
-			|| is_same_v<decltype(__this_mem), \
-			             __detail::__variant::__variant_cookie>) \
-	    __ret = (__lhs.index() + 1) __OP (__rhs.index() + 1); \
-	  else if constexpr (is_same_v< \
-			       remove_reference_t<decltype(__this_mem)>, \
-			       remove_reference_t<decltype(__rhs_mem)>> \
-                             && !is_same_v< \
-	                          remove_reference_t<decltype(__this_mem)>, \
-				  __detail::__variant::__variant_cookie>) \
-	    __ret = __this_mem __OP __rhs_mem; \
+	  if constexpr (__rhs_index != variant_npos) \
+	    { \
+	      if (__lhs.index() == __rhs_index) \
+	        { \
+		  auto& __this_mem = std::get<__rhs_index>(__lhs);	\
+                  __ret = __this_mem __OP __rhs_mem; \
+                } \
+	      else \
+		__ret = (__lhs.index() + 1) __OP (__rhs_index + 1); \
+            } \
+          else \
+            __ret = (__lhs.index() + 1) __OP (__rhs_index + 1); \
 	  return {}; \
-	}, __lhs, __rhs); \
+	}, __rhs); \
       return __ret; \
     } \
 \
@@ -1228,7 +1263,7 @@ namespace __variant
 	noexcept(is_nothrow_constructible_v<__accepted_type<_Tp&&>, _Tp&&>)
 	: variant(in_place_index<__accepted_index<_Tp&&>>,
 		  std::forward<_Tp>(__t))
-	{ __glibcxx_assert(holds_alternative<__accepted_type<_Tp&&>>(*this)); }
+	{ }
 
       template<typename _Tp, typename... _Args,
 	       typename = enable_if_t<__exactly_once<_Tp>
@@ -1237,7 +1272,7 @@ namespace __variant
 	variant(in_place_type_t<_Tp>, _Args&&... __args)
 	: variant(in_place_index<__index_of<_Tp>>,
 		  std::forward<_Args>(__args)...)
-	{ __glibcxx_assert(holds_alternative<_Tp>(*this)); }
+	{ }
 
       template<typename _Tp, typename _Up, typename... _Args,
 	       typename = enable_if_t<__exactly_once<_Tp>
@@ -1248,7 +1283,7 @@ namespace __variant
 		_Args&&... __args)
 	: variant(in_place_index<__index_of<_Tp>>, __il,
 		  std::forward<_Args>(__args)...)
-	{ __glibcxx_assert(holds_alternative<_Tp>(*this)); }
+	{ }
 
       template<size_t _Np, typename... _Args,
 	       typename = enable_if_t<
@@ -1257,7 +1292,7 @@ namespace __variant
 	variant(in_place_index_t<_Np>, _Args&&... __args)
 	: _Base(in_place_index<_Np>, std::forward<_Args>(__args)...),
 	_Default_ctor_enabler(_Enable_default_constructor_tag{})
-	{ __glibcxx_assert(index() == _Np); }
+	{ }
 
       template<size_t _Np, typename _Up, typename... _Args,
 	       typename = enable_if_t<is_constructible_v<__to_type<_Np>,
@@ -1267,7 +1302,7 @@ namespace __variant
 		_Args&&... __args)
 	: _Base(in_place_index<_Np>, __il, std::forward<_Args>(__args)...),
 	_Default_ctor_enabler(_Enable_default_constructor_tag{})
-	{ __glibcxx_assert(index() == _Np); }
+	{ }
 
       template<typename _Tp>
 	enable_if_t<__exactly_once<__accepted_type<_Tp&&>>
@@ -1283,7 +1318,6 @@ namespace __variant
 	    std::get<__index>(*this) = std::forward<_Tp>(__rhs);
 	  else
 	    this->emplace<__index>(std::forward<_Tp>(__rhs));
-	  __glibcxx_assert(holds_alternative<__accepted_type<_Tp&&>>(*this));
 	  return *this;
 	}
 
@@ -1292,10 +1326,8 @@ namespace __variant
 		    _Tp&>
 	emplace(_Args&&... __args)
 	{
-	  auto& ret =
-	    this->emplace<__index_of<_Tp>>(std::forward<_Args>(__args)...);
-	  __glibcxx_assert(holds_alternative<_Tp>(*this));
-	  return ret;
+	  constexpr size_t __index = __index_of<_Tp>;
+	  return this->emplace<__index>(std::forward<_Args>(__args)...);
 	}
 
       template<typename _Tp, typename _Up, typename... _Args>
@@ -1304,11 +1336,8 @@ namespace __variant
 		    _Tp&>
 	emplace(initializer_list<_Up> __il, _Args&&... __args)
 	{
-	  auto& ret =
-	    this->emplace<__index_of<_Tp>>(__il,
-					   std::forward<_Args>(__args)...);
-	  __glibcxx_assert(holds_alternative<_Tp>(*this));
-	  return ret;
+	  constexpr size_t __index = __index_of<_Tp>;
+	  return this->emplace<__index>(__il, std::forward<_Args>(__args)...);
 	}
 
       template<size_t _Np, typename... _Args>
@@ -1320,33 +1349,46 @@ namespace __variant
 	  static_assert(_Np < sizeof...(_Types),
 			"The index should be in [0, number of alternatives)");
 	  using type = variant_alternative_t<_Np, variant>;
-	  // If constructing the value can throw but move assigning it can't,
-	  // construct in a temporary and then move assign from it. This gives
-	  // the strong exception safety guarantee, ensuring we never become
-	  // valueless.
-	  if constexpr (is_trivially_copyable_v<type>
-	      && !is_nothrow_constructible_v<type, _Args...>)
+	  // Provide the strong exception-safety guarantee when possible,
+	  // to avoid becoming valueless.
+	  if constexpr (is_nothrow_constructible_v<type, _Args...>)
 	    {
-	      // If move assignment cannot throw then we can provide the
-	      // strong exception safety guarantee, and never become valueless.
+	      this->_M_reset();
+	      __variant_construct_by_index<_Np>(*this,
+		  std::forward<_Args>(__args)...);
+	    }
+	  else if constexpr (is_scalar_v<type>)
+	    {
+	      // This might invoke a potentially-throwing conversion operator:
+	      const type __tmp(std::forward<_Args>(__args)...);
+	      // But these steps won't throw:
+	      this->_M_reset();
+	      __variant_construct_by_index<_Np>(*this, __tmp);
+	    }
+	  else if constexpr (__detail::__variant::_Never_valueless_alt<type>())
+	    {
+	      // This construction might throw:
 	      variant __tmp(in_place_index<_Np>,
 			    std::forward<_Args>(__args)...);
+	      // But _Never_valueless_alt<type> means this won't:
 	      *this = std::move(__tmp);
-	      return std::get<_Np>(*this);
 	    }
-
-	  this->_M_reset();
-	  __try
+	  else
 	    {
-	      __variant_construct_by_index<_Np>(*this,
-	        std::forward<_Args>(__args)...);
+	      // This case only provides the basic exception-safety guarantee,
+	      // i.e. the variant can become valueless.
+	      this->_M_reset();
+	      __try
+		{
+		  __variant_construct_by_index<_Np>(*this,
+		    std::forward<_Args>(__args)...);
+		}
+	      __catch (...)
+		{
+		  this->_M_index = variant_npos;
+		  __throw_exception_again;
+		}
 	    }
-	  __catch (...)
-	    {
-	      this->_M_index = variant_npos;
-	      __throw_exception_again;
-	    }
-	  __glibcxx_assert(index() == _Np);
 	  return std::get<_Np>(*this);
 	}
 
@@ -1359,30 +1401,40 @@ namespace __variant
 	  static_assert(_Np < sizeof...(_Types),
 			"The index should be in [0, number of alternatives)");
 	  using type = variant_alternative_t<_Np, variant>;
-	  if constexpr (is_trivially_copyable_v<type>
-	      && !is_nothrow_constructible_v<type, initializer_list<_Up>,
-					     _Args...>)
+	  // Provide the strong exception-safety guarantee when possible,
+	  // to avoid becoming valueless.
+	  if constexpr (is_nothrow_constructible_v<type,
+						   initializer_list<_Up>&,
+						   _Args...>)
 	    {
-	      // If move assignment cannot throw then we can provide the
-	      // strong exception safety guarantee, and never become valueless.
+	      this->_M_reset();
+	      __variant_construct_by_index<_Np>(*this, __il,
+		  std::forward<_Args>(__args)...);
+	    }
+	  else if constexpr (__detail::__variant::_Never_valueless_alt<type>())
+	    {
+	      // This construction might throw:
 	      variant __tmp(in_place_index<_Np>, __il,
 			    std::forward<_Args>(__args)...);
+	      // But _Never_valueless_alt<type> means this won't:
 	      *this = std::move(__tmp);
-	      return std::get<_Np>(*this);
 	    }
-
-	  this->_M_reset();
-	  __try
+	  else
 	    {
-	      __variant_construct_by_index<_Np>(*this, __il,
-		std::forward<_Args>(__args)...);
+	      // This case only provides the basic exception-safety guarantee,
+	      // i.e. the variant can become valueless.
+	      this->_M_reset();
+	      __try
+		{
+		  __variant_construct_by_index<_Np>(*this, __il,
+		    std::forward<_Args>(__args)...);
+		}
+	      __catch (...)
+		{
+		  this->_M_index = variant_npos;
+		  __throw_exception_again;
+		}
 	    }
-	  __catch (...)
-	    {
-	      this->_M_index = variant_npos;
-	      __throw_exception_again;
-	    }
-	  __glibcxx_assert(index() == _Np);
 	  return std::get<_Np>(*this);
 	}
 
@@ -1402,51 +1454,47 @@ namespace __variant
       noexcept((__is_nothrow_swappable<_Types>::value && ...)
 	       && is_nothrow_move_constructible_v<variant>)
       {
-	__do_visit([this, &__rhs](auto&& __this_mem, auto&& __rhs_mem) mutable
-		   -> __detail::__variant::__variant_cookie
+	__do_visit<__detail::__variant::__visit_with_index>(
+	  [this, &__rhs](auto&& __rhs_mem,
+			 auto __rhs_index) mutable
+	    -> __detail::__variant::__variant_idx_cookie
 	  {
-	    if constexpr (is_same_v<
-			    remove_reference_t<decltype(__this_mem)>,
-			    remove_reference_t<decltype(__rhs_mem)>>)
+	    if constexpr (__rhs_index != variant_npos)
 	      {
-		if constexpr (!is_same_v<
-			        remove_reference_t<decltype(__rhs_mem)>,
-			        __detail::__variant::__variant_cookie>)
+		if (this->index() == __rhs_index)
 		  {
+		    auto& __this_mem =
+		      std::get<__rhs_index>(*this);
 		    using std::swap;
 		    swap(__this_mem, __rhs_mem);
+		  }
+		else
+		  {
+		    if (this->index() != variant_npos)
+		      {
+			auto __tmp(std::move(__rhs_mem));
+			__rhs = std::move(*this);
+			this->_M_destructive_move(__rhs_index,
+						  std::move(__tmp));
+		      }
+		    else
+		      {
+			this->_M_destructive_move(__rhs_index,
+						  std::move(__rhs_mem));
+			__rhs._M_reset();
+		      }
 		  }
 	      }
 	    else
 	      {
-		if constexpr (is_same_v<
-			        remove_reference_t<decltype(__this_mem)>,
-			        __detail::__variant::__variant_cookie>)
+		if (this->index() != variant_npos)
 		  {
-		    this->_M_destructive_move(__rhs.index(),
-					      std::move(__rhs_mem));
-		    __rhs._M_reset();
-		  }
-		else if constexpr (is_same_v<
-			             remove_reference_t<decltype(__rhs_mem)>,
-			             __detail::__variant::__variant_cookie>)
-		  {
-		    __rhs._M_destructive_move(this->index(),
-					      std::move(__this_mem));
+		    __rhs = std::move(*this);
 		    this->_M_reset();
 		  }
-		else
-		  {
-		    auto __tmp(std::move(__rhs_mem));
-		    auto __idx = __rhs.index();
-		    __rhs._M_destructive_move(this->index(),
-					      std::move(__this_mem));
-		    this->_M_destructive_move(__idx,
-					      std::move(__tmp));
-		  }
 	      }
-	  return {};
-	}, *this, __rhs);
+	    return {};
+	  }, __rhs);
       }
 
     private:
@@ -1523,13 +1571,25 @@ namespace __variant
       return __detail::__variant::__get<_Np>(std::move(__v));
     }
 
-  template<typename _Visitor, typename... _Variants>
+  template<bool __use_index, typename _Visitor, typename... _Variants>
+    decltype(auto)
+    __visitor_result_type(_Visitor&& __visitor, _Variants&&... __variants)
+    {
+      if constexpr(__use_index)
+        return __detail::__variant::__variant_idx_cookie{};
+      else
+	return std::forward<_Visitor>(__visitor)(
+	  std::get<0>(std::forward<_Variants>(__variants))...);
+    }
+
+  template<bool __use_index, typename _Visitor, typename... _Variants>
     constexpr decltype(auto)
     __do_visit(_Visitor&& __visitor, _Variants&&... __variants)
     {
       using _Result_type =
-	decltype(std::forward<_Visitor>(__visitor)(
-	    std::get<0>(std::forward<_Variants>(__variants))...));
+	decltype(__visitor_result_type<__use_index>(
+	           std::forward<_Visitor>(__visitor),
+	           std::forward<_Variants>(__variants)...));
 
       constexpr auto& __vtable = __detail::__variant::__gen_vtable<
 	_Result_type, _Visitor&&, _Variants&&...>::_S_vtable;
@@ -1549,6 +1609,23 @@ namespace __variant
       return __do_visit(std::forward<_Visitor>(__visitor),
 			std::forward<_Variants>(__variants)...);
     }
+
+#if __cplusplus > 201703L
+  template<typename _Res, typename _Visitor, typename... _Variants>
+    constexpr _Res
+    visit(_Visitor&& __visitor, _Variants&&... __variants)
+    {
+      if ((__variants.valueless_by_exception() || ...))
+	__throw_bad_variant_access("Unexpected index");
+
+      if constexpr (std::is_void_v<_Res>)
+	(void) __do_visit(std::forward<_Visitor>(__visitor),
+			  std::forward<_Variants>(__variants)...);
+      else
+	return __do_visit(std::forward<_Visitor>(__visitor),
+			  std::forward<_Variants>(__variants)...);
+    }
+#endif
 
   template<bool, typename... _Types>
     struct __variant_hash_call_base_impl
