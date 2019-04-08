@@ -1093,8 +1093,7 @@ create_parameter_descriptors (cgraph_node *node,
 	    fprintf (dump_file, " not a candidate, has zero or huge size\n");
 	  continue;
 	}
-      unsigned ttl = PARAM_VALUE (PARAM_SRA_MAX_TYPE_CHECK_STEPS);
-      if (type_internals_preclude_sra_p (type, &msg, &ttl))
+      if (type_internals_preclude_sra_p (type, &msg))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	      fprintf (dump_file, " not a candidate, %s\n", msg);

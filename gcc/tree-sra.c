@@ -664,21 +664,19 @@ disqualify_candidate (tree decl, const char *reason)
 }
 
 /* Return true iff the type contains a field or an element which does not allow
-   scalarization.  Before doing anything however, decrement *TTL and bail out
-   if it is zero.  */
+   scalarization.  Use VISITED_TYPES to avoid re-checking already checked
+   (sub-)types.  */
 
-bool
-type_internals_preclude_sra_p (tree type, const char **msg, unsigned *ttl)
+static bool
+type_internals_preclude_sra_p_1 (tree type, const char **msg,
+				 hash_set<tree> *visited_types)
 {
   tree fld;
   tree et;
 
-  --*ttl;
-  if (!*ttl)
-    {
-      *msg = "too many nested types to check";
-      return true;
-    }
+  if (visited_types->contains (type))
+    return false;
+  visited_types->add (type);
 
   switch (TREE_CODE (type))
     {
@@ -729,8 +727,8 @@ type_internals_preclude_sra_p (tree type, const char **msg, unsigned *ttl)
 	        return true;
 	      }
 
-	    if (AGGREGATE_TYPE_P (ft) && type_internals_preclude_sra_p (ft, msg,
-									ttl))
+	    if (AGGREGATE_TYPE_P (ft)
+	      && type_internals_preclude_sra_p_1 (ft, msg, visited_types))
 	      return true;
 	  }
 
@@ -745,7 +743,8 @@ type_internals_preclude_sra_p (tree type, const char **msg, unsigned *ttl)
 	  return true;
 	}
 
-      if (AGGREGATE_TYPE_P (et) && type_internals_preclude_sra_p (et, msg, ttl))
+      if (AGGREGATE_TYPE_P (et)
+	  && type_internals_preclude_sra_p_1 (et, msg, visited_types))
 	return true;
 
       return false;
@@ -754,6 +753,17 @@ type_internals_preclude_sra_p (tree type, const char **msg, unsigned *ttl)
       return false;
     }
 }
+
+/* Return true iff the type contains a field or an element which does not allow
+   scalarization.  */
+
+bool
+type_internals_preclude_sra_p (tree type, const char **msg)
+{
+  hash_set<tree> visited_types;
+  return type_internals_preclude_sra_p_1 (type, msg, &visited_types);
+}
+
 
 /* Allocate an access structure for BASE, OFFSET and SIZE, clear it, fill in
    the three fields.  Also add it to the vector of accesses corresponding to
@@ -1834,8 +1844,7 @@ maybe_add_sra_candidate (tree var)
       reject (var, "type size is zero");
       return false;
     }
-  unsigned ttl = PARAM_VALUE (PARAM_SRA_MAX_TYPE_CHECK_STEPS);
-  if (type_internals_preclude_sra_p (type, &msg, &ttl))
+  if (type_internals_preclude_sra_p (type, &msg))
     {
       reject (var, msg);
       return false;

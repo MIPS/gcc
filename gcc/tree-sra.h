@@ -19,7 +19,7 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-bool type_internals_preclude_sra_p (tree type, const char **msg, unsigned *ttl);
+bool type_internals_preclude_sra_p (tree type, const char **msg);
 
 /* Return true iff TYPE is stdarg va_list type (which early SRA and IPA-SRA
    should leave alone).  */
