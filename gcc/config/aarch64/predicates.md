@@ -149,7 +149,8 @@
 (define_predicate "aarch64_pluslong_operand"
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "aarch64_pluslong_immediate")
-       (match_operand 0 "aarch64_sve_addvl_addpl_immediate")))
+       (and (match_test "TARGET_SVE")
+	    (match_operand 0 "aarch64_sve_addvl_addpl_immediate"))))
 
 (define_predicate "aarch64_pluslong_or_poly_operand"
   (ior (match_operand 0 "aarch64_pluslong_operand")

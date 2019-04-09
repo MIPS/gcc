@@ -1738,7 +1738,7 @@
   * return aarch64_output_sve_addvl_addpl (operands[0], operands[1], operands[2]);"
   ;; The "alu_imm" type for ADDVL/ADDPL is just a placeholder.
   [(set_attr "type" "alu_imm,alu_sreg,neon_add,alu_imm,multiple,alu_imm")
-   (set_attr "arch" "*,*,simd,*,*,*")]
+   (set_attr "arch" "*,*,simd,*,*,sve")]
 )
 
 ;; zero_extend version of above
