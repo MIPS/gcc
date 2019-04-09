@@ -49,6 +49,9 @@ namespace aarch64_sve {
 /* Used to represent the default merge argument index for _m functions.  */
 const unsigned int DEFAULT_MERGE_ARGNO = ~0U;
 
+/* The maximum number of vectors in an ACLE tuple type.  */
+const unsigned int MAX_TUPLE_SIZE = 4;
+
 /* Enumerates the SVE predicate and (data) vector types, together called
    "vector types" for brevity.  */
 enum vector_type {
@@ -344,6 +347,8 @@ private:
   typedef void (arm_sve_h_builder::*function_signature)
     (const function_instance &, vec<tree> &);
 
+  void register_tuple_type (unsigned int, vector_type);
+
   void build_all (function_signature, const function_group &, function_mode,
 		  bool = false);
   void sig_inherent (const function_instance &, vec<tree> &);
@@ -412,6 +417,9 @@ private:
   tree require_form (function_mode, type_suffix,
 		     type_suffix = NUM_TYPE_SUFFIXES);
   tree lookup_form (function_mode, type_suffix, type_suffix);
+
+  tree get_vector_type (vector_type);
+  tree get_vector_type (type_suffix);
   tree get_argument_type (unsigned int);
   type_suffix get_type_suffix (vector_type);
 
@@ -696,7 +704,7 @@ static GTY(()) tree scalar_types[NUM_VECTOR_TYPES];
 static GTY(()) tree abi_vector_types[NUM_VECTOR_TYPES];
 
 /* Same, but with the arm_sve.h "sv..._t" name.  */
-static GTY(()) tree acle_vector_types[NUM_VECTOR_TYPES];
+static GTY(()) tree acle_vector_types[MAX_TUPLE_SIZE][NUM_VECTOR_TYPES];
 
 /* The list of all registered function decls, indexed by code.  */
 static GTY(()) vec<registered_function *, va_gc> *registered_functions;
@@ -709,6 +717,13 @@ static hash_table<registered_function_hasher> *function_table;
 /* True if we've already complained about attempts to use functions
    when the required feature is disabled.  */
 static bool reported_missing_feature_p;
+
+/* Return the ACLE type svbool_t.  */
+static tree
+get_svbool_t (void)
+{
+  return acle_vector_types[0][VECTOR_TYPE_svbool_t];
+}
 
 /* If TYPE is an ACLE vector type, return the associated vector_type,
    otherwise return NUM_VECTOR_TYPES.  */
@@ -848,7 +863,7 @@ function_instance::scalar_type (unsigned int i) const
 inline tree
 function_instance::vector_type (unsigned int i) const
 {
-  return acle_vector_types[type_suffixes[types[i]].type];
+  return acle_vector_types[0][type_suffixes[types[i]].type];
 }
 
 /* Return the quarter size vector type associated with type suffix I.  */
@@ -856,7 +871,7 @@ tree
 function_instance::quarter_vector_type (unsigned int i) const
 {
   type_suffix quarter_type = find_quarter_type_suffix (types[i]);
-  return acle_vector_types[type_suffixes[quarter_type].type];
+  return acle_vector_types[0][type_suffixes[quarter_type].type];
 }
 
 /* Return the quarter size scalar type associated with type suffix I.  */
@@ -925,7 +940,11 @@ arm_sve_h_builder::register_type (vector_type type)
   if (TREE_CODE (decl) == TYPE_DECL
       && TYPE_MAIN_VARIANT (TREE_TYPE (decl)) == vectype)
     vectype = TREE_TYPE (decl);
-  acle_vector_types[type] = vectype;
+  acle_vector_types[0][type] = vectype;
+
+  if (type != VECTOR_TYPE_svbool_t)
+    for (unsigned int i = 2; i <= MAX_TUPLE_SIZE; ++i)
+      register_tuple_type (i, type);
 }
 
 /* Define all functions associated with GROUP.  */
@@ -986,6 +1005,72 @@ arm_sve_h_builder::build (const function_group &group)
       build_all (&arm_sve_h_builder::sig_n_00, group, MODE_n, true);
       break;
     }
+}
+
+/* Register the tuple type that contains NVECTORS vectors of type TYPE.  */
+void
+arm_sve_h_builder::register_tuple_type (unsigned int nvectors,
+					vector_type type)
+{
+  tree tuple_type = lang_hooks.types.make_type (RECORD_TYPE);
+  TYPE_SIZELESS_P (tuple_type) = 1;
+
+  /* The contents of the type are opaque, so we can define them in any
+     way that maps to the correct ABI type.
+
+     Here we choose to use the same layout as for arm_neon.h, but with
+     "__val" instead of "val":
+
+        struct svfooxN_t { svfoo_t __val[N]; };
+
+     (It wouldn't be possible to write that directly in C or C++ for
+     sizeless types, but that's not a problem for this function.)
+
+     Using arrays simplifies the handling of svget and svset for variable
+     arguments.  */
+  tree vector_type = acle_vector_types[0][type];
+  tree array_type = build_array_type_nelts (vector_type, nvectors);
+  gcc_assert (VECTOR_MODE_P (TYPE_MODE (array_type))
+	      && TYPE_MODE_RAW (array_type) == TYPE_MODE (array_type)
+	      && TYPE_ALIGN (array_type) == 128);
+  tree field = build_decl (input_location, FIELD_DECL,
+			   get_identifier ("__val"), array_type);
+  DECL_FIELD_CONTEXT (field) = tuple_type;
+  TYPE_FIELDS (tuple_type) = field;
+
+  layout_type (tuple_type);
+  gcc_assert (VECTOR_MODE_P (TYPE_MODE (tuple_type))
+	      && TYPE_MODE_RAW (tuple_type) == TYPE_MODE (tuple_type)
+	      && TYPE_ALIGN (tuple_type) == 128);
+
+  /* Work out the structure name.  */
+  char buffer[sizeof ("svfloat64x4_t")];
+  const char *vector_type_name = vector_types[type].acle_name;
+  snprintf (buffer, sizeof (buffer), "%.*sx%d_t",
+	    (int) strlen (vector_type_name) - 2, vector_type_name, nvectors);
+
+  tree decl = build_decl (input_location, TYPE_DECL,
+			  get_identifier (buffer), tuple_type);
+  TYPE_NAME (tuple_type) = decl;
+  TYPE_STUB_DECL (tuple_type) = decl;
+  lang_hooks.decls.pushdecl (decl);
+  /* ??? Undo the effect of set_underlying_type for C.  The C frontend
+     doesn't recognize DECL as a built-in because (as intended) the decl has
+     a real location instead of BUILTINS_LOCATION.  The frontend therefore
+     treats the decl like a normal C "typedef struct foo foo;", expecting
+     the type for tag "struct foo" to have a dummy unnamed TYPE_DECL instead
+     of the named one we attached above.  It then sets DECL_ORIGINAL_TYPE on
+     the supposedly unnamed decl, creating a circularity that upsets
+     dwarf2out.
+
+     We don't want to follow the normal C model and create "struct foo"
+     tags for tuple types since (a) the types are supposed to be opaque
+     and (b) they couldn't be defined as a real struct anyway.  Treating
+     the TYPE_DECLs as "typedef struct foo foo;" without creating
+     "struct foo" would lead to confusing error messages.  */
+  DECL_ORIGINAL_TYPE (decl) = NULL_TREE;
+
+  acle_vector_types[nvectors - 1][type] = tuple_type;
 }
 
 /* Add a function instance for every type and predicate combination
@@ -1130,7 +1215,7 @@ arm_sve_h_builder::sig_00i (const function_instance& instance,
 {
   for (unsigned i = 0; i < 2; ++i)
     types.quick_push (instance.vector_type (0));
-  types.quick_push (acle_vector_types[VECTOR_TYPE_svuint64_t]);
+  types.quick_push (acle_vector_types[0][VECTOR_TYPE_svuint64_t]);
 }
 
 /* Describe the signature "sv<t0>_t svfoo[_n_t0](sv<t0>_t, uint64_t)"
@@ -1153,7 +1238,7 @@ arm_sve_h_builder::apply_predication (const function_instance &instance,
 {
   if (instance.pred != PRED_none)
     {
-      types.quick_insert (1, acle_vector_types[VECTOR_TYPE_svbool_t]);
+      types.quick_insert (1, get_svbool_t ());
       /* For unary merge operations, the first argument is a vector with
 	 the same type as the result.  */
       if (types.length () == 3 && instance.pred == PRED_m)
@@ -1630,7 +1715,7 @@ function_resolver::require_vector_type (unsigned int i)
 bool
 function_resolver::check_argument (unsigned int i, vector_type type)
 {
-  tree expected = acle_vector_types[type];
+  tree expected = get_vector_type (type);
   tree actual = get_argument_type (i);
   if (actual != error_mark_node
       && TYPE_MAIN_VARIANT (expected) != TYPE_MAIN_VARIANT (actual))
@@ -1656,8 +1741,8 @@ function_resolver::require_matching_type (unsigned int i, vector_type type)
     {
       error_at (m_location, "passing %qT to argument %d of %qE, but"
 		" previous arguments had type %qT",
-		acle_vector_types[new_type], i + 1, m_rfn.decl,
-		acle_vector_types[type]);
+		get_vector_type (new_type), i + 1, m_rfn.decl,
+		get_vector_type (type));
       return false;
     }
   return true;
@@ -1683,26 +1768,6 @@ function_resolver::require_integer_immediate (unsigned int i)
       return false;
     }
   return true;
-}
-
-/* Return the type of argument I, or error_mark_node if it isn't
-   well-formed.  */
-tree
-function_resolver::get_argument_type (unsigned int i)
-{
-  tree arg = m_arglist[i];
-  return arg == error_mark_node ? arg : TREE_TYPE (arg);
-}
-
-/* Return the type suffix associated with vector type TYPE, using _b
-   in the case of svbool_t.  */
-type_suffix
-function_resolver::get_type_suffix (vector_type type)
-{
-  for (unsigned int i = 0; i < NUM_TYPE_SUFFIXES; ++i)
-    if (type_suffixes[i].type == type)
-      return type_suffix (i);
-  gcc_unreachable ();
 }
 
 /* Require there to be an _n instance of the function with the type suffixes
@@ -1733,7 +1798,7 @@ function_resolver::require_form (function_mode mode, type_suffix type0,
     {
       if (type1 == NUM_TYPE_SUFFIXES)
 	error_at (m_location, "%qE has no form that takes %qT arguments",
-		  m_rfn.decl, acle_vector_types[type_suffixes[type0].type]);
+		  m_rfn.decl, get_vector_type (type0));
       else
 	/* To be filled in when we have other cases.  */
 	gcc_unreachable ();
@@ -1755,6 +1820,40 @@ function_resolver::lookup_form (function_mode mode, type_suffix type0,
   registered_function *rfn
     = function_table->find_with_hash (instance, instance.hash ());
   return rfn ? rfn->decl : NULL_TREE;
+}
+
+/* Return the vector type associated with TYPE.  */
+tree
+function_resolver::get_vector_type (vector_type type)
+{
+  return acle_vector_types[0][type];
+}
+
+/* Return the vector type associated with TYPE.  */
+tree
+function_resolver::get_vector_type (type_suffix type)
+{
+  return get_vector_type (type_suffixes[type].type);
+}
+
+/* Return the type of argument I, or error_mark_node if it isn't
+   well-formed.  */
+tree
+function_resolver::get_argument_type (unsigned int i)
+{
+  tree arg = m_arglist[i];
+  return arg == error_mark_node ? arg : TREE_TYPE (arg);
+}
+
+/* Return the type suffix associated with vector type TYPE, using _b
+   in the case of svbool_t.  */
+type_suffix
+function_resolver::get_type_suffix (vector_type type)
+{
+  for (unsigned int i = 0; i < NUM_TYPE_SUFFIXES; ++i)
+    if (type_suffixes[i].type == type)
+      return type_suffix (i);
+  gcc_unreachable ();
 }
 
 function_checker::function_checker (location_t location,
@@ -1909,6 +2008,7 @@ handle_arm_sve_h ()
       return;
     }
 
+  sve_switcher sve;
   function_table = new hash_table<registered_function_hasher> (1023);
   arm_sve_h_builder builder;
   for (unsigned int i = 0; i < NUM_VECTOR_TYPES; ++i)

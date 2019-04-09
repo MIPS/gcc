@@ -2916,22 +2916,26 @@ gimplify_compound_lval (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 
 	  if (TREE_OPERAND (t, 3) == NULL_TREE)
 	    {
-	      tree elmt_type = TREE_TYPE (TREE_TYPE (TREE_OPERAND (t, 0)));
-	      tree elmt_size = unshare_expr (array_ref_element_size (t));
-	      tree factor = size_int (TYPE_ALIGN_UNIT (elmt_type));
-
-	      /* Divide the element size by the alignment of the element
-		 type (above).  */
-	      elmt_size
-		= size_binop_loc (loc, EXACT_DIV_EXPR, elmt_size, factor);
-
-	      if (!is_gimple_min_invariant (elmt_size))
+	      tree elmt_size = array_ref_element_size (t);
+	      if (!poly_int_tree_p (elmt_size))
 		{
-		  TREE_OPERAND (t, 3) = elmt_size;
-		  tret = gimplify_expr (&TREE_OPERAND (t, 3), pre_p,
-					post_p, is_gimple_reg,
-					fb_rvalue);
-		  ret = MIN (ret, tret);
+		  elmt_size = unshare_expr (elmt_size);
+		  tree elmt_type = TREE_TYPE (TREE_TYPE (TREE_OPERAND (t, 0)));
+		  tree factor = size_int (TYPE_ALIGN_UNIT (elmt_type));
+
+		  /* Divide the element size by the alignment of the element
+		     type (above).  */
+		  elmt_size = size_binop_loc (loc, EXACT_DIV_EXPR,
+					      elmt_size, factor);
+
+		  if (!is_gimple_min_invariant (elmt_size))
+		    {
+		      TREE_OPERAND (t, 3) = elmt_size;
+		      tret = gimplify_expr (&TREE_OPERAND (t, 3), pre_p,
+					    post_p, is_gimple_reg,
+					    fb_rvalue);
+		      ret = MIN (ret, tret);
+		    }
 		}
 	    }
 	  else
@@ -2946,21 +2950,26 @@ gimplify_compound_lval (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  /* Set the field offset into T and gimplify it.  */
 	  if (TREE_OPERAND (t, 2) == NULL_TREE)
 	    {
-	      tree offset = unshare_expr (component_ref_field_offset (t));
-	      tree field = TREE_OPERAND (t, 1);
-	      tree factor
-		= size_int (DECL_OFFSET_ALIGN (field) / BITS_PER_UNIT);
-
-	      /* Divide the offset by its alignment.  */
-	      offset = size_binop_loc (loc, EXACT_DIV_EXPR, offset, factor);
-
-	      if (!is_gimple_min_invariant (offset))
+	      tree offset = component_ref_field_offset (t);
+	      if (!poly_int_tree_p (offset))
 		{
-		  TREE_OPERAND (t, 2) = offset;
-		  tret = gimplify_expr (&TREE_OPERAND (t, 2), pre_p,
-					post_p, is_gimple_reg,
-					fb_rvalue);
-		  ret = MIN (ret, tret);
+		  offset = unshare_expr (offset);
+		  tree field = TREE_OPERAND (t, 1);
+		  tree factor
+		    = size_int (DECL_OFFSET_ALIGN (field) / BITS_PER_UNIT);
+
+		  /* Divide the offset by its alignment.  */
+		  offset = size_binop_loc (loc, EXACT_DIV_EXPR,
+					   offset, factor);
+
+		  if (!is_gimple_min_invariant (offset))
+		    {
+		      TREE_OPERAND (t, 2) = offset;
+		      tret = gimplify_expr (&TREE_OPERAND (t, 2), pre_p,
+					    post_p, is_gimple_reg,
+					    fb_rvalue);
+		      ret = MIN (ret, tret);
+		    }
 		}
 	    }
 	  else

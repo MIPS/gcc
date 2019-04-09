@@ -3802,7 +3802,9 @@ walk_subobject_offsets (tree type,
 
   /* If this OFFSET is bigger than the MAX_OFFSET, then we should
      stop.  */
-  if (max_offset && tree_int_cst_lt (max_offset, offset))
+  if (max_offset
+      && known_lt (wi::to_poly_widest (max_offset),
+		   wi::to_poly_widest (offset)))
     return 0;
 
   if (type == error_mark_node)
@@ -3956,7 +3958,9 @@ walk_subobject_offsets (tree type,
 	  /* If this new OFFSET is bigger than the MAX_OFFSET, then
 	     there's no point in iterating through the remaining
 	     elements of the array.  */
-	  if (max_offset && tree_int_cst_lt (max_offset, offset))
+	  if (max_offset
+	      && known_lt (wi::to_poly_widest (max_offset),
+			   wi::to_poly_widest (offset)))
 	    break;
 	}
     }
