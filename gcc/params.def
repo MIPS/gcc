@@ -1066,7 +1066,7 @@ DEFPARAM (PARAM_IPA_SRA_MAX_REPLACEMENTS,
 	  "ipa-sra-max-replacements",
 	  "Maximum pieces that IPA-SRA tracks per formal parameter, as "
 	  "a consequence, also the maximum number of replacements of a formal "
-	  "parameter. ",
+	  "parameter.",
 	  8, 0, 16)
 
 DEFPARAM (PARAM_TM_MAX_AGGREGATE_SIZE,
