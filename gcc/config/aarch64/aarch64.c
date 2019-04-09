@@ -1502,6 +1502,14 @@ aarch64_vector_data_mode_p (machine_mode mode)
   return aarch64_classify_vector_mode (mode) & VEC_ANY_DATA;
 }
 
+/* Return true if MODE is any form of SVE mode, including predicates,
+   vectors and structures.  */
+bool
+aarch64_sve_mode_p (machine_mode mode)
+{
+  return aarch64_classify_vector_mode (mode) & VEC_ANY_SVE;
+}
+
 /* Return true if MODE is an SVE data vector mode; either a single vector
    or a structure of vectors.  */
 static bool
@@ -15057,11 +15065,13 @@ aarch64_simd_attr_length_rglist (machine_mode mode)
 static HOST_WIDE_INT
 aarch64_simd_vector_alignment (const_tree type)
 {
+  /* ??? Checking the mode isn't ideal, but VECTOR_BOOLEAN_TYPE_P can
+     be set for non-predicate vectors of booleans.  Modes are the most
+     direct way we have of identifying real SVE predicate types.  */
+  if (GET_MODE_CLASS (TYPE_MODE (type)) == MODE_VECTOR_BOOL)
+    return 16;
   if (TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
-    /* ??? Checking the mode isn't ideal, but VECTOR_BOOLEAN_TYPE_P can
-       be set for non-predicate vectors of booleans.  Modes are the most
-       direct way we have of identifying real SVE predicate types.  */
-    return GET_MODE_CLASS (TYPE_MODE (type)) == MODE_VECTOR_BOOL ? 16 : 128;
+    return 128;
   HOST_WIDE_INT align = tree_to_shwi (TYPE_SIZE (type));
   return MIN (align, 128);
 }
@@ -18733,12 +18743,8 @@ aarch64_select_early_remat_modes (sbitmap modes)
   /* SVE values are not normally live across a call, so it should be
      worth doing early rematerialization even in VL-specific mode.  */
   for (int i = 0; i < NUM_MACHINE_MODES; ++i)
-    {
-      machine_mode mode = (machine_mode) i;
-      unsigned int vec_flags = aarch64_classify_vector_mode (mode);
-      if (vec_flags & VEC_ANY_SVE)
-	bitmap_set_bit (modes, i);
-    }
+    if (aarch64_sve_mode_p ((machine_mode) i))
+      bitmap_set_bit (modes, i);
 }
 
 /* Implement TARGET_INIT_BUILTINS.  */

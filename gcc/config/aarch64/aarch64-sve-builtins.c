@@ -42,6 +42,7 @@
 #include "rtx-vector-builder.h"
 #include "stor-layout.h"
 #include "emit-rtl.h"
+#include "regs.h"
 
 namespace aarch64_sve {
 
@@ -312,6 +313,19 @@ struct registered_function_hasher : nofree_ptr_hash <registered_function>
 
   static hashval_t hash (value_type);
   static bool equal (value_type, const compare_type &);
+};
+
+/* RAII class for enabling enough SVE features to define the built-in
+   types and implement the arm_sve.h pragma.  */
+class sve_switcher
+{
+public:
+  sve_switcher ();
+  ~sve_switcher ();
+
+private:
+  unsigned long m_old_isa_flags;
+  bool m_old_have_regs_of_mode[MAX_MACHINE_MODE];
 };
 
 /* A class for building the decls associated with:
@@ -842,6 +856,29 @@ inline bool
 registered_function_hasher::equal (value_type value, const compare_type &key)
 {
   return value->instance == key;
+}
+
+sve_switcher::sve_switcher ()
+  : m_old_isa_flags (aarch64_isa_flags)
+{
+  /* Changing the ISA flags and have_regs_of_mode should be enough here.
+     We shouldn't need to pay the compile-time cost of a full target
+     switch.  */
+  aarch64_isa_flags = (AARCH64_FL_FP | AARCH64_FL_SIMD | AARCH64_FL_F16
+		       | AARCH64_FL_SVE);
+
+  memcpy (m_old_have_regs_of_mode, have_regs_of_mode,
+	  sizeof (have_regs_of_mode));
+  for (int i = 0; i < NUM_MACHINE_MODES; ++i)
+    if (aarch64_sve_mode_p ((machine_mode) i))
+      have_regs_of_mode[i] = true;
+}
+
+sve_switcher::~sve_switcher ()
+{
+  memcpy (have_regs_of_mode, m_old_have_regs_of_mode,
+	  sizeof (have_regs_of_mode));
+  aarch64_isa_flags = m_old_isa_flags;
 }
 
 arm_sve_h_builder::arm_sve_h_builder ()
@@ -1779,13 +1816,25 @@ register_builtin_types ()
       tree eltype = scalar_types[i];
       tree vectype;
       if (eltype == boolean_type_node)
-	vectype = build_truth_vector_type (BYTES_PER_SVE_VECTOR,
-					   BYTES_PER_SVE_VECTOR);
+	{
+	  vectype = build_truth_vector_type (BYTES_PER_SVE_VECTOR,
+					     BYTES_PER_SVE_VECTOR);
+	  gcc_assert (GET_MODE_CLASS (TYPE_MODE (vectype)) == MODE_VECTOR_BOOL
+		      && TYPE_MODE (vectype) == TYPE_MODE_RAW (vectype)
+		      && TYPE_ALIGN (vectype) == 16
+		      && known_eq (wi::to_poly_offset (TYPE_SIZE (vectype)),
+				   BYTES_PER_SVE_VECTOR));
+	}
       else
 	{
 	  unsigned int elbytes = tree_to_uhwi (TYPE_SIZE_UNIT (eltype));
 	  poly_uint64 nunits = exact_div (BYTES_PER_SVE_VECTOR, elbytes);
 	  vectype = build_vector_type (eltype, nunits);
+	  gcc_assert (VECTOR_MODE_P (TYPE_MODE (vectype))
+		      && TYPE_MODE (vectype) == TYPE_MODE_RAW (vectype)
+		      && TYPE_ALIGN (vectype) == 128
+		      && known_eq (wi::to_poly_offset (TYPE_SIZE (vectype)),
+				   BITS_PER_SVE_VECTOR));
 	}
       vectype = build_distinct_type_copy (vectype);
       SET_TYPE_STRUCTURAL_EQUALITY (vectype);
@@ -1801,6 +1850,7 @@ register_builtin_types ()
 void
 init_builtins ()
 {
+  sve_switcher sve;
   register_builtin_types ();
 }
 
