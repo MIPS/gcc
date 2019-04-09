@@ -706,6 +706,10 @@ static GTY(()) vec<registered_function *, va_gc> *registered_functions;
    overloaded functions.  */
 static hash_table<registered_function_hasher> *function_table;
 
+/* True if we've already complained about attempts to use functions
+   when the required feature is disabled.  */
+static bool reported_missing_feature_p;
+
 /* If TYPE is an ACLE vector type, return the associated vector_type,
    otherwise return NUM_VECTOR_TYPES.  */
 static vector_type
@@ -754,6 +758,23 @@ find_quarter_type_suffix (type_suffix type)
 				      type_suffixes[type].elem_bits / 4);
   gcc_assert (ret != NUM_TYPE_SUFFIXES);
   return ret;
+}
+
+/* Report an error against LOCATION that the user has tried to use
+   function DECL when feature FEATURE is disabled.  */
+static void
+report_missing_feature (location_t location, tree decl, const char *feature)
+{
+  /* Avoid reporting a slew of messages for a single oversight.  */
+  if (reported_missing_feature_p)
+    return;
+
+  error_at (location, "ACLE function %qD requires ISA extension %qs",
+	    decl, feature);
+  inform (location, "you can enable %qs using the command-line"
+	  " option %<-march%>, or by using the %<target%>"
+	  " attribute or pragma", feature);
+  reported_missing_feature_p = true;
 }
 
 /* Report that LOCATION has a call to DECL in which argument ARGNO
@@ -1749,6 +1770,12 @@ function_checker::function_checker (location_t location,
 bool
 function_checker::check ()
 {
+  if (!TARGET_SVE)
+    {
+      report_missing_feature (m_location, m_decl, "+sve");
+      return false;
+    }
+
   switch (m_group.shape)
     {
     case SHAPE_binary_opt_n:
@@ -1953,6 +1980,11 @@ gimple_folder::gimple_folder (unsigned int code, gcall *call)
 gimple *
 gimple_folder::fold ()
 {
+  /* Don't fold anything when SVE is disabled; emit an error during
+     expansion instead.  */
+  if (!TARGET_SVE)
+    return NULL;
+
   switch (m_group.func)
     {
     case FUNC_svabd:
@@ -2034,6 +2066,12 @@ function_expander::function_expander (unsigned int code, tree exp, rtx target)
 rtx
 function_expander::expand ()
 {
+  if (!TARGET_SVE)
+    {
+      report_missing_feature (m_location, m_rfn.decl, "+sve");
+      return m_target;
+    }
+
   unsigned int nargs = call_expr_nargs (m_exp);
   m_args.reserve (nargs);
   for (unsigned int i = 0; i < nargs; ++i)
