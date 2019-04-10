@@ -147,7 +147,7 @@ TEST_UNIFORM_Z (add_m0p5_f16_m_untied, svfloat16_t,
 
 /*
 ** add_m2_f16_m:
-**	fmov	(z[0-9]+\.h), #-2.0(e\+0)?
+**	fmov	(z[0-9]+\.h), #-2\.0(?:e\+0)?
 **	fadd	z0\.h, p0/m, z0\.h, \1
 **	ret
 */
@@ -311,7 +311,7 @@ TEST_UNIFORM_Z (add_m0p5_f16_z_untied, svfloat16_t,
 
 /*
 ** add_m2_f16_z:
-**	fmov	(z[0-9]+\.h), #-2.0(e\+0)?
+**	fmov	(z[0-9]+\.h), #-2\.0(?:e\+0)?
 **	movprfx	z0\.h, p0/z, z0\.h
 **	fadd	z0\.h, p0/m, z0\.h, \1
 **	ret
@@ -466,7 +466,7 @@ TEST_UNIFORM_Z (add_m0p5_f16_x_untied, svfloat16_t,
 
 /*
 ** add_2_f16_x_tied1:
-**	fmov	(z[0-9]+\.h), #2.0(e\+0)?
+**	fmov	(z[0-9]+\.h), #2\.0(?:e\+0)?
 **	fadd	z0\.h, p0/m, z0\.h, \1
 **	ret
 */
@@ -637,7 +637,7 @@ TEST_UNIFORM_Z (ptrue_add_m0p5_f16_x_untied, svfloat16_t,
 
 /*
 ** ptrue_add_2_f16_x_tied1:
-**	fmov	(z[0-9]+\.h), #2.0(e\+0)?
+**	fmov	(z[0-9]+\.h), #2\.0(?:e\+0)?
 **	fadd	z0\.h, (z0\.h, \1|\1, z0\.h)
 **	ret
 */
@@ -647,7 +647,7 @@ TEST_UNIFORM_Z (ptrue_add_2_f16_x_tied1, svfloat16_t,
 
 /*
 ** ptrue_add_2_f16_x_untied:
-**	fmov	(z[0-9]+\.h), #2.0(e\+0)?
+**	fmov	(z[0-9]+\.h), #2\.0(?:e\+0)?
 **	fadd	z0\.h, (z1\.h, \1|\1, z1\.h)
 **	ret
 */

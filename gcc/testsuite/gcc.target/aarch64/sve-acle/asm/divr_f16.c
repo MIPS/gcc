@@ -71,7 +71,7 @@ TEST_UNIFORM_ZS (divr_h4_f16_m_untied, svfloat16_t, __fp16,
 
 /*
 ** divr_1_f16_m_tied1:
-**	fmov	(z[0-9]+\.h), #1.0(e\+0)?
+**	fmov	(z[0-9]+\.h), #1\.0(?:e\+0)?
 **	fdivr	z0\.h, p0/m, z0\.h, \1
 **	ret
 */
@@ -81,7 +81,7 @@ TEST_UNIFORM_Z (divr_1_f16_m_tied1, svfloat16_t,
 
 /*
 ** divr_1_f16_m_untied:
-**	fmov	(z[0-9]+\.h), #1.0(e\+0)?
+**	fmov	(z[0-9]+\.h), #1\.0(?:e\+0)?
 **	movprfx	z0, z1
 **	fdivr	z0\.h, p0/m, z0\.h, \1
 **	ret
@@ -92,7 +92,7 @@ TEST_UNIFORM_Z (divr_1_f16_m_untied, svfloat16_t,
 
 /*
 ** divr_0p5_f16_m_tied1:
-**	fmov	(z[0-9]+\.h), #5.0(e\-1)?
+**	fmov	(z[0-9]+\.h), #(?:0\.5|5\.0e-1)
 **	fdivr	z0\.h, p0/m, z0\.h, \1
 **	ret
 */
@@ -102,7 +102,7 @@ TEST_UNIFORM_Z (divr_0p5_f16_m_tied1, svfloat16_t,
 
 /*
 ** divr_0p5_f16_m_untied:
-**	fmov	(z[0-9]+\.h), #5.0(e\-1)?
+**	fmov	(z[0-9]+\.h), #(?:0\.5|5\.0e-1)
 **	movprfx	z0, z1
 **	fdivr	z0\.h, p0/m, z0\.h, \1
 **	ret
@@ -187,7 +187,7 @@ TEST_UNIFORM_ZS (divr_h4_f16_z_untied, svfloat16_t, __fp16,
 
 /*
 ** divr_1_f16_z_tied1:
-**	fmov	(z[0-9]+\.h), #1.0(e\+0)?
+**	fmov	(z[0-9]+\.h), #1\.0(?:e\+0)?
 **	movprfx	z0\.h, p0/z, z0\.h
 **	fdivr	z0\.h, p0/m, z0\.h, \1
 **	ret
@@ -198,7 +198,7 @@ TEST_UNIFORM_Z (divr_1_f16_z_tied1, svfloat16_t,
 
 /*
 ** divr_0p5_f16_z_tied1:
-**	fmov	(z[0-9]+\.h), #5.0(e\-1)?
+**	fmov	(z[0-9]+\.h), #(?:0\.5|5\.0e-1)
 **	movprfx	z0\.h, p0/z, z0\.h
 **	fdivr	z0\.h, p0/m, z0\.h, \1
 **	ret
@@ -209,7 +209,7 @@ TEST_UNIFORM_Z (divr_0p5_f16_z_tied1, svfloat16_t,
 
 /*
 ** divr_0p5_f16_z_untied:
-**	fmov	(z[0-9]+\.h), #5.0(e\-1)?
+**	fmov	(z[0-9]+\.h), #(?:0\.5|5\.0e-1)
 **	movprfx	z0\.h, p0/z, \1
 **	fdiv	z0\.h, p0/m, z0\.h, z1\.h
 **	ret
@@ -288,7 +288,7 @@ TEST_UNIFORM_ZS (divr_h4_f16_x_untied, svfloat16_t, __fp16,
 
 /*
 ** divr_1_f16_x_tied1:
-**	fmov	(z[0-9]+\.h), #1\.0(e\+0)?
+**	fmov	(z[0-9]+\.h), #1\.0(?:e\+0)?
 **	fdivr	z0\.h, p0/m, z0\.h, \1
 **	ret
 */
@@ -298,7 +298,7 @@ TEST_UNIFORM_Z (divr_1_f16_x_tied1, svfloat16_t,
 
 /*
 ** divr_1_f16_x_untied:
-**	fmov	z0\.h, #1\.0(e\+0)?
+**	fmov	z0\.h, #1\.0(?:e\+0)?
 **	fdiv	z0\.h, p0/m, z0\.h, z1\.h
 **	ret
 */
@@ -384,7 +384,7 @@ TEST_UNIFORM_ZS (ptrue_divr_h4_f16_x_untied, svfloat16_t, __fp16,
 /*
 ** ptrue_divr_1_f16_x_untied:
 **	ptrue	(p[0-7])\.h[^\n]*
-**	fmov	z0\.h, #1.0(e\+0)?
+**	fmov	z0\.h, #1\.0(?:e\+0)?
 **	fdiv	z0\.h, \1/m, z0\.h, z1\.h
 **	ret
 */

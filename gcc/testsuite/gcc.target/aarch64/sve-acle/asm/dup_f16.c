@@ -5,7 +5,7 @@
 
 /*
 ** dup_1_f16:
-**	fmov	z0\.h, #1.0(e\+0)?
+**	fmov	z0\.h, #1\.0(?:e\+0)?
 **	ret
 */
 TEST_UNIFORM_Z (dup_1_f16, svfloat16_t,
@@ -23,7 +23,7 @@ TEST_UNIFORM_Z (dup_0_f16, svfloat16_t,
 
 /*
 ** dup_8_f16:
-**	fmov	z0\.h, #8.0(e\+0)?
+**	fmov	z0\.h, #8\.0(?:e\+0)?
 **	ret
 */
 TEST_UNIFORM_Z (dup_8_f16, svfloat16_t,
@@ -192,7 +192,7 @@ TEST_UNIFORM_ZS (dup_h4_f16_z, svfloat16_t, __fp16,
 
 /*
 ** dup_1_f16_x:
-**	fmov	z0\.h, #1.0(e\+0)?
+**	fmov	z0\.h, #1\.0(?:e\+0)?
 **	ret
 */
 TEST_UNIFORM_Z (dup_1_f16_x, svfloat16_t,
@@ -210,7 +210,7 @@ TEST_UNIFORM_Z (dup_0_f16_x, svfloat16_t,
 
 /*
 ** dup_8_f16_x:
-**	fmov	z0\.h, #8.0(e\+0)?
+**	fmov	z0\.h, #8\.0(?:e\+0)?
 **	ret
 */
 TEST_UNIFORM_Z (dup_8_f16_x, svfloat16_t,

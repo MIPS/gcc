@@ -71,7 +71,7 @@ TEST_UNIFORM_ZS (max_h4_f16_m_untied, svfloat16_t, __fp16,
 
 /*
 ** max_1_f16_m_tied1:
-**	fmov	(z[0-9]+\.h), #1.0(e\+0)?
+**	fmov	(z[0-9]+\.h), #1\.0(?:e\+0)?
 **	fmax	z0\.h, p0/m, z0\.h, \1
 **	ret
 */
@@ -81,7 +81,7 @@ TEST_UNIFORM_Z (max_1_f16_m_tied1, svfloat16_t,
 
 /*
 ** max_1_f16_m_untied:
-**	fmov	(z[0-9]+\.h), #1.0(e\+0)?
+**	fmov	(z[0-9]+\.h), #1\.0(?:e\+0)?
 **	movprfx	z0, z1
 **	fmax	z0\.h, p0/m, z0\.h, \1
 **	ret
@@ -166,7 +166,7 @@ TEST_UNIFORM_ZS (max_h4_f16_z_untied, svfloat16_t, __fp16,
 
 /*
 ** max_1_f16_z_tied1:
-**	fmov	(z[0-9]+\.h), #1.0(e\+0)?
+**	fmov	(z[0-9]+\.h), #1\.0(?:e\+0)?
 **	movprfx	z0\.h, p0/z, z0\.h
 **	fmax	z0\.h, p0/m, z0\.h, \1
 **	ret
@@ -177,7 +177,7 @@ TEST_UNIFORM_Z (max_1_f16_z_tied1, svfloat16_t,
 
 /*
 ** max_1_f16_z_untied: { xfail *-*-* }
-**	fmov	(z[0-9]+\.h), #1.0(e\+0)?
+**	fmov	(z[0-9]+\.h), #1\.0(?:e\+0)?
 **	movprfx	z0\.h, p0/z, z1\.h
 **	fmax	z0\.h, p0/m, z0\.h, \1
 **	ret
@@ -256,7 +256,7 @@ TEST_UNIFORM_ZS (max_h4_f16_x_untied, svfloat16_t, __fp16,
 
 /*
 ** max_1_f16_x_tied1:
-**	fmov	(z[0-9]+\.h), #1.0(e\+0)?
+**	fmov	(z[0-9]+\.h), #1\.0(?:e\+0)?
 **	fmax	z0\.h, p0/m, z0\.h, \1
 **	ret
 */
@@ -266,7 +266,7 @@ TEST_UNIFORM_Z (max_1_f16_x_tied1, svfloat16_t,
 
 /*
 ** max_1_f16_x_untied:
-**	fmov	z0\.h, #1.0(e\+0)?
+**	fmov	z0\.h, #1\.0(?:e\+0)?
 **	fmax	z0\.h, p0/m, z0\.h, z1\.h
 **	ret
 */

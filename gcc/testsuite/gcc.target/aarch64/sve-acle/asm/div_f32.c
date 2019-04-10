@@ -71,7 +71,7 @@ TEST_UNIFORM_ZS (div_s4_f32_m_untied, svfloat32_t, float,
 
 /*
 ** div_1_f32_m_tied1:
-**	fmov	(z[0-9]+\.s), #1.0(e\+0)?
+**	fmov	(z[0-9]+\.s), #1\.0(?:e\+0)?
 **	fdiv	z0\.s, p0/m, z0\.s, \1
 **	ret
 */
@@ -81,7 +81,7 @@ TEST_UNIFORM_Z (div_1_f32_m_tied1, svfloat32_t,
 
 /*
 ** div_1_f32_m_untied:
-**	fmov	(z[0-9]+\.s), #1.0(e\+0)?
+**	fmov	(z[0-9]+\.s), #1\.0(?:e\+0)?
 **	movprfx	z0, z1
 **	fdiv	z0\.s, p0/m, z0\.s, \1
 **	ret
@@ -166,7 +166,7 @@ TEST_UNIFORM_ZS (div_s4_f32_z_untied, svfloat32_t, float,
 
 /*
 ** div_1_f32_z_tied1:
-**	fmov	(z[0-9]+\.s), #1.0(e\+0)?
+**	fmov	(z[0-9]+\.s), #1\.0(?:e\+0)?
 **	movprfx	z0\.s, p0/z, z0\.s
 **	fdiv	z0\.s, p0/m, z0\.s, \1
 **	ret
@@ -177,7 +177,7 @@ TEST_UNIFORM_Z (div_1_f32_z_tied1, svfloat32_t,
 
 /*
 ** div_1_f32_z_untied: { xfail *-*-* }
-**	fmov	(z[0-9]+\.s), #1.0(e\+0)?
+**	fmov	(z[0-9]+\.s), #1\.0(?:e\+0)?
 **	movprfx	z0\.s, p0/z, z1\.s
 **	fdiv	z0\.s, p0/m, z0\.s, \1
 **	ret
@@ -188,7 +188,7 @@ TEST_UNIFORM_Z (div_1_f32_z_untied, svfloat32_t,
 
 /*
 ** div_0p5_f32_z_untied: { xfail *-*-* }
-**	fmov	(z[0-9]+\.s), #5.0(e\-1)?
+**	fmov	(z[0-9]+\.s), #(?:0\.5|5\.0e-1)
 **	movprfx	z0\.s, p0/z, z1\.s
 **	fdiv	z0\.s, p0/m, z0\.s, \1
 **	ret
@@ -267,7 +267,7 @@ TEST_UNIFORM_ZS (div_s4_f32_x_untied, svfloat32_t, float,
 
 /*
 ** div_1_f32_x_tied1:
-**	fmov	(z[0-9]+\.s), #1\.0(e\+0)?
+**	fmov	(z[0-9]+\.s), #1\.0(?:e\+0)?
 **	fdiv	z0\.s, p0/m, z0\.s, \1
 **	ret
 */
@@ -277,7 +277,7 @@ TEST_UNIFORM_Z (div_1_f32_x_tied1, svfloat32_t,
 
 /*
 ** div_1_f32_x_untied:
-**	fmov	z0\.s, #1\.0(e\+0)?
+**	fmov	z0\.s, #1\.0(?:e\+0)?
 **	fdivr	z0\.s, p0/m, z0\.s, z1\.s
 **	ret
 */
@@ -363,7 +363,7 @@ TEST_UNIFORM_ZS (ptrue_div_s4_f32_x_untied, svfloat32_t, float,
 /*
 ** ptrue_div_1_f32_x_untied:
 **	ptrue	(p[0-7])\.s[^\n]*
-**	fmov	z0\.s, #1.0(e\+0)?
+**	fmov	z0\.s, #1\.0(?:e\+0)?
 **	fdivr	z0\.s, \1/m, z0\.s, z1\.s
 **	ret
 */
@@ -374,7 +374,7 @@ TEST_UNIFORM_Z (ptrue_div_1_f32_x_untied, svfloat32_t,
 /*
 ** ptrue_div_1_f32_x_tied1:
 **	ptrue	(p[0-7])\.s[^\n]*
-**	fmov	(z[0-9]+\.s), #1.0(e\+0)?
+**	fmov	(z[0-9]+\.s), #1\.0(?:e\+0)?
 **	fdiv	z0\.s, \1/m, z0\.s, \2
 **	ret
 */
