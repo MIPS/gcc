@@ -45,7 +45,7 @@ TEST_UNIFORM_Z (sqrt_f16_m_untied, svfloat16_t,
 /*
 ** sqrt_f16_z_tied1:
 **	mov	(z[0-9]+)\.d, z0\.d
-**	movprfx	z0\.h, p0/z, z0\.h
+**	movprfx	z0\.h, p0/z, \1\.h
 **	fsqrt	z0\.h, p0/m, \1\.h
 **	ret
 */
@@ -55,7 +55,7 @@ TEST_UNIFORM_Z (sqrt_f16_z_tied1, svfloat16_t,
 
 /*
 ** sqrt_f16_z_untied:
-**	movprfx	z0\.h, p0/z, z0\.h
+**	movprfx	z0\.h, p0/z, z1\.h
 **	fsqrt	z0\.h, p0/m, z1\.h
 **	ret
 */

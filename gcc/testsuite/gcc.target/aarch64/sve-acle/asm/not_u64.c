@@ -23,9 +23,9 @@ TEST_UNIFORM_Z (not_u64_m_tied1, svuint64_t,
 
 /*
 ** not_u64_m_tied2:
-**	mov	(z[0-9]+)\.d, z0\.d
+**	mov	(z[0-9]+\.d), z0\.d
 **	movprfx	z0, z1
-**	not	z0\.d, p0/m, \1\.d
+**	not	z0\.d, p0/m, \1
 **	ret
 */
 TEST_UNIFORM_Z (not_u64_m_tied2, svuint64_t,
@@ -44,9 +44,9 @@ TEST_UNIFORM_Z (not_u64_m_untied, svuint64_t,
 
 /*
 ** not_u64_z_tied1:
-**	mov	(z[0-9]+)\.d, z0\.d
-**	movprfx	z0\.d, p0/z, z0\.d
-**	not	z0\.d, p0/m, \1\.d
+**	mov	(z[0-9]+\.d), z0\.d
+**	movprfx	z0\.d, p0/z, \1
+**	not	z0\.d, p0/m, \1
 **	ret
 */
 TEST_UNIFORM_Z (not_u64_z_tied1, svuint64_t,
@@ -55,7 +55,7 @@ TEST_UNIFORM_Z (not_u64_z_tied1, svuint64_t,
 
 /*
 ** not_u64_z_untied:
-**	movprfx	z0\.d, p0/z, z0\.d
+**	movprfx	z0\.d, p0/z, z1\.d
 **	not	z0\.d, p0/m, z1\.d
 **	ret
 */

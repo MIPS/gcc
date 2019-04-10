@@ -23,9 +23,9 @@ TEST_UNIFORM_Z (neg_f64_m_tied1, svfloat64_t,
 
 /*
 ** neg_f64_m_tied2:
-**	mov	(z[0-9]+)\.d, z0\.d
+**	mov	(z[0-9]+\.d), z0\.d
 **	movprfx	z0, z1
-**	fneg	z0\.d, p0/m, \1\.d
+**	fneg	z0\.d, p0/m, \1
 **	ret
 */
 TEST_UNIFORM_Z (neg_f64_m_tied2, svfloat64_t,
@@ -45,7 +45,7 @@ TEST_UNIFORM_Z (neg_f64_m_untied, svfloat64_t,
 /*
 ** neg_f64_z_tied1:
 **	mov	(z[0-9]+\.d), z0\.d
-**	movprfx	z0\.d, p0/z, z0\.d
+**	movprfx	z0\.d, p0/z, \1
 **	fneg	z0\.d, p0/m, \1
 **	ret
 */
@@ -55,7 +55,7 @@ TEST_UNIFORM_Z (neg_f64_z_tied1, svfloat64_t,
 
 /*
 ** neg_f64_z_untied:
-**	movprfx	z0\.d, p0/z, z0\.d
+**	movprfx	z0\.d, p0/z, z1\.d
 **	fneg	z0\.d, p0/m, z1\.d
 **	ret
 */

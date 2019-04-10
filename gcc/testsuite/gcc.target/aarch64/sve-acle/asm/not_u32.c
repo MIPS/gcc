@@ -45,7 +45,7 @@ TEST_UNIFORM_Z (not_u32_m_untied, svuint32_t,
 /*
 ** not_u32_z_tied1:
 **	mov	(z[0-9]+)\.d, z0\.d
-**	movprfx	z0\.s, p0/z, z0\.s
+**	movprfx	z0\.s, p0/z, \1\.s
 **	not	z0\.s, p0/m, \1\.s
 **	ret
 */
@@ -55,7 +55,7 @@ TEST_UNIFORM_Z (not_u32_z_tied1, svuint32_t,
 
 /*
 ** not_u32_z_untied:
-**	movprfx	z0\.s, p0/z, z0\.s
+**	movprfx	z0\.s, p0/z, z1\.s
 **	not	z0\.s, p0/m, z1\.s
 **	ret
 */

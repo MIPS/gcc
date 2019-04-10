@@ -45,7 +45,7 @@ TEST_UNIFORM_Z (abs_s8_m_untied, svint8_t,
 /*
 ** abs_s8_z_tied1:
 **	mov	(z[0-9]+)\.d, z0\.d
-**	movprfx	z0\.b, p0/z, z0\.b
+**	movprfx	z0\.b, p0/z, \1\.b
 **	abs	z0\.b, p0/m, \1\.b
 **	ret
 */
@@ -55,7 +55,7 @@ TEST_UNIFORM_Z (abs_s8_z_tied1, svint8_t,
 
 /*
 ** abs_s8_z_untied:
-**	movprfx	z0\.b, p0/z, z0\.b
+**	movprfx	z0\.b, p0/z, z1\.b
 **	abs	z0\.b, p0/m, z1\.b
 **	ret
 */
