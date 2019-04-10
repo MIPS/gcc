@@ -24,8 +24,8 @@ TEST_UNIFORM_Z (lsl_u64_m_untied, svuint64_t,
 
 /* Bad RA choice: no preferred output sequence.  */
 TEST_UNIFORM_Z (lsl_u64_m_tied2, svuint64_t,
-		z1 = svlsl_u64_m (p0, z0, z1),
-		z1 = svlsl_m (p0, z0, z1))
+		z0 = svlsl_u64_m (p0, z1, z0),
+		z0 = svlsl_m (p0, z1, z0))
 
 /*
 ** lsl_w0_u64_m_tied1:
@@ -51,23 +51,23 @@ TEST_UNIFORM_ZS (lsl_w0_u64_m_untied, svuint64_t, uint64_t,
 /*
 ** lsl_d4_u64_m_tied1:
 **	mov	(z[0-9]+\.d), d4
-**	lsl	z1\.d, p0/m, z1\.d, \1
+**	lsl	z0\.d, p0/m, z0\.d, \1
 **	ret
 */
 TEST_UNIFORM_ZS (lsl_d4_u64_m_tied1, svuint64_t, uint64_t,
-		 z1 = svlsl_n_u64_m (p0, z1, d4),
-		 z1 = svlsl_m (p0, z1, d4))
+		 z0 = svlsl_n_u64_m (p0, z0, d4),
+		 z0 = svlsl_m (p0, z0, d4))
 
 /*
 ** lsl_d4_u64_m_untied:
 **	mov	(z[0-9]+\.d), d4
-**	movprfx	z1, z2
-**	lsl	z1\.d, p0/m, z1\.d, \1
+**	movprfx	z0, z1
+**	lsl	z0\.d, p0/m, z0\.d, \1
 **	ret
 */
 TEST_UNIFORM_ZS (lsl_d4_u64_m_untied, svuint64_t, uint64_t,
-		 z1 = svlsl_n_u64_m (p0, z2, d4),
-		 z1 = svlsl_m (p0, z2, d4))
+		 z0 = svlsl_n_u64_m (p0, z1, d4),
+		 z0 = svlsl_m (p0, z1, d4))
 
 /* 
 ** lsl_0_u64_m_tied1:
@@ -222,24 +222,24 @@ TEST_UNIFORM_ZS (lsl_w0_u64_z_untied, svuint64_t, uint64_t,
 /*
 ** lsl_d4_u64_z_tied1:
 **	mov	(z[0-9]+\.d), d4
-**	movprfx	z1\.d, p0/z, z1\.d
-**	lsl	z1\.d, p0/m, z1\.d, \1
+**	movprfx	z0\.d, p0/z, z0\.d
+**	lsl	z0\.d, p0/m, z0\.d, \1
 **	ret
 */
 TEST_UNIFORM_ZS (lsl_d4_u64_z_tied1, svuint64_t, uint64_t,
-		 z1 = svlsl_n_u64_z (p0, z1, d4),
-		 z1 = svlsl_z (p0, z1, d4))
+		 z0 = svlsl_n_u64_z (p0, z0, d4),
+		 z0 = svlsl_z (p0, z0, d4))
 
 /*
 ** lsl_d4_u64_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.d), d4
-**	movprfx	z1\.d, p0/z, z2\.d
-**	lsl	z1\.d, p0/m, z1\.d, \1
+**	movprfx	z0\.d, p0/z, z1\.d
+**	lsl	z0\.d, p0/m, z0\.d, \1
 **	ret
 */
 TEST_UNIFORM_ZS (lsl_d4_u64_z_untied, svuint64_t, uint64_t,
-		 z1 = svlsl_n_u64_z (p0, z2, d4),
-		 z1 = svlsl_z (p0, z2, d4))
+		 z0 = svlsl_n_u64_z (p0, z1, d4),
+		 z0 = svlsl_z (p0, z1, d4))
 
 /*
 ** lsl_0_u64_z_tied1:
@@ -366,12 +366,12 @@ TEST_UNIFORM_Z (lsl_u64_x_untied, svuint64_t,
 
 /*
 ** lsl_u64_x_tied2:
-**	lslr	z1\.d, p0/m, z1\.d, z0\.d
+**	lslr	z0\.d, p0/m, z0\.d, z1\.d
 **	ret
 */
 TEST_UNIFORM_Z (lsl_u64_x_tied2, svuint64_t,
-		z1 = svlsl_u64_x (p0, z0, z1),
-		z1 = svlsl_x (p0, z0, z1))
+		z0 = svlsl_u64_x (p0, z1, z0),
+		z0 = svlsl_x (p0, z1, z0))
 
 /*
 ** lsl_w0_u64_x_tied1:
@@ -396,22 +396,22 @@ TEST_UNIFORM_ZS (lsl_w0_u64_x_untied, svuint64_t, uint64_t,
 /*
 ** lsl_d4_u64_x_tied1:
 **	mov	(z[0-9]+\.d), d4
-**	lsl	z1\.d, p0/m, z1\.d, \1
+**	lsl	z0\.d, p0/m, z0\.d, \1
 **	ret
 */
 TEST_UNIFORM_ZS (lsl_d4_u64_x_tied1, svuint64_t, uint64_t,
-		 z1 = svlsl_n_u64_x (p0, z1, d4),
-		 z1 = svlsl_x (p0, z1, d4))
+		 z0 = svlsl_n_u64_x (p0, z0, d4),
+		 z0 = svlsl_x (p0, z0, d4))
 
 /*
 ** lsl_d4_u64_x_untied:
-**	mov	z1\.d, d4
-**	lslr	z1\.d, p0/m, z1\.d, z2\.d
+**	mov	z0\.d, d4
+**	lslr	z0\.d, p0/m, z0\.d, z1\.d
 **	ret
 */
 TEST_UNIFORM_ZS (lsl_d4_u64_x_untied, svuint64_t, uint64_t,
-		 z1 = svlsl_n_u64_x (p0, z2, d4),
-		 z1 = svlsl_x (p0, z2, d4))
+		 z0 = svlsl_n_u64_x (p0, z1, d4),
+		 z0 = svlsl_x (p0, z1, d4))
 
 /*
 ** lsl_0_u64_x_tied1:

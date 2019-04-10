@@ -14,8 +14,8 @@ TEST_UNIFORM_Z (subr_s8_m_tied1, svint8_t,
 
 /* Bad RA choice: no preferred output sequence.  */
 TEST_UNIFORM_Z (subr_s8_m_tied2, svint8_t,
-		z1 = svsubr_s8_m (p0, z0, z1),
-		z1 = svsubr_m (p0, z0, z1))
+		z0 = svsubr_s8_m (p0, z1, z0),
+		z0 = svsubr_m (p0, z1, z0))
 
 /*
 ** subr_s8_m_untied:
@@ -51,23 +51,23 @@ TEST_UNIFORM_ZS (subr_w0_s8_m_untied, svint8_t, int8_t,
 /*
 ** subr_b4_s8_m_tied1:
 **	mov	(z[0-9]+\.b), b4
-**	subr	z1\.b, p0/m, z1\.b, \1
+**	subr	z0\.b, p0/m, z0\.b, \1
 **	ret
 */
 TEST_UNIFORM_ZS (subr_b4_s8_m_tied1, svint8_t, int8_t,
-		 z1 = svsubr_n_s8_m (p0, z1, d4),
-		 z1 = svsubr_m (p0, z1, d4))
+		 z0 = svsubr_n_s8_m (p0, z0, d4),
+		 z0 = svsubr_m (p0, z0, d4))
 
 /*
 ** subr_b4_s8_m_untied:
 **	mov	(z[0-9]+\.b), b4
-**	movprfx	z1, z2
-**	subr	z1\.b, p0/m, z1\.b, \1
+**	movprfx	z0, z1
+**	subr	z0\.b, p0/m, z0\.b, \1
 **	ret
 */
 TEST_UNIFORM_ZS (subr_b4_s8_m_untied, svint8_t, int8_t,
-		 z1 = svsubr_n_s8_m (p0, z2, d4),
-		 z1 = svsubr_m (p0, z2, d4))
+		 z0 = svsubr_n_s8_m (p0, z1, d4),
+		 z0 = svsubr_m (p0, z1, d4))
 
 /*
 ** subr_1_s8_m_tied1:
@@ -112,13 +112,13 @@ TEST_UNIFORM_Z (subr_s8_z_tied1, svint8_t,
 
 /*
 ** subr_s8_z_tied2:
-**	movprfx	z1\.b, p0/z, z1\.b
-**	sub	z1\.b, p0/m, z1\.b, z0\.b
+**	movprfx	z0\.b, p0/z, z0\.b
+**	sub	z0\.b, p0/m, z0\.b, z1\.b
 **	ret
 */
 TEST_UNIFORM_Z (subr_s8_z_tied2, svint8_t,
-		z1 = svsubr_s8_z (p0, z0, z1),
-		z1 = svsubr_z (p0, z0, z1))
+		z0 = svsubr_s8_z (p0, z1, z0),
+		z0 = svsubr_z (p0, z1, z0))
 
 /*
 ** subr_s8_z_untied:
@@ -155,24 +155,24 @@ TEST_UNIFORM_ZS (subr_w0_s8_z_untied, svint8_t, int8_t,
 /*
 ** subr_b4_s8_z_tied1:
 **	mov	(z[0-9]+\.b), b4
-**	movprfx	z1\.b, p0/z, z1\.b
-**	subr	z1\.b, p0/m, z1\.b, \1
+**	movprfx	z0\.b, p0/z, z0\.b
+**	subr	z0\.b, p0/m, z0\.b, \1
 **	ret
 */
 TEST_UNIFORM_ZS (subr_b4_s8_z_tied1, svint8_t, int8_t,
-		 z1 = svsubr_n_s8_z (p0, z1, d4),
-		 z1 = svsubr_z (p0, z1, d4))
+		 z0 = svsubr_n_s8_z (p0, z0, d4),
+		 z0 = svsubr_z (p0, z0, d4))
 
 /*
 ** subr_b4_s8_z_untied:
 **	mov	(z[0-9]+\.b), b4
-**	movprfx	z1\.b, p0/z, \1
-**	sub	z1\.b, p0/m, z1\.b, z2\.b
+**	movprfx	z0\.b, p0/z, \1
+**	sub	z0\.b, p0/m, z0\.b, z1\.b
 **	ret
 */
 TEST_UNIFORM_ZS (subr_b4_s8_z_untied, svint8_t, int8_t,
-		 z1 = svsubr_n_s8_z (p0, z2, d4),
-		 z1 = svsubr_z (p0, z2, d4))
+		 z0 = svsubr_n_s8_z (p0, z1, d4),
+		 z0 = svsubr_z (p0, z1, d4))
 
 /*
 ** subr_s8_x_tied1:
@@ -185,21 +185,21 @@ TEST_UNIFORM_Z (subr_s8_x_tied1, svint8_t,
 
 /*
 ** subr_s8_x_tied2:
-**	sub	z1\.b, z1\.b, z0\.b
+**	sub	z0\.b, z0\.b, z1\.b
 **	ret
 */
 TEST_UNIFORM_Z (subr_s8_x_tied2, svint8_t,
-		z1 = svsubr_s8_x (p0, z0, z1),
-		z1 = svsubr_x (p0, z0, z1))
+		z0 = svsubr_s8_x (p0, z1, z0),
+		z0 = svsubr_x (p0, z1, z0))
 
 /*
 ** subr_s8_x_untied:
-**	sub	z2\.b, z1\.b, z0\.b
+**	sub	z0\.b, z2\.b, z1\.b
 **	ret
 */
 TEST_UNIFORM_Z (subr_s8_x_untied, svint8_t,
-		z2 = svsubr_s8_x (p0, z0, z1),
-		z2 = svsubr_x (p0, z0, z1))
+		z0 = svsubr_s8_x (p0, z1, z2),
+		z0 = svsubr_x (p0, z1, z2))
 
 /*
 ** subr_w0_s8_x_tied1:
@@ -214,32 +214,32 @@ TEST_UNIFORM_ZS (subr_w0_s8_x_tied1, svint8_t, int8_t,
 /*
 ** subr_w0_s8_x_untied:
 **	mov	(z[0-9]+\.b), w0
-**	sub	z1\.b, \1, z0\.b
+**	sub	z0\.b, \1, z1\.b
 **	ret
 */
 TEST_UNIFORM_ZS (subr_w0_s8_x_untied, svint8_t, int8_t,
-		 z1 = svsubr_n_s8_x (p0, z0, x0),
-		 z1 = svsubr_x (p0, z0, x0))
+		 z0 = svsubr_n_s8_x (p0, z1, x0),
+		 z0 = svsubr_x (p0, z1, x0))
 
 /*
 ** subr_b4_s8_x_tied1:
 **	mov	(z[0-9]+\.b), b4
-**	sub	z1\.b, \1, z1\.b
+**	sub	z0\.b, \1, z0\.b
 **	ret
 */
 TEST_UNIFORM_ZS (subr_b4_s8_x_tied1, svint8_t, int8_t,
-		 z1 = svsubr_n_s8_x (p0, z1, d4),
-		 z1 = svsubr_x (p0, z1, d4))
+		 z0 = svsubr_n_s8_x (p0, z0, d4),
+		 z0 = svsubr_x (p0, z0, d4))
 
 /*
 ** subr_b4_s8_x_untied:
 **	mov	(z[0-9]+\.b), b4
-**	sub	z2\.b, \1, z1\.b
+**	sub	z0\.b, \1, z1\.b
 **	ret
 */
 TEST_UNIFORM_ZS (subr_b4_s8_x_untied, svint8_t, int8_t,
-		 z2 = svsubr_n_s8_x (p0, z1, d4),
-		 z2 = svsubr_x (p0, z1, d4))
+		 z0 = svsubr_n_s8_x (p0, z1, d4),
+		 z0 = svsubr_x (p0, z1, d4))
 
 /*
 ** subr_1_s8_x_tied1:

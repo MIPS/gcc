@@ -14,8 +14,8 @@ TEST_UNIFORM_Z (abd_s32_m_tied1, svint32_t,
 
 /* Bad RA choice: no preferred output sequence.  */
 TEST_UNIFORM_Z (abd_s32_m_tied2, svint32_t,
-		z1 = svabd_s32_m (p0, z0, z1),
-		z1 = svabd_m (p0, z0, z1))
+		z0 = svabd_s32_m (p0, z1, z0),
+		z0 = svabd_m (p0, z1, z0))
 
 /*
 ** abd_s32_m_untied:
@@ -51,23 +51,23 @@ TEST_UNIFORM_ZS (abd_w0_s32_m_untied, svint32_t, int32_t,
 /*
 ** abd_s4_s32_m_tied1:
 **	mov	(z[0-9]+\.s), s4
-**	sabd	z1\.s, p0/m, z1\.s, \1
+**	sabd	z0\.s, p0/m, z0\.s, \1
 **	ret
 */
 TEST_UNIFORM_ZS (abd_s4_s32_m_tied1, svint32_t, int32_t,
-		 z1 = svabd_n_s32_m (p0, z1, d4),
-		 z1 = svabd_m (p0, z1, d4))
+		 z0 = svabd_n_s32_m (p0, z0, d4),
+		 z0 = svabd_m (p0, z0, d4))
 
 /*
 ** abd_s4_s32_m_untied:
 **	mov	(z[0-9]+\.s), s4
-**	movprfx	z1, z2
-**	sabd	z1\.s, p0/m, z1\.s, \1
+**	movprfx	z0, z1
+**	sabd	z0\.s, p0/m, z0\.s, \1
 **	ret
 */
 TEST_UNIFORM_ZS (abd_s4_s32_m_untied, svint32_t, int32_t,
-		 z1 = svabd_n_s32_m (p0, z2, d4),
-		 z1 = svabd_m (p0, z2, d4))
+		 z0 = svabd_n_s32_m (p0, z1, d4),
+		 z0 = svabd_m (p0, z1, d4))
 
 /*
 ** abd_1_s32_m_tied1:
@@ -102,13 +102,13 @@ TEST_UNIFORM_Z (abd_s32_z_tied1, svint32_t,
 
 /*
 ** abd_s32_z_tied2:
-**	movprfx	z1\.s, p0/z, z1\.s
-**	sabd	z1\.s, p0/m, z1\.s, z0\.s
+**	movprfx	z0\.s, p0/z, z0\.s
+**	sabd	z0\.s, p0/m, z0\.s, z1\.s
 **	ret
 */
 TEST_UNIFORM_Z (abd_s32_z_tied2, svint32_t,
-		z1 = svabd_s32_z (p0, z0, z1),
-		z1 = svabd_z (p0, z0, z1))
+		z0 = svabd_s32_z (p0, z1, z0),
+		z0 = svabd_z (p0, z1, z0))
 
 /*
 ** abd_s32_z_untied:
@@ -145,24 +145,24 @@ TEST_UNIFORM_ZS (abd_w0_s32_z_untied, svint32_t, int32_t,
 /*
 ** abd_s4_s32_z_tied1:
 **	mov	(z[0-9]+\.s), s4
-**	movprfx	z1\.s, p0/z, z1\.s
-**	sabd	z1\.s, p0/m, z1\.s, \1
+**	movprfx	z0\.s, p0/z, z0\.s
+**	sabd	z0\.s, p0/m, z0\.s, \1
 **	ret
 */
 TEST_UNIFORM_ZS (abd_s4_s32_z_tied1, svint32_t, int32_t,
-		 z1 = svabd_n_s32_z (p0, z1, d4),
-		 z1 = svabd_z (p0, z1, d4))
+		 z0 = svabd_n_s32_z (p0, z0, d4),
+		 z0 = svabd_z (p0, z0, d4))
 
 /*
 ** abd_s4_s32_z_untied:
 **	mov	(z[0-9]+\.s), s4
-**	movprfx	z1\.s, p0/z, \1
-**	sabd	z1\.s, p0/m, z1\.s, z2\.s
+**	movprfx	z0\.s, p0/z, \1
+**	sabd	z0\.s, p0/m, z0\.s, z1\.s
 **	ret
 */
 TEST_UNIFORM_ZS (abd_s4_s32_z_untied, svint32_t, int32_t,
-		 z1 = svabd_n_s32_z (p0, z2, d4),
-		 z1 = svabd_z (p0, z2, d4))
+		 z0 = svabd_n_s32_z (p0, z1, d4),
+		 z0 = svabd_z (p0, z1, d4))
 
 /*
 ** abd_s32_x_tied1:
@@ -175,22 +175,22 @@ TEST_UNIFORM_Z (abd_s32_x_tied1, svint32_t,
 
 /*
 ** abd_s32_x_tied2:
-**	sabd	z1\.s, p0/m, z1\.s, z0\.s
+**	sabd	z0\.s, p0/m, z0\.s, z1\.s
 **	ret
 */
 TEST_UNIFORM_Z (abd_s32_x_tied2, svint32_t,
-		z1 = svabd_s32_x (p0, z0, z1),
-		z1 = svabd_x (p0, z0, z1))
+		z0 = svabd_s32_x (p0, z1, z0),
+		z0 = svabd_x (p0, z1, z0))
 
 /*
 ** abd_s32_x_untied:
-**	movprfx	z2, z0
-**	sabd	z2\.s, p0/m, z2\.s, z1\.s
+**	movprfx	z0, z1
+**	sabd	z0\.s, p0/m, z0\.s, z2\.s
 **	ret
 */
 TEST_UNIFORM_Z (abd_s32_x_untied, svint32_t,
-		z2 = svabd_s32_x (p0, z0, z1),
-		z2 = svabd_x (p0, z0, z1))
+		z0 = svabd_s32_x (p0, z1, z2),
+		z0 = svabd_x (p0, z1, z2))
 
 /*
 ** abd_w0_s32_x_tied1:
@@ -204,33 +204,33 @@ TEST_UNIFORM_ZS (abd_w0_s32_x_tied1, svint32_t, int32_t,
 
 /*
 ** abd_w0_s32_x_untied:
-**	mov	z1\.s, w0
-**	sabd	z1\.s, p0/m, z1\.s, z0\.s
+**	mov	z0\.s, w0
+**	sabd	z0\.s, p0/m, z0\.s, z1\.s
 **	ret
 */
 TEST_UNIFORM_ZS (abd_w0_s32_x_untied, svint32_t, int32_t,
-		 z1 = svabd_n_s32_x (p0, z0, x0),
-		 z1 = svabd_x (p0, z0, x0))
+		 z0 = svabd_n_s32_x (p0, z1, x0),
+		 z0 = svabd_x (p0, z1, x0))
 
 /*
 ** abd_s4_s32_x_tied1:
 **	mov	(z[0-9]+\.s), s4
-**	sabd	z1\.s, p0/m, z1\.s, \1
+**	sabd	z0\.s, p0/m, z0\.s, \1
 **	ret
 */
 TEST_UNIFORM_ZS (abd_s4_s32_x_tied1, svint32_t, int32_t,
-		 z1 = svabd_n_s32_x (p0, z1, d4),
-		 z1 = svabd_x (p0, z1, d4))
+		 z0 = svabd_n_s32_x (p0, z0, d4),
+		 z0 = svabd_x (p0, z0, d4))
 
 /*
 ** abd_s4_s32_x_untied:
-**	mov	z2\.s, s4
-**	sabd	z2\.s, p0/m, z2\.s, z1\.s
+**	mov	z0\.s, s4
+**	sabd	z0\.s, p0/m, z0\.s, z1\.s
 **	ret
 */
 TEST_UNIFORM_ZS (abd_s4_s32_x_untied, svint32_t, int32_t,
-		 z2 = svabd_n_s32_x (p0, z1, d4),
-		 z2 = svabd_x (p0, z1, d4))
+		 z0 = svabd_n_s32_x (p0, z1, d4),
+		 z0 = svabd_x (p0, z1, d4))
 
 /*
 ** abd_1_s32_x_tied1:

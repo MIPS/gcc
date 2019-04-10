@@ -304,21 +304,21 @@ TEST_UNIFORM_Z (dup_m8000_u64, svuint64_t,
 
 /*
 ** dup_x0_u64:
-**	mov	z1\.d, x0
+**	mov	z0\.d, x0
 **	ret
 */
 TEST_UNIFORM_ZS (dup_x0_u64, svuint64_t, uint64_t,
-		 z1 = svdup_n_u64 (x0),
-		 z1 = svdup_u64 (x0))
+		 z0 = svdup_n_u64 (x0),
+		 z0 = svdup_u64 (x0))
 
 /*
 ** dup_d4_u64:
-**	mov	z1\.d, d4
+**	mov	z0\.d, d4
 **	ret
 */
 TEST_UNIFORM_ZS (dup_d4_u64, svuint64_t, uint64_t,
-		 z1 = svdup_n_u64 (d4),
-		 z1 = svdup_u64 (d4))
+		 z0 = svdup_n_u64 (d4),
+		 z0 = svdup_u64 (d4))
 
 /*
 ** dup_1_u64_m:
@@ -585,23 +585,23 @@ TEST_UNIFORM_Z (dup_0_u64_m, svuint64_t,
 
 /*
 ** dup_x0_u64_m:
-**	movprfx	z1, z0
-**	mov	z1\.d, p0/m, x0
+**	movprfx	z0, z1
+**	mov	z0\.d, p0/m, x0
 **	ret
 */
 TEST_UNIFORM_ZS (dup_x0_u64_m, svuint64_t, uint64_t,
-		z1 = svdup_n_u64_m (z0, p0, x0),
-		z1 = svdup_u64_m (z0, p0, x0))
+		z0 = svdup_n_u64_m (z1, p0, x0),
+		z0 = svdup_u64_m (z1, p0, x0))
 
 /*
 ** dup_d4_u64_m:
-**	movprfx	z1, z0
-**	mov	z1\.d, p0/m, d4
+**	movprfx	z0, z1
+**	mov	z0\.d, p0/m, d4
 **	ret
 */
 TEST_UNIFORM_ZS (dup_d4_u64_m, svuint64_t, uint64_t,
-		z1 = svdup_n_u64_m (z0, p0, d4),
-		z1 = svdup_u64_m (z0, p0, d4))
+		z0 = svdup_n_u64_m (z1, p0, d4),
+		z0 = svdup_u64_m (z1, p0, d4))
 
 /*
 ** dup_1_u64_z:
@@ -878,23 +878,23 @@ TEST_UNIFORM_Z (dup_0_u64_z, svuint64_t,
 
 /*
 ** dup_x0_u64_z:
-**	movprfx	z1\.d, p0/z, z1\.d
-**	mov	z1\.d, p0/m, x0
+**	movprfx	z0\.d, p0/z, z0\.d
+**	mov	z0\.d, p0/m, x0
 **	ret
 */
 TEST_UNIFORM_ZS (dup_x0_u64_z, svuint64_t, uint64_t,
-		z1 = svdup_n_u64_z (p0, x0),
-		z1 = svdup_u64_z (p0, x0))
+		z0 = svdup_n_u64_z (p0, x0),
+		z0 = svdup_u64_z (p0, x0))
 
 /*
 ** dup_d4_u64_z:
-**	movprfx	z1\.d, p0/z, z1\.d
-**	mov	z1\.d, p0/m, d4
+**	movprfx	z0\.d, p0/z, z0\.d
+**	mov	z0\.d, p0/m, d4
 **	ret
 */
 TEST_UNIFORM_ZS (dup_d4_u64_z, svuint64_t, uint64_t,
-		z1 = svdup_n_u64_z (p0, d4),
-		z1 = svdup_u64_z (p0, d4))
+		z0 = svdup_n_u64_z (p0, d4),
+		z0 = svdup_u64_z (p0, d4))
 
 /*
 ** dup_1_u64_x:
@@ -1197,18 +1197,18 @@ TEST_UNIFORM_Z (dup_m8000_u64_x, svuint64_t,
 
 /*
 ** dup_x0_u64_x:
-**	mov	z1\.d, x0
+**	mov	z0\.d, x0
 **	ret
 */
 TEST_UNIFORM_ZS (dup_x0_u64_x, svuint64_t, uint64_t,
-		z1 = svdup_n_u64_x (p0, x0),
-		z1 = svdup_u64_x (p0, x0))
+		z0 = svdup_n_u64_x (p0, x0),
+		z0 = svdup_u64_x (p0, x0))
 
 /*
 ** dup_d4_u64_x:
-**	mov	z1\.d, d4
+**	mov	z0\.d, d4
 **	ret
 */
 TEST_UNIFORM_ZS (dup_d4_u64_x, svuint64_t, uint64_t,
-		z1 = svdup_n_u64_x (p0, d4),
-		z1 = svdup_u64_x (p0, d4))
+		z0 = svdup_n_u64_x (p0, d4),
+		z0 = svdup_u64_x (p0, d4))

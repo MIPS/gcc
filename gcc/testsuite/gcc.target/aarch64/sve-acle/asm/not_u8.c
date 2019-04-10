@@ -74,9 +74,9 @@ TEST_UNIFORM_Z (not_u8_x_tied1, svuint8_t,
 
 /*
 ** not_u8_x_untied:
-**	not	z2\.b, p0/m, z0\.b
+**	not	z0\.b, p0/m, z1\.b
 **	ret
 */
 TEST_UNIFORM_Z (not_u8_x_untied, svuint8_t,
-		z2 = svnot_u8_x (p0, z0),
-		z2 = svnot_x (p0, z0))
+		z0 = svnot_u8_x (p0, z1),
+		z0 = svnot_x (p0, z1))

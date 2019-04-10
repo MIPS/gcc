@@ -51,21 +51,21 @@ TEST_UNIFORM_Z (dup_513_f16, svfloat16_t,
 
 /*
 ** dup_w0_f16:
-**	mov	z1\.h, w0
+**	mov	z0\.h, w0
 **	ret
 */
 TEST_UNIFORM_ZS (dup_w0_f16, svfloat16_t, __fp16,
-		z1 = svdup_n_f16 (x0),
-		z1 = svdup_f16 (x0))
+		z0 = svdup_n_f16 (x0),
+		z0 = svdup_f16 (x0))
 
 /*
 ** dup_h4_f16:
-**	mov	z1\.h, h4
+**	mov	z0\.h, h4
 **	ret
 */
 TEST_UNIFORM_ZS (dup_h4_f16, svfloat16_t, __fp16,
-		z1 = svdup_n_f16 (d4),
-		z1 = svdup_f16 (d4))
+		z0 = svdup_n_f16 (d4),
+		z0 = svdup_f16 (d4))
 
 /*
 ** dup_1_f16_m:
@@ -111,23 +111,23 @@ TEST_UNIFORM_Z (dup_513_f16_m, svfloat16_t,
 
 /*
 ** dup_w0_f16_m:
-**	movprfx	z1, z0
-**	mov	z1\.h, p0/m, w0
+**	movprfx	z0, z1
+**	mov	z0\.h, p0/m, w0
 **	ret
 */
 TEST_UNIFORM_ZS (dup_w0_f16_m, svfloat16_t, __fp16,
-		z1 = svdup_n_f16_m (z0, p0, x0),
-		z1 = svdup_f16_m (z0, p0, x0))
+		z0 = svdup_n_f16_m (z1, p0, x0),
+		z0 = svdup_f16_m (z1, p0, x0))
 
 /*
 ** dup_h4_f16_m:
-**	movprfx	z1, z0
-**	mov	z1\.h, p0/m, h4
+**	movprfx	z0, z1
+**	mov	z0\.h, p0/m, h4
 **	ret
 */
 TEST_UNIFORM_ZS (dup_h4_f16_m, svfloat16_t, __fp16,
-		z1 = svdup_n_f16_m (z0, p0, d4),
-		z1 = svdup_f16_m (z0, p0, d4))
+		z0 = svdup_n_f16_m (z1, p0, d4),
+		z0 = svdup_f16_m (z1, p0, d4))
 
 /*
 ** dup_1_f16_z:
@@ -172,23 +172,23 @@ TEST_UNIFORM_Z (dup_513_f16_z, svfloat16_t,
 
 /*
 ** dup_w0_f16_z:
-**	movprfx	z1\.h, p0/z, z1\.h
-**	mov	z1\.h, p0/m, w0
+**	movprfx	z0\.h, p0/z, z0\.h
+**	mov	z0\.h, p0/m, w0
 **	ret
 */
 TEST_UNIFORM_ZS (dup_w0_f16_z, svfloat16_t, __fp16,
-		z1 = svdup_n_f16_z (p0, x0),
-		z1 = svdup_f16_z (p0, x0))
+		z0 = svdup_n_f16_z (p0, x0),
+		z0 = svdup_f16_z (p0, x0))
 
 /*
 ** dup_h4_f16_z:
-**	movprfx	z1\.h, p0/z, z1\.h
-**	mov	z1\.h, p0/m, h4
+**	movprfx	z0\.h, p0/z, z0\.h
+**	mov	z0\.h, p0/m, h4
 **	ret
 */
 TEST_UNIFORM_ZS (dup_h4_f16_z, svfloat16_t, __fp16,
-		z1 = svdup_n_f16_z (p0, d4),
-		z1 = svdup_f16_z (p0, d4))
+		z0 = svdup_n_f16_z (p0, d4),
+		z0 = svdup_f16_z (p0, d4))
 
 /*
 ** dup_1_f16_x:
@@ -238,18 +238,18 @@ TEST_UNIFORM_Z (dup_513_f16_x, svfloat16_t,
 
 /*
 ** dup_w0_f16_x:
-**	mov	z1\.h, w0
+**	mov	z0\.h, w0
 **	ret
 */
 TEST_UNIFORM_ZS (dup_w0_f16_x, svfloat16_t, __fp16,
-		z1 = svdup_n_f16_x (p0, x0),
-		z1 = svdup_f16_x (p0, x0))
+		z0 = svdup_n_f16_x (p0, x0),
+		z0 = svdup_f16_x (p0, x0))
 
 /*
 ** dup_h4_f16_x:
-**	mov	z1\.h, h4
+**	mov	z0\.h, h4
 **	ret
 */
 TEST_UNIFORM_ZS (dup_h4_f16_x, svfloat16_t, __fp16,
-		z1 = svdup_n_f16_x (p0, d4),
-		z1 = svdup_f16_x (p0, d4))
+		z0 = svdup_n_f16_x (p0, d4),
+		z0 = svdup_f16_x (p0, d4))

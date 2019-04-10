@@ -14,8 +14,8 @@ TEST_UNIFORM_Z (bic_u16_m_tied1, svuint16_t,
 
 /* Bad RA choice: no preferred output sequence.  */
 TEST_UNIFORM_Z (bic_u16_m_tied2, svuint16_t,
-		z1 = svbic_u16_m (p0, z0, z1),
-		z1 = svbic_m (p0, z0, z1))
+		z0 = svbic_u16_m (p0, z1, z0),
+		z0 = svbic_m (p0, z1, z0))
 
 /*
 ** bic_u16_m_untied:
@@ -51,23 +51,23 @@ TEST_UNIFORM_ZS (bic_w0_u16_m_untied, svuint16_t, uint16_t,
 /*
 ** bic_h4_u16_m_tied1:
 **	mov	(z[0-9]+\.h), h4
-**	bic	z1\.h, p0/m, z1\.h, \1
+**	bic	z0\.h, p0/m, z0\.h, \1
 **	ret
 */
 TEST_UNIFORM_ZS (bic_h4_u16_m_tied1, svuint16_t, uint16_t,
-		 z1 = svbic_n_u16_m (p0, z1, d4),
-		 z1 = svbic_m (p0, z1, d4))
+		 z0 = svbic_n_u16_m (p0, z0, d4),
+		 z0 = svbic_m (p0, z0, d4))
 
 /*
 ** bic_h4_u16_m_untied:
 **	mov	(z[0-9]+\.h), h4
-**	movprfx	z1, z2
-**	bic	z1\.h, p0/m, z1\.h, \1
+**	movprfx	z0, z1
+**	bic	z0\.h, p0/m, z0\.h, \1
 **	ret
 */
 TEST_UNIFORM_ZS (bic_h4_u16_m_untied, svuint16_t, uint16_t,
-		 z1 = svbic_n_u16_m (p0, z2, d4),
-		 z1 = svbic_m (p0, z2, d4))
+		 z0 = svbic_n_u16_m (p0, z1, d4),
+		 z0 = svbic_m (p0, z1, d4))
 
 /*
 ** bic_1_u16_m_tied1:
@@ -112,14 +112,14 @@ TEST_UNIFORM_Z (bic_u16_z_tied1, svuint16_t,
 
 /*
 ** bic_u16_z_tied2:
-**	mov	(z[0-9]+)\.d, z1\.d
-**	movprfx	z1\.h, p0/z, z0\.h
-**	bic	z1\.h, p0/m, z1\.h, \1\.h
+**	mov	(z[0-9]+)\.d, z0\.d
+**	movprfx	z0\.h, p0/z, z1\.h
+**	bic	z0\.h, p0/m, z0\.h, \1\.h
 **	ret
 */
 TEST_UNIFORM_Z (bic_u16_z_tied2, svuint16_t,
-		z1 = svbic_u16_z (p0, z0, z1),
-		z1 = svbic_z (p0, z0, z1))
+		z0 = svbic_u16_z (p0, z1, z0),
+		z0 = svbic_z (p0, z1, z0))
 
 /*
 ** bic_u16_z_untied:
@@ -156,24 +156,24 @@ TEST_UNIFORM_ZS (bic_w0_u16_z_untied, svuint16_t, uint16_t,
 /*
 ** bic_h4_u16_z_tied1:
 **	mov	(z[0-9]+\.h), h4
-**	movprfx	z1\.h, p0/z, z1\.h
-**	bic	z1\.h, p0/m, z1\.h, \1
+**	movprfx	z0\.h, p0/z, z0\.h
+**	bic	z0\.h, p0/m, z0\.h, \1
 **	ret
 */
 TEST_UNIFORM_ZS (bic_h4_u16_z_tied1, svuint16_t, uint16_t,
-		 z1 = svbic_n_u16_z (p0, z1, d4),
-		 z1 = svbic_z (p0, z1, d4))
+		 z0 = svbic_n_u16_z (p0, z0, d4),
+		 z0 = svbic_z (p0, z0, d4))
 
 /*
 ** bic_h4_u16_z_untied:
 **	mov	(z[0-9]+\.h), h4
-**	movprfx	z1\.h, p0/z, z2\.h
-**	bic	z1\.h, p0/m, z1\.h, \1
+**	movprfx	z0\.h, p0/z, z1\.h
+**	bic	z0\.h, p0/m, z0\.h, \1
 **	ret
 */
 TEST_UNIFORM_ZS (bic_h4_u16_z_untied, svuint16_t, uint16_t,
-		 z1 = svbic_n_u16_z (p0, z2, d4),
-		 z1 = svbic_z (p0, z2, d4))
+		 z0 = svbic_n_u16_z (p0, z1, d4),
+		 z0 = svbic_z (p0, z1, d4))
 
 /*
 ** bic_u16_x_tied1:
@@ -186,21 +186,21 @@ TEST_UNIFORM_Z (bic_u16_x_tied1, svuint16_t,
 
 /*
 ** bic_u16_x_tied2:
-**	bic	z1\.d, z0\.d, z1\.d
+**	bic	z0\.d, z1\.d, z0\.d
 **	ret
 */
 TEST_UNIFORM_Z (bic_u16_x_tied2, svuint16_t,
-		z1 = svbic_u16_x (p0, z0, z1),
-		z1 = svbic_x (p0, z0, z1))
+		z0 = svbic_u16_x (p0, z1, z0),
+		z0 = svbic_x (p0, z1, z0))
 
 /*
 ** bic_u16_x_untied:
-**	bic	z2\.d, z0\.d, z1\.d
+**	bic	z0\.d, z1\.d, z2\.d
 **	ret
 */
 TEST_UNIFORM_Z (bic_u16_x_untied, svuint16_t,
-		z2 = svbic_u16_x (p0, z0, z1),
-		z2 = svbic_x (p0, z0, z1))
+		z0 = svbic_u16_x (p0, z1, z2),
+		z0 = svbic_x (p0, z1, z2))
 
 /*
 ** bic_w0_u16_x_tied1:
@@ -214,33 +214,33 @@ TEST_UNIFORM_ZS (bic_w0_u16_x_tied1, svuint16_t, uint16_t,
 
 /*
 ** bic_w0_u16_x_untied:
-**	mov	z1\.h, w0
-**	bic	z1\.d, z0\.d, z1\.d
+**	mov	z0\.h, w0
+**	bic	z0\.d, z1\.d, z0\.d
 **	ret
 */
 TEST_UNIFORM_ZS (bic_w0_u16_x_untied, svuint16_t, uint16_t,
-		 z1 = svbic_n_u16_x (p0, z0, x0),
-		 z1 = svbic_x (p0, z0, x0))
+		 z0 = svbic_n_u16_x (p0, z1, x0),
+		 z0 = svbic_x (p0, z1, x0))
 
 /*
 ** bic_h4_u16_x_tied1:
 **	mov	(z[0-9]+)\.h, h4
-**	bic	z1\.d, z1\.d, \1\.d
+**	bic	z0\.d, z0\.d, \1\.d
 **	ret
 */
 TEST_UNIFORM_ZS (bic_h4_u16_x_tied1, svuint16_t, uint16_t,
-		 z1 = svbic_n_u16_x (p0, z1, d4),
-		 z1 = svbic_x (p0, z1, d4))
+		 z0 = svbic_n_u16_x (p0, z0, d4),
+		 z0 = svbic_x (p0, z0, d4))
 
 /*
 ** bic_h4_u16_x_untied:
 **	mov	(z[0-9]+)\.h, h4
-**	bic	z2\.d, z1\.d, \1\.d
+**	bic	z0\.d, z1\.d, \1\.d
 **	ret
 */
 TEST_UNIFORM_ZS (bic_h4_u16_x_untied, svuint16_t, uint16_t,
-		 z2 = svbic_n_u16_x (p0, z1, d4),
-		 z2 = svbic_x (p0, z1, d4))
+		 z0 = svbic_n_u16_x (p0, z1, d4),
+		 z0 = svbic_x (p0, z1, d4))
 
 /*
 ** bic_1_u16_x_tied1:

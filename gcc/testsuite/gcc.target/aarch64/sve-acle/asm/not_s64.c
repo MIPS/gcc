@@ -74,9 +74,9 @@ TEST_UNIFORM_Z (not_s64_x_tied1, svint64_t,
 
 /*
 ** not_s64_x_untied:
-**	not	z2\.d, p0/m, z0\.d
+**	not	z0\.d, p0/m, z1\.d
 **	ret
 */
 TEST_UNIFORM_Z (not_s64_x_untied, svint64_t,
-		z2 = svnot_s64_x (p0, z0),
-		z2 = svnot_x (p0, z0))
+		z0 = svnot_s64_x (p0, z1),
+		z0 = svnot_x (p0, z1))

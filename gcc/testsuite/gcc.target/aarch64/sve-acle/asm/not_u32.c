@@ -74,9 +74,9 @@ TEST_UNIFORM_Z (not_u32_x_tied1, svuint32_t,
 
 /*
 ** not_u32_x_untied:
-**	not	z2\.s, p0/m, z0\.s
+**	not	z0\.s, p0/m, z1\.s
 **	ret
 */
 TEST_UNIFORM_Z (not_u32_x_untied, svuint32_t,
-		z2 = svnot_u32_x (p0, z0),
-		z2 = svnot_x (p0, z0))
+		z0 = svnot_u32_x (p0, z1),
+		z0 = svnot_x (p0, z1))

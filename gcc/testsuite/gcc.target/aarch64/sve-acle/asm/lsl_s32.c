@@ -24,8 +24,8 @@ TEST_UNIFORM_Z (lsl_s32_m_untied, svint32_t,
 
 /* Bad RA choice: no preferred output sequence.  */
 TEST_UNIFORM_Z (lsl_s32_m_tied2, svint32_t,
-		z1 = svlsl_s32_m (p0, z0, z1),
-		z1 = svlsl_m (p0, z0, z1))
+		z0 = svlsl_s32_m (p0, z1, z0),
+		z0 = svlsl_m (p0, z1, z0))
 
 /*
 ** lsl_w0_s32_m_tied1:
@@ -51,23 +51,23 @@ TEST_UNIFORM_ZS (lsl_w0_s32_m_untied, svint32_t, uint64_t,
 /*
 ** lsl_d4_s32_m_tied1:
 **	mov	(z[0-9]+\.d), d4
-**	lsl	z1\.s, p0/m, z1\.s, \1
+**	lsl	z0\.s, p0/m, z0\.s, \1
 **	ret
 */
 TEST_UNIFORM_ZS (lsl_d4_s32_m_tied1, svint32_t, uint64_t,
-		 z1 = svlsl_n_s32_m (p0, z1, d4),
-		 z1 = svlsl_m (p0, z1, d4))
+		 z0 = svlsl_n_s32_m (p0, z0, d4),
+		 z0 = svlsl_m (p0, z0, d4))
 
 /*
 ** lsl_d4_s32_m_untied:
 **	mov	(z[0-9]+\.d), d4
-**	movprfx	z1, z2
-**	lsl	z1\.s, p0/m, z1\.s, \1
+**	movprfx	z0, z1
+**	lsl	z0\.s, p0/m, z0\.s, \1
 **	ret
 */
 TEST_UNIFORM_ZS (lsl_d4_s32_m_untied, svint32_t, uint64_t,
-		 z1 = svlsl_n_s32_m (p0, z2, d4),
-		 z1 = svlsl_m (p0, z2, d4))
+		 z0 = svlsl_n_s32_m (p0, z1, d4),
+		 z0 = svlsl_m (p0, z1, d4))
 
 /* 
 ** lsl_0_s32_m_tied1:
@@ -222,24 +222,24 @@ TEST_UNIFORM_ZS (lsl_w0_s32_z_untied, svint32_t, uint64_t,
 /*
 ** lsl_d4_s32_z_tied1:
 **	mov	(z[0-9d]+\.d), d4
-**	movprfx	z1\.s, p0/z, z1\.s
-**	lsl	z1\.s, p0/m, z1\.s, \1
+**	movprfx	z0\.s, p0/z, z0\.s
+**	lsl	z0\.s, p0/m, z0\.s, \1
 **	ret
 */
 TEST_UNIFORM_ZS (lsl_d4_s32_z_tied1, svint32_t, uint64_t,
-		 z1 = svlsl_n_s32_z (p0, z1, d4),
-		 z1 = svlsl_z (p0, z1, d4))
+		 z0 = svlsl_n_s32_z (p0, z0, d4),
+		 z0 = svlsl_z (p0, z0, d4))
 
 /*
 ** lsl_d4_s32_z_untied: { xfail *-*-* }
 **	mov	(z[0-9d]+\.d), d4
-**	movprfx	z1\.s, p0/z, z2\.s
-**	lsl	z1\.s, p0/m, z1\.s, \1
+**	movprfx	z0\.s, p0/z, z1\.s
+**	lsl	z0\.s, p0/m, z0\.s, \1
 **	ret
 */
 TEST_UNIFORM_ZS (lsl_d4_s32_z_untied, svint32_t, uint64_t,
-		 z1 = svlsl_n_s32_z (p0, z2, d4),
-		 z1 = svlsl_z (p0, z2, d4))
+		 z0 = svlsl_n_s32_z (p0, z1, d4),
+		 z0 = svlsl_z (p0, z1, d4))
 
 /*
 ** lsl_0_s32_z_tied1:
@@ -366,12 +366,12 @@ TEST_UNIFORM_Z (lsl_s32_x_untied, svint32_t,
 
 /*
 ** lsl_s32_x_tied2:
-**	lslr	z1\.s, p0/m, z1\.s, z0\.s
+**	lslr	z0\.s, p0/m, z0\.s, z1\.s
 **	ret
 */
 TEST_UNIFORM_Z (lsl_s32_x_tied2, svint32_t,
-		z1 = svlsl_s32_x (p0, z0, z1),
-		z1 = svlsl_x (p0, z0, z1))
+		z0 = svlsl_s32_x (p0, z1, z0),
+		z0 = svlsl_x (p0, z1, z0))
 
 /*
 ** lsl_w0_s32_x_tied1:
@@ -397,23 +397,23 @@ TEST_UNIFORM_ZS (lsl_w0_s32_x_untied, svint32_t, uint64_t,
 /*
 ** lsl_d4_s32_x_tied1:
 **	mov	(z[0-9]+\.d), d4
-**	lsl	z1\.s, p0/m, z1\.s, \1
+**	lsl	z0\.s, p0/m, z0\.s, \1
 **	ret
 */
 TEST_UNIFORM_ZS (lsl_d4_s32_x_tied1, svint32_t, uint64_t,
-		 z1 = svlsl_n_s32_x (p0, z1, d4),
-		 z1 = svlsl_x (p0, z1, d4))
+		 z0 = svlsl_n_s32_x (p0, z0, d4),
+		 z0 = svlsl_x (p0, z0, d4))
 
 /*
 ** lsl_d4_s32_x_untied:
 **	mov	(z[0-9]+\.d), d4
-**	movprfx	z1, z2
-**	lsl	z1\.s, p0/m, z1\.s, \1
+**	movprfx	z0, z1
+**	lsl	z0\.s, p0/m, z0\.s, \1
 **	ret
 */
 TEST_UNIFORM_ZS (lsl_d4_s32_x_untied, svint32_t, uint64_t,
-		 z1 = svlsl_n_s32_x (p0, z2, d4),
-		 z1 = svlsl_x (p0, z2, d4))
+		 z0 = svlsl_n_s32_x (p0, z1, d4),
+		 z0 = svlsl_x (p0, z1, d4))
 
 /*
 ** lsl_0_s32_x_tied1:

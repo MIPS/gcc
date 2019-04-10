@@ -14,8 +14,8 @@ TEST_UNIFORM_Z (add_s64_m_tied1, svint64_t,
 
 /* Bad RA choice: no preferred output sequence.  */
 TEST_UNIFORM_Z (add_s64_m_tied2, svint64_t,
-		z1 = svadd_s64_m (p0, z0, z1),
-		z1 = svadd_m (p0, z0, z1))
+		z0 = svadd_s64_m (p0, z1, z0),
+		z0 = svadd_m (p0, z1, z0))
 
 /*
 ** add_s64_m_untied:
@@ -51,23 +51,23 @@ TEST_UNIFORM_ZS (add_x0_s64_m_untied, svint64_t, int64_t,
 /*
 ** add_d4_s64_m_tied1:
 **	mov	(z[0-9]+\.d), d4
-**	add	z1\.d, p0/m, z1\.d, \1
+**	add	z0\.d, p0/m, z0\.d, \1
 **	ret
 */
 TEST_UNIFORM_ZS (add_d4_s64_m_tied1, svint64_t, int64_t,
-		 z1 = svadd_n_s64_m (p0, z1, d4),
-		 z1 = svadd_m (p0, z1, d4))
+		 z0 = svadd_n_s64_m (p0, z0, d4),
+		 z0 = svadd_m (p0, z0, d4))
 
 /*
 ** add_d4_s64_m_untied:
 **	mov	(z[0-9]+\.d), d4
-**	movprfx	z1, z2
-**	add	z1\.d, p0/m, z1\.d, \1
+**	movprfx	z0, z1
+**	add	z0\.d, p0/m, z0\.d, \1
 **	ret
 */
 TEST_UNIFORM_ZS (add_d4_s64_m_untied, svint64_t, int64_t,
-		 z1 = svadd_n_s64_m (p0, z2, d4),
-		 z1 = svadd_m (p0, z2, d4))
+		 z0 = svadd_n_s64_m (p0, z1, d4),
+		 z0 = svadd_m (p0, z1, d4))
 
 /*
 ** add_1_s64_m_tied1:
@@ -112,13 +112,13 @@ TEST_UNIFORM_Z (add_s64_z_tied1, svint64_t,
 
 /*
 ** add_s64_z_tied2:
-**	movprfx	z1\.d, p0/z, z1\.d
-**	add	z1\.d, p0/m, z1\.d, z0\.d
+**	movprfx	z0\.d, p0/z, z0\.d
+**	add	z0\.d, p0/m, z0\.d, z1\.d
 **	ret
 */
 TEST_UNIFORM_Z (add_s64_z_tied2, svint64_t,
-		z1 = svadd_s64_z (p0, z0, z1),
-		z1 = svadd_z (p0, z0, z1))
+		z0 = svadd_s64_z (p0, z1, z0),
+		z0 = svadd_z (p0, z1, z0))
 
 /*
 ** add_s64_z_untied:
@@ -155,24 +155,24 @@ TEST_UNIFORM_ZS (add_x0_s64_z_untied, svint64_t, int64_t,
 /*
 ** add_d4_s64_z_tied1:
 **	mov	(z[0-9]+\.d), d4
-**	movprfx	z1\.d, p0/z, z1\.d
-**	add	z1\.d, p0/m, z1\.d, \1
+**	movprfx	z0\.d, p0/z, z0\.d
+**	add	z0\.d, p0/m, z0\.d, \1
 **	ret
 */
 TEST_UNIFORM_ZS (add_d4_s64_z_tied1, svint64_t, int64_t,
-		 z1 = svadd_n_s64_z (p0, z1, d4),
-		 z1 = svadd_z (p0, z1, d4))
+		 z0 = svadd_n_s64_z (p0, z0, d4),
+		 z0 = svadd_z (p0, z0, d4))
 
 /*
 ** add_d4_s64_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.d), d4
-**	movprfx	z1\.d, p0/z, z2\.d
-**	add	z1\.d, p0/m, z1\.d, \1
+**	movprfx	z0\.d, p0/z, z1\.d
+**	add	z0\.d, p0/m, z0\.d, \1
 **	ret
 */
 TEST_UNIFORM_ZS (add_d4_s64_z_untied, svint64_t, int64_t,
-		 z1 = svadd_n_s64_z (p0, z2, d4),
-		 z1 = svadd_z (p0, z2, d4))
+		 z0 = svadd_n_s64_z (p0, z1, d4),
+		 z0 = svadd_z (p0, z1, d4))
 
 /*
 ** add_s64_x_tied1:
@@ -185,21 +185,21 @@ TEST_UNIFORM_Z (add_s64_x_tied1, svint64_t,
 
 /*
 ** add_s64_x_tied2:
-**	add	z1\.d, z0\.d, z1\.d
+**	add	z0\.d, z1\.d, z0\.d
 **	ret
 */
 TEST_UNIFORM_Z (add_s64_x_tied2, svint64_t,
-		z1 = svadd_s64_x (p0, z0, z1),
-		z1 = svadd_x (p0, z0, z1))
+		z0 = svadd_s64_x (p0, z1, z0),
+		z0 = svadd_x (p0, z1, z0))
 
 /*
 ** add_s64_x_untied:
-**	add	z2\.d, z0\.d, z1\.d
+**	add	z0\.d, z1\.d, z2\.d
 **	ret
 */
 TEST_UNIFORM_Z (add_s64_x_untied, svint64_t,
-		z2 = svadd_s64_x (p0, z0, z1),
-		z2 = svadd_x (p0, z0, z1))
+		z0 = svadd_s64_x (p0, z1, z2),
+		z0 = svadd_x (p0, z1, z2))
 
 /*
 ** add_x0_s64_x_tied1:
@@ -214,32 +214,32 @@ TEST_UNIFORM_ZS (add_x0_s64_x_tied1, svint64_t, int64_t,
 /*
 ** add_x0_s64_x_untied:
 **	mov	(z[0-9]+\.d), x0
-**	add	z1\.d, z0\.d, \1
+**	add	z0\.d, z1\.d, \1
 **	ret
 */
 TEST_UNIFORM_ZS (add_x0_s64_x_untied, svint64_t, int64_t,
-		 z1 = svadd_n_s64_x (p0, z0, x0),
-		 z1 = svadd_x (p0, z0, x0))
+		 z0 = svadd_n_s64_x (p0, z1, x0),
+		 z0 = svadd_x (p0, z1, x0))
 
 /*
 ** add_d4_s64_x_tied1:
 **	mov	(z[0-9]+\.d), d4
-**	add	z1\.d, z1\.d, \1
+**	add	z0\.d, z0\.d, \1
 **	ret
 */
 TEST_UNIFORM_ZS (add_d4_s64_x_tied1, svint64_t, int64_t,
-		 z1 = svadd_n_s64_x (p0, z1, d4),
-		 z1 = svadd_x (p0, z1, d4))
+		 z0 = svadd_n_s64_x (p0, z0, d4),
+		 z0 = svadd_x (p0, z0, d4))
 
 /*
 ** add_d4_s64_x_untied:
 **	mov	(z[0-9]+\.d), d4
-**	add	z2\.d, z1\.d, \1
+**	add	z0\.d, z1\.d, \1
 **	ret
 */
 TEST_UNIFORM_ZS (add_d4_s64_x_untied, svint64_t, int64_t,
-		 z2 = svadd_n_s64_x (p0, z1, d4),
-		 z2 = svadd_x (p0, z1, d4))
+		 z0 = svadd_n_s64_x (p0, z1, d4),
+		 z0 = svadd_x (p0, z1, d4))
 
 /*
 ** add_1_s64_x_tied1:

@@ -14,8 +14,8 @@ TEST_UNIFORM_Z (bic_u8_m_tied1, svuint8_t,
 
 /* Bad RA choice: no preferred output sequence.  */
 TEST_UNIFORM_Z (bic_u8_m_tied2, svuint8_t,
-		z1 = svbic_u8_m (p0, z0, z1),
-		z1 = svbic_m (p0, z0, z1))
+		z0 = svbic_u8_m (p0, z1, z0),
+		z0 = svbic_m (p0, z1, z0))
 
 /*
 ** bic_u8_m_untied:
@@ -51,23 +51,23 @@ TEST_UNIFORM_ZS (bic_w0_u8_m_untied, svuint8_t, uint8_t,
 /*
 ** bic_b4_u8_m_tied1:
 **	mov	(z[0-9]+\.b), b4
-**	bic	z1\.b, p0/m, z1\.b, \1
+**	bic	z0\.b, p0/m, z0\.b, \1
 **	ret
 */
 TEST_UNIFORM_ZS (bic_b4_u8_m_tied1, svuint8_t, uint8_t,
-		 z1 = svbic_n_u8_m (p0, z1, d4),
-		 z1 = svbic_m (p0, z1, d4))
+		 z0 = svbic_n_u8_m (p0, z0, d4),
+		 z0 = svbic_m (p0, z0, d4))
 
 /*
 ** bic_b4_u8_m_untied:
 **	mov	(z[0-9]+\.b), b4
-**	movprfx	z1, z2
-**	bic	z1\.b, p0/m, z1\.b, \1
+**	movprfx	z0, z1
+**	bic	z0\.b, p0/m, z0\.b, \1
 **	ret
 */
 TEST_UNIFORM_ZS (bic_b4_u8_m_untied, svuint8_t, uint8_t,
-		 z1 = svbic_n_u8_m (p0, z2, d4),
-		 z1 = svbic_m (p0, z2, d4))
+		 z0 = svbic_n_u8_m (p0, z1, d4),
+		 z0 = svbic_m (p0, z1, d4))
 
 /*
 ** bic_1_u8_m_tied1:
@@ -112,14 +112,14 @@ TEST_UNIFORM_Z (bic_u8_z_tied1, svuint8_t,
 
 /*
 ** bic_u8_z_tied2:
-**	mov	(z[0-9]+)\.d, z1\.d
-**	movprfx	z1\.b, p0/z, z0\.b
-**	bic	z1\.b, p0/m, z1\.b, \1\.b
+**	mov	(z[0-9]+)\.d, z0\.d
+**	movprfx	z0\.b, p0/z, z1\.b
+**	bic	z0\.b, p0/m, z0\.b, \1\.b
 **	ret
 */
 TEST_UNIFORM_Z (bic_u8_z_tied2, svuint8_t,
-		z1 = svbic_u8_z (p0, z0, z1),
-		z1 = svbic_z (p0, z0, z1))
+		z0 = svbic_u8_z (p0, z1, z0),
+		z0 = svbic_z (p0, z1, z0))
 
 /*
 ** bic_u8_z_untied:
@@ -156,24 +156,24 @@ TEST_UNIFORM_ZS (bic_w0_u8_z_untied, svuint8_t, uint8_t,
 /*
 ** bic_b4_u8_z_tied1:
 **	mov	(z[0-9]+\.b), b4
-**	movprfx	z1\.b, p0/z, z1\.b
-**	bic	z1\.b, p0/m, z1\.b, \1
+**	movprfx	z0\.b, p0/z, z0\.b
+**	bic	z0\.b, p0/m, z0\.b, \1
 **	ret
 */
 TEST_UNIFORM_ZS (bic_b4_u8_z_tied1, svuint8_t, uint8_t,
-		 z1 = svbic_n_u8_z (p0, z1, d4),
-		 z1 = svbic_z (p0, z1, d4))
+		 z0 = svbic_n_u8_z (p0, z0, d4),
+		 z0 = svbic_z (p0, z0, d4))
 
 /*
 ** bic_b4_u8_z_untied:
 **	mov	(z[0-9]+\.b), b4
-**	movprfx	z1\.b, p0/z, z2\.b
-**	bic	z1\.b, p0/m, z1\.b, \1
+**	movprfx	z0\.b, p0/z, z1\.b
+**	bic	z0\.b, p0/m, z0\.b, \1
 **	ret
 */
 TEST_UNIFORM_ZS (bic_b4_u8_z_untied, svuint8_t, uint8_t,
-		 z1 = svbic_n_u8_z (p0, z2, d4),
-		 z1 = svbic_z (p0, z2, d4))
+		 z0 = svbic_n_u8_z (p0, z1, d4),
+		 z0 = svbic_z (p0, z1, d4))
 
 /*
 ** bic_u8_x_tied1:
@@ -186,21 +186,21 @@ TEST_UNIFORM_Z (bic_u8_x_tied1, svuint8_t,
 
 /*
 ** bic_u8_x_tied2:
-**	bic	z1\.d, z0\.d, z1\.d
+**	bic	z0\.d, z1\.d, z0\.d
 **	ret
 */
 TEST_UNIFORM_Z (bic_u8_x_tied2, svuint8_t,
-		z1 = svbic_u8_x (p0, z0, z1),
-		z1 = svbic_x (p0, z0, z1))
+		z0 = svbic_u8_x (p0, z1, z0),
+		z0 = svbic_x (p0, z1, z0))
 
 /*
 ** bic_u8_x_untied:
-**	bic	z2\.d, z0\.d, z1\.d
+**	bic	z0\.d, z1\.d, z2\.d
 **	ret
 */
 TEST_UNIFORM_Z (bic_u8_x_untied, svuint8_t,
-		z2 = svbic_u8_x (p0, z0, z1),
-		z2 = svbic_x (p0, z0, z1))
+		z0 = svbic_u8_x (p0, z1, z2),
+		z0 = svbic_x (p0, z1, z2))
 
 /*
 ** bic_w0_u8_x_tied1:
@@ -214,33 +214,33 @@ TEST_UNIFORM_ZS (bic_w0_u8_x_tied1, svuint8_t, uint8_t,
 
 /*
 ** bic_w0_u8_x_untied:
-**	mov	z1\.b, w0
-**	bic	z1\.d, z0\.d, z1\.d
+**	mov	z0\.b, w0
+**	bic	z0\.d, z1\.d, z0\.d
 **	ret
 */
 TEST_UNIFORM_ZS (bic_w0_u8_x_untied, svuint8_t, uint8_t,
-		 z1 = svbic_n_u8_x (p0, z0, x0),
-		 z1 = svbic_x (p0, z0, x0))
+		 z0 = svbic_n_u8_x (p0, z1, x0),
+		 z0 = svbic_x (p0, z1, x0))
 
 /*
 ** bic_b4_u8_x_tied1:
 **	mov	(z[0-9]+)\.b, b4
-**	bic	z1\.d, z1\.d, \1\.d
+**	bic	z0\.d, z0\.d, \1\.d
 **	ret
 */
 TEST_UNIFORM_ZS (bic_b4_u8_x_tied1, svuint8_t, uint8_t,
-		 z1 = svbic_n_u8_x (p0, z1, d4),
-		 z1 = svbic_x (p0, z1, d4))
+		 z0 = svbic_n_u8_x (p0, z0, d4),
+		 z0 = svbic_x (p0, z0, d4))
 
 /*
 ** bic_b4_u8_x_untied:
 **	mov	(z[0-9]+)\.b, b4
-**	bic	z2\.d, z1\.d, \1\.d
+**	bic	z0\.d, z1\.d, \1\.d
 **	ret
 */
 TEST_UNIFORM_ZS (bic_b4_u8_x_untied, svuint8_t, uint8_t,
-		 z2 = svbic_n_u8_x (p0, z1, d4),
-		 z2 = svbic_x (p0, z1, d4))
+		 z0 = svbic_n_u8_x (p0, z1, d4),
+		 z0 = svbic_x (p0, z1, d4))
 
 /*
 ** bic_1_u8_x_tied1:

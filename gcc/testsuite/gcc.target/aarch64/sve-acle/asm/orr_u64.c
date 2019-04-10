@@ -14,8 +14,8 @@ TEST_UNIFORM_Z (orr_u64_m_tied1, svuint64_t,
 
 /* Bad RA choice: no preferred output sequence.  */
 TEST_UNIFORM_Z (orr_u64_m_tied2, svuint64_t,
-		z1 = svorr_u64_m (p0, z0, z1),
-		z1 = svorr_m (p0, z0, z1))
+		z0 = svorr_u64_m (p0, z1, z0),
+		z0 = svorr_m (p0, z1, z0))
 
 /*
 ** orr_u64_m_untied:
@@ -51,23 +51,23 @@ TEST_UNIFORM_ZS (orr_x0_u64_m_untied, svuint64_t, uint64_t,
 /*
 ** orr_d4_u64_m_tied1:
 **	mov	(z[0-9]+\.d), d4
-**	orr	z1\.d, p0/m, z1\.d, \1
+**	orr	z0\.d, p0/m, z0\.d, \1
 **	ret
 */
 TEST_UNIFORM_ZS (orr_d4_u64_m_tied1, svuint64_t, uint64_t,
-		 z1 = svorr_n_u64_m (p0, z1, d4),
-		 z1 = svorr_m (p0, z1, d4))
+		 z0 = svorr_n_u64_m (p0, z0, d4),
+		 z0 = svorr_m (p0, z0, d4))
 
 /*
 ** orr_d4_u64_m_untied:
 **	mov	(z[0-9]+\.d), d4
-**	movprfx	z1, z2
-**	orr	z1\.d, p0/m, z1\.d, \1
+**	movprfx	z0, z1
+**	orr	z0\.d, p0/m, z0\.d, \1
 **	ret
 */
 TEST_UNIFORM_ZS (orr_d4_u64_m_untied, svuint64_t, uint64_t,
-		 z1 = svorr_n_u64_m (p0, z2, d4),
-		 z1 = svorr_m (p0, z2, d4))
+		 z0 = svorr_n_u64_m (p0, z1, d4),
+		 z0 = svorr_m (p0, z1, d4))
 
 /*
 ** orr_1_u64_m_tied1:
@@ -112,13 +112,13 @@ TEST_UNIFORM_Z (orr_u64_z_tied1, svuint64_t,
 
 /*
 ** orr_u64_z_tied2:
-**	movprfx	z1\.d, p0/z, z1\.d
-**	orr	z1\.d, p0/m, z1\.d, z0\.d
+**	movprfx	z0\.d, p0/z, z0\.d
+**	orr	z0\.d, p0/m, z0\.d, z1\.d
 **	ret
 */
 TEST_UNIFORM_Z (orr_u64_z_tied2, svuint64_t,
-		z1 = svorr_u64_z (p0, z0, z1),
-		z1 = svorr_z (p0, z0, z1))
+		z0 = svorr_u64_z (p0, z1, z0),
+		z0 = svorr_z (p0, z1, z0))
 
 /*
 ** orr_u64_z_untied:
@@ -155,24 +155,24 @@ TEST_UNIFORM_ZS (orr_x0_u64_z_untied, svuint64_t, uint64_t,
 /*
 ** orr_d4_u64_z_tied1:
 **	mov	(z[0-9]+\.d), d4
-**	movprfx	z1\.d, p0/z, z1\.d
-**	orr	z1\.d, p0/m, z1\.d, \1
+**	movprfx	z0\.d, p0/z, z0\.d
+**	orr	z0\.d, p0/m, z0\.d, \1
 **	ret
 */
 TEST_UNIFORM_ZS (orr_d4_u64_z_tied1, svuint64_t, uint64_t,
-		 z1 = svorr_n_u64_z (p0, z1, d4),
-		 z1 = svorr_z (p0, z1, d4))
+		 z0 = svorr_n_u64_z (p0, z0, d4),
+		 z0 = svorr_z (p0, z0, d4))
 
 /*
 ** orr_d4_u64_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.d), d4
-**	movprfx	z1\.d, p0/z, z2\.d
-**	orr	z1\.d, p0/m, z1\.d, \1
+**	movprfx	z0\.d, p0/z, z1\.d
+**	orr	z0\.d, p0/m, z0\.d, \1
 **	ret
 */
 TEST_UNIFORM_ZS (orr_d4_u64_z_untied, svuint64_t, uint64_t,
-		 z1 = svorr_n_u64_z (p0, z2, d4),
-		 z1 = svorr_z (p0, z2, d4))
+		 z0 = svorr_n_u64_z (p0, z1, d4),
+		 z0 = svorr_z (p0, z1, d4))
 
 /*
 ** orr_u64_x_tied1:
@@ -185,21 +185,21 @@ TEST_UNIFORM_Z (orr_u64_x_tied1, svuint64_t,
 
 /*
 ** orr_u64_x_tied2:
-**	orr	z1\.d, z0\.d, z1\.d
+**	orr	z0\.d, z1\.d, z0\.d
 **	ret
 */
 TEST_UNIFORM_Z (orr_u64_x_tied2, svuint64_t,
-		z1 = svorr_u64_x (p0, z0, z1),
-		z1 = svorr_x (p0, z0, z1))
+		z0 = svorr_u64_x (p0, z1, z0),
+		z0 = svorr_x (p0, z1, z0))
 
 /*
 ** orr_u64_x_untied:
-**	orr	z2\.d, z0\.d, z1\.d
+**	orr	z0\.d, z1\.d, z2\.d
 **	ret
 */
 TEST_UNIFORM_Z (orr_u64_x_untied, svuint64_t,
-		z2 = svorr_u64_x (p0, z0, z1),
-		z2 = svorr_x (p0, z0, z1))
+		z0 = svorr_u64_x (p0, z1, z2),
+		z0 = svorr_x (p0, z1, z2))
 
 /*
 ** orr_x0_u64_x_tied1:
@@ -213,33 +213,33 @@ TEST_UNIFORM_ZS (orr_x0_u64_x_tied1, svuint64_t, uint64_t,
 
 /*
 ** orr_x0_u64_x_untied:
-**	mov	z1\.d, x0
-**	orr	z1\.d, z0\.d, z1\.d
+**	mov	z0\.d, x0
+**	orr	z0\.d, z1\.d, z0\.d
 **	ret
 */
 TEST_UNIFORM_ZS (orr_x0_u64_x_untied, svuint64_t, uint64_t,
-		 z1 = svorr_n_u64_x (p0, z0, x0),
-		 z1 = svorr_x (p0, z0, x0))
+		 z0 = svorr_n_u64_x (p0, z1, x0),
+		 z0 = svorr_x (p0, z1, x0))
 
 /*
 ** orr_d4_u64_x_tied1:
 **	mov	(z[0-9]+)\.d, d4
-**	orr	z1\.d, z1\.d, \1\.d
+**	orr	z0\.d, z0\.d, \1\.d
 **	ret
 */
 TEST_UNIFORM_ZS (orr_d4_u64_x_tied1, svuint64_t, uint64_t,
-		 z1 = svorr_n_u64_x (p0, z1, d4),
-		 z1 = svorr_x (p0, z1, d4))
+		 z0 = svorr_n_u64_x (p0, z0, d4),
+		 z0 = svorr_x (p0, z0, d4))
 
 /*
 ** orr_d4_u64_x_untied:
 **	mov	(z[0-9]+)\.d, d4
-**	orr	z2\.d, z1\.d, \1\.d
+**	orr	z0\.d, z1\.d, \1\.d
 **	ret
 */
 TEST_UNIFORM_ZS (orr_d4_u64_x_untied, svuint64_t, uint64_t,
-		 z2 = svorr_n_u64_x (p0, z1, d4),
-		 z2 = svorr_x (p0, z1, d4))
+		 z0 = svorr_n_u64_x (p0, z1, d4),
+		 z0 = svorr_x (p0, z1, d4))
 
 /*
 ** orr_1_u64_x_tied1:

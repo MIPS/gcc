@@ -74,9 +74,9 @@ TEST_UNIFORM_Z (abs_s16_x_tied1, svint16_t,
 
 /*
 ** abs_s16_x_untied:
-**	abs	z2\.h, p0/m, z0\.h
+**	abs	z0\.h, p0/m, z1\.h
 **	ret
 */
 TEST_UNIFORM_Z (abs_s16_x_untied, svint16_t,
-		z2 = svabs_s16_x (p0, z0),
-		z2 = svabs_x (p0, z0))
+		z0 = svabs_s16_x (p0, z1),
+		z0 = svabs_x (p0, z1))

@@ -80,13 +80,13 @@ TEST_DUAL_ZS (dot_w0_s64_untied, svint64_t, svint16_t, int16_t,
 /*
 ** dot_h4_s64_untied:
 **	mov	(z[0-9]+\.h), h4
-**	movprfx	z1, z0
-**	sdot	z1\.d, z16\.h, \1
+**	movprfx	z0, z1
+**	sdot	z0\.d, z16\.h, \1
 **	ret
 */
 TEST_DUAL_ZS (dot_h4_s64_untied, svint64_t, svint16_t, int16_t,
-	      z1 = svdot_n_s64 (z0, z16, d4),
-	      z1 = svdot (z0, z16, d4))
+	      z0 = svdot_n_s64 (z1, z16, d4),
+	      z0 = svdot (z1, z16, d4))
 
 /*
 ** dot_2_s64_untied:

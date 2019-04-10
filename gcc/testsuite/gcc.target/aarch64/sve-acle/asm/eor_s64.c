@@ -14,8 +14,8 @@ TEST_UNIFORM_Z (eor_s64_m_tied1, svint64_t,
 
 /* Bad RA choice: no preferred output sequence.  */
 TEST_UNIFORM_Z (eor_s64_m_tied2, svint64_t,
-		z1 = sveor_s64_m (p0, z0, z1),
-		z1 = sveor_m (p0, z0, z1))
+		z0 = sveor_s64_m (p0, z1, z0),
+		z0 = sveor_m (p0, z1, z0))
 
 /*
 ** eor_s64_m_untied:
@@ -51,23 +51,23 @@ TEST_UNIFORM_ZS (eor_x0_s64_m_untied, svint64_t, int64_t,
 /*
 ** eor_d4_s64_m_tied1:
 **	mov	(z[0-9]+\.d), d4
-**	eor	z1\.d, p0/m, z1\.d, \1
+**	eor	z0\.d, p0/m, z0\.d, \1
 **	ret
 */
 TEST_UNIFORM_ZS (eor_d4_s64_m_tied1, svint64_t, int64_t,
-		 z1 = sveor_n_s64_m (p0, z1, d4),
-		 z1 = sveor_m (p0, z1, d4))
+		 z0 = sveor_n_s64_m (p0, z0, d4),
+		 z0 = sveor_m (p0, z0, d4))
 
 /*
 ** eor_d4_s64_m_untied:
 **	mov	(z[0-9]+\.d), d4
-**	movprfx	z1, z2
-**	eor	z1\.d, p0/m, z1\.d, \1
+**	movprfx	z0, z1
+**	eor	z0\.d, p0/m, z0\.d, \1
 **	ret
 */
 TEST_UNIFORM_ZS (eor_d4_s64_m_untied, svint64_t, int64_t,
-		 z1 = sveor_n_s64_m (p0, z2, d4),
-		 z1 = sveor_m (p0, z2, d4))
+		 z0 = sveor_n_s64_m (p0, z1, d4),
+		 z0 = sveor_m (p0, z1, d4))
 
 /*
 ** eor_1_s64_m_tied1:
@@ -112,13 +112,13 @@ TEST_UNIFORM_Z (eor_s64_z_tied1, svint64_t,
 
 /*
 ** eor_s64_z_tied2:
-**	movprfx	z1\.d, p0/z, z1\.d
-**	eor	z1\.d, p0/m, z1\.d, z0\.d
+**	movprfx	z0\.d, p0/z, z0\.d
+**	eor	z0\.d, p0/m, z0\.d, z1\.d
 **	ret
 */
 TEST_UNIFORM_Z (eor_s64_z_tied2, svint64_t,
-		z1 = sveor_s64_z (p0, z0, z1),
-		z1 = sveor_z (p0, z0, z1))
+		z0 = sveor_s64_z (p0, z1, z0),
+		z0 = sveor_z (p0, z1, z0))
 
 /*
 ** eor_s64_z_untied:
@@ -155,24 +155,24 @@ TEST_UNIFORM_ZS (eor_x0_s64_z_untied, svint64_t, int64_t,
 /*
 ** eor_d4_s64_z_tied1:
 **	mov	(z[0-9]+\.d), d4
-**	movprfx	z1\.d, p0/z, z1\.d
-**	eor	z1\.d, p0/m, z1\.d, \1
+**	movprfx	z0\.d, p0/z, z0\.d
+**	eor	z0\.d, p0/m, z0\.d, \1
 **	ret
 */
 TEST_UNIFORM_ZS (eor_d4_s64_z_tied1, svint64_t, int64_t,
-		 z1 = sveor_n_s64_z (p0, z1, d4),
-		 z1 = sveor_z (p0, z1, d4))
+		 z0 = sveor_n_s64_z (p0, z0, d4),
+		 z0 = sveor_z (p0, z0, d4))
 
 /*
 ** eor_d4_s64_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.d), d4
-**	movprfx	z1\.d, p0/z, z2\.d
-**	eor	z1\.d, p0/m, z1\.d, \1
+**	movprfx	z0\.d, p0/z, z1\.d
+**	eor	z0\.d, p0/m, z0\.d, \1
 **	ret
 */
 TEST_UNIFORM_ZS (eor_d4_s64_z_untied, svint64_t, int64_t,
-		 z1 = sveor_n_s64_z (p0, z2, d4),
-		 z1 = sveor_z (p0, z2, d4))
+		 z0 = sveor_n_s64_z (p0, z1, d4),
+		 z0 = sveor_z (p0, z1, d4))
 
 /*
 ** eor_s64_x_tied1:
@@ -185,21 +185,21 @@ TEST_UNIFORM_Z (eor_s64_x_tied1, svint64_t,
 
 /*
 ** eor_s64_x_tied2:
-**	eor	z1\.d, z0\.d, z1\.d
+**	eor	z0\.d, z1\.d, z0\.d
 **	ret
 */
 TEST_UNIFORM_Z (eor_s64_x_tied2, svint64_t,
-		z1 = sveor_s64_x (p0, z0, z1),
-		z1 = sveor_x (p0, z0, z1))
+		z0 = sveor_s64_x (p0, z1, z0),
+		z0 = sveor_x (p0, z1, z0))
 
 /*
 ** eor_s64_x_untied:
-**	eor	z2\.d, z0\.d, z1\.d
+**	eor	z0\.d, z1\.d, z2\.d
 **	ret
 */
 TEST_UNIFORM_Z (eor_s64_x_untied, svint64_t,
-		z2 = sveor_s64_x (p0, z0, z1),
-		z2 = sveor_x (p0, z0, z1))
+		z0 = sveor_s64_x (p0, z1, z2),
+		z0 = sveor_x (p0, z1, z2))
 
 /*
 ** eor_x0_s64_x_tied1:
@@ -213,33 +213,33 @@ TEST_UNIFORM_ZS (eor_x0_s64_x_tied1, svint64_t, int64_t,
 
 /*
 ** eor_x0_s64_x_untied:
-**	mov	z1\.d, x0
-**	eor	z1\.d, z0\.d, z1\.d
+**	mov	z0\.d, x0
+**	eor	z0\.d, z1\.d, z0\.d
 **	ret
 */
 TEST_UNIFORM_ZS (eor_x0_s64_x_untied, svint64_t, int64_t,
-		 z1 = sveor_n_s64_x (p0, z0, x0),
-		 z1 = sveor_x (p0, z0, x0))
+		 z0 = sveor_n_s64_x (p0, z1, x0),
+		 z0 = sveor_x (p0, z1, x0))
 
 /*
 ** eor_d4_s64_x_tied1:
 **	mov	(z[0-9]+)\.d, d4
-**	eor	z1\.d, z1\.d, \1\.d
+**	eor	z0\.d, z0\.d, \1\.d
 **	ret
 */
 TEST_UNIFORM_ZS (eor_d4_s64_x_tied1, svint64_t, int64_t,
-		 z1 = sveor_n_s64_x (p0, z1, d4),
-		 z1 = sveor_x (p0, z1, d4))
+		 z0 = sveor_n_s64_x (p0, z0, d4),
+		 z0 = sveor_x (p0, z0, d4))
 
 /*
 ** eor_d4_s64_x_untied:
 **	mov	(z[0-9]+)\.d, d4
-**	eor	z2\.d, z1\.d, \1\.d
+**	eor	z0\.d, z1\.d, \1\.d
 **	ret
 */
 TEST_UNIFORM_ZS (eor_d4_s64_x_untied, svint64_t, int64_t,
-		 z2 = sveor_n_s64_x (p0, z1, d4),
-		 z2 = sveor_x (p0, z1, d4))
+		 z0 = sveor_n_s64_x (p0, z1, d4),
+		 z0 = sveor_x (p0, z1, d4))
 
 /*
 ** eor_1_s64_x_tied1:

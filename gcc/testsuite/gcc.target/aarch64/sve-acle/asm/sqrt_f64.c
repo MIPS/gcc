@@ -74,12 +74,12 @@ TEST_UNIFORM_Z (sqrt_f64_x_tied1, svfloat64_t,
 
 /*
 ** sqrt_f64_x_untied:
-**	fsqrt	z2\.d, p0/m, z0\.d
+**	fsqrt	z0\.d, p0/m, z1\.d
 **	ret
 */
 TEST_UNIFORM_Z (sqrt_f64_x_untied, svfloat64_t,
-		z2 = svsqrt_f64_x (p0, z0),
-		z2 = svsqrt_x (p0, z0))
+		z0 = svsqrt_f64_x (p0, z1),
+		z0 = svsqrt_x (p0, z1))
 
 /*
 ** ptrue_sqrt_f64_x_tied1:
@@ -94,12 +94,12 @@ TEST_UNIFORM_Z (ptrue_sqrt_f64_x_tied1, svfloat64_t,
 /*
 ** ptrue_sqrt_f64_x_untied:
 **	ptrue	(p[0-7])\.d[^\n]*
-**	fsqrt	z2\.d, \1/m, z0\.d
+**	fsqrt	z0\.d, \1/m, z1\.d
 **	ret
 */
 TEST_UNIFORM_Z (ptrue_sqrt_f64_x_untied, svfloat64_t,
-		z2 = svsqrt_f64_x (svptrue_b64 (), z0),
-		z2 = svsqrt_x (svptrue_b64 (), z0))
+		z0 = svsqrt_f64_x (svptrue_b64 (), z1),
+		z0 = svsqrt_x (svptrue_b64 (), z1))
 
 /*
 ** ptrue_b8_sqrt_f64_x_tied1:
@@ -114,9 +114,9 @@ TEST_UNIFORM_Z (ptrue_b8_sqrt_f64_x_tied1, svfloat64_t,
 /*
 ** ptrue_b8_sqrt_f64_x_untied:
 **	ptrue	(p[0-7])\.d[^\n]*
-**	fsqrt	z2\.d, \1/m, z0\.d
+**	fsqrt	z0\.d, \1/m, z1\.d
 **	ret
 */
 TEST_UNIFORM_Z (ptrue_b8_sqrt_f64_x_untied, svfloat64_t,
-		z2 = svsqrt_f64_x (svptrue_b8 (), z0),
-		z2 = svsqrt_x (svptrue_b8 (), z0))
+		z0 = svsqrt_f64_x (svptrue_b8 (), z1),
+		z0 = svsqrt_x (svptrue_b8 (), z1))

@@ -74,9 +74,9 @@ TEST_UNIFORM_Z (neg_s8_x_tied1, svint8_t,
 
 /*
 ** neg_s8_x_untied:
-**	neg	z2\.b, p0/m, z0\.b
+**	neg	z0\.b, p0/m, z1\.b
 **	ret
 */
 TEST_UNIFORM_Z (neg_s8_x_untied, svint8_t,
-		z2 = svneg_s8_x (p0, z0),
-		z2 = svneg_x (p0, z0))
+		z0 = svneg_s8_x (p0, z1),
+		z0 = svneg_x (p0, z1))

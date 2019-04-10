@@ -74,9 +74,9 @@ TEST_UNIFORM_Z (abs_s8_x_tied1, svint8_t,
 
 /*
 ** abs_s8_x_untied:
-**	abs	z2\.b, p0/m, z0\.b
+**	abs	z0\.b, p0/m, z1\.b
 **	ret
 */
 TEST_UNIFORM_Z (abs_s8_x_untied, svint8_t,
-		z2 = svabs_s8_x (p0, z0),
-		z2 = svabs_x (p0, z0))
+		z0 = svabs_s8_x (p0, z1),
+		z0 = svabs_x (p0, z1))

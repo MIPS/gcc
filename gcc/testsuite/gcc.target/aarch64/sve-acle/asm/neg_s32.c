@@ -74,9 +74,9 @@ TEST_UNIFORM_Z (neg_s32_x_tied1, svint32_t,
 
 /*
 ** neg_s32_x_untied:
-**	neg	z2\.s, p0/m, z0\.s
+**	neg	z0\.s, p0/m, z1\.s
 **	ret
 */
 TEST_UNIFORM_Z (neg_s32_x_untied, svint32_t,
-		z2 = svneg_s32_x (p0, z0),
-		z2 = svneg_x (p0, z0))
+		z0 = svneg_s32_x (p0, z1),
+		z0 = svneg_x (p0, z1))

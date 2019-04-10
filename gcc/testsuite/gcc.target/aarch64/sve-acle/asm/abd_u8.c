@@ -14,8 +14,8 @@ TEST_UNIFORM_Z (abd_u8_m_tied1, svuint8_t,
 
 /* Bad RA choice: no preferred output sequence.  */
 TEST_UNIFORM_Z (abd_u8_m_tied2, svuint8_t,
-		z1 = svabd_u8_m (p0, z0, z1),
-		z1 = svabd_m (p0, z0, z1))
+		z0 = svabd_u8_m (p0, z1, z0),
+		z0 = svabd_m (p0, z1, z0))
 
 /*
 ** abd_u8_m_untied:
@@ -51,23 +51,23 @@ TEST_UNIFORM_ZS (abd_w0_u8_m_untied, svuint8_t, uint8_t,
 /*
 ** abd_b4_u8_m_tied1:
 **	mov	(z[0-9]+\.b), b4
-**	uabd	z1\.b, p0/m, z1\.b, \1
+**	uabd	z0\.b, p0/m, z0\.b, \1
 **	ret
 */
 TEST_UNIFORM_ZS (abd_b4_u8_m_tied1, svuint8_t, uint8_t,
-		 z1 = svabd_n_u8_m (p0, z1, d4),
-		 z1 = svabd_m (p0, z1, d4))
+		 z0 = svabd_n_u8_m (p0, z0, d4),
+		 z0 = svabd_m (p0, z0, d4))
 
 /*
 ** abd_b4_u8_m_untied:
 **	mov	(z[0-9]+\.b), b4
-**	movprfx	z1, z2
-**	uabd	z1\.b, p0/m, z1\.b, \1
+**	movprfx	z0, z1
+**	uabd	z0\.b, p0/m, z0\.b, \1
 **	ret
 */
 TEST_UNIFORM_ZS (abd_b4_u8_m_untied, svuint8_t, uint8_t,
-		 z1 = svabd_n_u8_m (p0, z2, d4),
-		 z1 = svabd_m (p0, z2, d4))
+		 z0 = svabd_n_u8_m (p0, z1, d4),
+		 z0 = svabd_m (p0, z1, d4))
 
 /*
 ** abd_1_u8_m_tied1:
@@ -102,13 +102,13 @@ TEST_UNIFORM_Z (abd_u8_z_tied1, svuint8_t,
 
 /*
 ** abd_u8_z_tied2:
-**	movprfx	z1\.b, p0/z, z1\.b
-**	uabd	z1\.b, p0/m, z1\.b, z0\.b
+**	movprfx	z0\.b, p0/z, z0\.b
+**	uabd	z0\.b, p0/m, z0\.b, z1\.b
 **	ret
 */
 TEST_UNIFORM_Z (abd_u8_z_tied2, svuint8_t,
-		z1 = svabd_u8_z (p0, z0, z1),
-		z1 = svabd_z (p0, z0, z1))
+		z0 = svabd_u8_z (p0, z1, z0),
+		z0 = svabd_z (p0, z1, z0))
 
 /*
 ** abd_u8_z_untied:
@@ -145,24 +145,24 @@ TEST_UNIFORM_ZS (abd_w0_u8_z_untied, svuint8_t, uint8_t,
 /*
 ** abd_b4_u8_z_tied1:
 **	mov	(z[0-9]+\.b), b4
-**	movprfx	z1\.b, p0/z, z1\.b
-**	uabd	z1\.b, p0/m, z1\.b, \1
+**	movprfx	z0\.b, p0/z, z0\.b
+**	uabd	z0\.b, p0/m, z0\.b, \1
 **	ret
 */
 TEST_UNIFORM_ZS (abd_b4_u8_z_tied1, svuint8_t, uint8_t,
-		 z1 = svabd_n_u8_z (p0, z1, d4),
-		 z1 = svabd_z (p0, z1, d4))
+		 z0 = svabd_n_u8_z (p0, z0, d4),
+		 z0 = svabd_z (p0, z0, d4))
 
 /*
 ** abd_b4_u8_z_untied:
 **	mov	(z[0-9]+\.b), b4
-**	movprfx	z1\.b, p0/z, \1
-**	uabd	z1\.b, p0/m, z1\.b, z2\.b
+**	movprfx	z0\.b, p0/z, \1
+**	uabd	z0\.b, p0/m, z0\.b, z1\.b
 **	ret
 */
 TEST_UNIFORM_ZS (abd_b4_u8_z_untied, svuint8_t, uint8_t,
-		 z1 = svabd_n_u8_z (p0, z2, d4),
-		 z1 = svabd_z (p0, z2, d4))
+		 z0 = svabd_n_u8_z (p0, z1, d4),
+		 z0 = svabd_z (p0, z1, d4))
 
 /*
 ** abd_u8_x_tied1:
@@ -175,22 +175,22 @@ TEST_UNIFORM_Z (abd_u8_x_tied1, svuint8_t,
 
 /*
 ** abd_u8_x_tied2:
-**	uabd	z1\.b, p0/m, z1\.b, z0\.b
+**	uabd	z0\.b, p0/m, z0\.b, z1\.b
 **	ret
 */
 TEST_UNIFORM_Z (abd_u8_x_tied2, svuint8_t,
-		z1 = svabd_u8_x (p0, z0, z1),
-		z1 = svabd_x (p0, z0, z1))
+		z0 = svabd_u8_x (p0, z1, z0),
+		z0 = svabd_x (p0, z1, z0))
 
 /*
 ** abd_u8_x_untied:
-**	movprfx	z2, z0
-**	uabd	z2\.b, p0/m, z2\.b, z1\.b
+**	movprfx	z0, z1
+**	uabd	z0\.b, p0/m, z0\.b, z2\.b
 **	ret
 */
 TEST_UNIFORM_Z (abd_u8_x_untied, svuint8_t,
-		z2 = svabd_u8_x (p0, z0, z1),
-		z2 = svabd_x (p0, z0, z1))
+		z0 = svabd_u8_x (p0, z1, z2),
+		z0 = svabd_x (p0, z1, z2))
 
 /*
 ** abd_w0_u8_x_tied1:
@@ -204,33 +204,33 @@ TEST_UNIFORM_ZS (abd_w0_u8_x_tied1, svuint8_t, uint8_t,
 
 /*
 ** abd_w0_u8_x_untied:
-**	mov	z1\.b, w0
-**	uabd	z1\.b, p0/m, z1\.b, z0\.b
+**	mov	z0\.b, w0
+**	uabd	z0\.b, p0/m, z0\.b, z1\.b
 **	ret
 */
 TEST_UNIFORM_ZS (abd_w0_u8_x_untied, svuint8_t, uint8_t,
-		 z1 = svabd_n_u8_x (p0, z0, x0),
-		 z1 = svabd_x (p0, z0, x0))
+		 z0 = svabd_n_u8_x (p0, z1, x0),
+		 z0 = svabd_x (p0, z1, x0))
 
 /*
 ** abd_b4_u8_x_tied1:
 **	mov	(z[0-9]+\.b), b4
-**	uabd	z1\.b, p0/m, z1\.b, \1
+**	uabd	z0\.b, p0/m, z0\.b, \1
 **	ret
 */
 TEST_UNIFORM_ZS (abd_b4_u8_x_tied1, svuint8_t, uint8_t,
-		 z1 = svabd_n_u8_x (p0, z1, d4),
-		 z1 = svabd_x (p0, z1, d4))
+		 z0 = svabd_n_u8_x (p0, z0, d4),
+		 z0 = svabd_x (p0, z0, d4))
 
 /*
 ** abd_b4_u8_x_untied:
-**	mov	z2\.b, b4
-**	uabd	z2\.b, p0/m, z2\.b, z1\.b
+**	mov	z0\.b, b4
+**	uabd	z0\.b, p0/m, z0\.b, z1\.b
 **	ret
 */
 TEST_UNIFORM_ZS (abd_b4_u8_x_untied, svuint8_t, uint8_t,
-		 z2 = svabd_n_u8_x (p0, z1, d4),
-		 z2 = svabd_x (p0, z1, d4))
+		 z0 = svabd_n_u8_x (p0, z1, d4),
+		 z0 = svabd_x (p0, z1, d4))
 
 /*
 ** abd_1_u8_x_tied1:

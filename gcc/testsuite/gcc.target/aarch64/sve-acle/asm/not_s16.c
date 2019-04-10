@@ -74,9 +74,9 @@ TEST_UNIFORM_Z (not_s16_x_tied1, svint16_t,
 
 /*
 ** not_s16_x_untied:
-**	not	z2\.h, p0/m, z0\.h
+**	not	z0\.h, p0/m, z1\.h
 **	ret
 */
 TEST_UNIFORM_Z (not_s16_x_untied, svint16_t,
-		z2 = svnot_s16_x (p0, z0),
-		z2 = svnot_x (p0, z0))
+		z0 = svnot_s16_x (p0, z1),
+		z0 = svnot_x (p0, z1))

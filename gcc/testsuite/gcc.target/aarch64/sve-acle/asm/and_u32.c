@@ -14,8 +14,8 @@ TEST_UNIFORM_Z (and_u32_m_tied1, svuint32_t,
 
 /* Bad RA choice: no preferred output sequence.  */
 TEST_UNIFORM_Z (and_u32_m_tied2, svuint32_t,
-		z1 = svand_u32_m (p0, z0, z1),
-		z1 = svand_m (p0, z0, z1))
+		z0 = svand_u32_m (p0, z1, z0),
+		z0 = svand_m (p0, z1, z0))
 
 /*
 ** and_u32_m_untied:
@@ -51,23 +51,23 @@ TEST_UNIFORM_ZS (and_w0_u32_m_untied, svuint32_t, uint32_t,
 /*
 ** and_s4_u32_m_tied1:
 **	mov	(z[0-9]+\.s), s4
-**	and	z1\.s, p0/m, z1\.s, \1
+**	and	z0\.s, p0/m, z0\.s, \1
 **	ret
 */
 TEST_UNIFORM_ZS (and_s4_u32_m_tied1, svuint32_t, uint32_t,
-		 z1 = svand_n_u32_m (p0, z1, d4),
-		 z1 = svand_m (p0, z1, d4))
+		 z0 = svand_n_u32_m (p0, z0, d4),
+		 z0 = svand_m (p0, z0, d4))
 
 /*
 ** and_s4_u32_m_untied:
 **	mov	(z[0-9]+\.s), s4
-**	movprfx	z1, z2
-**	and	z1\.s, p0/m, z1\.s, \1
+**	movprfx	z0, z1
+**	and	z0\.s, p0/m, z0\.s, \1
 **	ret
 */
 TEST_UNIFORM_ZS (and_s4_u32_m_untied, svuint32_t, uint32_t,
-		 z1 = svand_n_u32_m (p0, z2, d4),
-		 z1 = svand_m (p0, z2, d4))
+		 z0 = svand_n_u32_m (p0, z1, d4),
+		 z0 = svand_m (p0, z1, d4))
 
 /*
 ** and_1_u32_m_tied1:
@@ -112,13 +112,13 @@ TEST_UNIFORM_Z (and_u32_z_tied1, svuint32_t,
 
 /*
 ** and_u32_z_tied2:
-**	movprfx	z1\.s, p0/z, z1\.s
-**	and	z1\.s, p0/m, z1\.s, z0\.s
+**	movprfx	z0\.s, p0/z, z0\.s
+**	and	z0\.s, p0/m, z0\.s, z1\.s
 **	ret
 */
 TEST_UNIFORM_Z (and_u32_z_tied2, svuint32_t,
-		z1 = svand_u32_z (p0, z0, z1),
-		z1 = svand_z (p0, z0, z1))
+		z0 = svand_u32_z (p0, z1, z0),
+		z0 = svand_z (p0, z1, z0))
 
 /*
 ** and_u32_z_untied:
@@ -155,24 +155,24 @@ TEST_UNIFORM_ZS (and_w0_u32_z_untied, svuint32_t, uint32_t,
 /*
 ** and_s4_u32_z_tied1:
 **	mov	(z[0-9]+\.s), s4
-**	movprfx	z1\.s, p0/z, z1\.s
-**	and	z1\.s, p0/m, z1\.s, \1
+**	movprfx	z0\.s, p0/z, z0\.s
+**	and	z0\.s, p0/m, z0\.s, \1
 **	ret
 */
 TEST_UNIFORM_ZS (and_s4_u32_z_tied1, svuint32_t, uint32_t,
-		 z1 = svand_n_u32_z (p0, z1, d4),
-		 z1 = svand_z (p0, z1, d4))
+		 z0 = svand_n_u32_z (p0, z0, d4),
+		 z0 = svand_z (p0, z0, d4))
 
 /*
 ** and_s4_u32_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.s), s4
-**	movprfx	z1\.s, p0/z, z2\.s
-**	and	z1\.s, p0/m, z1\.s, \1
+**	movprfx	z0\.s, p0/z, z1\.s
+**	and	z0\.s, p0/m, z0\.s, \1
 **	ret
 */
 TEST_UNIFORM_ZS (and_s4_u32_z_untied, svuint32_t, uint32_t,
-		 z1 = svand_n_u32_z (p0, z2, d4),
-		 z1 = svand_z (p0, z2, d4))
+		 z0 = svand_n_u32_z (p0, z1, d4),
+		 z0 = svand_z (p0, z1, d4))
 
 /*
 ** and_u32_x_tied1:
@@ -185,21 +185,21 @@ TEST_UNIFORM_Z (and_u32_x_tied1, svuint32_t,
 
 /*
 ** and_u32_x_tied2:
-**	and	z1\.d, z0\.d, z1\.d
+**	and	z0\.d, z1\.d, z0\.d
 **	ret
 */
 TEST_UNIFORM_Z (and_u32_x_tied2, svuint32_t,
-		z1 = svand_u32_x (p0, z0, z1),
-		z1 = svand_x (p0, z0, z1))
+		z0 = svand_u32_x (p0, z1, z0),
+		z0 = svand_x (p0, z1, z0))
 
 /*
 ** and_u32_x_untied:
-**	and	z2\.d, z0\.d, z1\.d
+**	and	z0\.d, z1\.d, z2\.d
 **	ret
 */
 TEST_UNIFORM_Z (and_u32_x_untied, svuint32_t,
-		z2 = svand_u32_x (p0, z0, z1),
-		z2 = svand_x (p0, z0, z1))
+		z0 = svand_u32_x (p0, z1, z2),
+		z0 = svand_x (p0, z1, z2))
 
 /*
 ** and_w0_u32_x_tied1:
@@ -213,33 +213,33 @@ TEST_UNIFORM_ZS (and_w0_u32_x_tied1, svuint32_t, uint32_t,
 
 /*
 ** and_w0_u32_x_untied:
-**	mov	z1\.s, w0
-**	and	z1\.d, z0\.d, z1\.d
+**	mov	z0\.s, w0
+**	and	z0\.d, z1\.d, z0\.d
 **	ret
 */
 TEST_UNIFORM_ZS (and_w0_u32_x_untied, svuint32_t, uint32_t,
-		 z1 = svand_n_u32_x (p0, z0, x0),
-		 z1 = svand_x (p0, z0, x0))
+		 z0 = svand_n_u32_x (p0, z1, x0),
+		 z0 = svand_x (p0, z1, x0))
 
 /*
 ** and_s4_u32_x_tied1:
 **	mov	(z[0-9]+)\.s, s4
-**	and	z1\.d, z1\.d, \1\.d
+**	and	z0\.d, z0\.d, \1\.d
 **	ret
 */
 TEST_UNIFORM_ZS (and_s4_u32_x_tied1, svuint32_t, uint32_t,
-		 z1 = svand_n_u32_x (p0, z1, d4),
-		 z1 = svand_x (p0, z1, d4))
+		 z0 = svand_n_u32_x (p0, z0, d4),
+		 z0 = svand_x (p0, z0, d4))
 
 /*
 ** and_s4_u32_x_untied:
 **	mov	(z[0-9]+)\.s, s4
-**	and	z2\.d, z1\.d, \1\.d
+**	and	z0\.d, z1\.d, \1\.d
 **	ret
 */
 TEST_UNIFORM_ZS (and_s4_u32_x_untied, svuint32_t, uint32_t,
-		 z2 = svand_n_u32_x (p0, z1, d4),
-		 z2 = svand_x (p0, z1, d4))
+		 z0 = svand_n_u32_x (p0, z1, d4),
+		 z0 = svand_x (p0, z1, d4))
 
 /*
 ** and_1_u32_x_tied1:

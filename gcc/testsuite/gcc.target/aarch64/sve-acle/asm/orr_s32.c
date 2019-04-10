@@ -14,8 +14,8 @@ TEST_UNIFORM_Z (orr_s32_m_tied1, svint32_t,
 
 /* Bad RA choice: no preferred output sequence.  */
 TEST_UNIFORM_Z (orr_s32_m_tied2, svint32_t,
-		z1 = svorr_s32_m (p0, z0, z1),
-		z1 = svorr_m (p0, z0, z1))
+		z0 = svorr_s32_m (p0, z1, z0),
+		z0 = svorr_m (p0, z1, z0))
 
 /*
 ** orr_s32_m_untied:
@@ -51,23 +51,23 @@ TEST_UNIFORM_ZS (orr_w0_s32_m_untied, svint32_t, int32_t,
 /*
 ** orr_s4_s32_m_tied1:
 **	mov	(z[0-9]+\.s), s4
-**	orr	z1\.s, p0/m, z1\.s, \1
+**	orr	z0\.s, p0/m, z0\.s, \1
 **	ret
 */
 TEST_UNIFORM_ZS (orr_s4_s32_m_tied1, svint32_t, int32_t,
-		 z1 = svorr_n_s32_m (p0, z1, d4),
-		 z1 = svorr_m (p0, z1, d4))
+		 z0 = svorr_n_s32_m (p0, z0, d4),
+		 z0 = svorr_m (p0, z0, d4))
 
 /*
 ** orr_s4_s32_m_untied:
 **	mov	(z[0-9]+\.s), s4
-**	movprfx	z1, z2
-**	orr	z1\.s, p0/m, z1\.s, \1
+**	movprfx	z0, z1
+**	orr	z0\.s, p0/m, z0\.s, \1
 **	ret
 */
 TEST_UNIFORM_ZS (orr_s4_s32_m_untied, svint32_t, int32_t,
-		 z1 = svorr_n_s32_m (p0, z2, d4),
-		 z1 = svorr_m (p0, z2, d4))
+		 z0 = svorr_n_s32_m (p0, z1, d4),
+		 z0 = svorr_m (p0, z1, d4))
 
 /*
 ** orr_1_s32_m_tied1:
@@ -112,13 +112,13 @@ TEST_UNIFORM_Z (orr_s32_z_tied1, svint32_t,
 
 /*
 ** orr_s32_z_tied2:
-**	movprfx	z1\.s, p0/z, z1\.s
-**	orr	z1\.s, p0/m, z1\.s, z0\.s
+**	movprfx	z0\.s, p0/z, z0\.s
+**	orr	z0\.s, p0/m, z0\.s, z1\.s
 **	ret
 */
 TEST_UNIFORM_Z (orr_s32_z_tied2, svint32_t,
-		z1 = svorr_s32_z (p0, z0, z1),
-		z1 = svorr_z (p0, z0, z1))
+		z0 = svorr_s32_z (p0, z1, z0),
+		z0 = svorr_z (p0, z1, z0))
 
 /*
 ** orr_s32_z_untied:
@@ -155,24 +155,24 @@ TEST_UNIFORM_ZS (orr_w0_s32_z_untied, svint32_t, int32_t,
 /*
 ** orr_s4_s32_z_tied1:
 **	mov	(z[0-9]+\.s), s4
-**	movprfx	z1\.s, p0/z, z1\.s
-**	orr	z1\.s, p0/m, z1\.s, \1
+**	movprfx	z0\.s, p0/z, z0\.s
+**	orr	z0\.s, p0/m, z0\.s, \1
 **	ret
 */
 TEST_UNIFORM_ZS (orr_s4_s32_z_tied1, svint32_t, int32_t,
-		 z1 = svorr_n_s32_z (p0, z1, d4),
-		 z1 = svorr_z (p0, z1, d4))
+		 z0 = svorr_n_s32_z (p0, z0, d4),
+		 z0 = svorr_z (p0, z0, d4))
 
 /*
 ** orr_s4_s32_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+\.s), s4
-**	movprfx	z1\.s, p0/z, z2\.s
-**	orr	z1\.s, p0/m, z1\.s, \1
+**	movprfx	z0\.s, p0/z, z1\.s
+**	orr	z0\.s, p0/m, z0\.s, \1
 **	ret
 */
 TEST_UNIFORM_ZS (orr_s4_s32_z_untied, svint32_t, int32_t,
-		 z1 = svorr_n_s32_z (p0, z2, d4),
-		 z1 = svorr_z (p0, z2, d4))
+		 z0 = svorr_n_s32_z (p0, z1, d4),
+		 z0 = svorr_z (p0, z1, d4))
 
 /*
 ** orr_s32_x_tied1:
@@ -185,21 +185,21 @@ TEST_UNIFORM_Z (orr_s32_x_tied1, svint32_t,
 
 /*
 ** orr_s32_x_tied2:
-**	orr	z1\.d, z0\.d, z1\.d
+**	orr	z0\.d, z1\.d, z0\.d
 **	ret
 */
 TEST_UNIFORM_Z (orr_s32_x_tied2, svint32_t,
-		z1 = svorr_s32_x (p0, z0, z1),
-		z1 = svorr_x (p0, z0, z1))
+		z0 = svorr_s32_x (p0, z1, z0),
+		z0 = svorr_x (p0, z1, z0))
 
 /*
 ** orr_s32_x_untied:
-**	orr	z2\.d, z0\.d, z1\.d
+**	orr	z0\.d, z1\.d, z2\.d
 **	ret
 */
 TEST_UNIFORM_Z (orr_s32_x_untied, svint32_t,
-		z2 = svorr_s32_x (p0, z0, z1),
-		z2 = svorr_x (p0, z0, z1))
+		z0 = svorr_s32_x (p0, z1, z2),
+		z0 = svorr_x (p0, z1, z2))
 
 /*
 ** orr_w0_s32_x_tied1:
@@ -213,33 +213,33 @@ TEST_UNIFORM_ZS (orr_w0_s32_x_tied1, svint32_t, int32_t,
 
 /*
 ** orr_w0_s32_x_untied:
-**	mov	z1\.s, w0
-**	orr	z1\.d, z0\.d, z1\.d
+**	mov	z0\.s, w0
+**	orr	z0\.d, z1\.d, z0\.d
 **	ret
 */
 TEST_UNIFORM_ZS (orr_w0_s32_x_untied, svint32_t, int32_t,
-		 z1 = svorr_n_s32_x (p0, z0, x0),
-		 z1 = svorr_x (p0, z0, x0))
+		 z0 = svorr_n_s32_x (p0, z1, x0),
+		 z0 = svorr_x (p0, z1, x0))
 
 /*
 ** orr_s4_s32_x_tied1:
 **	mov	(z[0-9]+)\.s, s4
-**	orr	z1\.d, z1\.d, \1\.d
+**	orr	z0\.d, z0\.d, \1\.d
 **	ret
 */
 TEST_UNIFORM_ZS (orr_s4_s32_x_tied1, svint32_t, int32_t,
-		 z1 = svorr_n_s32_x (p0, z1, d4),
-		 z1 = svorr_x (p0, z1, d4))
+		 z0 = svorr_n_s32_x (p0, z0, d4),
+		 z0 = svorr_x (p0, z0, d4))
 
 /*
 ** orr_s4_s32_x_untied:
 **	mov	(z[0-9]+)\.s, s4
-**	orr	z2\.d, z1\.d, \1\.d
+**	orr	z0\.d, z1\.d, \1\.d
 **	ret
 */
 TEST_UNIFORM_ZS (orr_s4_s32_x_untied, svint32_t, int32_t,
-		 z2 = svorr_n_s32_x (p0, z1, d4),
-		 z2 = svorr_x (p0, z1, d4))
+		 z0 = svorr_n_s32_x (p0, z1, d4),
+		 z0 = svorr_x (p0, z1, d4))
 
 /*
 ** orr_1_s32_x_tied1:
