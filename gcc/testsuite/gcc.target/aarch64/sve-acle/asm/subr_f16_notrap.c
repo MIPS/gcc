@@ -518,30 +518,3 @@ TEST_UNIFORM_Z (ptrue_subr_m1_f16_x_tied1, svfloat16_t,
 TEST_UNIFORM_Z (ptrue_subr_m1_f16_x_untied, svfloat16_t,
 		z0 = svsubr_n_f16_x (svptrue_b16 (), z1, -1),
 		z0 = svsubr_x (svptrue_b16 (), z1, -1))
-
-/*
-** ptrue_b8_subr_f16_x_tied1:
-**	fsub	z0\.h, z1\.h, z0\.h
-**	ret
-*/
-TEST_UNIFORM_Z (ptrue_b8_subr_f16_x_tied1, svfloat16_t,
-		z0 = svsubr_f16_x (svptrue_b8 (), z0, z1),
-		z0 = svsubr_x (svptrue_b8 (), z0, z1))
-
-/*
-** ptrue_b8_subr_f16_x_tied2:
-**	fsub	z0\.h, z0\.h, z1\.h
-**	ret
-*/
-TEST_UNIFORM_Z (ptrue_b8_subr_f16_x_tied2, svfloat16_t,
-		z0 = svsubr_f16_x (svptrue_b8 (), z1, z0),
-		z0 = svsubr_x (svptrue_b8 (), z1, z0))
-
-/*
-** ptrue_b8_subr_f16_x_untied:
-**	fsub	z0\.h, z2\.h, z1\.h
-**	ret
-*/
-TEST_UNIFORM_Z (ptrue_b8_subr_f16_x_untied, svfloat16_t,
-		z0 = svsubr_f16_x (svptrue_b8 (), z1, z2),
-		z0 = svsubr_x (svptrue_b8 (), z1, z2))

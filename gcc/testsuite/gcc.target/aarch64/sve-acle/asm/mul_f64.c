@@ -527,30 +527,3 @@ TEST_UNIFORM_Z (ptrue_mul_2_f64_x_tied1, svfloat64_t,
 TEST_UNIFORM_Z (ptrue_mul_2_f64_x_untied, svfloat64_t,
 		z0 = svmul_n_f64_x (svptrue_b64 (), z1, 2),
 		z0 = svmul_x (svptrue_b64 (), z1, 2))
-
-/*
-** ptrue_b8_mul_f64_x_tied1:
-**	fmul	(z0\.d, z1\.d, z0\.d|z0\.d, z0\.d, z1\.d)
-**	ret
-*/
-TEST_UNIFORM_Z (ptrue_b8_mul_f64_x_tied1, svfloat64_t,
-		z0 = svmul_f64_x (svptrue_b8 (), z0, z1),
-		z0 = svmul_x (svptrue_b8 (), z0, z1))
-
-/*
-** ptrue_b8_mul_f64_x_tied2:
-**	fmul	(z0\.d, z0\.d, z1\.d|z0\.d, z1\.d, z0\.d)
-**	ret
-*/
-TEST_UNIFORM_Z (ptrue_b8_mul_f64_x_tied2, svfloat64_t,
-		z0 = svmul_f64_x (svptrue_b8 (), z1, z0),
-		z0 = svmul_x (svptrue_b8 (), z1, z0))
-
-/*
-** ptrue_b8_mul_f64_x_untied:
-**	fmul	(z0\.d, z2\.d, z1\.d|z0\.d, z1\.d, z2\.d)
-**	ret
-*/
-TEST_UNIFORM_Z (ptrue_b8_mul_f64_x_untied, svfloat64_t,
-		z0 = svmul_f64_x (svptrue_b8 (), z1, z2),
-		z0 = svmul_x (svptrue_b8 (), z1, z2))

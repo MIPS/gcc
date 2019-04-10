@@ -615,34 +615,3 @@ TEST_UNIFORM_Z (ptrue_abd_2_f64_x_tied1, svfloat64_t,
 TEST_UNIFORM_Z (ptrue_abd_2_f64_x_untied, svfloat64_t,
 		z0 = svabd_n_f64_x (svptrue_b64 (), z1, 2),
 		z0 = svabd_x (svptrue_b64 (), z1, 2))
-
-/*
-** ptrue_b8_abd_f64_x_tied1:
-**	ptrue	(p[0-7])\.d[^\n]*
-**	fabd	z0\.d, \1/m, z0\.d, z1\.d
-**	ret
-*/
-TEST_UNIFORM_Z (ptrue_b8_abd_f64_x_tied1, svfloat64_t,
-		z0 = svabd_f64_x (svptrue_b8 (), z0, z1),
-		z0 = svabd_x (svptrue_b8 (), z0, z1))
-
-/*
-** ptrue_b8_abd_f64_x_tied2:
-**	ptrue	(p[0-7])\.d[^\n]*
-**	fabd	z0\.d, \1/m, z0\.d, z1\.d
-**	ret
-*/
-TEST_UNIFORM_Z (ptrue_b8_abd_f64_x_tied2, svfloat64_t,
-		z0 = svabd_f64_x (svptrue_b8 (), z1, z0),
-		z0 = svabd_x (svptrue_b8 (), z1, z0))
-
-/*
-** ptrue_b8_abd_f64_x_untied:
-**	ptrue	(p[0-7])\.d[^\n]*
-**	movprfx	z0, z1
-**	fabd	z0\.d, \1/m, z0\.d, z2\.d
-**	ret
-*/
-TEST_UNIFORM_Z (ptrue_b8_abd_f64_x_untied, svfloat64_t,
-		z0 = svabd_f64_x (svptrue_b8 (), z1, z2),
-		z0 = svabd_x (svptrue_b8 (), z1, z2))

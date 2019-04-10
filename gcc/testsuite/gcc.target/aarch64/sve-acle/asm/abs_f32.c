@@ -100,23 +100,3 @@ TEST_UNIFORM_Z (ptrue_abs_f32_x_tied1, svfloat32_t,
 TEST_UNIFORM_Z (ptrue_abs_f32_x_untied, svfloat32_t,
 		z0 = svabs_f32_x (svptrue_b32 (), z1),
 		z0 = svabs_x (svptrue_b32 (), z1))
-
-/*
-** ptrue_b8_abs_f32_x_tied1:
-**	ptrue	(p[0-7])\.s[^\n]*
-**	fabs	z0\.s, \1/m, z0\.s
-**	ret
-*/
-TEST_UNIFORM_Z (ptrue_b8_abs_f32_x_tied1, svfloat32_t,
-		z0 = svabs_f32_x (svptrue_b8 (), z0),
-		z0 = svabs_x (svptrue_b8 (), z0))
-
-/*
-** ptrue_b8_abs_f32_x_untied:
-**	ptrue	(p[0-7])\.s[^\n]*
-**	fabs	z0\.s, \1/m, z1\.s
-**	ret
-*/
-TEST_UNIFORM_Z (ptrue_b8_abs_f32_x_untied, svfloat32_t,
-		z0 = svabs_f32_x (svptrue_b8 (), z1),
-		z0 = svabs_x (svptrue_b8 (), z1))

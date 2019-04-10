@@ -381,34 +381,3 @@ TEST_UNIFORM_Z (ptrue_div_1_f32_x_untied, svfloat32_t,
 TEST_UNIFORM_Z (ptrue_div_1_f32_x_tied1, svfloat32_t,
 		z0 = svdiv_n_f32_x (svptrue_b32 (), z0, 1),
 		z0 = svdiv_x (svptrue_b32 (), z0, 1))
-
-/*
-** ptrue_b8_div_f32_x_tied1:
-**	ptrue	(p[0-7])\.s[^\n]*
-**	fdiv	z0\.s, \1/m, z0\.s, z1\.s
-**	ret
-*/
-TEST_UNIFORM_Z (ptrue_b8_div_f32_x_tied1, svfloat32_t,
-		z0 = svdiv_f32_x (svptrue_b8 (), z0, z1),
-		z0 = svdiv_x (svptrue_b8 (), z0, z1))
-
-/*
-** ptrue_b8_div_f32_x_tied2:
-**	ptrue	(p[0-7])\.s[^\n]*
-**	fdivr	z0\.s, \1/m, z0\.s, z1\.s
-**	ret
-*/
-TEST_UNIFORM_Z (ptrue_b8_div_f32_x_tied2, svfloat32_t,
-		z0 = svdiv_f32_x (svptrue_b8 (), z1, z0),
-		z0 = svdiv_x (svptrue_b8 (), z1, z0))
-
-/*
-** ptrue_b8_div_f32_x_untied:
-**	ptrue	(p[0-7])\.s[^\n]*
-**	movprfx	z0, z1
-**	fdiv	z0\.s, \1/m, z0\.s, z2\.s
-**	ret
-*/
-TEST_UNIFORM_Z (ptrue_b8_div_f32_x_untied, svfloat32_t,
-		z0 = svdiv_f32_x (svptrue_b8 (), z1, z2),
-		z0 = svdiv_x (svptrue_b8 (), z1, z2))

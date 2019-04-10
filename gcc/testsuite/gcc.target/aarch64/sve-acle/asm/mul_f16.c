@@ -527,30 +527,3 @@ TEST_UNIFORM_Z (ptrue_mul_2_f16_x_tied1, svfloat16_t,
 TEST_UNIFORM_Z (ptrue_mul_2_f16_x_untied, svfloat16_t,
 		z0 = svmul_n_f16_x (svptrue_b16 (), z1, 2),
 		z0 = svmul_x (svptrue_b16 (), z1, 2))
-
-/*
-** ptrue_b8_mul_f16_x_tied1:
-**	fmul	(z0\.h, z1\.h, z0\.h|z0\.h, z0\.h, z1\.h)
-**	ret
-*/
-TEST_UNIFORM_Z (ptrue_b8_mul_f16_x_tied1, svfloat16_t,
-		z0 = svmul_f16_x (svptrue_b8 (), z0, z1),
-		z0 = svmul_x (svptrue_b8 (), z0, z1))
-
-/*
-** ptrue_b8_mul_f16_x_tied2:
-**	fmul	(z0\.h, z0\.h, z1\.h|z0\.h, z1\.h, z0\.h)
-**	ret
-*/
-TEST_UNIFORM_Z (ptrue_b8_mul_f16_x_tied2, svfloat16_t,
-		z0 = svmul_f16_x (svptrue_b8 (), z1, z0),
-		z0 = svmul_x (svptrue_b8 (), z1, z0))
-
-/*
-** ptrue_b8_mul_f16_x_untied:
-**	fmul	(z0\.h, z2\.h, z1\.h|z0\.h, z1\.h, z2\.h)
-**	ret
-*/
-TEST_UNIFORM_Z (ptrue_b8_mul_f16_x_untied, svfloat16_t,
-		z0 = svmul_f16_x (svptrue_b8 (), z1, z2),
-		z0 = svmul_x (svptrue_b8 (), z1, z2))

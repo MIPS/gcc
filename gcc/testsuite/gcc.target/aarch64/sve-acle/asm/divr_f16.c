@@ -391,34 +391,3 @@ TEST_UNIFORM_ZS (ptrue_divr_h4_f16_x_untied, svfloat16_t, __fp16,
 TEST_UNIFORM_Z (ptrue_divr_1_f16_x_untied, svfloat16_t,
 		z0 = svdivr_n_f16_x (svptrue_b16 (), z1, 1),
 		z0 = svdivr_x (svptrue_b16 (), z1, 1))
-
-/*
-** ptrue_b8_divr_f16_x_tied1:
-**	ptrue	(p[0-7])\.h[^\n]*
-**	fdivr	z0\.h, \1/m, z0\.h, z1\.h
-**	ret
-*/
-TEST_UNIFORM_Z (ptrue_b8_divr_f16_x_tied1, svfloat16_t,
-		z0 = svdivr_f16_x (svptrue_b8 (), z0, z1),
-		z0 = svdivr_x (svptrue_b8 (), z0, z1))
-
-/*
-** ptrue_b8_divr_f16_x_tied2:
-**	ptrue	(p[0-7])\.h[^\n]*
-**	fdiv	z0\.h, \1/m, z0\.h, z1\.h
-**	ret
-*/
-TEST_UNIFORM_Z (ptrue_b8_divr_f16_x_tied2, svfloat16_t,
-		z0 = svdivr_f16_x (svptrue_b8 (), z1, z0),
-		z0 = svdivr_x (svptrue_b8 (), z1, z0))
-
-/*
-** ptrue_b8_divr_f16_x_untied:
-**	ptrue	(p[0-7])\.h[^\n]*
-**	movprfx	z0, z2
-**	fdiv	z0\.h, \1/m, z0\.h, z1\.h
-**	ret
-*/
-TEST_UNIFORM_Z (ptrue_b8_divr_f16_x_untied, svfloat16_t,
-		z0 = svdivr_f16_x (svptrue_b8 (), z1, z2),
-		z0 = svdivr_x (svptrue_b8 (), z1, z2))
