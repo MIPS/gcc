@@ -49,25 +49,25 @@ TEST_UNIFORM_ZS (eor_w0_s32_m_untied, svint32_t, int32_t,
 		 z0 = sveor_m (p0, z1, x0))
 
 /*
-** eor_s0_s32_m_tied1:
-**	mov	(z[0-9]+\.s), s0
+** eor_s4_s32_m_tied1:
+**	mov	(z[0-9]+\.s), s4
 **	eor	z1\.s, p0/m, z1\.s, \1
 **	ret
 */
-TEST_UNIFORM_ZS (eor_s0_s32_m_tied1, svint32_t, int32_t,
-		 z1 = sveor_n_s32_m (p0, z1, d0),
-		 z1 = sveor_m (p0, z1, d0))
+TEST_UNIFORM_ZS (eor_s4_s32_m_tied1, svint32_t, int32_t,
+		 z1 = sveor_n_s32_m (p0, z1, d4),
+		 z1 = sveor_m (p0, z1, d4))
 
 /*
-** eor_s0_s32_m_untied:
-**	mov	(z[0-9]+\.s), s0
+** eor_s4_s32_m_untied:
+**	mov	(z[0-9]+\.s), s4
 **	movprfx	z1, z2
 **	eor	z1\.s, p0/m, z1\.s, \1
 **	ret
 */
-TEST_UNIFORM_ZS (eor_s0_s32_m_untied, svint32_t, int32_t,
-		 z1 = sveor_n_s32_m (p0, z2, d0),
-		 z1 = sveor_m (p0, z2, d0))
+TEST_UNIFORM_ZS (eor_s4_s32_m_untied, svint32_t, int32_t,
+		 z1 = sveor_n_s32_m (p0, z2, d4),
+		 z1 = sveor_m (p0, z2, d4))
 
 /*
 ** eor_1_s32_m_tied1:
@@ -153,26 +153,26 @@ TEST_UNIFORM_ZS (eor_w0_s32_z_untied, svint32_t, int32_t,
 		 z0 = sveor_z (p0, z1, x0))
 
 /*
-** eor_s0_s32_z_tied1:
-**	mov	(z[0-9]+\.s), s0
+** eor_s4_s32_z_tied1:
+**	mov	(z[0-9]+\.s), s4
 **	movprfx	z1\.s, p0/z, z1\.s
 **	eor	z1\.s, p0/m, z1\.s, \1
 **	ret
 */
-TEST_UNIFORM_ZS (eor_s0_s32_z_tied1, svint32_t, int32_t,
-		 z1 = sveor_n_s32_z (p0, z1, d0),
-		 z1 = sveor_z (p0, z1, d0))
+TEST_UNIFORM_ZS (eor_s4_s32_z_tied1, svint32_t, int32_t,
+		 z1 = sveor_n_s32_z (p0, z1, d4),
+		 z1 = sveor_z (p0, z1, d4))
 
 /*
-** eor_s0_s32_z_untied: { xfail *-*-* }
-**	mov	(z[0-9]+\.s), s0
+** eor_s4_s32_z_untied: { xfail *-*-* }
+**	mov	(z[0-9]+\.s), s4
 **	movprfx	z1\.s, p0/z, z2\.s
 **	eor	z1\.s, p0/m, z1\.s, \1
 **	ret
 */
-TEST_UNIFORM_ZS (eor_s0_s32_z_untied, svint32_t, int32_t,
-		 z1 = sveor_n_s32_z (p0, z2, d0),
-		 z1 = sveor_z (p0, z2, d0))
+TEST_UNIFORM_ZS (eor_s4_s32_z_untied, svint32_t, int32_t,
+		 z1 = sveor_n_s32_z (p0, z2, d4),
+		 z1 = sveor_z (p0, z2, d4))
 
 /*
 ** eor_s32_x_tied1:
@@ -222,24 +222,24 @@ TEST_UNIFORM_ZS (eor_w0_s32_x_untied, svint32_t, int32_t,
 		 z1 = sveor_x (p0, z0, x0))
 
 /*
-** eor_s0_s32_x_tied1:
-**	mov	(z[0-9]+)\.s, s0
+** eor_s4_s32_x_tied1:
+**	mov	(z[0-9]+)\.s, s4
 **	eor	z1\.d, z1\.d, \1\.d
 **	ret
 */
-TEST_UNIFORM_ZS (eor_s0_s32_x_tied1, svint32_t, int32_t,
-		 z1 = sveor_n_s32_x (p0, z1, d0),
-		 z1 = sveor_x (p0, z1, d0))
+TEST_UNIFORM_ZS (eor_s4_s32_x_tied1, svint32_t, int32_t,
+		 z1 = sveor_n_s32_x (p0, z1, d4),
+		 z1 = sveor_x (p0, z1, d4))
 
 /*
-** eor_s0_s32_x_untied:
-**	mov	(z[0-9]+)\.s, s0
+** eor_s4_s32_x_untied:
+**	mov	(z[0-9]+)\.s, s4
 **	eor	z2\.d, z1\.d, \1\.d
 **	ret
 */
-TEST_UNIFORM_ZS (eor_s0_s32_x_untied, svint32_t, int32_t,
-		 z2 = sveor_n_s32_x (p0, z1, d0),
-		 z2 = sveor_x (p0, z1, d0))
+TEST_UNIFORM_ZS (eor_s4_s32_x_untied, svint32_t, int32_t,
+		 z2 = sveor_n_s32_x (p0, z1, d4),
+		 z2 = sveor_x (p0, z1, d4))
 
 /*
 ** eor_1_s32_x_tied1:

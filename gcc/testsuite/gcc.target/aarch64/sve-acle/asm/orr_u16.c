@@ -49,25 +49,25 @@ TEST_UNIFORM_ZS (orr_w0_u16_m_untied, svuint16_t, uint16_t,
 		 z0 = svorr_m (p0, z1, x0))
 
 /*
-** orr_h0_u16_m_tied1:
-**	mov	(z[0-9]+\.h), h0
+** orr_h4_u16_m_tied1:
+**	mov	(z[0-9]+\.h), h4
 **	orr	z1\.h, p0/m, z1\.h, \1
 **	ret
 */
-TEST_UNIFORM_ZS (orr_h0_u16_m_tied1, svuint16_t, uint16_t,
-		 z1 = svorr_n_u16_m (p0, z1, d0),
-		 z1 = svorr_m (p0, z1, d0))
+TEST_UNIFORM_ZS (orr_h4_u16_m_tied1, svuint16_t, uint16_t,
+		 z1 = svorr_n_u16_m (p0, z1, d4),
+		 z1 = svorr_m (p0, z1, d4))
 
 /*
-** orr_h0_u16_m_untied:
-**	mov	(z[0-9]+\.h), h0
+** orr_h4_u16_m_untied:
+**	mov	(z[0-9]+\.h), h4
 **	movprfx	z1, z2
 **	orr	z1\.h, p0/m, z1\.h, \1
 **	ret
 */
-TEST_UNIFORM_ZS (orr_h0_u16_m_untied, svuint16_t, uint16_t,
-		 z1 = svorr_n_u16_m (p0, z2, d0),
-		 z1 = svorr_m (p0, z2, d0))
+TEST_UNIFORM_ZS (orr_h4_u16_m_untied, svuint16_t, uint16_t,
+		 z1 = svorr_n_u16_m (p0, z2, d4),
+		 z1 = svorr_m (p0, z2, d4))
 
 /*
 ** orr_1_u16_m_tied1:
@@ -153,26 +153,26 @@ TEST_UNIFORM_ZS (orr_w0_u16_z_untied, svuint16_t, uint16_t,
 		 z0 = svorr_z (p0, z1, x0))
 
 /*
-** orr_h0_u16_z_tied1:
-**	mov	(z[0-9]+\.h), h0
+** orr_h4_u16_z_tied1:
+**	mov	(z[0-9]+\.h), h4
 **	movprfx	z1\.h, p0/z, z1\.h
 **	orr	z1\.h, p0/m, z1\.h, \1
 **	ret
 */
-TEST_UNIFORM_ZS (orr_h0_u16_z_tied1, svuint16_t, uint16_t,
-		 z1 = svorr_n_u16_z (p0, z1, d0),
-		 z1 = svorr_z (p0, z1, d0))
+TEST_UNIFORM_ZS (orr_h4_u16_z_tied1, svuint16_t, uint16_t,
+		 z1 = svorr_n_u16_z (p0, z1, d4),
+		 z1 = svorr_z (p0, z1, d4))
 
 /*
-** orr_h0_u16_z_untied: { xfail *-*-* }
-**	mov	(z[0-9]+\.h), h0
+** orr_h4_u16_z_untied: { xfail *-*-* }
+**	mov	(z[0-9]+\.h), h4
 **	movprfx	z1\.h, p0/z, z2\.h
 **	orr	z1\.h, p0/m, z1\.h, \1
 **	ret
 */
-TEST_UNIFORM_ZS (orr_h0_u16_z_untied, svuint16_t, uint16_t,
-		 z1 = svorr_n_u16_z (p0, z2, d0),
-		 z1 = svorr_z (p0, z2, d0))
+TEST_UNIFORM_ZS (orr_h4_u16_z_untied, svuint16_t, uint16_t,
+		 z1 = svorr_n_u16_z (p0, z2, d4),
+		 z1 = svorr_z (p0, z2, d4))
 
 /*
 ** orr_u16_x_tied1:
@@ -222,24 +222,24 @@ TEST_UNIFORM_ZS (orr_w0_u16_x_untied, svuint16_t, uint16_t,
 		 z1 = svorr_x (p0, z0, x0))
 
 /*
-** orr_h0_u16_x_tied1:
-**	mov	(z[0-9]+)\.h, h0
+** orr_h4_u16_x_tied1:
+**	mov	(z[0-9]+)\.h, h4
 **	orr	z1\.d, z1\.d, \1\.d
 **	ret
 */
-TEST_UNIFORM_ZS (orr_h0_u16_x_tied1, svuint16_t, uint16_t,
-		 z1 = svorr_n_u16_x (p0, z1, d0),
-		 z1 = svorr_x (p0, z1, d0))
+TEST_UNIFORM_ZS (orr_h4_u16_x_tied1, svuint16_t, uint16_t,
+		 z1 = svorr_n_u16_x (p0, z1, d4),
+		 z1 = svorr_x (p0, z1, d4))
 
 /*
-** orr_h0_u16_x_untied:
-**	mov	(z[0-9]+)\.h, h0
+** orr_h4_u16_x_untied:
+**	mov	(z[0-9]+)\.h, h4
 **	orr	z2\.d, z1\.d, \1\.d
 **	ret
 */
-TEST_UNIFORM_ZS (orr_h0_u16_x_untied, svuint16_t, uint16_t,
-		 z2 = svorr_n_u16_x (p0, z1, d0),
-		 z2 = svorr_x (p0, z1, d0))
+TEST_UNIFORM_ZS (orr_h4_u16_x_untied, svuint16_t, uint16_t,
+		 z2 = svorr_n_u16_x (p0, z1, d4),
+		 z2 = svorr_x (p0, z1, d4))
 
 /*
 ** orr_1_u16_x_tied1:

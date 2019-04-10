@@ -78,37 +78,37 @@ TEST_UNIFORM_ZS (msb_w0_f32_m_untied, svfloat32_t, float,
 		 z0 = svmsb_m (p0, z1, z2, x0))
 
 /*
-** msb_s0_f32_m_tied1:
-**	mov	(z[0-9]+\.s), s0
+** msb_s4_f32_m_tied1:
+**	mov	(z[0-9]+\.s), s4
 **	fmsb	z0\.s, p0/m, z1\.s, \1
 **	ret
 */
-TEST_UNIFORM_ZS (msb_s0_f32_m_tied1, svfloat32_t, float,
-		 z0 = svmsb_n_f32_m (p0, z0, z1, d0),
-		 z0 = svmsb_m (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (msb_s4_f32_m_tied1, svfloat32_t, float,
+		 z0 = svmsb_n_f32_m (p0, z0, z1, d4),
+		 z0 = svmsb_m (p0, z0, z1, d4))
 
 /*
-** msb_s0_f32_m_tied2:
-**	mov	(z[0-9]+\.s), s0
+** msb_s4_f32_m_tied2:
+**	mov	(z[0-9]+\.s), s4
 **	mov	(z[0-9]+)\.d, z1\.d
 **	movprfx	z1, z0
 **	fmsb	z1\.s, p0/m, \2\.s, \1
 **	ret
 */
-TEST_UNIFORM_ZS (msb_s0_f32_m_tied2, svfloat32_t, float,
-		 z1 = svmsb_n_f32_m (p0, z0, z1, d0),
-		 z1 = svmsb_m (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (msb_s4_f32_m_tied2, svfloat32_t, float,
+		 z1 = svmsb_n_f32_m (p0, z0, z1, d4),
+		 z1 = svmsb_m (p0, z0, z1, d4))
 
 /*
-** msb_s0_f32_m_untied:
-**	mov	(z[0-9]+\.s), s0
+** msb_s4_f32_m_untied:
+**	mov	(z[0-9]+\.s), s4
 **	movprfx	z1, z0
 **	fmsb	z1\.s, p0/m, z2\.s, \1
 **	ret
 */
-TEST_UNIFORM_ZS (msb_s0_f32_m_untied, svfloat32_t, float,
-		 z1 = svmsb_n_f32_m (p0, z0, z2, d0),
-		 z1 = svmsb_m (p0, z0, z2, d0))
+TEST_UNIFORM_ZS (msb_s4_f32_m_untied, svfloat32_t, float,
+		 z1 = svmsb_n_f32_m (p0, z0, z2, d4),
+		 z1 = svmsb_m (p0, z0, z2, d4))
 
 /*
 ** msb_2_f32_m_tied1:
@@ -217,37 +217,37 @@ TEST_UNIFORM_ZS (msb_w0_f32_z_untied, svfloat32_t, float,
 		 z0 = svmsb_z (p0, z1, z2, x0))
 
 /*
-** msb_s0_f32_z_tied1:
-**	mov	(z[0-9]+\.s), s0
+** msb_s4_f32_z_tied1:
+**	mov	(z[0-9]+\.s), s4
 **	movprfx	z0\.s, p0/z, z0\.s
 **	fmsb	z0\.s, p0/m, z1\.s, \1
 **	ret
 */
-TEST_UNIFORM_ZS (msb_s0_f32_z_tied1, svfloat32_t, float,
-		 z0 = svmsb_n_f32_z (p0, z0, z1, d0),
-		 z0 = svmsb_z (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (msb_s4_f32_z_tied1, svfloat32_t, float,
+		 z0 = svmsb_n_f32_z (p0, z0, z1, d4),
+		 z0 = svmsb_z (p0, z0, z1, d4))
 
 /*
-** msb_s0_f32_z_tied2:
-**	mov	(z[0-9]+\.s), s0
+** msb_s4_f32_z_tied2:
+**	mov	(z[0-9]+\.s), s4
 **	movprfx	z1\.s, p0/z, z1\.s
 **	fmsb	z1\.s, p0/m, z0\.s, \1
 **	ret
 */
-TEST_UNIFORM_ZS (msb_s0_f32_z_tied2, svfloat32_t, float,
-		 z1 = svmsb_n_f32_z (p0, z0, z1, d0),
-		 z1 = svmsb_z (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (msb_s4_f32_z_tied2, svfloat32_t, float,
+		 z1 = svmsb_n_f32_z (p0, z0, z1, d4),
+		 z1 = svmsb_z (p0, z0, z1, d4))
 
 /*
-** msb_s0_f32_z_untied:
-**	mov	(z[0-9]+\.s), s0
+** msb_s4_f32_z_untied:
+**	mov	(z[0-9]+\.s), s4
 **	movprfx	z1\.s, p0/z, \1
 **	fmls	z1\.s, p0/m, z0\.s, z2\.s
 **	ret
 */
-TEST_UNIFORM_ZS (msb_s0_f32_z_untied, svfloat32_t, float,
-		 z1 = svmsb_n_f32_z (p0, z0, z2, d0),
-		 z1 = svmsb_z (p0, z0, z2, d0))
+TEST_UNIFORM_ZS (msb_s4_f32_z_untied, svfloat32_t, float,
+		 z1 = svmsb_n_f32_z (p0, z0, z2, d4),
+		 z1 = svmsb_z (p0, z0, z2, d4))
 
 /*
 ** msb_f32_x_tied1:
@@ -317,34 +317,34 @@ TEST_UNIFORM_ZS (msb_w0_f32_x_untied, svfloat32_t, float,
 		 z2 = svmsb_x (p0, z0, z1, x0))
 
 /*
-** msb_s0_f32_x_tied1:
-**	mov	(z[0-9]+\.s), s0
+** msb_s4_f32_x_tied1:
+**	mov	(z[0-9]+\.s), s4
 **	fmsb	z0\.s, p0/m, z1\.s, \1
 **	ret
 */
-TEST_UNIFORM_ZS (msb_s0_f32_x_tied1, svfloat32_t, float,
-		 z0 = svmsb_n_f32_x (p0, z0, z1, d0),
-		 z0 = svmsb_x (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (msb_s4_f32_x_tied1, svfloat32_t, float,
+		 z0 = svmsb_n_f32_x (p0, z0, z1, d4),
+		 z0 = svmsb_x (p0, z0, z1, d4))
 
 /*
-** msb_s0_f32_x_tied2:
-**	mov	(z[0-9]+\.s), s0
+** msb_s4_f32_x_tied2:
+**	mov	(z[0-9]+\.s), s4
 **	fmsb	z1\.s, p0/m, z0\.s, \1
 **	ret
 */
-TEST_UNIFORM_ZS (msb_s0_f32_x_tied2, svfloat32_t, float,
-		 z1 = svmsb_n_f32_x (p0, z0, z1, d0),
-		 z1 = svmsb_x (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (msb_s4_f32_x_tied2, svfloat32_t, float,
+		 z1 = svmsb_n_f32_x (p0, z0, z1, d4),
+		 z1 = svmsb_x (p0, z0, z1, d4))
 
 /*
-** msb_s0_f32_x_untied:
-**	mov	z2\.s, s0
+** msb_s4_f32_x_untied:
+**	mov	z2\.s, s4
 **	fmls	z2\.s, p0/m, z0\.s, z1\.s
 **	ret
 */
-TEST_UNIFORM_ZS (msb_s0_f32_x_untied, svfloat32_t, float,
-		 z2 = svmsb_n_f32_x (p0, z0, z1, d0),
-		 z2 = svmsb_x (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (msb_s4_f32_x_untied, svfloat32_t, float,
+		 z2 = svmsb_n_f32_x (p0, z0, z1, d4),
+		 z2 = svmsb_x (p0, z0, z1, d4))
 
 /*
 ** msb_2_f32_x_tied1:

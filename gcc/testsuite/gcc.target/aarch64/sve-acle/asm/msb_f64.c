@@ -78,37 +78,37 @@ TEST_UNIFORM_ZS (msb_x0_f64_m_untied, svfloat64_t, double,
 		 z0 = svmsb_m (p0, z1, z2, x0))
 
 /*
-** msb_d0_f64_m_tied1:
-**	mov	(z[0-9]+\.d), d0
+** msb_d4_f64_m_tied1:
+**	mov	(z[0-9]+\.d), d4
 **	fmsb	z0\.d, p0/m, z1\.d, \1
 **	ret
 */
-TEST_UNIFORM_ZS (msb_d0_f64_m_tied1, svfloat64_t, double,
-		 z0 = svmsb_n_f64_m (p0, z0, z1, d0),
-		 z0 = svmsb_m (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (msb_d4_f64_m_tied1, svfloat64_t, double,
+		 z0 = svmsb_n_f64_m (p0, z0, z1, d4),
+		 z0 = svmsb_m (p0, z0, z1, d4))
 
 /*
-** msb_d0_f64_m_tied2:
-**	mov	(z[0-9]+\.d), d0
+** msb_d4_f64_m_tied2:
+**	mov	(z[0-9]+\.d), d4
 **	mov	(z[0-9]+)\.d, z1\.d
 **	movprfx	z1, z0
 **	fmsb	z1\.d, p0/m, \2\.d, \1
 **	ret
 */
-TEST_UNIFORM_ZS (msb_d0_f64_m_tied2, svfloat64_t, double,
-		 z1 = svmsb_n_f64_m (p0, z0, z1, d0),
-		 z1 = svmsb_m (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (msb_d4_f64_m_tied2, svfloat64_t, double,
+		 z1 = svmsb_n_f64_m (p0, z0, z1, d4),
+		 z1 = svmsb_m (p0, z0, z1, d4))
 
 /*
-** msb_d0_f64_m_untied:
-**	mov	(z[0-9]+\.d), d0
+** msb_d4_f64_m_untied:
+**	mov	(z[0-9]+\.d), d4
 **	movprfx	z1, z0
 **	fmsb	z1\.d, p0/m, z2\.d, \1
 **	ret
 */
-TEST_UNIFORM_ZS (msb_d0_f64_m_untied, svfloat64_t, double,
-		 z1 = svmsb_n_f64_m (p0, z0, z2, d0),
-		 z1 = svmsb_m (p0, z0, z2, d0))
+TEST_UNIFORM_ZS (msb_d4_f64_m_untied, svfloat64_t, double,
+		 z1 = svmsb_n_f64_m (p0, z0, z2, d4),
+		 z1 = svmsb_m (p0, z0, z2, d4))
 
 /*
 ** msb_2_f64_m_tied1:
@@ -217,37 +217,37 @@ TEST_UNIFORM_ZS (msb_x0_f64_z_untied, svfloat64_t, double,
 		 z0 = svmsb_z (p0, z1, z2, x0))
 
 /*
-** msb_d0_f64_z_tied1:
-**	mov	(z[0-9]+\.d), d0
+** msb_d4_f64_z_tied1:
+**	mov	(z[0-9]+\.d), d4
 **	movprfx	z0\.d, p0/z, z0\.d
 **	fmsb	z0\.d, p0/m, z1\.d, \1
 **	ret
 */
-TEST_UNIFORM_ZS (msb_d0_f64_z_tied1, svfloat64_t, double,
-		 z0 = svmsb_n_f64_z (p0, z0, z1, d0),
-		 z0 = svmsb_z (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (msb_d4_f64_z_tied1, svfloat64_t, double,
+		 z0 = svmsb_n_f64_z (p0, z0, z1, d4),
+		 z0 = svmsb_z (p0, z0, z1, d4))
 
 /*
-** msb_d0_f64_z_tied2:
-**	mov	(z[0-9]+\.d), d0
+** msb_d4_f64_z_tied2:
+**	mov	(z[0-9]+\.d), d4
 **	movprfx	z1\.d, p0/z, z1\.d
 **	fmsb	z1\.d, p0/m, z0\.d, \1
 **	ret
 */
-TEST_UNIFORM_ZS (msb_d0_f64_z_tied2, svfloat64_t, double,
-		 z1 = svmsb_n_f64_z (p0, z0, z1, d0),
-		 z1 = svmsb_z (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (msb_d4_f64_z_tied2, svfloat64_t, double,
+		 z1 = svmsb_n_f64_z (p0, z0, z1, d4),
+		 z1 = svmsb_z (p0, z0, z1, d4))
 
 /*
-** msb_d0_f64_z_untied:
-**	mov	(z[0-9]+\.d), d0
+** msb_d4_f64_z_untied:
+**	mov	(z[0-9]+\.d), d4
 **	movprfx	z1\.d, p0/z, \1
 **	fmls	z1\.d, p0/m, z0\.d, z2\.d
 **	ret
 */
-TEST_UNIFORM_ZS (msb_d0_f64_z_untied, svfloat64_t, double,
-		 z1 = svmsb_n_f64_z (p0, z0, z2, d0),
-		 z1 = svmsb_z (p0, z0, z2, d0))
+TEST_UNIFORM_ZS (msb_d4_f64_z_untied, svfloat64_t, double,
+		 z1 = svmsb_n_f64_z (p0, z0, z2, d4),
+		 z1 = svmsb_z (p0, z0, z2, d4))
 
 /*
 ** msb_f64_x_tied1:
@@ -317,34 +317,34 @@ TEST_UNIFORM_ZS (msb_x0_f64_x_untied, svfloat64_t, double,
 		 z2 = svmsb_x (p0, z0, z1, x0))
 
 /*
-** msb_d0_f64_x_tied1:
-**	mov	(z[0-9]+\.d), d0
+** msb_d4_f64_x_tied1:
+**	mov	(z[0-9]+\.d), d4
 **	fmsb	z0\.d, p0/m, z1\.d, \1
 **	ret
 */
-TEST_UNIFORM_ZS (msb_d0_f64_x_tied1, svfloat64_t, double,
-		 z0 = svmsb_n_f64_x (p0, z0, z1, d0),
-		 z0 = svmsb_x (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (msb_d4_f64_x_tied1, svfloat64_t, double,
+		 z0 = svmsb_n_f64_x (p0, z0, z1, d4),
+		 z0 = svmsb_x (p0, z0, z1, d4))
 
 /*
-** msb_d0_f64_x_tied2:
-**	mov	(z[0-9]+\.d), d0
+** msb_d4_f64_x_tied2:
+**	mov	(z[0-9]+\.d), d4
 **	fmsb	z1\.d, p0/m, z0\.d, \1
 **	ret
 */
-TEST_UNIFORM_ZS (msb_d0_f64_x_tied2, svfloat64_t, double,
-		 z1 = svmsb_n_f64_x (p0, z0, z1, d0),
-		 z1 = svmsb_x (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (msb_d4_f64_x_tied2, svfloat64_t, double,
+		 z1 = svmsb_n_f64_x (p0, z0, z1, d4),
+		 z1 = svmsb_x (p0, z0, z1, d4))
 
 /*
-** msb_d0_f64_x_untied:
-**	mov	z2\.d, d0
+** msb_d4_f64_x_untied:
+**	mov	z2\.d, d4
 **	fmls	z2\.d, p0/m, z0\.d, z1\.d
 **	ret
 */
-TEST_UNIFORM_ZS (msb_d0_f64_x_untied, svfloat64_t, double,
-		 z2 = svmsb_n_f64_x (p0, z0, z1, d0),
-		 z2 = svmsb_x (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (msb_d4_f64_x_untied, svfloat64_t, double,
+		 z2 = svmsb_n_f64_x (p0, z0, z1, d4),
+		 z2 = svmsb_x (p0, z0, z1, d4))
 
 /*
 ** msb_2_f64_x_tied1:

@@ -51,24 +51,24 @@ TEST_UNIFORM_ZS (qadd_w0_s8_untied, svint8_t, int8_t,
 		 z0 = svqadd (z1, x0))
 
 /*
-** qadd_b0_s8_tied1:
-**	mov	(z[0-9]+\.b), b0
+** qadd_b4_s8_tied1:
+**	mov	(z[0-9]+\.b), b4
 **	sqadd	z1\.b, z1\.b, \1
 **	ret
 */
-TEST_UNIFORM_ZS (qadd_b0_s8_tied1, svint8_t, int8_t,
-		 z1 = svqadd_n_s8 (z1, d0),
-		 z1 = svqadd (z1, d0))
+TEST_UNIFORM_ZS (qadd_b4_s8_tied1, svint8_t, int8_t,
+		 z1 = svqadd_n_s8 (z1, d4),
+		 z1 = svqadd (z1, d4))
 
 /*
-** qadd_b0_s8_untied:
-**	mov	(z[0-9]+\.b), b0
+** qadd_b4_s8_untied:
+**	mov	(z[0-9]+\.b), b4
 **	sqadd	z1\.b, z2\.b, \1
 **	ret
 */
-TEST_UNIFORM_ZS (qadd_b0_s8_untied, svint8_t, int8_t,
-		 z1 = svqadd_n_s8 (z2, d0),
-		 z1 = svqadd (z2, d0))
+TEST_UNIFORM_ZS (qadd_b4_s8_untied, svint8_t, int8_t,
+		 z1 = svqadd_n_s8 (z2, d4),
+		 z1 = svqadd (z2, d4))
 
 /*
 ** qadd_1_s8_tied1:

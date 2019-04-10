@@ -78,37 +78,37 @@ TEST_UNIFORM_ZS (mls_w0_u8_m_untied, svuint8_t, uint8_t,
 		 z0 = svmls_m (p0, z1, z2, x0))
 
 /*
-** mls_b0_u8_m_tied1:
-**	mov	(z[0-9]+\.b), b0
+** mls_b4_u8_m_tied1:
+**	mov	(z[0-9]+\.b), b4
 **	mls	z0\.b, p0/m, z1\.b, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mls_b0_u8_m_tied1, svuint8_t, uint8_t,
-		 z0 = svmls_n_u8_m (p0, z0, z1, d0),
-		 z0 = svmls_m (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (mls_b4_u8_m_tied1, svuint8_t, uint8_t,
+		 z0 = svmls_n_u8_m (p0, z0, z1, d4),
+		 z0 = svmls_m (p0, z0, z1, d4))
 
 /*
-** mls_b0_u8_m_tied2:
-**	mov	(z[0-9]+\.b), b0
+** mls_b4_u8_m_tied2:
+**	mov	(z[0-9]+\.b), b4
 **	mov	(z[0-9]+)\.d, z1\.d
 **	movprfx	z1, z0
 **	mls	z1\.b, p0/m, \2\.b, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mls_b0_u8_m_tied2, svuint8_t, uint8_t,
-		 z1 = svmls_n_u8_m (p0, z0, z1, d0),
-		 z1 = svmls_m (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (mls_b4_u8_m_tied2, svuint8_t, uint8_t,
+		 z1 = svmls_n_u8_m (p0, z0, z1, d4),
+		 z1 = svmls_m (p0, z0, z1, d4))
 
 /*
-** mls_b0_u8_m_untied:
-**	mov	(z[0-9]+\.b), b0
+** mls_b4_u8_m_untied:
+**	mov	(z[0-9]+\.b), b4
 **	movprfx	z1, z0
 **	mls	z1\.b, p0/m, z2\.b, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mls_b0_u8_m_untied, svuint8_t, uint8_t,
-		 z1 = svmls_n_u8_m (p0, z0, z2, d0),
-		 z1 = svmls_m (p0, z0, z2, d0))
+TEST_UNIFORM_ZS (mls_b4_u8_m_untied, svuint8_t, uint8_t,
+		 z1 = svmls_n_u8_m (p0, z0, z2, d4),
+		 z1 = svmls_m (p0, z0, z2, d4))
 
 /*
 ** mls_2_u8_m_tied1:
@@ -217,37 +217,37 @@ TEST_UNIFORM_ZS (mls_w0_u8_z_untied, svuint8_t, uint8_t,
 		 z0 = svmls_z (p0, z1, z2, x0))
 
 /*
-** mls_b0_u8_z_tied1:
-**	mov	(z[0-9]+\.b), b0
+** mls_b4_u8_z_tied1:
+**	mov	(z[0-9]+\.b), b4
 **	movprfx	z0\.b, p0/z, z0\.b
 **	mls	z0\.b, p0/m, z1\.b, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mls_b0_u8_z_tied1, svuint8_t, uint8_t,
-		 z0 = svmls_n_u8_z (p0, z0, z1, d0),
-		 z0 = svmls_z (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (mls_b4_u8_z_tied1, svuint8_t, uint8_t,
+		 z0 = svmls_n_u8_z (p0, z0, z1, d4),
+		 z0 = svmls_z (p0, z0, z1, d4))
 
 /*
-** mls_b0_u8_z_tied2:
-**	mov	(z[0-9]+\.b), b0
+** mls_b4_u8_z_tied2:
+**	mov	(z[0-9]+\.b), b4
 **	movprfx	z1\.b, p0/z, z1\.b
 **	msb	z1\.b, p0/m, \1, z0\.b
 **	ret
 */
-TEST_UNIFORM_ZS (mls_b0_u8_z_tied2, svuint8_t, uint8_t,
-		 z1 = svmls_n_u8_z (p0, z0, z1, d0),
-		 z1 = svmls_z (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (mls_b4_u8_z_tied2, svuint8_t, uint8_t,
+		 z1 = svmls_n_u8_z (p0, z0, z1, d4),
+		 z1 = svmls_z (p0, z0, z1, d4))
 
 /*
-** mls_b0_u8_z_untied: { xfail *-*-* }
-**	mov	(z[0-9]+\.b), b0
+** mls_b4_u8_z_untied: { xfail *-*-* }
+**	mov	(z[0-9]+\.b), b4
 **	movprfx	z1\.b, p0/z, z0\.b
 **	mls	z1\.b, p0/m, z2\.b, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mls_b0_u8_z_untied, svuint8_t, uint8_t,
-		 z1 = svmls_n_u8_z (p0, z0, z2, d0),
-		 z1 = svmls_z (p0, z0, z2, d0))
+TEST_UNIFORM_ZS (mls_b4_u8_z_untied, svuint8_t, uint8_t,
+		 z1 = svmls_n_u8_z (p0, z0, z2, d4),
+		 z1 = svmls_z (p0, z0, z2, d4))
 
 /*
 ** mls_u8_x_tied1:
@@ -317,34 +317,34 @@ TEST_UNIFORM_ZS (mls_w0_u8_x_untied, svuint8_t, uint8_t,
 		 z2 = svmls_x (p0, z0, z1, x0))
 
 /*
-** mls_b0_u8_x_tied1:
-**	mov	(z[0-9]+\.b), b0
+** mls_b4_u8_x_tied1:
+**	mov	(z[0-9]+\.b), b4
 **	mls	z0\.b, p0/m, z1\.b, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mls_b0_u8_x_tied1, svuint8_t, uint8_t,
-		 z0 = svmls_n_u8_x (p0, z0, z1, d0),
-		 z0 = svmls_x (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (mls_b4_u8_x_tied1, svuint8_t, uint8_t,
+		 z0 = svmls_n_u8_x (p0, z0, z1, d4),
+		 z0 = svmls_x (p0, z0, z1, d4))
 
 /*
-** mls_b0_u8_x_tied2:
-**	mov	(z[0-9]+\.b), b0
+** mls_b4_u8_x_tied2:
+**	mov	(z[0-9]+\.b), b4
 **	msb	z1\.b, p0/m, \1, z0\.b
 **	ret
 */
-TEST_UNIFORM_ZS (mls_b0_u8_x_tied2, svuint8_t, uint8_t,
-		 z1 = svmls_n_u8_x (p0, z0, z1, d0),
-		 z1 = svmls_x (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (mls_b4_u8_x_tied2, svuint8_t, uint8_t,
+		 z1 = svmls_n_u8_x (p0, z0, z1, d4),
+		 z1 = svmls_x (p0, z0, z1, d4))
 
 /*
-** mls_b0_u8_x_untied:
-**	mov	z2\.b, b0
+** mls_b4_u8_x_untied:
+**	mov	z2\.b, b4
 **	msb	z2\.b, p0/m, z1\.b, z0\.b
 **	ret
 */
-TEST_UNIFORM_ZS (mls_b0_u8_x_untied, svuint8_t, uint8_t,
-		 z2 = svmls_n_u8_x (p0, z0, z1, d0),
-		 z2 = svmls_x (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (mls_b4_u8_x_untied, svuint8_t, uint8_t,
+		 z2 = svmls_n_u8_x (p0, z0, z1, d4),
+		 z2 = svmls_x (p0, z0, z1, d4))
 
 /*
 ** mls_2_u8_x_tied1:

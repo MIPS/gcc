@@ -49,25 +49,25 @@ TEST_UNIFORM_ZS (divr_w0_u32_m_untied, svuint32_t, uint32_t,
 		 z0 = svdivr_m (p0, z1, x0))
 
 /*
-** divr_s0_u32_m_tied1:
-**	mov	(z[0-9]+\.s), s0
+** divr_s4_u32_m_tied1:
+**	mov	(z[0-9]+\.s), s4
 **	udivr	z1\.s, p0/m, z1\.s, \1
 **	ret
 */
-TEST_UNIFORM_ZS (divr_s0_u32_m_tied1, svuint32_t, uint32_t,
-		 z1 = svdivr_n_u32_m (p0, z1, d0),
-		 z1 = svdivr_m (p0, z1, d0))
+TEST_UNIFORM_ZS (divr_s4_u32_m_tied1, svuint32_t, uint32_t,
+		 z1 = svdivr_n_u32_m (p0, z1, d4),
+		 z1 = svdivr_m (p0, z1, d4))
 
 /*
-** divr_s0_u32_m_untied:
-**	mov	(z[0-9]+\.s), s0
+** divr_s4_u32_m_untied:
+**	mov	(z[0-9]+\.s), s4
 **	movprfx	z1, z2
 **	udivr	z1\.s, p0/m, z1\.s, \1
 **	ret
 */
-TEST_UNIFORM_ZS (divr_s0_u32_m_untied, svuint32_t, uint32_t,
-		 z1 = svdivr_n_u32_m (p0, z2, d0),
-		 z1 = svdivr_m (p0, z2, d0))
+TEST_UNIFORM_ZS (divr_s4_u32_m_untied, svuint32_t, uint32_t,
+		 z1 = svdivr_n_u32_m (p0, z2, d4),
+		 z1 = svdivr_m (p0, z2, d4))
 
 /*
 ** divr_2_u32_m_tied1:
@@ -153,26 +153,26 @@ TEST_UNIFORM_ZS (divr_w0_u32_z_untied, svuint32_t, uint32_t,
 		 z0 = svdivr_z (p0, z1, x0))
 
 /*
-** divr_s0_u32_z_tied1:
-**	mov	(z[0-9]+\.s), s0
+** divr_s4_u32_z_tied1:
+**	mov	(z[0-9]+\.s), s4
 **	movprfx	z1\.s, p0/z, z1\.s
 **	udivr	z1\.s, p0/m, z1\.s, \1
 **	ret
 */
-TEST_UNIFORM_ZS (divr_s0_u32_z_tied1, svuint32_t, uint32_t,
-		 z1 = svdivr_n_u32_z (p0, z1, d0),
-		 z1 = svdivr_z (p0, z1, d0))
+TEST_UNIFORM_ZS (divr_s4_u32_z_tied1, svuint32_t, uint32_t,
+		 z1 = svdivr_n_u32_z (p0, z1, d4),
+		 z1 = svdivr_z (p0, z1, d4))
 
 /*
-** divr_s0_u32_z_untied:
-**	mov	(z[0-9]+\.s), s0
+** divr_s4_u32_z_untied:
+**	mov	(z[0-9]+\.s), s4
 **	movprfx	z1\.s, p0/z, \1
 **	udiv	z1\.s, p0/m, z1\.s, z2\.s
 **	ret
 */
-TEST_UNIFORM_ZS (divr_s0_u32_z_untied, svuint32_t, uint32_t,
-		 z1 = svdivr_n_u32_z (p0, z2, d0),
-		 z1 = svdivr_z (p0, z2, d0))
+TEST_UNIFORM_ZS (divr_s4_u32_z_untied, svuint32_t, uint32_t,
+		 z1 = svdivr_n_u32_z (p0, z2, d4),
+		 z1 = svdivr_z (p0, z2, d4))
 
 /*
 ** divr_u32_x_tied1:
@@ -223,24 +223,24 @@ TEST_UNIFORM_ZS (divr_w0_u32_x_untied, svuint32_t, uint32_t,
 		 z1 = svdivr_x (p0, z0, x0))
 
 /*
-** divr_s0_u32_x_tied1:
-**	mov	(z[0-9]+\.s), s0
+** divr_s4_u32_x_tied1:
+**	mov	(z[0-9]+\.s), s4
 **	udivr	z1\.s, p0/m, z1\.s, \1
 **	ret
 */
-TEST_UNIFORM_ZS (divr_s0_u32_x_tied1, svuint32_t, uint32_t,
-		 z1 = svdivr_n_u32_x (p0, z1, d0),
-		 z1 = svdivr_x (p0, z1, d0))
+TEST_UNIFORM_ZS (divr_s4_u32_x_tied1, svuint32_t, uint32_t,
+		 z1 = svdivr_n_u32_x (p0, z1, d4),
+		 z1 = svdivr_x (p0, z1, d4))
 
 /*
-** divr_s0_u32_x_untied:
-**	mov	z2\.s, s0
+** divr_s4_u32_x_untied:
+**	mov	z2\.s, s4
 **	udiv	z2\.s, p0/m, z2\.s, z1\.s
 **	ret
 */
-TEST_UNIFORM_ZS (divr_s0_u32_x_untied, svuint32_t, uint32_t,
-		 z2 = svdivr_n_u32_x (p0, z1, d0),
-		 z2 = svdivr_x (p0, z1, d0))
+TEST_UNIFORM_ZS (divr_s4_u32_x_untied, svuint32_t, uint32_t,
+		 z2 = svdivr_n_u32_x (p0, z1, d4),
+		 z2 = svdivr_x (p0, z1, d4))
 
 /*
 ** divr_2_u32_x_tied1:

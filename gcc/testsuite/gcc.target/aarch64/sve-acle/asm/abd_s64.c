@@ -49,25 +49,25 @@ TEST_UNIFORM_ZS (abd_x0_s64_m_untied, svint64_t, int64_t,
 		 z0 = svabd_m (p0, z1, x0))
 
 /*
-** abd_d0_s64_m_tied1:
-**	mov	(z[0-9]+\.d), d0
+** abd_d4_s64_m_tied1:
+**	mov	(z[0-9]+\.d), d4
 **	sabd	z1\.d, p0/m, z1\.d, \1
 **	ret
 */
-TEST_UNIFORM_ZS (abd_d0_s64_m_tied1, svint64_t, int64_t,
-		 z1 = svabd_n_s64_m (p0, z1, d0),
-		 z1 = svabd_m (p0, z1, d0))
+TEST_UNIFORM_ZS (abd_d4_s64_m_tied1, svint64_t, int64_t,
+		 z1 = svabd_n_s64_m (p0, z1, d4),
+		 z1 = svabd_m (p0, z1, d4))
 
 /*
-** abd_d0_s64_m_untied:
-**	mov	(z[0-9]+\.d), d0
+** abd_d4_s64_m_untied:
+**	mov	(z[0-9]+\.d), d4
 **	movprfx	z1, z2
 **	sabd	z1\.d, p0/m, z1\.d, \1
 **	ret
 */
-TEST_UNIFORM_ZS (abd_d0_s64_m_untied, svint64_t, int64_t,
-		 z1 = svabd_n_s64_m (p0, z2, d0),
-		 z1 = svabd_m (p0, z2, d0))
+TEST_UNIFORM_ZS (abd_d4_s64_m_untied, svint64_t, int64_t,
+		 z1 = svabd_n_s64_m (p0, z2, d4),
+		 z1 = svabd_m (p0, z2, d4))
 
 /*
 ** abd_1_s64_m_tied1:
@@ -143,26 +143,26 @@ TEST_UNIFORM_ZS (abd_x0_s64_z_untied, svint64_t, int64_t,
 		 z0 = svabd_z (p0, z1, x0))
 
 /*
-** abd_d0_s64_z_tied1:
-**	mov	(z[0-9]+\.d), d0
+** abd_d4_s64_z_tied1:
+**	mov	(z[0-9]+\.d), d4
 **	movprfx	z1\.d, p0/z, z1\.d
 **	sabd	z1\.d, p0/m, z1\.d, \1
 **	ret
 */
-TEST_UNIFORM_ZS (abd_d0_s64_z_tied1, svint64_t, int64_t,
-		 z1 = svabd_n_s64_z (p0, z1, d0),
-		 z1 = svabd_z (p0, z1, d0))
+TEST_UNIFORM_ZS (abd_d4_s64_z_tied1, svint64_t, int64_t,
+		 z1 = svabd_n_s64_z (p0, z1, d4),
+		 z1 = svabd_z (p0, z1, d4))
 
 /*
-** abd_d0_s64_z_untied:
-**	mov	(z[0-9]+\.d), d0
+** abd_d4_s64_z_untied:
+**	mov	(z[0-9]+\.d), d4
 **	movprfx	z1\.d, p0/z, \1
 **	sabd	z1\.d, p0/m, z1\.d, z2\.d
 **	ret
 */
-TEST_UNIFORM_ZS (abd_d0_s64_z_untied, svint64_t, int64_t,
-		 z1 = svabd_n_s64_z (p0, z2, d0),
-		 z1 = svabd_z (p0, z2, d0))
+TEST_UNIFORM_ZS (abd_d4_s64_z_untied, svint64_t, int64_t,
+		 z1 = svabd_n_s64_z (p0, z2, d4),
+		 z1 = svabd_z (p0, z2, d4))
 
 /*
 ** abd_s64_x_tied1:
@@ -213,24 +213,24 @@ TEST_UNIFORM_ZS (abd_x0_s64_x_untied, svint64_t, int64_t,
 		 z1 = svabd_x (p0, z0, x0))
 
 /*
-** abd_d0_s64_x_tied1:
-**	mov	(z[0-9]+\.d), d0
+** abd_d4_s64_x_tied1:
+**	mov	(z[0-9]+\.d), d4
 **	sabd	z1\.d, p0/m, z1\.d, \1
 **	ret
 */
-TEST_UNIFORM_ZS (abd_d0_s64_x_tied1, svint64_t, int64_t,
-		 z1 = svabd_n_s64_x (p0, z1, d0),
-		 z1 = svabd_x (p0, z1, d0))
+TEST_UNIFORM_ZS (abd_d4_s64_x_tied1, svint64_t, int64_t,
+		 z1 = svabd_n_s64_x (p0, z1, d4),
+		 z1 = svabd_x (p0, z1, d4))
 
 /*
-** abd_d0_s64_x_untied:
-**	mov	z2\.d, d0
+** abd_d4_s64_x_untied:
+**	mov	z2\.d, d4
 **	sabd	z2\.d, p0/m, z2\.d, z1\.d
 **	ret
 */
-TEST_UNIFORM_ZS (abd_d0_s64_x_untied, svint64_t, int64_t,
-		 z2 = svabd_n_s64_x (p0, z1, d0),
-		 z2 = svabd_x (p0, z1, d0))
+TEST_UNIFORM_ZS (abd_d4_s64_x_untied, svint64_t, int64_t,
+		 z2 = svabd_n_s64_x (p0, z1, d4),
+		 z2 = svabd_x (p0, z1, d4))
 
 /*
 ** abd_1_s64_x_tied1:

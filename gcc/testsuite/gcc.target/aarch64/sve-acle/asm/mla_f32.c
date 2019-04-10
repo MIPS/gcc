@@ -78,37 +78,37 @@ TEST_UNIFORM_ZS (mla_w0_f32_m_untied, svfloat32_t, float,
 		 z0 = svmla_m (p0, z1, z2, x0))
 
 /*
-** mla_s0_f32_m_tied1:
-**	mov	(z[0-9]+\.s), s0
+** mla_s4_f32_m_tied1:
+**	mov	(z[0-9]+\.s), s4
 **	fmla	z0\.s, p0/m, z1\.s, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mla_s0_f32_m_tied1, svfloat32_t, float,
-		 z0 = svmla_n_f32_m (p0, z0, z1, d0),
-		 z0 = svmla_m (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (mla_s4_f32_m_tied1, svfloat32_t, float,
+		 z0 = svmla_n_f32_m (p0, z0, z1, d4),
+		 z0 = svmla_m (p0, z0, z1, d4))
 
 /*
-** mla_s0_f32_m_tied2:
-**	mov	(z[0-9]+\.s), s0
+** mla_s4_f32_m_tied2:
+**	mov	(z[0-9]+\.s), s4
 **	mov	(z[0-9]+)\.d, z1\.d
 **	movprfx	z1, z0
 **	fmla	z1\.s, p0/m, \2\.s, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mla_s0_f32_m_tied2, svfloat32_t, float,
-		 z1 = svmla_n_f32_m (p0, z0, z1, d0),
-		 z1 = svmla_m (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (mla_s4_f32_m_tied2, svfloat32_t, float,
+		 z1 = svmla_n_f32_m (p0, z0, z1, d4),
+		 z1 = svmla_m (p0, z0, z1, d4))
 
 /*
-** mla_s0_f32_m_untied:
-**	mov	(z[0-9]+\.s), s0
+** mla_s4_f32_m_untied:
+**	mov	(z[0-9]+\.s), s4
 **	movprfx	z1, z0
 **	fmla	z1\.s, p0/m, z2\.s, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mla_s0_f32_m_untied, svfloat32_t, float,
-		 z1 = svmla_n_f32_m (p0, z0, z2, d0),
-		 z1 = svmla_m (p0, z0, z2, d0))
+TEST_UNIFORM_ZS (mla_s4_f32_m_untied, svfloat32_t, float,
+		 z1 = svmla_n_f32_m (p0, z0, z2, d4),
+		 z1 = svmla_m (p0, z0, z2, d4))
 
 /*
 ** mla_2_f32_m_tied1:
@@ -217,37 +217,37 @@ TEST_UNIFORM_ZS (mla_w0_f32_z_untied, svfloat32_t, float,
 		 z0 = svmla_z (p0, z1, z2, x0))
 
 /*
-** mla_s0_f32_z_tied1:
-**	mov	(z[0-9]+\.s), s0
+** mla_s4_f32_z_tied1:
+**	mov	(z[0-9]+\.s), s4
 **	movprfx	z0\.s, p0/z, z0\.s
 **	fmla	z0\.s, p0/m, z1\.s, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mla_s0_f32_z_tied1, svfloat32_t, float,
-		 z0 = svmla_n_f32_z (p0, z0, z1, d0),
-		 z0 = svmla_z (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (mla_s4_f32_z_tied1, svfloat32_t, float,
+		 z0 = svmla_n_f32_z (p0, z0, z1, d4),
+		 z0 = svmla_z (p0, z0, z1, d4))
 
 /*
-** mla_s0_f32_z_tied2:
-**	mov	(z[0-9]+\.s), s0
+** mla_s4_f32_z_tied2:
+**	mov	(z[0-9]+\.s), s4
 **	movprfx	z1\.s, p0/z, z1\.s
 **	fmad	z1\.s, p0/m, \1, z0\.s
 **	ret
 */
-TEST_UNIFORM_ZS (mla_s0_f32_z_tied2, svfloat32_t, float,
-		 z1 = svmla_n_f32_z (p0, z0, z1, d0),
-		 z1 = svmla_z (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (mla_s4_f32_z_tied2, svfloat32_t, float,
+		 z1 = svmla_n_f32_z (p0, z0, z1, d4),
+		 z1 = svmla_z (p0, z0, z1, d4))
 
 /*
-** mla_s0_f32_z_untied: { xfail *-*-* }
-**	mov	(z[0-9]+\.s), s0
+** mla_s4_f32_z_untied: { xfail *-*-* }
+**	mov	(z[0-9]+\.s), s4
 **	movprfx	z1\.s, p0/z, z0\.s
 **	fmla	z1\.s, p0/m, z2\.s, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mla_s0_f32_z_untied, svfloat32_t, float,
-		 z1 = svmla_n_f32_z (p0, z0, z2, d0),
-		 z1 = svmla_z (p0, z0, z2, d0))
+TEST_UNIFORM_ZS (mla_s4_f32_z_untied, svfloat32_t, float,
+		 z1 = svmla_n_f32_z (p0, z0, z2, d4),
+		 z1 = svmla_z (p0, z0, z2, d4))
 
 /*
 ** mla_f32_x_tied1:
@@ -317,34 +317,34 @@ TEST_UNIFORM_ZS (mla_w0_f32_x_untied, svfloat32_t, float,
 		 z2 = svmla_x (p0, z0, z1, x0))
 
 /*
-** mla_s0_f32_x_tied1:
-**	mov	(z[0-9]+\.s), s0
+** mla_s4_f32_x_tied1:
+**	mov	(z[0-9]+\.s), s4
 **	fmla	z0\.s, p0/m, z1\.s, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mla_s0_f32_x_tied1, svfloat32_t, float,
-		 z0 = svmla_n_f32_x (p0, z0, z1, d0),
-		 z0 = svmla_x (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (mla_s4_f32_x_tied1, svfloat32_t, float,
+		 z0 = svmla_n_f32_x (p0, z0, z1, d4),
+		 z0 = svmla_x (p0, z0, z1, d4))
 
 /*
-** mla_s0_f32_x_tied2:
-**	mov	(z[0-9]+\.s), s0
+** mla_s4_f32_x_tied2:
+**	mov	(z[0-9]+\.s), s4
 **	fmad	z1\.s, p0/m, \1, z0\.s
 **	ret
 */
-TEST_UNIFORM_ZS (mla_s0_f32_x_tied2, svfloat32_t, float,
-		 z1 = svmla_n_f32_x (p0, z0, z1, d0),
-		 z1 = svmla_x (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (mla_s4_f32_x_tied2, svfloat32_t, float,
+		 z1 = svmla_n_f32_x (p0, z0, z1, d4),
+		 z1 = svmla_x (p0, z0, z1, d4))
 
 /*
-** mla_s0_f32_x_untied:
-**	mov	z2\.s, s0
+** mla_s4_f32_x_untied:
+**	mov	z2\.s, s4
 **	fmad	z2\.s, p0/m, z1\.s, z0\.s
 **	ret
 */
-TEST_UNIFORM_ZS (mla_s0_f32_x_untied, svfloat32_t, float,
-		 z2 = svmla_n_f32_x (p0, z0, z1, d0),
-		 z2 = svmla_x (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (mla_s4_f32_x_untied, svfloat32_t, float,
+		 z2 = svmla_n_f32_x (p0, z0, z1, d4),
+		 z2 = svmla_x (p0, z0, z1, d4))
 
 /*
 ** mla_2_f32_x_tied1:

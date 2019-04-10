@@ -49,25 +49,25 @@ TEST_UNIFORM_ZS (divr_w0_f32_m_untied, svfloat32_t, float,
 		 z0 = svdivr_m (p0, z1, x0))
 
 /*
-** divr_s0_f32_m_tied1:
-**	mov	(z[0-9]+\.s), s0
+** divr_s4_f32_m_tied1:
+**	mov	(z[0-9]+\.s), s4
 **	fdivr	z1\.s, p0/m, z1\.s, \1
 **	ret
 */
-TEST_UNIFORM_ZS (divr_s0_f32_m_tied1, svfloat32_t, float,
-		 z1 = svdivr_n_f32_m (p0, z1, d0),
-		 z1 = svdivr_m (p0, z1, d0))
+TEST_UNIFORM_ZS (divr_s4_f32_m_tied1, svfloat32_t, float,
+		 z1 = svdivr_n_f32_m (p0, z1, d4),
+		 z1 = svdivr_m (p0, z1, d4))
 
 /*
-** divr_s0_f32_m_untied:
-**	mov	(z[0-9]+\.s), s0
+** divr_s4_f32_m_untied:
+**	mov	(z[0-9]+\.s), s4
 **	movprfx	z1, z2
 **	fdivr	z1\.s, p0/m, z1\.s, \1
 **	ret
 */
-TEST_UNIFORM_ZS (divr_s0_f32_m_untied, svfloat32_t, float,
-		 z1 = svdivr_n_f32_m (p0, z2, d0),
-		 z1 = svdivr_m (p0, z2, d0))
+TEST_UNIFORM_ZS (divr_s4_f32_m_untied, svfloat32_t, float,
+		 z1 = svdivr_n_f32_m (p0, z2, d4),
+		 z1 = svdivr_m (p0, z2, d4))
 
 /*
 ** divr_1_f32_m_tied1:
@@ -164,26 +164,26 @@ TEST_UNIFORM_ZS (divr_w0_f32_z_untied, svfloat32_t, float,
 		 z0 = svdivr_z (p0, z1, x0))
 
 /*
-** divr_s0_f32_z_tied1:
-**	mov	(z[0-9]+\.s), s0
+** divr_s4_f32_z_tied1:
+**	mov	(z[0-9]+\.s), s4
 **	movprfx	z1\.s, p0/z, z1\.s
 **	fdivr	z1\.s, p0/m, z1\.s, \1
 **	ret
 */
-TEST_UNIFORM_ZS (divr_s0_f32_z_tied1, svfloat32_t, float,
-		 z1 = svdivr_n_f32_z (p0, z1, d0),
-		 z1 = svdivr_z (p0, z1, d0))
+TEST_UNIFORM_ZS (divr_s4_f32_z_tied1, svfloat32_t, float,
+		 z1 = svdivr_n_f32_z (p0, z1, d4),
+		 z1 = svdivr_z (p0, z1, d4))
 
 /*
-** divr_s0_f32_z_untied:
-**	mov	(z[0-9]+\.s), s0
+** divr_s4_f32_z_untied:
+**	mov	(z[0-9]+\.s), s4
 **	movprfx	z1\.s, p0/z, \1
 **	fdiv	z1\.s, p0/m, z1\.s, z2\.s
 **	ret
 */
-TEST_UNIFORM_ZS (divr_s0_f32_z_untied, svfloat32_t, float,
-		 z1 = svdivr_n_f32_z (p0, z2, d0),
-		 z1 = svdivr_z (p0, z2, d0))
+TEST_UNIFORM_ZS (divr_s4_f32_z_untied, svfloat32_t, float,
+		 z1 = svdivr_n_f32_z (p0, z2, d4),
+		 z1 = svdivr_z (p0, z2, d4))
 
 /*
 ** divr_1_f32_z_tied1:
@@ -267,24 +267,24 @@ TEST_UNIFORM_ZS (divr_w0_f32_x_untied, svfloat32_t, float,
 		 z1 = svdivr_x (p0, z0, x0))
 
 /*
-** divr_s0_f32_x_tied1:
-**	mov	(z[0-9]+\.s), s0
+** divr_s4_f32_x_tied1:
+**	mov	(z[0-9]+\.s), s4
 **	fdivr	z1\.s, p0/m, z1\.s, \1
 **	ret
 */
-TEST_UNIFORM_ZS (divr_s0_f32_x_tied1, svfloat32_t, float,
-		 z1 = svdivr_n_f32_x (p0, z1, d0),
-		 z1 = svdivr_x (p0, z1, d0))
+TEST_UNIFORM_ZS (divr_s4_f32_x_tied1, svfloat32_t, float,
+		 z1 = svdivr_n_f32_x (p0, z1, d4),
+		 z1 = svdivr_x (p0, z1, d4))
 
 /*
-** divr_s0_f32_x_untied:
-**	mov	z2\.s, s0
+** divr_s4_f32_x_untied:
+**	mov	z2\.s, s4
 **	fdiv	z2\.s, p0/m, z2\.s, z1\.s
 **	ret
 */
-TEST_UNIFORM_ZS (divr_s0_f32_x_untied, svfloat32_t, float,
-		 z2 = svdivr_n_f32_x (p0, z1, d0),
-		 z2 = svdivr_x (p0, z1, d0))
+TEST_UNIFORM_ZS (divr_s4_f32_x_untied, svfloat32_t, float,
+		 z2 = svdivr_n_f32_x (p0, z1, d4),
+		 z2 = svdivr_x (p0, z1, d4))
 
 /*
 ** divr_1_f32_x_tied1:
@@ -360,26 +360,26 @@ TEST_UNIFORM_ZS (ptrue_divr_w0_f32_x_untied, svfloat32_t, float,
 		 z1 = svdivr_x (svptrue_b32 (), z0, x0))
 
 /*
-** ptrue_divr_s0_f32_x_tied1:
+** ptrue_divr_s4_f32_x_tied1:
 **	ptrue	(p[0-7])\.s[^\n]*
-**	mov	(z[0-9]+\.s), s0
+**	mov	(z[0-9]+\.s), s4
 **	fdivr	z1\.s, \1/m, z1\.s, \2
 **	ret
 */
-TEST_UNIFORM_ZS (ptrue_divr_s0_f32_x_tied1, svfloat32_t, float,
-		 z1 = svdivr_n_f32_x (svptrue_b32 (), z1, d0),
-		 z1 = svdivr_x (svptrue_b32 (), z1, d0))
+TEST_UNIFORM_ZS (ptrue_divr_s4_f32_x_tied1, svfloat32_t, float,
+		 z1 = svdivr_n_f32_x (svptrue_b32 (), z1, d4),
+		 z1 = svdivr_x (svptrue_b32 (), z1, d4))
 
 /*
-** ptrue_divr_s0_f32_x_untied:
+** ptrue_divr_s4_f32_x_untied:
 **	ptrue	(p[0-7])\.s[^\n]*
-**	mov	z2\.s, s0
+**	mov	z2\.s, s4
 **	fdiv	z2\.s, \1/m, z2\.s, z1\.s
 **	ret
 */
-TEST_UNIFORM_ZS (ptrue_divr_s0_f32_x_untied, svfloat32_t, float,
-		 z2 = svdivr_n_f32_x (svptrue_b32 (), z1, d0),
-		 z2 = svdivr_x (svptrue_b32 (), z1, d0))
+TEST_UNIFORM_ZS (ptrue_divr_s4_f32_x_untied, svfloat32_t, float,
+		 z2 = svdivr_n_f32_x (svptrue_b32 (), z1, d4),
+		 z2 = svdivr_x (svptrue_b32 (), z1, d4))
 
 /*
 ** ptrue_divr_1_f32_x_untied:

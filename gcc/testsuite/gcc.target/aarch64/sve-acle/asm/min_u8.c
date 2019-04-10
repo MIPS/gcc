@@ -49,25 +49,25 @@ TEST_UNIFORM_ZS (min_w0_u8_m_untied, svuint8_t, uint8_t,
 		 z0 = svmin_m (p0, z1, x0))
 
 /*
-** min_b0_u8_m_tied1:
-**	mov	(z[0-9]+\.b), b0
+** min_b4_u8_m_tied1:
+**	mov	(z[0-9]+\.b), b4
 **	umin	z1\.b, p0/m, z1\.b, \1
 **	ret
 */
-TEST_UNIFORM_ZS (min_b0_u8_m_tied1, svuint8_t, uint8_t,
-		 z1 = svmin_n_u8_m (p0, z1, d0),
-		 z1 = svmin_m (p0, z1, d0))
+TEST_UNIFORM_ZS (min_b4_u8_m_tied1, svuint8_t, uint8_t,
+		 z1 = svmin_n_u8_m (p0, z1, d4),
+		 z1 = svmin_m (p0, z1, d4))
 
 /*
-** min_b0_u8_m_untied:
-**	mov	(z[0-9]+\.b), b0
+** min_b4_u8_m_untied:
+**	mov	(z[0-9]+\.b), b4
 **	movprfx	z1, z2
 **	umin	z1\.b, p0/m, z1\.b, \1
 **	ret
 */
-TEST_UNIFORM_ZS (min_b0_u8_m_untied, svuint8_t, uint8_t,
-		 z1 = svmin_n_u8_m (p0, z2, d0),
-		 z1 = svmin_m (p0, z2, d0))
+TEST_UNIFORM_ZS (min_b4_u8_m_untied, svuint8_t, uint8_t,
+		 z1 = svmin_n_u8_m (p0, z2, d4),
+		 z1 = svmin_m (p0, z2, d4))
 
 /*
 ** min_1_u8_m_tied1:
@@ -153,26 +153,26 @@ TEST_UNIFORM_ZS (min_w0_u8_z_untied, svuint8_t, uint8_t,
 		 z0 = svmin_z (p0, z1, x0))
 
 /*
-** min_b0_u8_z_tied1:
-**	mov	(z[0-9]+\.b), b0
+** min_b4_u8_z_tied1:
+**	mov	(z[0-9]+\.b), b4
 **	movprfx	z1\.b, p0/z, z1\.b
 **	umin	z1\.b, p0/m, z1\.b, \1
 **	ret
 */
-TEST_UNIFORM_ZS (min_b0_u8_z_tied1, svuint8_t, uint8_t,
-		 z1 = svmin_n_u8_z (p0, z1, d0),
-		 z1 = svmin_z (p0, z1, d0))
+TEST_UNIFORM_ZS (min_b4_u8_z_tied1, svuint8_t, uint8_t,
+		 z1 = svmin_n_u8_z (p0, z1, d4),
+		 z1 = svmin_z (p0, z1, d4))
 
 /*
-** min_b0_u8_z_untied: { xfail *-*-* }
-**	mov	(z[0-9]+\.b), b0
+** min_b4_u8_z_untied: { xfail *-*-* }
+**	mov	(z[0-9]+\.b), b4
 **	movprfx	z1\.b, p0/z, z2\.b
 **	umin	z1\.b, p0/m, z1\.b, \1
 **	ret
 */
-TEST_UNIFORM_ZS (min_b0_u8_z_untied, svuint8_t, uint8_t,
-		 z1 = svmin_n_u8_z (p0, z2, d0),
-		 z1 = svmin_z (p0, z2, d0))
+TEST_UNIFORM_ZS (min_b4_u8_z_untied, svuint8_t, uint8_t,
+		 z1 = svmin_n_u8_z (p0, z2, d4),
+		 z1 = svmin_z (p0, z2, d4))
 
 /*
 ** min_1_u8_z_untied: { xfail *-*-* }
@@ -245,24 +245,24 @@ TEST_UNIFORM_ZS (min_w0_u8_x_untied, svuint8_t, uint8_t,
 		 z1 = svmin_x (p0, z0, x0))
 
 /*
-** min_b0_u8_x_tied1:
-**	mov	(z[0-9]+\.b), b0
+** min_b4_u8_x_tied1:
+**	mov	(z[0-9]+\.b), b4
 **	umin	z1\.b, p0/m, z1\.b, \1
 **	ret
 */
-TEST_UNIFORM_ZS (min_b0_u8_x_tied1, svuint8_t, uint8_t,
-		 z1 = svmin_n_u8_x (p0, z1, d0),
-		 z1 = svmin_x (p0, z1, d0))
+TEST_UNIFORM_ZS (min_b4_u8_x_tied1, svuint8_t, uint8_t,
+		 z1 = svmin_n_u8_x (p0, z1, d4),
+		 z1 = svmin_x (p0, z1, d4))
 
 /*
-** min_b0_u8_x_untied:
-**	mov	z2\.b, b0
+** min_b4_u8_x_untied:
+**	mov	z2\.b, b4
 **	umin	z2\.b, p0/m, z2\.b, z1\.b
 **	ret
 */
-TEST_UNIFORM_ZS (min_b0_u8_x_untied, svuint8_t, uint8_t,
-		 z2 = svmin_n_u8_x (p0, z1, d0),
-		 z2 = svmin_x (p0, z1, d0))
+TEST_UNIFORM_ZS (min_b4_u8_x_untied, svuint8_t, uint8_t,
+		 z2 = svmin_n_u8_x (p0, z1, d4),
+		 z2 = svmin_x (p0, z1, d4))
 
 /*
 ** min_1_u8_x_tied1:

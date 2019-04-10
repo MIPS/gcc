@@ -310,13 +310,13 @@ TEST_UNIFORM_ZS (dup_w0_s16, svint16_t, int16_t,
 		 z1 = svdup_s16 (x0))
 
 /*
-** dup_h0_s16:
-**	mov	z1\.h, h0
+** dup_h4_s16:
+**	mov	z1\.h, h4
 **	ret
 */
-TEST_UNIFORM_ZS (dup_h0_s16, svint16_t, int16_t,
-		 z1 = svdup_n_s16 (d0),
-		 z1 = svdup_s16 (d0))
+TEST_UNIFORM_ZS (dup_h4_s16, svint16_t, int16_t,
+		 z1 = svdup_n_s16 (d4),
+		 z1 = svdup_s16 (d4))
 
 /*
 ** dup_1_s16_m:
@@ -602,14 +602,14 @@ TEST_UNIFORM_ZS (dup_w0_s16_m, svint16_t, int16_t,
 		z1 = svdup_s16_m (z0, p0, x0))
 
 /*
-** dup_h0_s16_m:
+** dup_h4_s16_m:
 **	movprfx	z1, z0
-**	mov	z1\.h, p0/m, h0
+**	mov	z1\.h, p0/m, h4
 **	ret
 */
-TEST_UNIFORM_ZS (dup_h0_s16_m, svint16_t, int16_t,
-		z1 = svdup_n_s16_m (z0, p0, d0),
-		z1 = svdup_s16_m (z0, p0, d0))
+TEST_UNIFORM_ZS (dup_h4_s16_m, svint16_t, int16_t,
+		z1 = svdup_n_s16_m (z0, p0, d4),
+		z1 = svdup_s16_m (z0, p0, d4))
 
 /*
 ** dup_1_s16_z:
@@ -907,14 +907,14 @@ TEST_UNIFORM_ZS (dup_w0_s16_z, svint16_t, int16_t,
 		z1 = svdup_s16_z (p0, x0))
 
 /*
-** dup_h0_s16_z:
+** dup_h4_s16_z:
 **	movprfx	z1\.h, p0/z, z1\.h
-**	mov	z1\.h, p0/m, h0
+**	mov	z1\.h, p0/m, h4
 **	ret
 */
-TEST_UNIFORM_ZS (dup_h0_s16_z, svint16_t, int16_t,
-		z1 = svdup_n_s16_z (p0, d0),
-		z1 = svdup_s16_z (p0, d0))
+TEST_UNIFORM_ZS (dup_h4_s16_z, svint16_t, int16_t,
+		z1 = svdup_n_s16_z (p0, d4),
+		z1 = svdup_s16_z (p0, d4))
 
 /*
 ** dup_1_s16_x:
@@ -1223,10 +1223,10 @@ TEST_UNIFORM_ZS (dup_w0_s16_x, svint16_t, int16_t,
 		z1 = svdup_s16_x (p0, x0))
 
 /*
-** dup_h0_s16_x:
-**	mov	z1\.h, h0
+** dup_h4_s16_x:
+**	mov	z1\.h, h4
 **	ret
 */
-TEST_UNIFORM_ZS (dup_h0_s16_x, svint16_t, int16_t,
-		z1 = svdup_n_s16_x (p0, d0),
-		z1 = svdup_s16_x (p0, d0))
+TEST_UNIFORM_ZS (dup_h4_s16_x, svint16_t, int16_t,
+		z1 = svdup_n_s16_x (p0, d4),
+		z1 = svdup_s16_x (p0, d4))

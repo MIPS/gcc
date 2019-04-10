@@ -61,13 +61,13 @@ TEST_UNIFORM_ZS (dup_w0_f32, svfloat32_t, float,
 		z1 = svdup_f32 (x0))
 
 /*
-** dup_s0_f32:
-**	mov	z1\.s, s0
+** dup_s4_f32:
+**	mov	z1\.s, s4
 **	ret
 */
-TEST_UNIFORM_ZS (dup_s0_f32, svfloat32_t, float,
-		z1 = svdup_n_f32 (d0),
-		z1 = svdup_f32 (d0))
+TEST_UNIFORM_ZS (dup_s4_f32, svfloat32_t, float,
+		z1 = svdup_n_f32 (d4),
+		z1 = svdup_f32 (d4))
 
 /*
 ** dup_1_f32_m:
@@ -118,14 +118,14 @@ TEST_UNIFORM_ZS (dup_w0_f32_m, svfloat32_t, float,
 		z1 = svdup_f32_m (z0, p0, x0))
 
 /*
-** dup_s0_f32_m:
+** dup_s4_f32_m:
 **	movprfx	z1, z0
-**	mov	z1\.s, p0/m, s0
+**	mov	z1\.s, p0/m, s4
 **	ret
 */
-TEST_UNIFORM_ZS (dup_s0_f32_m, svfloat32_t, float,
-		z1 = svdup_n_f32_m (z0, p0, d0),
-		z1 = svdup_f32_m (z0, p0, d0))
+TEST_UNIFORM_ZS (dup_s4_f32_m, svfloat32_t, float,
+		z1 = svdup_n_f32_m (z0, p0, d4),
+		z1 = svdup_f32_m (z0, p0, d4))
 
 /*
 ** dup_1_f32_z:
@@ -177,14 +177,14 @@ TEST_UNIFORM_ZS (dup_w0_f32_z, svfloat32_t, float,
 		z1 = svdup_f32_z (p0, x0))
 
 /*
-** dup_s0_f32_z:
+** dup_s4_f32_z:
 **	movprfx	z1\.s, p0/z, z1\.s
-**	mov	z1\.s, p0/m, s0
+**	mov	z1\.s, p0/m, s4
 **	ret
 */
-TEST_UNIFORM_ZS (dup_s0_f32_z, svfloat32_t, float,
-		z1 = svdup_n_f32_z (p0, d0),
-		z1 = svdup_f32_z (p0, d0))
+TEST_UNIFORM_ZS (dup_s4_f32_z, svfloat32_t, float,
+		z1 = svdup_n_f32_z (p0, d4),
+		z1 = svdup_f32_z (p0, d4))
 
 /*
 ** dup_1_f32_x:
@@ -244,10 +244,10 @@ TEST_UNIFORM_ZS (dup_w0_f32_x, svfloat32_t, float,
 		z1 = svdup_f32_x (p0, x0))
 
 /*
-** dup_s0_f32_x:
-**	mov	z1\.s, s0
+** dup_s4_f32_x:
+**	mov	z1\.s, s4
 **	ret
 */
-TEST_UNIFORM_ZS (dup_s0_f32_x, svfloat32_t, float,
-		z1 = svdup_n_f32_x (p0, d0),
-		z1 = svdup_f32_x (p0, d0))
+TEST_UNIFORM_ZS (dup_s4_f32_x, svfloat32_t, float,
+		z1 = svdup_n_f32_x (p0, d4),
+		z1 = svdup_f32_x (p0, d4))

@@ -78,37 +78,37 @@ TEST_UNIFORM_ZS (mls_w0_f16_m_untied, svfloat16_t, __fp16,
 		 z0 = svmls_m (p0, z1, z2, x0))
 
 /*
-** mls_h0_f16_m_tied1:
-**	mov	(z[0-9]+\.h), h0
+** mls_h4_f16_m_tied1:
+**	mov	(z[0-9]+\.h), h4
 **	fmls	z0\.h, p0/m, z1\.h, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mls_h0_f16_m_tied1, svfloat16_t, __fp16,
-		 z0 = svmls_n_f16_m (p0, z0, z1, d0),
-		 z0 = svmls_m (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (mls_h4_f16_m_tied1, svfloat16_t, __fp16,
+		 z0 = svmls_n_f16_m (p0, z0, z1, d4),
+		 z0 = svmls_m (p0, z0, z1, d4))
 
 /*
-** mls_h0_f16_m_tied2:
-**	mov	(z[0-9]+\.h), h0
+** mls_h4_f16_m_tied2:
+**	mov	(z[0-9]+\.h), h4
 **	mov	(z[0-9]+)\.d, z1\.d
 **	movprfx	z1, z0
 **	fmls	z1\.h, p0/m, \2\.h, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mls_h0_f16_m_tied2, svfloat16_t, __fp16,
-		 z1 = svmls_n_f16_m (p0, z0, z1, d0),
-		 z1 = svmls_m (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (mls_h4_f16_m_tied2, svfloat16_t, __fp16,
+		 z1 = svmls_n_f16_m (p0, z0, z1, d4),
+		 z1 = svmls_m (p0, z0, z1, d4))
 
 /*
-** mls_h0_f16_m_untied:
-**	mov	(z[0-9]+\.h), h0
+** mls_h4_f16_m_untied:
+**	mov	(z[0-9]+\.h), h4
 **	movprfx	z1, z0
 **	fmls	z1\.h, p0/m, z2\.h, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mls_h0_f16_m_untied, svfloat16_t, __fp16,
-		 z1 = svmls_n_f16_m (p0, z0, z2, d0),
-		 z1 = svmls_m (p0, z0, z2, d0))
+TEST_UNIFORM_ZS (mls_h4_f16_m_untied, svfloat16_t, __fp16,
+		 z1 = svmls_n_f16_m (p0, z0, z2, d4),
+		 z1 = svmls_m (p0, z0, z2, d4))
 
 /*
 ** mls_2_f16_m_tied1:
@@ -217,37 +217,37 @@ TEST_UNIFORM_ZS (mls_w0_f16_z_untied, svfloat16_t, __fp16,
 		 z0 = svmls_z (p0, z1, z2, x0))
 
 /*
-** mls_h0_f16_z_tied1:
-**	mov	(z[0-9]+\.h), h0
+** mls_h4_f16_z_tied1:
+**	mov	(z[0-9]+\.h), h4
 **	movprfx	z0\.h, p0/z, z0\.h
 **	fmls	z0\.h, p0/m, z1\.h, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mls_h0_f16_z_tied1, svfloat16_t, __fp16,
-		 z0 = svmls_n_f16_z (p0, z0, z1, d0),
-		 z0 = svmls_z (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (mls_h4_f16_z_tied1, svfloat16_t, __fp16,
+		 z0 = svmls_n_f16_z (p0, z0, z1, d4),
+		 z0 = svmls_z (p0, z0, z1, d4))
 
 /*
-** mls_h0_f16_z_tied2:
-**	mov	(z[0-9]+\.h), h0
+** mls_h4_f16_z_tied2:
+**	mov	(z[0-9]+\.h), h4
 **	movprfx	z1\.h, p0/z, z1\.h
 **	fmsb	z1\.h, p0/m, \1, z0\.h
 **	ret
 */
-TEST_UNIFORM_ZS (mls_h0_f16_z_tied2, svfloat16_t, __fp16,
-		 z1 = svmls_n_f16_z (p0, z0, z1, d0),
-		 z1 = svmls_z (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (mls_h4_f16_z_tied2, svfloat16_t, __fp16,
+		 z1 = svmls_n_f16_z (p0, z0, z1, d4),
+		 z1 = svmls_z (p0, z0, z1, d4))
 
 /*
-** mls_h0_f16_z_untied: { xfail *-*-* }
-**	mov	(z[0-9]+\.h), h0
+** mls_h4_f16_z_untied: { xfail *-*-* }
+**	mov	(z[0-9]+\.h), h4
 **	movprfx	z1\.h, p0/z, z0\.h
 **	fmls	z1\.h, p0/m, z2\.h, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mls_h0_f16_z_untied, svfloat16_t, __fp16,
-		 z1 = svmls_n_f16_z (p0, z0, z2, d0),
-		 z1 = svmls_z (p0, z0, z2, d0))
+TEST_UNIFORM_ZS (mls_h4_f16_z_untied, svfloat16_t, __fp16,
+		 z1 = svmls_n_f16_z (p0, z0, z2, d4),
+		 z1 = svmls_z (p0, z0, z2, d4))
 
 /*
 ** mls_f16_x_tied1:
@@ -317,34 +317,34 @@ TEST_UNIFORM_ZS (mls_w0_f16_x_untied, svfloat16_t, __fp16,
 		 z2 = svmls_x (p0, z0, z1, x0))
 
 /*
-** mls_h0_f16_x_tied1:
-**	mov	(z[0-9]+\.h), h0
+** mls_h4_f16_x_tied1:
+**	mov	(z[0-9]+\.h), h4
 **	fmls	z0\.h, p0/m, z1\.h, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mls_h0_f16_x_tied1, svfloat16_t, __fp16,
-		 z0 = svmls_n_f16_x (p0, z0, z1, d0),
-		 z0 = svmls_x (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (mls_h4_f16_x_tied1, svfloat16_t, __fp16,
+		 z0 = svmls_n_f16_x (p0, z0, z1, d4),
+		 z0 = svmls_x (p0, z0, z1, d4))
 
 /*
-** mls_h0_f16_x_tied2:
-**	mov	(z[0-9]+\.h), h0
+** mls_h4_f16_x_tied2:
+**	mov	(z[0-9]+\.h), h4
 **	fmsb	z1\.h, p0/m, \1, z0\.h
 **	ret
 */
-TEST_UNIFORM_ZS (mls_h0_f16_x_tied2, svfloat16_t, __fp16,
-		 z1 = svmls_n_f16_x (p0, z0, z1, d0),
-		 z1 = svmls_x (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (mls_h4_f16_x_tied2, svfloat16_t, __fp16,
+		 z1 = svmls_n_f16_x (p0, z0, z1, d4),
+		 z1 = svmls_x (p0, z0, z1, d4))
 
 /*
-** mls_h0_f16_x_untied:
-**	mov	z2\.h, h0
+** mls_h4_f16_x_untied:
+**	mov	z2\.h, h4
 **	fmsb	z2\.h, p0/m, z1\.h, z0\.h
 **	ret
 */
-TEST_UNIFORM_ZS (mls_h0_f16_x_untied, svfloat16_t, __fp16,
-		 z2 = svmls_n_f16_x (p0, z0, z1, d0),
-		 z2 = svmls_x (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (mls_h4_f16_x_untied, svfloat16_t, __fp16,
+		 z2 = svmls_n_f16_x (p0, z0, z1, d4),
+		 z2 = svmls_x (p0, z0, z1, d4))
 
 /*
 ** mls_2_f16_x_tied1:

@@ -50,25 +50,25 @@ TEST_UNIFORM_ZS (max_w0_f16_m_untied, svfloat16_t, __fp16,
 		 z0 = svmax_m (p0, z1, x0))
 
 /*
-** max_h0_f16_m_tied1:
-**	mov	(z[0-9]+\.h), h0
+** max_h4_f16_m_tied1:
+**	mov	(z[0-9]+\.h), h4
 **	fmax	z1\.h, p0/m, z1\.h, \1
 **	ret
 */
-TEST_UNIFORM_ZS (max_h0_f16_m_tied1, svfloat16_t, __fp16,
-		 z1 = svmax_n_f16_m (p0, z1, d0),
-		 z1 = svmax_m (p0, z1, d0))
+TEST_UNIFORM_ZS (max_h4_f16_m_tied1, svfloat16_t, __fp16,
+		 z1 = svmax_n_f16_m (p0, z1, d4),
+		 z1 = svmax_m (p0, z1, d4))
 
 /*
-** max_h0_f16_m_untied:
-**	mov	(z[0-9]+\.h), h0
+** max_h4_f16_m_untied:
+**	mov	(z[0-9]+\.h), h4
 **	movprfx	z1, z2
 **	fmax	z1\.h, p0/m, z1\.h, \1
 **	ret
 */
-TEST_UNIFORM_ZS (max_h0_f16_m_untied, svfloat16_t, __fp16,
-		 z1 = svmax_n_f16_m (p0, z2, d0),
-		 z1 = svmax_m (p0, z2, d0))
+TEST_UNIFORM_ZS (max_h4_f16_m_untied, svfloat16_t, __fp16,
+		 z1 = svmax_n_f16_m (p0, z2, d4),
+		 z1 = svmax_m (p0, z2, d4))
 
 /*
 ** max_1_f16_m_tied1:
@@ -139,26 +139,26 @@ TEST_UNIFORM_ZS (max_w0_f16_z_untied, svfloat16_t, __fp16,
 		 z0 = svmax_z (p0, z1, x0))
 
 /*
-** max_h0_f16_z_tied1:
-**	mov	(z[0-9]+\.h), h0
+** max_h4_f16_z_tied1:
+**	mov	(z[0-9]+\.h), h4
 **	movprfx	z1\.h, p0/z, z1\.h
 **	fmax	z1\.h, p0/m, z1\.h, \1
 **	ret
 */
-TEST_UNIFORM_ZS (max_h0_f16_z_tied1, svfloat16_t, __fp16,
-		 z1 = svmax_n_f16_z (p0, z1, d0),
-		 z1 = svmax_z (p0, z1, d0))
+TEST_UNIFORM_ZS (max_h4_f16_z_tied1, svfloat16_t, __fp16,
+		 z1 = svmax_n_f16_z (p0, z1, d4),
+		 z1 = svmax_z (p0, z1, d4))
 
 /*
-** max_h0_f16_z_untied: { xfail *-*-* }
-**	mov	(z[0-9]+\.h), h0
+** max_h4_f16_z_untied: { xfail *-*-* }
+**	mov	(z[0-9]+\.h), h4
 **	movprfx	z1\.h, p0/z, z2\.h
 **	fmax	z1\.h, p0/m, z1\.h, \1
 **	ret
 */
-TEST_UNIFORM_ZS (max_h0_f16_z_untied, svfloat16_t, __fp16,
-		 z1 = svmax_n_f16_z (p0, z2, d0),
-		 z1 = svmax_z (p0, z2, d0))
+TEST_UNIFORM_ZS (max_h4_f16_z_untied, svfloat16_t, __fp16,
+		 z1 = svmax_n_f16_z (p0, z2, d4),
+		 z1 = svmax_z (p0, z2, d4))
 
 /*
 ** max_1_f16_z_untied: { xfail *-*-* }
@@ -231,24 +231,24 @@ TEST_UNIFORM_ZS (max_w0_f16_x_untied, svfloat16_t, __fp16,
 		 z1 = svmax_x (p0, z0, x0))
 
 /*
-** max_h0_f16_x_tied1:
-**	mov	(z[0-9]+\.h), h0
+** max_h4_f16_x_tied1:
+**	mov	(z[0-9]+\.h), h4
 **	fmax	z1\.h, p0/m, z1\.h, \1
 **	ret
 */
-TEST_UNIFORM_ZS (max_h0_f16_x_tied1, svfloat16_t, __fp16,
-		 z1 = svmax_n_f16_x (p0, z1, d0),
-		 z1 = svmax_x (p0, z1, d0))
+TEST_UNIFORM_ZS (max_h4_f16_x_tied1, svfloat16_t, __fp16,
+		 z1 = svmax_n_f16_x (p0, z1, d4),
+		 z1 = svmax_x (p0, z1, d4))
 
 /*
-** max_h0_f16_x_untied:
-**	mov	z2\.h, h0
+** max_h4_f16_x_untied:
+**	mov	z2\.h, h4
 **	fmax	z2\.h, p0/m, z2\.h, z1\.h
 **	ret
 */
-TEST_UNIFORM_ZS (max_h0_f16_x_untied, svfloat16_t, __fp16,
-		 z2 = svmax_n_f16_x (p0, z1, d0),
-		 z2 = svmax_x (p0, z1, d0))
+TEST_UNIFORM_ZS (max_h4_f16_x_untied, svfloat16_t, __fp16,
+		 z2 = svmax_n_f16_x (p0, z1, d4),
+		 z2 = svmax_x (p0, z1, d4))
 
 /*
 ** max_1_f16_x_tied1:

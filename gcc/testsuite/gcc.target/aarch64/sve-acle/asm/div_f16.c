@@ -49,25 +49,25 @@ TEST_UNIFORM_ZS (div_w0_f16_m_untied, svfloat16_t, __fp16,
 		 z0 = svdiv_m (p0, z1, x0))
 
 /*
-** div_h0_f16_m_tied1:
-**	mov	(z[0-9]+\.h), h0
+** div_h4_f16_m_tied1:
+**	mov	(z[0-9]+\.h), h4
 **	fdiv	z1\.h, p0/m, z1\.h, \1
 **	ret
 */
-TEST_UNIFORM_ZS (div_h0_f16_m_tied1, svfloat16_t, __fp16,
-		 z1 = svdiv_n_f16_m (p0, z1, d0),
-		 z1 = svdiv_m (p0, z1, d0))
+TEST_UNIFORM_ZS (div_h4_f16_m_tied1, svfloat16_t, __fp16,
+		 z1 = svdiv_n_f16_m (p0, z1, d4),
+		 z1 = svdiv_m (p0, z1, d4))
 
 /*
-** div_h0_f16_m_untied:
-**	mov	(z[0-9]+\.h), h0
+** div_h4_f16_m_untied:
+**	mov	(z[0-9]+\.h), h4
 **	movprfx	z1, z2
 **	fdiv	z1\.h, p0/m, z1\.h, \1
 **	ret
 */
-TEST_UNIFORM_ZS (div_h0_f16_m_untied, svfloat16_t, __fp16,
-		 z1 = svdiv_n_f16_m (p0, z2, d0),
-		 z1 = svdiv_m (p0, z2, d0))
+TEST_UNIFORM_ZS (div_h4_f16_m_untied, svfloat16_t, __fp16,
+		 z1 = svdiv_n_f16_m (p0, z2, d4),
+		 z1 = svdiv_m (p0, z2, d4))
 
 /*
 ** div_1_f16_m_tied1:
@@ -143,26 +143,26 @@ TEST_UNIFORM_ZS (div_w0_f16_z_untied, svfloat16_t, __fp16,
 		 z0 = svdiv_z (p0, z1, x0))
 
 /*
-** div_h0_f16_z_tied1:
-**	mov	(z[0-9]+\.h), h0
+** div_h4_f16_z_tied1:
+**	mov	(z[0-9]+\.h), h4
 **	movprfx	z1\.h, p0/z, z1\.h
 **	fdiv	z1\.h, p0/m, z1\.h, \1
 **	ret
 */
-TEST_UNIFORM_ZS (div_h0_f16_z_tied1, svfloat16_t, __fp16,
-		 z1 = svdiv_n_f16_z (p0, z1, d0),
-		 z1 = svdiv_z (p0, z1, d0))
+TEST_UNIFORM_ZS (div_h4_f16_z_tied1, svfloat16_t, __fp16,
+		 z1 = svdiv_n_f16_z (p0, z1, d4),
+		 z1 = svdiv_z (p0, z1, d4))
 
 /*
-** div_h0_f16_z_untied: { xfail *-*-* }
-**	mov	(z[0-9]+\.h), h0
+** div_h4_f16_z_untied: { xfail *-*-* }
+**	mov	(z[0-9]+\.h), h4
 **	movprfx	z1\.h, p0/z, z2\.h
 **	fdiv	z1\.h, p0/m, z1\.h, \1
 **	ret
 */
-TEST_UNIFORM_ZS (div_h0_f16_z_untied, svfloat16_t, __fp16,
-		 z1 = svdiv_n_f16_z (p0, z2, d0),
-		 z1 = svdiv_z (p0, z2, d0))
+TEST_UNIFORM_ZS (div_h4_f16_z_untied, svfloat16_t, __fp16,
+		 z1 = svdiv_n_f16_z (p0, z2, d4),
+		 z1 = svdiv_z (p0, z2, d4))
 
 /*
 ** div_1_f16_z_tied1:
@@ -246,24 +246,24 @@ TEST_UNIFORM_ZS (div_w0_f16_x_untied, svfloat16_t, __fp16,
 		 z1 = svdiv_x (p0, z0, x0))
 
 /*
-** div_h0_f16_x_tied1:
-**	mov	(z[0-9]+\.h), h0
+** div_h4_f16_x_tied1:
+**	mov	(z[0-9]+\.h), h4
 **	fdiv	z1\.h, p0/m, z1\.h, \1
 **	ret
 */
-TEST_UNIFORM_ZS (div_h0_f16_x_tied1, svfloat16_t, __fp16,
-		 z1 = svdiv_n_f16_x (p0, z1, d0),
-		 z1 = svdiv_x (p0, z1, d0))
+TEST_UNIFORM_ZS (div_h4_f16_x_tied1, svfloat16_t, __fp16,
+		 z1 = svdiv_n_f16_x (p0, z1, d4),
+		 z1 = svdiv_x (p0, z1, d4))
 
 /*
-** div_h0_f16_x_untied:
-**	mov	z2\.h, h0
+** div_h4_f16_x_untied:
+**	mov	z2\.h, h4
 **	fdivr	z2\.h, p0/m, z2\.h, z1\.h
 **	ret
 */
-TEST_UNIFORM_ZS (div_h0_f16_x_untied, svfloat16_t, __fp16,
-		 z2 = svdiv_n_f16_x (p0, z1, d0),
-		 z2 = svdiv_x (p0, z1, d0))
+TEST_UNIFORM_ZS (div_h4_f16_x_untied, svfloat16_t, __fp16,
+		 z2 = svdiv_n_f16_x (p0, z1, d4),
+		 z2 = svdiv_x (p0, z1, d4))
 
 /*
 ** div_1_f16_x_tied1:
@@ -339,26 +339,26 @@ TEST_UNIFORM_ZS (ptrue_div_w0_f16_x_untied, svfloat16_t, __fp16,
 		 z1 = svdiv_x (svptrue_b16 (), z0, x0))
 
 /*
-** ptrue_div_h0_f16_x_tied1:
+** ptrue_div_h4_f16_x_tied1:
 **	ptrue	(p[0-7])\.h[^\n]*
-**	mov	(z[0-9]+\.h), h0
+**	mov	(z[0-9]+\.h), h4
 **	fdiv	z1\.h, \1/m, z1\.h, \2
 **	ret
 */
-TEST_UNIFORM_ZS (ptrue_div_h0_f16_x_tied1, svfloat16_t, __fp16,
-		 z1 = svdiv_n_f16_x (svptrue_b16 (), z1, d0),
-		 z1 = svdiv_x (svptrue_b16 (), z1, d0))
+TEST_UNIFORM_ZS (ptrue_div_h4_f16_x_tied1, svfloat16_t, __fp16,
+		 z1 = svdiv_n_f16_x (svptrue_b16 (), z1, d4),
+		 z1 = svdiv_x (svptrue_b16 (), z1, d4))
 
 /*
-** ptrue_div_h0_f16_x_untied:
+** ptrue_div_h4_f16_x_untied:
 **	ptrue	(p[0-7])\.h[^\n]*
-**	mov	z2\.h, h0
+**	mov	z2\.h, h4
 **	fdivr	z2\.h, \1/m, z2\.h, z1\.h
 **	ret
 */
-TEST_UNIFORM_ZS (ptrue_div_h0_f16_x_untied, svfloat16_t, __fp16,
-		 z2 = svdiv_n_f16_x (svptrue_b16 (), z1, d0),
-		 z2 = svdiv_x (svptrue_b16 (), z1, d0))
+TEST_UNIFORM_ZS (ptrue_div_h4_f16_x_untied, svfloat16_t, __fp16,
+		 z2 = svdiv_n_f16_x (svptrue_b16 (), z1, d4),
+		 z2 = svdiv_x (svptrue_b16 (), z1, d4))
 
 /*
 ** ptrue_div_1_f16_x_untied:

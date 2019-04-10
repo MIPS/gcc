@@ -49,25 +49,25 @@ TEST_UNIFORM_ZS (mul_w0_s16_m_untied, svint16_t, int16_t,
 		 z0 = svmul_m (p0, z1, x0))
 
 /*
-** mul_h0_s16_m_tied1:
-**	mov	(z[0-9]+\.h), h0
+** mul_h4_s16_m_tied1:
+**	mov	(z[0-9]+\.h), h4
 **	mul	z1\.h, p0/m, z1\.h, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mul_h0_s16_m_tied1, svint16_t, int16_t,
-		 z1 = svmul_n_s16_m (p0, z1, d0),
-		 z1 = svmul_m (p0, z1, d0))
+TEST_UNIFORM_ZS (mul_h4_s16_m_tied1, svint16_t, int16_t,
+		 z1 = svmul_n_s16_m (p0, z1, d4),
+		 z1 = svmul_m (p0, z1, d4))
 
 /*
-** mul_h0_s16_m_untied:
-**	mov	(z[0-9]+\.h), h0
+** mul_h4_s16_m_untied:
+**	mov	(z[0-9]+\.h), h4
 **	movprfx	z1, z2
 **	mul	z1\.h, p0/m, z1\.h, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mul_h0_s16_m_untied, svint16_t, int16_t,
-		 z1 = svmul_n_s16_m (p0, z2, d0),
-		 z1 = svmul_m (p0, z2, d0))
+TEST_UNIFORM_ZS (mul_h4_s16_m_untied, svint16_t, int16_t,
+		 z1 = svmul_n_s16_m (p0, z2, d4),
+		 z1 = svmul_m (p0, z2, d4))
 
 /*
 ** mul_2_s16_m_tied1:
@@ -153,26 +153,26 @@ TEST_UNIFORM_ZS (mul_w0_s16_z_untied, svint16_t, int16_t,
 		 z0 = svmul_z (p0, z1, x0))
 
 /*
-** mul_h0_s16_z_tied1:
-**	mov	(z[0-9]+\.h), h0
+** mul_h4_s16_z_tied1:
+**	mov	(z[0-9]+\.h), h4
 **	movprfx	z1\.h, p0/z, z1\.h
 **	mul	z1\.h, p0/m, z1\.h, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mul_h0_s16_z_tied1, svint16_t, int16_t,
-		 z1 = svmul_n_s16_z (p0, z1, d0),
-		 z1 = svmul_z (p0, z1, d0))
+TEST_UNIFORM_ZS (mul_h4_s16_z_tied1, svint16_t, int16_t,
+		 z1 = svmul_n_s16_z (p0, z1, d4),
+		 z1 = svmul_z (p0, z1, d4))
 
 /*
-** mul_h0_s16_z_untied: { xfail *-*-* }
-**	mov	(z[0-9]+\.h), h0
+** mul_h4_s16_z_untied: { xfail *-*-* }
+**	mov	(z[0-9]+\.h), h4
 **	movprfx	z1\.h, p0/z, z2\.h
 **	mul	z1\.h, p0/m, z1\.h, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mul_h0_s16_z_untied, svint16_t, int16_t,
-		 z1 = svmul_n_s16_z (p0, z2, d0),
-		 z1 = svmul_z (p0, z2, d0))
+TEST_UNIFORM_ZS (mul_h4_s16_z_untied, svint16_t, int16_t,
+		 z1 = svmul_n_s16_z (p0, z2, d4),
+		 z1 = svmul_z (p0, z2, d4))
 
 /*
 ** mul_s16_x_tied1:
@@ -223,24 +223,24 @@ TEST_UNIFORM_ZS (mul_w0_s16_x_untied, svint16_t, int16_t,
 		 z1 = svmul_x (p0, z0, x0))
 
 /*
-** mul_h0_s16_x_tied1:
-**	mov	(z[0-9]+\.h), h0
+** mul_h4_s16_x_tied1:
+**	mov	(z[0-9]+\.h), h4
 **	mul	z1\.h, p0/m, z1\.h, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mul_h0_s16_x_tied1, svint16_t, int16_t,
-		 z1 = svmul_n_s16_x (p0, z1, d0),
-		 z1 = svmul_x (p0, z1, d0))
+TEST_UNIFORM_ZS (mul_h4_s16_x_tied1, svint16_t, int16_t,
+		 z1 = svmul_n_s16_x (p0, z1, d4),
+		 z1 = svmul_x (p0, z1, d4))
 
 /*
-** mul_h0_s16_x_untied:
-**	mov	z2\.h, h0
+** mul_h4_s16_x_untied:
+**	mov	z2\.h, h4
 **	mul	z2\.h, p0/m, z2\.h, z1\.h
 **	ret
 */
-TEST_UNIFORM_ZS (mul_h0_s16_x_untied, svint16_t, int16_t,
-		 z2 = svmul_n_s16_x (p0, z1, d0),
-		 z2 = svmul_x (p0, z1, d0))
+TEST_UNIFORM_ZS (mul_h4_s16_x_untied, svint16_t, int16_t,
+		 z2 = svmul_n_s16_x (p0, z1, d4),
+		 z2 = svmul_x (p0, z1, d4))
 
 /*
 ** mul_2_s16_x_tied1:

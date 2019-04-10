@@ -49,25 +49,25 @@ TEST_UNIFORM_ZS (div_x0_u64_m_untied, svuint64_t, uint64_t,
 		 z0 = svdiv_m (p0, z1, x0))
 
 /*
-** div_d0_u64_m_tied1:
-**	mov	(z[0-9]+\.d), d0
+** div_d4_u64_m_tied1:
+**	mov	(z[0-9]+\.d), d4
 **	udiv	z1\.d, p0/m, z1\.d, \1
 **	ret
 */
-TEST_UNIFORM_ZS (div_d0_u64_m_tied1, svuint64_t, uint64_t,
-		 z1 = svdiv_n_u64_m (p0, z1, d0),
-		 z1 = svdiv_m (p0, z1, d0))
+TEST_UNIFORM_ZS (div_d4_u64_m_tied1, svuint64_t, uint64_t,
+		 z1 = svdiv_n_u64_m (p0, z1, d4),
+		 z1 = svdiv_m (p0, z1, d4))
 
 /*
-** div_d0_u64_m_untied:
-**	mov	(z[0-9]+\.d), d0
+** div_d4_u64_m_untied:
+**	mov	(z[0-9]+\.d), d4
 **	movprfx	z1, z2
 **	udiv	z1\.d, p0/m, z1\.d, \1
 **	ret
 */
-TEST_UNIFORM_ZS (div_d0_u64_m_untied, svuint64_t, uint64_t,
-		 z1 = svdiv_n_u64_m (p0, z2, d0),
-		 z1 = svdiv_m (p0, z2, d0))
+TEST_UNIFORM_ZS (div_d4_u64_m_untied, svuint64_t, uint64_t,
+		 z1 = svdiv_n_u64_m (p0, z2, d4),
+		 z1 = svdiv_m (p0, z2, d4))
 
 /*
 ** div_2_u64_m_tied1:
@@ -143,26 +143,26 @@ TEST_UNIFORM_ZS (div_x0_u64_z_untied, svuint64_t, uint64_t,
 		 z0 = svdiv_z (p0, z1, x0))
 
 /*
-** div_d0_u64_z_tied1:
-**	mov	(z[0-9]+\.d), d0
+** div_d4_u64_z_tied1:
+**	mov	(z[0-9]+\.d), d4
 **	movprfx	z1\.d, p0/z, z1\.d
 **	udiv	z1\.d, p0/m, z1\.d, \1
 **	ret
 */
-TEST_UNIFORM_ZS (div_d0_u64_z_tied1, svuint64_t, uint64_t,
-		 z1 = svdiv_n_u64_z (p0, z1, d0),
-		 z1 = svdiv_z (p0, z1, d0))
+TEST_UNIFORM_ZS (div_d4_u64_z_tied1, svuint64_t, uint64_t,
+		 z1 = svdiv_n_u64_z (p0, z1, d4),
+		 z1 = svdiv_z (p0, z1, d4))
 
 /*
-** div_d0_u64_z_untied: { xfail *-*-* }
-**	mov	(z[0-9]+\.d), d0
+** div_d4_u64_z_untied: { xfail *-*-* }
+**	mov	(z[0-9]+\.d), d4
 **	movprfx	z1\.d, p0/z, z2\.d
 **	udiv	z1\.d, p0/m, z1\.d, \1
 **	ret
 */
-TEST_UNIFORM_ZS (div_d0_u64_z_untied, svuint64_t, uint64_t,
-		 z1 = svdiv_n_u64_z (p0, z2, d0),
-		 z1 = svdiv_z (p0, z2, d0))
+TEST_UNIFORM_ZS (div_d4_u64_z_untied, svuint64_t, uint64_t,
+		 z1 = svdiv_n_u64_z (p0, z2, d4),
+		 z1 = svdiv_z (p0, z2, d4))
 
 /*
 ** div_u64_x_tied1:
@@ -213,24 +213,24 @@ TEST_UNIFORM_ZS (div_x0_u64_x_untied, svuint64_t, uint64_t,
 		 z1 = svdiv_x (p0, z0, x0))
 
 /*
-** div_d0_u64_x_tied1:
-**	mov	(z[0-9]+\.d), d0
+** div_d4_u64_x_tied1:
+**	mov	(z[0-9]+\.d), d4
 **	udiv	z1\.d, p0/m, z1\.d, \1
 **	ret
 */
-TEST_UNIFORM_ZS (div_d0_u64_x_tied1, svuint64_t, uint64_t,
-		 z1 = svdiv_n_u64_x (p0, z1, d0),
-		 z1 = svdiv_x (p0, z1, d0))
+TEST_UNIFORM_ZS (div_d4_u64_x_tied1, svuint64_t, uint64_t,
+		 z1 = svdiv_n_u64_x (p0, z1, d4),
+		 z1 = svdiv_x (p0, z1, d4))
 
 /*
-** div_d0_u64_x_untied:
-**	mov	z2\.d, d0
+** div_d4_u64_x_untied:
+**	mov	z2\.d, d4
 **	udivr	z2\.d, p0/m, z2\.d, z1\.d
 **	ret
 */
-TEST_UNIFORM_ZS (div_d0_u64_x_untied, svuint64_t, uint64_t,
-		 z2 = svdiv_n_u64_x (p0, z1, d0),
-		 z2 = svdiv_x (p0, z1, d0))
+TEST_UNIFORM_ZS (div_d4_u64_x_untied, svuint64_t, uint64_t,
+		 z2 = svdiv_n_u64_x (p0, z1, d4),
+		 z2 = svdiv_x (p0, z1, d4))
 
 /*
 ** div_2_u64_x_tied1:

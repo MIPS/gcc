@@ -78,37 +78,37 @@ TEST_UNIFORM_ZS (mad_w0_u8_m_untied, svuint8_t, uint8_t,
 		 z0 = svmad_m (p0, z1, z2, x0))
 
 /*
-** mad_b0_u8_m_tied1:
-**	mov	(z[0-9]+\.b), b0
+** mad_b4_u8_m_tied1:
+**	mov	(z[0-9]+\.b), b4
 **	mad	z0\.b, p0/m, z1\.b, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mad_b0_u8_m_tied1, svuint8_t, uint8_t,
-		 z0 = svmad_n_u8_m (p0, z0, z1, d0),
-		 z0 = svmad_m (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (mad_b4_u8_m_tied1, svuint8_t, uint8_t,
+		 z0 = svmad_n_u8_m (p0, z0, z1, d4),
+		 z0 = svmad_m (p0, z0, z1, d4))
 
 /*
-** mad_b0_u8_m_tied2:
-**	mov	(z[0-9]+\.b), b0
+** mad_b4_u8_m_tied2:
+**	mov	(z[0-9]+\.b), b4
 **	mov	(z[0-9]+)\.d, z1\.d
 **	movprfx	z1, z0
 **	mad	z1\.b, p0/m, \2\.b, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mad_b0_u8_m_tied2, svuint8_t, uint8_t,
-		 z1 = svmad_n_u8_m (p0, z0, z1, d0),
-		 z1 = svmad_m (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (mad_b4_u8_m_tied2, svuint8_t, uint8_t,
+		 z1 = svmad_n_u8_m (p0, z0, z1, d4),
+		 z1 = svmad_m (p0, z0, z1, d4))
 
 /*
-** mad_b0_u8_m_untied:
-**	mov	(z[0-9]+\.b), b0
+** mad_b4_u8_m_untied:
+**	mov	(z[0-9]+\.b), b4
 **	movprfx	z1, z0
 **	mad	z1\.b, p0/m, z2\.b, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mad_b0_u8_m_untied, svuint8_t, uint8_t,
-		 z1 = svmad_n_u8_m (p0, z0, z2, d0),
-		 z1 = svmad_m (p0, z0, z2, d0))
+TEST_UNIFORM_ZS (mad_b4_u8_m_untied, svuint8_t, uint8_t,
+		 z1 = svmad_n_u8_m (p0, z0, z2, d4),
+		 z1 = svmad_m (p0, z0, z2, d4))
 
 /*
 ** mad_2_u8_m_tied1:
@@ -217,37 +217,37 @@ TEST_UNIFORM_ZS (mad_w0_u8_z_untied, svuint8_t, uint8_t,
 		 z0 = svmad_z (p0, z1, z2, x0))
 
 /*
-** mad_b0_u8_z_tied1:
-**	mov	(z[0-9]+\.b), b0
+** mad_b4_u8_z_tied1:
+**	mov	(z[0-9]+\.b), b4
 **	movprfx	z0\.b, p0/z, z0\.b
 **	mad	z0\.b, p0/m, z1\.b, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mad_b0_u8_z_tied1, svuint8_t, uint8_t,
-		 z0 = svmad_n_u8_z (p0, z0, z1, d0),
-		 z0 = svmad_z (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (mad_b4_u8_z_tied1, svuint8_t, uint8_t,
+		 z0 = svmad_n_u8_z (p0, z0, z1, d4),
+		 z0 = svmad_z (p0, z0, z1, d4))
 
 /*
-** mad_b0_u8_z_tied2:
-**	mov	(z[0-9]+\.b), b0
+** mad_b4_u8_z_tied2:
+**	mov	(z[0-9]+\.b), b4
 **	movprfx	z1\.b, p0/z, z1\.b
 **	mad	z1\.b, p0/m, z0\.b, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mad_b0_u8_z_tied2, svuint8_t, uint8_t,
-		 z1 = svmad_n_u8_z (p0, z0, z1, d0),
-		 z1 = svmad_z (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (mad_b4_u8_z_tied2, svuint8_t, uint8_t,
+		 z1 = svmad_n_u8_z (p0, z0, z1, d4),
+		 z1 = svmad_z (p0, z0, z1, d4))
 
 /*
-** mad_b0_u8_z_untied:
-**	mov	(z[0-9]+\.b), b0
+** mad_b4_u8_z_untied:
+**	mov	(z[0-9]+\.b), b4
 **	movprfx	z1\.b, p0/z, \1
 **	mla	z1\.b, p0/m, z0\.b, z2\.b
 **	ret
 */
-TEST_UNIFORM_ZS (mad_b0_u8_z_untied, svuint8_t, uint8_t,
-		 z1 = svmad_n_u8_z (p0, z0, z2, d0),
-		 z1 = svmad_z (p0, z0, z2, d0))
+TEST_UNIFORM_ZS (mad_b4_u8_z_untied, svuint8_t, uint8_t,
+		 z1 = svmad_n_u8_z (p0, z0, z2, d4),
+		 z1 = svmad_z (p0, z0, z2, d4))
 
 /*
 ** mad_u8_x_tied1:
@@ -317,34 +317,34 @@ TEST_UNIFORM_ZS (mad_w0_u8_x_untied, svuint8_t, uint8_t,
 		 z2 = svmad_x (p0, z0, z1, x0))
 
 /*
-** mad_b0_u8_x_tied1:
-**	mov	(z[0-9]+\.b), b0
+** mad_b4_u8_x_tied1:
+**	mov	(z[0-9]+\.b), b4
 **	mad	z0\.b, p0/m, z1\.b, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mad_b0_u8_x_tied1, svuint8_t, uint8_t,
-		 z0 = svmad_n_u8_x (p0, z0, z1, d0),
-		 z0 = svmad_x (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (mad_b4_u8_x_tied1, svuint8_t, uint8_t,
+		 z0 = svmad_n_u8_x (p0, z0, z1, d4),
+		 z0 = svmad_x (p0, z0, z1, d4))
 
 /*
-** mad_b0_u8_x_tied2:
-**	mov	(z[0-9]+\.b), b0
+** mad_b4_u8_x_tied2:
+**	mov	(z[0-9]+\.b), b4
 **	mad	z1\.b, p0/m, z0\.b, \1
 **	ret
 */
-TEST_UNIFORM_ZS (mad_b0_u8_x_tied2, svuint8_t, uint8_t,
-		 z1 = svmad_n_u8_x (p0, z0, z1, d0),
-		 z1 = svmad_x (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (mad_b4_u8_x_tied2, svuint8_t, uint8_t,
+		 z1 = svmad_n_u8_x (p0, z0, z1, d4),
+		 z1 = svmad_x (p0, z0, z1, d4))
 
 /*
-** mad_b0_u8_x_untied:
-**	mov	z2\.b, b0
+** mad_b4_u8_x_untied:
+**	mov	z2\.b, b4
 **	mla	z2\.b, p0/m, z0\.b, z1\.b
 **	ret
 */
-TEST_UNIFORM_ZS (mad_b0_u8_x_untied, svuint8_t, uint8_t,
-		 z2 = svmad_n_u8_x (p0, z0, z1, d0),
-		 z2 = svmad_x (p0, z0, z1, d0))
+TEST_UNIFORM_ZS (mad_b4_u8_x_untied, svuint8_t, uint8_t,
+		 z2 = svmad_n_u8_x (p0, z0, z1, d4),
+		 z2 = svmad_x (p0, z0, z1, d4))
 
 /*
 ** mad_2_u8_x_tied1:

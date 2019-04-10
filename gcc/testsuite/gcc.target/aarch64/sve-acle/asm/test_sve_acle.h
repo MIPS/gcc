@@ -124,11 +124,11 @@
     BIND_INPUT_Z0_Z3 (ZTYPE);					\
     BIND_INPUT_P (p0);						\
     BIND_INPUT_X (STYPE, x0);					\
-    BIND_INPUT_D (STYPE, d0);					\
+    BIND_INPUT_D (STYPE, d4);					\
     INVOKE (CODE1, CODE2);					\
     BIND_OUTPUT_Z0_Z3;						\
     BIND_OUTPUT_X (x0);						\
-    BIND_OUTPUT_D (d0);						\
+    BIND_OUTPUT_D (d4);						\
     BIND_OUTPUT_P (p0);						\
   }
 
@@ -140,11 +140,11 @@
     DECLARE_RESULT_Z16_Z19 (ZTYPE1);				\
     BIND_INPUT_P (p0);						\
     BIND_INPUT_X (STYPE, x0);					\
-    BIND_INPUT_D (STYPE, d0);					\
+    BIND_INPUT_D (STYPE, d4);					\
     INVOKE (CODE1, CODE2);					\
     BIND_OUTPUT_Z0_Z3;						\
     BIND_OUTPUT_X (x0);						\
-    BIND_OUTPUT_D (d0);						\
+    BIND_OUTPUT_D (d4);						\
     BIND_OUTPUT_P (p0);						\
     BIND_RESULT_Z16_Z19;					\
   }
