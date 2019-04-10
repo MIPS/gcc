@@ -285,7 +285,7 @@ TEST_UNIFORM_Z (lsl_1_s8_z_untied, svint8_t,
 ** lsl_m1_s8_z_tied1:
 **	mov	(z[0-9]+)\.b, #-1
 **	movprfx	z0\.b, p0/z, z0\.b
-**	lsl	z0\.b, p0/m, z0\.b, \1.d
+**	lsl	z0\.b, p0/m, z0\.b, \1\.d
 **	ret
 */
 TEST_UNIFORM_Z (lsl_m1_s8_z_tied1, svint8_t,
@@ -296,7 +296,7 @@ TEST_UNIFORM_Z (lsl_m1_s8_z_tied1, svint8_t,
 ** lsl_m1_s8_z_untied: { xfail *-*-* }
 **	mov	(z[0-9]+)\.b, #-1
 **	movprfx	z0\.b, p0/z, z1\.b
-**	lsl	z0\.b, p0/m, z0\.b, \1.d
+**	lsl	z0\.b, p0/m, z0\.b, \1\.d
 **	ret
 */
 TEST_UNIFORM_Z (lsl_m1_s8_z_untied, svint8_t,

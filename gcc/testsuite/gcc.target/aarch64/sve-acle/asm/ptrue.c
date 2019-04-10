@@ -6,7 +6,7 @@
 
 /*
 ** ptrue_b8:
-**	ptrue	p0.b, all
+**	ptrue	p0\.b, all
 **	ret
 */
 TEST_P (ptrue_b8,
@@ -15,7 +15,7 @@ TEST_P (ptrue_b8,
 
 /*
 ** ptrue_b16:
-**	ptrue	p0.h, all
+**	ptrue	p0\.h, all
 **	ret
 */
 TEST_P (ptrue_b16,
@@ -24,7 +24,7 @@ TEST_P (ptrue_b16,
 
 /*
 ** ptrue_b32:
-**	ptrue	p0.s, all
+**	ptrue	p0\.s, all
 **	ret
 */
 TEST_P (ptrue_b32,
@@ -33,7 +33,7 @@ TEST_P (ptrue_b32,
 
 /*
 ** ptrue_b64:
-**	ptrue	p0.d, all
+**	ptrue	p0\.d, all
 **	ret
 */
 TEST_P (ptrue_b64,
