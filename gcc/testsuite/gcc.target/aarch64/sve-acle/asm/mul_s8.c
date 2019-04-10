@@ -12,7 +12,13 @@ TEST_UNIFORM_Z (mul_s8_m_tied1, svint8_t,
 		z0 = svmul_s8_m (p0, z0, z1),
 		z0 = svmul_m (p0, z0, z1))
 
-/* Bad RA choice: no preferred output sequence.  */
+/*
+** mul_s8_m_tied2:
+**	mov	(z[0-9]+)\.d, z0\.d
+**	movprfx	z0, z1
+**	mul	z0\.b, p0/m, z0\.b, \1\.b
+**	ret
+*/
 TEST_UNIFORM_Z (mul_s8_m_tied2, svint8_t,
 		z0 = svmul_s8_m (p0, z1, z0),
 		z0 = svmul_m (p0, z1, z0))

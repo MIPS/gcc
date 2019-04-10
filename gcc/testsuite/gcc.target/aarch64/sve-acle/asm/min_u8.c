@@ -12,7 +12,13 @@ TEST_UNIFORM_Z (min_u8_m_tied1, svuint8_t,
 		z0 = svmin_u8_m (p0, z0, z1),
 		z0 = svmin_m (p0, z0, z1))
 
-/* Bad RA choice: no preferred output sequence.  */
+/*
+** min_u8_m_tied2:
+**	mov	(z[0-9]+)\.d, z0\.d
+**	movprfx	z0, z1
+**	umin	z0\.b, p0/m, z0\.b, \1\.b
+**	ret
+*/
 TEST_UNIFORM_Z (min_u8_m_tied2, svuint8_t,
 		z0 = svmin_u8_m (p0, z1, z0),
 		z0 = svmin_m (p0, z1, z0))

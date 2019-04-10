@@ -12,7 +12,13 @@ TEST_UNIFORM_Z (div_u32_m_tied1, svuint32_t,
 		z0 = svdiv_u32_m (p0, z0, z1),
 		z0 = svdiv_m (p0, z0, z1))
 
-/* Bad RA choice: no preferred output sequence.  */
+/*
+** div_u32_m_tied2:
+**	mov	(z[0-9]+)\.d, z0\.d
+**	movprfx	z0, z1
+**	udiv	z0\.s, p0/m, z0\.s, \1\.s
+**	ret
+*/
 TEST_UNIFORM_Z (div_u32_m_tied2, svuint32_t,
 		z0 = svdiv_u32_m (p0, z1, z0),
 		z0 = svdiv_m (p0, z1, z0))

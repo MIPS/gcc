@@ -12,7 +12,13 @@ TEST_UNIFORM_Z (add_u16_m_tied1, svuint16_t,
 		z0 = svadd_u16_m (p0, z0, z1),
 		z0 = svadd_m (p0, z0, z1))
 
-/* Bad RA choice: no preferred output sequence.  */
+/*
+** add_u16_m_tied2:
+**	mov	(z[0-9]+)\.d, z0\.d
+**	movprfx	z0, z1
+**	add	z0\.h, p0/m, z0\.h, \1\.h
+**	ret
+*/
 TEST_UNIFORM_Z (add_u16_m_tied2, svuint16_t,
 		z0 = svadd_u16_m (p0, z1, z0),
 		z0 = svadd_m (p0, z1, z0))

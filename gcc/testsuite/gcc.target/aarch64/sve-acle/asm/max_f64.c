@@ -12,7 +12,13 @@ TEST_UNIFORM_Z (max_f64_m_tied1, svfloat64_t,
 		z0 = svmax_f64_m (p0, z0, z1),
 		z0 = svmax_m (p0, z0, z1))
 
-/* Bad RA choice: no preferred output sequence.  */
+/*
+** max_f64_m_tied2:
+**	mov	(z[0-9]+\.d), z0\.d
+**	movprfx	z0, z1
+**	fmax	z0\.d, p0/m, z0\.d, \1
+**	ret
+*/
 TEST_UNIFORM_Z (max_f64_m_tied2, svfloat64_t,
 		z0 = svmax_f64_m (p0, z1, z0),
 		z0 = svmax_m (p0, z1, z0))

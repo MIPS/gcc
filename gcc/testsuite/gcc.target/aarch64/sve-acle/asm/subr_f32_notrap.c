@@ -13,7 +13,13 @@ TEST_UNIFORM_Z (subr_f32_m_tied1, svfloat32_t,
 		z0 = svsubr_f32_m (p0, z0, z1),
 		z0 = svsubr_m (p0, z0, z1))
 
-/* Bad RA choice: no preferred output sequence.  */
+/*
+** subr_f32_m_tied2:
+**	mov	(z[0-9]+)\.d, z0\.d
+**	movprfx	z0, z1
+**	fsubr	z0\.s, p0/m, z0\.s, \1\.s
+**	ret
+*/
 TEST_UNIFORM_Z (subr_f32_m_tied2, svfloat32_t,
 		z0 = svsubr_f32_m (p0, z1, z0),
 		z0 = svsubr_m (p0, z1, z0))

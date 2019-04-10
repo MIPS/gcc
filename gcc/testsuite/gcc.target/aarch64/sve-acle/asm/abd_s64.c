@@ -12,7 +12,13 @@ TEST_UNIFORM_Z (abd_s64_m_tied1, svint64_t,
 		z0 = svabd_s64_m (p0, z0, z1),
 		z0 = svabd_m (p0, z0, z1))
 
-/* Bad RA choice: no preferred output sequence.  */
+/*
+** abd_s64_m_tied2:
+**	mov	(z[0-9]+\.d), z0\.d
+**	movprfx	z0, z1
+**	sabd	z0\.d, p0/m, z0\.d, \1
+**	ret
+*/
 TEST_UNIFORM_Z (abd_s64_m_tied2, svint64_t,
 		z0 = svabd_s64_m (p0, z1, z0),
 		z0 = svabd_m (p0, z1, z0))

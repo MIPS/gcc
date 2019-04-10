@@ -12,7 +12,13 @@ TEST_UNIFORM_Z (mulh_u64_m_tied1, svuint64_t,
 		z0 = svmulh_u64_m (p0, z0, z1),
 		z0 = svmulh_m (p0, z0, z1))
 
-/* Bad RA choice: no preferred output sequence.  */
+/*
+** mulh_u64_m_tied2:
+**	mov	(z[0-9]+\.d), z0\.d
+**	movprfx	z0, z1
+**	umulh	z0\.d, p0/m, z0\.d, \1
+**	ret
+*/
 TEST_UNIFORM_Z (mulh_u64_m_tied2, svuint64_t,
 		z0 = svmulh_u64_m (p0, z1, z0),
 		z0 = svmulh_m (p0, z1, z0))
