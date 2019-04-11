@@ -367,17 +367,6 @@ TEST_UNIFORM_ZS (ptrue_div_d4_f64_x_untied, svfloat64_t, double,
 		 z0 = svdiv_x (svptrue_b64 (), z1, d4))
 
 /*
-** ptrue_div_1_f64_x_untied:
-**	ptrue	(p[0-7])\.d[^\n]*
-**	fmov	z0\.d, #1\.0(?:e\+0)?
-**	fdivr	z0\.d, \1/m, z0\.d, z1\.d
-**	ret
-*/
-TEST_UNIFORM_Z (ptrue_div_1_f64_x_untied, svfloat64_t,
-		z0 = svdiv_n_f64_x (svptrue_b64 (), z1, 1),
-		z0 = svdiv_x (svptrue_b64 (), z1, 1))
-
-/*
 ** ptrue_div_1_f64_x_tied1:
 **	ptrue	(p[0-7])\.d[^\n]*
 **	fmov	(z[0-9]+\.d), #1\.0(?:e\+0)?
@@ -387,3 +376,14 @@ TEST_UNIFORM_Z (ptrue_div_1_f64_x_untied, svfloat64_t,
 TEST_UNIFORM_Z (ptrue_div_1_f64_x_tied1, svfloat64_t,
 		z0 = svdiv_n_f64_x (svptrue_b64 (), z0, 1),
 		z0 = svdiv_x (svptrue_b64 (), z0, 1))
+
+/*
+** ptrue_div_1_f64_x_untied:
+**	ptrue	(p[0-7])\.d[^\n]*
+**	fmov	z0\.d, #1\.0(?:e\+0)?
+**	fdivr	z0\.d, \1/m, z0\.d, z1\.d
+**	ret
+*/
+TEST_UNIFORM_Z (ptrue_div_1_f64_x_untied, svfloat64_t,
+		z0 = svdiv_n_f64_x (svptrue_b64 (), z1, 1),
+		z0 = svdiv_x (svptrue_b64 (), z1, 1))

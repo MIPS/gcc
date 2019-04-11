@@ -193,26 +193,6 @@ TEST_UNIFORM_Z (min_1_f32_z_untied, svfloat32_t,
 		z0 = svmin_z (p0, z1, 1))
 
 /*
-** min_1_f32_x_tied1:
-**	fmov	(z[0-9]+\.s), #1\.0(?:e\+0)?
-**	fmin	z0\.s, p0/m, z0\.s, \1
-**	ret
-*/
-TEST_UNIFORM_Z (min_1_f32_x_tied1, svfloat32_t,
-		z0 = svmin_n_f32_x (p0, z0, 1),
-		z0 = svmin_x (p0, z0, 1))
-
-/*
-** min_1_f32_x_untied:
-**	fmov	z0\.s, #1\.0(?:e\+0)?
-**	fmin	z0\.s, p0/m, z0\.s, z1\.s
-**	ret
-*/
-TEST_UNIFORM_Z (min_1_f32_x_untied, svfloat32_t,
-		z0 = svmin_n_f32_x (p0, z1, 1),
-		z0 = svmin_x (p0, z1, 1))
-
-/*
 ** min_f32_x_tied1:
 **	fmin	z0\.s, p0/m, z0\.s, z1\.s
 **	ret
@@ -279,6 +259,26 @@ TEST_UNIFORM_ZS (min_s4_f32_x_tied1, svfloat32_t, float,
 TEST_UNIFORM_ZS (min_s4_f32_x_untied, svfloat32_t, float,
 		 z0 = svmin_n_f32_x (p0, z1, d4),
 		 z0 = svmin_x (p0, z1, d4))
+
+/*
+** min_1_f32_x_tied1:
+**	fmov	(z[0-9]+\.s), #1\.0(?:e\+0)?
+**	fmin	z0\.s, p0/m, z0\.s, \1
+**	ret
+*/
+TEST_UNIFORM_Z (min_1_f32_x_tied1, svfloat32_t,
+		z0 = svmin_n_f32_x (p0, z0, 1),
+		z0 = svmin_x (p0, z0, 1))
+
+/*
+** min_1_f32_x_untied:
+**	fmov	z0\.s, #1\.0(?:e\+0)?
+**	fmin	z0\.s, p0/m, z0\.s, z1\.s
+**	ret
+*/
+TEST_UNIFORM_Z (min_1_f32_x_untied, svfloat32_t,
+		z0 = svmin_n_f32_x (p0, z1, 1),
+		z0 = svmin_x (p0, z1, 1))
 
 /*
 ** ptrue_min_f32_x_tied1:
