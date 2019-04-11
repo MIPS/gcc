@@ -213,15 +213,15 @@ TEST_UNIFORM_Z (div_1_f32_z_untied, svfloat32_t,
 		z0 = svdiv_z (p0, z1, 1))
 
 /*
-** div_0p5_f32_z_untied: { xfail *-*-* }
+** div_0p5_f32_z:
 **	fmov	(z[0-9]+\.s), #(?:0\.5|5\.0e-1)
-**	movprfx	z0\.s, p0/z, z1\.s
+**	movprfx	z0\.s, p0/z, z0\.s
 **	fdiv	z0\.s, p0/m, z0\.s, \1
 **	ret
 */
-TEST_UNIFORM_Z (div_0p5_f32_z_untied, svfloat32_t,
-		z0 = svdiv_n_f32_z (p0, z1, 0.5),
-		z0 = svdiv_z (p0, z1, 0.5))
+TEST_UNIFORM_Z (div_0p5_f32_z, svfloat32_t,
+		z0 = svdiv_n_f32_z (p0, z0, 0.5),
+		z0 = svdiv_z (p0, z0, 0.5))
 
 /*
 ** div_f32_x_tied1:

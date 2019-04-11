@@ -207,13 +207,13 @@ TEST_UNIFORM_ZS (divr_s4_f32_z_untied, svfloat32_t, float,
 		 z0 = svdivr_z (p0, z1, d4))
 
 /*
-** divr_1_f32_z_tied1:
+** divr_1_f32_z:
 **	fmov	(z[0-9]+\.s), #1\.0(?:e\+0)?
 **	movprfx	z0\.s, p0/z, z0\.s
 **	fdivr	z0\.s, p0/m, z0\.s, \1
 **	ret
 */
-TEST_UNIFORM_Z (divr_1_f32_z_tied1, svfloat32_t,
+TEST_UNIFORM_Z (divr_1_f32_z, svfloat32_t,
 		z0 = svdivr_n_f32_z (p0, z0, 1),
 		z0 = svdivr_z (p0, z0, 1))
 
