@@ -670,6 +670,12 @@ proc check-function-bodies { args } {
 		}
 		set in_function 1
 		set function_regexp ""
+	    } elseif { [string equal $line "("] } {
+		append function_regexp "(?:"
+	    } elseif { [string equal $line "|"] } {
+		append function_regexp "|"
+	    } elseif { [string equal $line ")"] } {
+		append function_regexp ")"
 	    } else {
 		append function_regexp "\t" $line "\n"
 	    }

@@ -128,8 +128,13 @@ TEST_UNIFORM_Z (sub_s8_z_tied2, svint8_t,
 
 /*
 ** sub_s8_z_untied:
+** (
 **	movprfx	z0\.b, p0/z, z1\.b
 **	sub	z0\.b, p0/m, z0\.b, z2\.b
+** |
+**	movprfx	z0\.b, p0/z, z2\.b
+**	subr	z0\.b, p0/m, z0\.b, z1\.b
+** )
 **	ret
 */
 TEST_UNIFORM_Z (sub_s8_z_untied, svint8_t,
@@ -148,10 +153,15 @@ TEST_UNIFORM_ZS (sub_w0_s8_z_tied1, svint8_t, int8_t,
 		 z0 = svsub_z (p0, z0, x0))
 
 /*
-** sub_w0_s8_z_untied: { xfail *-*-* }
+** sub_w0_s8_z_untied:
 **	mov	(z[0-9]+\.b), w0
+** (
 **	movprfx	z0\.b, p0/z, z1\.b
 **	sub	z0\.b, p0/m, z0\.b, \1
+** |
+**	movprfx	z0\.b, p0/z, \1
+**	subr	z0\.b, p0/m, z0\.b, z1\.b
+** )
 **	ret
 */
 TEST_UNIFORM_ZS (sub_w0_s8_z_untied, svint8_t, int8_t,
@@ -170,10 +180,15 @@ TEST_UNIFORM_ZS (sub_b4_s8_z_tied1, svint8_t, int8_t,
 		 z0 = svsub_z (p0, z0, d4))
 
 /*
-** sub_b4_s8_z_untied: { xfail *-*-* }
+** sub_b4_s8_z_untied:
 **	mov	(z[0-9]+\.b), b4
+** (
 **	movprfx	z0\.b, p0/z, z1\.b
 **	sub	z0\.b, p0/m, z0\.b, \1
+** |
+**	movprfx	z0\.b, p0/z, \1
+**	subr	z0\.b, p0/m, z0\.b, z1\.b
+** )
 **	ret
 */
 TEST_UNIFORM_ZS (sub_b4_s8_z_untied, svint8_t, int8_t,

@@ -128,8 +128,13 @@ TEST_UNIFORM_Z (mul_u16_z_tied2, svuint16_t,
 
 /*
 ** mul_u16_z_untied:
+** (
 **	movprfx	z0\.h, p0/z, z1\.h
 **	mul	z0\.h, p0/m, z0\.h, z2\.h
+** |
+**	movprfx	z0\.h, p0/z, z2\.h
+**	mul	z0\.h, p0/m, z0\.h, z1\.h
+** )
 **	ret
 */
 TEST_UNIFORM_Z (mul_u16_z_untied, svuint16_t,
@@ -148,10 +153,15 @@ TEST_UNIFORM_ZS (mul_w0_u16_z_tied1, svuint16_t, uint16_t,
 		 z0 = svmul_z (p0, z0, x0))
 
 /*
-** mul_w0_u16_z_untied: { xfail *-*-* }
+** mul_w0_u16_z_untied:
 **	mov	(z[0-9]+\.h), w0
+** (
 **	movprfx	z0\.h, p0/z, z1\.h
 **	mul	z0\.h, p0/m, z0\.h, \1
+** |
+**	movprfx	z0\.h, p0/z, \1
+**	mul	z0\.h, p0/m, z0\.h, z1\.h
+** )
 **	ret
 */
 TEST_UNIFORM_ZS (mul_w0_u16_z_untied, svuint16_t, uint16_t,
@@ -170,10 +180,15 @@ TEST_UNIFORM_ZS (mul_h4_u16_z_tied1, svuint16_t, uint16_t,
 		 z0 = svmul_z (p0, z0, d4))
 
 /*
-** mul_h4_u16_z_untied: { xfail *-*-* }
+** mul_h4_u16_z_untied:
 **	mov	(z[0-9]+\.h), h4
+** (
 **	movprfx	z0\.h, p0/z, z1\.h
 **	mul	z0\.h, p0/m, z0\.h, \1
+** |
+**	movprfx	z0\.h, p0/z, \1
+**	mul	z0\.h, p0/m, z0\.h, z1\.h
+** )
 **	ret
 */
 TEST_UNIFORM_ZS (mul_h4_u16_z_untied, svuint16_t, uint16_t,
@@ -200,8 +215,13 @@ TEST_UNIFORM_Z (mul_u16_x_tied2, svuint16_t,
 
 /*
 ** mul_u16_x_untied:
+** (
 **	movprfx	z0, z1
 **	mul	z0\.h, p0/m, z0\.h, z2\.h
+** |
+**	movprfx	z0, z2
+**	mul	z0\.h, p0/m, z0\.h, z1\.h
+** )
 **	ret
 */
 TEST_UNIFORM_Z (mul_u16_x_untied, svuint16_t,

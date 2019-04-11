@@ -128,8 +128,13 @@ TEST_UNIFORM_Z (eor_u64_z_tied2, svuint64_t,
 
 /*
 ** eor_u64_z_untied:
+** (
 **	movprfx	z0\.d, p0/z, z1\.d
 **	eor	z0\.d, p0/m, z0\.d, z2\.d
+** |
+**	movprfx	z0\.d, p0/z, z2\.d
+**	eor	z0\.d, p0/m, z0\.d, z1\.d
+** )
 **	ret
 */
 TEST_UNIFORM_Z (eor_u64_z_untied, svuint64_t,
@@ -148,10 +153,15 @@ TEST_UNIFORM_ZS (eor_x0_u64_z_tied1, svuint64_t, uint64_t,
 		 z0 = sveor_z (p0, z0, x0))
 
 /*
-** eor_x0_u64_z_untied: { xfail *-*-* }
+** eor_x0_u64_z_untied:
 **	mov	(z[0-9]+\.d), x0
+** (
 **	movprfx	z0\.d, p0/z, z1\.d
 **	eor	z0\.d, p0/m, z0\.d, \1
+** |
+**	movprfx	z0\.d, p0/z, \1
+**	eor	z0\.d, p0/m, z0\.d, z1\.d
+** )
 **	ret
 */
 TEST_UNIFORM_ZS (eor_x0_u64_z_untied, svuint64_t, uint64_t,
@@ -170,10 +180,15 @@ TEST_UNIFORM_ZS (eor_d4_u64_z_tied1, svuint64_t, uint64_t,
 		 z0 = sveor_z (p0, z0, d4))
 
 /*
-** eor_d4_u64_z_untied: { xfail *-*-* }
+** eor_d4_u64_z_untied:
 **	mov	(z[0-9]+\.d), d4
+** (
 **	movprfx	z0\.d, p0/z, z1\.d
 **	eor	z0\.d, p0/m, z0\.d, \1
+** |
+**	movprfx	z0\.d, p0/z, \1
+**	eor	z0\.d, p0/m, z0\.d, z1\.d
+** )
 **	ret
 */
 TEST_UNIFORM_ZS (eor_d4_u64_z_untied, svuint64_t, uint64_t,

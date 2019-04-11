@@ -175,8 +175,16 @@ TEST_UNIFORM_Z (mls_u32_z_tied3, svuint32_t,
 
 /*
 ** mls_u32_z_untied:
+** (
 **	movprfx	z0\.s, p0/z, z1\.s
 **	mls	z0\.s, p0/m, z2\.s, z3\.s
+** |
+**	movprfx	z0\.s, p0/z, z2\.s
+**	msb	z0\.s, p0/m, z3\.s, z1\.s
+** |
+**	movprfx	z0\.s, p0/z, z3\.s
+**	msb	z0\.s, p0/m, z2\.s, z1\.s
+** )
 **	ret
 */
 TEST_UNIFORM_Z (mls_u32_z_untied, svuint32_t,
@@ -206,10 +214,18 @@ TEST_UNIFORM_ZS (mls_w0_u32_z_tied2, svuint32_t, uint32_t,
 		 z0 = svmls_z (p0, z1, z0, x0))
 
 /*
-** mls_w0_u32_z_untied: { xfail *-*-* }
+** mls_w0_u32_z_untied:
 **	mov	(z[0-9]+\.s), w0
+** (
 **	movprfx	z0\.s, p0/z, z1\.s
 **	mls	z0\.s, p0/m, z2\.s, \1
+** |
+**	movprfx	z0\.s, p0/z, z2\.s
+**	msb	z0\.s, p0/m, \1, z1\.s
+** |
+**	movprfx	z0\.s, p0/z, \1
+**	msb	z0\.s, p0/m, z2\.s, z1\.s
+** )
 **	ret
 */
 TEST_UNIFORM_ZS (mls_w0_u32_z_untied, svuint32_t, uint32_t,
@@ -239,10 +255,18 @@ TEST_UNIFORM_ZS (mls_s4_u32_z_tied2, svuint32_t, uint32_t,
 		 z0 = svmls_z (p0, z1, z0, d4))
 
 /*
-** mls_s4_u32_z_untied: { xfail *-*-* }
+** mls_s4_u32_z_untied:
 **	mov	(z[0-9]+\.s), s4
+** (
 **	movprfx	z0\.s, p0/z, z1\.s
 **	mls	z0\.s, p0/m, z2\.s, \1
+** |
+**	movprfx	z0\.s, p0/z, z2\.s
+**	msb	z0\.s, p0/m, \1, z1\.s
+** |
+**	movprfx	z0\.s, p0/z, \1
+**	msb	z0\.s, p0/m, z2\.s, z1\.s
+** )
 **	ret
 */
 TEST_UNIFORM_ZS (mls_s4_u32_z_untied, svuint32_t, uint32_t,
@@ -278,8 +302,16 @@ TEST_UNIFORM_Z (mls_u32_x_tied3, svuint32_t,
 
 /*
 ** mls_u32_x_untied:
+** (
 **	movprfx	z0, z1
 **	mls	z0\.s, p0/m, z2\.s, z3\.s
+** |
+**	movprfx	z0, z2
+**	msb	z0\.s, p0/m, z3\.s, z1\.s
+** |
+**	movprfx	z0, z3
+**	msb	z0\.s, p0/m, z2\.s, z1\.s
+** )
 **	ret
 */
 TEST_UNIFORM_Z (mls_u32_x_untied, svuint32_t,

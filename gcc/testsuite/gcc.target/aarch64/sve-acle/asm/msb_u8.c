@@ -175,8 +175,16 @@ TEST_UNIFORM_Z (msb_u8_z_tied3, svuint8_t,
 
 /*
 ** msb_u8_z_untied:
+** (
+**	movprfx	z0\.b, p0/z, z1\.b
+**	msb	z0\.b, p0/m, z2\.b, z3\.b
+** |
+**	movprfx	z0\.b, p0/z, z2\.b
+**	msb	z0\.b, p0/m, z1\.b, z3\.b
+** |
 **	movprfx	z0\.b, p0/z, z3\.b
 **	mls	z0\.b, p0/m, z1\.b, z2\.b
+** )
 **	ret
 */
 TEST_UNIFORM_Z (msb_u8_z_untied, svuint8_t,
@@ -208,8 +216,16 @@ TEST_UNIFORM_ZS (msb_w0_u8_z_tied2, svuint8_t, uint8_t,
 /*
 ** msb_w0_u8_z_untied:
 **	mov	(z[0-9]+\.b), w0
+** (
+**	movprfx	z0\.b, p0/z, z1\.b
+**	msb	z0\.b, p0/m, z2\.b, \1
+** |
+**	movprfx	z0\.b, p0/z, z2\.b
+**	msb	z0\.b, p0/m, z1\.b, \1
+** |
 **	movprfx	z0\.b, p0/z, \1
 **	mls	z0\.b, p0/m, z1\.b, z2\.b
+** )
 **	ret
 */
 TEST_UNIFORM_ZS (msb_w0_u8_z_untied, svuint8_t, uint8_t,
@@ -241,8 +257,16 @@ TEST_UNIFORM_ZS (msb_b4_u8_z_tied2, svuint8_t, uint8_t,
 /*
 ** msb_b4_u8_z_untied:
 **	mov	(z[0-9]+\.b), b4
+** (
+**	movprfx	z0\.b, p0/z, z1\.b
+**	msb	z0\.b, p0/m, z2\.b, \1
+** |
+**	movprfx	z0\.b, p0/z, z2\.b
+**	msb	z0\.b, p0/m, z1\.b, \1
+** |
 **	movprfx	z0\.b, p0/z, \1
 **	mls	z0\.b, p0/m, z1\.b, z2\.b
+** )
 **	ret
 */
 TEST_UNIFORM_ZS (msb_b4_u8_z_untied, svuint8_t, uint8_t,
@@ -278,8 +302,16 @@ TEST_UNIFORM_Z (msb_u8_x_tied3, svuint8_t,
 
 /*
 ** msb_u8_x_untied:
+** (
+**	movprfx	z0, z1
+**	msb	z0\.b, p0/m, z2\.b, z3\.b
+** |
+**	movprfx	z0, z2
+**	msb	z0\.b, p0/m, z1\.b, z3\.b
+** |
 **	movprfx	z0, z3
 **	mls	z0\.b, p0/m, z1\.b, z2\.b
+** )
 **	ret
 */
 TEST_UNIFORM_Z (msb_u8_x_untied, svuint8_t,

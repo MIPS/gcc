@@ -183,8 +183,13 @@ TEST_UNIFORM_Z (sub_f32_z_tied2, svfloat32_t,
 
 /*
 ** sub_f32_z_untied:
+** (
 **	movprfx	z0\.s, p0/z, z1\.s
 **	fsub	z0\.s, p0/m, z0\.s, z2\.s
+** |
+**	movprfx	z0\.s, p0/z, z2\.s
+**	fsubr	z0\.s, p0/m, z0\.s, z1\.s
+** )
 **	ret
 */
 TEST_UNIFORM_Z (sub_f32_z_untied, svfloat32_t,
@@ -203,10 +208,15 @@ TEST_UNIFORM_ZS (sub_w0_f32_z_tied1, svfloat32_t, float,
 		 z0 = svsub_z (p0, z0, x0))
 
 /*
-** sub_w0_f32_z_untied: { xfail *-*-* }
+** sub_w0_f32_z_untied:
 **	mov	(z[0-9]+\.s), w0
+** (
 **	movprfx	z0\.s, p0/z, z1\.s
 **	fsub	z0\.s, p0/m, z0\.s, \1
+** |
+**	movprfx	z0\.s, p0/z, \1
+**	fsubr	z0\.s, p0/m, z0\.s, z1\.s
+** )
 **	ret
 */
 TEST_UNIFORM_ZS (sub_w0_f32_z_untied, svfloat32_t, float,
@@ -225,10 +235,15 @@ TEST_UNIFORM_ZS (sub_s4_f32_z_tied1, svfloat32_t, float,
 		 z0 = svsub_z (p0, z0, d4))
 
 /*
-** sub_s4_f32_z_untied: { xfail *-*-* }
+** sub_s4_f32_z_untied:
 **	mov	(z[0-9]+\.s), s4
+** (
 **	movprfx	z0\.s, p0/z, z1\.s
 **	fsub	z0\.s, p0/m, z0\.s, \1
+** |
+**	movprfx	z0\.s, p0/z, \1
+**	fsubr	z0\.s, p0/m, z0\.s, z1\.s
+** )
 **	ret
 */
 TEST_UNIFORM_ZS (sub_s4_f32_z_untied, svfloat32_t, float,
@@ -346,8 +361,13 @@ TEST_UNIFORM_Z (sub_f32_x_tied2, svfloat32_t,
 
 /*
 ** sub_f32_x_untied:
+** (
 **	movprfx	z0, z1
 **	fsub	z0\.s, p0/m, z0\.s, z2\.s
+** |
+**	movprfx	z0, z2
+**	fsubr	z0\.s, p0/m, z0\.s, z1\.s
+** )
 **	ret
 */
 TEST_UNIFORM_Z (sub_f32_x_untied, svfloat32_t,

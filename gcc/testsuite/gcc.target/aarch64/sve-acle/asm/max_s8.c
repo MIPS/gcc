@@ -128,8 +128,13 @@ TEST_UNIFORM_Z (max_s8_z_tied2, svint8_t,
 
 /*
 ** max_s8_z_untied:
+** (
 **	movprfx	z0\.b, p0/z, z1\.b
 **	smax	z0\.b, p0/m, z0\.b, z2\.b
+** |
+**	movprfx	z0\.b, p0/z, z2\.b
+**	smax	z0\.b, p0/m, z0\.b, z1\.b
+** )
 **	ret
 */
 TEST_UNIFORM_Z (max_s8_z_untied, svint8_t,
@@ -148,10 +153,15 @@ TEST_UNIFORM_ZS (max_w0_s8_z_tied1, svint8_t, int8_t,
 		 z0 = svmax_z (p0, z0, x0))
 
 /*
-** max_w0_s8_z_untied: { xfail *-*-* }
+** max_w0_s8_z_untied:
 **	mov	(z[0-9]+\.b), w0
+** (
 **	movprfx	z0\.b, p0/z, z1\.b
 **	smax	z0\.b, p0/m, z0\.b, \1
+** |
+**	movprfx	z0\.b, p0/z, \1
+**	smax	z0\.b, p0/m, z0\.b, z1\.b
+** )
 **	ret
 */
 TEST_UNIFORM_ZS (max_w0_s8_z_untied, svint8_t, int8_t,
@@ -170,10 +180,15 @@ TEST_UNIFORM_ZS (max_b4_s8_z_tied1, svint8_t, int8_t,
 		 z0 = svmax_z (p0, z0, d4))
 
 /*
-** max_b4_s8_z_untied: { xfail *-*-* }
+** max_b4_s8_z_untied:
 **	mov	(z[0-9]+\.b), b4
+** (
 **	movprfx	z0\.b, p0/z, z1\.b
 **	smax	z0\.b, p0/m, z0\.b, \1
+** |
+**	movprfx	z0\.b, p0/z, \1
+**	smax	z0\.b, p0/m, z0\.b, z1\.b
+** )
 **	ret
 */
 TEST_UNIFORM_ZS (max_b4_s8_z_untied, svint8_t, int8_t,
@@ -192,10 +207,15 @@ TEST_UNIFORM_Z (max_1_s8_z_tied1, svint8_t,
 		z0 = svmax_z (p0, z0, 1))
 
 /*
-** max_1_s8_z_untied: { xfail *-*-* }
+** max_1_s8_z_untied:
 **	mov	(z[0-9]+\.b), #1
+** (
 **	movprfx	z0\.b, p0/z, z1\.b
 **	smax	z0\.b, p0/m, z0\.b, \1
+** |
+**	movprfx	z0\.b, p0/z, \1
+**	smax	z0\.b, p0/m, z0\.b, z1\.b
+** )
 **	ret
 */
 TEST_UNIFORM_Z (max_1_s8_z_untied, svint8_t,
@@ -222,8 +242,13 @@ TEST_UNIFORM_Z (max_s8_x_tied2, svint8_t,
 
 /*
 ** max_s8_x_untied:
+** (
 **	movprfx	z0, z1
 **	smax	z0\.b, p0/m, z0\.b, z2\.b
+** |
+**	movprfx	z0, z2
+**	smax	z0\.b, p0/m, z0\.b, z1\.b
+** )
 **	ret
 */
 TEST_UNIFORM_Z (max_s8_x_untied, svint8_t,

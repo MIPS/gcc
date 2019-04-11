@@ -175,8 +175,16 @@ TEST_UNIFORM_Z (mad_u16_z_tied3, svuint16_t,
 
 /*
 ** mad_u16_z_untied:
+** (
+**	movprfx	z0\.h, p0/z, z1\.h
+**	mad	z0\.h, p0/m, z2\.h, z3\.h
+** |
+**	movprfx	z0\.h, p0/z, z2\.h
+**	mad	z0\.h, p0/m, z1\.h, z3\.h
+** |
 **	movprfx	z0\.h, p0/z, z3\.h
 **	mla	z0\.h, p0/m, z1\.h, z2\.h
+** )
 **	ret
 */
 TEST_UNIFORM_Z (mad_u16_z_untied, svuint16_t,
@@ -208,8 +216,16 @@ TEST_UNIFORM_ZS (mad_w0_u16_z_tied2, svuint16_t, uint16_t,
 /*
 ** mad_w0_u16_z_untied:
 **	mov	(z[0-9]+\.h), w0
+** (
+**	movprfx	z0\.h, p0/z, z1\.h
+**	mad	z0\.h, p0/m, z2\.h, \1
+** |
+**	movprfx	z0\.h, p0/z, z2\.h
+**	mad	z0\.h, p0/m, z1\.h, \1
+** |
 **	movprfx	z0\.h, p0/z, \1
 **	mla	z0\.h, p0/m, z1\.h, z2\.h
+** )
 **	ret
 */
 TEST_UNIFORM_ZS (mad_w0_u16_z_untied, svuint16_t, uint16_t,
@@ -241,8 +257,16 @@ TEST_UNIFORM_ZS (mad_h4_u16_z_tied2, svuint16_t, uint16_t,
 /*
 ** mad_h4_u16_z_untied:
 **	mov	(z[0-9]+\.h), h4
+** (
+**	movprfx	z0\.h, p0/z, z1\.h
+**	mad	z0\.h, p0/m, z2\.h, \1
+** |
+**	movprfx	z0\.h, p0/z, z2\.h
+**	mad	z0\.h, p0/m, z1\.h, \1
+** |
 **	movprfx	z0\.h, p0/z, \1
 **	mla	z0\.h, p0/m, z1\.h, z2\.h
+** )
 **	ret
 */
 TEST_UNIFORM_ZS (mad_h4_u16_z_untied, svuint16_t, uint16_t,
@@ -278,8 +302,16 @@ TEST_UNIFORM_Z (mad_u16_x_tied3, svuint16_t,
 
 /*
 ** mad_u16_x_untied:
+** (
+**	movprfx	z0, z1
+**	mad	z0\.h, p0/m, z2\.h, z3\.h
+** |
+**	movprfx	z0, z2
+**	mad	z0\.h, p0/m, z1\.h, z3\.h
+** |
 **	movprfx	z0, z3
 **	mla	z0\.h, p0/m, z1\.h, z2\.h
+** )
 **	ret
 */
 TEST_UNIFORM_Z (mad_u16_x_untied, svuint16_t,

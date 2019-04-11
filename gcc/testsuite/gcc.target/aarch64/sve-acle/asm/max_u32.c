@@ -128,8 +128,13 @@ TEST_UNIFORM_Z (max_u32_z_tied2, svuint32_t,
 
 /*
 ** max_u32_z_untied:
+** (
 **	movprfx	z0\.s, p0/z, z1\.s
 **	umax	z0\.s, p0/m, z0\.s, z2\.s
+** |
+**	movprfx	z0\.s, p0/z, z2\.s
+**	umax	z0\.s, p0/m, z0\.s, z1\.s
+** )
 **	ret
 */
 TEST_UNIFORM_Z (max_u32_z_untied, svuint32_t,
@@ -148,10 +153,15 @@ TEST_UNIFORM_ZS (max_w0_u32_z_tied1, svuint32_t, uint32_t,
 		 z0 = svmax_z (p0, z0, x0))
 
 /*
-** max_w0_u32_z_untied: { xfail *-*-* }
+** max_w0_u32_z_untied:
 **	mov	(z[0-9]+\.s), w0
+** (
 **	movprfx	z0\.s, p0/z, z1\.s
 **	umax	z0\.s, p0/m, z0\.s, \1
+** |
+**	movprfx	z0\.s, p0/z, \1
+**	umax	z0\.s, p0/m, z0\.s, z1\.s
+** )
 **	ret
 */
 TEST_UNIFORM_ZS (max_w0_u32_z_untied, svuint32_t, uint32_t,
@@ -170,10 +180,15 @@ TEST_UNIFORM_ZS (max_s4_u32_z_tied1, svuint32_t, uint32_t,
 		 z0 = svmax_z (p0, z0, d4))
 
 /*
-** max_s4_u32_z_untied: { xfail *-*-* }
+** max_s4_u32_z_untied:
 **	mov	(z[0-9]+\.s), s4
+** (
 **	movprfx	z0\.s, p0/z, z1\.s
 **	umax	z0\.s, p0/m, z0\.s, \1
+** |
+**	movprfx	z0\.s, p0/z, \1
+**	umax	z0\.s, p0/m, z0\.s, z1\.s
+** )
 **	ret
 */
 TEST_UNIFORM_ZS (max_s4_u32_z_untied, svuint32_t, uint32_t,
@@ -192,10 +207,15 @@ TEST_UNIFORM_Z (max_1_u32_z_tied1, svuint32_t,
 		z0 = svmax_z (p0, z0, 1))
 
 /*
-** max_1_u32_z_untied: { xfail *-*-* }
+** max_1_u32_z_untied:
 **	mov	(z[0-9]+\.s), #1
+** (
 **	movprfx	z0\.s, p0/z, z1\.s
 **	umax	z0\.s, p0/m, z0\.s, \1
+** |
+**	movprfx	z0\.s, p0/z, \1
+**	umax	z0\.s, p0/m, z0\.s, z1\.s
+** )
 **	ret
 */
 TEST_UNIFORM_Z (max_1_u32_z_untied, svuint32_t,
@@ -222,8 +242,13 @@ TEST_UNIFORM_Z (max_u32_x_tied2, svuint32_t,
 
 /*
 ** max_u32_x_untied:
+** (
 **	movprfx	z0, z1
 **	umax	z0\.s, p0/m, z0\.s, z2\.s
+** |
+**	movprfx	z0, z2
+**	umax	z0\.s, p0/m, z0\.s, z1\.s
+** )
 **	ret
 */
 TEST_UNIFORM_Z (max_u32_x_untied, svuint32_t,

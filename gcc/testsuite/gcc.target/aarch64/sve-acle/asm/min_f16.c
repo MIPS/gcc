@@ -118,8 +118,13 @@ TEST_UNIFORM_Z (min_f16_z_tied2, svfloat16_t,
 
 /*
 ** min_f16_z_untied:
+** (
 **	movprfx	z0\.h, p0/z, z1\.h
 **	fmin	z0\.h, p0/m, z0\.h, z2\.h
+** |
+**	movprfx	z0\.h, p0/z, z2\.h
+**	fmin	z0\.h, p0/m, z0\.h, z1\.h
+** )
 **	ret
 */
 TEST_UNIFORM_Z (min_f16_z_untied, svfloat16_t,
@@ -138,10 +143,15 @@ TEST_UNIFORM_ZS (min_w0_f16_z_tied1, svfloat16_t, __fp16,
 		 z0 = svmin_z (p0, z0, x0))
 
 /*
-** min_w0_f16_z_untied: { xfail *-*-* }
+** min_w0_f16_z_untied:
 **	mov	(z[0-9]+\.h), w0
+** (
 **	movprfx	z0\.h, p0/z, z1\.h
 **	fmin	z0\.h, p0/m, z0\.h, \1
+** |
+**	movprfx	z0\.h, p0/z, \1
+**	fmin	z0\.h, p0/m, z0\.h, z1\.h
+** )
 **	ret
 */
 TEST_UNIFORM_ZS (min_w0_f16_z_untied, svfloat16_t, __fp16,
@@ -160,10 +170,15 @@ TEST_UNIFORM_ZS (min_h4_f16_z_tied1, svfloat16_t, __fp16,
 		 z0 = svmin_z (p0, z0, d4))
 
 /*
-** min_h4_f16_z_untied: { xfail *-*-* }
+** min_h4_f16_z_untied:
 **	mov	(z[0-9]+\.h), h4
+** (
 **	movprfx	z0\.h, p0/z, z1\.h
 **	fmin	z0\.h, p0/m, z0\.h, \1
+** |
+**	movprfx	z0\.h, p0/z, \1
+**	fmin	z0\.h, p0/m, z0\.h, z1\.h
+** )
 **	ret
 */
 TEST_UNIFORM_ZS (min_h4_f16_z_untied, svfloat16_t, __fp16,
@@ -182,10 +197,15 @@ TEST_UNIFORM_Z (min_1_f16_z_tied1, svfloat16_t,
 		z0 = svmin_z (p0, z0, 1))
 
 /*
-** min_1_f16_z_untied: { xfail *-*-* }
+** min_1_f16_z_untied:
 **	fmov	(z[0-9]+\.h), #1\.0(?:e\+0)?
+** (
 **	movprfx	z0\.h, p0/z, z1\.h
 **	fmin	z0\.h, p0/m, z0\.h, \1
+** |
+**	movprfx	z0\.h, p0/z, \1
+**	fmin	z0\.h, p0/m, z0\.h, z1\.h
+** )
 **	ret
 */
 TEST_UNIFORM_Z (min_1_f16_z_untied, svfloat16_t,
@@ -212,8 +232,13 @@ TEST_UNIFORM_Z (min_f16_x_tied2, svfloat16_t,
 
 /*
 ** min_f16_x_untied:
+** (
 **	movprfx	z0, z1
 **	fmin	z0\.h, p0/m, z0\.h, z2\.h
+** |
+**	movprfx	z0, z2
+**	fmin	z0\.h, p0/m, z0\.h, z1\.h
+** )
 **	ret
 */
 TEST_UNIFORM_Z (min_f16_x_untied, svfloat16_t,
@@ -303,8 +328,13 @@ TEST_UNIFORM_Z (ptrue_min_f16_x_tied2, svfloat16_t,
 /*
 ** ptrue_min_f16_x_untied:
 **	ptrue	(p[0-7])\.h[^\n]*
+** (
 **	movprfx	z0, z1
 **	fmin	z0\.h, \1/m, z0\.h, z2\.h
+** |
+**	movprfx	z0, z2
+**	fmin	z0\.h, \1/m, z0\.h, z1\.h
+** )
 **	ret
 */
 TEST_UNIFORM_Z (ptrue_min_f16_x_untied, svfloat16_t,

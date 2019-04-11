@@ -118,8 +118,13 @@ TEST_UNIFORM_Z (max_f32_z_tied2, svfloat32_t,
 
 /*
 ** max_f32_z_untied:
+** (
 **	movprfx	z0\.s, p0/z, z1\.s
 **	fmax	z0\.s, p0/m, z0\.s, z2\.s
+** |
+**	movprfx	z0\.s, p0/z, z2\.s
+**	fmax	z0\.s, p0/m, z0\.s, z1\.s
+** )
 **	ret
 */
 TEST_UNIFORM_Z (max_f32_z_untied, svfloat32_t,
@@ -138,10 +143,15 @@ TEST_UNIFORM_ZS (max_w0_f32_z_tied1, svfloat32_t, float,
 		 z0 = svmax_z (p0, z0, x0))
 
 /*
-** max_w0_f32_z_untied: { xfail *-*-* }
+** max_w0_f32_z_untied:
 **	mov	(z[0-9]+\.s), w0
+** (
 **	movprfx	z0\.s, p0/z, z1\.s
 **	fmax	z0\.s, p0/m, z0\.s, \1
+** |
+**	movprfx	z0\.s, p0/z, \1
+**	fmax	z0\.s, p0/m, z0\.s, z1\.s
+** )
 **	ret
 */
 TEST_UNIFORM_ZS (max_w0_f32_z_untied, svfloat32_t, float,
@@ -160,10 +170,15 @@ TEST_UNIFORM_ZS (max_s4_f32_z_tied1, svfloat32_t, float,
 		 z0 = svmax_z (p0, z0, d4))
 
 /*
-** max_s4_f32_z_untied: { xfail *-*-* }
+** max_s4_f32_z_untied:
 **	mov	(z[0-9]+\.s), s4
+** (
 **	movprfx	z0\.s, p0/z, z1\.s
 **	fmax	z0\.s, p0/m, z0\.s, \1
+** |
+**	movprfx	z0\.s, p0/z, \1
+**	fmax	z0\.s, p0/m, z0\.s, z1\.s
+** )
 **	ret
 */
 TEST_UNIFORM_ZS (max_s4_f32_z_untied, svfloat32_t, float,
@@ -182,10 +197,15 @@ TEST_UNIFORM_Z (max_1_f32_z_tied1, svfloat32_t,
 		z0 = svmax_z (p0, z0, 1))
 
 /*
-** max_1_f32_z_untied: { xfail *-*-* }
+** max_1_f32_z_untied:
 **	fmov	(z[0-9]+\.s), #1\.0(?:e\+0)?
+** (
 **	movprfx	z0\.s, p0/z, z1\.s
 **	fmax	z0\.s, p0/m, z0\.s, \1
+** |
+**	movprfx	z0\.s, p0/z, \1
+**	fmax	z0\.s, p0/m, z0\.s, z1\.s
+** )
 **	ret
 */
 TEST_UNIFORM_Z (max_1_f32_z_untied, svfloat32_t,
@@ -212,8 +232,13 @@ TEST_UNIFORM_Z (max_f32_x_tied2, svfloat32_t,
 
 /*
 ** max_f32_x_untied:
+** (
 **	movprfx	z0, z1
 **	fmax	z0\.s, p0/m, z0\.s, z2\.s
+** |
+**	movprfx	z0, z2
+**	fmax	z0\.s, p0/m, z0\.s, z1\.s
+** )
 **	ret
 */
 TEST_UNIFORM_Z (max_f32_x_untied, svfloat32_t,
@@ -303,8 +328,13 @@ TEST_UNIFORM_Z (ptrue_max_f32_x_tied2, svfloat32_t,
 /*
 ** ptrue_max_f32_x_untied:
 **	ptrue	(p[0-7])\.s[^\n]*
+** (
 **	movprfx	z0, z1
 **	fmax	z0\.s, \1/m, z0\.s, z2\.s
+** |
+**	movprfx	z0, z2
+**	fmax	z0\.s, \1/m, z0\.s, z1\.s
+** )
 **	ret
 */
 TEST_UNIFORM_Z (ptrue_max_f32_x_untied, svfloat32_t,

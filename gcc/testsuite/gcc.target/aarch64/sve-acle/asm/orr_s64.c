@@ -128,8 +128,13 @@ TEST_UNIFORM_Z (orr_s64_z_tied2, svint64_t,
 
 /*
 ** orr_s64_z_untied:
+** (
 **	movprfx	z0\.d, p0/z, z1\.d
 **	orr	z0\.d, p0/m, z0\.d, z2\.d
+** |
+**	movprfx	z0\.d, p0/z, z2\.d
+**	orr	z0\.d, p0/m, z0\.d, z1\.d
+** )
 **	ret
 */
 TEST_UNIFORM_Z (orr_s64_z_untied, svint64_t,
@@ -148,10 +153,15 @@ TEST_UNIFORM_ZS (orr_x0_s64_z_tied1, svint64_t, int64_t,
 		 z0 = svorr_z (p0, z0, x0))
 
 /*
-** orr_x0_s64_z_untied: { xfail *-*-* }
+** orr_x0_s64_z_untied:
 **	mov	(z[0-9]+\.d), x0
+** (
 **	movprfx	z0\.d, p0/z, z1\.d
 **	orr	z0\.d, p0/m, z0\.d, \1
+** |
+**	movprfx	z0\.d, p0/z, \1
+**	orr	z0\.d, p0/m, z0\.d, z1\.d
+** )
 **	ret
 */
 TEST_UNIFORM_ZS (orr_x0_s64_z_untied, svint64_t, int64_t,
@@ -170,10 +180,15 @@ TEST_UNIFORM_ZS (orr_d4_s64_z_tied1, svint64_t, int64_t,
 		 z0 = svorr_z (p0, z0, d4))
 
 /*
-** orr_d4_s64_z_untied: { xfail *-*-* }
+** orr_d4_s64_z_untied:
 **	mov	(z[0-9]+\.d), d4
+** (
 **	movprfx	z0\.d, p0/z, z1\.d
 **	orr	z0\.d, p0/m, z0\.d, \1
+** |
+**	movprfx	z0\.d, p0/z, \1
+**	orr	z0\.d, p0/m, z0\.d, z1\.d
+** )
 **	ret
 */
 TEST_UNIFORM_ZS (orr_d4_s64_z_untied, svint64_t, int64_t,
