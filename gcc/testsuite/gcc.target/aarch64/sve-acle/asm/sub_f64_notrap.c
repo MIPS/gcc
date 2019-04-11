@@ -648,12 +648,12 @@ TEST_UNIFORM_Z (ptrue_sub_2_f64_x_tied1, svfloat64_t,
 /*
 ** ptrue_sub_2_f64_x_untied:
 **	fmov	(z[0-9]+\.d), #-2\.0(e\+0)?
-**	fadd	z1\.d, (z1\.d, \1|\1, z1\.d)
+**	fadd	z0\.d, (z1\.d, \1|\1, z1\.d)
 **	ret
 */
 TEST_UNIFORM_Z (ptrue_sub_2_f64_x_untied, svfloat64_t,
-		z1 = svsub_n_f64_x (svptrue_b64 (), z1, 2),
-		z1 = svsub_x (svptrue_b64 (), z1, 2))
+		z0 = svsub_n_f64_x (svptrue_b64 (), z1, 2),
+		z0 = svsub_x (svptrue_b64 (), z1, 2))
 
 /*
 ** ptrue_b32_sub_f64_x_tied1:
