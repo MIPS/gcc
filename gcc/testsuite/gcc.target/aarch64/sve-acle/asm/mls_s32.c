@@ -375,4 +375,3 @@ TEST_UNIFORM_Z (mls_2_s32_x_tied2, svint32_t,
 TEST_UNIFORM_Z (mls_2_s32_x_untied, svint32_t,
 		z0 = svmls_n_s32_x (p0, z1, z2, 2),
 		z0 = svmls_x (p0, z1, z2, 2))
-

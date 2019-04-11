@@ -251,4 +251,3 @@ TEST_UNIFORM_Z (div_2_u32_x_tied1, svuint32_t,
 TEST_UNIFORM_Z (div_2_u32_x_untied, svuint32_t,
 		z0 = svdiv_n_u32_x (p0, z1, 2),
 		z0 = svdiv_x (p0, z1, 2))
-

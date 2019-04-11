@@ -283,4 +283,3 @@ TEST_UNIFORM_Z (min_1_s16_x_tied1, svint16_t,
 TEST_UNIFORM_Z (min_1_s16_x_untied, svint16_t,
 		z0 = svmin_n_s16_x (p0, z1, 1),
 		z0 = svmin_x (p0, z1, 1))
-

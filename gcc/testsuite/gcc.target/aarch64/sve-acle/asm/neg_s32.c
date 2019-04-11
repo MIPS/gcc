@@ -80,4 +80,3 @@ TEST_UNIFORM_Z (neg_s32_x_tied1, svint32_t,
 TEST_UNIFORM_Z (neg_s32_x_untied, svint32_t,
 		z2 = svneg_s32_x (p0, z0),
 		z2 = svneg_x (p0, z0))
-

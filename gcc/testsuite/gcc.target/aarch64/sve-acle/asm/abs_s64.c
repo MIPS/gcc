@@ -80,4 +80,3 @@ TEST_UNIFORM_Z (abs_s64_x_tied1, svint64_t,
 TEST_UNIFORM_Z (abs_s64_x_untied, svint64_t,
 		z2 = svabs_s64_x (p0, z0),
 		z2 = svabs_x (p0, z0))
-

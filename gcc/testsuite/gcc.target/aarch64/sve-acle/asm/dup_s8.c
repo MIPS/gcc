@@ -420,4 +420,3 @@ TEST_UNIFORM_ZS (dup_w0_s8_x, svint8_t, int8_t,
 TEST_UNIFORM_ZS (dup_b0_s8_x, svint8_t, int8_t,
 		z1 = svdup_n_s8_x (p0, d0),
 		z1 = svdup_s8_x (p0, d0))
-

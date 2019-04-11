@@ -219,4 +219,3 @@ TEST_S (index_u32_x0_15, svuint32_t, uint32_t,
 */
 TEST_S (index_u32_x0_16, svuint32_t, uint32_t,
 	z0 = svindex_u32 (x0, 16))
-

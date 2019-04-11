@@ -375,4 +375,3 @@ TEST_UNIFORM_Z (msb_2_u16_x_tied2, svuint16_t,
 TEST_UNIFORM_Z (msb_2_u16_x_untied, svuint16_t,
 		z0 = svmsb_n_u16_x (p0, z1, z2, 2),
 		z0 = svmsb_x (p0, z1, z2, 2))
-

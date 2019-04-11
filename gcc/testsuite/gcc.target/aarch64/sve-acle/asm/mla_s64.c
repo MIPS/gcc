@@ -375,4 +375,3 @@ TEST_UNIFORM_Z (mla_2_s64_x_tied2, svint64_t,
 TEST_UNIFORM_Z (mla_2_s64_x_untied, svint64_t,
 		z0 = svmla_n_s64_x (p0, z1, z2, 2),
 		z0 = svmla_x (p0, z1, z2, 2))
-

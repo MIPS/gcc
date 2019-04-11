@@ -251,4 +251,3 @@ TEST_UNIFORM_ZS (dup_x0_f64_x, svfloat64_t, double,
 TEST_UNIFORM_ZS (dup_d0_f64_x, svfloat64_t, double,
 		z1 = svdup_n_f64_x (p0, d0),
 		z1 = svdup_f64_x (p0, d0))
-

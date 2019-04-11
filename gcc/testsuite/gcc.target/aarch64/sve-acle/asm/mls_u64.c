@@ -375,4 +375,3 @@ TEST_UNIFORM_Z (mls_2_u64_x_tied2, svuint64_t,
 TEST_UNIFORM_Z (mls_2_u64_x_untied, svuint64_t,
 		z0 = svmls_n_u64_x (p0, z1, z2, 2),
 		z0 = svmls_x (p0, z1, z2, 2))
-

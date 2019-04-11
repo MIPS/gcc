@@ -251,4 +251,3 @@ TEST_UNIFORM_ZS (dup_w0_f32_x, svfloat32_t, float,
 TEST_UNIFORM_ZS (dup_s0_f32_x, svfloat32_t, float,
 		z1 = svdup_n_f32_x (p0, d0),
 		z1 = svdup_f32_x (p0, d0))
-

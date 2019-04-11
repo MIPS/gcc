@@ -219,4 +219,3 @@ TEST_S (index_u8_x0_15, svuint8_t, uint8_t,
 */
 TEST_S (index_u8_x0_16, svuint8_t, uint8_t,
 	z0 = svindex_u8 (x0, 16))
-

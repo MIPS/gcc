@@ -1212,4 +1212,3 @@ TEST_UNIFORM_ZS (dup_x0_s64_x, svint64_t, int64_t,
 TEST_UNIFORM_ZS (dup_d0_s64_x, svint64_t, int64_t,
 		z1 = svdup_n_s64_x (p0, d0),
 		z1 = svdup_s64_x (p0, d0))
-

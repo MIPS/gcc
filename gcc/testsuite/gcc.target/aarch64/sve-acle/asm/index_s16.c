@@ -219,4 +219,3 @@ TEST_S (index_s16_x0_15, svint16_t, int16_t,
 */
 TEST_S (index_s16_x0_16, svint16_t, int16_t,
 	z0 = svindex_s16 (x0, 16))
-

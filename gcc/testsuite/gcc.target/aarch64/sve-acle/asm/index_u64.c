@@ -219,4 +219,3 @@ TEST_S (index_u64_x0_15, svuint64_t, uint64_t,
 */
 TEST_S (index_u64_x0_16, svuint64_t, uint64_t,
 	z0 = svindex_u64 (x0, 16))
-

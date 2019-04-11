@@ -253,4 +253,3 @@ TEST_UNIFORM_ZS (dup_w0_f16_x, svfloat16_t, __fp16,
 TEST_UNIFORM_ZS (dup_h0_f16_x, svfloat16_t, __fp16,
 		z1 = svdup_n_f16_x (p0, d0),
 		z1 = svdup_f16_x (p0, d0))
-

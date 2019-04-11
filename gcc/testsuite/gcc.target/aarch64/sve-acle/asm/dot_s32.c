@@ -108,4 +108,3 @@ TEST_DUAL_Z (dot_2_s32_untied, svint32_t, svint8_t,
 TEST_DUAL_Z (dot_m1_s32, svint32_t, svint8_t,
 	     z0 = svdot_n_s32 (z0, z16, -1),
 	     z0 = svdot (z0, z16, -1))
-

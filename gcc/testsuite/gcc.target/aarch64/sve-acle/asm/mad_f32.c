@@ -375,4 +375,3 @@ TEST_UNIFORM_Z (mad_2_f32_x_tied2, svfloat32_t,
 TEST_UNIFORM_Z (mad_2_f32_x_untied, svfloat32_t,
 		z0 = svmad_n_f32_x (p0, z1, z2, 2),
 		z0 = svmad_x (p0, z1, z2, 2))
-

@@ -251,4 +251,3 @@ TEST_UNIFORM_Z (mulh_2_s8_x_tied1, svint8_t,
 TEST_UNIFORM_Z (mulh_2_s8_x_untied, svint8_t,
 		z0 = svmulh_n_s8_x (p0, z1, 2),
 		z0 = svmulh_x (p0, z1, 2))
-

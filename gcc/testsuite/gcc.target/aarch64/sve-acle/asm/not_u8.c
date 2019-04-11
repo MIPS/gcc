@@ -80,4 +80,3 @@ TEST_UNIFORM_Z (not_u8_x_tied1, svuint8_t,
 TEST_UNIFORM_Z (not_u8_x_untied, svuint8_t,
 		z2 = svnot_u8_x (p0, z0),
 		z2 = svnot_x (p0, z0))
-

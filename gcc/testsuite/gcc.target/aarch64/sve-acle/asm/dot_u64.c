@@ -108,4 +108,3 @@ TEST_DUAL_Z (dot_2_u64_untied, svuint64_t, svuint16_t,
 TEST_DUAL_Z (dot_m1_u64, svuint64_t, svuint16_t,
 	     z0 = svdot_n_u64 (z0, z16, -1),
 	     z0 = svdot (z0, z16, -1))
-

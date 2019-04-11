@@ -80,4 +80,3 @@ TEST_UNIFORM_Z (neg_s64_x_tied1, svint64_t,
 TEST_UNIFORM_Z (neg_s64_x_untied, svint64_t,
 		z2 = svneg_s64_x (p0, z0),
 		z2 = svneg_x (p0, z0))
-

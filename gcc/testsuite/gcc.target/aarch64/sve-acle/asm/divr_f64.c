@@ -111,7 +111,6 @@ TEST_UNIFORM_Z (divr_0p5_f64_m_untied, svfloat64_t,
 		z0 = svdivr_n_f64_m (p0, z1, 0.5),
 		z0 = svdivr_m (p0, z1, 0.5))
 
-
 /*
 ** divr_f64_z_tied1:
 **	movprfx	z0\.d, p0/z, z0\.d

@@ -1212,4 +1212,3 @@ TEST_UNIFORM_ZS (dup_w0_u32_x, svuint32_t, uint32_t,
 TEST_UNIFORM_ZS (dup_s0_u32_x, svuint32_t, uint32_t,
 		z1 = svdup_n_u32_x (p0, d0),
 		z1 = svdup_u32_x (p0, d0))
-

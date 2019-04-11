@@ -283,4 +283,3 @@ TEST_UNIFORM_Z (max_1_s64_x_tied1, svint64_t,
 TEST_UNIFORM_Z (max_1_s64_x_untied, svint64_t,
 		z0 = svmax_n_s64_x (p0, z1, 1),
 		z0 = svmax_x (p0, z1, 1))
-

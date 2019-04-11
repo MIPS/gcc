@@ -1230,4 +1230,3 @@ TEST_UNIFORM_ZS (dup_w0_u16_x, svuint16_t, uint16_t,
 TEST_UNIFORM_ZS (dup_h0_u16_x, svuint16_t, uint16_t,
 		z1 = svdup_n_u16_x (p0, d0),
 		z1 = svdup_u16_x (p0, d0))
-

@@ -375,4 +375,3 @@ TEST_UNIFORM_Z (mad_2_u8_x_tied2, svuint8_t,
 TEST_UNIFORM_Z (mad_2_u8_x_untied, svuint8_t,
 		z0 = svmad_n_u8_x (p0, z1, z2, 2),
 		z0 = svmad_x (p0, z1, z2, 2))
-

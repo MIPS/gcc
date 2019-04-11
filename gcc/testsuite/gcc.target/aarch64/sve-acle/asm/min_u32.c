@@ -283,4 +283,3 @@ TEST_UNIFORM_Z (min_1_u32_x_tied1, svuint32_t,
 TEST_UNIFORM_Z (min_1_u32_x_untied, svuint32_t,
 		z0 = svmin_n_u32_x (p0, z1, 1),
 		z0 = svmin_x (p0, z1, 1))
-
