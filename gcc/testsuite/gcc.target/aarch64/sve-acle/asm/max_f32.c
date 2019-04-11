@@ -340,3 +340,69 @@ TEST_UNIFORM_Z (ptrue_max_f32_x_tied2, svfloat32_t,
 TEST_UNIFORM_Z (ptrue_max_f32_x_untied, svfloat32_t,
 		z0 = svmax_f32_x (svptrue_b32 (), z1, z2),
 		z0 = svmax_x (svptrue_b32 (), z1, z2))
+
+/*
+** ptrue_max_w0_f32_x_tied1:
+**	ptrue	(p[0-7])\.s[^\n]*
+**	mov	(z[0-9]+\.s), w0
+**	fmax	z0\.s, \1/m, z0\.s, \2
+**	ret
+*/
+TEST_UNIFORM_ZS (ptrue_max_w0_f32_x_tied1, svfloat32_t, float,
+		 z0 = svmax_n_f32_x (svptrue_b32 (), z0, x0),
+		 z0 = svmax_x (svptrue_b32 (), z0, x0))
+
+/*
+** ptrue_max_w0_f32_x_untied:
+**	ptrue	(p[0-7])\.s[^\n]*
+**	mov	z0\.s, w0
+**	fmax	z0\.s, \1/m, z0\.s, z1\.s
+**	ret
+*/
+TEST_UNIFORM_ZS (ptrue_max_w0_f32_x_untied, svfloat32_t, float,
+		 z0 = svmax_n_f32_x (svptrue_b32 (), z1, x0),
+		 z0 = svmax_x (svptrue_b32 (), z1, x0))
+
+/*
+** ptrue_max_s4_f32_x_tied1:
+**	ptrue	(p[0-7])\.s[^\n]*
+**	mov	(z[0-9]+\.s), s4
+**	fmax	z0\.s, \1/m, z0\.s, \2
+**	ret
+*/
+TEST_UNIFORM_ZS (ptrue_max_s4_f32_x_tied1, svfloat32_t, float,
+		 z0 = svmax_n_f32_x (svptrue_b32 (), z0, d4),
+		 z0 = svmax_x (svptrue_b32 (), z0, d4))
+
+/*
+** ptrue_max_s4_f32_x_untied:
+**	ptrue	(p[0-7])\.s[^\n]*
+**	mov	z0\.s, s4
+**	fmax	z0\.s, \1/m, z0\.s, z1\.s
+**	ret
+*/
+TEST_UNIFORM_ZS (ptrue_max_s4_f32_x_untied, svfloat32_t, float,
+		 z0 = svmax_n_f32_x (svptrue_b32 (), z1, d4),
+		 z0 = svmax_x (svptrue_b32 (), z1, d4))
+
+/*
+** ptrue_max_1_f32_x_tied1:
+**	ptrue	(p[0-7])\.s[^\n]*
+**	fmov	(z[0-9]+\.s), #1\.0(?:e\+0)?
+**	fmax	z0\.s, \1/m, z0\.s, \2
+**	ret
+*/
+TEST_UNIFORM_Z (ptrue_max_1_f32_x_tied1, svfloat32_t,
+		z0 = svmax_n_f32_x (svptrue_b32 (), z0, 1),
+		z0 = svmax_x (svptrue_b32 (), z0, 1))
+
+/*
+** ptrue_max_1_f32_x_untied:
+**	ptrue	(p[0-7])\.s[^\n]*
+**	fmov	z0\.s, #1\.0(?:e\+0)?
+**	fmax	z0\.s, \1/m, z0\.s, z1\.s
+**	ret
+*/
+TEST_UNIFORM_Z (ptrue_max_1_f32_x_untied, svfloat32_t,
+		z0 = svmax_n_f32_x (svptrue_b32 (), z1, 1),
+		z0 = svmax_x (svptrue_b32 (), z1, 1))

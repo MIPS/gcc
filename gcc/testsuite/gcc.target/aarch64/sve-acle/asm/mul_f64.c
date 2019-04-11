@@ -489,6 +489,16 @@ TEST_UNIFORM_ZS (ptrue_mul_d4_f64_x_untied, svfloat64_t, double,
 		 z0 = svmul_x (svptrue_b64 (), z1, d4))
 
 /*
+** ptrue_mul_1_f64_x_tied1:
+**	fmov	(z[0-9]+\.d), #1\.0(?:e\+0)?
+**	fmul	z0\.d, (z0\.d, \1|\1, z0\.d)
+**	ret
+*/
+TEST_UNIFORM_Z (ptrue_mul_1_f64_x_tied1, svfloat64_t,
+		z0 = svmul_n_f64_x (svptrue_b64 (), z0, 1),
+		z0 = svmul_x (svptrue_b64 (), z0, 1))
+
+/*
 ** ptrue_mul_1_f64_x_untied:
 **	fmov	(z[0-9]+\.d), #1\.0(?:e\+0)?
 **	fmul	z0\.d, (z1\.d, \1|\1, z1\.d)

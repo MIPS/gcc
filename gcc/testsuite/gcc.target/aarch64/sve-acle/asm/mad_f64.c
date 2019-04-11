@@ -448,3 +448,151 @@ TEST_UNIFORM_Z (mad_2_f64_x_tied2, svfloat64_t,
 TEST_UNIFORM_Z (mad_2_f64_x_untied, svfloat64_t,
 		z0 = svmad_n_f64_x (p0, z1, z2, 2),
 		z0 = svmad_x (p0, z1, z2, 2))
+
+/*
+** ptrue_mad_f64_x_tied1:
+**	ptrue	(p[0-7])\.d[^\n]*
+**	fmad	z0\.d, \1/m, z1\.d, z2\.d
+**	ret
+*/
+TEST_UNIFORM_Z (ptrue_mad_f64_x_tied1, svfloat64_t,
+		z0 = svmad_f64_x (svptrue_b64 (), z0, z1, z2),
+		z0 = svmad_x (svptrue_b64 (), z0, z1, z2))
+
+/*
+** ptrue_mad_f64_x_tied2:
+**	ptrue	(p[0-7])\.d[^\n]*
+**	fmad	z0\.d, \1/m, z1\.d, z2\.d
+**	ret
+*/
+TEST_UNIFORM_Z (ptrue_mad_f64_x_tied2, svfloat64_t,
+		z0 = svmad_f64_x (svptrue_b64 (), z1, z0, z2),
+		z0 = svmad_x (svptrue_b64 (), z1, z0, z2))
+
+/*
+** ptrue_mad_f64_x_tied3:
+**	ptrue	(p[0-7])\.d[^\n]*
+**	fmla	z0\.d, \1/m, z1\.d, z2\.d
+**	ret
+*/
+TEST_UNIFORM_Z (ptrue_mad_f64_x_tied3, svfloat64_t,
+		z0 = svmad_f64_x (svptrue_b64 (), z1, z2, z0),
+		z0 = svmad_x (svptrue_b64 (), z1, z2, z0))
+
+/*
+** ptrue_mad_f64_x_untied:
+**	ptrue	(p[0-7])\.d[^\n]*
+** (
+**	movprfx	z0, z1
+**	fmad	z0\.d, \1/m, z2\.d, z3\.d
+** |
+**	movprfx	z0, z2
+**	fmad	z0\.d, \1/m, z1\.d, z3\.d
+** |
+**	movprfx	z0, z3
+**	fmla	z0\.d, \1/m, z1\.d, z2\.d
+** )
+**	ret
+*/
+TEST_UNIFORM_Z (ptrue_mad_f64_x_untied, svfloat64_t,
+		z0 = svmad_f64_x (svptrue_b64 (), z1, z2, z3),
+		z0 = svmad_x (svptrue_b64 (), z1, z2, z3))
+
+/*
+** ptrue_mad_x0_f64_x_tied1:
+**	ptrue	(p[0-7])\.d[^\n]*
+**	mov	(z[0-9]+\.d), x0
+**	fmad	z0\.d, \1/m, z1\.d, \2
+**	ret
+*/
+TEST_UNIFORM_ZS (ptrue_mad_x0_f64_x_tied1, svfloat64_t, double,
+		 z0 = svmad_n_f64_x (svptrue_b64 (), z0, z1, x0),
+		 z0 = svmad_x (svptrue_b64 (), z0, z1, x0))
+
+/*
+** ptrue_mad_x0_f64_x_tied2:
+**	ptrue	(p[0-7])\.d[^\n]*
+**	mov	(z[0-9]+\.d), x0
+**	fmad	z0\.d, \1/m, z1\.d, \2
+**	ret
+*/
+TEST_UNIFORM_ZS (ptrue_mad_x0_f64_x_tied2, svfloat64_t, double,
+		 z0 = svmad_n_f64_x (svptrue_b64 (), z1, z0, x0),
+		 z0 = svmad_x (svptrue_b64 (), z1, z0, x0))
+
+/*
+** ptrue_mad_x0_f64_x_untied:
+**	ptrue	(p[0-7])\.d[^\n]*
+**	mov	z0\.d, x0
+**	fmla	z0\.d, \1/m, z1\.d, z2\.d
+**	ret
+*/
+TEST_UNIFORM_ZS (ptrue_mad_x0_f64_x_untied, svfloat64_t, double,
+		 z0 = svmad_n_f64_x (svptrue_b64 (), z1, z2, x0),
+		 z0 = svmad_x (svptrue_b64 (), z1, z2, x0))
+
+/*
+** ptrue_mad_d4_f64_x_tied1:
+**	ptrue	(p[0-7])\.d[^\n]*
+**	mov	(z[0-9]+\.d), d4
+**	fmad	z0\.d, \1/m, z1\.d, \2
+**	ret
+*/
+TEST_UNIFORM_ZS (ptrue_mad_d4_f64_x_tied1, svfloat64_t, double,
+		 z0 = svmad_n_f64_x (svptrue_b64 (), z0, z1, d4),
+		 z0 = svmad_x (svptrue_b64 (), z0, z1, d4))
+
+/*
+** ptrue_mad_d4_f64_x_tied2:
+**	ptrue	(p[0-7])\.d[^\n]*
+**	mov	(z[0-9]+\.d), d4
+**	fmad	z0\.d, \1/m, z1\.d, \2
+**	ret
+*/
+TEST_UNIFORM_ZS (ptrue_mad_d4_f64_x_tied2, svfloat64_t, double,
+		 z0 = svmad_n_f64_x (svptrue_b64 (), z1, z0, d4),
+		 z0 = svmad_x (svptrue_b64 (), z1, z0, d4))
+
+/*
+** ptrue_mad_d4_f64_x_untied:
+**	ptrue	(p[0-7])\.d[^\n]*
+**	mov	z0\.d, d4
+**	fmla	z0\.d, \1/m, z1\.d, z2\.d
+**	ret
+*/
+TEST_UNIFORM_ZS (ptrue_mad_d4_f64_x_untied, svfloat64_t, double,
+		 z0 = svmad_n_f64_x (svptrue_b64 (), z1, z2, d4),
+		 z0 = svmad_x (svptrue_b64 (), z1, z2, d4))
+
+/*
+** ptrue_mad_2_f64_x_tied1:
+**	ptrue	(p[0-7])\.d[^\n]*
+**	fmov	(z[0-9]+\.d), #2\.0(?:e\+0)?
+**	fmad	z0\.d, \1/m, z1\.d, \2
+**	ret
+*/
+TEST_UNIFORM_Z (ptrue_mad_2_f64_x_tied1, svfloat64_t,
+		z0 = svmad_n_f64_x (svptrue_b64 (), z0, z1, 2),
+		z0 = svmad_x (svptrue_b64 (), z0, z1, 2))
+
+/*
+** ptrue_mad_2_f64_x_tied2:
+**	ptrue	(p[0-7])\.d[^\n]*
+**	fmov	(z[0-9]+\.d), #2\.0(?:e\+0)?
+**	fmad	z0\.d, \1/m, z1\.d, \2
+**	ret
+*/
+TEST_UNIFORM_Z (ptrue_mad_2_f64_x_tied2, svfloat64_t,
+		z0 = svmad_n_f64_x (svptrue_b64 (), z1, z0, 2),
+		z0 = svmad_x (svptrue_b64 (), z1, z0, 2))
+
+/*
+** ptrue_mad_2_f64_x_untied:
+**	ptrue	(p[0-7])\.d[^\n]*
+**	fmov	z0\.d, #2\.0(?:e\+0)?
+**	fmla	z0\.d, \1/m, z1\.d, z2\.d
+**	ret
+*/
+TEST_UNIFORM_Z (ptrue_mad_2_f64_x_untied, svfloat64_t,
+		z0 = svmad_n_f64_x (svptrue_b64 (), z1, z2, 2),
+		z0 = svmad_x (svptrue_b64 (), z1, z2, 2))

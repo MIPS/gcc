@@ -448,3 +448,151 @@ TEST_UNIFORM_Z (mls_2_f16_x_tied2, svfloat16_t,
 TEST_UNIFORM_Z (mls_2_f16_x_untied, svfloat16_t,
 		z0 = svmls_n_f16_x (p0, z1, z2, 2),
 		z0 = svmls_x (p0, z1, z2, 2))
+
+/*
+** ptrue_mls_f16_x_tied1:
+**	ptrue	(p[0-7])\.h[^\n]*
+**	fmls	z0\.h, \1/m, z1\.h, z2\.h
+**	ret
+*/
+TEST_UNIFORM_Z (ptrue_mls_f16_x_tied1, svfloat16_t,
+		z0 = svmls_f16_x (svptrue_b16 (), z0, z1, z2),
+		z0 = svmls_x (svptrue_b16 (), z0, z1, z2))
+
+/*
+** ptrue_mls_f16_x_tied2:
+**	ptrue	(p[0-7])\.h[^\n]*
+**	fmsb	z0\.h, \1/m, z2\.h, z1\.h
+**	ret
+*/
+TEST_UNIFORM_Z (ptrue_mls_f16_x_tied2, svfloat16_t,
+		z0 = svmls_f16_x (svptrue_b16 (), z1, z0, z2),
+		z0 = svmls_x (svptrue_b16 (), z1, z0, z2))
+
+/*
+** ptrue_mls_f16_x_tied3:
+**	ptrue	(p[0-7])\.h[^\n]*
+**	fmsb	z0\.h, \1/m, z2\.h, z1\.h
+**	ret
+*/
+TEST_UNIFORM_Z (ptrue_mls_f16_x_tied3, svfloat16_t,
+		z0 = svmls_f16_x (svptrue_b16 (), z1, z2, z0),
+		z0 = svmls_x (svptrue_b16 (), z1, z2, z0))
+
+/*
+** ptrue_mls_f16_x_untied:
+**	ptrue	(p[0-7])\.h[^\n]*
+** (
+**	movprfx	z0, z1
+**	fmls	z0\.h, \1/m, z2\.h, z3\.h
+** |
+**	movprfx	z0, z2
+**	fmsb	z0\.h, \1/m, z3\.h, z1\.h
+** |
+**	movprfx	z0, z3
+**	fmsb	z0\.h, \1/m, z2\.h, z1\.h
+** )
+**	ret
+*/
+TEST_UNIFORM_Z (ptrue_mls_f16_x_untied, svfloat16_t,
+		z0 = svmls_f16_x (svptrue_b16 (), z1, z2, z3),
+		z0 = svmls_x (svptrue_b16 (), z1, z2, z3))
+
+/*
+** ptrue_mls_w0_f16_x_tied1:
+**	ptrue	(p[0-7])\.h[^\n]*
+**	mov	(z[0-9]+\.h), w0
+**	fmls	z0\.h, \1/m, z1\.h, \2
+**	ret
+*/
+TEST_UNIFORM_ZS (ptrue_mls_w0_f16_x_tied1, svfloat16_t, __fp16,
+		 z0 = svmls_n_f16_x (svptrue_b16 (), z0, z1, x0),
+		 z0 = svmls_x (svptrue_b16 (), z0, z1, x0))
+
+/*
+** ptrue_mls_w0_f16_x_tied2:
+**	ptrue	(p[0-7])\.h[^\n]*
+**	mov	(z[0-9]+\.h), w0
+**	fmsb	z0\.h, \1/m, \2, z1\.h
+**	ret
+*/
+TEST_UNIFORM_ZS (ptrue_mls_w0_f16_x_tied2, svfloat16_t, __fp16,
+		 z0 = svmls_n_f16_x (svptrue_b16 (), z1, z0, x0),
+		 z0 = svmls_x (svptrue_b16 (), z1, z0, x0))
+
+/*
+** ptrue_mls_w0_f16_x_untied:
+**	ptrue	(p[0-7])\.h[^\n]*
+**	mov	z0\.h, w0
+**	fmsb	z0\.h, \1/m, z2\.h, z1\.h
+**	ret
+*/
+TEST_UNIFORM_ZS (ptrue_mls_w0_f16_x_untied, svfloat16_t, __fp16,
+		 z0 = svmls_n_f16_x (svptrue_b16 (), z1, z2, x0),
+		 z0 = svmls_x (svptrue_b16 (), z1, z2, x0))
+
+/*
+** ptrue_mls_h4_f16_x_tied1:
+**	ptrue	(p[0-7])\.h[^\n]*
+**	mov	(z[0-9]+\.h), h4
+**	fmls	z0\.h, \1/m, z1\.h, \2
+**	ret
+*/
+TEST_UNIFORM_ZS (ptrue_mls_h4_f16_x_tied1, svfloat16_t, __fp16,
+		 z0 = svmls_n_f16_x (svptrue_b16 (), z0, z1, d4),
+		 z0 = svmls_x (svptrue_b16 (), z0, z1, d4))
+
+/*
+** ptrue_mls_h4_f16_x_tied2:
+**	ptrue	(p[0-7])\.h[^\n]*
+**	mov	(z[0-9]+\.h), h4
+**	fmsb	z0\.h, \1/m, \2, z1\.h
+**	ret
+*/
+TEST_UNIFORM_ZS (ptrue_mls_h4_f16_x_tied2, svfloat16_t, __fp16,
+		 z0 = svmls_n_f16_x (svptrue_b16 (), z1, z0, d4),
+		 z0 = svmls_x (svptrue_b16 (), z1, z0, d4))
+
+/*
+** ptrue_mls_h4_f16_x_untied:
+**	ptrue	(p[0-7])\.h[^\n]*
+**	mov	z0\.h, h4
+**	fmsb	z0\.h, \1/m, z2\.h, z1\.h
+**	ret
+*/
+TEST_UNIFORM_ZS (ptrue_mls_h4_f16_x_untied, svfloat16_t, __fp16,
+		 z0 = svmls_n_f16_x (svptrue_b16 (), z1, z2, d4),
+		 z0 = svmls_x (svptrue_b16 (), z1, z2, d4))
+
+/*
+** ptrue_mls_2_f16_x_tied1:
+**	ptrue	(p[0-7])\.h[^\n]*
+**	fmov	(z[0-9]+\.h), #2\.0(?:e\+0)?
+**	fmls	z0\.h, \1/m, z1\.h, \2
+**	ret
+*/
+TEST_UNIFORM_Z (ptrue_mls_2_f16_x_tied1, svfloat16_t,
+		z0 = svmls_n_f16_x (svptrue_b16 (), z0, z1, 2),
+		z0 = svmls_x (svptrue_b16 (), z0, z1, 2))
+
+/*
+** ptrue_mls_2_f16_x_tied2:
+**	ptrue	(p[0-7])\.h[^\n]*
+**	fmov	(z[0-9]+\.h), #2\.0(?:e\+0)?
+**	fmsb	z0\.h, \1/m, \2, z1\.h
+**	ret
+*/
+TEST_UNIFORM_Z (ptrue_mls_2_f16_x_tied2, svfloat16_t,
+		z0 = svmls_n_f16_x (svptrue_b16 (), z1, z0, 2),
+		z0 = svmls_x (svptrue_b16 (), z1, z0, 2))
+
+/*
+** ptrue_mls_2_f16_x_untied:
+**	ptrue	(p[0-7])\.h[^\n]*
+**	fmov	z0\.h, #2\.0(?:e\+0)?
+**	fmsb	z0\.h, \1/m, z2\.h, z1\.h
+**	ret
+*/
+TEST_UNIFORM_Z (ptrue_mls_2_f16_x_untied, svfloat16_t,
+		z0 = svmls_n_f16_x (svptrue_b16 (), z1, z2, 2),
+		z0 = svmls_x (svptrue_b16 (), z1, z2, 2))

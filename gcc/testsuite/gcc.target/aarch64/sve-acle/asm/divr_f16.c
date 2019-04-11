@@ -418,6 +418,17 @@ TEST_UNIFORM_ZS (ptrue_divr_h4_f16_x_untied, svfloat16_t, __fp16,
 		 z0 = svdivr_x (svptrue_b16 (), z1, d4))
 
 /*
+** ptrue_divr_1_f16_x_tied1:
+**	ptrue	(p[0-7])\.h[^\n]*
+**	fmov	(z[0-9]+\.h), #1\.0(?:e\+0)?
+**	fdivr	z0\.h, \1/m, z0\.h, \2
+**	ret
+*/
+TEST_UNIFORM_Z (ptrue_divr_1_f16_x_tied1, svfloat16_t,
+		z0 = svdivr_n_f16_x (svptrue_b16 (), z0, 1),
+		z0 = svdivr_x (svptrue_b16 (), z0, 1))
+
+/*
 ** ptrue_divr_1_f16_x_untied:
 **	ptrue	(p[0-7])\.h[^\n]*
 **	fmov	z0\.h, #1\.0(?:e\+0)?
