@@ -203,8 +203,8 @@ TEST_UNIFORM_Z (and_s64_x_untied, svint64_t,
 
 /*
 ** and_x0_s64_x_tied1:
-**	mov	(z[0-9]+)\.d, x0
-**	and	z0\.d, z0\.d, \1\.d
+**	mov	(z[0-9]+\.d), x0
+**	and	z0\.d, z0\.d, \1
 **	ret
 */
 TEST_UNIFORM_ZS (and_x0_s64_x_tied1, svint64_t, int64_t,
@@ -223,8 +223,8 @@ TEST_UNIFORM_ZS (and_x0_s64_x_untied, svint64_t, int64_t,
 
 /*
 ** and_d4_s64_x_tied1:
-**	mov	(z[0-9]+)\.d, d4
-**	and	z0\.d, z0\.d, \1\.d
+**	mov	(z[0-9]+\.d), d4
+**	and	z0\.d, z0\.d, \1
 **	ret
 */
 TEST_UNIFORM_ZS (and_d4_s64_x_tied1, svint64_t, int64_t,
@@ -233,8 +233,8 @@ TEST_UNIFORM_ZS (and_d4_s64_x_tied1, svint64_t, int64_t,
 
 /*
 ** and_d4_s64_x_untied:
-**	mov	(z[0-9]+)\.d, d4
-**	and	z0\.d, z1\.d, \1\.d
+**	mov	(z[0-9]+\.d), d4
+**	and	z0\.d, z1\.d, \1
 **	ret
 */
 TEST_UNIFORM_ZS (and_d4_s64_x_untied, svint64_t, int64_t,
@@ -384,8 +384,8 @@ TEST_UNIFORM_Z (and_m32768_s64_x, svint64_t,
 
 /*
 ** and_5_s64_x:
-**	mov	(z[0-9]+)\.d, #5
-**	and	z0\.d, z0\.d, \1\.d
+**	mov	(z[0-9]+\.d), #5
+**	and	z0\.d, z0\.d, \1
 **	ret
 */
 TEST_UNIFORM_Z (and_5_s64_x, svint64_t,

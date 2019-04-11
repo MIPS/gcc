@@ -14,9 +14,9 @@ TEST_UNIFORM_Z (mls_f64_m_tied1, svfloat64_t,
 
 /*
 ** mls_f64_m_tied2:
-**	mov	(z[0-9]+)\.d, z0\.d
+**	mov	(z[0-9]+\.d), z0\.d
 **	movprfx	z0, z1
-**	fmls	z0\.d, p0/m, \1\.d, z2\.d
+**	fmls	z0\.d, p0/m, \1, z2\.d
 **	ret
 */
 TEST_UNIFORM_Z (mls_f64_m_tied2, svfloat64_t,
@@ -25,9 +25,9 @@ TEST_UNIFORM_Z (mls_f64_m_tied2, svfloat64_t,
 
 /*
 ** mls_f64_m_tied3:
-**	mov	(z[0-9]+)\.d, z0\.d
+**	mov	(z[0-9]+\.d), z0\.d
 **	movprfx	z0, z1
-**	fmls	z0\.d, p0/m, z2\.d, \1\.d
+**	fmls	z0\.d, p0/m, z2\.d, \1
 **	ret
 */
 TEST_UNIFORM_Z (mls_f64_m_tied3, svfloat64_t,
@@ -57,9 +57,9 @@ TEST_UNIFORM_ZS (mls_x0_f64_m_tied1, svfloat64_t, double,
 /*
 ** mls_x0_f64_m_tied2:
 **	mov	(z[0-9]+\.d), x0
-**	mov	(z[0-9]+)\.d, z0\.d
+**	mov	(z[0-9]+\.d), z0\.d
 **	movprfx	z0, z1
-**	fmls	z0\.d, p0/m, \2\.d, \1
+**	fmls	z0\.d, p0/m, \2, \1
 **	ret
 */
 TEST_UNIFORM_ZS (mls_x0_f64_m_tied2, svfloat64_t, double,
@@ -90,9 +90,9 @@ TEST_UNIFORM_ZS (mls_d4_f64_m_tied1, svfloat64_t, double,
 /*
 ** mls_d4_f64_m_tied2:
 **	mov	(z[0-9]+\.d), d4
-**	mov	(z[0-9]+)\.d, z0\.d
+**	mov	(z[0-9]+\.d), z0\.d
 **	movprfx	z0, z1
-**	fmls	z0\.d, p0/m, \2\.d, \1
+**	fmls	z0\.d, p0/m, \2, \1
 **	ret
 */
 TEST_UNIFORM_ZS (mls_d4_f64_m_tied2, svfloat64_t, double,
@@ -123,9 +123,9 @@ TEST_UNIFORM_Z (mls_2_f64_m_tied1, svfloat64_t,
 /*
 ** mls_2_f64_m_tied2:
 **	fmov	(z[0-9]+\.d), #2.0(e\+0)?
-**	mov	(z[0-9]+)\.d, z0\.d
+**	mov	(z[0-9]+\.d), z0\.d
 **	movprfx	z0, z1
-**	fmls	z0\.d, p0/m, \3\.d, \1
+**	fmls	z0\.d, p0/m, \3, \1
 **	ret
 */
 TEST_UNIFORM_Z (mls_2_f64_m_tied2, svfloat64_t,

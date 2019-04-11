@@ -204,8 +204,8 @@ TEST_UNIFORM_Z (bic_s64_x_untied, svint64_t,
 
 /*
 ** bic_x0_s64_x_tied1:
-**	mov	(z[0-9]+)\.d, x0
-**	bic	z0\.d, z0\.d, \1\.d
+**	mov	(z[0-9]+\.d), x0
+**	bic	z0\.d, z0\.d, \1
 **	ret
 */
 TEST_UNIFORM_ZS (bic_x0_s64_x_tied1, svint64_t, int64_t,
@@ -224,8 +224,8 @@ TEST_UNIFORM_ZS (bic_x0_s64_x_untied, svint64_t, int64_t,
 
 /*
 ** bic_d4_s64_x_tied1:
-**	mov	(z[0-9]+)\.d, d4
-**	bic	z0\.d, z0\.d, \1\.d
+**	mov	(z[0-9]+\.d), d4
+**	bic	z0\.d, z0\.d, \1
 **	ret
 */
 TEST_UNIFORM_ZS (bic_d4_s64_x_tied1, svint64_t, int64_t,
@@ -234,8 +234,8 @@ TEST_UNIFORM_ZS (bic_d4_s64_x_tied1, svint64_t, int64_t,
 
 /*
 ** bic_d4_s64_x_untied:
-**	mov	(z[0-9]+)\.d, d4
-**	bic	z0\.d, z1\.d, \1\.d
+**	mov	(z[0-9]+\.d), d4
+**	bic	z0\.d, z1\.d, \1
 **	ret
 */
 TEST_UNIFORM_ZS (bic_d4_s64_x_untied, svint64_t, int64_t,
@@ -385,8 +385,8 @@ TEST_UNIFORM_Z (bic_m32768_s64_x, svint64_t,
 
 /*
 ** bic_5_s64_x:
-**	mov	(z[0-9]+)\.d, #-6
-**	and	z0\.d, z0\.d, \1\.d
+**	mov	(z[0-9]+\.d), #-6
+**	and	z0\.d, z0\.d, \1
 **	ret
 */
 TEST_UNIFORM_Z (bic_5_s64_x, svint64_t,
