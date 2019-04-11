@@ -9833,7 +9833,6 @@ apply_deduced_return_type (tree fco, tree return_type)
 #endif
       cfun->returns_struct = aggr;
     }
-
 }
 
 /* DECL is a local variable or parameter from the surrounding scope of a

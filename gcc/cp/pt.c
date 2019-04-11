@@ -42,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify.h"
 #include "gcc-rich-location.h"
 #include "selftest.h"
+#include "print-tree.h"
 
 /* The type of functions taking a tree, and some additional data, and
    returning an int.  */

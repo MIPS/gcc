@@ -53,6 +53,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "asan.h"
 #include "gcc-rich-location.h"
 #include "langhooks.h"
+#include "print-tree.h"
 
 /* Possible cases of bad specifiers type used by bad_specifiers. */
 enum bad_spec_place {
@@ -16049,6 +16050,11 @@ finish_function (bool inline_p)
     {
       if (is_auto (current_function_auto_return_pattern))
 	{
+	  /* Actually perform deduction; the node could be constrained.  */
+	  tree node = type_uses_auto (current_function_auto_return_pattern);
+	  do_auto_deduction (current_function_auto_return_pattern,
+			     void_node, node);
+
 	  apply_deduced_return_type (fndecl, void_type_node);
 	  fntype = TREE_TYPE (fndecl);
 	}

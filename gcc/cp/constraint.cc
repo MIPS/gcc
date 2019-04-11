@@ -45,6 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "decl.h"
 #include "toplev.h"
 #include "type-utils.h"
+#include "print-tree.h"
 
 static int parsing_constraint_expr = 0;
 
@@ -339,6 +340,33 @@ deduce_concept_introduction (tree check)
   if (info && info != error_mark_node)
     return TREE_PURPOSE (info);
   return NULL_TREE;
+}
+
+/* Build a constrained placeholder type where SPEC is a type-constraint.
+   SPEC can be anything were concept_definition_p is true.
+
+   If DECLTYPE_P is true, then the placeholder is decltype(auto).  
+
+   Returns a pair whose FIRST is the concept being checked and whose 
+   SECOND is the prototype parameter.  */
+
+tree_pair
+finish_type_constraints (tree spec, tree args)
+{
+  gcc_assert (concept_definition_p (spec));
+
+  /* Build an initial concept check.  */
+  tree check = build_wildcard_concept_check (spec, args);
+  if (check == error_mark_node)
+    return std::make_pair(error_mark_node, NULL_TREE);
+
+  /* Extract the concept and prototype parameter from the check. */
+  tree con;
+  tree proto;
+  if (!deduce_constrained_parameter (check, con, proto))
+    return std::make_pair(error_mark_node, NULL_TREE);
+
+  return std::make_pair(con, proto);
 }
 
 /*---------------------------------------------------------------------------
@@ -750,6 +778,15 @@ build_concept_check (tree decl, tree arg, tree rest, tsubst_flags_t complain)
   return error_mark_node;
 }
 
+/* Build a concept check with a with a wildcard as the first 
+   template argument.  */
+
+tree
+build_wildcard_concept_check (tree decl, tree args)
+{
+  tree place = build_nt (WILDCARD_DECL);
+  return build_concept_check (decl, place, args, tf_none);
+}
 
 /* Returns a TYPE_DECL that contains sufficient information to
    build a template parameter of the same kind as PROTO and

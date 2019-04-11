@@ -1,9 +1,32 @@
+2019-04-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Rewrite parsing of constrained-type-specifiers so that it
+	conforms to standard names and concepts.
+	* constraint.cc (finish_type_constraints): New.
+	(build_wildcard_concept_check): New.
+	* cp-tree.h (finish_type_constraints, build_wildcard_concept_check):
+	New declarations.
+	* decl.c (finish_function): Perform auto deduction to ensure
+	that constraints are checked even when functions contain no
+	return statements.
+	* parser.c (cp_parser_placeholder_type_specifier): New. Implement
+	parsing of placeholder type specifiers following a concept name
+	or partial concept check.
+	(cp_parser_template_id): Simplify logic for processign
+	type constraints. Disable old implementation.
+	(cp_parser_template_argument): Disable old implementation.
+	(cp_parser_simple_type_specifier): Expect auto or decltype after
+	a concept name. Also handle the case where we have a template-id
+	as a concept check.
+	(cp_parser_type_name): Disable old implementation.
+	(cp_parser_class_name): Handle template ids as concept checks.
+
 2019-04-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Check constraints on inherited constructors.
 	* constraint.cc (evaluate_constraint_expression): Adjust declaration
 	for inherited constructor.
-	(diagnose_declaration_constraints). Likewise.
+	(diagnose_declaration_constraints): Likewise.
 
 2019-04-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
