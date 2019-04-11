@@ -213,8 +213,8 @@ TEST_UNIFORM_ZS (eor_w0_s32_x_tied1, svint32_t, int32_t,
 
 /*
 ** eor_w0_s32_x_untied:
-**	mov	z0\.s, w0
-**	eor	z0\.d, z1\.d, z0\.d
+**	mov	(z[0-9]+)\.s, w0
+**	eor	z0\.d, z1\.d, \1\.d
 **	ret
 */
 TEST_UNIFORM_ZS (eor_w0_s32_x_untied, svint32_t, int32_t,

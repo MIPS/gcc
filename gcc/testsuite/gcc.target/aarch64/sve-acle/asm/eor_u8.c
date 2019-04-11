@@ -213,8 +213,8 @@ TEST_UNIFORM_ZS (eor_w0_u8_x_tied1, svuint8_t, uint8_t,
 
 /*
 ** eor_w0_u8_x_untied:
-**	mov	z0\.b, w0
-**	eor	z0\.d, z1\.d, z0\.d
+**	mov	(z[0-9]+)\.b, w0
+**	eor	z0\.d, z1\.d, \1\.d
 **	ret
 */
 TEST_UNIFORM_ZS (eor_w0_u8_x_untied, svuint8_t, uint8_t,

@@ -214,8 +214,8 @@ TEST_UNIFORM_ZS (bic_w0_s8_x_tied1, svint8_t, int8_t,
 
 /*
 ** bic_w0_s8_x_untied:
-**	mov	z0\.b, w0
-**	bic	z0\.d, z1\.d, z0\.d
+**	mov	(z[0-9]+)\.b, w0
+**	bic	z0\.d, z1\.d, \1\.d
 **	ret
 */
 TEST_UNIFORM_ZS (bic_w0_s8_x_untied, svint8_t, int8_t,
