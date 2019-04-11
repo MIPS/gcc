@@ -279,7 +279,7 @@ TEST_UNIFORM_Z (mul_2_u8_x_tied1, svuint8_t,
 
 /*
 ** mul_2_u8_x_untied:
-**	mov	z0\.d, z1\.d
+**	movprfx	z0, z1
 **	mul	z0\.b, z0\.b, #2
 **	ret
 */
