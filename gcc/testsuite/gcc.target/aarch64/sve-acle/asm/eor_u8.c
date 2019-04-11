@@ -196,6 +196,33 @@ TEST_UNIFORM_ZS (eor_b4_u8_z_untied, svuint8_t, uint8_t,
 		 z0 = sveor_z (p0, z1, d4))
 
 /*
+** eor_1_u8_z_tied1:
+**	mov	(z[0-9]+\.b), #1
+**	movprfx	z0\.b, p0/z, z0\.b
+**	eor	z0\.b, p0/m, z0\.b, \1
+**	ret
+*/
+TEST_UNIFORM_Z (eor_1_u8_z_tied1, svuint8_t,
+		z0 = sveor_n_u8_z (p0, z0, 1),
+		z0 = sveor_z (p0, z0, 1))
+
+/*
+** eor_1_u8_z_untied:
+**	mov	(z[0-9]+\.b), #1
+** (
+**	movprfx	z0\.b, p0/z, z1\.b
+**	eor	z0\.b, p0/m, z0\.b, \1
+** |
+**	movprfx	z0\.b, p0/z, \1
+**	eor	z0\.b, p0/m, z0\.b, z1\.b
+** )
+**	ret
+*/
+TEST_UNIFORM_Z (eor_1_u8_z_untied, svuint8_t,
+		z0 = sveor_n_u8_z (p0, z1, 1),
+		z0 = sveor_z (p0, z1, 1))
+
+/*
 ** eor_u8_x_tied1:
 **	eor	z0\.d, (z0\.d, z1\.d|z1\.d, z0\.d)
 **	ret

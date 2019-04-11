@@ -182,6 +182,33 @@ TEST_UNIFORM_ZS (bic_d4_s64_z_untied, svint64_t, int64_t,
 		 z0 = svbic_z (p0, z1, d4))
 
 /*
+** bic_1_s64_z_tied1:
+**	mov	(z[0-9]+\.d), #-2
+**	movprfx	z0\.d, p0/z, z0\.d
+**	and	z0\.d, p0/m, z0\.d, \1
+**	ret
+*/
+TEST_UNIFORM_Z (bic_1_s64_z_tied1, svint64_t,
+		z0 = svbic_n_s64_z (p0, z0, 1),
+		z0 = svbic_z (p0, z0, 1))
+
+/*
+** bic_1_s64_z_untied:
+**	mov	(z[0-9]+\.d), #-2
+** (
+**	movprfx	z0\.d, p0/z, z1\.d
+**	and	z0\.d, p0/m, z0\.d, \1
+** |
+**	movprfx	z0\.d, p0/z, \1
+**	and	z0\.d, p0/m, z0\.d, z1\.d
+** )
+**	ret
+*/
+TEST_UNIFORM_Z (bic_1_s64_z_untied, svint64_t,
+		z0 = svbic_n_s64_z (p0, z1, 1),
+		z0 = svbic_z (p0, z1, 1))
+
+/*
 ** bic_s64_x_tied1:
 **	bic	z0\.d, z0\.d, z1\.d
 **	ret

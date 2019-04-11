@@ -186,6 +186,33 @@ TEST_UNIFORM_ZS (div_s4_s32_z_untied, svint32_t, int32_t,
 		 z0 = svdiv_z (p0, z1, d4))
 
 /*
+** div_2_s32_z_tied1:
+**	mov	(z[0-9]+\.s), #2
+**	movprfx	z0\.s, p0/z, z0\.s
+**	sdiv	z0\.s, p0/m, z0\.s, \1
+**	ret
+*/
+TEST_UNIFORM_Z (div_2_s32_z_tied1, svint32_t,
+		z0 = svdiv_n_s32_z (p0, z0, 2),
+		z0 = svdiv_z (p0, z0, 2))
+
+/*
+** div_2_s32_z_untied:
+**	mov	(z[0-9]+\.s), #2
+** (
+**	movprfx	z0\.s, p0/z, z1\.s
+**	sdiv	z0\.s, p0/m, z0\.s, \1
+** |
+**	movprfx	z0\.s, p0/z, \1
+**	sdivr	z0\.s, p0/m, z0\.s, z1\.s
+** )
+**	ret
+*/
+TEST_UNIFORM_Z (div_2_s32_z_untied, svint32_t,
+		z0 = svdiv_n_s32_z (p0, z1, 2),
+		z0 = svdiv_z (p0, z1, 2))
+
+/*
 ** div_s32_x_tied1:
 **	sdiv	z0\.s, p0/m, z0\.s, z1\.s
 **	ret

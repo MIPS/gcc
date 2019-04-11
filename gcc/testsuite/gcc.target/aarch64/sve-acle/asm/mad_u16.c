@@ -274,6 +274,47 @@ TEST_UNIFORM_ZS (mad_h4_u16_z_untied, svuint16_t, uint16_t,
 		 z0 = svmad_z (p0, z1, z2, d4))
 
 /*
+** mad_2_u16_z_tied1:
+**	mov	(z[0-9]+\.h), #2
+**	movprfx	z0\.h, p0/z, z0\.h
+**	mad	z0\.h, p0/m, z1\.h, \1
+**	ret
+*/
+TEST_UNIFORM_Z (mad_2_u16_z_tied1, svuint16_t,
+		z0 = svmad_n_u16_z (p0, z0, z1, 2),
+		z0 = svmad_z (p0, z0, z1, 2))
+
+/*
+** mad_2_u16_z_tied2:
+**	mov	(z[0-9]+\.h), #2
+**	movprfx	z0\.h, p0/z, z0\.h
+**	mad	z0\.h, p0/m, z1\.h, \1
+**	ret
+*/
+TEST_UNIFORM_Z (mad_2_u16_z_tied2, svuint16_t,
+		z0 = svmad_n_u16_z (p0, z1, z0, 2),
+		z0 = svmad_z (p0, z1, z0, 2))
+
+/*
+** mad_2_u16_z_untied:
+**	mov	(z[0-9]+\.h), #2
+** (
+**	movprfx	z0\.h, p0/z, z1\.h
+**	mad	z0\.h, p0/m, z2\.h, \1
+** |
+**	movprfx	z0\.h, p0/z, z2\.h
+**	mad	z0\.h, p0/m, z1\.h, \1
+** |
+**	movprfx	z0\.h, p0/z, \1
+**	mla	z0\.h, p0/m, z1\.h, z2\.h
+** )
+**	ret
+*/
+TEST_UNIFORM_Z (mad_2_u16_z_untied, svuint16_t,
+		z0 = svmad_n_u16_z (p0, z1, z2, 2),
+		z0 = svmad_z (p0, z1, z2, 2))
+
+/*
 ** mad_u16_x_tied1:
 **	mad	z0\.h, p0/m, z1\.h, z2\.h
 **	ret

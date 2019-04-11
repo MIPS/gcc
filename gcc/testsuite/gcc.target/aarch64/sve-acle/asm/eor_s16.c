@@ -196,6 +196,33 @@ TEST_UNIFORM_ZS (eor_h4_s16_z_untied, svint16_t, int16_t,
 		 z0 = sveor_z (p0, z1, d4))
 
 /*
+** eor_1_s16_z_tied1:
+**	mov	(z[0-9]+\.h), #1
+**	movprfx	z0\.h, p0/z, z0\.h
+**	eor	z0\.h, p0/m, z0\.h, \1
+**	ret
+*/
+TEST_UNIFORM_Z (eor_1_s16_z_tied1, svint16_t,
+		z0 = sveor_n_s16_z (p0, z0, 1),
+		z0 = sveor_z (p0, z0, 1))
+
+/*
+** eor_1_s16_z_untied:
+**	mov	(z[0-9]+\.h), #1
+** (
+**	movprfx	z0\.h, p0/z, z1\.h
+**	eor	z0\.h, p0/m, z0\.h, \1
+** |
+**	movprfx	z0\.h, p0/z, \1
+**	eor	z0\.h, p0/m, z0\.h, z1\.h
+** )
+**	ret
+*/
+TEST_UNIFORM_Z (eor_1_s16_z_untied, svint16_t,
+		z0 = sveor_n_s16_z (p0, z1, 1),
+		z0 = sveor_z (p0, z1, 1))
+
+/*
 ** eor_s16_x_tied1:
 **	eor	z0\.d, (z0\.d, z1\.d|z1\.d, z0\.d)
 **	ret

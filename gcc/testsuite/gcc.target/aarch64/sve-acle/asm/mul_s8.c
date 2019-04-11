@@ -196,6 +196,33 @@ TEST_UNIFORM_ZS (mul_b4_s8_z_untied, svint8_t, int8_t,
 		 z0 = svmul_z (p0, z1, d4))
 
 /*
+** mul_2_s8_z_tied1:
+**	mov	(z[0-9]+\.b), #2
+**	movprfx	z0\.b, p0/z, z0\.b
+**	mul	z0\.b, p0/m, z0\.b, \1
+**	ret
+*/
+TEST_UNIFORM_Z (mul_2_s8_z_tied1, svint8_t,
+		z0 = svmul_n_s8_z (p0, z0, 2),
+		z0 = svmul_z (p0, z0, 2))
+
+/*
+** mul_2_s8_z_untied:
+**	mov	(z[0-9]+\.b), #2
+** (
+**	movprfx	z0\.b, p0/z, z1\.b
+**	mul	z0\.b, p0/m, z0\.b, \1
+** |
+**	movprfx	z0\.b, p0/z, \1
+**	mul	z0\.b, p0/m, z0\.b, z1\.b
+** )
+**	ret
+*/
+TEST_UNIFORM_Z (mul_2_s8_z_untied, svint8_t,
+		z0 = svmul_n_s8_z (p0, z1, 2),
+		z0 = svmul_z (p0, z1, 2))
+
+/*
 ** mul_s8_x_tied1:
 **	mul	z0\.b, p0/m, z0\.b, z1\.b
 **	ret

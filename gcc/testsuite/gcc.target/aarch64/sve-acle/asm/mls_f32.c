@@ -274,6 +274,47 @@ TEST_UNIFORM_ZS (mls_s4_f32_z_untied, svfloat32_t, float,
 		 z0 = svmls_z (p0, z1, z2, d4))
 
 /*
+** mls_2_f32_z_tied1:
+**	fmov	(z[0-9]+\.s), #2\.0(?:e\+0)?
+**	movprfx	z0\.s, p0/z, z0\.s
+**	fmls	z0\.s, p0/m, z1\.s, \1
+**	ret
+*/
+TEST_UNIFORM_Z (mls_2_f32_z_tied1, svfloat32_t,
+		z0 = svmls_n_f32_z (p0, z0, z1, 2),
+		z0 = svmls_z (p0, z0, z1, 2))
+
+/*
+** mls_2_f32_z_tied2:
+**	fmov	(z[0-9]+\.s), #2\.0(?:e\+0)?
+**	movprfx	z0\.s, p0/z, z0\.s
+**	fmsb	z0\.s, p0/m, \1, z1\.s
+**	ret
+*/
+TEST_UNIFORM_Z (mls_2_f32_z_tied2, svfloat32_t,
+		z0 = svmls_n_f32_z (p0, z1, z0, 2),
+		z0 = svmls_z (p0, z1, z0, 2))
+
+/*
+** mls_2_f32_z_untied:
+**	fmov	(z[0-9]+\.s), #2\.0(?:e\+0)?
+** (
+**	movprfx	z0\.s, p0/z, z1\.s
+**	fmls	z0\.s, p0/m, z2\.s, \1
+** |
+**	movprfx	z0\.s, p0/z, z2\.s
+**	fmsb	z0\.s, p0/m, \1, z1\.s
+** |
+**	movprfx	z0\.s, p0/z, \1
+**	fmsb	z0\.s, p0/m, z2\.s, z1\.s
+** )
+**	ret
+*/
+TEST_UNIFORM_Z (mls_2_f32_z_untied, svfloat32_t,
+		z0 = svmls_n_f32_z (p0, z1, z2, 2),
+		z0 = svmls_z (p0, z1, z2, 2))
+
+/*
 ** mls_f32_x_tied1:
 **	fmls	z0\.s, p0/m, z1\.s, z2\.s
 **	ret

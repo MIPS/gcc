@@ -186,6 +186,33 @@ TEST_UNIFORM_ZS (abd_h4_s16_z_untied, svint16_t, int16_t,
 		 z0 = svabd_z (p0, z1, d4))
 
 /*
+** abd_1_s16_z_tied1:
+**	mov	(z[0-9]+\.h), #1
+**	movprfx	z0\.h, p0/z, z0\.h
+**	sabd	z0\.h, p0/m, z0\.h, \1
+**	ret
+*/
+TEST_UNIFORM_Z (abd_1_s16_z_tied1, svint16_t,
+		z0 = svabd_n_s16_z (p0, z0, 1),
+		z0 = svabd_z (p0, z0, 1))
+
+/*
+** abd_1_s16_z_untied:
+**	mov	(z[0-9]+\.h), #1
+** (
+**	movprfx	z0\.h, p0/z, z1\.h
+**	sabd	z0\.h, p0/m, z0\.h, \1
+** |
+**	movprfx	z0\.h, p0/z, \1
+**	sabd	z0\.h, p0/m, z0\.h, z1\.h
+** )
+**	ret
+*/
+TEST_UNIFORM_Z (abd_1_s16_z_untied, svint16_t,
+		z0 = svabd_n_s16_z (p0, z1, 1),
+		z0 = svabd_z (p0, z1, 1))
+
+/*
 ** abd_s16_x_tied1:
 **	sabd	z0\.h, p0/m, z0\.h, z1\.h
 **	ret

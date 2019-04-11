@@ -196,6 +196,33 @@ TEST_UNIFORM_ZS (mul_d4_u64_z_untied, svuint64_t, uint64_t,
 		 z0 = svmul_z (p0, z1, d4))
 
 /*
+** mul_2_u64_z_tied1:
+**	mov	(z[0-9]+\.d), #2
+**	movprfx	z0\.d, p0/z, z0\.d
+**	mul	z0\.d, p0/m, z0\.d, \1
+**	ret
+*/
+TEST_UNIFORM_Z (mul_2_u64_z_tied1, svuint64_t,
+		z0 = svmul_n_u64_z (p0, z0, 2),
+		z0 = svmul_z (p0, z0, 2))
+
+/*
+** mul_2_u64_z_untied:
+**	mov	(z[0-9]+\.d), #2
+** (
+**	movprfx	z0\.d, p0/z, z1\.d
+**	mul	z0\.d, p0/m, z0\.d, \1
+** |
+**	movprfx	z0\.d, p0/z, \1
+**	mul	z0\.d, p0/m, z0\.d, z1\.d
+** )
+**	ret
+*/
+TEST_UNIFORM_Z (mul_2_u64_z_untied, svuint64_t,
+		z0 = svmul_n_u64_z (p0, z1, 2),
+		z0 = svmul_z (p0, z1, 2))
+
+/*
 ** mul_u64_x_tied1:
 **	mul	z0\.d, p0/m, z0\.d, z1\.d
 **	ret

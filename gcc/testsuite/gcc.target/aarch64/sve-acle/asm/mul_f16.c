@@ -235,6 +235,22 @@ TEST_UNIFORM_Z (mul_1_f16_z_tied1, svfloat16_t,
 		z0 = svmul_z (p0, z0, 1))
 
 /*
+** mul_1_f16_z_untied:
+**	fmov	(z[0-9]+\.h), #1\.0(?:e\+0)?
+** (
+**	movprfx	z0\.h, p0/z, z1\.h
+**	fmul	z0\.h, p0/m, z0\.h, \1
+** |
+**	movprfx	z0\.h, p0/z, \1
+**	fmul	z0\.h, p0/m, z0\.h, z1\.h
+** )
+**	ret
+*/
+TEST_UNIFORM_Z (mul_1_f16_z_untied, svfloat16_t,
+		z0 = svmul_n_f16_z (p0, z1, 1),
+		z0 = svmul_z (p0, z1, 1))
+
+/*
 ** mul_0p5_f16_z_tied1:
 **	movprfx	z0\.h, p0/z, z0\.h
 **	fmul	z0\.h, p0/m, z0\.h, #0\.5
@@ -253,6 +269,16 @@ TEST_UNIFORM_Z (mul_0p5_f16_z_tied1, svfloat16_t,
 TEST_UNIFORM_Z (mul_0p5_f16_z_untied, svfloat16_t,
 		z0 = svmul_n_f16_z (p0, z1, 0.5),
 		z0 = svmul_z (p0, z1, 0.5))
+
+/*
+** mul_2_f16_z_tied1:
+**	movprfx	z0\.h, p0/z, z0\.h
+**	fmul	z0\.h, p0/m, z0\.h, #2\.0
+**	ret
+*/
+TEST_UNIFORM_Z (mul_2_f16_z_tied1, svfloat16_t,
+		z0 = svmul_n_f16_z (p0, z0, 2),
+		z0 = svmul_z (p0, z0, 2))
 
 /*
 ** mul_2_f16_z_untied:
