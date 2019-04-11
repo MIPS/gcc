@@ -305,7 +305,7 @@ TEST_UNIFORM_Z (sub_256_s64_x, svint64_t,
 /*
 ** sub_511_s64_x:
 **	mov	(z[0-9]+\.d), #-511
-**	add	z0\.d, z0\.d, \1
+**	add	z0\.d, (z0\.d, \1|\1, z0\.d)
 **	ret
 */
 TEST_UNIFORM_Z (sub_511_s64_x, svint64_t,
@@ -333,7 +333,7 @@ TEST_UNIFORM_Z (sub_65280_s64_x, svint64_t,
 /*
 ** sub_65535_s64_x:
 **	mov	(z[0-9]+\.d), #-65535
-**	add	z0\.d, z0\.d, \1
+**	add	z0\.d, (z0\.d, \1|\1, z0\.d)
 **	ret
 */
 TEST_UNIFORM_Z (sub_65535_s64_x, svint64_t,
@@ -343,7 +343,7 @@ TEST_UNIFORM_Z (sub_65535_s64_x, svint64_t,
 /*
 ** sub_65536_s64_x:
 **	mov	(z[0-9]+\.d), #-65536
-**	add	z0\.d, z0\.d, \1
+**	add	z0\.d, (z0\.d, \1|\1, z0\.d)
 **	ret
 */
 TEST_UNIFORM_Z (sub_65536_s64_x, svint64_t,
@@ -398,7 +398,7 @@ TEST_UNIFORM_Z (sub_m256_s64_x, svint64_t,
 /*
 ** sub_m511_s64_x:
 **	mov	(z[0-9]+\.d), #511
-**	add	z0\.d, z0\.d, \1
+**	add	z0\.d, (z0\.d, \1|\1, z0\.d)
 **	ret
 */
 TEST_UNIFORM_Z (sub_m511_s64_x, svint64_t,
@@ -435,7 +435,7 @@ TEST_UNIFORM_Z (sub_m65280_s64_x, svint64_t,
 /*
 ** sub_m65535_s64_x:
 **	mov	(z[0-9]+\.d), #65535
-**	add	z0\.d, z0\.d, \1
+**	add	z0\.d, (z0\.d, \1|\1, z0\.d)
 **	ret
 */
 TEST_UNIFORM_Z (sub_m65535_s64_x, svint64_t,
@@ -445,7 +445,7 @@ TEST_UNIFORM_Z (sub_m65535_s64_x, svint64_t,
 /*
 ** sub_m65536_s64_x:
 **	mov	(z[0-9]+\.d), #65536
-**	add	z0\.d, z0\.d, \1
+**	add	z0\.d, (z0\.d, \1|\1, z0\.d)
 **	ret
 */
 TEST_UNIFORM_Z (sub_m65536_s64_x, svint64_t,

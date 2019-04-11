@@ -182,7 +182,7 @@ TEST_UNIFORM_ZS (add_h4_s16_z_untied, svint16_t, int16_t,
 
 /*
 ** add_s16_x_tied1:
-**	add	z0\.h, z0\.h, z1\.h
+**	add	z0\.h, (z0\.h, z1\.h|z1\.h, z0\.h)
 **	ret
 */
 TEST_UNIFORM_Z (add_s16_x_tied1, svint16_t,
@@ -191,7 +191,7 @@ TEST_UNIFORM_Z (add_s16_x_tied1, svint16_t,
 
 /*
 ** add_s16_x_tied2:
-**	add	z0\.h, z1\.h, z0\.h
+**	add	z0\.h, (z0\.h, z1\.h|z1\.h, z0\.h)
 **	ret
 */
 TEST_UNIFORM_Z (add_s16_x_tied2, svint16_t,
@@ -200,7 +200,7 @@ TEST_UNIFORM_Z (add_s16_x_tied2, svint16_t,
 
 /*
 ** add_s16_x_untied:
-**	add	z0\.h, z1\.h, z2\.h
+**	add	z0\.h, (z1\.h, z2\.h|z2\.h, z1\.h)
 **	ret
 */
 TEST_UNIFORM_Z (add_s16_x_untied, svint16_t,
@@ -210,7 +210,7 @@ TEST_UNIFORM_Z (add_s16_x_untied, svint16_t,
 /*
 ** add_w0_s16_x_tied1:
 **	mov	(z[0-9]+\.h), w0
-**	add	z0\.h, z0\.h, \1
+**	add	z0\.h, (z0\.h, \1|\1, z0\.h)
 **	ret
 */
 TEST_UNIFORM_ZS (add_w0_s16_x_tied1, svint16_t, int16_t,
@@ -220,7 +220,7 @@ TEST_UNIFORM_ZS (add_w0_s16_x_tied1, svint16_t, int16_t,
 /*
 ** add_w0_s16_x_untied:
 **	mov	(z[0-9]+\.h), w0
-**	add	z0\.h, z1\.h, \1
+**	add	z0\.h, (z1\.h, \1|\1, z1\.h)
 **	ret
 */
 TEST_UNIFORM_ZS (add_w0_s16_x_untied, svint16_t, int16_t,
@@ -230,7 +230,7 @@ TEST_UNIFORM_ZS (add_w0_s16_x_untied, svint16_t, int16_t,
 /*
 ** add_h4_s16_x_tied1:
 **	mov	(z[0-9]+\.h), h4
-**	add	z0\.h, z0\.h, \1
+**	add	z0\.h, (z0\.h, \1|\1, z0\.h)
 **	ret
 */
 TEST_UNIFORM_ZS (add_h4_s16_x_tied1, svint16_t, int16_t,
@@ -240,7 +240,7 @@ TEST_UNIFORM_ZS (add_h4_s16_x_tied1, svint16_t, int16_t,
 /*
 ** add_h4_s16_x_untied:
 **	mov	(z[0-9]+\.h), h4
-**	add	z0\.h, z1\.h, \1
+**	add	z0\.h, (z1\.h, \1|\1, z1\.h)
 **	ret
 */
 TEST_UNIFORM_ZS (add_h4_s16_x_untied, svint16_t, int16_t,
@@ -305,7 +305,7 @@ TEST_UNIFORM_Z (add_256_s16_x, svint16_t,
 /*
 ** add_257_s16_x:
 **	mov	(z[0-9]+)\.b, #1
-**	add	z0\.h, z0\.h, \1\.h
+**	add	z0\.h, (z0\.h, \1\.h|\1\.h, z0\.h)
 **	ret
 */
 TEST_UNIFORM_Z (add_257_s16_x, svint16_t,
@@ -378,7 +378,7 @@ TEST_UNIFORM_Z (add_m256_s16_x, svint16_t,
 /*
 ** add_m257_s16_x:
 **	mov	(z[0-9]+\.h), #-257
-**	add	z0\.h, z0\.h, \1
+**	add	z0\.h, (z0\.h, \1|\1, z0\.h)
 **	ret
 */
 TEST_UNIFORM_Z (add_m257_s16_x, svint16_t,

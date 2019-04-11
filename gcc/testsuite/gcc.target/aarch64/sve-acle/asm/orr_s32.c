@@ -182,7 +182,7 @@ TEST_UNIFORM_ZS (orr_s4_s32_z_untied, svint32_t, int32_t,
 
 /*
 ** orr_s32_x_tied1:
-**	orr	z0\.d, z0\.d, z1\.d
+**	orr	z0\.d, (z0\.d, z1\.d|z1\.d, z0\.d)
 **	ret
 */
 TEST_UNIFORM_Z (orr_s32_x_tied1, svint32_t,
@@ -191,7 +191,7 @@ TEST_UNIFORM_Z (orr_s32_x_tied1, svint32_t,
 
 /*
 ** orr_s32_x_tied2:
-**	orr	z0\.d, z1\.d, z0\.d
+**	orr	z0\.d, (z0\.d, z1\.d|z1\.d, z0\.d)
 **	ret
 */
 TEST_UNIFORM_Z (orr_s32_x_tied2, svint32_t,
@@ -200,7 +200,7 @@ TEST_UNIFORM_Z (orr_s32_x_tied2, svint32_t,
 
 /*
 ** orr_s32_x_untied:
-**	orr	z0\.d, z1\.d, z2\.d
+**	orr	z0\.d, (z1\.d, z2\.d|z2\.d, z1\.d)
 **	ret
 */
 TEST_UNIFORM_Z (orr_s32_x_untied, svint32_t,
@@ -210,7 +210,7 @@ TEST_UNIFORM_Z (orr_s32_x_untied, svint32_t,
 /*
 ** orr_w0_s32_x_tied1:
 **	mov	(z[0-9]+)\.s, w0
-**	orr	z0\.d, z0\.d, \1\.d
+**	orr	z0\.d, (z0\.d, \1\.d|\1\.d, z0\.d)
 **	ret
 */
 TEST_UNIFORM_ZS (orr_w0_s32_x_tied1, svint32_t, int32_t,
@@ -220,7 +220,7 @@ TEST_UNIFORM_ZS (orr_w0_s32_x_tied1, svint32_t, int32_t,
 /*
 ** orr_w0_s32_x_untied:
 **	mov	(z[0-9]+)\.s, w0
-**	orr	z0\.d, z1\.d, \1\.d
+**	orr	z0\.d, (z1\.d, \1\.d|\1\.d, z1\.d)
 **	ret
 */
 TEST_UNIFORM_ZS (orr_w0_s32_x_untied, svint32_t, int32_t,
@@ -230,7 +230,7 @@ TEST_UNIFORM_ZS (orr_w0_s32_x_untied, svint32_t, int32_t,
 /*
 ** orr_s4_s32_x_tied1:
 **	mov	(z[0-9]+)\.s, s4
-**	orr	z0\.d, z0\.d, \1\.d
+**	orr	z0\.d, (z0\.d, \1\.d|\1\.d, z0\.d)
 **	ret
 */
 TEST_UNIFORM_ZS (orr_s4_s32_x_tied1, svint32_t, int32_t,
@@ -240,7 +240,7 @@ TEST_UNIFORM_ZS (orr_s4_s32_x_tied1, svint32_t, int32_t,
 /*
 ** orr_s4_s32_x_untied:
 **	mov	(z[0-9]+)\.s, s4
-**	orr	z0\.d, z1\.d, \1\.d
+**	orr	z0\.d, (z1\.d, \1\.d|\1\.d, z1\.d)
 **	ret
 */
 TEST_UNIFORM_ZS (orr_s4_s32_x_untied, svint32_t, int32_t,
@@ -391,7 +391,7 @@ TEST_UNIFORM_Z (orr_m32768_s32_x, svint32_t,
 /*
 ** orr_5_s32_x:
 **	mov	(z[0-9]+)\.s, #5
-**	orr	z0\.d, z0\.d, \1\.d
+**	orr	z0\.d, (z0\.d, \1\.d|\1\.d, z0\.d)
 **	ret
 */
 TEST_UNIFORM_Z (orr_5_s32_x, svint32_t,

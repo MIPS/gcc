@@ -182,7 +182,7 @@ TEST_UNIFORM_ZS (eor_b4_u8_z_untied, svuint8_t, uint8_t,
 
 /*
 ** eor_u8_x_tied1:
-**	eor	z0\.d, z0\.d, z1\.d
+**	eor	z0\.d, (z0\.d, z1\.d|z1\.d, z0\.d)
 **	ret
 */
 TEST_UNIFORM_Z (eor_u8_x_tied1, svuint8_t,
@@ -191,7 +191,7 @@ TEST_UNIFORM_Z (eor_u8_x_tied1, svuint8_t,
 
 /*
 ** eor_u8_x_tied2:
-**	eor	z0\.d, z1\.d, z0\.d
+**	eor	z0\.d, (z0\.d, z1\.d|z1\.d, z0\.d)
 **	ret
 */
 TEST_UNIFORM_Z (eor_u8_x_tied2, svuint8_t,
@@ -200,7 +200,7 @@ TEST_UNIFORM_Z (eor_u8_x_tied2, svuint8_t,
 
 /*
 ** eor_u8_x_untied:
-**	eor	z0\.d, z1\.d, z2\.d
+**	eor	z0\.d, (z1\.d, z2\.d|z2\.d, z1\.d)
 **	ret
 */
 TEST_UNIFORM_Z (eor_u8_x_untied, svuint8_t,
@@ -210,7 +210,7 @@ TEST_UNIFORM_Z (eor_u8_x_untied, svuint8_t,
 /*
 ** eor_w0_u8_x_tied1:
 **	mov	(z[0-9]+)\.b, w0
-**	eor	z0\.d, z0\.d, \1\.d
+**	eor	z0\.d, (z0\.d, \1\.d|\1\.d, z0\.d)
 **	ret
 */
 TEST_UNIFORM_ZS (eor_w0_u8_x_tied1, svuint8_t, uint8_t,
@@ -220,7 +220,7 @@ TEST_UNIFORM_ZS (eor_w0_u8_x_tied1, svuint8_t, uint8_t,
 /*
 ** eor_w0_u8_x_untied:
 **	mov	(z[0-9]+)\.b, w0
-**	eor	z0\.d, z1\.d, \1\.d
+**	eor	z0\.d, (z1\.d, \1\.d|\1\.d, z1\.d)
 **	ret
 */
 TEST_UNIFORM_ZS (eor_w0_u8_x_untied, svuint8_t, uint8_t,
@@ -230,7 +230,7 @@ TEST_UNIFORM_ZS (eor_w0_u8_x_untied, svuint8_t, uint8_t,
 /*
 ** eor_b4_u8_x_tied1:
 **	mov	(z[0-9]+)\.b, b4
-**	eor	z0\.d, z0\.d, \1\.d
+**	eor	z0\.d, (z0\.d, \1\.d|\1\.d, z0\.d)
 **	ret
 */
 TEST_UNIFORM_ZS (eor_b4_u8_x_tied1, svuint8_t, uint8_t,
@@ -240,7 +240,7 @@ TEST_UNIFORM_ZS (eor_b4_u8_x_tied1, svuint8_t, uint8_t,
 /*
 ** eor_b4_u8_x_untied:
 **	mov	(z[0-9]+)\.b, b4
-**	eor	z0\.d, z1\.d, \1\.d
+**	eor	z0\.d, (z1\.d, \1\.d|\1\.d, z1\.d)
 **	ret
 */
 TEST_UNIFORM_ZS (eor_b4_u8_x_untied, svuint8_t, uint8_t,
@@ -287,7 +287,7 @@ TEST_UNIFORM_Z (eor_128_u8_x, svuint8_t,
 /*
 ** eor_255_u8_x:
 **	mov	(z[0-9]+)\.b, #-1
-**	eor	z0\.d, z0\.d, \1\.d
+**	eor	z0\.d, (z0\.d, \1\.d|\1\.d, z0\.d)
 **	ret
 */
 TEST_UNIFORM_Z (eor_255_u8_x, svuint8_t,
@@ -315,7 +315,7 @@ TEST_UNIFORM_Z (eor_m128_u8_x, svuint8_t,
 /*
 ** eor_5_u8_x:
 **	mov	(z[0-9]+)\.b, #5
-**	eor	z0\.d, z0\.d, \1\.d
+**	eor	z0\.d, (z0\.d, \1\.d|\1\.d, z0\.d)
 **	ret
 */
 TEST_UNIFORM_Z (eor_5_u8_x, svuint8_t,

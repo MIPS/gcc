@@ -182,7 +182,7 @@ TEST_UNIFORM_ZS (eor_h4_u16_z_untied, svuint16_t, uint16_t,
 
 /*
 ** eor_u16_x_tied1:
-**	eor	z0\.d, z0\.d, z1\.d
+**	eor	z0\.d, (z0\.d, z1\.d|z1\.d, z0\.d)
 **	ret
 */
 TEST_UNIFORM_Z (eor_u16_x_tied1, svuint16_t,
@@ -191,7 +191,7 @@ TEST_UNIFORM_Z (eor_u16_x_tied1, svuint16_t,
 
 /*
 ** eor_u16_x_tied2:
-**	eor	z0\.d, z1\.d, z0\.d
+**	eor	z0\.d, (z0\.d, z1\.d|z1\.d, z0\.d)
 **	ret
 */
 TEST_UNIFORM_Z (eor_u16_x_tied2, svuint16_t,
@@ -200,7 +200,7 @@ TEST_UNIFORM_Z (eor_u16_x_tied2, svuint16_t,
 
 /*
 ** eor_u16_x_untied:
-**	eor	z0\.d, z1\.d, z2\.d
+**	eor	z0\.d, (z1\.d, z2\.d|z2\.d, z1\.d)
 **	ret
 */
 TEST_UNIFORM_Z (eor_u16_x_untied, svuint16_t,
@@ -210,7 +210,7 @@ TEST_UNIFORM_Z (eor_u16_x_untied, svuint16_t,
 /*
 ** eor_w0_u16_x_tied1:
 **	mov	(z[0-9]+)\.h, w0
-**	eor	z0\.d, z0\.d, \1\.d
+**	eor	z0\.d, (z0\.d, \1\.d|\1\.d, z0\.d)
 **	ret
 */
 TEST_UNIFORM_ZS (eor_w0_u16_x_tied1, svuint16_t, uint16_t,
@@ -220,7 +220,7 @@ TEST_UNIFORM_ZS (eor_w0_u16_x_tied1, svuint16_t, uint16_t,
 /*
 ** eor_w0_u16_x_untied:
 **	mov	(z[0-9]+)\.h, w0
-**	eor	z0\.d, z1\.d, \1\.d
+**	eor	z0\.d, (z1\.d, \1\.d|\1\.d, z1\.d)
 **	ret
 */
 TEST_UNIFORM_ZS (eor_w0_u16_x_untied, svuint16_t, uint16_t,
@@ -230,7 +230,7 @@ TEST_UNIFORM_ZS (eor_w0_u16_x_untied, svuint16_t, uint16_t,
 /*
 ** eor_h4_u16_x_tied1:
 **	mov	(z[0-9]+)\.h, h4
-**	eor	z0\.d, z0\.d, \1\.d
+**	eor	z0\.d, (z0\.d, \1\.d|\1\.d, z0\.d)
 **	ret
 */
 TEST_UNIFORM_ZS (eor_h4_u16_x_tied1, svuint16_t, uint16_t,
@@ -240,7 +240,7 @@ TEST_UNIFORM_ZS (eor_h4_u16_x_tied1, svuint16_t, uint16_t,
 /*
 ** eor_h4_u16_x_untied:
 **	mov	(z[0-9]+)\.h, h4
-**	eor	z0\.d, z1\.d, \1\.d
+**	eor	z0\.d, (z1\.d, \1\.d|\1\.d, z1\.d)
 **	ret
 */
 TEST_UNIFORM_ZS (eor_h4_u16_x_untied, svuint16_t, uint16_t,
@@ -395,7 +395,7 @@ TEST_UNIFORM_Z (eor_m32768_u16_x, svuint16_t,
 /*
 ** eor_5_u16_x:
 **	mov	(z[0-9]+)\.h, #5
-**	eor	z0\.d, z0\.d, \1\.d
+**	eor	z0\.d, (z0\.d, \1\.d|\1\.d, z0\.d)
 **	ret
 */
 TEST_UNIFORM_Z (eor_5_u16_x, svuint16_t,

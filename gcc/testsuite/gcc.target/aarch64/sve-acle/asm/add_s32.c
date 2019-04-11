@@ -182,7 +182,7 @@ TEST_UNIFORM_ZS (add_s4_s32_z_untied, svint32_t, int32_t,
 
 /*
 ** add_s32_x_tied1:
-**	add	z0\.s, z0\.s, z1\.s
+**	add	z0\.s, (z0\.s, z1\.s|z1\.s, z0\.s)
 **	ret
 */
 TEST_UNIFORM_Z (add_s32_x_tied1, svint32_t,
@@ -191,7 +191,7 @@ TEST_UNIFORM_Z (add_s32_x_tied1, svint32_t,
 
 /*
 ** add_s32_x_tied2:
-**	add	z0\.s, z1\.s, z0\.s
+**	add	z0\.s, (z0\.s, z1\.s|z1\.s, z0\.s)
 **	ret
 */
 TEST_UNIFORM_Z (add_s32_x_tied2, svint32_t,
@@ -200,7 +200,7 @@ TEST_UNIFORM_Z (add_s32_x_tied2, svint32_t,
 
 /*
 ** add_s32_x_untied:
-**	add	z0\.s, z1\.s, z2\.s
+**	add	z0\.s, (z1\.s, z2\.s|z2\.s, z1\.s)
 **	ret
 */
 TEST_UNIFORM_Z (add_s32_x_untied, svint32_t,
@@ -210,7 +210,7 @@ TEST_UNIFORM_Z (add_s32_x_untied, svint32_t,
 /*
 ** add_w0_s32_x_tied1:
 **	mov	(z[0-9]+\.s), w0
-**	add	z0\.s, z0\.s, \1
+**	add	z0\.s, (z0\.s, \1|\1, z0\.s)
 **	ret
 */
 TEST_UNIFORM_ZS (add_w0_s32_x_tied1, svint32_t, int32_t,
@@ -220,7 +220,7 @@ TEST_UNIFORM_ZS (add_w0_s32_x_tied1, svint32_t, int32_t,
 /*
 ** add_w0_s32_x_untied:
 **	mov	(z[0-9]+\.s), w0
-**	add	z0\.s, z1\.s, \1
+**	add	z0\.s, (z1\.s, \1|\1, z1\.s)
 **	ret
 */
 TEST_UNIFORM_ZS (add_w0_s32_x_untied, svint32_t, int32_t,
@@ -230,7 +230,7 @@ TEST_UNIFORM_ZS (add_w0_s32_x_untied, svint32_t, int32_t,
 /*
 ** add_s4_s32_x_tied1:
 **	mov	(z[0-9]+\.s), s4
-**	add	z0\.s, z0\.s, \1
+**	add	z0\.s, (z0\.s, \1|\1, z0\.s)
 **	ret
 */
 TEST_UNIFORM_ZS (add_s4_s32_x_tied1, svint32_t, int32_t,
@@ -240,7 +240,7 @@ TEST_UNIFORM_ZS (add_s4_s32_x_tied1, svint32_t, int32_t,
 /*
 ** add_s4_s32_x_untied:
 **	mov	(z[0-9]+\.s), s4
-**	add	z0\.s, z1\.s, \1
+**	add	z0\.s, (z1\.s, \1|\1, z1\.s)
 **	ret
 */
 TEST_UNIFORM_ZS (add_s4_s32_x_untied, svint32_t, int32_t,
@@ -305,7 +305,7 @@ TEST_UNIFORM_Z (add_256_s32_x, svint32_t,
 /*
 ** add_511_s32_x:
 **	mov	(z[0-9]+\.s), #511
-**	add	z0\.s, z0\.s, \1
+**	add	z0\.s, (z0\.s, \1|\1, z0\.s)
 **	ret
 */
 TEST_UNIFORM_Z (add_511_s32_x, svint32_t,
@@ -333,7 +333,7 @@ TEST_UNIFORM_Z (add_65280_s32_x, svint32_t,
 /*
 ** add_65535_s32_x:
 **	mov	(z[0-9]+\.s), #65535
-**	add	z0\.s, z0\.s, \1
+**	add	z0\.s, (z0\.s, \1|\1, z0\.s)
 **	ret
 */
 TEST_UNIFORM_Z (add_65535_s32_x, svint32_t,
@@ -343,7 +343,7 @@ TEST_UNIFORM_Z (add_65535_s32_x, svint32_t,
 /*
 ** add_65536_s32_x:
 **	mov	(z[0-9]+\.s), #65536
-**	add	z0\.s, z0\.s, \1
+**	add	z0\.s, (z0\.s, \1|\1, z0\.s)
 **	ret
 */
 TEST_UNIFORM_Z (add_65536_s32_x, svint32_t,
@@ -398,7 +398,7 @@ TEST_UNIFORM_Z (add_m256_s32_x, svint32_t,
 /*
 ** add_m511_s32_x:
 **	mov	(z[0-9]+\.s), #-511
-**	add	z0\.s, z0\.s, \1
+**	add	z0\.s, (z0\.s, \1|\1, z0\.s)
 **	ret
 */
 TEST_UNIFORM_Z (add_m511_s32_x, svint32_t,
@@ -435,7 +435,7 @@ TEST_UNIFORM_Z (add_m65280_s32_x, svint32_t,
 /*
 ** add_m65535_s32_x:
 **	mov	(z[0-9]+\.s), #-65535
-**	add	z0\.s, z0\.s, \1
+**	add	z0\.s, (z0\.s, \1|\1, z0\.s)
 **	ret
 */
 TEST_UNIFORM_Z (add_m65535_s32_x, svint32_t,
@@ -445,7 +445,7 @@ TEST_UNIFORM_Z (add_m65535_s32_x, svint32_t,
 /*
 ** add_m65536_s32_x:
 **	mov	(z[0-9]+\.s), #-65536
-**	add	z0\.s, z0\.s, \1
+**	add	z0\.s, (z0\.s, \1|\1, z0\.s)
 **	ret
 */
 TEST_UNIFORM_Z (add_m65536_s32_x, svint32_t,

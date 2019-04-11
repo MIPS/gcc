@@ -182,7 +182,7 @@ TEST_UNIFORM_ZS (orr_b4_s8_z_untied, svint8_t, int8_t,
 
 /*
 ** orr_s8_x_tied1:
-**	orr	z0\.d, z0\.d, z1\.d
+**	orr	z0\.d, (z0\.d, z1\.d|z1\.d, z0\.d)
 **	ret
 */
 TEST_UNIFORM_Z (orr_s8_x_tied1, svint8_t,
@@ -191,7 +191,7 @@ TEST_UNIFORM_Z (orr_s8_x_tied1, svint8_t,
 
 /*
 ** orr_s8_x_tied2:
-**	orr	z0\.d, z1\.d, z0\.d
+**	orr	z0\.d, (z0\.d, z1\.d|z1\.d, z0\.d)
 **	ret
 */
 TEST_UNIFORM_Z (orr_s8_x_tied2, svint8_t,
@@ -200,7 +200,7 @@ TEST_UNIFORM_Z (orr_s8_x_tied2, svint8_t,
 
 /*
 ** orr_s8_x_untied:
-**	orr	z0\.d, z1\.d, z2\.d
+**	orr	z0\.d, (z1\.d, z2\.d|z2\.d, z1\.d)
 **	ret
 */
 TEST_UNIFORM_Z (orr_s8_x_untied, svint8_t,
@@ -210,7 +210,7 @@ TEST_UNIFORM_Z (orr_s8_x_untied, svint8_t,
 /*
 ** orr_w0_s8_x_tied1:
 **	mov	(z[0-9]+)\.b, w0
-**	orr	z0\.d, z0\.d, \1\.d
+**	orr	z0\.d, (z0\.d, \1\.d|\1\.d, z0\.d)
 **	ret
 */
 TEST_UNIFORM_ZS (orr_w0_s8_x_tied1, svint8_t, int8_t,
@@ -220,7 +220,7 @@ TEST_UNIFORM_ZS (orr_w0_s8_x_tied1, svint8_t, int8_t,
 /*
 ** orr_w0_s8_x_untied:
 **	mov	(z[0-9]+)\.b, w0
-**	orr	z0\.d, z1\.d, \1\.d
+**	orr	z0\.d, (z1\.d, \1\.d|\1\.d, z1\.d)
 **	ret
 */
 TEST_UNIFORM_ZS (orr_w0_s8_x_untied, svint8_t, int8_t,
@@ -230,7 +230,7 @@ TEST_UNIFORM_ZS (orr_w0_s8_x_untied, svint8_t, int8_t,
 /*
 ** orr_b4_s8_x_tied1:
 **	mov	(z[0-9]+)\.b, b4
-**	orr	z0\.d, z0\.d, \1\.d
+**	orr	z0\.d, (z0\.d, \1\.d|\1\.d, z0\.d)
 **	ret
 */
 TEST_UNIFORM_ZS (orr_b4_s8_x_tied1, svint8_t, int8_t,
@@ -240,7 +240,7 @@ TEST_UNIFORM_ZS (orr_b4_s8_x_tied1, svint8_t, int8_t,
 /*
 ** orr_b4_s8_x_untied:
 **	mov	(z[0-9]+)\.b, b4
-**	orr	z0\.d, z1\.d, \1\.d
+**	orr	z0\.d, (z1\.d, \1\.d|\1\.d, z1\.d)
 **	ret
 */
 TEST_UNIFORM_ZS (orr_b4_s8_x_untied, svint8_t, int8_t,
@@ -314,7 +314,7 @@ TEST_UNIFORM_Z (orr_m128_s8_x, svint8_t,
 /*
 ** orr_5_s8_x:
 **	mov	(z[0-9]+)\.b, #5
-**	orr	z0\.d, z0\.d, \1\.d
+**	orr	z0\.d, (z0\.d, \1\.d|\1\.d, z0\.d)
 **	ret
 */
 TEST_UNIFORM_Z (orr_5_s8_x, svint8_t,

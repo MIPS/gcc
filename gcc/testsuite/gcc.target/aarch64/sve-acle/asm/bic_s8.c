@@ -315,7 +315,7 @@ TEST_UNIFORM_Z (bic_m128_s8_x, svint8_t,
 /*
 ** bic_5_s8_x:
 **	mov	(z[0-9]+)\.b, #-6
-**	and	z0\.d, z0\.d, \1\.d
+**	and	z0\.d, (z0\.d, \1\.d|\1\.d, z0\.d)
 **	ret
 */
 TEST_UNIFORM_Z (bic_5_s8_x, svint8_t,

@@ -396,7 +396,7 @@ TEST_UNIFORM_Z (bic_m32768_u16_x, svuint16_t,
 /*
 ** bic_5_u16_x:
 **	mov	(z[0-9]+)\.h, #-6
-**	and	z0\.d, z0\.d, \1\.d
+**	and	z0\.d, (z0\.d, \1\.d|\1\.d, z0\.d)
 **	ret
 */
 TEST_UNIFORM_Z (bic_5_u16_x, svuint16_t,

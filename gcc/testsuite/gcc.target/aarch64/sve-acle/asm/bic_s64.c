@@ -392,7 +392,7 @@ TEST_UNIFORM_Z (bic_m32768_s64_x, svint64_t,
 /*
 ** bic_5_s64_x:
 **	mov	(z[0-9]+\.d), #-6
-**	and	z0\.d, z0\.d, \1
+**	and	z0\.d, (z0\.d, \1|\1, z0\.d)
 **	ret
 */
 TEST_UNIFORM_Z (bic_5_s64_x, svint64_t,

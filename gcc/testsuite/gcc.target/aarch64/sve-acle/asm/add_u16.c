@@ -182,7 +182,7 @@ TEST_UNIFORM_ZS (add_h4_u16_z_untied, svuint16_t, uint16_t,
 
 /*
 ** add_u16_x_tied1:
-**	add	z0\.h, z0\.h, z1\.h
+**	add	z0\.h, (z0\.h, z1\.h|z1\.h, z0\.h)
 **	ret
 */
 TEST_UNIFORM_Z (add_u16_x_tied1, svuint16_t,
@@ -191,7 +191,7 @@ TEST_UNIFORM_Z (add_u16_x_tied1, svuint16_t,
 
 /*
 ** add_u16_x_tied2:
-**	add	z0\.h, z1\.h, z0\.h
+**	add	z0\.h, (z0\.h, z1\.h|z1\.h, z0\.h)
 **	ret
 */
 TEST_UNIFORM_Z (add_u16_x_tied2, svuint16_t,
@@ -200,7 +200,7 @@ TEST_UNIFORM_Z (add_u16_x_tied2, svuint16_t,
 
 /*
 ** add_u16_x_untied:
-**	add	z0\.h, z1\.h, z2\.h
+**	add	z0\.h, (z1\.h, z2\.h|z2\.h, z1\.h)
 **	ret
 */
 TEST_UNIFORM_Z (add_u16_x_untied, svuint16_t,
@@ -210,7 +210,7 @@ TEST_UNIFORM_Z (add_u16_x_untied, svuint16_t,
 /*
 ** add_w0_u16_x_tied1:
 **	mov	(z[0-9]+\.h), w0
-**	add	z0\.h, z0\.h, \1
+**	add	z0\.h, (z0\.h, \1|\1, z0\.h)
 **	ret
 */
 TEST_UNIFORM_ZS (add_w0_u16_x_tied1, svuint16_t, uint16_t,
@@ -220,7 +220,7 @@ TEST_UNIFORM_ZS (add_w0_u16_x_tied1, svuint16_t, uint16_t,
 /*
 ** add_w0_u16_x_untied:
 **	mov	(z[0-9]+\.h), w0
-**	add	z0\.h, z1\.h, \1
+**	add	z0\.h, (z1\.h, \1|\1, z1\.h)
 **	ret
 */
 TEST_UNIFORM_ZS (add_w0_u16_x_untied, svuint16_t, uint16_t,
@@ -230,7 +230,7 @@ TEST_UNIFORM_ZS (add_w0_u16_x_untied, svuint16_t, uint16_t,
 /*
 ** add_h4_u16_x_tied1:
 **	mov	(z[0-9]+\.h), h4
-**	add	z0\.h, z0\.h, \1
+**	add	z0\.h, (z0\.h, \1|\1, z0\.h)
 **	ret
 */
 TEST_UNIFORM_ZS (add_h4_u16_x_tied1, svuint16_t, uint16_t,
@@ -240,7 +240,7 @@ TEST_UNIFORM_ZS (add_h4_u16_x_tied1, svuint16_t, uint16_t,
 /*
 ** add_h4_u16_x_untied:
 **	mov	(z[0-9]+\.h), h4
-**	add	z0\.h, z1\.h, \1
+**	add	z0\.h, (z1\.h, \1|\1, z1\.h)
 **	ret
 */
 TEST_UNIFORM_ZS (add_h4_u16_x_untied, svuint16_t, uint16_t,
@@ -305,7 +305,7 @@ TEST_UNIFORM_Z (add_256_u16_x, svuint16_t,
 /*
 ** add_257_u16_x:
 **	mov	(z[0-9]+)\.b, #1
-**	add	z0\.h, z0\.h, \1\.h
+**	add	z0\.h, (z0\.h, \1\.h|\1\.h, z0\.h)
 **	ret
 */
 TEST_UNIFORM_Z (add_257_u16_x, svuint16_t,
@@ -378,7 +378,7 @@ TEST_UNIFORM_Z (add_m256_u16_x, svuint16_t,
 /*
 ** add_m257_u16_x:
 **	mov	(z[0-9]+\.h), #-257
-**	add	z0\.h, z0\.h, \1
+**	add	z0\.h, (z0\.h, \1|\1, z0\.h)
 **	ret
 */
 TEST_UNIFORM_Z (add_m257_u16_x, svuint16_t,
