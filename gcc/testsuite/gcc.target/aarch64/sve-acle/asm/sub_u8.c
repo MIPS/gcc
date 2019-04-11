@@ -71,7 +71,7 @@ TEST_UNIFORM_ZS (sub_b4_u8_m_untied, svuint8_t, uint8_t,
 
 /*
 ** sub_1_u8_m_tied1:
-**	mov	(z[0-9]+\.b), #(-1|255)
+**	mov	(z[0-9]+\.b), #-1
 **	add	z0\.b, p0/m, z0\.b, \1
 **	ret
 */
@@ -81,7 +81,7 @@ TEST_UNIFORM_Z (sub_1_u8_m_tied1, svuint8_t,
 
 /*
 ** sub_1_u8_m_untied:
-**	mov	(z[0-9]+\.b), #(-1|255)
+**	mov	(z[0-9]+\.b), #-1
 **	movprfx	z0, z1
 **	add	z0\.b, p0/m, z0\.b, \1
 **	ret

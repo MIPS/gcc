@@ -92,7 +92,7 @@ TEST_UNIFORM_Z (add_1_s8_m_untied, svint8_t,
 
 /*
 ** add_m1_s8_m:
-**	mov	(z[0-9]+\.b), #(-1|255)
+**	mov	(z[0-9]+\.b), #-1
 **	add	z0\.b, p0/m, z0\.b, \1
 **	ret
 */

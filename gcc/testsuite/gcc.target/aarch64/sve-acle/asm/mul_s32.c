@@ -92,7 +92,7 @@ TEST_UNIFORM_Z (mul_2_s32_m_untied, svint32_t,
 
 /*
 ** mul_m1_s32_m:
-**	mov	(z[0-9]+)\.b, #(-1|255)
+**	mov	(z[0-9]+)\.b, #-1
 **	mul	z0\.s, p0/m, z0\.s, \1\.s
 **	ret
 */
@@ -292,7 +292,7 @@ TEST_UNIFORM_Z (mul_255_s32_x, svint32_t,
 
 /*
 ** mul_m1_s32_x:
-**	mul	z0\.s, z0\.s, #(-1|255)
+**	mul	z0\.s, z0\.s, #-1
 **	ret
 */
 TEST_UNIFORM_Z (mul_m1_s32_x, svint32_t,
@@ -310,7 +310,7 @@ TEST_UNIFORM_Z (mul_m127_s32_x, svint32_t,
 
 /*
 ** mul_m128_s32_x:
-**	mul	z0\.s, z0\.s, #(-128|128)
+**	mul	z0\.s, z0\.s, #-128
 **	ret
 */
 TEST_UNIFORM_Z (mul_m128_s32_x, svint32_t,

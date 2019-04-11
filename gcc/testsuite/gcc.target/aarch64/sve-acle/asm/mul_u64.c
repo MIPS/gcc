@@ -292,7 +292,7 @@ TEST_UNIFORM_Z (mul_255_u64_x, svuint64_t,
 
 /*
 ** mul_m1_u64_x:
-**	mul	z0\.d, z0\.d, #(-1|255)
+**	mul	z0\.d, z0\.d, #-1
 **	ret
 */
 TEST_UNIFORM_Z (mul_m1_u64_x, svuint64_t,
@@ -310,7 +310,7 @@ TEST_UNIFORM_Z (mul_m127_u64_x, svuint64_t,
 
 /*
 ** mul_m128_u64_x:
-**	mul	z0\.d, z0\.d, #(-128|128)
+**	mul	z0\.d, z0\.d, #-128
 **	ret
 */
 TEST_UNIFORM_Z (mul_m128_u64_x, svuint64_t,

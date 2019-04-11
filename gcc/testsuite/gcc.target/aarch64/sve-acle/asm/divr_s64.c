@@ -92,7 +92,7 @@ TEST_UNIFORM_Z (divr_2_s64_m_untied, svint64_t,
 
 /*
 ** divr_m1_s64_m:
-**	mov	(z[0-9]+)\.b, #(-1|255)
+**	mov	(z[0-9]+)\.b, #-1
 **	sdivr	z0\.d, p0/m, z0\.d, \1\.d
 **	ret
 */

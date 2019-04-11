@@ -391,7 +391,7 @@ TEST_UNIFORM_Z (add_m256_s64_x, svint64_t,
 
 /*
 ** add_m511_s64_x:
-**	mov	(z[0-9]+\.d), #(-511|65279)
+**	mov	(z[0-9]+\.d), #-511
 **	add	z0\.d, z0\.d, \1
 **	ret
 */

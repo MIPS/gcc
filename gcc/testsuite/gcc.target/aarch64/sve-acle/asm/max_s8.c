@@ -92,7 +92,7 @@ TEST_UNIFORM_Z (max_1_s8_m_untied, svint8_t,
 
 /*
 ** max_m1_s8_m:
-**	mov	(z[0-9]+\.b), #(-1|255)
+**	mov	(z[0-9]+\.b), #-1
 **	smax	z0\.b, p0/m, z0\.b, \1
 **	ret
 */

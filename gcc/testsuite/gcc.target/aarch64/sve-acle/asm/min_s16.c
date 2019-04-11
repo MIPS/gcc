@@ -92,7 +92,7 @@ TEST_UNIFORM_Z (min_1_s16_m_untied, svint16_t,
 
 /*
 ** min_m1_s16_m:
-**	mov	(z[0-9]+)\.b, #(-1|255)
+**	mov	(z[0-9]+)\.b, #-1
 **	smin	z0\.h, p0/m, z0\.h, \1\.h
 **	ret
 */

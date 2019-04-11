@@ -391,7 +391,7 @@ TEST_UNIFORM_Z (add_m256_u32_x, svuint32_t,
 
 /*
 ** add_m511_u32_x:
-**	mov	(z[0-9]+\.s), #(-511|65279)
+**	mov	(z[0-9]+\.s), #-511
 **	add	z0\.s, z0\.s, \1
 **	ret
 */

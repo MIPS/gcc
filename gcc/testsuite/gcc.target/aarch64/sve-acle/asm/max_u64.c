@@ -92,7 +92,7 @@ TEST_UNIFORM_Z (max_1_u64_m_untied, svuint64_t,
 
 /*
 ** max_m1_u64_m:
-**	mov	(z[0-9]+)\.b, #(-1|255)
+**	mov	(z[0-9]+)\.b, #-1
 **	umax	z0\.d, p0/m, z0\.d, \1\.d
 **	ret
 */

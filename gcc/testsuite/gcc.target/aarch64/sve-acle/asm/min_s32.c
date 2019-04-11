@@ -92,7 +92,7 @@ TEST_UNIFORM_Z (min_1_s32_m_untied, svint32_t,
 
 /*
 ** min_m1_s32_m:
-**	mov	(z[0-9]+)\.b, #(-1|255)
+**	mov	(z[0-9]+)\.b, #-1
 **	smin	z0\.s, p0/m, z0\.s, \1\.s
 **	ret
 */

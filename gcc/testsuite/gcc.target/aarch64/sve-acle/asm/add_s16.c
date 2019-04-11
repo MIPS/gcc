@@ -371,7 +371,7 @@ TEST_UNIFORM_Z (add_m256_s16_x, svint16_t,
 
 /*
 ** add_m257_s16_x:
-**	mov	(z[0-9]+\.h), #(-257|65279)
+**	mov	(z[0-9]+\.h), #-257
 **	add	z0\.h, z0\.h, \1
 **	ret
 */
