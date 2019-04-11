@@ -492,7 +492,7 @@ TEST_UNIFORM_Z (add_2_f32_x_untied, svfloat32_t,
 
 /*
 ** ptrue_add_f32_x_tied1:
-**	fadd	z0\.s, (z0\.s, z1\.s||z1\.s, z0\.s)
+**	fadd	z0\.s, (z0\.s, z1\.s|z1\.s, z0\.s)
 **	ret
 */
 TEST_UNIFORM_Z (ptrue_add_f32_x_tied1, svfloat32_t,

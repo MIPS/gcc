@@ -492,7 +492,7 @@ TEST_UNIFORM_Z (add_2_f64_x_untied, svfloat64_t,
 
 /*
 ** ptrue_add_f64_x_tied1:
-**	fadd	z0\.d, (z0\.d, z1\.d||z1\.d, z0\.d)
+**	fadd	z0\.d, (z0\.d, z1\.d|z1\.d, z0\.d)
 **	ret
 */
 TEST_UNIFORM_Z (ptrue_add_f64_x_tied1, svfloat64_t,
