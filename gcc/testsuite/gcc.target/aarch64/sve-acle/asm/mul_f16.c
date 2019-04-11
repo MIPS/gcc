@@ -183,7 +183,7 @@ TEST_UNIFORM_ZS (mul_w0_f16_z_untied, svfloat16_t, __fp16,
 /*
 ** mul_h4_f16_z_tied1:
 **	mov	(z[0-9]+\.h), h4
-**	movprfx	(z0\.h, p0/z, z0\.h|z0\.h, p0/z, \1)
+**	movprfx	z0\.h, p0/z, z0\.h
 **	fmul	z0\.h, p0/m, z0\.h, \1
 **	ret
 */

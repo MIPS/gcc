@@ -476,7 +476,7 @@ TEST_UNIFORM_Z (add_2_f16_x_tied1, svfloat16_t,
 
 /*
 ** add_2_f16_x_untied:
-**	fmov	(z[0-9]+\.h), #2.0(e\+0)?
+**	fmov	z0\.h, #2\.0(?:e\+0)?
 **	fadd	z0\.h, p0/m, z0\.h, z1\.h
 **	ret
 */
