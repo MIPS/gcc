@@ -297,8 +297,7 @@ TEST_UNIFORM_ZS (min_s4_s32_x_untied, svint32_t, int32_t,
 
 /*
 ** min_1_s32_x_tied1:
-**	mov	(z[0-9]+\.s), #1
-**	smin	z0\.s, p0/m, z0\.s, \1
+**	smin	z0\.s, z0\.s, #1
 **	ret
 */
 TEST_UNIFORM_Z (min_1_s32_x_tied1, svint32_t,
@@ -307,10 +306,57 @@ TEST_UNIFORM_Z (min_1_s32_x_tied1, svint32_t,
 
 /*
 ** min_1_s32_x_untied:
-**	mov	z0\.s, #1
-**	smin	z0\.s, p0/m, z0\.s, z1\.s
+**	movprfx	z0, z1
+**	smin	z0\.s, z0\.s, #1
 **	ret
 */
 TEST_UNIFORM_Z (min_1_s32_x_untied, svint32_t,
 		z0 = svmin_n_s32_x (p0, z1, 1),
 		z0 = svmin_x (p0, z1, 1))
+
+/*
+** min_127_s32_x:
+**	smin	z0\.s, z0\.s, #127
+**	ret
+*/
+TEST_UNIFORM_Z (min_127_s32_x, svint32_t,
+		z0 = svmin_n_s32_x (p0, z0, 127),
+		z0 = svmin_x (p0, z0, 127))
+
+/*
+** min_128_s32_x:
+**	mov	(z[0-9]+\.s), #128
+**	smin	z0\.s, p0/m, z0\.s, \1
+**	ret
+*/
+TEST_UNIFORM_Z (min_128_s32_x, svint32_t,
+		z0 = svmin_n_s32_x (p0, z0, 128),
+		z0 = svmin_x (p0, z0, 128))
+
+/*
+** min_m1_s32_x:
+**	smin	z0\.s, z0\.s, #-1
+**	ret
+*/
+TEST_UNIFORM_Z (min_m1_s32_x, svint32_t,
+		z0 = svmin_n_s32_x (p0, z0, -1),
+		z0 = svmin_x (p0, z0, -1))
+
+/*
+** min_m128_s32_x:
+**	smin	z0\.s, z0\.s, #-128
+**	ret
+*/
+TEST_UNIFORM_Z (min_m128_s32_x, svint32_t,
+		z0 = svmin_n_s32_x (p0, z0, -128),
+		z0 = svmin_x (p0, z0, -128))
+
+/*
+** min_m129_s32_x:
+**	mov	(z[0-9]+\.s), #-129
+**	smin	z0\.s, p0/m, z0\.s, \1
+**	ret
+*/
+TEST_UNIFORM_Z (min_m129_s32_x, svint32_t,
+		z0 = svmin_n_s32_x (p0, z0, -129),
+		z0 = svmin_x (p0, z0, -129))

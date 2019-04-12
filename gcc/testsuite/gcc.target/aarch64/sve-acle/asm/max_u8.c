@@ -297,8 +297,7 @@ TEST_UNIFORM_ZS (max_b4_u8_x_untied, svuint8_t, uint8_t,
 
 /*
 ** max_1_u8_x_tied1:
-**	mov	(z[0-9]+\.b), #1
-**	umax	z0\.b, p0/m, z0\.b, \1
+**	umax	z0\.b, z0\.b, #1
 **	ret
 */
 TEST_UNIFORM_Z (max_1_u8_x_tied1, svuint8_t,
@@ -307,10 +306,37 @@ TEST_UNIFORM_Z (max_1_u8_x_tied1, svuint8_t,
 
 /*
 ** max_1_u8_x_untied:
-**	mov	z0\.b, #1
-**	umax	z0\.b, p0/m, z0\.b, z1\.b
+**	movprfx	z0, z1
+**	umax	z0\.b, z0\.b, #1
 **	ret
 */
 TEST_UNIFORM_Z (max_1_u8_x_untied, svuint8_t,
 		z0 = svmax_n_u8_x (p0, z1, 1),
 		z0 = svmax_x (p0, z1, 1))
+
+/*
+** max_127_u8_x:
+**	umax	z0\.b, z0\.b, #127
+**	ret
+*/
+TEST_UNIFORM_Z (max_127_u8_x, svuint8_t,
+		z0 = svmax_n_u8_x (p0, z0, 127),
+		z0 = svmax_x (p0, z0, 127))
+
+/*
+** max_128_u8_x:
+**	umax	z0\.b, z0\.b, #128
+**	ret
+*/
+TEST_UNIFORM_Z (max_128_u8_x, svuint8_t,
+		z0 = svmax_n_u8_x (p0, z0, 128),
+		z0 = svmax_x (p0, z0, 128))
+
+/*
+** max_254_u8_x:
+**	umax	z0\.b, z0\.b, #254
+**	ret
+*/
+TEST_UNIFORM_Z (max_254_u8_x, svuint8_t,
+		z0 = svmax_n_u8_x (p0, z0, 254),
+		z0 = svmax_x (p0, z0, 254))

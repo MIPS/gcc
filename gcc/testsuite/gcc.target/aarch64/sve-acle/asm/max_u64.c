@@ -297,8 +297,7 @@ TEST_UNIFORM_ZS (max_d4_u64_x_untied, svuint64_t, uint64_t,
 
 /*
 ** max_1_u64_x_tied1:
-**	mov	(z[0-9]+\.d), #1
-**	umax	z0\.d, p0/m, z0\.d, \1
+**	umax	z0\.d, z0\.d, #1
 **	ret
 */
 TEST_UNIFORM_Z (max_1_u64_x_tied1, svuint64_t,
@@ -307,10 +306,57 @@ TEST_UNIFORM_Z (max_1_u64_x_tied1, svuint64_t,
 
 /*
 ** max_1_u64_x_untied:
-**	mov	z0\.d, #1
-**	umax	z0\.d, p0/m, z0\.d, z1\.d
+**	movprfx	z0, z1
+**	umax	z0\.d, z0\.d, #1
 **	ret
 */
 TEST_UNIFORM_Z (max_1_u64_x_untied, svuint64_t,
 		z0 = svmax_n_u64_x (p0, z1, 1),
 		z0 = svmax_x (p0, z1, 1))
+
+/*
+** max_127_u64_x:
+**	umax	z0\.d, z0\.d, #127
+**	ret
+*/
+TEST_UNIFORM_Z (max_127_u64_x, svuint64_t,
+		z0 = svmax_n_u64_x (p0, z0, 127),
+		z0 = svmax_x (p0, z0, 127))
+
+/*
+** max_128_u64_x:
+**	umax	z0\.d, z0\.d, #128
+**	ret
+*/
+TEST_UNIFORM_Z (max_128_u64_x, svuint64_t,
+		z0 = svmax_n_u64_x (p0, z0, 128),
+		z0 = svmax_x (p0, z0, 128))
+
+/*
+** max_255_u64_x:
+**	umax	z0\.d, z0\.d, #255
+**	ret
+*/
+TEST_UNIFORM_Z (max_255_u64_x, svuint64_t,
+		z0 = svmax_n_u64_x (p0, z0, 255),
+		z0 = svmax_x (p0, z0, 255))
+
+/*
+** max_256_u64_x:
+**	mov	(z[0-9]+\.d), #256
+**	umax	z0\.d, p0/m, z0\.d, \1
+**	ret
+*/
+TEST_UNIFORM_Z (max_256_u64_x, svuint64_t,
+		z0 = svmax_n_u64_x (p0, z0, 256),
+		z0 = svmax_x (p0, z0, 256))
+
+/*
+** max_m2_u64_x:
+**	mov	(z[0-9]+\.d), #-2
+**	umax	z0\.d, p0/m, z0\.d, \1
+**	ret
+*/
+TEST_UNIFORM_Z (max_m2_u64_x, svuint64_t,
+		z0 = svmax_n_u64_x (p0, z0, -2),
+		z0 = svmax_x (p0, z0, -2))

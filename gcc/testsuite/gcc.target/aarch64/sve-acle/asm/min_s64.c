@@ -297,8 +297,7 @@ TEST_UNIFORM_ZS (min_d4_s64_x_untied, svint64_t, int64_t,
 
 /*
 ** min_1_s64_x_tied1:
-**	mov	(z[0-9]+\.d), #1
-**	smin	z0\.d, p0/m, z0\.d, \1
+**	smin	z0\.d, z0\.d, #1
 **	ret
 */
 TEST_UNIFORM_Z (min_1_s64_x_tied1, svint64_t,
@@ -307,10 +306,57 @@ TEST_UNIFORM_Z (min_1_s64_x_tied1, svint64_t,
 
 /*
 ** min_1_s64_x_untied:
-**	mov	z0\.d, #1
-**	smin	z0\.d, p0/m, z0\.d, z1\.d
+**	movprfx	z0, z1
+**	smin	z0\.d, z0\.d, #1
 **	ret
 */
 TEST_UNIFORM_Z (min_1_s64_x_untied, svint64_t,
 		z0 = svmin_n_s64_x (p0, z1, 1),
 		z0 = svmin_x (p0, z1, 1))
+
+/*
+** min_127_s64_x:
+**	smin	z0\.d, z0\.d, #127
+**	ret
+*/
+TEST_UNIFORM_Z (min_127_s64_x, svint64_t,
+		z0 = svmin_n_s64_x (p0, z0, 127),
+		z0 = svmin_x (p0, z0, 127))
+
+/*
+** min_128_s64_x:
+**	mov	(z[0-9]+\.d), #128
+**	smin	z0\.d, p0/m, z0\.d, \1
+**	ret
+*/
+TEST_UNIFORM_Z (min_128_s64_x, svint64_t,
+		z0 = svmin_n_s64_x (p0, z0, 128),
+		z0 = svmin_x (p0, z0, 128))
+
+/*
+** min_m1_s64_x:
+**	smin	z0\.d, z0\.d, #-1
+**	ret
+*/
+TEST_UNIFORM_Z (min_m1_s64_x, svint64_t,
+		z0 = svmin_n_s64_x (p0, z0, -1),
+		z0 = svmin_x (p0, z0, -1))
+
+/*
+** min_m128_s64_x:
+**	smin	z0\.d, z0\.d, #-128
+**	ret
+*/
+TEST_UNIFORM_Z (min_m128_s64_x, svint64_t,
+		z0 = svmin_n_s64_x (p0, z0, -128),
+		z0 = svmin_x (p0, z0, -128))
+
+/*
+** min_m129_s64_x:
+**	mov	(z[0-9]+\.d), #-129
+**	smin	z0\.d, p0/m, z0\.d, \1
+**	ret
+*/
+TEST_UNIFORM_Z (min_m129_s64_x, svint64_t,
+		z0 = svmin_n_s64_x (p0, z0, -129),
+		z0 = svmin_x (p0, z0, -129))

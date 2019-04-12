@@ -609,6 +609,12 @@
   (and (match_code "const,const_vector")
        (match_test "aarch64_const_vec_all_same_in_range_p (op, -128, 127)")))
 
+(define_predicate "aarch64_sve_umaxmin_immediate"
+  (and (match_code "const_vector")
+       (match_test "GET_MODE_INNER (GET_MODE (op)) == QImode
+		    ? aarch64_const_vec_all_same_in_range_p (op, -128, 127)
+		    : aarch64_const_vec_all_same_in_range_p (op, 0, 255)")))
+
 (define_predicate "aarch64_sve_dup_immediate"
   (and (match_code "const,const_vector")
        (ior (match_test "aarch64_sve_dup_immediate_p (op)")
@@ -676,6 +682,10 @@
 (define_predicate "aarch64_sve_mul_operand"
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "aarch64_sve_mul_immediate")))
+
+(define_predicate "aarch64_sve_umaxmin_operand"
+  (ior (match_operand 0 "register_operand")
+       (match_operand 0 "aarch64_sve_umaxmin_immediate")))
 
 (define_predicate "aarch64_sve_cmp_vsc_operand"
   (ior (match_operand 0 "register_operand")

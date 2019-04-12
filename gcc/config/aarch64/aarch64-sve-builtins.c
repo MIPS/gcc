@@ -3010,13 +3010,7 @@ function_expander::expand_msb (unsigned int merge_argno)
 rtx
 function_expander::expand_mul ()
 {
-  if (m_fi.pred == PRED_x)
-    {
-      insn_code icode = code_for_aarch64_pred_mul (get_mode (0));
-      return expand_via_pred_x_insn (icode);
-    }
-  else
-    return expand_via_pred_direct_optab (cond_smul_optab);
+  return expand_pred_op (MULT, UNSPEC_COND_MUL);
 }
 
 /* Expand a call to svmulh.  */

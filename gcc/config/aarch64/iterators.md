@@ -1259,6 +1259,9 @@
 ;; SVE integer binary division operations.
 (define_code_iterator SVE_INT_BINARY_SD [div udiv])
 
+;; SVE integer binary operations that have an immediate form.
+(define_code_iterator SVE_INT_BINARY_IMM [mult smax umax smin umin])
+
 ;; SVE floating-point operations with an unpredicated all-register form.
 (define_code_iterator SVE_UNPRED_FP_BINARY [plus minus mult])
 
@@ -1473,8 +1476,20 @@
 			     (abs "fabs")
 			     (sqrt "fsqrt")])
 
+;; The fragment of an SVE immediate predicate to use for an rtx code.
+(define_code_attr sve_imm_pred [(mult "mul")
+				(smax "mul")
+				(smin "mul")
+				(umax "umaxmin")
+				(umin "umaxmin")])
+
 ;; The SVE immediate constraint to use for an rtl code.
-(define_code_attr sve_imm_con [(eq "vsc")
+(define_code_attr sve_imm_con [(mult "vsm")
+			       (smax "vsm")
+			       (smin "vsm")
+			       (umax "vsb")
+			       (umin "vsb")
+			       (eq "vsc")
 			       (ne "vsc")
 			       (lt "vsc")
 			       (ge "vsc")
@@ -1484,6 +1499,13 @@
 			       (leu "vsd")
 			       (geu "vsd")
 			       (gtu "vsd")])
+
+;; The prefix letter to use when printing an immediate operand.
+(define_code_attr sve_imm_prefix [(mult "")
+				  (smax "")
+				  (smin "")
+				  (umax "D")
+				  (umin "D")])
 
 ;; -------------------------------------------------------------------
 ;; Int Iterators.
@@ -1627,6 +1649,8 @@
 					 UNSPEC_COND_FMAX UNSPEC_COND_FMIN
 					 UNSPEC_COND_FMAXNM
 					 UNSPEC_COND_FMINNM])
+
+(define_int_iterator SVE_COND_FP_MUL [UNSPEC_COND_MUL])
 
 (define_int_iterator SVE_COND_FP_BINARY_I1 [UNSPEC_COND_MUL
 					    UNSPEC_COND_FMAX UNSPEC_COND_FMIN

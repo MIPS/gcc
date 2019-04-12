@@ -379,6 +379,12 @@
    arithmetic instructions."
  (match_operand 0 "aarch64_sve_arith_immediate"))
 
+(define_constraint "vsb"
+  "@internal
+   A constraint that matches an immediate operand valid for SVE UMAX
+   and UMIN operations."
+ (match_operand 0 "aarch64_sve_umaxmin_immediate"))
+
 (define_constraint "vsc"
   "@internal
    A constraint that matches a signed immediate operand valid for SVE
