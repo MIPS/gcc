@@ -217,7 +217,9 @@ enum function {
   FUNC_svlsl_wide,
   FUNC_svmad,
   FUNC_svmax,
+  FUNC_svmaxnm,
   FUNC_svmin,
+  FUNC_svminnm,
   FUNC_svmla,
   FUNC_svmls,
   FUNC_svmsb,
@@ -573,7 +575,9 @@ private:
   rtx expand_lsl_wide ();
   rtx expand_mad (unsigned int);
   rtx expand_max ();
+  rtx expand_maxnm ();
   rtx expand_min ();
+  rtx expand_minnm ();
   rtx expand_mla ();
   rtx expand_mls ();
   rtx expand_msb (unsigned int);
@@ -1562,7 +1566,9 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svlsl_wide:
     case FUNC_svmad:
     case FUNC_svmax:
+    case FUNC_svmaxnm:
     case FUNC_svmin:
+    case FUNC_svminnm:
     case FUNC_svmla:
     case FUNC_svmls:
     case FUNC_svmsb:
@@ -2423,7 +2429,9 @@ gimple_folder::fold ()
     case FUNC_svlsl_wide:
     case FUNC_svmad:
     case FUNC_svmax:
+    case FUNC_svmaxnm:
     case FUNC_svmin:
+    case FUNC_svminnm:
     case FUNC_svmla:
     case FUNC_svmls:
     case FUNC_svmsb:
@@ -2642,8 +2650,14 @@ function_expander::expand ()
     case FUNC_svmax:
       return expand_max ();
 
+    case FUNC_svmaxnm:
+      return expand_maxnm ();
+
     case FUNC_svmin:
       return expand_min ();
+
+    case FUNC_svminnm:
+      return expand_minnm ();
 
     case FUNC_svmla:
       return expand_mla ();
@@ -2943,11 +2957,25 @@ function_expander::expand_max ()
   return expand_signed_pred_op (SMAX, UMAX, UNSPEC_COND_FMAX);
 }
 
+/* Expand a call to svmaxnm.  */
+rtx
+function_expander::expand_maxnm ()
+{
+  return expand_pred_op (UNKNOWN, UNSPEC_COND_FMAXNM);
+}
+
 /* Expand a call to svmin.  */
 rtx
 function_expander::expand_min ()
 {
   return expand_signed_pred_op (SMIN, UMIN, UNSPEC_COND_FMIN);
+}
+
+/* Expand a call to svminnm.  */
+rtx
+function_expander::expand_minnm ()
+{
+  return expand_pred_op (UNKNOWN, UNSPEC_COND_FMINNM);
 }
 
 /* Expand a call to svmla.
