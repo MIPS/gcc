@@ -109,6 +109,9 @@ enum function_shape {
      sv<t0>_t svfoo[_n_t0](sv<t0>_t, <t0>_t).  */
   SHAPE_binary_opt_n,
 
+  /* svbool_t svfoo_<t0>(svbool_t, svbool_t).  */
+  SHAPE_binary_pred,
+
   /* sv<t0>_t svfoo_t0(<t0>_t, <t0>_t).  */
   SHAPE_binary_scalar,
 
@@ -188,7 +191,7 @@ enum function_mode {
    a vector type, but provides more information about element sizes in
    the case of predicates.  */
 enum type_suffix {
-#define DEF_SVE_TYPE_SUFFIX(NAME, ACLE_TYPE, BITS) \
+#define DEF_SVE_TYPE_SUFFIX(NAME, ACLE_TYPE, BITS, MODE) \
   TYPE_SUFFIX_ ## NAME,
 #include "aarch64-sve-builtins.def"
   NUM_TYPE_SUFFIXES
@@ -295,6 +298,12 @@ struct type_suffix_info {
   unsigned int integer_p : 1;
   /* True if the suffix is for an unsigned type.  */
   unsigned int unsigned_p : 1;
+  /* True if the suffix is for a boolean type.  */
+  unsigned int bool_p : 1;
+  unsigned int spare : 5;
+
+  /* The associated vector or predicate mode.  */
+  machine_mode mode : 16;
 };
 
 /* Static information about a set of functions.  */
@@ -682,12 +691,12 @@ static const char *const pred_suffixes[NUM_PREDS + 1] = {
 
 /* The function name suffix associated with each element type.  */
 static const type_suffix_info type_suffixes[NUM_TYPE_SUFFIXES + 1] = {
-#define DEF_SVE_TYPE_SUFFIX(NAME, ACLE_TYPE, BITS) \
+#define DEF_SVE_TYPE_SUFFIX(NAME, ACLE_TYPE, BITS, MODE) \
   { "_" #NAME, VECTOR_TYPE_ ## ACLE_TYPE, BITS, BITS / BITS_PER_UNIT, \
     #NAME[0] == 's' || #NAME[0] == 'u', \
-    #NAME[0] == 'u'},
+    #NAME[0] == 'u', #NAME[0] == 'b', 0, MODE },
 #include "aarch64-sve-builtins.def"
-  { "", NUM_VECTOR_TYPES, 0, 0, false, false }
+  { "", NUM_VECTOR_TYPES, 0, 0, false, false, false, 0, VOIDmode }
 };
 
 /* _b8 _b16 _b32 _b64.  */
@@ -1065,6 +1074,10 @@ arm_sve_h_builder::build (const function_group &group)
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_000, group, MODE_none);
       build_all (&arm_sve_h_builder::sig_n_000, group, MODE_n);
+      break;
+
+    case SHAPE_binary_pred:
+      build_all (&arm_sve_h_builder::sig_000, group, MODE_none);
       break;
 
     case SHAPE_binary_scalar:
@@ -1675,6 +1688,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_ternary_qq_opt_n:
     case SHAPE_unary:
       return 0;
+    case SHAPE_binary_pred:
     case SHAPE_binary_scalar:
     case SHAPE_inherent:
     case SHAPE_inherent2:
@@ -1749,6 +1763,7 @@ function_resolver::resolve ()
     case SHAPE_binary_opt_n:
     case SHAPE_shift_opt_n:
       return resolve_uniform (2);
+    case SHAPE_binary_pred:
     case SHAPE_binary_scalar:
     case SHAPE_inherent:
     case SHAPE_inherent2:
@@ -2218,6 +2233,7 @@ function_checker::check ()
     {
     case SHAPE_binary:
     case SHAPE_binary_opt_n:
+    case SHAPE_binary_pred:
     case SHAPE_binary_scalar:
     case SHAPE_binary_wide:
     case SHAPE_create2:
@@ -2647,6 +2663,12 @@ gimple_folder::fold_zip ()
 gimple *
 gimple_folder::fold_permute (const vec_perm_builder &builder)
 {
+  /* Punt for now on _b16 and wider; we'd need more complex evpc logic
+     to rerecognize the result.  */
+  if (type_suffixes[m_fi.types[0]].bool_p
+      && type_suffixes[m_fi.types[0]].elem_bits > 8)
+    return NULL;
+
   poly_uint64 nelts = TYPE_VECTOR_SUBPARTS (TREE_TYPE (m_lhs));
   vec_perm_indices indices (builder, 2, nelts);
   tree perm_type = build_vector_type (ssizetype, nelts);
@@ -3616,7 +3638,7 @@ function_expander::overlaps_input_p (rtx x)
 machine_mode
 function_expander::get_mode (unsigned int i)
 {
-  return TYPE_MODE (m_fi.vector_type (i));
+  return type_suffixes[m_fi.types[i]].mode;
 }
 
 /* Return the vector mode for elements that are a quarter the size of integer

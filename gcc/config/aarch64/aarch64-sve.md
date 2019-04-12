@@ -821,7 +821,7 @@
   "tbl\t%0.<Vetype>, %1.<Vetype>, %2.<Vetype>"
 )
 
-(define_insn "*aarch64_sve_<perm_insn><mode>"
+(define_insn "@aarch64_sve_<perm_insn><mode>"
   [(set (match_operand:PRED_ALL 0 "register_operand" "=Upa")
 	(unspec:PRED_ALL [(match_operand:PRED_ALL 1 "register_operand" "Upa")
 			  (match_operand:PRED_ALL 2 "register_operand" "Upa")]

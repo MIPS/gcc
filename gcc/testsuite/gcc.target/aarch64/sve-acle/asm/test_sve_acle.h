@@ -102,6 +102,14 @@
     BIND_OUTPUT_P (p0);					\
   }
 
+#define TEST_UNIFORM_P(NAME, CODE1, CODE2)		\
+  START (NAME)						\
+  {							\
+    BIND_INPUT_P0_P3;					\
+    INVOKE (CODE1, CODE2);				\
+    BIND_OUTPUT_P (p0);					\
+  }
+
 #define TEST_DUAL_Z(NAME, TYPE1, TYPE2, CODE1, CODE2)	\
   START (NAME)						\
   {							\
