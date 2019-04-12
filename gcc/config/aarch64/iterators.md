@@ -477,6 +477,7 @@
     UNSPEC_COND_SUB	; Used in aarch64-sve.md.
     UNSPEC_COND_FABD	; Used in aarch64-sve.md.
     UNSPEC_COND_MUL	; Used in aarch64-sve.md.
+    UNSPEC_COND_FMULX	; Used in aarch64-sve.md.
     UNSPEC_COND_DIV	; Used in aarch64-sve.md.
     UNSPEC_COND_FMIN	; Used in aarch64-sve.md.
     UNSPEC_COND_FMAX	; Used in aarch64-sve.md.
@@ -1645,7 +1646,8 @@
 
 (define_int_iterator SVE_COND_FP_BINARY [UNSPEC_COND_ADD UNSPEC_COND_SUB
 					 UNSPEC_COND_FABD
-					 UNSPEC_COND_MUL UNSPEC_COND_DIV
+					 UNSPEC_COND_MUL UNSPEC_COND_FMULX
+					 UNSPEC_COND_DIV
 					 UNSPEC_COND_FMAX UNSPEC_COND_FMIN
 					 UNSPEC_COND_FMAXNM
 					 UNSPEC_COND_FMINNM])
@@ -1658,6 +1660,7 @@
 					    UNSPEC_COND_FMINNM])
 
 (define_int_iterator SVE_COND_FP_BINARY_REG [UNSPEC_COND_FABD
+					     UNSPEC_COND_FMULX
 					     UNSPEC_COND_DIV])
 
 (define_int_iterator SVE_COND_MAXMIN [UNSPEC_COND_FMAXNM UNSPEC_COND_FMINNM
@@ -1718,6 +1721,7 @@
 			(UNSPEC_COND_FNEG "neg")
 			(UNSPEC_COND_FSQRT "sqrt")
 			(UNSPEC_COND_MUL "mul")
+			(UNSPEC_COND_FMULX "mulx")
 			(UNSPEC_COND_DIV "div")
 			(UNSPEC_COND_FMAX "smax_nan")
 			(UNSPEC_COND_FMIN "smin_nan")
@@ -1964,6 +1968,7 @@
 			    (UNSPEC_COND_FSQRT "fsqrt")
 			    (UNSPEC_COND_FABD "fabd")
 			    (UNSPEC_COND_MUL "fmul")
+			    (UNSPEC_COND_FMULX "fmulx")
 			    (UNSPEC_COND_DIV "fdiv")
 			    (UNSPEC_COND_FMAX "fmax")
 			    (UNSPEC_COND_FMIN "fmin")
@@ -1972,6 +1977,7 @@
 
 (define_int_attr sve_fp_op_rev [(UNSPEC_COND_FABD "fabd")
 				(UNSPEC_COND_MUL "fmul")
+				(UNSPEC_COND_FMULX "fmulx")
 				(UNSPEC_COND_DIV "fdivr")
 				(UNSPEC_COND_FMAX "fmax")
 				(UNSPEC_COND_FMIN "fmin")

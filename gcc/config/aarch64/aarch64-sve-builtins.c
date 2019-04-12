@@ -225,6 +225,7 @@ enum function {
   FUNC_svmsb,
   FUNC_svmul,
   FUNC_svmulh,
+  FUNC_svmulx,
   FUNC_svneg,
   FUNC_svnot,
   FUNC_svorr,
@@ -583,6 +584,7 @@ private:
   rtx expand_msb (unsigned int);
   rtx expand_mul ();
   rtx expand_mulh ();
+  rtx expand_mulx ();
   rtx expand_neg ();
   rtx expand_not ();
   rtx expand_orr ();
@@ -1574,6 +1576,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svmsb:
     case FUNC_svmul:
     case FUNC_svmulh:
+    case FUNC_svmulx:
     case FUNC_svneg:
     case FUNC_svnot:
     case FUNC_svorr:
@@ -2437,6 +2440,7 @@ gimple_folder::fold ()
     case FUNC_svmsb:
     case FUNC_svmul:
     case FUNC_svmulh:
+    case FUNC_svmulx:
     case FUNC_svneg:
     case FUNC_svnot:
     case FUNC_svorr:
@@ -2673,6 +2677,9 @@ function_expander::expand ()
 
     case FUNC_svmulh:
       return expand_mulh ();
+
+    case FUNC_svmulx:
+      return expand_mulx ();
 
     case FUNC_svneg:
       return expand_neg ();
@@ -3046,6 +3053,13 @@ rtx
 function_expander::expand_mulh ()
 {
   return expand_signed_pred_op (UNSPEC_SMUL_HIGHPART, UNSPEC_UMUL_HIGHPART, 0);
+}
+
+/* Expand a call to svmulx.  */
+rtx
+function_expander::expand_mulx ()
+{
+  return expand_pred_op (UNKNOWN, UNSPEC_COND_FMULX);
 }
 
 /* Expand a call to svneg.  */
