@@ -778,7 +778,7 @@ ipa_param_adjustments::modify_call (gcall *stmt,
      stmts and associate D#X with parm in decl_debug_args_lookup
      vector to say for debug info that if parameter parm had been passed,
      it would have value parm_Y(D).  */
-  if (MAY_HAVE_DEBUG_STMTS && old_decl && callee_decl)
+  if (MAY_HAVE_DEBUG_BIND_STMTS && old_decl && callee_decl)
     {
       vec<tree, va_gc> **debug_args = NULL;
       unsigned i = 0;
