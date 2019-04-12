@@ -1234,23 +1234,23 @@
   }
 )
 
-;; Predicated highpart multiplication.
+;; Predicated unspec integer operations.
 (define_insn "@aarch64_pred_<optab><mode>"
   [(set (match_operand:SVE_I 0 "register_operand" "=w, ?&w")
 	(unspec:SVE_I
 	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl")
 	   (unspec:SVE_I [(match_operand:SVE_I 2 "register_operand" "%0, w")
 			  (match_operand:SVE_I 3 "register_operand" "w, w")]
-			 MUL_HIGHPART)]
+			 SVE_INT_BINARY_REG)]
 	  UNSPEC_MERGE_PTRUE))]
   "TARGET_SVE"
   "@
-   <su>mulh\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
-   movprfx\t%0, %2\;<su>mulh\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
+   <sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
+   movprfx\t%0, %2\;<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
   [(set_attr "movprfx" "*,yes")]
 )
 
-;; Predicated MULH with select.
+;; Predicated unspec integer operations with select.
 (define_expand "@cond_<optab><mode>"
   [(set (match_operand:SVE_I 0 "register_operand")
 	(unspec:SVE_I
@@ -1258,13 +1258,18 @@
 	   (unspec:SVE_I
 	     [(match_operand:SVE_I 2 "register_operand")
 	      (match_operand:SVE_I 3 "register_operand")]
-	     MUL_HIGHPART)
+	     SVE_INT_BINARY_REG)
 	   (match_operand:SVE_I 4 "aarch64_simd_reg_or_zero")]
 	  UNSPEC_SEL))]
   "TARGET_SVE"
-)
+{
+  /* Only target code is aware of these operations, so we don't need
+     to handle the fully-general case.  */
+  gcc_assert (rtx_equal_p (operands[2], operands[4])
+	      || CONSTANT_P (operands[4]));
+})
 
-;; Predicated MULH with select matching the first input.
+;; Predicated unspec integer operations with select matching the first input.
 (define_insn "*cond_<optab><mode>_2"
   [(set (match_operand:SVE_I 0 "register_operand" "=w, ?&w")
 	(unspec:SVE_I
@@ -1272,16 +1277,16 @@
 	   (unspec:SVE_I
 	     [(match_operand:SVE_I 2 "register_operand" "0, w")
 	      (match_operand:SVE_I 3 "register_operand" "w, w")]
-	     MUL_HIGHPART)
+	     SVE_INT_BINARY_REG)
 	   (match_dup 2)]
 	  UNSPEC_SEL))]
   "TARGET_SVE"
   "@
-   <su>mulh\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
-   movprfx\t%0, %2\;<su>mulh\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
+   <sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
+   movprfx\t%0, %2\;<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
   [(set_attr "movprfx" "*,yes")])
 
-;; Predicated MULH with select matching zero.
+;; Predicated unspec integer operations with select matching zero.
 (define_insn "*cond_<optab><mode>_z"
   [(set (match_operand:SVE_I 0 "register_operand" "=&w, &w")
 	(unspec:SVE_I
@@ -1289,13 +1294,13 @@
 	   (unspec:SVE_I
 	     [(match_operand:SVE_I 2 "register_operand" "%0, w")
 	      (match_operand:SVE_I 3 "register_operand" "w, w")]
-	     MUL_HIGHPART)
+	     SVE_INT_BINARY_REG)
 	   (match_operand:SVE_I 4 "aarch64_simd_imm_zero")]
 	  UNSPEC_SEL))]
   "TARGET_SVE"
   "@
-   movprfx\t%0.<Vetype>, %1/z, %0.<Vetype>\;<su>mulh\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
-   movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;<su>mulh\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
+   movprfx\t%0.<Vetype>, %1/z, %0.<Vetype>\;<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
+   movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
   [(set_attr "movprfx" "yes")])
 
 ;; Unpredicated division.
@@ -2306,72 +2311,6 @@
    movprfx\t%0, %2\;<sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
   [(set_attr "movprfx" "*,*,yes")]
 )
-
-;; Predicated SABD and UABD.
-(define_insn "@aarch64_pred_<abd_uns><mode>"
-  [(set (match_operand:SVE_I 0 "register_operand" "=w, ?&w")
-	(unspec:SVE_I
-	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl")
-	   (unspec:SVE_I
-	     [(match_operand:SVE_I 2 "register_operand" "%0, w")
-	      (match_operand:SVE_I 3 "register_operand" "w, w")]
-	     SVE_COND_IABD)]
-	  UNSPEC_MERGE_PTRUE))]
-  "TARGET_SVE"
-  "@
-   <abd_uns_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
-   movprfx\t%0, %2\;<abd_uns_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
-  [(set_attr "movprfx" "*,yes")])
-
-;; Predicated SABD and UABD with select.
-(define_expand "@cond_<abd_uns><mode>"
-  [(set (match_operand:SVE_I 0 "register_operand")
-	(unspec:SVE_I
-	  [(match_operand:<VPRED> 1 "register_operand")
-	   (unspec:SVE_I
-	     [(match_operand:SVE_I 2 "register_operand")
-	      (match_operand:SVE_I 3 "register_operand")]
-	     SVE_COND_IABD)
-	   (match_operand:SVE_I 4 "aarch64_simd_reg_or_zero")]
-	  UNSPEC_SEL))]
-  "TARGET_SVE"
-)
-
-;; Predicated SABD and UABD with select matching the first input.
-;; We don't need a version that matches the second input (or an independent
-;; input) because the ACLE would never generate that form.
-(define_insn "*cond_<abd_uns><mode>_2"
-  [(set (match_operand:SVE_I 0 "register_operand" "=w, ?&w")
-	(unspec:SVE_I
-	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl")
-	   (unspec:SVE_I
-	     [(match_operand:SVE_I 2 "register_operand" "0, w")
-	      (match_operand:SVE_I 3 "register_operand" "w, w")]
-	     SVE_COND_IABD)
-	   (match_dup 2)]
-	  UNSPEC_SEL))]
-  "TARGET_SVE"
-  "@
-   <abd_uns_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
-   movprfx\t%0, %2\;<abd_uns_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
-  [(set_attr "movprfx" "*,yes")])
-
-;; Predicated SABD and UABD with select matching zero.
-(define_insn "*cond_<abd_uns><mode>_z"
-  [(set (match_operand:SVE_I 0 "register_operand" "=&w, &w")
-	(unspec:SVE_I
-	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl")
-	   (unspec:SVE_I
-	     [(match_operand:SVE_I 2 "register_operand" "%0, w")
-	      (match_operand:SVE_I 3 "register_operand" "w, w")]
-	     SVE_COND_IABD)
-	   (match_operand:SVE_I 4 "aarch64_simd_imm_zero")]
-	  UNSPEC_SEL))]
-  "TARGET_SVE"
-  "@
-   movprfx\t%0.<Vetype>, %1/z, %0.<Vetype>\;<abd_uns_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
-   movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;<abd_uns_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
-  [(set_attr "movprfx" "yes")])
 
 ;; Predicated integer operations with select.
 (define_expand "@cond_<optab><mode>"

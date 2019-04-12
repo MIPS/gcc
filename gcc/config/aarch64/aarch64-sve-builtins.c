@@ -2705,8 +2705,7 @@ function_expander::expand ()
 rtx
 function_expander::expand_abd ()
 {
-  return expand_signed_pred_op (UNSPEC_COND_SABD, UNSPEC_COND_UABD,
-				UNSPEC_COND_FABD);
+  return expand_signed_pred_op (UNSPEC_SABD, UNSPEC_UABD, UNSPEC_COND_FABD);
 }
 
 /* Expand a call to svabs.  */

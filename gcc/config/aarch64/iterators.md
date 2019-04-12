@@ -466,6 +466,8 @@
     UNSPEC_ANDF		; Used in aarch64-sve.md.
     UNSPEC_IORF		; Used in aarch64-sve.md.
     UNSPEC_XORF		; Used in aarch64-sve.md.
+    UNSPEC_SABD		; Used in aarch64-sve.md.
+    UNSPEC_UABD		; Used in aarch64-sve.md.
     UNSPEC_SMUL_HIGHPART ; Used in aarch64-sve.md.
     UNSPEC_UMUL_HIGHPART ; Used in aarch64-sve.md.
     UNSPEC_COND_FABS	; Used in aarch64-sve.md.
@@ -473,8 +475,6 @@
     UNSPEC_COND_FSQRT	; Used in aarch64-sve.md.
     UNSPEC_COND_ADD	; Used in aarch64-sve.md.
     UNSPEC_COND_SUB	; Used in aarch64-sve.md.
-    UNSPEC_COND_SABD	; Used in aarch64-sve.md.
-    UNSPEC_COND_UABD	; Used in aarch64-sve.md.
     UNSPEC_COND_FABD	; Used in aarch64-sve.md.
     UNSPEC_COND_MUL	; Used in aarch64-sve.md.
     UNSPEC_COND_DIV	; Used in aarch64-sve.md.
@@ -1613,6 +1613,10 @@
 
 (define_int_iterator MUL_HIGHPART [UNSPEC_SMUL_HIGHPART UNSPEC_UMUL_HIGHPART])
 
+(define_int_iterator SVE_INT_BINARY_REG [UNSPEC_SMUL_HIGHPART
+					 UNSPEC_UMUL_HIGHPART
+					 UNSPEC_SABD UNSPEC_UABD])
+
 (define_int_iterator SVE_COND_FP_UNARY [UNSPEC_COND_FABS
 					UNSPEC_COND_FNEG
 					UNSPEC_COND_FSQRT])
@@ -1632,8 +1636,6 @@
 
 (define_int_iterator SVE_COND_MAXMIN [UNSPEC_COND_FMAXNM UNSPEC_COND_FMINNM
 				      UNSPEC_COND_FMAX UNSPEC_COND_FMIN])
-
-(define_int_iterator SVE_COND_IABD [UNSPEC_COND_SABD UNSPEC_COND_UABD])
 
 (define_int_iterator SVE_COND_FP_TERNARY [UNSPEC_COND_FMLA
 					  UNSPEC_COND_FMLS
@@ -1681,13 +1683,15 @@
 			(UNSPEC_ANDV "and")
 			(UNSPEC_IORV "ior")
 			(UNSPEC_XORV "xor")
+			(UNSPEC_SABD "sabd")
+			(UNSPEC_UABD "uabd")
+		        (UNSPEC_SMUL_HIGHPART "smulh")
+		        (UNSPEC_UMUL_HIGHPART "umulh")
 			(UNSPEC_COND_FABS "abs")
 			(UNSPEC_COND_FABD "abd")
 			(UNSPEC_COND_FNEG "neg")
 			(UNSPEC_COND_FSQRT "sqrt")
 			(UNSPEC_COND_MUL "mul")
-		        (UNSPEC_SMUL_HIGHPART "smulh")
-		        (UNSPEC_UMUL_HIGHPART "umulh")
 			(UNSPEC_COND_DIV "div")
 			(UNSPEC_COND_FMAX "smax_nan")
 			(UNSPEC_COND_FMIN "smin_nan")
@@ -1697,12 +1701,6 @@
 			(UNSPEC_COND_FMLS "fnma")
 			(UNSPEC_COND_FNMLA "fnms")
 			(UNSPEC_COND_FNMLS "fms")])
-
-(define_int_attr abd_uns [(UNSPEC_COND_SABD "sabd")
-			  (UNSPEC_COND_UABD "uabd")])
-
-(define_int_attr abd_uns_op [(UNSPEC_COND_SABD "sabd")
-			     (UNSPEC_COND_UABD "uabd")])
 
 (define_int_attr  maxmin_uns [(UNSPEC_UMAXV "umax")
 			      (UNSPEC_UMINV "umin")
@@ -1929,7 +1927,11 @@
 			 (UNSPEC_COND_GE "ge")
 			 (UNSPEC_COND_GT "gt")])
 
-(define_int_attr sve_int_op [(UNSPEC_ASHIFT_WIDE "lsl")])
+(define_int_attr sve_int_op [(UNSPEC_SABD "sabd")
+			     (UNSPEC_UABD "uabd")
+			     (UNSPEC_SMUL_HIGHPART "smulh")
+			     (UNSPEC_UMUL_HIGHPART "umulh")
+			     (UNSPEC_ASHIFT_WIDE "lsl")])
 
 (define_int_attr sve_fp_op [(UNSPEC_COND_FABS "fabs")
 			    (UNSPEC_COND_FNEG "fneg")
