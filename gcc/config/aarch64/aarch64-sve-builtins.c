@@ -42,6 +42,7 @@
 #include "gimplify.h"
 #include "tree-vector-builder.h"
 #include "rtx-vector-builder.h"
+#include "vec-perm-indices.h"
 #include "stor-layout.h"
 #include "emit-rtl.h"
 #include "regs.h"
@@ -101,6 +102,9 @@ enum predication {
    present only in the full name, not the overloaded name.  Governing
    predicate arguments and predicate suffixes are not shown.  */
 enum function_shape {
+  /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t).  */
+  SHAPE_binary,
+
   /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t)
      sv<t0>_t svfoo[_n_t0](sv<t0>_t, <t0>_t).  */
   SHAPE_binary_opt_n,
@@ -232,16 +236,22 @@ enum function {
   FUNC_svset2,
   FUNC_svset3,
   FUNC_svset4,
-  FUNC_svundef,
-  FUNC_svundef2,
-  FUNC_svundef3,
-  FUNC_svundef4,
   FUNC_svptrue,
   FUNC_svqadd,
   FUNC_svqsub,
   FUNC_svsqrt,
   FUNC_svsub,
-  FUNC_svsubr
+  FUNC_svsubr,
+  FUNC_svtrn1,
+  FUNC_svtrn2,
+  FUNC_svundef,
+  FUNC_svundef2,
+  FUNC_svundef3,
+  FUNC_svundef4,
+  FUNC_svuzp1,
+  FUNC_svuzp2,
+  FUNC_svzip1,
+  FUNC_svzip2
 };
 
 /* Enumerates the function groups defined in aarch64-sve-builtins.def.  */
@@ -535,7 +545,12 @@ private:
   gimple *fold_get ();
   gimple *fold_ptrue ();
   gimple *fold_set ();
+  gimple *fold_trn ();
   gimple *fold_undef ();
+  gimple *fold_uzp ();
+  gimple *fold_zip ();
+
+  gimple *fold_permute (const vec_perm_builder &);
 
   /* The function being called.  */
   const function_instance &m_fi;
@@ -588,6 +603,7 @@ private:
   rtx expand_neg ();
   rtx expand_not ();
   rtx expand_orr ();
+  rtx expand_permute (int);
   rtx expand_ptrue ();
   rtx expand_qadd ();
   rtx expand_qsub ();
@@ -1040,6 +1056,11 @@ arm_sve_h_builder::build (const function_group &group)
 {
   switch (group.shape)
     {
+    case SHAPE_binary:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_000, group, MODE_none);
+      break;
+
     case SHAPE_binary_opt_n:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_000, group, MODE_none);
@@ -1611,10 +1632,16 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svset2:
     case FUNC_svset3:
     case FUNC_svset4:
+    case FUNC_svtrn1:
+    case FUNC_svtrn2:
     case FUNC_svundef:
     case FUNC_svundef2:
     case FUNC_svundef3:
     case FUNC_svundef4:
+    case FUNC_svuzp1:
+    case FUNC_svuzp2:
+    case FUNC_svzip1:
+    case FUNC_svzip2:
       attrs = add_attribute ("const", attrs);
       attrs = add_attribute ("nothrow", attrs);
       break;
@@ -1630,6 +1657,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
 {
   switch (shape)
     {
+    case SHAPE_binary:
     case SHAPE_binary_opt_n:
     case SHAPE_binary_wide:
     case SHAPE_create2:
@@ -1717,6 +1745,7 @@ function_resolver::resolve ()
 {
   switch (m_group.shape)
     {
+    case SHAPE_binary:
     case SHAPE_binary_opt_n:
     case SHAPE_shift_opt_n:
       return resolve_uniform (2);
@@ -2187,6 +2216,7 @@ function_checker::check ()
 
   switch (m_group.shape)
     {
+    case SHAPE_binary:
     case SHAPE_binary_opt_n:
     case SHAPE_binary_scalar:
     case SHAPE_binary_wide:
@@ -2473,10 +2503,22 @@ gimple_folder::fold ()
     case FUNC_svset4:
       return fold_set ();
 
+    case FUNC_svtrn1:
+    case FUNC_svtrn2:
+      return fold_trn ();
+
     case FUNC_svundef2:
     case FUNC_svundef3:
     case FUNC_svundef4:
       return fold_undef ();
+
+    case FUNC_svuzp1:
+    case FUNC_svuzp2:
+      return fold_uzp ();
+
+    case FUNC_svzip1:
+    case FUNC_svzip2:
+      return fold_zip ();
     }
   gcc_unreachable ();
 }
@@ -2552,11 +2594,66 @@ gimple_folder::fold_set ()
   return assign;
 }
 
+/* Fold a call to svtrn1 or svtrn2.  */
+gimple *
+gimple_folder::fold_trn ()
+{
+  poly_uint64 nelts = TYPE_VECTOR_SUBPARTS (TREE_TYPE (m_lhs));
+  int base = m_group.func == FUNC_svtrn1 ? 0 : 1;
+  vec_perm_builder builder (nelts, 2, 3);
+  for (unsigned int i = 0; i < 3; ++i)
+    {
+      builder.quick_push (base + i * 2);
+      builder.quick_push (base + i * 2 + nelts);
+    }
+  return fold_permute (builder);
+}
+
 /* Fold a call to svundef*.  */
 gimple *
 gimple_folder::fold_undef ()
 {
   return gimple_build_assign (m_lhs, build_clobber (TREE_TYPE (m_lhs)));
+}
+
+/* Fold a call to svuzp1 or svuzp2.  */
+gimple *
+gimple_folder::fold_uzp ()
+{
+  poly_uint64 nelts = TYPE_VECTOR_SUBPARTS (TREE_TYPE (m_lhs));
+  int base = m_group.func == FUNC_svuzp1 ? 0 : 1;
+  vec_perm_builder builder (nelts, 1, 3);
+  for (unsigned int i = 0; i < 3; ++i)
+    builder.quick_push (base + i * 2);
+  return fold_permute (builder);
+}
+
+/* Fold a call to svzip1 or svzip2.  */
+gimple *
+gimple_folder::fold_zip ()
+{
+  poly_uint64 nelts = TYPE_VECTOR_SUBPARTS (TREE_TYPE (m_lhs));
+  poly_uint64 base = m_group.func == FUNC_svzip1 ? 0 : exact_div (nelts, 2);
+  vec_perm_builder builder (nelts, 2, 3);
+  for (unsigned int i = 0; i < 3; ++i)
+    {
+      builder.quick_push (base + i);
+      builder.quick_push (base + i + nelts);
+    }
+  return fold_permute (builder);
+}
+
+/* Fold a binary permute with the permute vector given by BUILDER.  */
+gimple *
+gimple_folder::fold_permute (const vec_perm_builder &builder)
+{
+  poly_uint64 nelts = TYPE_VECTOR_SUBPARTS (TREE_TYPE (m_lhs));
+  vec_perm_indices indices (builder, 2, nelts);
+  tree perm_type = build_vector_type (ssizetype, nelts);
+  return gimple_build_assign (m_lhs, VEC_PERM_EXPR,
+			      gimple_call_arg (m_call, 0),
+			      gimple_call_arg (m_call, 1),
+			      vec_perm_indices_to_tree (perm_type, indices));
 }
 
 /* Attempt to fold STMT, given that it's a call to the SVE function
@@ -2713,11 +2810,29 @@ function_expander::expand ()
     case FUNC_svsubr:
       return expand_sub (true);
 
+    case FUNC_svtrn1:
+      return expand_permute (UNSPEC_TRN1);
+
+    case FUNC_svtrn2:
+      return expand_permute (UNSPEC_TRN2);
+
     case FUNC_svundef:
     case FUNC_svundef2:
     case FUNC_svundef3:
     case FUNC_svundef4:
       return expand_undef ();
+
+    case FUNC_svuzp1:
+      return expand_permute (UNSPEC_UZP1);
+
+    case FUNC_svuzp2:
+      return expand_permute (UNSPEC_UZP2);
+
+    case FUNC_svzip1:
+      return expand_permute (UNSPEC_ZIP1);
+
+    case FUNC_svzip2:
+      return expand_permute (UNSPEC_ZIP2);
     }
   gcc_unreachable ();
 }
@@ -3098,6 +3213,15 @@ function_expander::expand_orr ()
     return expand_via_unpred_direct_optab (ior_optab);
   else
     return expand_via_pred_direct_optab (cond_ior_optab);
+}
+
+/* Expand a call to a binary permute function such as svzip1.  UNSPEC_CODE is
+   the associated unspec code.  */
+rtx
+function_expander::expand_permute (int unspec_code)
+{
+  machine_mode mode = get_mode (0);
+  return expand_via_unpred_insn (code_for_aarch64_sve (unspec_code, mode));
 }
 
 /* Expand a call to svptrue.  */
