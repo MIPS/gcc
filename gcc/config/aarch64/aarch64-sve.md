@@ -2794,22 +2794,23 @@
   [(set_attr "movprfx" "*,*,*,*,yes,yes")]
 )
 
-;; Unpredicated floating-point multiplication.
-(define_expand "mul<mode>3"
+;; Unpredicated floating-point binary operations that can take a single-bit
+;; immediate.
+(define_expand "<optab><mode>3"
   [(set (match_operand:SVE_F 0 "register_operand")
 	(unspec:SVE_F
 	  [(match_dup 3)
 	   (const_int SVE_ALLOW_NEW_FAULTS)
 	   (match_operand:SVE_F 1 "register_operand")
 	   (match_operand:SVE_F 2 "aarch64_sve_float_mul_operand")]
-	  UNSPEC_COND_MUL))]
+	  SVE_COND_FP_BINARY_I1))]
   "TARGET_SVE"
   {
     operands[3] = force_reg (<VPRED>mode, CONSTM1_RTX (<VPRED>mode));
   }
 )
 
-;; Floating-point multiplication predicated with a PTRUE.
+;; Predicated floating-point multiplication.
 (define_insn_and_split "@aarch64_pred_mul<mode>"
   [(set (match_operand:SVE_F 0 "register_operand" "=w, w, w, ?&w, ?&w")
 	(unspec:SVE_F
@@ -2833,6 +2834,24 @@
   [(set (match_dup 0) (mult:SVE_F (match_dup 2) (match_dup 3)))]
   ""
   [(set_attr "movprfx" "*,*,*,yes,yes")]
+)
+
+;; Predicated floating-point MAX/MIN.
+(define_insn "@aarch64_pred_<optab><mode>"
+  [(set (match_operand:SVE_F 0 "register_operand" "=w, w, ?&w, ?&w")
+	(unspec:SVE_F
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl, Upl, Upl")
+	   (match_operand:SI 4 "const_int_operand")
+	   (match_operand:SVE_F 2 "register_operand" "%0, 0, w, w")
+	   (match_operand:SVE_F 3 "aarch64_sve_float_maxmin_operand" "vsB, w, vsB, w")]
+	  SVE_COND_MAXMIN))]
+  "TARGET_SVE"
+  "@
+   <sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, #%3
+   <sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
+   movprfx\t%0, %2\;<sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, #%3
+   movprfx\t%0, %2\;<sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
+  [(set_attr "movprfx" "*,*,yes,yes")]
 )
 
 ;; Unpredicated floating-point binary operations (post-RA only).
@@ -3451,8 +3470,9 @@
   [(set_attr "movprfx" "yes")]
 )
 
-;; Predicated FMUL operations with select.
-(define_expand "@cond_mul<mode>"
+;; Predicated floating-point binary operations with select, covering
+;; operations that can take a single-bit immediate.
+(define_expand "@cond_<optab><mode>"
   [(set (match_operand:SVE_F 0 "register_operand")
 	(unspec:SVE_F
 	  [(match_operand:<VPRED> 1 "register_operand")
@@ -3460,17 +3480,18 @@
 	     [(match_dup 1)
 	      (const_int SVE_FORBID_NEW_FAULTS)
 	      (match_operand:SVE_F 2 "register_operand")
-	      (match_operand:SVE_F 3 "aarch64_sve_float_mul_operand")]
-	     UNSPEC_COND_MUL)
+	      (match_operand:SVE_F 3 "aarch64_sve_float_<sve_imm_pred>_operand")]
+	     SVE_COND_FP_BINARY_I1)
 	   (match_operand:SVE_F 4 "aarch64_simd_reg_or_zero")]
 	  UNSPEC_SEL))]
   "TARGET_SVE"
 {
-  if (rtx_equal_p (operands[3], operands[4]))
+  if (!CONSTANT_P (operands[4]) && rtx_equal_p (operands[3], operands[4]))
     std::swap (operands[2], operands[3]);
 })
 
-;; Predicated FMUL operations with select matching second operand.
+;; Predicated floating-point binary operations with select matching second
+;; operand, covering operations that can take a single-bit immediate.
 (define_insn "*cond_mul<mode>_2"
   [(set (match_operand:SVE_F 0 "register_operand" "=w, w, ?&w, ?&w")
 	(unspec:SVE_F
@@ -3479,21 +3500,22 @@
 	     [(match_dup 1)
 	      (match_operand 4)
 	      (match_operand:SVE_F 2 "register_operand" "0, 0, w, w")
-	      (match_operand:SVE_F 3 "aarch64_sve_float_mul_operand" "vsM, w, vsM, w")]
-	     UNSPEC_COND_MUL)
+	      (match_operand:SVE_F 3 "aarch64_sve_float_<sve_imm_pred>_operand" "<sve_imm_con>, w, <sve_imm_con>, w")]
+	     SVE_COND_FP_BINARY_I1)
 	   (match_dup 2)]
 	  UNSPEC_SEL))]
   "TARGET_SVE"
   "@
-   fmul\t%0.<Vetype>, %1/m, %0.<Vetype>, #%3
-   fmul\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
-   movprfx\t%0, %2\;fmul\t%0.<Vetype>, %1/m, %0.<Vetype>, #%3
-   movprfx\t%0, %2\;fmul\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
+   <sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, #%3
+   <sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
+   movprfx\t%0, %2\;<sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, #%3
+   movprfx\t%0, %2\;<sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
   [(set_attr "movprfx" "*,*,yes,yes")]
 )
 
-;; Predicated FMUL operations in which the values of inactive lanes are
-;; distinct from the other inputs.
+;; Predicated floating-point binary operations in which the values of inactive
+;; lanes are distinct from the other inputs, covering operations that can take
+;; a single-bit immediate.
 (define_insn "*cond_mul<mode>_any"
   [(set (match_operand:SVE_F 0 "register_operand" "=&w, &w, &w, &w, &w, &w, ?&w, ?&w")
 	(unspec:SVE_F
@@ -3502,18 +3524,18 @@
 	     [(match_dup 1)
 	      (match_operand 5)
 	      (match_operand:SVE_F 2 "register_operand" "%0, 0, w, w, w, w, w, w")
-	      (match_operand:SVE_F 3 "aarch64_sve_float_mul_operand" "vsM, w, vsM, w, vsM, w, vsM, w")]
-	     UNSPEC_COND_MUL)
+	      (match_operand:SVE_F 3 "aarch64_sve_float_<sve_imm_pred>_operand" "<sve_imm_con>, w, <sve_imm_con>, w, <sve_imm_con>, w, <sve_imm_con>, w")]
+	     SVE_COND_FP_BINARY_I1)
 	   (match_operand:SVE_F 4 "aarch64_simd_reg_or_zero" "Dz, Dz, Dz, Dz, 0, 0, w, w")]
 	  UNSPEC_SEL))]
   "TARGET_SVE"
   "@
-   movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;fmul\t%0.<Vetype>, %1/m, %0.<Vetype>, #%3
-   movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;fmul\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
-   movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;fmul\t%0.<Vetype>, %1/m, %0.<Vetype>, #%3
-   movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;fmul\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
-   movprfx\t%0.<Vetype>, %1/m, %2.<Vetype>\;fmul\t%0.<Vetype>, %1/m, %0.<Vetype>, #%3
-   movprfx\t%0.<Vetype>, %1/m, %2.<Vetype>\;fmul\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
+   movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;<sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, #%3
+   movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;<sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
+   movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;<sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, #%3
+   movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;<sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
+   movprfx\t%0.<Vetype>, %1/m, %2.<Vetype>\;<sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, #%3
+   movprfx\t%0.<Vetype>, %1/m, %2.<Vetype>\;<sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
    #
    #"
   [(set_attr "movprfx" "yes")]

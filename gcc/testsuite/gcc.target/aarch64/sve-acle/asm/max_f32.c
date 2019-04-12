@@ -76,9 +76,27 @@ TEST_UNIFORM_ZS (max_s4_f32_m_untied, svfloat32_t, float,
 		 z0 = svmax_m (p0, z1, d4))
 
 /*
+** max_0_f32_m_tied1:
+**	fmax	z0\.s, p0/m, z0\.s, #0\.0
+**	ret
+*/
+TEST_UNIFORM_Z (max_0_f32_m_tied1, svfloat32_t,
+		z0 = svmax_n_f32_m (p0, z0, 0),
+		z0 = svmax_m (p0, z0, 0))
+
+/*
+** max_0_f32_m_untied:
+**	movprfx	z0, z1
+**	fmax	z0\.s, p0/m, z0\.s, #0\.0
+**	ret
+*/
+TEST_UNIFORM_Z (max_0_f32_m_untied, svfloat32_t,
+		z0 = svmax_n_f32_m (p0, z1, 0),
+		z0 = svmax_m (p0, z1, 0))
+
+/*
 ** max_1_f32_m_tied1:
-**	fmov	(z[0-9]+\.s), #1\.0(?:e\+0)?
-**	fmax	z0\.s, p0/m, z0\.s, \1
+**	fmax	z0\.s, p0/m, z0\.s, #1\.0
 **	ret
 */
 TEST_UNIFORM_Z (max_1_f32_m_tied1, svfloat32_t,
@@ -87,14 +105,23 @@ TEST_UNIFORM_Z (max_1_f32_m_tied1, svfloat32_t,
 
 /*
 ** max_1_f32_m_untied:
-**	fmov	(z[0-9]+\.s), #1\.0(?:e\+0)?
 **	movprfx	z0, z1
-**	fmax	z0\.s, p0/m, z0\.s, \1
+**	fmax	z0\.s, p0/m, z0\.s, #1\.0
 **	ret
 */
 TEST_UNIFORM_Z (max_1_f32_m_untied, svfloat32_t,
 		z0 = svmax_n_f32_m (p0, z1, 1),
 		z0 = svmax_m (p0, z1, 1))
+
+/*
+** max_2_f32_m:
+**	fmov	(z[0-9]+\.s), #2\.0(?:e\+0)?
+**	fmax	z0\.s, p0/m, z0\.s, \1
+**	ret
+*/
+TEST_UNIFORM_Z (max_2_f32_m, svfloat32_t,
+		z0 = svmax_n_f32_m (p0, z0, 2),
+		z0 = svmax_m (p0, z0, 2))
 
 /*
 ** max_f32_z_tied1:
@@ -186,10 +213,29 @@ TEST_UNIFORM_ZS (max_s4_f32_z_untied, svfloat32_t, float,
 		 z0 = svmax_z (p0, z1, d4))
 
 /*
-** max_1_f32_z_tied1:
-**	fmov	(z[0-9]+\.s), #1\.0(?:e\+0)?
+** max_0_f32_z_tied1:
 **	movprfx	z0\.s, p0/z, z0\.s
-**	fmax	z0\.s, p0/m, z0\.s, \1
+**	fmax	z0\.s, p0/m, z0\.s, #0\.0
+**	ret
+*/
+TEST_UNIFORM_Z (max_0_f32_z_tied1, svfloat32_t,
+		z0 = svmax_n_f32_z (p0, z0, 0),
+		z0 = svmax_z (p0, z0, 0))
+
+/*
+** max_0_f32_z_untied:
+**	movprfx	z0\.s, p0/z, z1\.s
+**	fmax	z0\.s, p0/m, z0\.s, #0\.0
+**	ret
+*/
+TEST_UNIFORM_Z (max_0_f32_z_untied, svfloat32_t,
+		z0 = svmax_n_f32_z (p0, z1, 0),
+		z0 = svmax_z (p0, z1, 0))
+
+/*
+** max_1_f32_z_tied1:
+**	movprfx	z0\.s, p0/z, z0\.s
+**	fmax	z0\.s, p0/m, z0\.s, #1\.0
 **	ret
 */
 TEST_UNIFORM_Z (max_1_f32_z_tied1, svfloat32_t,
@@ -198,19 +244,24 @@ TEST_UNIFORM_Z (max_1_f32_z_tied1, svfloat32_t,
 
 /*
 ** max_1_f32_z_untied:
-**	fmov	(z[0-9]+\.s), #1\.0(?:e\+0)?
-** (
 **	movprfx	z0\.s, p0/z, z1\.s
-**	fmax	z0\.s, p0/m, z0\.s, \1
-** |
-**	movprfx	z0\.s, p0/z, \1
-**	fmax	z0\.s, p0/m, z0\.s, z1\.s
-** )
+**	fmax	z0\.s, p0/m, z0\.s, #1\.0
 **	ret
 */
 TEST_UNIFORM_Z (max_1_f32_z_untied, svfloat32_t,
 		z0 = svmax_n_f32_z (p0, z1, 1),
 		z0 = svmax_z (p0, z1, 1))
+
+/*
+** max_2_f32_z:
+**	fmov	(z[0-9]+\.s), #2\.0(?:e\+0)?
+**	movprfx	z0\.s, p0/z, z0\.s
+**	fmax	z0\.s, p0/m, z0\.s, \1
+**	ret
+*/
+TEST_UNIFORM_Z (max_2_f32_z, svfloat32_t,
+		z0 = svmax_n_f32_z (p0, z0, 2),
+		z0 = svmax_z (p0, z0, 2))
 
 /*
 ** max_f32_x_tied1:
@@ -286,9 +337,27 @@ TEST_UNIFORM_ZS (max_s4_f32_x_untied, svfloat32_t, float,
 		 z0 = svmax_x (p0, z1, d4))
 
 /*
+** max_0_f32_x_tied1:
+**	fmax	z0\.s, p0/m, z0\.s, #0\.0
+**	ret
+*/
+TEST_UNIFORM_Z (max_0_f32_x_tied1, svfloat32_t,
+		z0 = svmax_n_f32_x (p0, z0, 0),
+		z0 = svmax_x (p0, z0, 0))
+
+/*
+** max_0_f32_x_untied:
+**	movprfx	z0, z1
+**	fmax	z0\.s, p0/m, z0\.s, #0\.0
+**	ret
+*/
+TEST_UNIFORM_Z (max_0_f32_x_untied, svfloat32_t,
+		z0 = svmax_n_f32_x (p0, z1, 0),
+		z0 = svmax_x (p0, z1, 0))
+
+/*
 ** max_1_f32_x_tied1:
-**	fmov	(z[0-9]+\.s), #1\.0(?:e\+0)?
-**	fmax	z0\.s, p0/m, z0\.s, \1
+**	fmax	z0\.s, p0/m, z0\.s, #1\.0
 **	ret
 */
 TEST_UNIFORM_Z (max_1_f32_x_tied1, svfloat32_t,
@@ -297,13 +366,33 @@ TEST_UNIFORM_Z (max_1_f32_x_tied1, svfloat32_t,
 
 /*
 ** max_1_f32_x_untied:
-**	fmov	z0\.s, #1\.0(?:e\+0)?
-**	fmax	z0\.s, p0/m, z0\.s, z1\.s
+**	movprfx	z0, z1
+**	fmax	z0\.s, p0/m, z0\.s, #1\.0
 **	ret
 */
 TEST_UNIFORM_Z (max_1_f32_x_untied, svfloat32_t,
 		z0 = svmax_n_f32_x (p0, z1, 1),
 		z0 = svmax_x (p0, z1, 1))
+
+/*
+** max_2_f32_x_tied1:
+**	fmov	(z[0-9]+\.s), #2\.0(?:e\+0)?
+**	fmax	z0\.s, p0/m, z0\.s, \1
+**	ret
+*/
+TEST_UNIFORM_Z (max_2_f32_x_tied1, svfloat32_t,
+		z0 = svmax_n_f32_x (p0, z0, 2),
+		z0 = svmax_x (p0, z0, 2))
+
+/*
+** max_2_f32_x_untied:
+**	fmov	z0\.s, #2\.0(?:e\+0)?
+**	fmax	z0\.s, p0/m, z0\.s, z1\.s
+**	ret
+*/
+TEST_UNIFORM_Z (max_2_f32_x_untied, svfloat32_t,
+		z0 = svmax_n_f32_x (p0, z1, 2),
+		z0 = svmax_x (p0, z1, 2))
 
 /*
 ** ptrue_max_f32_x_tied1:
@@ -386,10 +475,30 @@ TEST_UNIFORM_ZS (ptrue_max_s4_f32_x_untied, svfloat32_t, float,
 		 z0 = svmax_x (svptrue_b32 (), z1, d4))
 
 /*
+** ptrue_max_0_f32_x_tied1:
+**	ptrue	(p[0-7])\.s[^\n]*
+**	fmax	z0\.s, \1/m, z0\.s, #0\.0
+**	ret
+*/
+TEST_UNIFORM_Z (ptrue_max_0_f32_x_tied1, svfloat32_t,
+		z0 = svmax_n_f32_x (svptrue_b32 (), z0, 0),
+		z0 = svmax_x (svptrue_b32 (), z0, 0))
+
+/*
+** ptrue_max_0_f32_x_untied:
+**	ptrue	(p[0-7])\.s[^\n]*
+**	movprfx	z0, z1
+**	fmax	z0\.s, \1/m, z0\.s, #0\.0
+**	ret
+*/
+TEST_UNIFORM_Z (ptrue_max_0_f32_x_untied, svfloat32_t,
+		z0 = svmax_n_f32_x (svptrue_b32 (), z1, 0),
+		z0 = svmax_x (svptrue_b32 (), z1, 0))
+
+/*
 ** ptrue_max_1_f32_x_tied1:
 **	ptrue	(p[0-7])\.s[^\n]*
-**	fmov	(z[0-9]+\.s), #1\.0(?:e\+0)?
-**	fmax	z0\.s, \1/m, z0\.s, \2
+**	fmax	z0\.s, \1/m, z0\.s, #1\.0
 **	ret
 */
 TEST_UNIFORM_Z (ptrue_max_1_f32_x_tied1, svfloat32_t,
@@ -399,10 +508,32 @@ TEST_UNIFORM_Z (ptrue_max_1_f32_x_tied1, svfloat32_t,
 /*
 ** ptrue_max_1_f32_x_untied:
 **	ptrue	(p[0-7])\.s[^\n]*
-**	fmov	z0\.s, #1\.0(?:e\+0)?
-**	fmax	z0\.s, \1/m, z0\.s, z1\.s
+**	movprfx	z0, z1
+**	fmax	z0\.s, \1/m, z0\.s, #1\.0
 **	ret
 */
 TEST_UNIFORM_Z (ptrue_max_1_f32_x_untied, svfloat32_t,
 		z0 = svmax_n_f32_x (svptrue_b32 (), z1, 1),
 		z0 = svmax_x (svptrue_b32 (), z1, 1))
+
+/*
+** ptrue_max_2_f32_x_tied1:
+**	ptrue	(p[0-7])\.s[^\n]*
+**	fmov	(z[0-9]+\.s), #2\.0(?:e\+0)?
+**	fmax	z0\.s, \1/m, z0\.s, \2
+**	ret
+*/
+TEST_UNIFORM_Z (ptrue_max_2_f32_x_tied1, svfloat32_t,
+		z0 = svmax_n_f32_x (svptrue_b32 (), z0, 2),
+		z0 = svmax_x (svptrue_b32 (), z0, 2))
+
+/*
+** ptrue_max_2_f32_x_untied:
+**	ptrue	(p[0-7])\.s[^\n]*
+**	fmov	z0\.s, #2\.0(?:e\+0)?
+**	fmax	z0\.s, \1/m, z0\.s, z1\.s
+**	ret
+*/
+TEST_UNIFORM_Z (ptrue_max_2_f32_x_untied, svfloat32_t,
+		z0 = svmax_n_f32_x (svptrue_b32 (), z1, 2),
+		z0 = svmax_x (svptrue_b32 (), z1, 2))

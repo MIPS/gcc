@@ -1628,14 +1628,16 @@
 					 UNSPEC_COND_FMAXNM
 					 UNSPEC_COND_FMINNM])
 
+(define_int_iterator SVE_COND_FP_BINARY_I1 [UNSPEC_COND_MUL
+					    UNSPEC_COND_FMAX UNSPEC_COND_FMIN
+					    UNSPEC_COND_FMAXNM
+					    UNSPEC_COND_FMINNM])
+
 (define_int_iterator SVE_COND_FP_BINARY_REG [UNSPEC_COND_FABD
-					     UNSPEC_COND_DIV
-					     UNSPEC_COND_FMAX UNSPEC_COND_FMIN
-					     UNSPEC_COND_FMAXNM
-					     UNSPEC_COND_FMINNM])
+					     UNSPEC_COND_DIV])
 
 (define_int_iterator SVE_COND_MAXMIN [UNSPEC_COND_FMAXNM UNSPEC_COND_FMINNM
-				      UNSPEC_COND_FMAX UNSPEC_COND_FMIN])
+				     UNSPEC_COND_FMAX UNSPEC_COND_FMIN])
 
 (define_int_iterator SVE_COND_FP_TERNARY [UNSPEC_COND_FMLA
 					  UNSPEC_COND_FMLS
@@ -1975,3 +1977,17 @@
 			      (UNSPEC_COND_FMAX "true")
 			      (UNSPEC_COND_FMINNM "true")
 			      (UNSPEC_COND_FMAXNM "true")])
+
+;; The fragment of an SVE immediate predicate to use for an unspec code.
+(define_int_attr sve_imm_pred [(UNSPEC_COND_MUL "mul")
+			       (UNSPEC_COND_FMAX "maxmin")
+			       (UNSPEC_COND_FMIN "maxmin")
+			       (UNSPEC_COND_FMAXNM "maxmin")
+			       (UNSPEC_COND_FMINNM "maxmin")])
+
+;; The SVE immediate constraint to use for an unspec code.
+(define_int_attr sve_imm_con [(UNSPEC_COND_MUL "vsM")
+			      (UNSPEC_COND_FMAX "vsB")
+			      (UNSPEC_COND_FMIN "vsB")
+			      (UNSPEC_COND_FMAXNM "vsB")
+			      (UNSPEC_COND_FMINNM "vsB")])
