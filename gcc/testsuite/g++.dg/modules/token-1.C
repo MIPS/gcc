@@ -1,0 +1,7 @@
+// { dg-additional-options "-fmodules-ts -Wno-pedantic" }
+# 3 __FILE__ 1
+module ; // { dg-error "must be directly in the main source" }
+export module bob; // { dg-error "must be directly in the main source" }
+# 6 "" 2
+// { dg-module-bmi !bob }
+// { dg-prune-output "not writing module" }

@@ -1,0 +1,13 @@
+// { dg-additional-options "-fmodules-ts" }
+export module bob.stuart.kevin;
+// { dg-module-bmi bob.stuart.kevin }
+
+class mytype 
+{
+};
+
+void frob (mytype &)
+{
+}
+
+// { dg-final { scan-assembler {_ZW3bob6stuart5kevinE4frobRWW1_E6mytype:} } }

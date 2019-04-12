@@ -1,0 +1,11 @@
+// { dg-additional-options "-fmodules-ts -fdump-lang-module-alias" }
+import foo;
+
+int main ()
+{
+  int r = frob (75);
+  return !(r == -75);
+}
+
+// { dg-final { scan-lang-dump { Read:-[0-9] unique mergeable decl function_decl:'::frob'} module } }
+// { dg-final { scan-lang-dump {> Read:-[0-9] unique mergeable decl function_decl:'::foo'} module } }

@@ -1,0 +1,15 @@
+// check internals by name unless SCC
+// { dg-additional-options "-fmodules-ts -fdump-lang-module-uid" }
+
+export module frob;
+// { dg-module-bmi frob }
+
+class X 
+{
+  int i;
+};
+
+export X *f ();
+
+// { dg-final { scan-lang-dump {Wrote named decl:-[0-9]* type_decl:'::X@1\(frob\)'} "module" } }
+// { dg-final { scan-lang-dump {Wrote decl's type:-[0-9]* record_type:'::X@1\(frob\)'} "module" } }
