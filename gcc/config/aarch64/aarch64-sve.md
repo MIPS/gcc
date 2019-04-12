@@ -2312,6 +2312,32 @@
   [(set_attr "movprfx" "*,*,yes")]
 )
 
+;; General splitter for conditional binary integer operations
+;; that cannot use MOVPRFX and instead require a SEL.
+(define_split
+  [(set (match_operand:SVE_I 0 "register_operand")
+	(unspec:SVE_I
+	  [(match_operand:<VPRED> 1 "register_operand")
+           (match_operator:SVE_I 5 "aarch64_sve_any_binary_operator"
+	     [(match_operand:SVE_I 2 "register_operand")
+	      (match_operand:SVE_I 3 "register_operand")])
+	   (match_operand:SVE_I 4 "register_operand")]
+	  UNSPEC_SEL))]
+  "TARGET_SVE
+   && reload_completed
+   && !rtx_equal_p (operands[0], operands[4])
+   && !rtx_equal_p (operands[2], operands[4])
+   && !rtx_equal_p (operands[3], operands[4])"
+  [(set (match_dup 0)
+	(unspec:SVE_I [(match_dup 1) (match_dup 2) (match_dup 4)] UNSPEC_SEL))
+   (set (match_dup 0)
+	(unspec:SVE_I
+	  [(match_dup 1)
+	   (match_op_dup 5 [(match_dup 0) (match_dup 3)])
+	   (match_dup 0)]
+	  UNSPEC_SEL))]
+)
+
 ;; Predicated integer operations with select.
 (define_expand "@cond_<optab><mode>"
   [(set (match_operand:SVE_I 0 "register_operand")
@@ -2367,41 +2393,6 @@
 	   (match_operand:SVE_SDI 4 "aarch64_simd_reg_or_zero")]
 	  UNSPEC_SEL))]
   "TARGET_SVE"
-)
-
-;; Predicated integer operations with select matching the output operand.
-(define_insn "*cond_<optab><mode>_0"
-  [(set (match_operand:SVE_I 0 "register_operand" "+w, w, ?&w")
-	(unspec:SVE_I
-	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl, Upl")
-	   (SVE_INT_BINARY:SVE_I
-	     (match_operand:SVE_I 2 "register_operand" "0, w, w")
-	     (match_operand:SVE_I 3 "register_operand" "w, 0, w"))
-	   (match_dup 0)]
-	  UNSPEC_SEL))]
-  "TARGET_SVE"
-  "@
-   <sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
-   <sve_int_op_rev>\t%0.<Vetype>, %1/m, %0.<Vetype>, %2.<Vetype>
-   movprfx\t%0, %1/m, %2\;<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
-  [(set_attr "movprfx" "*,*,yes")]
-)
-
-(define_insn "*cond_<optab><mode>_0"
-  [(set (match_operand:SVE_SDI 0 "register_operand" "+w, w, ?&w")
-	(unspec:SVE_SDI
-	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl, Upl")
-	   (SVE_INT_BINARY_SD:SVE_SDI
-	     (match_operand:SVE_SDI 2 "register_operand" "0, w, w")
-	     (match_operand:SVE_SDI 3 "register_operand" "w, 0, w"))
-	   (match_dup 0)]
-	  UNSPEC_SEL))]
-  "TARGET_SVE"
-  "@
-   <sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
-   <sve_int_op_rev>\t%0.<Vetype>, %1/m, %0.<Vetype>, %2.<Vetype>
-   movprfx\t%0, %1/m, %2\;<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
-  [(set_attr "movprfx" "*,*,yes")]
 )
 
 ;; Predicated integer operations with select matching the first operand.
@@ -2471,52 +2462,42 @@
 )
 
 ;; Predicated integer operations with select matching zero.
-(define_insn "*cond_<optab><mode>_z"
-  [(set (match_operand:SVE_I 0 "register_operand" "=&w,&w,&w")
-	(unspec:SVE_I
-	  [(match_operand:<VPRED> 1 "register_operand" "Upl,Upl,Upl")
-	   (SVE_INT_BINARY:SVE_I
-	     (match_operand:SVE_I 2 "register_operand" "0,w,w")
-	     (match_operand:SVE_I 3 "register_operand" "w,0,w"))
-	   (match_operand:SVE_I 4 "aarch64_simd_imm_zero")]
-	  UNSPEC_SEL))]
-  "TARGET_SVE"
-  "@
-   movprfx\t%0.<Vetype>, %1/z, %0.<Vetype>\;<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
-   movprfx\t%0.<Vetype>, %1/z, %0.<Vetype>\;<sve_int_op_rev>\t%0.<Vetype>, %1/m, %0.<Vetype>, %2.<Vetype>
-   movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
-  [(set_attr "movprfx" "yes")]
-)
-
-(define_insn "*cond_<optab><mode>_z"
-  [(set (match_operand:SVE_SDI 0 "register_operand" "=&w,&w,&w")
-	(unspec:SVE_SDI
-	  [(match_operand:<VPRED> 1 "register_operand" "Upl,Upl,Upl")
-	   (SVE_INT_BINARY_SD:SVE_SDI
-	     (match_operand:SVE_SDI 2 "register_operand" "0,w,w")
-	     (match_operand:SVE_SDI 3 "register_operand" "w,0,w"))
-	   (match_operand:SVE_SDI 4 "aarch64_simd_imm_zero")]
-	  UNSPEC_SEL))]
-  "TARGET_SVE"
-  "@
-   movprfx\t%0.<Vetype>, %1/z, %0.<Vetype>\;<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
-   movprfx\t%0.<Vetype>, %1/z, %0.<Vetype>\;<sve_int_op_rev>\t%0.<Vetype>, %1/m, %0.<Vetype>, %2.<Vetype>
-   movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
-  [(set_attr "movprfx" "yes")]
-)
-
-;; Synthetic predications with select unmatched.
 (define_insn "*cond_<optab><mode>_any"
-  [(set (match_operand:SVE_I 0 "register_operand" "=&w")
+  [(set (match_operand:SVE_I 0 "register_operand" "=&w, &w, &w, &w, ?&w")
 	(unspec:SVE_I
-	  [(match_operand:<VPRED> 1 "register_operand" "Upl")
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl, Upl, Upl, Upl")
 	   (SVE_INT_BINARY:SVE_I
-	     (match_operand:SVE_I 2 "register_operand" "w")
-	     (match_operand:SVE_I 3 "register_operand" "w"))
-	   (match_operand:SVE_I 4 "register_operand"   "w")]
+	     (match_operand:SVE_I 2 "register_operand" "0, w, w, w, w")
+	     (match_operand:SVE_I 3 "register_operand" "w, 0, w, w, w"))
+	   (match_operand:SVE_I 4 "aarch64_simd_reg_or_zero" "Dz, Dz, Dz, 0, w")]
 	  UNSPEC_SEL))]
   "TARGET_SVE"
-  "#"
+  "@
+   movprfx\t%0.<Vetype>, %1/z, %0.<Vetype>\;<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
+   movprfx\t%0.<Vetype>, %1/z, %0.<Vetype>\;<sve_int_op_rev>\t%0.<Vetype>, %1/m, %0.<Vetype>, %2.<Vetype>
+   movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
+   movprfx\t%0.<Vetype>, %1/m, %2.<Vetype>\;<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
+   #"
+  [(set_attr "movprfx" "yes")]
+)
+
+(define_insn "*cond_<optab><mode>_any"
+  [(set (match_operand:SVE_SDI 0 "register_operand" "=&w, &w, &w, &w, &w")
+	(unspec:SVE_SDI
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl, Upl, Upl, Upl")
+	   (SVE_INT_BINARY_SD:SVE_SDI
+	     (match_operand:SVE_SDI 2 "register_operand" "0, w, w, w, w")
+	     (match_operand:SVE_SDI 3 "register_operand" "w, 0, w, w, w"))
+	   (match_operand:SVE_I 4 "aarch64_simd_reg_or_zero" "Dz, Dz, Dz, 0, w")]
+	  UNSPEC_SEL))]
+  "TARGET_SVE"
+  "@
+   movprfx\t%0.<Vetype>, %1/z, %0.<Vetype>\;<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
+   movprfx\t%0.<Vetype>, %1/z, %0.<Vetype>\;<sve_int_op_rev>\t%0.<Vetype>, %1/m, %0.<Vetype>, %2.<Vetype>
+   movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
+   movprfx\t%0.<Vetype>, %1/m, %2.<Vetype>\;<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
+   #"
+  [(set_attr "movprfx" "yes")]
 )
 
 ;; Predicated ASRD.
@@ -2564,44 +2545,6 @@
   "TARGET_SVE"
   "movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;asrd\t%0.<Vetype>, %1/m, %0.<Vetype>, #%3"
   [(set_attr "movprfx" "yes")])
-
-(define_insn "*cond_<optab><mode>_any"
-  [(set (match_operand:SVE_SDI 0 "register_operand" "=&w")
-	(unspec:SVE_SDI
-	  [(match_operand:<VPRED> 1 "register_operand" "Upl")
-	   (SVE_INT_BINARY_SD:SVE_SDI
-	     (match_operand:SVE_SDI 2 "register_operand" "w")
-	     (match_operand:SVE_SDI 3 "register_operand" "w"))
-	   (match_operand:SVE_SDI 4 "register_operand"   "w")]
-	  UNSPEC_SEL))]
-  "TARGET_SVE"
-  "#"
-)
-
-(define_split
-  [(set (match_operand:SVE_I 0 "register_operand")
-	(unspec:SVE_I
-	  [(match_operand:<VPRED> 1 "register_operand")
-	   (match_operator:SVE_I 5 "aarch64_sve_any_binary_operator"
-	     [(match_operand:SVE_I 2 "register_operand")
-	      (match_operand:SVE_I 3 "register_operand")])
-	   (match_operand:SVE_I 4 "register_operand")]
-	  UNSPEC_SEL))]
-  "TARGET_SVE && reload_completed
-   && !(rtx_equal_p (operands[0], operands[4])
-        || rtx_equal_p (operands[2], operands[4])
-        || rtx_equal_p (operands[3], operands[4]))"
-  ; Not matchable by any one insn or movprfx insn.  We need a separate select.
-  [(set (match_dup 0)
-	(unspec:SVE_I [(match_dup 1) (match_dup 2) (match_dup 4)]
-                      UNSPEC_SEL))
-   (set (match_dup 0)
-	(unspec:SVE_I
-	  [(match_dup 1)
-	   (match_op_dup 5 [(match_dup 0) (match_dup 3)])
-           (match_dup 0)]
-	  UNSPEC_SEL))]
-)
 
 ;; Set operand 0 to the last active element in operand 3, or to tied
 ;; operand 1 if no elements are active.
