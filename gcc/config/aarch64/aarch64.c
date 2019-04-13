@@ -17622,13 +17622,28 @@ aarch64_evpc_rev_local (struct expand_vec_perm_d *d)
   if (d->testing_p)
     return true;
 
-  rtx src = gen_rtx_UNSPEC (d->vmode, gen_rtvec (1, d->op0), unspec);
   if (d->vec_flags == VEC_SVE_DATA)
     {
+      /* For SVE we use REV[BHW] unspecs derived from the element size
+	 of v->mode and vector modes whose elements have SIZE bytes.
+	 This ensures that the vector modes match the predicate modes.  */
+      if (GET_MODE_UNIT_SIZE (d->vmode) == 1)
+	unspec = UNSPEC_REVB;
+      else if (GET_MODE_UNIT_SIZE (d->vmode) == 2)
+	unspec = UNSPEC_REVH;
+      else if (GET_MODE_UNIT_SIZE (d->vmode) == 4)
+	unspec = UNSPEC_REVW;
+      else
+	gcc_unreachable ();
+      machine_mode int_mode = aarch64_sve_int_mode (pred_mode);
       rtx pred = force_reg (pred_mode, CONSTM1_RTX (pred_mode));
-      src = gen_rtx_UNSPEC (d->vmode, gen_rtvec (2, pred, src),
-			    UNSPEC_MERGE_PTRUE);
+      rtx target = gen_reg_rtx (int_mode);
+      emit_insn (gen_aarch64_pred (unspec, int_mode, target, pred,
+				   gen_lowpart (int_mode, d->op0)));
+      emit_move_insn (d->target, gen_lowpart (d->vmode, target));
+      return true;
     }
+  rtx src = gen_rtx_UNSPEC (d->vmode, gen_rtvec (1, d->op0), unspec);
   emit_set_insn (d->target, src);
   return true;
 }

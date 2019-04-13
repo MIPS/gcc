@@ -1319,39 +1319,6 @@
   "<perm_insn>\t%0.<Vetype>, %1.<Vetype>, %2.<Vetype>"
 )
 
-(define_insn "*aarch64_sve_rev64<mode>"
-  [(set (match_operand:SVE_BHS 0 "register_operand" "=w")
-	(unspec:SVE_BHS
-	  [(match_operand:VNx2BI 1 "register_operand" "Upl")
-	   (unspec:SVE_BHS [(match_operand:SVE_BHS 2 "register_operand" "w")]
-			   UNSPEC_REV64)]
-	  UNSPEC_MERGE_PTRUE))]
-  "TARGET_SVE"
-  "rev<Vesize>\t%0.d, %1/m, %2.d"
-)
-
-(define_insn "*aarch64_sve_rev32<mode>"
-  [(set (match_operand:SVE_BH 0 "register_operand" "=w")
-	(unspec:SVE_BH
-	  [(match_operand:VNx4BI 1 "register_operand" "Upl")
-	   (unspec:SVE_BH [(match_operand:SVE_BH 2 "register_operand" "w")]
-			  UNSPEC_REV32)]
-	  UNSPEC_MERGE_PTRUE))]
-  "TARGET_SVE"
-  "rev<Vesize>\t%0.s, %1/m, %2.s"
-)
-
-(define_insn "*aarch64_sve_rev16vnx16qi"
-  [(set (match_operand:VNx16QI 0 "register_operand" "=w")
-	(unspec:VNx16QI
-	  [(match_operand:VNx8BI 1 "register_operand" "Upl")
-	   (unspec:VNx16QI [(match_operand:VNx16QI 2 "register_operand" "w")]
-			   UNSPEC_REV16)]
-	  UNSPEC_MERGE_PTRUE))]
-  "TARGET_SVE"
-  "revb\t%0.h, %1/m, %2.h"
-)
-
 (define_insn "@aarch64_sve_rev<mode>"
   [(set (match_operand:SVE_ALL 0 "register_operand" "=w")
 	(unspec:SVE_ALL [(match_operand:SVE_ALL 1 "register_operand" "w")]
@@ -1994,7 +1961,7 @@
 	     [(match_operand:SVE_I 2 "register_operand" "w")]
 	     SVE_INT_UNARY)]
 	  UNSPEC_MERGE_PTRUE))]
-  "TARGET_SVE"
+  "TARGET_SVE && <elem_bits> >= <min_elem_bits>"
   "<sve_int_op>\t%0.<Vetype>, %1/m, %2.<Vetype>"
 )
 
@@ -2008,7 +1975,7 @@
 	     SVE_INT_UNARY)
 	   (match_operand:SVE_I 3 "aarch64_simd_reg_or_zero" "0, Dz, w")]
 	  UNSPEC_SEL))]
-  "TARGET_SVE"
+  "TARGET_SVE && <elem_bits> >= <min_elem_bits>"
   "@
    <sve_int_op>\t%0.<Vetype>, %1/m, %2.<Vetype>
    movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;<sve_int_op>\t%0.<Vetype>, %1/m, %2.<Vetype>

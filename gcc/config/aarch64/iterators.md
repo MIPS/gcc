@@ -507,6 +507,9 @@
     UNSPEC_XORF		; Used in aarch64-sve.md.
     UNSPEC_SABD		; Used in aarch64-sve.md.
     UNSPEC_UABD		; Used in aarch64-sve.md.
+    UNSPEC_REVB		; Used in aarch64-sve.md.
+    UNSPEC_REVH		; Used in aarch64-sve.md.
+    UNSPEC_REVW		; Used in aarch64-sve.md.
     UNSPEC_SMUL_HIGHPART ; Used in aarch64-sve.md.
     UNSPEC_UMUL_HIGHPART ; Used in aarch64-sve.md.
     UNSPEC_FMLA		; Used in aarch64-sve.md.
@@ -1768,7 +1771,8 @@
 
 (define_int_iterator MUL_HIGHPART [UNSPEC_SMUL_HIGHPART UNSPEC_UMUL_HIGHPART])
 
-(define_int_iterator SVE_INT_UNARY [UNSPEC_RBIT])
+(define_int_iterator SVE_INT_UNARY [UNSPEC_RBIT UNSPEC_REVB
+				    UNSPEC_REVH UNSPEC_REVW])
 
 (define_int_iterator SVE_INT_BINARY_REG [UNSPEC_SMUL_HIGHPART
 					 UNSPEC_UMUL_HIGHPART
@@ -1905,6 +1909,9 @@
 			(UNSPEC_SABD "sabd")
 			(UNSPEC_UABD "uabd")
 			(UNSPEC_RBIT "rbit")
+			(UNSPEC_REVB "revb")
+			(UNSPEC_REVH "revh")
+			(UNSPEC_REVW "revw")
 		        (UNSPEC_SMUL_HIGHPART "smulh")
 		        (UNSPEC_UMUL_HIGHPART "umulh")
 			(UNSPEC_FMLA "fma")
@@ -2185,7 +2192,10 @@
 			     (UNSPEC_ASHIFT_WIDE "lsl")
 			     (UNSPEC_ASHIFTRT_WIDE "asr")
 			     (UNSPEC_LSHIFTRT_WIDE "lsr")
-			     (UNSPEC_RBIT "rbit")])
+			     (UNSPEC_RBIT "rbit")
+			     (UNSPEC_REVB "revb")
+			     (UNSPEC_REVH "revh")
+			     (UNSPEC_REVW "revw")])
 
 (define_int_attr sve_fp_op [(UNSPEC_FADDV "faddv")
 			    (UNSPEC_FMAXNMV "fmaxnmv")
@@ -2317,5 +2327,11 @@
 (define_int_attr brk_reg_opno [(UNSPEC_BRKN "0")
 			       (UNSPEC_BRKPA "3") (UNSPEC_BRKPB "3")])
 
-;; The maximum number of bits that an instruction can handle
+;; The maximum number of element bits that an instruction can handle.
 (define_int_attr max_elem_bits [(UNSPEC_UADDV "64") (UNSPEC_SADDV "32")])
+
+;; The minimum number of element bits that an instruction can handle.
+(define_int_attr min_elem_bits [(UNSPEC_RBIT "8")
+				(UNSPEC_REVB "16")
+				(UNSPEC_REVH "32")
+				(UNSPEC_REVW "64")])

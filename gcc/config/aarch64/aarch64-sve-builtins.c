@@ -1036,6 +1036,7 @@ private:
   rtx expand_rdffr ();
   rtx expand_reduction (int, int, int);
   rtx expand_rev ();
+  rtx expand_rev_bhw (int);
   rtx expand_sel ();
   rtx expand_set ();
   rtx expand_setffr ();
@@ -3531,6 +3532,9 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svptrue_pat:
     case FUNC_svrbit:
     case FUNC_svrev:
+    case FUNC_svrevb:
+    case FUNC_svrevh:
+    case FUNC_svrevw:
     case FUNC_svsel:
     case FUNC_svset2:
     case FUNC_svset3:
@@ -5539,6 +5543,9 @@ gimple_folder::fold ()
     case FUNC_svqsub:
     case FUNC_svrbit:
     case FUNC_svrdffr:
+    case FUNC_svrevb:
+    case FUNC_svrevh:
+    case FUNC_svrevw:
     case FUNC_svsetffr:
     case FUNC_svsplice:
     case FUNC_svsqrt:
@@ -6597,6 +6604,15 @@ function_expander::expand ()
 
     case FUNC_svrev:
       return expand_rev ();
+
+    case FUNC_svrevb:
+      return expand_rev_bhw (UNSPEC_REVB);
+
+    case FUNC_svrevh:
+      return expand_rev_bhw (UNSPEC_REVH);
+
+    case FUNC_svrevw:
+      return expand_rev_bhw (UNSPEC_REVW);
 
     case FUNC_svsel:
       return expand_sel ();
@@ -7813,6 +7829,13 @@ rtx
 function_expander::expand_rev ()
 {
   return expand_via_exact_insn (code_for_aarch64_sve_rev (get_mode (0)));
+}
+
+/* Expand a call to svrev[bhw]; UNSPEC_CODE says which.  */
+rtx
+function_expander::expand_rev_bhw (int unspec_code)
+{
+  return expand_pred_op (unspec_code, -1);
 }
 
 /* Expand a call to svsetffr.  */
