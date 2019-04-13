@@ -2251,7 +2251,7 @@
 	  [(match_dup 3)
 	   (const_int SVE_ALLOW_NEW_FAULTS)
 	   (match_operand:SVE_F 1 "register_operand")
-	   (match_operand:SVE_F 2 "register_operand")]
+	   (match_operand:SVE_F 2 "aarch64_sve_float_maxmin_operand")]
 	  SVE_COND_MAXMIN))]
   "TARGET_SVE"
   {
@@ -2781,7 +2781,7 @@
 	  [(match_dup 3)
 	   (const_int SVE_ALLOW_NEW_FAULTS)
 	   (match_operand:SVE_F 1 "register_operand")
-	   (match_operand:SVE_F 2 "aarch64_sve_float_mul_operand")]
+	   (match_operand:SVE_F 2 "aarch64_sve_float_<sve_imm_pred>_operand")]
 	  SVE_COND_FP_BINARY_I1))]
   "TARGET_SVE"
   {
