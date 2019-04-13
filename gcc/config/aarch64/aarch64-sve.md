@@ -3422,7 +3422,7 @@
 )
 
 ;; Synthetic predication of floating-point subtraction with select unmatched.
-(define_insn "*cond_sub<mode>_any"
+(define_insn_and_split "*cond_sub<mode>_any"
   [(set (match_operand:SVE_F 0 "register_operand" "=w, &w, &w, &w, &w, &w, ?&w, ?&w")
 	(unspec:SVE_F
 	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl, Upl, Upl, Upl, Upl, Upl, Upl")
@@ -3446,6 +3446,25 @@
    movprfx\t%0.<Vetype>, %1/m, %2.<Vetype>\;fsub\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
    #
    #"
+  ; Handle the split for FSUBR (the last-but-one alternative).  The generic
+  ; splitter above handles the final all-register alternative.
+  "&& reload_completed
+   && !rtx_equal_p (operands[0], operands[4])
+   && CONSTANT_P (operands[2])
+   && !CONSTANT_P (operands[4])"
+  [(set (match_dup 0)
+	(unspec:SVE_F [(match_dup 1) (match_dup 3) (match_dup 4)] UNSPEC_SEL))
+   (set (match_dup 0)
+	(unspec:SVE_F
+	  [(match_dup 1)
+	   (unspec:SVE_F [(match_dup 1)
+			  (match_dup 5)
+			  (match_dup 2)
+			  (match_dup 0)]
+			 UNSPEC_COND_SUB)
+	   (match_dup 0)]
+	  UNSPEC_SEL))]
+  ""
   [(set_attr "movprfx" "yes")]
 )
 
