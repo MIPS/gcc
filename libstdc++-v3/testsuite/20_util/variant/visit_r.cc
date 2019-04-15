@@ -42,8 +42,22 @@ test01()
   static_assert(std::is_void_v<decltype(std::visit<void>(Visitor{}, v1, v2))>);
 }
 
+void test02()
+{
+  struct Visitor
+  {
+    int operator()(double) {return 42;}
+    double operator()(int) {return 0.02;}
+  };
+  std::variant<int, double> v;
+  std::visit<int>(Visitor(), v);
+  std::visit<const void>(Visitor(), v);
+}
+
+
 int
 main()
 {
   test01();
+  test02();
 }

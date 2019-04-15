@@ -1,3 +1,94 @@
+2019-04-12  Thomas Rodgers  <trodgers@redhat.com>
+	
+	* include/pstl/algorithm_impl.h: Uglify identfiers.
+	* include/pstl/numeric_impl.h:  Uglify identfiers.
+	* include/pstl/parallel_backend_tbb.h: Uglify identfiers.
+
+2019-04-11  Thomas Rodgers  <trodgers@redhat.com>
+
+	* include/bits/c++config:
+	Add definition for __PSTL_ASSERT.
+	Add definition for __PSTL_ASSERT_MSG.
+	* include/pstl/algorithm_impl.h: Replace use of assert().
+	* include/pstl/numeric_impl.h: Replace use of assert().
+	* include/pstl/parallel_backend_tbb.h:
+	Replace use of assert().
+	Replace use of __TBB_ASSERT().
+	* include/pstl/parallel_backend_utils.h: Replace use of assert().
+
+2019-04-11  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/90046
+	* src/c++17/memory_resource.cc
+	(monotonic_buffer_resource::_Chunk::allocate): Increase alignment if
+	needed to allow placing a _Chunk at the end of the buffer.
+	(monotonic_buffer_resource::_M_new_buffer): Remove static_assert.
+
+2019-04-10  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/faq.xml: Add information about emergency EH pool.
+	* doc/xml/manual/debug.xml: Update list of memory debugging tools.
+	Move outdated information on mt_allocator to a separate section.
+	* doc/xml/manual/evolution.xml: Clarify that GLIBCXX_FORCE_NEW
+	doesn't affect the default allocator.
+
+	* testsuite/lib/libstdc++.exp (check_v3_target_parallel_mode): Fix
+	typo.
+
+	PR libstdc++/89851
+	* testsuite/20_util/variant/89851.cc: New test.
+
+2019-04-09  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/std/variant: Adjust whitespace. Add comments.
+	(_Multi_array): Leave primary template undefined.
+	(_Multi_array<_Tp>): Define partial specialization for base case of
+	recursion.
+	(__gen_vtable_impl, __gen_vtable): Remove redundant && from type
+	which is always a reference.
+	(__gen_vtable::_S_apply()): Remove function, inline body into
+	default member initializer.
+	* testsuite/20_util/variant/visit.cc: Test with noncopyable types.
+
+	* include/std/variant (__variant_idx_cookie): Add member type.
+	(__visitor_result_type): Remove.
+	(__do_visit): Use invoke_result instead of __visitor_result_type.
+	* testsuite/20_util/variant/visit.cc: New test.
+
+	PR libstdc++/90008
+	* include/std/variant (_VARIANT_RELATION_FUNCTION_TEMPLATE): Remove
+	unused capture.
+	* testsuite/20_util/variant/90008.cc: New test.
+
+2019-04-09  Thomas Rodgers  <trodgers@redhat.com>
+
+	* include/pstl/algorithm_impl.h: Add namespace qualification.
+	* include/pstl/execution_defs.h: Add namespace qualification.
+	* include/pstl/execution_impl.h: Add namespace qualification.
+	* include/pstl/numeric_impl.h: Add namespace qualification.
+	* include/pstl/parallel_backend_tbb.h: Add namespace qualification.
+	* include/pstl/unseq_backend_simd.h: Add namespace qualification.
+	* include/pstl/parallel_backend_utils.h: Include <cassert>.
+
+2019-04-08  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Fix visit<R> for variant.
+	* include/std/variant (__do_visit): Add a template parameter
+	for enforcing same return types for visit.
+	(__gen_vtable_impl): Likewise.
+	(_S_apply_single_alt): Adjust.
+	(__visit_invoke_impl): New. Handle casting to void.
+	(__do_visit_invoke): New. Enforces same return types.
+	(__do_visit_invoke_r): New. Converts return types.
+	(__visit_invoke): Adjust.
+	(__gen_vtable):  Add a template parameter for enforcing
+	same return types for visit.
+	* testsuite/20_util/variant/visit_r.cc: Add a test for a visitor with
+	different return types.
+	* testsuite/20_util/variant/visit_neg.cc: New. Ensures that
+	visitors with different return types don't accidentally
+	compile with regular visitation.
+
 2019-04-08  Christophe Lyon  <christophe.lyon@linaro.org>
 
 	* testsuite/27_io/filesystem/iterators/caching.cc: Add

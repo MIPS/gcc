@@ -1,3 +1,195 @@
+2019-04-15  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/pr89693
+	* g++.dg/ipa/pr89693.C: New test.
+
+2019-04-15  Dominique d'Humieres  <dominiq@gcc.gnu.org>
+
+	PR tree-optimization/90020
+	* gcc.dg/torture/pr90020.c: Add linker options for darwin.
+
+2019-04-14  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR lto/89358
+	* g++.dg/lto/pr89358_0.C: New testcase.
+	* g++.dg/lto/pr89358_1.C: New testcase.
+
+2019-04-14  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/85448
+	* gfortran.dg/bind_c_usage_33.f90: New test and...
+	* gfortran.dg/bind_c_usage_33_c.c: Additional source.
+
+2019-04-14  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/89843
+	* gfortran.dg/ISO_Fortran_binding_4.f90: Modify the value of x
+	in ctg. Test the conversion of the descriptor types in the main
+	program.
+	* gfortran.dg/ISO_Fortran_binding_10.f90: New test.
+	* gfortran.dg/ISO_Fortran_binding_10.c: Called by it.
+
+	PR fortran/89846
+	* gfortran.dg/ISO_Fortran_binding_11.f90: New test.
+	* gfortran.dg/ISO_Fortran_binding_11.c: Called by it.
+
+	PR fortran/90022
+	* gfortran.dg/ISO_Fortran_binding_1.c: Correct the indexing for
+	the computation of 'ans'. Also, change the expected results for
+	CFI_is_contiguous to comply with standard.
+	* gfortran.dg/ISO_Fortran_binding_1.f90: Correct the expected
+	results for CFI_is_contiguous to comply with standard.
+	* gfortran.dg/ISO_Fortran_binding_9.f90: New test.
+	* gfortran.dg/ISO_Fortran_binding_9.c: Called by it.
+
+2019-04-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/89093
+	* gcc.target/arm/pr89093.c: New test.
+
+2019-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/89933
+	* c-c++-common/pr89933.c: New test.
+
+2019-04-12  Martin Sebor  <msebor@redhat.com>
+
+	PR c/88383
+	PR c/89288
+	PR c/89798
+	PR c/89797
+	* c-c++-common/attributes-1.c: Adjust.
+	* c-c++-common/builtin-has-attribute-4.c: Adjust expectations.
+	* c-c++-common/builtin-has-attribute-6.c: New test.
+	* c-c++-common/builtin-has-attribute-7.c: New test.
+	* c-c++-common/pr71574.c: Adjust.
+	* gcc.dg/pr25559.c: Adjust.
+	* gcc.dg/attr-vector_size.c: New test.
+
+2019-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/89965
+	* gcc.target/i386/pr89965.c: New test.
+
+2019-04-12  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/87603 - constexpr functions are no longer noexcept.
+	* g++.dg/cpp0x/constexpr-noexcept.C: Adjust the expected result.
+	* g++.dg/cpp0x/constexpr-noexcept3.C: Likewise.
+	* g++.dg/cpp0x/constexpr-noexcept4.C: Likewise.
+	* g++.dg/cpp0x/constexpr-noexcept8.C: New test.
+	* g++.dg/cpp0x/inh-ctor32.C: Remove dg-message.
+	* g++.dg/cpp1y/constexpr-noexcept1.C: New test.
+
+2019-04-12  Marek Polacek  <polacek@redhat.com>
+
+	* g++.dg/cpp0x/noexcept30.C: Tweak dg-error.
+	* g++.dg/cpp0x/pr86397-1.C: Likewise.
+	* g++.dg/cpp0x/pr86397-2.C: Likewise.
+
+2019-04-12  Matthew Malcomson  <matthew.malcomson@arm.com>
+
+	* g++.target/arm/arm.exp: Change format of default prune regex.
+	* gcc.target/arm/arm.exp: Change format of default prune regex.
+
+2019-04-12  Martin Liska  <mliska@suse.cz>
+
+	PR middle-end/89970
+	* gcc.target/i386/mvc15.c: New test.
+	* gcc.target/i386/mvc3.c: Quote target in error pattern.
+	* gcc.target/i386/mvc4.c: Remove duplicit 'default'.
+
+2019-04-12  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	PR target/87532
+	* gcc.target/powerpc/fold-vec-extract-char.p8.c: Adjust expected
+	instruction counts.
+	* gcc.target/powerpc/fold-vec-extract-int.p8.c: Likewise.
+	* gcc.target/powerpc/fold-vec-extract-short.p8.c: Likewise.
+
+2019-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/89946
+	* c-c++-common/pr89946.c: New test.
+
+	PR rtl-optimization/90026
+	* g++.dg/opt/pr90026.C: New test.
+
+2018-04-11  Steve Ellcey  <sellcey@marvell.com>
+
+	PR rtl-optimization/87763
+	* gcc.target/aarch64/combine_bfxil.c: Change some bfxil checks
+	to bfi.
+
+2019-04-11  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/90020
+	* gcc.dg/torture/pr90020.c: New testcase.
+
+2019-04-11  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/90018
+	* gcc.dg/vect/pr90018.c: New testcase.
+
+2018-04-10  Steve Ellcey  <sellcey@marvell.com>
+
+	PR rtl-optimization/87763
+	* gcc.target/aarch64/combine_bfxil.c: Change some bfxil checks
+	to bfi.
+	* gcc.target/aarch64/combine_bfi_2.c: New test.
+
+2019-04-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/90025
+	* gcc.c-torture/execute/pr90025.c: New test.
+
+	PR c++/90010
+	* gcc.dg/pr90010.c: New test.
+
+2019-04-09  Uroš Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/ifcvt-onecmpl-abs-1.c
+	(dg-options): Use -O2 -fdump-rtl-ce1.
+	(dg-final): Scan ce1 RTL dump instead of asm dump.
+
+2019-04-09  Matthew Malcomson  <matthew.malcomson@arm.com>
+
+	PR target/90024
+	* gcc.dg/torture/neon-immediate-timode.c: New test.
+
+2019-04-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/89998
+	* gcc.c-torture/compile/pr89998-1.c: New test.
+	* gcc.c-torture/compile/pr89998-2.c: New test.
+
+	PR target/90015
+	* gcc.target/riscv/interrupt-conflict-mode.c (foo): Adjust expected
+	diagnostics.
+
+2019-04-08  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/90006
+	* gcc.dg/vect/bb-slp-pr90006.c: New testcase.
+
+2019-04-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/89865
+	* gcc.target/i386/pr49095.c: Don't expect any RMW sequences.
+
+	PR rtl-optimization/89865
+	* gcc.target/i386/pr49095.c: Adjust number of expected RMW spots
+	on ia32.
+
+2019-04-01  Bin Cheng  <bin.cheng@linux.alibaba.com>
+
+	PR tree-optimization/89725
+	* gcc.dg/tree-ssa/pr89725.c: New test.
+
+2019-04-08  Martin Liska  <mliska@suse.cz>
+
+	* gcc.target/riscv/arch-1.c: Fix expected scanned pattern.
+
 2019-04-08  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/89914

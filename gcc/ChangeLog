@@ -1,3 +1,354 @@
+2019-04-15  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/pr89693
+	* cgraph.c (clone_of_p): Loop over clone chain for each step in
+	the thunk chain.
+
+2019-04-15  Monk Chiang  <sh.chiang04@gmail.com>
+
+	* config.gcc (nds32*-*-linux*): Set gcc_cv_initfini_array to yes.
+
+2019-04-15  Monk Chiang  <sh.chiang04@gmail.com>
+	    Kito Cheng  <kito.cheng@gmail.com>
+	    Shiva Chen  <shiva0217@gmail.com>
+
+	* config/nds32/nds32-md-auxiliary.c
+	(nds32_legitimize_pic_address): Use new PIC pattern.
+	(nds32_legitimize_tls_address): Use new TLS pattern.
+	(nds32_output_symrel): New.
+	* config/nds32/nds32-protos.h (nds32_output_symrel): Declare.
+	(nds32_alloc_relax_group_id): Ditto.
+	* config/nds32/nds32-relax-opt.c (nds32_alloc_relax_group_id): New.
+	(nds32_group_insns): Use nds32_alloc_relax_group_id instead of use
+	relax_group_id.
+	(nds32_group_tls_insn): Ditto.
+	(nds32_group_float_insns): Ditto.
+	* config/nds32/nds32.md (tls_le): New.
+	(sym_got): Ditto.
+
+2019-04-15  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	* configure: Add nds32 target for dwarf2 debug_line checking.
+	* configure.ac: Regenerated.
+
+2019-04-14  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR lto/89358
+	* ipa-devirt.c (skip_in_fields_list_p): New.
+	(odr_types_equivalent_p): Use it.
+
+2019-04-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/89093
+	* config/arm/arm.c (arm_valid_target_attribute_rec): Use strcmp
+	instead of strncmp when checking for thumb and arm.  Formatting fixes.
+
+2019-04-12  Iain Buclaw  <ibuclaw@gdcproject.org>
+
+	* doc/install.texi: Document --with-target-system-zlib.
+
+2019-04-12  Martin Sebor  <msebor@redhat.com>
+
+	PR c/88383
+	PR c/89288
+	PR c/89798
+	PR c/89797
+	* targhooks.c (default_vector_alignment): Avoid assuming
+	argument fits in SHWI.
+	* tree.h (TYPE_VECTOR_SUBPARTS): Avoid sign overflow in
+	a shift expression.
+	* doc/extend.texi (__builtin_has_attribute): Add a clarifying note.
+
+2019-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/89965
+	* dce.c: Include rtl-iter.h.
+	(struct check_argument_load_data): New type.
+	(check_argument_load): New function.
+	(find_call_stack_args): Check for loads from stack slots still tracked
+	in sp_bytes and punt if any is found.
+
+	* config/mips/loongson-mmiintrin.h: Fix up #error message.
+
+2019-04-12  Jan Hubicka  <hubicka@ucw.cz>
+
+	* params.def (PARAM_MAX_LTO_STREAMING_PARALLELISM): New parameter.
+	* doc/invoke.texi (max-lto-streaming-paralellism): New --param.
+
+2019-04-12  Martin Liska  <mliska@suse.cz>
+
+	PR middle-end/89970
+	* multiple_target.c (create_dispatcher_calls): Wrap ifunc
+	in error message.
+	(separate_attrs): Handle multiple 'default's.
+	(expand_target_clones): Rework error handling code.
+
+2019-04-12  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	PR target/87532
+	* config/rs6000/rs6000.c (rs6000_split_vec_extract_var): Use inner
+	mode of vector rather than mode of destination for move instruction.
+	* config/rs6000/vsx.md (*vsx_extract_<mode>_<VS_scalar>mode_var):
+	Use QI inner mode with V16QI vector mode.
+
+2019-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/52726
+	* config/tilepro/tilepro.c (tilepro_print_operand): Use just
+	"invalid %%t operand" in output_operand_lossage message.
+
+2019-04-12  Andreas Krebbel  <krebbel@linux.ibm.com>
+
+	* config/s390/predicates.md (permute_pattern_operand): New
+	predicate.
+	* config/s390/vector.md ("*vec_splats_bswap_vec<mode>"): Add USE
+	operand for the permute pattern.
+	("*vec_perm<mode>"): New insn definition.
+	("bswap<mode>"): Generate the permute pattern operand in the
+	expander and perform the operand reloads for pre arch13 level
+	already.
+	("*bswap<mode>_emu"): Rename to ...
+	("*bswap<mode>"): ... this. And make the splitter vxe2 only.
+	* config/s390/vx-builtins.md ("*vec_insert_and_zero_bswap<mode>"):
+	Add the USE operand for the permute pattern.
+	("*vec_set_bswap_vec<mode>"): Likewise.
+
+2019-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/89946
+	* varasm.c (assemble_start_function): Don't use tree_fits_uhwi_p
+	and gcc_unreachable if it fails, just call tree_to_uhwi which
+	verifies that too.  Test TREE_CHAIN instead of list_length > 1.
+	Start warning message with a lower-case letter.  Formatting fixes.
+
+	PR rtl-optimization/90026
+	* cfgcleanup.c (try_optimize_cfg): When removing empty bb with no
+	successors, look for BARRIERs inside of the whole BB_FOOTER chain
+	rather than just at the start of it.  If e->src BB_FOOTER is not NULL
+	in cfglayout mode, use emit_barrier_after_bb.
+
+2018-04-11  Steve Ellcey  <sellcey@marvell.com>
+
+	PR rtl-optimization/87763
+	* config/aarch64/aarch64.md (*aarch64_bfi<GPI:mode>4_noshift_alt):
+	New Instruction.
+
+2019-04-11  Tom de Vries  <tdevries@suse.de>
+
+	* doc/extend.texi (@node Statement Exprs): Note variable shadowing at
+	max macro using statement expression.
+
+2019-04-11  David Edelsohn  <dje.gcc@gmail.com>
+
+	* xcoffout.h (xcoff_private_rodata_section_name): Declare.
+	* xcoffout.c (xcoff_private_rodata_section_name): Define.
+	* config/rs6000/rs6000.c (rs6000_xcoff_asm_init_sections): Create
+	read_only_private_data_section using xcoff_private_rodata_section_name.
+	(rs6000_xcoff_file_start): Generate xcoff_private_rodata_section_name.
+
+2019-04-11  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	PR target/90016
+	* config/aarch64/aarch64.opt (msve-vector-bits): Add missing final '.'.
+
+2019-04-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/89965
+	* dce.c (sp_based_mem_offset): New function.
+	(find_call_stack_args): Use sp_based_mem_offset.
+
+2019-04-11  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/invoke.texi (Optimize Options): Clarify -flive-patching docs.
+
+2019-04-11  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/90020
+	* tree-ssa-sccvn.c (vn_reference_may_trap): New function.
+	* tree-ssa-sccvn.h (vn_reference_may_trap): Declare.
+	* tree-ssa-pre.c (compute_avail): Use it to not put
+	possibly trapping references after a call that might not
+	return into EXP_GEN.
+	* gcse.c (compute_hash_table_work): Do not elide
+	marking a block containing a call if the call might not
+	return.
+
+2019-04-11  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/90018
+	* tree-vect-data-refs.c (vect_preserves_scalar_order_p):
+	Test both SLP and interleaving variants.
+
+2019-04-11  Robin Dapp  <rdapp@linux.ibm.com>
+
+	* config/s390/8561.md: New file.
+	* config/s390/driver-native.c (s390_host_detect_local_cpu):
+	Add arch13 cpu model.
+	* config/s390/s390-opts.h (enum processor_type): Likewise.
+	* config/s390/s390.c (s390_get_sched_attrmask): Add arch13.
+	(s390_get_unit_mask): Likewise.
+	(s390_is_fpd): Likewise.
+	(s390_is_fxd): Likewise.
+	* config/s390/s390.h (s390_tune_attr): Likewise.
+	* config/s390/s390.md: Include arch13 pipeline description.
+	* config/s390/s390.opt: Add arch13.
+
+2018-04-10  Steve Ellcey  <sellcey@marvell.com>
+
+	PR rtl-optimization/87763
+	* config/aarch64/aarch64-protos.h (aarch64_masks_and_shift_for_bfi_p):
+	New prototype.
+	* config/aarch64/aarch64.c (aarch64_masks_and_shift_for_bfi_p):
+	New function.
+	* config/aarch64/aarch64.md (*aarch64_bfi<GPI:mode>5_shift):
+	New instruction.
+	(*aarch64_bfi<GPI:mode>5_shift_alt): Ditto.
+	(*aarch64_bfi<GPI:mode>4_noand): Ditto.
+	(*aarch64_bfi<GPI:mode>4_noand_alt): Ditto.
+	(*aarch64_bfi<GPI:mode>4_noshift): Ditto.
+
+2019-04-10  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/invoke.texi (Optimize Options): Change "Nevertheless" to
+	"Although" in -fipa-icf documentation.
+
+	* doc/invoke.texi (Debugging Options): Explicitly state the semantics
+	of using multiple -g options.
+
+2019-04-10  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/89959
+	* doc/gcov.texi: Make documentation of -x option
+	more precise.
+
+2019-04-10  Richard Biener  <rguenther@suse.de>
+
+	* tree-vectorizer.h (_stmt_vec_info): Remove same_dr_stmt
+	member.
+	(DR_GROUP_SAME_DR_STMT): Remove.
+	* tree-vect-stmts.c (vectorizable_load): Remove unreachable code.
+	* tree-vect-data-refs.c (vect_analyze_group_access_1): Likewise,
+	replace with assert.
+	(vect_analyze_data_ref_accesses): Fix INTEGER_CST comparison.
+	(vect_record_grouped_load_vectors): Remove unreachable code.
+
+2019-04-10  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/90016
+	* config/aarch64/aarch64.opt (msve-vector-bits): Remove redundant and
+	obsolete reference to N.
+
+2019-04-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/90025
+	* expr.c (store_expr): Set properly size on the MEM passed to
+	clear_storage.
+
+	PR c++/90010
+	* gimple-ssa-sprintf.c (target_to_host): Fix handling of targstr
+	with strlen in between hostsz-3 and hostsz-1 inclusive when no
+	translation is needed, and when translation is needed, only append
+	... if the string length is hostsz or more bytes long.  Avoid using
+	strncpy or strcat.
+
+2019-04-09  Matthew Malcomson  <matthew.malcomson@arm.com>
+
+	PR target/90024
+	* config/arm/arm.c (neon_valid_immediate): Disallow VOIDmode parameter.
+	* config/arm/constraints.md (Dm, DN, Dn): Split previous Dn constraint
+	into three.
+	* config/arm/neon.md (*neon_mov<mode>): Account for TImode and DImode
+	differences directly.
+	(*smax<mode>3_neon, vashl<mode>3, vashr<mode>3_imm): Use Dm constraint.
+
+2019-04-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR translation/90011
+	* ipa-devirt.c (compare_virtual_tables): Remove two trailing spaces
+	from diagnostics.
+	* config/arm/freebsd.h (LINK_SPEC): Remove trailing space from -p
+	diagnostics.
+	* config/riscv/freebsd.h (LINK_SPEC): Likewise.
+	* config/aarch64/aarch64-freebsd.h (FBSD_TARGET_LINK_SPEC): Likewise.
+	* config/darwin.h (DRIVER_SELF_SPECS, ASM_FINAL_SPEC): Remove
+	trailing space from -gsplit-dwarf diagnostics.
+
+	PR tree-optimization/89998
+	* gimple-ssa-sprintf.c (try_substitute_return_value): Use lhs type
+	instead of integer_type_node if possible, don't add ranges if return
+	type is not compatible with int.
+	* gimple-fold.c (gimple_fold_builtin_sprintf,
+	gimple_fold_builtin_snprintf): Use lhs type instead of hardcoded
+	integer_type_node.
+
+2019-04-09  Martin Liska  <mliska@suse.cz>
+
+	* Makefile.in: Use GENERATOR_CFLAGS for all generators.
+	* doc/install.texi: Document the new config.
+
+2019-04-09  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* tree-vect-data-refs.c (vect_get_smallest_scalar_type): Always
+	use gimple_expr_type for load and store calls.  Skip over the
+	condition argument in a conditional internal function.
+	Protect use of TREE_INT_CST_LOW.
+
+2019-04-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/90015
+	* config/riscv/riscv.c (riscv_get_interrupt_type): Fix comment typo.
+	(riscv_merge_decl_attributes): Fix typo in diagnostics.  Remove
+	trailing period from it too.
+
+2019-04-08  wu yuan  <wuyuan5@huawei.com>
+
+	* config/aarch64/aarch64-cores.def (tsv1100): Change scheduling model.
+	* config/aarch64/aarch64.md : Add "tsv110.md"
+	* config/aarch64/tsv110.md: New file.
+
+2019-04-08  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/90006
+	* tree-vect-data-refs.c (vect_get_smallest_scalar_type): Handle
+	calls like lrint.
+
+2019-04-08  Andrea Corallo  <andrea.corallo@arm.com>
+
+	PR target/83033
+	* config/aarch64/cortex-a57-fma-steering.c (fma_forest): Prohibit copy
+	construction.
+	(fma_root_node): Likewise.
+	(func_fma_steering): Likewise.
+
+2019-04-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/89865
+	* config/i386/i386.md: Add peepholes for z = x; x ^= y; x != z.
+
+	PR rtl-optimization/89865
+	* config/i386/i386.md
+	(SWI12 peephole for mem {+,-,&,|,^}= x; mem != 0): Fix up operand
+	numbers not to clash with the additional operands[4].
+	(peepholes for mem {+,-,&,|,^}= x; mem != 0): New peephole2s
+	with extra register copy in the middle.
+
+2019-04-08  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/89961
+	* doc/gcov.texi: Document data_file.
+	* gcov.c (generate_results): Add data_info into JSON output.
+
+2019-04-01  Bin Cheng  <bin.cheng@linux.alibaba.com>
+
+	PR tree-optimization/89725
+	* tree-chrec.c (chrec_contains_symbols): New parameter.  Handle outer
+	loop's chrec as invariant symbol.
+	* tree-chrec.h (chrec_contains_symbols): New parameter.
+	* tree-data-ref.c (analyze_miv_subscript): Pass new argument.
+	(build_classic_dist_vector_1, add_other_self_distances): Bypass access
+	function of loops not in DDR's loop_nest.
+	* tree-data-ref.h (index_in_loop_nest): Add unreachable check.
+
 2019-04-08  Chenghua Xu  <paul.hua.gm@gmail.com>
 
 	PR target/89623
