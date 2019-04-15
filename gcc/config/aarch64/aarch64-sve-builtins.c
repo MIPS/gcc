@@ -207,16 +207,6 @@ enum function {
 #include "aarch64-sve-builtins.def"
 };
 
-/* Enumerates the function groups defined in aarch64-sve-builtins.def.  */
-#define GROUP_ID(NAME, SHAPE, TYPES, PREDS) \
-  GROUP_##NAME##_##SHAPE##_##TYPES##_##PREDS
-enum group_id {
-#define DEF_SVE_FUNCTION(NAME, SHAPE, TYPES, PREDS) \
-  GROUP_ID (NAME, SHAPE, TYPES, PREDS),
-#include "aarch64-sve-builtins.def"
-  NUM_GROUPS
-};
-
 /* Static information about each single-predicate or single-vector
    ABI and ACLE type.  */
 struct vector_type_info {
@@ -258,9 +248,6 @@ struct type_suffix_info {
 
 /* Static information about a set of functions.  */
 struct function_group {
-  /* The unique identifier of the group.  */
-  group_id id;
-
   /* The base name.  */
   function func;
 
@@ -282,8 +269,8 @@ struct function_group {
 /* Describes a fully-resolved function (i.e. one that has a unique full
    name).  */
 struct GTY(()) function_instance {
-  function_instance (group_id, function_mode, const type_suffix_pair &,
-		     predication);
+  function_instance (function, function_shape, function_mode,
+		     const type_suffix_pair &, predication);
 
   bool operator== (const function_instance &) const;
   bool operator!= (const function_instance &) const;
@@ -296,7 +283,8 @@ struct GTY(()) function_instance {
   tree quarter_scalar_type (unsigned int i) const;
 
   /* The explicit "enum"s are required for gengtype.  */
-  enum group_id group;
+  enum function func;
+  enum function_shape shape;
   enum function_mode mode;
   type_suffix_pair types;
   enum predication pred;
@@ -407,6 +395,9 @@ private:
 
   /* Used for building up function names.  */
   obstack m_string_obstack;
+
+  /* A hash of all built-in function names that we've registered so far.  */
+  hash_set<nofree_string_hash> m_overload_names;
 };
 
 /* A class for resolving an overloaded function call.  */
@@ -450,12 +441,10 @@ private:
 
   /* The overloaded function.  */
   const registered_function &m_rfn;
+  const function_instance &m_fi;
 
   /* The arguments to the overloaded function.  */
   vec<tree, va_gc> &m_arglist;
-
-  /* The static table entry for the overloaded function.  */
-  const function_group &m_group;
 };
 
 /* A class for checking that the semantic constraints on a function call are
@@ -464,7 +453,7 @@ private:
 class function_checker
 {
 public:
-  function_checker (location_t, const function_instance &, tree,
+  function_checker (location_t, const registered_function &, tree,
 		    unsigned int, tree *);
   bool check ();
 
@@ -486,9 +475,6 @@ private:
   /* The arguments to the function.  */
   unsigned int m_nargs;
   tree *m_args;
-
-  /* The static table entry for the function.  */
-  const function_group &m_group;
 };
 
 /* A class for folding a gimple function call.  */
@@ -512,7 +498,6 @@ private:
 
   /* The function being called.  */
   const function_instance &m_fi;
-  const function_group &m_group;
 
   /* Where to insert extra statements that feed the final replacement.  */
   gimple_stmt_iterator *m_gsi;
@@ -604,7 +589,6 @@ private:
   /* The function being called.  */
   const registered_function &m_rfn;
   const function_instance &m_fi;
-  const function_group &m_group;
 
   /* The function call expression.  */
   tree m_exp;
@@ -741,8 +725,7 @@ static const char *const base_names[] = {
 /* A list of all SVE ACLE functions.  */
 static const function_group function_groups[] = {
 #define DEF_SVE_FUNCTION(NAME, SHAPE, TYPES, PREDS) \
-  { GROUP_ID (NAME, SHAPE, TYPES, PREDS), FUNC_##NAME, SHAPE_##SHAPE, \
-    types_##TYPES, preds_##PREDS },
+  { FUNC_##NAME, SHAPE_##SHAPE, types_##TYPES, preds_##PREDS },
 #include "aarch64-sve-builtins.def"
 };
 
@@ -875,11 +858,12 @@ report_out_of_range (location_t location, tree decl, unsigned int argno,
 }
 
 inline
-function_instance::function_instance (group_id group_in,
+function_instance::function_instance (function func_in,
+				      function_shape shape_in,
 				      function_mode mode_in,
 				      const type_suffix_pair &types_in,
 				      predication pred_in)
-  : group (group_in), mode (mode_in), pred (pred_in)
+  : func (func_in), shape (shape_in), mode (mode_in), pred (pred_in)
 {
   memcpy (types, types_in, sizeof (types));
 }
@@ -887,7 +871,8 @@ function_instance::function_instance (group_id group_in,
 inline bool
 function_instance::operator== (const function_instance &other) const
 {
-  return (group == other.group
+  return (func == other.func
+	  && shape == other.shape
 	  && mode == other.mode
 	  && pred == other.pred
 	  && types[0] == other.types[0]
@@ -904,7 +889,8 @@ hashval_t
 function_instance::hash () const
 {
   inchash::hash h;
-  h.add_int (group);
+  h.add_int (func);
+  h.add_int (shape);
   h.add_int (mode);
   h.add_int (types[0]);
   h.add_int (types[1]);
@@ -1224,8 +1210,8 @@ arm_sve_h_builder::build_all (function_signature signature,
   for (unsigned int pi = 0; group.preds[pi] != NUM_PREDS; ++pi)
     for (unsigned int ti = 0; group.types[ti][0] != NUM_TYPE_SUFFIXES; ++ti)
       {
-	function_instance instance (group.id, mode, group.types[ti],
-				    group.preds[pi]);
+	function_instance instance (group.func, group.shape, mode,
+				    group.types[ti], group.preds[pi]);
 	(this->*signature) (instance, types);
 	apply_predication (instance, types);
 	add_function_instance (instance, types, force_direct_overloads);
@@ -1472,9 +1458,12 @@ arm_sve_h_builder::add_overloaded_functions (const function_group &group,
     {
       type_suffix_pair prev_types = { NUM_TYPE_SUFFIXES, NUM_TYPE_SUFFIXES };
       if (explicit_types == 0)
-	/* One overloaded function for all type combinations.  */
-	add_overloaded_function (function_instance (group.id, mode, prev_types,
-						    group.preds[pi]));
+	{
+	  /* One overloaded function for all type combinations.  */
+	  function_instance instance (group.func, group.shape, mode,
+				      prev_types, group.preds[pi]);
+	  add_overloaded_function (instance);
+	}
       else
 	for (unsigned int ti = 0; group.types[ti][0] != NUM_TYPE_SUFFIXES;
 	     ++ti)
@@ -1491,8 +1480,9 @@ arm_sve_h_builder::add_overloaded_functions (const function_group &group,
 		&& types[0] == prev_types[0]
 		&& types[1] == prev_types[1])
 	      continue;
-	    add_overloaded_function (function_instance (group.id, mode, types,
-							group.preds[pi]));
+	    function_instance instance (group.func, group.shape, mode, types,
+					group.preds[pi]);
+	    add_overloaded_function (instance);
 	    memcpy (prev_types, types, sizeof (types));
 	  }
     }
@@ -1541,7 +1531,7 @@ tree
 arm_sve_h_builder::get_attributes (const function_instance &instance)
 {
   tree attrs = NULL_TREE;
-  switch (function_groups[instance.group].func)
+  switch (instance.func)
     {
     case FUNC_svabd:
     case FUNC_svabs:
@@ -1662,11 +1652,10 @@ char *
 arm_sve_h_builder::get_name (const function_instance &instance,
 			     bool overloaded_p)
 {
-  const function_group &group = function_groups[instance.group];
   unsigned int explicit_types
-    = (overloaded_p ? get_explicit_types (group.shape) : 3);
+    = (overloaded_p ? get_explicit_types (instance.shape) : 3);
 
-  append_name (base_names[group.func]);
+  append_name (base_names[instance.func]);
   switch (instance.mode)
     {
     case MODE_none:
@@ -1703,8 +1692,8 @@ arm_sve_h_builder::finish_name ()
 function_resolver::function_resolver (location_t location,
 				      const registered_function &rfn,
 				      vec<tree, va_gc> &arglist)
-  : m_location (location), m_rfn (rfn), m_arglist (arglist),
-    m_group (function_groups[rfn.instance.group])
+  : m_location (location), m_rfn (rfn), m_fi (rfn.instance),
+    m_arglist (arglist)
 {
 }
 
@@ -1713,7 +1702,7 @@ function_resolver::function_resolver (location_t location,
 tree
 function_resolver::resolve ()
 {
-  switch (m_group.shape)
+  switch (m_fi.shape)
     {
     case SHAPE_binary:
     case SHAPE_binary_opt_n:
@@ -1782,7 +1771,7 @@ function_resolver::resolve_uniform (unsigned int nops)
       if (!require_matching_type (i, type))
 	return error_mark_node;
     }
-  return require_form (m_rfn.instance.mode, get_type_suffix (type));
+  return require_form (m_fi.mode, get_type_suffix (type));
 }
 
 /* Resolve a function that has SHAPE_create<NUM_VECTORS>.  */
@@ -1829,7 +1818,7 @@ function_resolver::resolve_dot ()
 	return error_mark_node;
     }
 
-  return require_form (m_rfn.instance.mode, get_type_suffix (type));
+  return require_form (m_fi.mode, get_type_suffix (type));
 }
 
 /* Resolve a function that has SHAPE_get<NUM_VECTORS>.  */
@@ -1871,7 +1860,7 @@ function_resolver::resolve_binary_wide ()
       || !check_argument (i + 1, VECTOR_TYPE_svuint64_t))
     return error_mark_node;
 
-  return require_form (m_rfn.instance.mode, get_type_suffix (type));
+  return require_form (m_fi.mode, get_type_suffix (type));
 }
 
 /* Like resolve_uniform, except that the final NIMM arguments have
@@ -1896,7 +1885,7 @@ function_resolver::resolve_uniform_imm (unsigned int nops, unsigned int nimm)
     if (!require_integer_immediate (i))
       return error_mark_node;
 
-  return require_form (m_rfn.instance.mode, get_type_suffix (type));
+  return require_form (m_fi.mode, get_type_suffix (type));
 }
 
 /* Check that the function is passed NOPS arguments plus the governing
@@ -1922,16 +1911,16 @@ function_resolver::check_first_vector_argument (unsigned int nops,
 
   /* For unary merge operations, the first argument is a vector with
      the same type as the result.  */
-  if (nops == 1 && m_rfn.instance.pred == PRED_m)
+  if (nops == 1 && m_fi.pred == PRED_m)
     nargs += 1;
-  if (m_rfn.instance.pred != PRED_none)
+  if (m_fi.pred != PRED_none)
     nargs += 1;
   if (!check_num_arguments (nargs))
     return false;
 
   /* For unary merge operations, the first argument is a vector with
      the same type as the result.  */
-  if (nops == 1 && m_rfn.instance.pred == PRED_m)
+  if (nops == 1 && m_fi.pred == PRED_m)
     {
       type = require_vector_type (i);
       if (type == NUM_VECTOR_TYPES)
@@ -1940,7 +1929,7 @@ function_resolver::check_first_vector_argument (unsigned int nops,
     }
 
   /* Check the predicate argument.  */
-  if (m_rfn.instance.pred != PRED_none)
+  if (m_fi.pred != PRED_none)
     {
       if (!check_argument (i, VECTOR_TYPE_svbool_t))
 	return false;
@@ -2125,8 +2114,7 @@ function_resolver::lookup_form (function_mode mode, type_suffix type0,
 				type_suffix type1)
 {
   type_suffix_pair types = { type0, type1 };
-  function_instance instance (m_rfn.instance.group, mode, types,
-			      m_rfn.instance.pred);
+  function_instance instance (m_fi.func, m_fi.shape, mode, types, m_fi.pred);
   registered_function *rfn
     = function_table->find_with_hash (instance, instance.hash ());
   return rfn ? rfn->decl : NULL_TREE;
@@ -2167,10 +2155,10 @@ function_resolver::get_type_suffix (vector_type type)
 }
 
 function_checker::function_checker (location_t location,
-				    const function_instance &fi, tree decl,
+				    const registered_function &rfn, tree decl,
 				    unsigned int nargs, tree *args)
-  : m_location (location), m_fi (fi), m_decl (decl), m_nargs (nargs),
-    m_args (args), m_group (function_groups[m_fi.group])
+  : m_location (location), m_fi (rfn.instance), m_decl (decl), m_nargs (nargs),
+    m_args (args)
 {
 }
 
@@ -2185,7 +2173,7 @@ function_checker::check ()
       return false;
     }
 
-  switch (m_group.shape)
+  switch (m_fi.shape)
     {
     case SHAPE_binary:
     case SHAPE_binary_opt_n:
@@ -2392,8 +2380,7 @@ check_builtin_call (location_t location, vec<location_t>, unsigned int code,
 		    tree fndecl, unsigned int nargs, tree *args)
 {
   registered_function &rfn = *(*registered_functions)[code];
-  return function_checker (location, rfn.instance, fndecl,
-			   nargs, args).check ();
+  return function_checker (location, rfn, fndecl, nargs, args).check ();
 }
 
 /* Construct a folder for CALL, which calls the SVE function with
@@ -2401,7 +2388,6 @@ check_builtin_call (location_t location, vec<location_t>, unsigned int code,
 gimple_folder::gimple_folder (unsigned int code, gimple_stmt_iterator *gsi,
 			      gcall *call)
   : m_fi ((*registered_functions)[code]->instance),
-    m_group (function_groups[m_fi.group]),
     m_gsi (gsi), m_call (call), m_lhs (gimple_call_lhs (call))
 {
 }
@@ -2416,7 +2402,7 @@ gimple_folder::fold ()
   if (!TARGET_SVE)
     return NULL;
 
-  switch (m_group.func)
+  switch (m_fi.func)
     {
     case FUNC_svabd:
     case FUNC_svabs:
@@ -2571,7 +2557,7 @@ gimple *
 gimple_folder::fold_trn ()
 {
   poly_uint64 nelts = TYPE_VECTOR_SUBPARTS (TREE_TYPE (m_lhs));
-  int base = m_group.func == FUNC_svtrn1 ? 0 : 1;
+  int base = m_fi.func == FUNC_svtrn1 ? 0 : 1;
   vec_perm_builder builder (nelts, 2, 3);
   for (unsigned int i = 0; i < 3; ++i)
     {
@@ -2593,7 +2579,7 @@ gimple *
 gimple_folder::fold_uzp ()
 {
   poly_uint64 nelts = TYPE_VECTOR_SUBPARTS (TREE_TYPE (m_lhs));
-  int base = m_group.func == FUNC_svuzp1 ? 0 : 1;
+  int base = m_fi.func == FUNC_svuzp1 ? 0 : 1;
   vec_perm_builder builder (nelts, 1, 3);
   for (unsigned int i = 0; i < 3; ++i)
     builder.quick_push (base + i * 2);
@@ -2605,7 +2591,7 @@ gimple *
 gimple_folder::fold_zip ()
 {
   poly_uint64 nelts = TYPE_VECTOR_SUBPARTS (TREE_TYPE (m_lhs));
-  poly_uint64 base = m_group.func == FUNC_svzip1 ? 0 : exact_div (nelts, 2);
+  poly_uint64 base = m_fi.func == FUNC_svzip1 ? 0 : exact_div (nelts, 2);
   vec_perm_builder builder (nelts, 2, 3);
   for (unsigned int i = 0; i < 3; ++i)
     {
@@ -2647,9 +2633,7 @@ gimple_fold_builtin (unsigned int code, gimple_stmt_iterator *gsi, gcall *stmt)
    EXP is the call expression and TARGET is the preferred location for
    the result.  */
 function_expander::function_expander (unsigned int code, tree exp, rtx target)
-  : m_rfn (*(*registered_functions)[code]),
-    m_fi (m_rfn.instance),
-    m_group (function_groups[m_fi.group]),
+  : m_rfn (*(*registered_functions)[code]), m_fi (m_rfn.instance),
     m_exp (exp), m_location (EXPR_LOCATION (exp)), m_target (target)
 {
 }
@@ -2669,7 +2653,7 @@ function_expander::expand ()
   for (unsigned int i = 0; i < nargs; ++i)
     m_args.quick_push (expand_normal (CALL_EXPR_ARG (m_exp, i)));
 
-  switch (m_group.func)
+  switch (m_fi.func)
     {
     case FUNC_svabd:
       return expand_abd ();
