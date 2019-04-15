@@ -3596,7 +3596,7 @@
 )
 
 ;; Predicated floating-point ternary operations with select.
-(define_expand "cond_<optab><mode>"
+(define_expand "@cond_<optab><mode>"
   [(set (match_operand:SVE_F 0 "register_operand")
 	(unspec:SVE_F
 	  [(match_operand:<VPRED> 1 "register_operand")

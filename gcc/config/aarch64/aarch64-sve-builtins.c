@@ -545,6 +545,10 @@ private:
   rtx expand_mulx ();
   rtx expand_nand ();
   rtx expand_neg ();
+  rtx expand_nmad ();
+  rtx expand_nmla ();
+  rtx expand_nmls ();
+  rtx expand_nmsb ();
   rtx expand_nor ();
   rtx expand_not ();
   rtx expand_orn ();
@@ -558,7 +562,7 @@ private:
   rtx expand_sub (bool);
   rtx expand_undef ();
 
-  rtx expand_pred_op (rtx_code, int);
+  rtx expand_pred_op (rtx_code, int, unsigned int = DEFAULT_MERGE_ARGNO);
   rtx expand_signed_pred_op (rtx_code, rtx_code, int,
 			     unsigned int = DEFAULT_MERGE_ARGNO);
   rtx expand_signed_pred_op (int, int, int);
@@ -1577,6 +1581,10 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svmulx:
     case FUNC_svnand:
     case FUNC_svneg:
+    case FUNC_svnmad:
+    case FUNC_svnmla:
+    case FUNC_svnmls:
+    case FUNC_svnmsb:
     case FUNC_svnor:
     case FUNC_svnot:
     case FUNC_svorn:
@@ -2452,6 +2460,10 @@ gimple_folder::fold ()
     case FUNC_svmulx:
     case FUNC_svnand:
     case FUNC_svneg:
+    case FUNC_svnmad:
+    case FUNC_svnmla:
+    case FUNC_svnmls:
+    case FUNC_svnmsb:
     case FUNC_svnor:
     case FUNC_svnot:
     case FUNC_svorn:
@@ -2769,6 +2781,18 @@ function_expander::expand ()
 
     case FUNC_svneg:
       return expand_neg ();
+
+    case FUNC_svnmad:
+      return expand_nmad ();
+
+    case FUNC_svnmla:
+      return expand_nmla ();
+
+    case FUNC_svnmls:
+      return expand_nmls ();
+
+    case FUNC_svnmsb:
+      return expand_nmsb ();
 
     case FUNC_svnor:
       return expand_nor ();
@@ -3192,6 +3216,40 @@ function_expander::expand_neg ()
   return expand_pred_op (NEG, UNSPEC_COND_FNEG);
 }
 
+/* Expand a call to svnmad.  */
+rtx
+function_expander::expand_nmad ()
+{
+  return expand_pred_op (UNKNOWN, UNSPEC_COND_FNMLA);
+}
+
+/* Expand a call to svnmla.  */
+rtx
+function_expander::expand_nmla ()
+{
+  /* Put the accumulator at the end (argument 3), but keep it as the
+     merge input for _m functions.  */
+  rotate_inputs_left (1, 4);
+  return expand_pred_op (UNKNOWN, UNSPEC_COND_FNMLA, 3);
+}
+
+/* Expand a call to svnmls.  */
+rtx
+function_expander::expand_nmls ()
+{
+  /* Put the accumulator at the end (argument 3), but keep it as the
+     merge input for _m functions.  */
+  rotate_inputs_left (1, 4);
+  return expand_pred_op (UNKNOWN, UNSPEC_COND_FNMLS, 3);
+}
+
+/* Expand a call to svnmsb.  */
+rtx
+function_expander::expand_nmsb ()
+{
+  return expand_pred_op (UNKNOWN, UNSPEC_COND_FNMLS);
+}
+
 /* Expand a call to svnor.  */
 rtx
 function_expander::expand_nor ()
@@ -3473,11 +3531,15 @@ function_expander::expand_via_pred_x_insn (insn_code icode)
    the floating-point instructions are parameterized by an unspec code.
    CODE is the rtx code to use for integer operations and UNSPEC_COND
    is the unspec code to use for floating-point operations.  There is
-   no distinction between signed and unsigned operations.  */
+   no distinction between signed and unsigned operations.
+
+   MERGE_ARGNO is the argument that should be used as the fallback
+   value in a merging operation.  */
 rtx
-function_expander::expand_pred_op (rtx_code code, int unspec_cond)
+function_expander::expand_pred_op (rtx_code code, int unspec_cond,
+				   unsigned int merge_argno)
 {
-  return expand_signed_pred_op (code, code, unspec_cond);
+  return expand_signed_pred_op (code, code, unspec_cond, merge_argno);
 }
 
 /* Implement the call using an @aarch64_cond instruction for _x
