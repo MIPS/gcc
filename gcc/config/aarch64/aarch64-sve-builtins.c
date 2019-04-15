@@ -543,8 +543,11 @@ private:
   rtx expand_mul ();
   rtx expand_mulh ();
   rtx expand_mulx ();
+  rtx expand_nand ();
   rtx expand_neg ();
+  rtx expand_nor ();
   rtx expand_not ();
+  rtx expand_orn ();
   rtx expand_orr ();
   rtx expand_permute (int);
   rtx expand_ptrue ();
@@ -560,6 +563,7 @@ private:
 			     unsigned int = DEFAULT_MERGE_ARGNO);
   rtx expand_signed_pred_op (int, int, int);
   rtx expand_via_unpred_direct_optab (optab, machine_mode = VOIDmode);
+  rtx expand_via_exact_insn (insn_code);
   rtx expand_via_unpred_insn (insn_code);
   rtx expand_via_pred_direct_optab (optab, unsigned int = DEFAULT_MERGE_ARGNO);
   rtx expand_via_sel_insn (insn_code);
@@ -632,6 +636,10 @@ static const type_suffix_info type_suffixes[NUM_TYPE_SUFFIXES + 1] = {
   { "", NUM_VECTOR_TYPES, 0, 0, false, false, false, 0, VOIDmode }
 };
 
+/* _b only.  */
+#define TYPES_b(S, D) \
+  S (b)
+
 /* _b8 _b16 _b32 _b64.  */
 #define TYPES_all_pred(S, D) \
   S (b8), S (b16), S (b32), S (b64)
@@ -703,6 +711,7 @@ DEF_SVE_TYPES_ARRAY (all_integer);
 DEF_SVE_TYPES_ARRAY (all_data);
 DEF_SVE_TYPES_ARRAY (all_sdi_and_float);
 DEF_SVE_TYPES_ARRAY (all_signed_and_float);
+DEF_SVE_TYPES_ARRAY (b);
 DEF_SVE_TYPES_ARRAY (sdi);
 
 /* Used by functions in aarch64-sve-builtins.def that have no governing
@@ -714,6 +723,9 @@ static const predication preds_none[] = { PRED_none, NUM_PREDS };
 static const predication preds_mxz[] = { PRED_m, PRED_x, PRED_z, NUM_PREDS };
 static const predication preds_mxznone[] = { PRED_m, PRED_x, PRED_z,
 					     PRED_none, NUM_PREDS };
+
+/* Used by (mostly predicate) functions that only support "_z" predication.  */
+static const predication preds_z[] = { PRED_z, NUM_PREDS };
 
 /* Each SVE function base name as a string.  */
 static const char *const base_names[] = {
@@ -1015,7 +1027,13 @@ arm_sve_h_builder::build (const function_group &group)
     case SHAPE_binary_opt_n:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_000, group, MODE_none);
-      build_all (&arm_sve_h_builder::sig_n_000, group, MODE_n);
+      /* _b functions do not have an _n form, but are classified as
+	 binary_opt_n so that they can be overloaded with vector
+	 functions.  */
+      if (group.types[0][0] == TYPE_SUFFIX_b)
+	gcc_assert (group.types[0][1] == NUM_TYPE_SUFFIXES);
+      else
+	build_all (&arm_sve_h_builder::sig_n_000, group, MODE_n);
       break;
 
     case SHAPE_binary_pred:
@@ -1557,8 +1575,11 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svmul:
     case FUNC_svmulh:
     case FUNC_svmulx:
+    case FUNC_svnand:
     case FUNC_svneg:
+    case FUNC_svnor:
     case FUNC_svnot:
+    case FUNC_svorn:
     case FUNC_svorr:
     case FUNC_svqadd:
     case FUNC_svqsub:
@@ -2429,8 +2450,11 @@ gimple_folder::fold ()
     case FUNC_svmul:
     case FUNC_svmulh:
     case FUNC_svmulx:
+    case FUNC_svnand:
     case FUNC_svneg:
+    case FUNC_svnor:
     case FUNC_svnot:
+    case FUNC_svorn:
     case FUNC_svorr:
     case FUNC_svqadd:
     case FUNC_svqsub:
@@ -2740,11 +2764,20 @@ function_expander::expand ()
     case FUNC_svmulx:
       return expand_mulx ();
 
+    case FUNC_svnand:
+      return expand_nand ();
+
     case FUNC_svneg:
       return expand_neg ();
 
+    case FUNC_svnor:
+      return expand_nor ();
+
     case FUNC_svnot:
       return expand_not ();
+
+    case FUNC_svorn:
+      return expand_orn ();
 
     case FUNC_svorr:
       return expand_orr ();
@@ -2838,7 +2871,9 @@ function_expander::expand_add (unsigned int merge_argno)
 rtx
 function_expander::expand_and ()
 {
-  if (m_fi.pred == PRED_x)
+  if (m_fi.types[0] == TYPE_SUFFIX_b)
+    return expand_via_exact_insn (CODE_FOR_aarch64_pred_andvnx16bi_z);
+  else if (m_fi.pred == PRED_x)
     return expand_via_unpred_direct_optab (and_optab);
   else
     return expand_via_pred_direct_optab (cond_and_optab);
@@ -2862,7 +2897,9 @@ function_expander::expand_bic ()
       return expand_and ();
     }
 
-  if (m_fi.pred == PRED_x)
+  if (m_fi.types[0] == TYPE_SUFFIX_b)
+    return expand_via_exact_insn (CODE_FOR_aarch64_pred_bicvnx16bi_z);
+  else if (m_fi.pred == PRED_x)
     {
       insn_code icode = code_for_aarch64_bic (get_mode (0));
       return expand_via_unpred_insn (icode);
@@ -2945,7 +2982,9 @@ function_expander::expand_dup ()
 rtx
 function_expander::expand_eor ()
 {
-  if (m_fi.pred == PRED_x)
+  if (m_fi.types[0] == TYPE_SUFFIX_b)
+    return expand_via_exact_insn (CODE_FOR_aarch64_pred_xorvnx16bi_z);
+  else if (m_fi.pred == PRED_x)
     return expand_via_unpred_direct_optab (xor_optab);
   else
     return expand_via_pred_direct_optab (cond_xor_optab);
@@ -3139,11 +3178,25 @@ function_expander::expand_mulx ()
   return expand_pred_op (UNKNOWN, UNSPEC_COND_FMULX);
 }
 
+/* Expand a call to svnand.  */
+rtx
+function_expander::expand_nand ()
+{
+  return expand_via_exact_insn (CODE_FOR_aarch64_pred_nandvnx16bi_z);
+}
+
 /* Expand a call to svneg.  */
 rtx
 function_expander::expand_neg ()
 {
   return expand_pred_op (NEG, UNSPEC_COND_FNEG);
+}
+
+/* Expand a call to svnor.  */
+rtx
+function_expander::expand_nor ()
+{
+  return expand_via_exact_insn (CODE_FOR_aarch64_pred_norvnx16bi_z);
 }
 
 /* Expand a call to svnot.  */
@@ -3167,11 +3220,20 @@ function_expander::expand_qsub ()
   return expand_via_signed_unpred_insn (SS_MINUS, US_MINUS);
 }
 
+/* Expand a call to svorn.  */
+rtx
+function_expander::expand_orn ()
+{
+  return expand_via_exact_insn (CODE_FOR_aarch64_pred_ornvnx16bi_z);
+}
+
 /* Expand a call to svorr.  */
 rtx
 function_expander::expand_orr ()
 {
-  if (m_fi.pred == PRED_x)
+  if (m_fi.types[0] == TYPE_SUFFIX_b)
+    return expand_via_exact_insn (CODE_FOR_aarch64_pred_iorvnx16bi_z);
+  else if (m_fi.pred == PRED_x)
     return expand_via_unpred_direct_optab (ior_optab);
   else
     return expand_via_pred_direct_optab (cond_ior_optab);
@@ -3281,10 +3343,25 @@ function_expander::expand_via_unpred_direct_optab (optab op,
   return expand_via_unpred_insn (icode);
 }
 
-/* Implement the call using instruction ICODE.  */
+/* Implement the call using instruction ICODE, with a 1:1 mapping between
+   arguments and operands.  */
+rtx
+function_expander::expand_via_exact_insn (insn_code icode)
+{
+  unsigned int nops = insn_data[icode].n_operands - 1;
+  add_output_operand (icode);
+  for (unsigned int i = 0; i < nops; ++i)
+    add_input_operand (icode, m_args[i]);
+  return generate_insn (icode);
+}
+
+/* Implement the call using instruction ICODE, which does not use a
+   governing predicate.  */
 rtx
 function_expander::expand_via_unpred_insn (insn_code icode)
 {
+  /* Can't drop the predicate for _z and _m.  */
+  gcc_assert (m_fi.pred == PRED_x || m_fi.pred == PRED_none);
   /* Discount the output operand.  */
   unsigned int nops = insn_data[icode].n_operands - 1;
   /* Drop the predicate argument in the case of _x predication.  */

@@ -1483,8 +1483,8 @@
   }
 )
 
-;; Predicated predicate ORR and XOR.
-(define_insn "pred_<optab><mode>3"
+;; Predicated predicate AND, ORR and XOR.
+(define_insn "aarch64_pred_<optab><mode>_z"
   [(set (match_operand:PRED_ALL 0 "register_operand" "=Upa")
 	(and:PRED_ALL
 	  (LOGICAL:PRED_ALL
@@ -1541,19 +1541,19 @@
 )
 
 ;; Predicated predicate BIC and ORN.
-(define_insn "*<nlogical><mode>3"
+(define_insn "aarch64_pred_<nlogical><mode>_z"
   [(set (match_operand:PRED_ALL 0 "register_operand" "=Upa")
 	(and:PRED_ALL
 	  (NLOGICAL:PRED_ALL
-	    (not:PRED_ALL (match_operand:PRED_ALL 2 "register_operand" "Upa"))
-	    (match_operand:PRED_ALL 3 "register_operand" "Upa"))
+	    (not:PRED_ALL (match_operand:PRED_ALL 3 "register_operand" "Upa"))
+	    (match_operand:PRED_ALL 2 "register_operand" "Upa"))
 	  (match_operand:PRED_ALL 1 "register_operand" "Upa")))]
   "TARGET_SVE"
-  "<nlogical>\t%0.b, %1/z, %3.b, %2.b"
+  "<nlogical>\t%0.b, %1/z, %2.b, %3.b"
 )
 
 ;; Predicated predicate NAND and NOR.
-(define_insn "*<logical_nn><mode>3"
+(define_insn "aarch64_pred_<logical_nn><mode>_z"
   [(set (match_operand:PRED_ALL 0 "register_operand" "=Upa")
 	(and:PRED_ALL
 	  (NLOGICAL:PRED_ALL
@@ -2228,8 +2228,8 @@
     else
       {
 	pred = gen_reg_rtx (<MODE>mode);
-	emit_insn (gen_pred_xor<mode>3 (pred, ptrue, operands[1],
-					operands[2]));
+	emit_insn (gen_aarch64_pred_xor<mode>_z (pred, ptrue, operands[1],
+						 operands[2]));
       }
     emit_insn (gen_ptest_ptrue<mode> (ptrue, pred));
     operands[1] = gen_rtx_REG (CCmode, CC_REGNUM);
