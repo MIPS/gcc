@@ -161,6 +161,9 @@ enum function_shape {
   /* sv<t0>_t svfoo[_n]_t0(<t0>_t).  */
   SHAPE_unary_n,
 
+  /* svbool_t svfoo_<t0>(svbool_t).  */
+  SHAPE_unary_pred,
+
   /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t, sv<t0>_t)
      sv<t0>_t svfoo[_n_t0](sv<t0>_t, sv<t0>_t, <t0>_t).  */
   SHAPE_ternary_opt_n,
@@ -488,6 +491,7 @@ private:
   gimple *fold_create ();
   gimple *fold_get ();
   gimple *fold_ptrue ();
+  gimple *fold_rev ();
   gimple *fold_set ();
   gimple *fold_trn ();
   gimple *fold_undef ();
@@ -557,6 +561,7 @@ private:
   rtx expand_ptrue ();
   rtx expand_qadd ();
   rtx expand_qsub ();
+  rtx expand_rev ();
   rtx expand_set ();
   rtx expand_sqrt ();
   rtx expand_sub (bool);
@@ -1146,6 +1151,10 @@ arm_sve_h_builder::build (const function_group &group)
     case SHAPE_unary_n:
       build_all (&arm_sve_h_builder::sig_n_00, group, MODE_n, true);
       break;
+
+    case SHAPE_unary_pred:
+      build_all (&arm_sve_h_builder::sig_00, group, MODE_none);
+      break;
     }
 }
 
@@ -1617,6 +1626,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svget3:
     case FUNC_svget4:
     case FUNC_svptrue:
+    case FUNC_svrev:
     case FUNC_svset2:
     case FUNC_svset3:
     case FUNC_svset4:
@@ -1670,6 +1680,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_inherent3:
     case SHAPE_inherent4:
     case SHAPE_unary_n:
+    case SHAPE_unary_pred:
       return 1;
     }
   gcc_unreachable ();
@@ -1743,6 +1754,7 @@ function_resolver::resolve ()
     case SHAPE_inherent2:
     case SHAPE_inherent3:
     case SHAPE_inherent4:
+    case SHAPE_unary_pred:
       break;
     case SHAPE_binary_wide:
       return resolve_binary_wide ();
@@ -2221,6 +2233,7 @@ function_checker::check ()
     case SHAPE_ternary_qq_opt_n:
     case SHAPE_unary:
     case SHAPE_unary_n:
+    case SHAPE_unary_pred:
       return true;
 
     case SHAPE_get2:
@@ -2492,6 +2505,9 @@ gimple_folder::fold ()
     case FUNC_svptrue:
       return fold_ptrue ();
 
+    case FUNC_svrev:
+      return fold_rev ();
+
     case FUNC_svset2:
     case FUNC_svset3:
     case FUNC_svset4:
@@ -2568,6 +2584,17 @@ gimple_folder::fold_ptrue ()
   for (unsigned int i = 1; i < num_bytes; ++i)
     builder.quick_push (build_int_cst (elttype, 0));
   return gimple_build_assign (m_lhs, builder.build ());
+}
+
+/* Fold a call to svrev.  */
+gimple *
+gimple_folder::fold_rev ()
+{
+  poly_int64 nelts = TYPE_VECTOR_SUBPARTS (TREE_TYPE (m_lhs));
+  vec_perm_builder builder (nelts, 1, 3);
+  for (int i = 0; i < 3; ++i)
+    builder.quick_push (nelts - i - 1);
+  return fold_permute (builder);
 }
 
 /* Fold a call to svset*.  */
@@ -2647,12 +2674,13 @@ gimple_folder::fold_permute (const vec_perm_builder &builder)
       && type_suffixes[m_fi.types[0]].elem_bits > 8)
     return NULL;
 
+  unsigned int nargs = gimple_call_num_args (m_call);
   poly_uint64 nelts = TYPE_VECTOR_SUBPARTS (TREE_TYPE (m_lhs));
-  vec_perm_indices indices (builder, 2, nelts);
+  vec_perm_indices indices (builder, nargs, nelts);
   tree perm_type = build_vector_type (ssizetype, nelts);
   return gimple_build_assign (m_lhs, VEC_PERM_EXPR,
 			      gimple_call_arg (m_call, 0),
-			      gimple_call_arg (m_call, 1),
+			      gimple_call_arg (m_call, nargs - 1),
 			      vec_perm_indices_to_tree (perm_type, indices));
 }
 
@@ -2815,13 +2843,16 @@ function_expander::expand ()
     case FUNC_svqsub:
       return expand_qsub ();
 
-    case FUNC_svsqrt:
-      return expand_sqrt ();
+    case FUNC_svrev:
+      return expand_rev ();
 
     case FUNC_svset2:
     case FUNC_svset3:
     case FUNC_svset4:
       return expand_set ();
+
+    case FUNC_svsqrt:
+      return expand_sqrt ();
 
     case FUNC_svsub:
       return expand_sub (false);
@@ -3340,6 +3371,13 @@ function_expander::expand_set ()
 				   index * BYTES_PER_SVE_VECTOR);
   emit_move_insn (piece, vector);
   return m_target;
+}
+
+/* Expand a call to svrev.  */
+rtx
+function_expander::expand_rev ()
+{
+  return expand_via_exact_insn (code_for_aarch64_sve_rev (get_mode (0)));
 }
 
 /* Expand a call to svsqrt.  */

@@ -872,10 +872,17 @@
   "revb\t%0.h, %1/m, %2.h"
 )
 
-(define_insn "*aarch64_sve_rev<mode>"
+(define_insn "@aarch64_sve_rev<mode>"
   [(set (match_operand:SVE_ALL 0 "register_operand" "=w")
 	(unspec:SVE_ALL [(match_operand:SVE_ALL 1 "register_operand" "w")]
 			UNSPEC_REV))]
+  "TARGET_SVE"
+  "rev\t%0.<Vetype>, %1.<Vetype>")
+
+(define_insn "@aarch64_sve_rev<mode>"
+  [(set (match_operand:PRED_ALL 0 "register_operand" "=Upa")
+	(unspec:PRED_ALL [(match_operand:PRED_ALL 1 "register_operand" "Upa")]
+			 UNSPEC_REV))]
   "TARGET_SVE"
   "rev\t%0.<Vetype>, %1.<Vetype>")
 
