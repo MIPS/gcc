@@ -195,14 +195,13 @@ struct gensum_param_desc
   int m_deref_index;
 };
 
-/* Properly deallocate m_accesses of DESC.  */
+/* Properly deallocate m_accesses of DESC.  TODO: Since this data strucutre is
+   not in GC memory, this is not necessary and we can consider removing the
+   function.  */
 
 static void
 free_param_decl_accesses (isra_param_desc *desc)
 {
-  /* !!? Now that desc is in GGC, perhaps we should leave at least the
-     deallocation of m_accesses elements to the GC.  Let's do so after
-     testing.  */
   unsigned len = vec_safe_length (desc->m_accesses);
   for (unsigned i = 0; i < len; ++i)
     ggc_free ((*desc->m_accesses)[i]);
@@ -253,8 +252,9 @@ public:
   unsigned m_queued : 1;
 };
 
-/* Perhaps remove because everything is in GC anyway, but let's kleep it around
-   for testing since we have it.  */
+/* Claen up and deallocate isra_func_summary points to.  TODO: Since this data
+   strucutre is not in GC memory, this is not necessary and we can consider
+   removing the destructor.  */
 
 isra_func_summary::~isra_func_summary ()
 {
@@ -347,55 +347,62 @@ public:
   ipa_sra_function_summaries (symbol_table *table, bool ggc):
     function_summary<isra_func_summary *> (table, ggc) { }
 
-  /* Hook that is called by summary when a node is duplicated.  */
-  virtual void duplicate (cgraph_node *,
-			  cgraph_node *,
+  virtual void duplicate (cgraph_node *, cgraph_node *,
 			  isra_func_summary *old_sum,
-			  isra_func_summary *new_sum)
-  {
-    /* TODO: Somehow stop copying when ISRA is doing the cloning, it is
-       useless.  */
-    new_sum->m_candidate  = old_sum->m_candidate;
-    new_sum->m_returns_value = old_sum->m_returns_value;
-    new_sum->m_return_ignored = old_sum->m_return_ignored;
-    gcc_assert (!old_sum->m_queued);
-    new_sum->m_queued = false;
-
-    unsigned param_count = vec_safe_length (old_sum->m_parameters);
-    if (!param_count)
-      return;
-    vec_safe_reserve_exact (new_sum->m_parameters, param_count);
-    new_sum->m_parameters->quick_grow_cleared (param_count);
-    for (unsigned i = 0; i < param_count; i++)
-      {
-	isra_param_desc *s = &(*old_sum->m_parameters)[i];
-	isra_param_desc *d = &(*new_sum->m_parameters)[i];
-
-	d->m_call_uses = s->m_call_uses;
-	d->m_scc_uses = s->m_scc_uses;
-	d->m_param_size_limit = s->m_param_size_limit;
-	d->m_size_reached = s->m_size_reached;
-	d->m_locally_unused = s->m_locally_unused;
-	d->m_split_candidate = s->m_split_candidate;
-	d->m_by_ref = s->m_by_ref;
-
-	unsigned acc_count = vec_safe_length (s->m_accesses);
-	vec_safe_reserve_exact (d->m_accesses, acc_count);
-	for (unsigned j = 0; j < acc_count; j++)
-	  {
-	    param_access *from = (*s->m_accesses)[j];
-	    param_access *to = ggc_cleared_alloc<param_access> ();
-	    to->type = from->type;
-	    to->alias_ptr_type = from->alias_ptr_type;
-	    to->unit_offset = from->unit_offset;
-	    to->unit_size = from->unit_size;
-	    to->definitive = from->definitive;
-	    to->check_overlaps = from->check_overlaps;
-	    d->m_accesses->quick_push (to);
-	  }
-      }
-  }
+			  isra_func_summary *new_sum);
 };
+
+/* Hook that is called by summary when a node is duplicated.  */
+
+void
+ipa_sra_function_summaries::duplicate (cgraph_node *, cgraph_node *,
+				       isra_func_summary *old_sum,
+				       isra_func_summary *new_sum)
+{
+  /* TODO: Somehow stop copying when ISRA is doing the cloning, it is
+     useless.  */
+  new_sum->m_candidate  = old_sum->m_candidate;
+  new_sum->m_returns_value = old_sum->m_returns_value;
+  new_sum->m_return_ignored = old_sum->m_return_ignored;
+  gcc_assert (!old_sum->m_queued);
+  new_sum->m_queued = false;
+
+  unsigned param_count = vec_safe_length (old_sum->m_parameters);
+  if (!param_count)
+    return;
+  vec_safe_reserve_exact (new_sum->m_parameters, param_count);
+  new_sum->m_parameters->quick_grow_cleared (param_count);
+  for (unsigned i = 0; i < param_count; i++)
+    {
+      isra_param_desc *s = &(*old_sum->m_parameters)[i];
+      isra_param_desc *d = &(*new_sum->m_parameters)[i];
+
+      d->m_call_uses = s->m_call_uses;
+      d->m_scc_uses = s->m_scc_uses;
+      d->m_param_size_limit = s->m_param_size_limit;
+      d->m_size_reached = s->m_size_reached;
+      d->m_locally_unused = s->m_locally_unused;
+      d->m_split_candidate = s->m_split_candidate;
+      d->m_by_ref = s->m_by_ref;
+
+      unsigned acc_count = vec_safe_length (s->m_accesses);
+      vec_safe_reserve_exact (d->m_accesses, acc_count);
+      for (unsigned j = 0; j < acc_count; j++)
+	{
+	  param_access *from = (*s->m_accesses)[j];
+	  param_access *to = ggc_cleared_alloc<param_access> ();
+	  to->type = from->type;
+	  to->alias_ptr_type = from->alias_ptr_type;
+	  to->unit_offset = from->unit_offset;
+	  to->unit_size = from->unit_size;
+	  to->definitive = from->definitive;
+	  to->check_overlaps = from->check_overlaps;
+	  d->m_accesses->quick_push (to);
+	}
+    }
+}
+
+/* Pointer to the pass function summary holder.  */
 
 static GTY(()) ipa_sra_function_summaries *func_sums;
 
@@ -594,6 +601,8 @@ dump_isra_access (FILE *f, param_access *access)
   fprintf (f, ", definitive: %u, check_overlaps: %u\n", access->definitive,
 	   access->check_overlaps);
 }
+
+/* Dump access tree starting at ACCESS to stderr.  */
 
 DEBUG_FUNCTION void
 debug_isra_access (param_access *access)
