@@ -4153,6 +4153,15 @@ cxx_eval_statement_list (const constexpr_ctx *ctx, tree t,
       if (returns (jump_target) || breaks (jump_target))
 	break;
     }
+  if (*jump_target && jump_target == &local_target)
+    {
+      /* We aren't communicating the jump to our caller, so give up.  We don't
+	 need to support evaluation of jumps out of statement-exprs.  */
+      if (!ctx->quiet)
+	error_at (cp_expr_loc_or_loc (r, input_location),
+		  "statement is not a constant expression");
+      *non_constant_p = true;
+    }
   return r;
 }
 
@@ -5414,27 +5423,6 @@ cxx_eval_outermost_constant_expr (tree t, bool allow_non_constant,
   return r;
 }
 
-/* Returns true if T is a valid subexpression of a constant expression,
-   even if it isn't itself a constant expression.  */
-
-bool
-is_sub_constant_expr (tree t)
-{
-  bool non_constant_p = false;
-  bool overflow_p = false;
-  hash_map <tree, tree> map;
-  HOST_WIDE_INT constexpr_ops_count = 0;
-
-  constexpr_ctx ctx
-    = { NULL, &map, NULL, NULL, NULL, NULL, &constexpr_ops_count,
-	true, true, false };
-
-  instantiate_constexpr_fns (t);
-  cxx_eval_constant_expression (&ctx, t, false, &non_constant_p,
-				&overflow_p);
-  return !non_constant_p && !overflow_p;
-}
-
 /* If T represents a constant expression returns its reduced value.
    Otherwise return error_mark_node.  If T is dependent, then
    return NULL.  */
@@ -5581,6 +5569,58 @@ clear_cv_and_fold_caches (void)
   clear_fold_cache ();
 }
 
+/* Internal function handling expressions in templates for
+   fold_non_dependent_expr and fold_non_dependent_init.
+
+   If we're in a template, but T isn't value dependent, simplify
+   it.  We're supposed to treat:
+
+     template <typename T> void f(T[1 + 1]);
+     template <typename T> void f(T[2]);
+
+   as two declarations of the same function, for example.  */
+
+static tree
+fold_non_dependent_expr_template (tree t, tsubst_flags_t complain,
+				  bool manifestly_const_eval)
+{
+  gcc_assert (processing_template_decl);
+
+  if (is_nondependent_constant_expression (t))
+    {
+      processing_template_decl_sentinel s;
+      t = instantiate_non_dependent_expr_internal (t, complain);
+
+      if (type_unknown_p (t) || BRACE_ENCLOSED_INITIALIZER_P (t))
+	{
+	  if (TREE_OVERFLOW_P (t))
+	    {
+	      t = build_nop (TREE_TYPE (t), t);
+	      TREE_CONSTANT (t) = false;
+	    }
+	  return t;
+	}
+
+      tree r = cxx_eval_outermost_constant_expr (t, true, true,
+						 manifestly_const_eval,
+						 NULL_TREE);
+      /* cp_tree_equal looks through NOPs, so allow them.  */
+      gcc_checking_assert (r == t
+			   || CONVERT_EXPR_P (t)
+			   || TREE_CODE (t) == VIEW_CONVERT_EXPR
+			   || (TREE_CONSTANT (t) && !TREE_CONSTANT (r))
+			   || !cp_tree_equal (r, t));
+      return r;
+    }
+  else if (TREE_OVERFLOW_P (t))
+    {
+      t = build_nop (TREE_TYPE (t), t);
+      TREE_CONSTANT (t) = false;
+    }
+
+  return t;
+}
+
 /* Like maybe_constant_value but first fully instantiate the argument.
 
    Note: this is equivalent to instantiate_non_dependent_expr_sfinae
@@ -5604,51 +5644,39 @@ fold_non_dependent_expr (tree t,
   if (t == NULL_TREE)
     return NULL_TREE;
 
-  /* If we're in a template, but T isn't value dependent, simplify
-     it.  We're supposed to treat:
+  if (processing_template_decl)
+    return fold_non_dependent_expr_template (t, complain,
+					     manifestly_const_eval);
 
-       template <typename T> void f(T[1 + 1]);
-       template <typename T> void f(T[2]);
+  return maybe_constant_value (t, NULL_TREE, manifestly_const_eval);
+}
 
-     as two declarations of the same function, for example.  */
+
+/* Like maybe_constant_init but first fully instantiate the argument.  */
+
+tree
+fold_non_dependent_init (tree t,
+			 tsubst_flags_t complain /*=tf_warning_or_error*/,
+			 bool manifestly_const_eval /*=false*/)
+{
+  if (t == NULL_TREE)
+    return NULL_TREE;
+
   if (processing_template_decl)
     {
-      if (is_nondependent_constant_expression (t))
+      t = fold_non_dependent_expr_template (t, complain,
+					    manifestly_const_eval);
+      /* maybe_constant_init does this stripping, so do it here too.  */
+      if (TREE_CODE (t) == TARGET_EXPR)
 	{
-	  processing_template_decl_sentinel s;
-	  t = instantiate_non_dependent_expr_internal (t, complain);
-
-	  if (type_unknown_p (t)
-	      || BRACE_ENCLOSED_INITIALIZER_P (t))
-	    {
-	      if (TREE_OVERFLOW_P (t))
-		{
-		  t = build_nop (TREE_TYPE (t), t);
-		  TREE_CONSTANT (t) = false;
-		}
-	      return t;
-	    }
-
-	  tree r = cxx_eval_outermost_constant_expr (t, true, true,
-						     manifestly_const_eval,
-						     NULL_TREE);
-	  /* cp_tree_equal looks through NOPs, so allow them.  */
-	  gcc_checking_assert (r == t
-			       || CONVERT_EXPR_P (t)
-			       || TREE_CODE (t) == VIEW_CONVERT_EXPR
-			       || (TREE_CONSTANT (t) && !TREE_CONSTANT (r))
-			       || !cp_tree_equal (r, t));
-	  return r;
-	}
-      else if (TREE_OVERFLOW_P (t))
-	{
-	  t = build_nop (TREE_TYPE (t), t);
-	  TREE_CONSTANT (t) = false;
+	  tree init = TARGET_EXPR_INITIAL (t);
+	  if (TREE_CODE (init) == CONSTRUCTOR)
+	    t = init;
 	}
       return t;
     }
 
-  return maybe_constant_value (t, NULL_TREE, manifestly_const_eval);
+  return maybe_constant_init (t, NULL_TREE, manifestly_const_eval);
 }
 
 /* Like maybe_constant_value, but returns a CONSTRUCTOR directly, rather

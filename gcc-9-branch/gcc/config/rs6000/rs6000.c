@@ -7167,7 +7167,7 @@ rs6000_split_vec_extract_var (rtx dest, rtx src, rtx element, rtx tmp_gpr,
 			      rtx tmp_altivec)
 {
   machine_mode mode = GET_MODE (src);
-  machine_mode scalar_mode = GET_MODE (dest);
+  machine_mode scalar_mode = GET_MODE_INNER (GET_MODE (src));
   unsigned scalar_size = GET_MODE_SIZE (scalar_mode);
   int byte_shift = exact_log2 (scalar_size);
 
@@ -33883,6 +33883,10 @@ rs6000_xcoff_asm_init_sections (void)
 			   rs6000_xcoff_output_readwrite_section_asm_op,
 			   &xcoff_private_data_section_name);
 
+  read_only_private_data_section
+    = get_unnamed_section (0, rs6000_xcoff_output_readonly_section_asm_op,
+			   &xcoff_private_rodata_section_name);
+
   tls_data_section
     = get_unnamed_section (SECTION_TLS,
 			   rs6000_xcoff_output_tls_section_asm_op,
@@ -33891,10 +33895,6 @@ rs6000_xcoff_asm_init_sections (void)
   tls_private_data_section
     = get_unnamed_section (SECTION_TLS,
 			   rs6000_xcoff_output_tls_section_asm_op,
-			   &xcoff_private_data_section_name);
-
-  read_only_private_data_section
-    = get_unnamed_section (0, rs6000_xcoff_output_readonly_section_asm_op,
 			   &xcoff_private_data_section_name);
 
   toc_section
@@ -34077,6 +34077,8 @@ rs6000_xcoff_file_start (void)
 			   main_input_filename, ".bss_");
   rs6000_gen_section_name (&xcoff_private_data_section_name,
 			   main_input_filename, ".rw_");
+  rs6000_gen_section_name (&xcoff_private_rodata_section_name,
+			   main_input_filename, ".rop_");
   rs6000_gen_section_name (&xcoff_read_only_section_name,
 			   main_input_filename, ".ro_");
   rs6000_gen_section_name (&xcoff_tls_data_section_name,

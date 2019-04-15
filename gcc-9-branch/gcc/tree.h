@@ -3741,7 +3741,7 @@ TYPE_VECTOR_SUBPARTS (const_tree node)
       return res;
     }
   else
-    return 1 << precision;
+    return (unsigned HOST_WIDE_INT)1 << precision;
 }
 
 /* Set the number of elements in VECTOR_TYPE NODE to SUBPARTS, which must
@@ -4893,6 +4893,7 @@ extern bool stdarg_p (const_tree);
 extern bool prototype_p (const_tree);
 extern bool is_typedef_decl (const_tree x);
 extern bool typedef_variant_p (const_tree);
+extern bool auto_var_p (const_tree);
 extern bool auto_var_in_fn_p (const_tree, const_tree);
 extern tree build_low_bits_mask (tree, unsigned);
 extern bool tree_nop_conversion_p (const_tree, const_tree);

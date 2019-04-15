@@ -9336,6 +9336,35 @@ aarch64_mask_and_shift_for_ubfiz_p (scalar_int_mode mode, rtx mask,
 	     & ((HOST_WIDE_INT_1U << INTVAL (shft_amnt)) - 1)) == 0;
 }
 
+/* Return true if the masks and a shift amount from an RTX of the form
+   ((x & MASK1) | ((y << SHIFT_AMNT) & MASK2)) are valid to combine into
+   a BFI instruction of mode MODE.  See *arch64_bfi patterns.  */
+
+bool
+aarch64_masks_and_shift_for_bfi_p (scalar_int_mode mode,
+				   unsigned HOST_WIDE_INT mask1,
+				   unsigned HOST_WIDE_INT shft_amnt,
+				   unsigned HOST_WIDE_INT mask2)
+{
+  unsigned HOST_WIDE_INT t;
+
+  /* Verify that there is no overlap in what bits are set in the two masks.  */
+  if (mask1 != ~mask2)
+    return false;
+
+  /* Verify that mask2 is not all zeros or ones.  */
+  if (mask2 == 0 || mask2 == HOST_WIDE_INT_M1U)
+    return false;
+
+  /* The shift amount should always be less than the mode size.  */
+  gcc_assert (shft_amnt < GET_MODE_BITSIZE (mode));
+
+  /* Verify that the mask being shifted is contiguous and would be in the
+     least significant bits after shifting by shft_amnt.  */
+  t = mask2 + (HOST_WIDE_INT_1U << shft_amnt);
+  return (t == (t & -t));
+}
+
 /* Calculate the cost of calculating X, storing it in *COST.  Result
    is true if the total cost of the operation has now been calculated.  */
 static bool
@@ -11575,8 +11604,8 @@ aarch64_override_options_internal (struct gcc_options *opts)
   int probe_interval
     = PARAM_VALUE (PARAM_STACK_CLASH_PROTECTION_PROBE_INTERVAL);
   if (guard_size != probe_interval)
-    error ("stack clash guard size '%d' must be equal to probing interval "
-	   "'%d'", guard_size, probe_interval);
+    error ("stack clash guard size %<%d%> must be equal to probing interval "
+	   "%<%d%>", guard_size, probe_interval);
 
   /* Enable sw prefetching at specified optimization level for
      CPUS that have prefetch.  Lower optimization level threshold by 1
