@@ -169,7 +169,8 @@ struct gensum_param_desc
   unsigned m_access_count;
 
   /* If the below is non-zero, this is the nuber of uses as actual arguents.  */
-  int m_call_uses;
+  int m_call_uses;		/* !!! Try removing after it is removed from
+                                       the previous structure.  */
 
   /* Number of times this parameter has been directly passed to  */
   unsigned ptr_pt_count;
@@ -268,11 +269,17 @@ isra_func_summary::~isra_func_summary ()
 /* Mark the function as not a candidate for any IPA-SRA transofrmation.  Return
    true if it was a candidate until now.  */
 
-bool isra_func_summary::zap ()
+bool
+isra_func_summary::zap ()
 {
   bool ret = m_candidate;
   m_candidate = false;
+
+  unsigned len = vec_safe_length (m_parameters);
+  for (unsigned i = 0; i < len; ++i)
+    free_param_decl_accesses (&(*m_parameters)[i]);
   vec_free (m_parameters);
+
   return ret;
 }
 
@@ -703,9 +710,8 @@ dump_isra_param_descriptors (FILE *f, tree fndecl,
     }
 }
 
-/* Add SRC to PARAM_FLOW, unless already there or would exceed limit or not fit
-   in a char.  If it would exeed limit or would not fit in a char, return
-   false, otherwise return true.  */
+/* Add SRC to PARAM_FLOW, unless it would exceed storage or not fit in a char.
+   If the function fails return false, otherwise return true.  */
 
 static bool
 add_src_to_param_flow (isra_param_flow *param_flow, int src)
@@ -722,10 +728,10 @@ add_src_to_param_flow (isra_param_flow *param_flow, int src)
 
 /* Inspect all uses of NAME and simple arithmetic calculations involving NAME
    in NODE and return a negative number if any of them is used for something
-   else than either an actual call argument, simple arithemtic operation or
+   else than either an actual call argument, simple arithmetic operation or
    debug statement.  If there are no such uses, return the number of actual
-   arguments that this parameter evetually feeds to (or zero if there is none).
-   For any such parameter, mark PAMR_NUM as one of its sources.  ANALYZED is a
+   arguments that this parameter eventually feeds to (or zero if there is none).
+   For any such parameter, mark PARM_NUM as one of its sources.  ANALYZED is a
    bitmap that tracks which SSA names we have already started
    investigating.  */
 
@@ -742,8 +748,8 @@ isra_track_scalar_value_uses (cgraph_node *node, tree name, int parm_num,
       if (is_gimple_debug (stmt))
 	continue;
 
-      /* TODO: I guess we could handle at least const builtin functions like
-	 arithmetic operations below.  */
+      /* TODO: We could handle at least const builtin functions like arithmetic
+	 operations below.  */
       if (is_gimple_call (stmt))
 	{
 	  int all_uses = 0;
@@ -824,11 +830,16 @@ isra_track_scalar_value_uses (cgraph_node *node, tree name, int parm_num,
 /* Inspect all uses of PARM, which must be a gimple register, in FUN (which is
    also described by NODE) and simple arithmetic calculations involving PARM
    and return false if any of them is used for something else than either an
-   actual call argument, simple arithemtic operation or debug statement.  If
+   actual call argument, simple arithmetic operation or debug statement.  If
    there are no such uses, return true and store the number of actual arguments
-   that this parameter evetually feeds to (or zero if there is none) to
-   *CALL_USES_P.  For any such parameter, mark PAMR_NUM as one of its
-   sources.  */
+   that this parameter eventually feeds to (or zero if there is none) to
+   *CALL_USES_P.  For any such parameter, mark PARM_NUM as one of its
+   sources.
+
+   This function is similar to ptr_parm_has_nonarg_uses but its results are
+   meant for unused parameter removal, as opposed to splitting of parameters
+   passed by reference or converting them to passed by value.
+  */
 
 static bool
 isra_track_scalar_param (function *fun, cgraph_node *node, tree parm,
@@ -858,7 +869,12 @@ isra_track_scalar_param (function *fun, cgraph_node *node, tree parm,
    Create pass-through IPA flow records for any direct uses as argument calls
    and if returning false, store their number into *PT_COUNT_P.  NODE and FUN
    must represent the function that is currently analyzed, PARM_NUM must be the
-   index of the analyzed parameter.  */
+   index of the analyzed parameter.
+
+   This function is similar to isra_track_scalar_param but its results are
+   meant for splitting of parameters passed by reference or turning them into
+   bits passed by value, as opposed to generic unused parameter removal.
+ */
 
 static bool
 ptr_parm_has_nonarg_uses (cgraph_node *node, function *fun, tree parm,
@@ -1063,7 +1079,7 @@ create_parameter_descriptors (cgraph_node *node,
 	      continue;
 	    }
 	  if (ptr_parm_has_nonarg_uses (node, fun, parm, num,
-					     &desc->ptr_pt_count))
+					&desc->ptr_pt_count))
 	    {
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		fprintf (dump_file, " not a candidate, reference has "
