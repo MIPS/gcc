@@ -157,6 +157,12 @@ enum function_shape {
      sv<t0>_t svfoo_vnum[_t0](const <t0>_t *, int64_t).  */
   SHAPE_load,
 
+  /* sv<t0>_t svfoo_t0(const <X>_t *).
+     sv<t0>_t svfoo_vnum_t0(const <X>_t *, int64_t)
+
+     where <X> is determined by the function base name.  */
+  SHAPE_load_ext,
+
   /* sv<t0>xN_t svfoo[_t0](sv<t0>xN_t, uint64_t, sv<t0>_t).  */
   SHAPE_set2,
   SHAPE_set3,
@@ -299,7 +305,10 @@ struct GTY(()) function_instance {
 
   const char *end_base_name () const;
   machine_mode bhwd_vector_mode () const;
+  scalar_mode bhwd_scalar_mode () const;
+  machine_mode memory_vector_mode () const;
 
+  tree memory_scalar_type () const;
   tree scalar_type (unsigned int) const;
   tree vector_type (unsigned int) const;
   tree tuple_type (unsigned int, unsigned int) const;
@@ -566,6 +575,7 @@ private:
   rtx expand_get ();
   rtx expand_index ();
   rtx expand_ld1 ();
+  rtx expand_ld1_ext (rtx_code);
   rtx expand_lsl ();
   rtx expand_lsl_wide ();
   rtx expand_mad (unsigned int);
@@ -711,9 +721,18 @@ static const type_suffix_info type_suffixes[NUM_TYPE_SUFFIXES + 1] = {
 #define TYPES_all_integer(S, D) \
   TYPES_all_signed (S, D), TYPES_all_unsigned (S, D)
 
-/* _u32, _u64 _s32 _s64.  */
+/* _s16 _s32 _s64
+   _u16 _u32 _u64.  */
+#define TYPES_hsdi(S, D) \
+  S (s16), S (s32), S (s64), S (u16), S (u32), S (u64)
+
+/* _s32 _s64 _u32 _u64.  */
 #define TYPES_sdi(S, D) \
-  S (u32), S (u64), S (s32), S (s64)
+  S (s32), S (s64), S (u32), S (u64)
+
+/* _s64 _u64.  */
+#define TYPES_di(S, D) \
+  S (s64), S (u64)
 
 /*     _f16 _f32 _f64
    _u8 _u16 _u32 _u64
@@ -762,7 +781,9 @@ DEF_SVE_TYPES_ARRAY (all_data);
 DEF_SVE_TYPES_ARRAY (all_sdi_and_float);
 DEF_SVE_TYPES_ARRAY (all_signed_and_float);
 DEF_SVE_TYPES_ARRAY (b);
+DEF_SVE_TYPES_ARRAY (hsdi);
 DEF_SVE_TYPES_ARRAY (sdi);
+DEF_SVE_TYPES_ARRAY (di);
 
 /* Used by functions in aarch64-sve-builtins.def that have no governing
    predicate.  */
@@ -1004,6 +1025,70 @@ function_instance::bhwd_vector_mode () const
     }
 }
 
+/* For a function with a [bhwd] suffix, return the scalar mode associated
+   with that suffix.  */
+scalar_mode
+function_instance::bhwd_scalar_mode () const
+{
+  return GET_MODE_INNER (bhwd_vector_mode ());
+}
+
+/* Return the memory vector mode, if meaningful.  */
+machine_mode
+function_instance::memory_vector_mode () const
+{
+  machine_mode mode = type_suffixes[types[0]].mode;
+  switch (func)
+    {
+    case FUNC_svld1:
+      return mode;
+
+    case FUNC_svld1sb:
+    case FUNC_svld1sh:
+    case FUNC_svld1sw:
+    case FUNC_svld1ub:
+    case FUNC_svld1uh:
+    case FUNC_svld1uw:
+      return aarch64_sve_data_mode (bhwd_scalar_mode (),
+				    GET_MODE_NUNITS (mode)).require ();
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
+/* Return the memory element type, if meaningful.  */
+tree
+function_instance::memory_scalar_type () const
+{
+  switch (func)
+    {
+    case FUNC_svld1:
+      return scalar_type (0);
+
+    case FUNC_svld1sb:
+      return scalar_types[VECTOR_TYPE_svint8_t];
+
+    case FUNC_svld1sh:
+      return scalar_types[VECTOR_TYPE_svint16_t];
+
+    case FUNC_svld1sw:
+      return scalar_types[VECTOR_TYPE_svint32_t];
+
+    case FUNC_svld1ub:
+      return scalar_types[VECTOR_TYPE_svuint8_t];
+
+    case FUNC_svld1uh:
+      return scalar_types[VECTOR_TYPE_svuint16_t];
+
+    case FUNC_svld1uw:
+      return scalar_types[VECTOR_TYPE_svuint32_t];
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
 /* Return the scalar type associated with type suffix I.  */
 inline tree
 function_instance::scalar_type (unsigned int i) const
@@ -1197,6 +1282,8 @@ arm_sve_h_builder::build (const function_group &group)
     case SHAPE_load:
       add_overloaded_functions (group, MODE_none);
       add_overloaded_functions (group, MODE_vnum);
+      /* Fall through.  */
+    case SHAPE_load_ext:
       build_all (&arm_sve_h_builder::sig_load, group, MODE_none);
       build_all (&arm_sve_h_builder::sig_load, group, MODE_vnum);
       break;
@@ -1393,14 +1480,17 @@ arm_sve_h_builder::sig_inherent_count (const function_instance &,
 
      sv<t0>_t svfoo[_t0](const <t0>_t *)
      sv<t0>_t svfoo_vnum[_t0](const <t0>_t *, int64_t)
+     sv<t0>_t svfoo_t0(const <X>_t *)
+     sv<t0>_t svfoo_vnum_t0(const <X>_t *, int64_t)
 
-   for INSTANCE in TYPES, with the mode choosing between them.  */
+   for INSTANCE in TYPES.  The mode of INSTANCE chooses between the vnum and
+   non-vnum forms.  The choice of <X> comes from the function base name.  */
 void
 arm_sve_h_builder::sig_load (const function_instance &instance,
 			     vec<tree> &types)
 {
   types.quick_push (instance.vector_type (0));
-  types.quick_push (build_const_pointer (instance.scalar_type (0)));
+  types.quick_push (build_const_pointer (instance.memory_scalar_type ()));
   if (instance.mode == MODE_vnum)
     types.quick_push (scalar_types[VECTOR_TYPE_svint64_t]);
 }
@@ -1777,6 +1867,12 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
       break;
 
     case FUNC_svld1:
+    case FUNC_svld1sb:
+    case FUNC_svld1sh:
+    case FUNC_svld1sw:
+    case FUNC_svld1ub:
+    case FUNC_svld1uh:
+    case FUNC_svld1uw:
       attrs = add_attribute ("pure", attrs);
       if (!flag_non_call_exceptions)
 	attrs = add_attribute ("nothrow", attrs);
@@ -1819,6 +1915,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_inherent2:
     case SHAPE_inherent3:
     case SHAPE_inherent4:
+    case SHAPE_load_ext:
     case SHAPE_unary_n:
     case SHAPE_unary_pred:
       return 1;
@@ -1894,6 +1991,7 @@ function_resolver::resolve ()
       return resolve_uniform (2);
     case SHAPE_binary_pred:
     case SHAPE_binary_scalar:
+    case SHAPE_load_ext:
     case SHAPE_inherent:
     case SHAPE_inherent2:
     case SHAPE_inherent3:
@@ -2439,6 +2537,7 @@ function_checker::check ()
     case SHAPE_inherent4:
     case SHAPE_inherent_count:
     case SHAPE_load:
+    case SHAPE_load_ext:
     case SHAPE_shift_opt_n:
     case SHAPE_ternary_opt_n:
     case SHAPE_ternary_qq_opt_n:
@@ -2675,6 +2774,12 @@ gimple_folder::fold ()
     case FUNC_svdup:
     case FUNC_sveor:
     case FUNC_svindex:
+    case FUNC_svld1sb:
+    case FUNC_svld1sh:
+    case FUNC_svld1sw:
+    case FUNC_svld1ub:
+    case FUNC_svld1uh:
+    case FUNC_svld1uw:
     case FUNC_svlsl:
     case FUNC_svlsl_wide:
     case FUNC_svmad:
@@ -3041,6 +3146,16 @@ function_expander::expand ()
     case FUNC_svld1:
       return expand_ld1 ();
 
+    case FUNC_svld1sb:
+    case FUNC_svld1sh:
+    case FUNC_svld1sw:
+      return expand_ld1_ext (SIGN_EXTEND);
+
+    case FUNC_svld1ub:
+    case FUNC_svld1uh:
+    case FUNC_svld1uw:
+      return expand_ld1_ext (ZERO_EXTEND);
+
     case FUNC_svlsl:
       return expand_lsl ();
 
@@ -3350,6 +3465,17 @@ function_expander::expand_ld1 ()
   machine_mode mode = get_mode (0);
   machine_mode pred_mode = get_pred_mode (0);
   insn_code icode = convert_optab_handler (maskload_optab, mode, pred_mode);
+  return expand_via_load_insn (icode);
+}
+
+/* Expand a call to svld1s[bhwd] or svld1u[bhwd].  CODE is the type of
+   extension, either SIGN_EXTEND or ZERO_EXTEND.  */
+rtx
+function_expander::expand_ld1_ext (rtx_code code)
+{
+  machine_mode reg_mode = get_mode (0);
+  machine_mode mem_mode = m_fi.memory_vector_mode ();
+  insn_code icode = code_for_aarch64_load (code, reg_mode, mem_mode);
   return expand_via_load_insn (icode);
 }
 
@@ -3749,7 +3875,7 @@ function_expander::expand_via_exact_insn (insn_code icode)
 rtx
 function_expander::expand_via_load_insn (insn_code icode)
 {
-  machine_mode mem_mode = get_mode (0);
+  machine_mode mem_mode = m_fi.memory_vector_mode ();
   rtx base = m_args[1];
   if (m_fi.mode == MODE_vnum)
     {

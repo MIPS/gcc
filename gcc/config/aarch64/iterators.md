@@ -319,6 +319,19 @@
 ;; All SVE floating-point vector modes.
 (define_mode_iterator SVE_F [VNx8HF VNx4SF VNx2DF])
 
+;; Modes involved in extending or truncating SVE data, for 8 elements per
+;; 128-bit block.
+(define_mode_iterator VNx8_NARROW [VNx8QI])
+(define_mode_iterator VNx8_WIDE [VNx8HI])
+
+;; ...same for 4 elements per 128-bit block.
+(define_mode_iterator VNx4_NARROW [VNx4QI VNx4HI])
+(define_mode_iterator VNx4_WIDE [VNx4SI])
+
+;; ...same for 2 elements per 128-bit block.
+(define_mode_iterator VNx2_NARROW [VNx2QI VNx2HI VNx2SI])
+(define_mode_iterator VNx2_WIDE [VNx2DI])
+
 ;; All SVE predicate modes.
 (define_mode_iterator PRED_ALL [VNx16BI VNx8BI VNx4BI VNx2BI])
 
@@ -677,9 +690,11 @@
 (define_mode_attr Vetype_fourth [(VNx4SI "b") (VNx2DI "h")])
 
 ;; Equivalent of "size" for a vector element.
-(define_mode_attr Vesize [(VNx16QI "b")
-			  (VNx8HI  "h") (VNx8HF  "h")
-			  (VNx4SI  "w") (VNx4SF  "w")
+(define_mode_attr Vesize [(VNx16QI "b") (VNx8QI  "b")
+			  (VNx4QI  "b") (VNx2QI  "b")
+			  (VNx8HI  "h") (VNx4HI  "h")
+			  (VNx2HI  "h") (VNx8HF  "h")
+			  (VNx4SI  "w") (VNx2SI  "w") (VNx4SF  "w")
 			  (VNx2DI  "d") (VNx2DF  "d")
 			  (VNx32QI "b") (VNx48QI "b") (VNx64QI "b")
 			  (VNx16HI "h") (VNx24HI "h") (VNx32HI "h")
@@ -1388,6 +1403,9 @@
 		      (div "s") (udiv "u")
 		      (smax "s") (umax "u")
 		      (smin "s") (umin "u")])
+
+;; "s" for signed ops, empty for unsigned ones.
+(define_code_attr s [(sign_extend "s") (zero_extend "")])
 
 ;; Whether a shift is left or right.
 (define_code_attr lr [(ashift "l") (ashiftrt "r") (lshiftrt "r")])
