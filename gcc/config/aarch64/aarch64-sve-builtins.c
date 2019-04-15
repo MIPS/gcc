@@ -140,6 +140,9 @@ enum function_shape {
   SHAPE_inherent3,
   SHAPE_inherent4,
 
+  /* uint64_t svfoo().  */
+  SHAPE_inherent_count,
+
   /* sv<t0>xN_t svfoo[_t0](sv<t0>xN_t, uint64_t, sv<t0>_t).  */
   SHAPE_set2,
   SHAPE_set3,
@@ -279,6 +282,9 @@ struct GTY(()) function_instance {
   bool operator!= (const function_instance &) const;
   hashval_t hash () const;
 
+  const char *end_base_name () const;
+  machine_mode bhwd_vector_mode () const;
+
   tree scalar_type (unsigned int) const;
   tree vector_type (unsigned int) const;
   tree tuple_type (unsigned int, unsigned int) const;
@@ -359,6 +365,7 @@ private:
   void sig_get_00i (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_inherent (const function_instance &, vec<tree> &);
+  void sig_inherent_count (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_set_00i0 (const function_instance &, vec<tree> &);
   void sig_00 (const function_instance &, vec<tree> &);
@@ -488,6 +495,7 @@ public:
   gimple *fold ();
 
 private:
+  gimple *fold_cnt_bhwd ();
   gimple *fold_create ();
   gimple *fold_get ();
   gimple *fold_ptrue ();
@@ -527,6 +535,7 @@ private:
   rtx expand_and ();
   rtx expand_asrd ();
   rtx expand_bic ();
+  rtx expand_cnt_bhwd ();
   rtx expand_create ();
   rtx expand_div (bool);
   rtx expand_dot ();
@@ -710,6 +719,12 @@ static const type_suffix_info type_suffixes[NUM_TYPE_SUFFIXES + 1] = {
     TYPES_##NAME (DEF_VECTOR_TYPE, DEF_DOUBLE_TYPE), \
     { NUM_TYPE_SUFFIXES, NUM_TYPE_SUFFIXES } \
   }
+
+/* For functions that don't take any type suffixes.  */
+static const type_suffix_pair types_none[] = {
+  { NUM_TYPE_SUFFIXES, NUM_TYPE_SUFFIXES },
+  { NUM_TYPE_SUFFIXES, NUM_TYPE_SUFFIXES }
+};
 
 DEF_SVE_TYPES_ARRAY (all_pred);
 DEF_SVE_TYPES_ARRAY (all_unsigned);
@@ -919,6 +934,32 @@ function_instance::hash () const
   return h.end ();
 }
 
+/* Return a pointer to the end of the function base name (i.e. to the
+   zero terminator).  */
+const char *
+function_instance::end_base_name () const
+{
+  const char *name = base_names[func];
+  return name + strlen (name);
+}
+
+/* For a function with a [bhwd] suffix, return the SVE vector mode
+   associated with that suffix.  */
+machine_mode
+function_instance::bhwd_vector_mode () const
+{
+  const char *end = end_base_name ();
+  switch (end[-1])
+    {
+    case 'b': return VNx16QImode;
+    case 'h': return VNx8HImode;
+    case 'w': return VNx4SImode;
+    case 'd': return VNx2DImode;
+    default:
+      gcc_unreachable ();
+    }
+}
+
 /* Return the scalar type associated with type suffix I.  */
 inline tree
 function_instance::scalar_type (unsigned int i) const
@@ -1105,6 +1146,10 @@ arm_sve_h_builder::build (const function_group &group)
       build_all (&arm_sve_h_builder::sig_inherent<4>, group, MODE_none);
       break;
 
+    case SHAPE_inherent_count:
+      build_all (&arm_sve_h_builder::sig_inherent_count, group, MODE_none);
+      break;
+
     case SHAPE_set2:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_set_00i0<2>, group, MODE_none);
@@ -1239,7 +1284,8 @@ arm_sve_h_builder::build_all (function_signature signature,
 {
   auto_vec<tree, 10> types;
   for (unsigned int pi = 0; group.preds[pi] != NUM_PREDS; ++pi)
-    for (unsigned int ti = 0; group.types[ti][0] != NUM_TYPE_SUFFIXES; ++ti)
+    for (unsigned int ti = 0;
+	 ti == 0 || group.types[ti][0] != NUM_TYPE_SUFFIXES; ++ti)
       {
 	function_instance instance (group.func, group.shape, mode,
 				    group.types[ti], group.preds[pi]);
@@ -1282,6 +1328,14 @@ arm_sve_h_builder::sig_inherent (const function_instance &instance,
 				 vec<tree> &types)
 {
   types.quick_push (instance.tuple_type (N, 0));
+}
+
+/* Describe the signature "uint64_t svfoo()" in TYPES.  */
+void
+arm_sve_h_builder::sig_inherent_count (const function_instance &,
+				       vec<tree> &types)
+{
+  types.quick_push (scalar_types[VECTOR_TYPE_svuint64_t]);
 }
 
 /* Describe the signature
@@ -1618,6 +1672,10 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
 	}
       break;
 
+    case FUNC_svcntb:
+    case FUNC_svcntd:
+    case FUNC_svcnth:
+    case FUNC_svcntw:
     case FUNC_svcreate2:
     case FUNC_svcreate3:
     case FUNC_svcreate4:
@@ -1664,6 +1722,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_get2:
     case SHAPE_get3:
     case SHAPE_get4:
+    case SHAPE_inherent_count:
     case SHAPE_set2:
     case SHAPE_set3:
     case SHAPE_set4:
@@ -1754,6 +1813,7 @@ function_resolver::resolve ()
     case SHAPE_inherent2:
     case SHAPE_inherent3:
     case SHAPE_inherent4:
+    case SHAPE_inherent_count:
     case SHAPE_unary_pred:
       break;
     case SHAPE_binary_wide:
@@ -2228,6 +2288,7 @@ function_checker::check ()
     case SHAPE_inherent2:
     case SHAPE_inherent3:
     case SHAPE_inherent4:
+    case SHAPE_inherent_count:
     case SHAPE_shift_opt_n:
     case SHAPE_ternary_opt_n:
     case SHAPE_ternary_qq_opt_n:
@@ -2492,6 +2553,12 @@ gimple_folder::fold ()
     case FUNC_svundef:
       return NULL;
 
+    case FUNC_svcntb:
+    case FUNC_svcntd:
+    case FUNC_svcnth:
+    case FUNC_svcntw:
+      return fold_cnt_bhwd ();
+
     case FUNC_svcreate2:
     case FUNC_svcreate3:
     case FUNC_svcreate4:
@@ -2531,6 +2598,15 @@ gimple_folder::fold ()
       return fold_zip ();
     }
   gcc_unreachable ();
+}
+
+/* Fold a call to svcnt[bhwd].  */
+gimple *
+gimple_folder::fold_cnt_bhwd ()
+{
+  machine_mode ref_mode = m_fi.bhwd_vector_mode ();
+  tree count = build_int_cstu (TREE_TYPE (m_lhs), GET_MODE_NUNITS (ref_mode));
+  return gimple_build_assign (m_lhs, count);
 }
 
 /* Fold a call to svcreate*.  */
@@ -2736,6 +2812,12 @@ function_expander::expand ()
 
     case FUNC_svbic:
       return expand_bic ();
+
+    case FUNC_svcntb:
+    case FUNC_svcntd:
+    case FUNC_svcnth:
+    case FUNC_svcntw:
+      return expand_cnt_bhwd ();
 
     case FUNC_svcreate2:
     case FUNC_svcreate3:
@@ -2964,6 +3046,13 @@ function_expander::expand_bic ()
       insn_code icode = code_for_cond_bic (get_mode (0));
       return expand_via_pred_insn (icode);
     }
+}
+
+/* Expand a call to svcnt[bhwd].  */
+rtx
+function_expander::expand_cnt_bhwd ()
+{
+  return gen_int_mode (GET_MODE_NUNITS (m_fi.bhwd_vector_mode ()), DImode);
 }
 
 /* Expand a call to svcreate*.  */

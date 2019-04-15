@@ -87,10 +87,12 @@
   BIND_OUTPUT_Z (z19_res)
 
 #ifdef __cplusplus
-#define START(NAME) extern "C" void NAME (void); void NAME (void)
+#define PROTO(NAME, RET, ARGS) extern "C" RET NAME ARGS; RET NAME ARGS
 #else
-#define START(NAME) void NAME (void)
+#define PROTO(NAME, RET, ARGS) RET NAME ARGS
 #endif
+
+#define START(NAME) PROTO (NAME, void, (void))
 
 #define TEST_UNIFORM_Z(NAME, TYPE, CODE1, CODE2)	\
   START (NAME)						\

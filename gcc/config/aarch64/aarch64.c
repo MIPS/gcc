@@ -73,6 +73,7 @@
 #include "selftest-rtl.h"
 #include "rtx-vector-builder.h"
 #include "intl.h"
+#include "expmed.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -2555,6 +2556,33 @@ aarch64_output_sve_cnt_immediate (const char *prefix, const char *operands,
 					   value.coeffs[1], 0);
 }
 
+/* Return true if we can add X using a single SVE INC or DEC instruction.  */
+
+bool
+aarch64_sve_scalar_inc_dec_immediate_p (rtx x)
+{
+  poly_int64 value;
+  return (poly_int_rtx_p (x, &value)
+	  && (aarch64_sve_cnt_immediate_p (value)
+	      || aarch64_sve_cnt_immediate_p (-value)));
+}
+
+/* Return the asm string for adding SVE INC/DEC immediate OFFSET to
+   operand 0.  */
+
+char *
+aarch64_output_sve_scalar_inc_dec (rtx offset)
+{
+  poly_int64 offset_value = rtx_to_poly_int64 (offset);
+  gcc_assert (offset_value.coeffs[0] == offset_value.coeffs[1]);
+  if (offset_value.coeffs[1] > 0)
+    return aarch64_output_sve_cnt_immediate ("inc", "%x0",
+					     offset_value.coeffs[1], 0);
+  else
+    return aarch64_output_sve_cnt_immediate ("dec", "%x0",
+					     -offset_value.coeffs[1], 0);
+}
+
 /* Return true if we can add VALUE to a register using a single ADDVL
    or ADDPL instruction.  */
 
@@ -2580,26 +2608,15 @@ aarch64_sve_addvl_addpl_immediate_p (rtx x)
 	  && aarch64_sve_addvl_addpl_immediate_p (value));
 }
 
-/* Return the asm string for adding ADDVL or ADDPL immediate X to operand 1
-   and storing the result in operand 0.  */
+/* Return the asm string for adding ADDVL or ADDPL immediate OFFSET
+   to operand 1 and storing the result in operand 0.  */
 
 char *
-aarch64_output_sve_addvl_addpl (rtx dest, rtx base, rtx offset)
+aarch64_output_sve_addvl_addpl (rtx offset)
 {
   static char buffer[sizeof ("addpl\t%x0, %x1, #-") + 3 * sizeof (int)];
   poly_int64 offset_value = rtx_to_poly_int64 (offset);
   gcc_assert (aarch64_sve_addvl_addpl_immediate_p (offset_value));
-
-  /* Use INC or DEC if possible.  */
-  if (rtx_equal_p (dest, base) && GP_REGNUM_P (REGNO (dest)))
-    {
-      if (aarch64_sve_cnt_immediate_p (offset_value))
-	return aarch64_output_sve_cnt_immediate ("inc", "%x0",
-						 offset_value.coeffs[1], 0);
-      if (aarch64_sve_cnt_immediate_p (-offset_value))
-	return aarch64_output_sve_cnt_immediate ("dec", "%x0",
-						 -offset_value.coeffs[1], 0);
-    }
 
   int factor = offset_value.coeffs[1];
   if ((factor & 15) == 0)
@@ -2615,8 +2632,8 @@ aarch64_output_sve_addvl_addpl (rtx dest, rtx base, rtx offset)
    factor in *FACTOR_OUT (if nonnull).  */
 
 bool
-aarch64_sve_inc_dec_immediate_p (rtx x, int *factor_out,
-				 unsigned int *nelts_per_vq_out)
+aarch64_sve_vector_inc_dec_immediate_p (rtx x, int *factor_out,
+					unsigned int *nelts_per_vq_out)
 {
   rtx elt;
   poly_int64 value;
@@ -2650,9 +2667,9 @@ aarch64_sve_inc_dec_immediate_p (rtx x, int *factor_out,
    instruction.  */
 
 bool
-aarch64_sve_inc_dec_immediate_p (rtx x)
+aarch64_sve_vector_inc_dec_immediate_p (rtx x)
 {
-  return aarch64_sve_inc_dec_immediate_p (x, NULL, NULL);
+  return aarch64_sve_vector_inc_dec_immediate_p (x, NULL, NULL);
 }
 
 /* Return the asm template for an SVE vector INC or DEC instruction.
@@ -2660,11 +2677,11 @@ aarch64_sve_inc_dec_immediate_p (rtx x)
    value of the vector count operand itself.  */
 
 char *
-aarch64_output_sve_inc_dec_immediate (const char *operands, rtx x)
+aarch64_output_sve_vector_inc_dec (const char *operands, rtx x)
 {
   int factor;
   unsigned int nelts_per_vq;
-  if (!aarch64_sve_inc_dec_immediate_p (x, &factor, &nelts_per_vq))
+  if (!aarch64_sve_vector_inc_dec_immediate_p (x, &factor, &nelts_per_vq))
     gcc_unreachable ();
   if (factor < 0)
     return aarch64_output_sve_cnt_immediate ("dec", operands, -factor,
@@ -3054,20 +3071,36 @@ aarch64_add_offset (scalar_int_mode mode, rtx dest, rtx src,
 	}
       else
 	{
-	  /* Use CNTD, then multiply it by FACTOR.  */
-	  val = gen_int_mode (poly_int64 (2, 2), mode);
+	  /* Base the factor on LOW_BIT if we can calculate LOW_BIT
+	     directly, since that should increase the chances of being
+	     able to use a shift and add sequence.  If LOW_BIT itself
+	     is out of range, just use CNTD.  */
+	  if (low_bit <= 16 * 8)
+	    factor /= low_bit;
+	  else
+	    low_bit = 1;
+
+	  val = gen_int_mode (poly_int64 (low_bit * 2, low_bit * 2), mode);
 	  val = aarch64_force_temporary (mode, temp1, val);
 
-	  /* Go back to using a negative multiplication factor if we have
-	     no register from which to subtract.  */
-	  if (code == MINUS && src == const0_rtx)
+	  if (can_create_pseudo_p ())
 	    {
-	      factor = -factor;
-	      code = PLUS;
+	      rtx coeff1 = gen_int_mode (factor, mode);
+	      val = expand_mult (mode, val, coeff1, NULL_RTX, false, true);
 	    }
-	  rtx coeff1 = gen_int_mode (factor, mode);
-	  coeff1 = aarch64_force_temporary (mode, temp2, coeff1);
-	  val = gen_rtx_MULT (mode, val, coeff1);
+	  else
+	    {
+	      /* Go back to using a negative multiplication factor if we have
+		 no register from which to subtract.  */
+	      if (code == MINUS && src == const0_rtx)
+		{
+		  factor = -factor;
+		  code = PLUS;
+		}
+	      rtx coeff1 = gen_int_mode (factor, mode);
+	      coeff1 = aarch64_force_temporary (mode, temp2, coeff1);
+	      val = gen_rtx_MULT (mode, val, coeff1);
+	    }
 	}
 
       if (shift > 0)
