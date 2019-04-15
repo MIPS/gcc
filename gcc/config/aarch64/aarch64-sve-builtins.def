@@ -17,6 +17,14 @@
    along with GCC; see the file COPYING3.  If not see
    <http://www.gnu.org/licenses/>.  */
 
+#ifndef DEF_SVE_BASE_NAME
+#define DEF_SVE_BASE_NAME(A)
+#endif
+
+#ifndef DEF_SVE_LAST_BASE_NAME
+#define DEF_SVE_LAST_BASE_NAME(A)
+#endif
+
 #ifndef DEF_SVE_TYPE
 #define DEF_SVE_TYPE(A, B, C, D)
 #endif
@@ -28,6 +36,60 @@
 #ifndef DEF_SVE_FUNCTION
 #define DEF_SVE_FUNCTION(A, B, C, D)
 #endif
+
+DEF_SVE_BASE_NAME (svabd)
+DEF_SVE_BASE_NAME (svabs)
+DEF_SVE_BASE_NAME (svadd)
+DEF_SVE_BASE_NAME (svand)
+DEF_SVE_BASE_NAME (svasrd)
+DEF_SVE_BASE_NAME (svbic)
+DEF_SVE_BASE_NAME (svcreate2)
+DEF_SVE_BASE_NAME (svcreate3)
+DEF_SVE_BASE_NAME (svcreate4)
+DEF_SVE_BASE_NAME (svdiv)
+DEF_SVE_BASE_NAME (svdivr)
+DEF_SVE_BASE_NAME (svdot)
+DEF_SVE_BASE_NAME (svdup)
+DEF_SVE_BASE_NAME (sveor)
+DEF_SVE_BASE_NAME (svget2)
+DEF_SVE_BASE_NAME (svget3)
+DEF_SVE_BASE_NAME (svget4)
+DEF_SVE_BASE_NAME (svindex)
+DEF_SVE_BASE_NAME (svlsl)
+DEF_SVE_BASE_NAME (svlsl_wide)
+DEF_SVE_BASE_NAME (svmad)
+DEF_SVE_BASE_NAME (svmax)
+DEF_SVE_BASE_NAME (svmaxnm)
+DEF_SVE_BASE_NAME (svmin)
+DEF_SVE_BASE_NAME (svminnm)
+DEF_SVE_BASE_NAME (svmla)
+DEF_SVE_BASE_NAME (svmls)
+DEF_SVE_BASE_NAME (svmsb)
+DEF_SVE_BASE_NAME (svmul)
+DEF_SVE_BASE_NAME (svmulh)
+DEF_SVE_BASE_NAME (svmulx)
+DEF_SVE_BASE_NAME (svneg)
+DEF_SVE_BASE_NAME (svnot)
+DEF_SVE_BASE_NAME (svorr)
+DEF_SVE_BASE_NAME (svset2)
+DEF_SVE_BASE_NAME (svset3)
+DEF_SVE_BASE_NAME (svset4)
+DEF_SVE_BASE_NAME (svptrue)
+DEF_SVE_BASE_NAME (svqadd)
+DEF_SVE_BASE_NAME (svqsub)
+DEF_SVE_BASE_NAME (svsqrt)
+DEF_SVE_BASE_NAME (svsub)
+DEF_SVE_BASE_NAME (svsubr)
+DEF_SVE_BASE_NAME (svtrn1)
+DEF_SVE_BASE_NAME (svtrn2)
+DEF_SVE_BASE_NAME (svundef)
+DEF_SVE_BASE_NAME (svundef2)
+DEF_SVE_BASE_NAME (svundef3)
+DEF_SVE_BASE_NAME (svundef4)
+DEF_SVE_BASE_NAME (svuzp1)
+DEF_SVE_BASE_NAME (svuzp2)
+DEF_SVE_BASE_NAME (svzip1)
+DEF_SVE_LAST_BASE_NAME (svzip2)
 
 DEF_SVE_TYPE (svbool_t, 10, __SVBool_t, boolean_type_node)
 DEF_SVE_TYPE (svfloat16_t, 13, __SVFloat16_t, aarch64_fp16_type_node)
@@ -123,3 +185,5 @@ DEF_SVE_FUNCTION (svzip2, binary_pred, all_pred, none)
 #undef DEF_SVE_FUNCTION
 #undef DEF_SVE_TYPE_SUFFIX
 #undef DEF_SVE_TYPE
+#undef DEF_SVE_LAST_BASE_NAME
+#undef DEF_SVE_BASE_NAME

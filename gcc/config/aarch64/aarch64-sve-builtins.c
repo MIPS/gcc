@@ -202,59 +202,9 @@ typedef enum type_suffix type_suffix_pair[2];
 
 /* Enumerates the function base names, such as "svadd".  */
 enum function {
-  FUNC_svabd,
-  FUNC_svabs,
-  FUNC_svadd,
-  FUNC_svand,
-  FUNC_svasrd,
-  FUNC_svbic,
-  FUNC_svcreate2,
-  FUNC_svcreate3,
-  FUNC_svcreate4,
-  FUNC_svdiv,
-  FUNC_svdivr,
-  FUNC_svdot,
-  FUNC_svdup,
-  FUNC_sveor,
-  FUNC_svget2,
-  FUNC_svget3,
-  FUNC_svget4,
-  FUNC_svindex,
-  FUNC_svlsl,
-  FUNC_svlsl_wide,
-  FUNC_svmad,
-  FUNC_svmax,
-  FUNC_svmaxnm,
-  FUNC_svmin,
-  FUNC_svminnm,
-  FUNC_svmla,
-  FUNC_svmls,
-  FUNC_svmsb,
-  FUNC_svmul,
-  FUNC_svmulh,
-  FUNC_svmulx,
-  FUNC_svneg,
-  FUNC_svnot,
-  FUNC_svorr,
-  FUNC_svset2,
-  FUNC_svset3,
-  FUNC_svset4,
-  FUNC_svptrue,
-  FUNC_svqadd,
-  FUNC_svqsub,
-  FUNC_svsqrt,
-  FUNC_svsub,
-  FUNC_svsubr,
-  FUNC_svtrn1,
-  FUNC_svtrn2,
-  FUNC_svundef,
-  FUNC_svundef2,
-  FUNC_svundef3,
-  FUNC_svundef4,
-  FUNC_svuzp1,
-  FUNC_svuzp2,
-  FUNC_svzip1,
-  FUNC_svzip2
+#define DEF_SVE_BASE_NAME(NAME) FUNC_##NAME,
+#define DEF_SVE_LAST_BASE_NAME(NAME) FUNC_##NAME
+#include "aarch64-sve-builtins.def"
 };
 
 /* Enumerates the function groups defined in aarch64-sve-builtins.def.  */
@@ -311,8 +261,7 @@ struct function_group {
   /* The unique identifier of the group.  */
   group_id id;
 
-  /* The base name, as a string and an enum.  */
-  const char *name;
+  /* The base name.  */
   function func;
 
   /* The shape of the functions, as described above the enum definition.
@@ -782,10 +731,17 @@ static const predication preds_mxz[] = { PRED_m, PRED_x, PRED_z, NUM_PREDS };
 static const predication preds_mxznone[] = { PRED_m, PRED_x, PRED_z,
 					     PRED_none, NUM_PREDS };
 
+/* Each SVE function base name as a string.  */
+static const char *const base_names[] = {
+#define DEF_SVE_BASE_NAME(NAME) #NAME,
+#define DEF_SVE_LAST_BASE_NAME(NAME) #NAME
+#include "aarch64-sve-builtins.def"
+};
+
 /* A list of all SVE ACLE functions.  */
 static const function_group function_groups[] = {
 #define DEF_SVE_FUNCTION(NAME, SHAPE, TYPES, PREDS) \
-  { GROUP_ID (NAME, SHAPE, TYPES, PREDS), #NAME, FUNC_##NAME, SHAPE_##SHAPE, \
+  { GROUP_ID (NAME, SHAPE, TYPES, PREDS), FUNC_##NAME, SHAPE_##SHAPE, \
     types_##TYPES, preds_##PREDS },
 #include "aarch64-sve-builtins.def"
 };
@@ -1710,7 +1666,7 @@ arm_sve_h_builder::get_name (const function_instance &instance,
   unsigned int explicit_types
     = (overloaded_p ? get_explicit_types (group.shape) : 3);
 
-  append_name (group.name);
+  append_name (base_names[group.func]);
   switch (instance.mode)
     {
     case MODE_none:
