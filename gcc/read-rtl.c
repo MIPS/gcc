@@ -106,6 +106,9 @@ struct attribute_use {
   /* The group that describes the use site.  */
   struct iterator_group *group;
 
+  /* The location at which the use occurs.  */
+  file_location loc;
+
   /* The name of the attribute, possibly with an "iterator:" prefix.  */
   const char *value;
 
@@ -350,10 +353,10 @@ find_subst_iter_by_attr (const char *attr)
 
 /* Map attribute string P to its current value.  Return null if the attribute
    isn't known.  If ITERATOR_OUT is nonnull, store the associated iterator
-   there.  */
+   there.  Report any errors against location LOC.  */
 
 static struct map_value *
-map_attr_string (const char *p, mapping **iterator_out = 0)
+map_attr_string (file_location loc, const char *p, mapping **iterator_out = 0)
 {
   const char *attr;
   struct mapping *iterator;
@@ -361,6 +364,8 @@ map_attr_string (const char *p, mapping **iterator_out = 0)
   struct mapping *m;
   struct map_value *v;
   int iterator_name_len;
+  struct map_value *res = NULL;
+  struct mapping *prev = NULL;
 
   /* Peel off any "iterator:" prefix.  Set ATTR to the start of the
      attribute name.  */
@@ -403,13 +408,22 @@ map_attr_string (const char *p, mapping **iterator_out = 0)
 	  for (v = m->values; v; v = v->next)
 	    if (v->number == iterator->current_value->number)
 	      {
+		if (res && strcmp (v->string, res->string) != 0)
+		  {
+		    error_at (loc, "ambiguous attribute '%s'; could be"
+			      " '%s' (via '%s:%s') or '%s' (via '%s:%s')",
+			      attr, res->string, prev->name, attr,
+			      v->string, iterator->name, attr);
+		    return v;
+		  }
 		if (iterator_out)
 		  *iterator_out = iterator;
-		return v;
+		prev = iterator;
+		res = v;
 	      }
 	}
     }
-  return NULL;
+  return res;
 }
 
 /* Apply the current iterator values to STRING.  Return the new string
@@ -421,16 +435,17 @@ md_reader::apply_iterator_to_string (const char *string)
   char *base, *copy, *p, *start, *end;
   struct map_value *v;
 
-  if (string == 0)
+  if (string == 0 || string[0] == 0)
     return string;
 
+  file_location loc = get_md_ptr_loc (string)->loc;
   base = p = copy = ASTRDUP (string);
   while ((start = strchr (p, '<')) && (end = strchr (start, '>')))
     {
       p = start + 1;
 
       *end = 0;
-      v = map_attr_string (p);
+      v = map_attr_string (loc, p);
       *end = '>';
       if (v == 0)
 	continue;
@@ -560,7 +575,7 @@ apply_attribute_uses (void)
 
   FOR_EACH_VEC_ELT (attribute_uses, i, ause)
     {
-      v = map_attr_string (ause->value);
+      v = map_attr_string (ause->loc, ause->value);
       if (!v)
 	fatal_with_file_and_line ("unknown iterator value `%s'", ause->value);
       ause->group->apply_iterator (ause->x, ause->index,
@@ -643,6 +658,7 @@ md_reader::handle_overloaded_name (rtx original, vec<mapping *> *iterators)
 
   /* Remove the '@', so that no other code needs to worry about it.  */
   const char *name = XSTR (original, 0);
+  file_location loc = get_md_ptr_loc (name)->loc;
   copy_md_ptr_loc (name + 1, name);
   name += 1;
   XSTR (original, 0) = name;
@@ -659,7 +675,7 @@ md_reader::handle_overloaded_name (rtx original, vec<mapping *> *iterators)
     {
       *end = 0;
       mapping *iterator;
-      if (!map_attr_string (start + 1, &iterator))
+      if (!map_attr_string (loc, start + 1, &iterator))
 	fatal_with_file_and_line ("unknown iterator `%s'", start + 1);
       *end = '>';
 
@@ -1113,24 +1129,25 @@ record_iterator_use (struct mapping *iterator, rtx x, unsigned int index)
   iterator_uses.safe_push (iuse);
 }
 
-/* Record that X uses attribute VALUE, which must match a built-in
-   value from group GROUP.  If the use is in an operand of X, INDEX
-   is the index of that operand, otherwise it is ignored.  */
+/* Record that X uses attribute VALUE at location LOC, where VALUE must
+   match a built-in value from group GROUP.  If the use is in an operand
+   of X, INDEX is the index of that operand, otherwise it is ignored.  */
 
 static void
-record_attribute_use (struct iterator_group *group, rtx x,
+record_attribute_use (struct iterator_group *group, file_location loc, rtx x,
 		      unsigned int index, const char *value)
 {
-  struct attribute_use ause = {group, value, x, index};
+  struct attribute_use ause = {group, loc, value, x, index};
   attribute_uses.safe_push (ause);
 }
 
 /* Interpret NAME as either a built-in value, iterator or attribute
    for group GROUP.  X and INDEX are the values to pass to GROUP's
-   apply_iterator callback.  */
+   apply_iterator callback.  LOC is the location of the use.  */
 
 void
 md_reader::record_potential_iterator_use (struct iterator_group *group,
+					  file_location loc,
 					  rtx x, unsigned int index,
 					  const char *name)
 {
@@ -1143,7 +1160,7 @@ md_reader::record_potential_iterator_use (struct iterator_group *group,
       /* Copy the attribute string into permanent storage, without the
 	 angle brackets around it.  */
       obstack_grow0 (&m_string_obstack, name + 1, len - 2);
-      record_attribute_use (group, x, index,
+      record_attribute_use (group, loc, x, index,
 			    XOBFINISH (&m_string_obstack, char *));
     }
   else
@@ -1563,8 +1580,8 @@ rtx_reader::read_rtx_code (const char *code_name)
   c = read_skip_spaces ();
   if (c == ':')
     {
-      read_name (&name);
-      record_potential_iterator_use (&modes, return_rtx, 0, name.string);
+      file_location loc = read_name (&name);
+      record_potential_iterator_use (&modes, loc, return_rtx, 0, name.string);
     }
   else
     unread_char (c);
@@ -1869,10 +1886,13 @@ rtx_reader::read_rtx_operand (rtx return_rtx, int idx)
     case 'i':
     case 'n':
     case 'p':
-      /* Can be an iterator or an integer constant.  */
-      read_name (&name);
-      record_potential_iterator_use (&ints, return_rtx, idx, name.string);
-      break;
+      {
+	/* Can be an iterator or an integer constant.  */
+	file_location loc = read_name (&name);
+	record_potential_iterator_use (&ints, loc, return_rtx, idx,
+				       name.string);
+	break;
+      }
 
     case 'r':
       read_name (&name);
