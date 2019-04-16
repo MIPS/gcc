@@ -1810,7 +1810,7 @@
   [(const_int 0)]
   {
     emit_insn (gen_while_ult<GPI:mode><PRED_ALL:mode>_cc
-	       (operands[0], CONSTM1_RTX (<MODE>mode),
+	       (operands[0], CONSTM1_RTX (<PRED_ALL:MODE>mode),
 		operands[2], operands[3]));
     DONE;
   }
@@ -2467,7 +2467,7 @@
 	   (SVE_INT_BINARY_SD:SVE_SDI
 	     (match_operand:SVE_SDI 2 "register_operand" "0, w, w, w, w")
 	     (match_operand:SVE_SDI 3 "register_operand" "w, 0, w, w, w"))
-	   (match_operand:SVE_I 4 "aarch64_simd_reg_or_zero" "Dz, Dz, Dz, 0, w")]
+	   (match_operand:SVE_SDI 4 "aarch64_simd_reg_or_zero" "Dz, Dz, Dz, 0, w")]
 	  UNSPEC_SEL))]
   "TARGET_SVE"
   "@
