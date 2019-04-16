@@ -12481,8 +12481,8 @@
 	      (const_string "<sseinsnmode>")))])
 
 (define_insn "*andnot<mode>3_bcst"
-  [(set (match_operand:VI 0 "register_operand" "=v")
-	(and:VI
+  [(set (match_operand:VI48_AVX512VL 0 "register_operand" "=v")
+	(and:VI48_AVX512VL
 	  (not:VI48_AVX512VL
 	     (match_operand:VI48_AVX512VL 1 "register_operand" "v"))
 	  (vec_duplicate:VI48_AVX512VL
@@ -17714,7 +17714,7 @@
 					operands[3]), UNSPEC_VSIBADDR);
 })
 
-(define_insn "*avx512pf_gatherpf<mode>sf_mask"
+(define_insn "*avx512pf_gatherpf<VI48_512:mode>sf_mask"
   [(unspec
      [(match_operand:<avx512fmaskmode> 0 "register_operand" "Yk")
       (match_operator:<GATHER_SCATTER_SF_MEM_MODE> 5 "vsib_mem_operator"
@@ -17761,7 +17761,7 @@
 					operands[3]), UNSPEC_VSIBADDR);
 })
 
-(define_insn "*avx512pf_gatherpf<mode>df_mask"
+(define_insn "*avx512pf_gatherpf<VI4_256_8_512:mode>df_mask"
   [(unspec
      [(match_operand:<avx512fmaskmode> 0 "register_operand" "Yk")
       (match_operator:V8DF 5 "vsib_mem_operator"
@@ -17808,7 +17808,7 @@
 					operands[3]), UNSPEC_VSIBADDR);
 })
 
-(define_insn "*avx512pf_scatterpf<mode>sf_mask"
+(define_insn "*avx512pf_scatterpf<VI48_512:mode>sf_mask"
   [(unspec
      [(match_operand:<avx512fmaskmode> 0 "register_operand" "Yk")
       (match_operator:<GATHER_SCATTER_SF_MEM_MODE> 5 "vsib_mem_operator"
@@ -17857,7 +17857,7 @@
 					operands[3]), UNSPEC_VSIBADDR);
 })
 
-(define_insn "*avx512pf_scatterpf<mode>df_mask"
+(define_insn "*avx512pf_scatterpf<VI4_256_8_512:mode>df_mask"
   [(unspec
      [(match_operand:<avx512fmaskmode> 0 "register_operand" "Yk")
       (match_operator:V8DF 5 "vsib_mem_operator"
@@ -20608,7 +20608,7 @@
 					operands[5]), UNSPEC_VSIBADDR);
 })
 
-(define_insn "*avx2_gathersi<mode>"
+(define_insn "*avx2_gathersi<VEC_GATHER_MODE:mode>"
   [(set (match_operand:VEC_GATHER_MODE 0 "register_operand" "=&x")
 	(unspec:VEC_GATHER_MODE
 	  [(match_operand:VEC_GATHER_MODE 2 "register_operand" "0")
@@ -20628,7 +20628,7 @@
    (set_attr "prefix" "vex")
    (set_attr "mode" "<sseinsnmode>")])
 
-(define_insn "*avx2_gathersi<mode>_2"
+(define_insn "*avx2_gathersi<VEC_GATHER_MODE:mode>_2"
   [(set (match_operand:VEC_GATHER_MODE 0 "register_operand" "=&x")
 	(unspec:VEC_GATHER_MODE
 	  [(pc)
@@ -20669,7 +20669,7 @@
 					operands[5]), UNSPEC_VSIBADDR);
 })
 
-(define_insn "*avx2_gatherdi<mode>"
+(define_insn "*avx2_gatherdi<VEC_GATHER_MODE:mode>"
   [(set (match_operand:VEC_GATHER_MODE 0 "register_operand" "=&x")
 	(unspec:VEC_GATHER_MODE
 	  [(match_operand:<VEC_GATHER_SRCDI> 2 "register_operand" "0")
@@ -20689,7 +20689,7 @@
    (set_attr "prefix" "vex")
    (set_attr "mode" "<sseinsnmode>")])
 
-(define_insn "*avx2_gatherdi<mode>_2"
+(define_insn "*avx2_gatherdi<VEC_GATHER_MODE:mode>_2"
   [(set (match_operand:VEC_GATHER_MODE 0 "register_operand" "=&x")
 	(unspec:VEC_GATHER_MODE
 	  [(pc)
@@ -20705,7 +20705,7 @@
    (clobber (match_scratch:VEC_GATHER_MODE 1 "=&x"))]
   "TARGET_AVX2"
 {
-  if (<MODE>mode != <VEC_GATHER_SRCDI>mode)
+  if (<VEC_GATHER_MODE:MODE>mode != <VEC_GATHER_SRCDI>mode)
     return "%M2v<sseintprefix>gatherq<ssemodesuffix>\t{%4, %6, %x0|%x0, %6, %4}";
   return "%M2v<sseintprefix>gatherq<ssemodesuffix>\t{%4, %6, %0|%0, %6, %4}";
 }
@@ -20713,7 +20713,7 @@
    (set_attr "prefix" "vex")
    (set_attr "mode" "<sseinsnmode>")])
 
-(define_insn "*avx2_gatherdi<mode>_3"
+(define_insn "*avx2_gatherdi<VI4F_256:mode>_3"
   [(set (match_operand:<VEC_GATHER_SRCDI> 0 "register_operand" "=&x")
 	(vec_select:<VEC_GATHER_SRCDI>
 	  (unspec:VI4F_256
@@ -20736,7 +20736,7 @@
    (set_attr "prefix" "vex")
    (set_attr "mode" "<sseinsnmode>")])
 
-(define_insn "*avx2_gatherdi<mode>_4"
+(define_insn "*avx2_gatherdi<VI4F_256:mode>_4"
   [(set (match_operand:<VEC_GATHER_SRCDI> 0 "register_operand" "=&x")
 	(vec_select:<VEC_GATHER_SRCDI>
 	  (unspec:VI4F_256
@@ -20778,7 +20778,7 @@
 					operands[5]), UNSPEC_VSIBADDR);
 })
 
-(define_insn "*avx512f_gathersi<mode>"
+(define_insn "*avx512f_gathersi<VI48F:mode>"
   [(set (match_operand:VI48F 0 "register_operand" "=&v")
 	(unspec:VI48F
 	  [(match_operand:VI48F 1 "register_operand" "0")
@@ -20799,7 +20799,7 @@
    (set_attr "prefix" "evex")
    (set_attr "mode" "<sseinsnmode>")])
 
-(define_insn "*avx512f_gathersi<mode>_2"
+(define_insn "*avx512f_gathersi<VI48F:mode>_2"
   [(set (match_operand:VI48F 0 "register_operand" "=&v")
 	(unspec:VI48F
 	  [(pc)
@@ -20840,7 +20840,7 @@
 					operands[5]), UNSPEC_VSIBADDR);
 })
 
-(define_insn "*avx512f_gatherdi<mode>"
+(define_insn "*avx512f_gatherdi<VI48F:mode>"
   [(set (match_operand:VI48F 0 "register_operand" "=&v")
 	(unspec:VI48F
 	  [(match_operand:<VEC_GATHER_SRCDI> 1 "register_operand" "0")
@@ -20861,7 +20861,7 @@
    (set_attr "prefix" "evex")
    (set_attr "mode" "<sseinsnmode>")])
 
-(define_insn "*avx512f_gatherdi<mode>_2"
+(define_insn "*avx512f_gatherdi<VI48F:mode>_2"
   [(set (match_operand:VI48F 0 "register_operand" "=&v")
 	(unspec:VI48F
 	  [(pc)
@@ -20878,9 +20878,9 @@
 {
   /* %X5 so that we don't emit any *WORD PTR for -masm=intel, as
      gas changed what it requires incompatibly.  */
-  if (<MODE>mode != <VEC_GATHER_SRCDI>mode)
+  if (<VI48F:MODE>mode != <VEC_GATHER_SRCDI>mode)
     {
-      if (<MODE_SIZE> != 64)
+      if (<VI48F:MODE_SIZE> != 64)
 	return "%M3v<sseintprefix>gatherq<ssemodesuffix>\t{%5, %x0%{%1%}|%x0%{%1%}, %X5}";
       else
 	return "%M3v<sseintprefix>gatherq<ssemodesuffix>\t{%5, %t0%{%1%}|%t0%{%1%}, %X5}";
@@ -20909,7 +20909,7 @@
 					operands[4]), UNSPEC_VSIBADDR);
 })
 
-(define_insn "*avx512f_scattersi<mode>"
+(define_insn "*avx512f_scattersi<VI48F:mode>"
   [(set (match_operator:VI48F 5 "vsib_mem_operator"
 	  [(unspec:P
 	     [(match_operand:P 0 "vsib_address_operand" "Tv")
@@ -20947,7 +20947,7 @@
 					operands[4]), UNSPEC_VSIBADDR);
 })
 
-(define_insn "*avx512f_scatterdi<mode>"
+(define_insn "*avx512f_scatterdi<VI48F:mode>"
   [(set (match_operator:VI48F 5 "vsib_mem_operator"
 	  [(unspec:P
 	     [(match_operand:P 0 "vsib_address_operand" "Tv")
