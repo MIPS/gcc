@@ -18025,9 +18025,8 @@ cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc,
   if (con == error_mark_node)
     return con;
 
-  /* As per the standard, require auto or decltype(auto).  However, 
-     if -fconcepts-ts is active, then allow the placeholder to be
-     omitted.  */
+  /* As per the standard, require auto or decltype(auto), except in some
+     cases (template parameter lists, -fconcepts-ts enabled).  */
   cp_token *placeholder = nullptr;
   if (cxx_dialect >= cxx2a)
     {
@@ -18036,16 +18035,6 @@ cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc,
       else if (cp_lexer_next_token_is_keyword (parser->lexer, RID_DECLTYPE))
 	sorry_at (input_location, "decltype placeholders not implemented");
 
-      if (!placeholder && !flag_concepts_ts)
-	{
-	  tree expr = DECL_P (orig_tmpl) 
-	    ? DECL_NAME (con) 
-	    : build_nt (TEMPLATE_ID_EXPR, tmpl, args);
-	  error_at (input_location,
-		    "expected %<auto%> or %<decltype(auto)%> "
-		    "after %qE", expr);
-	  /* Don't fail here. The code might be correct.  */
-	}
     }
 
   /* A type constraint constrains a contextually determined type or type
@@ -18055,6 +18044,19 @@ cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc,
       error_at (loc, "%qE does not constrain a type", DECL_NAME (con));
       inform (DECL_SOURCE_LOCATION (con), "concept defined here");
       return error_mark_node;
+    }
+
+  /* In a template parameter list, a type-parameter can be introduced 
+     by type-constraints alone.  */
+  if (processing_template_parmlist && !placeholder)
+    return build_constrained_parameter (con, proto, args);
+
+  if (!placeholder && !flag_concepts_ts)
+    {
+      tree id = build_nt (TEMPLATE_ID_EXPR, tmpl, args);
+      tree expr = DECL_P (orig_tmpl) ? DECL_NAME (con) : id;
+      error_at (input_location,
+		"expected %<auto%> or %<decltype(auto)%> after %qE", expr);
     }
 
   /* In a parameter-declaration-clause, a placeholder-type-specifier

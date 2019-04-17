@@ -1,7 +1,14 @@
 2019-04-17  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Update the implementation of constrained parameters.
+	* constraint.cc (cp_parser_placeholder_type_specifier): Handle
+	type-constraints that introduce template parameters in template
+	parameter lists.
+
+2019-04-17  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Update the implementation of abbreviated function templates.
-	* constraint.cc (cp_parser_placeholder_type_specifier): Remove
+	* parser.c (cp_parser_placeholder_type_specifier): Remove
 	the early return when auto or decltype(auto) is left off. Create
 	implicit template parameters for type specifiers of function
 	parameters.
