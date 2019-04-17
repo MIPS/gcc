@@ -1441,7 +1441,7 @@
 	  [(match_operand:<VPRED> 1 "register_operand")
 	   (and:SVE_I
 	     (not:SVE_I (match_operand:SVE_I 3 "register_operand"))
-	     (match_operand:SVE_I 2 "aarch64_sve_logical_operand"))
+	     (match_operand:SVE_I 2 "register_operand"))
 	   (match_operand:SVE_I 4 "aarch64_simd_reg_or_zero")]
 	  UNSPEC_SEL))]
   "TARGET_SVE"
@@ -1454,7 +1454,7 @@
 	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl")
 	   (and:SVE_I
 	     (not:SVE_I (match_operand:SVE_I 3 "register_operand" "w, w"))
-	     (match_operand:SVE_I 2 "aarch64_sve_logical_operand" "0, w"))
+	     (match_operand:SVE_I 2 "register_operand" "0, w"))
 	   (match_dup 2)]
 	  UNSPEC_SEL))]
   "TARGET_SVE"
@@ -1471,7 +1471,7 @@
 	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl")
 	   (and:SVE_I
 	     (not:SVE_I (match_operand:SVE_I 3 "register_operand" "w, w"))
-	     (match_operand:SVE_I 2 "aarch64_sve_logical_operand" "0, w"))
+	     (match_operand:SVE_I 2 "register_operand" "0, w"))
 	   (match_operand:SVE_I 4 "aarch64_simd_imm_zero")]
 	  UNSPEC_SEL))]
   "TARGET_SVE"
@@ -1480,6 +1480,7 @@
    movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;bic\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
   [(set_attr "movprfx" "yes")]
 )
+
 ;; Vector AND, ORR and XOR on floating-point modes.  We avoid subregs
 ;; by providing this, but we need to use UNSPECs since rtx logical ops
 ;; aren't defined for floating-point modes.
