@@ -1608,6 +1608,37 @@
   "<logical_nn>\t%0.b, %1/z, %2.b, %3.b"
 )
 
+;; Predicated SXT[BHW].
+(define_insn "@aarch64_pred_sxt<SVE_HSDI:mode><SVE_PARTIAL:mode>"
+  [(set (match_operand:SVE_HSDI 0 "register_operand" "=w")
+	(unspec:SVE_HSDI
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl")
+	   (sign_extend:SVE_HSDI
+	     (truncate:SVE_PARTIAL
+	       (match_operand:SVE_HSDI 2 "register_operand" "w")))]
+	  UNSPEC_MERGE_PTRUE))]
+  "TARGET_SVE && (~<narrower_mask> & <self_mask>) == 0"
+  "sxt<SVE_PARTIAL:Vesize>\t%0.<SVE_HSDI:Vetype>, %1/m, %2.<SVE_HSDI:Vetype>"
+)
+
+;; Predicated SXT[BHW] with select.
+(define_insn "@aarch64_cond_sxt<SVE_HSDI:mode><SVE_PARTIAL:mode>"
+  [(set (match_operand:SVE_HSDI 0 "register_operand" "=w, ?&w, ?&w")
+	(unspec:SVE_HSDI
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl, Upl")
+	   (sign_extend:SVE_HSDI
+	     (truncate:SVE_PARTIAL
+	       (match_operand:SVE_HSDI 2 "register_operand" "w, w, w")))
+	   (match_operand:SVE_HSDI 3 "aarch64_simd_reg_or_zero" "0, Dz, w")]
+	  UNSPEC_SEL))]
+  "TARGET_SVE && (~<narrower_mask> & <self_mask>) == 0"
+  "@
+   sxt<SVE_PARTIAL:Vesize>\t%0.<SVE_HSDI:Vetype>, %1/m, %2.<SVE_HSDI:Vetype>
+   movprfx\t%0.<SVE_HSDI:Vetype>, %1/z, %2.<SVE_HSDI:Vetype>\;sxt<SVE_PARTIAL:Vesize>\t%0.<SVE_HSDI:Vetype>, %1/m, %2.<SVE_HSDI:Vetype>
+   movprfx\t%0, %3\;sxt<SVE_PARTIAL:Vesize>\t%0.<SVE_HSDI:Vetype>, %1/m, %2.<SVE_HSDI:Vetype>"
+  [(set_attr "movprfx" "*,yes,yes")]
+)
+
 ;; Unpredicated LSL, LSR and ASR by a vector.
 (define_expand "v<optab><mode>3"
   [(set (match_operand:SVE_I 0 "register_operand")

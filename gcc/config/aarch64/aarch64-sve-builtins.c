@@ -563,7 +563,7 @@ private:
   rtx expand_abd ();
   rtx expand_abs ();
   rtx expand_add (unsigned int);
-  rtx expand_and ();
+  rtx expand_and (unsigned int = DEFAULT_MERGE_ARGNO);
   rtx expand_asrd ();
   rtx expand_bic ();
   rtx expand_cnt_bhwd ();
@@ -572,6 +572,7 @@ private:
   rtx expand_dot ();
   rtx expand_dup ();
   rtx expand_eor ();
+  rtx expand_ext_bhw ();
   rtx expand_get ();
   rtx expand_index ();
   rtx expand_ld1 ();
@@ -1844,6 +1845,9 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svcreate3:
     case FUNC_svcreate4:
     case FUNC_svdup:
+    case FUNC_svextb:
+    case FUNC_svexth:
+    case FUNC_svextw:
     case FUNC_svget2:
     case FUNC_svget3:
     case FUNC_svget4:
@@ -2773,6 +2777,9 @@ gimple_folder::fold ()
     case FUNC_svdot:
     case FUNC_svdup:
     case FUNC_sveor:
+    case FUNC_svextb:
+    case FUNC_svexth:
+    case FUNC_svextw:
     case FUNC_svindex:
     case FUNC_svld1sb:
     case FUNC_svld1sh:
@@ -3135,6 +3142,11 @@ function_expander::expand ()
     case FUNC_sveor:
       return expand_eor ();
 
+    case FUNC_svextb:
+    case FUNC_svexth:
+    case FUNC_svextw:
+      return expand_ext_bhw ();
+
     case FUNC_svget2:
     case FUNC_svget3:
     case FUNC_svget4:
@@ -3313,16 +3325,17 @@ function_expander::expand_add (unsigned int merge_argno)
   return expand_via_pred_direct_optab (cond_add_optab, merge_argno);
 }
 
-/* Expand a call to svand.  */
+/* Expand a call to svand.  Make the _m forms merge with argument
+   MERGE_ARGNO.  */
 rtx
-function_expander::expand_and ()
+function_expander::expand_and (unsigned int merge_argno)
 {
   if (m_fi.types[0] == TYPE_SUFFIX_b)
     return expand_via_exact_insn (CODE_FOR_aarch64_pred_andvnx16bi_z);
   else if (m_fi.pred == PRED_x)
     return expand_via_unpred_direct_optab (and_optab);
   else
-    return expand_via_pred_direct_optab (cond_and_optab);
+    return expand_via_pred_direct_optab (cond_and_optab, merge_argno);
 }
 
 /* Expand a call to svasrd.  */
@@ -3441,6 +3454,40 @@ function_expander::expand_eor ()
     return expand_via_unpred_direct_optab (xor_optab);
   else
     return expand_via_pred_direct_optab (cond_xor_optab);
+}
+
+/* Expand a call to svext[bhw].  */
+rtx
+function_expander::expand_ext_bhw ()
+{
+  scalar_mode suffix_mode = m_fi.bhwd_scalar_mode ();
+  if (type_suffixes[m_fi.types[0]].unsigned_p)
+    {
+      /* Convert to an AND.  */
+      m_args.quick_push (GEN_INT (GET_MODE_MASK (suffix_mode)));
+      if (m_fi.pred == PRED_m)
+	/* We now have arguments "(inactive, pg, op, mask)".  Convert this
+	   to "(pg, op, mask, inactive)" so that the order matches svand_m
+	   with an extra argument on the end.  Take the inactive elements
+	   from this extra argument.  */
+	rotate_inputs_left (0, 4);
+      return expand_and (3);
+    }
+
+  machine_mode wide_mode = get_mode (0);
+  poly_uint64 nunits = GET_MODE_NUNITS (wide_mode);
+  machine_mode narrow_mode
+    = aarch64_sve_data_mode (suffix_mode, nunits).require ();
+  if (m_fi.pred == PRED_x)
+    {
+      insn_code icode = code_for_aarch64_pred_sxt (wide_mode, narrow_mode);
+      return expand_via_pred_x_insn (icode);
+    }
+  else
+    {
+      insn_code icode = code_for_aarch64_cond_sxt (wide_mode, narrow_mode);
+      return expand_via_pred_insn (icode);
+    }
 }
 
 /* Expand a call to svget.  */

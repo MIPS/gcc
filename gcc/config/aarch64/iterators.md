@@ -296,7 +296,7 @@
 (define_mode_iterator SVE_BHSI [VNx16QI VNx8HI VNx4SI])
 
 ;; All SVE integer vector modes that have 16-bit, 32-bit or 64-bit elements.
-(define_mode_iterator SVE_HSDI [VNx16QI VNx8HI VNx4SI])
+(define_mode_iterator SVE_HSDI [VNx8HI VNx4SI VNx2DI])
 
 ;; All SVE floating-point vector modes that have 16-bit or 32-bit elements.
 (define_mode_iterator SVE_HSF [VNx8HF VNx4SF])
@@ -318,6 +318,11 @@
 
 ;; All SVE floating-point vector modes.
 (define_mode_iterator SVE_F [VNx8HF VNx4SF VNx2DF])
+
+;; All partial SVE modes.
+(define_mode_iterator SVE_PARTIAL [VNx2QI
+				   VNx4QI VNx2HI
+				   VNx8QI VNx4HI VNx2SI])
 
 ;; Modes involved in extending or truncating SVE data, for 8 elements per
 ;; 128-bit block.
@@ -1181,6 +1186,19 @@
 (define_mode_attr FCMLA_maybe_lane [(V2SF "<Vtype>") (V4SF "<Vetype>[%4]")
 				    (V4HF "<Vetype>[%4]") (V8HF "<Vetype>[%4]")
 				    ])
+
+;; Two-nybble mask for partial vector modes: nunits, byte size.
+(define_mode_attr self_mask [(VNx8QI "0x81")
+			     (VNx4QI "0x41")
+			     (VNx2QI "0x21")
+			     (VNx4HI "0x42")
+			     (VNx2HI "0x22")
+			     (VNx2SI "0x24")])
+
+;; Mask of narrower vector modes, as above.
+(define_mode_attr narrower_mask [(VNx8HI "0x81")
+				 (VNx4SI "0x43")
+				 (VNx2DI "0x27")])
 
 ;; -------------------------------------------------------------------
 ;; Code Iterators
