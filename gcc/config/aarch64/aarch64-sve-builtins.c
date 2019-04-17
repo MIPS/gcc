@@ -67,6 +67,14 @@ enum vector_type {
   NUM_VECTOR_TYPES
 };
 
+/* Classifies the available measurement units for an address displacement.  */
+enum units {
+  UNITS_none,
+  UNITS_bytes,
+  UNITS_elements,
+  UNITS_vectors
+};
+
 /* Describes the various uses of a governing predicate.  */
 enum predication {
   /* No governing predicate present.  */
@@ -163,6 +171,27 @@ enum function_shape {
      where <X> is determined by the function base name.  */
   SHAPE_load_ext,
 
+  /* sv<t0>_t svfoo_[s32]index[_t0](const <t0>_t *, svint32_t)
+     sv<t0>_t svfoo_[s64]index[_t0](const <t0>_t *, svint64_t)
+     sv<t0>_t svfoo_[u32]index[_t0](const <t0>_t *, svuint32_t)
+     sv<t0>_t svfoo_[u64]index[_t0](const <t0>_t *, svuint64_t)
+
+     sv<t0>_t svfoo_[s32]offset[_t0](const <t0>_t *, svint32_t)
+     sv<t0>_t svfoo_[s64]offset[_t0](const <t0>_t *, svint64_t)
+     sv<t0>_t svfoo_[u32]offset[_t0](const <t0>_t *, svuint32_t)
+     sv<t0>_t svfoo_[u64]offset[_t0](const <t0>_t *, svuint64_t).  */
+  SHAPE_load_gather_sv,
+
+  /* sv<t0>_t svfoo[_u32base]_t0(svuint32_t)
+     sv<t0>_t svfoo[_u64base]_t0(svuint64_t)
+
+     sv<t0>_t svfoo[_u32base]_index_t0(svuint32_t, int64_t)
+     sv<t0>_t svfoo[_u64base]_index_t0(svuint64_t, int64_t)
+
+     sv<t0>_t svfoo[_u32base]_offset_t0(svuint32_t, int64_t)
+     sv<t0>_t svfoo[_u64base]_offset_t0(svuint64_t, int64_t).  */
+  SHAPE_load_gather_vs,
+
   /* sv<t0>xN_t svfoo[_t0](sv<t0>xN_t, uint64_t, sv<t0>_t).  */
   SHAPE_set2,
   SHAPE_set3,
@@ -209,9 +238,9 @@ enum function_shape {
    Thus the mode must fill in any information that isn't given by the
    other three.  */
 enum function_mode {
-  MODE_none,
-  MODE_n,
-  MODE_vnum
+#define DEF_SVE_MODE(NAME, BASE, DISPLACEMENT, UNITS) MODE_##NAME,
+#include "aarch64-sve-builtins.def"
+  MODE_none
 };
 
 /* Enumerates the possible type suffixes.  Each suffix is associated with
@@ -232,6 +261,25 @@ enum function {
 #define DEF_SVE_BASE_NAME(NAME) FUNC_##NAME,
 #define DEF_SVE_LAST_BASE_NAME(NAME) FUNC_##NAME
 #include "aarch64-sve-builtins.def"
+};
+
+/* Static information about a mode.  */
+struct mode_info {
+  /* The function suffix associated with the mode.  */
+  const char *suffix;
+
+  /* The type of the vector base address, or NUM_VECTOR_TYPES if the
+     mode does not take a vector base address.  */
+  vector_type base_vector_type;
+
+  /* The type of the vector displacement, or NUM_VECTOR_TYPES if the
+     mode does not take a vector displacement.  (Scalar displacements
+     are always int64_t.)  */
+  vector_type displacement_vector_type;
+
+  /* The units in which the displacement is measured, or UNITS_none if
+     the mode doesn't take a displacement.  */
+  units displacement_units;
 };
 
 /* Static information about each single-predicate or single-vector
@@ -303,11 +351,15 @@ struct GTY(()) function_instance {
   bool operator!= (const function_instance &) const;
   hashval_t hash () const;
 
+  units displacement_units () const;
+
   const char *end_base_name () const;
   machine_mode bhwd_vector_mode () const;
   scalar_mode bhwd_scalar_mode () const;
   machine_mode memory_vector_mode () const;
 
+  tree base_vector_type () const;
+  tree displacement_vector_type () const;
   tree memory_scalar_type () const;
   tree scalar_type (unsigned int) const;
   tree vector_type (unsigned int) const;
@@ -381,8 +433,19 @@ private:
 
   void register_tuple_type (unsigned int, vector_type);
 
+  void build_sv_index (function_signature, const function_group &);
+  void build_sv_offset (function_signature, const function_group &);
+  void build_v_base (function_signature, const function_group &);
+  void build_vs_index (function_signature, const function_group &,
+		       bool = false);
+  void build_vs_offset (function_signature, const function_group &,
+			bool = false);
+  void build_32_64 (function_signature, const function_group &, function_mode,
+		    function_mode, bool = false);
   void build_all (function_signature, const function_group &, function_mode,
 		  bool = false);
+  void build_one (function_signature, const function_group &, function_mode,
+		  unsigned int, unsigned int, bool);
   template <unsigned int N>
   void sig_create (const function_instance &, vec<tree> &);
   template <unsigned int N>
@@ -391,6 +454,8 @@ private:
   void sig_inherent (const function_instance &, vec<tree> &);
   void sig_inherent_count (const function_instance &, vec<tree> &);
   void sig_load (const function_instance &, vec<tree> &);
+  void sig_load_gather_sv (const function_instance &, vec<tree> &);
+  void sig_load_gather_vs (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_set_00i0 (const function_instance &, vec<tree> &);
   void sig_00 (const function_instance &, vec<tree> &);
@@ -451,6 +516,7 @@ private:
   tree resolve_create (unsigned int);
   tree resolve_dot ();
   tree resolve_get (unsigned int);
+  tree resolve_load_gather_sv ();
   tree resolve_set (unsigned int);
   tree resolve_binary_wide ();
   tree resolve_uniform_imm (unsigned int, unsigned int);
@@ -459,13 +525,15 @@ private:
 				    unsigned int &, vector_type &);
   bool check_num_arguments (unsigned int);
   bool check_argument (unsigned int, vector_type);
-  vector_type require_pointer_type (unsigned int);
+  vector_type require_pointer_type (unsigned int, bool = false);
   vector_type require_vector_type (unsigned int);
   vector_type require_tuple_type (unsigned int, unsigned int);
   bool require_matching_type (unsigned int, vector_type);
   bool scalar_argument_p (unsigned int);
   bool require_scalar_argument (unsigned int, const char *);
   bool require_integer_immediate (unsigned int);
+  function_mode require_vector_displacement (unsigned int, vector_type);
+
   tree require_n_form (type_suffix, type_suffix = NUM_TYPE_SUFFIXES);
   tree require_form (function_mode, type_suffix,
 		     type_suffix = NUM_TYPE_SUFFIXES);
@@ -473,6 +541,7 @@ private:
 
   tree get_vector_type (vector_type);
   tree get_vector_type (type_suffix);
+  unsigned int get_element_bits (vector_type);
   tree get_argument_type (unsigned int);
   type_suffix get_type_suffix (vector_type);
 
@@ -577,6 +646,7 @@ private:
   rtx expand_index ();
   rtx expand_ld1 ();
   rtx expand_ld1_ext (rtx_code);
+  rtx expand_ld1_gather ();
   rtx expand_lsl ();
   rtx expand_lsl_wide ();
   rtx expand_mad (unsigned int);
@@ -627,6 +697,7 @@ private:
 
   void require_immediate_range (unsigned int, HOST_WIDE_INT, HOST_WIDE_INT);
 
+  void prepare_gather_address_operands (unsigned int);
   void rotate_inputs_left (unsigned int, unsigned int);
   bool try_negating_argument (unsigned int, machine_mode);
   bool overlaps_input_p (rtx);
@@ -681,6 +752,17 @@ static const char *const pred_suffixes[NUM_PREDS + 1] = {
   ""
 };
 
+/* The function name suffix associated with each mode, for full
+   (non-overloaded) names.  */
+static const mode_info modes[] = {
+#define VECTOR_TYPE_none NUM_VECTOR_TYPES
+#define DEF_SVE_MODE(NAME, BASE, DISPLACEMENT, UNITS) \
+  { "_" #NAME, VECTOR_TYPE_##BASE, VECTOR_TYPE_##DISPLACEMENT, UNITS_##UNITS },
+#include "aarch64-sve-builtins.def"
+#undef VECTOR_TYPE_none
+  { "", NUM_VECTOR_TYPES, NUM_VECTOR_TYPES, UNITS_none }
+};
+
 /* The function name suffix associated with each element type.  */
 static const type_suffix_info type_suffixes[NUM_TYPE_SUFFIXES + 1] = {
 #define DEF_SVE_TYPE_SUFFIX(NAME, ACLE_TYPE, BITS, MODE) \
@@ -711,29 +793,10 @@ static const type_suffix_info type_suffixes[NUM_TYPE_SUFFIXES + 1] = {
 #define TYPES_all_unsigned(S, D) \
   S (u8), S (u16), S (u32), S (u64)
 
-/* _s8 _s16 _s32
-   _u8 _u16 _u32.  */
-#define TYPES_all_bhsi(S, D) \
-  S (s8), S (s16), S (s32), \
-  S (u8), S (u16), S (u32)
-
 /* _s8 _s16 _s32 _s64
    _u8 _u16 _u32 _u64.  */
 #define TYPES_all_integer(S, D) \
   TYPES_all_signed (S, D), TYPES_all_unsigned (S, D)
-
-/* _s16 _s32 _s64
-   _u16 _u32 _u64.  */
-#define TYPES_hsdi(S, D) \
-  S (s16), S (s32), S (s64), S (u16), S (u32), S (u64)
-
-/* _s32 _s64 _u32 _u64.  */
-#define TYPES_sdi(S, D) \
-  S (s32), S (s64), S (u32), S (u64)
-
-/* _s64 _u64.  */
-#define TYPES_di(S, D) \
-  S (s64), S (u64)
 
 /*     _f16 _f32 _f64
    _u8 _u16 _u32 _u64
@@ -741,15 +804,40 @@ static const type_suffix_info type_suffixes[NUM_TYPE_SUFFIXES + 1] = {
 #define TYPES_all_data(S, D) \
   TYPES_all_float (S, D), TYPES_all_integer (S, D)
 
+/* _s8 _s16 _s32
+   _u8 _u16 _u32.  */
+#define TYPES_bhs_integer(S, D) \
+  S (s8), S (s16), S (s32), \
+  S (u8), S (u16), S (u32)
+
+/* _s16 _s32 _s64
+   _u16 _u32 _u64.  */
+#define TYPES_hsd_integer(S, D) \
+  S (s16), S (s32), S (s64), S (u16), S (u32), S (u64)
+
+/* _s32 _s64 _u32 _u64.  */
+#define TYPES_sd_integer(S, D) \
+  S (s32), S (s64), S (u32), S (u64)
+
+/* _f32 _f64
+   _u32 _u64
+   _s32 _s64.  */
+#define TYPES_sd_data(S, D) \
+  S (f32), S (f64), TYPES_sd_integer (S, D)
+
+/* _s64 _u64.  */
+#define TYPES_d_integer(S, D) \
+  S (s64), S (u64)
+
 /* _f16 _f32 _f64
         _u32 _u64
         _s32 _s64.  */
-#define TYPES_all_sdi_and_float(S, D) \
-  TYPES_all_float (S, D), TYPES_sdi (S, D)
+#define TYPES_all_float_and_sd_integer(S, D) \
+  TYPES_all_float (S, D), TYPES_sd_integer (S, D)
 
 /*     _f16 _f32 _f64
    _s8 _s16 _s32 _s64.  */
-#define TYPES_all_signed_and_float(S, D) \
+#define TYPES_all_float_and_signed(S, D) \
   TYPES_all_float (S, D), TYPES_all_signed (S, D)
 
 /* Describe a pair of type suffixes in which only the first is used.  */
@@ -772,19 +860,20 @@ static const type_suffix_pair types_none[] = {
   { NUM_TYPE_SUFFIXES, NUM_TYPE_SUFFIXES }
 };
 
-DEF_SVE_TYPES_ARRAY (all_pred);
-DEF_SVE_TYPES_ARRAY (all_unsigned);
-DEF_SVE_TYPES_ARRAY (all_signed);
-DEF_SVE_TYPES_ARRAY (all_float);
-DEF_SVE_TYPES_ARRAY (all_bhsi);
-DEF_SVE_TYPES_ARRAY (all_integer);
 DEF_SVE_TYPES_ARRAY (all_data);
-DEF_SVE_TYPES_ARRAY (all_sdi_and_float);
-DEF_SVE_TYPES_ARRAY (all_signed_and_float);
+DEF_SVE_TYPES_ARRAY (all_float);
+DEF_SVE_TYPES_ARRAY (all_float_and_sd_integer);
+DEF_SVE_TYPES_ARRAY (all_float_and_signed);
+DEF_SVE_TYPES_ARRAY (all_integer);
+DEF_SVE_TYPES_ARRAY (all_pred);
+DEF_SVE_TYPES_ARRAY (all_signed);
+DEF_SVE_TYPES_ARRAY (all_unsigned);
 DEF_SVE_TYPES_ARRAY (b);
-DEF_SVE_TYPES_ARRAY (hsdi);
-DEF_SVE_TYPES_ARRAY (sdi);
-DEF_SVE_TYPES_ARRAY (di);
+DEF_SVE_TYPES_ARRAY (bhs_integer);
+DEF_SVE_TYPES_ARRAY (hsd_integer);
+DEF_SVE_TYPES_ARRAY (sd_data);
+DEF_SVE_TYPES_ARRAY (sd_integer);
+DEF_SVE_TYPES_ARRAY (d_integer);
 
 /* Used by functions in aarch64-sve-builtins.def that have no governing
    predicate.  */
@@ -824,8 +913,9 @@ static GTY(()) tree scalar_types[NUM_VECTOR_TYPES];
    "__SV..._t" name.  */
 static GTY(()) tree abi_vector_types[NUM_VECTOR_TYPES];
 
-/* Same, but with the arm_sve.h "sv..._t" name.  */
-static GTY(()) tree acle_vector_types[MAX_TUPLE_SIZE][NUM_VECTOR_TYPES];
+/* Same, but with the arm_sve.h "sv..._t" name.  Allow an index of
+   NUM_VECTOR_TYPES, which always yields a null tree.  */
+static GTY(()) tree acle_vector_types[MAX_TUPLE_SIZE][NUM_VECTOR_TYPES + 1];
 
 /* The list of all registered function decls, indexed by code.  */
 static GTY(()) vec<registered_function *, va_gc> *registered_functions;
@@ -1000,6 +1090,14 @@ function_instance::hash () const
   return h.end ();
 }
 
+/* If the function takes a vector or scalar displacement, return the units
+   in which the displacement is measured, otherwise return UNITS_none.  */
+inline units
+function_instance::displacement_units () const
+{
+  return modes[mode].displacement_units;
+}
+
 /* Return a pointer to the end of the function base name (i.e. to the
    zero terminator).  */
 const char *
@@ -1042,6 +1140,7 @@ function_instance::memory_vector_mode () const
   switch (func)
     {
     case FUNC_svld1:
+    case FUNC_svld1_gather:
       return mode;
 
     case FUNC_svld1sb:
@@ -1058,6 +1157,22 @@ function_instance::memory_vector_mode () const
     }
 }
 
+/* Return the type of the function's vector base address argument,
+   or null it doesn't have a vector base address.  */
+tree
+function_instance::base_vector_type () const
+{
+  return acle_vector_types[0][modes[mode].base_vector_type];
+}
+
+/* Return the type of the function's vector index or offset argument,
+   or null if doesn't have a vector index or offset argument.  */
+tree
+function_instance::displacement_vector_type () const
+{
+  return acle_vector_types[0][modes[mode].displacement_vector_type];
+}
+
 /* Return the memory element type, if meaningful.  */
 tree
 function_instance::memory_scalar_type () const
@@ -1065,6 +1180,7 @@ function_instance::memory_scalar_type () const
   switch (func)
     {
     case FUNC_svld1:
+    case FUNC_svld1_gather:
       return scalar_type (0);
 
     case FUNC_svld1sb:
@@ -1289,6 +1405,19 @@ arm_sve_h_builder::build (const function_group &group)
       build_all (&arm_sve_h_builder::sig_load, group, MODE_vnum);
       break;
 
+    case SHAPE_load_gather_sv:
+      add_overloaded_functions (group, MODE_index);
+      add_overloaded_functions (group, MODE_offset);
+      build_sv_index (&arm_sve_h_builder::sig_load_gather_sv, group);
+      build_sv_offset (&arm_sve_h_builder::sig_load_gather_sv, group);
+      break;
+
+    case SHAPE_load_gather_vs:
+      build_v_base (&arm_sve_h_builder::sig_load_gather_vs, group);
+      build_vs_index (&arm_sve_h_builder::sig_load_gather_vs, group, true);
+      build_vs_offset (&arm_sve_h_builder::sig_load_gather_vs, group, true);
+      break;
+
     case SHAPE_set2:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_set_00i0<2>, group, MODE_none);
@@ -1408,6 +1537,82 @@ arm_sve_h_builder::register_tuple_type (unsigned int nvectors,
   acle_vector_types[nvectors - 1][type] = tuple_type;
 }
 
+/* For every type and predicate combination in GROUP, add one function
+   that takes a scalar (pointer) base and a signed vector array index,
+   and another that instead takes an unsigned vector array index.
+   The vector array index has the same element size as the first
+   function type suffix.  SIGNATURE is as for build_all.  */
+void
+arm_sve_h_builder::build_sv_index (function_signature signature,
+				   const function_group &group)
+{
+  build_32_64 (signature, group, MODE_s32index, MODE_s64index);
+  build_32_64 (signature, group, MODE_u32index, MODE_u64index);
+}
+
+/* Like build_sv_index, but taking vector byte offsets instead of vector
+   array indices.  */
+void
+arm_sve_h_builder::build_sv_offset (function_signature signature,
+				    const function_group &group)
+{
+  build_32_64 (signature, group, MODE_s32offset, MODE_s64offset);
+  build_32_64 (signature, group, MODE_u32offset, MODE_u64offset);
+}
+
+/* For every type and predicate combination in GROUP, add a function
+   that takes a vector base address and no displacement.  The vector
+   base has the same element size as the first type suffix.
+   The other arguments are as for build_all.  */
+void
+arm_sve_h_builder::build_v_base (function_signature signature,
+				 const function_group &group)
+{
+  build_32_64 (signature, group, MODE_u32base, MODE_u64base, true);
+}
+
+/* Like build_v_base, but for functions that also take a scalar array
+   index.  */
+void
+arm_sve_h_builder::build_vs_index (function_signature signature,
+				   const function_group &group,
+				   bool force_direct_overloads)
+{
+  build_32_64 (signature, group, MODE_u32base_index, MODE_u64base_index,
+	       force_direct_overloads);
+}
+
+/* Like build_v_base, but for functions that also take a scalar byte
+   offset.  */
+void
+arm_sve_h_builder::build_vs_offset (function_signature signature,
+				    const function_group &group,
+				    bool force_direct_overloads)
+{
+  build_32_64 (signature, group, MODE_u32base_offset, MODE_u64base_offset,
+	       force_direct_overloads);
+}
+
+/* Add a function instance for every type and predicate combination
+   in GROUP.  The first function type suffix specifies either a 32-bit
+   or a 64-bit type; use MODE32 for the former and MODE64 for the latter.
+   The other arguments are as for build_all.  */
+void
+arm_sve_h_builder::build_32_64 (function_signature signature,
+				const function_group &group,
+				function_mode mode32, function_mode mode64,
+				bool force_direct_overloads)
+{
+  for (unsigned int pi = 0; group.preds[pi] != NUM_PREDS; ++pi)
+    for (unsigned int ti = 0; group.types[ti][0] != NUM_TYPE_SUFFIXES; ++ti)
+      {
+	unsigned int bits = type_suffixes[group.types[ti][0]].elem_bits;
+	gcc_assert (bits == 32 || bits == 64);
+	function_mode mode = bits == 32 ? mode32 : mode64;
+	build_one (signature, group, mode, ti, pi, force_direct_overloads);
+      }
+}
+
 /* Add a function instance for every type and predicate combination
    in GROUP.  Take the function base name from GROUP and the mode
    from MODE.  Use SIGNATURE to construct the function signature without
@@ -1421,18 +1626,28 @@ arm_sve_h_builder::build_all (function_signature signature,
 			      function_mode mode,
 			      bool force_direct_overloads)
 {
-  auto_vec<tree, 10> types;
   for (unsigned int pi = 0; group.preds[pi] != NUM_PREDS; ++pi)
     for (unsigned int ti = 0;
 	 ti == 0 || group.types[ti][0] != NUM_TYPE_SUFFIXES; ++ti)
-      {
-	function_instance instance (group.func, group.shape, mode,
-				    group.types[ti], group.preds[pi]);
-	(this->*signature) (instance, types);
-	apply_predication (instance, types);
-	add_function_instance (instance, types, force_direct_overloads);
-	types.truncate (0);
-      }
+      build_one (signature, group, mode, ti, pi, force_direct_overloads);
+}
+
+/* Add one function instance for GROUP, using mode MODE, the type
+   suffixes at index TI and the predication suffix at index PI.
+   The other arguments are as for build_all.  */
+void
+arm_sve_h_builder::build_one (function_signature signature,
+			      const function_group &group,
+			      function_mode mode,
+			      unsigned int ti, unsigned int pi,
+			      bool force_direct_overloads)
+{
+  auto_vec<tree, 10> types;
+  function_instance instance (group.func, group.shape, mode,
+			      group.types[ti], group.preds[pi]);
+  (this->*signature) (instance, types);
+  apply_predication (instance, types);
+  add_function_instance (instance, types, force_direct_overloads);
 }
 
 /* Describe the signature "sv<t0>xM_t svfoo[_t0](sv<t0>_t, ..., sv<t0>_t)"
@@ -1493,6 +1708,38 @@ arm_sve_h_builder::sig_load (const function_instance &instance,
   types.quick_push (instance.vector_type (0));
   types.quick_push (build_const_pointer (instance.memory_scalar_type ()));
   if (instance.mode == MODE_vnum)
+    types.quick_push (scalar_types[VECTOR_TYPE_svint64_t]);
+}
+
+/* Describe one of the signatures:
+
+     sv<t0>_t svfoo_[m1]index[_t0](const <t0>_t *, sv<m1>_t)
+     sv<t0>_t svfoo_[m1]offset[_t0](const <t0>_t *, sv<m1>_t)
+
+   for INSTANCE in TYPES.  The mode of INSTANCE determines <m1>.  */
+void
+arm_sve_h_builder::sig_load_gather_sv (const function_instance &instance,
+				       vec<tree> &types)
+{
+  types.quick_push (instance.vector_type (0));
+  types.quick_push (build_const_pointer (instance.memory_scalar_type ()));
+  types.quick_push (instance.displacement_vector_type ());
+}
+
+/* Describe one of the signatures:
+
+     sv<t0>_t svfoo[_m0base]_t0(sv<m0>_t)
+     sv<t0>_t svfoo[_m0base]_index_t0(sv<m0>_t, int64_t)
+     sv<t0>_t svfoo[_m0base]_offset_t0(sv<m0>_t, int64_t)
+
+   for INSTANCE in TYPES.  The mode of INSTANCE determines <m0>.  */
+void
+arm_sve_h_builder::sig_load_gather_vs (const function_instance &instance,
+				       vec<tree> &types)
+{
+  types.quick_push (instance.vector_type (0));
+  types.quick_push (instance.base_vector_type ());
+  if (instance.displacement_units () != UNITS_none)
     types.quick_push (scalar_types[VECTOR_TYPE_svint64_t]);
 }
 
@@ -1871,6 +2118,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
       break;
 
     case FUNC_svld1:
+    case FUNC_svld1_gather:
     case FUNC_svld1sb:
     case FUNC_svld1sh:
     case FUNC_svld1sw:
@@ -1904,6 +2152,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_get4:
     case SHAPE_inherent_count:
     case SHAPE_load:
+    case SHAPE_load_gather_sv:
     case SHAPE_set2:
     case SHAPE_set3:
     case SHAPE_set4:
@@ -1920,6 +2169,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_inherent3:
     case SHAPE_inherent4:
     case SHAPE_load_ext:
+    case SHAPE_load_gather_vs:
     case SHAPE_unary_n:
     case SHAPE_unary_pred:
       return 1;
@@ -1937,20 +2187,26 @@ arm_sve_h_builder::get_name (const function_instance &instance,
     = (overloaded_p ? get_explicit_types (instance.shape) : 3);
 
   append_name (base_names[instance.func]);
-  switch (instance.mode)
-    {
-    case MODE_none:
-      break;
+  if (overloaded_p)
+    switch (instance.displacement_units ())
+      {
+      case UNITS_none:
+	break;
 
-    case MODE_n:
-      if (!overloaded_p)
-	append_name ("_n");
-      break;
+      case UNITS_bytes:
+	append_name ("_offset");
+	break;
 
-    case MODE_vnum:
-      append_name ("_vnum");
-      break;
-    }
+      case UNITS_elements:
+	append_name ("_index");
+	break;
+
+      case UNITS_vectors:
+	append_name ("_vnum");
+	break;
+      }
+  else
+    append_name (modes[instance.mode].suffix);
   if (explicit_types & 1)
     append_name (type_suffixes[instance.types[0]].suffix);
   if (explicit_types & 2)
@@ -1982,8 +2238,13 @@ function_resolver::function_resolver (location_t location,
 {
 }
 
-/* Try to resolve the overloaded call.  Return the non-overloaded function
-   decl on success and error_mark_node on failure.  */
+/* Try to resolve the overloaded call.  Return:
+
+   - the non-overloaded function decl on success
+   - error_mark_node on failure or
+   - NULL_TREE if there is a one-to-one mapping between "overloaded"
+     (short) and non-overloaded (long) function names, so that no
+     resolution is necessary.  */
 tree
 function_resolver::resolve ()
 {
@@ -2019,6 +2280,13 @@ function_resolver::resolve ()
       return resolve_get (4);
     case SHAPE_load:
       return resolve_pointer ();
+    case SHAPE_load_gather_sv:
+      return resolve_load_gather_sv ();
+    case SHAPE_load_gather_vs:
+      /* The type of the vector base is uniquely determined by the explicit
+	 type suffix.  There is no ambiguity with SHAPE_load_gather_sv
+	 because the latter uses an implicit type suffix.  */
+      return NULL_TREE;
     case SHAPE_set2:
       return resolve_set (2);
     case SHAPE_set3:
@@ -2127,6 +2395,22 @@ function_resolver::resolve_dot ()
     }
 
   return require_form (m_fi.mode, get_type_suffix (type));
+}
+
+/* Resolve a gather load that takes a pointer base and a vector displacement.
+   The type of the pointer target determines the type of the loaded data.  */
+tree
+function_resolver::resolve_load_gather_sv ()
+{
+  function_mode mode;
+  vector_type type;
+  if (!check_num_arguments (3)
+      || !check_argument (0, VECTOR_TYPE_svbool_t)
+      || (type = require_pointer_type (1, true)) == NUM_VECTOR_TYPES
+      || (mode = require_vector_displacement (2, type)) == MODE_none)
+    return error_mark_node;
+
+  return require_form (mode, get_type_suffix (type));
 }
 
 /* Resolve a function that has SHAPE_get<NUM_VECTORS>.  */
@@ -2268,9 +2552,10 @@ function_resolver::check_num_arguments (unsigned int expected)
 
 /* Require argument I to be a pointer to a scalar type that has a corresponding
    vector type.  Return that vector type on success and NUM_VECTOR_TYPES
-   on failure.  */
+   on failure.  GATHER_SCATTER_P is true if the function is a gather/scatter
+   operation, and so requires a pointer to 32-bit or 64-bit data.  */
 vector_type
-function_resolver::require_pointer_type (unsigned int i)
+function_resolver::require_pointer_type (unsigned int i, bool gather_scatter_p)
 {
   tree actual = get_argument_type (i);
   if (actual == error_mark_node)
@@ -2279,14 +2564,28 @@ function_resolver::require_pointer_type (unsigned int i)
     {
       error_at (m_location, "passing %qT to argument %d of %qE, which"
 		" expects a pointer type", actual, i + 1, m_rfn.decl);
+      if (VECTOR_TYPE_P (actual) && gather_scatter_p)
+	inform (m_location, "an explicit type suffix is needed"
+		" when using a vector of base addresses");
       return NUM_VECTOR_TYPES;
     }
   tree target = TREE_TYPE (actual);
   vector_type type = find_vector_type_from_scalar_type (target);
   if (type == NUM_VECTOR_TYPES)
-    error_at (m_location, "passing %qT to argument %d of %qE, but %qT"
-	      " is not a valid SVE element type", actual, i + 1,
-	      m_rfn.decl, target);
+    {
+      error_at (m_location, "passing %qT to argument %d of %qE, but %qT"
+		" is not a valid SVE element type", actual, i + 1,
+		m_rfn.decl, target);
+      return NUM_VECTOR_TYPES;
+    }
+  unsigned int bits = get_element_bits (type);
+  if (gather_scatter_p && bits != 32 && bits != 64)
+    {
+      error_at (m_location, "passing %qT to argument %d of %qE, which"
+		" expects a pointer to 32-bit or 64-bit elements",
+		actual, i + 1, m_rfn.decl);
+      return NUM_VECTOR_TYPES;
+    }
   return type;
 }
 
@@ -2421,6 +2720,34 @@ function_resolver::require_integer_immediate (unsigned int i)
   return true;
 }
 
+/* Require argument I to be a vector offset or index in a gather-style
+   address.  DATA_TYPE is the type of data being loaded or stored.
+
+   Return the associated mode on success, otherwise return MODE_none.  */
+function_mode
+function_resolver::require_vector_displacement (unsigned int i,
+						vector_type data_type)
+{
+  vector_type displacement_type = require_vector_type (i);
+  if (displacement_type == NUM_VECTOR_TYPES)
+    return MODE_none;
+
+  unsigned int required_bits = get_element_bits (data_type);
+  if (get_element_bits (displacement_type) == required_bits)
+    for (unsigned int mode = 0; mode < ARRAY_SIZE (modes); ++mode)
+      if (modes[mode].base_vector_type == NUM_VECTOR_TYPES
+	  && modes[mode].displacement_vector_type == displacement_type
+	  && modes[mode].displacement_units == m_fi.displacement_units ())
+	return function_mode (mode);
+
+  gcc_assert (m_fi.types[0] == NUM_TYPE_SUFFIXES);
+  error_at (m_location, "passing %qT to argument %d of %qE, which when"
+	    " loading %qT expects a vector of %d-bit integers",
+	    get_argument_type (i), i + 1, m_rfn.decl,
+	    get_vector_type (data_type), required_bits);
+  return MODE_none;
+}
+
 /* Require there to be an _n instance of the function with the type suffixes
    given by TYPE0 and TYPE1.  Return its function decl on success and
    error_mark_node on failure.  */
@@ -2486,6 +2813,13 @@ function_resolver::get_vector_type (type_suffix type)
   return get_vector_type (type_suffixes[type].type);
 }
 
+/* Return the number of bits in each element of TYPE.  */
+unsigned int
+function_resolver::get_element_bits (vector_type type)
+{
+  return tree_to_uhwi (TYPE_SIZE (TREE_TYPE (get_vector_type (type))));
+}
+
 /* Return the type of argument I, or error_mark_node if it isn't
    well-formed.  */
 tree
@@ -2542,6 +2876,8 @@ function_checker::check ()
     case SHAPE_inherent_count:
     case SHAPE_load:
     case SHAPE_load_ext:
+    case SHAPE_load_gather_sv:
+    case SHAPE_load_gather_vs:
     case SHAPE_shift_opt_n:
     case SHAPE_ternary_opt_n:
     case SHAPE_ternary_qq_opt_n:
@@ -2781,6 +3117,7 @@ gimple_folder::fold ()
     case FUNC_svexth:
     case FUNC_svextw:
     case FUNC_svindex:
+    case FUNC_svld1_gather:
     case FUNC_svld1sb:
     case FUNC_svld1sh:
     case FUNC_svld1sw:
@@ -3158,6 +3495,9 @@ function_expander::expand ()
     case FUNC_svld1:
       return expand_ld1 ();
 
+    case FUNC_svld1_gather:
+      return expand_ld1_gather ();
+
     case FUNC_svld1sb:
     case FUNC_svld1sh:
     case FUNC_svld1sw:
@@ -3524,6 +3864,17 @@ function_expander::expand_ld1_ext (rtx_code code)
   machine_mode mem_mode = m_fi.memory_vector_mode ();
   insn_code icode = code_for_aarch64_load (code, reg_mode, mem_mode);
   return expand_via_load_insn (icode);
+}
+
+/* Expand a call to svld1_gather.  */
+rtx
+function_expander::expand_ld1_gather ()
+{
+  prepare_gather_address_operands (1);
+  rotate_inputs_left (0, 5);
+  machine_mode mem_mode = m_fi.memory_vector_mode ();
+  insn_code icode = direct_optab_handler (mask_gather_load_optab, mem_mode);
+  return expand_via_exact_insn (icode);
 }
 
 /* Expand a call to svlsl.  */
@@ -4196,6 +4547,61 @@ function_expander::require_immediate_range (unsigned int argno,
       report_out_of_range (m_location, m_rfn.decl, argno, actual, min, max);
     }
   m_args[argno] = GEN_INT (min);
+}
+
+/* Convert the arguments for a gather/scatter-style operation into
+   the associated md operands.  Argument I is the scalar or vector base
+   and argument I + 1 is the scalar or vector displacement (if applicable).
+   The md pattern expects:
+
+   - a scalar base
+   - a vector displacement
+   - a const_int that is 1 if the displacement is zero-extended from 32 bits
+   - a scaling multiplier (1 for bytes, 2 for .h indices, etc.).  */
+void
+function_expander::prepare_gather_address_operands (unsigned int i)
+{
+  machine_mode mem_mode = m_fi.memory_vector_mode ();
+  tree vector_type = m_fi.base_vector_type ();
+  units units = m_fi.displacement_units ();
+  if (units == UNITS_none)
+    {
+      /* Vector base, no displacement.  Convert to a zero base and a
+	 vector byte offset.  */
+      m_args.quick_insert (i, const0_rtx);
+      units = UNITS_bytes;
+    }
+  else if (vector_type)
+    {
+      /* Vector base, scalar displacement.  Convert to a scalar base and
+	 a vector byte offset.  */
+      std::swap (m_args[i], m_args[i + 1]);
+      if (units == UNITS_elements)
+	{
+	  /* Convert the original scalar array index to a byte offset.  */
+	  rtx size = gen_int_mode (GET_MODE_UNIT_SIZE (mem_mode), DImode);
+	  m_args[i] = simplify_gen_binary (MULT, DImode, m_args[i], size);
+	  units = UNITS_bytes;
+	}
+    }
+  else
+    {
+      /* Scalar base, vector displacement.  This is what the md pattern wants,
+	 so we just need to make sure that the scalar base has DImode.  */
+      if (Pmode == SImode)
+	m_args[1] = simplify_gen_unary (ZERO_EXTEND, DImode,
+					m_args[1], SImode);
+      vector_type = m_fi.displacement_vector_type ();
+    }
+  tree scalar_type = TREE_TYPE (vector_type);
+
+  bool uxtw_p = (TYPE_PRECISION (scalar_type) < 64
+		 && TYPE_UNSIGNED (scalar_type));
+  unsigned int scale = (units == UNITS_bytes
+			? 1 : GET_MODE_UNIT_SIZE (mem_mode));
+
+  m_args.quick_insert (i + 2, GEN_INT (uxtw_p));
+  m_args.quick_insert (i + 3, GEN_INT (scale));
 }
 
 /* Rotate inputs m_args[START:END] one position to the left, so that

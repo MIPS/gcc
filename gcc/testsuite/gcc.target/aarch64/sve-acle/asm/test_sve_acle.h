@@ -168,6 +168,32 @@
     BIND_OUTPUT_Z (z0);					\
   }
 
+#define TEST_LOAD_GATHER_SZ(NAME, RES_TYPE, STYPE, ZTYPE, CODE1, CODE2) \
+  START (NAME)							\
+  {								\
+    DECLARE_RESULT (RES_TYPE, z0);				\
+    BIND_INPUT_Z (ZTYPE, z0);					\
+    BIND_INPUT_Z (ZTYPE, z1);					\
+    BIND_INPUT_P (p0);						\
+    BIND_INPUT_X (const STYPE *, x0);				\
+    BIND_INPUT_D (const STYPE *, d4);				\
+    INVOKE (CODE1, CODE2);					\
+    BIND_OUTPUT_Z (z0);						\
+  }
+
+#define TEST_LOAD_GATHER_ZS(NAME, RES_TYPE, ZTYPE, CODE1, CODE2) \
+  START (NAME)							\
+  {								\
+    DECLARE_RESULT (RES_TYPE, z0);				\
+    BIND_INPUT_Z (ZTYPE, z0);					\
+    BIND_INPUT_Z (ZTYPE, z1);					\
+    BIND_INPUT_P (p0);						\
+    BIND_INPUT_X (int64_t, x0);					\
+    BIND_INPUT_D (int64_t, d4);					\
+    INVOKE (CODE1, CODE2);					\
+    BIND_OUTPUT_Z (z0);						\
+  }
+
 #define TEST_P(NAME, CODE1, CODE2)	\
   START (NAME)				\
   {					\
