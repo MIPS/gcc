@@ -1272,6 +1272,11 @@
 (define_code_iterator SVE_INT_BINARY [plus minus mult smax umax smin umin
 				      and ior xor])
 
+;; SVE integer binary operations whose predicated patterns don't accept
+;; any immediates.
+(define_code_iterator SVE_INT_BINARY_REG [plus minus mult smax umax smin umin
+					  ior xor])
+
 ;; SVE integer binary division operations.
 (define_code_iterator SVE_INT_BINARY_SD [div udiv])
 
@@ -1525,6 +1530,17 @@
 				  (smin "")
 				  (umax "D")
 				  (umin "D")])
+
+(define_code_attr pred_rhs2_operand [(plus "register_operand")
+				     (minus "register_operand")
+				     (mult "register_operand")
+				     (smax "register_operand")
+				     (umax "register_operand")
+				     (smin "register_operand")
+				     (umin "register_operand")
+				     (and "aarch64_sve_pred_and_operand")
+				     (ior "register_operand")
+				     (xor "register_operand")])
 
 ;; -------------------------------------------------------------------
 ;; Int Iterators.

@@ -445,6 +445,12 @@
    operations."
  (match_operand 0 "aarch64_sve_mul_immediate"))
 
+(define_constraint "vsx"
+  "@internal
+   A constraint that matches an AND immediate value that makes the AND
+   equivalent to UXT[BHW]"
+ (match_operand 0 "aarch64_sve_uxt_immediate"))
+
 (define_constraint "vsA"
   "@internal
    A constraint that matches an immediate operand valid for SVE FADD

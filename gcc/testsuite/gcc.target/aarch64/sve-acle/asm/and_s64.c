@@ -107,6 +107,63 @@ TEST_UNIFORM_Z (and_m2_s64_m, svint64_t,
 		z0 = svand_m (p0, z0, -2))
 
 /*
+** and_255_s64_m_tied1:
+**	uxtb	z0\.d, p0/m, z0\.d
+**	ret
+*/
+TEST_UNIFORM_Z (and_255_s64_m_tied1, svint64_t,
+		z0 = svand_n_s64_m (p0, z0, 255),
+		z0 = svand_m (p0, z0, 255))
+
+/*
+** and_255_s64_m_untied:
+**	movprfx	z0, z1
+**	uxtb	z0\.d, p0/m, z1\.d
+**	ret
+*/
+TEST_UNIFORM_Z (and_255_s64_m_untied, svint64_t,
+		z0 = svand_n_s64_m (p0, z1, 255),
+		z0 = svand_m (p0, z1, 255))
+
+/*
+** and_65535_s64_m_tied1:
+**	uxth	z0\.d, p0/m, z0\.d
+**	ret
+*/
+TEST_UNIFORM_Z (and_65535_s64_m_tied1, svint64_t,
+		z0 = svand_n_s64_m (p0, z0, 65535),
+		z0 = svand_m (p0, z0, 65535))
+
+/*
+** and_65535_s64_m_untied:
+**	movprfx	z0, z1
+**	uxth	z0\.d, p0/m, z1\.d
+**	ret
+*/
+TEST_UNIFORM_Z (and_65535_s64_m_untied, svint64_t,
+		z0 = svand_n_s64_m (p0, z1, 65535),
+		z0 = svand_m (p0, z1, 65535))
+
+/*
+** and_0xffffffff_s64_m_tied1:
+**	uxtw	z0\.d, p0/m, z0\.d
+**	ret
+*/
+TEST_UNIFORM_Z (and_0xffffffff_s64_m_tied1, svint64_t,
+		z0 = svand_n_s64_m (p0, z0, 0xffffffff),
+		z0 = svand_m (p0, z0, 0xffffffff))
+
+/*
+** and_0xffffffff_s64_m_untied:
+**	movprfx	z0, z1
+**	uxtw	z0\.d, p0/m, z1\.d
+**	ret
+*/
+TEST_UNIFORM_Z (and_0xffffffff_s64_m_untied, svint64_t,
+		z0 = svand_n_s64_m (p0, z1, 0xffffffff),
+		z0 = svand_m (p0, z1, 0xffffffff))
+
+/*
 ** and_s64_z_tied1:
 **	movprfx	z0\.d, p0/z, z0\.d
 **	and	z0\.d, p0/m, z0\.d, z1\.d
@@ -221,6 +278,87 @@ TEST_UNIFORM_Z (and_1_s64_z_tied1, svint64_t,
 TEST_UNIFORM_Z (and_1_s64_z_untied, svint64_t,
 		z0 = svand_n_s64_z (p0, z1, 1),
 		z0 = svand_z (p0, z1, 1))
+
+/*
+** and_255_s64_z_tied1:
+** (
+**	mov	(z[0-9]+\.d), z0\.d
+**	movprfx	z0\.d, p0/z, \1
+**	uxtb	z0\.d, p0/m, \1
+** |
+**	mov	(z[0-9]+\.d), #255
+**	movprfx	z0\.d, p0/z, z0\.d
+**	and	z0\.d, p0/m, z0\.d, \1
+** )
+**	ret
+*/
+TEST_UNIFORM_Z (and_255_s64_z_tied1, svint64_t,
+		z0 = svand_n_s64_z (p0, z0, 255),
+		z0 = svand_z (p0, z0, 255))
+
+/*
+** and_255_s64_z_untied:
+**	movprfx	z0\.d, p0/z, z1\.d
+**	uxtb	z0\.d, p0/m, z1\.d
+**	ret
+*/
+TEST_UNIFORM_Z (and_255_s64_z_untied, svint64_t,
+		z0 = svand_n_s64_z (p0, z1, 255),
+		z0 = svand_z (p0, z1, 255))
+
+/*
+** and_65535_s64_z_tied1:
+** (
+**	mov	(z[0-9]+\.d), z0\.d
+**	movprfx	z0\.d, p0/z, \1
+**	uxth	z0\.d, p0/m, \1
+** |
+**	mov	(z[0-9]+\.d), #65535
+**	movprfx	z0\.d, p0/z, z0\.d
+**	and	z0\.d, p0/m, z0\.d, \1
+** )
+**	ret
+*/
+TEST_UNIFORM_Z (and_65535_s64_z_tied1, svint64_t,
+		z0 = svand_n_s64_z (p0, z0, 65535),
+		z0 = svand_z (p0, z0, 65535))
+
+/*
+** and_65535_s64_z_untied:
+**	movprfx	z0\.d, p0/z, z1\.d
+**	uxth	z0\.d, p0/m, z1\.d
+**	ret
+*/
+TEST_UNIFORM_Z (and_65535_s64_z_untied, svint64_t,
+		z0 = svand_n_s64_z (p0, z1, 65535),
+		z0 = svand_z (p0, z1, 65535))
+
+/*
+** and_0xffffffff_s64_z_tied1:
+** (
+**	mov	(z[0-9]+\.d), z0\.d
+**	movprfx	z0\.d, p0/z, \1
+**	uxtw	z0\.d, p0/m, \1
+** |
+**	mov	(z[0-9]+\.d), #4294967295
+**	movprfx	z0\.d, p0/z, z0\.d
+**	and	z0\.d, p0/m, z0\.d, \1
+** )
+**	ret
+*/
+TEST_UNIFORM_Z (and_0xffffffff_s64_z_tied1, svint64_t,
+		z0 = svand_n_s64_z (p0, z0, 0xffffffff),
+		z0 = svand_z (p0, z0, 0xffffffff))
+
+/*
+** and_0xffffffff_s64_z_untied:
+**	movprfx	z0\.d, p0/z, z1\.d
+**	uxtw	z0\.d, p0/m, z1\.d
+**	ret
+*/
+TEST_UNIFORM_Z (and_0xffffffff_s64_z_untied, svint64_t,
+		z0 = svand_n_s64_z (p0, z1, 0xffffffff),
+		z0 = svand_z (p0, z1, 0xffffffff))
 
 /*
 ** and_s64_x_tied1:

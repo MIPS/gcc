@@ -107,6 +107,25 @@ TEST_UNIFORM_Z (and_m2_u16_m, svuint16_t,
 		z0 = svand_m (p0, z0, -2))
 
 /*
+** and_255_u16_m_tied1:
+**	uxtb	z0\.h, p0/m, z0\.h
+**	ret
+*/
+TEST_UNIFORM_Z (and_255_u16_m_tied1, svuint16_t,
+		z0 = svand_n_u16_m (p0, z0, 255),
+		z0 = svand_m (p0, z0, 255))
+
+/*
+** and_255_u16_m_untied:
+**	movprfx	z0, z1
+**	uxtb	z0\.h, p0/m, z1\.h
+**	ret
+*/
+TEST_UNIFORM_Z (and_255_u16_m_untied, svuint16_t,
+		z0 = svand_n_u16_m (p0, z1, 255),
+		z0 = svand_m (p0, z1, 255))
+
+/*
 ** and_u16_z_tied1:
 **	movprfx	z0\.h, p0/z, z0\.h
 **	and	z0\.h, p0/m, z0\.h, z1\.h
@@ -221,6 +240,33 @@ TEST_UNIFORM_Z (and_1_u16_z_tied1, svuint16_t,
 TEST_UNIFORM_Z (and_1_u16_z_untied, svuint16_t,
 		z0 = svand_n_u16_z (p0, z1, 1),
 		z0 = svand_z (p0, z1, 1))
+
+/*
+** and_255_u16_z_tied1:
+** (
+**	mov	(z[0-9]+)\.d, z0\.d
+**	movprfx	z0\.h, p0/z, \1\.h
+**	uxtb	z0\.h, p0/m, \1\.h
+** |
+**	mov	(z[0-9]+\.h), #255
+**	movprfx	z0\.h, p0/z, z0\.h
+**	and	z0\.h, p0/m, z0\.h, \1
+** )
+**	ret
+*/
+TEST_UNIFORM_Z (and_255_u16_z_tied1, svuint16_t,
+		z0 = svand_n_u16_z (p0, z0, 255),
+		z0 = svand_z (p0, z0, 255))
+
+/*
+** and_255_u16_z_untied:
+**	movprfx	z0\.h, p0/z, z1\.h
+**	uxtb	z0\.h, p0/m, z1\.h
+**	ret
+*/
+TEST_UNIFORM_Z (and_255_u16_z_untied, svuint16_t,
+		z0 = svand_n_u16_z (p0, z1, 255),
+		z0 = svand_z (p0, z1, 255))
 
 /*
 ** and_u16_x_tied1:
