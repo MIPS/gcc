@@ -18044,7 +18044,7 @@ cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc,
 	  error_at (input_location,
 		    "expected %<auto%> or %<decltype(auto)%> "
 		    "after %qE", expr);
-	  return error_mark_node;
+	  /* Don't fail here. The code might be correct.  */
 	}
     }
 
@@ -18057,7 +18057,15 @@ cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc,
       return error_mark_node;
     }
 
-  /* FIXME: I think we return more than just constrained autos.  */
+  /* In a parameter-declaration-clause, a placeholder-type-specifier
+     results in an invented template parameter.  */
+  if (parser->auto_is_implicit_function_template_parm_p)
+    {
+      tree parm = build_constrained_parameter (con, proto, args);
+      return synthesize_implicit_template_parm (parser, parm);
+    }
+
+  /* Otherwise, this is the type of a variable or return type.  */
   return make_constrained_auto (con, args);
 }
 

@@ -1,3 +1,11 @@
+2019-04-17  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Update the implementation of abbreviated function templates.
+	* constraint.cc (cp_parser_placeholder_type_specifier): Remove
+	the early return when auto or decltype(auto) is left off. Create
+	implicit template parameters for type specifiers of function
+	parameters.
+
 2019-04-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Rewrite parsing of constrained-type-specifiers so that it
@@ -12,7 +20,7 @@
 	* parser.c (cp_parser_placeholder_type_specifier): New. Implement
 	parsing of placeholder type specifiers following a concept name
 	or partial concept check.
-	(cp_parser_template_id): Simplify logic for processign
+	(cp_parser_template_id): Simplify logic for processing
 	type constraints. Disable old implementation.
 	(cp_parser_template_argument): Disable old implementation.
 	(cp_parser_simple_type_specifier): Expect auto or decltype after
