@@ -17263,6 +17263,19 @@ module_translate_include (cpp_reader *reader, line_maps *lmaps, location_t loc,
 
   if (res)
     {
+      size_t len = strlen (path);
+
+      /* The module will be loaded when we lex the import declaration unless
+         we are in the directives-only mode, in which case we won't be doing
+         any lexing. So in this case load the module here (essentially, we are
+         emulating the relevant part of module_preprocess_token() from lex.c).
+       */
+      if (cpp_get_options (reader)->directives_only)
+        {
+          module_state *state = get_module (build_string (len, path));
+          import_module (state, loc, false, NULL, reader, false);
+        }
+
       /* Push the translation text.  */
       loc = ordinary_loc_of (lmaps, loc);
       const line_map_ordinary *map
@@ -17270,7 +17283,6 @@ module_translate_include (cpp_reader *reader, line_maps *lmaps, location_t loc,
       unsigned col = SOURCE_COLUMN (map, loc);
       col -= (col != 0); /* Columns are 1-based.  */
 
-      size_t len = strlen (path);
       char *res = XNEWVEC (char, len + 60 + col);
 
       /* Internal keyword to permit use inside extern "C" {...}.

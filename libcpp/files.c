@@ -940,6 +940,11 @@ _cpp_stack_file (cpp_reader *pfile, _cpp_file *file, include_type type,
       // FIXME in preprocessing mode, should we continue with the
       // include in a directives-only mode, completely eliding
       // non-directive lines?
+      //
+      // But that wouldn't be conforming because there is no isolation from
+      // macros (and providing such an isolation opens another can of worms;
+      // see http://www.open-std.org/pipermail/tooling/2019-April/000653.html).
+      // So maybe it's simpler to just load the BMI?
     }
   else
     {
