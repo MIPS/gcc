@@ -1,3 +1,15 @@
+2019-04-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/90047 - ICE with enable_if alias template.
+	* pt.c (tsubst_decl) [TYPE_DECL]: Don't put an erroneous decl in the
+	hash table when we're in SFINAE context.
+
+2019-04-17  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/90124 - bogus error with incomplete type in decltype.
+	* typeck.c (build_class_member_access_expr): Check
+	cp_unevaluated_operand.
+
 2019-04-12  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/89933

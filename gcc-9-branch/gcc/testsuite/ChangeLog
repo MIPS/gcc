@@ -1,3 +1,106 @@
+2019-04-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/89325
+	* g++.dg/ext/attrib58.C: New test.
+	* g++.dg/ext/attrib59.C: New test.
+	* g++.dg/ext/attrib60.C: New test.
+
+	PR target/90125
+	* gcc.target/i386/avx512f-vfmsubXXXss-2.c (avx512f_test): Adjust
+	constants to ensure precise result even when not using fma.
+	* gcc.target/i386/avx512f-vfnmaddXXXss-2.c (avx512f_test): Likewise.
+	* gcc.target/i386/avx512f-vfmaddXXXsd-3.c: New test.
+	* gcc.target/i386/avx512f-vfmaddXXXss-3.c: New test.
+	* gcc.target/i386/avx512f-vfmsubXXXsd-3.c: New test.
+	* gcc.target/i386/avx512f-vfmsubXXXss-3.c: New test.
+	* gcc.target/i386/avx512f-vfnmaddXXXsd-3.c: New test.
+	* gcc.target/i386/avx512f-vfnmaddXXXss-3.c: New test.
+	* gcc.target/i386/avx512f-vfnmsubXXXsd-3.c: New test.
+	* gcc.target/i386/avx512f-vfnmsubXXXss-3.c: New test.
+
+2019-04-17  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/90124 - bogus error with incomplete type in decltype.
+	* g++.dg/cpp0x/decltype70.C: New test.
+
+2019-04-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/90095
+	* gcc.dg/pr90095-1.c: New test.
+	* gcc.dg/pr90095-2.c: New test.
+
+2019-04-17  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR fortran/90048
+	* gfortran.dg/goacc/private-explicit-kernels-1.f95: New file.
+	* gfortran.dg/goacc/private-explicit-parallel-1.f95: Likewise.
+	* gfortran.dg/goacc/private-explicit-routine-1.f95: Likewise.
+
+	PR fortran/90067
+	PR fortran/90114
+	* gfortran.dg/goacc/private-1.f95: Remove file.
+	* gfortran.dg/goacc/private-2.f95: Likewise.
+	* gfortran.dg/goacc/private-predetermined-kernels-1.f95: New file.
+	* gfortran.dg/goacc/private-predetermined-parallel-1.f95:
+	Likewise.
+	* gfortran.dg/goacc/private-predetermined-routine-1.f95: Likewise.
+
+2019-04-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/89093
+	* gcc.target/arm/pr89093-2.c: New test.
+
+2019-04-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/86953
+	* g++.dg/cpp0x/constexpr-86953.C: New test.
+
+2019-04-16  Dominique d'Humieres  <dominiq@gcc.gnu.org>
+
+	* g++.dg/lto/pr89358_0.C: Replace dg-* with dg-lto-*.
+
+2019-04-16  Alexandre Oliva <aoliva@redhat.com>
+
+	PR debug/89528
+	* gcc.dg/guality/pr89528.c: New.
+
+	PR rtl-optimization/86438
+	* gcc.dg/torture/pr86438.c: Split up too-wide shift.
+
+2019-04-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/90096
+	* gcc.target/i386/pr90096.c: New test.
+	* gcc.target/i386/pr69255-1.c: Adjust expected diagnostics.
+	* gcc.target/i386/pr69255-2.c: Likewise.
+	* gcc.target/i386/pr69255-3.c: Likewise.
+
+	PR rtl-optimization/90082
+	* gcc.dg/pr90082.c: New test.
+
+	PR tree-optimization/90090
+	* g++.dg/opt/pr90090.C: New test.
+
+2019-04-16  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56049
+	* gfortran.dg/pr56049.f90: New testcase.
+
+2019-04-15  Richard Biener  <rguenther@suse.de>
+
+	PR debug/90074
+	* gcc.dg/guality/pr90074.c: New testcase.
+
+2019-04-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/90071
+	* gcc.dg/torture/pr90071.c: New testcase.
+
+2019-04-15  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/89794
+	* gcc.dg/torture/pr89794.c: New testcase.
+
 2019-04-15  Richard Biener  <rguenther@suse.de>
 
 	PR ipa/88936

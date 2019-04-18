@@ -1,3 +1,224 @@
+2019-04-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR translation/79183
+	* gimple-ssa-sprintf.c (format_directive): Use inform_n instead of
+	inform where appropriate.
+
+2019-04-18  Richard Biener  <rguenther@suse.de>
+
+	* tree.c (get_qualified_type): Put found type variants at the
+	head of the variant list.
+
+2018-04-17  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.c (rs6000_register_move_cost): Fix typo.
+
+2019-04-17  Hongtao Liu  <hongtao.liu@intel.com>
+
+	PR target/90125
+	* config/i386/avx512fintrin.h (_mm_maskz_fmadd_round_sd,
+	_mm_maskz_fmadd_round_ss, _mm_maskz_fmsub_round_sd,
+	_mm_maskz_fmsub_round_ss, _mm_maskz_fnmadd_round_sd,
+	_mm_maskz_fnmadd_round_ss, _mm_maskz_fnmsub_round_sd,
+	_mm_maskz_fnmsub_round_ss): Use _maskz builtin instead of _mask3.
+
+2019-04-17  Peter Bergner  <bergner@linux.ibm.com>
+
+	* ira-conflicts.c (print_allocno_conflicts): Always print something,
+	even for allocno's with no conflicts.
+	(print_conflicts): Print an extra newline.
+
+2019-04-17  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* auto-inc-dec.c (attempt_change): Set the alignment of the
+	temporary memory to that of the original.
+
+2019-04-17  Joao Moreira  <jmoreira@suse.de>
+
+	* targhooks.c (default_print_patchable_function_entry): Emit
+	__patchable_function_entries section with writable flags to allow
+	relocation resolution.
+
+2019-04-17  Jonny Grant  <jg@jguk.org>
+
+	* collect2.c (main): Change gcc.gnu.org URL to HTTPS.
+
+2019-04-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/90095
+	* internal-fn.c (expand_mul_overflow): Don't set SUBREG_PROMOTED_VAR_P
+	on lowpart SUBREGs.
+
+2019-04-17  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/arc.c (arc_init): Format diagnostic string.
+	(arc_override_options): Likewise.
+	(check_if_valid_regno_const): Likewise.
+	(arc_reorg): Likewise.
+
+2019-04-17  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/17108
+	* config/rs6000/rs6000.c (rs6000_split_multireg_move): Adjust pattern
+	name.
+	(rs6000_emit_allocate_stack_1): Simplify condition.  Adjust pattern
+	name.
+	* config/rs6000/rs6000.md (bits): Add entries for SF and DF.
+	(*movdi_update1): Use Pmode.
+	(movdi_<mode>_update): Fix argument to avoiding_indexed_address_p.
+	(movdi_<mode>_update_stack): Rename to ...
+	(movdi_update_stack): ... this.  Fix comment.  Change condition. Don't
+	use Pmode.
+	(*movsi_update1): Use Pmode.
+	(*movsi_update2): Use Pmode.
+	(movsi_update): Rename to ...
+	(movsi_<mode>_update): ... this.  Use Pmode.
+	(movsi_update_stack): Fix condition.
+	(*movhi_update1): Use Pmode.  Fix argument to
+	avoiding_indexed_address_p.
+	(*movhi_update2): Ditto.
+	(*movhi_update3): Ditto.
+	(*movhi_update4): Ditto.
+	(*movqi_update1): Ditto.
+	(*movqi_update2): Ditto.
+	(*movqi_update3): Ditto.
+	(*movsf_update1, *movdf_update1): Merge, rename to...
+	(*mov<mode>_update1): This.  Use Pmode.  Fix argument to
+	avoiding_indexed_address_p.  Add "size" attribute.
+	(*movsf_update2, *movdf_update2): Merge, rename to...
+	(*mov<mode>_update2): This.  Ditto.
+	(*movsf_update3): Use Pmode.  Fix argument to
+	avoiding_indexed_address_p.
+	(*movsf_update4): Ditto.
+	(allocate_stack): Simplify condition.  Adjust pattern names.
+
+2019-04-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/89093
+	* config/arm/arm.c (arm_valid_target_attribute_rec): Don't skip
+	whitespace at the start of target attribute string.
+
+2019-04-16  Pat Haugen  <pthaugen@us.ibm.com>
+
+	PR target/84369
+	* config/rs6000/power9.md: Add store forwarding bypass.
+
+2019-04-16  Alexandre Oliva <aoliva@redhat.com>
+
+	PR debug/89528
+	* valtrack.c (dead_debug_insert_temp): Reset debug references
+	to the return value of a call being removed.
+
+2019-04-16  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/arc-protos.h (arc_register_move_cost): Remove.
+	* config/arc/arc.c (arc_register_move_cost): Re-purpose it to
+	implement target hook.
+	(arc_memory_move_cost): New function.
+	(TARGET_REGISTER_MOVE_COST): Define.
+	(TARGET_MEMORY_MOVE_COST): Likewise.
+	* config/arc/arc.h (REGISTER_MOVE_COST): Remove.
+	(MEMORY_MOVE_COST): Likewise.
+
+2019-04-16  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/arc.md (sibcall_insn): Use Rcd constraint.
+	(sibcall_value_insn): Likewise.
+	* config/arc/constraints.md (Rs5): Remove.
+
+2019-04-16  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/arc.c (arc_hard_regno_modes): Add two missing modes
+	for last two fake registers.
+	(arc_conditional_register_usage): Make sure fake frame and arg
+	pointer regs are in general regs class.
+	(FRAME_POINTER_MASK): Remove.
+	(RETURN_ADDR_MASK): Remove.
+	(arc_must_save_register): Use hard frame regnum.
+	(frame_restore_reg): Use hard_frame_pointer_rtx.
+	(arc_save_callee_saves): Likewise.
+	(arc_restore_callee_saves): Likewise.
+	(arc_save_callee_enter): Likewise.
+	(arc_restore_callee_leave): Likewise.
+	(arc_save_callee_milli): Likewise.
+	(arc_eh_return_address_location): Likewise.
+	(arc_check_multi): Use hard frame regnum.
+	(arc_can_eliminate): Likewise.
+	* config/arc/arc.h (FIXED_REGISTERS): Make FP register available
+	for register allocator.
+	(REG_CLASS_CONTENTS): Update GENERAL_REGS.
+	(REGNO_OK_FOR_BASE_P): Consider FRAME_POINTER_REGNUM.
+	(FRAME_POINTER_REGNUM): Change it to a fake register.
+	(HARD_FRAME_POINTER_REGNUM): Defined.
+	(ARG_POINTER_REGNUM): Change it to a new fake register.
+	(ELIMINABLE_REGS): Update.
+	(REGISTER_NAMES): Update names.
+	* config/arc/arc.md (LP_START): Remove.
+	(LP_END): Likewise.
+	(shift_si3_loop): Update pattern.
+
+2019-04-16  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/arc.c (arc_expand_prologue): Emit blockage regardless
+	to avoid delay slot scheduling.
+	(arc_must_save_register): Don't save SP.
+	* config/arc/arc.md (stack_tie): Remove.
+	(UNSPEC_ARC_STKTIE): Likewise.
+
+2019-04-16  Kito Cheng  <kito.cheng@gmail.com>
+	    Shiva Chen  <shiva0217@gmail.com>
+
+	* config/nds32/nds32-md-auxiliary.c (nds32_split_ashiftdi3): Fix wrong
+	code gen with large shift amount.
+
+2019-04-16  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	* config/nds32/nds32-pipelines-auxiliary.c (wext_odd_dep_p): Handle
+	subreg.
+
+2019-04-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/90096
+	* config/i386/i386.c (ix86_target_string): Add ADD_ABI_P argument, only
+	print -m64/-mx32/-m32 if it is true.
+	(ix86_debug_options, ix86_function_specific_print): Pass true as
+	ADD_ABI_P to ix86_target_string.
+	(ix86_expand_builtin): Adjust ix86_target_string caller, pass true as
+	ADD_ABI_P only if OPTION_MASK_ISA_64BIT is set in bisa and in that case
+	or into it OPTION_MASK_ISA_ABI_64 or OPTION_MASK_ISA_ABI_X32.
+
+	PR rtl-optimization/90082
+	* dce.c (can_delete_call): New function.
+	(deletable_insn_p, mark_insn): Use it.
+
+	PR tree-optimization/90090
+	* tree-ssa-math-opts.c (is_division_by): Ignore divisions that can
+	throw internally.
+	(is_division_by_square): Likewise.  Formatting fix.
+
+2019-04-16  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56049
+	* tree-ssa-loop-im.c (mem_ref_hasher::equal): Elide alias-set
+	equality check if alias-set zero will prevail.
+
+2019-04-15  Jeff Law  <law@redhat.com>
+
+	* config/microblaze/microblaze.c (microblaze_expand_block_move): Treat
+	size and alignment as unsigned.
+ 
+2019-04-15  Richard Biener  <rguenther@suse.de>
+
+	PR debug/90074
+	* tree-loop-distribution.c (destroy_loop): Preserve correct
+	debug info.
+
+2019-04-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/90071
+	* tree-ssa-reassoc.c (init_range_entry): Do not pick up
+	abnormal operands from def stmts.
+
 2019-04-15  Richard Biener  <rguenther@suse.de>
 
 	PR ipa/88936
