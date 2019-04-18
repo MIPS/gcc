@@ -171,6 +171,31 @@ enum function_shape {
      where <X> is determined by the function base name.  */
   SHAPE_load_ext,
 
+  /* sv<t0>_t svfoo_[s32]index_t0(const <X>_t *, svint32_t)
+     sv<t0>_t svfoo_[s64]index_t0(const <X>_t *, svint64_t)
+     sv<t0>_t svfoo_[u32]index_t0(const <X>_t *, svuint32_t)
+     sv<t0>_t svfoo_[u64]index_t0(const <X>_t *, svuint64_t)
+
+     sv<t0>_t svfoo[_u32base]_index_t0(svuint32_t, int64_t)
+     sv<t0>_t svfoo[_u64base]_index_t0(svuint64_t, int64_t)
+
+     where <X> is determined by the function base name.  */
+  SHAPE_load_ext_gather_index,
+
+  /* sv<t0>_t svfoo_[s32]offset_t0(const <X>_t *, svint32_t)
+     sv<t0>_t svfoo_[s64]offset_t0(const <X>_t *, svint64_t)
+     sv<t0>_t svfoo_[u32]offset_t0(const <X>_t *, svuint32_t)
+     sv<t0>_t svfoo_[u64]offset_t0(const <X>_t *, svuint64_t)
+
+     sv<t0>_t svfoo[_u32base]_t0(svuint32_t)
+     sv<t0>_t svfoo[_u64base]_t0(svuint64_t)
+
+     sv<t0>_t svfoo[_u32base]_offset_t0(svuint32_t, int64_t)
+     sv<t0>_t svfoo[_u64base]_offset_t0(svuint64_t, int64_t)
+
+     where <X> is determined by the function base name.  */
+  SHAPE_load_ext_gather_offset,
+
   /* sv<t0>_t svfoo_[s32]index[_t0](const <t0>_t *, svint32_t)
      sv<t0>_t svfoo_[s64]index[_t0](const <t0>_t *, svint64_t)
      sv<t0>_t svfoo_[u32]index[_t0](const <t0>_t *, svuint32_t)
@@ -517,6 +542,7 @@ private:
   tree resolve_dot ();
   tree resolve_get (unsigned int);
   tree resolve_load_gather_sv ();
+  tree resolve_load_gather_sv_or_vs ();
   tree resolve_set (unsigned int);
   tree resolve_binary_wide ();
   tree resolve_uniform_imm (unsigned int, unsigned int);
@@ -533,6 +559,7 @@ private:
   bool require_scalar_argument (unsigned int, const char *);
   bool require_integer_immediate (unsigned int);
   function_mode require_vector_displacement (unsigned int, vector_type);
+  function_mode require_gather_address (unsigned int, vector_type);
 
   tree require_n_form (type_suffix, type_suffix = NUM_TYPE_SUFFIXES);
   tree require_form (function_mode, type_suffix,
@@ -646,6 +673,7 @@ private:
   rtx expand_index ();
   rtx expand_ld1 ();
   rtx expand_ld1_ext (rtx_code);
+  rtx expand_ld1_ext_gather (rtx_code);
   rtx expand_ld1_gather ();
   rtx expand_lsl ();
   rtx expand_lsl_wide ();
@@ -1098,13 +1126,15 @@ function_instance::displacement_units () const
   return modes[mode].displacement_units;
 }
 
-/* Return a pointer to the end of the function base name (i.e. to the
-   zero terminator).  */
+/* Return a pointer to the first '_' in the function base name, or to the
+   null terminator if there is no '_'.  */
 const char *
 function_instance::end_base_name () const
 {
-  const char *name = base_names[func];
-  return name + strlen (name);
+  const char *p = base_names[func];
+  while (p[0] && p[0] != '_')
+    ++p;
+  return p;
 }
 
 /* For a function with a [bhwd] suffix, return the SVE vector mode
@@ -1144,11 +1174,17 @@ function_instance::memory_vector_mode () const
       return mode;
 
     case FUNC_svld1sb:
+    case FUNC_svld1sb_gather:
     case FUNC_svld1sh:
+    case FUNC_svld1sh_gather:
     case FUNC_svld1sw:
+    case FUNC_svld1sw_gather:
     case FUNC_svld1ub:
+    case FUNC_svld1ub_gather:
     case FUNC_svld1uh:
+    case FUNC_svld1uh_gather:
     case FUNC_svld1uw:
+    case FUNC_svld1uw_gather:
       return aarch64_sve_data_mode (bhwd_scalar_mode (),
 				    GET_MODE_NUNITS (mode)).require ();
 
@@ -1184,21 +1220,27 @@ function_instance::memory_scalar_type () const
       return scalar_type (0);
 
     case FUNC_svld1sb:
+    case FUNC_svld1sb_gather:
       return scalar_types[VECTOR_TYPE_svint8_t];
 
     case FUNC_svld1sh:
+    case FUNC_svld1sh_gather:
       return scalar_types[VECTOR_TYPE_svint16_t];
 
     case FUNC_svld1sw:
+    case FUNC_svld1sw_gather:
       return scalar_types[VECTOR_TYPE_svint32_t];
 
     case FUNC_svld1ub:
+    case FUNC_svld1ub_gather:
       return scalar_types[VECTOR_TYPE_svuint8_t];
 
     case FUNC_svld1uh:
+    case FUNC_svld1uh_gather:
       return scalar_types[VECTOR_TYPE_svuint16_t];
 
     case FUNC_svld1uw:
+    case FUNC_svld1uw_gather:
       return scalar_types[VECTOR_TYPE_svuint32_t];
 
     default:
@@ -1403,6 +1445,19 @@ arm_sve_h_builder::build (const function_group &group)
     case SHAPE_load_ext:
       build_all (&arm_sve_h_builder::sig_load, group, MODE_none);
       build_all (&arm_sve_h_builder::sig_load, group, MODE_vnum);
+      break;
+
+    case SHAPE_load_ext_gather_index:
+      add_overloaded_functions (group, MODE_index);
+      build_sv_index (&arm_sve_h_builder::sig_load_gather_sv, group);
+      build_vs_index (&arm_sve_h_builder::sig_load_gather_vs, group);
+      break;
+
+    case SHAPE_load_ext_gather_offset:
+      add_overloaded_functions (group, MODE_offset);
+      build_sv_offset (&arm_sve_h_builder::sig_load_gather_sv, group);
+      build_v_base (&arm_sve_h_builder::sig_load_gather_vs, group);
+      build_vs_offset (&arm_sve_h_builder::sig_load_gather_vs, group);
       break;
 
     case SHAPE_load_gather_sv:
@@ -2120,11 +2175,17 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svld1:
     case FUNC_svld1_gather:
     case FUNC_svld1sb:
+    case FUNC_svld1sb_gather:
     case FUNC_svld1sh:
+    case FUNC_svld1sh_gather:
     case FUNC_svld1sw:
+    case FUNC_svld1sw_gather:
     case FUNC_svld1ub:
+    case FUNC_svld1ub_gather:
     case FUNC_svld1uh:
+    case FUNC_svld1uh_gather:
     case FUNC_svld1uw:
+    case FUNC_svld1uw_gather:
       attrs = add_attribute ("pure", attrs);
       if (!flag_non_call_exceptions)
 	attrs = add_attribute ("nothrow", attrs);
@@ -2169,6 +2230,8 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_inherent3:
     case SHAPE_inherent4:
     case SHAPE_load_ext:
+    case SHAPE_load_ext_gather_index:
+    case SHAPE_load_ext_gather_offset:
     case SHAPE_load_gather_vs:
     case SHAPE_unary_n:
     case SHAPE_unary_pred:
@@ -2280,6 +2343,9 @@ function_resolver::resolve ()
       return resolve_get (4);
     case SHAPE_load:
       return resolve_pointer ();
+    case SHAPE_load_ext_gather_index:
+    case SHAPE_load_ext_gather_offset:
+      return resolve_load_gather_sv_or_vs ();
     case SHAPE_load_gather_sv:
       return resolve_load_gather_sv ();
     case SHAPE_load_gather_vs:
@@ -2408,6 +2474,32 @@ function_resolver::resolve_load_gather_sv ()
       || !check_argument (0, VECTOR_TYPE_svbool_t)
       || (type = require_pointer_type (1, true)) == NUM_VECTOR_TYPES
       || (mode = require_vector_displacement (2, type)) == MODE_none)
+    return error_mark_node;
+
+  return require_form (mode, get_type_suffix (type));
+}
+
+/* Resolve a gather load that takes one of:
+
+   - a scalar pointer base and a vector displacement
+   - a vector base with no displacement or
+   - a vector base and a scalar displacement
+
+   The function has an explicit type suffix that determines the type
+   of the loaded data.  */
+tree
+function_resolver::resolve_load_gather_sv_or_vs ()
+{
+  /* No resolution is needed for a vector base with no displacement;
+     there's a one-to-one mapping between short and long names.  */
+  if (m_fi.displacement_units () == UNITS_none)
+    return NULL_TREE;
+
+  function_mode mode;
+  vector_type type = type_suffixes[m_fi.types[0]].type;
+  if (!check_num_arguments (3)
+      || !check_argument (0, VECTOR_TYPE_svbool_t)
+      || (mode = require_gather_address (1, type)) == MODE_none)
     return error_mark_node;
 
   return require_form (mode, get_type_suffix (type));
@@ -2740,12 +2832,72 @@ function_resolver::require_vector_displacement (unsigned int i,
 	  && modes[mode].displacement_units == m_fi.displacement_units ())
 	return function_mode (mode);
 
-  gcc_assert (m_fi.types[0] == NUM_TYPE_SUFFIXES);
-  error_at (m_location, "passing %qT to argument %d of %qE, which when"
-	    " loading %qT expects a vector of %d-bit integers",
-	    get_argument_type (i), i + 1, m_rfn.decl,
-	    get_vector_type (data_type), required_bits);
+  if (m_fi.types[0] == NUM_TYPE_SUFFIXES)
+    error_at (m_location, "passing %qT to argument %d of %qE, which when"
+	      " loading %qT expects a vector of %d-bit integers",
+	      get_argument_type (i), i + 1, m_rfn.decl,
+	      get_vector_type (data_type), required_bits);
+  else
+    error_at (m_location, "passing %qT to argument %d of %qE, which"
+	      " expects a vector of %d-bit integers",
+	      get_argument_type (i), i + 1, m_rfn.decl, required_bits);
   return MODE_none;
+}
+
+/* Require arguments I and I + 1 to form a gather-style address for loading
+   or storing DATA_TYPE.  The two possibilities are a vector base and a
+   scalar displacement or a scalar (pointer) base and a vector displacement.
+   The mode of the overloaded function determines the units of the
+   displacement (bytes for "_offset", elements for "_index").
+
+   Return the mode of the non-overloaded function on success, otherwise
+   return MODE_none.  */
+function_mode
+function_resolver::require_gather_address (unsigned int i,
+					   vector_type data_type)
+{
+  tree actual = get_argument_type (i);
+  if (actual == error_mark_node)
+    return MODE_none;
+
+  if (POINTER_TYPE_P (actual))
+    /* Don't check the pointer type here, since there's only one valid
+       choice.  Leave that to the frontend.  */
+    return require_vector_displacement (i + 1, data_type);
+
+  if (!VECTOR_TYPE_P (actual))
+    {
+      error_at (m_location, "passing %qT to argument %d of %qE,"
+		" which expects a vector or pointer base address",
+		actual, i + 1, m_rfn.decl);
+      return MODE_none;
+    }
+
+  vector_type base_type = require_vector_type (i);
+  if (base_type == NUM_VECTOR_TYPES)
+    return MODE_none;
+
+  /* Check for the correct choice of vector base type.  */
+  unsigned int required_bits = get_element_bits (data_type);
+  gcc_assert (required_bits == 32 || required_bits == 64);
+  vector_type required_type = (required_bits == 32
+			       ? VECTOR_TYPE_svuint32_t
+			       : VECTOR_TYPE_svuint64_t);
+  if (required_type != base_type)
+    {
+      error_at (m_location, "passing %qT to argument %d of %qE,"
+		" which expects %qT",
+		actual, i + 1, m_rfn.decl, get_vector_type (required_type));
+      return MODE_none;
+    }
+
+  for (unsigned int mode = 0; mode < ARRAY_SIZE (modes); ++mode)
+    if (modes[mode].base_vector_type == base_type
+	&& modes[mode].displacement_vector_type == NUM_VECTOR_TYPES
+	&& modes[mode].displacement_units == m_fi.displacement_units ())
+      return function_mode (mode);
+
+  gcc_unreachable ();
 }
 
 /* Require there to be an _n instance of the function with the type suffixes
@@ -2876,6 +3028,8 @@ function_checker::check ()
     case SHAPE_inherent_count:
     case SHAPE_load:
     case SHAPE_load_ext:
+    case SHAPE_load_ext_gather_index:
+    case SHAPE_load_ext_gather_offset:
     case SHAPE_load_gather_sv:
     case SHAPE_load_gather_vs:
     case SHAPE_shift_opt_n:
@@ -3119,11 +3273,17 @@ gimple_folder::fold ()
     case FUNC_svindex:
     case FUNC_svld1_gather:
     case FUNC_svld1sb:
+    case FUNC_svld1sb_gather:
     case FUNC_svld1sh:
+    case FUNC_svld1sh_gather:
     case FUNC_svld1sw:
+    case FUNC_svld1sw_gather:
     case FUNC_svld1ub:
+    case FUNC_svld1ub_gather:
     case FUNC_svld1uh:
+    case FUNC_svld1uh_gather:
     case FUNC_svld1uw:
+    case FUNC_svld1uw_gather:
     case FUNC_svlsl:
     case FUNC_svlsl_wide:
     case FUNC_svmad:
@@ -3503,10 +3663,20 @@ function_expander::expand ()
     case FUNC_svld1sw:
       return expand_ld1_ext (SIGN_EXTEND);
 
+    case FUNC_svld1sb_gather:
+    case FUNC_svld1sh_gather:
+    case FUNC_svld1sw_gather:
+      return expand_ld1_ext_gather (SIGN_EXTEND);
+
     case FUNC_svld1ub:
     case FUNC_svld1uh:
     case FUNC_svld1uw:
       return expand_ld1_ext (ZERO_EXTEND);
+
+    case FUNC_svld1ub_gather:
+    case FUNC_svld1uh_gather:
+    case FUNC_svld1uw_gather:
+      return expand_ld1_ext_gather (ZERO_EXTEND);
 
     case FUNC_svlsl:
       return expand_lsl ();
@@ -3855,7 +4025,7 @@ function_expander::expand_ld1 ()
   return expand_via_load_insn (icode);
 }
 
-/* Expand a call to svld1s[bhwd] or svld1u[bhwd].  CODE is the type of
+/* Expand a call to svld1s[bhw] or svld1u[bhw].  CODE is the type of
    extension, either SIGN_EXTEND or ZERO_EXTEND.  */
 rtx
 function_expander::expand_ld1_ext (rtx_code code)
@@ -3864,6 +4034,19 @@ function_expander::expand_ld1_ext (rtx_code code)
   machine_mode mem_mode = m_fi.memory_vector_mode ();
   insn_code icode = code_for_aarch64_load (code, reg_mode, mem_mode);
   return expand_via_load_insn (icode);
+}
+
+/* Expand a call to svld1s[bhw]_gather or svld1u[bhw]_gather.  CODE is
+   the type of extension, either SIGN_EXTEND or ZERO_EXTEND.  */
+rtx
+function_expander::expand_ld1_ext_gather (rtx_code code)
+{
+  prepare_gather_address_operands (1);
+  rotate_inputs_left (0, 5);
+  machine_mode reg_mode = get_mode (0);
+  machine_mode mem_mode = m_fi.memory_vector_mode ();
+  insn_code icode = code_for_aarch64_gather_load (code, reg_mode, mem_mode);
+  return expand_via_exact_insn (icode);
 }
 
 /* Expand a call to svld1_gather.  */

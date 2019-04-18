@@ -379,11 +379,23 @@
  An address valid for a prefetch instruction."
  (match_test "aarch64_address_valid_for_prefetch_p (op, true)"))
 
+(define_constraint "vgb"
+  "@internal
+   A constraint that matches an immediate offset valid for SVE LD1B
+   gather instructions."
+ (match_operand 0 "aarch64_sve_gather_immediate_b"))
+
 (define_constraint "vgd"
   "@internal
    A constraint that matches an immediate offset valid for SVE LD1D
    gather instructions."
  (match_operand 0 "aarch64_sve_gather_immediate_d"))
+
+(define_constraint "vgh"
+  "@internal
+   A constraint that matches an immediate offset valid for SVE LD1H
+   gather instructions."
+ (match_operand 0 "aarch64_sve_gather_immediate_h"))
 
 (define_constraint "vgw"
   "@internal

@@ -365,6 +365,93 @@
    ld1d\t%0.d, %5/z, [%1, %2.d, uxtw %p4]"
 )
 
+;; Predicated extending gather loads for 32-bit elements.  Operand 3 is
+;; true for unsigned extension and false for signed extension.
+(define_insn "@aarch64_gather_load_<ANY_EXTEND:optab><VNx4_WIDE:mode><VNx4_NARROW:mode>"
+  [(set (match_operand:VNx4_WIDE 0 "register_operand" "=w, w, w, w, w, w")
+	(ANY_EXTEND:VNx4_WIDE
+	  (unspec:VNx4_NARROW
+	    [(match_operand:VNx4BI 5 "register_operand" "Upl, Upl, Upl, Upl, Upl, Upl")
+	     (match_operand:DI 1 "aarch64_sve_gather_offset_<VNx4_NARROW:Vesize>" "Z, vg<VNx4_NARROW:Vesize>, rk, rk, rk, rk")
+	     (match_operand:VNx4_WIDE 2 "register_operand" "w, w, w, w, w, w")
+	     (match_operand:DI 3 "const_int_operand" "i, i, Z, Ui1, Z, Ui1")
+	     (match_operand:DI 4 "aarch64_gather_scale_operand_<VNx4_NARROW:Vesize>" "Ui1, Ui1, Ui1, Ui1, i, i")
+	     (mem:BLK (scratch))]
+	    UNSPEC_LD1_GATHER)))]
+  "TARGET_SVE"
+  "@
+   ld1<ANY_EXTEND:s><VNx4_NARROW:Vesize>\t%0.s, %5/z, [%2.s]
+   ld1<ANY_EXTEND:s><VNx4_NARROW:Vesize>\t%0.s, %5/z, [%2.s, #%1]
+   ld1<ANY_EXTEND:s><VNx4_NARROW:Vesize>\t%0.s, %5/z, [%1, %2.s, sxtw]
+   ld1<ANY_EXTEND:s><VNx4_NARROW:Vesize>\t%0.s, %5/z, [%1, %2.s, uxtw]
+   ld1<ANY_EXTEND:s><VNx4_NARROW:Vesize>\t%0.s, %5/z, [%1, %2.s, sxtw %p4]
+   ld1<ANY_EXTEND:s><VNx4_NARROW:Vesize>\t%0.s, %5/z, [%1, %2.s, uxtw %p4]"
+)
+
+;; Predicated extending gather loads for 64-bit elements.  The value of
+;; operand 3 doesn't matter in this case.
+(define_insn "@aarch64_gather_load_<ANY_EXTEND:optab><VNx2_WIDE:mode><VNx2_NARROW:mode>"
+  [(set (match_operand:VNx2_WIDE 0 "register_operand" "=w, w, w, w")
+	(ANY_EXTEND:VNx2_WIDE
+	  (unspec:VNx2_NARROW
+	    [(match_operand:VNx2BI 5 "register_operand" "Upl, Upl, Upl, Upl")
+	     (match_operand:DI 1 "aarch64_sve_gather_offset_<VNx2_NARROW:Vesize>" "Z, vg<VNx2_NARROW:Vesize>, rk, rk")
+	     (match_operand:VNx2_WIDE 2 "register_operand" "w, w, w, w")
+	     (match_operand:DI 3 "const_int_operand")
+	     (match_operand:DI 4 "aarch64_gather_scale_operand_<VNx2_NARROW:Vesize>" "Ui1, Ui1, Ui1, i")
+	     (mem:BLK (scratch))]
+	    UNSPEC_LD1_GATHER)))]
+  "TARGET_SVE"
+  "@
+   ld1<ANY_EXTEND:s><VNx2_NARROW:Vesize>\t%0.d, %5/z, [%2.d]
+   ld1<ANY_EXTEND:s><VNx2_NARROW:Vesize>\t%0.d, %5/z, [%2.d, #%1]
+   ld1<ANY_EXTEND:s><VNx2_NARROW:Vesize>\t%0.d, %5/z, [%1, %2.d]
+   ld1<ANY_EXTEND:s><VNx2_NARROW:Vesize>\t%0.d, %5/z, [%1, %2.d, lsl %p4]"
+)
+
+;; Likewise, but with the offset being sign-extended from 32 bits.
+(define_insn "*aarch64_gather_load_<ANY_EXTEND:optab><VNx2_WIDE:mode><VNx2_NARROW:mode>_sxtw"
+  [(set (match_operand:VNx2_WIDE 0 "register_operand" "=w, w")
+	(ANY_EXTEND:VNx2_WIDE
+	  (unspec:VNx2_NARROW
+	    [(match_operand:VNx2BI 5 "register_operand" "Upl, Upl")
+	     (match_operand:DI 1 "aarch64_reg_or_zero" "rk, rk")
+	     (unspec:VNx2DI
+	       [(match_dup 5)
+		(sign_extend:VNx2DI
+		  (truncate:VNx2SI
+		    (match_operand:VNx2DI 2 "register_operand" "w, w")))]
+	       UNSPEC_MERGE_PTRUE)
+	     (match_operand:DI 3 "const_int_operand")
+	     (match_operand:DI 4 "aarch64_gather_scale_operand_<VNx2_NARROW:Vesize>" "Ui1, i")
+	     (mem:BLK (scratch))]
+	    UNSPEC_LD1_GATHER)))]
+  "TARGET_SVE"
+  "@
+   ld1<ANY_EXTEND:s><VNx2_NARROW:Vesize>\t%0.d, %5/z, [%1, %2.d, sxtw]
+   ld1<ANY_EXTEND:s><VNx2_NARROW:Vesize>\t%0.d, %5/z, [%1, %2.d, sxtw %p4]"
+)
+
+;; Likewise, but with the offset being zero-extended from 32 bits.
+(define_insn "*aarch64_gather_load_<ANY_EXTEND:optab><VNx2_WIDE:mode><VNx2_NARROW:mode>_uxtw"
+  [(set (match_operand:VNx2_WIDE 0 "register_operand" "=w, w")
+	(ANY_EXTEND:VNx2_WIDE
+	  (unspec:VNx2_NARROW
+	    [(match_operand:VNx2BI 5 "register_operand" "Upl, Upl")
+	     (match_operand:DI 1 "aarch64_reg_or_zero" "rk, rk")
+	     (and:VNx2DI
+	       (match_operand:VNx2DI 2 "register_operand" "w, w")
+	       (match_operand:VNx2DI 6 "aarch64_sve_uxtw_immediate"))
+	     (match_operand:DI 3 "const_int_operand")
+	     (match_operand:DI 4 "aarch64_gather_scale_operand_<VNx2_NARROW:Vesize>" "Ui1, i")
+	     (mem:BLK (scratch))]
+	    UNSPEC_LD1_GATHER)))]
+  "TARGET_SVE"
+  "@
+   ld1<ANY_EXTEND:s><VNx2_NARROW:Vesize>\t%0.d, %5/z, [%1, %2.d, uxtw]
+   ld1<ANY_EXTEND:s><VNx2_NARROW:Vesize>\t%0.d, %5/z, [%1, %2.d, uxtw %p4]"
+)
+
 ;; Unpredicated scatter store.
 (define_expand "scatter_store<mode>"
   [(set (mem:BLK (scratch))

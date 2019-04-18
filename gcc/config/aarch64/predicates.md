@@ -609,6 +609,15 @@
   (and (match_code "const,const_vector")
        (match_test "aarch64_sve_vector_inc_dec_immediate_p (op)")))
 
+(define_predicate "aarch64_sve_gather_immediate_b"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 0, 31)")))
+
+(define_predicate "aarch64_sve_gather_immediate_h"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 0, 62)")
+       (match_test "(INTVAL (op) & 1) == 0")))
+
 (define_predicate "aarch64_sve_gather_immediate_w"
   (and (match_code "const_int")
        (match_test "IN_RANGE (INTVAL (op), 0, 124)")
@@ -713,6 +722,14 @@
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "aarch64_sve_logical_immediate")))
 
+(define_predicate "aarch64_sve_gather_offset_b"
+  (ior (match_operand 0 "register_operand")
+       (match_operand 0 "aarch64_sve_gather_immediate_b")))
+
+(define_predicate "aarch64_sve_gather_offset_h"
+  (ior (match_operand 0 "register_operand")
+       (match_operand 0 "aarch64_sve_gather_immediate_h")))
+
 (define_predicate "aarch64_sve_gather_offset_w"
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "aarch64_sve_gather_immediate_w")))
@@ -768,6 +785,14 @@
 (define_predicate "aarch64_sve_vec_perm_operand"
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "aarch64_constant_vector_operand")))
+
+(define_predicate "aarch64_gather_scale_operand_b"
+  (and (match_code "const_int")
+       (match_test "INTVAL (op) == 1")))
+
+(define_predicate "aarch64_gather_scale_operand_h"
+  (and (match_code "const_int")
+       (match_test "INTVAL (op) == 1 || INTVAL (op) == 2")))
 
 (define_predicate "aarch64_gather_scale_operand_w"
   (and (match_code "const_int")
