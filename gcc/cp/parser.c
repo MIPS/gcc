@@ -18034,7 +18034,6 @@ cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc,
 	placeholder = cp_lexer_consume_token (parser->lexer); 
       else if (cp_lexer_next_token_is_keyword (parser->lexer, RID_DECLTYPE))
 	sorry_at (input_location, "decltype placeholders not implemented");
-
     }
 
   /* A type constraint constrains a contextually determined type or type
@@ -18051,24 +18050,44 @@ cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc,
   if (processing_template_parmlist && !placeholder)
     return build_constrained_parameter (con, proto, args);
 
-  if (!placeholder && !flag_concepts_ts)
+  /* Diagnose issues placeholder issues.  */
+  if (!parser->in_result_type_constraint_p 
+      && !placeholder 
+      && !flag_concepts_ts)
     {
       tree id = build_nt (TEMPLATE_ID_EXPR, tmpl, args);
       tree expr = DECL_P (orig_tmpl) ? DECL_NAME (con) : id;
       error_at (input_location,
 		"expected %<auto%> or %<decltype(auto)%> after %qE", expr);
+      /* Fall through. This is an error of omission.  */
+    }
+  else if (parser->in_result_type_constraint_p && placeholder)
+    {
+      /* A trailing return type only allows type-constraints.  */
+      error_at(input_location, "unexpected placeholder in type-constraints");
     }
 
   /* In a parameter-declaration-clause, a placeholder-type-specifier
      results in an invented template parameter.  */
   if (parser->auto_is_implicit_function_template_parm_p)
     {
+      /* FIXME: Is decltype(auto) valid here?  */
       tree parm = build_constrained_parameter (con, proto, args);
       return synthesize_implicit_template_parm (parser, parm);
     }
 
+  /* Determine if the type should be deduced using template argument
+     deduction or decltype deduction. Note that the latter is always
+     used for type-constraints in trailing return types.  */
+  bool decltype_p = placeholder 
+      ? placeholder->keyword != RID_AUTO 
+      : parser->in_result_type_constraint_p;
+
   /* Otherwise, this is the type of a variable or return type.  */
-  return make_constrained_auto (con, args);
+  if (decltype_p)
+    return make_constrained_decltype_auto (con, args);
+  else
+    return make_constrained_auto (con, args);
 }
 
 /* Parse a type-name.

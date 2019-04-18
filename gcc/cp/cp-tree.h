@@ -6641,6 +6641,8 @@ extern int num_template_headers_for_class	(tree);
 extern void check_template_variable		(tree);
 extern tree make_auto				(void);
 extern tree make_decltype_auto			(void);
+extern tree make_constrained_auto		(tree, tree);
+extern tree make_constrained_decltype_auto	(tree, tree);
 extern tree make_template_placeholder		(tree);
 extern bool template_placeholder_p		(tree);
 extern tree do_auto_deduction                   (tree, tree, tree,
@@ -7552,7 +7554,6 @@ extern tree build_concept_check                 (tree, tree, tree, tsubst_flags_
 extern tree build_wildcard_concept_check	(tree, tree);
 extern tree_pair finish_type_constraints	(tree, tree);
 extern tree build_constrained_parameter         (tree, tree, tree = NULL_TREE);
-extern tree make_constrained_auto               (tree, tree);
 extern void placeholder_extract_concept_and_args (tree, tree&, tree&);
 extern bool equivalent_placeholder_constraints  (tree, tree);
 extern hashval_t hash_placeholder_constraint	(tree);

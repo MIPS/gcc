@@ -1271,6 +1271,11 @@ static bool
 type_deducible_p (tree expr, tree type, tree placeholder, tree args,
                   subst_info info)
 {
+  /* Make sure deduction is performed against ( EXPR ), so that
+     references are preserved in the result.  */
+  if (type_uses_auto (type))
+    expr = force_paren_expr (expr);
+
   /* Replace the constraints with the instantiated constraints.  */
   tree saved_constr = PLACEHOLDER_TYPE_CONSTRAINTS (placeholder);
   PLACEHOLDER_TYPE_CONSTRAINTS (placeholder)
@@ -2387,6 +2392,8 @@ diagnose_valid_expression (tree expr, tree args, tree in_decl)
   ++processing_template_decl;
   tree result = tsubst_expr (expr, args, tf_none, in_decl, false);
   --processing_template_decl;
+  if (result != error_mark_node)
+    return result;
 
   location_t loc = get_constraint_location (expr);
   inform (loc, "the required expression %qE is invalid", expr);
@@ -2405,6 +2412,8 @@ diagnose_valid_type (tree type, tree args, tree in_decl)
   ++processing_template_decl;
   tree result = tsubst (type, args, tf_none, in_decl);
   --processing_template_decl;
+  if (result != error_mark_node)
+    return result;
 
   /* FIXME: The type probably does not have a location.  */
   location_t loc = get_constraint_location (type);
@@ -2421,8 +2430,7 @@ diagnose_valid_type (tree type, tree args, tree in_decl)
 static void
 diagnose_simple_requirement (tree req, tree args, tree in_decl)
 {
-  tree expr = TREE_OPERAND (req, 0);
-  diagnose_valid_expression (expr, args, in_decl);
+  diagnose_valid_expression (TREE_OPERAND (req, 0), args, in_decl);
 }
 
 static void
@@ -2447,23 +2455,24 @@ diagnose_compound_requirement (tree req, tree args, tree in_decl)
 
   if (type)
     {
-      subst_info quiet_subst(tf_none, in_decl);
+      subst_info quiet(tf_none, in_decl);
+      subst_info noisy(tf_error, in_decl);
 
       /* Check the expression against the result type.  */
       if (tree placeholder = type_uses_auto (type))
 	{
-	  if (!type_deducible_p (expr, type, placeholder, args, quiet_subst))
+	  if (!type_deducible_p (expr, type, placeholder, args, quiet))
 	    {
-	      subst_info noisy_subst(tf_none, in_decl);
-	      inform (loc, "cannot deduce a type from %qE", expr);
-	      type_deducible_p (expr, type, placeholder, args, noisy_subst);
+	      tree orig_expr = TREE_OPERAND (req, 0);
+	      inform (loc, "type deduction from %qE failed", orig_expr);
+	      type_deducible_p (expr, type, placeholder, args, noisy);
 	    }
 	}
-      else if (!expression_convertible_p (expr, type, quiet_subst))
+      else if (!expression_convertible_p (expr, type, quiet))
       {
-	inform (loc, "cannot convert %qE to %qT", expr, type);
-	/* FIXME: This generates multiple error diagnostics.  */
-	/* expression_convertible_p (expr, type, tf_warning_or_error); */
+	tree orig_expr = TREE_OPERAND (req, 0);
+	inform (loc, "cannot convert %qE to %qT", orig_expr, type);
+	expression_convertible_p (expr, type, noisy); 
       }
     }
 }

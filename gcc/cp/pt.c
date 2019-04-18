@@ -26690,8 +26690,7 @@ static tree
 make_auto_1 (tree name, bool set_canonical)
 {
   tree au = cxx_make_type (TEMPLATE_TYPE_PARM);
-  TYPE_NAME (au) = build_decl (input_location,
-			       TYPE_DECL, name, au);
+  TYPE_NAME (au) = build_decl (input_location, TYPE_DECL, name, au);
   TYPE_STUB_DECL (au) = TYPE_NAME (au);
   TEMPLATE_TYPE_PARM_INDEX (au) = build_template_parm_index
     (0, processing_template_decl + 1, processing_template_decl + 1,
@@ -26734,17 +26733,16 @@ template_placeholder_p (tree t)
   return is_auto (t) && CLASS_PLACEHOLDER_TEMPLATE (t);
 }
 
-/* Make a "constrained auto" type-specifier. This is an
-   auto type with constraints that must be associated after
-   deduction.  The constraint is formed from the given
-   CONC and its optional sequence of arguments, which are
-   non-null if written as partial-concept-id.  */
+/* Make a "constrained auto" type-specifier. This is an auto or 
+  decltype(auto) type with constraints that must be associated after
+  deduction.  The constraint is formed from the given concept CON 
+  and its optional sequence of template arguments ARGS. 
 
-tree
-make_constrained_auto (tree con, tree args)
+  TYPE must be the result of make_auto_type or make_decltype_auto_type. */
+
+static tree
+make_constrained_placeholder_type (tree type, tree con, tree args)
 {
-  tree type = make_auto_1 (auto_identifier, false);
-
   /* Build the constraint. */
   tree tmpl = DECL_TI_TEMPLATE (con);
   tree expr = tmpl;
@@ -26758,8 +26756,27 @@ make_constrained_auto (tree con, tree args)
   TYPE_CANONICAL (type) = canonical_type_parameter (type);
 
   /* Attach the constraint to the type declaration. */
-  tree decl = TYPE_NAME (type);
-  return decl;
+  return TYPE_NAME (type);
+}
+
+/* Make a "constrained auto" type-specifier.  */
+
+tree
+make_constrained_auto (tree con, tree args)
+{
+  tree type = make_auto_1 (auto_identifier, false);
+  return make_constrained_placeholder_type (type, con, args);
+}
+
+/* Make a "constrained decltype(auto)" type-specifier.  */
+
+tree
+make_constrained_decltype_auto (tree con, tree args)
+{
+  tree type = make_auto_1 (decltype_auto_identifier, false);
+  /* FIXME: I don't know why this isn't done in make_auto_1.  */
+  AUTO_IS_DECLTYPE (type) = true;
+  return make_constrained_placeholder_type (type, con, args);
 }
 
 /* Build and return a concept definition. Like other templates, the
