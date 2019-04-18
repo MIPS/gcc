@@ -293,26 +293,28 @@ struct isra_param_flow
 {
   /* Number of elements in array inputs that contain valid data.  */
   char length;
-  /* Indices of formal parameters that feed into the described actual
-     argument.  */
+  /* Indices of formal parameters that feed into the described actual argument.
+     If aggregate_pass_through or pointer_pass_through below are true, it must
+     contain exactly one element which is passed through from a formal
+     parameter if the given number.  Otherwise, the array contains indices of
+     collee's formal parameters which are used to calculate value of this
+     actual argument. */
   unsigned char inputs[IPA_SRA_MAX_PARAM_FLOW_LEN];
+
+  /* Offset within the formal parameter.  */
+  unsigned unit_offset;
+  /* Size of the portion of the formal parameter that is being passed.  */
+  unsigned unit_size;
 
   /* True when the value of this actual copy is a portion of a formal
      parameter.  */
-  unsigned aggregate_pass_through : 1; /* !!? bad name?  Also, active! */
+  unsigned aggregate_pass_through : 1;
   /* True when the value of this actual copy is a verbatim pass through of an
      obtained pointer.  */
-  unsigned pointer_pass_through : 1; /* !!? bad name?  Also, active! */
+  unsigned pointer_pass_through : 1;
   /* True when it is safe to copy access candidates here from the callee, which
      would mean introducing dereferences into callers of the caller.  */
   unsigned safe_to_import_accesses : 1;
-
-  /* The number of the formal parameter that is passed through */
-  unsigned param_number;
-  /* Offset within the formal parameter.  */
-  unsigned unit_offset;
-  /* Size of the portion of the formal parameter.  */
-  unsigned unit_size;
 };
 
 /* Strucutre used to convey information about calls from the intra-procedurwl
@@ -474,13 +476,12 @@ isra_call_summary::dump (FILE *f)
 	  fprintf (f, "\n");
 	}
       if (ipf->aggregate_pass_through)
-	fprintf (f, "      Aggregate pass through from param %u, "
+	fprintf (f, "      Aggregate pass through from the param given above, "
 		 "unit offset: %u , unit size: %u\n",
-		 ipf->param_number, ipf->unit_offset, ipf->unit_size);
+		 ipf->unit_offset, ipf->unit_size);
       if (ipf->pointer_pass_through)
-	fprintf (f, "      Pointer pass through from param %u, "
-		 "safe_to_import_accesses: %u\n",
-		 ipf->param_number, ipf->safe_to_import_accesses);
+	fprintf (f, "      Pointer pass through from the param given above, "
+		 "safe_to_import_accesses: %u\n", ipf->safe_to_import_accesses);
     }
 }
 
@@ -710,20 +711,50 @@ dump_isra_param_descriptors (FILE *f, tree fndecl,
     }
 }
 
-/* Add SRC to PARAM_FLOW, unless it would exceed storage or not fit in a char.
-   If the function fails return false, otherwise return true.  */
+/* Add SRC to inputs of PARAM_FLOW, unless it would exceed storage.  If the
+   function fails return false, otherwise return true.  SRC must fit into an
+   unsigned char.  Used for purposes of transitive unused parameter
+   removal.  */
 
 static bool
 add_src_to_param_flow (isra_param_flow *param_flow, int src)
 {
-  gcc_checking_assert (src >= 0);
-  if (src > UCHAR_MAX
-      || param_flow->length == IPA_SRA_MAX_PARAM_FLOW_LEN)
+  gcc_checking_assert (src >= 0 && src <= UCHAR_MAX);
+  if (param_flow->length == IPA_SRA_MAX_PARAM_FLOW_LEN)
     return false;
 
   param_flow->inputs[(int) param_flow->length] = src;
   param_flow->length++;
   return true;
+}
+
+/* Add a SRC to the inputs of PARAM_FLOW unless it is already there and assert
+   it is the only input.  Used for purposes of transitive parameter
+   splitting.  */
+
+static void
+set_single_param_flow_source (isra_param_flow *param_flow, int src)
+{
+  gcc_checking_assert (src >= 0 && src <= UCHAR_MAX);
+  if (param_flow->length == 0)
+    {
+      param_flow->inputs[0] = src;
+      param_flow->length = 1;
+    }
+  else if (param_flow->length == 1)
+    gcc_assert (param_flow->inputs[0] == src);
+  else
+    gcc_unreachable ();
+}
+
+/* Assert that there is only a single value in PARAM_FLOW's inputs and return
+   it.  */
+
+static unsigned
+get_single_param_flow_source (const isra_param_flow *param_flow)
+{
+  gcc_assert (param_flow->length == 1);
+  return param_flow->inputs[0];
 }
 
 /* Inspect all uses of NAME and simple arithmetic calculations involving NAME
@@ -842,8 +873,8 @@ isra_track_scalar_value_uses (cgraph_node *node, tree name, int parm_num,
   */
 
 static bool
-isra_track_scalar_param (function *fun, cgraph_node *node, tree parm,
-			 int parm_num, int *call_uses_p)
+isra_track_scalar_param_local_uses (function *fun, cgraph_node *node, tree parm,
+				    int parm_num, int *call_uses_p)
 {
   gcc_checking_assert (is_gimple_reg (parm));
 
@@ -851,16 +882,20 @@ isra_track_scalar_param (function *fun, cgraph_node *node, tree parm,
   if (!name || has_zero_uses (name))
     {
       *call_uses_p = 0;
-      return true;
+      return false;
     }
+
+  /* Edge summaries can only handle callers with fewer than 256 parameters.  */
+  if (parm_num > UCHAR_MAX)
+    return true;
 
   bitmap analyzed = BITMAP_ALLOC (NULL);
   int call_uses = isra_track_scalar_value_uses (node, name, parm_num, analyzed);
   BITMAP_FREE (analyzed);
   if (call_uses < 0)
-    return false;
+    return true;
   *call_uses_p = call_uses;
-  return true;
+  return false;
 }
 
 /* Scan immediate uses of a default definition SSA name of a parameter PARM and
@@ -871,9 +906,10 @@ isra_track_scalar_param (function *fun, cgraph_node *node, tree parm,
    must represent the function that is currently analyzed, PARM_NUM must be the
    index of the analyzed parameter.
 
-   This function is similar to isra_track_scalar_param but its results are
-   meant for splitting of parameters passed by reference or turning them into
-   bits passed by value, as opposed to generic unused parameter removal.
+   This function is similar to isra_track_scalar_param_local_uses but its
+   results are meant for splitting of parameters passed by reference or turning
+   them into bits passed by value, as opposed to generic unused parameter
+   removal.
  */
 
 static bool
@@ -888,6 +924,10 @@ ptr_parm_has_nonarg_uses (cgraph_node *node, function *fun, tree parm,
 
   if (!name || has_zero_uses (name))
     return false;
+
+  /* Edge summaries can only handle callers with fewer than 256 parameters.  */
+  if (parm_num > UCHAR_MAX)
+    return true;
 
   FOR_EACH_IMM_USE_STMT (stmt, ui, name)
     {
@@ -936,7 +976,7 @@ ptr_parm_has_nonarg_uses (cgraph_node *node, function *fun, tree parm,
 		     ipa_param_body_adjustments::modify_call_stmt has to be
 		     adjusted too.  */
 		  csum->m_inputs[i].pointer_pass_through = true;
-		  csum->m_inputs[i].param_number = parm_num;
+		  set_single_param_flow_source (&csum->m_inputs[i], parm_num);
 		  pt_count++;
 		  uses_ok++;
 		  continue;
@@ -1026,7 +1066,8 @@ create_parameter_descriptors (cgraph_node *node,
 	}
 
       if (is_gimple_reg (parm)
-	  && isra_track_scalar_param (fun, node, parm, num, &scalar_call_uses))
+	  && !isra_track_scalar_param_local_uses (fun, node, parm, num,
+						  &scalar_call_uses))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, " is a scalar with only %i call uses\n",
@@ -1534,7 +1575,7 @@ record_nonregister_call_use (gensum_param_desc *desc,
 
   isra_param_flow *param_flow = &csum->m_inputs[call_info->arg_idx];
   param_flow->aggregate_pass_through = true;
-  param_flow->param_number = desc->m_param_number;
+  set_single_param_flow_source (param_flow, desc->m_param_number);
 
   gcc_checking_assert ((offset % BITS_PER_UNIT) == 0);
   gcc_checking_assert ((size % BITS_PER_UNIT) == 0);
@@ -2241,7 +2282,8 @@ process_scan_results (cgraph_node *node, struct function *fun,
 	  {
 	    if (!csum->m_inputs[argidx].pointer_pass_through)
 	      continue;
-	    unsigned pidx = csum->m_inputs[argidx].param_number;
+	    unsigned pidx
+	      = get_single_param_flow_source (&csum->m_inputs[argidx]);
 	    gensum_param_desc *desc = &(*param_descriptions)[pidx];
 	    if (!desc->m_split_candidate)
 	      {
@@ -2403,7 +2445,6 @@ isra_write_edge_summary (output_block *ob, cgraph_edge *e)
       bp_pack_value (&bp, ipf->pointer_pass_through, 1);
       bp_pack_value (&bp, ipf->safe_to_import_accesses, 1);
       streamer_write_bitpack (&bp);
-      streamer_write_uhwi (ob, ipf->param_number);
       streamer_write_uhwi (ob, ipf->unit_offset);
       streamer_write_uhwi (ob, ipf->unit_size);
     }
@@ -2525,7 +2566,6 @@ isra_read_edge_summary (struct lto_input_block *ib, cgraph_edge *cs)
       ipf->aggregate_pass_through = bp_unpack_value (&bp, 1);
       ipf->pointer_pass_through = bp_unpack_value (&bp, 1);
       ipf->safe_to_import_accesses = bp_unpack_value (&bp, 1);
-      ipf->param_number = streamer_read_uhwi (ib);
       ipf->unit_offset = streamer_read_uhwi (ib);
       ipf->unit_size = streamer_read_uhwi (ib);
     }
@@ -2843,8 +2883,8 @@ count_param_scc_uses (cgraph_edge *cs)
       for (int j = 0; j < ipf->length; j++)
 	(*from_ifs->m_parameters)[ipf->inputs[j]].m_scc_uses++;
 
-      if (ipf->aggregate_pass_through)
-	(*from_ifs->m_parameters)[ipf->param_number].m_scc_uses++;
+      gcc_checking_assert (!ipf->aggregate_pass_through
+			   || ipf->length == 1);
     }
 }
 
@@ -2923,13 +2963,13 @@ process_indirect_edge (cgraph_edge *cs)
       if (ipf->pointer_pass_through)
         {
           isra_param_desc *param_desc
-            = &(*from_ifs->m_parameters)[ipf->param_number];
+            = &(*from_ifs->m_parameters)[get_single_param_flow_source (ipf)];
           param_desc->m_split_candidate = false;
         }
       if (ipf->aggregate_pass_through)
 	{
 	  isra_param_desc *param_desc
-	    = &(*from_ifs->m_parameters)[ipf->param_number];
+	    = &(*from_ifs->m_parameters)[get_single_param_flow_source (ipf)];
 
 	  param_desc->m_locally_unused = false;
 	  if (!param_desc->m_split_candidate)
@@ -2980,9 +3020,12 @@ param_removal_cross_scc_edge (cgraph_edge *cs)
 		(*from_ifs->m_parameters)[input_idx].m_call_uses--;
 	    }
 
-	  if (ipf->aggregate_pass_through
-	      && (*from_ifs->m_parameters)[ipf->param_number].m_locally_unused)
-	    (*from_ifs->m_parameters)[ipf->param_number].m_call_uses--;
+	  if (ipf->aggregate_pass_through)
+	    {
+	      unsigned pidx = get_single_param_flow_source (ipf);
+	      if ((*from_ifs->m_parameters)[pidx].m_locally_unused)
+		(*from_ifs->m_parameters)[pidx].m_call_uses--;
+	    }
 	}
     }
 }
@@ -3062,10 +3105,12 @@ propagate_nonlocal_across_edge (cgraph_edge *cs, vec<cgraph_node *> *stack)
 	  int input_idx = ipf->inputs[j];
 	  isra_mark_caller_param_used (from_ifs, input_idx, cs->caller, stack);
 	}
-      if (ipf->aggregate_pass_through
-	  && (*from_ifs->m_parameters)[ipf->param_number].m_locally_unused)
-	isra_mark_caller_param_used (from_ifs, ipf->param_number,
-				     cs->caller, stack);
+      if (ipf->aggregate_pass_through)
+	{
+	  unsigned pidx = get_single_param_flow_source (ipf);
+	  if ((*from_ifs->m_parameters)[pidx].m_locally_unused)
+	    isra_mark_caller_param_used (from_ifs, pidx, cs->caller, stack);
+	}
     }
 }
 
@@ -3278,7 +3323,7 @@ param_splitting_across_edge (cgraph_edge *cs)
 
       if (ipf->pointer_pass_through)
 	{
-	  int idx = ipf->param_number;
+	  int idx = get_single_param_flow_source (ipf);
 	  isra_param_desc *param_desc = &(*from_ifs->m_parameters)[idx];
 	  if (!param_desc->m_split_candidate)
 	    continue;
@@ -3339,7 +3384,7 @@ param_splitting_across_edge (cgraph_edge *cs)
 	}
       else if (ipf->aggregate_pass_through)
 	{
-	  int idx = ipf->param_number;
+	  int idx = get_single_param_flow_source (ipf);
 	  isra_param_desc *param_desc = &(*from_ifs->m_parameters)[idx];
 	  if (!param_desc->m_split_candidate)
 	    continue;
@@ -3399,7 +3444,7 @@ param_splitting_across_edge (cgraph_edge *cs)
 
       if (ipf->pointer_pass_through || ipf->aggregate_pass_through)
 	{
-	  int idx = ipf->param_number;
+	  int idx = get_single_param_flow_source (ipf);
 	  isra_param_desc *param_desc = &(*from_ifs->m_parameters)[idx];
 	  if (!param_desc->m_split_candidate)
 	    continue;
