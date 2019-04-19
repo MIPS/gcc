@@ -692,7 +692,7 @@ struct cpp_callbacks
      cpp_buffer containing the translation and return true if
      translating.  */
   bool (*translate_include) (cpp_reader *, line_maps *, location_t,
-			     const char *path);
+			     const char *name, bool angle_p, const char *path);
 };
 
 #ifdef VMS

@@ -336,7 +336,8 @@ struct lang_hooks
 
   /* Translate include hook hook.  */
   bool (*preprocess_translate_include)
-    (cpp_reader *, line_maps *, location_t, const char *path);
+    (cpp_reader *, line_maps *, location_t,
+     const char *name, bool angle_p, const char *path);
 
   /* Undefining a macro.  */
   void (*preprocess_undef) (cpp_reader *, location_t, cpp_hashnode *);
