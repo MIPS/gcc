@@ -913,43 +913,13 @@ bool
 _cpp_stack_file (cpp_reader *pfile, _cpp_file *file, include_type type,
 		 location_t loc)
 {
-  if (is_known_idempotent_file (pfile, file, type == IT_IMPORT))
-    return false;
-
   int sysp = 0;
 
-  /* Check C++ module include translation.  */
-  if (!file->header_unit
-      && type < IT_HEADER_HWM
-      && pfile->cb.translate_include
-      && pfile->cb.translate_include (pfile, pfile->line_table, loc, file->path))
-    {
-      // FIXME: should we have just returned the buffer to stack?
-      /* The hook has stacked a buffer containing replacement text
-	 ending in two \n's.  The last \n in the new buffer doesn't
-	 cause a line increment, which is why we wanted 2 of them.
-	 That's much simpler than trying to slide an obstack allocate
-	 fixed buffer under TOS.  */
-      cpp_buffer *buffer = CPP_BUFFER (pfile);
-      gcc_assert (buffer->rlimit[-1] == '\n' && buffer->rlimit[-2] == '\n');
-      buffer->to_free = buffer->buf;
-
-      file->header_unit = +1;
-      _cpp_mark_file_once_only (pfile, file);
-
-      // FIXME in preprocessing mode, should we continue with the
-      // include in a directives-only mode, completely eliding
-      // non-directive lines?
-      //
-      // But that wouldn't be conforming because there is no isolation from
-      // macros (and providing such an isolation opens another can of worms;
-      // see http://www.open-std.org/pipermail/tooling/2019-April/000653.html).
-      // So maybe it's simpler to just load the BMI?
-    }
-  else
+  if (file->header_unit != +1)
     {
       /* Not a header unit, and we know it.  */
-      file->header_unit = -1;
+      if (file->header_unit == 0)
+        file->header_unit = -1;
 
       if (!read_file (pfile, file, loc))
 	return false;
@@ -1111,6 +1081,38 @@ _cpp_stack_include (cpp_reader *pfile, const char *fname, int angle_brackets,
 				    type == IT_DEFAULT, loc);
   if (type == IT_DEFAULT && file == NULL)
     return false;
+
+  if (is_known_idempotent_file (pfile, file, type == IT_IMPORT))
+    return false;
+
+  /* Check C++ module include translation.  */
+  if (!file->header_unit
+      && type < IT_HEADER_HWM
+      && pfile->cb.translate_include
+      && pfile->cb.translate_include (pfile, pfile->line_table, loc, file->path))
+    {
+      // FIXME: should we have just returned the buffer to stack?
+      /* The hook has stacked a buffer containing replacement text
+	 ending in two \n's.  The last \n in the new buffer doesn't
+	 cause a line increment, which is why we wanted 2 of them.
+	 That's much simpler than trying to slide an obstack allocate
+	 fixed buffer under TOS.  */
+      cpp_buffer *buffer = CPP_BUFFER (pfile);
+      gcc_assert (buffer->rlimit[-1] == '\n' && buffer->rlimit[-2] == '\n');
+      buffer->to_free = buffer->buf;
+
+      file->header_unit = +1;
+      _cpp_mark_file_once_only (pfile, file);
+
+      // FIXME in preprocessing mode, should we continue with the
+      // include in a directives-only mode, completely eliding
+      // non-directive lines?
+      //
+      // But that wouldn't be conforming because there is no isolation from
+      // macros (and providing such an isolation opens another can of worms;
+      // see http://www.open-std.org/pipermail/tooling/2019-April/000653.html).
+      // So maybe it's simpler to just load the BMI?
+    }
 
   return _cpp_stack_file (pfile, file, type, loc);
 }
