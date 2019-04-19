@@ -3780,8 +3780,9 @@ public:
   {
     return get_response (state->from_loc) > 0 ? cmi_response (state) : NULL;
   }
-  bool translate_include (location_t, const char *path, size_t len);
 
+  bool translate_include (location_t, const char *fname, bool angle_p,
+                          const char *path, size_t path_len);
 public:
   /* After a response that may be corked, eat blank lines until it is
      uncorked.  */
@@ -12423,14 +12424,18 @@ module_mapper::export_done (const module_state *state)
    otherwise.  */
 
 bool
-module_mapper::translate_include (location_t loc, const char *path, size_t len)
+module_mapper::translate_include (location_t loc,
+                                  const char *fname, bool angle,
+                                  const char *path, size_t path_len)
 {
   bool xlate = false;
 
   timevar_start (TV_MODULE_MAPPER);
   if (mapper->is_server ())
     {
-      send_command (loc, "INCLUDE %s", path);
+      send_command (loc, "INCLUDE %c%s%c %s",
+                    angle ? '<' : '"', fname, angle ? '>' : '"',
+                    path);
       if (get_response (loc) <= 0)
 	return false;
 
@@ -12450,7 +12455,7 @@ module_mapper::translate_include (location_t loc, const char *path, size_t len)
     }
   else if (mapper->is_live ())
     {
-      tree name = build_string (len, path);
+      tree name = build_string (path_len, path);
 
       xlate = get_module_slot (name, NULL, false, false) != NULL;
     }
@@ -17210,7 +17215,7 @@ module_map_header (cpp_reader *reader, location_t loc, bool search,
 
 bool
 module_translate_include (cpp_reader *reader, line_maps *lmaps, location_t loc,
-			  const char *path)
+			  const char *name, bool angle, const char *path)
 {
   if (!modules_p ())
     {
@@ -17232,7 +17237,7 @@ module_translate_include (cpp_reader *reader, line_maps *lmaps, location_t loc,
     {
       size_t len = strlen (path);
       path = canonicalize_header_name (NULL, loc, true, path, len);
-      res = mapper->translate_include (loc, path, len);
+      res = mapper->translate_include (loc, name, angle, path, len);
 
       bool note = false;
 

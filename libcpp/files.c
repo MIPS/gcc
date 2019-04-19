@@ -1089,7 +1089,8 @@ _cpp_stack_include (cpp_reader *pfile, const char *fname, int angle_brackets,
   if (!file->header_unit
       && type < IT_HEADER_HWM
       && pfile->cb.translate_include
-      && pfile->cb.translate_include (pfile, pfile->line_table, loc, file->path))
+      && pfile->cb.translate_include (pfile, pfile->line_table, loc,
+				      fname, angle_brackets, file->path))
     {
       // FIXME: should we have just returned the buffer to stack?
       /* The hook has stacked a buffer containing replacement text
