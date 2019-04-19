@@ -2193,13 +2193,12 @@ parse_has_include (cpp_reader *pfile, enum include_type type)
   const cpp_token *token;
   bool bracket = false;
   char *fname = 0;
+  location_t loc;
 
   result.unsignedp = false;
   result.high = 0;
   result.overflow = false;
   result.low = 0;
-
-  pfile->state.in__has_include__++;
 
   token = cpp_get_token (pfile);
   if (token->type == CPP_OPEN_PAREN)
@@ -2207,6 +2206,8 @@ parse_has_include (cpp_reader *pfile, enum include_type type)
       paren = true;
       token = cpp_get_token (pfile);
     }
+
+  loc = token->src_loc;
 
   if (token->type == CPP_STRING || token->type == CPP_HEADER_NAME)
     {
@@ -2230,7 +2231,9 @@ parse_has_include (cpp_reader *pfile, enum include_type type)
     {
       int angle_brackets = (bracket ? 1 : 0);
 
-      if (_cpp_has_header (pfile, fname, angle_brackets, type))
+      if (_cpp_find_failed (_cpp_has_header (pfile, fname, NULL,
+					     angle_brackets, type,
+					     loc)) != ENOENT)
 	result.low = 1;
       else
 	result.low = 0;
@@ -2246,8 +2249,6 @@ parse_has_include (cpp_reader *pfile, enum include_type type)
      _cpp_parse_expr checks there was no other junk on the line.  */
   if (node)
     pfile->mi_ind_cmacro = node;
-
-  pfile->state.in__has_include__--;
 
   return result;
 }

@@ -479,10 +479,10 @@ search_path_exhausted (cpp_reader *pfile, const char *header, _cpp_file *file)
   return false;
 }
 
-bool
+int
 _cpp_find_failed (_cpp_file *file)
 {
-  return file->err_no != 0;
+  return file->err_no;
 }
 
 /* Given a filename FNAME search for such a file in the include path
@@ -1194,13 +1194,13 @@ static void
 open_file_failed (cpp_reader *pfile, _cpp_file *file, int angle_brackets,
 		  location_t loc)
 {
-  int sysp = pfile->line_table->highest_line > 1 && pfile->buffer ? pfile->buffer->sysp : 0;
-  bool print_dep = CPP_OPTION (pfile, deps.style) > (angle_brackets || !!sysp);
-
   if (pfile->state.in__has_include__)
     return;
 
   errno = file->err_no;
+  int sysp = pfile->line_table->highest_line > 1 && pfile->buffer ? pfile->buffer->sysp : 0;
+  bool print_dep = CPP_OPTION (pfile, deps.style) > (angle_brackets || !!sysp);
+
   if (print_dep && CPP_OPTION (pfile, deps.missing_files) && errno == ENOENT)
     {
       deps_add_dep (pfile->deps, file->name);
@@ -2131,16 +2131,23 @@ check_file_against_entries (cpp_reader *pfile ATTRIBUTE_UNUSED,
 		  pchf_compare) != NULL;
 }
 
-/* Return true if the file FNAME is found in the appropriate include file path
-   as indicated by ANGLE_BRACKETS.  */
+/* Check if the file FNAME is found in the appropriate include file path as
+   indicated by ANGLE_BRACKETS. Use _cpp_find_failed() to check the result.
+   If START_DIR is NULL, then use the default search head.  */
 
-bool
-_cpp_has_header (cpp_reader *pfile, const char *fname, int angle_brackets,
-		 enum include_type type)
+_cpp_file *
+_cpp_has_header (cpp_reader *pfile, const char *fname, cpp_dir *start_dir,
+		 int angle_brackets, enum include_type type, location_t loc)
 {
-  cpp_dir *start_dir = search_path_head (pfile, fname, angle_brackets, type);
+  if (!start_dir)
+    start_dir = search_path_head (pfile, fname, angle_brackets, type);
+
+  pfile->state.in__has_include__++;
+
   _cpp_file *file = _cpp_find_file (pfile, fname, start_dir,
 				    /*fake=*/false, angle_brackets,
-				    /*implicit_preinclude=*/false, 0);
-  return file->err_no != ENOENT;
+				    type == IT_DEFAULT, loc);
+  pfile->state.in__has_include__--;
+
+  return file;
 }
