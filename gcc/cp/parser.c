@@ -15999,7 +15999,7 @@ cp_parser_template_parameter (cp_parser* parser, bool *is_non_type,
 	cp_lexer_consume_token (parser->lexer);
     }
 
-  // The parameter may have been constrained.
+  /* The parameter may have been constrained type parameter.  */
   if (is_constrained_parameter (parameter_declarator))
     return finish_constrained_parameter (parser,
                                          parameter_declarator,
@@ -26714,7 +26714,14 @@ cp_parser_concept_definition (cp_parser *parser)
       return error_mark_node;
     }
 
-  return finish_concept_definition (decl, init);
+  /* Consume the trailing ';'. Diagnose the problem if it isn't there, 
+     but continue as if it were.  */
+  if (cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))
+    cp_lexer_consume_token (parser->lexer);
+  else
+    cp_parser_error (parser, "expected %<;%>");
+
+  tree def = finish_concept_definition (decl, init);
 }
 
 // -------------------------------------------------------------------------- //
