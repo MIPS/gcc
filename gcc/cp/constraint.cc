@@ -790,13 +790,16 @@ build_concept_id (tree decl, tree args)
 }
 
 /* Build as template-id with a placeholder that can be used as a
-   type constraint.  */
+   type constraint.
+
+   Note that this will diagnose errors if the initial concept check
+   cannot be built.  */
 
 tree
 build_type_constraint (tree decl, tree args)
 {
   tree wildcard = build_nt (WILDCARD_DECL);
-  tree check = build_concept_check (decl, wildcard, args, tf_none);
+  tree check = build_concept_check (decl, wildcard, args, tf_error);
   if (check == error_mark_node)
     return error_mark_node;
   return unpack_concept_check (check);
@@ -843,17 +846,26 @@ finish_shorthand_constraint (tree decl, tree constr)
   tree con = CONSTRAINED_PARM_CONCEPT (constr);
   tree args = CONSTRAINED_PARM_EXTRA_ARGS (constr);
 
-  /* If the parameter declaration is variadic, but the concept
-     is not then we need to apply the concept to every element
-     in the pack.  */
+  /* The TS lets use shorthand to constrain a pack of arguments, but the
+     standard does not.
+
+     For the TS, consider:
+
+	template<C... Ts> struct s;
+
+     If C is variadic (and because Ts is a pack), we associate the
+     constraint C<Ts...>. In all other cases, we associate
+     the constraint (C<Ts> && ...).
+
+     The standard behavior cannot be overridden by -fconcepts-ts.  */
   bool variadic_concept_p = template_parameter_pack_p (proto);
   bool declared_pack_p = template_parameter_pack_p (decl);
-  bool apply_to_all_p = declared_pack_p && !variadic_concept_p;
+  bool apply_to_each_p = (cxx_dialect >= cxx2a) ? true : !variadic_concept_p;
 
   /* Get the argument and overload used for the requirement
      and adjust it if we're going to expand later.  */
   tree arg = template_parm_to_arg (build_tree_list (NULL_TREE, decl));
-  if (apply_to_all_p)
+  if (apply_to_each_p && declared_pack_p)
     arg = PACK_EXPANSION_PATTERN (TREE_VEC_ELT (ARGUMENT_PACK_ARGS (arg), 0));
 
   /* Build the concept constraint-expression.  */
@@ -864,7 +876,7 @@ finish_shorthand_constraint (tree decl, tree constr)
   check = build_concept_check (check, arg, args, tf_warning_or_error);
 
   /* Make the check a fold-expression if needed.  */
-  if (apply_to_all_p)
+  if (apply_to_each_p && declared_pack_p)
     check = finish_left_unary_fold_expr (check, TRUTH_ANDIF_EXPR);
 
   return check;
