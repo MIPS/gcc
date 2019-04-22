@@ -1,3 +1,16 @@
+2019-04-22  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix a regression caused by producing call expressions for 
+	concept checks and type constraints where template-ids are parsed.
+	* cp-tree.h (build_concept_id, build_type_constraint): New.
+	(build_wildcard_concept_check): Removed.
+	* constraint.cc (finish_type_constraints): Use build_type_constraint.
+	(build_wildcard_concept_check): Removed.
+	(build_concept_id): New.
+	(build_type_constraint): New.
+	* parser.c (cp_parser_template_id): Use build_concept_id and
+	build_type_constraint.
+
 2019-04-18  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Update parsing of type-constraints in compound requirements

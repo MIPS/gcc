@@ -356,7 +356,7 @@ finish_type_constraints (tree spec, tree args)
   gcc_assert (concept_definition_p (spec));
 
   /* Build an initial concept check.  */
-  tree check = build_wildcard_concept_check (spec, args);
+  tree check = build_type_constraint (spec, args);
   if (check == error_mark_node)
     return std::make_pair(error_mark_node, NULL_TREE);
 
@@ -778,15 +778,30 @@ build_concept_check (tree decl, tree arg, tree rest, tsubst_flags_t complain)
   return error_mark_node;
 }
 
-/* Build a concept check with a with a wildcard as the first 
-   template argument.  */
+/* Build a template-id that can participate in a concept check.  */
 
 tree
-build_wildcard_concept_check (tree decl, tree args)
+build_concept_id (tree decl, tree args)
 {
-  tree place = build_nt (WILDCARD_DECL);
-  return build_concept_check (decl, place, args, tf_none);
+  tree check = build_concept_check (decl, args, tf_none);
+  if (check == error_mark_node)
+    return error_mark_node;
+  return unpack_concept_check (check);
 }
+
+/* Build as template-id with a placeholder that can be used as a
+   type constraint.  */
+
+tree
+build_type_constraint (tree decl, tree args)
+{
+  tree wildcard = build_nt (WILDCARD_DECL);
+  tree check = build_concept_check (decl, wildcard, args, tf_none);
+  if (check == error_mark_node)
+    return error_mark_node;
+  return unpack_concept_check (check);
+}
+
 
 /* Returns a TYPE_DECL that contains sufficient information to
    build a template parameter of the same kind as PROTO and

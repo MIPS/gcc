@@ -16434,11 +16434,11 @@ cp_parser_template_id (cp_parser *parser,
   else if (concept_definition_p (templ))
     {
       /* Try building an actual concept check as an expression.  */
-      template_id = build_concept_check (templ, arguments, tf_none);
+      template_id = build_concept_id (templ, arguments);
 
       /* If that failed, then this is probably a type constraint.  */
       if (template_id == error_mark_node)
-	template_id = build_wildcard_concept_check (templ, arguments);
+	template_id = build_type_constraint (templ, arguments);
 
 #if OLD_CONCEPTS
       /* The template-id could name a concept. Note that this can
@@ -23406,7 +23406,8 @@ cp_parser_class_name (cp_parser *parser,
     }
   else if (flag_concepts && concept_check_p (decl))
     {
-      /* A complete concept check is not a type name.  */
+      /* A concept-id is not a type name, but it may be part of one
+         as a type constraint.  */
       gcc_assert (TREE_CODE (decl) == TEMPLATE_ID_EXPR);
       tree tmpl = TREE_OPERAND (decl, 0);
       tree args = TREE_OPERAND (decl, 1);

@@ -7549,9 +7549,12 @@ extern tree build_constraints                   (tree, tree);
 extern tree get_template_head_requirements	(tree);
 extern tree get_trailing_function_requirements	(tree);
 extern tree get_shorthand_constraints           (tree);
+
+extern tree build_concept_id			(tree, tree);
+extern tree build_type_constraint		(tree, tree);
 extern tree build_concept_check                 (tree, tree, tsubst_flags_t);
 extern tree build_concept_check                 (tree, tree, tree, tsubst_flags_t);
-extern tree build_wildcard_concept_check	(tree, tree);
+
 extern tree_pair finish_type_constraints	(tree, tree);
 extern tree build_constrained_parameter         (tree, tree, tree = NULL_TREE);
 extern void placeholder_extract_concept_and_args (tree, tree&, tree&);
