@@ -529,7 +529,16 @@ _cpp_find_file (cpp_reader *pfile, const char *fname, cpp_dir *start_dir,
   /* First check the cache before we resort to memory allocation.  */
   entry = search_cache ((struct cpp_file_hash_entry *) *hash_slot, start_dir);
   if (entry)
-    return entry->u.file;
+    {
+      file = entry->u.file;
+
+      /* This file could have previously been not found but the error
+	 ignored, for example, to handle __has_include().  */
+      if (file->err_no)
+	open_file_failed (pfile, file, angle_brackets, loc);
+
+      return file;
+    }
 
   file = make_cpp_file (pfile, start_dir, fname);
   file->implicit_preinclude
