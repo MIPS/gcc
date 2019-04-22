@@ -15788,12 +15788,6 @@ finish_constrained_parameter (cp_parser *parser,
   tree def = parmdecl->default_argument;
   tree proto = DECL_INITIAL (decl);
 
-  /* A template parameter constrained by a variadic concept shall also
-     be declared as a template parameter pack.  */
-  bool is_variadic = template_parameter_pack_p (proto);
-  if (is_variadic && !*is_parameter_pack)
-    cp_parser_error (parser, "variadic constraint introduced without %<...%>");
-
   /* Build the parameter. Return an error if the declarator was invalid. */
   tree parm;
   if (TREE_CODE (proto) == TYPE_DECL)
