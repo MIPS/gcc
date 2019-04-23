@@ -3781,8 +3781,8 @@ public:
     return get_response (state->from_loc) > 0 ? cmi_response (state) : NULL;
   }
 
-  bool translate_include (location_t, const char *fname, bool angle_p,
-                          const char *path, size_t path_len);
+  const char *translate_include (location_t, const char *fname, bool angle_p,
+                                 const char *path, size_t path_len);
 public:
   /* After a response that may be corked, eat blank lines until it is
      uncorked.  */
@@ -12420,15 +12420,16 @@ module_mapper::export_done (const module_state *state)
 }
 
 /* Include translation.  Query if PATH should be turned into a header
-   import.  Return false if it should remain a #include, true
-   otherwise.  */
+   import.  Return false @@ TODO if it should remain a #include, true
+   otherwise.  If READER is non-NULL, do the translation by pushing a
+   buffer containing the translation text (ending in two \n's).  */
 
-bool
+const char *
 module_mapper::translate_include (location_t loc,
                                   const char *fname, bool angle,
                                   const char *path, size_t path_len)
 {
-  bool xlate = false;
+  const char *res = path;
 
   timevar_start (TV_MODULE_MAPPER);
   if (mapper->is_server ())
@@ -12437,19 +12438,22 @@ module_mapper::translate_include (location_t loc,
                     angle ? '<' : '"', fname, angle ? '>' : '"',
                     path);
       if (get_response (loc) <= 0)
-	return false;
+	return path;
 
-      switch (response_word (loc, "IMPORT", "TEXT", NULL))
+      switch (response_word (loc, "IMPORT", "TEXT", "SEARCH", NULL))
 	{
 	default:
 	  break;
 
 	case 0:  /* Divert to import.  */
-	  xlate = true;
+	  res = NULL;
 	  break;
 
 	case 1:  /* Treat as include.  */
 	  break;
+        case 2:  /* Re-search. */
+          res = fname;
+          break;
 	}
       response_eol (loc);
     }
@@ -12457,11 +12461,12 @@ module_mapper::translate_include (location_t loc,
     {
       tree name = build_string (path_len, path);
 
-      xlate = get_module_slot (name, NULL, false, false) != NULL;
+      if (get_module_slot (name, NULL, false, false) != NULL)
+        res = NULL;
     }
   timevar_stop (TV_MODULE_MAPPER);
 
-  return xlate;
+  return res;
 }
 
 /* If THIS is the current purview, issue an import error and return false.  */
@@ -17213,7 +17218,7 @@ module_map_header (cpp_reader *reader, location_t loc, bool search,
 
 /* Figure out whether to treat HEADER as an include or an import.  */
 
-bool
+const char *
 module_translate_include (cpp_reader *reader, line_maps *lmaps, location_t loc,
 			  const char *name, bool angle, const char *path)
 {
@@ -17221,29 +17226,34 @@ module_translate_include (cpp_reader *reader, line_maps *lmaps, location_t loc,
     {
       /* Turn off.  */
       cpp_get_callbacks (reader)->translate_include = NULL;
-      return false;
+      return path;
     }
 
   if (!spans.init_p ())
     /* Before the main file, don't divert.  */
-    return false;
+    return path;
 
   dump.push (NULL);
 
   dump (dumper::MAPPER) && dump ("Checking include translation '%s'", path);
-  bool res = false;
+  const char *res = path;
   module_mapper *mapper = module_mapper::get (loc);
   if (mapper->is_live ())
     {
       size_t len = strlen (path);
+      /*
+        @@ TODO: perhaps we don't need this anymore? If we do, then it
+           will definitely need to be adjusted for the new return value
+           semantics.
       path = canonicalize_header_name (NULL, loc, true, path, len);
+      */
       res = mapper->translate_include (loc, name, angle, path, len);
 
       bool note = false;
 
       if (note_include_translate < 0)
 	note = true;
-      else if (note_include_translate > 0 && res)
+      else if (note_include_translate > 0 && !res)
 	note = true;
       else if (note_includes)
 	{
@@ -17259,14 +17269,14 @@ module_translate_include (cpp_reader *reader, line_maps *lmaps, location_t loc,
 
       if (note)
 	inform (loc, res
-		? G_("include %qs translated to import")
-		: G_("include %qs processed textually") , path);
+		? G_("include %qs processed textually")
+		: G_("include %qs translated to import"), path);
     }
 
-  dump (dumper::MAPPER) && dump (res ? "Translating include to import"
-				 : "Keeping include as include");
-
-  if (res)
+  /* @@ TODO */
+  dump (dumper::MAPPER) && dump (res ? "Keeping include as include"
+                                 : "Translating include to import");
+  if (!res)
     {
       size_t len = strlen (path);
 

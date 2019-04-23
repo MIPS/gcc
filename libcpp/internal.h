@@ -678,8 +678,8 @@ extern void _cpp_destroy_hashtable (cpp_reader *);
 
 /* In files.c */
 typedef struct _cpp_file _cpp_file;
-extern _cpp_file *_cpp_find_file (cpp_reader *, const char *, cpp_dir *,
-				  bool, int, bool, location_t);
+extern _cpp_file *_cpp_find_file (cpp_reader *, _cpp_file *, const char *,
+                                  cpp_dir *, bool, int, bool, location_t);
 extern int _cpp_find_failed (_cpp_file *);
 extern const char *_cpp_found_name (_cpp_file *);
 extern void _cpp_mark_file_once_only (cpp_reader *, struct _cpp_file *);
@@ -697,8 +697,9 @@ extern bool _cpp_save_file_entries (cpp_reader *pfile, FILE *f);
 extern bool _cpp_read_file_entries (cpp_reader *, FILE *);
 extern const char *_cpp_get_file_name (_cpp_file *);
 extern struct stat *_cpp_get_file_stat (_cpp_file *);
-extern _cpp_file *_cpp_has_header (cpp_reader *, const char *, cpp_dir *,
-                                   int, enum include_type, location_t);
+extern _cpp_file *_cpp_has_header (cpp_reader *, _cpp_file *, const char *,
+                                   cpp_dir *, int, enum include_type,
+                                   location_t);
 
 /* In expr.c */
 extern bool _cpp_parse_expr (cpp_reader *, bool);

@@ -638,7 +638,7 @@ cpp_read_main_file (cpp_reader *pfile, const char *fname, bool unlined)
     pfile->deps = deps_init ();
 
   pfile->main_file
-    = _cpp_find_file (pfile, fname,
+    = _cpp_find_file (pfile, NULL, fname,
 		      // FIXME: We should expose an enum
 		      CPP_OPTION (pfile, preprocessed)
 		      || CPP_OPTION (pfile, main_search) == 0
