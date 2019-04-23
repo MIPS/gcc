@@ -688,11 +688,16 @@ struct cpp_callbacks
      expansions.  */
   const char *(*remap_filename) (const char*);
 
-  /* Maybe translate a #include into something else.  Push a
-     cpp_buffer containing the translation and return true if
-     translating.  */
-  bool (*translate_include) (cpp_reader *, line_maps *, location_t,
-			     const char *name, bool angle_p, const char *path);
+  /* Maybe re-search a #include to a different path or translate it into
+     something else entirely.  Return the original path if no re-search or
+     translation is required, the original name to re-search, or push a
+     cpp_buffer containing the translation and return NULL.  Note that this
+     callback is called even if the file was not found, in which case the path
+     will be empty, and the missing_header callback is called before this
+     callback with its result, if any, passed as path.  */
+  const char *(*translate_include) (cpp_reader *, line_maps *, location_t,
+                                    const char *name, bool angle_p,
+                                    const char *path);
 };
 
 #ifdef VMS

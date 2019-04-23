@@ -2231,7 +2231,7 @@ parse_has_include (cpp_reader *pfile, enum include_type type)
     {
       int angle_brackets = (bracket ? 1 : 0);
 
-      if (_cpp_find_failed (_cpp_has_header (pfile, fname, NULL,
+      if (_cpp_find_failed (_cpp_has_header (pfile, NULL, fname, NULL,
 					     angle_brackets, type,
 					     loc)) != ENOENT)
 	result.low = 1;

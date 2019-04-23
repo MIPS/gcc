@@ -3430,7 +3430,7 @@ public:
   {
     return get_response (state->from_loc) > 0 ? bmi_response (state) : NULL;
   }
-  bool translate_include (location_t, const char *, bool, const char *);
+  const char *translate_include (location_t, const char *, bool, const char *);
 
 public:
   /* After a response that may be corked, eat blank lines until it is
@@ -10255,16 +10255,16 @@ module_mapper::export_done (const module_state *state)
 }
 
 /* Include translation.  Query if PATH should be turned into a header
-   import.  Return false if it should remain a #include, true
+   import.  Return false @@ TODO if it should remain a #include, true
    otherwise.  If READER is non-NULL, do the translation by pushing a
    buffer containing the translation text (ending in two \n's).  */
 
-bool
+const char *
 module_mapper::translate_include (location_t loc,
                                   const char *fname, bool angle,
                                   const char *path)
 {
-  bool xlate = false;
+  const char *res = path;
 
   if (mapper->is_server ())
     {
@@ -10272,17 +10272,20 @@ module_mapper::translate_include (location_t loc,
                     angle ? '<' : '"', fname, angle ? '>' : '"',
                     path);
       if (get_response (loc) <= 0)
-	return false;
+	return path;
 
-      switch (response_word (loc, "IMPORT", "TEXT", NULL))
+      switch (response_word (loc, "IMPORT", "TEXT", "SEARCH", NULL))
 	{
 	default:
 	  break;
 	case 0:  /* Divert to import.  */
-	  xlate = true;
+	  res = NULL;
 	  break;
 	case 1:  /* Treat as include.  */
 	  break;
+        case 2:  /* Re-search. */
+          res = fname;
+          break;
 	}
       response_eol (loc);
     }
@@ -10292,10 +10295,11 @@ module_mapper::translate_include (location_t loc,
 	 will pessimize modul lookup from the parser.  */
       tree name = get_identifier (path);
 
-      xlate = get_module_slot (name, NULL, false, false) != NULL;
+      if (get_module_slot (name, NULL, false, false) != NULL)
+        res = NULL;
     }
 
-  return xlate;
+  return res;
 }
 
 /* If this is an alias, return the aliased module after transferring
@@ -14563,7 +14567,7 @@ module_map_header (cpp_reader *reader, location_t loc, bool search,
 
 /* Figure out whether to treat HEADER as an include or an import.  */
 
-bool
+const char *
 module_translate_include (cpp_reader *reader, line_maps *lmaps, location_t loc,
 			  const char *name, bool angle, const char *path)
 {
@@ -14571,29 +14575,36 @@ module_translate_include (cpp_reader *reader, line_maps *lmaps, location_t loc,
     {
       /* Turn off.  */
       cpp_get_callbacks (reader)->translate_include = NULL;
-      return false;
+      return path;
     }
 
   if (!spans.init_p ())
     /* Before the main file, don't divert.  */
-    return false;
+    return path;
 
   dump.push (NULL);
 
   dump () && dump ("Checking include translation '%s'", path);
-  bool res = false;
+  const char *res = path;
   module_mapper *mapper = module_mapper::get (loc);
   if (mapper->is_live ())
     {
+      /*
+        @@ TODO: perhaps we don't need this anymore? If we do, then it
+           will definitely need to be adjusted for the new return value
+           semantics.
+
       size_t len = strlen (path);
       path = canonicalize_header_name (NULL, loc, true, path, len);
+      */
       res = mapper->translate_include (loc, name, angle, path);
     }
 
-  dump () && dump (res ? "Translating include to import"
-		   : "Keeping include as include");
+  /* @@ TODO */
+  dump () && dump (res ? "Keeping include as include"
+		   : "Translating include to import");
 
-  if (res)
+  if (!res)
     {
       size_t len = strlen (path);
 

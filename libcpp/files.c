@@ -173,7 +173,7 @@ struct file_hash_entry_pool
 static bool open_file (_cpp_file *file);
 static bool pch_open_file (cpp_reader *pfile, _cpp_file *file,
 			   bool *invalid_pch);
-static bool find_file_in_dir (cpp_reader *pfile, _cpp_file *file,
+static bool find_file_in_dir (cpp_reader *pfile, _cpp_file *file, bool retry,
 			      bool *invalid_pch, location_t loc);
 static bool read_file_guts (cpp_reader *pfile, _cpp_file *file,
 			    location_t loc);
@@ -370,15 +370,16 @@ maybe_shorter_path (const char * file)
     }
 }
 
-/* Try to open the path FILE->name appended to FILE->dir.  This is
-   where remap and PCH intercept the file lookup process.  Return true
-   if the file was found, whether or not the open was successful.
-   Set *INVALID_PCH to true if a PCH file is found but wasn't valid.
-   Use LOC when emitting any diagnostics.  */
+/* Try to open the path FILE->name appended to FILE->dir, bypasing the
+   nonexistent file hashtable lookup if RETRY is true.  This is where remap
+   and PCH intercept the file lookup process.  Return true if the file was
+   found, whether or not the open was successful.  Set *INVALID_PCH to true if
+   a PCH file is found but wasn't valid.  Use LOC when emitting any
+   diagnostics.  */
 
 static bool
-find_file_in_dir (cpp_reader *pfile, _cpp_file *file, bool *invalid_pch,
-		  location_t loc)
+find_file_in_dir (cpp_reader *pfile, _cpp_file *file, bool retry,
+		  bool *invalid_pch, location_t loc)
 {
   char *path;
 
@@ -416,7 +417,8 @@ find_file_in_dir (cpp_reader *pfile, _cpp_file *file, bool *invalid_pch,
 	}
 
       hv = htab_hash_string (path);
-      if (htab_find_with_hash (pfile->nonexistent_file_hash, path, hv) != NULL)
+      if (!retry &&
+	  htab_find_with_hash (pfile->nonexistent_file_hash, path, hv))
 	{
 	  file->err_no = ENOENT;
 	  return false;
@@ -485,9 +487,11 @@ _cpp_find_failed (_cpp_file *file)
   return file->err_no;
 }
 
-/* Given a filename FNAME search for such a file in the include path
-   starting from START_DIR.  If FNAME is the empty string it is
-   interpreted as STDIN if START_DIR is PFILE->no_search_path.
+/* Given a filename FNAME search for such a file in the include path starting
+   from START_DIR.  If RETRY is not NULL, then retry the previous (successful
+   or unsuccessful) search reusing the passed file entry.  If FNAME is the
+   empty string it is interpreted as STDIN if START_DIR is
+   PFILE->no_search_path.
 
    If the file is not found in the file cache fall back to the O/S and
    add the result to our cache.
@@ -506,13 +510,13 @@ _cpp_find_failed (_cpp_file *file)
    Use LOC as the location for any errors.  */
 
 _cpp_file *
-_cpp_find_file (cpp_reader *pfile, const char *fname, cpp_dir *start_dir,
-		bool fake, int angle_brackets, bool implicit_preinclude,
-		location_t loc)
+_cpp_find_file (cpp_reader *pfile, _cpp_file *retry, const char *fname,
+		cpp_dir *start_dir, bool fake, int angle_brackets,
+		bool implicit_preinclude, location_t loc)
 {
   struct cpp_file_hash_entry *entry;
-  void **hash_slot;
-  _cpp_file *file;
+  struct cpp_file_hash_entry **hash_slot;
+  _cpp_file *file = NULL;
   bool invalid_pch = false;
   bool saw_bracket_include = false;
   bool saw_quote_include = false;
@@ -522,35 +526,87 @@ _cpp_find_file (cpp_reader *pfile, const char *fname, cpp_dir *start_dir,
   if (start_dir == NULL)
     cpp_error_at (pfile, CPP_DL_ICE, loc, "NULL directory in find_file");
 
-  hash_slot
-    = htab_find_slot_with_hash (pfile->file_hash, fname,
-				htab_hash_string (fname), INSERT);
+  //fprintf (stderr, "start dir for %s is %p\n", fname, start_dir);
 
-  /* First check the cache before we resort to memory allocation.  */
-  entry = search_cache ((struct cpp_file_hash_entry *) *hash_slot, start_dir);
-  if (entry)
+  hash_slot = (struct cpp_file_hash_entry **)
+    htab_find_slot_with_hash (pfile->file_hash, fname,
+			      htab_hash_string (fname), INSERT);
+  if (!retry)
     {
-      file = entry->u.file;
+      /* First check the cache before we resort to memory allocation.  */
+      entry = search_cache (*hash_slot, start_dir);
+      if (entry)
+	{
+	  file = entry->u.file;
 
-      /* This file could have previously been not found but the error
-	 ignored, for example, to handle __has_include().  */
-      if (file->err_no)
-	open_file_failed (pfile, file, angle_brackets, loc);
+	  /* This file could have previously been not found but the error
+	     ignored, for example, to handle __has_include().  */
+	  if (file->err_no)
+	    open_file_failed (pfile, file, angle_brackets, loc);
 
-      return file;
+	  return file;
+	}
+
+      file = make_cpp_file (pfile, start_dir, fname);
+      file->implicit_preinclude =
+	(implicit_preinclude
+	 || (pfile->buffer
+	     && pfile->buffer->file->implicit_preinclude));
     }
+  else
+    {
+      /* Clean things up so that the rest can be (mostly) the same for both
+	 cases.
 
-  file = make_cpp_file (pfile, start_dir, fname);
-  file->implicit_preinclude
-    = (implicit_preinclude
-       || (pfile->buffer
-	   && pfile->buffer->file->implicit_preinclude));
+	 One thing that we can't easily clean up are potential nonexistent
+	 file hash entries.  Instead, we pass a flag to find_file_in_dir().
+	 This should be harmless since we are the only ones calling this
+	 function which in turn the only place that consults that hash.  */
+
+      /* Remove this file from quote/bracket chains which it may have been
+	 entered to on the previous attempt.  While at it, verify we have
+         an entry for start_dir and it matches retry.  */
+      for (struct cpp_file_hash_entry **pentry (hash_slot); *pentry; )
+	{
+	  struct cpp_dir *dir ((*pentry)->start_dir);
+
+	  if (dir == start_dir)
+	    file = (*pentry)->u.file;
+	  else if (dir == pfile->quote_include ||
+		   dir == pfile->bracket_include)
+	    {
+	      //fprintf (stderr, "removing %s %p from %p\n", fname, retry, dir);
+
+	      /* Unfortunately there is no way to return the entry to the
+		 pool. We could, however, save pointers to the freed entries
+		 and reuse them below when potentially adding things back.  */
+	      *pentry = (*pentry)->next;
+	      continue;
+	    }
+
+	  pentry = &(*pentry)->next;
+	}
+
+      gcc_assert (file == retry);
+
+      /* Get to the state as-if after the make_cpp_file() call above. */
+      if (file->fd != -1)
+	{
+	  close (file->fd);
+	  file->fd = -1;
+	}
+      if (file->path != file->name)
+	free ((void*) file->path);
+      file->path = NULL;
+      file->err_no = 0;
+      file->dir = start_dir;
+    }
 
   if (!fake)
     /* Try each path in the include chain.  */
     for (;;)
       {
-	if (find_file_in_dir (pfile, file, &invalid_pch, loc))
+	if (find_file_in_dir (pfile, file, retry, &invalid_pch, loc))
 	  break;
 
 	file->dir = file->dir->next;
@@ -575,8 +631,8 @@ _cpp_find_file (cpp_reader *pfile, const char *fname, cpp_dir *start_dir,
 		       non-NULL, so store there some non-NULL pointer,
 		       htab_clear_slot will overwrite it
 		       immediately.  */
-		    *hash_slot = file;
-		    htab_clear_slot (pfile->file_hash, hash_slot);
+		    *((void **) hash_slot) = file;
+		    htab_clear_slot (pfile->file_hash, (void **) hash_slot);
 		  }
 		return file;
 	      }
@@ -598,8 +654,8 @@ _cpp_find_file (cpp_reader *pfile, const char *fname, cpp_dir *start_dir,
 		if (*hash_slot == NULL)
 		  {
 		    /* See comment on the above htab_clear_slot call.  */
-		    *hash_slot = file;
-		    htab_clear_slot (pfile->file_hash, hash_slot);
+		    *((void **) hash_slot) = file;
+		    htab_clear_slot (pfile->file_hash, (void **) hash_slot);
 		  }
 		return NULL;
 	      }
@@ -618,36 +674,43 @@ _cpp_find_file (cpp_reader *pfile, const char *fname, cpp_dir *start_dir,
 	else
 	  continue;
 
-	entry
-	  = search_cache ((struct cpp_file_hash_entry *) *hash_slot, file->dir);
-	if (entry)
+	/* If retrying, then we can't possibly find anything since we've
+	   cleaned up all the chains.  */
+	if (!retry)
 	  {
-	    found_in_cache = file->dir;
-	    break;
+	    entry = search_cache (*hash_slot, file->dir);
+	    if (entry)
+	      {
+		found_in_cache = file->dir;
+		break;
+	      }
 	  }
       }
 
-  if (entry)
+  if (!retry)
     {
-      /* Cache for START_DIR too, sharing the _cpp_file structure.  */
-      free ((char *) file->name);
-      free (file);
-      file = entry->u.file;
-    }
-  else
-    {
-      /* This is a new file; put it in the list.  */
-      file->next_file = pfile->all_files;
-      pfile->all_files = file;
-    }
+      if (entry)
+	{
+	  /* Cache for START_DIR too, sharing the _cpp_file structure.  */
+	  free ((char *) file->name);
+	  free (file);
+	  file = entry->u.file;
+	}
+      else
+	{
+	  /* This is a new file; put it in the list.  */
+	  file->next_file = pfile->all_files;
+	  pfile->all_files = file;
+	}
 
-  /* Store this new result in the hash table.  */
-  entry = new_file_hash_entry (pfile);
-  entry->next = (struct cpp_file_hash_entry *) *hash_slot;
-  entry->start_dir = start_dir;
-  entry->location = loc;
-  entry->u.file = file;
-  *hash_slot = (void *) entry;
+      /* Store this new result in the hash table.  */
+      entry = new_file_hash_entry (pfile);
+      entry->next = *hash_slot;
+      entry->start_dir = start_dir;
+      entry->location = loc;
+      entry->u.file = file;
+      *hash_slot = entry;
+    }
 
   /* If we passed the quote or bracket chain heads, cache them also.
      This speeds up processing if there are lots of -I options.  */
@@ -655,23 +718,27 @@ _cpp_find_file (cpp_reader *pfile, const char *fname, cpp_dir *start_dir,
       && pfile->bracket_include != start_dir
       && found_in_cache != pfile->bracket_include)
     {
+      // fprintf (stderr, "adding %s %p to %p (<>)\n", fname, file, pfile->bracket_include);
+
       entry = new_file_hash_entry (pfile);
-      entry->next = (struct cpp_file_hash_entry *) *hash_slot;
+      entry->next = *hash_slot;
       entry->start_dir = pfile->bracket_include;
       entry->location = loc;
       entry->u.file = file;
-      *hash_slot = (void *) entry;
+      *hash_slot = entry;
     }
   if (saw_quote_include
       && pfile->quote_include != start_dir
       && found_in_cache != pfile->quote_include)
     {
+      // fprintf (stderr, "adding %s %p to %p (\"\")\n", fname, file, pfile->quote_include);
+
       entry = new_file_hash_entry (pfile);
-      entry->next = (struct cpp_file_hash_entry *) *hash_slot;
+      entry->next = *hash_slot;
       entry->start_dir = pfile->quote_include;
       entry->location = loc;
       entry->u.file = file;
-      *hash_slot = (void *) entry;
+      *hash_slot = entry;
     }
 
   return file;
@@ -1082,43 +1149,100 @@ _cpp_stack_include (cpp_reader *pfile, const char *fname, int angle_brackets,
   if (!dir)
     return false;
 
-  _cpp_file *file = _cpp_find_file (pfile, fname, dir, false, angle_brackets,
-				    type == IT_DEFAULT, loc);
+  _cpp_file *file = _cpp_has_header (pfile, NULL, fname, dir, angle_brackets,
+				     type, loc);
+
   if (type == IT_DEFAULT && file == NULL)
     return false;
 
-  if (is_known_idempotent_file (pfile, file, type == IT_IMPORT))
+  int err (file->err_no);
+
+  if (!err && is_known_idempotent_file (pfile, file, type == IT_IMPORT))
     return false;
 
-  /* Check C++ module include translation.  */
-  if (!file->header_unit
-      && type < IT_HEADER_HWM
-      && pfile->cb.translate_include
-      && pfile->cb.translate_include (pfile, pfile->line_table, loc,
-				      fname, angle_brackets, file->path))
+  /* Check for include re-search/translation.  */
+  if (!file->header_unit &&
+      type < IT_HEADER_HWM &&
+      pfile->cb.translate_include)
     {
-      // FIXME: should we have just returned the buffer to stack?
-      /* The hook has stacked a buffer containing replacement text
-	 ending in two \n's.  The last \n in the new buffer doesn't
-	 cause a line increment, which is why we wanted 2 of them.
-	 That's much simpler than trying to slide an obstack allocate
-	 fixed buffer under TOS.  */
-      cpp_buffer *buffer = CPP_BUFFER (pfile);
-      gcc_assert (buffer->rlimit[-1] == '\n' && buffer->rlimit[-2] == '\n');
-      buffer->to_free = buffer->buf;
+      /*  If we re-searched an include, call again to see if it needs to
+	  be translated.  */
+      for (;;)
+	{
+	  const char *old_path = err != ENOENT ? file->path : "";
+	  const char *new_path =
+	    pfile->cb.translate_include (pfile, pfile->line_table, loc,
+					 fname, angle_brackets, old_path);
+	  if (!new_path)
+	    {
+	      /* Translating a header we couldn't find does not make sense (we
+		 will fail below anyway).  */
+	      gcc_assert (err != ENOENT);
 
-      file->header_unit = +1;
-      _cpp_mark_file_once_only (pfile, file);
+	      // FIXME: should we have just returned the buffer to stack?
+	      /* The hook has stacked a buffer containing replacement text
+		 ending in two \n's.  The last \n in the new buffer doesn't
+		 cause a line increment, which is why we wanted 2 of them.
+		 That's much simpler than trying to slide an obstack allocate
+		 fixed buffer under TOS.  */
+	      cpp_buffer *buf = CPP_BUFFER (pfile);
+	      gcc_assert (buf->rlimit[-1] == '\n' && buf->rlimit[-2] == '\n');
+	      buf->to_free = buf->buf;
 
-      // FIXME in preprocessing mode, should we continue with the
-      // include in a directives-only mode, completely eliding
-      // non-directive lines?
-      //
-      // But that wouldn't be conforming because there is no isolation from
-      // macros (and providing such an isolation opens another can of worms;
-      // see http://www.open-std.org/pipermail/tooling/2019-April/000653.html).
-      // So maybe it's simpler to just load the BMI?
+	      file->header_unit = +1;
+	      _cpp_mark_file_once_only (pfile, file);
+
+	      // FIXME in preprocessing mode, should we continue with the
+	      // include in a directives-only mode, completely eliding
+	      // non-directive lines?
+	      //
+	      // But that wouldn't be conforming because there is no isolation
+	      // from macros (and providing such an isolation opens another
+	      // can of worms; see:
+	      // http://www.open-std.org/pipermail/tooling/2019-April/000653.html).
+	      // So maybe it's simpler to just load the BMI?
+	    }
+	  else if (new_path == fname)
+	    {
+	      /* The motivating use-case we want to handle is this: based on
+		 the dependency information the caller detects a missing
+		 header (-MG) or a header that came from the wrong location
+		 (for example, because the generated header does not yet exist
+		 in the correct location), generates the header, and restarts
+		 the compiler.  We want to handle that but without the
+		 compiler restart.  */
+
+	      file = _cpp_has_header (pfile, file, fname, dir, angle_brackets,
+				      type, loc);
+
+	      err = file->err_no;
+
+	      if (!err &&
+		  is_known_idempotent_file (pfile, file, type == IT_IMPORT))
+		return false;
+
+	      if (err != ENOENT)
+		continue;
+	    }
+	  else
+	    {
+	      /* In the future this could be the re-mapping functionality
+		 where the callback returns the new path.  The difficult part
+		 about supporting something like this would be the need to
+		 reverse-map the returned path to cpp_dir (we need it for
+		 things like include_next, sysp, etc., to all work properly).
+		 And it seems the only way to do this reliably is to search
+		 for files like _cpp_find_file() does and see if one of them
+		 matches the returned path in the same heavy-handed way as
+		 #pragma once does it (comparing file contents, etc).  */
+	      gcc_assert (new_path == old_path);
+	    }
+	  break;
+	}
     }
+
+  if (err)
+    open_file_failed (pfile, file, angle_brackets, loc);
 
   return _cpp_stack_file (pfile, file, type, loc);
 }
@@ -1133,7 +1257,8 @@ cpp_find_header_unit (cpp_reader *pfile, const char *name, bool angle,
   if (!dir)
     return NULL;
 
-  _cpp_file *file = _cpp_find_file (pfile, name, dir, false, angle, false, loc);
+  _cpp_file *file =
+    _cpp_find_file (pfile, NULL, name, dir, false, angle, false, loc);
   if (!file)
     return NULL;
 
@@ -1478,7 +1603,8 @@ cpp_clear_file_cache (cpp_reader *pfile)
 void
 _cpp_fake_include (cpp_reader *pfile, const char *fname)
 {
-  _cpp_find_file (pfile, fname, pfile->buffer->file->dir, true, 0, false, 0);
+  _cpp_find_file (pfile, NULL, fname, pfile->buffer->file->dir,
+		  true, 0, false, 0);
 }
 
 /* Not everyone who wants to set system-header-ness on a buffer can
@@ -1596,7 +1722,10 @@ _cpp_compare_file_date (cpp_reader *pfile, const char *fname,
   if (!dir)
     return -1;
 
-  file = _cpp_find_file (pfile, fname, dir, false, angle_brackets, false, 0);
+  /* FIXME: _cpp_has_header() seems more appropriate here because it does
+     not fail if header is not found.  */
+  file = _cpp_find_file (pfile, NULL, fname, dir, false, angle_brackets,
+			 false, 0);
   if (file->err_no)
     return -1;
 
@@ -2132,21 +2261,23 @@ check_file_against_entries (cpp_reader *pfile ATTRIBUTE_UNUSED,
 }
 
 /* Check if the file FNAME is found in the appropriate include file path as
-   indicated by ANGLE_BRACKETS. Use _cpp_find_failed() to check the result.
-   If START_DIR is NULL, then use the default search head.  */
+   indicated by ANGLE_BRACKETS.  If RETRY is not NULL, then reuse the passed
+   file entry.  If START_DIR is NULL, then use the default search head for
+   this include style and type.  Return the file entry which can be queried
+   with _cpp_find_failed().  */
 
 _cpp_file *
-_cpp_has_header (cpp_reader *pfile, const char *fname, cpp_dir *start_dir,
-		 int angle_brackets, enum include_type type, location_t loc)
+_cpp_has_header (cpp_reader *pfile, _cpp_file *retry, const char *fname,
+		 cpp_dir *start_dir, int angle_brackets,
+		 enum include_type type, location_t loc)
 {
   if (!start_dir)
     start_dir = search_path_head (pfile, fname, angle_brackets, type);
 
   pfile->state.in__has_include__++;
 
-  _cpp_file *file = _cpp_find_file (pfile, fname, start_dir,
-				    /*fake=*/false, angle_brackets,
-				    type == IT_DEFAULT, loc);
+  _cpp_file *file = _cpp_find_file (pfile, retry, fname, start_dir, false,
+				    angle_brackets, type == IT_DEFAULT, loc);
   pfile->state.in__has_include__--;
 
   return file;
