@@ -202,6 +202,14 @@
     BIND_OUTPUT_P0_P3;			\
   }
 
+#define TEST_P_SINGLE(NAME, CODE)	\
+  START (NAME)				\
+  {					\
+    BIND_INPUT_P0_P3;			\
+    CODE;				\
+    BIND_OUTPUT_P0_P3;			\
+  }
+
 #define TEST_S(NAME, ZTYPE, STYPE, CODE1)			\
   START (NAME)							\
   {								\

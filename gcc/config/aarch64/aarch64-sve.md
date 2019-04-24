@@ -4048,3 +4048,147 @@
    movprfx\t%0, %3\;<sur>dot\\t%0.<Vetype>, %1.<Vetype_fourth>, %2.<Vetype_fourth>"
   [(set_attr "movprfx" "*,yes")]
 )
+
+;; FFR handling
+;; ------------
+;;
+;; Logically we want to divide FFR-related instructions into regions
+;; that contain exactly one of:
+;;
+;; - a single write to the FFR
+;; - any number of reads from the FFR (but only one read is likely)
+;; - any number of LDFF1 and LDNF1 instructions
+;;
+;; However, LDFF1 and LDNF1 instructions should otherwise behave like
+;; normal loads as far as possible.  This means that they should be
+;; schedulable within a region in the same way that LD1 would be,
+;; and they should be deleted as dead if the result is unused.  The loads
+;; should therefore not write to the FFR, since that would both serialize
+;; the loads with respect to each other and keep the loads live for any
+;; later RDFFR.
+;;
+;; We get around this by using a fake "FFR token" (FFRT) to help describe
+;; the dependencies.  Writing to the FFRT starts a new "FFRT region",
+;; while using the FFRT keeps the instruction within its region.
+;; Specifically:
+;;
+;; - Writes start a new FFRT region as well as setting the FFR:
+;;
+;;       W1: parallel (FFRT = <new value>, FFR = <actual FFR value>)
+;;
+;; - Loads use an LD1-like instruction that also uses the FFRT, so that the
+;;   loads stay within the same FFRT region:
+;;
+;;       L1: load data while using the FFRT
+;;
+;;   In addition, any FFRT region that includes a load also has at least one
+;;   instance of:
+;;
+;;       L2: FFR = update(FFR, FFRT)  [ghost instruction]
+;;
+;;   to make it clear that the region both reads from and writes to the FFR.
+;;
+;; - Reads do the following:
+;;
+;;       R1: FFRT = FFR               [ghost instruction]
+;;       R2: read from the FFRT
+;;       R3: FFRT = update(FFRT)      [ghost instruction]
+;;
+;;   R1 and R3 both create new FFRT regions, so that previous LDFF1s and
+;;   LDNF1s cannot move forwards across R1 and later LDFF1s and LDNF1s
+;;   cannot move backwards across R3.
+;;
+;; This way, writes are only kept alive by later loads or reads,
+;; and write/read pairs fold normally.  For two consecutive reads,
+;; the first R3 is made dead by the second R1, which in turn becomes
+;; redundant with the first R1.  We then have:
+;;
+;;     first R1: FFRT = FFR
+;;     first read from the FFRT
+;;     second read from the FFRT
+;;     second R3: FFRT = update(FFRT)
+;;
+;; i.e. the two FFRT regions collapse into a single one with two
+;; independent reads.
+;;
+;; The model still prevents some valid optimizations though.  For example,
+;; if all loads in an FFRT region are deleted as dead, nothing would remove
+;; the L2 instructions.
+
+;; [W1 above] Write to the FFR and start a new FFRT scheduling region.
+(define_insn "aarch64_wrffr"
+  [(set (reg:VNx16BI FFR_REGNUM)
+	(match_operand:VNx16BI 0 "aarch64_simd_reg_or_minus_one" "Dm, Upa"))
+   (set (reg:VNx16BI FFRT_REGNUM)
+	(match_dup 0))]
+  "TARGET_SVE"
+  "@
+   setffr
+   wrffr\t%0.b"
+)
+
+;; [L2 above] Introduce a read from and write to the FFR in the current
+;; FFRT region, so that the FFR value is live on entry to the region and
+;; so that the FFR value visibly changes within the region.  This is used
+;; (possibly multiple times) in an FFRT region that includes LDFF1 or LDNF1
+;; instructions.
+(define_insn "aarch64_update_ffr_for_load"
+  [(set (reg:VNx16BI FFR_REGNUM)
+	(unspec:VNx16BI [(reg:VNx16BI FFRT_REGNUM)
+			 (reg:VNx16BI FFR_REGNUM)] UNSPEC_UPDATE_FFR))]
+  "TARGET_SVE"
+  ""
+  [(set_attr "type" "ghost")]
+)
+
+;; [R1 above] Notionally copy the FFR to the FFRT, so that the current
+;; FFR value can be read from there by the RDFFR instructions below.
+;; This acts as a scheduling barrier for earlier LDFF1 and LDNF1
+;; instructions and creates a natural dependency with earlier writes.
+(define_insn "aarch64_copy_ffr_to_ffrt"
+  [(set (reg:VNx16BI FFRT_REGNUM)
+	(reg:VNx16BI FFR_REGNUM))]
+  "TARGET_SVE"
+  ""
+  [(set_attr "type" "ghost")]
+)
+
+;; [R2 above] Read the FFR via the FFRT.
+(define_insn "aarch64_rdffr"
+  [(set (match_operand:VNx16BI 0 "register_operand" "=Upa")
+	(reg:VNx16BI FFRT_REGNUM))]
+  "TARGET_SVE"
+  "rdffr\t%0.b"
+)
+
+;; Likewise with zero predication.
+(define_insn "aarch64_rdffr_z"
+  [(set (match_operand:VNx16BI 0 "register_operand" "=Upa")
+	(and:VNx16BI
+	  (reg:VNx16BI FFRT_REGNUM)
+	  (match_operand:VNx16BI 1 "register_operand" "Upa")))]
+  "TARGET_SVE"
+  "rdffr\t%0.b, %1/z"
+)
+
+;; [R3 above] Arbitrarily update the FFRT after a read from the FFR.
+;; This acts as a scheduling barrier for later LDFF1 and LDNF1 instructions.
+(define_insn "aarch64_update_ffrt"
+  [(set (reg:VNx16BI FFRT_REGNUM)
+	(unspec:VNx16BI [(reg:VNx16BI FFRT_REGNUM)] UNSPEC_UPDATE_FFRT))]
+  "TARGET_SVE"
+  ""
+  [(set_attr "type" "ghost")]
+)
+
+;; Contiguous non-extending first-faulting loads.
+(define_insn "@aarch64_ldff1<mode>"
+  [(set (match_operand:SVE_ALL 0 "register_operand" "=w")
+	(unspec:SVE_ALL
+	  [(match_operand:<VPRED> 2 "register_operand" "Upl")
+	   (match_operand:SVE_ALL 1 "aarch64_sve_ldff1_operand" "Utf")
+	   (reg:VNx16BI FFRT_REGNUM)]
+	  UNSPEC_LDFF1))]
+  "TARGET_SVE"
+  "ldff1<Vesize>\t%0.<Vetype>, %2/z, %1"
+)

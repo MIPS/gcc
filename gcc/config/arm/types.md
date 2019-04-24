@@ -83,6 +83,9 @@
 ; fmov               floating point to floating point register move.
 ; fmul[d,s]          double/single floating point multiply.
 ; fsqrt[d,s]         double/single precision floating point square root.
+; ghost              a pseudo-instruction that produces no executable code
+;                    and thus has length 0.  These instructions can be
+;                    useful for things like barriers.
 ; load_acq           load-acquire.
 ; load_byte          load 1 byte from memory.
 ; load_4             load 4 bytes from memory.
@@ -613,6 +616,7 @@
   fmuls,\
   fsqrts,\
   fsqrtd,\
+  ghost,\
   load_acq,\
   load_byte,\
   load_4,\

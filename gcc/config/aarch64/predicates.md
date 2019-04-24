@@ -477,6 +477,10 @@
 	    (match_test "op == const0_rtx")
 	    (match_operand 0 "aarch64_simd_or_scalar_imm_zero"))))
 
+(define_predicate "aarch64_simd_reg_or_minus_one"
+  (ior (match_operand 0 "register_operand")
+       (match_operand 0 "aarch64_simd_imm_minus_one")))
+
 (define_predicate "aarch64_simd_struct_operand"
   (and (match_code "mem")
        (match_test "TARGET_SIMD && aarch64_simd_mem_operand_p (op)")))
@@ -558,6 +562,10 @@
 (define_predicate "aarch64_sve_ld1r_operand"
   (and (match_operand 0 "memory_operand")
        (match_test "aarch64_sve_ld1r_operand_p (op)")))
+
+(define_predicate "aarch64_sve_ldff1_operand"
+  (and (match_operand 0 "memory_operand")
+       (match_test "aarch64_sve_ldff1_operand_p (op)")))
 
 ;; Like memory_operand, but restricted to addresses that are valid for
 ;; SVE LDR and STR instructions.

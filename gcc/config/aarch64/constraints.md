@@ -254,6 +254,12 @@
 						  true,
 						  ADDR_QUERY_LDP_STP_N)")))
 
+(define_memory_constraint "Utf"
+  "@internal
+   An address valid for SVE LDFF1 instructions."
+  (and (match_code "mem")
+       (match_test "aarch64_sve_ldff1_operand_p (op)")))
+
 (define_memory_constraint "Utr"
   "@internal
    An address valid for SVE LDR and STR instructions (as distinct from

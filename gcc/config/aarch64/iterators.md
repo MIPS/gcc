@@ -513,6 +513,7 @@
     UNSPEC_COND_GT	; Used in aarch64-sve.md.
     UNSPEC_LASTB	; Used in aarch64-sve.md.
     UNSPEC_ASHIFT_WIDE  ; Used in aarch64-sve.md.
+    UNSPEC_LDFF1	; Used in aarch64-sve.md.
     UNSPEC_FCADD90	; Used in aarch64-simd.md.
     UNSPEC_FCADD270	; Used in aarch64-simd.md.
     UNSPEC_FCMLA	; Used in aarch64-simd.md.

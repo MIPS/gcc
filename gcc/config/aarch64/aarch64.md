@@ -107,6 +107,10 @@
     (P13_REGNUM		81)
     (P14_REGNUM		82)
     (P15_REGNUM		83)
+    (FFR_REGNUM		84)
+    ;; "FFR token": a fake register used for representing the scheduling
+    ;; restrictions on FFR-related operations.
+    (FFRT_REGNUM	85)
     ;; Scratch register used by stack clash protection to calculate
     ;; SVE CFA offsets during probing.
     (STACK_CLASH_SVE_CFA_REGNUM 11)
@@ -232,6 +236,10 @@
     UNSPEC_SPECULATION_TRACKER
     UNSPEC_COPYSIGN
     UNSPEC_ASRD
+    UNSPEC_UPDATE_FFR
+    UNSPEC_UPDATE_FFRT
+    UNSPEC_RDFFR
+    UNSPEC_WRFFR
 ])
 
 (define_c_enum "unspecv" [
@@ -334,8 +342,10 @@
 
 (define_attr "length" ""
   (cond [(eq_attr "movprfx" "yes")
-           (const_int 8)
-        ] (const_int 4)))
+	   (const_int 8)
+	 (eq_attr "type" "ghost")
+	   (const_int 0)
+	] (const_int 4)))
 
 ;; Strictly for compatibility with AArch32 in pipeline models, since AArch64 has
 ;; no predicated insns.

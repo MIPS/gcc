@@ -217,10 +217,16 @@ enum function_shape {
      sv<t0>_t svfoo[_u64base]_offset_t0(svuint64_t, int64_t).  */
   SHAPE_load_gather_vs,
 
+  /* svbool_t svfoo().  */
+  SHAPE_rdffr,
+
   /* sv<t0>xN_t svfoo[_t0](sv<t0>xN_t, uint64_t, sv<t0>_t).  */
   SHAPE_set2,
   SHAPE_set3,
   SHAPE_set4,
+
+  /* void svfoo().  */
+  SHAPE_setffr,
 
   /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t)
      sv<t0>_t svfoo[_t0](sv<t0>_t, uint64_t).  */
@@ -481,8 +487,10 @@ private:
   void sig_load (const function_instance &, vec<tree> &);
   void sig_load_gather_sv (const function_instance &, vec<tree> &);
   void sig_load_gather_vs (const function_instance &, vec<tree> &);
+  void sig_rdffr (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_set_00i0 (const function_instance &, vec<tree> &);
+  void sig_setffr (const function_instance &, vec<tree> &);
   void sig_00 (const function_instance &, vec<tree> &);
   void sig_n_00 (const function_instance &, vec<tree> &);
   void scalar_sig_000 (const function_instance &, vec<tree> &);
@@ -675,6 +683,7 @@ private:
   rtx expand_ld1_ext (rtx_code);
   rtx expand_ld1_ext_gather (rtx_code);
   rtx expand_ld1_gather ();
+  rtx expand_ldff1 ();
   rtx expand_lsl ();
   rtx expand_lsl_wide ();
   rtx expand_mad (unsigned int);
@@ -702,11 +711,14 @@ private:
   rtx expand_ptrue ();
   rtx expand_qadd ();
   rtx expand_qsub ();
+  rtx expand_rdffr ();
   rtx expand_rev ();
   rtx expand_set ();
+  rtx expand_setffr ();
   rtx expand_sqrt ();
   rtx expand_sub (bool);
   rtx expand_undef ();
+  rtx expand_wrffr ();
 
   rtx expand_pred_op (rtx_code, int, unsigned int = DEFAULT_MERGE_ARGNO);
   rtx expand_signed_pred_op (rtx_code, rtx_code, int,
@@ -730,6 +742,7 @@ private:
   bool try_negating_argument (unsigned int, machine_mode);
   bool overlaps_input_p (rtx);
 
+  bool function_returns_void_p ();
   machine_mode get_mode (unsigned int);
   machine_mode get_quarter_mode (unsigned int);
   machine_mode get_pred_mode (unsigned int);
@@ -914,8 +927,16 @@ static const predication preds_inherent[] = { PRED_inherent, NUM_PREDS };
 /* Used by functions in aarch64-sve-builtins.def that allow merging,
    zeroing and "don't care" predication.  */
 static const predication preds_mxz[] = { PRED_m, PRED_x, PRED_z, NUM_PREDS };
-static const predication preds_mxznone[] = { PRED_m, PRED_x, PRED_z,
-					     PRED_none, NUM_PREDS };
+
+/* Used by functions that have the mxz predicated forms above, and in addition
+   have an unpredicated form.  */
+static const predication preds_mxz_or_none[] = {
+  PRED_m, PRED_x, PRED_z, PRED_none, NUM_PREDS
+};
+
+/* Used by functions that have an unpredicated form and a _z predicated
+   form.  */
+static const predication preds_z_or_none[] = { PRED_z, PRED_none, NUM_PREDS };
 
 /* Used by (mostly predicate) functions that only support "_z" predication.  */
 static const predication preds_z[] = { PRED_z, NUM_PREDS };
@@ -1171,6 +1192,7 @@ function_instance::memory_vector_mode () const
     {
     case FUNC_svld1:
     case FUNC_svld1_gather:
+    case FUNC_svldff1:
       return mode;
 
     case FUNC_svld1sb:
@@ -1217,6 +1239,7 @@ function_instance::memory_scalar_type () const
     {
     case FUNC_svld1:
     case FUNC_svld1_gather:
+    case FUNC_svldff1:
       return scalar_type (0);
 
     case FUNC_svld1sb:
@@ -1473,6 +1496,10 @@ arm_sve_h_builder::build (const function_group &group)
       build_vs_offset (&arm_sve_h_builder::sig_load_gather_vs, group, true);
       break;
 
+    case SHAPE_rdffr:
+      build_all (&arm_sve_h_builder::sig_rdffr, group, MODE_none);
+      break;
+
     case SHAPE_set2:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_set_00i0<2>, group, MODE_none);
@@ -1486,6 +1513,10 @@ arm_sve_h_builder::build (const function_group &group)
     case SHAPE_set4:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_set_00i0<4>, group, MODE_none);
+      break;
+
+    case SHAPE_setffr:
+      build_all (&arm_sve_h_builder::sig_setffr, group, MODE_none);
       break;
 
     case SHAPE_shift_opt_n:
@@ -1798,6 +1829,13 @@ arm_sve_h_builder::sig_load_gather_vs (const function_instance &instance,
     types.quick_push (scalar_types[VECTOR_TYPE_svint64_t]);
 }
 
+/* Describe the signature "svbool_t svfoo()" in TYPES.  */
+void
+arm_sve_h_builder::sig_rdffr (const function_instance &, vec<tree> &types)
+{
+  types.quick_push (get_svbool_t ());
+}
+
 /* Describe the signature
    "sv<t0>xN_t svfoo[_t0](sv<t0>xN_t, uint64_t, sv<t0>_t)"
    for INSTANCE in TYPES.  */
@@ -1810,6 +1848,13 @@ arm_sve_h_builder::sig_set_00i0 (const function_instance &instance,
   types.quick_push (instance.tuple_type (N, 0));
   types.quick_push (scalar_types[VECTOR_TYPE_svuint64_t]);
   types.quick_push (instance.vector_type (0));
+}
+
+/* Describe the signature "void svfoo()" in TYPES.  */
+void
+arm_sve_h_builder::sig_setffr (const function_instance &, vec<tree> &types)
+{
+  types.quick_push (void_type_node);
 }
 
 /* Describe the signature "sv<t0>_t svfoo[_t0](sv<t0>_t)"
@@ -2190,6 +2235,13 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
       if (!flag_non_call_exceptions)
 	attrs = add_attribute ("nothrow", attrs);
       break;
+
+    case FUNC_svldff1:
+    case FUNC_svrdffr:
+    case FUNC_svsetffr:
+    case FUNC_svwrffr:
+      attrs = add_attribute ("nothrow", attrs);
+      break;
     }
   return add_attribute ("leaf", attrs);
 }
@@ -2214,9 +2266,11 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_inherent_count:
     case SHAPE_load:
     case SHAPE_load_gather_sv:
+    case SHAPE_rdffr:
     case SHAPE_set2:
     case SHAPE_set3:
     case SHAPE_set4:
+    case SHAPE_setffr:
     case SHAPE_shift_opt_n:
     case SHAPE_shift_right_imm:
     case SHAPE_ternary_opt_n:
@@ -2325,6 +2379,8 @@ function_resolver::resolve ()
     case SHAPE_inherent3:
     case SHAPE_inherent4:
     case SHAPE_inherent_count:
+    case SHAPE_rdffr:
+    case SHAPE_setffr:
     case SHAPE_unary_pred:
       break;
     case SHAPE_binary_wide:
@@ -3032,6 +3088,8 @@ function_checker::check ()
     case SHAPE_load_ext_gather_offset:
     case SHAPE_load_gather_sv:
     case SHAPE_load_gather_vs:
+    case SHAPE_rdffr:
+    case SHAPE_setffr:
     case SHAPE_shift_opt_n:
     case SHAPE_ternary_opt_n:
     case SHAPE_ternary_qq_opt_n:
@@ -3284,6 +3342,7 @@ gimple_folder::fold ()
     case FUNC_svld1uh_gather:
     case FUNC_svld1uw:
     case FUNC_svld1uw_gather:
+    case FUNC_svldff1:
     case FUNC_svlsl:
     case FUNC_svlsl_wide:
     case FUNC_svmad:
@@ -3309,6 +3368,8 @@ gimple_folder::fold ()
     case FUNC_svorr:
     case FUNC_svqadd:
     case FUNC_svqsub:
+    case FUNC_svrdffr:
+    case FUNC_svsetffr:
     case FUNC_svsqrt:
     case FUNC_svsub:
     case FUNC_svsubr:
@@ -3316,6 +3377,7 @@ gimple_folder::fold ()
        correspondence for SSA_NAMEs, and we explicitly don't want
        to generate a specific value (like an all-zeros vector).  */
     case FUNC_svundef:
+    case FUNC_svwrffr:
       return NULL;
 
     case FUNC_svcntb:
@@ -3678,6 +3740,9 @@ function_expander::expand ()
     case FUNC_svld1uw_gather:
       return expand_ld1_ext_gather (ZERO_EXTEND);
 
+    case FUNC_svldff1:
+      return expand_ldff1 ();
+
     case FUNC_svlsl:
       return expand_lsl ();
 
@@ -3756,6 +3821,9 @@ function_expander::expand ()
     case FUNC_svqsub:
       return expand_qsub ();
 
+    case FUNC_svrdffr:
+      return expand_rdffr ();
+
     case FUNC_svrev:
       return expand_rev ();
 
@@ -3763,6 +3831,9 @@ function_expander::expand ()
     case FUNC_svset3:
     case FUNC_svset4:
       return expand_set ();
+
+    case FUNC_svsetffr:
+      return expand_setffr ();
 
     case FUNC_svsqrt:
       return expand_sqrt ();
@@ -3790,6 +3861,9 @@ function_expander::expand ()
 
     case FUNC_svuzp2:
       return expand_permute (UNSPEC_UZP2);
+
+    case FUNC_svwrffr:
+      return expand_wrffr ();
 
     case FUNC_svzip1:
       return expand_permute (UNSPEC_ZIP1);
@@ -4058,6 +4132,14 @@ function_expander::expand_ld1_gather ()
   machine_mode mem_mode = m_fi.memory_vector_mode ();
   insn_code icode = direct_optab_handler (mask_gather_load_optab, mem_mode);
   return expand_via_exact_insn (icode);
+}
+
+/* Expand a call to svldff1.  */
+rtx
+function_expander::expand_ldff1 ()
+{
+  emit_insn (gen_aarch64_update_ffr_for_load ());
+  return expand_via_load_insn (code_for_aarch64_ldff1 (get_mode (0)));
 }
 
 /* Expand a call to svlsl.  */
@@ -4373,11 +4455,31 @@ function_expander::expand_set ()
   return m_target;
 }
 
+/* Expand a call to svrdffr.  */
+rtx
+function_expander::expand_rdffr ()
+{
+  emit_insn (gen_aarch64_copy_ffr_to_ffrt ());
+  rtx result = expand_via_exact_insn (m_fi.pred == PRED_z
+				      ? CODE_FOR_aarch64_rdffr_z
+				      : CODE_FOR_aarch64_rdffr);
+  emit_insn (gen_aarch64_update_ffrt ());
+  return result;
+}
+
 /* Expand a call to svrev.  */
 rtx
 function_expander::expand_rev ()
 {
   return expand_via_exact_insn (code_for_aarch64_sve_rev (get_mode (0)));
+}
+
+/* Expand a call to svsetffr.  */
+rtx
+function_expander::expand_setffr ()
+{
+  m_args.quick_push (CONSTM1_RTX (VNx16BImode));
+  return expand_wrffr ();
 }
 
 /* Expand a call to svsqrt.  */
@@ -4426,6 +4528,13 @@ function_expander::expand_undef ()
   return m_target;
 }
 
+/* Expand a call to svwrffr.  */
+rtx
+function_expander::expand_wrffr ()
+{
+  return expand_via_exact_insn (CODE_FOR_aarch64_wrffr);
+}
+
 /* Implement the call using optab OP, which is an unpredicated direct
    (i.e. single-mode) optab.  MODE is the mode of the operation,
    or VOIDmode if the mode associated with type suffix 0 is correct.  */
@@ -4444,8 +4553,12 @@ function_expander::expand_via_unpred_direct_optab (optab op,
 rtx
 function_expander::expand_via_exact_insn (insn_code icode)
 {
-  unsigned int nops = insn_data[icode].n_operands - 1;
-  add_output_operand (icode);
+  unsigned int nops = insn_data[icode].n_operands;
+  if (!function_returns_void_p ())
+    {
+      add_output_operand (icode);
+      nops -= 1;
+    }
   for (unsigned int i = 0; i < nops; ++i)
     add_input_operand (icode, m_args[i]);
   return generate_insn (icode);
@@ -4824,6 +4937,13 @@ function_expander::overlaps_input_p (rtx x)
     if (reg_overlap_mentioned_p (x, m_args[i]))
       return true;
   return false;
+}
+
+/* Return true if the function has no return value.  */
+bool
+function_expander::function_returns_void_p ()
+{
+  return TREE_TYPE (TREE_TYPE (m_rfn.decl)) == void_type_node;
 }
 
 /* Return the mode associated with type suffix I.  */

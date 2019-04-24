@@ -11123,6 +11123,23 @@ aarch64_sched_issue_rate (void)
   return aarch64_tune_params.issue_rate;
 }
 
+/* Implement TARGET_SCHED_VARIABLE_ISSUE.  */
+static int
+aarch64_sched_variable_issue (FILE *, int, rtx_insn *insn, int more)
+{
+  if (DEBUG_INSN_P (insn))
+    return more;
+
+  rtx_code code = GET_CODE (PATTERN (insn));
+  if (code == USE || code == CLOBBER)
+    return more;
+
+  if (get_attr_type (insn) == TYPE_GHOST)
+    return more;
+
+  return more - 1;
+}
+
 static int
 aarch64_sched_first_cycle_multipass_dfa_lookahead (void)
 {
@@ -13934,6 +13951,10 @@ aarch64_conditional_register_usage (void)
 	call_used_regs[i] = 1;
       }
 
+  /* Only allow the FFR and FFRT to be accessed via special patterns.  */
+  CLEAR_HARD_REG_BIT (operand_reg_set, FFR_REGNUM);
+  CLEAR_HARD_REG_BIT (operand_reg_set, FFRT_REGNUM);
+
   /* When tracking speculation, we need a couple of call-clobbered registers
      to track the speculation state.  It would be nice to just use
      IP0 and IP1, but currently there are numerous places that just
@@ -15129,6 +15150,23 @@ aarch64_sve_ld1r_operand_p (rtx op)
 	  && aarch64_classify_address (&addr, XEXP (op, 0), mode, false)
 	  && addr.type == ADDRESS_REG_IMM
 	  && offset_6bit_unsigned_scaled_p (mode, addr.const_offset));
+}
+
+/* Return true if OP is a valid MEM operand for an SVE LDFF1 instruction.  */
+bool
+aarch64_sve_ldff1_operand_p (rtx op)
+{
+  if (!MEM_P (op))
+    return false;
+
+  struct aarch64_address_info addr;
+  if (!aarch64_classify_address (&addr, XEXP (op, 0), GET_MODE (op), false))
+    return false;
+
+  if (addr.type == ADDRESS_REG_IMM)
+    return known_eq (addr.const_offset, 0);
+
+  return addr.type == ADDRESS_REG_REG;
 }
 
 /* Return true if OP is a valid MEM operand for an SVE LDR instruction.
@@ -19469,6 +19507,9 @@ aarch64_libgcc_floating_mode_supported_p
 
 #undef TARGET_SCHED_ISSUE_RATE
 #define TARGET_SCHED_ISSUE_RATE aarch64_sched_issue_rate
+
+#undef TARGET_SCHED_VARIABLE_ISSUE
+#define TARGET_SCHED_VARIABLE_ISSUE aarch64_sched_variable_issue
 
 #undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD \
