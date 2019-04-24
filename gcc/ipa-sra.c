@@ -61,7 +61,8 @@ along with GCC; see the file COPYING3.  If not see
 
 
 /* Bits used to track size of an aggregate in bytes interprocedurally.  */
-#define ISRA_ARG_SIZE_LIMIT 16
+#define ISRA_ARG_SIZE_LIMIT_BITS 16
+#define ISRA_ARG_SIZE_LIMIT (1 << ISRA_ARG_SIZE_LIMIT_BITS)
 
 /* Structure describing accesses to a specific portion of an aggregate
    parameter, as given by the offset and size.  Any smaller accesses that occur
@@ -83,7 +84,7 @@ struct GTY(()) param_access
   /* Values returned by get_ref_base_and_extent but converted to bytes and
      stored as unsigned ints.  */
   unsigned unit_offset;
-  unsigned unit_size : ISRA_ARG_SIZE_LIMIT;
+  unsigned unit_size : ISRA_ARG_SIZE_LIMIT_BITS;
 
   /* Set once we are sure that the access will really end up in a potentially
      transformed function - initially not set for portions of formal parameters
@@ -145,9 +146,9 @@ struct GTY(()) isra_param_desc
   int m_scc_uses;
 
   /* Unit size limit of total size of all replacements.  */
-  unsigned m_param_size_limit : ISRA_ARG_SIZE_LIMIT;
+  unsigned m_param_size_limit : ISRA_ARG_SIZE_LIMIT_BITS;
   /* Sum of unit sizes of all definitive replacements.  */
-  unsigned m_size_reached : ISRA_ARG_SIZE_LIMIT;
+  unsigned m_size_reached : ISRA_ARG_SIZE_LIMIT_BITS;
 
   /* A parameter that is used only in call arguments and can be removed if all
      concerned actual arguments are removed.  */
@@ -288,7 +289,6 @@ isra_func_summary::zap ()
 /* Structure to describe which formal parameters feed into a particular actual
    arguments.  */
 
-/* !!! this can easily be turned into a more compact representation.  */
 struct isra_param_flow
 {
   /* Number of elements in array inputs that contain valid data.  */
@@ -304,7 +304,7 @@ struct isra_param_flow
   /* Offset within the formal parameter.  */
   unsigned unit_offset;
   /* Size of the portion of the formal parameter that is being passed.  */
-  unsigned unit_size;
+  unsigned unit_size : ISRA_ARG_SIZE_LIMIT_BITS;
 
   /* True when the value of this actual copy is a portion of a formal
      parameter.  */
@@ -1153,7 +1153,7 @@ create_parameter_descriptors (cgraph_node *node,
       unsigned HOST_WIDE_INT type_size
 	= tree_to_uhwi (TYPE_SIZE (type)) / BITS_PER_UNIT;
       if (type_size == 0
-	  || type_size >= 1 << ISRA_ARG_SIZE_LIMIT)
+	  || type_size >= ISRA_ARG_SIZE_LIMIT)
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, " not a candidate, has zero or huge size\n");
@@ -1568,7 +1568,7 @@ struct scan_call_info
 static void
 record_nonregister_call_use (gensum_param_desc *desc,
 			     scan_call_info *call_info,
-			     HOST_WIDE_INT offset, HOST_WIDE_INT size)
+			     unsigned unit_offset, unsigned unit_size)
 {
   isra_call_summary *csum = call_sums->get_create (call_info->cs);
   csum->init_inputs (call_info->argument_count);
@@ -1577,10 +1577,8 @@ record_nonregister_call_use (gensum_param_desc *desc,
   param_flow->aggregate_pass_through = true;
   set_single_param_flow_source (param_flow, desc->m_param_number);
 
-  gcc_checking_assert ((offset % BITS_PER_UNIT) == 0);
-  gcc_checking_assert ((size % BITS_PER_UNIT) == 0);
-  param_flow->unit_offset = offset / BITS_PER_UNIT;
-  param_flow->unit_size = size / BITS_PER_UNIT;
+  param_flow->unit_offset = unit_offset;
+  param_flow->unit_size = unit_size;
 
   desc->m_call_uses++;
 }
@@ -1657,8 +1655,8 @@ scan_expr_access (tree expr, gimple *stmt, isra_scan_context ctx,
   gcc_assert (offset >= 0);
   gcc_assert ((offset % BITS_PER_UNIT) == 0);
   gcc_assert ((size % BITS_PER_UNIT) == 0);
-  if ((offset / BITS_PER_UNIT) >= UINT_MAX
-      || (size / BITS_PER_UNIT) >= UINT_MAX)
+  if ((offset / BITS_PER_UNIT) >= (UINT_MAX - ISRA_ARG_SIZE_LIMIT)
+      || (size / BITS_PER_UNIT) >= ISRA_ARG_SIZE_LIMIT)
     {
       disqualify_split_candidate (base, "Encountered an access with too big "
 				  "offset or size");
@@ -1737,8 +1735,10 @@ scan_expr_access (tree expr, gimple *stmt, isra_scan_context ctx,
   if (ctx == ISRA_CTX_ARG)
     {
       gcc_checking_assert (call_info);
+
       if (!deref)
-	record_nonregister_call_use (desc, call_info, offset, size);
+	record_nonregister_call_use (desc, call_info, offset / BITS_PER_UNIT,
+				     size / BITS_PER_UNIT);
       else
 	/* This is not a pass-through of a pointer, this is a use like any
 	   other.  */
@@ -2231,7 +2231,7 @@ process_scan_results (cgraph_node *node, struct function *fun,
 	{
 	  /* create_parameter_descriptors makes sure unit sizes of all
 	     candidate parameters fit unsigned integers restricted to
-	     ISRA_ARG_SIZE_LIMIT bits.  */
+	     ISRA_ARG_SIZE_LIMIT.  */
 	  desc->param_size_limit = param_size_limit / BITS_PER_UNIT;
 	  desc->nonarg_acc_size = nonarg_acc_size / BITS_PER_UNIT;
 	  if (desc->m_split_candidate && desc->ptr_pt_count)
