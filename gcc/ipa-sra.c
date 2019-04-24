@@ -981,8 +981,6 @@ ptr_parm_has_nonarg_uses (cgraph_node *node, function *fun, tree parm,
 		  uses_ok++;
 		  continue;
 		}
-	      /* TODO: Calculate offset here and we can also consider
-		 ADDR_EXPR's of MEM_REFs a pass-through.  */
 
 	      while (handled_component_p (arg))
 		arg = TREE_OPERAND (arg, 0);
@@ -1177,7 +1175,8 @@ create_parameter_descriptors (cgraph_node *node,
   return ret;
 }
 
-/* Return pointer to descriptor of parameter DECL or NULL if we are looking at .  */
+/* Return pointer to descriptor of parameter DECL or NULL if it cannot be
+   found, which happens if DECL is for a static chain.  */
 
 static gensum_param_desc *
 get_gensum_param_desc (tree decl)
@@ -1596,7 +1595,7 @@ mark_maybe_modified (ao_ref *, tree, void *data)
 
 /* Analyze expression EXPR from GIMPLE for accesses to parameters. CTX
    specifies whether EXPR is used in a load, store or as an argument call. BB
-   should be the basic block in which expr resides.  If CTX specifies call
+   must be the basic block in which expr resides.  If CTX specifies call
    arguemnt context, CALL_INFO must describe tha call and argument position,
    otherwise it is ignored.  */
 
