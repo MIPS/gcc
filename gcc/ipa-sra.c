@@ -2953,18 +2953,14 @@ process_indirect_edge (cgraph_edge *cs)
   for (unsigned i = 0; i < args_count; i++)
     {
       isra_param_flow *ipf = &csum->m_inputs[i];
-      for (int j = 0; j < ipf->length; j++)
-	{
-	  int input_idx = ipf->inputs[j];
-	  (*from_ifs->m_parameters)[input_idx].m_locally_unused = false;
-	  (*from_ifs->m_parameters)[input_idx].m_split_candidate = false;
-	}
 
+      /* !!! This if should be completely unnecessary.  */
       if (ipf->pointer_pass_through)
         {
           isra_param_desc *param_desc
             = &(*from_ifs->m_parameters)[get_single_param_flow_source (ipf)];
           param_desc->m_split_candidate = false;
+	  continue;
         }
       if (ipf->aggregate_pass_through)
 	{
@@ -2981,6 +2977,14 @@ process_indirect_edge (cgraph_edge *cs)
 	  bump_reached_size (param_desc, pacc->unit_size);
 	  pacc->definitive = true;
 	  ipf->aggregate_pass_through = false;
+	  continue;
+	}
+
+      for (int j = 0; j < ipf->length; j++)
+	{
+	  int input_idx = ipf->inputs[j];
+	  (*from_ifs->m_parameters)[input_idx].m_locally_unused = false;
+	  (*from_ifs->m_parameters)[input_idx].m_split_candidate = false;
 	}
     }
 }
@@ -3018,13 +3022,6 @@ param_removal_cross_scc_edge (cgraph_edge *cs)
 	      int input_idx = ipf->inputs[j];
 	      if ((*from_ifs->m_parameters)[input_idx].m_locally_unused)
 		(*from_ifs->m_parameters)[input_idx].m_call_uses--;
-	    }
-
-	  if (ipf->aggregate_pass_through)
-	    {
-	      unsigned pidx = get_single_param_flow_source (ipf);
-	      if ((*from_ifs->m_parameters)[pidx].m_locally_unused)
-		(*from_ifs->m_parameters)[pidx].m_call_uses--;
 	    }
 	}
     }
@@ -3104,12 +3101,6 @@ propagate_nonlocal_across_edge (cgraph_edge *cs, vec<cgraph_node *> *stack)
 	{
 	  int input_idx = ipf->inputs[j];
 	  isra_mark_caller_param_used (from_ifs, input_idx, cs->caller, stack);
-	}
-      if (ipf->aggregate_pass_through)
-	{
-	  unsigned pidx = get_single_param_flow_source (ipf);
-	  if ((*from_ifs->m_parameters)[pidx].m_locally_unused)
-	    isra_mark_caller_param_used (from_ifs, pidx, cs->caller, stack);
 	}
     }
 }
