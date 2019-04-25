@@ -685,6 +685,7 @@ private:
   rtx expand_ld1_gather ();
   rtx expand_ldff1 ();
   rtx expand_ldff1_ext (rtx_code);
+  rtx expand_ldff1_gather ();
   rtx expand_lsl ();
   rtx expand_lsl_wide ();
   rtx expand_mad (unsigned int);
@@ -1194,6 +1195,7 @@ function_instance::memory_vector_mode () const
     case FUNC_svld1:
     case FUNC_svld1_gather:
     case FUNC_svldff1:
+    case FUNC_svldff1_gather:
       return mode;
 
     case FUNC_svld1sb:
@@ -1247,6 +1249,7 @@ function_instance::memory_scalar_type () const
     case FUNC_svld1:
     case FUNC_svld1_gather:
     case FUNC_svldff1:
+    case FUNC_svldff1_gather:
       return scalar_type (0);
 
     case FUNC_svld1sb:
@@ -2250,6 +2253,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
       break;
 
     case FUNC_svldff1:
+    case FUNC_svldff1_gather:
     case FUNC_svldff1sb:
     case FUNC_svldff1sh:
     case FUNC_svldff1sw:
@@ -3362,6 +3366,7 @@ gimple_folder::fold ()
     case FUNC_svld1uw:
     case FUNC_svld1uw_gather:
     case FUNC_svldff1:
+    case FUNC_svldff1_gather:
     case FUNC_svldff1sb:
     case FUNC_svldff1sh:
     case FUNC_svldff1sw:
@@ -3767,6 +3772,9 @@ function_expander::expand ()
 
     case FUNC_svldff1:
       return expand_ldff1 ();
+
+    case FUNC_svldff1_gather:
+      return expand_ldff1_gather ();
 
     case FUNC_svldff1sb:
     case FUNC_svldff1sh:
@@ -4187,6 +4195,17 @@ function_expander::expand_ldff1_ext (rtx_code code)
   emit_insn (gen_aarch64_update_ffr_for_load ());
   insn_code icode = code_for_aarch64_ldff1 (code, reg_mode, mem_mode);
   return expand_via_load_insn (icode);
+}
+
+/* Expand a call to svldff1_gather.  */
+rtx
+function_expander::expand_ldff1_gather ()
+{
+  prepare_gather_address_operands (1);
+  rotate_inputs_left (0, 5);
+  emit_insn (gen_aarch64_update_ffr_for_load ());
+  machine_mode mem_mode = m_fi.memory_vector_mode ();
+  return expand_via_exact_insn (code_for_aarch64_ldff1_gather (mem_mode));
 }
 
 /* Expand a call to svlsl.  */

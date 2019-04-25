@@ -4234,3 +4234,90 @@
   "TARGET_SVE"
   "ldff1<ANY_EXTEND:s><VNx2_NARROW:Vesize>\t%0.<VNx2_WIDE:Vetype>, %2/z, %1"
 )
+
+;; Predicated first-faulting gather loads for 32-bit elements.  Operand
+;; 3 is true for unsigned extension and false for signed extension.
+(define_insn "@aarch64_ldff1_gather<mode>"
+  [(set (match_operand:SVE_S 0 "register_operand" "=w, w, w, w, w, w")
+	(unspec:SVE_S
+	  [(match_operand:VNx4BI 5 "register_operand" "Upl, Upl, Upl, Upl, Upl, Upl")
+	   (match_operand:DI 1 "aarch64_sve_gather_offset_<Vesize>" "Z, vgw, rk, rk, rk, rk")
+	   (match_operand:VNx4SI 2 "register_operand" "w, w, w, w, w, w")
+	   (match_operand:DI 3 "const_int_operand" "i, i, Z, Ui1, Z, Ui1")
+	   (match_operand:DI 4 "aarch64_gather_scale_operand_w" "Ui1, Ui1, Ui1, Ui1, i, i")
+	   (mem:BLK (scratch))
+	   (reg:VNx16BI FFRT_REGNUM)]
+	  UNSPEC_LDFF1_GATHER))]
+  "TARGET_SVE"
+  "@
+   ldff1w\t%0.s, %5/z, [%2.s]
+   ldff1w\t%0.s, %5/z, [%2.s, #%1]
+   ldff1w\t%0.s, %5/z, [%1, %2.s, sxtw]
+   ldff1w\t%0.s, %5/z, [%1, %2.s, uxtw]
+   ldff1w\t%0.s, %5/z, [%1, %2.s, sxtw %p4]
+   ldff1w\t%0.s, %5/z, [%1, %2.s, uxtw %p4]"
+)
+
+;; Predicated first-faulting gather loads for 64-bit elements.  The value
+;; of operand 3 doesn't matter in this case.
+(define_insn "@aarch64_ldff1_gather<mode>"
+  [(set (match_operand:SVE_D 0 "register_operand" "=w, w, w, w")
+	(unspec:SVE_D
+	  [(match_operand:VNx2BI 5 "register_operand" "Upl, Upl, Upl, Upl")
+	   (match_operand:DI 1 "aarch64_sve_gather_offset_<Vesize>" "Z, vgd, rk, rk")
+	   (match_operand:VNx2DI 2 "register_operand" "w, w, w, w")
+	   (match_operand:DI 3 "const_int_operand")
+	   (match_operand:DI 4 "aarch64_gather_scale_operand_d" "Ui1, Ui1, Ui1, i")
+	   (mem:BLK (scratch))
+	   (reg:VNx16BI FFRT_REGNUM)]
+	  UNSPEC_LDFF1_GATHER))]
+  "TARGET_SVE"
+  "@
+   ldff1d\t%0.d, %5/z, [%2.d]
+   ldff1d\t%0.d, %5/z, [%2.d, #%1]
+   ldff1d\t%0.d, %5/z, [%1, %2.d]
+   ldff1d\t%0.d, %5/z, [%1, %2.d, lsl %p4]"
+)
+
+;; Likewise, but with the offset being sign-extended from 32 bits.
+(define_insn "*aarch64_ldff1_gather<mode>_sxtw"
+  [(set (match_operand:SVE_D 0 "register_operand" "=w, w")
+	(unspec:SVE_D
+	  [(match_operand:VNx2BI 5 "register_operand" "Upl, Upl")
+	   (match_operand:DI 1 "register_operand" "rk, rk")
+	   (unspec:VNx2DI
+	     [(match_dup 5)
+	      (sign_extend:VNx2DI
+		(truncate:VNx2SI
+		  (match_operand:VNx2DI 2 "register_operand" "w, w")))]
+	     UNSPEC_MERGE_PTRUE)
+	   (match_operand:DI 3 "const_int_operand")
+	   (match_operand:DI 4 "aarch64_gather_scale_operand_d" "Ui1, i")
+	   (mem:BLK (scratch))
+	   (reg:VNx16BI FFRT_REGNUM)]
+	  UNSPEC_LDFF1_GATHER))]
+  "TARGET_SVE"
+  "@
+   ldff1d\t%0.d, %5/z, [%1, %2.d, sxtw]
+   ldff1d\t%0.d, %5/z, [%1, %2.d, sxtw %p4]"
+)
+
+;; Likewise, but with the offset being zero-extended from 32 bits.
+(define_insn "*aarch64_ldff1_gather<mode>_uxtw"
+  [(set (match_operand:SVE_D 0 "register_operand" "=w, w")
+	(unspec:SVE_D
+	  [(match_operand:VNx2BI 5 "register_operand" "Upl, Upl")
+	   (match_operand:DI 1 "register_operand" "rk, rk")
+	   (and:VNx2DI
+	     (match_operand:VNx2DI 2 "register_operand" "w, w")
+	     (match_operand:VNx2DI 6 "aarch64_sve_uxtw_immediate"))
+	   (match_operand:DI 3 "const_int_operand")
+	   (match_operand:DI 4 "aarch64_gather_scale_operand_d" "Ui1, i")
+	   (mem:BLK (scratch))
+	   (reg:VNx16BI FFRT_REGNUM)]
+	  UNSPEC_LDFF1_GATHER))]
+  "TARGET_SVE"
+  "@
+   ldff1d\t%0.d, %5/z, [%1, %2.d, uxtw]
+   ldff1d\t%0.d, %5/z, [%1, %2.d, uxtw %p4]"
+)
