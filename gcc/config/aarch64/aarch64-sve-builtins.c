@@ -685,6 +685,7 @@ private:
   rtx expand_ld1_gather ();
   rtx expand_ldff1 ();
   rtx expand_ldff1_ext (rtx_code);
+  rtx expand_ldff1_ext_gather (rtx_code);
   rtx expand_ldff1_gather ();
   rtx expand_lsl ();
   rtx expand_lsl_wide ();
@@ -1211,11 +1212,17 @@ function_instance::memory_vector_mode () const
     case FUNC_svld1uw:
     case FUNC_svld1uw_gather:
     case FUNC_svldff1sb:
+    case FUNC_svldff1sb_gather:
     case FUNC_svldff1sh:
+    case FUNC_svldff1sh_gather:
     case FUNC_svldff1sw:
+    case FUNC_svldff1sw_gather:
     case FUNC_svldff1ub:
+    case FUNC_svldff1ub_gather:
     case FUNC_svldff1uh:
+    case FUNC_svldff1uh_gather:
     case FUNC_svldff1uw:
+    case FUNC_svldff1uw_gather:
       return aarch64_sve_data_mode (bhwd_scalar_mode (),
 				    GET_MODE_NUNITS (mode)).require ();
 
@@ -1255,31 +1262,37 @@ function_instance::memory_scalar_type () const
     case FUNC_svld1sb:
     case FUNC_svld1sb_gather:
     case FUNC_svldff1sb:
+    case FUNC_svldff1sb_gather:
       return scalar_types[VECTOR_TYPE_svint8_t];
 
     case FUNC_svld1sh:
     case FUNC_svld1sh_gather:
     case FUNC_svldff1sh:
+    case FUNC_svldff1sh_gather:
       return scalar_types[VECTOR_TYPE_svint16_t];
 
     case FUNC_svld1sw:
     case FUNC_svld1sw_gather:
     case FUNC_svldff1sw:
+    case FUNC_svldff1sw_gather:
       return scalar_types[VECTOR_TYPE_svint32_t];
 
     case FUNC_svld1ub:
     case FUNC_svld1ub_gather:
     case FUNC_svldff1ub:
+    case FUNC_svldff1ub_gather:
       return scalar_types[VECTOR_TYPE_svuint8_t];
 
     case FUNC_svld1uh:
     case FUNC_svld1uh_gather:
     case FUNC_svldff1uh:
+    case FUNC_svldff1uh_gather:
       return scalar_types[VECTOR_TYPE_svuint16_t];
 
     case FUNC_svld1uw:
     case FUNC_svld1uw_gather:
     case FUNC_svldff1uw:
+    case FUNC_svldff1uw_gather:
       return scalar_types[VECTOR_TYPE_svuint32_t];
 
     default:
@@ -2255,11 +2268,17 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svldff1:
     case FUNC_svldff1_gather:
     case FUNC_svldff1sb:
+    case FUNC_svldff1sb_gather:
     case FUNC_svldff1sh:
+    case FUNC_svldff1sh_gather:
     case FUNC_svldff1sw:
+    case FUNC_svldff1sw_gather:
     case FUNC_svldff1ub:
+    case FUNC_svldff1ub_gather:
     case FUNC_svldff1uh:
+    case FUNC_svldff1uh_gather:
     case FUNC_svldff1uw:
+    case FUNC_svldff1uw_gather:
     case FUNC_svrdffr:
     case FUNC_svsetffr:
     case FUNC_svwrffr:
@@ -3368,11 +3387,17 @@ gimple_folder::fold ()
     case FUNC_svldff1:
     case FUNC_svldff1_gather:
     case FUNC_svldff1sb:
+    case FUNC_svldff1sb_gather:
     case FUNC_svldff1sh:
+    case FUNC_svldff1sh_gather:
     case FUNC_svldff1sw:
+    case FUNC_svldff1sw_gather:
     case FUNC_svldff1ub:
+    case FUNC_svldff1ub_gather:
     case FUNC_svldff1uh:
+    case FUNC_svldff1uh_gather:
     case FUNC_svldff1uw:
+    case FUNC_svldff1uw_gather:
     case FUNC_svlsl:
     case FUNC_svlsl_wide:
     case FUNC_svmad:
@@ -3781,10 +3806,20 @@ function_expander::expand ()
     case FUNC_svldff1sw:
       return expand_ldff1_ext (SIGN_EXTEND);
 
+    case FUNC_svldff1sb_gather:
+    case FUNC_svldff1sh_gather:
+    case FUNC_svldff1sw_gather:
+      return expand_ldff1_ext_gather (SIGN_EXTEND);
+
     case FUNC_svldff1ub:
     case FUNC_svldff1uh:
     case FUNC_svldff1uw:
       return expand_ldff1_ext (ZERO_EXTEND);
+
+    case FUNC_svldff1ub_gather:
+    case FUNC_svldff1uh_gather:
+    case FUNC_svldff1uw_gather:
+      return expand_ldff1_ext_gather (ZERO_EXTEND);
 
     case FUNC_svlsl:
       return expand_lsl ();
@@ -4195,6 +4230,20 @@ function_expander::expand_ldff1_ext (rtx_code code)
   emit_insn (gen_aarch64_update_ffr_for_load ());
   insn_code icode = code_for_aarch64_ldff1 (code, reg_mode, mem_mode);
   return expand_via_load_insn (icode);
+}
+
+/* Expand a call to svldff1s[bhw]_gather or svldff1u[bhw]_gather.  CODE is
+   the type of extension, either SIGN_EXTEND or ZERO_EXTEND.  */
+rtx
+function_expander::expand_ldff1_ext_gather (rtx_code code)
+{
+  prepare_gather_address_operands (1);
+  rotate_inputs_left (0, 5);
+  emit_insn (gen_aarch64_update_ffr_for_load ());
+  machine_mode reg_mode = get_mode (0);
+  machine_mode mem_mode = m_fi.memory_vector_mode ();
+  insn_code icode = code_for_aarch64_ldff1_gather (code, reg_mode, mem_mode);
+  return expand_via_exact_insn (icode);
 }
 
 /* Expand a call to svldff1_gather.  */
