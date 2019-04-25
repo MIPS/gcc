@@ -165,6 +165,12 @@ enum function_shape {
      sv<t0>_t svfoo_vnum[_t0](const <t0>_t *, int64_t).  */
   SHAPE_load,
 
+  /* sv<t0>xN_t svfoo[_t0](const <t0>_t *).
+     sv<t0>xN_t svfoo_vnum[_t0](const <t0>_t *, int64_t).  */
+  SHAPE_load2,
+  SHAPE_load3,
+  SHAPE_load4,
+
   /* sv<t0>_t svfoo_t0(const <X>_t *).
      sv<t0>_t svfoo_vnum_t0(const <X>_t *, int64_t)
 
@@ -484,6 +490,7 @@ private:
   template <unsigned int N>
   void sig_inherent (const function_instance &, vec<tree> &);
   void sig_inherent_count (const function_instance &, vec<tree> &);
+  template <unsigned int N>
   void sig_load (const function_instance &, vec<tree> &);
   void sig_load_gather_sv (const function_instance &, vec<tree> &);
   void sig_load_gather_vs (const function_instance &, vec<tree> &);
@@ -633,6 +640,7 @@ private:
   gimple *fold_create ();
   gimple *fold_get ();
   gimple *fold_ld1 ();
+  gimple *fold_ld234 ();
   gimple *fold_ptrue ();
   gimple *fold_rev ();
   gimple *fold_set ();
@@ -642,6 +650,9 @@ private:
   gimple *fold_zip ();
 
   gimple *fold_permute (const vec_perm_builder &);
+  tree convert_pred (gimple_seq &, tree, unsigned int);
+  tree fold_contiguous_base (gimple_seq &, tree);
+  tree load_store_cookie (tree);
 
   /* The function being called.  */
   const function_instance &m_fi;
@@ -683,6 +694,7 @@ private:
   rtx expand_ld1_ext (rtx_code);
   rtx expand_ld1_ext_gather (rtx_code);
   rtx expand_ld1_gather ();
+  rtx expand_ld234 ();
   rtx expand_ldff1 (int = UNSPEC_LDFF1);
   rtx expand_ldff1_ext (rtx_code, int = UNSPEC_LDFF1);
   rtx expand_ldff1_ext_gather (rtx_code);
@@ -1202,6 +1214,15 @@ function_instance::memory_vector_mode () const
     case FUNC_svldnt1:
       return mode;
 
+    case FUNC_svld2:
+      return targetm.array_mode (mode, 2).require ();
+
+    case FUNC_svld3:
+      return targetm.array_mode (mode, 3).require ();
+
+    case FUNC_svld4:
+      return targetm.array_mode (mode, 4).require ();
+
     case FUNC_svld1sb:
     case FUNC_svld1sb_gather:
     case FUNC_svld1sh:
@@ -1264,6 +1285,9 @@ function_instance::memory_scalar_type () const
     {
     case FUNC_svld1:
     case FUNC_svld1_gather:
+    case FUNC_svld2:
+    case FUNC_svld3:
+    case FUNC_svld4:
     case FUNC_svldff1:
     case FUNC_svldff1_gather:
     case FUNC_svldnf1:
@@ -1512,8 +1536,29 @@ arm_sve_h_builder::build (const function_group &group)
       add_overloaded_functions (group, MODE_vnum);
       /* Fall through.  */
     case SHAPE_load_ext:
-      build_all (&arm_sve_h_builder::sig_load, group, MODE_none);
-      build_all (&arm_sve_h_builder::sig_load, group, MODE_vnum);
+      build_all (&arm_sve_h_builder::sig_load<1>, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_load<1>, group, MODE_vnum);
+      break;
+
+    case SHAPE_load2:
+      add_overloaded_functions (group, MODE_none);
+      add_overloaded_functions (group, MODE_vnum);
+      build_all (&arm_sve_h_builder::sig_load<2>, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_load<2>, group, MODE_vnum);
+      break;
+
+    case SHAPE_load3:
+      add_overloaded_functions (group, MODE_none);
+      add_overloaded_functions (group, MODE_vnum);
+      build_all (&arm_sve_h_builder::sig_load<3>, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_load<3>, group, MODE_vnum);
+      break;
+
+    case SHAPE_load4:
+      add_overloaded_functions (group, MODE_none);
+      add_overloaded_functions (group, MODE_vnum);
+      build_all (&arm_sve_h_builder::sig_load<4>, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_load<4>, group, MODE_vnum);
       break;
 
     case SHAPE_load_ext_gather_index:
@@ -1826,18 +1871,19 @@ arm_sve_h_builder::sig_inherent_count (const function_instance &,
 
 /* Describe one of the signatures:
 
-     sv<t0>_t svfoo[_t0](const <t0>_t *)
-     sv<t0>_t svfoo_vnum[_t0](const <t0>_t *, int64_t)
+     sv<t0>xN_t svfoo[_t0](const <t0>_t *)
+     sv<t0>xN_t svfoo_vnum[_t0](const <t0>_t *, int64_t)
      sv<t0>_t svfoo_t0(const <X>_t *)
      sv<t0>_t svfoo_vnum_t0(const <X>_t *, int64_t)
 
    for INSTANCE in TYPES.  The mode of INSTANCE chooses between the vnum and
    non-vnum forms.  The choice of <X> comes from the function base name.  */
+template<unsigned int N>
 void
 arm_sve_h_builder::sig_load (const function_instance &instance,
 			     vec<tree> &types)
 {
-  types.quick_push (instance.vector_type (0));
+  types.quick_push (instance.tuple_type (N, 0));
   types.quick_push (build_const_pointer (instance.memory_scalar_type ()));
   if (instance.mode == MODE_vnum)
     types.quick_push (scalar_types[VECTOR_TYPE_svint64_t]);
@@ -2277,6 +2323,9 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svld1uh_gather:
     case FUNC_svld1uw:
     case FUNC_svld1uw_gather:
+    case FUNC_svld2:
+    case FUNC_svld3:
+    case FUNC_svld4:
     case FUNC_svldnt1:
       attrs = add_attribute ("pure", attrs);
       if (!flag_non_call_exceptions)
@@ -2332,6 +2381,9 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_get4:
     case SHAPE_inherent_count:
     case SHAPE_load:
+    case SHAPE_load2:
+    case SHAPE_load3:
+    case SHAPE_load4:
     case SHAPE_load_gather_sv:
     case SHAPE_rdffr:
     case SHAPE_set2:
@@ -2465,6 +2517,9 @@ function_resolver::resolve ()
     case SHAPE_get4:
       return resolve_get (4);
     case SHAPE_load:
+    case SHAPE_load2:
+    case SHAPE_load3:
+    case SHAPE_load4:
       return resolve_pointer ();
     case SHAPE_load_ext_gather_index:
     case SHAPE_load_ext_gather_offset:
@@ -3150,6 +3205,9 @@ function_checker::check ()
     case SHAPE_inherent4:
     case SHAPE_inherent_count:
     case SHAPE_load:
+    case SHAPE_load2:
+    case SHAPE_load3:
+    case SHAPE_load4:
     case SHAPE_load_ext:
     case SHAPE_load_ext_gather_index:
     case SHAPE_load_ext_gather_offset:
@@ -3487,6 +3545,11 @@ gimple_folder::fold ()
     case FUNC_svld1:
       return fold_ld1 ();
 
+    case FUNC_svld2:
+    case FUNC_svld3:
+    case FUNC_svld4:
+      return fold_ld234 ();
+
     case FUNC_svptrue:
       return fold_ptrue ();
 
@@ -3567,32 +3630,42 @@ gimple_folder::fold_get ()
 gimple *
 gimple_folder::fold_ld1 ()
 {
-  tree vectype = TREE_TYPE (m_lhs);
-  tree elttype = TREE_TYPE (vectype);
-  tree predtype = build_same_sized_truth_vector_type (vectype);
-
-  tree pred = gimple_call_arg (m_call, 0);
-  tree base = gimple_call_arg (m_call, 1);
+  tree vectype = m_fi.vector_type (0);
 
   gimple_seq stmts = NULL;
-  pred = gimple_build (&stmts, VIEW_CONVERT_EXPR, predtype, pred);
-  if (m_fi.mode == MODE_vnum)
-    {
-      tree offset = gimple_call_arg (m_call, 2);
-      offset = gimple_convert (&stmts, sizetype, offset);
-      offset = gimple_build (&stmts, MULT_EXPR, sizetype, offset,
-			     TYPE_SIZE_UNIT (vectype));
-      base = gimple_build (&stmts, POINTER_PLUS_EXPR, TREE_TYPE (base),
-			   base, offset);
-    }
+  tree pred = convert_pred (stmts, vectype, 0);
+  tree base = fold_contiguous_base (stmts, vectype);
   gsi_insert_seq_before (m_gsi, stmts, GSI_SAME_STMT);
 
-  tree cookie = build_int_cst (build_pointer_type (vectype),
-			       TYPE_ALIGN_UNIT (elttype));
+  tree cookie = load_store_cookie (TREE_TYPE (vectype));
   gcall *new_call = gimple_build_call_internal (IFN_MASK_LOAD, 3,
 						base, cookie, pred);
   gimple_call_set_lhs (new_call, m_lhs);
   return new_call;
+}
+
+/* Fold a call to svld[234].  */
+gimple *
+gimple_folder::fold_ld234 ()
+{
+  tree vectype = m_fi.vector_type (0);
+
+  gimple_seq stmts = NULL;
+  tree pred = convert_pred (stmts, vectype, 0);
+  tree base = fold_contiguous_base (stmts, vectype);
+  gsi_insert_seq_before (m_gsi, stmts, GSI_SAME_STMT);
+
+  tree field = tuple_type_field (TREE_TYPE (m_lhs));
+  tree lhs_array = build1 (VIEW_CONVERT_EXPR, TREE_TYPE (field),
+			   unshare_expr (m_lhs));
+
+  tree cookie = load_store_cookie (TREE_TYPE (vectype));
+  gcall *new_call = gimple_build_call_internal (IFN_MASK_LOAD_LANES, 3,
+						base, cookie, pred);
+  gimple_call_set_lhs (new_call, lhs_array);
+  gsi_insert_after (m_gsi, new_call, GSI_SAME_STMT);
+
+  return gimple_build_assign (m_lhs, build_clobber (TREE_TYPE (m_lhs)));
 }
 
 /* Fold a call to svptrue.  */
@@ -3708,6 +3781,43 @@ gimple_folder::fold_permute (const vec_perm_builder &builder)
 			      gimple_call_arg (m_call, 0),
 			      gimple_call_arg (m_call, nargs - 1),
 			      vec_perm_indices_to_tree (perm_type, indices));
+}
+
+/* Convert predicate argument I so that it has the type appropriate for
+   an operation on VECTYPE.  Add any new statements to STMTS.  */
+tree
+gimple_folder::convert_pred (gimple_seq &stmts, tree vectype, unsigned int i)
+{
+  tree predtype = build_same_sized_truth_vector_type (vectype);
+  tree pred = gimple_call_arg (m_call, i);
+  return gimple_build (&stmts, VIEW_CONVERT_EXPR, predtype, pred);
+}
+
+/* Return a pointer to the address in a contiguous load or store,
+   given that each memory vector has type VECTYPE.  Add any new
+   statements to STMTS.  */
+tree
+gimple_folder::fold_contiguous_base (gimple_seq &stmts, tree vectype)
+{
+  tree base = gimple_call_arg (m_call, 1);
+  if (m_fi.mode == MODE_vnum)
+    {
+      tree offset = gimple_call_arg (m_call, 2);
+      offset = gimple_convert (&stmts, sizetype, offset);
+      offset = gimple_build (&stmts, MULT_EXPR, sizetype, offset,
+			     TYPE_SIZE_UNIT (vectype));
+      base = gimple_build (&stmts, POINTER_PLUS_EXPR, TREE_TYPE (base),
+			   base, offset);
+    }
+  return base;
+}
+
+/* Return the alignment and TBAA argument to an internal load or store
+   function, given that it accesses memory elements of type TYPE.  */
+tree
+gimple_folder::load_store_cookie (tree type)
+{
+ return build_int_cst (build_pointer_type (type), TYPE_ALIGN_UNIT (type));
 }
 
 /* Attempt to fold STMT, given that it's a call to the SVE function
@@ -3827,6 +3937,11 @@ function_expander::expand ()
     case FUNC_svld1uh_gather:
     case FUNC_svld1uw_gather:
       return expand_ld1_ext_gather (ZERO_EXTEND);
+
+    case FUNC_svld2:
+    case FUNC_svld3:
+    case FUNC_svld4:
+      return expand_ld234 ();
 
     case FUNC_svldff1:
       return expand_ldff1 ();
@@ -4259,6 +4374,16 @@ function_expander::expand_ld1_gather ()
   machine_mode mem_mode = m_fi.memory_vector_mode ();
   insn_code icode = direct_optab_handler (mask_gather_load_optab, mem_mode);
   return expand_via_exact_insn (icode);
+}
+
+/* Expand a call to svld[234].  */
+rtx
+function_expander::expand_ld234 ()
+{
+  machine_mode tuple_mode = TYPE_MODE (TREE_TYPE (m_exp));
+  insn_code icode = convert_optab_handler (vec_mask_load_lanes_optab,
+					   tuple_mode, get_mode (0));
+  return expand_via_load_insn (icode);
 }
 
 /* Expand a call to svldff1 or svldnf1; UNSPEC_CODE is UNSPEC_LDFF1 for
@@ -4747,7 +4872,12 @@ function_expander::expand_via_load_insn (insn_code icode)
   rtx base = m_args[1];
   if (m_fi.mode == MODE_vnum)
     {
-      rtx offset = gen_int_mode (GET_MODE_SIZE (mem_mode), Pmode);
+      /* Use the size of the memory mode for extending loads, and the
+	 size of a full vector for non-unextending loads (including
+	 LD2, LD3 and LD4).  */
+      poly_int64 size = ordered_min (GET_MODE_SIZE (mem_mode),
+				     BYTES_PER_SVE_VECTOR);
+      rtx offset = gen_int_mode (size, Pmode);
       offset = simplify_gen_binary (MULT, Pmode, m_args[2], offset);
       base = simplify_gen_binary (PLUS, Pmode, base, offset);
     }
