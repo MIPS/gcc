@@ -572,6 +572,11 @@ static int by_ref_count;
    which might abort etc.. */
 static bitmap final_bbs;
 
+/* Obstack to allocate various small structures required only when generating
+   summary for a function.  */
+static struct obstack gensum_obstack;
+
+
 /* Print access tree starting at ACCESS to F.  */
 
 static void
@@ -1191,10 +1196,8 @@ get_gensum_param_desc (tree decl)
 }
 
 
-/* Remove parameter described by DESC from candidates for IPA-SRA and write
-   REASON to the dump file if there is one.  */
-
-/* !!? Perhaps rename to emphasize this prevents splitting, not removal? */
+/* Remove parameter described by DESC from candidates for IPA-SRA splitting and
+   write REASON to the dump file if there is one.  */
 
 static void
 disqualify_split_candidate (gensum_param_desc *desc, const char *reason)
@@ -1235,8 +1238,9 @@ allocate_access (gensum_param_desc *desc,
       return NULL;
     }
 
-  /* !!! TODO: allocate from an obstack */
-  gensum_param_access *access = new gensum_param_access ();
+  gensum_param_access *access
+    = (gensum_param_access *) obstack_alloc (&gensum_obstack,
+					     sizeof (gensum_param_access));
   memset (access, 0, sizeof (*access));
   access->offset = offset;
   access->size = size;
@@ -1252,8 +1256,8 @@ enum isra_scan_context {ISRA_CTX_LOAD, ISRA_CTX_ARG, ISRA_CTX_STORE};
    at OFFSET with SIZE in context CTX, starting at pointer to the linked list
    at a certaint tree level FIRST.  Attempt to create if it does not exist, but
    fail and return NULL if there are already too many accesses, if it would
-   create a partially overlapping access or if an access woule end up in a
-   non-call access.  */
+   create a partially overlapping access or if an access would end up withiin a
+   pre-existing non-call access.  */
 
 static gensum_param_access *
 get_access_1 (gensum_param_desc *desc, gensum_param_access **first,
@@ -1630,25 +1634,27 @@ scan_expr_access (tree expr, gimple *stmt, isra_scan_context ctx,
   if (TREE_CODE (base) != PARM_DECL)
     return;
 
-  /* !!! Move get_gensum_param_desc here and then disqualify using it.  */
+  gensum_param_desc *desc = get_gensum_param_desc (base);
+  if (!desc || !desc->m_split_candidate)
+    return;
+
   if (!poffset.is_constant (&offset)
       || !psize.is_constant (&size)
       || !pmax_size.is_constant (&max_size))
     {
-      disqualify_split_candidate (base, "Encountered a polynomial-sized "
+      disqualify_split_candidate (desc, "Encountered a polynomial-sized "
 				  "access.");
       return;
     }
   if (size < 0 || size != max_size)
     {
-      disqualify_split_candidate (base, "Encountered a variable sized access.");
+      disqualify_split_candidate (desc, "Encountered a variable sized access.");
       return;
     }
-
   if (TREE_CODE (expr) == COMPONENT_REF
       && DECL_BIT_FIELD (TREE_OPERAND (expr, 1)))
     {
-      disqualify_split_candidate (base, "Encountered a bit-field access.");
+      disqualify_split_candidate (desc, "Encountered a bit-field access.");
       return;
     }
   gcc_assert (offset >= 0);
@@ -1657,14 +1663,10 @@ scan_expr_access (tree expr, gimple *stmt, isra_scan_context ctx,
   if ((offset / BITS_PER_UNIT) >= (UINT_MAX - ISRA_ARG_SIZE_LIMIT)
       || (size / BITS_PER_UNIT) >= ISRA_ARG_SIZE_LIMIT)
     {
-      disqualify_split_candidate (base, "Encountered an access with too big "
+      disqualify_split_candidate (desc, "Encountered an access with too big "
 				  "offset or size");
       return;
     }
-
-  gensum_param_desc *desc = get_gensum_param_desc (base);
-  if (!desc || !desc->m_split_candidate)
-    return;
 
   tree type = TREE_TYPE (expr);
   unsigned int exp_align = get_object_alignment (expr);
@@ -2349,6 +2351,7 @@ ipa_sra_summarize_function (cgraph_node *node)
 	     node->order);
   if (!ipa_sra_preliminary_function_checks (node))
     return;
+  gcc_obstack_init (&gensum_obstack);
   isra_func_summary *ifs = func_sums->get_create (node);
   ifs->m_candidate = true;
   tree ret = TREE_TYPE (TREE_TYPE (node->decl));
@@ -2398,6 +2401,7 @@ ipa_sra_summarize_function (cgraph_node *node)
 
   delete decl2desc;
   decl2desc = NULL;
+  obstack_free (&gensum_obstack, NULL);
   if (dump_file)
     fprintf (dump_file, "\n\n");
   return;
