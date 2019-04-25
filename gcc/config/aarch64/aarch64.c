@@ -15169,6 +15169,18 @@ aarch64_sve_ldff1_operand_p (rtx op)
   return addr.type == ADDRESS_REG_REG;
 }
 
+/* Return true if OP is a valid MEM operand for an SVE LDNF1 instruction.  */
+bool
+aarch64_sve_ldnf1_operand_p (rtx op)
+{
+  struct aarch64_address_info addr;
+
+  return (MEM_P (op)
+	  && aarch64_classify_address (&addr, XEXP (op, 0),
+				       GET_MODE (op), false)
+	  && addr.type == ADDRESS_REG_IMM);
+}
+
 /* Return true if OP is a valid MEM operand for an SVE LDR instruction.
    The conditions for STR are the same.  */
 bool

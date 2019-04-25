@@ -4181,16 +4181,16 @@
   [(set_attr "type" "ghost")]
 )
 
-;; Contiguous non-extending first-faulting loads.
-(define_insn "@aarch64_ldff1<mode>"
+;; Contiguous non-extending first-faulting or non-faulting loads.
+(define_insn "@aarch64_ld<f>f1<mode>"
   [(set (match_operand:SVE_ALL 0 "register_operand" "=w")
 	(unspec:SVE_ALL
 	  [(match_operand:<VPRED> 2 "register_operand" "Upl")
-	   (match_operand:SVE_ALL 1 "aarch64_sve_ldff1_operand" "Utf")
+	   (match_operand:SVE_ALL 1 "aarch64_sve_ld<f>f1_operand" "Ut<f>")
 	   (reg:VNx16BI FFRT_REGNUM)]
-	  UNSPEC_LDFF1))]
+	  SVE_LDFF1_LDNF1))]
   "TARGET_SVE"
-  "ldff1<Vesize>\t%0.<Vetype>, %2/z, %1"
+  "ld<f>f1<Vesize>\t%0.<Vetype>, %2/z, %1"
 )
 
 ;; Predicated first-faulting load and extend, with 8 elements per

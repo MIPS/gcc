@@ -683,7 +683,7 @@ private:
   rtx expand_ld1_ext (rtx_code);
   rtx expand_ld1_ext_gather (rtx_code);
   rtx expand_ld1_gather ();
-  rtx expand_ldff1 ();
+  rtx expand_ldff1 (int = UNSPEC_LDFF1);
   rtx expand_ldff1_ext (rtx_code);
   rtx expand_ldff1_ext_gather (rtx_code);
   rtx expand_ldff1_gather ();
@@ -1197,6 +1197,7 @@ function_instance::memory_vector_mode () const
     case FUNC_svld1_gather:
     case FUNC_svldff1:
     case FUNC_svldff1_gather:
+    case FUNC_svldnf1:
       return mode;
 
     case FUNC_svld1sb:
@@ -1257,6 +1258,7 @@ function_instance::memory_scalar_type () const
     case FUNC_svld1_gather:
     case FUNC_svldff1:
     case FUNC_svldff1_gather:
+    case FUNC_svldnf1:
       return scalar_type (0);
 
     case FUNC_svld1sb:
@@ -2279,6 +2281,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svldff1uh_gather:
     case FUNC_svldff1uw:
     case FUNC_svldff1uw_gather:
+    case FUNC_svldnf1:
     case FUNC_svrdffr:
     case FUNC_svsetffr:
     case FUNC_svwrffr:
@@ -3398,6 +3401,7 @@ gimple_folder::fold ()
     case FUNC_svldff1uh_gather:
     case FUNC_svldff1uw:
     case FUNC_svldff1uw_gather:
+    case FUNC_svldnf1:
     case FUNC_svlsl:
     case FUNC_svlsl_wide:
     case FUNC_svmad:
@@ -3821,6 +3825,9 @@ function_expander::expand ()
     case FUNC_svldff1uw_gather:
       return expand_ldff1_ext_gather (ZERO_EXTEND);
 
+    case FUNC_svldnf1:
+      return expand_ldff1 (UNSPEC_LDNF1);
+
     case FUNC_svlsl:
       return expand_lsl ();
 
@@ -4212,12 +4219,13 @@ function_expander::expand_ld1_gather ()
   return expand_via_exact_insn (icode);
 }
 
-/* Expand a call to svldff1.  */
+/* Expand a call to svldff1 or svldnf1; UNSPEC_CODE is UNSPEC_LDFF1 for
+   the former and UNSPEC_LDNF1 for the latter.  */
 rtx
-function_expander::expand_ldff1 ()
+function_expander::expand_ldff1 (int code)
 {
   emit_insn (gen_aarch64_update_ffr_for_load ());
-  return expand_via_load_insn (code_for_aarch64_ldff1 (get_mode (0)));
+  return expand_via_load_insn (code_for_aarch64_ldf1 (code, get_mode (0)));
 }
 
 /* Expand a call to svldff1[su][bhw].  CODE is the type of extension,

@@ -567,6 +567,10 @@
   (and (match_operand 0 "memory_operand")
        (match_test "aarch64_sve_ldff1_operand_p (op)")))
 
+(define_predicate "aarch64_sve_ldnf1_operand"
+  (and (match_operand 0 "memory_operand")
+       (match_test "aarch64_sve_ldnf1_operand_p (op)")))
+
 ;; Like memory_operand, but restricted to addresses that are valid for
 ;; SVE LDR and STR instructions.
 (define_predicate "aarch64_sve_ldr_operand"

@@ -260,6 +260,12 @@
   (and (match_code "mem")
        (match_test "aarch64_sve_ldff1_operand_p (op)")))
 
+(define_memory_constraint "Utn"
+  "@internal
+   An address valid for SVE LDNF1 instructions."
+  (and (match_code "mem")
+       (match_test "aarch64_sve_ldnf1_operand_p (op)")))
+
 (define_memory_constraint "Utr"
   "@internal
    An address valid for SVE LDR and STR instructions (as distinct from

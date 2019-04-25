@@ -514,6 +514,7 @@
     UNSPEC_LASTB	; Used in aarch64-sve.md.
     UNSPEC_ASHIFT_WIDE  ; Used in aarch64-sve.md.
     UNSPEC_LDFF1	; Used in aarch64-sve.md.
+    UNSPEC_LDNF1	; Used in aarch64-sve.md.
     UNSPEC_FCADD90	; Used in aarch64-simd.md.
     UNSPEC_FCADD270	; Used in aarch64-simd.md.
     UNSPEC_FCMLA	; Used in aarch64-simd.md.
@@ -1730,6 +1731,8 @@
 
 (define_int_iterator SVE_ASHIFT_WIDE [UNSPEC_ASHIFT_WIDE])
 
+(define_int_iterator SVE_LDFF1_LDNF1 [UNSPEC_LDFF1 UNSPEC_LDNF1])
+
 (define_int_iterator FCADD [UNSPEC_FCADD90
 			    UNSPEC_FCADD270])
 
@@ -1891,6 +1894,8 @@
 		    (UNSPEC_SQRSHRN "") (UNSPEC_UQRSHRN "")
 		    (UNSPEC_SHADD "") (UNSPEC_UHADD "u")
 		    (UNSPEC_SRHADD "") (UNSPEC_URHADD "u")])
+
+(define_int_attr f [(UNSPEC_LDFF1 "f") (UNSPEC_LDNF1 "n")])
 
 (define_int_attr addsub [(UNSPEC_SHADD "add")
 			 (UNSPEC_UHADD "add")
