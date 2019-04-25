@@ -219,6 +219,17 @@
   "ld1<Vesize>\t%0.<Vetype>, %2/z, %1"
 )
 
+;; Predicated contiguous non-temporal load.
+(define_insn "@aarch64_ldnt1<mode>"
+  [(set (match_operand:SVE_ALL 0 "register_operand" "=w")
+	(unspec:SVE_ALL
+	  [(match_operand:<VPRED> 2 "register_operand" "Upl")
+	   (match_operand:SVE_ALL 1 "memory_operand" "m")]
+	  UNSPEC_LDNT1_SVE))]
+  "TARGET_SVE"
+  "ldnt1<Vesize>\t%0.<Vetype>, %2/z, %1"
+)
+
 (define_insn "maskstore<mode><vpred>"
   [(set (match_operand:SVE_ALL 0 "memory_operand" "+m")
 	(unspec:SVE_ALL [(match_operand:<VPRED> 2 "register_operand" "Upl")
