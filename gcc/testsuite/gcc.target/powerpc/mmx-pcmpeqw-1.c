@@ -28,11 +28,11 @@ TEST (void)
   __m64_union u, s1, s2;
   __m64_union e;
   int i;
-   
+
   s1.as_m64 = _mm_set_pi16 (20, 30, 90, 80);
   s2.as_m64 = _mm_set_pi16 (34, 78, 90, 6);
   u.as_m64 = test (s1.as_m64, s2.as_m64);
-   
+
   for (i = 0; i < 4; i++)
      e.as_short[i] = (s1.as_short[i] == s2.as_short[i]) ? -1:0;
 

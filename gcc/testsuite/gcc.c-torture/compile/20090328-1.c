@@ -14,4 +14,3 @@ void __frame_state_for (volatile char *state_in, int x)
 	}
     }
 }
-

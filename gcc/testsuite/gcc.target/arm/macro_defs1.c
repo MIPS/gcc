@@ -6,4 +6,3 @@
 #ifdef __ARM_NEON_FP
 #error __ARM_NEON_FP should not be defined
 #endif
-

@@ -1497,7 +1497,7 @@ dump_part_var_map (FILE *f, partition part, var_map map)
 /* Given SSA_NAMEs NAME1 and NAME2, return true if they are candidates for
    coalescing together, false otherwise.
 
-   This must stay consistent with compute_samebase_partition_bases and 
+   This must stay consistent with compute_samebase_partition_bases and
    compute_optimized_partition_bases.  */
 
 bool
@@ -1757,4 +1757,3 @@ coalesce_ssa_name (var_map map)
   delete_coalesce_list (cl);
   ssa_conflicts_delete (graph);
 }
-

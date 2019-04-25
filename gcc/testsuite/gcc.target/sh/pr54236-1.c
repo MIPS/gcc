@@ -107,4 +107,3 @@ test_11 (unsigned int x)
   /* 1x tst, 1x addc  */
   return x + (x != 0);
 }
-

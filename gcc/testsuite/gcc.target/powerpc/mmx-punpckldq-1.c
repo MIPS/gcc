@@ -26,7 +26,7 @@ static void
 TEST (void)
 {
   __m64_union u, s1, s2, e;
-   
+
   s1.as_m64 = 0x0706050403020100UL;
   s2.as_m64 = 0x1716151413121110UL;
   u.as_m64 = test (s1.as_m64, s2.as_m64);

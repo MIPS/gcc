@@ -1,4 +1,4 @@
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-O2 -fdump-tree-pre-stats" } */
 double cos (double) __attribute__ ((const));
 double sin (double) __attribute__ ((const));
@@ -15,7 +15,7 @@ double f(double a)
     }
   else
     {
-      c = 1.0; 
+      c = 1.0;
       fp = cos;
       c = fp (a);
     }

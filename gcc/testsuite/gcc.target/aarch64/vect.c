@@ -33,7 +33,7 @@ void check_vector (pRINT c, pRINT result, char *str)
 #define TESTVLL(func, sign)  \
                     if (func (ll##sign##a) != func##_value) \
 		      abort ();
-		          
+
 int main (void)
 {
   int sa[16];

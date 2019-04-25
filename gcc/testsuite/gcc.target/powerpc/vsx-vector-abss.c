@@ -81,7 +81,7 @@ main (int argc, char *argv[])
 
   result_int = vabss_int (val_int);
 
-  for (i = 0; i< 4; i++) 
+  for (i = 0; i< 4; i++)
     if (result_int[i] != expected_int[i])
 #ifdef DEBUG
       printf("ERROR: vec_abss() result_int[%d] = %d, not expected_int[%d] = %d\n",
@@ -89,8 +89,6 @@ main (int argc, char *argv[])
 #else
       abort ();
 #endif
-      
+
   return 0;
 }
-
-

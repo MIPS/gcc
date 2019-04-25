@@ -1,4 +1,4 @@
- 
+
 int f()
 {
   unsigned char hrs, min;

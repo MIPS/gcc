@@ -15,11 +15,11 @@
 #include <emmintrin.h>
 
 
-static int 
+static int
 __attribute__((noinline, unused))
 test (__m128d p)
 {
-  return _mm_cvtsd_si32 (p); 
+  return _mm_cvtsd_si32 (p);
 }
 
 static void

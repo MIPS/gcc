@@ -148,7 +148,7 @@ gfc_init_options (unsigned int decoded_options_count,
   gfc_option.flag_preprocessed = 0;
   gfc_option.flag_d_lines = -1;
   set_init_local_zero (0);
-  
+
   gfc_option.fpe = 0;
   /* All except GFC_FPE_INEXACT.  */
   gfc_option.fpe_summary = GFC_FPE_INVALID | GFC_FPE_DENORMAL
@@ -353,7 +353,7 @@ gfc_post_options (const char **pfilename)
 	{
 	  gfc_current_form = FORM_FREE;
 	  main_input_filename = filename;
-	  gfc_warning_now (0, "Reading file %qs as free form", 
+	  gfc_warning_now (0, "Reading file %qs as free form",
 			   (filename[0] == '\0') ? "<stdin>" : filename);
 	}
     }
@@ -440,7 +440,7 @@ gfc_post_options (const char **pfilename)
   /* Implement -fno-automatic as -fmax-stack-var-size=0.  */
   if (!flag_automatic)
     flag_max_stack_var_size = 0;
-  
+
   /* If the user did not specify an inline matmul limit, inline up to the BLAS
      limit or up to 30 if no external BLAS is specified.  */
 
@@ -584,7 +584,7 @@ gfc_handle_runtime_check_option (const char *arg)
 				 GFC_RTCHECK_RECURSION, GFC_RTCHECK_DO,
 				 GFC_RTCHECK_POINTER, GFC_RTCHECK_MEM,
 				 0 };
- 
+
   while (*arg)
     {
       while (*arg == ',')
@@ -645,7 +645,7 @@ gfc_handle_option (size_t scode, const char *arg, HOST_WIDE_INT value,
     case OPT_fcheck_array_temporaries:
       SET_BITFLAG (gfc_option.rtcheck, value, GFC_RTCHECK_ARRAY_TEMPS);
       break;
-      
+
     case OPT_fd_lines_as_code:
       gfc_option.flag_d_lines = 1;
       break;
@@ -797,8 +797,8 @@ gfc_handle_option (size_t scode, const char *arg, HOST_WIDE_INT value,
       break;
     }
 
-  Fortran_handle_option_auto (&global_options, &global_options_set, 
-                              scode, arg, value, 
+  Fortran_handle_option_auto (&global_options, &global_options_set,
+                              scode, arg, value,
                               gfc_option_lang_mask (), kind,
                               loc, handlers, global_dc);
   return result;
@@ -847,7 +847,7 @@ gfc_get_option_string (void)
 
   result = XCNEWVEC (char, len);
 
-  pos = 0; 
+  pos = 0;
   for (j = 1; j < save_decoded_options_count; j++)
     {
       switch (save_decoded_options[j].opt_index)

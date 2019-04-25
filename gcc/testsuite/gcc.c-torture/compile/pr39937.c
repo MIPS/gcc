@@ -1,5 +1,5 @@
 int foo (__const char *__restrict __s);
-static void 
+static void
 read_anisou(char line[])
 {
   foo (line+1);

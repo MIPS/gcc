@@ -90,7 +90,7 @@ main ()
   for (; k; k++)
     fn1 ();
   fn1 ();
- 
+
   if (n)
     abort ();
 

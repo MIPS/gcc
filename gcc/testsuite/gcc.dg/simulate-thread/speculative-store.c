@@ -5,14 +5,14 @@
 #include <stdio.h>
 #include "simulate-thread.h"
 
-/* This file tests that speculative store movement out of a loop doesn't 
+/* This file tests that speculative store movement out of a loop doesn't
    happen.  This is disallowed when --param allow-store-data-races is 0.  */
 
 int global = 100;
 
 /* Other thread makes sure global is 100 before the next instruction is
  * exceuted.  */
-void simulate_thread_other_threads() 
+void simulate_thread_other_threads()
 {
   global = 100;
 }

@@ -1112,7 +1112,7 @@ decl_refs_may_alias_p (tree ref1, tree base1,
       && nonoverlapping_component_refs_of_decl_p (ref1, ref2))
     return false;
 
-  return true;     
+  return true;
 }
 
 /* Return true if an indirect reference based on *PTR1 constrained
@@ -1175,7 +1175,7 @@ indirect_ref_may_alias_decl_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
      use the usual conflict check rather than a subset test.
      ???  We could introduce -fvery-strict-aliasing when the language
      does not allow decls to have a dynamic type that differs from their
-     static type.  Then we can check 
+     static type.  Then we can check
      !alias_set_subset_of (base1_alias_set, base2_alias_set) instead.  */
   if (base1_alias_set != base2_alias_set
       && !alias_sets_conflict_p (base1_alias_set, base2_alias_set))
@@ -2425,7 +2425,7 @@ stmt_kills_ref_p (gimple *stmt, ao_ref *ref)
 		  if (res)
 		    break;
 		  /* Remember if we drop an array-ref that we need to
-		     double-check not being at struct end.  */ 
+		     double-check not being at struct end.  */
 		  if (TREE_CODE (base) == ARRAY_REF
 		      || TREE_CODE (base) == ARRAY_RANGE_REF)
 		    innermost_dropped_array_ref = base;
@@ -2952,4 +2952,3 @@ walk_aliased_vdefs (ao_ref *ref, tree vdef,
 
   return ret;
 }
-

@@ -24,6 +24,6 @@ __ea char *foo (__ea char *s)
 
   for (i = 0; i < 3; i++)
     ret = strchr_ea (ret, s[i]);
- 
+
   return ret;
 }

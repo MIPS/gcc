@@ -45,7 +45,7 @@ enum ipa_hints_vals {
      it.  Set by simple_edge_hints in ipa-inline-analysis.c.  */
   INLINE_HINT_declared_inline = 32,
   /* Programs are usually still organized for non-LTO compilation and thus
-     if functions are in different modules, inlining may not be so important. 
+     if functions are in different modules, inlining may not be so important.
      Set by simple_edge_hints in ipa-inline-analysis.c.   */
   INLINE_HINT_cross_module = 64,
   /* If array indexes of loads/stores become known there may be room for

@@ -8,4 +8,4 @@ main ()
   pic_addr ();
   nonpic_nothing ();
   exit (0);
-} 
+}

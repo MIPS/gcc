@@ -24,4 +24,3 @@ void foo (void * DAG_temp117584)
       DAG_temp117584 += 64;
   } while (1);
 }
-

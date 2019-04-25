@@ -27,4 +27,3 @@ testf_cst (float f, vector float vf)
 /* cst test has a lvewx,vperm combo */
 /* { dg-final { scan-assembler-times {\mlvewx\M} 1 } } */
 /* { dg-final { scan-assembler-times {\mvperm\M} 1 } } */
-

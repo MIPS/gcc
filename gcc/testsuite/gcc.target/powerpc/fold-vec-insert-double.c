@@ -1,4 +1,4 @@
-/* Verify that overloaded built-ins for vec_insert with 
+/* Verify that overloaded built-ins for vec_insert with
    double inputs produce the right codegen.  */
 
 /* { dg-do compile { target { powerpc*-*-linux* } } } */
@@ -26,4 +26,3 @@ testd_cst (double d, vector double vd)
 /* { dg-final { scan-assembler-times {\mstxvd2x\M|\mstxv\M|\mstvx\M} 1 } } */
 /* { dg-final { scan-assembler-times {\mstfdx\M|\mstfd\M} 1 } } */
 /* { dg-final { scan-assembler-times {\mlxvd2x\M|\mlxv\M|\mlvx\M} 1 } } */
-

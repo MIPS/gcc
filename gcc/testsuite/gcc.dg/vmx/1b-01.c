@@ -3,7 +3,7 @@
 vector unsigned char a;
 
 static void test()
-{ 
+{
   check(sizeof(a) == 16, "sizeof(a)");
   check(((long)&a & 15) == 0, "alignof(a)");
   check((long)&a != 0, "&a");

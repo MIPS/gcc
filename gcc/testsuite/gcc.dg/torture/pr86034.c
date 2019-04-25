@@ -11,7 +11,7 @@ struct A
   int e;
 } f;
 
-int g; 
+int g;
 
 void h ()
 {
@@ -26,7 +26,7 @@ L:
 int main (void)
 {
   h ();
-  if (f.e != 0) 
+  if (f.e != 0)
     __builtin_abort ();
-  return 0; 
+  return 0;
 }

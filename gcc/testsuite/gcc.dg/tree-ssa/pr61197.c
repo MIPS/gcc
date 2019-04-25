@@ -1,7 +1,7 @@
 /* { dg-do run } */
 /* { dg-options "-O3" } */
 
-int a, b = 1, *c = &a; 
+int a, b = 1, *c = &a;
 
 int
 foo ()
@@ -20,7 +20,7 @@ int
 main ()
 {
   *c = foo ();
-  if (a != 1) 
-    __builtin_abort (); 
+  if (a != 1)
+    __builtin_abort ();
   return 0;
 }

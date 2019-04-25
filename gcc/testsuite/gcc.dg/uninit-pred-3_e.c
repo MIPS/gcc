@@ -18,7 +18,7 @@ int foo (int n, int m, int r)
 
   if (m)
     g++;
-  else 
+  else
     bar();
 
   if (r > 0)

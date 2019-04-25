@@ -5,12 +5,12 @@
 
 int volatile a;
 
-void f1 (void) 
+void f1 (void)
 {
-  __builtin_avr_sei (); 
-  __builtin_avr_cli (); 
-  __builtin_avr_wdr (); 
-  __builtin_avr_sleep (); 
+  __builtin_avr_sei ();
+  __builtin_avr_cli ();
+  __builtin_avr_wdr ();
+  __builtin_avr_sleep ();
   __builtin_avr_nop ();
   a = __builtin_avr_swap (a);
   a = __builtin_avr_fmul (1,a);
@@ -25,5 +25,5 @@ int main (void)
   __builtin_avr_delay_cycles (1000);
 
   exit (0);
-  return 0; 
+  return 0;
 }

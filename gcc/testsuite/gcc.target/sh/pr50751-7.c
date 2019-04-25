@@ -5,7 +5,7 @@
 /* { dg-options "-O1" } */
 /* { dg-final { scan-assembler-not "add|sub" } } */
 
-typedef struct 
+typedef struct
 {
   char	a;
   char	b;

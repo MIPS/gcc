@@ -8,4 +8,3 @@ foo (void)
   char buf2 [32][1024];
   bar (buf2 [(int) x]);
 }
-

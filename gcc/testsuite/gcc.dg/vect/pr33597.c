@@ -20,4 +20,3 @@ rgb15to24_C (const uint8_t * src, uint8_t * dst, long src_size)
       *d++ = (bgr&0x7C00)>>7;
     }
 }
-

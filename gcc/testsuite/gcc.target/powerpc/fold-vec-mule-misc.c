@@ -6,7 +6,7 @@
 
 #include <altivec.h>
 
-__attribute__((noinline)) void 
+__attribute__((noinline)) void
 test_eub_char ()
 {
   volatile vector unsigned char v0 = {1, 0, 0, 0, 0, 0, 0, 0};
@@ -16,7 +16,7 @@ test_eub_char ()
     __builtin_abort ();
 }
 
-__attribute__((noinline)) void 
+__attribute__((noinline)) void
 test_oub_char ()
 {
   volatile vector unsigned char v0 = {0, 1, 0, 0, 0, 0, 0, 0};
@@ -26,7 +26,7 @@ test_oub_char ()
     __builtin_abort ();
 }
 
-__attribute__((noinline)) void 
+__attribute__((noinline)) void
 test_euh_short ()
 {
   volatile vector unsigned short v0 = {1, 0, 0, 0};
@@ -36,7 +36,7 @@ test_euh_short ()
     __builtin_abort ();
 }
 
-__attribute__((noinline)) void 
+__attribute__((noinline)) void
 test_ouh_short ()
 {
   volatile vector unsigned short v0 = {0, 1, 0, 0};
@@ -58,4 +58,3 @@ int main ()
 /* { dg-final { scan-assembler-times "vmuloub" 1 } } */
 /* { dg-final { scan-assembler-times "vmuleuh" 1 } } */
 /* { dg-final { scan-assembler-times "vmulouh" 1 } } */
-

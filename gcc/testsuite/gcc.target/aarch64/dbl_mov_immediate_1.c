@@ -50,4 +50,3 @@ double d4(void)
 /* { dg-final { scan-assembler-times "movk\tx\[0-9\]+, 0x40fe, lsl 48"      1 } } */
 /* { dg-final { scan-assembler-times "mov\tx\[0-9\]+, -9223372036854775808" 1 } } */
 /* { dg-final { scan-assembler-times "fmov\td\[0-9\]+, x\[0-9\]+"           2 } } */
-

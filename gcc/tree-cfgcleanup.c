@@ -1598,4 +1598,3 @@ delete_unreachable_blocks_update_callgraph (cgraph_node *dst_node,
 
   return changed;
 }
-

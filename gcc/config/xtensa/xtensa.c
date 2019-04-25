@@ -1347,7 +1347,7 @@ xtensa_expand_block_move (rtx *operands)
       if (active[phase])
 	{
 	  active[phase] = false;
-	  
+
 	  x = adjust_address (dst_mem, mode[phase], offset_st);
 	  emit_insn (gen_rtx_SET (x, temp[phase]));
 
@@ -1758,8 +1758,8 @@ xtensa_emit_bit_branch (bool inverted, bool immed, rtx *operands)
 
   if (immed)
     {
-      unsigned bitnum = INTVAL (operands[1]) & 0x1f; 
-      operands[1] = GEN_INT (bitnum); 
+      unsigned bitnum = INTVAL (operands[1]) & 0x1f;
+      operands[1] = GEN_INT (bitnum);
       sprintf (result, "b%si\t%%0, %%d1, %%2", op);
     }
   else
@@ -3915,7 +3915,7 @@ xtensa_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 /* Worker function for TARGET_FUNCTION_VALUE.  */
 
 rtx
-xtensa_function_value (const_tree valtype, const_tree func ATTRIBUTE_UNUSED, 
+xtensa_function_value (const_tree valtype, const_tree func ATTRIBUTE_UNUSED,
                       bool outgoing)
 {
   return gen_rtx_REG ((INTEGRAL_TYPE_P (valtype)

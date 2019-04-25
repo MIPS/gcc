@@ -400,7 +400,7 @@ void exec_vqtbX (void)
 		    VECT_VAR(vector, T3, W, N1));	\
     vst1q_##T2##W(VECT_VAR(result, T1, W, N1),		\
 		  VECT_VAR(vector_res, T1, W, N1));
-  
+
 #define TEST_VQTBXX(T1, T2, T3, W, N1, N2, X)				\
   VECT_ARRAY_VAR(table_vector, T1, W, N2, X) =				\
     vld##X##q_##T2##W((T1##W##_t *)lookup_table);			\

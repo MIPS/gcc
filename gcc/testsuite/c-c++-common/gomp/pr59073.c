@@ -5,7 +5,7 @@
 void
 foo ()
 {
-  int i; 
+  int i;
 #pragma omp distribute parallel for
   for (i = 0; i < 10; i)	/* { dg-error "invalid increment expression" } */
     ;

@@ -96,7 +96,7 @@ void test_add_fixit_insert_formatted_multiline (void)
 +   int a[2][2] = { {0, 1} , 2, 3 };
  #endif
  }
- 
+
 @@ -23,7 +23,7 @@
  void test_fixit_remove (void)
  {
@@ -105,7 +105,7 @@ void test_add_fixit_insert_formatted_multiline (void)
 +  int a;
  #endif
  }
- 
+
 @@ -32,7 +32,7 @@
  void test_fixit_replace (void)
  {
@@ -114,7 +114,7 @@ void test_add_fixit_insert_formatted_multiline (void)
 +  gtk_widget_show_all (dlg);
  #endif
  }
- 
+
 @@ -45,6 +45,7 @@
      {
      case 'a':
@@ -124,13 +124,13 @@ void test_add_fixit_insert_formatted_multiline (void)
        x = b;
      }
 @@ -68,7 +69,7 @@
- 
+
  void test_add_fixit_insert_formatted_single_line (void)
  {
 -  {}
 +  {INSERTED-CONTENT}
  }
- 
+
  void test_add_fixit_insert_formatted_multiline (void)
 @@ -76,6 +77,7 @@
    if (1)
@@ -138,6 +138,6 @@ void test_add_fixit_insert_formatted_multiline (void)
      }
 +  INSERTED-CONTENT
  }
- 
- 
+
+
    { dg-end-multiline-output "" } */

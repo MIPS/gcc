@@ -7,6 +7,6 @@
 int make_non_empty;
 
 /* Another transposition typo:  */
-#deifne FOO /* { dg-error "invalid preprocessing directive #deifne; did you mean #define?" } */ 
+#deifne FOO /* { dg-error "invalid preprocessing directive #deifne; did you mean #define?" } */
 
 #endif /* #ifndef SOME_GUARD */

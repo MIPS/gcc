@@ -1,14 +1,14 @@
 /* Output routines for CR16 processor.
    Copyright (C) 2012-2019 Free Software Foundation, Inc.
    Contributed by KPIT Cummins Infosystems Limited.
-  
+
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
    by the Free Software Foundation; either version 3, or (at your
    option) any later version.
- 
+
    GCC is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
    or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
@@ -57,7 +57,7 @@
    a push/pop instruction.  */
 #define MAX_COUNT  8
 
-/* Predicate is true if the current function is a 'noreturn' function, 
+/* Predicate is true if the current function is a 'noreturn' function,
    i.e. it is qualified as volatile.  */
 #define FUNC_IS_NORETURN_P(decl) (TREE_THIS_VOLATILE (decl))
 
@@ -79,25 +79,25 @@
 /* Structure for stack computations.  */
 
 /* variable definitions in the struture
-   args_size             Number of bytes saved on the stack for local 
+   args_size             Number of bytes saved on the stack for local
 			 variables
 
-   reg_size		 Number of bytes saved on the stack for 
+   reg_size		 Number of bytes saved on the stack for
 			 non-scratch registers
 
-   total_size 		 The sum of 2 sizes: locals vars and padding byte 
-			 for saving the registers. Used in expand_prologue() 
+   total_size 		 The sum of 2 sizes: locals vars and padding byte
+			 for saving the registers. Used in expand_prologue()
 			 and expand_epilogue()
 
-   last_reg_to_save      Will hold the number of the last register the 
+   last_reg_to_save      Will hold the number of the last register the
 			 prologue saves, -1 if no register is saved
 
-   save_regs[16]	 Each object in the array is a register number. 
+   save_regs[16]	 Each object in the array is a register number.
 			 Mark 1 for registers that need to be saved
 
    num_regs		 Number of registers saved
 
-   initialized		 Non-zero if frame size already calculated, not 
+   initialized		 Non-zero if frame size already calculated, not
 			 used yet
 
    function_makes_calls  Does the function make calls ? not used yet.  */
@@ -147,10 +147,10 @@ static void cr16_print_operand_address (FILE *, machine_mode, rtx);
 
 /* Override Options.  */
 #undef TARGET_OPTION_OVERRIDE
-#define TARGET_OPTION_OVERRIDE  	cr16_override_options 
+#define TARGET_OPTION_OVERRIDE  	cr16_override_options
 
 /* Conditional register usuage.  */
-#undef TARGET_CONDITIONAL_REGISTER_USAGE 
+#undef TARGET_CONDITIONAL_REGISTER_USAGE
 #define TARGET_CONDITIONAL_REGISTER_USAGE cr16_conditional_register_usage
 
 /* Controlling register spills.  */
@@ -246,7 +246,7 @@ cr16_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 static bool
 cr16_class_likely_spilled_p (reg_class_t rclass)
 {
-  if ((rclass) == SHORT_REGS || (rclass) == DOUBLE_BASE_REGS 
+  if ((rclass) == SHORT_REGS || (rclass) == DOUBLE_BASE_REGS
       || (rclass) == LONG_REGS || (rclass) == GENERAL_REGS)
     return true;
 
@@ -272,8 +272,8 @@ static void
 cr16_override_options (void)
 {
   /* Disable -fdelete-null-pointer-checks option for CR16 target.
-     Programs which rely on NULL pointer dereferences _not_ halting the 
-     program may not work properly with this option. So disable this 
+     Programs which rely on NULL pointer dereferences _not_ halting the
+     program may not work properly with this option. So disable this
      option.  */
   flag_delete_null_pointer_checks = 0;
 
@@ -336,10 +336,10 @@ cr16_interrupt_function_p (void)
   return (lookup_attribute ("interrupt", attributes) != NULL_TREE);
 }
 
-/* Compute values for the array current_frame_info.save_regs and the variable 
-   current_frame_info.reg_size. The index of current_frame_info.save_regs 
-   is numbers of register, each will get 1 if we need to save it in the 
-   current function, 0 if not. current_frame_info.reg_size is the total sum 
+/* Compute values for the array current_frame_info.save_regs and the variable
+   current_frame_info.reg_size. The index of current_frame_info.save_regs
+   is numbers of register, each will get 1 if we need to save it in the
+   current function, 0 if not. current_frame_info.reg_size is the total sum
    of the registers being saved.  */
 static void
 cr16_compute_save_regs (void)
@@ -368,7 +368,7 @@ cr16_compute_save_regs (void)
       if (cr16_interrupt_function_p ())
 	{
 	  if (!crtl->is_leaf && call_used_regs[regno])
-	    /* This is a volatile reg in a non-leaf interrupt routine - save 
+	    /* This is a volatile reg in a non-leaf interrupt routine - save
 	       it for the sake of its sons.  */
 	    current_frame_info.save_regs[regno] = 1;
 	  else if (df_regs_ever_live_p (regno))
@@ -454,7 +454,7 @@ cr16_initial_elimination_offset (int from, int to)
   else if (((from) == ARG_POINTER_REGNUM) && ((to) == FRAME_POINTER_REGNUM))
     return (current_frame_info.reg_size + current_frame_info.var_size);
   else if (((from) == ARG_POINTER_REGNUM) && ((to) == STACK_POINTER_REGNUM))
-    return (current_frame_info.reg_size + current_frame_info.var_size 
+    return (current_frame_info.reg_size + current_frame_info.var_size
 	    + (ACCUMULATE_OUTGOING_ARGS
 	       ? (HOST_WIDE_INT) crtl->outgoing_args_size : 0));
   else
@@ -496,7 +496,7 @@ cr16_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
 {
   if ((GET_MODE_SIZE (mode) >= 4) && (regno == 11))
     return false;
- 
+
   if (mode == DImode || mode == DFmode)
     {
       if ((regno > 8) || (regno & 1))
@@ -600,9 +600,9 @@ cr16_function_arg (cumulative_args_t cum_v, machine_mode mode,
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
   cum->last_parm_in_reg = 0;
 
-  /* function_arg () is called with this type just after all the args have 
-     had their registers assigned. The rtx that function_arg returns from 
-     this type is supposed to pass to 'gen_call' but currently it is not 
+  /* function_arg () is called with this type just after all the args have
+     had their registers assigned. The rtx that function_arg returns from
+     this type is supposed to pass to 'gen_call' but currently it is not
      implemented.  */
   if (type == void_type_node)
     return NULL_RTX;
@@ -702,7 +702,7 @@ cr16_function_arg_regno_p (int n)
   return ((n <= MAX_REG_FOR_PASSING_ARGS) && (n >= MIN_REG_FOR_PASSING_ARGS));
 }
 
-/* Addressing modes. 
+/* Addressing modes.
    Following set of function implement the macro GO_IF_LEGITIMATE_ADDRESS
    defined in cr16.h.  */
 
@@ -731,7 +731,7 @@ cr16_addr_reg_p (rtx addr_reg)
 
 /* Helper functions: Created specifically for decomposing operand of CONST
    Recursively look into expression x for code or data symbol.
-   The function expects the expression to contain combination of 
+   The function expects the expression to contain combination of
    SYMBOL_REF, CONST_INT, (PLUS or MINUS)
    LABEL_REF, CONST_INT, (PLUS or MINUS)
    SYMBOL_REF
@@ -739,9 +739,9 @@ cr16_addr_reg_p (rtx addr_reg)
    All other combinations will result in code = -1 and data = ILLEGAL_DM
    code data
    -1   ILLEGAL_DM   The expression did not contain SYMBOL_REF or LABEL_REF
-    0   DM_FAR       SYMBOL_REF was found and it was far data reference. 
-    0   DM_DEFAULT   SYMBOL_REF was found and it was medium data reference. 
-    1   ILLEGAL_DM   LABEL_REF was found. 
+    0   DM_FAR       SYMBOL_REF was found and it was far data reference.
+    0   DM_DEFAULT   SYMBOL_REF was found and it was medium data reference.
+    1   ILLEGAL_DM   LABEL_REF was found.
     2   ILLEGAL_DM   SYMBOL_REF was found and it was function reference.  */
 void
 cr16_decompose_const (rtx x, int *code, enum data_model_type *data,
@@ -763,12 +763,12 @@ cr16_decompose_const (rtx x, int *code, enum data_model_type *data,
 	  else if (CR16_TARGET_DATA_FAR)
 	    {
 	      if (treat_as_const)
-		/* This will be used only for printing 
+		/* This will be used only for printing
 		   the qualifier. This call is (may be)
 		   made by cr16_print_operand_address.  */
 		*data = DM_FAR;
 	      else
-		/* This call is (may be) made by 
+		/* This call is (may be) made by
 		   cr16_legitimate_address_p.  */
 		*data = ILLEGAL_DM;
 	    }
@@ -796,12 +796,12 @@ cr16_decompose_const (rtx x, int *code, enum data_model_type *data,
 /* Decompose Address
    This function decomposes the address returns the type of address
    as defined in enum cr16_addrtype.  It also fills the parameter *out.
-   The decomposed address can be used for two purposes.  One to 
+   The decomposed address can be used for two purposes.  One to
    check if the address is valid and second to print the address
    operand.
 
    Following tables list valid address supported in CR16C/C+ architectures.
-   Legend: 
+   Legend:
    aN : Absoulte address N-bit address
    R  : One 16-bit register
    RP : Consecutive two 16-bit registers or one 32-bit register
@@ -897,7 +897,7 @@ cr16_decompose_address (rtx addr, struct cr16_address *out,
       break;
 
     case CONST:
-      /* A CONST is an expression of PLUS or MINUS with 
+      /* A CONST is an expression of PLUS or MINUS with
 	 CONST_INT, SYMBOL_REF or LABEL_REF. This is the
 	 result of assembly-time arithmetic computation.  */
       retval = CR16_ABSOLUTE;
@@ -952,12 +952,12 @@ cr16_decompose_address (rtx addr, struct cr16_address *out,
 	  else if (CR16_TARGET_DATA_FAR)
 	    {
 	      if (treat_as_const)
-		/* This will be used only for printing the 
+		/* This will be used only for printing the
 		   qualifier. This call is (may be) made
 		   by cr16_print_operand_address.  */
 		data = DM_FAR;
 	      else
-		/* This call is (may be) made by 
+		/* This call is (may be) made by
 		   cr16_legitimate_address_p.  */
 		return CR16_INVALID;
 	    }
@@ -991,7 +991,7 @@ cr16_decompose_address (rtx addr, struct cr16_address *out,
 	case REG:
 	case SUBREG:
 	  /* REG + DISP20.  */
-	  /* All Reg relative addresses having a displacement needs 
+	  /* All Reg relative addresses having a displacement needs
 	     to fit in 20-bits.  */
 	  disp = XEXP (addr, 1);
 	  if (debug_print)
@@ -1024,10 +1024,10 @@ cr16_decompose_address (rtx addr, struct cr16_address *out,
 	    case CONST:
 	      /* This is also a valid expression for address.
 	         However, we cannot ascertain if the resultant
-	         displacement will be valid 20-bit value.  Therefore, 
-	         lets not allow such an expression for now.  This will 
-	         be updated when  we find a way to validate this 
-	         expression as legitimate address. 
+	         displacement will be valid 20-bit value.  Therefore,
+	         lets not allow such an expression for now.  This will
+	         be updated when  we find a way to validate this
+	         expression as legitimate address.
 	         Till then fall through CR16_INVALID.  */
 	    default:
 	      return CR16_INVALID;
@@ -1050,7 +1050,7 @@ cr16_decompose_address (rtx addr, struct cr16_address *out,
 	  break;
 
 	case PLUS:
-	  /* Valid expr: 
+	  /* Valid expr:
 	     plus
 	      /\
 	     /  \
@@ -1179,11 +1179,11 @@ legitimate_pic_operand_p (rtx x)
 
      Input            Output (-f pic)        Output (-f PIC)
      orig             reg
-                                                                                                                             
+
      C1   symbol           symbol@BRO (r12)        symbol@GOT (r12)
-                                                                                                                             
+
      C2   symbol + offset  symbol+offset@BRO (r12) symbol+offset@GOT (r12)
-                                                                                                                             
+
      NOTE: @BRO is added using unspec:BRO
      NOTE: @GOT is added using unspec:GOT.  */
 rtx
@@ -1492,7 +1492,7 @@ cr16_print_operand (FILE * file, rtx x, int code)
       break;
 
     case 'b':
-      /* Print the immediate address for bal 
+      /* Print the immediate address for bal
          'b' is used instead of 'a' to avoid compiler calling
          the GO_IF_LEGITIMATE_ADDRESS which cannot
          perform checks on const_int code addresses as it
@@ -1664,11 +1664,11 @@ cr16_print_operand_address (FILE * file, machine_mode /*mode*/, rtx addr)
   else if (flag_pic == FAR_PIC && address.code == 2)
     {
       /* REVISIT: cr16 register indirect jump expects a 1-bit right shifted
-         address ! GOTc tells assembler this symbol is a text-address 
-         This needs to be fixed in such a way that this offset is done 
+         address ! GOTc tells assembler this symbol is a text-address
+         This needs to be fixed in such a way that this offset is done
          only in the case where an address is being used for indirect jump
          or call. Determining the potential usage of loadd is of course not
-         possible always. Eventually, this has to be fixed in the 
+         possible always. Eventually, this has to be fixed in the
          processor.  */
       fprintf (file, "GOT (%s)", reg_names[PIC_OFFSET_TABLE_REGNUM]);
     }
@@ -1702,7 +1702,7 @@ cr16_prepare_push_pop_string (int push_or_pop)
   /* For the register mask string.  */
   static char one_inst_str[50];
 
-  /* i is the index of current_frame_info.save_regs[], going from 0 until 
+  /* i is the index of current_frame_info.save_regs[], going from 0 until
      current_frame_info.last_reg_to_save.  */
   int i, start_reg;
   int word_cnt;
@@ -1728,10 +1728,10 @@ cr16_prepare_push_pop_string (int push_or_pop)
       word_cnt = 0;
       start_reg = i;
       print_ra = 0;
-      while ((word_cnt < MAX_COUNT) 
+      while ((word_cnt < MAX_COUNT)
 	     && (i <= current_frame_info.last_reg_to_save))
 	{
-	  /* For each non consecutive save register, 
+	  /* For each non consecutive save register,
 	     a new instruction shall be generated.  */
 	  if (!current_frame_info.save_regs[i])
 	    {
@@ -1774,7 +1774,7 @@ cr16_prepare_push_pop_string (int push_or_pop)
 	  /* Pop instruction.  */
 	  if (print_ra && !cr16_interrupt_function_p ()
 	      && !crtl->calls_eh_return)
-	    /* Print popret if RA is saved and its not a interrupt 
+	    /* Print popret if RA is saved and its not a interrupt
 	       function.  */
 	    strcpy (temp_str, "\n\tpopret\t");
 	  else
@@ -1792,7 +1792,7 @@ cr16_prepare_push_pop_string (int push_or_pop)
 	  strcat (temp_str, one_inst_str);
 
 	  /* We need to reverse the order of the instructions if there
-	     are more than one. (since the pop will not be reversed in 
+	     are more than one. (since the pop will not be reversed in
 	     the epilogue.  */
 	  strcat (temp_str, return_str);
 	  strcpy (return_str, temp_str);
@@ -1983,7 +1983,7 @@ cr16_expand_prologue (void)
     }
 }
 
-/* Generate insn that updates the stack for local variables and padding 
+/* Generate insn that updates the stack for local variables and padding
    for registers we save.   - Generate the appropriate return insn.  */
 void
 cr16_expand_epilogue (void)
@@ -1991,12 +1991,12 @@ cr16_expand_epilogue (void)
   rtx insn;
 
   /* Nonzero if we need to return and pop only RA. This will generate a
-     different insn. This differentiate is for the peepholes for call as 
+     different insn. This differentiate is for the peepholes for call as
      last statement in function.  */
   int only_popret_RA = (current_frame_info.save_regs[RETURN_ADDRESS_REGNUM]
-			&& (current_frame_info.reg_size 
+			&& (current_frame_info.reg_size
 			    == CR16_UNITS_PER_DWORD));
-  
+
   if (frame_pointer_needed)
     {
       /* Restore the stack pointer with the frame pointers value.  */
@@ -2028,7 +2028,7 @@ cr16_expand_epilogue (void)
   else if (crtl->calls_eh_return)
     {
       /* Special case, pop what's necessary, adjust SP and jump to (RA).  */
-      insn = emit_jump_insn (gen_pop_and_popret_return 
+      insn = emit_jump_insn (gen_pop_and_popret_return
 			     (GEN_INT (current_frame_info.reg_size)));
       RTX_FRAME_RELATED_P (insn) = 1;
     }
@@ -2043,7 +2043,7 @@ cr16_expand_epilogue (void)
     }
   else
     {
-      insn = emit_jump_insn (gen_pop_and_popret_return 
+      insn = emit_jump_insn (gen_pop_and_popret_return
 			     (GEN_INT (current_frame_info.reg_size)));
       RTX_FRAME_RELATED_P (insn) = 1;
     }
@@ -2071,7 +2071,7 @@ cr16_can_eliminate (const int from ATTRIBUTE_UNUSED, const int to)
    and OLDX will be the operand that was given to that function to
    produce X.
    The code generated by this macro should not alter the
-   substructure of X.  If it transforms X into a more legitimate form, 
+   substructure of X.  If it transforms X into a more legitimate form,
    it should assign X (which will always be a C variable) a new value.  */
 static rtx
 cr16_legitimize_address (rtx x, rtx orig_x ATTRIBUTE_UNUSED,
@@ -2086,7 +2086,7 @@ cr16_legitimize_address (rtx x, rtx orig_x ATTRIBUTE_UNUSED,
 /* Implement TARGET_LEGITIMATE_CONSTANT_P
    Nonzero if X is a legitimate constant for an immediate
    operand on the target machine.  You can assume that X
-   satisfies CONSTANT_P. In cr16c treat legitimize float 
+   satisfies CONSTANT_P. In cr16c treat legitimize float
    constant as an immediate operand.  */
 static bool
 cr16_legitimate_constant_p (machine_mode mode ATTRIBUTE_UNUSED,
@@ -2132,7 +2132,7 @@ cr16_unwind_word_mode (void)
   return SImode;
 }
 
-/* Helper function for md file. This function is used to emit arithmetic 
+/* Helper function for md file. This function is used to emit arithmetic
    DI instructions. The argument "num" decides which instruction to be
    printed.  */
 const char *
@@ -2174,7 +2174,7 @@ cr16_emit_add_sub_di (rtx *operands, enum rtx_code code)
 }
 
 
-/* Helper function for md file. This function is used to emit logical 
+/* Helper function for md file. This function is used to emit logical
    DI instructions. The argument "num" decides which instruction to be
    printed.  */
 const char *
@@ -2224,7 +2224,7 @@ cr16_push_rounding (poly_int64 bytes)
   return (bytes + 1) & ~1;
 }
 
-/* Initialize 'targetm' variable which contains pointers to functions 
+/* Initialize 'targetm' variable which contains pointers to functions
    and data relating to the target machine.  */
 
 struct gcc_target targetm = TARGET_INITIALIZER;

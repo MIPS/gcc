@@ -62,7 +62,7 @@ read_ucnid (const char *fname)
 {
   FILE *f = fopen (fname, "r");
   unsigned fl = 0;
-  
+
   if (!f)
     fail ("opening ucnid.tab");
   for (;;)
@@ -128,7 +128,7 @@ static void
 read_table (char *fname)
 {
   FILE * f = fopen (fname, "r");
-  
+
   if (!f)
     fail ("opening UnicodeData.txt");
   for (;;)
@@ -161,12 +161,12 @@ read_table (char *fname)
       combining_value[codepoint] = strtoul (l, &l, 10);
       if (*l++ != ';')
 	fail ("parsing UnicodeData.txt, junk after combining class");
-	
+
       /* Skip over bidi value.  */
       do {
 	l++;
       } while (*l != ';');
-      
+
       /* Decomposition mapping.  */
       decomp_useful = flags[codepoint];
       if (*++l == '<')  /* Compatibility mapping. */
@@ -202,7 +202,7 @@ static void
 read_derived (const char *fname)
 {
   FILE * f = fopen (fname, "r");
-  
+
   if (!f)
     fail ("opening DerivedNormalizationProps.txt");
   for (;;)
@@ -219,7 +219,7 @@ read_derived (const char *fname)
       maybe_not_NFC_p = (strstr (line, "; NFC_QC; M") != NULL);
       if (! not_NFC_p && ! not_NFKC_p && ! maybe_not_NFC_p)
 	continue;
-	
+
       start = strtoul (line, &l, 16);
       if (l == line)
 	fail ("parsing DerivedNormalizationProps.txt, reading start");
@@ -231,7 +231,7 @@ read_derived (const char *fname)
 	end = start;
 
       while (start <= end)
-	flags[start++] |= ((not_NFC_p ? not_NFC : 0) 
+	flags[start++] |= ((not_NFC_p ? not_NFC : 0)
 			   | (not_NFKC_p ? not_NFKC : 0)
 			   | (maybe_not_NFC_p ? maybe_not_NFC : 0)
 			   );
@@ -254,7 +254,7 @@ write_table (void)
   unsigned char last_combine = combining_value[0];
 
   printf ("static const struct ucnrange ucnranges[] = {\n");
-  
+
   for (i = 1; i <= NUM_CODE_POINTS; i++)
     if (i == NUM_CODE_POINTS
 	|| (flags[i] != last_flag && ((flags[i] | last_flag) & all_languages))
@@ -430,7 +430,7 @@ write_copyright (void)
    shall not be used in advertising or otherwise to promote the sale,\n\
    use or other dealings in these Data Files or Software without prior\n\
    written authorization of the copyright holder.  */\n";
-   
+
    puts (copyright);
 }
 

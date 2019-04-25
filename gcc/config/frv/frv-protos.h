@@ -173,4 +173,3 @@ struct frv_unspec {
 extern bool frv_const_unspec_p (rtx, struct frv_unspec *);
 
 #endif
-

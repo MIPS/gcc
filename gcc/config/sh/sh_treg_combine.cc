@@ -637,7 +637,7 @@ sh_treg_combine::sh_treg_combine (gcc::context* ctx, bool split_insns,
   m_split_insns (split_insns),
   m_ccreg (NULL_RTX)
 {
-  // Overwrite default name in pass_data base class. 
+  // Overwrite default name in pass_data base class.
   this->name = name;
 }
 

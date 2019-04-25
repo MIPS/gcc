@@ -14,11 +14,11 @@
 
 #include <xmmintrin.h>
 
-static void 
+static void
 __attribute__((noinline, unused))
 test (float *p, __m128 s)
 {
-  return _mm_stream_ps (p, s); 
+  return _mm_stream_ps (p, s);
 }
 
 static void
@@ -28,8 +28,8 @@ TEST (void)
   float e[4] __attribute__ ((aligned(16)));
 
   u.x = _mm_set_ps (24.43, 68.346, 43.35, 546.46);
-  test (e, u.x); 
-  
+  test (e, u.x);
+
   if (check_union128 (u, e))
     abort ();
 }

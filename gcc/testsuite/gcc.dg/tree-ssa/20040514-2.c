@@ -14,4 +14,3 @@ foo2 (distance, i, j)
 /* There should be one ABS_EXPR and no conditionals.  */
 /* { dg-final { scan-tree-dump-times "ABS_EXPR " 1 "phiopt1"} } */
 /* { dg-final { scan-tree-dump-times "if " 0 "phiopt1"} } */
-

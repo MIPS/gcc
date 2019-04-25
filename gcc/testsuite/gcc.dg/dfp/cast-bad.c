@@ -23,14 +23,14 @@ f (void)
   (_Decimal64 ()) d64p; /* { dg-error "cast specifies function type" } */
   (_Decimal128 []) d128p; /* { dg-error "cast specifies array type" } */
   (_Decimal128 ()) d128p; /* { dg-error "cast specifies function type" } */
-  
+
   (struct s) d32; /* { dg-error "conversion to non-scalar type requested" } */
   (union u) d32;
   (struct s) d64; /* { dg-error "conversion to non-scalar type requested" } */
   (union u) d64; /* { dg-error "cast to union type from type not present in union" } */
   (struct s) d128; /* { dg-error "conversion to non-scalar type requested" } */
   (union u) d128; /* { dg-error "cast to union type from type not present in union" } */
-		
+
   (_Decimal32) sv; /* { dg-error "aggregate value used where a float was expected" } */
   (_Decimal32) uv; /* { dg-error "aggregate value used where a float was expected" } */
   (_Decimal64) sv; /* { dg-error "aggregate value used where a float was expected" } */

@@ -10,7 +10,7 @@ int a[K][K] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__)));
 int out[K];
 int check_result[K] = {2,2,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
-__attribute__ ((noinline)) void 
+__attribute__ ((noinline)) void
 foo (int c)
 {
   int res, i, j, k, next;
@@ -18,13 +18,13 @@ foo (int c)
   for (k = 0; k < K; k++)
     {
       res = 0;
-      for (j = 0; j < K; j++) 
+      for (j = 0; j < K; j++)
         for (i = 0; i < K; i++)
-          { 
-            next = a[i][j]; 
+          {
+            next = a[i][j];
             res = c > cond_array[i+k][j] ? next : res;
           }
- 
+
       out[k] = res;
     }
 }
@@ -53,8 +53,7 @@ int main ()
   return 0;
 }
 
-/* Double reduction with cond_expr is not supported, since even though the order 
+/* Double reduction with cond_expr is not supported, since even though the order
    of computation is the same, but vector results should be reduced to scalar
    result, which can'be done for cond_expr.  */
 /* { dg-final { scan-tree-dump-times "OUTER LOOP VECTORIZED" 1 "vect" { xfail *-*-* } } } */
-      

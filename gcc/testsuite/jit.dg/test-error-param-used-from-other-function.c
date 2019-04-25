@@ -71,4 +71,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 		       " but was used within function fn_two"
 		       " (in statement: return i * (int)2;)"));
 }
-

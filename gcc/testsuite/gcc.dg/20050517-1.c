@@ -1,4 +1,4 @@
-/* Tree PRE is going to transform this so that it doesn't call cos on the 
+/* Tree PRE is going to transform this so that it doesn't call cos on the
    d = 0 path, and in doing so, it needs to regenerate the cos call.
    This was ICE'ing due to an overly strict check on what it knew how
    to regenerate.   */

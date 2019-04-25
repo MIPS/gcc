@@ -1,4 +1,4 @@
-/* { dg-do run } */ 
+/* { dg-do run } */
 /* { dg-additional-options "-msse" { target sse2_runtime } } */
 
 int a, d;

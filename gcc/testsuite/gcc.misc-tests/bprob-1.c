@@ -1,6 +1,6 @@
 /* Check that various C constructs are handled correctly by profile-directed
    block ordering.
-  
+
    This test is the same as gcov-4.c.  The "count" comments are left in to
    make comparisons easier; they are ignored for this test. */
 
@@ -246,7 +246,7 @@ call_switch ()
   switch_val += test_switch (3, 0);
   switch_val += test_switch (3, 2);
   switch_val += test_switch (4, 0);
-  switch_val += test_switch (16, 0);	
+  switch_val += test_switch (16, 0);
   switch_val += switch_m;
 }
 

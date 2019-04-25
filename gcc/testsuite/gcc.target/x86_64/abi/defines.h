@@ -104,7 +104,7 @@ typedef long double ldouble;
 #ifdef CHECK_FLOAT128
 #define CF128_STR "__float128",
 #define CF128_SIZ TYPE_SIZE_FLOAT128,
-#define CF128_ALI TYPE_ALIGN_FLOAT128, 
+#define CF128_ALI TYPE_ALIGN_FLOAT128,
 #define CF128_RET "???",
 #else
 #define CF128_STR

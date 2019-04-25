@@ -43,7 +43,7 @@ init_sdword ()
     src1.li[i] = i;
 }
 
-static int 
+static int
 check_sbyte2word ()
 {
   int i, j, s, t, check_fails = 0;
@@ -54,8 +54,8 @@ check_sbyte2word ()
 	  t = i + (2 * j);
 	  s = (i / 2) + j;
 	  res.si[s] = src1.ssi[t] - src1.ssi[t + 1] ;
-	  if (res.si[s] != dst.si[s]) 
-	    check_fails++;	
+	  if (res.si[s] != dst.si[s])
+	    check_fails++;
 	}
     }
 }
@@ -71,8 +71,8 @@ check_sword2dword ()
 	  t = i + (2 * j);
 	  s = (i / 2) + j;
 	  res.li[s] = src1.si[t] - src1.si[t + 1] ;
-	  if (res.li[s] != dst.li[s]) 
-	    check_fails++;	
+	  if (res.li[s] != dst.li[s])
+	    check_fails++;
 	}
     }
 }
@@ -88,8 +88,8 @@ check_dword2qword ()
 	  t = i + (2 * j);
 	  s = (i / 2) + j;
 	  res.lli[s] = src1.li[t] - src1.li[t + 1] ;
-	  if (res.lli[s] != dst.lli[s]) 
-	    check_fails++;	
+	  if (res.lli[s] != dst.lli[s])
+	    check_fails++;
 	}
     }
 }
@@ -98,31 +98,31 @@ static void
 xop_test (void)
 {
   int i;
-  
+
   /* Check hsubbw */
   init_sbyte ();
-  
+
   for (i = 0; i < NUM; i++)
     dst.x[i] = _mm_hsubw_epi8 (src1.x[i]);
-  
+
   if (check_sbyte2word())
   abort ();
-  
+
 
   /* Check hsubwd */
   init_sword ();
 
   for (i = 0; i < (NUM ); i++)
     dst.x[i] = _mm_hsubd_epi16 (src1.x[i]);
-  
+
   if (check_sword2dword())
-    abort (); 
-   
+    abort ();
+
    /* Check hsubdq */
   init_sdword ();
     for (i = 0; i < NUM; i++)
     dst.x[i] = _mm_hsubq_epi32 (src1.x[i]);
-  
+
   if (check_dword2qword())
     abort ();
 }

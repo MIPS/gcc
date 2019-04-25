@@ -33,4 +33,3 @@ testsi_eh (vector signed short vss2)
 
 /* { dg-final { scan-assembler-times "vupkhsh" 2 } } */
 /* { dg-final { scan-assembler-times "vupklsh" 2 } } */
-

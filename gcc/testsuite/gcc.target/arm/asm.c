@@ -10,4 +10,3 @@ unsigned *trapTable()
 
   return i;
 }
-

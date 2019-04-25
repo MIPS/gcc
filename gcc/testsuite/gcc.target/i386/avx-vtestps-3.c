@@ -29,11 +29,10 @@ avx_test ()
             c = 0;
 	if (u1.bits.sign && u2.bits.sign)
             z = 0;
-        
+
     }
     e[0] = (c == 0 && z == 0) ? 1:0;
 
     if (checkVi (d, e, 1))
       abort ();
 }
-

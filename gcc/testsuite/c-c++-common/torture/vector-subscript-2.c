@@ -23,7 +23,7 @@ static inline MYV4 myfunc2( int x, int y, int z, int w )
     return temp;
 }
 MYV4 val3;
-__attribute__((noinline)) void modify (void) 
+__attribute__((noinline)) void modify (void)
 {
     val3 = myfunc2( 1, 2, 3, 4 );
 }
@@ -31,10 +31,10 @@ int main( int argc, char* argv[] )
 {
   int a[4];
   int i;
-  
+
   /* Set up the vector.  */
   modify();
-  
+
   /* Check the vector via the global variable.  */
   if (val3.v[0] != 1)
     __builtin_abort ();
@@ -44,9 +44,9 @@ int main( int argc, char* argv[] )
     __builtin_abort ();
   if (val3.v[3] != 4)
     __builtin_abort ();
-    
+
   vector int a1 = val3.v;
-  
+
    /* Check the vector via a local variable.  */
   if (a1[0] != 1)
     __builtin_abort ();
@@ -56,14 +56,13 @@ int main( int argc, char* argv[] )
     __builtin_abort ();
   if (a1[3] != 4)
     __builtin_abort ();
-    
-  __builtin_memcpy(a, &val3, sizeof(a));  
+
+  __builtin_memcpy(a, &val3, sizeof(a));
    /* Check the vector via copying it to an array.  */
   for(i = 0; i < 4; i++)
     if (a[i] != i+1)
       __builtin_abort ();
-  
-  
+
+
   return 0;
 }
-

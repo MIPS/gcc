@@ -58,4 +58,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 		       " for function fn_two"
 		       " was already used for function fn_one"))
 }
-

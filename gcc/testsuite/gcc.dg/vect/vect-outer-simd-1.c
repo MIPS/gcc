@@ -68,7 +68,7 @@ int main()
   foo2 ();  /* scalar variant.  */
   for (i=0; i<N; i++)
     if (x1[i] != t1[i] || z1[i] != t2[i])
-      abort ();	
+      abort ();
   return 0;
-} 
+}
 /* { dg-final { scan-tree-dump "OUTER LOOP VECTORIZED" "vect" } } */

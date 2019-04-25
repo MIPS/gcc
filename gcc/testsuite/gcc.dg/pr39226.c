@@ -3,7 +3,7 @@
 /* { dg-options "-O2" } */
 /* { dg-options "-O2 -mtune=cell -mminimal-toc" { target { powerpc*-*-* && lp64 } } } */
 
-#if (__SIZEOF_INT__ == 2)	
+#if (__SIZEOF_INT__ == 2)
 struct A
 {
   char *a;

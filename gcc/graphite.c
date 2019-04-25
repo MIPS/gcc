@@ -259,7 +259,7 @@ cached_scalar_evolution_in_region (const sese_l &region, loop_p loop,
   hstate.add_int (key.loop_num);
   inchash::add_expr (key.expr, hstate);
   key.hash = hstate.end ();
-  
+
   bool existed;
   tree &chrec = seir_cache->get_or_insert (key, &existed);
   if (!existed)
@@ -623,5 +623,3 @@ make_pass_graphite_transforms (gcc::context *ctxt)
 {
   return new pass_graphite_transforms (ctxt);
 }
-
-

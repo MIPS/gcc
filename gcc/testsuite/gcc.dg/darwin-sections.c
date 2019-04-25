@@ -62,10 +62,10 @@ long long foo (int x)
   e += d + se;
   f += e + sf;
   g += f + sg;
- 
+
   s = &ea;
   s = &sea;
-  
+
   b += al_256;
   b += sal_256;
 

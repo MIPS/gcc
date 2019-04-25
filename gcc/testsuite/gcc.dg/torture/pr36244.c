@@ -37,4 +37,3 @@ default_amino_prior(void)
     }
   return pri;
 }
-

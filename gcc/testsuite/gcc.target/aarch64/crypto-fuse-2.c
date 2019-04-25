@@ -42,4 +42,3 @@ foo (void)
 }
 
 /* { dg-final { scan-assembler-times "crypto_aesd_fused" 4 } } */
-

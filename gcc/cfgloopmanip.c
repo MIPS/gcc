@@ -171,7 +171,7 @@ fix_loop_placement (struct loop *loop, bool *irred_invalidated)
    successors we consider edges coming out of the loops.
 
    If the changes may invalidate the information about irreducible regions,
-   IRRED_INVALIDATED is set to true.  
+   IRRED_INVALIDATED is set to true.
 
    If LOOP_CLOSED_SSA_INVLIDATED is non-zero then all basic blocks with
    changed loop_father are collected there. */
@@ -918,7 +918,7 @@ loopify (edge latch_edge, edge header_edge,
    have no successor, which caller is expected to fix somehow.
 
    If this may cause the information about irreducible regions to become
-   invalid, IRRED_INVALIDATED is set to true.  
+   invalid, IRRED_INVALIDATED is set to true.
 
    LOOP_CLOSED_SSA_INVALIDATED, if non-NULL, is a bitmap where we store
    basic blocks that had non-trivial update on their loop_father.*/
@@ -1037,7 +1037,7 @@ duplicate_loop (struct loop *loop, struct loop *target, struct loop *after)
   struct loop *cloop;
   cloop = alloc_loop ();
   place_new_loop (cfun, cloop);
- 
+
   copy_loop_info (loop, cloop);
 
   /* Mark the new loop as copy of LOOP.  */

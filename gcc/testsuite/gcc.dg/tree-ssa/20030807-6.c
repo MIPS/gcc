@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-O2 -fdump-tree-vrp1" } */
-     
+
 
 void
 foo (distance, i, j)

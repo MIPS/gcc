@@ -8,7 +8,7 @@ void
 testfunc ()
 {
   const char *foo;
-  
+
   foo = "hello" "hello"; /* { dg-warning "concatenation" "string concatenation" } */
 
 # 15 "sys-header.h" 3

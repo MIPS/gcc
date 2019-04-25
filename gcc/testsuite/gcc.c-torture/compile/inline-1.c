@@ -18,4 +18,3 @@ file_name_as_prefix (f)
 {
   build_message_string ("%s: ", f);
 }
-

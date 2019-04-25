@@ -10,4 +10,3 @@ int f(void)
 /* { dg-final { scan-tree-dump-times "__complex__" 0 "optimized" } } */
 /* { dg-final { scan-tree-dump-times "REALPART_EXPR" 1 "optimized" } } */
 /* { dg-final { scan-tree-dump-times "IMAGPART_EXPR" 1 "optimized" } } */
-

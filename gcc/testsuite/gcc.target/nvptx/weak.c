@@ -6,4 +6,3 @@ int Foo ()
 {
   return decl + defn;
 }
-

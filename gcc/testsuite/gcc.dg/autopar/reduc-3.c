@@ -33,7 +33,7 @@ __attribute__((noinline))
 void init_arrays ()
 {
   int i;
-  
+
   for (i=0; i<N; i++)
     {
       ub[i] = i * 3;
@@ -42,7 +42,7 @@ void init_arrays ()
 }
 
 int main (void)
-{ 
+{
   init_arrays ();
   main1 (N, 2558400);
   main1 (N-1, 2555202);
@@ -52,4 +52,3 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "Detected reduction" 1 "parloops2" } } */
 /* { dg-final { scan-tree-dump-times "SUCCESS: may be parallelized" 2 "parloops2" } } */
-

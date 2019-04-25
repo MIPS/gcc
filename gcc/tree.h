@@ -558,7 +558,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    && TREE_CODE (TREE_TYPE (TYPE)) == REAL_TYPE)
 
 /* Nonzero if TYPE represents a vector integer type.  */
-                
+
 #define VECTOR_INTEGER_TYPE_P(TYPE)			\
   (VECTOR_TYPE_P (TYPE)					\
    && TREE_CODE (TREE_TYPE (TYPE)) == INTEGER_TYPE)
@@ -2088,7 +2088,7 @@ extern machine_mode vector_type_mode (const_tree);
 	  | (TYPE_ATOMIC (NODE) * TYPE_QUAL_ATOMIC)		\
 	  | (TYPE_RESTRICT (NODE) * TYPE_QUAL_RESTRICT)))
 
-/* The same as TYPE_QUALS without the address space and atomic 
+/* The same as TYPE_QUALS without the address space and atomic
    qualifications.  */
 #define TYPE_QUALS_NO_ADDR_SPACE_NO_ATOMIC(NODE)		\
   ((int) ((TYPE_READONLY (NODE) * TYPE_QUAL_CONST)		\

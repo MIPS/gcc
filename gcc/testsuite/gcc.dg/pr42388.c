@@ -64,4 +64,3 @@ unroll_loop (int insn_count, rtx *map)
   if (insn_count > 50)
     copy_loop_body (map);
 }
-

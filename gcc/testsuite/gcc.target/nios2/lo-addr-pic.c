@@ -35,4 +35,3 @@ void set3 (TYPE value) { S3.x2 = value; }
 TYPE *addr4 (int i) { return &(S4[i].x2); }
 TYPE get4 (int i) { return S4[i].x2; }
 void set4 (int i, TYPE value) { S4[i].x2 = value; }
-

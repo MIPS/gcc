@@ -72,4 +72,3 @@ int main()
   test(2.0);
   return 0;
 }
-

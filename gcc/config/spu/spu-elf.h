@@ -2,7 +2,7 @@
 
    This file is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 3 of the License, or (at your option) 
+   Software Foundation; either version 3 of the License, or (at your option)
    any later version.
 
    This file is distributed in the hope that it will be useful, but WITHOUT
@@ -43,7 +43,7 @@
    provides part of the support for getting C++ file-scope static
    object constructed before entering `main'.  */
 
-#undef  STARTFILE_SPEC 
+#undef  STARTFILE_SPEC
 #define STARTFILE_SPEC "%{mstdmain: %{pg|p:gcrt2.o%s;:crt2.o%s}}\
                         %{!mstdmain: %{pg|p:gcrt1.o%s;:crt1.o%s}}\
                         crti.o%s crtbegin.o%s"

@@ -8,7 +8,7 @@ int test1()
   #pragma acc loop
   while(1)  /* { dg-error "for statement expected" } */
     {
-      if (i > 0) break; 
+      if (i > 0) break;
       i = i + 1;
     }
   i = 0;

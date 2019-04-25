@@ -5,7 +5,7 @@ int
 main ()
 {
   int t = 8, i;
-  typedef struct { char v[t]; } B; 
+  typedef struct { char v[t]; } B;
   B a, b;
   B __attribute__ ((noinline)) f () { return b; }
   for (i = 0; i < 8; i++)

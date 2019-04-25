@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 160 
+#define N 160
 
 typedef struct {
    unsigned char a;
@@ -46,15 +46,15 @@ main1 (s *arr, int n)
       res[i].d = ptr->b + ptr->c;
       res[i].b = ptr->c;
       res[i].f = ptr->f + ptr->e;
-      res[i].e = ptr->b + ptr->e; 
-      res[i].h = ptr->c;   
+      res[i].e = ptr->b + ptr->e;
+      res[i].h = ptr->c;
       res[i].g = ptr->b + ptr->c;
-      ptr++; 
-    } 
-   
+      ptr++;
+    }
+
   /* check results:  */
   for (i = 0; i < n; i++)
-    { 
+    {
       if (res[i].c != arr[i].b + arr[i].c
           || res[i].a != arr[i].c + arr[i].f + arr[i].b
           || res[i].d != arr[i].b + arr[i].c
@@ -88,11 +88,11 @@ int main (void)
 {
   int i;
   s arr[N];
-  
+
   check_vect ();
 
   for (i = 0; i < N; i++)
-    { 
+    {
       arr[i].a = 5;
       arr[i].b = 6;
       arr[i].c = 17;
@@ -102,7 +102,7 @@ int main (void)
       arr[i].g = 3;
       arr[i].h = 56;
       asm volatile ("" ::: "memory");
-    } 
+    }
 
   main1 (arr, N-2);
 
@@ -110,4 +110,3 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target vect_strided8 } } } */
-  

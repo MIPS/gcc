@@ -13,7 +13,7 @@ struct S
 
 static struct A {
   int p1, p2;
-  struct S s; 
+  struct S s;
 } a, b, c;
 
 int foo(void)

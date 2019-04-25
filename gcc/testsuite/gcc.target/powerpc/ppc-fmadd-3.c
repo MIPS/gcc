@@ -33,4 +33,3 @@ void foos(float *a, float *b, float *c, float *d)
   a[15] = -( b[15] + c[15] * -d[15]);	// fneg, fnmadd without fast-math
   a[17] = -(-b[17] + c[17] * -d[17]);	// fneg, fnmsub without fast-math
 }
-

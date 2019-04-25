@@ -11,4 +11,3 @@ int doTestBCDSignificance (_Decimal64 *p)
 
   return __builtin_dfp_dtstsfi_gt (5, source);	/* { dg-error "builtin function '__builtin_dtstsfi_gt_dd' requires" } */
 }
-

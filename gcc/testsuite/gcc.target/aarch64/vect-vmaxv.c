@@ -113,4 +113,3 @@ main (int argc, char **argv)
   BUILD_VARIANTS (uint32, u32, 2, 4)
   return 0;
 }
-

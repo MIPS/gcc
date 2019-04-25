@@ -4,4 +4,3 @@ bar foo (void)
   bar x;
   return x;
 }
-

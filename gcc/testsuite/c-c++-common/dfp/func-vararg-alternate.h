@@ -31,7 +31,7 @@ compare (double r, double s, unsigned int *p, unsigned int *q, int n, int line)
 	for (j = 0; j < n; j++)
 	  printf ("  %08x", q[j]);
 	printf ("    %10.2g\n\n", s);
-	    
+
 	return;
       }
 #else

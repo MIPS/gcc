@@ -12,4 +12,3 @@ gcd_of_steps_may_divide_p ()
   return val % cd == 0;
 }
 /* { dg-final { scan-tree-dump-times "__builtin_trap" 1 "isolate-paths"} } */
-

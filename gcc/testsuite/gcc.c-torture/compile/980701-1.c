@@ -6,4 +6,3 @@ func(void)
 
 	return  y | x << 8;
 }
-

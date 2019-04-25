@@ -8,4 +8,3 @@
 // C++ comment is not in C89  { dg-bogus "style comment" "bad warning" }
 
 /* { dg-final { scan-file-not cxxcom1.i "is not in C89" } } */
-

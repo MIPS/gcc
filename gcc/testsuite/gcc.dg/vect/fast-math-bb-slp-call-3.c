@@ -71,4 +71,3 @@ int main()
   ufraw_test(uf);
   return 0;
 }
-

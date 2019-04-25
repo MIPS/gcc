@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-O2 -fdump-tree-vrp1" } */
-     
+
 
 extern const unsigned char mode_size[];
 unsigned int
@@ -19,7 +19,6 @@ subreg_highpart_offset (outermode, innermode)
 
 /* There should be one mask with the value 3.  */
 /* { dg-final { scan-tree-dump-times " \& 3" 1 "vrp1"} } */
-  
+
 /* There should be one right shift by 2 places.  */
 /* { dg-final { scan-tree-dump-times " >> 2" 1 "vrp1"} } */
-

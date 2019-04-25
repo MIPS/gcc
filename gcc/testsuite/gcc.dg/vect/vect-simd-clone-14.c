@@ -3,4 +3,3 @@
 /* { dg-additional-options "-mavx" { target avx_runtime } } */
 
 #include "vect-simd-clone-11.c"
-

@@ -6,7 +6,7 @@ char *
 strcat (char *dst, const char *src)
 {
   char *p = dst;
-  
+
 #ifdef __OPTIMIZE__
   if (inside_main)
     abort ();

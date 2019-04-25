@@ -67,4 +67,3 @@ int main ()
 
 /* { dg-final { scan-assembler-times "fminnm\tv\[0-9\]+\.4s, v\[0-9\]+\.4s, v\[0-9\]+\.4s" 1 } } */
 /* { dg-final { scan-assembler-times "fminnm\tv\[0-9\]+\.2d, v\[0-9\]+\.2d, v\[0-9\]+\.2d" 1 } } */
-

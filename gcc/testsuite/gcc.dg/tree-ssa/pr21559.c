@@ -40,5 +40,3 @@ void foo (void)
    and thread over it.  We also know that toread != 0 is useless when
    entering while loop and thread over it.  */
 /* { dg-final { scan-tree-dump-times "Threaded jump" 3 "vrp1" } } */
-
-

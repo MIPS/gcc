@@ -2,7 +2,7 @@
 /* { dg-final { scan-assembler-not "foo" } } */
 
 #ifndef __PRAGMA_REDEFINE_EXTNAME
-#error 
+#error
 #endif
 
 #pragma redefine_extname foo bar

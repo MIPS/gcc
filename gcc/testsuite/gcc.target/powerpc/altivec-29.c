@@ -19,4 +19,3 @@ int *baz (int *vector __attribute__((unused)))
 {
   return vector;
 }
-

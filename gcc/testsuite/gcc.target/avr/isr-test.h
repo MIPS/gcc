@@ -280,4 +280,3 @@ void run_isr_ ## N (void)                       \
 }
 
 #endif /* ISR_TEST_H */
-

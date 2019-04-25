@@ -34,7 +34,7 @@ int main (void)
     in[i] = i;
 
   foo ();
-  
+
   for (i = 0; i < N; i++) {
     diff = 0;
     for (j = 0; j < M; j+=4) {

@@ -10,5 +10,3 @@ void f1(void)
 
 /* { dg-final { scan-assembler-not "\tjr\t\\\$31" } } */
 /* { dg-final { scan-assembler "\tjr\t\\\$7" } } */
-
-

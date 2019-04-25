@@ -13,7 +13,7 @@ int foo (int n, int l, int m, int r)
   if ( (n < 10) && (m == l)  && (r < 20) )
     v = r;
 
-  if (m) g++; 
+  if (m) g++;
   else  bar();
 
   if ( (n <= 8) &&  (m == l)  && (r < 19) )

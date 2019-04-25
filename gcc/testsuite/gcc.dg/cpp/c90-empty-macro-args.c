@@ -1,7 +1,7 @@
 /* { dg-do compile } */
 /* { dg-options "-std=c89 -pedantic" } */
 
-#define f(a,b)   f2(a,,b) 
+#define f(a,b)   f2(a,,b)
 #define f2(a,b,c) a; b; c;
 #define f3(a)    a
 

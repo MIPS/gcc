@@ -1,6 +1,6 @@
 /* PR rtl-optimization/14692  */
 
-void assert_failed (void);           
+void assert_failed (void);
 void eidecpos_1 (unsigned char *pos, long n)
 {
   int i;

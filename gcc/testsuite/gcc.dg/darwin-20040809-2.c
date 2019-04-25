@@ -12,4 +12,3 @@ main ()
 
 /* { dg-final { scan-assembler ".stabd.46,0,0" } } */
 /* { dg-final { scan-assembler ".stabd.78,0,0" } } */
-

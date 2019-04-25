@@ -17,4 +17,3 @@ odd(int i)
 {
   return i & 0x1;
 }
-

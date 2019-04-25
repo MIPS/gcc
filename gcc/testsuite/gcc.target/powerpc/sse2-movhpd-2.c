@@ -19,7 +19,7 @@ __attribute__((noinline, unused))
 test (double *p, __m128d a)
 {
   __asm("" : "+v"(a), "+b"(p));
-  return _mm_storeh_pd (p, a); 
+  return _mm_storeh_pd (p, a);
 }
 
 static void
@@ -28,7 +28,7 @@ TEST (void)
   union128d s;
   double d[1];
   double e[1];
-   
+
   s.x = _mm_set_pd (2134.3343,1234.635654);
   test (d, s.x);
 

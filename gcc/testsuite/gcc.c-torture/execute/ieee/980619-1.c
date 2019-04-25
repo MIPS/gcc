@@ -3,7 +3,7 @@
 		float reale = 1.0f;
 		float oneplus;
 		int i;
-	
+
 	 	if (sizeof (float) != 4)
 		  exit (0);
 
@@ -20,4 +20,3 @@
 		else
 		  exit (0);
 	}
-

@@ -42,4 +42,3 @@ main (void)
   test_api ();
   return 0;
 }
-

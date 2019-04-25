@@ -15,4 +15,3 @@ int foo (int b)
     x = q;
   return *x;
 }
-

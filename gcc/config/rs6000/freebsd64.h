@@ -180,7 +180,7 @@ extern int dot_symbols;
   %{symbolic:-Bsymbolic}"
 
 #define LINK_OS_FREEBSD_SPEC32 "-melf32ppc_fbsd " LINK_OS_FREEBSD_SPEC_DEF
-  
+
 #define LINK_OS_FREEBSD_SPEC64 "-melf64ppc_fbsd " LINK_OS_FREEBSD_SPEC_DEF
 
 #undef	MULTILIB_DEFAULTS
@@ -289,7 +289,7 @@ extern int dot_symbols;
 
 /************************[  Target stuff  ]***********************************/
 
-/* Define the actual types of some ANSI-mandated types.  
+/* Define the actual types of some ANSI-mandated types.
    Needs to agree with <machine/ansi.h>.  GCC defaults come from c-decl.c,
    c-common.c, and config/<arch>/<arch>.h.  */
 

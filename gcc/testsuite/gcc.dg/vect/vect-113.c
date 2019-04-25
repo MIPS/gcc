@@ -12,12 +12,12 @@ main1 (void)
   float a[N];
 
   /* Induction and type conversion.  */
-  for ( i = 0; i < N; i++) 
+  for ( i = 0; i < N; i++)
   {
     a[i] = i;
   }
 
-  for ( i = 0; i < N; i++) 
+  for ( i = 0; i < N; i++)
   {
     if (a[i] != i)
 	abort ();

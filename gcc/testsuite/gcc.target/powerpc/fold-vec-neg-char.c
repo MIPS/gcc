@@ -16,4 +16,3 @@ test2 (vector signed char x)
 /* { dg-final { scan-assembler-times "xxspltib|vspltisw|vxor" 1 } } */
 /* { dg-final { scan-assembler-times "vsububm" 1 } } */
 /* { dg-final { scan-assembler-times "vmaxsb" 0 } } */
-

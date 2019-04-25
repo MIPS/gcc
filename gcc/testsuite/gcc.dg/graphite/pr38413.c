@@ -8,7 +8,7 @@ void specqsort(base, n, size, compar)
 {
   register char c, *i, *j, *lo, *hi;
   qsz = size;
-  for (i = base, hi = base + qsz; i < hi; ) 
+  for (i = base, hi = base + qsz; i < hi; )
     {
       *i++ = c;
     }

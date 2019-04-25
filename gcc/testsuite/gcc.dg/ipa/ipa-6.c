@@ -28,6 +28,3 @@ main ()
     foo (7);
   return 0;
 }
-
-
-

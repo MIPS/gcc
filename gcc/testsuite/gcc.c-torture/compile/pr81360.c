@@ -8,4 +8,3 @@ __attribute__((optimize(0))) h() {
   g i;
   b(i, sizeof(f));
 }
-

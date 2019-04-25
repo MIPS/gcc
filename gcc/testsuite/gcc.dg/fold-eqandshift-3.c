@@ -3,7 +3,7 @@
 /* { dg-options "-O2 -fdump-tree-original" } */
 
 void foo (void);
-#if(__SIZEOF_INT__ >= 4) 
+#if(__SIZEOF_INT__ >= 4)
 int test1 (int a)
 #else
 int test1 (long a)
@@ -14,7 +14,7 @@ int test1 (long a)
     foo ();
 }
 
-#if(__SIZEOF_INT__ >= 4) 
+#if(__SIZEOF_INT__ >= 4)
 int test2 (unsigned int b)
 #else
 int test2 (unsigned long b)

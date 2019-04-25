@@ -9,4 +9,3 @@ void test()
         while ( (s = a) )
           p = strcpy(strcpy(p,"/"), s);
 }
-

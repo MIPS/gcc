@@ -81,4 +81,3 @@ int base_function() {
 + base_var2.field2_base_ordy_defn_var_base_fld.field_base_ordy_defn_fld_base
 ;
 }
-

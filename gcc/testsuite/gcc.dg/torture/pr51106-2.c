@@ -12,4 +12,3 @@ bar (int x)
 lab:
   return 0;
 }
-

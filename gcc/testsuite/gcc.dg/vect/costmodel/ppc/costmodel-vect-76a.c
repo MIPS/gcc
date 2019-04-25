@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include "../../tree-vect.h"
 
-#define N 16 
+#define N 16
 #define OFF 4
 
 /* Check handling of accesses for which the "initial condition" -
@@ -31,7 +31,7 @@ int main1 (int *pib)
         abort ();
     }
 
-  return 0;  
+  return 0;
 }
 
 int main (void)

@@ -54,7 +54,7 @@ TEST (void)
   masks[0] = HIMASK | lmskN;
   masks[1] = HIMASK | lmsk0;
   masks[2] = HIMASK | lmsk1;
-  masks[3] = HIMASK | lmsk01; 
+  masks[3] = HIMASK | lmsk01;
 
   for (i = 0; i < 4; i++)
     {
@@ -68,4 +68,4 @@ TEST (void)
 	if ((masks[i] & (1 << j)) && res[i].d[j] != tmp)
 	  abort ();
    }
-} 
+}

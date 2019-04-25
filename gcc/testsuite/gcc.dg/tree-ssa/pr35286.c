@@ -1,4 +1,4 @@
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-O2 -fno-code-hoisting -fno-tree-cselim -fdump-tree-pre-stats" } */
 int g2;
 struct A {

@@ -13,7 +13,7 @@ unsigned long long foo (unsigned long long x)
 unsigned long long a, b;
 unsigned long p;
 
-unsigned long long bar (void)  
+unsigned long long bar (void)
 {
   unsigned long long c = a | b;
   return 0x73500000735LL * c;

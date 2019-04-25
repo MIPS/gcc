@@ -1,4 +1,4 @@
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-O2 -fdump-tree-vrp1-details -fdump-tree-dom2-details -std=gnu89 --param logical-op-non-short-circuit=0" } */
 
 #include "ssa-dom-thread-4.c"

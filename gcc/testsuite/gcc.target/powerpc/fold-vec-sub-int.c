@@ -44,4 +44,3 @@ test6 (vector unsigned int x, vector unsigned int y)
 }
 
 /* { dg-final { scan-assembler-times "vsubuwm" 6 } } */
-

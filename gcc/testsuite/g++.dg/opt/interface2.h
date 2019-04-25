@@ -7,5 +7,3 @@ struct C
   virtual ~C() { }
   T a;
 };
-
-

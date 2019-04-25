@@ -979,7 +979,7 @@ const_and_copies::pop_to_marker (void)
     }
 }
 
-/* Record that X has the value Y and that X's previous value is PREV_X. 
+/* Record that X has the value Y and that X's previous value is PREV_X.
 
    This variant does not follow the value chain for Y.  */
 
@@ -1009,7 +1009,7 @@ const_and_copies::record_const_or_copy (tree x, tree y)
   record_const_or_copy (x, y, SSA_NAME_VALUE (x));
 }
 
-/* Record that X has the value Y and that X's previous value is PREV_X. 
+/* Record that X has the value Y and that X's previous value is PREV_X.
 
    This variant follow's Y value chain.  */
 

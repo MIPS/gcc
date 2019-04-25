@@ -312,7 +312,7 @@ enum reg_class {
 
 #define RETURN_ADDR_RTX(count, tem) avr_return_addr_rtx (count, tem)
 
-/* Don't use Push rounding. expr.c: emit_single_push_insn is broken 
+/* Don't use Push rounding. expr.c: emit_single_push_insn is broken
    for POST_DEC targets (PR27386).  */
 /*#define PUSH_ROUNDING(NPUSHED) (NPUSHED)*/
 
@@ -467,7 +467,7 @@ typedef struct avr_args
 
 /* Set MOVE_RATIO to 3 to allow memory moves upto 4 bytes to happen
    by pieces when optimizing for speed, like it did when MOVE_MAX_PIECES
-   was 4. When optimizing for size, allow memory moves upto 2 bytes. 
+   was 4. When optimizing for size, allow memory moves upto 2 bytes.
    Also see avr_use_by_pieces_infrastructure_p. */
 
 #define MOVE_RATIO(speed) ((speed) ? 3 : 2)
@@ -549,22 +549,22 @@ struct GTY(()) machine_function
   /* 'true' - if current function is a naked function.  */
   int is_naked;
 
-  /* 'true' - if current function is an interrupt function 
+  /* 'true' - if current function is an interrupt function
      as specified by the "interrupt" attribute.  */
   int is_interrupt;
 
-  /* 'true' - if current function is a signal function 
+  /* 'true' - if current function is a signal function
      as specified by the "signal" attribute.  */
   int is_signal;
-  
-  /* 'true' - if current function is a 'task' function 
+
+  /* 'true' - if current function is a 'task' function
      as specified by the "OS_task" attribute.  */
   int is_OS_task;
 
-  /* 'true' - if current function is a 'main' function 
+  /* 'true' - if current function is a 'main' function
      as specified by the "OS_main" attribute.  */
   int is_OS_main;
-  
+
   /* Current function stack size.  */
   int stack_usage;
 

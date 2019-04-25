@@ -84,4 +84,3 @@ try_route (int n, float x, float y)
       pres_fac *= y;
     }
 }
-

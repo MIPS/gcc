@@ -10,4 +10,3 @@
 
 /* { dg-final { scan-assembler-times "vnegd" 1 } } */
 /* { dg-final { scan-assembler-times "vmaxsd" 0 } } */
-

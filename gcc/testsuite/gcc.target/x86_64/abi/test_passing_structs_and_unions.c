@@ -82,7 +82,7 @@ main (void)
   clear_int_hardware_registers;
   WRAP_CALL (check_mixed_passing1)(8, is, 9);
 
-#ifdef CHECK_LARGER_STRUCTS 
+#ifdef CHECK_LARGER_STRUCTS
   clear_struct_registers;
   iregs.I0 = 10;
   iregs.I1 = 11;

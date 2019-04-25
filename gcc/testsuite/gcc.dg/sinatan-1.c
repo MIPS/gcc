@@ -90,7 +90,7 @@ main()
 
     if (fy != -1.f || y != -1. || ly != -1.L)
         abort ();
-    
+
     fy = cosatanf (-fc);
     y = cosatan (-c);
     ly = cosatanl (-lc);

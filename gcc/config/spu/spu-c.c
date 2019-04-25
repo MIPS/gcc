@@ -2,7 +2,7 @@
 
    This file is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 3 of the License, or (at your option) 
+   Software Foundation; either version 3 of the License, or (at your option)
    any later version.
 
    This file is distributed in the hope that it will be useful, but WITHOUT
@@ -72,7 +72,7 @@ spu_macro_to_expand (cpp_reader *pfile, const cpp_token *tok)
 	      if (ident)
 		rid_code = (enum rid)(ident->rid_code);
 	    }
-	  
+
 	  if (rid_code == RID_UNSIGNED || rid_code == RID_LONG
 	      || rid_code == RID_SHORT || rid_code == RID_SIGNED
 	      || rid_code == RID_INT || rid_code == RID_CHAR
@@ -224,7 +224,7 @@ spu_cpu_cpp_builtins (struct cpp_reader *pfile)
 
 void
 spu_c_common_override_options (void)
-{ 
+{
   if (!TARGET_STD_MAIN)
     {
       /* Don't give warnings about the main() function.  */

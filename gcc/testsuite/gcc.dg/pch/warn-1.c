@@ -8,7 +8,7 @@
 /* { dg-message "terminated" "" { target *-*-* } 0 } */
 
 
-int main(void) 
+int main(void)
 {
   return DEFINED_VALUE;
 }

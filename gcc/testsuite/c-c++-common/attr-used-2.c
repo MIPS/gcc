@@ -1,7 +1,7 @@
 /* { dg-do compile } */
 /* { dg-options "-Wall -O2" } */
 
-static int xyzzy __attribute__((__used__)) = 1; 
+static int xyzzy __attribute__((__used__)) = 1;
 
 void foo()
 {

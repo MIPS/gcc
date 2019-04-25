@@ -1,7 +1,7 @@
 /* { dg-do run } */
 
 /* Verify that the RX specific builtin functions work.  */
-   
+
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -31,7 +31,7 @@ multiply_and_accumulate (long arg1, long arg2, long arg3)
   __builtin_rx_machi (arg1, arg3);
 
   __builtin_rx_racw (1);
-  
+
   arg1 = __builtin_rx_mvfachi ();
   arg1 += __builtin_rx_mvfacmi ();
 

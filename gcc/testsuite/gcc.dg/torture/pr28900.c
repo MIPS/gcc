@@ -12,4 +12,3 @@ int synths_ ( float * rc)
       rc[i] = ((r1) >= (-.99f) ? (r1) : (-.99f));
     }
 }
-

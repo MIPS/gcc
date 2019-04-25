@@ -3,7 +3,7 @@
 
 /* Make sure we didn't eliminate foo because we thought it was unused.  */
 
-struct foo 
+struct foo
 {
     int i;
 };

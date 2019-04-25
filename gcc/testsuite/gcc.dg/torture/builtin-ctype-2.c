@@ -24,7 +24,7 @@ void test(int i)
   extern int FN(int); \
   if (FN(VALUE)) \
     link_failure_##FN##_cst_false()
-  
+
   /* All of these ctype calls should compile-time evaluate to true.  */
 #define TEST_TOCTYPE_CST_TRUE(FN, VALUE) \
   extern void link_failure_##FN##_cst_true(void); \
@@ -38,7 +38,7 @@ void test(int i)
   extern int FN(int); \
   if (FN(VALUE) == (VALUE)) \
     link_failure_##FN##_cst_false()
-  
+
 #ifdef __OPTIMIZE__
   TEST_CTYPE_CST_TRUE (isascii, 0);
   TEST_CTYPE_CST_TRUE (isascii, 1);
@@ -53,7 +53,7 @@ void test(int i)
   TEST_CTYPE_CST_FALSE (isascii, 257);
   TEST_CTYPE_CST_FALSE (isascii, 10000);
   TEST_CTYPE_CST_FALSE (isascii, __INT_MAX__);
-  
+
   /* This ctype call should transform into another expression.  */
   if (isascii(i) != ((i & ~0x7f) == 0))
     link_failure_var();
@@ -94,7 +94,7 @@ void test(int i)
   TEST_CTYPE_CST_FALSE (isdigit, 256);
   TEST_CTYPE_CST_FALSE (isdigit, 10000);
   TEST_CTYPE_CST_FALSE (isdigit, __INT_MAX__);
-  
+
   /* This ctype call should transform into another expression.  */
   if (isdigit(i) != ((unsigned)i - '0' <= 9))
     link_failure_var();

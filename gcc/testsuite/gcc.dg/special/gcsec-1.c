@@ -1,4 +1,4 @@
-/* AIX gld supports garbage collection. But AIX gcc does not support 
+/* AIX gld supports garbage collection. But AIX gcc does not support
    -ffunction-sections or -fdata-sections.  */
 /* { dg-do run { xfail rs6000-*-aix* powerpc*-*-aix* } } */
 /* { dg-require-gc-sections "" } */

@@ -13,7 +13,7 @@ foo (unsigned int *b)
       a >>= 1;
       *b += a;
     }
-  return a; 
+  return a;
 }
 
 /* { dg-final { scan-tree-dump-times "Proved that loop 1 iterates 2 times using brute force" 1 "ivcanon" } } */
@@ -27,5 +27,5 @@ bar (unsigned int *b)
       a >>= 1;
       *b += a;
     }
-  return a; 
+  return a;
 }

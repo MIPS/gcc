@@ -20,4 +20,3 @@ along with GCC; see the file COPYING3.  If not see
 #define OBSD_HAS_DECLARE_FUNCTION_NAME
 #define OBSD_HAS_DECLARE_FUNCTION_SIZE
 #define OBSD_HAS_DECLARE_OBJECT
-

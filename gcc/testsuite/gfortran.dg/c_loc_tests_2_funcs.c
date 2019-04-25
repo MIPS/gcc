@@ -33,10 +33,10 @@ int test_type_address(ctype_t *type_ptr)
   /* i was set to 100 by Fortran */
   if(type_ptr->i != 100)
     return 0;
-  
+
   /* x was set to 1.0d0 by Fortran */
   if(fabs(type_ptr->x - 1.0) > 0.00000000)
     return 0;
-  
+
   return 1;
 }

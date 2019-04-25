@@ -20,14 +20,14 @@ along with GCC; see the file COPYING3.  If not see
 
 
 /* Notes for DATA statement implementation:
-									       
+
    We first assign initial value to each symbol by gfc_assign_data_value
    during resolving DATA statement. Refer to check_data_variable and
    traverse_data_list in resolve.c.
-									       
+
    The complexity exists in the handling of array section, implied do
    and array of struct appeared in DATA statement.
-									       
+
    We call gfc_conv_structure, gfc_con_array_array_initializer,
    etc., to convert the initial value. Refer to trans-expr.c and
    trans-array.c.  */
@@ -513,7 +513,7 @@ gfc_assign_data_value (gfc_expr *lvalue, gfc_expr *rvalue, mpz_t index,
 	  && gfc_has_default_initializer (lvalue->ts.u.derived))
 	{
 	  gfc_error ("Nonpointer object %qs with default initialization "
-		     "shall not appear in a DATA statement at %L", 
+		     "shall not appear in a DATA statement at %L",
 		     symbol->name, &lvalue->where);
 	  return false;
 	}
@@ -540,13 +540,13 @@ abort:
 
 /* Modify the index of array section and re-calculate the array offset.  */
 
-void 
+void
 gfc_advance_section (mpz_t *section_index, gfc_array_ref *ar,
 		     mpz_t *offset_ret)
 {
   int i;
   mpz_t delta;
-  mpz_t tmp; 
+  mpz_t tmp;
   bool forwards;
   int cmp;
   gfc_expr *start, *end, *stride;
@@ -567,21 +567,21 @@ gfc_advance_section (mpz_t *section_index, gfc_array_ref *ar,
 	    forwards = true;
 	  else
 	    forwards = false;
-	  gfc_free_expr(stride);	
+	  gfc_free_expr(stride);
 	}
       else
 	{
 	  mpz_add_ui (section_index[i], section_index[i], 1);
 	  forwards = true;
 	}
-      
+
       if (ar->end[i])
         {
 	  end = gfc_copy_expr(ar->end[i]);
 	  if(!gfc_simplify_expr(end, 1))
 	    gfc_internal_error("Simplification error");
 	  cmp = mpz_cmp (section_index[i], end->value.integer);
-	  gfc_free_expr(end);	
+	  gfc_free_expr(end);
 	}
       else
 	cmp = mpz_cmp (section_index[i], ar->as->upper[i]->value.integer);
@@ -595,7 +595,7 @@ gfc_advance_section (mpz_t *section_index, gfc_array_ref *ar,
 	      if(!gfc_simplify_expr(start, 1))
 	        gfc_internal_error("Simplification error");
 	      mpz_set (section_index[i], start->value.integer);
-	      gfc_free_expr(start); 
+	      gfc_free_expr(start);
 	    }
 	  else
 	    mpz_set (section_index[i], ar->as->lower[i]->value.integer);
@@ -613,7 +613,7 @@ gfc_advance_section (mpz_t *section_index, gfc_array_ref *ar,
       mpz_mul (tmp, tmp, delta);
       mpz_add (*offset_ret, tmp, *offset_ret);
 
-      mpz_sub (tmp, ar->as->upper[i]->value.integer, 
+      mpz_sub (tmp, ar->as->upper[i]->value.integer,
 	       ar->as->lower[i]->value.integer);
       mpz_add_ui (tmp, tmp, 1);
       mpz_mul (delta, tmp, delta);
@@ -699,7 +699,7 @@ gfc_formalize_init_value (gfc_symbol *sym)
 
 /* Get the integer value into RET_AS and SECTION from AS and AR, and return
    offset.  */
- 
+
 void
 gfc_get_section_index (gfc_array_ref *ar, mpz_t *section_index, mpz_t *offset)
 {
@@ -741,7 +741,7 @@ gfc_get_section_index (gfc_array_ref *ar, mpz_t *section_index, mpz_t *offset)
 	  gcc_unreachable ();
 	}
 
-      mpz_sub (tmp, ar->as->upper[i]->value.integer, 
+      mpz_sub (tmp, ar->as->upper[i]->value.integer,
 	       ar->as->lower[i]->value.integer);
       mpz_add_ui (tmp, tmp, 1);
       mpz_mul (delta, tmp, delta);
@@ -750,4 +750,3 @@ gfc_get_section_index (gfc_array_ref *ar, mpz_t *section_index, mpz_t *offset)
   mpz_clear (tmp);
   mpz_clear (delta);
 }
-

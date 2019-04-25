@@ -18,4 +18,3 @@ __popcountsi2 (USItype x)
 
   return ret;
 }
-

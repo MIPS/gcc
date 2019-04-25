@@ -21,4 +21,3 @@ long long foo4 (unsigned int b, unsigned int c)
 {
   return (unsigned long long)c * (unsigned long long) b;
 }
-

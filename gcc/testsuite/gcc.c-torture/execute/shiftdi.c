@@ -17,6 +17,3 @@ int main(void)
 	g(0xdeadbeef01234567ULL, 0, 0, &a);
 	return (a == 0x01234567) ? 0 : 1;
 }
-
-
-

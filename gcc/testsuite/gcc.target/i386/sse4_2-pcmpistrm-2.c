@@ -83,7 +83,7 @@ TEST (void)
 			    &correct_flags);
 	  break;
 
-	default:	
+	default:
 	  res = _mm_cmpistrm (src1.x[i], src2.x[i], IMM_VAL3);
 	  cf = _mm_cmpistrc (src1.x[i], src2.x[i], IMM_VAL3);
 	  zf = _mm_cmpistrz (src1.x[i], src2.x[i], IMM_VAL3);
@@ -94,7 +94,7 @@ TEST (void)
 			    &correct_flags);
 	  break;
 	}
-      
+
       if (memcmp (&correct, &res, sizeof (res)))
 	abort ();
 
@@ -107,7 +107,7 @@ TEST (void)
 	flags |= SFLAG;
       if (of)
 	flags |= OFLAG;
-      
+
       if (flags != correct_flags
 	  || (af && (cf || zf))
 	  || (!af && !(cf || zf)))

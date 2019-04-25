@@ -7,7 +7,7 @@ int blah(int);
 void t(int);
 
 static int
-__attribute__((always_inline)) 
+__attribute__((always_inline))
 foo (int n, int* v, int r)
 {
   int flag = 0;
@@ -19,7 +19,7 @@ foo (int n, int* v, int r)
 
   if (n > g)
     g++;
-  else 
+  else
     bar();
 
   return flag;
@@ -39,4 +39,3 @@ int blah(int n)
      }
    return 1;
 }
-	

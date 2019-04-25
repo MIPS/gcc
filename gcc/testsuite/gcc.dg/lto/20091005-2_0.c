@@ -7,5 +7,5 @@ void
 solve_pme(t_commrec *cr)
 {
     t_fft_c *ptr;
-} 
+}
 int main () { return 0; }

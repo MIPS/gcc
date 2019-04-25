@@ -16,6 +16,6 @@ foo (reg)
   if (reg->code != 42)
     abort ();
 }
-                                                                                
+
 /* There should be no IF conditionals.  */
 /* { dg-final { scan-tree-dump-times "if " 0 "dom2"} } */

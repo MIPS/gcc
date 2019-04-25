@@ -628,4 +628,3 @@ ix86_macro_fusion_pair_p (rtx_insn *condgen, rtx_insn *condjmp)
 
   return true;
 }
-

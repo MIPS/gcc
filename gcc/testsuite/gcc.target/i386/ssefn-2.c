@@ -28,4 +28,3 @@ double yd (double a)
 {
   return xd () * a;
 }
-

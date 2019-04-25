@@ -13,8 +13,8 @@ foo (int *a)
   if ((intptr_t) a == cst)
     {
       f1 ();
-      if (a) 
-	f2 (); 
+      if (a)
+	f2 ();
     }
 }
 

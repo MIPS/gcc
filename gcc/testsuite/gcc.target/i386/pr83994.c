@@ -13,4 +13,3 @@ f2 (int arg1, int arg2, int arg3)
   f1 (buf);
   return 0;
 }
-

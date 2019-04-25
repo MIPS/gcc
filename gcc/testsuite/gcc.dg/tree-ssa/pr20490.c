@@ -16,5 +16,3 @@ int blah ()
 	return (y * x);
 
 }
-
-

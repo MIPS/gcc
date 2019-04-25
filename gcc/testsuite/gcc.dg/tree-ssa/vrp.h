@@ -15,7 +15,7 @@ extern void link_error(void);
      if (v < min) link_error(); \
      if (v > max) link_error(); \
      if (v < min || v > max) link_error (); \
-  } while (0) 
+  } while (0)
 #define CHECK_ANTI_RANGE(expr, min, max) \
   do { \
     __typeof__ (expr) v = (expr); \

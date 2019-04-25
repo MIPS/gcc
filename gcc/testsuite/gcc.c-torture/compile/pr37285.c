@@ -12,4 +12,3 @@ _bfd_xcoff_canonicalize_dynamic_reloc (unsigned long long l_symndx)
     }
   }
 }
-

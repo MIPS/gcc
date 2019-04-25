@@ -17,4 +17,3 @@ void CreateDefaultTexture(double mnMinimum, double mnMaximum,
       foo(d);
     }
 }
-

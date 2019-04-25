@@ -2943,7 +2943,7 @@ gimple_split_edge (edge edge_in)
 /* Verify properties of the address expression T whose base should be
    TREE_ADDRESSABLE if VERIFY_ADDRESSABLE is true.  */
 
-static bool 
+static bool
 verify_address (tree t, bool verify_addressable)
 {
   bool old_constant;
@@ -6024,7 +6024,7 @@ gimple_split_block (basic_block bb, void *stmt)
       gsi = gsi_for_stmt ((gimple *) stmt);
       gsi_next (&gsi);
     }
- 
+
   /* Move everything from GSI to the new basic block.  */
   if (gsi_end_p (gsi))
     return new_bb;
@@ -6180,7 +6180,7 @@ gimple_duplicate_bb (basic_block bb, copy_bb_data *id)
 	      && (!VAR_P (base) || !DECL_HAS_VALUE_EXPR_P (base)))
 	    DECL_NONSHAREABLE (base) = 1;
 	}
- 
+
       /* If requested remap dependence info of cliques brought in
          via inlining.  */
       if (id)
@@ -6452,7 +6452,7 @@ gimple_duplicate_sese_region (edge entry, edge exit,
 }
 
 /* Checks if BB is part of the region defined by N_REGION BBS.  */
-static bool 
+static bool
 bb_part_of_region_p (basic_block bb, basic_block* bbs, unsigned n_region)
 {
   unsigned int n;
@@ -6589,7 +6589,7 @@ gimple_duplicate_sese_tail (edge entry, edge exit,
   sorig->probability = exits[1]->probability;
   snew = make_edge (switch_bb, nentry_bb, exits[0]->flags);
   snew->probability = exits[0]->probability;
-  
+
 
   /* Register the new edge from SWITCH_BB in loop exit lists.  */
   rescan_loop_exit (snew, true, false);
@@ -6604,7 +6604,7 @@ gimple_duplicate_sese_tail (edge entry, edge exit,
   e = redirect_edge_and_branch (exits[0], exits[1]->dest);
   PENDING_STMT (e) = NULL;
 
-  /* The latch of ORIG_LOOP was copied, and so was the backedge 
+  /* The latch of ORIG_LOOP was copied, and so was the backedge
      to the original header.  We redirect this backedge to EXIT_BB.  */
   for (i = 0; i < n_region; i++)
     if (get_bb_original (region_copy[i]) == orig_loop->latch)
@@ -6623,7 +6623,7 @@ gimple_duplicate_sese_tail (edge entry, edge exit,
       }
   e = redirect_edge_and_branch (nexits[1], nexits[0]->dest);
   PENDING_STMT (e) = NULL;
-  
+
   /* Anything that is outside of the region, but was dominated by something
      inside needs to update dominance info.  */
   iterate_fix_dominators (CDI_DOMINATORS, doms, false);
@@ -8863,7 +8863,7 @@ struct cfg_hooks gimple_cfg_hooks = {
   gimple_lv_add_condition_to_bb, /* lv_add_condition_to_bb */
   gimple_lv_adjust_loop_header_phi, /* lv_adjust_loop_header_phi*/
   extract_true_false_edges_from_block, /* extract_cond_bb_edges */
-  flush_pending_stmts, 		/* flush_pending_stmts */  
+  flush_pending_stmts, 		/* flush_pending_stmts */
   gimple_empty_block_p,           /* block_empty_p */
   gimple_split_block_before_cond_jump, /* split_block_before_cond_jump */
   gimple_account_profile_record,

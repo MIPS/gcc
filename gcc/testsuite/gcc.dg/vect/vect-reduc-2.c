@@ -41,9 +41,9 @@ void main1 (int x, int max_result, int min_result)
 }
 
 int main (void)
-{ 
+{
   check_vect ();
-  
+
   main1 (100, 100, 1);
   main1 (0, 15, 0);
   return 0;

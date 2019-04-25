@@ -57,5 +57,3 @@ conv2
 /* { dg-final { scan-assembler-times {\mdrdpq\M} 1 { target { hard_dfp } } } } */
 /* { dg-final { scan-assembler-times {\mdctdp\M} 2 { target { hard_dfp } } } } */
 /* { dg-final { scan-assembler-times {\mdctqpq\M} 2 { target { hard_dfp } } } } */
-
-

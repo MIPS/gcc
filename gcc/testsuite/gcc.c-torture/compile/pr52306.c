@@ -81,4 +81,3 @@ void xsltParseStylesheetTop(struct xmlNode *cur)
 	    xsltParseStylesheetTemplate(cur);
     }
 }
-

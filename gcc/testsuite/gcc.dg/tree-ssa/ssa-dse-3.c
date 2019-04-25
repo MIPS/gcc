@@ -11,5 +11,3 @@ void f(void)
 /* We should eliminate the first assignment to *p, but not the second.  */
 /* { dg-final { scan-tree-dump-times "Bool_Glob = 0" 0 "dse1"} } */
 /* { dg-final { scan-tree-dump-times "Bool_Glob = 1" 1 "dse1"} } */
-
-

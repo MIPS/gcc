@@ -6011,7 +6011,7 @@ is_float128_p (tree t)
 	      && TARGET_LONG_DOUBLE_128
 	      && t == long_double_type_node));
 }
-  
+
 static inline bool
 rs6000_builtin_type_compatible (tree t, int id)
 {
@@ -6047,7 +6047,7 @@ fully_fold_convert (tree type, tree expr)
 
 /* Build a tree for a function call to an Altivec non-overloaded builtin.
    The overloaded builtin that matched the types and args is described
-   by DESC.  The N arguments are given in ARGS, respectively.  
+   by DESC.  The N arguments are given in ARGS, respectively.
 
    Actually the only thing it does is calling fold_convert on ARGS, with
    a small exception for vec_{all,any}_{ge,le} predicates. */
@@ -6083,7 +6083,7 @@ altivec_build_resolved_builtin (tree *args, int n,
       tree t;
       t = args[2], args[2] = args[1], args[1] = t;
       t = arg_type[2], arg_type[2] = arg_type[1], arg_type[1] = t;
-      
+
       args[0] = fold_build2 (BIT_XOR_EXPR, TREE_TYPE (args[0]), args[0],
 			     build_int_cst (NULL_TREE, 2));
     }
@@ -6136,7 +6136,7 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
   if (TARGET_DEBUG_BUILTIN)
     fprintf (stderr, "altivec_resolve_overloaded_builtin, code = %4d, %s\n",
 	     (int)fcode, IDENTIFIER_POINTER (DECL_NAME (fndecl)));
- 
+
   /* vec_lvsl and vec_lvsr are deprecated for use with LE element order.  */
   if (fcode == ALTIVEC_BUILTIN_VEC_LVSL && !BYTES_BIG_ENDIAN)
     warning (OPT_Wdeprecated,

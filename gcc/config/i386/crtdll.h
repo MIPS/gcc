@@ -39,4 +39,3 @@ along with GCC; see the file COPYING3.  If not see
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC "%{shared|mdll:dllcrt1%O%s} \
   %{!shared:%{!mdll:crt1%O%s}} %{pg:gcrt1%O%s}"
-

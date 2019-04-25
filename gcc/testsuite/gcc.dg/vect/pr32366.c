@@ -11,4 +11,3 @@ stream_test (void)
   for (k = 0; k < 20; k++)
     input[k] = k * 1.0;
 }
-

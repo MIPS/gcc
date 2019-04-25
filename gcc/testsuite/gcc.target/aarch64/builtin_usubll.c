@@ -15,4 +15,3 @@ unsigned long long overflow_sub (unsigned long long x, unsigned long long y)
 }
 
 /* { dg-final { scan-assembler "subs" } } */
-

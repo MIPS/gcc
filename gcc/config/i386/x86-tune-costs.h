@@ -2342,4 +2342,3 @@ struct processor_costs core_cost = {
   "0:0:8",				/* Label alignment.  */
   "16",					/* Func alignment.  */
 };
-

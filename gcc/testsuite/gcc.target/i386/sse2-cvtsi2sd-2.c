@@ -14,11 +14,11 @@
 
 #include <emmintrin.h>
 
-static __m128d 
+static __m128d
 __attribute__((noinline, unused))
 test (__m128d p, long long b)
 {
-  return _mm_cvtsi64_sd (p, b); 
+  return _mm_cvtsi64_sd (p, b);
 }
 
 static void

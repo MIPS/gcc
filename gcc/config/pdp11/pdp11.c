@@ -51,7 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 /* This file should be included last.  */
 #include "target-def.h"
 
-/* this is the current value returned by the macro FIRST_PARM_OFFSET 
+/* this is the current value returned by the macro FIRST_PARM_OFFSET
    defined in tm.h */
 int current_first_parm_offset;
 
@@ -221,7 +221,7 @@ static bool pdp11_scalar_mode_supported_p (scalar_mode);
 #undef  TARGET_SECONDARY_RELOAD
 #define TARGET_SECONDARY_RELOAD pdp11_secondary_reload
 
-#undef  TARGET_REGISTER_MOVE_COST 
+#undef  TARGET_REGISTER_MOVE_COST
 #define TARGET_REGISTER_MOVE_COST pdp11_register_move_cost
 
 #undef  TARGET_PREFERRED_RELOAD_CLASS
@@ -328,7 +328,7 @@ pdp11_saved_regno (unsigned regno)
    alloca storage if any.  */
 void
 pdp11_expand_prologue (void)
-{							       
+{
   HOST_WIDE_INT fsize = get_frame_size ();
   unsigned regno;
   rtx x, via_ac = NULL;
@@ -340,7 +340,7 @@ pdp11_expand_prologue (void)
       emit_insn (gen_setd ());
       emit_insn (gen_seti ());
     }
-    
+
   /* Save CPU registers.  */
   for (regno = R0_REGNUM; regno <= PC_REGNUM; regno++)
     if (pdp11_saved_regno (regno))
@@ -351,7 +351,7 @@ pdp11_expand_prologue (void)
       }
 
   /* Save FPU registers.  */
-  for (regno = AC0_REGNUM; regno <= AC3_REGNUM; regno++) 
+  for (regno = AC0_REGNUM; regno <= AC3_REGNUM; regno++)
     if (pdp11_saved_regno (regno))
       {
 	x = gen_rtx_PRE_DEC (Pmode, stack_pointer_rtx);
@@ -389,7 +389,7 @@ pdp11_expand_prologue (void)
 
 void
 pdp11_expand_epilogue (void)
-{								
+{
   HOST_WIDE_INT fsize = get_frame_size ();
   unsigned regno;
   rtx x, reg, via_ac = NULL;
@@ -477,13 +477,13 @@ pdp11_expand_operands (rtx *operands, rtx exops[][2],
   bool sameoff = false;
   enum { REGOP, OFFSOP, MEMOP, PUSHOP, POPOP, CNSTOP, RNDOP } optype;
   long sval[2];
-  
+
   /* If either piece order is accepted and one is pre-decrement
      while the other is post-increment, set order to be high order
      word first.  That will force the pre-decrement to be turned
      into a pointer adjust, then offset addressing.
      Otherwise, if either operand uses pre-decrement, that means
-     the order is low order first. 
+     the order is low order first.
      Otherwise, if both operands are registers and destination is
      higher than source and they overlap, do low order word (highest
      register number) first.  */
@@ -513,7 +513,7 @@ pdp11_expand_operands (rtx *operands, rtx exops[][2],
 	 the push increases the offset to each source word.
 	 In theory there are other cases like this, for example dest == pop,
 	 but those don't occur in real life so ignore those.  */
-      if (GET_CODE (operands[0]) ==  MEM 
+      if (GET_CODE (operands[0]) ==  MEM
 	  && GET_CODE (XEXP (operands[0], 0)) == PRE_DEC
 	  && REGNO (XEXP (XEXP (operands[0], 0), 0)) == STACK_POINTER_REGNUM
 	  && reg_overlap_mentioned_p (stack_pointer_rtx, operands[1]))
@@ -530,7 +530,7 @@ pdp11_expand_operands (rtx *operands, rtx exops[][2],
   else
     gcc_assert (useorder == either || useorder == order);
 
-  
+
   for (op = 0; op < opcount; op++)
     {
       /* First classify the operand.  */
@@ -554,10 +554,10 @@ pdp11_expand_operands (rtx *operands, rtx exops[][2],
 	 supposed to allow to happen. Return failure for such cases.  */
       if (optype == RNDOP)
 	return false;
-      
+
       if (action != NULL)
 	action[op] = no_action;
-      
+
       /* If the operand uses pre-decrement addressing but we
 	 want to get the parts high order first,
 	 decrement the former register explicitly
@@ -570,7 +570,7 @@ pdp11_expand_operands (rtx *operands, rtx exops[][2],
 				      XEXP (XEXP (operands[op], 0), 0));
 	  optype = OFFSOP;
 	}
-      /* If the operand uses post-increment mode but we want 
+      /* If the operand uses post-increment mode but we want
 	 to get the parts low order first, change the operand
 	 into ordinary indexing and remember to increment
 	 the register explicitly when we're done.  */
@@ -589,7 +589,7 @@ pdp11_expand_operands (rtx *operands, rtx exops[][2],
 	  REAL_VALUE_TO_TARGET_DOUBLE
 	    (*CONST_DOUBLE_REAL_VALUE (operands[op]), sval);
 	}
-      
+
       for (i = 0; i < words; i++)
 	{
 	  if (order == big)
@@ -634,18 +634,18 @@ output_move_multiple (rtx *operands)
   rtx inops[2];
   rtx exops[4][2];
   rtx adjops[2];
-  
+
   pdp11_action action[2];
   int i, words;
-  
+
   words = GET_MODE_BITSIZE (GET_MODE (operands[0])) / 16;
   adjops[1] = gen_rtx_CONST_INT (HImode, words * 2);
 
   inops[0] = operands[0];
   inops[1] = operands[1];
-  
+
   pdp11_expand_operands (inops, exops, 2, words, action, either);
-  
+
   /* Check for explicit decrement before.  */
   if (action[0] == dec_before)
     {
@@ -687,7 +687,7 @@ pdp11_gen_int_label (char *label, const char *prefix, int num)
   else
     sprintf (label, "*%s_%u", prefix, num);
 }
-  
+
 /* Output an ascii string.  */
 void
 output_ascii (FILE *file, const char *p, int size)
@@ -695,7 +695,7 @@ output_ascii (FILE *file, const char *p, int size)
   int i, c;
   const char *pseudo = "\t.ascii\t";
   bool delim = false;
-  
+
   if (TARGET_DEC_ASM)
     {
       if (p[size - 1] == '\0')
@@ -769,7 +769,7 @@ pdp11_asm_output_var (FILE *file, const char *name, int size,
       assemble_name (file, name);
       fputs (":", file);
       ASM_OUTPUT_SKIP (file, size);
-    }  
+    }
 }
 
 /* Special format operators handled here:
@@ -782,7 +782,7 @@ static void
 pdp11_asm_print_operand (FILE *file, rtx x, int code)
 {
   long sval[2];
- 
+
   if (code == '#')
     {
       if (TARGET_DEC_ASM)
@@ -834,7 +834,7 @@ print_operand_address (FILE *file, register rtx addr)
   register rtx breg;
   rtx offset;
   int again = 0;
-  
+
  retry:
 
   switch (GET_CODE (addr))
@@ -955,7 +955,7 @@ pdp11_lra_p (void)
 
 /* Register to register moves are cheap if both are general
    registers.  */
-static int 
+static int
 pdp11_register_move_cost (machine_mode mode ATTRIBUTE_UNUSED,
 			  reg_class_t c1, reg_class_t c2)
 {
@@ -979,7 +979,7 @@ pdp11_rtx_costs (rtx x, machine_mode mode, int outer_code,
   const int asize = (mode == QImode) ? 2 : GET_MODE_SIZE (mode);
   rtx src, dest;
   const char *fmt;
-  
+
   switch (code)
     {
     case CONST_INT:
@@ -1026,7 +1026,7 @@ pdp11_rtx_costs (rtx x, machine_mode mode, int outer_code,
   if (GET_RTX_LENGTH (code) > 1)
     src = XEXP (x, 1);
   dest = XEXP (x, 0);
-      
+
   /* If optimizing for size, claim everything costs 2 per word, plus
      whatever the operands require.  */
   if (!speed)
@@ -1070,7 +1070,7 @@ pdp11_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	    case DIV:
 	      *total = 10 * asize * asize;
 	      break;
-	  
+
 	    case MOD:
 	      /* Fake value because it's accounted for under DIV, since we
 		 use a divmod pattern.  */
@@ -1085,14 +1085,14 @@ pdp11_rtx_costs (rtx x, machine_mode mode, int outer_code,
 		 case of a one bit shift.  */
 	      *total = asize;
 	      break;
-	  
+
 	    default:
 	      *total = asize;
 	      break;
 	    }
 	}
     }
-  
+
   /* Now see if we're looking at a SET.  If yes, then look at the
      source to see if this is a move or an arithmetic operation, and
      continue accordingly to handle the operands.  */
@@ -1142,7 +1142,7 @@ pdp11_addr_cost (rtx addr, machine_mode mode, addr_space_t as ATTRIBUTE_UNUSED,
 		 bool speed)
 {
   int cost = 0;
-  
+
   if (GET_CODE (addr) != REG)
     {
       if (!simple_memory_operand (addr, mode))
@@ -1165,7 +1165,7 @@ pdp11_insn_cost (rtx_insn *insn, bool speed)
   machine_mode mode;
   const char *fmt;
   enum rtx_code op;
-  
+
   if (recog_memoized (insn) < 0)
     return 0;
 
@@ -1185,7 +1185,7 @@ pdp11_insn_cost (rtx_insn *insn, bool speed)
      the actual operation plus a clobber, or the implicit compare plus
      the actual operation.  Find the actual operation.  */
   pat = PATTERN (insn);
-  
+
   if (GET_CODE (pat) == PARALLEL)
     {
       set = XVECEXP (pat, 0, 0);
@@ -1200,7 +1200,7 @@ pdp11_insn_cost (rtx_insn *insn, bool speed)
       if (GET_CODE (set) != SET)
 	return 0;
     }
-  
+
   /* Pick up the SET source and destination RTL.  */
   dest = XEXP (set, 0);
   src = XEXP (set, 1);
@@ -1243,7 +1243,7 @@ pdp11_insn_cost (rtx_insn *insn, bool speed)
       src2 = XEXP (src, 1);
       base_cost += pdp11_addr_cost (src2, mode, ADDR_SPACE_GENERIC, speed);
     }
-  
+
   return base_cost;
 }
 
@@ -1355,7 +1355,7 @@ simple_memory_operand(rtx op, machine_mode mode ATTRIBUTE_UNUSED)
   /* Decode the address now.  */
 
  indirection:
-    
+
   addr = XEXP (op, 0);
 
   switch (GET_CODE (addr))
@@ -1363,27 +1363,27 @@ simple_memory_operand(rtx op, machine_mode mode ATTRIBUTE_UNUSED)
     case REG:
       /* (R0) - no extra cost */
       return 1;
-	
+
     case PRE_DEC:
     case POST_INC:
     case PRE_MODIFY:
     case POST_MODIFY:
       /* -(R0), (R0)+ - cheap! */
       return 1;
-	
+
     case MEM:
-      /* cheap - is encoded in addressing mode info! 
+      /* cheap - is encoded in addressing mode info!
 
 	 -- except for @(R0), which has to be @0(R0) !!! */
 
       if (GET_CODE (XEXP (addr, 0)) == REG)
 	return 0;
-	
+
       op=addr;
       goto indirection;
-	
+
     case CONST_INT:
-    case LABEL_REF:	       
+    case LABEL_REF:
     case CONST:
     case SYMBOL_REF:
       /* @#address - extra cost */
@@ -1396,7 +1396,7 @@ simple_memory_operand(rtx op, machine_mode mode ATTRIBUTE_UNUSED)
     default:
       break;
     }
-    
+
   return FALSE;
 }
 
@@ -1413,7 +1413,7 @@ no_side_effect_operand(rtx op, machine_mode mode ATTRIBUTE_UNUSED)
   /* Decode the address now.  */
 
  indirection:
-    
+
   addr = XEXP (op, 0);
 
   switch (GET_CODE (addr))
@@ -1421,26 +1421,26 @@ no_side_effect_operand(rtx op, machine_mode mode ATTRIBUTE_UNUSED)
     case REG:
       /* (R0) - no extra cost */
       return 1;
-	
+
     case PRE_DEC:
     case POST_INC:
     case PRE_MODIFY:
     case POST_MODIFY:
       return 0;
-	
+
     case MEM:
-      /* cheap - is encoded in addressing mode info! 
+      /* cheap - is encoded in addressing mode info!
 
 	 -- except for @(R0), which has to be @0(R0) !!! */
 
       if (GET_CODE (XEXP (addr, 0)) == REG)
 	return 0;
-	
+
       op=addr;
       goto indirection;
-	
+
     case CONST_INT:
-    case LABEL_REF:	       
+    case LABEL_REF:
     case CONST:
     case SYMBOL_REF:
       /* @#address - extra cost */
@@ -1453,7 +1453,7 @@ no_side_effect_operand(rtx op, machine_mode mode ATTRIBUTE_UNUSED)
     default:
       break;
     }
-    
+
   return FALSE;
 }
 
@@ -1462,17 +1462,17 @@ bool
 pushpop_regeq (rtx op, int regno)
 {
   rtx addr;
-  
+
   /* False if not memory reference.  */
   if (GET_CODE (op) != MEM)
     return FALSE;
-  
+
   /* Get the address of the memory reference.  */
   addr = XEXP (op, 0);
 
   if (GET_CODE (addr) == MEM)
     addr = XEXP (addr, 0);
-    
+
   switch (GET_CODE (addr))
     {
     case PRE_DEC:
@@ -1515,7 +1515,7 @@ pdp11_can_change_mode_class (machine_mode from,
      So we disallow all mode changes involving FPRs.  */
   if (FLOAT_MODE_P (from) != FLOAT_MODE_P (to))
     return false;
-  
+
   return !reg_classes_intersect_p (FPU_REGS, rclass);
 }
 
@@ -1531,7 +1531,7 @@ pdp11_guard_type (void)
    Given an rtx X being reloaded into a reg required to be
    in class CLASS, return the class of reg to actually use.
    In general this is just CLASS; but on some machines
-   in some cases it is preferable to use a more restrictive class.  
+   in some cases it is preferable to use a more restrictive class.
 
 loading is easier into LOAD_FPU_REGS than FPU_REGS! */
 
@@ -1555,7 +1555,7 @@ pdp11_preferred_reload_class (rtx x, reg_class_t rclass)
    Given an rtx X being reloaded into a reg required to be
    in class CLASS, return the class of reg to actually use.
    In general this is just CLASS; but on some machines
-   in some cases it is preferable to use a more restrictive class.  
+   in some cases it is preferable to use a more restrictive class.
 
 loading is easier into LOAD_FPU_REGS than FPU_REGS! */
 
@@ -1577,10 +1577,10 @@ pdp11_preferred_output_reload_class (rtx x, reg_class_t rclass)
 
 /* TARGET_SECONDARY_RELOAD.
 
-   FPU registers AC4 and AC5 (class NO_LOAD_FPU_REGS) require an 
+   FPU registers AC4 and AC5 (class NO_LOAD_FPU_REGS) require an
    intermediate register (AC0-AC3: LOAD_FPU_REGS).  Everything else
    can be loaded/stored directly.  */
-static reg_class_t 
+static reg_class_t
 pdp11_secondary_reload (bool in_p ATTRIBUTE_UNUSED,
 			rtx x,
 			reg_class_t reload_class,
@@ -1590,7 +1590,7 @@ pdp11_secondary_reload (bool in_p ATTRIBUTE_UNUSED,
   if (reload_class != NO_LOAD_FPU_REGS || GET_CODE (x) != REG ||
       REGNO_REG_CLASS (REGNO (x)) == LOAD_FPU_REGS)
     return NO_REGS;
-  
+
   return LOAD_FPU_REGS;
 }
 
@@ -1601,11 +1601,11 @@ pdp11_secondary_reload (bool in_p ATTRIBUTE_UNUSED,
 static bool
 pdp11_secondary_memory_needed (machine_mode, reg_class_t c1, reg_class_t c2)
 {
-  int fromfloat = (c1 == LOAD_FPU_REGS || c1 == NO_LOAD_FPU_REGS || 
+  int fromfloat = (c1 == LOAD_FPU_REGS || c1 == NO_LOAD_FPU_REGS ||
 		   c1 == FPU_REGS);
-  int tofloat = (c2 == LOAD_FPU_REGS || c2 == NO_LOAD_FPU_REGS || 
+  int tofloat = (c2 == LOAD_FPU_REGS || c2 == NO_LOAD_FPU_REGS ||
 		 c2 == FPU_REGS);
-  
+
   return (fromfloat != tofloat);
 }
 
@@ -1625,13 +1625,13 @@ pdp11_legitimate_address_p (machine_mode mode,
     /* accept @#address */
     if (CONSTANT_ADDRESS_P (operand))
       return true;
-    
+
     switch (GET_CODE (operand))
       {
       case REG:
 	/* accept (R0) */
 	return !strict || REGNO_OK_FOR_BASE_P (REGNO (operand));
-    
+
       case PLUS:
 	/* accept X(R0) */
 	return GET_CODE (XEXP (operand, 0)) == REG
@@ -1673,11 +1673,11 @@ pdp11_legitimate_address_p (machine_mode mode,
 	xfoob = XEXP (operand, 0);
 
 	/* (MEM:xx (MEM:xx ())) is not valid for SI, DI and currently
-	   also forbidden for float, because we have to handle this 
+	   also forbidden for float, because we have to handle this
 	   in output_move_double and/or output_move_quad() - we could
-	   do it, but currently it's not worth it!!! 
-	   now that DFmode cannot go into CPU register file, 
-	   maybe I should allow float ... 
+	   do it, but currently it's not worth it!!!
+	   now that DFmode cannot go into CPU register file,
+	   maybe I should allow float ...
 	   but then I have to handle memory-to-memory moves in movdf ??  */
 	if (GET_MODE_BITSIZE(mode) > 16)
 	  return false;
@@ -1723,7 +1723,7 @@ pdp11_legitimate_address_p (machine_mode mode,
    reg number REGNO.  */
 enum reg_class
 pdp11_regno_reg_class (int regno)
-{ 
+{
   if (regno == ARG_POINTER_REGNUM)
     return NOTSP_REG;
   else if (regno == CC_REGNUM || regno == FCC_REGNUM)
@@ -1760,9 +1760,9 @@ pdp11_reg_save_size (void)
   for (regno = AC0_REGNUM; regno <= AC5_REGNUM; regno++)
     if (pdp11_saved_regno (regno))
       offset += 8;
-  
+
   return offset;
-}   
+}
 
 /* Return the offset between two registers, one to be eliminated, and the other
    its replacement, at the start of a routine.  */
@@ -1772,7 +1772,7 @@ pdp11_initial_elimination_offset (int from, int to)
 {
   /* Get the size of the register save area.  */
   int spoff;
-  
+
   if (from == FRAME_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
     return get_frame_size ();
   else if (from == ARG_POINTER_REGNUM && to == FRAME_POINTER_REGNUM)
@@ -1793,7 +1793,7 @@ output_addr_const_pdp11 (FILE *file, rtx x)
 {
   char buf[256];
   int i;
-  
+
  restart:
   switch (GET_CODE (x))
     {
@@ -1893,7 +1893,7 @@ pdp11_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
    On the pdp11 the value is found in R0 (or ac0??? not without FPU!!!! )  */
 
 static rtx
-pdp11_function_value (const_tree valtype, 
+pdp11_function_value (const_tree valtype,
  		      const_tree fntype_or_decl ATTRIBUTE_UNUSED,
  		      bool outgoing ATTRIBUTE_UNUSED)
 {
@@ -1937,7 +1937,7 @@ pdp11_expand_shift (rtx *operands, rtx (*shift_sc) (rtx, rtx, rtx),
 {
   rtx r, test;
   rtx_code_label *lb;
-  
+
   if (CONST_INT_P (operands[2]) && pdp11_small_shift (INTVAL (operands[2])))
     emit_insn ((*shift_sc) (operands[0], operands[1], operands[2]));
   else if (TARGET_40_PLUS)
@@ -1990,7 +1990,7 @@ pdp11_assemble_shift (rtx *operands, machine_mode m, int code)
       inops[0] = operands[0];
       pdp11_expand_operands (inops, exops, 1, 2, action, either);
     }
-  
+
   if (!small)
     {
       /* Loop case, generate the top of loop label.  */
@@ -2111,10 +2111,10 @@ pdp11_cmp_length (rtx *operands, int words)
 
   if (!reload_completed)
     return 2;
-  
+
   inops[0] = operands[0];
   inops[1] = operands[1];
-  
+
   pdp11_expand_operands (inops, exops, 2, words, NULL, big);
 
   for (i = 0; i < words; i++)
@@ -2155,8 +2155,8 @@ pdp11_md_asm_adjust (vec<rtx> &/*outputs*/, vec<rtx> &/*inputs*/,
 
 /* Worker function for TARGET_TRAMPOLINE_INIT.
 
-   trampoline - how should i do it in separate i+d ? 
-   have some allocate_trampoline magic??? 
+   trampoline - how should i do it in separate i+d ?
+   have some allocate_trampoline magic???
 
    the following should work for shared I/D:
 
@@ -2273,7 +2273,7 @@ static void pdp11_output_ident (const char *ident)
       if (strncmp (ident, "GCC:", 4) != 0)
 	fprintf (asm_out_file, "\t.ident\t\"%s\"\n", ident);
     }
-  
+
 }
 
 /* This emits a (user) label, which gets a "_" prefix except for DEC
@@ -2302,7 +2302,7 @@ pdp11_output_def (FILE *file, const char *label1, const char *label2)
       assemble_name (file, label1);
       putc (',', file);
       assemble_name (file, label2);
-    } 
+    }
   putc ('\n', file);
 }
 
@@ -2335,7 +2335,7 @@ pdp11_asm_named_section (const char *name, unsigned int flags,
 {
   const char *rwro = (flags & SECTION_WRITE) ? "rw" : "ro";
   const char *insdat = (flags & SECTION_CODE) ? "i" : "d";
-  
+
   gcc_assert (TARGET_DEC_ASM);
   fprintf (asm_out_file, "\t.psect\t%s,con,%s,%s\n", name, insdat, rwro);
 }
@@ -2354,12 +2354,12 @@ pdp11_asm_init_sections (void)
 					 ".bss");
     }
 }
-  
+
 static void
 pdp11_file_start (void)
 {
   default_file_start ();
-  
+
   if (TARGET_DEC_ASM)
     fprintf (asm_out_file, "\t.enabl\tlsb,reg\n\n");
 }

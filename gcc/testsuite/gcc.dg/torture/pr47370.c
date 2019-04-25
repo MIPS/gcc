@@ -24,4 +24,3 @@ baz (int i)
   bar ();
   foo ();
 }
-

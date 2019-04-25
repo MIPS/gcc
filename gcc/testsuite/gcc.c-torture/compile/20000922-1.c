@@ -1,5 +1,5 @@
 extern void doit(int);
-void 
+void
 quick_doit(int x)
 {
 #ifdef __OPTIMIZE__

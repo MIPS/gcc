@@ -17,7 +17,7 @@ avx_test ()
   int i;
   float a[N];
 
-  /* Strided access. Vectorizable on platforms that support load of strided 
+  /* Strided access. Vectorizable on platforms that support load of strided
      accesses (extract of even/odd vector elements).  */
   for (i = 0; i < N/2; i++)
     {

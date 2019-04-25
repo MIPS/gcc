@@ -413,7 +413,7 @@ decide_unroll_constant_iterations (struct loop *loop, int flags)
       return;
     }
 
-  /* Check whether the loop rolls enough to consider.  
+  /* Check whether the loop rolls enough to consider.
      Consult also loop bounds and profile; in the case the loop has more
      than one exit it may well loop less than determined maximal number
      of iterations.  */
@@ -1201,7 +1201,7 @@ decide_unroll_stupid (struct loop *loop, int flags)
     }
 
   /* Do not unroll loops with branches inside -- it increases number
-     of mispredicts. 
+     of mispredicts.
      TODO: this heuristic needs tunning; call inside the loop body
      is also relatively good reason to not unroll.  */
   if (num_loop_branches (loop) > 1)

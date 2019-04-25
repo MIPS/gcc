@@ -66,4 +66,3 @@ do_dror (SIM_DESC sd, instruction_address cia, int MY_INDEX, unsigned64 x,
 	trace_result_word1 (sd, ((&(sd)->cpu[0])), TRACE_ALU_IDX, (result));
     }
 }
-

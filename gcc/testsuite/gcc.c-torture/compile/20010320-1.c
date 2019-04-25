@@ -1,4 +1,4 @@
-typedef struct sec { 
+typedef struct sec {
 const char *name;
 int id;
 int index;
@@ -10,7 +10,7 @@ unsigned int linker_mark : 1;
 unsigned int gc_mark : 1;
 unsigned int segment_mark : 1;
 unsigned long long vma; } asection;
- 
+
 static void pe_print_pdata (asection *section)
 {
   unsigned long long i;
@@ -25,4 +25,3 @@ static void pe_print_pdata (asection *section)
       f (((unsigned long) (((   i + section->vma  ) >> 32) & 0xffffffff)) , ((unsigned long) (((   i + section->vma  ) & 0xffffffff))) ) ;
     }
 }
-

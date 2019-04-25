@@ -3,7 +3,7 @@
 
 int decl1;			/* should not warn */
 void foo (double decl1)		/* should not warn */
-{				
+{
 }
 
 void foo2 (int d)		/* { dg-message "shadowed declaration" } */

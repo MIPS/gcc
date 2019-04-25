@@ -18,7 +18,7 @@ static __m128i
 __attribute__((noinline, unused))
 test (__m128i s1, __m128i s2)
 {
-  return _mm_packs_epi32 (s1, s2); 
+  return _mm_packs_epi32 (s1, s2);
 }
 
 static void
@@ -28,10 +28,10 @@ TEST (void)
   union128i_w u;
   short e[8];
   int i;
-   
+
   s1.x = _mm_set_epi32 (2134, -128, 655366, 9999);
   s2.x = _mm_set_epi32 (41124, 234, 2, -800900);
-  u.x = test (s1.x, s2.x); 
+  u.x = test (s1.x, s2.x);
 
   for (i = 0; i < 4; i++)
     {
@@ -42,7 +42,7 @@ TEST (void)
       else
         e[i] = s1.a[i];
     }
-  
+
   for (i = 0; i < 4; i++)
    {
       if (s2.a[i] > 32767)

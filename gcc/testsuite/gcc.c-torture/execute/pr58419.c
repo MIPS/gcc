@@ -34,7 +34,7 @@ main ()
       short *l = &h;
       char *m = &e;
       *l = a;
-      g = foo (*m = k && *d, 1 > i) || bar (); 
+      g = foo (*m = k && *d, 1 > i) || bar ();
     }
   dummy();
   return 0;

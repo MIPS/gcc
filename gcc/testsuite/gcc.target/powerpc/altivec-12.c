@@ -74,19 +74,19 @@ int main ()
   for (i=0; i< 16; i++)
     if (scz[i] != sc_expected[i])
       abort ();
-  
+
   ucz = vec_avg (uca, ucb);
 
   for (i=0; i<16; i++)
     if (ucz[i] != uc_expected[i])
       abort ();
-  
+
   uiz = vec_avg (uia, uib);
 
   for (i=0; i< 4; i++)
     if (uiz[i] != ui_expected[i])
       abort ();
-  
+
   CHECK_IF (vec_all_eq (k, avgi));
 
   h = vec_add (f1, f2);

@@ -1,7 +1,7 @@
 /* PR c/30552 */
 
-/* Related example where statement expression used as old-style formal array 
- * argument size in an invalid nested function declaration should generate 
+/* Related example where statement expression used as old-style formal array
+ * argument size in an invalid nested function declaration should generate
  * user error, not internal compiler error. */
 
 /* { dg-do compile } */

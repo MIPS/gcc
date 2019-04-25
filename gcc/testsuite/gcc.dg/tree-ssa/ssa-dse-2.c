@@ -20,4 +20,3 @@ foo ()
 /* We should eliminate the first assignment to *p, but not the second.  */
 /* { dg-final { scan-tree-dump-times " = 3" 0 "dse1"} } */
 /* { dg-final { scan-tree-dump-times " = 4" 1 "dse1"} } */
-

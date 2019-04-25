@@ -7,4 +7,3 @@ int     __srget (char *);
 #define __sgetc(p) (--(p)->_r < 0 ? __srget(p) : (int)(*(p)->_p++))
 #define getc(fp)        __sgetc(fp)
 #define getchar()       getc(stdin)
-

@@ -1,6 +1,6 @@
 typedef unsigned long uint32;
 typedef int JSIntn;
-#define JS_DLL_CALLBACK	
+#define JS_DLL_CALLBACK
 typedef JSIntn JSBool;
 typedef struct JSContext JSContext;
 typedef struct JSObject JSObject;

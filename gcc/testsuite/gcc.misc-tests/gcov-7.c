@@ -55,7 +55,7 @@ passed ()
 	  foo_exit == 1 &&
 	  bar_enter == 3 &&
 	  bar_exit == 2);
-	
+
 }
 
 void

@@ -6,4 +6,3 @@
 #define TEST avx_test
 
 #include "sse2-movntpd-1.c"
-

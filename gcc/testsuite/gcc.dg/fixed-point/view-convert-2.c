@@ -9,7 +9,7 @@ void test_k (void)
 {
   _Accum a;
   __INT32_TYPE__ i = -__INT32_MAX__;
-  
+
   if (sizeof (a) != sizeof (i))
     return;
 
@@ -23,7 +23,7 @@ void test_0k (void)
 {
   _Accum a;
   __INT32_TYPE__ i = 0;
-  
+
   if (sizeof (a) != sizeof (i))
     return;
 

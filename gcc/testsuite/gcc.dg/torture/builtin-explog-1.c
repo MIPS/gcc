@@ -47,7 +47,7 @@ void test(double d1, double d2, float f1, float f2,
   LOG_1(log);
   LOG_1(log2);
   LOG_1(log10);
-  
+
   /* Test logN(N) -> 1.  */
 #define LOG_N(LOG, BASE) \
  extern void link_failure_##LOG##_N(void); \
@@ -85,56 +85,56 @@ void test(double d1, double d2, float f1, float f2,
   LOGEXP(log10,exp2,2.0);
   LOGEXP(log10,exp10,10.0);
   LOGEXP(log10,pow10,10.0);
-  
+
   /* Test logN(sqrt(x)) -> 0.5*logN(x).  */
 #define LOG_SQRT(LOG) \
  extern void link_failure_##LOG##_sqrt(void); \
  if (LOG(sqrt(d1)) != 0.5*LOG(d1) || LOG##f(sqrtf(f1)) != 0.5F*LOG##f(f1) \
   || LOG##l(sqrtl(ld1)) != 0.5L*LOG##l(ld1)) link_failure_##LOG##_sqrt()
-    
+
   LOG_SQRT(log);
   LOG_SQRT(log2);
   LOG_SQRT(log10);
-  
+
   /* Test sqrt(expN(x)) -> expN(x*0.5).  */
 #define SQRT_EXP(EXP) \
  extern void link_failure_sqrt_##EXP(void); \
  if (sqrt(EXP(d1)) != EXP(d1*0.5) || sqrtf(EXP##f(f1)) != EXP##f(f1*0.5F) \
   || sqrtl(EXP##l(ld1)) != EXP##l(ld1*0.5L)) link_failure_sqrt_##EXP()
-    
+
   SQRT_EXP(exp);
   SQRT_EXP(exp2);
   SQRT_EXP(exp10);
   SQRT_EXP(pow10);
-  
+
   /* Test logN(cbrt(x)) -> (1/3)*logN(x).  */
 #define LOG_CBRT(LOG) \
  extern void link_failure_##LOG##_cbrt(void); \
  if (LOG(cbrt(d1)) != (1.0/3)*LOG(d1) \
   || LOG##f(cbrtf(f1)) != (1.0F/3)*LOG##f(f1) \
   || LOG##l(cbrtl(ld1)) != (1.0L/3)*LOG##l(ld1)) link_failure_##LOG##_cbrt()
-    
+
   LOG_CBRT(log);
   LOG_CBRT(log2);
   LOG_CBRT(log10);
-  
+
   /* Test cbrt(expN(x)) -> expN(x/3).  */
 #define CBRT_EXP(EXP) \
  extern void link_failure_cbrt_##EXP(void); \
  if (cbrt(EXP(d1)) != EXP(d1/3.0) || cbrtf(EXP##f(f1)) != EXP##f(f1/3.0F) \
   || cbrtl(EXP##l(ld1)) != EXP##l(ld1/3.0L)) link_failure_cbrt_##EXP()
-    
+
   CBRT_EXP(exp);
   CBRT_EXP(exp2);
   CBRT_EXP(exp10);
   CBRT_EXP(pow10);
-  
+
   /* Test logN(pow(x,y)) -> y*logN(x).  */
 #define LOG_POW(LOG, POW) \
  extern void link_failure_##LOG##_##POW(void); \
  if (LOG(POW(d1,d2)) != d2*LOG(d1) || LOG##f(POW##f(f1,f2)) != f2*LOG##f(f1) \
   || LOG##l(POW##l(ld1,ld2)) != ld2*LOG##l(ld1)) link_failure_##LOG##_##POW()
-  
+
   LOG_POW(log,pow);
   LOG_POW(log2,pow);
   LOG_POW(log10,pow);
@@ -144,7 +144,7 @@ void test(double d1, double d2, float f1, float f2,
  extern void link_failure_##POW##_##EXP(void); \
  if (POW(EXP(d1),d2) != EXP(d1*d2) || POW##f(EXP##f(f1),f2) != EXP##f(f1*f2) \
   || POW##l(EXP##l(ld1),ld2) != EXP##l(ld1*ld2)) link_failure_##POW##_##EXP()
-  
+
   POW_EXP(pow, exp);
   POW_EXP(pow, exp2);
   POW_EXP(pow, exp10);
@@ -160,7 +160,7 @@ void test(double d1, double d2, float f1, float f2,
   EXP_0(exp2);
   EXP_0(exp10);
   EXP_0(pow10);
-  
+
   /* Test expN(1) -> N.  */
 #define EXP_N(EXP, BASE) \
  extern void link_failure_##EXP##_N(void); \

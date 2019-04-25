@@ -400,7 +400,7 @@ build_value_init_noctor (tree type, tsubst_flags_t complain)
     {
       gcc_assert (!TYPE_HAS_COMPLEX_DFLT (type)
 		  || errorcount != 0);
-	
+
       if (TREE_CODE (type) != UNION_TYPE)
 	{
 	  tree field;
@@ -557,7 +557,7 @@ get_nsdmi (tree member, bool in_ctor, tsubst_flags_t complain)
   tree init;
   tree save_ccp = current_class_ptr;
   tree save_ccr = current_class_ref;
-  
+
   if (DECL_LANG_SPECIFIC (member) && DECL_TEMPLATE_INFO (member))
     {
       init = DECL_INITIAL (DECL_TI_TEMPLATE (member));
@@ -3880,7 +3880,7 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
       /* This size won't actually be used.  */
       size_exp = size_one_node;
       goto no_destructor;
-    } 
+    }
 
   size_exp = size_in_bytes (type);
 

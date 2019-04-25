@@ -3,10 +3,10 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 128 
+#define N 128
 
 int
-main1 (unsigned short a0, unsigned short a1, unsigned short a2, 
+main1 (unsigned short a0, unsigned short a1, unsigned short a2,
        unsigned short a3, unsigned short a4, unsigned short a5,
        unsigned short a6, unsigned short a7, unsigned short a8)
 {
@@ -41,20 +41,20 @@ main1 (unsigned short a0, unsigned short a1, unsigned short a2,
   /* check results:  */
   for (i = 0; i < N; i++)
     {
-      if (out[i*4] != b0 
+      if (out[i*4] != b0
          || out[i*4 + 1] != b1
          || out[i*4 + 2] != b2
          || out[i*4 + 3] != b3)
 	abort ();
 
-    
+
       if (out2[i*4] != b0
          || out2[i*4 + 1] != b1
          || out2[i*4 + 2] != b4
          || out2[i*4 + 3] != b5)
         abort ();
-   
-      if (out3[i*4] != b2  
+
+      if (out3[i*4] != b2
          || out3[i*4 + 1] != b1
          || out3[i*4 + 2] != b4
          || out3[i*4 + 3] != b5)
@@ -88,13 +88,13 @@ main1 (unsigned short a0, unsigned short a1, unsigned short a2,
       out2[i*8 + 7] = b8;
 
       out3[2*i + 1] = a0;
-      out3[2*i] = b8; 
+      out3[2*i] = b8;
     }
 
   /* check results:  */
   for (i = 0; i < N; i++)
     {
-      if (out[i*4] != b0 
+      if (out[i*4] != b0
          || out[i*4 + 1] != b1
          || out[i*4 + 2] != b2
          || out[i*4 + 3] != b3)
@@ -130,4 +130,3 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect"  } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 6 "vect" } } */
-  

@@ -57,4 +57,3 @@ mtrx_decompose_matrix (MATRIX_TYPE * p_input_matrix)
     }
   }
 }
-

@@ -19,6 +19,3 @@ frob ()
 /* { dg-final { scan-assembler-times {sub\tsp, sp, #65536\n\tstr\txzr, \[sp, 1024\]} 2 } } */
 /* There is some residual allocation, but we don't care about that. Only that it's not probed.  */
 /* { dg-final { scan-assembler-times {str\txzr, } 2 } } */
-
-
-

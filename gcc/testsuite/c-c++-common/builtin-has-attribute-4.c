@@ -3,7 +3,7 @@
    { dg-skip-if "No section attribute" { { hppa*-*-hpux* } && { ! lp64 } } }
    { dg-options "-Wall -ftrack-macro-expansion=0" }
    { dg-options "-Wall -Wno-narrowing -Wno-unused -ftrack-macro-expansion=0" { target c++ } }
-   { dg-additional-options "-DSKIP_ALIAS" { target *-*-darwin* } } 
+   { dg-additional-options "-DSKIP_ALIAS" { target *-*-darwin* } }
 */
 
 #define ATTR(...) __attribute__ ((__VA_ARGS__))

@@ -59,4 +59,3 @@ along with GCC; see the file COPYING3.  If not see
 
 #define INTPTR_TYPE "long int"
 #define UINTPTR_TYPE "long unsigned int"
-

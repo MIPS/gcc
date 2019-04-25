@@ -16,8 +16,8 @@ typedef struct unaligned_int128_t_
 struct pair_t p = {0, 1};
 unaligned_int128_t *addr = (unaligned_int128_t *) &p.i;
 
-int 
-main() 
+int
+main()
 {
   addr->value = ~(__int128_t)0;
   return (p.i != 1) ? 0 : 1;

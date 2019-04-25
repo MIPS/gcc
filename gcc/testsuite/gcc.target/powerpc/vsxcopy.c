@@ -12,4 +12,3 @@ void fun (void)
 {
   j = k;
 }
-

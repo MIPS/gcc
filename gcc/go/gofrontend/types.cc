@@ -1175,7 +1175,7 @@ Type::get_backend_placeholder(Gogo* gogo)
 	  bt = gogo->backend()->array_type(element, len);
 	}
       break;
-	
+
     case TYPE_INTERFACE:
       {
 	go_assert(!this->interface_type()->is_empty());
@@ -1254,7 +1254,7 @@ Type::finish_backend(Gogo* gogo, Btype *placeholder)
       // is converted.
       this->array_type()->finish_backend_element(gogo);
       break;
-	
+
     case TYPE_MAP:
     case TYPE_CHANNEL:
       go_unreachable();

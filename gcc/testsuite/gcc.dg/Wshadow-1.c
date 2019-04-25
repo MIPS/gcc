@@ -7,7 +7,7 @@
 
 int decl1;			/* { dg-message "shadowed declaration" } */
 void foo (double decl1)		/* { dg-warning "shadows a global decl" } */
-{				
+{
 }
 
 void foo1 (int d)		/* { dg-message "note: previous definition" } */

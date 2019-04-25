@@ -11,4 +11,3 @@ vector int i(vector int f)
   vector int f_int = (vector int) f;
   return (f_int ^ g);
 }
-

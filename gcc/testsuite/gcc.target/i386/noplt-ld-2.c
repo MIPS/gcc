@@ -11,7 +11,7 @@ int
 main ()
 {
   int *p;
- 
+
   p = get_ld ();
   set_ld (4);
   if (*p != 4 || !test_ld (4))

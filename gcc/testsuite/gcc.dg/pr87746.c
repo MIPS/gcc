@@ -15,7 +15,7 @@ void move_replacements (rtx *x, rtx *y, int n_replacements)
   for (i = 0; i < n_replacements; i++)
     if (replacements[i].subreg_loc == x)
       replacements[i].subreg_loc = y;
-    else if (replacements[i].where == x) 
+    else if (replacements[i].where == x)
       {
 	replacements[i].where = y;
 	replacements[i].subreg_loc = 0;

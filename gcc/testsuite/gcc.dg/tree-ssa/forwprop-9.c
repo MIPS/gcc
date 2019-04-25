@@ -10,7 +10,7 @@ static inline int *g(void)
 }
 void f(void)
 {
-   b = *g(); 
+   b = *g();
 }
 
 /* We should have converted the assignments to two = 1.  FRE does this.  */

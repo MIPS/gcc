@@ -18,5 +18,3 @@ sat_add(volatile unsigned long *ptr, unsigned long i, volatile unsigned long *en
   else
     return end;
 }
-
-

@@ -1958,4 +1958,3 @@ static int inferApplyArgTypesY(TypeFunction *tf, Parameters *parameters, int fla
 Lnomatch:
     return 0;
 }
-

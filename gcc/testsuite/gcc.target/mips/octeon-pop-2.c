@@ -8,4 +8,3 @@ NOMIPS16 long long f(long long i)
 {
   return __builtin_popcount (i);
 }
-

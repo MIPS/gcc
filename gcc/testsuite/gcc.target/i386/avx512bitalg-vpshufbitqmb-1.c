@@ -46,7 +46,7 @@ TEST (void)
 
   res1 = INTRINSIC (_bitshuffle_epi64_mask)      (src1.x, src2.x);
   res2 = INTRINSIC (_mask_bitshuffle_epi64_mask) (mask, src1.x, src2.x);
- 
+
   if (res1 != res_ref)
     abort();
 

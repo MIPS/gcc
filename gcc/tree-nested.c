@@ -578,7 +578,7 @@ lookup_element_for_decl (struct nesting_info *info, tree decl,
     *slot = build_tree_list (NULL_TREE, NULL_TREE);
 
   return (tree) *slot;
-} 
+}
 
 /* Given DECL, a nested function, create a field in the non-local
    frame structure for this function.  */

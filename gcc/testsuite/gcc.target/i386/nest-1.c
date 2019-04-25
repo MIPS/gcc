@@ -11,4 +11,3 @@ void foo (int i)
 
   nested ();
 }
-

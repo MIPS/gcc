@@ -1948,7 +1948,7 @@ gfc_resolve_maxval (gfc_expr *f, gfc_expr *array, gfc_expr *dim,
   else
     f->value.function.name
       = gfc_get_string (PREFIX ("%s%d_%c%d"), name, f->rank != 0,
-			gfc_type_letter (array->ts.type), array->ts.kind);     
+			gfc_type_letter (array->ts.type), array->ts.kind);
 }
 
 
@@ -2162,7 +2162,7 @@ gfc_resolve_minval (gfc_expr *f, gfc_expr *array, gfc_expr *dim,
   else
     f->value.function.name
       = gfc_get_string (PREFIX ("%s%d_%c%d"), name, f->rank != 0,
-			gfc_type_letter (array->ts.type), array->ts.kind);     
+			gfc_type_letter (array->ts.type), array->ts.kind);
 }
 
 
@@ -3527,7 +3527,7 @@ gfc_resolve_mvbits (gfc_code *c)
 }
 
 
-/* Set up the call to RANDOM_INIT.  */ 
+/* Set up the call to RANDOM_INIT.  */
 
 void
 gfc_resolve_random_init (gfc_code *c)

@@ -30,5 +30,5 @@ sse_test (void)
     {
       if (fabsf (r[i] - rc[i]) > 0.0001)
 	abort();
-    }   
+    }
 }

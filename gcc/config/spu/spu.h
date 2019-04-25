@@ -2,7 +2,7 @@
 
    This file is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 3 of the License, or (at your option) 
+   Software Foundation; either version 3 of the License, or (at your option)
    any later version.
 
    This file is distributed in the hope that it will be useful, but WITHOUT
@@ -172,11 +172,11 @@ extern GTY(()) int spu_tune;
 
 /* Register Classes */
 
-enum reg_class { 
-   NO_REGS, 
+enum reg_class {
+   NO_REGS,
    GENERAL_REGS,
    ALL_REGS,
-   LIM_REG_CLASSES 
+   LIM_REG_CLASSES
 };
 
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
@@ -475,7 +475,7 @@ do {									\
 
 #define CASE_VECTOR_MODE SImode
 
-#define MOVE_MAX 16 
+#define MOVE_MAX 16
 
 #define STORE_FLAG_VALUE -1
 
@@ -514,4 +514,3 @@ struct spu_builtin_description
 };
 
 extern struct spu_builtin_description spu_builtins[];
-

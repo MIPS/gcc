@@ -18,7 +18,7 @@ testfunc1 ()
 {
   struct foo f3 = { 0, 0 }; /* { dg-warning "traditional C rejects automatic" "automatic aggregate initialization" } */
   static struct foo f4 = { 0, 0 };
-  
+
   f3 = f4;
 
   __extension__ ({
@@ -31,7 +31,7 @@ testfunc1 ()
     f6.i = 0;
   }
 }
-  
+
 # 35 "sys-header.h" 3
 /* We are in system headers now, no -Wtraditional warnings should issue.  */
 
@@ -43,6 +43,6 @@ testfunc2 ()
 {
   struct foo f9 = { 0, 0 };
   static struct foo f10 = { 0, 0 };
-  
+
   f9 = f10;
 }

@@ -35,4 +35,3 @@ return_convert_sshort_to_float128_mem (short *p_ss)
 /* { dg-final { scan-assembler-not {\mextsb\M}       } } */
 /* { dg-final { scan-assembler-not {\ml[bh][az]\M}   } } */
 /* { dg-final { scan-assembler-not {\mmtvsrw[az]\M}  } } */
-

@@ -23,9 +23,9 @@ enum reload_type
 struct reload
 {
    int foo[FOO_SIZE];
-   int opnum; 
+   int opnum;
    enum reload_type when_needed;
-   unsigned int optional:1; 
+   unsigned int optional:1;
    unsigned int secondary_p:1;
 };
 

@@ -171,7 +171,7 @@ static int
 vn_phi_eq (const_vn_phi_t const vp1, const_vn_phi_t const vp2);
 
 struct vn_phi_hasher : nofree_ptr_hash <vn_phi_s>
-{ 
+{
   static inline hashval_t hash (const vn_phi_s *);
   static inline bool equal (const vn_phi_s *, const vn_phi_s *);
 };
@@ -264,7 +264,7 @@ typedef struct vn_tables_s
 /* vn_constant hashtable helpers.  */
 
 struct vn_constant_hasher : free_ptr_hash <vn_constant_s>
-{ 
+{
   static inline hashval_t hash (const vn_constant_s *);
   static inline bool equal (const vn_constant_s *, const vn_constant_s *);
 };
@@ -1524,7 +1524,7 @@ contains_storage_order_barrier_p (vec<vn_reference_op_s> ops)
    the vector passed in is returned.  *VALUEIZED_ANYTHING will specify
    whether any operands were valueized.  */
 
-static vec<vn_reference_op_s> 
+static vec<vn_reference_op_s>
 valueize_refs_1 (vec<vn_reference_op_s> orig, bool *valueized_anything,
 		 bool with_avail = false)
 {
@@ -1603,7 +1603,7 @@ valueize_refs_1 (vec<vn_reference_op_s> orig, bool *valueized_anything,
   return orig;
 }
 
-static vec<vn_reference_op_s> 
+static vec<vn_reference_op_s>
 valueize_refs (vec<vn_reference_op_s> orig)
 {
   bool tem;
@@ -1617,7 +1617,7 @@ static vec<vn_reference_op_s> shared_lookup_references;
    this function.  *VALUEIZED_ANYTHING will specify whether any
    operands were valueized.  */
 
-static vec<vn_reference_op_s> 
+static vec<vn_reference_op_s>
 valueize_shared_reference_ops_from_ref (tree ref, bool *valueized_anything)
 {
   if (!ref)
@@ -1633,7 +1633,7 @@ valueize_shared_reference_ops_from_ref (tree ref, bool *valueized_anything)
    call statement.  The vector is shared among all callers of
    this function.  */
 
-static vec<vn_reference_op_s> 
+static vec<vn_reference_op_s>
 valueize_shared_reference_ops_from_call (gcall *call)
 {
   if (!call)
@@ -2770,7 +2770,7 @@ vn_reference_lookup_call (gcall *call, vn_reference_t *vnresult,
 
 /* Insert OP into the current hash table with a value number of RESULT.  */
 
-static void 
+static void
 vn_reference_insert (tree op, tree result, tree vuse, tree vdef)
 {
   vn_reference_s **slot;

@@ -149,7 +149,7 @@ g(vector unsigned char a, ...)
 {
 }
 
-int main() 
+int main()
 {
   f();
   return 0;

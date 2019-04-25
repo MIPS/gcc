@@ -129,7 +129,7 @@ along with GCC; see the file COPYING3.  If not see
   while (0)
 
 /* Node: Type Layout */
-     
+
 #undef SIZE_TYPE
 #define SIZE_TYPE "unsigned int"
 

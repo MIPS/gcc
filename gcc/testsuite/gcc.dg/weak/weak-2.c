@@ -47,4 +47,3 @@ void * foo1e (void)
     ffoo1e ();
   return 0;
 }
-

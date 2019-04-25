@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 
-int a, *d; 
+int a, *d;
 long b;
 short c;
 

@@ -23,7 +23,7 @@ void f3 (vec_float4 *in)
 /* Test that these intrinsics accept non-literal arguments */
 void f4 (vec_uint4 *in, int n)
 {
-  vec_float4 out = spu_convtf (in[0], n); 
+  vec_float4 out = spu_convtf (in[0], n);
 }
 
 void f5 (vec_int4 *in, int n)

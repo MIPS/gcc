@@ -40,6 +40,6 @@ main ()
   foo (&stack1, &global1[0]);
 
   __builtin_free (heap1);
-  __builtin_free (heap2);  
+  __builtin_free (heap2);
   return 0;
 }

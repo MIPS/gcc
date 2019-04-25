@@ -1,7 +1,7 @@
 /* { dg-do run } */
 
 int a, b = 1, c, e, f, g, k, m, n, o;
-char d, h, i, j, l; 
+char d, h, i, j, l;
 char res[2];
 
 void __attribute__ ((noinline,noclone)) fn2 ()
@@ -15,7 +15,7 @@ void fn3 ()
     {
       for (; b; b--)
 	{
-	  fn2 ();  
+	  fn2 ();
 	  if (e)
 	    j = 1;
 	  if (f)
@@ -44,5 +44,5 @@ int main ()
   fn3 ();
   if (res[0] != '2')
     __builtin_abort ();
-  return 0; 
+  return 0;
 }

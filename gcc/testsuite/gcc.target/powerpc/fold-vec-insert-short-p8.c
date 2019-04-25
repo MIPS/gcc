@@ -54,4 +54,3 @@ testus2_cst(unsigned short x, vector unsigned short v)
 
 /* { dg-final { scan-assembler-times {\mlvehx\M} 4 } } */
 /* { dg-final { scan-assembler-times {\mvperm\M} 4 } } */
-

@@ -12,4 +12,3 @@ char x __attribute__((aligned(alignment),vector_size(2)));
 
 
 int f[__alignof__(x) == alignment?1:-1];
-

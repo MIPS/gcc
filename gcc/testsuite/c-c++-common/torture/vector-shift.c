@@ -34,9 +34,9 @@ int main(void)
   /* Test left shift followed by a right shift, numbers should be back as
      numbers are all small numbers and no lose of precision happens.   */
   TEST((numbers << allones) >> allones, numbers);
-  
-  
-  
+
+
+
   TEST ((unumbers << uallzeros), unumbers);
   TEST ((unumbers >> uallzeros), unumbers);
   TEST((unumbers << uallones), unumbersleftshiftallones);
@@ -45,5 +45,5 @@ int main(void)
      numbers are all small numbers and no lose of precision happens.   */
   TEST((unumbers << uallones) >> uallones, unumbers);
 
-  return 0;  
+  return 0;
 }

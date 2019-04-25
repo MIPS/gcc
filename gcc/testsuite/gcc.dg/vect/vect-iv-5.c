@@ -4,13 +4,13 @@
 #include "tree-vect.h"
 
 #define N 16
- 
+
 __attribute__ ((noinline)) int main1 ()
-{  
+{
   float arr[N];
   float f = 1.0;
   int i;
-  
+
   /* Vectorization of fp induction.  */
 
   for (i=0; i<N; i++)
@@ -30,10 +30,10 @@ __attribute__ ((noinline)) int main1 ()
 }
 
 int main (void)
-{ 
+{
   check_vect ();
-  
+
   return main1 ();
-} 
+}
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail {! arm_neon_ok } } } } */

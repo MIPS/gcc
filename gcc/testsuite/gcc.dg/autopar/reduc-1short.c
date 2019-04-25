@@ -52,7 +52,7 @@ main1 (unsigned short x, unsigned short max_result, unsigned short min_result)
 }
 
 int main (void)
-{ 
+{
   init_arrays();
   main1 (100, 100, 1);
   main1 (0, 15, 0);
@@ -61,4 +61,3 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "Detected reduction" 3 "parloops2" } } */
 /* { dg-final { scan-tree-dump-times "SUCCESS: may be parallelized" 4 "parloops2" } } */
-

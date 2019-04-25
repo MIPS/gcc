@@ -145,6 +145,3 @@ get_spaces (const char *str)
    spaces[len] = '\0';
    return spaces;
 }
-
-
-

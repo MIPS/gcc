@@ -84,21 +84,21 @@ static void test_object_class (Class class)
     }
 }
 
-/* 
- *  Runs all the tests in this file for the specified class 
+/*
+ *  Runs all the tests in this file for the specified class
  */
-void test_class_with_superclass (const char *class_name, 
+void test_class_with_superclass (const char *class_name,
 				 const char *superclass_name)
 {
-  Class class; 
-  Class superclass; 
+  Class class;
+  Class superclass;
 
   /* class_name must be an existing class */
   class = objc_getClass (class_name);
   test_is_class (class);
 
   /* But superclass_name can be "", which means `Nil' */
-  superclass = objc_getClass (superclass_name);  
+  superclass = objc_getClass (superclass_name);
   if (superclass != Nil)
     {
       test_is_class (superclass);

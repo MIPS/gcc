@@ -27,4 +27,3 @@ void stpi_unpack_16_1(int length, unsigned char *out, unsigned char bit)
      }
   }
 }
-

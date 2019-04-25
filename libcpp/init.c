@@ -739,7 +739,7 @@ read_original_directory (cpp_reader *pfile)
       debugdir[token->val.str.len - 4] = '\0';
 
       pfile->cb.dir_change (pfile, debugdir);
-    }      
+    }
 }
 
 /* This is called at the end of preprocessing.  It pops the last

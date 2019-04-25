@@ -8,4 +8,3 @@ void do_handshake(void)
   pduinfo = (__pmPDUInfo *)&challenge;
   *pduinfo = *pduinfo;
 }
-

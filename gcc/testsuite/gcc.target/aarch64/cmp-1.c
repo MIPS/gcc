@@ -12,4 +12,3 @@ int f(int a, int b)
 
 /* We should optimize away the second cmp. */
 /* { dg-final { scan-assembler-times "cmp\tw" 1 } } */
-

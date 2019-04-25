@@ -12,5 +12,3 @@ foo(void)
 }
 
 /* { dg-final { scan-tree-dump "memset .&z, 0, 8." "dse1" } } */
-
-

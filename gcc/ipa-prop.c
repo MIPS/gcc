@@ -741,7 +741,7 @@ param_type_may_change_p (tree function, tree arg, gimple *call)
    it is, return true and fill in the jump function JFUNC with relevant type
    information or set it to unknown.  ARG is the object itself (not a pointer
    to it, unless dereferenced).  BASE is the base of the memory access as
-   returned by get_ref_base_and_extent, as is the offset. 
+   returned by get_ref_base_and_extent, as is the offset.
 
    This is helper function for detect_type_change and detect_type_change_ssa
    that does the heavy work which is usually unnecesary.  */
@@ -2796,7 +2796,7 @@ update_jump_functions_after_inlining (struct cgraph_edge *cs,
     }
 }
 
-/* If TARGET is an addr_expr of a function declaration, make it the 
+/* If TARGET is an addr_expr of a function declaration, make it the
    (SPECULATIVE)destination of an indirect edge IE and return the edge.
    Otherwise, return NULL.  */
 
@@ -2860,7 +2860,7 @@ ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target,
     {
 
       /* We are better to ensure we can refer to it.
-	 In the case of static functions we are out of luck, since we already	
+	 In the case of static functions we are out of luck, since we already
 	 removed its body.  In the case of public functions we may or may
 	 not introduce the reference.  */
       if (!canonicalize_constructor_val (target, NULL)
@@ -4667,7 +4667,7 @@ read_ipcp_transformation_info (lto_input_block *ib, cgraph_node *node,
       aggvals = av;
     }
   ipa_set_node_agg_value_chain (node, aggvals);
-  
+
   count = streamer_read_uhwi (ib);
   if (count > 0)
     {
@@ -5021,7 +5021,7 @@ ipcp_update_bits (struct cgraph_node *node)
 	  if (align > 1)
 	    {
 	      if (dump_file)
-		fprintf (dump_file, "Adjusting align: %u, misalign: %u\n", align, misalign); 
+		fprintf (dump_file, "Adjusting align: %u, misalign: %u\n", align, misalign);
 
 	      unsigned old_align, old_misalign;
 	      struct ptr_info_def *pi = get_ptr_info (ddef);
@@ -5046,7 +5046,7 @@ ipcp_update_bits (struct cgraph_node *node)
 		fprintf (dump_file, "old_misalign (%u) and misalign (%u) mismatch\n",
 			 old_misalign, misalign);
 
-	      set_ptr_info_alignment (pi, align, misalign); 
+	      set_ptr_info_alignment (pi, align, misalign);
 	    }
 	}
     }

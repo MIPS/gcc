@@ -133,7 +133,7 @@ foo (int i)
       break;
     case 3:
       bar (3);			/* { dg-bogus "this statement may \[laf]* through" } */
-      // FALLS THRU.  
+      // FALLS THRU.
       // Some other comment.
     case 4:
       bar (4);
@@ -161,7 +161,7 @@ foo (int i)
       break;
     case 11:
       bar (11);			/* { dg-bogus "this statement may \[laf]* through" } */
-      // intentionally fall through 
+      // intentionally fall through
     case 12:
       bar (12);
       break;
@@ -191,7 +191,7 @@ foo (int i)
       break;
     case 21:
       bar (21);			/* { dg-bogus "this statement may \[laf]* through" } */
-      //lint -fallthrough 
+      //lint -fallthrough
     case 22:
       bar (22);
       break;

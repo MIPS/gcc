@@ -24,7 +24,7 @@
 /* Windows doesn't have the entire C99 runtime.  */
 #elif (defined(__APPLE__) && defined(__ppc__) \
        && ! defined (__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__))
-/* MacOS versions before 10.3 don't have many C99 functions.  
+/* MacOS versions before 10.3 don't have many C99 functions.
    But, if you're including this file, you probably want to test the
    newer behavior, so: */
 #error forgot to set -mmacosx-version-min.

@@ -23,5 +23,3 @@ void foo (void)
 /* And the empty loop is removed.  */
 
 /* { dg-final { scan-tree-dump-times "if " 0 "optimized" } } */
-
-

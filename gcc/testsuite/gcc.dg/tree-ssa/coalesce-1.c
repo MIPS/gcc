@@ -196,4 +196,3 @@ process_switch (gimple swtch)
    any partition copies inserted.  */
 
 /* { dg-final { scan-rtl-dump-not "partition copy" "expand"} } */
-

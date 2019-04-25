@@ -6,4 +6,3 @@ void foo()
     goto L;
     if (0..) { L: ; }  // { dg-error "too many decimal points" }
 }
-

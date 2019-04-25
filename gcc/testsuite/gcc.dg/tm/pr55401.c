@@ -18,4 +18,3 @@ void foo()
    more than one instrumented write to GEORGE in the clone of
    FOO.  */
 /* { dg-final { scan-tree-dump-times "ITM_WU\[0-9\] \\(&george," 2 "optimized" } } */
-

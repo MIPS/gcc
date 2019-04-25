@@ -19,7 +19,7 @@ int main1 (int ia[][N])
 	ic[0][i] = DOT4 (ia[i], ib);
     }
 
-  /* check results: */  
+  /* check results: */
   for (i = 0; i < M; i++)
     {
        if (ic[0][i] != DOT4 (ia[i], ib))
@@ -30,7 +30,7 @@ int main1 (int ia[][N])
 }
 
 int main (void)
-{ 
+{
   int ia[M][N] = {{1,2,3,4},{2,3,5,7},{2,4,6,8},{22,43,55,77},
 		  {13,17,19,23},{29,31,37,41},{3,7,2,1},{4,9,8,3}};
 

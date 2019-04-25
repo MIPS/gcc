@@ -8,5 +8,3 @@ foo (int *x, int *y)
   for (i = 0; i < 11; i++)
     y[i] = (x[i] == 1) ? i + 1 : -(i + 1);
 }
-
-

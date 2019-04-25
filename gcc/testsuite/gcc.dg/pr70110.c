@@ -9,18 +9,18 @@ long long b;
 static inline void
 foo (void)
 {
-  if (a) 
+  if (a)
     foo ();
   b = c;
 }
 
-static inline void 
+static inline void
 bar (int p)
 {
   if (p)
-    f = 0; 
-  b |= c; 
-} 
+    f = 0;
+  b |= c;
+}
 
 void
 baz (int g, int i)
@@ -30,10 +30,10 @@ baz (int g, int i)
       if (a)
 	foo ();
       b |= c;
-      bar (h); 
-      bar (g); 
-      bar (h); 
-      bar (i); 
+      bar (h);
+      bar (g);
+      bar (h);
+      bar (i);
       bar (h);
     }
 }

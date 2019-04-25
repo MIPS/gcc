@@ -35,11 +35,11 @@ handle_pragma_sayhello (cpp_reader *dummy)
     {
       location_t loc = expansion_point_location (input_location);
       if (cfun)
-	warning_at (loc, OPT_Wpragmas, 
+	warning_at (loc, OPT_Wpragmas,
 		    "%<pragma GCCPLUGIN sayhello%> from function %qE: %s",
 		    cfun->decl, TREE_STRING_POINTER (message));
       else
-	warning_at (loc, OPT_Wpragmas, 
+	warning_at (loc, OPT_Wpragmas,
 		    "%<pragma GCCPLUGIN sayhello%> outside of function: %s",
 		    TREE_STRING_POINTER (message));
     }
@@ -47,8 +47,8 @@ handle_pragma_sayhello (cpp_reader *dummy)
 
 /* Plugin callback called during pragma registration */
 
-static void 
-register_my_pragma (void *event_data, void *data) 
+static void
+register_my_pragma (void *event_data, void *data)
 {
   warning (0, G_("Callback to register pragmas"));
   c_register_pragma ("GCCPLUGIN", "sayhello", handle_pragma_sayhello);

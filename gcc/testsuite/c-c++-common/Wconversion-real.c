@@ -34,15 +34,15 @@ void h (void)
   vdouble = vlongdouble; /* { dg-warning "conversion" "" { target large_long_double } } */
 
 
-  ffloat ((float) 3.1); 
+  ffloat ((float) 3.1);
   vfloat = (float) 3.1;
   ffloat ((float) 3.1L);
-  vfloat = (float) 3.1L; 
-  fdouble ((double) 3.1L); 
-  vdouble = (double) 3.1L; 
-  ffloat ((float) vdouble); 
-  vfloat = (float) vdouble; 
-  ffloat ((float) vlongdouble); 
+  vfloat = (float) 3.1L;
+  fdouble ((double) 3.1L);
+  vdouble = (double) 3.1L;
+  ffloat ((float) vdouble);
+  vfloat = (float) vdouble;
+  ffloat ((float) vlongdouble);
   vfloat = (float) vlongdouble;
   fdouble ((double) vlongdouble);
   vdouble = (double) vlongdouble;

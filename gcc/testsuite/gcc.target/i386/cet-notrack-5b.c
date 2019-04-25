@@ -15,7 +15,7 @@ foo (int arg)
   int a;
   a = (*fptr) (arg); /* non-checked call.  */
   arg += a;
-  fptr1 = fptr; /* { dg-warning "incompatible pointer type" } */ 
+  fptr1 = fptr; /* { dg-warning "incompatible pointer type" } */
   a = (*fptr1) (arg); /* checked call.  */
   return arg+a;
 }

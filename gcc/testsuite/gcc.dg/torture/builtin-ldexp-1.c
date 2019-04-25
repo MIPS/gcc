@@ -110,7 +110,7 @@ foo(float xf, double x, long double xl, int i, long l)
   TESTIT (scalbn, -0.0, i, -0.0);
   TESTIT (scalbln, 0.0, l, 0.0);
   TESTIT (scalbln, -0.0, l, -0.0);
-  
+
   /* f(x,0) -> x.  */
   TESTIT2 (ldexp, x, 0, x);
   TESTIT2 (scalbn, x, 0, x);
@@ -213,6 +213,6 @@ foo(float xf, double x, long double xl, int i, long l)
 int main()
 {
   foo (0, 0, 0, 0, 0);
-  
+
   return 0;
 }

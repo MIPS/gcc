@@ -170,10 +170,10 @@ lto_get_section_name (int section_type, const char *name, struct lto_file_decl_d
      and merging should be ok here. */
   if (section_type == LTO_section_opts)
     strcpy (post, "");
-  else if (f != NULL) 
+  else if (f != NULL)
     sprintf (post, "." HOST_WIDE_INT_PRINT_HEX_PURE, f->id);
   else
-    sprintf (post, "." HOST_WIDE_INT_PRINT_HEX_PURE, get_random_seed (false)); 
+    sprintf (post, "." HOST_WIDE_INT_PRINT_HEX_PURE, get_random_seed (false));
   return concat (section_name_prefix, sep, add, post, NULL);
 }
 

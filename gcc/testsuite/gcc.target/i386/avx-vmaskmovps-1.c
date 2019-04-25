@@ -23,9 +23,9 @@ avx_test (void)
   mask.x = _mm_loadu_si128 ((__m128i *)m);
   u.x = _mm_maskload_ps (s, mask.x);
 
-  for (i = 0 ; i < 4; i++) 
+  for (i = 0 ; i < 4; i++)
     e[i] = m[i] ? s[i] : 0;
-   
+
   if (check_union128 (u, e))
     abort ();
 }

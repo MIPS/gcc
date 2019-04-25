@@ -10,9 +10,9 @@ struct test {
 };
 
 extern struct test s;
- 
+
 int main1 ()
-{  
+{
   int i;
 
   for (i = 0; i < N; i++)
@@ -31,9 +31,9 @@ int main1 ()
 }
 
 int main (void)
-{ 
+{
   return main1 ();
-} 
+}
 
 /* Peeling to align the store is used. Overhead of peeling is too high.  */
 /* { dg-final { scan-tree-dump-times "vectorization not profitable" 1 "vect" { target vector_alignment_reachable } } } */

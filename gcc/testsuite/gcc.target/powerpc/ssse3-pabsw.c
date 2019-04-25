@@ -71,7 +71,7 @@ TEST (void)
       ssse3_test_pabsw128 (&vals[i].m[0], &r.m[0]);
       fail += chk_128 (ck.m[0], r.m[0]);
     }
-  
+
   if (fail != 0)
     abort ();
 }

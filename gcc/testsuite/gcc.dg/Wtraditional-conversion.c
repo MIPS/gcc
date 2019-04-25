@@ -17,4 +17,3 @@ int main(void)
   f(y);				/* { dg-bogus "different width" } */
   return 0;
 }
-

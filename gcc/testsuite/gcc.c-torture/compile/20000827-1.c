@@ -2,7 +2,7 @@
 /* Contributed by Alexandre Oliva <aoliva@redhat.com> */
 
 int
-foo () 
+foo ()
 {
   while (1)
     {

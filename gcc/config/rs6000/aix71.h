@@ -115,9 +115,9 @@ do {									\
   %{mpe: -I%R/usr/lpp/ppe.poe/include}		\
   %{pthread: -D_THREAD_SAFE}"
 
-/* The GNU C++ standard library requires that these macros be 
+/* The GNU C++ standard library requires that these macros be
    defined.  Synchronize with libstdc++ os_defines.h.  */
-#undef CPLUSPLUS_CPP_SPEC                       
+#undef CPLUSPLUS_CPP_SPEC
 #define CPLUSPLUS_CPP_SPEC			\
   "-D_ALL_SOURCE -D__COMPATMATH__		\
    %{maix64: -D__64BIT__}			\
@@ -193,7 +193,7 @@ do {									\
 #define LD_INIT_SWITCH "-binitfini"
 
 #ifndef _AIX52
-extern long long int    atoll(const char *);  
+extern long long int    atoll(const char *);
 #endif
 
 /* This target uses the aix64.opt file.  */
@@ -228,4 +228,3 @@ extern long long int    atoll(const char *);
 #define DEBUG_FRAME_SECTION	"0xA0000"
 #define DEBUG_MACINFO_SECTION	"0xB0000"
 #define DEBUG_MACRO_SECTION	"0xB0000"
-

@@ -658,6 +658,6 @@ main (void)
   __builtin_spe_mtspefscr (j);
 
   test_api ();
-  
+
   return 0;
 }

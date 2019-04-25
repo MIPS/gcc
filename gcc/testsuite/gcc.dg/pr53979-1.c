@@ -3,7 +3,7 @@
 
 unsigned f1(unsigned a, unsigned b)
 {
-  return (a ^ b) | a; 
+  return (a ^ b) | a;
 }
 
 /* { dg-final { scan-tree-dump "a | b" "gimple" } } */

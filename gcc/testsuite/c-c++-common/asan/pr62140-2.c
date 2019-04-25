@@ -8,4 +8,3 @@ int f (char *p)
     int x = strlen (p);
     return x;
 }
-

@@ -11,7 +11,7 @@ foo (struct X *p, int *q, int a, int b)
   else
     q = &y.i;
   *q = 1;
-  return p->i; 
+  return p->i;
 }
 extern void abort (void);
 int main()

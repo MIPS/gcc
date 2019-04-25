@@ -28,4 +28,3 @@
 #define ARM_DEFAULT_ABI ARM_ABI_AAPCS
 
 #define ARM_TARGET2_DWARF_FORMAT (DW_EH_PE_pcrel | DW_EH_PE_indirect)
-

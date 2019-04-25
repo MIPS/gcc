@@ -2,7 +2,7 @@
 
 union tree_node;
 
-struct tree_common 
+struct tree_common
 {
   int a;
   long b;
@@ -53,4 +53,3 @@ main()
     abort ();
   return 0;
 }
-

@@ -55,10 +55,10 @@ int main1 (int *pib)
   for (i = OFF; i < N; i++)
     {
      if (ia[i] != ic[i - OFF])
-        abort ();  
+        abort ();
     }
 
-  return 0;  
+  return 0;
 }
 
 int main (void)

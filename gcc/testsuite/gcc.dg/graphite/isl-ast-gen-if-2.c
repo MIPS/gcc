@@ -18,7 +18,7 @@ extern void abort ();
 
 int
 main (void)
-{ 
+{
   int res = foo ();
 
   if (res != 925)

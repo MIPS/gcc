@@ -40,7 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Id for dumping the class hierarchy.  */
 int class_dump_id;
- 
+
 /* The number of nested classes being processed.  If we are not in the
    scope of any class, this is zero.  */
 
@@ -314,7 +314,7 @@ build_base_path (enum tree_code code,
 		error ("cannot convert from base class %qT to derived "
 		       "class %qT because the base is virtual",
 		       BINFO_TYPE (binfo), BINFO_TYPE (d_binfo));
-	    }	      
+	    }
 	  else
 	    {
 	      if (want_pointer)
@@ -1599,7 +1599,7 @@ accessible_nvdtor_p (tree t)
 
   if (DECL_VINDEX (dtor))
     return false; /* Virtual */
-  
+
   if (!TREE_PRIVATE (dtor) && !TREE_PROTECTED (dtor))
     return true;  /* Public */
 
@@ -2514,7 +2514,7 @@ update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals,
 		{
 		  /* We convert via virtual base.  Adjust the fixed
 		     offset to be from there.  */
-		  offset = 
+		  offset =
 		    size_diffop (offset,
 				 fold_convert (ssizetype,
 					  BINFO_OFFSET (virtual_offset)));
@@ -3504,7 +3504,7 @@ check_field_decls (tree t, tree *access_decls,
 	 data members and base classes are also not allowed.
 	 Note: if the type is incomplete we will complain later on.  */
       if (COMPLETE_TYPE_P (type)
-	  && (!literal_type_p (type) || CP_TYPE_VOLATILE_P (type))) 
+	  && (!literal_type_p (type) || CP_TYPE_VOLATILE_P (type)))
         CLASSTYPE_LITERAL_P (t) = false;
 
       /* A standard-layout class is a class that:
@@ -5230,7 +5230,7 @@ classtype_has_move_assign_or_move_ctor_p (tree t, bool user_p)
 	  && DECL_CONTEXT (*iter) == t
 	  && move_fn_p (*iter))
 	return true;
-  
+
   return false;
 }
 
@@ -5631,7 +5631,7 @@ check_bases_and_members (tree t)
   /* [dcl.init.aggr]
 
      An aggregate is an array or a class with no user-provided
-     constructors ... and no virtual functions.  
+     constructors ... and no virtual functions.
 
      Again, other conditions for being an aggregate are checked
      elsewhere.  */
@@ -5667,7 +5667,7 @@ check_bases_and_members (tree t)
       vec<tree, va_gc> *accesses = BINFO_BASE_ACCESSES (binfo);
       tree base_binfo;
       unsigned i;
-      
+
       for (i = 0; BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
 	{
 	  tree basetype = TREE_TYPE (base_binfo);
@@ -5680,7 +5680,7 @@ check_bases_and_members (tree t)
 		     basetype);
 	}
     }
-  
+
   /* If the class has no user-declared constructor, but does have
      non-static const or reference data members that can never be
      initialized, issue a warning.  */
@@ -5822,7 +5822,7 @@ create_vtable_ptr (tree t, tree* virtuals_p)
 	 stores cannot alias stores to void*!  */
       tree field;
 
-      field = build_decl (input_location, 
+      field = build_decl (input_location,
 			  FIELD_DECL, get_vfield_name (t), vtbl_ptr_type_node);
       DECL_VIRTUAL_P (field) = 1;
       DECL_ARTIFICIAL (field) = 1;
@@ -7227,7 +7227,7 @@ finish_struct (tree t, tree attributes)
   /* COMPLETE_TYPE_P is now true.  */
 
   maybe_warn_about_overly_private_class (t);
-  
+
   if (is_std_init_list (t))
     {
       /* People keep complaining that the compiler crashes on an invalid
@@ -7783,7 +7783,7 @@ pop_lang_context (void)
    control of FLAGS.  Permit pointers to member function if FLAGS
    permits.  If TEMPLATE_ONLY, the name of the overloaded function was
    a template-id, and EXPLICIT_TARGS are the explicitly provided
-   template arguments.  
+   template arguments.
 
    If OVERLOAD is for one or more member functions, then ACCESS_PATH
    is the base path used to reference those member functions.  If
@@ -9635,7 +9635,7 @@ build_vcall_offset_vtbl_entries (tree binfo, vtbl_init_data* vid)
      compute the indices -- but do not add to the vtable -- when
      building the main vtable for a class.  */
   if (binfo == TYPE_BINFO (vid->derived)
-      || (BINFO_VIRTUAL_P (binfo) 
+      || (BINFO_VIRTUAL_P (binfo)
 	  /* If BINFO is RTTI_BINFO, then (since BINFO does not
 	     correspond to VID->DERIVED), we are building a primary
 	     construction virtual table.  Since this is a primary

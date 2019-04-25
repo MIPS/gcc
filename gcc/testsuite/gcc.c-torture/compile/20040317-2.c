@@ -16,7 +16,7 @@ static int
 FindPixel (ScaleWidget sw, short x, short y,
        short * img_x, short * img_y, unsigned long * img_pixel)
 {
-  if (sw->scale.table.x[(int) *img_x] + 
+  if (sw->scale.table.x[(int) *img_x] +
       (short) sw->scale.table.width[(int) *img_x] < x)
     {
       ++*img_x;

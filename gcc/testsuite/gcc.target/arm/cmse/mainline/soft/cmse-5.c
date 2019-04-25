@@ -13,4 +13,3 @@
 /* { dg-final { scan-assembler "msr\tAPSR_nzcvq, lr" { target { ! arm_dsp } } } } */
 /* { dg-final { scan-assembler "msr\tAPSR_nzcvqg, lr" { target arm_dsp } } } */
 /* { dg-final { scan-assembler "bxns" } } */
-

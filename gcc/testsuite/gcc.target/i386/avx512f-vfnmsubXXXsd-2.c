@@ -13,7 +13,7 @@ static void
 calc_add (double *s1, double *s2, double *s3, double* r)
 {
   r[0] = -s1[0] * s2[0] - s3[0];
-  
+
   int i;
   for (i = 1; i < SIZE; i++)
     r[i] = s1[i];
@@ -23,7 +23,7 @@ static void
 calc_add_3 (double *s1, double *s2, double *s3, double* r)
 {
   r[0] = -s2[0] * s3[0] - s1[0];
-  
+
   int i;
   for (i = 1; i < SIZE; i++)
     r[i] = s1[i];
@@ -86,9 +86,8 @@ avx512f_test (void)
   MASK_MERGE (d) (res_ref1, mask, 1);
   if (check_union128d (res1, res_ref1))
     abort ();
-  
+
   MASK_MERGE (d) (res_ref1, mask, 1);
   if (check_union128d (res5, res_ref1))
     abort ();
 }
-

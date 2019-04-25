@@ -266,7 +266,7 @@ open_file (_cpp_file *file)
 	/* The call to stat may have reset errno.  */
 	errno = EACCES;
     }
-#endif    
+#endif
   else if (errno == ENOTDIR)
     errno = ENOENT;
 
@@ -363,7 +363,7 @@ maybe_shorter_path (const char * file)
     {
       return file2;
     }
-  else 
+  else
     {
       free (file2);
       return NULL;
@@ -449,7 +449,7 @@ find_file_in_dir (cpp_reader *pfile, _cpp_file *file, bool *invalid_pch,
     }
   else
     {
-      file->err_no = ENOENT; 
+      file->err_no = ENOENT;
       file->path = NULL;
     }
 
@@ -2127,4 +2127,3 @@ _cpp_has_header (cpp_reader *pfile, const char *fname, int angle_brackets,
 				    /*implicit_preinclude=*/false, 0);
   return file->err_no != ENOENT;
 }
-

@@ -285,7 +285,7 @@ move_plus_up (rtx x)
 {
   rtx subreg_reg;
   machine_mode x_mode, subreg_reg_mode;
-  
+
   if (GET_CODE (x) != SUBREG || !subreg_lowpart_p (x))
     return x;
   subreg_reg = SUBREG_REG (x);
@@ -398,7 +398,7 @@ lra_eliminate_regs_1 (rtx_insn *insn, rtx x, machine_mode mem_mode,
 
 	      if (! update_p && ! full_p)
 		return gen_rtx_PLUS (Pmode, to, XEXP (x, 1));
-	      
+
 	      if (maybe_ne (update_sp_offset, 0))
 		offset = ep->to_rtx == stack_pointer_rtx ? update_sp_offset : 0;
 	      else
@@ -500,7 +500,7 @@ lra_eliminate_regs_1 (rtx_insn *insn, rtx x, machine_mode mem_mode,
     case LE:	   case LT:	  case LEU:    case LTU:
       {
 	rtx new0 = lra_eliminate_regs_1 (insn, XEXP (x, 0), mem_mode,
-					 subst_p, update_p, 
+					 subst_p, update_p,
 					 update_sp_offset, full_p);
 	rtx new1 = XEXP (x, 1)
 		   ? lra_eliminate_regs_1 (insn, XEXP (x, 1), mem_mode,
@@ -750,7 +750,7 @@ mark_not_eliminable (rtx x, machine_mode mem_mode)
 		  && poly_int_rtx_p (XEXP (XEXP (x, 1), 1), &offset))))
 	{
 	  poly_int64 size = GET_MODE_SIZE (mem_mode);
-	  
+
 #ifdef PUSH_ROUNDING
 	  /* If more bytes than MEM_MODE are pushed, account for
 	     them.  */
@@ -833,7 +833,7 @@ mark_not_eliminable (rtx x, machine_mode mem_mode)
 	{
 	  /* See if this is setting the replacement hard register for
 	     an elimination.
-	     
+
 	     If DEST is the hard frame pointer, we do nothing because
 	     we assume that all assignments to the frame pointer are
 	     for non-local gotos and are being done at a time when
@@ -849,7 +849,7 @@ mark_not_eliminable (rtx x, machine_mode mem_mode)
 		&& SET_DEST (x) != hard_frame_pointer_rtx)
 	      setup_can_eliminate (ep, false);
 	}
-      
+
       mark_not_eliminable (SET_SRC (x), mem_mode);
       return;
 
@@ -947,7 +947,7 @@ eliminate_regs_in_insn (rtx_insn *insn, bool replace_p, bool first_p,
 	if (ep->from_rtx == SET_DEST (old_set) && ep->can_eliminate)
 	  {
 	    bool delete_p = replace_p;
-	    
+
 #ifdef HARD_FRAME_POINTER_REGNUM
 	    if (ep->from == FRAME_POINTER_REGNUM
 		&& ep->to == HARD_FRAME_POINTER_REGNUM)
@@ -964,7 +964,7 @@ eliminate_regs_in_insn (rtx_insn *insn, bool replace_p, bool first_p,
 		/* We should never process such insn with non-zero
 		   UPDATE_SP_OFFSET.  */
 		lra_assert (known_eq (update_sp_offset, 0));
-		
+
 		if (remove_reg_equal_offset_note (insn, ep->to_rtx, &offset)
 		    || strip_offset (src, &offset) == ep->to_rtx)
 		  {
@@ -976,7 +976,7 @@ eliminate_regs_in_insn (rtx_insn *insn, bool replace_p, bool first_p,
 		      }
 		    offset -= (ep->offset - ep->previous_offset);
 		    src = plus_constant (Pmode, ep->to_rtx, offset);
-		    
+
 		    /* First see if this insn remains valid when we
 		       make the change.  If not, keep the INSN_CODE
 		       the same and let the constraint pass fit it
@@ -996,7 +996,7 @@ eliminate_regs_in_insn (rtx_insn *insn, bool replace_p, bool first_p,
 		  }
 	      }
 #endif
-	    
+
 	    /* This insn isn't serving a useful purpose.  We delete it
 	       when REPLACE is set.  */
 	    if (delete_p)

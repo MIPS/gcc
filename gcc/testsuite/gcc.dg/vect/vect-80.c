@@ -29,18 +29,18 @@ main1 (float * __restrict__ pa, float * __restrict__ pb, float *__restrict__ pc)
       if (pa[i] != q[i] * pc[i])
 	abort();
     }
-  
+
   return 0;
 }
 
 
 int main (void)
-{ 
+{
   check_vect ();
 
   main1 (fa, fb, fc);
 
-  return 0;	
+  return 0;
 }
 
 /* For targets that don't support misaligned loads we version for the
@@ -49,7 +49,7 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
 /* Uncomment when this testcase gets vectorized again:
- dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 2 "vect" { xfail vect_no_align } } 
- dg-final { scan-tree-dump-times "Alignment of access forced using peeling" 1 "vect" { xfail vect_no_align } } 
- dg-final { scan-tree-dump-times "Alignment of access forced using versioning." 3 "vect" { target vect_no_align } } 
+ dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 2 "vect" { xfail vect_no_align } }
+ dg-final { scan-tree-dump-times "Alignment of access forced using peeling" 1 "vect" { xfail vect_no_align } }
+ dg-final { scan-tree-dump-times "Alignment of access forced using versioning." 3 "vect" { target vect_no_align } }
 */

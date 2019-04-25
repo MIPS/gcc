@@ -49,7 +49,7 @@ int main (void)
 }
 
 /* For targets that don't support misaligned loads we version for the load.
-   The store is aligned if alignment can be forced on the stack. Otherwise, we need to 
+   The store is aligned if alignment can be forced on the stack. Otherwise, we need to
    peel the loop in order to align the store. For targets that can't align variables
    using peeling (don't guarantee natural alignment) versioning the loop is required
    both for the load and the store.  */

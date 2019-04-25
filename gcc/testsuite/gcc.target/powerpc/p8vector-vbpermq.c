@@ -24,4 +24,3 @@ long foou (vector unsigned char a, vector unsigned char b)
 {
   return vec_extract (vec_vbpermq (a, b), OFFSET);
 }
-

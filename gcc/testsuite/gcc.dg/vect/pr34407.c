@@ -12,4 +12,3 @@ void ReadRLEImage (unsigned char *p)
   for (j = 0; j < (long) number_planes; j++)
     *p++ = background_color[j];
 }
-

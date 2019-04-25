@@ -57,8 +57,8 @@ int test_spu_cmpeq()
     b.vd = rand_vd(-4.0, 4.0);
     d.vull = spu_cmpeq(a.vd, b.vd);
     for (j=0; j<2; j++) {
-      exp = (a.d[j] == b.d[j]) ? 
-	    (((unsigned long long)(0xFFFFFFFF) << 32) 
+      exp = (a.d[j] == b.d[j]) ?
+	    (((unsigned long long)(0xFFFFFFFF) << 32)
 	     | (unsigned long long)(0xFFFFFFFF)) : 0;
       if (exp != d.ull[j]) abort();
     }
@@ -67,8 +67,8 @@ int test_spu_cmpeq()
   /* compare zeros  */
     d.vull = spu_cmpeq(a0.vd, b0.vd);
     for (j=0; j<2; j++) {
-      exp = (a0.d[j] == b0.d[j]) ? 
-	    (((unsigned long long)(0xFFFFFFFF) << 32) 
+      exp = (a0.d[j] == b0.d[j]) ?
+	    (((unsigned long long)(0xFFFFFFFF) << 32)
 	     | (unsigned long long)(0xFFFFFFFF)) : 0;
       if (exp != d.ull[j]) abort();
     }
@@ -76,8 +76,8 @@ int test_spu_cmpeq()
   /* compare NaNs  */
     d.vull = spu_cmpeq(a1.vd, b1.vd);
     for (j=0; j<2; j++) {
-      exp = (a1.d[j] == b1.d[j]) ? 
-	    (((unsigned long long)(0xFFFFFFFF) << 32) 
+      exp = (a1.d[j] == b1.d[j]) ?
+	    (((unsigned long long)(0xFFFFFFFF) << 32)
 	     | (unsigned long long)(0xFFFFFFFF)) : 0;
       if (exp != d.ull[j]) abort();
     }
@@ -85,7 +85,7 @@ int test_spu_cmpeq()
 }
 
 int test_spu_cmpgt()
-{   
+{
   int i, j;
   unsigned long long exp;
 
@@ -95,26 +95,26 @@ int test_spu_cmpgt()
     b.vd = rand_vd(-4.0, 4.0);
     d.vull = spu_cmpgt(a.vd, b.vd);
     for (j=0; j<2; j++) {
-      exp = (a.d[j] > b.d[j]) ? 
-	    (((unsigned long long)(0xFFFFFFFF) << 32) 
+      exp = (a.d[j] > b.d[j]) ?
+	    (((unsigned long long)(0xFFFFFFFF) << 32)
 	     | (unsigned long long)(0xFFFFFFFF)) : 0;
       if (exp != d.ull[j]) abort();
-    } 
+    }
   }
 
   /* compare zeros  */
     d.vull = spu_cmpgt(a0.vd, b0.vd);
     for (j=0; j<2; j++) {
-      exp = (a0.d[j] > b0.d[j]) ? 
-	    (((unsigned long long)(0xFFFFFFFF) << 32) 
+      exp = (a0.d[j] > b0.d[j]) ?
+	    (((unsigned long long)(0xFFFFFFFF) << 32)
 	     | (unsigned long long)(0xFFFFFFFF)) : 0;
       if (exp != d.ull[j]) abort();
     }
   /* compare NaNs  */
     d.vull = spu_cmpgt(a1.vd, b1.vd);
     for (j=0; j<2; j++) {
-      exp = (a1.d[j] > b1.d[j]) ? 
-	    (((unsigned long long)(0xFFFFFFFF) << 32) 
+      exp = (a1.d[j] > b1.d[j]) ?
+	    (((unsigned long long)(0xFFFFFFFF) << 32)
 	     | (unsigned long long)(0xFFFFFFFF)) : 0;
       if (exp != d.ull[j]) abort();
     }
@@ -122,7 +122,7 @@ int test_spu_cmpgt()
 }
 
 int test_spu_cmpabseq()
-{   
+{
   int i, j;
   unsigned long long exp;
 
@@ -133,17 +133,17 @@ int test_spu_cmpabseq()
     d.vull = spu_cmpabseq(a.vd, b.vd);
     for (j=0; j<2; j++) {
       exp = ((a.d[j] == b.d[j]) || (-a.d[j] == b.d[j]) || (a.d[j] == -b.d[j])) ?
-	    (((unsigned long long)(0xFFFFFFFF) << 32) 
+	    (((unsigned long long)(0xFFFFFFFF) << 32)
 	     | (unsigned long long)(0xFFFFFFFF)) : 0;
       if (exp != d.ull[j]) abort();
-    } 
+    }
   }
 
   /* compare zeros  */
     d.vull = spu_cmpabseq(a0.vd, b0.vd);
     for (j=0; j<2; j++) {
       exp = ((a0.d[j] == b0.d[j]) || (-a0.d[j] == b0.d[j]) || (a0.d[j] == -b0.d[j])) ?
-	    (((unsigned long long)(0xFFFFFFFF) << 32) 
+	    (((unsigned long long)(0xFFFFFFFF) << 32)
 	     | (unsigned long long)(0xFFFFFFFF)) : 0;
       if (exp != d.ull[j]) abort();
     }
@@ -152,7 +152,7 @@ int test_spu_cmpabseq()
     d.vull = spu_cmpabseq(a1.vd, b1.vd);
     for (j=0; j<2; j++) {
       exp = ((a1.d[j] == b1.d[j]) || (-a1.d[j] == b1.d[j]) || (a1.d[j] == -b1.d[j])) ?
-	    (((unsigned long long)(0xFFFFFFFF) << 32) 
+	    (((unsigned long long)(0xFFFFFFFF) << 32)
 	     | (unsigned long long)(0xFFFFFFFF)) : 0;
       if (exp != d.ull[j]) abort();
     }
@@ -164,7 +164,7 @@ int test_spu_cmpabsgt()
   int i, j;
   unsigned long long exp;
   double abs_a, abs_b;
-  
+
   /* double */
   for (i=0; i<samples; i++) {
     a.vd = rand_vd(-4.0, 4.0);
@@ -173,8 +173,8 @@ int test_spu_cmpabsgt()
     for (j=0; j<2; j++) {
       double abs_a = (a.d[j] < 0.0) ? -a.d[j] : a.d[j];
       double abs_b = (b.d[j] < 0.0) ? -b.d[j] : b.d[j];
-      exp = (abs_a > abs_b) ? 
-	    (((unsigned long long)(0xFFFFFFFF) << 32) 
+      exp = (abs_a > abs_b) ?
+	    (((unsigned long long)(0xFFFFFFFF) << 32)
 	     | (unsigned long long)(0xFFFFFFFF)) : 0;
       if (exp != d.ull[j]) abort();
     }
@@ -185,8 +185,8 @@ int test_spu_cmpabsgt()
     for (j=0; j<2; j++) {
       abs_a = (a0.d[j] < 0.0) ? -a0.d[j] : a0.d[j];
       abs_b = (b0.d[j] < 0.0) ? -b0.d[j] : b0.d[j];
-      exp = (abs_a > abs_b) ? 
-	    (((unsigned long long)(0xFFFFFFFF) << 32) 
+      exp = (abs_a > abs_b) ?
+	    (((unsigned long long)(0xFFFFFFFF) << 32)
 	     | (unsigned long long)(0xFFFFFFFF)) : 0;
       if (exp != d.ull[j]) abort();
     }
@@ -195,8 +195,8 @@ int test_spu_cmpabsgt()
     for (j=0; j<2; j++) {
       abs_a = (a1.d[j] < 0.0) ? -a1.d[j] : a1.d[j];
       abs_b = (b1.d[j] < 0.0) ? -b1.d[j] : b1.d[j];
-      exp = (abs_a > abs_b) ? 
-	    (((unsigned long long)(0xFFFFFFFF) << 32) 
+      exp = (abs_a > abs_b) ?
+	    (((unsigned long long)(0xFFFFFFFF) << 32)
 	     | (unsigned long long)(0xFFFFFFFF)) : 0;
       if (exp != d.ull[j]) abort();
     }
@@ -252,38 +252,38 @@ int test_spu_testsv()
   unsigned char cnt = sizeof(samples)/sizeof(struct _samples);
   int e0;
     for (e0=0; e0<cnt; e0++)
-    {   
+    {
       a.ull[0] = samples[e0].v;
       a.d[1] = rand_double(-1, -4);
 
       d.vull = spu_testsv(a.vd, SPU_SV_NEG_DENORM);
       exp = (SPU_SV_NEG_DENORM & samples[e0].sv) ? 0xFFFFFFFFFFFFFFFFULL : 0ULL;
       if (exp != d.ull[0] || d.ull[1] != 0) abort();
-    
+
       d.vull = spu_testsv(a.vd, SPU_SV_POS_DENORM);
       exp = (SPU_SV_POS_DENORM & samples[e0].sv) ? 0xFFFFFFFFFFFFFFFFULL : 0ULL;
       if (exp != d.ull[0] || d.ull[1] != 0) abort();
-    
+
       d.vull = spu_testsv(a.vd, SPU_SV_NEG_ZERO);
       exp = (SPU_SV_NEG_ZERO & samples[e0].sv) ? 0xFFFFFFFFFFFFFFFFULL : 0ULL;
       if (exp != d.ull[0] || d.ull[1] != 0) abort();
-    
+
       d.vull = spu_testsv(a.vd, SPU_SV_POS_ZERO);
       exp = (SPU_SV_POS_ZERO & samples[e0].sv) ? 0xFFFFFFFFFFFFFFFFULL : 0ULL;
       if (exp != d.ull[0] || d.ull[1] != 0) abort();
-    
+
       d.vull = spu_testsv(a.vd, SPU_SV_NEG_INFINITY);
       exp = (SPU_SV_NEG_INFINITY & samples[e0].sv) ? 0xFFFFFFFFFFFFFFFFULL : 0ULL;
       if (exp != d.ull[0] || d.ull[1] != 0) abort();
-    
+
       d.vull = spu_testsv(a.vd, SPU_SV_POS_INFINITY);
       exp = (SPU_SV_POS_INFINITY & samples[e0].sv) ? 0xFFFFFFFFFFFFFFFFULL : 0ULL;
       if (exp != d.ull[0] || d.ull[1] != 0) abort();
-    
+
       d.vull = spu_testsv(a.vd, SPU_SV_NAN);
       exp = (SPU_SV_NAN & samples[e0].sv) ? 0xFFFFFFFFFFFFFFFFULL : 0ULL;
       if (exp != d.ull[0] || d.ull[1] != 0) abort();
-   }  
+   }
   return 0;
 }
 
@@ -301,5 +301,3 @@ int main()
   test_spu_testsv();
   return 0;
 }
-
-

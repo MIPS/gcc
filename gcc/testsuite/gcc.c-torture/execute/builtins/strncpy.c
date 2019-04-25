@@ -22,7 +22,7 @@ main_test (void)
   const char *const src = "hello world";
   const char *src2;
   char dst[64], *dst2;
-  
+
   RESET_DST;
   if (strncpy (dst, src, 4) != dst || memcmp (dst, "hellXXX", 7))
     abort();
@@ -44,7 +44,7 @@ main_test (void)
   RESET_DST;
   if (strncpy (dst, src, 0) != dst || memcmp (dst, "XXX", 3))
     abort();
-  
+
   RESET_DST;
   dst2 = dst; src2 = src;
   if (strncpy (++dst2, ++src2, 0) != dst+1 || memcmp (dst2, "XXX", 3)

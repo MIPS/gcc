@@ -32,4 +32,3 @@ int main (void)
   verify ();
   return 0;
 }
-

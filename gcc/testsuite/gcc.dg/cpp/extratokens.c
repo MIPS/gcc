@@ -15,7 +15,7 @@
 #ifndef foo bar  /* { dg-warning "extra tokens" "tokens after #ifndef" } */
 #endif
 
-#if 1 
+#if 1
 #if 0
 #else foo	/* { dg-warning "extra tokens" "tokens after #else" } */
 #endif /	/* { dg-warning "extra tokens" "tokens after #endif" } */

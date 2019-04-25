@@ -6,4 +6,3 @@ void intf_pcmPlayEffect(int *src, int *dst, int size) {
  for (i = 0; i < size; i++)
   *dst++ = *src & 0x80 ? (*src++ & 0x7f) : -*src++;
 }
-

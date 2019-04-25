@@ -16,4 +16,3 @@ int bar (int x)
   else
     return foo ();
 }
-

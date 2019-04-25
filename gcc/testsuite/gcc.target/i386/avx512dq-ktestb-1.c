@@ -9,7 +9,7 @@ avx512dq_test () {
   volatile __mmask8 k1;
   __mmask8 k2;
 
-  volatile unsigned char r __attribute__((unused));	
+  volatile unsigned char r __attribute__((unused));
 
   r = _ktestc_mask8_u8(k1, k2);
   r = _ktestz_mask8_u8(k1, k2);

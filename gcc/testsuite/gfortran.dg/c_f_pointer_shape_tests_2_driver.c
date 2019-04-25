@@ -25,7 +25,7 @@ int main(int argc, char **argv)
   /* Test c_f_pointer where SHAPE is of type integer, kind=c_long_long.  */
   test_long_long_1d(my_array, NUM_ELEMS);
 
-  /* Test c_f_pointer where SHAPE is of type integer, kind=c_long_long.  
+  /* Test c_f_pointer where SHAPE is of type integer, kind=c_long_long.
      The indices are transposed for Fortran.  */
   test_long_long_2d(my_2d_array[0], NUM_COLS, NUM_ROWS);
 

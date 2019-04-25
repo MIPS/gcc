@@ -26,5 +26,3 @@ f2 (const int size)
 
    These will all be equality tests.  */
 /* { dg-final { scan-assembler-times "(\?:je|jne)" 3 } } */
-
-

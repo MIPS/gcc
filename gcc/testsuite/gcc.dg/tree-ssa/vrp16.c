@@ -20,4 +20,3 @@ nonlocal_mentioned_p (rtx x)
 }
 
 /* { dg-final { scan-tree-dump-times "if" 0 "evrp" } } */
-

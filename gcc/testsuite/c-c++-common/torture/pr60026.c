@@ -7,7 +7,7 @@ __attribute__((optimize (0)))
 struct S foo (int x, struct S y)
 {
   int b = y.f;
-  return a; 
+  return a;
 }
 
 void
@@ -23,6 +23,6 @@ bar ()
 int
 main ()
 {
-  bar (); 
+  bar ();
   return 0;
 }

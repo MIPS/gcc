@@ -36,7 +36,7 @@ main (void)
   s = 6;
   l = 0;
 #pragma omp parallel for /* { dg-error "enclosing 'parallel'" } */ \
-  default (none) private (p) shared (s) 
+  default (none) private (p) shared (s)
   for (i = 0; i < 64; i++)
     {
       int k = foo (0);	/* Predetermined - private (automatic var declared */

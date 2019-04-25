@@ -17,4 +17,3 @@ void SexiALI_Convert(void *vdest, void *vsrc, unsigned int frames)
   *dest++ = tmp;
  }
 }
-

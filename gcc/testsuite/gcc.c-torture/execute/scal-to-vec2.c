@@ -34,7 +34,7 @@ char __attribute__ ((noinline)) vchr () {    return (char)42; }
 int main (int argc, char *argv[]) {
     vector(16, char) c0 = {argc, 1,2,3,4,5,6,7, argc, 1,2,3,4,5,6,7};
     vector(16, char) c1;
-    
+
     vector(8, short) s0 = {argc, 1,2,3,4,5,6,7};
     vector(8, short) s1;
 
@@ -45,7 +45,7 @@ int main (int argc, char *argv[]) {
     vector(2, long) l1;
 
     c1 = vchr() + c0; check (char, 16, c0, c1, vchr(), +, l);
-    
+
     s1 = vsrt() + s0; check (short, 8, s0, s1, vsrt(), +, l);
     s1 = vchr() + s0; check (short, 8, s0, s1, vchr(), +, l);
 

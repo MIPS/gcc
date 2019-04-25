@@ -41,6 +41,6 @@ int main ()
 	abort ();
     if (hh (a, b) != 0xffeb3cb0)
 	abort ();
-    
+
     return 0;
 }

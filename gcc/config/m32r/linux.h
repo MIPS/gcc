@@ -19,16 +19,16 @@
 
 #undef  SIZE_TYPE
 #define SIZE_TYPE "unsigned int"
- 
+
 #undef  PTRDIFF_TYPE
 #define PTRDIFF_TYPE "int"
-  
+
 #undef  WCHAR_TYPE
 #define WCHAR_TYPE "long int"
-   
+
 #undef  WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE BITS_PER_WORD
-    
+
 /* Provide a LINK_SPEC appropriate for Linux.  Here we provide support
    for the special GCC options -static and -shared, which allow us to
    link things in one of these three modes by applying the appropriate
@@ -85,7 +85,7 @@
    %{posix:-D_POSIX_SOURCE} \
    %{pthread:-D_REENTRANT -D_PTHREADS} \
 "
-                                                                                
+
 #define TARGET_OS_CPP_BUILTINS() GNU_USER_TARGET_OS_CPP_BUILTINS()
 
 #define TARGET_ASM_FILE_END file_end_indicate_exec_stack

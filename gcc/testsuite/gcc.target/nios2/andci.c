@@ -15,4 +15,3 @@ unsigned int g (unsigned int b)
 
 /* { dg-final { scan-assembler "\tandci\t.*" } }  */
 /* { dg-final { scan-assembler "\tandchi\t.*" } }  */
-

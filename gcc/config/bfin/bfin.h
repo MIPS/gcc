@@ -295,10 +295,10 @@ extern const char *bfin_library_id_string;
 /* Define this if the above stack space is to be considered part of the
  * space allocated by the caller.  */
 #define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) 1
-	  
+
 /* Define this if the maximum size of all the outgoing args is to be
    accumulated and pushed during the prologue.  The amount can be
-   found in the variable crtl->outgoing_args_size. */ 
+   found in the variable crtl->outgoing_args_size. */
 #define ACCUMULATE_OUTGOING_ARGS 1
 
 /*#define DATA_ALIGNMENT(TYPE, BASIC-ALIGN) for arrays.. */
@@ -878,11 +878,11 @@ typedef struct {
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 1
 #define FLOAT_TYPE_SIZE BITS_PER_WORD
-#define SHORT_TYPE_SIZE 16 
+#define SHORT_TYPE_SIZE 16
 #define CHAR_TYPE_SIZE	8
 #define INT_TYPE_SIZE	32
 #define LONG_TYPE_SIZE	32
-#define LONG_LONG_TYPE_SIZE 64 
+#define LONG_LONG_TYPE_SIZE 64
 
 /* Note: Fix this to depend on target switch. -- lev */
 
@@ -945,7 +945,7 @@ typedef struct {
 #define JUMP_TABLES_IN_TEXT_SECTION flag_pic
 
 /* Define if operations between registers always perform the operation
-   on the full register even if a narrower mode is specified. 
+   on the full register even if a narrower mode is specified.
 #define WORD_REGISTER_OPERATIONS 1
 */
 
@@ -1097,7 +1097,7 @@ extern rtx bfin_cc_rtx, bfin_rets_rtx;
 #define SET_ASM_OP              ".set "
 
 /* DBX register number for a given compiler register number */
-#define DBX_REGISTER_NUMBER(REGNO)  (REGNO) 
+#define DBX_REGISTER_NUMBER(REGNO)  (REGNO)
 
 #define SIZE_ASM_OP     "\t.size\t"
 

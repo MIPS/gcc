@@ -64,4 +64,3 @@ int ea_var;			/* { dg-error "conflicting named address spaces \\(generic vs __ea
 
 extern eaint ea_var_td;		/* { dg-message "note: previous declaration of 'ea_var_td' was here" } */
 int ea_var_td;			/* { dg-error "conflicting named address spaces \\(generic vs __ea\\) for 'ea_var_td'" } */
-

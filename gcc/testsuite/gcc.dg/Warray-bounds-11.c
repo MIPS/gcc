@@ -100,4 +100,3 @@ void foo(int (*a)[3])
 	bar(h->j);
 	bar(h0->j);
 }
-

@@ -41,4 +41,3 @@ int test_exe (struct bfd_link_info *info)
 }
 
 /* { dg-final { scan-assembler-times "testn?b" 2 } } */
-

@@ -18,9 +18,9 @@ test_01 (int* m, void* v)
 
   if (!n)
     return 50;
-  
+
   if (1 & (1 << n))	/* if n == 0: 1 & (1 << 0) -> true  */
-    return 60;		
+    return 60;
   else			/* if n != 0: 1 & (1 << n) -> false  */
     return -8;
 }

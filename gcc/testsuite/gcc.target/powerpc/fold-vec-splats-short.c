@@ -20,4 +20,3 @@ test3u (unsigned short x)
 }
 
 /* { dg-final { scan-assembler-times "vsplth" 2 } } */
-

@@ -407,7 +407,7 @@ static inline bool
 diagnostic_same_line (const diagnostic_context *context,
 		       expanded_location s1, expanded_location s2)
 {
-  return s2.column && s1.line == s2.line 
+  return s2.column && s1.line == s2.line
     && context->caret_max_width - CARET_LINE_MARGIN > abs (s1.column - s2.column);
 }
 

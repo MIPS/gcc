@@ -7,7 +7,7 @@ int f()
     {
       return 1;
     }
-  else 
+  else
     {
       else; /* { dg-error "'else' without a previous 'if'" } */
     }

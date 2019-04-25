@@ -6,7 +6,7 @@ int
 fn1 ()
 {
   int f = 0;
-  d[1] = b = 1; 
+  d[1] = b = 1;
   for (; b; b--)
     {
       for (c = 0; c < 2; c++)

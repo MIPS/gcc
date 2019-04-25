@@ -33,7 +33,7 @@ TEST (void)
       tmp = _mm_round_sd (tmp, tmp, iRoundMode);
       _mm_store_sd (&e[i], tmp);
     }
-  
+
   if (check_union128d (u, e))
     abort ();
-} 
+}

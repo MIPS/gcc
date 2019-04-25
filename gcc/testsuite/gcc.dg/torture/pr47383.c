@@ -3,7 +3,7 @@
 static int heap[2*(256 +1+29)+1];
 static int heap_len;
 static int heap_max;
-void 
+void
 __attribute__ ((noinline))
 foo (int elems)
 {

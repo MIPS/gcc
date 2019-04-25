@@ -15,4 +15,3 @@ testfunc_00 (int* a, int* b, int c, int d)
   b[2] = a[2] != c;
   b[3] = a[3] != d;
 }
-

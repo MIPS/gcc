@@ -34,6 +34,5 @@ main ()
 {
   strcpy (buf, "hello");
   foo ();
-  return 0; 
+  return 0;
 }
-

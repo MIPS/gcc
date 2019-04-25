@@ -97,7 +97,7 @@ downward (void *arg)
     {
       puts ("downward: barrier_wait failed");
       exit (1);
-    } 
+    }
 
   err = pthread_cond_wait (&cond1, &mut1);
   if (err != 0)
@@ -119,7 +119,7 @@ downward (void *arg)
   if (!do_d128_to_d64 (1.1111111111111135dl, 1.111111111111113dd)) FAILURE
   if (!do_d128_to_d64 (-1.1111111111111125dl, -1.111111111111113dd)) FAILURE
   if (!do_d128_to_d64 (-1.1111111111111135dl, -1.111111111111114dd)) FAILURE
-  
+
 #ifdef DBG
   if (failcnt)
     printf ("downward: %d fails\n", failcnt);
@@ -142,7 +142,7 @@ tonearest (void *arg)
     {
       puts ("tonearest: barrier_wait failed");
       exit (1);
-    } 
+    }
 
   err = pthread_cond_wait (&cond2, &mut2);
   if (err != 0)
@@ -164,13 +164,13 @@ tonearest (void *arg)
   if (!do_d128_to_d64 (1.1111111111111135dl, 1.111111111111114dd)) FAILURE
   if (!do_d128_to_d64 (-1.1111111111111125dl, -1.111111111111112dd)) FAILURE
   if (!do_d128_to_d64 (-1.1111111111111135dl, -1.111111111111114dd)) FAILURE
-  
+
 #ifdef DBG
   if (failcnt)
     printf ("tonearest: %d fails\n", failcnt);
 #endif
   return (void *) (ptrdiff_t) failcnt;
-} 
+}
 
 void *
 toneareastfromzero (void *arg)
@@ -187,7 +187,7 @@ toneareastfromzero (void *arg)
     {
       puts ("toneareastfromzero: barrier_wait failed");
       exit (1);
-    } 
+    }
 
   err = pthread_cond_wait (&cond3, &mut3);
   if (err != 0)
@@ -209,14 +209,14 @@ toneareastfromzero (void *arg)
   if (!do_d128_to_d64 (1.1111111111111135dl, 1.111111111111114dd)) FAILURE
   if (!do_d128_to_d64 (-1.1111111111111125dl, -1.111111111111113dd)) FAILURE
   if (!do_d128_to_d64 (-1.1111111111111135dl, -1.111111111111114dd)) FAILURE
-  
+
 #ifdef DBG
   if (failcnt)
     printf ("toneareastfromzero: %d fails\n", failcnt);
 #endif
   return (void *) (ptrdiff_t) failcnt;
-} 
-  
+}
+
 void *
 towardzero (void *arg)
 {
@@ -232,7 +232,7 @@ towardzero (void *arg)
     {
       puts ("towardzero: barrier_wait failed");
       exit (1);
-    } 
+    }
 
   err = pthread_cond_wait (&cond4, &mut4);
   if (err != 0)
@@ -260,7 +260,7 @@ towardzero (void *arg)
     printf ("towardzero: %d fails\n", failcnt);
 #endif
   return (void *) (ptrdiff_t) failcnt;
-} 
+}
 
 void *
 upward (void *arg)
@@ -277,7 +277,7 @@ upward (void *arg)
     {
       puts ("upward: barrier_wait failed");
       exit (1);
-    } 
+    }
 
   err = pthread_cond_wait (&cond5, &mut5);
   if (err != 0)
@@ -299,7 +299,7 @@ upward (void *arg)
   if (!do_d128_to_d64 (1.1111111111111135dl, 1.111111111111114dd)) FAILURE
   if (!do_d128_to_d64 (-1.1111111111111125dl, -1.111111111111112dd)) FAILURE
   if (!do_d128_to_d64 (-1.1111111111111135dl, -1.111111111111113dd)) FAILURE
-  
+
 #ifdef DBG
   if (failcnt)
     printf ("upward: %d fails\n", failcnt);

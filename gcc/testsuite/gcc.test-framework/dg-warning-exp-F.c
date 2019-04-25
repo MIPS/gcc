@@ -7,4 +7,3 @@ int main (int argc, char *argv[])
   +;  /* { dg-warning "expected expression" "error test" } */
   return 0;
 }
-

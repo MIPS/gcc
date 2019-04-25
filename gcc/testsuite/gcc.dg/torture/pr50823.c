@@ -6,7 +6,7 @@ int k1, k2, k3, k4, k5, k6, k7, k8;
 void set_first_insn (int);
 void set_last_insn (void);
 
-static int make_insn_raw (void) 
+static int make_insn_raw (void)
 {
   set_first_insn (0);
   set_last_insn ();
@@ -22,7 +22,7 @@ static void add_insn_after (void)
     k6 = k7;
 }
 
-void emit_pattern_after_noloc (int (make_raw) (void)) 
+void emit_pattern_after_noloc (int (make_raw) (void))
 {
   if (k8)
     {

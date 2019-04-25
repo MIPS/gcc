@@ -4,4 +4,3 @@
 
 #include "pr60823-3.c"
 /* { dg-excess-errors "partial simd clone support" { target { aarch64*-*-* } } }  */
-

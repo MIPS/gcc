@@ -71,4 +71,3 @@ testui_cst (vector unsigned int vui2)
 {
   return vec_extract (vui2, 12);
 }
-

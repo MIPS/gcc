@@ -12,7 +12,7 @@ int
 main ()
 {
   int *p;
- 
+
   if (gd != 1)
     abort ();
 

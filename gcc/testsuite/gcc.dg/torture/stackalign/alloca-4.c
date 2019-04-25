@@ -34,7 +34,7 @@ int
 main (void)
 {
   double x =  1.0 ;
- 
+
   foo (x, x, x, x, 5);
 
   return 0;

@@ -30,5 +30,3 @@ extern void try_shrink_wrapping_separate (basic_block first_bb);
   (flag_shrink_wrap && targetm.have_simple_return ())
 
 #endif  /* GCC_SHRINK_WRAP_H  */
-
-

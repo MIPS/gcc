@@ -421,8 +421,8 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   if (boundary_p && node->analyzed
       && node->get_partitioning_class () == SYMBOL_PARTITION)
     {
-      /* Inline clones cannot be part of boundary.  
-         gcc_assert (!node->global.inlined_to);  
+      /* Inline clones cannot be part of boundary.
+         gcc_assert (!node->global.inlined_to);
 
 	 FIXME: At the moment they can be, when partition contains an inline
 	 clone that is clone of inline clone from outside partition.  We can
@@ -491,7 +491,7 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
       if (node->same_comdat_group)
 	{
 	  ref = LCC_NOT_FOUND;
-	  for (struct symtab_node *n = node->same_comdat_group; 
+	  for (struct symtab_node *n = node->same_comdat_group;
 	       ref == LCC_NOT_FOUND && n != node; n = n->same_comdat_group)
 	    ref = lto_symtab_encoder_lookup (encoder, n);
 	}
@@ -568,7 +568,7 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
     streamer_write_hwi_stream (ob->main_stream, node->get_fini_priority ());
 }
 
-/* Output the varpool NODE to OB. 
+/* Output the varpool NODE to OB.
    If NODE is not in SET, then NODE is a boundary.  */
 
 static void
@@ -644,7 +644,7 @@ lto_output_varpool_node (struct lto_simple_output_block *ob, varpool_node *node,
       if (node->same_comdat_group)
 	{
 	  ref = LCC_NOT_FOUND;
-	  for (struct symtab_node *n = node->same_comdat_group; 
+	  for (struct symtab_node *n = node->same_comdat_group;
 	       ref == LCC_NOT_FOUND && n != node; n = n->same_comdat_group)
 	    ref = lto_symtab_encoder_lookup (encoder, n);
 	}
@@ -662,7 +662,7 @@ lto_output_varpool_node (struct lto_simple_output_block *ob, varpool_node *node,
 		       LDPR_NUM_KNOWN, node->resolution);
 }
 
-/* Output the varpool NODE to OB. 
+/* Output the varpool NODE to OB.
    If NODE is not in SET, then NODE is a boundary.  */
 
 static void
@@ -681,7 +681,7 @@ lto_output_ref (struct lto_simple_output_block *ob, struct ipa_ref *ref,
   nref = lto_symtab_encoder_lookup (encoder, ref->referred);
   gcc_assert (nref != LCC_NOT_FOUND);
   streamer_write_hwi_stream (ob->main_stream, nref);
-  
+
   node = dyn_cast <cgraph_node *> (ref->referring);
   if (node)
     {
@@ -816,7 +816,7 @@ select_what_to_stream (void)
    means that we need to insert the nodes in specific order.  This order is
    ignored by the partitioning logic earlier.  */
 
-lto_symtab_encoder_t 
+lto_symtab_encoder_t
 compute_ltrans_boundary (lto_symtab_encoder_t in_encoder)
 {
   struct cgraph_edge *edge;
@@ -1494,7 +1494,7 @@ input_edge (struct lto_input_block *ib, vec<symtab_node *> nodes,
 
 /* Read a cgraph from IB using the info in FILE_DATA.  */
 
-static vec<symtab_node *> 
+static vec<symtab_node *>
 input_cgraph_1 (struct lto_file_decl_data *file_data,
 		struct lto_input_block *ib)
 {
@@ -1593,7 +1593,7 @@ input_refs (struct lto_input_block *ib,
 	}
     }
 }
-	    
+
 /* Input profile_info from IB.  */
 static void
 input_profile_summary (struct lto_input_block *ib,
@@ -1698,7 +1698,7 @@ input_symtab (void)
 
       ib = lto_create_simple_input_block (file_data, LTO_section_symtab_nodes,
 					  &data, &len);
-      if (!ib) 
+      if (!ib)
 	fatal_error (input_location,
 		     "cannot find LTO cgraph in %s", file_data->file_name);
       input_profile_summary (ib, file_data);

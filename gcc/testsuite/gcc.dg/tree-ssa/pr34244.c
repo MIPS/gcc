@@ -50,7 +50,7 @@ int __attribute__((noinline)) FindCommonAncestor(int aNode1, int aNode2)
       while (anc1 != anc2) {
         anc1 = GetParent();
         anc2 = GetParent();
-      } 
+      }
       return anc1;
     }
   }

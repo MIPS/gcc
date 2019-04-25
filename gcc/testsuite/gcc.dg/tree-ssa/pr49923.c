@@ -51,5 +51,5 @@ get_some_font (void)
 int main (int argc, char *argv[])
 {
   return (int) aostk_font_strwidth (get_some_font (), "sth");
-  
+
 }

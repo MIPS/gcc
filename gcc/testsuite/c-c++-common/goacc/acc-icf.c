@@ -46,4 +46,3 @@ main ()
 
 /* { dg-final { scan-ipa-dump-times "Not parsed function:" 4 "icf" } }  */
 /* { dg-final { scan-ipa-dump "Parsed function:main" "icf" } }  */
-

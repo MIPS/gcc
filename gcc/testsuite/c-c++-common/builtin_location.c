@@ -22,7 +22,7 @@ const char* const function = __builtin_FUNCTION ();
 /* Also verify that __builtin_constant_p() returns true for both.  */
 Assert (__builtin_constant_p (__builtin_FILE ()));
 Assert (__builtin_constant_p (__builtin_FUNCTION ()));
-	
+
 /* Verify (in both C and C++ 11 and later) that both __builtin_FILE ()
    and __builtin_FUNCTION() yield an address constant by making use
    of a GCC extension that allows operands of arithmetic constant
@@ -30,7 +30,7 @@ Assert (__builtin_constant_p (__builtin_FUNCTION ()));
    from one another is undefined in both C and C++ and should be
    diagnosed.  See c/70772.)  */
 
-#pragma GCC diagnostic push  
+#pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Waddress"
 
 enum E0 {

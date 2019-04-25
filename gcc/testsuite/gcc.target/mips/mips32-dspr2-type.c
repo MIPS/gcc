@@ -9,4 +9,3 @@ NOMIPS16 v2hi mul_v2hi (v2hi a, v2hi b)
 {
   return a * b;
 }
-

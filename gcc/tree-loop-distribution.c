@@ -1136,7 +1136,7 @@ destroy_loop (struct loop *loop)
 
 /* Generates code for PARTITION.  Return whether LOOP needs to be destroyed.  */
 
-static bool 
+static bool
 generate_code_for_partition (struct loop *loop,
 			     partition *partition, bool copy_p)
 {

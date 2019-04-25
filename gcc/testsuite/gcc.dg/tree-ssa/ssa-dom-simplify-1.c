@@ -15,4 +15,3 @@ rhs_to_tree (int x, int z)
 
 /* The second conditional should change into a simple equality test.  */
 /* { dg-final { scan-tree-dump-times "if \\(x_\[0-9\]+\\(D\\) == 3\\)" 1 "dom2"} } */
-

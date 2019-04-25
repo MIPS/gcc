@@ -14,7 +14,7 @@ foo (char *p)
 __attribute__((noinline, noclone)) int
 f0 (int x, int y)
 {
-  asm volatile ("" : : : "memory");  
+  asm volatile ("" : : : "memory");
   return x + y;
 }
 
@@ -66,7 +66,7 @@ V v;
 __attribute__((noinline, noclone)) int
 f6 (int x, int y, V a, V b, V c)
 {
-  asm volatile ("" : : : "memory");  
+  asm volatile ("" : : : "memory");
   v = a + b + c;
   return x + y;
 }
@@ -136,4 +136,3 @@ main ()
   f11 (12000, v, v, v);
   return 0;
 }
-

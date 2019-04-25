@@ -7,12 +7,12 @@ char a, e, h, ag, ak, am, ar, ay, az, bc, bd, k, l;
 int f, i, n, o, c, ac, ad, p, ah, s, aj, al, an, b, ao, aq, at, av, be, t, u, g, q, r, ai, **aa, ap;
 
 int d (int v)
-{ 
+{
   return v + a;
 }
 
 int j (char v, char w)
-{ 
+{
   return v - w;
 }
 
@@ -21,14 +21,14 @@ void m (int p)
 }
 
 static void bf ()
-{ 
+{
   int bg[240], bi, bk, bl, bj, bm = -1;
   const int *bh;
   if (h)
-    { 
+    {
       int bn, bo;
       while (1)
-        { 
+        {
           int *bp = &at;
           const int **bq = &bh, **br = bq;
           while (av)
@@ -39,7 +39,7 @@ static void bf ()
             break;
         bu:
           for (; r; r = d (r))
-            { 
+            {
               *bp = j (q && b, 0);
               if (n)
                 u = b;
@@ -47,16 +47,16 @@ static void bf ()
                 p = 0;
             }
           if (c)
-            { 
+            {
               while (a)
                 while (r)
-                  { 
+                  {
                     int bw = ar, bx = an;
                   by:
                     printf ("%d\n", an);
                     while (ao)
                       while (bw)
-                        { 
+                        {
                           a = !g || f / g;
                           if (i)
                             az = i;
@@ -72,7 +72,7 @@ static void bf ()
                     if (s)
                       while (bx)
                         while (1)
-                          { 
+                          {
                             if (r)
                               break;
                             *aa || q;
@@ -85,20 +85,20 @@ static void bf ()
                   goto by;
               while (bl)
                 while (1)
-                  { 
+                  {
                     if (r)
                       break;
                     while (ag)
                       if (bi)
                         printf ("%d\n", 0);
                     if (bk)
-                      { 
+                      {
                         bo = bn = bi = printf ("");
                         goto bz;
                       }
                     while (o)
                       if (a)
-                        { 
+                        {
                           while (1)
                             ;
                         ca:
@@ -108,7 +108,7 @@ static void bf ()
                       while (1)
                         ;
                     while (a)
-                      { 
+                      {
                         if (ai)
                           {
                           bz:
@@ -118,14 +118,14 @@ static void bf ()
                                   bl = bg[am];
                             while (ac)
                               if (ad)
-                                { 
+                                {
                                   bj++;
                                   while (bj)
                                     if (c)
                                       goto bu;
                                 }
                             if (s)
-                              { 
+                              {
                                 while (ao)
                                   while (f)
                                     while (p)
@@ -134,7 +134,7 @@ static void bf ()
                                           for (; bo;)
                                             ;
                                 if (aq)
-                                  { 
+                                  {
                                     while (aj)
                                       ;
                                     continue;
@@ -143,13 +143,13 @@ static void bf ()
                                   ;
                               }
                             while (!bj)
-                              { 
+                              {
                                 al = 0;
                                 for (; al < 6; al++)
-                                  { 
+                                  {
                                     ai = 0;
                                     for (; ai < 60; ai = d (ai))
-                                      { 
+                                      {
                                         k = !g || f / g;
                                         if (i)
                                           ay = 0;
@@ -165,7 +165,7 @@ static void bf ()
                                     while (av)
                                       for (; ai; ai++)
                                         for (; ar; ar++)
-                                          { 
+                                          {
                                             int cb;
                                             *aa = &cb;
                                           }
@@ -190,7 +190,7 @@ static void bf ()
 }
 
 int main ()
-{ 
+{
   bf ();
   return 0;
 }

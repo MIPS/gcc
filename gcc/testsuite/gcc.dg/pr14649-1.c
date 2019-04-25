@@ -13,4 +13,3 @@ double foo()
   double ok2 = 4*atan(1.0);
   return ok2;
 }
-

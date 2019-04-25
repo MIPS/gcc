@@ -45,7 +45,7 @@ main ()
   sf = d64;
   if (sf != -7.0f)
     FAILURE
-  
+
   df = d64;
   if (df != -7.0)
     FAILURE
@@ -93,7 +93,7 @@ main ()
   d128 = df;
   if (d128 != -2.0dl)
     FAILURE
-  
+
   sf = 30.0f;
   d128 = sf;
   if (d128 != 30.0dl)

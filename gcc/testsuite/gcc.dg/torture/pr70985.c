@@ -18,7 +18,7 @@ void
 fn2 ()
 {
   int e;
-  if (b) 
+  if (b)
     for (; e;)
       {
 	d = c;

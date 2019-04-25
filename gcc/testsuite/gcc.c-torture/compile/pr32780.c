@@ -7,4 +7,3 @@ void crashGcc(char*a)
         size_t c=(size_t)a - (b & (size_t)a);
         dont_optimize_away(b+c);
 }
-

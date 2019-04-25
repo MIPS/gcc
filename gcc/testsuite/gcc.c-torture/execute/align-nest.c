@@ -6,7 +6,7 @@ void foo(int n)
   {
     int value;
   } myint;
-  
+
   struct S
   {
     int i[n];
@@ -16,7 +16,7 @@ void foo(int n)
 
   struct S s[2];
   int k;
-  
+
   for (k = 0; k < 2; k ++)
     s[k].mi.value = 0;
 }
@@ -26,4 +26,3 @@ int main ()
   foo (2);
   return 0;
 }
-

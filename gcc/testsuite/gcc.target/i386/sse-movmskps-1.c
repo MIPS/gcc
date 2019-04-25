@@ -18,7 +18,7 @@ static int
 __attribute__((noinline, unused))
 test (__m128 a)
 {
-  return _mm_movemask_ps (a); 
+  return _mm_movemask_ps (a);
 }
 
 static void
@@ -30,7 +30,7 @@ TEST (void)
   int e = 0;
   int i;
 
-  u.x = _mm_loadu_ps (s);   
+  u.x = _mm_loadu_ps (s);
   d = test (u.x);
 
   for (i = 0; i < 4; i++)

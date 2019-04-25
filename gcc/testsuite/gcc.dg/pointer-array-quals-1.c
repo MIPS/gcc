@@ -67,9 +67,9 @@ void test(void)
 	x0 == z0;
 	x1 == z1;
 	x2 == z2;
-	x0 < z0; 
-	x1 < z1; 
-	x2 < z2; 
+	x0 < z0;
+	x1 < z1;
+	x2 < z2;
 	x0 > z0;
 	x1 > z1;
 	x2 > z2;
@@ -103,4 +103,3 @@ void test(void)
 	v1p = (1 ? pc : x1); /* { dg-warning "assignment discards 'const' qualifier from pointer target type" } */
 	v2p = (1 ? pc : x2); /* { dg-warning "assignment discards 'const' qualifier from pointer target type" } */
 }
-

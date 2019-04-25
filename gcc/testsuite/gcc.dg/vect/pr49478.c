@@ -19,5 +19,3 @@ foo (int len) {
   }
   return result;
 }
-
-

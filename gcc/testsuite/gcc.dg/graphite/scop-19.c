@@ -33,4 +33,3 @@ d_growable_string_append_buffer (struct d_growable_string *dgs,
 }
 /* { dg-final { scan-tree-dump-times "number of SCoPs: 0" 2 "graphite" { target { nonpic || pie_enabled } } } } */
 /* { dg-final { scan-tree-dump-times "number of SCoPs: 0" 1 "graphite" { target { ! { nonpic || pie_enabled } } } } } */
-

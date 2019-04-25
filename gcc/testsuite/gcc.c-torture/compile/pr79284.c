@@ -5,7 +5,7 @@ int c[64];
 
 int
 foo (int x)
-{ 
+{
   char e, f;
   for (e = 63; e; e--)
     f = (c[e] && ~0) != b.a;

@@ -1,7 +1,7 @@
 /* { dg-do compile } */
 /* { dg-options "-Os -fno-tree-switch-conversion" } */
 
-unsigned char foo (long long x) 
+unsigned char foo (long long x)
 {
   unsigned char y = 0;
   switch (x)

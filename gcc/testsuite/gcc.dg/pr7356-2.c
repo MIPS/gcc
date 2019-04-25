@@ -3,11 +3,11 @@
 int i /* { dg-error "6: expected ';' before 'int'" } */
 int j;
 /* { dg-begin-multiline-output "" }
- int i 
+ int i
       ^
       ;
  int j;
- ~~~   
+ ~~~
    { dg-end-multiline-output "" } */
 
 
@@ -17,11 +17,11 @@ void test (void)
   int j;
 
   /* { dg-begin-multiline-output "" }
-   int i 
+   int i
         ^
         ;
    int j;
-   ~~~   
+   ~~~
      { dg-end-multiline-output "" } */
 }
 

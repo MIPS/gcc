@@ -19,4 +19,3 @@
    <http://www.gnu.org/licenses/>.  */
 
 #define OBSD_LIB_SPEC "%{!shared:%{pthread:-lpthread} -lc}"
-

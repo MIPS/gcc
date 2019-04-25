@@ -7,4 +7,3 @@ void mmxCombineMaskU (m64 * mask, int width)
   while (--width >= 0)
     *mask++ = (m64) 0LL;
 }
-

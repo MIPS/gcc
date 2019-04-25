@@ -15,4 +15,3 @@ long test_fpcmpgt8 (vec8 a, vec8 b)
 
 /* { dg-final { scan-assembler "fpcmple8\t%" } } */
 /* { dg-final { scan-assembler "fpcmpgt8\t%" } } */
-

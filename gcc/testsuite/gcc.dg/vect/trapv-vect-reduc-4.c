@@ -38,9 +38,9 @@ int main1 (int x, int max_result)
 }
 
 int main (void)
-{ 
+{
   check_vect ();
-  
+
   main1 (100, 100);
   main1 (0, 15);
   return 0;

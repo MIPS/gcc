@@ -65,4 +65,3 @@ along with GCC; see the file COPYING3.  If not see
       TARGET_SUB_OS_CPP_BUILTINS();		\
     }						\
   while (false)
-

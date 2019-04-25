@@ -25,4 +25,3 @@ int main() {
 /* { dg-output "    #0 free .*" } */
 /* { dg-output "    #\(1|2\) foo.*(\n|\r\n|\r)" } */
 /* { dg-output "    #\(2|3\) main .*" } */
-

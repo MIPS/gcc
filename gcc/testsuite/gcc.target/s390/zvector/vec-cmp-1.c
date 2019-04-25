@@ -170,4 +170,3 @@ any_le_int (vector int a, vector int b)
 	return vec_any_le (a, b);
 }
 /* { dg-final { scan-assembler-times any_le_int:\n\tvchfs\t%v\[0-9\]*,%v24,%v26\n\tlhi\t%r2,1\n\tlochie\t%r2,0 1 } } */
-

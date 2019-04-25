@@ -1,5 +1,5 @@
 /* PR preprocessor/28709 */
-/* 
+/*
    { dg-options "-ftrack-macro-expansion=2" }
    { dg-do preprocess }
 */
@@ -8,4 +8,3 @@
 foo
 #define bar = ## == /* { dg-error "pasting \"=\" and \"==\"" } */
 bar
-

@@ -1,6 +1,6 @@
 /* This test was supplied with PR target/5379.  It caused the compiler
    to get a segmentation fault.  */
-  
+
 /* { dg-do compile } */
 /* { dg-options "-O2 -fprefetch-loop-arrays -w" } */
 /* { dg-additional-options "-march=athlon" { target { { i?86-*-* x86_64-*-* } && ia32 } } } */
@@ -39,4 +39,3 @@ int *indices_ret;
         }
     }
 }
-

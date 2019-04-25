@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 16 
+#define N 16
 
 int
 main1 ()
@@ -23,7 +23,7 @@ main1 ()
       out[i*8 + 5] = in[i*8 + 5];
       out[i*8 + 6] = in[i*8 + 6];
       out[i*8 + 7] = in[i*8 + 7];
-    
+
       ia[i] = 7;
     }
 
@@ -123,4 +123,3 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "vectorized 3 loops" 1 "vect"  } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 3 "vect"  } } */
-  

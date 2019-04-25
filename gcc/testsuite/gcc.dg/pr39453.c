@@ -14,5 +14,3 @@ int foo(int k, int n)
   }
   return k;
 }
-
-

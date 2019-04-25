@@ -3,9 +3,9 @@
 int a, b, c;
 
 void fn1 ()
-{ 
+{
   while (1)
-    { 
+    {
       if (c)
 	goto L2;
       break;
@@ -26,7 +26,7 @@ L2:
 }
 
 int main ()
-{ 
+{
   fn1 ();
   return 0;
 }

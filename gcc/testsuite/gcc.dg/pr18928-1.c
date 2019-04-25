@@ -17,4 +17,3 @@ const char *toHex( unsigned short u )
   hexVal[4] = '\0';
   return hexVal;
 }
-

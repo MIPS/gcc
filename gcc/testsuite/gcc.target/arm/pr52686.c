@@ -16,4 +16,3 @@ void test (unsigned short *p)
       output[3] = x << 1;
     }
 }
-

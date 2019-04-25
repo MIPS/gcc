@@ -1,7 +1,7 @@
 /* { dg-do compile } */
 
 #define N 16
- 
+
 struct
 {
   unsigned int x;
@@ -31,4 +31,3 @@ main1 ()
       }
     }
 }
-

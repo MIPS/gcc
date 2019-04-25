@@ -14,4 +14,3 @@
 ZERO:
 
 /* { dg-final { scan-file-not cmdlne-C2.i "c+omment:" } } */
-

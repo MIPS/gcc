@@ -9,17 +9,17 @@ struct FloatRegisters fregs;
 unsigned int num_iregs, num_fregs;
 
 /* This struct holds values for argument checking.  */
-struct 
+struct
 {
   float f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, f22, f23;
 } values_float;
 
-struct 
+struct
 {
   double f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, f22, f23;
 } values_double;
 
-struct 
+struct
 {
   ldouble f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, f22, f23;
 } values_ldouble;

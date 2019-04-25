@@ -9,4 +9,3 @@ struct S
 
 char a[__builtin_offsetof (struct S, sa->f)
        == __builtin_offsetof (struct S, sa[0].f) ? 1 : -1];
-

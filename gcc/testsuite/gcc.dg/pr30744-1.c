@@ -15,4 +15,3 @@ void r(G* n)
     ((G *) ((void *)((~(my_intptr_t)(p)))))->unique = n->unique;
   }
 }
-

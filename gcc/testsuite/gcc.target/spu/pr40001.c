@@ -14,4 +14,3 @@ sbrk (unsigned int increment)
   else
     return ((void *) -1);
 }
-

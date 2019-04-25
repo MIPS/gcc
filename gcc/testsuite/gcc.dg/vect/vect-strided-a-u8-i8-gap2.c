@@ -44,15 +44,15 @@ main1 ()
       res[i].d = ptr->f - ptr->a;
       res[i].b = ptr->f;
       res[i].f = ptr->a;
-      res[i].e = ptr->f - ptr->a; 
-      res[i].h = ptr->f;   
+      res[i].e = ptr->f - ptr->a;
+      res[i].h = ptr->f;
       res[i].g = ptr->f - ptr->a;
-      ptr++; 
-    } 
-   
+      ptr++;
+    }
+
   /* check results:  */
   for (i = 0; i < N; i++)
-    { 
+    {
       if (res[i].c != arr[i].a
           || res[i].a != arr[i].f + arr[i].a
           || res[i].d != arr[i].f - arr[i].a
@@ -76,4 +76,3 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target vect_strided8 } } } */
-  

@@ -8,7 +8,7 @@ typedef __INT64_TYPE__ int64_t;
 
 void dsyr2k(int64_t N) {
 	int32_t i,j,k;
-	
+
 #pragma scop
 	for (i=0; i<N; i++) {
 		for (j=0; j<N; j++) {
@@ -20,5 +20,4 @@ void dsyr2k(int64_t N) {
 #pragma endscop
 }
 
-/* { dg-final { scan-tree-dump-times "number of SCoPs: 1" 1 "graphite"} } */ 
-
+/* { dg-final { scan-tree-dump-times "number of SCoPs: 1" 1 "graphite"} } */

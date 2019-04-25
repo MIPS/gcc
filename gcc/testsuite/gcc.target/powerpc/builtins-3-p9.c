@@ -119,4 +119,3 @@ test_neg_int (vector int x)
 /* { dg-final { scan-assembler-times "vnegd"    2 } } */
 /* { dg-final { scan-assembler-times "vnegw"    2 } } */
 /* { dg-final { scan-assembler-times "vbpermd"  1 } } */
-

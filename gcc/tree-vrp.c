@@ -2860,7 +2860,7 @@ register_edge_assert_for_2 (tree name, edge e,
 	  add_assert_info (asserts, name2, name2, comp_code, cst);
 	}
     }
- 
+
   if (TREE_CODE_CLASS (comp_code) == tcc_comparison
       && TREE_CODE (val) == INTEGER_CST)
     {

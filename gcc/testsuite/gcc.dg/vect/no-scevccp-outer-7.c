@@ -59,7 +59,7 @@ int main (void)
     in[i] = 2*i;
     coef[i] = i;
   }
- 
+
   res = foo (2);
 
   /* check results:  */

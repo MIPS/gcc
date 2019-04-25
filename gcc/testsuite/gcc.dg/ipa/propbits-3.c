@@ -10,13 +10,13 @@ static int f(int x)
   if (x == limit)
     return x;
   int k = f(x + 1);
-  return f2 (k); 
+  return f2 (k);
 }
 
 int main(int argc, char **argv)
 {
-  int k = f(argc & 0xff); 
+  int k = f(argc & 0xff);
   return k;
 }
 
-/* { dg-final { scan-ipa-dump-not "Adjusting mask for" "cp" } } */  
+/* { dg-final { scan-ipa-dump-not "Adjusting mask for" "cp" } } */

@@ -11,7 +11,7 @@ void plot_phi(char *fn,rvec box,int natoms,rvec x[],real phi[])
 {
   real phi_max,rr,gg,bb,fac,dx,x0,y0;
   int i;
-  for(i=0; (i<natoms); i++) 
+  for(i=0; (i<natoms); i++)
     phi_max=((phi_max > __builtin_fabs(phi[i]))
 	     ? phi_max : __builtin_fabs(phi[i]));
   if (__builtin_fabs(phi_max)<1.2e-38)

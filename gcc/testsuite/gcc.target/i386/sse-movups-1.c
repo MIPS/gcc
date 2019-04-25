@@ -18,7 +18,7 @@ static __m128
 __attribute__((noinline, unused))
 test (float *e)
 {
-  return _mm_loadu_ps (e); 
+  return _mm_loadu_ps (e);
 }
 
 static void
@@ -27,7 +27,7 @@ TEST (void)
   union128 u;
   float e[4] = {2134.3343,1234.635654, 1.2234, 876.8976};
 
-  u.x = test (e);   
+  u.x = test (e);
 
   if (check_union128 (u, e))
     abort ();

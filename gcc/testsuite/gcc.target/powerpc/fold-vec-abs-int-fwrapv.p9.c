@@ -15,4 +15,3 @@ test1 (vector signed int x)
 
 /* { dg-final { scan-assembler-times "vnegw" 1 } } */
 /* { dg-final { scan-assembler-times "vmaxsw" 1 } } */
-

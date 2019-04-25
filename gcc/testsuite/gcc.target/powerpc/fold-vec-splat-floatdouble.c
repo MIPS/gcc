@@ -28,4 +28,3 @@ vector double test_dc ()
 
 /* For double types, we will generate xxpermdi instructions.  */
 /* { dg-final { scan-assembler-times "xxpermdi" 3 } } */
-

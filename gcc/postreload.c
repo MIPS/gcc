@@ -810,7 +810,7 @@ reload_combine_closest_single_use (unsigned regno, int ruid_limit)
   retval = NULL;
   for (i = use_idx; i < RELOAD_COMBINE_MAX_USES; i++)
     {
-      struct reg_use *use = reg_state[regno].reg_use + i; 
+      struct reg_use *use = reg_state[regno].reg_use + i;
       int this_ruid = use->ruid;
       if (this_ruid >= ruid_limit)
 	continue;
@@ -843,7 +843,7 @@ fixup_debug_insns (rtx reg, rtx replacement, rtx_insn *from, rtx_insn *to)
 
       if (!DEBUG_BIND_INSN_P (insn))
 	continue;
-      
+
       t = INSN_VAR_LOCATION_LOC (insn);
       t = simplify_replace_rtx (t, reg, replacement);
       validate_change (insn, &INSN_VAR_LOCATION_LOC (insn), t, 0);
@@ -1780,7 +1780,7 @@ move2add_use_add2_insn (scalar_int_mode mode, rtx reg, rtx sym, rtx off,
 
       if (costs_lt_p (&newcst, &oldcst, speed)
 	  && have_add2_insn (reg, new_src))
-	changed = validate_change (insn, &SET_SRC (pat), tem, 0);	
+	changed = validate_change (insn, &SET_SRC (pat), tem, 0);
       else if (sym == NULL_RTX && mode != BImode)
 	{
 	  scalar_int_mode narrow_mode;

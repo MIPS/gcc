@@ -29,7 +29,7 @@ static inline MYV4 myfunc2( int x, int y, int z, int w )
 
 MYV4 val3;
 
-__attribute__((noinline)) void modify (void) 
+__attribute__((noinline)) void modify (void)
 {
     val3 = myfunc2( 1, 2, 3, 4 );
 }
@@ -38,9 +38,9 @@ int main( int argc, char* argv[] )
 {
   int a[4];
   int i;
-  
+
   modify();
-  
+
   if (*f(&val3, 0 ) != 1)
     __builtin_abort ();
   if (*f(&val3, 1 ) != 2)
@@ -49,13 +49,12 @@ int main( int argc, char* argv[] )
     __builtin_abort ();
   if (*f(&val3, 3 ) != 4)
     __builtin_abort ();
-    
+
   __builtin_memcpy (a, &val3, sizeof(a));
   for(i = 0; i < 4; i++)
     if (a[i] != i+1)
       __builtin_abort ();
-  
-  
+
+
   return 0;
 }
-

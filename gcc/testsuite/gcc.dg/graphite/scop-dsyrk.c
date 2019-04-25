@@ -4,7 +4,7 @@
 
 static double a[NMAX][NMAX], c[NMAX][NMAX];
 
-void dsyrk(int N) 
+void dsyrk(int N)
 {
   int i,j,k;
 

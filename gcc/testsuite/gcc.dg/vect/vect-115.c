@@ -60,17 +60,15 @@ int main1 ()
 	abort();
     }
 
-    
+
   return 0;
 }
-       
+
 int main (void)
 {
   check_vect ();
-    
+
   return main1 ();
 }
-          
-/* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" } } */
-  
 
+/* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" } } */

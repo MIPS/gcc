@@ -9,4 +9,3 @@ void slow_close(int n)
     for (i=0;i<2*n;i++)
       *(mm+i*2*n+i) = 0;
 }
-

@@ -41,7 +41,7 @@ free_alt_states (alt_state_t alt_states_list)
     }
 }
 
-int 
+int
 main (void)
 {
   int i;

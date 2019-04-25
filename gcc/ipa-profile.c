@@ -32,7 +32,7 @@ along with GCC; see the file COPYING3.  If not see
      node corresponding to the target and produce a speculative call.
 
      This call may or may not survive through IPA optimization based on decision
-     of inliner. 
+     of inliner.
    - Finally we propagate the following flags: unlikely executed, executed
      once, executed at startup and executed at exit.  These flags are used to
      control code size/performance threshold and code placement (by producing
@@ -136,7 +136,7 @@ dump_histogram (FILE *file, vec<histogram_entry *> histogram)
 {
   unsigned int i;
   gcov_type overall_time = 0, cumulated_time = 0, cumulated_size = 0, overall_size = 0;
-  
+
   fprintf (dump_file, "Histogram:\n");
   for (i = 0; i < histogram.length (); i++)
     {
@@ -170,7 +170,7 @@ ipa_profile_generate_summary (void)
   basic_block bb;
 
   hash_table<histogram_hash> hashtable (10);
-  
+
   FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (node)
     if (ENTRY_BLOCK_PTR_FOR_FN (DECL_STRUCT_FUNCTION (node->decl))->count.ipa_p ())
       FOR_EACH_BB_FN (bb, DECL_STRUCT_FUNCTION (node->decl))
@@ -527,7 +527,7 @@ ipa_profile (void)
 	      cumulated_size += histogram[i]->size;
 	    }
 	  fprintf (dump_file, "Determined min count: %" PRId64
-		   " Time:%3.2f%% Size:%3.2f%%\n", 
+		   " Time:%3.2f%% Size:%3.2f%%\n",
 		   (int64_t)threshold,
 		   cumulated_time * 100.0 / overall_time,
 		   cumulated_size * 100.0 / overall_size);

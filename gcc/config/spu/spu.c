@@ -2,7 +2,7 @@
 
    This file is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 3 of the License, or (at your option) 
+   Software Foundation; either version 3 of the License, or (at your option)
    any later version.
 
    This file is distributed in the hope that it will be useful, but WITHOUT
@@ -100,21 +100,21 @@ enum spu_builtin_type_index
   SPU_BTI_U18,
 
   /* These correspond to the standard types */
-  SPU_BTI_INTQI, 
-  SPU_BTI_INTHI, 
-  SPU_BTI_INTSI, 
-  SPU_BTI_INTDI, 
+  SPU_BTI_INTQI,
+  SPU_BTI_INTHI,
+  SPU_BTI_INTSI,
+  SPU_BTI_INTDI,
 
   SPU_BTI_UINTQI,
   SPU_BTI_UINTHI,
   SPU_BTI_UINTSI,
   SPU_BTI_UINTDI,
 
-  SPU_BTI_FLOAT, 
+  SPU_BTI_FLOAT,
   SPU_BTI_DOUBLE,
 
-  SPU_BTI_VOID,   
-  SPU_BTI_PTR,   
+  SPU_BTI_VOID,
+  SPU_BTI_PTR,
 
   SPU_BTI_MAX
 };
@@ -245,7 +245,7 @@ spu_option_override (void)
     str_align_functions = "8";
 
   spu_hint_dist = 8*4 - spu_max_nops*4;
-  if (spu_hint_dist < 0) 
+  if (spu_hint_dist < 0)
     spu_hint_dist = 0;
 
   if (spu_fixed_range_string)
@@ -450,7 +450,7 @@ spu_expand_extv (rtx ops[], int unsignedp)
       else
 	emit_move_insn (s0, src);
     }
-  else 
+  else
     {
       gcc_assert (REG_P (src) && GET_MODE (src) == TImode);
       s0 = gen_reg_rtx (TImode);
@@ -872,7 +872,7 @@ spu_emit_branch_or_set (int is_set, rtx cmp, rtx operands[])
 	  || GET_MODE (op0) == HImode
 	  || GET_MODE (op0) == QImode) && scode == SPU_EQ)
     {
-      /* Don't need to set a register with the result when we are 
+      /* Don't need to set a register with the result when we are
          comparing against zero and branching. */
       reverse_test = !reverse_test;
       compare_result = op0;
@@ -1489,7 +1489,7 @@ get_pic_reg (void)
   return cfun->machine->pic_reg;
 }
 
-/* Split constant addresses to handle cases that are too large. 
+/* Split constant addresses to handle cases that are too large.
    Add in the pic register when in PIC mode.
    Split immediates that require more than 1 instruction. */
 int
@@ -1687,30 +1687,30 @@ direct_return (void)
 /*
    The stack frame looks like this:
          +-------------+
-         |  incoming   | 
-         |    args     | 
+         |  incoming   |
+         |    args     |
    AP -> +-------------+
          | $lr save    |
          +-------------+
- prev SP | back chain  | 
+ prev SP | back chain  |
          +-------------+
-         |  var args   | 
+         |  var args   |
          |  reg save   | crtl->args.pretend_args_size bytes
          +-------------+
-         |    ...      | 
+         |    ...      |
          | saved regs  | spu_saved_regs_size() bytes
    FP -> +-------------+
-         |    ...      | 
+         |    ...      |
          |   vars      | get_frame_size()  bytes
   HFP -> +-------------+
-         |    ...      | 
-         |  outgoing   | 
+         |    ...      |
+         |  outgoing   |
          |    args     | crtl->outgoing_args_size bytes
          +-------------+
          | $lr of next |
-         |   frame     | 
+         |   frame     |
          +-------------+
-         | back chain  | 
+         | back chain  |
    SP -> +-------------+
 
 */
@@ -1923,7 +1923,7 @@ spu_const (machine_mode mode, HOST_WIDE_INT val)
 
   if (GET_MODE_CLASS (mode) == MODE_VECTOR_INT)
     inner = immed_double_const (val, 0, GET_MODE_INNER (mode));
-  else 
+  else
     inner = hwint_to_const_double (GET_MODE_INNER (mode), val);
 
   return gen_const_vec_duplicate (mode, inner);
@@ -2267,7 +2267,7 @@ insn_clobbers_hbr (rtx_insn *insn)
    - at a call or indirect branch, after the first 15 insns, force it to
      an even address and return
    - at any unconditional branch, after the first 15 insns, force it to
-     an even address. 
+     an even address.
    At then end of the search, insert an hbrp within 4 insns of FIRST,
    and an hbrp within 16 instructions of FIRST.
  */
@@ -2295,7 +2295,7 @@ insert_hbrp_for_ilb_runout (rtx_insn *first)
 
 	if (INSN_CODE (insn) == CODE_FOR_hbr)
 	  {
-	    /* Make sure an hbrp is at least 2 cycles away from a hint. 
+	    /* Make sure an hbrp is at least 2 cycles away from a hint.
 	       Insert an lnop after the hbrp when necessary. */
 	    if (before_4 == 0 && addr > 0)
 	      {
@@ -2492,7 +2492,7 @@ spu_machine_dependent_reorg (void)
       /* Search from end of a block to beginning.   In this loop, find
          jumps which need a branch and emit them only when:
          - it's an indirect branch and we're at the insn which sets
-         the register  
+         the register
          - we're at an insn that will invalidate the hint. e.g., a
          call, another hint insn, inline asm that clobbers $hbr, and
          some inlined operations (divmodsi4).  Don't consider jumps
@@ -2842,7 +2842,7 @@ spu_sched_variable_issue (FILE *file ATTRIBUTE_UNUSED,
 	prev_priority = INSN_PRIORITY (insn);
     }
 
-  /* Always try issuing more insns.  spu_sched_reorder will decide 
+  /* Always try issuing more insns.  spu_sched_reorder will decide
      when the cycle should be advanced. */
   return 1;
 }
@@ -3119,7 +3119,7 @@ cpat_info(unsigned char *arr, int size, int *prun, int *pstart)
   start = -1;
   for (i = 0; i < size && cpat; i++)
     if (arr[i] != i+16)
-      { 
+      {
 	if (!run)
 	  {
 	    start = i;
@@ -3920,7 +3920,7 @@ spu_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
         {
             void *__args __attribute__((__aligned(16)));
             void *__skip __attribute__((__aligned(16)));
-            
+
         } va_list[1];
 
    where __args points to the arg that will be returned by the next
@@ -4014,14 +4014,14 @@ spu_va_start (tree valist, rtx nextarg)
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 }
 
-/* Gimplify va_arg by updating the va_list structure 
+/* Gimplify va_arg by updating the va_list structure
    VALIST as required to retrieve an argument of type
-   TYPE, and returning that argument. 
-   
+   TYPE, and returning that argument.
+
    ret = va_arg(VALIST, TYPE);
 
    generates code equivalent to:
-   
+
     paddedsize = (sizeof(TYPE) + 15) & -16;
     if (VALIST.__args + paddedsize > VALIST.__skip
 	&& VALIST.__args <= VALIST.__skip)
@@ -4156,7 +4156,7 @@ spu_encode_section_info (tree decl, rtx rtl, int first)
 
 /* Return TRUE if we are certain the mem refers to a complete object
    which is both 16-byte aligned and padded to a 16-byte boundary.  This
-   would make it safe to store with a single instruction. 
+   would make it safe to store with a single instruction.
    We guarantee the alignment and padding for static objects by aligning
    all of them to 16-bytes. (DATA_ALIGNMENT and TARGET_CONSTANT_ALIGNMENT.)
    FIXME: We currently cannot guarantee this for objects on the stack
@@ -4538,7 +4538,7 @@ spu_convert_move (rtx dst, rtx src)
 }
 
 /* Load TImode values into DST0 and DST1 (when it is non-NULL) using
-   the address from SRC and SRC+16.  Return a REG or CONST_INT that 
+   the address from SRC and SRC+16.  Return a REG or CONST_INT that
    specifies how many bytes to rotate the loaded registers, plus any
    extra from EXTRA_ROTQBY.  The address and rotate amounts are
    normalized to improve merging of loads and rotate computations. */
@@ -4902,16 +4902,16 @@ fix_range (const char *const_str)
 {
   int i, first, last;
   char *str, *dash, *comma;
-  
+
   /* str must be of the form REG1'-'REG2{,REG1'-'REG} where REG1 and
      REG2 are either register names or register numbers.  The effect
      of this option is to mark the registers in the range from REG1 to
      REG2 as ``fixed'' so they won't be used by the compiler.  */
-  
+
   i = strlen (const_str);
   str = (char *) alloca (i + 1);
   memcpy (str, const_str, i + 1);
-  
+
   while (1)
     {
       dash = strchr (str, '-');
@@ -4924,29 +4924,29 @@ fix_range (const char *const_str)
       comma = strchr (dash + 1, ',');
       if (comma)
 	*comma = '\0';
-      
+
       first = decode_reg_name (str);
       if (first < 0)
 	{
 	  warning (0, "unknown register name: %s", str);
 	  return;
 	}
-      
+
       last = decode_reg_name (dash + 1);
       if (last < 0)
 	{
 	  warning (0, "unknown register name: %s", dash + 1);
 	  return;
 	}
-      
+
       *dash = '-';
-      
+
       if (first > last)
 	{
 	  warning (0, "%s-%s is an empty range", str, dash + 1);
 	  return;
 	}
-      
+
       for (i = first; i <= last; ++i)
 	fixed_regs[i] = call_used_regs[i] = 1;
 
@@ -5202,7 +5202,7 @@ reloc_diagnostic (rtx x)
 	error_at (loc,
 		  "creating run-time relocation for %qD", decl);
     }
-  else 
+  else
     {
       if (TARGET_WARN_RELOC)
 	warning_at (input_location, 0, "creating run-time relocation");
@@ -5246,7 +5246,7 @@ spu_rtx_costs (rtx x, machine_mode mode, int outer_code ATTRIBUTE_UNUSED,
      be only a small savings in cycles.  We'd like to use a CONST_VECTOR
      only if it allows us to fold away multiple insns.  Changing the cost
      of a CONST_VECTOR here (or in CONST_COSTS) doesn't help though
-     because this cost will only be compared against a single insn. 
+     because this cost will only be compared against a single insn.
      if (code == CONST_VECTOR)
        return spu_legitimate_constant_p (mode, x) ? cost : COSTS_N_INSNS (6);
    */
@@ -5523,10 +5523,10 @@ static GTY(()) tree spu_builtin_decls[NUM_SPU_BUILTINS];
 
 static tree
 spu_builtin_decl (unsigned code, bool initialize_p ATTRIBUTE_UNUSED)
-{           
+{
   if (code >= NUM_SPU_BUILTINS)
     return error_mark_node;
-          
+
   return spu_builtin_decls[code];
 }
 
@@ -5608,7 +5608,7 @@ spu_init_builtins (void)
       spu_builtin_decls[i] =
 	add_builtin_function (name, p, i, BUILT_IN_MD, NULL, NULL_TREE);
       if (d->fcode == SPU_MASK_FOR_LOAD)
-	TREE_READONLY (spu_builtin_decls[i]) = 1;	
+	TREE_READONLY (spu_builtin_decls[i]) = 1;
 
       /* These builtins don't throw.  */
       TREE_NOTHROW (spu_builtin_decls[i]) = 1;
@@ -5979,7 +5979,7 @@ spu_expand_vector_init (rtx target, rtx vals)
   rtx first, x = NULL_RTX, first_constant = NULL_RTX;
   int i;
 
-  first = XVECEXP (vals, 0, 0); 
+  first = XVECEXP (vals, 0, 0);
   for (i = 0; i < n_elts; ++i)
     {
       x = XVECEXP (vals, 0, i);
@@ -6293,11 +6293,11 @@ spu_emit_vector_compare (enum rtx_code rcode,
 int
 spu_emit_vector_cond_expr (rtx dest, rtx op1, rtx op2,
                            rtx cond, rtx cc_op0, rtx cc_op1)
-{   
+{
   machine_mode dest_mode = GET_MODE (dest);
   enum rtx_code rcode = GET_CODE (cond);
   rtx mask;
-    
+
   /* Get the vector mask for the given relational operations.  */
   mask = spu_emit_vector_compare (rcode, cc_op0, cc_op1, dest_mode);
 
@@ -6479,11 +6479,11 @@ spu_expand_builtin_1 (struct spu_builtin_description *d,
       op = gen_rtx_MEM (mode, op);
 
       pat = GEN_FCN (icode) (target, op);
-      if (!pat) 
+      if (!pat)
         return 0;
       emit_insn (pat);
       return target;
-    }   
+    }
 
   /* Ignore align_hint, but still expand it's args in case they have
      side effects. */
@@ -6611,7 +6611,7 @@ spu_builtin_mask_for_load (void)
 }
 
 /* Implement targetm.vectorize.builtin_vectorization_cost.  */
-static int 
+static int
 spu_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
                                 tree vectype,
                                 int misalign ATTRIBUTE_UNUSED)
@@ -6973,7 +6973,7 @@ spu_gen_exp2 (machine_mode mode, rtx scale)
       emit_insn (gen_spu_splats (mul, gen_rtx_SUBREG (GET_MODE_INNER (mode), exp, 0)));
       return mul;
     }
-  else 
+  else
     {
       HOST_WIDE_INT exp = 127 + INTVAL (scale);
       unsigned char arr[16];

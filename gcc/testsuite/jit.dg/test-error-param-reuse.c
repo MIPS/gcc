@@ -45,4 +45,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 		       " is used more than once when creating function"
 		       " fn"))
 }
-

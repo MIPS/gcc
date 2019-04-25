@@ -33,7 +33,7 @@ TEST (void)
 
   s1.x = _mm_set_ps (5.13, 6.12, 7.11, 8.9);
   u.x = _mm_loadu_ps (e);
- 
+
   u.x = test (s1.x, (__m64 *)d);
 
 

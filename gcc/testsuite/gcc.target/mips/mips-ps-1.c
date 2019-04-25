@@ -27,19 +27,19 @@ v2sf load ()
   return A;
 }
 
-/* Store to memory */ 
+/* Store to memory */
 void store (v2sf a)
 {
   A = a;
 }
 
-/* Add */ 
+/* Add */
 v2sf add (v2sf a, v2sf b)
 {
   return a + b;
 }
 
-/* Subtract */ 
+/* Subtract */
 v2sf sub (v2sf a, v2sf b)
 {
   return a - b;
@@ -51,37 +51,37 @@ v2sf neg (v2sf a)
   return - a;
 }
 
-/* Multiply */ 
+/* Multiply */
 v2sf mul (v2sf a, v2sf b)
 {
   return a * b;
 }
 
-/* Multiply and add */ 
+/* Multiply and add */
 v2sf madd (v2sf a, v2sf b, v2sf c)
 {
   return a * b + c;
 }
 
-/* Multiply and subtract */ 
+/* Multiply and subtract */
 v2sf msub (v2sf a, v2sf b, v2sf c)
 {
   return a * b - c;
 }
 
-/* Negate Multiply and add */ 
+/* Negate Multiply and add */
 v2sf nmadd (v2sf a, v2sf b, v2sf c)
 {
   return - (a * b + c);
 }
 
-/* Negate Multiply and subtract */ 
+/* Negate Multiply and subtract */
 v2sf nmsub (v2sf a, v2sf b, v2sf c)
 {
   return - (a * b - c);
 }
 
-/* Conditional Move */ 
+/* Conditional Move */
 v2sf cond_move1 (v2sf a, v2sf b, long i)
 {
   if (i > 0)
@@ -90,7 +90,7 @@ v2sf cond_move1 (v2sf a, v2sf b, long i)
     return b;
 }
 
-/* Conditional Move */ 
+/* Conditional Move */
 v2sf cond_move2 (v2sf a, v2sf b, int i)
 {
   if (i > 0)
@@ -99,7 +99,7 @@ v2sf cond_move2 (v2sf a, v2sf b, int i)
     return b;
 }
 
-/* Conditional Move */ 
+/* Conditional Move */
 v2sf cond_move3 (v2sf a, v2sf b, float i)
 {
   if (i > 0.0)
@@ -108,7 +108,7 @@ v2sf cond_move3 (v2sf a, v2sf b, float i)
     return b;
 }
 
-/* Conditional Move */ 
+/* Conditional Move */
 v2sf cond_move4 (v2sf a, v2sf b, double i)
 {
   if (i > 0.0)

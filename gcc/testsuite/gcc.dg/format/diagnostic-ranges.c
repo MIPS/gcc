@@ -48,7 +48,7 @@ void test_multiple_arguments (void)
                              char *
                             %d
            100, 101, 102);
-                ~~~           
+                ~~~
                 |
                 int
    { dg-end-multiline-output "" } */
@@ -65,7 +65,7 @@ void test_multiple_arguments_2 (int i, int j)
                              char *
                             %d
            100, i + j, 102);
-                ~~~~~         
+                ~~~~~
                   |
                   int
    { dg-end-multiline-output "" } */

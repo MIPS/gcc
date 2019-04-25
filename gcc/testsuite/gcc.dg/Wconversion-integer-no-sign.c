@@ -85,12 +85,10 @@ void h (int x)
   uc = sc;  /* Warned by -Wsign-conversion.  */
   fsi (ui); /* Warned by -Wsign-conversion.  */
   si = ui;  /* Warned by -Wsign-conversion.  */
-  fui (si); /* Warned by -Wsign-conversion.  */ 
-  ui = si;  /* Warned by -Wsign-conversion.  */ 
+  fui (si); /* Warned by -Wsign-conversion.  */
+  ui = si;  /* Warned by -Wsign-conversion.  */
   fui (sc); /* Warned by -Wsign-conversion.  */
   ui = sc;  /* Warned by -Wsign-conversion.  */
 }
 
 unsigned fui (unsigned a) { return a + -1; } /* Warned by -Wsign-conversion.  */
-
-

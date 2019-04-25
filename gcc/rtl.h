@@ -4406,12 +4406,12 @@ word_register_operation_p (const_rtx x)
     case SIGN_EXTRACT:
     case ZERO_EXTRACT:
       return false;
-    
+
     default:
       return true;
     }
 }
-    
+
 /* gtype-desc.c.  */
 extern void gt_ggc_mx (rtx &);
 extern void gt_pch_nx (rtx &);

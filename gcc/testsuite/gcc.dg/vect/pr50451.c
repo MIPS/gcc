@@ -13,5 +13,3 @@ foo (int integral, int decimal, int power_ten)
 
   return integral+decimal;
 }
-
-

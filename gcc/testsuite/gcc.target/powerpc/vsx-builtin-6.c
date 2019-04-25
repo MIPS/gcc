@@ -23,7 +23,7 @@ int *test_div_df_2 (double a, double b, int *p)
 {
   if (__builtin_vsx_xstdivdp_fe (a, b))
     *p++ = 1;
-  
+
   return p;
 }
 

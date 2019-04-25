@@ -677,4 +677,3 @@ VAX operand formatting codes:
    actually have any code whatsoever for which this isn't overridden
    by the proper FDE definition.  */
 #define INCOMING_RETURN_ADDR_RTX gen_rtx_REG (Pmode, PC_REGNUM)
-

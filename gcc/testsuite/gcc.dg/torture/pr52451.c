@@ -54,6 +54,6 @@ main (void)
      in fenv.h do not support it.  */
   TEST (long double, l);
 #endif
-  
+
   return 0;
 }

@@ -48,4 +48,3 @@ struct LoadGraph
 
 LoadGraph::LoadGraph (int)
 {}
-

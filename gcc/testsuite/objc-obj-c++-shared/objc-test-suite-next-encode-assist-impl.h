@@ -597,7 +597,7 @@ objc_layout_structure_next_member (struct objc_struct_layout *layout)
     {
       int bfld_size = atoi (++type);
       int int_align = __alignof__ (int) * BITS_PER_UNIT;
-      /* If this bitfield would traverse a word alignment boundary, push it out 
+      /* If this bitfield would traverse a word alignment boundary, push it out
 	 to that boundary instead.  */
       if (layout->record_size % int_align
 	  && (layout->record_size / int_align

@@ -163,4 +163,3 @@ test_sll_vuill_vuill_vuc (vector unsigned long long int x,
 /* { dg-final { scan-assembler-times "vslo"      4 } } */
 /* { dg-final { scan-assembler-times "xxlor"     30 } } */
 /* { dg-final { scan-assembler-times {\mvsl\M}   5 } } */
-

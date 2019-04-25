@@ -2544,5 +2544,3 @@ make_pass_lower_switch (gcc::context *ctxt)
 {
   return new pass_lower_switch<false> (ctxt);
 }
-
-

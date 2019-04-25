@@ -19,7 +19,7 @@ int foo (int n, int m, int r, int t)
 
       if (m)
         g++;
-      else 
+      else
         bar();
 
       if (flag)  /* properly  guarded */
@@ -33,7 +33,7 @@ int foo (int n, int m, int r, int t)
 
   if (m)
     g++;
-  else 
+  else
     bar();
 
   if (flag)  /* properly guarded */

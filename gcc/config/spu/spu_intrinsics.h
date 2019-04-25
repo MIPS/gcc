@@ -3,7 +3,7 @@
 
    This file is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 3 of the License, or (at your option) 
+   Software Foundation; either version 3 of the License, or (at your option)
    any later version.
 
    This file is distributed in the hope that it will be useful, but WITHOUT
@@ -21,8 +21,8 @@
    <http://www.gnu.org/licenses/>.  */
 
 #ifndef  _SPU_INTRINSICS_H
-#define _SPU_INTRINSICS_H 
- 
+#define _SPU_INTRINSICS_H
+
 #define vec_uchar16             __vector unsigned char
 #define vec_char16              __vector   signed char
 #define vec_ushort8             __vector unsigned short
@@ -34,7 +34,7 @@
 #define vec_float4              __vector          float
 #define vec_double2             __vector          double
 
-/* SPU Channel Defines 
+/* SPU Channel Defines
  */
 #define SPU_RdEventStat		 0
 #define SPU_WrEventMask		 1
@@ -47,26 +47,26 @@
 #define SPU_RdMachStat		13
 #define SPU_WrSRR0		14
 #define SPU_RdSRR0		15
-#define SPU_WrOutMbox		28 
-#define SPU_RdInMbox		29 
-#define SPU_WrOutIntrMbox	30 
+#define SPU_WrOutMbox		28
+#define SPU_RdInMbox		29
+#define SPU_WrOutIntrMbox	30
 
-/* MFC Channel Defines. 
+/* MFC Channel Defines.
  */
 #define MFC_WrMSSyncReq		 9
 #define MFC_RdTagMask		12
-#define MFC_LSA			16 
-#define MFC_EAH			17 
-#define MFC_EAL			18 
-#define MFC_Size		19 
-#define MFC_TagID		20 
-#define MFC_Cmd			21 
-#define MFC_WrTagMask		22 
-#define MFC_WrTagUpdate		23 
-#define MFC_RdTagStat		24 
-#define MFC_RdListStallStat	25 
-#define MFC_WrListStallAck	26 
-#define MFC_RdAtomicStat	27 
+#define MFC_LSA			16
+#define MFC_EAH			17
+#define MFC_EAL			18
+#define MFC_Size		19
+#define MFC_TagID		20
+#define MFC_Cmd			21
+#define MFC_WrTagMask		22
+#define MFC_WrTagUpdate		23
+#define MFC_RdTagStat		24
+#define MFC_RdListStallStat	25
+#define MFC_WrListStallAck	26
+#define MFC_RdAtomicStat	27
 
 /* Bit flag mnemonics for test special value.
  */

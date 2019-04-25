@@ -42,4 +42,3 @@ build_function_call_vec (tree function)
 {
   return convert_arguments (function);
 }
-

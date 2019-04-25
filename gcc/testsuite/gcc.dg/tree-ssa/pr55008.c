@@ -14,4 +14,3 @@ void f(void)
         if(b - (a = b /= 0) ? : (a + b))
             while(1);
 }
-

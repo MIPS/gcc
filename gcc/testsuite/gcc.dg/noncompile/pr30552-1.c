@@ -1,7 +1,7 @@
 /* PR c/30552 */
 
-/* Statement expression as formal array argument size in nested old-style 
-   function declaration should generate user error, not internal compiler 
+/* Statement expression as formal array argument size in nested old-style
+   function declaration should generate user error, not internal compiler
    error.  */
 
 /* { dg-do compile } */

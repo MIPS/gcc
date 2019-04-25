@@ -37,7 +37,7 @@ testfunc1 ()
   foo_cd (ld); /* { dg-warning "as complex rather than floating" "prototype conversion warning" } */
   foo_cd (cd);
 }
-  
+
 # 54 "sys-header.h" 3
 /* We are in system headers now, no -Wtraditional warnings should issue.  */
 

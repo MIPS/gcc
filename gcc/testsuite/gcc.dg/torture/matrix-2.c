@@ -64,7 +64,7 @@ mem_init (void)
 {
 
   int i, j, k,d;
- 
+
   d = 0;
   vel = (int ***) malloc (ARCHnodes * sizeof (int **));
 

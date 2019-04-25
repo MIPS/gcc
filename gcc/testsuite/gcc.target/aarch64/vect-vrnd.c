@@ -113,4 +113,3 @@ main (int argc, char **argv)
   BUILD_VARIANTS (x, rint)
   return 0;
 }
-

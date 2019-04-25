@@ -8,7 +8,7 @@
 /* This used to fail on 32-bit Ultrasparc because reload was emitting
    a move insn that doesn't satisfy its constraints.  */
 
-int n; 
+int n;
 double range ;
 double bin ;
 double wmean;

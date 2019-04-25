@@ -32,4 +32,3 @@ pass_v2di (v2di_type arg, v2di_type *ptr)
      refers to an aligned vector and replaces this with stvx 2,0,5.  */
   *ptr = arg;
 }
-

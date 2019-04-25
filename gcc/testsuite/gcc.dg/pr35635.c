@@ -63,7 +63,7 @@ void func3()
      warn.  */
   uchar_x = bar != 0 ? 2.1 : 10; /* { dg-warning "conversion" } */
   uchar_x = bar != 0  /* { dg-warning "-Wsign-conversion" } */
-    ? (unsigned char) 1024 
+    ? (unsigned char) 1024
     : -1;
 }
 
@@ -73,7 +73,7 @@ void func4()
   signed_bit.x = bar != 0 ? -1.0 : 0.0;  /* { dg-bogus "conversion" } */
   signed_bit.x = bar != 0 ? -1 : 0; /* { dg-bogus "conversion" } */
 
-  
+
   signed_bit.x = 1;          /* { dg-warning "conversion" } */
   signed_bit.x = (bar != 0); /* { dg-warning "conversion" } */
   signed_bit.x = (bar == 0); /* { dg-warning "conversion" } */
@@ -87,4 +87,3 @@ void func4()
   signed_bit.x = bar != 0 ? 1 : 0; /* { dg-warning "conversion" } */
   signed_bit.x = bar != 0 ? 2 : 0; /* { dg-warning "conversion" } */
 }
-

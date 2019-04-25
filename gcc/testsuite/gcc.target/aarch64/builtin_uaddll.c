@@ -15,4 +15,3 @@ unsigned long long overflow_add (unsigned long long x, unsigned long long y)
 }
 
 /* { dg-final { scan-assembler "adds" } } */
-

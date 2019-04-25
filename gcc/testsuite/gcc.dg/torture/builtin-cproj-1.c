@@ -215,12 +215,12 @@ void foo (_Complex long double cld, _Complex double cd, _Complex float cf,
   TEST_CST_INF (INF-I*INF, -0.FI);
   TEST_CST_INF (-INF+I*INF, 0);
   TEST_CST_INF (-INF-I*INF, -0.FI);
-  
+
   TEST_CST (0);
   TEST_CST (-0.F);
   TEST_CST (0-0.FI);
   TEST_CST (-0.F-0.FI);
-  
+
   TEST_CST (22+3I);
   TEST_CST (22-3I);
   TEST_CST (-22+3I);
@@ -232,7 +232,7 @@ void foo (_Complex long double cld, _Complex double cd, _Complex float cf,
 #ifdef __OPTIMIZE__
   TEST_REAL_INF( );
   TEST_REAL_INF(-);
-  
+
   TEST_IMAG_INF_SIDE_EFFECT (,0.FI);
   TEST_IMAG_INF_SIDE_EFFECT (-,-0.FI);
 

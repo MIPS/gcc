@@ -10,4 +10,3 @@ x
 );
 
 /* { dg-final { scan-file cmdlne-C3.i "\\\*\\\/ x \\\/\\\*" } } */
-

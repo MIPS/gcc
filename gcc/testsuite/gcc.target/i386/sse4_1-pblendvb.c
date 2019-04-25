@@ -21,7 +21,7 @@ static void
 init_pblendvb (unsigned char *src1, unsigned char *src2,
 	       unsigned char *mask)
 {
-  int i, sign = 1; 
+  int i, sign = 1;
 
   for (i = 0; i < NUM * 16; i++)
     {

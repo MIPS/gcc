@@ -20,4 +20,3 @@ int test (int param)
 
 /* { dg-final { scan-tree-dump-times "return 2" 1 "optimized" } } */
 /* { dg-final { scan-tree-dump-times "return 5" 0 "optimized" } } */
-

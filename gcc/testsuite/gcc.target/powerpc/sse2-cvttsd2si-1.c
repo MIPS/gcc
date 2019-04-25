@@ -14,12 +14,12 @@
 
 #include <emmintrin.h>
 
-static int 
+static int
 __attribute__((noinline, unused))
 test (__m128d p)
 {
   __asm("" : "+v"(p));
-  return _mm_cvttsd_si32 (p); 
+  return _mm_cvttsd_si32 (p);
 }
 
 static void

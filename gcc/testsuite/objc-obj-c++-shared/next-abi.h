@@ -40,17 +40,17 @@ along with GCC; see the file COPYING3.  If not see
 #ifdef __NEXT_RUNTIME__
 #  if (__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ >= 1050 || __OBJC2__)
     /* We have to use an updated interface for 32bit NeXT to avoid
-     * 'deprecated' warnings. 
+     * 'deprecated' warnings.
      * For 64bit NeXT the ABI is different (and the interfaces 'deprecated'
      * for 32bit have been removed).
     */
 #    define NEXT_OBJC_USE_NEW_INTERFACE 1
 #    if __OBJC2__ || __LP64__
-       /* We have OBJC v2 ABI compiler, 
+       /* We have OBJC v2 ABI compiler,
           (or, at least, the available NeXT runtime requires one) */
 #      define NEXT_OBJC_ABI_VERSION 2
 #    else
-       /* We leave it open to define ABI 1 if and when we implement those 
+       /* We leave it open to define ABI 1 if and when we implement those
         * extensions.
        */
 #      define NEXT_OBJC_ABI_VERSION 0

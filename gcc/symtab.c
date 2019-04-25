@@ -330,7 +330,7 @@ symbol_table::change_decl_assembler_name (tree decl, tree name)
 			      && IDENTIFIER_TRANSPARENT_ALIAS
 				     (DECL_ASSEMBLER_NAME (alias->decl)));
 
-		  TREE_CHAIN (DECL_ASSEMBLER_NAME (alias->decl)) = 
+		  TREE_CHAIN (DECL_ASSEMBLER_NAME (alias->decl)) =
 		    ultimate_transparent_alias_target
 			 (DECL_ASSEMBLER_NAME (node->decl));
 		}
@@ -898,7 +898,7 @@ symtab_node::dump_base (FILE *f)
 	fprintf (f, " destructor");
     }
   fprintf (f, "\n");
-  
+
   if (same_comdat_group)
     fprintf (f, "  Same comdat group as: %s\n",
 	     same_comdat_group->dump_asm_name ());
@@ -1019,7 +1019,7 @@ symtab_node::verify_base (void)
       error ("node has unknown type");
       error_found = true;
     }
-   
+
   if (symtab->state != LTO_STREAMING)
     {
       hashed_node = symtab_node::get (decl);
@@ -1934,7 +1934,7 @@ symtab_node::nonzero_address ()
 	     target is used only via the alias.
 	     We may walk references and look for strong use, but we do not know
 	     if this strong use will survive to final binary, so be
-	     conservative here.  
+	     conservative here.
 	     ??? Maybe we could do the lookup during late optimization that
 	     could be useful to eliminate the NULL pointer checks in LTO
 	     programs.  */
@@ -1989,7 +1989,7 @@ symtab_node::nonzero_address ()
 
 /* Return 0 if symbol is known to have different address than S2,
    Return 1 if symbol is known to have same address as S2,
-   return -1 otherwise.  
+   return -1 otherwise.
 
    If MEMORY_ACCESSED is true, assume that both memory pointer to THIS
    and S2 is going to be accessed.  This eliminates the situations when
@@ -2064,7 +2064,7 @@ symtab_node::equal_address_to (symtab_node *s2, bool memory_accessed)
 
   /* If we have a non-interposale definition of at least one of the symbols
      and the other symbol is different, we know other unit cannot interpose
-     it to the first symbol; all aliases of the definition needs to be 
+     it to the first symbol; all aliases of the definition needs to be
      present in the current unit.  */
   if (((really_binds_local1 || really_binds_local2)
       /* If we have both definitions and they are different, we know they
@@ -2244,7 +2244,7 @@ symtab_node::definition_alignment ()
 
 /* Return symbol used to separate symbol name from suffix.  */
 
-char 
+char
 symbol_table::symbol_suffix_separator ()
 {
 #ifndef NO_DOT_IN_LABEL

@@ -20,7 +20,7 @@ static __m128i
 __attribute__((noinline, unused))
 test (__m128i s1)
 {
-  return _mm_srli_epi32 (s1, N); 
+  return _mm_srli_epi32 (s1, N);
 }
 
 static void
@@ -30,7 +30,7 @@ TEST (void)
   int e[4] = {0};
   unsigned int tmp;
   int i;
- 
+
   s.x = _mm_set_epi32 (1, -2, 3, 4);
 
   u.x = test (s.x);
@@ -38,9 +38,9 @@ TEST (void)
   if (N < 32)
     for (i = 0; i < 4; i++) {
       tmp  = s.a[i];
-      e[i] = tmp >> N; 
+      e[i] = tmp >> N;
     }
 
   if (check_union128i_d (u, e))
-    abort (); 
+    abort ();
 }

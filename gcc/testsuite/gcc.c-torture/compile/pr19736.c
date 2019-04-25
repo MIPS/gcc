@@ -18,4 +18,3 @@ void sdbout_one_type (char *p)
     q = "3";
   strcpy (p, q);
 }
-

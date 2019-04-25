@@ -14,4 +14,3 @@ int f(_Bool x)
 /* There should be no == 0.  Though PHI-OPT or invert_truth does not
    fold its tree forwprop is able to clean up the mess.  */
 /* { dg-final { scan-tree-dump-times "== 0" 0 "optimized" } } */
-

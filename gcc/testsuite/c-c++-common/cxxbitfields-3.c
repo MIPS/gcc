@@ -5,7 +5,7 @@
    but instead use an SI.  */
 
 struct S
-{ 
+{
   volatile int i: 4;
   volatile int j: 4;
   volatile int k: 8;
@@ -14,7 +14,7 @@ struct S
 } var;
 
 void setit()
-{ 
+{
   var.j = 5;
 }
 

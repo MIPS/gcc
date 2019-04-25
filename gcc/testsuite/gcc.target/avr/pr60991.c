@@ -1,7 +1,7 @@
 /* { dg-do run } */
 /* { dg-options "-O1" } */
 
-/* This testcase (simplified from the original bug report) exposes 
+/* This testcase (simplified from the original bug report) exposes
    PR60991. The code generated for writing the __int24 value corrupts
    the frame pointer if the offset is <= 63 + MAX_LD_OFFSET */
 

@@ -714,7 +714,7 @@ msp430_mcu_data [] =
   { "rf430frl153h_rom",0,0 },
   { "rf430frl154h",0,0 },
   { "rf430frl154h_rom",0,0 }
-};  
+};
 
 /* Generate a C preprocessor symbol based upon the MCU selected by the user.
    If a specific MCU has not been selected then return a generic symbol instead.  */
@@ -792,7 +792,7 @@ msp430_option_override (void)
       for (i = ARRAY_SIZE (msp430_mcu_data); i--;)
 	if (strcasecmp (msp430_mcu_data[i].name, target_mcu) == 0)
 	  {
-	    bool xisa = msp430_mcu_data[i].revision >= 1; 
+	    bool xisa = msp430_mcu_data[i].revision >= 1;
 
 	    if (msp430_warn_mcu)
 	      {
@@ -1988,7 +1988,7 @@ msp430_attr (tree * node,
       warning (OPT_Wattributes, message, name);
       * no_add_attrs = true;
     }
-    
+
   return NULL_TREE;
 }
 
@@ -2035,7 +2035,7 @@ msp430_section_attr (tree * node,
       warning (OPT_Wattributes, message, name);
       * no_add_attrs = true;
     }
-    
+
   return NULL_TREE;
 }
 
@@ -2081,7 +2081,7 @@ msp430_data_attr (tree * node,
       warning (OPT_Wattributes, message, name);
       * no_add_attrs = true;
     }
-    
+
   return NULL_TREE;
 }
 
@@ -2327,7 +2327,7 @@ msp430_select_section (tree decl, int reloc, unsigned HOST_WIDE_INT align)
       || TREE_CODE (decl) == VECTOR_CST
       || TREE_CODE (decl) == COMPLEX_CST)
     return default_select_section (decl, reloc, align);
-  
+
   /* In large mode we must make sure that interrupt handlers are put into
      low memory as the vector table only accepts 16-bit addresses.  */
   if (TARGET_LARGE && TREE_CODE (decl) == FUNCTION_DECL && is_interrupt_func (decl))
@@ -2345,7 +2345,7 @@ msp430_select_section (tree decl, int reloc, unsigned HOST_WIDE_INT align)
       else
 	return default_select_section (decl, reloc, align);
     }
-  
+
   const char * sec;
   switch (categorize_decl_for_section (decl, reloc))
     {
@@ -2371,7 +2371,7 @@ msp430_select_section (tree decl, int reloc, unsigned HOST_WIDE_INT align)
     default:
       gcc_unreachable ();
     }
-  
+
   const char * dec_name = DECL_SECTION_NAME (decl);
   char * name = ACONCAT ((prefix, sec, dec_name, NULL));
 
@@ -2414,7 +2414,7 @@ msp430_section_type_flags (tree decl, const char * name, int reloc)
     return SECTION_WRITE | SECTION_BSS | SECTION_NOTYPE;
   else if (strcmp (name, ".persistent") == 0)
     return SECTION_WRITE | SECTION_NOTYPE;
-  
+
   return default_section_type_flags (decl, name, reloc);
 }
 
@@ -3754,7 +3754,7 @@ msp430_print_operand (FILE * file, rtx op, int letter)
 	      msp430_print_operand_raw (file, XEXP (op, 0));
 	      fprintf (file, ")");
 	      break;
-	  
+
 	    case 16:
 	      fprintf (file, "#hi (");
 	      msp430_print_operand_raw (file, XEXP (op, 0));

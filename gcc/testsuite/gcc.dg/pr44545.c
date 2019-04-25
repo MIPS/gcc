@@ -2,7 +2,7 @@
 /* { dg-options "-O2 -fnon-call-exceptions -ftrapv -fexceptions" } */
 /* { dg-require-effective-target exceptions } */
 void
-DrawChunk(int *tabSize, int x) 
+DrawChunk(int *tabSize, int x)
 {
   const int numEnds = 10;
   int ends[numEnds + 2];
@@ -11,4 +11,3 @@ DrawChunk(int *tabSize, int x)
       x = (x + *tabSize) / *tabSize;
   }
 }
-

@@ -10,7 +10,7 @@
 #include "avx512f-mask-type.h"
 #define SIZE_HALF (AVX512F_LEN_HALF / 16)
 
-void 
+void
 CALC (short *r, int *s, int mem)
 {
   int i;

@@ -36,4 +36,3 @@ testd_cst (vector double vd2)
 {
   return vec_extract (vd2, 1);
 }
-

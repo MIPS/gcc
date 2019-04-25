@@ -15,23 +15,23 @@ __attribute__ ((noinline)) int main1 ()
   /* int -> double */
   for (i = 0; i < N; i++)
     {
-      da[i] = (double) ib[i];	
+      da[i] = (double) ib[i];
     }
 
   /* check results:  */
   for (i = 0; i < N; i++)
     {
-      if (da[i] != (double) ib[i]) 
-        abort (); 
-    }   
+      if (da[i] != (double) ib[i])
+        abort ();
+    }
 
   return 0;
 }
 
 int main (void)
-{ 
+{
   check_vect ();
-  
+
   return main1 ();
 }
 

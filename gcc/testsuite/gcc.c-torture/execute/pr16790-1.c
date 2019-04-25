@@ -38,4 +38,3 @@ int main()
   test2(0x4000U);
   return 0;
 }
-

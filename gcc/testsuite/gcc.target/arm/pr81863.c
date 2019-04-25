@@ -42,4 +42,3 @@ void stress_inorder_work() {
       goto retry;
   } while (b);
 }
-

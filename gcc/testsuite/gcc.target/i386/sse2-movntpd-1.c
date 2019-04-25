@@ -14,11 +14,11 @@
 
 #include <emmintrin.h>
 
-static void 
+static void
 __attribute__((noinline, unused))
 test (double *p, __m128d s)
 {
-  return _mm_stream_pd (p, s); 
+  return _mm_stream_pd (p, s);
 }
 
 static void
@@ -26,10 +26,10 @@ TEST (void)
 {
   union128d u;
   double e[2] __attribute__ ((aligned(16)));
-   
+
   u.x = _mm_set_pd (2134.3343,1234.635654);
-  test (e, u.x); 
-   
+  test (e, u.x);
+
   if (check_union128d (u, e))
     abort ();
 }

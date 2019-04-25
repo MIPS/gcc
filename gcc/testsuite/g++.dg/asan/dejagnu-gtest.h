@@ -13,7 +13,7 @@ struct dejagnu_gtest_test
 {
   const char *name;
   void (*fn) (void);
-  struct dejagnu_gtest_test *next;  
+  struct dejagnu_gtest_test *next;
 };
 struct dejagnu_gtest_test *dejagnu_gtest_test_first, *dejagnu_gtest_test_last;
 int dejagnu_gtest_test_death_num, dejagnu_gtest_test_death_cur_num;

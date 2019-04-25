@@ -12,4 +12,3 @@
 /* { dg-xfail-if "missing initializer" { vxworks_rtp } } */
 
 #include "pthread-init-common.h"
-

@@ -11,7 +11,7 @@ extern int bar (void);
   void bar##x (void) { int a = bar (); if (a == -x) bar (); } \
   void foon##x (void) { int a = bar (); if (a != x) bar (); } \
   void barn##x (void) { int a = bar (); if (a != -x) bar (); } \
-  
+
 
 FOO (1)
 FOO (2)
@@ -22,5 +22,3 @@ FOO (6)
 FOO (7)
 FOO (8)
 FOO (9)
-
-

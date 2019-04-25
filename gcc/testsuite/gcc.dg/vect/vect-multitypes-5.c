@@ -32,8 +32,8 @@ int main1 ()
   /* check results:  */
   for (i = 0; i < N; i++)
     {
-      if (ia[i] != ib[i] + ic[i] 
-	  || sa[i] != sb[i] + sc[i] 
+      if (ia[i] != ib[i] + ic[i]
+	  || sa[i] != sb[i] + sc[i]
 	  || ca[i] != cb[i] + cc[i])
         abort ();
     }
@@ -42,11 +42,10 @@ int main1 ()
 }
 
 int main (void)
-{ 
+{
   check_vect ();
-  
+
   return main1 ();
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail { sparc*-*-* && ilp32 } } } } */
-

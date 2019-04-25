@@ -6,11 +6,11 @@
 #define N 64
 #define MAX 42
 
-extern void abort(void); 
+extern void abort(void);
 
-__attribute__ ((noinline)) 
+__attribute__ ((noinline))
 int main1 ()
-{  
+{
   float A[N] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__)));
   float B[N] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__)));
   float C[N] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__)));

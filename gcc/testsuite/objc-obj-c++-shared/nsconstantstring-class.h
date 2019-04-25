@@ -23,7 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* On full-fledged Mac OS X systems, NSConstantString is provided
    as part of the Foundation framework.  However, on bare Darwin systems,
-   Foundation is not included, and hence there is no NSConstantString 
+   Foundation is not included, and hence there is no NSConstantString
    implementation to link against.
 
    This code is derived from the GNU runtime's NXConstantString implementation.

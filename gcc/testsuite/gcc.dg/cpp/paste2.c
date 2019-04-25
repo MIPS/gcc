@@ -105,7 +105,7 @@ int main ()
     x glue (&, =) 254;		/* 8 */
     x glue (|, =) 16;		/* 24 */
     x glue (^, =) 18;		/* 10 */
-    
+
     if (x != 10 || 0 glue (>, =) 1 glue (|, |) 1 glue (<, =) 0)
       err ("Various operator pasting");
     if (strcmp (hh, "%:%:"))

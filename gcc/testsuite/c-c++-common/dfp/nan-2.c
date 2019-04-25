@@ -11,14 +11,14 @@ int main()
   _Decimal64 d64;
   _Decimal128 d128;
 
-  /* Verify that division by negative zero produces a negative infinity 
+  /* Verify that division by negative zero produces a negative infinity
      result.  */
   d32 = 123.45f;
   if (d32/-0.0df != -__builtin_infd32())
     FAILURE
   if (123.45df/-0.0df != -__builtin_infd32())
     FAILURE
-  
+
   d64 = 123.45f;
   if (d64/-0.0dd != -__builtin_infd64())
     FAILURE

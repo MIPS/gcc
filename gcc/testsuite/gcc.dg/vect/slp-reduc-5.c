@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 128 
+#define N 128
 
 int c[N];
 
@@ -44,4 +44,3 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 2 "vect" { xfail vect_no_int_min_max } } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 1 "vect" { xfail vect_no_int_min_max } } } */
-

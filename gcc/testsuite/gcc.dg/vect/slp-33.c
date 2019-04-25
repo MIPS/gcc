@@ -4,7 +4,7 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 8 
+#define N 8
 
 int
 main1 ()
@@ -34,7 +34,7 @@ main1 ()
       b6 = a6 * 3;
 
       out[i*7] = b0 - 2;
-      out[i*7 + 1] = b1 - 3; 
+      out[i*7 + 1] = b1 - 3;
       out[i*7 + 2] = b2 - 2;
       out[i*7 + 3] = b3 - 1;
       out[i*7 + 4] = b4 - 8;
@@ -108,4 +108,3 @@ int main (void)
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 3 "vect" {target {vect_uintfloat_cvt && vect_int_mult} xfail { vect_variable_length && vect_load_lanes } } } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 2 "vect"  {target {{! { vect_uintfloat_cvt}} && vect_int_mult} } } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 0 "vect"  {target {{! { vect_uintfloat_cvt}} && {! {vect_int_mult}}} } } } */
-  

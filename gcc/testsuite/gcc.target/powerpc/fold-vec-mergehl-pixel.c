@@ -21,4 +21,3 @@ testf_eh (vector pixel px2, vector pixel px3)
 
 /* { dg-final { scan-assembler-times "vmrghh" 1 } } */
 /* { dg-final { scan-assembler-times "vmrglh" 1 } } */
-

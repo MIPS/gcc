@@ -29,7 +29,7 @@ set_fpu_rounding_mode (int mode)
         break;
 
       case 3:
-        rnd_mode = FE_TOWARDZERO; 
+        rnd_mode = FE_TOWARDZERO;
         break;
 
       default:

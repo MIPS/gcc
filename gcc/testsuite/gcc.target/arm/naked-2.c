@@ -1,4 +1,4 @@
-/* Verify that __attribute__((naked)) produces a naked function 
+/* Verify that __attribute__((naked)) produces a naked function
    that does not use bx to return. Naked functions could be used
    to implement interrupt routines and must not return using bx.  */
 /* { dg-do compile } */

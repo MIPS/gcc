@@ -9,4 +9,3 @@ int main ()
 			   "foo%sbar%sfred%sbob?""?""?""?""?",
 			   sizeof ("foo%sbar%sfred%sbob?""?""?""?""?"));
 }
-

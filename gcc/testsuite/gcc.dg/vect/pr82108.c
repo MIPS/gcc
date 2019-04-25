@@ -39,7 +39,7 @@ int main ()
   if (out[0] != 3 || out[1] != 4 || out[2] != 5 || out[3] != 6
       || out[4] != 3 || out[5] != 4 || out[6] != 5 || out[7] != 6)
     __builtin_abort ();
-  
+
   return 0;
 }
 

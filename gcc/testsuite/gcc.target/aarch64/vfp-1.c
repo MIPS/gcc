@@ -106,4 +106,3 @@ void test_convert () {
   /* { dg-final { scan-assembler "ucvtf\td\[0-9\]*" } } */
   d1 = u1;
 }
-

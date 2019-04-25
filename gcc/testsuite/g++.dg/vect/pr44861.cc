@@ -30,4 +30,3 @@ void g() {
     shared_ptr foo;
     new Bar(*foo, foo);
 }
-

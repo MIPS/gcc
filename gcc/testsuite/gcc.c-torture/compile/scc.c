@@ -8,4 +8,3 @@ foo (a, b)
  ret1:
   return 1;
 }
-

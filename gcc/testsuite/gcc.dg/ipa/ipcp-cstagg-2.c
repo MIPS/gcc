@@ -43,4 +43,3 @@ obfuscate (int x)
 }
 
 /* { dg-final { scan-ipa-dump "Discovered an indirect call to a known target" "cp" } } */
-

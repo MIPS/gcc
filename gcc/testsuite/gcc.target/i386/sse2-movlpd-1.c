@@ -18,7 +18,7 @@ static __m128d
 __attribute__((noinline, unused))
 test (__m128d a, double *e)
 {
-  return _mm_loadl_pd (a, e); 
+  return _mm_loadl_pd (a, e);
 }
 
 static void
@@ -31,7 +31,7 @@ TEST (void)
   s1.x = _mm_set_pd (41124.234,2344.2354);
   u.x = _mm_loadu_pd (d);
 
-  u.x = test (s1.x, d);  
+  u.x = test (s1.x, d);
 
   e[0] = d[0];
   e[1] = s1.a[1];

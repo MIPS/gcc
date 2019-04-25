@@ -2,7 +2,7 @@
 
    This file is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 3 of the License, or (at your option) 
+   Software Foundation; either version 3 of the License, or (at your option)
    any later version.
 
    This file is distributed in the hope that it will be useful, but WITHOUT
@@ -29,12 +29,12 @@
 #include <spu_intrinsics.h>
 #include <vec_types.h>
 
-/* This file maps generic VMX intrinsics and predicates to the SPU using 
+/* This file maps generic VMX intrinsics and predicates to the SPU using
  * overloaded C++ functions.
  */
 
 /************************************************************************
- *                        INTRINSICS 
+ *                        INTRINSICS
  ************************************************************************/
 
 /* vec_abs (vector absolute value)
@@ -70,7 +70,7 @@ static inline vec_char16 vec_abss(vec_char16 a)
 {
   vec_char16 minus_a;
 
-  minus_a = (vec_char16)spu_add((vec_short8)(spu_xor(a, -1)), 
+  minus_a = (vec_char16)spu_add((vec_short8)(spu_xor(a, -1)),
 				(vec_short8)(spu_and(spu_cmpgt((vec_uchar16)(a), 0x80), 1)));
   return (spu_sel(minus_a, a, spu_cmpgt(a, -1)));
 }
@@ -209,7 +209,7 @@ static inline vec_char16 vec_adds(vec_char16 a, vec_bchar16 b)
 static inline vec_ushort8 vec_adds(vec_ushort8 a, vec_ushort8 b)
 {
   vec_ushort8 s, d;
-  
+
   s = spu_add(a, b);
   d = spu_or(s, spu_rlmaska(spu_sel(spu_xor(s, -1), a, spu_eqv(a, b)), -15));
   return (d);
@@ -218,7 +218,7 @@ static inline vec_ushort8 vec_adds(vec_ushort8 a, vec_ushort8 b)
 static inline vec_short8 vec_adds(vec_short8 a, vec_short8 b)
 {
   vec_short8 s, d;
-  
+
   s = spu_add(a, b);
   d = spu_sel(s, spu_splats((signed short)0x7FFF), (vec_ushort8)(spu_rlmaska(spu_and(s, spu_nor(a, b)), -15)));
   d = spu_sel(d, spu_splats((signed short)0x8000), (vec_ushort8)(spu_rlmaska(spu_nor(s, spu_nand(a, b)), -15)));
@@ -243,7 +243,7 @@ static inline vec_uint4 vec_adds(vec_uint4 a, vec_uint4 b)
 static inline vec_int4 vec_adds(vec_int4 a, vec_int4 b)
 {
   vec_int4 s, d;
-  
+
   s = spu_add(a, b);
   d = spu_sel(s, spu_splats((signed int)0x7FFFFFFF), (vec_uint4)spu_rlmaska(spu_and(s, spu_nor(a, b)), -31));
   d = spu_sel(d, spu_splats((signed int)0x80000000), (vec_uint4)spu_rlmaska(spu_nor(s, spu_nand(a, b)), -31));
@@ -339,7 +339,7 @@ static inline vec_float4 vec_and(vec_float4 a, vec_bint4 b)
 }
 
 
-/* vec_andc (vector logical and with complement) 
+/* vec_andc (vector logical and with complement)
  * ========
  */
 static inline vec_uchar16 vec_andc(vec_uchar16 a, vec_uchar16 b)
@@ -427,31 +427,31 @@ static inline vec_uchar16 vec_avg(vec_uchar16 a, vec_uchar16 b)
 
 static inline vec_char16 vec_avg(vec_char16 a, vec_char16 b)
 {
-  return ((vec_char16)(spu_xor(spu_avg((vec_uchar16)(a), (vec_uchar16)(b)), 
+  return ((vec_char16)(spu_xor(spu_avg((vec_uchar16)(a), (vec_uchar16)(b)),
 			       (vec_uchar16)(spu_and(spu_xor(a,b), 0x80)))));
 }
 
 static inline vec_ushort8 vec_avg(vec_ushort8 a, vec_ushort8 b)
 {
-  return (spu_add(spu_add(spu_rlmask(a, -1), spu_rlmask(b, -1)), 
+  return (spu_add(spu_add(spu_rlmask(a, -1), spu_rlmask(b, -1)),
 		  spu_and(spu_or(a, b), 1)));
 }
 
 static inline vec_short8 vec_avg(vec_short8 a, vec_short8 b)
 {
-  return (spu_add(spu_add(spu_rlmaska(a, -1), spu_rlmaska(b, -1)), 
+  return (spu_add(spu_add(spu_rlmaska(a, -1), spu_rlmaska(b, -1)),
 		  spu_and(spu_or(a, b), 1)));
 }
 
 static inline vec_uint4 vec_avg(vec_uint4 a, vec_uint4 b)
 {
-  return (spu_add(spu_add(spu_rlmask(a, -1), spu_rlmask(b, -1)), 
+  return (spu_add(spu_add(spu_rlmask(a, -1), spu_rlmask(b, -1)),
 		  spu_and(spu_or(a, b), 1)));
 }
 
 static inline vec_int4 vec_avg(vec_int4 a, vec_int4 b)
 {
-  return (spu_add(spu_add(spu_rlmaska(a, -1), spu_rlmaska(b, -1)), 
+  return (spu_add(spu_add(spu_rlmaska(a, -1), spu_rlmaska(b, -1)),
 		  spu_and(spu_or(a, b), 1)));
 }
 
@@ -482,7 +482,7 @@ static inline vec_int4 vec_cmpb(vec_float4 a, vec_float4 b)
   vec_int4 b0 = (vec_int4)spu_splats(0x80000000);
   vec_int4 b1 = (vec_int4)spu_splats(0x40000000);
 
-  return (spu_or(spu_and((vec_int4)spu_cmpgt(a, b), b0), 
+  return (spu_or(spu_and((vec_int4)spu_cmpgt(a, b), b0),
 		 spu_and((vec_int4)spu_cmpgt(spu_xor(b, (vec_float4)(b0)), a), b1)));
 }
 
@@ -742,7 +742,7 @@ static inline vec_float4 vec_loge(vec_float4 a)
   exp  = spu_add((vec_int4)(spu_and(spu_rlmask((vec_uint4)(a), -23), 0xFF)), -127);
   frac = (vec_float4)(spu_sub((vec_int4)(a), spu_sl(exp, 23)));
 
-  return (spu_madd(spu_madd(spu_splats(-0.33985f), frac, spu_splats(2.01955f)), 
+  return (spu_madd(spu_madd(spu_splats(-0.33985f), frac, spu_splats(2.01955f)),
 		   frac, spu_sub(spu_convtf(exp, 0), spu_splats(1.6797f))));
 }
 
@@ -752,7 +752,7 @@ static inline vec_float4 vec_loge(vec_float4 a)
  */
 static inline vec_uchar16 vec_lvsl(int a, unsigned char *b)
 {
-  return ((vec_uchar16)spu_add((vec_ushort8)(spu_splats((unsigned char)((a + (int)(b)) & 0xF))), 
+  return ((vec_uchar16)spu_add((vec_ushort8)(spu_splats((unsigned char)((a + (int)(b)) & 0xF))),
 			       ((vec_ushort8){0x0001, 0x0203, 0x0405, 0x0607,
 				              0x0809, 0x0A0B, 0x0C0D, 0x0E0F})));
 }
@@ -931,31 +931,31 @@ static inline vec_char16 vec_mergeh(vec_char16 a, vec_char16 b)
 
 static inline vec_ushort8 vec_mergeh(vec_ushort8 a, vec_ushort8 b)
 {
-  return (spu_shuffle(a, b, ((vec_uchar16){0, 1, 16, 17, 2, 3, 18, 19, 
+  return (spu_shuffle(a, b, ((vec_uchar16){0, 1, 16, 17, 2, 3, 18, 19,
 				           4, 5, 20, 21, 6, 7, 22, 23})));
 }
 
 static inline vec_short8 vec_mergeh(vec_short8 a, vec_short8 b)
 {
-  return (spu_shuffle(a, b, ((vec_uchar16){0, 1, 16, 17, 2, 3, 18, 19, 
+  return (spu_shuffle(a, b, ((vec_uchar16){0, 1, 16, 17, 2, 3, 18, 19,
 				           4, 5, 20, 21, 6, 7, 22, 23})));
 }
 
 static inline vec_uint4 vec_mergeh(vec_uint4 a, vec_uint4 b)
 {
-  return (spu_shuffle(a, b, ((vec_uchar16){0, 1, 2, 3, 16, 17, 18, 19, 
+  return (spu_shuffle(a, b, ((vec_uchar16){0, 1, 2, 3, 16, 17, 18, 19,
 				           4, 5, 6, 7, 20, 21, 22, 23})));
 }
 
 static inline vec_int4 vec_mergeh(vec_int4 a, vec_int4 b)
 {
-  return (spu_shuffle(a, b, ((vec_uchar16){0, 1, 2, 3, 16, 17, 18, 19, 
+  return (spu_shuffle(a, b, ((vec_uchar16){0, 1, 2, 3, 16, 17, 18, 19,
 				           4, 5, 6, 7, 20, 21, 22, 23})));
 }
 
 static inline vec_float4 vec_mergeh(vec_float4 a, vec_float4 b)
 {
-  return (spu_shuffle(a, b, ((vec_uchar16){0, 1, 2, 3, 16, 17, 18, 19, 
+  return (spu_shuffle(a, b, ((vec_uchar16){0, 1, 2, 3, 16, 17, 18, 19,
 				           4, 5, 6, 7, 20, 21, 22, 23})));
 }
 
@@ -964,43 +964,43 @@ static inline vec_float4 vec_mergeh(vec_float4 a, vec_float4 b)
  */
 static inline vec_uchar16 vec_mergel(vec_uchar16 a, vec_uchar16 b)
 {
-  return (spu_shuffle(a, b, ((vec_uchar16){ 8, 24,  9, 25, 10, 26, 11, 27, 
+  return (spu_shuffle(a, b, ((vec_uchar16){ 8, 24,  9, 25, 10, 26, 11, 27,
 				           12, 28, 13, 29, 14, 30, 15, 31})));
 }
 
 static inline vec_char16 vec_mergel(vec_char16 a, vec_char16 b)
 {
-  return (spu_shuffle(a, b, ((vec_uchar16){ 8, 24,  9, 25, 10, 26, 11, 27, 
+  return (spu_shuffle(a, b, ((vec_uchar16){ 8, 24,  9, 25, 10, 26, 11, 27,
 				           12, 28, 13, 29, 14, 30, 15, 31})));
 }
 
 static inline vec_ushort8 vec_mergel(vec_ushort8 a, vec_ushort8 b)
 {
-  return (spu_shuffle(a, b, ((vec_uchar16){ 8,  9, 24, 25, 10, 11, 26, 27, 
+  return (spu_shuffle(a, b, ((vec_uchar16){ 8,  9, 24, 25, 10, 11, 26, 27,
 				           12, 13, 28, 29, 14, 15, 30, 31})));
 }
 
 static inline vec_short8 vec_mergel(vec_short8 a, vec_short8 b)
 {
-  return (spu_shuffle(a, b, ((vec_uchar16){ 8,  9, 24, 25, 10, 11, 26, 27, 
+  return (spu_shuffle(a, b, ((vec_uchar16){ 8,  9, 24, 25, 10, 11, 26, 27,
 				           12, 13, 28, 29, 14, 15, 30, 31})));
 }
 
 static inline vec_uint4 vec_mergel(vec_uint4 a, vec_uint4 b)
 {
-  return (spu_shuffle(a, b, ((vec_uchar16){ 8,  9, 10, 11, 24, 25, 26, 27, 
+  return (spu_shuffle(a, b, ((vec_uchar16){ 8,  9, 10, 11, 24, 25, 26, 27,
 				           12, 13, 14, 15, 28, 29, 30, 31})));
 }
 
 static inline vec_int4 vec_mergel(vec_int4 a, vec_int4 b)
 {
-  return (spu_shuffle(a, b, ((vec_uchar16){ 8,  9, 10, 11, 24, 25, 26, 27, 
+  return (spu_shuffle(a, b, ((vec_uchar16){ 8,  9, 10, 11, 24, 25, 26, 27,
 				           12, 13, 14, 15, 28, 29, 30, 31})));
 }
 
 static inline vec_float4 vec_mergel(vec_float4 a, vec_float4 b)
 {
-  return (spu_shuffle(a, b, ((vec_uchar16){ 8,  9, 10, 11, 24, 25, 26, 27, 
+  return (spu_shuffle(a, b, ((vec_uchar16){ 8,  9, 10, 11, 24, 25, 26, 27,
 				           12, 13, 14, 15, 28, 29, 30, 31})));
 }
 
@@ -1201,9 +1201,9 @@ static inline vec_ushort8 vec_mule(vec_uchar16 a, vec_uchar16 b)
 {
   vec_ushort8 hi, lo;
 
-  hi = (vec_ushort8)spu_mulo((vec_ushort8)(spu_rlmask((vec_uint4)(a), -24)), 
+  hi = (vec_ushort8)spu_mulo((vec_ushort8)(spu_rlmask((vec_uint4)(a), -24)),
 			     (vec_ushort8)(spu_rlmask((vec_uint4)(b), -24)));
-  lo = (vec_ushort8)spu_mulo((vec_ushort8)(spu_rlmask((vec_short8)(a), -8)), 
+  lo = (vec_ushort8)spu_mulo((vec_ushort8)(spu_rlmask((vec_short8)(a), -8)),
 			     (vec_ushort8)(spu_rlmask((vec_short8)(b), -8)));
 
   return (spu_shuffle(hi, lo, ((vec_uchar16){ 2,  3, 18, 19,  6,  7, 22, 23,
@@ -1214,9 +1214,9 @@ static inline vec_short8 vec_mule(vec_char16 a, vec_char16 b)
 {
   vec_short8 hi, lo;
 
-  hi = (vec_short8)spu_mulo((vec_short8)(spu_rlmaska((vec_uint4)(a), -24)), 
+  hi = (vec_short8)spu_mulo((vec_short8)(spu_rlmaska((vec_uint4)(a), -24)),
 			    (vec_short8)(spu_rlmaska((vec_uint4)(b), -24)));
-  lo = (vec_short8)spu_mulo((vec_short8)(spu_rlmaska((vec_short8)(a), -8)), 
+  lo = (vec_short8)spu_mulo((vec_short8)(spu_rlmaska((vec_short8)(a), -8)),
 			    (vec_short8)(spu_rlmaska((vec_short8)(b), -8)));
 
   return (spu_shuffle(hi, lo, ((vec_uchar16){ 2,  3, 18, 19,  6,  7, 22, 23,
@@ -1244,7 +1244,7 @@ static inline vec_ushort8 vec_mulo(vec_uchar16 a, vec_uchar16 b)
 {
   vec_ushort8 hi, lo;
 
-  hi = (vec_ushort8)spu_mulo((vec_ushort8)(spu_and(spu_rlmask((vec_uint4)(a), -16), 0xFF)), 
+  hi = (vec_ushort8)spu_mulo((vec_ushort8)(spu_and(spu_rlmask((vec_uint4)(a), -16), 0xFF)),
 			     (vec_ushort8)(spu_and(spu_rlmask((vec_uint4)(b), -16), 0xFF)));
   lo = (vec_ushort8)spu_mulo(spu_and((vec_ushort8)(a), 0xFF), spu_and((vec_ushort8)(b), 0xFF));
 
@@ -1259,7 +1259,7 @@ static inline vec_short8 vec_mulo(vec_char16 a, vec_char16 b)
   aa = spu_extend(a);
   bb = spu_extend(b);
 
-  hi = (vec_short8)spu_mulo((vec_short8)(spu_rlmaska((vec_uint4)(aa), -16)), 
+  hi = (vec_short8)spu_mulo((vec_short8)(spu_rlmaska((vec_uint4)(aa), -16)),
 		(vec_short8)(spu_rlmaska((vec_uint4)(bb), -16)));
   lo = (vec_short8)spu_mulo(aa, bb);
   return (spu_shuffle(hi, lo, ((vec_uchar16){ 2,  3, 18, 19,  6,  7, 22, 23,
@@ -1420,7 +1420,7 @@ static inline vec_pixel8 vec_packpx(vec_uint4 a, vec_uint4 b)
 static inline vec_uchar16 vec_packs(vec_ushort8 a, vec_ushort8 b)
 {
   vec_ushort8 max = spu_splats((unsigned short)0x00FF);
-  
+
   return ((vec_uchar16)(spu_shuffle(spu_sel(a, max, spu_cmpgt(a, 255)),
 				    spu_sel(b, max, spu_cmpgt(b, 255)),
 				    ((vec_uchar16){ 1,  3,  5,  7,  9, 11, 13, 15,
@@ -1431,7 +1431,7 @@ static inline vec_char16 vec_packs(vec_short8 a, vec_short8 b)
 {
   vec_short8 max = spu_splats((signed short)0x007F);
   vec_short8 min = spu_splats((signed short)0xFF80);
-  
+
   return ((vec_char16)(spu_shuffle(spu_sel(min, spu_sel(a, max, spu_cmpgt(a, 127)), spu_cmpgt(a, -128)),
 				    spu_sel(min, spu_sel(b, max, spu_cmpgt(b, 127)), spu_cmpgt(b, -128)),
 				   ((vec_uchar16){ 1,  3,  5,  7,  9, 11, 13, 15,
@@ -1441,23 +1441,23 @@ static inline vec_char16 vec_packs(vec_short8 a, vec_short8 b)
 static inline vec_ushort8 vec_packs(vec_uint4 a, vec_uint4 b)
 {
   vec_uint4 max = spu_splats((unsigned int)0x0000FFFF);
-  
-  return ((vec_ushort8)(spu_shuffle(spu_sel(a, max, spu_cmpgt(a, max)), 
-				    spu_sel(b, max, spu_cmpgt(b, max)), 
+
+  return ((vec_ushort8)(spu_shuffle(spu_sel(a, max, spu_cmpgt(a, max)),
+				    spu_sel(b, max, spu_cmpgt(b, max)),
 				    ((vec_uchar16){ 2,  3,  6,  7, 10, 11, 14, 15,
 					           18, 19, 22, 23, 26, 27, 30, 31}))));
-}  
+}
 
 static inline vec_short8 vec_packs(vec_int4 a, vec_int4 b)
 {
   vec_int4 max = spu_splats((signed int)0x00007FFF);
   vec_int4 min = spu_splats((signed int)0xFFFF8000);
-  
+
   return ((vec_short8)(spu_shuffle(spu_sel(min, spu_sel(a, max, spu_cmpgt(a, max)), spu_cmpgt(a, min)),
 				   spu_sel(min, spu_sel(b, max, spu_cmpgt(b, max)), spu_cmpgt(b, min)),
 				   ((vec_uchar16){ 2,  3,  6,  7, 10, 11, 14, 15,
 					          18, 19, 22, 23, 26, 27, 30, 31}))));
-}  
+}
 
 
 /* vec_packsu (vector pack saturate unsigned)
@@ -1475,7 +1475,7 @@ static inline vec_uchar16 vec_packsu(vec_short8 a, vec_short8 b)
 {
   vec_short8 max = spu_splats((signed short)0x00FF);
   vec_short8 min = spu_splats((signed short)0x0000);
-  
+
   return ((vec_uchar16)(spu_shuffle(spu_sel(min, spu_sel(a, max, spu_cmpgt(a, 255)), spu_cmpgt(a, 0)),
 				    spu_sel(min, spu_sel(b, max, spu_cmpgt(b, 255)), spu_cmpgt(b, 0)),
 				    ((vec_uchar16){ 1,  3,  5,  7,  9, 11, 13, 15,
@@ -1498,7 +1498,7 @@ static inline vec_ushort8 vec_packsu(vec_int4 a, vec_int4 b)
 {
   vec_int4 max = spu_splats((signed int)0x0000FFFF);
   vec_int4 min = spu_splats((signed int)0x00000000);
-  
+
   return ((vec_ushort8)(spu_shuffle(spu_sel(min, spu_sel(a, max, spu_cmpgt(a, max)), spu_cmpgt(a, min)),
 				    spu_sel(min, spu_sel(b, max, spu_cmpgt(b, max)), spu_cmpgt(b, min)),
 				    ((vec_uchar16){ 2,  3,  6,  7, 10, 11, 14, 15,
@@ -2084,7 +2084,7 @@ static inline vec_char16 vec_subs(vec_char16 a, vec_char16 b)
 					                9, 25, 11, 27, 13, 29, 15, 31})));
   d  = spu_sel(s, spu_splats((unsigned char)0x7F), spu_cmpgt(spu_nor((vec_uchar16)(a), spu_nand(s, (vec_uchar16)(b))), 0x7F));
   d  = spu_sel(d, spu_splats((unsigned char)0x80), spu_cmpgt(spu_and((vec_uchar16)(a), spu_nor(s, (vec_uchar16)(b))), 0x7F));
-  
+
   return ((vec_char16)(d));
 }
 
@@ -2107,7 +2107,7 @@ static inline vec_short8 vec_subs(vec_short8 a, vec_short8 b)
 {
   vec_short8 s;
   vec_short8 d;
-  
+
   s = spu_sub(a, b);
   d = spu_sel(s, spu_splats((signed short)0x7FFF), (vec_ushort8)(spu_rlmaska(spu_nor(a, spu_nand(s, b)), -15)));
   d = spu_sel(d, spu_splats((signed short)0x8000), (vec_ushort8)(spu_rlmaska(spu_and(a, spu_nor(s, b)), -15)));
@@ -2134,7 +2134,7 @@ static inline vec_int4 vec_subs(vec_int4 a, vec_int4 b)
 {
   vec_int4 s;
   vec_int4 d;
-  
+
   s = spu_sub(a, b);
   d = spu_sel(s, spu_splats((signed int)0x7FFFFFFF), (vec_uint4)(spu_rlmaska(spu_nor(a, spu_nand(s, b)), -31)));
   d = spu_sel(d, spu_splats((signed int)0x80000000), (vec_uint4)(spu_rlmaska(spu_and(a, spu_nor(s, b)), -31)));
@@ -2199,7 +2199,7 @@ static inline vec_int4 vec_sum2s(vec_int4 a, vec_int4 b)
 
   c = spu_rlqwbyte(a, -4);
   sign3 = spu_rlqwbyte(sign1, -4);
-  
+
   carry = spu_genc(a, b);
   sum_l = spu_add(a, b);
   sum_h = spu_addx(sign1, sign2, carry);
@@ -2207,7 +2207,7 @@ static inline vec_int4 vec_sum2s(vec_int4 a, vec_int4 b)
   carry = spu_genc(sum_l, c);
   sum_l = spu_add(sum_l, c);
   sum_h = spu_addx(sum_h, sign3, carry);
-  
+
   sign1 = spu_rlmaska(sum_l, -31);
   sign2 = spu_rlmaska(sum_h, -31);
 
@@ -2239,7 +2239,7 @@ static inline vec_int4 vec_sums(vec_int4 a, vec_int4 b)
 
   sum_l = spu_add(a, b);
   sum_h = spu_addx(sign_a, sign_b, spu_genc(a, b));
-  
+
   c2 = spu_genc(sum_l, a2);
   sum_l = spu_add(sum_l, a2);
   sum_h = spu_addx(sum_h, spu_rlqwbyte(sign_a, -4), c2);
@@ -2265,7 +2265,7 @@ static inline vec_int4 vec_sums(vec_int4 a, vec_int4 b)
 }
 
 
-/* vec_trunc (vector truncate) 
+/* vec_trunc (vector truncate)
  * =========
  */
 static inline vec_float4 vec_trunc(vec_float4 a)
@@ -2280,12 +2280,12 @@ static inline vec_float4 vec_trunc(vec_float4 a)
   return (spu_andc(a, (vec_float4)(mask)));
 }
 
-/* vec_unpackh (vector unpack high element) 
+/* vec_unpackh (vector unpack high element)
  * ===========
  */
 static inline vec_short8 vec_unpackh(vec_char16 a)
 {
-  return (spu_extend(spu_shuffle(a, a, ((vec_uchar16){0, 0, 1, 1, 2, 2, 3, 3, 
+  return (spu_extend(spu_shuffle(a, a, ((vec_uchar16){0, 0, 1, 1, 2, 2, 3, 3,
 					              4, 4, 5, 5, 6, 6, 7, 7}))));
 }
 
@@ -2296,7 +2296,7 @@ static inline vec_bshort8 vec_unpackh(vec_bchar16 a)
 
 static inline vec_int4 vec_unpackh(vec_short8 a)
 {
-  return (spu_extend(spu_shuffle(a, a, ((vec_uchar16){0, 0, 0, 1, 0, 0, 2, 3, 
+  return (spu_extend(spu_shuffle(a, a, ((vec_uchar16){0, 0, 0, 1, 0, 0, 2, 3,
 					              0, 0, 4, 5, 0, 0, 6, 7}))));
 }
 
@@ -2332,7 +2332,7 @@ static inline vec_bint4 vec_unpackh(vec_bshort8 a)
 
 
 
-/* vec_unpackl (vector unpack low element) 
+/* vec_unpackl (vector unpack low element)
  * ===========
  */
 static inline vec_short8 vec_unpackl(vec_char16 a)
@@ -2349,7 +2349,7 @@ static inline vec_bshort8 vec_unpackl(vec_bchar16 a)
 
 static inline vec_int4 vec_unpackl(vec_short8 a)
 {
-  return (spu_extend(spu_shuffle(a, a, ((vec_uchar16){0, 0, 8, 9, 0, 0, 10, 11, 
+  return (spu_extend(spu_shuffle(a, a, ((vec_uchar16){0, 0, 8, 9, 0, 0, 10, 11,
 					              0, 0,12,13, 0, 0, 14, 15}))));
 }
 
@@ -2831,7 +2831,7 @@ static inline int vec_all_nan(vec_float4 a)
 
   exp = spu_and((vec_uint4)(a), exp_mask);
   man = spu_and((vec_uint4)(a), spu_splats((unsigned int)0x007FFFFF));
-  return ((int)(spu_extract(spu_gather(spu_andc(spu_cmpeq(exp, exp_mask), 
+  return ((int)(spu_extract(spu_gather(spu_andc(spu_cmpeq(exp, exp_mask),
 						spu_cmpeq(man, 0))), 0) == 0xF));
 }
 
@@ -3309,7 +3309,7 @@ static inline int vec_any_nan(vec_float4 a)
 
   exp = spu_and((vec_uint4)(a), exp_mask);
   man = spu_and((vec_uint4)(a), spu_splats((unsigned int)0x007FFFFF));
-  return ((int)(spu_extract(spu_gather(spu_andc(spu_cmpeq(exp, exp_mask), 
+  return ((int)(spu_extract(spu_gather(spu_andc(spu_cmpeq(exp, exp_mask),
 						spu_cmpeq(man, 0))), 0) != 0));
 }
 

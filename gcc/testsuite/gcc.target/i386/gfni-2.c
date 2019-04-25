@@ -26,7 +26,7 @@ volatile __m256i x3, x4;
 volatile __m128i x5, x6;
 volatile __mmask32 m32;
 volatile __mmask16 m16;
- 
+
 void extern
 avx512vl_test (void)
 {

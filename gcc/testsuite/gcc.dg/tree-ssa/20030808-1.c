@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-O1 -fdump-tree-cddce3" } */
-      
+
 extern void abort (void);
 
 struct rtx_def;
@@ -34,7 +34,6 @@ delete_dead_jumptables ()
    optimize away all the IF statements and the statements feeding
    their conditions.  */
 /* { dg-final { scan-tree-dump-times "->code" 0 "cddce3"} } */
-   
+
 /* There should be no IF statements.  */
 /* { dg-final { scan-tree-dump-times "if " 0 "cddce3"} } */
-

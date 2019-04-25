@@ -10,4 +10,3 @@ bar (int x, int y)
 {
   foo (0, 0, 0, 0, x / y, x % y);
 }
-

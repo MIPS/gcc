@@ -42,7 +42,7 @@ DO_TESTS_CALL_ATTR (static_, STATIC_CALL,)
    with "long" being the default.
 
    In the regular expressions below:
-   
+
    * We allow both "b" and "bl" in some cases to allow for the
      possibility of sibling calls.  As of this writing, GCC does not
      use sibling calls in Thumb-2 mode.  */

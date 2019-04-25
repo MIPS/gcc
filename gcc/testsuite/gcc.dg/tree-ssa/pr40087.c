@@ -6,7 +6,7 @@ extern void abort (void);
 static void __attribute__((always_inline))
 reverse(int *first, int *last)
 {
-  if (first == last--) 
+  if (first == last--)
     return;
   while (first != last)
     {

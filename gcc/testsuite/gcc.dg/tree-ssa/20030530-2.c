@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-O1 -fdump-tree-dom2" } */
- 
+
 
 typedef struct rs6000_stack {
   int first_gp_reg_save;
@@ -23,5 +23,3 @@ rs6000_emit_prologue (int i, rs6000_stack_t *info)
    the dominator optimizations failed, most likely due to not handling
    commutative operands correctly.  */
 /* { dg-final { scan-tree-dump-times "\\+" 1 "dom2"} } */
- 
-

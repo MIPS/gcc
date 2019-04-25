@@ -1,7 +1,7 @@
 /* { dg-do compile } */
 /* { dg-options "-fdump-ada-spec" } */
 
-typedef struct 
+typedef struct
 {
    int a;
 } Message_Type;

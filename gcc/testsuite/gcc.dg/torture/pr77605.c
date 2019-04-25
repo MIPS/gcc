@@ -8,8 +8,8 @@ int main ()
     for (b = 0; b < 2; b++)
       c[b][a] = c[b][b + 6] ^ 1;
 
-  if (c[0][7] != 0) 
+  if (c[0][7] != 0)
     __builtin_abort ();
 
-  return 0; 
+  return 0;
 }

@@ -28,7 +28,7 @@ test3 (float x, float y)
     link_error0();
 }
 
-void 
+void
 test4 (float x, float y)
 {
   if ((x==y) || (x!=y))
@@ -94,4 +94,3 @@ main ()
 void link_error0() {}
 void link_error1() {}
 #endif /* ! __OPTIMIZE__ */
-

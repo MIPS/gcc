@@ -11,5 +11,3 @@ rezero ()
   level = 0;
   __builtin_strcpy (stack[level].str, "");
 }
-
-

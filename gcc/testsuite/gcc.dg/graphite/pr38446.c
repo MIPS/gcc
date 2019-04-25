@@ -11,4 +11,3 @@ void copy_data()
         for (l = 0; l < 65; l++)
           source[i][j][k][l] = dest[i][j][k][l];
 }
-

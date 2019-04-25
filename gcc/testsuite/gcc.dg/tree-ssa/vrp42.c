@@ -19,4 +19,3 @@ int foo(int val)
     }
   return 0;
 }
-

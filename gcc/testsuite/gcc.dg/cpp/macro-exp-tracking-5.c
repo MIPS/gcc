@@ -15,4 +15,3 @@ bar()
 {
   call_foo(1,PASTED); /* { dg-message "in expansion of macro 'PASTED'" } */
 }
-

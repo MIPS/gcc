@@ -1,5 +1,5 @@
 /* Check that inverted conditional branch logic does not generate
-   unnecessary explicit T bit extractions, inversions and 
+   unnecessary explicit T bit extractions, inversions and
    test instructions.  */
 /* { dg-do compile }  */
 /* { dg-options "-O1 -mbranch-cost=2" } */
@@ -28,4 +28,3 @@ testfunc_03 (int a, int b, int c, int d)
 {
   return (a != b && a != d) ? b : c;
 }
-

@@ -13,4 +13,3 @@ vbslq_dummy_u32 (uint32x4_t a, uint32x4_t b, uint32x4_t mask)
 }
 
 /* { dg-final { scan-assembler-times "bif\\tv" 1 } } */
-

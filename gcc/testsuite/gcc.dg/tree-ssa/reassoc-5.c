@@ -1,4 +1,4 @@
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-O2 -fdump-tree-optimized" } */
 extern int printf (const char *, ...);
 int main(int argc, int b)

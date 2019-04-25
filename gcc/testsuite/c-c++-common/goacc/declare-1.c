@@ -57,7 +57,7 @@ f (void)
 
   extern int ve5;
 #pragma acc declare present_or_copyin(ve5)
- 
+
   extern int ve6;
 #pragma acc declare present_or_create(ve6)
 

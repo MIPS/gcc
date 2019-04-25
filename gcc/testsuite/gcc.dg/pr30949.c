@@ -8,4 +8,3 @@ void call (void)
 {
   recv (func); /* { dg-error "passing argument 1 of 'recv' from incompatible pointer type" } */
 }
-

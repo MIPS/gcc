@@ -5,7 +5,7 @@ void Ok ()
 {
 #pragma acc parallel num_gangs (10) num_workers(32) vector_length(32)
   {
-    
+
 #pragma acc loop tile(*) gang vector
     for (int ix = 0; ix < 10; ix++)
       {
@@ -60,7 +60,7 @@ void Bad ()
 {
 #pragma acc parallel num_gangs (10) num_workers(32) vector_length(32)
   {
-    
+
 #pragma acc loop tile(*) gang vector /* { dg-message "containing loop" } */
     for (int ix = 0; ix < 10; ix++)
       {

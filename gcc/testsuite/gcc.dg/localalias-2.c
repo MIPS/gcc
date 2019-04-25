@@ -9,7 +9,7 @@ void test(void)
 __attribute ((alias("test")))
 static void test2(void);
 
-void tt() 
+void tt()
 {
   int prev = test2count;
   /* This call must bind locally.  */

@@ -4,7 +4,7 @@ typedef unsigned int kdev_t;
 static inline kdev_t to_kdev_t(int dev)
 {
 	int major, minor;
-	
+
 	if (sizeof(kdev_t) == 16)
 		return (kdev_t)dev;
 	major = (dev >> 8);

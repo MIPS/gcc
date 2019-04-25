@@ -10,4 +10,3 @@ int main()
   if ((__real dc) != 3.14) abort();
   exit (0);
 }
-

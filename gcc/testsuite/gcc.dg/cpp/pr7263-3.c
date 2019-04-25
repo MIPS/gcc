@@ -7,7 +7,7 @@ __complex__  bar () /* { dg-error "ISO C does not support plain .complex. meanin
   return _Complex_I_ext;
 }
 
-__extension__ __complex__ 
+__extension__ __complex__
 bar2 ()
 {
   return _Complex_I;

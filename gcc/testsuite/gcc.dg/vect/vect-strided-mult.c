@@ -65,10 +65,9 @@ int main (void)
       asm volatile ("" ::: "memory");
     }
 
-  main1 (arr, iarr); 
-  
+  main1 (arr, iarr);
+
   return 0;
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect"  { target vect_strided2 } } } */
-

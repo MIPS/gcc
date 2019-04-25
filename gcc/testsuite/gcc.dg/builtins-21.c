@@ -62,4 +62,3 @@ long double test3l(long double x)
 {
   return fabsl(3.0l*expl(x));
 }
-

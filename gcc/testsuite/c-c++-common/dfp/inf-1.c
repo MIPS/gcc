@@ -13,7 +13,7 @@ int main()
   if (!__builtin_isinfd32 (9999999.E90DF + 1.E90df))
     FAILURE
 
-  if (9.999999999999999E384dd + .000000000000001e384dd 
+  if (9.999999999999999E384dd + .000000000000001e384dd
       != __builtin_infd32 ())
     FAILURE
 

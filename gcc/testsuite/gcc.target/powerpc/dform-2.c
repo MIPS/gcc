@@ -205,4 +205,3 @@ void test (ITYPE *bits, ITYPE n, TYPE one, TYPE_IN *p, TYPE_OUT *q)
 /* { dg-final { scan-assembler-not "mfvsrd "    } } */
 /* { dg-final { scan-assembler-not "mtvsrd "    } } */
 /* { dg-final { scan-assembler-not "xscvdpspn " } } */
-

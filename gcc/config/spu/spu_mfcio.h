@@ -2,7 +2,7 @@
 
    This file is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 3 of the License, or (at your option) 
+   Software Foundation; either version 3 of the License, or (at your option)
    any later version.
 
    This file is distributed in the hope that it will be useful, but WITHOUT
@@ -37,7 +37,7 @@ extern "C" {
 /****************************************************************/
 /* DMA list element structure*/
 /****************************************************************/
- 
+
 #ifdef __GNUC__
 __extension__
 #endif
@@ -47,7 +47,7 @@ typedef struct mfc_list_element {
   uint64_t size         : 15;   /** Transfer size */
   uint64_t eal          : 32;   /** Lower word of effective address */
 } mfc_list_element_t;
- 
+
 /****************************************************************/
 /* DMA max/min size definitions.                        */
 /****************************************************************/

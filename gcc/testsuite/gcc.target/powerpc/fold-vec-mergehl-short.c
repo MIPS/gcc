@@ -45,4 +45,3 @@ testui_eh (vector unsigned short vus2, vector unsigned short vus3)
 
 /* { dg-final { scan-assembler-times "vmrghh" 3 } } */
 /* { dg-final { scan-assembler-times "vmrglh" 3 } } */
-

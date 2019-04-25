@@ -58,7 +58,7 @@ main1 (unsigned char x, unsigned char max_result, unsigned char min_result, s *a
 
 int main (void)
 {
-  int i; 
+  int i;
   s arr[N];
 
   for (i = 0; i < N; i++)
@@ -70,7 +70,7 @@ int main (void)
       asm volatile ("" ::: "memory");
     }
   check_vect ();
-  
+
   main1 (100, 100, 1, arr);
   main1 (0, 15, 0, arr);
   return 0;

@@ -489,7 +489,7 @@ dump_edge_info (FILE *file, edge e, dump_flags_t flags, int do_succ)
 {
   basic_block side = (do_succ ? e->dest : e->src);
   bool do_details = false;
-  
+
   if ((flags & TDF_DETAILS) != 0
       && (flags & TDF_SLIM) == 0)
     do_details = true;
@@ -872,7 +872,7 @@ brief_dump_cfg (FILE *file, dump_flags_t flags)
    frequency or count is believed to be lower than COUNT
    respectively.  */
 void
-update_bb_profile_for_threading (basic_block bb, 
+update_bb_profile_for_threading (basic_block bb,
 				 profile_count count, edge taken_edge)
 {
   edge c;
@@ -899,7 +899,7 @@ update_bb_profile_for_threading (basic_block bb,
 	{
 	  fprintf (dump_file, "Jump threading proved probability of edge "
 		   "%i->%i too small (it is ",
-		   taken_edge->src->index, taken_edge->dest->index);	
+		   taken_edge->src->index, taken_edge->dest->index);
 	  taken_edge->probability.dump (dump_file);
 	  fprintf (dump_file, " should be ");
 	  prob.dump (dump_file);

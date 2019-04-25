@@ -20,7 +20,7 @@ sptr_t sptr_1, sptr_2;
 void
 copy_sptr (void)
 {
-  sptr_1 = sptr_2;  
+  sptr_1 = sptr_2;
 }
 
 /* { dg-final { scan-rtl-dump "\\\(set \\\(reg:TI \[0-9\]*" "expand" } } */

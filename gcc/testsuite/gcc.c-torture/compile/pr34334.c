@@ -131,11 +131,11 @@ gftp_config_parse_args (char *str, int numargs, int lineno, char **first, ...)
     while (numargs > 0)
     {
         if (numargs > 1)
-	{  
-	    dest = __builtin_va_arg(argp,char **); 
+	{
+	    dest = __builtin_va_arg(argp,char **);
 	    *dest = ((void *)0);
-	} 
-	numargs--; 
-	**dest = '\0'; 
+	}
+	numargs--;
+	**dest = '\0';
     }
 }

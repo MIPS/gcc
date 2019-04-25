@@ -1,7 +1,7 @@
 /* Copyright (C) 2003  Free Software Foundation.
 
    Test strlen optimizations on conditional expressions.
-      
+
    Written by Jakub Jelinek, June 23, 2003.  */
 
 typedef __SIZE_TYPE__ size_t;

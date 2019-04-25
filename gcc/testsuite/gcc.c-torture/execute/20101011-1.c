@@ -55,7 +55,7 @@
      has truly undefined behavior for division by 0.  */
 # define DO_TEST 0
 #elif defined (__m68k__) && !defined(__linux__)
-  /* Attempting to trap division-by-zero in this way isn't likely to work on 
+  /* Attempting to trap division-by-zero in this way isn't likely to work on
      bare-metal m68k systems.  */
 # define DO_TEST 0
 #elif defined (__CRIS__)

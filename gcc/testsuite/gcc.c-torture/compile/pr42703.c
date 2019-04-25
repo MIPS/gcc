@@ -1,6 +1,6 @@
 __extension__ typedef unsigned long long int uint64_t;
 typedef uint64_t ScmUInt64;
-void swapb64(ScmUInt64 *loc) 
+void swapb64(ScmUInt64 *loc)
 {
     union {
         ScmUInt64 l;

@@ -6,7 +6,7 @@ int DVDReadBlocksPath(int offset, int block_count) {
     for (;;) {
 	if (offset)
 	    ret = DVDinput_read(block_count);
-	else 
+	else
 	    ret2 = DVDinput_read(block_count);
 	break;
     }

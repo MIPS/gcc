@@ -8,4 +8,3 @@ void fn2() {
   if (b)
     fn1();
 }
-

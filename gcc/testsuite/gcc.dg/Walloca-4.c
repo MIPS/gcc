@@ -7,7 +7,7 @@
 {
 
   char *src;
- _Bool 
+ _Bool
       use_alloca = (((rear_ptr - w) * sizeof (char)) < 4096U);
  if (use_alloca)
     src = (char *) __builtin_alloca ((rear_ptr - w) * sizeof (char));

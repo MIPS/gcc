@@ -19,7 +19,7 @@ int main ()
     double d;
     unsigned long long ll;
   } conv_val;
-  
+
   unsigned long long ll_value;
   register double  f14;
 
@@ -39,7 +39,7 @@ int main ()
 #else
        abort();
 #endif
-    }		  
+    }
 
   __builtin_set_fpscr_drn(2);
   conv_val.d = __builtin_mffs();
@@ -52,7 +52,7 @@ int main ()
 #else
        abort();
 #endif
-    }		  
+    }
 
   __builtin_set_fpscr_drn(5);
   conv_val.d = __builtin_mffs();
@@ -65,7 +65,7 @@ int main ()
 #else
        abort();
 #endif
-    }		  
+    }
 
   /* Test builtin decimal float rounding mode with variable as argument.  */
   val = 7;
@@ -81,7 +81,7 @@ int main ()
 #else
        abort();
 #endif
-    }		  
+    }
 
   val = 0;
   __builtin_set_fpscr_drn(val);
@@ -96,7 +96,7 @@ int main ()
 #else
        abort();
 #endif
-    }		  
+    }
 
   val = 2;
   __builtin_set_fpscr_drn(val);
@@ -111,5 +111,5 @@ int main ()
 #else
        abort();
 #endif
-    }	  
+    }
 }

@@ -56,7 +56,7 @@ int main ()
   *vecuint++ = vec_unpackl(varpixel[0]);
   *vecubsi++ = vec_unpackl(vecubci[0]);
   *vecshort++ = vec_unpackl(vecchar[0]);
-  
+
   return 0;
 }
 

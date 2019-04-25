@@ -1,4 +1,4 @@
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-O2 -fdump-tree-pre-stats -fno-tree-loop-im" } */
 int main(int *a, int argc)
 {

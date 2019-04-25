@@ -26,4 +26,3 @@ baz (float a, double b)
 /* Just double checking that we are still doing cmse though.  */
 /* { dg-final { scan-assembler-not "vmrs" } } */
 /* { dg-final { scan-assembler "bl\t__gnu_cmse_nonsecure_call" } } */
-

@@ -14,4 +14,3 @@ fnmuls (float a, float b)
   /* { dg-final { scan-assembler "fnmuls" } } */
   return -(a * b);
 }
-

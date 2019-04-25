@@ -456,7 +456,7 @@ static void
 update_equiv (int regno)
 {
   rtx x;
-  
+
   if ((x = ira_reg_equiv[regno].memory) != NULL_RTX)
     ira_reg_equiv[regno].memory
       = simplify_replace_fn_rtx (x, NULL_RTX, loc_equivalence_callback,
@@ -949,7 +949,7 @@ match_reload (signed char out, signed char *ins, signed char *outs,
 	  if (GET_CODE (in_rtx) == SUBREG)
 	    {
 	      rtx subreg_reg = SUBREG_REG (in_rtx);
-	      
+
 	      /* If SUBREG_REG is dying here and sub-registers IN_RTX
 		 and NEW_IN_REG are similar, we can use the same hard
 		 register for REG and SUBREG_REG.  */
@@ -1852,7 +1852,7 @@ prohibited_class_reg_set_mode_p (enum reg_class rclass,
 				 machine_mode mode)
 {
   HARD_REG_SET temp;
-  
+
   lra_assert (hard_reg_set_subset_p (reg_class_contents[rclass], set));
   COPY_HARD_REG_SET (temp, set);
   AND_COMPL_HARD_REG_SET (temp, lra_no_alloc_regs);
@@ -1874,7 +1874,7 @@ update_and_check_small_class_inputs (int nop, enum reg_class op_class)
 {
   static unsigned int small_class_check[LIM_REG_CLASSES];
   static int small_class_input_nums[LIM_REG_CLASSES];
-  
+
   if (SMALL_REGISTER_CLASS_P (op_class)
       /* We are interesting in classes became small because of fixing
 	 some hard regs, e.g. by an user through GCC options.  */
@@ -2133,7 +2133,7 @@ process_alt_operands (int only_alternative)
 			    || curr_operand_mode[nop] == BLKmode)
 			&& curr_operand_mode[m] != curr_operand_mode[nop])
 		      break;
-		    
+
 		    m_hregno = get_hard_regno (*curr_id->operand_loc[m], false);
 		    /* We are supposed to match a previous operand.
 		       If we do, we win if that one did.  If we do
@@ -2496,7 +2496,7 @@ process_alt_operands (int only_alternative)
 	      if (this_alternative != NO_REGS)
 		{
 		  HARD_REG_SET available_regs;
-		  
+
 		  COPY_HARD_REG_SET (available_regs,
 				     reg_class_contents[this_alternative]);
 		  AND_COMPL_HARD_REG_SET
@@ -2793,10 +2793,10 @@ process_alt_operands (int only_alternative)
 		       nop);
 		  reject += 3;
 		}
-	      
+
 	      /* If reload requires moving value through secondary
 		 memory, it will need one more insn at least.  */
-	      if (this_alternative != NO_REGS 
+	      if (this_alternative != NO_REGS
 		  && REG_P (op) && (cl = get_reg_class (REGNO (op))) != NO_REGS
 		  && ((curr_static_id->operand[nop].type != OP_OUT
 		       && targetm.secondary_memory_needed (GET_MODE (op), cl,
@@ -3567,7 +3567,7 @@ process_address_1 (int nop, bool check_only_p,
       enum reg_class cl = base_reg_class (ad.mode, ad.as,
 					  SCRATCH, SCRATCH);
       rtx addr = *ad.inner;
-      
+
       new_reg = lra_create_new_reg (Pmode, NULL_RTX, cl, "addr");
       /* addr => new_base.  */
       lra_emit_move (new_reg, addr);
@@ -3863,7 +3863,7 @@ curr_insn_transform (bool check_only_p)
 
 	if (curr_static_id->operand[i].is_operator)
 	  continue;
-	
+
 	old = op = *curr_id->operand_loc[i];
 	if (GET_CODE (old) == SUBREG)
 	  old = SUBREG_REG (old);
@@ -3912,7 +3912,7 @@ curr_insn_transform (bool check_only_p)
 	change_p = true;
 	lra_update_dup (curr_id, i);
       }
-  
+
   if (change_p)
     /* If we've changed the instruction then any alternative that
        we chose previously may no longer be valid.  */
@@ -4265,7 +4265,7 @@ curr_insn_transform (bool check_only_p)
 	      for (j = 0; goal_alt_matched[i][j] != -1; j++)
 		{
 		  rtx op2 = *curr_id->operand_loc[goal_alt_matched[i][j]];
-		  
+
 		  if (REG_P (op2) && REGNO (op) != REGNO (op2))
 		    break;
 		}
@@ -4312,7 +4312,7 @@ curr_insn_transform (bool check_only_p)
 	    {
 	      rtx addr = *loc;
 	      enum rtx_code code = GET_CODE (addr);
-	      
+
 	      if (code == AND && CONST_INT_P (XEXP (addr, 1)))
 		/* (and ... (const_int -X)) is used to align to X bytes.  */
 		addr = XEXP (*loc, 0);
@@ -4838,7 +4838,7 @@ lra_constraints (bool first_p)
 		   the equiv.  We could update the equiv insns after
 		   transformations including an equiv insn deletion
 		   but it is not worthy as such cases are extremely
-		   rare.  */ 
+		   rare.  */
 		|| contains_deleted_insn_p (ira_reg_equiv[i].init_insns)
 		/* If it is not a reverse equivalence, we check that a
 		   pseudo in rhs of the init insn is not dying in the
@@ -4935,7 +4935,7 @@ lra_constraints (bool first_p)
 		      cannot be changed.  Such insns might be not in
 		      init_insns because we don't update equiv data
 		      during insn transformations.
-		      
+
 		      As an example, let suppose that a pseudo got
 		      hard register and on the 1st pass was not
 		      changed to equivalent constant.  We generate an
@@ -5617,7 +5617,7 @@ split_reg (bool before_p, int original_regno, rtx_insn *insn,
   if (lra_dump_file != NULL)
     fprintf (lra_dump_file,
 	     "	  ((((((((((((((((((((((((((((((((((((((((((((((((\n");
-	  
+
   if (call_save_p)
     {
       mode = HARD_REGNO_CALLER_SAVE_MODE (hard_regno,
@@ -5776,7 +5776,7 @@ spill_hard_reg_in_range (int regno, enum reg_class rclass, rtx_insn *from, rtx_i
   unsigned int uid;
   bitmap_iterator bi;
   HARD_REG_SET ignore;
-  
+
   lra_assert (from != NULL && to != NULL);
   CLEAR_HARD_REG_SET (ignore);
   EXECUTE_IF_SET_IN_BITMAP (&lra_reg_info[regno].insn_bitmap, 0, uid, bi)
@@ -5784,7 +5784,7 @@ spill_hard_reg_in_range (int regno, enum reg_class rclass, rtx_insn *from, rtx_i
       lra_insn_recog_data_t id = lra_insn_recog_data[uid];
       struct lra_static_insn_data *static_id = id->insn_static_data;
       struct lra_insn_reg *reg;
-      
+
       for (reg = id->regs; reg != NULL; reg = reg->next)
 	if (reg->regno < FIRST_PSEUDO_REGISTER)
 	  SET_HARD_REG_BIT (ignore, reg->regno);

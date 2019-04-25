@@ -35,4 +35,3 @@ foo ()
 /* There should be two IF statements.  One for 'current_sym_addr->code == 42'.
    The other one for '(EXPR)->unchanging'.  */
 /* { dg-final { scan-tree-dump-times "if " 2 "dom2"} } */
-

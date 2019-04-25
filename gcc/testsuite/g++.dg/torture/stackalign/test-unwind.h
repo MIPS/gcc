@@ -49,7 +49,7 @@ copy (char *p, int size)
 
 int g_edi __attribute__((externally_visible)) =INIT_EDI;
 int g_esi __attribute__((externally_visible)) =INIT_ESI;
-int g_ebx __attribute__((externally_visible)) = INIT_EBX; 
+int g_ebx __attribute__((externally_visible)) = INIT_EBX;
 int g_ebp __attribute__((externally_visible));
 int g_esp __attribute__((externally_visible));
 int g_ebp_save __attribute__((externally_visible));

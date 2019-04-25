@@ -213,4 +213,3 @@ streamer_read_widest_int (struct lto_input_block *ib)
     a[i] = streamer_read_hwi (ib);
   return widest_int::from_array (a, len);
 }
-

@@ -25,11 +25,11 @@ int main1 (int n)
 
   for (j = 0; j < n; j++)
     if (a[j] != i + n - 1)
-      abort();	
+      abort();
 
   for (i = 0; i < n; i++)
     if (b[i] != i + n)
-      abort();	
+      abort();
 
   return 0;
 }

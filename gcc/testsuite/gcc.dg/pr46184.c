@@ -15,4 +15,3 @@ foo (int z)
       B[j] = curr_a;
     }
 }
-

@@ -8,7 +8,7 @@ struct var_len
    since each element has a variable length.  We used to allow
    this because it was used in existing code.
    Since PR64417 we reject this code.  */
-static const struct var_len var_array[] = 
+static const struct var_len var_array[] =
 {
   { 1, "Long exposure noise reduction" }, /* { dg-error "initialization of flexible array member" } */
   { 2, "Shutter/AE lock buttons" }, /* { dg-error "initialization of flexible array member" } */

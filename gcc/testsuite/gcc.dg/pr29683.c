@@ -29,7 +29,7 @@ void VerifyValues (agg7 filler, int last_reg, int first_stack, int second_stack)
 void RunTest (agg2 a)
 {
   int result;
-	
+
   result = GetConst (filler, a);
   VerifyValues (filler, 0, a.mbr1, result);
 }
@@ -40,4 +40,3 @@ int main(void)
   RunTest (result);
   return 0;
 }
-

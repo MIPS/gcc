@@ -44,7 +44,7 @@ test1(void)
 }
 
 int main()
-{ 
+{
   check_vect ();
   test1();
   return a[21];

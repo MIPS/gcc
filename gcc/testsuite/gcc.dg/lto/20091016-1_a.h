@@ -3,4 +3,3 @@ union tree_node {
     tree * use;
     VEC_constructor_elt_gc *elts;
 };
-

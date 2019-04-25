@@ -15,11 +15,11 @@ avx_test (void)
 
   s1.x = _mm256_loadu_ps (source);
   d = _mm256_movemask_ps (s1.x);
-  
+
   for (i = 0; i < 8; i++)
     if (source[i] < 0)
       e |= (1 << i);
 
   if (checkVi (&d, &e, 1))
-    abort ();  
+    abort ();
 }

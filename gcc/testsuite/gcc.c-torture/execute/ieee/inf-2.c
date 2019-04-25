@@ -80,4 +80,3 @@ int main()
   testl (34.0l, __builtin_infl());
   return 0;
 }
-

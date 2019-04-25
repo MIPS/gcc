@@ -7,4 +7,3 @@ switch(0) {
 bug: return 0;
 }
 }
-

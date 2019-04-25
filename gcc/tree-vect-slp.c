@@ -157,7 +157,7 @@ typedef struct _slp_oprnd_info
 
 /* Allocate operands info for NOPS operands, and GROUP_SIZE def-stmts for each
    operand.  */
-static vec<slp_oprnd_info> 
+static vec<slp_oprnd_info>
 vect_create_oprnd_info (int nops, int group_size)
 {
   int i;
@@ -819,7 +819,7 @@ vect_build_slp_tree_1 (unsigned char *swap,
 	    {
 	      if (dump_enabled_p ())
 		{
-		  dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location, 
+		  dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 				   "Build SLP failed: different operation "
 				   "in stmt %G", stmt);
 		  dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -1706,7 +1706,7 @@ vect_supported_load_permutation_p (slp_instance slp_instn)
      of the reduction statements is not important (as opposed to the case of
      grouped stores).  The only condition we need to check is that all the
      load nodes are of the same size and have the same permutation (and then
-     rearrange all the nodes of the SLP instance according to this 
+     rearrange all the nodes of the SLP instance according to this
      permutation).  */
 
   /* Check that all the load nodes are of the same size.  */
@@ -2658,7 +2658,7 @@ vect_slp_analyze_operations (vec_info *vinfo)
    and return it.  Do not account defs that are marked in LIFE and
    update LIFE according to uses of NODE.  */
 
-static void 
+static void
 vect_bb_slp_scalar_cost (basic_block bb,
 			 slp_tree node, vec<bool, va_heap> *life,
 			 stmt_vector_for_cost *cost_vec,
@@ -2669,7 +2669,7 @@ vect_bb_slp_scalar_cost (basic_block bb,
   slp_tree child;
 
   if (visited.add (node))
-    return; 
+    return;
 
   FOR_EACH_VEC_ELT (SLP_TREE_SCALAR_STMTS (node), i, stmt_info)
     {
@@ -2737,7 +2737,7 @@ vect_bb_slp_scalar_cost (basic_block bb,
     }
 }
 
-static void 
+static void
 vect_bb_slp_scalar_cost (basic_block bb,
 			 slp_tree node, vec<bool, va_heap> *life,
 			 stmt_vector_for_cost *cost_vec)
@@ -2906,7 +2906,7 @@ vect_slp_analyze_bb_1 (gimple_stmt_iterator region_begin,
 	{
 	  dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 			   "Failed to SLP the basic block.\n");
-	  dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location, 
+	  dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 			   "not vectorized: failed to find SLP opportunities "
 			   "in basic block.\n");
 	}
@@ -3817,7 +3817,7 @@ vect_transform_slp_perm_load (slp_tree node, vec<tree> dr_chain,
 	  if (!analyze_only)
 	    {
 	      tree mask_vec = NULL_TREE;
-		  
+
 	      if (! noop_p)
 		mask_vec = vect_gen_perm_mask_checked (vectype, indices);
 

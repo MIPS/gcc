@@ -64,7 +64,7 @@ TEST(foo10, b[j] = 3*b[j] + 1, checkb()) //ok, 0,0
 
 /* foo8 should work as well, but currently doesn't because the distance
    vectors we compute are too pessimistic.  We compute
-     (0,1), (1,1) and (1,-1) 
+     (0,1), (1,1) and (1,-1)
    and the last one causes us to lose.  */
 TEST(foo8, b[j+1] = 3*b[j] + 1, checkb()) //ok, 0,1
 

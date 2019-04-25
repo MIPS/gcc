@@ -2387,4 +2387,3 @@ int HtmlNamedEntity(const utf8_t *p, size_t length)
     }
     return -1;
 }
-

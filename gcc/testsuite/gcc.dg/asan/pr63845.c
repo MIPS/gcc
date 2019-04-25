@@ -14,4 +14,3 @@ int main ()
   foo (&a);
   return 0;
 }
-

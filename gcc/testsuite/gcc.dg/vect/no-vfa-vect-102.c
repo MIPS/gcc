@@ -36,14 +36,14 @@ int main1 (int x, int y) {
   /* check results: */
   for (i = 0; i < N; i++)
     {
-       if (p->a[i] != 1) 
+       if (p->a[i] != 1)
          abort();
     }
   return 0;
 }
 
 int main (void)
-{ 
+{
   check_vect ();
 
   return main1 (0, N);
@@ -52,4 +52,3 @@ int main (void)
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 0 "vect" } } */
 /* { dg-final { scan-tree-dump-times "possible dependence between data-refs" 1 "vect" { target { ! vect_multiple_sizes } } } } */
 /* { dg-final { scan-tree-dump "possible dependence between data-refs" "vect" { target vect_multiple_sizes } } } */
-

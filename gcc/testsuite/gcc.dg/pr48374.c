@@ -14,4 +14,3 @@ void foo (int y)
       __builtin_unreachable ();
     }
 }
-

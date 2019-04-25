@@ -1644,7 +1644,7 @@ class Boolean_expression : public Expression
   void
   do_dump_expression(Ast_dump_context* ast_dump_context) const
   { ast_dump_context->ostream() << (this->val_ ? "true" : "false"); }
-  
+
  private:
   // The constant.
   bool val_;
@@ -1947,8 +1947,8 @@ String_info_expression::do_dump_expression(
   ast_dump_context->ostream() << "stringinfo(";
   this->string_->dump_expression(ast_dump_context);
   ast_dump_context->ostream() << ",";
-  ast_dump_context->ostream() << 
-      (this->string_info_ == STRING_INFO_DATA ? "data" 
+  ast_dump_context->ostream() <<
+      (this->string_info_ == STRING_INFO_DATA ? "data"
     : this->string_info_ == STRING_INFO_LENGTH ? "length"
     : "unknown");
   ast_dump_context->ostream() << ")";
@@ -2615,7 +2615,7 @@ class Complex_expression : public Expression
   // Write REAL/IMAG to dump context.
   static void
   dump_complex(Ast_dump_context* ast_dump_context, const mpc_t val);
-  
+
  protected:
   bool
   do_is_constant() const
@@ -17325,4 +17325,3 @@ Numeric_constant::hash(unsigned int seed) const
 
   return (static_cast<unsigned int>(val) + seed) * PRIME;
 }
-

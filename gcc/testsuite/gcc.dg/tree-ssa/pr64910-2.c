@@ -82,4 +82,3 @@ int b2b_sll (signed long long u, signed long long w)
    which catch via the second pattern and xfail.  */
 /* { dg-final { scan-assembler-times "and|btst" 20 { target { m68k-*-* } } } } */
 /* { dg-final { scan-assembler-not "or" { target { m68k-*-* } xfail { *-*-* } } } } */
-

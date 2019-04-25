@@ -20,8 +20,7 @@ abcdef??<			/* { dg-warning "ignored" } */
 // { dg-warning "ignored" } Another ??/
    Test
 
-// { dg-warning "ignored" } And another with space after ??/  
+// { dg-warning "ignored" } And another with space after ??/
    the escape
 
 // { dg-bogus "ignored" } A tricky one ??/\
-

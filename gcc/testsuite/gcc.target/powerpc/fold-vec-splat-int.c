@@ -26,4 +26,3 @@ vector unsigned int test_uic () { const vector unsigned int y = { 1,2,3,4}; retu
 
 /* { dg-final { scan-assembler-times "vspltisw" 3 } } */
 /* { dg-final { scan-assembler-times "vspltw|xxspltw" 9 } } */
-

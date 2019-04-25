@@ -36,4 +36,3 @@ foo (int *x)
   b = a[*x] && !((*bar ())[a[*x]] & 0x2000);
   return r;
 }
-

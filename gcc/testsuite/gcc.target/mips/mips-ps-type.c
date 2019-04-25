@@ -1,6 +1,6 @@
 /* Test v2sf calculations.  The nmadd and nmsub patterns need
    -ffinite-math-only.  */
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-mpaired-single -mmadd4 -mgp64 -ffinite-math-only forbid_cpu=octeon.*" } */
 /* { dg-skip-if "nmadd and nmsub need combine" { *-*-* } { "-O0" } { "" } } */
 /* { dg-final { scan-assembler "\tcvt.ps.s\t" } } */
@@ -44,19 +44,19 @@ NOMIPS16 v2sf load ()
   return A;
 }
 
-/* Store to memory */ 
+/* Store to memory */
 NOMIPS16 void store (v2sf a)
 {
   A = a;
 }
 
-/* Add */ 
+/* Add */
 NOMIPS16 v2sf add (v2sf a, v2sf b)
 {
   return a + b;
 }
 
-/* Subtract */ 
+/* Subtract */
 NOMIPS16 v2sf sub (v2sf a, v2sf b)
 {
   return a - b;
@@ -68,37 +68,37 @@ NOMIPS16 v2sf neg (v2sf a)
   return - a;
 }
 
-/* Multiply */ 
+/* Multiply */
 NOMIPS16 v2sf mul (v2sf a, v2sf b)
 {
   return a * b;
 }
 
-/* Multiply and add */ 
+/* Multiply and add */
 NOMIPS16 v2sf madd (v2sf a, v2sf b, v2sf c)
 {
   return a * b + c;
 }
 
-/* Multiply and subtract */ 
+/* Multiply and subtract */
 NOMIPS16 v2sf msub (v2sf a, v2sf b, v2sf c)
 {
   return a * b - c;
 }
 
-/* Negate Multiply and add */ 
+/* Negate Multiply and add */
 NOMIPS16 v2sf nmadd (v2sf a, v2sf b, v2sf c)
 {
   return - (a * b + c);
 }
 
-/* Negate Multiply and subtract */ 
+/* Negate Multiply and subtract */
 NOMIPS16 v2sf nmsub (v2sf a, v2sf b, v2sf c)
 {
   return - (a * b - c);
 }
 
-/* Conditional Move */ 
+/* Conditional Move */
 NOMIPS16 v2sf cond_move1 (v2sf a, v2sf b, long i)
 {
   if (i != 0)
@@ -107,7 +107,7 @@ NOMIPS16 v2sf cond_move1 (v2sf a, v2sf b, long i)
     return b;
 }
 
-/* Conditional Move */ 
+/* Conditional Move */
 NOMIPS16 v2sf cond_move2 (v2sf a, v2sf b, int i)
 {
   if (i != 0)

@@ -5,7 +5,7 @@
    all.  */
 
 void baz (void);
-                       
+
 double foo (void)
 {
   baz ();

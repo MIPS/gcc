@@ -38,4 +38,3 @@ void H5T_conv_vlen (unsigned long long nelmts, unsigned char *bg_ptr)
 	f ((unsigned char *) tmp_buf + dst_base_size * bg_seq_len);
     }
 }
-

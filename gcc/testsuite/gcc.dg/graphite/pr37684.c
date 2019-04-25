@@ -63,4 +63,3 @@ int BZ2_bzCompressInit
    }
    prepare_new_block ( s );
 }
-

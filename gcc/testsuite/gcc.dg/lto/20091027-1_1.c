@@ -7,4 +7,3 @@ void xmlAddEntity(struct _xmlDoc *a) {
   xmlDict * dict = a->dict;
   xmlHashCreateDict(0, dict);
 }
-

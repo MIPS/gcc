@@ -5,7 +5,7 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 8 
+#define N 8
 
 int
 main1 ()
@@ -17,7 +17,7 @@ main1 ()
 
   for (i = 0; i < N; i++)
     {
-      
+
       a0 = in[i*8] + 5;
       a1 = in[i*8 + 1] + 6;
       a2 = in[i*8 + 2] + 7;
@@ -37,7 +37,7 @@ main1 ()
       b7 = a7 * 2;
 
       out[i*8] = b0 - 2;
-      out[i*8 + 1] = b1 - 3; 
+      out[i*8 + 1] = b1 - 3;
       out[i*8 + 2] = b2 - 2;
       out[i*8 + 3] = b3 - 1;
       out[i*8 + 4] = b4 - 8;
@@ -48,10 +48,10 @@ main1 ()
 
       out2[i*8] = (float) b0;
       out2[i*8 + 1] = (float) b1;
-      out2[i*8 + 2] = (float) b2; 
-      out2[i*8 + 3] = (float) b3; 
-      out2[i*8 + 4] = (float) b4; 
-      out2[i*8 + 5] = (float) b5; 
+      out2[i*8 + 2] = (float) b2;
+      out2[i*8 + 3] = (float) b3;
+      out2[i*8 + 4] = (float) b4;
+      out2[i*8 + 5] = (float) b5;
       out2[i*8 + 6] = (float) b6;
       out2[i*8 + 7] = (float) b7;
   }
@@ -94,4 +94,3 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target vect_strided8 } } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 2 "vect" { target vect_strided8 } } } */
-  

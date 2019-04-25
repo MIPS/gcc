@@ -60,7 +60,3 @@ void tst_cplx_size (complex double *pcd, complex long double *pcld)
   *pcld = cabs (*pcld);  /* { dg-warning "may cause truncation of value" "cabs trunc" { target { large_long_double } } } */
   *pcld = cabs ((complex double) *pcld);
 }
-
-
-
-

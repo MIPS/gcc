@@ -777,7 +777,7 @@ extern size_t _cpp_replacement_text_len (const cpp_macro *);
    It starts initialized to all zeros, and at the end
    'level' is the normalization level of the sequence.  */
 
-struct normalize_state 
+struct normalize_state
 {
   /* The previous starter character.  */
   cppchar_t previous;

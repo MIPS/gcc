@@ -1,4 +1,4 @@
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-O2 -fno-code-hoisting -fdump-tree-pre-stats" } */
 double cos (double);
 double f(double a)
@@ -11,7 +11,7 @@ double f(double a)
    }
  else
    {
-     c = 1.0; 
+     c = 1.0;
    }
  d = cos (a);
  return d + c;

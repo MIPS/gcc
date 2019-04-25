@@ -246,7 +246,7 @@ call_switch ()
   switch_val += test_switch (3, 0);
   switch_val += test_switch (3, 2);
   switch_val += test_switch (4, 0);
-  switch_val += test_switch (16, 0);	
+  switch_val += test_switch (16, 0);
   switch_val += switch_m;
 }
 

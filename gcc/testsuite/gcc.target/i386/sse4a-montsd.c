@@ -6,14 +6,14 @@
 
 #include <ammintrin.h>
 
-static void 
+static void
 sse4a_test_movntsd (double *out, double *in)
 {
   __m128d in_v2df = _mm_load_sd (in);
   _mm_stream_sd (out, in_v2df);
 }
 
-static int 
+static int
 chk_sd (double *v1, double *v2)
 {
   int n_fails = 0;
@@ -24,7 +24,7 @@ chk_sd (double *v1, double *v2)
 
 double vals[10] =
   {
-    100.0,  200.0, 300.0, 400.0, 5.0, 
+    100.0,  200.0, 300.0, 400.0, 5.0,
     -1.0, .345, -21.5, 9.32,  8.41
   };
 
@@ -39,7 +39,7 @@ sse4a_test (void)
   for (i = 0; i < 10; i += 1)
     {
       sse4a_test_movntsd (out, &vals[i]);
-      
+
       fail += chk_sd (out, &vals[i]);
     }
 

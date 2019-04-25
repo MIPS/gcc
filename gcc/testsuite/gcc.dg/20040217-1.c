@@ -5,7 +5,7 @@
 extern void use (int);
 void test (void)
 {
-  union 
+  union
    {
      unsigned long ul;
      signed char sc;
@@ -16,4 +16,3 @@ void test (void)
 
   use (u.sc);
 }
-

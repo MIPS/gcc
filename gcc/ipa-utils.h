@@ -94,7 +94,7 @@ bool odr_types_equivalent_p (tree type1, tree type2);
 bool odr_type_violation_reported_p (tree type);
 
 /* Return vector containing possible targets of polymorphic call E.
-   If COMPLETEP is non-NULL, store true if the list is complete. 
+   If COMPLETEP is non-NULL, store true if the list is complete.
    CACHE_TOKEN (if non-NULL) will get stored to an unique ID of entry
    in the target cache.  If user needs to visit every target list
    just once, it can memoize them.
@@ -162,7 +162,7 @@ possible_polymorphic_call_target_p (struct cgraph_edge *e,
 					     context, n);
 }
 
-/* Return true if BINFO corresponds to a type with virtual methods. 
+/* Return true if BINFO corresponds to a type with virtual methods.
 
    Every type has several BINFOs.  One is the BINFO associated by the type
    while other represents bases of derived types.  The BINFOs representing
@@ -232,7 +232,7 @@ type_in_anonymous_namespace_p (const_tree t)
     return !TREE_PUBLIC (TYPE_STUB_DECL (t));
 }
 
-/* Return true of T is type with One Definition Rule info attached. 
+/* Return true of T is type with One Definition Rule info attached.
    It means that either it is anonymous type or it has assembler name
    set.  */
 
@@ -263,5 +263,3 @@ odr_type_p (const_tree t)
 }
 
 #endif  /* GCC_IPA_UTILS_H  */
-
-

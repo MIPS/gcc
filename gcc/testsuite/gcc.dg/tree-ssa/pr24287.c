@@ -1,10 +1,10 @@
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-O2 -fdump-tree-optimized" } */
 int g1(int);
 int h(int *a, int *b)__attribute__((pure));
 void link_error();
 
-/* The calls to link_error should be eliminated, since nothing escapes to 
+/* The calls to link_error should be eliminated, since nothing escapes to
    non-pure functions.  */
 int g(void)
 {

@@ -34,4 +34,3 @@ t4(void)
 {
 return _mm_xor_si128 (magic_a,magic_b);
 }
-

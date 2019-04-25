@@ -6,4 +6,3 @@ __extension__ int foo(__SIZE_TYPE__ i)
 {
   i ? : (void *){}; /* { dg-error "" } */
 }
-

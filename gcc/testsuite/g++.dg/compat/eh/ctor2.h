@@ -5,7 +5,7 @@ struct VBase
   ~VBase();
 };
 
-struct  StreamBase 
+struct  StreamBase
 {
   virtual ~StreamBase() {}
 };
@@ -13,7 +13,7 @@ struct  StreamBase
 struct  Stream : public virtual VBase, public StreamBase
 {
   Stream();
-  virtual ~Stream() {} 
+  virtual ~Stream() {}
 };
 
 struct DerivedStream : public Stream

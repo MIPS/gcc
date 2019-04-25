@@ -795,7 +795,7 @@ class ovl_iterator  {
   {
     return OVL_EXPORT_P (get_using ());
   }
-  
+
   bool hidden_p () const
   {
     return TREE_CODE (ovl) == OVERLOAD && OVL_HIDDEN_P (ovl);
@@ -1349,7 +1349,7 @@ enum cp_trait_kind
 struct GTY (()) tree_trait_expr {
   struct tree_common common;
   tree type1;
-  tree type2;  
+  tree type2;
   enum cp_trait_kind kind;
 };
 
@@ -1699,7 +1699,7 @@ union GTY((desc ("cp_tree_node_structure (TREE_CODE (&%h.generic))"),
   struct tree_default_arg GTY ((tag ("TS_CP_DEFAULT_ARG"))) default_arg;
   struct tree_deferred_noexcept GTY ((tag ("TS_CP_DEFERRED_NOEXCEPT"))) deferred_noexcept;
   struct lang_identifier GTY ((tag ("TS_CP_IDENTIFIER"))) identifier;
-  struct tree_static_assert GTY ((tag ("TS_CP_STATIC_ASSERT"))) 
+  struct tree_static_assert GTY ((tag ("TS_CP_STATIC_ASSERT")))
     static_assertion;
   struct tree_argument_pack_select GTY ((tag ("TS_CP_ARGUMENT_PACK_SELECT")))
     argument_pack_select;
@@ -3628,7 +3628,7 @@ struct GTY(()) lang_decl {
 
       template <typename T> struct S {};
       template <typename T> struct S<T*> {};
-      
+
    the CLASSTPYE_TI_TEMPLATE for S<int*> will be S, not the S<T*>.  */
 #define CLASSTYPE_TI_TEMPLATE(NODE) TI_TEMPLATE (CLASSTYPE_TEMPLATE_INFO (NODE))
 #define CLASSTYPE_TI_ARGS(NODE)     TI_ARGS (CLASSTYPE_TEMPLATE_INFO (NODE))
@@ -3755,7 +3755,7 @@ struct GTY(()) lang_decl {
    select.  */
 #define ARGUMENT_PACK_SELECT_INDEX(NODE)				\
   (((struct tree_argument_pack_select *)ARGUMENT_PACK_SELECT_CHECK (NODE))->index)
-  
+
 #define FOLD_EXPR_CHECK(NODE)						\
   TREE_CHECK4 (NODE, UNARY_LEFT_FOLD_EXPR, UNARY_RIGHT_FOLD_EXPR,	\
 	       BINARY_LEFT_FOLD_EXPR, BINARY_RIGHT_FOLD_EXPR)
@@ -4160,7 +4160,7 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 /* [basic.fundamental]
 
    Integral and floating types are collectively called arithmetic
-   types.  
+   types.
 
    As a GNU extension, we also accept complex types.
 
@@ -4178,7 +4178,7 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
    Arithmetic types, enumeration types, pointer types,
    pointer-to-member types, and std::nullptr_t are collectively called
    scalar types.
-   
+
    Keep these checks in ascending code order.  */
 #define SCALAR_TYPE_P(TYPE)			\
   (TYPE_PTRDATAMEM_P (TYPE)			\
@@ -4198,7 +4198,7 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 
    Scoped enumeration types are different from normal (unscoped)
    enumeration types in several ways:
-   
+
      - The enumerators of a scoped enumeration type are only available
        within the scope of the enumeration type and not in the
        enclosing scope. For example, the Red color can be referred to
@@ -4663,7 +4663,7 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
    parameter).  The TREE_PURPOSE is the default value, if any.  The
    TEMPLATE_PARM_INDEX for the parameter is available as the
    DECL_INITIAL (for a PARM_DECL) or as the TREE_TYPE (for a
-   TYPE_DECL). 
+   TYPE_DECL).
 
    FIXME: CONST_CAST_TREE is a hack that hopefully will go away after
    tree is converted to C++ class hiearchy.  */
@@ -4815,18 +4815,18 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
         template <> int min<int> (int, int),
 
      3=explicit instantiation, e.g.:
-  
+
         template int min<int> (int, int);
 
    Note that NODE will be marked as a specialization even if the
    template it is instantiating is not a primary template.  For
    example, given:
 
-     template <typename T> struct O { 
+     template <typename T> struct O {
        void f();
-       struct I {}; 
+       struct I {};
      };
-    
+
    both O<int>::f and O<int>::I will be marked as instantiations.
 
    If DECL_USE_TEMPLATE is nonzero, then DECL_TEMPLATE_INFO will also
@@ -6888,7 +6888,7 @@ extern void append_type_to_template_for_access_check (tree, tree, tree,
 extern tree convert_generic_types_to_packs	(tree, int, int);
 extern tree splice_late_return_type		(tree, tree);
 extern bool is_auto				(const_tree);
-extern tree process_template_parm		(tree, location_t, tree, 
+extern tree process_template_parm		(tree, location_t, tree,
 						 bool, bool);
 extern tree end_template_parm_list		(tree);
 extern void end_template_parm_list		(void);
@@ -7547,7 +7547,7 @@ extern tree cp_build_unary_op                   (enum tree_code, tree, bool,
                                                  tsubst_flags_t);
 extern tree genericize_compound_lvalue		(tree);
 extern tree unary_complex_lvalue		(enum tree_code, tree);
-extern tree build_x_conditional_expr		(location_t, tree, tree, tree, 
+extern tree build_x_conditional_expr		(location_t, tree, tree, tree,
                                                  tsubst_flags_t);
 extern tree build_x_compound_expr_from_list	(tree, expr_list_kind,
 						 tsubst_flags_t);
@@ -7592,7 +7592,7 @@ extern void expand_ptrmemfunc_cst		(tree, tree *, tree *);
 extern tree type_after_usual_arithmetic_conversions (tree, tree);
 extern tree common_pointer_type                 (tree, tree);
 extern tree composite_pointer_type		(tree, tree, tree, tree,
-						 composite_pointer_operation, 
+						 composite_pointer_operation,
 						 tsubst_flags_t);
 extern tree merge_types				(tree, tree);
 extern tree strip_array_domain			(tree);
@@ -7896,7 +7896,7 @@ extern tree cp_ubsan_maybe_instrument_cast_to_vbase (location_t, tree, tree);
 extern void cp_ubsan_maybe_initialize_vtbl_ptrs (tree);
 
 /* Inline bodies.  */
-  
+
 inline tree
 ovl_first (tree node)
 {

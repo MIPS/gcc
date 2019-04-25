@@ -1,5 +1,5 @@
 /* Verify that overloaded built-ins for vec_orc and vec_nand with int
- * inputs produce the right results.  These intrinsics (vec_orc, 
+ * inputs produce the right results.  These intrinsics (vec_orc,
  * vec_nand) were added as part of ISA 2.07 (P8).  */
 
 /* { dg-do compile } */

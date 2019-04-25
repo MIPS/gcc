@@ -4,7 +4,7 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 16 
+#define N 16
 
 unsigned int out[N];
 unsigned int in[N] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
@@ -21,7 +21,7 @@ main1 (unsigned int x, unsigned int y)
   a1 = *pin++ + 142;
   a2 = *pin++ + 2;
   a3 = *pin++ + 31;
-  
+
   *pout++ = a0 * x;
   *pout++ = a1 * y;
   *pout++ = a2 * x;
@@ -50,4 +50,3 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "basic block vectorized" 1 "slp2" { target vect64 } } } */
-  

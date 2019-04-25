@@ -19,7 +19,7 @@ int main ()
   *vecublli++ = vec_unpackl(vecubi[0]);
   *vecslli++ = vec_unpackh(vecsi[0]);
   *vecslli++ = vec_unpackl(vecsi[0]);
-  
+
   return 0;
 }
 

@@ -19,7 +19,7 @@ void __attribute__((noinline)) f(long long *p, int n)
 int main(void)
 {
   f(buffer, 1);
-  
+
   if (!buffer[0])
     abort();
 

@@ -12,4 +12,3 @@ f (long long d)
   int i = (int) c;
   g (i);
 }
-

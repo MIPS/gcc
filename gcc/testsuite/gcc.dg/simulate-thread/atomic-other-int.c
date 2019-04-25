@@ -60,7 +60,7 @@ int simulate_thread_final_verify ()
 __attribute__((noinline))
 void simulate_thread_main()
 {
-  
+
   ret = __atomic_exchange_n (&value, max, __ATOMIC_SEQ_CST);
   if (ret != zero || value != max)
     test_abort();

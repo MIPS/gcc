@@ -7,4 +7,3 @@
    Source: PR 602, testsuite-ized by Neil Booth 21 Jan 2000.  */
 
 static void foo (void) {}
-

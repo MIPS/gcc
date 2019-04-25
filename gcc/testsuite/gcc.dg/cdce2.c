@@ -2,7 +2,7 @@
 /* { dg-skip-if "doubles are floats" { "avr-*-*" } } */
 /* { dg-options "-O2 -fmath-errno -fdump-tree-cdce-details  -lm" } */
 /* { dg-final { scan-tree-dump  "cdce2.c:15: .* function call is shrink-wrapped into error conditions\." "cdce" } } */
- 
+
 #include <stdlib.h>
 #include <math.h>
 #include <errno.h>
@@ -29,7 +29,7 @@ int test (double (*fp) (double y))
 {
   int i,x;
   for (i = -100; i < 100; i++)
-    {  
+    {
       fp (i);
       if (errno)
         total_err_count ++;

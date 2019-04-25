@@ -48,16 +48,15 @@ int main (void)
     if (uresult[i] != (unsigned short)uX[i])
       abort ();
   }
-  
+
   foo2 (N);
-  
+
   for (i=0; i<N; i++) {
     if (result[i] != (short)X[i])
       abort ();
   }
-  
+
   return 0;
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 2 "vect" { target vect_unpack } } } */
-

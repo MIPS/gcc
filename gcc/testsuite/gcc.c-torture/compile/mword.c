@@ -26,4 +26,3 @@ foo2 (p, x)
   p[0] = x;
   return p[0];
 }
-

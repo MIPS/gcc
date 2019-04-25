@@ -75,7 +75,7 @@ along with GCC; see the file COPYING3.  If not see
    In finish_decl(), if the decl is static, has incomplete
    struct/union/enum type, it is appeneded to incomplete_record_decls.
    In c_parser_translation_unit(), we iterate over incomplete_record_decls
-   and report error if any of the decls are still incomplete.  */ 
+   and report error if any of the decls are still incomplete.  */
 
 vec<tree> incomplete_record_decls;
 
@@ -334,7 +334,7 @@ c_lex_one_token (c_parser *parser, c_token *token)
 		/* Else they are not special keywords.
 		*/
 	      }
-	    else if (c_dialect_objc () 
+	    else if (c_dialect_objc ()
 		     && (OBJC_IS_AT_KEYWORD (rid_code)
 			 || OBJC_IS_CXX_KEYWORD (rid_code)))
 	      {
@@ -726,9 +726,9 @@ c_parser_next_token_starts_declspecs (c_parser *parser)
      setter/getter on the class.  c_token_starts_declspecs() can't
      differentiate between the two cases because it only checks the
      current token, so we have a special check here.  */
-  if (c_dialect_objc () 
+  if (c_dialect_objc ()
       && token->type == CPP_NAME
-      && token->id_kind == C_ID_CLASSNAME 
+      && token->id_kind == C_ID_CLASSNAME
       && c_parser_peek_2nd_token (parser)->type == CPP_DOT)
     return false;
 
@@ -743,9 +743,9 @@ c_parser_next_tokens_start_declaration (c_parser *parser)
   c_token *token = c_parser_peek_token (parser);
 
   /* Same as above.  */
-  if (c_dialect_objc () 
+  if (c_dialect_objc ()
       && token->type == CPP_NAME
-      && token->id_kind == C_ID_CLASSNAME 
+      && token->id_kind == C_ID_CLASSNAME
       && c_parser_peek_2nd_token (parser)->type == CPP_DOT)
     return false;
 
@@ -1912,7 +1912,7 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 	      return;
 	    if (specs->attrs)
 	      {
-		warning_at (c_parser_peek_token (parser)->location, 
+		warning_at (c_parser_peek_token (parser)->location,
 			    OPT_Wattributes,
 	       		    "prefix attributes are ignored for methods");
 		specs->attrs = NULL_TREE;
@@ -1947,12 +1947,12 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 	      return;
 	    if (specs->attrs)
 	      {
-		warning_at (c_parser_peek_token (parser)->location, 
+		warning_at (c_parser_peek_token (parser)->location,
 			OPT_Wattributes,
 			"prefix attributes are ignored for implementations");
 		specs->attrs = NULL_TREE;
 	      }
-	    c_parser_objc_class_definition (parser, NULL_TREE);	    
+	    c_parser_objc_class_definition (parser, NULL_TREE);
 	    return;
 	  }
 	  break;
@@ -1996,7 +1996,7 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 	 should diagnose if there were no declaration specifiers) or a
 	 function definition (in which case the diagnostic for
 	 implicit int suffices).  */
-      declarator = c_parser_declarator (parser, 
+      declarator = c_parser_declarator (parser,
 					specs->typespec_kind != ctsk_none,
 					C_DTR_NORMAL, &dummy);
       if (declarator == NULL)
@@ -2187,13 +2187,13 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 	      if (d)
 		finish_decl (d, UNKNOWN_LOCATION, NULL_TREE,
 			     NULL_TREE, asm_name);
-	      
+
 	      if (c_parser_next_token_is_keyword (parser, RID_IN))
 		{
 		  if (d)
 		    *objc_foreach_object_declaration = d;
 		  else
-		    *objc_foreach_object_declaration = error_mark_node;		    
+		    *objc_foreach_object_declaration = error_mark_node;
 		}
 	    }
 	  if (c_parser_next_token_is (parser, CPP_COMMA))
@@ -3895,7 +3895,7 @@ c_parser_parms_declarator (c_parser *parser, bool id_list_ok, tree attrs)
       && !attrs
       && c_parser_next_token_is (parser, CPP_NAME)
       && c_parser_peek_token (parser)->id_kind == C_ID_ID
-      
+
       /* Look ahead to detect typos in type names.  */
       && c_parser_peek_2nd_token (parser)->type != CPP_NAME
       && c_parser_peek_2nd_token (parser)->type != CPP_MULT
@@ -6092,7 +6092,7 @@ c_parser_do_statement (c_parser *parser, bool ivdep, unsigned short unroll)
 
    Here is the canonical example of the first variant:
     for (object in array)    { do something with object }
-   we call the first expression ("object") the "object_expression" and 
+   we call the first expression ("object") the "object_expression" and
    the second expression ("array") the "collection_expression".
    object_expression must be an lvalue of type "id" (a generic Objective-C
    object) because the loop works by assigning to object_expression the
@@ -6157,10 +6157,10 @@ c_parser_for_statement (c_parser *parser, bool ivdep, unsigned short unroll,
 	}
       else if (c_parser_next_tokens_start_declaration (parser))
 	{
-	  c_parser_declaration_or_fndef (parser, true, true, true, true, true, 
+	  c_parser_declaration_or_fndef (parser, true, true, true, true, true,
 					 &object_expression, vNULL);
 	  parser->objc_could_be_foreach_context = false;
-	  
+
 	  if (c_parser_next_token_is_keyword (parser, RID_IN))
 	    {
 	      c_parser_consume_token (parser);
@@ -6189,7 +6189,7 @@ c_parser_for_statement (c_parser *parser, bool ivdep, unsigned short unroll,
 	      c_parser_declaration_or_fndef (parser, true, true, true, true,
 					     true, &object_expression, vNULL);
 	      parser->objc_could_be_foreach_context = false;
-	      
+
 	      restore_extension_diagnostics (ext);
 	      if (c_parser_next_token_is_keyword (parser, RID_IN))
 		{
@@ -6717,7 +6717,7 @@ c_parser_expr_no_commas (c_parser *parser, struct c_expr *after,
   exp_location = c_parser_peek_token (parser)->location;
   rhs = c_parser_expr_no_commas (parser, NULL);
   rhs = convert_lvalue_to_rvalue (exp_location, rhs, true, true);
-  
+
   ret.value = build_modify_expr (op_location, lhs.value, lhs.original_type,
 				 code, exp_location, rhs.value,
 				 rhs.original_type);
@@ -7279,7 +7279,7 @@ c_parser_unary_expression (c_parser *parser)
       c_parser_consume_token (parser);
       exp_loc = c_parser_peek_token (parser)->location;
       op = c_parser_cast_expression (parser, NULL);
-      
+
       op = default_function_array_read_conversion (exp_loc, op);
       return parser_build_unary_op (op_loc, PREDECREMENT_EXPR, op);
     case CPP_AND:
@@ -7740,14 +7740,14 @@ struct c_generic_association
 };
 
 /* Parse a generic-selection.  (C11 6.5.1.1).
-   
+
    generic-selection:
      _Generic ( assignment-expression , generic-assoc-list )
-     
+
    generic-assoc-list:
      generic-association
      generic-assoc-list , generic-association
-   
+
    generic-association:
      type-name : assignment-expression
      default : assignment-expression
@@ -8146,7 +8146,7 @@ c_parser_postfix_expression (c_parser *parser)
 	    component = component_tok->value;
 	    location_t end_loc = component_tok->get_finish ();
 	    c_parser_consume_token (parser);
-	    expr.value = objc_build_class_component_ref (class_name, 
+	    expr.value = objc_build_class_component_ref (class_name,
 							 component);
 	    set_c_expr_source_range (&expr, loc, end_loc);
 	    break;
@@ -10076,7 +10076,7 @@ c_parser_objc_class_instance_variables (c_parser *parser)
 	  /* There is a syntax error.  We want to skip the offending
 	     tokens up to the next ';' (included) or '}'
 	     (excluded).  */
-	  
+
 	  /* First, skip manually a ')' or ']'.  This is because they
 	     reduce the nesting level, so c_parser_skip_until_found()
 	     wouldn't be able to skip past them.  */
@@ -10382,32 +10382,32 @@ c_parser_objc_methodproto (c_parser *parser)
   /* Forget protocol qualifiers now.  */
   parser->objc_pq_context = false;
 
-  /* Do not allow the presence of attributes to hide an erroneous 
+  /* Do not allow the presence of attributes to hide an erroneous
      method implementation in the interface section.  */
   if (!c_parser_next_token_is (parser, CPP_SEMICOLON))
     {
       c_parser_error (parser, "expected %<;%>");
       return;
     }
-  
+
   if (decl != error_mark_node)
     objc_add_method_declaration (is_class_method, decl, attributes);
 
   c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
 }
 
-/* If we are at a position that method attributes may be present, check that 
-   there are not any parsed already (a syntax error) and then collect any 
+/* If we are at a position that method attributes may be present, check that
+   there are not any parsed already (a syntax error) and then collect any
    specified at the current location.  Finally, if new attributes were present,
    check that the next token is legal ( ';' for decls and '{' for defs).  */
-   
-static bool 
+
+static bool
 c_parser_objc_maybe_method_attributes (c_parser* parser, tree* attributes)
 {
   bool bad = false;
   if (*attributes)
     {
-      c_parser_error (parser, 
+      c_parser_error (parser,
 		    "method attributes must be specified at the end only");
       *attributes = NULL_TREE;
       bad = true;
@@ -10427,7 +10427,7 @@ c_parser_objc_maybe_method_attributes (c_parser* parser, tree* attributes)
     return bad;
 
   /* We've got attributes, but not at the end.  */
-  c_parser_error (parser, 
+  c_parser_error (parser,
 		  "expected %<;%> or %<{%> after method attribute definition");
   return true;
 }
@@ -10533,7 +10533,7 @@ c_parser_objc_method_decl (c_parser *parser, bool is_class_method,
 	    {
 	      ellipsis = true;
 	      c_parser_consume_token (parser);
-	      attr_err |= c_parser_objc_maybe_method_attributes 
+	      attr_err |= c_parser_objc_maybe_method_attributes
 						(parser, attributes) ;
 	      break;
 	    }
@@ -10663,7 +10663,7 @@ c_parser_objc_protocol_refs (c_parser *parser)
    where '...' is to be interpreted literally, that is, it means CPP_ELLIPSIS.
 
    PS: This function is identical to cp_parser_objc_try_catch_finally_statement
-   for C++.  Keep them in sync.  */   
+   for C++.  Keep them in sync.  */
 
 static void
 c_parser_objc_try_catch_finally_statement (c_parser *parser)
@@ -10722,7 +10722,7 @@ c_parser_objc_try_catch_finally_statement (c_parser *parser)
 	     going.  */
 	  if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
 	    c_parser_consume_token (parser);
-	  
+
 	  /* If these is no immediate closing parenthesis, the user
 	     probably doesn't know that parenthesis are required at
 	     all (ie, they typed "@catch NSException *e").  So, just
@@ -10981,13 +10981,13 @@ c_parser_objc_keywordexpr (c_parser *parser)
 /* A check, needed in several places, that ObjC interface, implementation or
    method definitions are not prefixed by incorrect items.  */
 static bool
-c_parser_objc_diagnose_bad_element_prefix (c_parser *parser, 
+c_parser_objc_diagnose_bad_element_prefix (c_parser *parser,
 					   struct c_declspecs *specs)
 {
   if (!specs->declspecs_seen_p || specs->non_sc_seen_p
       || specs->typespec_kind != ctsk_none)
     {
-      c_parser_error (parser, 
+      c_parser_error (parser,
       		      "no type or storage class may be specified here,");
       c_parser_skip_to_end_of_block_or_statement (parser);
       return true;
@@ -11144,7 +11144,7 @@ c_parser_objc_at_property_declaration (c_parser *parser)
 
 	  if (syntax_error)
 	    break;
-	  
+
 	  if (c_parser_next_token_is (parser, CPP_COMMA))
 	    c_parser_consume_token (parser);
 	  else
@@ -11170,7 +11170,7 @@ c_parser_objc_at_property_declaration (c_parser *parser)
       /* Comma-separated properties are chained together in
 	 reverse order; add them one by one.  */
       properties = nreverse (properties);
-      
+
       for (; properties; properties = TREE_CHAIN (properties))
 	objc_add_property_declaration (loc, copy_node (properties),
 				       property_readonly, property_readwrite,
@@ -13496,7 +13496,7 @@ c_parser_omp_clause_private (c_parser *parser, tree list)
      One of: + * - & ^ | && ||
 
    OpenMP 3.1:
-   
+
    reduction-operator:
      One of: + * - & ^ | && || max min
 
@@ -15187,8 +15187,8 @@ c_parser_omp_all_clauses (c_parser *parser, omp_clause_mask mask,
 	  clauses = c_parser_omp_clause_aligned (parser, clauses);
 	  c_name = "aligned";
 	  break;
-	case PRAGMA_OMP_CLAUSE_LINEAR: 
-	  clauses = c_parser_omp_clause_linear (parser, clauses); 
+	case PRAGMA_OMP_CLAUSE_LINEAR:
+	  clauses = c_parser_omp_clause_linear (parser, clauses);
 	  c_name = "linear";
 	  break;
 	case PRAGMA_OMP_CLAUSE_DEPEND:
@@ -16802,7 +16802,7 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
 	      this_pre_body = pop_stmt_list (this_pre_body);
 	      if (pre_body)
 		{
-		  tree t = pre_body;   
+		  tree t = pre_body;
 		  pre_body = push_stmt_list ();
 		  add_stmt (t);
 		  add_stmt (this_pre_body);
@@ -18647,11 +18647,11 @@ c_finish_omp_declare_simd (c_parser *parser, tree fndecl, tree parms,
 
   unsigned int tokens_avail = parser->tokens_avail;
   gcc_assert (parser->tokens == &parser->tokens_buf[0]);
-  
+
 
   parser->tokens = clauses.address ();
   parser->tokens_avail = clauses.length ();
-  
+
   /* c_parser_omp_declare_simd pushed 2 extra CPP_EOF tokens at the end.  */
   while (parser->tokens_avail > 3)
     {

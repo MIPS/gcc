@@ -6,7 +6,7 @@
 int main ()
 {
   unsigned ix;
-  
+
   for (ix = 10; ix--;); /* count(11) */
 
   return 0;

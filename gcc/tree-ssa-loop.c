@@ -789,6 +789,3 @@ tree_num_loop_insns (struct loop *loop, eni_weights *weights)
 
   return size;
 }
-
-
-

@@ -12,7 +12,7 @@ int test(int v)
       if (u%2==1)
         x++;
     }
-  }  
+  }
   return x;
 }
 

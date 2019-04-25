@@ -15,4 +15,3 @@ t_frame_run (test12)
 
 /* Check epilogue using no write-back.  */
 /* { dg-final { scan-assembler "ldp\tx29, x30, \\\[sp, \[0-9\]+\\\]" } } */
-

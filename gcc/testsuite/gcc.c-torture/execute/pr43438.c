@@ -19,5 +19,4 @@ int main(void)
   if (g_9 != 1)
     abort ();
   return 0;
-} 
-
+}

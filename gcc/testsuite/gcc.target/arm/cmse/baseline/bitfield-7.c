@@ -15,4 +15,3 @@
 /* { dg-final { scan-assembler "movs\tr2, r4" } } */
 /* { dg-final { scan-assembler "movs\tr3, r4" } } */
 /* { dg-final { scan-assembler "bl\t__gnu_cmse_nonsecure_call" } } */
-

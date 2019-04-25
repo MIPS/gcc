@@ -9,7 +9,7 @@ main()
 int i,j,k;
 
 
-        
+
         for (i=0; i<BOUND; i++)
         {
                 for (j=0; j<BOUND; j++)

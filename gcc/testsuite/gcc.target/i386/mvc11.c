@@ -2,7 +2,7 @@
 /* { dg-require-ifunc "" } */
 /* { dg-options "-std=gnu99" } */
 
-__attribute__((noipa)) int 
+__attribute__((noipa)) int
 baz (int (*fn) (void))
 {
   asm volatile ("" : "+g" (fn) : : "memory");

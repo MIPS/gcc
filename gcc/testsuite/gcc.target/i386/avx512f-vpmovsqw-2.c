@@ -10,7 +10,7 @@
 #include "avx512f-mask-type.h"
 #include <limits.h>
 
-void 
+void
 CALC (short *r, long long *s, int mem)
 {
   int i;

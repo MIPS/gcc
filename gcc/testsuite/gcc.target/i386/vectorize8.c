@@ -13,4 +13,3 @@ void foo(void)
 }
 
 /* { dg-final { scan-assembler "cvtdq2pd" } } */
-

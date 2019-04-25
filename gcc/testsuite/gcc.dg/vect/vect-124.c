@@ -18,7 +18,7 @@ int
 main ()
 {
   int i;
-  
+
   check_vect ();
   foo (6);
   for (i = 0; i < N; i++)
@@ -26,4 +26,3 @@ main ()
       abort ();
   return 0;
 }
-

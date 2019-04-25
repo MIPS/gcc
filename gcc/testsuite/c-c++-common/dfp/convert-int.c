@@ -64,8 +64,8 @@ init_signed_int (void)
 int
 main ()
 {
-  /* C99 Section 6.7.2 Type specifiers.  Type _Bool is 
-     mentioned in this section.  Conversions between 
+  /* C99 Section 6.7.2 Type specifiers.  Type _Bool is
+     mentioned in this section.  Conversions between
      BOOL and DFP types.  */
 
   /* Decimal float to unsigned integer.  */
@@ -184,7 +184,7 @@ main ()
 
   /* BOOL to decimal float.  */
   init_dfp_3 ();
-  
+
   b = d32;
   if (b)
     FAILURE

@@ -61,4 +61,4 @@ void x ()
   pres = __builtin_custom_pnpi (39+10, p1, i2);
   pres = __builtin_custom_pnpf (39+11, p1, f2);
   pres = __builtin_custom_pnpp (39+12, p1, p2);
-} 
+}

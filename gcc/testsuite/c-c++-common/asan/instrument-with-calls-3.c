@@ -11,4 +11,3 @@ void f(struct A *x, struct A *y) {
 
 /* { dg-final { scan-assembler "__asan_loadN" } } */
 /* { dg-final { scan-assembler "__asan_storeN" } } */
-

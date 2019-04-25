@@ -85,4 +85,3 @@ enum nios2_arch_type
 };
 
 #endif
-

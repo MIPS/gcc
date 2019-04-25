@@ -23,4 +23,3 @@ int main() {
   use (&u);
   return 0;
 }
-

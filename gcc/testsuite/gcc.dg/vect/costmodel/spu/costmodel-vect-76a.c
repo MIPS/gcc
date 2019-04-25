@@ -31,7 +31,7 @@ int main1 (int *pib)
         abort ();
     }
 
-  return 0;  
+  return 0;
 }
 
 int main (void)

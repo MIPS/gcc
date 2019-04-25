@@ -336,4 +336,3 @@ int main()
 	test_unsigned_int_result (ODD, vec_uns_int_result,
 				  vec_uns_int_expected);
 }
-

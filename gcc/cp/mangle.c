@@ -861,7 +861,7 @@ mangle_identifier (tree id)
    FIXME: Module mangling is not fully baked.  How moduleness sticks
    to regular back-references is tricky.  Namespaces cannot have
    moduleness, but classes can.  However, both are mangled the same,
-   so the demangler doesn't have a clue. 
+   so the demangler doesn't have a clue.
 */
 
 static void
@@ -1333,7 +1333,7 @@ find_decomp_unqualified_name (tree decl, size_t *len)
 			::= <special-name>
 			::= <source-name>
 			::= <unnamed-type-name>
-			::= <local-source-name> 
+			::= <local-source-name>
 
     <local-source-name>	::= L <source-name> <discriminator> */
 
@@ -2063,7 +2063,7 @@ write_local_name (tree function, const tree local_entity,
    C++0x extensions
 
      <type> ::= RR <type>   # rvalue reference-to
-     <type> ::= Dt <expression> # decltype of an id-expression or 
+     <type> ::= Dt <expression> # decltype of an id-expression or
                                 # class member access
      <type> ::= DT <expression> # decltype of an expression
      <type> ::= Dn              # decltype of nullptr
@@ -3271,7 +3271,7 @@ write_expression (tree expr)
 	  return;
 	}
       else
-	write_string (name);	
+	write_string (name);
 
       switch (code)
 	{
@@ -3299,7 +3299,7 @@ write_expression (tree expr)
 
 	case CAST_EXPR:
 	  write_type (TREE_TYPE (expr));
-	  if (list_length (TREE_OPERAND (expr, 0)) == 1)	  
+	  if (list_length (TREE_OPERAND (expr, 0)) == 1)
 	    write_expression (TREE_VALUE (TREE_OPERAND (expr, 0)));
 	  else
 	    {

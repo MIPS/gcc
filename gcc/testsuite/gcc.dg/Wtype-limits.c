@@ -24,7 +24,7 @@ void b (unsigned short x)
 {                    /* { dg-warning "comparison of unsigned expression < 0 is always false" "" { target { ! int32plus } } .+1 } */
   if (x < 0)  return;/* { dg-warning "comparison is always false due to limited range of data type" "" { target { int32plus } } } */
                      /* { dg-warning "comparison of unsigned expression >= 0 is always true" "" { target { ! int32plus } } .+1 } */
-  if (x >= 0) return;/* { dg-warning "comparison is always true due to limited range of data type" "" { target { int32plus } } } */  
+  if (x >= 0) return;/* { dg-warning "comparison is always true due to limited range of data type" "" { target { int32plus } } } */
                      /* { dg-warning "comparison of unsigned expression < 0 is always false" "" { target { ! int32plus } } .+1 } */
   if (0 > x)  return;/* { dg-warning "comparison is always false due to limited range of data type" "" { target { int32plus } } } */
                      /* { dg-warning "comparison of unsigned expression >= 0 is always true" "" { target { ! int32plus } } .+1 } */
@@ -59,12 +59,10 @@ void e (unsigned long long x)
   if (0 <= x) return;/* { dg-warning "comparison of unsigned expression >= 0 is always true" } */
 }
 
-int test (int x) 
+int test (int x)
 {
   if ((long long)x <= 0x123456789ABCLL) /* { dg-bogus "comparison is always true due to limited range of data type" "" { xfail *-*-* } } */
     return 1;
-  else 
+  else
     return 0;
 }
-
-

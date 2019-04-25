@@ -1,4 +1,4 @@
-/* Verify that overloaded built-ins for vec_st with 
+/* Verify that overloaded built-ins for vec_st with
    double inputs produce the right code.  */
 
 /* { dg-do compile } */

@@ -11,7 +11,7 @@ int main(int argc, char **argv)
 {
    int i;
    int j;
-   
+
    if(test_c_assoc_0(0) != 0)
       abort();
 
@@ -23,7 +23,7 @@ int main(int argc, char **argv)
 
    if(test_c_assoc_1(0, &i) != 0)
       abort();
-   
+
    if(test_c_assoc_1(&i, &i) != 1)
       abort();
 
@@ -50,6 +50,6 @@ int main(int argc, char **argv)
       abort();
 
    verify_assoc(&i, &i);
-   
+
    return 0;
 }/* end main() */

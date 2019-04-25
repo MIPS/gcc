@@ -47,4 +47,3 @@ int test_shift15ll(unsigned short i)
 }
 
 /* { dg-final { scan-tree-dump-times "popcount" 0 "cddce1" } } */
-

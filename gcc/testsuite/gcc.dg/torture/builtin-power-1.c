@@ -95,7 +95,7 @@ void test(double d1, double d2, double d3,
 
   ROOT_X_ROOT(sqrt);
   ROOT_X_ROOT(cbrt);
-  
+
   /* Test pow(x,y)*pow(x,z) -> pow(x,y+z).  */
 #define POW_X_POW \
  extern void link_failure_pow_x_pow(void); \
@@ -105,7 +105,7 @@ void test(double d1, double d2, double d3,
     link_failure_pow_x_pow()
 
   POW_X_POW;
-  
+
 }
 
 int main (void)

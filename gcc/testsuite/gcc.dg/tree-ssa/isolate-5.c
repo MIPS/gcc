@@ -1,4 +1,4 @@
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-O2 -fdelete-null-pointer-checks -fdump-tree-isolate-paths -fdump-tree-optimized -Wnull-dereference" } */
 /* { dg-skip-if "" keeps_null_pointer_checks } */
 

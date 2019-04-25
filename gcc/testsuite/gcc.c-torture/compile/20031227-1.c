@@ -12,6 +12,6 @@ foo (void)
       if (g)
 	;
       else if (g)
-	;      
+	;
     }
 }

@@ -22,4 +22,3 @@ int pr(char**argv)
 	/* if we ever get here then bug is set */
 	return *bug != 'X';
 }
-

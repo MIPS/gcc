@@ -11,7 +11,7 @@ void metric_carttosphere(int *cctk_lsh, double txz, double tyz, double txx,
     {
       grq[i] = (cost*tyy*((sinp)*(sinp))*sint+
 		2*cosp*cost*txy*sinp*sint-
-		cost*tzz*sint+ 
+		cost*tzz*sint+
 		((cosp)*(cosp))*cost*txx*sint+
 		2*((cost)*(cost))*tyz*sinp-
 		tyz*sinp+

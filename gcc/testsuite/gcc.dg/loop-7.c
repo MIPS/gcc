@@ -12,4 +12,3 @@ void f(int *a)
 
 /* Load of 0 is moved out of the loop.  */
 /* { dg-final { scan-rtl-dump-times "Decided" 1 "loop2_invariant" } } */
-

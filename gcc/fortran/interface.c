@@ -3785,7 +3785,7 @@ gfc_procedure_use (gfc_symbol *sym, gfc_actual_arglist **ap, locus *where)
   if (!compare_actual_formal (ap, dummy_args, 0, sym->attr.elemental,
 			      sym->attr.proc == PROC_ST_FUNCTION, where))
     return false;
- 
+
   if (!check_intents (dummy_args, *ap))
     return false;
 

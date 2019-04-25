@@ -13,7 +13,7 @@ struct S
 foo ()
 {
   *e = &h;
-  if (!d) 
+  if (!d)
     __builtin_unreachable ();
   *f = &g;
   return a;

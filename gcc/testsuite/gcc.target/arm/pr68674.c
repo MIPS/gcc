@@ -24,5 +24,3 @@ foo2(void)
 {
   return b;
 }
-
-

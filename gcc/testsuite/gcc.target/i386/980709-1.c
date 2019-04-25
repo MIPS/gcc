@@ -4,14 +4,14 @@
 extern __inline__ int test_and_set_bit(int nr, volatile void * addr)
 {
 	int oldbit;
-	__asm__ __volatile__( "" 
+	__asm__ __volatile__( ""
 		"btsl %2,%1\n\tsbbl %0,%0"
 		:"=r" (oldbit),"=m" (addr)
 		:"ir" (nr));
 	return oldbit;
 }
 struct buffer_head {
-	unsigned long b_state;		 
+	unsigned long b_state;
 };
 void __wait_on_buffer (struct buffer_head *);
 extern void lock_buffer(struct buffer_head * bh)

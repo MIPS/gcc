@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 16 
+#define N 16
 
 typedef struct {
    int a;
@@ -28,7 +28,7 @@ main1 ()
       p++;
       q++;
     }
-  
+
   /* check results:  */
   for (i = 0; i < N-1; i++)
     {
@@ -42,12 +42,10 @@ main1 ()
 int main (void)
 {
   int i;
-  
+
   check_vect ();
 
   main1 ();
 
   return 0;
 }
-
-  

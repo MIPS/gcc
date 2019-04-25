@@ -36,7 +36,7 @@
     if (imm == _CMP_NEQ_UQ) GEN_CMP(neq)	\
     if (imm == _CMP_NLT_US) GEN_CMP(nlt)	\
     if (imm == _CMP_NLE_US) GEN_CMP(nle)	\
-    if (imm == _CMP_ORD_Q) GEN_CMP(ord)	
+    if (imm == _CMP_ORD_Q) GEN_CMP(ord)
 
 #endif
 

@@ -41,6 +41,6 @@ int main(int argc, char **argv)
       abort();
    if(myF90Array2D[1][2] != 3)
       abort();
-   
+
    return 0;
 }/* end main() */

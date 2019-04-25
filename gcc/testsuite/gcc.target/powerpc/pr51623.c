@@ -94,7 +94,7 @@ int do_nand(struct cmd_tbl_s * cmdtp, int flag, int argc, char *argv[])
 
   if (strcmp(cmd, "bad") != 0 && strcmp(cmd, "erase") != 0  )
     goto usage;
-  
+
   if (nand_curr_device < 0 ) {
     return 1;
   }
@@ -112,12 +112,12 @@ int do_nand(struct cmd_tbl_s * cmdtp, int flag, int argc, char *argv[])
 
     s = strchr(cmd, '.');
     off = (int)simple_strtoul(argv[2], ((void *)0), 16);
-    
+
     if (s != ((void *)0) && strcmp(s, ".oob") == 0)
       nand_dump(nand, off, 1);
     else
       nand_dump(nand, off, 0);
-    
+
     return 0;
   }
 usage:

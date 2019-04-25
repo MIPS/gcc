@@ -18,7 +18,7 @@ static __m128
 __attribute__((noinline, unused))
 test (__m128d p)
 {
-  return _mm_cvtpd_ps (p); 
+  return _mm_cvtpd_ps (p);
 }
 
 static void
@@ -32,8 +32,8 @@ TEST (void)
 
   u.x = test (s.x);
 
-  e[0] = (float)s.a[0]; 
-  e[1] = (float)s.a[1]; 
+  e[0] = (float)s.a[0];
+  e[1] = (float)s.a[1];
 
   if (check_union128 (u, e))
     abort ();

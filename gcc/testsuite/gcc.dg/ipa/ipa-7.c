@@ -28,5 +28,3 @@ int main ()
 
 /* { dg-final { scan-ipa-dump "Creating a specialized node of f" "cp" } } */
 /* { dg-final { scan-ipa-dump-times "replacing param .. . with const 7" 1 "cp" } } */
-
-

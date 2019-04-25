@@ -2,7 +2,7 @@
 /* Simple use of a non-overloaded generic vector intrinsic.  */
 
 static vector unsigned int
-f(vector unsigned int a, vector unsigned int b) 
+f(vector unsigned int a, vector unsigned int b)
 {
   return vec_addc(a,b);
 }

@@ -984,4 +984,3 @@ aff_comb_cannot_overlap_p (aff_tree *diff, const poly_widest_int &size1,
       return known_le (size1, diff->offset);
     }
 }
-

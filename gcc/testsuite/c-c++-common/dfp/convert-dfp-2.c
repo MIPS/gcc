@@ -30,7 +30,7 @@ main ()
   d64a = d128c;
   if (d64a)
     FAILURE
-  
+
   d128a = d32c;
   if (d128a)
     FAILURE
@@ -40,6 +40,6 @@ main ()
   d128a = d128c;
   if (d128a)
     FAILURE
-  
+
   FINISH
 }

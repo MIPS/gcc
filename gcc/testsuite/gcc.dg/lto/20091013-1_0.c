@@ -21,4 +21,3 @@ DC *alloc_dc_ptr( void *funcs, unsigned short magic )
   dc->gdiFont = 0;
   return dc;
 }
-

@@ -24,4 +24,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
   CHECK_STRING_VALUE (gcc_jit_context_get_first_error (ctxt),
 		      "unrecognized dump: not-a-valid-dump-switch");
 }
-

@@ -3,7 +3,7 @@
 /* { dg-skip-if "" { arm_thumb1_ok } } */
 /* { dg-final { scan-assembler "cmpne" } } */
 
-int f(int i, int j) 
+int f(int i, int j)
 {
   if ( (i == '+') || (j == '-') ) {
     return 1;

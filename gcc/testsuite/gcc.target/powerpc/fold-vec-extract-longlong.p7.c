@@ -64,4 +64,3 @@ testul_cst (vector unsigned long vul2)
 {
   return vec_extract (vul2, 1);
 }
-

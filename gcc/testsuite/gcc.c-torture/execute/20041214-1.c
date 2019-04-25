@@ -23,22 +23,22 @@ int g (char *s, const char *format, va_list ap)
     {
       spec = (*++f);
       goto *(step0_jumps[2]);
-      
+
     /* begin switch table. */
     do_precision:
       ++f;
       __builtin_va_arg (ap, int);
       spec = *f;
       goto *(step0_jumps[2]);
-      
+
       do_form_integer:
 	__builtin_va_arg (ap, unsigned long int);
 	goto end;
-	
+
       do_form_string:
 	string = __builtin_va_arg (ap, const char *);
 	strcpy (s, string);
-      
+
       /* End of switch table. */
       end:
       ++f;
@@ -67,4 +67,3 @@ main (void)
     abort ();
   return 0;
 }
-

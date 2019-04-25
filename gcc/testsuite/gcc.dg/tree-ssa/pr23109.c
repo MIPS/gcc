@@ -31,4 +31,3 @@ int main()
    this is not wrongly optimized.  */
 /* { dg-final { scan-tree-dump-not "reciptmp" "lim2" } } */
 /* { dg-final { scan-tree-dump-not "reciptmp" "recip" } } */
-

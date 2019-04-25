@@ -4,7 +4,7 @@ extern void foo (int *);
 static unsigned char *
 nr_memcpy (unsigned char *, unsigned char *, unsigned short);
 
-void 
+void
 baz (char *buf, unsigned short len)
 {
   unsigned char data[10];

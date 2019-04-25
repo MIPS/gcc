@@ -19,7 +19,7 @@ sse2_test (void)
 {
   packed x;
   __m128i y = { 0 };
-  x.f = y; 
+  x.f = y;
   y = foo (y, y, y, y, y, y, y, y, 1, 2, 3, 4, 5, 6, -1, x);
   if (__builtin_memcmp (&y, &x.f, sizeof (y)) != 0)
     abort ();

@@ -4,10 +4,9 @@
 
 #include <limits.h>
 
-int 
+int
 g (void)
 {
   return - - - - -INT_MIN; /* { dg-bogus "integer overflow in expression.*integer overflow in expression" } */
   /* { dg-warning "integer overflow in expression" "" { target *-*-* } .-1 } */
 }
-

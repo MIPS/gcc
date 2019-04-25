@@ -24,4 +24,3 @@ foo (struct S s)
   gi = s.green;
   return 0;
 }
-

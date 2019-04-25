@@ -11,5 +11,3 @@ void g(const int set)
 {
   __asm__ __volatile__ ("" : "=r" (set)); /* { dg-error "read-only parameter" } */
 }
-
-

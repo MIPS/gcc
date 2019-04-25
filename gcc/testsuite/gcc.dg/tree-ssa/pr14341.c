@@ -8,7 +8,7 @@ void t()
 {
   int i;
   int x;
-    for( i = 0; i < 100000000; i++ ){ 
+    for( i = 0; i < 100000000; i++ ){
  	fn_call (i < 100000000);
     }
 }

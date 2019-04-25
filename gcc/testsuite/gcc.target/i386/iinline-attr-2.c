@@ -25,5 +25,3 @@ int test (void)
 }
 
 /* { dg-final { scan-assembler "p2align" } } */
-
-

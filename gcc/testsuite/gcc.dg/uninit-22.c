@@ -66,4 +66,3 @@ int bink_idct_put_c(uint8_t *dest, int linesize, int32_t *block)
 
     return 0;
 }
-

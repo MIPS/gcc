@@ -40,7 +40,7 @@ foo (int x)
 void bar (int i)
 {
   int a = i++ - i++; /* { dg-warning "undefined" "sequence point warning" } */
-} 
+}
 
 void baz (int i)
 {

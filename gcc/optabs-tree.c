@@ -402,4 +402,3 @@ target_supports_op_p (tree type, enum tree_code code,
   return (ot != unknown_optab
 	  && optab_handler (ot, TYPE_MODE (type)) != CODE_FOR_nothing);
 }
-

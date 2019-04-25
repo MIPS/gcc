@@ -87,7 +87,7 @@ void bar()
   TESTIT (exp2, 0x1p28);
   /* Result underflows GCC's REAL_VALUE_TYPE, which has 26 exponent bits.  */
   TESTIT (exp2, -0x1p28);
-  
+
   /* Result overflows (even an extended) C double's mode.  */
   TESTIT (exp2, 0x1p24);
   /* Result underflows (even an extended) C double's mode.  */
@@ -96,7 +96,7 @@ void bar()
   /* Ensure that normal arguments/results are folded.  */
   TESTIT (exp2, 1.5);
   TESTIT (exp2, -1.5);
-  
+
   /* The asin arg must be [-1 ... 1] inclusive.  */
   TESTIT (asin, -1.5);
   TESTIT (asin, 1.5);
@@ -104,7 +104,7 @@ void bar()
   /* The acos arg must be [-1 ... 1] inclusive.  */
   TESTIT (acos, -1.5);
   TESTIT (acos, 1.5);
-  
+
   /* The acosh arg must be [1 ... Inf] inclusive.  */
   TESTIT (acosh, 0.5);
 
@@ -116,15 +116,15 @@ void bar()
   TESTIT (log, -1.0);
   TESTIT (log, 0.0);
   TESTIT (log, -0.0);
-  
+
   TESTIT (log2, -1.0);
   TESTIT (log2, 0.0);
   TESTIT (log2, -0.0);
-  
+
   TESTIT (log10, -1.0);
   TESTIT (log10, 0.0);
   TESTIT (log10, -0.0);
-  
+
   /* The log1p arg must be [-1 ... Inf] EXclusive.  */
   TESTIT (log1p, -2.0);
   TESTIT (log1p, -1.0);
@@ -184,7 +184,7 @@ void bar()
   foo (__builtin_pow (__DBL_MAX__, -3.5));
   fool (__builtin_powl (__LDBL_MAX__, -3.5L));
   TESTIT2 (pow, 2.0, -0x1p50);
-  
+
   /* The sqrt arg must be [0 ... Inf] inclusive.  */
   TESTIT (sqrt, -0.5);
   TESTIT (sqrt, -0.0);
@@ -296,7 +296,7 @@ void bar()
   TESTIT_REENT (lgamma, -1.0); /* lgamma_r */
   TESTIT_REENT (lgamma, -0.0); /* lgamma_r */
   TESTIT_REENT (lgamma, 0.0); /* lgamma_r */
-  
+
   TESTIT_REENT (gamma, -4.0); /* gamma_r */
   TESTIT_REENT (gamma, -3.0); /* gamma_r */
   TESTIT_REENT (gamma, -2.0); /* gamma_r */

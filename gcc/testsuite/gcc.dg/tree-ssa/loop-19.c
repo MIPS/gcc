@@ -1,7 +1,7 @@
 /* This tests strength reduction and choice of induction variables.  The targets
    for this testcase are quite limited, as with different set of available
    addressing modes, the results may be quite different.
- 
+
    The testcase comes from PR 29256 (and originally, the stream benchmark).  */
 
 /* { dg-do compile { target { i?86-*-* || { x86_64-*-* || { powerpc_hard_double && { ! powerpc_fprs } } } } } } */
@@ -24,4 +24,3 @@ void tuned_STREAM_Copy()
 
 /* { dg-final { scan-tree-dump-times "MEM.(base: &|symbol: )a," 2 "optimized" } } */
 /* { dg-final { scan-tree-dump-times "MEM.(base: &|symbol: )c," 2 "optimized" } } */
-

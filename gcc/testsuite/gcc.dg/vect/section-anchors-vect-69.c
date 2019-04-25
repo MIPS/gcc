@@ -40,7 +40,7 @@ struct test1 tmp1[4];
 struct test2 tmp2[4];
 
 int main1 ()
-{  
+{
   int i,j;
 
   /* 1. unaligned */
@@ -111,11 +111,11 @@ int main1 ()
 }
 
 int main (void)
-{ 
+{
   check_vect ();
-  
+
   return main1 ();
-} 
+}
 
 /* { dg-final { scan-tree-dump-times "vectorized 4 loops" 1 "vect" { target vect_int } } } */
 /* Alignment forced using versioning until the pass that increases alignment

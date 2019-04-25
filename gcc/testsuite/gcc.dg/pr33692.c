@@ -9,4 +9,3 @@ int pcm_shm_cmd(volatile snd_pcm_shm_ctrl_t *ctrl)
 {
   snd_pcm_info((snd_pcm_info_t *) &ctrl->info);
 }
-

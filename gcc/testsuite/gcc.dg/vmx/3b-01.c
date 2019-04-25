@@ -3,7 +3,7 @@
 /* Simple use of a overloaded generic vector intrinsic.  */
 
 vector unsigned int
-f(vector unsigned int a, vector unsigned int b) 
+f(vector unsigned int a, vector unsigned int b)
 {
   return vec_subs(a,b);
 }

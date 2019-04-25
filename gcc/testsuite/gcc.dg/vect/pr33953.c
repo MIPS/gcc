@@ -5,14 +5,14 @@ typedef unsigned int UINT32;
 
 void blockmove_NtoN_blend_noremap32 (const UINT32 *srcdata, int srcwidth,
                                      int srcheight, int srcmodulo,
-                                     UINT32 *dstdata, int dstmodulo, 
-                                     int srcshift) 
+                                     UINT32 *dstdata, int dstmodulo,
+                                     int srcshift)
 {
  UINT32 *end;
 
- while (srcheight) 
+ while (srcheight)
    {
-     while (dstdata <= end - 8) 
+     while (dstdata <= end - 8)
        {
          dstdata[0] |= srcdata[0] << srcshift;
          dstdata[1] |= srcdata[1] << srcshift;
@@ -30,5 +30,3 @@ void blockmove_NtoN_blend_noremap32 (const UINT32 *srcdata, int srcwidth,
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail { vect_no_align && { ! vect_hw_misalign } } } } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 1 "vect" { xfail { vect_no_align && { ! vect_hw_misalign } } } } } */
-
-

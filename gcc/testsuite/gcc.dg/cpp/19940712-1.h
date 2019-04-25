@@ -6,5 +6,3 @@
 /* after a cpp directive */
 
 /* comment start in comment error
-
-

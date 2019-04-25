@@ -57,4 +57,3 @@ int main()
   /* { dg-final { scan-tree-dump " = x;" "fre3" } } */
   return x;
 }
-

@@ -22,7 +22,7 @@ int main (int argc, char *argv[]) {
     vector(4, int) i0 = {1,2,3,4};
     vector(4, int) i1, i2;
 
-    
+
     int     i = 12;
     double  d = 3.;
 

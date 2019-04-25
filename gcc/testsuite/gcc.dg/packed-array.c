@@ -34,7 +34,3 @@ main()
   usb_set_maxpacket(2);
   return 0;
 }
-
-
-
-

@@ -10,7 +10,7 @@
 extern void abort(void);
 
 int main ()
-{       
+{
   int darisa[4] __attribute__((aligned(16))) ;
   int *stephanie = (int *) darisa;
 

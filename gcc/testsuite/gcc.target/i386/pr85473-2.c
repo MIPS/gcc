@@ -4,4 +4,3 @@
 /* { dg-final { scan-assembler "movdir64b\[ \\t\]" } } */
 
 #include "pr85473-1.c"
-

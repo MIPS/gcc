@@ -29,7 +29,7 @@ void f (void)
 
   h1 = l1;
   l2 = h2;
-  
+
   d1 = h1;
   h2 = d2;
 }

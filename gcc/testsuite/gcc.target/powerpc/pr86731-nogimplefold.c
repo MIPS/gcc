@@ -60,4 +60,3 @@ vector signed int splats3(void)
 /* { dg-final { scan-assembler-times {\mvspltis[bhw]\M|\mxxspltib\M} 7 } } */
 /* { dg-final { scan-assembler-times {\mvsl[bhwd]\M} 7 } } */
 /* { dg-final { scan-assembler-times {\mlvx\M} 0 } } */
-

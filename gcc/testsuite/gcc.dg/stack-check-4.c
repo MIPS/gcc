@@ -39,4 +39,3 @@ void foo2 ()
 }
 /* { dg-final { scan-rtl-dump-times "Stack clash noreturn" 1 "pro_and_epilogue" } } */
 /* { dg-final { scan-rtl-dump-times "Stack clash not noreturn" 1 "pro_and_epilogue" } } */
-

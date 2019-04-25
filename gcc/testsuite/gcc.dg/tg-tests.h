@@ -129,7 +129,7 @@ main_tests (void)
   volatile float f;
   volatile double d;
   volatile long double ld;
-  
+
   /* Test NaN.  */
   f = __builtin_nanf(""); d = __builtin_nan(""); ld = __builtin_nanl("");
   foo(f, d, ld, /*unord=*/ 1, /*isnan=*/ 1, /*isinf=*/ 0, /*isfin=*/ 0, /*isnorm=*/ 0, FP_NAN);

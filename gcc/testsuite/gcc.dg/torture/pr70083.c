@@ -22,4 +22,3 @@ foo(int u32_0, int u64_0, int u64_1, v16hi v32u16_0, v8si v32u32_0, v4di v32u64_
 
 /* Ignore a warning that is irrelevant to the purpose of this test.  */
 /* { dg-prune-output ".*GCC vector passed by reference.*" } */
-

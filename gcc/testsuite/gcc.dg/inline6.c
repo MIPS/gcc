@@ -8,7 +8,7 @@ extern inline int func1 (void) {
 extern inline int func2 (void) {
   return j++;
 }
-inline int func3 (void) 
+inline int func3 (void)
 {
   return i++;
 }

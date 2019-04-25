@@ -45,4 +45,3 @@ int maxLen, int alphaSize) {
    while (1)
        for (i = gs; i <= ge;i++)  { }
  }
-

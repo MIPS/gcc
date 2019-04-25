@@ -18,7 +18,7 @@ foo (int * __restrict__ b, int k){
     }
     a[i] = sum;
   }
-  
+
   return a[k];
 }
 

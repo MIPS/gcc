@@ -13,6 +13,3 @@ void f(struct o *o){
       : 0;
   }
 }
-
-
-

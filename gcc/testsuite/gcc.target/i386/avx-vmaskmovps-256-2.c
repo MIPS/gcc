@@ -25,9 +25,9 @@ avx_test (void)
   mask.x = _mm256_loadu_si256 ((__m256i *)m);
   _mm256_maskstore_ps (d, mask.x, src.x);
 
-  for (i = 0 ; i < 8; i++) 
+  for (i = 0 ; i < 8; i++)
     e[i] = m[i] ? s[i] : 0;
-   
+
   if (checkVf (d, e, 8))
     abort ();
 }

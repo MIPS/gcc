@@ -12,7 +12,7 @@ extern void abort (void);
 
 struct t_rgb { float r, g, b; };
 
-void write_xpm (void *out, unsigned int flags, const char *title, 
+void write_xpm (void *out, unsigned int flags, const char *title,
 	        const char *legend, const char *label_x, const char *label_y,
 	        int n_x, int n_y, float axis_x[], float axis_y[], float *mat[],
 	        float lo, float hi, struct t_rgb rlo, struct t_rgb rhi)

@@ -8,7 +8,7 @@ static struct {
     BF_key P;
 } BF_current;
 int main(void)
-{   
+{
     BF_word L;
     BF_word tmp4, *ptr;
     BF_word i;

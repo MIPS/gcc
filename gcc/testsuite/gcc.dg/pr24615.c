@@ -24,4 +24,3 @@ test (int type, int size, char *data, int len)
 
   return block;
 }
-

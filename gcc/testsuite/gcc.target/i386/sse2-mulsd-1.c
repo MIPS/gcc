@@ -18,7 +18,7 @@ static __m128d
 __attribute__((noinline, unused))
 test (__m128d s1, __m128d s2)
 {
-  return _mm_mul_sd (s1, s2); 
+  return _mm_mul_sd (s1, s2);
 }
 
 static void
@@ -26,11 +26,11 @@ TEST (void)
 {
   union128d u, s1, s2;
   double e[2];
-   
+
   s1.x = _mm_set_pd (2134.3343,1234.635654);
   s2.x = _mm_set_pd (41124.234,2344.2354);
-  u.x = test (s1.x, s2.x); 
-   
+  u.x = test (s1.x, s2.x);
+
   e[0] = s1.a[0] * s2.a[0];
   e[1] = s1.a[1];
 

@@ -14,7 +14,7 @@ static void __attribute__((noinline)) fetch(struct source *p)
 {
     p->length = 128;
 }
-    
+
 static struct packed_ushort __attribute__((noinline)) next(struct source *p)
 {
     struct packed_ushort rv;

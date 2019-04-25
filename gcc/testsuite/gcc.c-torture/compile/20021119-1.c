@@ -3,7 +3,7 @@
 
 /* Verify that GCC converts integer constants
    in shift operations. */
-   
+
 void foo()
 {
   unsigned int i, j;

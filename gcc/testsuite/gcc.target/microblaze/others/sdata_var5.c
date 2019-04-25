@@ -6,7 +6,7 @@ struct test_s {
     int b;
     int c;
     int d;
-} global = { 1, 2, 3, 4 }; 
+} global = { 1, 2, 3, 4 };
 
 int testfunc ()
 {

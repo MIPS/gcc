@@ -165,4 +165,3 @@ bool isSafeCast(Expression *e, Type *tfrom, Type *tto)
     }
     return false;
 }
-

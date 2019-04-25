@@ -1,7 +1,7 @@
 typedef unsigned char uch;
 uch inbuf[8];
 extern unsigned insize;
-unsigned inptr; 
+unsigned inptr;
 int to_stdout = 0;
 int force = 0;
 extern int fill_inbuf (int);
@@ -17,4 +17,3 @@ int main()
 {
   return 0;
 }
-

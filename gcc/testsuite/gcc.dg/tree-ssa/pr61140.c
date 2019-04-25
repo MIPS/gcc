@@ -1,7 +1,7 @@
 /* { dg-do run } */
 /* { dg-options "-O2" } */
 
-int a[1] = { 1 }, b = 1, c; 
+int a[1] = { 1 }, b = 1, c;
 
 int
 main ()

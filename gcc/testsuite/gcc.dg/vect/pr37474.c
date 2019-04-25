@@ -33,5 +33,3 @@ void foo (unsigned int *__restrict__ pInput, unsigned int *__restrict__ pOutput)
        *pOutput++ = M10 * a + M11 * b + M12 * c;
     }
 }
-
-

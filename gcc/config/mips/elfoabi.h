@@ -39,4 +39,3 @@ along with GCC; see the file COPYING3.  If not see
 									\
   /* Configuration-independent MIPS rules.*/				\
   BASE_DRIVER_SELF_SPECS
-

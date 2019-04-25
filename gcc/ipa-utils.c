@@ -380,7 +380,7 @@ scale_ipa_profile_for_fn (struct cgraph_node *node, profile_count orig_count)
   profile_count to = node->count;
   profile_count::adjust_for_ipa_scaling (&to, &orig_count);
   struct cgraph_edge *e;
-  
+
   for (e = node->callees; e; e = e->next_callee)
     e->count = e->count.apply_scale (to, orig_count);
   for (e = node->indirect_calls; e; e = e->next_callee)
@@ -432,7 +432,7 @@ ipa_merge_profiles (struct cgraph_node *dst,
 
   if (dst->count.initialized_p () && dst->count.ipa () == dst->count)
     dst->count += src->count.ipa ();
-  else 
+  else
     dst->count = src->count.ipa ();
 
   /* First handle functions with no gimple body.  */
@@ -497,7 +497,7 @@ ipa_merge_profiles (struct cgraph_node *dst,
 		 "Giving up; last block mismatch.\n");
       match = false;
     }
-  else 
+  else
     {
       basic_block srcbb, dstbb;
 
@@ -568,7 +568,7 @@ ipa_merge_profiles (struct cgraph_node *dst,
 		  if (srce->probability.initialized_p ())
 		    dste->probability = srce->probability;
 		}
-	    }	
+	    }
 	  else if (srcbb->count.ipa ().initialized_p ()
 		   && !(srcbb->count.ipa () == profile_count::zero ()))
 	    {
@@ -576,7 +576,7 @@ ipa_merge_profiles (struct cgraph_node *dst,
 		{
 		  edge srce = EDGE_SUCC (srcbb, i);
 		  edge dste = EDGE_SUCC (dstbb, i);
-		  dste->probability = 
+		  dste->probability =
 		    dste->probability * dstbb->count.probability_in (dstbb->count + srcbb->count)
 		    + srce->probability * srcbb->count.probability_in (dstbb->count + srcbb->count);
 		}

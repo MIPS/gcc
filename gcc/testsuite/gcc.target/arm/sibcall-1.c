@@ -25,11 +25,10 @@ void func1 (int i, int j, int k, int l, int m, int n, arr16_t a)
 int main(int argc, const char *argv[])
 {
   arr16_t arr = {{1, 2, 3, 4}};
-    
+
   func1(0, 0, 0, 0, 0, 0, arr);
   return result;
 }
 
 /* The PLT marker may appear if the test is run with -fpic/-fPIC.  */
 /* { dg-final { scan-assembler "\tb\tfunc2(\\(PLT\\))?\n" } } */
-

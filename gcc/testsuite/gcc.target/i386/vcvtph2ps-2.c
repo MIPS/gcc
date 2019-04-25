@@ -8,7 +8,7 @@ static void
 f16c_test (void)
 {
   union256 res;
-  union128i_w val; 
+  union128i_w val;
   float exp[8];
 
   exp[0] = 1;

@@ -46,4 +46,3 @@ c_to_c__(complex float *retval, complex float c1, complex float *c2)
   *retval = *c2 * 4.0;
   return;
 }
-

@@ -10,7 +10,7 @@ int toto()
       b = 3;
       goto B;
     }
-  else 
+  else
     {
       if (i == 30)
 	{
@@ -24,10 +24,10 @@ int toto()
 
           for (j = 0; j <= 20; j++)
             a[j+b] = b + i;
-          
+
           bar ();
 	}
-      else 
+      else
         {
           a[i] = b + 3;
         }

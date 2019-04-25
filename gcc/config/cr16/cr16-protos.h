@@ -54,7 +54,7 @@ struct cr16_address
   rtx index;		/* Index register: If one is present.  */
   rtx disp;		/* Displacement or Absolute address.  */
   enum data_model_type data;	/* data ref type.  */
-  int code;		/* Whether the address is code address. 
+  int code;		/* Whether the address is code address.
 			   0 - data, 1 - code label, 2 - function label.  */
 };
 
@@ -96,4 +96,4 @@ extern int cr16_interrupt_function_p (void);
 extern bool cr16_is_data_model (enum data_model_type);
 extern poly_int64 cr16_push_rounding (poly_int64);
 
-#endif /* Not GCC_CR16_PROTOS_H.  */ 
+#endif /* Not GCC_CR16_PROTOS_H.  */

@@ -6,7 +6,7 @@
    the compiler only needs to ignore it.  It's also followed only
    by pp-tokens, not necessarily real C tokens.  */
 
-void foo(void) 
+void foo(void)
 {
   if (1) {
     ;

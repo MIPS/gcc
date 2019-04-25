@@ -20,14 +20,14 @@ avx_test (void)
   double d[2] = {0.0};
   union128d src;
   union128i_q mask;
-  
+
   src.x = _mm_loadu_pd (s);
   mask.x = _mm_loadu_si128 ((__m128i *)m);
   _mm_maskstore_pd (d, mask.x, src.x);
 
-  for (i = 0 ; i < 2; i++) 
+  for (i = 0 ; i < 2; i++)
     e[i] = m[i] ? s[i] : 0;
-   
+
   if (checkVd (d, e, 2))
     abort ();
 }

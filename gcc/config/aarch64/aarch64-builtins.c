@@ -663,7 +663,7 @@ aarch64_simd_builtin_type (machine_mode mode,
   else
     return aarch64_lookup_simd_builtin_type (mode, qualifier_none);
 }
- 
+
 static void
 aarch64_init_simd_builtin_types (void)
 {
@@ -840,7 +840,7 @@ aarch64_init_simd_builtins (void)
      removed once all the intrinsics become strongly typed using the qualifier
      system.  */
   aarch64_init_simd_builtin_scalar_types ();
- 
+
   tree lane_check_fpr = build_function_type_list (void_type_node,
 						  size_type_node,
 						  size_type_node,

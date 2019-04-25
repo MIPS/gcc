@@ -1832,7 +1832,7 @@ pass_manager::dump_profile_report () const
   fprintf (stderr, "                                 |mismatch     |mismatch     |                     |\n");
   fprintf (stderr, "Pass name                        |IN    |IN    |OUT   |OUT   |overall              |\n");
   fprintf (stderr, "                                 |freq  |count |freq  |count |size      |time      |\n");
-	   
+
   for (int i = 1; i < passes_by_id_size; i++)
     if (profile_record[i].run)
       {

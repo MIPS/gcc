@@ -44,4 +44,3 @@ main (void)
   foo();
   return bar();
 }
-

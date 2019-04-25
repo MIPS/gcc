@@ -26,4 +26,3 @@ long double test1l(long double x)
 {
   return tanl(x);
 }
-

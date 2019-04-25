@@ -13,8 +13,7 @@ foo (int i, ...)
   e = va_arg (ap, short);	/* { dg-warning "is promoted" "promoted" } */
   /* { dg-message "note: \\(so you should pass" "should pass" {target *-*-* } .-1 } */
   /* { dg-message "note: if this code" "if this code" {target *-*-* } .-2 } */
-  
+
   va_end (ap);
   return e;
 }
-

@@ -3363,7 +3363,7 @@ gfc_check_findloc (gfc_actual_arglist *ap)
 		 gfc_current_intrinsic, &a->where,
 		 gfc_current_intrinsic_arg[1]->name, &v->where);
     }
-	 
+
   d = ap->next->next->expr;
   m = ap->next->next->next->expr;
   k = ap->next->next->next->next->expr;

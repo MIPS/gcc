@@ -8,7 +8,7 @@ void f()
 {
   int i = 42;
   int j = 63;
-  
+
   asm ("": "=m"(i), "+r"(j) : "m"(i));
 }
 

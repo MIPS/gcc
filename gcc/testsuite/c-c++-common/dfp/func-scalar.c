@@ -20,35 +20,35 @@ arg1_32 (_Decimal32 arg0, _Decimal32 arg1, _Decimal32 arg2,
 {
   return arg1;
 }
-	
+
 _Decimal32
 arg2_32 (_Decimal32 arg0, _Decimal32 arg1, _Decimal32 arg2,
 	 _Decimal32 arg3, _Decimal32 arg4, _Decimal32 arg5)
 {
   return arg2;
 }
-	
+
 _Decimal32
 arg3_32 (_Decimal32 arg0, _Decimal32 arg1, _Decimal32 arg2,
 	 _Decimal32 arg3, _Decimal32 arg4, _Decimal32 arg5)
 {
   return arg3;
 }
-	
+
 _Decimal32
 arg4_32 (_Decimal32 arg0, _Decimal32 arg1, _Decimal32 arg2,
 	 _Decimal32 arg3, _Decimal32 arg4, _Decimal32 arg5)
 {
   return arg4;
 }
-	
+
 _Decimal32
 arg5_32 (_Decimal32 arg0, _Decimal32 arg1, _Decimal32 arg2,
 	 _Decimal32 arg3, _Decimal32 arg4, _Decimal32 arg5)
 {
   return arg5;
 }
-	
+
 
 /* A handful of functions that return their Nth _Decimal64
    argument.  */
@@ -59,42 +59,42 @@ arg0_64 (_Decimal64 arg0, _Decimal64 arg1, _Decimal64 arg2,
 {
   return arg0;
 }
-	
+
 _Decimal64
 arg1_64 (_Decimal64 arg0, _Decimal64 arg1, _Decimal64 arg2,
 	 _Decimal64 arg3, _Decimal64 arg4, _Decimal64 arg5)
 {
   return arg1;
 }
-	
+
 _Decimal64
 arg2_64 (_Decimal64 arg0, _Decimal64 arg1, _Decimal64 arg2,
 	 _Decimal64 arg3, _Decimal64 arg4, _Decimal64 arg5)
 {
   return arg2;
 }
-	
+
 _Decimal64
 arg3_64 (_Decimal64 arg0, _Decimal64 arg1, _Decimal64 arg2,
 	 _Decimal64 arg3, _Decimal64 arg4, _Decimal64 arg5)
 {
   return arg3;
 }
-	
+
 _Decimal64
 arg4_64 (_Decimal64 arg0, _Decimal64 arg1, _Decimal64 arg2,
 	 _Decimal64 arg3, _Decimal64 arg4, _Decimal64 arg5)
 {
   return arg4;
 }
-	
+
 _Decimal64
 arg5_64 (_Decimal64 arg0, _Decimal64 arg1, _Decimal64 arg2,
 	 _Decimal64 arg3, _Decimal64 arg4, _Decimal64 arg5)
 {
   return arg5;
 }
-	
+
 
 /* A handful of functions that return their Nth _Decimal128
    argument.  */
@@ -105,35 +105,35 @@ arg0_128 (_Decimal128 arg0, _Decimal128 arg1, _Decimal128 arg2,
 {
   return arg0;
 }
-	
+
 _Decimal128
 arg1_128 (_Decimal128 arg0, _Decimal128 arg1, _Decimal128 arg2,
 	 _Decimal128 arg3, _Decimal128 arg4, _Decimal128 arg5)
 {
   return arg1;
 }
-	
+
 _Decimal128
 arg2_128 (_Decimal128 arg0, _Decimal128 arg1, _Decimal128 arg2,
 	 _Decimal128 arg3, _Decimal128 arg4, _Decimal128 arg5)
 {
   return arg2;
 }
-	
+
 _Decimal128
 arg3_128 (_Decimal128 arg0, _Decimal128 arg1, _Decimal128 arg2,
 	 _Decimal128 arg3, _Decimal128 arg4, _Decimal128 arg5)
 {
   return arg3;
 }
-	
+
 _Decimal128
 arg4_128 (_Decimal128 arg0, _Decimal128 arg1, _Decimal128 arg2,
 	 _Decimal128 arg3, _Decimal128 arg4, _Decimal128 arg5)
 {
   return arg4;
 }
-	
+
 _Decimal128
 arg5_128 (_Decimal128 arg0, _Decimal128 arg1, _Decimal128 arg2,
 	 _Decimal128 arg3, _Decimal128 arg4, _Decimal128 arg5)

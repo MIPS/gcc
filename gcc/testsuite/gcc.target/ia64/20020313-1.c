@@ -1,4 +1,4 @@
-/* PR 5312 
+/* PR 5312
    The problem here is that the ia64 scheduler saw a sequence of L L M type
    insns, and messed up its internal state on which slot it was issuing
    to, and aborted.  */

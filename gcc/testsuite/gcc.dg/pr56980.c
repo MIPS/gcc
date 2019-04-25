@@ -12,7 +12,7 @@ void foo_sp (B *); /* { dg-message "expected 'B \\*' {aka 'struct A \\*'} but ar
 void foo_up (V *); /* { dg-message "expected 'V \\*' {aka 'union U \\*'} but argument is of type .union V \\*." } */
 void foo_ep (F *); /* { dg-message "expected 'F \\*' {aka 'enum E \\*'} but argument is of type .enum F \\*." } */
 
-void 
+void
 bar (B *b, V *v, F *f)
 {
   foo_s (b); /* { dg-error "incompatible" } */

@@ -10,4 +10,3 @@ void g (int a, int b)
   for (j = a; j <= b; ++j)
     f(j, i);
 }
-

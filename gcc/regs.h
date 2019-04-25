@@ -304,7 +304,7 @@ in_hard_reg_set_p (const HARD_REG_SET regs, machine_mode mode,
   unsigned int end_regno;
 
   gcc_assert (HARD_REGISTER_NUM_P (regno));
-  
+
   if (!TEST_HARD_REG_BIT (regs, regno))
     return false;
 

@@ -13,4 +13,3 @@ _Complex float g(void)
     }
   return x;
 }
-

@@ -763,4 +763,3 @@ ipa_dump_param_adjustments (FILE *file, ipa_parm_adjustment_vec adjustments,
     }
   parms.release ();
 }
-

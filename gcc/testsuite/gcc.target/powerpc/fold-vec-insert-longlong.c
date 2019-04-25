@@ -69,4 +69,3 @@ testul2_cst(unsigned long long x, vector unsigned long long v)
 /* { dg-final { scan-assembler-times {\mstw\M} 8 { target ilp32 } } } */
 
 /* { dg-final { scan-assembler-times {\mlxvd2x\M|\mlxv\M|\mlvx\M} 4 } } */
-

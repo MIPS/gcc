@@ -3113,7 +3113,7 @@ static void
 post_ld_pass (bool temp_file) {
   if (!(temp_file && flag_idsym) && !flag_dsym)
     return;
-      
+
   do_dsymutil (output_file);
 }
 #else

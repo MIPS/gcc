@@ -209,7 +209,7 @@ df_rd_alloc (bitmap all_blocks)
   EXECUTE_IF_SET_IN_BITMAP (all_blocks, 0, bb_index, bi)
     {
       struct df_rd_bb_info *bb_info = df_rd_get_bb_info (bb_index);
-      
+
       /* When bitmaps are already initialized, just clear them.  */
       if (bb_info->kill.obstack)
 	{
@@ -770,7 +770,7 @@ df_lr_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
   EXECUTE_IF_SET_IN_BITMAP (df_lr->out_of_date_transfer_functions, 0, bb_index, bi)
     {
       struct df_lr_bb_info *bb_info = df_lr_get_bb_info (bb_index);
-      
+
       /* When bitmaps are already initialized, just clear them.  */
       if (bb_info->use.obstack)
 	{
@@ -1247,7 +1247,7 @@ df_lr_verify_transfer_functions (void)
   if (!df)
     return;
 
-  bitmap_initialize (&saved_def, &bitmap_default_obstack); 
+  bitmap_initialize (&saved_def, &bitmap_default_obstack);
   bitmap_initialize (&saved_use, &bitmap_default_obstack);
   bitmap_initialize (&all_blocks, &bitmap_default_obstack);
 
@@ -1378,7 +1378,7 @@ df_live_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
   EXECUTE_IF_SET_IN_BITMAP (df_live->out_of_date_transfer_functions, 0, bb_index, bi)
     {
       struct df_live_bb_info *bb_info = df_live_get_bb_info (bb_index);
-      
+
       /* When bitmaps are already initialized, just clear them.  */
       if (bb_info->kill.obstack)
 	{
@@ -2754,7 +2754,7 @@ df_word_lr_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
   EXECUTE_IF_SET_IN_BITMAP (df_word_lr->out_of_date_transfer_functions, 0, bb_index, bi)
     {
       struct df_word_lr_bb_info *bb_info = df_word_lr_get_bb_info (bb_index);
-      
+
       /* When bitmaps are already initialized, just clear them.  */
       if (bb_info->use.obstack)
 	{
@@ -4730,6 +4730,3 @@ df_md_add_problem (void)
 {
   df_add_problem (&problem_MD);
 }
-
-
-

@@ -7,7 +7,7 @@
 /* When inserting something into the top bit of a 32-bit structure,
    we must make sure that the register remains properly sign-extended.
    There are two ways of doing this:
- 
+
      - use purely 32-bit bit manipulations (a single INS, matched twice here).
      - use a 64-bit bit manipulation (DINS), and sign-extend the result.  We
      check for this extension using SLL.  */

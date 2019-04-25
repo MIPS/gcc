@@ -390,7 +390,7 @@ struct GTY((tag ("0"), desc ("MAP_ORDINARY_P (&%h) ? 1 : 2"))) line_map {
 
 /* An ordinary line map encodes physical source locations. Those
    physical source locations are called "spelling locations".
-   
+
    Physical source file TO_FILE at line TO_LINE at column 0 is represented
    by the logical START_LOCATION.  TO_LINE+L at column C is represented by
    START_LOCATION+(L*(1<<m_column_and_range_bits))+(C*1<<m_range_bits), as
@@ -454,7 +454,7 @@ struct cpp_hashnode;
 
 /* A macro line map encodes location of tokens coming from a macro
    expansion.
-   
+
    The offset from START_LOCATION is used to index into
    MACRO_LOCATIONS; this holds the original location of the token.  */
 struct GTY((tag ("2"))) line_map_macro : public line_map {
@@ -783,7 +783,7 @@ struct GTY(()) location_adhoc_data_map {
 struct GTY(()) line_maps {
 
   ~line_maps ();
-  
+
   maps_info_ordinary info_ordinary;
 
   maps_info_macro info_macro;

@@ -12,4 +12,3 @@ void i(int k)
 	C(MAX2(0.,c[k]));
 	return;
 }
-

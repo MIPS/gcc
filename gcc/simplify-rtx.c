@@ -61,7 +61,7 @@ static rtx
 neg_const_int (machine_mode mode, const_rtx i)
 {
   unsigned HOST_WIDE_INT val = -UINTVAL (i);
-  
+
   if (!HWI_COMPUTABLE_MODE_P (mode)
       && val == UINTVAL (i))
     return simplify_const_unary_operation (NEG, mode, CONST_CAST_RTX (i),
@@ -1916,7 +1916,7 @@ simplify_const_unary_operation (enum rtx_code code, machine_mode mode,
       return immed_wide_int_const (result, result_mode);
     }
 
-  else if (CONST_DOUBLE_AS_FLOAT_P (op) 
+  else if (CONST_DOUBLE_AS_FLOAT_P (op)
 	   && SCALAR_FLOAT_MODE_P (mode)
 	   && SCALAR_FLOAT_MODE_P (GET_MODE (op)))
     {
@@ -3971,10 +3971,10 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
 
 	unsigned int n_elts, in_n_elts;
 	if ((GET_CODE (trueop0) == CONST_VECTOR
-	     || CONST_SCALAR_INT_P (trueop0) 
+	     || CONST_SCALAR_INT_P (trueop0)
 	     || CONST_DOUBLE_AS_FLOAT_P (trueop0))
 	    && (GET_CODE (trueop1) == CONST_VECTOR
-		|| CONST_SCALAR_INT_P (trueop1) 
+		|| CONST_SCALAR_INT_P (trueop1)
 		|| CONST_DOUBLE_AS_FLOAT_P (trueop1))
 	    && GET_MODE_NUNITS (mode).is_constant (&n_elts)
 	    && GET_MODE_NUNITS (op0_mode).is_constant (&in_n_elts))
@@ -4133,7 +4133,7 @@ simplify_const_binary_operation (enum rtx_code code, machine_mode mode,
     }
 
   if (SCALAR_FLOAT_MODE_P (mode)
-      && CONST_DOUBLE_AS_FLOAT_P (op0) 
+      && CONST_DOUBLE_AS_FLOAT_P (op0)
       && CONST_DOUBLE_AS_FLOAT_P (op1)
       && mode == GET_MODE (op0) && mode == GET_MODE (op1))
     {
@@ -7043,7 +7043,7 @@ test_vec_merge (machine_mode mode)
 
   /* Intermediate binary op. */
   rtx binop = gen_rtx_PLUS (mode, vm1, vm2);
-  ASSERT_RTX_EQ (gen_rtx_PLUS (mode, op0, op2), 
+  ASSERT_RTX_EQ (gen_rtx_PLUS (mode, op0, op2),
 		 simplify_merge_mask (binop, mask1, 0));
   ASSERT_RTX_EQ (gen_rtx_PLUS (mode, op1, op3),
 		 simplify_merge_mask (binop, mask1, 1));

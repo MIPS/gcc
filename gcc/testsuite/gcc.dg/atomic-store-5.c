@@ -1,4 +1,4 @@
-/* Test __atomic routines for existence and proper execution on 16 byte 
+/* Test __atomic routines for existence and proper execution on 16 byte
    values with each valid memory model.  */
 /* { dg-do run } */
 /* { dg-require-effective-target sync_int_128_runtime } */
@@ -46,4 +46,3 @@ main ()
 
   return 0;
 }
-

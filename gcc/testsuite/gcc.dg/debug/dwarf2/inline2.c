@@ -64,5 +64,3 @@ main ()
   first (some_int);
   return 0;
 }
-
-

@@ -17,6 +17,6 @@ int main () {
     abort ();
   if (sizeof (x) != 5)
     abort ();
-  
+
   exit (0);
 }

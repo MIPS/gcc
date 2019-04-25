@@ -20,7 +20,7 @@ static __m128
 __attribute__((noinline, unused))
 test (__m128 s1, __m128 s2)
 {
-  return _mm_and_ps (s1, s2); 
+  return _mm_and_ps (s1, s2);
 }
 
 static void
@@ -39,8 +39,8 @@ TEST (void)
   _mm_storeu_ps (source1.f, s1.x);
   _mm_storeu_ps (source2.f, s2.x);
 
-  u.x = test (s1.x, s2.x); 
-   
+  u.x = test (s1.x, s2.x);
+
   e.i[0] = source1.i[0] & source2.i[0];
   e.i[1] = source1.i[1] & source2.i[1];
   e.i[2] = source1.i[2] & source2.i[2];

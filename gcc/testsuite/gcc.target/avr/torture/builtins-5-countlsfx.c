@@ -73,10 +73,10 @@ int main (void)
   TEST2PX (1, 2);
   TEST2PX (2, 3);
   TEST2PX (3, 3);
-  
+
   TEST2MX (-1, 1);
   TEST2MX (-2, 2);
   TEST2MX (-3, 3);
-  
+
   return 0;
 }

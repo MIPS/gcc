@@ -2037,7 +2037,7 @@ static bool
 stack_protect_return_slot_p ()
 {
   basic_block bb;
-  
+
   FOR_ALL_BB_FN (bb, cfun)
     for (gimple_stmt_iterator gsi = gsi_start_bb (bb);
 	 !gsi_end_p (gsi); gsi_next (&gsi))

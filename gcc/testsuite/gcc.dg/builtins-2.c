@@ -224,4 +224,3 @@ long double test13l(long double x)
 {
   return fabsl(powl(2.0l,x));
 }
-

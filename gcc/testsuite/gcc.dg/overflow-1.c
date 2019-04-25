@@ -12,7 +12,7 @@ struct S {
   int key;
   int rnext,rprev;
 };
- 
+
 void foo(struct S* H)
 {
   int i, k;

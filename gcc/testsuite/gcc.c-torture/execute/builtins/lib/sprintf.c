@@ -18,5 +18,3 @@ int
   va_end (ap);
   return r;
 }
-
-

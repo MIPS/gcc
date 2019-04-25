@@ -9,4 +9,3 @@ void Nase(void)
   int i=6;
   a[i]=5;  /* { dg-error "address of global" } */
 }
-

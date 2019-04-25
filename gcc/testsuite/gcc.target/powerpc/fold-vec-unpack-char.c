@@ -33,4 +33,3 @@ testsc_h (vector signed char vsc2)
 
 /* { dg-final { scan-assembler-times "vupkhsb" 2 } } */
 /* { dg-final { scan-assembler-times "vupklsb" 2 } } */
-

@@ -41,7 +41,7 @@ test1 (void)
     abort ();
 
   memset (buf, 'L', sizeof (buf));
-#if(__SIZEOF_INT__ >= 4)  
+#if(__SIZEOF_INT__ >= 4)
   if (snprintf (buf, l1 ? sizeof (buf) : 4, "%d", l1 + 65536) != 5
       || memcmp (buf, "655\0LLLL", 8))
     abort ();

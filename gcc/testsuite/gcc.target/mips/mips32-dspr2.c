@@ -232,7 +232,7 @@ NOMIPS16 void test_MIPS_DSPR2 ()
     abort ();
 
   q31_a = 0x80000000;
-  q31_b = 0x80000000; 
+  q31_b = 0x80000000;
   q31_s = 0x7fffffff;
   q31_r = __builtin_mips_mulq_rs_w (q31_a, q31_b);
   if (q31_r != q31_s)
@@ -248,7 +248,7 @@ NOMIPS16 void test_MIPS_DSPR2 ()
     abort ();
 
   q31_a = 0x00000002;
-  q31_b = 0x80000000; 
+  q31_b = 0x80000000;
   q31_s = 0xfffffffe;
   q31_r = __builtin_mips_mulq_s_w (q31_a, q31_b);
   if (q31_r != q31_s)
@@ -344,7 +344,7 @@ NOMIPS16 void test_MIPS_DSPR2 ()
   if (r != s)
     abort ();
 
-  i32_b = 1;  
+  i32_b = 1;
   v4i8_a = (v4i8) {0x12, 0x45, 0x77, 0x99};
   v4i8_s = (v4i8) {0x9, 0x22, 0x3b, 0xcc};
   v4i8_r = __builtin_mips_shra_qb (v4i8_a, i32_b);
@@ -353,7 +353,7 @@ NOMIPS16 void test_MIPS_DSPR2 ()
   if (r != s)
     abort ();
 
-  i32_b = 1;  
+  i32_b = 1;
   v4i8_a = (v4i8) {0x12, 0x45, 0x77, 0x99};
   v4i8_s = (v4i8) {0x9, 0x23, 0x3c, 0xcd};
   v4i8_r = __builtin_mips_shra_r_qb (v4i8_a, i32_b);

@@ -32,7 +32,7 @@ main1 ()
   for (i = 0; i <N; i++)
     {
       float fres = b[i] + c[i] + d[i];
-      int ires = ib[i] + ic[i];	
+      int ires = ib[i] + ic[i];
       if (a[i] != fres || e[i] != fres || ia[i] != ires)
         abort ();
     }

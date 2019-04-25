@@ -19,7 +19,7 @@ __attribute__((noinline, unused))
 test (__m128i s1, __m128i s2)
 {
   __asm("" : "+v"(s1), "+v"(s2));
-  return _mm_add_epi32 (s1, s2); 
+  return _mm_add_epi32 (s1, s2);
 }
 
 static void
@@ -28,11 +28,11 @@ TEST (void)
   union128i_d u, s1, s2;
   int e[4];
   int i;
-   
+
   s1.x = _mm_set_epi32 (30,90,-80,-40);
   s2.x = _mm_set_epi32 (76, -100, -34, -78);
-  u.x = test (s1.x, s2.x); 
-   
+  u.x = test (s1.x, s2.x);
+
   for (i = 0; i < 4; i++)
      e[i] = s1.a[i] + s2.a[i];
 

@@ -3,7 +3,7 @@
 /* { dg-do compile } */
 /* { dg-options "" } */
 
-int g(void) __attribute__((noreturn)); 
+int g(void) __attribute__((noreturn));
 int g2(void) __attribute__((noreturn)); /* { dg-bogus ".noreturn. function returns non-void value" } */
 void h(void) __attribute__((noreturn));
 
@@ -20,7 +20,7 @@ typedef int ft(void);
 volatile ft vg;
 volatile ft vg2;
 
-int vg(void); 
+int vg(void);
 int vg2(void); /* { dg-bogus ".noreturn. function returns non-void value" } */
 
 int vg(void) {

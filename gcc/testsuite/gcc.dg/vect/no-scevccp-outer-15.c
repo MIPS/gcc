@@ -28,7 +28,7 @@ int main (void)
   int aa[N];
 
   check_vect ();
- 
+
   foo (3);
 
     /* check results:  */

@@ -37,7 +37,7 @@ foo (int n)
   vec_ste (vp2, 0, &accum);
   if (accum != 1518)
     return 0;
- 
+
   return accum;
 }
 
@@ -51,7 +51,3 @@ main (void)
 }
 
 /* { dg-final { scan-rtl-dump "Expanding Accumulator" "loop2_unroll" } } */
-
-
-
-

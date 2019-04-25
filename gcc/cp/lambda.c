@@ -229,7 +229,7 @@ lambda_capture_field_type (tree expr, bool explicit_init_p,
   else if (!is_this && explicit_init_p)
     {
       tree auto_node = make_auto ();
-      
+
       type = auto_node;
       if (by_reference_p)
 	/* Add the reference now, so deduction doesn't lose

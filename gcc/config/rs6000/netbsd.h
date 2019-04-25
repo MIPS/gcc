@@ -93,4 +93,3 @@
 
 /* Use standard DWARF numbering for DWARF debugging information.  */
 #define RS6000_USE_DWARF_NUMBERING
-

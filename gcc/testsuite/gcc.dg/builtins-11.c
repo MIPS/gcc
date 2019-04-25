@@ -50,4 +50,3 @@ int main()
   test (2.0, 3.0, 4.0);
   return 0;
 }
-

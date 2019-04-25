@@ -6,7 +6,7 @@ unsigned int x[128];
 int y[128];
 
 void
-foo () 
+foo ()
 {
   int i;
   for (i = 0; i < 128; i++)

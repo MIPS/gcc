@@ -47,9 +47,9 @@ int main (void)
 {
   if (read1_bug (p1) != read1_ok (p1))
     abort();
-  
+
   if (read3_bug (p3) != read3_ok (p3))
     abort();
-  
+
   exit (0);
 }

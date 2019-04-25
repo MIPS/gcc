@@ -16,7 +16,7 @@ do_test (void)
 {
   unaligned x;
   TYPE y = { 0 };
-  x = y; 
+  x = y;
   y = foo (y, y, y, y, y, y, y, y, 1, 2, 3, 4, 5, 6, -1, x);
   if (__builtin_memcmp (&y, &x, sizeof (y)) != 0)
     abort ();

@@ -20,7 +20,7 @@ test (float *v)
       float f[4];
     } u;
   unsigned int i;
-  
+
   u.x = _mm_set_ps (v[3], v[2], v[1], v[0]);
 
   for (i = 0; i < sizeof (u) / sizeof (v[0]); i++)

@@ -32,7 +32,7 @@ enum stringop_alg
 #define DEF_ENUM
 
 #undef DEF_ALG
-#define DEF_ALG(alg, name) alg, 
+#define DEF_ALG(alg, name) alg,
 
 #include "stringop.def"
 last_alg

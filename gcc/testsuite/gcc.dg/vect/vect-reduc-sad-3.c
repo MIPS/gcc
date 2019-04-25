@@ -7,4 +7,3 @@
 #include "vect-reduc-sad-1.c"
 
 /* { dg-final { scan-tree-dump "vect_recog_sad_pattern: detected" "vect" } } */
-

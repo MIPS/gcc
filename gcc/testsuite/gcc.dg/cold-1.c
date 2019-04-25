@@ -5,7 +5,7 @@ extern void abort (void);
 extern void do_something_interesting_and_never_return ();
 
 int
-foo1(int a)  
+foo1(int a)
 { /* { dg-warning "cold" "detect cold candidate" { target *-*-* } ".-1" } */
   if (a)
     abort ();
@@ -14,8 +14,8 @@ foo1(int a)
 }
 
 int
-foo2(int a)  
-{ 
+foo2(int a)
+{
   if (a)
     do_something_interesting_and_never_return ();
   abort ();

@@ -2,7 +2,7 @@
 /* { dg-options "-O2 -fdump-tree-dce3" } */
 
 /* We should notice constantness of this function. */
-static int __attribute__((noinline)) t(int a) 
+static int __attribute__((noinline)) t(int a)
 {
 	return a+1;
 }

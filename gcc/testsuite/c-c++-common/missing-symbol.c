@@ -12,7 +12,7 @@ int missing_close_paren_in_switch (int i)
           ~ ^
             )
      {
-     ~       
+     ~
      { dg-end-multiline-output "" } */
 
     case 0:
@@ -36,7 +36,7 @@ void missing_close_paren_in_if (void)
                 ^
                 )
      {
-     ~           
+     ~
          { dg-end-multiline-output "" } */
       /* { dg-message "6: to match this '\\('" "" { target *-*-* } start_of_if } */
       /* { dg-begin-multiline-output "" }

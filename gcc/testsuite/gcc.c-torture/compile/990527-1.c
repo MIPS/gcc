@@ -1,12 +1,12 @@
 typedef struct {
     int dummy;
-    int width, height;           
+    int width, height;
 } XWindowAttributes;
 
 typedef struct {
     short x, y;
 } XPoint;
-    
+
 extern unsigned int ya_random (void);
 extern int XDrawPoints(XPoint*, int);
 
@@ -34,4 +34,3 @@ hurm (void)
       j++;
     }
 }
-

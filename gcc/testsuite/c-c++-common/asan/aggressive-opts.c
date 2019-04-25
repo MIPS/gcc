@@ -13,7 +13,7 @@ Perl_do_sv_dump()
 
     if (max < ext)
       max = ext;
-    
+
     for (i = 0; i <= max; i++)
       if (freq[i])
 	ext = 0;
@@ -21,7 +21,7 @@ Perl_do_sv_dump()
     if (i > 20)
       return freq[i];
     else
-      return 0;    
+      return 0;
 }
 
 /* { dg-final { scan-tree-dump-times "ASAN_CHECK" 2 "asan1" } } */

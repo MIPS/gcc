@@ -85,4 +85,3 @@ int main (int argc, const char* argv[])
 /* { dg-final { scan-tree-dump "Built SLP cancelled: can use load/store-lanes" "vect" { target { vect_perm3_int && vect_load_lanes } } } } */
 /* { dg-final { scan-tree-dump "LOAD_LANES" "vect" { target vect_load_lanes } } } */
 /* { dg-final { scan-tree-dump "STORE_LANES" "vect" { target vect_load_lanes } } } */
-

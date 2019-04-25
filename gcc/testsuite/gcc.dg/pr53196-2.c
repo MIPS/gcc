@@ -15,4 +15,3 @@ main ()
   printf ("%d\n", f.i);
   return 0;
 }
-

@@ -15,7 +15,7 @@ int main1 ()
   int i;
   int ia[N+1];
 
-  /* The store is aligned and the loads are misaligned with the same 
+  /* The store is aligned and the loads are misaligned with the same
      misalignment. Cost model is disabled. If misaligned stores are supported,
      we peel according to the loads to align them.  */
   for (i = 0; i <= N; i++)
@@ -34,7 +34,7 @@ int main1 ()
 }
 
 int main (void)
-{ 
+{
   int i;
 
   check_vect ();

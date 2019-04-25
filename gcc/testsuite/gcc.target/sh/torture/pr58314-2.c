@@ -1,6 +1,6 @@
 /* { dg-do compile }  */
 
-struct unipair 
+struct unipair
 {
   unsigned short unicode;
   unsigned short fontpos;
@@ -16,7 +16,7 @@ struct vc_data
   unsigned long *vc_uni_pagedir_loc;
 };
 
-struct uni_pagedir 
+struct uni_pagedir
 {
   unsigned short **uni_pgdir[32];
 };

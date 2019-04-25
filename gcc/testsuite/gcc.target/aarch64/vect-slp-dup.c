@@ -17,4 +17,3 @@ foo (double *restrict in, double *restrict in2,
 }
 
 /* { dg-final { scan-assembler-not "dup\tv\[0-9\]+.2d, v\[0-9\]+" } } */
-

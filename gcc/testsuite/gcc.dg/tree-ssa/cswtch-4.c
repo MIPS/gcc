@@ -6,7 +6,7 @@ void
 frobulate (unsigned int v)
 {
   const char *s;
-  
+
   switch (v)
     {
     case 0:
@@ -30,7 +30,7 @@ void
 frobulate_for_gcc (unsigned int v)
 {
   const char *s;
-  
+
   switch (v)
     {
     case 0:
@@ -46,10 +46,10 @@ frobulate_for_gcc (unsigned int v)
       s = (const char *) 0;
       break;
     }
-  
+
   if (!s)
     __builtin_abort ();
-  
+
   __builtin_printf ("%s\n", s);
 }
 

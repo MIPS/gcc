@@ -19,7 +19,7 @@ foo (struct s *restrict s1, struct s *restrict s2, int n)
       s2[i].c = 0;
     }
 }
-                            
+
 #define N 12
 
 static void

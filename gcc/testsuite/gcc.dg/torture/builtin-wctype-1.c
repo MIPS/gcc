@@ -7,7 +7,7 @@
 
 /* { dg-do link } */
 
-/* Use the target type definitions if we can.  */ 
+/* Use the target type definitions if we can.  */
 #ifndef __WINT_TYPE__
 #define __WINT_TYPE__ int
 #endif
@@ -32,7 +32,7 @@ void test(int i)
   if (FN(i) != FN(i)) \
     link_failure_##FN()
 
-  
+
 #ifdef __OPTIMIZE__
   TEST_IS_WCTYPE(iswalnum);
   TEST_IS_WCTYPE(iswalpha);

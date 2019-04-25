@@ -34,4 +34,3 @@ main (int argc, char **argv)
 
 /* { dg-final { scan-assembler "ldr\tw30, \\\[sp, \[0-9\]+\\\]" } } */
 /* { dg-final { scan-assembler-times "ldr\tx30, \\\[sp\\\], \[0-9\]+" 2 } } */
-

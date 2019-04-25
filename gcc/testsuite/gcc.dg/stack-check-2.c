@@ -63,4 +63,3 @@ test_indirect_casted_2 (void)
 }
 /* { dg-final { scan-tree-dump-not "tail call" "tailc" } } */
 /* { dg-final { scan-tree-dump-not "tail call" "optimized" } } */
-

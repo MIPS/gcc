@@ -1,7 +1,7 @@
 #include "harness.h"
 
 vector unsigned char
-f(vector unsigned char a, vector unsigned char b) 
+f(vector unsigned char a, vector unsigned char b)
 {
   return vec_vsububs(a,b);
 }

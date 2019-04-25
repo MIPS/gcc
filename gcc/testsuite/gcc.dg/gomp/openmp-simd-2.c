@@ -30,7 +30,7 @@ foo (void)
 
 void bar(int n, float *a, float *b)
 {
-  int i; 
+  int i;
 #pragma omp parallel for simd num_threads(4) safelen(64)
   for (i = 0; i < n ; i++)
     a[i] = b[i];

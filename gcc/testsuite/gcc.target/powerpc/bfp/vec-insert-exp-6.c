@@ -5,7 +5,7 @@
 #include <altivec.h>
 
 __vector float
-make_floats (__vector float *significands_p, 
+make_floats (__vector float *significands_p,
 	     __vector unsigned int *exponents_p)
 {
   __vector float significands = *significands_p;

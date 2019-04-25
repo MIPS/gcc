@@ -29,4 +29,3 @@ void foo (void)
 }
 
 /* { dg-final { scan-tree-dump-times "return slot optimization" 0 "optimized" } } */
-

@@ -8,7 +8,7 @@ static void
 __attribute__((noinline))
 test (__m256i *p, __m256i s)
 {
-  return _mm256_stream_si256 (p, s); 
+  return _mm256_stream_si256 (p, s);
 }
 
 static void
@@ -21,7 +21,7 @@ avx_test (void)
 			  4623, 2236, 8295, 1084);
 
   test ((__m256i *)e, u.x);
-  
+
   if (check_union256i_d (u, e))
     abort ();
 }

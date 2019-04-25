@@ -872,7 +872,7 @@ static tree (*ix86_veclib_handler) (combined_fn, tree, tree);
 static tree ix86_veclibabi_svml (combined_fn, tree, tree);
 static tree ix86_veclibabi_acml (combined_fn, tree, tree);
 
-/* This table must be in sync with enum processor_type in i386.h.  */ 
+/* This table must be in sync with enum processor_type in i386.h.  */
 static const struct processor_costs *processor_cost_table[] =
 {
   &generic_cost,
@@ -4544,7 +4544,7 @@ ix86_option_override_internal (bool main_args_p,
   /* For all chips supporting SSE2, -mfpmath=sse performs better than
      fpmath=387.  The second is however default at many targets since the
      extra 80bit precision of temporaries is considered to be part of ABI.
-     Overwrite the default at least for -ffast-math. 
+     Overwrite the default at least for -ffast-math.
      TODO: -mfpmath=both seems to produce same performing code with bit
      smaller binaries.  It is however not clear if register allocation is
      ready for this setting.
@@ -4980,7 +4980,7 @@ ix86_conditional_register_usage (void)
 
   /*  See the definition of CALL_USED_REGISTERS in i386.h.  */
   c_mask = CALL_USED_REGISTERS_MASK (TARGET_64BIT_MS_ABI);
-  
+
   CLEAR_HARD_REG_SET (reg_class_contents[(int)CLOBBERED_REGS]);
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
@@ -5669,9 +5669,9 @@ ix86_valid_target_attribute_p (tree fndecl,
 
   tree old_optimize = build_optimization_node (&global_options);
 
-  /* Get the optimization options of the current function.  */  
+  /* Get the optimization options of the current function.  */
   tree func_optimize = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (fndecl);
- 
+
   if (!func_optimize)
     func_optimize = old_optimize;
 
@@ -5679,7 +5679,7 @@ ix86_valid_target_attribute_p (tree fndecl,
   memset (&func_options, 0, sizeof (func_options));
   init_options_struct (&func_options, NULL);
   lang_hooks.init_options_struct (&func_options);
- 
+
   cl_optimization_restore (&func_options,
 			   TREE_OPTIMIZATION (func_optimize));
 
@@ -7441,7 +7441,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 
    The midde-end can't deal with the vector types > 16 bytes.  In this
    case, we return the original mode and warn ABI change if CUM isn't
-   NULL. 
+   NULL.
 
    If INT_RETURN is true, warn ABI change if the vector mode isn't
    available for function return value.  */
@@ -9433,7 +9433,7 @@ ix86_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 
 	  /* Unless ABI prescibes otherwise,
 	     MMX/3dNow values are returned in MM0 if available.  */
-	     
+
 	  if (size == 8)
 	    return TARGET_VECT8_RETURNS || !TARGET_MMX;
 
@@ -9541,7 +9541,7 @@ ix86_build_builtin_va_list (void)
 
       /* For SYSV_ABI we use an array of one record.  */
       sysv_va_list_type_node = ix86_build_builtin_va_list_64 ();
-	
+
       /* For MS_ABI we use plain pointer to argument area.  */
       tree char_ptr_type = build_pointer_type (char_type_node);
       tree attr = tree_cons (get_identifier ("ms_abi va_list"), NULL_TREE,
@@ -10458,7 +10458,7 @@ standard_sse_constant_opcode (rtx_insn *insn, rtx *operands)
   else if (x == constm1_rtx || vector_all_ones_operand (x, mode))
     {
       enum attr_mode insn_mode = get_attr_mode (insn);
-      
+
       switch (insn_mode)
 	{
 	case MODE_XI:
@@ -10600,7 +10600,7 @@ ix86_frame_pointer_required (void)
   /* SSE saves require frame-pointer when stack is misaligned.  */
   if (TARGET_64BIT_MS_ABI && ix86_incoming_stack_boundary < 128)
     return true;
-  
+
   /* In ix86_option_override_internal, TARGET_OMIT_LEAF_FRAME_POINTER
      turns off the frame pointer by default.  Turn it back on now if
      we've not got a leaf function.  */
@@ -15126,7 +15126,7 @@ ix86_decompose_address (rtx addr, struct ix86_address *out)
 	  addr = XEXP (addr, 0);
 	  if (CONST_INT_P (addr))
 	    return 0;
-	}	      
+	}
       else if (GET_CODE (addr) == AND
 	       && const_32bit_mask (XEXP (addr, 1), DImode))
 	{
@@ -16721,7 +16721,7 @@ get_dllimport_decl (tree decl, bool beimport)
 #ifdef SUB_TARGET_RECORD_STUB
       SUB_TARGET_RECORD_STUB (name);
 #endif
-    }      
+    }
 
   rtl = gen_const_mem (Pmode, rtl);
   set_mem_alias_set (rtl, ix86_GOT_alias_set ());
@@ -16768,7 +16768,7 @@ legitimize_dllimport_symbol (rtx symbol, bool want_reg)
   return x;
 }
 
-/* Expand SYMBOL into its corresponding dllimport or refptr symbol.  WANT_REG 
+/* Expand SYMBOL into its corresponding dllimport or refptr symbol.  WANT_REG
    is true if we require the result be a register.  */
 
 static rtx
@@ -17929,7 +17929,7 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	    case 2:
 	      putc ('w', file);
 	      break;
-  
+
 	    case 4:
 	      putc ('l', file);
 	      break;
@@ -19277,7 +19277,7 @@ ix86_mode_needed (int entity, rtx_insn *insn)
 }
 
 /* Check if a 256bit or 512bit AVX register is referenced in stores.   */
- 
+
 static void
 ix86_check_avx_upper_stores (rtx dest, const_rtx, void *data)
  {
@@ -19286,7 +19286,7 @@ ix86_check_avx_upper_stores (rtx dest, const_rtx, void *data)
       bool *used = (bool *) data;
       *used = true;
     }
- } 
+ }
 
 /* Calculate mode of upper 128bit AVX registers after the insn.  */
 
@@ -20168,7 +20168,7 @@ ix86_expand_vector_move_misalign (machine_mode mode, rtx operands[])
 	    t = gen_reg_rtx (V4SFmode);
 	  else
 	    t = op0;
-	    
+
 	  if (TARGET_SSE_PARTIAL_REG_DEPENDENCY)
 	    emit_move_insn (t, CONST0_RTX (V4SFmode));
 	  else
@@ -21201,7 +21201,7 @@ ix86_emit_binop (enum rtx_code code, machine_mode mode,
 
   op = gen_rtx_SET (dst, gen_rtx_fmt_ee (code, mode, dst, src));
   clob = gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (CCmode, FLAGS_REG));
-  
+
   emit_insn (gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, op, clob)));
 }
 
@@ -25170,7 +25170,7 @@ ix86_expand_vec_perm (rtx operands[])
 
   if (TARGET_XOP)
     {
-      /* The XOP VPPERM insn supports three inputs.  By ignoring the 
+      /* The XOP VPPERM insn supports three inputs.  By ignoring the
 	 one_operand_shuffle special case, we avoid creating another
 	 set of constant vectors in memory.  */
       one_operand_shuffle = false;
@@ -27027,7 +27027,7 @@ expand_small_movmem_or_setmem (rtx destmem, rtx srcmem,
    DONE_LABEL is a label after the whole copying sequence. The label is created
    on demand if *DONE_LABEL is NULL.
    MIN_SIZE is minimal size of block copied.  This value gets adjusted for new
-   bounds after the initial copies. 
+   bounds after the initial copies.
 
    DESTMEM/SRCMEM are memory expressions pointing to the copies block,
    DESTPTR/SRCPTR are pointers to the block. DYNAMIC_CHECK indicate whether
@@ -27336,7 +27336,7 @@ expand_set_or_movmem_constant_prologue (rtx dst, rtx *srcp, rtx destreg,
   return dst;
 }
 
-/* Return true if ALG can be used in current context.  
+/* Return true if ALG can be used in current context.
    Assume we expand memset if MEMSET is true.  */
 static bool
 alg_usable_p (enum stringop_alg alg, bool memset, bool have_as)
@@ -27669,7 +27669,7 @@ promote_duplicated_reg_to_size (rtx val, int size_needed, int desired_align,
 	with specified algorithm.
 
      4) Epilogue: code copying tail of the block that is too small to be
-	handled by main body (or up to size guarded by prologue guard). 
+	handled by main body (or up to size guarded by prologue guard).
 
   Misaligned move sequence
 
@@ -27885,7 +27885,7 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
 
   /* Do the cheap promotion to allow better CSE across the
      main loop and epilogue (ie one load of the big constant in the
-     front of all code.  
+     front of all code.
      For now the misaligned move sequences do not have fast path
      without broadcasting.  */
   if (issetmem && ((CONST_INT_P (val_exp) || misaligned_prologue_used)))
@@ -29106,7 +29106,7 @@ ix86_output_call_insn (rtx_insn *insn, rtx call_op)
 	      seh_nop_p = true;
 	      break;
 	    }
-	    
+
 	  /* If we get to another real insn, we don't need the nop.  */
 	  if (INSN_P (i))
 	    break;
@@ -29686,7 +29686,7 @@ ix86_dependencies_evaluation_hook (rtx_insn *head, rtx_insn *tail)
 		       using topological ordering in the region.  */
 		    if (rgn == CONTAINING_RGN (e->src->index)
 			&& BLOCK_TO_BB (bb->index) > BLOCK_TO_BB (e->src->index))
-		      add_dependee_for_func_arg (first_arg, e->src); 
+		      add_dependee_for_func_arg (first_arg, e->src);
 		  }
 	      }
 	    insn = first_arg;
@@ -30042,7 +30042,7 @@ ix86_local_alignment (tree exp, machine_mode mode,
      other unit cannot rely on the alignment.
 
      Exclude va_list type.  It is the common case of local array where
-     we cannot benefit from the alignment.  
+     we cannot benefit from the alignment.
 
      TODO: Probably one should optimize for size only when var is not escaping.  */
   if (TARGET_64BIT && optimize_function_for_speed_p (cfun)
@@ -31838,7 +31838,7 @@ add_condition_to_bb (tree function_decl, tree version_decl,
   convert_expr = build1 (CONVERT_EXPR, ptr_type_node,
 	     		 build_fold_addr_expr (version_decl));
   result_var = create_tmp_var (ptr_type_node);
-  convert_stmt = gimple_build_assign (result_var, convert_expr); 
+  convert_stmt = gimple_build_assign (result_var, convert_expr);
   return_stmt = gimple_build_return (result_var);
 
   if (predicate_chain == NULL_TREE)
@@ -31865,7 +31865,7 @@ add_condition_to_bb (tree function_decl, tree version_decl,
       gimple_seq_add_stmt (&gseq, call_cond_stmt);
 
       predicate_chain = TREE_CHAIN (predicate_chain);
-      
+
       if (and_expr_var == NULL)
         and_expr_var = cond_var;
       else
@@ -31906,7 +31906,7 @@ add_condition_to_bb (tree function_decl, tree version_decl,
   gimple_set_bb (return_stmt, bb2);
 
   bb3 = e23->dest;
-  make_edge (bb1, bb3, EDGE_FALSE_VALUE); 
+  make_edge (bb1, bb3, EDGE_FALSE_VALUE);
 
   remove_edge (e23);
   make_edge (bb2, EXIT_BLOCK_PTR_FOR_FN (cfun), 0);
@@ -31962,7 +31962,7 @@ get_builtin_code_for_version (tree decl, tree *predicate_list)
     P_FMA4,
     P_XOP,
     P_PROC_XOP,
-    P_FMA,    
+    P_FMA,
     P_PROC_FMA,
     P_BMI2,
     P_AVX2,
@@ -32035,13 +32035,13 @@ get_builtin_code_for_version (tree decl, tree *predicate_list)
       cl_target_option_save (&cur_target, &global_options);
       target_node = ix86_valid_target_attribute_tree (attrs, &global_options,
 						      &global_options_set);
-    
+
       gcc_assert (target_node);
       if (target_node == error_mark_node)
 	return 0;
       new_target = TREE_TARGET_OPTION (target_node);
       gcc_assert (new_target);
-      
+
       if (new_target->arch_specified && new_target->arch > 0)
 	{
 	  switch (new_target->arch)
@@ -32171,14 +32171,14 @@ get_builtin_code_for_version (tree decl, tree *predicate_list)
 	}
 
       cl_target_option_restore (&global_options, &cur_target);
-	
+
       if (predicate_list && arg_str == NULL)
 	{
 	  error_at (DECL_SOURCE_LOCATION (decl),
 		    "no dispatcher found for the versioning attributes");
 	  return 0;
 	}
-    
+
       if (predicate_list)
 	{
           predicate_decl = ix86_builtins [(int) IX86_BUILTIN_CPU_IS];
@@ -32245,7 +32245,7 @@ get_builtin_code_for_version (tree decl, tree *predicate_list)
       *predicate_list = predicate_chain;
     }
 
-  return priority; 
+  return priority;
 }
 
 /* This compares the priority of target features in function DECL1
@@ -32264,7 +32264,7 @@ ix86_compare_version_priority (tree decl1, tree decl2)
 
 /* V1 and V2 point to function versions with different priorities
    based on the target ISA.  This function compares their priorities.  */
- 
+
 static int
 feature_compare (const void *v1, const void *v2)
 {
@@ -32432,7 +32432,7 @@ ix86_mangle_function_version_assembler_name (tree decl, tree id)
 }
 
 
-static tree 
+static tree
 ix86_mangle_decl_assembler_name (tree decl, tree id)
 {
   /* For function version, add the target suffix to the assembler name.  */
@@ -32462,7 +32462,7 @@ ix86_get_function_versions_dispatcher (void *decl)
   tree dispatch_decl = NULL;
 
   struct cgraph_function_version_info *default_version_info = NULL;
- 
+
   gcc_assert (fn != NULL && DECL_FUNCTION_VERSIONED (fn));
 
   node = cgraph_node::get (fn);
@@ -32470,7 +32470,7 @@ ix86_get_function_versions_dispatcher (void *decl)
 
   node_v = node->function_version ();
   gcc_assert (node_v != NULL);
- 
+
   if (node_v->dispatcher_resolver != NULL)
     return node_v->dispatcher_resolver;
 
@@ -32633,7 +32633,7 @@ make_resolver_func (const tree default_decl,
    provide the code to dispatch the right function at run-time.  NODE points
    to the dispatcher decl whose body will be created.  */
 
-static tree 
+static tree
 ix86_generate_version_dispatcher_body (void *node_p)
 {
   tree resolver_decl;
@@ -32818,7 +32818,7 @@ fold_builtin_cpu (tree fndecl, tree *args)
     M_INTEL_SILVERMONT,
     M_INTEL_KNL,
     M_AMD_BTVER1,
-    M_AMD_BTVER2,    
+    M_AMD_BTVER2,
     M_AMDFAM17H,
     M_INTEL_KNM,
     M_INTEL_GOLDMONT,
@@ -32884,7 +32884,7 @@ fold_builtin_cpu (tree fndecl, tree *args)
       {"barcelona", M_AMDFAM10H_BARCELONA},
       {"shanghai", M_AMDFAM10H_SHANGHAI},
       {"istanbul", M_AMDFAM10H_ISTANBUL},
-      {"btver1", M_AMD_BTVER1},      
+      {"btver1", M_AMD_BTVER1},
       {"amdfam15h", M_AMDFAM15H},
       {"bdver1", M_AMDFAM15H_BDVER1},
       {"bdver2", M_AMDFAM15H_BDVER2},
@@ -36753,9 +36753,9 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
       {
 	/* Make it call __cpu_indicator_init in libgcc. */
 	tree call_expr, fndecl, type;
-        type = build_function_type_list (integer_type_node, NULL_TREE); 
+        type = build_function_type_list (integer_type_node, NULL_TREE);
 	fndecl = build_fn_decl ("__cpu_indicator_init", type);
-	call_expr = build_call_expr (fndecl, 0); 
+	call_expr = build_call_expr (fndecl, 0);
 	return expand_expr (call_expr, target, mode, EXPAND_NORMAL);
       }
     case IX86_BUILTIN_CPU_IS:
@@ -36897,7 +36897,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
       if (!REG_P (op2))
 	op2 = copy_to_mode_reg (SImode, op2);
 
-      emit_insn (fcode == IX86_BUILTIN_MONITOR 
+      emit_insn (fcode == IX86_BUILTIN_MONITOR
 		 ? ix86_gen_monitor (op0, op1, op2)
 		 : ix86_gen_monitorx (op0, op1, op2));
       return 0;
@@ -49660,7 +49660,7 @@ ix86_expand_sse2_mulvxdi3 (rtx op0, rtx op1, rtx op2)
 
       /* Multiply lower parts and add all */
       t5 = gen_reg_rtx (V2DImode);
-      emit_insn (gen_vec_widen_umult_even_v4si (t5, 
+      emit_insn (gen_vec_widen_umult_even_v4si (t5,
 					gen_lowpart (V4SImode, op1),
 					gen_lowpart (V4SImode, op2)));
       op0 = expand_binop (mode, add_optab, t5, t4, op0, 1, OPTAB_DIRECT);
@@ -49856,7 +49856,7 @@ ix86_expand_pextr (rtx *operands)
 	return false;
       dst = SUBREG_REG (dst);
     }
-	
+
   if (SUBREG_P (src))
     {
       pos += SUBREG_BYTE (src) * BITS_PER_UNIT;
@@ -51069,7 +51069,7 @@ extract_base_offset_in_addr (rtx mem, rtx *base, rtx *offset)
   gcc_assert (MEM_P (mem));
 
   addr = XEXP (mem, 0);
-  
+
   if (GET_CODE (addr) == CONST)
     addr = XEXP (addr, 0);
 

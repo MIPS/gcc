@@ -37,4 +37,3 @@ int foo (int n, int m, int r, int t)
 
   return 0;
 }
-

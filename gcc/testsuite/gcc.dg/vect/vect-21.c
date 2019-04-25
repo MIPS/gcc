@@ -7,7 +7,7 @@
 #define N 64
 
   int ia[N];
-  int ib[N]= 
+  int ib[N]=
     {1,1,0,0,1,0,1,0,
      1,1,0,0,1,0,1,0,
      1,1,0,0,1,0,1,0,
@@ -126,4 +126,3 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "vectorized 3 loops" 1 "vect" { target vect_condition } } } */
 /* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 0 "vect" } } */
-

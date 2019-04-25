@@ -11,4 +11,3 @@ SetSoundVariables (int x)
     wlookup2[x] = (double) 16 / x;
   }
 }
-

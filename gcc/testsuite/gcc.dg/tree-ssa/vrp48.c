@@ -20,4 +20,3 @@ int main (void)
   int i = foo (0);
   return 0;
 }
-

@@ -18,7 +18,7 @@ int main1 ()
   int i;
 
   for (i = 0; i < N/2; i++)
-    { 
+    {
       a[i] = b[i+N/2] * c[i+N/2] - b[i] * c[i];
       e[i+N/2] = b[i] * c[i+N/2] + b[i+N/2] * c[i];
     }
@@ -27,7 +27,7 @@ int main1 ()
   for (i=0; i<N; i++)
     {
       if (a[i] != results1[i] || e[i] != results2[i])
-	abort(); 
+	abort();
     }
 
 

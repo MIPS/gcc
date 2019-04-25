@@ -31,7 +31,7 @@ TEST (void)
       tmp = _mm_ceil_sd (tmp, tmp);
       _mm_store_sd (&e[i], tmp);
     }
-  
+
   if (check_union128d (u, e))
     abort ();
-} 
+}

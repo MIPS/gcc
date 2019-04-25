@@ -44,4 +44,3 @@ testui_eo (vector unsigned int v1, vector unsigned int v2)
 }
 /* { dg-final { scan-assembler-times "vmrgew" 3 } } */
 /* { dg-final { scan-assembler-times "vmrgow" 3 } } */
-

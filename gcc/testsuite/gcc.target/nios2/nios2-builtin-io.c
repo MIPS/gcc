@@ -23,4 +23,4 @@ void x ()
   __builtin_stbio (&b, 42);
   __builtin_sthio (&h, 43);
   __builtin_stwio (&w, 44);
-} 
+}

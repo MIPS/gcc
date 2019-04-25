@@ -8,4 +8,3 @@ struct _xmlDict {
 void xmlDictCreate(void) {
   xmlDict * dict;
 }
-

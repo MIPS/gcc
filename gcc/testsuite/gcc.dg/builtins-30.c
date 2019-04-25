@@ -6,7 +6,7 @@ extern double strtod (const char *, char **);
 
 /* A built-in function may be overridden by an old-style definition
    specifying too few arguments... */
-double cos ()  /* { dg-warning "shadows a built-in|number of arguments" } */ 
+double cos ()  /* { dg-warning "shadows a built-in|number of arguments" } */
 {
   return strtod ("nan", 0);
 }

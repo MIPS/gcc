@@ -22,5 +22,5 @@ int main (void)
     abort();
 
   exit (0);
-  return 0; 
+  return 0;
 }

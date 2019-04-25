@@ -1,18 +1,18 @@
 /* { dg-options "-O2" } */
 
 typedef struct test input ;
-struct test 
+struct test
 {
   int type ;
   int symflag ;
 };
 int
-Chv_copyEntriesToVector ( input *chv,double *dvec) 
+Chv_copyEntriesToVector ( input *chv,double *dvec)
 {
   double *entries ;
   int mm, nent;
   int first, i, k , stride ;
-  if ( ((chv)->type == 1) ) 
+  if ( ((chv)->type == 1) )
     {
       for ( i = 0 ; i < 10 ; i++)
         {
@@ -21,5 +21,5 @@ Chv_copyEntriesToVector ( input *chv,double *dvec)
 	  stride -= 2 ;
         }
     }
-  return(mm) ; 
+  return(mm) ;
 }

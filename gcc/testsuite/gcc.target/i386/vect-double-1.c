@@ -10,14 +10,14 @@ extern void abort (void);
 #endif
 
 #define N 16
- 
+
 double cb[N] = {0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45};
 double ca[N];
 
 STATIC void
 __attribute__ ((noinline))
 sse2_test (void)
-{  
+{
   int i;
 
   for (i = 0; i < N; i++)

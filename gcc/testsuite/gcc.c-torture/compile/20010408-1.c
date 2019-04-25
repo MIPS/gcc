@@ -29,7 +29,7 @@ char *mode, *s;
   int i;
   char *p, ch;
 
-  do 
+  do
     {
     }
   while (0);
@@ -37,7 +37,7 @@ char *mode, *s;
   while (*s)
     {
       switch (*s)
-	{  
+	{
 	case '*':
 	  return AclSetPerm(uu, u, mode, "#?");
 	case '#':

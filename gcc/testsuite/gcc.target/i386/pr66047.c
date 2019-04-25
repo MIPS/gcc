@@ -12,4 +12,3 @@ bar (void)
 {
   foo ();
 }
-

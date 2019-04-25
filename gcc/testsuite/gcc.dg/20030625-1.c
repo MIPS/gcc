@@ -6,4 +6,3 @@ typedef struct _foo foo;
 struct _foo {
   struct _moo moo;	/* { dg-error "moo" "has incomplete type" } */
 };
-

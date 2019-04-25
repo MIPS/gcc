@@ -4,8 +4,8 @@ static int Sub(int a, int b) {
 
 static unsigned Select(unsigned a, unsigned b, unsigned c) {
   const int pa_minus_pb =
-      Sub((a >>  8) & 0xff, (b >>  8) & 0xff) + 
-      Sub((a >>  0) & 0xff, (b >>  0) & 0xff); 
+      Sub((a >>  8) & 0xff, (b >>  8) & 0xff) +
+      Sub((a >>  0) & 0xff, (b >>  0) & 0xff);
   return (pa_minus_pb <= 0) ? a : b;
 }
 
@@ -22,6 +22,3 @@ int main(void) {
     return 0;
   return 1;
 }
-
-
-

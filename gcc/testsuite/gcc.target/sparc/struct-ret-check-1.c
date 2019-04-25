@@ -2,8 +2,8 @@
 /* Contributed by Carlos O'Donell on 2006-03-14 */
 
 /* Test that GCC follows the SPARC 32-bit psABI with regards to
-   structure return checking in a callee. When -mstd-struct-return 
-   is specificed then gcc will emit code to skip the unimp insn. */ 
+   structure return checking in a callee. When -mstd-struct-return
+   is specificed then gcc will emit code to skip the unimp insn. */
 
 /* Origin: Carlos O'Donell <carlos@codesourcery.com> */
 /* { dg-do run { target sparc*-*-solaris* sparc*-*-linux* sparc*-*-*bsd* } } */
@@ -43,9 +43,9 @@ void handle_sigill (int signum)
     abort ();
 }
 
-/* Implement 3 checks to validate SPARC 32-bit psABI callee 
+/* Implement 3 checks to validate SPARC 32-bit psABI callee
    returns struct
-   
+
    Test1: Save area is valid. unimp size is valid.
    Success: Save area modified correctly.
    Failure: Save area unmodified.
@@ -55,7 +55,7 @@ void handle_sigill (int signum)
    Failure: Save area modified or check == 1.
 
    Test3: Save area is invalid. unimp size is invalid (invalid size).
-   Success: Will raise a SIGILL. 
+   Success: Will raise a SIGILL.
    Failure: SIGSEGV caused by write to invalid save area. */
 
 int main (void)
@@ -68,9 +68,9 @@ int main (void)
   __asm__ ("st %1, [ %%sp + 0x40 ]\n\t"
 	   "call foo\n\t"
 	   " nop\n\t"
-	   "unimp %2\n\t" 
+	   "unimp %2\n\t"
 	   : "=m" (dcheck)
-	   : "r" (&dcheck), "i" (sizeof(struct mydiv_t)) 
+	   : "r" (&dcheck), "i" (sizeof(struct mydiv_t))
 	   : "memory");
 
   /* If the caller doesn't adjust the return, then it crashes.
@@ -78,7 +78,7 @@ int main (void)
 
   if ((dcheck.rem != 3) || (dcheck.quot !=4))
     abort ();
-  
+
 
   /*** Test 2 ***/
   dcheck.rem = 1;
@@ -89,13 +89,13 @@ int main (void)
 	   "call foo\n\t"
 	   " nop\n\t"
 	   "mov %2, %0\n\t"
-	   : "+r" (check), "=m" (dcheck) 
+	   : "+r" (check), "=m" (dcheck)
 	   : "i" (0x2), "r" (&dcheck)
 	   : "memory");
 
   /* If the caller does an unconditional adjustment it will skip
-     the mov, and then we can fail the test based on check's value 
-     We pass a valid pointer to a save area in order to check if 
+     the mov, and then we can fail the test based on check's value
+     We pass a valid pointer to a save area in order to check if
      caller incorrectly wrote to the save area as well. There may
      be a case where the unimp check and skip is correct, but the
      write to the save area still occurs. */
@@ -117,8 +117,8 @@ int main (void)
 	   "call foo\n\t"
 	   " nop\n\t"
 	   "unimp %0\n\t"
-	   : /* No outputs */ 
-	   : "i" (sizeof(struct mydiv_t)-1) 
+	   : /* No outputs */
+	   : "i" (sizeof(struct mydiv_t)-1)
 	   : "memory");
 
   /* NEVER REACHED */

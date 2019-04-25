@@ -31,7 +31,7 @@ int main (void)
 {
   int i,j,k=0;
   int sum,s=0;
-  int res; 
+  int res;
 
   check_vect ();
 

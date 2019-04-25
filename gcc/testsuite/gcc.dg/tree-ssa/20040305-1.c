@@ -1,9 +1,9 @@
 /* { dg-do compile } */
 /* { dg-options "-O2 -fdump-tree-dce2 -fdump-tree-forwprop1-details" } */
-  
+
 int abarney[2];
 int afred[1];
- 
+
 void foo(int edx, int eax)
 {
   if (eax == 100)
@@ -20,7 +20,7 @@ void foo(int edx, int eax)
         afred[0] = 2;
     }
 }
- 
+
 
 /* Verify that we did a forward propagation.  */
 /* { dg-final { scan-tree-dump-times "gimple_simplified" 1 "forwprop1"} } */

@@ -26,7 +26,7 @@
 
 #if defined (__thumb2__) || defined (__thumb1__)
 #error "thumb is defined"
-#endif 
+#endif
 
 #ifndef __ARM_32BIT_STATE
 #error  "__ARM_32BIT_STATE is not defined"

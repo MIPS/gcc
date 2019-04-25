@@ -13,4 +13,3 @@ int f(_Bool x)
 
 /* There should be no != 1. Fold changes x != 1 to ! x.  */
 /* { dg-final { scan-tree-dump-times "!= 1" 0 "optimized" } } */
-

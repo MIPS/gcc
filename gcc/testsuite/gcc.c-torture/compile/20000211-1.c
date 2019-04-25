@@ -21,12 +21,12 @@ typedef enum lstream_buffering
 } Lstream_buffering;
 struct lstream
 {
-  Lstream_buffering buffering;  
-  unsigned char *out_buffer;  
-  size_t out_buffer_size;  
-  size_t out_buffer_ind;  
+  Lstream_buffering buffering;
+  unsigned char *out_buffer;
+  size_t out_buffer_size;
+  size_t out_buffer_ind;
   size_t byte_count;
-  long flags;   
+  long flags;
   char data[1];
 };
 typedef struct printf_spec printf_spec;

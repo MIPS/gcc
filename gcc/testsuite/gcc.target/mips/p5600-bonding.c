@@ -17,4 +17,3 @@ memory_operation (void * __restrict src, void * __restrict dest, int num)
   }
 }
 /* { dg-final { scan-assembler "join2_" } }  */
-

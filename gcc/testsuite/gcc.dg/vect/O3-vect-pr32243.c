@@ -23,4 +23,3 @@ put_mono_values_s8 (GLcontext * ctx, struct gl_renderbuffer *s8rb,
       temp[i] = (temp[i] & 0xffffff) | val;
   dsrb->PutValues (ctx, dsrb, count, x, y, temp, mask);
 }
-

@@ -1,7 +1,7 @@
 /* { dg-do compile } */
 /* { dg-options "-O -fdump-tree-ccp1" } */
 
-extern int printf (const char *, ...); 
+extern int printf (const char *, ...);
 
 int
 main ()

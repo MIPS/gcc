@@ -16,4 +16,3 @@ bar ()
   for (i = 0; i < 400; i++)
       fun_tab[i] = foo;
 }
-

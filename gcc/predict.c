@@ -207,7 +207,7 @@ maybe_hot_edge_p (edge e)
 
 /* Return true if profile COUNT and FREQUENCY, or function FUN static
    node frequency reflects never being executed.  */
-   
+
 static bool
 probably_never_executed (struct function *fun,
                          profile_count count)
@@ -1502,7 +1502,7 @@ is_comparison_with_loop_invariant_p (gcond *stmt, struct loop *loop,
   op0 = gimple_cond_lhs (stmt);
   op1 = gimple_cond_rhs (stmt);
 
-  if ((TREE_CODE (op0) != SSA_NAME && TREE_CODE (op0) != INTEGER_CST) 
+  if ((TREE_CODE (op0) != SSA_NAME && TREE_CODE (op0) != INTEGER_CST)
        || (TREE_CODE (op1) != SSA_NAME && TREE_CODE (op1) != INTEGER_CST))
     return false;
   if (!simple_iv (loop, loop_containing_stmt (stmt), op0, &iv0, true))
@@ -3507,7 +3507,7 @@ drop_profile (struct cgraph_node *node, profile_count call_count)
   for (e = node->indirect_calls; e; e = e->next_callee)
     e->count = gimple_bb (e->call_stmt)->count;
   node->count = ENTRY_BLOCK_PTR_FOR_FN (fn)->count;
-  
+
   profile_status_for_fn (fn)
       = (flag_guess_branch_prob ? PROFILE_GUESSED : PROFILE_ABSENT);
   node->frequency
@@ -3521,7 +3521,7 @@ drop_profile (struct cgraph_node *node, profile_count call_count)
    call counts going to 0-count functions, and drop the profile to guessed
    so that we can use the estimated probabilities and avoid optimizing only
    for size.
-   
+
    The other case where the profile may be missing is when the routine
    is not going to be emitted to the object file, e.g. for "extern template"
    class methods. Those will be marked DECL_EXTERNAL. Emit a warning in
@@ -3906,7 +3906,7 @@ estimate_bb_frequencies (bool force)
       FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (cfun), NULL, next_bb)
 	{
 	  sreal tmp = BLOCK_INFO (bb)->frequency * freq_max + real_one_half;
-	  profile_count count = profile_count::from_gcov_type (tmp.to_int ());	
+	  profile_count count = profile_count::from_gcov_type (tmp.to_int ());
 
 	  /* If we have profile feedback in which this function was never
 	     executed, then preserve this info.  */
@@ -4314,7 +4314,7 @@ force_edge_cold (edge e, bool impossible)
 	  count_sum += e2->count ();
 	if (e2->probability.initialized_p ())
 	  prob_sum += e2->probability;
-	else 
+	else
 	  uninitialized_exit = true;
       }
 
@@ -4380,7 +4380,7 @@ force_edge_cold (edge e, bool impossible)
 		  }
 	      }
 	  /* FIXME: Implement RTL path.  */
-	  else 
+	  else
 	    found = true;
 	  if (!found)
 	    {

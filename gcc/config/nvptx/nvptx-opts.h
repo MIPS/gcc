@@ -27,4 +27,3 @@ enum ptx_isa
 };
 
 #endif
-

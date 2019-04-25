@@ -70,7 +70,7 @@ static int raw_send_hdrinc(struct sock *sk, void *from, size_t length,
   struct net *net = sock_net(sk);
   struct iphdr *iph;
   struct sk_buff *skb;
-  if (length > rt->u.dst.dev->mtu) 
+  if (length > rt->u.dst.dev->mtu)
     ip_local_error(sk, 90, rt->rt_dst, inet->inet_dport, rt->u.dst.dev->mtu);
   if (flags&0x10)
     goto out;

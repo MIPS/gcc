@@ -185,12 +185,12 @@ maybe_unwind_expanded_macro_loc (diagnostic_context *context,
 	/* Don't print trace for locations that are reserved or from
 	   within a system header.  */
         const line_map_ordinary *m = NULL;
-        location_t l = 
+        location_t l =
           linemap_resolve_location (line_table, resolved_def_loc,
                                     LRK_SPELLING_LOCATION,  &m);
         if (l < RESERVED_LOCATION_COUNT || LINEMAP_SYSP (m))
           continue;
-        
+
 	/* We need to print the context of the macro definition only
 	   when the locus of the first displayed diagnostic (displayed
 	   before this trace) was inside the definition of the
@@ -198,7 +198,7 @@ maybe_unwind_expanded_macro_loc (diagnostic_context *context,
         int resolved_def_loc_line = SOURCE_LINE (m, l);
         if (ix == 0 && saved_location_line != resolved_def_loc_line)
           {
-            diagnostic_append_note (context, resolved_def_loc, 
+            diagnostic_append_note (context, resolved_def_loc,
                                     "in definition of macro %qs",
                                     linemap_map_get_macro_name (iter->map));
             /* At this step, as we've printed the context of the macro
@@ -215,7 +215,7 @@ maybe_unwind_expanded_macro_loc (diagnostic_context *context,
                                     MACRO_MAP_EXPANSION_POINT_LOCATION (iter->map),
                                     LRK_MACRO_DEFINITION_LOCATION, NULL);
 
-        diagnostic_append_note (context, resolved_exp_loc, 
+        diagnostic_append_note (context, resolved_exp_loc,
                                 "in expansion of macro %qs",
                                 linemap_map_get_macro_name (iter->map));
       }

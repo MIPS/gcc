@@ -17,6 +17,6 @@ int main ()
 
   if (delta < 0)
     delta = -delta;
-  
+
   return delta != 12;
 }

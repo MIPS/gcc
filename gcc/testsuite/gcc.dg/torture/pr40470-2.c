@@ -13,7 +13,7 @@ foo (const unsigned char *s1, const unsigned char *s2,
   int cmp_c, cmp_s;
   if( !p2[0]) return (char *) s1;
   if( !p1[0] ) return NULL;
-  if( p2[1]) frag2 = load (p2); 
+  if( p2[1]) frag2 = load (p2);
   frag1 = load (p1);
   fruc = _mm_loadu_si128 ((__m128i *) s1);
   mask = _mm_cmpistrm(fruc, frag2, 0x44);

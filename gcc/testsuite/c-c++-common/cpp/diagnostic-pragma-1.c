@@ -8,4 +8,3 @@
 
 char a[CONST1]; // { dg-warning warn-c }
 char b[CONST2]; // { dg-error err-d }
-

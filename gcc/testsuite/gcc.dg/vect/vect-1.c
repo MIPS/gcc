@@ -59,7 +59,7 @@ foo (int n)
   fbar (a);
 
 
-  /* Strided access. Vectorizable on platforms that support load of strided 
+  /* Strided access. Vectorizable on platforms that support load of strided
      accesses (extract of even/odd vector elements).  */
   for (i = 0; i < N/2; i++){
     a[i] = b[2*i+1] * c[2*i+1] - b[2*i] * c[2*i];

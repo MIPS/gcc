@@ -33,7 +33,7 @@ avx512f_test (void)
       res3.a[i] = DEFAULT_VALUE;
       sign = sign * -1;
     }
- 
+
   res1.x = _mm_mask_min_sd (res1.x, mask, src1.x, src2.x);
   res2.x = _mm_maskz_min_sd (mask, src1.x, src2.x);
   res3.x = _mm_mask_min_round_sd (res3.x, mask, src1.x, src2.x, _MM_FROUND_NO_EXC);
@@ -59,4 +59,3 @@ avx512f_test (void)
   if (check_union128d (res4, res_ref))
     abort ();
 }
-

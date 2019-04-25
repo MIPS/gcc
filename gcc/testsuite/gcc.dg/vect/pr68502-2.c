@@ -17,7 +17,7 @@ f1_neuron *f1_layer;
 int numf1s = 1000;
 
 void __attribute__((noinline,noclone))
-reset_nodes() 
+reset_nodes()
 {
   int i;
 
@@ -44,5 +44,5 @@ int main ()
   for (i = 0; i < numf1s; i++)
     if (f1_layer[i].I != -1)
       abort ();
-  return 0; 
+  return 0;
 }

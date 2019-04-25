@@ -11,4 +11,3 @@ int testload_func (char *arg, int flags)
       return 0;
   return 1;
 }
-

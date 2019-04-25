@@ -14,4 +14,3 @@ testf_l (vector float vf2, vector float vf3, vector float vf4)
 }
 
 /* { dg-final { scan-assembler-times "xvmaddmsp|xvmaddasp" 1 } } */
-

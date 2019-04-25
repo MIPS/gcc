@@ -9,7 +9,7 @@ int *
 foo ()
 {
   *a = j;
-  if (!(1 & e)) 
+  if (!(1 & e))
     __assert_fail ();
   return 0;
 }

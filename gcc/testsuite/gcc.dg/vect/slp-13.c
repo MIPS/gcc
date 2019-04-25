@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 8 
+#define N 8
 
 int
 main1 ()

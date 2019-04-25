@@ -17,7 +17,7 @@ union
   double d[NUM * 4];
 } dst, res, src1, src2, src3;
 
-/* Note that in macc*,msub*,mnmacc* and mnsub* instructions, the intermdediate 
+/* Note that in macc*,msub*,mnmacc* and mnsub* instructions, the intermdediate
    product is not rounded, only the addition is rounded. */
 
 static void
@@ -52,7 +52,7 @@ check_nmsubps ()
     for (j = 0; j < 8; j++)
       {
 	res.f[i + j] = - (src1.f[i + j] * src2.f[i + j]) - src3.f[i + j];
-	if (dst.f[i + j] != res.f[i + j]) 
+	if (dst.f[i + j] != res.f[i + j])
 	  check_fails++;
       }
   return check_fails++;
@@ -66,7 +66,7 @@ check_nmsubpd ()
     for (j = 0; j < 4; j++)
       {
 	res.d[i + j] = - (src1.d[i + j] * src2.d[i + j]) - src3.d[i + j];
-	if (dst.d[i + j] != res.d[i + j]) 
+	if (dst.d[i + j] != res.d[i + j])
 	  check_fails++;
       }
   return check_fails++;
@@ -78,19 +78,19 @@ fma4_test (void)
   int i;
 
   init_nmsubps ();
-  
+
   for (i = 0; i < NUM; i++)
     dst.x[i] = _mm256_nmsub_ps (src1.x[i], src2.x[i], src3.x[i]);
-  
-  if (check_nmsubps (&dst.x[i], &src1.f[i * 4], &src2.f[i * 4], &src3.f[i * 4])) 
+
+  if (check_nmsubps (&dst.x[i], &src1.f[i * 4], &src2.f[i * 4], &src3.f[i * 4]))
     abort ();
 
   init_nmsubpd ();
-  
+
   for (i = 0; i < NUM; i++)
     dst.y[i] = _mm256_nmsub_pd (src1.y[i], src2.y[i], src3.y[i]);
-  
-  if (check_nmsubpd (&dst.y[i], &src1.d[i * 2], &src2.d[i * 2], &src3.d[i * 2])) 
+
+  if (check_nmsubpd (&dst.y[i], &src1.d[i * 2], &src2.d[i * 2], &src3.d[i * 2]))
     abort ();
 
 }

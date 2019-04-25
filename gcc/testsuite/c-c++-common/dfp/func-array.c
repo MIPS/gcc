@@ -41,7 +41,7 @@ arg5_32 (_Decimal32 args[])
 {
   return args[5];
 }
-	
+
 
 /* A handful of functions that return the Nth _Decimal64 argument of
    an incoming array.  */

@@ -18,4 +18,3 @@ int f(_Bool x)
 /* There should be no adde for powerpc.  Check if we actually optimized
    away the comparison.  */
 /* { dg-final { scan-assembler-times "adde" 0 { target powerpc*-*-* } } } */
-

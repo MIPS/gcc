@@ -13,7 +13,7 @@ typedef union
 
 float
 mask_and_float_var (float f, uint32_t mask)
-{ 
+{
   ieee_float_shape_type u;
 
   u.value = f;

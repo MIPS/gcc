@@ -28,4 +28,3 @@ LoadPAT (char *filename)
     LR.antenna_pattern[x][y] = elevation;
   }
 }
-

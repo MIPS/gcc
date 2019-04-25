@@ -17,5 +17,3 @@ void foo ()
 }
 
 /* { dg-final { scan-rtl-dump-times "Swap operands" 1 "expand" } } */
-
-

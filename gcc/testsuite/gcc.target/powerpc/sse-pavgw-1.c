@@ -23,7 +23,7 @@ test (__m64 s1, __m64 s2)
   return _mm_avg_pu16 (s1, s2);
 }
 
-static void 
+static void
 TEST (void)
 {
   __m64_union u, s1, s2;

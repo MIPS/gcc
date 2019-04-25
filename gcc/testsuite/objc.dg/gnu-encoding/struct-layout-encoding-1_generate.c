@@ -180,8 +180,8 @@ struct entry
   struct entry *next;
 };
 
-/* A prime number giving the number of slots in the hash table.  */ 
-#define HASH_SIZE 32749 
+/* A prime number giving the number of slots in the hash table.  */
+#define HASH_SIZE 32749
 static struct entry *hash_table[HASH_SIZE];
 
 static int idx, limidx, output_one;
@@ -712,16 +712,16 @@ For every delta with one or two bit set, and the deltas of all three
   have at least 1/4 probability of changing.
 * If mix() is run forward, every bit of c will change between 1/3 and
   2/3 of the time.  (Well, 22/100 and 78/100 for some 2-bit deltas.)
-mix() was built out of 36 single-cycle latency instructions in a 
+mix() was built out of 36 single-cycle latency instructions in a
   structure that could supported 2x parallelism, like so:
-      a -= b; 
+      a -= b;
       a -= c; x = (c>>13);
       b -= c; a ^= x;
       b -= a; x = (a<<8);
       c -= a; b ^= x;
       c -= b; x = (b>>13);
       ...
-  Unfortunately, superscalar Pentiums and Sparcs can't take advantage 
+  Unfortunately, superscalar Pentiums and Sparcs can't take advantage
   of that parallelism.  They've also turned some of those single-cycle
   latency instructions into multi-cycle latency instructions.  Still,
   this is the fastest good hash I could find.  There were about 2^^68
@@ -862,8 +862,8 @@ e_eq (const void *a, const void *b)
   return 1;
 }
 
-static int 
-e_exists (const struct entry *e) 
+static int
+e_exists (const struct entry *e)
 {
   struct entry *h;
   hashval_t hval;
@@ -1271,9 +1271,9 @@ main (int argc, char **argv)
 
   if (sizeof (int) != 4 || sizeof (long long) != 8)
     return 1;
-  
+
   i = 1;
-  while (i < argc) 
+  while (i < argc)
     {
       c = '\0';
       if (argv[i][0] == '-' && argv[i][2] == '\0')

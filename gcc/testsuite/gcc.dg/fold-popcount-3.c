@@ -7,4 +7,3 @@ int test_combine(unsigned int a, unsigned int b)
 }
 
 /* { dg-final { scan-tree-dump-times "popcount" 1 "cddce1" } } */
-

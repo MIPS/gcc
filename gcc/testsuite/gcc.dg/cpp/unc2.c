@@ -9,4 +9,3 @@ ppc
 i386
 #elif defined __vax__
 vax
-

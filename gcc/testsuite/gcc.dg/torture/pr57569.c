@@ -2,11 +2,11 @@
 
 extern void abort (void) __attribute__((noreturn));
 
-struct S { int f0; } a; 
+struct S { int f0; } a;
 
 int b, e, *d = &b, f;
 
-void 
+void
 fn1 ()
 {
   int **g[9][6];

@@ -21,4 +21,3 @@ int foo (int n, int l, int m, int r)
 
   return 0;
 }
-

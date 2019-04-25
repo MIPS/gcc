@@ -24,4 +24,3 @@ main (void)
   check_vect ();
   return foo (buf + 1, 26) != 26;
 }
-

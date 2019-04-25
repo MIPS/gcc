@@ -1,4 +1,4 @@
-/* Test whether the __builtin__CFStringMakeConstantString 
+/* Test whether the __builtin__CFStringMakeConstantString
    "function" fails gracefully when used without the
    -mconstant-cfstrings flag.  */
 /* Developed by Ziemowit Laski <zlaski@apple.com>.  */

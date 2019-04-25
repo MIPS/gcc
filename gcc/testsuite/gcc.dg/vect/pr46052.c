@@ -29,4 +29,3 @@ void foo1 (int n)
       a[1] ^= bar1 ();
     }
 }
-

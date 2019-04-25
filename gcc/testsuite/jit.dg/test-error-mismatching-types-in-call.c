@@ -77,4 +77,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 		      " assignment to param ptr (type: struct foo *)"
 		      " from f (type: struct foo)");
 }
-

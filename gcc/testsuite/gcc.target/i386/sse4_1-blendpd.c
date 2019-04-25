@@ -74,7 +74,7 @@ TEST (void)
       if (check_blendpd (&dst.x[i], &src1.d[i * 2], &src2.d[i * 2]))
 	abort ();
     }
-    
+
   /* Check blendpd imm8, xmm, xmm */
   src3.x = _mm_setzero_pd ();
 

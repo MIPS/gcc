@@ -69,7 +69,7 @@ get_norm_mant (float source, int signctrl, int interv)
     }
 
   bin_conv.int_val = (sign << 31) | (exp << 23) | fraction;
-  
+
   return bin_conv.fp_val;
 }
 #endif

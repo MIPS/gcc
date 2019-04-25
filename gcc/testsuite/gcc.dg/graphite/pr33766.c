@@ -16,4 +16,3 @@ fxt1_quantize_ALPHA1()
   }
   return tv[i];
 }
-

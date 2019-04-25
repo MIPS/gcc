@@ -11,7 +11,7 @@ unsigned int volatile s = 2;
 int main()
 {
     char c;
-    
+
     c = pgm_read_char (&strA[s-1]);
     if (c != 'A')
         abort();

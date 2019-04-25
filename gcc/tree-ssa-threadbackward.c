@@ -737,7 +737,7 @@ thread_jumps::fsm_find_control_statement_thread_paths (tree name)
 
 void
 thread_jumps::find_jump_threads_backwards (basic_block bb, bool speed_p)
-{     
+{
   gimple *stmt = get_gimple_control_stmt (bb);
   if (!stmt)
     return;

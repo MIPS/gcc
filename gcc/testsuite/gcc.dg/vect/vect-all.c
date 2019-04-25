@@ -34,37 +34,37 @@ void fcheck_results (float *a, float *results)
       if (a[i] != results[i])
 	abort ();
     }
-}   
+}
 
-__attribute__ ((noinline)) void 
+__attribute__ ((noinline)) void
 fbar_mul (float *a)
 {
   fcheck_results (a, fmul_results);
-} 
+}
 
-__attribute__ ((noinline)) void 
+__attribute__ ((noinline)) void
 fbar_add (float *a)
 {
   fcheck_results (a, fadd_results);
-} 
+}
 
-__attribute__ ((noinline)) void 
+__attribute__ ((noinline)) void
 ibar_add (int *a)
 {
   icheck_results (a, iadd_results);
-} 
+}
 
-__attribute__ ((noinline)) void 
+__attribute__ ((noinline)) void
 fbar1 (float *a)
 {
   fcheck_results (a, fresults1);
-} 
+}
 
-__attribute__ ((noinline)) void 
+__attribute__ ((noinline)) void
 fbar2 (float *a)
 {
   fcheck_results (a, fresults2);
-} 
+}
 
 float a[N];
 float e[N];

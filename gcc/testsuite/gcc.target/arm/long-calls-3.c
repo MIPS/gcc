@@ -39,10 +39,10 @@ DO_TESTS_CALL_ATTR (static_, STATIC_CALL,)
 
 
 /* Calls to remote_*, strong_* and weak_* should honor the call type
-   attribute, with "short" being the default.  
+   attribute, with "short" being the default.
 
    In the regular expressions below:
-   
+
    * The PLT marker is optional, even though we are using -fpic,
      because it is not used (or required) on some targets.
 

@@ -91,4 +91,3 @@ mention_regs (rtx x)
 
 /* Make sure the constant 39 gets propagated into the PHI at the join point.  */
 /* { dg-final { scan-tree-dump "PHI <.*, 39" "optimized"} } */
-

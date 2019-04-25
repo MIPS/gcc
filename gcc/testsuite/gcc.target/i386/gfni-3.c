@@ -12,7 +12,7 @@
 int *p;
 volatile __m256i x3, x4;
 volatile __m128i x5, x6;
- 
+
 void extern
 avx512vl_test (void)
 {

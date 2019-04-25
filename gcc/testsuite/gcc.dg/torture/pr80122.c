@@ -17,7 +17,7 @@ send_msg_to_gm_w_dev_t(int msg_type, unsigned int dev_msg_type,
   __builtin_sprintf (s, "%d", __builtin_va_arg_pack ());
   if (__builtin_strcmp (s, "99") != 0)
     __builtin_abort ();
-  /* do something with nArgs and ... */ 
+  /* do something with nArgs and ... */
   return 0;
 }
 
@@ -29,7 +29,7 @@ send_msg_to_gm(int msg_type, unsigned int dev_msg_type,
   if (nArgs != 2)
     __builtin_abort ();
   return send_msg_to_gm_w_dev_t(msg_type, dev_msg_type,
-				DEVT_ALL, __builtin_va_arg_pack()); 
+				DEVT_ALL, __builtin_va_arg_pack());
 }
 
 static __GNU_ALWAYS_INLINE int
@@ -41,7 +41,7 @@ send_enable(unsigned int dev_msg_type, ...)
   return send_msg_to_gm(CMD_ABI_DEVICES, dev_msg_type,  __builtin_va_arg_pack());
 }
 
-int 
+int
 main(void)
 {
   int mode = 99;

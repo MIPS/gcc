@@ -16,4 +16,3 @@ char *f1(void)
   tok.fval = 0;
   return (tok.string);
 }
-

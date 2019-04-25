@@ -54,4 +54,3 @@ xop_test ()
     if (check_union128d (u, e))
       abort ();
 }
-

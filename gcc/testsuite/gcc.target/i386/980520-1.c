@@ -4,7 +4,7 @@
 int bug(void)
 {
         unsigned long a, b;
-   
+
         __asm__(""
                 : "=d" (a)
                 :

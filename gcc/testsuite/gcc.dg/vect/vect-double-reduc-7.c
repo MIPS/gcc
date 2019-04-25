@@ -9,7 +9,7 @@ int in[2*K][K] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__)));
 int out[K];
 int check_result[K] = {63,63,191,191,127,127,191,191,127,127,191,191,127,127,191,191,127,127,191,191,127,127,191,191,127,127,191,191,127,127,191,191};
 
-__attribute__ ((noinline)) void 
+__attribute__ ((noinline)) void
 foo ()
 {
   int res_or, res_and, res_xor, i, j, k;
@@ -17,10 +17,10 @@ foo ()
   for (k = 0; k < K; k++)
     {
       res_or = 0;
-      for (j = 0; j < K; j++) 
-        for (i = 0; i < K; i++) 
+      for (j = 0; j < K; j++)
+        for (i = 0; i < K; i++)
           res_or = res_or | in[i+k][j];
- 
+
       res_and = 1;
       for (j = 0; j < K; j++)
         for (i = 0; i < K; i++)
@@ -58,6 +58,5 @@ int main ()
 
   return 0;
 }
-        
+
 /* { dg-final { scan-tree-dump-times "OUTER LOOP VECTORIZED" 3 "vect" } } */
-      

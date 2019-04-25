@@ -11,14 +11,13 @@ typedef struct {
  long *data;
 } gsl_vector_complex_long_double;
 
-void gsl_vector_complex_long_double_set_zero (gsl_vector_complex_long_double * v) 
+void gsl_vector_complex_long_double_set_zero (gsl_vector_complex_long_double * v)
 {
  long * const data = v->data;
  const size_t n = v->size;
  const size_t stride = v->stride;
  const gsl_complex_long_double zero = { { 0,0} } ;
  size_t i;
- for (i = 0; i < n; i++)     
+ for (i = 0; i < n; i++)
   *(gsl_complex_long_double *) (data + 2 * i * stride) = zero;
 }
-

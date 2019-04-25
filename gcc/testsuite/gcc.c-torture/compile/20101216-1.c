@@ -16,7 +16,7 @@ double sin_pi(double x)
  double y,z;
  __int32_t n,ix;
 ieee_double_shape_type gh_u;
- gh_u.value = (x); 
+ gh_u.value = (x);
 (ix) = gh_u.parts.msw;
                 if(ix<0x43300000)
  z = y+two52;

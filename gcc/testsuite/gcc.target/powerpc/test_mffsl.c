@@ -28,5 +28,5 @@ int main ()
 #else
       abort();
 #endif
-    }		  
+    }
 }

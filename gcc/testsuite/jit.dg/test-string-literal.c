@@ -49,4 +49,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
   CHECK_NON_NULL (str);
   CHECK_VALUE (strcmp (str, "hello world"), 0);
 }
-

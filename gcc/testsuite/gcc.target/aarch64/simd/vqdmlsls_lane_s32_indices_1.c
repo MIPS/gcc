@@ -15,4 +15,3 @@ main (int argc, char **argv)
   /* { dg-error "lane 2 out of range 0 - 1" "" {target *-*-*} 0 } */
   vqdmlsls_lane_s32 (int64_a, int32_b, int32x2_c, 2);
 }
-

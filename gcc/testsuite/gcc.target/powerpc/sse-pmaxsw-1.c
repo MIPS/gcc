@@ -28,7 +28,7 @@ TEST (void)
 {
   __m64_union u, e, s1, s2;
   int i;
-   
+
   s1.as_m64 = _mm_set_pi16 (1,2,3,4);
   s2.as_m64 = _mm_set_pi16 (4,3,2,1);
   u.as_m64 = test (s1.as_m64, s2.as_m64);

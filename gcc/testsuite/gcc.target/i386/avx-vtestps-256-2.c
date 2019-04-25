@@ -31,4 +31,3 @@ avx_test ()
     if (checkVi (d, e, 1))
       abort ();
 }
-

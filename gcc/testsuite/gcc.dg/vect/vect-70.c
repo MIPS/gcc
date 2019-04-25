@@ -57,14 +57,14 @@ int main1 ()
       if (tmp1.e[i].n[1][2][j] != 8)
           abort ();
     }
-  
+
   /* not consecutive, will use strided stores */
   for (i = 0; i < OUTERN; i++)
     for (j = NINTS - 1; j < N - NINTS + 1; j++)
-      { 
+      {
         tmp1.e[j].n[1][2][j] = 8;
       }
-  
+
   /* check results:  */
   for (i = 0; i < OUTERN; i++)
     for (j = NINTS - 1; j < N - NINTS + 1; j++)
@@ -72,16 +72,16 @@ int main1 ()
       if (tmp1.e[j].n[1][2][j] != 8)
           abort ();
     }
-    
+
   return 0;
 }
-       
+
 int main (void)
 {
   check_vect ();
-    
+
   return main1 ();
 }
-          
+
 /* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" } } */
 /* { dg-final { scan-tree-dump-times "Alignment of access forced using versioning" 1 "vect" {target {{! vector_alignment_reachable} && {! vect_hw_misalign} } } } } */

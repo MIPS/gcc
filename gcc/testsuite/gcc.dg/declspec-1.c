@@ -10,7 +10,7 @@ typedef int t;
    identifier declared.  */
 struct s0 int x0, /* { dg-error "two or more data types" } */
 /* { dg-error "storage size of 'x0' isn't known" "" { target *-*-* } .-1 } */
-x1; /* { dg-error "storage size of 'x1' isn't known" } */ 
+x1; /* { dg-error "storage size of 'x1' isn't known" } */
 
 char union u0 x2, /* { dg-error "two or more data types" } */
 x3;

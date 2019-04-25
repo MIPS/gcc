@@ -13,7 +13,7 @@
    foo )
    bar foo* )
    func (foo* )
-   foo*   
+   foo*
 
    If we try and expand the final foo, we get an "unterminated
    argument list invoking macro <func>" error.  If we do the right

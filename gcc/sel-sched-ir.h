@@ -1067,7 +1067,7 @@ inner_loop_header_p (basic_block bb)
 }
 
 /* Return exit edges of LOOP, filtering out edges with the same dest bb.  */
-static inline vec<edge> 
+static inline vec<edge>
 get_loop_exit_edges_unique_dests (const struct loop *loop)
 {
   vec<edge> edges = vNULL;
@@ -1121,7 +1121,7 @@ sel_bb_empty_or_nop_p (basic_block bb)
    traverse all of them and if any of them turns out to be another loop header
    (after skipping empty BBs), add its loop exits to the resulting vector
    as well.  */
-static inline vec<edge> 
+static inline vec<edge>
 get_all_loop_exits (basic_block bb)
 {
   vec<edge> exits = vNULL;

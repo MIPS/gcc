@@ -14,4 +14,3 @@ main ()
   asm ("");
   return main1 ();
 }
-

@@ -20,4 +20,3 @@ void test (void)
 }
 
 #endif
-

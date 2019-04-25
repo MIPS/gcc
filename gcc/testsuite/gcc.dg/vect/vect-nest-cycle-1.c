@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 16 
+#define N 16
 
 float in[N] = {232,132,32,432,532,321,327,323,321,324,322,329,432,832,932,232};
 float out[N];
@@ -12,8 +12,8 @@ float a[2*N] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24
 
 /* Outer-loop vectorization.  */
 
-__attribute__ ((noinline)) void 
-foo () 
+__attribute__ ((noinline)) void
+foo ()
 {
   int i, j;
   float res;
@@ -22,13 +22,13 @@ foo ()
     {
       res = in[i];
 
-      for (j = 0; j < N; j++) 
+      for (j = 0; j < N; j++)
         res = res - a[i+j];
-        
+
       out[i] = res;
     }
 
-  for (i = 0; i < N; i++)  
+  for (i = 0; i < N; i++)
     if (out[i] != check_res[i])
       abort ();
 
@@ -44,4 +44,3 @@ int main ()
 }
 
 /* { dg-final { scan-tree-dump-times "OUTER LOOP VECTORIZED" 1 "vect" { xfail { vect_no_align && { ! vect_hw_misalign } } } } } */
-

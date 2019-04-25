@@ -9,8 +9,8 @@ main ()
   volatile int *volatile c;
   *b = &c;
 
-  if (a != &c) 
-    __builtin_abort (); 
+  if (a != &c)
+    __builtin_abort ();
 
   return 0;
 }

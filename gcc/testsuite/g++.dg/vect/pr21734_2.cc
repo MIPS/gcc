@@ -12,4 +12,3 @@ void foo(A a1, A &a2)
   for (int i=0; i<4; ++i)
     a2.a[i]=0;
 }
-

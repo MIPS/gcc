@@ -79,4 +79,3 @@ int main()
   vector unsigned char result = permute_128(input);
   return 0;
 }
-

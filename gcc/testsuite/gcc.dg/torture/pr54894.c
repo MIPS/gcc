@@ -15,9 +15,9 @@ typedef double adouble __attribute__((__aligned__(16)));
 void foo ()
 {
   int ih, jh, kh, il, kl, jl;
-  for (ih = 0; ih < n; ih += tilesize) 
-    for (jh = 0; jh < n; jh += tilesize)                 
-      for (kh = 0; kh < n; kh += tilesize)                      
+  for (ih = 0; ih < n; ih += tilesize)
+    for (jh = 0; jh < n; jh += tilesize)
+      for (kh = 0; kh < n; kh += tilesize)
 	for (il = 0; il < tilesize; ++il)
 	  {
 	    adouble *Ap = (adouble *)&A[ih+il][kh];

@@ -11,4 +11,3 @@ void h(void)
   struct g1 t;
   g(t.l , 1);
 }
-

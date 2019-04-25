@@ -33,4 +33,3 @@ test (void)
   strcpy (p, "World");
   strcpy (p, "Hello World"); /* { dg-warning "writing" "strcpy" } */
 }
-

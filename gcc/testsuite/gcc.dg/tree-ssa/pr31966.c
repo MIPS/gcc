@@ -42,7 +42,7 @@ int main()
 		  0x0000000000000000ll,
 		  0x86E53497CE000000ll);
 
-  
+
   if (result != 0x3CBA83)
     abort ();
 

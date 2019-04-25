@@ -9,4 +9,4 @@
 #define funlike(like) fun like
 #define funlike2(fun, like) fun ## like
 #define varargs(x, ...) x #x #__VA_ARGS__ __VA_ARGS__
-#define gnu_varargs(x, y...) #y x ## y y 
+#define gnu_varargs(x, y...) #y x ## y y

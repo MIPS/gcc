@@ -7,7 +7,7 @@
 #define N 256
 
 __attribute__ ((noinline))
-void bar (float *pa, float *pb, float *pc) 
+void bar (float *pa, float *pb, float *pc)
 {
   int i;
 
@@ -24,7 +24,7 @@ void bar (float *pa, float *pb, float *pc)
 /* Aligned pointer accesses.
    The loop bound is known and divisible by the vectorization factor.
    No aliasing problems.
-   vect-46.c is similar to this one with one difference: 
+   vect-46.c is similar to this one with one difference:
         the loop bound is unknown.  */
 
 float b[N] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__)))

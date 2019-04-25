@@ -11,4 +11,3 @@ int bar(void)
 
   return 54;
 }
-

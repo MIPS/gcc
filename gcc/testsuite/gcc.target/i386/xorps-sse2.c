@@ -12,4 +12,3 @@ vector float i(vector float f, vector float h)
   vector int f_int = (vector int) f;
   return ((vector float) (f_int ^ g)) + h;
 }
-

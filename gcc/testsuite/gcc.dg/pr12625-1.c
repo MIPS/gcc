@@ -4,7 +4,7 @@
 /* { dg-do compile } */
 /* { dg-options "-Wparentheses" } */
 
-static struct { int i:8; } s; 
+static struct { int i:8; } s;
 
 void
 foo ()

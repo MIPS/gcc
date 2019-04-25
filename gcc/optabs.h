@@ -329,7 +329,7 @@ extern void expand_mem_signal_fence (enum memmodel);
 
 rtx expand_atomic_load (rtx, rtx, enum memmodel);
 rtx expand_atomic_store (rtx, rtx, enum memmodel, bool);
-rtx expand_atomic_fetch_op (rtx, rtx, rtx, enum rtx_code, enum memmodel, 
+rtx expand_atomic_fetch_op (rtx, rtx, rtx, enum rtx_code, enum memmodel,
 			      bool);
 
 extern bool insn_operand_matches (enum insn_code icode, unsigned int opno,

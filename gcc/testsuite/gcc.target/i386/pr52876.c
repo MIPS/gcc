@@ -5,7 +5,7 @@ extern void abort (void);
 
 long long li;
 
-long long 
+long long
 __attribute__ ((noinline))
 testfunc (void* addr)
 {

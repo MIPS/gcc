@@ -1,4 +1,4 @@
-/* Test __atomic routines for existence and execution with each valid 
+/* Test __atomic routines for existence and execution with each valid
    memory model.  */
 /* { dg-do run } */
 /* { dg-require-effective-target sync_char_short } */
@@ -25,4 +25,3 @@ main ()
 
   return 0;
 }
-

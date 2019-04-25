@@ -204,7 +204,7 @@ should_duplicate_loop_header_p (basic_block header, struct loop *loop,
     }
 
   if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "    Will duplicate bb %i\n", header->index); 
+    fprintf (dump_file, "    Will duplicate bb %i\n", header->index);
   return true;
 }
 
@@ -293,7 +293,7 @@ public:
 
   /* opt_pass methods: */
   virtual bool gate (function *) { return flag_tree_ch != 0; }
-  
+
   /* Initialize and finalize loop structures, copying headers inbetween.  */
   virtual unsigned int execute (function *);
 
@@ -333,7 +333,7 @@ public:
     return flag_tree_ch != 0
 	   && (flag_tree_loop_vectorize != 0 || fun->has_force_vectorize_loops);
   }
-  
+
   /* Just copy headers, no initialization/finalization of loop structures.  */
   virtual unsigned int execute (function *);
 
@@ -539,7 +539,7 @@ pass_ch::execute (function *fun)
 /* Assume an earlier phase has already initialized all the loop structures that
    we need here (and perhaps others too), and that these will be finalized by
    a later phase.  */
-   
+
 unsigned int
 pass_ch_vect::execute (function *fun)
 {

@@ -73,4 +73,3 @@ foo2 (int argc)
 
   return 0;
 }
-

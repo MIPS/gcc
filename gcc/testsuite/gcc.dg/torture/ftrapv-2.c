@@ -25,7 +25,7 @@ int main(void)
     }
   else if (child == -1)
     return 0;
-  if (wait (&status) == child 
+  if (wait (&status) == child
       && status == 0)
     abort ();
   return 0;

@@ -59,7 +59,7 @@ test_dir_format (void)
 											 {
 											 }
 											 __result;}
-    ))):					     
+    ))):
 			     (__builtin_constant_p (v2)
 			      && ((size_t) (const void *) ((v2) + 1) -
 				  __s2_len < 4) ? (__builtin_constant_p (v1)

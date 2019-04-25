@@ -5,7 +5,7 @@
 extern void bar (double);
 
 struct S { int n; };
-  
+
 void
 foo (struct S s, double a, int i, int j, int k)
 {

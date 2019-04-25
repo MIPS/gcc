@@ -1,5 +1,5 @@
 /* Test for the 32 bit fp to 64 bit int conversion routines.
-   
+
    On S/390 32 bit we use our own implementations in order to be IEEE
    complaint as we are with our machine instructions.  These missed to
    throw FE_INVALID exceptions in a bunch of cases.  */

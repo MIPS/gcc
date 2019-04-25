@@ -7,12 +7,12 @@ __extension__ _Complex float cf = 1.0f + 2.0if;
 __extension__ _Complex double cd = 3.0 + 4.0i;
 /* { dg-final { scan-assembler ".align 8 .u64 cd\\\[2\\\] = { 4613937818241073152, 4616189618054758400 };" } } */
 
-long long la[2] = 
+long long la[2] =
   {0x0102030405060708ll,
    0x1112131415161718ll};
 /* { dg-final { scan-assembler ".align 8 .u64 la\\\[2\\\] = { 72623859790382856, 1230066625199609624 };" } } */
 
-struct six 
+struct six
 {
   char a;
   short b, c;
@@ -24,7 +24,7 @@ struct six six1 = {1, 2, 3};
 struct six six2[2] = {{4, 5, 6}, {7, 8, 9}};
 /* { dg-final { scan-assembler ".align 2 .u16 six2\\\[6\\\] = { 4, 5, 6, 7, 8, 9 };" } } */
 
-struct __attribute__((packed)) five 
+struct __attribute__((packed)) five
 {
   char a;
   int b;

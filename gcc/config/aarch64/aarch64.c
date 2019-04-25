@@ -2430,7 +2430,7 @@ aarch64_zero_extend_const_eq (machine_mode xmode, rtx x,
   gcc_assert (r != NULL);
   return rtx_equal_p (x, r);
 }
-			      
+
 
 static rtx
 aarch64_force_temporary (machine_mode mode, rtx x, rtx value)
@@ -5186,7 +5186,7 @@ aarch64_process_components (sbitmap components, bool prologue_p)
 	 so DFmode for the vector registers is enough.  For simd functions
 	 we want to save the low 128 bits.  */
       machine_mode mode = aarch64_reg_save_mode (cfun->decl, regno);
-      
+
       rtx reg = gen_rtx_REG (mode, regno);
       poly_int64 offset = cfun->machine->frame.reg_offset[regno];
       if (!frame_pointer_needed)
@@ -5537,7 +5537,7 @@ aarch64_allocate_and_probe_stack_space (rtx temp1, rtx temp2,
    considered live at the start of the called function.
 
    For SIMD functions we need to return 1 for FP registers that are saved and
-   restored by a function but are not zero in call_used_regs.  If we do not do 
+   restored by a function but are not zero in call_used_regs.  If we do not do
    this optimizations may remove the restore of the register.  */
 
 int
@@ -6194,7 +6194,7 @@ aarch64_bitmask_imm (HOST_WIDE_INT val_in, machine_mode mode)
   return val == mask * bitmask_imm_mul[__builtin_clz (bits) - 26];
 }
 
-/* Create mask of ones, covering the lowest to highest bits set in VAL_IN.  
+/* Create mask of ones, covering the lowest to highest bits set in VAL_IN.
    Assumed precondition: VAL_IN Is not zero.  */
 
 unsigned HOST_WIDE_INT
@@ -6283,7 +6283,7 @@ aarch64_cannot_force_const_mem (machine_mode mode ATTRIBUTE_UNUSED, rtx x)
 /* Implement TARGET_CASE_VALUES_THRESHOLD.
    The expansion for a table switch is quite expensive due to the number
    of instructions, the table lookup and hard to predict indirect jump.
-   When optimizing for speed, and -O3 enabled, use the per-core tuning if 
+   When optimizing for speed, and -O3 enabled, use the per-core tuning if
    set, otherwise use tables for > 16 cases as a tradeoff between size and
    performance.  When optimizing for size, use the default setting.  */
 

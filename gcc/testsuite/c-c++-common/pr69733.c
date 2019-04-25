@@ -21,4 +21,3 @@ cd val2() {return val;} /* { dg-warning "qualifiers ignored" } */
  cd val2() {return val;}
  ^~
 { dg-end-multiline-output "" } */
-

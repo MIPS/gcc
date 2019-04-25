@@ -8,4 +8,3 @@ void test_sort()
   for (i = base; i < hi; i++)
     *i++ = c;
 }
-

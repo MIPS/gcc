@@ -238,7 +238,7 @@ format_lex (void)
     }
 
   c = next_char_not_space ();
-  
+
   negative_flag = 0;
   switch (c)
     {
@@ -876,7 +876,7 @@ data_desc:
 	      error = zero_width;
 	      goto syntax;
 	    }
-	  if (!gfc_notify_std (GFC_STD_F2008, "%<G0%> in format at %L", 
+	  if (!gfc_notify_std (GFC_STD_F2008, "%<G0%> in format at %L",
 			       &format_locus))
 	    return false;
 	  u = format_lex ();
@@ -1232,7 +1232,7 @@ extension_optional_comma:
     }
 
   goto format_item;
-  
+
 syntax:
   if (mode != MODE_FORMAT)
     format_locus.nextc += format_string_pos;
@@ -1275,9 +1275,9 @@ check_format_string (gfc_expr *e, bool is_input)
     for (i=e->value.character.length-1;i>format_string_pos-1;i--)
       if (e->value.character.string[i] != ' ')
         {
-          format_locus.nextc += format_length + 1; 
+          format_locus.nextc += format_length + 1;
           gfc_warning (0,
-		       "Extraneous characters in format at %L", &format_locus); 
+		       "Extraneous characters in format at %L", &format_locus);
           break;
         }
   return rv;
@@ -1645,7 +1645,7 @@ resolve_tag_format (gfc_expr *e)
 	  n = 0;
 	  c = gfc_constructor_first (e->value.constructor);
 	  len = c->expr->value.character.length;
-	  
+
 	  for ( ; c; c = gfc_constructor_next (c))
 	    n += len;
 
@@ -1798,7 +1798,7 @@ resolve_tag (const io_tag *tag, gfc_expr *e)
 
   if (tag == &tag_newunit)
     {
-      if (!gfc_notify_std (GFC_STD_F2008, "NEWUNIT specifier at %L", 
+      if (!gfc_notify_std (GFC_STD_F2008, "NEWUNIT specifier at %L",
 			   &e->where))
 	return false;
     }
@@ -1813,7 +1813,7 @@ resolve_tag (const io_tag *tag, gfc_expr *e)
       if (!gfc_check_vardef_context (e, false, false, false, context))
 	return false;
     }
-  
+
   if (tag == &tag_convert)
     {
       if (!gfc_notify_std (GFC_STD_GNU, "CONVERT tag at %L", &e->where))
@@ -1996,7 +1996,7 @@ gfc_resolve_open (gfc_open *open)
 
 static int
 compare_to_allowed_values (const char *specifier, const char *allowed[],
-			   const char *allowed_f2003[], 
+			   const char *allowed_f2003[],
 			   const char *allowed_gnu[], gfc_char_t *value,
 			   const char *statement, bool warn,
 			   int *num = NULL);
@@ -2004,7 +2004,7 @@ compare_to_allowed_values (const char *specifier, const char *allowed[],
 
 static int
 compare_to_allowed_values (const char *specifier, const char *allowed[],
-			   const char *allowed_f2003[], 
+			   const char *allowed_f2003[],
 			   const char *allowed_gnu[], gfc_char_t *value,
 			   const char *statement, bool warn, int *num)
 {
@@ -2415,7 +2415,7 @@ gfc_match_open (void)
     }
 
   /* Checks on the SIGN specifier.  */
-  if (open->sign) 
+  if (open->sign)
     {
       if (!gfc_notify_std (GFC_STD_F2003, "SIGN= at %C "
 			   "not allowed in Fortran 95"))
@@ -3060,7 +3060,7 @@ dtio_procs_present (gfc_symbol *sym, io_kind k)
 	derived = sym->ts.u.derived;
       else
 	return false;
-      if ((k == M_WRITE || k == M_PRINT) && 
+      if ((k == M_WRITE || k == M_PRINT) &&
 	  (gfc_find_specific_dtio_proc (derived, true, true) != NULL))
 	return true;
       if ((k == M_READ) &&
@@ -3335,7 +3335,7 @@ gfc_resolve_dt (gfc_dt *dt, locus *loc)
       /* If we are writing, make sure the internal unit can be changed.  */
       gcc_assert (k != M_PRINT);
       if (k == M_WRITE
-	  && !gfc_check_vardef_context (e, false, false, false, 
+	  && !gfc_check_vardef_context (e, false, false, false,
 					_("internal unit in WRITE")))
 	return false;
     }
@@ -3369,7 +3369,7 @@ gfc_resolve_dt (gfc_dt *dt, locus *loc)
 	      e = gfc_get_variable_expr (gfc_find_sym_in_symtree (n->sym));
 	      t = gfc_check_vardef_context (e, false, false, false, NULL);
 	      gfc_free_expr (e);
-    
+
 	      if (!t)
 		{
 		  gfc_error ("NAMELIST %qs in READ statement at %L contains"
@@ -3389,7 +3389,7 @@ gfc_resolve_dt (gfc_dt *dt, locus *loc)
 			 "procedure", n->sym->name, dt->namelist->name, loc);
 	      return false;
 	    }
-    
+
 	  if ((n->sym->ts.type == BT_DERIVED)
 	      && (n->sym->ts.u.derived->attr.alloc_comp
 		  || n->sym->ts.u.derived->attr.pointer_comp))
@@ -3399,7 +3399,7 @@ gfc_resolve_dt (gfc_dt *dt, locus *loc)
 				   "or POINTER components", n->sym->name,
 				   dt->namelist->name, loc))
 		return false;
-    
+
 	      if (!t)
 		{
 		  gfc_error ("NAMELIST object %qs in namelist %qs at %L has "
@@ -3413,7 +3413,7 @@ gfc_resolve_dt (gfc_dt *dt, locus *loc)
     }
 
   if (dt->extra_comma
-      && !gfc_notify_std (GFC_STD_LEGACY, "Comma before i/o item list at %L", 
+      && !gfc_notify_std (GFC_STD_LEGACY, "Comma before i/o item list at %L",
 			  &dt->extra_comma->where))
     return false;
 
@@ -3754,7 +3754,7 @@ if (condition) \
       io_constraint (dt->rec != NULL,
 		     "REC tag at %L is incompatible with internal file",
 		     &dt->rec->where);
-    
+
       io_constraint (dt->pos != NULL,
 		     "POS tag at %L is incompatible with internal file",
 		     &dt->pos->where);
@@ -3789,7 +3789,7 @@ if (condition) \
 		     io_kind_name (k));
 	  return MATCH_ERROR;
 	}
-	  
+
       if (k == M_READ || k == M_WRITE)
 	gfc_unset_implicit_pure (NULL);
     }
@@ -3822,7 +3822,7 @@ if (condition) \
 		     &dt->eor_where);
     }
 
-  if (dt->asynchronous) 
+  if (dt->asynchronous)
     {
       int num;
       static const char * asynchronous[] = { "YES", "NO", NULL };
@@ -3901,7 +3901,7 @@ if (condition) \
 			 "explicit format expression", &dt->decimal->where);
 	}
     }
-  
+
   if (dt->blank)
     {
       if (!gfc_notify_std (GFC_STD_F2003, "BLANK= at %C "
@@ -3972,7 +3972,7 @@ if (condition) \
 	    return MATCH_ERROR;
 	}
     }
-  
+
   if (dt->sign)
     {
       /* When implemented, change the following to use gfc_notify_std F2003.
@@ -4024,7 +4024,7 @@ if (condition) \
 	  io_constraint (k == M_READ,
 			 "DELIM= specifier at %L not allowed in a "
 			 "READ statement", &dt->delim->where);
-      
+
 	  io_constraint (dt->format_label != &format_asterisk
 			 && dt->namelist == NULL,
 			 "DELIM= specifier at %L must have FMT=*",
@@ -4035,7 +4035,7 @@ if (condition) \
 			 "NML= specifier", &dt->delim->where);
 	}
     }
-  
+
   if (dt->namelist)
     {
       io_constraint (io_code && dt->namelist,
@@ -4112,7 +4112,7 @@ if (condition) \
 
       io_constraint (dt->eor && not_no && k == M_READ,
 		     "EOR tag at %L requires an ADVANCE = %<NO%>",
-		     &dt->eor_where);      
+		     &dt->eor_where);
     }
 
   expr = dt->format_expr;
@@ -4657,7 +4657,7 @@ gfc_match_inquire (void)
     }
 
   gfc_unset_implicit_pure (NULL);
-  
+
   if (inquire->id != NULL && inquire->pending == NULL)
     {
       gfc_error ("INQUIRE statement at %L requires a PENDING= specifier with "
@@ -4769,7 +4769,7 @@ gfc_resolve_wait (gfc_wait *wait)
 
   if (!gfc_reference_st_label (wait->err, ST_LABEL_TARGET))
     return false;
-  
+
   if (!gfc_reference_st_label (wait->end, ST_LABEL_TARGET))
     return false;
 

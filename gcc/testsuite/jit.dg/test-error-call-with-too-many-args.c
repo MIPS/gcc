@@ -86,4 +86,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 		       " too many arguments to function \"called_function\""
 		       " (got 1 args, expected 0)"));
 }
-

@@ -29,18 +29,18 @@ double foo (int x, double y)
 int test (double (*fp)(int x, double y))
 {
   int i,x;
-  
-  x = 127; 
+
+  x = 127;
   for (i = 30; i < 300; i++)
-    {  
+    {
       fp (x, i);
       if (errno)
         total_err_count ++;
     }
-  
-  x = -300; 
+
+  x = -300;
   for (i = 100; i < 300; i++)
-    {  
+    {
       fp (x, i);
       if (errno)
         total_err_count ++;
@@ -48,7 +48,7 @@ int test (double (*fp)(int x, double y))
 
    x = 65577;
    for (i = 60; i < 200; i++)
-     {  
+     {
        fp (x, i);
        if (errno)
          total_err_count ++;
@@ -56,7 +56,7 @@ int test (double (*fp)(int x, double y))
 
    x = 65577 * 127;
    for (i = 1; i < 100; i++)
-     {  
+     {
        fp (x, i);
        if (errno)
          total_err_count ++;
@@ -72,7 +72,7 @@ int main ()
   en1 = test (foo_opt);
   total_err_count = 0;
   en2 = test (foo);
-  
+
   if (en1 != en2)
     abort ();
 

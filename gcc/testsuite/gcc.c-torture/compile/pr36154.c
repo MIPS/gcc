@@ -8,4 +8,3 @@ int cmd_unaligned(const void *p)
 {
   return memcmp(p, pkt_unaligned.packet, 1);
 }
-

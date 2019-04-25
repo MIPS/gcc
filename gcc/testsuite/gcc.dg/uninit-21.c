@@ -6,9 +6,9 @@ enum clnt_stat {
  RPC_SUCCESS=0,
  RPC_CANTENCODEARGS=1,
 };
- 
+
 int do_ypcall_tr ();
- 
+
 static int
 yp_master (char **outname)
 {
@@ -20,7 +20,7 @@ yp_master (char **outname)
   *outname = __builtin_strdup ("foo");
   return 0;
 }
- 
+
 int
 yp_update (void)
 {

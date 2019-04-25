@@ -3,7 +3,7 @@
    During the crossjump analyzing step the mem alias info of the
    st instructions are merged and get copied during basic block
    reordering which leads to an insn with wrong alias info.
-   The scheduler afterwards exchanges the mvc and st instructions 
+   The scheduler afterwards exchanges the mvc and st instructions
    not recognizing the anti dependence.  */
 /* { dg-do run } */
 /* { dg-options "-O3 -mtune=z990 -fno-inline" } */
@@ -34,7 +34,7 @@ foo(void)
       f = 1;
       g = 2;
 
-      p2 = (int*)0;   /* st */   
+      p2 = (int*)0;   /* st */
       return 1;
     }
 }

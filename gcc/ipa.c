@@ -261,7 +261,7 @@ walk_polymorphic_call_targets (hash_set<void *> *reachable_call_targets,
      nodes even when they are reachable.
 
    - virtual functions are kept in callgraph even if they seem unreachable in
-     hope calls to them will be devirtualized. 
+     hope calls to them will be devirtualized.
 
      Again we remove them after inlining.  In late optimization some
      devirtualization may happen, but it is not important since we won't inline
@@ -794,7 +794,7 @@ ipa_discover_variable_flags (void)
 	  }
 	if (!address_taken && !written
 	    /* Making variable in explicit section readonly can cause section
-	       type conflict. 
+	       type conflict.
 	       See e.g. gcc.c-torture/compile/pr23237.c */
 	    && vnode->get_section () == NULL)
 	  {
@@ -806,7 +806,7 @@ ipa_discover_variable_flags (void)
 	  {
 	    if (dump_file)
 	      fprintf (dump_file, " %s (write-only)", vnode->name ());
-	    vnode->call_for_symbol_and_aliases (set_writeonly_bit, &remove_p, 
+	    vnode->call_for_symbol_and_aliases (set_writeonly_bit, &remove_p,
 					        true);
 	  }
       }
@@ -1157,7 +1157,7 @@ make_pass_ipa_cdtor_merge (gcc::context *ctxt)
    FUNCTION is current single user of a variable, VAR is variable that uses it.
    Latttice is stored in SINGLE_USER_MAP.
 
-   We represent: 
+   We represent:
     - TOP by no entry in SIGNLE_USER_MAP
     - BOTTOM by BOTTOM in AUX pointer (to save lookups)
     - known single user by cgraph pointer in SINGLE_USER_MAP.  */

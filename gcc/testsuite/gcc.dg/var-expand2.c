@@ -25,5 +25,3 @@ main (void)
 {
   return foo (10);
 }
-
-

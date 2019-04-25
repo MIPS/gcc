@@ -5,7 +5,7 @@ EXTERN(uch, window);
 EXTERN(ush, prev);
 #ifndef WSIZE
 #  define WSIZE 0x8000
-#endif                
+#endif
 #define MIN_MATCH  3
 #define MAX_MATCH  258
 #define MIN_LOOKAHEAD (MAX_MATCH+MIN_MATCH+1)
@@ -22,10 +22,10 @@ int near nice_match;
 int longest_match(IPos cur_match)
 {
     unsigned chain_length = max_chain_length;
-    register uch *scan = window + strstart;  
-    register uch *match;                     
-    register int len;                        
-    int best_len = prev_length;              
+    register uch *scan = window + strstart;
+    register uch *match;
+    register int len;
+    int best_len = prev_length;
     IPos limit = strstart > (IPos)MAX_DIST ? strstart - (IPos)MAX_DIST : NIL;
     register uch *strend = window + strstart + MAX_MATCH;
     register uch scan_end   = scan[best_len];

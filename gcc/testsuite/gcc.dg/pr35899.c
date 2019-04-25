@@ -15,4 +15,3 @@ bar (void)
 /* { dg-message "note: previous implicit declaration" "" { target *-*-* } bar_implicit_decl } */
 {
 }
-

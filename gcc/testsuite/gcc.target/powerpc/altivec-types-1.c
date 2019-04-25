@@ -92,4 +92,3 @@ __vector __bool float vbf;		/* { dg-error "" } */
 __vector __bool double vbd;		/* { dg-error "" } */
 __vector __bool short float blf;	/* { dg-error "" } */
 __vector __bool short double vlbd;	/* { dg-error "" } */
-

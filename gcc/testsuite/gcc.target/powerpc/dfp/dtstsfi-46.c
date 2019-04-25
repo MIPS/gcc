@@ -11,5 +11,3 @@ int doTestBCDSignificance (_Decimal128 *p)
 
   return __builtin_dfp_dtstsfi_eq (5, source);	/* { dg-error "builtin function '__builtin_dtstsfi_eq_td' requires" } */
 }
-
-

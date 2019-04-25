@@ -1,4 +1,4 @@
-/* Make sure that dead code isn't eliminated too early, avoiding 
+/* Make sure that dead code isn't eliminated too early, avoiding
    detection of errors.  */
 /* { dg-do compile } */
 

@@ -296,7 +296,7 @@ check_detailed ()
 {
   unsigned int eax, ebx, ecx, edx;
 
-  int max_level; 
+  int max_level;
   unsigned int vendor;
   unsigned int model, family, brand_id;
   unsigned int extended_model, extended_family;

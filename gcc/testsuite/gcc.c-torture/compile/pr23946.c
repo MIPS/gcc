@@ -68,5 +68,3 @@ avi_parse_comments (int fd, char *buf, int space_left)
 
   return len;
 }
-
-

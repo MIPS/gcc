@@ -7,12 +7,12 @@
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 3, or (at your option)
    any later version.
-   
+
    GCC is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
-   
+
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING3.  If not see
    <http://www.gnu.org/licenses/>.  */
@@ -48,7 +48,7 @@ comparator (const void *va, const void *vb)
     {
       /* Make letters smaller than digits so that `atmega16a' follows
          `atmega16' without `atmega161' etc. between them.  */
-      
+
       if (letter (*a) && digit (*b))
         return -1;
 
@@ -57,23 +57,23 @@ comparator (const void *va, const void *vb)
 
       if (*a != *b)
         return *a - *b;
-      
+
       a++;
       b++;
     }
 
   return *a - *b;
-} 
+}
 
 static void
 print_mcus (size_t n_mcus)
 {
   int duplicate = 0;
   size_t i;
-    
+
   if (!n_mcus)
     return;
-    
+
   qsort (mcu_name, n_mcus, sizeof (char*), comparator);
 
   printf ("@*@var{mcu}@tie{}=");

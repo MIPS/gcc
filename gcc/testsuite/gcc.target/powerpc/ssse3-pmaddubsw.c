@@ -54,7 +54,7 @@ compute_correct_result (unsigned char *i1, signed char *i2, short *r)
   int i;
 
   for (i = 0; i < 8; i++)
-    { 
+    {
       t0 = ((int) i1[2 * i] * (int) i2[2 * i] +
 	    (int) i1[2 * i + 1] * (int) i2[2 * i + 1]);
       r[i] = signed_saturate_to_word (t0);

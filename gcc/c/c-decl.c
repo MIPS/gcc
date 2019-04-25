@@ -9606,7 +9606,7 @@ void
 finish_function (void)
 {
   tree fndecl = current_function_decl;
-  
+
   if (c_dialect_objc ())
     objc_finish_function ();
 
@@ -11549,7 +11549,7 @@ for_each_global_decl (void (*callback) (tree decl))
   unsigned i;
 
   FOR_EACH_VEC_ELT (*all_translation_units, i, t)
-    { 
+    {
       decls = DECL_INITIAL (t);
       for (decl = BLOCK_VARS (decls); decl; decl = TREE_CHAIN (decl))
 	callback (decl);

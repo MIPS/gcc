@@ -22,4 +22,3 @@ void foobar(int a, int *ptr)
 {
   bar(foo(a), ptr);
 }
-

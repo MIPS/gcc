@@ -9,9 +9,9 @@
 /* { dg-warning "separated by space" "space" { target *-*-* } .+3 } */
 /* { dg-warning "separated by space" "tab" { target *-*-* } .+3 } */
 /* { dg-warning "separated by space" "space and tab" { target *-*-* } .+3 } */
-#define beta(a, b, c) \ 
-	a, \	
-	b, \ 	
+#define beta(a, b, c) \
+	a, \
+	b, \
 	c
 
 int x[] = {

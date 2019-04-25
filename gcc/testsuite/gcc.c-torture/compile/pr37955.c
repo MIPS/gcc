@@ -16,4 +16,3 @@ void aep_mod_exp (void)
       aep_app_conn_table[count].conn_hndl = 0;
     }
 }
-

@@ -17,4 +17,3 @@ t()
 /* { dg-final { scan-tree-dump-not "magic3" "optimized"} } */
 /* { dg-final { scan-tree-dump "magic2" "optimized"} } */
 /* { dg-final { scan-tree-dump "foo" "optimized"} } */
- 

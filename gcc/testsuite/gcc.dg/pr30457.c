@@ -15,7 +15,7 @@ void foo(register short paramN, ...)
   va_list ap;
 
   va_start(ap, paramN); /* { dg-warning "undefined behavior when second parameter of 'va_start' is declared with 'register' storage" } */
-  
+
   /* Undefined by C99 7.15.1.1p2:  */
   (void) va_arg(ap, char); /* { dg-warning "'char' is promoted to 'int' when passed through '...'" "promoted" } */
   /* { dg-message "note: .so you should pass .int. not .char. to .va_arg.." "int not char" { target *-*-* } .-1 } */
@@ -23,4 +23,3 @@ void foo(register short paramN, ...)
 
   va_end(ap);
 }
-

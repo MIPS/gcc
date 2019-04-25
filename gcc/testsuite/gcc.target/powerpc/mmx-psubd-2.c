@@ -35,7 +35,7 @@ TEST (void)
   __m64_union u, s1, s2;
   __m64_union e, v;
   int i;
-   
+
   s1.as_m64 = _mm_setr_pi32 (30, 90);
   s2.as_m64 = _mm_setr_pi32 (76, -100);
   u.as_m64 = test (s1.as_m64, s2.as_m64);

@@ -39,9 +39,9 @@ main1 (unsigned short x, unsigned short max_result, unsigned short min_result)
 }
 
 int main (void)
-{ 
+{
   check_vect ();
-  
+
   main1 (100, 100, 1);
   main1 (0, 15, 0);
   return 0;

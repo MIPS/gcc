@@ -10,7 +10,7 @@
 signed char X[N] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__)));
 signed char Y[N] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__)));
 
-/* char->int->int dot product. 
+/* char->int->int dot product.
    Not detected as a dot-product pattern.  */
 __attribute__ ((noinline)) int
 foo3(int len) {

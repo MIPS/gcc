@@ -11,4 +11,4 @@ void x ()
   res = __builtin_rdctl (0);
   res = __builtin_rdctl (15);
   res = __builtin_rdctl (31);
-} 
+}

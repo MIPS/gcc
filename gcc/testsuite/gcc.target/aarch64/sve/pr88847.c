@@ -18,4 +18,3 @@ foo (void)
 /* { dg-final { scan-assembler {\tld1w\tz[0-9]+.s, p[0-9]+/z, \[x[0-9]+, #1, mul vl\]\n} } } */
 /* { dg-final { scan-assembler {\tst1w\tz[0-9]+.s, p[0-9]+, \[(sp|x[0-9]+)\]\n} } } */
 /* { dg-final { scan-assembler {\tst1w\tz[0-9]+.s, p[0-9]+, \[(sp|x[0-9]+), #1, mul vl\]\n} } } */
-

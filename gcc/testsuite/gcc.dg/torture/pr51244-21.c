@@ -25,7 +25,7 @@ get_request (int* q, int rw)
 
 int main (void)
 {
-  int x[3]; 
+  int x[3];
   int r;
 
   x[0] = 0; x[1] = 1; x[2] = 1;

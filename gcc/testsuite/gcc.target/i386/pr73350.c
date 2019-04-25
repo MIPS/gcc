@@ -13,7 +13,7 @@ TEST (void)
 
   __m512 result1 = _mm512_add_round_ps (a, b, (_MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC));
   __m512 result2 = _mm512_add_round_ps (a, b, (_MM_FROUND_TO_POS_INF | _MM_FROUND_NO_EXC));
-   
+
   if (result1[0] == result2[0])
     abort ();
 }

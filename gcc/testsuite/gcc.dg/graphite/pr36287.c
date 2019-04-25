@@ -9,7 +9,7 @@ int foo ()
 
   for (i = 0; i < 2; ++i)
     for (j = 0; j < 2; ++j)
-      for (k = 0; k < 2; ++k) 
+      for (k = 0; k < 2; ++k)
 	{}
 
   for (i = 0; i < 2; ++i)
@@ -19,4 +19,3 @@ int foo ()
 
   return tab[0][1];
 }
-

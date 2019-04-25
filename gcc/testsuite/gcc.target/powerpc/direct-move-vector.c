@@ -28,5 +28,3 @@ test (vector double *p)
 /* { dg-final { scan-assembler "mfvsrd"  } } */
 /* { dg-final { scan-assembler "mfvsrld" } } */
 /* { dg-final { scan-assembler "mtvsrdd" } } */
-
-

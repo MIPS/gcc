@@ -23,4 +23,3 @@ int bar (int b)
 }
 
 /* { dg-final { scan-tree-dump "CALLUSED\\(\[0-9\]+\\) = { ESCAPED NONLOCAL f.* i q }" "alias" } } */
-

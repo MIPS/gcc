@@ -31,7 +31,7 @@ test02 (int* x, int a, int b)
   tcb[50] = a;
 
   __builtin_set_thread_pointer (x);
-  
+
   tcb = (int*)__builtin_thread_pointer ();
   tcb[40] = b;
 }
@@ -58,7 +58,7 @@ test04 (const int* x, int c, int** xx, int d)
   {
     volatile int* tcb = (volatile int*)__builtin_thread_pointer ();
     tcb[20] = s;
- 
+
    __builtin_set_thread_pointer (xx[i]);
 
     tcb = (volatile int*)__builtin_thread_pointer ();

@@ -4,7 +4,7 @@
 
 #include <limits.h>
 
-int 
+int
 g1 (void)
 {
   return INT_MAX + 1 - INT_MAX; /* { dg-bogus "integer overflow in expression.*integer overflow in expression" } */

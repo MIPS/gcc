@@ -2,7 +2,7 @@
 
 extern void abort (void);
 
-int a, b; 
+int a, b;
 
 int main ()
 {

@@ -10,4 +10,3 @@ int f(_Bool x)
    bool_var != 1 is the same as !bool_var. */
 /* { dg-final { scan-tree-dump-times "!= 1" 0 "optimized"} } */
 /* { dg-final { scan-tree-dump-times "~x" 1 "optimized"} } */
-

@@ -89,4 +89,3 @@ test_vst_vector_d (vector double v, vector double *address)
 {
   __builtin_vec_st (v, 0, address);
 }
-

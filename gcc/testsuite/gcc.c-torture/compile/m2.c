@@ -41,4 +41,3 @@ zero_extend8 (p)
 {
   return *p;
 }
-

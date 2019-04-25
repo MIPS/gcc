@@ -10,4 +10,3 @@ const char *p = "line 1
 "";			      /* The compiler front end sees this.  */
 /* { dg-error "17:missing term" "multiline strings" { target *-*-* } .-3 } */
 /* { dg-error "missing term" "multiline strings" { target *-*-* } .-3 } */
-

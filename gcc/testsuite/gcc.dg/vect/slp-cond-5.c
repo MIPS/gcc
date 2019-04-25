@@ -78,4 +78,3 @@ int main ()
 }
 
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 1 "vect" { target { i?86-*-* x86_64-*-* } } } } */
-

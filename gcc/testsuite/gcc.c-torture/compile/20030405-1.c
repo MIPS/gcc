@@ -1,6 +1,6 @@
 /* When compiled with -pedantic, this program will cause an ICE when the
    constant propagator tries to set the value of *str to UNDEFINED.
-   
+
    This happens because *str is erroneously considered as a store alias.
    The aliasing code is then making *str an alias leader for its alias set
    and when the PHI node at the end of the while() is visited the first

@@ -9,7 +9,7 @@ int Test(void)
       for (unsigned j = 0; j < i; j++) {
 	  if (in[i] == in[j])
 	    break;
-	  else 
+	  else
 	    ++c;
       }
   }

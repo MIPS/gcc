@@ -45,4 +45,3 @@ long double test2l(long double x)
 {
   return acosl(x);
 }
-

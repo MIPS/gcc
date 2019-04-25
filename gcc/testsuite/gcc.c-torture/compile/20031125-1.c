@@ -1,9 +1,9 @@
 short *_offsetTable;
 /* This tests to make sure PRE splits the entry block ->block 0 edge
    when there are multiple block 0 predecessors.
-   This is done so that we don't end up with an insertion on the 
+   This is done so that we don't end up with an insertion on the
    entry block -> block 0 edge which would require a split at insertion
-   time.  
+   time.
    PR 13163.  */
 void proc4WithoutFDFE(char *dst, const char *src, int next_offs, int bw,
 		int bh, int pitch)
@@ -30,5 +30,3 @@ void proc4WithoutFDFE(char *dst, const char *src, int next_offs, int bw,
 		dst += pitch * 3;
 	} while (--bh);
 }
-
-

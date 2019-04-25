@@ -46,8 +46,7 @@ readonly_fields_p (type)
    useless as the earlier cast of the same value of (unsigned char) will
    always produce the same result.  */
 /* { dg-final { scan-tree-dump-times "\\(unsigned int\\)" 0 "dom2"} } */
- 
+
 /* There should be one load of ->common.code.  We currently fail this
    because we load from ->common.code using different types.  */
 /* { dg-final { scan-tree-dump-times "common\.code" 1 "dom2"} } */
-

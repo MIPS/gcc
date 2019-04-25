@@ -38,4 +38,4 @@ discard_useless_locs (x, info)
       n_useless_values++;
     }
 }
-/* { dg-final { scan-tree-dump-times "n_useless_values" 2 "evrp" } } */                 
+/* { dg-final { scan-tree-dump-times "n_useless_values" 2 "evrp" } } */

@@ -425,14 +425,14 @@ extern int darwin_emit_branch_islands;
    default, as kernel code doesn't save/restore those registers.  */
 #define OS_MISSING_ALTIVEC (flag_mkernel || flag_apple_kext)
 
-/* Darwin has support for section anchors on powerpc*.  
+/* Darwin has support for section anchors on powerpc*.
    It is disabled for any section containing a "zero-sized item" (because these
    are re-written as size=1 to be compatible with the OSX ld64).
    The re-writing would interfere with the computation of anchor offsets.
    Therefore, we place zero-sized items in their own sections and make such
    sections unavailable to section anchoring.  */
 
-#undef TARGET_ASM_OUTPUT_ANCHOR 
+#undef TARGET_ASM_OUTPUT_ANCHOR
 #define TARGET_ASM_OUTPUT_ANCHOR darwin_asm_output_anchor
 
 #undef TARGET_USE_ANCHORS_FOR_SYMBOL_P
@@ -456,4 +456,3 @@ do {									\
 
 /* Use standard DWARF numbering for DWARF debugging information.  */
 #define RS6000_USE_DWARF_NUMBERING
-

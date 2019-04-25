@@ -16,6 +16,6 @@ int main ()
 
   if (w != __WCHAR_MAX__)
     abort ();
- 
+
   return 0;
 }

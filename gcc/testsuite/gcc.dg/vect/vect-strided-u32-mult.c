@@ -55,10 +55,9 @@ int main (void)
       iarr[i].b = i * 3;
       __asm__ volatile ("");
     }
-  main1 (arr, iarr); 
-    
+  main1 (arr, iarr);
+
   return 0;
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect"  { target vect_strided2 } } } */
-

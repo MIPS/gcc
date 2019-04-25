@@ -3,4 +3,3 @@
 /* { dg-options "-H" } */
 /* { dg-message "pr43195\.h\n" "" { target *-*-* } 0 } */
 #include "pr43195.h"
-

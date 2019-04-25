@@ -10,8 +10,8 @@ foo ()
 {
   int i, a0, a1, a2, a3;
 
-  for (i = 0; i < N; i++) 
-    { 
+  for (i = 0; i < N; i++)
+    {
       a0 = in[i*4];
       a1 = in[i*4 + 1];
       a2 = in[i*4 + 2];
@@ -28,4 +28,3 @@ foo ()
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect"  { target vect_strided4 } } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 1 "vect" { target vect_strided4 } } } */
-  

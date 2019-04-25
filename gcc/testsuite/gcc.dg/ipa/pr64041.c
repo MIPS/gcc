@@ -21,7 +21,7 @@ union U2
 int
 fn1 (int p)
 {
-  int t = p && a || p && a && p; 
+  int t = p && a || p && a && p;
   return t ? t : a;
 }
 
@@ -44,12 +44,12 @@ foo ()
 {
   if (b)
     {
-      union U1 f = { 0xFFFFFFFFU }; 
+      union U1 f = { 0xFFFFFFFFU };
 
       fn2 (f, c);
     }
   g = 1;
-  return 0; 
+  return 0;
 }
 
 

@@ -28,5 +28,5 @@ sse2_test (void)
 {
   static complex_16 work[5][5];
 
-  test (work); 
+  test (work);
 }

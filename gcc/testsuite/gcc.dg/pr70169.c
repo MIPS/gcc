@@ -4,7 +4,7 @@
 /* { dg-skip-if "Program and data reside in different address spaces" { "avr-*-*" } } */
 /* { dg-require-effective-target label_values } */
 
-int printf (const char *, ...); 
+int printf (const char *, ...);
 
 void
 foo ()

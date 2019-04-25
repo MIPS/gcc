@@ -52,4 +52,3 @@ float test_fnms2 (float x, float y, float z)
 /* { dg-final { scan-assembler-times "fnmsub\ts\[0-9\]" 1 } } */
 /* { dg-final { scan-assembler-times "fnmadd\td\[0-9\]" 1 } } */
 /* { dg-final { scan-assembler-times "fnmadd\ts\[0-9\]" 1 } } */
-

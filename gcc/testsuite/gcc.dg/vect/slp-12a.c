@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 8 
+#define N 8
 
 int
 main1 ()
@@ -15,7 +15,7 @@ main1 ()
 
   for (i = 0; i < N; i++)
     {
-      
+
       a0 = in[i*8] + 5;
       a1 = in[i*8 + 1] + 6;
       a2 = in[i*8 + 2] + 7;
@@ -35,7 +35,7 @@ main1 ()
       b7 = a7 * 2;
 
       out[i*8] = b0 - 2;
-      out[i*8 + 1] = b1 - 3; 
+      out[i*8 + 1] = b1 - 3;
       out[i*8 + 2] = b2 - 2;
       out[i*8 + 3] = b3 - 1;
       out[i*8 + 4] = b4 - 8;

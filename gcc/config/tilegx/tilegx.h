@@ -187,7 +187,7 @@ enum reg_class
 
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
 
-/* Since GENERAL_REGS is the same class as ALL_REGS, don't give it a 
+/* Since GENERAL_REGS is the same class as ALL_REGS, don't give it a
    different class number; just make it an alias.  */
 #define GENERAL_REGS ALL_REGS
 

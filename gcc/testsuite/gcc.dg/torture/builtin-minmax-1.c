@@ -112,7 +112,7 @@ void __attribute__ ((__noinline__))
 
   TEST_INT(fmin);
   TEST_INT(fmax);
-  
+
   TEST_NONNEG(fmin);
   TEST_NONNEG(fmax);
 

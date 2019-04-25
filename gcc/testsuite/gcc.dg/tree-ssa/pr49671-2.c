@@ -12,5 +12,3 @@ void f(void)
 }
 
 /* { dg-final { scan-tree-dump "\{v\}" "optimized" } } */
-
-

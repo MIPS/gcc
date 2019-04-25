@@ -28,4 +28,3 @@ u32 fails(u32 *var)
         *var = foobar(0);
         return *var;
 }
-

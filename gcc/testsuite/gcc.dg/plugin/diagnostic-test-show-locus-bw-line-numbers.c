@@ -42,8 +42,8 @@ void test_very_wide_line (void)
 #if 0
                                                                                 float f = foo * bar; /* { dg-warning "95: test" } */
 /* { dg-begin-multiline-output "" }
-      |        0         0         0         0         0         1         1  
-      |        5         6         7         8         9         0         1  
+      |        0         0         0         0         0         1         1
+      |        5         6         7         8         9         0         1
       | 3456789012345678901234567890123456789012345678901234567890123456789012
    43 |                                       float f = foo * bar;
       |                                                 ~~~~^~~~~

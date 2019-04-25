@@ -4285,4 +4285,3 @@ vr_values::set_vr_value (tree var, value_range *vr)
     return;
   vr_value[SSA_NAME_VERSION (var)] = vr;
 }
-

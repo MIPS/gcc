@@ -2586,7 +2586,7 @@ cris_legitimate_pic_operand (rtx x)
 /* Queue an .ident string in the queue of top-level asm statements.
    If the front-end is done, we must be being called from toplev.c.
    In that case, do nothing.  */
-void 
+void
 cris_asm_output_ident (const char *string)
 {
   if (symtab->state != PARSING)
@@ -4066,7 +4066,7 @@ cris_promote_function_mode (const_tree type ATTRIBUTE_UNUSED,
   if (for_return == 1)
     return mode;
   return CRIS_PROMOTED_MODE (mode, *punsignedp, type);
-} 
+}
 
 /* Atomic types require alignment to be at least their "natural" size.  */
 

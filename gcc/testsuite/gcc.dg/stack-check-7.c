@@ -33,4 +33,3 @@ main ()
   baz ();
   return 0;
 }
-

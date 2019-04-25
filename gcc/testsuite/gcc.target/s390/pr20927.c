@@ -20,4 +20,3 @@ void test (struct point *pc, struct point p1)
   use (p0);
   use (p1);
 }
-

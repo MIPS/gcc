@@ -28,13 +28,13 @@ int main1(void)
             VR = (vector float) vec_lvrx( 8, &test_dst[p] );
             VL = (vector float) vec_lvlx( 0, &test_dst[p] );
    /* Vector Shift Left Double by Octet Immediate, move the right hand section into the bytes */
-            VR = vec_vsldoi( VR, VR, 2 << 2 ); 
+            VR = vec_vsldoi( VR, VR, 2 << 2 );
    /* or those two together */
             V = vec_vor( VL, VR );
    /* sign extend */
             V = (vector float) vec_vupkhsh((vector bool short)V );
    /* fixed to float by S16_SHIFT_BITS bits */
-            V = (vector float) vec_vcfsx ((vector signed int)V, 5 ); 
+            V = (vector float) vec_vcfsx ((vector signed int)V, 5 );
 
             vec_stvx( V, 0, &test_out[0] );
             if (test_out[0] != 52.437500)

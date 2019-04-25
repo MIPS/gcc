@@ -33,4 +33,3 @@ int x [ sizeof (__ea char *) == 4 ? 1 : -1 ];
 #ifdef __EA64__
 int x [ sizeof (__ea char *) == 8 ? 1 : -1 ];
 #endif
-

@@ -21,8 +21,8 @@ bar3 ()
   return __extension__ (0x1b27da572ef3cd86ULL);
 }
 
-__extension__ unsigned long long 
+__extension__ unsigned long long
 bar4 ()
 {
-  return BIG; 
+  return BIG;
 }

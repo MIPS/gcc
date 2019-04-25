@@ -9,8 +9,8 @@
 void mem_init (void);
 int ARCHnodes, ARCHnodes1;
 int ***vel;
-/* The inner most dimension escapes. 
-   The two external dimensions are flattened 
+/* The inner most dimension escapes.
+   The two external dimensions are flattened
    after being transposed.  */
 /*--------------------------------------------------------------------------*/
 
@@ -62,7 +62,7 @@ mem_init (void)
 {
 
   signed int i, j, k,d;
- 
+
   d = 0;
   vel = (int ***) malloc (ARCHnodes * sizeof (int **));
 

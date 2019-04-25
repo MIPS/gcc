@@ -35,7 +35,7 @@ int main (void)
 
   for (i=0; i<N; i++)
     a[i] = i;
- 
+
   foo (N);
 
     /* check results:  */

@@ -15,22 +15,20 @@ _Complex float a[N]  __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__))) =
 _Complex float c[N] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__)));
 
 
-__attribute__ ((noinline)) _Complex float 
+__attribute__ ((noinline)) _Complex float
 foo (int x)
 {
   int i;
   _Complex float *p = a + x;
   _Complex float sum = 10.0F + 20.0iF;
- 
+
   for (i = 0; i < N; i++)
    {
      sum += *p;
      p++;
    }
 
-  c[0] = sum + 66.0F + 86.0iF; 
- 
+  c[0] = sum + 66.0F + 86.0iF;
+
   return 0;
 }
-
-

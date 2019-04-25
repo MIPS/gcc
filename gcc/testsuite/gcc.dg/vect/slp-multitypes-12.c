@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 128 
+#define N 128
 
 __attribute__ ((noinline)) int
 main1 ()
@@ -34,7 +34,7 @@ main1 ()
   /* check results:  */
   for (i = 0; i < N; i++)
     {
-      if (sout[i*4] != 8 
+      if (sout[i*4] != 8
          || sout[i*4 + 1] != 18
          || sout[i*4 + 2] != 28
          || sout[i*4 + 3] != 38
@@ -63,4 +63,3 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect"  } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 3 "vect" } } */
-  

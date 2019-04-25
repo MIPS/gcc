@@ -15,7 +15,7 @@ struct dirent64
   char d_name[256];
 };
 struct kernel_dirent64
-{   
+{
   long long d_off;
   unsigned short d_reclen;
   char d_name[256];
@@ -46,7 +46,7 @@ __syscall_getdents64 (int fd, char * dirp, unsigned count)
 
 int
 __getdents64 (int fd, char *buf, unsigned nbytes)
-{   
+{
   struct dirent64 *dp;
   long long last_offset = -1;
   int retval;

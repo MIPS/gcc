@@ -13,7 +13,7 @@ typedef union
 
 float
 mask_and_float_sign (float f)
-{ 
+{
   ieee_float_shape_type u;
 
   u.value = f;

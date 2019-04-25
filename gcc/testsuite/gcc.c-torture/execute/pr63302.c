@@ -14,7 +14,7 @@ __attribute__((noinline, noclone)) int
 foo (__int128 x)
 {
   __int128 v = x & (((__int128) -1 << 63) | 0x7ff);
- 
+
   return v == 0 || v == ((__int128) -1 << 63);
 }
 #endif
@@ -24,7 +24,7 @@ __attribute__((noinline, noclone)) int
 bar (long long x)
 {
   long long v = x & (((long long) -1 << 31) | 0x7ff);
- 
+
   return v == 0 || v == ((long long) -1 << 31);
 }
 #endif

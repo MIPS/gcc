@@ -6,10 +6,10 @@
 #define N 64
 #define MAX 42
 
-extern void abort(void); 
+extern void abort(void);
 
 int main ()
-{  
+{
   int A[N];
   int B[N];
   int C[N];

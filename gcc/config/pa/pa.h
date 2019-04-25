@@ -223,7 +223,7 @@ typedef struct GTY(()) machine_function
 } machine_function;
 
 /* Define this macro if it is advisable to hold scalars in registers
-   in a wider mode than that declared by the program.  In such cases, 
+   in a wider mode than that declared by the program.  In such cases,
    the value is constrained to be within the bounds of the declared
    type, but kept valid in the wider mode.  The signedness of the
    extension may differ from that of the type.  */
@@ -555,13 +555,13 @@ extern rtx hppa_pic_save_rtx (void);
    of arguments scanned so far (including the invisible argument,
    if any, which holds the structure-value-address).  Thus, 4 or
    more means all following args should go on the stack.
-   
+
    The INCOMING field tracks whether this is an "incoming" or
    "outgoing" argument.
-   
+
    The INDIRECT field indicates whether this is an indirect
    call or not.
-   
+
    The NARGS_PROTOTYPE field indicates that an argument does not
    have a prototype when it less than or equal to 0.  */
 
@@ -704,7 +704,7 @@ extern int may_call_alloca;
 #define MIN_CACHELINE_SIZE 32
 
 
-/* Addressing modes, and classification of registers for them. 
+/* Addressing modes, and classification of registers for them.
 
    Using autoincrement addressing modes on PA8000 class machines is
    not profitable.  */
@@ -975,7 +975,7 @@ do {									     \
 
 /* Higher than the default as we prefer to use simple move insns
    (better scheduling and delay slot filling) and because our
-   built-in block move is really a 2X unrolled loop. 
+   built-in block move is really a 2X unrolled loop.
 
    Believe it or not, this has to be big enough to allow for copying all
    arguments passed in registers to avoid infinite recursion during argument
@@ -1168,7 +1168,7 @@ do {									     \
 #define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE)  \
   fprintf (FILE, "\t.word L$%d\n", VALUE)
 
-/* This is how to output an element of a case-vector that is relative. 
+/* This is how to output an element of a case-vector that is relative.
    Since we always place jump tables in the text section, the difference
    is absolute and requires no relocation.  */
 
@@ -1202,7 +1202,7 @@ do {									     \
 
 #define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN)		\
   pa_asm_output_aligned_bss (FILE, NAME, SIZE, ALIGN)
-  
+
 /* This says how to output an assembler line to define a global common symbol
    with size SIZE (in bytes) and alignment ALIGN (in bits).  */
 
@@ -1216,7 +1216,7 @@ do {									     \
 
 #define ASM_OUTPUT_ALIGNED_LOCAL(FILE, NAME, SIZE, ALIGN)		\
   pa_asm_output_aligned_local (FILE, NAME, SIZE, ALIGN)
-  
+
 /* All HP assemblers use "!" to separate logical lines.  */
 #define IS_ASM_LOGICAL_LINE_SEPARATOR(C, STR) ((C) == '!')
 
@@ -1297,7 +1297,7 @@ do {									     \
    chosen so that approximately one call stub is allocated for every
    86.7 instructions.  A long branch stub is two instructions when
    not generating PIC code.  For HP-UX and ELF targets, PIC stubs are
-   seven and four instructions, respectively.  */  
+   seven and four instructions, respectively.  */
 #define MAX_PCREL17F_OFFSET \
   (flag_pic ? (TARGET_HPUX ? 198164 : 221312) : 240000)
 

@@ -8,7 +8,7 @@ foo (char **values, int ndim, char *needquotes, int *dims)
   int i;
   int j = 0;
   int k = 0;
-  char *retval = (char *)__builtin_malloc(1000); 
+  char *retval = (char *)__builtin_malloc(1000);
   char *p = retval;
   char *tmp;
 

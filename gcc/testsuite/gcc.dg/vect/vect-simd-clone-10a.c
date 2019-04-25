@@ -15,4 +15,3 @@ bar (int a, int b, long int c)
 {
   return a + b + c;
 }
-

@@ -734,7 +734,7 @@ bitmap_set_free (bitmap_set_t set)
 
 /* Generate an topological-ordered array of bitmap set SET.  */
 
-static vec<pre_expr> 
+static vec<pre_expr>
 sorted_array_from_bitmap_set (bitmap_set_t set)
 {
   unsigned int i, j;
@@ -1284,7 +1284,7 @@ get_representative_for (const pre_expr e, basic_block b = NULL)
 		/* We have to return either a new representative or one
 		   that can be used for expression simplification and thus
 		   is available in B.  */
-		if (! b 
+		if (! b
 		    || gimple_nop_p (def)
 		    || dominated_by_p (CDI_DOMINATORS, b, gimple_bb (def)))
 		  return name;
@@ -2759,7 +2759,7 @@ create_expression_by_pieces (basic_block block, pre_expr expr,
 	return folded;
       break;
     case CONSTANT:
-      { 
+      {
 	folded = PRE_EXPR_CONSTANT (expr);
 	tree tem = fold_convert (exprtype, folded);
 	if (is_gimple_min_invariant (tem))
@@ -3457,8 +3457,8 @@ do_pre_partial_partial_insertion (basic_block block, basic_block dom)
 						  get_expression_id (expr),
 						  avail))
 		    new_stuff = true;
-		}	   
-	    } 
+		}
+	    }
 	}
     }
 

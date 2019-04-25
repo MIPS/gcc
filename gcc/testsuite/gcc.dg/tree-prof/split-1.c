@@ -12,7 +12,7 @@ const char *buf_hot;
 const char *buf_cold;
 
 __attribute__((noinline))
-void 
+void
 foo (int path)
 {
   int i;

@@ -31,4 +31,3 @@ void sched_init (uintptr_t __ptr)
         (array->queue + k)->prev = array->queue;
   }
 }
-

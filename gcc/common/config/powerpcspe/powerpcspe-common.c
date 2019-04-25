@@ -174,7 +174,7 @@ rs6000_handle_option (struct gcc_options *opts, struct gcc_options *opts_set,
 
 	  if (invert)
 	    opts->x_rs6000_debug &= ~mask;
-	  else	
+	  else
 	    opts->x_rs6000_debug |= mask;
 	}
       break;
@@ -226,7 +226,7 @@ rs6000_handle_option (struct gcc_options *opts, struct gcc_options *opts_set,
       break;
 
     case OPT_msingle_float:
-      if (!TARGET_SINGLE_FPU) 
+      if (!TARGET_SINGLE_FPU)
 	warning_at (loc, 0,
 		    "%<-msingle-float%> option equivalent to %<-mhard-float%>");
       /* -msingle-float implies -mno-double-float and TARGET_HARD_FLOAT. */
@@ -243,7 +243,7 @@ rs6000_handle_option (struct gcc_options *opts, struct gcc_options *opts_set,
       break;
 
     case OPT_msimple_fpu:
-      if (!TARGET_SINGLE_FPU) 
+      if (!TARGET_SINGLE_FPU)
 	warning_at (loc, 0, "%<-msimple-fpu%> option ignored");
       break;
 
@@ -266,11 +266,11 @@ rs6000_handle_option (struct gcc_options *opts, struct gcc_options *opts_set,
 	  opts->x_rs6000_isa_flags &= ~OPTION_MASK_SOFT_FLOAT;
 	  opts_set->x_rs6000_isa_flags |= OPTION_MASK_SOFT_FLOAT;
 	  opts->x_rs6000_xilinx_fpu = 1;
-	  if (fpu_type == FPU_SF_LITE || fpu_type == FPU_SF_FULL) 
+	  if (fpu_type == FPU_SF_LITE || fpu_type == FPU_SF_FULL)
 	    opts->x_rs6000_single_float = 1;
-	  if (fpu_type == FPU_DF_LITE || fpu_type == FPU_DF_FULL) 
+	  if (fpu_type == FPU_DF_LITE || fpu_type == FPU_DF_FULL)
 	    opts->x_rs6000_single_float = opts->x_rs6000_double_float = 1;
-	  if (fpu_type == FPU_SF_LITE || fpu_type == FPU_DF_LITE) 
+	  if (fpu_type == FPU_SF_LITE || fpu_type == FPU_DF_LITE)
 	    opts->x_rs6000_simple_fpu = 1;
 	}
       else

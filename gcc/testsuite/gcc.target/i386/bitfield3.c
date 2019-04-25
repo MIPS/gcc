@@ -19,6 +19,6 @@ int main () {
     abort ();
   if (__alignof__(struct Y) != 4)
     abort ();
-  
+
   exit (0);
 }

@@ -43,4 +43,3 @@ int main(int argc, char **argv)
    /*cchr->val8 = 0; types_test8 (); if (cchr->val8 != 'a') abort ();*/
    return 0;
 }
-

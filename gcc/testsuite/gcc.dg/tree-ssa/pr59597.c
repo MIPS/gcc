@@ -19,7 +19,7 @@ Calc_crc8 (u8 data, u16 crc)
     {
       x16 = (u8)((data & 1) ^ ((u8)crc & 1));
       data >>= 1;
- 
+
       if (x16 == 1)
 	{
 	  crc ^= 0x4002;
@@ -47,7 +47,7 @@ main (int argc, char argv[])
 	  f[i] = random(i);
 	  t[i] = random(NNN - i - 1);
 	}
-      for (i=0; i<NNN; i++) 
+      for (i=0; i<NNN; i++)
 	{
 	  crc=Calc_crc8(f[i],(u16)argc);
 	  crc=Calc_crc8(t[i],crc);

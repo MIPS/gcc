@@ -317,7 +317,7 @@ insn_invalid_p (rtx_insn *insn, bool in_group)
      clobbers.  */
   int icode = recog (pat, insn,
 		     (GET_CODE (pat) == SET
-		      && ! reload_completed 
+		      && ! reload_completed
                       && ! reload_in_progress)
 		     ? &num_clobbers : 0);
   int is_asm = icode < 0 && asm_noperands (PATTERN (insn)) >= 0;
@@ -1030,7 +1030,7 @@ general_operand (rtx op, machine_mode mode)
 	     integer modes need the same number of hard registers, the
 	     size of floating point mode can be less than the integer
 	     mode.  */
-	  && ! lra_in_progress 
+	  && ! lra_in_progress
 	  && paradoxical_subreg_p (op))
 	return 0;
 
@@ -2885,7 +2885,7 @@ reg_fits_class_p (const_rtx operand, reg_class_t cl, int offset,
   /* Regno must not be a pseudo register.  Offset may be negative.  */
   return (HARD_REGISTER_NUM_P (regno)
 	  && HARD_REGISTER_NUM_P (regno + offset)
-	  && in_hard_reg_set_p (reg_class_contents[(int) cl], mode, 
+	  && in_hard_reg_set_p (reg_class_contents[(int) cl], mode,
 				regno + offset));
 }
 

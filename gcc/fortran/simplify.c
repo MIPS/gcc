@@ -6363,7 +6363,7 @@ gfc_simplify_is_contiguous (gfc_expr *array)
 
   if (gfc_is_not_contiguous (array))
     return gfc_get_logical_expr (gfc_default_logical_kind, &array->where, 0);
-    
+
   return NULL;
 }
 

@@ -31,4 +31,3 @@ foo (int x, struct S *y, char z, int *v, struct S *s)
         }
     }
 }
-

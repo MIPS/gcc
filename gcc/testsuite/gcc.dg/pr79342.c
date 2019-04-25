@@ -8,7 +8,7 @@ void b(void);
 void e(int *);
 int f(void);
 
-void 
+void
 c(void)
 {
   int d;

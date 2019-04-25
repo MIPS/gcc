@@ -19,4 +19,3 @@
 #if 25 >> -2 != 25 << 2
 #error		/* { dg-bogus "error" ">> -ve shift" } */
 #endif
-

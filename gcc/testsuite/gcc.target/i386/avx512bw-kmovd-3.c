@@ -9,7 +9,7 @@ void
 avx512bw_test ()
 {
   __mmask32 k0, k;
- 
+
   _store_mask32 (&k, k1);
 
   asm volatile ("" : "+k" (k));

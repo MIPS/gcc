@@ -7,4 +7,3 @@ int f (int *p, int *q, int len)
 {
     return memcmp (p, q, len);
 }
-

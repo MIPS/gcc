@@ -10,7 +10,7 @@
 void test_atomic_bool (_Atomic _Bool *a)
 {
   enum { SEQ_CST = __ATOMIC_SEQ_CST };
-  
+
   __atomic_fetch_add (a, 1, SEQ_CST);   /* { dg-error "operand type ._Atomic _Bool \\*. is incompatible with argument 1 of .__atomic_fetch_add." } */
   __atomic_fetch_sub (a, 1, SEQ_CST);   /* { dg-error "operand type ._Atomic _Bool \\*. is incompatible with argument 1 of .__atomic_fetch_sub." } */
   __atomic_fetch_and (a, 1, SEQ_CST);   /* { dg-error "operand type ._Atomic _Bool \\*. is incompatible with argument 1 of .__atomic_fetch_and." } */
@@ -38,7 +38,7 @@ void test_atomic_bool (_Atomic _Bool *a)
 void test_bool (_Bool *b)
 {
   enum { SEQ_CST = __ATOMIC_SEQ_CST };
-  
+
   __atomic_fetch_add (b, 1, SEQ_CST);   /* { dg-error "operand type ._Bool \\*. is incompatible with argument 1 of .__atomic_fetch_add." } */
   __atomic_fetch_sub (b, 1, SEQ_CST);   /* { dg-error "operand type ._Bool \\*. is incompatible with argument 1 of .__atomic_fetch_sub." } */
   __atomic_fetch_and (b, 1, SEQ_CST);   /* { dg-error "operand type ._Bool \\*. is incompatible with argument 1 of .__atomic_fetch_and." } */

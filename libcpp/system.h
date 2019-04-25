@@ -51,9 +51,9 @@ along with GCC; see the file COPYING3.  If not see
 /* Some of these are #define on some systems, e.g. on AIX to redirect
    the names to 64bit capable functions for LARGE_FILES support. These
    redefs are pointless here so we can override them.  */
-    
-#undef fopen 
-#undef freopen 
+
+#undef fopen
+#undef freopen
 
 #define fopen(PATH,MODE) fopen_unlocked(PATH,MODE)
 #define fdopen(FILDES,MODE) fdopen_unlocked(FILDES,MODE)
@@ -424,7 +424,7 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 
 /* Provide a fake boolean type.  We make no attempt to use the
    C99 _Bool, as it may not be available in the bootstrap compiler,
-   and even if it is, it is liable to be buggy.  
+   and even if it is, it is liable to be buggy.
    This must be after all inclusion of system headers, as some of
    them will mess us up.  */
 #undef bool

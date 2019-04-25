@@ -16,7 +16,7 @@ foo (callback *first, callback *p)
       asm ("" : "=r" (p) : "0" (p)
 	   : "r4", "r5", "r6", "r7", "r8", "r9", "r10");
 #endif
-    }   
+    }
 }
 
 static void

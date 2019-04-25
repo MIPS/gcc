@@ -8,7 +8,7 @@ typedef struct T
 } tree;
 
 /*
-                    abcd   
+                    abcd
                    /    \
                  ab      cd
                 /  \    /  \
@@ -71,7 +71,7 @@ static void
 test3 (const __as tree *pt)
 {
   tree t = *pt;
-  
+
   if (t.val != '*')
     abort();
 
@@ -100,7 +100,7 @@ int main (void)
   __asm ("" : "+r" (t));
   test2 (t);
   test3 (t);
-  
+
   exit (0);
   return 0;
 }

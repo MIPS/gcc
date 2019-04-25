@@ -9,4 +9,3 @@ void acpi_gpiochip_request_interrupt(unsigned short s)
 	if (pin <= 255)
 		__builtin_sprintf(name, "%02X", pin);
 }
-

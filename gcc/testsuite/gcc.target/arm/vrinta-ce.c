@@ -12,4 +12,3 @@ double foo (double a)
 }
 
 /* { dg-final { scan-assembler-times "vrinta.f64\td\[0-9\]+" 1 } } */
-

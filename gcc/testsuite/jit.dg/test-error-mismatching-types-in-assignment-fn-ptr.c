@@ -89,4 +89,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 		      " from iii_ptr"
 		      " (type: void (*) (int, int, int))");
 }
-

@@ -909,7 +909,7 @@ public:
       gcc_checking_assert (other >= 0);
       return initialized_p () && m_val >= (uint64_t) other;
     }
-  /* Return true when value is not zero and can be used for scaling. 
+  /* Return true when value is not zero and can be used for scaling.
      This is different from *this > 0 because that requires counter to
      be IPA.  */
   bool nonzero_p () const

@@ -130,7 +130,7 @@ static profile_count max_count;
 static profile_count spec_rem;
 
 /* Return false when inlining edge E would lead to violating
-   limits on function unit growth or stack usage growth.  
+   limits on function unit growth or stack usage growth.
 
    The relative function body growth limit is present generally
    to avoid problems with non-linear behavior of the compiler.
@@ -300,9 +300,9 @@ sanitize_attrs_match_for_inline_p (const_tree caller, const_tree callee)
        != opts_for_fn (callee->decl)->x_##flag)
 
 /* Decide if we can inline the edge and possibly update
-   inline_failed reason.  
+   inline_failed reason.
    We check whether inlining is possible at all and whether
-   caller growth limits allow doing so.  
+   caller growth limits allow doing so.
 
    if REPORT is true, output reason to the dump file. */
 
@@ -397,9 +397,9 @@ can_inline_edge_p (struct cgraph_edge *e, bool report,
 }
 
 /* Decide if we can inline the edge and possibly update
-   inline_failed reason.  
+   inline_failed reason.
    We check whether inlining is possible at all and whether
-   caller growth limits allow doing so.  
+   caller growth limits allow doing so.
 
    if REPORT is true, output reason to the dump file.
 
@@ -686,7 +686,7 @@ inline sreal
 compute_uninlined_call_time (struct cgraph_edge *edge,
 			     sreal uninlined_call_time)
 {
-  cgraph_node *caller = (edge->caller->global.inlined_to 
+  cgraph_node *caller = (edge->caller->global.inlined_to
 			 ? edge->caller->global.inlined_to
 			 : edge->caller);
 
@@ -707,7 +707,7 @@ inline sreal
 compute_inlined_call_time (struct cgraph_edge *edge,
 			   sreal time)
 {
-  cgraph_node *caller = (edge->caller->global.inlined_to 
+  cgraph_node *caller = (edge->caller->global.inlined_to
 			 ? edge->caller->global.inlined_to
 			 : edge->caller);
   sreal caller_time = ipa_fn_summaries->get (caller)->time;
@@ -864,7 +864,7 @@ want_inline_small_function_p (struct cgraph_edge *e, bool report)
 /* EDGE is self recursive edge.
    We hand two cases - when function A is inlining into itself
    or when function A is being inlined into another inliner copy of function
-   A within function B.  
+   A within function B.
 
    In first case OUTER_NODE points to the toplevel copy of A, while
    in the second case OUTER_NODE points to the outermost copy of A in B.
@@ -936,7 +936,7 @@ want_inline_self_recursive_call_p (struct cgraph_edge *edge,
 
      Deciding reliably on when to do recursive inlining without profile feedback
      is tricky.  For now we disable recursive inlining when probability of self
-     recursion is low. 
+     recursion is low.
 
      Recursive inlining of self recursive call within loop also results in
      large loop depths that generally optimize badly.  We may want to throttle
@@ -959,7 +959,7 @@ want_inline_self_recursive_call_p (struct cgraph_edge *edge,
 }
 
 /* Return true when NODE has uninlinable caller;
-   set HAS_HOT_CALL if it has hot call. 
+   set HAS_HOT_CALL if it has hot call.
    Worker for cgraph_for_node_and_aliases.  */
 
 static bool
@@ -994,7 +994,7 @@ has_caller_p (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED)
 }
 
 /* Decide if inlining NODE would reduce unit size by eliminating
-   the offline copy of function.  
+   the offline copy of function.
    When COLD is true the cold calls are considered, too.  */
 
 static bool
@@ -1038,7 +1038,7 @@ edge_badness (struct cgraph_edge *edge, bool dump)
   struct cgraph_node *callee = edge->callee->ultimate_alias_target ();
   struct ipa_fn_summary *callee_info = ipa_fn_summaries->get (callee);
   ipa_hints hints;
-  cgraph_node *caller = (edge->caller->global.inlined_to 
+  cgraph_node *caller = (edge->caller->global.inlined_to
 			 ? edge->caller->global.inlined_to
 			 : edge->caller);
 
@@ -1086,7 +1086,7 @@ edge_badness (struct cgraph_edge *edge, bool dump)
       return sreal::max ();
     }
   /* When profile is available. Compute badness as:
-     
+
                  time_saved * caller_count
      goodness =  -------------------------------------------------
 	         growth_of_caller * overall_growth * combined_size
@@ -1912,7 +1912,7 @@ inline_small_functions (void)
 	  && (!max_count.initialized_p () || !max_count.nonzero_p ()))
 	{
 	  sreal cached_badness = edge_badness (edge, false);
-     
+
 	  int old_size_est = estimate_edge_size (edge);
 	  sreal old_time_est = estimate_edge_time (edge);
 	  int old_hints_est = estimate_edge_hints (edge);
@@ -1963,7 +1963,7 @@ inline_small_functions (void)
 	  resolve_noninline_speculation (&edge_heap, edge);
 	  continue;
 	}
-      
+
       callee = edge->callee->ultimate_alias_target ();
       growth = estimate_edge_growth (edge);
       if (dump_file)
@@ -2541,7 +2541,7 @@ ipa_inline (void)
   symtab->remove_unreachable_nodes (dump_file);
 
   /* Inline functions with a property that after inlining into all callers the
-     code size will shrink because the out-of-line copy is eliminated. 
+     code size will shrink because the out-of-line copy is eliminated.
      We do this regardless on the callee size as long as function growth limits
      are met.  */
   if (dump_file)

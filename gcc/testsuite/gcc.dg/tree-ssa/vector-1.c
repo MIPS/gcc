@@ -27,6 +27,3 @@ float f3(vector float t)
 
 
 /* { dg-final { scan-tree-dump-times "BIT_FIELD_REF" 4 "gimple"} } */
-
-
-

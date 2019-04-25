@@ -13,4 +13,3 @@ long long f (long long *c)
 		   "r10", "r11", "r12", "memory");
   return t >> 1;
 }
-

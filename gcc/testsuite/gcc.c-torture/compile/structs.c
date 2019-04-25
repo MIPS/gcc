@@ -9,7 +9,7 @@
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
- 
+
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING3.  If not see
    <http://www.gnu.org/licenses/>.
@@ -51,7 +51,7 @@ struct struct16 foo16 = {
 
 struct struct1  fun1()
 {
-  return foo1;  
+  return foo1;
 }
 struct struct2  fun2()
 {
@@ -87,19 +87,19 @@ struct struct9  fun9()
 }
 struct struct10 fun10()
 {
-  return foo10; 
+  return foo10;
 }
 struct struct11 fun11()
 {
-  return foo11; 
+  return foo11;
 }
 struct struct12 fun12()
 {
-  return foo12; 
+  return foo12;
 }
 struct struct16 fun16()
 {
-  return foo16; 
+  return foo16;
 }
 
 #ifdef PROTOTYPES
@@ -190,7 +190,7 @@ void Fun10(foo10)
      struct struct10 foo10;
 #endif
 {
-  L10 = foo10; 
+  L10 = foo10;
 }
 #ifdef PROTOTYPES
 void Fun11(struct struct11 foo11)
@@ -199,7 +199,7 @@ void Fun11(foo11)
      struct struct11 foo11;
 #endif
 {
-  L11 = foo11; 
+  L11 = foo11;
 }
 #ifdef PROTOTYPES
 void Fun12(struct struct12 foo12)
@@ -208,7 +208,7 @@ void Fun12(foo12)
      struct struct12 foo12;
 #endif
 {
-  L12 = foo12; 
+  L12 = foo12;
 }
 #ifdef PROTOTYPES
 void Fun16(struct struct16 foo16)
@@ -217,7 +217,7 @@ void Fun16(foo16)
      struct struct16 foo16;
 #endif
 {
-  L16 = foo16; 
+  L16 = foo16;
 }
 
 int main()
@@ -228,15 +228,15 @@ int main()
 #endif
 
   /* TEST C FUNCTIONS */
-  L1  = fun1();	
-  L2  = fun2();	
-  L3  = fun3();	
-  L4  = fun4();	
-  L5  = fun5();	
-  L6  = fun6();	
-  L7  = fun7();	
-  L8  = fun8();	
-  L9  = fun9();	
+  L1  = fun1();
+  L2  = fun2();
+  L3  = fun3();
+  L4  = fun4();
+  L5  = fun5();
+  L6  = fun6();
+  L7  = fun7();
+  L8  = fun8();
+  L9  = fun9();
   L10 = fun10();
   L11 = fun11();
   L12 = fun12();
@@ -245,15 +245,15 @@ int main()
   foo1.a = foo2.a = foo3.a = foo4.a = foo5.a = foo6.a = foo7.a = foo8.a =
     foo9.a = foo10.a = foo11.a = foo12.a = foo16.a = '$';
 
-  Fun1(foo1);	
-  Fun2(foo2);	
-  Fun3(foo3);	
-  Fun4(foo4);	
-  Fun5(foo5);	
-  Fun6(foo6);	
-  Fun7(foo7);	
-  Fun8(foo8);	
-  Fun9(foo9);	
+  Fun1(foo1);
+  Fun2(foo2);
+  Fun3(foo3);
+  Fun4(foo4);
+  Fun5(foo5);
+  Fun6(foo6);
+  Fun7(foo7);
+  Fun8(foo8);
+  Fun9(foo9);
   Fun10(foo10);
   Fun11(foo11);
   Fun12(foo12);

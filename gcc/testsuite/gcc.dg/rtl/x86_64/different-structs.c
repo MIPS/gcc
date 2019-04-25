@@ -72,7 +72,7 @@ double __RTL test (struct foo *f, const struct bar *b)
     (cbarrier 18)
   ) ;; insn-chain
   (crtl
-    (return_rtx 
+    (return_rtx
       (reg/i:DF xmm0)
     ) ;; return_rtx
   ) ;; crtl

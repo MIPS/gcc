@@ -75,7 +75,7 @@
 #define SUFFIX DF
 #undef TYPE
 #define TYPE _Decimal32
-  
+
 void
 zeroes_32 (void)
 {
@@ -203,7 +203,7 @@ zeroes_32 (void)
   TESTVAL_NEG_BIG (-5000000000000000000, SUFFIX, sizeof (TYPE));
   TESTVAL_NEG_BIG (-9000000000000000000, SUFFIX, sizeof (TYPE));
 }
-  
+
 void
 round_32 (void)
 {
@@ -250,7 +250,7 @@ round_32 (void)
 #define SUFFIX DD
 #undef TYPE
 #define TYPE _Decimal64
-  
+
 void
 zeroes_64 (void)
 {
@@ -378,7 +378,7 @@ zeroes_64 (void)
   TESTVAL_NEG_BIG (-5000000000000000000, SUFFIX, sizeof (TYPE));
   TESTVAL_NEG_BIG (-9000000000000000000, SUFFIX, sizeof (TYPE));
 }
-  
+
 void
 round_64 (void)
 {
@@ -419,7 +419,7 @@ round_64 (void)
 #define SUFFIX DL
 #undef TYPE
 #define TYPE _Decimal128
-  
+
 void
 zeroes_128 (void)
 {

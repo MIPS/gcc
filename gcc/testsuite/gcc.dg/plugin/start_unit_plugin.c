@@ -1,9 +1,9 @@
 /* This plugin tests the correct operation of a PLUGIN_START_UNIT callback.
- * By the time a PLUGIN_START_UNIT callback is invoked, the frontend 
+ * By the time a PLUGIN_START_UNIT callback is invoked, the frontend
  * initialization should have completed. At least the different *_type_nodes
- * should have been created. This plugin creates an artificial global 
+ * should have been created. This plugin creates an artificial global
  * interger variable.
- * 
+ *
 */
 #include "gcc-plugin.h"
 #include "config.h"
@@ -41,7 +41,7 @@ gate_start_unit (void)
 static void start_unit_callback (void *gcc_data, void *user_data)
 {
   if (integer_type_node) {
-    fake_var = build_decl (UNKNOWN_LOCATION, VAR_DECL, 
+    fake_var = build_decl (UNKNOWN_LOCATION, VAR_DECL,
                            get_identifier ("_fake_var_"),
                            integer_type_node);
     TREE_PUBLIC (fake_var) = 1;

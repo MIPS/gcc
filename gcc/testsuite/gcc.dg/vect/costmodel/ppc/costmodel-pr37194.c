@@ -4,8 +4,8 @@
 #include <stdlib.h>
 #include "../../tree-vect.h"
 
-__attribute__ ((noinline)) void 
-ggSpectrum_Set8(float * data, float d) 
+__attribute__ ((noinline)) void
+ggSpectrum_Set8(float * data, float d)
 {
    int i;
 
@@ -13,8 +13,8 @@ ggSpectrum_Set8(float * data, float d)
       data[i] = d;
 }
 
-__attribute__ ((noinline)) void 
-ggSpectrum_Set20(float * data, float d) 
+__attribute__ ((noinline)) void
+ggSpectrum_Set20(float * data, float d)
 {
    int i;
 
@@ -24,4 +24,3 @@ ggSpectrum_Set20(float * data, float d)
 
 /* { dg-final { scan-tree-dump-times "vectorization not profitable" 1 "vect" { target { ! vect_hw_misalign } } } } */
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target { ! vect_hw_misalign } } } } */
-

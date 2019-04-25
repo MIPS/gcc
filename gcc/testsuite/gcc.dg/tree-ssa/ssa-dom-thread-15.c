@@ -1,4 +1,4 @@
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-O2 -fdump-tree-dom2-details -w" } */
 struct rtx_def;
 typedef struct rtx_def *rtx;
@@ -49,7 +49,7 @@ ix86_expand_prologue (void)
   allocate = frame.stack_pointer_offset - m->fs.sp_offset;
   if (allocate == 0)
     ;
-  else if (!ix86_target_stack_probe ()) 
+  else if (!ix86_target_stack_probe ())
     {
       pro_epilogue_adjust_stack ((((&default_target_rtl)->x_global_rtl)[GR_STACK_POINTER]), (((&default_target_rtl)->x_global_rtl)[GR_STACK_POINTER]),
             gen_rtx_CONST_INT ((-allocate)), -1,
@@ -64,4 +64,3 @@ ix86_expand_prologue (void)
    first IF conditional around the test controlling the call to
    fancy_abort.  */
 /* { dg-final { scan-tree-dump-times "Threaded" 1 "dom2"} } */
-

@@ -17,7 +17,7 @@ int Test (DERIVED *d, int expect)
   void *full_b = dynamic_cast <void *> (b);
   void *full_d = dynamic_cast <void *> (d);
   A *ap = static_cast <A *> (b);
-  
+
   if (full_b != full_d)
     {
       fail++;
@@ -27,7 +27,7 @@ int Test (DERIVED *d, int expect)
     }
 
   DERIVED *dynamic_d = dynamic_cast <DERIVED *> (b);
-  
+
   if (dynamic_d != d)
     {
       fail++;
@@ -37,9 +37,9 @@ int Test (DERIVED *d, int expect)
     }
 
   b->Baz (static_cast <void *> (ap));
-  
+
   int res = b->Foo (static_cast <void *> (d));
-  
+
   if (res != expect)
     {
       fail++;

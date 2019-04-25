@@ -1,7 +1,7 @@
 /* { dg-do compile } */
 /* { dg-options "-O0" } */
 
-/* Verify that __attribute__((naked)) produces a naked function 
+/* Verify that __attribute__((naked)) produces a naked function
    that does not construct a frame.  */
 void
 __attribute__((naked))

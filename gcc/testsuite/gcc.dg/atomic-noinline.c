@@ -4,7 +4,7 @@
 /* { dg-do run } */
 /* { dg-additional-sources "atomic-noinline-aux.c" } */
 
-/* Test that -fno-inline-atomics works as expected.  
+/* Test that -fno-inline-atomics works as expected.
    atomic-generic-aux provide the expected routines which simply set the
    value of the first parameter to */
 

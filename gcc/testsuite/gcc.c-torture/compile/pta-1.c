@@ -18,7 +18,7 @@ struct JSObject {
 struct JSXMLObjectOps js_XMLObjectOps;
 
 
-/* We need to create SFT's for the entire structure when this address is taken, 
+/* We need to create SFT's for the entire structure when this address is taken,
    not just the part in the component reference itself.  */
 JSObject *JS_GetMethod(JSObject *obj)
 {

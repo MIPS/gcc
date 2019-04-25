@@ -111,4 +111,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 		      "gcc_jit_rvalue_dereference_field:"
 		      " p is not a field of struct foo");
 }
-

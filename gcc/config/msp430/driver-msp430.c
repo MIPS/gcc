@@ -645,7 +645,7 @@ msp430_mcu_data [] =
   { "rf430frl153h_rom",0,0 },
   { "rf430frl154h",0,0 },
   { "rf430frl154h_rom",0,0 }
-};  
+};
 
 /* Implement spec function `msp430_hwmult_lib´.  */
 
@@ -713,6 +713,6 @@ msp430_select_hwmult_lib (int argc ATTRIBUTE_UNUSED, const char ** argv ATTRIBUT
     error ("msp430_select_hwmult_lib needs one or more arguments");
     break;
   }
-  
+
   return "-lmul_none";
 }

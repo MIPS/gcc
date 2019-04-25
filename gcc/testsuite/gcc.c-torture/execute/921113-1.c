@@ -56,4 +56,3 @@ main()
   gitter(1, pos, &list, &nww, limit, 1.);
   exit(0);
 }
-

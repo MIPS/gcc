@@ -14,4 +14,3 @@
 
 /* Now we check that we use the correct intrinsic to call.  */
 /* { dg-final { scan-assembler "bl\t__gnu_cmse_nonsecure_call" } } */
-

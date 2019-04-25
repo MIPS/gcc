@@ -7,7 +7,7 @@ void fn1 (int p) { }
 int
 fn2 (int p)
 {
-  return a ? p % a : 0; 
+  return a ? p % a : 0;
 }
 
 short
@@ -41,6 +41,6 @@ lbl:
 int
 main ()
 {
-  fn4 (); 
+  fn4 ();
   return 0;
 }

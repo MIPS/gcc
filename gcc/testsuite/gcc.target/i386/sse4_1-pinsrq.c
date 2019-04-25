@@ -49,7 +49,7 @@ TEST (void)
       if (memcmp (&tmp, &res[i], sizeof (tmp)))
 	abort ();
     }
-    
+
   /* Check pinsrq imm8, m64, xmm.  */
   for (i = 0; i < 2; i++)
     {

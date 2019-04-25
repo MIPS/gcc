@@ -11,7 +11,7 @@ void mem_init (void);
 int ARCHnodes, ARCHnodes1;
 int ***vel;
 
-/* The two inner dimesions of matrix escape because of the 
+/* The two inner dimesions of matrix escape because of the
    assignment vel[1]= ...
    VEL is not Flattened. */
 
@@ -58,7 +58,7 @@ mem_init (void)
 {
 
   int i, j, k,d;
- 
+
   d = 0;
   vel = (int ***) malloc (ARCHnodes * sizeof (int **));
 

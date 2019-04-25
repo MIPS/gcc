@@ -22,4 +22,3 @@ g (v4i *x, v4i const *y, v4i *z, v4i *t)
   *z = *x < *y | *x == *y;
   *t = *x < *y & *x > *y;
 }
-

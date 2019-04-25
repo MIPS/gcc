@@ -91,4 +91,3 @@ void null_ea3 (void) { ea = (__ea void *)0; }
 void null_lm1 (void) { lm = 0; }
 void null_lm2 (void) { lm = (void *)0; }
 void null_lm3 (void) { lm = (__ea void *)0; }	/* { dg-error "assignment from pointer to non-enclosed address space" } */
-

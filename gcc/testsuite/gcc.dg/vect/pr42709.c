@@ -4,7 +4,7 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 128 
+#define N 128
 
 int *res[N];
 
@@ -20,7 +20,5 @@ main1 (int *a, int *b, int *c, int *d)
       res[i+2] = c + 16;
       res[i+3] = d + 16;
       asm volatile ("" ::: "memory");
-    } 
+    }
 }
-
-  

@@ -20,7 +20,7 @@ int main (int argc, char *argv[]) {
     vector(16, uchar) u1, u2, u3;
 
     i1 = vchar1<< vchar0;
-    
+
     if (vidx(schar, i1, 0) != ((schar)-1 << (schar)1))
         __builtin_abort ();
     if (vidx(schar, i1, 1) != ((schar)-1 << (schar)1))
@@ -40,7 +40,7 @@ int main (int argc, char *argv[]) {
     if (vidx(uchar, u1, 3) != ((uchar)4  << (schar)1))
         __builtin_abort ();
 
-    
+
     i2 = vchar1 >> vuchar;
 
     if (vidx(schar, i2, 0) != ((schar)-1  >> (uchar)1))
@@ -51,11 +51,10 @@ int main (int argc, char *argv[]) {
         __builtin_abort ();
     if (vidx(schar, i2, 3) != ((schar)-1  >> (uchar)4))
         __builtin_abort ();
-    
+
     vchar1 >>= vuchar;
     vuchar <<= vchar0;
     vuchar <<= vchar1;
 
     return 0;
 }
-

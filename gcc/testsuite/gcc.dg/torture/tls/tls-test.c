@@ -5,7 +5,7 @@
 
 #include <pthread.h>
 extern int printf (char *,...);
-__thread int a = 5; 
+__thread int a = 5;
 int *volatile a_in_other_thread = (int *) 12345;
 
 static void *
@@ -37,14 +37,14 @@ main ()
   again = &a;
   if (again != a_in_main_thread)
     {
-      printf ("FAIL: main thread addy changed from 0x%0x to 0x%0x\n", 
+      printf ("FAIL: main thread addy changed from 0x%0x to 0x%0x\n",
 		a_in_other_thread, again);
       return 1;
     }
 
   if (a != 5 || thr_a != 10 || (a_in_other_thread == a_in_main_thread))
     {
-      printf ("FAIL: a= %d, thr_a = %d Addr = 0x%0x\n", 
+      printf ("FAIL: a= %d, thr_a = %d Addr = 0x%0x\n",
 		a, thr_a, a_in_other_thread);
       return 1;
     }

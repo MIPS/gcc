@@ -7,7 +7,7 @@ double tmp[5][6];
 
 void __attribute__((noinline))
 test (void)
-{ 
+{
   int i, j;
   for (i = 0; i < 5; ++i)
     {

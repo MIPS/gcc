@@ -6,7 +6,7 @@
 #define N 256
 
 __attribute__ ((noinline))
-void bar (float *pa, float *pb, float *pc) 
+void bar (float *pa, float *pb, float *pc)
 {
   int i;
 
@@ -63,15 +63,15 @@ main2 (float *pa, float *pb, float *pc)
   for (i = 0; i < N; i++)
     {
       pa[i] = b[i] * c[i];
-    }   
-  
+    }
+
   /* check results:  */
   for (i = 0; i < N; i++)
     {
       if (pa[i] != (b[i] * c[i]))
         abort ();
     }
-  
+
   return 0;
 }
 

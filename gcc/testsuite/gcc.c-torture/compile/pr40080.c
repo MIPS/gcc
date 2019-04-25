@@ -27,7 +27,7 @@ static void xDP_IF_EnumGroupsInGroup ( void *a, int b, xfn fn)
 }
 
 
-static int 
+static int
 xcbDeletePlayerFromAllGroups() {
   xDP_IF_EnumGroupsInGroup(0, 0, 0);
   return 1;

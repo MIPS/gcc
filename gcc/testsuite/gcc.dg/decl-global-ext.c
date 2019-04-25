@@ -1,7 +1,7 @@
 int merror = 0;
 extern int merror;
 
-void mtherr (int code)       
+void mtherr (int code)
 {
   merror = code + 1;
 }

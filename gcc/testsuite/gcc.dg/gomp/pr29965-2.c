@@ -35,7 +35,7 @@ foo2 (void)
     ;
 #pragma omp section
     for (;;)
-      ;    
+      ;
   }
 }
 
@@ -81,7 +81,7 @@ foo4 (void)
     ;
 #pragma omp section
     for (;;)
-      ;    
+      ;
   }
 }
 

@@ -13,6 +13,6 @@ temp:
 }
 
 /* There should be no ifs as the PHI arguments, we did not
-   optimize this before because PHI-OPT did not look at 
+   optimize this before because PHI-OPT did not look at
    PHIs which have more than two arguments.  */
 /* { dg-final { scan-tree-dump-times "if" 0 "optimized"} } */

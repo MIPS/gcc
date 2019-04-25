@@ -38,7 +38,7 @@ int main1 (int x, int y) {
 }
 
 int main (void)
-{ 
+{
   check_vect ();
 
   return main1 (0, N);
@@ -47,4 +47,3 @@ int main (void)
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 0 "vect" } } */
 /* { dg-final { scan-tree-dump-times "can't determine dependence" 1 "vect" { target { ! vect_multiple_sizes } } } } */
 /* { dg-final { scan-tree-dump "can't determine dependence" "vect" { target vect_multiple_sizes } } } */
-

@@ -14,7 +14,7 @@ bar2 (struct A *x)
   x->c += 26;
   return a;
 }
-   
+
 void fnptr (int *);
 
 void
@@ -30,7 +30,7 @@ foo (void)
   }
   {
     struct A *f;
-  
+
     f = &e;
     if (f->c - f->a > f->d - f->a)
       f->c = f->d;

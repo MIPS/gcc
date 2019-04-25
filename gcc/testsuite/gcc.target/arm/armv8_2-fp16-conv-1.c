@@ -97,5 +97,3 @@ f64_to_u16 (double a)
 }
 
 /* { dg-final { scan-assembler-times {vcvt\.s32\.f64\ts[0-9]+, d[0-9]+} 1 } }  */
-
-

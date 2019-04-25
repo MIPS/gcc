@@ -8,7 +8,7 @@
 #pragma GCC target ("sse2")
 
 struct A
-{ 
+{
   float V4SF __attribute__ ((vector_size (16)));
 };
 

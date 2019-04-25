@@ -73,7 +73,7 @@ typedef _Atomic __UINTPTR_TYPE__ atomic_uintptr_t;
 typedef _Atomic __SIZE_TYPE__ atomic_size_t;
 typedef _Atomic __PTRDIFF_TYPE__ atomic_ptrdiff_t;
 typedef _Atomic __INTMAX_TYPE__ atomic_intmax_t;
-typedef _Atomic __UINTMAX_TYPE__ atomic_uintmax_t;        
+typedef _Atomic __UINTMAX_TYPE__ atomic_uintmax_t;
 
 
 #define ATOMIC_VAR_INIT(VALUE)	(VALUE)
@@ -110,7 +110,7 @@ extern void atomic_signal_fence (memory_order);
 /* Note that these macros require __typeof__ and __auto_type to remove
    _Atomic qualifiers (and const qualifiers, if those are valid on
    macro operands).
-   
+
    Also note that the header file uses the generic form of __atomic
    builtins, which requires the address to be taken of the value
    parameter, and then we pass that value on.  This allows the macros

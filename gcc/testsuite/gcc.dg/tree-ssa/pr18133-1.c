@@ -19,7 +19,7 @@ return;
 
 /* { dg-final { scan-tree-dump-not "ABNORMAL" "optimized" } } */
 
-/* And verify that we have fixed the fallthru flag as well. 
+/* And verify that we have fixed the fallthru flag as well.
    After DOM we will have two fallthru edges (e->0, 0->1),
    but in the dump files we mention the 2->3 two times.  So
    scan for 3 instances of "FALLTHRU".  */

@@ -259,7 +259,7 @@ init_options_once (void)
 
 void
 decode_cmdline_options_to_array_default_mask (unsigned int argc,
-					      const char **argv, 
+					      const char **argv,
 					      struct cl_decoded_option **decoded_options,
 					      unsigned int *decoded_options_count)
 {

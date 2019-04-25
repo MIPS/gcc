@@ -20,4 +20,3 @@ mr (short int db)
       ++*lp;
     }
 }
-

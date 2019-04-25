@@ -14,7 +14,7 @@ vector int a2 = { 500, 600, 700, 800 };
 vector int addi = { 600, 800, 1000, 1200 };
 vector int avgi = { 300, 400, 500, 600 };
 
-vector float f1 = { 1.0, 2.0, 3.0, 4.0 };  
+vector float f1 = { 1.0, 2.0, 3.0, 4.0 };
 vector float f2 = { 5.0, 6.0, 7.0, 8.0 };
 vector float f3;
 vector float addf = { 6.0, 8.0, 10.0, 12.0 };

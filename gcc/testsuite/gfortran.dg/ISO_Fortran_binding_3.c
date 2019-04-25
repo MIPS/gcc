@@ -29,4 +29,3 @@ int c_test (CFI_cdesc_t * a_desc)
 
   return 0;
 }
-

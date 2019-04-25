@@ -19,7 +19,7 @@ xxx:;
     if (!c)
       bla ();
     }
-    
+
   if (d)
     goto ebef;
 }

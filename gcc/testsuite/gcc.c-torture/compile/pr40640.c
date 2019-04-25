@@ -12,4 +12,3 @@ hw_opic_io_read_buffer(int index)
     }
   sim_io_printf_filtered2 (index, reg);
 }
-

@@ -34,7 +34,7 @@ foo (uint8_t *pix1, uint8_t *pix2, int i_stride_pix2)
       pix1 += 16;
       pix2 += i_stride_pix2;
     }
-  return i_sum; 
+  return i_sum;
 }
 
 int

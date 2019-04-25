@@ -176,7 +176,7 @@ int main (void)
   TESTIT_2P_R (sincos, one, s, c, 0.84, 0.85, 0.54, 0.55); /* (s==0.841..., c==0.5403...) */
   TESTIT_2P_R (sincos, -one, s, c, -0.85, -0.84, 0.54, 0.55); /* (s==-0.841..., c==0.5403...) */
 #endif
-  
+
   TESTIT_R (sinh, -1.0, -1.18, -1.17); /* sinh(-1) == -1.175... */
   TESTIT (sinh, 0.0, 0.0); /* sinh(0) == 0 */
   TESTIT (sinh, -0.0, -0.0); /* sinh(-0) == -0 */

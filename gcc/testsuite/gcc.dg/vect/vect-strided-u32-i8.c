@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 128 
+#define N 128
 
 typedef struct {
    int a;
@@ -30,15 +30,15 @@ main1 (s *arr)
       res[i].d = ptr->b - ptr->a + ptr->d - ptr->c;
       res[i].b = ptr->h - ptr->a + ptr->d - ptr->c;
       res[i].f = ptr->f + ptr->h;
-      res[i].e = ptr->b - ptr->e; 
-      res[i].h = ptr->d - ptr->g;   
+      res[i].e = ptr->b - ptr->e;
+      res[i].h = ptr->d - ptr->g;
       res[i].g = ptr->b - ptr->a + ptr->d - ptr->c;
-      ptr++; 
-    } 
-   
+      ptr++;
+    }
+
   /* check results:  */
   for (i = 0; i < N; i++)
-    { 
+    {
       if (res[i].c != arr[i].b - arr[i].a + arr[i].d - arr[i].c
           || res[i].a != arr[i].a + arr[i].g + arr[i].b + arr[i].d
           || res[i].d != arr[i].b - arr[i].a + arr[i].d - arr[i].c
@@ -55,11 +55,11 @@ int main (void)
 {
   int i;
   s arr[N];
-  
+
   check_vect ();
 
   for (i = 0; i < N; i++)
-    { 
+    {
       arr[i].a = i;
       arr[i].b = i * 2;
       arr[i].c = 17;
@@ -69,7 +69,7 @@ int main (void)
       arr[i].g = i - 3;
       arr[i].h = 56;
       asm volatile ("" ::: "memory");
-    } 
+    }
 
   main1 (arr);
 
@@ -77,4 +77,3 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target vect_strided8 } } } */
-  

@@ -9,7 +9,7 @@
 #else
 #define N 32
 #endif
- 
+
 struct {
   char ca[N];
   char cb[N];
@@ -17,7 +17,7 @@ struct {
 
 __attribute__ ((noinline))
 int main1 ()
-{  
+{
   int i;
 
   for (i = 0; i < N; i++)
@@ -42,11 +42,11 @@ int main1 ()
 }
 
 int main (void)
-{ 
+{
   check_vect ();
-  
+
   return main1 ();
-} 
+}
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
 /* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 0 "vect" } } */

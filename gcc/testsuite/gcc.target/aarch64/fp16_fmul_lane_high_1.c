@@ -11,4 +11,3 @@
 /* { dg-final { scan-assembler-times "fmlsl2\\tv\[0-9\]+\.4s, v\[0-9\]+\.4h, v\[0-9\]+\.h\\\[1\\\]" 1 } } */
 /* { dg-final { scan-assembler-times "fmlal2\\tv\[0-9\]+\.4s, v\[0-9\]+\.4h, v\[0-9\]+\.h\\\[7\\\]" 1 } } */
 /* { dg-final { scan-assembler-times "fmlsl2\\tv\[0-9\]+\.4s, v\[0-9\]+\.4h, v\[0-9\]+\.h\\\[7\\\]" 1 } } */
-

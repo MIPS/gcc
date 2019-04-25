@@ -12,7 +12,7 @@ void square(const float * __restrict__ a,
     for (i = 0; i < VECTOR_SIZE; i++) {
 	float ai = a[i];
 	float a2 = ai * ai;
-	out[i] = a2; 
+	out[i] = a2;
     }
     check(out);
 }

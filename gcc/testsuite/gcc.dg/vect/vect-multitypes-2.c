@@ -28,8 +28,8 @@ __attribute__ ((noinline)) int main1 ()
   /* check results:  */
   for (i = 0; i < N; i++)
     {
-      if (ia[i] != ib[i] 
-	  || sa[i] != sb[i] 
+      if (ia[i] != ib[i]
+	  || sa[i] != sb[i]
 	  || ca[i] != cb[i])
         abort ();
     }
@@ -38,11 +38,10 @@ __attribute__ ((noinline)) int main1 ()
 }
 
 int main (void)
-{ 
+{
   check_vect ();
-  
+
   return main1 ();
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
-

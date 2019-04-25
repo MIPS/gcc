@@ -55,4 +55,3 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "basic block vectorized" 1 "slp1" { target { vect64 && vect_hw_misalign } } } } */
-

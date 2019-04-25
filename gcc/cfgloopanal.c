@@ -245,7 +245,7 @@ expected_loop_iterations_unbounded (const struct loop *loop,
   edge e;
   edge_iterator ei;
   gcov_type expected = -1;
-  
+
   if (read_profile_p)
     *read_profile_p = false;
 
@@ -302,7 +302,7 @@ expected_loop_iterations_unbounded (const struct loop *loop,
       if (max != -1 && max < expected)
         return max;
     }
- 
+
   return expected;
 }
 

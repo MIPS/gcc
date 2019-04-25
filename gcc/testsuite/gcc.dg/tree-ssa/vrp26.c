@@ -1,7 +1,7 @@
 /* { dg-do compile } */
 /* { dg-options "-O2 -fdump-tree-vrp1" } */
 
-int 
+int
 foo(int a)
 {
   int z = a | 1;
@@ -10,7 +10,3 @@ foo(int a)
 
 /* VRP should optimize this to a trivial "return 1".   */
 /* { dg-final { scan-tree-dump-times "return 1" 1 "vrp1" } } */
-
-
-
-

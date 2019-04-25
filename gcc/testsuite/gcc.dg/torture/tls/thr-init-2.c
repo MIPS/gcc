@@ -18,12 +18,12 @@ int test_code(int b)
 int main (int ac, char *av[])
 {
   int a = test_code(1);
-  
+
   if ( a != 2 || fstat != 2 )
     {
     printf ("a=%d fstat=%d\n", a, fstat) ;
     abort ();
     }
-  
+
   return 0;
 }

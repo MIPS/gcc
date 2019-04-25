@@ -317,9 +317,9 @@ static poly_int64_pod (*offsets_at)[NUM_ELIMINABLE_REGS];
 
 vec<reg_equivs_t, va_gc> *reg_equivs;
 
-/* Stack of addresses where an rtx has been changed.  We can undo the 
+/* Stack of addresses where an rtx has been changed.  We can undo the
    changes by popping items off the stack and restoring the original
-   value at each location. 
+   value at each location.
 
    We use this simplistic undo capability rather than copy_rtx as copy_rtx
    will not make a deep copy of a normally sharable rtx, such as
@@ -5391,7 +5391,7 @@ reload_reg_reaches_end_p (unsigned int regno, int reloadnum)
       if (regno >= REGNO (reg) && regno < END_REGNO (reg))
 	return 0;
     }
-  
+
   switch (type)
     {
     case RELOAD_OTHER:
@@ -7042,7 +7042,7 @@ choose_reload_regs (struct insn_chain *chain)
 	     remove its related reloads.  */
 	  else if (rld[r].in
 		   && rld[r].out != rld[r].in
-		   && (tem = replaced_subreg (rld[r].in), REG_P (tem))		   
+		   && (tem = replaced_subreg (rld[r].in), REG_P (tem))
 		   && REGNO (tem) < FIRST_PSEUDO_REGISTER
 		   && (targetm.secondary_memory_needed
 		       (rld[r].inmode, REGNO_REG_CLASS (REGNO (tem)),
@@ -7344,7 +7344,7 @@ emit_input_reload_insns (struct insn_chain *chain, struct reload *rl,
 	  /* Store into the reload register instead of the pseudo.  */
 	  SET_DEST (PATTERN (temp)) = reloadreg;
 
-	  /* Verify that resulting insn is valid. 
+	  /* Verify that resulting insn is valid.
 
 	     Note that we have replaced the destination of TEMP with
 	     RELOADREG.  If TEMP references RELOADREG within an

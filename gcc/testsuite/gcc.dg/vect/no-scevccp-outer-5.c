@@ -33,7 +33,7 @@ int main (void)
     a[i] = i;
     aa[i] = i;
   }
- 
+
   foo ();
 
     /* check results:  */

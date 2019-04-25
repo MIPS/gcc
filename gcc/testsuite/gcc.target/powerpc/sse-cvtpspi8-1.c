@@ -23,7 +23,7 @@ test (__m128 p)
   return _mm_cvtps_pi8 (p);
 }
 
-static void 
+static void
 TEST (void)
 {
   union128 s1;

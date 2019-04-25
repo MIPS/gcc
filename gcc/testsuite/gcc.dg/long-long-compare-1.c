@@ -56,7 +56,7 @@ int main()
 
   if (test2n (2LL))
     abort ();
- 
+
   if (test1n (-1LL))
     abort ();
 
@@ -119,6 +119,3 @@ int main()
 
   exit (0);
 }
-
-
-

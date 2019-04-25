@@ -56,7 +56,7 @@ void positive_and_positive (char *ptr)
   char **p = &ptr;
   char **p2 = p + 100; /* pointer overflow check is needed */
   p2 = p + 10;
-  p += 50; 
+  p += 50;
 }
 
 void negative_to_positive (char *ptr)

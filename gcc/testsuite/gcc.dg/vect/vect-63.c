@@ -12,7 +12,7 @@ int main1 ()
   int ib[N] = {0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45};
   int ia[N*2][4][N];
 
-  /* Multidimensional array. Aligned. 
+  /* Multidimensional array. Aligned.
      The first dimension depends on j: use strided stores. */
   for (i = 0; i < N; i++)
     {
@@ -22,7 +22,7 @@ int main1 ()
         }
     }
 
-  /* check results: */  
+  /* check results: */
   for (i = 0; i < N; i++)
     {
       for (j = 0; j < N; j++)
@@ -36,7 +36,7 @@ int main1 ()
 }
 
 int main (void)
-{ 
+{
   check_vect ();
 
   return main1 ();

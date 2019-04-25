@@ -13,4 +13,3 @@ _Bool f1(_Bool x)
 /* There should be no subfe for powerpc.  Check if we actually optimized
    away the comparison.  */
 /* { dg-final { scan-assembler-times "subfe" 0 { target powerpc*-*-* } } } */
-

@@ -101,7 +101,7 @@ main ()
 #endif
       return 0;
     }
- 
+
 #ifdef DEBUG
   printf ("SKIPPED\n");
 #endif

@@ -1,5 +1,5 @@
-/* Origin: PR c/5279 from <wilco@equator.com>.  */     
-	
+/* Origin: PR c/5279 from <wilco@equator.com>.  */
+
 int
 foo ()
 {

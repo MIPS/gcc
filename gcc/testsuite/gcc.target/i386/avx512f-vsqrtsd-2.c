@@ -34,7 +34,7 @@ avx512f_test (void)
       res3.a[i] = DEFAULT_VALUE;
     }
 
-  res1.x = _mm_sqrt_round_sd (s1.x, s2.x, 
+  res1.x = _mm_sqrt_round_sd (s1.x, s2.x,
                 _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
   res2.x = _mm_mask_sqrt_round_sd (s1.x, mask, s1.x, s2.x,
 		_MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
@@ -56,7 +56,3 @@ avx512f_test (void)
   if (check_union128d (res3, res_ref))
     abort ();
 }
-
-
-
-

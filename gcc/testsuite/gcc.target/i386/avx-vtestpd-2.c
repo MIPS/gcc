@@ -14,12 +14,12 @@ avx_test ()
     double s2[2] = {0, -1223};
     int    d[1];
     int    e[1];
-  
+
     source1.x = _mm_loadu_pd(s1);
     source2.x = _mm_loadu_pd(s2);
 
     d[0] = _mm_testc_pd(source1.x, source2.x);
-    
+
     e[0] = 1;
     for (i = 0; i < 2; i++) {
 	union ieee754_double u1, u2;
@@ -32,4 +32,3 @@ avx_test ()
     if (checkVi(d, e, 1))
       abort ();
 }
-

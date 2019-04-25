@@ -26,9 +26,8 @@ int main(int argc, char **argv)
    myComp.myServices = &servicesObj;
    myComp.setServices = 0; /* NULL; */
    myComp.myPort = 0; /* NULL; */
-   
+
    sub0(&myComp, &servicesObj);
-   
+
    return 0;
 }/* end main() */
-

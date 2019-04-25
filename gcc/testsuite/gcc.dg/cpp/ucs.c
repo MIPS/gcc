@@ -11,9 +11,9 @@
 #include <limits.h>
 
 #define unsigned        +0
-#define int             +0 
+#define int             +0
 #define char            +1
-#define short           +2 
+#define short           +2
 #define long            +3
 
 #if __WCHAR_TYPE__ == 0

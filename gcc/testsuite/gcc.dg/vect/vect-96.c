@@ -26,7 +26,7 @@ int main1 (int off)
   for (i = 0; i < N; i++)
       pp->ia[i] = ib[i];
 
-  /* check results: */  
+  /* check results: */
   for (i = 0; i < N; i++)
     {
        if (pp->ia[i] != ib[i])
@@ -37,7 +37,7 @@ int main1 (int off)
 }
 
 int main (void)
-{ 
+{
   check_vect ();
 
   return main1 (8);

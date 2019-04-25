@@ -73,7 +73,7 @@ uint64_t rotl_64h (long dummy, uint64_t x)
 {
     return (x << 16) | (x >> 48);
 }
- 
+
 
 
 
@@ -84,7 +84,7 @@ int main (void)
   if (rotl_16b(0xAA55,0x1234) != 0x3412)
     abort();
 
-uint32_t num32 = 0x12345678;  
+uint32_t num32 = 0x12345678;
 
   if (rotl_32a(num32) != 0x34567812)
     abort();
@@ -120,4 +120,3 @@ uint64_t num = 0x123456789ABCDEF0ULL;
 
   exit (0);
 }
-

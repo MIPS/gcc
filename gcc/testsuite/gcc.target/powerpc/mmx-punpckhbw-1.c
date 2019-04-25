@@ -27,11 +27,11 @@ TEST (void)
 {
   __m64_union u, s1, s2, e;
   int i;
-   
+
   s1.as_m64 = 0x0706050403020100UL;
   s2.as_m64 = 0x1716151413121110UL;
   u.as_m64 = test (s1.as_m64, s2.as_m64);
-   
+
   for (i = 0; i < 4; i++)
     {
       e.as_char[2*i] = s1.as_char[4+i];

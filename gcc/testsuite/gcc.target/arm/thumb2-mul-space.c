@@ -4,7 +4,7 @@
 /* { dg-require-effective-target arm_thumb2_ok } */
 /* { dg-final { scan-assembler "muls" } } */
 
-int f(int i, int j) 
+int f(int i, int j)
 {
   return i * j;
 }

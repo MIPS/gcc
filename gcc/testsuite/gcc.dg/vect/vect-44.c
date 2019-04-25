@@ -6,7 +6,7 @@
 #define N 256
 
 __attribute__ ((noinline))
-void bar (float *pa, float *pb, float *pc) 
+void bar (float *pa, float *pb, float *pc)
 {
   int i;
 
@@ -60,7 +60,7 @@ int main (void)
   return 0;
 }
 
-/* For targets that don't support misaligned loads we version for the 
+/* For targets that don't support misaligned loads we version for the
    all three accesses (peeling to align the store will not force the
    two loads to be aligned).  */
 

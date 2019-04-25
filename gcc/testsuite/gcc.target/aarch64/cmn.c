@@ -21,4 +21,4 @@ foo2 (s64 a, s64 b)
   else
     return 2;
   /* { dg-final { scan-assembler "cmn\tx\[0-9\]" } } */
-}  
+}

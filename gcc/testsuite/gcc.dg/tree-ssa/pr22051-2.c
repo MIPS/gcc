@@ -17,4 +17,3 @@ foo(void (*q)(void))
    so that we do not try to canonicalize a function pointer for the
    comparison when no such canonicalization is wanted.  */
 /* { dg-final { scan-tree-dump-times "r_. = \\(int\\) q" 1 "optimized" } } */
-

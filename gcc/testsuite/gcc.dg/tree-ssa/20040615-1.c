@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-O1 -fdump-tree-dom2" } */
-  
+
 void bar1 (void);
 void bar2 (void);
 

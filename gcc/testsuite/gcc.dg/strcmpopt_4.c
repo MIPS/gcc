@@ -6,7 +6,7 @@ extern int max_i;
 
 int
 f1 (S * s)
-{ 
+{
   int result, i;
   for (i = 0; i < max_i; i++)
     result += __builtin_strcmp (s->s, "abc") != 0 ? 2 : 1;

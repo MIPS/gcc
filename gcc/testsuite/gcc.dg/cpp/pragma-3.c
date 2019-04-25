@@ -1,4 +1,4 @@
-/* 
+/*
    { dg-options "-fopenmp" }
    { dg-do preprocess }
    { dg-require-effective-target fopenmp }
@@ -19,17 +19,17 @@ void foo (void)
   ;
 }
 
-/* 
+/*
    The bug here was that we had a line like:
        # 33554432 "../../gcc/testsuite/gcc.dg/cpp/pragma-3.c"
-   
+
    Before line:
 
        #pragma omp parallel private (i1) shared (j1) firstprivate (k1)
 
    Note the very big integer there.  Normally we should just have
    this:
-   
+
        # 13 "../../gcc/testsuite/gcc.dg/cpp/pragma-3.c"
        #pragma omp parallel private (i1) shared (j1) firstprivate (k1)
 

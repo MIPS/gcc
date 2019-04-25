@@ -14,5 +14,3 @@ int f(int t, ...)
   va_end(a);
   return t1;
 }
-
-

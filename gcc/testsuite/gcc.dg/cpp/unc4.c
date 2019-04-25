@@ -26,7 +26,7 @@ ignored
 #endif
 
 /* The ifdef below should not get an error just because there's a bad if
-   inside the included file.  
+   inside the included file.
    The odd dg-error tag on the include matches the "In file included from"
    message.  */
 #define FOO

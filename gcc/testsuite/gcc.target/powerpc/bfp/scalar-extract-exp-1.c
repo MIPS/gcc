@@ -13,5 +13,3 @@ get_exponent (double *p)
 
   return __builtin_vec_scalar_extract_exp (source); /* { dg-error "builtin function '__builtin_vsx_scalar_extract_exp' requires" } */
 }
-
-

@@ -19,7 +19,7 @@ foo ()
      patch:
 
      2005-12-26  Kazu Hirata  <kazu@codesourcery.com>
-                                                                                
+
         PR tree-optimization/25125
    */
 

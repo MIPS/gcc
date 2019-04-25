@@ -28,4 +28,3 @@ main() {
     }
   return 0;
 }
-

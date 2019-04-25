@@ -32,13 +32,13 @@ int main1 () {
     {
        if (*q != a[i] || *p != b[i])
          abort();
-       q++; 
+       q++;
        p++;
     }
-  
+
   q = q1;
   p = p1;
-  /* Vectorizable.  */ 
+  /* Vectorizable.  */
   for (i = 0; i < N; i++)
     {
       *q = b[i];
@@ -58,15 +58,14 @@ int main1 () {
        p++;
     }
 
-  return 0; 
+  return 0;
 }
 
 int main (void)
-{ 
+{
   check_vect ();
 
   return main1 ();
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" } } */
-

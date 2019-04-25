@@ -13,5 +13,3 @@ get_exponent (__ieee128 *p)
 
   return __builtin_vec_scalar_extract_exp (source); /* { dg-error "builtin function '__builtin_vsx_scalar_extract_expq' requires" } */
 }
-
-

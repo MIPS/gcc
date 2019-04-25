@@ -35,5 +35,3 @@
 #ifdef __ARM_FEATURE_FMA
 #error "__ARM_FEATURE_FMA is defined but should not be"
 #endif
-
-

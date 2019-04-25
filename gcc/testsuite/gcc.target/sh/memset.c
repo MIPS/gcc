@@ -9,4 +9,3 @@ test00(char *dstb)
 {
   __builtin_memset (dstb, 0, 15);
 }
-

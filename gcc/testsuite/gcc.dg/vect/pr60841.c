@@ -179,4 +179,3 @@ foo (struct T *p, struct T *q, int x, int w)
       q++;
     }
 }
-

@@ -12,4 +12,3 @@ foo ()
 main ()
 { if (foo () != 0)  abort ();
   return 0;  }
-

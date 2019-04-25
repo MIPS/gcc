@@ -1,4 +1,4 @@
-/* Tree lowering to gimple for middle end use only.  
+/* Tree lowering to gimple for middle end use only.
    This converts the GENERIC functions-as-trees tree representation into
    the GIMPLE form.
    Copyright (C) 2013-2019 Free Software Foundation, Inc.
@@ -318,5 +318,3 @@ gimple_regimplify_operands (gimple *stmt, gimple_stmt_iterator *gsi_p)
 
   update_stmt (stmt);
 }
-
-

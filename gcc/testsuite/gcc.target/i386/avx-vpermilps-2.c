@@ -30,4 +30,3 @@ avx_test ()
     if (check_union128 (u, e))
       abort ();
 }
-

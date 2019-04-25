@@ -9,5 +9,3 @@ void t (void)
 {
   __builtin_memcpy (a, b, 2048);
 }
-
-

@@ -60,7 +60,6 @@ int main(int argc, char **argv)
    /* send in the transpose size (dim2 is dim1, dim1 is dim2) */
    testDerivedPtrs(&cDerived, derivedArray, DERIVED_ARRAY_LEN,
                    derived2DArray[0], DIM2, DIM1);
-   
+
    return 0;
 }/* end main() */
-

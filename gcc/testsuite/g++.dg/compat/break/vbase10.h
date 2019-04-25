@@ -9,4 +9,4 @@ struct B {
 };
 
 struct C : public A, public virtual B {
-}; 
+};

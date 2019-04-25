@@ -7,7 +7,7 @@ void f (int value, int expect)
 int main()
 {
   int a = 7, b = 6, c = 4, d = 7, e = 2;
-	
+
   f (a||b%c,   1);
   f (a?b%c:0,  2);
   f (a=b%c,    2);

@@ -87,4 +87,3 @@ TEST ()
       check_packs_pi32 (src1[i], src2[i], res_pi32[i]);
     }
 }
-

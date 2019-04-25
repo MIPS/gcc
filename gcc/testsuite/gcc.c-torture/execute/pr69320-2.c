@@ -4,7 +4,7 @@
 int a, *c, d, e, g, f;
 short b;
 
-int 
+int
 fn1 ()
 {
   int h = d != 10;

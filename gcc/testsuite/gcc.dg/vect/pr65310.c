@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 
-struct a 
+struct a
 {
   int a[100];
 };

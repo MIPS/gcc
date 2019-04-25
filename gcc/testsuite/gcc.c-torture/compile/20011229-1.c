@@ -46,7 +46,7 @@ extern struct s1 *get_cmap_procs (void **, void *);
 int image_render_color (struct s4 *, unsigned char *, int, void *);
 int
 image_render_color (struct s4 *penum, unsigned char *buffer,
-		    int data_x, void *dev) 
+		    int data_x, void *dev)
 {
   struct s3 *clues = penum->clues;
   void **pis = penum->pis;

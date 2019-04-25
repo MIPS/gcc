@@ -37,9 +37,9 @@ along with GCC; see the file COPYING3.  If not see
 # error Need 64-bit long long
 #endif
 
-#if defined __MSVCRT__ 
+#if defined __MSVCRT__
 #define COMPAT_PRLL "I64"
-#else 
+#else
 #define COMPAT_PRLL "ll"
 #endif
 
@@ -695,25 +695,25 @@ struct types aligned_bitfld_types[NATYPES2];
 int n_aligned_bitfld_types;
 
 const char *attributes[] = {
-"atal", 
-"atpa", 
-"atal1", 
-"atal2", 
-"atal4", 
-"atal8", 
-"atal16", 
+"atal",
+"atpa",
+"atal1",
+"atal2",
+"atal4",
+"atal8",
+"atal16",
 #define NATTRIBS1 7
-"atalpa", 
-"atpaal", 
-"atal1pa", 
-"atal2pa", 
-"atal4pa", 
-"atal8pa", 
-"atal16pa", 
-"atpaal1", 
-"atpaal2", 
-"atpaal4", 
-"atpaal8", 
+"atalpa",
+"atpaal",
+"atal1pa",
+"atal2pa",
+"atal4pa",
+"atal8pa",
+"atal16pa",
+"atpaal1",
+"atpaal2",
+"atpaal4",
+"atpaal8",
 "atpaal16"
 #define NATTRIBS2 (sizeof (attributes) / sizeof (attributes[0]))
 };
@@ -744,8 +744,8 @@ struct entry
   struct entry *next;
 };
 
-/* A prime number giving the number of slots in the hash table.  */ 
-#define HASH_SIZE 32749 
+/* A prime number giving the number of slots in the hash table.  */
+#define HASH_SIZE 32749
 static struct entry *hash_table[HASH_SIZE];
 
 static int idx, limidx, output_one, short_enums;
@@ -1044,7 +1044,7 @@ output_FNB (char mode, struct entry *e)
   int suffix = 0;
   char DEC_SUFFIX[3][3]={"DF","DD","DL"};
 #endif
-  
+
   const char *p, *q;
 
   if (e->type->type == TYPE_OTHER)
@@ -1092,8 +1092,8 @@ output_FNB (char mode, struct entry *e)
       l1 &= 0xffffff;
       l2 &= 0xffffff;
       signs = generate_random () & 3;
-      
-      /* Get the suffix of Decimal Floting Points per 
+
+      /* Get the suffix of Decimal Floting Points per
 	 e->type->name.  Distinguish these three DFP types by
          e->type->name.  */
       if (strstr(e->type->name, "Decimal32")) suffix=0;
@@ -1103,10 +1103,10 @@ output_FNB (char mode, struct entry *e)
 	abort ();
 
       /* Formatted input/output specifiers for DFP types have not been
-         implemented in GLIBC.  %f here used in fprintf is just to 
+         implemented in GLIBC.  %f here used in fprintf is just to
          dump the numbers to outfile.  */
-      fprintf (outfile, "%s%f%s,%s%f%s", 
-	       (signs & 1) ? "-" : "", ((double) l1) / 64, DEC_SUFFIX[suffix], 
+      fprintf (outfile, "%s%f%s,%s%f%s",
+	       (signs & 1) ? "-" : "", ((double) l1) / 64, DEC_SUFFIX[suffix],
 	       (signs & 2) ? "-" : "", ((double) l2) / 64, DEC_SUFFIX[suffix]);
       break;
 #endif
@@ -1302,16 +1302,16 @@ For every delta with one or two bit set, and the deltas of all three
   have at least 1/4 probability of changing.
 * If mix() is run forward, every bit of c will change between 1/3 and
   2/3 of the time.  (Well, 22/100 and 78/100 for some 2-bit deltas.)
-mix() was built out of 36 single-cycle latency instructions in a 
+mix() was built out of 36 single-cycle latency instructions in a
   structure that could supported 2x parallelism, like so:
-      a -= b; 
+      a -= b;
       a -= c; x = (c>>13);
       b -= c; a ^= x;
       b -= a; x = (a<<8);
       c -= a; b ^= x;
       c -= b; x = (b>>13);
       ...
-  Unfortunately, superscalar Pentiums and Sparcs can't take advantage 
+  Unfortunately, superscalar Pentiums and Sparcs can't take advantage
   of that parallelism.  They've also turned some of those single-cycle
   latency instructions into multi-cycle latency instructions.  Still,
   this is the fastest good hash I could find.  There were about 2^^68
@@ -1452,8 +1452,8 @@ e_eq (const void *a, const void *b)
   return 1;
 }
 
-static int 
-e_exists (const struct entry *e) 
+static int
+e_exists (const struct entry *e)
 {
   struct entry *h;
   hashval_t hval;
@@ -1950,9 +1950,9 @@ main (int argc, char **argv)
 
   if (sizeof (int) != 4 || sizeof (long long) != 8)
     return 1;
-  
+
   i = 1;
-  while (i < argc) 
+  while (i < argc)
     {
       c = '\0';
       if (argv[i][0] == '-' && argv[i][2] == '\0')

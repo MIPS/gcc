@@ -32,8 +32,7 @@ avx_test ()
         e[2] = (m & 2 ? s2 : s1)[(m & 1) * 2];
         e[3] = (m & 2 ? s2 : s1)[(m & 1) * 2 + 1];
     }
-  
+
    if (check_union256d (u, e))
      abort ();
 }
-

@@ -13,4 +13,3 @@ void foo(void)
 	for (j = 0; j <= k; j++); /* only one iteration is done, with j == 0 */
     }
 }
-

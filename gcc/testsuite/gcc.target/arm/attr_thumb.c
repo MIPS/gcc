@@ -12,4 +12,3 @@ foo(int a)
   /* { dg-final { scan-assembler "ite" { target { arm_thumb2_ok } } } } */
   return a ? 1 : 5;
 }
-

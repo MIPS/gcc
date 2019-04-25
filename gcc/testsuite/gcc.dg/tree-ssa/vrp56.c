@@ -1,4 +1,4 @@
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-O2 -fdump-tree-ethread-stats" } */
 typedef struct basic_block_def *basic_block;
 struct basic_block_def;
@@ -39,4 +39,3 @@ cleanup_empty_eh (basic_block bb)
     }
 }
 /* { dg-final { scan-tree-dump "Jumps threaded: 1" "ethread"} } */
-

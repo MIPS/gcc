@@ -6,4 +6,3 @@
 /* { dg-options "-Wc++-compat" } */
 
 extern const int foo = 42;
-

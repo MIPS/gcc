@@ -31,7 +31,7 @@ void main1 (int x, int max_result, int min_result)
   for (i = 0; i < N; i++) {
     min = min > c[i] ? c[i] : min;
   }
-  
+
   /* check results:  */
   if (diff != DIFF)
     abort ();
@@ -56,7 +56,7 @@ void main1 (int x, int max_result, int min_result)
 }
 
 int main (void)
-{ 
+{
   init_arrays ();
   main1 (2000, 2000, 1);
   main1 (0, 1599, 0);
@@ -65,4 +65,3 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "Detected reduction" 3 "parloops2" { xfail *-*-* } } } */
 /* { dg-final { scan-tree-dump-times "SUCCESS: may be parallelized" 4 "parloops2" { xfail *-*-* } } } */
-

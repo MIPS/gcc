@@ -3,7 +3,7 @@
 /* { dg-require-effective-target vect_int } */
 /* { dg-require-effective-target vect_intfloat_cvt } */
 
-struct mem 
+struct mem
 {
   float avg;
   int len;

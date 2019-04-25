@@ -11,7 +11,7 @@ void __attribute__((noinline)) bar ()
 int foo (int x)
 {
   int a;
-  
+
   switch (x)
     {
     default:
@@ -52,30 +52,30 @@ int main ()
 {
   if (foo (0) != 3)
     __builtin_abort ();
-  
+
   if (foo (1) != 2)
     __builtin_abort ();
-  
+
   if (foo (2) != 4)
     __builtin_abort ();
-  
+
   if (foo (3) != 24)
     __builtin_abort ();
-  
+
   if (foo (4) != 2)
     __builtin_abort ();
-  
+
   if (foo (5) != 5)
     __builtin_abort ();
-  
+
   if (foo (6) != 0)
     __builtin_abort ();
-  
+
   if (foo (7) != 56)
     __builtin_abort ();
-  
+
   if (foo (8) != -1)
     __builtin_abort ();
-  
+
   return 0;
 }

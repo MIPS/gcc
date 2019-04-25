@@ -10,7 +10,7 @@ char *progname;
 extern void read_error (void);
 int fill_inbuf(int eof_ok)
 {
-  if (insize == 0) 
+  if (insize == 0)
     {
       if (eof_ok)
         return -1;
@@ -22,4 +22,3 @@ void read_error(void)
 {
   fprintf(stderr, "\n%s: ", progname);
 }
-

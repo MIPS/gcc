@@ -26,7 +26,7 @@ int main ()
   _Decimal128 d128;
   _Decimal64 d64;
   double d;
-  
+
   if (u1.d128 != 0.0dl)
     FAILURE
 
@@ -41,7 +41,7 @@ int main ()
   u4 = (union u) d128;
   if (u4.d128 != 1.23dl)
     FAILURE
-  
+
   u4 = (union u) d;
   if (u4.d != 3.25)
     FAILURE
@@ -49,7 +49,7 @@ int main ()
   n1 = (union n) d64;
   if (n1.d64 != 4.56dd)
     FAILURE
-  
+
   n1 = (union n)d;
   if (n1.d != 3.25)
     FAILURE

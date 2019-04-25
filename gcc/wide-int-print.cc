@@ -137,4 +137,3 @@ print_hex (const wide_int_ref &wi, FILE *file)
   print_hex (wi, buf);
   fputs (buf, file);
 }
-

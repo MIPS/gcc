@@ -595,5 +595,3 @@ TEST(AddressSanitizer, StrtolOOBTest) {
   RunStrtolOOBTest(&CallStrtol);
 }
 #endif
-
-

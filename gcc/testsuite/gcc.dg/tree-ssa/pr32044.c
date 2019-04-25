@@ -50,4 +50,3 @@ int baz (int n)
    by 64 are done using bit operations).  */
 /* { dg-final { scan-tree-dump-times " / " 0 "optimized" } } */
 /* { dg-final { scan-tree-dump-times " % " 0 "optimized" } } */
-

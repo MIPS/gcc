@@ -4,7 +4,7 @@ void ucs2reverse_internal_loop_single (long *irreversible, int foo)
     const unsigned char *inptr = bytebuf;
     if (irreversible == (void *)0)
 	;
-    else 
+    else
 	inptr += 2;
     if (inptr != bytebuf)
 	((inptr - bytebuf > foo) ? (void) (0) : __assert_fail ());

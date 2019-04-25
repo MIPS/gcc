@@ -11,4 +11,3 @@ void test ()
 
 /* { dg-final { scan-assembler-times {\.syntax\sunified} 3 } } */
 /* { dg-final { scan-assembler-not {\.syntax\sdivided} } } */
-

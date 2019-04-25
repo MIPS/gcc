@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-O2 -fdump-tree-vrp1" } */
-  
+
 extern void abort (void);
 
 union tree_node;

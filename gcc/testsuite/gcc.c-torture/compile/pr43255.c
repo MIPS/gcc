@@ -29,5 +29,3 @@ void int32func (const unsigned char p_10)
     {
     }
 }
-
-

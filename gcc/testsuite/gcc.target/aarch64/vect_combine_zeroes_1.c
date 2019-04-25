@@ -21,4 +21,3 @@ bar (int64_t x)
 }
 
 /* { dg-final { scan-assembler-not "mov\tv\[0-9\]+.8b, v\[0-9\]+.8b" } } */
-

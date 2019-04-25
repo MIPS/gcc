@@ -43,4 +43,3 @@ main (void)
        (unsigned short *) ((char *) x + b_offset));
   return 0;
 }
-

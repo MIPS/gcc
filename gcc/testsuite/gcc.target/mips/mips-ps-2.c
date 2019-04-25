@@ -69,7 +69,7 @@ NOMIPS16 int main ()
 
   /* cvt.ps.s */
   e = 3.4;
-  f = 4.5; 
+  f = 4.5;
   a = __builtin_mips_cvt_ps_s (e, f);
   if (little_endian) // little endian
     b = (v2sf) {4.5, 3.4};
@@ -83,7 +83,7 @@ NOMIPS16 int main ()
   a = (v2sf) {35.1, 120.2};
   e = __builtin_mips_cvt_s_pl (a);
   if (little_endian) // little endian
-    f = 35.1; 
+    f = 35.1;
   else // big endian
     f = 120.2;
   if (e != f)
@@ -95,7 +95,7 @@ NOMIPS16 int main ()
   if (little_endian) // little endian
     f = 100.0;
   else // big endian
-    f = 30.0; 
+    f = 30.0;
   if (e != f)
     abort ();
 

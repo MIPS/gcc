@@ -36,4 +36,3 @@ void i (V *v1, V *v2){
 /* { dg-final { scan-tree-dump-not "\\\+" "forwprop1"} } */
 /* { dg-final { scan-tree-dump "{ 0, 4 }" "forwprop1"} } */
 /* { dg-final { scan-tree-dump "{ 37, -5 }" "forwprop1"} } */
-

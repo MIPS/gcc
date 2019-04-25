@@ -115,13 +115,13 @@ octfapg_universe (const var_t n)
 }
 
 int main (void)
-{ 
+{
   int i;
   check_vect ();
-  
+
   oct_t *p = octfapg_universe(10);
   return 0;
-} 
+}
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target { ! vect_scatter_store } } } } */
 /* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" { target vect_scatter_store } } } */

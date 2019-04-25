@@ -90,4 +90,3 @@ L7:
 
 /* { dg-final { scan-tree-dump-times "Simplified relational" 2 "evrp" } } */
 /* { dg-final { scan-tree-dump-times "if " 4 "optimized" } } */
-

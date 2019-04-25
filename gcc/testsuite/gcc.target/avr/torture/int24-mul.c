@@ -41,7 +41,7 @@ void test_u (void)
       la = a;
       lb = b;
       lc = 0xffffff & (la * lb);
-      
+
       if (c != lc)
         abort();
     }
@@ -59,7 +59,7 @@ void test_nu (void)
   unsigned int i;
   int S = sizeof (vals) / sizeof (*vals);
   __uint24 a;
-  
+
   for (i = 0; i < 500; i++)
     {
       a = i < S
@@ -78,13 +78,13 @@ void test_nu (void)
       TEST_N_U (la, a, 0x1000);
     }
 }
-     
+
 int main (void)
 {
   test_u();
   test_nu();
-  
+
   exit(0);
-    
+
   return 0;
 }

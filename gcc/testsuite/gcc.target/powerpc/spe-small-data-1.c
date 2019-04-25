@@ -11,4 +11,3 @@ int main(void)
   x = __ev_fsabs (x);
   return(0);
 }
-

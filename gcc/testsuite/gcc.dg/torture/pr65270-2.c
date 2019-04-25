@@ -1,7 +1,7 @@
 /* { dg-do run } */
 /* { dg-options "-fno-common" { target hppa*-*-hpux* } } */
 
-struct a 
+struct a
 {
   int a[100];
 };

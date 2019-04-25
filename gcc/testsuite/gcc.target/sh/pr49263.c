@@ -85,4 +85,3 @@ make_funcs_0_FF (long long, val >> 16, int64_midword_reg)
 
 make_funcs_0_FF (unsigned long long*, *val >> 16, uint64_midword_mem)
 make_funcs_0_FF (unsigned long long, val >> 16, uint64_midword_reg)
-

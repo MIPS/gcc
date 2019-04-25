@@ -3,7 +3,7 @@
 int a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y, z;
 
 int aa ()
-{ 
+{
   w = f < 0 || e >> f;
   while (z)
     h = i && (r && p) | ((l = p) == c % d);
@@ -13,20 +13,20 @@ int aa ()
 }
 
 int ab ()
-{ 
+{
   for (j = 0; 1; j = 5)
     if (!s)
       return d;
 }
 
 void ac ()
-{ 
+{
   char ad = aa ();
   ab ();
   if (x)
-    { 
+    {
       for (m = 0; m < 3; m = a)
-	{ 
+	{
 	  y = a && b;
 	  if (g)
 	    break;
@@ -37,7 +37,7 @@ void ac ()
 }
 
 int main ()
-{ 
+{
   ac ();
   return 0;
 }

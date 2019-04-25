@@ -3,7 +3,7 @@
 
 #include <altivec.h>
 
-#ifdef DEBUG 
+#ifdef DEBUG
 #include <stdio.h>
 #endif
 
@@ -55,7 +55,7 @@ int main ()
 #ifdef DEBUG
     printf("fa[0] = %f, fa[1] = %f, fa[2] = %f, fa[3] = %f\n",
            fa[0], fa[1], fa[2], fa[3]);
-#else  
+#else
     abort ();
 #endif
 
@@ -64,17 +64,17 @@ int main ()
 #ifdef DEBUG
     printf("sa2[0] = %d, sa2[1] = %d, sa2[2] = %d, sa2[3] = %d\n",
            sa2[0], sa2[1], sa2[2], sa2[3]);
-#else  
+#else
     abort ();
 #endif
-     
+
   vector float fb = vec_ctf (uinta, 2);
 
   if (fb[0] != 2.250000 || fb[1] != 0.0 || fb[2] != 1.750000 || fb[3] != 55.500000)
 #ifdef DEBUG
     printf("fb[0] = %f, fb[1] = %f, fb[2] = %f, fb[3] = %f\n",
 		 fb[0], fb[1], fb[2], fb[3]);
-#else  
+#else
     abort ();
 #endif
 
@@ -83,9 +83,9 @@ int main ()
 #ifdef DEBUG
     printf("ua2[0] = %d, ua2[1] = %d, ua2[2] = %d, ua2[3] = %d\n",
            ua2[0], ua2[1], ua2[2], ua2[3]);
-#else  
+#else
     abort ();
 #endif
-     
+
   return 0;
 }

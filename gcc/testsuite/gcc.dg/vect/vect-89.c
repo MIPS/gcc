@@ -14,10 +14,10 @@ struct tmp_struct
   int x;
   int y[N];
 };
-	 
+
 __attribute__ ((noinline))
 int main1 ()
-{  
+{
   int i, *q;
   struct tmp_struct tmp, *p;
 
@@ -29,7 +29,7 @@ int main1 ()
       *q++ = 5;
     }
 
-  /* check results: */  
+  /* check results: */
   for (i = 0; i < N; i++)
     {
       if (p->y[i] != 5)
@@ -42,11 +42,11 @@ int main1 ()
 }
 
 int main (void)
-{ 
+{
   check_vect ();
-  
+
   return main1 ();
-} 
+}
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
 /* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 0 "vect" { xfail { ! vect_align_stack_vars } } } } */

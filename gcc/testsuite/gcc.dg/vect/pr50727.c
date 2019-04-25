@@ -16,5 +16,3 @@ f0a (uint32_t * __restrict__ result, uint32_t * arg2,
       result[idx] = temp_11;
     }
 }
-
-

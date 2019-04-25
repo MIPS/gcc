@@ -1,4 +1,4 @@
-/* { dg-do compile { target int32plus } } */ 
+/* { dg-do compile { target int32plus } } */
 /* { dg-options "-O2 -ftree-loop-distribution -fdump-tree-ldist-all" } */
 
 int loop1 (int k)
@@ -9,8 +9,8 @@ int loop1 (int k)
 
   a[0][0] = k;
   for (i = 1; i < 100; i ++)
-    for (j = 1; j < (100-1); j++) 
-      {   
+    for (j = 1; j < (100-1); j++)
+      {
         a[i][j] = k * i; /* S1 */
         b[i][j] = a[i][j-1] + k; /* S2 */
         c[i][j] = b[i][j] + a[i][j+1]; /* S3 */
@@ -22,7 +22,7 @@ int loop1 (int k)
      S2->S3 (flow, level 0)
      S3->S4 (flow, level 0)
   */
-  
+
   return a[100-1][100-1] + b[100-1][100-1] + c[100-1][100-1] + d[100-1][100-1];
 }
 

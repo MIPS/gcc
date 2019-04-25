@@ -121,11 +121,11 @@ void
 diagnostic_set_caret_max_width (diagnostic_context *context, int value)
 {
   /* One minus to account for the leading empty space.  */
-  value = value ? value - 1 
+  value = value ? value - 1
     : (isatty (fileno (pp_buffer (context->printer)->stream))
        ? get_terminal_width () - 1: INT_MAX);
-  
-  if (value <= 0) 
+
+  if (value <= 0)
     value = INT_MAX;
 
   context->caret_max_width = value;
@@ -937,7 +937,7 @@ diagnostic_report_diagnostic (diagnostic_context *context,
       /* We do this to avoid giving the message for -pedantic-errors.  */
       orig_diag_kind = diagnostic->kind;
     }
- 
+
   if (diagnostic->kind == DK_NOTE && context->inhibit_notes_p)
     return false;
 
@@ -1003,7 +1003,7 @@ diagnostic_report_diagnostic (diagnostic_context *context,
 	      || diagnostic_kind_count (context, DK_SORRY) > 0)
 	  && !context->abort_on_error)
 	{
-	  expanded_location s 
+	  expanded_location s
 	    = expand_location (diagnostic_location (diagnostic));
 	  fnotice (stderr, "%s:%d: confused by earlier errors, bailing out\n",
 		   s.file, s.line);

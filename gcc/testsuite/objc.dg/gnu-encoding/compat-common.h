@@ -3,7 +3,7 @@
     indication of whether each individual check passed or failed.
     When DBG is defined, each check is shown by a dot (pass) or 'F'
     (fail) rather than aborting as soon as a failure is detected.  */
- 
+
 #ifdef DBG
 #include <stdio.h>
 #define DEBUG_INIT setbuf (stdout, NULL);

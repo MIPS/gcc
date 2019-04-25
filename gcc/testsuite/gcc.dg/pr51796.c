@@ -8,7 +8,7 @@ extern entry_func entry_addr;
 static void bsd_boot_entry (void)
 {
   stop ();
-}   
+}
 void bsd_boot (void)
 {
   entry_addr = (entry_func) bsd_boot_entry;

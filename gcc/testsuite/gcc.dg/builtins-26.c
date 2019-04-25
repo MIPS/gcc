@@ -102,4 +102,3 @@ int main()
   testl (3.2l);
   return 0;
 }
-

@@ -89,4 +89,4 @@ TEST (void)
        if (memcmp (&res[i], &chk[i], sizeof (chk[i])))
 	 abort ();
      }
-} 
+}

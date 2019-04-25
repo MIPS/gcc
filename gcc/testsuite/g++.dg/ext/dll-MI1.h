@@ -36,4 +36,3 @@ class DLL_IMPEXP MI1 : public D1, public D2
 public:
   int vf() const;
 };
-

@@ -34,7 +34,7 @@ main ()
   {
     int *q = (int *) __builtin_alloca (p[2] * sizeof (int));
     int i;
-    
+
     for (i = 0; i < p[2]; i++)
       q[i] = 0;
 
@@ -42,4 +42,3 @@ main ()
       sub2 ();
   }
 }
-

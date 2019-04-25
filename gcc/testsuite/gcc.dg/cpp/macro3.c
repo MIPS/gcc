@@ -17,7 +17,7 @@ static int d = 4;
 #define b(x) a(
 #endif
 
-#define apply(...)   apply2 (__VA_ARGS__)  
+#define apply(...)   apply2 (__VA_ARGS__)
 #define half(x)      ((x) / 2)
 #define apply2(f,x)  f (x)
 

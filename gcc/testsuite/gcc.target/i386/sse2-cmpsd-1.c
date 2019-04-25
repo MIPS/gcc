@@ -42,7 +42,7 @@ TEST ()
     __m128d source1, source2, dest;
 
     e.d[1] = s1[1];
-    
+
     CMP(eq, !isunordered(s1[0], s2[0]) && s1[0] == s2[0]);
     CMP(lt, !isunordered(s1[0], s2[0]) && s1[0] < s2[0]);
     CMP(le, !isunordered(s1[0], s2[0]) && s1[0] <= s2[0]);

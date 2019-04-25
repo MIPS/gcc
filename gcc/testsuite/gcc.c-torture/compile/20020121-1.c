@@ -27,4 +27,3 @@ StartDisplay (struct display *d)
   d->hstent->lock = d->hstent->rLogin = d->hstent->goodExit =
     d->hstent->sd_how = d->hstent->sd_when = 0;
 }
-

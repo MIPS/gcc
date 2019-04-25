@@ -5,8 +5,8 @@ long b[10];
 int c[10][8];
 
 int fn1(int p1)
-{ 
-  return 1 >> p1; 
+{
+  return 1 >> p1;
 }
 
 void fn2(void)

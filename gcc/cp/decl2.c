@@ -51,7 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Id for dumping the raw trees.  */
 int raw_dump_id;
- 
+
 extern cpp_reader *parse_in;
 
 /* This structure contains information about the initializations
@@ -628,7 +628,7 @@ check_classfn (tree ctype, tree function, tree template_parms)
   tree pushed_scope = push_scope (ctype);
   tree matched = NULL_TREE;
   tree fns = get_class_binding (ctype, DECL_NAME (function));
-  
+
   for (ovl_iterator iter (fns); !matched && iter; ++iter)
     {
       tree fndecl = *iter;
@@ -1710,7 +1710,7 @@ coerce_new_type (tree type, location_t loc)
       if (TREE_PURPOSE (args))
 	{
 	  /* [basic.stc.dynamic.allocation]
-	     
+
 	     The first parameter shall not have an associated default
 	     argument.  */
 	  error_at (loc, "the first parameter of %<operator new%> cannot "
@@ -2488,7 +2488,7 @@ determine_visibility (tree decl)
 	  if (DECL_VISIBILITY_SPECIFIED (fn))
 	    {
 	      DECL_VISIBILITY (decl) = DECL_VISIBILITY (fn);
-	      DECL_VISIBILITY_SPECIFIED (decl) = 
+	      DECL_VISIBILITY_SPECIFIED (decl) =
 		DECL_VISIBILITY_SPECIFIED (fn);
 	    }
 	  else
@@ -2567,7 +2567,7 @@ determine_visibility (tree decl)
       tree attribs = (TREE_CODE (decl) == TYPE_DECL
 		      ? TYPE_ATTRIBUTES (TREE_TYPE (decl))
 		      : DECL_ATTRIBUTES (decl));
-      
+
       if (args != error_mark_node)
 	{
 	  tree pattern = DECL_TEMPLATE_RESULT (TI_TEMPLATE (tinfo));
@@ -3807,7 +3807,7 @@ get_priority_info (int priority)
    some optimizers (enabled by -O2 -fprofile-arcs) might crash
    when trying to refer to a temporary variable that does not have
    it's DECL_CONTECT() properly set.  */
-static tree 
+static tree
 fix_temporary_vars_context_r (tree *node,
 			      int  * /*unused*/,
 			      void * /*unused1*/)
@@ -3854,7 +3854,7 @@ one_static_initialization_or_destruction (tree decl, tree init, bool initp)
   /* Make sure temporary variables in the initialiser all have
      their DECL_CONTEXT() set to a value different from NULL_TREE.
      This can happen when global variables initializers are built.
-     In that case, the DECL_CONTEXT() of the global variables _AND_ of all 
+     In that case, the DECL_CONTEXT() of the global variables _AND_ of all
      the temporary variables that might have been generated in the
      accompanying initializers is NULL_TREE, meaning the variables have been
      declared in the global namespace.
@@ -4259,8 +4259,8 @@ cpp_check (tree t, cpp_operation op)
 
 /* Collect source file references recursively, starting from NAMESPC.  */
 
-static void 
-collect_source_refs (tree namespc) 
+static void
+collect_source_refs (tree namespc)
 {
   /* Iterate over names in this name space.  */
   for (tree t = NAMESPACE_LEVEL (namespc)->names; t; t = TREE_CHAIN (t))

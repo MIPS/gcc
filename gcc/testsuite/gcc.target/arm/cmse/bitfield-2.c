@@ -33,4 +33,3 @@ main (void)
 /* { dg-final { scan-assembler "movt\tr1, 2047" } } */
 /* { dg-final { scan-assembler "ands\tr0(, r0)?, r1" } } */
 /* { dg-final { scan-assembler "bxns" } } */
-

@@ -3,11 +3,11 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 128 
+#define N 128
 
 int a[N], b[N] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__)));
 
-/* Vectorization of reduction. Loop-aware SLP is not possible, because of 
+/* Vectorization of reduction. Loop-aware SLP is not possible, because of
    different arrays.  */
 
 __attribute__ ((noinline))
@@ -45,4 +45,3 @@ int main (void)
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 2 "vect" { xfail { vect_no_int_add || { ! { vect_unpack || vect_strided2 } } } } } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 0 "vect" } } */
 /* { dg-final { scan-tree-dump-times "different interleaving chains in one node" 1 "vect" { target { ! vect_no_int_add } } } } */
-

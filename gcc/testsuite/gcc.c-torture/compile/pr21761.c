@@ -6,4 +6,3 @@ void f1()
       if (exponent & bit)
               exponent ^= bit;
 }
-

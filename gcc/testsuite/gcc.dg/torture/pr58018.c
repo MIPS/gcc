@@ -9,7 +9,7 @@ bar (int p)
   int f = b;
   e &= p <= (f ^= 0);
 }
-    
+
 void
 foo ()
 {

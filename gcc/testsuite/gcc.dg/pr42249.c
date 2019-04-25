@@ -34,4 +34,3 @@ QuoPP (TypHandle hdL, TypHandle hdR)
         (degR)) ? (ptR)[((((p) < (degL)) ? (ptL)[(p)] : (p)))]
        : ((((p) < (degL)) ? (ptL)[(p)] : (p))));
 }
-

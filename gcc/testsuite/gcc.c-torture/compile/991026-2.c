@@ -1,4 +1,4 @@
-typedef int __pid_t;			 
+typedef int __pid_t;
 extern __pid_t fork  (void)    ;
 extern int printf  (__const char *__restrict __format, ...)    ;
 extern char *strerror  (int __errnum)    ;
@@ -20,14 +20,14 @@ detach()
 		printf("%s: Error: fork - %s\n",myname, strerror((*__errno_location ()) ));
 		exit(255);
 	    case 0:
-		 
+
 		close(0);
 		close(1);
 		close(2);
 		dup(dup(open("/dev/null", 02 )));
 		return;
 	    default:
-		 
+
 		_exit(0);
 	}
 }

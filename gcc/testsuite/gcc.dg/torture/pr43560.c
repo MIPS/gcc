@@ -30,5 +30,4 @@ int main (void)
   g_85[1][0] = &g_34;
   func_4(1);
   return 0;
-} 
-
+}

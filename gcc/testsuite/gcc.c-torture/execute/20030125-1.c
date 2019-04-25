@@ -3,12 +3,12 @@
 /* { dg-require-weak } */
 double sin(double);
 double floor(double);
-float 
+float
 t(float a)
 {
 	return sin(a);
 }
-float 
+float
 q(float a)
 {
 	return floor(a);

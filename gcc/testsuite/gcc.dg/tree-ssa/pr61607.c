@@ -24,5 +24,3 @@ void f2(int dst[3], int R)
    and one for the test after the loop.  Previously we failed to eliminate
    the second conditional after the loop.  */
 /* { dg-final { scan-tree-dump-times "if" 2 "dom2"} } */
-
-

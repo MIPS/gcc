@@ -58,4 +58,3 @@ bid128_to_bid32 (UINT128 x)
         exponent_x, CX.w[0], _IDEC_glbround, &_IDEC_glbflags);
   return(res);;
 }
-

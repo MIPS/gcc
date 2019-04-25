@@ -1,7 +1,7 @@
 
 void Foo ()
 {
-  
+
 #pragma acc parallel num_gangs(10) num_workers(32) vector_length(32)
   {
 #pragma acc loop vector
@@ -63,7 +63,7 @@ void Foo ()
 	  }
 
       }
-    
+
 #pragma acc loop auto
     for (int ix = 0; ix < 10; ix++)
       {
@@ -154,7 +154,7 @@ void Gang (void)
 	  }
 
       }
-    
+
 #pragma acc loop auto
     for (int ix = 0; ix < 10; ix++)
       {

@@ -1,4 +1,4 @@
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-O -fdump-tree-ccp1" } */
 
 extern void link_error (void);

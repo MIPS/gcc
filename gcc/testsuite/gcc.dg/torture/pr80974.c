@@ -35,5 +35,5 @@ L1:
 int main ()
 {
   fn1 ();
-  return 0; 
+  return 0;
 }

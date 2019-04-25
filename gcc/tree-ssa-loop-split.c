@@ -444,7 +444,7 @@ compute_new_first_bound (gimple_seq *stmts, struct tree_niter_desc *niter,
   /* Depending on the direction of the IVs the new bound for the first
      loop is the minimum or maximum of old bound and border.
      Also, if the guard condition isn't strictly less or greater,
-     we need to adjust the bound.  */ 
+     we need to adjust the bound.  */
   int addbound = 0;
   enum tree_code minmax;
   if (niter->cmp == LT_EXPR)
@@ -550,7 +550,7 @@ split_loop (struct loop *loop1, struct tree_niter_desc *niter)
 					    stmts2);
 	tree cond = build2 (guard_code, boolean_type_node, guard_init, border);
 	if (!initial_true)
-	  cond = fold_build1 (TRUTH_NOT_EXPR, boolean_type_node, cond); 
+	  cond = fold_build1 (TRUTH_NOT_EXPR, boolean_type_node, cond);
 
 	/* Now version the loop, placing loop2 after loop1 connecting
 	   them, and fix up SSA form for that.  */

@@ -19,7 +19,7 @@ sdbm__splpage (char *pag, char *New, long int sbit)
 	(void) ({ void *__s = ( New ); __builtin_memset ( __s , '\0',     1024   ) ; __s; });
 	n = ino[0];
 	for (ino++; n > 0; ino += 2) {
-		key.dptr = cur + ino[0]; 
+		key.dptr = cur + ino[0];
 		key.dsize = off - ino[0];
 		val.dptr = cur + ino[1];
 		val.dsize = ino[0] - ino[1];

@@ -9,7 +9,7 @@ foo (__INT32_TYPE__ *p)
   __INT32_TYPE__ ret = *(char *) p;
   /* This generates a __builtin___asan_report_store4 depending on the.  */
   *p = 26;
-  return ret; 
+  return ret;
 }
 
 /* { dg-final { scan-tree-dump-times "__builtin___asan_report" 2 "sanopt" } } */

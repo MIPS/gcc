@@ -50,7 +50,7 @@ along with GCC; see the file COPYING3.  If not see
    : (n) == 7 ? 4							\
    : ((n) >= FIRST_STACK_REG && (n) <= LAST_STACK_REG) ? (int) (n) + 8	\
    : (-1))
-  
+
 /* A C statement to output to the stdio stream FILE an assembler
    command to advance the location counter to a multiple of 1<<LOG
    bytes if it is within MAX_SKIP bytes.

@@ -178,7 +178,7 @@ foo(void)
   TESTIT_MODF (-0x1p10F-0x1p-10, -0x1p10, -0x1p-10);
   TESTIT_MODF (-0x1p10F-0.5, -0x1p10, -0.5);
 
-  
+
   /* Test for modf(+-Inf,&i) -> (i=+-0.0, +-Inf).  */
   TESTIT_MODF2 ( ,inf, , isinf, 0.0);
   TESTIT_MODF2 (- ,inf, , isinf, -0.0);
@@ -191,6 +191,6 @@ foo(void)
 int main()
 {
   foo();
-  
+
   return 0;
 }

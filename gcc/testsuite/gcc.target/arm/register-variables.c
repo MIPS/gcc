@@ -3,7 +3,7 @@
 
 #include <stdlib.h>
 
-void __attribute__((noinline)) 
+void __attribute__((noinline))
 bar(int a, int b)
 {
   if (a != 43 || b != 42)
@@ -18,4 +18,3 @@ int main(void)
     bar(r1, r0);
     return 0;
 }
-

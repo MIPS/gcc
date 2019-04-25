@@ -11,7 +11,7 @@ foo (struct S *x)
   s = (unsigned char *) x->s;
   for (i = 0; i < 64; i++)
     x->s[i] = s[i * 2] | (s[i * 2 + 1] << 8);
-}  
+}
 
 __attribute__((noinline, noclone)) void
 bar (struct S *x)
@@ -22,7 +22,7 @@ bar (struct S *x)
   s = (unsigned char *) x->s;
   for (i = 0; i < 64; i++)
     x->s[i] = (s[i * 2] << 8) | s[i * 2 + 1];
-}  
+}
 
 int
 main ()

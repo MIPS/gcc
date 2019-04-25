@@ -10,7 +10,7 @@ static const char *poolfilearr[] = {
 #define C B B B B B B B B B B
 #define D C C C C C C C C C C
   D C C C C C C C B B B
- ((void *)0) 
+ ((void *)0)
 };
 
 __attribute__((noipa)) long

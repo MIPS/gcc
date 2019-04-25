@@ -12,7 +12,7 @@ void h(unsigned i)
     case 4: f(42); break;
     case 5: f(42); break;
   }
-} 
+}
 
 /* { dg-final { scan-tree-dump-not "if" "optimized" } } */
 /* { dg-final { scan-tree-dump-not "switch" "optimized" } } */

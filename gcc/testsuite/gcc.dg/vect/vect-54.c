@@ -6,7 +6,7 @@
 
 #define N 256
 
-__attribute__ ((noinline)) 
+__attribute__ ((noinline))
 void bar (float *pa, float *pb, float *pc)
 {
   int i;

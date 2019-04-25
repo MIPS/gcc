@@ -95,7 +95,7 @@ get_lhs_or_phi_result (gimple *stmt)
    into a trivial copy or constant initialization, set the
    appropriate bit in INTERESTING_NAMEs so that we will visit those
    nodes as well in an effort to pick up secondary optimization
-   opportunities. 
+   opportunities.
 
    NEED_EH_CLEANUP tracks blocks that need their EH information
    cleaned up after changing EH information on a statement.  */
@@ -399,11 +399,11 @@ eliminate_const_or_copy (gimple *stmt, bitmap interesting_names,
 /* The first phase in degenerate PHI elimination.
 
    Eliminate the degenerate PHIs in BB, then recurse on the
-   dominator children of BB. 
+   dominator children of BB.
 
    INTERESTING_NAMES tracks SSA_NAMEs that we may want to revisit
    in the future.  It is not set or queried here, but passed along
-   to children. 
+   to children.
 
    NEED_EH_CLEANUP tracks blocks that need their EH information
    cleaned up after changing EH information on a statement.  It is

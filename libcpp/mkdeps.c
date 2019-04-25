@@ -439,7 +439,7 @@ make_write (const struct mrules *d, FILE *fp, bool phony, unsigned int colmax)
 	  fputs ("\n", fp);
 	}
     }
-  
+
   if (d->modules.size ())
     {
       column = fprintf (fp, "CXX_IMPORTS +=");

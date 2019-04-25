@@ -5378,7 +5378,7 @@ main (int argc, const char **argv)
 	if (IS_ATTR_GROUP ("*internal_dfa_insn_code"))
 	  outf = dfa_file;
 	else if (IS_ATTR_GROUP ("*insn_default_latency"))
-	  outf = latency_file;  
+	  outf = latency_file;
 	else
 	  outf = attr_file;
 #undef IS_ATTR_GROUP
@@ -5414,4 +5414,3 @@ main (int argc, const char **argv)
 
   return SUCCESS_EXIT_CODE;
 }
-

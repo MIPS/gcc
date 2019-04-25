@@ -10,7 +10,7 @@ int main (void)
 
   t = 3<=(x2|1|x3|x1-1U);
 
-  if (t == 1) {} 
+  if (t == 1) {}
   else { __builtin_abort(); }
 
   return 0;

@@ -23,4 +23,3 @@ int func_29 (int p_30)
        (rshift_u_s ((g_15 - (g_15 >= l_35)), (l_36 <= 1)))) + mod_rhs (1))
     return 1;
 }
-

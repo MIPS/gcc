@@ -11,4 +11,3 @@ bar (void *d, void *s, size_t l)
 {
   memcpy (d, s, l);
 }
-

@@ -117,4 +117,3 @@ extern void read_thunk_profile (struct cgraph_node *);
 extern void end_branch_prob (void);
 
 #endif	/* GCC_VALUE_PROF_H */
-

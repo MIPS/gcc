@@ -14,4 +14,3 @@ d:
 }
 
 /* { dg-final { scan-tree-dump-times "predicted to even probabilities" 4 "profile_estimate"} } */
-

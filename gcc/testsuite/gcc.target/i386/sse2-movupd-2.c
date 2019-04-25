@@ -18,7 +18,7 @@ static void
 __attribute__((noinline, unused))
 test (double *e, __m128d a)
 {
-  _mm_storeu_pd (e, a); 
+  _mm_storeu_pd (e, a);
 }
 
 static void

@@ -15,16 +15,15 @@ void parse_rvalue(void **DataPtr)
   int terms = 1;
 
   *DataPtr = create_float();
-  
+
   switch (terms)
     {
     case 1:
       *((double *)*DataPtr) = local;
       break;
-      
+
     case 2:
       do_it(*DataPtr, &local);
       break;
     }
 }
-

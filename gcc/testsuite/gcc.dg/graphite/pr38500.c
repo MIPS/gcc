@@ -22,7 +22,7 @@ Perl_re_intuit_start( int minlen,  char *strend, unsigned int flags, int i)
     end_shift = eshift;
  restart:
   s = Perl_screaminstr(start_shift + (s - strbeg), end_shift, 0);
-  while( t < strend - minlen){  
+  while( t < strend - minlen){
   }
  success_at_start:
   eshift = (test1 ? Perl_utf8_distance((U8*)strend,(U8*)s) : (U8*)strend - (U8*)s) - end;

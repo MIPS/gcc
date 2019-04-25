@@ -1,7 +1,7 @@
 static const double internalEndianMagic = 7.949928895127363e-275;
 static const unsigned char ieee_754_mantissa_mask[] = { 0x00, 0x0F, 0xFF, 0xFF,
     0xFF, 0xFF, 0xFF, 0xFF };
-static inline int 
+static inline int
 trio_isnan (double number)
 {
   int has_mantissa = 0;
@@ -23,4 +23,3 @@ xmlXPathEqualNodeSetFloat(int nodeNr, double v)
     if (!trio_isnan(v))
       break;
 }
-

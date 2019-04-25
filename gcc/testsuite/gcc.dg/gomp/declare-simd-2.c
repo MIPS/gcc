@@ -38,7 +38,7 @@ int fn10 (double d);
 struct D { int d; };
 
 #pragma omp declare simd aligned (e)    /* { dg-error "neither a pointer nor an array" } */
-int fn11 (struct D e);   
+int fn11 (struct D e);
 
 #pragma omp declare simd linear(a:7) uniform(a)	/* { dg-error "appears more than once" } */
 int f12 (int a);

@@ -127,4 +127,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
   CHECK_VALUE (imported_global, 44);
   CHECK_VALUE (call_count, 2);
 }
-

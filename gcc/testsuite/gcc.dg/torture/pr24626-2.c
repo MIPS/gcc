@@ -56,4 +56,3 @@ int __db_master_update(mdbp, sdbp, txn, subdb, type, action, newname, flags)
 	ret = t_ret;
     return (ret);
 }
- 

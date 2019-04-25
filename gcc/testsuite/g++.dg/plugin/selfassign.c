@@ -237,7 +237,7 @@ warn_self_assign (gimple *stmt)
       tree fdecl = gimple_call_fndecl (stmt);
       if (fdecl && (DECL_NAME (fdecl) == maybe_get_identifier ("operator=")))
         {
-          /* If 'operator=' takes reference operands, the arguments will be 
+          /* If 'operator=' takes reference operands, the arguments will be
              ADDR_EXPR trees. In this case, just remove the address-taken
              operator before we compare the lhs and rhs.  */
           lhs = gimple_call_arg (stmt, 0);

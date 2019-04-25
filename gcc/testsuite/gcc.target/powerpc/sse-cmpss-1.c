@@ -52,7 +52,7 @@ TEST ()
     sse_cmp_check("" #cmp "");
 
     for(i = 1; i < 4; i++) e.f[i] = s1[i];
-    
+
     CMP(eq, !isunordered(s1[0], s2[0]) && s1[0] == s2[0]);
     CMP(lt, !isunordered(s1[0], s2[0]) && s1[0] < s2[0]);
     CMP(le, !isunordered(s1[0], s2[0]) && s1[0] <= s2[0]);

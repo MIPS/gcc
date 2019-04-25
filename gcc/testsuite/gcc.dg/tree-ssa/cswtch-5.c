@@ -6,7 +6,7 @@ void
 foo (unsigned int v)
 {
   const char *s;
-  
+
   switch (v)
     {
     case 0:
@@ -31,7 +31,7 @@ int
 bar (unsigned int v, int w)
 {
   const char *s;
-  
+
   switch (v)
     {
     case 0:

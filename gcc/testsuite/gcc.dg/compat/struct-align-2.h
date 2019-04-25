@@ -1,6 +1,6 @@
 /* Define several variants of struct epoll_event from the Linux kernel,
    specifying various attributes that affect alignment and size.
- 
+
    This test was developed for systems for which int is 32 bits and
    long long is 64 bits; it might need to be disabled for systems where
    either of those is not true.  */

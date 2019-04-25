@@ -3,7 +3,7 @@
 /* Small expression involving non-overloaded specific vector intrinsics.  */
 
 vector float
-f(vector float a, vector float b, vector float c) 
+f(vector float a, vector float b, vector float c)
 {
   vector float q = vec_expte(a);
   vector float r = vec_vsubfp(c, q);

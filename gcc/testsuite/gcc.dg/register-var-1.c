@@ -7,8 +7,8 @@
 
 void g(int *);
 
-void f(void) 
-{ 
+void f(void)
+{
   register int x __asm ("eax");
   g(&x);	/* { dg-error "address of register variable" } */
-} 
+}

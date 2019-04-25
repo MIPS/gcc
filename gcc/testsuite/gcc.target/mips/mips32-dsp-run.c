@@ -1060,4 +1060,3 @@ NOMIPS16 void test_MIPS_DSP ()
     abort ();
 #endif
 }
-

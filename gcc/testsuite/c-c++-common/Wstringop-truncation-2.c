@@ -1,4 +1,4 @@
-/* Verify that 
+/* Verify that
    { dg-do compile }
    { dg-options "-O2 -Wstringop-truncation -Wno-stringop-overflow -ftrack-macro-expansion=0" } */
 

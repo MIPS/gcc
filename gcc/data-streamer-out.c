@@ -74,7 +74,7 @@ lto_append_block (struct lto_output_stream *obs)
 
 /* Return index used to reference STRING of LEN characters in the string table
    in OB.  The string might or might not include a trailing '\0'.
-   Then put the index onto the INDEX_STREAM.  
+   Then put the index onto the INDEX_STREAM.
    When PERSISTENT is set, the string S is supposed to not change during
    duration of the OB and thus OB can keep pointer into it.  */
 
@@ -124,7 +124,7 @@ streamer_string_index (struct output_block *ob, const char *s, unsigned int len,
 
 /* Output STRING of LEN characters to the string table in OB. The
    string might or might not include a trailing '\0'. Then put the
-   index onto the INDEX_STREAM. 
+   index onto the INDEX_STREAM.
    When PERSISTENT is set, the string S is supposed to not change during
    duration of the OB and thus OB can keep pointer into it.  */
 
@@ -400,4 +400,3 @@ streamer_write_widest_int (struct output_block *ob,
   for (int i = 0; i < len; i++)
     streamer_write_hwi (ob, w.elt (i));
 }
-

@@ -10,4 +10,3 @@ void KWayNodeRefine__(int nparts, int *gpwgts, int *badminpwgt, int
        badmaxpwgt[i] = badmaxpwgt[i+1] = gpwgts[i]+gpwgts[i+1];
    }
 }
-

@@ -13,4 +13,3 @@ void _Unwind_RaiseException(void)
 
   __builtin_eh_return (offset, handler);
 }
-

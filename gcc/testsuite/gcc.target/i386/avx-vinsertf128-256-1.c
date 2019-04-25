@@ -29,7 +29,7 @@ avx_test (void)
 
   for (i=0; i < 2; i++)
     e[i + (OFFSET * 2)] = s2.a[i];
- 
+
   if (check_union256d (u, e))
     abort ();
 

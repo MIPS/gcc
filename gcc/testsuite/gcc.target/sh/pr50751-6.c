@@ -22,4 +22,3 @@ testfunc_01 (volatile const short* ap, volatile short* bp)
   bp[900] = ap[71];
   bp[0] = ap[25];
 }
-

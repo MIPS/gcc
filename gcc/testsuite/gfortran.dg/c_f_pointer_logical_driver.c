@@ -21,6 +21,6 @@ int main(int argc, char **argv)
     my_bool_array[i] = false;
 
   test_array(my_bool_array, NUM_ELEMS);
-  
+
   return 0;
 }

@@ -33,7 +33,7 @@ TEST (void)
   /* input signed in {1000, -20000, 43, 546}.  */
   s1.as_m64 = _mm_setr_pi32 (1000, -20000);
   s2.as_m64 = _mm_setr_pi32 (43, 546);
-   
+
   u.x = test (s1.as_m64, s2.as_m64);
 
 

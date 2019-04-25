@@ -14,7 +14,7 @@ int main (int argc, char *argv[]) {
     vector(4, uint) u1, u2, u3;
 
     i1 = vint1<< vint0;
-    
+
     if (vidx(int, i1, 0) != ((int)-1 << (int)1))
         __builtin_abort ();
     if (vidx(int, i1, 1) != ((int)-1 << (int)1))
@@ -35,7 +35,7 @@ int main (int argc, char *argv[]) {
     if (vidx(int, u1, 3) != ((uint)4  << (int)1))
         __builtin_abort ();
 
-    
+
     i2 = vint1 >> vuint;
 
     if (vidx(int, i2, 0) != ((int)-1  >> (uint)1))
@@ -49,12 +49,10 @@ int main (int argc, char *argv[]) {
 
 
     vint1 >>= vuint;
-    
+
     vuint <<= vint0;
     vuint <<= vint1;
 
 
     return 0;
 }
-
-

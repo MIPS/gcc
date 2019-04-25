@@ -406,7 +406,7 @@ match_data_constant (gfc_expr **result)
 	 contains the right constant expression.  Check here.  */
       if ((*result)->symtree == NULL
 	  && (*result)->expr_type == EXPR_CONSTANT
-	  && ((*result)->ts.type == BT_INTEGER 
+	  && ((*result)->ts.type == BT_INTEGER
 	      || (*result)->ts.type == BT_REAL))
 	return m;
 
@@ -6275,7 +6275,7 @@ gfc_match_formal_arglist (gfc_symbol *progname, int st_flag,
     }
 
   if (gfc_match_char (')') == MATCH_YES)
-  {        
+  {
     if (typeparam)
       {
 	gfc_error_now ("A type parameter list is required at %C");
@@ -7460,7 +7460,7 @@ gfc_match_entry (void)
 	  if (!gfc_add_is_bind_c (&(entry->attr), entry->name,
 				  &(entry->declared_at), 1))
 	    return MATCH_ERROR;
-	
+
 	}
 
       if (!gfc_current_ns->parent

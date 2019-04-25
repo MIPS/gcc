@@ -10,7 +10,7 @@ typedef struct test
   unsigned char type[6];
 } t;
 
-extern void set (t *a, t *b, t *c, t *d, t *e, t *f, t *g, t *h, 
+extern void set (t *a, t *b, t *c, t *d, t *e, t *f, t *g, t *h,
 		 t *i, t *j, t *k, t *l, t *m, t *n, t *o, t *p);
 extern void use (t a, t b, t c, t d, t e, t f, t g, t h,
 		 t i, t j, t k, t l, t m, t n, t o, t p);

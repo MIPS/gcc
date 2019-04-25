@@ -8,4 +8,3 @@ void test()
 {
   x = y * z;
 }
-  

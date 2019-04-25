@@ -19,4 +19,3 @@ foo (int H)
       tmp = (v4sf) __builtin_altivec_vspltisw (1);
     }
 }
-

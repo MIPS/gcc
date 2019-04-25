@@ -7,6 +7,5 @@ extern __attribute__ ((always_inline)) void
 void
 f()
 {
-  bar(); 
+  bar();
 }
-

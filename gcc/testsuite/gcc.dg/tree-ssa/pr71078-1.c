@@ -10,5 +10,5 @@ float f1(float x)
   float t2 = x / t1;
   return t2;
 }
- 
+
 /* { dg-final { scan-tree-dump "__builtin_copysignf" "forwprop1" } } */

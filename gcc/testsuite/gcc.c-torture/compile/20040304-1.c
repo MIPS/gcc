@@ -17,4 +17,3 @@ cpplib_macroExpand (char * pfile)
     }
   while (token == 20);
 }
-

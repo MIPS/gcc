@@ -27,7 +27,7 @@ void
 test2 ()
 {
   typedef int foo;
-  void func(foo);  
+  void func(foo);
 }
 
 void

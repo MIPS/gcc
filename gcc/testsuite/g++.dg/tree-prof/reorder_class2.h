@@ -7,6 +7,3 @@ int B::foo()
 {
   return 2;
 }
-
-
-

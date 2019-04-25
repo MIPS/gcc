@@ -16,9 +16,9 @@ int test_code(int b)
 int main (int ac, char *av[])
 {
   int a = test_code(1);
-  
+
   if ((a != 2) || (fstat != 2))
     abort () ;
-  
+
   return 0;
 }

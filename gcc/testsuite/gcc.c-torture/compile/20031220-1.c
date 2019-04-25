@@ -18,4 +18,3 @@ void all(void *gil, void *l, void *icon)
     if (icon)
       select(0, gil);
 }
-

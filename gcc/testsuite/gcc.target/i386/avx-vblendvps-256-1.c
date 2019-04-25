@@ -15,7 +15,7 @@ avx_test (void)
 {
   int i;
   union256 u, mask, s1, s2;
-  int m[8]={mask_v(0), mask_v(1), mask_v(2), mask_v(3), 
+  int m[8]={mask_v(0), mask_v(1), mask_v(2), mask_v(3),
             mask_v(4), mask_v(5), mask_v(6), mask_v(7)};
   float e [8];
 

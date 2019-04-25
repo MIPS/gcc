@@ -10,6 +10,6 @@ main (void)
   int j = 1 //**/ 2
   ;
   if (i != 0 || j != 0)
-    __builtin_abort ();  
+    __builtin_abort ();
   return 0;
 }

@@ -29,4 +29,3 @@ main (void)
 {
   d_type tmp = main1 ();
 }
-

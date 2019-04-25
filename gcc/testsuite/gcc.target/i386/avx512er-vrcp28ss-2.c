@@ -13,7 +13,7 @@ avx512er_test (void)
   union128 src1, src2, res;
   float res_ref[4];
   int i;
-  
+
   for (i = 0; i < 4; i++)
     {
       src1.a[i] = 179.345 - 6.5645 * i;

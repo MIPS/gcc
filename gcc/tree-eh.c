@@ -3637,9 +3637,9 @@ sink_clobbers (basic_block bb)
       else if (gimple_vuse_op (stmt) != NULL_USE_OPERAND_P
 	       && !single_pred_p (succbb))
 	{
-	  /* In this case there will be no use of the VDEF of this stmt. 
+	  /* In this case there will be no use of the VDEF of this stmt.
 	     ???  Unless this is a secondary opportunity and we have not
-	     removed unreachable blocks yet, so we cannot assert this.  
+	     removed unreachable blocks yet, so we cannot assert this.
 	     Which also means we will end up renaming too many times.  */
 	  SET_USE (gimple_vuse_op (stmt), gimple_vop (cfun));
 	  mark_virtual_operands_for_renaming (cfun);
@@ -3650,7 +3650,7 @@ sink_clobbers (basic_block bb)
   return todo;
 }
 
-/* At the end of inlining, we can lower EH_DISPATCH.  Return true when 
+/* At the end of inlining, we can lower EH_DISPATCH.  Return true when
    we have found some duplicate labels and removed some edges.  */
 
 static bool
@@ -3699,10 +3699,10 @@ lower_eh_dispatch (basic_block src, geh_dispatch *stmt)
 	      }
 	    do
 	      {
-		/* Filter out duplicate labels that arise when this handler 
-		   is shadowed by an earlier one.  When no labels are 
-		   attached to the handler anymore, we remove 
-		   the corresponding edge and then we delete unreachable 
+		/* Filter out duplicate labels that arise when this handler
+		   is shadowed by an earlier one.  When no labels are
+		   attached to the handler anymore, we remove
+		   the corresponding edge and then we delete unreachable
 		   blocks at the end of this pass.  */
 		if (! seen_values.contains (TREE_VALUE (flt_node)))
 		  {
@@ -3873,7 +3873,7 @@ make_pass_lower_eh_dispatch (gcc::context *ctxt)
 
 /* Walk statements, see what regions and, optionally, landing pads
    are really referenced.
-   
+
    Returns in R_REACHABLEP an sbitmap with bits set for reachable regions,
    and in LP_REACHABLE an sbitmap with bits set for reachable landing pads.
 
@@ -4028,7 +4028,7 @@ maybe_remove_unreachable_handlers (void)
 
   if (cfun->eh == NULL)
     return;
-           
+
   FOR_EACH_VEC_SAFE_ELT (cfun->eh->lp_array, i, lp)
     if (lp && lp->post_landing_pad)
       {

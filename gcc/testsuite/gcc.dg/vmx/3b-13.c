@@ -1,7 +1,7 @@
 #include "harness.h"
 
-vector signed int 
-f(vector float a, vector signed int b) 
+vector signed int
+f(vector float a, vector signed int b)
 {
   return vec_splat(vec_cts(vec_ctf(vec_ctu(a, 31),0),9),2);
 }

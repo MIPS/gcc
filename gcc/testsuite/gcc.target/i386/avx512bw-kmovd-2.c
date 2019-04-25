@@ -8,7 +8,7 @@ volatile __mmask32 k1;
 void
 avx512bw_test ()
 {
-  __mmask32 k0 = 11; 
+  __mmask32 k0 = 11;
   __mmask32 k = _load_mask32 (&k0);
 
   asm volatile ("" : "+k" (k));

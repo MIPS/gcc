@@ -21,19 +21,19 @@ __attribute__ ((noinline)) int main1 ()
   /* check results:  */
   for (i = 0; i < N; i++)
     {
-      if (float_arr[i] != (float) int_arr[i]) 
-        abort (); 
+      if (float_arr[i] != (float) int_arr[i])
+        abort ();
       if (char_arr[i] != 0)
 	abort ();
-    }   
+    }
 
   return 0;
 }
 
 int main (void)
-{ 
+{
   check_vect ();
-  
+
   return main1 ();
 }
 

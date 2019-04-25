@@ -64,4 +64,3 @@ along with GCC; see the file COPYING3.  If not see
 #define XTENSA_ALWAYS_PIC 1
 
 #undef DBX_REGISTER_NUMBER
-

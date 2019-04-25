@@ -18,7 +18,7 @@ static int m = 5;
 
 int n;           /* { dg-message "5:note: previous" } */
 int n;           /* { dg-warning "5:redundant" } */
-int n = 5; 
+int n = 5;
 
 static int o;
 static int o = 5;

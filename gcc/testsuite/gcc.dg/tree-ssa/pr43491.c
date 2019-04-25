@@ -18,7 +18,7 @@
 #endif
 
 REGISTER long data_0 REG1;
-long data_3; 
+long data_3;
 
 long foo(long data, long v)
 {

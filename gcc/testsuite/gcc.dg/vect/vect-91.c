@@ -16,9 +16,9 @@
 
 extern int a[N + OFF];
 
-/* The alignment of 'pa' is unknown. 
-   Yet we do know that both the read access and write access have 
-   the same alignment. Peeling to align one of the accesses will 
+/* The alignment of 'pa' is unknown.
+   Yet we do know that both the read access and write access have
+   the same alignment. Peeling to align one of the accesses will
    align the other.  */
 
 __attribute__ ((noinline)) int
@@ -34,9 +34,9 @@ main1 (int * pa)
   return 0;
 }
 
-/* The alignment of 'a' is unknown. 
-   Yet we do know that both the read access and write access have 
-   the same alignment. Peeling to align one of the accesses will 
+/* The alignment of 'a' is unknown.
+   Yet we do know that both the read access and write access have
+   the same alignment. Peeling to align one of the accesses will
    align the other.  */
 
 __attribute__ ((noinline)) int

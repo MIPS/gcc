@@ -59,36 +59,36 @@ int g3 (vector short a)
 }
 
 int g4 (vector short a)
-{ 
+{
   return vec_extract (a, 4);
 }
 int g5 (vector short a)
-{ 
+{
   return vec_extract (a, 5);
 }
 int g6 (vector short a)
-{ 
+{
   return vec_extract (a, 6);
 }
 int g7 (vector short a)
-{ 
+{
   return vec_extract (a, 7);
 }
 int g8 (vector short a)
-{ 
+{
   return vec_extract (a, 8);
 }
 int main1(void) __attribute__((noinline));
 int main1(void)
-{ 
+{
   int i;
   /* Check vec_extract with a non constant element numbering */
   for(i=0;i<10;i++)
-    { 
+    {
       if (f(a, i) != (i&0x3))
         abort ();
     }
-  
+
   /* Check vec_extract with a constant element numbering */
   if (f0(a) != 0)
     abort ();
@@ -109,7 +109,7 @@ int main1(void)
       if (g(b, i) != (i&0x7))
         abort ();
     }
-  
+
   /* Check vec_extract with a constant element numbering */
   if (g0(b) != 0)
     abort ();
@@ -131,11 +131,11 @@ int main1(void)
      the number of elements.  */
   if (g8(b) != 0)
     abort ();
-  
+
   return 0;
 }
 
 int main(void)
-{ 
+{
   return main1 ();
 }

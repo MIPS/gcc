@@ -1492,7 +1492,7 @@ gather_mem_refs_stmt (struct loop *loop, gimple *stmt)
       aor.max_size = saved_maxsize;
       if (*slot)
 	{
-	  if (!(*slot)->ref_canonical 
+	  if (!(*slot)->ref_canonical
 	      && !operand_equal_p (*mem, (*slot)->mem.ref, 0))
 	    {
 	      /* If we didn't yet canonicalize the hashtable ref (which
@@ -2711,5 +2711,3 @@ make_pass_lim (gcc::context *ctxt)
 {
   return new pass_lim (ctxt);
 }
-
-

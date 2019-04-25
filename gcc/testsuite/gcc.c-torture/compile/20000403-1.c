@@ -1,6 +1,6 @@
 struct utsname {
-	char	sysname[32 ];	 
-	char	version[32 ];	 
+	char	sysname[32 ];
+	char	version[32 ];
 };
 int
 uname(name)

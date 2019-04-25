@@ -30,4 +30,3 @@ extern void define_language_independent_builtin_macros (cpp_reader *);
 
 
 #endif /* ! GCC_CPPBUILTIN_H */
-

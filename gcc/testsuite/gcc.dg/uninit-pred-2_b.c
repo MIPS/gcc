@@ -8,7 +8,7 @@ void blah (int);
 int foo (int n, int m, int r)
 {
   int flag = 0;
-  int v; 
+  int v;
 
   if (n)
     {
@@ -18,7 +18,7 @@ int foo (int n, int m, int r)
 
   if (m)
     g++;
-  else 
+  else
     bar();
 
   /* Wrong guard */

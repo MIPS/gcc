@@ -1,6 +1,6 @@
 /* { dg-require-effective-target untyped_assembly } */
 extern void abort(void);
-			 
+
 typedef struct
 {
   unsigned int unchanging : 1;

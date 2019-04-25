@@ -5,10 +5,10 @@
 /* { dg-require-effective-target ia32 } */
 /* { dg-options "-march=pentium3" } */
 
-int main() 
-{ 
-  typedef long long int v __attribute__ ((vector_size (16))); 
-  v a, b; 
-  a = b; 
-  return 0; 
+int main()
+{
+  typedef long long int v __attribute__ ((vector_size (16)));
+  v a, b;
+  a = b;
+  return 0;
 }

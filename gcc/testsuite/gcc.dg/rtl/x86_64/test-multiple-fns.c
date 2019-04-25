@@ -28,7 +28,7 @@ int __RTL (startwith ("vregs")) test_return_42 (void)
     ) ;; block 2
   ) ;; insn-chain
   (crtl
-    (return_rtx 
+    (return_rtx
       (reg/i:SI ax)
     ) ;; return_rtx
   ) ;; crtl
@@ -57,7 +57,7 @@ int __RTL (startwith ("vregs")) test_return_43 (void)
     ) ;; block 2
   ) ;; insn-chain
   (crtl
-    (return_rtx 
+    (return_rtx
       (reg/i:SI ax)
     ) ;; return_rtx
   ) ;; crtl
@@ -86,7 +86,7 @@ int __RTL (startwith ("vregs")) test_return_44 (void)
     ) ;; block 2
   ) ;; insn-chain
   (crtl
-    (return_rtx 
+    (return_rtx
       (reg/i:SI ax)
     ) ;; return_rtx
   ) ;; crtl

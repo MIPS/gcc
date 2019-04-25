@@ -493,4 +493,3 @@ vector double test_srqwbytebc_24 (vector double ra, unsigned int count)
 {
   return spu_srqwbytebc (ra, count);
 }
-

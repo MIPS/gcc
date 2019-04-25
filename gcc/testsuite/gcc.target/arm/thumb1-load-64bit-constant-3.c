@@ -11,4 +11,3 @@ foo (int len)
 
 /* { dg-final { scan-assembler-not "ldr" } } */
 /* { dg-final { scan-assembler-times "rsbs" 1 } } */
-

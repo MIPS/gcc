@@ -30,19 +30,18 @@ int main ()
   t2 = __builtin_bfin_extract_hi (d);
   if (t1 != 0x4000 || t2 != -0x7000)
     abort ();
-  
+
   if (__builtin_bfin_add_fr1x32 (0x7fffffff, 1) != 0x7fffffff)
     abort ();
 
   if (__builtin_bfin_add_fr1x32 (0x80000000, -1) != 0x80000000)
     abort ();
-    
+
   if (__builtin_bfin_add_fr1x32 (0x80000001, -1) != 0x80000000)
     abort ();
-    
+
   if (__builtin_bfin_add_fr1x32 (0xFEDCBA98, 0x11111111) != 0x0FEDCBA9)
     abort ();
-    
+
   exit (0);
 }
-

@@ -13,7 +13,7 @@ test00 (unsigned int a, int* b, int c, int* d, unsigned int e)
   int i;
   for (i = 0; i < c; ++i)
     s += d[i] + b[i] + (e << (i & 31));
-  return s;  
+  return s;
 }
 
 int
@@ -23,7 +23,7 @@ test01 (unsigned int a, int* b, int c, int* d, unsigned int e)
   int i;
   for (i = 0; i < c; ++i)
     s += d[i] + b[i] + (e >> (i & 31));
-  return s;  
+  return s;
 }
 
 int

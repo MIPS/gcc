@@ -5,11 +5,11 @@ unsigned int a, *b;
 unsigned short c;
 int d;
 
-void 
+void
 fn1 ()
 {
   b = &d;
-  *b = c = a; 
+  *b = c = a;
   *b = d;
 }
 

@@ -58,4 +58,3 @@ foo4 (char *buf)
       bar();
     }
 }
-

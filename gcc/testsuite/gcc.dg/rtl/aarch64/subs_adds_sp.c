@@ -150,4 +150,3 @@ int __RTL (startwith ("peephole2")) sub3_compare1_imm_peephole_2 ()
 /* { dg-final { scan-assembler-not {adds\tsp} } }  */
 /* { dg-final { scan-assembler-times {subs\tx[0-9]+, sp} 1 } }  */
 /* { dg-final { scan-assembler-not {subs\tsp} } }  */
-

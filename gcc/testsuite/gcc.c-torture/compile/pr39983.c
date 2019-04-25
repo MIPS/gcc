@@ -14,4 +14,3 @@ void foo()
   x->p = (int*)c[0];
   y->p = (int*)a;
 }
-

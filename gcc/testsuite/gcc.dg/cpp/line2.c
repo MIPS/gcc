@@ -5,9 +5,9 @@
 /* { dg-do preprocess } */
 
 #line 1
-#line 0 
+#line 0
 #line 2
-#line 32768 
+#line 32768
 
 /* { dg-error "out of range" "line # too low" { target *-*-* } 1 } */
 /* { dg-error "out of range" "line # too high" { target *-*-* } 2 } */

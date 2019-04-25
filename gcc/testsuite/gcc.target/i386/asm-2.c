@@ -49,11 +49,11 @@ typedef struct _fame_syntax_mpeg1_t_ {
 void mpeg1_start_picture(fame_syntax_t *syntax)
 {
   fame_syntax_mpeg1_t *syntax_mpeg1 = FAME_SYNTAX_MPEG1(syntax);
-  bitbuffer_write(&syntax_mpeg1->buffer, 0xFFFF, 16); 
+  bitbuffer_write(&syntax_mpeg1->buffer, 0xFFFF, 16);
 
   switch(syntax_mpeg1->frame_type) {
     case frame_type_I:
-      bitbuffer_write(&syntax_mpeg1->buffer, 0, 1);  
+      bitbuffer_write(&syntax_mpeg1->buffer, 0, 1);
     break;
     case frame_type_P:
       bitbuffer_write(&syntax_mpeg1->buffer, 0, 1);

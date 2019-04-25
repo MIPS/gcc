@@ -38,5 +38,5 @@ TEST (void)
     {
       if (fabsf (r[i] - rc[i]) > 0.0001)
 	abort();
-    }   
+    }
 }

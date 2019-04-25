@@ -3,7 +3,7 @@
 /* Small expression involving non-overloaded vector intrinsics.  */
 
 vector float
-f(vector float a, vector float b, vector float c) 
+f(vector float a, vector float b, vector float c)
 {
   return vec_vmaddfp(a, vec_re(b), vec_vmaxfp(c, vec_expte(a)));
 }

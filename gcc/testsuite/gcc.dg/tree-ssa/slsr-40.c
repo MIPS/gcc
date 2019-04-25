@@ -24,4 +24,3 @@ main ()
   foo (&gData, 1);
   return 0;
 }
-

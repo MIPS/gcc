@@ -125,5 +125,3 @@ lpfc_find_next_oas_lun(struct lpfc_hba *phba, struct lpfc_name *vport_wwpn,
  }
  return found;
 }
-
-

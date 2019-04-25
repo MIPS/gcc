@@ -28,4 +28,3 @@ void vorbis_synthesis_blockin(int *blocksizes)
         vect_copy(pcm, p, n);
     }
 }
-

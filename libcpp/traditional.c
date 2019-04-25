@@ -169,7 +169,7 @@ copy_comment (cpp_reader *pfile, const uchar *cur, int in_define)
     unterminated = skip_macro_block_comment (pfile);
   else
     unterminated = _cpp_skip_block_comment (pfile);
-    
+
   if (unterminated)
     cpp_error_with_line (pfile, CPP_DL_ERROR, src_loc, 0,
 			 "unterminated comment");
@@ -924,7 +924,7 @@ _cpp_replacement_text_len (const cpp_macro *macro)
     }
   else
     len = macro->count;
-  
+
   return len;
 }
 

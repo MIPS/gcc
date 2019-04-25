@@ -9,7 +9,7 @@
 typedef unsigned long long uint64_t;
 typedef uint64_t ldbits[2];
 
-union ldu 
+union ldu
 {
   ldbits lb;
   long double ld;
@@ -82,7 +82,7 @@ static const struct {
     /* correct result is: { 0x4330000000000000LL, 0x3FA0000000000000LL } */
     { 0x4330000000000000LL, 0x0000000000000000LL } }
 };
-    
+
 static int fail = 0;
 
 static void

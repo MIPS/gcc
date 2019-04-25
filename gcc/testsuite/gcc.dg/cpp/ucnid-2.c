@@ -11,6 +11,6 @@ int main (void)
 
   if (strcmp (s, "\u30b2") != 0)
     abort ();
-  
+
   return 0;
 }

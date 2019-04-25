@@ -1,5 +1,5 @@
 /* Verify straight-line strength reduction for a candidate with a basis
-   hidden by a phi dependences, having a known stride, and where the 
+   hidden by a phi dependences, having a known stride, and where the
    phi has an argument which is a parameter.  */
 
 /* { dg-do compile } */

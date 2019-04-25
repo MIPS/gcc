@@ -14,4 +14,3 @@ testd_l (vector double vd2, vector double vd3, vector double vd4)
 }
 
 /* { dg-final { scan-assembler-times "xvmaddmdp|xvmaddadp" 1 } } */
-

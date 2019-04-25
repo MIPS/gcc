@@ -8,7 +8,7 @@ extern unsigned long pci_io_base;
 u8 in_8 (const volatile void *);
 int eeh_enabled ();
 void eeh_check_failure ();
-static inline 
+static inline
 u8 eeh_readb(const volatile void *addr)
 {
   u8 val = in_8(addr);

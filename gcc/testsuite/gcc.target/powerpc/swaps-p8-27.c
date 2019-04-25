@@ -23,7 +23,7 @@ foo ()
   __m128d a, b, c;
 
   e.d[1] = s1[1];
-  e.l[0] = !__builtin_isunordered(s1[0], s2[0]) 
+  e.l[0] = !__builtin_isunordered(s1[0], s2[0])
     && s1[0] == s2[0] ? -1 : 0;
   source1 = __builtin_vec_vsx_ld (0, s1);
   source2 = __builtin_vec_vsx_ld (0, s2);

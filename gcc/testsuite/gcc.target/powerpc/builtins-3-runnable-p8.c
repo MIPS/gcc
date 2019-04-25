@@ -158,4 +158,3 @@ int main()
 	vec_flt_result = vec_float2 (vec_dble0, vec_dble1);
 	test_result_sp(ALL, vec_flt_result, vec_flt_expected);
 }
-

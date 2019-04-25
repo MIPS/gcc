@@ -7,7 +7,7 @@ typedef __builtin_va_list va_list;
 #define va_arg(ap, type)  __builtin_va_arg (ap, type)
 
 /* Testcase to check for ABI compliance of parameter passing
-   for the PowerPC64 ABI.  
+   for the PowerPC64 ABI.
    Parameter passing of integral and floating point is tested.  */
 
 extern void abort (void);
@@ -259,7 +259,7 @@ void __attribute__ ((noinline)) fciiedl_check (char *s, int i, int j, ...)
     abort ();
 }
 
-/* 
+/*
 Parameter     Register     Offset in parameter save area
 c             r3           0-7    (not stored in parameter save area)
 ff            f1           8-15   (not stored)
@@ -270,7 +270,7 @@ s             r8,r9        40-55  (not stored)
 gg            f3           56-63  (not stored)
 t             (none)       64-79  (stored in parameter save area)
 e             (none)       80-87  (stored)
-hh            f4           88-95  (stored)  
+hh            f4           88-95  (stored)
 
 */
 
@@ -288,7 +288,7 @@ typedef union
 } double_t;
 
 /* Example from ABI documentation with slight changes.
-   Paramter passing. 
+   Paramter passing.
    c  : gpr 3
    ff : fpr 1
    d  : gpr 5
@@ -296,9 +296,9 @@ typedef union
    f  : gpr 7
    s  : gpr 8 - 9
    gg : fpr 3
-   t  : save area offset 64 - 79 
+   t  : save area offset 64 - 79
    e  : save area offset 80 - 88
-   hh : fpr 4   
+   hh : fpr 4
 */
 
 void __attribute__ ((noinline))

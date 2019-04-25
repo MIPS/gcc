@@ -9,7 +9,7 @@ avx512bw_test () {
   volatile __mmask32 k1;
   __mmask32 k2;
 
-  volatile unsigned char r __attribute__((unused));	
+  volatile unsigned char r __attribute__((unused));
 
   r = _kortestc_mask32_u8(k1, k2);
   r = _kortestz_mask32_u8(k1, k2);

@@ -1112,7 +1112,7 @@ _cpp_valid_ucn (cpp_reader *pfile, const uchar **pstr,
 		 (int) (str - base), base);
       result = 1;
     }
-  else if (identifier_pos && result == 0x24 
+  else if (identifier_pos && result == 0x24
 	   && CPP_OPTION (pfile, dollars_in_ident))
     {
       if (CPP_OPTION (pfile, warn_dollars) && !pfile->state.skipping)
@@ -1966,7 +1966,7 @@ _cpp_interpret_identifier (cpp_reader *pfile, const uchar *id, size_t len)
   uchar * buf = (uchar *) alloca (len + 1);
   uchar * bufp = buf;
   size_t idp;
-  
+
   for (idp = 0; idp < len; idp++)
     if (id[idp] != '\\')
       *bufp++ = id[idp];
@@ -2004,7 +2004,7 @@ _cpp_interpret_identifier (cpp_reader *pfile, const uchar *id, size_t len)
 	  }
       }
 
-  return CPP_HASHNODE (ht_lookup (pfile->hash_table, 
+  return CPP_HASHNODE (ht_lookup (pfile->hash_table,
 				  buf, bufp - buf, HT_ALLOC));
 }
 
@@ -2022,7 +2022,7 @@ _cpp_interpret_identifier (cpp_reader *pfile, const uchar *id, size_t len)
    function will either set *BUFFER_START to INPUT, or free it and set
    *BUFFER_START to a pointer to another xmalloc-allocated block of
    memory.  */
-uchar * 
+uchar *
 _cpp_convert_input (cpp_reader *pfile, const char *input_charset,
 		    uchar *input, size_t size, size_t len,
 		    const unsigned char **buffer_start, off_t *st_size)

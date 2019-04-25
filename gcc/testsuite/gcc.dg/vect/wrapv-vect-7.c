@@ -12,7 +12,7 @@ short sb[N];
 int main1 ()
 {
   int i;
-  
+
   for (i = 0; i < N; i++)
     {
       sb[i] = 5;
@@ -24,7 +24,7 @@ int main1 ()
       if (sb[i] != 5)
         abort ();
     }
-  
+
   for (i = 0; i < N; i++)
     {
       sa[i] = sb[i] + (short)100;
@@ -36,14 +36,14 @@ int main1 ()
       if (sa[i] != 105)
         abort ();
     }
-  
+
   return 0;
 }
 
 int main (void)
-{ 
+{
   check_vect ();
-  
+
   return main1 ();
 }
 

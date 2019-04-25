@@ -3,6 +3,6 @@ int find_reloads (int i, char *p)
 {
   int c;
   while ((c = *p++))
-    return strtoul (p - 1, &p, 10); 
+    return strtoul (p - 1, &p, 10);
   return 0;
 }

@@ -14,4 +14,3 @@ int main() {
     abort ();
   exit (0);
 }
-

@@ -50,5 +50,3 @@ unpack_1 (LDOUBLE x)
 /* { dg-final { scan-assembler-not "stxsdx" } } */
 /* { dg-final { scan-assembler-not "mfvsrd" } } */
 /* { dg-final { scan-assembler-not "mtvsrd" } } */
-
-

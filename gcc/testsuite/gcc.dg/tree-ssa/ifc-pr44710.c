@@ -7,7 +7,7 @@
 #define N 64
 float arr[N];
 
-__attribute__ ((noinline)) 
+__attribute__ ((noinline))
 int foo (unsigned int n, float *min)
 {
   unsigned int pos = 1;
@@ -41,4 +41,3 @@ int main (void)
 
   return 0;
 }
-

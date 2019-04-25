@@ -1,4 +1,4 @@
-/* 
+/*
    { dg-options "-ftrack-macro-expansion=1" }
    { dg-do compile }
 */
@@ -17,4 +17,3 @@ foo ()
 {
   MULT (1.0);	   /* { dg-message "in expansion of macro 'MULT'" } */
 }
-

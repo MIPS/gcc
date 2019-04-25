@@ -18,7 +18,7 @@ struct test1{
 };
 
 int main1 ()
-{  
+{
   int i,j;
   struct test1 tmp1;
 
@@ -66,7 +66,7 @@ int main1 ()
     {
       tmp1.e.n[1][2][i] = 8;
     }
- 
+
   /* check results:  */
   for (i = 3; i <N-3; i++)
     {
@@ -78,10 +78,10 @@ int main1 ()
 }
 
 int main (void)
-{ 
+{
   check_vect ();
-  
+
   return main1 ();
-} 
+}
 
 /* { dg-final { scan-tree-dump-times "vectorized 4 loops" 1 "vect" } } */

@@ -15,4 +15,3 @@ void my_waitpid (int flags, int wnohang)
       flags ^= 0x80000000;
     }
 }
-

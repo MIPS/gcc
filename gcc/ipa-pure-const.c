@@ -274,7 +274,7 @@ warn_function_noreturn (tree decl)
   static hash_set<tree> *warned_about;
   if (!lang_hooks.missing_noreturn_ok_p (decl)
       && targetm.warn_func_return (decl))
-    warned_about 
+    warned_about
       = suggest_attribute (OPT_Wsuggest_attribute_noreturn, original_decl,
 			   true, warned_about, "noreturn");
 }
@@ -285,7 +285,7 @@ warn_function_cold (tree decl)
   tree original_decl = decl;
 
   static hash_set<tree> *warned_about;
-  warned_about 
+  warned_about
     = suggest_attribute (OPT_Wsuggest_attribute_cold, original_decl,
 			 true, warned_about, "cold");
 }
@@ -2322,7 +2322,7 @@ pass_nothrow::execute (function *)
 						  callee_t))
 		  continue;
 	      }
-	
+
 	    if (dump_file)
 	      {
 		fprintf (dump_file, "Statement can throw: ");

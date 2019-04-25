@@ -7,6 +7,6 @@ void process_char(char c) {
       case 0:
       	if( c == '>' ) in_what = 0;
       	break;
-    
+
     }
 }

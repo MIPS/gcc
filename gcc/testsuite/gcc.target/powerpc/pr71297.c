@@ -7,4 +7,3 @@ int main ()
   __builtin_vec_st (); /* { dg-error "too few arguments to function" } */
 
 }
-

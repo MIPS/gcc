@@ -3,7 +3,7 @@
 /* { dg-require-visibility "" } */
 /* { dg-final { scan-hidden "xyzzy" } } */
 
-extern int 
+extern int
 __attribute__((visibility ("hidden")))
 xyzzy;
 

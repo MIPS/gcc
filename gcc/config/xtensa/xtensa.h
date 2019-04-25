@@ -292,7 +292,7 @@ extern int leaf_function;
 
 /* Coprocessor registers */
 #define BR_REG_FIRST 18
-#define BR_REG_LAST  18 
+#define BR_REG_LAST  18
 #define BR_REG_NUM   (BR_REG_LAST - BR_REG_FIRST + 1)
 
 /* 16 floating-point registers */

@@ -56,7 +56,7 @@ void compare_structures (Class class, const char* type)
         }
       i++;
     }
-  
+
   printf ("%d ivars checked\n", i);
 }
 #else
@@ -107,7 +107,7 @@ void compare_structures (Class class, const char* type)
         }
       i++;
     }
-  
+
   printf ("%d ivars checked\n", i);
 }
 #endif
@@ -130,7 +130,7 @@ int main ()
       printf ("sizes don't match (computed %d, exact %d)\n", size1, size2);
       abort ();
     }
-  
+
   return 0;
 }
 #include "../../objc-obj-c++-shared/objc-test-suite-next-encode-assist-impl.h"

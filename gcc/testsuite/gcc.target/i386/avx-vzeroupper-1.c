@@ -25,7 +25,7 @@ avx_test (void)
 
   src = _mm256_loadu_si256 ((__m256i*) s);
 
-  _mm256_zeroupper (); 
+  _mm256_zeroupper ();
 
   __asm__ __volatile__ ("vmovdqu %%ymm0,%0":"=m"(reg_save[0]));
   __asm__ __volatile__ ("vmovdqu %%ymm1,%0":"=m"(reg_save[1]));

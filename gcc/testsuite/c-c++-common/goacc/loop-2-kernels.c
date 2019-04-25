@@ -27,10 +27,10 @@ void K(void)
 #pragma acc loop gang
     for (i = 0; i < 10; i++)
       {
-#pragma acc loop vector 
+#pragma acc loop vector
 	for (j = 0; j < 10; j++)
 	  { }
-#pragma acc loop worker 
+#pragma acc loop worker
 	for (j = 0; j < 10; j++)
 	  { }
 #pragma acc loop gang // { dg-error "inner loop uses same" }
@@ -53,7 +53,7 @@ void K(void)
 #pragma acc loop worker
     for (i = 0; i < 10; i++)
       {
-#pragma acc loop vector 
+#pragma acc loop vector
 	for (j = 0; j < 10; j++)
 	  { }
 #pragma acc loop worker // { dg-error "inner loop uses same" }

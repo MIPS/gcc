@@ -803,7 +803,7 @@ int main (void)
   /* vtst_p64 tests.  */
 #undef TEST_MSG
 #define TEST_MSG "VTST"
-  
+
 #define TEST_VTST1(INSN, Q, T1, T2, W, N)			\
   VECT_VAR(vtst_vector_res, uint, W, N) =			\
     INSN##Q##_##T2##W(VECT_VAR(vtst_vector, T1, W, N),		\

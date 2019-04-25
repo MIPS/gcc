@@ -17,7 +17,7 @@ public:
   Vec (int n) : isize (n) {data = (T*)my_alloc (isize*sizeof (T));}
   ~Vec () {my_free(data);}
 
-  Vec& operator = (const Vec& other)	
+  Vec& operator = (const Vec& other)
     {
       if (this != &other)
 	__builtin_memcpy (data, other.data, isize*sizeof (T));
@@ -33,7 +33,7 @@ public:
   int size () const {return isize;}
 };
 
-template <typename T>                                  
+template <typename T>
 class Cl
 {
 public:
@@ -54,7 +54,7 @@ struct Ss
     Ss (int n1, int n2): S_n(n1), S_m(n2), v1(n1, n2)
       {
 	C1 = new float[n1 * 3];
-	C2 = new float[n2 * 4]; 
+	C2 = new float[n2 * 4];
       }
 
     ~Ss () { delete C1; delete C2;}
@@ -75,5 +75,5 @@ void Ss::foo (int n)
 	}
     }
 }
- 
+
 // { dg-final { scan-tree-dump "LOOP VECTORIZED" "vect" { xfail *-*-* } } }

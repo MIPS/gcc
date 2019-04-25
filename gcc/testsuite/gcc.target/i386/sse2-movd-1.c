@@ -18,7 +18,7 @@ static __m128i
 __attribute__((noinline, unused))
 test (int b)
 {
-  return _mm_cvtsi32_si128 (b); 
+  return _mm_cvtsi32_si128 (b);
 }
 
 static void

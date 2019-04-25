@@ -32,4 +32,3 @@ to_ptr32_ptr32 (char **ptr64)
   return short_argv;
 
 }
-

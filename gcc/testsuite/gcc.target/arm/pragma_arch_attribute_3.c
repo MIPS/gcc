@@ -25,4 +25,3 @@ uint32_t restored ()
 
 /* { dg-final { scan-assembler-times {\.arch\s+armv8-a} 3 } } */
 /* { dg-final { scan-assembler-times {\.arch_extension\s+crc} 1 } } */
-

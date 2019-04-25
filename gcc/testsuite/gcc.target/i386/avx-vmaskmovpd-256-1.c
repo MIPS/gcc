@@ -23,9 +23,9 @@ avx_test (void)
   mask.x = _mm256_loadu_si256 ((__m256i *)m);
   u.x = _mm256_maskload_pd (s, mask.x);
 
-  for (i = 0 ; i < 4; i++) 
+  for (i = 0 ; i < 4; i++)
     e[i] = m[i] ? s[i] : 0;
-   
+
   if (check_union256d (u, e))
     abort ();
 }

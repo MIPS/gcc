@@ -28,4 +28,3 @@ main (void)
   f (&ss, ss);
   return 0;
 }
-

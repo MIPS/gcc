@@ -16,4 +16,3 @@ main(void)
 }
 
 /* { dg-final { scan-tree-dump-times "Removing basic block" 2 "fre1" } } */
-

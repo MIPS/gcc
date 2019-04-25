@@ -44,13 +44,13 @@ void simplify_plus_minus (enum rtx_code code, int mode, rtx op0, rtx op1)
 	      n_ops++;
 	      input_ops++;
 	      changed = 1;
-	      canonicalized |= this_neg; 
+	      canonicalized |= this_neg;
 	      break;
 	    }
 	}
     }
   while (changed);
-  do 
+  do
     {
       j =  n_ops - 1;
       for (i = n_ops - 1; j >= 0; j--)
@@ -62,7 +62,7 @@ void simplify_plus_minus (enum rtx_code code, int mode, rtx op0, rtx op1)
 	      enum rtx_code ncode = MINUS;
 	      if (((enum rtx_code) (lhs)->code) == MINUS)
 		tem = simplify_binary_operation (ncode, mode, lhs, rhs);
-	      if (tem && ! (((enum rtx_code) (tem)->code) == MINUS 
+	      if (tem && ! (((enum rtx_code) (tem)->code) == MINUS
 			    && ((((((tem)->u.fld[0]).rt_rtx))->u.fld[0]).rt_rtx) == lhs
 			    && ((((((tem)->u.fld[0]).rt_rtx))->u.fld[1]).rt_rtx) == rhs))
 		{

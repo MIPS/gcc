@@ -36,4 +36,3 @@ int main()
 }
 
 /* { dg-final { scan-tree-dump-times "vectorization not profitable" 1 "vect" { xfail { vect_hw_misalign } } } } */
-

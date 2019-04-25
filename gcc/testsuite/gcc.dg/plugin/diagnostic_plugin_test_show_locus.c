@@ -366,7 +366,7 @@ test_show_locus (function *fun)
 	richloc.fixits_cannot_be_auto_applied ();
 	warning_at (&richloc, 0, "warning 2");
       }
-    }  
+    }
 
   /* Tests of gcc_rich_location::add_fixit_insert_formatted.  */
 

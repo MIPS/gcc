@@ -62,4 +62,3 @@ int fail ( const RMColorData * pInColor,
 
   return (0);
 }
-

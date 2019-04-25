@@ -43,7 +43,7 @@ int main (void)
     b[i] = i;
     c[i] = 2*i;
   }
- 
+
   res = foo ();
 
   /* check results:  */

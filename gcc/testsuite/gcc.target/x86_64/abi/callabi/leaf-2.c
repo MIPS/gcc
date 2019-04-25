@@ -22,4 +22,3 @@ int foo (void)
 }
 
 /* { dg-final { scan-assembler-not "%rsp" } } */
-

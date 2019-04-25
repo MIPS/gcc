@@ -31,4 +31,3 @@ test (unsigned short *b)
 	  ? 0 : ((int) g[c]) < 65535 ? (int) g[c] : 65535;
     }
 }
-

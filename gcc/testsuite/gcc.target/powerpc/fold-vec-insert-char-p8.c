@@ -55,4 +55,3 @@ vector unsigned char testuu_cst (unsigned char x, vector unsigned char v)
 /* { dg-final { scan-assembler-times {\mlvebx\M} 4 } } */
 /* one vperm per _cst test.*/
 /* { dg-final { scan-assembler-times {\mvperm\M} 4 } } */
-

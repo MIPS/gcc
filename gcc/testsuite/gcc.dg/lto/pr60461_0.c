@@ -6,7 +6,7 @@ struct S
 {
   int f1;
   int f2;
-} a[1] = { {0, 0} }; 
+} a[1] = { {0, 0} };
 
 int b, c;
 

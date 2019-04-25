@@ -8,16 +8,16 @@
 
 int A[N] = {36,39,42,45,43,32,21,12,23,34,45,56,67,78,89,11};
 
-extern void abort(void); 
+extern void abort(void);
 
 int main1 ()
-{  
+{
   int i, j;
 
   for (i = 0; i < N; i++)
     {
       j = A[i];
-      A[i] = ( j >= MAX ? MAX : 0); 
+      A[i] = ( j >= MAX ? MAX : 0);
     }
 
   /* check results:  */

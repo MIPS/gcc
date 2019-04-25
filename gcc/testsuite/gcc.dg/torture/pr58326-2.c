@@ -14,7 +14,7 @@ lbl:
 	{
 	  d = e;
 	  if (b)
-	    goto lbl; 
+	    goto lbl;
 	}
     }
 }

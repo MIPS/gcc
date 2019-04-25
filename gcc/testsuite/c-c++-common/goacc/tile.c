@@ -26,7 +26,7 @@ main ()
 
 #pragma acc parallel loop tile // { dg-error "expected '\\\('" }
   for (i = 0; i < 100; i++)
-    ;  
+    ;
 
 #pragma acc parallel loop tile () // { dg-error "" }
   for (i = 0; i < 100; i++)
@@ -95,13 +95,13 @@ void par (void)
 #pragma acc loop tile() // { dg-error "expected" }
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop tile(1) 
+#pragma acc loop tile(1)
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop tile(*) 
+#pragma acc loop tile(*)
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop tile(2) 
+#pragma acc loop tile(2)
     for (i = 0; i < 10; i++)
       {
 	for (j = 1; j < 10; j++)
@@ -118,29 +118,29 @@ void par (void)
       {
 	for (j = 4; j < 6; j++)
 	  for (k = 0; k< 100; k++);
-      } 
+      }
 #pragma acc loop tile(2, 2)
     for (i = 1; i < 5; i+=2)
       {
 	for (j = i + 1; j < 7; j+=i) // { dg-error "initializer expression" }
 	  { }
       }
-#pragma acc loop vector tile(*) 
+#pragma acc loop vector tile(*)
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop worker tile(*) 
+#pragma acc loop worker tile(*)
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop gang tile(*) 
+#pragma acc loop gang tile(*)
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop vector gang tile(*) 
+#pragma acc loop vector gang tile(*)
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop vector worker tile(*) 
+#pragma acc loop vector worker tile(*)
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop gang worker tile(*) 
+#pragma acc loop gang worker tile(*)
     for (i = 0; i < 10; i++)
       { }
   }
@@ -149,20 +149,20 @@ void p3 (void)
 {
   int i, j;
 
-  
+
 #pragma acc parallel loop tile // { dg-error "expected" }
   for (i = 0; i < 10; i++)
     { }
 #pragma acc parallel loop tile() // { dg-error "expected" }
   for (i = 0; i < 10; i++)
     { }
-#pragma acc parallel loop tile(1) 
+#pragma acc parallel loop tile(1)
   for (i = 0; i < 10; i++)
     { }
-#pragma acc parallel loop tile(*) 
+#pragma acc parallel loop tile(*)
   for (i = 0; i < 10; i++)
     { }
-#pragma acc parallel loop tile(*, 1) 
+#pragma acc parallel loop tile(*, 1)
   for (i = 0; i < 10; i++)
     {
       for (j = 1; j < 10; j++)
@@ -183,22 +183,22 @@ void p3 (void)
   for (i = 1; i < 5; i+=2)
     for (j = i + 1; j < 7; j++) // { dg-error "initializer expression" }
       { }
-#pragma acc parallel loop vector tile(*) 
+#pragma acc parallel loop vector tile(*)
   for (i = 0; i < 10; i++)
     { }
-#pragma acc parallel loop worker tile(*) 
+#pragma acc parallel loop worker tile(*)
   for (i = 0; i < 10; i++)
     { }
-#pragma acc parallel loop gang tile(*) 
+#pragma acc parallel loop gang tile(*)
   for (i = 0; i < 10; i++)
     { }
-#pragma acc parallel loop vector gang tile(*) 
+#pragma acc parallel loop vector gang tile(*)
   for (i = 0; i < 10; i++)
     { }
-#pragma acc parallel loop vector worker tile(*) 
+#pragma acc parallel loop vector worker tile(*)
   for (i = 0; i < 10; i++)
     { }
-#pragma acc parallel loop gang worker tile(*) 
+#pragma acc parallel loop gang worker tile(*)
   for (i = 0; i < 10; i++)
     { }
 
@@ -224,16 +224,16 @@ kern (void)
 #pragma acc loop tile(2)
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop tile(6-2) 
+#pragma acc loop tile(6-2)
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop tile(6+2) 
+#pragma acc loop tile(6+2)
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop tile(*) 
+#pragma acc loop tile(*)
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop tile(*, 1) 
+#pragma acc loop tile(*, 1)
     for (i = 0; i < 10; i++)
       {
 	for (j = 0; j < 10; i++) /* { dg-error "increment expression" } */
@@ -254,22 +254,22 @@ kern (void)
     for (i = 1; i < 5; i+=2)
       for (j = i+1; j < 7; j++) /* { dg-error "initializer expression" } */
 	{ }
-#pragma acc loop vector tile(*) 
+#pragma acc loop vector tile(*)
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop worker tile(*) 
+#pragma acc loop worker tile(*)
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop gang tile(*) 
+#pragma acc loop gang tile(*)
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop vector gang tile(*) 
+#pragma acc loop vector gang tile(*)
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop vector worker tile(*) 
+#pragma acc loop vector worker tile(*)
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop gang worker tile(*) 
+#pragma acc loop gang worker tile(*)
     for (i = 0; i < 10; i++)
       { }
    }
@@ -286,13 +286,13 @@ void k3 (void)
 #pragma acc kernels loop tile() // { dg-error "expected" }
   for (i = 0; i < 10; i++)
     { }
-#pragma acc kernels loop tile(1) 
+#pragma acc kernels loop tile(1)
   for (i = 0; i < 10; i++)
     { }
-#pragma acc kernels loop tile(*) 
+#pragma acc kernels loop tile(*)
   for (i = 0; i < 10; i++)
     { }
-#pragma acc kernels loop tile(*, 1) 
+#pragma acc kernels loop tile(*, 1)
   for (i = 0; i < 10; i++)
     {
       for (j = 1; j < 10; j++)
@@ -315,22 +315,22 @@ void k3 (void)
       for (j = i + 1; j < 7; j += i) /* { dg-error "initializer expression" } */
 	{ }
     }
-#pragma acc kernels loop vector tile(*) 
+#pragma acc kernels loop vector tile(*)
   for (i = 0; i < 10; i++)
     { }
-#pragma acc kernels loop worker tile(*) 
+#pragma acc kernels loop worker tile(*)
   for (i = 0; i < 10; i++)
     { }
-#pragma acc kernels loop gang tile(*) 
+#pragma acc kernels loop gang tile(*)
   for (i = 0; i < 10; i++)
     { }
-#pragma acc kernels loop vector gang tile(*) 
+#pragma acc kernels loop vector gang tile(*)
   for (i = 0; i < 10; i++)
     { }
-#pragma acc kernels loop vector worker tile(*) 
+#pragma acc kernels loop vector worker tile(*)
   for (i = 0; i < 10; i++)
     { }
-#pragma acc kernels loop gang worker tile(*) 
+#pragma acc kernels loop gang worker tile(*)
   for (i = 0; i < 10; i++)
     { }
 }

@@ -8,4 +8,3 @@
 #if FOO != 1
 #error FOR != 1
 #endif
-

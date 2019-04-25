@@ -15,4 +15,3 @@ int main()
     global_mask = mask;
     return 0;
 }
-

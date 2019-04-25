@@ -7,7 +7,7 @@
 /* { dg-options "-O2 -mno-relax-pic-calls" { target mips*-*-* } } */
 /* For epiphany, use -mshort-calls to avoid loading the address in two
    steps using lowpart and highpart.  */
-/* { dg-options "-O2 -mshort-calls" { target epiphany-*-* } } */ 
+/* { dg-options "-O2 -mshort-calls" { target epiphany-*-* } } */
 
 extern void *memset (void *, int, __SIZE_TYPE__);
 extern __SIZE_TYPE__ strlen (const char *);

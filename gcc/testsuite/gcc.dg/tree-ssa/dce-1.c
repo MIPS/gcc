@@ -15,4 +15,3 @@ int foo (int b, int j)
    the exit condition after the loop.  */
 /* { dg-final { scan-tree-dump-not "999" "cddce1"} } */
 /* { dg-final { scan-tree-dump-not "1000" "cddce1"} } */
-

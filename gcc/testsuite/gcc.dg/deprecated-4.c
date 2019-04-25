@@ -11,10 +11,10 @@ typedef INT1 INT1b __attribute__ ((deprecated("Please avoid INT1b")));
 INT1 should_be_unavailable; 		/* { dg-warning "'INT1' is deprecated: Please avoid INT1" } */
 INT1a should_not_be_deprecated;
 
-INT1 f1(void) __attribute__ ((deprecated("Please avoid f1"))); 
+INT1 f1(void) __attribute__ ((deprecated("Please avoid f1")));
 INT1 f2(void) { return 0; }		/* { dg-warning "'INT1' is deprecated: Please avoid INT1" } */
 
-INT2 f3(void) __attribute__ ((__deprecated__("Please avoid f3"))); 
+INT2 f3(void) __attribute__ ((__deprecated__("Please avoid f3")));
 INT2 f4(void) { return 0; }		/* { dg-warning "'INT2' is deprecated: Please avoid INT2" } */
 int f5(INT2 x);				/* { dg-warning "'INT2' is deprecated: Please avoid INT2" } */
 int f6(INT2 x) __attribute__ ((__deprecated__("Please avoid f6"))); /* { dg-warning "'INT2' is deprecated: Please avoid INT2" } */
@@ -61,12 +61,12 @@ int func1()
 int func2(S1 *p)
 {
   S1 lp;
-  
+
   if (p->field1)
      return p->field2;			/* { dg-warning "'field2' is deprecated: Please avoid field2" } */
   else if (lp.field4)			/* { dg-warning "'field4' is deprecated: Please avoid field4" } */
      return p->field3;
-  
+
   p->u1.field5 = g1 + p->field7;
   p->u2.field9;				/* { dg-warning "'u2' is deprecated: Please avoid u2" } */
   return p->u1.field6 + p->field8;	/* { dg-warning "'field6' is deprecated: Please avoid field6" } */

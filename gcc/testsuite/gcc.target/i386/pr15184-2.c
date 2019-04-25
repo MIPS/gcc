@@ -19,4 +19,3 @@ void regparm g1(unsigned char c)
 /* Each function should compile down to a byte move from
    the input register into y, possibly at an offset within y.  */
 /* { dg-final { scan-assembler-times "movb\[ \\t\]+%al" 2 } } */
-

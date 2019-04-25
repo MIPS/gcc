@@ -2,7 +2,7 @@
 
    This file is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 3 of the License, or (at your option) 
+   Software Foundation; either version 3 of the License, or (at your option)
    any later version.
 
    This file is distributed in the hope that it will be useful, but WITHOUT
@@ -39,7 +39,7 @@ extern rtx spu_return_addr (int count, rtx frame);
 #ifdef RTX_CODE
 extern rtx hwint_to_const_double (machine_mode mode, HOST_WIDE_INT v);
 extern rtx spu_const (machine_mode mode, HOST_WIDE_INT val);
-extern rtx spu_const_from_ints (machine_mode mode, 
+extern rtx spu_const_from_ints (machine_mode mode,
 			        int a, int b, int c, int d);
 extern rtx spu_float_const (const char *string,
 			    machine_mode mode);
@@ -92,4 +92,3 @@ extern rtx spu_expand_builtin (tree exp, rtx target, rtx subtarget,
 extern rtx spu_expand_builtin (tree, rtx, rtx, machine_mode, int);
 
 #endif /* _SPU_PROTOS_  */
-

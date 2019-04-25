@@ -24,4 +24,3 @@ foo (float *array, int end)
     end = 0;
   return end;
 }
-

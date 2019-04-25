@@ -7,10 +7,9 @@ typedef struct
   int vs_refresh_delay;
   int vs_doublesize;
 } Vis;
- 
+
 void vis_timeout_func(Vis * vis)
 {
   if (vis->vs_peak[0] < 0.0)
     vis->vs_peak[0] = 0.0;
-} 
-
+}

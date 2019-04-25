@@ -38,9 +38,9 @@ void main1 (signed char x, signed char max_result, signed char min_result)
 }
 
 int main (void)
-{ 
+{
   check_vect ();
-  
+
   main1 (100, 100, 1);
   main1 (0, 15, 0);
   return 0;

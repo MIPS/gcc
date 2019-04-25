@@ -1013,5 +1013,3 @@ make_pass_tree_unswitch (gcc::context *ctxt)
 {
   return new pass_tree_unswitch (ctxt);
 }
-
-

@@ -25,7 +25,7 @@ int main() {
 
   vuca = (vector unsigned char) {'0', '3', '6', '9', 'A', 'B', 'E', 'F',
 				 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N'};
-											
+
   vucexpt = (vector unsigned char) {4, 0, 1, 0, 0, 1, 0, 1,
 				    0, 3, 0, 1, 0, 2, 0, 1};
 
@@ -90,5 +90,5 @@ int main() {
 
     if (vullr[i] != vullexpt[i])
       abort();
-  }	
+  }
 }

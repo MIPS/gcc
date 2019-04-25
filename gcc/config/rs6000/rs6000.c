@@ -4481,10 +4481,10 @@ rs6000_option_override_internal (bool global_init_p)
 	}
     }
 
-  /* Set the Darwin64 ABI as default for 64-bit Darwin.  
+  /* Set the Darwin64 ABI as default for 64-bit Darwin.
      So far, the only darwin64 targets are also MACH-O.  */
   if (TARGET_MACHO
-      && DEFAULT_ABI == ABI_DARWIN 
+      && DEFAULT_ABI == ABI_DARWIN
       && TARGET_64BIT)
     {
       if (main_target_opt != NULL && !main_target_opt->x_rs6000_darwin64_abi)
@@ -5054,7 +5054,7 @@ rs6000_vector_alignment_reachable (const_tree type ATTRIBUTE_UNUSED, bool is_pac
 }
 
 /* Return true if the vector misalignment factor is supported by the
-   target.  */ 
+   target.  */
 static bool
 rs6000_builtin_support_vector_misalignment (machine_mode mode,
 					    const_tree type,
@@ -7344,7 +7344,7 @@ rs6000_split_vec_extract_var (rtx dest, rtx src, rtx element, rtx tmp_gpr,
 /* Return alignment of TYPE.  Existing alignment is ALIGN.  HOW
    selects whether the alignment is abi mandated, optional, or
    both abi and optional alignment.  */
-   
+
 unsigned int
 rs6000_data_alignment (tree type, unsigned int align, enum data_align how)
 {
@@ -7812,7 +7812,7 @@ virtual_stack_registers_memory_p (rtx op)
    to determine whether -mcmodel=medium code can use TOC pointer
    relative addressing for OP.  This means the alignment of the TOC
    pointer must also be taken into account, and unfortunately that is
-   only 8 bytes.  */ 
+   only 8 bytes.  */
 
 #ifndef POWERPC64_TOC_POINTER_ALIGNMENT
 #define POWERPC64_TOC_POINTER_ALIGNMENT 8
@@ -7919,8 +7919,8 @@ static const_rtx tocrel_base_oac, tocrel_offset_oac;
 
 /* Return true if OP is a toc pointer relative address (the output
    of create_TOC_reference).  If STRICT, do not match non-split
-   -mcmodel=large/medium toc pointer relative addresses.  If the pointers 
-   are non-NULL, place base and offset pieces in TOCREL_BASE_RET and 
+   -mcmodel=large/medium toc pointer relative addresses.  If the pointers
+   are non-NULL, place base and offset pieces in TOCREL_BASE_RET and
    TOCREL_OFFSET_RET respectively.  */
 
 bool
@@ -8603,7 +8603,7 @@ rs6000_legitimize_tls_address_aix (rtx addr, enum tls_model model)
       tocref = create_TOC_reference (modaddr, NULL_RTX);
       rtx modmem = gen_const_mem (Pmode, tocref);
       set_mem_alias_set (modmem, get_TOC_alias_set ());
-      
+
       rtx modreg = gen_reg_rtx (Pmode);
       emit_insn (gen_rtx_SET (modreg, modmem));
 
@@ -9455,13 +9455,13 @@ rs6000_offsettable_memref_p (rtx op, machine_mode reg_mode, bool strict)
    This takes into account how many parallel operations we
    can actually do of a given type, and also the latency.
    P8:
-     int add/sub 6/cycle     
+     int add/sub 6/cycle
          mul 2/cycle
      vect add/sub/mul 2/cycle
      fp   add/sub/mul 2/cycle
      dfp  1/cycle
 */
- 
+
 static int
 rs6000_reassociation_width (unsigned int opc ATTRIBUTE_UNUSED,
                             machine_mode mode)
@@ -9474,7 +9474,7 @@ rs6000_reassociation_width (unsigned int opc ATTRIBUTE_UNUSED,
 	return 1;
       if (VECTOR_MODE_P (mode))
 	return 4;
-      if (INTEGRAL_MODE_P (mode)) 
+      if (INTEGRAL_MODE_P (mode))
 	return 1;
       if (FLOAT_MODE_P (mode))
 	return 4;
@@ -10620,15 +10620,15 @@ rs6000_discover_homogeneous_aggregate (machine_mode mode, const_tree type,
 
    The AIX ABI for the RS/6000 specifies that all structures are
    returned in memory.  The Darwin ABI does the same.
-   
+
    For the Darwin 64 Bit ABI, a function result can be returned in
    registers or in memory, depending on the size of the return data
    type.  If it is returned in registers, the value occupies the same
    registers as it would if it were the first and only function
    argument.  Otherwise, the function places its result in memory at
    the location pointed to by GPR3.
-   
-   The SVR4 ABI specifies that structures <= 8 bytes are returned in r3/r4, 
+
+   The SVR4 ABI specifies that structures <= 8 bytes are returned in r3/r4,
    but a draft put them in memory, and GCC used to implement the draft
    instead of the final standard.  Therefore, aix_struct_return
    controls this instead of DEFAULT_ABI; V.4 targets needing backward
@@ -11281,10 +11281,10 @@ static int
 rs6000_darwin64_struct_check_p (machine_mode mode, const_tree type)
 {
   return rs6000_darwin64_abi
-	 && ((mode == BLKmode 
-	      && TREE_CODE (type) == RECORD_TYPE 
+	 && ((mode == BLKmode
+	      && TREE_CODE (type) == RECORD_TYPE
 	      && int_size_in_bytes (type) > 0)
-	  || (type && TREE_CODE (type) == RECORD_TYPE 
+	  || (type && TREE_CODE (type) == RECORD_TYPE
 	      && int_size_in_bytes (type) == 8)) ? 1 : 0;
 }
 
@@ -11414,7 +11414,7 @@ rs6000_function_arg_advance_1 (CUMULATIVE_ARGS *cum, machine_mode mode,
 	    {
 	      fprintf (stderr, "function_adv: words = %2d, align=%d, size=%d",
 		       cum->words, TYPE_ALIGN (type), size);
-	      fprintf (stderr, 
+	      fprintf (stderr,
 	           "nargs = %4d, proto = %d, mode = %4s (darwin64 abi)\n",
 		       cum->nargs_prototype, cum->prototype,
 		       GET_MODE_NAME (mode));
@@ -12808,9 +12808,9 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   /* We need to deal with the fact that the darwin ppc64 ABI is defined by an
      earlier version of gcc, with the property that it always applied alignment
      adjustments to the va-args (even for zero-sized types).  The cheapest way
-     to deal with this is to replicate the effect of the part of 
-     std_gimplify_va_arg_expr that carries out the align adjust, for the case 
-     of relevance.  
+     to deal with this is to replicate the effect of the part of
+     std_gimplify_va_arg_expr that carries out the align adjust, for the case
+     of relevance.
      We don't need to check for pass-by-reference because of the test above.
      We can return a simplifed answer, since we know there's no offset to add.  */
 
@@ -14413,7 +14413,7 @@ cpu_expand_builtin (enum rs6000_builtins fcode, tree exp ATTRIBUTE_UNUSED,
 #else
   warning (0, "builtin %qs needs GLIBC (2.23 and newer) that exports hardware "
 	   "capability bits", rs6000_builtin_info[(size_t) fcode].name);
-  
+
   /* For old LIBCs, always return FALSE.  */
   emit_move_insn (target, GEN_INT (0));
 #endif /* TARGET_LIBC_PROVIDES_HWCAP_IN_TCB */
@@ -16418,7 +16418,7 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	       (name2) ? name2 : "---", (int) icode,
 	       name3,
 	       func_valid_p ? "" : ", not valid");
-    }	     
+    }
 
   if (!func_valid_p)
     {
@@ -16581,7 +16581,7 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
       if (success)
 	return ret;
-    }  
+    }
 
   unsigned attr = rs6000_builtin_info[uns_fcode].attr & RS6000_BTC_TYPE_MASK;
   /* RS6000_BTC_SPECIAL represents no-operand operators.  */
@@ -16589,7 +16589,7 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	      || attr == RS6000_BTC_BINARY
 	      || attr == RS6000_BTC_TERNARY
 	      || attr == RS6000_BTC_SPECIAL);
-  
+
   /* Handle simple unary operations.  */
   d = bdesc_1arg;
   for (i = 0; i < ARRAY_SIZE (bdesc_1arg); i++, d++)
@@ -21256,7 +21256,7 @@ print_operand (FILE *file, rtx x, int code)
 			 ? reg - 32
 			 : reg - FIRST_ALTIVEC_REGNO + 32);
 
-#ifdef TARGET_REGNAMES      
+#ifdef TARGET_REGNAMES
 	  if (TARGET_REGNAMES)
 	    fprintf (file, "%%vs%d", vsx_reg);
 	  else
@@ -25329,7 +25329,7 @@ rs6000_emit_eh_reg_restore (rtx source, rtx scratch)
   /* Freeze lr_save_p.  We've just emitted rtl that depends on the
      state of lr_save_p so any change from here on would be a bug.  In
      particular, stop rs6000_ra_ever_killed from considering the SET
-     of lr we may have added just above.  */ 
+     of lr we may have added just above.  */
   cfun->machine->lr_save_state = info->lr_save_p + 1;
 }
 
@@ -25460,7 +25460,7 @@ rs6000_emit_stack_tie (rtx fp, bool hard_frame_needed)
 /* Allocate SIZE_INT bytes on the stack using a store with update style insn
    and set the appropriate attributes for the generated insn.  Return the
    first insn which adjusts the stack pointer or the last insn before
-   the stack adjustment loop. 
+   the stack adjustment loop.
 
    SIZE_INT is used to create the CFI note for the allocation.
 
@@ -25485,7 +25485,7 @@ rs6000_emit_allocate_stack_1 (HOST_WIDE_INT size_int, rtx orig_sp)
       try_split (PATTERN (insn), insn, 0);
       size_rtx = tmp_reg;
     }
-  
+
   if (Pmode == SImode)
     insn = emit_insn (gen_movsi_update_stack (stack_pointer_rtx,
 					      stack_pointer_rtx,
@@ -26987,7 +26987,7 @@ rs6000_emit_prologue (void)
                            && (lookup_attribute ("no_split_stack",
                                                  DECL_ATTRIBUTES (cfun->decl))
                                == NULL));
- 
+
   /* Offset to top of frame for frame_reg and sp respectively.  */
   HOST_WIDE_INT frame_off = 0;
   HOST_WIDE_INT sp_off = 0;
@@ -28582,7 +28582,7 @@ rs6000_emit_epilogue (int sibcall)
 
 	      if (newptr_regno != 1 && REGNO (frame_reg_rtx) != newptr_regno)
 		frame_reg_rtx = gen_rtx_REG (Pmode, newptr_regno);
-		
+
 	      if (end_save + ptr_off != 0)
 		{
 		  rtx offset = GEN_INT (end_save + ptr_off);
@@ -33511,7 +33511,7 @@ rs6000_darwin_file_start (void)
   darwin_file_start ();
 
   /* Determine the argument to -mcpu=.  Default to G3 if not specified.  */
-  
+
   if (rs6000_default_cpu != 0 && rs6000_default_cpu[0] != '\0')
     cpu_id = rs6000_default_cpu;
 
@@ -34419,7 +34419,7 @@ rs6000_asm_weaken_decl (FILE *stream, tree decl,
   if (decl && TREE_CODE (decl) == FUNCTION_DECL
       && DEFAULT_ABI == ABI_AIX && DOT_SYMBOLS)
     {
-      if (TARGET_XCOFF)						
+      if (TARGET_XCOFF)
 	fputs ("[DS]", stream);
 #if TARGET_XCOFF && HAVE_GAS_HIDDEN
       if (TARGET_XCOFF)
@@ -34710,7 +34710,7 @@ rs6000_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	  return false;
 	}
       /* fall through */
-	  
+
     case ASHIFTRT:
     case LSHIFTRT:
     case ROTATE:
@@ -35205,7 +35205,7 @@ rs6000_emit_swdiv (rtx dst, rtx n, rtx d, bool note_p)
 
     for (i = 0, xprev = x1, eprev = e0; i < passes - 2;
 	 ++i, xprev = xnext, eprev = enext) {
-      
+
       /* enext = eprev * eprev  */
       enext = gen_reg_rtx (mode);
       emit_insn (gen_mul (enext, eprev, eprev));
@@ -35472,7 +35472,7 @@ rs6000_emit_parity (rtx dst, rtx src)
 
      vperm 9,10,11,12
 
-   places the desired result in vr9.  However, in LE mode the 
+   places the desired result in vr9.  However, in LE mode the
    vector contents will be
 
      vr10 = 00000003 00000002 00000001 00000000
@@ -35609,7 +35609,7 @@ altivec_expand_vec_perm_const (rtx target, rtx op0, rtx op1,
       {  1,  3,  5,  7,  9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31 } },
     { OPTION_MASK_ALTIVEC, CODE_FOR_altivec_vpkuwum_direct,
       {  2,  3,  6,  7, 10, 11, 14, 15, 18, 19, 22, 23, 26, 27, 30, 31 } },
-    { OPTION_MASK_ALTIVEC, 
+    { OPTION_MASK_ALTIVEC,
       (BYTES_BIG_ENDIAN ? CODE_FOR_altivec_vmrghb_direct
        : CODE_FOR_altivec_vmrglb_direct),
       {  0, 16,  1, 17,  2, 18,  3, 19,  4, 20,  5, 21,  6, 22,  7, 23 } },
@@ -35680,7 +35680,7 @@ altivec_expand_vec_perm_const (rtx target, rtx op0, rtx op1,
       one_vec = true;
       break;
     }
- 
+
   /* Look for splat patterns.  */
   if (one_vec)
     {
@@ -36043,7 +36043,7 @@ rs6000_function_value (const_tree valtype,
   int n_elts;
 
   /* Special handling for structs in darwin64.  */
-  if (TARGET_MACHO 
+  if (TARGET_MACHO
       && rs6000_darwin64_struct_check_p (TYPE_MODE (valtype), valtype))
     {
       CUMULATIVE_ARGS valcum;
@@ -36834,7 +36834,7 @@ rs6000_valid_attribute_p (tree fndecl,
 		 IDENTIFIER_POINTER (tname));
       else
 	fprintf (stderr, "function: unknown\n");
-  
+
       fprintf (stderr, "args:");
       rs6000_debug_target_options (args, " ");
       fprintf (stderr, "\n");
@@ -37101,7 +37101,7 @@ rs6000_function_specific_save (struct cl_target_option *ptr,
 static void
 rs6000_function_specific_restore (struct gcc_options *opts,
 				  struct cl_target_option *ptr)
-				  
+
 {
   opts->x_rs6000_isa_flags = ptr->x_rs6000_isa_flags;
   opts->x_rs6000_isa_flags_explicit = ptr->x_rs6000_isa_flags_explicit;

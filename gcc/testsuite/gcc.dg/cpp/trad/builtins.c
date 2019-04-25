@@ -5,7 +5,7 @@
 #include "builtins.h"
 
 void abort (void);
-char *strstr (const char *, const char *); 
+char *strstr (const char *, const char *);
 int strcmp (const char *, const char *);
 
 #define LINE __LINE__

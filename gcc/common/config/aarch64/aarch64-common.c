@@ -568,4 +568,3 @@ aarch64_rewrite_mcpu (int argc, const char **argv)
 struct gcc_targetm_common targetm_common = TARGETM_COMMON_INITIALIZER;
 
 #undef AARCH64_CPU_NAME_LENGTH
-

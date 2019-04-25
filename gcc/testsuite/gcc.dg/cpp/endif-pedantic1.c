@@ -9,9 +9,8 @@
 /* Source: Phil Edwards, 25 Mar 2002.  Copied from extratokens2.c and
    modified.  */
 
-#if 1 
+#if 1
 #if 0
 #else foo	/* { dg-bogus "extra tokens" "bad warning" } */
 #endif /	/* { dg-bogus "extra tokens" "bad warning" } */
 #endif
-

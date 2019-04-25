@@ -8,7 +8,7 @@ void vector (void);
 #pragma acc routine (gang) gang
 #pragma acc routine (worker) worker
 #pragma acc routine (vector) vector
-  
+
 #pragma acc routine seq
 void seq (void)
 {

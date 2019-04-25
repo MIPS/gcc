@@ -16,4 +16,4 @@ int main(void)
   if (((char *)&y[1] - (char *)&y[0]) & 31)
     abort ();
   exit (0);
-}                
+}

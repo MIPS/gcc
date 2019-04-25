@@ -1,7 +1,7 @@
 /* { dg-do compile } */
 /* { dg-options "-fgimple -fdump-tree-fixup_cfg2" } */
 
-int 
+int
 __GIMPLE (ssa) *
 foo ()
 {

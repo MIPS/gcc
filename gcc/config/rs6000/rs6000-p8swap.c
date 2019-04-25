@@ -133,7 +133,7 @@
    already in a register.  In some cases, this mask may be a constant
    that we can discover with ud-chains, in which case the above
    transformation is ok.  However, the common usage here is for the
-   mask to be produced by an UNSPEC_LVSL, in which case the mask 
+   mask to be produced by an UNSPEC_LVSL, in which case the mask
    cannot be known at compile time.  In such a case we would have to
    generate several instructions to compute M' as above at run time,
    and a cost model is needed again.
@@ -610,7 +610,7 @@ v2df_reduction_p (rtx op)
 {
   if (GET_MODE (op) != V2DFmode)
     return false;
-  
+
   enum rtx_code code = GET_CODE (op);
   if (code != PLUS && code != SMIN && code != SMAX)
     return false;
@@ -886,7 +886,7 @@ insn_is_swappable_p (swap_web_entry *insn_entry, rtx insn,
 	    return 0;
 	  if (GET_CODE (XEXP (lhs, 0)) == AND)
 	    return 0;
-	  
+
 	  *special = SH_NOSWAP_ST;
 	  return 1;
 	}
@@ -1328,7 +1328,7 @@ adjust_vperm (rtx_insn *insn)
 	break;
       }
   gcc_assert (swap_insn);
-  
+
   /* Find the load.  */
   insn_info = DF_INSN_INFO_GET (swap_insn);
   rtx_insn *load_insn = 0;
@@ -2034,7 +2034,7 @@ alignment_with_canonical_addr (rtx align)
   return gen_rtx_AND (GET_MODE (align), canon, GEN_INT (-16));
 }
 
-/* Check whether an rtx is an alignment mask, and if so, return 
+/* Check whether an rtx is an alignment mask, and if so, return
    a fully-expanded rtx for the masking operation.  */
 static rtx
 alignment_mask (rtx_insn *insn)
@@ -2110,7 +2110,7 @@ find_alignment_op (rtx_insn *insn, rtx base_reg, rtx_insn **and_insn)
 	break;
 
       /* With stack-protector code enabled, and possibly in other
-	 circumstances, there may not be an associated insn for 
+	 circumstances, there may not be an associated insn for
 	 the def.  */
       if (DF_REF_IS_ARTIFICIAL (base_def_link->ref))
 	break;
@@ -2181,7 +2181,7 @@ recombine_lvx_pattern (rtx_insn *insn, del_info *to_delete)
 	  SET_SRC (body) = mem;
 	  INSN_CODE (insn) = -1; /* Force re-recognition.  */
 	  df_insn_rescan (insn);
-		  
+
 	  if (dump_file)
 	    fprintf (dump_file, "lvx opportunity found at %d\n",
 		     INSN_UID (insn));
@@ -2247,7 +2247,7 @@ recombine_stvx_pattern (rtx_insn *insn, del_info *to_delete)
 	  SET_SRC (body) = src_reg;
 	  INSN_CODE (insn) = -1; /* Force re-recognition.  */
 	  df_insn_rescan (insn);
-		  
+
 	  if (dump_file)
 	    fprintf (dump_file, "stvx opportunity found at %d\n",
 		     INSN_UID (insn));
@@ -2296,7 +2296,7 @@ recombine_lvx_stvx_patterns (function *fun)
 	remove_insn (to_delete[i].replace_insn);
 	to_delete[i].replace_insn->set_deleted ();
       }
-  
+
   free (to_delete);
 }
 
@@ -2699,4 +2699,3 @@ make_pass_analyze_swaps (gcc::context *ctxt)
 {
   return new pass_analyze_swaps (ctxt);
 }
-

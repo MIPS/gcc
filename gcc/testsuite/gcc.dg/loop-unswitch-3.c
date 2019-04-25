@@ -23,5 +23,3 @@ float *foo(int ustride, int size, float *src)
 
 /* { dg-final { scan-tree-dump-times "guard hoisted" 1 "unswitch" } } */
 /* { dg-final { scan-tree-dump-not "Invalid sum" "unswitch" } } */
-
-

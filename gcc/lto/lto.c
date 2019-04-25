@@ -100,7 +100,7 @@ free_with_string (void *arg)
 
 /* Create section hash table */
 
-htab_t 
+htab_t
 lto_obj_create_section_hash_table (void)
 {
   return htab_create (37, hash_name, eq_name, free_with_string);
@@ -148,7 +148,7 @@ lto_splay_tree_id_equal_p (splay_tree_key key, unsigned HOST_WIDE_INT id)
   return *(unsigned HOST_WIDE_INT *) key == id;
 }
 
-/* Insert a splay tree node into tree T with ID as key and FILE_DATA as value. 
+/* Insert a splay tree node into tree T with ID as key and FILE_DATA as value.
    The ID is allocated separately because we need HOST_WIDE_INTs which may
    be wider than a splay_tree_key. */
 
@@ -517,7 +517,7 @@ lto_register_canonical_types (tree node, bool first_p)
       || TREE_CODE (node) == ARRAY_TYPE)
     lto_register_canonical_types (TREE_TYPE (node), first_p);
 
- if (!first_p) 
+ if (!first_p)
     gimple_register_canonical_type (node);
 }
 
@@ -1835,11 +1835,11 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
   data_in->location_cache.apply_location_cache ();
 
   /* Read in lto_in_decl_state objects.  */
-  data_ptr = (const uint32_t *) ((const char*) data + decl_offset); 
+  data_ptr = (const uint32_t *) ((const char*) data + decl_offset);
   data_end =
      (const uint32_t *) ((const char*) data_ptr + header->decl_state_size);
   num_decl_states = *data_ptr++;
-  
+
   gcc_assert (num_decl_states > 0);
   decl_data->global_decl_state = lto_new_in_decl_state ();
   data_ptr = lto_read_in_decl_state (data_in, data_ptr,
@@ -1908,7 +1908,7 @@ lto_resolution_read (splay_tree file_ids, FILE *resolution, lto_file *file)
   unsigned int num_symbols;
   unsigned int i;
   struct lto_file_decl_data *file_data;
-  splay_tree_node nd = NULL; 
+  splay_tree_node nd = NULL;
 
   if (!resolution)
     return;
@@ -1951,7 +1951,7 @@ lto_resolution_read (splay_tree file_ids, FILE *resolution, lto_file *file)
 	sizeof (lto_resolution_str) / sizeof (char *);
       res_pair rp;
 
-      t = fscanf (resolution, "%u " HOST_WIDE_INT_PRINT_HEX_PURE " %26s %*[^\n]\n", 
+      t = fscanf (resolution, "%u " HOST_WIDE_INT_PRINT_HEX_PURE " %26s %*[^\n]\n",
 		  &index, &id, r_str);
       if (t != 3)
         internal_error ("invalid line in the resolution file");
@@ -1993,7 +1993,7 @@ struct file_data_list
 
 /* Is the name for a id'ed LTO section? */
 
-static int 
+static int
 lto_section_with_id (const char *name, unsigned HOST_WIDE_INT *id)
 {
   const char *s;
@@ -2011,7 +2011,7 @@ lto_section_with_id (const char *name, unsigned HOST_WIDE_INT *id)
 
 /* Create file_data of each sub file id */
 
-static int 
+static int
 create_subid_section_table (struct lto_section_slot *ls, splay_tree file_ids,
                             struct file_data_list *list)
 {
@@ -2024,7 +2024,7 @@ create_subid_section_table (struct lto_section_slot *ls, splay_tree file_ids,
 
   if (!lto_section_with_id (ls->name, &id))
     return 1;
-  
+
   /* Find hash table of sub module id */
   nd = lto_splay_tree_lookup (file_ids, id);
   if (nd != NULL)
@@ -2072,7 +2072,7 @@ lto_file_finalize (struct lto_file_decl_data *file_data, lto_file *file)
   res_pair *rp;
 
   /* Create vector for fast access of resolution. We do this lazily
-     to save memory. */ 
+     to save memory. */
   resolutions.safe_grow_cleared (file_data->max_index + 1);
   for (i = 0; file_data->respairs.iterate (i, &rp); i++)
     resolutions[rp->index] = rp->res;
@@ -2098,7 +2098,7 @@ lto_file_finalize (struct lto_file_decl_data *file_data, lto_file *file)
 
 /* Finalize FILE_DATA in FILE and increase COUNT. */
 
-static int 
+static int
 lto_create_files_from_ids (lto_file *file, struct lto_file_decl_data *file_data,
 			   int *count)
 {
@@ -2112,7 +2112,7 @@ lto_create_files_from_ids (lto_file *file, struct lto_file_decl_data *file_data,
 }
 
 /* Generate a TREE representation for all types and external decls
-   entities in FILE.  
+   entities in FILE.
 
    Read all of the globals out of the file.  Then read the cgraph
    and process the .o index into the cgraph nodes so that it can open
@@ -2127,8 +2127,8 @@ lto_file_read (lto_file *file, FILE *resolution_file, int *count)
   struct lto_section_slot *section;
   struct file_data_list file_list;
   struct lto_section_list section_list;
- 
-  memset (&section_list, 0, sizeof (struct lto_section_list)); 
+
+  memset (&section_list, 0, sizeof (struct lto_section_list));
   section_hash_table = lto_obj_build_section_table (file, &section_list);
 
   /* Find all sub modules in the object and put their sections into new hash
@@ -2144,7 +2144,7 @@ lto_file_read (lto_file *file, FILE *resolution_file, int *count)
   /* Finalize each lto file for each submodule in the merged object */
   for (file_data = file_list.first; file_data != NULL; file_data = file_data->next)
     lto_create_files_from_ids (file, file_data, count);
- 
+
   splay_tree_delete (file_ids);
   htab_delete (section_hash_table);
 
@@ -2240,7 +2240,7 @@ lto_read_section_data (struct lto_file_decl_data *file_data,
 #endif
   return result;
 #endif
-}    
+}
 
 
 /* Get the section data from FILE_DATA of SECTION_TYPE with NAME.
@@ -2458,7 +2458,7 @@ lto_wpa_write_files (void)
       if (symtab->dump_file)
 	{
           lto_symtab_encoder_iterator lsei;
-	  
+
 	  fprintf (symtab->dump_file, "Writing partition %s to file %s, %i insns\n",
 		   part->name, temp_filename, part->insns);
 	  fprintf (symtab->dump_file, "  Symbols in partition: ");
@@ -2715,7 +2715,7 @@ lto_flatten_files (struct lto_file_decl_data **orig, int count, int last_file_ix
     = ggc_cleared_vec_alloc<lto_file_decl_data_ptr> (count + 1);
   /* Set the hooks so that all of the ipa passes can read in their data.  */
   lto_set_in_hooks (all_file_decl_data, get_section_data, free_section_data);
-  for (i = 0, k = 0; i < last_file_ix; i++) 
+  for (i = 0, k = 0; i < last_file_ix; i++)
     {
       for (n = orig[i]; n != NULL; n = next)
 	{
@@ -2860,7 +2860,7 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
   delete canonical_type_hash_cache;
   canonical_type_hash_cache = NULL;
 
-  /* At this stage we know that majority of GGC memory is reachable.  
+  /* At this stage we know that majority of GGC memory is reachable.
      Growing the limits prevents unnecesary invocation of GGC.  */
   ggc_grow ();
   ggc_collect ();
@@ -2907,7 +2907,7 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
         delete all_file_decl_data[i]->resolution_map;
         all_file_decl_data[i]->resolution_map = NULL;
       }
-  
+
   timevar_pop (TV_IPA_LTO_CGRAPH_IO);
 
   if (!quiet_flag)
@@ -2955,7 +2955,7 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
       all_file_decl_data[i]->symtab_node_encoder = NULL;
       lto_free_function_in_decl_state (all_file_decl_data[i]->global_decl_state);
       all_file_decl_data[i]->global_decl_state = NULL;
-      all_file_decl_data[i]->current_decl_state = NULL; 
+      all_file_decl_data[i]->current_decl_state = NULL;
     }
 
   if (!flag_ltrans)
@@ -3009,7 +3009,7 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
 static void
 materialize_cgraph (void)
 {
-  struct cgraph_node *node; 
+  struct cgraph_node *node;
   timevar_id_t lto_timer;
 
   if (!quiet_flag)
@@ -3252,7 +3252,7 @@ lto_eh_personality (void)
 
 /* Set the process name based on the LTO mode. */
 
-static void 
+static void
 lto_process_name (void)
 {
   if (flag_lto)
@@ -3386,7 +3386,7 @@ lto_main (void)
 	  debuginfo_early_stop ();
 
 	  /* Let the middle end know that we have read and merged all of
-	     the input files.  */ 
+	     the input files.  */
 	  symtab->compile ();
 
 	  timevar_stop (TV_PHASE_OPT_GEN);

@@ -81,4 +81,3 @@ testst_cst7 (vector bool int vbi1, int i1, signed int * vsip)
 }
 
 /* { dg-final { scan-assembler-times {\mstvx\M}  14 } } */
-

@@ -61,7 +61,7 @@ static void f(void *p)
   p16 = vec_ldl(16, (vector pixel*)p);
 }
 
-static void g () 
+static void g ()
 {
 }
 

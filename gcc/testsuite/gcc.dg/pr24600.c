@@ -13,4 +13,3 @@ void test (char *Line, int len)
     if (Line[z - 1])
       strcpy (Line + z + 1, Line);
 }
-

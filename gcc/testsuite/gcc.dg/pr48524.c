@@ -3,4 +3,3 @@
 # ifdef _FOO
 # error works /* { dg-error "works" } */
 # endif
-

@@ -132,7 +132,7 @@ int
 main ()
 {
   u32_t u32;
-  
+
   /* These sizes are probably always true for targets that support decimal
      float types, but check anyway.  Abort so we can fix the test.  */
   if ((sizeof (_Decimal64) != sizeof (long long))

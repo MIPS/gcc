@@ -25,4 +25,3 @@ char *test3(const char *ptr)
 {
   return __builtin_strdup(ptr);
 }
-

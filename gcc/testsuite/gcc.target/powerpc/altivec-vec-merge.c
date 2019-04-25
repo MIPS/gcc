@@ -11,7 +11,7 @@ extern void abort();
 void foo(char *bS, char *bS_edge, int field_MBAFF, int top){
   char intra[16]       __attribute__ ((aligned(16)));
   signed short mv_const[8] __attribute__((aligned(16)));
-  
+
   vector signed short v_three, v_ref_mask00, v_ref_mask01, v_vec_maskv, v_vec_maskh;
   vector unsigned char v_permv, v_permh, v_bS, v_bSh, v_bSv, v_cbp_maskv, v_cbp_maskvn, v_cbp_maskh, v_cbp_maskhn, v_intra_maskh, v_intra_maskv, v_intra_maskhn, v_intra_maskvn;
   vector unsigned char tmp7, tmp8, tmp9, tmp10, v_c1, v_cbp1, v_cbp2, v_pocl, v_poch;
@@ -63,7 +63,7 @@ void foo(char *bS, char *bS_edge, int field_MBAFF, int top){
   v_cbp_maskv = (vector unsigned char) vec_cmpgt ((vector unsigned char) v_cbp_maskv, (vector unsigned char) v_zero);
   v_cbp_maskh = (vector unsigned char) vec_cmpgt ((vector unsigned char) v_cbp_maskh, (vector unsigned char) v_zero);
 
-  intra[0]  =0; 
+  intra[0]  =0;
   intra[1]  =1;
   intra[2]  =2;
   intra[3]  =3;
@@ -78,7 +78,7 @@ void foo(char *bS, char *bS_edge, int field_MBAFF, int top){
   intra[12] = 0xff;
 
   idx0   = vec_ld (0, (signed short *) intra);
-  
+
   v_c1   = (vector unsigned char)  {'1','2','3','4','5','6','7','8','1','2','3','4','5','6','7','8'};
 
   if (field_MBAFF){
@@ -87,10 +87,10 @@ void foo(char *bS, char *bS_edge, int field_MBAFF, int top){
 
     v1   = vec_sld (v0, v0, 15);
     v1   = (vector signed short) vec_pack (v1, v0);
-    
+
     v2   = vec_sld (v1, v1, 2);
     v3   = vec_sld (v1, v1, 10);
-    
+
     v4   = (vector signed short) vec_cmpeq ((vector signed char) v1, (vector signed char) v2);
     v5   = (vector signed short) vec_cmpeq ((vector signed char) v1, (vector signed char) v3);
     v6   = (vector signed short) vec_cmpeq ((vector signed char) v2, (vector signed char) v3);
@@ -101,11 +101,11 @@ void foo(char *bS, char *bS_edge, int field_MBAFF, int top){
 
   tmp1   = (vector signed short) vec_sl ((vector unsigned char) idx0, v_c1);
   v_c1   = vec_mergeh ((vector unsigned char) v_zero, v_c1);
-  tmp1   = (vector signed short) vec_add (tmp1, (vector signed short) v_c1); 
+  tmp1   = (vector signed short) vec_add (tmp1, (vector signed short) v_c1);
 
   v_pocl = vec_ld (0, (vector unsigned char *) mv_const);
   v_poch = vec_ld (0, (vector unsigned char *) mv_const);
-  tmp2   = (vector signed short) vec_perm (v_pocl, v_poch, (vector unsigned char) tmp1);      
+  tmp2   = (vector signed short) vec_perm (v_pocl, v_poch, (vector unsigned char) tmp1);
 
   v_pocl = vec_ld (0,  (vector unsigned char *) mv_const);
   v_poch = vec_ld (16, (vector unsigned char *) mv_const);
@@ -119,7 +119,7 @@ void foo(char *bS, char *bS_edge, int field_MBAFF, int top){
 
   tmp2   = vec_sld (tmp1, tmp1, 15);
   tmp1   = (vector signed short) vec_pack (tmp2, tmp1);
-  
+
   tmp2   = vec_sld (tmp1, tmp1, 2);
   tmp3   = vec_sld (tmp1, tmp1, 10);
 
@@ -139,7 +139,7 @@ void foo(char *bS, char *bS_edge, int field_MBAFF, int top){
   v_ref_mask01 = vec_mergeh ((vector signed short) tmp4, (vector signed short) tmp1);
   v_ref_mask00 = (vector signed short) vec_mergeh ((vector unsigned char) v_ref_mask00, (vector unsigned char) v_ref_mask00);
   v_ref_mask01 = (vector signed short) vec_mergeh ((vector unsigned char) v_ref_mask01, (vector unsigned char) v_ref_mask01);
-  
+
   v0     = vec_ld (0,  (vector signed short *) mv_const);
   v1     = vec_ld (16, (vector signed short *) mv_const);
   v4     = vec_ld (64, (vector signed short *) mv_const);
@@ -147,31 +147,31 @@ void foo(char *bS, char *bS_edge, int field_MBAFF, int top){
   v8     = vec_ld (0,  (vector signed short *) mv_const);
   v9     = vec_ld (16, (vector signed short *) mv_const);
 
-  tmp0   = (vector signed short) vec_perm ((vector unsigned char) v8, 
+  tmp0   = (vector signed short) vec_perm ((vector unsigned char) v8,
 		(vector unsigned char) v8, (vector unsigned char) {0,1,2,3,8,9,10,11,4,5,6,7,12,13,14,15});
   tmp1   = (vector signed short) vec_mergeh ((vector signed int) v0, (vector signed int) v1);
   tmp2   = vec_sld (tmp1, tmp1, 8);
   tmp3   = vec_sub (vec_max (tmp0, tmp1), vec_min (tmp0, tmp1));
   tmp4   = vec_sub (vec_max (tmp0, tmp2), vec_min (tmp0, tmp2));
-  tmp3   = (vector signed short) vec_cmpgt (tmp3, v_three); 
+  tmp3   = (vector signed short) vec_cmpgt (tmp3, v_three);
   tmp4   = (vector signed short) vec_cmpgt (tmp4, v_three);
   tmp5   = vec_sld (tmp3, tmp3, 14);
   tmp6   = vec_sld (tmp4, tmp4, 14);
   tmp3   = vec_or (tmp3, tmp5);
   tmp4   = vec_or (tmp4, tmp6);
-  tmp0   = (vector signed short) vec_perm ((vector unsigned char) v9, (vector unsigned char) v9, 
+  tmp0   = (vector signed short) vec_perm ((vector unsigned char) v9, (vector unsigned char) v9,
 			(vector unsigned char) {0,1,2,3,8,9,10,11,4,5,6,7,12,13,14,15});
   tmp1   = (vector signed short) vec_mergeh ((vector signed int) v4, (vector signed int) v5);
   tmp2   = vec_sld (tmp1, tmp1, 8);
   tmp5   = vec_sub (vec_max (tmp0, tmp1), vec_min (tmp0, tmp1));
   tmp6   = vec_sub (vec_max (tmp0, tmp2), vec_min (tmp0, tmp2));
-  tmp5   = (vector signed short) vec_cmpgt (tmp5, v_three); 
+  tmp5   = (vector signed short) vec_cmpgt (tmp5, v_three);
   tmp6   = (vector signed short) vec_cmpgt (tmp6, v_three);
   tmp0   = vec_sld (tmp5, tmp5, 14);
   tmp1   = vec_sld (tmp6, tmp6, 14);
   tmp5   = vec_or (tmp0, tmp5);
   tmp6   = vec_or (tmp1, tmp6);
-  
+
   tmp3   = (vector signed short) vec_pack ((vector unsigned int) tmp3, (vector unsigned int) tmp5);
   tmp4   = (vector signed short) vec_pack ((vector unsigned int) tmp4, (vector unsigned int) tmp6);
   tmp5   = vec_sld (tmp3, tmp3, 12);
@@ -185,25 +185,25 @@ void foo(char *bS, char *bS_edge, int field_MBAFF, int top){
   tmp2   = vec_sld (tmp1, tmp1, 8);
   tmp3   = vec_sub (vec_max (tmp0, tmp1), vec_min (tmp0, tmp1));
   tmp4   = vec_sub (vec_max (tmp0, tmp2), vec_min (tmp0, tmp2));
-  tmp3   = (vector signed short) vec_cmpgt (tmp3, v_three); 
+  tmp3   = (vector signed short) vec_cmpgt (tmp3, v_three);
   tmp4   = (vector signed short) vec_cmpgt (tmp4, v_three);
   tmp5   = vec_sld (tmp3, tmp3, 14);
   tmp6   = vec_sld (tmp4, tmp4, 14);
   tmp3   = vec_or (tmp3, tmp5);
   tmp4   = vec_or (tmp4, tmp6);
-  
+
   tmp0   = (vector signed short) vec_mergeh ((vector signed int) v4, (vector signed int) v5);
   tmp1   = (vector signed short) vec_mergel ((vector signed int) v4, (vector signed int) v5);
   tmp2   = vec_sld (tmp1, tmp1, 8);
   tmp5   = vec_sub (vec_max (tmp0, tmp1), vec_min (tmp0, tmp1));
   tmp6   = vec_sub (vec_max (tmp0, tmp2), vec_min (tmp0, tmp2));
-  tmp5   = (vector signed short) vec_cmpgt (tmp5, v_three); 
+  tmp5   = (vector signed short) vec_cmpgt (tmp5, v_three);
   tmp6   = (vector signed short) vec_cmpgt (tmp6, v_three);
   tmp0   = vec_sld (tmp5, tmp5, 14);
   tmp1   = vec_sld (tmp6, tmp6, 14);
   tmp5   = vec_or (tmp0, tmp5);
   tmp6   = vec_or (tmp1, tmp6);
-  
+
   tmp3   = (vector signed short) vec_pack ((vector unsigned int) tmp3, (vector unsigned int) tmp5);
   tmp4   = (vector signed short) vec_pack ((vector unsigned int) tmp4, (vector unsigned int) tmp6);
   tmp5   = vec_sld (tmp3, tmp3, 12);
@@ -222,25 +222,25 @@ void foo(char *bS, char *bS_edge, int field_MBAFF, int top){
   tmp2   = vec_sld (tmp1, tmp1, 8);
   tmp3   = vec_sub (vec_max (tmp0, tmp1), vec_min (tmp0, tmp1));
   tmp4   = vec_sub (vec_max (tmp0, tmp2), vec_min (tmp0, tmp2));
-  tmp3   = (vector signed short) vec_cmpgt (tmp3, v_three); 
+  tmp3   = (vector signed short) vec_cmpgt (tmp3, v_three);
   tmp4   = (vector signed short) vec_cmpgt (tmp4, v_three);
   tmp5   = vec_sld (tmp3, tmp3, 14);
   tmp6   = vec_sld (tmp4, tmp4, 14);
   tmp3   = vec_or (tmp3, tmp5);
   tmp4   = vec_or (tmp4, tmp6);
-  
+
   tmp0   = (vector signed short) vec_mergel ((vector signed int) v4, (vector signed int) v5);
   tmp1   = (vector signed short) vec_mergeh ((vector signed int) v6, (vector signed int) v7);
   tmp2   = vec_sld (tmp1, tmp1, 8);
   tmp5   = vec_sub (vec_max (tmp0, tmp1), vec_min (tmp0, tmp1));
   tmp6   = vec_sub (vec_max (tmp0, tmp2), vec_min (tmp0, tmp2));
-  tmp5   = (vector signed short) vec_cmpgt (tmp5, v_three); 
+  tmp5   = (vector signed short) vec_cmpgt (tmp5, v_three);
   tmp6   = (vector signed short) vec_cmpgt (tmp6, v_three);
   tmp0   = vec_sld (tmp5, tmp5, 14);
   tmp1   = vec_sld (tmp6, tmp6, 14);
   tmp5   = vec_or (tmp0, tmp5);
   tmp6   = vec_or (tmp1, tmp6);
-  
+
   tmp3   = (vector signed short) vec_pack ((vector unsigned int) tmp3, (vector unsigned int) tmp5);
   tmp4   = (vector signed short) vec_pack ((vector unsigned int) tmp4, (vector unsigned int) tmp6);
   tmp5   = vec_sld (tmp3, tmp3, 12);
@@ -254,25 +254,25 @@ void foo(char *bS, char *bS_edge, int field_MBAFF, int top){
   tmp2   = vec_sld (tmp1, tmp1, 8);
   tmp3   = vec_sub (vec_max (tmp0, tmp1), vec_min (tmp0, tmp1));
   tmp4   = vec_sub (vec_max (tmp0, tmp2), vec_min (tmp0, tmp2));
-  tmp3   = (vector signed short) vec_cmpgt (tmp3, v_three); 
+  tmp3   = (vector signed short) vec_cmpgt (tmp3, v_three);
   tmp4   = (vector signed short) vec_cmpgt (tmp4, v_three);
   tmp5   = vec_sld (tmp3, tmp3, 14);
   tmp6   = vec_sld (tmp4, tmp4, 14);
   tmp3   = vec_or (tmp3, tmp5);
   tmp4   = vec_or (tmp4, tmp6);
-  
+
   tmp0   = (vector signed short) vec_mergeh ((vector signed int) v6, (vector signed int) v7);
   tmp1   = (vector signed short) vec_mergel ((vector signed int) v6, (vector signed int) v7);
   tmp2   = vec_sld (tmp1, tmp1, 8);
   tmp5   = vec_sub (vec_max (tmp0, tmp1), vec_min (tmp0, tmp1));
   tmp6   = vec_sub (vec_max (tmp0, tmp2), vec_min (tmp0, tmp2));
-  tmp5   = (vector signed short) vec_cmpgt (tmp5, v_three); 
+  tmp5   = (vector signed short) vec_cmpgt (tmp5, v_three);
   tmp6   = (vector signed short) vec_cmpgt (tmp6, v_three);
   tmp0   = vec_sld (tmp5, tmp5, 14);
   tmp1   = vec_sld (tmp6, tmp6, 14);
   tmp5   = vec_or (tmp0, tmp5);
   tmp6   = vec_or (tmp1, tmp6);
-  
+
   tmp3   = (vector signed short) vec_pack ((vector unsigned int) tmp3, (vector unsigned int) tmp5);
   tmp4   = (vector signed short) vec_pack ((vector unsigned int) tmp4, (vector unsigned int) tmp6);
   tmp5   = vec_sld (tmp3, tmp3, 12);
@@ -299,7 +299,7 @@ void foo(char *bS, char *bS_edge, int field_MBAFF, int top){
   v_vec_maskv = vec_or (tmp0, tmp2);
   v_vec_maskv = vec_or (v_vec_maskv, tmp3);
 
-  intra[0]  = 1; 
+  intra[0]  = 1;
   intra[1]  = 1;
   intra[2]  = 2;
   intra[3]  = 3;
@@ -311,13 +311,13 @@ void foo(char *bS, char *bS_edge, int field_MBAFF, int top){
   intra[9]  = 5;
   intra[10] = 5;
   intra[11] = 5;
-  
+
   intra[13] = 0;
   intra[14] = 0;
   intra[15] = 0;
 
   idx0   = vec_ld (0, (signed short *) intra);
-  
+
   v_c1   = (vector unsigned char)  {'1','2','3','4','5','6','7','8','1','2','3','4','5','6','7','8'};
 
   if (field_MBAFF){
@@ -326,10 +326,10 @@ void foo(char *bS, char *bS_edge, int field_MBAFF, int top){
 
     v9   = vec_sld (v8, v8, 15);
     v9   = (vector signed short) vec_pack (v9, v8);
-    
+
     v10  = vec_sld (v9, v9, 2);
     v11  = vec_sld (v9, v9, 10);
-    
+
     v8   = (vector signed short) vec_cmpeq ((vector signed char) v9, (vector signed char) v10);
     v9   = (vector signed short) vec_cmpeq ((vector signed char) v9, (vector signed char) v11);
     v10  = (vector signed short) vec_cmpeq ((vector signed char) v10, (vector signed char) v11);
@@ -339,31 +339,31 @@ void foo(char *bS, char *bS_edge, int field_MBAFF, int top){
   }
 
   tmp1   = (vector signed short) vec_sl ((vector unsigned char) idx0, v_c1);
-  
+
 if (1){
 	int m;
 	unsigned char toto2[16] __attribute__((aligned(16)));
-	
+
 	printf("vc1\n");
 	vec_st(v_c1, 0, (unsigned char *) toto2);
 	for (m=0; m<16;m++) {printf("%c ", toto2[m]);}
-	
+
 	printf("\nv_zero\n");
-	
+
 	vec_st (v_zero, 0, (unsigned char *) toto2);
 	for (m=0; m< 16; m++) {printf("%c ", toto2[m]);}
 	printf("\n");
 }
 
   v_c1   = vec_mergeh ((vector unsigned char) v_zero, v_c1);
-  tmp1   = (vector signed short) vec_add (tmp1, (vector signed short) v_c1); 
+  tmp1   = (vector signed short) vec_add (tmp1, (vector signed short) v_c1);
 
 if (1){
-	vector unsigned char vres = 
+	vector unsigned char vres =
         (vector unsigned char){'a','1','b','2','c','3','d','4','e','5','f','6','g','7','h','8'};
 	unsigned char toto2[16] __attribute__((aligned(16)));
 	int m;
-	
+
 	printf("vc1\n");
 	vec_st(v_c1, 0, (unsigned char *) toto2);
 	for (m=0; m<16;m++) {printf("%c ", toto2[m]);}
@@ -374,13 +374,13 @@ if (1){
 
   v_pocl = vec_ld (32, (vector unsigned char *) mv_const);
   v_poch = vec_ld (48, (vector unsigned char *) mv_const);
-  tmp2   = (vector signed short) vec_perm (v_pocl, v_poch, (vector unsigned char) tmp1);      
+  tmp2   = (vector signed short) vec_perm (v_pocl, v_poch, (vector unsigned char) tmp1);
 
   v_pocl = vec_ld (0,  (vector unsigned char *) mv_const);
   v_poch = vec_ld (16, (vector unsigned char *) mv_const);
 
   tmp1   = (vector signed short) vec_perm (v_pocl, v_poch, (vector unsigned char) tmp1);
- 
+
   tmp1   = vec_sel (tmp1, tmp2, (vector unsigned short) {0xffff,0xffff,0,0,0,0,0,0});
 
 
@@ -391,7 +391,7 @@ if (1){
 
   tmp2   = vec_sld (tmp1, tmp1, 15);
   tmp1   = (vector signed short) vec_pack (tmp2, tmp1);
-  
+
 
   tmp2   = vec_sld (tmp1, tmp1, 2);
   tmp3   = vec_sld (tmp1, tmp1, 10);
@@ -412,7 +412,7 @@ if (1){
   v_ref_mask01 = vec_mergeh ((vector signed short) tmp4, (vector signed short) tmp1);
   v_ref_mask00 = (vector signed short) vec_mergeh ((vector unsigned char) v_ref_mask00, (vector unsigned char) v_ref_mask00);
   v_ref_mask01 = (vector signed short) vec_mergeh ((vector unsigned char) v_ref_mask01, (vector unsigned char) v_ref_mask01);
-  
+
 
   v_permv= vec_ld (0, (vector unsigned char *) mv_const);
   v8     = vec_ld (0,  (vector signed short *) mv_const);
@@ -420,23 +420,23 @@ if (1){
   tmp2   = vec_perm (v0, v0, v_permv);
   tmp3   = vec_sub (vec_max (v8, v0), vec_min (v8, v0));
   tmp4   = vec_sub (vec_max (v8, tmp2), vec_min (v8, tmp2));
-  tmp3   = (vector signed short) vec_cmpgt (tmp3, v_three); 
+  tmp3   = (vector signed short) vec_cmpgt (tmp3, v_three);
   tmp4   = (vector signed short) vec_cmpgt (tmp4, v_three);
   tmp5   = vec_sld (tmp3, tmp3, 14);
   tmp6   = vec_sld (tmp4, tmp4, 14);
   tmp3   = vec_or (tmp3, tmp5);
   tmp4   = vec_or (tmp4, tmp6);
-  
+
   tmp2   = vec_perm (v2, v2, v_permv);
   tmp5   = vec_sub (vec_max (v9, v2), vec_min (v9, v2));
   tmp6   = vec_sub (vec_max (v9, tmp2), vec_min (v9, tmp2));
-  tmp5   = (vector signed short) vec_cmpgt (tmp5, v_three); 
+  tmp5   = (vector signed short) vec_cmpgt (tmp5, v_three);
   tmp6   = (vector signed short) vec_cmpgt (tmp6, v_three);
   tmp0   = vec_sld (tmp5, tmp5, 14);
   tmp1   = vec_sld (tmp6, tmp6, 14);
   tmp5   = vec_or (tmp0, tmp5);
   tmp6   = vec_or (tmp1, tmp6);
-  
+
   tmp3   = (vector signed short) vec_pack ((vector unsigned int) tmp3, (vector unsigned int) tmp5);
   tmp4   = (vector signed short) vec_pack ((vector unsigned int) tmp4, (vector unsigned int) tmp6);
   tmp5   = vec_sld (tmp3, tmp3, 14);
@@ -448,23 +448,23 @@ if (1){
   tmp2   = vec_perm (v1, v1, v_permv);
   tmp3   = vec_sub (vec_max (v0, v1), vec_min (v0, v1));
   tmp4   = vec_sub (vec_max (v0, tmp2), vec_min (v0, tmp2));
-  tmp3   = (vector signed short) vec_cmpgt (tmp3, v_three); 
+  tmp3   = (vector signed short) vec_cmpgt (tmp3, v_three);
   tmp4   = (vector signed short) vec_cmpgt (tmp4, v_three);
   tmp5   = vec_sld (tmp3, tmp3, 14);
   tmp6   = vec_sld (tmp4, tmp4, 14);
   tmp3   = vec_or (tmp3, tmp5);
   tmp4   = vec_or (tmp4, tmp6);
-  
+
   tmp2   = vec_perm (v3, v3, v_permv);
   tmp5   = vec_sub (vec_max (v2, v3), vec_min (v2, v3));
   tmp6   = vec_sub (vec_max (v2, tmp2), vec_min (v2, tmp2));
-  tmp5   = (vector signed short) vec_cmpgt (tmp5, v_three); 
+  tmp5   = (vector signed short) vec_cmpgt (tmp5, v_three);
   tmp6   = (vector signed short) vec_cmpgt (tmp6, v_three);
   tmp0   = vec_sld (tmp5, tmp5, 14);
   tmp1   = vec_sld (tmp6, tmp6, 14);
   tmp5   = vec_or (tmp0, tmp5);
   tmp6   = vec_or (tmp1, tmp6);
-  
+
   tmp3   = (vector signed short) vec_pack ((vector unsigned int) tmp3, (vector unsigned int) tmp5);
   tmp4   = (vector signed short) vec_pack ((vector unsigned int) tmp4, (vector unsigned int) tmp6);
   tmp5   = vec_sld (tmp3, tmp3, 14);
@@ -476,23 +476,23 @@ if (1){
   tmp2   = vec_perm (v4, v4, v_permv);
   tmp3   = vec_sub (vec_max (v1, v4), vec_min (v1, v4));
   tmp4   = vec_sub (vec_max (v1, tmp2), vec_min (v1, tmp2));
-  tmp3   = (vector signed short) vec_cmpgt (tmp3, v_three); 
+  tmp3   = (vector signed short) vec_cmpgt (tmp3, v_three);
   tmp4   = (vector signed short) vec_cmpgt (tmp4, v_three);
   tmp5   = vec_sld (tmp3, tmp3, 14);
   tmp6   = vec_sld (tmp4, tmp4, 14);
   tmp3   = vec_or (tmp3, tmp5);
   tmp4   = vec_or (tmp4, tmp6);
-  
+
   tmp2   = vec_perm (v6, v6, v_permv);
   tmp5   = vec_sub (vec_max (v3, v6), vec_min (v3, v6));
   tmp6   = vec_sub (vec_max (v3, tmp2), vec_min (v3, tmp2));
-  tmp5   = (vector signed short) vec_cmpgt (tmp5, v_three); 
+  tmp5   = (vector signed short) vec_cmpgt (tmp5, v_three);
   tmp6   = (vector signed short) vec_cmpgt (tmp6, v_three);
   tmp0   = vec_sld (tmp5, tmp5, 14);
   tmp1   = vec_sld (tmp6, tmp6, 14);
   tmp5   = vec_or (tmp0, tmp5);
   tmp6   = vec_or (tmp1, tmp6);
-  
+
   tmp3   = (vector signed short) vec_pack ((vector unsigned int) tmp3, (vector unsigned int) tmp5);
   tmp4   = (vector signed short) vec_pack ((vector unsigned int) tmp4, (vector unsigned int) tmp6);
   tmp5   = vec_sld (tmp3, tmp3, 14);
@@ -505,23 +505,23 @@ if (1){
   tmp2   = vec_perm (v5, v5, v_permv);
   tmp3   = vec_sub (vec_max (v4, v5), vec_min (v4, v5));
   tmp4   = vec_sub (vec_max (v4, tmp2), vec_min (v4, tmp2));
-  tmp3   = (vector signed short) vec_cmpgt (tmp3, v_three); 
+  tmp3   = (vector signed short) vec_cmpgt (tmp3, v_three);
   tmp4   = (vector signed short) vec_cmpgt (tmp4, v_three);
   tmp5   = vec_sld (tmp3, tmp3, 14);
   tmp6   = vec_sld (tmp4, tmp4, 14);
   tmp3   = vec_or (tmp3, tmp5);
   tmp4   = vec_or (tmp4, tmp6);
-  
+
   tmp2   = vec_perm (v7, v7, v_permv);
   tmp5   = vec_sub (vec_max (v6, v7), vec_min (v6, v7));
   tmp6   = vec_sub (vec_max (v6, tmp2), vec_min (v6, tmp2));
-  tmp5   = (vector signed short) vec_cmpgt (tmp5, v_three); 
+  tmp5   = (vector signed short) vec_cmpgt (tmp5, v_three);
   tmp6   = (vector signed short) vec_cmpgt (tmp6, v_three);
   tmp0   = vec_sld (tmp5, tmp5, 14);
   tmp1   = vec_sld (tmp6, tmp6, 14);
   tmp5   = vec_or (tmp0, tmp5);
   tmp6   = vec_or (tmp1, tmp6);
-  
+
   tmp3   = (vector signed short) vec_pack ((vector unsigned int) tmp3, (vector unsigned int) tmp5);
   tmp4   = (vector signed short) vec_pack ((vector unsigned int) tmp4, (vector unsigned int) tmp6);
   tmp5   = vec_sld (tmp3, tmp3, 14);
@@ -564,7 +564,7 @@ if (1){
   tmp9        = vec_splat_u8(2);
   tmp8        = vec_splat_u8(1);
   v_bS        = vec_ld (0, (vector unsigned char *) mv_const);
-  
+
   v_bSv       = vec_and ((vector unsigned char) v_bS, (vector unsigned char)v_intra_maskv);
   tmp7        = vec_and ((vector unsigned char)tmp9, (vector unsigned char)v_cbp_maskv);
   tmp6        = (vector signed short) vec_and ((vector unsigned char)tmp8, (vector unsigned char)v_vec_maskv);
@@ -590,7 +590,7 @@ if (1){
   v_bSv = vec_mergeh (v_bSv, v_bSv);
   v_bSh = vec_mergeh (v_bSh, v_bSh);
   v_bSh = vec_mergeh (v_bSh, v_bSh);
-    
+
   vec_st (v_bSv, 0, (vector unsigned char *) mv_const);
   vec_st (v_bSh, 0,(vector unsigned char *) mv_const);
 }

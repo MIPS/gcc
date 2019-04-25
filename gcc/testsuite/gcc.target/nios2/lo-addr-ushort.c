@@ -46,4 +46,3 @@ unsigned int extwu1 (void) { return (unsigned int)(S1); }
 unsigned int extwu2 (int i) { return (unsigned int)(S2[i]); }
 unsigned int extwu3 (void) { return (unsigned int)(S3.x2); }
 unsigned int extwu4 (int i) { return (unsigned int)(S4[i].x2); }
-

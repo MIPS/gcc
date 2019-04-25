@@ -3807,7 +3807,7 @@ vect_recog_bool_pattern (stmt_vec_info stmt_vinfo, tree *type_out)
       rhs = adjust_bool_stmts (bool_stmts, type, stmt_vinfo);
 
       lhs = vect_recog_temp_ssa_var (TREE_TYPE (lhs), NULL);
-      pattern_stmt 
+      pattern_stmt
 	  = gimple_build_assign (lhs, COND_EXPR,
 				 build2 (NE_EXPR, boolean_type_node,
 					 rhs, build_int_cst (type, 0)),
@@ -4851,7 +4851,7 @@ vect_pattern_recog_1 (vect_recog_func *recog_func, stmt_vec_info stmt_info)
 
   loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   gcc_assert (pattern_vectype);
- 
+
   /* Found a vectorizable pattern.  */
   if (dump_enabled_p ())
     dump_printf_loc (MSG_NOTE, vect_location,

@@ -23,4 +23,3 @@ testf_h (vector float vf2, vector float vf3)
 
 /* { dg-final { scan-assembler-times "xxmrghw|vmrghw" 1 } } */
 /* { dg-final { scan-assembler-times "xxmrglw|vmrglw" 1 } } */
-

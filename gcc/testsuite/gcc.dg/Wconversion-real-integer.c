@@ -83,7 +83,7 @@ void h2 (void)
   short int   ss;
   unsigned char uc;
   signed char sc;
-  
+
   fss (4294967294.0); /* { dg-warning "conversion" } */
   ss = 4294967294.0; /* { dg-warning "conversion" } */
   fss (-4294967294.0);  /* { dg-warning "conversion" } */
@@ -106,8 +106,8 @@ void h2 (void)
   ss = 500.0;
   fss (-500.0);
   ss = -500.0;
-  fus (500.0); 
-  us = 500.0; 
+  fus (500.0);
+  us = 500.0;
   fus (-500.0);   /* { dg-warning "conversion" } */
   us = -500.0;    /* { dg-warning "conversion" } */
 }

@@ -1,4 +1,4 @@
-void   
+void
 foo ()
 {
  long long tmp;

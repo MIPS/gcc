@@ -34,5 +34,5 @@ TEST (void)
     {
       if (r[i] != lrint (a[i]))
 	abort();
-    }   
+    }
 }

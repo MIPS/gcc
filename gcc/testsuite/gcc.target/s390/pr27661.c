@@ -22,4 +22,3 @@ void test (struct test *testtb)
 
   printf ("b");
 }
-

@@ -46,7 +46,6 @@ int main()
   for (i=0; i<N; i++)
     if (res[i] != 0.0f)
       abort();
- 
+
   return 0;
 }
-

@@ -124,7 +124,7 @@ objc_start_protocol (tree ARG_UNUSED (proto),
 {
 }
 
-void 
+void
 objc_set_method_opt (bool ARG_UNUSED (optional))
 {
 }
@@ -213,7 +213,7 @@ objc_finish_method_definition (tree ARG_UNUSED (fndecl))
 {
 }
 
-bool 
+bool
 objc_method_decl (enum tree_code ARG_UNUSED(opcode))
 {
   return false;
@@ -312,7 +312,7 @@ objc_get_class_ivars (tree ARG_UNUSED (name))
 }
 
 void
-objc_add_property_declaration (location_t ARG_UNUSED (location), 
+objc_add_property_declaration (location_t ARG_UNUSED (location),
 			       tree ARG_UNUSED (decl),
 			       bool ARG_UNUSED (parsed_property_readonly),
 			       bool ARG_UNUSED (parsed_property_readwrite),
@@ -359,19 +359,19 @@ objc_build_incr_expr_for_property_ref (location_t ARG_UNUSED (location),
 }
 
 void
-objc_add_synthesize_declaration (location_t ARG_UNUSED (start_locus), 
+objc_add_synthesize_declaration (location_t ARG_UNUSED (start_locus),
 				 tree ARG_UNUSED (property_and_ivar_list))
 {
 }
 
 void
-objc_add_dynamic_declaration (location_t ARG_UNUSED (start_locus), 
+objc_add_dynamic_declaration (location_t ARG_UNUSED (start_locus),
 			      tree ARG_UNUSED (property_list))
 {
 }
 
 const char *
-objc_maybe_printable_name (tree ARG_UNUSED (decl), 
+objc_maybe_printable_name (tree ARG_UNUSED (decl),
 			   int ARG_UNUSED (v))
 {
   return NULL;
@@ -445,7 +445,7 @@ objc_string_ref_type_p (tree ARG_UNUSED (strp))
 }
 
 void
-objc_check_format_arg (tree ARG_UNUSED (format_arg), 
+objc_check_format_arg (tree ARG_UNUSED (format_arg),
 		       tree ARG_UNUSED (args_list))
 {
 }

@@ -16,4 +16,3 @@ foo (short x)
 
   return sum;
 }
-

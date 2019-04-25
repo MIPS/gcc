@@ -2,7 +2,7 @@
 /* { dg-options "-g -O -mx32 -maddress-mode=long" } */
 
 extern void get_BID128 (int *);
-void 
+void
 __bid128_div (void)
 {
   int res;

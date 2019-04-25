@@ -15,4 +15,3 @@ MMAPGCD (int *A1, int *A2)
   foo (A1-1);
   foo (A2-1);
 }
-

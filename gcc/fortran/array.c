@@ -2272,7 +2272,7 @@ gfc_ref_dimen_size (gfc_array_ref *ar, int dimen, mpz_t *result, mpz_t *end)
 	mpz_set_ui (stride, 1);
       else
 	{
-	  stride_expr = gfc_copy_expr(ar->stride[dimen]); 
+	  stride_expr = gfc_copy_expr(ar->stride[dimen]);
 
 	  if(!gfc_simplify_expr(stride_expr, 1))
 	    gfc_internal_error("Simplification error");

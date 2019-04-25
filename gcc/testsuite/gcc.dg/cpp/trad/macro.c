@@ -3,7 +3,7 @@
 
 /* { dg-do preprocess } */
 
-#define f(x) 
+#define f(x)
 #define g(x, y...)		/* { dg-error "-:macro parameter list" } */
 
 #if 0

@@ -33,7 +33,7 @@ int main()
       if (last>10)
         return 0;
     }
-    
+
     foo(first);
   }
 

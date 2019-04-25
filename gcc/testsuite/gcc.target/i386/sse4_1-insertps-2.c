@@ -48,4 +48,4 @@ TEST (void)
       || _MM_MK_INSERTPS_NDX(2, 2, 0x7) != 0xA7
       || _MM_MK_INSERTPS_NDX(3, 3, 0x8) != 0xF8)
     abort ();
-} 
+}

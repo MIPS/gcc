@@ -9,4 +9,3 @@
 /* { dg-final { scan-assembler "macdu" } } */
 /* { dg-final { scan-assembler "mpyd " } } */
 /* { dg-final { scan-assembler "mpydu" } } */
-

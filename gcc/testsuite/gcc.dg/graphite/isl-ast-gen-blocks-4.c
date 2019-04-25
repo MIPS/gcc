@@ -20,7 +20,7 @@ extern void abort ();
 
 int
 main (void)
-{ 
+{
   int res = foo (4, 50, 50, 50);
   if (res != 14700)
     abort ();

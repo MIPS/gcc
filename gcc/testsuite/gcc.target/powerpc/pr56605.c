@@ -12,4 +12,3 @@ void foo (short* __restrict sb, int* __restrict ia)
 }
 
 /* { dg-final { scan-rtl-dump-times "\\\(compare:CC \\\((?:and|zero_extend):DI \\\(reg:\[SD\]I" 1 "combine" } } */
-

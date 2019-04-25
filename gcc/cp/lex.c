@@ -81,7 +81,7 @@ cxx_finish (void)
   c_common_finish ();
 }
 
-ovl_op_info_t ovl_op_info[2][OVL_OP_MAX] = 
+ovl_op_info_t ovl_op_info[2][OVL_OP_MAX] =
   {
     {
       {NULL_TREE, NULL, NULL, ERROR_MARK, OVL_OP_ERROR_MARK, 0},
@@ -1143,7 +1143,7 @@ maybe_add_lang_type_raw (tree t)
 {
   if (!RECORD_OR_UNION_CODE_P (TREE_CODE (t)))
     return false;
-  
+
   TYPE_LANG_SPECIFIC (t)
     = (struct lang_type *) (ggc_internal_cleared_alloc
 			    (sizeof (struct lang_type)));

@@ -1,7 +1,7 @@
 inline int
 f (int x)
 {
-  static union 
+  static union
     {
       int i;
     };

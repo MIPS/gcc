@@ -11,5 +11,3 @@
 #define VALUE_ARM_ARCH_ISA_ARM 1
 
 #include "ftest-support.h"
-
-

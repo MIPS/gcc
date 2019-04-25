@@ -30,7 +30,7 @@ static void test_driver_strncmp (void (test_strncmp)(const char *, const char *,
 
   r = mprotect (buf2+pgsz,pgsz,PROT_NONE);
   if (r < 0) abort();
-  
+
   memset(buf1,'A',sz);
   for(i=10; i>=0; i--) {
     p2 = buf2+pgsz-sz-i;

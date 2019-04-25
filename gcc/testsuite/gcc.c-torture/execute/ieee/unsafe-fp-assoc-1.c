@@ -22,7 +22,7 @@ void func ( double x )
                   y = ( x - twoTo52 ) + twoTo52;
                   if ( y != x )
 		    abort();
-                  z = x - 0.5;			
+                  z = x - 0.5;
                   y = ( z - twoTo52 ) + twoTo52;
                   if ( y == (( x - twoTo52 ) + twoTo52) )
 		    abort();

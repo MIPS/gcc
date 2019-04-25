@@ -111,14 +111,14 @@ enum STATES FMS( u8 **in , u32 *transitions) {
 	}
 	if (state==INVALID)
 		transitions[INVALID]++;
-	
+
 	*in = str;
 	return state;
 }
 
 /* The profile is not updated perfectly because it is inconsitent from
    profile estimation stage. But the number of inconsistencies should not
-   increase much. 
+   increase much.
 
    aarch64 has the highest CASE_VALUES_THRESHOLD in GCC.  It's high enough
    to change decisions in switch expansion which in turn can expose new
@@ -128,4 +128,4 @@ enum STATES FMS( u8 **in , u32 *transitions) {
 /* { dg-final { scan-tree-dump-not "not considered" "thread1" } } */
 /* { dg-final { scan-tree-dump-not "not considered" "thread2" } } */
 /* { dg-final { scan-tree-dump-not "not considered" "thread3" { target { ! aarch64*-*-* } } } } */
-/* { dg-final { scan-tree-dump-not "not considered" "thread4" { target { ! aarch64*-*-* } } } } */ 
+/* { dg-final { scan-tree-dump-not "not considered" "thread4" { target { ! aarch64*-*-* } } } } */

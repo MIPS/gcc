@@ -24,24 +24,24 @@ void test6 (char p1, char p2)
 
   if (&g1 == &g2)
     link_error ();
-  
+
   if (&p1 == &l1)
-    link_error (); 
+    link_error ();
 
   if (&p1 == &s1)
-    link_error (); 
+    link_error ();
 
   if (&p1 == &l2)
-    link_error (); 
+    link_error ();
 
   if (&p1 == &g1)
-    link_error (); 
+    link_error ();
 
   if (&l1 == &g1)
-    link_error (); 
+    link_error ();
 
   if (&s1 == &g1)
-    link_error (); 
+    link_error ();
 }
 
 extern void *alloc (int) __attribute__ ((malloc));
@@ -72,13 +72,13 @@ char* test66 (char * __restrict__ rp1, char * __restrict__ rp2, char *p1)
 
   if (rl1 == gca1)
     link_error ();
-  
+
   if (rp1 == rp2)
     link_error ();
 
   if (rp1 == rgc1)
     link_error ();
-  
+
   if (rp1 == gca1)
     link_error ();
 
@@ -114,13 +114,13 @@ int* test666 (int * __restrict__ rp1, int * __restrict__ rp2, int *p1)
 
   if (rl1 == gci1)
     link_error ();
-  
+
   if (rp1 == rp2)
     link_error ();
 
   if (rp1 == rgi1)
     link_error ();
-  
+
   if (rp1 == gci1)
     link_error ();
 

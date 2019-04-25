@@ -18,7 +18,7 @@ fun_inc (uint8_t c0)
   c++;
   if (c >= 0x80)
     c = 0;
-  
+
   asm ("" : "+l" (c));
 
   return c;
@@ -35,7 +35,7 @@ fun_dec (uint8_t c0)
   c--;
   if (c < 0x80)
     c = 0;
-  
+
   asm ("" : "+l" (c));
 
   return c;
@@ -67,7 +67,7 @@ fun_adiw (uint16_t c0)
     c = 0;
 
   asm ("" : "+r" (c));
-  
+
   return c;
 }
 
@@ -76,10 +76,10 @@ int main()
 {
   if (fun_inc (0x7f) != 0)
     abort();
-  
+
   if (fun_neg (0x80) != 0)
     abort();
-  
+
   if (fun_adiw (0x7ffe) != 0)
     abort();
 

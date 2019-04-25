@@ -703,4 +703,3 @@ extern playback::context *active_playback_ctxt;
 } // namespace gcc
 
 #endif /* JIT_PLAYBACK_H */
-

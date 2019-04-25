@@ -14,4 +14,3 @@ void rivafb_fillrect(RivaBitmap *bm)
 {
   writel((void *)&bm->UnclippedRectangle[0].WidthHeight);
 }
-

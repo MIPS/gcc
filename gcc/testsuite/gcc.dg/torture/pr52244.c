@@ -2,7 +2,7 @@
 
 extern void abort (void);
 
-typedef union u_r 
+typedef union u_r
 {
   _Bool b;
   unsigned char c;

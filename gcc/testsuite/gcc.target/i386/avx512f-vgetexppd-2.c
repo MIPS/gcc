@@ -54,4 +54,3 @@ TEST (void)
     abort ();
 
 }
-

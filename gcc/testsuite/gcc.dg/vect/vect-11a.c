@@ -16,9 +16,9 @@ unsigned int C[8];
 
 __attribute__ ((noinline))
 void u ()
-{  
+{
   int i, j;
-  
+
   for (i=0; i<8; i++)
     C[i] = A[i] * B[i];
   for (i=0; i<8; i++)
@@ -38,7 +38,7 @@ __attribute__ ((noinline))
 void s()
 {
   int i, j;
-  
+
   for (i=0; i<8; i++)
     F[i] = D[i] * E[i];
   for (i=0; i<8; i++)
@@ -55,9 +55,9 @@ int main1 ()
 }
 
 int main (void)
-{ 
+{
   check_vect ();
-  
+
   return main1 ();
 }
 

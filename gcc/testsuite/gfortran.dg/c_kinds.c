@@ -13,7 +13,7 @@ void param_test(short int my_short, int my_int, long int my_long,
                 int_fast64_t my_int_fast64_t, intmax_t my_intmax_t,
                 intptr_t my_intptr_t, float my_float, double my_double,
                 long double my_long_double, char my_char, _Bool my_bool);
-   
+
 
 int main(int argc, char **argv)
 {
@@ -34,7 +34,7 @@ int main(int argc, char **argv)
    int_least64_t my_int_least64_t = 2;
    int_fast64_t my_int_fast64_t = 3;
    intmax_t my_intmax_t = 1;
-   intptr_t my_intptr_t = 0;  
+   intptr_t my_intptr_t = 0;
    float my_float = 1.0;
    double my_double = 2.0;
    long double my_long_double = 3.0;

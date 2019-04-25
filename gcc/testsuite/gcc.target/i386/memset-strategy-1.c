@@ -7,4 +7,3 @@ void t (void)
 {
   __builtin_memset (a, 1, 2048);
 }
-

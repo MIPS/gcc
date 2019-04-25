@@ -3,16 +3,16 @@
 int a, b, c, d, e, f, *g;
 
 int main ()
-{ 
+{
   unsigned i;
   while (b)
-    { 
+    {
       int j, m;
 L1:
       f = j;
 L2:
       if (i && e)
-	{ 
+	{
 	  i = f;
 	  goto L2;
 	}

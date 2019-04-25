@@ -303,10 +303,10 @@ void test_array_of_structs (char *d)
   T (&ba[3].a[1].a[1] + v0);  /* { dg-warning "nul" }  */
 
   T (ba[3].a[1].b);
-  T (&ba[3].a[1].b[0]);	
+  T (&ba[3].a[1].b[0]);
   T (&ba[3].a[1].b[0] + 1);
   T (&ba[3].a[1].b[0] + v0);
-  T (&ba[3].a[1].b[1]);	
+  T (&ba[3].a[1].b[1]);
   T (&ba[3].a[1].b[1] + 1);
   T (&ba[3].a[1].b[1] + v0);
 

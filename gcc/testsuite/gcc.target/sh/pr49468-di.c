@@ -13,7 +13,7 @@ abs_0 (long long i)
 }
 
 /*  Negated integer absolute value.
-    The generated code should be the same, except that the branch 
+    The generated code should be the same, except that the branch
     condition is inverted.  */
 long long
 abs_1 (long long i)

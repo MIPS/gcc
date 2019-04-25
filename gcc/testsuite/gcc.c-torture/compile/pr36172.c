@@ -14,4 +14,3 @@ __SIZE_TYPE__ FcCharSetFreeze (int *fcs, int b)
   }
   return (__SIZE_TYPE__) fcs;
 }
-

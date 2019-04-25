@@ -4,4 +4,3 @@
 #include "cxxcom2.h"
 
 /* { dg-final { scan-file-not cxxcom2.i "is not in C89" } } */
-

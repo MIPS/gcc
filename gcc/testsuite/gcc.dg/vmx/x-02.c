@@ -6,7 +6,7 @@ g(vector unsigned char, vector bool char);
 static int q(void);
 
 static vector bool char
-f(vector bool char b, vector unsigned char d) 
+f(vector bool char b, vector unsigned char d)
 {
   vector bool char *p = &b;
   *p = g(d,b);
@@ -27,8 +27,8 @@ static int q ()
   return 1;
 }
 
-int main() 
-{ 
+int main()
+{
   f(b8, u8);
-  return 0; 
+  return 0;
 }

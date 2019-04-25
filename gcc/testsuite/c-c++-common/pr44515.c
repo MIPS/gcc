@@ -10,5 +10,5 @@ void foo(void)
         ^
         ;
  }
- ~       
+ ~
    { dg-end-multiline-output "" } */

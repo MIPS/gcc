@@ -68,4 +68,3 @@ testld_cst_vbi (vector bool int vbi2)
 }
 
 /* { dg-final { scan-assembler-times {\mlvx\M|\mlxvd2x\M|\mlxvw4x\M|\mlxv\M} 10 } } */
-

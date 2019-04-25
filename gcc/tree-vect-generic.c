@@ -72,7 +72,7 @@ static tree
 build_replicated_const (tree type, tree inner_type, HOST_WIDE_INT value)
 {
   int width = tree_to_uhwi (TYPE_SIZE (inner_type));
-  int n = (TYPE_PRECISION (type) + HOST_BITS_PER_WIDE_INT - 1) 
+  int n = (TYPE_PRECISION (type) + HOST_BITS_PER_WIDE_INT - 1)
     / HOST_BITS_PER_WIDE_INT;
   unsigned HOST_WIDE_INT low, mask;
   HOST_WIDE_INT a[WIDE_INT_MAX_ELTS];
@@ -1370,7 +1370,7 @@ lower_vec_perm (gimple_stmt_iterator *gsi)
     }
   else if (can_vec_perm_var_p (TYPE_MODE (vect_type)))
     return;
-  
+
   warning_at (loc, OPT_Wvector_operation_performance,
               "vector shuffling operation will be expanded piecewise");
 
@@ -1911,7 +1911,7 @@ expand_vector_operations_1 (gimple_stmt_iterator *gsi)
   if (!VECTOR_TYPE_P (type)
       || !VECTOR_TYPE_P (TREE_TYPE (rhs1)))
     return;
- 
+
   /* A scalar operation pretending to be a vector one.  */
   if (VECTOR_BOOLEAN_TYPE_P (type)
       && !VECTOR_MODE_P (TYPE_MODE (type))

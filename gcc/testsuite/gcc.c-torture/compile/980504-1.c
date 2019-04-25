@@ -2,8 +2,8 @@ typedef struct _geom_elem {
   double        coeffs[6];
 } pGeomDefRec, *pGeomDefPtr;
 typedef struct _mpgeombanddef {
-	int	yOut;		 
-	int	in_width;	 
+	int	yOut;
+	int	in_width;
 } mpGeometryBandRec, *mpGeometryBandPtr;
 typedef void *pointer;
 typedef unsigned char  CARD8;
@@ -25,4 +25,4 @@ pGeomDefPtr pedpvt; mpGeometryBandPtr pvtband;
   register double srcline = c * ((double)(0.0000))  +	pedpvt->coeffs[3] * (pvtband->yOut + ((double)(0.0000)) ) +	pedpvt->coeffs[5];
   if ( (isrcpix >= 0) && (isrcpix < srcwidth) )
     val =	ptrIn[isrcpix]   * ((float)1. - s - t + st) + ptrIn[isrcpix+1] * (s - st) +	ptrJn[isrcpix]   * (t - st) +	ptrJn[isrcpix+1] * (st) +   (float)0.5 ;
-} 
+}

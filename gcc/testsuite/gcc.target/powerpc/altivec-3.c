@@ -12,7 +12,7 @@ typedef float float4 __attribute__ ((vector_size (16)));
 int4 a1 = (int4) { 100, 200, 300, 400 };
 int4 a2 = (int4) { 500, 600, 700, 800 };
 
-float4 f1 = (float4) { 1.0, 2.0, 3.0, 4.0 };  
+float4 f1 = (float4) { 1.0, 2.0, 3.0, 4.0 };
 float4 f2 = (float4) { 5.0, 6.0, 7.0, 8.0 };
 
 int i3[4] __attribute__((aligned(16)));

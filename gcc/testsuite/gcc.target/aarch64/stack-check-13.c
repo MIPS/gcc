@@ -23,6 +23,3 @@ int t3(int x)
    exact offset to make the test a little less sensitive to trivial
    output changes.  */
 /* { dg-final { scan-assembler-times "sub\\tsp, sp, #....\\n\\tstr\\txzr, \\\[sp" 1 } } */
-
-
-

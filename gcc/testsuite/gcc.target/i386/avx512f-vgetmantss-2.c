@@ -92,7 +92,7 @@ avx512f_test (void)
   src1.x = _mm_set_ps (-24.043, 68.346, -43.35, 546.46);
   src2.x = _mm_set_ps (222.222, 333.333, 444.444, -2.0);
 
-  int i; 
+  int i;
   for (i = 0; i < SIZE; i++)
     {
       res2.a[i] = DEFAULT_VALUE;
@@ -110,7 +110,7 @@ avx512f_test (void)
 
   if (check_union128 (res1, res_ref))
     abort ();
-  
+
   MASK_MERGE () (res_ref, mask, 1);
   if (check_union128 (res2, res_ref))
     abort ();
@@ -123,7 +123,7 @@ avx512f_test (void)
 
   if (check_union128 (res4, res_ref))
     abort ();
-  
+
   MASK_MERGE () (res_ref, mask, 1);
   if (check_union128 (res5, res_ref))
     abort ();

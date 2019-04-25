@@ -12,4 +12,3 @@ void XdmcpUnwrap (unsigned char *output, int k)
   for (i = 0; i < 8; i++)
     output[i] = blocks[k][i];
 }
-

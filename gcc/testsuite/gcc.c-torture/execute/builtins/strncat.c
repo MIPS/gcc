@@ -23,7 +23,7 @@ main_test (void)
   const char *const s1 = "hello world";
   const char *const s2 = "";
   char dst[64], *d2;
-  
+
   RESET_DST_WITH (s1);
   if (strncat (dst, "", 100) != dst || memcmp (dst, "hello world\0XXX", 15))
     abort();

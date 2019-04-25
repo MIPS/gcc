@@ -4,7 +4,7 @@ static int a = 2;
 int b[1], c, d;
 
 int main ()
-{ 
+{
   int e = a, *f = &b[0];
   if (d)
     for (e = 0; e < 1; e++)

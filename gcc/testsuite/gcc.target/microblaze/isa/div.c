@@ -14,7 +14,7 @@ int test_mul () {
     m1 = m2 * m3 ;
 
   /* { dg-final { scan-assembler-not "muli" } } */
-    m3 = m1 * 1234 ;    
+    m3 = m1 * 1234 ;
 
   /* { dg-final { scan-assembler-not "mulh" } } */
     llp = ((long long)l1 * l2);
@@ -23,7 +23,7 @@ int test_mul () {
     ullp = ((unsigned long long)ul1 * ul2);
 
   /* { dg-final { scan-assembler-not "mulhsu" } } */
-    llp = ((long long)l1 * ul2);        
+    llp = ((long long)l1 * ul2);
 
   /* { dg-final { scan-assembler-not "bslli" } } */
     m3 = m2 << 25;
@@ -41,7 +41,7 @@ int test_mul () {
     m1 = m2 / m1;
 
   /* { dg-final { scan-assembler "idivu" } } */
-    u1 = u2 / u3;    
+    u1 = u2 / u3;
 
   /* { dg-final { scan-assembler-not "pcmpne" } } */
     m3 = (m3 != m1);
@@ -49,4 +49,3 @@ int test_mul () {
   /* { dg-final { scan-assembler-not "pcmpeq" } } */
     return (m1 == m2);
 }
-

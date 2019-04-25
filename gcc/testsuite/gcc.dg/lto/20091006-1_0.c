@@ -6,7 +6,7 @@ extern inline void __attribute__((gnu_inline)) check3 (void)
 {
     bar ();
 }
-void test (void) 
+void test (void)
 {
     const fnt pcheck3 = check3;
     pcheck3 ();

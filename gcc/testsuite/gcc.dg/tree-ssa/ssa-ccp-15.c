@@ -1,4 +1,4 @@
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-O2 -fdump-tree-optimized" } */
 
 /* Check that the initial values are honored when necessary.  */

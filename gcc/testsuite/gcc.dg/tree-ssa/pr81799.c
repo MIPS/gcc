@@ -22,4 +22,3 @@ void fn1 (int h)
     }
   f = &i;
 }
-

@@ -30,5 +30,3 @@ int xgp_ahd_interpolate (int tile)
  xdo_rb_ctr_row(p);
  return 0;
 }
-
-

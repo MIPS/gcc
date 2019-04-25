@@ -1,4 +1,4 @@
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-O2 -fno-tree-dominator-opts -fdump-tree-fre1-stats" } */
 /* { dg-options "-O2 -fno-tree-dominator-opts -fdump-tree-fre1-stats -fno-finite-math-only" { target sh*-*-* } } */
 double cos (double);

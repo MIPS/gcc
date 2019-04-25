@@ -49,7 +49,7 @@ int main1 (int x, int y) {
 }
 
 int main (void)
-{ 
+{
   check_vect ();
 
   return main1 (0, N);
@@ -57,4 +57,3 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
 /* { dg-final { scan-tree-dump-times "accesses have the same alignment" 1 "vect" } } */
-

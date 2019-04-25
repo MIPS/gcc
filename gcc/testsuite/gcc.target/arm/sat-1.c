@@ -61,4 +61,3 @@ int ss2 (int x)
 
 /* { dg-final { scan-assembler-times "usat" 4 } } */
 /* { dg-final { scan-assembler-times "ssat" 4 } } */
-

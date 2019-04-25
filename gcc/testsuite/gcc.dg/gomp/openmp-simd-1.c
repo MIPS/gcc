@@ -8,7 +8,7 @@ float bar(float b) {
 
 void foo(int n, float *a, float *b)
 {
-  int i; 
+  int i;
 #pragma omp simd
   for (i = 0; i < n ; i++)
     a[i] = b[i];

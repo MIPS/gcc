@@ -42,4 +42,3 @@ testd_eo ( vector double vd1, vector double vd2)
 /* { dg-final { scan-assembler-times "vmrgew" 1 } } */
 /* Floats will generate some number of xxpermdi instructions.  Ensure we get at least one. */
 /* { dg-final { scan-assembler "xxpermdi" } } */
-

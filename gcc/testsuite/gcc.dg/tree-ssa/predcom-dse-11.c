@@ -48,4 +48,3 @@ int main (void)
 }
 /* { dg-final { scan-tree-dump "Store-stores chain" "pcom"} } */
 /* { dg-final { scan-tree-dump "Store-loads chain" "pcom"} } */
-

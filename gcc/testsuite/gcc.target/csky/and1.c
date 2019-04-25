@@ -9,4 +9,3 @@ int and1 (int x)
 }
 
 /* { dg-final { scan-assembler "bclri" } } */
-

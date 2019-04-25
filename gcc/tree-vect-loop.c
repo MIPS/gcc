@@ -3563,10 +3563,10 @@ vect_estimate_min_profitable_iters (loop_vec_info loop_vinfo,
 	  /* Cost model check occurs at prologue generation.  */
 	  if (LOOP_VINFO_PEELING_FOR_ALIGNMENT (loop_vinfo) < 0)
 	    scalar_outside_cost += 2 * vect_get_stmt_cost (cond_branch_taken)
-	      + vect_get_stmt_cost (cond_branch_not_taken); 
+	      + vect_get_stmt_cost (cond_branch_not_taken);
 	  /* Cost model check occurs at epilogue generation.  */
 	  else
-	    scalar_outside_cost += 2 * vect_get_stmt_cost (cond_branch_taken); 
+	    scalar_outside_cost += 2 * vect_get_stmt_cost (cond_branch_taken);
 	}
     }
 
@@ -3575,7 +3575,7 @@ vect_estimate_min_profitable_iters (loop_vec_info loop_vinfo,
 	       &vec_inside_cost, &vec_epilogue_cost);
 
   vec_outside_cost = (int)(vec_prologue_cost + vec_epilogue_cost);
-  
+
   if (dump_enabled_p ())
     {
       dump_printf_loc (MSG_NOTE, vect_location, "Cost model analysis: \n");
@@ -3963,11 +3963,11 @@ vect_model_reduction_cost (stmt_vec_info stmt_info, internal_fn reduc_fn,
 	      epilogue_cost += record_stmt_cost (cost_vec, 1,
 						 vec_to_scalar, stmt_info, 0,
 						 vect_epilogue);
-	    }	  
+	    }
 	  else
 	    /* Use extracts and reduction op for final reduction.  For N
 	       elements, we have N extracts and N-1 reduction ops.  */
-	    epilogue_cost += record_stmt_cost (cost_vec, 
+	    epilogue_cost += record_stmt_cost (cost_vec,
 					       nelements + nelements - 1,
 					       vector_stmt, stmt_info, 0,
 					       vect_epilogue);
@@ -3975,7 +3975,7 @@ vect_model_reduction_cost (stmt_vec_info stmt_info, internal_fn reduc_fn,
     }
 
   if (dump_enabled_p ())
-    dump_printf (MSG_NOTE, 
+    dump_printf (MSG_NOTE,
                  "vect_model_reduction_cost: inside_cost = %d, "
                  "prologue_cost = %d, epilogue_cost = %d .\n", inside_cost,
                  prologue_cost, epilogue_cost);
@@ -4287,10 +4287,10 @@ get_initial_defs_for_reduction (slp_tree slp_node,
 /* Function vect_create_epilog_for_reduction
 
    Create code at the loop-epilog to finalize the result of a reduction
-   computation. 
-  
-   VECT_DEFS is list of vector of partial results, i.e., the lhs's of vector 
-     reduction statements. 
+   computation.
+
+   VECT_DEFS is list of vector of partial results, i.e., the lhs's of vector
+     reduction statements.
    STMT_INFO is the scalar reduction stmt that is being vectorized.
    NCOPIES is > 1 in case the vectorization factor (VF) is bigger than the
      number of elements that we can fit in a vectype (nunits).  In this case
@@ -4298,12 +4298,12 @@ get_initial_defs_for_reduction (slp_tree slp_node,
      the vector stmt by a factor VF/nunits.  For more details see documentation
      in vectorizable_operation.
    REDUC_FN is the internal function for the epilog reduction.
-   REDUCTION_PHIS is a list of the phi-nodes that carry the reduction 
+   REDUCTION_PHIS is a list of the phi-nodes that carry the reduction
      computation.
-   REDUC_INDEX is the index of the operand in the right hand side of the 
+   REDUC_INDEX is the index of the operand in the right hand side of the
      statement that is defined by REDUCTION_PHI.
    DOUBLE_REDUC is TRUE if double reduction phi nodes should be handled.
-   SLP_NODE is an SLP node containing a group of reduction statements. The 
+   SLP_NODE is an SLP node containing a group of reduction statements. The
      first one in this group is STMT_INFO.
    INDUC_VAL is for INTEGER_INDUC_COND_REDUCTION the value to use for the case
      when the COND_EXPR is never true in the loop.  For MAX_EXPR, it needs to
@@ -4314,10 +4314,10 @@ get_initial_defs_for_reduction (slp_tree slp_node,
      null if this is not an SLP reduction
 
    This function:
-   1. Creates the reduction def-use cycles: sets the arguments for 
+   1. Creates the reduction def-use cycles: sets the arguments for
       REDUCTION_PHIS:
       The loop-entry argument is the vectorized initial-value of the reduction.
-      The loop-latch argument is taken from VECT_DEFS - the vector of partial 
+      The loop-latch argument is taken from VECT_DEFS - the vector of partial
       sums.
    2. "Reduces" each vector of partial results VECT_DEFS into a single result,
       by calling the function specified by REDUC_FN if available, or by
@@ -4358,7 +4358,7 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs,
 				  gimple *reduc_def_stmt,
 				  int ncopies, internal_fn reduc_fn,
 				  vec<stmt_vec_info> reduction_phis,
-                                  bool double_reduc, 
+                                  bool double_reduc,
 				  slp_tree slp_node,
 				  slp_instance slp_node_instance,
 				  tree induc_val, enum tree_code induc_code,
@@ -4404,7 +4404,7 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs,
   tree induction_index = NULL_TREE;
 
   if (slp_node)
-    group_size = SLP_TREE_SCALAR_STMTS (slp_node).length (); 
+    group_size = SLP_TREE_SCALAR_STMTS (slp_node).length ();
 
   if (nested_in_vect_loop_p (loop, stmt_info))
     {
@@ -4646,7 +4646,7 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs,
 
 
   /* 2.1 Create new loop-exit-phis to preserve loop-closed form:
-         v_out1 = phi <VECT_DEF> 
+         v_out1 = phi <VECT_DEF>
          Store them in NEW_PHIS.  */
 
   exit_bb = single_exit (loop)->dest;
@@ -4725,12 +4725,12 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs,
   code = gimple_assign_rhs_code (orig_stmt_info->stmt);
   /* For MINUS_EXPR the initial vector is [init_val,0,...,0], therefore,
      partial results are added and not subtracted.  */
-  if (code == MINUS_EXPR) 
+  if (code == MINUS_EXPR)
     code = PLUS_EXPR;
-  
+
   scalar_dest = gimple_assign_lhs (orig_stmt_info->stmt);
   scalar_type = TREE_TYPE (scalar_dest);
-  scalar_results.create (group_size); 
+  scalar_results.create (group_size);
   new_scalar_dest = vect_create_destination_var (scalar_dest, NULL);
   bitsize = TYPE_SIZE (scalar_type);
 
@@ -4994,7 +4994,7 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs,
     }
 
   /* 2.3 Create the reduction code, using one of the three schemes described
-         above. In SLP we simply need to extract all the elements from the 
+         above. In SLP we simply need to extract all the elements from the
          vector (without reducing them), so we use scalar shifts.  */
   else if (reduc_fn != IFN_LAST && !slp_reduc)
     {
@@ -5370,7 +5370,7 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs,
 
                   if (slp_reduc)
                     {
-                      /* In SLP we don't need to apply reduction operation, so 
+                      /* In SLP we don't need to apply reduction operation, so
                          we just collect s' values in SCALAR_RESULTS.  */
                       new_temp = new_name;
                       scalar_results.safe_push (new_name);
@@ -5388,13 +5388,13 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs,
 
           /* The only case where we need to reduce scalar results in SLP, is
              unrolling.  If the size of SCALAR_RESULTS is greater than
-             REDUC_GROUP_SIZE, we reduce them combining elements modulo 
+             REDUC_GROUP_SIZE, we reduce them combining elements modulo
              REDUC_GROUP_SIZE.  */
           if (slp_reduc)
             {
               tree res, first_res, new_res;
 	      gimple *new_stmt;
-            
+
               /* Reduce multiple scalar results in case of SLP unrolling.  */
               for (j = group_size; scalar_results.iterate (j, &res);
                    j++)
@@ -5431,7 +5431,7 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs,
 	  scalar_results[0] = tmp;
 	}
     }
-  
+
 vect_finalize_reduction:
 
   if (double_reduc)
@@ -5483,7 +5483,7 @@ vect_finalize_reduction:
 
   /* 2.6  Handle the loop-exit phis.  Replace the uses of scalar loop-exit
           phis with new adjusted scalar results, i.e., replace use <s_out0>
-          with use <s_out4>.        
+          with use <s_out4>.
 
      Transform:
         loop_exit:
@@ -5503,7 +5503,7 @@ vect_finalize_reduction:
           v_out2 = reduce <v_out1>
           s_out3 = extract_field <v_out2, 0>
           s_out4 = adjust_result <s_out3>
-          use <s_out4>  
+          use <s_out4>
           use <s_out4> */
 
 
@@ -7064,7 +7064,7 @@ vectorizable_reduction (stmt_vec_info stmt_info, gimple_stmt_iterator *gsi,
               vec_oprnds1.quick_push
 		(vect_get_vec_def_for_operand (ops[1], stmt_info));
               if (op_type == ternary_op)
-		vec_oprnds2.quick_push 
+		vec_oprnds2.quick_push
 		  (vect_get_vec_def_for_operand (ops[2], stmt_info));
 	    }
         }
@@ -7091,7 +7091,7 @@ vectorizable_reduction (stmt_vec_info stmt_info, gimple_stmt_iterator *gsi,
 		  if (single_defuse_cycle && reduc_index == 2)
 		    vec_oprnds2[0] = gimple_get_lhs (new_stmt_info->stmt);
 		  else
-		    vec_oprnds2[0] 
+		    vec_oprnds2[0]
 		      = vect_get_vec_def_for_stmt_copy (loop_vinfo,
 							vec_oprnds2[0]);
 		}
@@ -7702,7 +7702,7 @@ vectorizable_induction (stmt_vec_info stmt_info,
 					  vec_def, vec_step);
 	  vec_def = make_ssa_name (vec_dest, new_stmt);
 	  gimple_assign_set_lhs (new_stmt, vec_def);
- 
+
 	  gsi_insert_before (&si, new_stmt, GSI_SAME_STMT);
 	  new_stmt_info = loop_vinfo->add_stmt (new_stmt);
 	  STMT_VINFO_RELATED_STMT (prev_stmt_vinfo) = new_stmt_info;
@@ -8257,7 +8257,7 @@ vect_transform_loop (loop_vec_info loop_vinfo)
       check_profitability = true;
     }
 
-  /* Make sure there exists a single-predecessor exit bb.  Do this before 
+  /* Make sure there exists a single-predecessor exit bb.  Do this before
      versioning.   */
   edge e = single_exit (loop);
   if (! single_pred_p (e->dest))

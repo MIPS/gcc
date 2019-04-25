@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-std=gnu99" } */
-                                                                                
+
 /* N1107 4: Characteristics of decimal floating types <float.h>.
    C99 5.2.4.2.2a[2] (New).
 

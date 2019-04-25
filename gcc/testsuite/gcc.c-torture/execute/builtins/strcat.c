@@ -20,7 +20,7 @@ void main_test (void)
   const char *const s1 = "hello world";
   const char *const s2 = "";
   char dst[64], *d2;
-  
+
   RESET_DST_WITH (s1);
   if (strcat (dst, "") != dst || memcmp (dst, "hello world\0XXX", 15))
     abort();
@@ -52,17 +52,17 @@ void main_test (void)
   if (strcat (dst, " 1111") != dst
       || memcmp (dst, "hello world 1111\0XXX", 20))
     abort();
-  
+
   RESET_DST_WITH (s1);
   if (strcat (dst+5, " 2222") != dst+5
       || memcmp (dst, "hello world 2222\0XXX", 20))
     abort();
-  
+
   RESET_DST_WITH (s1); d2 = dst;
   if (strcat (++d2+5, " 3333") != dst+6 || d2 != dst+1
       || memcmp (dst, "hello world 3333\0XXX", 20))
     abort();
-  
+
   RESET_DST_WITH (s1);
   strcat (strcat (strcat (strcat (strcat (strcat (dst, ": this "), ""),
 				  "is "), "a "), "test"), ".");

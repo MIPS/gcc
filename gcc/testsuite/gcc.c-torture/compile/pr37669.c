@@ -6,7 +6,7 @@ typedef __SIZE_TYPE__ size_t;
 extern __inline __attribute__ ((__always_inline__)) int __attribute__
 ((__nothrow__)) snprintf (char *__restrict __s, size_t __n, __const char
 *__restrict __fmt, ...)  {
-  return __builtin___snprintf_chk (__s, __n, 2 - 1,       
+  return __builtin___snprintf_chk (__s, __n, 2 - 1,
 __builtin_object_size (__s, 2 > 1), __fmt, __builtin_va_arg_pack ());
 }
 int n1, n2, n3, n4, f5, f6;

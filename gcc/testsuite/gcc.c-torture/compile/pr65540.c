@@ -17,5 +17,3 @@ long double func2 (long double x)
   else
     return x;
 }
-
-

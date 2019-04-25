@@ -431,4 +431,3 @@ c_common_pch_pragma (cpp_reader *pfile, const char *name)
 
   close (fd);
 }
-

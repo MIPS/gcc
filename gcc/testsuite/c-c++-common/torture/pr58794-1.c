@@ -14,10 +14,10 @@ struct S1
 struct S2
 {
   struct S1 g;
-} a, b; 
+} a, b;
 
 static int *c[1][2] = {{0, (int *)&a.g.f2}};
-static int d; 
+static int d;
 
 int
 main ()

@@ -48,7 +48,7 @@ test_multiline_string_literal (void)
    __emit_string_literal_range ("01234"
                                     ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                                 "56789",
-                                ~~~   
+                                ~~~
    { dg-end-multiline-output "" } */
   /* FIXME: why does the above need three trailing spaces?  */
 }
@@ -218,11 +218,11 @@ world
    __emit_string_literal_range (R"foo(
                                 ^~~~~~
  hello
- ~~~~~                           
+ ~~~~~
  world
- ~~~~~                           
+ ~~~~~
  )foo",
- ~~~~~                           
+ ~~~~~
    { dg-end-multiline-output "" } */
 }
 
@@ -291,9 +291,9 @@ test_backslash_continued_logical_lines (void)
    __emit_string_literal_range ("\
                                 ^~
  01234\
- ~~~~~~                          
+ ~~~~~~
  56789", 6, 6, 7);
- ~~~~~~                          
+ ~~~~~~
    { dg-end-multiline-output "" } */
 }
 

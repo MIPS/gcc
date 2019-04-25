@@ -13,7 +13,7 @@ abs_0 (int i)
 }
 
 /*  Negated integer absolute value.
-    The generated code should be the same, except that the branch 
+    The generated code should be the same, except that the branch
     condition is inverted.  */
 int
 abs_1 (int i)

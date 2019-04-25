@@ -15,7 +15,7 @@ void test_sync_atomic_bool (_Atomic _Bool *a)
   __sync_fetch_and_xor (a, 1);   /* { dg-error "operand type ._Atomic _Bool \\*. is incompatible with argument 1 of .__sync_fetch_and_xor." } */
   __sync_fetch_and_or (a, 1);   /* { dg-error "operand type ._Atomic _Bool \\*. is incompatible with argument 1 of .__sync_fetch_and_or." } */
   __sync_fetch_and_nand (a, 1);   /* { dg-error "operand type ._Atomic _Bool \\*. is incompatible with argument 1 of .__sync_fetch_and_nand." } */
-  
+
   __sync_add_and_fetch (a, 1);   /* { dg-error "operand type ._Atomic _Bool \\*. is incompatible with argument 1 of .__sync_add_and_fetch." } */
   __sync_sub_and_fetch (a, 1);   /* { dg-error "operand type ._Atomic _Bool \\*. is incompatible with argument 1 of .__sync_sub_and_fetch." } */
   __sync_and_and_fetch (a, 1);   /* { dg-error "operand type ._Atomic _Bool \\*. is incompatible with argument 1 of .__sync_and_and_fetch." } */
@@ -38,7 +38,7 @@ void test_sync_bool (_Bool *b)
   __sync_fetch_and_xor (b, 1);   /* { dg-error "operand type ._Bool \\*. is incompatible with argument 1 of .__sync_fetch_and_xor." } */
   __sync_fetch_and_or (b, 1);   /* { dg-error "operand type ._Bool \\*. is incompatible with argument 1 of .__sync_fetch_and_or." } */
   __sync_fetch_and_nand (b, 1);   /* { dg-error "operand type ._Bool \\*. is incompatible with argument 1 of .__sync_fetch_and_nand." } */
-  
+
   __sync_add_and_fetch (b, 1);   /* { dg-error "operand type ._Bool \\*. is incompatible with argument 1 of .__sync_add_and_fetch." } */
   __sync_sub_and_fetch (b, 1);   /* { dg-error "operand type ._Bool \\*. is incompatible with argument 1 of .__sync_sub_and_fetch." } */
   __sync_and_and_fetch (b, 1);   /* { dg-error "operand type ._Bool \\*. is incompatible with argument 1 of .__sync_and_and_fetch." } */

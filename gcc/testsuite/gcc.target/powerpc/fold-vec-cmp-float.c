@@ -48,4 +48,3 @@ test1_ne (vector float x, vector float y)
 /* { dg-final { scan-assembler-times "xvcmpnesp" 0 } } */
 /* { dg-final { scan-assembler-times "xvcmpgesp" 2 } } */
 /* { dg-final { scan-assembler-times "fcmpu" 0 } } */
-

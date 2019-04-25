@@ -15,4 +15,3 @@ void e2fsck_pass1()
   ext2_max_sizes[i - 10] = max_sizes;
  }
 }
-

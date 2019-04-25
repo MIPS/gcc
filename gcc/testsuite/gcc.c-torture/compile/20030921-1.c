@@ -1,4 +1,4 @@
-/* PR 12281  The darwin back-end was causing the function 
+/* PR 12281  The darwin back-end was causing the function
    f is not being emitted. TREE_SYMBOL_REFERENCED was being set
    instead of calling mark_referenced.  */
 

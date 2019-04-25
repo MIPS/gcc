@@ -18,7 +18,7 @@ static void
 __attribute__((noinline, unused))
 test (__m128i *p, __m128i a)
 {
-  return _mm_storeu_si128 (p, a); 
+  return _mm_storeu_si128 (p, a);
 }
 
 static void
@@ -28,8 +28,8 @@ TEST (void)
   int e[4]  = {0};
 
   u.x = _mm_set_epi32 (1, 2, 3, 4);
-   
-  test ((__m128i *)e, u.x); 
+
+  test ((__m128i *)e, u.x);
 
   if (check_union128i_d (u, e))
     abort ();

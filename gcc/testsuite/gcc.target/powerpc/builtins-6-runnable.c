@@ -894,7 +894,7 @@ int main() {
 #endif
      }
 #endif
-   
+
    disp = 0;
 #ifdef __BIG_ENDIAN__
    vec_sll_expected1 = (vector signed long long){ -1, 0 };
@@ -925,7 +925,7 @@ int main() {
    vec_ull_expected1 = (vector unsigned long long){ 0, 1234567890123456 };
 #else
    vec_ull_expected1 = (vector unsigned long long){1234567890123456, 0 };
-#endif   
+#endif
    store_data_ull = (vector unsigned long long){  0, 1234567890123456 };
 
    for (i=0; i<2; i++)

@@ -2,7 +2,7 @@
 /* { dg-options "-O -mno-sse -Wno-psabi -mtune=generic" } */
 
 struct A
-{ 
+{
   float V4SF __attribute__ ((vector_size (16)));
 };
 

@@ -20,7 +20,7 @@ avx512f_test () {
   r = _mm512_kortestc (k3, k4);
   r = _mm512_kortestz (k3, k4);
 
-  volatile unsigned char r1 __attribute__((unused));	
+  volatile unsigned char r1 __attribute__((unused));
 
   r1 = _kortestc_mask16_u8(k1, k2);
   r1 = _kortestz_mask16_u8(k1, k2);

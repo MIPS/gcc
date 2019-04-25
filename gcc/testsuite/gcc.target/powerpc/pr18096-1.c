@@ -8,5 +8,4 @@ void mkcatdefs(char *fname) /* { dg-error "too large|exceeds" "stack frame too l
 {
   char line [2147483647];
   f(line);
-} 
-
+}

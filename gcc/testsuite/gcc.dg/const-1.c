@@ -6,7 +6,7 @@ extern int extern_const(int a) __attribute__ ((const));
 /* Trivial.  */
 int
 foo1(int a)  /* { dg-bogus "normally" "detect const candidate" } */
-{ /* { dg-warning "const" "detect const candidate" { target *-*-* } "8" } */ 
+{ /* { dg-warning "const" "detect const candidate" { target *-*-* } "8" } */
   return extern_const (a);
 }
 
@@ -48,10 +48,10 @@ int
 foo4(int n) /* { dg-warning "const\[^\n\]* normally" "detect const candidate" } */
 {
   return foo3(n) + foo2b(n);
-} 
+}
 
 int
 foo5(int n)  /* { dg-bogus "normally" "detect const candidate" } */
 { /* { dg-warning "const" "detect const candidate" { target *-*-* } "54" } */
   return foo2(n);
-} 
+}

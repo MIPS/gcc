@@ -64,4 +64,3 @@ link_error ()
   abort ();
 }
 #endif
-

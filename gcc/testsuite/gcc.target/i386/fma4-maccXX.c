@@ -18,7 +18,7 @@ union
 } dst, res, src1, src2, src3;
 
 
-/* Note that in macc*,msub*,mnmacc* and mnsub* instructions, the intermdediate 
+/* Note that in macc*,msub*,mnmacc* and mnsub* instructions, the intermdediate
    product is not rounded, only the addition is rounded. */
 
 static void
@@ -53,7 +53,7 @@ check_maccps ()
     for (j = 0; j < 4; j++)
       {
 	res.f[i + j] = (src1.f[i + j] * src2.f[i + j]) + src3.f[i + j];
-	if (dst.f[i + j] != res.f[i + j]) 
+	if (dst.f[i + j] != res.f[i + j])
 	  check_fails++;
       }
   return check_fails++;
@@ -67,7 +67,7 @@ check_maccpd ()
     for (j = 0; j < 2; j++)
       {
 	res.d[i + j] = (src1.d[i + j] * src2.d[i + j]) + src3.d[i + j];
-	if (dst.d[i + j] != res.d[i + j]) 
+	if (dst.d[i + j] != res.d[i + j])
 	  check_fails++;
       }
   return check_fails++;
@@ -81,9 +81,9 @@ check_maccss ()
   for (i = 0; i < NUM * 4; i= i + 4)
     {
       res.f[i] = (src1.f[i] * src2.f[i]) + src3.f[i];
-      if (dst.f[i] != res.f[i]) 
+      if (dst.f[i] != res.f[i])
 	check_fails++;
-    }	
+    }
   return check_fails++;
 }
 
@@ -94,7 +94,7 @@ check_maccsd ()
   for (i = 0; i < NUM * 2; i = i + 2)
     {
       res.d[i] = (src1.d[i] * src2.d[i]) + src3.d[i];
-      if (dst.d[i] != res.d[i]) 
+      if (dst.d[i] != res.d[i])
 	check_fails++;
     }
   return check_fails++;
@@ -106,31 +106,31 @@ fma4_test (void)
   int i;
 
   init_maccps ();
-  
+
   for (i = 0; i < NUM; i++)
     dst.x[i] = _mm_macc_ps (src1.x[i], src2.x[i], src3.x[i]);
 
-  if (check_maccps ()) 
+  if (check_maccps ())
     abort ();
 
   for (i = 0; i < NUM; i++)
     dst.x[i] = _mm_macc_ss (src1.x[i], src2.x[i], src3.x[i]);
-  
-  if (check_maccss ()) 
+
+  if (check_maccss ())
     abort ();
 
   init_maccpd ();
-  
+
   for (i = 0; i < NUM; i++)
     dst.y[i] = _mm_macc_pd (src1.y[i], src2.y[i], src3.y[i]);
-  
-  if (check_maccpd ()) 
+
+  if (check_maccpd ())
     abort ();
 
   for (i = 0; i < NUM; i++)
     dst.y[i] = _mm_macc_sd (src1.y[i], src2.y[i], src3.y[i]);
-  
-  if (check_maccsd ()) 
+
+  if (check_maccsd ())
     abort ();
 
 }

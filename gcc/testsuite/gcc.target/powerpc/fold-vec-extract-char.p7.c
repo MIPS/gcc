@@ -57,4 +57,3 @@ testuc_cst (vector unsigned char vuc2)
 {
   return vec_extract (vuc2, 12);
 }
-

@@ -33,4 +33,3 @@ ipa_reference_var_uid (tree t)
 }
 
 #endif  /* GCC_IPA_REFERENCE_H  */
-

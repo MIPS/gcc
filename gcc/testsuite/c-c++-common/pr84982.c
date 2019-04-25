@@ -26,7 +26,7 @@ foo (struct S *x)
   a[2] = x->c;
   a[3] = !x->d;
   bar (a);
-} 
+}
 
 int
 main ()

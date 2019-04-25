@@ -13,13 +13,13 @@ fn1 ()
   if (h && g)
     d = a;
   i = -~(f * d * h) + c && (e || i) ^ f;
-  if (i != 1) 
-    __builtin_abort (); 
+  if (i != 1)
+    __builtin_abort ();
 }
 
 int
 main ()
 {
   fn1 ();
-  return 0; 
+  return 0;
 }

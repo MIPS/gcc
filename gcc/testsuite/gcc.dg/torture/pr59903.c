@@ -13,7 +13,7 @@ struct S0
 static int
 fn1 (int p1)
 {
-  return p1 || ((p1 > 0) > (e << 1)); 
+  return p1 || ((p1 > 0) > (e << 1));
 }
 
 static struct S0

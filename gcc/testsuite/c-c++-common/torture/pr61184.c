@@ -1,7 +1,7 @@
 /* { dg-do run } */
 /* { dg-additional-options "-fno-strict-overflow" } */
 
-short a; 
+short a;
 
 void
 foo (void)

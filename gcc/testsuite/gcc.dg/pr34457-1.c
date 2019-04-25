@@ -4,7 +4,7 @@
 /* { dg-require-effective-target lto } */
 /* { dg-options "-flto -O2" } */
 /* { dg-additional-sources "pr34457-2.c" } */
-   
+
 
 typedef __SIZE_TYPE__ size_t;
 extern int printf (const char *, ...);

@@ -99,4 +99,3 @@ void test(void)
 	v1p = (1 ? pc : x1); /* { dg-error "assignment discards 'const' qualifier from pointer target type" } */
 	v2p = (1 ? pc : x2); /* { dg-error "assignment discards 'const' qualifier from pointer target type" } */
 }
-

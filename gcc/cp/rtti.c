@@ -450,7 +450,7 @@ get_tinfo_decl (tree type)
     {
       int ix = get_pseudo_ti_index (type);
       const tinfo_s *ti = get_tinfo_desc (ix);
-      
+
       d = build_lang_decl (VAR_DECL, name, ti->type);
       SET_DECL_ASSEMBLER_NAME (d, name);
       /* Remember the type it is for.  */
@@ -1433,7 +1433,7 @@ get_tinfo_desc (unsigned ix)
 				   NULL_TREE, integer_type_node);
 	DECL_CHAIN (fld_flg) = fields;
 	fields = fld_flg;
-	
+
 	tree fld_cnt = build_decl (BUILTINS_LOCATION, FIELD_DECL,
 				   NULL_TREE, integer_type_node);
 	DECL_CHAIN (fld_cnt) = fields;
@@ -1545,7 +1545,7 @@ emit_support_tinfo_1 (tree bltn)
 	 comdat_linkage for details.)  Since we want these objects
 	 to have external linkage so that copies do not have to be
 	 emitted in code outside the runtime library, we make them
-	 non-COMDAT here.  
+	 non-COMDAT here.
 
 	 It might also not be necessary to follow this detail of the
 	 ABI.  */

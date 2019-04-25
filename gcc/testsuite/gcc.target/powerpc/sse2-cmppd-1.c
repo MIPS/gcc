@@ -27,7 +27,7 @@ void pd_check(char *id, __m128d dst)
     if(checkVl(pd, pe.l, 2))
     {
         printf("mm_cmp%s_pd FAILED\n", id);
-	printf("dst [%lld, %lld], e.l[%lld, %lld]\n", 
+	printf("dst [%lld, %lld], e.l[%lld, %lld]\n",
 		dest[0], dest[1], pe.l[0], pe.l[1]);
     }
 }

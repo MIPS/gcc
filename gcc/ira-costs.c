@@ -1338,7 +1338,7 @@ record_operand_costs (rtx_insn *insn, enum reg_class *pref)
 	      cost = (i == 0
 		      ? move_costs[hard_reg_class][rclass]
 		      : move_costs[rclass][hard_reg_class]);
-	      
+
 	      op_costs[i]->cost[k] = cost * frequency;
 	      /* If we have assigned a class to this allocno in our
 		 first pass, add a cost to this alternative
@@ -1541,7 +1541,7 @@ scan_one_insn (rtx_insn *insn)
   for (i = 0; i < recog_data.n_operands; i++)
     {
       rtx op = recog_data.operand[i];
-      
+
       if (GET_CODE (op) == SUBREG)
 	op = SUBREG_REG (op);
       if (REG_P (op) && REGNO (op) >= FIRST_PSEUDO_REGISTER)
@@ -1552,7 +1552,7 @@ scan_one_insn (rtx_insn *insn)
 	  int *p_costs = p->cost, *q_costs = q->cost;
 	  cost_classes_t cost_classes_ptr = regno_cost_classes[regno];
 	  int add_cost;
-	  
+
 	  /* If the already accounted for the memory "cost" above, don't
 	     do so again.  */
 	  if (!counted_mem)

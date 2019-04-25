@@ -69,7 +69,7 @@ main (void)
 #endif
       abort ();
     }
-  
+
   return 0;
 }
 
@@ -80,4 +80,3 @@ long long func4 (long a, long b) { return (long long) a * (long long) b; }
 long long func5 (long long a, long long b) { return a * b; }
 unsigned long func6 (unsigned int a, unsigned int b) { return (unsigned long) a * (unsigned long) b; }
 unsigned long long func7 (unsigned long a, unsigned long b) { return (unsigned long long) a * (unsigned long long) b; }
-

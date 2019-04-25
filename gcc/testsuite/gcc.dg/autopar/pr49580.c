@@ -11,10 +11,10 @@ unsigned int ub[N];
 unsigned char reg_has_output_reload[N];
 unsigned int uc[N];
 
- __attribute__ ((noinline)) 
+ __attribute__ ((noinline))
  void main2 (unsigned int regno, unsigned int n_reloads)
  {
-  unsigned int nr=0; 
+  unsigned int nr=0;
 
   if (regno> ub[regno])
     nr=regno;
@@ -27,11 +27,10 @@ unsigned int uc[N];
 }
 
 int main (void)
-{ 
+{
   main2 (799, 0);
   return 0;
 }
 
 
 /* { dg-final { scan-tree-dump-times "SUCCESS: may be parallelized" 1 "parloops2" } } */
-

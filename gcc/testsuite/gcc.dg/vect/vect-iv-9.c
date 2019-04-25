@@ -5,9 +5,9 @@
 
 #define N 26
 int a[N];
- 
+
 __attribute__ ((noinline)) int main1 (int X)
-{  
+{
   int s = X;
   int i;
 
@@ -19,10 +19,10 @@ __attribute__ ((noinline)) int main1 (int X)
 }
 
 int main (void)
-{ 
+{
   int s, i;
   check_vect ();
-  
+
   for (i = 0; i < N; i++)
     a[i] = 2*i;
 
@@ -31,6 +31,6 @@ int main (void)
     abort ();
 
   return 0;
-} 
+}
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 2 "vect" } } */

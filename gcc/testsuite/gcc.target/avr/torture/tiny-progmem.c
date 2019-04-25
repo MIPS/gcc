@@ -83,7 +83,7 @@ void test_6 (void)
   if (0 == (__AVR_TINY_PM_BASE_ADDRESS__ & (__UINTPTR_TYPE__) test6_xdata))
     __builtin_abort();
 #endif
-  
+
   if (get_pmSTR (0)[0] != '0' + 2)
     __builtin_abort();
   if (get_pmSTR (1)[0] != '1' + 2)

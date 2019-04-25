@@ -23,7 +23,7 @@ b()
   z = __builtin_altivec_vadduwm (x, y);
 
   /* Make sure the predicates accept correct argument types.  */
-  
+
   int1 = __builtin_altivec_vcmpbfp_p (0, f, g);
   int1 = __builtin_altivec_vcmpeqfp_p (0, f, g);
   int1 = __builtin_altivec_vcmpequb_p (0, c, d);

@@ -30,4 +30,3 @@ void test_vptr_arith_vla_var (int n)
   char c[n];
   sink (vptr (c) - 1);    /* { dg-warning "\\\[-Warray-bounds" "pr82608" { xfail *-*-* } } */
 }
-

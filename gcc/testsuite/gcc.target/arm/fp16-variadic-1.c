@@ -8,7 +8,7 @@
 
 extern int f (int n, ...);
 
-int 
+int
 f (int n, ...)
 {
   if (n == 2)

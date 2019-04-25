@@ -10,7 +10,7 @@ foo (int bar, int n, int k)
   for (i = 0; i < n; i++)
     if (i == k)
       a[i] = 1;
-    else 
+    else
       a[i] = i;
 
   return a[bar];

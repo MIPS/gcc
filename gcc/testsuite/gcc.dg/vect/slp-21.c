@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 128 
+#define N 128
 
 int
 main1 ()
@@ -29,7 +29,7 @@ main1 ()
       b1 = a1 + 7;
       b2 = a2 + 6;
       b3 = a3 * 5;
-      
+
       b4 = a2 + 4;
       b5 = a3 + 3;
 
@@ -60,13 +60,13 @@ main1 ()
       b4 = a2 + 4;
       b5 = a3 + 3;
 
-      if (out[i*4] != b0 
+      if (out[i*4] != b0
          || out[i*4 + 1] != b1
          || out[i*4 + 2] != b2
          || out[i*4 + 3] != b3)
 	abort ();
 
-      if (out2[i*4] != b0  
+      if (out2[i*4] != b0
          || out2[i*4 + 1] != b1
          || out2[i*4 + 2] != b4
          || out2[i*4 + 3] != b5)
@@ -131,8 +131,8 @@ main1 ()
 
 
   /* Different operations in the second case - vectorization with interleaving.  */
-  for (i = 0; i < N; i++) 
-    { 
+  for (i = 0; i < N; i++)
+    {
       a0 = in[i*4];
       a1 = in[i*4 + 1];
       a2 = in[i*4 + 2];
@@ -203,4 +203,3 @@ int main (void)
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect"  { target  { ! { vect_strided4 || vect_extract_even_odd } } } } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 2 "vect" { target vect_strided4 } } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 0 "vect"  { target { ! { vect_strided4 } } } } } */
-  

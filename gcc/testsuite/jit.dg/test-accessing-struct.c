@@ -109,4 +109,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
   /* Verify that the code correctly modified the field "z".  */
   CHECK_VALUE (tmp.z, 35);
 }
-

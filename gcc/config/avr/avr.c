@@ -8,12 +8,12 @@
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 3, or (at your option)
    any later version.
-   
+
    GCC is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
-   
+
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING3.  If not see
    <http://www.gnu.org/licenses/>.  */
@@ -1567,7 +1567,7 @@ avr_hregs_split_reg (HARD_REG_SET *set)
             && TEST_HARD_REG_BIT (*set, REG_Z)
             && TEST_HARD_REG_BIT (*set, REG_Z + 1))
           continue;
-            
+
         CLEAR_HARD_REG_BIT (*set, regno);
         return regno;
       }
@@ -10724,7 +10724,7 @@ avr_mul_highpart_cost (rtx x, int)
     {
       // This is the wider mode.
       machine_mode mode = GET_MODE (x);
-  
+
       // The middle-end might still have PR81444, i.e. it is calling the cost
       // functions with strange modes.  Fix this now by also considering
       // PSImode (should actually be SImode instead).

@@ -12,5 +12,3 @@ vector float f(vector float a)
   vector float b = vec_splat (a, 2);
   return vec_splat (b, 0);
 }
-
-
