@@ -684,7 +684,7 @@ private:
   rtx expand_ld1_ext_gather (rtx_code);
   rtx expand_ld1_gather ();
   rtx expand_ldff1 (int = UNSPEC_LDFF1);
-  rtx expand_ldff1_ext (rtx_code);
+  rtx expand_ldff1_ext (rtx_code, int = UNSPEC_LDFF1);
   rtx expand_ldff1_ext_gather (rtx_code);
   rtx expand_ldff1_gather ();
   rtx expand_lsl ();
@@ -1224,6 +1224,12 @@ function_instance::memory_vector_mode () const
     case FUNC_svldff1uh_gather:
     case FUNC_svldff1uw:
     case FUNC_svldff1uw_gather:
+    case FUNC_svldnf1sb:
+    case FUNC_svldnf1sh:
+    case FUNC_svldnf1sw:
+    case FUNC_svldnf1ub:
+    case FUNC_svldnf1uh:
+    case FUNC_svldnf1uw:
       return aarch64_sve_data_mode (bhwd_scalar_mode (),
 				    GET_MODE_NUNITS (mode)).require ();
 
@@ -1265,36 +1271,42 @@ function_instance::memory_scalar_type () const
     case FUNC_svld1sb_gather:
     case FUNC_svldff1sb:
     case FUNC_svldff1sb_gather:
+    case FUNC_svldnf1sb:
       return scalar_types[VECTOR_TYPE_svint8_t];
 
     case FUNC_svld1sh:
     case FUNC_svld1sh_gather:
     case FUNC_svldff1sh:
     case FUNC_svldff1sh_gather:
+    case FUNC_svldnf1sh:
       return scalar_types[VECTOR_TYPE_svint16_t];
 
     case FUNC_svld1sw:
     case FUNC_svld1sw_gather:
     case FUNC_svldff1sw:
     case FUNC_svldff1sw_gather:
+    case FUNC_svldnf1sw:
       return scalar_types[VECTOR_TYPE_svint32_t];
 
     case FUNC_svld1ub:
     case FUNC_svld1ub_gather:
     case FUNC_svldff1ub:
     case FUNC_svldff1ub_gather:
+    case FUNC_svldnf1ub:
       return scalar_types[VECTOR_TYPE_svuint8_t];
 
     case FUNC_svld1uh:
     case FUNC_svld1uh_gather:
     case FUNC_svldff1uh:
     case FUNC_svldff1uh_gather:
+    case FUNC_svldnf1uh:
       return scalar_types[VECTOR_TYPE_svuint16_t];
 
     case FUNC_svld1uw:
     case FUNC_svld1uw_gather:
     case FUNC_svldff1uw:
     case FUNC_svldff1uw_gather:
+    case FUNC_svldnf1uw:
       return scalar_types[VECTOR_TYPE_svuint32_t];
 
     default:
@@ -2282,6 +2294,12 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svldff1uw:
     case FUNC_svldff1uw_gather:
     case FUNC_svldnf1:
+    case FUNC_svldnf1sb:
+    case FUNC_svldnf1sh:
+    case FUNC_svldnf1sw:
+    case FUNC_svldnf1ub:
+    case FUNC_svldnf1uh:
+    case FUNC_svldnf1uw:
     case FUNC_svrdffr:
     case FUNC_svsetffr:
     case FUNC_svwrffr:
@@ -3402,6 +3420,12 @@ gimple_folder::fold ()
     case FUNC_svldff1uw:
     case FUNC_svldff1uw_gather:
     case FUNC_svldnf1:
+    case FUNC_svldnf1sb:
+    case FUNC_svldnf1sh:
+    case FUNC_svldnf1sw:
+    case FUNC_svldnf1ub:
+    case FUNC_svldnf1uh:
+    case FUNC_svldnf1uw:
     case FUNC_svlsl:
     case FUNC_svlsl_wide:
     case FUNC_svmad:
@@ -3828,6 +3852,16 @@ function_expander::expand ()
     case FUNC_svldnf1:
       return expand_ldff1 (UNSPEC_LDNF1);
 
+    case FUNC_svldnf1sb:
+    case FUNC_svldnf1sh:
+    case FUNC_svldnf1sw:
+      return expand_ldff1_ext (SIGN_EXTEND, UNSPEC_LDNF1);
+
+    case FUNC_svldnf1ub:
+    case FUNC_svldnf1uh:
+    case FUNC_svldnf1uw:
+      return expand_ldff1_ext (ZERO_EXTEND, UNSPEC_LDNF1);
+
     case FUNC_svlsl:
       return expand_lsl ();
 
@@ -4228,15 +4262,17 @@ function_expander::expand_ldff1 (int code)
   return expand_via_load_insn (code_for_aarch64_ldf1 (code, get_mode (0)));
 }
 
-/* Expand a call to svldff1[su][bhw].  CODE is the type of extension,
-   either SIGN_EXTEND or ZERO_EXTEND.  */
+/* Expand a call to svldff1[su][bhw] or svldnf1[su][bhw]; UNSPEC_CODE is
+   UNSPEC_LDFF1 for the former and UNSPEC_LDNF1 for the latter.  EXT_CODE
+   is the type of extension, either SIGN_EXTEND or ZERO_EXTEND.  */
 rtx
-function_expander::expand_ldff1_ext (rtx_code code)
+function_expander::expand_ldff1_ext (rtx_code ext_code, int unspec_code)
 {
   machine_mode reg_mode = get_mode (0);
   machine_mode mem_mode = m_fi.memory_vector_mode ();
   emit_insn (gen_aarch64_update_ffr_for_load ());
-  insn_code icode = code_for_aarch64_ldff1 (code, reg_mode, mem_mode);
+  insn_code icode = code_for_aarch64_ldf1 (unspec_code, ext_code,
+					   reg_mode, mem_mode);
   return expand_via_load_insn (icode);
 }
 
