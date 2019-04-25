@@ -4192,3 +4192,45 @@
   "TARGET_SVE"
   "ldff1<Vesize>\t%0.<Vetype>, %2/z, %1"
 )
+
+;; Predicated first-faulting load and extend, with 8 elements per
+;; 128-bit block.
+(define_insn "@aarch64_ldff1_<ANY_EXTEND:optab><VNx8_WIDE:mode><VNx8_NARROW:mode>"
+  [(set (match_operand:VNx8_WIDE 0 "register_operand" "=w")
+	(ANY_EXTEND:VNx8_WIDE
+	  (unspec:VNx8_NARROW
+	    [(match_operand:VNx8BI 2 "register_operand" "Upl")
+	     (match_operand:VNx8_NARROW 1 "aarch64_sve_ldff1_operand" "Utf")
+	     (reg:VNx16BI FFRT_REGNUM)]
+	    UNSPEC_LDFF1)))]
+  "TARGET_SVE"
+  "ldff1<ANY_EXTEND:s><VNx8_NARROW:Vesize>\t%0.<VNx8_WIDE:Vetype>, %2/z, %1"
+)
+
+;; Predicated first-faulting load and extend, with 4 elements per
+;; 128-bit block.
+(define_insn "@aarch64_ldff1_<ANY_EXTEND:optab><VNx4_WIDE:mode><VNx4_NARROW:mode>"
+  [(set (match_operand:VNx4_WIDE 0 "register_operand" "=w")
+	(ANY_EXTEND:VNx4_WIDE
+	  (unspec:VNx4_NARROW
+	    [(match_operand:VNx4BI 2 "register_operand" "Upl")
+	     (match_operand:VNx4_NARROW 1 "aarch64_sve_ldff1_operand" "Utf")
+	     (reg:VNx16BI FFRT_REGNUM)]
+	    UNSPEC_LDFF1)))]
+  "TARGET_SVE"
+  "ldff1<ANY_EXTEND:s><VNx4_NARROW:Vesize>\t%0.<VNx4_WIDE:Vetype>, %2/z, %1"
+)
+
+;; Predicated first-faulting load and extend, with 2 elements per
+;; 128-bit block.
+(define_insn "@aarch64_ldff1_<ANY_EXTEND:optab><VNx2_WIDE:mode><VNx2_NARROW:mode>"
+  [(set (match_operand:VNx2_WIDE 0 "register_operand" "=w")
+	(ANY_EXTEND:VNx2_WIDE
+	  (unspec:VNx2_NARROW
+	    [(match_operand:VNx2BI 2 "register_operand" "Upl")
+	     (match_operand:VNx2_NARROW 1 "aarch64_sve_ldff1_operand" "Utf")
+	     (reg:VNx16BI FFRT_REGNUM)]
+	    UNSPEC_LDFF1)))]
+  "TARGET_SVE"
+  "ldff1<ANY_EXTEND:s><VNx2_NARROW:Vesize>\t%0.<VNx2_WIDE:Vetype>, %2/z, %1"
+)
