@@ -2064,7 +2064,7 @@ propagate_dereference_distances (struct function *fun)
 	  {
 	    int succ_idx = e->dest->index * by_ref_count + i;
 
-	    if (e->src == EXIT_BLOCK_PTR_FOR_FN (fun))
+	    if (e->dest == EXIT_BLOCK_PTR_FOR_FN (fun))
 	      continue;
 
 	    if (first)
@@ -2083,7 +2083,7 @@ propagate_dereference_distances (struct function *fun)
 	    }
 	}
 
-      if (change && !bitmap_bit_p (final_bbs, bb->index))
+      if (change)
 	FOR_EACH_EDGE (e, ei, bb->preds)
 	  {
 	    if (e->src->aux)
