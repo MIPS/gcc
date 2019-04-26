@@ -1254,10 +1254,11 @@ enum isra_scan_context {ISRA_CTX_LOAD, ISRA_CTX_ARG, ISRA_CTX_STORE};
 
 /* Return an access describing memory access to the variable described by DESC
    at OFFSET with SIZE in context CTX, starting at pointer to the linked list
-   at a certaint tree level FIRST.  Attempt to create if it does not exist, but
-   fail and return NULL if there are already too many accesses, if it would
-   create a partially overlapping access or if an access would end up withiin a
-   pre-existing non-call access.  */
+   at a certaint tree level FIRST.  Attempt to create it and put into the
+   appropriate place in the access tree if does not exist, but fail and return
+   NULL if there are already too many accesses, if it would create a partially
+   overlapping access or if an access would end up withiin a pre-existing
+   non-call access.  */
 
 static gensum_param_access *
 get_access_1 (gensum_param_desc *desc, gensum_param_access **first,
@@ -1277,7 +1278,7 @@ get_access_1 (gensum_param_desc *desc, gensum_param_access **first,
 
   if (access->offset >= offset + size)
     {
-      /* We want to squeeze in in front of the very first access, just do
+      /* We want to squeeze it in front of the very first access, just do
 	 it.  */
       gensum_param_access *r = allocate_access (desc, offset, size);
       if (!r)
@@ -1321,6 +1322,8 @@ get_access_1 (gensum_param_desc *desc, gensum_param_access **first,
     /* We are actually bigger than access, which fully fits into us, take its
        place and make all accesses fitting into it its children.  */
     {
+      /* But first, we only allow nesting in call arguments so check if that is
+	 what we are trying to represent.  */
       if (ctx != ISRA_CTX_ARG)
 	return NULL;
 
@@ -1391,7 +1394,8 @@ get_access (gensum_param_desc *desc, HOST_WIDE_INT offset, HOST_WIDE_INT size,
 					      size, ctx);
   if (!access)
     {
-      disqualify_split_candidate (desc, "Bad access overlap");
+      disqualify_split_candidate (desc,
+				  "Bad access overlap or too many accesses");
       return NULL;
     }
 
@@ -1534,12 +1538,12 @@ type_prevails_p (tree old_type, tree new_type)
       && TREE_CODE (new_type) != VECTOR_TYPE)
     return false;
 
-  /* Use the integral type with the bigger precision first.  */
+  /* Use the integral type with the bigger precision.  */
   if (INTEGRAL_TYPE_P (old_type)
       && INTEGRAL_TYPE_P (new_type))
     return (TYPE_PRECISION (new_type) > TYPE_PRECISION (old_type));
 
-  /* Put any integral type with non-full precision last.  */
+  /* Attempt to disregard any integral type with non-full precision.  */
   if (INTEGRAL_TYPE_P (old_type)
       && (TREE_INT_CST_LOW (TYPE_SIZE (old_type))
 	  != TYPE_PRECISION (old_type)))
@@ -1579,10 +1583,8 @@ record_nonregister_call_use (gensum_param_desc *desc,
   isra_param_flow *param_flow = &csum->m_inputs[call_info->arg_idx];
   param_flow->aggregate_pass_through = true;
   set_single_param_flow_source (param_flow, desc->m_param_number);
-
   param_flow->unit_offset = unit_offset;
   param_flow->unit_size = unit_size;
-
   desc->m_call_uses++;
 }
 
