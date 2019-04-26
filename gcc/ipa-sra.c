@@ -1942,7 +1942,7 @@ isra_analyze_call (cgraph_edge *cs)
   gcall *call_stmt = cs->call_stmt;
   unsigned count = gimple_call_num_args (call_stmt);
   isra_call_summary *csum = call_sums->get_create (cs);
-  csum->init_inputs (count);  	/* !!? Try avoiding calling this. */
+
   for (unsigned i = 0; i < count; i++)
     {
       tree arg = gimple_call_arg (call_stmt, i);
@@ -1965,8 +1965,8 @@ isra_analyze_call (cgraph_edge *cs)
   tree lhs = gimple_call_lhs (call_stmt);
   if (lhs)
     {
-      /* TODO: Also detect unused and/or only forwarded to
-	 return aggregates.  */
+      /* TODO: Also detect aggregates on a LHS of a call that are only returned
+	 from this function (without being read anywhere).  */
       if (TREE_CODE (lhs) == SSA_NAME)
 	{
 	  bitmap analyzed = BITMAP_ALLOC (NULL);
@@ -2266,12 +2266,10 @@ process_scan_results (cgraph_node *node, struct function *fun,
      compilation unit we could do better by doing analysis in topological order
      an looking into access candidates of callees, using their alias_ptr_types
      to attempt real AA.  We could also use the maximum known dereferenced
-     offset in this function at IPA level but chances are that it is smaller
-     than the one in the callee (if the candidate survives relatively modest
-     replacement size limit).
+     offset in this function at IPA level.
 
      TODO: Measure the overhead and the effect of just being pessimistic.
-     Maybe this is ony -O3 material?
+     Maybe this is ony -O3 material?  !!!
   */
   bool pdoms_calculated = false;
   if (check_pass_throughs)
@@ -2302,9 +2300,9 @@ process_scan_results (cgraph_node *node, struct function *fun,
 	      }
 	    if (!uses_memory_as_obtained)
 	      continue;
+
 	    /* Post-dominator check placed last, hoping that it usually won't
 	       be needed.  */
-
 	    if (!pdoms_calculated)
 	      {
 		push_cfun (fun);
@@ -2327,6 +2325,8 @@ process_scan_results (cgraph_node *node, struct function *fun,
       pop_cfun ();
     }
 
+  /* !!! FIXME: Add early exit if we disqualified everything?  */
+
   vec_safe_reserve_exact (ifs->m_parameters, param_count);
   ifs->m_parameters->quick_grow_cleared (param_count);
   for (unsigned desc_index = 0; desc_index < param_count; desc_index++)
@@ -2346,6 +2346,9 @@ process_scan_results (cgraph_node *node, struct function *fun,
 	   acc = acc->next_sibling)
 	copy_accesses_to_ipa_desc (acc, d);
     }
+
+  if (dump_file)
+    dump_isra_param_descriptors (dump_file, node->decl, ifs);
 }
 
 /* Intraprocedural part of IPA-SRA analysis.  Scan function body of NODE and
@@ -2396,8 +2399,6 @@ ipa_sra_summarize_function (cgraph_node *node)
 	}
       process_scan_results (node, fun, ifs, &param_descriptions);
 
-      if (dump_file)
-	dump_isra_param_descriptors (dump_file, node->decl, ifs);
       if (bb_dereferences)
 	{
 	  free (bb_dereferences);
@@ -2788,8 +2789,8 @@ struct caller_issues
   bool thunk;
   /* Call site with no available information.  */
   bool unknown_callsite;
-  /* There is a bit-aligned load in one of non- */
-  bool bit_aligned_argument;
+  /* There is a bit-aligned load into one of non-gimple-typed arguments. */
+  bool bit_aligned_aggregate_argument;
 };
 
 /* Worker for call_for_symbol_and_aliases, set any flags of passed caller_issues
@@ -2818,7 +2819,7 @@ check_for_caller_issues (struct cgraph_node *node, void *data)
 	}
 
       if (csum->m_bit_aligned_arg)
-	issues->bit_aligned_argument = true;
+	issues->bit_aligned_aggregate_argument = true;
     }
   return false;
 }
@@ -2850,11 +2851,11 @@ check_all_callers_for_issues (cgraph_node *node)
       return true;
     }
 
-  if (issues.bit_aligned_argument)
+  if (issues.bit_aligned_aggregate_argument)
     {
-      /* Let's only remove parameters from such functions.  TODO: We could
-	 only prevent splitting the problematic parameters if anybody thinks
-	 it is worth it.  */
+      /* Let's only remove parameters/return values from such functions.
+	 TODO: We could only prevent splitting the problematic parameters if
+	 anybody thinks it is worth it.  */
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "A call of %s has bit-alinged aggregate argument,"
 		 " disabling parameter splitting.\n", node->dump_name ());
