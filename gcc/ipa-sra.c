@@ -2205,6 +2205,7 @@ process_scan_results (cgraph_node *node, struct function *fun,
 
       HOST_WIDE_INT nonarg_acc_size = 0;
       bool only_calls = true;
+      bool check_failed = false;
 
       int entry_bb_index = ENTRY_BLOCK_PTR_FOR_FN (fun)->index;
       for (gensum_param_access *acc = desc->x_accesses;
@@ -2212,7 +2213,12 @@ process_scan_results (cgraph_node *node, struct function *fun,
 	   acc = acc->next_sibling)
 	if (check_gensum_access (parm, desc, acc, &nonarg_acc_size, &only_calls,
 				 entry_bb_index))
-	  continue;
+	  {
+	    check_failed = true;
+	    break;
+	  }
+      if (check_failed)
+	continue;
 
       if (only_calls)
 	desc->m_locally_unused = true;
