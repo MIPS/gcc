@@ -1,3 +1,63 @@
+2019-04-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/90227 - error with template parameter packs.
+	* pt.c (coerce_template_parms): Do add empty pack when
+	require_all_args.
+
+2019-04-24  Richard Biener  <rguenther@suse.de>
+
+	* call.c (null_ptr_cst_p): Order checks according to expensiveness.
+	(conversion_null_warnings): Likewise.
+	* typeck.c (same_type_ignoring_top_level_qualifiers_p): Return
+	early if type1 == type2.
+
+2019-04-22  Jason Merrill  <jason@redhat.com>
+
+	PR c++/87366 - wrong error with alias template.
+	* typeck.c (structural_comptypes): When comparing_specializations,
+	aliases are unequal.
+	(comptypes): When comparing_specializations, do structural
+	comparison.
+
+2019-04-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/90190 - CTAD with list-constructor.
+	* pt.c (do_class_deduction): Don't try the single element deduction
+	if the single element is also a braced list.
+
+	PR c++/90171 - ICE with destroying delete with size_t parm.
+	* call.c (sized_deallocation_fn_p): New.  Use it instead of
+	second_parm_is_size_t in most cases.
+	(second_parm_is_size_t): Don't check for aligned.
+
+2019-04-19  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/89900
+	* pt.c (fn_type_unification): When handling null explicit
+	arguments do not special case non-parameter packs.
+
+2019-04-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/90138
+	* pt.c (process_template_parm): Set decl to pushdecl result.  If
+	!is_non_type, also set parm to that.
+
+	PR c/89888
+	* decl.c (struct cp_switch): Remove outside_range_p member.
+	(push_switch): Don't clear it.
+	(pop_switch): Adjust c_do_switch_warnings caller.
+	(finish_case_label): Adjust c_add_case_label caller.
+
+	PR c++/90108
+	* decl.c (duplicate_decls): If remove is main variant and
+	DECL_ORIGINAL_TYPE is some other type, remove a DECL_ORIGINAL_TYPE
+	variant that has newdecl as TYPE_NAME if any.
+
+2019-04-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/87554 - ICE with extern template and reference member.
+	* decl.c (cp_finish_decl): Don't set DECL_INITIAL of external vars.
+
 2019-04-17  Jason Merrill  <jason@redhat.com>
 
 	PR c++/90047 - ICE with enable_if alias template.
