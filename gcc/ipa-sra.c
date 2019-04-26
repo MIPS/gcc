@@ -1018,7 +1018,9 @@ ptr_parm_has_nonarg_uses (cgraph_node *node, function *fun, tree parm,
 }
 
 /* Initialize vector of parameter descriptors of NODE.  Return true if there
-   are any candidates for any optimization.  */
+   are any candidates for splitting or unused aggregate parameter removal (the
+   function may return false if there are candidates for removal of register
+   parameters) and function body must be scanned.  */
 
 static bool
 create_parameter_descriptors (cgraph_node *node,
@@ -1078,7 +1080,6 @@ create_parameter_descriptors (cgraph_node *node,
 
 	  desc->m_locally_unused = true;
 	  desc->m_call_uses = scalar_call_uses;
-	  ret = true;
 	}
 
       if (POINTER_TYPE_P (type))
