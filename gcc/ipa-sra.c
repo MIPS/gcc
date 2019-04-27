@@ -139,12 +139,6 @@ struct GTY(()) isra_param_desc
      their offset.  */
   vec <param_access *, va_gc> *m_accesses;
 
-  /* If the below is non-zero, this is the nuber of uses as actual arguents.  */
-  int m_call_uses;   		/* !!! Unnecessary? */
-
-  /* How many of the call uses are passes to nodes in other SCC components.  */
-  int m_scc_uses;
-
   /* Unit size limit of total size of all replacements.  */
   unsigned m_param_size_limit : ISRA_ARG_SIZE_LIMIT_BITS;
   /* Sum of unit sizes of all certain replacements.  */
@@ -386,8 +380,6 @@ ipa_sra_function_summaries::duplicate (cgraph_node *, cgraph_node *,
       isra_param_desc *s = &(*old_sum->m_parameters)[i];
       isra_param_desc *d = &(*new_sum->m_parameters)[i];
 
-      d->m_call_uses = s->m_call_uses;
-      d->m_scc_uses = s->m_scc_uses;
       d->m_param_size_limit = s->m_param_size_limit;
       d->m_size_reached = s->m_size_reached;
       d->m_locally_unused = s->m_locally_unused;
@@ -673,11 +665,11 @@ dump_isra_param_descriptor (FILE *f, isra_param_desc *desc)
 {
   if (desc->m_locally_unused)
     {
-      fprintf (f, "    unused with %i call_uses\n", desc->m_call_uses);
+      fprintf (f, "    (locally) unused\n");
     }
   if (!desc->m_split_candidate)
     {
-      fprintf (f, "    not a candidate\n");
+      fprintf (f, "    not a candidate for splitting\n");
       return;
     }
   fprintf (f, "    param_size_limit: %u, size_reached: %u%s\n",
@@ -2334,7 +2326,6 @@ process_scan_results (cgraph_node *node, struct function *fun,
       gensum_param_desc *s = &(*param_descriptions)[desc_index];
       isra_param_desc *d = &(*ifs->m_parameters)[desc_index];
 
-      d->m_call_uses = s->m_call_uses;
       d->m_param_size_limit = s->param_size_limit;
       d->m_size_reached = s->nonarg_acc_size;
       d->m_locally_unused = s->m_locally_unused;
@@ -2498,8 +2489,6 @@ isra_write_node_summary (output_block *ob, cgraph_node *node)
 	  bp_pack_value (&bp, acc->check_overlaps, 1);
 	  streamer_write_bitpack (&bp);
 	}
-      streamer_write_hwi (ob, desc->m_call_uses);
-      gcc_assert (desc->m_scc_uses == 0);
       streamer_write_uhwi (ob, desc->m_param_size_limit);
       streamer_write_uhwi (ob, desc->m_size_reached);
       bitpack_d bp = bitpack_create (ob->main_stream);
@@ -2618,8 +2607,6 @@ isra_read_node_info (struct lto_input_block *ib, cgraph_node *node,
 	  acc->check_overlaps = bp_unpack_value (&bp, 1);
 	  vec_safe_push (desc->m_accesses, acc);
 	}
-      desc->m_call_uses = streamer_read_hwi (ib);
-      desc->m_scc_uses = 0;
       desc->m_param_size_limit = streamer_read_uhwi (ib);
       desc->m_size_reached = streamer_read_uhwi (ib);
       bitpack_d bp = streamer_read_bitpack (ib);
@@ -2869,38 +2856,6 @@ check_all_callers_for_issues (cgraph_node *node)
   return false;
 }
 
-/* Count the number of times formal parameters feed into an actual argument of
-   a call within the same SCC.  */
-
-static void
-count_param_scc_uses (cgraph_edge *cs)
-{
-  isra_func_summary *from_ifs = func_sums->get (cs->caller);
-  gcc_checking_assert (from_ifs);
-  if (!from_ifs->m_parameters)
-    return;
-  isra_call_summary *csum = call_sums->get (cs);
-  gcc_checking_assert (csum);
-  unsigned args_count = csum->m_inputs.length ();
-
-  enum availability availability;
-  cgraph_node *callee = cs->callee->function_symbol (&availability);
-  isra_func_summary *to_ifs = func_sums->get (callee);
-  if (!to_ifs || !to_ifs->m_candidate
-      || vec_safe_is_empty (to_ifs->m_parameters))
-    return;
-
-  for (unsigned i = 0; i < args_count; i++)
-    {
-      isra_param_flow *ipf = &csum->m_inputs[i];
-      for (int j = 0; j < ipf->length; j++)
-	(*from_ifs->m_parameters)[ipf->inputs[j]].m_scc_uses++;
-
-      gcc_checking_assert (!ipf->aggregate_pass_through
-			   || ipf->length == 1);
-    }
-}
-
 /* Find the access with corresponding OFFSET and SIZE among accesses in
    PARAM_DESC and return it or NULL if such an access is not there.  */
 
@@ -2952,19 +2907,19 @@ bump_reached_size (isra_param_desc *desc, unsigned size, unsigned idx)
   desc->m_size_reached = after;
 }
 
-/* Take all actions required to deal with indirect call edge CS, for both
-   parameter removal and splitting.  */
+/* Take all actions required to deal with an edge CS that represents a call to
+   an unknown or un-analyzed function, for both parameter removal and
+   splitting.  */
 
 static void
-process_indirect_edge (cgraph_edge *cs)
+process_edge_to_unknown_caller (cgraph_edge *cs)
 {
   isra_func_summary *from_ifs = func_sums->get (cs->caller);
   gcc_checking_assert (from_ifs);
   isra_call_summary *csum = call_sums->get (cs);
-  gcc_checking_assert (csum);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "Processing an indirect edge from %s:\n",
+    fprintf (dump_file, "Processing an edge to an unknown caller from %s:\n",
 	     cs->caller->dump_name ());
 
   unsigned args_count = csum->m_inputs.length ();
@@ -2972,6 +2927,14 @@ process_indirect_edge (cgraph_edge *cs)
     {
       isra_param_flow *ipf = &csum->m_inputs[i];
 
+     if (ipf->pointer_pass_through)
+       {
+         isra_param_desc *param_desc
+           = &(*from_ifs->m_parameters)[get_single_param_flow_source (ipf)];
+         param_desc->m_locally_unused = false;
+         param_desc->m_split_candidate = false;
+        continue;
+       }
       if (ipf->aggregate_pass_through)
 	{
 	  unsigned idx = get_single_param_flow_source (ipf);
@@ -2994,7 +2957,6 @@ process_indirect_edge (cgraph_edge *cs)
 	{
 	  int input_idx = ipf->inputs[j];
 	  (*from_ifs->m_parameters)[input_idx].m_locally_unused = false;
-	  (*from_ifs->m_parameters)[input_idx].m_split_candidate = false;
 	}
     }
 }
@@ -3011,27 +2973,32 @@ param_removal_cross_scc_edge (cgraph_edge *cs)
   isra_func_summary *to_ifs = func_sums->get (callee);
   if (!to_ifs || !to_ifs->m_candidate
       || vec_safe_is_empty (to_ifs->m_parameters))
-    return;
+    {
+      process_edge_to_unknown_caller (cs);
+      return;
+    }
   isra_func_summary *from_ifs = func_sums->get (cs->caller);
   gcc_checking_assert (from_ifs);
 
   isra_call_summary *csum = call_sums->get (cs);
-  gcc_checking_assert (csum);
   unsigned args_count = csum->m_inputs.length ();
   unsigned param_count = vec_safe_length (to_ifs->m_parameters);
 
-  for (unsigned i = 0; (i < args_count) && (i < param_count); i++)
+  for (unsigned i = 0; i < args_count; i++)
     {
-      isra_param_desc *dest_desc = &(*to_ifs->m_parameters)[i];
-      if (dest_desc->m_locally_unused
-	  && (dest_desc->m_call_uses == dest_desc->m_scc_uses))
+      bool unused_in_callee;
+      if (i < param_count)
+	unused_in_callee = (*to_ifs->m_parameters)[i].m_locally_unused;
+      else
+	unused_in_callee = false;
+
+      if (!unused_in_callee)
 	{
 	  isra_param_flow *ipf = &csum->m_inputs[i];
 	  for (int j = 0; j < ipf->length; j++)
 	    {
 	      int input_idx = ipf->inputs[j];
-	      if ((*from_ifs->m_parameters)[input_idx].m_locally_unused)
-		(*from_ifs->m_parameters)[input_idx].m_call_uses--;
+	      (*from_ifs->m_parameters)[input_idx].m_locally_unused = false;
 	    }
 	}
     }
@@ -3071,7 +3038,7 @@ isra_mark_caller_param_used (isra_func_summary *from_ifs, int input_idx,
    callee. Push any callers that need to be re-processed to STACK.  */
 
 static void
-propagate_nonlocal_across_edge (cgraph_edge *cs, vec<cgraph_node *> *stack)
+propagate_used_across_scc_edge (cgraph_edge *cs, vec<cgraph_node *> *stack)
 {
   isra_func_summary *from_ifs = func_sums->get (cs->caller);
   if (!from_ifs || vec_safe_is_empty (from_ifs->m_parameters))
@@ -3087,25 +3054,12 @@ propagate_nonlocal_across_edge (cgraph_edge *cs, vec<cgraph_node *> *stack)
   unsigned param_count = to_ifs ? vec_safe_length (to_ifs->m_parameters) : 0;
   for (unsigned i = 0; i < args_count; i++)
     {
-      if (i < param_count)
-	{
-	  isra_param_desc *dest_desc = &(*to_ifs->m_parameters)[i];
+      if (i < param_count
+	  && (*to_ifs->m_parameters)[i].m_locally_unused)
+	    continue;
 
-	  if (dest_desc->m_locally_unused)
-	    {
-	      int d = dest_desc->m_call_uses - dest_desc->m_scc_uses;
-	      gcc_assert (d >= 0);
-	      if (d == 0)
-		/* The number of uses matches exactly the number of times this
-		   parameter is passed to a function within SCC, so far so
-		   good. */
-		continue;
-	    }
-	}
-
-      /* The argument is passed to a function which needs it (or there is a
-	 weird parameter-argument count mismatch), we must mark the parameter
-	 as used also in callers within this SCC.  */
+      /* The argument is needed in the callee it, we must mark the parameter as
+	 used also in the caller and its callers within this SCC.  */
       isra_param_flow *ipf = &csum->m_inputs[i];
       for (int j = 0; j < ipf->length; j++)
 	{
@@ -3116,17 +3070,17 @@ propagate_nonlocal_across_edge (cgraph_edge *cs, vec<cgraph_node *> *stack)
 }
 
 /* Propagate information that any parameter is not used only locally within a
-   SCC to all callers of NODE that are in the same SCC. Push any callers that
-   need to be re-processed to STACK.  */
+   SCC (i.e. is used also elsewhere) to all callers of NODE that are in the
+   same SCC. Push any callers that need to be re-processed to STACK.  */
 
 static bool
-propagate_nonarg_to_css_callers (cgraph_node *node, void *data)
+propagate_used_to_scc_callers (cgraph_node *node, void *data)
 {
   vec<cgraph_node *> *stack = (vec<cgraph_node *> *) data;
   cgraph_edge *cs;
   for (cs = node->callers; cs; cs = cs->next_caller)
     if (ipa_edge_within_scc (cs))
-      propagate_nonlocal_across_edge (cs, stack);
+      propagate_used_across_scc_edge (cs, stack);
   return false;
 }
 
@@ -3314,7 +3268,7 @@ param_splitting_across_edge (cgraph_edge *cs)
       isra_param_desc *arg_desc = &(*to_ifs->m_parameters)[i];
       isra_param_flow *ipf = &csum->m_inputs[i];
 
-      if (arg_desc->m_locally_unused && !arg_desc->m_call_uses)
+      if (arg_desc->m_locally_unused)
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "    ->%u: unused in callee\n", i);
@@ -3479,9 +3433,7 @@ validate_splitting_overlaps (cgraph_node *node)
   for (unsigned pidx = 0; pidx < param_count; pidx++)
     {
       isra_param_desc *desc = &(*ifs->m_parameters)[pidx];
-      if (!desc->m_split_candidate
-	  || (desc->m_locally_unused
-	      && desc->m_call_uses == desc->m_scc_uses))
+      if (!desc->m_split_candidate || desc->m_locally_unused)
 	continue;
 
       bool certain_access_present = false;
@@ -3572,9 +3524,7 @@ process_isra_node_results (cgraph_node *node,
     for (unsigned i = 0; i < param_count; i++)
       {
       isra_param_desc *desc = &(*ifs->m_parameters)[i];
-      if ((desc->m_locally_unused
-	   && desc->m_call_uses == desc->m_scc_uses)
-	  || desc->m_split_candidate)
+      if (desc->m_locally_unused || desc->m_split_candidate)
 	{
 	  will_change_function = true;
 	  break;
@@ -3600,8 +3550,7 @@ process_isra_node_results (cgraph_node *node,
   for (unsigned parm_num = 0; parm_num < param_count; parm_num++)
     {
       isra_param_desc *desc = &(*ifs->m_parameters)[parm_num];
-      if (desc->m_locally_unused
-	  && desc->m_call_uses == desc->m_scc_uses)
+      if (desc->m_locally_unused)
 	{
 	  if (dump_file)
 	    fprintf (dump_file, "  Will remove parameter %u\n", parm_num);
@@ -3709,20 +3658,20 @@ ipa_sra_analysis (void)
 	    }
 
 	  for (cgraph_edge *cs = v->indirect_calls; cs; cs = cs->next_callee)
-	    process_indirect_edge (cs);
+	    process_edge_to_unknown_caller (cs);
 	  for (cgraph_edge *cs = v->callees; cs; cs = cs->next_callee)
-	    if (ipa_edge_within_scc (cs))
-	      count_param_scc_uses (cs);
-	    else
+	    if (!ipa_edge_within_scc (cs))
 	      param_removal_cross_scc_edge (cs);
 	}
 
-      /* Undoing optimistic assumptions for intra-SCC edges during parameter
-	 removal.  */
+      /* Look at edges within the current SCC and propagate used-ness accross
+          them, pushing onto the stack all notes which might need to be
+          revisited.  */
       FOR_EACH_VEC_ELT (cycle_nodes, j, v)
-	v->call_for_symbol_thunks_and_aliases (propagate_nonarg_to_css_callers,
+	v->call_for_symbol_thunks_and_aliases (propagate_used_to_scc_callers,
 					       &stack, true);
 
+      /* Keep revisiting and pushing until nothing changes.  */
       while (!stack.is_empty ())
 	{
 	  cgraph_node *v = stack.pop ();
@@ -3730,8 +3679,8 @@ ipa_sra_analysis (void)
 	  gcc_checking_assert (ifs && ifs->m_queued);
 	  ifs->m_queued = false;
 
-	  v->call_for_symbol_thunks_and_aliases
-	    (propagate_nonarg_to_css_callers, &stack, true);
+	  v->call_for_symbol_thunks_and_aliases (propagate_used_to_scc_callers,
+						 &stack, true);
 	}
 
       /* Parameter splitting.  */
