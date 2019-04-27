@@ -3686,7 +3686,7 @@ ipa_sra_analysis (void)
   auto_vec <cgraph_node *, 16> stack;
   int node_scc_count = ipa_reduced_postorder (order, true, NULL);
 
-  /* One swoop from callees to callers for parameter removal and splitting.  */
+  /* One sweep from callees to callers for parameter removal and splitting.  */
   for (int i = 0; i < node_scc_count; i++)
     {
       cgraph_node *scc_rep = order[i];
@@ -3766,7 +3766,7 @@ ipa_sra_analysis (void)
       cycle_nodes.release ();
     }
 
-  /* One swoop from caller to callees for result removal.  */
+  /* One sweep from caller to callees for result removal.  */
   for (int i = node_scc_count - 1; i >= 0 ; i--)
     {
       cgraph_node *scc_rep = order[i];
