@@ -89,7 +89,7 @@ struct GTY(()) param_access
   /* Set once we are sure that the access will really end up in a potentially
      transformed function - initially not set for portions of formal parameters
      that are only used as actual function arguments passed to callees.  */
-  unsigned definitive : 1;
+  unsigned certain : 1;
   /* Set when initially we have allowed overlaps for this access and so it
      eventually needs checking for overlaps.  */
   /* !!! Use for testing only, otherwise not worth having, let's simply check
@@ -147,7 +147,7 @@ struct GTY(()) isra_param_desc
 
   /* Unit size limit of total size of all replacements.  */
   unsigned m_param_size_limit : ISRA_ARG_SIZE_LIMIT_BITS;
-  /* Sum of unit sizes of all definitive replacements.  */
+  /* Sum of unit sizes of all certain replacements.  */
   unsigned m_size_reached : ISRA_ARG_SIZE_LIMIT_BITS;
 
   /* A parameter that is used only in call arguments and can be removed if all
@@ -404,7 +404,7 @@ ipa_sra_function_summaries::duplicate (cgraph_node *, cgraph_node *,
 	  to->alias_ptr_type = from->alias_ptr_type;
 	  to->unit_offset = from->unit_offset;
 	  to->unit_size = from->unit_size;
-	  to->definitive = from->definitive;
+	  to->certain = from->certain;
 	  to->check_overlaps = from->check_overlaps;
 	  d->m_accesses->quick_push (to);
 	}
@@ -611,7 +611,7 @@ dump_isra_access (FILE *f, param_access *access)
   print_generic_expr (f, access->type);
   fprintf (f, ", alias_ptr_type: ");
   print_generic_expr (f, access->alias_ptr_type);
-  fprintf (f, ", definitive: %u, check_overlaps: %u\n", access->definitive,
+  fprintf (f, ", certain: %u, check_overlaps: %u\n", access->certain,
 	   access->check_overlaps);
 }
 
@@ -2159,7 +2159,7 @@ copy_accesses_to_ipa_desc (gensum_param_access *from, isra_param_desc *desc)
   to->unit_size = from->size / BITS_PER_UNIT;
   to->type = from->type;
   to->alias_ptr_type = from->alias_ptr_type;
-  to->definitive = from->nonarg;
+  to->certain = from->nonarg;
   to->check_overlaps = !from->nonarg;
   vec_safe_push (desc->m_accesses, to);
 
@@ -2494,7 +2494,7 @@ isra_write_node_summary (output_block *ob, cgraph_node *node)
 	  streamer_write_uhwi (ob, acc->unit_offset);
 	  streamer_write_uhwi (ob, acc->unit_size);
 	  bitpack_d bp = bitpack_create (ob->main_stream);
-	  bp_pack_value (&bp, acc->definitive, 1);
+	  bp_pack_value (&bp, acc->certain, 1);
 	  bp_pack_value (&bp, acc->check_overlaps, 1);
 	  streamer_write_bitpack (&bp);
 	}
@@ -2614,7 +2614,7 @@ isra_read_node_info (struct lto_input_block *ib, cgraph_node *node,
 	  acc->unit_offset = streamer_read_uhwi (ib);
 	  acc->unit_size = streamer_read_uhwi (ib);
 	  bitpack_d bp = streamer_read_bitpack (ib);
-	  acc->definitive = bp_unpack_value (&bp, 1);
+	  acc->certain = bp_unpack_value (&bp, 1);
 	  acc->check_overlaps = bp_unpack_value (&bp, 1);
 	  vec_safe_push (desc->m_accesses, acc);
 	}
@@ -2934,17 +2934,18 @@ size_would_violate_limit_p (isra_param_desc *desc, unsigned size)
 }
 
 /* Increase reached size of DESC by SIZE or disqualify it if it would violate
-   the set limit.  */
+   the set limit.  IDX is the parameter number which is dumped when
+   disqualifying.  */
 
 static void
-bump_reached_size (isra_param_desc *desc, unsigned size)
+bump_reached_size (isra_param_desc *desc, unsigned size, unsigned idx)
 {
   unsigned after = desc->m_size_reached + size;
   if (size_would_violate_limit_p (desc, after))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "    ...size limit reached, disqualifying "
-		 "candidate\n");
+		 "candidate parameter %u\n", idx);
       desc->m_split_candidate = false;
       return;
     }
@@ -2961,24 +2962,20 @@ process_indirect_edge (cgraph_edge *cs)
   gcc_checking_assert (from_ifs);
   isra_call_summary *csum = call_sums->get (cs);
   gcc_checking_assert (csum);
-  unsigned args_count = csum->m_inputs.length ();
 
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "Processing an indirect edge from %s:\n",
+	     cs->caller->dump_name ());
+
+  unsigned args_count = csum->m_inputs.length ();
   for (unsigned i = 0; i < args_count; i++)
     {
       isra_param_flow *ipf = &csum->m_inputs[i];
 
-      /* !!! This if should be completely unnecessary.  */
-      if (ipf->pointer_pass_through)
-        {
-          isra_param_desc *param_desc
-            = &(*from_ifs->m_parameters)[get_single_param_flow_source (ipf)];
-          param_desc->m_split_candidate = false;
-	  continue;
-        }
       if (ipf->aggregate_pass_through)
 	{
-	  isra_param_desc *param_desc
-	    = &(*from_ifs->m_parameters)[get_single_param_flow_source (ipf)];
+	  unsigned idx = get_single_param_flow_source (ipf);
+	  isra_param_desc *param_desc = &(*from_ifs->m_parameters)[idx];
 
 	  param_desc->m_locally_unused = false;
 	  if (!param_desc->m_split_candidate)
@@ -2987,8 +2984,8 @@ process_indirect_edge (cgraph_edge *cs)
 	  param_access *pacc = find_param_access (param_desc, ipf->unit_offset,
 						  ipf->unit_size);
 	  gcc_checking_assert (pacc);
-	  bump_reached_size (param_desc, pacc->unit_size);
-	  pacc->definitive = true;
+	  bump_reached_size (param_desc, pacc->unit_size, idx);
+	  pacc->certain = true;
 	  ipf->aggregate_pass_through = false;
 	  continue;
 	}
@@ -3133,8 +3130,8 @@ propagate_nonarg_to_css_callers (cgraph_node *node, void *data)
   return false;
 }
 
-/* Return true iff all definitive accesses in ARG_DESC are also present as
-   definitive accesses in PARAM_DESC.  */
+/* Return true iff all certain accesses in ARG_DESC are also present as
+   certain accesses in PARAM_DESC.  */
 
 static bool
 all_callee_accesses_present_p (isra_param_desc *param_desc,
@@ -3144,11 +3141,11 @@ all_callee_accesses_present_p (isra_param_desc *param_desc,
   for (unsigned j = 0; j < aclen; j++)
     {
       param_access *argacc = (*arg_desc->m_accesses)[j];
-      if (!argacc->definitive)
+      if (!argacc->certain)
 	continue;
       param_access *pacc = find_param_access (param_desc, argacc->unit_offset,
 					      argacc->unit_size);
-      if (!pacc || !pacc->definitive)
+      if (!pacc || !pacc->certain)
 	return false;
     }
   return true;
@@ -3157,7 +3154,7 @@ all_callee_accesses_present_p (isra_param_desc *param_desc,
 /* Type internal to function pull_accesses_from_callee.  Unfortunately gcc 4.8
    does not allow intantiating an auto_vec with a type defined within a
    function.  */
-enum acc_prop_kind {ACC_PROP_DONT, ACC_PROP_COPY, ACC_PROP_DEFINITIVE};
+enum acc_prop_kind {ACC_PROP_DONT, ACC_PROP_COPY, ACC_PROP_CERTAIN};
 
 
 /* Attempt to propagate all definite accesses from ARG_DESC to PARAM_DESC, if
@@ -3190,7 +3187,7 @@ pull_accesses_from_callee (isra_param_desc *param_desc,
 	  && argacc->unit_offset + argacc->unit_size > arg_size)
 	return "callee access outsize size boundary";
 
-      if (!argacc->definitive)
+      if (!argacc->certain)
 	continue;
 
       unsigned offset = argacc->unit_offset + delta_offset;
@@ -3214,9 +3211,9 @@ pull_accesses_from_callee (isra_param_desc *param_desc,
 		return "propagated access types would not match existing ones";
 
 	      exact_match = true;
-	      if (!pacc->definitive)
+	      if (!pacc->certain)
 		{
-		  prop_kinds[j] = ACC_PROP_DEFINITIVE;
+		  prop_kinds[j] = ACC_PROP_CERTAIN;
 		  prop_size += argacc->unit_size;
 		  change = true;
 		}
@@ -3228,7 +3225,7 @@ pull_accesses_from_callee (isra_param_desc *param_desc,
 	    {
 	      /* None permissible with load or store accesses, possible to
 		 fit into argument ones.  */
-	      if (pacc->definitive
+	      if (pacc->certain
 		  || offset < pacc->unit_offset
 		  || (offset + argacc->unit_size
 		      > pacc->unit_offset + pacc->unit_size))
@@ -3266,16 +3263,16 @@ pull_accesses_from_callee (isra_param_desc *param_desc,
 	  copy->unit_size = argacc->unit_size;
 	  copy->type = argacc->type;
 	  copy->alias_ptr_type = argacc->alias_ptr_type;
-	  copy->definitive = true;
+	  copy->certain = true;
 	  vec_safe_push (param_desc->m_accesses, copy);
 	}
-      else if (prop_kinds[j] == ACC_PROP_DEFINITIVE)
+      else if (prop_kinds[j] == ACC_PROP_CERTAIN)
 	{
 	  param_access *argacc = (*arg_desc->m_accesses)[j];
 	  param_access *csp
 	    = find_param_access (param_desc, argacc->unit_offset + delta_offset,
 				 argacc->unit_size);
-	  csp->definitive = true;
+	  csp->certain = true;
 	}
     }
 
@@ -3397,10 +3394,10 @@ param_splitting_across_edge (cgraph_edge *cs)
 						  ipf->unit_size);
 	  gcc_checking_assert (pacc);
 
-	  if (pacc->definitive)
+	  if (pacc->certain)
 	    {
 	      if (dump_file && (dump_flags & TDF_DETAILS))
-		fprintf (dump_file, "  %u->%u: already definitive\n", idx, i);
+		fprintf (dump_file, "  %u->%u: already certain\n", idx, i);
 	      ipf->aggregate_pass_through = false;
 	    }
 	  else if (!arg_desc->m_split_candidate || arg_desc->m_by_ref)
@@ -3408,8 +3405,8 @@ param_splitting_across_edge (cgraph_edge *cs)
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		fprintf (dump_file, "  %u->%u: not candidate or by "
 			 "reference in callee\n", idx, i);
-	      bump_reached_size (param_desc, pacc->unit_size);
-	      pacc->definitive = true;
+	      bump_reached_size (param_desc, pacc->unit_size, idx);
+	      pacc->certain = true;
 	      ipf->aggregate_pass_through = false;
 	      res = true;
 	    }
@@ -3424,8 +3421,8 @@ param_splitting_across_edge (cgraph_edge *cs)
 		  if (dump_file && (dump_flags & TDF_DETAILS))
 		    fprintf (dump_file, "  %u->%u: arg access pull "
 			     "failed: %s.\n", idx, i, pull_failure);
-		  bump_reached_size (param_desc, pacc->unit_size);
-		  pacc->definitive = true;
+		  bump_reached_size (param_desc, pacc->unit_size, idx);
+		  pacc->certain = true;
 		  res = true;
 		  ipf->aggregate_pass_through = false;
 		}
@@ -3487,20 +3484,20 @@ validate_splitting_overlaps (cgraph_node *node)
 	      && desc->m_call_uses == desc->m_scc_uses))
 	continue;
 
-      bool definitive_access_present = false;
+      bool certain_access_present = false;
       unsigned pclen = vec_safe_length (desc->m_accesses);
       for (unsigned i = 0; i < pclen; i++)
 	{
 	  param_access *a1 = (*desc->m_accesses)[i];
 
-	  if (!a1->definitive)
+	  if (!a1->certain)
 	    continue;
-	  definitive_access_present = true;
+	  certain_access_present = true;
 	  bool overlap = false;
 	  for (unsigned j = i + 1; j < pclen; j++)
 	    {
 	      param_access *a2 = (*desc->m_accesses)[j];
-	      if (a2->definitive
+	      if (a2->certain
 		  && a1->unit_offset < a2->unit_offset + a2->unit_size
 		  && a1->unit_offset + a1->unit_size > a2->unit_offset)
 		{
@@ -3522,7 +3519,7 @@ validate_splitting_overlaps (cgraph_node *node)
 	    }
 	}
       /* !!? remove after testing?  */
-      gcc_checking_assert (definitive_access_present);
+      gcc_checking_assert (certain_access_present);
     }
   return res;
 }
@@ -3628,7 +3625,7 @@ process_isra_node_results (cgraph_node *node,
       for (unsigned j = 0; j < aclen; j++)
 	{
 	  param_access *pa = (*desc->m_accesses)[j];
-	  if (!pa->definitive)
+	  if (!pa->certain)
 	    continue;
 	  if (dump_file)
 	    fprintf (dump_file, "    - component at byte offset %u, "
@@ -3702,13 +3699,8 @@ ipa_sra_analysis (void)
       FOR_EACH_VEC_ELT (cycle_nodes, j, v)
 	{
 	  isra_func_summary *ifs = func_sums->get (v);
-	  if (!ifs)
+	  if (!ifs || !ifs->m_candidate)
 	    continue;
-	  if (!ifs->m_candidate)
-	    {
-	      gcc_checking_assert (vec_safe_is_empty (ifs->m_parameters));
-	      continue;
-	    }
 	  if (!ipa_sra_ipa_function_checks (v)
 	      || check_all_callers_for_issues (v))
 	    {
