@@ -2972,6 +2972,7 @@ param_removal_cross_scc_edge (cgraph_edge *cs)
   cgraph_node *callee = cs->callee->function_symbol (&availability);
   isra_func_summary *to_ifs = func_sums->get (callee);
   if (!to_ifs || !to_ifs->m_candidate
+      || (availability < AVAIL_AVAILABLE)
       || vec_safe_is_empty (to_ifs->m_parameters))
     {
       process_edge_to_unknown_caller (cs);
@@ -3051,7 +3052,9 @@ propagate_used_across_scc_edge (cgraph_edge *cs, vec<cgraph_node *> *stack)
   cgraph_node *callee = cs->callee->function_symbol (&availability);
   isra_func_summary *to_ifs = func_sums->get (callee);
 
-  unsigned param_count = to_ifs ? vec_safe_length (to_ifs->m_parameters) : 0;
+  unsigned param_count
+    = (to_ifs && (availability >= AVAIL_AVAILABLE))
+    ? vec_safe_length (to_ifs->m_parameters) : 0;
   for (unsigned i = 0; i < args_count; i++)
     {
       if (i < param_count
