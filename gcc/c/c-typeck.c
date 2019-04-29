@@ -10686,10 +10686,6 @@ struct c_switch {
   /* Remember whether the controlling expression had boolean type
      before integer promotions for the sake of -Wswitch-bool.  */
   bool bool_cond_p;
-
-  /* Remember whether there was a case value that is outside the
-     range of the ORIG_TYPE.  */
-  bool outside_range_p;
 };
 
 /* A stack of the currently active switch statements.  The innermost
@@ -10766,7 +10762,6 @@ c_start_case (location_t switch_loc,
   cs->cases = splay_tree_new (case_compare, NULL, NULL);
   cs->bindings = c_get_switch_bindings ();
   cs->bool_cond_p = bool_cond_p;
-  cs->outside_range_p = false;
   cs->next = c_switch_stack;
   c_switch_stack = cs;
 
@@ -10812,9 +10807,7 @@ do_case (location_t loc, tree low_value, tree high_value)
 
   label = c_add_case_label (loc, c_switch_stack->cases,
 			    SWITCH_COND (c_switch_stack->switch_expr),
-			    c_switch_stack->orig_type,
-			    low_value, high_value,
-			    &c_switch_stack->outside_range_p);
+			    low_value, high_value);
   if (label == error_mark_node)
     label = NULL_TREE;
   return label;
@@ -10835,8 +10828,7 @@ c_finish_case (tree body, tree type)
   switch_location = EXPR_LOCATION (cs->switch_expr);
   c_do_switch_warnings (cs->cases, switch_location,
 			type ? type : TREE_TYPE (cs->switch_expr),
-			SWITCH_COND (cs->switch_expr),
-			cs->bool_cond_p, cs->outside_range_p);
+			SWITCH_COND (cs->switch_expr), cs->bool_cond_p);
   if (c_switch_covers_all_cases_p (cs->cases, TREE_TYPE (cs->switch_expr)))
     SWITCH_ALL_CASES_P (cs->switch_expr) = 1;
 
@@ -10866,11 +10858,14 @@ c_finish_if_stmt (location_t if_locus, tree cond, tree then_block,
    the beginning of the loop.  COND is the loop condition.  COND_IS_FIRST
    is false for DO loops.  INCR is the FOR increment expression.  BODY is
    the statement controlled by the loop.  BLAB is the break label.  CLAB is
-   the continue label.  Everything is allowed to be NULL.  */
+   the continue label.  Everything is allowed to be NULL.
+   COND_LOCUS is the location of the loop condition, INCR_LOCUS is the
+   location of the FOR increment expression.  */
 
 void
-c_finish_loop (location_t start_locus, tree cond, tree incr, tree body,
-	       tree blab, tree clab, bool cond_is_first)
+c_finish_loop (location_t start_locus, location_t cond_locus, tree cond,
+	       location_t incr_locus, tree incr, tree body, tree blab,
+	       tree clab, bool cond_is_first)
 {
   tree entry = NULL, exit = NULL, t;
 
@@ -10912,12 +10907,8 @@ c_finish_loop (location_t start_locus, tree cond, tree incr, tree body,
 	    }
 
 	  t = build_and_jump (&blab);
-	  if (cond_is_first)
-	    exit = fold_build3_loc (start_locus,
-				COND_EXPR, void_type_node, cond, exit, t);
-	  else
-	    exit = fold_build3_loc (input_location,
-				COND_EXPR, void_type_node, cond, exit, t);
+	  exit = fold_build3_loc (cond_is_first ? start_locus : input_location,
+				  COND_EXPR, void_type_node, cond, exit, t);
 	}
       else
 	{
@@ -10938,9 +10929,23 @@ c_finish_loop (location_t start_locus, tree cond, tree incr, tree body,
   if (clab)
     add_stmt (build1 (LABEL_EXPR, void_type_node, clab));
   if (incr)
-    add_stmt (incr);
+    {
+      if (MAY_HAVE_DEBUG_MARKER_STMTS && incr_locus != UNKNOWN_LOCATION)
+	{
+	  t = build0 (DEBUG_BEGIN_STMT, void_type_node);
+	  SET_EXPR_LOCATION (t, incr_locus);
+	  add_stmt (t);
+	}
+      add_stmt (incr);
+    }
   if (entry)
     add_stmt (entry);
+  if (MAY_HAVE_DEBUG_MARKER_STMTS && cond_locus != UNKNOWN_LOCATION)
+    {
+      t = build0 (DEBUG_BEGIN_STMT, void_type_node);
+      SET_EXPR_LOCATION (t, cond_locus);
+      add_stmt (t);
+    }
   if (exit)
     add_stmt (exit);
   if (blab)

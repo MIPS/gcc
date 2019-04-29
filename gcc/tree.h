@@ -3734,14 +3734,16 @@ TYPE_VECTOR_SUBPARTS (const_tree node)
   unsigned int precision = VECTOR_TYPE_CHECK (node)->type_common.precision;
   if (NUM_POLY_INT_COEFFS == 2)
     {
+      /* See the corresponding code in SET_TYPE_VECTOR_SUBPARTS for a
+	 description of the encoding.  */
       poly_uint64 res = 0;
-      res.coeffs[0] = 1 << (precision & 0xff);
+      res.coeffs[0] = HOST_WIDE_INT_1U << (precision & 0xff);
       if (precision & 0x100)
-	res.coeffs[1] = 1 << (precision & 0xff);
+	res.coeffs[1] = HOST_WIDE_INT_1U << (precision & 0xff);
       return res;
     }
   else
-    return (unsigned HOST_WIDE_INT)1 << precision;
+    return HOST_WIDE_INT_1U << precision;
 }
 
 /* Set the number of elements in VECTOR_TYPE NODE to SUBPARTS, which must
@@ -3756,6 +3758,21 @@ SET_TYPE_VECTOR_SUBPARTS (tree node, poly_uint64 subparts)
   gcc_assert (index >= 0);
   if (NUM_POLY_INT_COEFFS == 2)
     {
+      /* We have two coefficients that are each in the range 1 << [0, 63],
+	 so supporting all combinations would require 6 bits per coefficient
+	 and 12 bits in total.  Since the precision field is only 10 bits
+	 in size, we need to be more restrictive than that.
+
+	 At present, coeff[1] is always either 0 (meaning that the number
+	 of units is constant) or equal to coeff[0] (meaning that the number
+	 of units is N + X * N for some target-dependent zero-based runtime
+	 parameter X).  We can therefore encode coeff[1] in a single bit.
+
+	 The most compact encoding would be to use mask 0x3f for coeff[0]
+	 and 0x40 for coeff[1], leaving 0x380 unused.  It's possible to
+	 get slightly more efficient code on some hosts if we instead
+	 treat the shift amount as an independent byte, so here we use
+	 0xff for coeff[0] and 0x100 for coeff[1].  */
       unsigned HOST_WIDE_INT coeff1 = subparts.coeffs[1];
       gcc_assert (coeff1 == 0 || coeff1 == coeff0);
       VECTOR_TYPE_CHECK (node)->type_common.precision
@@ -4893,6 +4910,7 @@ extern bool stdarg_p (const_tree);
 extern bool prototype_p (const_tree);
 extern bool is_typedef_decl (const_tree x);
 extern bool typedef_variant_p (const_tree);
+extern bool auto_var_p (const_tree);
 extern bool auto_var_in_fn_p (const_tree, const_tree);
 extern tree build_low_bits_mask (tree, unsigned);
 extern bool tree_nop_conversion_p (const_tree, const_tree);

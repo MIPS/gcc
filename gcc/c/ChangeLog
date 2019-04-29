@@ -1,3 +1,26 @@
+2019-04-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/90197
+	* c-tree.h (c_finish_loop): Add 2 further location_t arguments.
+	* c-parser.c (c_parser_while_statement): Adjust c_finish_loop caller.
+	(c_parser_do_statement): Likewise.
+	(c_parser_for_statement): Likewise.  Formatting fixes.
+	* c-typeck.c (c_finish_loop): Add COND_LOCUS and INCR_LOCUS arguments,
+	emit DEBUG_BEGIN_STMTs if needed.
+
+2019-04-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/89888
+	* c-typeck.c (struct c_switch): Remove outside_range_p member.
+	(c_start_case): Don't clear it.
+	(do_case): Adjust c_add_case_label caller.
+	(c_finish_case): Adjust c_do_switch_warnings caller.
+
+	PR c++/90108
+	* c-decl.c (merge_decls): If remove is main variant and
+	DECL_ORIGINAL_TYPE is some other type, remove a DECL_ORIGINAL_TYPE
+	variant that has newdecl as TYPE_NAME if any.
+
 2019-04-12  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/89933
