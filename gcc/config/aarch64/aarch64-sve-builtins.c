@@ -248,6 +248,12 @@ enum function_shape {
      void svfoo_vnum[_t0](<t0>_t *, int64_t, sv<t0>_t).  */
   SHAPE_store,
 
+  /* void svfoo[_t0](<t0>_t *, sv<t0>xN_t).
+     void svfoo_vnum[_t0](<t0>_t *, int64_t, sv<t0>xN_t).  */
+  SHAPE_store2,
+  SHAPE_store3,
+  SHAPE_store4,
+
   /* void svfoo_[s32]index[_t0](<t0>_t *, svint32_t, sv<t0>_t)
      void svfoo_[s64]index[_t0](<t0>_t *, svint64_t, sv<t0>_t)
      void svfoo_[u32]index[_t0](<t0>_t *, svuint32_t, sv<t0>_t)
@@ -588,7 +594,7 @@ private:
   tree resolve_load_gather_sv ();
   tree resolve_load_gather_sv_or_vs ();
   tree resolve_set (unsigned int);
-  tree resolve_store ();
+  tree resolve_store (unsigned int);
   tree resolve_store_scatter ();
   tree resolve_binary_wide ();
   tree resolve_uniform_imm (unsigned int, unsigned int);
@@ -677,6 +683,7 @@ private:
   gimple *fold_rev ();
   gimple *fold_set ();
   gimple *fold_st1 ();
+  gimple *fold_st234 ();
   gimple *fold_trn ();
   gimple *fold_undef ();
   gimple *fold_uzp ();
@@ -767,6 +774,7 @@ private:
   rtx expand_sqrt ();
   rtx expand_st1 ();
   rtx expand_st1_scatter ();
+  rtx expand_st234 ();
   rtx expand_sub (bool);
   rtx expand_undef ();
   rtx expand_wrffr ();
@@ -1254,12 +1262,15 @@ function_instance::memory_vector_mode () const
       return mode;
 
     case FUNC_svld2:
+    case FUNC_svst2:
       return targetm.array_mode (mode, 2).require ();
 
     case FUNC_svld3:
+    case FUNC_svst3:
       return targetm.array_mode (mode, 3).require ();
 
     case FUNC_svld4:
+    case FUNC_svst4:
       return targetm.array_mode (mode, 4).require ();
 
     case FUNC_svld1sb:
@@ -1333,6 +1344,9 @@ function_instance::memory_scalar_type () const
     case FUNC_svldnt1:
     case FUNC_svst1:
     case FUNC_svst1_scatter:
+    case FUNC_svst2:
+    case FUNC_svst3:
+    case FUNC_svst4:
       return scalar_type (0);
 
     case FUNC_svld1sb:
@@ -1667,6 +1681,27 @@ arm_sve_h_builder::build (const function_group &group)
       add_overloaded_functions (group, MODE_vnum);
       build_all (&arm_sve_h_builder::sig_store<1>, group, MODE_none);
       build_all (&arm_sve_h_builder::sig_store<1>, group, MODE_vnum);
+      break;
+
+    case SHAPE_store2:
+      add_overloaded_functions (group, MODE_none);
+      add_overloaded_functions (group, MODE_vnum);
+      build_all (&arm_sve_h_builder::sig_store<2>, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_store<2>, group, MODE_vnum);
+      break;
+
+    case SHAPE_store3:
+      add_overloaded_functions (group, MODE_none);
+      add_overloaded_functions (group, MODE_vnum);
+      build_all (&arm_sve_h_builder::sig_store<3>, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_store<3>, group, MODE_vnum);
+      break;
+
+    case SHAPE_store4:
+      add_overloaded_functions (group, MODE_none);
+      add_overloaded_functions (group, MODE_vnum);
+      build_all (&arm_sve_h_builder::sig_store<4>, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_store<4>, group, MODE_vnum);
       break;
 
     case SHAPE_store_scatter_index:
@@ -2474,6 +2509,9 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svsetffr:
     case FUNC_svst1:
     case FUNC_svst1_scatter:
+    case FUNC_svst2:
+    case FUNC_svst3:
+    case FUNC_svst4:
     case FUNC_svwrffr:
       attrs = add_attribute ("nothrow", attrs);
       break;
@@ -2512,6 +2550,9 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_shift_opt_n:
     case SHAPE_shift_right_imm:
     case SHAPE_store:
+    case SHAPE_store2:
+    case SHAPE_store3:
+    case SHAPE_store4:
     case SHAPE_store_scatter_index:
     case SHAPE_store_scatter_offset:
     case SHAPE_ternary_opt_n:
@@ -2662,7 +2703,13 @@ function_resolver::resolve ()
     case SHAPE_shift_right_imm:
       return resolve_uniform_imm (2, 1);
     case SHAPE_store:
-      return resolve_store ();
+      return resolve_store (1);
+    case SHAPE_store2:
+      return resolve_store (2);
+    case SHAPE_store3:
+      return resolve_store (3);
+    case SHAPE_store4:
+      return resolve_store (4);
     case SHAPE_store_scatter_index:
     case SHAPE_store_scatter_offset:
       return resolve_store_scatter ();
@@ -2837,10 +2884,11 @@ function_resolver::resolve_set (unsigned int num_vectors)
   return require_form (m_rfn.instance.mode, get_type_suffix (type));
 }
 
-/* Resolve a call based on the final vector argument.  The other arguments
-   are a governing predicate, a pointer and (for MODE_vnum) a vnum offset.  */
+/* Resolve a call based on the final vector argument, which is a tuple
+   of NUM_VECTORS vectors.  The other arguments are a governing predicate,
+   a pointer and (for MODE_vnum) a vnum offset.  */
 tree
-function_resolver::resolve_store ()
+function_resolver::resolve_store (unsigned int num_vectors)
 {
   vector_type type;
 
@@ -2852,7 +2900,8 @@ function_resolver::resolve_store ()
       /* Don't check pointer argument 1, since it doesn't participate
 	 in resolution.  Leave that to the frontend.  */
       || (m_fi.mode == MODE_vnum && !require_scalar_argument (2, "int64_t"))
-      || (type = require_vector_type (nargs - 1)) == NUM_VECTOR_TYPES)
+      || ((type = require_tuple_type (nargs - 1, num_vectors))
+	  == NUM_VECTOR_TYPES))
     return error_mark_node;
 
   return require_form (m_fi.mode, get_type_suffix (type));
@@ -3422,6 +3471,9 @@ function_checker::check ()
     case SHAPE_setffr:
     case SHAPE_shift_opt_n:
     case SHAPE_store:
+    case SHAPE_store2:
+    case SHAPE_store3:
+    case SHAPE_store4:
     case SHAPE_store_scatter_index:
     case SHAPE_store_scatter_offset:
     case SHAPE_ternary_opt_n:
@@ -3773,6 +3825,11 @@ gimple_folder::fold ()
     case FUNC_svst1:
       return fold_st1 ();
 
+    case FUNC_svst2:
+    case FUNC_svst3:
+    case FUNC_svst4:
+      return fold_st234 ();
+
     case FUNC_svtrn1:
     case FUNC_svtrn2:
       return fold_trn ();
@@ -3942,6 +3999,27 @@ gimple_folder::fold_st1 ()
   tree cookie = load_store_cookie (TREE_TYPE (vectype));
   return gimple_build_call_internal (IFN_MASK_STORE, 4,
 				     base, cookie, pred, store_data);
+}
+
+/* Fold a call to svst[234].  */
+gimple *
+gimple_folder::fold_st234 ()
+{
+  unsigned int num_args = gimple_call_num_args (m_call);
+  tree vectype = m_fi.vector_type (0);
+  tree store_data = gimple_call_arg (m_call, num_args - 1);
+
+  gimple_seq stmts = NULL;
+  tree pred = convert_pred (stmts, vectype, 0);
+  tree base = fold_contiguous_base (stmts, vectype);
+  gsi_insert_seq_before (m_gsi, stmts, GSI_SAME_STMT);
+
+  tree field = tuple_type_field (TREE_TYPE (store_data));
+  tree rhs_array = build1 (VIEW_CONVERT_EXPR, TREE_TYPE (field), store_data);
+
+  tree cookie = load_store_cookie (TREE_TYPE (vectype));
+  return gimple_build_call_internal (IFN_MASK_STORE_LANES, 4,
+				     base, cookie, pred, rhs_array);
 }
 
 /* Fold a call to svtrn1 or svtrn2.  */
@@ -4315,6 +4393,11 @@ function_expander::expand ()
 
     case FUNC_svst1_scatter:
       return expand_st1_scatter ();
+
+    case FUNC_svst2:
+    case FUNC_svst3:
+    case FUNC_svst4:
+      return expand_st234 ();
 
     case FUNC_svsub:
       return expand_sub (false);
@@ -5044,6 +5127,16 @@ function_expander::expand_st1_scatter ()
   machine_mode mem_mode = m_fi.memory_vector_mode ();
   insn_code icode = direct_optab_handler (mask_scatter_store_optab, mem_mode);
   return expand_via_exact_insn (icode);
+}
+
+/* Expand a call to svst[234].  */
+rtx
+function_expander::expand_st234 ()
+{
+  machine_mode tuple_mode = GET_MODE (m_args.last ());
+  insn_code icode = convert_optab_handler (vec_mask_store_lanes_optab,
+					   tuple_mode, get_mode (0));
+  return expand_via_store_insn (icode);
 }
 
 /* Expand a call to svsub or svsubr; REVERSED_P says which.  */
