@@ -3257,7 +3257,7 @@ param_splitting_across_edge (cgraph_edge *cs)
   unsigned args_count = csum->m_inputs.length ();
   isra_func_summary *to_ifs = func_sums->get (callee);
   unsigned param_count
-    = ((to_ifs && to_ifs->m_candidate)
+    = ((to_ifs && to_ifs->m_candidate && (availability >= AVAIL_AVAILABLE))
        ? vec_safe_length (to_ifs->m_parameters)
        : 0);
 
@@ -3403,6 +3403,8 @@ param_splitting_across_edge (cgraph_edge *cs)
       if (ipf->pointer_pass_through || ipf->aggregate_pass_through)
 	{
 	  int idx = get_single_param_flow_source (ipf);
+	  ipf->pointer_pass_through = false;
+	  ipf->aggregate_pass_through = false;
 	  isra_param_desc *param_desc = &(*from_ifs->m_parameters)[idx];
 	  if (!param_desc->m_split_candidate)
 	    continue;
@@ -3411,8 +3413,6 @@ param_splitting_across_edge (cgraph_edge *cs)
 	    fprintf (dump_file, "  %u->%u: no corresponding formal parameter\n",
 		     idx, i);
 	  param_desc->m_split_candidate = false;
-	  ipf->pointer_pass_through = false;
-	  ipf->aggregate_pass_through = false;
 	  res = true;
 	}
     }
