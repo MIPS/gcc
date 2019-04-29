@@ -204,6 +204,29 @@
     INVOKE (CODE1, CODE2);				\
   }
 
+#define TEST_STORE_SCATTER_SZ(NAME, DATA_TYPE, STYPE, ZTYPE, CODE1, CODE2) \
+  START (NAME)							\
+  {								\
+    BIND_INPUT_Z (DATA_TYPE, z0);				\
+    BIND_INPUT_Z (ZTYPE, z1);					\
+    BIND_INPUT_P (p0);						\
+    BIND_INPUT_X (STYPE *, x0);					\
+    BIND_INPUT_D (STYPE *, d4);					\
+    INVOKE (CODE1, CODE2);					\
+  }
+
+#define TEST_STORE_SCATTER_ZS(NAME, DATA_TYPE, ZTYPE, CODE1, CODE2) \
+  START (NAME)							\
+  {								\
+    BIND_INPUT_Z (DATA_TYPE, z0);				\
+    BIND_INPUT_Z (ZTYPE, z1);					\
+    BIND_INPUT_P (p0);						\
+    BIND_INPUT_X (int64_t, x0);					\
+    BIND_INPUT_D (int64_t, d4);					\
+    INVOKE (CODE1, CODE2);					\
+    BIND_OUTPUT_Z (z0);						\
+  }
+
 #define TEST_P(NAME, CODE1, CODE2)	\
   START (NAME)				\
   {					\

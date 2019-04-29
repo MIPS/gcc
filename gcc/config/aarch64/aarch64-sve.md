@@ -299,9 +299,9 @@
   [(set (match_operand:SVE_S 0 "register_operand" "=w, w, w, w, w, w")
 	(unspec:SVE_S
 	  [(match_operand:VNx4BI 5 "register_operand" "Upl, Upl, Upl, Upl, Upl, Upl")
-	   (match_operand:DI 1 "aarch64_sve_gather_offset_<Vesize>" "Z, vgw, rk, rk, rk, rk")
+	   (match_operand:DI 1 "aarch64_sve_gather_offset_w" "Z, vgw, rk, rk, rk, rk")
 	   (match_operand:VNx4SI 2 "register_operand" "w, w, w, w, w, w")
-	   (match_operand:DI 3 "const_int_operand" "i, i, Z, Ui1, Z, Ui1")
+	   (match_operand:DI 3 "const_int_operand" "Ui1, Ui1, Z, Ui1, Z, Ui1")
 	   (match_operand:DI 4 "aarch64_gather_scale_operand_w" "Ui1, Ui1, Ui1, Ui1, i, i")
 	   (mem:BLK (scratch))]
 	  UNSPEC_LD1_GATHER))]
@@ -321,7 +321,7 @@
   [(set (match_operand:SVE_D 0 "register_operand" "=w, w, w, w")
 	(unspec:SVE_D
 	  [(match_operand:VNx2BI 5 "register_operand" "Upl, Upl, Upl, Upl")
-	   (match_operand:DI 1 "aarch64_sve_gather_offset_<Vesize>" "Z, vgd, rk, rk")
+	   (match_operand:DI 1 "aarch64_sve_gather_offset_d" "Z, vgd, rk, rk")
 	   (match_operand:VNx2DI 2 "register_operand" "w, w, w, w")
 	   (match_operand:DI 3 "const_int_operand")
 	   (match_operand:DI 4 "aarch64_gather_scale_operand_d" "Ui1, Ui1, Ui1, i")
@@ -385,7 +385,7 @@
 	    [(match_operand:VNx4BI 5 "register_operand" "Upl, Upl, Upl, Upl, Upl, Upl")
 	     (match_operand:DI 1 "aarch64_sve_gather_offset_<VNx4_NARROW:Vesize>" "Z, vg<VNx4_NARROW:Vesize>, rk, rk, rk, rk")
 	     (match_operand:VNx4_WIDE 2 "register_operand" "w, w, w, w, w, w")
-	     (match_operand:DI 3 "const_int_operand" "i, i, Z, Ui1, Z, Ui1")
+	     (match_operand:DI 3 "const_int_operand" "Ui1, Ui1, Z, Ui1, Z, Ui1")
 	     (match_operand:DI 4 "aarch64_gather_scale_operand_<VNx4_NARROW:Vesize>" "Ui1, Ui1, Ui1, Ui1, i, i")
 	     (mem:BLK (scratch))]
 	    UNSPEC_LD1_GATHER)))]
@@ -468,7 +468,7 @@
   [(set (mem:BLK (scratch))
 	(unspec:BLK
 	  [(match_dup 5)
-	   (match_operand:DI 0 "aarch64_reg_or_zero")
+	   (match_operand:DI 0 "aarch64_sve_gather_offset_<Vesize>")
 	   (match_operand:<V_INT_EQUIV> 1 "register_operand")
 	   (match_operand:DI 2 "const_int_operand")
 	   (match_operand:DI 3 "aarch64_gather_scale_operand_<Vesize>")
@@ -485,16 +485,17 @@
 (define_insn "mask_scatter_store<mode>"
   [(set (mem:BLK (scratch))
 	(unspec:BLK
-	  [(match_operand:<VPRED> 5 "register_operand" "Upl, Upl, Upl, Upl, Upl")
-	   (match_operand:DI 0 "aarch64_reg_or_zero" "Z, rk, rk, rk, rk")
-	   (match_operand:<V_INT_EQUIV> 1 "register_operand" "w, w, w, w, w")
-	   (match_operand:DI 2 "const_int_operand" "i, Z, Ui1, Z, Ui1")
-	   (match_operand:DI 3 "aarch64_gather_scale_operand_w" "Ui1, Ui1, Ui1, i, i")
-	   (match_operand:SVE_S 4 "register_operand" "w, w, w, w, w")]
+	  [(match_operand:VNx4BI 5 "register_operand" "Upl, Upl, Upl, Upl, Upl, Upl")
+	   (match_operand:DI 0 "aarch64_sve_gather_offset_w" "Z, vgw, rk, rk, rk, rk")
+	   (match_operand:VNx4SI 1 "register_operand" "w, w, w, w, w, w")
+	   (match_operand:DI 2 "const_int_operand" "Ui1, Ui1, Z, Ui1, Z, Ui1")
+	   (match_operand:DI 3 "aarch64_gather_scale_operand_w" "Ui1, Ui1, Ui1, Ui1, i, i")
+	   (match_operand:SVE_S 4 "register_operand" "w, w, w, w, w, w")]
 	  UNSPEC_ST1_SCATTER))]
   "TARGET_SVE"
   "@
    st1w\t%4.s, %5, [%1.s]
+   st1w\t%4.s, %5, [%1.s, #%0]
    st1w\t%4.s, %5, [%0, %1.s, sxtw]
    st1w\t%4.s, %5, [%0, %1.s, uxtw]
    st1w\t%4.s, %5, [%0, %1.s, sxtw %p3]
@@ -506,18 +507,60 @@
 (define_insn "mask_scatter_store<mode>"
   [(set (mem:BLK (scratch))
 	(unspec:BLK
-	  [(match_operand:<VPRED> 5 "register_operand" "Upl, Upl, Upl")
-	   (match_operand:DI 0 "aarch64_reg_or_zero" "Z, rk, rk")
-	   (match_operand:<V_INT_EQUIV> 1 "register_operand" "w, w, w")
+	  [(match_operand:VNx2BI 5 "register_operand" "Upl, Upl, Upl, Upl")
+	   (match_operand:DI 0 "aarch64_sve_gather_offset_d" "Z, vgd, rk, rk")
+	   (match_operand:VNx2DI 1 "register_operand" "w, w, w, w")
 	   (match_operand:DI 2 "const_int_operand")
-	   (match_operand:DI 3 "aarch64_gather_scale_operand_d" "Ui1, Ui1, i")
-	   (match_operand:SVE_D 4 "register_operand" "w, w, w")]
+	   (match_operand:DI 3 "aarch64_gather_scale_operand_d" "Ui1, Ui1, Ui1, i")
+	   (match_operand:SVE_D 4 "register_operand" "w, w, w, w")]
 	  UNSPEC_ST1_SCATTER))]
   "TARGET_SVE"
   "@
    st1d\t%4.d, %5, [%1.d]
+   st1d\t%4.d, %5, [%1.d, #%0]
    st1d\t%4.d, %5, [%0, %1.d]
    st1d\t%4.d, %5, [%0, %1.d, lsl %p3]"
+)
+
+;; Likewise, but with the offset being sign-extended from 32 bits.
+(define_insn "*mask_scatter_store<mode>_sxtw"
+  [(set (mem:BLK (scratch))
+	(unspec:BLK
+	  [(match_operand:VNx2BI 5 "register_operand" "Upl, Upl")
+	   (match_operand:DI 0 "register_operand" "rk, rk")
+	   (unspec:VNx2DI
+	     [(match_dup 5)
+	      (sign_extend:VNx2DI
+		(truncate:VNx2SI
+		  (match_operand:VNx2DI 1 "register_operand" "w, w")))]
+	     UNSPEC_MERGE_PTRUE)
+	   (match_operand:DI 2 "const_int_operand")
+	   (match_operand:DI 3 "aarch64_gather_scale_operand_d" "Ui1, i")
+	   (match_operand:SVE_D 4 "register_operand" "w, w")]
+	  UNSPEC_ST1_SCATTER))]
+  "TARGET_SVE"
+  "@
+   st1d\t%4.d, %5, [%0, %1.d, sxtw]
+   st1d\t%4.d, %5, [%0, %1.d, sxtw %p3]"
+)
+
+;; Likewise, but with the offset being zero-extended from 32 bits.
+(define_insn "*mask_scatter_store<mode>_uxtw"
+  [(set (mem:BLK (scratch))
+	(unspec:BLK
+	  [(match_operand:VNx2BI 5 "register_operand" "Upl, Upl")
+	   (match_operand:DI 0 "aarch64_reg_or_zero" "rk, rk")
+	   (and:VNx2DI
+	     (match_operand:VNx2DI 1 "register_operand" "w, w")
+	     (match_operand:VNx2DI 6 "aarch64_sve_uxtw_immediate"))
+	   (match_operand:DI 2 "const_int_operand")
+	   (match_operand:DI 3 "aarch64_gather_scale_operand_d" "Ui1, i")
+	   (match_operand:SVE_D 4 "register_operand" "w, w")]
+	  UNSPEC_ST1_SCATTER))]
+  "TARGET_SVE"
+  "@
+   st1d\t%4.d, %5, [%0, %1.d, uxtw]
+   st1d\t%4.d, %5, [%0, %1.d, uxtw %p3]"
 )
 
 ;; SVE structure moves.
@@ -4252,7 +4295,7 @@
   [(set (match_operand:SVE_S 0 "register_operand" "=w, w, w, w, w, w")
 	(unspec:SVE_S
 	  [(match_operand:VNx4BI 5 "register_operand" "Upl, Upl, Upl, Upl, Upl, Upl")
-	   (match_operand:DI 1 "aarch64_sve_gather_offset_<Vesize>" "Z, vgw, rk, rk, rk, rk")
+	   (match_operand:DI 1 "aarch64_sve_gather_offset_w" "Z, vgw, rk, rk, rk, rk")
 	   (match_operand:VNx4SI 2 "register_operand" "w, w, w, w, w, w")
 	   (match_operand:DI 3 "const_int_operand" "i, i, Z, Ui1, Z, Ui1")
 	   (match_operand:DI 4 "aarch64_gather_scale_operand_w" "Ui1, Ui1, Ui1, Ui1, i, i")
@@ -4275,7 +4318,7 @@
   [(set (match_operand:SVE_D 0 "register_operand" "=w, w, w, w")
 	(unspec:SVE_D
 	  [(match_operand:VNx2BI 5 "register_operand" "Upl, Upl, Upl, Upl")
-	   (match_operand:DI 1 "aarch64_sve_gather_offset_<Vesize>" "Z, vgd, rk, rk")
+	   (match_operand:DI 1 "aarch64_sve_gather_offset_d" "Z, vgd, rk, rk")
 	   (match_operand:VNx2DI 2 "register_operand" "w, w, w, w")
 	   (match_operand:DI 3 "const_int_operand")
 	   (match_operand:DI 4 "aarch64_gather_scale_operand_d" "Ui1, Ui1, Ui1, i")

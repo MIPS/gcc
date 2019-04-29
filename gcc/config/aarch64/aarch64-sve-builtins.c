@@ -248,6 +248,27 @@ enum function_shape {
      void svfoo_vnum[_t0](<t0>_t *, int64_t, sv<t0>_t).  */
   SHAPE_store,
 
+  /* void svfoo_[s32]index[_t0](<t0>_t *, svint32_t, sv<t0>_t)
+     void svfoo_[s64]index[_t0](<t0>_t *, svint64_t, sv<t0>_t)
+     void svfoo_[u32]index[_t0](<t0>_t *, svuint32_t, sv<t0>_t)
+     void svfoo_[u64]index[_t0](<t0>_t *, svuint64_t, sv<t0>_t)
+
+     void svfoo[_u32base]_index[_t0](svuint32_t, int64_t, sv<t0>_t)
+     void svfoo[_u64base]_index[_t0](svuint64_t, int64_t, sv<t0>_t).  */
+  SHAPE_store_scatter_index,
+
+  /* void svfoo_[s32]offset[_t0](<t0>_t *, svint32_t, sv<t0>_t)
+     void svfoo_[s64]offset[_t0](<t0>_t *, svint64_t, sv<t0>_t)
+     void svfoo_[u32]offset[_t0](<t0>_t *, svuint32_t, sv<t0>_t)
+     void svfoo_[u64]offset[_t0](<t0>_t *, svuint64_t, sv<t0>_t)
+
+     void svfoo[_u32base_t0](svuint32_t, sv<t0>_t)
+     void svfoo[_u64base_t0](svuint64_t, sv<t0>_t)
+
+     void svfoo[_u32base]_offset[_t0](svuint32_t, int64_t, sv<t0>_t)
+     void svfoo[_u64base]_offset[_t0](svuint64_t, int64_t, sv<t0>_t).  */
+  SHAPE_store_scatter_offset,
+
   /* sv<t0>_t svfoo[_t0](sv<t0>_t).  */
   SHAPE_unary,
 
@@ -476,7 +497,7 @@ private:
 
   void build_sv_index (function_signature, const function_group &);
   void build_sv_offset (function_signature, const function_group &);
-  void build_v_base (function_signature, const function_group &);
+  void build_v_base (function_signature, const function_group &, bool = false);
   void build_vs_index (function_signature, const function_group &,
 		       bool = false);
   void build_vs_offset (function_signature, const function_group &,
@@ -504,6 +525,8 @@ private:
   void sig_setffr (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_store (const function_instance &, vec<tree> &);
+  void sig_store_scatter_sv (const function_instance &, vec<tree> &);
+  void sig_store_scatter_vs (const function_instance &, vec<tree> &);
   void sig_00 (const function_instance &, vec<tree> &);
   void sig_n_00 (const function_instance &, vec<tree> &);
   void scalar_sig_000 (const function_instance &, vec<tree> &);
@@ -566,6 +589,7 @@ private:
   tree resolve_load_gather_sv_or_vs ();
   tree resolve_set (unsigned int);
   tree resolve_store ();
+  tree resolve_store_scatter ();
   tree resolve_binary_wide ();
   tree resolve_uniform_imm (unsigned int, unsigned int);
 
@@ -575,13 +599,14 @@ private:
   bool check_argument (unsigned int, vector_type);
   vector_type require_pointer_type (unsigned int, bool = false);
   vector_type require_vector_type (unsigned int);
+  vector_type require_sd_vector_type (unsigned int);
   vector_type require_tuple_type (unsigned int, unsigned int);
   bool require_matching_type (unsigned int, vector_type);
   bool scalar_argument_p (unsigned int);
   bool require_scalar_argument (unsigned int, const char *);
   bool require_integer_immediate (unsigned int);
-  function_mode require_vector_displacement (unsigned int, vector_type);
-  function_mode require_gather_address (unsigned int, vector_type);
+  function_mode require_vector_displacement (unsigned int, vector_type, bool);
+  function_mode require_gather_address (unsigned int, vector_type, bool);
 
   tree require_n_form (type_suffix, type_suffix = NUM_TYPE_SUFFIXES);
   tree require_form (function_mode, type_suffix,
@@ -741,6 +766,7 @@ private:
   rtx expand_setffr ();
   rtx expand_sqrt ();
   rtx expand_st1 ();
+  rtx expand_st1_scatter ();
   rtx expand_sub (bool);
   rtx expand_undef ();
   rtx expand_wrffr ();
@@ -1224,6 +1250,7 @@ function_instance::memory_vector_mode () const
     case FUNC_svldnf1:
     case FUNC_svldnt1:
     case FUNC_svst1:
+    case FUNC_svst1_scatter:
       return mode;
 
     case FUNC_svld2:
@@ -1305,6 +1332,7 @@ function_instance::memory_scalar_type () const
     case FUNC_svldnf1:
     case FUNC_svldnt1:
     case FUNC_svst1:
+    case FUNC_svst1_scatter:
       return scalar_type (0);
 
     case FUNC_svld1sb:
@@ -1583,7 +1611,7 @@ arm_sve_h_builder::build (const function_group &group)
     case SHAPE_load_ext_gather_offset:
       add_overloaded_functions (group, MODE_offset);
       build_sv_offset (&arm_sve_h_builder::sig_load_gather_sv, group);
-      build_v_base (&arm_sve_h_builder::sig_load_gather_vs, group);
+      build_v_base (&arm_sve_h_builder::sig_load_gather_vs, group, true);
       build_vs_offset (&arm_sve_h_builder::sig_load_gather_vs, group);
       break;
 
@@ -1595,7 +1623,7 @@ arm_sve_h_builder::build (const function_group &group)
       break;
 
     case SHAPE_load_gather_vs:
-      build_v_base (&arm_sve_h_builder::sig_load_gather_vs, group);
+      build_v_base (&arm_sve_h_builder::sig_load_gather_vs, group, true);
       build_vs_index (&arm_sve_h_builder::sig_load_gather_vs, group, true);
       build_vs_offset (&arm_sve_h_builder::sig_load_gather_vs, group, true);
       break;
@@ -1639,6 +1667,20 @@ arm_sve_h_builder::build (const function_group &group)
       add_overloaded_functions (group, MODE_vnum);
       build_all (&arm_sve_h_builder::sig_store<1>, group, MODE_none);
       build_all (&arm_sve_h_builder::sig_store<1>, group, MODE_vnum);
+      break;
+
+    case SHAPE_store_scatter_index:
+      add_overloaded_functions (group, MODE_index);
+      build_sv_index (&arm_sve_h_builder::sig_store_scatter_sv, group);
+      build_vs_index (&arm_sve_h_builder::sig_store_scatter_vs, group);
+      break;
+
+    case SHAPE_store_scatter_offset:
+      add_overloaded_functions (group, MODE_none);
+      add_overloaded_functions (group, MODE_offset);
+      build_sv_offset (&arm_sve_h_builder::sig_store_scatter_sv, group);
+      build_v_base (&arm_sve_h_builder::sig_store_scatter_vs, group);
+      build_vs_offset (&arm_sve_h_builder::sig_store_scatter_vs, group);
       break;
 
     case SHAPE_ternary_opt_n:
@@ -1763,9 +1805,11 @@ arm_sve_h_builder::build_sv_offset (function_signature signature,
    The other arguments are as for build_all.  */
 void
 arm_sve_h_builder::build_v_base (function_signature signature,
-				 const function_group &group)
+				 const function_group &group,
+				 bool force_direct_overloads)
 {
-  build_32_64 (signature, group, MODE_u32base, MODE_u64base, true);
+  build_32_64 (signature, group, MODE_u32base, MODE_u64base,
+	       force_direct_overloads);
 }
 
 /* Like build_v_base, but for functions that also take a scalar array
@@ -1986,6 +2030,40 @@ arm_sve_h_builder::sig_store (const function_instance &instance,
   if (instance.mode == MODE_vnum)
     types.quick_push (scalar_types[VECTOR_TYPE_svint64_t]);
   types.quick_push (instance.tuple_type (N, 0));
+}
+
+/* Describe one of the signatures:
+
+     void svfoo_[m1]index[_t0](<t0>_t *, sv<m1>_t, sv<t0>_t)
+     void svfoo_[m1]offset[_t0](<t0>_t *, sv<m1>_t, sv<t0>_t)
+
+   for INSTANCE in TYPES.  The mode of INSTANCE determines <m1>.  */
+void
+arm_sve_h_builder::sig_store_scatter_sv (const function_instance &instance,
+					 vec<tree> &types)
+{
+  types.quick_push (void_type_node);
+  types.quick_push (build_pointer_type (instance.memory_scalar_type ()));
+  types.quick_push (instance.displacement_vector_type ());
+  types.quick_push (instance.vector_type (0));
+}
+
+/* Describe one of the signatures:
+
+     void svfoo[_m0base_t0](sv<m0>_t, sv<t0>_t)
+     void svfoo[_m0base]_index[_t0](sv<m0>_t, int64_t, sv<t0>_t)
+     void svfoo[_m0base]_offset[_t0](sv<m0>_t, int64_t, sv<t0>_t)
+
+   for INSTANCE in TYPES.  The mode of INSTANCE determines <m0>.  */
+void
+arm_sve_h_builder::sig_store_scatter_vs (const function_instance &instance,
+					 vec<tree> &types)
+{
+  types.quick_push (void_type_node);
+  types.quick_push (instance.base_vector_type ());
+  if (instance.displacement_units () != UNITS_none)
+    types.quick_push (scalar_types[VECTOR_TYPE_svint64_t]);
+  types.quick_push (instance.vector_type (0));
 }
 
 /* Describe the signature "sv<t0>_t svfoo[_t0](sv<t0>_t)"
@@ -2395,6 +2473,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svrdffr:
     case FUNC_svsetffr:
     case FUNC_svst1:
+    case FUNC_svst1_scatter:
     case FUNC_svwrffr:
       attrs = add_attribute ("nothrow", attrs);
       break;
@@ -2433,6 +2512,8 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_shift_opt_n:
     case SHAPE_shift_right_imm:
     case SHAPE_store:
+    case SHAPE_store_scatter_index:
+    case SHAPE_store_scatter_offset:
     case SHAPE_ternary_opt_n:
     case SHAPE_ternary_qq_opt_n:
     case SHAPE_unary:
@@ -2582,6 +2663,9 @@ function_resolver::resolve ()
       return resolve_uniform_imm (2, 1);
     case SHAPE_store:
       return resolve_store ();
+    case SHAPE_store_scatter_index:
+    case SHAPE_store_scatter_offset:
+      return resolve_store_scatter ();
     case SHAPE_ternary_opt_n:
       return resolve_uniform (3);
     case SHAPE_ternary_qq_opt_n:
@@ -2694,7 +2778,7 @@ function_resolver::resolve_load_gather_sv ()
   if (!check_num_arguments (3)
       || !check_argument (0, VECTOR_TYPE_svbool_t)
       || (type = require_pointer_type (1, true)) == NUM_VECTOR_TYPES
-      || (mode = require_vector_displacement (2, type)) == MODE_none)
+      || (mode = require_vector_displacement (2, type, true)) == MODE_none)
     return error_mark_node;
 
   return require_form (mode, get_type_suffix (type));
@@ -2720,7 +2804,7 @@ function_resolver::resolve_load_gather_sv_or_vs ()
   vector_type type = type_suffixes[m_fi.types[0]].type;
   if (!check_num_arguments (3)
       || !check_argument (0, VECTOR_TYPE_svbool_t)
-      || (mode = require_gather_address (1, type)) == MODE_none)
+      || (mode = require_gather_address (1, type, true)) == MODE_none)
     return error_mark_node;
 
   return require_form (mode, get_type_suffix (type));
@@ -2772,6 +2856,29 @@ function_resolver::resolve_store ()
     return error_mark_node;
 
   return require_form (m_fi.mode, get_type_suffix (type));
+}
+
+/* Resolve a scatter store that takes one of:
+
+   - a scalar pointer base and a vector displacement
+   - a vector base with no displacement or
+   - a vector base and a scalar displacement
+
+   The stored data is the final argument, and it determines the
+   type suffix.  */
+tree
+function_resolver::resolve_store_scatter ()
+{
+  function_mode mode;
+  vector_type type;
+  unsigned int nargs = m_fi.displacement_units () == UNITS_none ? 3 : 4;
+  if (!check_num_arguments (nargs)
+      || !check_argument (0, VECTOR_TYPE_svbool_t)
+      || (type = require_sd_vector_type (nargs - 1)) == NUM_VECTOR_TYPES
+      || (mode = require_gather_address (1, type, false)) == MODE_none)
+    return error_mark_node;
+
+  return require_form (mode, get_type_suffix (type));
 }
 
 /* Resolve a function that has SHAPE_binary_wide.  */
@@ -2973,6 +3080,26 @@ function_resolver::require_vector_type (unsigned int i)
   return require_tuple_type (i, 1);
 }
 
+/* Likewise, but also require the element size to be 32 or 64 bits.  */
+vector_type
+function_resolver::require_sd_vector_type (unsigned int i)
+{
+  vector_type type = require_tuple_type (i, 1);
+  if (type == NUM_VECTOR_TYPES)
+    return type;
+
+  unsigned int bits = get_element_bits (type);
+  if (bits != 32 && bits != 64)
+    {
+      error_at (m_location, "passing %qT to argument %d of %qE, which"
+		" expects a vector of 32-bit or 64-bit elements",
+		get_argument_type (i), i + 1, m_rfn.decl);
+      return NUM_VECTOR_TYPES;
+    }
+
+  return type;
+}
+
 /* Require argument I to have the vector type associated with TYPE,
    in cases where this requirement holds for all uses of the function.
    Return true if the argument has the right form.  */
@@ -3056,11 +3183,13 @@ function_resolver::require_integer_immediate (unsigned int i)
 
 /* Require argument I to be a vector offset or index in a gather-style
    address.  DATA_TYPE is the type of data being loaded or stored.
+   LOAD_P is true if it is being loaded rather than stored.
 
    Return the associated mode on success, otherwise return MODE_none.  */
 function_mode
 function_resolver::require_vector_displacement (unsigned int i,
-						vector_type data_type)
+						vector_type data_type,
+						bool load_p)
 {
   vector_type displacement_type = require_vector_type (i);
   if (displacement_type == NUM_VECTOR_TYPES)
@@ -3075,10 +3204,18 @@ function_resolver::require_vector_displacement (unsigned int i,
 	return function_mode (mode);
 
   if (m_fi.types[0] == NUM_TYPE_SUFFIXES)
-    error_at (m_location, "passing %qT to argument %d of %qE, which when"
-	      " loading %qT expects a vector of %d-bit integers",
-	      get_argument_type (i), i + 1, m_rfn.decl,
-	      get_vector_type (data_type), required_bits);
+    {
+      if (load_p)
+	error_at (m_location, "passing %qT to argument %d of %qE, which when"
+		  " loading %qT expects a vector of %d-bit integers",
+		  get_argument_type (i), i + 1, m_rfn.decl,
+		  get_vector_type (data_type), required_bits);
+      else
+	error_at (m_location, "passing %qT to argument %d of %qE, which when"
+		  " storing %qT expects a vector of %d-bit integers",
+		  get_argument_type (i), i + 1, m_rfn.decl,
+		  get_vector_type (data_type), required_bits);
+    }
   else
     error_at (m_location, "passing %qT to argument %d of %qE, which"
 	      " expects a vector of %d-bit integers",
@@ -3087,32 +3224,36 @@ function_resolver::require_vector_displacement (unsigned int i,
 }
 
 /* Require arguments I and I + 1 to form a gather-style address for loading
-   or storing DATA_TYPE.  The two possibilities are a vector base and a
-   scalar displacement or a scalar (pointer) base and a vector displacement.
-   The mode of the overloaded function determines the units of the
-   displacement (bytes for "_offset", elements for "_index").
+   or storing DATA_TYPE; LOAD_P says which.  The two possibilities are a
+   vector base and a scalar displacement or a scalar (pointer) base and
+   a vector displacement.  The mode of the overloaded function determines
+   the units of the displacement (bytes for "_offset", elements for "_index").
 
    Return the mode of the non-overloaded function on success, otherwise
    return MODE_none.  */
 function_mode
 function_resolver::require_gather_address (unsigned int i,
-					   vector_type data_type)
+					   vector_type data_type,
+					   bool load_p)
 {
   tree actual = get_argument_type (i);
   if (actual == error_mark_node)
     return MODE_none;
 
-  if (POINTER_TYPE_P (actual))
-    /* Don't check the pointer type here, since there's only one valid
-       choice.  Leave that to the frontend.  */
-    return require_vector_displacement (i + 1, data_type);
-
-  if (!VECTOR_TYPE_P (actual))
+  if (m_fi.displacement_units () != UNITS_none)
     {
-      error_at (m_location, "passing %qT to argument %d of %qE,"
-		" which expects a vector or pointer base address",
-		actual, i + 1, m_rfn.decl);
-      return MODE_none;
+      if (POINTER_TYPE_P (actual))
+	/* Don't check the pointer type here, since there's only one valid
+	   choice.  Leave that to the frontend.  */
+	return require_vector_displacement (i + 1, data_type, load_p);
+
+      if (!VECTOR_TYPE_P (actual))
+	{
+	  error_at (m_location, "passing %qT to argument %d of %qE,"
+		    " which expects a vector or pointer base address",
+		    actual, i + 1, m_rfn.decl);
+	  return MODE_none;
+	}
     }
 
   vector_type base_type = require_vector_type (i);
@@ -3281,6 +3422,8 @@ function_checker::check ()
     case SHAPE_setffr:
     case SHAPE_shift_opt_n:
     case SHAPE_store:
+    case SHAPE_store_scatter_index:
+    case SHAPE_store_scatter_offset:
     case SHAPE_ternary_opt_n:
     case SHAPE_ternary_qq_opt_n:
     case SHAPE_unary:
@@ -3582,6 +3725,7 @@ gimple_folder::fold ()
     case FUNC_svrdffr:
     case FUNC_svsetffr:
     case FUNC_svsqrt:
+    case FUNC_svst1_scatter:
     case FUNC_svsub:
     case FUNC_svsubr:
     /* Don't fold svundef at the gimple level.  There's no exact
@@ -4168,6 +4312,9 @@ function_expander::expand ()
 
     case FUNC_svst1:
       return expand_st1 ();
+
+    case FUNC_svst1_scatter:
+      return expand_st1_scatter ();
 
     case FUNC_svsub:
       return expand_sub (false);
@@ -4886,6 +5033,17 @@ function_expander::expand_st1 ()
   machine_mode pred_mode = get_pred_mode (0);
   insn_code icode = convert_optab_handler (maskstore_optab, mode, pred_mode);
   return expand_via_store_insn (icode);
+}
+
+/* Expand a call to svst1_scatter.  */
+rtx
+function_expander::expand_st1_scatter ()
+{
+  prepare_gather_address_operands (1);
+  rotate_inputs_left (0, 6);
+  machine_mode mem_mode = m_fi.memory_vector_mode ();
+  insn_code icode = direct_optab_handler (mask_scatter_store_optab, mem_mode);
+  return expand_via_exact_insn (icode);
 }
 
 /* Expand a call to svsub or svsubr; REVERSED_P says which.  */
