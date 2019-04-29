@@ -244,6 +244,10 @@ enum function_shape {
      range [1, <t0>_BITS].  */
   SHAPE_shift_right_imm,
 
+  /* void svfoo[_t0](<t0>_t *, sv<t0>_t).
+     void svfoo_vnum[_t0](<t0>_t *, int64_t, sv<t0>_t).  */
+  SHAPE_store,
+
   /* sv<t0>_t svfoo[_t0](sv<t0>_t).  */
   SHAPE_unary,
 
@@ -498,6 +502,8 @@ private:
   template <unsigned int N>
   void sig_set_00i0 (const function_instance &, vec<tree> &);
   void sig_setffr (const function_instance &, vec<tree> &);
+  template <unsigned int N>
+  void sig_store (const function_instance &, vec<tree> &);
   void sig_00 (const function_instance &, vec<tree> &);
   void sig_n_00 (const function_instance &, vec<tree> &);
   void scalar_sig_000 (const function_instance &, vec<tree> &);
@@ -559,6 +565,7 @@ private:
   tree resolve_load_gather_sv ();
   tree resolve_load_gather_sv_or_vs ();
   tree resolve_set (unsigned int);
+  tree resolve_store ();
   tree resolve_binary_wide ();
   tree resolve_uniform_imm (unsigned int, unsigned int);
 
@@ -644,6 +651,7 @@ private:
   gimple *fold_ptrue ();
   gimple *fold_rev ();
   gimple *fold_set ();
+  gimple *fold_st1 ();
   gimple *fold_trn ();
   gimple *fold_undef ();
   gimple *fold_uzp ();
@@ -732,6 +740,7 @@ private:
   rtx expand_set ();
   rtx expand_setffr ();
   rtx expand_sqrt ();
+  rtx expand_st1 ();
   rtx expand_sub (bool);
   rtx expand_undef ();
   rtx expand_wrffr ();
@@ -743,6 +752,7 @@ private:
   rtx expand_via_unpred_direct_optab (optab, machine_mode = VOIDmode);
   rtx expand_via_exact_insn (insn_code);
   rtx expand_via_load_insn (insn_code);
+  rtx expand_via_store_insn (insn_code);
   rtx expand_via_unpred_insn (insn_code);
   rtx expand_via_pred_direct_optab (optab, unsigned int = DEFAULT_MERGE_ARGNO);
   rtx expand_via_sel_insn (insn_code);
@@ -753,6 +763,7 @@ private:
 
   void require_immediate_range (unsigned int, HOST_WIDE_INT, HOST_WIDE_INT);
 
+  rtx get_contiguous_base (machine_mode);
   void prepare_gather_address_operands (unsigned int);
   void rotate_inputs_left (unsigned int, unsigned int);
   bool try_negating_argument (unsigned int, machine_mode);
@@ -1212,6 +1223,7 @@ function_instance::memory_vector_mode () const
     case FUNC_svldff1_gather:
     case FUNC_svldnf1:
     case FUNC_svldnt1:
+    case FUNC_svst1:
       return mode;
 
     case FUNC_svld2:
@@ -1292,6 +1304,7 @@ function_instance::memory_scalar_type () const
     case FUNC_svldff1_gather:
     case FUNC_svldnf1:
     case FUNC_svldnt1:
+    case FUNC_svst1:
       return scalar_type (0);
 
     case FUNC_svld1sb:
@@ -1621,6 +1634,13 @@ arm_sve_h_builder::build (const function_group &group)
       build_all (&arm_sve_h_builder::sig_n_00i, group, MODE_n);
       break;
 
+    case SHAPE_store:
+      add_overloaded_functions (group, MODE_none);
+      add_overloaded_functions (group, MODE_vnum);
+      build_all (&arm_sve_h_builder::sig_store<1>, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_store<1>, group, MODE_vnum);
+      break;
+
     case SHAPE_ternary_opt_n:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_0000, group, MODE_none);
@@ -1947,6 +1967,25 @@ void
 arm_sve_h_builder::sig_setffr (const function_instance &, vec<tree> &types)
 {
   types.quick_push (void_type_node);
+}
+
+/* Describe one of the signatures:
+
+     void svfoo[_t0](<t0>_t *, sv<t0>xN_t)
+     void svfoo_vnum[_t0](<t0>_t *, int64_t, sv<t0>xN_t)
+
+   for INSTANCE in TYPES.  The mode of INSTANCE chooses between the vnum and
+   non-vnum forms.  */
+template<unsigned int N>
+void
+arm_sve_h_builder::sig_store (const function_instance &instance,
+			      vec<tree> &types)
+{
+  types.quick_push (void_type_node);
+  types.quick_push (build_pointer_type (instance.memory_scalar_type ()));
+  if (instance.mode == MODE_vnum)
+    types.quick_push (scalar_types[VECTOR_TYPE_svint64_t]);
+  types.quick_push (instance.tuple_type (N, 0));
 }
 
 /* Describe the signature "sv<t0>_t svfoo[_t0](sv<t0>_t)"
@@ -2355,6 +2394,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svldnf1uw:
     case FUNC_svrdffr:
     case FUNC_svsetffr:
+    case FUNC_svst1:
     case FUNC_svwrffr:
       attrs = add_attribute ("nothrow", attrs);
       break;
@@ -2392,6 +2432,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_setffr:
     case SHAPE_shift_opt_n:
     case SHAPE_shift_right_imm:
+    case SHAPE_store:
     case SHAPE_ternary_opt_n:
     case SHAPE_ternary_qq_opt_n:
     case SHAPE_unary:
@@ -2539,6 +2580,8 @@ function_resolver::resolve ()
       return resolve_set (4);
     case SHAPE_shift_right_imm:
       return resolve_uniform_imm (2, 1);
+    case SHAPE_store:
+      return resolve_store ();
     case SHAPE_ternary_opt_n:
       return resolve_uniform (3);
     case SHAPE_ternary_qq_opt_n:
@@ -2708,6 +2751,27 @@ function_resolver::resolve_set (unsigned int num_vectors)
     return error_mark_node;
 
   return require_form (m_rfn.instance.mode, get_type_suffix (type));
+}
+
+/* Resolve a call based on the final vector argument.  The other arguments
+   are a governing predicate, a pointer and (for MODE_vnum) a vnum offset.  */
+tree
+function_resolver::resolve_store ()
+{
+  vector_type type;
+
+  gcc_assert (m_fi.pred != PRED_none
+	      && (m_fi.mode == MODE_none || m_fi.mode == MODE_vnum));
+  unsigned int nargs = (m_fi.mode == MODE_vnum ? 4 : 3);
+  if (!check_num_arguments (nargs)
+      || !check_argument (0, VECTOR_TYPE_svbool_t)
+      /* Don't check pointer argument 1, since it doesn't participate
+	 in resolution.  Leave that to the frontend.  */
+      || (m_fi.mode == MODE_vnum && !require_scalar_argument (2, "int64_t"))
+      || (type = require_vector_type (nargs - 1)) == NUM_VECTOR_TYPES)
+    return error_mark_node;
+
+  return require_form (m_fi.mode, get_type_suffix (type));
 }
 
 /* Resolve a function that has SHAPE_binary_wide.  */
@@ -3216,6 +3280,7 @@ function_checker::check ()
     case SHAPE_rdffr:
     case SHAPE_setffr:
     case SHAPE_shift_opt_n:
+    case SHAPE_store:
     case SHAPE_ternary_opt_n:
     case SHAPE_ternary_qq_opt_n:
     case SHAPE_unary:
@@ -3561,6 +3626,9 @@ gimple_folder::fold ()
     case FUNC_svset4:
       return fold_set ();
 
+    case FUNC_svst1:
+      return fold_st1 ();
+
     case FUNC_svtrn1:
     case FUNC_svtrn2:
       return fold_trn ();
@@ -3712,6 +3780,24 @@ gimple_folder::fold_set ()
 		ref, index, NULL_TREE, NULL_TREE);
   gsi_insert_after (m_gsi, gimple_build_assign (ref, vector), GSI_SAME_STMT);
   return assign;
+}
+
+/* Fold a call to svst1.  */
+gimple *
+gimple_folder::fold_st1 ()
+{
+  unsigned int num_args = gimple_call_num_args (m_call);
+  tree vectype = m_fi.vector_type (0);
+  tree store_data = gimple_call_arg (m_call, num_args - 1);
+
+  gimple_seq stmts = NULL;
+  tree pred = convert_pred (stmts, vectype, 0);
+  tree base = fold_contiguous_base (stmts, vectype);
+  gsi_insert_seq_before (m_gsi, stmts, GSI_SAME_STMT);
+
+  tree cookie = load_store_cookie (TREE_TYPE (vectype));
+  return gimple_build_call_internal (IFN_MASK_STORE, 4,
+				     base, cookie, pred, store_data);
 }
 
 /* Fold a call to svtrn1 or svtrn2.  */
@@ -4079,6 +4165,9 @@ function_expander::expand ()
 
     case FUNC_svsqrt:
       return expand_sqrt ();
+
+    case FUNC_svst1:
+      return expand_st1 ();
 
     case FUNC_svsub:
       return expand_sub (false);
@@ -4789,6 +4878,16 @@ function_expander::expand_sqrt ()
   return expand_pred_op (UNKNOWN, UNSPEC_COND_FSQRT);
 }
 
+/* Expand a call to svst1.  */
+rtx
+function_expander::expand_st1 ()
+{
+  machine_mode mode = get_mode (0);
+  machine_mode pred_mode = get_pred_mode (0);
+  insn_code icode = convert_optab_handler (maskstore_optab, mode, pred_mode);
+  return expand_via_store_insn (icode);
+}
+
 /* Expand a call to svsub or svsubr; REVERSED_P says which.  */
 rtx
 function_expander::expand_sub (bool reversed_p)
@@ -4869,21 +4968,24 @@ rtx
 function_expander::expand_via_load_insn (insn_code icode)
 {
   machine_mode mem_mode = m_fi.memory_vector_mode ();
-  rtx base = m_args[1];
-  if (m_fi.mode == MODE_vnum)
-    {
-      /* Use the size of the memory mode for extending loads, and the
-	 size of a full vector for non-unextending loads (including
-	 LD2, LD3 and LD4).  */
-      poly_int64 size = ordered_min (GET_MODE_SIZE (mem_mode),
-				     BYTES_PER_SVE_VECTOR);
-      rtx offset = gen_int_mode (size, Pmode);
-      offset = simplify_gen_binary (MULT, Pmode, m_args[2], offset);
-      base = simplify_gen_binary (PLUS, Pmode, base, offset);
-    }
+  rtx base = get_contiguous_base (mem_mode);
 
   add_output_operand (icode);
   add_mem_operand (mem_mode, base);
+  add_input_operand (icode, m_args[0]);
+  return generate_insn (icode);
+}
+
+/* Implement the call using instruction ICODE, which stores register operand 1
+   into memory operand 0 under the control of predicate operand 2.  */
+rtx
+function_expander::expand_via_store_insn (insn_code icode)
+{
+  machine_mode mem_mode = m_fi.memory_vector_mode ();
+  rtx base = get_contiguous_base (mem_mode);
+
+  add_mem_operand (mem_mode, base);
+  add_input_operand (icode, m_args.last ());
   add_input_operand (icode, m_args[0]);
   return generate_insn (icode);
 }
@@ -5147,6 +5249,26 @@ function_expander::require_immediate_range (unsigned int argno,
       report_out_of_range (m_location, m_rfn.decl, argno, actual, min, max);
     }
   m_args[argno] = GEN_INT (min);
+}
+
+/* Return the base address for a contiguous load or store function.
+   MODE is the mode of the addressed memory.  */
+rtx
+function_expander::get_contiguous_base (machine_mode mode)
+{
+  rtx base = m_args[1];
+  if (m_fi.mode == MODE_vnum)
+    {
+      /* Use the size of the memory mode for extending loads and truncating
+	 stores.  Use the size of a full vector for non-extending loads
+	 and non-truncating stores (including svld[234] and svst[234]).  */
+      poly_int64 size = ordered_min (GET_MODE_SIZE (mode),
+				     BYTES_PER_SVE_VECTOR);
+      rtx offset = gen_int_mode (size, Pmode);
+      offset = simplify_gen_binary (MULT, Pmode, m_args[2], offset);
+      base = simplify_gen_binary (PLUS, Pmode, base, offset);
+    }
+  return base;
 }
 
 /* Convert the arguments for a gather/scatter-style operation into

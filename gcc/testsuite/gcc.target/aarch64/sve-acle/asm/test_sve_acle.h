@@ -194,6 +194,16 @@
     BIND_OUTPUT_Z (z0);						\
   }
 
+#define TEST_STORE(NAME, ZTYPE, STYPE, CODE1, CODE2)	\
+  START (NAME)						\
+  {							\
+    BIND_INPUT_Z (ZTYPE, z0);				\
+    BIND_INPUT_P (p0);					\
+    BIND_INPUT_X (STYPE *, x0);				\
+    BIND_INPUT_X (intptr_t, x1);			\
+    INVOKE (CODE1, CODE2);				\
+  }
+
 #define TEST_P(NAME, CODE1, CODE2)	\
   START (NAME)				\
   {					\
