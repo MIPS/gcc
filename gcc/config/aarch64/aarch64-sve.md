@@ -602,6 +602,93 @@
    st1d\t%4.d, %5, [%0, %1.d, uxtw %p3]"
 )
 
+;; Predicated truncating scatter stores for 32-bit elements.  Operand 2 is
+;; true for unsigned extension and false for signed extension.
+(define_insn "@aarch64_scatter_store_trunc<VNx4_NARROW:mode><VNx4_WIDE:mode>"
+  [(set (mem:BLK (scratch))
+	(unspec:BLK
+	  [(match_operand:VNx4BI 5 "register_operand" "Upl, Upl, Upl, Upl, Upl, Upl")
+	   (match_operand:DI 0 "aarch64_sve_gather_offset_<VNx4_NARROW:Vesize>" "Z, vg<VNx4_NARROW:Vesize>, rk, rk, rk, rk")
+	   (match_operand:VNx4SI 1 "register_operand" "w, w, w, w, w, w")
+	   (match_operand:DI 2 "const_int_operand" "Ui1, Ui1, Z, Ui1, Z, Ui1")
+	   (match_operand:DI 3 "aarch64_gather_scale_operand_<VNx4_NARROW:Vesize>" "Ui1, Ui1, Ui1, Ui1, i, i")
+	   (truncate:VNx4_NARROW
+	     (match_operand:VNx4_WIDE 4 "register_operand" "w, w, w, w, w, w"))]
+	  UNSPEC_ST1_SCATTER))]
+  "TARGET_SVE"
+  "@
+   st1<VNx4_NARROW:Vesize>\t%4.s, %5, [%1.s]
+   st1<VNx4_NARROW:Vesize>\t%4.s, %5, [%1.s, #%0]
+   st1<VNx4_NARROW:Vesize>\t%4.s, %5, [%0, %1.s, sxtw]
+   st1<VNx4_NARROW:Vesize>\t%4.s, %5, [%0, %1.s, uxtw]
+   st1<VNx4_NARROW:Vesize>\t%4.s, %5, [%0, %1.s, sxtw %p3]
+   st1<VNx4_NARROW:Vesize>\t%4.s, %5, [%0, %1.s, uxtw %p3]"
+)
+
+;; Predicated truncating scatter stores for 64-bit elements.  The value of
+;; operand 2 doesn't matter in this case.
+(define_insn "@aarch64_scatter_store_trunc<VNx2_NARROW:mode><VNx2_WIDE:mode>"
+  [(set (mem:BLK (scratch))
+	(unspec:BLK
+	  [(match_operand:VNx2BI 5 "register_operand" "Upl, Upl, Upl, Upl")
+	   (match_operand:DI 0 "aarch64_sve_gather_offset_<VNx2_NARROW:Vesize>" "Z, vg<VNx2_NARROW:Vesize>, rk, rk")
+	   (match_operand:VNx2DI 1 "register_operand" "w, w, w, w")
+	   (match_operand:DI 2 "const_int_operand")
+	   (match_operand:DI 3 "aarch64_gather_scale_operand_<VNx2_NARROW:Vesize>" "Ui1, Ui1, Ui1, i")
+	   (truncate:VNx2_NARROW
+	     (match_operand:VNx2_WIDE 4 "register_operand" "w, w, w, w"))]
+	  UNSPEC_ST1_SCATTER))]
+  "TARGET_SVE"
+  "@
+   st1<VNx2_NARROW:Vesize>\t%4.d, %5, [%1.d]
+   st1<VNx2_NARROW:Vesize>\t%4.d, %5, [%1.d, #%0]
+   st1<VNx2_NARROW:Vesize>\t%4.d, %5, [%0, %1.d]
+   st1<VNx2_NARROW:Vesize>\t%4.d, %5, [%0, %1.d, lsl %p3]"
+)
+
+;; Likewise, but with the offset being sign-extended from 32 bits.
+(define_insn "*aarch64_scatter_store_trunc<VNx2_NARROW:mode><VNx2_WIDE:mode>_sxtw"
+  [(set (mem:BLK (scratch))
+	(unspec:BLK
+	  [(match_operand:VNx2BI 5 "register_operand" "Upl, Upl")
+	   (match_operand:DI 0 "register_operand" "rk, rk")
+	   (unspec:VNx2DI
+	     [(match_dup 5)
+	      (sign_extend:VNx2DI
+		(truncate:VNx2SI
+		  (match_operand:VNx2DI 1 "register_operand" "w, w")))]
+	     UNSPEC_MERGE_PTRUE)
+	   (match_operand:DI 2 "const_int_operand")
+	   (match_operand:DI 3 "aarch64_gather_scale_operand_<VNx2_NARROW:Vesize>" "Ui1, i")
+	   (truncate:VNx2_NARROW
+	     (match_operand:VNx2_WIDE 4 "register_operand" "w, w"))]
+	  UNSPEC_ST1_SCATTER))]
+  "TARGET_SVE"
+  "@
+   st1<VNx2_NARROW:Vesize>\t%4.d, %5, [%0, %1.d, sxtw]
+   st1<VNx2_NARROW:Vesize>\t%4.d, %5, [%0, %1.d, sxtw %p3]"
+)
+
+;; Likewise, but with the offset being zero-extended from 32 bits.
+(define_insn "*aarch64_scatter_store_trunc<VNx2_NARROW:mode><VNx2_WIDE:mode>_uxtw"
+  [(set (mem:BLK (scratch))
+	(unspec:BLK
+	  [(match_operand:VNx2BI 5 "register_operand" "Upl, Upl")
+	   (match_operand:DI 0 "aarch64_reg_or_zero" "rk, rk")
+	   (and:VNx2DI
+	     (match_operand:VNx2DI 1 "register_operand" "w, w")
+	     (match_operand:VNx2DI 6 "aarch64_sve_uxtw_immediate"))
+	   (match_operand:DI 2 "const_int_operand")
+	   (match_operand:DI 3 "aarch64_gather_scale_operand_<VNx2_NARROW:Vesize>" "Ui1, i")
+	   (truncate:VNx2_NARROW
+	     (match_operand:VNx2_WIDE 4 "register_operand" "w, w"))]
+	  UNSPEC_ST1_SCATTER))]
+  "TARGET_SVE"
+  "@
+   st1<VNx2_NARROW:Vesize>\t%4.d, %5, [%0, %1.d, uxtw]
+   st1<VNx2_NARROW:Vesize>\t%4.d, %5, [%0, %1.d, uxtw %p3]"
+)
+
 ;; SVE structure moves.
 (define_expand "mov<mode>"
   [(set (match_operand:SVE_STRUCT 0 "nonimmediate_operand")
