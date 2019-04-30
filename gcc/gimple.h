@@ -1509,6 +1509,7 @@ void gimple_assign_set_rhs_with_ops (gimple_stmt_iterator *, enum tree_code,
 tree gimple_get_lhs (const gimple *);
 void gimple_set_lhs (gimple *, tree);
 gimple *gimple_copy (gimple *);
+void gimple_move_vops (gimple *, gimple *);
 bool gimple_has_side_effects (const gimple *);
 bool gimple_could_trap_p_1 (gimple *, bool, bool);
 bool gimple_could_trap_p (gimple *);
