@@ -774,6 +774,7 @@ private:
   rtx expand_sqrt ();
   rtx expand_st1 ();
   rtx expand_st1_scatter ();
+  rtx expand_st1_trunc ();
   rtx expand_st234 ();
   rtx expand_sub (bool);
   rtx expand_undef ();
@@ -1303,6 +1304,9 @@ function_instance::memory_vector_mode () const
     case FUNC_svldnf1ub:
     case FUNC_svldnf1uh:
     case FUNC_svldnf1uw:
+    case FUNC_svst1b:
+    case FUNC_svst1h:
+    case FUNC_svst1w:
       return aarch64_sve_data_mode (bhwd_scalar_mode (),
 				    GET_MODE_NUNITS (mode)).require ();
 
@@ -1390,6 +1394,21 @@ function_instance::memory_scalar_type () const
     case FUNC_svldff1uw_gather:
     case FUNC_svldnf1uw:
       return scalar_types[VECTOR_TYPE_svuint32_t];
+
+    case FUNC_svst1b:
+      return scalar_types[TYPE_UNSIGNED (scalar_type (0))
+			  ? VECTOR_TYPE_svuint8_t
+			  : VECTOR_TYPE_svint8_t];
+
+    case FUNC_svst1h:
+      return scalar_types[TYPE_UNSIGNED (scalar_type (0))
+			  ? VECTOR_TYPE_svuint16_t
+			  : VECTOR_TYPE_svint16_t];
+
+    case FUNC_svst1w:
+      return scalar_types[TYPE_UNSIGNED (scalar_type (0))
+			  ? VECTOR_TYPE_svuint32_t
+			  : VECTOR_TYPE_svint32_t];
 
     default:
       gcc_unreachable ();
@@ -2509,6 +2528,9 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svsetffr:
     case FUNC_svst1:
     case FUNC_svst1_scatter:
+    case FUNC_svst1b:
+    case FUNC_svst1h:
+    case FUNC_svst1w:
     case FUNC_svst2:
     case FUNC_svst3:
     case FUNC_svst4:
@@ -3778,6 +3800,9 @@ gimple_folder::fold ()
     case FUNC_svsetffr:
     case FUNC_svsqrt:
     case FUNC_svst1_scatter:
+    case FUNC_svst1b:
+    case FUNC_svst1h:
+    case FUNC_svst1w:
     case FUNC_svsub:
     case FUNC_svsubr:
     /* Don't fold svundef at the gimple level.  There's no exact
@@ -4393,6 +4418,11 @@ function_expander::expand ()
 
     case FUNC_svst1_scatter:
       return expand_st1_scatter ();
+
+    case FUNC_svst1b:
+    case FUNC_svst1h:
+    case FUNC_svst1w:
+      return expand_st1_trunc ();
 
     case FUNC_svst2:
     case FUNC_svst3:
@@ -5127,6 +5157,16 @@ function_expander::expand_st1_scatter ()
   machine_mode mem_mode = m_fi.memory_vector_mode ();
   insn_code icode = direct_optab_handler (mask_scatter_store_optab, mem_mode);
   return expand_via_exact_insn (icode);
+}
+
+/* Expand a call to svst1[bhw].  */
+rtx
+function_expander::expand_st1_trunc ()
+{
+  machine_mode reg_mode = get_mode (0);
+  machine_mode mem_mode = m_fi.memory_vector_mode ();
+  insn_code icode = code_for_aarch64_store_trunc (mem_mode, reg_mode);
+  return expand_via_store_insn (icode);
 }
 
 /* Expand a call to svst[234].  */

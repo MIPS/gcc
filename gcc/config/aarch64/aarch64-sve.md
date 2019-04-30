@@ -276,6 +276,45 @@
   "ld1<ANY_EXTEND:s><VNx2_NARROW:Vesize>\t%0.<VNx2_WIDE:Vetype>, %2/z, %1"
 )
 
+;; Predicated truncate and store, with 8 elements per 128-bit block.
+(define_insn "@aarch64_store_trunc<VNx8_NARROW:mode><VNx8_WIDE:mode>"
+  [(set (match_operand:VNx8_NARROW 0 "memory_operand" "+m")
+	(unspec:VNx8_NARROW
+	  [(match_operand:VNx8BI 2 "register_operand" "Upl")
+	   (truncate:VNx8_NARROW
+	     (match_operand:VNx8_WIDE 1 "register_operand" "w"))
+	   (match_dup 0)]
+	  UNSPEC_ST1_SVE))]
+  "TARGET_SVE"
+  "st1<VNx8_NARROW:Vesize>\t%1.<VNx8_WIDE:Vetype>, %2, %0"
+)
+
+;; Predicated truncate and store, with 4 elements per 128-bit block.
+(define_insn "@aarch64_store_trunc<VNx4_NARROW:mode><VNx4_WIDE:mode>"
+  [(set (match_operand:VNx4_NARROW 0 "memory_operand" "+m")
+	(unspec:VNx4_NARROW
+	  [(match_operand:VNx4BI 2 "register_operand" "Upl")
+	   (truncate:VNx4_NARROW
+	     (match_operand:VNx4_WIDE 1 "register_operand" "w"))
+	   (match_dup 0)]
+	  UNSPEC_ST1_SVE))]
+  "TARGET_SVE"
+  "st1<VNx4_NARROW:Vesize>\t%1.<VNx4_WIDE:Vetype>, %2, %0"
+)
+
+;; Predicated truncate and store, with 2 elements per 128-bit block.
+(define_insn "@aarch64_store_trunc<VNx2_NARROW:mode><VNx2_WIDE:mode>"
+  [(set (match_operand:VNx2_NARROW 0 "memory_operand" "+m")
+	(unspec:VNx2_NARROW
+	  [(match_operand:VNx2BI 2 "register_operand" "Upl")
+	   (truncate:VNx2_NARROW
+	     (match_operand:VNx2_WIDE 1 "register_operand" "w"))
+	   (match_dup 0)]
+	  UNSPEC_ST1_SVE))]
+  "TARGET_SVE"
+  "st1<VNx2_NARROW:Vesize>\t%1.<VNx2_WIDE:Vetype>, %2, %0"
+)
+
 ;; Unpredicated gather loads.
 (define_expand "gather_load<mode>"
   [(set (match_operand:SVE_SD 0 "register_operand")
