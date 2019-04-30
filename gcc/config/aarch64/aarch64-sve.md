@@ -240,6 +240,17 @@
   "st1<Vesize>\t%1.<Vetype>, %2, %0"
 )
 
+;; Predicated contiguous non-temporal store.
+(define_insn "@aarch64_stnt1<mode>"
+  [(set (match_operand:SVE_ALL 0 "memory_operand" "+m")
+	(unspec:SVE_ALL [(match_operand:<VPRED> 2 "register_operand" "Upl")
+			 (match_operand:SVE_ALL 1 "register_operand" "w")
+			 (match_dup 0)]
+			UNSPEC_STNT1_SVE))]
+  "TARGET_SVE"
+  "stnt1<Vesize>\t%1.<Vetype>, %2, %0"
+)
+
 ;; Predicated load and extend, with 8 elements per 128-bit block.
 (define_insn "@aarch64_load_<ANY_EXTEND:optab><VNx8_WIDE:mode><VNx8_NARROW:mode>"
   [(set (match_operand:VNx8_WIDE 0 "register_operand" "=w")

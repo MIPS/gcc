@@ -777,6 +777,7 @@ private:
   rtx expand_st1_scatter_trunc ();
   rtx expand_st1_trunc ();
   rtx expand_st234 ();
+  rtx expand_stnt1 ();
   rtx expand_sub (bool);
   rtx expand_undef ();
   rtx expand_wrffr ();
@@ -1261,6 +1262,7 @@ function_instance::memory_vector_mode () const
     case FUNC_svldnt1:
     case FUNC_svst1:
     case FUNC_svst1_scatter:
+    case FUNC_svstnt1:
       return mode;
 
     case FUNC_svld2:
@@ -1355,6 +1357,7 @@ function_instance::memory_scalar_type () const
     case FUNC_svst2:
     case FUNC_svst3:
     case FUNC_svst4:
+    case FUNC_svstnt1:
       return scalar_type (0);
 
     case FUNC_svld1sb:
@@ -2544,6 +2547,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svst2:
     case FUNC_svst3:
     case FUNC_svst4:
+    case FUNC_svstnt1:
     case FUNC_svwrffr:
       attrs = add_attribute ("nothrow", attrs);
       break;
@@ -3816,6 +3820,7 @@ gimple_folder::fold ()
     case FUNC_svst1h_scatter:
     case FUNC_svst1w:
     case FUNC_svst1w_scatter:
+    case FUNC_svstnt1:
     case FUNC_svsub:
     case FUNC_svsubr:
     /* Don't fold svundef at the gimple level.  There's no exact
@@ -4446,6 +4451,9 @@ function_expander::expand ()
     case FUNC_svst3:
     case FUNC_svst4:
       return expand_st234 ();
+
+    case FUNC_svstnt1:
+      return expand_stnt1 ();
 
     case FUNC_svsub:
       return expand_sub (false);
@@ -5207,6 +5215,13 @@ function_expander::expand_st234 ()
   insn_code icode = convert_optab_handler (vec_mask_store_lanes_optab,
 					   tuple_mode, get_mode (0));
   return expand_via_store_insn (icode);
+}
+
+/* Expand a call to svstnt1.  */
+rtx
+function_expander::expand_stnt1 ()
+{
+  return expand_via_store_insn (code_for_aarch64_stnt1 (get_mode (0)));
 }
 
 /* Expand a call to svsub or svsubr; REVERSED_P says which.  */
