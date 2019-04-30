@@ -3,16 +3,16 @@
 
 #include <arm_sve.h>
 
-
-
-/* Make sure that RDFFR comes after the LD1.  */
+/* Make sure that RDFFR comes after the LDFF1 and that the RDFFRs can
+   be CSEd.  */
 svint8_t
-foo (svbool_t pg, int8_t *restrict ptr, svbool_t *restrict *restrict preds)
+foo (svbool_t pg, int8_t *__restrict ptr,
+     svbool_t *__restrict *__restrict preds)
 {
   svsetffr ();
   svint8_t x = svldff1 (pg, ptr);
-  for (int i = 0; i < 100; ++i)
-    *preds[i] = svrdffr ();
+  *preds[0] = svrdffr ();
+  *preds[1] = svrdffr ();
   return x;
 }
 

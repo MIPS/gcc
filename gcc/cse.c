@@ -668,6 +668,8 @@ approx_reg_cost (const_rtx x)
 	    {
 	      if (regno < FIRST_PSEUDO_REGISTER)
 		{
+		  if (!TEST_HARD_REG_BIT (operand_reg_set, regno))
+		    return MAX_COST;
 		  if (targetm.small_register_classes_for_mode_p (GET_MODE (x)))
 		    return MAX_COST;
 		  cost += 2;
