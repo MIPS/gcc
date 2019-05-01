@@ -712,6 +712,32 @@ comparison_dominates_p (enum rtx_code code1, enum rtx_code code2)
   return (((flags1 | flags2) & FLAGS_SIGNEDNESS) != FLAGS_SIGNEDNESS
 	  && (flags1 & ~flags2 & FLAGS_ORDER) == 0);
 }
+
+/* Return the comparison code that tests whether CODE1 | CODE2 is true.
+   Return UNKNOWN if no such comparison exists.  The result can trap if
+   either CODE1 or CODE2 traps.  */
+
+rtx_code
+bit_ior_conditions (rtx_code code1, rtx_code code2)
+{
+  unsigned int flags1 = condition_to_flags (code1);
+  unsigned int flags2 = condition_to_flags (code2);
+  return flags_to_condition (flags1 | flags2, false);
+}
+
+/* Return the comparison code that tests whether CODE1 & CODE2 is true.
+   Return UNKNOWN if no such comparison exists.  The result can trap if
+   either CODE1 or CODE2 traps.  */
+
+rtx_code
+bit_and_conditions (rtx_code code1, rtx_code code2)
+{
+  unsigned int flags1 = condition_to_flags (code1);
+  unsigned int flags2 = condition_to_flags (code2);
+  unsigned int order = (flags1 & flags2) & FLAGS_ORDER;
+  unsigned int rest = (flags1 | flags2) & ~FLAGS_ORDER;
+  return flags_to_condition (order | rest, false);
+}
 
 /* Return 1 if INSN is an unconditional jump and nothing else.  */
 

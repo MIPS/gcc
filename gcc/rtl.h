@@ -3325,6 +3325,8 @@ extern enum rtx_code reverse_condition_maybe_unordered (enum rtx_code);
 extern enum rtx_code swap_condition (enum rtx_code);
 extern enum rtx_code unsigned_condition (enum rtx_code);
 extern enum rtx_code signed_condition (enum rtx_code);
+extern rtx_code bit_and_conditions (rtx_code, rtx_code);
+extern rtx_code bit_ior_conditions (rtx_code, rtx_code);
 extern void mark_jump_label (rtx, rtx_insn *, int);
 
 /* Return true if integer comparison operator CODE interprets its operands

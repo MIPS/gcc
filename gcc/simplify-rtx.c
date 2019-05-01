@@ -2884,6 +2884,17 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
 	    }
 	}
 
+      /* (ior (cmp1 x y) (cmp2 x y)) -> (cmp3 x y).  */
+      if (COMPARISON_P (op0)
+	  && COMPARISON_P (op1)
+	  && rtx_equal_p (XEXP (op0, 0), XEXP (op1, 0))
+	  && rtx_equal_p (XEXP (op0, 1), XEXP (op1, 1)))
+	{
+	  rtx_code cond = bit_ior_conditions (GET_CODE (op0), GET_CODE (op1));
+	  if (cond != UNKNOWN)
+	    return gen_rtx_fmt_ee (cond, mode, XEXP (op0, 0), XEXP (op0, 1));
+	}
+
       tem = simplify_byte_swapping_operation (code, mode, op0, op1);
       if (tem)
 	return tem;
@@ -3315,6 +3326,17 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
 	  && GET_CODE (XEXP (op0, 1)) == NOT
 	  && rtx_equal_p (op1, XEXP (XEXP (op0, 1), 0)))
 	return simplify_gen_binary (AND, mode, op1, XEXP (op0, 0));
+
+      /* (and (cmp1 x y) (cmp2 x y)) -> (cmp3 x y).  */
+      if (COMPARISON_P (op0)
+	  && COMPARISON_P (op1)
+	  && rtx_equal_p (XEXP (op0, 0), XEXP (op1, 0))
+	  && rtx_equal_p (XEXP (op0, 1), XEXP (op1, 1)))
+	{
+	  rtx_code cond = bit_and_conditions (GET_CODE (op0), GET_CODE (op1));
+	  if (cond != UNKNOWN)
+	    return gen_rtx_fmt_ee (cond, mode, XEXP (op0, 0), XEXP (op0, 1));
+	}
 
       tem = simplify_byte_swapping_operation (code, mode, op0, op1);
       if (tem)
@@ -5827,6 +5849,14 @@ simplify_ternary_operation (enum rtx_code code, machine_mode mode,
 	  if (simplified)
 	    return simplified;
 	}
+
+      /* (if_then_else (cmp1 X1 Y1) (cmp X2 Y2) (const_int 0))
+	 -> (and (cmp1 X1 Y1) (cmp2 X2 Y2)).  */
+      if (COMPARISON_P (op0)
+	  && COMPARISON_P (op1)
+	  && op2 == const0_rtx
+	  && GET_MODE (op0) == GET_MODE (op1))
+	return simplify_gen_binary (AND, mode, op0, op1);
 
       if (COMPARISON_P (op0) && ! side_effects_p (op0))
 	{

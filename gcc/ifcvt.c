@@ -46,6 +46,7 @@
 #include "rtl-iter.h"
 #include "ifcvt.h"
 #include "params.h"
+#include "dce.h"
 
 #ifndef MAX_CONDITIONAL_EXECUTE
 #define MAX_CONDITIONAL_EXECUTE \
@@ -5442,6 +5443,10 @@ if_convert (bool after_combine)
 	       "%d true changes made.\n\n\n",
 	       num_true_changes);
     }
+
+  if (num_updated_if_blocks)
+    /* Get rid of any dead CC-related instructions.  */
+    run_fast_dce ();
 
   if (optimize == 1)
     df_remove_problem (df_live);
