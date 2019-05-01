@@ -92,9 +92,6 @@ struct GTY(()) param_access
   unsigned certain : 1;
   /* Set when initially we have allowed overlaps for this access and so it
      eventually needs checking for overlaps.  */
-  /* !!! Use for testing only, otherwise not worth having, let's simply check
-         all final splits.  */
-  unsigned check_overlaps : 1;
 };
 
 /* This structure has the same purpose as the one above and additoonally it
@@ -167,7 +164,7 @@ struct gensum_param_desc
   int m_call_uses;		/* !!! Try removing after it is removed from
                                        the previous structure.  */
 
-  /* Number of times this parameter has been directly passed to  */
+  /* Number of times this parameter has been directly passed to.  */
   unsigned ptr_pt_count;
 
   /* Size limit of total size of all replacements.  */
@@ -397,7 +394,6 @@ ipa_sra_function_summaries::duplicate (cgraph_node *, cgraph_node *,
 	  to->unit_offset = from->unit_offset;
 	  to->unit_size = from->unit_size;
 	  to->certain = from->certain;
-	  to->check_overlaps = from->check_overlaps;
 	  d->m_accesses->quick_push (to);
 	}
     }
@@ -603,8 +599,7 @@ dump_isra_access (FILE *f, param_access *access)
   print_generic_expr (f, access->type);
   fprintf (f, ", alias_ptr_type: ");
   print_generic_expr (f, access->alias_ptr_type);
-  fprintf (f, ", certain: %u, check_overlaps: %u\n", access->certain,
-	   access->check_overlaps);
+  fprintf (f, ", certain: %u\n", access->certain);
 }
 
 /* Dump access tree starting at ACCESS to stderr.  */
@@ -2152,7 +2147,6 @@ copy_accesses_to_ipa_desc (gensum_param_access *from, isra_param_desc *desc)
   to->type = from->type;
   to->alias_ptr_type = from->alias_ptr_type;
   to->certain = from->nonarg;
-  to->check_overlaps = !from->nonarg;
   vec_safe_push (desc->m_accesses, to);
 
   for (gensum_param_access *ch = from->first_child;
@@ -2486,7 +2480,6 @@ isra_write_node_summary (output_block *ob, cgraph_node *node)
 	  streamer_write_uhwi (ob, acc->unit_size);
 	  bitpack_d bp = bitpack_create (ob->main_stream);
 	  bp_pack_value (&bp, acc->certain, 1);
-	  bp_pack_value (&bp, acc->check_overlaps, 1);
 	  streamer_write_bitpack (&bp);
 	}
       streamer_write_uhwi (ob, desc->m_param_size_limit);
@@ -2604,7 +2597,6 @@ isra_read_node_info (struct lto_input_block *ib, cgraph_node *node,
 	  acc->unit_size = streamer_read_uhwi (ib);
 	  bitpack_d bp = streamer_read_bitpack (ib);
 	  acc->certain = bp_unpack_value (&bp, 1);
-	  acc->check_overlaps = bp_unpack_value (&bp, 1);
 	  vec_safe_push (desc->m_accesses, acc);
 	}
       desc->m_param_size_limit = streamer_read_uhwi (ib);
@@ -3109,8 +3101,8 @@ all_callee_accesses_present_p (isra_param_desc *param_desc,
 }
 
 /* Type internal to function pull_accesses_from_callee.  Unfortunately gcc 4.8
-   does not allow intantiating an auto_vec with a type defined within a
-   function.  */
+   does not allow instantiating an auto_vec with a type defined within a
+   function so it is a global type.   */
 enum acc_prop_kind {ACC_PROP_DONT, ACC_PROP_COPY, ACC_PROP_CERTAIN};
 
 
@@ -3150,8 +3142,8 @@ pull_accesses_from_callee (isra_param_desc *param_desc,
       unsigned offset = argacc->unit_offset + delta_offset;
       /* Given that accesses are initially stored according to increasing
 	 offset and decreasing size in case of equal offsets, the following
-	 searches could be written more efficiently (if we kept the ordering
-	 when copying). But the number of accesses is capped at
+	 searches could be written more efficiently if we kept the ordering
+	 when copying. But the number of accesses is capped at
 	 PARAM_IPA_SRA_MAX_REPLACEMENTS (so most likely 8) and the code gets
 	 messy quickly, so let's improve on that only if necessary.  */
 
@@ -3180,8 +3172,8 @@ pull_accesses_from_callee (isra_param_desc *param_desc,
 	  if (offset < pacc->unit_offset + pacc->unit_size
 	      && offset + argacc->unit_size > pacc->unit_offset)
 	    {
-	      /* None permissible with load or store accesses, possible to
-		 fit into argument ones.  */
+	      /* None permissible with load accesses, possible to fit into
+		 argument ones.  */
 	      if (pacc->certain
 		  || offset < pacc->unit_offset
 		  || (offset + argacc->unit_size
@@ -3240,7 +3232,10 @@ pull_accesses_from_callee (isra_param_desc *param_desc,
 
 /* Propagate parameter splitting information through call graph edge CS.
    Return true if any changes that might need to be propagated within SCCs have
-   been made.  */
+   been made.  The function also clears the aggregate_pass_through and
+   pointer_pass_through in call summarries which do not need to be processed
+   again if this CS is revisited when iterating while changes are propagated
+   within an SCC.  */
 
 static bool
 param_splitting_across_edge (cgraph_edge *cs)
@@ -3419,7 +3414,7 @@ param_splitting_across_edge (cgraph_edge *cs)
   return res;
 }
 
-/* Check for any overlaps of definite param accesses among splitting candidates
+/* Check for any overlaps of certain param accesses among splitting candidates
    and if any are found disqualify them and return true.  */
 
 static bool
@@ -3468,8 +3463,6 @@ validate_splitting_overlaps (cgraph_node *node)
 			 pidx, node->dump_name ());
 	      desc->m_split_candidate = false;
 	      res = true;
-	      /* !!! Remove after testing.  */
-	      gcc_assert (a1->check_overlaps);
 	      break;
 	    }
 	}
