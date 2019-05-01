@@ -4375,6 +4375,70 @@
   "rdffr\t%0.b, %1/z"
 )
 
+;; Read the FFR to test for a fault, without using the predicate result.
+(define_insn "*aarch64_rdffr_z_ptest"
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC
+	  [(match_operand:VNx16BI 1 "register_operand" "Upa")
+	   (match_dup 1)
+	   (and:VNx16BI
+	     (reg:VNx16BI FFRT_REGNUM)
+	     (match_dup 1))
+	   (match_operand 2 "const_int_operand")]
+	  UNSPEC_PTEST))
+   (clobber (match_scratch:VNx16BI 0 "=Upa"))]
+  "TARGET_SVE"
+  "rdffrs\t%0.b, %1/z"
+)
+
+;; Same for unpredicated RDFFR when tested with a known PTRUE.
+(define_insn "*aarch64_rdffr_ptest"
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC
+	  [(match_operand:VNx16BI 1 "register_operand" "Upa")
+	   (match_dup 1)
+	   (reg:VNx16BI FFRT_REGNUM)
+	   (const_int 1)]
+	  UNSPEC_PTEST))
+   (clobber (match_scratch:VNx16BI 0 "=Upa"))]
+  "TARGET_SVE"
+  "rdffrs\t%0.b, %1/z"
+)
+
+;; Read the FFR with zero predication and test the result.
+(define_insn "*aarch64_rdffr_z_cc"
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC
+	  [(match_operand:VNx16BI 1 "register_operand" "Upa")
+	   (match_dup 1)
+	   (and:VNx16BI
+	     (reg:VNx16BI FFRT_REGNUM)
+	     (match_dup 1))
+	   (match_operand 2 "const_int_operand")]
+	  UNSPEC_PTEST))
+   (set (match_operand:VNx16BI 0 "register_operand" "=Upa")
+	(and:VNx16BI
+	  (reg:VNx16BI FFRT_REGNUM)
+	  (match_dup 1)))]
+  "TARGET_SVE"
+  "rdffrs\t%0.b, %1/z"
+)
+
+;; Same for unpredicated RDFFR when tested with a known PTRUE.
+(define_insn "*aarch64_rdffr_ptest"
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC
+	  [(match_operand:VNx16BI 1 "register_operand" "Upa")
+	   (match_dup 1)
+	   (reg:VNx16BI FFRT_REGNUM)
+	   (const_int 1)]
+	  UNSPEC_PTEST))
+   (set (match_operand:VNx16BI 0 "register_operand" "=Upa")
+	(reg:VNx16BI FFRT_REGNUM))]
+  "TARGET_SVE"
+  "rdffrs\t%0.b, %1/z"
+)
+
 ;; [R3 above] Arbitrarily update the FFRT after a read from the FFR.
 ;; This acts as a scheduling barrier for later LDFF1 and LDNF1 instructions.
 (define_insn "aarch64_update_ffrt"

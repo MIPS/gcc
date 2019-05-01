@@ -1361,6 +1361,14 @@ aarch64_report_sve_required (void)
   reported_p = true;
 }
 
+/* Return true if REGNO is P0-P15 or one of the special FFR-related
+   registers.  */
+inline bool
+pr_or_ffr_regnum_p (unsigned int regno)
+{
+  return PR_REGNUM_P (regno) || regno == FFR_REGNUM || regno == FFRT_REGNUM;
+}
+
 /* Implement TARGET_IRA_CHANGE_PSEUDO_ALLOCNO_CLASS.
    The register allocator chooses POINTER_AND_FP_REGS if FP_REGS and
    GENERAL_REGS have the same cost - even if POINTER_AND_FP_REGS has a much
@@ -1745,9 +1753,9 @@ aarch64_hard_regno_mode_ok (unsigned regno, machine_mode mode)
     return false;
 
   if (vec_flags & VEC_SVE_PRED)
-    return PR_REGNUM_P (regno);
+    return pr_or_ffr_regnum_p (regno);
 
-  if (PR_REGNUM_P (regno))
+  if (pr_or_ffr_regnum_p (regno))
     return false;
 
   if (regno == SP_REGNUM)
