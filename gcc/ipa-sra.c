@@ -90,8 +90,8 @@ struct GTY(()) param_access
      transformed function - initially not set for portions of formal parameters
      that are only used as actual function arguments passed to callees.  */
   unsigned certain : 1;
-  /* Set when initially we have allowed overlaps for this access and so it
-     eventually needs checking for overlaps.  */
+  /* Set if the access has a reversed scalar storage order.  */
+  unsigned reverse : 1;
 };
 
 /* This structure has the same purpose as the one above and additoonally it
@@ -123,6 +123,9 @@ struct gensum_param_access
   /* Have there been writes to or reads from this exact location except for as
      arguments to a function call that can be tracked.  */
   bool nonarg;
+
+  /* Set if the access has a reversed scalar storage order.  */
+  bool reverse;
 };
 
 /* Summary describing a parameter in the IPA stages.  */
@@ -574,7 +577,7 @@ dump_gensum_access (FILE *f, gensum_param_access *access, unsigned indent)
   print_generic_expr (f, access->type);
   fprintf (f, ", alias_ptr_type: ");
   print_generic_expr (f, access->alias_ptr_type);
-  fprintf (f, ", nonarg: %u\n", access->nonarg);
+  fprintf (f, ", nonarg: %u, reverse: %u\n", access->nonarg, access->reverse);
   for (gensum_param_access *ch = access->first_child;
        ch;
        ch = ch->next_sibling)
@@ -593,7 +596,13 @@ dump_isra_access (FILE *f, param_access *access)
   print_generic_expr (f, access->type);
   fprintf (f, ", alias_ptr_type: ");
   print_generic_expr (f, access->alias_ptr_type);
-  fprintf (f, ", certain: %u\n", access->certain);
+  if (access->certain)
+    fprintf (f, ", certain");
+  else
+    fprintf (f, ", not-certain");
+  if (access->reverse)
+    fprintf (f, ", reverse");
+  fprintf (f, "\n");
 }
 
 /* Dump access tree starting at ACCESS to stderr.  */
@@ -1730,6 +1739,7 @@ scan_expr_access (tree expr, gimple *stmt, isra_scan_context ctx,
     {
       access->type = type;
       access->alias_ptr_type = reference_alias_ptr_type (expr);
+      access->reverse = reverse;
     }
   else
     {
@@ -1742,6 +1752,12 @@ scan_expr_access (tree expr, gimple *stmt, isra_scan_context ctx,
       if (access->alias_ptr_type != reference_alias_ptr_type (expr))
 	{
 	  disqualify_split_candidate (desc, "Multiple alias pointer types.");
+	  return;
+	}
+      if (access->reverse != reverse)
+	{
+	  disqualify_split_candidate (desc, "Both normal and reverse "
+				      "scalar storage order.");
 	  return;
 	}
       if (!deref
@@ -2137,6 +2153,7 @@ copy_accesses_to_ipa_desc (gensum_param_access *from, isra_param_desc *desc)
   to->type = from->type;
   to->alias_ptr_type = from->alias_ptr_type;
   to->certain = from->nonarg;
+  to->reverse = from->reverse;
   vec_safe_push (desc->accesses, to);
 
   for (gensum_param_access *ch = from->first_child;
@@ -3576,7 +3593,7 @@ process_isra_node_results (cgraph_node *node,
 	  adj.base_index = parm_num;
 	  adj.prev_clone_index = parm_num;
 	  adj.param_prefix_index = IPA_PARAM_PREFIX_ISRA;
-	  adj.reverse = false; 	/* FIXME: Really? */
+	  adj.reverse = pa->reverse;
 	  adj.type = pa->type;
 	  adj.alias_ptr_type = pa->alias_ptr_type;
 	  adj.unit_offset = pa->unit_offset;
