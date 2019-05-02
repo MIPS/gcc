@@ -935,8 +935,8 @@ static const type_suffix_info type_suffixes[NUM_TYPE_SUFFIXES + 1] = {
   S (s64), S (u64)
 
 /* _f16 _f32 _f64
-        _u32 _u64
-        _s32 _s64.  */
+	_u32 _u64
+	_s32 _s64.  */
 #define TYPES_all_float_and_sd_integer(S, D) \
   TYPES_all_float (S, D), TYPES_sd_integer (S, D)
 
@@ -1788,7 +1788,7 @@ arm_sve_h_builder::register_tuple_type (unsigned int nvectors,
      Here we choose to use the same layout as for arm_neon.h, but with
      "__val" instead of "val":
 
-        struct svfooxN_t { svfoo_t __val[N]; };
+	struct svfooxN_t { svfoo_t __val[N]; };
 
      (It wouldn't be possible to write that directly in C or C++ for
      sizeless types, but that's not a problem for this function.)
