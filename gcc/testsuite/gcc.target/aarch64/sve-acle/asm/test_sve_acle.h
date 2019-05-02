@@ -243,6 +243,16 @@
     BIND_OUTPUT_P0_P3;			\
   }
 
+#define TEST_PTEST(NAME, TYPE, CODE)	\
+  START (NAME)				\
+  {					\
+    BIND_INPUT_X (TYPE, x0);		\
+    BIND_INPUT_X (TYPE, x1);		\
+    BIND_INPUT_P0_P3;			\
+    INVOKE (CODE, CODE);		\
+    BIND_OUTPUT_X (x0);			\
+  }
+
 #define TEST_S(NAME, ZTYPE, STYPE, CODE1)			\
   START (NAME)							\
   {								\

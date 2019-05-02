@@ -222,7 +222,7 @@
     UNSPEC_LDFF1_GATHER
     UNSPEC_ST1_SCATTER
     UNSPEC_MERGE_PTRUE
-    UNSPEC_PTEST_PTRUE
+    UNSPEC_PTEST
     UNSPEC_UNPACKSHI
     UNSPEC_UNPACKUHI
     UNSPEC_UNPACKSLO
@@ -543,10 +543,14 @@
 			   (pc)))]
   ""
   {
+    /* GCC's traditional style has been to use "beq" instead of "b.eq", etc.,
+       but the "." is required for SVE conditions.  */
+    bool use_dot_p = GET_MODE (operands[1]) == CC_NZCmode;
     if (get_attr_length (insn) == 8)
-      return aarch64_gen_far_branch (operands, 2, "Lbcond", "b%M0\\t");
+      return aarch64_gen_far_branch (operands, 2, "Lbcond",
+				     use_dot_p ? "b.%M0\\t" : "b%M0\\t");
     else
-      return  "b%m0\\t%l2";
+      return use_dot_p ? "b.%m0\\t%l2" : "b%m0\\t%l2";
   }
   [(set_attr "type" "branch")
    (set (attr "length")
@@ -7023,10 +7027,10 @@
 )
 
 ;; Helper for aarch64.c code.
-(define_expand "set_clobber_cc"
+(define_expand "set_clobber_cc_nzc"
   [(parallel [(set (match_operand 0)
 		   (match_operand 1))
-	      (clobber (reg:CC CC_REGNUM))])])
+	      (clobber (reg:CC_NZC CC_REGNUM))])])
 
 ;; Hard speculation barrier.
 (define_insn "speculation_barrier"

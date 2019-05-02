@@ -1862,23 +1862,22 @@
 
 ;; Perform a logical operation on operands 2 and 3, using operand 1 as
 ;; the GP (which is known to be a PTRUE).  Store the result in operand 0
-;; and set the flags in the same way as for PTEST.  The (and ...) in the
-;; UNSPEC_PTEST_PTRUE is logically redundant, but means that the tested
-;; value is structurally equivalent to rhs of the second set.
+;; and set the flags in the same way as for PTEST.
 (define_insn "*<optab><mode>3_cc"
-  [(set (reg:CC CC_REGNUM)
-	(compare:CC
-	  (unspec:SI [(match_operand:PRED_ALL 1 "register_operand" "Upa")
-		      (and:PRED_ALL
-			(LOGICAL:PRED_ALL
-			  (match_operand:PRED_ALL 2 "register_operand" "Upa")
-			  (match_operand:PRED_ALL 3 "register_operand" "Upa"))
-			(match_dup 1))]
-		     UNSPEC_PTEST_PTRUE)
-	  (const_int 0)))
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC
+	  [(match_operand:VNx16BI 1 "register_operand" "Upa")
+	   (match_operand 4)
+	   (and:PRED_ALL
+	     (LOGICAL:PRED_ALL
+	       (match_operand:PRED_ALL 2 "register_operand" "Upa")
+	       (match_operand:PRED_ALL 3 "register_operand" "Upa"))
+	     (match_dup 4))
+	   (match_operand 5 "const_int_operand")]
+	  UNSPEC_PTEST))
    (set (match_operand:PRED_ALL 0 "register_operand" "=Upa")
 	(and:PRED_ALL (LOGICAL:PRED_ALL (match_dup 2) (match_dup 3))
-		      (match_dup 1)))]
+		      (match_dup 4)))]
   "TARGET_SVE"
   "<logical>s\t%0.b, %1/z, %2.b, %3.b"
 )
@@ -2145,21 +2144,33 @@
   "movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.d"
   [(set_attr "movprfx" "yes")])
 
-;; Test all bits of operand 1.  Operand 0 is a GP that is known to hold PTRUE.
+;; Test the bits of operand 2 selected by operand 0.  Operands 1 and 3
+;; exist only to help combining patterns:
 ;;
-;; Using UNSPEC_PTEST_PTRUE allows combine patterns to assume that the GP
-;; is a PTRUE even if the optimizers haven't yet been able to propagate
-;; the constant.  We would use a separate unspec code for PTESTs involving
-;; GPs that might not be PTRUEs.
-(define_insn "ptest_ptrue<mode>"
-  [(set (reg:CC CC_REGNUM)
-	(compare:CC
-	  (unspec:SI [(match_operand:PRED_ALL 0 "register_operand" "Upa")
-		      (match_operand:PRED_ALL 1 "register_operand" "Upa")]
-		     UNSPEC_PTEST_PTRUE)
-	  (const_int 0)))]
+;; - Operand 1 is operand 0 reinterpreted to have the same mode as operand 2
+;; - Operand 3 is true if operand 1 is known to be all-true
+;;
+;; When PRED_ALL != VNx16BI, operand 0 is known to be a canonical predicate
+;; for PRED_ALL, i.e. one in which the upper bits in each element are zero.
+;;
+;; We need the GP to be in VNx16BI rather than PRED_ALL because not all
+;; bits of VNx{8,4,2}BI are significant.  E.g. any VNx8BI predicate with
+;; the pattern (1x1x1x1x)* acts as a PTRUE for 16-bit data.  However,
+;; because PTEST is always a .B operation, (ptest (ptrue) (x:VNx8BI)) must
+;; use a (ptrue) that is exactly (10101010)* rather merely (1x1x1x1x)*.
+;; Providing operand 1 as well makes it possible to write combiner
+;; patterns that use PRED_ALL.  Providing operand 3 makes it possible
+;; to combine patterns without proving that operand 0 or 1 folds to
+;; a particular constant.
+(define_insn "aarch64_ptest<mode>"
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC [(match_operand:VNx16BI 0 "register_operand" "Upa")
+			(match_operand:PRED_ALL 1)
+			(match_operand:PRED_ALL 2 "register_operand" "Upa")
+			(match_operand 3 "const_int_operand")]
+		       UNSPEC_PTEST))]
   "TARGET_SVE"
-  "ptest\t%0, %1.b"
+  "ptest\t%0, %2.b"
 )
 
 ;; Set element I of the result if operand1 + J < operand2 for all J in [0, I].
@@ -2169,7 +2180,7 @@
 	(unspec:PRED_ALL [(match_operand:GPI 1 "aarch64_reg_or_zero" "rZ")
 			  (match_operand:GPI 2 "aarch64_reg_or_zero" "rZ")]
 			 UNSPEC_WHILE_LO))
-   (clobber (reg:CC CC_REGNUM))]
+   (clobber (reg:CC_NZC CC_REGNUM))]
   "TARGET_SVE"
   "whilelo\t%0.<PRED_ALL:Vetype>, %<w>1, %<w>2"
 )
@@ -2178,29 +2189,30 @@
 ;; Handle the case in which both results are useful.  The GP operand
 ;; to the PTEST isn't needed, so we allow it to be anything.
 (define_insn_and_split "while_ult<GPI:mode><PRED_ALL:mode>_cc"
-  [(set (reg:CC CC_REGNUM)
-	(compare:CC
-	  (unspec:SI [(match_operand:PRED_ALL 1)
-		      (unspec:PRED_ALL
-			[(match_operand:GPI 2 "aarch64_reg_or_zero" "rZ")
-			 (match_operand:GPI 3 "aarch64_reg_or_zero" "rZ")]
-			UNSPEC_WHILE_LO)]
-		     UNSPEC_PTEST_PTRUE)
-	  (const_int 0)))
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC
+	  [(match_operand 3)
+	   (match_operand 4)
+	   (unspec:PRED_ALL
+	     [(match_operand:GPI 1 "aarch64_reg_or_zero" "rZ")
+	      (match_operand:GPI 2 "aarch64_reg_or_zero" "rZ")]
+	     UNSPEC_WHILE_LO)
+	   (const_int 1)]
+	  UNSPEC_PTEST))
    (set (match_operand:PRED_ALL 0 "register_operand" "=Upa")
-	(unspec:PRED_ALL [(match_dup 2)
-			  (match_dup 3)]
+	(unspec:PRED_ALL [(match_dup 1)
+			  (match_dup 2)]
 			 UNSPEC_WHILE_LO))]
   "TARGET_SVE"
-  "whilelo\t%0.<PRED_ALL:Vetype>, %<w>2, %<w>3"
+  "whilelo\t%0.<PRED_ALL:Vetype>, %<w>1, %<w>2"
   ;; Force the compiler to drop the unused predicate operand, so that we
   ;; don't have an unnecessary PTRUE.
-  "&& !CONSTANT_P (operands[1])"
+  "&& (!CONSTANT_P (operands[3]) || !CONSTANT_P (operands[4]))"
   [(const_int 0)]
   {
     emit_insn (gen_while_ult<GPI:mode><PRED_ALL:mode>_cc
-	       (operands[0], CONSTM1_RTX (<PRED_ALL:MODE>mode),
-		operands[2], operands[3]));
+	       (operands[0], operands[1], operands[2],
+		CONSTM1_RTX (VNx16BImode), CONSTM1_RTX (<PRED_ALL:MODE>mode)));
     DONE;
   }
 )
@@ -2214,7 +2226,7 @@
 	     (match_operand:SVE_I 2 "register_operand" "w, w")
 	     (match_operand:SVE_I 3 "aarch64_sve_cmp_<sve_imm_con>_operand" "<sve_imm_con>, w"))]
 	  UNSPEC_MERGE_PTRUE))
-   (clobber (reg:CC CC_REGNUM))]
+   (clobber (reg:CC_NZC CC_REGNUM))]
   "TARGET_SVE"
   "@
    cmp<cmp_op>\t%0.<Vetype>, %1/z, %2.<Vetype>, #%3
@@ -2224,18 +2236,18 @@
 ;; Integer comparisons predicated with a PTRUE in which only the flags result
 ;; is interesting.
 (define_insn "*cmp<cmp_op><mode>_ptest"
-  [(set (reg:CC CC_REGNUM)
-	(compare:CC
-	  (unspec:SI
-	    [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl")
-	     (unspec:<VPRED>
-	       [(match_dup 1)
-		(SVE_INT_CMP:<VPRED>
-		  (match_operand:SVE_I 2 "register_operand" "w, w")
-		  (match_operand:SVE_I 3 "aarch64_sve_cmp_<sve_imm_con>_operand" "<sve_imm_con>, w"))]
-	       UNSPEC_MERGE_PTRUE)]
-	    UNSPEC_PTEST_PTRUE)
-	  (const_int 0)))
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC
+	  [(match_operand:VNx16BI 1 "register_operand" "Upl, Upl")
+	   (match_operand 4)
+	   (unspec:<VPRED>
+	     [(match_dup 4)
+	      (SVE_INT_CMP:<VPRED>
+		(match_operand:SVE_I 2 "register_operand" "w, w")
+		(match_operand:SVE_I 3 "aarch64_sve_cmp_<sve_imm_con>_operand" "<sve_imm_con>, w"))]
+	     UNSPEC_MERGE_PTRUE)
+	   (match_operand 5 "const_int_operand")]
+	  UNSPEC_PTEST))
    (clobber (match_scratch:<VPRED> 0 "=Upa, Upa"))]
   "TARGET_SVE"
   "@
@@ -2246,21 +2258,21 @@
 ;; Integer comparisons predicated with a PTRUE in which both the flag and
 ;; predicate results are interesting.
 (define_insn "*cmp<cmp_op><mode>_cc"
-  [(set (reg:CC CC_REGNUM)
-	(compare:CC
-	  (unspec:SI
-	    [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl")
-	     (unspec:<VPRED>
-	       [(match_dup 1)
-		(SVE_INT_CMP:<VPRED>
-		  (match_operand:SVE_I 2 "register_operand" "w, w")
-		  (match_operand:SVE_I 3 "aarch64_sve_cmp_<sve_imm_con>_operand" "<sve_imm_con>, w"))]
-	       UNSPEC_MERGE_PTRUE)]
-	    UNSPEC_PTEST_PTRUE)
-	  (const_int 0)))
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC
+	  [(match_operand:VNx16BI 1 "register_operand" "Upl, Upl")
+	   (match_operand 4)
+	   (unspec:<VPRED>
+	     [(match_dup 4)
+	      (SVE_INT_CMP:<VPRED>
+		(match_operand:SVE_I 2 "register_operand" "w, w")
+		(match_operand:SVE_I 3 "aarch64_sve_cmp_<sve_imm_con>_operand" "<sve_imm_con>, w"))]
+	     UNSPEC_MERGE_PTRUE)
+	   (match_operand 5 "const_int_operand")]
+	  UNSPEC_PTEST))
    (set (match_operand:<VPRED> 0 "register_operand" "=Upa, Upa")
 	(unspec:<VPRED>
-	  [(match_dup 1)
+	  [(match_dup 4)
 	   (SVE_INT_CMP:<VPRED>
 	     (match_dup 2)
 	     (match_dup 3))]
@@ -2285,7 +2297,7 @@
 	      (match_operand:SVE_I 3 "aarch64_sve_cmp_<sve_imm_con>_operand" "<sve_imm_con>, w"))]
 	   UNSPEC_MERGE_PTRUE)
 	 (match_operand:<VPRED> 4 "register_operand" "Upl, Upl")))
-   (clobber (reg:CC CC_REGNUM))]
+   (clobber (reg:CC_NZC CC_REGNUM))]
   "TARGET_SVE"
   "#"
   "&& 1"
@@ -2296,7 +2308,7 @@
 	      (match_dup 2)
 	      (match_dup 3))
 	    (match_dup 4)))
-      (clobber (reg:CC CC_REGNUM))])]
+      (clobber (reg:CC_NZC CC_REGNUM))])]
 )
 
 ;; Predicated integer comparisons.
@@ -2307,7 +2319,7 @@
 	    (match_operand:SVE_I 2 "register_operand" "w, w")
 	    (match_operand:SVE_I 3 "aarch64_sve_cmp_<sve_imm_con>_operand" "<sve_imm_con>, w"))
 	  (match_operand:<VPRED> 1 "register_operand" "Upl, Upl")))
-   (clobber (reg:CC CC_REGNUM))]
+   (clobber (reg:CC_NZC CC_REGNUM))]
   "TARGET_SVE"
   "@
    cmp<cmp_op>\t%0.<Vetype>, %1/z, %2.<Vetype>, #%3
@@ -2563,7 +2575,7 @@
 	  (match_operator:<VPRED> 1 "comparison_operator"
 	    [(match_operand:SVE_I 2 "register_operand")
 	     (match_operand:SVE_I 3 "nonmemory_operand")]))
-     (clobber (reg:CC CC_REGNUM))])]
+     (clobber (reg:CC_NZC CC_REGNUM))])]
   "TARGET_SVE"
   {
     aarch64_expand_sve_vec_cmp_int (operands[0], GET_CODE (operands[1]),
@@ -2581,7 +2593,7 @@
 	  (match_operator:<VPRED> 1 "comparison_operator"
 	    [(match_operand:SVE_I 2 "register_operand")
 	     (match_operand:SVE_I 3 "nonmemory_operand")]))
-     (clobber (reg:CC CC_REGNUM))])]
+     (clobber (reg:CC_NZC CC_REGNUM))])]
   "TARGET_SVE"
   {
     aarch64_expand_sve_vec_cmp_int (operands[0], GET_CODE (operands[1]),
@@ -2617,18 +2629,19 @@
 	  (pc)))]
   ""
   {
-    rtx ptrue = force_reg (<MODE>mode, CONSTM1_RTX (<MODE>mode));
+    rtx ptrue = force_reg (VNx16BImode, aarch64_ptrue_all (<data_bytes>));
+    rtx cast_ptrue = gen_lowpart (<MODE>mode, ptrue);
     rtx pred;
     if (operands[2] == CONST0_RTX (<MODE>mode))
       pred = operands[1];
     else
       {
 	pred = gen_reg_rtx (<MODE>mode);
-	emit_insn (gen_aarch64_pred_xor<mode>_z (pred, ptrue, operands[1],
+	emit_insn (gen_aarch64_pred_xor<mode>_z (pred, cast_ptrue, operands[1],
 						 operands[2]));
       }
-    emit_insn (gen_ptest_ptrue<mode> (ptrue, pred));
-    operands[1] = gen_rtx_REG (CCmode, CC_REGNUM);
+    emit_insn (gen_aarch64_ptest<mode> (ptrue, cast_ptrue, pred, const1_rtx));
+    operands[1] = gen_rtx_REG (CC_NZCmode, CC_REGNUM);
     operands[2] = const0_rtx;
   }
 )

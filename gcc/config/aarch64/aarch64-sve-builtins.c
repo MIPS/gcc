@@ -223,6 +223,9 @@ enum function_shape {
      sv<t0>_t svfoo[_u64base]_offset_t0(svuint64_t, int64_t).  */
   SHAPE_load_gather_vs,
 
+  /* bool svfoo(svbool_t).  */
+  SHAPE_ptest,
+
   /* svbool_t svfoo().  */
   SHAPE_rdffr,
 
@@ -525,6 +528,7 @@ private:
   void sig_load (const function_instance &, vec<tree> &);
   void sig_load_gather_sv (const function_instance &, vec<tree> &);
   void sig_load_gather_vs (const function_instance &, vec<tree> &);
+  void sig_ptest (const function_instance &, vec<tree> &);
   void sig_rdffr (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_set_00i0 (const function_instance &, vec<tree> &);
@@ -764,6 +768,7 @@ private:
   rtx expand_orn ();
   rtx expand_orr ();
   rtx expand_permute (int);
+  rtx expand_ptest (rtx_code);
   rtx expand_ptrue ();
   rtx expand_qadd ();
   rtx expand_qsub ();
@@ -1671,6 +1676,10 @@ arm_sve_h_builder::build (const function_group &group)
       build_vs_offset (&arm_sve_h_builder::sig_load_gather_vs, group, true);
       break;
 
+    case SHAPE_ptest:
+      build_all (&arm_sve_h_builder::sig_ptest, group, MODE_none);
+      break;
+
     case SHAPE_rdffr:
       build_all (&arm_sve_h_builder::sig_rdffr, group, MODE_none);
       break;
@@ -2047,6 +2056,14 @@ arm_sve_h_builder::sig_load_gather_vs (const function_instance &instance,
   types.quick_push (instance.base_vector_type ());
   if (instance.displacement_units () != UNITS_none)
     types.quick_push (scalar_types[VECTOR_TYPE_svint64_t]);
+}
+
+/* Describe the signature "bool svfoo(svbool_t)" in TYPES.  */
+void
+arm_sve_h_builder::sig_ptest (const function_instance &, vec<tree> &types)
+{
+  types.quick_push (boolean_type_node);
+  types.quick_push (get_svbool_t ());
 }
 
 /* Describe the signature "svbool_t svfoo()" in TYPES.  */
@@ -2471,6 +2488,9 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svget2:
     case FUNC_svget3:
     case FUNC_svget4:
+    case FUNC_svptest_any:
+    case FUNC_svptest_first:
+    case FUNC_svptest_last:
     case FUNC_svptrue:
     case FUNC_svrev:
     case FUNC_svset2:
@@ -2578,6 +2598,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_load3:
     case SHAPE_load4:
     case SHAPE_load_gather_sv:
+    case SHAPE_ptest:
     case SHAPE_rdffr:
     case SHAPE_set2:
     case SHAPE_set3:
@@ -2697,6 +2718,7 @@ function_resolver::resolve ()
     case SHAPE_inherent3:
     case SHAPE_inherent4:
     case SHAPE_inherent_count:
+    case SHAPE_ptest:
     case SHAPE_rdffr:
     case SHAPE_setffr:
     case SHAPE_unary_pred:
@@ -3503,6 +3525,7 @@ function_checker::check ()
     case SHAPE_load_ext_gather_offset:
     case SHAPE_load_gather_sv:
     case SHAPE_load_gather_vs:
+    case SHAPE_ptest:
     case SHAPE_rdffr:
     case SHAPE_setffr:
     case SHAPE_shift_opt_n:
@@ -3808,6 +3831,9 @@ gimple_folder::fold ()
     case FUNC_svnot:
     case FUNC_svorn:
     case FUNC_svorr:
+    case FUNC_svptest_any:
+    case FUNC_svptest_first:
+    case FUNC_svptest_last:
     case FUNC_svqadd:
     case FUNC_svqsub:
     case FUNC_svrdffr:
@@ -4404,6 +4430,15 @@ function_expander::expand ()
 
     case FUNC_svorr:
       return expand_orr ();
+
+    case FUNC_svptest_any:
+      return expand_ptest (NE);
+
+    case FUNC_svptest_first:
+      return expand_ptest (LT);
+
+    case FUNC_svptest_last:
+      return expand_ptest (LTU);
 
     case FUNC_svptrue:
       return expand_ptrue ();
@@ -5093,19 +5128,34 @@ function_expander::expand_permute (int unspec_code)
   return expand_via_unpred_insn (code_for_aarch64_sve (unspec_code, mode));
 }
 
+/* Expand a call to svptest_*.  CODE is the comparison code for a
+   true return.  */
+rtx
+function_expander::expand_ptest (rtx_code code)
+{
+  rtx pg = force_reg (VNx16BImode, m_args[0]);
+  rtx op = force_reg (VNx16BImode, m_args[1]);
+  rtx is_ptrue = (m_args[0] == CONSTM1_RTX (VNx16BImode)
+		  ? const1_rtx : const0_rtx);
+  emit_insn (gen_aarch64_ptestvnx16bi (pg, pg, op, is_ptrue));
+
+  rtx target = m_target;
+  if (!target
+      || !REG_P (target)
+      || (GET_MODE (target) != SImode && GET_MODE (target) != DImode))
+    target = gen_reg_rtx (DImode);
+
+  rtx cc_reg = gen_rtx_REG (CC_NZCmode, CC_REGNUM);
+  rtx compare = gen_rtx_fmt_ee (code, GET_MODE (target), cc_reg, const0_rtx);
+  emit_insn (gen_rtx_SET (target, compare));
+  return target;
+}
+
 /* Expand a call to svptrue.  */
 rtx
 function_expander::expand_ptrue ()
 {
-  unsigned int num_bytes = type_suffixes[m_fi.types[0]].elem_bytes;
-
-  /* The type is svbool_t regardless of TYPE, thus for b8 we want
-     { 1, 1, 1, 1, ... }, for b16 we want { 1, 0, 1, 0, ... }, etc.  */
-  rtx_vector_builder builder (VNx16BImode, num_bytes, 1);
-  builder.quick_push (const1_rtx);
-  for (unsigned int i = 1; i < num_bytes; ++i)
-    builder.quick_push (const0_rtx);
-  return builder.build ();
+  return aarch64_ptrue_all (type_suffixes[m_fi.types[0]].elem_bytes);
 }
 
 /* Expand a call to svset.  */
