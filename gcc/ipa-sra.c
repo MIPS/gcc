@@ -537,7 +537,6 @@ ipa_sra_preliminary_function_checks (cgraph_node *node)
 }
 
 /* Quick mapping from a decl to its param descriptor.  */
-/* TODO: Make local? */
 
 static hash_map<tree, gensum_param_desc *> *decl2desc;
 
@@ -2239,7 +2238,7 @@ process_scan_results (cgraph_node *node, struct function *fun,
 	  desc->nonarg_acc_size = nonarg_acc_size / BITS_PER_UNIT;
 	  if (desc->split_candidate && desc->ptr_pt_count)
 	    {
-	      gcc_assert (desc->by_ref); /* TODO: Remove after testing.  */
+	      gcc_assert (desc->by_ref);
 	      check_pass_throughs = true;
 	    }
 	}
@@ -2631,7 +2630,7 @@ isra_read_node_info (struct lto_input_block *ib, cgraph_node *node,
 
 /* Read IPA-SRA summaries from a section in file FILE_DATA of length LEN with
    data DATA.  TODO: This function was copied almost verbatim from ipa-prop.c,
-   that cannot be right.  */
+   it should be possible to unify them somehow.  */
 
 static void
 isra_read_summary_section (struct lto_file_decl_data *file_data,
