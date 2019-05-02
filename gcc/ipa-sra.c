@@ -129,25 +129,24 @@ struct gensum_param_access
 
 /* Summary describing a parameter in the IPA stages.  */
 
-/* !!! TODO: Probably remove the m_prefixes here.  */
 struct GTY(()) isra_param_desc
 {
   /* List of access representatives to the parameters, sorted according to
      their offset.  */
-  vec <param_access *, va_gc> *m_accesses;
+  vec <param_access *, va_gc> *accesses;
 
   /* Unit size limit of total size of all replacements.  */
-  unsigned m_param_size_limit : ISRA_ARG_SIZE_LIMIT_BITS;
+  unsigned param_size_limit : ISRA_ARG_SIZE_LIMIT_BITS;
   /* Sum of unit sizes of all certain replacements.  */
-  unsigned m_size_reached : ISRA_ARG_SIZE_LIMIT_BITS;
+  unsigned size_reached : ISRA_ARG_SIZE_LIMIT_BITS;
 
   /* A parameter that is used only in call arguments and can be removed if all
      concerned actual arguments are removed.  */
-  unsigned m_locally_unused : 1;
+  unsigned locally_unused : 1;
   /* An aggregate that is a candidate for breaking up or complete removal.  */
-  unsigned m_split_candidate : 1;
+  unsigned split_candidate : 1;
   /* Is this a parameter passing stuff by reference?  */
-  unsigned m_by_ref : 1;
+  unsigned by_ref : 1;
 };
 
 /* Structure used when generating summaries that describes a parameter.  */
@@ -195,10 +194,10 @@ struct gensum_param_desc
 static void
 free_param_decl_accesses (isra_param_desc *desc)
 {
-  unsigned len = vec_safe_length (desc->m_accesses);
+  unsigned len = vec_safe_length (desc->accesses);
   for (unsigned i = 0; i < len; ++i)
-    ggc_free ((*desc->m_accesses)[i]);
-  vec_free (desc->m_accesses);
+    ggc_free ((*desc->accesses)[i]);
+  vec_free (desc->accesses);
 }
 
 /* Class used to convey information about functions from the
@@ -377,24 +376,24 @@ ipa_sra_function_summaries::duplicate (cgraph_node *, cgraph_node *,
       isra_param_desc *s = &(*old_sum->m_parameters)[i];
       isra_param_desc *d = &(*new_sum->m_parameters)[i];
 
-      d->m_param_size_limit = s->m_param_size_limit;
-      d->m_size_reached = s->m_size_reached;
-      d->m_locally_unused = s->m_locally_unused;
-      d->m_split_candidate = s->m_split_candidate;
-      d->m_by_ref = s->m_by_ref;
+      d->param_size_limit = s->param_size_limit;
+      d->size_reached = s->size_reached;
+      d->locally_unused = s->locally_unused;
+      d->split_candidate = s->split_candidate;
+      d->by_ref = s->by_ref;
 
-      unsigned acc_count = vec_safe_length (s->m_accesses);
-      vec_safe_reserve_exact (d->m_accesses, acc_count);
+      unsigned acc_count = vec_safe_length (s->accesses);
+      vec_safe_reserve_exact (d->accesses, acc_count);
       for (unsigned j = 0; j < acc_count; j++)
 	{
-	  param_access *from = (*s->m_accesses)[j];
+	  param_access *from = (*s->accesses)[j];
 	  param_access *to = ggc_cleared_alloc<param_access> ();
 	  to->type = from->type;
 	  to->alias_ptr_type = from->alias_ptr_type;
 	  to->unit_offset = from->unit_offset;
 	  to->unit_size = from->unit_size;
 	  to->certain = from->certain;
-	  d->m_accesses->quick_push (to);
+	  d->accesses->quick_push (to);
 	}
     }
 }
@@ -658,22 +657,22 @@ dump_gensum_param_descriptors (FILE *f, tree fndecl,
 static void
 dump_isra_param_descriptor (FILE *f, isra_param_desc *desc)
 {
-  if (desc->m_locally_unused)
+  if (desc->locally_unused)
     {
       fprintf (f, "    (locally) unused\n");
     }
-  if (!desc->m_split_candidate)
+  if (!desc->split_candidate)
     {
       fprintf (f, "    not a candidate for splitting\n");
       return;
     }
   fprintf (f, "    param_size_limit: %u, size_reached: %u%s\n",
-	   desc->m_param_size_limit, desc->m_size_reached,
-	   desc->m_by_ref ? ", by_ref" : "");
+	   desc->param_size_limit, desc->size_reached,
+	   desc->by_ref ? ", by_ref" : "");
 
-  for (unsigned i = 0; i < vec_safe_length (desc->m_accesses); ++i)
+  for (unsigned i = 0; i < vec_safe_length (desc->accesses); ++i)
     {
-      param_access *access = (*desc->m_accesses)[i];
+      param_access *access = (*desc->accesses)[i];
       dump_isra_access (f, access);
     }
 }
@@ -2147,7 +2146,7 @@ copy_accesses_to_ipa_desc (gensum_param_access *from, isra_param_desc *desc)
   to->type = from->type;
   to->alias_ptr_type = from->alias_ptr_type;
   to->certain = from->nonarg;
-  vec_safe_push (desc->m_accesses, to);
+  vec_safe_push (desc->accesses, to);
 
   for (gensum_param_access *ch = from->first_child;
        ch;
@@ -2320,11 +2319,11 @@ process_scan_results (cgraph_node *node, struct function *fun,
       gensum_param_desc *s = &(*param_descriptions)[desc_index];
       isra_param_desc *d = &(*ifs->m_parameters)[desc_index];
 
-      d->m_param_size_limit = s->param_size_limit;
-      d->m_size_reached = s->nonarg_acc_size;
-      d->m_locally_unused = s->m_locally_unused;
-      d->m_split_candidate = s->m_split_candidate;
-      d->m_by_ref = s->m_by_ref;
+      d->param_size_limit = s->param_size_limit;
+      d->size_reached = s->nonarg_acc_size;
+      d->locally_unused = s->m_locally_unused;
+      d->split_candidate = s->m_split_candidate;
+      d->by_ref = s->m_by_ref;
 
       for (gensum_param_access *acc = s->x_accesses;
 	   acc;
@@ -2469,11 +2468,11 @@ isra_write_node_summary (output_block *ob, cgraph_node *node)
   for (unsigned i = 0; i < param_desc_count; i++)
     {
       isra_param_desc *desc = &(*ifs->m_parameters)[i];
-      unsigned access_count = vec_safe_length (desc->m_accesses);
+      unsigned access_count = vec_safe_length (desc->accesses);
       streamer_write_uhwi (ob, access_count);
       for (unsigned j = 0; j < access_count; j++)
 	{
-	  param_access *acc = (*desc->m_accesses)[j];
+	  param_access *acc = (*desc->accesses)[j];
 	  stream_write_tree (ob, acc->type, true);
 	  stream_write_tree (ob, acc->alias_ptr_type, true);
 	  streamer_write_uhwi (ob, acc->unit_offset);
@@ -2482,12 +2481,12 @@ isra_write_node_summary (output_block *ob, cgraph_node *node)
 	  bp_pack_value (&bp, acc->certain, 1);
 	  streamer_write_bitpack (&bp);
 	}
-      streamer_write_uhwi (ob, desc->m_param_size_limit);
-      streamer_write_uhwi (ob, desc->m_size_reached);
+      streamer_write_uhwi (ob, desc->param_size_limit);
+      streamer_write_uhwi (ob, desc->size_reached);
       bitpack_d bp = bitpack_create (ob->main_stream);
-      bp_pack_value (&bp, desc->m_locally_unused, 1);
-      bp_pack_value (&bp, desc->m_split_candidate, 1);
-      bp_pack_value (&bp, desc->m_by_ref, 1);
+      bp_pack_value (&bp, desc->locally_unused, 1);
+      bp_pack_value (&bp, desc->split_candidate, 1);
+      bp_pack_value (&bp, desc->by_ref, 1);
       streamer_write_bitpack (&bp);
     }
   bitpack_d bp = bitpack_create (ob->main_stream);
@@ -2597,14 +2596,14 @@ isra_read_node_info (struct lto_input_block *ib, cgraph_node *node,
 	  acc->unit_size = streamer_read_uhwi (ib);
 	  bitpack_d bp = streamer_read_bitpack (ib);
 	  acc->certain = bp_unpack_value (&bp, 1);
-	  vec_safe_push (desc->m_accesses, acc);
+	  vec_safe_push (desc->accesses, acc);
 	}
-      desc->m_param_size_limit = streamer_read_uhwi (ib);
-      desc->m_size_reached = streamer_read_uhwi (ib);
+      desc->param_size_limit = streamer_read_uhwi (ib);
+      desc->size_reached = streamer_read_uhwi (ib);
       bitpack_d bp = streamer_read_bitpack (ib);
-      desc->m_locally_unused = bp_unpack_value (&bp, 1);
-      desc->m_split_candidate = bp_unpack_value (&bp, 1);
-      desc->m_by_ref = bp_unpack_value (&bp, 1);
+      desc->locally_unused = bp_unpack_value (&bp, 1);
+      desc->split_candidate = bp_unpack_value (&bp, 1);
+      desc->by_ref = bp_unpack_value (&bp, 1);
     }
   bitpack_d bp = streamer_read_bitpack (ib);
   ifs->m_candidate = bp_unpack_value (&bp, 1);
@@ -2843,7 +2842,7 @@ check_all_callers_for_issues (cgraph_node *node)
       gcc_checking_assert (ifs);
       unsigned param_count = vec_safe_length (ifs->m_parameters);
       for (unsigned i = 0; i < param_count; i++)
-	(*ifs->m_parameters)[i].m_split_candidate = false;
+	(*ifs->m_parameters)[i].split_candidate = false;
     }
   return false;
 }
@@ -2854,15 +2853,15 @@ check_all_callers_for_issues (cgraph_node *node)
 static param_access *
 find_param_access (isra_param_desc *param_desc, unsigned offset, unsigned size)
 {
-  unsigned pclen = vec_safe_length (param_desc->m_accesses);
+  unsigned pclen = vec_safe_length (param_desc->accesses);
 
   /* The search is linear but the number of stored accesses is bound by
      PARAM_IPA_SRA_MAX_REPLACEMENTS, so most probably 8.  */
 
   for (unsigned i = 0; i < pclen; i++)
-    if ((*param_desc->m_accesses)[i]->unit_offset == offset
-	&& (*param_desc->m_accesses)[i]->unit_size == size)
-      return (*param_desc->m_accesses)[i];
+    if ((*param_desc->accesses)[i]->unit_offset == offset
+	&& (*param_desc->accesses)[i]->unit_size == size)
+      return (*param_desc->accesses)[i];
 
   return NULL;
 }
@@ -2873,9 +2872,9 @@ find_param_access (isra_param_desc *param_desc, unsigned offset, unsigned size)
 static bool
 size_would_violate_limit_p (isra_param_desc *desc, unsigned size)
 {
-  unsigned limit = desc->m_param_size_limit;
+  unsigned limit = desc->param_size_limit;
   if (size > limit
-      || (!desc->m_by_ref && size == limit))
+      || (!desc->by_ref && size == limit))
     return true;
   return false;
 }
@@ -2887,16 +2886,16 @@ size_would_violate_limit_p (isra_param_desc *desc, unsigned size)
 static void
 bump_reached_size (isra_param_desc *desc, unsigned size, unsigned idx)
 {
-  unsigned after = desc->m_size_reached + size;
+  unsigned after = desc->size_reached + size;
   if (size_would_violate_limit_p (desc, after))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "    ...size limit reached, disqualifying "
 		 "candidate parameter %u\n", idx);
-      desc->m_split_candidate = false;
+      desc->split_candidate = false;
       return;
     }
-  desc->m_size_reached = after;
+  desc->size_reached = after;
 }
 
 /* Take all actions required to deal with an edge CS that represents a call to
@@ -2923,8 +2922,8 @@ process_edge_to_unknown_caller (cgraph_edge *cs)
        {
          isra_param_desc *param_desc
            = &(*from_ifs->m_parameters)[get_single_param_flow_source (ipf)];
-         param_desc->m_locally_unused = false;
-         param_desc->m_split_candidate = false;
+         param_desc->locally_unused = false;
+         param_desc->split_candidate = false;
         continue;
        }
       if (ipf->aggregate_pass_through)
@@ -2932,10 +2931,10 @@ process_edge_to_unknown_caller (cgraph_edge *cs)
 	  unsigned idx = get_single_param_flow_source (ipf);
 	  isra_param_desc *param_desc = &(*from_ifs->m_parameters)[idx];
 
-	  param_desc->m_locally_unused = false;
-	  if (!param_desc->m_split_candidate)
+	  param_desc->locally_unused = false;
+	  if (!param_desc->split_candidate)
 	    continue;
-	  gcc_assert (!param_desc->m_by_ref);
+	  gcc_assert (!param_desc->by_ref);
 	  param_access *pacc = find_param_access (param_desc, ipf->unit_offset,
 						  ipf->unit_size);
 	  gcc_checking_assert (pacc);
@@ -2948,7 +2947,7 @@ process_edge_to_unknown_caller (cgraph_edge *cs)
       for (int j = 0; j < ipf->length; j++)
 	{
 	  int input_idx = ipf->inputs[j];
-	  (*from_ifs->m_parameters)[input_idx].m_locally_unused = false;
+	  (*from_ifs->m_parameters)[input_idx].locally_unused = false;
 	}
     }
 }
@@ -2981,7 +2980,7 @@ param_removal_cross_scc_edge (cgraph_edge *cs)
     {
       bool unused_in_callee;
       if (i < param_count)
-	unused_in_callee = (*to_ifs->m_parameters)[i].m_locally_unused;
+	unused_in_callee = (*to_ifs->m_parameters)[i].locally_unused;
       else
 	unused_in_callee = false;
 
@@ -2991,7 +2990,7 @@ param_removal_cross_scc_edge (cgraph_edge *cs)
 	  for (int j = 0; j < ipf->length; j++)
 	    {
 	      int input_idx = ipf->inputs[j];
-	      (*from_ifs->m_parameters)[input_idx].m_locally_unused = false;
+	      (*from_ifs->m_parameters)[input_idx].locally_unused = false;
 	    }
 	}
     }
@@ -3018,9 +3017,9 @@ static void
 isra_mark_caller_param_used (isra_func_summary *from_ifs, int input_idx,
 			     cgraph_node *caller, vec<cgraph_node *> *stack)
 {
-  if ((*from_ifs->m_parameters)[input_idx].m_locally_unused)
+  if ((*from_ifs->m_parameters)[input_idx].locally_unused)
     {
-      (*from_ifs->m_parameters)[input_idx].m_locally_unused = false;
+      (*from_ifs->m_parameters)[input_idx].locally_unused = false;
       isra_push_node_to_stack (caller, from_ifs, stack);
     }
 }
@@ -3050,7 +3049,7 @@ propagate_used_across_scc_edge (cgraph_edge *cs, vec<cgraph_node *> *stack)
   for (unsigned i = 0; i < args_count; i++)
     {
       if (i < param_count
-	  && (*to_ifs->m_parameters)[i].m_locally_unused)
+	  && (*to_ifs->m_parameters)[i].locally_unused)
 	    continue;
 
       /* The argument is needed in the callee it, we must mark the parameter as
@@ -3086,10 +3085,10 @@ static bool
 all_callee_accesses_present_p (isra_param_desc *param_desc,
 			       isra_param_desc *arg_desc)
 {
-  unsigned aclen = vec_safe_length (arg_desc->m_accesses);
+  unsigned aclen = vec_safe_length (arg_desc->accesses);
   for (unsigned j = 0; j < aclen; j++)
     {
-      param_access *argacc = (*arg_desc->m_accesses)[j];
+      param_access *argacc = (*arg_desc->accesses)[j];
       if (!argacc->certain)
 	continue;
       param_access *pacc = find_param_access (param_desc, argacc->unit_offset,
@@ -3120,8 +3119,8 @@ pull_accesses_from_callee (isra_param_desc *param_desc,
 			   unsigned delta_offset, unsigned arg_size,
 			   bool *change_p)
 {
-  unsigned pclen = vec_safe_length (param_desc->m_accesses);
-  unsigned aclen = vec_safe_length (arg_desc->m_accesses);
+  unsigned pclen = vec_safe_length (param_desc->accesses);
+  unsigned aclen = vec_safe_length (arg_desc->accesses);
   unsigned prop_count = 0;
   unsigned prop_size = 0;
   bool change = false;
@@ -3129,7 +3128,7 @@ pull_accesses_from_callee (isra_param_desc *param_desc,
   auto_vec <enum acc_prop_kind, 8> prop_kinds (aclen);
   for (unsigned j = 0; j < aclen; j++)
     {
-      param_access *argacc = (*arg_desc->m_accesses)[j];
+      param_access *argacc = (*arg_desc->accesses)[j];
       prop_kinds.safe_push (ACC_PROP_DONT);
 
       if (arg_size > 0
@@ -3151,7 +3150,7 @@ pull_accesses_from_callee (isra_param_desc *param_desc,
       for (unsigned i = 0; i < pclen; i++)
 	{
 	  /* Check for overlaps.  */
-	  param_access *pacc = (*param_desc->m_accesses)[i];
+	  param_access *pacc = (*param_desc->accesses)[i];
 	  if (pacc->unit_offset == offset
 	      && pacc->unit_size == argacc->unit_size)
 	    {
@@ -3197,7 +3196,7 @@ pull_accesses_from_callee (isra_param_desc *param_desc,
     if ((prop_count + pclen
 	 > (unsigned) PARAM_VALUE (PARAM_IPA_SRA_MAX_REPLACEMENTS))
 	|| size_would_violate_limit_p (param_desc,
-				       param_desc->m_size_reached + prop_size))
+				       param_desc->size_reached + prop_size))
       return "propagating accesses would violate the count or size limit";
 
   *change_p = true;
@@ -3205,7 +3204,7 @@ pull_accesses_from_callee (isra_param_desc *param_desc,
     {
       if (prop_kinds[j] == ACC_PROP_COPY)
 	{
-	  param_access *argacc = (*arg_desc->m_accesses)[j];
+	  param_access *argacc = (*arg_desc->accesses)[j];
 
 	  param_access *copy = ggc_cleared_alloc<param_access> ();
 	  copy->unit_offset = argacc->unit_offset + delta_offset;
@@ -3213,11 +3212,11 @@ pull_accesses_from_callee (isra_param_desc *param_desc,
 	  copy->type = argacc->type;
 	  copy->alias_ptr_type = argacc->alias_ptr_type;
 	  copy->certain = true;
-	  vec_safe_push (param_desc->m_accesses, copy);
+	  vec_safe_push (param_desc->accesses, copy);
 	}
       else if (prop_kinds[j] == ACC_PROP_CERTAIN)
 	{
-	  param_access *argacc = (*arg_desc->m_accesses)[j];
+	  param_access *argacc = (*arg_desc->accesses)[j];
 	  param_access *csp
 	    = find_param_access (param_desc, argacc->unit_offset + delta_offset,
 				 argacc->unit_size);
@@ -3225,7 +3224,7 @@ pull_accesses_from_callee (isra_param_desc *param_desc,
 	}
     }
 
-  param_desc->m_size_reached += prop_size;
+  param_desc->size_reached += prop_size;
 
   return NULL;
 }
@@ -3266,7 +3265,7 @@ param_splitting_across_edge (cgraph_edge *cs)
       isra_param_desc *arg_desc = &(*to_ifs->m_parameters)[i];
       isra_param_flow *ipf = &csum->m_inputs[i];
 
-      if (arg_desc->m_locally_unused)
+      if (arg_desc->locally_unused)
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "    ->%u: unused in callee\n", i);
@@ -3278,16 +3277,16 @@ param_splitting_across_edge (cgraph_edge *cs)
 	{
 	  int idx = get_single_param_flow_source (ipf);
 	  isra_param_desc *param_desc = &(*from_ifs->m_parameters)[idx];
-	  if (!param_desc->m_split_candidate)
+	  if (!param_desc->split_candidate)
 	    continue;
-	  gcc_assert (param_desc->m_by_ref);
+	  gcc_assert (param_desc->by_ref);
 
-	  if (!arg_desc->m_split_candidate || !arg_desc->m_by_ref)
+	  if (!arg_desc->split_candidate || !arg_desc->by_ref)
 	    {
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		fprintf (dump_file, "  %u->%u: not candidate or not by "
 			 "reference in callee\n", idx, i);
-	      param_desc->m_split_candidate = false;
+	      param_desc->split_candidate = false;
 	      ipf->pointer_pass_through = false;
 	      res = true;
 	    }
@@ -3298,7 +3297,7 @@ param_splitting_across_edge (cgraph_edge *cs)
 		  if (dump_file && (dump_flags & TDF_DETAILS))
 		    fprintf (dump_file, "  %u->%u: cannot import accesses.\n",
 			     idx, i);
-		  param_desc->m_split_candidate = false;
+		  param_desc->split_candidate = false;
 		  ipf->pointer_pass_through = false;
 		  res = true;
 
@@ -3321,7 +3320,7 @@ param_splitting_across_edge (cgraph_edge *cs)
 		  if (dump_file && (dump_flags & TDF_DETAILS))
 		    fprintf (dump_file, "  %u->%u: by_ref access pull "
 			     "failed: %s.\n", idx, i, pull_failure);
-		  param_desc->m_split_candidate = false;
+		  param_desc->split_candidate = false;
 		  ipf->pointer_pass_through = false;
 		  res = true;
 		}
@@ -3339,9 +3338,9 @@ param_splitting_across_edge (cgraph_edge *cs)
 	{
 	  int idx = get_single_param_flow_source (ipf);
 	  isra_param_desc *param_desc = &(*from_ifs->m_parameters)[idx];
-	  if (!param_desc->m_split_candidate)
+	  if (!param_desc->split_candidate)
 	    continue;
-	  gcc_assert (!param_desc->m_by_ref);
+	  gcc_assert (!param_desc->by_ref);
 	  param_access *pacc = find_param_access (param_desc, ipf->unit_offset,
 						  ipf->unit_size);
 	  gcc_checking_assert (pacc);
@@ -3352,7 +3351,7 @@ param_splitting_across_edge (cgraph_edge *cs)
 		fprintf (dump_file, "  %u->%u: already certain\n", idx, i);
 	      ipf->aggregate_pass_through = false;
 	    }
-	  else if (!arg_desc->m_split_candidate || arg_desc->m_by_ref)
+	  else if (!arg_desc->split_candidate || arg_desc->by_ref)
 	    {
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		fprintf (dump_file, "  %u->%u: not candidate or by "
@@ -3401,13 +3400,13 @@ param_splitting_across_edge (cgraph_edge *cs)
 	  ipf->pointer_pass_through = false;
 	  ipf->aggregate_pass_through = false;
 	  isra_param_desc *param_desc = &(*from_ifs->m_parameters)[idx];
-	  if (!param_desc->m_split_candidate)
+	  if (!param_desc->split_candidate)
 	    continue;
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "  %u->%u: no corresponding formal parameter\n",
 		     idx, i);
-	  param_desc->m_split_candidate = false;
+	  param_desc->split_candidate = false;
 	  res = true;
 	}
     }
@@ -3431,14 +3430,14 @@ validate_splitting_overlaps (cgraph_node *node)
   for (unsigned pidx = 0; pidx < param_count; pidx++)
     {
       isra_param_desc *desc = &(*ifs->m_parameters)[pidx];
-      if (!desc->m_split_candidate || desc->m_locally_unused)
+      if (!desc->split_candidate || desc->locally_unused)
 	continue;
 
       bool certain_access_present = false;
-      unsigned pclen = vec_safe_length (desc->m_accesses);
+      unsigned pclen = vec_safe_length (desc->accesses);
       for (unsigned i = 0; i < pclen; i++)
 	{
-	  param_access *a1 = (*desc->m_accesses)[i];
+	  param_access *a1 = (*desc->accesses)[i];
 
 	  if (!a1->certain)
 	    continue;
@@ -3446,7 +3445,7 @@ validate_splitting_overlaps (cgraph_node *node)
 	  bool overlap = false;
 	  for (unsigned j = i + 1; j < pclen; j++)
 	    {
-	      param_access *a2 = (*desc->m_accesses)[j];
+	      param_access *a2 = (*desc->accesses)[j];
 	      if (a2->certain
 		  && a1->unit_offset < a2->unit_offset + a2->unit_size
 		  && a1->unit_offset + a1->unit_size > a2->unit_offset)
@@ -3461,7 +3460,7 @@ validate_splitting_overlaps (cgraph_node *node)
 		fprintf (dump_file, "Disqualifying parameter %u of %s"
 			 "because of late discovered overlap\n",
 			 pidx, node->dump_name ());
-	      desc->m_split_candidate = false;
+	      desc->split_candidate = false;
 	      res = true;
 	      break;
 	    }
@@ -3520,7 +3519,7 @@ process_isra_node_results (cgraph_node *node,
     for (unsigned i = 0; i < param_count; i++)
       {
       isra_param_desc *desc = &(*ifs->m_parameters)[i];
-      if (desc->m_locally_unused || desc->m_split_candidate)
+      if (desc->locally_unused || desc->split_candidate)
 	{
 	  will_change_function = true;
 	  break;
@@ -3546,14 +3545,14 @@ process_isra_node_results (cgraph_node *node,
   for (unsigned parm_num = 0; parm_num < param_count; parm_num++)
     {
       isra_param_desc *desc = &(*ifs->m_parameters)[parm_num];
-      if (desc->m_locally_unused)
+      if (desc->locally_unused)
 	{
 	  if (dump_file)
 	    fprintf (dump_file, "  Will remove parameter %u\n", parm_num);
 	  continue;
 	}
 
-      if (!desc->m_split_candidate)
+      if (!desc->split_candidate)
 	{
 	  ipa_adjusted_param adj;
 	  memset (&adj, 0, sizeof (adj));
@@ -3566,10 +3565,10 @@ process_isra_node_results (cgraph_node *node,
 
       if (dump_file)
 	fprintf (dump_file, "  Will split parameter %u\n", parm_num);
-      unsigned aclen = vec_safe_length (desc->m_accesses);
+      unsigned aclen = vec_safe_length (desc->accesses);
       for (unsigned j = 0; j < aclen; j++)
 	{
-	  param_access *pa = (*desc->m_accesses)[j];
+	  param_access *pa = (*desc->accesses)[j];
 	  if (!pa->certain)
 	    continue;
 	  if (dump_file)
