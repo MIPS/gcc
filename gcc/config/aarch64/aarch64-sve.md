@@ -1882,6 +1882,24 @@
   "<logical>s\t%0.b, %1/z, %2.b, %3.b"
 )
 
+;; Same with just the flags result.
+(define_insn "*<optab><mode>3_ptest"
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC
+	  [(match_operand:VNx16BI 1 "register_operand" "Upa")
+	   (match_operand 4)
+	   (and:PRED_ALL
+	     (LOGICAL:PRED_ALL
+	       (match_operand:PRED_ALL 2 "register_operand" "Upa")
+	       (match_operand:PRED_ALL 3 "register_operand" "Upa"))
+	     (match_dup 4))
+	   (match_operand 5 "const_int_operand")]
+	  UNSPEC_PTEST))
+   (clobber (match_scratch:VNx16BI 0 "=Upa"))]
+  "TARGET_SVE"
+  "<logical>s\t%0.b, %1/z, %2.b, %3.b"
+)
+
 ;; Unpredicated predicate inverse.
 (define_expand "one_cmpl<mode>2"
   [(set (match_operand:PRED_ALL 0 "register_operand")
@@ -1916,6 +1934,48 @@
   "<nlogical>\t%0.b, %1/z, %2.b, %3.b"
 )
 
+;; Same, but set the flags as a side-effect.
+(define_insn "*<optab><mode>3_cc"
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC
+	  [(match_operand:VNx16BI 1 "register_operand" "Upa")
+	   (match_operand 4)
+	   (and:PRED_ALL
+	     (NLOGICAL:PRED_ALL
+	       (not:PRED_ALL
+		 (match_operand:PRED_ALL 3 "register_operand" "Upa"))
+	       (match_operand:PRED_ALL 2 "register_operand" "Upa"))
+	     (match_dup 4))
+	   (match_operand 5 "const_int_operand")]
+	  UNSPEC_PTEST))
+   (set (match_operand:PRED_ALL 0 "register_operand" "=Upa")
+	(and:PRED_ALL (NLOGICAL:PRED_ALL
+			(not:PRED_ALL (match_dup 3))
+			(match_dup 2))
+		      (match_dup 4)))]
+  "TARGET_SVE"
+  "<nlogical>s\t%0.b, %1/z, %2.b, %3.b"
+)
+
+;; Same with just the flags result.
+(define_insn "*<optab><mode>3_ptest"
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC
+	  [(match_operand:VNx16BI 1 "register_operand" "Upa")
+	   (match_operand 4)
+	   (and:PRED_ALL
+	     (NLOGICAL:PRED_ALL
+	       (not:PRED_ALL
+		 (match_operand:PRED_ALL 3 "register_operand" "Upa"))
+	       (match_operand:PRED_ALL 2 "register_operand" "Upa"))
+	     (match_dup 4))
+	   (match_operand 5 "const_int_operand")]
+	  UNSPEC_PTEST))
+   (clobber (match_scratch:VNx16BI 0 "=Upa"))]
+  "TARGET_SVE"
+  "<nlogical>s\t%0.b, %1/z, %2.b, %3.b"
+)
+
 ;; Predicated predicate NAND and NOR.
 (define_insn "aarch64_pred_<logical_nn><mode>_z"
   [(set (match_operand:PRED_ALL 0 "register_operand" "=Upa")
@@ -1926,6 +1986,50 @@
 	  (match_operand:PRED_ALL 1 "register_operand" "Upa")))]
   "TARGET_SVE"
   "<logical_nn>\t%0.b, %1/z, %2.b, %3.b"
+)
+
+;; Same, but set the flags as a side-effect.
+(define_insn "*<optab><mode>3_cc"
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC
+	  [(match_operand:VNx16BI 1 "register_operand" "Upa")
+	   (match_operand 4)
+	   (and:PRED_ALL
+	     (NLOGICAL:PRED_ALL
+	       (not:PRED_ALL
+		 (match_operand:PRED_ALL 2 "register_operand" "Upa"))
+	       (not:PRED_ALL
+		 (match_operand:PRED_ALL 3 "register_operand" "Upa")))
+	     (match_dup 4))
+	   (match_operand 5 "const_int_operand")]
+	  UNSPEC_PTEST))
+   (set (match_operand:PRED_ALL 0 "register_operand" "=Upa")
+	(and:PRED_ALL (NLOGICAL:PRED_ALL
+			(not:PRED_ALL (match_dup 2))
+			(not:PRED_ALL (match_dup 3)))
+		      (match_dup 4)))]
+  "TARGET_SVE"
+  "<logical_nn>s\t%0.b, %1/z, %2.b, %3.b"
+)
+
+;; Same with just the flags result.
+(define_insn "*<optab><mode>3_ptest"
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC
+	  [(match_operand:VNx16BI 1 "register_operand" "Upa")
+	   (match_operand 4)
+	   (and:PRED_ALL
+	     (NLOGICAL:PRED_ALL
+	       (not:PRED_ALL
+		 (match_operand:PRED_ALL 2 "register_operand" "Upa"))
+	       (not:PRED_ALL
+		 (match_operand:PRED_ALL 3 "register_operand" "Upa")))
+	     (match_dup 4))
+	   (match_operand 5 "const_int_operand")]
+	  UNSPEC_PTEST))
+   (clobber (match_scratch:VNx16BI 0 "=Upa"))]
+  "TARGET_SVE"
+  "<logical_nn>s\t%0.b, %1/z, %2.b, %3.b"
 )
 
 ;; Predicated SXT[BHW].
