@@ -65,6 +65,89 @@ static void mark_jump_label_asm (rtx, rtx_insn *);
 static void redirect_exp_1 (rtx *, rtx, rtx, rtx_insn *);
 static int invert_exp_1 (rtx, rtx_insn *);
 
+/* Flags that describe when a condition is true.  */
+const int FLAGS_EQ = 0x1;
+const int FLAGS_LT = 0x2;
+const int FLAGS_GT = 0x4;
+const int FLAGS_UNORDERED = 0x8;
+const int FLAGS_ORDER = 0xf;
+
+/* When describing an existing condition, these flags say whether the
+   inputs are interpreted as signed and whether they are interpreted as
+   unsigned.  When asking for a new condition, the flags say whether
+   the comparison must handle signed values and whether it must handle
+   unsigned values.  Floats are treated as signed in both cases.  */
+const int FLAGS_SIGNED = 0x10;
+const int FLAGS_UNSIGNED = 0x20;
+const int FLAGS_SIGNEDNESS = FLAGS_SIGNED | FLAGS_UNSIGNED;
+
+/* When describing an existing condition, this flag says whether the
+   comparison traps for NaNs.  When asking for a new condition, the flag
+   says whether the comparison is allowed to trap for NaNs.  */
+const int FLAGS_CAN_TRAP = 0x40;
+
+#define FOR_MAPPING(T) \
+  T (EQ,	FLAGS_EQ,			0,		true) \
+  T (NE,	~FLAGS_EQ,			0,		true) \
+  T (LTGT,	FLAGS_LT | FLAGS_GT,		0,		true) \
+  T (LT,	FLAGS_LT,			FLAGS_SIGNED,	true) \
+  T (LE,	FLAGS_LT | FLAGS_EQ,		FLAGS_SIGNED,	true) \
+  T (GT,	FLAGS_GT,			FLAGS_SIGNED,	true) \
+  T (GE,	FLAGS_GT | FLAGS_EQ,		FLAGS_SIGNED,	true) \
+  T (LTU,	FLAGS_LT,			FLAGS_UNSIGNED,	false) \
+  T (LEU,	FLAGS_LT | FLAGS_EQ,		FLAGS_UNSIGNED,	false) \
+  T (GTU,	FLAGS_GT,			FLAGS_UNSIGNED,	false) \
+  T (GEU,	FLAGS_GT | FLAGS_EQ,		FLAGS_UNSIGNED,	false) \
+  T (ORDERED,	~FLAGS_UNORDERED,		FLAGS_SIGNED,	false) \
+  T (UNORDERED,	FLAGS_UNORDERED,		FLAGS_SIGNED,	false) \
+  T (UNEQ,	FLAGS_UNORDERED | FLAGS_EQ,	FLAGS_SIGNED,	false) \
+  T (UNLT,	FLAGS_UNORDERED | FLAGS_LT,	FLAGS_SIGNED,	false) \
+  T (UNLE,	~FLAGS_GT,			FLAGS_SIGNED,	false) \
+  T (UNGT,	FLAGS_UNORDERED | FLAGS_GT,	FLAGS_SIGNED,	false) \
+  T (UNGE,	~FLAGS_LT,			FLAGS_SIGNED,	false)
+
+/* Describe comparison CODE as a bitmask of FLAGS_*.  */
+
+static unsigned int
+condition_to_flags (rtx_code code)
+{
+#define CASE(CODE, ORDER, SIGNEDNESS, CAN_TRAP)		\
+  case CODE:						\
+    return (((ORDER) & FLAGS_ORDER)			\
+            | SIGNEDNESS				\
+            | (CAN_TRAP ? FLAGS_CAN_TRAP : 0));
+
+  switch (code)
+    {
+    FOR_MAPPING (CASE);
+    default:
+      gcc_unreachable ();
+    }
+
+#undef CASE
+}
+
+/* Return the comparison code that implements FLAGS_* bitmask FLAGS.
+   Assert on failure if FORCE, otherwise return UNKNOWN.  */
+
+static rtx_code
+flags_to_condition (unsigned int flags, bool force)
+{
+#define TEST(CODE, ORDER, SIGNEDNESS, CAN_TRAP)			\
+  if ((flags & FLAGS_ORDER) == ((ORDER) & FLAGS_ORDER)		\
+      && (!SIGNEDNESS						\
+	  || (flags & ~SIGNEDNESS & FLAGS_SIGNEDNESS) == 0)	\
+      && (!CAN_TRAP || (flags & FLAGS_CAN_TRAP) != 0))		\
+    return CODE;
+
+  FOR_MAPPING (TEST);
+
+  gcc_assert (!force);
+  return UNKNOWN;
+#undef TEST
+}
+#undef FOR_MAPPING
+
 /* Worker for rebuild_jump_labels and rebuild_jump_labels_chain.  */
 static void
 rebuild_jump_labels_1 (rtx_insn *f, bool count_forced)
@@ -583,44 +666,11 @@ reverse_condition_maybe_unordered (enum rtx_code code)
 enum rtx_code
 swap_condition (enum rtx_code code)
 {
-  switch (code)
-    {
-    case EQ:
-    case NE:
-    case UNORDERED:
-    case ORDERED:
-    case UNEQ:
-    case LTGT:
-      return code;
-
-    case GT:
-      return LT;
-    case GE:
-      return LE;
-    case LT:
-      return GT;
-    case LE:
-      return GE;
-    case GTU:
-      return LTU;
-    case GEU:
-      return LEU;
-    case LTU:
-      return GTU;
-    case LEU:
-      return GEU;
-    case UNLT:
-      return UNGT;
-    case UNLE:
-      return UNGE;
-    case UNGT:
-      return UNLT;
-    case UNGE:
-      return UNLE;
-
-    default:
-      gcc_unreachable ();
-    }
+  unsigned int flags = condition_to_flags (code);
+  flags = ((flags & ~(FLAGS_GT | FLAGS_LT))
+	   | (flags & FLAGS_GT ? FLAGS_LT : 0)
+	   | (flags & FLAGS_LT ? FLAGS_GT : 0));
+  return flags_to_condition (flags, true);
 }
 
 /* Given a comparison CODE, return the corresponding unsigned comparison.
@@ -630,28 +680,8 @@ swap_condition (enum rtx_code code)
 enum rtx_code
 unsigned_condition (enum rtx_code code)
 {
-  switch (code)
-    {
-    case EQ:
-    case NE:
-    case GTU:
-    case GEU:
-    case LTU:
-    case LEU:
-      return code;
-
-    case GT:
-      return GTU;
-    case GE:
-      return GEU;
-    case LT:
-      return LTU;
-    case LE:
-      return LEU;
-
-    default:
-      gcc_unreachable ();
-    }
+  unsigned int flags = condition_to_flags (code);
+  return flags_to_condition ((flags & ~FLAGS_SIGNED) | FLAGS_UNSIGNED, true);
 }
 
 /* Similarly, return the signed version of a comparison.  */
@@ -659,28 +689,8 @@ unsigned_condition (enum rtx_code code)
 enum rtx_code
 signed_condition (enum rtx_code code)
 {
-  switch (code)
-    {
-    case EQ:
-    case NE:
-    case GT:
-    case GE:
-    case LT:
-    case LE:
-      return code;
-
-    case GTU:
-      return GT;
-    case GEU:
-      return GE;
-    case LTU:
-      return LT;
-    case LEU:
-      return LE;
-
-    default:
-      gcc_unreachable ();
-    }
+  unsigned int flags = condition_to_flags (code);
+  return flags_to_condition ((flags & ~FLAGS_UNSIGNED) | FLAGS_SIGNED, true);
 }
 
 /* Return nonzero if CODE1 is more strict than CODE2, i.e., if the
@@ -695,74 +705,12 @@ comparison_dominates_p (enum rtx_code code1, enum rtx_code code2)
   if (code1 == UNKNOWN || code2 == UNKNOWN)
     return 0;
 
-  if (code1 == code2)
-    return 1;
-
-  switch (code1)
-    {
-    case UNEQ:
-      if (code2 == UNLE || code2 == UNGE)
-	return 1;
-      break;
-
-    case EQ:
-      if (code2 == LE || code2 == LEU || code2 == GE || code2 == GEU
-	  || code2 == ORDERED)
-	return 1;
-      break;
-
-    case UNLT:
-      if (code2 == UNLE || code2 == NE)
-	return 1;
-      break;
-
-    case LT:
-      if (code2 == LE || code2 == NE || code2 == ORDERED || code2 == LTGT)
-	return 1;
-      break;
-
-    case UNGT:
-      if (code2 == UNGE || code2 == NE)
-	return 1;
-      break;
-
-    case GT:
-      if (code2 == GE || code2 == NE || code2 == ORDERED || code2 == LTGT)
-	return 1;
-      break;
-
-    case GE:
-    case LE:
-      if (code2 == ORDERED)
-	return 1;
-      break;
-
-    case LTGT:
-      if (code2 == NE || code2 == ORDERED)
-	return 1;
-      break;
-
-    case LTU:
-      if (code2 == LEU || code2 == NE)
-	return 1;
-      break;
-
-    case GTU:
-      if (code2 == GEU || code2 == NE)
-	return 1;
-      break;
-
-    case UNORDERED:
-      if (code2 == NE || code2 == UNEQ || code2 == UNLE || code2 == UNLT
-	  || code2 == UNGE || code2 == UNGT)
-	return 1;
-      break;
-
-    default:
-      break;
-    }
-
-  return 0;
+  unsigned int flags1 = condition_to_flags (code1);
+  unsigned int flags2 = condition_to_flags (code2);
+  /* Make sure that the conditions do not use different sign interpretations
+     and that FLAGS2 contains every condition that FLAGS1 contains.  */
+  return (((flags1 | flags2) & FLAGS_SIGNEDNESS) != FLAGS_SIGNEDNESS
+	  && (flags1 & ~flags2 & FLAGS_ORDER) == 0);
 }
 
 /* Return 1 if INSN is an unconditional jump and nothing else.  */
