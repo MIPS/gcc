@@ -107,7 +107,6 @@ struct gensum_param_access
   /* if this access has any children (in terms of the definition above), this
      points to the first one.  */
   struct gensum_param_access *first_child;
-
   /* In intraprocedural SRA, pointer to the next sibling in the access tree as
      described above.  */
   struct gensum_param_access *next_sibling;
@@ -117,7 +116,6 @@ struct gensum_param_access
      reconstructoed from the body.  Must not be touched in IPA analysys
      stage.  */
   tree type;
-
   /* Alias refrerence type to be used in MEM_REFs when adjusting caller
      arguments.  */
   tree alias_ptr_type;
@@ -154,40 +152,38 @@ struct GTY(()) isra_param_desc
 struct gensum_param_desc
 {
   /* Roots of param_accesses.  */
-  gensum_param_access *x_accesses; /* !!! x_ */
-
-  /* Number of  */
-  unsigned m_access_count;
+  gensum_param_access *accesses;
+  /* Number of accesses in the access tree rooted in field accesses.  */
+  unsigned access_count;
 
   /* If the below is non-zero, this is the nuber of uses as actual arguents.  */
-  int m_call_uses;		/* !!! Try removing after it is removed from
-                                       the previous structure.  */
-
+  int call_uses;
   /* Number of times this parameter has been directly passed to.  */
   unsigned ptr_pt_count;
 
   /* Size limit of total size of all replacements.  */
-  unsigned param_size_limit;	/* !!? m_ ? */
+  unsigned param_size_limit;
   /* Sum of sizes of nonarg accesses.  */
-  unsigned nonarg_acc_size;      /* !!? m_ ? */
+  unsigned nonarg_acc_size;
 
   /* A parameter that is used only in call arguments and can be removed if all
      concerned actual arguments are removed.  */
-  bool m_locally_unused;
-  /* An aggregate that is a candidate for breaking up or complete removal.  */
-  bool m_split_candidate;
+  bool locally_unused;
+  /* An aggregate that is a candidate for breaking up or a pointer passing data
+     by reference that is a candidate for being converted to a set of
+     parameters passing thosa data by value.  */
+  bool split_candidate;
   /* Is this a parameter passing stuff by reference?  */
-  bool m_by_ref;
+  bool by_ref;
 
   /* The number of this parameter as they are ordered in function decl.  */
-  int m_param_number;
-
+  int param_number;
   /* For parameters passing data by reference, this is parameter index to
      compute indices to bb_dereferences.  */
-  int m_deref_index;
+  int deref_index;
 };
 
-/* Properly deallocate m_accesses of DESC.  TODO: Since this data strucutre is
+/* Properly deallocate accesses of DESC.  TODO: Since this data strucutre is
    not in GC memory, this is not necessary and we can consider removing the
    function.  */
 
@@ -614,21 +610,17 @@ debug_isra_access (param_access *access)
 static void
 dump_gensum_param_descriptor (FILE *f, gensum_param_desc *desc)
 {
-  if (desc->m_locally_unused)
-    {
-      fprintf (f, "    unused with %i call_uses\n", desc->m_call_uses);
-    }
-  if (!desc->m_split_candidate)
+  if (desc->locally_unused)
+    fprintf (f, "    unused with %i call_uses\n", desc->call_uses);
+  if (!desc->split_candidate)
     {
       fprintf (f, "    not a candidate\n");
       return;
     }
-  if (desc->m_by_ref)
+  if (desc->by_ref)
     fprintf (f, "    by_ref with %u pass throughs\n", desc->ptr_pt_count);
 
-  for (gensum_param_access *acc = desc->x_accesses;
-       acc;
-       acc = acc->next_sibling)
+  for (gensum_param_access *acc = desc->accesses; acc; acc = acc->next_sibling)
     dump_gensum_access (f, acc, 2);
 }
 
@@ -1023,7 +1015,7 @@ create_parameter_descriptors (cgraph_node *node,
       const char *msg;
       gensum_param_desc *desc = &(*param_descriptions)[num];
       /* param_descriptions vector is grown cleared in the caller.  */
-      desc->m_param_number = num;
+      desc->param_number = num;
       decl2desc->put (parm, desc);
 
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1064,8 +1056,8 @@ create_parameter_descriptors (cgraph_node *node,
 	    fprintf (dump_file, " is a scalar with only %i call uses\n",
 		     scalar_call_uses);
 
-	  desc->m_locally_unused = true;
-	  desc->m_call_uses = scalar_call_uses;
+	  desc->locally_unused = true;
+	  desc->call_uses = scalar_call_uses;
 	}
 
       if (POINTER_TYPE_P (type))
@@ -1117,7 +1109,7 @@ create_parameter_descriptors (cgraph_node *node,
 			 "nonarg uses\n");
 	      continue;
 	    }
-	  desc->m_by_ref = true;
+	  desc->by_ref = true;
 	}
       else if (!AGGREGATE_TYPE_P (type))
 	{
@@ -1160,9 +1152,9 @@ create_parameter_descriptors (cgraph_node *node,
 	fprintf (dump_file, " is a candidate\n");
 
       ret = true;
-      desc->m_split_candidate = true;
-      if (desc->m_by_ref)
-	desc->m_deref_index = by_ref_count++;
+      desc->split_candidate = true;
+      if (desc->by_ref)
+	desc->deref_index = by_ref_count++;
     }
   return ret;
 }
@@ -1189,14 +1181,14 @@ get_gensum_param_desc (tree decl)
 static void
 disqualify_split_candidate (gensum_param_desc *desc, const char *reason)
 {
-  if (!desc->m_split_candidate)
+  if (!desc->split_candidate)
     return;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "! Disqualifying parameter number %i - %s\n",
-	     desc->m_param_number, reason);
+	     desc->param_number, reason);
 
-  desc->m_split_candidate = false;
+  desc->split_candidate = false;
 }
 
 /* Remove DECL from candidates for IPA-SRA and write REASON to the dump file if
@@ -1218,7 +1210,7 @@ static gensum_param_access *
 allocate_access (gensum_param_desc *desc,
 		 HOST_WIDE_INT offset, HOST_WIDE_INT size)
 {
-  if (desc->m_access_count
+  if (desc->access_count
       == (unsigned) PARAM_VALUE (PARAM_IPA_SRA_MAX_REPLACEMENTS))
     {
       disqualify_split_candidate (desc, "Too many replacement candidates");
@@ -1375,9 +1367,9 @@ static gensum_param_access *
 get_access (gensum_param_desc *desc, HOST_WIDE_INT offset, HOST_WIDE_INT size,
 	    isra_scan_context ctx)
 {
-  gcc_checking_assert (desc->m_split_candidate);
+  gcc_checking_assert (desc->split_candidate);
 
-  gensum_param_access *access = get_access_1 (desc, &desc->x_accesses, offset,
+  gensum_param_access *access = get_access_1 (desc, &desc->accesses, offset,
 					      size, ctx);
   if (!access)
     {
@@ -1389,7 +1381,7 @@ get_access (gensum_param_desc *desc, HOST_WIDE_INT offset, HOST_WIDE_INT size,
   switch (ctx)
     {
     case ISRA_CTX_STORE:
-      gcc_assert (!desc->m_by_ref);
+      gcc_assert (!desc->by_ref);
       /* Fall-through */
     case ISRA_CTX_LOAD:
       access->nonarg = true;
@@ -1485,13 +1477,13 @@ static void
 mark_param_dereference (gensum_param_desc *desc, HOST_WIDE_INT dist,
 		       basic_block bb)
 {
-  gcc_assert (desc->m_by_ref);
-  gcc_checking_assert (desc->m_split_candidate);
+  gcc_assert (desc->by_ref);
+  gcc_checking_assert (desc->split_candidate);
 
   if (bitmap_bit_p (final_bbs, bb->index))
     return;
 
-  int idx = bb->index * by_ref_count + desc->m_deref_index;
+  int idx = bb->index * by_ref_count + desc->deref_index;
   if (bb_dereferences[idx] < dist)
     bb_dereferences[idx] = dist;
 }
@@ -1569,10 +1561,10 @@ record_nonregister_call_use (gensum_param_desc *desc,
 
   isra_param_flow *param_flow = &csum->m_inputs[call_info->arg_idx];
   param_flow->aggregate_pass_through = true;
-  set_single_param_flow_source (param_flow, desc->m_param_number);
+  set_single_param_flow_source (param_flow, desc->param_number);
   param_flow->unit_offset = unit_offset;
   param_flow->unit_size = unit_size;
-  desc->m_call_uses++;
+  desc->call_uses++;
 }
 
 /* Callback of walk_aliased_vdefs, just mark that there was a possible
@@ -1624,7 +1616,7 @@ scan_expr_access (tree expr, gimple *stmt, isra_scan_context ctx,
     return;
 
   gensum_param_desc *desc = get_gensum_param_desc (base);
-  if (!desc || !desc->m_split_candidate)
+  if (!desc || !desc->split_candidate)
     return;
 
   if (!poffset.is_constant (&offset)
@@ -1668,7 +1660,7 @@ scan_expr_access (tree expr, gimple *stmt, isra_scan_context ctx,
 
   if (deref)
     {
-      if (!desc->m_by_ref)
+      if (!desc->by_ref)
 	{
 	  disqualify_split_candidate (desc, "Dereferencing a non-reference.");
 	  return;
@@ -1716,7 +1708,7 @@ scan_expr_access (tree expr, gimple *stmt, isra_scan_context ctx,
   else
     /* Pointer parameters with direct uses should have been ruled out by
        analyzing SSA default def when looking at the paremeters.  */
-    gcc_assert (!desc->m_by_ref);
+    gcc_assert (!desc->by_ref);
 
   gensum_param_access *access = get_access (desc, offset, size, ctx);
   if (!access)
@@ -2111,9 +2103,9 @@ check_gensum_access (tree parm, gensum_param_desc *desc,
       return true;
     }
 
-  if (desc->m_by_ref)
+  if (desc->by_ref)
     {
-      int idx = (entry_bb_index * by_ref_count + desc->m_deref_index);
+      int idx = (entry_bb_index * by_ref_count + desc->deref_index);
       if ((access->offset + access->size) > bb_dereferences[idx])
 	{
 	  disqualify_split_candidate (desc, "Would create a possibly "
@@ -2174,15 +2166,15 @@ process_scan_results (cgraph_node *node, struct function *fun,
        desc_index++, parm = DECL_CHAIN (parm))
     {
       gensum_param_desc *desc = &(*param_descriptions)[desc_index];
-      if (!desc->m_locally_unused && !desc->m_split_candidate)
+      if (!desc->locally_unused && !desc->split_candidate)
 	continue;
 
       if (flag_checking)
-	isra_verify_access_tree (desc->x_accesses);
+	isra_verify_access_tree (desc->accesses);
 
       if (!dereferences_propagated
-	  && desc->m_by_ref
-	  && desc->x_accesses)
+	  && desc->by_ref
+	  && desc->accesses)
 	{
 	  propagate_dereference_distances (fun);
 	  dereferences_propagated = true;
@@ -2193,7 +2185,7 @@ process_scan_results (cgraph_node *node, struct function *fun,
       bool check_failed = false;
 
       int entry_bb_index = ENTRY_BLOCK_PTR_FOR_FN (fun)->index;
-      for (gensum_param_access *acc = desc->x_accesses;
+      for (gensum_param_access *acc = desc->accesses;
 	   acc;
 	   acc = acc->next_sibling)
 	if (check_gensum_access (parm, desc, acc, &nonarg_acc_size, &only_calls,
@@ -2206,18 +2198,18 @@ process_scan_results (cgraph_node *node, struct function *fun,
 	continue;
 
       if (only_calls)
-	desc->m_locally_unused = true;
+	desc->locally_unused = true;
 
       HOST_WIDE_INT cur_param_size
 	= tree_to_uhwi (TYPE_SIZE (TREE_TYPE (parm)));
       HOST_WIDE_INT param_size_limit;
-      if (!desc->m_by_ref || optimize_function_for_size_p (fun))
+      if (!desc->by_ref || optimize_function_for_size_p (fun))
 	param_size_limit = cur_param_size;
       else
 	param_size_limit = (PARAM_VALUE (PARAM_IPA_SRA_PTR_GROWTH_FACTOR)
 			   * cur_param_size);
       if (nonarg_acc_size > param_size_limit
-	  || (!desc->m_by_ref && nonarg_acc_size == param_size_limit))
+	  || (!desc->by_ref && nonarg_acc_size == param_size_limit))
 	{
 	  disqualify_split_candidate (desc, "Would result into a too big set of"
 				      "replacements.");
@@ -2229,9 +2221,9 @@ process_scan_results (cgraph_node *node, struct function *fun,
 	     ISRA_ARG_SIZE_LIMIT.  */
 	  desc->param_size_limit = param_size_limit / BITS_PER_UNIT;
 	  desc->nonarg_acc_size = nonarg_acc_size / BITS_PER_UNIT;
-	  if (desc->m_split_candidate && desc->ptr_pt_count)
+	  if (desc->split_candidate && desc->ptr_pt_count)
 	    {
-	      gcc_assert (desc->m_by_ref); /* TODO: Remove after testing.  */
+	      gcc_assert (desc->by_ref); /* TODO: Remove after testing.  */
 	      check_pass_throughs = true;
 	    }
 	}
@@ -2278,7 +2270,7 @@ process_scan_results (cgraph_node *node, struct function *fun,
 	    unsigned pidx
 	      = get_single_param_flow_source (&csum->m_inputs[argidx]);
 	    gensum_param_desc *desc = &(*param_descriptions)[pidx];
-	    if (!desc->m_split_candidate)
+	    if (!desc->split_candidate)
 	      {
 		csum->m_inputs[argidx].pointer_pass_through = false;
 		continue;
@@ -2321,11 +2313,11 @@ process_scan_results (cgraph_node *node, struct function *fun,
 
       d->param_size_limit = s->param_size_limit;
       d->size_reached = s->nonarg_acc_size;
-      d->locally_unused = s->m_locally_unused;
-      d->split_candidate = s->m_split_candidate;
-      d->by_ref = s->m_by_ref;
+      d->locally_unused = s->locally_unused;
+      d->split_candidate = s->split_candidate;
+      d->by_ref = s->by_ref;
 
-      for (gensum_param_access *acc = s->x_accesses;
+      for (gensum_param_access *acc = s->accesses;
 	   acc;
 	   acc = acc->next_sibling)
 	copy_accesses_to_ipa_desc (acc, d);
