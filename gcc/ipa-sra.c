@@ -3426,19 +3426,16 @@ param_splitting_across_edge (cgraph_edge *cs)
 }
 
 /* Check for any overlaps of certain param accesses among splitting candidates
-   and if any are found disqualify them and return true.  */
+   and signal an ICE if there are any.  Similarly, check that used splitting
+   candidates have a certain access.  */
 
-static bool
-validate_splitting_overlaps (cgraph_node *node)
+static void
+verify_final_splitting_accesses (cgraph_node *node)
 {
-  bool res = false;
   isra_func_summary *ifs = func_sums->get (node);
-  if (!ifs || !ifs->m_candidate || vec_safe_is_empty (ifs->m_parameters))
-    return res;
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "Validating splits for %s\n", node->dump_name ());
+  if (!ifs || !ifs->m_candidate)
+    return;
   unsigned param_count = vec_safe_length (ifs->m_parameters);
-
   for (unsigned pidx = 0; pidx < param_count; pidx++)
     {
       isra_param_desc *desc = &(*ifs->m_parameters)[pidx];
@@ -3467,20 +3464,14 @@ validate_splitting_overlaps (cgraph_node *node)
 		}
 	    }
 	  if (overlap)
-	    {
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-		fprintf (dump_file, "Disqualifying parameter %u of %s"
-			 "because of late discovered overlap\n",
-			 pidx, node->dump_name ());
-	      desc->split_candidate = false;
-	      res = true;
-	      break;
-	    }
+	    internal_error ("Function %s, parameter %u, has IPA_SRA accesses "
+			    "which overlap", node->dump_name (), pidx);
 	}
-      /* !!? remove after testing?  */
-      gcc_checking_assert (certain_access_present);
+      if (!certain_access_present)
+	internal_error ("Function %s, parameter %u, is used but does not "
+			"have any certain IPA-SRA access",
+			node->dump_name (), pidx);
     }
-  return res;
 }
 
 /* Worker for call_for_symbol_and_aliases, look at all callers and if all their
@@ -3692,35 +3683,27 @@ ipa_sra_analysis (void)
 	}
 
       /* Parameter splitting.  */
-      bool repeat_scc_propagation;
+      bool repeat_scc_access_propagation;
       do
 	{
-	  repeat_scc_propagation = false;
-	  bool repeat_edge_propagation;
-	  do
-	    {
-	      repeat_edge_propagation = false;
-	      FOR_EACH_VEC_ELT (cycle_nodes, j, v)
-		{
-		  isra_func_summary *ifs = func_sums->get (v);
-		  if (!ifs
-		      || !ifs->m_candidate
-		      || vec_safe_is_empty (ifs->m_parameters))
-		    continue;
-		  for (cgraph_edge *cs = v->callees; cs; cs = cs->next_callee)
-		    if (param_splitting_across_edge (cs))
-		      repeat_edge_propagation = true;
-		}
-	    }
-	  while (repeat_edge_propagation);
-
+	  repeat_scc_access_propagation = false;
 	  FOR_EACH_VEC_ELT (cycle_nodes, j, v)
-	    if (validate_splitting_overlaps (v))
-	      repeat_scc_propagation = true;
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file, "\n");
+	    {
+	      isra_func_summary *ifs = func_sums->get (v);
+	      if (!ifs
+		  || !ifs->m_candidate
+		  || vec_safe_is_empty (ifs->m_parameters))
+		continue;
+	      for (cgraph_edge *cs = v->callees; cs; cs = cs->next_callee)
+		if (param_splitting_across_edge (cs))
+		  repeat_scc_access_propagation = true;
+	    }
 	}
-      while (repeat_scc_propagation);
+      while (repeat_scc_access_propagation);
+
+      if (flag_checking)
+	FOR_EACH_VEC_ELT (cycle_nodes, j, v)
+	  verify_final_splitting_accesses (v);
 
       cycle_nodes.release ();
     }
