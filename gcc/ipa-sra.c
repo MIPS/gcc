@@ -310,7 +310,7 @@ class isra_call_summary
 {
 public:
   isra_call_summary ()
-    : m_inputs (), m_return_ignored (false), m_return_returned (false),
+    : m_arg_flow (), m_return_ignored (false), m_return_returned (false),
       m_bit_aligned_arg (false)
   {}
 
@@ -319,8 +319,7 @@ public:
 
   /* Information about what formal parameters of the caller are used to compute
      indivisual actual arguments of this call.  */
-
-  auto_vec <isra_param_flow> m_inputs; /* !!! Rename to arg_flow or sth similar? */
+  auto_vec <isra_param_flow> m_arg_flow;
 
   /* Set to true if the call statement does not have a LHS.  */
   unsigned m_return_ignored : 1;
@@ -410,7 +409,7 @@ public:
 static ipa_sra_call_summaries *call_sums;
 
 
-/* Initialize m_inputs of a particular instance of isra_call_summary.
+/* Initialize m_arg_flow of a particular instance of isra_call_summary.
    ARG_COUNT is the number of actual arguments passed.  */
 
 void
@@ -418,16 +417,16 @@ isra_call_summary::init_inputs (unsigned arg_count)
 {
   if (arg_count == 0)
     {
-      gcc_checking_assert (m_inputs.length () == 0);
+      gcc_checking_assert (m_arg_flow.length () == 0);
       return;
     }
-  if (m_inputs.length () == 0)
+  if (m_arg_flow.length () == 0)
     {
-      m_inputs.reserve_exact (arg_count);
-      m_inputs.quick_grow_cleared (arg_count);
+      m_arg_flow.reserve_exact (arg_count);
+      m_arg_flow.quick_grow_cleared (arg_count);
     }
   else
-    gcc_checking_assert (arg_count == m_inputs.length ());
+    gcc_checking_assert (arg_count == m_arg_flow.length ());
 }
 
 /* Dump all information in call summary to F.  */
@@ -439,10 +438,10 @@ isra_call_summary::dump (FILE *f)
     fprintf (f, "    return value ignored\n");
   if (m_return_returned)
     fprintf (f, "    return value used only to compute caller return value\n");
-  for (unsigned i = 0; i < m_inputs.length (); i++)
+  for (unsigned i = 0; i < m_arg_flow.length (); i++)
     {
       fprintf (f, "    Parameter %u:\n", i);
-      isra_param_flow *ipf = &m_inputs[i];
+      isra_param_flow *ipf = &m_arg_flow[i];
 
       if (ipf->length)
 	{
@@ -789,7 +788,7 @@ isra_track_scalar_value_uses (cgraph_node *node, tree name, int parm_num,
 	  for (unsigned i = 0; i < arg_count; i++)
 	    if (gimple_call_arg (call, i) == name)
 	      {
-		if (!add_src_to_param_flow (&csum->m_inputs[i], parm_num))
+		if (!add_src_to_param_flow (&csum->m_arg_flow[i], parm_num))
 		  {
 		    simple_uses = -1;
 		    break;
@@ -958,8 +957,8 @@ ptr_parm_has_nonarg_uses (cgraph_node *node, function *fun, tree parm,
 		  /* TODO: Allow &MEM_REF[name + offset] here,
 		     ipa_param_body_adjustments::modify_call_stmt has to be
 		     adjusted too.  */
-		  csum->m_inputs[i].pointer_pass_through = true;
-		  set_single_param_flow_source (&csum->m_inputs[i], parm_num);
+		  csum->m_arg_flow[i].pointer_pass_through = true;
+		  set_single_param_flow_source (&csum->m_arg_flow[i], parm_num);
 		  pt_count++;
 		  uses_ok++;
 		  continue;
@@ -1559,7 +1558,7 @@ record_nonregister_call_use (gensum_param_desc *desc,
   isra_call_summary *csum = call_sums->get_create (call_info->cs);
   csum->init_inputs (call_info->argument_count);
 
-  isra_param_flow *param_flow = &csum->m_inputs[call_info->arg_idx];
+  isra_param_flow *param_flow = &csum->m_arg_flow[call_info->arg_idx];
   param_flow->aggregate_pass_through = true;
   set_single_param_flow_source (param_flow, desc->param_number);
   param_flow->unit_offset = unit_offset;
@@ -2265,14 +2264,14 @@ process_scan_results (cgraph_node *node, struct function *fun,
 	csum->init_inputs (count);
 	for (unsigned argidx = 0; argidx < count; argidx++)
 	  {
-	    if (!csum->m_inputs[argidx].pointer_pass_through)
+	    if (!csum->m_arg_flow[argidx].pointer_pass_through)
 	      continue;
 	    unsigned pidx
-	      = get_single_param_flow_source (&csum->m_inputs[argidx]);
+	      = get_single_param_flow_source (&csum->m_arg_flow[argidx]);
 	    gensum_param_desc *desc = &(*param_descriptions)[pidx];
 	    if (!desc->split_candidate)
 	      {
-		csum->m_inputs[argidx].pointer_pass_through = false;
+		csum->m_arg_flow[argidx].pointer_pass_through = false;
 		continue;
 	      }
 	    if (!uses_memory_as_obtained)
@@ -2291,7 +2290,7 @@ process_scan_results (cgraph_node *node, struct function *fun,
 	    if (dominated_by_p (CDI_POST_DOMINATORS,
 				gimple_bb (call_stmt),
 				single_succ (ENTRY_BLOCK_PTR_FOR_FN (fun))))
-	      csum->m_inputs[argidx].safe_to_import_accesses = true;
+	      csum->m_arg_flow[argidx].safe_to_import_accesses = true;
 	  }
 
       }
@@ -2421,11 +2420,11 @@ static void
 isra_write_edge_summary (output_block *ob, cgraph_edge *e)
 {
   isra_call_summary *csum = call_sums->get (e);
-  unsigned input_count = csum->m_inputs.length ();
+  unsigned input_count = csum->m_arg_flow.length ();
   streamer_write_uhwi (ob, input_count);
   for (unsigned i = 0; i < input_count; i++)
     {
-      isra_param_flow *ipf = &csum->m_inputs[i];
+      isra_param_flow *ipf = &csum->m_arg_flow[i];
       streamer_write_hwi (ob, ipf->length);
       bitpack_d bp = bitpack_create (ob->main_stream);
       for (int j = 0; j < ipf->length; j++)
@@ -2544,7 +2543,7 @@ isra_read_edge_summary (struct lto_input_block *ib, cgraph_edge *cs)
   csum->init_inputs (input_count);
   for (unsigned i = 0; i < input_count; i++)
     {
-      isra_param_flow *ipf = &csum->m_inputs[i];
+      isra_param_flow *ipf = &csum->m_arg_flow[i];
       ipf->length = streamer_read_hwi (ib);
       bitpack_d bp = streamer_read_bitpack (ib);
       for (int j = 0; j < ipf->length; j++)
@@ -2905,10 +2904,10 @@ process_edge_to_unknown_caller (cgraph_edge *cs)
     fprintf (dump_file, "Processing an edge to an unknown caller from %s:\n",
 	     cs->caller->dump_name ());
 
-  unsigned args_count = csum->m_inputs.length ();
+  unsigned args_count = csum->m_arg_flow.length ();
   for (unsigned i = 0; i < args_count; i++)
     {
-      isra_param_flow *ipf = &csum->m_inputs[i];
+      isra_param_flow *ipf = &csum->m_arg_flow[i];
 
      if (ipf->pointer_pass_through)
        {
@@ -2965,7 +2964,7 @@ param_removal_cross_scc_edge (cgraph_edge *cs)
   gcc_checking_assert (from_ifs);
 
   isra_call_summary *csum = call_sums->get (cs);
-  unsigned args_count = csum->m_inputs.length ();
+  unsigned args_count = csum->m_arg_flow.length ();
   unsigned param_count = vec_safe_length (to_ifs->m_parameters);
 
   for (unsigned i = 0; i < args_count; i++)
@@ -2978,7 +2977,7 @@ param_removal_cross_scc_edge (cgraph_edge *cs)
 
       if (!unused_in_callee)
 	{
-	  isra_param_flow *ipf = &csum->m_inputs[i];
+	  isra_param_flow *ipf = &csum->m_arg_flow[i];
 	  for (int j = 0; j < ipf->length; j++)
 	    {
 	      int input_idx = ipf->inputs[j];
@@ -3030,7 +3029,7 @@ propagate_used_across_scc_edge (cgraph_edge *cs, vec<cgraph_node *> *stack)
 
   isra_call_summary *csum = call_sums->get (cs);
   gcc_checking_assert (csum);
-  unsigned args_count = csum->m_inputs.length ();
+  unsigned args_count = csum->m_arg_flow.length ();
   enum availability availability;
   cgraph_node *callee = cs->callee->function_symbol (&availability);
   isra_func_summary *to_ifs = func_sums->get (callee);
@@ -3046,7 +3045,7 @@ propagate_used_across_scc_edge (cgraph_edge *cs, vec<cgraph_node *> *stack)
 
       /* The argument is needed in the callee it, we must mark the parameter as
 	 used also in the caller and its callers within this SCC.  */
-      isra_param_flow *ipf = &csum->m_inputs[i];
+      isra_param_flow *ipf = &csum->m_arg_flow[i];
       for (int j = 0; j < ipf->length; j++)
 	{
 	  int input_idx = ipf->inputs[j];
@@ -3240,7 +3239,7 @@ param_splitting_across_edge (cgraph_edge *cs)
 
   isra_call_summary *csum = call_sums->get (cs);
   gcc_checking_assert (csum);
-  unsigned args_count = csum->m_inputs.length ();
+  unsigned args_count = csum->m_arg_flow.length ();
   isra_func_summary *to_ifs = func_sums->get (callee);
   unsigned param_count
     = ((to_ifs && to_ifs->m_candidate && (availability >= AVAIL_AVAILABLE))
@@ -3255,7 +3254,7 @@ param_splitting_across_edge (cgraph_edge *cs)
   for (i = 0; (i < args_count) && (i < param_count); i++)
     {
       isra_param_desc *arg_desc = &(*to_ifs->m_parameters)[i];
-      isra_param_flow *ipf = &csum->m_inputs[i];
+      isra_param_flow *ipf = &csum->m_arg_flow[i];
 
       if (arg_desc->locally_unused)
 	{
@@ -3384,7 +3383,7 @@ param_splitting_across_edge (cgraph_edge *cs)
   /* Handle argument-parameter count mismatches. */
   for (; (i < args_count); i++)
     {
-      isra_param_flow *ipf = &csum->m_inputs[i];
+      isra_param_flow *ipf = &csum->m_arg_flow[i];
 
       if (ipf->pointer_pass_through || ipf->aggregate_pass_through)
 	{
