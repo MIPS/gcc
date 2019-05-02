@@ -2245,7 +2245,7 @@ process_scan_results (cgraph_node *node, struct function *fun,
      offset in this function at IPA level.
 
      TODO: Measure the overhead and the effect of just being pessimistic.
-     Maybe this is ony -O3 material?  !!!
+     Maybe this is ony -O3 material?
   */
   bool pdoms_calculated = false;
   if (check_pass_throughs)
@@ -2301,7 +2301,11 @@ process_scan_results (cgraph_node *node, struct function *fun,
       pop_cfun ();
     }
 
-  /* !!! FIXME: Add early exit if we disqualified everything?  */
+  /* TODO: Add early exit if we disqualified everything.  This also requires
+     that we either relax the restriction that
+     ipa_param_adjustments.m_always_copy_start mut be the number of PARM_DECLs
+     or store the number of parameters to IPA-SRA function summary and use that
+     when just removing params.  */
 
   vec_safe_reserve_exact (ifs->m_parameters, param_count);
   ifs->m_parameters->quick_grow_cleared (param_count);
@@ -3412,7 +3416,7 @@ validate_splitting_overlaps (cgraph_node *node)
 {
   bool res = false;
   isra_func_summary *ifs = func_sums->get (node);
-  if (!ifs || !ifs->m_candidate)
+  if (!ifs || !ifs->m_candidate || vec_safe_is_empty (ifs->m_parameters))
     return res;
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Validating splits for %s\n", node->dump_name ());
@@ -3642,7 +3646,8 @@ ipa_sra_analysis (void)
 	      ifs->zap ();
 	      continue;
 	    }
-
+	  if (vec_safe_is_empty (ifs->m_parameters))
+	    continue;
 	  for (cgraph_edge *cs = v->indirect_calls; cs; cs = cs->next_callee)
 	    process_edge_to_unknown_caller (cs);
 	  for (cgraph_edge *cs = v->callees; cs; cs = cs->next_callee)
@@ -3681,7 +3686,9 @@ ipa_sra_analysis (void)
 	      FOR_EACH_VEC_ELT (cycle_nodes, j, v)
 		{
 		  isra_func_summary *ifs = func_sums->get (v);
-		  if (!ifs || !ifs->m_candidate || !ifs->m_parameters)
+		  if (!ifs
+		      || !ifs->m_candidate
+		      || vec_safe_is_empty (ifs->m_parameters))
 		    continue;
 		  for (cgraph_edge *cs = v->callees; cs; cs = cs->next_callee)
 		    if (param_splitting_across_edge (cs))
@@ -3813,7 +3820,7 @@ public:
   /* opt_pass methods: */
   virtual bool gate (function *)
     {
-      /* FIXME: We should remove the optimize check after we ensure we never run
+      /* TODO: We should remove the optimize check after we ensure we never run
 	 IPA passes when not optimizing.  */
       return (flag_ipa_sra && optimize);
     }
