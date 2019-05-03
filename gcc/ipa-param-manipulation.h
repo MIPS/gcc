@@ -137,7 +137,6 @@ public:
   gcall *modify_call (gcall *stmt,
 		      vec<ipa_param_performed_split, va_gc> *performed_splits,
 		      tree callee_decl, bool update_references);
-  void modify_call (cgraph_edge *cs);
   bool first_param_intact_p ();
   tree build_new_function_type (tree old_type, bool type_is_original_p);
   tree adjust_decl (tree orig_decl);

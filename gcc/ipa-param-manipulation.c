@@ -170,11 +170,11 @@ fill_vector_of_new_param_types (vec<tree> *new_types, vec<tree> *otypes,
 	{
 	  unsigned index
 	    = use_prev_indices ? apm->prev_clone_index : apm->base_index;
-	  /* The following needs to be handled gracefully by breaking because
-	     of type mismatches.  This happens with LTO but apparently also in
-	     Fortran with -fcoarray=lib  -O2  -lcaf_single -latomic.  */
+	  /* The following needs to be handled gracefully because of type
+	     mismatches.  This happens with LTO but apparently also in Fortran
+	     with -fcoarray=lib -O2 -lcaf_single -latomic.  */
 	  if (index >= otypes->length ())
-	    continue;
+	    continue; 		/* revisit!!! */
 	  new_types->quick_push ((*otypes)[index]);
 	}
       else if (apm->op == IPA_PARAM_OP_NEW
@@ -226,10 +226,10 @@ build_adjusted_function_type (tree orig_type, vec<tree> *new_param_types,
       new_arg_types = new_reversed;
     }
 
-  /* Use copy_node to preserve as much as possible from original type
-     (debug info, attribute lists etc.)
-     Exception is METHOD_TYPEs which must have THIS argument and when we are
-     asked to remove it, we need to build new FUNCTION_TYPE instead.  */
+  /* Use build_distinct_type_copy to preserve as much as possible from original
+     type (debug info, attribute lists etc.).  The one exception is
+     METHOD_TYPEs which must have THIS argument and when we are asked to remove
+     it, we need to build new FUNCTION_TYPE instead.  */
   tree new_type = NULL;
   if (method2func)
     {
@@ -254,7 +254,6 @@ build_adjusted_function_type (tree orig_type, vec<tree> *new_param_types,
 
   return new_type;
 }
-
 
 /* Return the maximum index in any IPA_PARAM_OP_COPY adjustment or -1 if there
    is none.  */
@@ -345,14 +344,14 @@ ipa_param_adjustments::method2func_p (tree orig_type)
 }
 
 /* Given function type OLD_TYPE, return a new type derived from it after
-   performing all atored modifications.  ULTIMATE_ORIGIN should be true when
+   performing all atored modifications.  TYPE_ORIGINAL_P should be true when
    OLD_TYPE refers to the type before any IPA transformations, as opposed to a
    type that can be an intermediate one in between various IPA
    transformations.  */
 
 tree
 ipa_param_adjustments::build_new_function_type (tree old_type,
-						bool type_is_original_p)
+						bool type_original_p)
 {
   auto_vec<tree,16> new_param_types, *new_param_types_p;
   if (prototype_p (old_type))
@@ -360,7 +359,7 @@ ipa_param_adjustments::build_new_function_type (tree old_type,
       auto_vec<tree, 16> otypes;
       ipa_fill_vector_with_formal_parm_types (&otypes, old_type);
       fill_vector_of_new_param_types (&new_param_types, &otypes, m_adj_params,
-				      !type_is_original_p);
+				      !type_original_p);
       new_param_types_p = &new_param_types;
     }
   else
@@ -370,11 +369,12 @@ ipa_param_adjustments::build_new_function_type (tree old_type,
 				       method2func_p (old_type), m_skip_return);
 }
 
-/* Build variant of function decl ORIG_DECL skipping ARGS_TO_SKIP and the
-   return value if SKIP_RETURN is true.  Arguments from DECL_ARGUMENTS list are
-   not removed now, since they are linked by TREE_CHAIN directly and not
-   accessible in LTO during WPA.  The caller is responsible for eliminating
-   them when clones are properly materialized.  */
+/* Build variant of function decl ORIG_DECL which has no return value if
+   M_SKIP_RETURN is true and, if ORIG_DECL's types or parameters is known, has
+   this type adjusted as indicated in M_ADJ_PARAMS. Arguments from
+   DECL_ARGUMENTS list are not processed now, since they are linked by
+   TREE_CHAIN directly and not accessible in LTO during WPA.  The caller is
+   responsible for eliminating them when clones are properly materialized.  */
 
 tree
 ipa_param_adjustments::adjust_decl (tree orig_decl)
@@ -873,19 +873,6 @@ ipa_param_adjustments::modify_call (gcall *stmt,
       }
     while (gsi_stmt (gsi) != gsi_stmt (prev_gsi));
   return new_stmt;
-}
-
-/* Note that this variant will always re-record references.  */
-/* FIXME: This is for early IPA-SRA only, consider removing when it is
-   gone.  */
-void
-ipa_param_adjustments::modify_call (struct cgraph_edge *cs)
-{
-  gcall *old_call = cs->call_stmt;
-  tree callee_decl = cs->callee ? cs->callee->decl : NULL;
-  /* TODO: Set current_function_decl? */
-  gcall *new_call = modify_call (old_call, NULL, callee_decl, true);
-  cs->set_call_stmt (new_call);
 }
 
 /* Dump information contained in the object in textual form to F.  */
