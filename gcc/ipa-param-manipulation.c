@@ -554,7 +554,7 @@ ipa_param_adjustments::modify_call (gcall *stmt,
 {
   unsigned len = vec_safe_length (m_adj_params);
   auto_vec<tree, 16> vargs (len);
-  tree old_decl = m_old_decl ? m_old_decl : gimple_call_fndecl (stmt);
+  tree old_decl = gimple_call_fndecl (stmt);
   unsigned old_nargs = gimple_call_num_args (stmt);
   auto_vec<bool, 16> kept (old_nargs);
   kept.quick_grow_cleared (old_nargs);

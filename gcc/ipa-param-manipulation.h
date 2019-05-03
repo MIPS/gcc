@@ -84,7 +84,7 @@ struct GTY(()) ipa_adjusted_param
   enum ipa_parm_op op : 2;
 
   /* If set, this structure describes a parameter copied over from a previous
-     IPA clone, any sophisticated modifications are thus not to be re-done.  */
+     IPA clone, any transformations are thus not to be re-done.  */
   unsigned prev_clone_adjustment : 1;
 
   /* Index into ipa_param_prefixes specifying a prefix to be used with
@@ -121,7 +121,8 @@ struct GTY(()) ipa_param_performed_split
 
 /* Class used to record planned modifications to parameters of a function and
    also to perform necessary modifications at the caller side at the gimple
-   level.  */
+   level.  Used to describe all cgraph node clones that have their parameters
+   changed, therefore the class should only have a small memory footprint.  */
 
 class GTY(()) ipa_param_adjustments
 {
@@ -132,15 +133,10 @@ public:
       anything beyond what is described in NEW_PARAMS), and SKIP_RETURN, which
       indicates that the function should return void after transformation.  */
 
-  /* TODO: OLD_DECL is only necessary to support generating debuginfo for the
-     old early IPA SRA.  Will be removed after transitioning to true
-     IPA-SRA.  */
-
   ipa_param_adjustments (vec<ipa_adjusted_param, va_gc> *new_params,
-			 int always_copy_start, bool skip_return,
-			 tree old_decl = NULL)
+			 int always_copy_start, bool skip_return)
     : m_adj_params (new_params), m_always_copy_start (always_copy_start),
-    m_skip_return (skip_return), m_old_decl (old_decl)
+    m_skip_return (skip_return)
     {}
 
   gcall *modify_call (gcall *stmt,
@@ -159,15 +155,12 @@ public:
   /* How the known part of arguments should look like.  */
   vec<ipa_adjusted_param, va_gc> *m_adj_params;
 
-  /* If non-negative, copy any arguments starting at this offset.  */
+  /* If non-negative, copy any arguments starting at this offset without any
+     modifications.  */
   int m_always_copy_start;
   /* If true, make the function not return any value.  */
   bool m_skip_return;
 
-  /* TODO: The following field is only necessary to support generating
-     debuginfo for the old early IPA SRA.  Will be removed after transitioning
-     to IPA-SRA.  */
-  tree m_old_decl;
 private:
   ipa_param_adjustments () {}
 
