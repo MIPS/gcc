@@ -14631,13 +14631,11 @@ aarch64_sve_dup_immediate_p (rtx x)
 bool
 aarch64_sve_cmp_immediate_p (rtx x, bool signed_p)
 {
-  rtx elt;
-
-  return (const_vec_duplicate_p (x, &elt)
-	  && CONST_INT_P (elt)
+  x = unwrap_const_vec_duplicate (x);
+  return (CONST_INT_P (x)
 	  && (signed_p
-	      ? IN_RANGE (INTVAL (elt), -16, 15)
-	      : IN_RANGE (INTVAL (elt), 0, 127)));
+	      ? IN_RANGE (INTVAL (x), -16, 15)
+	      : IN_RANGE (INTVAL (x), 0, 127)));
 }
 
 /* Return true if X is a valid immediate operand for an SVE FADD or FSUB

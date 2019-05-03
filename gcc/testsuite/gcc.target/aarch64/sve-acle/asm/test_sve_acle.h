@@ -253,6 +253,28 @@
     BIND_OUTPUT_X (x0);			\
   }
 
+#define TEST_COMPARE_Z(NAME, TYPE, CODE1, CODE2)	\
+  START (NAME)						\
+  {							\
+    BIND_INPUT_Z0_Z3 (TYPE);				\
+    BIND_INPUT_P (p0);					\
+    BIND_INPUT_P (p1);					\
+    INVOKE (CODE1, CODE2);				\
+    BIND_OUTPUT_P (p0);					\
+  }
+
+#define TEST_COMPARE_ZS(NAME, ZTYPE, STYPE, CODE1, CODE2)	\
+  START (NAME)						\
+  {							\
+    BIND_INPUT_Z0_Z3 (ZTYPE);				\
+    BIND_INPUT_P (p0);					\
+    BIND_INPUT_P (p1);					\
+    BIND_INPUT_X (STYPE, x0);				\
+    BIND_INPUT_D (STYPE, d4);				\
+    INVOKE (CODE1, CODE2);				\
+    BIND_OUTPUT_P (p0);					\
+  }
+
 #define TEST_COMPARE_DUAL_Z(NAME, TYPE1, TYPE2, CODE1, CODE2)	\
   START (NAME)						\
   {							\

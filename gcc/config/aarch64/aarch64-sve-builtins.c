@@ -136,6 +136,12 @@ enum function_shape {
   /* sv<t0>_t svfoo_wide[_t0](sv<t0>_t, svuint64_t).  */
   SHAPE_binary_wide,
 
+  /* svbool_t svfoo[_t0](sv<t0>_t, sv<t0>_t)
+     svbool_t svfoo[_n_t0](sv<t0>_t, int64_t)  (for signed t0)
+     svbool_t svfoo[_n_t0](sv<t0>_t, uint64_t)  (for unsigned t0)
+     svbool_t svfoo[_n_t0](sv<t0>_t, <t0>_t)  (for floating-point t0).  */
+  SHAPE_compare_opt_n,
+
   /* svbool_t svfoo_wide[_t0](sv<t0>_t, svint64_t)  (for signed t0)
      svbool_t svfoo_wide[_t0](sv<t0>_t, svuint64_t)  (for unsigned t0).  */
   SHAPE_compare_wide,
@@ -442,6 +448,7 @@ struct GTY(()) function_instance {
   tree quarter_vector_type (unsigned int i) const;
   tree quarter_scalar_type (unsigned int i) const;
   tree wide_vector_type (unsigned int i) const;
+  tree wide_scalar_type (unsigned int i) const;
 
   /* The explicit "enum"s are required for gengtype.  */
   enum function func;
@@ -522,6 +529,8 @@ private:
 		  bool = false);
   void build_one (function_signature, const function_group &, function_mode,
 		  unsigned int, unsigned int, bool);
+  void sig_compare (const function_instance &, vec<tree> &);
+  void sig_compare_n (const function_instance &, vec<tree> &);
   void sig_compare_wide (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_create (const function_instance &, vec<tree> &);
@@ -729,11 +738,14 @@ public:
 private:
   rtx expand_abd ();
   rtx expand_abs ();
+  rtx expand_ac (int);
   rtx expand_add (unsigned int);
   rtx expand_and (unsigned int = DEFAULT_MERGE_ARGNO);
   rtx expand_asrd ();
   rtx expand_bic ();
+  rtx expand_cmp (rtx_code, rtx_code, int, int);
   rtx expand_cmp_wide (int, int);
+  rtx expand_cmpuo ();
   rtx expand_cnt_bhwd ();
   rtx expand_create ();
   rtx expand_div (bool);
@@ -1500,6 +1512,13 @@ function_instance::wide_vector_type (unsigned int i) const
   return acle_vector_types[0][wide_type_for (type_suffixes[types[i]].type)];
 }
 
+/* Return the wide scalar type associated with type suffix I.  */
+tree
+function_instance::wide_scalar_type (unsigned int i) const
+{
+  return scalar_types[wide_type_for (type_suffixes[types[i]].type)];
+}
+
 inline hashval_t
 registered_function_hasher::hash (value_type value)
 {
@@ -1599,6 +1618,12 @@ arm_sve_h_builder::build (const function_group &group)
     case SHAPE_binary_wide:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_00i, group, MODE_none);
+      break;
+
+    case SHAPE_compare_opt_n:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_compare, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_compare_n, group, MODE_n);
       break;
 
     case SHAPE_compare_wide:
@@ -1999,6 +2024,33 @@ arm_sve_h_builder::build_one (function_signature signature,
   (this->*signature) (instance, types);
   apply_predication (instance, types);
   add_function_instance (instance, types, force_direct_overloads);
+}
+
+/* Describe the signature "svbool_t svfoo[_t0](sv<t0>_t, sv<t0>_t)"
+   for INSTANCE in TYPES.  */
+void
+arm_sve_h_builder::sig_compare (const function_instance &instance,
+				vec<tree> &types)
+{
+  types.quick_push (get_svbool_t ());
+  types.quick_push (instance.vector_type (0));
+  types.quick_push (instance.vector_type (0));
+}
+
+/* Describe one of the signatures:
+
+     svbool_t svfoo[_n_t0](sv<t0>_t, int64_t)  (for signed t0)
+     svbool_t svfoo[_n_t0](sv<t0>_t, uint64_t)  (for unsigned t0)
+     svbool_t svfoo[_n_t0](sv<t0>_t, <t0>_t)  (for floating-point t0)
+
+   for INSTANCE in TYPES.  */
+void
+arm_sve_h_builder::sig_compare_n (const function_instance &instance,
+				  vec<tree> &types)
+{
+  types.quick_push (get_svbool_t ());
+  types.quick_push (instance.vector_type (0));
+  types.quick_push (instance.wide_scalar_type (0));
 }
 
 /* Describe one of the signatures:
@@ -2474,16 +2526,27 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     {
     case FUNC_svabd:
     case FUNC_svabs:
+    case FUNC_svacge:
+    case FUNC_svacgt:
+    case FUNC_svacle:
+    case FUNC_svaclt:
     case FUNC_svadd:
     case FUNC_svand:
     case FUNC_svasrd:
     case FUNC_svbic:
+    case FUNC_svcmpeq:
     case FUNC_svcmpeq_wide:
+    case FUNC_svcmpge:
     case FUNC_svcmpge_wide:
+    case FUNC_svcmpgt:
     case FUNC_svcmpgt_wide:
+    case FUNC_svcmple:
     case FUNC_svcmple_wide:
+    case FUNC_svcmplt:
     case FUNC_svcmplt_wide:
+    case FUNC_svcmpne:
     case FUNC_svcmpne_wide:
+    case FUNC_svcmpuo:
     case FUNC_svdiv:
     case FUNC_svdivr:
     case FUNC_svdot:
@@ -2644,6 +2707,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_binary:
     case SHAPE_binary_opt_n:
     case SHAPE_binary_wide:
+    case SHAPE_compare_opt_n:
     case SHAPE_compare_wide:
     case SHAPE_create2:
     case SHAPE_create3:
@@ -2767,6 +2831,7 @@ function_resolver::resolve ()
     {
     case SHAPE_binary:
     case SHAPE_binary_opt_n:
+    case SHAPE_compare_opt_n:
     case SHAPE_shift_opt_n:
       return resolve_uniform (2);
     case SHAPE_binary_pred:
@@ -3602,6 +3667,7 @@ function_checker::check ()
     case SHAPE_binary_pred:
     case SHAPE_binary_scalar:
     case SHAPE_binary_wide:
+    case SHAPE_compare_opt_n:
     case SHAPE_compare_wide:
     case SHAPE_create2:
     case SHAPE_create3:
@@ -3855,16 +3921,27 @@ gimple_folder::fold ()
     {
     case FUNC_svabd:
     case FUNC_svabs:
+    case FUNC_svacge:
+    case FUNC_svacgt:
+    case FUNC_svacle:
+    case FUNC_svaclt:
     case FUNC_svadd:
     case FUNC_svand:
     case FUNC_svasrd:
     case FUNC_svbic:
+    case FUNC_svcmpeq:
     case FUNC_svcmpeq_wide:
+    case FUNC_svcmpge:
     case FUNC_svcmpge_wide:
+    case FUNC_svcmpgt:
     case FUNC_svcmpgt_wide:
+    case FUNC_svcmple:
     case FUNC_svcmple_wide:
+    case FUNC_svcmplt:
     case FUNC_svcmplt_wide:
+    case FUNC_svcmpne:
     case FUNC_svcmpne_wide:
+    case FUNC_svcmpuo:
     case FUNC_svdiv:
     case FUNC_svdivr:
     case FUNC_svdot:
@@ -4339,6 +4416,18 @@ function_expander::expand ()
     case FUNC_svabs:
       return expand_abs ();
 
+    case FUNC_svacge:
+      return expand_ac (UNSPEC_COND_GE);
+
+    case FUNC_svacgt:
+      return expand_ac (UNSPEC_COND_GT);
+
+    case FUNC_svacle:
+      return expand_ac (UNSPEC_COND_LE);
+
+    case FUNC_svaclt:
+      return expand_ac (UNSPEC_COND_LT);
+
     case FUNC_svadd:
       return expand_add (1);
 
@@ -4351,23 +4440,44 @@ function_expander::expand ()
     case FUNC_svbic:
       return expand_bic ();
 
+    case FUNC_svcmpeq:
+      return expand_cmp (EQ, EQ, UNSPEC_COND_EQ, UNSPEC_COND_EQ);
+
     case FUNC_svcmpeq_wide:
       return expand_cmp_wide (UNSPEC_COND_EQ, UNSPEC_COND_EQ);
+
+    case FUNC_svcmpge:
+      return expand_cmp (GE, GEU, UNSPEC_COND_GE, UNSPEC_COND_GEU);
 
     case FUNC_svcmpge_wide:
       return expand_cmp_wide (UNSPEC_COND_GE, UNSPEC_COND_GEU);
 
+    case FUNC_svcmpgt:
+      return expand_cmp (GT, GTU, UNSPEC_COND_GT, UNSPEC_COND_GTU);
+
     case FUNC_svcmpgt_wide:
       return expand_cmp_wide (UNSPEC_COND_GT, UNSPEC_COND_GTU);
+
+    case FUNC_svcmple:
+      return expand_cmp (LE, LEU, UNSPEC_COND_LE, UNSPEC_COND_LEU);
 
     case FUNC_svcmple_wide:
       return expand_cmp_wide (UNSPEC_COND_LE, UNSPEC_COND_LEU);
 
+    case FUNC_svcmplt:
+      return expand_cmp (LT, LTU, UNSPEC_COND_LT, UNSPEC_COND_LTU);
+
     case FUNC_svcmplt_wide:
       return expand_cmp_wide (UNSPEC_COND_LT, UNSPEC_COND_LTU);
 
+    case FUNC_svcmpne:
+      return expand_cmp (NE, NE, UNSPEC_COND_NE, UNSPEC_COND_NE);
+
     case FUNC_svcmpne_wide:
       return expand_cmp_wide (UNSPEC_COND_NE, UNSPEC_COND_NE);
+
+    case FUNC_svcmpuo:
+      return expand_cmpuo ();
 
     case FUNC_svcntb:
     case FUNC_svcntd:
@@ -4659,6 +4769,15 @@ function_expander::expand_abs ()
   return expand_pred_op (ABS, UNSPEC_COND_FABS);
 }
 
+/* Expand a call to svac{ge,gt,le,lt}.  UNSPEC_CODE is the unspec code
+   for the comparison.  */
+rtx
+function_expander::expand_ac (int unspec_code)
+{
+  insn_code icode = code_for_aarch64_pred_fac (unspec_code, get_mode (0));
+  return expand_via_exact_insn (icode);
+}
+
 /* Expand a call to svadd, or svsub(r) with a negated operand.
    MERGE_ARGNO is the argument that should be used as the fallback
    value in a merging operation.  */
@@ -4725,6 +4844,42 @@ function_expander::expand_bic ()
     }
 }
 
+/* Expand a call to svcmp*.  CODE_FOR_SINT and CODE_FOR_UINT are the rtx
+   comparison codes for signed and unsigned operands respectively.
+   UNSPEC_FOR_SINT and UNSPEC_FOR_UINT are the corresponding unspec
+   codes for svcmp*_wide, with UNSPEC_FOR_SINT doubling as the unspec
+   code for predicated floating-point comparisons.  */
+rtx
+function_expander::expand_cmp (rtx_code code_for_sint,
+			       rtx_code code_for_uint,
+			       int unspec_for_sint,
+			       int unspec_for_uint)
+{
+  machine_mode mode = get_mode (0);
+  scalar_mode elt_mode = GET_MODE_INNER (mode);
+  if (type_suffixes[m_fi.types[0]].integer_p)
+    {
+      rtx_code code = (type_suffixes[m_fi.types[0]].unsigned_p
+		       ? code_for_uint
+		       : code_for_sint);
+      insn_code icode = code_for_aarch64_pred_cmp (code, mode);
+      if (m_fi.mode == MODE_n && mode != VNx2DImode)
+	{
+	  if (!CONSTANT_P (m_args[2])
+	      || !insn_data[icode].operand[3].predicate (m_args[2], DImode))
+	    return expand_cmp_wide (unspec_for_sint, unspec_for_uint);
+
+	  m_args[2] = lowpart_subreg (elt_mode, m_args[2], DImode);
+	}
+      return expand_via_exact_insn (icode);
+    }
+  else
+    {
+      insn_code icode = code_for_aarch64_pred_fcm (unspec_for_sint, mode);
+      return expand_via_exact_insn (icode);
+    }
+}
+
 /* Expand a call to svcmp*_wide.  UNSPEC_FOR_SINT and UNSPEC_FOR_UINT
    are the unspec codes for signed and unsigned operands respectively.  */
 rtx
@@ -4735,6 +4890,13 @@ function_expander::expand_cmp_wide (int unspec_for_sint, int unspec_for_uint)
 		: unspec_for_sint);
   insn_code icode = code_for_aarch64_pred_cmp_wide (unspec, get_mode (0));
   return expand_via_exact_insn (icode);
+}
+
+/* Expand a call to svcmpuo.  */
+rtx
+function_expander::expand_cmpuo ()
+{
+  return expand_via_exact_insn (code_for_aarch64_fcmuo_and (get_mode (0)));
 }
 
 /* Expand a call to svcnt[bhwd].  */

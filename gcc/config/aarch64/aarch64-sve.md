@@ -2416,7 +2416,7 @@
 )
 
 ;; Predicated integer comparisons.
-(define_insn "*pred_cmp<cmp_op><mode>"
+(define_insn "@aarch64_pred_cmp<cmp_op><mode>"
   [(set (match_operand:<VPRED> 0 "register_operand" "=Upa, Upa")
 	(and:<VPRED>
 	  (SVE_INT_CMP:<VPRED>
@@ -2424,6 +2424,53 @@
 	    (match_operand:SVE_I 3 "aarch64_sve_cmp_<sve_imm_con>_operand" "<sve_imm_con>, w"))
 	  (match_operand:<VPRED> 1 "register_operand" "Upl, Upl")))
    (clobber (reg:CC_NZC CC_REGNUM))]
+  "TARGET_SVE"
+  "@
+   cmp<cmp_op>\t%0.<Vetype>, %1/z, %2.<Vetype>, #%3
+   cmp<cmp_op>\t%0.<Vetype>, %1/z, %2.<Vetype>, %3.<Vetype>"
+)
+
+;; Predicated integer comparisons in which only the flags result
+;; is interesting.
+(define_insn "*aarch64_pred_cmp<cmp_op><mode>_test"
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl")
+	   (match_operand 4)
+	   (and:<VPRED>
+	     (SVE_INT_CMP:<VPRED>
+	       (match_operand:SVE_I 2 "register_operand" "w, w")
+	       (match_operand:SVE_I 3 "aarch64_sve_cmp_<sve_imm_con>_operand" "<sve_imm_con>, w"))
+	     (match_dup 4))
+	   (match_operand 5 "const_int_operand")]
+	  UNSPEC_PTEST))
+   (clobber (match_scratch:<VPRED> 0 "=Upa, Upa"))]
+  "TARGET_SVE"
+  "@
+   cmp<cmp_op>\t%0.<Vetype>, %1/z, %2.<Vetype>, #%3
+   cmp<cmp_op>\t%0.<Vetype>, %1/z, %2.<Vetype>, %3.<Vetype>"
+)
+
+;; Predicated integer comparisons in which both the flag and
+;; predicate results are interesting.
+(define_insn "*aarch64_pred_cmp<cmp_op><mode>_cc"
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl")
+	   (match_operand 4)
+	   (and:<VPRED>
+	     (SVE_INT_CMP:<VPRED>
+	       (match_operand:SVE_I 2 "register_operand" "w, w")
+	       (match_operand:SVE_I 3 "aarch64_sve_cmp_<sve_imm_con>_operand" "<sve_imm_con>, w"))
+	     (match_dup 4))
+	   (match_operand 5 "const_int_operand")]
+	  UNSPEC_PTEST))
+   (set (match_operand:<VPRED> 0 "register_operand" "=Upa, Upa")
+	(and:<VPRED>
+	  (SVE_INT_CMP:<VPRED>
+	    (match_dup 2)
+	    (match_dup 3))
+	  (match_dup 4)))]
   "TARGET_SVE"
   "@
    cmp<cmp_op>\t%0.<Vetype>, %1/z, %2.<Vetype>, #%3
@@ -2583,7 +2630,7 @@
    fcm<cmp_op>\t%0.<Vetype>, %1/z, %2.<Vetype>, %3.<Vetype>"
 )
 
-(define_insn "*fcmuo<mode>_and"
+(define_insn "@aarch64_fcmuo<mode>_and"
   [(set (match_operand:<VPRED> 0 "register_operand" "=Upa")
 	(and:<VPRED>
 	  (unordered:<VPRED>
@@ -2594,9 +2641,8 @@
   "fcmuo\t%0.<Vetype>, %1/z, %2.<Vetype>, %3.<Vetype>"
 )
 
-;; Predicated floating-point comparisons.  We don't need a version
-;; of this for unordered comparisons.
-(define_insn "*pred_fcm<cmp_op><mode>"
+;; Predicated floating-point comparisons.
+(define_insn "@aarch64_pred_fcm<cmp_op><mode>"
   [(set (match_operand:<VPRED> 0 "register_operand" "=Upa, Upa")
 	(unspec:<VPRED>
 	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl")
@@ -2607,6 +2653,18 @@
   "@
    fcm<cmp_op>\t%0.<Vetype>, %1/z, %2.<Vetype>, #0.0
    fcm<cmp_op>\t%0.<Vetype>, %1/z, %2.<Vetype>, %3.<Vetype>"
+)
+
+;; Predicated floating-point absolute comparisons.
+(define_insn "@aarch64_pred_fac<cmp_op><mode>"
+  [(set (match_operand:<VPRED> 0 "register_operand" "=Upa")
+	(unspec:<VPRED>
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl")
+	   (abs:SVE_F (match_operand:SVE_F 2 "register_operand" "w"))
+	   (abs:SVE_F (match_operand:SVE_F 3 "register_operand" "w"))]
+	  SVE_COND_FP_ABS_CMP))]
+  "TARGET_SVE"
+  "fac<cmp_op>\t%0.<Vetype>, %1/z, %2.<Vetype>, %3.<Vetype>"
 )
 
 ;; vcond_mask operand order: true, false, mask
