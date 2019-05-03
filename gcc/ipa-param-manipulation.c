@@ -141,9 +141,10 @@ ipa_dump_adjusted_parameters (FILE *f,
 	  fprintf (f, ", prev_clone_index: %u", apm->prev_clone_index);
 	  print_node_brief (f, ", type: ", apm->type, 0);
 	  print_node_brief (f, ", alias type: ", apm->alias_ptr_type, 0);
-	  fprintf (f, " prefix: %s, reverse: %u, by_ref: %u",
-		   ipa_param_prefixes[apm->param_prefix_index],
-		   apm->reverse, apm->by_ref);
+	  fprintf (f, " prefix: %s",
+		   ipa_param_prefixes[apm->param_prefix_index]);
+	  if (apm->reverse)
+	    fprintf (f, ", reverse-sso");
 	  break;
 	}
       fprintf (f, "\n");
@@ -179,19 +180,13 @@ fill_vector_of_new_param_types (vec<tree> *new_types, vec<tree> *otypes,
       else if (apm->op == IPA_PARAM_OP_NEW
 	       || apm->op == IPA_PARAM_OP_SPLIT)
 	{
-	  tree ntype;
-	  if (apm->by_ref)
-	    ntype = build_pointer_type (apm->type);
-	  else
+	  tree ntype = apm->type;
+	  if (is_gimple_reg_type (ntype)
+	      && TYPE_MODE (ntype) != BLKmode)
 	    {
-	      ntype = apm->type;
-	      if (is_gimple_reg_type (ntype)
-		  && TYPE_MODE (ntype) != BLKmode)
-		{
-		  unsigned malign = GET_MODE_ALIGNMENT (TYPE_MODE (ntype));
-		  if (TYPE_ALIGN (ntype) != malign)
-		    ntype = build_aligned_type (ntype, malign);
-		}
+	      unsigned malign = GET_MODE_ALIGNMENT (TYPE_MODE (ntype));
+	      if (TYPE_ALIGN (ntype) != malign)
+		ntype = build_aligned_type (ntype, malign);
 	    }
 	  new_types->quick_push (ntype);
 	}
@@ -645,21 +640,10 @@ ipa_param_adjustments::modify_call (gcall *stmt,
       /* We create a new parameter out of the value of the old one, we can
 	 do the following kind of transformations:
 
-	 - A scalar passed by reference is converted to a scalar passed by
-	 value.  (apm->by_ref is false and the type of the original
-	 actual argument is a pointer to a scalar).
+	 - A scalar passed by reference, potentially as a part of a larger
+	 aggregate, is converted to a scalar passed by value.
 
-	 - A part of an aggregate is passed instead of the whole aggregate.
-	 The part can be passed either by value or by reference, this is
-	 determined by value of apm->by_ref.  Moreover, the code below
-	 handles both situations when the original aggregate is passed by
-	 value (its type is not a pointer) and when it is passed by
-	 reference (it is a pointer to an aggregate).
-
-	 When the new argument is passed by reference (apm->by_ref is true)
-	 it must be a part of an aggregate and therefore we form it by
-	 simply taking the address of a reference inside the original
-	 aggregate.  */
+	 - A part of an aggregate is passed instead of the whole aggregate.  */
 
       location_t loc = gimple_location (stmt);
 
@@ -710,62 +694,50 @@ ipa_param_adjustments::modify_call (gcall *stmt,
 	    }
 	}
 
-      tree expr;
-      if (!apm->by_ref)
-	{
-	  tree type = apm->type;
-	  unsigned int align;
-	  unsigned HOST_WIDE_INT misalign;
+      tree type = apm->type;
+      unsigned int align;
+      unsigned HOST_WIDE_INT misalign;
 
-	  if (deref_base)
-	    {
-	      align = deref_align;
-	      misalign = 0;
-	    }
-	  else
-	    {
-	      get_pointer_alignment_1 (base, &align, &misalign);
-	      /* All users must make sure that we can be optimistic when it
-		 comes to alignment in this case (by inspecting the final users
-		 of these new parameters).  */
-	      if (TYPE_ALIGN (type) > align)
-		align = TYPE_ALIGN (type);
-	    }
-	  misalign += (offset_int::from (wi::to_wide (off),
-					 SIGNED).to_short_addr ()
-		       * BITS_PER_UNIT);
-	  misalign = misalign & (align - 1);
-	  if (misalign != 0)
-	    align = least_bit_hwi (misalign);
-	  if (align < TYPE_ALIGN (type))
-	    type = build_aligned_type (type, align);
-	  base = force_gimple_operand_gsi (&gsi, base,
-					   true, NULL, true, GSI_SAME_STMT);
-	  expr = fold_build2_loc (loc, MEM_REF, type, base, off);
-	  REF_REVERSE_STORAGE_ORDER (expr) = apm->reverse;
-	  /* If expr is not a valid gimple call argument emit
-	     a load into a temporary.  */
-	  if (is_gimple_reg_type (TREE_TYPE (expr)))
-	    {
-	      gimple *tem = gimple_build_assign (NULL_TREE, expr);
-	      if (gimple_in_ssa_p (cfun))
-		{
-		  gimple_set_vuse (tem, gimple_vuse (stmt));
-		  expr = make_ssa_name (TREE_TYPE (expr), tem);
-		}
-	      else
-		expr = create_tmp_reg (TREE_TYPE (expr));
-	      gimple_assign_set_lhs (tem, expr);
-	      gsi_insert_before (&gsi, tem, GSI_SAME_STMT);
-	    }
+      if (deref_base)
+	{
+	  align = deref_align;
+	  misalign = 0;
 	}
       else
 	{
-	  expr = fold_build2_loc (loc, MEM_REF, apm->type, base, off);
-	  REF_REVERSE_STORAGE_ORDER (expr) = apm->reverse;
-	  expr = build_fold_addr_expr (expr);
-	  expr = force_gimple_operand_gsi (&gsi, expr,
-					   true, NULL, true, GSI_SAME_STMT);
+	  get_pointer_alignment_1 (base, &align, &misalign);
+	  /* All users must make sure that we can be optimistic when it
+	     comes to alignment in this case (by inspecting the final users
+	     of these new parameters).  */
+	  if (TYPE_ALIGN (type) > align)
+	    align = TYPE_ALIGN (type);
+	}
+      misalign += (offset_int::from (wi::to_wide (off),
+				     SIGNED).to_short_addr ()
+		   * BITS_PER_UNIT);
+      misalign = misalign & (align - 1);
+      if (misalign != 0)
+	align = least_bit_hwi (misalign);
+      if (align < TYPE_ALIGN (type))
+	type = build_aligned_type (type, align);
+      base = force_gimple_operand_gsi (&gsi, base,
+				       true, NULL, true, GSI_SAME_STMT);
+      tree expr = fold_build2_loc (loc, MEM_REF, type, base, off);
+      REF_REVERSE_STORAGE_ORDER (expr) = apm->reverse;
+      /* If expr is not a valid gimple call argument emit
+	 a load into a temporary.  */
+      if (is_gimple_reg_type (TREE_TYPE (expr)))
+	{
+	  gimple *tem = gimple_build_assign (NULL_TREE, expr);
+	  if (gimple_in_ssa_p (cfun))
+	    {
+	      gimple_set_vuse (tem, gimple_vuse (stmt));
+	      expr = make_ssa_name (TREE_TYPE (expr), tem);
+	    }
+	  else
+	    expr = create_tmp_reg (TREE_TYPE (expr));
+	  gimple_assign_set_lhs (tem, expr);
+	  gsi_insert_before (&gsi, tem, GSI_SAME_STMT);
 	}
       vargs.quick_push (expr);
     }
@@ -951,8 +923,6 @@ ipa_param_body_adjustments::register_replacement (ipa_adjusted_param *apm,
   psr.repl = replacement;
   psr.dummy = dummy;
   psr.unit_offset = apm->unit_offset;
-  psr.by_ref = apm->by_ref;
-  psr.reverse = apm->reverse;
   m_replacements.safe_push (psr);
 }
 
@@ -1273,7 +1243,6 @@ ipa_param_body_adjustments::lookup_replacement (tree base, unsigned unit_offset)
   ipa_param_body_replacement *pbr = lookup_replacement_1 (base, unit_offset);
   if (!pbr)
     return NULL;
-  gcc_assert (!pbr->by_ref && !pbr->reverse);
   return pbr->repl;
 }
 
@@ -1411,15 +1380,7 @@ ipa_param_body_adjustments::modify_expr (tree *expr_p, bool convert)
   if (!pbr)
     return false;
 
-  tree repl;
-  if (pbr->by_ref)
-    {
-      repl = build_simple_mem_ref (pbr->repl);
-      REF_REVERSE_STORAGE_ORDER (repl) = pbr->reverse;
-    }
-  else
-    repl = pbr->repl;
-
+  tree repl = pbr->repl;
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "About to replace expr ");

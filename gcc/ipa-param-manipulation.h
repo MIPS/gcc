@@ -46,8 +46,7 @@ enum ipa_parm_op {
      original parameters, the user needs to manage the transition itself.  */
   IPA_PARAM_OP_NEW,
 
-    /* Split parameter as indicated by fields base_index, offset, type and
-     by_ref.  */
+    /* Split parameter as indicated by fields base_index, offset and type.  */
   IPA_PARAM_OP_SPLIT
 };
 
@@ -56,8 +55,7 @@ enum ipa_parm_op {
 
 struct GTY(()) ipa_adjusted_param
 {
-  /* Type of the new parameter.  However, if by_ref is true, the real type will
-     be a pointer to this type.  Required for all operations except
+  /* Type of the new parameter.  Required for all operations except
      IPA_PARM_OP_COPY when the original type will be preserved.  */
   tree type;
 
@@ -94,9 +92,6 @@ struct GTY(()) ipa_adjusted_param
   /* Storage order of the original parameter (for the cases when the new
      parameter is a component of an original one).  */
   unsigned reverse : 1;
-
-  /* Set when the parameter is to be passed by reference.  */
-  unsigned by_ref : 1;
 
   /* A bit free for the user.  */
   unsigned user_flag : 1;
@@ -177,8 +172,6 @@ struct ipa_param_body_replacement
 {
   tree base, repl, dummy;
   unsigned unit_offset;
-  bool by_ref;
-  bool reverse;
 };
 
 struct ipa_replace_map;

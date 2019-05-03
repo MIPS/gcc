@@ -1843,7 +1843,6 @@ output_node_opt_summary (struct output_block *ob,
 	  bp_pack_value (&bp, adj->param_prefix_index, 2);
 	  bp_pack_value (&bp, adj->prev_clone_adjustment, 1);
 	  bp_pack_value (&bp, adj->reverse, 1);
-	  bp_pack_value (&bp, adj->by_ref, 1);
 	  bp_pack_value (&bp, adj->user_flag, 1);
 	  streamer_write_bitpack (&bp);
 	  if (adj->op == IPA_PARAM_OP_SPLIT
@@ -1955,7 +1954,6 @@ input_node_opt_summary (struct cgraph_node *node,
 	  adj.param_prefix_index = bp_unpack_value (&bp, 2);
 	  adj.prev_clone_adjustment = bp_unpack_value (&bp, 1);
 	  adj.reverse = bp_unpack_value (&bp, 1);
-	  adj.by_ref = bp_unpack_value (&bp, 1);
 	  adj.user_flag = bp_unpack_value (&bp, 1);
 	  if (adj.op == IPA_PARAM_OP_SPLIT
 	      || adj.op == IPA_PARAM_OP_NEW)
