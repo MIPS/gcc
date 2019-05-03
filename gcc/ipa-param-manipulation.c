@@ -151,7 +151,9 @@ ipa_dump_adjusted_parameters (FILE *f,
 }
 
 /* Fill NEW_TYPES with types of a function after its current OTYPES have been
-   modified as described in ADJ_PARAMS.  */
+   modified as described in ADJ_PARAMS.  When USE_PREV_INDICES is true, use
+   prev_clone_index from ADJ_PARAMS as opposed to base_index when the parameter
+   is false.  */
 
 static void
 fill_vector_of_new_param_types (vec<tree> *new_types, vec<tree> *otypes,
@@ -179,8 +181,10 @@ fill_vector_of_new_param_types (vec<tree> *new_types, vec<tree> *otypes,
 	{
 	  tree ntype;
 	  if (apm->by_ref)
+	    ntype = build_pointer_type (apm->type);
+	  else
 	    {
-	      ntype = build_pointer_type (apm->type);
+	      ntype = apm->type;
 	      if (is_gimple_reg_type (ntype)
 		  && TYPE_MODE (ntype) != BLKmode)
 		{
@@ -189,8 +193,6 @@ fill_vector_of_new_param_types (vec<tree> *new_types, vec<tree> *otypes,
 		    ntype = build_aligned_type (ntype, malign);
 		}
 	    }
-	  else
-	    ntype = apm->type;
 	  new_types->quick_push (ntype);
 	}
       else
