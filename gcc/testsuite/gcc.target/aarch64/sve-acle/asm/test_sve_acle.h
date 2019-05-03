@@ -253,6 +253,17 @@
     BIND_OUTPUT_X (x0);			\
   }
 
+#define TEST_COMPARE_DUAL_Z(NAME, TYPE1, TYPE2, CODE1, CODE2)	\
+  START (NAME)						\
+  {							\
+    BIND_INPUT_Z (TYPE1, z0);				\
+    BIND_INPUT_Z (TYPE2, z1);				\
+    BIND_INPUT_P (p0);					\
+    BIND_INPUT_P (p1);					\
+    INVOKE (CODE1, CODE2);				\
+    BIND_OUTPUT_P (p0);					\
+  }
+
 #define TEST_S(NAME, ZTYPE, STYPE, CODE1)			\
   START (NAME)							\
   {								\

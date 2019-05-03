@@ -2430,6 +2430,66 @@
    cmp<cmp_op>\t%0.<Vetype>, %1/z, %2.<Vetype>, %3.<Vetype>"
 )
 
+;; Predicated integer wide comparisons.
+(define_insn "@aarch64_pred_cmp<cmp_op><mode>_wide"
+  [(set (match_operand:<VPRED> 0 "register_operand" "=Upa")
+	(and:<VPRED>
+	  (unspec:<VPRED>
+	    [(match_operand:SVE_BHSI 2 "register_operand" "w")
+	     (match_operand:VNx2DI 3 "register_operand" "w")]
+	    SVE_COND_INT_CMP)
+	  (match_operand:<VPRED> 1 "register_operand" "Upl")))
+   (clobber (reg:CC_NZC CC_REGNUM))]
+  "TARGET_SVE"
+  "cmp<cmp_op>\t%0.<Vetype>, %1/z, %2.<Vetype>, %3.d"
+)
+
+;; Predicated integer wide comparisons in which only the flags result
+;; is interesting.
+(define_insn "*aarch64_pred_cmp<cmp_op><mode>_wide_ptest"
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC
+	  [(match_operand:VNx16BI 1 "register_operand" "Upl")
+	   (match_operand 4)
+	   (and:<VPRED>
+	     (unspec:<VPRED>
+	       [(match_operand:SVE_BHSI 2 "register_operand" "w")
+		(match_operand:VNx2DI 3 "register_operand" "w")]
+	       SVE_COND_INT_CMP)
+	     (match_dup 4))
+	   (match_operand 5 "const_int_operand")]
+	  UNSPEC_PTEST))
+   (clobber (match_scratch:<VPRED> 0 "=Upa"))]
+  "TARGET_SVE"
+  "cmp<cmp_op>\t%0.<Vetype>, %1/z, %2.<Vetype>, %3.d"
+)
+
+;; Predicated integer wide comparisons in which both the flag and
+;; predicate results are interesting.
+(define_insn "*aarch64_pred_cmp<cmp_op><mode>_wide_cc"
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC
+	  [(match_operand:VNx16BI 1 "register_operand" "Upl")
+	   (match_operand 4)
+	   (and:<VPRED>
+	     (unspec:<VPRED>
+	       [(match_operand:SVE_BHSI 2 "register_operand" "w")
+		(match_operand:VNx2DI 3 "register_operand" "w")]
+	       SVE_COND_INT_CMP)
+	     (match_dup 4))
+	   (match_operand 5 "const_int_operand")]
+	  UNSPEC_PTEST))
+   (set (match_operand:<VPRED> 0 "register_operand" "=Upa")
+	(and:<VPRED>
+	  (unspec:<VPRED>
+	    [(match_dup 2)
+	     (match_dup 3)]
+	    SVE_COND_INT_CMP)
+	  (match_dup 4)))]
+  "TARGET_SVE"
+  "cmp<cmp_op>\t%0.<Vetype>, %1/z, %2.<Vetype>, %3.d"
+)
+
 ;; Floating-point comparisons predicated with a PTRUE.
 (define_insn "*fcm<cmp_op><mode>"
   [(set (match_operand:<VPRED> 0 "register_operand" "=Upa, Upa")

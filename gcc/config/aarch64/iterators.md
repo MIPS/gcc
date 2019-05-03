@@ -506,11 +506,15 @@
     UNSPEC_COND_FNMLA	; Used in aarch64-sve.md.
     UNSPEC_COND_FNMLS	; Used in aarch64-sve.md.
     UNSPEC_COND_LT	; Used in aarch64-sve.md.
+    UNSPEC_COND_LTU	; Used in aarch64-sve.md.
     UNSPEC_COND_LE	; Used in aarch64-sve.md.
+    UNSPEC_COND_LEU	; Used in aarch64-sve.md.
     UNSPEC_COND_EQ	; Used in aarch64-sve.md.
     UNSPEC_COND_NE	; Used in aarch64-sve.md.
     UNSPEC_COND_GE	; Used in aarch64-sve.md.
+    UNSPEC_COND_GEU	; Used in aarch64-sve.md.
     UNSPEC_COND_GT	; Used in aarch64-sve.md.
+    UNSPEC_COND_GTU	; Used in aarch64-sve.md.
     UNSPEC_LASTB	; Used in aarch64-sve.md.
     UNSPEC_ASHIFT_WIDE  ; Used in aarch64-sve.md.
     UNSPEC_LDFF1	; Used in aarch64-sve.md.
@@ -1729,6 +1733,12 @@
 					  UNSPEC_COND_FNMLA
 					  UNSPEC_COND_FNMLS])
 
+(define_int_iterator SVE_COND_INT_CMP [UNSPEC_COND_LT UNSPEC_COND_LE
+				       UNSPEC_COND_LTU UNSPEC_COND_LEU
+				       UNSPEC_COND_EQ UNSPEC_COND_NE
+				       UNSPEC_COND_GE UNSPEC_COND_GT
+				       UNSPEC_COND_GEU UNSPEC_COND_GTU])
+
 (define_int_iterator SVE_COND_FP_CMP [UNSPEC_COND_LT UNSPEC_COND_LE
 				      UNSPEC_COND_EQ UNSPEC_COND_NE
 				      UNSPEC_COND_GE UNSPEC_COND_GT])
@@ -2010,11 +2020,15 @@
 
 ;; The condition associated with an UNSPEC_COND_<xx>.
 (define_int_attr cmp_op [(UNSPEC_COND_LT "lt")
+			 (UNSPEC_COND_LTU "lo")
 			 (UNSPEC_COND_LE "le")
+			 (UNSPEC_COND_LEU "ls")
 			 (UNSPEC_COND_EQ "eq")
 			 (UNSPEC_COND_NE "ne")
 			 (UNSPEC_COND_GE "ge")
-			 (UNSPEC_COND_GT "gt")])
+			 (UNSPEC_COND_GEU "hs")
+			 (UNSPEC_COND_GT "gt")
+			 (UNSPEC_COND_GTU "hi")])
 
 (define_int_attr sve_int_op [(UNSPEC_SABD "sabd")
 			     (UNSPEC_UABD "uabd")

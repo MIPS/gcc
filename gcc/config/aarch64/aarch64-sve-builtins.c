@@ -136,6 +136,10 @@ enum function_shape {
   /* sv<t0>_t svfoo_wide[_t0](sv<t0>_t, svuint64_t).  */
   SHAPE_binary_wide,
 
+  /* svbool_t svfoo_wide[_t0](sv<t0>_t, svint64_t)  (for signed t0)
+     svbool_t svfoo_wide[_t0](sv<t0>_t, svuint64_t)  (for unsigned t0).  */
+  SHAPE_compare_wide,
+
   /* sv<t0>x2_t svfoo[_t0](sv<t0>_t, sv<t0>_t).  */
   SHAPE_create2,
 
@@ -437,6 +441,7 @@ struct GTY(()) function_instance {
   tree tuple_type (unsigned int, unsigned int) const;
   tree quarter_vector_type (unsigned int i) const;
   tree quarter_scalar_type (unsigned int i) const;
+  tree wide_vector_type (unsigned int i) const;
 
   /* The explicit "enum"s are required for gengtype.  */
   enum function func;
@@ -517,6 +522,7 @@ private:
 		  bool = false);
   void build_one (function_signature, const function_group &, function_mode,
 		  unsigned int, unsigned int, bool);
+  void sig_compare_wide (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_create (const function_instance &, vec<tree> &);
   template <unsigned int N>
@@ -601,6 +607,7 @@ private:
   tree resolve_store (unsigned int);
   tree resolve_store_scatter ();
   tree resolve_binary_wide ();
+  tree resolve_compare_wide ();
   tree resolve_uniform_imm (unsigned int, unsigned int);
 
   bool check_first_vector_argument (unsigned int, unsigned int &,
@@ -609,6 +616,7 @@ private:
   bool check_argument (unsigned int, vector_type);
   vector_type require_pointer_type (unsigned int, bool = false);
   vector_type require_vector_type (unsigned int);
+  vector_type require_integer_vector_type (unsigned int);
   vector_type require_sd_vector_type (unsigned int);
   vector_type require_tuple_type (unsigned int, unsigned int);
   bool require_matching_type (unsigned int, vector_type);
@@ -725,6 +733,7 @@ private:
   rtx expand_and (unsigned int = DEFAULT_MERGE_ARGNO);
   rtx expand_asrd ();
   rtx expand_bic ();
+  rtx expand_cmp_wide (int, int);
   rtx expand_cnt_bhwd ();
   rtx expand_create ();
   rtx expand_div (bool);
@@ -1054,6 +1063,13 @@ get_svbool_t (void)
   return acle_vector_types[0][VECTOR_TYPE_svbool_t];
 }
 
+/* Return true if TYPE is a vector of integers.  */
+bool
+integral_type_p (vector_type type)
+{
+  return type != VECTOR_TYPE_svbool_t && INTEGRAL_TYPE_P (scalar_types[type]);
+}
+
 /* If TYPE is an ACLE vector type, return the associated vector_type,
    otherwise return NUM_VECTOR_TYPES.  */
 static vector_type
@@ -1116,6 +1132,15 @@ find_quarter_type_suffix (type_suffix type)
 				      type_suffixes[type].elem_bits / 4);
   gcc_assert (ret != NUM_TYPE_SUFFIXES);
   return ret;
+}
+
+/* Return the wide version of TYPE.  */
+static vector_type
+wide_type_for (vector_type type)
+{
+  return (!integral_type_p (type) ? type
+	  : TYPE_UNSIGNED (scalar_types[type]) ? VECTOR_TYPE_svuint64_t
+	  : VECTOR_TYPE_svint64_t);
 }
 
 /* Return the single field in tuple type TYPE.  */
@@ -1468,6 +1493,13 @@ function_instance::quarter_scalar_type (unsigned int i) const
   return scalar_types[type_suffixes[quarter_type].type];
 }
 
+/* Return the wide vector type associated with type suffix I.  */
+tree
+function_instance::wide_vector_type (unsigned int i) const
+{
+  return acle_vector_types[0][wide_type_for (type_suffixes[types[i]].type)];
+}
+
 inline hashval_t
 registered_function_hasher::hash (value_type value)
 {
@@ -1567,6 +1599,11 @@ arm_sve_h_builder::build (const function_group &group)
     case SHAPE_binary_wide:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_00i, group, MODE_none);
+      break;
+
+    case SHAPE_compare_wide:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_compare_wide, group, MODE_none);
       break;
 
     case SHAPE_create2:
@@ -1962,6 +1999,21 @@ arm_sve_h_builder::build_one (function_signature signature,
   (this->*signature) (instance, types);
   apply_predication (instance, types);
   add_function_instance (instance, types, force_direct_overloads);
+}
+
+/* Describe one of the signatures:
+
+     svbool_t svfoo_wide[_t0](sv<t0>_t, svint64_t)  (for signed t0)
+     svbool_t svfoo_wide[_t0](sv<t0>_t, svuint64_t)  (for unsigned t0)
+
+   for INSTANCE in TYPES.  */
+void
+arm_sve_h_builder::sig_compare_wide (const function_instance &instance,
+				     vec<tree> &types)
+{
+  types.quick_push (get_svbool_t ());
+  types.quick_push (instance.vector_type (0));
+  types.quick_push (instance.wide_vector_type (0));
 }
 
 /* Describe the signature "sv<t0>xM_t svfoo[_t0](sv<t0>_t, ..., sv<t0>_t)"
@@ -2426,6 +2478,12 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svand:
     case FUNC_svasrd:
     case FUNC_svbic:
+    case FUNC_svcmpeq_wide:
+    case FUNC_svcmpge_wide:
+    case FUNC_svcmpgt_wide:
+    case FUNC_svcmple_wide:
+    case FUNC_svcmplt_wide:
+    case FUNC_svcmpne_wide:
     case FUNC_svdiv:
     case FUNC_svdivr:
     case FUNC_svdot:
@@ -2586,6 +2644,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_binary:
     case SHAPE_binary_opt_n:
     case SHAPE_binary_wide:
+    case SHAPE_compare_wide:
     case SHAPE_create2:
     case SHAPE_create3:
     case SHAPE_create4:
@@ -2725,6 +2784,8 @@ function_resolver::resolve ()
       break;
     case SHAPE_binary_wide:
       return resolve_binary_wide ();
+    case SHAPE_compare_wide:
+      return resolve_compare_wide ();
     case SHAPE_create2:
       return resolve_create (2);
     case SHAPE_create3:
@@ -3003,6 +3064,20 @@ function_resolver::resolve_binary_wide ()
   return require_form (m_fi.mode, get_type_suffix (type));
 }
 
+/* Resolve a function that has SHAPE_compare_wide.  */
+tree
+function_resolver::resolve_compare_wide ()
+{
+  vector_type type;
+  if (!check_num_arguments (3)
+      || !check_argument (0, VECTOR_TYPE_svbool_t)
+      || (type = require_integer_vector_type (1)) == NUM_VECTOR_TYPES
+      || !check_argument (2, wide_type_for (type)))
+    return error_mark_node;
+
+  return require_form (m_fi.mode, get_type_suffix (type));
+}
+
 /* Like resolve_uniform, except that the final NIMM arguments have
    type uint64_t and must be integer constant expressions.  */
 tree
@@ -3185,6 +3260,25 @@ vector_type
 function_resolver::require_vector_type (unsigned int i)
 {
   return require_tuple_type (i, 1);
+}
+
+/* Likewise, but also require the type to be integral.  */
+vector_type
+function_resolver::require_integer_vector_type (unsigned int i)
+{
+  vector_type type = require_tuple_type (i, 1);
+  if (type == NUM_VECTOR_TYPES)
+    return type;
+
+  if (!integral_type_p (type))
+    {
+      error_at (m_location, "passing %qT to argument %d of %qE, which"
+		" expects a vector of integers", get_argument_type (i),
+		i + 1, m_rfn.decl);
+      return NUM_VECTOR_TYPES;
+    }
+
+  return type;
 }
 
 /* Likewise, but also require the element size to be 32 or 64 bits.  */
@@ -3508,6 +3602,7 @@ function_checker::check ()
     case SHAPE_binary_pred:
     case SHAPE_binary_scalar:
     case SHAPE_binary_wide:
+    case SHAPE_compare_wide:
     case SHAPE_create2:
     case SHAPE_create3:
     case SHAPE_create4:
@@ -3764,6 +3859,12 @@ gimple_folder::fold ()
     case FUNC_svand:
     case FUNC_svasrd:
     case FUNC_svbic:
+    case FUNC_svcmpeq_wide:
+    case FUNC_svcmpge_wide:
+    case FUNC_svcmpgt_wide:
+    case FUNC_svcmple_wide:
+    case FUNC_svcmplt_wide:
+    case FUNC_svcmpne_wide:
     case FUNC_svdiv:
     case FUNC_svdivr:
     case FUNC_svdot:
@@ -4250,6 +4351,24 @@ function_expander::expand ()
     case FUNC_svbic:
       return expand_bic ();
 
+    case FUNC_svcmpeq_wide:
+      return expand_cmp_wide (UNSPEC_COND_EQ, UNSPEC_COND_EQ);
+
+    case FUNC_svcmpge_wide:
+      return expand_cmp_wide (UNSPEC_COND_GE, UNSPEC_COND_GEU);
+
+    case FUNC_svcmpgt_wide:
+      return expand_cmp_wide (UNSPEC_COND_GT, UNSPEC_COND_GTU);
+
+    case FUNC_svcmple_wide:
+      return expand_cmp_wide (UNSPEC_COND_LE, UNSPEC_COND_LEU);
+
+    case FUNC_svcmplt_wide:
+      return expand_cmp_wide (UNSPEC_COND_LT, UNSPEC_COND_LTU);
+
+    case FUNC_svcmpne_wide:
+      return expand_cmp_wide (UNSPEC_COND_NE, UNSPEC_COND_NE);
+
     case FUNC_svcntb:
     case FUNC_svcntd:
     case FUNC_svcnth:
@@ -4604,6 +4723,18 @@ function_expander::expand_bic ()
       insn_code icode = code_for_cond_bic (get_mode (0));
       return expand_via_pred_insn (icode);
     }
+}
+
+/* Expand a call to svcmp*_wide.  UNSPEC_FOR_SINT and UNSPEC_FOR_UINT
+   are the unspec codes for signed and unsigned operands respectively.  */
+rtx
+function_expander::expand_cmp_wide (int unspec_for_sint, int unspec_for_uint)
+{
+  int unspec = (type_suffixes[m_fi.types[0]].unsigned_p
+		? unspec_for_uint
+		: unspec_for_sint);
+  insn_code icode = code_for_aarch64_pred_cmp_wide (unspec, get_mode (0));
+  return expand_via_exact_insn (icode);
 }
 
 /* Expand a call to svcnt[bhwd].  */
