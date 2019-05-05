@@ -108,7 +108,8 @@ struct GTY(()) ipa_param_performed_split
 {
   /* The dummy VAR_DECL that was created instead of the split parameter that
      sits in the call in the meantime between clone materialization and call
-     redirection.  */
+     redirection.  All entries in a vector of performed splits that correspond
+     to the same dumy decl must be grouped together.  */
   tree dummy_decl;
   /* Offset into the original parameter.  */
   unsigned unit_offset;
@@ -150,7 +151,9 @@ public:
   vec<ipa_adjusted_param, va_gc> *m_adj_params;
 
   /* If non-negative, copy any arguments starting at this offset without any
-     modifications.  */
+     modifications so that functions with variable number of arguments can be
+     modified. This number should be equal to the number of original forma
+     parameters.  */
   int m_always_copy_start;
   /* If true, make the function not return any value.  */
   bool m_skip_return;

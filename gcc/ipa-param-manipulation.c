@@ -174,7 +174,7 @@ fill_vector_of_new_param_types (vec<tree> *new_types, vec<tree> *otypes,
 	     mismatches.  This happens with LTO but apparently also in Fortran
 	     with -fcoarray=lib -O2 -lcaf_single -latomic.  */
 	  if (index >= otypes->length ())
-	    continue; 		/* revisit!!! */
+	    continue;
 	  new_types->quick_push ((*otypes)[index]);
 	}
       else if (apm->op == IPA_PARAM_OP_NEW
@@ -439,12 +439,15 @@ isra_get_ref_base_and_offset (tree expr, tree *base_p, unsigned *unit_offset_p)
   return true;
 }
 
-/* Return true if APM describes a transitive split, i.e. one that happened for
-   both the caller and the callee.  */
+/* Return true if EXPR describes a transitive split (i.e. one that happened for
+   both the caller and the callee) as recorded in PERFORMED_SPLITS.  In that
+   case, store index of the respective record in PERFORMED_SPLITS into
+   *SM_IDX_P and the unit offset from all handled components in EXPR into
+   *UNIT_OFFSET_P.  */
 
 static bool
 transitive_split_p (vec<ipa_param_performed_split, va_gc> *performed_splits,
-		    tree expr, unsigned *sm_idx, unsigned *unit_offset_p)
+		    tree expr, unsigned *sm_idx_p, unsigned *unit_offset_p)
 {
   tree base;
   if (!isra_get_ref_base_and_offset (expr, &base, unit_offset_p))
@@ -463,12 +466,16 @@ transitive_split_p (vec<ipa_param_performed_split, va_gc> *performed_splits,
       ipa_param_performed_split *sm = &(*performed_splits)[i];
       if (sm->dummy_decl == base)
 	{
-	  *sm_idx = i;
+	  *sm_idx_p = i;
 	  return true;
 	}
     }
   return false;
 }
+
+/* Structure to hold declarations representing transitive IPA-SRA splits.  In
+   essence, if we need to pass UNIT_OFFSET of a parameter which originally has
+   number BASE_INDEX, we should pass down REPL.  */
 
 struct transitive_split_map
 {
@@ -477,11 +484,14 @@ struct transitive_split_map
   unsigned unit_offset;
 };
 
-/* Build all structures necessary to handle transitive splits. !!!Doc  */
+/* If call STMT contains any parameters representing transitive splits as
+   described by PERFORMED_SPLITS, return the number of extra parameters that
+   were addded during clone materialization and fill in INDEX_MAP with adjusted
+   indices of corresponding original parameters and TRANS_MAP with description
+   of all transitive replacement descriptions.  Otherwise return zero. */
 
 static unsigned
-init_transitive_splits (vec<ipa_param_performed_split,
-			    va_gc> *performed_splits,
+init_transitive_splits (vec<ipa_param_performed_split, va_gc> *performed_splits,
 			gcall *stmt, vec <unsigned> *index_map,
 			auto_vec <transitive_split_map> *trans_map)
 {
@@ -503,7 +513,7 @@ init_transitive_splits (vec<ipa_param_performed_split,
 	{
 	  if (phony_arguments == 0)
 	    /* We have optimistically avoided constructing index_map do far but
-	       now it is clear it will be necessary, so let's creater the easy
+	       now it is clear it will be necessary, so let's create the easy
 	       bit we skipped until now.  */
 	    for (unsigned k = 0; k < stmt_idx; k++)
 	      index_map->safe_push (k);
@@ -515,9 +525,8 @@ init_transitive_splits (vec<ipa_param_performed_split,
 		= &(*performed_splits)[j];
 	      if (caller_split->dummy_decl != dummy)
 		break;
-	      gcc_assert (stmt_idx < nargs);
-	      tree arg = gimple_call_arg (stmt, stmt_idx);
 
+	      tree arg = gimple_call_arg (stmt, stmt_idx);
 	      struct transitive_split_map tsm;
 	      tsm.repl = arg;
 	      tsm.base_index = base_index;
@@ -580,12 +589,6 @@ ipa_param_adjustments::modify_call (gcall *stmt,
   for (unsigned i = 0; i < len; i++)
     {
       ipa_adjusted_param *apm = &(*m_adj_params)[i];
-
-      gcc_assert (apm->op != IPA_PARAM_OP_UNDEFINED
-		  /* Any transformation that introduces unspecified new
-		     parameters needs to transform actual arguments itself.  */
-		  && apm->op != IPA_PARAM_OP_NEW);
-
       if (apm->op == IPA_PARAM_OP_COPY)
 	{
 	  unsigned index = apm->base_index;
@@ -614,7 +617,6 @@ ipa_param_adjustments::modify_call (gcall *stmt,
 
       /* We have to handle transitive changes differently using the maps we
 	 have created before.  So look into them first.  */
-
       tree repl = NULL_TREE;
       for (unsigned j = 0; j < trans_map.length (); j++)
 	if (trans_map[j].base_index == apm->base_index
@@ -646,11 +648,11 @@ ipa_param_adjustments::modify_call (gcall *stmt,
 	 - A part of an aggregate is passed instead of the whole aggregate.  */
 
       location_t loc = gimple_location (stmt);
-
       tree off;
       bool deref_base = false;
       unsigned int deref_align = 0;
-      if (TREE_CODE (base) != ADDR_EXPR && POINTER_TYPE_P (TREE_TYPE (base)))
+      if (TREE_CODE (base) != ADDR_EXPR
+	  && POINTER_TYPE_P (TREE_TYPE (base)))
 	off = build_int_cst (apm->alias_ptr_type, apm->unit_offset);
       else
 	{
@@ -712,9 +714,9 @@ ipa_param_adjustments::modify_call (gcall *stmt,
 	  if (TYPE_ALIGN (type) > align)
 	    align = TYPE_ALIGN (type);
 	}
-      misalign += (offset_int::from (wi::to_wide (off),
-				     SIGNED).to_short_addr ()
-		   * BITS_PER_UNIT);
+      misalign
+	+= (offset_int::from (wi::to_wide (off), SIGNED).to_short_addr ()
+	    * BITS_PER_UNIT);
       misalign = misalign & (align - 1);
       if (misalign != 0)
 	align = least_bit_hwi (misalign);
