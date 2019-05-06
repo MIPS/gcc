@@ -915,48 +915,44 @@ ipa_param_body_adjustments::register_replacement (ipa_adjusted_param *apm,
   m_replacements.safe_push (psr);
 }
 
-/* Copy or not, as appropriate given COPY_PARM_DECLS and ID, a pre-existing
-   PARM_DECL T so that it can be included in the parameters of the modified
-   function.  */
+/* Copy or not, as appropriate given ID, a pre-existing PARM_DECL T so that
+   it can be included in the parameters of the modified function.  */
 
-tree
-ipa_param_body_adjustments::carry_over_param (tree t, bool copy_parm_decls)
+static tree
+carry_over_param (tree t, struct copy_body_data *id)
 {
   tree new_parm;
-  if (copy_parm_decls)
+  if (id)
     {
-      if (m_id)
-	{
-	  new_parm = remap_decl (t, m_id);
-	  if (TREE_CODE (new_parm) != PARM_DECL)
-	    new_parm = m_id->copy_decl (t, m_id);
-	}
-      else
-	new_parm = copy_node (t);
+      new_parm = remap_decl (t, id);
+      if (TREE_CODE (new_parm) != PARM_DECL)
+	new_parm = id->copy_decl (t, id);
     }
   else
     new_parm = t;
   return new_parm;
 }
 
-/* Common initialization.  */
+/* Common initialization performed by all ipa_param_body_adjustments
+   constructors.  OLD_FNDECL is the declaration we take original arguments
+   from, (it may be the same as M_FNDECL).  VARS, if non-NULL, is a pointer to
+   a chained list of new local variables.  TREE_MAP is the IPA-CP produced
+   mapping of trees to constants.  */
 
 void
-ipa_param_body_adjustments::common_initialization (bool copy_parm_decls,
-						   tree old_fndecl,
+ipa_param_body_adjustments::common_initialization (tree old_fndecl,
 						   tree *vars,
 						   vec<ipa_replace_map *,
 						       va_gc> *tree_map)
 {
-  tree fndecl = old_fndecl ? old_fndecl : m_fndecl;
-  ipa_fill_vector_with_formal_parms (&m_oparms, fndecl);
+  ipa_fill_vector_with_formal_parms (&m_oparms, old_fndecl);
   auto_vec<tree,16> otypes;
-  if (TYPE_ARG_TYPES (TREE_TYPE (fndecl)) != NULL_TREE)
-    ipa_fill_vector_with_formal_parm_types (&otypes, TREE_TYPE (fndecl));
+  if (TYPE_ARG_TYPES (TREE_TYPE (old_fndecl)) != NULL_TREE)
+    ipa_fill_vector_with_formal_parm_types (&otypes, TREE_TYPE (old_fndecl));
   else
     {
       auto_vec<tree,16> oparms;
-      ipa_fill_vector_with_formal_parms (&oparms, fndecl);
+      ipa_fill_vector_with_formal_parms (&oparms, old_fndecl);
       unsigned ocount = oparms.length ();
       otypes.reserve_exact (ocount);
       for (unsigned i = 0; i < ocount; i++)
@@ -987,7 +983,7 @@ ipa_param_body_adjustments::common_initialization (bool copy_parm_decls,
 	  || apm->prev_clone_adjustment)
 	{
 	  kept[prev_index] = true;
-	  new_parm = carry_over_param (m_oparms[prev_index], copy_parm_decls);
+	  new_parm = carry_over_param (m_oparms[prev_index], m_id);
 	  m_new_decls.quick_push (new_parm);
 	}
       else if (apm->op == IPA_PARAM_OP_NEW
@@ -1035,7 +1031,6 @@ ipa_param_body_adjustments::common_initialization (bool copy_parm_decls,
 		    dummy_decl = isra_dummy_decls[prev_index];
 
 		  register_replacement (apm, new_parm, dummy_decl);
-		  gcc_checking_assert (m_adjustments);
 		  ipa_param_performed_split ps;
 		  ps.dummy_decl = dummy_decl;
 		  ps.unit_offset = apm->unit_offset;
@@ -1053,11 +1048,11 @@ ipa_param_body_adjustments::common_initialization (bool copy_parm_decls,
   for (unsigned i = 0; i < op_len; i++)
     if (!kept[i])
       {
-	/* We operate in different modes with and without id when it comes to
+	/* We operate in different modes with and without m_id when it comes to
 	   converting remaining uses of removed PARM_DECLs (which do not
-	   however use the initial value) to VAR_DECL copies.  With id, we rely
-	   on its mapping and create a replacement straight away.  Without it,
-	   we have our own mechanism.  Just don't mix them, that is why you
+	   however use the initial value) to VAR_DECL copies.  With m_id, we
+	   rely on its mapping and create a replacement straight away.  Without
+	   it, we have our own mechanism.  Just don't mix them, that is why you
 	   should not call replace_removed_params_ssa_names or
 	   perform_cfun_body_modifications when you construct with ID not equel
 	   to NULL.  */
@@ -1084,36 +1079,41 @@ ipa_param_body_adjustments::common_initialization (bool copy_parm_decls,
   if (!MAY_HAVE_DEBUG_STMTS)
     return;
 
-  auto_vec <int, 16> index_mapping;
-  bool need_remap = false;
-
-  if (m_id && m_id->src_node->clone.param_adjustments)
-    {
-      ipa_param_adjustments *prev_adjustments
-	= m_id->src_node->clone.param_adjustments;
-      prev_adjustments->get_updated_indices (&index_mapping);
-      need_remap = true;
-    }
-
-  /* Do not output debuginfo for parameter declarations as if they vanished
-     when they were in fact replaced by a constant.  */
   if (tree_map)
-    for (unsigned i = 0; i < tree_map->length (); i++)
-      {
-	int parm_num = (*tree_map)[i]->parm_num;
-	gcc_assert (parm_num >= 0);
-	if (need_remap)
-	  parm_num = index_mapping[parm_num];
-	kept[parm_num] = true;
-      }
+    {
+      /* Do not output debuginfo for parameter declarations as if they vanished
+	 when they were in fact replaced by a constant.  */
+      auto_vec <int, 16> index_mapping;
+      bool need_remap = false;
+
+      if (m_id && m_id->src_node->clone.param_adjustments)
+	{
+	  ipa_param_adjustments *prev_adjustments
+	    = m_id->src_node->clone.param_adjustments;
+	  prev_adjustments->get_updated_indices (&index_mapping);
+	  need_remap = true;
+	}
+
+      for (unsigned i = 0; i < tree_map->length (); i++)
+	{
+	  int parm_num = (*tree_map)[i]->parm_num;
+	  gcc_assert (parm_num >= 0);
+	  if (need_remap)
+	    parm_num = index_mapping[parm_num];
+	  kept[parm_num] = true;
+	}
+    }
 
   for (unsigned i = 0; i < op_len; i++)
     if (!kept[i] && is_gimple_reg (m_oparms[i]))
       m_reset_debug_decls.safe_push (m_oparms[i]);
 }
 
-/* Constructor of ipa_param_body_adjustments performing all necessary
-   initializations.  */
+/* Constructor of ipa_param_body_adjustments from a simple list of
+   modifications to parameters listed in ADJ_PARAMS which will prepare ground
+   for modification of parameters of fndecl.  Return value of the function will
+   not be removed and the object will assume it does not run as a part of
+   tree-function_versioning.  */
 
 ipa_param_body_adjustments
 ::ipa_param_body_adjustments (vec<ipa_adjusted_param, va_gc> *adj_params,
@@ -1123,8 +1123,13 @@ ipa_param_body_adjustments
     m_oparms (), m_new_decls (), m_new_types (), m_replacements (),
     m_removed_decls (), m_removed_map (), m_method2func (false)
 {
-  common_initialization (false, NULL, NULL, NULL);
+  common_initialization (fndecl, NULL, NULL);
 }
+
+/* Constructor of ipa_param_body_adjustments from ipa_param_adjustments in
+   ADJUSTMENTS which will prepare ground for modification of parameters of
+   fndecl.  The object will assume it does not run as a part of
+   tree-function_versioning.  */
 
 ipa_param_body_adjustments
 ::ipa_param_body_adjustments (ipa_param_adjustments *adjustments,
@@ -1135,21 +1140,29 @@ ipa_param_body_adjustments
     m_replacements (), m_removed_decls (), m_removed_map (),
     m_method2func (false)
 {
-  common_initialization (false, NULL, NULL, NULL);
+  common_initialization (fndecl, NULL, NULL);
 }
+
+/* Constructor of ipa_param_body_adjustments which sets it up as a part of
+   running tree_function_versioning.  Planned modifications to the function are
+   in ADJUSTMENTS.  FNDECL designates the new function clone which is being
+   modified.  OLD_FNDECL is the function of which FNDECL is a clone (and which
+   at the time of invocation still share DECL_ARGUMENTS).  ID is the
+   copy_body_data structure driving the wholy body copying process.  VARS is a
+   pointer to the head of the list of new local variables, TREE_MAP is the map
+   that drives tree substitution in the cloning process.  */
 
 ipa_param_body_adjustments
 ::ipa_param_body_adjustments (ipa_param_adjustments *adjustments,
 			      tree fndecl, tree old_fndecl,
-			      bool copy_parm_decls, copy_body_data *id,
-			      tree *vars,
+			      copy_body_data *id, tree *vars,
 			      vec<ipa_replace_map *, va_gc> *tree_map)
   : m_adj_params (adjustments->m_adj_params), m_adjustments (adjustments),
     m_reset_debug_decls (), m_split_modifications_p (false), m_fndecl (fndecl),
     m_id (id), m_oparms (), m_new_decls (), m_new_types (), m_replacements (),
     m_removed_decls (), m_removed_map (), m_method2func (false)
 {
-  common_initialization (copy_parm_decls, old_fndecl, vars, tree_map);
+  common_initialization (old_fndecl, vars, tree_map);
 }
 
 /* Chain new param decls up and return them.  */

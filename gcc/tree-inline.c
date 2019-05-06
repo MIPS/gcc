@@ -6117,8 +6117,7 @@ tree_function_versioning (tree old_decl, tree new_decl,
     {
       param_body_adjs = new ipa_param_body_adjustments (param_adjustments,
 							new_decl, old_decl,
-							true, &id, &vars,
-							tree_map);
+							&id, &vars, tree_map);
       id.param_body_adjs = param_body_adjs;
       DECL_ARGUMENTS (new_decl) = param_body_adjs->get_new_param_chain ();
     }

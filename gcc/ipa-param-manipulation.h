@@ -178,16 +178,21 @@ struct ipa_param_body_replacement
 
 struct ipa_replace_map;
 
-/* Class used when actually performing adjustments to formal parameters of
-   a function to map accesses that need to be replaced to replacements.  */
+/* Class used when actually performing adjustments to formal parameters of a
+   function to map accesses that need to be replaced to replacements.  The
+   class attempts to work in two very different sets of circumstances: as a
+   part of tree-inine.c's tree_function_versioning machinery to clone functions
+   (when M_ID is not NULL) and in s standalone fashion, modifying an existing
+   function in place (when M_ID is NULL).  While a lot of stuff handled in a
+   unified way in both modes, there are many aspects of the processs that
+   requires distinct paths.  */
 
 class ipa_param_body_adjustments
 {
 public:
   ipa_param_body_adjustments (ipa_param_adjustments *adjustments,
 			      tree fndecl, tree old_fndecl,
-			      bool copy_parm_decls, struct copy_body_data *id,
-			      tree *vars,
+			      struct copy_body_data *id, tree *vars,
 			      vec<ipa_replace_map *, va_gc> *tree_map);
   ipa_param_body_adjustments (ipa_param_adjustments *adjustments,
 			      tree fndecl);
@@ -218,9 +223,7 @@ public:
      adjustments.  */
   bool m_split_modifications_p;
 private:
-  tree carry_over_param (tree t, bool copy_parm_decls);
-  void common_initialization (bool copy_parm_decls, tree old_fndecl,
-			      tree *vars,
+  void common_initialization (tree old_fndecl, tree *vars,
 			      vec<ipa_replace_map *, va_gc> *tree_map);
   unsigned get_base_index (ipa_adjusted_param *apm);
   ipa_param_body_replacement *lookup_replacement_1 (tree base,
@@ -265,7 +268,7 @@ private:
      created, it holds the old PARM_DECL, once the variable is built it is
      stored here.  */
 
-  auto_vec<tree, 16> m_removed_decls;
+  auto_vec<tree> m_removed_decls;
 
   /* Hash to quickly lookup the item in m_removed_decls given the old decl.  */
 
