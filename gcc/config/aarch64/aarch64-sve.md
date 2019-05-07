@@ -2279,20 +2279,20 @@
 
 ;; Set element I of the result if operand1 + J < operand2 for all J in [0, I].
 ;; with the comparison being unsigned.
-(define_insn "while_ult<GPI:mode><PRED_ALL:mode>"
+(define_insn "@while_<while_optab_cmp><GPI:mode><PRED_ALL:mode>"
   [(set (match_operand:PRED_ALL 0 "register_operand" "=Upa")
 	(unspec:PRED_ALL [(match_operand:GPI 1 "aarch64_reg_or_zero" "rZ")
 			  (match_operand:GPI 2 "aarch64_reg_or_zero" "rZ")]
-			 UNSPEC_WHILE_LO))
+			 SVE_WHILE))
    (clobber (reg:CC_NZC CC_REGNUM))]
   "TARGET_SVE"
-  "whilelo\t%0.<PRED_ALL:Vetype>, %<w>1, %<w>2"
+  "while<cmp_op>\t%0.<PRED_ALL:Vetype>, %<w>1, %<w>2"
 )
 
 ;; WHILELO sets the flags in the same way as a PTEST with a PTRUE GP.
 ;; Handle the case in which both results are useful.  The GP operand
 ;; to the PTEST isn't needed, so we allow it to be anything.
-(define_insn_and_split "while_ult<GPI:mode><PRED_ALL:mode>_cc"
+(define_insn_and_split "@while_<while_optab_cmp><GPI:mode><PRED_ALL:mode>_cc"
   [(set (reg:CC_NZC CC_REGNUM)
 	(unspec:CC_NZC
 	  [(match_operand 3)
@@ -2300,24 +2300,57 @@
 	   (unspec:PRED_ALL
 	     [(match_operand:GPI 1 "aarch64_reg_or_zero" "rZ")
 	      (match_operand:GPI 2 "aarch64_reg_or_zero" "rZ")]
-	     UNSPEC_WHILE_LO)
+	     SVE_WHILE)
 	   (const_int 1)]
 	  UNSPEC_PTEST))
    (set (match_operand:PRED_ALL 0 "register_operand" "=Upa")
 	(unspec:PRED_ALL [(match_dup 1)
 			  (match_dup 2)]
-			 UNSPEC_WHILE_LO))]
+			 SVE_WHILE))]
   "TARGET_SVE"
-  "whilelo\t%0.<PRED_ALL:Vetype>, %<w>1, %<w>2"
+  "while<cmp_op>\t%0.<PRED_ALL:Vetype>, %<w>1, %<w>2"
   ;; Force the compiler to drop the unused predicate operand, so that we
   ;; don't have an unnecessary PTRUE.
   "&& (!CONSTANT_P (operands[3]) || !CONSTANT_P (operands[4]))"
   [(const_int 0)]
   {
-    emit_insn (gen_while_ult<GPI:mode><PRED_ALL:mode>_cc
+    emit_insn (gen_while_<while_optab_cmp><GPI:mode><PRED_ALL:mode>_cc
 	       (operands[0], operands[1], operands[2],
 		CONSTM1_RTX (VNx16BImode), CONSTM1_RTX (<PRED_ALL:MODE>mode)));
     DONE;
+  }
+)
+
+;; Same, but handle the case in which only the flags result is useful.
+(define_insn_and_split "*while_<while_optab_cmp><GPI:mode><PRED_ALL:mode>_ptest"
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC
+	  [(match_operand 3)
+	   (match_operand 4)
+	   (unspec:PRED_ALL
+	     [(match_operand:GPI 1 "aarch64_reg_or_zero" "rZ")
+	      (match_operand:GPI 2 "aarch64_reg_or_zero" "rZ")]
+	     SVE_WHILE)
+	   (const_int 1)]
+	  UNSPEC_PTEST))
+   (clobber (match_scratch:PRED_ALL 0 "=Upa"))]
+  "TARGET_SVE"
+  "while<cmp_op>\t%0.<PRED_ALL:Vetype>, %<w>1, %<w>2"
+  ;; Force the compiler to drop the unused predicate operand, so that we
+  ;; don't have an unnecessary PTRUE.
+  "&& (!CONSTANT_P (operands[3]) || !CONSTANT_P (operands[4]))"
+  [(parallel
+     [(set (reg:CC_NZC CC_REGNUM)
+	   (unspec:CC_NZC
+	     [(match_dup 3)
+	      (match_dup 4)
+	      (unspec:PRED_ALL [(match_dup 1) (match_dup 2)] SVE_WHILE)
+	      (const_int 1)]
+	     UNSPEC_PTEST))
+      (clobber (match_dup 0))])]
+  {
+    operands[3] = CONSTM1_RTX (VNx16BImode);
+    operands[4] = CONSTM1_RTX (<PRED_ALL:MODE>mode);
   }
 )
 

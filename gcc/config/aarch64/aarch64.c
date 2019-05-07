@@ -3306,6 +3306,27 @@ aarch64_ptrue_all (unsigned int elem_bytes)
   return builder.build ();
 }
 
+/* If VNx16BImode rtx X is a canonical PTRUE for a predicate mode,
+   return that predicate mode, otherwise return opt_machine_mode ().  */
+
+opt_machine_mode
+aarch64_ptrue_all_mode (rtx x)
+{
+  gcc_assert (GET_MODE (x) == VNx16BImode);
+  if (GET_CODE (x) != CONST_VECTOR
+      || !CONST_VECTOR_DUPLICATE_P (x)
+      || !CONST_INT_P (CONST_VECTOR_ENCODED_ELT (x, 0))
+      || INTVAL (CONST_VECTOR_ENCODED_ELT (x, 0)) == 0)
+    return opt_machine_mode ();
+
+  unsigned int nelts = const_vector_encoded_nelts (x);
+  for (unsigned int i = 1; i < nelts; ++i)
+    if (CONST_VECTOR_ENCODED_ELT (x, i) != const0_rtx)
+      return opt_machine_mode ();
+
+  return aarch64_sve_pred_mode (nelts);
+}
+
 /* Set DEST to (vec_series BASE STEP).  */
 
 static void

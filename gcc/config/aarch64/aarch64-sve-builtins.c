@@ -142,6 +142,9 @@ enum function_shape {
      svbool_t svfoo[_n_t0](sv<t0>_t, <t0>_t)  (for floating-point t0).  */
   SHAPE_compare_opt_n,
 
+  /* svbool_t svfoo_t0[_t1](<t1>_t, <t1>_t).  */
+  SHAPE_compare_scalar,
+
   /* svbool_t svfoo_wide[_t0](sv<t0>_t, svint64_t)  (for signed t0)
      svbool_t svfoo_wide[_t0](sv<t0>_t, svuint64_t)  (for unsigned t0).  */
   SHAPE_compare_wide,
@@ -531,6 +534,7 @@ private:
 		  unsigned int, unsigned int, bool);
   void sig_compare (const function_instance &, vec<tree> &);
   void sig_compare_n (const function_instance &, vec<tree> &);
+  void sig_compare_scalar (const function_instance &, vec<tree> &);
   void sig_compare_wide (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_create (const function_instance &, vec<tree> &);
@@ -616,6 +620,7 @@ private:
   tree resolve_store (unsigned int);
   tree resolve_store_scatter ();
   tree resolve_binary_wide ();
+  tree resolve_compare_scalar ();
   tree resolve_compare_wide ();
   tree resolve_uniform_imm (unsigned int, unsigned int);
 
@@ -632,6 +637,9 @@ private:
   bool scalar_argument_p (unsigned int);
   bool require_scalar_argument (unsigned int, const char *);
   bool require_integer_immediate (unsigned int);
+  vector_type require_integer_scalar_type (unsigned int);
+  bool require_matching_scalar_types (unsigned int, unsigned int,
+				      vector_type, vector_type);
   function_mode require_vector_displacement (unsigned int, vector_type, bool);
   function_mode require_gather_address (unsigned int, vector_type, bool);
 
@@ -643,6 +651,7 @@ private:
   tree get_vector_type (vector_type);
   tree get_vector_type (type_suffix);
   unsigned int get_element_bits (vector_type);
+  const char *get_scalar_type_name (vector_type);
   tree get_argument_type (unsigned int);
   type_suffix get_type_suffix (vector_type);
 
@@ -806,6 +815,7 @@ private:
   rtx expand_stnt1 ();
   rtx expand_sub (bool);
   rtx expand_undef ();
+  rtx expand_while (int, int);
   rtx expand_wrffr ();
 
   rtx expand_pred_op (rtx_code, int, unsigned int = DEFAULT_MERGE_ARGNO);
@@ -971,6 +981,15 @@ static const type_suffix_info type_suffixes[NUM_TYPE_SUFFIXES + 1] = {
 #define TYPES_all_float_and_signed(S, D) \
   TYPES_all_float (S, D), TYPES_all_signed (S, D)
 
+/* {_b8 _b16 _b32 _b64} x {_s32 _s64 _u32 _u64 } */
+#define TYPES_while_bN(D, bn) \
+  D (bn, s32), D (bn, s64), D (bn, u32), D (bn, u64)
+#define TYPES_while(S, D) \
+  TYPES_while_bN (D, b8), \
+  TYPES_while_bN (D, b16), \
+  TYPES_while_bN (D, b32), \
+  TYPES_while_bN (D, b64)
+
 /* Describe a pair of type suffixes in which only the first is used.  */
 #define DEF_VECTOR_TYPE(X) { TYPE_SUFFIX_ ## X, NUM_TYPE_SUFFIXES }
 
@@ -1005,6 +1024,7 @@ DEF_SVE_TYPES_ARRAY (hsd_integer);
 DEF_SVE_TYPES_ARRAY (sd_data);
 DEF_SVE_TYPES_ARRAY (sd_integer);
 DEF_SVE_TYPES_ARRAY (d_integer);
+DEF_SVE_TYPES_ARRAY (while);
 
 /* Used by functions in aarch64-sve-builtins.def that have no governing
    predicate.  */
@@ -1626,6 +1646,11 @@ arm_sve_h_builder::build (const function_group &group)
       build_all (&arm_sve_h_builder::sig_compare_n, group, MODE_n);
       break;
 
+    case SHAPE_compare_scalar:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_compare_scalar, group, MODE_none);
+      break;
+
     case SHAPE_compare_wide:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_compare_wide, group, MODE_none);
@@ -2051,6 +2076,17 @@ arm_sve_h_builder::sig_compare_n (const function_instance &instance,
   types.quick_push (get_svbool_t ());
   types.quick_push (instance.vector_type (0));
   types.quick_push (instance.wide_scalar_type (0));
+}
+
+/* Describe the signature "svbool_t svfoo_t0[_t1](<t1>_t, <t1>_t)"
+   for INSTANCE in TYPES.  */
+void
+arm_sve_h_builder::sig_compare_scalar (const function_instance &instance,
+				       vec<tree> &types)
+{
+  types.quick_push (get_svbool_t ());
+  types.quick_push (instance.scalar_type (1));
+  types.quick_push (instance.scalar_type (1));
 }
 
 /* Describe one of the signatures:
@@ -2625,6 +2661,8 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svundef4:
     case FUNC_svuzp1:
     case FUNC_svuzp2:
+    case FUNC_svwhilele:
+    case FUNC_svwhilelt:
     case FUNC_svzip1:
     case FUNC_svzip2:
       attrs = add_attribute ("const", attrs);
@@ -2741,6 +2779,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
       return 0;
     case SHAPE_binary_pred:
     case SHAPE_binary_scalar:
+    case SHAPE_compare_scalar:
     case SHAPE_inherent:
     case SHAPE_inherent2:
     case SHAPE_inherent3:
@@ -2849,6 +2888,8 @@ function_resolver::resolve ()
       break;
     case SHAPE_binary_wide:
       return resolve_binary_wide ();
+    case SHAPE_compare_scalar:
+      return resolve_compare_scalar ();
     case SHAPE_compare_wide:
       return resolve_compare_wide ();
     case SHAPE_create2:
@@ -3127,6 +3168,20 @@ function_resolver::resolve_binary_wide ()
     return error_mark_node;
 
   return require_form (m_fi.mode, get_type_suffix (type));
+}
+
+/* Resolve a function that has SHAPE_compare_scalar.  */
+tree
+function_resolver::resolve_compare_scalar ()
+{
+  vector_type type1, type2;
+  if (!check_num_arguments (2)
+      || (type1 = require_integer_scalar_type (0)) == NUM_VECTOR_TYPES
+      || (type2 = require_integer_scalar_type (1)) == NUM_VECTOR_TYPES
+      || !require_matching_scalar_types (0, 1, type1, type2))
+    return error_mark_node;
+
+  return require_form (m_fi.mode, m_fi.types[0], get_type_suffix (type1));
 }
 
 /* Resolve a function that has SHAPE_compare_wide.  */
@@ -3447,6 +3502,57 @@ function_resolver::require_integer_immediate (unsigned int i)
   return true;
 }
 
+/* Check that argument I has a 32-bit or 64-bit scalar integer type.
+   Return the associated vector type on success, otherwise return
+   NUM_VECTOR_TYPES.  */
+vector_type
+function_resolver::require_integer_scalar_type (unsigned int i)
+{
+  tree actual = get_argument_type (i);
+  if (actual == error_mark_node)
+    return NUM_VECTOR_TYPES;
+
+  /* Allow enums and booleans to decay to integers, for compatibility
+     with C++ overloading rules.  */
+  if (INTEGRAL_TYPE_P (actual))
+    {
+      bool uns_p = TYPE_UNSIGNED (actual);
+      /* Honor the usual integer promotions, so that resolution works
+	 in the same way as for C++.  */
+      if (TYPE_PRECISION (actual) < 32)
+	return VECTOR_TYPE_svint32_t;
+      if (TYPE_PRECISION (actual) == 32)
+	return uns_p ? VECTOR_TYPE_svuint32_t : VECTOR_TYPE_svint32_t;
+      if (TYPE_PRECISION (actual) == 64)
+	return uns_p ? VECTOR_TYPE_svuint64_t : VECTOR_TYPE_svint64_t;
+    }
+
+  error_at (m_location, "passing %qT to argument %d of %qE, which"
+	    " expects a 32-bit or 64-bit integer type", actual, i + 1,
+	    m_rfn.decl);
+  return NUM_VECTOR_TYPES;
+}
+
+/* Argument I1 is a scalar argument that matches the element type of
+   TYPE1 and argument I2 is a scalar argument that matches the element
+   type of TYPE2.  Return true if they are compatible and report an
+   error if not.  */
+bool
+function_resolver::require_matching_scalar_types (unsigned int i1,
+						  unsigned int i2,
+						  vector_type type1,
+						  vector_type type2)
+{
+  if (type1 == type2)
+    return true;
+
+  error_at (m_location, "call to %qE is ambiguous; argument %d has type"
+	    " %qs but argument %d has type %qs", m_rfn.decl,
+	    i1 + 1, get_scalar_type_name (type1),
+	    i2 + 1, get_scalar_type_name (type2));
+  return false;
+}
+
 /* Require argument I to be a vector offset or index in a gather-style
    address.  DATA_TYPE is the type of data being loaded or stored.
    LOAD_P is true if it is being loaded rather than stored.
@@ -3621,6 +3727,15 @@ function_resolver::get_element_bits (vector_type type)
   return tree_to_uhwi (TYPE_SIZE (TREE_TYPE (get_vector_type (type))));
 }
 
+/* Return the <stdint.h> name for TYPE's element type.  Using the <stdint.h>
+   name should be more user-friendly than the underlying canonical type,
+   since it makes the signedness and bitwidth explicit.  */
+const char *
+function_resolver::get_scalar_type_name (vector_type type)
+{
+  return vector_types[type].acle_name + 2;
+}
+
 /* Return the type of argument I, or error_mark_node if it isn't
    well-formed.  */
 tree
@@ -3668,6 +3783,7 @@ function_checker::check ()
     case SHAPE_binary_scalar:
     case SHAPE_binary_wide:
     case SHAPE_compare_opt_n:
+    case SHAPE_compare_scalar:
     case SHAPE_compare_wide:
     case SHAPE_create2:
     case SHAPE_create3:
@@ -4031,6 +4147,8 @@ gimple_folder::fold ()
        correspondence for SSA_NAMEs, and we explicitly don't want
        to generate a specific value (like an all-zeros vector).  */
     case FUNC_svundef:
+    case FUNC_svwhilele:
+    case FUNC_svwhilelt:
     case FUNC_svwrffr:
       return NULL;
 
@@ -4743,6 +4861,12 @@ function_expander::expand ()
     case FUNC_svuzp2:
       return expand_permute (UNSPEC_UZP2);
 
+    case FUNC_svwhilele:
+      return expand_while (UNSPEC_WHILE_LE, UNSPEC_WHILE_LS);
+
+    case FUNC_svwhilelt:
+      return expand_while (UNSPEC_WHILE_LT, UNSPEC_WHILE_LO);
+
     case FUNC_svwrffr:
       return expand_wrffr ();
 
@@ -5426,10 +5550,16 @@ function_expander::expand_permute (int unspec_code)
 rtx
 function_expander::expand_ptest (rtx_code code)
 {
+  machine_mode mode;
+  rtx is_ptrue = const0_rtx;
+  if (aarch64_ptrue_all_mode (m_args[0]).exists (&mode))
+    {
+      is_ptrue = const1_rtx;
+      m_args[1] = gen_lowpart (mode, m_args[1]);
+    }
+
   rtx pg = force_reg (VNx16BImode, m_args[0]);
-  rtx op = force_reg (VNx16BImode, m_args[1]);
-  rtx is_ptrue = (m_args[0] == CONSTM1_RTX (VNx16BImode)
-		  ? const1_rtx : const0_rtx);
+  rtx op = force_reg (GET_MODE (m_args[1]), m_args[1]);
   emit_insn (gen_aarch64_ptestvnx16bi (pg, pg, op, is_ptrue));
 
   rtx target = m_target;
@@ -5603,6 +5733,21 @@ function_expander::expand_undef ()
 {
   emit_clobber (copy_rtx (m_target));
   return m_target;
+}
+
+/* Expand a call to svwhile*.  UNSPEC_FOR_SINT is the unspec code to
+   use for signed integer inputs and UNSPEC_FOR_UINT is the unspec code
+   to use for unsigned integer inputs.  */
+rtx
+function_expander::expand_while (int unspec_for_sint, int unspec_for_uint)
+{
+  int unspec = (type_suffixes[m_fi.types[1]].unsigned_p
+		? unspec_for_uint
+		: unspec_for_sint);
+  machine_mode pred_mode = get_mode (0);
+  scalar_mode reg_mode = GET_MODE_INNER (get_mode (1));
+  insn_code icode = code_for_while (unspec, reg_mode, pred_mode);
+  return expand_via_exact_insn (icode);
 }
 
 /* Expand a call to svwrffr.  */

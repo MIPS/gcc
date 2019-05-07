@@ -253,6 +253,16 @@
     BIND_OUTPUT_X (x0);			\
   }
 
+#define TEST_COMPARE_S(NAME, TYPE, CODE1, CODE2)	\
+  START (NAME)						\
+  {							\
+    DEF_REGISTER (svbool_t, p0);			\
+    BIND_INPUT_X (TYPE, x0);				\
+    BIND_INPUT_X (TYPE, x1);				\
+    INVOKE (CODE1, CODE2);				\
+    BIND_OUTPUT_P (p0);					\
+  }
+
 #define TEST_COMPARE_Z(NAME, TYPE, CODE1, CODE2)	\
   START (NAME)						\
   {							\

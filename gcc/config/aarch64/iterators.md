@@ -515,6 +515,10 @@
     UNSPEC_COND_GEU	; Used in aarch64-sve.md.
     UNSPEC_COND_GT	; Used in aarch64-sve.md.
     UNSPEC_COND_GTU	; Used in aarch64-sve.md.
+    UNSPEC_WHILE_LE	; Used in aarch64-sve.md.
+    UNSPEC_WHILE_LO	; Used in aarch64-sve.md.
+    UNSPEC_WHILE_LS	; Used in aarch64-sve.md.
+    UNSPEC_WHILE_LT	; Used in aarch64-sve.md.
     UNSPEC_LASTB	; Used in aarch64-sve.md.
     UNSPEC_ASHIFT_WIDE  ; Used in aarch64-sve.md.
     UNSPEC_LDFF1	; Used in aarch64-sve.md.
@@ -1746,6 +1750,9 @@
 (define_int_iterator SVE_COND_FP_ABS_CMP [UNSPEC_COND_LT UNSPEC_COND_LE
 					  UNSPEC_COND_GE UNSPEC_COND_GT])
 
+(define_int_iterator SVE_WHILE [UNSPEC_WHILE_LE UNSPEC_WHILE_LO
+				UNSPEC_WHILE_LS UNSPEC_WHILE_LT])
+
 (define_int_iterator SVE_ASHIFT_WIDE [UNSPEC_ASHIFT_WIDE])
 
 (define_int_iterator SVE_LDFF1_LDNF1 [UNSPEC_LDFF1 UNSPEC_LDNF1])
@@ -2031,7 +2038,16 @@
 			 (UNSPEC_COND_GE "ge")
 			 (UNSPEC_COND_GEU "hs")
 			 (UNSPEC_COND_GT "gt")
-			 (UNSPEC_COND_GTU "hi")])
+			 (UNSPEC_COND_GTU "hi")
+			 (UNSPEC_WHILE_LE "le")
+			 (UNSPEC_WHILE_LO "lo")
+			 (UNSPEC_WHILE_LS "ls")
+			 (UNSPEC_WHILE_LT "lt")])
+
+(define_int_attr while_optab_cmp [(UNSPEC_WHILE_LE "le")
+				  (UNSPEC_WHILE_LO "ult")
+				  (UNSPEC_WHILE_LS "ule")
+				  (UNSPEC_WHILE_LT "lt")])
 
 (define_int_attr sve_int_op [(UNSPEC_SABD "sabd")
 			     (UNSPEC_UABD "uabd")
