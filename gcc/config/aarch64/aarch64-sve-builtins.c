@@ -242,6 +242,9 @@ enum function_shape {
   /* svbool_t svfoo().  */
   SHAPE_rdffr,
 
+  /* <t0>_t svfoo[_t0](sv<t0>_t).  */
+  SHAPE_reduction,
+
   /* sv<t0>xN_t svfoo[_t0](sv<t0>xN_t, uint64_t, sv<t0>_t).  */
   SHAPE_set2,
   SHAPE_set3,
@@ -549,6 +552,7 @@ private:
   void sig_load_gather_vs (const function_instance &, vec<tree> &);
   void sig_ptest (const function_instance &, vec<tree> &);
   void sig_rdffr (const function_instance &, vec<tree> &);
+  void sig_reduction (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_set_00i0 (const function_instance &, vec<tree> &);
   void sig_setffr (const function_instance &, vec<tree> &);
@@ -803,6 +807,7 @@ private:
   rtx expand_qadd ();
   rtx expand_qsub ();
   rtx expand_rdffr ();
+  rtx expand_reduction (int, int, int);
   rtx expand_rev ();
   rtx expand_set ();
   rtx expand_setffr ();
@@ -1771,6 +1776,11 @@ arm_sve_h_builder::build (const function_group &group)
       build_all (&arm_sve_h_builder::sig_rdffr, group, MODE_none);
       break;
 
+    case SHAPE_reduction:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_reduction, group, MODE_none);
+      break;
+
     case SHAPE_set2:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_set_00i0<2>, group, MODE_none);
@@ -2213,6 +2223,15 @@ arm_sve_h_builder::sig_rdffr (const function_instance &, vec<tree> &types)
   types.quick_push (get_svbool_t ());
 }
 
+/* Describe the signature "<t0>_t svfoo[_t0](sv<t0>_t)" in TYPES.  */
+void
+arm_sve_h_builder::sig_reduction (const function_instance &instance,
+				  vec<tree> &types)
+{
+  types.quick_push (instance.scalar_type (0));
+  types.quick_push (instance.vector_type (0));
+}
+
 /* Describe the signature
    "sv<t0>xN_t svfoo[_t0](sv<t0>xN_t, uint64_t, sv<t0>_t)"
    for INSTANCE in TYPES.  */
@@ -2568,6 +2587,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svaclt:
     case FUNC_svadd:
     case FUNC_svand:
+    case FUNC_svandv:
     case FUNC_svasrd:
     case FUNC_svbic:
     case FUNC_svcmpeq:
@@ -2587,14 +2607,19 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svdivr:
     case FUNC_svdot:
     case FUNC_sveor:
+    case FUNC_sveorv:
     case FUNC_svindex:
     case FUNC_svlsl:
     case FUNC_svlsl_wide:
     case FUNC_svmad:
     case FUNC_svmax:
     case FUNC_svmaxnm:
+    case FUNC_svmaxnmv:
+    case FUNC_svmaxv:
     case FUNC_svmin:
     case FUNC_svminnm:
+    case FUNC_svminnmv:
+    case FUNC_svminv:
     case FUNC_svmla:
     case FUNC_svmls:
     case FUNC_svmsb:
@@ -2611,6 +2636,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svnot:
     case FUNC_svorn:
     case FUNC_svorr:
+    case FUNC_svorv:
     case FUNC_svqadd:
     case FUNC_svqsub:
     case FUNC_svsqrt:
@@ -2761,6 +2787,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_load_gather_sv:
     case SHAPE_ptest:
     case SHAPE_rdffr:
+    case SHAPE_reduction:
     case SHAPE_set2:
     case SHAPE_set3:
     case SHAPE_set4:
@@ -2943,6 +2970,7 @@ function_resolver::resolve ()
     case SHAPE_ternary_qq_opt_n:
       return resolve_dot ();
     case SHAPE_unary:
+    case SHAPE_reduction:
       return resolve_uniform (1);
     case SHAPE_unary_n:
       return NULL_TREE;
@@ -3804,6 +3832,7 @@ function_checker::check ()
     case SHAPE_load_gather_vs:
     case SHAPE_ptest:
     case SHAPE_rdffr:
+    case SHAPE_reduction:
     case SHAPE_setffr:
     case SHAPE_shift_opt_n:
     case SHAPE_store:
@@ -4043,6 +4072,7 @@ gimple_folder::fold ()
     case FUNC_svaclt:
     case FUNC_svadd:
     case FUNC_svand:
+    case FUNC_svandv:
     case FUNC_svasrd:
     case FUNC_svbic:
     case FUNC_svcmpeq:
@@ -4063,6 +4093,7 @@ gimple_folder::fold ()
     case FUNC_svdot:
     case FUNC_svdup:
     case FUNC_sveor:
+    case FUNC_sveorv:
     case FUNC_svextb:
     case FUNC_svexth:
     case FUNC_svextw:
@@ -4107,8 +4138,12 @@ gimple_folder::fold ()
     case FUNC_svmad:
     case FUNC_svmax:
     case FUNC_svmaxnm:
+    case FUNC_svmaxnmv:
+    case FUNC_svmaxv:
     case FUNC_svmin:
     case FUNC_svminnm:
+    case FUNC_svminnmv:
+    case FUNC_svminv:
     case FUNC_svmla:
     case FUNC_svmls:
     case FUNC_svmsb:
@@ -4125,6 +4160,7 @@ gimple_folder::fold ()
     case FUNC_svnot:
     case FUNC_svorn:
     case FUNC_svorr:
+    case FUNC_svorv:
     case FUNC_svptest_any:
     case FUNC_svptest_first:
     case FUNC_svptest_last:
@@ -4552,6 +4588,9 @@ function_expander::expand ()
     case FUNC_svand:
       return expand_and ();
 
+    case FUNC_svandv:
+      return expand_reduction (UNSPEC_ANDV, UNSPEC_ANDV, -1);
+
     case FUNC_svasrd:
       return expand_asrd ();
 
@@ -4622,6 +4661,9 @@ function_expander::expand ()
 
     case FUNC_sveor:
       return expand_eor ();
+
+    case FUNC_sveorv:
+      return expand_reduction (UNSPEC_XORV, UNSPEC_XORV, -1);
 
     case FUNC_svextb:
     case FUNC_svexth:
@@ -4724,11 +4766,23 @@ function_expander::expand ()
     case FUNC_svmaxnm:
       return expand_maxnm ();
 
+    case FUNC_svmaxnmv:
+      return expand_reduction (-1, -1, UNSPEC_FMAXNMV);
+
+    case FUNC_svmaxv:
+      return expand_reduction (UNSPEC_SMAXV, UNSPEC_UMAXV, UNSPEC_FMAXV);
+
     case FUNC_svmin:
       return expand_min ();
 
     case FUNC_svminnm:
       return expand_minnm ();
+
+    case FUNC_svminnmv:
+      return expand_reduction (-1, -1, UNSPEC_FMINNMV);
+
+    case FUNC_svminv:
+      return expand_reduction (UNSPEC_SMINV, UNSPEC_UMINV, UNSPEC_FMINV);
 
     case FUNC_svmla:
       return expand_mla ();
@@ -4777,6 +4831,9 @@ function_expander::expand ()
 
     case FUNC_svorr:
       return expand_orr ();
+
+    case FUNC_svorv:
+      return expand_reduction (UNSPEC_IORV, UNSPEC_IORV, -1);
 
     case FUNC_svptest_any:
       return expand_ptest (NE);
@@ -5612,6 +5669,21 @@ function_expander::expand_rdffr ()
 				      : CODE_FOR_aarch64_rdffr);
   emit_insn (gen_aarch64_update_ffrt ());
   return result;
+}
+
+/* Expand a call to a vector-to-scalar reduction like svminv.
+   UNSPEC_FOR_SINT, UNSPEC_FOR_UINT and UNSPEC_FOR_FP are the
+   unspec codes for signed integer, unsigned integer, and floating-point
+   reductions respectively, with -1 for unsupported operations.  */
+rtx
+function_expander::expand_reduction (int unspec_for_sint, int unspec_for_uint,
+				     int unspec_for_fp)
+{
+  int unspec = (!type_suffixes[m_fi.types[0]].integer_p ? unspec_for_fp
+		: type_suffixes[m_fi.types[0]].unsigned_p ? unspec_for_uint
+		: unspec_for_sint);
+  machine_mode mode = get_mode (0);
+  return expand_via_exact_insn (code_for_aarch64_pred_reduc (unspec, mode));
 }
 
 /* Expand a call to svrev.  */

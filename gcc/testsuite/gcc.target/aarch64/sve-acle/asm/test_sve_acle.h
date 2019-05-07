@@ -296,6 +296,28 @@
     BIND_OUTPUT_P (p0);					\
   }
 
+#define TEST_REDUCTION_X(NAME, STYPE, ZTYPE, CODE1, CODE2) \
+  START (NAME)						\
+  {							\
+    BIND_INPUT_Z (ZTYPE, z0);				\
+    BIND_INPUT_Z (ZTYPE, z1);				\
+    BIND_INPUT_P (p0);					\
+    DEF_REGISTER (STYPE, x0);				\
+    INVOKE (CODE1, CODE2);				\
+    BIND_OUTPUT_X (x0);					\
+  }
+
+#define TEST_REDUCTION_D(NAME, STYPE, ZTYPE, CODE1, CODE2) \
+  START (NAME)						\
+  {							\
+    BIND_INPUT_Z (ZTYPE, z0);				\
+    BIND_INPUT_Z (ZTYPE, z1);				\
+    BIND_INPUT_P (p0);					\
+    DEF_REGISTER (STYPE, d0);				\
+    INVOKE (CODE1, CODE2);				\
+    BIND_OUTPUT_D (d0);					\
+  }
+
 #define TEST_S(NAME, ZTYPE, STYPE, CODE1)			\
   START (NAME)							\
   {								\

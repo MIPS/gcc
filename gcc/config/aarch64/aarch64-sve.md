@@ -3293,7 +3293,7 @@
 )
 
 ;; Predicated integer MIN/MAX reduction.
-(define_insn "*reduc_<maxmin_uns>_scal_<mode>"
+(define_insn "@aarch64_pred_reduc_<maxmin_uns>_<mode>"
   [(set (match_operand:<VEL> 0 "register_operand" "=w")
 	(unspec:<VEL> [(match_operand:<VPRED> 1 "register_operand" "Upl")
 		       (match_operand:SVE_I 2 "register_operand" "w")]
@@ -3315,7 +3315,7 @@
 )
 
 ;; Predicated floating-point MIN/MAX reduction.
-(define_insn "*reduc_<maxmin_uns>_scal_<mode>"
+(define_insn "@aarch64_pred_reduc_<maxmin_uns>_<mode>"
   [(set (match_operand:<VEL> 0 "register_operand" "=w")
 	(unspec:<VEL> [(match_operand:<VPRED> 1 "register_operand" "Upl")
 		       (match_operand:SVE_F 2 "register_operand" "w")]
@@ -3324,6 +3324,7 @@
   "<maxmin_uns_op>v\t%<Vetype>0, %1, %2.<Vetype>"
 )
 
+;; Unpredicated bitwise reduction.
 (define_expand "reduc_<optab>_scal_<mode>"
   [(set (match_operand:<VEL> 0 "register_operand")
 	(unspec:<VEL> [(match_dup 2)
@@ -3335,7 +3336,8 @@
   }
 )
 
-(define_insn "*reduc_<optab>_scal_<mode>"
+;; Predicated bitwise reduction.
+(define_insn "@aarch64_pred_reduc_<optab>_<mode>"
   [(set (match_operand:<VEL> 0 "register_operand" "=w")
 	(unspec:<VEL> [(match_operand:<VPRED> 1 "register_operand" "Upl")
 		       (match_operand:SVE_I 2 "register_operand" "w")]
