@@ -1,8 +1,103 @@
-2019-04-18  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2019-05-07  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
-	Update tests.
-	* g++.dg/cpp2a/concepts-placeholder1.C: Use type type constraint
-	syntax; remove redundant checks.
+	Add c++2a tests by default.
+	* lib/g++-dg.exp (dg-runtest): Add c++2a to run by default.
+	* g++.dg/cpp2a/concepts-class.C: Change target to c++2a.
+	* g++.dg/cpp2a/concepts-cmath.C: Likewise.
+	* g++.dg/cpp2a/concepts-constrained-parm.C: Likewise.
+	* g++.dg/cpp2a/concepts-explicit-inst1.C: Likewise.
+	* g++.dg/cpp2a/concepts-explicit-inst2.C: Likewise.
+	* g++.dg/cpp2a/concepts-explicit-inst3.C: Likewise.
+	* g++.dg/cpp2a/concepts-explicit-inst4.C: Likewise.
+	* g++.dg/cpp2a/concepts-explicit-spec1.C: Likewise.
+	* g++.dg/cpp2a/concepts-explicit-spec2.C: Likewise.
+	* g++.dg/cpp2a/concepts-explicit-spec3.C: Likewise.
+	* g++.dg/cpp2a/concepts-explicit-spec4.C: Likewise.
+	* g++.dg/cpp2a/concepts-explicit-spec5.C: Likewise.
+	* g++.dg/cpp2a/concepts-explicit-spec6.C: Likewise.
+	* g++.dg/cpp2a/concepts-feature-macro.C: Likewise.
+	* g++.dg/cpp2a/concepts-fn1.C: Likewise.
+	* g++.dg/cpp2a/concepts-fn2.C: Likewise. Uncomment a line of code
+	that was causing a spurious error.
+	* g++.dg/cpp2a/concepts-friend1.C: Change target to c++2a.
+	* g++.dg/cpp2a/concepts-friend2.C: Likewise.
+	* g++.dg/cpp2a/concepts-iconv1.C: Likewise.
+	* g++.dg/cpp2a/concepts-inherit-ctor2.C: Likewise.
+	* g++.dg/cpp2a/concepts-inherit-ctor4.C: Likewise.
+	* g++.dg/cpp2a/concepts-inherit-lambda1.C: Likewise.
+	* g++.dg/cpp2a/concepts-locations1.C: Likewise.
+	* g++.dg/cpp2a/concepts-member-concept.C: Likewise.
+	* g++.dg/cpp2a/concepts-memfun-err.C: Likewise.
+	* g++.dg/cpp2a/concepts-memtmpl1.C: Likewise. Add parens to make the
+	grammar conform.
+	* g++.dg/cpp2a/concepts-partial-spec.C: Change the target to c++17 only.
+	* g++.dg/cpp2a/concepts-partial-spec2.C: Add options. Add parens to 
+	make the grammar conform.
+	* g++.dg/cpp2a/concepts-partial-spec5.C: Change the target to c++2a.
+	* g++.dg/cpp2a/concepts-partial-spec6.C: Likewise.
+	* g++.dg/cpp2a/concepts-placeholder1.C: Likewise.
+	* g++.dg/cpp2a/concepts-locations1.C: Likewise.
+	* g++.dg/cpp2a/concepts-pr59200.C: Change the target to c++17.
+	* g++.dg/cpp2a/concepts-pr65552.C: Change the target to c++2a.
+	* g++.dg/cpp2a/concepts-pr65575.C: Change the target to c++17 only.
+	Change variable names to avoid unneeded diagnostic.
+	* g++.dg/cpp2a/concepts-pr65634.C: Change the target to c++2a.
+	* g++.dg/cpp2a/concepts-pr65636.C: Likewise.
+	* g++.dg/cpp2a/concepts-pr65848.C: Likewise.
+	* g++.dg/cpp2a/concepts-pr66091.C: Change the target to c++17 only.
+	* g++.dg/cpp2a/concepts-pr66894.C: Change the target to c++2a.
+	* g++.dg/cpp2a/concepts-pr66962.C: Likewise.
+	* g++.dg/cpp2a/concepts-pr66894.C: Likewise.
+	* g++.dg/cpp2a/concepts-pr67147.C: Likewise. Remove invalid tests.
+	* g++.dg/cpp2a/concepts-pr68434.C: Change the target to c++2a.
+	* g++.dg/cpp2a/concepts-pr68683.C: Likewise.
+	* g++.dg/cpp2a/concepts-pr71368.C: Likewise.
+	* g++.dg/cpp2a/concepts-pr71385.C: Likewise. Use P1141 syntax.
+	* g++.dg/cpp2a/concepts-pr71965.C: Change the target to c++2a.
+	* g++.dg/cpp2a/concepts-pr84551.C: Likewise.
+	* g++.dg/cpp2a/concepts-pr84980.C: Change the target to c++17 only.
+	* g++.dg/cpp2a/concepts-pr85265.C: Change the target to c++17 only.
+	* g++.dg/cpp2a/concepts-requires1.C: Change the target to c++2a. Add
+	diagnostic for additional semicolon diagnosed with pedantic.
+	* g++.dg/cpp2a/concepts-requires10.C: Change the target to c++2a.
+	* g++.dg/cpp2a/concepts-requires11.C: Likewise.
+	* g++.dg/cpp2a/concepts-requires12.C: Likewise.
+	* g++.dg/cpp2a/concepts-requires13.C: Likewise.
+	* g++.dg/cpp2a/concepts-requires14.C: Likewise.
+	* g++.dg/cpp2a/concepts-requires15.C: Likewise.
+	* g++.dg/cpp2a/concepts-requires16.C: Change the target to c++2a. 
+	Update diagnostics.
+	* g++.dg/cpp2a/concepts-requires2.C: Change the target to c++2a.
+	* g++.dg/cpp2a/concepts-requires3.C: Likewise.
+	* g++.dg/cpp2a/concepts-requires4.C: Likewise.
+	* g++.dg/cpp2a/concepts-requires5.C: Likewise.
+	* g++.dg/cpp2a/concepts-requires6.C: Likewise. Add tests for compound
+	requirement type deduction.
+	* g++.dg/cpp2a/concepts-requires7.C: Change the target to c++2a.
+	* g++.dg/cpp2a/concepts-requires8.C: Likewise.
+	* g++.dg/cpp2a/concepts-requires9.C: Likewise.
+	* g++.dg/cpp2a/concepts-template-parm1.C: Change the target to c++2a. 
+	Use P1141 syntax. Add tests.
+	* g++.dg/cpp2a/concepts-template-parm2.C: Likewise.
+	* g++.dg/cpp2a/concepts-template-parm5.C: Likewise.
+	* g++.dg/cpp2a/concepts-template-parm6.C: Likewise.
+	* g++.dg/cpp2a/concepts-template-parm8.C: Change the target to c++2a.
+	* g++.dg/cpp2a/concepts-template-parm9.C: Likewise.
+	* g++.dg/cpp2a/concepts-traits.C: Likewise.
+	* g++.dg/cpp2a/concepts-ts1.C: Likewise.
+	* g++.dg/cpp2a/concepts-ts2.C: Likewise.
+	* g++.dg/cpp2a/concepts-ts3.C: Likewise.
+	* g++.dg/cpp2a/concepts-ts4.C: Likewise.
+	* g++.dg/cpp2a/concepts-ts5.C: Likewise.
+	* g++.dg/cpp2a/concepts-ts6.C: Likewise.
+	* g++.dg/cpp2a/concepts.C: Likewise. Update diagnostics for P1141.
+	* g++.dg/cpp2a/concepts1.C: Change the target to c++2a.
+	* g++.dg/cpp2a/concepts2.C: Likewise.
+	* g++.dg/cpp2a/concepts3.C: Likewise.
+
+
+
+
 
 2019-04-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
 

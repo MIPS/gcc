@@ -1,5 +1,5 @@
 // PR c++/67152
-// { dg-options "-std=c++2a" }
+// { dg-do compile { target c++2a } }
 
 template <class T>
 concept HasType = requires { typename T::type; };

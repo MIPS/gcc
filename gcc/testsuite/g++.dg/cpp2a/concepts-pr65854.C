@@ -1,5 +1,5 @@
 // PR c++/65854
-// { dg-options "-std=c++2a" }
+// { dg-do compile { target c++2a } }
 
 // Handle alias templates in type requirements.
 

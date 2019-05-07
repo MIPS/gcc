@@ -1,5 +1,6 @@
 // PR c++/59200
-// { dg-options "-std=c++2a" }
+// { dg-do compile { target c++17 } }
+// { dg-additional-options "-fconcepts" }
 
 struct A
 {

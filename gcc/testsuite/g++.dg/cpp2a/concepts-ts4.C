@@ -1,5 +1,5 @@
-// { dg-do compile }
-// { dg-options "-std=c++2a -fconcepts-ts" }
+// { dg-do compile { target c++2a } }
+// { dg-additional-options "-fconcepts-ts" }
 
 // Basic tests for introduction syntax.
 

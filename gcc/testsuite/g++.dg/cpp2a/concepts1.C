@@ -1,6 +1,4 @@
-// { dg-do compile }
-// { dg-options "-std=c++2a" }
-
+// { dg-do compile { target c++2a } }
 
 template<typename T>
 concept Class = __is_class(T);

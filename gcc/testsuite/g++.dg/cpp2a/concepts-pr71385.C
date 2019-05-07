@@ -1,4 +1,4 @@
-// { dg-options "-std=c++2a" }
+// { dg-do compile { target c++2a } }
 
 template<class T>
 concept Addable =
@@ -7,5 +7,5 @@ concept Addable =
  };
 
 int main(){
- Addable t = 0;
+ Addable auto t = 0;
 }

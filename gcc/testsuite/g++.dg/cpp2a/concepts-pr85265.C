@@ -1,5 +1,6 @@
-// { dg-do compile { target c++14 } }
-// { dg-additional-options "-std=c++2a -fconcepts-ts" }
+// PR c++/85265
+// { dg-do compile { target c++17_only } }
+// { dg-additional-options "-fconcepts" }
 
 template<typename> concept bool C = true;
 

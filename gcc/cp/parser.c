@@ -26690,6 +26690,7 @@ cp_parser_concept_definition (cp_parser *parser)
   if (id == error_mark_node)
     {
       cp_parser_skip_to_end_of_statement (parser);
+      cp_parser_consume_semicolon_at_end_of_statement (parser);
       return NULL_TREE;
     }
   tree decl = start_concept_definition (id.get_location(), id);
@@ -26697,6 +26698,7 @@ cp_parser_concept_definition (cp_parser *parser)
   if (!cp_parser_require (parser, CPP_EQ, RT_EQ))
     {
       cp_parser_skip_to_end_of_statement (parser);
+      cp_parser_consume_semicolon_at_end_of_statement (parser);
       return error_mark_node;
     }
 
@@ -26705,15 +26707,13 @@ cp_parser_concept_definition (cp_parser *parser)
   if (init == error_mark_node)
     {
       cp_parser_skip_to_end_of_statement (parser);
+      cp_parser_consume_semicolon_at_end_of_statement (parser);
       return error_mark_node;
     }
 
   /* Consume the trailing ';'. Diagnose the problem if it isn't there, 
      but continue as if it were.  */
-  if (cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))
-    cp_lexer_consume_token (parser->lexer);
-  else
-    cp_parser_error (parser, "expected %<;%>");
+  cp_parser_consume_semicolon_at_end_of_statement (parser);
 
   tree def = finish_concept_definition (decl, init);
 }

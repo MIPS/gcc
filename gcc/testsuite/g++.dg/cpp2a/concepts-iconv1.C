@@ -1,5 +1,5 @@
 // PR c++/67240
-// { dg-options "-std=c++2a" }
+// { dg-do compile { target c++2a } }
 
 int foo(int x)
 {

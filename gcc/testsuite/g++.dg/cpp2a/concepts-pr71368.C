@@ -1,5 +1,5 @@
 // PR c++/71368
-// { dg-options "-std=c++2a" }
+// { dg-do compile { target c++2a } }
 
 struct inner;
 

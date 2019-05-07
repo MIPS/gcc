@@ -1,4 +1,4 @@
-// { dg-options "-std=c++2a" }
+// { dg-do compile { target c++2a } }
 
 template<class T, class U>
 concept Same = __is_same_as(T, U);

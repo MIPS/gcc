@@ -1,6 +1,5 @@
 // PR c++/67018
-// { dg-do compile }
-// { dg-options "-std=c++2a" }
+// { dg-do compile { target c++2a } }
 
 template <typename T>
 constexpr bool Val = true;

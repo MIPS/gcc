@@ -1,5 +1,5 @@
 // { dg-do compile { target c++17 } }
-// { dg-options "-fconcepts" }
+// { dg-additional-options "-fconcepts" }
 
 template <class T> struct A { };
 template <class T> requires false struct A<T*> { };

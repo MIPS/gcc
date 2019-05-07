@@ -1,7 +1,12 @@
+2019-05-07  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Consume semicolons if we get errors in concept definitions.
+	* parser.c (cp_parser_concept_definition): Consume semicolons.
+
 2019-04-22  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Remove restriction on the use of variadic constraints.
-	* parser (finish_constrained_parameter): Don't diagnose the use
+	* parser.c (finish_constrained_parameter): Don't diagnose the use
 	of variadic concepts with non-pack template parameters.
 
 2019-04-22  Andrew Sutton  <andrew.n.sutton@gmail.com>
