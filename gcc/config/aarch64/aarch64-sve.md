@@ -3238,46 +3238,27 @@
 
 ;; Unpredicated integer add reduction.
 (define_expand "reduc_plus_scal_<mode>"
-  [(set (match_operand:<VEL> 0 "register_operand")
-	(unspec:<VEL> [(match_dup 2)
-		       (match_operand:SVE_I 1 "register_operand")]
-		      UNSPEC_ADDV))]
+  [(match_operand:<VEL> 0 "register_operand")
+   (match_operand:SVE_I 1 "register_operand")]
   "TARGET_SVE"
   {
-    operands[2] = force_reg (<VPRED>mode, CONSTM1_RTX (<VPRED>mode));
+    rtx pred = force_reg (<VPRED>mode, CONSTM1_RTX (<VPRED>mode));
+    rtx tmp = <VEL>mode == DImode ? operands[0] : gen_reg_rtx (DImode);
+    emit_insn (gen_aarch64_pred_reduc_uadd_<mode> (tmp, pred, operands[1]));
+    if (tmp != operands[0])
+      emit_move_insn (operands[0], gen_lowpart (<VEL>mode, tmp));
+    DONE;
   }
 )
 
 ;; Predicated integer add reduction.  The result is always 64-bits.
-(define_insn "*reduc_plus_scal_<mode>"
-  [(set (match_operand:<VEL> 0 "register_operand" "=w")
-	(unspec:<VEL> [(match_operand:<VPRED> 1 "register_operand" "Upl")
-		       (match_operand:SVE_I 2 "register_operand" "w")]
-		      UNSPEC_ADDV))]
-  "TARGET_SVE"
-  "uaddv\t%d0, %1, %2.<Vetype>"
-)
-
-;; Unpredicated floating-point add reduction.
-(define_expand "reduc_plus_scal_<mode>"
-  [(set (match_operand:<VEL> 0 "register_operand")
-	(unspec:<VEL> [(match_dup 2)
-		       (match_operand:SVE_F 1 "register_operand")]
-		      UNSPEC_FADDV))]
-  "TARGET_SVE"
-  {
-    operands[2] = force_reg (<VPRED>mode, CONSTM1_RTX (<VPRED>mode));
-  }
-)
-
-;; Predicated floating-point add reduction.
-(define_insn "*reduc_plus_scal_<mode>"
-  [(set (match_operand:<VEL> 0 "register_operand" "=w")
-	(unspec:<VEL> [(match_operand:<VPRED> 1 "register_operand" "Upl")
-		       (match_operand:SVE_F 2 "register_operand" "w")]
-		      UNSPEC_FADDV))]
-  "TARGET_SVE"
-  "faddv\t%<Vetype>0, %1, %2.<Vetype>"
+(define_insn "@aarch64_pred_reduc_<optab>_<mode>"
+  [(set (match_operand:DI 0 "register_operand" "=w")
+	(unspec:DI [(match_operand:<VPRED> 1 "register_operand" "Upl")
+		    (match_operand:SVE_I 2 "register_operand" "w")]
+		   SVE_INT_ADDV))]
+  "TARGET_SVE && <max_elem_bits> >= <elem_bits>"
+  "<su>addv\t%d0, %1, %2.<Vetype>"
 )
 
 ;; Unpredicated integer MIN/MAX reduction.
@@ -3302,26 +3283,26 @@
   "<maxmin_uns_op>v\t%<Vetype>0, %1, %2.<Vetype>"
 )
 
-;; Unpredicated floating-point MIN/MAX reduction.
-(define_expand "reduc_<maxmin_uns>_scal_<mode>"
+;; Unpredicated floating-point ADD/MIN/MAX reduction.
+(define_expand "reduc_<optab>_scal_<mode>"
   [(set (match_operand:<VEL> 0 "register_operand")
 	(unspec:<VEL> [(match_dup 2)
 		       (match_operand:SVE_F 1 "register_operand")]
-		      FMAXMINV))]
+		      SVE_FP_REDUC))]
   "TARGET_SVE"
   {
     operands[2] = force_reg (<VPRED>mode, CONSTM1_RTX (<VPRED>mode));
   }
 )
 
-;; Predicated floating-point MIN/MAX reduction.
-(define_insn "@aarch64_pred_reduc_<maxmin_uns>_<mode>"
+;; Predicated floating-point ADD/MIN/MAX reduction.
+(define_insn "@aarch64_pred_reduc_<optab>_<mode>"
   [(set (match_operand:<VEL> 0 "register_operand" "=w")
 	(unspec:<VEL> [(match_operand:<VPRED> 1 "register_operand" "Upl")
 		       (match_operand:SVE_F 2 "register_operand" "w")]
-		      FMAXMINV))]
+		      SVE_FP_REDUC))]
   "TARGET_SVE"
-  "<maxmin_uns_op>v\t%<Vetype>0, %1, %2.<Vetype>"
+  "<sve_fp_op>\t%<Vetype>0, %1, %2.<Vetype>"
 )
 
 ;; Unpredicated bitwise reduction.

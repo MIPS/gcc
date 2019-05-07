@@ -478,6 +478,8 @@
     UNSPEC_FMLAL2	; Used in aarch64-simd.md.
     UNSPEC_FMLSL2	; Used in aarch64-simd.md.
     UNSPEC_SEL		; Used in aarch64-sve.md.
+    UNSPEC_SADDV	; Used in aarch64-sve.md.
+    UNSPEC_UADDV	; Used in aarch64-sve.md.
     UNSPEC_ANDV		; Used in aarch64-sve.md.
     UNSPEC_IORV		; Used in aarch64-sve.md.
     UNSPEC_XORV		; Used in aarch64-sve.md.
@@ -647,6 +649,10 @@
 ;; Give the ordinal of the MSB in the mode
 (define_mode_attr sizem1 [(QI "#7") (HI "#15") (SI "#31") (DI "#63")
 			  (HF "#15") (SF "#31") (DF "#63")])
+
+;; The number of bits in an element.
+(define_mode_attr elem_bits [(VNx16QI "8") (VNx8HI "16")
+			     (VNx4SI "32") (VNx2DI "64")])
 
 ;; Attribute to describe constants acceptable in logical operations
 (define_mode_attr lconst [(SI "K") (DI "L")])
@@ -1593,6 +1599,12 @@
 (define_int_iterator FMAXMINV [UNSPEC_FMAXV UNSPEC_FMINV
 			       UNSPEC_FMAXNMV UNSPEC_FMINNMV])
 
+(define_int_iterator SVE_INT_ADDV [UNSPEC_SADDV UNSPEC_UADDV])
+
+(define_int_iterator SVE_FP_REDUC [UNSPEC_FADDV
+				   UNSPEC_FMAXV UNSPEC_FMINV
+				   UNSPEC_FMAXNMV UNSPEC_FMINNMV])
+
 (define_int_iterator BITWISEV [UNSPEC_ANDV UNSPEC_IORV UNSPEC_XORV])
 
 (define_int_iterator LOGICALF [UNSPEC_ANDF UNSPEC_IORF UNSPEC_XORF])
@@ -1789,9 +1801,16 @@
 (define_int_attr optab [(UNSPEC_ANDF "and")
 			(UNSPEC_IORF "ior")
 			(UNSPEC_XORF "xor")
+			(UNSPEC_SADDV "sadd")
+			(UNSPEC_UADDV "uadd")
 			(UNSPEC_ANDV "and")
 			(UNSPEC_IORV "ior")
 			(UNSPEC_XORV "xor")
+			(UNSPEC_FADDV "plus")
+			(UNSPEC_FMAXNMV "smax")
+			(UNSPEC_FMAXV "smax_nan")
+			(UNSPEC_FMINNMV "smin")
+			(UNSPEC_FMINV "smin_nan")
 			(UNSPEC_SABD "sabd")
 			(UNSPEC_UABD "uabd")
 		        (UNSPEC_SMUL_HIGHPART "smulh")
@@ -1864,7 +1883,9 @@
 			      (UNSPEC_XORF "eor")])
 
 ;; "s" for signed operations and "u" for unsigned ones.
-(define_int_attr su [(UNSPEC_UNPACKSHI "s")
+(define_int_attr su [(UNSPEC_SADDV "s")
+		     (UNSPEC_UADDV "u")
+		     (UNSPEC_UNPACKSHI "s")
 		     (UNSPEC_UNPACKUHI "u")
 		     (UNSPEC_UNPACKSLO "s")
 		     (UNSPEC_UNPACKULO "u")
@@ -2055,7 +2076,12 @@
 			     (UNSPEC_UMUL_HIGHPART "umulh")
 			     (UNSPEC_ASHIFT_WIDE "lsl")])
 
-(define_int_attr sve_fp_op [(UNSPEC_COND_FABS "fabs")
+(define_int_attr sve_fp_op [(UNSPEC_FADDV "faddv")
+			    (UNSPEC_FMAXNMV "fmaxnmv")
+			    (UNSPEC_FMAXV "fmaxv")
+			    (UNSPEC_FMINNMV "fminnmv")
+			    (UNSPEC_FMINV "fminv")
+			    (UNSPEC_COND_FABS "fabs")
 			    (UNSPEC_COND_FNEG "fneg")
 			    (UNSPEC_COND_FSQRT "fsqrt")
 			    (UNSPEC_COND_FABD "fabd")
@@ -2113,3 +2139,6 @@
 			      (UNSPEC_COND_FMIN "vsB")
 			      (UNSPEC_COND_FMAXNM "vsB")
 			      (UNSPEC_COND_FMINNM "vsB")])
+
+;; The maximum number of bits that an instruction can handle
+(define_int_attr max_elem_bits [(UNSPEC_UADDV "64") (UNSPEC_SADDV "32")])

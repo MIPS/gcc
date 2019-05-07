@@ -245,6 +245,11 @@ enum function_shape {
   /* <t0>_t svfoo[_t0](sv<t0>_t).  */
   SHAPE_reduction,
 
+  /* int64_t svfoo[_t0](sv<t0>_t)  (for signed t0)
+     uint64_t svfoo[_t0](sv<t0>_t)  (for unsigned t0)
+     <t0>_t svfoo[_t0](sv<t0>_t)  (for floating-point t0).  */
+  SHAPE_reduction_wide,
+
   /* sv<t0>xN_t svfoo[_t0](sv<t0>xN_t, uint64_t, sv<t0>_t).  */
   SHAPE_set2,
   SHAPE_set3,
@@ -553,6 +558,7 @@ private:
   void sig_ptest (const function_instance &, vec<tree> &);
   void sig_rdffr (const function_instance &, vec<tree> &);
   void sig_reduction (const function_instance &, vec<tree> &);
+  void sig_reduction_wide (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_set_00i0 (const function_instance &, vec<tree> &);
   void sig_setffr (const function_instance &, vec<tree> &);
@@ -1781,6 +1787,11 @@ arm_sve_h_builder::build (const function_group &group)
       build_all (&arm_sve_h_builder::sig_reduction, group, MODE_none);
       break;
 
+    case SHAPE_reduction_wide:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_reduction_wide, group, MODE_none);
+      break;
+
     case SHAPE_set2:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_set_00i0<2>, group, MODE_none);
@@ -2232,6 +2243,21 @@ arm_sve_h_builder::sig_reduction (const function_instance &instance,
   types.quick_push (instance.vector_type (0));
 }
 
+/* Describe one of the signatures:
+
+     int64_t svfoo[_t0](sv<t0>_t)  (for signed t0)
+     uint64_t svfoo[_t0](sv<t0>_t)  (for unsigned t0)
+     <t0>_t svfoo[_t0](sv<t0>_t)  (for floating-point t0)
+
+   for INSTANCE in TYPES.  */
+void
+arm_sve_h_builder::sig_reduction_wide (const function_instance &instance,
+				       vec<tree> &types)
+{
+  types.quick_push (instance.wide_scalar_type (0));
+  types.quick_push (instance.vector_type (0));
+}
+
 /* Describe the signature
    "sv<t0>xN_t svfoo[_t0](sv<t0>xN_t, uint64_t, sv<t0>_t)"
    for INSTANCE in TYPES.  */
@@ -2586,6 +2612,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svacle:
     case FUNC_svaclt:
     case FUNC_svadd:
+    case FUNC_svaddv:
     case FUNC_svand:
     case FUNC_svandv:
     case FUNC_svasrd:
@@ -2788,6 +2815,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_ptest:
     case SHAPE_rdffr:
     case SHAPE_reduction:
+    case SHAPE_reduction_wide:
     case SHAPE_set2:
     case SHAPE_set3:
     case SHAPE_set4:
@@ -2971,6 +2999,7 @@ function_resolver::resolve ()
       return resolve_dot ();
     case SHAPE_unary:
     case SHAPE_reduction:
+    case SHAPE_reduction_wide:
       return resolve_uniform (1);
     case SHAPE_unary_n:
       return NULL_TREE;
@@ -3833,6 +3862,7 @@ function_checker::check ()
     case SHAPE_ptest:
     case SHAPE_rdffr:
     case SHAPE_reduction:
+    case SHAPE_reduction_wide:
     case SHAPE_setffr:
     case SHAPE_shift_opt_n:
     case SHAPE_store:
@@ -4071,6 +4101,7 @@ gimple_folder::fold ()
     case FUNC_svacle:
     case FUNC_svaclt:
     case FUNC_svadd:
+    case FUNC_svaddv:
     case FUNC_svand:
     case FUNC_svandv:
     case FUNC_svasrd:
@@ -4584,6 +4615,9 @@ function_expander::expand ()
 
     case FUNC_svadd:
       return expand_add (1);
+
+    case FUNC_svaddv:
+      return expand_reduction (UNSPEC_SADDV, UNSPEC_UADDV, UNSPEC_FADDV);
 
     case FUNC_svand:
       return expand_and ();
@@ -5683,6 +5717,10 @@ function_expander::expand_reduction (int unspec_for_sint, int unspec_for_uint,
 		: type_suffixes[m_fi.types[0]].unsigned_p ? unspec_for_uint
 		: unspec_for_sint);
   machine_mode mode = get_mode (0);
+  /* There's no signed/unsigned distinction for 64-bit elements, so SADDV
+     only exists for narrower elements.  */
+  if (GET_MODE_UNIT_BITSIZE (mode) == 64 && unspec == UNSPEC_SADDV)
+    unspec = UNSPEC_UADDV;
   return expand_via_exact_insn (code_for_aarch64_pred_reduc (unspec, mode));
 }
 
