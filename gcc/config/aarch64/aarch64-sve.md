@@ -2294,7 +2294,7 @@
 	(unspec:SVE_BHSI
 	  [(match_operand:SVE_BHSI 1 "register_operand" "w")
 	   (match_operand:VNx2DI 2 "register_operand" "w")]
-	  SVE_ASHIFT_WIDE))]
+	  SVE_SHIFT_WIDE))]
   "TARGET_SVE"
   "<sve_int_op>\t%0.<Vetype>, %1.<Vetype>, %2.d"
 )
@@ -2306,7 +2306,7 @@
 	   (unspec:SVE_BHSI
 	     [(match_operand:SVE_BHSI 2 "register_operand")
 	      (match_operand:VNx2DI 3 "register_operand")]
-	     SVE_ASHIFT_WIDE)
+	     SVE_SHIFT_WIDE)
 	   (match_operand:SVE_BHSI 4 "aarch64_simd_reg_or_zero")]
 	  UNSPEC_SEL))]
   "TARGET_SVE"
@@ -2319,7 +2319,7 @@
 	   (unspec:SVE_BHSI
 	     [(match_operand:SVE_BHSI 2 "register_operand" "0, w")
 	      (match_operand:VNx2DI 3 "register_operand" "w, w")]
-	     SVE_ASHIFT_WIDE)
+	     SVE_SHIFT_WIDE)
 	   (match_dup 2)]
 	 UNSPEC_SEL))]
   "TARGET_SVE"
@@ -2335,7 +2335,7 @@
 	   (unspec:SVE_BHSI
 	     [(match_operand:SVE_BHSI 2 "register_operand" "0, w")
 	      (match_operand:VNx2DI 3 "register_operand" "w, w")]
-	     SVE_ASHIFT_WIDE)
+	     SVE_SHIFT_WIDE)
 	   (match_operand:SVE_BHSI 4 "aarch64_simd_imm_zero")]
 	 UNSPEC_SEL))]
   "TARGET_SVE"

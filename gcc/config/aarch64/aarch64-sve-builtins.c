@@ -801,8 +801,6 @@ private:
   rtx expand_ldff1_ext_gather (rtx_code);
   rtx expand_ldff1_gather ();
   rtx expand_ldnt1 ();
-  rtx expand_lsl ();
-  rtx expand_lsl_wide ();
   rtx expand_mad (unsigned int);
   rtx expand_max ();
   rtx expand_maxnm ();
@@ -834,6 +832,8 @@ private:
   rtx expand_rev ();
   rtx expand_set ();
   rtx expand_setffr ();
+  rtx expand_shift (rtx_code, int);
+  rtx expand_shift_wide (int);
   rtx expand_sqrt ();
   rtx expand_st1 ();
   rtx expand_st1_scatter ();
@@ -973,11 +973,18 @@ static const type_suffix_info type_suffixes[NUM_TYPE_SUFFIXES + 1] = {
 #define TYPES_all_data(S, D) \
   TYPES_all_float (S, D), TYPES_all_integer (S, D)
 
+/* _s8 _s16 _s32.  */
+#define TYPES_bhs_signed(S, D) \
+  S (s8), S (s16), S (s32)
+
+/* _u8 _u16 _u32.  */
+#define TYPES_bhs_unsigned(S, D) \
+  S (u8), S (u16), S (u32)
+
 /* _s8 _s16 _s32
    _u8 _u16 _u32.  */
 #define TYPES_bhs_integer(S, D) \
-  S (s8), S (s16), S (s32), \
-  S (u8), S (u16), S (u32)
+  TYPES_bhs_signed (S, D), TYPES_bhs_unsigned (S, D)
 
 /* _s16 _s32 _s64
    _u16 _u32 _u64.  */
@@ -1047,6 +1054,8 @@ DEF_SVE_TYPES_ARRAY (all_pred);
 DEF_SVE_TYPES_ARRAY (all_signed);
 DEF_SVE_TYPES_ARRAY (all_unsigned);
 DEF_SVE_TYPES_ARRAY (b);
+DEF_SVE_TYPES_ARRAY (bhs_signed);
+DEF_SVE_TYPES_ARRAY (bhs_unsigned);
 DEF_SVE_TYPES_ARRAY (bhs_integer);
 DEF_SVE_TYPES_ARRAY (hsd_integer);
 DEF_SVE_TYPES_ARRAY (sd_data);
@@ -2695,6 +2704,8 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svaddv:
     case FUNC_svand:
     case FUNC_svandv:
+    case FUNC_svasr:
+    case FUNC_svasr_wide:
     case FUNC_svasrd:
     case FUNC_svbic:
     case FUNC_svcmpeq:
@@ -2718,6 +2729,8 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svindex:
     case FUNC_svlsl:
     case FUNC_svlsl_wide:
+    case FUNC_svlsr:
+    case FUNC_svlsr_wide:
     case FUNC_svmad:
     case FUNC_svmax:
     case FUNC_svmaxnm:
@@ -4265,6 +4278,8 @@ gimple_folder::fold ()
     case FUNC_svadrw:
     case FUNC_svand:
     case FUNC_svandv:
+    case FUNC_svasr:
+    case FUNC_svasr_wide:
     case FUNC_svasrd:
     case FUNC_svbic:
     case FUNC_svcmpeq:
@@ -4327,6 +4342,8 @@ gimple_folder::fold ()
     case FUNC_svldnt1:
     case FUNC_svlsl:
     case FUNC_svlsl_wide:
+    case FUNC_svlsr:
+    case FUNC_svlsr_wide:
     case FUNC_svmad:
     case FUNC_svmax:
     case FUNC_svmaxnm:
@@ -4797,6 +4814,12 @@ function_expander::expand ()
     case FUNC_svandv:
       return expand_reduction (UNSPEC_ANDV, UNSPEC_ANDV, -1);
 
+    case FUNC_svasr:
+      return expand_shift (ASHIFTRT, UNSPEC_ASHIFTRT_WIDE);
+
+    case FUNC_svasr_wide:
+      return expand_shift_wide (UNSPEC_ASHIFTRT_WIDE);
+
     case FUNC_svasrd:
       return expand_asrd ();
 
@@ -4958,10 +4981,16 @@ function_expander::expand ()
       return expand_ldnt1 ();
 
     case FUNC_svlsl:
-      return expand_lsl ();
+      return expand_shift (ASHIFT, UNSPEC_ASHIFT_WIDE);
 
     case FUNC_svlsl_wide:
-      return expand_lsl_wide ();
+      return expand_shift_wide (UNSPEC_ASHIFT_WIDE);
+
+    case FUNC_svlsr:
+      return expand_shift (LSHIFTRT, UNSPEC_LSHIFTRT_WIDE);
+
+    case FUNC_svlsr_wide:
+      return expand_shift_wide (UNSPEC_LSHIFTRT_WIDE);
 
     case FUNC_svmad:
       return expand_mad (1);
@@ -5560,48 +5589,6 @@ function_expander::expand_ldnt1 ()
   return expand_via_load_insn (code_for_aarch64_ldnt1 (get_mode (0)));
 }
 
-/* Expand a call to svlsl.  */
-rtx
-function_expander::expand_lsl ()
-{
-  machine_mode mode = get_mode (0);
-  machine_mode elem_mode = GET_MODE_INNER (mode);
-
-  if (m_fi.mode == MODE_n
-      && mode != VNx2DImode
-      && !aarch64_simd_shift_imm_p (m_args[2], elem_mode, true))
-    return expand_lsl_wide ();
-
-  if (m_fi.pred == PRED_x)
-    {
-      insn_code icode = code_for_aarch64_pred (ASHIFT, mode);
-      return expand_via_pred_x_insn (icode);
-    }
-  else
-    {
-      insn_code icode = code_for_cond (ASHIFT, mode);
-      return expand_via_pred_insn (icode);
-    }
-}
-
-/* Expand a call to svlsl_wide.  */
-rtx
-function_expander::expand_lsl_wide ()
-{
-  machine_mode mode = get_mode (0);
-
-  if (m_fi.pred == PRED_x)
-    {
-      insn_code icode = code_for_aarch64_wide (UNSPEC_ASHIFT_WIDE, mode);
-      return expand_via_unpred_insn (icode);
-    }
-  else
-    {
-      insn_code icode = code_for_cond (UNSPEC_ASHIFT_WIDE, mode);
-      return expand_via_pred_insn (icode);
-    }
-}
-
 /* Expand a call to svmad.
    svmad (pg, a, b, c) maps directly to cond_fma_optab and aarch64_pred_fma
    with the same operand order:
@@ -5938,6 +5925,37 @@ function_expander::expand_setffr ()
 {
   m_args.quick_push (CONSTM1_RTX (VNx16BImode));
   return expand_wrffr ();
+}
+
+/* Expand a call to sv{lsl,lsr,asr}.  CODE is the associated shift code
+   and WIDE_UNSPEC is the unspec code for the wide variant.  */
+rtx
+function_expander::expand_shift (rtx_code code, int wide_unspec)
+{
+  machine_mode mode = get_mode (0);
+  machine_mode elem_mode = GET_MODE_INNER (mode);
+
+  if (m_fi.mode == MODE_n
+      && mode != VNx2DImode
+      && !aarch64_simd_shift_imm_p (m_args[2], elem_mode, code == ASHIFT))
+    return expand_shift_wide (wide_unspec);
+
+  if (m_fi.pred == PRED_x)
+    return expand_via_pred_x_insn (code_for_aarch64_pred (code, mode));
+  else
+    return expand_via_pred_insn (code_for_cond (code, mode));
+}
+
+/* Expand a call to sv{lsl,lsr,asr}_wide.  UNSPEC is the associated
+   unspec code.  */
+rtx
+function_expander::expand_shift_wide (int unspec)
+{
+  machine_mode mode = get_mode (0);
+  if (m_fi.pred == PRED_x)
+    return expand_via_unpred_insn (code_for_aarch64_wide (unspec, mode));
+  else
+    return expand_via_pred_insn (code_for_cond (unspec, mode));
 }
 
 /* Expand a call to svsqrt.  */

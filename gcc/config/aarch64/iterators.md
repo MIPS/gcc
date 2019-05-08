@@ -524,6 +524,8 @@
     UNSPEC_WHILE_LT	; Used in aarch64-sve.md.
     UNSPEC_LASTB	; Used in aarch64-sve.md.
     UNSPEC_ASHIFT_WIDE  ; Used in aarch64-sve.md.
+    UNSPEC_ASHIFTRT_WIDE ; Used in aarch64-sve.md.
+    UNSPEC_LSHIFTRT_WIDE ; Used in aarch64-sve.md.
     UNSPEC_LDFF1	; Used in aarch64-sve.md.
     UNSPEC_LDNF1	; Used in aarch64-sve.md.
     UNSPEC_FCADD90	; Used in aarch64-simd.md.
@@ -1766,7 +1768,9 @@
 (define_int_iterator SVE_WHILE [UNSPEC_WHILE_LE UNSPEC_WHILE_LO
 				UNSPEC_WHILE_LS UNSPEC_WHILE_LT])
 
-(define_int_iterator SVE_ASHIFT_WIDE [UNSPEC_ASHIFT_WIDE])
+(define_int_iterator SVE_SHIFT_WIDE [UNSPEC_ASHIFT_WIDE
+				     UNSPEC_ASHIFTRT_WIDE
+				     UNSPEC_LSHIFTRT_WIDE])
 
 (define_int_iterator SVE_LDFF1_LDNF1 [UNSPEC_LDFF1 UNSPEC_LDNF1])
 
@@ -2075,7 +2079,9 @@
 			     (UNSPEC_UABD "uabd")
 			     (UNSPEC_SMUL_HIGHPART "smulh")
 			     (UNSPEC_UMUL_HIGHPART "umulh")
-			     (UNSPEC_ASHIFT_WIDE "lsl")])
+			     (UNSPEC_ASHIFT_WIDE "lsl")
+			     (UNSPEC_ASHIFTRT_WIDE "asr")
+			     (UNSPEC_LSHIFTRT_WIDE "lsr")])
 
 (define_int_attr sve_fp_op [(UNSPEC_FADDV "faddv")
 			    (UNSPEC_FMAXNMV "fmaxnmv")
