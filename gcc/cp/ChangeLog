@@ -1,5 +1,15 @@
 2019-05-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Re-enable Concepts TS constrained parameters that declare
+	non-type parameters.
+	* parser.c (cp_parser_placeholder_type_specifier): Only limit the
+	error to C++2a without -fconcepts-ts and outside of template parameter
+	lists otherwise.
+	* constraint.cc (diagnose_constraint): Emit a diagnostic when the
+	constraint is ill-formed.
+
+2019-05-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Only diagnose P1141 issues in C++2a mode or greater.
 	* parser.c (cp_parser_placeholder_type_specifier): Check dialect
 	version.

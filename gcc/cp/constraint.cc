@@ -2662,6 +2662,13 @@ diagnose_atom (tree expr, tree args, tree in_decl)
 static bool
 diagnose_constraint (tree expr, tree args, tree in_decl)
 {
+  /* This happens for ill-formed constraints. */
+  if (expr == error_mark_node)
+    {
+      inform (DECL_SOURCE_LOCATION (in_decl), "invalid template requirements");
+      return true;
+    }
+
   /* Handle logical operators separately.  */
   switch (TREE_CODE (expr))
     {

@@ -1,6 +1,5 @@
-// needs fixed
 // PR c++/67159
-// { dg-do compile { target c++17 } }
+// { dg-do compile { target c++17_only } }
 // { dg-options "-fconcepts" }
 
 template <class T, class U>

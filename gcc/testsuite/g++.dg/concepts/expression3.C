@@ -1,5 +1,5 @@
-// needs port; no clear match
-// { dg-options "-std=c++17 -fconcepts" }
+// { dg-do compile { target c++17_only } }
+// { dg-options "-fconcepts" }
 
 template<typename T>
 concept bool C()

@@ -18031,12 +18031,17 @@ cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc,
     }
 
   /* A type constraint constrains a contextually determined type or type
-     parameter pack; check the prototype to make sure it conforms.  */
+     parameter pack. However, the the Concepts TS does allow concepts
+     to introduce non-type and template template parameters.  */
   if (TREE_CODE (proto) != TYPE_DECL)
     {
-      error_at (loc, "%qE does not constrain a type", DECL_NAME (con));
-      inform (DECL_SOURCE_LOCATION (con), "concept defined here");
-      return error_mark_node;
+      if ((cxx_dialect >= cxx2a && !flag_concepts_ts)
+	  || !processing_template_parmlist)
+	{
+	  error_at (loc, "%qE does not constrain a type", DECL_NAME (con));
+	  inform (DECL_SOURCE_LOCATION (con), "concept defined here");
+	  return error_mark_node;
+	}
     }
 
   /* In a template parameter list, a type-parameter can be introduced 

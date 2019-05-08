@@ -1,4 +1,4 @@
-// { dg-do compile { target c++17 } }
+// { dg-do compile { target c++17_only } }
 // { dg-options "-fconcepts" }
 
 template <class T, class U>
@@ -14,5 +14,5 @@ concept bool C =
 template <C c>
 constexpr bool f() { return true; }
 
-static_assert(f<double>(), "");	// { dg-error "" }
-static_assert(f<int>(), "");
+static_assert(f<double>(), "");	// { dg-error "cannot call|as type" }
+static_assert(f<int>(), ""); // { dg-error "cannot call|as type" }

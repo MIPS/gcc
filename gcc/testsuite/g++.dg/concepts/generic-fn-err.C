@@ -1,4 +1,4 @@
-// { dg-do compile { target c++17 } }
+// { dg-do compile { target c++17_only } }
 // { dg-options "-fconcepts" }
 
 template<typename T>
@@ -10,8 +10,8 @@ template<int N>
 template<template<typename> class X>
   concept bool Template() { return true; }
 
-void f1(Int) { }      // { dg-error "does not designate a type" }
-void f2(Template) { } // { dg-error "does not designate a type" }
+void f1(Int) { }      // { dg-error "does not constrain a type" }
+void f2(Template) { } // { dg-error "does not constrain a type" }
 
 struct S { };
 
