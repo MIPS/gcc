@@ -5592,8 +5592,8 @@ function_expander::expand_lsl_wide ()
 
   if (m_fi.pred == PRED_x)
     {
-      insn_code icode = code_for_aarch64_pred (UNSPEC_ASHIFT_WIDE, mode);
-      return expand_via_pred_x_insn (icode);
+      insn_code icode = code_for_aarch64_wide (UNSPEC_ASHIFT_WIDE, mode);
+      return expand_via_unpred_insn (icode);
     }
   else
     {

@@ -13,6 +13,17 @@ TEST_WIDE_Z (lsl_wide_s32_m_tied1, svint32_t,
 	     z0 = svlsl_wide_m (p0, z0, z16))
 
 /*
+** lsl_wide_s32_m_tied2:
+**	mov	(z[0-9]+\.d), z16\.d
+**	movprfx	z16, z0
+**	lsl	z16\.s, p0/m, z16\.s, \1
+**	ret
+*/
+TEST_WIDE_Z (lsl_wide_s32_m_tied2, svint32_t,
+	     z16_res = svlsl_wide_s32_m (p0, z0, z16),
+	     z16_res = svlsl_wide_m (p0, z0, z16))
+
+/*
 ** lsl_wide_s32_m_untied:
 **	movprfx	z0, z1
 **	lsl	z0\.s, p0/m, z0\.s, z16\.d
@@ -21,11 +32,6 @@ TEST_WIDE_Z (lsl_wide_s32_m_tied1, svint32_t,
 TEST_WIDE_Z (lsl_wide_s32_m_untied, svint32_t,
 	     z0 = svlsl_wide_s32_m (p0, z1, z16),
 	     z0 = svlsl_wide_m (p0, z1, z16))
-
-/* Bad RA choice: no preferred output sequence.  */
-TEST_WIDE_Z (lsl_wide_s32_m_tied2, svint32_t,
-	     z16_res = svlsl_wide_s32_m (p0, z0, z16),
-	     z16_res = svlsl_wide_m (p0, z0, z16))
 
 /*
 ** lsl_wide_s32_z_tied1:
@@ -38,7 +44,18 @@ TEST_WIDE_Z (lsl_wide_s32_z_tied1, svint32_t,
 	     z0 = svlsl_wide_z (p0, z0, z16))
 
 /*
-** lsl_wide_s32_z_untied: { xfail *-*-* }
+** lsl_wide_s32_z_tied2:
+**	mov	(z[0-9]+\.d), z16\.d
+**	movprfx	z16\.s, p0/z, z0\.s
+**	lsl	z16\.s, p0/m, z16\.s, \1
+**	ret
+*/
+TEST_WIDE_Z (lsl_wide_s32_z_tied2, svint32_t,
+	     z16_res = svlsl_wide_s32_z (p0, z0, z16),
+	     z16_res = svlsl_wide_z (p0, z0, z16))
+
+/*
+** lsl_wide_s32_z_untied:
 **	movprfx	z0\.s, p0/z, z1\.s
 **	lsl	z0\.s, p0/m, z0\.s, z16\.d
 **	ret
@@ -47,14 +64,9 @@ TEST_WIDE_Z (lsl_wide_s32_z_untied, svint32_t,
 	     z0 = svlsl_wide_s32_z (p0, z1, z16),
 	     z0 = svlsl_wide_z (p0, z1, z16))
 
-/* Bad RA choice: no preferred output sequence.  */
-TEST_WIDE_Z (lsl_wide_s32_z_tied2, svint32_t,
-	     z16_res = svlsl_wide_s32_z (p0, z0, z16),
-	     z16_res = svlsl_wide_z (p0, z0, z16))
-
 /*
 ** lsl_wide_s32_x_tied1:
-**	lsl	z0\.s, p0/m, z0\.s, z16\.d
+**	lsl	z0\.s, z0\.s, z16\.d
 **	ret
 */
 TEST_WIDE_Z (lsl_wide_s32_x_tied1, svint32_t,
@@ -62,16 +74,19 @@ TEST_WIDE_Z (lsl_wide_s32_x_tied1, svint32_t,
 	     z0 = svlsl_wide_x (p0, z0, z16))
 
 /*
+** lsl_wide_s32_x_tied2:
+**	lsl	z16\.s, z0\.s, z16\.d
+**	ret
+*/
+TEST_WIDE_Z (lsl_wide_s32_x_tied2, svint32_t,
+	     z16_res = svlsl_wide_s32_x (p0, z0, z16),
+	     z16_res = svlsl_wide_x (p0, z0, z16))
+
+/*
 ** lsl_wide_s32_x_untied:
-**	movprfx	z0, z1
-**	lsl	z0\.s, p0/m, z0\.s, z16\.d
+**	lsl	z0\.s, z1\.s, z16\.d
 **	ret
 */
 TEST_WIDE_Z (lsl_wide_s32_x_untied, svint32_t,
 	     z0 = svlsl_wide_s32_x (p0, z1, z16),
 	     z0 = svlsl_wide_x (p0, z1, z16))
-
-/* Bad RA choice: no preferred output sequence.  */
-TEST_WIDE_Z (lsl_wide_s32_x_tied2, svint32_t,
-	     z16_res = svlsl_wide_s32_x (p0, z0, z16),
-	     z16_res = svlsl_wide_x (p0, z0, z16))

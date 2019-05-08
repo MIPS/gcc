@@ -2272,36 +2272,31 @@
 )
 
 (define_insn "*cond<optab><mode>_z"
-  [(set (match_operand:SVE_I 0 "register_operand" "=w, &w, ?&w")
+  [(set (match_operand:SVE_I 0 "register_operand" "=w, &w, ?&w, ?&w")
 	(unspec:SVE_I
-	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl, Upl")
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl, Upl, Upl")
 	   (ASHIFT:SVE_I
-	     (match_operand:SVE_I 2 "register_operand" "w, w, 0w")
-	     (match_operand:SVE_I 3 "aarch64_sve_<lr>shift_operand" "D<lr>, 0, w"))
+	     (match_operand:SVE_I 2 "register_operand" "w, w, 0, w")
+	     (match_operand:SVE_I 3 "aarch64_sve_<lr>shift_operand" "D<lr>, 0, w, w"))
 	   (match_operand:SVE_I 4 "aarch64_simd_imm_zero")]
 	 UNSPEC_SEL))]
   "TARGET_SVE"
   "@
    movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;<shift>\t%0.<Vetype>, %1/m, %0.<Vetype>, #%3
    movprfx\t%0.<Vetype>, %1/z, %3.<Vetype>\;<shift>r\t%0.<Vetype>, %1/m, %3.<Vetype>, %2.<Vetype>
+   movprfx\t%0.<Vetype>, %1/z, %0.<Vetype>\;<shift>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
    movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;<shift>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
-  [(set_attr "movprfx" "yes,yes,yes")]
+  [(set_attr "movprfx" "yes")]
 )
 
-(define_insn "@aarch64_pred_<sve_int_op><mode>"
-  [(set (match_operand:SVE_BHSI 0 "register_operand" "=w, ?&w")
+(define_insn "@aarch64_wide_<sve_int_op><mode>"
+  [(set (match_operand:SVE_BHSI 0 "register_operand" "=w")
 	(unspec:SVE_BHSI
-	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl")
-	  (unspec:SVE_BHSI
-	    [(match_operand:SVE_BHSI 2 "register_operand" "0, w")
-	     (match_operand:VNx2DI 3 "register_operand" "w, w")]
-	    SVE_ASHIFT_WIDE)]
-	  UNSPEC_MERGE_PTRUE))]
+	  [(match_operand:SVE_BHSI 1 "register_operand" "w")
+	   (match_operand:VNx2DI 2 "register_operand" "w")]
+	  SVE_ASHIFT_WIDE))]
   "TARGET_SVE"
-  "@
-   <sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.d
-   movprfx\t%0, %2\;<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.d"
-  [(set_attr "movprfx" "*,yes")]
+  "<sve_int_op>\t%0.<Vetype>, %1.<Vetype>, %2.d"
 )
 
 (define_expand "@cond_<sve_int_op><mode>"
@@ -2334,17 +2329,19 @@
   [(set_attr "movprfx" "*, yes")])
 
 (define_insn "*cond<sve_int_op><mode>_z"
-  [(set (match_operand:SVE_BHSI 0 "register_operand" "=&w")
+  [(set (match_operand:SVE_BHSI 0 "register_operand" "=&w, &w")
 	(unspec:SVE_BHSI
-	  [(match_operand:<VPRED> 1 "register_operand" "Upl")
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl")
 	   (unspec:SVE_BHSI
-	     [(match_operand:SVE_BHSI 2 "register_operand" "0w")
-	      (match_operand:VNx2DI 3 "register_operand" "w")]
+	     [(match_operand:SVE_BHSI 2 "register_operand" "0, w")
+	      (match_operand:VNx2DI 3 "register_operand" "w, w")]
 	     SVE_ASHIFT_WIDE)
 	   (match_operand:SVE_BHSI 4 "aarch64_simd_imm_zero")]
 	 UNSPEC_SEL))]
   "TARGET_SVE"
-  "movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.d"
+  "@
+   movprfx\t%0.<Vetype>, %1/z, %0.<Vetype>\;<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.d
+   movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.d"
   [(set_attr "movprfx" "yes")])
 
 ;; Test the bits of operand 2 selected by operand 0.  Operands 1 and 3
