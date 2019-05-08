@@ -120,6 +120,12 @@ enum predication {
    present only in the full name, not the overloaded name.  Governing
    predicate arguments and predicate suffixes are not shown.  */
 enum function_shape {
+  /* sv<m0>_t svfoo[_m0base]_[m1]index(sv<m0>_t, sv<m1>_t).  */
+  SHAPE_adr_index,
+
+  /* sv<m0>_t svfoo[_m0base]_[m1]offset(sv<m0>_t, sv<m1>_t).  */
+  SHAPE_adr_offset,
+
   /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t).  */
   SHAPE_binary,
 
@@ -543,6 +549,7 @@ private:
 		  bool = false);
   void build_one (function_signature, const function_group &, function_mode,
 		  unsigned int, unsigned int, bool);
+  void sig_adr (const function_instance &, vec<tree> &);
   void sig_compare (const function_instance &, vec<tree> &);
   void sig_compare_n (const function_instance &, vec<tree> &);
   void sig_compare_scalar (const function_instance &, vec<tree> &);
@@ -625,6 +632,7 @@ public:
 private:
   tree resolve_pointer ();
   tree resolve_uniform (unsigned int);
+  tree resolve_adr ();
   tree resolve_create (unsigned int);
   tree resolve_dot ();
   tree resolve_fold_left ();
@@ -655,11 +663,12 @@ private:
   vector_type require_integer_scalar_type (unsigned int);
   bool require_matching_scalar_types (unsigned int, unsigned int,
 				      vector_type, vector_type);
+  vector_type require_vector_base (unsigned int);
   function_mode require_vector_displacement (unsigned int, vector_type, bool);
   function_mode require_gather_address (unsigned int, vector_type, bool);
 
   tree require_n_form (type_suffix, type_suffix = NUM_TYPE_SUFFIXES);
-  tree require_form (function_mode, type_suffix,
+  tree require_form (function_mode, type_suffix = NUM_TYPE_SUFFIXES,
 		     type_suffix = NUM_TYPE_SUFFIXES);
   tree lookup_form (function_mode, type_suffix, type_suffix);
 
@@ -765,6 +774,8 @@ private:
   rtx expand_ac (int);
   rtx expand_add (unsigned int);
   rtx expand_adda ();
+  rtx expand_adrb ();
+  rtx expand_adrhwd ();
   rtx expand_and (unsigned int = DEFAULT_MERGE_ARGNO);
   rtx expand_asrd ();
   rtx expand_bic ();
@@ -1117,6 +1128,21 @@ bool
 integral_type_p (vector_type type)
 {
   return type != VECTOR_TYPE_svbool_t && INTEGRAL_TYPE_P (scalar_types[type]);
+}
+
+/* Try to find a mode with the given mode_info fields.  Return the mode
+   on success or MODE_none on failure.  */
+static function_mode
+find_function_mode (vector_type base_vector_type,
+		    vector_type displacement_vector_type,
+		    units displacement_units)
+{
+  for (unsigned int mode = 0; mode < ARRAY_SIZE (modes); ++mode)
+    if (modes[mode].base_vector_type == base_vector_type
+	&& modes[mode].displacement_vector_type == displacement_vector_type
+	&& modes[mode].displacement_units == displacement_units)
+      return function_mode (mode);
+  return MODE_none;
 }
 
 /* If TYPE is an ACLE vector type, return the associated vector_type,
@@ -1627,6 +1653,22 @@ arm_sve_h_builder::build (const function_group &group)
 {
   switch (group.shape)
     {
+    case SHAPE_adr_index:
+      add_overloaded_functions (group, MODE_index);
+      build_all (&arm_sve_h_builder::sig_adr, group, MODE_u32base_s32index);
+      build_all (&arm_sve_h_builder::sig_adr, group, MODE_u32base_u32index);
+      build_all (&arm_sve_h_builder::sig_adr, group, MODE_u64base_s64index);
+      build_all (&arm_sve_h_builder::sig_adr, group, MODE_u64base_u64index);
+      break;
+
+    case SHAPE_adr_offset:
+      add_overloaded_functions (group, MODE_offset);
+      build_all (&arm_sve_h_builder::sig_adr, group, MODE_u32base_s32offset);
+      build_all (&arm_sve_h_builder::sig_adr, group, MODE_u32base_u32offset);
+      build_all (&arm_sve_h_builder::sig_adr, group, MODE_u64base_s64offset);
+      build_all (&arm_sve_h_builder::sig_adr, group, MODE_u64base_u64offset);
+      break;
+
     case SHAPE_binary:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_000, group, MODE_none);
@@ -2081,6 +2123,21 @@ arm_sve_h_builder::build_one (function_signature signature,
   (this->*signature) (instance, types);
   apply_predication (instance, types);
   add_function_instance (instance, types, force_direct_overloads);
+}
+
+/* Describe one of the signatures:
+
+     sv<m0>_t svfoo[_m0base]_[m1]index(sv<m0>_t, sv<m1>_t)
+     sv<m0>_t svfoo[_m0base]_[m1]offset(sv<m0>_t, sv<m1>_t)
+
+   for INSTANCE in TYPES.  */
+void
+arm_sve_h_builder::sig_adr (const function_instance &instance,
+			    vec<tree> &types)
+{
+  types.quick_push (instance.base_vector_type ());
+  types.quick_push (instance.base_vector_type ());
+  types.quick_push (instance.displacement_vector_type ());
 }
 
 /* Describe the signature "svbool_t svfoo[_t0](sv<t0>_t, sv<t0>_t)"
@@ -2707,6 +2764,10 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
 	}
       break;
 
+    case FUNC_svadrb:
+    case FUNC_svadrd:
+    case FUNC_svadrh:
+    case FUNC_svadrw:
     case FUNC_svcntb:
     case FUNC_svcntd:
     case FUNC_svcnth:
@@ -2818,6 +2879,8 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
 {
   switch (shape)
     {
+    case SHAPE_adr_index:
+    case SHAPE_adr_offset:
     case SHAPE_binary:
     case SHAPE_binary_opt_n:
     case SHAPE_binary_wide:
@@ -2947,6 +3010,9 @@ function_resolver::resolve ()
 {
   switch (m_fi.shape)
     {
+    case SHAPE_adr_index:
+    case SHAPE_adr_offset:
+      return resolve_adr ();
     case SHAPE_binary:
     case SHAPE_binary_opt_n:
     case SHAPE_compare_opt_n:
@@ -3074,6 +3140,34 @@ function_resolver::resolve_uniform (unsigned int nops)
 	return error_mark_node;
     }
   return require_form (m_fi.mode, get_type_suffix (type));
+}
+
+/* Resolve a function that has SHAPE_adr_{index,offset}.  */
+tree
+function_resolver::resolve_adr ()
+{
+  vector_type type1, type2;
+  if (!check_num_arguments (2)
+      || (type1 = require_vector_base (0)) == NUM_VECTOR_TYPES
+      || (type2 = require_integer_vector_type (1)) == NUM_VECTOR_TYPES)
+    return error_mark_node;
+
+  function_mode mode = find_function_mode (type1, type2,
+					   m_fi.displacement_units ());
+  if (mode == MODE_none)
+    {
+      if (m_fi.mode == MODE_offset)
+	error_at (m_location, "cannot combine a base of type %qT with"
+		  " an offset of type %qT",
+		  get_argument_type (0), get_argument_type (1));
+      else
+	error_at (m_location, "cannot combine a base of type %qT with"
+		  " an index of type %qT",
+		  get_argument_type (0), get_argument_type (1));
+      return error_mark_node;
+    }
+
+  return require_form (mode);
 }
 
 /* Resolve a function that has SHAPE_create<NUM_VECTORS>.  */
@@ -3650,6 +3744,23 @@ function_resolver::require_matching_scalar_types (unsigned int i1,
   return false;
 }
 
+/* Require argument I to be a vector base in a gather-style address.
+   Return its type on success, otherwise return NUM_VECTOR_TYPES.  */
+vector_type
+function_resolver::require_vector_base (unsigned int i)
+{
+  vector_type type = require_vector_type (i);
+  if (type == NUM_VECTOR_TYPES
+      || type == VECTOR_TYPE_svuint32_t
+      || type == VECTOR_TYPE_svuint64_t)
+    return type;
+
+  error_at (m_location, "passing %qT to argument %d of %qE, which"
+	    " expects %qs or %qs", get_argument_type (i), i + 1, m_rfn.decl,
+	    "svuint32_t", "svuint64_t");
+  return NUM_VECTOR_TYPES;
+}
+
 /* Require argument I to be a vector offset or index in a gather-style
    address.  DATA_TYPE is the type of data being loaded or stored.
    LOAD_P is true if it is being loaded rather than stored.
@@ -3666,11 +3777,13 @@ function_resolver::require_vector_displacement (unsigned int i,
 
   unsigned int required_bits = get_element_bits (data_type);
   if (get_element_bits (displacement_type) == required_bits)
-    for (unsigned int mode = 0; mode < ARRAY_SIZE (modes); ++mode)
-      if (modes[mode].base_vector_type == NUM_VECTOR_TYPES
-	  && modes[mode].displacement_vector_type == displacement_type
-	  && modes[mode].displacement_units == m_fi.displacement_units ())
-	return function_mode (mode);
+    {
+      function_mode mode = find_function_mode (NUM_VECTOR_TYPES,
+					       displacement_type,
+					       m_fi.displacement_units ());
+      if (mode != MODE_none)
+	return mode;
+    }
 
   if (m_fi.types[0] == NUM_TYPE_SUFFIXES)
     {
@@ -3874,6 +3987,8 @@ function_checker::check ()
 
   switch (m_fi.shape)
     {
+    case SHAPE_adr_index:
+    case SHAPE_adr_offset:
     case SHAPE_binary:
     case SHAPE_binary_opt_n:
     case SHAPE_binary_pred:
@@ -4144,6 +4259,10 @@ gimple_folder::fold ()
     case FUNC_svadd:
     case FUNC_svadda:
     case FUNC_svaddv:
+    case FUNC_svadrb:
+    case FUNC_svadrd:
+    case FUNC_svadrh:
+    case FUNC_svadrw:
     case FUNC_svand:
     case FUNC_svandv:
     case FUNC_svasrd:
@@ -4661,6 +4780,14 @@ function_expander::expand ()
     case FUNC_svadda:
       return expand_adda ();
 
+    case FUNC_svadrb:
+      return expand_adrb ();
+
+    case FUNC_svadrd:
+    case FUNC_svadrh:
+    case FUNC_svadrw:
+      return expand_adrhwd ();
+
     case FUNC_svaddv:
       return expand_reduction (UNSPEC_SADDV, UNSPEC_UADDV, UNSPEC_FADDV);
 
@@ -5065,6 +5192,27 @@ function_expander::expand_adda ()
 {
   insn_code icode = code_for_aarch64_pred_fold_left_plus (get_mode (0));
   return expand_via_exact_insn (icode);
+}
+
+/* Expand a call to svadrb.  */
+rtx
+function_expander::expand_adrb ()
+{
+  return expand_via_exact_insn (code_for_aarch64_adr (GET_MODE (m_args[0])));
+}
+
+/* Expand a call to svadr[hwd].  */
+rtx
+function_expander::expand_adrhwd ()
+{
+  machine_mode mode = GET_MODE (m_args[0]);
+
+  /* Turn the access size into an extra shift argument.  */
+  unsigned int bytes = GET_MODE_UNIT_SIZE (m_fi.bhwd_scalar_mode ());
+  rtx shift = gen_int_mode (exact_log2 (bytes), GET_MODE_INNER (mode));
+  m_args.quick_push (expand_vector_broadcast (mode, shift));
+
+  return expand_via_exact_insn (code_for_aarch64_adr_shift (mode));
 }
 
 /* Expand a call to svand.  Make the _m forms merge with argument

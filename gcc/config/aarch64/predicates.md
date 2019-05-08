@@ -39,6 +39,13 @@
   (and (match_code "const_int")
        (match_test "op == CONST0_RTX (mode)")))
 
+(define_predicate "const_1_to_3_operand"
+  (match_code "const_int,const_vector")
+{
+  op = unwrap_const_vec_duplicate (op);
+  return CONST_INT_P (op) && IN_RANGE (INTVAL (op), 1, 3);
+})
+
 (define_special_predicate "subreg_lowpart_operator"
   (and (match_code "subreg")
        (match_test "subreg_lowpart_p (op)")))

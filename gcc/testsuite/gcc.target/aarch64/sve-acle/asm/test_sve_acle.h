@@ -346,6 +346,15 @@
     BIND_OUTPUT_X (x1);						\
   }
 
+#define TEST_ADR(NAME, TYPE1, TYPE2, CODE1, CODE2)	\
+  START (NAME)						\
+  {							\
+    BIND_INPUT_Z (TYPE1, z0);				\
+    BIND_INPUT_Z (TYPE2, z1);				\
+    INVOKE (CODE1, CODE2);				\
+    BIND_OUTPUT_Z (z0);					\
+  }
+
 #define TEST_UNDEF(NAME, TYPE, CODE)	\
   START (NAME)				\
   {					\

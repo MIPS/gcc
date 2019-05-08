@@ -477,6 +477,7 @@
     UNSPEC_FMLSL	; Used in aarch64-simd.md.
     UNSPEC_FMLAL2	; Used in aarch64-simd.md.
     UNSPEC_FMLSL2	; Used in aarch64-simd.md.
+    UNSPEC_ADR		; Used in aarch64-sve.md.
     UNSPEC_SEL		; Used in aarch64-sve.md.
     UNSPEC_SADDV	; Used in aarch64-sve.md.
     UNSPEC_UADDV	; Used in aarch64-sve.md.
