@@ -318,6 +318,22 @@
     BIND_OUTPUT_D (d0);					\
   }
 
+#define TEST_FOLD_LEFT(NAME, STYPE, ZTYPE, CODE1, CODE2) \
+  START (NAME)						\
+  {							\
+    BIND_INPUT_D (STYPE, d0);				\
+    BIND_INPUT_D (STYPE, d1);				\
+    BIND_INPUT_Z (ZTYPE, z2);				\
+    BIND_INPUT_X (STYPE, x0);				\
+    BIND_INPUT_X (STYPE, x1);				\
+    BIND_INPUT_P (p0);					\
+    INVOKE (CODE1, CODE2);				\
+    BIND_OUTPUT_X (x0);					\
+    BIND_OUTPUT_X (x1);					\
+    BIND_OUTPUT_D (d0);					\
+    BIND_OUTPUT_D (d1);					\
+  }
+
 #define TEST_S(NAME, ZTYPE, STYPE, CODE1)			\
   START (NAME)							\
   {								\

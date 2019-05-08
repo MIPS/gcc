@@ -158,6 +158,9 @@ enum function_shape {
   /* sv<t0>x4_t svfoo[_t0](sv<t0>_t, sv<t0>_t, sv<t0>_t, sv<t0>_t).  */
   SHAPE_create4,
 
+  /* <t0>_t svfoo[_t0](<t0>_t, sv<t0>_t).  */
+  SHAPE_fold_left,
+
   /* sv<t0>_t svfoo[_t0](sv<t0>xN_t, uint64_t).  */
   SHAPE_get2,
   SHAPE_get3,
@@ -546,6 +549,7 @@ private:
   void sig_compare_wide (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_create (const function_instance &, vec<tree> &);
+  void sig_fold_left (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_get_00i (const function_instance &, vec<tree> &);
   template <unsigned int N>
@@ -623,6 +627,7 @@ private:
   tree resolve_uniform (unsigned int);
   tree resolve_create (unsigned int);
   tree resolve_dot ();
+  tree resolve_fold_left ();
   tree resolve_get (unsigned int);
   tree resolve_load_gather_sv ();
   tree resolve_load_gather_sv_or_vs ();
@@ -759,6 +764,7 @@ private:
   rtx expand_abs ();
   rtx expand_ac (int);
   rtx expand_add (unsigned int);
+  rtx expand_adda ();
   rtx expand_and (unsigned int = DEFAULT_MERGE_ARGNO);
   rtx expand_asrd ();
   rtx expand_bic ();
@@ -1682,6 +1688,11 @@ arm_sve_h_builder::build (const function_group &group)
       build_all (&arm_sve_h_builder::sig_create<4>, group, MODE_none);
       break;
 
+    case SHAPE_fold_left:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_fold_left, group, MODE_none);
+      break;
+
     case SHAPE_get2:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_get_00i<2>, group, MODE_none);
@@ -2135,6 +2146,17 @@ arm_sve_h_builder::sig_create (const function_instance &instance,
   types.quick_push (instance.tuple_type (N, 0));
   for (unsigned int i = 0; i < N; ++i)
     types.quick_push (instance.vector_type (0));
+}
+
+/* Describe the signature "<t0>_t svfoo[_t0](<t0>_t, sv<t0>_t)" for
+   INSTANCE in TYPES.  */
+void
+arm_sve_h_builder::sig_fold_left (const function_instance &instance,
+				  vec<tree> &types)
+{
+  types.quick_push (instance.scalar_type (0));
+  types.quick_push (instance.scalar_type (0));
+  types.quick_push (instance.vector_type (0));
 }
 
 /* Describe the signature "sv<t0>_t svfoo[_t0](sv<t0>xN_t, uint64_t)"
@@ -2612,6 +2634,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svacle:
     case FUNC_svaclt:
     case FUNC_svadd:
+    case FUNC_svadda:
     case FUNC_svaddv:
     case FUNC_svand:
     case FUNC_svandv:
@@ -2803,6 +2826,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_create2:
     case SHAPE_create3:
     case SHAPE_create4:
+    case SHAPE_fold_left:
     case SHAPE_get2:
     case SHAPE_get3:
     case SHAPE_get4:
@@ -2953,6 +2977,8 @@ function_resolver::resolve ()
       return resolve_create (3);
     case SHAPE_create4:
       return resolve_create (4);
+    case SHAPE_fold_left:
+      return resolve_fold_left ();
     case SHAPE_get2:
       return resolve_get (2);
     case SHAPE_get3:
@@ -3095,6 +3121,20 @@ function_resolver::resolve_dot ()
     }
 
   return require_form (m_fi.mode, get_type_suffix (type));
+}
+
+/* Resolve a function that has SHAPE_fold_left.  */
+tree
+function_resolver::resolve_fold_left ()
+{
+  vector_type type;
+  if (!check_num_arguments (3)
+      || !check_argument (0, VECTOR_TYPE_svbool_t)
+      /* Leave the frontend to check argument 1.  */
+      || (type = require_vector_type (2)) == NUM_VECTOR_TYPES)
+    return error_mark_node;
+
+  return require_form (m_rfn.instance.mode, get_type_suffix (type));
 }
 
 /* Resolve a gather load that takes a pointer base and a vector displacement.
@@ -3845,6 +3885,7 @@ function_checker::check ()
     case SHAPE_create2:
     case SHAPE_create3:
     case SHAPE_create4:
+    case SHAPE_fold_left:
     case SHAPE_inherent:
     case SHAPE_inherent2:
     case SHAPE_inherent3:
@@ -4101,6 +4142,7 @@ gimple_folder::fold ()
     case FUNC_svacle:
     case FUNC_svaclt:
     case FUNC_svadd:
+    case FUNC_svadda:
     case FUNC_svaddv:
     case FUNC_svand:
     case FUNC_svandv:
@@ -4616,6 +4658,9 @@ function_expander::expand ()
     case FUNC_svadd:
       return expand_add (1);
 
+    case FUNC_svadda:
+      return expand_adda ();
+
     case FUNC_svaddv:
       return expand_reduction (UNSPEC_SADDV, UNSPEC_UADDV, UNSPEC_FADDV);
 
@@ -5012,6 +5057,14 @@ function_expander::expand_add (unsigned int merge_argno)
 	}
     }
   return expand_via_pred_direct_optab (cond_add_optab, merge_argno);
+}
+
+/* Expand a call to svadda.  */
+rtx
+function_expander::expand_adda ()
+{
+  insn_code icode = code_for_aarch64_pred_fold_left_plus (get_mode (0));
+  return expand_via_exact_insn (icode);
 }
 
 /* Expand a call to svand.  Make the _m forms merge with argument

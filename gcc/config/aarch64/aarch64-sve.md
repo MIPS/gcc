@@ -3341,7 +3341,7 @@
 )
 
 ;; In-order FP reductions predicated with PTRUE.
-(define_insn "*fold_left_plus_<mode>"
+(define_insn "@aarch64_pred_fold_left_plus_<mode>"
   [(set (match_operand:<VEL> 0 "register_operand" "=w")
 	(unspec:<VEL> [(match_operand:<VPRED> 1 "register_operand" "Upl")
 		       (match_operand:<VEL> 2 "register_operand" "0")
