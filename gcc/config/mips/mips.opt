@@ -197,6 +197,14 @@ mfix4300
 Target Report Var(TARGET_4300_MUL_FIX)
 Work around an early 4300 hardware bug.
 
+mfix-i6400
+Target Report Var(TARGET_FIX_I6400) Init(0)
+Work around certain I6400 errata.
+
+mfix-i6500
+Target Report Var(TARGET_FIX_I6500) Init(0)
+Work around certain I6500 errata.
+
 mfp-exceptions
 Target Report Var(TARGET_FP_EXCEPTIONS) Init(1)
 FP exceptions are enabled.

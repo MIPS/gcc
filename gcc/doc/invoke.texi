@@ -22606,6 +22606,14 @@ Work around certain SB-1 CPU core errata.
 (This flag currently works around the SB-1 revision 2
 ``F1'' and ``F2'' floating-point errata.)
 
+@item -mfix-i6500
+@itemx -mno-fix-i6500
+@itemx -mfix-i6400
+@itemx -mno-fix-i6400
+@opindex mfix-i6500
+Work around certain I6500/I6400 core errata.
+(These flags currently work around the ``E75'' errata for I6500.)
+
 @item -mr10k-cache-barrier=@var{setting}
 @opindex mr10k-cache-barrier
 Specify whether GCC should insert cache barriers to avoid the
