@@ -18047,7 +18047,7 @@ cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc,
   /* Diagnose issues placeholder issues.  */
   if (!parser->in_result_type_constraint_p 
       && !placeholder 
-      && !flag_concepts_ts)
+      && (cxx_dialect >= cxx2a && !flag_concepts_ts))
     {
       tree id = build_nt (TEMPLATE_ID_EXPR, tmpl, args);
       tree expr = DECL_P (orig_tmpl) ? DECL_NAME (con) : id;
