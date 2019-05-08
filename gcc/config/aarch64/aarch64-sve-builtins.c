@@ -129,6 +129,9 @@ enum function_shape {
   /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t).  */
   SHAPE_binary,
 
+  /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0:uint>_t).  */
+  SHAPE_binary_index,
+
   /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t)
      sv<t0>_t svfoo[_n_t0](sv<t0>_t, <t0>_t).  */
   SHAPE_binary_opt_n,
@@ -467,6 +470,7 @@ struct GTY(()) function_instance {
   tree tuple_type (unsigned int, unsigned int) const;
   tree quarter_vector_type (unsigned int i) const;
   tree quarter_scalar_type (unsigned int i) const;
+  tree unsigned_vector_type (unsigned int) const;
   tree wide_vector_type (unsigned int i) const;
   tree wide_scalar_type (unsigned int i) const;
 
@@ -566,6 +570,8 @@ private:
   void sig_load (const function_instance &, vec<tree> &);
   void sig_load_gather_sv (const function_instance &, vec<tree> &);
   void sig_load_gather_vs (const function_instance &, vec<tree> &);
+  template <unsigned int N>
+  void sig_nary_index (const function_instance &, vec<tree> &);
   void sig_ptest (const function_instance &, vec<tree> &);
   void sig_rdffr (const function_instance &, vec<tree> &);
   void sig_reduction (const function_instance &, vec<tree> &);
@@ -634,11 +640,11 @@ private:
   tree resolve_uniform (unsigned int);
   tree resolve_adr ();
   tree resolve_create (unsigned int);
-  tree resolve_dot ();
   tree resolve_fold_left ();
   tree resolve_get (unsigned int);
   tree resolve_load_gather_sv ();
   tree resolve_load_gather_sv_or_vs ();
+  tree resolve_multitype (unsigned int, unsigned int);
   tree resolve_set (unsigned int);
   tree resolve_store (unsigned int);
   tree resolve_store_scatter ();
@@ -650,6 +656,7 @@ private:
   bool check_first_vector_argument (unsigned int, unsigned int &,
 				    unsigned int &, vector_type &);
   bool check_num_arguments (unsigned int);
+  bool check_argument_against_decl (tree, unsigned int, tree);
   bool check_argument (unsigned int, vector_type);
   vector_type require_pointer_type (unsigned int, bool = false);
   vector_type require_vector_type (unsigned int);
@@ -842,6 +849,7 @@ private:
   rtx expand_st234 ();
   rtx expand_stnt1 ();
   rtx expand_sub (bool);
+  rtx expand_tbl ();
   rtx expand_undef ();
   rtx expand_while (int, int);
   rtx expand_wrffr ();
@@ -1182,40 +1190,33 @@ find_vector_type_from_scalar_type (const_tree type)
 }
 
 /* Return the type suffix associated with integer elements that have
-   ELEM_BITS bits and the signedness given by UNSIGNED_P.  Return
-   NUM_TYPE_SUFFIXES if no such element exists.  */
+   ELEM_BITS bits and the signedness given by UNSIGNED_P.  */
 static type_suffix
-maybe_find_integer_type_suffix (bool unsigned_p, unsigned int elem_bits)
+find_integer_type_suffix (bool unsigned_p, unsigned int elem_bits)
 {
   for (unsigned int i = 0; i < NUM_TYPE_SUFFIXES; ++i)
-    {
-      if (type_suffixes[i].integer_p
-	  && type_suffixes[i].unsigned_p == unsigned_p
-	  && type_suffixes[i].elem_bits == elem_bits)
-	return type_suffix (i);
-    }
-  return NUM_TYPE_SUFFIXES;
+    if (type_suffixes[i].integer_p
+	&& type_suffixes[i].unsigned_p == unsigned_p
+	&& type_suffixes[i].elem_bits == elem_bits)
+      return type_suffix (i);
+  gcc_unreachable ();
 }
 
-/* Return the type suffix for elements that are a quarter the size of integer
-   type suffix TYPE.  Return NUM_TYPE_SUFFIXES if no such element exists.  */
+/* Find the type suffix for unsigned integers that have the same number
+   of element bits as TYPE.  */
 static type_suffix
-maybe_find_quarter_type_suffix (type_suffix type)
+unsigned_type_suffix (type_suffix type)
 {
-  return maybe_find_integer_type_suffix (type_suffixes[type].unsigned_p,
-				   type_suffixes[type].elem_bits / 4);
+  return find_integer_type_suffix (true, type_suffixes[type].elem_bits);
 }
 
-/* Same as maybe_find_quarter_type_suffix but asserts if no such element
-   exists.  */
+/* Return the type suffix for elements that are a quarter the size of
+   integer type suffix TYPE.  */
 static type_suffix
 find_quarter_type_suffix (type_suffix type)
 {
-  type_suffix ret
-    = maybe_find_integer_type_suffix (type_suffixes[type].unsigned_p,
-				      type_suffixes[type].elem_bits / 4);
-  gcc_assert (ret != NUM_TYPE_SUFFIXES);
-  return ret;
+  return find_integer_type_suffix (type_suffixes[type].unsigned_p,
+				   type_suffixes[type].elem_bits / 4);
 }
 
 /* Return the wide version of TYPE.  */
@@ -1577,6 +1578,14 @@ function_instance::quarter_scalar_type (unsigned int i) const
   return scalar_types[type_suffixes[quarter_type].type];
 }
 
+/* Return the unsigned vector type associated with type suffix I.  */
+inline tree
+function_instance::unsigned_vector_type (unsigned int i) const
+{
+  type_suffix unsigned_type = unsigned_type_suffix (types[i]);
+  return acle_vector_types[0][type_suffixes[unsigned_type].type];
+}
+
 /* Return the wide vector type associated with type suffix I.  */
 tree
 function_instance::wide_vector_type (unsigned int i) const
@@ -1681,6 +1690,11 @@ arm_sve_h_builder::build (const function_group &group)
     case SHAPE_binary:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_000, group, MODE_none);
+      break;
+
+    case SHAPE_binary_index:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_nary_index<2>, group, MODE_none);
       break;
 
     case SHAPE_binary_opt_n:
@@ -2307,6 +2321,18 @@ arm_sve_h_builder::sig_load_gather_vs (const function_instance &instance,
     types.quick_push (scalar_types[VECTOR_TYPE_svint64_t]);
 }
 
+/* Describe the signature "sv<t0>_t svfoo(sv<t0>_t, ..., sv<t0:uint>_t)"
+   for INSTANCE in TYPES, where N is the number of arguments.  */
+template <unsigned int N>
+void
+arm_sve_h_builder::sig_nary_index (const function_instance &instance,
+				   vec<tree> &types)
+{
+  for (unsigned int i = 0; i < N; ++i)
+    types.quick_push (instance.vector_type (0));
+  types.quick_push (instance.unsigned_vector_type (0));
+}
+
 /* Describe the signature "bool svfoo(svbool_t)" in TYPES.  */
 void
 arm_sve_h_builder::sig_ptest (const function_instance &, vec<tree> &types)
@@ -2803,6 +2829,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svset2:
     case FUNC_svset3:
     case FUNC_svset4:
+    case FUNC_svtbl:
     case FUNC_svtrn1:
     case FUNC_svtrn2:
     case FUNC_svundef:
@@ -2895,6 +2922,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_adr_index:
     case SHAPE_adr_offset:
     case SHAPE_binary:
+    case SHAPE_binary_index:
     case SHAPE_binary_opt_n:
     case SHAPE_binary_wide:
     case SHAPE_compare_opt_n:
@@ -3031,6 +3059,8 @@ function_resolver::resolve ()
     case SHAPE_compare_opt_n:
     case SHAPE_shift_opt_n:
       return resolve_uniform (2);
+    case SHAPE_binary_index:
+      return resolve_multitype (2, 1);
     case SHAPE_binary_pred:
     case SHAPE_binary_scalar:
     case SHAPE_load_ext:
@@ -3101,7 +3131,7 @@ function_resolver::resolve ()
     case SHAPE_ternary_opt_n:
       return resolve_uniform (3);
     case SHAPE_ternary_qq_opt_n:
-      return resolve_dot ();
+      return resolve_multitype (3, 1);
     case SHAPE_unary:
     case SHAPE_reduction:
     case SHAPE_reduction_wide:
@@ -3199,37 +3229,6 @@ function_resolver::resolve_create (unsigned int num_vectors)
   return require_form (m_rfn.instance.mode, get_type_suffix (type));
 }
 
-/* Resolve functions like svdot in which the elements of the result and
-   the first argument are four times wider than the elements of the other
-   arguments.  The final argument can be a vector or a scalar.  */
-tree
-function_resolver::resolve_dot ()
-{
-  /* Check that we have the right number of arguments.  */
-  unsigned int i, nargs;
-  vector_type type;
-
-  if (!check_first_vector_argument (3, i, nargs, type))
-    return error_mark_node;
-
-  /* Handle subsequent arguments.  */
-  type_suffix ts = maybe_find_quarter_type_suffix (get_type_suffix (type));
-  if (ts != NUM_TYPE_SUFFIXES)
-    {
-      vector_type arg_type = type_suffixes[ts].type;
-      if (!check_argument (1, arg_type))
-	return error_mark_node;
-
-      /* Allow the final argument to be scalar, if an _n form exists.  */
-      if (scalar_argument_p (2))
-	return require_n_form (get_type_suffix (type));
-      else if (!check_argument (2, arg_type))
-	return error_mark_node;
-    }
-
-  return require_form (m_fi.mode, get_type_suffix (type));
-}
-
 /* Resolve a function that has SHAPE_fold_left.  */
 tree
 function_resolver::resolve_fold_left ()
@@ -3284,6 +3283,60 @@ function_resolver::resolve_load_gather_sv_or_vs ()
     return error_mark_node;
 
   return require_form (mode, get_type_suffix (type));
+}
+
+/* Resolve a function that takes NOPS arguments plus any governing
+   predicate, consisting of NFIRST arguments of one type followed by
+   arguments of other types.  The resolution can be done using only the
+   first NFIRST arguments, so it is possible to test the rest against
+   the resolved function's signature.  */
+tree
+function_resolver::resolve_multitype (unsigned int nops, unsigned int nfirst)
+{
+  /* Check that we have the right number of arguments.  */
+  unsigned int i, nargs;
+  vector_type type;
+  if (!check_first_vector_argument (nops, i, nargs, type))
+    return error_mark_node;
+
+  /* Handle subsequent arguments.  */
+  for (unsigned int j = 1; j < nfirst; ++j)
+    if (!require_matching_type (i++, type))
+      return error_mark_node;
+
+  /* Check for a suitable function before checking the final argument,
+     so that we don't try to enforce non-existent combinations below.  */
+  tree res = require_form (m_fi.mode, get_type_suffix (type));
+  if (res == error_mark_node)
+    return error_mark_node;
+
+  /* Check that the other arguments have the right type.  */
+  unsigned int unchecked = i;
+  function_args_iterator iter;
+  tree expected;
+  i = 0;
+  FOREACH_FUNCTION_ARGS (TREE_TYPE (res), expected, iter)
+    {
+      if (expected == void_type_node)
+	{
+	  gcc_assert (i == nargs);
+	  break;
+	}
+      /* Holds for now, but we could easily handle the contrary if
+	 necessary.  */
+      gcc_assert (VECTOR_TYPE_P (expected));
+      if (i >= unchecked)
+	{
+	  if (i + 1 == nargs && scalar_argument_p (i))
+	    return require_n_form (get_type_suffix (type));
+
+	  if (!check_argument_against_decl (res, i, expected))
+	    return error_mark_node;
+	}
+      i += 1;
+    }
+
+  return res;
 }
 
 /* Resolve a function that has SHAPE_get<NUM_VECTORS>.  */
@@ -3367,8 +3420,7 @@ function_resolver::resolve_binary_wide ()
   vector_type type;
 
   if (!check_first_vector_argument (2, i, nargs, type)
-      || !require_matching_type (i, type)
-      || !check_argument (i + 1, VECTOR_TYPE_svuint64_t))
+      || !check_argument (i, VECTOR_TYPE_svuint64_t))
     return error_mark_node;
 
   return require_form (m_fi.mode, get_type_suffix (type));
@@ -3481,6 +3533,7 @@ function_resolver::check_first_vector_argument (unsigned int nops,
       type = require_vector_type (i);
       if (type == NUM_VECTOR_TYPES)
 	return false;
+      i += 1;
     }
   return true;
 }
@@ -3625,22 +3678,31 @@ function_resolver::require_sd_vector_type (unsigned int i)
   return type;
 }
 
+/* Require argument I to match EXPECTED, which is the type of argument I
+   of DECL.  Return true if the argument has the right form.  */
+bool
+function_resolver::check_argument_against_decl (tree decl, unsigned int i,
+						tree expected)
+{
+  gcc_assert (VECTOR_TYPE_P (expected));
+  tree actual = get_argument_type (i);
+  if (actual != error_mark_node
+      && TYPE_MAIN_VARIANT (expected) != TYPE_MAIN_VARIANT (actual))
+    {
+      error_at (m_location, "passing %qT to argument %d of %qE, which"
+		" expects %qT", actual, i + 1, decl, expected);
+      return false;
+    }
+  return true;
+}
+
 /* Require argument I to have the vector type associated with TYPE,
    in cases where this requirement holds for all uses of the function.
    Return true if the argument has the right form.  */
 bool
 function_resolver::check_argument (unsigned int i, vector_type type)
 {
-  tree expected = get_vector_type (type);
-  tree actual = get_argument_type (i);
-  if (actual != error_mark_node
-      && TYPE_MAIN_VARIANT (expected) != TYPE_MAIN_VARIANT (actual))
-    {
-      error_at (m_location, "passing %qT to argument %d of %qE, which"
-		" expects %qT", actual, i + 1, m_rfn.decl, expected);
-      return false;
-    }
-  return true;
+  return check_argument_against_decl (m_rfn.decl, i, get_vector_type (type));
 }
 
 /* Likewise, but TYPE is determined by matching previous arguments
@@ -4003,6 +4065,7 @@ function_checker::check ()
     case SHAPE_adr_index:
     case SHAPE_adr_offset:
     case SHAPE_binary:
+    case SHAPE_binary_index:
     case SHAPE_binary_opt_n:
     case SHAPE_binary_pred:
     case SHAPE_binary_scalar:
@@ -4388,6 +4451,7 @@ gimple_folder::fold ()
     case FUNC_svstnt1:
     case FUNC_svsub:
     case FUNC_svsubr:
+    case FUNC_svtbl:
     /* Don't fold svundef at the gimple level.  There's no exact
        correspondence for SSA_NAMEs, and we explicitly don't want
        to generate a specific value (like an all-zeros vector).  */
@@ -5134,6 +5198,9 @@ function_expander::expand ()
 
     case FUNC_svsubr:
       return expand_sub (true);
+
+    case FUNC_svtbl:
+      return expand_tbl ();
 
     case FUNC_svtrn1:
       return expand_permute (UNSPEC_TRN1);
@@ -6054,6 +6121,13 @@ function_expander::expand_sub (bool reversed_p)
 	}
     }
   return expand_via_pred_direct_optab (cond_sub_optab, merge_argno);
+}
+
+/* Expand a call to svtbl.  */
+rtx
+function_expander::expand_tbl ()
+{
+  return expand_via_exact_insn (code_for_aarch64_sve_tbl (get_mode (0)));
 }
 
 /* Expand a call to svundef*.  */

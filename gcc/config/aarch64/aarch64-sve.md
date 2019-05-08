@@ -1168,7 +1168,7 @@
   }
 )
 
-(define_insn "*aarch64_sve_tbl<mode>"
+(define_insn "@aarch64_sve_tbl<mode>"
   [(set (match_operand:SVE_ALL 0 "register_operand" "=w")
 	(unspec:SVE_ALL
 	  [(match_operand:SVE_ALL 1 "register_operand" "w")
