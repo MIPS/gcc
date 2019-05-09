@@ -1424,41 +1424,27 @@ ipa_param_body_adjustments::modify_assignment (gimple *stmt,
 
   any = modify_expression (lhs_p, false);
   any |= modify_expression (rhs_p, false);
-  if (any)
+  if (any
+      && !useless_type_conversion_p (TREE_TYPE (*lhs_p), TREE_TYPE (*rhs_p)))
     {
-      tree new_rhs = NULL_TREE;
-
-      if (!useless_type_conversion_p (TREE_TYPE (*lhs_p), TREE_TYPE (*rhs_p)))
+      if (TREE_CODE (*rhs_p) == CONSTRUCTOR)
 	{
-	  if (TREE_CODE (*rhs_p) == CONSTRUCTOR)
-	    {
-	      /* V_C_Es of constructors can cause trouble (PR 42714).  */
-	      if (is_gimple_reg_type (TREE_TYPE (*lhs_p)))
-		*rhs_p = build_zero_cst (TREE_TYPE (*lhs_p));
-	      else
-		*rhs_p = build_constructor (TREE_TYPE (*lhs_p),
-					    NULL);
-	    }
+	  /* V_C_Es of constructors can cause trouble (PR 42714).  */
+	  if (is_gimple_reg_type (TREE_TYPE (*lhs_p)))
+	    *rhs_p = build_zero_cst (TREE_TYPE (*lhs_p));
 	  else
-	    new_rhs = fold_build1_loc (gimple_location (stmt),
-				       VIEW_CONVERT_EXPR, TREE_TYPE (*lhs_p),
-				       *rhs_p);
+	    *rhs_p = build_constructor (TREE_TYPE (*lhs_p),
+					NULL);
 	}
-      else if (REFERENCE_CLASS_P (*rhs_p)
-	       && is_gimple_reg_type (TREE_TYPE (*lhs_p))
-	       && !is_gimple_reg (*lhs_p))
-	/* This can happen when an assignment in between two single field
-	   structures is turned into an assignment in between two pointers to
-	   scalars (PR 42237).  */
-	new_rhs = *rhs_p;
-
-      if (new_rhs)
+      else
 	{
+	  tree new_rhs = fold_build1_loc (gimple_location (stmt),
+					  VIEW_CONVERT_EXPR, TREE_TYPE (*lhs_p),
+					  *rhs_p);
 	  tree tmp = force_gimple_operand (new_rhs, extra_stmts, true,
 					   NULL_TREE);
 	  gimple_assign_set_rhs1 (stmt, tmp);
 	}
-
       return true;
     }
 
