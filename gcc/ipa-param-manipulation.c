@@ -1523,8 +1523,8 @@ bool
 ipa_param_body_adjustments::modify_call_stmt (gcall **stmt_p)
 {
   gcall *stmt = *stmt_p;
-  auto_vec <unsigned> pass_through_args;
-  auto_vec <tree> pass_through_bases;
+  auto_vec <unsigned, 4> pass_through_args;
+  auto_vec <unsigned, 4> pass_through_pbr_indices;
 
   if (m_split_modifications_p && m_id)
     {
@@ -1553,8 +1553,8 @@ ipa_param_body_adjustments::modify_call_stmt (gcall **stmt_p)
 	    continue;
 
 	  bool base_among_replacements = false;
-	  unsigned int repl_list_len = m_replacements.length ();
-	  for (unsigned j = 0; j < repl_list_len; j++)
+	  unsigned j, repl_list_len = m_replacements.length ();
+	  for (j = 0; j < repl_list_len; j++)
 	    {
 	      ipa_param_body_replacement *pbr = &m_replacements[j];
 	      if (pbr->base == base)
@@ -1582,7 +1582,7 @@ ipa_param_body_adjustments::modify_call_stmt (gcall **stmt_p)
 	      /* This must be a by_reference pass-through.  */
 	      gcc_assert (POINTER_TYPE_P (TREE_TYPE (t)));
 	      pass_through_args.safe_push (i);
-	      pass_through_bases.safe_push (base);
+	      pass_through_pbr_indices.safe_push (j);
 	    }
 	  else if (!by_ref && AGGREGATE_TYPE_P (TREE_TYPE (t)))
 	    {
@@ -1598,7 +1598,7 @@ ipa_param_body_adjustments::modify_call_stmt (gcall **stmt_p)
 		      != TYPE_MAIN_VARIANT (TREE_TYPE (pbr->repl))))
 		{
 		  pass_through_args.safe_push (i);
-		  pass_through_bases.safe_push (base);
+		  pass_through_pbr_indices.safe_push (j);
 		}
 	    }
 	}
@@ -1614,13 +1614,11 @@ ipa_param_body_adjustments::modify_call_stmt (gcall **stmt_p)
 	  if (pt_idx < pass_through_args.length ()
 	      && i == pass_through_args[pt_idx])
 	    {
-	      tree base = pass_through_bases[pt_idx];
+	      unsigned j = pass_through_pbr_indices[pt_idx];
 	      pt_idx++;
-	      unsigned j = 0;
-	      while (m_replacements[j].base != base)
-		j++;
+	      tree base = m_replacements[j].base;
 
-	      /* Map Base will get mapped to the special transitive-isra marker
+	      /* Map base will get mapped to the special transitive-isra marker
 		 dummy decl. */
 	      struct simple_tree_swap_info swapinfo;
 	      swapinfo.from = base;
@@ -1630,10 +1628,10 @@ ipa_param_body_adjustments::modify_call_stmt (gcall **stmt_p)
 	      walk_tree (&arg, remap_split_decl_to_dummy, &swapinfo, NULL);
 	      gcc_assert (swapinfo.done);
 	      vargs.safe_push (arg);
-	      /* Now let's push all replacements so that all gimple register
-		 ones get correct SSA_NAMES.  Edge redirection will weed out
-		 the dummy argument as well as all unused replacements
-		 later.  */
+	      /* Now let's push all replacements pertaining to this parameter
+		 so that all gimple register ones get correct SSA_NAMES.  Edge
+		 redirection will weed out the dummy argument as well as all
+		 unused replacements later.  */
 	      unsigned int repl_list_len = m_replacements.length ();
 	      for (; j < repl_list_len; j++)
 		{
