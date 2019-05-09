@@ -167,12 +167,25 @@ private:
 };
 
 /* Structure used to map expressions accessing split or replaced parameters to
-   new PARM_DECLs.  TODO: Even though there usually be only few, but should we
-   use a hash?  */
+   new PARM_DECLs.  */
 
 struct ipa_param_body_replacement
 {
-  tree base, repl, dummy;
+  /* The old decl of the original parameter.   */
+  tree base;
+  /* The new decl it should be replaced with.  */
+  tree repl;
+  /* When modifying clones during IPA clone materialization, this is a dummy
+     decl used to mark calls in which we need to apply transitive splitting,
+     these dummy delcls are inserted as arguments to such calls and then
+     followed by all the replacements with offset info stored in
+     ipa_param_performed_split.
+
+     Users of ipa_param_body_adjustments that modify standalone functions
+     outside of IPA clone materialization can use this field for their internal
+     purposes.  */
+  tree dummy;
+  /* The offset within BASE that REPL represents.  */
   unsigned unit_offset;
 };
 
@@ -229,7 +242,7 @@ private:
   ipa_param_body_replacement *lookup_replacement_1 (tree base,
 						    unsigned unit_offset);
   tree replace_removed_params_ssa_names (tree old_name, gimple *stmt);
-  bool modify_expr (tree *expr_p, bool convert);
+  bool modify_expression (tree *expr_p, bool convert);
   bool modify_assignment (gimple *stmt, gimple_seq *extra_stmts);
   bool modify_call_stmt (gcall **stmt_p);
   bool modify_cfun_body ();
@@ -259,7 +272,8 @@ private:
   auto_vec<tree, 16> m_new_types;
 
   /* Vector of structures telling how to replace old parameters in in the
-     function body.  */
+     function body.  TODO: Even though there usually be only few, but should we
+     use a hash?  */
 
   auto_vec<ipa_param_body_replacement, 16> m_replacements;
 

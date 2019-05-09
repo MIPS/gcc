@@ -1185,9 +1185,9 @@ ipa_param_body_adjustments::get_new_param_chain ()
 }
 
 /* Modify the function parameters FNDECL and its type according to the plan in
-   ADJUSTMENTS.  If ORIG_OLD_DECL is true, the curreent m_fndecl has not
-   already been adjusted with ipa_param_adjustments::adjust_decl and so
-   equivalent changes to the DECL will also be made.  */
+   ADJUSTMENTS.  This function needs to be called when the decl has not already
+   been processed with ipa_param_adjustments::adjust_decl, otherwise just
+   seting DECL_ARGUMENTS to whatever get_new_param_chain will do is enough.  */
 
 void
 ipa_param_body_adjustments::modify_formal_parameters ()
@@ -1343,7 +1343,7 @@ ipa_param_body_adjustments::replace_removed_params_ssa_names (tree old_name,
   SSA_NAME_OCCURS_IN_ABNORMAL_PHI (new_name)
     = SSA_NAME_OCCURS_IN_ABNORMAL_PHI (old_name);
 
-  if (dump_file)
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "replacing an SSA name of a removed param ");
       print_generic_expr (dump_file, old_name);
@@ -1356,16 +1356,16 @@ ipa_param_body_adjustments::replace_removed_params_ssa_names (tree old_name,
   return new_name;
 }
 
-/* If the expression *EXPR_P should be replaced by a reduction of a parameter,
-   do so.  CONVERT specifies whether the function should care about type
-   incompatibility of the current and new expressions.  If it is false, the
-   function will leave incompatibility issues to the caller, but it will be
-   overridden if BIT_FIELD_REF, IMAGPART_EXPR or REALPART_EXPR is encountered.
-   Return true iff the expression was modified.  CALL_ARG should be true when
-   the modification is done as a part of re-mapping a call argument.  */
+/* If the expression *EXPR_P should be replaced, do so.  CONVERT specifies
+   whether the function should care about type incompatibility of the current
+   and new expressions.  If it is false, the function will leave
+   incompatibility issues to the caller - note that when the function
+   encounters a BIT_FIELD_REF, IMAGPART_EXPR or REALPART_EXPR, it will modify
+   their bases instead of the expressions themselves and then also performs any
+   necessary conversions.  */
 
 bool
-ipa_param_body_adjustments::modify_expr (tree *expr_p, bool convert)
+ipa_param_body_adjustments::modify_expression (tree *expr_p, bool convert)
 {
   tree expr = *expr_p;
 
@@ -1403,11 +1403,11 @@ ipa_param_body_adjustments::modify_expr (tree *expr_p, bool convert)
   return true;
 }
 
-/* If the statement STMT contains any expressions that need to replaced with a
-   different one as noted by ADJUSTMENTS, do so.  Handle any potential type
-   incompatibilities.  If any conversion sttements have to be pre-pended to
-   STMT, they will be added to EXTRA_STMTS.  Return true iff the statement was
-   modified.  */
+/* If the assignment statement STMT contains any expressions that need to
+   replaced with a different one as noted by ADJUSTMENTS, do so.  Handle any
+   potential type incompatibilities.  If any conversion sttements have to be
+   pre-pended to STMT, they will be added to EXTRA_STMTS.  Return true iff the
+   statement was modified.  */
 
 bool
 ipa_param_body_adjustments::modify_assignment (gimple *stmt,
@@ -1422,8 +1422,8 @@ ipa_param_body_adjustments::modify_assignment (gimple *stmt,
   rhs_p = gimple_assign_rhs1_ptr (stmt);
   lhs_p = gimple_assign_lhs_ptr (stmt);
 
-  any = modify_expr (lhs_p, false);
-  any |= modify_expr (rhs_p, false);
+  any = modify_expression (lhs_p, false);
+  any |= modify_expression (rhs_p, false);
   if (any)
     {
       tree new_rhs = NULL_TREE;
@@ -1465,14 +1465,19 @@ ipa_param_body_adjustments::modify_assignment (gimple *stmt,
   return any;
 }
 
+/* Data passed to remap_split_decl_to_dummy through walk_tree.  */
+
 struct simple_tree_swap_info
 {
+  /* Change FROM to TO.  */
   tree from, to;
+  /* And set DONE to true when doing so.  */
   bool done;
 };
 
-/* Simple remapper to remap a split parameter to a special dummy copy so that
-   edge redirections can detect transitive redirections.  */
+/* Simple remapper to remap a split parameter to the same expression based on a
+   special dummy decl so that edge redirections can detect transitive splitting
+   and finish them.  */
 
 static tree
 remap_split_decl_to_dummy (tree *tp, int *walk_subtrees, void *data)
@@ -1498,6 +1503,21 @@ remap_split_decl_to_dummy (tree *tp, int *walk_subtrees, void *data)
     *walk_subtrees = 1;
   return NULL_TREE;
 }
+
+
+/* If the call statement pointed at by STMT_P contains any expressions that
+   need to replaced with a different one as noted by ADJUSTMENTS, do so.  f the
+   statement needs to be rebuilt, do so.  Return true if any modifications have
+   been performed.
+
+   If the method is invoked as a part of IPA clone materialization and if any
+   parameter split is transitive, i.e. it applies to the functin that is being
+   modified and also to the callee of the statement, replace the parameter
+   passed to old callee with an equivalent expression based on a dummy decl
+   followed by PARM_DECLs representing the actual replacements.  The actual
+   replacements will be then converted into SSA_NAMEs and then
+   ipa_param_adjustments::modify_call will find the appropriate ones and leave
+   only those in the call.  */
 
 bool
 ipa_param_body_adjustments::modify_call_stmt (gcall **stmt_p)
@@ -1625,7 +1645,7 @@ ipa_param_body_adjustments::modify_call_stmt (gcall **stmt_p)
 	  else
 	    {
 	      tree t = gimple_call_arg (stmt, i);
-	      modify_expr (&t, true);
+	      modify_expression (&t, true);
 	      vargs.safe_push (t);
 	    }
 	}
@@ -1635,7 +1655,7 @@ ipa_param_body_adjustments::modify_call_stmt (gcall **stmt_p)
       gimple_call_copy_flags (new_stmt, stmt);
       if (tree lhs = gimple_call_lhs (stmt))
 	{
-	  modify_expr (&lhs, false);
+	  modify_expression (&lhs, false);
 	  gimple_call_set_lhs (new_stmt, lhs);
 	}
       *stmt_p = new_stmt;
@@ -1648,17 +1668,23 @@ ipa_param_body_adjustments::modify_call_stmt (gcall **stmt_p)
   for (unsigned i = 0; i < nargs; i++)
     {
       tree *t = gimple_call_arg_ptr (stmt, i);
-      modified |= modify_expr (t, true);
+      modified |= modify_expression (t, true);
     }
 
   if (gimple_call_lhs (stmt))
     {
       tree *t = gimple_call_lhs_ptr (stmt);
-      modified |= modify_expr (t, false);
+      modified |= modify_expression (t, false);
     }
 
   return modified;
 }
+
+/* If the statement STMT contains any expressions that need to replaced with a
+   different one as noted by ADJUSTMENTS, do so.  Handle any potential type
+   incompatibilities.  If any conversion sttements have to be pre-pended to
+   STMT, they will be added to EXTRA_STMTS.  Return true iff the statement was
+   modified.  */
 
 bool
 ipa_param_body_adjustments::modify_gimple_stmt (gimple **stmt,
@@ -1674,7 +1700,7 @@ ipa_param_body_adjustments::modify_gimple_stmt (gimple **stmt,
       if (m_adjustments && m_adjustments->m_skip_return)
 	*t = NULL_TREE;
       else if (*t != NULL_TREE)
-	modified |= modify_expr (t, true);
+	modified |= modify_expression (t, true);
       break;
 
     case GIMPLE_ASSIGN:
@@ -1691,12 +1717,12 @@ ipa_param_body_adjustments::modify_gimple_stmt (gimple **stmt,
 	for (unsigned i = 0; i < gimple_asm_ninputs (asm_stmt); i++)
 	  {
 	    t = &TREE_VALUE (gimple_asm_input_op (asm_stmt, i));
-	    modified |= modify_expr (t, true);
+	    modified |= modify_expression (t, true);
 	  }
 	for (unsigned i = 0; i < gimple_asm_noutputs (asm_stmt); i++)
 	  {
 	    t = &TREE_VALUE (gimple_asm_output_op (asm_stmt, i));
-	    modified |= modify_expr (t, false);
+	    modified |= modify_expression (t, false);
 	  }
       }
       break;
