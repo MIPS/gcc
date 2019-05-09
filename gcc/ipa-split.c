@@ -1494,6 +1494,7 @@ split_function (basic_block return_bb, struct split_point *split_point,
 	      = gimple_build_debug_bind (ddecl, unshare_expr (arg), call);
 	    gsi_insert_after (&gsi, def_temp, GSI_NEW_STMT);
 	  }
+      BITMAP_FREE (args_to_skip);
     }
 
   /* We avoid address being taken on any variable used by split part,
