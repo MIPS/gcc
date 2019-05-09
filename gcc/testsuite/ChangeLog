@@ -1,3 +1,8 @@
+2019-05-09  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	* g++.dg/cpp2a/concepts-requires-17.C: New.
+	* g++.dg/concepts/placeholder5.C: Update diagnostics.
+
 2019-05-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Update test targets.

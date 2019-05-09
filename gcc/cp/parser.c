@@ -27110,10 +27110,25 @@ cp_parser_compound_requirement (cp_parser *parser)
       cp_lexer_consume_token (parser->lexer);
       bool saved_result_type_constraint_p = parser->in_result_type_constraint_p;
       parser->in_result_type_constraint_p = true;
+      /* C++2a allows either a type-id or a type-constraint. Parsing
+         a type-id will subsume the parsing for a type-constraint but
+         allow for more syntactic forms (e.g., const C<T>*).  */
       type = cp_parser_trailing_type_id (parser);
       parser->in_result_type_constraint_p = saved_result_type_constraint_p;
       if (type == error_mark_node)
         return error_mark_node;
+
+      /* Check that we haven't written something like 'const C<T>*'.  */
+      if (tree auto_node = type_uses_auto (type))
+	{
+	  if (!is_auto (type))
+	    {
+	      error_at (input_location,
+			"result type is not a plain type-constraint");
+	      cp_parser_consume_semicolon_at_end_of_statement (parser);
+	      return error_mark_node;
+	    }
+	}
     }
 
   return finish_compound_requirement (expr, type, noexcept_p);

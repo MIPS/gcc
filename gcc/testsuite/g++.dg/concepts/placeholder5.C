@@ -8,7 +8,7 @@ const int i = 0;
 template <class T>
 concept bool C =
   requires {
-    { &i } -> const Same<T>*;
+    { &i } -> const Same<T>*; // { dg-error "not a plain type-constraint" }
   };
 
 template <C c>

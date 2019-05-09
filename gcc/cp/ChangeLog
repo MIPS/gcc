@@ -1,3 +1,10 @@
+2019-05-09  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Better diagnostics for ill-formed constrained result types
+	in compound requirements.
+	* parser.c (cp_parser_compound_requirement): Diagnose ill-formed
+	constrained result types.
+
 2019-05-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Re-enable Concepts TS constrained parameters that declare
