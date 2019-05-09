@@ -144,6 +144,11 @@ enum function_shape {
   /* svbool_t svfoo_<t0>(svbool_t, svbool_t).  */
   SHAPE_binary_pred,
 
+  /* svbool_t svfoo_<t0>(sv<t0>_t, sv<t0>_t, uint64_t)
+
+     where the final argument must be 90 or 270.  */
+  SHAPE_binary_rotate,
+
   /* sv<t0>_t svfoo_t0(<t0>_t, <t0>_t).  */
   SHAPE_binary_scalar,
 
@@ -321,6 +326,12 @@ enum function_shape {
      where the final argument is a constant lane number.  */
   SHAPE_ternary_lane,
 
+  /* svbool_t svfoo_<t0>(sv<t0>_t, sv<t0>_t, sv<t0>_t, uint64_t, uint64_t)
+
+     where the penultimate argument is a constant lane number for complex
+     numbers and where the final argument must be 0, 90, 180 or 270.  */
+  SHAPE_ternary_lane_rotate,
+
   /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t, sv<t0>_t)
      sv<t0>_t svfoo[_n_t0](sv<t0>_t, sv<t0>_t, <t0>_t).  */
   SHAPE_ternary_opt_n,
@@ -335,6 +346,11 @@ enum function_shape {
   /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0.quarter>_t, sv<t0.quarter>_t)
      sv<t0>_t svfoo[_n_t0](sv<t0>_t, sv<t0.quarter>_t, <t0.quarter>_t).  */
   SHAPE_ternary_qq_opt_n,
+
+  /* svbool_t svfoo_<t0>(sv<t0>_t, sv<t0>_t, sv<t0>_t, uint64_t)
+
+     where the final argument must be 0, 90, 180 or 270.  */
+  SHAPE_ternary_rotate,
 
   /* sv<t0>_t svfoo[_t0](sv<t0>_t).  */
   SHAPE_unary,
@@ -605,6 +621,8 @@ private:
   void sig_nary_u64 (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_nary_u64_n (const function_instance &, vec<tree> &);
+  template <unsigned int N>
+  void sig_nary_u64_nn (const function_instance &, vec<tree> &);
   void sig_ptest (const function_instance &, vec<tree> &);
   void sig_rdffr (const function_instance &, vec<tree> &);
   void sig_reduction (const function_instance &, vec<tree> &);
@@ -735,6 +753,7 @@ private:
   bool require_immediate (unsigned int, HOST_WIDE_INT &);
   bool require_immediate_lane_index (unsigned int, unsigned int = 1);
   bool require_immediate_range (unsigned int, HOST_WIDE_INT, HOST_WIDE_INT);
+  bool require_immediate_rotate (unsigned int, bool);
 
   /* The location of the call.  */
   location_t m_location;
@@ -815,6 +834,9 @@ private:
   rtx expand_brk_unary (int);
   rtx expand_brk_binary (int);
   rtx expand_bic ();
+  rtx expand_cadd ();
+  rtx expand_cmla ();
+  rtx expand_cmla_lane ();
   rtx expand_cmp (rtx_code, rtx_code, int, int);
   rtx expand_cmp_wide (int, int);
   rtx expand_cmpuo ();
@@ -904,6 +926,7 @@ private:
 
   void require_immediate_lane_index (unsigned int, unsigned int = 1);
   void require_immediate_range (unsigned int, HOST_WIDE_INT, HOST_WIDE_INT);
+  int get_immediate_rotate (unsigned int, bool);
 
   rtx get_contiguous_base (machine_mode);
   void prepare_gather_address_operands (unsigned int);
@@ -1027,6 +1050,10 @@ static const type_suffix_info type_suffixes[NUM_TYPE_SUFFIXES + 1] = {
 #define TYPES_bhs_integer(S, D) \
   TYPES_bhs_signed (S, D), TYPES_bhs_unsigned (S, D)
 
+/* _f16 _f32.  */
+#define TYPES_hs_float(S, D) \
+  S (f16), S (f32)
+
 /* _s16 _s32 _s64
    _u16 _u32 _u64.  */
 #define TYPES_hsd_integer(S, D) \
@@ -1098,6 +1125,7 @@ DEF_SVE_TYPES_ARRAY (b);
 DEF_SVE_TYPES_ARRAY (bhs_signed);
 DEF_SVE_TYPES_ARRAY (bhs_unsigned);
 DEF_SVE_TYPES_ARRAY (bhs_integer);
+DEF_SVE_TYPES_ARRAY (hs_float);
 DEF_SVE_TYPES_ARRAY (hsd_integer);
 DEF_SVE_TYPES_ARRAY (sd_data);
 DEF_SVE_TYPES_ARRAY (sd_integer);
@@ -1312,6 +1340,31 @@ report_out_of_range (location_t location, tree decl, unsigned int argno,
   error_at (location, "passing %wd to argument %d of %qE, which expects"
 	    " a value in the range [%wd, %wd]", actual, argno + 1, decl,
 	    min, max);
+}
+
+/* Report that LOCATION has a call to DECL in which argument ARGNO has
+   the value ACTUAL, whereas the function requires either VALUE0 or
+   VALUE1.  */
+static void
+report_neither_nor (location_t location, tree decl, unsigned int argno,
+		    HOST_WIDE_INT actual, HOST_WIDE_INT value0,
+		    HOST_WIDE_INT value1)
+{
+  error_at (location, "passing %wd to argument %d of %qE, which expects"
+	    " either %wd or %wd", actual, argno + 1, decl, value0, value1);
+}
+
+/* Report that LOCATION has a call to DECL in which argument ARGNO has
+   the value ACTUAL, whereas the function requires one of VALUE0..3.  */
+static void
+report_not_one_of (location_t location, tree decl, unsigned int argno,
+		   HOST_WIDE_INT actual, HOST_WIDE_INT value0,
+		   HOST_WIDE_INT value1, HOST_WIDE_INT value2,
+		   HOST_WIDE_INT value3)
+{
+  error_at (location, "passing %wd to argument %d of %qE, which expects"
+	    " %wd, %wd, %wd or %wd", actual, argno + 1, decl, value0, value1,
+	    value2, value3);
 }
 
 inline
@@ -1730,6 +1783,7 @@ arm_sve_h_builder::build (const function_group &group)
       break;
 
     case SHAPE_binary_lane:
+    case SHAPE_binary_rotate:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_nary_u64_n<3>, group, MODE_none);
       break;
@@ -1983,8 +2037,14 @@ arm_sve_h_builder::build (const function_group &group)
       break;
 
     case SHAPE_ternary_lane:
+    case SHAPE_ternary_rotate:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_nary_u64_n<4>, group, MODE_none);
+      break;
+
+    case SHAPE_ternary_lane_rotate:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_nary_u64_nn<5>, group, MODE_none);
       break;
 
     case SHAPE_ternary_opt_n:
@@ -2499,6 +2559,22 @@ arm_sve_h_builder::sig_nary_u64_n (const function_instance &instance,
   types.quick_push (scalar_types[VECTOR_TYPE_svuint64_t]);
 }
 
+/* Describe the signature:
+
+     sv<t0>_t svfoo[_t0](sv<t0>_t, ..., uint64_t, uint64_t)
+
+   for INSTANCE in TYPES, where N is the number of arguments.  */
+template<unsigned int N>
+void
+arm_sve_h_builder::sig_nary_u64_nn (const function_instance &instance,
+				    vec<tree> &types)
+{
+  for (unsigned int i = 0; i < N - 1; ++i)
+    types.quick_push (instance.vector_type (0));
+  for (unsigned int i = 0; i < 2; ++i)
+    types.quick_push (scalar_types[VECTOR_TYPE_svuint64_t]);
+}
+
 /* Describe the signature "bool svfoo(svbool_t)" in TYPES.  */
 void
 arm_sve_h_builder::sig_ptest (const function_instance &, vec<tree> &types)
@@ -2778,6 +2854,9 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svasr_wide:
     case FUNC_svasrd:
     case FUNC_svbic:
+    case FUNC_svcadd:
+    case FUNC_svcmla:
+    case FUNC_svcmla_lane:
     case FUNC_svcmpeq:
     case FUNC_svcmpeq_wide:
     case FUNC_svcmpge:
@@ -2978,6 +3057,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_binary_lane:
     case SHAPE_binary_index:
     case SHAPE_binary_opt_n:
+    case SHAPE_binary_rotate:
     case SHAPE_binary_wide:
     case SHAPE_compare_opt_n:
     case SHAPE_compare_wide:
@@ -3011,9 +3091,11 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_store_scatter_index:
     case SHAPE_store_scatter_offset:
     case SHAPE_ternary_lane:
+    case SHAPE_ternary_lane_rotate:
     case SHAPE_ternary_opt_n:
     case SHAPE_ternary_qq_lane:
     case SHAPE_ternary_qq_opt_n:
+    case SHAPE_ternary_rotate:
     case SHAPE_unary:
       return 0;
     case SHAPE_binary_pred:
@@ -3116,6 +3198,7 @@ function_resolver::resolve ()
     case SHAPE_shift_opt_n:
       return resolve_uniform (2);
     case SHAPE_binary_lane:
+    case SHAPE_binary_rotate:
       return resolve_uniform_imm (3, 1);
     case SHAPE_binary_index:
       return resolve_multitype (2, 1);
@@ -3187,7 +3270,10 @@ function_resolver::resolve ()
     case SHAPE_store_scatter_offset:
       return resolve_store_scatter ();
     case SHAPE_ternary_lane:
+    case SHAPE_ternary_rotate:
       return resolve_uniform_imm (4, 1);
+    case SHAPE_ternary_lane_rotate:
+      return resolve_uniform_imm (5, 2);
     case SHAPE_ternary_opt_n:
       return resolve_uniform (3);
     case SHAPE_ternary_qq_lane:
@@ -4184,6 +4270,9 @@ function_checker::check ()
     case SHAPE_binary_lane:
       return require_immediate_lane_index (pg_args + 2);
 
+    case SHAPE_binary_rotate:
+      return require_immediate_rotate (pg_args + 2, false);
+
     case SHAPE_get2:
     case SHAPE_set2:
       return require_immediate_range (1, 0, 1);
@@ -4202,8 +4291,15 @@ function_checker::check ()
     case SHAPE_ternary_lane:
       return require_immediate_lane_index (pg_args + 3);
 
+    case SHAPE_ternary_lane_rotate:
+      return (require_immediate_lane_index (pg_args + 3, 2)
+	      && require_immediate_rotate (pg_args + 4, true));
+
     case SHAPE_ternary_qq_lane:
       return require_immediate_lane_index (pg_args + 3, 4);
+
+    case SHAPE_ternary_rotate:
+      return require_immediate_rotate (pg_args + 3, true);
     }
   gcc_unreachable ();
 }
@@ -4274,6 +4370,38 @@ function_checker::require_immediate_range (unsigned int argno,
     {
       report_out_of_range (m_location, m_decl, argno, actual, min, max);
       return false;
+    }
+
+  return true;
+}
+
+/* Check that argument ARGNO is an integer constant expression that
+   specifies a rotation value, as a multiple of 90 degrees.  90 and 270
+   are always valid; ALLOW_0_180_P says whether 0 and 180 are too.  */
+bool
+function_checker::require_immediate_rotate (unsigned int argno,
+					    bool allow_0_180_p)
+{
+  if (m_nargs <= argno)
+    return true;
+
+  HOST_WIDE_INT actual;
+  if (!require_immediate (argno, actual))
+    return false;
+
+  if (actual != 90 && actual != 270)
+    {
+      if (!allow_0_180_p)
+	{
+	  report_neither_nor (m_location, m_decl, argno, actual, 90, 270);
+	  return false;
+	}
+      if (actual != 0 && actual != 180)
+	{
+	  report_not_one_of (m_location, m_decl, argno, actual,
+			     0, 90, 180, 270);
+	  return false;
+	}
     }
 
   return true;
@@ -4466,6 +4594,9 @@ gimple_folder::fold ()
     case FUNC_svbrkn:
     case FUNC_svbrkpa:
     case FUNC_svbrkpb:
+    case FUNC_svcadd:
+    case FUNC_svcmla:
+    case FUNC_svcmla_lane:
     case FUNC_svcmpeq:
     case FUNC_svcmpeq_wide:
     case FUNC_svcmpge:
@@ -5030,6 +5161,15 @@ function_expander::expand ()
     case FUNC_svbic:
       return expand_bic ();
 
+    case FUNC_svcadd:
+      return expand_cadd ();
+
+    case FUNC_svcmla:
+      return expand_cmla ();
+
+    case FUNC_svcmla_lane:
+      return expand_cmla_lane ();
+
     case FUNC_svcmpeq:
       return expand_cmp (EQ, EQ, UNSPEC_COND_EQ, UNSPEC_COND_EQ);
 
@@ -5522,6 +5662,53 @@ function_expander::expand_bic ()
       insn_code icode = code_for_cond_bic (get_mode (0));
       return expand_via_pred_insn (icode);
     }
+}
+
+/* Expand a call to svcadd.  */
+rtx
+function_expander::expand_cadd ()
+{
+  int rot = get_immediate_rotate (3, false);
+  m_args.ordered_remove (3);
+  int unspec_code = rot == 90 ? UNSPEC_COND_FCADD90 : UNSPEC_COND_FCADD270;
+  return expand_pred_op (UNKNOWN, unspec_code);
+}
+
+/* Expand a call to svcmla.  */
+rtx
+function_expander::expand_cmla ()
+{
+  int rot = get_immediate_rotate (4, true);
+  m_args.ordered_remove (4);
+  int unspec_code = (rot == 0 ? UNSPEC_COND_FCMLA
+		     : rot == 90 ? UNSPEC_COND_FCMLA90
+		     : rot == 180 ? UNSPEC_COND_FCMLA180
+		     : UNSPEC_COND_FCMLA270);
+
+  /* Make the operand order the same as the one used by the fma optabs,
+     with the accumulator last.  */
+  rotate_inputs_left (1, 4);
+  return expand_pred_op (UNKNOWN, unspec_code, 3);
+}
+
+/* Expand a call to svcmla.  */
+rtx
+function_expander::expand_cmla_lane ()
+{
+  require_immediate_lane_index (3, 2);
+
+  int rot = get_immediate_rotate (4, true);
+  m_args.ordered_remove (4);
+  int unspec_code = (rot == 0 ? UNSPEC_FCMLA
+		     : rot == 90 ? UNSPEC_FCMLA90
+		     : rot == 180 ? UNSPEC_FCMLA180
+		     : UNSPEC_FCMLA270);
+
+  /* Make the operand order the same as the one used by the fma optabs,
+     with the accumulator last.  */
+  rotate_inputs_left (0, 4);
+  insn_code icode = code_for_aarch64_lane (unspec_code, get_mode (0));
+  return expand_via_exact_insn (icode);
 }
 
 /* Expand a call to svcmp*.  CODE_FOR_SINT and CODE_FOR_UINT are the rtx
@@ -6691,6 +6878,35 @@ function_expander::require_immediate_range (unsigned int argno,
       report_out_of_range (m_location, m_rfn.decl, argno, actual, min, max);
     }
   m_args[argno] = GEN_INT (min);
+}
+
+/* Check that argument ARGNO is an integer constant expression that
+   specifies a rotation value, as a multiple of 90 degrees, and return
+   its value.  Report an appropriate error if the argument isn't valid
+   and return a safe value instead.
+
+   90 and 270 are always valid; ALLOW_0_180_P says whether 0 and 180
+   are too.  */
+int
+function_expander::get_immediate_rotate (unsigned int argno,
+					 bool allow_0_180_p)
+{
+  if (!CONST_INT_P (m_args[argno]))
+    report_non_ice (m_location, m_rfn.decl, argno);
+  else
+    {
+      HOST_WIDE_INT actual = INTVAL (m_args[argno]);
+      if (actual == 90 || actual == 270)
+	return actual;
+      if (!allow_0_180_p)
+	report_neither_nor (m_location, m_rfn.decl, argno, actual, 90, 270);
+      else if (actual == 0 || actual == 180)
+	return actual;
+      else
+	report_not_one_of (m_location, m_rfn.decl, argno, actual,
+			   0, 90, 180, 270);
+    }
+  return 90;
 }
 
 /* Return the base address for a contiguous load or store function.

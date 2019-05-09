@@ -504,6 +504,8 @@
     UNSPEC_COND_ADD	; Used in aarch64-sve.md.
     UNSPEC_COND_SUB	; Used in aarch64-sve.md.
     UNSPEC_COND_FABD	; Used in aarch64-sve.md.
+    UNSPEC_COND_FCADD90	; Used in aarch64-sve.md.
+    UNSPEC_COND_FCADD270 ; Used in aarch64-sve.md.
     UNSPEC_COND_MUL	; Used in aarch64-sve.md.
     UNSPEC_COND_FMULX	; Used in aarch64-sve.md.
     UNSPEC_COND_DIV	; Used in aarch64-sve.md.
@@ -511,6 +513,10 @@
     UNSPEC_COND_FMAX	; Used in aarch64-sve.md.
     UNSPEC_COND_FMAXNM	; Used in aarch64-sve.md.
     UNSPEC_COND_FMINNM	; Used in aarch64-sve.md.
+    UNSPEC_COND_FCMLA	; Used in aarch64-sve.md.
+    UNSPEC_COND_FCMLA90	; Used in aarch64-sve.md.
+    UNSPEC_COND_FCMLA180 ; Used in aarch64-sve.md.
+    UNSPEC_COND_FCMLA270 ; Used in aarch64-sve.md.
     UNSPEC_COND_FMLA	; Used in aarch64-sve.md.
     UNSPEC_COND_FMLS	; Used in aarch64-sve.md.
     UNSPEC_COND_FNMLA	; Used in aarch64-sve.md.
@@ -1734,6 +1740,8 @@
 
 (define_int_iterator SVE_COND_FP_BINARY [UNSPEC_COND_ADD UNSPEC_COND_SUB
 					 UNSPEC_COND_FABD
+					 UNSPEC_COND_FCADD90
+					 UNSPEC_COND_FCADD270
 					 UNSPEC_COND_MUL UNSPEC_COND_FMULX
 					 UNSPEC_COND_DIV
 					 UNSPEC_COND_FMAX UNSPEC_COND_FMIN
@@ -1748,8 +1756,17 @@
 					    UNSPEC_COND_FMINNM])
 
 (define_int_iterator SVE_COND_FP_BINARY_REG [UNSPEC_COND_FABD
+					     UNSPEC_COND_FCADD90
+					     UNSPEC_COND_FCADD270
 					     UNSPEC_COND_FMULX
 					     UNSPEC_COND_DIV])
+
+(define_int_iterator SVE_COND_FP_BINARY_REG_REORDER [UNSPEC_COND_FABD
+						     UNSPEC_COND_FMULX
+						     UNSPEC_COND_DIV])
+
+(define_int_iterator SVE_COND_FP_BINARY_REG_NOREORDER [UNSPEC_COND_FCADD90
+						       UNSPEC_COND_FCADD270])
 
 (define_int_iterator SVE_COND_MAXMIN [UNSPEC_COND_FMAXNM UNSPEC_COND_FMINNM
 				     UNSPEC_COND_FMAX UNSPEC_COND_FMIN])
@@ -1757,7 +1774,21 @@
 (define_int_iterator SVE_COND_FP_TERNARY [UNSPEC_COND_FMLA
 					  UNSPEC_COND_FMLS
 					  UNSPEC_COND_FNMLA
-					  UNSPEC_COND_FNMLS])
+					  UNSPEC_COND_FNMLS
+					  UNSPEC_COND_FCMLA
+					  UNSPEC_COND_FCMLA90
+					  UNSPEC_COND_FCMLA180
+					  UNSPEC_COND_FCMLA270])
+
+(define_int_iterator SVE_COND_FP_TERNARY_REORDER [UNSPEC_COND_FMLA
+						  UNSPEC_COND_FMLS
+						  UNSPEC_COND_FNMLA
+						  UNSPEC_COND_FNMLS])
+
+(define_int_iterator SVE_COND_FP_TERNARY_NOREORDER [UNSPEC_COND_FCMLA
+						    UNSPEC_COND_FCMLA90
+						    UNSPEC_COND_FCMLA180
+						    UNSPEC_COND_FCMLA270])
 
 (define_int_iterator SVE_COND_INT_CMP [UNSPEC_COND_LT UNSPEC_COND_LE
 				       UNSPEC_COND_LTU UNSPEC_COND_LEU
@@ -1772,7 +1803,9 @@
 (define_int_iterator SVE_COND_FP_ABS_CMP [UNSPEC_COND_LT UNSPEC_COND_LE
 					  UNSPEC_COND_GE UNSPEC_COND_GT])
 
-(define_int_iterator SVE_FP_TERNARY_LANE [UNSPEC_FMLA UNSPEC_FMLS])
+(define_int_iterator SVE_FP_TERNARY_LANE [UNSPEC_FMLA UNSPEC_FMLS
+					  UNSPEC_FCMLA UNSPEC_FCMLA90
+					  UNSPEC_FCMLA180 UNSPEC_FCMLA270])
 
 (define_int_iterator SVE_WHILE [UNSPEC_WHILE_LE UNSPEC_WHILE_LO
 				UNSPEC_WHILE_LS UNSPEC_WHILE_LT])
@@ -1835,8 +1868,14 @@
 		        (UNSPEC_UMUL_HIGHPART "umulh")
 			(UNSPEC_FMLA "fma")
 			(UNSPEC_FMLS "fnma")
+			(UNSPEC_FCMLA "fcmla")
+			(UNSPEC_FCMLA90 "fcmla90")
+			(UNSPEC_FCMLA180 "fcmla180")
+			(UNSPEC_FCMLA270 "fcmla270")
 			(UNSPEC_COND_FABS "abs")
 			(UNSPEC_COND_FABD "abd")
+			(UNSPEC_COND_FCADD90 "cadd90")
+			(UNSPEC_COND_FCADD270 "cadd270")
 			(UNSPEC_COND_FNEG "neg")
 			(UNSPEC_COND_FSQRT "sqrt")
 			(UNSPEC_COND_MUL "mul")
@@ -1849,7 +1888,11 @@
 			(UNSPEC_COND_FMLA "fma")
 			(UNSPEC_COND_FMLS "fnma")
 			(UNSPEC_COND_FNMLA "fnms")
-			(UNSPEC_COND_FNMLS "fms")])
+			(UNSPEC_COND_FNMLS "fms")
+			(UNSPEC_COND_FCMLA "fcmla")
+			(UNSPEC_COND_FCMLA90 "fcmla90")
+			(UNSPEC_COND_FCMLA180 "fcmla180")
+			(UNSPEC_COND_FCMLA270 "fcmla270")])
 
 (define_int_attr  maxmin_uns [(UNSPEC_UMAXV "umax")
 			      (UNSPEC_UMINV "umin")
@@ -2109,10 +2152,16 @@
 			    (UNSPEC_FMINV "fminv")
 			    (UNSPEC_FMLA "fmla")
 			    (UNSPEC_FMLS "fmls")
+			    (UNSPEC_FCMLA "fcmla")
+			    (UNSPEC_FCMLA90 "fcmla")
+			    (UNSPEC_FCMLA180 "fcmla")
+			    (UNSPEC_FCMLA270 "fcmla")
 			    (UNSPEC_COND_FABS "fabs")
 			    (UNSPEC_COND_FNEG "fneg")
 			    (UNSPEC_COND_FSQRT "fsqrt")
 			    (UNSPEC_COND_FABD "fabd")
+			    (UNSPEC_COND_FCADD90 "fcadd")
+			    (UNSPEC_COND_FCADD270 "fcadd")
 			    (UNSPEC_COND_MUL "fmul")
 			    (UNSPEC_COND_FMULX "fmulx")
 			    (UNSPEC_COND_DIV "fdiv")
@@ -2130,6 +2179,52 @@
 				(UNSPEC_COND_FMAXNM "fmaxnm")
 				(UNSPEC_COND_FMINNM "fminnm")])
 
+;; Whether we can tie the output to a second or subsequent input
+;; by reordering the operands.  At the moment this is all or nothing;
+;; either an operation allows no reordering or all orders.
+(define_int_attr can_reorder_p [(UNSPEC_COND_ADD "true")
+				(UNSPEC_COND_SUB "true")
+				(UNSPEC_COND_FABD "true")
+				(UNSPEC_COND_FCADD90 "false")
+				(UNSPEC_COND_FCADD270 "false")
+				(UNSPEC_COND_MUL "true")
+				(UNSPEC_COND_FMULX "true")
+				(UNSPEC_COND_DIV "true")
+				(UNSPEC_COND_FMAX "true")
+				(UNSPEC_COND_FMIN "true")
+				(UNSPEC_COND_FMAXNM "true")
+				(UNSPEC_COND_FMINNM "true")
+				(UNSPEC_COND_FMLA "true")
+				(UNSPEC_COND_FMLS "true")
+				(UNSPEC_COND_FNMLA "true")
+				(UNSPEC_COND_FNMLS "true")
+				(UNSPEC_COND_FCMLA "false")
+				(UNSPEC_COND_FCMLA90 "false")
+				(UNSPEC_COND_FCMLA180 "false")
+				(UNSPEC_COND_FCMLA270 "false")])
+
+;; A string to print at the end of the assembly line, for code properties
+;; that are syntactically operands.
+(define_int_attr maybe_op_imm [(UNSPEC_FMLA "")
+			       (UNSPEC_FMLS "")
+			       (UNSPEC_FCMLA ", #0")
+			       (UNSPEC_FCMLA90 ", #90")
+			       (UNSPEC_FCMLA180 ", #180")
+			       (UNSPEC_FCMLA270 ", #270")
+			       (UNSPEC_COND_FABD "")
+			       (UNSPEC_COND_FCADD90 ", #90")
+			       (UNSPEC_COND_FCADD270 ", #270")
+			       (UNSPEC_COND_FMULX "")
+			       (UNSPEC_COND_DIV "")
+			       (UNSPEC_COND_FMLA "")
+			       (UNSPEC_COND_FMLS "")
+			       (UNSPEC_COND_FNMLA "")
+			       (UNSPEC_COND_FNMLS "")
+			       (UNSPEC_COND_FCMLA ", #0")
+			       (UNSPEC_COND_FCMLA90 ", #90")
+			       (UNSPEC_COND_FCMLA180 ", #180")
+			       (UNSPEC_COND_FCMLA270 ", #270")])
+
 (define_int_attr rot [(UNSPEC_FCADD90 "90")
 		      (UNSPEC_FCADD270 "270")
 		      (UNSPEC_FCMLA "0")
@@ -2140,7 +2235,11 @@
 (define_int_attr sve_fmla_op [(UNSPEC_COND_FMLA "fmla")
 			      (UNSPEC_COND_FMLS "fmls")
 			      (UNSPEC_COND_FNMLA "fnmla")
-			      (UNSPEC_COND_FNMLS "fnmls")])
+			      (UNSPEC_COND_FNMLS "fnmls")
+			      (UNSPEC_COND_FCMLA "fcmla")
+			      (UNSPEC_COND_FCMLA90 "fcmla")
+			      (UNSPEC_COND_FCMLA180 "fcmla")
+			      (UNSPEC_COND_FCMLA270 "fcmla")])
 
 (define_int_attr sve_fmad_op [(UNSPEC_COND_FMLA "fmad")
 			      (UNSPEC_COND_FMLS "fmsb")
