@@ -785,6 +785,8 @@ private:
   rtx expand_adrhwd ();
   rtx expand_and (unsigned int = DEFAULT_MERGE_ARGNO);
   rtx expand_asrd ();
+  rtx expand_brk_unary (int);
+  rtx expand_brk_binary (int);
   rtx expand_bic ();
   rtx expand_cmp (rtx_code, rtx_code, int, int);
   rtx expand_cmp_wide (int, int);
@@ -1088,6 +1090,10 @@ static const predication preds_mxz[] = { PRED_m, PRED_x, PRED_z, NUM_PREDS };
 static const predication preds_mxz_or_none[] = {
   PRED_m, PRED_x, PRED_z, PRED_none, NUM_PREDS
 };
+
+/* Used by functions in aarch64-sve-builtins.def that allow merging and
+   zeroing predication but have no "_x" form.  */
+static const predication preds_mz[] = { PRED_m, PRED_z, NUM_PREDS };
 
 /* Used by functions that have an unpredicated form and a _z predicated
    form.  */
@@ -2807,6 +2813,11 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svadrd:
     case FUNC_svadrh:
     case FUNC_svadrw:
+    case FUNC_svbrka:
+    case FUNC_svbrkb:
+    case FUNC_svbrkn:
+    case FUNC_svbrkpa:
+    case FUNC_svbrkpb:
     case FUNC_svcntb:
     case FUNC_svcntd:
     case FUNC_svcnth:
@@ -4345,6 +4356,11 @@ gimple_folder::fold ()
     case FUNC_svasr_wide:
     case FUNC_svasrd:
     case FUNC_svbic:
+    case FUNC_svbrka:
+    case FUNC_svbrkb:
+    case FUNC_svbrkn:
+    case FUNC_svbrkpa:
+    case FUNC_svbrkpb:
     case FUNC_svcmpeq:
     case FUNC_svcmpeq_wide:
     case FUNC_svcmpge:
@@ -4887,6 +4903,21 @@ function_expander::expand ()
     case FUNC_svasrd:
       return expand_asrd ();
 
+    case FUNC_svbrka:
+      return expand_brk_unary (UNSPEC_BRKA);
+
+    case FUNC_svbrkb:
+      return expand_brk_unary (UNSPEC_BRKB);
+
+    case FUNC_svbrkn:
+      return expand_brk_binary (UNSPEC_BRKN);
+
+    case FUNC_svbrkpa:
+      return expand_brk_binary (UNSPEC_BRKPA);
+
+    case FUNC_svbrkpb:
+      return expand_brk_binary (UNSPEC_BRKPB);
+
     case FUNC_svbic:
       return expand_bic ();
 
@@ -5329,6 +5360,22 @@ rtx
 function_expander::expand_asrd ()
 {
   return expand_pred_shift_right_imm (code_for_cond_asrd (get_mode (0)));
+}
+
+/* Expand a call to svbrk[ab].  UNSPEC_CODE is the unspec code for the
+   operation.  */
+rtx
+function_expander::expand_brk_unary (int unspec_code)
+{
+  return expand_via_pred_insn (code_for_aarch64_brk (unspec_code));
+}
+
+/* Expand a call to svbrk{n,pa,pb}.  UNSPEC_CODE is the unspec code for the
+   operation.  */
+rtx
+function_expander::expand_brk_binary (int unspec_code)
+{
+  return expand_via_exact_insn (code_for_aarch64_brk (unspec_code));
 }
 
 /* Expand a call to svbic.  */

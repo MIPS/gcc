@@ -2450,6 +2450,120 @@
   }
 )
 
+;; Unary BRKs (BRKA and BRKB).  Note that unlike most other instructions
+;; that have both merging and zeroing forms, these don't operate
+;; elementwise and so don't fit the IFN_COND model.
+(define_insn "@aarch64_brk<brk_op>"
+  [(set (match_operand:VNx16BI 0 "register_operand" "=Upa, Upa")
+	(unspec:VNx16BI
+	  [(match_operand:VNx16BI 1 "register_operand" "Upa, Upa")
+	   (match_operand:VNx16BI 2 "register_operand" "Upa, Upa")
+	   (match_operand:VNx16BI 3 "aarch64_simd_reg_or_zero" "Dz, 0")]
+	  SVE_BRK_UNARY))]
+  "TARGET_SVE"
+  "@
+   brk<brk_op>\t%0.b, %1/z, %2.b
+   brk<brk_op>\t%0.b, %1/m, %2.b"
+)
+
+;; Same, but also producing a flags result.
+(define_insn "*aarch64_brk<brk_op>_cc"
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC
+	  [(match_operand:VNx16BI 1 "register_operand" "Upa, Upa")
+	   (match_dup 1)
+	   (unspec:VNx16BI
+	     [(match_dup 1)
+	      (match_operand:VNx16BI 2 "register_operand" "Upa, Upa")
+	      (match_operand:VNx16BI 3 "aarch64_simd_reg_or_zero" "Dz, 0")]
+	     SVE_BRK_UNARY)
+	   (match_operand 4 "const_int_operand")]
+	  UNSPEC_PTEST))
+   (set (match_operand:VNx16BI 0 "register_operand" "=Upa, Upa")
+	(unspec:VNx16BI
+	  [(match_dup 1)
+	   (match_dup 2)
+	   (match_dup 3)]
+	  SVE_BRK_UNARY))]
+  "TARGET_SVE"
+  "@
+   brk<brk_op>s\t%0.b, %1/z, %2.b
+   brk<brk_op>s\t%0.b, %1/m, %2.b"
+)
+
+;; Same, but with only the flags result being interesting.
+(define_insn "*aarch64_brk<brk_op>_ptest"
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC
+	  [(match_operand:VNx16BI 1 "register_operand" "Upa, Upa")
+	   (match_dup 1)
+	   (unspec:VNx16BI
+	     [(match_dup 1)
+	      (match_operand:VNx16BI 2 "register_operand" "Upa, Upa")
+	      (match_operand:VNx16BI 3 "aarch64_simd_reg_or_zero" "Dz, 0")]
+	     SVE_BRK_UNARY)
+	   (match_operand 4 "const_int_operand")]
+	  UNSPEC_PTEST))
+   (clobber (match_scratch:VNx16BI 0 "=Upa, Upa"))]
+  "TARGET_SVE"
+  "@
+   brk<brk_op>s\t%0.b, %1/z, %2.b
+   brk<brk_op>s\t%0.b, %1/m, %2.b"
+)
+
+;; Binary BRKs (BRKN, BRKPA, BRKPB).
+(define_insn "@aarch64_brk<brk_op>"
+  [(set (match_operand:VNx16BI 0 "register_operand" "=Upa")
+	(unspec:VNx16BI
+	  [(match_operand:VNx16BI 1 "register_operand" "Upa")
+	   (match_operand:VNx16BI 2 "register_operand" "Upa")
+	   (match_operand:VNx16BI 3 "register_operand" "<brk_reg_con>")]
+	  SVE_BRK_BINARY))]
+  "TARGET_SVE"
+  "brk<brk_op>\t%0.b, %1/z, %2.b, %<brk_reg_opno>.b"
+)
+
+;; Same, but also producing a flags result.
+(define_insn "*aarch64_brk<brk_op>_cc"
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC
+	  [(match_operand:VNx16BI 1 "register_operand" "Upa")
+	   (match_dup 1)
+	   (unspec:VNx16BI
+	     [(match_dup 1)
+	      (match_operand:VNx16BI 2 "register_operand" "Upa")
+	      (match_operand:VNx16BI 3 "register_operand" "<brk_reg_con>")]
+	     SVE_BRK_BINARY)
+	   (match_operand 4 "const_int_operand")]
+	  UNSPEC_PTEST))
+   (set (match_operand:VNx16BI 0 "register_operand" "=Upa")
+	(unspec:VNx16BI
+	  [(match_dup 1)
+	   (match_dup 2)
+	   (match_dup 3)]
+	  SVE_BRK_BINARY))]
+  "TARGET_SVE"
+  "brk<brk_op>s\t%0.b, %1/z, %2.b, %<brk_reg_opno>.b"
+)
+
+;; Same, but with only the flags result being interesting.
+(define_insn "*aarch64_brk<brk_op>_ptest"
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC
+	  [(match_operand:VNx16BI 1 "register_operand" "Upa")
+	   (match_dup 1)
+	   (unspec:VNx16BI
+	     [(match_dup 1)
+	      (match_operand:VNx16BI 2 "register_operand" "Upa")
+	      (match_operand:VNx16BI 3 "register_operand" "<brk_reg_con>")]
+	     SVE_BRK_BINARY)
+	   (match_operand 4 "const_int_operand")]
+	  UNSPEC_PTEST))
+   (clobber (match_scratch:VNx16BI 0 "=Upa"))]
+  "TARGET_SVE"
+  "brk<brk_op>s\t%0.b, %1/z, %2.b, %<brk_reg_opno>.b"
+)
+
 ;; Integer comparisons predicated with a PTRUE.
 (define_insn "*cmp<cmp_op><mode>"
   [(set (match_operand:<VPRED> 0 "register_operand" "=Upa, Upa")

@@ -479,6 +479,11 @@
     UNSPEC_FMLSL2	; Used in aarch64-simd.md.
     UNSPEC_ADR		; Used in aarch64-sve.md.
     UNSPEC_SEL		; Used in aarch64-sve.md.
+    UNSPEC_BRKA		; Used in aarch64-sve.md.
+    UNSPEC_BRKB		; Used in aarch64-sve.md.
+    UNSPEC_BRKN		; Used in aarch64-sve.md.
+    UNSPEC_BRKPA	; Used in aarch64-sve.md.
+    UNSPEC_BRKPB	; Used in aarch64-sve.md.
     UNSPEC_SADDV	; Used in aarch64-sve.md.
     UNSPEC_UADDV	; Used in aarch64-sve.md.
     UNSPEC_ANDV		; Used in aarch64-sve.md.
@@ -1782,6 +1787,10 @@
 			    UNSPEC_FCMLA180
 			    UNSPEC_FCMLA270])
 
+(define_int_iterator SVE_BRK_UNARY [UNSPEC_BRKA UNSPEC_BRKB])
+
+(define_int_iterator SVE_BRK_BINARY [UNSPEC_BRKN UNSPEC_BRKPA UNSPEC_BRKPB])
+
 ;; Iterators for atomic operations.
 
 (define_int_iterator ATOMIC_LDOP
@@ -2075,6 +2084,10 @@
 				  (UNSPEC_WHILE_LS "ule")
 				  (UNSPEC_WHILE_LT "lt")])
 
+(define_int_attr brk_op [(UNSPEC_BRKA "a") (UNSPEC_BRKB "b")
+			 (UNSPEC_BRKN "n")
+			 (UNSPEC_BRKPA "pa") (UNSPEC_BRKPB "pb")])
+
 (define_int_attr sve_int_op [(UNSPEC_SABD "sabd")
 			     (UNSPEC_UABD "uabd")
 			     (UNSPEC_SMUL_HIGHPART "smulh")
@@ -2146,6 +2159,14 @@
 			      (UNSPEC_COND_FMIN "vsB")
 			      (UNSPEC_COND_FMAXNM "vsB")
 			      (UNSPEC_COND_FMINNM "vsB")])
+
+;; The register constraint to use for the final operand in a binary BRK.
+(define_int_attr brk_reg_con [(UNSPEC_BRKN "0")
+			      (UNSPEC_BRKPA "Upa") (UNSPEC_BRKPB "Upa")])
+
+;; The register number to print for the above.
+(define_int_attr brk_reg_opno [(UNSPEC_BRKN "0")
+			       (UNSPEC_BRKPA "3") (UNSPEC_BRKPB "3")])
 
 ;; The maximum number of bits that an instruction can handle
 (define_int_attr max_elem_bits [(UNSPEC_UADDV "64") (UNSPEC_SADDV "32")])
