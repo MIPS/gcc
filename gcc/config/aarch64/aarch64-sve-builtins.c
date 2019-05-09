@@ -562,7 +562,7 @@ private:
   void sig_create (const function_instance &, vec<tree> &);
   void sig_fold_left (const function_instance &, vec<tree> &);
   template <unsigned int N>
-  void sig_get_00i (const function_instance &, vec<tree> &);
+  void sig_get (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_inherent (const function_instance &, vec<tree> &);
   void sig_inherent_count (const function_instance &, vec<tree> &);
@@ -571,29 +571,32 @@ private:
   void sig_load_gather_sv (const function_instance &, vec<tree> &);
   void sig_load_gather_vs (const function_instance &, vec<tree> &);
   template <unsigned int N>
+  void sig_nary (const function_instance &, vec<tree> &);
+  template <unsigned int N>
   void sig_nary_index (const function_instance &, vec<tree> &);
+  template <unsigned int N>
+  void sig_nary_n (const function_instance &, vec<tree> &);
+  template <unsigned int N>
+  void sig_nary_nn (const function_instance &, vec<tree> &);
+  template <unsigned int N>
+  void sig_nary_qq (const function_instance &, vec<tree> &);
+  template <unsigned int N>
+  void sig_nary_qq_n (const function_instance &, vec<tree> &);
+  template <unsigned int N>
+  void sig_nary_u64 (const function_instance &, vec<tree> &);
+  template <unsigned int N>
+  void sig_nary_u64_n (const function_instance &, vec<tree> &);
   void sig_ptest (const function_instance &, vec<tree> &);
   void sig_rdffr (const function_instance &, vec<tree> &);
   void sig_reduction (const function_instance &, vec<tree> &);
   void sig_reduction_wide (const function_instance &, vec<tree> &);
   template <unsigned int N>
-  void sig_set_00i0 (const function_instance &, vec<tree> &);
+  void sig_set (const function_instance &, vec<tree> &);
   void sig_setffr (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_store (const function_instance &, vec<tree> &);
   void sig_store_scatter_sv (const function_instance &, vec<tree> &);
   void sig_store_scatter_vs (const function_instance &, vec<tree> &);
-  void sig_00 (const function_instance &, vec<tree> &);
-  void sig_n_00 (const function_instance &, vec<tree> &);
-  void scalar_sig_000 (const function_instance &, vec<tree> &);
-  void sig_000 (const function_instance &, vec<tree> &);
-  void sig_n_000 (const function_instance &, vec<tree> &);
-  void sig_0000 (const function_instance &, vec<tree> &);
-  void sig_qq_0000 (const function_instance &, vec<tree> &);
-  void sig_n_0000 (const function_instance &, vec<tree> &);
-  void sig_qq_n_0000 (const function_instance &, vec<tree> &);
-  void sig_00i (const function_instance &, vec<tree> &);
-  void sig_n_00i (const function_instance &, vec<tree> &);
 
   tree build_const_pointer (tree);
 
@@ -1695,7 +1698,7 @@ arm_sve_h_builder::build (const function_group &group)
 
     case SHAPE_binary:
       add_overloaded_functions (group, MODE_none);
-      build_all (&arm_sve_h_builder::sig_000, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_nary<2>, group, MODE_none);
       break;
 
     case SHAPE_binary_index:
@@ -1705,27 +1708,27 @@ arm_sve_h_builder::build (const function_group &group)
 
     case SHAPE_binary_opt_n:
       add_overloaded_functions (group, MODE_none);
-      build_all (&arm_sve_h_builder::sig_000, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_nary<2>, group, MODE_none);
       /* _b functions do not have an _n form, but are classified as
 	 binary_opt_n so that they can be overloaded with vector
 	 functions.  */
       if (group.types[0][0] == TYPE_SUFFIX_b)
 	gcc_assert (group.types[0][1] == NUM_TYPE_SUFFIXES);
       else
-	build_all (&arm_sve_h_builder::sig_n_000, group, MODE_n);
+	build_all (&arm_sve_h_builder::sig_nary_n<2>, group, MODE_n);
       break;
 
     case SHAPE_binary_pred:
-      build_all (&arm_sve_h_builder::sig_000, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_nary<2>, group, MODE_none);
       break;
 
     case SHAPE_binary_scalar:
-      build_all (&arm_sve_h_builder::scalar_sig_000, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_nary_nn<2>, group, MODE_none);
       break;
 
     case SHAPE_binary_wide:
       add_overloaded_functions (group, MODE_none);
-      build_all (&arm_sve_h_builder::sig_00i, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_nary_u64<2>, group, MODE_none);
       break;
 
     case SHAPE_compare_opt_n:
@@ -1766,17 +1769,17 @@ arm_sve_h_builder::build (const function_group &group)
 
     case SHAPE_get2:
       add_overloaded_functions (group, MODE_none);
-      build_all (&arm_sve_h_builder::sig_get_00i<2>, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_get<2>, group, MODE_none);
       break;
 
     case SHAPE_get3:
       add_overloaded_functions (group, MODE_none);
-      build_all (&arm_sve_h_builder::sig_get_00i<3>, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_get<3>, group, MODE_none);
       break;
 
     case SHAPE_get4:
       add_overloaded_functions (group, MODE_none);
-      build_all (&arm_sve_h_builder::sig_get_00i<4>, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_get<4>, group, MODE_none);
       break;
 
     case SHAPE_inherent:
@@ -1876,17 +1879,17 @@ arm_sve_h_builder::build (const function_group &group)
 
     case SHAPE_set2:
       add_overloaded_functions (group, MODE_none);
-      build_all (&arm_sve_h_builder::sig_set_00i0<2>, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_set<2>, group, MODE_none);
       break;
 
     case SHAPE_set3:
       add_overloaded_functions (group, MODE_none);
-      build_all (&arm_sve_h_builder::sig_set_00i0<3>, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_set<3>, group, MODE_none);
       break;
 
     case SHAPE_set4:
       add_overloaded_functions (group, MODE_none);
-      build_all (&arm_sve_h_builder::sig_set_00i0<4>, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_set<4>, group, MODE_none);
       break;
 
     case SHAPE_setffr:
@@ -1895,13 +1898,13 @@ arm_sve_h_builder::build (const function_group &group)
 
     case SHAPE_shift_opt_n:
       add_overloaded_functions (group, MODE_none);
-      build_all (&arm_sve_h_builder::sig_000, group, MODE_none);
-      build_all (&arm_sve_h_builder::sig_n_00i, group, MODE_n);
+      build_all (&arm_sve_h_builder::sig_nary<2>, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_nary_u64_n<2>, group, MODE_n);
       break;
 
     case SHAPE_shift_right_imm:
       add_overloaded_functions (group, MODE_n);
-      build_all (&arm_sve_h_builder::sig_n_00i, group, MODE_n);
+      build_all (&arm_sve_h_builder::sig_nary_u64_n<2>, group, MODE_n);
       break;
 
     case SHAPE_store:
@@ -1948,27 +1951,27 @@ arm_sve_h_builder::build (const function_group &group)
 
     case SHAPE_ternary_opt_n:
       add_overloaded_functions (group, MODE_none);
-      build_all (&arm_sve_h_builder::sig_0000, group, MODE_none);
-      build_all (&arm_sve_h_builder::sig_n_0000, group, MODE_n);
+      build_all (&arm_sve_h_builder::sig_nary<3>, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_nary_n<3>, group, MODE_n);
       break;
 
     case SHAPE_ternary_qq_opt_n:
       add_overloaded_functions (group, MODE_none);
-      build_all (&arm_sve_h_builder::sig_qq_0000, group, MODE_none);
-      build_all (&arm_sve_h_builder::sig_qq_n_0000, group, MODE_n);
+      build_all (&arm_sve_h_builder::sig_nary_qq<3>, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_nary_qq_n<3>, group, MODE_n);
       break;
 
     case SHAPE_unary:
       add_overloaded_functions (group, MODE_none);
-      build_all (&arm_sve_h_builder::sig_00, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_nary<1>, group, MODE_none);
       break;
 
     case SHAPE_unary_n:
-      build_all (&arm_sve_h_builder::sig_n_00, group, MODE_n, true);
+      build_all (&arm_sve_h_builder::sig_nary_n<1>, group, MODE_n, true);
       break;
 
     case SHAPE_unary_pred:
-      build_all (&arm_sve_h_builder::sig_00, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_nary<1>, group, MODE_none);
       break;
     }
 }
@@ -2249,8 +2252,8 @@ arm_sve_h_builder::sig_fold_left (const function_instance &instance,
    for INSTANCE in TYPES.  */
 template<unsigned int N>
 void
-arm_sve_h_builder::sig_get_00i (const function_instance &instance,
-				vec<tree> &types)
+arm_sve_h_builder::sig_get (const function_instance &instance,
+			    vec<tree> &types)
 {
   types.quick_push (instance.vector_type (0));
   types.quick_push (instance.tuple_type (N, 0));
@@ -2327,6 +2330,17 @@ arm_sve_h_builder::sig_load_gather_vs (const function_instance &instance,
     types.quick_push (scalar_types[VECTOR_TYPE_svint64_t]);
 }
 
+/* Describe the signature "sv<t0>_t svfoo[_t0](sv<t0>_t, ...)"
+   for INSTANCE in TYPES, where N is the number of arguments.  */
+template<unsigned int N>
+void
+arm_sve_h_builder::sig_nary (const function_instance &instance,
+			     vec<tree> &types)
+{
+  for (unsigned int i = 0; i < N + 1; ++i)
+    types.quick_push (instance.vector_type (0));
+}
+
 /* Describe the signature "sv<t0>_t svfoo(sv<t0>_t, ..., sv<t0:uint>_t)"
    for INSTANCE in TYPES, where N is the number of arguments.  */
 template <unsigned int N>
@@ -2337,6 +2351,91 @@ arm_sve_h_builder::sig_nary_index (const function_instance &instance,
   for (unsigned int i = 0; i < N; ++i)
     types.quick_push (instance.vector_type (0));
   types.quick_push (instance.unsigned_vector_type (0));
+}
+
+/* Describe the signature "sv<t0>_t svfoo[_n_t0](sv<t0>_t, ..., <t0>_t)"
+   for INSTANCE in TYPES, where N is the number of arguments.  */
+template<unsigned int N>
+void
+arm_sve_h_builder::sig_nary_n (const function_instance &instance,
+			       vec<tree> &types)
+{
+  for (unsigned int i = 0; i < N; ++i)
+    types.quick_push (instance.vector_type (0));
+  types.quick_push (instance.scalar_type (0));
+}
+
+/* Describe the signature:
+
+     sv<t0>_t svfoo[_n_t0](sv<t0>_t, ..., <t0>_t, <t0>_t)
+
+   for INSTANCE in TYPES, where N is the number of arguments.  */
+template<unsigned int N>
+void
+arm_sve_h_builder::sig_nary_nn (const function_instance &instance,
+				vec<tree> &types)
+{
+  for (unsigned int i = 0; i < N - 1; ++i)
+    types.quick_push (instance.vector_type (0));
+  types.quick_push (instance.scalar_type (0));
+  types.quick_push (instance.scalar_type (0));
+}
+
+/* Describe the signature:
+
+     sv<t0>_t svfoo[_t0](sv<t0>_t, ..., sv<t0.quarter>_t, sv<t0.quarter>_t)
+
+   for INSTANCE in TYPES, where N is the number of arguments.  */
+template<unsigned int N>
+void
+arm_sve_h_builder::sig_nary_qq (const function_instance &instance,
+				vec<tree> &types)
+{
+  tree quarter_type = instance.quarter_vector_type (0);
+  for (unsigned int i = 0; i < N - 1; ++i)
+    types.quick_push (instance.vector_type (0));
+  types.quick_push (quarter_type);
+  types.quick_push (quarter_type);
+}
+
+/* Describe the signature:
+
+     sv<t0>_t svfoo[_n_t0](sv<t0>_t, ..., sv<t0.quarter>_t, <t0.quarter>_t)"
+
+   for INSTANCE in TYPES, where N is the number of arguments.  */
+template<unsigned int N>
+void
+arm_sve_h_builder::sig_nary_qq_n (const function_instance &instance,
+				  vec<tree> &types)
+{
+  for (unsigned int i = 0; i < N - 1; ++i)
+    types.quick_push (instance.vector_type (0));
+  types.quick_push (instance.quarter_vector_type (0));
+  types.quick_push (instance.quarter_scalar_type (0));
+}
+
+/* Describe the signature "sv<t0>_t svfoo[_t0](sv<t0>_t, ..., svuint64_t)"
+   for INSTANCE in TYPES, where N is the number of arguments.  */
+template<unsigned int N>
+void
+arm_sve_h_builder::sig_nary_u64 (const function_instance& instance,
+				 vec<tree> &types)
+{
+  for (unsigned i = 0; i < N; ++i)
+    types.quick_push (instance.vector_type (0));
+  types.quick_push (acle_vector_types[0][VECTOR_TYPE_svuint64_t]);
+}
+
+/* Describe the signature "sv<t0>_t svfoo[_t0](sv<t0>_t, ..., uint64_t)"
+   for INSTANCE in TYPES, where N is the number of arguments.  */
+template<unsigned int N>
+void
+arm_sve_h_builder::sig_nary_u64_n (const function_instance &instance,
+				   vec<tree> &types)
+{
+  for (unsigned int i = 0; i < N; ++i)
+    types.quick_push (instance.vector_type (0));
+  types.quick_push (scalar_types[VECTOR_TYPE_svuint64_t]);
 }
 
 /* Describe the signature "bool svfoo(svbool_t)" in TYPES.  */
@@ -2383,8 +2482,8 @@ arm_sve_h_builder::sig_reduction_wide (const function_instance &instance,
    for INSTANCE in TYPES.  */
 template<unsigned int N>
 void
-arm_sve_h_builder::sig_set_00i0 (const function_instance &instance,
-				 vec<tree> &types)
+arm_sve_h_builder::sig_set (const function_instance &instance,
+			    vec<tree> &types)
 {
   types.quick_push (instance.tuple_type (N, 0));
   types.quick_push (instance.tuple_type (N, 0));
@@ -2450,128 +2549,6 @@ arm_sve_h_builder::sig_store_scatter_vs (const function_instance &instance,
   if (instance.displacement_units () != UNITS_none)
     types.quick_push (scalar_types[VECTOR_TYPE_svint64_t]);
   types.quick_push (instance.vector_type (0));
-}
-
-/* Describe the signature "sv<t0>_t svfoo[_t0](sv<t0>_t)"
-   for INSTANCE in TYPES.  */
-void
-arm_sve_h_builder::sig_00 (const function_instance &instance,
-			   vec<tree> &types)
-{
-  types.quick_push (instance.vector_type (0));
-  types.quick_push (instance.vector_type (0));
-}
-
-/* Describe the signature "sv<t0>_t svfoo[_n_t0](<t0>_t)"
-   for INSTANCE in TYPES.  */
-void
-arm_sve_h_builder::sig_n_00 (const function_instance &instance,
-			     vec<tree> &types)
-{
-  types.quick_push (instance.vector_type (0));
-  types.quick_push (instance.scalar_type (0));
-}
-
-/* Describe the signature "sv<t0>_t svfoo[_t0](<t0>_t, <t0>_t)"
-   for INSTANCE in TYPES.  */
-void
-arm_sve_h_builder::scalar_sig_000 (const function_instance &instance,
-				   vec<tree> &types)
-{
-  types.quick_push (instance.vector_type (0));
-  types.quick_push (instance.scalar_type (0));
-  types.quick_push (instance.scalar_type (0));
-}
-
-/* Describe the signature "sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t)"
-   for INSTANCE in TYPES.  */
-void
-arm_sve_h_builder::sig_000 (const function_instance &instance,
-			    vec<tree> &types)
-{
-  for (unsigned int i = 0; i < 3; ++i)
-    types.quick_push (instance.vector_type (0));
-}
-
-/* Describe the signature "sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t, sv<t0>_t)"
-   for INSTANCE in TYPES.  */
-void
-arm_sve_h_builder::sig_0000 (const function_instance &instance,
-			    vec<tree> &types)
-{
-  for (unsigned int i = 0; i < 4; ++i)
-    types.quick_push (instance.vector_type (0));
-}
-
-/* Describe the signature
-   "sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0.quarter>_t, sv<t0.quarter>_t)"
-   for INSTANCE in TYPES.  */
-void
-arm_sve_h_builder::sig_qq_0000 (const function_instance &instance,
-				vec<tree> &types)
-{
-  tree quarter_type = instance.quarter_vector_type (0);
-  types.quick_push (instance.vector_type (0));
-  types.quick_push (instance.vector_type (0));
-  types.quick_push (quarter_type);
-  types.quick_push (quarter_type);
-}
-
-/* Describe the signature "sv<t0>_t svfoo[_n_t0](sv<t0>_t, <t0>_t)"
-   for INSTANCE in TYPES.  */
-void
-arm_sve_h_builder::sig_n_000 (const function_instance &instance,
-			      vec<tree> &types)
-{
-  for (unsigned int i = 0; i < 2; ++i)
-    types.quick_push (instance.vector_type (0));
-  types.quick_push (instance.scalar_type (0));
-}
-
-/* Describe the signature "sv<t0>_t svfoo[_n_t0](sv<t0>_t, sv<t0>_t, <t0>_t)"
-   for INSTANCE in TYPES.  */
-void
-arm_sve_h_builder::sig_n_0000 (const function_instance &instance,
-			      vec<tree> &types)
-{
-  for (unsigned int i = 0; i < 3; ++i)
-    types.quick_push (instance.vector_type (0));
-  types.quick_push (instance.scalar_type (0));
-}
-
-/* Describe the signature
-   "sv<t0>_t svfoo[_n_t0](sv<t0>_t, sv<t0.quarter>_t, <t0.quarter>_t)"
-   for INSTANCE in TYPES.  */
-void
-arm_sve_h_builder::sig_qq_n_0000 (const function_instance &instance,
-				  vec<tree> &types)
-{
-  for (unsigned int i = 0; i < 2; ++i)
-    types.quick_push (instance.vector_type (0));
-  types.quick_push (instance.quarter_vector_type (0));
-  types.quick_push (instance.quarter_scalar_type (0));
-}
-
-/* Describe the signature "sv<t0>_t svfoo[_t0](sv<t0>_t, svuint64_t)"
-   for INSTANCE in TYPES.  */
-void
-arm_sve_h_builder::sig_00i (const function_instance& instance,
-			    vec<tree> &types)
-{
-  for (unsigned i = 0; i < 2; ++i)
-    types.quick_push (instance.vector_type (0));
-  types.quick_push (acle_vector_types[0][VECTOR_TYPE_svuint64_t]);
-}
-
-/* Describe the signature "sv<t0>_t svfoo[_n_t0](sv<t0>_t, uint64_t)"
-   for INSTANCE in TYPES.  */
-void
-arm_sve_h_builder::sig_n_00i (const function_instance &instance,
-			      vec<tree> &types)
-{
-  for (unsigned int i = 0; i < 2; ++i)
-    types.quick_push (instance.vector_type (0));
-  types.quick_push (scalar_types[VECTOR_TYPE_svuint64_t]);
 }
 
 /* Return a representation of "const T *".  */
