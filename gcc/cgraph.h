@@ -740,7 +740,10 @@ struct GTY(()) ipa_replace_map
 
 struct GTY(()) cgraph_clone_info
 {
+  /* Constants discovered by IPA-CP, i.e. which parameter should be replaced
+     with what.  */
   vec<ipa_replace_map *, va_gc> *tree_map;
+  /* Parameter modification that IPA-SRA decided to perform.  */
   ipa_param_adjustments *param_adjustments;
   /* Lists of all splits with their offsets for each dummy variables
      representing a replaced-by-splits parameter.  */
