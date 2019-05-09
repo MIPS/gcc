@@ -224,13 +224,15 @@ public:
   bool modify_gimple_stmt (gimple **stmt, gimple_seq *extra_stmts);
   tree get_new_param_chain ();
 
+  /* Pointers to data structures defining how the function should be
+     modified.  */
   vec<ipa_adjusted_param, va_gc> *m_adj_params;
   ipa_param_adjustments *m_adjustments;
 
   /* Vector of old parameter declarations that must have their debug bind
      statements re-mapped and debug decls created.  */
 
-  auto_vec<tree, 16> m_reset_debug_decls;
+  auto_vec<tree> m_reset_debug_decls;
 
   /* Set to true if there are any IPA_PARAM_OP_SPLIT adjustments among stored
      adjustments.  */

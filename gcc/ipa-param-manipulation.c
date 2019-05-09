@@ -1718,8 +1718,8 @@ ipa_param_body_adjustments::modify_gimple_stmt (gimple **stmt,
 }
 
 
-/* Traverse body of the current function and perform the requested adjustments.
-   Return true iff the CFG has been changed.  */
+/* Traverse body of the current function and perform the requested adjustments
+   on its statements.  Return true iff the CFG has been changed.  */
 
 bool
 ipa_param_body_adjustments::modify_cfun_body ()
@@ -1884,7 +1884,8 @@ ipa_param_body_adjustments::reset_debug_stmts ()
 
 /* Perform all necessary body changes to change signature, body and debug info
    of fun according to adjustments passed at construction.  Return true if CFG
-   was changed in any way.  */
+   was changed in any way.  The main entry point for modification of standalone
+   functions that is not part of IPA clone materialization.  */
 
 bool
 ipa_param_body_adjustments::perform_cfun_body_modifications ()
