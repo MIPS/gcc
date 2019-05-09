@@ -232,7 +232,7 @@ public:
   /* Vector of old parameter declarations that must have their debug bind
      statements re-mapped and debug decls created.  */
 
-  auto_vec<tree> m_reset_debug_decls;
+  auto_vec<tree, 16> m_reset_debug_decls;
 
   /* Set to true if there are any IPA_PARAM_OP_SPLIT adjustments among stored
      adjustments.  */

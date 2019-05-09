@@ -1,4 +1,4 @@
-2019-01-21  Martin Jambor  <mjambor@suse.cz>
+2019-05-09  Martin Jambor  <mjambor@suse.cz>
 
         * coretypes.h (cgraph_edge): Declare.
         * ipa-param-manipulation.c: Rewrite.
@@ -112,7 +112,6 @@
         * gcc.dg/ipa/vrp8.c: Likewise.
         * gcc.dg/noreorder.c: use noipa attribute instead of noinline.
         * gcc.dg/ipa/20040703-wpa.c: New test.
-
 	* gcc.dg/ipa/ipa-sra-12.c: New test.
 	* gcc.dg/ipa/ipa-sra-13.c: Likewise.
 	* gcc.dg/ipa/ipa-sra-14.c: Likewise.
@@ -123,6 +122,7 @@
 	* gcc.dg/ipa/ipa-sra-19.c: Likewise.
 	* gcc.dg/ipa/ipa-sra-20.c: Likewise.
 	* gcc.dg/ipa/ipa-sra-21.c: Likewise.
+	* gcc.dg/sso/ipa-sra-1.c: Likewise.
 
-	* gcc.dg/ipa/ipa-sra-2.c: Remove dumping, mark to be removed.
+	* gcc.dg/ipa/ipa-sra-2.c: Mark to be removed.
 	* gcc.dg/ipa/ipa-sra-6.c: Likewise.

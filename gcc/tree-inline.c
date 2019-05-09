@@ -5952,13 +5952,11 @@ update_clone_info (copy_body_data * id)
    tree with another tree while duplicating the function's
    body, TREE_MAP represents the mapping between these
    trees. If UPDATE_CLONES is set, the call_stmt fields
-   of edges of clones of the function will be updated.  
+   of edges of clones of the function will be updated.
 
-   !!!Doc
-   If non-NULL ARGS_TO_SKIP determine function parameters to remove
-   from new version.
-   If SKIP_RETURN is true, the new version will return void.
-   If non-NULL BLOCK_TO_COPY determine what basic blocks to copy.
+   If non-NULL PARAM_ADJUSTMENTS determines how function prototype (i.e. the
+   function parameters and return value) should be modified).
+   If non-NULL BLOCKS_TO_COPY determine what basic blocks to copy.
    If non_NULL NEW_ENTRY determine new entry BB of the clone.
 */
 void
@@ -6240,10 +6238,6 @@ tree_function_versioning (tree old_decl, tree new_decl,
 	}
     }
 
-  /* TODO: I don't quite understand how exactly this is different from what
-     ipa_param_body_adjustments::reset_debug_stmts statement does but it is
-     quite a bit different.  Which is strange, we should want to do the same
-     thing.  */
   if (param_body_adjs && MAY_HAVE_DEBUG_BIND_STMTS)
     {
       vec<tree, va_gc> **debug_args = NULL;
