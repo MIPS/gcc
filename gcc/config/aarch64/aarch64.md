@@ -242,6 +242,9 @@
     UNSPEC_UPDATE_FFRT
     UNSPEC_RDFFR
     UNSPEC_WRFFR
+    ;; Represents an SVE-style lane index, in which the indexing applies
+    ;; within the containing 128-bit block.
+    UNSPEC_SVE_LANE_SELECT
 ])
 
 (define_c_enum "unspecv" [

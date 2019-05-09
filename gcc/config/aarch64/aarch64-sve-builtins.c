@@ -132,6 +132,11 @@ enum function_shape {
   /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0:uint>_t).  */
   SHAPE_binary_index,
 
+  /* svbool_t svfoo_<t0>(sv<t0>_t, sv<t0>_t, uint64_t)
+
+     where the final argument is a constant lane number.  */
+  SHAPE_binary_lane,
+
   /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t)
      sv<t0>_t svfoo[_n_t0](sv<t0>_t, <t0>_t).  */
   SHAPE_binary_opt_n,
@@ -311,6 +316,26 @@ enum function_shape {
      void svfoo[_u64base]_offset[_t0](svuint64_t, int64_t, sv<t0>_t).  */
   SHAPE_store_scatter_offset,
 
+  /* svbool_t svfoo_<t0>(sv<t0>_t, sv<t0>_t, sv<t0>_t, uint64_t)
+
+     where the final argument is a constant lane number.  */
+  SHAPE_ternary_lane,
+
+  /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t, sv<t0>_t)
+     sv<t0>_t svfoo[_n_t0](sv<t0>_t, sv<t0>_t, <t0>_t).  */
+  SHAPE_ternary_opt_n,
+
+  /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0.quarter>_t, sv<t0.quarter>_t,
+			 uint64_t)
+
+     where the final argument is a constant lane number for a group of
+     four quarter-sized elements.  */
+  SHAPE_ternary_qq_lane,
+
+  /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0.quarter>_t, sv<t0.quarter>_t)
+     sv<t0>_t svfoo[_n_t0](sv<t0>_t, sv<t0.quarter>_t, <t0.quarter>_t).  */
+  SHAPE_ternary_qq_opt_n,
+
   /* sv<t0>_t svfoo[_t0](sv<t0>_t).  */
   SHAPE_unary,
 
@@ -318,15 +343,7 @@ enum function_shape {
   SHAPE_unary_n,
 
   /* svbool_t svfoo_<t0>(svbool_t).  */
-  SHAPE_unary_pred,
-
-  /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t, sv<t0>_t)
-     sv<t0>_t svfoo[_n_t0](sv<t0>_t, sv<t0>_t, <t0>_t).  */
-  SHAPE_ternary_opt_n,
-
-  /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0.quarter>_t, sv<t0.quarter>_t)
-     sv<t0>_t svfoo[_n_t0](sv<t0>_t, sv<t0.quarter>_t, <t0.quarter>_t).  */
-  SHAPE_ternary_qq_opt_n
+  SHAPE_unary_pred
 };
 
 /* Classifies an operation into "modes"; for example, to distinguish
@@ -581,6 +598,8 @@ private:
   template <unsigned int N>
   void sig_nary_qq (const function_instance &, vec<tree> &);
   template <unsigned int N>
+  void sig_nary_qq_u64_n (const function_instance &, vec<tree> &);
+  template <unsigned int N>
   void sig_nary_qq_n (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_nary_u64 (const function_instance &, vec<tree> &);
@@ -713,6 +732,8 @@ public:
 private:
   bool check_shift_right_imm ();
 
+  bool require_immediate (unsigned int, HOST_WIDE_INT &);
+  bool require_immediate_lane_index (unsigned int, unsigned int = 1);
   bool require_immediate_range (unsigned int, HOST_WIDE_INT, HOST_WIDE_INT);
 
   /* The location of the call.  */
@@ -720,6 +741,9 @@ private:
 
   /* The non-overloaded function being called.  */
   const function_instance &m_fi;
+
+  /* The type of M_FI.  */
+  tree m_fntype;
 
   /* The function that the user called (which might be an overloaded form
      of M_FI).  */
@@ -798,6 +822,7 @@ private:
   rtx expand_create ();
   rtx expand_div (bool);
   rtx expand_dot ();
+  rtx expand_dot_lane ();
   rtx expand_dup ();
   rtx expand_eor ();
   rtx expand_ext_bhw ();
@@ -819,9 +844,11 @@ private:
   rtx expand_min ();
   rtx expand_minnm ();
   rtx expand_mla ();
+  rtx expand_mla_mls_lane (int);
   rtx expand_mls ();
   rtx expand_msb (unsigned int);
   rtx expand_mul ();
+  rtx expand_mul_lane ();
   rtx expand_mulh ();
   rtx expand_mulx ();
   rtx expand_nand ();
@@ -875,6 +902,7 @@ private:
   rtx expand_via_pred_x_insn (insn_code);
   rtx expand_pred_shift_right_imm (insn_code);
 
+  void require_immediate_lane_index (unsigned int, unsigned int = 1);
   void require_immediate_range (unsigned int, HOST_WIDE_INT, HOST_WIDE_INT);
 
   rtx get_contiguous_base (machine_mode);
@@ -1701,6 +1729,11 @@ arm_sve_h_builder::build (const function_group &group)
       build_all (&arm_sve_h_builder::sig_nary<2>, group, MODE_none);
       break;
 
+    case SHAPE_binary_lane:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_nary_u64_n<3>, group, MODE_none);
+      break;
+
     case SHAPE_binary_index:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_nary_index<2>, group, MODE_none);
@@ -1949,10 +1982,20 @@ arm_sve_h_builder::build (const function_group &group)
       build_vs_offset (&arm_sve_h_builder::sig_store_scatter_vs, group);
       break;
 
+    case SHAPE_ternary_lane:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_nary_u64_n<4>, group, MODE_none);
+      break;
+
     case SHAPE_ternary_opt_n:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_nary<3>, group, MODE_none);
       build_all (&arm_sve_h_builder::sig_nary_n<3>, group, MODE_n);
+      break;
+
+    case SHAPE_ternary_qq_lane:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_nary_qq_u64_n<4>, group, MODE_none);
       break;
 
     case SHAPE_ternary_qq_opt_n:
@@ -2400,6 +2443,24 @@ arm_sve_h_builder::sig_nary_qq (const function_instance &instance,
 
 /* Describe the signature:
 
+     sv<t0>_t svfoo[_n_t0](sv<t0>_t, ..., sv<t0.quarter>_t, <t0.quarter>_t,
+			   uint64_t)"
+
+   for INSTANCE in TYPES, where N is the number of arguments.  */
+template<unsigned int N>
+void
+arm_sve_h_builder::sig_nary_qq_u64_n (const function_instance &instance,
+				      vec<tree> &types)
+{
+  for (unsigned int i = 0; i < N - 2; ++i)
+    types.quick_push (instance.vector_type (0));
+  types.quick_push (instance.quarter_vector_type (0));
+  types.quick_push (instance.quarter_vector_type (0));
+  types.quick_push (scalar_types[VECTOR_TYPE_svuint64_t]);
+}
+
+/* Describe the signature:
+
      sv<t0>_t svfoo[_n_t0](sv<t0>_t, ..., sv<t0.quarter>_t, <t0.quarter>_t)"
 
    for INSTANCE in TYPES, where N is the number of arguments.  */
@@ -2733,6 +2794,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svdiv:
     case FUNC_svdivr:
     case FUNC_svdot:
+    case FUNC_svdot_lane:
     case FUNC_sveor:
     case FUNC_sveorv:
     case FUNC_svindex:
@@ -2750,9 +2812,12 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svminnmv:
     case FUNC_svminv:
     case FUNC_svmla:
+    case FUNC_svmla_lane:
     case FUNC_svmls:
+    case FUNC_svmls_lane:
     case FUNC_svmsb:
     case FUNC_svmul:
+    case FUNC_svmul_lane:
     case FUNC_svmulh:
     case FUNC_svmulx:
     case FUNC_svnand:
@@ -2910,6 +2975,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_adr_index:
     case SHAPE_adr_offset:
     case SHAPE_binary:
+    case SHAPE_binary_lane:
     case SHAPE_binary_index:
     case SHAPE_binary_opt_n:
     case SHAPE_binary_wide:
@@ -2944,7 +3010,9 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_store4:
     case SHAPE_store_scatter_index:
     case SHAPE_store_scatter_offset:
+    case SHAPE_ternary_lane:
     case SHAPE_ternary_opt_n:
+    case SHAPE_ternary_qq_lane:
     case SHAPE_ternary_qq_opt_n:
     case SHAPE_unary:
       return 0;
@@ -3047,6 +3115,8 @@ function_resolver::resolve ()
     case SHAPE_compare_opt_n:
     case SHAPE_shift_opt_n:
       return resolve_uniform (2);
+    case SHAPE_binary_lane:
+      return resolve_uniform_imm (3, 1);
     case SHAPE_binary_index:
       return resolve_multitype (2, 1);
     case SHAPE_binary_pred:
@@ -3116,8 +3186,12 @@ function_resolver::resolve ()
     case SHAPE_store_scatter_index:
     case SHAPE_store_scatter_offset:
       return resolve_store_scatter ();
+    case SHAPE_ternary_lane:
+      return resolve_uniform_imm (4, 1);
     case SHAPE_ternary_opt_n:
       return resolve_uniform (3);
+    case SHAPE_ternary_qq_lane:
+      return resolve_multitype (4, 1);
     case SHAPE_ternary_qq_opt_n:
       return resolve_multitype (3, 1);
     case SHAPE_unary:
@@ -3310,16 +3384,23 @@ function_resolver::resolve_multitype (unsigned int nops, unsigned int nfirst)
 	  gcc_assert (i == nargs);
 	  break;
 	}
-      /* Holds for now, but we could easily handle the contrary if
-	 necessary.  */
-      gcc_assert (VECTOR_TYPE_P (expected));
       if (i >= unchecked)
 	{
-	  if (i + 1 == nargs && scalar_argument_p (i))
-	    return require_n_form (get_type_suffix (type));
+	  if (VECTOR_TYPE_P (expected))
+	    {
+	      if (i + 1 == nargs && scalar_argument_p (i))
+		return require_n_form (get_type_suffix (type));
 
-	  if (!check_argument_against_decl (res, i, expected))
-	    return error_mark_node;
+	      if (!check_argument_against_decl (res, i, expected))
+		return error_mark_node;
+	    }
+	  else
+	    {
+	      /* At present, all remaining scalars must be integer
+		 constant expressions.  */
+	      if (!require_integer_immediate (i))
+		return error_mark_node;
+	    }
 	}
       i += 1;
     }
@@ -4032,8 +4113,9 @@ function_resolver::get_type_suffix (vector_type type)
 function_checker::function_checker (location_t location,
 				    const registered_function &rfn, tree decl,
 				    unsigned int nargs, tree *args)
-  : m_location (location), m_fi (rfn.instance), m_decl (decl), m_nargs (nargs),
-    m_args (args)
+  : m_location (location), m_fi (rfn.instance),
+    m_fntype (TREE_TYPE (rfn.decl)), m_decl (decl),
+    m_nargs (nargs), m_args (args)
 {
 }
 
@@ -4048,6 +4130,7 @@ function_checker::check ()
       return false;
     }
 
+  unsigned int pg_args = (m_fi.pred != PRED_none);
   switch (m_fi.shape)
     {
     case SHAPE_adr_index:
@@ -4098,6 +4181,9 @@ function_checker::check ()
     case SHAPE_unary_pred:
       return true;
 
+    case SHAPE_binary_lane:
+      return require_immediate_lane_index (pg_args + 2);
+
     case SHAPE_get2:
     case SHAPE_set2:
       return require_immediate_range (1, 0, 1);
@@ -4112,6 +4198,12 @@ function_checker::check ()
 
     case SHAPE_shift_right_imm:
       return check_shift_right_imm ();
+
+    case SHAPE_ternary_lane:
+      return require_immediate_lane_index (pg_args + 3);
+
+    case SHAPE_ternary_qq_lane:
+      return require_immediate_lane_index (pg_args + 3, 4);
     }
   gcc_unreachable ();
 }
@@ -4124,6 +4216,43 @@ function_checker::check_shift_right_imm ()
   return require_immediate_range (2, 1, bits);
 }
 
+/* Check that argument ARGNO is an integer constant expression and
+   store its value in VALUE_OUT if so.  The caller should first
+   check that argument ARGNO exists.  */
+bool
+function_checker::require_immediate (unsigned int argno,
+				     HOST_WIDE_INT &value_out)
+{
+  tree arg = m_args[argno];
+
+  /* The type and range are unsigned, so read the argument as an
+     unsigned rather than signed HWI.  */
+  if (!tree_fits_uhwi_p (arg))
+    {
+      report_non_ice (m_location, m_decl, argno);
+      return false;
+    }
+
+  /* ...but treat VALUE_OUT as signed for error reporting, since printing
+     -1 is more user-friendly than the maximum uint64_t value.  */
+  value_out = tree_to_uhwi (arg);
+  return true;
+}
+
+/* Check that argument ARGNO is suitable for indexing argument ARGNO - 1,
+   in groups of GROUP_SIZE elements.  */
+bool
+function_checker::require_immediate_lane_index (unsigned int argno,
+						unsigned int group_size)
+{
+  /* Get the type of the previous argument.  tree_argument_type wants a
+     1-based number, whereas ARGNO is 0-based.  */
+  machine_mode mode = TYPE_MODE (type_argument_type (m_fntype, argno));
+  gcc_assert (VECTOR_MODE_P (mode));
+  unsigned int nlanes = 128 / (group_size * GET_MODE_UNIT_BITSIZE (mode));
+  return require_immediate_range (argno, 0, nlanes - 1);
+}
+
 /* Check that argument ARGNO is an integer constant expression in the
    range [MIN, MAX].  */
 bool
@@ -4134,14 +4263,13 @@ function_checker::require_immediate_range (unsigned int argno,
   if (m_nargs <= argno)
     return true;
 
-  tree arg = m_args[argno];
-  if (!tree_fits_shwi_p (arg))
-    {
-      report_non_ice (m_location, m_decl, argno);
-      return false;
-    }
+  /* Required because of the tree_to_uhwi -> HOST_WIDE_INT conversion
+     in require_immediate.  */
+  gcc_assert (min >= 0 && min <= max);
+  HOST_WIDE_INT actual;
+  if (!require_immediate (argno, actual))
+    return false;
 
-  HOST_WIDE_INT actual = tree_to_shwi (arg);
   if (!IN_RANGE (actual, min, max))
     {
       report_out_of_range (m_location, m_decl, argno, actual, min, max);
@@ -4354,6 +4482,7 @@ gimple_folder::fold ()
     case FUNC_svdiv:
     case FUNC_svdivr:
     case FUNC_svdot:
+    case FUNC_svdot_lane:
     case FUNC_svdup:
     case FUNC_sveor:
     case FUNC_sveorv:
@@ -4410,9 +4539,12 @@ gimple_folder::fold ()
     case FUNC_svminnmv:
     case FUNC_svminv:
     case FUNC_svmla:
+    case FUNC_svmla_lane:
     case FUNC_svmls:
+    case FUNC_svmls_lane:
     case FUNC_svmsb:
     case FUNC_svmul:
+    case FUNC_svmul_lane:
     case FUNC_svmulh:
     case FUNC_svmulx:
     case FUNC_svnand:
@@ -4957,6 +5089,9 @@ function_expander::expand ()
     case FUNC_svdot:
       return expand_dot ();
 
+    case FUNC_svdot_lane:
+      return expand_dot_lane ();
+
     case FUNC_svdup:
       return expand_dup ();
 
@@ -5094,14 +5229,23 @@ function_expander::expand ()
     case FUNC_svmla:
       return expand_mla ();
 
+    case FUNC_svmla_lane:
+      return expand_mla_mls_lane (UNSPEC_FMLA);
+
     case FUNC_svmls:
       return expand_mls ();
+
+    case FUNC_svmls_lane:
+      return expand_mla_mls_lane (UNSPEC_FMLS);
 
     case FUNC_svmsb:
       return expand_msb (1);
 
     case FUNC_svmul:
       return expand_mul ();
+
+    case FUNC_svmul_lane:
+      return expand_mul_lane ();
 
     case FUNC_svmulh:
       return expand_mulh ();
@@ -5490,6 +5634,19 @@ function_expander::expand_dot ()
     return expand_via_unpred_direct_optab (sdot_prod_optab, mode);
 }
 
+/* Expand a call to svdot_lane.  */
+rtx
+function_expander::expand_dot_lane ()
+{
+  require_immediate_lane_index (3, 4);
+  /* Use the same ordering as the optab, with the accumulator last.  */
+  rotate_inputs_left (0, 4);
+  int unspec_code = (type_suffixes[m_fi.types[0]].unsigned_p
+		     ? UNSPEC_UDOT : UNSPEC_SDOT);
+  insn_code icode = code_for_aarch64_dot_prod_lane (unspec_code, get_mode (0));
+  return expand_via_exact_insn (icode);
+}
+
 /* Expand a call to svdup.  */
 rtx
 function_expander::expand_dup ()
@@ -5749,6 +5906,19 @@ function_expander::expand_mla ()
   return expand_mad (3);
 }
 
+/* Expand a call to svmla_lane or svmls_lane; UNSPEC_CODE says which.  */
+rtx
+function_expander::expand_mla_mls_lane (int unspec_code)
+{
+  require_immediate_lane_index (3);
+  /* Put the operands in the normal (fma ...) order, with the accumulator
+     last.  This fits naturally since that's also the unprinted operand
+     in the asm output.  */
+  rotate_inputs_left (0, 4);
+  insn_code icode = code_for_aarch64_lane (unspec_code, get_mode (0));
+  return expand_via_exact_insn (icode);
+}
+
 /* Expand a call to svmls.
    svmls (pg, a, b, c) reorders the operands so that the
    accumulator comes last, and then uses cond_fnma_optab/aacrh64_pred_fnma:
@@ -5795,6 +5965,14 @@ rtx
 function_expander::expand_mul ()
 {
   return expand_pred_op (MULT, UNSPEC_COND_MUL);
+}
+
+/* Expand a call to svmul_lane.  */
+rtx
+function_expander::expand_mul_lane ()
+{
+  require_immediate_lane_index (2);
+  return expand_via_exact_insn (code_for_aarch64_mul_lane (get_mode (0)));
 }
 
 /* Expand a call to svmulh.  */
@@ -6480,6 +6658,19 @@ function_expander::expand_pred_shift_right_imm (insn_code icode)
 {
   require_immediate_range (2, 1, GET_MODE_UNIT_BITSIZE (get_mode (0)));
   return expand_via_pred_insn (icode);
+}
+
+/* Check that argument ARGNO is suitable for indexing argument ARGNO - 1
+   in groups of GROUP_SIZE elements.  Report an appropriate error if it
+   isn't and set the argument to a safe in-range value.  */
+void
+function_expander::require_immediate_lane_index (unsigned int argno,
+						 unsigned int group_size)
+{
+  machine_mode mode = GET_MODE (m_args[argno - 1]);
+  gcc_assert (VECTOR_MODE_P (mode));
+  unsigned int nlanes = 128 / (group_size * GET_MODE_UNIT_BITSIZE (mode));
+  return require_immediate_range (argno, 0, nlanes - 1);
 }
 
 /* Require that argument ARGNO is a constant integer in the range

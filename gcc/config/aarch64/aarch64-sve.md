@@ -3704,6 +3704,19 @@
   [(set_attr "movprfx" "*,*,*,yes,yes")]
 )
 
+;; Unpredicated multiplication by selected lanes.
+(define_insn "@aarch64_mul_lane_<mode>"
+  [(set (match_operand:SVE_F 0 "register_operand" "=w")
+	(mult:SVE_F
+	  (unspec:SVE_F
+	    [(match_operand:SVE_F 2 "register_operand" "w")
+	     (match_operand:SI 3 "const_int_operand")]
+	    UNSPEC_SVE_LANE_SELECT)
+	  (match_operand:SVE_F 1 "register_operand" "w")))]
+  "TARGET_SVE"
+  "fmul\t%0.<Vetype>, %1.<Vetype>, %2.<Vetype>[%3]"
+)
+
 ;; Predicated floating-point MAX/MIN.
 (define_insn "@aarch64_pred_<optab><mode>"
   [(set (match_operand:SVE_F 0 "register_operand" "=w, w, ?&w, ?&w")
@@ -3770,6 +3783,26 @@
    <sve_fmla_op>\t%0.<Vetype>, %1/m, %2.<Vetype>, %3.<Vetype>
    movprfx\t%0, %4\;<sve_fmla_op>\t%0.<Vetype>, %1/m, %2.<Vetype>, %3.<Vetype>"
   [(set_attr "movprfx" "*,*,*,yes")]
+)
+
+;; Predicated FMLA and FMLS by selected lanes.  It doesn't seem worth
+;; using (fma ...) here since target-independent code won't understand
+;; the indexing.
+(define_insn "@aarch64_<optab>_lane_<mode>"
+  [(set (match_operand:SVE_F 0 "register_operand" "=w, ?&w")
+	(unspec:SVE_F
+	  [(match_operand:SVE_F 1 "register_operand" "w, w")
+	   (unspec:SVE_F
+	     [(match_operand:SVE_F 2 "register_operand" "w, w")
+	      (match_operand:SI 3 "const_int_operand")]
+	     UNSPEC_SVE_LANE_SELECT)
+	   (match_operand:SVE_F 4 "register_operand" "0, w")]
+	  SVE_FP_TERNARY_LANE))]
+  "TARGET_SVE"
+  "@
+   <sve_fp_op>\t%0.<Vetype>, %1.<Vetype>, %2.<Vetype>[%3]
+   movprfx\t%0, %4\;<sve_fp_op>\t%0.<Vetype>, %1.<Vetype>, %2.<Vetype>[%3]"
+  [(set_attr "movprfx" "*,yes")]
 )
 
 ;; Unpredicated FNEG, FABS and FSQRT.
@@ -4698,6 +4731,25 @@
   "@
    <sur>dot\\t%0.<Vetype>, %1.<Vetype_fourth>, %2.<Vetype_fourth>
    movprfx\t%0, %3\;<sur>dot\\t%0.<Vetype>, %1.<Vetype_fourth>, %2.<Vetype_fourth>"
+  [(set_attr "movprfx" "*,yes")]
+)
+
+;; Unpredicated DOT product by selected lanes.
+(define_insn "@aarch64_<sur>dot_prod_lane<vsi2qi>"
+  [(set (match_operand:SVE_SDI 0 "register_operand" "=w, ?&w")
+	(plus:SVE_SDI
+	  (unspec:SVE_SDI
+	    [(match_operand:<VSI2QI> 1 "register_operand" "w, w")
+	     (unspec:<VSI2QI>
+	       [(match_operand:<VSI2QI> 2 "register_operand" "w, w")
+		(match_operand:SI 3 "const_int_operand")]
+	       UNSPEC_SVE_LANE_SELECT)]
+	    DOTPROD)
+	  (match_operand:SVE_SDI 4 "register_operand" "0, w")))]
+  "TARGET_SVE"
+  "@
+   <sur>dot\\t%0.<Vetype>, %1.<Vetype_fourth>, %2.<Vetype_fourth>[%3]
+   movprfx\t%0, %4\;<sur>dot\\t%0.<Vetype>, %1.<Vetype_fourth>, %2.<Vetype_fourth>[%3]"
   [(set_attr "movprfx" "*,yes")]
 )
 
