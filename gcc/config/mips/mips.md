@@ -774,7 +774,9 @@
 (define_attr "can_delay" "no,yes"
   (if_then_else (and (eq_attr "type" "!branch,call,jump")
 		     (eq_attr "hazard" "none")
-		     (match_test "get_attr_insn_count (insn) == 1"))
+		     (match_test "get_attr_insn_count (insn) == 1")
+         (ior (match_test "!TARGET_FIX_I6500")
+             (eq_attr "type" "!load,fpload,fpidxload,simd_load")))
 		(const_string "yes")
 		(const_string "no")))
 

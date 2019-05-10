@@ -5482,7 +5482,7 @@ mips_address_cost (rtx addr, machine_mode mode,
 static bool
 mips_no_speculation_in_delay_slots_p ()
 {
-  return TARGET_CB_MAYBE;
+  return TARGET_CB_MAYBE || TARGET_FIX_I6500;
 }
 
 /* Information about a single instruction in a multi-instruction
@@ -20389,7 +20389,8 @@ mips_classify_branch_p6600 (rtx_insn *insn)
 
 static void
 mips_avoid_hazard (rtx_insn *after, rtx_insn *insn, int *hilo_delay,
-		   rtx *delayed_reg, rtx lo_reg, bool *fs_delay)
+		   rtx *delayed_reg, rtx lo_reg, bool *fs_delay,
+                   rtx_insn **last_load, int *load_delay)
 {
   rtx pattern, set;
   int nops, ninsns;
@@ -20406,6 +20407,22 @@ mips_avoid_hazard (rtx_insn *after, rtx_insn *insn, int *hilo_delay,
   ninsns = get_attr_length (insn) / 4;
   if (get_attr_length (insn) == 0)
     return;
+
+  if (TARGET_FIX_I6500
+      && (CALL_P (insn) || JUMP_P (insn))
+      && (*last_load != 0 && *load_delay > 0))
+   {
+     rtx_insn *real_after = next_active_insn (*last_load);
+
+     /*  Skip the barrier if there is an one.  */
+     if (!real_after || !BARRIER_P (real_after))
+        real_after = *last_load;
+
+     gcc_assert (real_after);
+     emit_insn_after (gen_mips_ehb (), real_after);
+     *last_load = 0;
+     *load_delay = 0;
+   }
 
   /* Work out how many nops are needed.  Note that we only care about
      registers that are explicitly mentioned in the instruction's pattern.
@@ -20460,6 +20477,10 @@ mips_avoid_hazard (rtx_insn *after, rtx_insn *insn, int *hilo_delay,
   *hilo_delay += ninsns;
   *delayed_reg = 0;
   *fs_delay = false;
+
+  if (*last_load && *load_delay > 0)
+    *load_delay -= ninsns;
+
   if (INSN_CODE (insn) >= 0)
     switch (get_attr_hazard (insn))
       {
@@ -20488,6 +20509,19 @@ mips_avoid_hazard (rtx_insn *after, rtx_insn *insn, int *hilo_delay,
 	gcc_assert (set);
 	*delayed_reg = SET_DEST (set);
 	break;
+      }
+
+   if (TARGET_FIX_I6500 && INSN_CODE (insn) >= 0)
+     switch (get_attr_type (insn))
+      {
+      case TYPE_LOAD:
+      case TYPE_FPLOAD:
+      case TYPE_FPIDXLOAD:
+      case TYPE_SIMD_LOAD:
+        gcc_assert(!insn->deleted());
+        *last_load = insn;
+        *load_delay = 16;
+        break;
       }
 }
 
@@ -20527,9 +20561,9 @@ mips_break_sequence (rtx_insn *insn)
 static void
 mips_reorg_process_insns (void)
 {
-  rtx_insn *insn, *last_insn, *subinsn, *next_insn;
+  rtx_insn *insn, *last_insn, *subinsn, *next_insn, *last_load;
   rtx lo_reg, delayed_reg;
-  int hilo_delay;
+  int hilo_delay, load_delay;
   bool fs_delay;
 
   /* Force all instructions to be split into their final form.  */
@@ -20596,7 +20630,9 @@ mips_reorg_process_insns (void)
 	}
 
   last_insn = 0;
+  last_load = 0;
   hilo_delay = 2;
+  load_delay = 0;
   delayed_reg = 0;
   lo_reg = gen_rtx_REG (SImode, LO_REGNUM);
   fs_delay = false;
@@ -20686,7 +20722,8 @@ mips_reorg_process_insns (void)
 			INSN_CODE (subinsn) = CODE_FOR_nop;
 		      }
 		    mips_avoid_hazard (last_insn, subinsn, &hilo_delay,
-				       &delayed_reg, lo_reg, &fs_delay);
+				       &delayed_reg, lo_reg, &fs_delay,
+                                       &last_load, &load_delay);
 		  }
 	      last_insn = insn;
 	    }
@@ -20707,7 +20744,8 @@ mips_reorg_process_insns (void)
 	      else
 		{
 		  mips_avoid_hazard (last_insn, insn, &hilo_delay,
-				     &delayed_reg, lo_reg, &fs_delay);
+				     &delayed_reg, lo_reg, &fs_delay,
+                                     &last_load, &load_delay);
 		  /* When a compact branch introduces a forbidden slot hazard
 		     and the next useful instruction is a SEQUENCE of a jump
 		     and a non-nop instruction in the delay slot, remove the
@@ -22063,6 +22101,9 @@ mips_option_override (void)
          will be produced.  */
       target_flags |= MASK_ODD_SPREG;
     }
+
+  if (mips_isa_rev < 6 || is_micromips)
+    TARGET_FIX_I6500 = 0;
 
   if (!ISA_HAS_COMPACT_BRANCHES && mips_cb == MIPS_CB_ALWAYS)
     {

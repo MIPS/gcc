@@ -193,6 +193,9 @@ mfix4300
 Target Report Var(TARGET_4300_MUL_FIX)
 Work around an early 4300 hardware bug.
 
+mfix-sbm85555
+Target Report Var(TARGET_FIX_I6500) Init(0) Undocumented
+
 mfp-exceptions
 Target Report Var(TARGET_FP_EXCEPTIONS) Init(1)
 FP exceptions are enabled.
