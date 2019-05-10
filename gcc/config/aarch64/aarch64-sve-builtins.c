@@ -58,6 +58,10 @@ const unsigned int DEFAULT_MERGE_ARGNO = ~0U;
 /* The maximum number of vectors in an ACLE tuple type.  */
 const unsigned int MAX_TUPLE_SIZE = 4;
 
+/* A dummy unspec code that says that floating-point operations should
+   be bitcast to integers.  */
+const int BITCAST_TO_INT = -2;
+
 /* Enumerates the SVE predicate and (data) vector types, together called
    "vector types" for brevity.  */
 enum vector_type {
@@ -355,6 +359,9 @@ enum function_shape {
   /* sv<t0>_t svfoo[_t0](sv<t0>_t).  */
   SHAPE_unary,
 
+  /* sv<t0:uint>_t svfoo[_t0](sv<t0>_t).  */
+  SHAPE_unary_count,
+
   /* sv<t0>_t svfoo[_n]_t0(<t0>_t).  */
   SHAPE_unary_n,
 
@@ -593,6 +600,8 @@ private:
   void sig_compare_wide (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_create (const function_instance &, vec<tree> &);
+  template <unsigned int N>
+  void sig_count (const function_instance &, vec<tree> &);
   void sig_fold_left (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_get (const function_instance &, vec<tree> &);
@@ -904,6 +913,7 @@ private:
   rtx expand_stnt1 ();
   rtx expand_sub (bool);
   rtx expand_tbl ();
+  rtx expand_unary_count (rtx_code);
   rtx expand_undef ();
   rtx expand_while (int, int);
   rtx expand_wrffr ();
@@ -2069,6 +2079,11 @@ arm_sve_h_builder::build (const function_group &group)
       build_all (&arm_sve_h_builder::sig_nary<1>, group, MODE_none);
       break;
 
+    case SHAPE_unary_count:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_count<1>, group, MODE_none);
+      break;
+
     case SHAPE_unary_n:
       build_all (&arm_sve_h_builder::sig_nary_n<1>, group, MODE_n, true);
       break;
@@ -2336,6 +2351,18 @@ arm_sve_h_builder::sig_create (const function_instance &instance,
 			       vec<tree> &types)
 {
   types.quick_push (instance.tuple_type (N, 0));
+  for (unsigned int i = 0; i < N; ++i)
+    types.quick_push (instance.vector_type (0));
+}
+
+/* Describe the signature "sv<t0:uint>_t svfoo[_t0](sv<t0>_t, ..., sv<t0>_t)"
+   for INSTANCE in TYPES, where N is the number of arguments.  */
+template<unsigned int N>
+void
+arm_sve_h_builder::sig_count (const function_instance &instance,
+			      vec<tree> &types)
+{
+  types.quick_push (instance.unsigned_vector_type (0));
   for (unsigned int i = 0; i < N; ++i)
     types.quick_push (instance.vector_type (0));
 }
@@ -2939,6 +2966,9 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svbrkn:
     case FUNC_svbrkpa:
     case FUNC_svbrkpb:
+    case FUNC_svcls:
+    case FUNC_svclz:
+    case FUNC_svcnt:
     case FUNC_svcntb:
     case FUNC_svcntd:
     case FUNC_svcnth:
@@ -3097,6 +3127,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_ternary_qq_opt_n:
     case SHAPE_ternary_rotate:
     case SHAPE_unary:
+    case SHAPE_unary_count:
       return 0;
     case SHAPE_binary_pred:
     case SHAPE_binary_scalar:
@@ -3281,6 +3312,7 @@ function_resolver::resolve ()
     case SHAPE_ternary_qq_opt_n:
       return resolve_multitype (3, 1);
     case SHAPE_unary:
+    case SHAPE_unary_count:
     case SHAPE_reduction:
     case SHAPE_reduction_wide:
       return resolve_uniform (1);
@@ -3665,11 +3697,11 @@ function_resolver::check_first_vector_argument (unsigned int nops,
     return false;
 
   /* For unary merge operations, the first argument is a vector with
-     the same type as the result.  */
+     the same type as the result.  We'll check that it has the right
+     type after the function has been resolved.  */
   if (nops == 1 && m_fi.pred == PRED_m)
     {
-      type = require_vector_type (i);
-      if (type == NUM_VECTOR_TYPES)
+      if (require_vector_type (i) == NUM_VECTOR_TYPES)
 	return false;
       i += 1;
     }
@@ -3682,14 +3714,12 @@ function_resolver::check_first_vector_argument (unsigned int nops,
       i += 1;
     }
 
+  /* The next argument is always a vector.  */
+  type = require_vector_type (i);
   if (type == NUM_VECTOR_TYPES)
-    {
-      /* The next argument is always a vector.  */
-      type = require_vector_type (i);
-      if (type == NUM_VECTOR_TYPES)
-	return false;
-      i += 1;
-    }
+    return false;
+  i += 1;
+
   return true;
 }
 
@@ -4263,6 +4293,7 @@ function_checker::check ()
     case SHAPE_ternary_opt_n:
     case SHAPE_ternary_qq_opt_n:
     case SHAPE_unary:
+    case SHAPE_unary_count:
     case SHAPE_unary_n:
     case SHAPE_unary_pred:
       return true;
@@ -4595,6 +4626,8 @@ gimple_folder::fold ()
     case FUNC_svbrkpa:
     case FUNC_svbrkpb:
     case FUNC_svcadd:
+    case FUNC_svcls:
+    case FUNC_svclz:
     case FUNC_svcmla:
     case FUNC_svcmla_lane:
     case FUNC_svcmpeq:
@@ -4610,6 +4643,7 @@ gimple_folder::fold ()
     case FUNC_svcmpne:
     case FUNC_svcmpne_wide:
     case FUNC_svcmpuo:
+    case FUNC_svcnt:
     case FUNC_svdiv:
     case FUNC_svdivr:
     case FUNC_svdot:
@@ -5164,6 +5198,12 @@ function_expander::expand ()
     case FUNC_svcadd:
       return expand_cadd ();
 
+    case FUNC_svcls:
+      return expand_unary_count (CLRSB);
+
+    case FUNC_svclz:
+      return expand_unary_count (CLZ);
+
     case FUNC_svcmla:
       return expand_cmla ();
 
@@ -5208,6 +5248,9 @@ function_expander::expand ()
 
     case FUNC_svcmpuo:
       return expand_cmpuo ();
+
+    case FUNC_svcnt:
+      return expand_unary_count (POPCOUNT);
 
     case FUNC_svcntb:
     case FUNC_svcntd:
@@ -6519,6 +6562,13 @@ function_expander::expand_tbl ()
   return expand_via_exact_insn (code_for_aarch64_sve_tbl (get_mode (0)));
 }
 
+/* Expand a call to sv{cls,clz,cnt}; CODE says which.  */
+rtx
+function_expander::expand_unary_count (rtx_code code)
+{
+  return expand_pred_op (code, BITCAST_TO_INT);
+}
+
 /* Expand a call to svundef*.  */
 rtx
 function_expander::expand_undef ()
@@ -6674,7 +6724,7 @@ function_expander::expand_via_pred_insn (insn_code icode,
 {
   /* Discount the output, predicate, and fallback value.  */
   unsigned int nops = insn_data[icode].n_operands - 3;
-  machine_mode mode = get_mode (0);
+  machine_mode mode = insn_data[icode].operand[0].mode;
 
   unsigned int opno = 0;
   rtx fallback_arg = get_fallback_value (mode, nops, merge_argno, opno);
@@ -6694,7 +6744,7 @@ rtx
 function_expander::expand_via_pred_x_insn (insn_code icode)
 {
   unsigned int nops = m_args.length () - 1;
-  machine_mode mode = get_mode (0);
+  machine_mode mode = insn_data[icode].operand[0].mode;
   machine_mode pred_mode = get_pred_mode (0);
 
   /* Add the normal operands.  */
@@ -6718,16 +6768,8 @@ function_expander::expand_via_pred_x_insn (insn_code icode)
   return generate_insn (icode);
 }
 
-/* Implement the call using an @aarch64_pred instruction for _x
-   predication and a @cond instruction for _z and _m predication.
-   The integer instructions are parameterized by an rtx_code while
-   the floating-point instructions are parameterized by an unspec code.
-   CODE is the rtx code to use for integer operations and UNSPEC_COND
-   is the unspec code to use for floating-point operations.  There is
-   no distinction between signed and unsigned operations.
-
-   MERGE_ARGNO is the argument that should be used as the fallback
-   value in a merging operation.  */
+/* Like expand_signed_pred_op, except that CODE works for both signed
+   and unsigned integers.  */
 rtx
 function_expander::expand_pred_op (rtx_code code, int unspec_cond,
 				   unsigned int merge_argno)
@@ -6742,6 +6784,9 @@ function_expander::expand_pred_op (rtx_code code, int unspec_cond,
    CODE_FOR_SINT is the rtx_code for signed integer operations,
    CODE_FOR_UINT is the rtx_code for unsigned integer operations
    and UNSPEC_COND is the unspec code for floating-point operations.
+   UNSPEC_COND can be BITCAST_TO_INT if floating-point types should
+   be bitcast to integer types.
+
    MERGE_ARGNO is the argument that should be used as the fallback
    value in a merging operation.  */
 rtx
@@ -6752,30 +6797,41 @@ function_expander::expand_signed_pred_op (rtx_code code_for_sint,
 {
   insn_code icode;
 
+  machine_mode mode = get_mode (0);
+  bool integer_p = type_suffixes[m_fi.types[0]].integer_p;
+  if (!integer_p && unspec_cond == BITCAST_TO_INT)
+    {
+      mode = mode_for_int_vector (mode).require ();
+      for (unsigned int i = 0; i < m_args.length (); ++i)
+	if (GET_MODE (m_args[i]) == get_mode (0))
+	  m_args[i] = gen_lowpart (mode, m_args[i]);
+      integer_p = true;
+    }
+
   if (m_fi.pred == PRED_x)
     {
-      if (type_suffixes[m_fi.types[0]].integer_p)
+      if (integer_p)
 	{
 	  if (type_suffixes[m_fi.types[0]].unsigned_p)
-	    icode = code_for_aarch64_pred (code_for_uint, get_mode (0));
+	    icode = code_for_aarch64_pred (code_for_uint, mode);
 	  else
-	    icode = code_for_aarch64_pred (code_for_sint, get_mode (0));
+	    icode = code_for_aarch64_pred (code_for_sint, mode);
 	}
       else
-	icode = code_for_aarch64_pred (unspec_cond, get_mode (0));
+	icode = code_for_aarch64_pred (unspec_cond, mode);
       return expand_via_pred_x_insn (icode);
     }
   else
     {
-      if (type_suffixes[m_fi.types[0]].integer_p)
+      if (integer_p)
 	{
 	  if (type_suffixes[m_fi.types[0]].unsigned_p)
-	    icode = code_for_cond (code_for_uint, get_mode (0));
+	    icode = code_for_cond (code_for_uint, mode);
 	  else
-	    icode = code_for_cond (code_for_sint, get_mode (0));
+	    icode = code_for_cond (code_for_sint, mode);
 	}
       else
-	icode = code_for_cond (unspec_cond, get_mode (0));
+	icode = code_for_cond (unspec_cond, mode);
       return expand_via_pred_insn (icode, merge_argno);
     }
 }

@@ -1317,7 +1317,7 @@
 (define_code_iterator FAC_COMPARISONS [lt le ge gt])
 
 ;; SVE integer unary operations.
-(define_code_iterator SVE_INT_UNARY [abs neg not popcount])
+(define_code_iterator SVE_INT_UNARY [abs neg not clrsb clz popcount])
 
 ;; SVE floating-point unary operations.
 (define_code_iterator SVE_FP_UNARY [abs neg sqrt])
@@ -1362,6 +1362,8 @@
 			 (unsigned_fix "fixuns")
 			 (float "float")
 			 (unsigned_float "floatuns")
+			 (clrsb "clrsb")
+			 (clz "clz")
 			 (popcount "popcount")
 			 (and "and")
 			 (ior "ior")
@@ -1531,6 +1533,8 @@
 			      (xor "eor")
 			      (not "not")
 			      (abs "abs")
+			      (clrsb "cls")
+			      (clz "clz")
 			      (popcount "cnt")])
 
 (define_code_attr sve_int_op_rev [(plus "add")
