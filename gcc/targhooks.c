@@ -2383,4 +2383,12 @@ default_remove_extra_call_preserved_regs (rtx_insn *, HARD_REG_SET *)
 {
 }
 
+void
+default_prune_insertions_deletions (struct edge_list *edge_list ATTRIBUTE_UNUSED,
+				    unsigned int n_elems ATTRIBUTE_UNUSED,
+				    sbitmap *pre_insert_map ATTRIBUTE_UNUSED,
+				    sbitmap *pre_delete_map ATTRIBUTE_UNUSED)
+{
+}
+
 #include "gt-targhooks.h"
