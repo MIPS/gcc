@@ -264,4 +264,9 @@ extern unsigned int default_min_arithmetic_precision (void);
 extern enum flt_eval_method
 default_excess_precision (enum excess_precision_type ATTRIBUTE_UNUSED);
 
+extern void default_prune_insertions_deletions (struct edge_list *edge_list,
+						unsigned int n_elems,
+						sbitmap *pre_insert_map,
+						sbitmap *pre_delete_map);
+
 #endif /* GCC_TARGHOOKS_H */
