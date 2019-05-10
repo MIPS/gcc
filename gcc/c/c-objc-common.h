@@ -74,6 +74,8 @@ along with GCC; see the file COPYING3.  If not see
 #undef LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN
 #define LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN c_dump_tree
 
+#undef LANG_HOOKS_BUILD_ENUM
+#define LANG_HOOKS_BUILD_ENUM c_build_enum
 #undef LANG_HOOKS_TYPE_FOR_MODE
 #define LANG_HOOKS_TYPE_FOR_MODE c_common_type_for_mode
 #undef LANG_HOOKS_TYPE_FOR_SIZE

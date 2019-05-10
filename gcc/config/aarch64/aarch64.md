@@ -245,6 +245,7 @@
     ;; Represents an SVE-style lane index, in which the indexing applies
     ;; within the containing 128-bit block.
     UNSPEC_SVE_LANE_SELECT
+    UNSPEC_SVE_CNT_PAT
 ])
 
 (define_c_enum "unspecv" [

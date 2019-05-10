@@ -262,6 +262,9 @@ enum function_shape {
      sv<t0>_t svfoo[_u64base]_offset_t0(svuint64_t, int64_t).  */
   SHAPE_load_gather_vs,
 
+  /* uint64_t svfoo(enum svpattern).  */
+  SHAPE_pattern_count,
+
   /* bool svfoo(svbool_t).  */
   SHAPE_ptest,
 
@@ -500,6 +503,7 @@ struct GTY(()) function_instance {
   const char *end_base_name () const;
   machine_mode bhwd_vector_mode () const;
   scalar_mode bhwd_scalar_mode () const;
+  unsigned int bhwd_nelts_per_vq () const;
   machine_mode memory_vector_mode () const;
 
   tree base_vector_type () const;
@@ -572,6 +576,7 @@ public:
   ~arm_sve_h_builder ();
 
   void register_type (vector_type);
+  void register_svpattern ();
   void build (const function_group &);
 
 private:
@@ -632,6 +637,7 @@ private:
   void sig_nary_u64_n (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_nary_u64_nn (const function_instance &, vec<tree> &);
+  void sig_pattern_count (const function_instance &, vec<tree> &);
   void sig_ptest (const function_instance &, vec<tree> &);
   void sig_rdffr (const function_instance &, vec<tree> &);
   void sig_reduction (const function_instance &, vec<tree> &);
@@ -763,6 +769,7 @@ private:
   bool require_immediate_lane_index (unsigned int, unsigned int = 1);
   bool require_immediate_range (unsigned int, HOST_WIDE_INT, HOST_WIDE_INT);
   bool require_immediate_rotate (unsigned int, bool);
+  bool require_immediate_svpattern (unsigned int);
 
   /* The location of the call.  */
   location_t m_location;
@@ -791,6 +798,7 @@ public:
 
 private:
   gimple *fold_cnt_bhwd ();
+  gimple *fold_cnt_bhwd_pat ();
   gimple *fold_create ();
   gimple *fold_get ();
   gimple *fold_ld1 ();
@@ -850,6 +858,7 @@ private:
   rtx expand_cmp_wide (int, int);
   rtx expand_cmpuo ();
   rtx expand_cnt_bhwd ();
+  rtx expand_cnt_bhwd_pat ();
   rtx expand_create ();
   rtx expand_div (bool);
   rtx expand_dot ();
@@ -937,6 +946,7 @@ private:
   void require_immediate_lane_index (unsigned int, unsigned int = 1);
   void require_immediate_range (unsigned int, HOST_WIDE_INT, HOST_WIDE_INT);
   int get_immediate_rotate (unsigned int, bool);
+  void require_immediate_svpattern (unsigned int);
 
   rtx get_contiguous_base (machine_mode);
   void prepare_gather_address_operands (unsigned int);
@@ -1196,6 +1206,9 @@ static GTY(()) tree abi_vector_types[NUM_VECTOR_TYPES];
    NUM_VECTOR_TYPES, which always yields a null tree.  */
 static GTY(()) tree acle_vector_types[MAX_TUPLE_SIZE][NUM_VECTOR_TYPES + 1];
 
+/* The svpattern enum type.  */
+static tree acle_svpattern;
+
 /* The list of all registered function decls, indexed by code.  */
 static GTY(()) vec<registered_function *, va_gc> *registered_functions;
 
@@ -1377,6 +1390,17 @@ report_not_one_of (location_t location, tree decl, unsigned int argno,
 	    value2, value3);
 }
 
+/* Report that LOCATION has a call to DECL in which argument ARGNO has
+   the value ACTUAL, whereas the function requires a valid value of
+   enum type ENUMTYPE.  */
+static void
+report_not_enum (location_t location, tree decl, unsigned int argno,
+		 HOST_WIDE_INT actual, tree enumtype)
+{
+  error_at (location, "passing %wd to argument %d of %qE, which expects"
+	    " a valid %qT value", actual, argno + 1, decl, enumtype);
+}
+
 inline
 function_instance::function_instance (function func_in,
 				      function_shape shape_in,
@@ -1460,6 +1484,14 @@ scalar_mode
 function_instance::bhwd_scalar_mode () const
 {
   return GET_MODE_INNER (bhwd_vector_mode ());
+}
+
+/* For a function with a [bhwd] suffix, return the number of elements
+   of that size that fit within a 128-bit block.  */
+unsigned int
+function_instance::bhwd_nelts_per_vq () const
+{
+  return 128 / GET_MODE_BITSIZE (bhwd_scalar_mode ());
 }
 
 /* Return the memory vector mode, if meaningful.  */
@@ -1765,6 +1797,20 @@ arm_sve_h_builder::register_type (vector_type type)
       register_tuple_type (i, type);
 }
 
+/* Register the svpattern enum.  */
+void
+arm_sve_h_builder::register_svpattern ()
+{
+  auto_vec<string_int_pair, 32> values;
+#define PUSH(UPPER, LOWER, VALUE) \
+    values.quick_push (string_int_pair ("SV_" #UPPER, VALUE));
+  AARCH64_FOR_SVPATTERN (PUSH)
+#undef PUSH
+
+  acle_svpattern = lang_hooks.types.build_enum (input_location,
+						"svpattern", values);
+}
+
 /* Define all functions associated with GROUP.  */
 void
 arm_sve_h_builder::build (const function_group &group)
@@ -1954,6 +2000,10 @@ arm_sve_h_builder::build (const function_group &group)
       build_v_base (&arm_sve_h_builder::sig_load_gather_vs, group, true);
       build_vs_index (&arm_sve_h_builder::sig_load_gather_vs, group, true);
       build_vs_offset (&arm_sve_h_builder::sig_load_gather_vs, group, true);
+      break;
+
+    case SHAPE_pattern_count:
+      build_all (&arm_sve_h_builder::sig_pattern_count, group, MODE_none);
       break;
 
     case SHAPE_ptest:
@@ -2602,6 +2652,15 @@ arm_sve_h_builder::sig_nary_u64_nn (const function_instance &instance,
     types.quick_push (scalar_types[VECTOR_TYPE_svuint64_t]);
 }
 
+/* Describe the signature "uint64_t svfoo(enum svpattern)" in TYPES.  */
+void
+arm_sve_h_builder::sig_pattern_count (const function_instance &,
+				      vec<tree> &types)
+{
+  types.quick_push (scalar_types[VECTOR_TYPE_svuint64_t]);
+  types.quick_push (acle_svpattern);
+}
+
 /* Describe the signature "bool svfoo(svbool_t)" in TYPES.  */
 void
 arm_sve_h_builder::sig_ptest (const function_instance &, vec<tree> &types)
@@ -2970,9 +3029,13 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svclz:
     case FUNC_svcnt:
     case FUNC_svcntb:
+    case FUNC_svcntb_pat:
     case FUNC_svcntd:
+    case FUNC_svcntd_pat:
     case FUNC_svcnth:
+    case FUNC_svcnth_pat:
     case FUNC_svcntw:
+    case FUNC_svcntw_pat:
     case FUNC_svcreate2:
     case FUNC_svcreate3:
     case FUNC_svcreate4:
@@ -3104,6 +3167,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_load3:
     case SHAPE_load4:
     case SHAPE_load_gather_sv:
+    case SHAPE_pattern_count:
     case SHAPE_ptest:
     case SHAPE_rdffr:
     case SHAPE_reduction:
@@ -3241,6 +3305,7 @@ function_resolver::resolve ()
     case SHAPE_inherent3:
     case SHAPE_inherent4:
     case SHAPE_inherent_count:
+    case SHAPE_pattern_count:
     case SHAPE_ptest:
     case SHAPE_rdffr:
     case SHAPE_setffr:
@@ -4316,6 +4381,9 @@ function_checker::check ()
     case SHAPE_set4:
       return require_immediate_range (1, 0, 3);
 
+    case SHAPE_pattern_count:
+      return require_immediate_svpattern (0);
+
     case SHAPE_shift_right_imm:
       return check_shift_right_imm ();
 
@@ -4438,6 +4506,27 @@ function_checker::require_immediate_rotate (unsigned int argno,
   return true;
 }
 
+/* Check that argument ARGNO is an integer constant expression that
+   has a valid svpattern value.  */
+bool
+function_checker::require_immediate_svpattern (unsigned int argno)
+{
+  if (m_nargs <= argno)
+    return true;
+
+  HOST_WIDE_INT actual;
+  if (!require_immediate (argno, actual))
+    return false;
+
+  if (!aarch64_svpattern_immediate_p (actual))
+    {
+      report_not_enum (m_location, m_decl, argno, actual, acle_svpattern);
+      return false;
+    }
+
+  return true;
+}
+
 /* Register the built-in SVE ABI types, such as __SVBool_t.  */
 static void
 register_builtin_types ()
@@ -4522,6 +4611,7 @@ handle_arm_sve_h ()
   arm_sve_h_builder builder;
   for (unsigned int i = 0; i < NUM_VECTOR_TYPES; ++i)
     builder.register_type (vector_type (i));
+  builder.register_svpattern ();
   for (unsigned int i = 0; i < ARRAY_SIZE (function_groups); ++i)
     builder.build (function_groups[i]);
 }
@@ -4757,6 +4847,12 @@ gimple_folder::fold ()
     case FUNC_svcntw:
       return fold_cnt_bhwd ();
 
+    case FUNC_svcntb_pat:
+    case FUNC_svcntd_pat:
+    case FUNC_svcnth_pat:
+    case FUNC_svcntw_pat:
+      return fold_cnt_bhwd_pat ();
+
     case FUNC_svcreate2:
     case FUNC_svcreate3:
     case FUNC_svcreate4:
@@ -4821,6 +4917,30 @@ gimple_folder::fold_cnt_bhwd ()
   machine_mode ref_mode = m_fi.bhwd_vector_mode ();
   tree count = build_int_cstu (TREE_TYPE (m_lhs), GET_MODE_NUNITS (ref_mode));
   return gimple_build_assign (m_lhs, count);
+}
+
+/* Fold a call to svcnt[bhwd]_pat.  */
+gimple *
+gimple_folder::fold_cnt_bhwd_pat ()
+{
+  tree pattern_arg = gimple_call_arg (m_call, 0);
+  if (!tree_fits_shwi_p (pattern_arg)
+      || !aarch64_svpattern_immediate_p (tree_to_shwi (pattern_arg)))
+    return NULL;
+
+  aarch64_svpattern pattern = (aarch64_svpattern) tree_to_shwi (pattern_arg);
+  if (pattern == AARCH64_SV_ALL)
+    return fold_cnt_bhwd ();
+
+  unsigned int nelts_per_vq = m_fi.bhwd_nelts_per_vq ();
+  HOST_WIDE_INT value = aarch64_fold_sve_cnt_pat (pattern, nelts_per_vq);
+  if (value >= 0)
+    {
+      tree count = build_int_cstu (TREE_TYPE (m_lhs), value);
+      return gimple_build_assign (m_lhs, count);
+    }
+
+  return NULL;
 }
 
 /* Fold a call to svcreate*.  */
@@ -5257,6 +5377,12 @@ function_expander::expand ()
     case FUNC_svcnth:
     case FUNC_svcntw:
       return expand_cnt_bhwd ();
+
+    case FUNC_svcntb_pat:
+    case FUNC_svcntd_pat:
+    case FUNC_svcnth_pat:
+    case FUNC_svcntw_pat:
+      return expand_cnt_bhwd_pat ();
 
     case FUNC_svcreate2:
     case FUNC_svcreate3:
@@ -5814,6 +5940,16 @@ rtx
 function_expander::expand_cnt_bhwd ()
 {
   return gen_int_mode (GET_MODE_NUNITS (m_fi.bhwd_vector_mode ()), DImode);
+}
+
+/* Expand a call to svcnt[bhwd]_pat.  */
+rtx
+function_expander::expand_cnt_bhwd_pat ()
+{
+  require_immediate_svpattern (0);
+  m_args.quick_push (gen_int_mode (m_fi.bhwd_nelts_per_vq (), DImode));
+  m_args.quick_push (const1_rtx);
+  return expand_via_exact_insn (CODE_FOR_aarch64_sve_cnt_pat);
 }
 
 /* Expand a call to svcreate*.  */
@@ -6963,6 +7099,24 @@ function_expander::get_immediate_rotate (unsigned int argno,
 			   0, 90, 180, 270);
     }
   return 90;
+}
+
+/* Check that argument ARGNO is an integer constant expression that
+   has a valid svpattern value.  Report an error if it doesn't and
+   change it to SV_ALL.  */
+void
+function_expander::require_immediate_svpattern (unsigned int argno)
+{
+  if (!CONST_INT_P (m_args[argno]))
+    report_non_ice (m_location, m_rfn.decl, argno);
+  else
+    {
+      HOST_WIDE_INT actual = INTVAL (m_args[argno]);
+      if (aarch64_svpattern_immediate_p (actual))
+	return;
+      report_not_enum (m_location, m_rfn.decl, argno, actual, acle_svpattern);
+    }
+  m_args[argno] = gen_int_mode (AARCH64_SV_ALL, DImode);
 }
 
 /* Return the base address for a contiguous load or store function.

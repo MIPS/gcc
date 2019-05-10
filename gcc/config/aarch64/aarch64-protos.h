@@ -398,6 +398,36 @@ enum simd_immediate_check {
 
 extern struct tune_params aarch64_tune_params;
 
+/* The available SVE predicate patterns, known in the ACLE as "svpattern".  */
+#define AARCH64_FOR_SVPATTERN(T) \
+  T (POW2, pow2, 0) \
+  T (VL1, vl1, 1) \
+  T (VL2, vl2, 2) \
+  T (VL3, vl3, 3) \
+  T (VL4, vl4, 4) \
+  T (VL5, vl5, 5) \
+  T (VL6, vl6, 6) \
+  T (VL7, vl7, 7) \
+  T (VL8, vl8, 8) \
+  T (VL16, vl16, 9) \
+  T (VL32, vl32, 10) \
+  T (VL64, vl64, 11) \
+  T (VL128, vl128, 12) \
+  T (VL256, vl256, 13) \
+  T (MUL4, mul4, 29) \
+  T (MUL3, mul3, 30) \
+  T (ALL, all, 31)
+
+/* Bitmask of valid svpatterns.  */
+const unsigned int aarch64_svpattern_mask = 0xe0003fff;
+
+#define AARCH64_SVENUM(UPPER, LOWER, VALUE) AARCH64_SV_##UPPER = VALUE,
+enum aarch64_svpattern {
+  AARCH64_FOR_SVPATTERN (AARCH64_SVENUM)
+  AARCH64_NUM_SVPATTERNS
+};
+#undef AARCH64_SVENUM
+
 /* It's convenient to divide the built-in function codes into groups,
    rather than having everything in a single enum.  This type enumerates
    those groups.  */
@@ -450,6 +480,8 @@ bool aarch64_move_imm (HOST_WIDE_INT, machine_mode);
 opt_machine_mode aarch64_sve_pred_mode (unsigned int);
 opt_machine_mode aarch64_sve_data_mode (scalar_mode, poly_uint64);
 bool aarch64_sve_mode_p (machine_mode);
+bool aarch64_svpattern_immediate_p (HOST_WIDE_INT);
+HOST_WIDE_INT aarch64_fold_sve_cnt_pat (aarch64_svpattern, unsigned int);
 bool aarch64_sve_cnt_immediate_p (rtx);
 bool aarch64_sve_scalar_inc_dec_immediate_p (rtx);
 bool aarch64_sve_addvl_addpl_immediate_p (rtx);
@@ -461,6 +493,7 @@ rtx aarch64_reverse_mask (machine_mode, unsigned int);
 bool aarch64_offset_7bit_signed_scaled_p (machine_mode, poly_int64);
 bool aarch64_offset_9bit_signed_unscaled_p (machine_mode, poly_int64);
 char *aarch64_output_sve_cnt_immediate (const char *, const char *, rtx);
+char *aarch64_output_sve_cnt_pat_immediate (const char *, const char *, rtx *);
 char *aarch64_output_sve_scalar_inc_dec (rtx);
 char *aarch64_output_sve_addvl_addpl (rtx);
 char *aarch64_output_sve_vector_inc_dec (const char *, rtx);

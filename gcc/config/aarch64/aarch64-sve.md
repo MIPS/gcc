@@ -5278,3 +5278,82 @@
    ldff1<ANY_EXTEND:s><VNx2_NARROW:Vesize>\t%0.d, %5/z, [%1, %2.d, uxtw]
    ldff1<ANY_EXTEND:s><VNx2_NARROW:Vesize>\t%0.d, %5/z, [%1, %2.d, uxtw %p4]"
 )
+
+;; Count the number of elements in an svpattern.  Operand 1 is the pattern,
+;; operand 2 is the number of elements that fit in a 128-bit block, and
+;; operand 3 is a multiplier in the range [1, 16].
+;;
+;; Note that this pattern isn't used for SV_ALL (but would work for that too).
+(define_insn "aarch64_sve_cnt_pat"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(unspec:DI [(match_operand:DI 1 "const_int_operand")
+		    (match_operand:DI 2 "const_int_operand")
+		    (match_operand:DI 3 "const_int_operand")]
+		   UNSPEC_SVE_CNT_PAT))]
+  "TARGET_SVE"
+  {
+    return aarch64_output_sve_cnt_pat_immediate ("cnt", "%x0", operands + 1);
+  }
+)
+
+;; Increment a DImode register by the number of elements in an svpattern.
+;; See aarch64_sve_cnt_pat for the counting behavior.
+(define_insn "*aarch64_sve_incdi_pat"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(plus:DI (unspec:DI [(match_operand:DI 1 "const_int_operand")
+			     (match_operand:DI 2 "const_int_operand")
+			     (match_operand:DI 3 "const_int_operand")]
+			    UNSPEC_SVE_CNT_PAT)
+		 (match_operand:DI 4 "register_operand" "0")))]
+  "TARGET_SVE"
+  {
+    return aarch64_output_sve_cnt_pat_immediate ("inc", "%x0", operands + 1);
+  }
+)
+
+;; Increment an SImode register by the number of elements in an svpattern.
+;; See aarch64_sve_cnt_pat for the counting behavior.
+(define_insn "*aarch64_sve_incsi_pat"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(plus:SI (match_operator:SI 5 "subreg_lowpart_operator"
+		   [(unspec:DI [(match_operand:DI 1 "const_int_operand")
+				(match_operand:DI 2 "const_int_operand")
+			        (match_operand:DI 3 "const_int_operand")]
+			       UNSPEC_SVE_CNT_PAT)])
+		 (match_operand:SI 4 "register_operand" "0")))]
+  "TARGET_SVE"
+  {
+    return aarch64_output_sve_cnt_pat_immediate ("inc", "%x0", operands + 1);
+  }
+)
+
+;; Decrement a DImode register by the number of elements in an svpattern.
+;; See aarch64_sve_cnt_pat for the counting behavior.
+(define_insn "*aarch64_sve_decdi_pat"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(minus:DI (match_operand:DI 4 "register_operand" "0")
+		  (unspec:DI [(match_operand:DI 1 "const_int_operand")
+			      (match_operand:DI 2 "const_int_operand")
+			      (match_operand:DI 3 "const_int_operand")]
+			     UNSPEC_SVE_CNT_PAT)))]
+  "TARGET_SVE"
+  {
+    return aarch64_output_sve_cnt_pat_immediate ("dec", "%x0", operands + 1);
+  }
+)
+
+;; Decrement an SImode register by the number of elements in an svpattern.
+;; See aarch64_sve_cnt_pat for the counting behavior.
+(define_insn "*aarch64_sve_decsi_pat"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(minus:SI (match_operand:SI 4 "register_operand" "0")
+		  (match_operator:SI 5 "subreg_lowpart_operator"
+		    [(unspec:DI [(match_operand:DI 1 "const_int_operand")
+				 (match_operand:DI 2 "const_int_operand")
+			         (match_operand:DI 3 "const_int_operand")]
+				UNSPEC_SVE_CNT_PAT)])))]
+  "TARGET_SVE"
+  {
+    return aarch64_output_sve_cnt_pat_immediate ("dec", "%x0", operands + 1);
+  }
+)
