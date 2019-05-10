@@ -287,4 +287,9 @@ extern rtx default_speculation_safe_value (machine_mode, rtx, rtx, rtx);
 extern void default_remove_extra_call_preserved_regs (rtx_insn *,
 						      HARD_REG_SET *);
 
+extern void default_prune_insertions_deletions (struct edge_list *edge_list,
+						unsigned int n_elems,
+						sbitmap *pre_insert_map,
+						sbitmap *pre_delete_map);
+
 #endif /* GCC_TARGHOOKS_H */
