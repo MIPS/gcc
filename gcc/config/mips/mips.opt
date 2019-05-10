@@ -537,6 +537,9 @@ Target Undocumented Var(TARGET_USE_SAVE_RESTORE) Init(-1)
 muse-copyw-ucopyw
 Target Undocumented Var(TARGET_USE_COPYW_UCOPYW) Init(-1)
 
+mno-prune-insert-delete
+Target Undocumented Var(TARGET_PRUNE_INSERT_DELETE)
+
 minline-intermix
 Target Report Var(TARGET_INLINE_INTERMIX)
 Allow inlining even if the compression flags differ between caller and callee.

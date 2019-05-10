@@ -5608,6 +5608,13 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	  *total = mips_set_reg_reg_cost (GET_MODE (SET_DEST (x)));
 	  return true;
 	}
+      if (GET_CODE (SET_DEST (x)) != PC)
+	*total = 0;
+      return false;
+
+    case IF_THEN_ELSE:
+      if (outer_code == SET)
+	*total = 0;
       return false;
 
     case IF_THEN_ELSE:
@@ -25306,6 +25313,239 @@ mips_asm_file_end (void)
   if (NEED_INDICATE_EXEC_STACK)
     file_end_indicate_exec_stack ();
 }
+
+/* Return true if OP is ok for if-then-else processing.  */
+
+static int
+noce_operand_ok (const_rtx op)
+{
+  if (side_effects_p (op))
+    return FALSE;
+
+  /* We special-case memories, so handle any of them with
+     no address side effects.  */
+  if (MEM_P (op))
+    return ! side_effects_p (XEXP (op, 0));
+
+  return ! may_trap_p (op);
+}
+
+
+/* Helper for bb_valid_for_noce_process_p.  Validate that
+   the rtx insn INSN is a single set that does not set
+   the conditional register CC and is in general valid for
+   if-conversion.  */
+
+static bool
+insn_valid_noce_process_p (rtx_insn *insn)
+{
+  if (!insn
+      || !NONJUMP_INSN_P (insn))
+      return false;
+
+  rtx sset = single_set (insn);
+
+  /* Currently support only simple single sets in test_bb.  */
+  if (!sset
+      || !noce_operand_ok (SET_DEST (sset))
+      || !noce_operand_ok (SET_SRC (sset)))
+    return false;
+
+  return true;
+}
+
+/* Return the first non-jump active insn in the basic block.  */
+
+static rtx_insn *
+first_active_insn (basic_block bb)
+{
+  rtx_insn *insn = BB_HEAD (bb);
+
+  if (LABEL_P (insn))
+    {
+      if (insn == BB_END (bb))
+	return NULL;
+      insn = NEXT_INSN (insn);
+    }
+
+  while (NOTE_P (insn) || DEBUG_INSN_P (insn))
+    {
+      if (insn == BB_END (bb))
+	return NULL;
+      insn = NEXT_INSN (insn);
+    }
+
+  if (JUMP_P (insn))
+    return NULL;
+
+  return insn;
+}
+
+static rtx_insn *
+last_active_insn (basic_block bb, int skip_use_p)
+{
+  rtx_insn *insn = BB_END (bb);
+  rtx_insn *head = BB_HEAD (bb);
+
+  while (NOTE_P (insn)
+	 || JUMP_P (insn)
+	 || DEBUG_INSN_P (insn)
+	 || (skip_use_p
+	     && NONJUMP_INSN_P (insn)
+	     && GET_CODE (PATTERN (insn)) == USE))
+    {
+      if (insn == head)
+	return NULL;
+      insn = PREV_INSN (insn);
+    }
+
+  if (LABEL_P (insn))
+    return NULL;
+
+  return insn;
+}
+
+static bool
+bb_valid_for_noce (basic_block test_bb, bool *simple)
+{
+  if (!test_bb)
+    return false;
+
+  rtx_insn *last_insn = last_active_insn (test_bb, FALSE);
+
+  if (!insn_valid_noce_process_p (last_insn))
+    return false;
+
+  rtx_insn *first_insn = first_active_insn (test_bb);
+  rtx first_set = single_set (first_insn);
+
+  if (!first_set)
+    return false;
+
+  *simple = first_insn == last_insn;
+  return true;
+}
+
+#define NULL_BLOCK	((basic_block) NULL)
+
+static bool
+check_bb (basic_block test_bb, sbitmap *ifcv_blocks)
+{
+  /* The kind of block we're looking for has exactly two successors.  */
+  if (EDGE_COUNT (test_bb->succs) != 2)
+    return false;
+
+  edge then_edge = EDGE_SUCC (test_bb, 0);
+  edge else_edge = EDGE_SUCC (test_bb, 1);
+
+  /* The THEN edge is canonically the one that falls through.  */
+  if (then_edge->flags & EDGE_FALLTHRU)
+    ;
+  else if (else_edge->flags & EDGE_FALLTHRU)
+    std::swap (then_edge, else_edge);
+  else
+    /* Otherwise this must be a multiway branch of some sort.  */
+    return false;
+
+  basic_block then_bb, else_bb;
+
+  /* Recognize an IF-THEN-ELSE-JOIN block.  */
+  if (single_pred_p (then_edge->dest)
+	&& single_succ_p (then_edge->dest)
+	&& single_pred_p (else_edge->dest)
+	&& single_succ_p (else_edge->dest)
+	&& single_succ (then_edge->dest) == single_succ (else_edge->dest))
+    {
+	then_bb = then_edge->dest;
+	else_bb = else_edge->dest;
+    }
+  /* Recognize an IF-THEN-JOIN block.  */
+  else if (single_pred_p (then_edge->dest)
+	     && single_succ_p (then_edge->dest)
+	     && single_succ (then_edge->dest) == else_edge->dest)
+    {
+	then_bb = then_edge->dest;
+	else_bb = NULL_BLOCK;
+    }
+  /* Recognize an IF-ELSE-JOIN block.  We can have those because the order
+     of basic blocks in cfglayout mode does not matter, so the fallthrough
+     edge can go to any basic block (and not just to bb->next_bb, like in
+     cfgrtl mode).  */
+  else if (single_pred_p (else_edge->dest)
+	     && single_succ_p (else_edge->dest)
+	     && single_succ (else_edge->dest) == then_edge->dest)
+    {
+	/* The noce transformations do not apply to IF-ELSE-JOIN blocks.
+	   To make this work, we have to invert the THEN and ELSE blocks
+	   and reverse the jump condition.  */
+	then_bb = else_edge->dest;
+	else_bb = NULL_BLOCK;
+    }
+  else
+    /* Not a form we can handle.  */
+    return FALSE;
+
+  bool then_simple = false;
+  bool else_simple = false;
+
+  if (bb_valid_for_noce (then_bb, &then_simple) && then_simple)
+    bitmap_set_bit (*ifcv_blocks, then_bb->index);
+  if (bb_valid_for_noce (else_bb, &else_simple) && else_simple)
+    bitmap_set_bit (*ifcv_blocks, else_bb->index);
+
+  return false;
+}
+
+void
+mips_prune_insertions_deletions (struct edge_list* edge_list,
+				 unsigned int n_elems,
+				 sbitmap *pre_insert_map,
+				 sbitmap *pre_delete_map)
+{
+  basic_block bb;
+  unsigned int i, j;
+  sbitmap_iterator sbi;
+  unsigned int bb_num = (unsigned) last_basic_block_for_fn (cfun);
+  sbitmap ifcv_blocks = sbitmap_alloc (bb_num);
+  sbitmap insertions = sbitmap_alloc (n_elems);
+  bitmap_clear (ifcv_blocks);
+  bitmap_clear (insertions);
+
+  if (TARGET_PRUNE_INSERT_DELETE)
+    return;
+
+  FOR_EACH_BB_FN (bb, cfun)
+    check_bb (bb, &ifcv_blocks);
+
+  int num_edges = NUM_EDGES (edge_list);
+  int e;
+  for (e = 0; e < num_edges; e++)
+    {
+      basic_block pred = INDEX_EDGE_PRED_BB (edge_list, e);
+      basic_block succ = INDEX_EDGE_SUCC_BB (edge_list, e);
+
+      if (bitmap_bit_p (ifcv_blocks, pred->index)
+	  || bitmap_bit_p (ifcv_blocks, succ->index))
+	{
+	  EXECUTE_IF_SET_IN_BITMAP (pre_insert_map[e], 0, i, sbi)
+	    bitmap_set_bit (insertions, i);
+
+	  bitmap_clear (pre_insert_map[e]);
+	}
+    }
+
+  for (i = 0; i < bb_num; i++)
+    {
+      EXECUTE_IF_SET_IN_BITMAP (pre_delete_map[i], 0, j, sbi)
+	{
+	  if (bitmap_bit_p (insertions, j))
+	    bitmap_clear_bit (pre_delete_map[i], j);
+	}
+    }
+
+  sbitmap_free (ifcv_blocks);
+  sbitmap_free (insertions);
+}
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -25618,6 +25858,9 @@ mips_asm_file_end (void)
 
 #undef TARGET_ASM_FILE_END
 #define TARGET_ASM_FILE_END mips_asm_file_end
+
+#undef TARGET_PRUNE_INSERTIONS_DELETIONS
+#define TARGET_PRUNE_INSERTIONS_DELETIONS mips_prune_insertions_deletions
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

@@ -6036,6 +6036,14 @@ You need not define this hook if @code{WORD_REGISTER_OPERATIONS} is not\n\
 defined to 1.",
  unsigned int, (void), default_min_arithmetic_precision)
 
+/* Function to update PRE deletion and insertion bitmaps.  */
+DEFHOOK
+(prune_insertions_deletions,
+ "Test.\n\
+  Test.",
+ void, (struct edge_list *edge_list, unsigned int n_elems, sbitmap *pre_insert_map, sbitmap *pre_delete_map),
+ default_prune_insertions_deletions)
+
 DEFHOOKPOD
 (atomic_test_and_set_trueval,
  "This value should be set if the result written by\
