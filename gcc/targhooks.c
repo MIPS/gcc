@@ -2107,4 +2107,12 @@ default_excess_precision (enum excess_precision_type ATTRIBUTE_UNUSED)
   return FLT_EVAL_METHOD_PROMOTE_TO_FLOAT;
 }
 
+void
+default_prune_insertions_deletions (struct edge_list *edge_list ATTRIBUTE_UNUSED,
+				    unsigned int n_elems ATTRIBUTE_UNUSED,
+				    sbitmap *pre_insert_map ATTRIBUTE_UNUSED,
+				    sbitmap *pre_delete_map ATTRIBUTE_UNUSED)
+{
+}
+
 #include "gt-targhooks.h"

@@ -1886,6 +1886,9 @@ compute_pre_data (void)
 
   prune_insertions_deletions (expr_hash_table.n_elems);
 
+  targetm.prune_insertions_deletions (edge_list, expr_hash_table.n_elems,
+				      pre_insert_map, pre_delete_map);
+
   return edge_list;
 }
 
