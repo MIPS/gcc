@@ -2297,7 +2297,7 @@ process_scan_results (cgraph_node *node, struct function *fun,
 	       be needed.  */
 	    if (!pdoms_calculated)
 	      {
-		push_cfun (fun);
+		gcc_checking_assert (cfun);
 		add_noreturn_fake_exit_edges ();
 		connect_infinite_loops_to_exit ();
 		calculate_dominance_info (CDI_POST_DOMINATORS);
@@ -2314,7 +2314,6 @@ process_scan_results (cgraph_node *node, struct function *fun,
     {
       free_dominance_info (CDI_POST_DOMINATORS);
       remove_fake_exit_edges ();
-      pop_cfun ();
     }
 
   /* TODO: Add early exit if we disqualified everything.  This also requires
@@ -2375,9 +2374,12 @@ ipa_sra_summarize_function (cgraph_node *node)
       param_descriptions.reserve_exact (count);
       param_descriptions.quick_grow_cleared (count);
 
+      bool cfun_pushed = false;
       struct function *fun = DECL_STRUCT_FUNCTION (node->decl);
       if (create_parameter_descriptors (node, &param_descriptions))
 	{
+	  push_cfun (fun);
+	  cfun_pushed = true;
 	  final_bbs = BITMAP_ALLOC (NULL);
 	  bb_dereferences = XCNEWVEC (HOST_WIDE_INT,
 				      by_ref_count
@@ -2394,6 +2396,8 @@ ipa_sra_summarize_function (cgraph_node *node)
 	}
       process_scan_results (node, fun, ifs, &param_descriptions);
 
+      if (cfun_pushed)
+	pop_cfun ();
       if (bb_dereferences)
 	{
 	  free (bb_dereferences);
