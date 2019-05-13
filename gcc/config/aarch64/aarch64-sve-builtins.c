@@ -189,6 +189,20 @@ enum function_shape {
   SHAPE_get3,
   SHAPE_get4,
 
+  /* sv<t0>_t svfoo[_t0](sv<t0>_t, uint64_t)
+     <t0>_t svfoo[_n_t0](<t0>_t, uint64_t)
+
+     where the t0 in the vector form is a signed or unsigned integer
+     whose size is tied to the [bhwd] suffix of "svfoo".  */
+  SHAPE_inc_dec,
+
+  /* sv<t0>_t svfoo[_t0](sv<t0>_t, enum svpattern, uint64_t)
+     <t0>_t svfoo[_n_t0](<t0>_t, enum svpattern, uint64_t)
+
+     where the t0 in the vector form is a signed or unsigned integer
+     whose size is tied to the [bhwd] suffix of "svfoo".  */
+  SHAPE_inc_dec_pattern,
+
   /* sv<t0>_t svfoo[_t0]().  */
   SHAPE_inherent,
 
@@ -610,6 +624,8 @@ private:
   void sig_fold_left (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_get (const function_instance &, vec<tree> &);
+  void sig_inc_dec (const function_instance &, vec<tree> &);
+  void sig_inc_dec_n (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_inherent (const function_instance &, vec<tree> &);
   void sig_inherent_count (const function_instance &, vec<tree> &);
@@ -697,6 +713,7 @@ private:
   tree resolve_create (unsigned int);
   tree resolve_fold_left ();
   tree resolve_get (unsigned int);
+  tree resolve_inc_dec (unsigned int);
   tree resolve_load_gather_sv ();
   tree resolve_load_gather_sv_or_vs ();
   tree resolve_multitype (unsigned int, unsigned int);
@@ -905,6 +922,7 @@ private:
   rtx expand_ptest (rtx_code);
   rtx expand_ptrue ();
   rtx expand_qadd ();
+  rtx expand_qinc_qdec (rtx_code, rtx_code);
   rtx expand_qsub ();
   rtx expand_rdffr ();
   rtx expand_reduction (int, int, int);
@@ -1070,6 +1088,10 @@ static const type_suffix_info type_suffixes[NUM_TYPE_SUFFIXES + 1] = {
 #define TYPES_bhs_integer(S, D) \
   TYPES_bhs_signed (S, D), TYPES_bhs_unsigned (S, D)
 
+/* _s16 _u16.  */
+#define TYPES_h_integer(S, D) \
+  S (s16), S (u16)
+
 /* _f16 _f32.  */
 #define TYPES_hs_float(S, D) \
   S (f16), S (f32)
@@ -1078,6 +1100,10 @@ static const type_suffix_info type_suffixes[NUM_TYPE_SUFFIXES + 1] = {
    _u16 _u32 _u64.  */
 #define TYPES_hsd_integer(S, D) \
   S (s16), S (s32), S (s64), S (u16), S (u32), S (u64)
+
+/* _s32 _u32.  */
+#define TYPES_s_integer(S, D) \
+  S (s32), S (u32)
 
 /* _s32 _s64 _u32 _u64.  */
 #define TYPES_sd_integer(S, D) \
@@ -1145,8 +1171,10 @@ DEF_SVE_TYPES_ARRAY (b);
 DEF_SVE_TYPES_ARRAY (bhs_signed);
 DEF_SVE_TYPES_ARRAY (bhs_unsigned);
 DEF_SVE_TYPES_ARRAY (bhs_integer);
+DEF_SVE_TYPES_ARRAY (h_integer);
 DEF_SVE_TYPES_ARRAY (hs_float);
 DEF_SVE_TYPES_ARRAY (hsd_integer);
+DEF_SVE_TYPES_ARRAY (s_integer);
 DEF_SVE_TYPES_ARRAY (sd_data);
 DEF_SVE_TYPES_ARRAY (sd_integer);
 DEF_SVE_TYPES_ARRAY (d_integer);
@@ -1925,6 +1953,19 @@ arm_sve_h_builder::build (const function_group &group)
       build_all (&arm_sve_h_builder::sig_get<4>, group, MODE_none);
       break;
 
+    case SHAPE_inc_dec:
+    case SHAPE_inc_dec_pattern:
+      add_overloaded_functions (group, MODE_none);
+      /* These functions are unusual in that the type suffixes for
+	 the scalar and vector forms are not related.  The vector
+	 form always has exactly two potential suffixes while the
+	 scalar form always has four.  */
+      if (group.types[2][0] == NUM_TYPE_SUFFIXES)
+	build_all (&arm_sve_h_builder::sig_inc_dec, group, MODE_none);
+      else
+	build_all (&arm_sve_h_builder::sig_inc_dec_n, group, MODE_n);
+      break;
+
     case SHAPE_inherent:
       /* No overloaded functions here.  */
       build_all (&arm_sve_h_builder::sig_inherent<1>, group, MODE_none);
@@ -2437,6 +2478,40 @@ arm_sve_h_builder::sig_get (const function_instance &instance,
 {
   types.quick_push (instance.vector_type (0));
   types.quick_push (instance.tuple_type (N, 0));
+  types.quick_push (scalar_types[VECTOR_TYPE_svuint64_t]);
+}
+
+/* Describe one of the signatures:
+
+     sv<t0>_t svfoo[_t0](sv<t0>_t, uint64_t)
+     sv<t0>_t svfoo[_t0](sv<t0>_t, enum svpattern, uint64_t)
+
+   for INSTANCE in TYPES, with the shape deciding between them.  */
+void
+arm_sve_h_builder::sig_inc_dec (const function_instance &instance,
+				vec<tree> &types)
+{
+  types.quick_push (instance.vector_type (0));
+  types.quick_push (instance.vector_type (0));
+  if (instance.shape == SHAPE_inc_dec_pattern)
+    types.quick_push (acle_svpattern);
+  types.quick_push (scalar_types[VECTOR_TYPE_svuint64_t]);
+}
+
+/* Describe one of the signatures:
+
+     <t0>_t svfoo[_n_t0](<t0>_t, uint64_t)
+     <t0>_t svfoo[_n_t0](<t0>_t, enum svpattern, uint64_t)
+
+   for INSTANCE in TYPES, with the shape deciding between them.  */
+void
+arm_sve_h_builder::sig_inc_dec_n (const function_instance &instance,
+				  vec<tree> &types)
+{
+  types.quick_push (instance.scalar_type (0));
+  types.quick_push (instance.scalar_type (0));
+  if (instance.shape == SHAPE_inc_dec_pattern)
+    types.quick_push (acle_svpattern);
   types.quick_push (scalar_types[VECTOR_TYPE_svuint64_t]);
 }
 
@@ -2997,6 +3072,22 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svorr:
     case FUNC_svorv:
     case FUNC_svqadd:
+    case FUNC_svqdecb:
+    case FUNC_svqdecb_pat:
+    case FUNC_svqdecd:
+    case FUNC_svqdecd_pat:
+    case FUNC_svqdech:
+    case FUNC_svqdech_pat:
+    case FUNC_svqdecw:
+    case FUNC_svqdecw_pat:
+    case FUNC_svqincb:
+    case FUNC_svqincb_pat:
+    case FUNC_svqincd:
+    case FUNC_svqincd_pat:
+    case FUNC_svqinch:
+    case FUNC_svqinch_pat:
+    case FUNC_svqincw:
+    case FUNC_svqincw_pat:
     case FUNC_svqsub:
     case FUNC_svsqrt:
     case FUNC_svsub:
@@ -3161,6 +3252,8 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_get2:
     case SHAPE_get3:
     case SHAPE_get4:
+    case SHAPE_inc_dec:
+    case SHAPE_inc_dec_pattern:
     case SHAPE_inherent_count:
     case SHAPE_load:
     case SHAPE_load2:
@@ -3331,6 +3424,10 @@ function_resolver::resolve ()
       return resolve_get (3);
     case SHAPE_get4:
       return resolve_get (4);
+    case SHAPE_inc_dec:
+      return resolve_inc_dec (2);
+    case SHAPE_inc_dec_pattern:
+      return resolve_inc_dec (3);
     case SHAPE_load:
     case SHAPE_load2:
     case SHAPE_load3:
@@ -3486,6 +3583,30 @@ function_resolver::resolve_fold_left ()
     return error_mark_node;
 
   return require_form (m_rfn.instance.mode, get_type_suffix (type));
+}
+
+/* Resolve a function that has SHAPE_inc_dec or SHAPE_inc_dec_pattern.
+   NARGS is the expected number of arguments.  */
+tree
+function_resolver::resolve_inc_dec (unsigned int nargs)
+{
+  if (!check_num_arguments (nargs))
+    return error_mark_node;
+
+  /* Resolve based on the first argument only, which must be either a scalar
+     or a vector.  If it's a scalar, it must be a 32-bit or 64-bit integer.  */
+  if (scalar_argument_p (0))
+    {
+      vector_type type = require_integer_scalar_type (0);
+      if (type == NUM_VECTOR_TYPES)
+	return error_mark_node;
+      return require_form (MODE_n, get_type_suffix (type));
+    }
+
+  vector_type type = require_vector_type (0);
+  if (type == NUM_VECTOR_TYPES)
+    return error_mark_node;
+  return require_form (MODE_none, get_type_suffix (type));
 }
 
 /* Resolve a gather load that takes a pointer base and a vector displacement.
@@ -4381,6 +4502,13 @@ function_checker::check ()
     case SHAPE_set4:
       return require_immediate_range (1, 0, 3);
 
+    case SHAPE_inc_dec:
+      return require_immediate_range (1, 1, 16);
+
+    case SHAPE_inc_dec_pattern:
+      return (require_immediate_svpattern (1)
+	      && require_immediate_range (2, 1, 16));
+
     case SHAPE_pattern_count:
       return require_immediate_svpattern (0);
 
@@ -4817,6 +4945,22 @@ gimple_folder::fold ()
     case FUNC_svptest_first:
     case FUNC_svptest_last:
     case FUNC_svqadd:
+    case FUNC_svqdecb:
+    case FUNC_svqdecb_pat:
+    case FUNC_svqdecd:
+    case FUNC_svqdecd_pat:
+    case FUNC_svqdech:
+    case FUNC_svqdech_pat:
+    case FUNC_svqdecw:
+    case FUNC_svqdecw_pat:
+    case FUNC_svqincb:
+    case FUNC_svqincb_pat:
+    case FUNC_svqincd:
+    case FUNC_svqincd_pat:
+    case FUNC_svqinch:
+    case FUNC_svqinch_pat:
+    case FUNC_svqincw:
+    case FUNC_svqincw_pat:
     case FUNC_svqsub:
     case FUNC_svrdffr:
     case FUNC_svsetffr:
@@ -5609,6 +5753,26 @@ function_expander::expand ()
 
     case FUNC_svqadd:
       return expand_qadd ();
+
+    case FUNC_svqdecb:
+    case FUNC_svqdecb_pat:
+    case FUNC_svqdecd:
+    case FUNC_svqdecd_pat:
+    case FUNC_svqdech:
+    case FUNC_svqdech_pat:
+    case FUNC_svqdecw:
+    case FUNC_svqdecw_pat:
+      return expand_qinc_qdec (SS_MINUS, US_MINUS);
+
+    case FUNC_svqincb:
+    case FUNC_svqincb_pat:
+    case FUNC_svqincd:
+    case FUNC_svqincd_pat:
+    case FUNC_svqinch:
+    case FUNC_svqinch_pat:
+    case FUNC_svqincw:
+    case FUNC_svqincw_pat:
+      return expand_qinc_qdec (SS_PLUS, US_PLUS);
 
     case FUNC_svqsub:
       return expand_qsub ();
@@ -6422,6 +6586,38 @@ rtx
 function_expander::expand_qadd ()
 {
   return expand_via_signed_unpred_insn (SS_PLUS, US_PLUS);
+}
+
+/* Expand a call to svqinc or svqdec.  CODE_FOR_SINT and CODE_FOR_UINT
+   are the corresponding saturating signed and unsigned operations
+   respectively.  */
+rtx
+function_expander::expand_qinc_qdec (rtx_code code_for_sint,
+				     rtx_code code_for_uint)
+{
+  /* Check or create the three UNSPEC_SVE_CNT_PAT operands; see
+     aarch64_sve_cnt_pat for details.  */
+  if (m_fi.shape == SHAPE_inc_dec)
+    {
+      require_immediate_range (1, 1, 16);
+      m_args.quick_insert (1, gen_int_mode (AARCH64_SV_ALL, DImode));
+    }
+  else
+    {
+      require_immediate_svpattern (1);
+      require_immediate_range (2, 1, 16);
+    }
+  rtx nelts_per_vq = gen_int_mode (m_fi.bhwd_nelts_per_vq (), DImode);
+  m_args.quick_insert (2, nelts_per_vq);
+
+  rtx_code code = (type_suffixes[m_fi.types[0]].unsigned_p
+		   ? code_for_uint
+		   : code_for_sint);
+  machine_mode mode = get_mode (0);
+  if (m_fi.mode == MODE_n)
+    mode = GET_MODE_INNER (mode);
+  insn_code icode = code_for_aarch64_sve_pat (code, mode);
+  return expand_via_exact_insn (icode);
 }
 
 /* Expand a call to sqsub.  */

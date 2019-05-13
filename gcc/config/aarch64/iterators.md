@@ -32,6 +32,10 @@
 ;; Iterator for QI and HI modes
 (define_mode_iterator SHORT [QI HI])
 
+;; Iterators for single modes, for "@" patterns.
+(define_mode_iterator SI_ONLY [SI])
+(define_mode_iterator DI_ONLY [DI])
+
 ;; Iterator for all integer modes (up to 64-bit)
 (define_mode_iterator ALLI [QI HI SI DI])
 
@@ -1307,6 +1311,18 @@
 ;; Code iterator for unsigned variants of vector saturating binary ops.
 (define_code_iterator USBINQOPS [us_plus us_minus])
 
+;; Modular and saturating addition.
+(define_code_iterator ANY_PLUS [plus ss_plus us_plus])
+
+;; Saturating addition.
+(define_code_iterator SAT_PLUS [ss_plus us_plus])
+
+;; Modular and saturating subtraction.
+(define_code_iterator ANY_MINUS [minus ss_minus us_minus])
+
+;; Saturating subtraction.
+(define_code_iterator SAT_MINUS [ss_minus us_minus])
+
 ;; Comparison operators for <F>CM.
 (define_code_iterator COMPARISONS [lt le eq ge gt])
 
@@ -1468,6 +1484,12 @@
 ;; "s" for signed ops, empty for unsigned ones.
 (define_code_attr s [(sign_extend "s") (zero_extend "")])
 
+;; Map signed/unsigned ops to the corresponding extension.
+(define_code_attr paired_extend [(ss_plus "sign_extend")
+				 (us_plus "zero_extend")
+				 (ss_minus "sign_extend")
+				 (us_minus "zero_extend")])
+
 ;; Whether a shift is left or right.
 (define_code_attr lr [(ashift "l") (ashiftrt "r") (lshiftrt "r")])
 
@@ -1599,6 +1621,9 @@
 				     (and "aarch64_sve_pred_and_operand")
 				     (ior "register_operand")
 				     (xor "register_operand")])
+
+(define_code_attr inc_dec [(minus "dec") (ss_minus "sqdec") (us_minus "uqdec")
+			   (plus "inc") (ss_plus "sqinc") (us_plus "uqinc")])
 
 ;; -------------------------------------------------------------------
 ;; Int Iterators.

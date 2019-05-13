@@ -78,6 +78,12 @@
   BIND_OUTPUT_P (p2);				\
   BIND_OUTPUT_P (p3)
 
+#define BIND_INPUT_X0_X3(TYPE)			\
+  BIND_INPUT_X (TYPE, x0);			\
+  BIND_INPUT_X (TYPE, x1);			\
+  BIND_INPUT_X (TYPE, x2);			\
+  BIND_INPUT_X (TYPE, x3)
+
 #define BIND_RESULT_Z16_Z19			\
   BIND_OUTPUT_Z (z16_res);			\
   BIND_OUTPUT_Z (z17_res);			\
@@ -108,6 +114,14 @@
     BIND_INPUT_P0_P3;					\
     INVOKE (CODE1, CODE2);				\
     BIND_OUTPUT_P (p0);					\
+  }
+
+#define TEST_UNIFORM_S(NAME, TYPE, CODE1, CODE2)	\
+  START (NAME)						\
+  {							\
+    BIND_INPUT_X0_X3 (TYPE);				\
+    INVOKE (CODE1, CODE2);				\
+    BIND_OUTPUT_X (x0);					\
   }
 
 #define TEST_DUAL_Z(NAME, TYPE1, TYPE2, CODE1, CODE2)	\
