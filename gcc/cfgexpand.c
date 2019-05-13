@@ -6078,6 +6078,20 @@ discover_nonconstant_array_refs_r (tree * tp, int *walk_subtrees,
 {
   tree t = *tp;
 
+  /* References of size POLY_INT_CST to a fixed-size object must go
+     through memory.  It's more efficient to force that here than
+     to create temporary slots on the fly.  */
+  if (TYPE_SIZE (TREE_TYPE (t))
+      && POLY_INT_CST_P (TYPE_SIZE (TREE_TYPE (t))))
+    {
+      t = get_base_address (t);
+      if (t
+	  && DECL_P (t)
+	  && DECL_MODE (t) != BLKmode
+	  && GET_MODE_BITSIZE (DECL_MODE (t)).is_constant ())
+	TREE_ADDRESSABLE (t) = 1;
+    }
+
   if (IS_TYPE_OR_DECL_P (t))
     *walk_subtrees = 0;
   else if (TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == ARRAY_RANGE_REF)
