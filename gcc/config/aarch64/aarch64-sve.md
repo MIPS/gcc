@@ -1453,6 +1453,7 @@
   "@
    <sve_int_op>\t%0.<Vetype>, %0.<Vetype>, #%<sve_imm_prefix>2
    movprfx\t%0, %1\;<sve_int_op>\t%0.<Vetype>, %0.<Vetype>, #%<sve_imm_prefix>2"
+  [(set_attr "movprfx" "*,yes")]
 )
 
 (define_insn "@aarch64_pred_fma<mode>"
