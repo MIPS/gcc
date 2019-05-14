@@ -8537,6 +8537,72 @@ functionality as two separate @code{define_insn} and @code{define_split}
 patterns.  It exists for compactness, and as a maintenance tool to prevent
 having to ensure the two patterns' templates match.
 
+@findex define_insn_and_rewrite
+It is sometimes useful to have a @code{define_insn_and_split}
+in which the new instruction pattern replaces some of the operands but leaves
+the rest of the original pattern unchanged.  Doing this directly in a
+@code{define_insn_and_split} would require a sequence of
+@var{new-insn-pattern}s that repeats the fixed parts of the
+@var{insn-pattern}.  You can avoid this by using
+@code{define_insn_and_rewrite}, which automatically generates
+a new pattern based on the original one, but using any new
+operand values provided by the @var{preparation-statements}.
+The operands are otherwise identical:
+
+@smallexample
+(define_insn_and_rewrite
+  [@var{insn-pattern}]
+  "@var{condition}"
+  "@var{output-template}"
+  "@var{split-condition}"
+  "@var{preparation-statements}"
+  [@var{insn-attributes}])
+@end smallexample
+
+The split in a @code{define_insn_and_rewrite} is only intended
+to apply to existing instructions that match @var{insn-pattern}.
+The @var{split-condition} must therefore start with @code{&&},
+so that the split condition applies on top of @var{condition}.
+
+Here is an example from the SVE port, in which operand 1 is known
+to be equivalent to an all-true constant and isn't used by the
+output template:
+
+@smallexample
+(define_insn_and_rewrite "*while_ult<GPI:mode><PRED_ALL:mode>_cc"
+  [(set (reg:CC CC_REGNUM)
+        (compare:CC
+          (unspec:SI [(match_operand:PRED_ALL 1)
+                      (unspec:PRED_ALL
+                        [(match_operand:GPI 2 "aarch64_reg_or_zero" "rZ")
+                         (match_operand:GPI 3 "aarch64_reg_or_zero" "rZ")]
+                        UNSPEC_WHILE_LO)]
+                     UNSPEC_PTEST_PTRUE)
+          (const_int 0)))
+   (set (match_operand:PRED_ALL 0 "register_operand" "=Upa")
+        (unspec:PRED_ALL [(match_dup 2)
+                          (match_dup 3)]
+                         UNSPEC_WHILE_LO))]
+  "TARGET_SVE"
+  "whilelo\t%0.<PRED_ALL:Vetype>, %<w>2, %<w>3"
+  ;; Force the compiler to drop the unused predicate operand, so that we
+  ;; don't have an unnecessary PTRUE.
+  "&& !CONSTANT_P (operands[1])"
+  @{
+    operands[1] = CONSTM1_RTX (<MODE>mode);
+  @}
+)
+@end smallexample
+
+The splitter in this case simply replaces operand 1 with the constant
+value that it is known to have.
+
+As with a @code{define_split} or @code{define_insn_and_split},
+the @var{preparation-statements} in a @code{define_insn_and_rewrite}
+can emit additional instructions before the new instruction.  They
+can also emit an entirely different sequence of instructions and use
+@code{DONE} to avoid emitting a new form of the original instruction.
+
 @end ifset
 @ifset INTERNALS
 @node Including Patterns

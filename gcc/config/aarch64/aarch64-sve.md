@@ -1360,7 +1360,7 @@
 )
 
 ;; Same, but with the index being sign-extended from the low 32 bits.
-(define_insn_and_split "aarch64_adr_shift_sxtw"
+(define_insn_and_rewrite "*aarch64_adr_shift_sxtw"
   [(set (match_operand:VNx2DI 0 "register_operand" "=w")
 	(plus:VNx2DI
 	  (ashift:VNx2DI
@@ -1375,12 +1375,8 @@
   "TARGET_SVE"
   "adr\t%0.d, [%1.d, %2.d, sxtw %3]"
   "&& !CONSTANT_P (operands[4])"
-  [(const_int 0)]
   {
-    emit_insn (gen_aarch64_adr_shift_sxtw (operands[0], operands[1],
-					   operands[2], operands[3],
-					   CONSTM1_RTX (VNx2BImode)));
-    DONE;
+    operands[4] = CONSTM1_RTX (VNx2BImode);
   }
 )
 
@@ -1531,7 +1527,7 @@
 
 ;; Predicated fma operations with select.
 ;; Inactive lanes are distinct from the other inputs.
-(define_insn_and_split "*cond_fma<mode>_any"
+(define_insn_and_rewrite "*cond_fma<mode>_any"
   [(set (match_operand:SVE_I 0 "register_operand" "=&w, &w, &w, &w, &w, ?&w")
 	(unspec:SVE_I
 	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl, Upl, Upl, Upl, Upl")
@@ -1555,18 +1551,11 @@
   "&& reload_completed
    && !CONSTANT_P (operands[5])
    && !rtx_equal_p (operands[0], operands[5])"
-  [(set (match_dup 0)
-	(unspec:SVE_I [(match_dup 1) (match_dup 4) (match_dup 5)] UNSPEC_SEL))
-   (set (match_dup 0)
-	(unspec:SVE_I
-	  [(match_dup 1)
-	   (plus:SVE_I
-	     (mult:SVE_I (match_dup 2)
-			 (match_dup 3))
-	     (match_dup 0))
-	   (match_dup 0)]
-	  UNSPEC_SEL))]
-  ""
+  {
+    emit_insn (gen_vcond_mask_<mode><vpred> (operands[0], operands[4],
+					     operands[5], operands[1]));
+    operands[5] = operands[4] = operands[0];
+  }
   [(set_attr "movprfx" "yes")]
 )
 
@@ -1628,7 +1617,7 @@
 
 ;; Predicated fnma operations with select.
 ;; Inactive lanes are distinct from the other inputs.
-(define_insn_and_split "*cond_fnma<mode>_any"
+(define_insn_and_rewrite "*cond_fnma<mode>_any"
   [(set (match_operand:SVE_I 0 "register_operand" "=&w, &w, &w, &w, &w, ?&w")
 	(unspec:SVE_I
 	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl, Upl, Upl, Upl, Upl")
@@ -1652,18 +1641,11 @@
   "&& reload_completed
    && !CONSTANT_P (operands[5])
    && !rtx_equal_p (operands[0], operands[5])"
-  [(set (match_dup 0)
-	(unspec:SVE_I [(match_dup 1) (match_dup 4) (match_dup 5)] UNSPEC_SEL))
-   (set (match_dup 0)
-	(unspec:SVE_I
-	  [(match_dup 1)
-	   (minus:SVE_I
-		(match_dup 0)
-		(mult:SVE_I (match_dup 2)
-			    (match_dup 3)))
-	   (match_dup 0)]
-	  UNSPEC_SEL))]
-  ""
+  {
+    emit_insn (gen_vcond_mask_<mode><vpred> (operands[0], operands[4],
+					     operands[5], operands[1]));
+    operands[5] = operands[4] = operands[0];
+  }
   [(set_attr "movprfx" "yes")]
 )
 
@@ -2389,7 +2371,7 @@
 ;; WHILELO sets the flags in the same way as a PTEST with a PTRUE GP.
 ;; Handle the case in which both results are useful.  The GP operand
 ;; to the PTEST isn't needed, so we allow it to be anything.
-(define_insn_and_split "@while_<while_optab_cmp><GPI:mode><PRED_ALL:mode>_cc"
+(define_insn_and_rewrite "*while_<while_optab_cmp><GPI:mode><PRED_ALL:mode>_cc"
   [(set (reg:CC_NZC CC_REGNUM)
 	(unspec:CC_NZC
 	  [(match_operand 3)
@@ -2409,17 +2391,14 @@
   ;; Force the compiler to drop the unused predicate operand, so that we
   ;; don't have an unnecessary PTRUE.
   "&& (!CONSTANT_P (operands[3]) || !CONSTANT_P (operands[4]))"
-  [(const_int 0)]
   {
-    emit_insn (gen_while_<while_optab_cmp><GPI:mode><PRED_ALL:mode>_cc
-	       (operands[0], operands[1], operands[2],
-		CONSTM1_RTX (VNx16BImode), CONSTM1_RTX (<PRED_ALL:MODE>mode)));
-    DONE;
+    operands[3] = CONSTM1_RTX (VNx16BImode);
+    operands[4] = CONSTM1_RTX (<PRED_ALL:MODE>mode);
   }
 )
 
 ;; Same, but handle the case in which only the flags result is useful.
-(define_insn_and_split "*while_<while_optab_cmp><GPI:mode><PRED_ALL:mode>_ptest"
+(define_insn_and_rewrite "*while_<while_optab_cmp><GPI:mode><PRED_ALL:mode>_ptest"
   [(set (reg:CC_NZC CC_REGNUM)
 	(unspec:CC_NZC
 	  [(match_operand 3)
@@ -2436,15 +2415,6 @@
   ;; Force the compiler to drop the unused predicate operand, so that we
   ;; don't have an unnecessary PTRUE.
   "&& (!CONSTANT_P (operands[3]) || !CONSTANT_P (operands[4]))"
-  [(parallel
-     [(set (reg:CC_NZC CC_REGNUM)
-	   (unspec:CC_NZC
-	     [(match_dup 3)
-	      (match_dup 4)
-	      (unspec:PRED_ALL [(match_dup 1) (match_dup 2)] SVE_WHILE)
-	      (const_int 1)]
-	     UNSPEC_PTEST))
-      (clobber (match_dup 0))])]
   {
     operands[3] = CONSTM1_RTX (VNx16BImode);
     operands[4] = CONSTM1_RTX (<PRED_ALL:MODE>mode);
@@ -4378,7 +4348,7 @@
 )
 
 ;; Synthetic predication of floating-point subtraction with select unmatched.
-(define_insn_and_split "*cond_sub<mode>_any"
+(define_insn_and_rewrite "*cond_sub<mode>_any"
   [(set (match_operand:SVE_F 0 "register_operand" "=w, &w, &w, &w, &w, &w, ?&w, ?&w")
 	(unspec:SVE_F
 	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl, Upl, Upl, Upl, Upl, Upl, Upl")
@@ -4408,19 +4378,11 @@
    && !rtx_equal_p (operands[0], operands[4])
    && CONSTANT_P (operands[2])
    && !CONSTANT_P (operands[4])"
-  [(set (match_dup 0)
-	(unspec:SVE_F [(match_dup 1) (match_dup 3) (match_dup 4)] UNSPEC_SEL))
-   (set (match_dup 0)
-	(unspec:SVE_F
-	  [(match_dup 1)
-	   (unspec:SVE_F [(match_dup 1)
-			  (match_dup 5)
-			  (match_dup 2)
-			  (match_dup 0)]
-			 UNSPEC_COND_SUB)
-	   (match_dup 0)]
-	  UNSPEC_SEL))]
-  ""
+  {
+    emit_insn (gen_vcond_mask_<mode><vpred> (operands[0], operands[3],
+					     operands[4], operands[1]));
+    operands[4] = operands[3] = operands[0];
+  }
   [(set_attr "movprfx" "yes")]
 )
 
