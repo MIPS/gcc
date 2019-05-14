@@ -103,6 +103,7 @@
   {							\
     BIND_INPUT_Z0_Z3 (TYPE);				\
     BIND_INPUT_P (p0);					\
+    BIND_INPUT_P (p1);					\
     INVOKE (CODE1, CODE2);				\
     BIND_OUTPUT_Z0_Z3;					\
     BIND_OUTPUT_P (p0);					\
@@ -120,6 +121,7 @@
   START (NAME)						\
   {							\
     BIND_INPUT_X0_X3 (TYPE);				\
+    BIND_INPUT_P (p0);					\
     INVOKE (CODE1, CODE2);				\
     BIND_OUTPUT_X (x0);					\
   }

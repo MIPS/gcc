@@ -387,3 +387,47 @@ PROTO (decb_64_pow2, uint64_t, (uint64_t x0)) { return x0 - svcntb_pat (SV_POW2)
 **	ret
 */
 PROTO (decb_64_all, uint64_t, (uint64_t x0)) { return x0 - svcntb_pat (SV_ALL); }
+
+/*
+** incb_s8_pow2_z0:
+**	cntb	x([0-9]+), pow2
+**	mov	(z[0-9]+\.b), w\1
+**	add	z0\.b, (z0\.b, \2|\2, z0\.b)
+**	ret
+*/
+TEST_UNIFORM_Z (incb_s8_pow2_z0, svint8_t,
+		z0 = svadd_n_s8_x (svptrue_b8 (), z0, svcntb_pat (SV_POW2)),
+		z0 = svadd_x (svptrue_b8 (), z0, svcntb_pat (SV_POW2)));
+
+/*
+** incb_s8_pow2_z1:
+**	cntb	x([0-9]+), pow2
+**	mov	(z[0-9]+\.b), w\1
+**	add	z0\.b, (z1\.b, \2|\2, z1\.b)
+**	ret
+*/
+TEST_UNIFORM_Z (incb_s8_pow2_z1, svint8_t,
+		z0 = svadd_n_s8_x (svptrue_b8 (), z1, svcntb_pat (SV_POW2)),
+		z0 = svadd_x (svptrue_b8 (), z1, svcntb_pat (SV_POW2)));
+
+/*
+** decb_s8_pow2_z0:
+**	cntb	x([0-9]+), pow2
+**	mov	(z[0-9]+\.b), w\1
+**	sub	z0\.b, z0\.b, \2
+**	ret
+*/
+TEST_UNIFORM_Z (decb_s8_pow2_z0, svint8_t,
+		z0 = svsub_n_s8_x (svptrue_b8 (), z0, svcntb_pat (SV_POW2)),
+		z0 = svsub_x (svptrue_b8 (), z0, svcntb_pat (SV_POW2)));
+
+/*
+** decb_s8_pow2_z1:
+**	cntb	x([0-9]+), pow2
+**	mov	(z[0-9]+\.b), w\1
+**	sub	z0\.b, z1\.b, \2
+**	ret
+*/
+TEST_UNIFORM_Z (decb_s8_pow2_z1, svint8_t,
+		z0 = svsub_n_s8_x (svptrue_b8 (), z1, svcntb_pat (SV_POW2)),
+		z0 = svsub_x (svptrue_b8 (), z1, svcntb_pat (SV_POW2)));

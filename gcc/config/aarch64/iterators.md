@@ -282,6 +282,11 @@
 (define_mode_iterator SVE_ALL [VNx16QI VNx8HI VNx4SI VNx2DI
 			       VNx8HF VNx4SF VNx2DF])
 
+;; Iterators for single modes, for "@" patterns.
+(define_mode_iterator VNx8HI_ONLY [VNx8HI])
+(define_mode_iterator VNx4SI_ONLY [VNx4SI])
+(define_mode_iterator VNx2DI_ONLY [VNx2DI])
+
 ;; All SVE vector structure modes.
 (define_mode_iterator SVE_STRUCT [VNx32QI VNx16HI VNx8SI VNx4DI
 				  VNx16HF VNx8SF VNx4DF
@@ -488,6 +493,7 @@
     UNSPEC_BRKN		; Used in aarch64-sve.md.
     UNSPEC_BRKPA	; Used in aarch64-sve.md.
     UNSPEC_BRKPB	; Used in aarch64-sve.md.
+    UNSPEC_CNTP		; Used in aarch64-sve.md.
     UNSPEC_SADDV	; Used in aarch64-sve.md.
     UNSPEC_UADDV	; Used in aarch64-sve.md.
     UNSPEC_ANDV		; Used in aarch64-sve.md.

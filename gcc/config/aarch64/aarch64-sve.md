@@ -5249,10 +5249,11 @@
 ;; Note that this pattern isn't used for SV_ALL (but would work for that too).
 (define_insn "aarch64_sve_cnt_pat"
   [(set (match_operand:DI 0 "register_operand" "=r")
-	(unspec:DI [(match_operand:DI 1 "const_int_operand")
-		    (match_operand:DI 2 "const_int_operand")
-		    (match_operand:DI 3 "const_int_operand")]
-		   UNSPEC_SVE_CNT_PAT))]
+	(zero_extend:DI
+	  (unspec:SI [(match_operand:DI 1 "const_int_operand")
+		      (match_operand:DI 2 "const_int_operand")
+		      (match_operand:DI 3 "const_int_operand")]
+		     UNSPEC_SVE_CNT_PAT)))]
   "TARGET_SVE"
   {
     return aarch64_output_sve_cnt_pat_immediate ("cnt", "%x0", operands + 1);
@@ -5263,10 +5264,11 @@
 ;; See aarch64_sve_cnt_pat for the counting behavior.
 (define_insn "@aarch64_sve_<inc_dec><mode>_pat"
   [(set (match_operand:DI 0 "register_operand" "=r")
-	(ANY_PLUS:DI (unspec:DI [(match_operand:DI 2 "const_int_operand")
-				 (match_operand:DI 3 "const_int_operand")
-				 (match_operand:DI 4 "const_int_operand")]
-				UNSPEC_SVE_CNT_PAT)
+	(ANY_PLUS:DI (zero_extend:DI
+		       (unspec:SI [(match_operand:DI 2 "const_int_operand")
+				   (match_operand:DI 3 "const_int_operand")
+				   (match_operand:DI 4 "const_int_operand")]
+				  UNSPEC_SVE_CNT_PAT))
 		     (match_operand:DI_ONLY 1 "register_operand" "0")))]
   "TARGET_SVE"
   {
@@ -5279,11 +5281,10 @@
 ;; See aarch64_sve_cnt_pat for the counting behavior.
 (define_insn "*aarch64_sve_incsi_pat"
   [(set (match_operand:SI 0 "register_operand" "=r")
-	(plus:SI (match_operator:SI 5 "subreg_lowpart_operator"
-		   [(unspec:DI [(match_operand:DI 2 "const_int_operand")
-				(match_operand:DI 3 "const_int_operand")
-			        (match_operand:DI 4 "const_int_operand")]
-			       UNSPEC_SVE_CNT_PAT)])
+	(plus:SI (unspec:SI [(match_operand:DI 2 "const_int_operand")
+			     (match_operand:DI 3 "const_int_operand")
+			     (match_operand:DI 4 "const_int_operand")]
+			    UNSPEC_SVE_CNT_PAT)
 		 (match_operand:SI 1 "register_operand" "0")))]
   "TARGET_SVE"
   {
@@ -5312,15 +5313,61 @@
   }
 )
 
-;; Vector SQINC[HWD].
+;; Increment a vector of DIs by the number of elements in an svpattern.
+;; See aarch64_sve_cnt_pat for the counting behavior.
 (define_insn "@aarch64_sve_<inc_dec><mode>_pat"
-  [(set (match_operand:SVE_HSDI 0 "register_operand" "=w, ?&w")
-	(SAT_PLUS:SVE_HSDI
-	  (unspec:SVE_HSDI [(match_operand:DI 2 "const_int_operand")
-			    (match_operand:DI 3 "const_int_operand")
-			    (match_operand:DI 4 "const_int_operand")]
-			   UNSPEC_SVE_CNT_PAT)
-	  (match_operand:SVE_HSDI 1 "register_operand" "0, w")))]
+  [(set (match_operand:VNx2DI 0 "register_operand" "=w, ?&w")
+	(ANY_PLUS:VNx2DI
+	  (vec_duplicate:VNx2DI
+	    (zero_extend:DI
+	      (unspec:SI [(match_operand:DI 2 "const_int_operand")
+			  (match_operand:DI 3 "const_int_operand")
+			  (match_operand:DI 4 "const_int_operand")]
+			 UNSPEC_SVE_CNT_PAT)))
+	  (match_operand:VNx2DI_ONLY 1 "register_operand" "0, w")))]
+  "TARGET_SVE"
+  {
+    if (which_alternative == 1)
+      output_asm_insn ("movprfx\t%0, %1", operands);
+    return aarch64_output_sve_cnt_pat_immediate ("<inc_dec>", "%0.<Vetype>",
+						 operands + 2);
+  }
+  [(set_attr "movprfx" "*,yes")]
+)
+
+;; Increment a vector of SIs by the number of elements in an svpattern.
+;; See aarch64_sve_cnt_pat for the counting behavior.
+(define_insn "@aarch64_sve_<inc_dec><mode>_pat"
+  [(set (match_operand:VNx4SI 0 "register_operand" "=w, ?&w")
+	(ANY_PLUS:VNx4SI
+	  (vec_duplicate:VNx4SI
+	    (unspec:SI [(match_operand:DI 2 "const_int_operand")
+			(match_operand:DI 3 "const_int_operand")
+			(match_operand:DI 4 "const_int_operand")]
+		       UNSPEC_SVE_CNT_PAT))
+	  (match_operand:VNx4SI_ONLY 1 "register_operand" "0, w")))]
+  "TARGET_SVE"
+  {
+    if (which_alternative == 1)
+      output_asm_insn ("movprfx\t%0, %1", operands);
+    return aarch64_output_sve_cnt_pat_immediate ("<inc_dec>", "%0.<Vetype>",
+						 operands + 2);
+  }
+  [(set_attr "movprfx" "*,yes")]
+)
+
+;; Increment a vector of HIs by the number of elements in an svpattern.
+;; See aarch64_sve_cnt_pat for the counting behavior.
+(define_insn "@aarch64_sve_<inc_dec><mode>_pat"
+  [(set (match_operand:VNx8HI 0 "register_operand" "=w, ?&w")
+	(ANY_PLUS:VNx8HI
+	  (vec_duplicate:VNx8HI
+	    (match_operator:HI 5 "subreg_lowpart_operator"
+	      [(unspec:SI [(match_operand:DI 2 "const_int_operand")
+			   (match_operand:DI 3 "const_int_operand")
+			   (match_operand:DI 4 "const_int_operand")]
+			  UNSPEC_SVE_CNT_PAT)]))
+	  (match_operand:VNx8HI_ONLY 1 "register_operand" "0, w")))]
   "TARGET_SVE"
   {
     if (which_alternative == 1)
@@ -5336,10 +5383,11 @@
 (define_insn "@aarch64_sve_<inc_dec><mode>_pat"
   [(set (match_operand:DI 0 "register_operand" "=r")
 	(ANY_MINUS:DI (match_operand:DI_ONLY 1 "register_operand" "0")
-		      (unspec:DI [(match_operand:DI 2 "const_int_operand")
-				  (match_operand:DI 3 "const_int_operand")
-				  (match_operand:DI 4 "const_int_operand")]
-				 UNSPEC_SVE_CNT_PAT)))]
+		      (zero_extend:DI
+			(unspec:SI [(match_operand:DI 2 "const_int_operand")
+				    (match_operand:DI 3 "const_int_operand")
+				    (match_operand:DI 4 "const_int_operand")]
+				   UNSPEC_SVE_CNT_PAT))))]
   "TARGET_SVE"
   {
     return aarch64_output_sve_cnt_pat_immediate ("<inc_dec>", "%x0",
@@ -5352,11 +5400,10 @@
 (define_insn "*aarch64_sve_decsi_pat"
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(minus:SI (match_operand:SI 1 "register_operand" "0")
-		  (match_operator:SI 5 "subreg_lowpart_operator"
-		    [(unspec:DI [(match_operand:DI 2 "const_int_operand")
-				 (match_operand:DI 3 "const_int_operand")
-			         (match_operand:DI 4 "const_int_operand")]
-				UNSPEC_SVE_CNT_PAT)])))]
+		  (unspec:SI [(match_operand:DI 2 "const_int_operand")
+			      (match_operand:DI 3 "const_int_operand")
+			      (match_operand:DI 4 "const_int_operand")]
+			     UNSPEC_SVE_CNT_PAT)))]
   "TARGET_SVE"
   {
     return aarch64_output_sve_cnt_pat_immediate ("dec", "%x0", operands + 2);
@@ -5384,21 +5431,347 @@
   }
 )
 
-;; Vector SQDEC[HWD].
+;; Decrement a vector of DIs by the number of elements in an svpattern.
+;; See aarch64_sve_cnt_pat for the counting behavior.
 (define_insn "@aarch64_sve_<inc_dec><mode>_pat"
-  [(set (match_operand:SVE_HSDI 0 "register_operand" "=w, ?&w")
-	(SAT_MINUS:SVE_HSDI
-	  (match_operand:SVE_HSDI 1 "register_operand" "0, w")
-	  (unspec:SVE_HSDI [(match_operand:DI 2 "const_int_operand")
-			    (match_operand:DI 3 "const_int_operand")
-			    (match_operand:DI 4 "const_int_operand")]
-			   UNSPEC_SVE_CNT_PAT)))]
+  [(set (match_operand:VNx2DI 0 "register_operand" "=w, ?&w")
+	(ANY_MINUS:VNx2DI
+	  (match_operand:VNx2DI_ONLY 1 "register_operand" "0, w")
+	  (vec_duplicate:VNx2DI
+	    (zero_extend:DI
+	      (unspec:SI [(match_operand:DI 2 "const_int_operand")
+			  (match_operand:DI 3 "const_int_operand")
+			  (match_operand:DI 4 "const_int_operand")]
+			 UNSPEC_SVE_CNT_PAT)))))]
   "TARGET_SVE"
   {
     if (which_alternative == 1)
       output_asm_insn ("movprfx\t%0, %1", operands);
     return aarch64_output_sve_cnt_pat_immediate ("<inc_dec>", "%0.<Vetype>",
 						 operands + 2);
+  }
+  [(set_attr "movprfx" "*,yes")]
+)
+
+;; Decrement a vector of SIs by the number of elements in an svpattern.
+;; See aarch64_sve_cnt_pat for the counting behavior.
+(define_insn "@aarch64_sve_<inc_dec><mode>_pat"
+  [(set (match_operand:VNx4SI 0 "register_operand" "=w, ?&w")
+	(ANY_MINUS:VNx4SI
+	  (match_operand:VNx4SI_ONLY 1 "register_operand" "0, w")
+	  (vec_duplicate:VNx4SI
+	    (unspec:SI [(match_operand:DI 2 "const_int_operand")
+			(match_operand:DI 3 "const_int_operand")
+			(match_operand:DI 4 "const_int_operand")]
+		       UNSPEC_SVE_CNT_PAT))))]
+  "TARGET_SVE"
+  {
+    if (which_alternative == 1)
+      output_asm_insn ("movprfx\t%0, %1", operands);
+    return aarch64_output_sve_cnt_pat_immediate ("<inc_dec>", "%0.<Vetype>",
+						 operands + 2);
+  }
+  [(set_attr "movprfx" "*,yes")]
+)
+
+;; Decrement a vector of HIs by the number of elements in an svpattern.
+;; See aarch64_sve_cnt_pat for the counting behavior.
+(define_insn "@aarch64_sve_<inc_dec><mode>_pat"
+  [(set (match_operand:VNx8HI 0 "register_operand" "=w, ?&w")
+	(ANY_MINUS:VNx8HI
+	  (match_operand:VNx8HI_ONLY 1 "register_operand" "0, w")
+	  (vec_duplicate:VNx8HI
+	    (match_operator:HI 5 "subreg_lowpart_operator"
+	      [(unspec:SI [(match_operand:DI 2 "const_int_operand")
+			   (match_operand:DI 3 "const_int_operand")
+			   (match_operand:DI 4 "const_int_operand")]
+			  UNSPEC_SVE_CNT_PAT)]))))]
+  "TARGET_SVE"
+  {
+    if (which_alternative == 1)
+      output_asm_insn ("movprfx\t%0, %1", operands);
+    return aarch64_output_sve_cnt_pat_immediate ("<inc_dec>", "%0.<Vetype>",
+						 operands + 2);
+  }
+  [(set_attr "movprfx" "*,yes")]
+)
+
+;; Count the number of set bits in a predicate.  Operand 3 is true if
+;; operand 1 is known to be all-true.
+(define_insn "@aarch64_pred_cntp<mode>"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(zero_extend:DI
+	  (unspec:SI [(match_operand:PRED_ALL 1 "register_operand" "Upl")
+		      (match_operand:PRED_ALL 2 "register_operand" "Upa")
+		      (match_operand:SI 3 "const_int_operand")]
+		     UNSPEC_CNTP)))]
+  "TARGET_SVE"
+  "cntp\t%x0, %1, %2.<Vetype>")
+
+;; Increment a DImode register by the number of set bits in a predicate.
+;; See aarch64_sve_cntp for a description of the operands.
+(define_insn_and_rewrite "@aarch64_sve_<inc_dec><DI_ONLY:mode><PRED_ALL:mode>_cntp"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(ANY_PLUS:DI
+	  (zero_extend:DI
+	    (unspec:SI [(match_operand:PRED_ALL 2)
+			(match_operand:PRED_ALL 3 "register_operand" "Upa")
+			(const_int 1)]
+		       UNSPEC_CNTP))
+	  (match_operand:DI_ONLY 1 "register_operand" "0")))]
+  "TARGET_SVE"
+  "<inc_dec>p\t%x0, %3.<PRED_ALL:Vetype>"
+  "&& !CONSTANT_P (operands[2])"
+  {
+    operands[2] = CONSTM1_RTX (<PRED_ALL:MODE>mode);
+  }
+)
+
+;; Increment an SImode register by the number of set bits in a predicate.
+;; See aarch64_sve_cntp for a description of the operands.
+(define_insn_and_rewrite "@aarch64_incsi<mode>_cntp"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(plus:SI
+	  (unspec:SI [(match_operand:PRED_ALL 2)
+		      (match_operand:PRED_ALL 3 "register_operand" "Upa")
+		      (const_int 1)]
+		     UNSPEC_CNTP)
+	  (match_operand:SI 1 "register_operand" "0")))]
+  "TARGET_SVE"
+  "incp\t%x0, %3.<Vetype>"
+  "&& !CONSTANT_P (operands[2])"
+  {
+    operands[2] = CONSTM1_RTX (<MODE>mode);
+  }
+)
+
+;; Saturating increment of an SImode register by the number of set bits
+;; in a predicate, extending the result to 64 bits.
+;;
+;; See aarch64_sve_cntp for a description of the operands.
+(define_insn_and_rewrite "@aarch64_sve_<inc_dec><SI_ONLY:mode><PRED_ALL:mode>_cntp"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(<paired_extend>:DI
+	  (SAT_PLUS:SI
+	    (unspec:SI [(match_operand:PRED_ALL 2)
+			(match_operand:PRED_ALL 3 "register_operand" "Upa")
+			(const_int 1)]
+		       UNSPEC_CNTP)
+	    (match_operand:SI_ONLY 1 "register_operand" "0"))))]
+  "TARGET_SVE"
+  {
+    if (<CODE> == SS_PLUS)
+      return "<inc_dec>p\t%x0, %3.<PRED_ALL:Vetype>, %w0";
+    else
+      return "<inc_dec>p\t%w0, %3.<PRED_ALL:Vetype>";
+  }
+  "&& !CONSTANT_P (operands[2])"
+  {
+    operands[2] = CONSTM1_RTX (<PRED_ALL:MODE>mode);
+  }
+)
+
+;; Increment a vector of DIs by the number of set bits in a predicate.
+;; See aarch64_sve_cntp for a description of the operands.
+(define_insn_and_rewrite "@aarch64_sve_<inc_dec><mode>_cntp"
+  [(set (match_operand:VNx2DI 0 "register_operand" "=w, ?&w")
+	(ANY_PLUS:VNx2DI
+	  (vec_duplicate:VNx2DI
+	    (zero_extend:DI
+	      (unspec:SI
+		[(match_operand:<VPRED> 2)
+		 (match_operand:<VPRED> 3 "register_operand" "Upa, Upa")
+		 (const_int 1)]
+		UNSPEC_CNTP)))
+	  (match_operand:VNx2DI_ONLY 1 "register_operand" "0, w")))]
+  "TARGET_SVE"
+  "@
+   <inc_dec>p\t%0.d, %3
+   movprfx\t%0, %1\;<inc_dec>p\t%0.d, %3"
+  "&& !CONSTANT_P (operands[2])"
+  {
+    operands[2] = CONSTM1_RTX (<VPRED>mode);
+  }
+  [(set_attr "movprfx" "*,yes")]
+)
+
+;; Increment a vector of SIs by the number of set bits in a predicate.
+;; See aarch64_sve_cntp for a description of the operands.
+(define_insn_and_rewrite "@aarch64_sve_<inc_dec><mode>_cntp"
+  [(set (match_operand:VNx4SI 0 "register_operand" "=w, ?&w")
+	(ANY_PLUS:VNx4SI
+	  (vec_duplicate:VNx4SI
+	    (unspec:SI
+	      [(match_operand:<VPRED> 2)
+	       (match_operand:<VPRED> 3 "register_operand" "Upa, Upa")
+	       (const_int 1)]
+	      UNSPEC_CNTP))
+	  (match_operand:VNx4SI_ONLY 1 "register_operand" "0, w")))]
+  "TARGET_SVE"
+  "@
+   <inc_dec>p\t%0.s, %3
+   movprfx\t%0, %1\;<inc_dec>p\t%0.s, %3"
+  "&& !CONSTANT_P (operands[2])"
+  {
+    operands[2] = CONSTM1_RTX (<VPRED>mode);
+  }
+  [(set_attr "movprfx" "*,yes")]
+)
+
+;; Increment a vector of HIs by the number of set bits in a predicate.
+;; See aarch64_sve_cntp for a description of the operands.
+(define_insn_and_rewrite "@aarch64_sve_<inc_dec><mode>_cntp"
+  [(set (match_operand:VNx8HI 0 "register_operand" "=w, ?&w")
+	(ANY_PLUS:VNx8HI
+	  (vec_duplicate:VNx8HI
+	    (match_operator:HI 4 "subreg_lowpart_operator"
+	      [(unspec:SI
+		 [(match_operand:<VPRED> 2)
+		  (match_operand:<VPRED> 3 "register_operand" "Upa, Upa")
+		  (const_int 1)]
+		 UNSPEC_CNTP)]))
+	  (match_operand:VNx8HI_ONLY 1 "register_operand" "0, w")))]
+  "TARGET_SVE"
+  "@
+   <inc_dec>p\t%0.h, %3
+   movprfx\t%0, %1\;<inc_dec>p\t%0.h, %3"
+  "&& !CONSTANT_P (operands[2])"
+  {
+    operands[2] = CONSTM1_RTX (<VPRED>mode);
+  }
+  [(set_attr "movprfx" "*,yes")]
+)
+
+;; Decrement a DImode register by the number of set bits in a predicate.
+;; See aarch64_sve_cntp for a description of the operands.
+(define_insn_and_rewrite "@aarch64_sve_<inc_dec><DI_ONLY:mode><PRED_ALL:mode>_cntp"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(ANY_MINUS:DI
+	  (match_operand:DI_ONLY 1 "register_operand" "0")
+	  (zero_extend:DI
+	    (unspec:SI [(match_operand:PRED_ALL 2)
+			(match_operand:PRED_ALL 3 "register_operand" "Upa")
+			(const_int 1)]
+		       UNSPEC_CNTP))))]
+  "TARGET_SVE"
+  "<inc_dec>p\t%x0, %3.<PRED_ALL:Vetype>"
+  "&& !CONSTANT_P (operands[2])"
+  {
+    operands[2] = CONSTM1_RTX (<PRED_ALL:MODE>mode);
+  }
+)
+
+;; Decrement an SImode register by the number of set bits in a predicate.
+;; See aarch64_sve_cntp for a description of the operands.
+(define_insn_and_rewrite "@aarch64_decsi<mode>_cntp"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(minus:SI
+	  (match_operand:SI 1 "register_operand" "0")
+	  (unspec:SI [(match_operand:PRED_ALL 2)
+		      (match_operand:PRED_ALL 3 "register_operand" "Upa")
+		      (const_int 1)]
+		     UNSPEC_CNTP)))]
+  "TARGET_SVE"
+  "decp\t%x0, %3.<Vetype>"
+  "&& !CONSTANT_P (operands[2])"
+  {
+    operands[2] = CONSTM1_RTX (<MODE>mode);
+  }
+)
+
+;; Saturating decrement of an SImode register by the number of set bits
+;; in a predicate, extending the result to 64 bits.
+;;
+;; See aarch64_sve_cntp for a description of the operands.
+(define_insn_and_rewrite "@aarch64_sve_<inc_dec><SI_ONLY:mode><PRED_ALL:mode>_cntp"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(<paired_extend>:DI
+	  (SAT_MINUS:SI
+	    (match_operand:SI_ONLY 1 "register_operand" "0")
+	    (unspec:SI [(match_operand:PRED_ALL 2)
+			(match_operand:PRED_ALL 3 "register_operand" "Upa")
+			(const_int 1)]
+		       UNSPEC_CNTP))))]
+  "TARGET_SVE"
+  {
+    if (<CODE> == SS_MINUS)
+      return "<inc_dec>p\t%x0, %3.<PRED_ALL:Vetype>, %w0";
+    else
+      return "<inc_dec>p\t%w0, %3.<PRED_ALL:Vetype>";
+  }
+  "&& !CONSTANT_P (operands[2])"
+  {
+    operands[2] = CONSTM1_RTX (<PRED_ALL:MODE>mode);
+  }
+)
+
+;; Decrement a vector of DIs by the number of set bits in a predicate.
+;; See aarch64_sve_cntp for a description of the operands.
+(define_insn_and_rewrite "@aarch64_sve_<inc_dec><mode>_cntp"
+  [(set (match_operand:VNx2DI 0 "register_operand" "=w, ?&w")
+	(ANY_MINUS:VNx2DI
+	  (match_operand:VNx2DI_ONLY 1 "register_operand" "0, w")
+	  (vec_duplicate:VNx2DI
+	    (zero_extend:DI
+	      (unspec:SI
+		[(match_operand:<VPRED> 2)
+		 (match_operand:<VPRED> 3 "register_operand" "Upa, Upa")
+		 (const_int 1)]
+		UNSPEC_CNTP)))))]
+  "TARGET_SVE"
+  "@
+   <inc_dec>p\t%0.d, %3
+   movprfx\t%0, %1\;<inc_dec>p\t%0.d, %3"
+  "&& !CONSTANT_P (operands[2])"
+  {
+    operands[2] = CONSTM1_RTX (<VPRED>mode);
+  }
+  [(set_attr "movprfx" "*,yes")]
+)
+
+;; Decrement a vector of SIs by the number of set bits in a predicate.
+;; See aarch64_sve_cntp for a description of the operands.
+(define_insn_and_rewrite "@aarch64_sve_<inc_dec><mode>_cntp"
+  [(set (match_operand:VNx4SI 0 "register_operand" "=w, ?&w")
+	(ANY_MINUS:VNx4SI
+	  (match_operand:VNx4SI_ONLY 1 "register_operand" "0, w")
+	  (vec_duplicate:VNx4SI
+	    (unspec:SI
+	      [(match_operand:<VPRED> 2)
+	       (match_operand:<VPRED> 3 "register_operand" "Upa, Upa")
+	       (const_int 1)]
+	      UNSPEC_CNTP))))]
+  "TARGET_SVE"
+  "@
+   <inc_dec>p\t%0.s, %3
+   movprfx\t%0, %1\;<inc_dec>p\t%0.s, %3"
+  "&& !CONSTANT_P (operands[2])"
+  {
+    operands[2] = CONSTM1_RTX (<VPRED>mode);
+  }
+  [(set_attr "movprfx" "*,yes")]
+)
+
+;; Decrement a vector of HIs by the number of set bits in a predicate.
+;; See aarch64_sve_cntp for a description of the operands.
+(define_insn_and_rewrite "@aarch64_sve_<inc_dec><mode>_cntp"
+  [(set (match_operand:VNx8HI 0 "register_operand" "=w, ?&w")
+	(ANY_MINUS:VNx8HI
+	  (match_operand:VNx8HI_ONLY 1 "register_operand" "0, w")
+	  (vec_duplicate:VNx8HI
+	    (match_operator:HI 4 "subreg_lowpart_operator"
+	      [(unspec:SI
+		 [(match_operand:<VPRED> 2)
+		  (match_operand:<VPRED> 3 "register_operand" "Upa, Upa")
+		  (const_int 1)]
+		 UNSPEC_CNTP)]))))]
+  "TARGET_SVE"
+  "@
+   <inc_dec>p\t%0.h, %3
+   movprfx\t%0, %1\;<inc_dec>p\t%0.h, %3"
+  "&& !CONSTANT_P (operands[2])"
+  {
+    operands[2] = CONSTM1_RTX (<VPRED>mode);
   }
   [(set_attr "movprfx" "*,yes")]
 )

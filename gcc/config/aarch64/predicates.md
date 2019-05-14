@@ -46,9 +46,10 @@
   return CONST_INT_P (op) && IN_RANGE (INTVAL (op), 1, 3);
 })
 
-(define_special_predicate "subreg_lowpart_operator"
-  (and (match_code "subreg")
-       (match_test "subreg_lowpart_p (op)")))
+(define_predicate "subreg_lowpart_operator"
+  (ior (match_code "truncate")
+       (and (match_code "subreg")
+	    (match_test "subreg_lowpart_p (op)"))))
 
 (define_predicate "aarch64_ccmp_immediate"
   (and (match_code "const_int")

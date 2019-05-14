@@ -387,3 +387,41 @@ PROTO (dech_64_pow2, uint64_t, (uint64_t x0)) { return x0 - svcnth_pat (SV_POW2)
 **	ret
 */
 PROTO (dech_64_all, uint64_t, (uint64_t x0)) { return x0 - svcnth_pat (SV_ALL); }
+
+/*
+** inch_s16_pow2_z0:
+**	inch	z0\.h, pow2
+**	ret
+*/
+TEST_UNIFORM_Z (inch_s16_pow2_z0, svint16_t,
+		z0 = svadd_n_s16_x (svptrue_b16 (), z0, svcnth_pat (SV_POW2)),
+		z0 = svadd_x (svptrue_b16 (), z0, svcnth_pat (SV_POW2)));
+
+/*
+** inch_s16_pow2_z1:
+**	movprfx	z0, z1
+**	inch	z0\.h, pow2
+**	ret
+*/
+TEST_UNIFORM_Z (inch_s16_pow2_z1, svint16_t,
+		z0 = svadd_n_s16_x (svptrue_b16 (), z1, svcnth_pat (SV_POW2)),
+		z0 = svadd_x (svptrue_b16 (), z1, svcnth_pat (SV_POW2)));
+
+/*
+** dech_s16_pow2_z0:
+**	dech	z0\.h, pow2
+**	ret
+*/
+TEST_UNIFORM_Z (dech_s16_pow2_z0, svint16_t,
+		z0 = svsub_n_s16_x (svptrue_b16 (), z0, svcnth_pat (SV_POW2)),
+		z0 = svsub_x (svptrue_b16 (), z0, svcnth_pat (SV_POW2)));
+
+/*
+** dech_s16_pow2_z1:
+**	movprfx	z0, z1
+**	dech	z0\.h, pow2
+**	ret
+*/
+TEST_UNIFORM_Z (dech_s16_pow2_z1, svint16_t,
+		z0 = svsub_n_s16_x (svptrue_b16 (), z1, svcnth_pat (SV_POW2)),
+		z0 = svsub_x (svptrue_b16 (), z1, svcnth_pat (SV_POW2)));

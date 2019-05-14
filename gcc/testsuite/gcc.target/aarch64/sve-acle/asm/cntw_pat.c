@@ -387,3 +387,41 @@ PROTO (decw_64_pow2, uint64_t, (uint64_t x0)) { return x0 - svcntw_pat (SV_POW2)
 **	ret
 */
 PROTO (decw_64_all, uint64_t, (uint64_t x0)) { return x0 - svcntw_pat (SV_ALL); }
+
+/*
+** incw_s32_pow2_z0:
+**	incw	z0\.s, pow2
+**	ret
+*/
+TEST_UNIFORM_Z (incw_s32_pow2_z0, svint32_t,
+		z0 = svadd_n_s32_x (svptrue_b32 (), z0, svcntw_pat (SV_POW2)),
+		z0 = svadd_x (svptrue_b32 (), z0, svcntw_pat (SV_POW2)));
+
+/*
+** incw_s32_pow2_z1:
+**	movprfx	z0, z1
+**	incw	z0\.s, pow2
+**	ret
+*/
+TEST_UNIFORM_Z (incw_s32_pow2_z1, svint32_t,
+		z0 = svadd_n_s32_x (svptrue_b32 (), z1, svcntw_pat (SV_POW2)),
+		z0 = svadd_x (svptrue_b32 (), z1, svcntw_pat (SV_POW2)));
+
+/*
+** decw_s32_pow2_z0:
+**	decw	z0\.s, pow2
+**	ret
+*/
+TEST_UNIFORM_Z (decw_s32_pow2_z0, svint32_t,
+		z0 = svsub_n_s32_x (svptrue_b32 (), z0, svcntw_pat (SV_POW2)),
+		z0 = svsub_x (svptrue_b32 (), z0, svcntw_pat (SV_POW2)));
+
+/*
+** decw_s32_pow2_z1:
+**	movprfx	z0, z1
+**	decw	z0\.s, pow2
+**	ret
+*/
+TEST_UNIFORM_Z (decw_s32_pow2_z1, svint32_t,
+		z0 = svsub_n_s32_x (svptrue_b32 (), z1, svcntw_pat (SV_POW2)),
+		z0 = svsub_x (svptrue_b32 (), z1, svcntw_pat (SV_POW2)));
