@@ -21,16 +21,16 @@ void f3(SameAs<int> q) { }
 void f4(True a, SameAs<decltype(a)> b) { }
 
 True f5() { return 0; }
-False f6() { return 0; } // { dg-error "placeholder constraints not satisfied" }
+False f6() { return 0; } // { dg-error "deduced return type" }
 SameAs<int> f7() { return 0; }
-SameAs<int> f8() { return 'a'; } // { dg-error "placeholder constraints not satisfied" }
+SameAs<int> f8() { return 'a'; } // { dg-error "deduced return type" }
 auto f9() -> True { return 0; }
-auto f10() -> False { return 0; } // { dg-error "placeholder constraints not satisfied" }
+auto f10() -> False { return 0; } // { dg-error "deduced return type" }
 auto f11() -> SameAs<int> { return 0; }
-auto f12() -> SameAs<char> { return 0; } // { dg-error "placeholder constraints not satisfied" }
+auto f12() -> SameAs<char> { return 0; } // { dg-error "deduced return type" }
 auto f13(int n) -> SameAs<decltype(n)> { return n; }
-auto f14(int n) -> SameAs<decltype(n)> { return 'a'; } // { dg-error "placeholder constraints not satisfied" }
-auto f15(auto x) -> SameAs<decltype(x)> { return 0; } // { dg-error "placeholder constraints not satisfied" }
+auto f14(int n) -> SameAs<decltype(n)> { return 'a'; } // { dg-error "deduced return type" }
+auto f15(auto x) -> SameAs<decltype(x)> { return 0; } // { dg-error "deduced return type" }
 
 void driver()
 {
@@ -41,5 +41,5 @@ void driver()
   f4(0, 0);
   f4(0, 'a'); // { dg-error "cannot call" }
   f15(0);
-  f15('a');
+  f15('a'); // { dg-error "before deduction" }
 }

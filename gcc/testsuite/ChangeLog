@@ -1,5 +1,12 @@
 2019-05-09  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	* g++.dg/cpp2a/concepts-alias.C: Update compile directive.
+	* g++.dg/cpp2a/concepts-ts1.C: Update compile directive.
+	* g++.dg/cpp2a/concepts-decltype.C: New.
+
+
+2019-05-09  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	* g++.dg/cpp2a/concepts-requires-17.C: New.
 	* g++.dg/concepts/placeholder5.C: Update diagnostics.
 

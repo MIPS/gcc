@@ -9529,7 +9529,8 @@ check_return_expr (tree retval, bool *no_warning)
 	    retval = void_node;
 	  auto_node = type_uses_auto (current_function_auto_return_pattern);
 	  type = do_auto_deduction (current_function_auto_return_pattern,
-				    retval, auto_node);
+				    retval, auto_node, tf_warning_or_error,
+				    adc_return_type);
 	}
 
       if (type == error_mark_node)

@@ -16048,12 +16048,16 @@ finish_function (bool inline_p)
   if (!processing_template_decl && FNDECL_USED_AUTO (fndecl)
       && TREE_TYPE (fntype) == current_function_auto_return_pattern)
     {
-      if (is_auto (current_function_auto_return_pattern))
+      if (is_auto (current_function_auto_return_pattern)
+          && !current_function_returns_value
+          && !current_function_returns_null)
 	{
-	  /* Actually perform deduction; the node could be constrained.  */
+	  /* We haven't applied return type deduction because we haven't
+             seen any return statements. Do that now.  */
 	  tree node = type_uses_auto (current_function_auto_return_pattern);
 	  do_auto_deduction (current_function_auto_return_pattern,
-			     void_node, node);
+			     void_node, node, tf_warning_or_error,
+                             adc_return_type);
 
 	  apply_deduced_return_type (fndecl, void_type_node);
 	  fntype = TREE_TYPE (fndecl);

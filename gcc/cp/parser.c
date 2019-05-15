@@ -169,6 +169,7 @@ enum required_token {
   RT_TRY, /* try */
   RT_CATCH, /* catch */
   RT_THROW, /* throw */
+  RT_AUTO, /* auto */
   RT_LABEL, /* __label__ */
   RT_AT_TRY, /* @try */
   RT_AT_SYNCHRONIZED, /* @synchronized */
@@ -18027,7 +18028,14 @@ cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc,
       if (cp_lexer_next_token_is_keyword (parser->lexer, RID_AUTO))
 	placeholder = cp_lexer_consume_token (parser->lexer); 
       else if (cp_lexer_next_token_is_keyword (parser->lexer, RID_DECLTYPE))
-	sorry_at (input_location, "decltype placeholders not implemented");
+	{
+	  placeholder = cp_lexer_consume_token (parser->lexer);
+	  cp_token* open
+	    = cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN);
+	  cp_parser_require_keyword (parser, RID_AUTO, RT_AUTO);
+          cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN, 
+			     open->location);
+	}
     }
 
   /* A type constraint constrains a contextually determined type or type
@@ -18063,7 +18071,8 @@ cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc,
   else if (parser->in_result_type_constraint_p && placeholder)
     {
       /* A trailing return type only allows type-constraints.  */
-      error_at(input_location, "unexpected placeholder in type-constraints");
+      error_at(input_location, "unexpected placeholder in constrained "
+			       "result type");
     }
 
   /* In a parameter-declaration-clause, a placeholder-type-specifier
@@ -18079,7 +18088,7 @@ cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc,
      deduction or decltype deduction. Note that the latter is always
      used for type-constraints in trailing return types.  */
   bool decltype_p = placeholder 
-      ? placeholder->keyword != RID_AUTO 
+      ? placeholder->keyword == RID_DECLTYPE 
       : parser->in_result_type_constraint_p;
 
   /* Otherwise, this is the type of a variable or return type.  */
@@ -29542,6 +29551,9 @@ cp_parser_required_error (cp_parser *parser,
       case RT_THROW:
 	gmsgid = G_("expected %<throw%>");
 	break;
+      case RT_AUTO:
+        gmsgid = G_("expected %<auto%>");
+        break;
       case RT_LABEL:
 	gmsgid = G_("expected %<__label__%>");
 	break;

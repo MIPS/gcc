@@ -1,3 +1,16 @@
+2019-05-14  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Implement constrained decltype(auto).
+	* decl.c (finish_function): Only do auto deduction if we haven't
+	previously seen any return statements. This prevents multiple
+	diagnostics of the same error.
+	* parser.c (enum required_token): New required token for auto.
+	(cp_parser_placeholder_type_specifier): Parse the
+	decltype(auto) sequence of tokens. Update diagnostics.
+	* (cp_parser_required_error): Diagnose missing auto.
+	* typeck.c (check_return_expr): Actually use the diagnostic kind
+	when performing return-type deduction.
+
 2019-05-09  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Better diagnostics for ill-formed constrained result types
