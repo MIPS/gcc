@@ -1748,27 +1748,23 @@ simplify_const_unary_operation (enum rtx_code code, machine_mode mode,
 
   if (VECTOR_MODE_P (mode) && GET_CODE (op) == CONST_VECTOR)
     {
-      unsigned int n_elts;
-      if (!CONST_VECTOR_NUNITS (op).is_constant (&n_elts))
-	return NULL_RTX;
+      gcc_assert (GET_MODE (op) == op_mode);
 
-      machine_mode opmode = GET_MODE (op);
-      gcc_assert (known_eq (GET_MODE_NUNITS (mode), n_elts));
-      gcc_assert (known_eq (GET_MODE_NUNITS (opmode), n_elts));
+      rtx_vector_builder builder;
+      if (!builder.new_unary_operation (mode, op, false))
+	return 0;
 
-      rtvec v = rtvec_alloc (n_elts);
-      unsigned int i;
-
-      for (i = 0; i < n_elts; i++)
+      unsigned int count = builder.encoded_nelts ();
+      for (unsigned int i = 0; i < count; i++)
 	{
 	  rtx x = simplify_unary_operation (code, GET_MODE_INNER (mode),
 					    CONST_VECTOR_ELT (op, i),
-					    GET_MODE_INNER (opmode));
+					    GET_MODE_INNER (op_mode));
 	  if (!x || !valid_for_const_vector_p (mode, x))
 	    return 0;
-	  RTVEC_ELT (v, i) = x;
+	  builder.quick_push (x);
 	}
-      return gen_rtx_CONST_VECTOR (mode, v);
+      return builder.build ();
     }
 
   /* The order of these tests is critical so that, for example, we don't
@@ -4085,26 +4081,21 @@ simplify_const_binary_operation (enum rtx_code code, machine_mode mode,
       && GET_CODE (op0) == CONST_VECTOR
       && GET_CODE (op1) == CONST_VECTOR)
     {
-      unsigned int n_elts;
-      if (!CONST_VECTOR_NUNITS (op0).is_constant (&n_elts))
-	return NULL_RTX;
+      rtx_vector_builder builder;
+      if (!builder.new_binary_operation (mode, op0, op1, false))
+	return 0;
 
-      gcc_assert (known_eq (n_elts, CONST_VECTOR_NUNITS (op1)));
-      gcc_assert (known_eq (n_elts, GET_MODE_NUNITS (mode)));
-      rtvec v = rtvec_alloc (n_elts);
-      unsigned int i;
-
-      for (i = 0; i < n_elts; i++)
+      unsigned int count = builder.encoded_nelts ();
+      for (unsigned int i = 0; i < count; i++)
 	{
 	  rtx x = simplify_binary_operation (code, GET_MODE_INNER (mode),
 					     CONST_VECTOR_ELT (op0, i),
 					     CONST_VECTOR_ELT (op1, i));
 	  if (!x || !valid_for_const_vector_p (mode, x))
 	    return 0;
-	  RTVEC_ELT (v, i) = x;
+	  builder.quick_push (x);
 	}
-
-      return gen_rtx_CONST_VECTOR (mode, v);
+      return builder.build ();
     }
 
   if (VECTOR_MODE_P (mode)
