@@ -25,3 +25,5 @@ foo (void)
 /* We should use an induction that starts at -5, with only the last
    7 elements of the first iteration being active.  */
 /* { dg-final { scan-assembler {\tindex\tz[0-9]+\.s, #-5, #5\n} } } */
+/* Inverted for the first vector.  */
+/* { dg-final { scan-assembler-times {\tptrue\tp[0-7]\.s, vl1\n} 1 } } */

@@ -20,3 +20,7 @@ foo (void)
 /* { dg-final { scan-assembler {\t(adrp|adr)\tx[0-9]+, x\n} } } */
 /* We should unroll the loop three times.  */
 /* { dg-final { scan-assembler-times "\tst1w\t" 3 } } */
+/* Inverted for the first vector.  */
+/* { dg-final { scan-assembler-times {\tptrue\tp[0-7]\.s, vl7\n} 1 } } */
+/* { dg-final { scan-assembler-times {\tptrue\tp[0-7]\.s, vl8\n} 1 } } */
+/* { dg-final { scan-assembler-times {\tptrue\tp[0-7]\.s, vl6\n} 1 } } */

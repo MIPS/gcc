@@ -84,7 +84,7 @@
 /* Information about a legitimate vector immediate operand.  */
 struct simd_immediate_info
 {
-  enum insn_type { MOV, MVN, INDEX };
+  enum insn_type { MOV, MVN, INDEX, PTRUE };
   enum modifier_type { LSL, MSL };
 
   simd_immediate_info () {}
@@ -93,6 +93,7 @@ struct simd_immediate_info
 		       insn_type = MOV, modifier_type = LSL,
 		       unsigned int = 0);
   simd_immediate_info (scalar_mode, rtx, rtx);
+  simd_immediate_info (scalar_int_mode, aarch64_svpattern);
 
   /* The mode of the elements.  */
   scalar_mode elt_mode;
@@ -119,6 +120,9 @@ struct simd_immediate_info
     {
       rtx base, step;
     } index;
+
+    /* For PTRUE.  */
+    aarch64_svpattern pattern;
   } u;
 };
 
@@ -156,6 +160,16 @@ inline simd_immediate_info
 {
   u.index.base = base_in;
   u.index.step = step_in;
+}
+
+/* Construct a predicate that controls elements of mode ELT_MODE_IN
+   and has PTRUE pattern PATTERN_IN.  */
+inline simd_immediate_info
+::simd_immediate_info (scalar_int_mode elt_mode_in,
+		       aarch64_svpattern pattern_in)
+  : elt_mode (elt_mode_in), insn (PTRUE)
+{
+  u.pattern = pattern_in;
 }
 
 /* The current code model.  */
@@ -1654,6 +1668,16 @@ aarch64_array_mode_supported_p (machine_mode mode,
   return false;
 }
 
+/* Return the integer element mode associated with SVE mode MODE.  */
+
+static scalar_int_mode
+aarch64_sve_element_int_mode (machine_mode mode)
+{
+  unsigned int elt_bits = vector_element_size (BITS_PER_SVE_VECTOR,
+					       GET_MODE_NUNITS (mode));
+  return int_mode_for_size (elt_bits, 0).require ();
+}
+
 /* Return the SVE predicate mode to use for elements that have
    ELEM_NBYTES bytes, if such a mode exists.  */
 
@@ -2646,6 +2670,58 @@ aarch64_fold_sve_cnt_pat (aarch64_svpattern pattern, unsigned int nelts_per_vq)
   return -1;
 }
 
+/* See if there is an svpattern that encodes an SVE predicate of mode
+   PRED_MODE in which the first VL bits are set and the rest are clear.
+   Return the pattern if so, otherwise return AARCH64_NUM_SVPATTERNS.  */
+
+aarch64_svpattern
+aarch64_svpattern_for_vl (machine_mode pred_mode, unsigned int vl)
+{
+  if (maybe_gt (vl, GET_MODE_NUNITS (pred_mode)))
+    return AARCH64_NUM_SVPATTERNS;
+
+  if (vl >= 1 && vl <= 8)
+    return aarch64_svpattern (AARCH64_SV_VL1 + (vl - 1));
+
+  if (vl >= 16 && vl <= 256 && pow2p_hwi (vl))
+    return aarch64_svpattern (AARCH64_SV_VL16 + (exact_log2 (vl) - 4));
+
+  unsigned int max_vl;
+  if (GET_MODE_NUNITS (pred_mode).is_constant (&max_vl))
+    {
+      if (vl == (max_vl / 3) * 3)
+	return AARCH64_SV_MUL3;
+      /* These would only trigger for non-power-of-2 lengths.  */
+      if (vl == (1U << floor_log2 (max_vl)))
+	return AARCH64_SV_POW2;
+      if (vl == (max_vl & -4))
+	return AARCH64_SV_POW2;
+      if (vl == max_vl)
+	return AARCH64_SV_ALL;
+    }
+  return AARCH64_NUM_SVPATTERNS;
+}
+
+/* See if there is an svpattern that encodes SVE predicate expression X
+   when recast to PRED_MODE.  Return the pattern if so, otherwise return
+   AARCH64_NUM_SVPATTERNS.
+
+   PRED_MODE is either the mode of X or a mode that has fewer elements
+   than X.  */
+
+aarch64_svpattern
+aarch64_svpattern_for_rtx (machine_mode pred_mode, rtx x)
+{
+  int vl = aarch64_partial_ptrue_length (pred_mode, x);
+  if (vl < 0)
+    return AARCH64_SV_ALL;
+
+  if (vl > 0)
+    return aarch64_svpattern_for_vl (pred_mode, vl);
+
+  return AARCH64_NUM_SVPATTERNS;
+}
+
 /* Return true if we can move VALUE into a register using a single
    CNT[BHWD] instruction.  */
 
@@ -3396,6 +3472,39 @@ aarch64_sub_sp (rtx temp1, rtx temp2, poly_int64 delta, bool frame_related_p,
 		      temp1, temp2, frame_related_p, emit_move_imm);
 }
 
+/* X is an SVE predicate expression.  Return the widest predicate mode
+   that it can have without dropping set bits.  */
+
+machine_mode
+aarch64_widest_sve_pred_mode (rtx x)
+{
+  machine_mode mode = GET_MODE (x);
+  if (GET_CODE (x) == CONST_VECTOR && mode != VNx2DImode)
+    {
+      /* The number of bytes controlled by each predicate bit.  */
+      unsigned int elt_bytes = vector_element_size (BYTES_PER_SVE_VECTOR,
+						    GET_MODE_NUNITS (mode));
+
+      /* Start with the most optimistic assumption: that we only need
+	 one bit per pattern.  This is what we will use if only the first
+	 bit in each pattern is ever set.  */
+      unsigned int mask = GET_MODE_SIZE (DImode);
+      mask |= CONST_VECTOR_NPATTERNS (x) * elt_bytes;
+
+      /* Look for set bits.  */
+      unsigned int nelts = const_vector_encoded_nelts (x);
+      for (unsigned int i = 1; i < nelts; ++i)
+	if (CONST_VECTOR_ELT (x, i) != const0_rtx)
+	  {
+	    if (i & 1)
+	      return mode;
+	    mask |= i * elt_bytes;
+	  }
+      return aarch64_sve_pred_mode (mask & -mask).require ();
+    }
+  return mode;
+}
+
 /* Return a VNx16BImode constant in which every sequence of ELEM_BYTES
    bits has the lowest bit set and the upper bits clear.  This is the
    VNx16BImode equivalent of a PTRUE for controlling elements of
@@ -3431,6 +3540,63 @@ aarch64_ptrue_all_mode (rtx x)
       return opt_machine_mode ();
 
   return aarch64_sve_pred_mode (nelts);
+}
+
+/* Consider the value of predicate X when interpreted in mode PRED_MODE
+   and return:
+
+   * -1 if all bits are set
+   * N if the predicate has N leading set bits followed by all clear bits
+   * 0 if the predicate does not have any of these forms
+
+   PRED_MODE is either the mode of X or a mode that has fewer elements
+   than X.  */
+
+int
+aarch64_partial_ptrue_length (machine_mode pred_mode, rtx x)
+{
+  if (GET_CODE (x) != CONST_VECTOR)
+    return 0;
+
+  /* The number of X elements per PRED_MODE element.  */
+  unsigned int elt_size = vector_element_size (GET_MODE_NUNITS (GET_MODE (x)),
+					       GET_MODE_NUNITS (pred_mode));
+
+  /* Skip over leading set bits.  */
+  unsigned int nelts = const_vector_encoded_nelts (x);
+  unsigned int i = 0;
+  for (; i < nelts; i += elt_size)
+    if (!CONST_INT_P (CONST_VECTOR_ENCODED_ELT (x, i))
+	|| INTVAL (CONST_VECTOR_ENCODED_ELT (x, i)) == 0)
+      break;
+
+  unsigned int vl = i / elt_size;
+
+  /* Check for the all-true case.  */
+  if (i == nelts)
+    return -1;
+
+  if (CONST_VECTOR_DUPLICATE_P (x))
+    /* Either VL is zero, or we have a repeating sequence that contains
+       some set bits followed by other bits.  */
+    return 0;
+
+  /* Shouldn't happen for booleans.  */
+  gcc_checking_assert (!CONST_VECTOR_STEPPED_P (x));
+
+  /* We have a "foreground" value and a duplicated "background" value.
+     If the background might repeat and "i" belongs to it, we have a
+     repeating sequence in which set bits are followed by other bits.  */
+  if (i > CONST_VECTOR_NPATTERNS (x)
+      && maybe_ne (nelts, CONST_VECTOR_NUNITS (x)))
+    return 0;
+
+  /* Make sure that the rest are all clear.  */
+  for (; i < nelts; i += elt_size)
+    if (CONST_VECTOR_ENCODED_ELT (x, i) != const0_rtx)
+      return 0;
+
+  return vl;
 }
 
 /* Set DEST to (vec_series BASE STEP).  */
@@ -3564,6 +3730,46 @@ aarch64_move_float_via_int_p (rtx src)
 	  && !aarch64_can_const_movi_rtx_p (src, GET_MODE (src))
 	  && !aarch64_float_const_representable_p (src)
 	  && aarch64_float_const_rtx_p (src));
+}
+
+/* Use WHILE to set predicate register DEST so that the first VL bits
+   are set and the rest are clear.  */
+static void
+aarch64_sve_move_pred_via_while (rtx dest, unsigned int vl)
+{
+  rtx limit = force_reg (DImode, gen_int_mode (vl, DImode));
+  emit_insn (gen_while (UNSPEC_WHILE_LO, DImode, GET_MODE (dest),
+			dest, const0_rtx, limit));
+}
+
+/* See whether we can move predicate constant IMM into register DEST
+   by moving the inverse and using NOT on the result.  */
+static bool
+aarch64_sve_maybe_move_inverse_pred (rtx dest, rtx imm)
+{
+  if (!can_create_pseudo_p ())
+    return false;
+
+  machine_mode mode = GET_MODE (imm);
+  imm = simplify_unary_operation (NOT, mode, imm, mode);
+  if (!imm)
+    return false;
+
+  rtx tmp;
+  int vl;
+  if (aarch64_mov_operand_p (imm, mode))
+    tmp = force_reg (mode, imm);
+  else if ((vl = aarch64_partial_ptrue_length (mode, imm)) > 0)
+    {
+      tmp = gen_reg_rtx (mode);
+      aarch64_sve_move_pred_via_while (tmp, vl);
+    }
+  else
+    return false;
+
+  insn_code icode = direct_optab_handler (one_cmpl_optab, mode);
+  emit_insn (GEN_FCN (icode) (dest, tmp));
+  return true;
 }
 
 /* Set DEST to immediate IMM.  For SVE vector modes, GEN_VEC_DUPLICATE
@@ -3703,10 +3909,18 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm,
       rtx base, step, value;
       if (GET_CODE (imm) == HIGH
 	  || aarch64_simd_valid_immediate (imm, NULL))
-	emit_insn (gen_rtx_SET (dest, imm));
-      else if (const_vec_series_p (imm, &base, &step))
-	aarch64_expand_vec_series (dest, base, step);
-      else if (const_vec_duplicate_p (imm, &value))
+	{
+	  emit_insn (gen_rtx_SET (dest, imm));
+	  return;
+	}
+
+      if (const_vec_series_p (imm, &base, &step))
+	{
+	  aarch64_expand_vec_series (dest, base, step);
+	  return;
+	}
+
+      if (const_vec_duplicate_p (imm, &value))
 	{
 	  /* If the constant is out of range of an SVE vector move,
 	     load it from memory if we can, otherwise move it into
@@ -3721,17 +3935,31 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm,
 	      op = replace_equiv_address (op, addr);
 	    }
 	  emit_insn (gen_vec_duplicate (dest, op));
-	}
-      else if (GET_CODE (imm) == CONST_VECTOR
-	       && !GET_MODE_NUNITS (GET_MODE (imm)).is_constant ())
-	aarch64_expand_sve_const_vector (dest, imm);
-      else
-	{
-	  rtx mem = force_const_mem (mode, imm);
-	  gcc_assert (mem);
-	  emit_move_insn (dest, mem);
+	  return;
 	}
 
+      if (GET_MODE_CLASS (GET_MODE (imm)) == MODE_VECTOR_BOOL)
+	{
+	  int vl = aarch64_partial_ptrue_length (mode, imm);
+	  if (vl > 0)
+	    {
+	      aarch64_sve_move_pred_via_while (dest, vl);
+	      return;
+	    }
+	  if (aarch64_sve_maybe_move_inverse_pred (dest, imm))
+	    return;
+	}
+
+      if (GET_CODE (imm) == CONST_VECTOR
+	  && !GET_MODE_NUNITS (GET_MODE (imm)).is_constant ())
+	{
+	  aarch64_expand_sve_const_vector (dest, imm);
+	  return;
+	}
+
+      rtx mem = force_const_mem (mode, imm);
+      gcc_assert (mem);
+      emit_move_insn (dest, mem);
       return;
     }
 
@@ -14806,42 +15034,6 @@ aarch64_sve_float_mul_immediate_p (rtx x)
 	      || real_equal (CONST_DOUBLE_REAL_VALUE (elt), &dconst2)));
 }
 
-/* Return true if VAL64 represents a valid predicate constant, describing
-   it in INFO if so.  If the predicate is smaller than 64 bits, the constant
-   is repeated to fill the whole integer.  */
-static bool
-aarch64_sve_valid_pred_immediate (unsigned HOST_WIDE_INT val64,
-				  simd_immediate_info *info)
-{
-  unsigned HOST_WIDE_INT mask = HOST_WIDE_INT_C (0x0101010101010101);
-  scalar_int_mode mode = DImode;
-  if ((val64 & ~mask) != 0)
-    {
-      mask |= mask << 4;
-      mode = SImode;
-      if ((val64 & ~mask) != 0)
-	{
-	  mask |= mask << 2;
-	  mode = HImode;
-	  if ((val64 & ~mask) != 0)
-	    {
-	      mask |= mask << 1;
-	      gcc_checking_assert (mask == HOST_WIDE_INT_M1U);
-	      mode = QImode;
-	    }
-	}
-    }
-  /* Check for PTRUE ALL or PFALSE.  */
-  if (val64 == mask || val64 == 0)
-    {
-      if (info)
-	*info = simd_immediate_info (mode, val64 != 0);
-      return true;
-    }
-  /* We don't yet handle other options, like vlN.  */
-  return false;
-}
-
 /* Return true if replicating VAL32 is a valid 2-byte or 4-byte immediate
    for the Advanced SIMD operation described by WHICH and INSN.  If INFO
    is nonnull, use it to describe valid immediates.  */
@@ -14992,6 +15184,31 @@ aarch64_sve_valid_immediate (unsigned HOST_WIDE_INT val64,
   return false;
 }
 
+/* Return true if X is a valid SVE predicate.  If INFO is nonnull, use
+   it to describe valid immediates.  */
+static bool
+aarch64_sve_pred_valid_immediate (rtx x, simd_immediate_info *info)
+{
+  if (x == CONST0_RTX (GET_MODE (x)))
+    {
+      if (info)
+	*info = simd_immediate_info (DImode, 0);
+      return true;
+    }
+  machine_mode mode = aarch64_widest_sve_pred_mode (x);
+  aarch64_svpattern pattern = aarch64_svpattern_for_rtx (mode, x);
+  if (pattern != AARCH64_NUM_SVPATTERNS)
+    {
+      if (info)
+	{
+	  scalar_int_mode int_mode = aarch64_sve_element_int_mode (mode);
+	  *info = simd_immediate_info (int_mode, pattern);
+	}
+      return true;
+    }
+  return false;
+}
+
 /* Return true if OP is a valid SIMD immediate for the operation
    described by WHICH.  If INFO is nonnull, use it to describe valid
    immediates.  */
@@ -15003,6 +15220,9 @@ aarch64_simd_valid_immediate (rtx op, simd_immediate_info *info,
   unsigned int vec_flags = aarch64_classify_vector_mode (mode);
   if (vec_flags == 0 || vec_flags == (VEC_ADVSIMD | VEC_STRUCT))
     return false;
+
+  if (vec_flags & VEC_SVE_PRED)
+    return aarch64_sve_pred_valid_immediate (op, info);
 
   scalar_mode elt_mode = GET_MODE_INNER (mode);
   rtx base, step;
@@ -15105,9 +15325,7 @@ aarch64_simd_valid_immediate (rtx op, simd_immediate_info *info,
     val64 |= ((unsigned HOST_WIDE_INT) bytes[i % nbytes]
 	      << (i * BITS_PER_UNIT));
 
-  if (vec_flags & VEC_SVE_PRED)
-    return aarch64_sve_valid_pred_immediate (val64, info);
-  else if (vec_flags & VEC_SVE_DATA)
+  if (vec_flags & VEC_SVE_DATA)
     return aarch64_sve_valid_immediate (val64, info);
   else
     return aarch64_advsimd_valid_immediate (val64, info, which);
@@ -16434,14 +16652,23 @@ aarch64_output_sve_mov_immediate (rtx const_vector)
   if (aarch64_sve_pred_mode_p (vec_mode))
     {
       static char buf[sizeof ("ptrue\t%0.N, vlNNNNN")];
-      unsigned int total_bytes;
-      if (info.u.mov.value == const0_rtx)
-	snprintf (buf, sizeof (buf), "pfalse\t%%0.b");
-      else if (BYTES_PER_SVE_VECTOR.is_constant (&total_bytes))
-	snprintf (buf, sizeof (buf), "ptrue\t%%0.%c, vl%d", element_char,
-		  total_bytes / GET_MODE_SIZE (info.elt_mode));
+      if (info.insn == simd_immediate_info::MOV)
+	{
+	  gcc_assert (info.u.mov.value == const0_rtx);
+	  snprintf (buf, sizeof (buf), "pfalse\t%%0.b");
+	}
       else
-	snprintf (buf, sizeof (buf), "ptrue\t%%0.%c, all", element_char);
+	{
+	  gcc_assert (info.insn == simd_immediate_info::PTRUE);
+	  unsigned int total_bytes;
+	  if (info.u.pattern == AARCH64_SV_ALL
+	      && BYTES_PER_SVE_VECTOR.is_constant (&total_bytes))
+	    snprintf (buf, sizeof (buf), "ptrue\t%%0.%c, vl%d", element_char,
+		      total_bytes / GET_MODE_SIZE (info.elt_mode));
+	  else
+	    snprintf (buf, sizeof (buf), "ptrue\t%%0.%c, %s", element_char,
+		      svpattern_token (info.u.pattern));
+	}
       return buf;
     }
 
