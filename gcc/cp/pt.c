@@ -14091,6 +14091,17 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
   return r;
 }
 
+/* Substitute into the complete parameter type list PARMS.  */
+
+tree
+tsubst_function_parms (tree parms,
+		       tree args,
+		       tsubst_flags_t complain,
+		       tree in_decl)
+{
+  return tsubst_arg_types (parms, args, NULL_TREE, complain, in_decl);
+}
+
 /* Substitute into the ARG_TYPES of a function type.
    If END is a TREE_CHAIN, leave it and any following types
    un-substituted.  */

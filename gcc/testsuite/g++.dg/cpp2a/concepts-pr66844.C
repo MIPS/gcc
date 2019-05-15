@@ -11,8 +11,6 @@ concept C = requires (T t) {
 
 template <typename T>
   requires C<T>
-constexpr bool is_c() { return true; }
+constexpr bool is_c() { return true; } 
 
-static_assert(is_c<void>(), "");
-
-int main() {}
+static_assert(is_c<void>(), ""); // { dg-error "cannot call|invalid parameter" }

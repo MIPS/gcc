@@ -1,4 +1,13 @@
-2019-05-14  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2019-05-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Disallow void constraint varaibles.
+	* constraint.cc (check_constaint_variables): New.
+	(tsubst_constraint_variables): Check that type substitutions are
+	okay.
+	* cp-tree.h (tsubst_function_parms): New.
+	* pt.c (tsubst_function_parms): New.
+
+2019-05-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Implement constrained decltype(auto).
 	* decl.c (finish_function): Only do auto deduction if we haven't

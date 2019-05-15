@@ -1,5 +1,10 @@
 2019-05-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Disallow void constraint varaibles.
+	* g++.dg/cpp2a/concepts-pr66844.C: Update diagnostics.
+
+2019-05-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Add test for C++20 concepts.
 	* g++.dg/cpp2a/concepts-dr1430.C: New. Extends concepts/dr1430.C
 	for standard concepts.

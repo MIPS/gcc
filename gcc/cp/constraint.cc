@@ -1467,6 +1467,23 @@ declare_constraint_vars (tree parms, tree vars)
   return vars;
 }
 
+/* Substitute through as if checking function parameter types. This
+   will diagnose common parameter type errors.  Returns error_mark_node
+   if an error occurred.  */
+
+static tree
+check_constaint_variables(tree t, tree args, subst_info info)
+{
+  tree types = NULL_TREE;
+  tree p = t;
+  while (p && !VOID_TYPE_P (p)) {
+    types = tree_cons (NULL_TREE, TREE_TYPE (p), types);
+    p = TREE_CHAIN (p);
+  }
+  types = chainon (nreverse (types), void_list_node);
+  return tsubst_function_parms (types, args, info.complain, info.in_decl);
+}
+
 /* A subroutine of tsubst_parameterized_constraint. Substitute ARGS
    into the parameter list T, producing a sequence of constraint
    variables, declared in the current scope.
@@ -1478,6 +1495,11 @@ declare_constraint_vars (tree parms, tree vars)
 static tree
 tsubst_constraint_variables (tree t, tree args, subst_info info)
 {
+  /* Perform a trial substitution to check for type errors.  */
+  tree parms = check_constaint_variables (t, args, info);
+  if (parms == error_mark_node)
+    return error_mark_node;
+
   /* Clear cp_unevaluated_operand across tsubst so that we get a proper chain
      of PARM_DECLs.  */
   int saved_unevaluated_operand = cp_unevaluated_operand;
