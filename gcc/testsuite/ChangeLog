@@ -1,9 +1,14 @@
-2019-05-09  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2019-05-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Add test for C++20 concepts.
+	* g++.dg/cpp2a/concepts-dr1430.C: New. Extends concepts/dr1430.C
+	for standard concepts.
+
+2019-05-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	* g++.dg/cpp2a/concepts-alias.C: Update compile directive.
 	* g++.dg/cpp2a/concepts-ts1.C: Update compile directive.
 	* g++.dg/cpp2a/concepts-decltype.C: New.
-
 
 2019-05-09  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
