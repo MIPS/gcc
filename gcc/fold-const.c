@@ -7726,11 +7726,11 @@ native_decode_vector_tree (tree type, vec<unsigned char> bytes,
   tree_vector_builder builder (type, npatterns, nelts_per_pattern);
   tree elt_type = TREE_TYPE (type);
   unsigned int elt_bits = tree_to_uhwi (TYPE_SIZE (elt_type));
-  if (elt_bits < BITS_PER_UNIT)
+  if (VECTOR_BOOLEAN_TYPE_P (type) && elt_bits <= BITS_PER_UNIT)
     {
       /* This is the only case in which elements can be smaller than a byte.
 	 Element 0 is always in the lsb of the containing byte.  */
-      gcc_assert (VECTOR_BOOLEAN_TYPE_P (type));
+      elt_bits = TYPE_PRECISION (elt_type);
       for (unsigned int i = 0; i < builder.encoded_nelts (); ++i)
 	{
 	  unsigned int bit_index = first_byte * BITS_PER_UNIT + i * elt_bits;

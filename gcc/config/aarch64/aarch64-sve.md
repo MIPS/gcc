@@ -90,8 +90,7 @@
 
     if (CONSTANT_P (operands[1]))
       {
-	aarch64_expand_mov_immediate (operands[0], operands[1],
-				      gen_vec_duplicate<mode>);
+	aarch64_expand_mov_immediate (operands[0], operands[1]);
 	DONE;
       }
 
@@ -1122,6 +1121,39 @@
   [(set_attr "length" "4,4,8")]
 )
 
+;; Duplicate an Advanced SIMD vector to fill an SVE vector (LE version).
+(define_insn "@aarch64_vec_duplicate_vq<mode>_le"
+  [(set (match_operand:SVE_ALL 0 "register_operand" "=w")
+	(vec_duplicate:SVE_ALL
+	  (match_operand:<V128> 1 "register_operand" "w")))]
+  "TARGET_SVE && !BYTES_BIG_ENDIAN"
+  {
+    operands[1] = gen_rtx_REG (<MODE>mode, REGNO (operands[1]));
+    return "dup\t%0.q, %1.q[0]";
+  }
+)
+
+;; Duplicate an Advanced SIMD vector to fill an SVE vector (BE version).
+;; The SVE register layout puts memory lane N into (architectural)
+;; register lane N, whereas the Advanced SIMD layout puts the memory
+;; lsb into the register lsb.  We therefore have to describe this in rtl
+;; terms as a reverse of the V128 vector followed by a duplicate.
+(define_insn "@aarch64_vec_duplicate_vq<mode>_be"
+  [(set (match_operand:SVE_ALL 0 "register_operand" "=w")
+	(vec_duplicate:SVE_ALL
+	  (vec_select:<V128>
+	    (match_operand:<V128> 1 "register_operand" "w")
+	    (match_operand 2 "descending_int_parallel"))))]
+  "TARGET_SVE
+   && BYTES_BIG_ENDIAN
+   && known_eq (INTVAL (XVECEXP (operands[2], 0, 0)),
+		GET_MODE_NUNITS (<V128>mode) - 1)"
+  {
+    operands[1] = gen_rtx_REG (<MODE>mode, REGNO (operands[1]));
+    return "dup\t%0.q, %1.q[0]";
+  }
+)
+
 ;; This is used for vec_duplicate<mode>s from memory, but can also
 ;; be used by combine to optimize selects of a a vec_duplicate<mode>
 ;; with zero.
@@ -2023,7 +2055,7 @@
 )
 
 ;; Predicated predicate AND, ORR and XOR.
-(define_insn "aarch64_pred_<optab><mode>_z"
+(define_insn "@aarch64_pred_<optab><mode>_z"
   [(set (match_operand:PRED_ALL 0 "register_operand" "=Upa")
 	(and:PRED_ALL
 	  (LOGICAL:PRED_ALL

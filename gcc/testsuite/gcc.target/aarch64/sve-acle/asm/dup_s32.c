@@ -32,8 +32,8 @@ TEST_UNIFORM_Z (dup_128_s32, svint32_t,
 
 /*
 ** dup_129_s32:
-**	mov	(w[0-9]+), 129
-**	mov	z0\.s, \1
+**	movi	v([0-9]+)\.4s, 0x81
+**	dup	z0\.q, z\1\.q\[0\]
 **	ret
 */
 TEST_UNIFORM_Z (dup_129_s32, svint32_t,
@@ -42,8 +42,8 @@ TEST_UNIFORM_Z (dup_129_s32, svint32_t,
 
 /*
 ** dup_253_s32:
-**	mov	(w[0-9]+), 253
-**	mov	z0\.s, \1
+**	movi	v([0-9]+)\.4s, 0xfd
+**	dup	z0\.q, z\1\.q\[0\]
 **	ret
 */
 TEST_UNIFORM_Z (dup_253_s32, svint32_t,
@@ -172,8 +172,8 @@ TEST_UNIFORM_Z (dup_m129_s32, svint32_t,
 
 /*
 ** dup_m130_s32:
-**	mov	(w[0-9]+), -130
-**	mov	z0\.s, \1
+**	mvni	v([0-9]+)\.4s, 0x81
+**	dup	z0\.q, z\1\.q\[0\]
 **	ret
 */
 TEST_UNIFORM_Z (dup_m130_s32, svint32_t,
@@ -182,8 +182,8 @@ TEST_UNIFORM_Z (dup_m130_s32, svint32_t,
 
 /*
 ** dup_m254_s32:
-**	mov	(w[0-9]+), -254
-**	mov	z0\.s, \1
+**	mvni	v([0-9]+)\.4s, 0xfd
+**	dup	z0\.q, z\1\.q\[0\]
 **	ret
 */
 TEST_UNIFORM_Z (dup_m254_s32, svint32_t,
@@ -925,8 +925,8 @@ TEST_UNIFORM_Z (dup_128_s32_x, svint32_t,
 
 /*
 ** dup_129_s32_x:
-**	mov	(w[0-9]+), 129
-**	mov	z0\.s, \1
+**	movi	v([0-9]+)\.4s, 0x81
+**	dup	z0\.q, z\1\.q\[0\]
 **	ret
 */
 TEST_UNIFORM_Z (dup_129_s32_x, svint32_t,
@@ -935,8 +935,8 @@ TEST_UNIFORM_Z (dup_129_s32_x, svint32_t,
 
 /*
 ** dup_253_s32_x:
-**	mov	(w[0-9]+), 253
-**	mov	z0\.s, \1
+**	movi	v([0-9]+)\.4s, 0xfd
+**	dup	z0\.q, z\1\.q\[0\]
 **	ret
 */
 TEST_UNIFORM_Z (dup_253_s32_x, svint32_t,
@@ -1065,8 +1065,8 @@ TEST_UNIFORM_Z (dup_m129_s32_x, svint32_t,
 
 /*
 ** dup_m130_s32_x:
-**	mov	(w[0-9]+), -130
-**	mov	z0\.s, \1
+**	mvni	v([0-9]+)\.4s, 0x81
+**	dup	z0\.q, z\1\.q\[0\]
 **	ret
 */
 TEST_UNIFORM_Z (dup_m130_s32_x, svint32_t,
@@ -1075,8 +1075,8 @@ TEST_UNIFORM_Z (dup_m130_s32_x, svint32_t,
 
 /*
 ** dup_m254_s32_x:
-**	mov	(w[0-9]+), -254
-**	mov	z0\.s, \1
+**	mvni	v([0-9]+)\.4s, 0xfd
+**	dup	z0\.q, z\1\.q\[0\]
 **	ret
 */
 TEST_UNIFORM_Z (dup_m254_s32_x, svint32_t,

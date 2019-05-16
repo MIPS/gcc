@@ -1746,7 +1746,9 @@ simplify_const_unary_operation (enum rtx_code code, machine_mode mode,
 	}
     }
 
-  if (VECTOR_MODE_P (mode) && GET_CODE (op) == CONST_VECTOR)
+  if (VECTOR_MODE_P (mode)
+      && GET_CODE (op) == CONST_VECTOR
+      && known_eq (GET_MODE_NUNITS (mode), CONST_VECTOR_NUNITS (op)))
     {
       gcc_assert (GET_MODE (op) == op_mode);
 

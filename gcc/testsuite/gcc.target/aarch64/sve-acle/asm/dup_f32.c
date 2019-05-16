@@ -32,8 +32,8 @@ TEST_UNIFORM_Z (dup_8_f32, svfloat32_t,
 
 /*
 ** dup_512_f32:
-**	movi	v([0-9]+).2s, 0x44, lsl 24
-**	mov	z0\.s, s\1
+**	movi	v([0-9]+).4s, 0x44, lsl 24
+**	dup	z0\.q, z0\.q\[0\]
 **	ret
 */
 TEST_UNIFORM_Z (dup_512_f32, svfloat32_t,
@@ -42,9 +42,8 @@ TEST_UNIFORM_Z (dup_512_f32, svfloat32_t,
 
 /*
 ** dup_513_f32:
-**	mov	(w[0-7]+), 16384
-**	movk	\1, 0x4400, lsl 16
-**	mov	z0\.s, \1
+**	...
+**	ld1rw	z0\.s, p[0-7]/z, \[x[0-9]+\]
 **	ret
 */
 TEST_UNIFORM_Z (dup_513_f32, svfloat32_t,
@@ -215,8 +214,8 @@ TEST_UNIFORM_Z (dup_8_f32_x, svfloat32_t,
 
 /*
 ** dup_512_f32_x:
-**	movi	v([0-9]+)\.2s, 0x44, lsl 24
-**	mov	z0\.s, s\1
+**	movi	v([0-9]+).4s, 0x44, lsl 24
+**	dup	z0\.q, z0\.q\[0\]
 **	ret
 */
 TEST_UNIFORM_Z (dup_512_f32_x, svfloat32_t,
@@ -225,9 +224,8 @@ TEST_UNIFORM_Z (dup_512_f32_x, svfloat32_t,
 
 /*
 ** dup_513_f32_x:
-**	mov	(w[0-7]+), 16384
-**	movk	\1, 0x4400, lsl 16
-**	mov	z0\.s, \1
+**	...
+**	ld1rw	z0\.s, p[0-7]/z, \[x[0-9]+\]
 **	ret
 */
 TEST_UNIFORM_Z (dup_513_f32_x, svfloat32_t,

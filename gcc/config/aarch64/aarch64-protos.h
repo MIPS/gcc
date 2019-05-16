@@ -454,6 +454,8 @@ unsigned HOST_WIDE_INT aarch64_and_split_imm2 (HOST_WIDE_INT val_in);
 bool aarch64_and_bitmask_imm (unsigned HOST_WIDE_INT val_in, machine_mode mode);
 int aarch64_branch_cost (bool, bool);
 enum aarch64_symbol_type aarch64_classify_symbolic_expression (rtx);
+opt_machine_mode aarch64_vq_mode (scalar_mode);
+opt_machine_mode aarch64_full_sve_mode (scalar_mode);
 bool aarch64_can_const_movi_rtx_p (rtx x, machine_mode mode);
 bool aarch64_const_vec_all_same_int_p (rtx, HOST_WIDE_INT);
 bool aarch64_const_vec_all_same_in_range_p (rtx, HOST_WIDE_INT,
@@ -477,12 +479,12 @@ bool aarch64_legitimate_pic_operand_p (rtx);
 bool aarch64_mask_and_shift_for_ubfiz_p (scalar_int_mode, rtx, rtx);
 bool aarch64_zero_extend_const_eq (machine_mode, rtx, machine_mode, rtx);
 bool aarch64_move_imm (HOST_WIDE_INT, machine_mode);
+scalar_int_mode aarch64_sve_element_int_mode (machine_mode);
+machine_mode aarch64_sve_int_mode (machine_mode);
 opt_machine_mode aarch64_sve_pred_mode (unsigned int);
 opt_machine_mode aarch64_sve_data_mode (scalar_mode, poly_uint64);
 bool aarch64_sve_mode_p (machine_mode);
 bool aarch64_svpattern_immediate_p (HOST_WIDE_INT);
-aarch64_svpattern aarch64_svpattern_for_vl (machine_mode, unsigned int);
-aarch64_svpattern aarch64_svpattern_for_rtx (machine_mode, rtx);
 HOST_WIDE_INT aarch64_fold_sve_cnt_pat (aarch64_svpattern, unsigned int);
 bool aarch64_sve_cnt_immediate_p (rtx);
 bool aarch64_sve_scalar_inc_dec_immediate_p (rtx);
@@ -513,6 +515,9 @@ bool aarch64_simd_check_vect_par_cnst_half (rtx op, machine_mode mode,
 bool aarch64_simd_scalar_immediate_valid_for_move (rtx, scalar_int_mode);
 bool aarch64_simd_shift_imm_p (rtx, machine_mode, bool);
 bool aarch64_sve_ptrue_svpattern_p (rtx, struct simd_immediate_info *);
+bool aarch64_advsimd_valid_immediate (unsigned HOST_WIDE_INT,
+				      simd_immediate_info *,
+				      simd_immediate_check = AARCH64_CHECK_MOV);
 bool aarch64_simd_valid_immediate (rtx, struct simd_immediate_info *,
 			enum simd_immediate_check w = AARCH64_CHECK_MOV);
 rtx aarch64_check_zero_based_sve_index_immediate (rtx);
@@ -552,6 +557,8 @@ bool aarch64_sve_ldnf1_operand_p (rtx);
 bool aarch64_sve_ldr_operand_p (rtx);
 bool aarch64_sve_struct_memory_operand_p (rtx);
 rtx aarch64_simd_vect_par_cnst_half (machine_mode, int, bool);
+rtx aarch64_gen_stepped_int_parallel (unsigned int, int, int);
+bool aarch64_stepped_int_parallel_p (rtx, int);
 rtx aarch64_tls_get_addr (void);
 unsigned aarch64_dbx_register_number (unsigned);
 unsigned aarch64_trampoline_size (void);
@@ -566,8 +573,10 @@ machine_mode aarch64_widest_sve_pred_mode (rtx);
 rtx aarch64_ptrue_all (unsigned int);
 opt_machine_mode aarch64_ptrue_all_mode (rtx);
 int aarch64_partial_ptrue_length (machine_mode, rtx);
+rtx aarch64_convert_sve_data_to_pred (rtx, machine_mode, rtx);
+rtx aarch64_expand_sve_dupq (rtx, machine_mode, rtx);
 bool aarch64_move_float_via_int_p (rtx);
-void aarch64_expand_mov_immediate (rtx, rtx, rtx (*) (rtx, rtx) = 0);
+void aarch64_expand_mov_immediate (rtx, rtx);
 void aarch64_emit_sve_pred_move (rtx, rtx, rtx);
 void aarch64_expand_sve_mem_move (rtx, rtx, machine_mode);
 bool aarch64_maybe_expand_sve_subreg_move (rtx, rtx);

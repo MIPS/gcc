@@ -181,6 +181,12 @@ enum function_shape {
   /* sv<t0>x4_t svfoo[_t0](sv<t0>_t, sv<t0>_t, sv<t0>_t, sv<t0>_t).  */
   SHAPE_create4,
 
+  /* sv<t0>_t svdupq_t0(<t0>_t, ..., <t0>_t)
+
+     where there are enough arguments to fill 128 bits of data (or to
+     control 128 bits of data in the case of predicates).  */
+  SHAPE_dupq,
+
   /* <t0>_t svfoo[_t0](<t0>_t, sv<t0>_t).  */
   SHAPE_fold_left,
 
@@ -547,6 +553,8 @@ struct GTY(()) function_instance {
   tree wide_vector_type (unsigned int i) const;
   tree wide_scalar_type (unsigned int i) const;
 
+  unsigned int nelts_per_vq (unsigned int i) const;
+
   /* The explicit "enum"s are required for gengtype.  */
   enum function func;
   enum function_shape shape;
@@ -636,6 +644,7 @@ private:
   void sig_create (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_count (const function_instance &, vec<tree> &);
+  void sig_dupq (const function_instance &, vec<tree> &);
   void sig_fold_left (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_get (const function_instance &, vec<tree> &);
@@ -838,6 +847,8 @@ private:
   gimple *fold_cnt_bhwd ();
   gimple *fold_cnt_bhwd_pat ();
   gimple *fold_create ();
+  gimple *fold_dup ();
+  gimple *fold_dupq ();
   gimple *fold_get ();
   gimple *fold_ld1 ();
   gimple *fold_ld234 ();
@@ -909,6 +920,7 @@ private:
   rtx expand_dot ();
   rtx expand_dot_lane ();
   rtx expand_dup ();
+  rtx expand_dupq ();
   rtx expand_eor ();
   rtx expand_ext_bhw ();
   rtx expand_get ();
@@ -1801,6 +1813,14 @@ function_instance::wide_scalar_type (unsigned int i) const
   return scalar_types[wide_type_for (type_suffixes[types[i]].type)];
 }
 
+/* Return the number of elements of type suffix I that fit within a
+   128-bit block.  */
+unsigned int
+function_instance::nelts_per_vq (unsigned int i) const
+{
+  return 128 / type_suffixes[types[i]].elem_bits;
+}
+
 inline hashval_t
 registered_function_hasher::hash (value_type value)
 {
@@ -1972,6 +1992,10 @@ arm_sve_h_builder::build (const function_group &group)
     case SHAPE_create4:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_create<4>, group, MODE_none);
+      break;
+
+    case SHAPE_dupq:
+      build_all (&arm_sve_h_builder::sig_dupq, group, MODE_n, true);
       break;
 
     case SHAPE_fold_left:
@@ -2421,7 +2445,8 @@ arm_sve_h_builder::build_one (function_signature signature,
 			      unsigned int ti, unsigned int pi,
 			      bool force_direct_overloads)
 {
-  auto_vec<tree, 10> types;
+  /* Byte forms of svdupq take 16 arguments.  Add 1 for the return type.  */
+  auto_vec<tree, 17> types;
   function_instance instance (group.func, group.shape, mode,
 			      group.types[ti], group.preds[pi]);
   (this->*signature) (instance, types);
@@ -2519,6 +2544,20 @@ arm_sve_h_builder::sig_count (const function_instance &instance,
   types.quick_push (instance.unsigned_vector_type (0));
   for (unsigned int i = 0; i < N; ++i)
     types.quick_push (instance.vector_type (0));
+}
+
+/* Describe the signature "sv<t0>_t svdupq_t0(<t0>_t, ..., <t0>_t)"
+   for INSTANCE in TYPES, where there are enough arguments to fill
+   128 bits of data (or to control 128 bits of data in the case of
+   predicates).  */
+void
+arm_sve_h_builder::sig_dupq (const function_instance &instance,
+			     vec<tree> &types)
+{
+  types.quick_push (instance.vector_type (0));
+  unsigned int nelts_per_vq = instance.nelts_per_vq (0);
+  for (unsigned int i = 0; i < nelts_per_vq; ++i)
+    types.quick_push (instance.scalar_type (0));
 }
 
 /* Describe the signature "<t0>_t svfoo[_t0](<t0>_t, sv<t0>_t)" for
@@ -3236,6 +3275,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svcreate3:
     case FUNC_svcreate4:
     case FUNC_svdup:
+    case FUNC_svdupq:
     case FUNC_svextb:
     case FUNC_svexth:
     case FUNC_svextw:
@@ -3398,6 +3438,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_binary_pred:
     case SHAPE_binary_scalar:
     case SHAPE_compare_scalar:
+    case SHAPE_dupq:
     case SHAPE_inherent:
     case SHAPE_inherent2:
     case SHAPE_inherent3:
@@ -3531,6 +3572,10 @@ function_resolver::resolve ()
       return resolve_create (3);
     case SHAPE_create4:
       return resolve_create (4);
+    case SHAPE_dupq:
+    case SHAPE_unary_n:
+      /* All overloading does here is make the "_n" implicit.  */
+      return NULL_TREE;
     case SHAPE_fold_left:
       return resolve_fold_left ();
     case SHAPE_get2:
@@ -3600,8 +3645,6 @@ function_resolver::resolve ()
     case SHAPE_reduction:
     case SHAPE_reduction_wide:
       return resolve_uniform (1);
-    case SHAPE_unary_n:
-      return NULL_TREE;
     }
   gcc_unreachable ();
 }
@@ -4598,6 +4641,7 @@ function_checker::check ()
     case SHAPE_create2:
     case SHAPE_create3:
     case SHAPE_create4:
+    case SHAPE_dupq:
     case SHAPE_fold_left:
     case SHAPE_inc_dec_pred:
     case SHAPE_inc_dec_pred_n:
@@ -5021,7 +5065,6 @@ gimple_folder::fold ()
     case FUNC_svdivr:
     case FUNC_svdot:
     case FUNC_svdot_lane:
-    case FUNC_svdup:
     case FUNC_sveor:
     case FUNC_sveorv:
     case FUNC_svextb:
@@ -5157,6 +5200,12 @@ gimple_folder::fold ()
     case FUNC_svcreate4:
       return fold_create ();
 
+    case FUNC_svdup:
+      return fold_dup ();
+
+    case FUNC_svdupq:
+      return fold_dupq ();
+
     case FUNC_svget2:
     case FUNC_svget3:
     case FUNC_svget4:
@@ -5274,6 +5323,47 @@ gimple_folder::fold_create ()
 			GSI_SAME_STMT);
     }
   return assign;
+}
+
+/* Fold a call to svdup.  */
+gimple *
+gimple_folder::fold_dup ()
+{
+  tree vec_type = TREE_TYPE (m_lhs);
+  tree elt = gimple_call_arg (m_call, m_fi.pred == PRED_none ? 0 : 1);
+
+  if ((m_fi.pred == PRED_none || m_fi.pred == PRED_x)
+      && CONSTANT_CLASS_P (elt))
+    return gimple_build_assign (m_lhs, build_vector_from_val (vec_type, elt));
+
+  /* Avoid folding away the predicate for _x, since we'll need it later.  */
+  if (m_fi.pred == PRED_none)
+    return gimple_build_assign (m_lhs, VEC_DUPLICATE_EXPR, elt);
+
+  return NULL;
+}
+
+/* Fold a call to svdupq.  */
+gimple *
+gimple_folder::fold_dupq ()
+{
+  tree vec_type = TREE_TYPE (m_lhs);
+  unsigned int nargs = gimple_call_num_args (m_call);
+  /* For predicates, pad out each argument so that we have one element
+     per bit.  */
+  unsigned int factor = (type_suffixes[m_fi.types[0]].bool_p
+			 ? type_suffixes[m_fi.types[0]].elem_bytes : 1);
+  tree_vector_builder builder (vec_type, nargs * factor, 1);
+  for (unsigned int i = 0; i < nargs; ++i)
+    {
+      tree elt = gimple_call_arg (m_call, i);
+      if (!CONSTANT_CLASS_P (elt))
+	return NULL;
+      builder.quick_push (elt);
+      for (unsigned int j = 1; j < factor; ++j)
+	builder.quick_push (build_zero_cst (TREE_TYPE (vec_type)));
+    }
+  return gimple_build_assign (m_lhs, builder.build ());
 }
 
 /* Fold a call to svget.  */
@@ -5818,6 +5908,9 @@ function_expander::expand ()
 
     case FUNC_svdup:
       return expand_dup ();
+
+    case FUNC_svdupq:
+      return expand_dupq ();
 
     case FUNC_sveor:
       return expand_eor ();
@@ -6488,6 +6581,47 @@ function_expander::expand_dup ()
 	icode = code_for_aarch64_sel_dup (get_mode (0));
       return expand_via_sel_insn (icode);
     }
+}
+
+/* Expand a call to svdup.  */
+rtx
+function_expander::expand_dupq ()
+{
+  machine_mode mode = get_mode (0);
+  unsigned int nelts_per_vq = m_args.length ();
+  if (GET_MODE_CLASS (mode) == MODE_VECTOR_BOOL)
+    {
+      /* Construct a vector of integers so that we can compare them against
+	 zero below.  Zero vs. nonzero is the only distinction that
+	 matters.  */
+      mode = aarch64_sve_int_mode (mode);
+      for (unsigned int i = 0; i < nelts_per_vq; ++i)
+	m_args[i] = simplify_gen_unary (ZERO_EXTEND, GET_MODE_INNER (mode),
+					m_args[i], QImode);
+    }
+
+  /* Get the 128-bit Advanced SIMD vector for this data size.  */
+  scalar_mode elt_mode = GET_MODE_INNER (mode);
+  machine_mode vq_mode = aarch64_vq_mode (elt_mode).require ();
+  gcc_assert (known_eq (nelts_per_vq, GET_MODE_NUNITS (vq_mode)));
+
+  /* Put the arguments into a 128-bit Advanced SIMD vector.  We want
+     argument N to go into architectural lane N, whereas Advanced SIMD
+     vectors are loaded memory lsb to register lsb.  We therefore need
+     to reverse the elements for big-endian targets.  */
+  rtx tmp = gen_reg_rtx (vq_mode);
+  rtvec vec = rtvec_alloc (nelts_per_vq);
+  for (unsigned int i = 0; i < nelts_per_vq; ++i)
+    RTVEC_ELT (vec, i) = m_args[BYTES_BIG_ENDIAN ? nelts_per_vq - i - 1 : i];
+  aarch64_expand_vector_init (tmp, gen_rtx_PARALLEL (vq_mode, vec));
+
+  /* Build the SVE data vector.  */
+  rtx res = aarch64_expand_sve_dupq (m_target, mode, tmp);
+
+  /* If the result is a boolean, compare the data vector against zero.  */
+  if (mode != get_mode (0))
+    res = aarch64_convert_sve_data_to_pred (m_target, get_mode (0), res);
+  return res;
 }
 
 /* Expand a call to sveor.  */

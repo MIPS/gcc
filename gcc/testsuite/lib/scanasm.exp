@@ -676,6 +676,8 @@ proc check-function-bodies { args } {
 		append function_regexp "|"
 	    } elseif { [string equal $line ")"] } {
 		append function_regexp ")"
+	    } elseif { [string equal $line "..."] } {
+		append function_regexp ".*"
 	    } else {
 		append function_regexp "\t" $line "\n"
 	    }

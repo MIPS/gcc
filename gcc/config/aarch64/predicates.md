@@ -449,6 +449,12 @@
   return aarch64_simd_check_vect_par_cnst_half (op, mode, false);
 })
 
+(define_predicate "descending_int_parallel"
+  (match_code "parallel")
+{
+  return aarch64_stepped_int_parallel_p (op, -1);
+})
+
 (define_special_predicate "aarch64_simd_lshift_imm"
   (match_code "const,const_vector")
 {

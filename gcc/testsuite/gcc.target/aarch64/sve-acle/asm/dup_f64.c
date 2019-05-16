@@ -42,9 +42,8 @@ TEST_UNIFORM_Z (dup_512_f64, svfloat64_t,
 
 /*
 ** dup_513_f64:
-**	mov	(x[0-7]+), 8796093022208
-**	movk	\1, 0x4080, lsl 48
-**	mov	z0\.d, \1
+**	...
+**	ld1rd	z0\.d, p[0-7]/z, \[x[0-9+]\]
 **	ret
 */
 TEST_UNIFORM_Z (dup_513_f64, svfloat64_t,
@@ -225,9 +224,8 @@ TEST_UNIFORM_Z (dup_512_f64_x, svfloat64_t,
 
 /*
 ** dup_513_f64_x:
-**	mov	(x[0-7]+), 8796093022208
-**	movk	\1, 0x4080, lsl 48
-**	mov	z0\.d, \1
+**	...
+**	ld1rd	z0\.d, p[0-7]/z, \[x[0-9+]\]
 **	ret
 */
 TEST_UNIFORM_Z (dup_513_f64_x, svfloat64_t,
