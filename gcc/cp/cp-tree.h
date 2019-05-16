@@ -482,7 +482,6 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
    5: CLASS_TYPE_P (in RECORD_TYPE and UNION_TYPE)
       ENUM_FIXED_UNDERLYING_TYPE_P (in ENUMERAL_TYPE)
       AUTO_IS_DECLTYPE (in TEMPLATE_TYPE_PARM)
-      REFERENCE_VLA_OK (in REFERENCE_TYPE)
    6: TYPE_DEPENDENT_P_VALID
 
    Usage of DECL_LANG_FLAG_?:
@@ -890,15 +889,25 @@ struct releasing_vec
   vec_t *operator-> () const { return v; }
   vec_t *get() const { return v; }
   operator vec_t *() const { return v; }
-  tree& operator[] (unsigned i) const { return (*v)[i]; }
+  vec_t ** operator& () { return &v; }
 
-  /* Necessary for use with vec** and vec*& interfaces.  */
-  vec_t *&get_ref () { return v; }
+  /* Breaks pointer/value consistency for convenience.  */
+  tree& operator[] (unsigned i) const { return (*v)[i]; }
 
   ~releasing_vec() { release_tree_vector (v); }
 private:
   vec_t *v;
 };
+/* Forwarding functions for vec_safe_* that might reallocate.  */
+inline tree* vec_safe_push (releasing_vec& r, const tree &t CXX_MEM_STAT_INFO)
+{ return vec_safe_push (*&r, t PASS_MEM_STAT); }
+inline bool vec_safe_reserve (releasing_vec& r, unsigned n, bool e = false CXX_MEM_STAT_INFO)
+{ return vec_safe_reserve (*&r, n, e PASS_MEM_STAT); }
+inline unsigned vec_safe_length (releasing_vec &r)
+{ return r->length(); }
+inline void vec_safe_splice (releasing_vec &r, vec<tree, va_gc> *p CXX_MEM_STAT_INFO)
+{ vec_safe_splice (*&r, p PASS_MEM_STAT); }
+void release_tree_vector (releasing_vec &); // cause link error
 
 struct GTY(()) tree_template_decl {
   struct tree_decl_common common;
@@ -1813,7 +1822,6 @@ struct GTY(()) language_function {
   tree x_in_charge_parm;
   tree x_vtt_parm;
   tree x_return_value;
-  tree x_auto_return_pattern;
 
   BOOL_BITFIELD returns_value : 1;
   BOOL_BITFIELD returns_null : 1;
@@ -1908,11 +1916,6 @@ struct GTY(()) language_function {
 
 #define current_function_return_value \
   (cp_function_chain->x_return_value)
-
-/* A type involving 'auto' to be used for return type deduction.  */
-
-#define current_function_auto_return_pattern \
-  (cp_function_chain->x_auto_return_pattern)
 
 /* In parser.c.  */
 extern tree cp_literal_operator_id (const char *);
@@ -2654,8 +2657,7 @@ struct GTY(()) lang_decl_fn {
   union lang_decl_u3
   {
     struct cp_token_cache * GTY ((tag ("1"))) pending_inline_info;
-    struct language_function * GTY ((tag ("0")))
-      saved_language_function;
+    tree GTY ((tag ("0"))) saved_auto_return_type;
   } GTY ((desc ("%1.pending_inline_p"))) u;
 
 };
@@ -3700,21 +3702,16 @@ struct GTY(()) lang_decl {
 #define FOLD_EXPR_INIT(NODE) \
   TREE_OPERAND (BINARY_FOLD_EXPR_CHECK (NODE), 2)
 
-/* In a FUNCTION_DECL, the saved language-specific per-function data.  */
-#define DECL_SAVED_FUNCTION_DATA(NODE)			\
+/* In a FUNCTION_DECL, the saved auto-return pattern.  */
+#define DECL_SAVED_AUTO_RETURN_TYPE(NODE)		\
   (LANG_DECL_FN_CHECK (FUNCTION_DECL_CHECK (NODE))	\
-   ->u.saved_language_function)
+   ->u.saved_auto_return_type)
 
 /* True if NODE is an implicit INDIRECT_REF from convert_from_reference.  */
 #define REFERENCE_REF_P(NODE)				\
   (INDIRECT_REF_P (NODE)				\
    && TREE_TYPE (TREE_OPERAND (NODE, 0))		\
    && TYPE_REF_P (TREE_TYPE (TREE_OPERAND ((NODE), 0))))
-
-/* True if NODE is a REFERENCE_TYPE which is OK to instantiate to be a
-   reference to VLA type, because it's used for VLA capture.  */
-#define REFERENCE_VLA_OK(NODE) \
-  (TYPE_LANG_FLAG_5 (REFERENCE_TYPE_CHECK (NODE)))
 
 #define NEW_EXPR_USE_GLOBAL(NODE) \
   TREE_LANG_FLAG_0 (NEW_EXPR_CHECK (NODE))
@@ -3934,7 +3931,7 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 /* True if NODE was declared with auto in its return type, but it has
    started compilation and so the return type might have been changed by
    return type deduction; its declared return type should be found in
-   DECL_STRUCT_FUNCTION(NODE)->language->x_auto_return_pattern.  */
+   DECL_SAVED_AUTO_RETURN_TYPE (NODE).   */
 #define FNDECL_USED_AUTO(NODE) \
   TREE_LANG_FLAG_2 (FUNCTION_DECL_CHECK (NODE))
 
@@ -4349,8 +4346,7 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 #define TYPE_OBJ_P(NODE)			\
   (!TYPE_REF_P (NODE)				\
    && !VOID_TYPE_P (NODE)  		        \
-   && TREE_CODE (NODE) != FUNCTION_TYPE		\
-   && TREE_CODE (NODE) != METHOD_TYPE)
+   && !FUNC_OR_METHOD_TYPE_P (NODE))
 
 /* Returns true if NODE is a pointer to an object.  Keep these checks
    in ascending tree code order.  */
@@ -4366,8 +4362,7 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
    void.  Keep these checks in ascending tree code order.  */
 #define TYPE_PTROBV_P(NODE)					\
   (TYPE_PTR_P (NODE)						\
-   && !(TREE_CODE (TREE_TYPE (NODE)) == FUNCTION_TYPE		\
-	|| TREE_CODE (TREE_TYPE (NODE)) == METHOD_TYPE))
+   && !FUNC_OR_METHOD_TYPE_P (TREE_TYPE (NODE)))
 
 /* Returns true if NODE is a pointer to function type.  */
 #define TYPE_PTRFN_P(NODE)				\

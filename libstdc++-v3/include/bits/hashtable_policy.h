@@ -460,7 +460,7 @@ namespace __detail
     // Return a bucket count appropriate for n elements
     std::size_t
     _M_bkt_for_elements(std::size_t __n) const
-    { return __builtin_ceil(__n / (long double)_M_max_load_factor); }
+    { return __builtin_ceill(__n / (long double)_M_max_load_factor); }
 
     // __n_bkt is current bucket count, __n_elt is current element count,
     // and __n_ins is number of elements to be inserted.  Do we need to
@@ -535,24 +535,32 @@ namespace __detail
     std::size_t
     _M_next_bkt(std::size_t __n) noexcept
     {
+      if (__n == 0)
+	// Special case on container 1st initialization with 0 bucket count
+	// hint. We keep _M_next_resize to 0 to make sure that next time we
+	// want to add an element allocation will take place.
+	return 1;
+
       const auto __max_width = std::min<size_t>(sizeof(size_t), 8);
       const auto __max_bkt = size_t(1) << (__max_width * __CHAR_BIT__ - 1);
       std::size_t __res = __clp2(__n);
 
-      if (__res == __n)
-	__res <<= 1;
-
       if (__res == 0)
 	__res = __max_bkt;
+      else if (__res == 1)
+	// If __res is 1 we force it to 2 to make sure there will be an
+	// allocation so that nothing need to be stored in the initial
+	// single bucket
+	__res = 2;
 
       if (__res == __max_bkt)
 	// Set next resize to the max value so that we never try to rehash again
 	// as we already reach the biggest possible bucket number.
 	// Note that it might result in max_load_factor not being respected.
-	_M_next_resize = std::size_t(-1);
+	_M_next_resize = numeric_limits<size_t>::max();
       else
 	_M_next_resize
-	  = __builtin_ceil(__res * (long double)_M_max_load_factor);
+	  = __builtin_floorl(__res * (long double)_M_max_load_factor);
 
       return __res;
     }
@@ -560,7 +568,7 @@ namespace __detail
     // Return a bucket count appropriate for n elements
     std::size_t
     _M_bkt_for_elements(std::size_t __n) const noexcept
-    { return __builtin_ceil(__n / (long double)_M_max_load_factor); }
+    { return __builtin_ceill(__n / (long double)_M_max_load_factor); }
 
     // __n_bkt is current bucket count, __n_elt is current element count,
     // and __n_ins is number of elements to be inserted.  Do we need to
@@ -570,21 +578,25 @@ namespace __detail
     _M_need_rehash(std::size_t __n_bkt, std::size_t __n_elt,
 		   std::size_t __n_ins) noexcept
     {
-      if (__n_elt + __n_ins >= _M_next_resize)
+      if (__n_elt + __n_ins > _M_next_resize)
 	{
-	  long double __min_bkts = (__n_elt + __n_ins)
-					/ (long double)_M_max_load_factor;
+	  // If _M_next_resize is 0 it means that we have nothing allocated so
+	  // far and that we start inserting elements. In this case we start
+	  // with an initial bucket size of 11.
+	  long double __min_bkts
+	    = std::max<std::size_t>(__n_elt + __n_ins, _M_next_resize ? 0 : 11)
+	      / (long double)_M_max_load_factor;
 	  if (__min_bkts >= __n_bkt)
-	    return std::make_pair(true,
-	      _M_next_bkt(std::max<std::size_t>(__builtin_floor(__min_bkts) + 1,
-						__n_bkt * _S_growth_factor)));
+	    return { true,
+	      _M_next_bkt(std::max<std::size_t>(__builtin_floorl(__min_bkts) + 1,
+						__n_bkt * _S_growth_factor)) };
 
 	  _M_next_resize
-	    = __builtin_floor(__n_bkt * (long double)_M_max_load_factor);
-	  return std::make_pair(false, 0);
+	    = __builtin_floorl(__n_bkt * (long double)_M_max_load_factor);
+	  return { false, 0 };
 	}
       else
-	return std::make_pair(false, 0);
+	return { false, 0 };
     }
 
     typedef std::size_t _State;
@@ -1074,7 +1086,7 @@ namespace __detail
       reserve(std::size_t __n)
       {
 	__hashtable* __this = static_cast<__hashtable*>(this);
-	__this->rehash(__builtin_ceil(__n / max_load_factor()));
+	__this->rehash(__this->__rehash_policy()._M_bkt_for_elements(__n));
       }
     };
 
@@ -1217,21 +1229,16 @@ namespace __detail
       void
       _M_swap(_Hash_code_base& __x)
       {
-	std::swap(_M_extract(), __x._M_extract());
-	std::swap(_M_ranged_hash(), __x._M_ranged_hash());
+	std::swap(__ebo_extract_key::_S_get(*this),
+		  __ebo_extract_key::_S_get(__x));
+	std::swap(__ebo_hash::_S_get(*this), __ebo_hash::_S_get(__x));
       }
 
       const _ExtractKey&
       _M_extract() const { return __ebo_extract_key::_S_cget(*this); }
 
-      _ExtractKey&
-      _M_extract() { return __ebo_extract_key::_S_get(*this); }
-
       const _Hash&
       _M_ranged_hash() const { return __ebo_hash::_S_cget(*this); }
-
-      _Hash&
-      _M_ranged_hash() { return __ebo_hash::_S_get(*this); }
     };
 
   // No specialization for ranged hash function while caching hash codes.
@@ -1310,28 +1317,20 @@ namespace __detail
       void
       _M_swap(_Hash_code_base& __x)
       {
-	std::swap(_M_extract(), __x._M_extract());
-	std::swap(_M_h1(), __x._M_h1());
-	std::swap(_M_h2(), __x._M_h2());
+	std::swap(__ebo_extract_key::_S_get(*this),
+		  __ebo_extract_key::_S_get(__x));
+	std::swap(__ebo_h1::_S_get(*this), __ebo_h1::_S_get(__x));
+	std::swap(__ebo_h2::_S_get(*this), __ebo_h2::_S_get(__x));
       }
 
       const _ExtractKey&
       _M_extract() const { return __ebo_extract_key::_S_cget(*this); }
 
-      _ExtractKey&
-      _M_extract() { return __ebo_extract_key::_S_get(*this); }
-
       const _H1&
       _M_h1() const { return __ebo_h1::_S_cget(*this); }
 
-      _H1&
-      _M_h1() { return __ebo_h1::_S_get(*this); }
-
       const _H2&
       _M_h2() const { return __ebo_h2::_S_cget(*this); }
-
-      _H2&
-      _M_h2() { return __ebo_h2::_S_get(*this); }
     };
 
   /// Specialization: hash function and range-hashing function,
@@ -1398,28 +1397,20 @@ namespace __detail
       void
       _M_swap(_Hash_code_base& __x)
       {
-	std::swap(_M_extract(), __x._M_extract());
-	std::swap(_M_h1(), __x._M_h1());
-	std::swap(_M_h2(), __x._M_h2());
+	std::swap(__ebo_extract_key::_S_get(*this),
+		  __ebo_extract_key::_S_get(__x));
+	std::swap(__ebo_h1::_S_get(*this), __ebo_h1::_S_get(__x));
+	std::swap(__ebo_h2::_S_get(*this), __ebo_h2::_S_get(__x));
       }
 
       const _ExtractKey&
       _M_extract() const { return __ebo_extract_key::_S_cget(*this); }
 
-      _ExtractKey&
-      _M_extract() { return __ebo_extract_key::_S_get(*this); }
-
       const _H1&
       _M_h1() const { return __ebo_h1::_S_cget(*this); }
 
-      _H1&
-      _M_h1() { return __ebo_h1::_S_get(*this); }
-
       const _H2&
       _M_h2() const { return __ebo_h2::_S_cget(*this); }
-
-      _H2&
-      _M_h2() { return __ebo_h2::_S_get(*this); }
     };
 
   /**
@@ -1828,14 +1819,11 @@ namespace __detail
     _M_swap(_Hashtable_base& __x)
     {
       __hash_code_base::_M_swap(__x);
-      std::swap(_M_eq(), __x._M_eq());
+      std::swap(_EqualEBO::_S_get(*this), _EqualEBO::_S_get(__x));
     }
 
     const _Equal&
     _M_eq() const { return _EqualEBO::_S_cget(*this); }
-
-    _Equal&
-    _M_eq() { return _EqualEBO::_S_get(*this); }
   };
 
   /**

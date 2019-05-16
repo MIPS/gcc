@@ -62,6 +62,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "selftest.h"
 #include "opts.h"
 #include "asan.h"
+#include "profile.h"
 
 /* This file contains functions for building the Control Flow Graph (CFG)
    for a function tree.  */
@@ -2265,7 +2266,7 @@ remove_bb (basic_block bb)
 		  new_bb = single_succ (new_bb);
 		  gcc_assert (new_bb != bb);
 		}
-	      new_gsi = gsi_start_bb (new_bb);
+	      new_gsi = gsi_after_labels (new_bb);
 	      gsi_remove (&i, false);
 	      gsi_insert_before (&new_gsi, stmt, GSI_NEW_STMT);
 	    }
@@ -4262,8 +4263,17 @@ verify_gimple_assign_ternary (gassign *stmt)
 	}
       if (! ((INTEGRAL_TYPE_P (rhs1_type)
 	      && INTEGRAL_TYPE_P (rhs2_type))
+	     /* Vector element insert.  */
 	     || (VECTOR_TYPE_P (rhs1_type)
-		 && types_compatible_p (TREE_TYPE (rhs1_type), rhs2_type))))
+		 && types_compatible_p (TREE_TYPE (rhs1_type), rhs2_type))
+	     /* Aligned sub-vector insert.  */
+	     || (VECTOR_TYPE_P (rhs1_type)
+		 && VECTOR_TYPE_P (rhs2_type)
+		 && types_compatible_p (TREE_TYPE (rhs1_type),
+					TREE_TYPE (rhs2_type))
+		 && multiple_p (TYPE_VECTOR_SUBPARTS (rhs1_type),
+				TYPE_VECTOR_SUBPARTS (rhs2_type))
+		 && multiple_of_p (bitsizetype, rhs3, TYPE_SIZE (rhs2_type)))))
 	{
 	  error ("not allowed type combination in BIT_INSERT_EXPR");
 	  debug_generic_expr (rhs1_type);
@@ -7872,13 +7882,32 @@ dump_function_to_file (tree fndecl, FILE *file, dump_flags_t flags)
   current_function_decl = fndecl;
   if (flags & TDF_GIMPLE)
     {
+      static bool hotness_bb_param_printed = false;
+      if (profile_info != NULL
+	  && !hotness_bb_param_printed)
+	{
+	  hotness_bb_param_printed = true;
+	  fprintf (file,
+		   "/* --param=gimple-fe-computed-hot-bb-threshold=%" PRId64
+		   " */\n", get_hot_bb_threshold ());
+	}
+
       print_generic_expr (file, TREE_TYPE (TREE_TYPE (fndecl)),
 			  dump_flags | TDF_SLIM);
-      fprintf (file, " __GIMPLE (%s)\n%s (",
+      fprintf (file, " __GIMPLE (%s",
 	       (fun->curr_properties & PROP_ssa) ? "ssa"
 	       : (fun->curr_properties & PROP_cfg) ? "cfg"
-	       : "",
-	       function_name (fun));
+	       : "");
+
+      if (cfun->cfg)
+	{
+	  basic_block bb = ENTRY_BLOCK_PTR_FOR_FN (cfun);
+	  if (bb->count.initialized_p ())
+	    fprintf (file, ",%s(%d)",
+		     profile_quality_as_string (bb->count.quality ()),
+		     bb->count.value ());
+	  fprintf (file, ")\n%s (", function_name (fun));
+	}
     }
   else
     fprintf (file, "%s %s(", function_name (fun), tmclone ? "[tm-clone] " : "");

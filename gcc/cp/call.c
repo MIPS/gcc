@@ -357,8 +357,7 @@ build_call_a (tree function, int n, tree *argarray)
 
   gcc_assert (TYPE_PTR_P (TREE_TYPE (function)));
   fntype = TREE_TYPE (TREE_TYPE (function));
-  gcc_assert (TREE_CODE (fntype) == FUNCTION_TYPE
-	      || TREE_CODE (fntype) == METHOD_TYPE);
+  gcc_assert (FUNC_OR_METHOD_TYPE_P (fntype));
   result_type = TREE_TYPE (fntype);
   /* An rvalue has no cv-qualifiers.  */
   if (SCALAR_TYPE_P (result_type) || VOID_TYPE_P (result_type))
@@ -541,11 +540,11 @@ null_ptr_cst_p (tree t)
       STRIP_ANY_LOCATION_WRAPPER (t);
 
       /* Core issue 903 says only literal 0 is a null pointer constant.  */
-      if (TREE_CODE (type) == INTEGER_TYPE
-	  && !char_type_p (type)
-	  && TREE_CODE (t) == INTEGER_CST
+      if (TREE_CODE (t) == INTEGER_CST
+	  && !TREE_OVERFLOW (t)
+	  && TREE_CODE (type) == INTEGER_TYPE
 	  && integer_zerop (t)
-	  && !TREE_OVERFLOW (t))
+	  && !char_type_p (type))
 	return true;
     }
   else if (CP_INTEGRAL_TYPE_P (type))
@@ -986,7 +985,7 @@ build_aggr_conv (tree type, tree ctor, int flags, tsubst_flags_t complain)
       tree val;
       bool ok;
 
-      if (pset.elements () && field_in_pset (pset, field))
+      if (!pset.is_empty () && field_in_pset (pset, field))
 	continue;
       if (i < CONSTRUCTOR_NELTS (ctor))
 	{
@@ -4384,10 +4383,7 @@ perform_overload_resolution (tree fn,
   *any_viable_p = true;
 
   /* Check FN.  */
-  gcc_assert (TREE_CODE (fn) == FUNCTION_DECL
-	      || TREE_CODE (fn) == TEMPLATE_DECL
-	      || TREE_CODE (fn) == OVERLOAD
-	      || TREE_CODE (fn) == TEMPLATE_ID_EXPR);
+  gcc_assert (OVL_P (fn) || TREE_CODE (fn) == TEMPLATE_ID_EXPR);
 
   if (TREE_CODE (fn) == TEMPLATE_ID_EXPR)
     {
@@ -6348,63 +6344,22 @@ destroying_delete_p (tree t)
   return std_destroying_delete_t_p (type) ? type : NULL_TREE;
 }
 
+struct dealloc_info
+{
+  bool sized;
+  bool aligned;
+  tree destroying;
+};
+
 /* Returns true iff T, an element of an OVERLOAD chain, is a usual deallocation
-   function (3.7.4.2 [basic.stc.dynamic.deallocation]) with a parameter of
-   std::align_val_t.  */
+   function (3.7.4.2 [basic.stc.dynamic.deallocation]).  If so, and DI is
+   non-null, also set *DI. */
 
 static bool
-aligned_deallocation_fn_p (tree t)
+usual_deallocation_fn_p (tree t, dealloc_info *di)
 {
-  if (!aligned_new_threshold)
-    return false;
+  if (di) *di = dealloc_info();
 
-  /* A template instance is never a usual deallocation function,
-     regardless of its signature.  */
-  if (TREE_CODE (t) == TEMPLATE_DECL
-      || primary_template_specialization_p (t))
-    return false;
-
-  tree a = FUNCTION_ARG_CHAIN (t);
-  if (destroying_delete_p (t))
-    a = TREE_CHAIN (a);
-  if (same_type_p (TREE_VALUE (a), align_type_node)
-      && TREE_CHAIN (a) == void_list_node)
-    return true;
-  if (!same_type_p (TREE_VALUE (a), size_type_node))
-    return false;
-  a = TREE_CHAIN (a);
-  if (a && same_type_p (TREE_VALUE (a), align_type_node)
-      && TREE_CHAIN (a) == void_list_node)
-    return true;
-  return false;
-}
-
-/* Returns true if FN is a usual deallocation fn with a size_t parameter.  */
-
-static bool
-sized_deallocation_fn_p (tree fn)
-{
-  tree t = FUNCTION_ARG_CHAIN (fn);
-  if (destroying_delete_p (fn))
-    t = TREE_CHAIN (t);
-  if (!t || !same_type_p (TREE_VALUE (t), size_type_node))
-    return false;
-  t = TREE_CHAIN (t);
-  if (t == void_list_node)
-    return true;
-  if (aligned_new_threshold && t
-      && same_type_p (TREE_VALUE (t), align_type_node)
-      && TREE_CHAIN (t) == void_list_node)
-    return true;
-  return false;
-}
-
-/* Returns true iff T, an element of an OVERLOAD chain, is a usual
-   deallocation function (3.7.4.2 [basic.stc.dynamic.deallocation]).  */
-
-bool
-usual_deallocation_fn_p (tree t)
-{
   /* A template instance is never a usual deallocation function,
      regardless of its signature.  */
   if (TREE_CODE (t) == TEMPLATE_DECL
@@ -6418,17 +6373,33 @@ usual_deallocation_fn_p (tree t)
      - optionally, a parameter of type std::align_val_t.  */
   bool global = DECL_NAMESPACE_SCOPE_P (t);
   tree chain = FUNCTION_ARG_CHAIN (t);
-  if (!chain)
-    return false;
-  if (destroying_delete_p (t))
-    chain = TREE_CHAIN (chain);
-  if (chain == void_list_node
-      || ((!global || flag_sized_deallocation)
-	  && sized_deallocation_fn_p (t)))
-    return true;
-  if (aligned_deallocation_fn_p (t))
-    return true;
-  return false;
+  if (chain && destroying_delete_p (t))
+    {
+      if (di) di->destroying = TREE_VALUE (chain);
+      chain = TREE_CHAIN (chain);
+    }
+  if (chain
+      && (!global || flag_sized_deallocation)
+      && same_type_p (TREE_VALUE (chain), size_type_node))
+    {
+      if (di) di->sized = true;
+      chain = TREE_CHAIN (chain);
+    }
+  if (chain && aligned_new_threshold
+      && same_type_p (TREE_VALUE (chain), align_type_node))
+    {
+      if (di) di->aligned = true;
+      chain = TREE_CHAIN (chain);
+    }
+  return (chain == void_list_node);
+}
+
+/* Just return whether FN is a usual deallocation function.  */
+
+bool
+usual_deallocation_fn_p (tree fn)
+{
+  return usual_deallocation_fn_p (fn, NULL);
 }
 
 /* Build a call to operator delete.  This has to be handled very specially,
@@ -6457,6 +6428,7 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 {
   tree fn = NULL_TREE;
   tree fns, fnname, type, t;
+  dealloc_info di_fn = { };
 
   if (addr == error_mark_node)
     return error_mark_node;
@@ -6575,11 +6547,13 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
     for (lkp_iterator iter (MAYBE_BASELINK_FUNCTIONS (fns)); iter; ++iter)
       {
 	tree elt = *iter;
-	if (usual_deallocation_fn_p (elt))
+	dealloc_info di_elt;
+	if (usual_deallocation_fn_p (elt, &di_elt))
 	  {
 	    if (!fn)
 	      {
 		fn = elt;
+		di_fn = di_elt;
 		continue;
 	      }
 
@@ -6587,12 +6561,13 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	       operator delete, all deallocation functions that are not
 	       destroying operator deletes are eliminated from further
 	       consideration.  */
-	    bool fn_destroying = destroying_delete_p (fn);
-	    bool elt_destroying = destroying_delete_p (elt);
-	    if (elt_destroying != fn_destroying)
+	    if (di_elt.destroying != di_fn.destroying)
 	      {
-		if (elt_destroying)
-		  fn = elt;
+		if (di_elt.destroying)
+		  {
+		    fn = elt;
+		    di_fn = di_elt;
+		  }
 		continue;
 	      }
 
@@ -6606,13 +6581,13 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	    if (aligned_new_threshold)
 	      {
 		bool want_align = type_has_new_extended_alignment (type);
-		bool fn_align = aligned_deallocation_fn_p (fn);
-		bool elt_align = aligned_deallocation_fn_p (elt);
-
-		if (elt_align != fn_align)
+		if (di_elt.aligned != di_fn.aligned)
 		  {
-		    if (want_align == elt_align)
-		      fn = elt;
+		    if (want_align == di_elt.aligned)
+		      {
+			fn = elt;
+			di_fn = di_elt;
+		      }
 		    continue;
 		  }
 	      }
@@ -6639,11 +6614,12 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 		  /* We need a cookie to determine the array size.  */
 		  want_size = false;
 	      }
-	    bool fn_size = sized_deallocation_fn_p (fn);
-	    bool elt_size = sized_deallocation_fn_p (elt);
-	    gcc_assert (fn_size != elt_size);
-	    if (want_size == elt_size)
-	      fn = elt;
+	    gcc_assert (di_fn.sized != di_elt.sized);
+	    if (want_size == di_elt.sized)
+	      {
+		fn = elt;
+		di_fn = di_elt;
+	      }
 	  }
       }
 
@@ -6678,7 +6654,7 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	}
       else
 	{
-	  tree destroying = destroying_delete_p (fn);
+	  tree destroying = di_fn.destroying;
 	  if (destroying)
 	    {
 	      /* Strip const and volatile from addr but retain the type of the
@@ -6692,19 +6668,18 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	    }
 
 	  tree ret;
-	  vec<tree, va_gc> *args = make_tree_vector ();
+	  releasing_vec args;
 	  args->quick_push (addr);
 	  if (destroying)
 	    args->quick_push (destroying);
-	  if (sized_deallocation_fn_p (fn))
+	  if (di_fn.sized)
 	    args->quick_push (size);
-	  if (aligned_deallocation_fn_p (fn))
+	  if (di_fn.aligned)
 	    {
 	      tree al = build_int_cst (align_type_node, TYPE_ALIGN_UNIT (type));
 	      args->quick_push (al);
 	    }
 	  ret = cp_build_function_call_vec (fn, &args, complain);
-	  release_tree_vector (args);
 	  return ret;
 	}
     }
@@ -6808,7 +6783,6 @@ build_temp (tree expr, tree type, int flags,
 	    diagnostic_t *diagnostic_kind, tsubst_flags_t complain)
 {
   int savew, savee;
-  vec<tree, va_gc> *args;
 
   *diagnostic_kind = DK_UNSPECIFIED;
 
@@ -6822,10 +6796,9 @@ build_temp (tree expr, tree type, int flags,
     return get_target_expr_sfinae (expr, complain);
 
   savew = warningcount + werrorcount, savee = errorcount;
-  args = make_tree_vector_single (expr);
+  releasing_vec args (make_tree_vector_single (expr));
   expr = build_special_member_call (NULL_TREE, complete_ctor_identifier,
 				    &args, type, flags, complain);
-  release_tree_vector (args);
   if (warningcount + werrorcount > savew)
     *diagnostic_kind = DK_WARNING;
   else if (errorcount > savee)
@@ -6858,8 +6831,9 @@ static void
 conversion_null_warnings (tree totype, tree expr, tree fn, int argnum)
 {
   /* Issue warnings about peculiar, but valid, uses of NULL.  */
-  if (null_node_p (expr) && TREE_CODE (totype) != BOOLEAN_TYPE
-      && ARITHMETIC_TYPE_P (totype))
+  if (TREE_CODE (totype) != BOOLEAN_TYPE
+      && ARITHMETIC_TYPE_P (totype)
+      && null_node_p (expr))
     {
       location_t loc = get_location_for_expr_unwinding_for_system_header (expr);
       if (fn)
@@ -6896,8 +6870,8 @@ conversion_null_warnings (tree totype, tree expr, tree fn, int argnum)
     }
   /* Handle zero as null pointer warnings for cases other
      than EQ_EXPR and NE_EXPR */
-  else if (null_ptr_cst_p (expr) &&
-	   (TYPE_PTR_OR_PTRMEM_P (totype) || NULLPTR_TYPE_P (totype)))
+  else if ((TYPE_PTR_OR_PTRMEM_P (totype) || NULLPTR_TYPE_P (totype))
+	   && null_ptr_cst_p (expr))
     {
       location_t loc = get_location_for_expr_unwinding_for_system_header (expr);
       maybe_warn_zero_as_null_pointer_constant (expr, loc);
@@ -7917,10 +7891,9 @@ call_copy_ctor (tree a, tsubst_flags_t complain)
   tree copy = get_copy_ctor (ctype, complain);
   copy = build_baselink (binfo, binfo, copy, NULL_TREE);
   tree ob = build_dummy_object (ctype);
-  vec<tree, va_gc>* args = make_tree_vector_single (a);
+  releasing_vec args (make_tree_vector_single (a));
   tree r = build_new_method_call (ob, copy, &args, NULL_TREE,
 				  LOOKUP_NORMAL, NULL, complain);
-  release_tree_vector (args);
   return r;
 }
 
@@ -9629,9 +9602,7 @@ build_new_method_call_1 (tree instance, tree fns, vec<tree, va_gc> **args,
       fns = TREE_OPERAND (fns, 0);
       template_only = 1;
     }
-  gcc_assert (TREE_CODE (fns) == FUNCTION_DECL
-	      || TREE_CODE (fns) == TEMPLATE_DECL
-	      || TREE_CODE (fns) == OVERLOAD);
+  gcc_assert (OVL_P (fns));
   fn = OVL_FIRST (fns);
   name = DECL_NAME (fn);
 
@@ -11303,10 +11274,9 @@ perform_direct_initialization_if_possible (tree type,
      ill-formed.  */
   if (CLASS_TYPE_P (type))
     {
-      vec<tree, va_gc> *args = make_tree_vector_single (expr);
+      releasing_vec args (make_tree_vector_single (expr));
       expr = build_special_member_call (NULL_TREE, complete_ctor_identifier,
 					&args, type, LOOKUP_NORMAL, complain);
-      release_tree_vector (args);
       return build_cplus_new (type, expr, complain);
     }
 
