@@ -455,6 +455,12 @@
   return aarch64_stepped_int_parallel_p (op, -1);
 })
 
+(define_predicate "ascending_int_parallel"
+  (match_code "parallel")
+{
+  return aarch64_stepped_int_parallel_p (op, 1);
+})
+
 (define_special_predicate "aarch64_simd_lshift_imm"
   (match_code "const,const_vector")
 {

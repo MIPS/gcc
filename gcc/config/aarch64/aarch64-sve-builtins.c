@@ -139,6 +139,9 @@ enum function_shape {
   /* sv<t0>_t svfoo[_t0](sv<t0>_t, <t0:uint>_t).  */
   SHAPE_binary_index_n,
 
+  /* sv<t0>_t svfoo[_t0](sv<t0>_t, uint64_t).  */
+  SHAPE_binary_index64_n,
+
   /* svbool_t svfoo_<t0>(sv<t0>_t, sv<t0>_t, uint64_t)
 
      where the final argument is a constant lane number.  */
@@ -670,6 +673,8 @@ private:
   template <unsigned int N>
   void sig_nary_index_n (const function_instance &, vec<tree> &);
   template <unsigned int N>
+  void sig_nary_index64_n (const function_instance &, vec<tree> &);
+  template <unsigned int N>
   void sig_nary_n (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_nary_nn (const function_instance &, vec<tree> &);
@@ -928,6 +933,7 @@ private:
   rtx expand_dup ();
   rtx expand_dup_lane ();
   rtx expand_dupq ();
+  rtx expand_dupq_lane ();
   rtx expand_eor ();
   rtx expand_ext_bhw ();
   rtx expand_get ();
@@ -1018,6 +1024,7 @@ private:
 
   rtx get_contiguous_base (machine_mode);
   void prepare_gather_address_operands (unsigned int);
+  rtx prepare_dupq_lane_index (unsigned int);
   void rotate_inputs_left (unsigned int, unsigned int);
   bool try_negating_argument (unsigned int, machine_mode);
   bool overlaps_input_p (rtx);
@@ -1034,6 +1041,7 @@ private:
   void add_input_operand (insn_code, rtx);
   void add_integer_operand (HOST_WIDE_INT);
   void add_mem_operand (machine_mode, rtx);
+  void add_fixed_operand (rtx);
   rtx generate_insn (insn_code);
 
   /* The function being called.  */
@@ -1958,6 +1966,11 @@ arm_sve_h_builder::build (const function_group &group)
       build_all (&arm_sve_h_builder::sig_nary_index_n<2>, group, MODE_none);
       break;
 
+    case SHAPE_binary_index64_n:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_nary_index64_n<2>, group, MODE_none);
+      break;
+
     case SHAPE_binary_opt_n:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_nary<2>, group, MODE_none);
@@ -2764,6 +2777,18 @@ arm_sve_h_builder::sig_nary_index_n (const function_instance &instance,
   types.quick_push (instance.unsigned_scalar_type (0));
 }
 
+/* Describe the signature "sv<t0>_t svfoo(sv<t0>_t, ..., uint64_t)"
+   for INSTANCE in TYPES, where N is the number of arguments.  */
+template<unsigned int N>
+void
+arm_sve_h_builder::sig_nary_index64_n (const function_instance &instance,
+				       vec<tree> &types)
+{
+  for (unsigned int i = 0; i < N; ++i)
+    types.quick_push (instance.vector_type (0));
+  types.quick_push (scalar_types[VECTOR_TYPE_svuint64_t]);
+}
+
 /* Describe the signature "sv<t0>_t svfoo[_n_t0](sv<t0>_t, ..., <t0>_t)"
    for INSTANCE in TYPES, where N is the number of arguments.  */
 template<unsigned int N>
@@ -3309,6 +3334,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svdup:
     case FUNC_svdup_lane:
     case FUNC_svdupq:
+    case FUNC_svdupq_lane:
     case FUNC_svextb:
     case FUNC_svexth:
     case FUNC_svextw:
@@ -3421,6 +3447,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_binary_lane:
     case SHAPE_binary_index:
     case SHAPE_binary_index_n:
+    case SHAPE_binary_index64_n:
     case SHAPE_binary_opt_n:
     case SHAPE_binary_rotate:
     case SHAPE_binary_wide:
@@ -3578,6 +3605,7 @@ function_resolver::resolve ()
       return resolve_uniform_imm (3, 1);
     case SHAPE_binary_index:
     case SHAPE_binary_index_n:
+    case SHAPE_binary_index64_n:
       return resolve_multitype (2, 1);
     case SHAPE_binary_pred:
     case SHAPE_binary_scalar:
@@ -4659,6 +4687,7 @@ function_checker::check ()
     case SHAPE_binary:
     case SHAPE_binary_index:
     case SHAPE_binary_index_n:
+    case SHAPE_binary_index64_n:
     case SHAPE_binary_opt_n:
     case SHAPE_binary_pred:
     case SHAPE_binary_scalar:
@@ -5094,6 +5123,7 @@ gimple_folder::fold ()
     case FUNC_svdot:
     case FUNC_svdot_lane:
     case FUNC_svdup_lane:
+    case FUNC_svdupq_lane:
     case FUNC_sveor:
     case FUNC_sveorv:
     case FUNC_svextb:
@@ -5944,6 +5974,9 @@ function_expander::expand ()
     case FUNC_svdupq:
       return expand_dupq ();
 
+    case FUNC_svdupq_lane:
+      return expand_dupq_lane ();
+
     case FUNC_sveor:
       return expand_eor ();
 
@@ -6665,6 +6698,59 @@ function_expander::expand_dupq ()
   if (mode != get_mode (0))
     res = aarch64_convert_sve_data_to_pred (m_target, get_mode (0), res);
   return res;
+}
+
+/* Expand a call to svdupq_lane.  */
+rtx
+function_expander::expand_dupq_lane ()
+{
+  machine_mode mode = get_mode (0);
+  rtx index = m_args[1];
+  if (CONST_INT_P (index) && IN_RANGE (INTVAL (index), 0, 3))
+    {
+      /* Use the .Q form of DUP.  */
+      insn_code icode = code_for_aarch64_sve_dupq_lane (mode);
+      add_output_operand (icode);
+      add_input_operand (icode, m_args[0]);
+      add_fixed_operand (prepare_dupq_lane_index (INTVAL (index)));
+      return generate_insn (icode);
+    }
+
+  /* Build a .D TBL index for the pairs of doublewords that we want to
+     duplicate.  */
+  if (CONST_INT_P (index))
+    {
+      /* The index vector is a constant.  */
+      rtx_vector_builder builder (VNx2DImode, 2, 1);
+      builder.quick_push (gen_int_mode (INTVAL (index) * 2, DImode));
+      builder.quick_push (gen_int_mode (INTVAL (index) * 2 + 1, DImode));
+      index = builder.build ();
+    }
+  else
+    {
+      /* Duplicate INDEX * 2 to fill a DImode vector.  */
+      index = force_reg (DImode, simplify_gen_binary (ASHIFT, DImode,
+						      index, const1_rtx));
+      index = expand_vector_broadcast (VNx2DImode, index);
+
+      /* Get an alternating 0, 1 predicate.  */
+      rtx_vector_builder builder (VNx2BImode, 2, 1);
+      builder.quick_push (const0_rtx);
+      builder.quick_push (constm1_rtx);
+      rtx pg = force_reg (VNx2BImode, builder.build ());
+
+      /* Add one to the odd elements of the index.  */
+      rtx one = force_reg (VNx2DImode, CONST1_RTX (VNx2DImode));
+      rtx target = gen_reg_rtx (VNx2DImode);
+      emit_insn (gen_cond_addvnx2di (target, pg, index, one, index));
+      index = target;
+    }
+
+  insn_code icode = CODE_FOR_aarch64_sve_tblvnx2di;
+  add_output_operand (icode);
+  add_input_operand (icode, gen_lowpart (VNx2DImode, m_args[0]));
+  add_input_operand (icode, index);
+  return generate_insn (icode);
 }
 
 /* Expand a call to sveor.  */
@@ -7913,6 +7999,16 @@ function_expander::prepare_gather_address_operands (unsigned int i)
   m_args.quick_insert (i + 3, GEN_INT (scale));
 }
 
+/* Return a PARALLEL that selects a quadword of elements, starting at
+   index START.  */
+rtx
+function_expander::prepare_dupq_lane_index (unsigned int start)
+{
+  unsigned int nelts_per_vq = m_fi.nelts_per_vq (0);
+  return aarch64_gen_stepped_int_parallel (nelts_per_vq,
+					   start * nelts_per_vq, 1);
+}
+
 /* Rotate inputs m_args[START:END] one position to the left, so that
    m_args[START] becomes m_args[END - 1].  */
 void
@@ -8075,8 +8171,16 @@ function_expander::add_mem_operand (machine_mode mode, rtx addr)
   rtx mem = gen_rtx_MEM (mode, memory_address (mode, addr));
   /* The memory is only guaranteed to be element-aligned.  */
   set_mem_align (mem, GET_MODE_ALIGNMENT (GET_MODE_INNER (mode)));
+  add_fixed_operand (mem);
+}
+
+/* Add an operand that must be X.  The only way of legitimizing an
+   invalid X is to reload the address of a MEM.  */
+void
+function_expander::add_fixed_operand (rtx x)
+{
   m_ops.safe_grow (m_ops.length () + 1);
-  create_fixed_operand (&m_ops.last (), mem);
+  create_fixed_operand (&m_ops.last (), x);
 }
 
 /* Generate instruction ICODE, given that its operands have already

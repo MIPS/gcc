@@ -1378,6 +1378,42 @@
   "dup\t%0.<Vetype>, %1.<Vetype>[%2]"
 )
 
+;; Use DUP.Q to duplicate a 128-bit segment of a register.
+;;
+;; The vec_select:<V128> sets memory lane number N of the V128 to lane
+;; number op2 + N of op1.  (We don't need to distinguish between memory
+;; and architectural register lane numbering for op1 or op0, since the
+;; two numbering schemes are the same for SVE.)
+;;
+;; The vec_duplicate:SVE_ALL then copies memory lane number N of the
+;; V128 (and thus lane number op2 + N of op1) to lane numbers N + I * STEP
+;; of op0.  We therefore get the correct result for both endiannesses.
+;;
+;; The wrinkle is that for big-endian V128 registers, memory lane numbering
+;; is in the opposite order to architectural register lane numbering.
+;; Thus if we were to do this operation via a V128 temporary register,
+;; the vec_select and vec_duplicate would both involve a reverse operation
+;; for big-endian targets.  In this fused pattern the two reverses cancel
+;; each other out.
+(define_insn "@aarch64_sve_dupq_lane<mode>"
+  [(set (match_operand:SVE_ALL 0 "register_operand" "=w")
+	(vec_duplicate:SVE_ALL
+	  (vec_select:<V128>
+	    (match_operand:SVE_ALL 1 "register_operand" "w")
+	    (match_operand 2 "ascending_int_parallel"))))]
+  "TARGET_SVE
+   && (INTVAL (XVECEXP (operands[2], 0, 0))
+       * GET_MODE_SIZE (<VEL>mode)) % 16 == 0
+   && IN_RANGE (INTVAL (XVECEXP (operands[2], 0, 0))
+		* GET_MODE_SIZE (<VEL>mode), 0, 63)"
+  {
+    unsigned int byte = (INTVAL (XVECEXP (operands[2], 0, 0))
+			 * GET_MODE_SIZE (<VEL>mode));
+    operands[2] = gen_int_mode (byte / 16, DImode);
+    return "dup\t%0.q, %1.q[%2]";
+  }
+)
+
 ;; Note that the immediate (third) operand is the lane index not
 ;; the byte index.
 (define_insn "*aarch64_sve_ext<mode>"
