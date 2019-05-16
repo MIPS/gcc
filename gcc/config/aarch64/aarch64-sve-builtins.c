@@ -209,13 +209,16 @@ enum function_shape {
   /* <t0>_t svfoo[_n_t0]_t1(<t0>_t, svbool_t).  */
   SHAPE_inc_dec_pred_n,
 
-  /* sv<t0>_t svfoo[_t0]().  */
+  /* sv<t0>_t svfoo_t0().  */
   SHAPE_inherent,
 
   /* sv<t0>xN_t svfoo_t0().  */
   SHAPE_inherent2,
   SHAPE_inherent3,
   SHAPE_inherent4,
+
+  /* svbool_t svfoo[_b]().  */
+  SHAPE_inherent_b,
 
   /* uint64_t svfoo().  */
   SHAPE_inherent_count,
@@ -834,6 +837,7 @@ private:
   gimple *fold_get ();
   gimple *fold_ld1 ();
   gimple *fold_ld234 ();
+  gimple *fold_pfalse ();
   gimple *fold_ptrue ();
   gimple *fold_rev ();
   gimple *fold_set ();
@@ -934,6 +938,7 @@ private:
   rtx expand_orn ();
   rtx expand_orr ();
   rtx expand_permute (int);
+  rtx expand_pfalse ();
   rtx expand_ptest (rtx_code);
   rtx expand_ptrue ();
   rtx expand_qadd ();
@@ -2017,6 +2022,10 @@ arm_sve_h_builder::build (const function_group &group)
 
     case SHAPE_inherent4:
       build_all (&arm_sve_h_builder::sig_inherent<4>, group, MODE_none);
+      break;
+
+    case SHAPE_inherent_b:
+      build_all (&arm_sve_h_builder::sig_inherent<1>, group, MODE_none, true);
       break;
 
     case SHAPE_inherent_count:
@@ -3210,6 +3219,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svget2:
     case FUNC_svget3:
     case FUNC_svget4:
+    case FUNC_svpfalse:
     case FUNC_svptest_any:
     case FUNC_svptest_first:
     case FUNC_svptest_last:
@@ -3328,6 +3338,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_inc_dec:
     case SHAPE_inc_dec_pattern:
     case SHAPE_inc_dec_pred:
+    case SHAPE_inherent_b:
     case SHAPE_inherent_count:
     case SHAPE_load:
     case SHAPE_load2:
@@ -3510,6 +3521,9 @@ function_resolver::resolve ()
       return resolve_inc_dec_pred ();
     case SHAPE_inc_dec_pred_n:
       return resolve_inc_dec_pred_n ();
+    case SHAPE_inherent_b:
+      /* All overloading does here is make the "_b" implicit.  */
+      return NULL_TREE;
     case SHAPE_load:
     case SHAPE_load2:
     case SHAPE_load3:
@@ -4565,6 +4579,7 @@ function_checker::check ()
     case SHAPE_inherent2:
     case SHAPE_inherent3:
     case SHAPE_inherent4:
+    case SHAPE_inherent_b:
     case SHAPE_inherent_count:
     case SHAPE_load:
     case SHAPE_load2:
@@ -5130,6 +5145,9 @@ gimple_folder::fold ()
     case FUNC_svld4:
       return fold_ld234 ();
 
+    case FUNC_svpfalse:
+      return fold_pfalse ();
+
     case FUNC_svptrue:
       return fold_ptrue ();
 
@@ -5278,6 +5296,13 @@ gimple_folder::fold_ld234 ()
   gsi_insert_after (m_gsi, new_call, GSI_SAME_STMT);
 
   return gimple_build_assign (m_lhs, build_clobber (TREE_TYPE (m_lhs)));
+}
+
+/* Fold a call to svpfalse.  */
+gimple *
+gimple_folder::fold_pfalse ()
+{
+  return gimple_build_assign (m_lhs, build_zero_cst (TREE_TYPE (m_lhs)));
 }
 
 /* Fold a call to svptrue.  */
@@ -5856,6 +5881,9 @@ function_expander::expand ()
 
     case FUNC_svorv:
       return expand_reduction (UNSPEC_IORV, UNSPEC_IORV, -1);
+
+    case FUNC_svpfalse:
+      return expand_pfalse ();
 
     case FUNC_svptest_any:
       return expand_ptest (NE);
@@ -6823,6 +6851,13 @@ function_expander::expand_permute (int unspec_code)
 {
   machine_mode mode = get_mode (0);
   return expand_via_unpred_insn (code_for_aarch64_sve (unspec_code, mode));
+}
+
+/* Expand a call to svpfalse.  */
+rtx
+function_expander::expand_pfalse ()
+{
+  return CONST0_RTX (VNx16BImode);
 }
 
 /* Expand a call to svptest_*.  CODE is the comparison code for a
