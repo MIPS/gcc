@@ -1,6 +1,5 @@
 // { dg-do compile { target c++2a } }
 
-
 template<typename T>
 concept Type = true;
 

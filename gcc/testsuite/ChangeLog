@@ -1,3 +1,8 @@
+2019-05-16  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Add tests for PR67070.
+	* g++.dg/cpp2a/concepts-pr67070.C: New.
+
 2019-05-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Disallow void constraint varaibles.
