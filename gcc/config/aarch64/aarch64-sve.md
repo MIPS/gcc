@@ -828,6 +828,92 @@
    * return aarch64_output_sve_mov_immediate (operands[1]);"
 )
 
+;; Match PTRUES Pn.B when both the predicate and flags are useful.
+(define_insn "*aarch64_sve_ptruevnx16bi_cc"
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC
+	  [(match_operand 2)
+	   (match_operand 3)
+	   (match_operator:VNx16BI 1 "aarch64_sve_ptrue_svpattern_immediate"
+	     [(unspec:VNx16BI
+		[(match_operand 4)
+		 (match_operand:VNx16BI 5 "aarch64_simd_imm_zero")]
+	        UNSPEC_PTRUE)])
+	   (const_int 1)]
+	  UNSPEC_PTEST))
+   (set (match_operand:VNx16BI 0 "register_operand" "=Upa")
+	(match_dup 1))]
+  "TARGET_SVE"
+  {
+    return aarch64_output_sve_ptrues (operands[1]);
+  }
+)
+
+;; Match PTRUES Pn.[HSD] when both the predicate and flags are useful.
+(define_insn "*aarch64_sve_ptrue<mode>_cc"
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC
+	  [(match_operand 2)
+	   (match_operand 3)
+	   (subreg:PRED_HSD
+	     (match_operator:VNx16BI 1 "aarch64_sve_ptrue_svpattern_immediate"
+	       [(unspec:VNx16BI
+		  [(match_operand 4)
+		   (match_operand:PRED_HSD 5 "aarch64_simd_imm_zero")]
+		  UNSPEC_PTRUE)]) 0)
+	   (const_int 1)]
+	  UNSPEC_PTEST))
+   (set (match_operand:VNx16BI 0 "register_operand" "=Upa")
+	(match_dup 1))]
+  "TARGET_SVE"
+  {
+    return aarch64_output_sve_ptrues (operands[1]);
+  }
+)
+
+;; Match PTRUES Pn.B when only the flags result is useful (which is
+;; a way of testing VL).
+(define_insn "*aarch64_sve_ptruevnx16bi_ptest"
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC
+	  [(match_operand 2)
+	   (match_operand 3)
+	   (match_operator:VNx16BI 1 "aarch64_sve_ptrue_svpattern_immediate"
+	     [(unspec:VNx16BI
+		[(match_operand 4)
+		 (match_operand:VNx16BI 5 "aarch64_simd_imm_zero")]
+	        UNSPEC_PTRUE)])
+	   (const_int 1)]
+	  UNSPEC_PTEST))
+   (clobber (match_scratch:VNx16BI 0 "=Upa"))]
+  "TARGET_SVE"
+  {
+    return aarch64_output_sve_ptrues (operands[1]);
+  }
+)
+
+;; Match PTRUES Pn.[HWD] when only the flags result is useful (which is
+;; a way of testing VL).
+(define_insn "*aarch64_sve_ptrue<mode>_ptest"
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC
+	  [(match_operand 2)
+	   (match_operand 3)
+	   (subreg:PRED_HSD
+	     (match_operator:VNx16BI 1 "aarch64_sve_ptrue_svpattern_immediate"
+	       [(unspec:VNx16BI
+		  [(match_operand 4)
+		   (match_operand:PRED_HSD 5 "aarch64_simd_imm_zero")]
+		  UNSPEC_PTRUE)]) 0)
+	   (const_int 1)]
+	  UNSPEC_PTEST))
+   (clobber (match_scratch:VNx16BI 0 "=Upa"))]
+  "TARGET_SVE"
+  {
+    return aarch64_output_sve_ptrues (operands[1]);
+  }
+)
+
 ;; Handle extractions from a predicate by converting to an integer vector
 ;; and extracting from there.
 (define_expand "vec_extract<vpred><Vel>"

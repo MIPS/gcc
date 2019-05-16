@@ -15184,17 +15184,51 @@ aarch64_sve_valid_immediate (unsigned HOST_WIDE_INT val64,
   return false;
 }
 
+/* Return true if X is an UNSPEC_PTRUE constant of the form:
+
+       (const (unspec [PATTERN ZERO] UNSPEC_PTRUE))
+
+   where PATTERN is the svpattern as a CONST_INT and where ZERO
+   is a zero constant of the required PTRUE mode (which can have
+   fewer elements than X's mode, if zero bits are significant).
+
+   If so, and if INFO is nonnull, describe the immediate in INFO.  */
+bool
+aarch64_sve_ptrue_svpattern_p (rtx x, struct simd_immediate_info *info)
+{
+  if (GET_CODE (x) != CONST)
+    return false;
+
+  x = XEXP (x, 0);
+  if (GET_CODE (x) != UNSPEC || XINT (x, 1) != UNSPEC_PTRUE)
+    return false;
+
+  if (info)
+    {
+      aarch64_svpattern pattern
+	= (aarch64_svpattern) INTVAL (XVECEXP (x, 0, 0));
+      machine_mode pred_mode = GET_MODE (XVECEXP (x, 0, 1));
+      scalar_int_mode int_mode = aarch64_sve_element_int_mode (pred_mode);
+      *info = simd_immediate_info (int_mode, pattern);
+    }
+  return true;
+}
+
 /* Return true if X is a valid SVE predicate.  If INFO is nonnull, use
    it to describe valid immediates.  */
 static bool
 aarch64_sve_pred_valid_immediate (rtx x, simd_immediate_info *info)
 {
+  if (aarch64_sve_ptrue_svpattern_p (x, info))
+    return true;
+
   if (x == CONST0_RTX (GET_MODE (x)))
     {
       if (info)
 	*info = simd_immediate_info (DImode, 0);
       return true;
     }
+
   machine_mode mode = aarch64_widest_sve_pred_mode (x);
   aarch64_svpattern pattern = aarch64_svpattern_for_rtx (mode, x);
   if (pattern != AARCH64_NUM_SVPATTERNS)
@@ -16701,6 +16735,25 @@ aarch64_output_sve_mov_immediate (rtx const_vector)
 
   snprintf (templ, sizeof (templ), "mov\t%%0.%c, #" HOST_WIDE_INT_PRINT_DEC,
 	    element_char, INTVAL (info.u.mov.value));
+  return templ;
+}
+
+/* Return the asm template for a PTRUES.  CONST_UNSPEC is the
+   aarch64_sve_ptrue_svpattern_immediate that describes the predicate
+   pattern.  */
+
+char *
+aarch64_output_sve_ptrues (rtx const_unspec)
+{
+  static char templ[40];
+
+  struct simd_immediate_info info;
+  bool is_valid = aarch64_simd_valid_immediate (const_unspec, &info);
+  gcc_assert (is_valid && info.insn == simd_immediate_info::PTRUE);
+
+  char element_char = sizetochar (GET_MODE_BITSIZE (info.elt_mode));
+  snprintf (templ, sizeof (templ), "ptrues\t%%0.%c, %s", element_char,
+	    svpattern_token (info.u.pattern));
   return templ;
 }
 

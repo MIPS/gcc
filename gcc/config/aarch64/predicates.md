@@ -603,6 +603,10 @@
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "aarch64_sve_ld1r_operand")))
 
+(define_predicate "aarch64_sve_ptrue_svpattern_immediate"
+  (and (match_code "const")
+       (match_test "aarch64_sve_ptrue_svpattern_p (op, NULL)")))
+
 (define_predicate "aarch64_sve_arith_immediate"
   (and (match_code "const,const_vector")
        (match_test "aarch64_sve_arith_immediate_p (op, false)")))

@@ -352,6 +352,9 @@
 ;; SVE predicate modes that control 8-bit, 16-bit or 32-bit elements.
 (define_mode_iterator PRED_BHS [VNx16BI VNx8BI VNx4BI])
 
+;; SVE predicate modes that control 16-bit, 32-bit or 64-bit elements.
+(define_mode_iterator PRED_HSD [VNx8BI VNx4BI VNx2BI])
+
 ;; ------------------------------------------------------------------
 ;; Unspec enumerations for Advance SIMD. These could well go into
 ;; aarch64.md but for their use in int_iterators here.

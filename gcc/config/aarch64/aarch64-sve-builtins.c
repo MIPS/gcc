@@ -288,7 +288,10 @@ enum function_shape {
   /* uint64_t svfoo(enum svpattern).  */
   SHAPE_pattern_count,
 
-  /* uint64_t svfoo_t0(sv<t0>_t).  */
+  /* svbool_t svfoo_t0(enum svpattern).  */
+  SHAPE_pattern_pred,
+
+  /* uint64_t svfoo_t0(svbool_t).  */
   SHAPE_pred_count,
 
   /* bool svfoo(svbool_t).  */
@@ -668,6 +671,7 @@ private:
   template <unsigned int N>
   void sig_nary_u64_nn (const function_instance &, vec<tree> &);
   void sig_pattern_count (const function_instance &, vec<tree> &);
+  void sig_pattern_pred (const function_instance &, vec<tree> &);
   void sig_pred_count (const function_instance &, vec<tree> &);
   void sig_ptest (const function_instance &, vec<tree> &);
   void sig_rdffr (const function_instance &, vec<tree> &);
@@ -839,6 +843,7 @@ private:
   gimple *fold_ld234 ();
   gimple *fold_pfalse ();
   gimple *fold_ptrue ();
+  gimple *fold_ptrue_pat ();
   gimple *fold_rev ();
   gimple *fold_set ();
   gimple *fold_st1 ();
@@ -846,9 +851,13 @@ private:
   gimple *fold_trn ();
   gimple *fold_undef ();
   gimple *fold_uzp ();
+  template<typename T> gimple *fold_while_type (bool);
+  gimple *fold_while (bool);
   gimple *fold_zip ();
 
   gimple *fold_permute (const vec_perm_builder &);
+  gimple *fold_to_vl_pred (unsigned int, unsigned int);
+
   tree convert_pred (gimple_seq &, tree, unsigned int);
   tree fold_contiguous_base (gimple_seq &, tree);
   tree load_store_cookie (tree);
@@ -941,6 +950,7 @@ private:
   rtx expand_pfalse ();
   rtx expand_ptest (rtx_code);
   rtx expand_ptrue ();
+  rtx expand_ptrue_pat ();
   rtx expand_qadd ();
   rtx expand_qinc_qdec (rtx_code, rtx_code);
   rtx expand_qincp_qdecp (rtx_code, rtx_code);
@@ -2092,6 +2102,10 @@ arm_sve_h_builder::build (const function_group &group)
       build_all (&arm_sve_h_builder::sig_pattern_count, group, MODE_none);
       break;
 
+    case SHAPE_pattern_pred:
+      build_all (&arm_sve_h_builder::sig_pattern_pred, group, MODE_none);
+      break;
+
     case SHAPE_pred_count:
       build_all (&arm_sve_h_builder::sig_pred_count, group, MODE_none);
       break;
@@ -2807,6 +2821,15 @@ arm_sve_h_builder::sig_pattern_count (const function_instance &,
   types.quick_push (acle_svpattern);
 }
 
+/* Describe the signature "svbool_t svfoo(enum svpattern)" in TYPES.  */
+void
+arm_sve_h_builder::sig_pattern_pred (const function_instance &,
+				     vec<tree> &types)
+{
+  types.quick_push (get_svbool_t ());
+  types.quick_push (acle_svpattern);
+}
+
 /* Describe the signature "uint64_t svfoo_t(svbool_t)" in TYPES.  */
 void
 arm_sve_h_builder::sig_pred_count (const function_instance &, vec<tree> &types)
@@ -3224,6 +3247,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svptest_first:
     case FUNC_svptest_last:
     case FUNC_svptrue:
+    case FUNC_svptrue_pat:
     case FUNC_svrev:
     case FUNC_svset2:
     case FUNC_svset3:
@@ -3382,6 +3406,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_load_ext_gather_index:
     case SHAPE_load_ext_gather_offset:
     case SHAPE_load_gather_vs:
+    case SHAPE_pattern_pred:
     case SHAPE_pred_count:
     case SHAPE_unary_n:
     case SHAPE_unary_pred:
@@ -3487,6 +3512,7 @@ function_resolver::resolve ()
     case SHAPE_inherent4:
     case SHAPE_inherent_count:
     case SHAPE_pattern_count:
+    case SHAPE_pattern_pred:
     case SHAPE_pred_count:
     case SHAPE_ptest:
     case SHAPE_rdffr:
@@ -4637,6 +4663,7 @@ function_checker::check ()
 	      && require_immediate_range (2, 1, 16));
 
     case SHAPE_pattern_count:
+    case SHAPE_pattern_pred:
       return require_immediate_svpattern (0);
 
     case SHAPE_shift_right_imm:
@@ -5110,8 +5137,6 @@ gimple_folder::fold ()
        correspondence for SSA_NAMEs, and we explicitly don't want
        to generate a specific value (like an all-zeros vector).  */
     case FUNC_svundef:
-    case FUNC_svwhilele:
-    case FUNC_svwhilelt:
     case FUNC_svwrffr:
       return NULL;
 
@@ -5151,6 +5176,9 @@ gimple_folder::fold ()
     case FUNC_svptrue:
       return fold_ptrue ();
 
+    case FUNC_svptrue_pat:
+      return fold_ptrue_pat ();
+
     case FUNC_svrev:
       return fold_rev ();
 
@@ -5179,6 +5207,12 @@ gimple_folder::fold ()
     case FUNC_svuzp1:
     case FUNC_svuzp2:
       return fold_uzp ();
+
+    case FUNC_svwhilele:
+      return fold_while (true);
+
+    case FUNC_svwhilelt:
+      return fold_while (false);
 
     case FUNC_svzip1:
     case FUNC_svzip2:
@@ -5316,10 +5350,31 @@ gimple_folder::fold_ptrue ()
   /* The type is svbool_t regardless of TYPE, thus for b8 we want
      { 1, 1, 1, 1, ... }, for b16 we want { 1, 0, 1, 0, ... }, etc.  */
   tree_vector_builder builder (vectype, num_bytes, 1);
-  builder.quick_push (build_int_cst (elttype, 1));
+  builder.quick_push (build_all_ones_cst (elttype));
   for (unsigned int i = 1; i < num_bytes; ++i)
-    builder.quick_push (build_int_cst (elttype, 0));
+    builder.quick_push (build_zero_cst (elttype));
   return gimple_build_assign (m_lhs, builder.build ());
+}
+
+/* Fold a call to svptrue_pat.  */
+gimple *
+gimple_folder::fold_ptrue_pat ()
+{
+  tree pattern_arg = gimple_call_arg (m_call, 0);
+  if (!tree_fits_shwi_p (pattern_arg)
+      || !aarch64_svpattern_immediate_p (tree_to_shwi (pattern_arg)))
+    return NULL;
+
+  aarch64_svpattern pattern = (aarch64_svpattern) tree_to_shwi (pattern_arg);
+  if (pattern == AARCH64_SV_ALL)
+    return fold_ptrue ();
+
+  int num_bytes = type_suffixes[m_fi.types[0]].elem_bytes;
+  HOST_WIDE_INT value = aarch64_fold_sve_cnt_pat (pattern, 16 / num_bytes);
+  if (value >= 0)
+    return fold_to_vl_pred (num_bytes, value);
+
+  return NULL;
 }
 
 /* Fold a call to svrev.  */
@@ -5424,6 +5479,54 @@ gimple_folder::fold_uzp ()
   return fold_permute (builder);
 }
 
+/* Fold a call to svwhilele or svwhilelt; eq_p says which.  T is the
+   type to use for constant arguments, chosen based on their signdness.  */
+template<typename T>
+gimple *
+gimple_folder::fold_while_type (bool eq_p)
+{
+  T arg0, arg1;
+  if (!poly_int_tree_p (gimple_call_arg (m_call, 0), &arg0)
+      || !poly_int_tree_p (gimple_call_arg (m_call, 1), &arg1))
+    return NULL;
+
+  if (eq_p ? known_gt (arg0, arg1) : known_ge (arg0, arg1))
+    return fold_pfalse ();
+
+  if (eq_p ? maybe_gt (arg0, arg1) : maybe_ge (arg0, arg1))
+    return NULL;
+
+  int elt_size = type_suffixes[m_fi.types[0]].elem_bytes;
+  poly_uint64 diff = arg1 - arg0;
+  poly_uint64 nelts = exact_div (BYTES_PER_SVE_VECTOR, elt_size);
+  /* Subtract from NELTS rather than adding to DIFF, to prevent overflow.  */
+  if (eq_p)
+    nelts -= 1;
+  if (known_ge (diff, nelts))
+    return fold_ptrue ();
+
+  /* Conditional equality is fine.  */
+  if (maybe_gt (diff, nelts))
+    return NULL;
+
+  unsigned HOST_WIDE_INT vl;
+  if (diff.is_constant (&vl))
+    /* Overflow is no longer possible.  */
+    return fold_to_vl_pred (elt_size, eq_p ? vl + 1 : vl);
+
+  return NULL;
+}
+
+/* Fold a call to svwhilele or svwhilelt; eq_p says which.  */
+gimple *
+gimple_folder::fold_while (bool eq_p)
+{
+  if (type_suffixes[m_fi.types[1]].unsigned_p)
+    return fold_while_type<poly_uint64> (eq_p);
+  else
+    return fold_while_type<poly_int64> (eq_p);
+}
+
 /* Fold a call to svzip1 or svzip2.  */
 gimple *
 gimple_folder::fold_zip ()
@@ -5457,6 +5560,31 @@ gimple_folder::fold_permute (const vec_perm_builder &builder)
 			      gimple_call_arg (m_call, 0),
 			      gimple_call_arg (m_call, nargs - 1),
 			      vec_perm_indices_to_tree (perm_type, indices));
+}
+
+/* Fold an operation to a constant predicate in which:
+
+   (a) each element controls ELT_SIZE bytes of data
+   (b) the first VL bits are set and the rest are clear.  */
+gimple *
+gimple_folder::fold_to_vl_pred (unsigned int elt_size, unsigned int vl)
+{
+  tree vec_type = TREE_TYPE (m_lhs);
+  tree elt_type = TREE_TYPE (vec_type);
+  tree minus_one = build_all_ones_cst (elt_type);
+  tree zero = build_zero_cst (elt_type);
+
+  /* Construct COUNT elements that contain the ptrue followed by
+     a repeating sequence of COUNT elements.  */
+  unsigned int count = constant_lower_bound (TYPE_VECTOR_SUBPARTS (vec_type));
+  gcc_assert (vl * elt_size <= count);
+  tree_vector_builder builder (vec_type, count, 2);
+  for (unsigned int i = 0; i < count * 2; ++i)
+    {
+      bool bit = (i & (elt_size - 1)) == 0 && i < vl * elt_size;
+      builder.quick_push (bit ? minus_one : zero);
+    }
+  return gimple_build_assign (m_lhs, builder.build ());
 }
 
 /* Convert predicate argument I so that it has the type appropriate for
@@ -5896,6 +6024,9 @@ function_expander::expand ()
 
     case FUNC_svptrue:
       return expand_ptrue ();
+
+    case FUNC_svptrue_pat:
+      return expand_ptrue_pat ();
 
     case FUNC_svqadd:
       return expand_qadd ();
@@ -6894,6 +7025,16 @@ rtx
 function_expander::expand_ptrue ()
 {
   return aarch64_ptrue_all (type_suffixes[m_fi.types[0]].elem_bytes);
+}
+
+/* Expand a call to svptrue_pat.  */
+rtx
+function_expander::expand_ptrue_pat ()
+{
+  require_immediate_svpattern (0);
+  rtvec vec = gen_rtvec (2, m_args[0], CONST0_RTX (get_mode (0)));
+  return gen_rtx_CONST (VNx16BImode,
+			gen_rtx_UNSPEC (VNx16BImode, vec, UNSPEC_PTRUE));
 }
 
 /* Expand a call to svset.  */
