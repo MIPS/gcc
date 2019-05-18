@@ -1367,7 +1367,7 @@
   "TARGET_SVE"
   "rev\t%0.<Vetype>, %1.<Vetype>")
 
-(define_insn "*aarch64_sve_dup_lane<mode>"
+(define_insn "@aarch64_sve_dup_lane<mode>"
   [(set (match_operand:SVE_ALL 0 "register_operand" "=w")
 	(vec_duplicate:SVE_ALL
 	  (vec_select:<VEL>

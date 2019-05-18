@@ -136,6 +136,9 @@ enum function_shape {
   /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0:uint>_t).  */
   SHAPE_binary_index,
 
+  /* sv<t0>_t svfoo[_t0](sv<t0>_t, <t0:uint>_t).  */
+  SHAPE_binary_index_n,
+
   /* svbool_t svfoo_<t0>(sv<t0>_t, sv<t0>_t, uint64_t)
 
      where the final argument is a constant lane number.  */
@@ -549,6 +552,7 @@ struct GTY(()) function_instance {
   tree tuple_type (unsigned int, unsigned int) const;
   tree quarter_vector_type (unsigned int i) const;
   tree quarter_scalar_type (unsigned int i) const;
+  tree unsigned_scalar_type (unsigned int) const;
   tree unsigned_vector_type (unsigned int) const;
   tree wide_vector_type (unsigned int i) const;
   tree wide_scalar_type (unsigned int i) const;
@@ -663,6 +667,8 @@ private:
   void sig_nary (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_nary_index (const function_instance &, vec<tree> &);
+  template <unsigned int N>
+  void sig_nary_index_n (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_nary_n (const function_instance &, vec<tree> &);
   template <unsigned int N>
@@ -920,6 +926,7 @@ private:
   rtx expand_dot ();
   rtx expand_dot_lane ();
   rtx expand_dup ();
+  rtx expand_dup_lane ();
   rtx expand_dupq ();
   rtx expand_eor ();
   rtx expand_ext_bhw ();
@@ -1791,6 +1798,14 @@ function_instance::quarter_scalar_type (unsigned int i) const
   return scalar_types[type_suffixes[quarter_type].type];
 }
 
+/* Return the unsigned scalar type associated with type suffix I.  */
+inline tree
+function_instance::unsigned_scalar_type (unsigned int i) const
+{
+  type_suffix unsigned_type = unsigned_type_suffix (types[i]);
+  return scalar_types[type_suffixes[unsigned_type].type];
+}
+
 /* Return the unsigned vector type associated with type suffix I.  */
 inline tree
 function_instance::unsigned_vector_type (unsigned int i) const
@@ -1936,6 +1951,11 @@ arm_sve_h_builder::build (const function_group &group)
     case SHAPE_binary_index:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_nary_index<2>, group, MODE_none);
+      break;
+
+    case SHAPE_binary_index_n:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_nary_index_n<2>, group, MODE_none);
       break;
 
     case SHAPE_binary_opt_n:
@@ -2722,7 +2742,7 @@ arm_sve_h_builder::sig_nary (const function_instance &instance,
 
 /* Describe the signature "sv<t0>_t svfoo(sv<t0>_t, ..., sv<t0:uint>_t)"
    for INSTANCE in TYPES, where N is the number of arguments.  */
-template <unsigned int N>
+template<unsigned int N>
 void
 arm_sve_h_builder::sig_nary_index (const function_instance &instance,
 				   vec<tree> &types)
@@ -2730,6 +2750,18 @@ arm_sve_h_builder::sig_nary_index (const function_instance &instance,
   for (unsigned int i = 0; i < N; ++i)
     types.quick_push (instance.vector_type (0));
   types.quick_push (instance.unsigned_vector_type (0));
+}
+
+/* Describe the signature "sv<t0>_t svfoo(sv<t0>_t, ..., <t0:uint>_t)"
+   for INSTANCE in TYPES, where N is the number of arguments.  */
+template<unsigned int N>
+void
+arm_sve_h_builder::sig_nary_index_n (const function_instance &instance,
+				     vec<tree> &types)
+{
+  for (unsigned int i = 0; i < N; ++i)
+    types.quick_push (instance.vector_type (0));
+  types.quick_push (instance.unsigned_scalar_type (0));
 }
 
 /* Describe the signature "sv<t0>_t svfoo[_n_t0](sv<t0>_t, ..., <t0>_t)"
@@ -3275,6 +3307,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svcreate3:
     case FUNC_svcreate4:
     case FUNC_svdup:
+    case FUNC_svdup_lane:
     case FUNC_svdupq:
     case FUNC_svextb:
     case FUNC_svexth:
@@ -3387,6 +3420,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_binary:
     case SHAPE_binary_lane:
     case SHAPE_binary_index:
+    case SHAPE_binary_index_n:
     case SHAPE_binary_opt_n:
     case SHAPE_binary_rotate:
     case SHAPE_binary_wide:
@@ -3543,6 +3577,7 @@ function_resolver::resolve ()
     case SHAPE_binary_rotate:
       return resolve_uniform_imm (3, 1);
     case SHAPE_binary_index:
+    case SHAPE_binary_index_n:
       return resolve_multitype (2, 1);
     case SHAPE_binary_pred:
     case SHAPE_binary_scalar:
@@ -3880,23 +3915,15 @@ function_resolver::resolve_multitype (unsigned int nops, unsigned int nfirst)
 	  gcc_assert (i == nargs);
 	  break;
 	}
-      if (i >= unchecked)
+      /* Leave the frontend to check scalar types, since they
+	 don't participate in resolution.  */
+      if (i >= unchecked && VECTOR_TYPE_P (expected))
 	{
-	  if (VECTOR_TYPE_P (expected))
-	    {
-	      if (i + 1 == nargs && scalar_argument_p (i))
-		return require_n_form (get_type_suffix (type));
+	  if (i + 1 == nargs && scalar_argument_p (i))
+	    return require_n_form (get_type_suffix (type));
 
-	      if (!check_argument_against_decl (res, i, expected))
-		return error_mark_node;
-	    }
-	  else
-	    {
-	      /* At present, all remaining scalars must be integer
-		 constant expressions.  */
-	      if (!require_integer_immediate (i))
-		return error_mark_node;
-	    }
+	  if (!check_argument_against_decl (res, i, expected))
+	    return error_mark_node;
 	}
       i += 1;
     }
@@ -4631,6 +4658,7 @@ function_checker::check ()
     case SHAPE_adr_offset:
     case SHAPE_binary:
     case SHAPE_binary_index:
+    case SHAPE_binary_index_n:
     case SHAPE_binary_opt_n:
     case SHAPE_binary_pred:
     case SHAPE_binary_scalar:
@@ -5065,6 +5093,7 @@ gimple_folder::fold ()
     case FUNC_svdivr:
     case FUNC_svdot:
     case FUNC_svdot_lane:
+    case FUNC_svdup_lane:
     case FUNC_sveor:
     case FUNC_sveorv:
     case FUNC_svextb:
@@ -5909,6 +5938,9 @@ function_expander::expand ()
     case FUNC_svdup:
       return expand_dup ();
 
+    case FUNC_svdup_lane:
+      return expand_dup_lane ();
+
     case FUNC_svdupq:
       return expand_dupq ();
 
@@ -6581,6 +6613,17 @@ function_expander::expand_dup ()
 	icode = code_for_aarch64_sel_dup (get_mode (0));
       return expand_via_sel_insn (icode);
     }
+}
+
+/* Expand a call to svdup_lane.  */
+rtx
+function_expander::expand_dup_lane ()
+{
+  machine_mode mode = get_mode (0);
+  if (CONST_INT_P (m_args[1])
+      && IN_RANGE (INTVAL (m_args[1]) * GET_MODE_UNIT_SIZE (mode), 0, 63))
+    return expand_via_exact_insn (code_for_aarch64_sve_dup_lane (mode));
+  return expand_tbl ();
 }
 
 /* Expand a call to svdup.  */
