@@ -1525,7 +1525,7 @@ ix86_function_type_abi (const_tree fntype)
       static int warned;
       if (TARGET_X32 && !warned)
 	{
-	  error ("X32 does not support ms_abi attribute");
+	  error ("X32 does not support %<ms_abi%> attribute");
 	  warned = 1;
 	}
 
@@ -1559,7 +1559,8 @@ ix86_function_ms_hook_prologue (const_tree fn)
     {
       if (decl_function_context (fn) != NULL_TREE)
 	error_at (DECL_SOURCE_LOCATION (fn),
-		  "ms_hook_prologue is not compatible with nested function");
+		  "%<ms_hook_prologue%> attribute is not compatible "
+		  "with nested function");
       else
         return true;
     }
@@ -2266,7 +2267,7 @@ classify_argument (machine_mode mode, const_tree type,
 		{
 		  warned = true;
 		  inform (input_location,
-			  "the ABI of passing union with long double"
+			  "the ABI of passing union with %<long double%>"
 			  " has changed in GCC 4.4");
 		}
 	      return 0;
@@ -2384,7 +2385,7 @@ classify_argument (machine_mode mode, const_tree type,
 	    {
 	      warned = true;
 	      inform (input_location,
-		      "the ABI of passing structure with complex float"
+		      "the ABI of passing structure with %<complex float%>"
 		      " member has changed in GCC 4.4");
 	    }
 	  classes[1] = X86_64_SSESF_CLASS;
@@ -7787,7 +7788,7 @@ ix86_expand_prologue (void)
       /* Check if profiling is active and we shall use profiling before
          prologue variant. If so sorry.  */
       if (crtl->profile && flag_fentry != 0)
-        sorry ("ms_hook_prologue attribute isn%'t compatible "
+	sorry ("%<ms_hook_prologue%> attribute is not compatible "
 	       "with %<-mfentry%> for 32-bit");
 
       /* In ix86_asm_output_function_label we emitted:
@@ -18882,7 +18883,8 @@ ix86_set_reg_reg_cost (machine_mode mode)
 	  || (TARGET_AVX && VALID_AVX256_REG_MODE (mode))
 	  || (TARGET_SSE2 && VALID_SSE2_REG_MODE (mode))
 	  || (TARGET_SSE && VALID_SSE_REG_MODE (mode))
-	  || (TARGET_MMX && VALID_MMX_REG_MODE (mode)))
+	  || ((TARGET_MMX || TARGET_MMX_WITH_SSE)
+	      && VALID_MMX_REG_MODE (mode)))
 	units = GET_MODE_SIZE (mode);
     }
 
@@ -19758,9 +19760,10 @@ x86_can_output_mi_thunk (const_tree, HOST_WIDE_INT, HOST_WIDE_INT vcall_offset,
    *(*this + vcall_offset) should be added to THIS.  */
 
 static void
-x86_output_mi_thunk (FILE *file, tree, HOST_WIDE_INT delta,
+x86_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
 		     HOST_WIDE_INT vcall_offset, tree function)
 {
+  const char *fnname = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (thunk_fndecl));
   rtx this_param = x86_this_parameter (function);
   rtx this_reg, tmp, fnaddr;
   unsigned int tmp_regno;
@@ -19940,9 +19943,11 @@ x86_output_mi_thunk (FILE *file, tree, HOST_WIDE_INT delta,
      Note that use_thunk calls assemble_start_function et al.  */
   insn = get_insns ();
   shorten_branches (insn);
+  assemble_start_function (thunk_fndecl, fnname);
   final_start_function (insn, file, 1);
   final (insn, file, 1);
   final_end_function ();
+  assemble_end_function (thunk_fndecl, fnname);
 }
 
 static void
@@ -20611,7 +20616,7 @@ ix86_vector_mode_supported_p (machine_mode mode)
     return true;
   if (TARGET_AVX512F && VALID_AVX512F_REG_MODE (mode))
     return true;
-  if (TARGET_MMX && VALID_MMX_REG_MODE (mode))
+  if ((TARGET_MMX || TARGET_MMX_WITH_SSE) && VALID_MMX_REG_MODE (mode))
     return true;
   if (TARGET_3DNOW && VALID_MMX_REG_MODE_3DNOW (mode))
     return true;
@@ -20651,7 +20656,7 @@ ix86_md_asm_adjust (vec<rtx> &outputs, vec<rtx> &/*inputs*/,
       con += 4;
       if (strchr (con, ',') != NULL)
 	{
-	  error ("alternatives not allowed in asm flag output");
+	  error ("alternatives not allowed in %<asm%> flag output");
 	  continue;
 	}
 
@@ -20715,7 +20720,7 @@ ix86_md_asm_adjust (vec<rtx> &outputs, vec<rtx> &/*inputs*/,
 	}
       if (code == UNKNOWN)
 	{
-	  error ("unknown asm flag output %qs", constraints[i]);
+	  error ("unknown %<asm%> flag output %qs", constraints[i]);
 	  continue;
 	}
       if (invert)
@@ -20744,7 +20749,7 @@ ix86_md_asm_adjust (vec<rtx> &outputs, vec<rtx> &/*inputs*/,
       machine_mode dest_mode = GET_MODE (dest);
       if (!SCALAR_INT_MODE_P (dest_mode))
 	{
-	  error ("invalid type for asm flag output");
+	  error ("invalid type for %<asm%> flag output");
 	  continue;
 	}
 
@@ -21327,7 +21332,7 @@ ix86_preferred_simd_mode (scalar_mode mode)
    256bit and 128bit vectors.  */
 
 static void
-ix86_autovectorize_vector_sizes (vector_sizes *sizes)
+ix86_autovectorize_vector_sizes (vector_sizes *sizes, bool all)
 {
   if (TARGET_AVX512F && !TARGET_PREFER_AVX256)
     {
@@ -21335,10 +21340,21 @@ ix86_autovectorize_vector_sizes (vector_sizes *sizes)
       sizes->safe_push (32);
       sizes->safe_push (16);
     }
+  else if (TARGET_AVX512F && all)
+    {
+      sizes->safe_push (32);
+      sizes->safe_push (16);
+      sizes->safe_push (64);
+    }
   else if (TARGET_AVX && !TARGET_PREFER_AVX128)
     {
       sizes->safe_push (32);
       sizes->safe_push (16);
+    }
+  else if (TARGET_AVX && all)
+    {
+      sizes->safe_push (16);
+      sizes->safe_push (32);
     }
 }
 
@@ -21678,13 +21694,15 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
   if (val & IX86_HLE_ACQUIRE && !(is_mm_acquire (model) || strong))
     {
       warning (OPT_Winvalid_memory_model,
-              "HLE_ACQUIRE not used with ACQUIRE or stronger memory model");
+	      "%<HLE_ACQUIRE%> not used with %<ACQUIRE%> or stronger "
+	       "memory model");
       return MEMMODEL_SEQ_CST | IX86_HLE_ACQUIRE;
     }
   if (val & IX86_HLE_RELEASE && !(is_mm_release (model) || strong))
     {
       warning (OPT_Winvalid_memory_model,
-              "HLE_RELEASE not used with RELEASE or stronger memory model");
+	      "%<HLE_RELEASE%> not used with %<RELEASE%> or stronger "
+	       "memory model");
       return MEMMODEL_SEQ_CST | IX86_HLE_RELEASE;
     }
   return val;
@@ -23055,6 +23073,21 @@ ix86_run_selftests (void)
 #undef TARGET_GET_MULTILIB_ABI_NAME
 #define TARGET_GET_MULTILIB_ABI_NAME \
   ix86_get_multilib_abi_name
+
+static bool ix86_libc_has_fast_function (int fcode ATTRIBUTE_UNUSED)
+{
+#ifdef OPTION_GLIBC
+  if (OPTION_GLIBC)
+    return (built_in_function)fcode == BUILT_IN_MEMPCPY;
+  else
+    return false;
+#else
+  return false;
+#endif
+}
+
+#undef TARGET_LIBC_HAS_FAST_FUNCTION
+#define TARGET_LIBC_HAS_FAST_FUNCTION ix86_libc_has_fast_function
 
 #if CHECKING_P
 #undef TARGET_RUN_TARGET_SELFTESTS

@@ -482,7 +482,6 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
    5: CLASS_TYPE_P (in RECORD_TYPE and UNION_TYPE)
       ENUM_FIXED_UNDERLYING_TYPE_P (in ENUMERAL_TYPE)
       AUTO_IS_DECLTYPE (in TEMPLATE_TYPE_PARM)
-      REFERENCE_VLA_OK (in REFERENCE_TYPE)
    6: TYPE_DEPENDENT_P_VALID
 
    Usage of DECL_LANG_FLAG_?:
@@ -890,15 +889,25 @@ struct releasing_vec
   vec_t *operator-> () const { return v; }
   vec_t *get() const { return v; }
   operator vec_t *() const { return v; }
-  tree& operator[] (unsigned i) const { return (*v)[i]; }
+  vec_t ** operator& () { return &v; }
 
-  /* Necessary for use with vec** and vec*& interfaces.  */
-  vec_t *&get_ref () { return v; }
+  /* Breaks pointer/value consistency for convenience.  */
+  tree& operator[] (unsigned i) const { return (*v)[i]; }
 
   ~releasing_vec() { release_tree_vector (v); }
 private:
   vec_t *v;
 };
+/* Forwarding functions for vec_safe_* that might reallocate.  */
+inline tree* vec_safe_push (releasing_vec& r, const tree &t CXX_MEM_STAT_INFO)
+{ return vec_safe_push (*&r, t PASS_MEM_STAT); }
+inline bool vec_safe_reserve (releasing_vec& r, unsigned n, bool e = false CXX_MEM_STAT_INFO)
+{ return vec_safe_reserve (*&r, n, e PASS_MEM_STAT); }
+inline unsigned vec_safe_length (releasing_vec &r)
+{ return r->length(); }
+inline void vec_safe_splice (releasing_vec &r, vec<tree, va_gc> *p CXX_MEM_STAT_INFO)
+{ vec_safe_splice (*&r, p PASS_MEM_STAT); }
+void release_tree_vector (releasing_vec &); // cause link error
 
 struct GTY(()) tree_template_decl {
   struct tree_decl_common common;
@@ -3703,11 +3712,6 @@ struct GTY(()) lang_decl {
   (INDIRECT_REF_P (NODE)				\
    && TREE_TYPE (TREE_OPERAND (NODE, 0))		\
    && TYPE_REF_P (TREE_TYPE (TREE_OPERAND ((NODE), 0))))
-
-/* True if NODE is a REFERENCE_TYPE which is OK to instantiate to be a
-   reference to VLA type, because it's used for VLA capture.  */
-#define REFERENCE_VLA_OK(NODE) \
-  (TYPE_LANG_FLAG_5 (REFERENCE_TYPE_CHECK (NODE)))
 
 #define NEW_EXPR_USE_GLOBAL(NODE) \
   TREE_LANG_FLAG_0 (NEW_EXPR_CHECK (NODE))

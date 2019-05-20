@@ -662,6 +662,137 @@ ix86_expand_vector_move_misalign (machine_mode mode, rtx operands[])
     gcc_unreachable ();
 }
 
+/* Move bits 64:95 to bits 32:63.  */
+
+void
+ix86_move_vector_high_sse_to_mmx (rtx op)
+{
+  rtx mask = gen_rtx_PARALLEL (VOIDmode,
+			       gen_rtvec (4, GEN_INT (0), GEN_INT (2),
+					  GEN_INT (0), GEN_INT (0)));
+  rtx dest = lowpart_subreg (V4SImode, op, GET_MODE (op));
+  op = gen_rtx_VEC_SELECT (V4SImode, dest, mask);
+  rtx insn = gen_rtx_SET (dest, op);
+  emit_insn (insn);
+}
+
+/* Split MMX pack with signed/unsigned saturation with SSE/SSE2.  */
+
+void
+ix86_split_mmx_pack (rtx operands[], enum rtx_code code)
+{
+  rtx op0 = operands[0];
+  rtx op1 = operands[1];
+  rtx op2 = operands[2];
+
+  machine_mode dmode = GET_MODE (op0);
+  machine_mode smode = GET_MODE (op1);
+  machine_mode inner_dmode = GET_MODE_INNER (dmode);
+  machine_mode inner_smode = GET_MODE_INNER (smode);
+
+  /* Get the corresponding SSE mode for destination.  */
+  int nunits = 16 / GET_MODE_SIZE (inner_dmode);
+  machine_mode sse_dmode = mode_for_vector (GET_MODE_INNER (dmode),
+					    nunits).require ();
+  machine_mode sse_half_dmode = mode_for_vector (GET_MODE_INNER (dmode),
+						 nunits / 2).require ();
+
+  /* Get the corresponding SSE mode for source.  */
+  nunits = 16 / GET_MODE_SIZE (inner_smode);
+  machine_mode sse_smode = mode_for_vector (GET_MODE_INNER (smode),
+					    nunits).require ();
+
+  /* Generate SSE pack with signed/unsigned saturation.  */
+  rtx dest = lowpart_subreg (sse_dmode, op0, GET_MODE (op0));
+  op1 = lowpart_subreg (sse_smode, op1, GET_MODE (op1));
+  op2 = lowpart_subreg (sse_smode, op2, GET_MODE (op2));
+
+  op1 = gen_rtx_fmt_e (code, sse_half_dmode, op1);
+  op2 = gen_rtx_fmt_e (code, sse_half_dmode, op2);
+  rtx insn = gen_rtx_SET (dest, gen_rtx_VEC_CONCAT (sse_dmode,
+						    op1, op2));
+  emit_insn (insn);
+
+  ix86_move_vector_high_sse_to_mmx (op0);
+}
+
+/* Split MMX punpcklXX/punpckhXX with SSE punpcklXX.  */
+
+void
+ix86_split_mmx_punpck (rtx operands[], bool high_p)
+{
+  rtx op0 = operands[0];
+  rtx op1 = operands[1];
+  rtx op2 = operands[2];
+  machine_mode mode = GET_MODE (op0);
+  rtx mask;
+  /* The corresponding SSE mode.  */
+  machine_mode sse_mode, double_sse_mode;
+
+  switch (mode)
+    {
+    case E_V8QImode:
+      sse_mode = V16QImode;
+      double_sse_mode = V32QImode;
+      mask = gen_rtx_PARALLEL (VOIDmode,
+			       gen_rtvec (16,
+					  GEN_INT (0), GEN_INT (16),
+					  GEN_INT (1), GEN_INT (17),
+					  GEN_INT (2), GEN_INT (18),
+					  GEN_INT (3), GEN_INT (19),
+					  GEN_INT (4), GEN_INT (20),
+					  GEN_INT (5), GEN_INT (21),
+					  GEN_INT (6), GEN_INT (22),
+					  GEN_INT (7), GEN_INT (23)));
+      break;
+
+    case E_V4HImode:
+      sse_mode = V8HImode;
+      double_sse_mode = V16HImode;
+      mask = gen_rtx_PARALLEL (VOIDmode,
+			       gen_rtvec (8,
+					  GEN_INT (0), GEN_INT (8),
+					  GEN_INT (1), GEN_INT (9),
+					  GEN_INT (2), GEN_INT (10),
+					  GEN_INT (3), GEN_INT (11)));
+      break;
+
+    case E_V2SImode:
+      sse_mode = V4SImode;
+      double_sse_mode = V8SImode;
+      mask = gen_rtx_PARALLEL (VOIDmode,
+			       gen_rtvec (4,
+					  GEN_INT (0), GEN_INT (4),
+					  GEN_INT (1), GEN_INT (5)));
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  /* Generate SSE punpcklXX.  */
+  rtx dest = lowpart_subreg (sse_mode, op0, GET_MODE (op0));
+  op1 = lowpart_subreg (sse_mode, op1, GET_MODE (op1));
+  op2 = lowpart_subreg (sse_mode, op2, GET_MODE (op2));
+
+  op1 = gen_rtx_VEC_CONCAT (double_sse_mode, op1, op2);
+  op2 = gen_rtx_VEC_SELECT (sse_mode, op1, mask);
+  rtx insn = gen_rtx_SET (dest, op2);
+  emit_insn (insn);
+
+  if (high_p)
+    {
+      /* Move bits 64:127 to bits 0:63.  */
+      mask = gen_rtx_PARALLEL (VOIDmode,
+			       gen_rtvec (4, GEN_INT (2), GEN_INT (3),
+					  GEN_INT (0), GEN_INT (0)));
+      dest = lowpart_subreg (V4SImode, dest, GET_MODE (dest));
+      op1 = gen_rtx_VEC_SELECT (V4SImode, dest, mask);
+      insn = gen_rtx_SET (dest, op1);
+      emit_insn (insn);
+    }
+}
+
 /* Helper function of ix86_fixup_binary_operands to canonicalize
    operand order.  Returns true if the operands should be swapped.  */
 
@@ -984,7 +1115,7 @@ predict_jump (int prob)
 
 void
 ix86_split_idivmod (machine_mode mode, rtx operands[],
-		    bool signed_p)
+		    bool unsigned_p)
 {
   rtx_code_label *end_label, *qimode_label;
   rtx div, mod;
@@ -1000,22 +1131,22 @@ ix86_split_idivmod (machine_mode mode, rtx operands[],
       if (GET_MODE (operands[0]) == SImode)
 	{
 	  if (GET_MODE (operands[1]) == SImode)
-	    gen_divmod4_1 = signed_p ? gen_divmodsi4_1 : gen_udivmodsi4_1;
+	    gen_divmod4_1 = unsigned_p ? gen_udivmodsi4_1 : gen_divmodsi4_1;
 	  else
 	    gen_divmod4_1
-	      = signed_p ? gen_divmodsi4_zext_2 : gen_udivmodsi4_zext_2;
+	      = unsigned_p ? gen_udivmodsi4_zext_2 : gen_divmodsi4_zext_2;
 	  gen_zero_extend = gen_zero_extendqisi2;
 	}
       else
 	{
 	  gen_divmod4_1
-	    = signed_p ? gen_divmodsi4_zext_1 : gen_udivmodsi4_zext_1;
+	    = unsigned_p ? gen_udivmodsi4_zext_1 : gen_divmodsi4_zext_1;
 	  gen_zero_extend = gen_zero_extendqidi2;
 	}
       gen_test_ccno_1 = gen_testsi_ccno_1;
       break;
     case E_DImode:
-      gen_divmod4_1 = signed_p ? gen_divmoddi4_1 : gen_udivmoddi4_1;
+      gen_divmod4_1 = unsigned_p ? gen_udivmoddi4_1 : gen_divmoddi4_1;
       gen_test_ccno_1 = gen_testdi_ccno_1;
       gen_zero_extend = gen_zero_extendqidi2;
       break;
@@ -1061,15 +1192,15 @@ ix86_split_idivmod (machine_mode mode, rtx operands[],
   tmp2 = lowpart_subreg (QImode, operands[3], mode);
   emit_insn (gen_udivmodhiqi3 (tmp0, tmp1, tmp2));
 
-  if (signed_p)
-    {
-      div = gen_rtx_DIV (mode, operands[2], operands[3]);
-      mod = gen_rtx_MOD (mode, operands[2], operands[3]);
-    }
-  else
+  if (unsigned_p)
     {
       div = gen_rtx_UDIV (mode, operands[2], operands[3]);
       mod = gen_rtx_UMOD (mode, operands[2], operands[3]);
+    }
+  else
+    {
+      div = gen_rtx_DIV (mode, operands[2], operands[3]);
+      mod = gen_rtx_MOD (mode, operands[2], operands[3]);
     }
   if (mode == SImode)
     {
@@ -7838,7 +7969,7 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
       if (fndecl
 	  && (lookup_attribute ("interrupt",
 				TYPE_ATTRIBUTES (TREE_TYPE (fndecl)))))
-	error ("interrupt service routine can%'t be called directly");
+	error ("interrupt service routine cannot be called directly");
     }
   else
     fndecl = NULL_TREE;
@@ -10630,7 +10761,8 @@ get_element_number (tree vec_type, tree arg)
   if (!tree_fits_uhwi_p (arg)
       || (elt = tree_to_uhwi (arg), elt > max))
     {
-      error ("selector must be an integer constant in the range 0..%wi", max);
+      error ("selector must be an integer constant in the range "
+	     "[0, %wi]", max);
       return 0;
     }
 
@@ -10805,6 +10937,25 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
        == (OPTION_MASK_ISA_FMA | OPTION_MASK_ISA_FMA4))
       && (isa & (OPTION_MASK_ISA_FMA | OPTION_MASK_ISA_FMA4)) != 0)
     isa |= (OPTION_MASK_ISA_FMA | OPTION_MASK_ISA_FMA4);
+  /* Use SSE/SSE2/SSSE3 to emulate MMX intrinsics in 64-bit mode when
+     MMX is disabled.  NB: Since MMX intrinsics are marked with
+     SSE/SSE2/SSSE3, enable them without SSE/SSE2/SSSE3 if MMX is
+     enabled.  */
+  if (TARGET_MMX || TARGET_MMX_WITH_SSE)
+    {
+      if (((bisa & (OPTION_MASK_ISA_SSE | OPTION_MASK_ISA_MMX))
+	   == (OPTION_MASK_ISA_SSE | OPTION_MASK_ISA_MMX))
+	  && (isa & (OPTION_MASK_ISA_SSE | OPTION_MASK_ISA_MMX)) != 0)
+	isa |= (OPTION_MASK_ISA_SSE | OPTION_MASK_ISA_MMX);
+      if (((bisa & (OPTION_MASK_ISA_SSE2 | OPTION_MASK_ISA_MMX))
+	   == (OPTION_MASK_ISA_SSE2 | OPTION_MASK_ISA_MMX))
+	  && (isa & (OPTION_MASK_ISA_SSE2 | OPTION_MASK_ISA_MMX)) != 0)
+	isa |= (OPTION_MASK_ISA_SSE2 | OPTION_MASK_ISA_MMX);
+      if (((bisa & (OPTION_MASK_ISA_SSSE3 | OPTION_MASK_ISA_MMX))
+	   == (OPTION_MASK_ISA_SSSE3 | OPTION_MASK_ISA_MMX))
+	  && (isa & (OPTION_MASK_ISA_SSSE3 | OPTION_MASK_ISA_MMX)) != 0)
+	isa |= (OPTION_MASK_ISA_SSSE3 | OPTION_MASK_ISA_MMX);
+    }
   if ((bisa & isa) != bisa || (bisa2 & isa2) != bisa2)
     {
       bool add_abi_p = bisa & OPTION_MASK_ISA_64BIT;
