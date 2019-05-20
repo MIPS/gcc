@@ -41419,6 +41419,13 @@ make_generic_type_name ()
 static tree
 synthesize_implicit_template_parm  (cp_parser *parser, tree constr)
 {
+  /* A requires-clause is not a function and cannot have placeholders.  */
+  if (current_binding_level->kind == sk_block)
+    {
+      error ("placeholder type not allowed in this context");
+      return error_mark_node;
+    }
+  
   gcc_assert (current_binding_level->kind == sk_function_parms);
 
   /* We are either continuing a function template that already contains implicit
