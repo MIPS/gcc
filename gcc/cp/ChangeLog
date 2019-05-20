@@ -1,12 +1,12 @@
-2019-05-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2019-05-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
-	Disallow placeholder types in requires-expressions.
+	PR c++67178. Disallow placeholder types in requires-expressions.
 	* parser.c (synthesize_implicit_template_parm): Fail if we
 	get a placeholder in block scope.
 
 2019-05-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
-	Disallow void constraint varaibles.
+	Disallow void constraint variables.
 	* constraint.cc (check_constaint_variables): New.
 	(tsubst_constraint_variables): Check that type substitutions are
 	okay.
