@@ -309,6 +309,34 @@ enum function_shape {
   /* uint64_t svfoo_t0(svbool_t).  */
   SHAPE_pred_count,
 
+  /* void svfoo(const void *, svprfop)
+     void svfoo_vnum(const void *, int64_t, svprfop).  */
+  SHAPE_prefetch,
+
+  /* void svfoo_[s32]index(const void *, svint32_t, svprfop)
+     void svfoo_[s64]index(const void *, svint64_t, svprfop)
+     void svfoo_[u32]index(const void *, svuint32_t, svprfop)
+     void svfoo_[u64]index(const void *, svuint64_t, svprfop)
+
+     void svfoo[_u32base](svuint32_t, svprfop)
+     void svfoo[_u64base](svuint64_t, svprfop)
+
+     void svfoo[_u32base]_index(svuint32_t, int64_t, svprfop)
+     void svfoo[_u64base]_index(svuint64_t, int64_t, svprfop).  */
+  SHAPE_prefetch_gather_index,
+
+  /* void svfoo_[s32]offset(const void *, svint32_t, svprfop)
+     void svfoo_[s64]offset(const void *, svint64_t, svprfop)
+     void svfoo_[u32]offset(const void *, svuint32_t, svprfop)
+     void svfoo_[u64]offset(const void *, svuint64_t, svprfop)
+
+     void svfoo[_u32base](svuint32_t, svprfop)
+     void svfoo[_u64base](svuint64_t, svprfop)
+
+     void svfoo[_u32base]_offset(svuint32_t, int64_t, svprfop)
+     void svfoo[_u64base]_offset(svuint64_t, int64_t, svprfop).  */
+  SHAPE_prefetch_gather_offset,
+
   /* bool svfoo(svbool_t).  */
   SHAPE_ptest,
 
@@ -624,6 +652,7 @@ public:
 
   void register_type (vector_type);
   void register_svpattern ();
+  void register_svprfop ();
   void build (const function_group &);
 
 private:
@@ -696,6 +725,9 @@ private:
   void sig_pattern_count (const function_instance &, vec<tree> &);
   void sig_pattern_pred (const function_instance &, vec<tree> &);
   void sig_pred_count (const function_instance &, vec<tree> &);
+  void sig_prefetch (const function_instance &, vec<tree> &);
+  void sig_prefetch_gather_sv (const function_instance &, vec<tree> &);
+  void sig_prefetch_gather_vs (const function_instance &, vec<tree> &);
   void sig_ptest (const function_instance &, vec<tree> &);
   void sig_rdffr (const function_instance &, vec<tree> &);
   void sig_reduction (const function_instance &, vec<tree> &);
@@ -761,6 +793,7 @@ private:
   tree resolve_load_gather_sv ();
   tree resolve_load_gather_sv_or_vs ();
   tree resolve_multitype (unsigned int, unsigned int);
+  tree resolve_prefetch_gather ();
   tree resolve_set (unsigned int);
   tree resolve_store (unsigned int);
   tree resolve_store_scatter ();
@@ -831,6 +864,7 @@ private:
   bool require_immediate_range (unsigned int, HOST_WIDE_INT, HOST_WIDE_INT);
   bool require_immediate_rotate (unsigned int, bool);
   bool require_immediate_svpattern (unsigned int);
+  bool require_immediate_svprfop (unsigned int);
 
   /* The location of the call.  */
   location_t m_location;
@@ -977,6 +1011,8 @@ private:
   rtx expand_orr ();
   rtx expand_permute (int);
   rtx expand_pfalse ();
+  rtx expand_prf ();
+  rtx expand_prf_gather ();
   rtx expand_ptest (rtx_code);
   rtx expand_ptrue ();
   rtx expand_ptrue_pat ();
@@ -1012,6 +1048,7 @@ private:
   rtx expand_via_unpred_direct_optab (optab, machine_mode = VOIDmode);
   rtx expand_via_exact_insn (insn_code);
   rtx expand_via_load_insn (insn_code);
+  rtx expand_via_prefetch_insn (insn_code);
   rtx expand_via_store_insn (insn_code);
   rtx expand_via_unpred_insn (insn_code);
   rtx expand_via_pred_direct_optab (optab, unsigned int = DEFAULT_MERGE_ARGNO);
@@ -1025,9 +1062,11 @@ private:
   void require_immediate_range (unsigned int, HOST_WIDE_INT, HOST_WIDE_INT);
   int get_immediate_rotate (unsigned int, bool);
   void require_immediate_svpattern (unsigned int);
+  void require_immediate_svprfop (unsigned int);
 
   rtx get_contiguous_base (machine_mode);
   void prepare_gather_address_operands (unsigned int);
+  void prepare_prefetch_operands ();
   rtx prepare_dupq_lane_index (unsigned int);
   void rotate_inputs_left (unsigned int, unsigned int);
   bool try_negating_argument (unsigned int, machine_mode);
@@ -1045,6 +1084,7 @@ private:
   void add_input_operand (insn_code, rtx);
   void add_integer_operand (HOST_WIDE_INT);
   void add_mem_operand (machine_mode, rtx);
+  void add_address_operand (rtx);
   void add_fixed_operand (rtx);
   rtx generate_insn (insn_code);
 
@@ -1062,7 +1102,7 @@ private:
   rtx m_target;
 
   /* The expanded arguments.  */
-  auto_vec<rtx, 8> m_args;
+  auto_vec<rtx, 16> m_args;
 
   /* Used to build up the operands to an instruction.  */
   auto_vec<expand_operand, 8> m_ops;
@@ -1308,6 +1348,9 @@ static GTY(()) tree acle_vector_types[MAX_TUPLE_SIZE][NUM_VECTOR_TYPES + 1];
 
 /* The svpattern enum type.  */
 static tree acle_svpattern;
+
+/* The svprfop enum type.  */
+static tree acle_svprfop;
 
 /* The list of all registered function decls, indexed by code.  */
 static GTY(()) vec<registered_function *, va_gc> *registered_functions;
@@ -1666,6 +1709,12 @@ function_instance::memory_vector_mode () const
       return aarch64_sve_data_mode (bhwd_scalar_mode (),
 				    GET_MODE_NUNITS (mode)).require ();
 
+    case FUNC_svprfb_gather:
+    case FUNC_svprfd_gather:
+    case FUNC_svprfh_gather:
+    case FUNC_svprfw_gather:
+      return aarch64_full_sve_mode (bhwd_scalar_mode ()).require ();
+
     default:
       gcc_unreachable ();
     }
@@ -1931,6 +1980,20 @@ arm_sve_h_builder::register_svpattern ()
 						"svpattern", values);
 }
 
+/* Register the svprfop enum.  */
+void
+arm_sve_h_builder::register_svprfop ()
+{
+  auto_vec<string_int_pair, 16> values;
+#define PUSH(UPPER, LOWER, VALUE) \
+    values.quick_push (string_int_pair ("SV_" #UPPER, VALUE));
+  AARCH64_FOR_SVPRFOP (PUSH)
+#undef PUSH
+
+  acle_svprfop = lang_hooks.types.build_enum (input_location,
+					      "svprfop", values);
+}
+
 /* Define all functions associated with GROUP.  */
 void
 arm_sve_h_builder::build (const function_group &group)
@@ -2178,6 +2241,27 @@ arm_sve_h_builder::build (const function_group &group)
 
     case SHAPE_pred_count:
       build_all (&arm_sve_h_builder::sig_pred_count, group, MODE_none);
+      break;
+
+    case SHAPE_prefetch:
+      build_all (&arm_sve_h_builder::sig_prefetch, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_prefetch, group, MODE_vnum);
+      break;
+
+    case SHAPE_prefetch_gather_index:
+      add_overloaded_functions (group, MODE_none);
+      add_overloaded_functions (group, MODE_index);
+      build_sv_index (&arm_sve_h_builder::sig_prefetch_gather_sv, group);
+      build_v_base (&arm_sve_h_builder::sig_prefetch_gather_vs, group);
+      build_vs_index (&arm_sve_h_builder::sig_prefetch_gather_vs, group);
+      break;
+
+    case SHAPE_prefetch_gather_offset:
+      add_overloaded_functions (group, MODE_none);
+      add_overloaded_functions (group, MODE_offset);
+      build_sv_offset (&arm_sve_h_builder::sig_prefetch_gather_sv, group);
+      build_v_base (&arm_sve_h_builder::sig_prefetch_gather_vs, group);
+      build_vs_offset (&arm_sve_h_builder::sig_prefetch_gather_vs, group);
       break;
 
     case SHAPE_ptest:
@@ -2453,13 +2537,20 @@ arm_sve_h_builder::build_32_64 (function_signature signature,
 				bool force_direct_overloads)
 {
   for (unsigned int pi = 0; group.preds[pi] != NUM_PREDS; ++pi)
-    for (unsigned int ti = 0; group.types[ti][0] != NUM_TYPE_SUFFIXES; ++ti)
-      {
-	unsigned int bits = type_suffixes[group.types[ti][0]].elem_bits;
-	gcc_assert (bits == 32 || bits == 64);
-	function_mode mode = bits == 32 ? mode32 : mode64;
-	build_one (signature, group, mode, ti, pi, force_direct_overloads);
-      }
+    {
+      if (group.types[0][0] == NUM_TYPE_SUFFIXES)
+	{
+	  build_one (signature, group, mode32, 0, pi, force_direct_overloads);
+	  build_one (signature, group, mode64, 0, pi, force_direct_overloads);
+	}
+      for (unsigned int ti = 0; group.types[ti][0] != NUM_TYPE_SUFFIXES; ++ti)
+	{
+	  unsigned int bits = type_suffixes[group.types[ti][0]].elem_bits;
+	  gcc_assert (bits == 32 || bits == 64);
+	  function_mode mode = bits == 32 ? mode32 : mode64;
+	  build_one (signature, group, mode, ti, pi, force_direct_overloads);
+	}
+    }
 }
 
 /* Add a function instance for every type and predicate combination
@@ -2753,6 +2844,58 @@ arm_sve_h_builder::sig_load_gather_vs (const function_instance &instance,
   types.quick_push (instance.base_vector_type ());
   if (instance.displacement_units () != UNITS_none)
     types.quick_push (scalar_types[VECTOR_TYPE_svint64_t]);
+}
+
+/* Describe one of the signatures:
+
+     void svfoo(const void *, svprfop)
+     void svfoo_vnum(const void *, int64_t, svprfop)
+
+   for INSTANCE in TYPES.  The mode of INSTANCE chooses between the vnum and
+   non-vnum forms.  */
+void
+arm_sve_h_builder::sig_prefetch (const function_instance &instance,
+				 vec<tree> &types)
+{
+  types.quick_push (void_type_node);
+  types.quick_push (const_ptr_type_node);
+  if (instance.mode == MODE_vnum)
+    types.quick_push (scalar_types[VECTOR_TYPE_svint64_t]);
+  types.quick_push (acle_svprfop);
+}
+
+/* Describe one of the signatures:
+
+     void svfoo_[m1]index(const void *, sv<m1>_t, svprfop)
+     void svfoo_[m1]offset(const void *, sv<m1>_t, svprfop)
+
+   for INSTANCE in TYPES.  The mode of INSTANCE determines <m1>.  */
+void
+arm_sve_h_builder::sig_prefetch_gather_sv (const function_instance &instance,
+					   vec<tree> &types)
+{
+  types.quick_push (void_type_node);
+  types.quick_push (const_ptr_type_node);
+  types.quick_push (instance.displacement_vector_type ());
+  types.quick_push (acle_svprfop);
+}
+
+/* Describe one of the signatures:
+
+     void svfoo[_m0base](sv<m0>_t, svprfop)
+     void svfoo[_m0base]_index(sv<m0>_t, int64_t, svprfop)
+     void svfoo[_m0base]_offset(sv<m0>_t, int64_t, svprfop)
+
+   for INSTANCE in TYPES.  The mode of INSTANCE determines <m0>.  */
+void
+arm_sve_h_builder::sig_prefetch_gather_vs (const function_instance &instance,
+					   vec<tree> &types)
+{
+  types.quick_push (void_type_node);
+  types.quick_push (instance.base_vector_type ());
+  if (instance.displacement_units () != UNITS_none)
+    types.quick_push (scalar_types[VECTOR_TYPE_svint64_t]);
+  types.quick_push (acle_svprfop);
 }
 
 /* Describe the signature "sv<t0>_t svfoo[_t0](sv<t0>_t, ...)"
@@ -3426,6 +3569,14 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svldnf1ub:
     case FUNC_svldnf1uh:
     case FUNC_svldnf1uw:
+    case FUNC_svprfb:
+    case FUNC_svprfb_gather:
+    case FUNC_svprfd:
+    case FUNC_svprfd_gather:
+    case FUNC_svprfh:
+    case FUNC_svprfh_gather:
+    case FUNC_svprfw:
+    case FUNC_svprfw_gather:
     case FUNC_svrdffr:
     case FUNC_svsetffr:
     case FUNC_svst1:
@@ -3486,6 +3637,9 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_load_gather_sv:
     case SHAPE_load_scalar:
     case SHAPE_pattern_count:
+    case SHAPE_prefetch:
+    case SHAPE_prefetch_gather_index:
+    case SHAPE_prefetch_gather_offset:
     case SHAPE_ptest:
     case SHAPE_rdffr:
     case SHAPE_reduction:
@@ -3633,6 +3787,7 @@ function_resolver::resolve ()
     case SHAPE_pattern_count:
     case SHAPE_pattern_pred:
     case SHAPE_pred_count:
+    case SHAPE_prefetch:
     case SHAPE_ptest:
     case SHAPE_rdffr:
     case SHAPE_setffr:
@@ -3689,6 +3844,9 @@ function_resolver::resolve ()
 	 type suffix.  There is no ambiguity with SHAPE_load_gather_sv
 	 because the latter uses an implicit type suffix.  */
       return NULL_TREE;
+    case SHAPE_prefetch_gather_index:
+    case SHAPE_prefetch_gather_offset:
+      return resolve_prefetch_gather ();
     case SHAPE_set2:
       return resolve_set (2);
     case SHAPE_set3:
@@ -3986,6 +4144,29 @@ function_resolver::resolve_get (unsigned int num_vectors)
     return error_mark_node;
 
   return require_form (m_rfn.instance.mode, get_type_suffix (type));
+}
+
+/* Resolve a gather prefetch that takes one of:
+
+   - a scalar pointer base (const void *) and a vector displacement
+   - a vector base with no displacement or
+   - a vector base and a scalar displacement
+
+   The prefetch operation is the final argument.  This is purely a
+   mode-based resolution; there are no type suffixes.  */
+tree
+function_resolver::resolve_prefetch_gather ()
+{
+  function_mode mode;
+  vector_type type = NUM_VECTOR_TYPES;
+  unsigned int nargs = m_fi.displacement_units () == UNITS_none ? 3 : 4;
+  if (!check_num_arguments (nargs)
+      || !check_argument (0, VECTOR_TYPE_svbool_t)
+      || (mode = require_gather_address (1, type, false)) == MODE_none)
+    return error_mark_node;
+
+  /* Don't check the prefetch operation here.  */
+  return require_form (mode);
 }
 
 /* Resolve a function that has SHAPE_set<NUM_VECTORS>.  */
@@ -4471,8 +4652,11 @@ function_resolver::require_vector_base (unsigned int i)
 }
 
 /* Require argument I to be a vector offset or index in a gather-style
-   address.  DATA_TYPE is the type of data being loaded or stored.
-   LOAD_P is true if it is being loaded rather than stored.
+   address.  There are three possible uses:
+
+   - for loading DATA_TYPE (when LOAD_P is true)
+   - for storing DATA_TYPE (when LOAD_P is false)
+   - for prefetching data (when DATA_TYPE is NUM_VECTOR_TYPES)
 
    Return the associated mode on success, otherwise return MODE_none.  */
 function_mode
@@ -4483,6 +4667,18 @@ function_resolver::require_vector_displacement (unsigned int i,
   vector_type displacement_type = require_vector_type (i);
   if (displacement_type == NUM_VECTOR_TYPES)
     return MODE_none;
+
+  if (data_type == NUM_VECTOR_TYPES)
+    {
+      function_mode mode = find_function_mode (NUM_VECTOR_TYPES,
+					       displacement_type,
+					       m_fi.displacement_units ());
+      if (mode == MODE_none)
+	error_at (m_location, "passing %qT to argument %d of %qE,"
+		  " which expects a vector of 32-bit of 64-bit integers",
+		  get_argument_type (i), i + 1, m_rfn.decl);
+      return mode;
+    }
 
   unsigned int required_bits = get_element_bits (data_type);
   if (get_element_bits (displacement_type) == required_bits)
@@ -4514,11 +4710,17 @@ function_resolver::require_vector_displacement (unsigned int i,
   return MODE_none;
 }
 
-/* Require arguments I and I + 1 to form a gather-style address for loading
-   or storing DATA_TYPE; LOAD_P says which.  The two possibilities are a
-   vector base and a scalar displacement or a scalar (pointer) base and
-   a vector displacement.  The mode of the overloaded function determines
-   the units of the displacement (bytes for "_offset", elements for "_index").
+/* Require arguments I and I + 1 to form a gather-style address.
+   There are three possible uses:
+
+   - for loading DATA_TYPE (when LOAD_P is true)
+   - for storing DATA_TYPE (when LOAD_P is false)
+   - for prefetching data (when DATA_TYPE is NUM_VECTOR_TYPES)
+
+   The two possible addresses are a vector base and a scalar
+   displacement or a scalar (pointer) base and a vector displacement.
+   The mode of the overloaded function determines the units of the
+   displacement (bytes for "_offset", elements for "_index").
 
    Return the mode of the non-overloaded function on success, otherwise
    return MODE_none.  */
@@ -4547,22 +4749,32 @@ function_resolver::require_gather_address (unsigned int i,
 	}
     }
 
-  vector_type base_type = require_vector_type (i);
-  if (base_type == NUM_VECTOR_TYPES)
-    return MODE_none;
-
   /* Check for the correct choice of vector base type.  */
-  unsigned int required_bits = get_element_bits (data_type);
-  gcc_assert (required_bits == 32 || required_bits == 64);
-  vector_type required_type = (required_bits == 32
-			       ? VECTOR_TYPE_svuint32_t
-			       : VECTOR_TYPE_svuint64_t);
-  if (required_type != base_type)
+  vector_type base_type;
+  if (data_type == NUM_VECTOR_TYPES)
     {
-      error_at (m_location, "passing %qT to argument %d of %qE,"
-		" which expects %qT",
-		actual, i + 1, m_rfn.decl, get_vector_type (required_type));
-      return MODE_none;
+      base_type = require_vector_base (i);
+      if (base_type == NUM_VECTOR_TYPES)
+	return MODE_none;
+    }
+  else
+    {
+      base_type = require_vector_type (i);
+      if (base_type == NUM_VECTOR_TYPES)
+	return MODE_none;
+
+      unsigned int required_bits = get_element_bits (data_type);
+      gcc_assert (required_bits == 32 || required_bits == 64);
+      vector_type required_type = (required_bits == 32
+				   ? VECTOR_TYPE_svuint32_t
+				   : VECTOR_TYPE_svuint64_t);
+      if (required_type != base_type)
+	{
+	  error_at (m_location, "passing %qT to argument %d of %qE,"
+		    " which expects %qT", actual, i + 1, m_rfn.decl,
+		    get_vector_type (required_type));
+	  return MODE_none;
+	}
     }
 
   for (unsigned int mode = 0; mode < ARRAY_SIZE (modes); ++mode)
@@ -4784,6 +4996,13 @@ function_checker::check ()
     case SHAPE_pattern_pred:
       return require_immediate_svpattern (0);
 
+    case SHAPE_prefetch:
+    case SHAPE_prefetch_gather_index:
+    case SHAPE_prefetch_gather_offset:
+      if (m_fi.displacement_units () != UNITS_none)
+	return require_immediate_svprfop (pg_args + 2);
+      return require_immediate_svprfop (pg_args + 1);
+
     case SHAPE_shift_right_imm:
       return check_shift_right_imm ();
 
@@ -4927,6 +5146,27 @@ function_checker::require_immediate_svpattern (unsigned int argno)
   return true;
 }
 
+/* Check that argument ARGNO is an integer constant expression that
+   has a valid svprfop value.  */
+bool
+function_checker::require_immediate_svprfop (unsigned int argno)
+{
+  if (m_nargs <= argno)
+    return true;
+
+  HOST_WIDE_INT actual;
+  if (!require_immediate (argno, actual))
+    return false;
+
+  if (!aarch64_svprfop_immediate_p (actual))
+    {
+      report_not_enum (m_location, m_decl, argno, actual, acle_svprfop);
+      return false;
+    }
+
+  return true;
+}
+
 /* Register the built-in SVE ABI types, such as __SVBool_t.  */
 static void
 register_builtin_types ()
@@ -5012,6 +5252,7 @@ handle_arm_sve_h ()
   for (unsigned int i = 0; i < NUM_VECTOR_TYPES; ++i)
     builder.register_type (vector_type (i));
   builder.register_svpattern ();
+  builder.register_svprfop ();
   for (unsigned int i = 0; i < ARRAY_SIZE (function_groups); ++i)
     builder.build (function_groups[i]);
 }
@@ -5216,6 +5457,14 @@ gimple_folder::fold ()
     case FUNC_svorn:
     case FUNC_svorr:
     case FUNC_svorv:
+    case FUNC_svprfb:
+    case FUNC_svprfb_gather:
+    case FUNC_svprfd:
+    case FUNC_svprfd_gather:
+    case FUNC_svprfh:
+    case FUNC_svprfh_gather:
+    case FUNC_svprfw:
+    case FUNC_svprfw_gather:
     case FUNC_svptest_any:
     case FUNC_svptest_first:
     case FUNC_svptest_last:
@@ -6191,6 +6440,18 @@ function_expander::expand ()
 
     case FUNC_svpfalse:
       return expand_pfalse ();
+
+    case FUNC_svprfb:
+    case FUNC_svprfd:
+    case FUNC_svprfh:
+    case FUNC_svprfw:
+      return expand_prf ();
+
+    case FUNC_svprfb_gather:
+    case FUNC_svprfd_gather:
+    case FUNC_svprfh_gather:
+    case FUNC_svprfw_gather:
+      return expand_prf_gather ();
 
     case FUNC_svptest_any:
       return expand_ptest (NE);
@@ -7282,6 +7543,35 @@ function_expander::expand_pfalse ()
   return CONST0_RTX (VNx16BImode);
 }
 
+/* Expand a call to svprf[bhwd].  */
+rtx
+function_expander::expand_prf ()
+{
+  prepare_prefetch_operands ();
+  scalar_mode int_mode = m_fi.bhwd_scalar_mode ();
+  machine_mode mode = aarch64_full_sve_mode (int_mode).require ();
+  return expand_via_prefetch_insn (code_for_aarch64_sve_prefetch (mode));
+}
+
+/* Expand a call to svprf[bhwd]_gather.  */
+rtx
+function_expander::expand_prf_gather ()
+{
+  prepare_prefetch_operands ();
+  prepare_gather_address_operands (1);
+
+  machine_mode mem_mode = m_fi.memory_vector_mode ();
+  machine_mode reg_mode = GET_MODE (m_args[2]);
+
+  /* Insert a zero operand to identify the mode of the memory being
+     accessed.  This goes between the gather operands and prefetch
+     operands created above.  */
+  m_args.quick_insert (5, CONST0_RTX (mem_mode));
+
+  insn_code icode = code_for_aarch64_sve_gather_prefetch (mem_mode, reg_mode);
+  return expand_via_exact_insn (icode);
+}
+
 /* Expand a call to svptest_*.  CODE is the comparison code for a
    true return.  */
 rtx
@@ -7608,6 +7898,18 @@ function_expander::expand_via_load_insn (insn_code icode)
   add_output_operand (icode);
   add_mem_operand (mem_mode, base);
   add_input_operand (icode, m_args[0]);
+  return generate_insn (icode);
+}
+
+/* Implement the call using instruction ICODE, which prefetches from
+   address operand 1 under the control of predicate operand 0.  */
+rtx
+function_expander::expand_via_prefetch_insn (insn_code icode)
+{
+  add_input_operand (icode, m_args[0]);
+  add_address_operand (get_contiguous_base (VNx16QImode));
+  for (unsigned int i = m_args.length () - 3; i < m_args.length (); ++i)
+    add_input_operand (icode, m_args[i]);
   return generate_insn (icode);
 }
 
@@ -7952,6 +8254,24 @@ function_expander::require_immediate_svpattern (unsigned int argno)
   m_args[argno] = gen_int_mode (AARCH64_SV_ALL, DImode);
 }
 
+/* Check that argument ARGNO is an integer constant expression that
+   has a valid svprfop value.  Report an error if it doesn't and
+   change it to SV_PLDL1KEEP.  */
+void
+function_expander::require_immediate_svprfop (unsigned int argno)
+{
+  if (!CONST_INT_P (m_args[argno]))
+    report_non_ice (m_location, m_rfn.decl, argno);
+  else
+    {
+      HOST_WIDE_INT actual = INTVAL (m_args[argno]);
+      if (aarch64_svprfop_immediate_p (actual))
+	return;
+      report_not_enum (m_location, m_rfn.decl, argno, actual, acle_svprfop);
+    }
+  m_args[argno] = gen_int_mode (AARCH64_SV_PLDL1KEEP, DImode);
+}
+
 /* Return the base address for a contiguous load or store function.
    MODE is the mode of the addressed memory.  */
 rtx
@@ -8025,6 +8345,21 @@ function_expander::prepare_gather_address_operands (unsigned int i)
 
   m_args.quick_insert (i + 2, GEN_INT (uxtw_p));
   m_args.quick_insert (i + 3, GEN_INT (scale));
+}
+
+/* Require the final argument to be an immediate svprfop value.  Add two fake
+   arguments to represent the rw and locality operands of a PREFETCH rtx.  */
+void
+function_expander::prepare_prefetch_operands ()
+{
+  unsigned int i = m_args.length () - 1;
+  require_immediate_svprfop (i);
+  unsigned int prfop = INTVAL (m_args[i]);
+  /* Bit 3 of the prfop selects stores over loads.  */
+  m_args.quick_push (GEN_INT ((prfop & 8) != 0));
+  /* Bits 1 and 2 specify the locality; 0-based for svprfop but
+     1-based for PREFETCH.  */
+  m_args.quick_push (GEN_INT (((prfop >> 1) & 3) + 1));
 }
 
 /* Return a PARALLEL that selects a quadword of elements, starting at
@@ -8202,6 +8537,15 @@ function_expander::add_mem_operand (machine_mode mode, rtx addr)
   add_fixed_operand (mem);
 }
 
+/* Add an address operand with value X.  The static operand data says
+   what mode and form the address must have.  */
+void
+function_expander::add_address_operand (rtx x)
+{
+  m_ops.safe_grow (m_ops.length () + 1);
+  create_address_operand (&m_ops.last (), x);
+}
+
 /* Add an operand that must be X.  The only way of legitimizing an
    invalid X is to reload the address of a MEM.  */
 void
@@ -8217,7 +8561,7 @@ rtx
 function_expander::generate_insn (insn_code icode)
 {
   expand_insn (icode, m_ops.length (), m_ops.address ());
-  return m_ops[0].value;
+  return function_returns_void_p () ? const0_rtx : m_ops[0].value;
 }
 
 /* Expand a call to the SVE function with subcode CODE.  EXP is the call

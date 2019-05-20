@@ -254,6 +254,26 @@
 						  true,
 						  ADDR_QUERY_LDP_STP_N)")))
 
+(define_address_constraint "UPb"
+  "@internal
+   An address valid for SVE PRFB instructions."
+  (match_test "aarch64_sve_prefetch_operand_p (op, VNx16QImode)"))
+
+(define_address_constraint "UPd"
+  "@internal
+   An address valid for SVE PRFD instructions."
+  (match_test "aarch64_sve_prefetch_operand_p (op, VNx2DImode)"))
+
+(define_address_constraint "UPh"
+  "@internal
+   An address valid for SVE PRFH instructions."
+  (match_test "aarch64_sve_prefetch_operand_p (op, VNx8HImode)"))
+
+(define_address_constraint "UPw"
+  "@internal
+   An address valid for SVE PRFW instructions."
+  (match_test "aarch64_sve_prefetch_operand_p (op, VNx4SImode)"))
+
 (define_memory_constraint "Utf"
   "@internal
    An address valid for SVE LDFF1 instructions."

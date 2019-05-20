@@ -2648,6 +2648,48 @@ aarch64_force_temporary (machine_mode mode, rtx x, rtx value)
     }
 }
 
+/* Return true if VALUE is a valid value for the svprfop enum.  */
+
+bool
+aarch64_svprfop_immediate_p (HOST_WIDE_INT value)
+{
+  return (value >= 0
+	  && value < AARCH64_NUM_SVPRFOPS
+	  && ((aarch64_svprfop_mask >> value) & 1) != 0);
+}
+
+/* Return the assembly token for svprfop value PRFOP.  */
+
+static const char *
+svprfop_token (enum aarch64_svprfop prfop)
+{
+  switch (prfop)
+    {
+#define CASE(UPPER, LOWER, VALUE) case AARCH64_SV_##UPPER: return #LOWER;
+    AARCH64_FOR_SVPRFOP (CASE)
+#undef CASE
+    case AARCH64_NUM_SVPRFOPS:
+      break;
+    }
+  gcc_unreachable ();
+}
+
+/* Return the assembly string for an SVE prefetch operation with
+   mnemonic MNEMONIC, given that PRFOP_RTX is the prefetch operation
+   and that SUFFIX is the format for the remaining operands.  */
+
+char *
+aarch64_output_sve_prefetch (const char *mnemonic, rtx prfop_rtx,
+			     const char *suffix)
+{
+  static char buffer[128];
+  aarch64_svprfop prfop = (aarch64_svprfop) INTVAL (prfop_rtx);
+  unsigned int written = snprintf (buffer, sizeof (buffer), "%s\t%s, %s",
+				   mnemonic, svprfop_token (prfop), suffix);
+  gcc_assert (written < sizeof (buffer));
+  return buffer;
+}
+
 /* Return true if VALUE is a valid value for the svpattern enum.  */
 
 bool
@@ -16011,6 +16053,21 @@ aarch64_sve_ldr_operand_p (rtx op)
 	  && aarch64_classify_address (&addr, XEXP (op, 0), GET_MODE (op),
 				       false, ADDR_QUERY_ANY)
 	  && addr.type == ADDRESS_REG_IMM);
+}
+
+/* Return true if OP is a valid address for an SVE PRF[BHWD] instruction,
+   addressing memory of mode MODE.  */
+bool
+aarch64_sve_prefetch_operand_p (rtx op, machine_mode mode)
+{
+  struct aarch64_address_info addr;
+  if (!aarch64_classify_address (&addr, op, mode, false))
+    return false;
+
+  if (addr.type == ADDRESS_REG_IMM)
+    return known_eq (addr.const_offset, 0);
+
+  return addr.type == ADDRESS_REG_REG;
 }
 
 /* Return true if OP is a valid MEM operand for an SVE_STRUCT mode.

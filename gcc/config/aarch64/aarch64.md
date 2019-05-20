@@ -247,6 +247,8 @@
     ;; within the containing 128-bit block.
     UNSPEC_SVE_LANE_SELECT
     UNSPEC_SVE_CNT_PAT
+    UNSPEC_SVE_PREFETCH
+    UNSPEC_SVE_PREFETCH_GATHER
 ])
 
 (define_c_enum "unspecv" [

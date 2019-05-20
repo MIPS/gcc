@@ -421,10 +421,33 @@ extern struct tune_params aarch64_tune_params;
 /* Bitmask of valid svpatterns.  */
 const unsigned int aarch64_svpattern_mask = 0xe0003fff;
 
+/* The available SVE prefetch operations, known in the ACLE as "svprfop".  */
+#define AARCH64_FOR_SVPRFOP(T) \
+  T (PLDL1KEEP, pldl1keep, 0) \
+  T (PLDL1STRM, pldl1strm, 1) \
+  T (PLDL2KEEP, pldl2keep, 2) \
+  T (PLDL2STRM, pldl2strm, 3) \
+  T (PLDL3KEEP, pldl3keep, 4) \
+  T (PLDL3STRM, pldl3strm, 5) \
+  T (PSTL1KEEP, pstl1keep, 8) \
+  T (PSTL1STRM, pstl1strm, 9) \
+  T (PSTL2KEEP, pstl2keep, 10) \
+  T (PSTL2STRM, pstl2strm, 11) \
+  T (PSTL3KEEP, pstl3keep, 12) \
+  T (PSTL3STRM, pstl3strm, 13)
+
+/* Bitmask of valid svprfops.  */
+const unsigned int aarch64_svprfop_mask = 0x3f3f;
+
 #define AARCH64_SVENUM(UPPER, LOWER, VALUE) AARCH64_SV_##UPPER = VALUE,
 enum aarch64_svpattern {
   AARCH64_FOR_SVPATTERN (AARCH64_SVENUM)
   AARCH64_NUM_SVPATTERNS
+};
+
+enum aarch64_svprfop {
+  AARCH64_FOR_SVPRFOP (AARCH64_SVENUM)
+  AARCH64_NUM_SVPRFOPS
 };
 #undef AARCH64_SVENUM
 
@@ -485,6 +508,7 @@ opt_machine_mode aarch64_sve_pred_mode (unsigned int);
 opt_machine_mode aarch64_sve_data_mode (scalar_mode, poly_uint64);
 bool aarch64_sve_mode_p (machine_mode);
 bool aarch64_svpattern_immediate_p (HOST_WIDE_INT);
+bool aarch64_svprfop_immediate_p (HOST_WIDE_INT);
 HOST_WIDE_INT aarch64_fold_sve_cnt_pat (aarch64_svpattern, unsigned int);
 bool aarch64_sve_cnt_immediate_p (rtx);
 bool aarch64_sve_scalar_inc_dec_immediate_p (rtx);
@@ -496,6 +520,7 @@ bool aarch64_mov_operand_p (rtx, machine_mode);
 rtx aarch64_reverse_mask (machine_mode, unsigned int);
 bool aarch64_offset_7bit_signed_scaled_p (machine_mode, poly_int64);
 bool aarch64_offset_9bit_signed_unscaled_p (machine_mode, poly_int64);
+char *aarch64_output_sve_prefetch (const char *, rtx, const char *);
 char *aarch64_output_sve_cnt_immediate (const char *, const char *, rtx);
 char *aarch64_output_sve_cnt_pat_immediate (const char *, const char *, rtx *);
 char *aarch64_output_sve_scalar_inc_dec (rtx);
@@ -556,6 +581,7 @@ bool aarch64_sve_ld1rq_operand_p (rtx);
 bool aarch64_sve_ldff1_operand_p (rtx);
 bool aarch64_sve_ldnf1_operand_p (rtx);
 bool aarch64_sve_ldr_operand_p (rtx);
+bool aarch64_sve_prefetch_operand_p (rtx, machine_mode);
 bool aarch64_sve_struct_memory_operand_p (rtx);
 rtx aarch64_simd_vect_par_cnst_half (machine_mode, int, bool);
 rtx aarch64_gen_stepped_int_parallel (unsigned int, int, int);

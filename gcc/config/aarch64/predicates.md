@@ -595,6 +595,10 @@
   (and (match_code "mem")
        (match_test "aarch64_sve_ldr_operand_p (op)")))
 
+(define_special_predicate "aarch64_sve_prefetch_operand"
+  (and (match_code "reg, plus")
+       (match_test "aarch64_sve_prefetch_operand_p (op, mode)")))
+
 (define_predicate "aarch64_sve_nonimmediate_operand"
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "aarch64_sve_ldr_operand")))

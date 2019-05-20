@@ -210,6 +210,37 @@
     BIND_OUTPUT_Z (z0);						\
   }
 
+#define TEST_PREFETCH(NAME, STYPE, CODE1, CODE2)	\
+  START (NAME)						\
+  {							\
+    BIND_INPUT_P (p0);					\
+    BIND_INPUT_X (const STYPE *, x0);			\
+    BIND_INPUT_X (intptr_t, x1);			\
+    INVOKE (CODE1, CODE2);				\
+  }
+
+#define TEST_PREFETCH_GATHER_SZ(NAME, ZTYPE, CODE1, CODE2)	\
+  START (NAME)							\
+  {								\
+    BIND_INPUT_Z (ZTYPE, z0);					\
+    BIND_INPUT_Z (ZTYPE, z1);					\
+    BIND_INPUT_P (p0);						\
+    BIND_INPUT_X (const void *, x0);				\
+    BIND_INPUT_D (const void *, d4);				\
+    INVOKE (CODE1, CODE2);					\
+  }
+
+#define TEST_PREFETCH_GATHER_ZS(NAME, ZTYPE, CODE1, CODE2)	\
+  START (NAME)							\
+  {								\
+    BIND_INPUT_Z (ZTYPE, z0);					\
+    BIND_INPUT_Z (ZTYPE, z1);					\
+    BIND_INPUT_P (p0);						\
+    BIND_INPUT_X (int64_t, x0);					\
+    BIND_INPUT_D (int64_t, d4);					\
+    INVOKE (CODE1, CODE2);					\
+  }
+
 #define TEST_STORE(NAME, ZTYPE, STYPE, CODE1, CODE2)	\
   START (NAME)						\
   {							\
