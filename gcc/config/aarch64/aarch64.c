@@ -3664,18 +3664,18 @@ aarch64_expand_sve_dupq (rtx target, machine_mode mode, rtx src)
   return ops[0].value;
 }
 
-/* Try to force TImode value SRC into memory and use LD1RQ to fetch
+/* Try to force 128-bit vector value SRC into memory and use LD1RQ to fetch
    the memory image into DEST.  Return true on success.  */
 
 static bool
 aarch64_expand_sve_ld1rq (rtx dest, rtx src)
 {
-  src = force_const_mem (TImode, src);
+  src = force_const_mem (GET_MODE (src), src);
   if (!src)
     return false;
 
   /* Make sure that the address is legitimate.  */
-  if (!aarch64_sve_ld1r_operand_p (src))
+  if (!aarch64_sve_ld1rq_operand_p (src))
     {
       rtx addr = force_reg (Pmode, XEXP (src, 0));
       src = replace_equiv_address (src, addr);
@@ -3685,8 +3685,7 @@ aarch64_expand_sve_ld1rq (rtx dest, rtx src)
   unsigned int elem_bytes = GET_MODE_UNIT_SIZE (mode);
   machine_mode pred_mode = aarch64_sve_pred_mode (elem_bytes).require ();
   rtx ptrue = force_reg (pred_mode, CONSTM1_RTX (pred_mode));
-  src = gen_rtx_UNSPEC (mode, gen_rtvec (2, ptrue, src), UNSPEC_LD1RQ);
-  emit_insn (gen_rtx_SET (dest, src));
+  emit_insn (gen_aarch64_sve_ld1rq (mode, dest, src, ptrue));
   return true;
 }
 
@@ -3711,13 +3710,16 @@ aarch64_expand_sve_const_vector (rtx target, rtx src)
     {
       /* The constant is a duplicated quadword but can't be narrowed
 	 beyond a quadword.  Get the memory image of the first quadword
-	 as a TImode value of target endianness and try using LD1RQ to
-	 load it from memory.
+	 as a 128-bit vector and try using LD1RQ to load it from memory.
 
-	 The effect for both endiannesses is to load memory lane N
-	 into architectural lanes N + I * STEP of the result.  */
-      rtx ti_value = simplify_gen_subreg (TImode, src, mode, 0);
-      if (ti_value && aarch64_expand_sve_ld1rq (target, ti_value))
+	 The effect for both endiannesses is to load memory lane N into
+	 architectural lanes N + I * STEP of the result.  On big-endian
+	 targets, the layout of the 128-bit vector in an Advanced SIMD
+	 register would be different from its layout in an SVE register,
+	 but this 128-bit vector is a memory value only.  */
+      machine_mode vq_mode = aarch64_vq_mode (elt_mode).require ();
+      rtx vq_value = simplify_gen_subreg (vq_mode, src, mode, 0);
+      if (vq_value && aarch64_expand_sve_ld1rq (target, vq_value))
 	return target;
     }
 
@@ -15956,6 +15958,17 @@ aarch64_sve_ld1r_operand_p (rtx op)
 	  && aarch64_classify_address (&addr, XEXP (op, 0), mode, false)
 	  && addr.type == ADDRESS_REG_IMM
 	  && offset_6bit_unsigned_scaled_p (mode, addr.const_offset));
+}
+
+/* Return true if OP is a valid MEM operand for an SVE LD1RQ instruction.  */
+bool
+aarch64_sve_ld1rq_operand_p (rtx op)
+{
+  struct aarch64_address_info addr;
+  return (MEM_P (op)
+	  && aarch64_classify_address (&addr, XEXP (op, 0), TImode, false)
+	  && addr.type == ADDRESS_REG_IMM
+	  && offset_4bit_signed_scaled_p (TImode, addr.const_offset));
 }
 
 /* Return true if OP is a valid MEM operand for an SVE LDFF1 instruction.  */

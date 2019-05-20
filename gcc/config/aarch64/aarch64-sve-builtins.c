@@ -235,17 +235,17 @@ enum function_shape {
   /* uint64_t svfoo().  */
   SHAPE_inherent_count,
 
-  /* sv<t0>_t svfoo[_t0](const <t0>_t *).
+  /* sv<t0>_t svfoo[_t0](const <t0>_t *)
      sv<t0>_t svfoo_vnum[_t0](const <t0>_t *, int64_t).  */
   SHAPE_load,
 
-  /* sv<t0>xN_t svfoo[_t0](const <t0>_t *).
+  /* sv<t0>xN_t svfoo[_t0](const <t0>_t *)
      sv<t0>xN_t svfoo_vnum[_t0](const <t0>_t *, int64_t).  */
   SHAPE_load2,
   SHAPE_load3,
   SHAPE_load4,
 
-  /* sv<t0>_t svfoo_t0(const <X>_t *).
+  /* sv<t0>_t svfoo_t0(const <X>_t *)
      sv<t0>_t svfoo_vnum_t0(const <X>_t *, int64_t)
 
      where <X> is determined by the function base name.  */
@@ -297,6 +297,9 @@ enum function_shape {
      sv<t0>_t svfoo[_u64base]_offset_t0(svuint64_t, int64_t).  */
   SHAPE_load_gather_vs,
 
+  /* sv<t0>_t svfoo[_t0](const <t0>_t *).  */
+  SHAPE_load_scalar,
+
   /* uint64_t svfoo(enum svpattern).  */
   SHAPE_pattern_count,
 
@@ -338,11 +341,11 @@ enum function_shape {
      range [1, <t0>_BITS].  */
   SHAPE_shift_right_imm,
 
-  /* void svfoo[_t0](<t0>_t *, sv<t0>_t).
+  /* void svfoo[_t0](<t0>_t *, sv<t0>_t)
      void svfoo_vnum[_t0](<t0>_t *, int64_t, sv<t0>_t).  */
   SHAPE_store,
 
-  /* void svfoo[_t0](<t0>_t *, sv<t0>xN_t).
+  /* void svfoo[_t0](<t0>_t *, sv<t0>xN_t)
      void svfoo_vnum[_t0](<t0>_t *, int64_t, sv<t0>xN_t).  */
   SHAPE_store2,
   SHAPE_store3,
@@ -942,6 +945,7 @@ private:
   rtx expand_ld1_ext (rtx_code);
   rtx expand_ld1_ext_gather (rtx_code);
   rtx expand_ld1_gather ();
+  rtx expand_ld1rq ();
   rtx expand_ld234 ();
   rtx expand_ldff1 (int = UNSPEC_LDFF1);
   rtx expand_ldff1_ext (rtx_code, int = UNSPEC_LDFF1);
@@ -1608,6 +1612,9 @@ function_instance::memory_vector_mode () const
     case FUNC_svstnt1:
       return mode;
 
+    case FUNC_svld1rq:
+      return aarch64_vq_mode (GET_MODE_INNER (mode)).require ();
+
     case FUNC_svld2:
     case FUNC_svst2:
       return targetm.array_mode (mode, 2).require ();
@@ -1688,6 +1695,7 @@ function_instance::memory_scalar_type () const
     {
     case FUNC_svld1:
     case FUNC_svld1_gather:
+    case FUNC_svld1rq:
     case FUNC_svld2:
     case FUNC_svld3:
     case FUNC_svld4:
@@ -2153,6 +2161,11 @@ arm_sve_h_builder::build (const function_group &group)
       build_v_base (&arm_sve_h_builder::sig_load_gather_vs, group, true);
       build_vs_index (&arm_sve_h_builder::sig_load_gather_vs, group, true);
       build_vs_offset (&arm_sve_h_builder::sig_load_gather_vs, group, true);
+      break;
+
+    case SHAPE_load_scalar:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_load<1>, group, MODE_none);
       break;
 
     case SHAPE_pattern_count:
@@ -3370,6 +3383,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
 
     case FUNC_svld1:
     case FUNC_svld1_gather:
+    case FUNC_svld1rq:
     case FUNC_svld1sb:
     case FUNC_svld1sb_gather:
     case FUNC_svld1sh:
@@ -3470,6 +3484,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_load3:
     case SHAPE_load4:
     case SHAPE_load_gather_sv:
+    case SHAPE_load_scalar:
     case SHAPE_pattern_count:
     case SHAPE_ptest:
     case SHAPE_rdffr:
@@ -3662,6 +3677,7 @@ function_resolver::resolve ()
     case SHAPE_load2:
     case SHAPE_load3:
     case SHAPE_load4:
+    case SHAPE_load_scalar:
       return resolve_pointer ();
     case SHAPE_load_ext_gather_index:
     case SHAPE_load_ext_gather_offset:
@@ -4717,6 +4733,7 @@ function_checker::check ()
     case SHAPE_load_ext_gather_offset:
     case SHAPE_load_gather_sv:
     case SHAPE_load_gather_vs:
+    case SHAPE_load_scalar:
     case SHAPE_pred_count:
     case SHAPE_ptest:
     case SHAPE_rdffr:
@@ -5131,6 +5148,7 @@ gimple_folder::fold ()
     case FUNC_svextw:
     case FUNC_svindex:
     case FUNC_svld1_gather:
+    case FUNC_svld1rq:
     case FUNC_svld1sb:
     case FUNC_svld1sb_gather:
     case FUNC_svld1sh:
@@ -6002,6 +6020,9 @@ function_expander::expand ()
     case FUNC_svld1_gather:
       return expand_ld1_gather ();
 
+    case FUNC_svld1rq:
+      return expand_ld1rq ();
+
     case FUNC_svld1sb:
     case FUNC_svld1sh:
     case FUNC_svld1sw:
@@ -6857,6 +6878,13 @@ function_expander::expand_ld1_gather ()
   machine_mode mem_mode = m_fi.memory_vector_mode ();
   insn_code icode = direct_optab_handler (mask_gather_load_optab, mem_mode);
   return expand_via_exact_insn (icode);
+}
+
+/* Expand a call to svld1rq.  */
+rtx
+function_expander::expand_ld1rq ()
+{
+  return expand_via_load_insn (code_for_aarch64_sve_ld1rq (get_mode (0)));
 }
 
 /* Expand a call to svld[234].  */

@@ -552,6 +552,7 @@ rtx aarch64_return_addr (int, rtx);
 rtx aarch64_simd_gen_const_vector_dup (machine_mode, HOST_WIDE_INT);
 bool aarch64_simd_mem_operand_p (rtx);
 bool aarch64_sve_ld1r_operand_p (rtx);
+bool aarch64_sve_ld1rq_operand_p (rtx);
 bool aarch64_sve_ldff1_operand_p (rtx);
 bool aarch64_sve_ldnf1_operand_p (rtx);
 bool aarch64_sve_ldr_operand_p (rtx);

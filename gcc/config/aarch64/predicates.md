@@ -577,6 +577,10 @@
   (and (match_operand 0 "memory_operand")
        (match_test "aarch64_sve_ld1r_operand_p (op)")))
 
+(define_predicate "aarch64_sve_ld1rq_operand"
+  (and (match_operand 0 "memory_operand")
+       (match_test "aarch64_sve_ld1rq_operand_p (op)")))
+
 (define_predicate "aarch64_sve_ldff1_operand"
   (and (match_operand 0 "memory_operand")
        (match_test "aarch64_sve_ldff1_operand_p (op)")))
