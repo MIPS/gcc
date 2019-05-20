@@ -556,17 +556,16 @@ current_template_constraints (void)
   return build_constraints (tmpl_constr, NULL_TREE);
 }
 
-// If the recently parsed TYPE declares or defines a template or template
-// specialization, get its corresponding constraints from the current
-// template parameters and bind them to TYPE's declaration.
+/* If the recently parsed TYPE declares or defines a template or 
+   template specialization, get its corresponding constraints from the
+   current template parameters and bind them to TYPE's declaration.  */
 tree
 associate_classtype_constraints (tree type)
 {
-  if (!type || type == error_mark_node || TREE_CODE (type) != RECORD_TYPE)
+  if (!type || type == error_mark_node || !CLASS_TYPE_P (type))
     return type;
 
-  // An explicit class template specialization has no template
-  // parameters.
+  /* An explicit class template specialization has no template parameters.  */
   if (!current_template_parms)
     return type;
 
@@ -575,15 +574,15 @@ associate_classtype_constraints (tree type)
       tree decl = TYPE_STUB_DECL (type);
       tree ci = current_template_constraints ();
 
-      // An implicitly instantiated member template declaration already
-      // has associated constraints. If it is defined outside of its
-      // class, then we need match these constraints against those of
-      // original declaration.
+      /* An implicitly instantiated member template declaration already
+	 has associated constraints. If it is defined outside of its
+	 class, then we need match these constraints against those of
+	 original declaration.  */
       if (tree orig_ci = get_constraints (decl))
 	{
 	  if (!equivalent_constraints (ci, orig_ci))
 	    {
-	      // FIXME: Improve diagnostics.
+	      /* FIXME: Improve diagnostics.  */
 	      error ("%qT does not match any declaration", type);
 	      return error_mark_node;
 	    }

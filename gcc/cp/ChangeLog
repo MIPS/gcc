@@ -1,6 +1,12 @@
 2019-05-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
-	PR c++67178. Disallow placeholder types in requires-expressions.
+	PR c++/67217. Add constraints to union types.
+	* constraint.cc (associate_classtype_constraints): Also add constraints
+	to union types.
+
+2019-05-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	PR c++/67178. Disallow placeholder types in requires-expressions.
 	* parser.c (synthesize_implicit_template_parm): Fail if we
 	get a placeholder in block scope.
 

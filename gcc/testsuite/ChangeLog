@@ -1,21 +1,26 @@
 2019-05-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
-	Add tests for PR67210.
+	PR c++/67217.
+	* g++.dg/cpp2a/concepts-pr67217.C: New.
+
+2019-05-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	PR c++/67210.
 	* g++.dg/cpp2a/concepts-pr67210.C: New.
 
 2019-05-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
-	Add tests for PR67178.
+	PR c++/67178.
 	* g++.dg/cpp2a/concepts-pr67178.C: New.
 
 2019-05-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
-	Add tests for PR67148.
+	PR c++/67148.
 	* g++.dg/cpp2a/concepts-pr67148.C: New.
 
 2019-05-16  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
-	Add tests for PR67070.
+	PR c++/PR67070.
 	* g++.dg/cpp2a/concepts-pr67070.C: New.
 
 2019-05-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
