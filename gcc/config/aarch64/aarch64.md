@@ -250,6 +250,7 @@
     UNSPEC_SVE_PREFETCH
     UNSPEC_SVE_PREFETCH_GATHER
     UNSPEC_SVE_COMPACT
+    UNSPEC_SVE_SPLICE
 ])
 
 (define_c_enum "unspecv" [

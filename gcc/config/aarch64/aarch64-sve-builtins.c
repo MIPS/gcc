@@ -1033,6 +1033,7 @@ private:
   rtx expand_setffr ();
   rtx expand_shift (rtx_code, int);
   rtx expand_shift_wide (int);
+  rtx expand_splice ();
   rtx expand_sqrt ();
   rtx expand_st1 ();
   rtx expand_st1_scatter ();
@@ -3517,6 +3518,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svset2:
     case FUNC_svset3:
     case FUNC_svset4:
+    case FUNC_svsplice:
     case FUNC_svtbl:
     case FUNC_svtrn1:
     case FUNC_svtrn2:
@@ -5517,6 +5519,7 @@ gimple_folder::fold ()
     case FUNC_svqsub:
     case FUNC_svrdffr:
     case FUNC_svsetffr:
+    case FUNC_svsplice:
     case FUNC_svsqrt:
     case FUNC_svst1_scatter:
     case FUNC_svst1b:
@@ -6546,6 +6549,9 @@ function_expander::expand ()
 
     case FUNC_svsetffr:
       return expand_setffr ();
+
+    case FUNC_svsplice:
+      return expand_splice ();
 
     case FUNC_svsqrt:
       return expand_sqrt ();
@@ -7762,6 +7768,13 @@ function_expander::expand_shift_wide (int unspec)
     return expand_via_unpred_insn (code_for_aarch64_wide (unspec, mode));
   else
     return expand_via_pred_insn (code_for_cond (unspec, mode));
+}
+
+/* Expand a call to svsplice.  */
+rtx
+function_expander::expand_splice ()
+{
+  return expand_via_exact_insn (code_for_aarch64_sve_splice (get_mode (0)));
 }
 
 /* Expand a call to svsqrt.  */

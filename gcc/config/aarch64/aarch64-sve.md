@@ -6085,3 +6085,17 @@
   "TARGET_SVE"
   "compact\t%0.<Vetype>, %1, %2.<Vetype>"
 )
+
+;; Like EXT, but start at the first active element.
+(define_insn "@aarch64_sve_splice<mode>"
+  [(set (match_operand:SVE_ALL 0 "register_operand" "=w, ?&w")
+	(unspec:SVE_ALL [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl")
+			 (match_operand:SVE_ALL 2 "register_operand" "0, w")
+			 (match_operand:SVE_ALL 3 "register_operand" "w, w")]
+			UNSPEC_SVE_SPLICE))]
+  "TARGET_SVE"
+  "@
+   splice\t%0.<Vetype>, %1, %0.<Vetype>, %3.<Vetype>
+   movprfx\t%0, %2\;splice\t%0.<Vetype>, %1, %0.<Vetype>, %3.<Vetype>"
+  [(set_attr "movprfx" "*, yes")]
+)
