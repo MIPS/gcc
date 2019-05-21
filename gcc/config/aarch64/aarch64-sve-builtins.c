@@ -150,6 +150,9 @@ enum function_shape {
      where the final argument is a constant lane number.  */
   SHAPE_binary_lane,
 
+  /* sv<t0>_t svfoo[_n_t0](sv<t0>_t, <t0>_t).  */
+  SHAPE_binary_n,
+
   /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t)
      sv<t0>_t svfoo[_n_t0](sv<t0>_t, <t0>_t).  */
   SHAPE_binary_opt_n,
@@ -902,12 +905,14 @@ private:
   gimple *fold_dup ();
   gimple *fold_dupq ();
   gimple *fold_get ();
+  gimple *fold_insr ();
   gimple *fold_ld1 ();
   gimple *fold_ld234 ();
   gimple *fold_pfalse ();
   gimple *fold_ptrue ();
   gimple *fold_ptrue_pat ();
   gimple *fold_rev ();
+  gimple *fold_sel ();
   gimple *fold_set ();
   gimple *fold_st1 ();
   gimple *fold_st234 ();
@@ -981,6 +986,7 @@ private:
   rtx expand_ext_bhw ();
   rtx expand_get ();
   rtx expand_index ();
+  rtx expand_insr ();
   rtx expand_ld1 ();
   rtx expand_ld1_ext (rtx_code);
   rtx expand_ld1_ext_gather (rtx_code);
@@ -2050,6 +2056,11 @@ arm_sve_h_builder::build (const function_group &group)
     case SHAPE_binary_index64_n:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_nary_index64_n<2>, group, MODE_none);
+      break;
+
+    case SHAPE_binary_n:
+      add_overloaded_functions (group, MODE_n);
+      build_all (&arm_sve_h_builder::sig_nary_n<2>, group, MODE_n);
       break;
 
     case SHAPE_binary_opt_n:
@@ -3509,6 +3520,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svget2:
     case FUNC_svget3:
     case FUNC_svget4:
+    case FUNC_svinsr:
     case FUNC_svpfalse:
     case FUNC_svptest_any:
     case FUNC_svptest_first:
@@ -3624,10 +3636,11 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_adr_offset:
     case SHAPE_binary:
     case SHAPE_binary_extract:
-    case SHAPE_binary_lane:
     case SHAPE_binary_index:
     case SHAPE_binary_index_n:
     case SHAPE_binary_index64_n:
+    case SHAPE_binary_lane:
+    case SHAPE_binary_n:
     case SHAPE_binary_opt_n:
     case SHAPE_binary_rotate:
     case SHAPE_binary_wide:
@@ -3791,6 +3804,7 @@ function_resolver::resolve ()
     case SHAPE_binary_index:
     case SHAPE_binary_index_n:
     case SHAPE_binary_index64_n:
+    case SHAPE_binary_n:
       return resolve_multitype (2, 1);
     case SHAPE_binary_pred:
     case SHAPE_binary_scalar:
@@ -4932,6 +4946,7 @@ function_checker::check ()
     case SHAPE_binary_index:
     case SHAPE_binary_index_n:
     case SHAPE_binary_index64_n:
+    case SHAPE_binary_n:
     case SHAPE_binary_opt_n:
     case SHAPE_binary_pred:
     case SHAPE_binary_scalar:
@@ -5569,6 +5584,9 @@ gimple_folder::fold ()
     case FUNC_svget4:
       return fold_get ();
 
+    case FUNC_svinsr:
+      return fold_insr ();
+
     case FUNC_svld1:
       return fold_ld1 ();
 
@@ -5590,7 +5608,7 @@ gimple_folder::fold ()
       return fold_rev ();
 
     case FUNC_svsel:
-      return NULL;
+      return fold_sel ();
 
     case FUNC_svset2:
     case FUNC_svset3:
@@ -5741,6 +5759,17 @@ gimple_folder::fold_get ()
   return gimple_build_assign (m_lhs, ref);
 }
 
+/* Fold a call to svinsr.  */
+gimple *
+gimple_folder::fold_insr ()
+{
+  gcall *new_call = gimple_build_call_internal (IFN_VEC_SHL_INSERT, 2,
+						gimple_call_arg (m_call, 0),
+						gimple_call_arg (m_call, 1));
+  gimple_call_set_lhs (new_call, m_lhs);
+  return new_call;
+}
+
 /* Fold a call to svld1.  */
 gimple *
 gimple_folder::fold_ld1 ()
@@ -5837,6 +5866,18 @@ gimple_folder::fold_rev ()
   for (int i = 0; i < 3; ++i)
     builder.quick_push (nelts - i - 1);
   return fold_permute (builder);
+}
+
+/* Fold a call to svsel.  */
+gimple *
+gimple_folder::fold_sel ()
+{
+  gimple_seq stmts = NULL;
+  tree pred = convert_pred (stmts, m_fi.vector_type (0), 0);
+  gsi_insert_seq_before (m_gsi, stmts, GSI_SAME_STMT);
+  return gimple_build_assign (m_lhs, VEC_COND_EXPR, pred,
+			      gimple_call_arg (m_call, 1),
+			      gimple_call_arg (m_call, 2));
 }
 
 /* Fold a call to svset*.  */
@@ -6303,6 +6344,9 @@ function_expander::expand ()
 
     case FUNC_svindex:
       return expand_index ();
+
+    case FUNC_svinsr:
+      return expand_insr ();
 
     case FUNC_svld1:
       return expand_ld1 ();
@@ -7156,6 +7200,14 @@ rtx
 function_expander::expand_index ()
 {
   return expand_via_unpred_direct_optab (vec_series_optab);
+}
+
+/* Expand a call to svinsr.  */
+rtx
+function_expander::expand_insr ()
+{
+  insn_code icode = direct_optab_handler (vec_shl_insert_optab, get_mode (0));
+  return expand_via_exact_insn (icode);
 }
 
 /* Expand a call to svld1.  */
