@@ -3112,6 +3112,20 @@
   "mov\t%0.<Vetype>, %1/z, #%2"
 )
 
+;; Predicate selection.
+(define_insn "@vcond_mask_<mode><mode>"
+  [(set (match_operand:PRED_ALL 0 "register_operand" "=Upa")
+	(ior:PRED_ALL
+	  (and:PRED_ALL
+	    (match_operand:PRED_ALL 3 "register_operand" "Upa")
+	    (match_operand:PRED_ALL 1 "register_operand" "Upa"))
+	  (and:PRED_ALL
+	    (not (match_dup 3))
+	    (match_operand:PRED_ALL 2 "register_operand" "Upa"))))]
+  "TARGET_SVE"
+  "sel\t%0.b, %3, %1.b, %2.b"
+)
+
 ;; Integer (signed) vcond.  Don't enforce an immediate range here, since it
 ;; depends on the comparison; leave it to aarch64_expand_sve_vcond instead.
 (define_expand "vcond<mode><v_int_equiv>"

@@ -1029,6 +1029,7 @@ private:
   rtx expand_rdffr ();
   rtx expand_reduction (int, int, int);
   rtx expand_rev ();
+  rtx expand_sel ();
   rtx expand_set ();
   rtx expand_setffr ();
   rtx expand_shift (rtx_code, int);
@@ -3515,6 +3516,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svptrue:
     case FUNC_svptrue_pat:
     case FUNC_svrev:
+    case FUNC_svsel:
     case FUNC_svset2:
     case FUNC_svset3:
     case FUNC_svset4:
@@ -5587,6 +5589,9 @@ gimple_folder::fold ()
     case FUNC_svrev:
       return fold_rev ();
 
+    case FUNC_svsel:
+      return NULL;
+
     case FUNC_svset2:
     case FUNC_svset3:
     case FUNC_svset4:
@@ -6542,6 +6547,9 @@ function_expander::expand ()
     case FUNC_svrev:
       return expand_rev ();
 
+    case FUNC_svsel:
+      return expand_sel ();
+
     case FUNC_svset2:
     case FUNC_svset3:
     case FUNC_svset4:
@@ -7135,7 +7143,7 @@ function_expander::expand_ext_bhw ()
     }
 }
 
-/* Expand a call to svget.  */
+/* Expand a call to svget[234].  */
 rtx
 function_expander::expand_get ()
 {
@@ -7672,7 +7680,17 @@ function_expander::expand_ptrue_pat ()
 			gen_rtx_UNSPEC (VNx16BImode, vec, UNSPEC_PTRUE));
 }
 
-/* Expand a call to svset.  */
+/* Expand a call to svsel.  */
+rtx
+function_expander::expand_sel ()
+{
+  rotate_inputs_left (0, 3);
+  insn_code icode = convert_optab_handler (vcond_mask_optab,
+					   get_mode (0), get_pred_mode (0));
+  return expand_via_exact_insn (icode);
+}
+
+/* Expand a call to svset[234].  */
 rtx
 function_expander::expand_set ()
 {
