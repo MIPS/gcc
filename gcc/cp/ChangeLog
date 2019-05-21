@@ -1,5 +1,11 @@
 2019-05-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Diagnose invalid use of concepts.
+	* constraint.cc (build_concept_check): Diagnose cases where no
+	template arguments are provided for the concept check.
+
+2019-05-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Add test for noexcept requirements.
 	* constraint.cc (diagnose_valid_expression, diagnose_valid_type):
 	Don't substitute as if in template decls. This causes substitution

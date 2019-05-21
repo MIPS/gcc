@@ -765,6 +765,13 @@ build_concept_check (tree target, tree args, tsubst_flags_t complain)
 tree
 build_concept_check (tree decl, tree arg, tree rest, tsubst_flags_t complain)
 {
+  if (arg == NULL_TREE && rest == NULL_TREE)
+    {
+      tree id = build_nt (TEMPLATE_ID_EXPR, decl, rest);
+      error ("invalid use concept %qE", id);
+      return error_mark_node;
+    }
+  
   tree args = build_concept_check_arguments (arg, rest);
 
   if (standard_concept_p (decl))
@@ -2443,11 +2450,8 @@ diagnose_valid_expression (tree expr, tree args, tree in_decl)
   location_t loc = get_constraint_location (expr);
   inform (loc, "the required expression %qE is invalid", expr);
 
-  /* Replay the substitution to diagnose the error.
-     FIXME: This will emit a 2nd error diagnostic.
-     FIXME: Actually, this isn't doing anything right now.  */
-  if (result != error_mark_node)
-    tsubst_expr (expr, args, tf_error, in_decl, false);
+  /* Replay the substitution to diagnose the error.  */
+  // tsubst_expr (expr, args, tf_error, in_decl, false);
 
   return error_mark_node;
 }
@@ -2463,11 +2467,8 @@ diagnose_valid_type (tree type, tree args, tree in_decl)
   location_t loc = get_constraint_location (type);
   inform (loc, "the required type %qT is invalid", type);
 
-  /* Replay the substitution to diagnose the error.
-     FIXME: This will emit a 2nd error diagnostic.
-     FIXME: Actually, this isn't doing anything right now.  */
-  if (result != error_mark_node)
-    tsubst (type, args, tf_error, in_decl);
+  /* Replay the substitution to diagnose the error.  */
+  // tsubst (type, args, tf_error, in_decl);
 
   return error_mark_node;
 }
