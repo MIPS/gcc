@@ -967,6 +967,7 @@ private:
   rtx expand_cnt_bhwd ();
   rtx expand_cnt_bhwd_pat ();
   rtx expand_cntp ();
+  rtx expand_compact ();
   rtx expand_create ();
   rtx expand_div (bool);
   rtx expand_dot ();
@@ -3491,6 +3492,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svcntp:
     case FUNC_svcntw:
     case FUNC_svcntw_pat:
+    case FUNC_svcompact:
     case FUNC_svcreate2:
     case FUNC_svcreate3:
     case FUNC_svcreate4:
@@ -5399,6 +5401,7 @@ gimple_folder::fold ()
     case FUNC_svcmpuo:
     case FUNC_svcnt:
     case FUNC_svcntp:
+    case FUNC_svcompact:
     case FUNC_svdiv:
     case FUNC_svdivr:
     case FUNC_svdot:
@@ -6239,6 +6242,9 @@ function_expander::expand ()
     case FUNC_svcntp:
       return expand_cntp ();
 
+    case FUNC_svcompact:
+      return expand_compact ();
+
     case FUNC_svcreate2:
     case FUNC_svcreate3:
     case FUNC_svcreate4:
@@ -6875,6 +6881,13 @@ function_expander::expand_cntp ()
   bool ptrue_p = gen_lowpart (mode, m_args[0]) == CONSTM1_RTX (mode);
   m_args.quick_push (ptrue_p ? const1_rtx : const0_rtx);
   return expand_via_exact_insn (code_for_aarch64_pred_cntp (mode));
+}
+
+/* Expand a call to svcompact.  */
+rtx
+function_expander::expand_compact ()
+{
+  return expand_via_exact_insn (code_for_aarch64_sve_compact (get_mode (0)));
 }
 
 /* Expand a call to svcreate*.  */

@@ -249,6 +249,7 @@
     UNSPEC_SVE_CNT_PAT
     UNSPEC_SVE_PREFETCH
     UNSPEC_SVE_PREFETCH_GATHER
+    UNSPEC_SVE_COMPACT
 ])
 
 (define_c_enum "unspecv" [

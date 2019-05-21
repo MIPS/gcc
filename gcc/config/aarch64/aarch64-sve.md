@@ -6075,3 +6075,13 @@
     return aarch64_output_sve_prefetch (parts[0], operands[6], parts[1]);
   }
 )
+
+;; Compact active elements and pad with zeros.
+(define_insn "@aarch64_sve_compact<mode>"
+  [(set (match_operand:SVE_SD 0 "register_operand" "=w")
+	(unspec:SVE_SD [(match_operand:<VPRED> 1 "register_operand" "Upl")
+			(match_operand:SVE_SD 2 "register_operand" "w")]
+		       UNSPEC_SVE_COMPACT))]
+  "TARGET_SVE"
+  "compact\t%0.<Vetype>, %1, %2.<Vetype>"
+)
