@@ -133,6 +133,9 @@ enum function_shape {
   /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t).  */
   SHAPE_binary,
 
+  /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t, uint64_t).  */
+  SHAPE_binary_extract,
+
   /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0:uint>_t).  */
   SHAPE_binary_index,
 
@@ -860,6 +863,7 @@ private:
   bool check_shift_right_imm ();
 
   bool require_immediate (unsigned int, HOST_WIDE_INT &);
+  bool require_immediate_extract_index (unsigned int);
   bool require_immediate_lane_index (unsigned int, unsigned int = 1);
   bool require_immediate_range (unsigned int, HOST_WIDE_INT, HOST_WIDE_INT);
   bool require_immediate_rotate (unsigned int, bool);
@@ -972,6 +976,7 @@ private:
   rtx expand_dupq ();
   rtx expand_dupq_lane ();
   rtx expand_eor ();
+  rtx expand_ext ();
   rtx expand_ext_bhw ();
   rtx expand_get ();
   rtx expand_index ();
@@ -1058,6 +1063,7 @@ private:
   rtx expand_via_pred_x_insn (insn_code);
   rtx expand_pred_shift_right_imm (insn_code);
 
+  void require_immediate_extract_index (unsigned int);
   void require_immediate_lane_index (unsigned int, unsigned int = 1);
   void require_immediate_range (unsigned int, HOST_WIDE_INT, HOST_WIDE_INT);
   int get_immediate_rotate (unsigned int, bool);
@@ -2021,6 +2027,7 @@ arm_sve_h_builder::build (const function_group &group)
       build_all (&arm_sve_h_builder::sig_nary<2>, group, MODE_none);
       break;
 
+    case SHAPE_binary_extract:
     case SHAPE_binary_lane:
     case SHAPE_binary_rotate:
       add_overloaded_functions (group, MODE_none);
@@ -3491,6 +3498,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svdup_lane:
     case FUNC_svdupq:
     case FUNC_svdupq_lane:
+    case FUNC_svext:
     case FUNC_svextb:
     case FUNC_svexth:
     case FUNC_svextw:
@@ -3609,6 +3617,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_adr_index:
     case SHAPE_adr_offset:
     case SHAPE_binary:
+    case SHAPE_binary_extract:
     case SHAPE_binary_lane:
     case SHAPE_binary_index:
     case SHAPE_binary_index_n:
@@ -3769,6 +3778,7 @@ function_resolver::resolve ()
     case SHAPE_compare_opt_n:
     case SHAPE_shift_opt_n:
       return resolve_uniform (2);
+    case SHAPE_binary_extract:
     case SHAPE_binary_lane:
     case SHAPE_binary_rotate:
       return resolve_uniform_imm (3, 1);
@@ -4967,6 +4977,9 @@ function_checker::check ()
     case SHAPE_unary_pred:
       return true;
 
+    case SHAPE_binary_extract:
+      return require_immediate_extract_index (pg_args + 2);
+
     case SHAPE_binary_lane:
       return require_immediate_lane_index (pg_args + 2);
 
@@ -5051,6 +5064,16 @@ function_checker::require_immediate (unsigned int argno,
      -1 is more user-friendly than the maximum uint64_t value.  */
   value_out = tree_to_uhwi (arg);
   return true;
+}
+
+/* Check that argument ARGNO, when multiplied by the number of bytes
+   in an element of type suffix 0, is an integer constant expression
+   in the range [0, 255].  */
+bool
+function_checker::require_immediate_extract_index (unsigned int argno)
+{
+  unsigned int bytes = type_suffixes[m_fi.types[0]].elem_bytes;
+  return require_immediate_range (argno, 0, 256 / bytes - 1);
 }
 
 /* Check that argument ARGNO is suitable for indexing argument ARGNO - 1,
@@ -5384,6 +5407,7 @@ gimple_folder::fold ()
     case FUNC_svdupq_lane:
     case FUNC_sveor:
     case FUNC_sveorv:
+    case FUNC_svext:
     case FUNC_svextb:
     case FUNC_svexth:
     case FUNC_svextw:
@@ -6250,6 +6274,9 @@ function_expander::expand ()
     case FUNC_sveorv:
       return expand_reduction (UNSPEC_XORV, UNSPEC_XORV, -1);
 
+    case FUNC_svext:
+      return expand_ext ();
+
     case FUNC_svextb:
     case FUNC_svexth:
     case FUNC_svextw:
@@ -7045,6 +7072,14 @@ function_expander::expand_eor ()
     return expand_via_unpred_direct_optab (xor_optab);
   else
     return expand_via_pred_direct_optab (cond_xor_optab);
+}
+
+/* Expand a call to svext.  */
+rtx
+function_expander::expand_ext ()
+{
+  require_immediate_extract_index (2);
+  return expand_via_exact_insn (code_for_aarch64_sve_ext (get_mode (0)));
 }
 
 /* Expand a call to svext[bhw].  */
@@ -8172,6 +8207,16 @@ function_expander::expand_pred_shift_right_imm (insn_code icode)
 {
   require_immediate_range (2, 1, GET_MODE_UNIT_BITSIZE (get_mode (0)));
   return expand_via_pred_insn (icode);
+}
+
+/* Check that argument ARGNO, when multiplied by the number of bytes in
+   an element of type suffix 0, is a constant integer in the range [0, 255].
+   Report an appropriate error if it isn't and set the argument to zero.  */
+void
+function_expander::require_immediate_extract_index (unsigned int argno)
+{
+  unsigned int bytes = type_suffixes[m_fi.types[0]].elem_bytes;
+  require_immediate_range (argno, 0, 256 / bytes - 1);
 }
 
 /* Check that argument ARGNO is suitable for indexing argument ARGNO - 1
