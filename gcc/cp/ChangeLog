@@ -1,3 +1,11 @@
+2019-05-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Add test for noexcept requirements.
+	* constraint.cc (diagnose_valid_expression, diagnose_valid_type):
+	Don't substitute as if in template decls. This causes substitution
+	to generate expressions that aren't suitable for use with the
+	noexcept routines.
+
 2019-05-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	PR c++/67217. Add constraints to union types.

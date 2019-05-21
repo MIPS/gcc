@@ -1997,25 +1997,24 @@ finish_nested_requirement (tree expr)
   return build_nt (NESTED_REQ, expr);
 }
 
-// Check that FN satisfies the structural requirements of a
-// function concept definition.
+/* Check that FN satisfies the structural requirements of a
+   function concept definition.  */
 tree
 check_function_concept (tree fn)
 {
-  // Check that the function is comprised of only a single
-  // return statement.
+  /* Check that the function is comprised of only a return statement.  */
   tree body = DECL_SAVED_TREE (fn);
   if (TREE_CODE (body) == BIND_EXPR)
     body = BIND_EXPR_BODY (body);
 
-  // Sometimes a function call results in the creation of clean up
-  // points. Allow these to be preserved in the body of the
-  // constraint, as we might actually need them for some constexpr
-  // evaluations.
+  /* Sometimes a function call results in the creation of clean up
+     points. Allow these to be preserved in the body of the
+     constraint, as we might actually need them for some constexpr
+     evaluations.  */
   if (TREE_CODE (body) == CLEANUP_POINT_EXPR)
     body = TREE_OPERAND (body, 0);
 
-  /* Check that the definition is written correctly. */
+  /* Check that the definition is written correctly.  */
   if (TREE_CODE (body) != RETURN_EXPR)
     {
       location_t loc = DECL_SOURCE_LOCATION (fn);
@@ -2437,9 +2436,7 @@ diagnose_trait (tree expr, tree args)
 static tree
 diagnose_valid_expression (tree expr, tree args, tree in_decl)
 {
-  ++processing_template_decl;
   tree result = tsubst_expr (expr, args, tf_none, in_decl, false);
-  --processing_template_decl;
   if (result != error_mark_node)
     return result;
 
@@ -2447,7 +2444,8 @@ diagnose_valid_expression (tree expr, tree args, tree in_decl)
   inform (loc, "the required expression %qE is invalid", expr);
 
   /* Replay the substitution to diagnose the error.
-     FIXME: This will emit a 2nd error diagnostic.  */
+     FIXME: This will emit a 2nd error diagnostic.
+     FIXME: Actually, this isn't doing anything right now.  */
   if (result != error_mark_node)
     tsubst_expr (expr, args, tf_error, in_decl, false);
 
@@ -2457,9 +2455,7 @@ diagnose_valid_expression (tree expr, tree args, tree in_decl)
 static tree
 diagnose_valid_type (tree type, tree args, tree in_decl)
 {
-  ++processing_template_decl;
   tree result = tsubst (type, args, tf_none, in_decl);
-  --processing_template_decl;
   if (result != error_mark_node)
     return result;
 
@@ -2468,7 +2464,8 @@ diagnose_valid_type (tree type, tree args, tree in_decl)
   inform (loc, "the required type %qT is invalid", type);
 
   /* Replay the substitution to diagnose the error.
-     FIXME: This will emit a 2nd error diagnostic.  */
+     FIXME: This will emit a 2nd error diagnostic.
+     FIXME: Actually, this isn't doing anything right now.  */
   if (result != error_mark_node)
     tsubst (type, args, tf_error, in_decl);
 
