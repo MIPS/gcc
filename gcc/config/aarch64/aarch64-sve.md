@@ -2067,6 +2067,54 @@
   "bic\t%0.d, %1.d, %2.d"
 )
 
+;; Predicated logical inverse.
+(define_insn "@aarch64_pred_cnot<mode>"
+  [(set (match_operand:SVE_I 0 "register_operand" "=w")
+	(unspec:SVE_I
+	  [(unspec:<VPRED>
+	     [(match_operand:<VPRED> 1 "register_operand" "Upl")
+	      (eq:<VPRED>
+		(match_operand:SVE_I 2 "register_operand" "w")
+		(match_operand:SVE_I 3 "aarch64_simd_imm_zero"))]
+	     UNSPEC_MERGE_PTRUE)
+	   (match_operand:SVE_I 4 "aarch64_simd_imm_one")
+	   (match_dup 3)]
+	  UNSPEC_SEL))]
+  "TARGET_SVE"
+  "cnot\t%0.<Vetype>, %1/m, %2.<Vetype>"
+)
+
+;; Predicated logical inverse with select.
+(define_insn_and_rewrite "@cond_cnot<mode>"
+  [(set (match_operand:SVE_I 0 "register_operand" "=w, &w, ?&w")
+	(unspec:SVE_I
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl, Upl")
+	   ;; Logical inverse of operand 2 (as above).  The UNSPEC_MERGE_PTRUE
+	   ;; tells us that operand 5 doesn't matter.
+	   (unspec:SVE_I
+	     [(unspec:<VPRED>
+		[(match_operand:<VPRED> 5 "general_operand")
+		 (eq:<VPRED>
+		   (match_operand:SVE_I 2 "register_operand" "w, w, w")
+		   (match_operand:SVE_I 3 "aarch64_simd_imm_zero"))]
+		UNSPEC_MERGE_PTRUE)
+	      (match_operand:SVE_I 4 "aarch64_simd_imm_one")
+	      (match_dup 3)]
+	     UNSPEC_SEL)
+	   (match_operand:SVE_I 6 "aarch64_simd_reg_or_zero" "0, Dz, w")]
+	  UNSPEC_SEL))]
+  "TARGET_SVE"
+  "@
+   cnot\t%0.<Vetype>, %1/m, %2.<Vetype>
+   movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;cnot\t%0.<Vetype>, %1/m, %2.<Vetype>
+   movprfx\t%0, %6\;cnot\t%0.<Vetype>, %1/m, %2.<Vetype>"
+  "&& !CONSTANT_P (operands[5])"
+  {
+    operands[5] = CONSTM1_RTX (<VPRED>mode);
+  }
+  [(set_attr "movprfx" "*,yes,yes")]
+)
+
 ;; Predicate AND.  We can reuse one of the inputs as the GP.
 (define_insn "and<mode>3"
   [(set (match_operand:PRED_ALL 0 "register_operand" "=Upa")

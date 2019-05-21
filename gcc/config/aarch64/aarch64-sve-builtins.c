@@ -969,6 +969,7 @@ private:
   rtx expand_cmp (rtx_code, rtx_code, int, int);
   rtx expand_cmp_wide (int, int);
   rtx expand_cmpuo ();
+  rtx expand_cnot ();
   rtx expand_cnt_bhwd ();
   rtx expand_cnt_bhwd_pat ();
   rtx expand_cntp ();
@@ -3409,6 +3410,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svcmpne:
     case FUNC_svcmpne_wide:
     case FUNC_svcmpuo:
+    case FUNC_svcnot:
     case FUNC_svdiv:
     case FUNC_svdivr:
     case FUNC_svdot:
@@ -5425,6 +5427,7 @@ gimple_folder::fold ()
     case FUNC_svcmpne:
     case FUNC_svcmpne_wide:
     case FUNC_svcmpuo:
+    case FUNC_svcnot:
     case FUNC_svcnt:
     case FUNC_svcntp:
     case FUNC_svcompact:
@@ -6284,6 +6287,9 @@ function_expander::expand ()
     case FUNC_svcmpuo:
       return expand_cmpuo ();
 
+    case FUNC_svcnot:
+      return expand_cnot ();
+
     case FUNC_svcnt:
       return expand_unary_count (POPCOUNT);
 
@@ -6934,6 +6940,24 @@ rtx
 function_expander::expand_cmpuo ()
 {
   return expand_via_exact_insn (code_for_aarch64_fcmuo_and (get_mode (0)));
+}
+
+/* Expand a call to svcnot.  */
+rtx
+function_expander::expand_cnot ()
+{
+  machine_mode mode = get_mode (0);
+  /* Needed by the CNOT patterns.  */
+  m_args.quick_push (CONST0_RTX (mode));
+  m_args.quick_push (CONST1_RTX (mode));
+  if (m_fi.pred == PRED_x)
+    return expand_via_pred_x_insn (code_for_aarch64_pred_cnot (get_mode (0)));
+  else
+    {
+      /* The predicate for the inner UNSPEC_SEL.  */
+      m_args.quick_push (CONSTM1_RTX (VNx16BImode));
+      return expand_via_pred_insn (code_for_cond_cnot (get_mode (0)), 0);
+    }
 }
 
 /* Expand a call to svcnt[bhwd].  */
