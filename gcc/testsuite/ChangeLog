@@ -1,5 +1,18 @@
 2019-05-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	PR c++/67225. Adding tests.
+	* g++.dg/cpp2a/concepts-pr67225-1.C: New.
+	* g++.dg/cpp2a/concepts-pr67225-2.C: New.
+	* g++.dg/cpp2a/concepts-pr67225-3.C: New.
+	* g++.dg/cpp2a/concepts-pr67225-4.C: New.
+	* g++.dg/cpp2a/concepts-pr67225-5.C: New.
+
+2019-05-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	* g++.dg/cpp2a/concepts-template-parm10.C: New.
+
+2019-05-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Add test for noexcept requirements.
 	* g++.dg/cpp2a/concepts-noexcept1.C: New.
 
