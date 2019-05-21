@@ -1032,6 +1032,7 @@ private:
   rtx expand_qinc_qdec (rtx_code, rtx_code);
   rtx expand_qincp_qdecp (rtx_code, rtx_code);
   rtx expand_qsub ();
+  rtx expand_rbit ();
   rtx expand_rdffr ();
   rtx expand_reduction (int, int, int);
   rtx expand_rev ();
@@ -1056,6 +1057,7 @@ private:
   rtx expand_wrffr ();
 
   rtx expand_pred_op (rtx_code, int, unsigned int = DEFAULT_MERGE_ARGNO);
+  rtx expand_pred_op (int, int);
   rtx expand_signed_pred_op (rtx_code, rtx_code, int,
 			     unsigned int = DEFAULT_MERGE_ARGNO);
   rtx expand_signed_pred_op (int, int, int);
@@ -3527,6 +3529,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svptest_last:
     case FUNC_svptrue:
     case FUNC_svptrue_pat:
+    case FUNC_svrbit:
     case FUNC_svrev:
     case FUNC_svsel:
     case FUNC_svset2:
@@ -5534,6 +5537,7 @@ gimple_folder::fold ()
     case FUNC_svqincw:
     case FUNC_svqincw_pat:
     case FUNC_svqsub:
+    case FUNC_svrbit:
     case FUNC_svrdffr:
     case FUNC_svsetffr:
     case FUNC_svsplice:
@@ -6584,6 +6588,9 @@ function_expander::expand ()
 
     case FUNC_svqsub:
       return expand_qsub ();
+
+    case FUNC_svrbit:
+      return expand_rbit ();
 
     case FUNC_svrdffr:
       return expand_rdffr ();
@@ -7732,6 +7739,13 @@ function_expander::expand_ptrue_pat ()
 			gen_rtx_UNSPEC (VNx16BImode, vec, UNSPEC_PTRUE));
 }
 
+/* Expand a call to svrbit.  */
+rtx
+function_expander::expand_rbit ()
+{
+  return expand_pred_op (UNSPEC_RBIT, -1);
+}
+
 /* Expand a call to svsel.  */
 rtx
 function_expander::expand_sel ()
@@ -8177,6 +8191,15 @@ function_expander::expand_pred_op (rtx_code code, int unspec_cond,
 				   unsigned int merge_argno)
 {
   return expand_signed_pred_op (code, code, unspec_cond, merge_argno);
+}
+
+/* Like expand_signed_pred_op, except that UNSPEC_FOR_INT works for both
+   signed and unsigned integers.  */
+rtx
+function_expander::expand_pred_op (int unspec_for_int, int unspec_for_fp)
+{
+  return expand_signed_pred_op (unspec_for_int, unspec_for_int,
+				unspec_for_fp);
 }
 
 /* Implement the call using an @aarch64_cond instruction for _x

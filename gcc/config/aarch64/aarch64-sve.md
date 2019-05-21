@@ -1985,6 +1985,37 @@
   [(set_attr "movprfx" "*,yes,yes")]
 )
 
+;; Predicated integer unary operations.
+(define_insn "@aarch64_pred_<optab><mode>"
+  [(set (match_operand:SVE_I 0 "register_operand" "=w")
+	(unspec:SVE_I
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl")
+	   (unspec:SVE_I
+	     [(match_operand:SVE_I 2 "register_operand" "w")]
+	     SVE_INT_UNARY)]
+	  UNSPEC_MERGE_PTRUE))]
+  "TARGET_SVE"
+  "<sve_int_op>\t%0.<Vetype>, %1/m, %2.<Vetype>"
+)
+
+;; Predicated integer unary operations with select.
+(define_insn "@cond_<optab><mode>"
+  [(set (match_operand:SVE_I 0 "register_operand" "=w, &w, ?&w")
+	(unspec:SVE_I
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl, Upl")
+	   (unspec:SVE_I
+	     [(match_operand:SVE_I 2 "register_operand" "w, w, w")]
+	     SVE_INT_UNARY)
+	   (match_operand:SVE_I 3 "aarch64_simd_reg_or_zero" "0, Dz, w")]
+	  UNSPEC_SEL))]
+  "TARGET_SVE"
+  "@
+   <sve_int_op>\t%0.<Vetype>, %1/m, %2.<Vetype>
+   movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;<sve_int_op>\t%0.<Vetype>, %1/m, %2.<Vetype>
+   movprfx\t%0, %3\;<sve_int_op>\t%0.<Vetype>, %1/m, %2.<Vetype>"
+  [(set_attr "movprfx" "*,yes,yes")]
+)
+
 ;; Vector AND, ORR and XOR.
 (define_insn "<optab><mode>3"
   [(set (match_operand:SVE_I 0 "register_operand" "=w, ?w, w")

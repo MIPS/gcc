@@ -1768,6 +1768,8 @@
 
 (define_int_iterator MUL_HIGHPART [UNSPEC_SMUL_HIGHPART UNSPEC_UMUL_HIGHPART])
 
+(define_int_iterator SVE_INT_UNARY [UNSPEC_RBIT])
+
 (define_int_iterator SVE_INT_BINARY_REG [UNSPEC_SMUL_HIGHPART
 					 UNSPEC_UMUL_HIGHPART
 					 UNSPEC_SABD UNSPEC_UABD])
@@ -1902,6 +1904,7 @@
 			(UNSPEC_FMINV "smin_nan")
 			(UNSPEC_SABD "sabd")
 			(UNSPEC_UABD "uabd")
+			(UNSPEC_RBIT "rbit")
 		        (UNSPEC_SMUL_HIGHPART "smulh")
 		        (UNSPEC_UMUL_HIGHPART "umulh")
 			(UNSPEC_FMLA "fma")
@@ -2181,7 +2184,8 @@
 			     (UNSPEC_UMUL_HIGHPART "umulh")
 			     (UNSPEC_ASHIFT_WIDE "lsl")
 			     (UNSPEC_ASHIFTRT_WIDE "asr")
-			     (UNSPEC_LSHIFTRT_WIDE "lsr")])
+			     (UNSPEC_LSHIFTRT_WIDE "lsr")
+			     (UNSPEC_RBIT "rbit")])
 
 (define_int_attr sve_fp_op [(UNSPEC_FADDV "faddv")
 			    (UNSPEC_FMAXNMV "fmaxnmv")
