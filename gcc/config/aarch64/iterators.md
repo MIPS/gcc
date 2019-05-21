@@ -537,6 +537,13 @@
     UNSPEC_COND_FMLS	; Used in aarch64-sve.md.
     UNSPEC_COND_FNMLA	; Used in aarch64-sve.md.
     UNSPEC_COND_FNMLS	; Used in aarch64-sve.md.
+    UNSPEC_COND_FRINTA	; Used in aarch64-sve.md.
+    UNSPEC_COND_FRINTI	; Used in aarch64-sve.md.
+    UNSPEC_COND_FRINTM	; Used in aarch64-sve.md.
+    UNSPEC_COND_FRINTN	; Used in aarch64-sve.md.
+    UNSPEC_COND_FRINTP	; Used in aarch64-sve.md.
+    UNSPEC_COND_FRINTX	; Used in aarch64-sve.md.
+    UNSPEC_COND_FRINTZ	; Used in aarch64-sve.md.
     UNSPEC_COND_LT	; Used in aarch64-sve.md.
     UNSPEC_COND_LTU	; Used in aarch64-sve.md.
     UNSPEC_COND_LE	; Used in aarch64-sve.md.
@@ -1780,6 +1787,13 @@
 
 (define_int_iterator SVE_COND_FP_UNARY [UNSPEC_COND_FABS
 					UNSPEC_COND_FNEG
+					UNSPEC_COND_FRINTA
+					UNSPEC_COND_FRINTI
+					UNSPEC_COND_FRINTM
+					UNSPEC_COND_FRINTN
+					UNSPEC_COND_FRINTP
+					UNSPEC_COND_FRINTX
+					UNSPEC_COND_FRINTZ
 					UNSPEC_COND_FSQRT])
 
 (define_int_iterator SVE_COND_FP_BINARY [UNSPEC_COND_ADD UNSPEC_COND_SUB
@@ -1940,7 +1954,14 @@
 			(UNSPEC_COND_FCMLA "fcmla")
 			(UNSPEC_COND_FCMLA90 "fcmla90")
 			(UNSPEC_COND_FCMLA180 "fcmla180")
-			(UNSPEC_COND_FCMLA270 "fcmla270")])
+			(UNSPEC_COND_FCMLA270 "fcmla270")
+			(UNSPEC_COND_FRINTA "round")
+			(UNSPEC_COND_FRINTI "nearbyint")
+			(UNSPEC_COND_FRINTM "floor")
+			(UNSPEC_COND_FRINTN "frintn")
+			(UNSPEC_COND_FRINTP "ceil")
+			(UNSPEC_COND_FRINTX "rint")
+			(UNSPEC_COND_FRINTZ "btrunc")])
 
 (define_int_attr  maxmin_uns [(UNSPEC_UMAXV "umax")
 			      (UNSPEC_UMINV "umin")
@@ -2220,7 +2241,14 @@
 			    (UNSPEC_COND_FMAX "fmax")
 			    (UNSPEC_COND_FMIN "fmin")
 			    (UNSPEC_COND_FMAXNM "fmaxnm")
-			    (UNSPEC_COND_FMINNM "fminnm")])
+			    (UNSPEC_COND_FMINNM "fminnm")
+			    (UNSPEC_COND_FRINTA "frinta")
+			    (UNSPEC_COND_FRINTI "frinti")
+			    (UNSPEC_COND_FRINTM "frintm")
+			    (UNSPEC_COND_FRINTN "frintn")
+			    (UNSPEC_COND_FRINTP "frintp")
+			    (UNSPEC_COND_FRINTX "frintx")
+			    (UNSPEC_COND_FRINTZ "frintz")])
 
 (define_int_attr sve_fp_op_rev [(UNSPEC_COND_FABD "fabd")
 				(UNSPEC_COND_MUL "fmul")

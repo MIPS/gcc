@@ -4031,7 +4031,7 @@
   [(set_attr "movprfx" "*,yes")]
 )
 
-;; Unpredicated FNEG, FABS and FSQRT.
+;; Unpredicated floating-point unary operations.
 (define_expand "<optab><mode>2"
   [(set (match_operand:SVE_F 0 "register_operand")
 	(unspec:SVE_F
@@ -4045,7 +4045,7 @@
   }
 )
 
-;; Predicated FNEG, FABS and FSQRT.
+;; Predicated floating-point unary operations.
 (define_insn "@aarch64_pred_<optab><mode>"
   [(set (match_operand:SVE_F 0 "register_operand" "=w")
 	(unspec:SVE_F
@@ -4057,7 +4057,7 @@
   "<sve_fp_op>\t%0.<Vetype>, %1/m, %2.<Vetype>"
 )
 
-;; Predicated FNEG, FABS and FSQRT with select.
+;; Predicated floating-point unary operations with select.
 (define_insn "@cond_<optab><mode>"
   [(set (match_operand:SVE_F 0 "register_operand" "=w, &w, ?&w")
 	(unspec:SVE_F
@@ -4073,32 +4073,6 @@
    movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;<sve_fp_op>\t%0.<Vetype>, %1/m, %2.<Vetype>
    movprfx\t%0, %3\;<sve_fp_op>\t%0.<Vetype>, %1/m, %2.<Vetype>"
   [(set_attr "movprfx" "*,yes,yes")]
-)
-
-;; Unpredicated FRINTy.
-(define_expand "<frint_pattern><mode>2"
-  [(set (match_operand:SVE_F 0 "register_operand")
-	(unspec:SVE_F
-	  [(match_dup 2)
-	   (unspec:SVE_F [(match_operand:SVE_F 1 "register_operand")]
-			 FRINT)]
-	  UNSPEC_MERGE_PTRUE))]
-  "TARGET_SVE"
-  {
-    operands[2] = force_reg (<VPRED>mode, CONSTM1_RTX (<VPRED>mode));
-  }
-)
-
-;; FRINTy predicated with a PTRUE.
-(define_insn "*<frint_pattern><mode>2"
-  [(set (match_operand:SVE_F 0 "register_operand" "=w")
-	(unspec:SVE_F
-	  [(match_operand:<VPRED> 1 "register_operand" "Upl")
-	   (unspec:SVE_F [(match_operand:SVE_F 2 "register_operand" "w")]
-			 FRINT)]
-	  UNSPEC_MERGE_PTRUE))]
-  "TARGET_SVE"
-  "frint<frint_suffix>\t%0.<Vetype>, %1/m, %2.<Vetype>"
 )
 
 ;; Unpredicated conversion of floats to integers of the same size (HF to HI,

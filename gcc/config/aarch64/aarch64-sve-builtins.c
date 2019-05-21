@@ -1038,6 +1038,7 @@ private:
   rtx expand_reduction (int, int, int);
   rtx expand_rev ();
   rtx expand_rev_bhw (int);
+  rtx expand_rint (int);
   rtx expand_sel ();
   rtx expand_set ();
   rtx expand_setffr ();
@@ -3471,6 +3472,13 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svqincw:
     case FUNC_svqincw_pat:
     case FUNC_svqsub:
+    case FUNC_svrinta:
+    case FUNC_svrinti:
+    case FUNC_svrintm:
+    case FUNC_svrintn:
+    case FUNC_svrintp:
+    case FUNC_svrintx:
+    case FUNC_svrintz:
     case FUNC_svsqrt:
     case FUNC_svsub:
     case FUNC_svsubr:
@@ -5549,6 +5557,13 @@ gimple_folder::fold ()
     case FUNC_svrevb:
     case FUNC_svrevh:
     case FUNC_svrevw:
+    case FUNC_svrinta:
+    case FUNC_svrinti:
+    case FUNC_svrintm:
+    case FUNC_svrintn:
+    case FUNC_svrintp:
+    case FUNC_svrintx:
+    case FUNC_svrintz:
     case FUNC_svsetffr:
     case FUNC_svsplice:
     case FUNC_svsqrt:
@@ -6619,6 +6634,27 @@ function_expander::expand ()
 
     case FUNC_svrevw:
       return expand_rev_bhw (UNSPEC_REVW);
+
+    case FUNC_svrinta:
+      return expand_rint (UNSPEC_COND_FRINTA);
+
+    case FUNC_svrinti:
+      return expand_rint (UNSPEC_COND_FRINTI);
+
+    case FUNC_svrintm:
+      return expand_rint (UNSPEC_COND_FRINTM);
+
+    case FUNC_svrintn:
+      return expand_rint (UNSPEC_COND_FRINTN);
+
+    case FUNC_svrintp:
+      return expand_rint (UNSPEC_COND_FRINTP);
+
+    case FUNC_svrintx:
+      return expand_rint (UNSPEC_COND_FRINTX);
+
+    case FUNC_svrintz:
+      return expand_rint (UNSPEC_COND_FRINTZ);
 
     case FUNC_svsel:
       return expand_sel ();
@@ -7860,6 +7896,13 @@ rtx
 function_expander::expand_rev_bhw (int unspec_code)
 {
   return expand_pred_op (unspec_code, -1);
+}
+
+/* Expand a call to svrint[aimnpxz]; UNSPEC_CODE says which.  */
+rtx
+function_expander::expand_rint (int unspec_code)
+{
+  return expand_pred_op (-1, unspec_code);
 }
 
 /* Expand a call to svsetffr.  */
