@@ -449,6 +449,9 @@ enum function_shape {
   /* sv<t0>_t svfoo[_t0](sv<t0>_t).  */
   SHAPE_unary,
 
+  /* sv<t0>_t svfoo_t0[_t1](svbool_t, sv<t1>_t).  */
+  SHAPE_unary_convert,
+
   /* sv<t0:uint>_t svfoo[_t0](sv<t0>_t).  */
   SHAPE_unary_count,
 
@@ -763,6 +766,7 @@ private:
   void sig_store (const function_instance &, vec<tree> &);
   void sig_store_scatter_sv (const function_instance &, vec<tree> &);
   void sig_store_scatter_vs (const function_instance &, vec<tree> &);
+  void sig_unary_convert (const function_instance &, vec<tree> &);
 
   tree build_const_pointer (tree);
 
@@ -825,6 +829,7 @@ private:
   tree resolve_compare_scalar ();
   tree resolve_compare_wide ();
   tree resolve_uniform_imm (unsigned int, unsigned int);
+  tree resolve_unary_convert ();
   tree resolve_unary_index ();
 
   bool check_first_vector_argument (unsigned int, unsigned int &,
@@ -995,6 +1000,7 @@ private:
   rtx expand_cntp ();
   rtx expand_compact ();
   rtx expand_create ();
+  rtx expand_cvt ();
   rtx expand_div (bool);
   rtx expand_dot ();
   rtx expand_dot_lane ();
@@ -1282,6 +1288,28 @@ static const type_suffix_info type_suffixes[NUM_TYPE_SUFFIXES + 1] = {
 #define TYPES_all_float_and_signed(S, D) \
   TYPES_all_float (S, D), TYPES_all_signed (S, D)
 
+/* All the type combinations allowed by svcvt.  */
+#define TYPES_cvt(S, D) \
+  D (f16, f32), D (f16, f64), \
+  D (f16, s16), D (f16, s32), D (f16, s64), \
+  D (f16, u16), D (f16, u32), D (f16, u64), \
+  \
+  D (f32, f16), D (f32, f64), \
+  D (f32, s32), D (f32, s64), \
+  D (f32, u32), D (f32, u64), \
+  \
+  D (f64, f16), D (f64, f32), \
+  D (f64, s32), D (f64, s64), \
+  D (f64, u32), D (f64, u64), \
+  \
+  D (s16, f16), \
+  D (s32, f16), D (s32, f32), D (s32, f64), \
+  D (s64, f16), D (s64, f32), D (s64, f64), \
+  \
+  D (u16, f16), \
+  D (u32, f16), D (u32, f32), D (u32, f64), \
+  D (u64, f16), D (u64, f32), D (u64, f64)
+
 /* {_s32 _s64 _u32 _u64 } x {_b8 _b16 _b32 _b64} */
 #define TYPES_inc_dec_n_bN(D, bn) \
   D (s32, bn), D (s64, bn), D (u32, bn), D (u64, bn)
@@ -1339,6 +1367,7 @@ DEF_SVE_TYPES_ARRAY (s_integer);
 DEF_SVE_TYPES_ARRAY (sd_data);
 DEF_SVE_TYPES_ARRAY (sd_integer);
 DEF_SVE_TYPES_ARRAY (d_integer);
+DEF_SVE_TYPES_ARRAY (cvt);
 DEF_SVE_TYPES_ARRAY (inc_dec_n);
 DEF_SVE_TYPES_ARRAY (while);
 
@@ -2474,6 +2503,11 @@ arm_sve_h_builder::build (const function_group &group)
       build_all (&arm_sve_h_builder::sig_nary<1>, group, MODE_none);
       break;
 
+    case SHAPE_unary_convert:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_unary_convert, group, MODE_none);
+      break;
+
     case SHAPE_unary_count:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_count<1>, group, MODE_none);
@@ -3319,6 +3353,16 @@ arm_sve_h_builder::sig_store_scatter_vs (const function_instance &instance,
   types.quick_push (instance.vector_type (0));
 }
 
+/* Describe the signature "sv<t0>_t svfoo_t0[_t1](sv<t1>_t)"
+   for INSTANCE in TYPES.  */
+void
+arm_sve_h_builder::sig_unary_convert (const function_instance &instance,
+				      vec<tree> &types)
+{
+  types.quick_push (instance.vector_type (0));
+  types.quick_push (instance.vector_type (1));
+}
+
 /* Return a representation of "const T *".  */
 tree
 arm_sve_h_builder::build_const_pointer (tree t)
@@ -3502,6 +3546,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svcmpne_wide:
     case FUNC_svcmpuo:
     case FUNC_svcnot:
+    case FUNC_svcvt:
     case FUNC_svdiv:
     case FUNC_svdivr:
     case FUNC_svdot:
@@ -3827,6 +3872,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_load_gather_vs:
     case SHAPE_pattern_pred:
     case SHAPE_pred_count:
+    case SHAPE_unary_convert:
     case SHAPE_unary_n:
     case SHAPE_unary_pred:
       return 1;
@@ -4035,6 +4081,8 @@ function_resolver::resolve ()
     case SHAPE_reduction:
     case SHAPE_reduction_wide:
       return resolve_uniform (1);
+    case SHAPE_unary_convert:
+      return resolve_unary_convert ();
     case SHAPE_unary_index:
       return resolve_unary_index ();
     }
@@ -4449,6 +4497,20 @@ function_resolver::resolve_uniform_imm (unsigned int nops, unsigned int nimm)
       return error_mark_node;
 
   return require_form (m_fi.mode, get_type_suffix (type));
+}
+
+/* Resolve a function that has SHAPE_unary_convert.  */
+tree
+function_resolver::resolve_unary_convert ()
+{
+  /* Check that we have the right number of arguments.  */
+  unsigned int i, nargs;
+  vector_type type;
+  if (!check_first_vector_argument (1, i, nargs, type))
+    return error_mark_node;
+
+  return require_form (m_rfn.instance.mode, m_fi.types[0],
+		       get_type_suffix (type));
 }
 
 /* Resolve a function that has SHAPE_unary_index.  */
@@ -4990,6 +5052,9 @@ function_resolver::require_form (function_mode mode, type_suffix type0,
       if (type1 == NUM_TYPE_SUFFIXES)
 	error_at (m_location, "%qE has no form that takes %qT arguments",
 		  m_rfn.decl, get_vector_type (type0));
+      else if (type0 == m_fi.types[0])
+	error_at (m_location, "%qE has no form that takes %qT arguments",
+		  m_rfn.decl, get_vector_type (type1));
       else
 	/* To be filled in when we have other cases.  */
 	gcc_unreachable ();
@@ -5139,6 +5204,7 @@ function_checker::check ()
     case SHAPE_ternary_opt_n:
     case SHAPE_ternary_qq_opt_n:
     case SHAPE_unary:
+    case SHAPE_unary_convert:
     case SHAPE_unary_count:
     case SHAPE_unary_index:
     case SHAPE_unary_n:
@@ -5572,6 +5638,7 @@ gimple_folder::fold ()
     case FUNC_svcnt:
     case FUNC_svcntp:
     case FUNC_svcompact:
+    case FUNC_svcvt:
     case FUNC_svdiv:
     case FUNC_svdivr:
     case FUNC_svdot:
@@ -6474,6 +6541,9 @@ function_expander::expand ()
     case FUNC_svcreate4:
       return expand_create ();
 
+    case FUNC_svcvt:
+      return expand_cvt ();
+
     case FUNC_svdiv:
       return expand_div (false);
 
@@ -7222,6 +7292,67 @@ function_expander::expand_create ()
     }
 
   return m_target;
+}
+
+/* Expand a call to svcvt.  */
+rtx
+function_expander::expand_cvt ()
+{
+  machine_mode mode0 = get_mode (0);
+  machine_mode mode1 = get_mode (1);
+  insn_code icode;
+  /* All this complication comes from the need to select four things
+     simultaneously:
+
+     (1) the kind of conversion
+     (2) signed vs. unsigned integers, where relevant
+     (3) the predication mode, which must be the wider of the predication
+	 modes for MODE0 and MODE1
+     (4) the predication type (m, x or z)
+
+     The only supported int<->float conversion for which the integer is
+     narrower than the float is SI<->DF.  It's therefore more convenient
+     to handle (4) by defining two patterns for int<->float conversions:
+     one in which the integer is at least as wide as the float and in
+     which the predication mode is determined by the integer's mode,
+     and another single SI<->DF pattern in which the predication mode is
+     determined by the float's mode (i.e. the predication mode is VNx2BI).  */
+  if (type_suffixes[m_fi.types[1]].integer_p)
+    {
+      int code = (type_suffixes[m_fi.types[1]].unsigned_p
+		  ? UNSPEC_COND_UCVTF
+		  : UNSPEC_COND_SCVTF);
+      if (type_suffixes[m_fi.types[0]].elem_bytes
+	  <= type_suffixes[m_fi.types[1]].elem_bytes)
+	icode = (m_fi.pred == PRED_x
+		 ? code_for_aarch64_sve_nonextend (code, mode1, mode0)
+		 : code_for_cond_nonextend (code, mode1, mode0));
+      else
+	icode = (m_fi.pred == PRED_x
+		 ? code_for_aarch64_sve_extend (code, mode1, mode0)
+		 : code_for_cond_extend (code, mode1, mode0));
+    }
+  else
+    {
+      int code = (!type_suffixes[m_fi.types[0]].integer_p
+		  ? UNSPEC_COND_FCVT
+		  : type_suffixes[m_fi.types[0]].unsigned_p
+		  ? UNSPEC_COND_FCVTZU
+		  : UNSPEC_COND_FCVTZS);
+      if (type_suffixes[m_fi.types[0]].elem_bytes
+	  >= type_suffixes[m_fi.types[1]].elem_bytes)
+	icode = (m_fi.pred == PRED_x
+		 ? code_for_aarch64_sve_nontrunc (code, mode1, mode0)
+		 : code_for_cond_nontrunc (code, mode1, mode0));
+      else
+	icode = (m_fi.pred == PRED_x
+		 ? code_for_aarch64_sve_trunc (code, mode1, mode0)
+		 : code_for_cond_trunc (code, mode1, mode0));
+    }
+  if (m_fi.pred == PRED_x)
+    return expand_via_pred_x_insn (icode);
+  else
+    return expand_via_pred_insn (icode);
 }
 
 /* Expand a call to svdiv.  */
@@ -8503,17 +8634,22 @@ function_expander::expand_via_pred_x_insn (insn_code icode)
   unsigned int nops = m_args.length () - 1;
   machine_mode mode = insn_data[icode].operand[0].mode;
   machine_mode pred_mode = get_pred_mode (0);
+  bool float_p = FLOAT_MODE_P (mode);
 
   /* Add the normal operands.  */
   add_output_operand (icode);
   add_input_operand (icode, m_args[0]);
   for (unsigned int i = 0; i < nops; ++i)
-    add_input_operand (icode, m_args[i + 1]);
+    {
+      add_input_operand (icode, m_args[i + 1]);
+      if (FLOAT_MODE_P (GET_MODE (m_args[i + 1])))
+	float_p = true;
+    }
 
   /* Add a flag that indicates whether unpredicated instructions
      are allowed.  */
   rtx pred = m_ops[1].value;
-  if (FLOAT_MODE_P (mode))
+  if (float_p)
     {
       if (flag_trapping_math
 	  && pred != CONST1_RTX (pred_mode))

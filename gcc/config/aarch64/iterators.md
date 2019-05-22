@@ -286,6 +286,7 @@
 (define_mode_iterator VNx8HI_ONLY [VNx8HI])
 (define_mode_iterator VNx4SI_ONLY [VNx4SI])
 (define_mode_iterator VNx2DI_ONLY [VNx2DI])
+(define_mode_iterator VNx2DF_ONLY [VNx2DF])
 
 ;; All SVE vector structure modes.
 (define_mode_iterator SVE_STRUCT [VNx32QI VNx16HI VNx8SI VNx4DI
@@ -301,14 +302,17 @@
 ;; All SVE vector modes that have 8-bit, 16-bit or 32-bit elements.
 (define_mode_iterator SVE_BHS [VNx16QI VNx8HI VNx4SI VNx8HF VNx4SF])
 
-;; All SVE integer vector modes that have 8-bit, 16-bit or 32-bit elements.
+;; SVE integer vector modes that have 8-bit, 16-bit or 32-bit elements.
 (define_mode_iterator SVE_BHSI [VNx16QI VNx8HI VNx4SI])
 
-;; All SVE integer vector modes that have 16-bit, 32-bit or 64-bit elements.
+;; SVE integer vector modes that have 16-bit, 32-bit or 64-bit elements.
 (define_mode_iterator SVE_HSDI [VNx8HI VNx4SI VNx2DI])
 
-;; All SVE floating-point vector modes that have 16-bit or 32-bit elements.
+;; SVE floating-point vector modes that have 16-bit or 32-bit elements.
 (define_mode_iterator SVE_HSF [VNx8HF VNx4SF])
+
+;; SVE floating-point vector modes that have 32-bit or 64-bit elements.
+(define_mode_iterator SVE_SDF [VNx4SF VNx2DF])
 
 ;; All SVE vector modes that have 32-bit or 64-bit elements.
 (define_mode_iterator SVE_SD [VNx4SI VNx2DI VNx4SF VNx2DF])
@@ -319,7 +323,7 @@
 ;; All SVE vector modes that have 64-bit elements.
 (define_mode_iterator SVE_D [VNx2DI VNx2DF])
 
-;; All SVE integer vector modes that have 32-bit or 64-bit elements.
+;; SVE integer vector modes that have 32-bit or 64-bit elements.
 (define_mode_iterator SVE_SDI [VNx4SI VNx2DI])
 
 ;; All SVE integer vector modes.
@@ -518,6 +522,11 @@
     UNSPEC_FTMAD	; Used in aarch64-sve.md.
     UNSPEC_FTSMUL	; Used in aarch64-sve.md.
     UNSPEC_FTSSEL	; Used in aarch64-sve.md.
+    UNSPEC_COND_FCVT	; Used in aarch64-sve.md.
+    UNSPEC_COND_FCVTZS	; Used in aarch64-sve.md.
+    UNSPEC_COND_FCVTZU	; Used in aarch64-sve.md.
+    UNSPEC_COND_SCVTF	; Used in aarch64-sve.md.
+    UNSPEC_COND_UCVTF	; Used in aarch64-sve.md.
     UNSPEC_COND_FABS	; Used in aarch64-sve.md.
     UNSPEC_COND_FNEG	; Used in aarch64-sve.md.
     UNSPEC_COND_FSQRT	; Used in aarch64-sve.md.
@@ -697,7 +706,8 @@
 
 ;; The number of bits in an element.
 (define_mode_attr elem_bits [(VNx16QI "8") (VNx8HI "16")
-			     (VNx4SI "32") (VNx2DI "64")])
+			     (VNx4SI "32") (VNx2DI "64")
+			     (VNx8HF "16") (VNx4SF "32") (VNx2DF "64")])
 
 ;; Attribute to describe constants acceptable in logical operations
 (define_mode_attr lconst [(SI "K") (DI "L")])
@@ -1807,6 +1817,10 @@
 					UNSPEC_COND_FRINTZ
 					UNSPEC_COND_FSQRT])
 
+(define_int_iterator SVE_COND_FCVT [UNSPEC_COND_FCVT])
+(define_int_iterator SVE_COND_FCVTI [UNSPEC_COND_FCVTZS UNSPEC_COND_FCVTZU])
+(define_int_iterator SVE_COND_ICVTF [UNSPEC_COND_SCVTF UNSPEC_COND_UCVTF])
+
 (define_int_iterator SVE_FP_BINARY [UNSPEC_FRECPS UNSPEC_RSQRTS])
 
 (define_int_iterator SVE_FP_BINARY_INT [UNSPEC_FTSMUL UNSPEC_FTSSEL])
@@ -1960,6 +1974,11 @@
 			(UNSPEC_FTSSEL "ftssel")
 			(UNSPEC_COND_FABS "abs")
 			(UNSPEC_COND_FABD "abd")
+			(UNSPEC_COND_FCVT "fcvt")
+			(UNSPEC_COND_FCVTZS "fix_trunc")
+			(UNSPEC_COND_FCVTZU "fixuns_trunc")
+			(UNSPEC_COND_SCVTF "float")
+			(UNSPEC_COND_UCVTF "floatuns")
 			(UNSPEC_COND_FCADD90 "cadd90")
 			(UNSPEC_COND_FCADD270 "cadd270")
 			(UNSPEC_COND_FNEG "neg")
@@ -2048,7 +2067,11 @@
 		     (UNSPEC_UNPACKSLO "s")
 		     (UNSPEC_UNPACKULO "u")
 		     (UNSPEC_SMUL_HIGHPART "s")
-		     (UNSPEC_UMUL_HIGHPART "u")])
+		     (UNSPEC_UMUL_HIGHPART "u")
+		     (UNSPEC_COND_FCVTZS "s")
+		     (UNSPEC_COND_FCVTZU "u")
+		     (UNSPEC_COND_SCVTF "s")
+		     (UNSPEC_COND_UCVTF "u")])
 
 (define_int_attr sur [(UNSPEC_SHADD "s") (UNSPEC_UHADD "u")
 		      (UNSPEC_SRHADD "sr") (UNSPEC_URHADD "ur")
