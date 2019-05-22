@@ -1,5 +1,10 @@
 2019-05-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	PR c++/67319.
+	* g++.dg/cpp2a/concepts-pr67319.C: New.
+
+2019-05-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	PR c++/67225. Adding tests.
 	* g++.dg/cpp2a/concepts-pr67225-1.C: New.
 	* g++.dg/cpp2a/concepts-pr67225-2.C: New.
