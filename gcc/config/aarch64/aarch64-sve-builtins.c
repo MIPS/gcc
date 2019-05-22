@@ -936,6 +936,7 @@ private:
   gimple *fold_pfalse ();
   gimple *fold_ptrue ();
   gimple *fold_ptrue_pat ();
+  gimple *fold_reinterpret ();
   gimple *fold_rev ();
   gimple *fold_sel ();
   gimple *fold_set ();
@@ -1066,6 +1067,7 @@ private:
   rtx expand_recps ();
   rtx expand_recpx ();
   rtx expand_reduction (int, int, int);
+  rtx expand_reinterpret ();
   rtx expand_rev ();
   rtx expand_rev_bhw (int);
   rtx expand_rint (int);
@@ -1319,6 +1321,24 @@ static const type_suffix_info type_suffixes[NUM_TYPE_SUFFIXES + 1] = {
   TYPES_inc_dec_n_bN (D, b32), \
   TYPES_inc_dec_n_bN (D, b64)
 
+/* all_data x all_data.  */
+#define TYPES_reinterpret1(D, A) \
+  D (A, f16), D (A, f32), D (A, f64), \
+  D (A, s8), D (A, s16), D (A, s32), D (A, s64), \
+  D (A, u8), D (A, u16), D (A, u32), D (A, u64)
+#define TYPES_reinterpret(S, D) \
+  TYPES_reinterpret1 (D, f16), \
+  TYPES_reinterpret1 (D, f32), \
+  TYPES_reinterpret1 (D, f64), \
+  TYPES_reinterpret1 (D, s8), \
+  TYPES_reinterpret1 (D, s16), \
+  TYPES_reinterpret1 (D, s32), \
+  TYPES_reinterpret1 (D, s64), \
+  TYPES_reinterpret1 (D, u8), \
+  TYPES_reinterpret1 (D, u16), \
+  TYPES_reinterpret1 (D, u32), \
+  TYPES_reinterpret1 (D, u64)
+
 /* {_b8 _b16 _b32 _b64} x {_s32 _s64 _u32 _u64 } */
 #define TYPES_while_bN(D, bn) \
   D (bn, s32), D (bn, s64), D (bn, u32), D (bn, u64)
@@ -1369,6 +1389,7 @@ DEF_SVE_TYPES_ARRAY (sd_integer);
 DEF_SVE_TYPES_ARRAY (d_integer);
 DEF_SVE_TYPES_ARRAY (cvt);
 DEF_SVE_TYPES_ARRAY (inc_dec_n);
+DEF_SVE_TYPES_ARRAY (reinterpret);
 DEF_SVE_TYPES_ARRAY (while);
 
 /* Used by functions in aarch64-sve-builtins.def that have no governing
@@ -3685,6 +3706,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svptrue:
     case FUNC_svptrue_pat:
     case FUNC_svrbit:
+    case FUNC_svreinterpret:
     case FUNC_svrev:
     case FUNC_svrevb:
     case FUNC_svrevh:
@@ -5843,6 +5865,9 @@ gimple_folder::fold ()
     case FUNC_svptrue_pat:
       return fold_ptrue_pat ();
 
+    case FUNC_svreinterpret:
+      return fold_reinterpret ();
+
     case FUNC_svrev:
       return fold_rev ();
 
@@ -6094,6 +6119,15 @@ gimple_folder::fold_ptrue_pat ()
     return fold_to_vl_pred (num_bytes, value);
 
   return NULL;
+}
+
+/* Fold a call to svreinterpret.  */
+gimple *
+gimple_folder::fold_reinterpret ()
+{
+  tree rhs = build1 (VIEW_CONVERT_EXPR, TREE_TYPE (m_lhs),
+		     gimple_call_arg (m_call, 0));
+  return gimple_build_assign (m_lhs, VIEW_CONVERT_EXPR, rhs);
 }
 
 /* Fold a call to svrev.  */
@@ -6847,6 +6881,9 @@ function_expander::expand ()
 
     case FUNC_svrecpx:
       return expand_recpx ();
+
+    case FUNC_svreinterpret:
+      return expand_reinterpret ();
 
     case FUNC_svrev:
       return expand_rev ();
@@ -8224,6 +8261,13 @@ function_expander::expand_reduction (int unspec_for_sint, int unspec_for_uint,
   if (GET_MODE_UNIT_BITSIZE (mode) == 64 && unspec == UNSPEC_SADDV)
     unspec = UNSPEC_UADDV;
   return expand_via_exact_insn (code_for_aarch64_pred_reduc (unspec, mode));
+}
+
+/* Expand a call to svreinterpret.  */
+rtx
+function_expander::expand_reinterpret ()
+{
+  return gen_lowpart (get_mode (0), m_args[0]);
 }
 
 /* Expand a call to svrev.  */
