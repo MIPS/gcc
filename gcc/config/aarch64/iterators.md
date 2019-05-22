@@ -537,6 +537,7 @@
     UNSPEC_COND_FMLS	; Used in aarch64-sve.md.
     UNSPEC_COND_FNMLA	; Used in aarch64-sve.md.
     UNSPEC_COND_FNMLS	; Used in aarch64-sve.md.
+    UNSPEC_COND_FSCALE	; Used in aarch64-sve.md.
     UNSPEC_COND_FRECPX	; Used in aarch64-sve.md.
     UNSPEC_COND_FRINTA	; Used in aarch64-sve.md.
     UNSPEC_COND_FRINTI	; Used in aarch64-sve.md.
@@ -1812,6 +1813,8 @@
 					 UNSPEC_COND_FMAXNM
 					 UNSPEC_COND_FMINNM])
 
+(define_int_iterator SVE_COND_FP_BINARY_INT [UNSPEC_COND_FSCALE])
+
 (define_int_iterator SVE_COND_FP_MUL [UNSPEC_COND_MUL])
 
 (define_int_iterator SVE_COND_FP_BINARY_I1 [UNSPEC_COND_MUL
@@ -1965,6 +1968,7 @@
 			(UNSPEC_COND_FCMLA90 "fcmla90")
 			(UNSPEC_COND_FCMLA180 "fcmla180")
 			(UNSPEC_COND_FCMLA270 "fcmla270")
+			(UNSPEC_COND_FSCALE "fscale")
 			(UNSPEC_COND_FRECPX "frecpx")
 			(UNSPEC_COND_FRINTA "round")
 			(UNSPEC_COND_FRINTI "nearbyint")
@@ -2257,6 +2261,7 @@
 			    (UNSPEC_COND_FMIN "fmin")
 			    (UNSPEC_COND_FMAXNM "fmaxnm")
 			    (UNSPEC_COND_FMINNM "fminnm")
+			    (UNSPEC_COND_FSCALE "fscale")
 			    (UNSPEC_COND_FRECPX "frecpx")
 			    (UNSPEC_COND_FRINTA "frinta")
 			    (UNSPEC_COND_FRINTI "frinti")

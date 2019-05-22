@@ -145,6 +145,10 @@ enum function_shape {
   /* sv<t0>_t svfoo[_t0](sv<t0>_t, uint64_t).  */
   SHAPE_binary_index64_n,
 
+  /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0:int>_t)
+     sv<t0>_t svfoo[_n_t0](sv<t0>_t, <t0:int>_t).  */
+  SHAPE_binary_int_opt_n,
+
   /* svbool_t svfoo_<t0>(sv<t0>_t, sv<t0>_t, uint64_t)
 
      where the final argument is a constant lane number.  */
@@ -592,6 +596,8 @@ struct GTY(()) function_instance {
   tree tuple_type (unsigned int, unsigned int) const;
   tree quarter_vector_type (unsigned int i) const;
   tree quarter_scalar_type (unsigned int i) const;
+  tree signed_scalar_type (unsigned int) const;
+  tree signed_vector_type (unsigned int) const;
   tree unsigned_scalar_type (unsigned int) const;
   tree unsigned_vector_type (unsigned int) const;
   tree wide_vector_type (unsigned int i) const;
@@ -712,6 +718,10 @@ private:
   void sig_nary_index_n (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_nary_index64_n (const function_instance &, vec<tree> &);
+  template <unsigned int N>
+  void sig_nary_int (const function_instance &, vec<tree> &);
+  template <unsigned int N>
+  void sig_nary_int_n (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_nary_n (const function_instance &, vec<tree> &);
   template <unsigned int N>
@@ -1044,6 +1054,7 @@ private:
   rtx expand_rint (int);
   rtx expand_rsqrte ();
   rtx expand_rsqrts ();
+  rtx expand_scale ();
   rtx expand_sel ();
   rtx expand_set ();
   rtx expand_setffr ();
@@ -1456,6 +1467,14 @@ find_integer_type_suffix (bool unsigned_p, unsigned int elem_bits)
 	&& type_suffixes[i].elem_bits == elem_bits)
       return type_suffix (i);
   gcc_unreachable ();
+}
+
+/* Find the type suffix for signed integers that have the same number
+   of element bits as TYPE.  */
+static type_suffix
+signed_type_suffix (type_suffix type)
+{
+  return find_integer_type_suffix (false, type_suffixes[type].elem_bits);
 }
 
 /* Find the type suffix for unsigned integers that have the same number
@@ -1888,6 +1907,22 @@ function_instance::quarter_scalar_type (unsigned int i) const
   return scalar_types[type_suffixes[quarter_type].type];
 }
 
+/* Return the signed scalar type associated with type suffix I.  */
+inline tree
+function_instance::signed_scalar_type (unsigned int i) const
+{
+  type_suffix signed_type = signed_type_suffix (types[i]);
+  return scalar_types[type_suffixes[signed_type].type];
+}
+
+/* Return the signed vector type associated with type suffix I.  */
+inline tree
+function_instance::signed_vector_type (unsigned int i) const
+{
+  type_suffix signed_type = signed_type_suffix (types[i]);
+  return acle_vector_types[0][type_suffixes[signed_type].type];
+}
+
 /* Return the unsigned scalar type associated with type suffix I.  */
 inline tree
 function_instance::unsigned_scalar_type (unsigned int i) const
@@ -2066,6 +2101,12 @@ arm_sve_h_builder::build (const function_group &group)
     case SHAPE_binary_index64_n:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_nary_index64_n<2>, group, MODE_none);
+      break;
+
+    case SHAPE_binary_int_opt_n:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_nary_int<2>, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_nary_int_n<2>, group, MODE_n);
       break;
 
     case SHAPE_binary_n:
@@ -2976,6 +3017,30 @@ arm_sve_h_builder::sig_nary_index64_n (const function_instance &instance,
   types.quick_push (scalar_types[VECTOR_TYPE_svuint64_t]);
 }
 
+/* Describe the signature "sv<t0>_t svfoo[_t0](sv<t0>_t, ..., sv<t0:int>_t)"
+   for INSTANCE in TYPES, where N is the number of arguments.  */
+template<unsigned int N>
+void
+arm_sve_h_builder::sig_nary_int (const function_instance &instance,
+				 vec<tree> &types)
+{
+  for (unsigned int i = 0; i < N; ++i)
+    types.quick_push (instance.vector_type (0));
+  types.quick_push (instance.signed_vector_type (0));
+}
+
+/* Describe the signature "sv<t0>_t svfoo[_n_t0](sv<t0>_t, ..., <t0:int>_t)"
+   for INSTANCE in TYPES, where N is the number of arguments.  */
+template<unsigned int N>
+void
+arm_sve_h_builder::sig_nary_int_n (const function_instance &instance,
+				   vec<tree> &types)
+{
+  for (unsigned int i = 0; i < N; ++i)
+    types.quick_push (instance.vector_type (0));
+  types.quick_push (instance.signed_scalar_type (0));
+}
+
 /* Describe the signature "sv<t0>_t svfoo[_n_t0](sv<t0>_t, ..., <t0>_t)"
    for INSTANCE in TYPES, where N is the number of arguments.  */
 template<unsigned int N>
@@ -3489,6 +3554,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svrintz:
     case FUNC_svrsqrte:
     case FUNC_svrsqrts:
+    case FUNC_svscale:
     case FUNC_svsqrt:
     case FUNC_svsub:
     case FUNC_svsubr:
@@ -3666,6 +3732,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_binary_index:
     case SHAPE_binary_index_n:
     case SHAPE_binary_index64_n:
+    case SHAPE_binary_int_opt_n:
     case SHAPE_binary_lane:
     case SHAPE_binary_n:
     case SHAPE_binary_opt_n:
@@ -3831,6 +3898,7 @@ function_resolver::resolve ()
     case SHAPE_binary_index:
     case SHAPE_binary_index_n:
     case SHAPE_binary_index64_n:
+    case SHAPE_binary_int_opt_n:
     case SHAPE_binary_n:
       return resolve_multitype (2, 1);
     case SHAPE_binary_pred:
@@ -4973,6 +5041,7 @@ function_checker::check ()
     case SHAPE_binary_index:
     case SHAPE_binary_index_n:
     case SHAPE_binary_index64_n:
+    case SHAPE_binary_int_opt_n:
     case SHAPE_binary_n:
     case SHAPE_binary_opt_n:
     case SHAPE_binary_pred:
@@ -5579,6 +5648,7 @@ gimple_folder::fold ()
     case FUNC_svrintz:
     case FUNC_svrsqrte:
     case FUNC_svrsqrts:
+    case FUNC_svscale:
     case FUNC_svsetffr:
     case FUNC_svsplice:
     case FUNC_svsqrt:
@@ -6685,6 +6755,9 @@ function_expander::expand ()
 
     case FUNC_svrsqrts:
       return expand_rsqrts ();
+
+    case FUNC_svscale:
+      return expand_scale ();
 
     case FUNC_svsel:
       return expand_sel ();
@@ -7850,6 +7923,13 @@ rtx
 function_expander::expand_rbit ()
 {
   return expand_pred_op (UNSPEC_RBIT, -1);
+}
+
+/* Expand a call to svscale.  */
+rtx
+function_expander::expand_scale ()
+{
+  return expand_pred_op (-1, UNSPEC_COND_FSCALE);
 }
 
 /* Expand a call to svsel.  */

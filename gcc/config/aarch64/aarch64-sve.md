@@ -3349,7 +3349,7 @@
   [(set (match_operand:SVE_F 0 "register_operand" "=w, w, ?&w")
 	(unspec:SVE_F
 	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl, Upl")
-	   (match_operand:SI 4 "const_int_operand" "i, i, i")
+	   (match_operand:SI 4 "const_int_operand")
 	   (match_operand:SVE_F 2 "register_operand" "0, w, w")
 	   (match_operand:SVE_F 3 "register_operand" "w, 0, w")]
 	  SVE_COND_FP_BINARY_REG_REORDER))]
@@ -3374,6 +3374,23 @@
   "@
    <sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype><maybe_op_imm>
    movprfx\t%0, %2\;<sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype><maybe_op_imm>"
+  [(set_attr "movprfx" "*,yes")]
+)
+
+;; Predicated floating-point binary operations that take an integer
+;; as their second operand.
+(define_insn "@aarch64_pred_<optab><mode>"
+  [(set (match_operand:SVE_F 0 "register_operand" "=w, ?&w")
+	(unspec:SVE_F
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl")
+	   (match_operand:SI 4 "const_int_operand")
+	   (match_operand:SVE_F 2 "register_operand" "0, w")
+	   (match_operand:<V_INT_EQUIV> 3 "register_operand" "w, w")]
+	  SVE_COND_FP_BINARY_INT))]
+  "TARGET_SVE"
+  "@
+   <sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
+   movprfx\t%0, %2\;<sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
   [(set_attr "movprfx" "*,yes")]
 )
 
@@ -4775,6 +4792,76 @@
    movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;<sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype><maybe_op_imm>
    movprfx\t%0.<Vetype>, %1/m, %2.<Vetype>\;<sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype><maybe_op_imm>
    #"
+  [(set_attr "movprfx" "yes")]
+)
+
+;; Predicated floating-point binary operations with select, taking an
+;; integer as their second operand.
+(define_expand "@cond_<optab><mode>"
+  [(set (match_operand:SVE_F 0 "register_operand")
+	(unspec:SVE_F
+	  [(match_operand:<VPRED> 1 "register_operand")
+	   (unspec:SVE_F
+	     [(match_dup 1)
+	      (const_int SVE_FORBID_NEW_FAULTS)
+	      (match_operand:SVE_F 2 "register_operand")
+	      (match_operand:<V_INT_EQUIV> 3 "register_operand")]
+	     SVE_COND_FP_BINARY_INT)
+	   (match_operand:SVE_F 4 "aarch64_simd_reg_or_zero")]
+	  UNSPEC_SEL))]
+  "TARGET_SVE"
+)
+
+;; Predicated floating-point binary operations that take an integer as their
+;; second operand, with inactive lanes coming from the first operand.
+(define_insn "*cond_<optab><mode>_2"
+  [(set (match_operand:SVE_F 0 "register_operand" "=w, ?&w")
+	(unspec:SVE_F
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl")
+	   (unspec:SVE_F
+	     [(match_dup 1)
+	      (match_operand 4)
+	      (match_operand:SVE_F 2 "register_operand" "0, w")
+	      (match_operand:<V_INT_EQUIV> 3 "register_operand" "w, w")]
+	     SVE_COND_FP_BINARY_INT)
+	   (match_dup 2)]
+	  UNSPEC_SEL))]
+  "TARGET_SVE"
+  "@
+   <sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
+   movprfx\t%0, %2\;<sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
+  [(set_attr "movprfx" "*,yes")]
+)
+
+;; Predicated floating-point binary operations that take an integer as
+;; their second operand, with the values of inactive lanes being distinct
+;; from the other inputs.
+(define_insn_and_rewrite "*cond_<optab><mode>_any"
+  [(set (match_operand:SVE_F 0 "register_operand" "=&w, &w, &w, ?&w")
+	(unspec:SVE_F
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl, Upl, Upl")
+	   (unspec:SVE_F
+	     [(match_dup 1)
+	      (match_operand 5)
+	      (match_operand:SVE_F 2 "register_operand" "0, w, w, w")
+	      (match_operand:<V_INT_EQUIV> 3 "register_operand" "w, w, w, w")]
+	     SVE_COND_FP_BINARY_INT)
+	   (match_operand:SVE_F 4 "aarch64_simd_reg_or_zero" "Dz, Dz, 0, w")]
+	  UNSPEC_SEL))]
+  "TARGET_SVE
+   && !rtx_equal_p (operands[2], operands[4])"
+  "@
+   movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;<sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
+   movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;<sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
+   movprfx\t%0.<Vetype>, %1/m, %2.<Vetype>\;<sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
+   #"
+  "&& !CONSTANT_P (operands[4])
+   && !rtx_equal_p (operands[0], operands[4])"
+  {
+    emit_insn (gen_vcond_mask_<mode><vpred> (operands[0], operands[2],
+					     operands[4], operands[1]));
+    operands[4] = operands[2] = operands[0];
+  }
   [(set_attr "movprfx" "yes")]
 )
 
