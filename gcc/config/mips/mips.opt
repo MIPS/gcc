@@ -553,4 +553,4 @@ msched-weight
 Target Report Var(TARGET_SCHED_WEIGHT) Undocumented
 
 mfuse-vect-init
-Target Report Var(flag_fuse_vect_init) Undocumented
+Target Report Var(flag_fuse_vect_init) Undocumented Init(-1)
