@@ -1,4 +1,4 @@
-// PR c++/67225
+// PR c++/67319
 // { dg-do compile { target c++2a } }
 // { dg-additional-options "-fconcepts-ts" }
 

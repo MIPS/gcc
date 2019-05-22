@@ -1,4 +1,9 @@
-2019-05-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2019-05-22  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	PR c++/67427.
+	* g++.dg/cpp2a/concepts-pr67427.C: New.
+
+2019-05-22  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	PR c++/67319.
 	* g++.dg/cpp2a/concepts-pr67319.C: New.
