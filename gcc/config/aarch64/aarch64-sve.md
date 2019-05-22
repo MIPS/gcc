@@ -4078,6 +4078,15 @@
   "<sve_fp_op>\t%0.<Vetype>, %1.<Vetype>"
 )
 
+;; Unpredicated unary operations that take an integer and return a float.
+(define_insn "@aarch64_sve_<optab><mode>"
+  [(set (match_operand:SVE_F 0 "register_operand" "=w")
+	(unspec:SVE_F [(match_operand:<V_INT_EQUIV> 1 "register_operand" "w")]
+		      SVE_FP_UNARY_INT))]
+  "TARGET_SVE"
+  "<sve_fp_op>\t%0.<Vetype>, %1.<Vetype>"
+)
+
 ;; Unpredicated floating-point unary operations that need to be predicated
 ;; for SVE.
 (define_expand "<optab><mode>2"

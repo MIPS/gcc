@@ -452,6 +452,9 @@ enum function_shape {
   /* sv<t0:uint>_t svfoo[_t0](sv<t0>_t).  */
   SHAPE_unary_count,
 
+  /* sv<t0>_t svfoo[_t0](sv<t0:uint>_t).  */
+  SHAPE_unary_index,
+
   /* sv<t0>_t svfoo[_n]_t0(<t0>_t).  */
   SHAPE_unary_n,
 
@@ -822,6 +825,7 @@ private:
   tree resolve_compare_scalar ();
   tree resolve_compare_wide ();
   tree resolve_uniform_imm (unsigned int, unsigned int);
+  tree resolve_unary_index ();
 
   bool check_first_vector_argument (unsigned int, unsigned int &,
 				    unsigned int &, vector_type &);
@@ -847,7 +851,8 @@ private:
   tree require_n_form (type_suffix, type_suffix = NUM_TYPE_SUFFIXES);
   tree require_form (function_mode, type_suffix = NUM_TYPE_SUFFIXES,
 		     type_suffix = NUM_TYPE_SUFFIXES);
-  tree lookup_form (function_mode, type_suffix, type_suffix);
+  tree lookup_form (function_mode, type_suffix,
+		    type_suffix = NUM_TYPE_SUFFIXES);
 
   tree get_vector_type (vector_type);
   tree get_vector_type (type_suffix);
@@ -998,6 +1003,7 @@ private:
   rtx expand_dupq ();
   rtx expand_dupq_lane ();
   rtx expand_eor ();
+  rtx expand_expa ();
   rtx expand_ext ();
   rtx expand_ext_bhw ();
   rtx expand_get ();
@@ -2473,6 +2479,11 @@ arm_sve_h_builder::build (const function_group &group)
       build_all (&arm_sve_h_builder::sig_count<1>, group, MODE_none);
       break;
 
+    case SHAPE_unary_index:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_nary_index<1>, group, MODE_none);
+      break;
+
     case SHAPE_unary_n:
       build_all (&arm_sve_h_builder::sig_nary_n<1>, group, MODE_n, true);
       break;
@@ -3613,6 +3624,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svdup_lane:
     case FUNC_svdupq:
     case FUNC_svdupq_lane:
+    case FUNC_svexpa:
     case FUNC_svext:
     case FUNC_svextb:
     case FUNC_svexth:
@@ -3799,6 +3811,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_ternary_tmad:
     case SHAPE_unary:
     case SHAPE_unary_count:
+    case SHAPE_unary_index:
       return 0;
     case SHAPE_binary_pred:
     case SHAPE_binary_scalar:
@@ -4022,6 +4035,8 @@ function_resolver::resolve ()
     case SHAPE_reduction:
     case SHAPE_reduction_wide:
       return resolve_uniform (1);
+    case SHAPE_unary_index:
+      return resolve_unary_index ();
     }
   gcc_unreachable ();
 }
@@ -4434,6 +4449,26 @@ function_resolver::resolve_uniform_imm (unsigned int nops, unsigned int nimm)
       return error_mark_node;
 
   return require_form (m_fi.mode, get_type_suffix (type));
+}
+
+/* Resolve a function that has SHAPE_unary_index.  */
+tree
+function_resolver::resolve_unary_index ()
+{
+  unsigned int i, nargs;
+  vector_type type;
+  if (!check_first_vector_argument (1, i, nargs, type))
+    return error_mark_node;
+
+  type_suffix suffix = get_type_suffix (type);
+  if (type_suffixes[suffix].unsigned_p)
+    for (unsigned int j = 0; j < NUM_TYPE_SUFFIXES; ++j)
+      if (type_suffixes[j].elem_bits == type_suffixes[suffix].elem_bits)
+	if (tree res = lookup_form (m_fi.mode, (type_suffix) j))
+	  return res;
+
+  /* This will always fail.  */
+  return require_form (m_fi.mode, suffix);
 }
 
 /* Check that the function is passed NOPS arguments plus the governing
@@ -5105,6 +5140,7 @@ function_checker::check ()
     case SHAPE_ternary_qq_opt_n:
     case SHAPE_unary:
     case SHAPE_unary_count:
+    case SHAPE_unary_index:
     case SHAPE_unary_n:
     case SHAPE_unary_pred:
       return true;
@@ -5544,6 +5580,7 @@ gimple_folder::fold ()
     case FUNC_svdupq_lane:
     case FUNC_sveor:
     case FUNC_sveorv:
+    case FUNC_svexpa:
     case FUNC_svext:
     case FUNC_svextb:
     case FUNC_svexth:
@@ -6467,6 +6504,9 @@ function_expander::expand ()
     case FUNC_sveorv:
       return expand_reduction (UNSPEC_XORV, UNSPEC_XORV, -1);
 
+    case FUNC_svexpa:
+      return expand_expa ();
+
     case FUNC_svext:
       return expand_ext ();
 
@@ -7359,6 +7399,14 @@ function_expander::expand_eor ()
     return expand_via_unpred_direct_optab (xor_optab);
   else
     return expand_via_pred_direct_optab (cond_xor_optab);
+}
+
+/* Expand a call to svexpa.  */
+rtx
+function_expander::expand_expa ()
+{
+  insn_code icode = code_for_aarch64_sve (UNSPEC_FEXPA, get_mode (0));
+  return expand_via_exact_insn (icode);
 }
 
 /* Expand a call to svext.  */

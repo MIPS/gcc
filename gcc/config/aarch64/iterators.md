@@ -514,6 +514,7 @@
     UNSPEC_UMUL_HIGHPART ; Used in aarch64-sve.md.
     UNSPEC_FMLA		; Used in aarch64-sve.md.
     UNSPEC_FMLS		; Used in aarch64-sve.md.
+    UNSPEC_FEXPA	; Used in aarch64-sve.md.
     UNSPEC_FTMAD	; Used in aarch64-sve.md.
     UNSPEC_FTSMUL	; Used in aarch64-sve.md.
     UNSPEC_FTSSEL	; Used in aarch64-sve.md.
@@ -1788,6 +1789,8 @@
 
 (define_int_iterator SVE_FP_UNARY [UNSPEC_FRECPE UNSPEC_RSQRTE])
 
+(define_int_iterator SVE_FP_UNARY_INT [UNSPEC_FEXPA])
+
 (define_int_iterator SVE_INT_BINARY_REG [UNSPEC_SMUL_HIGHPART
 					 UNSPEC_UMUL_HIGHPART
 					 UNSPEC_SABD UNSPEC_UABD])
@@ -1952,6 +1955,7 @@
 			(UNSPEC_FCMLA90 "fcmla90")
 			(UNSPEC_FCMLA180 "fcmla180")
 			(UNSPEC_FCMLA270 "fcmla270")
+			(UNSPEC_FEXPA "fexpa")
 			(UNSPEC_FTSMUL "ftsmul")
 			(UNSPEC_FTSSEL "ftssel")
 			(UNSPEC_COND_FABS "abs")
@@ -2255,6 +2259,7 @@
 			    (UNSPEC_FCMLA90 "fcmla")
 			    (UNSPEC_FCMLA180 "fcmla")
 			    (UNSPEC_FCMLA270 "fcmla")
+			    (UNSPEC_FEXPA "fexpa")
 			    (UNSPEC_FTSMUL "ftsmul")
 			    (UNSPEC_FTSSEL "ftssel")
 			    (UNSPEC_COND_FABS "fabs")
