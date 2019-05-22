@@ -1035,6 +1035,9 @@ private:
   rtx expand_qsub ();
   rtx expand_rbit ();
   rtx expand_rdffr ();
+  rtx expand_recpe ();
+  rtx expand_recps ();
+  rtx expand_recpx ();
   rtx expand_reduction (int, int, int);
   rtx expand_rev ();
   rtx expand_rev_bhw (int);
@@ -3472,6 +3475,9 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svqincw:
     case FUNC_svqincw_pat:
     case FUNC_svqsub:
+    case FUNC_svrecpe:
+    case FUNC_svrecps:
+    case FUNC_svrecpx:
     case FUNC_svrinta:
     case FUNC_svrinti:
     case FUNC_svrintm:
@@ -5554,6 +5560,9 @@ gimple_folder::fold ()
     case FUNC_svqsub:
     case FUNC_svrbit:
     case FUNC_svrdffr:
+    case FUNC_svrecpe:
+    case FUNC_svrecps:
+    case FUNC_svrecpx:
     case FUNC_svrevb:
     case FUNC_svrevh:
     case FUNC_svrevw:
@@ -6622,6 +6631,15 @@ function_expander::expand ()
 
     case FUNC_svrdffr:
       return expand_rdffr ();
+
+    case FUNC_svrecpe:
+      return expand_recpe ();
+
+    case FUNC_svrecps:
+      return expand_recps ();
+
+    case FUNC_svrecpx:
+      return expand_recpx ();
 
     case FUNC_svrev:
       return expand_rev ();
@@ -7863,6 +7881,29 @@ function_expander::expand_rdffr ()
 				      : CODE_FOR_aarch64_rdffr);
   emit_insn (gen_aarch64_update_ffrt ());
   return result;
+}
+
+/* Expand a call to svrecpe.  */
+rtx
+function_expander::expand_recpe ()
+{
+  insn_code icode = code_for_aarch64_sve (UNSPEC_FRECPE, get_mode (0));
+  return expand_via_exact_insn (icode);
+}
+
+/* Expand a call to svrecps.  */
+rtx
+function_expander::expand_recps ()
+{
+  insn_code icode = code_for_aarch64_sve (UNSPEC_FRECPS, get_mode (0));
+  return expand_via_exact_insn (icode);
+}
+
+/* Expand a call to svrecpx.  */
+rtx
+function_expander::expand_recpx ()
+{
+  return expand_pred_op (-1, UNSPEC_COND_FRECPX);
 }
 
 /* Expand a call to a vector-to-scalar reduction like svminv.

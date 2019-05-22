@@ -3304,6 +3304,16 @@
   }
 )
 
+;; Unpredicated floating-point binary operations.
+(define_insn "@aarch64_sve_<optab><mode>"
+  [(set (match_operand:SVE_F 0 "register_operand" "=w")
+	(unspec:SVE_F [(match_operand:SVE_F 1 "register_operand" "w")
+		       (match_operand:SVE_F 2 "register_operand" "w")]
+		      SVE_FP_BINARY))]
+  "TARGET_SVE"
+  "<sve_fp_op>\t%0.<Vetype>, %1.<Vetype>, %2.<Vetype>"
+)
+
 ;; Unpredicated floating-point MIN/MAX.
 (define_expand "<maxmin_uns><mode>3"
   [(set (match_operand:SVE_F 0 "register_operand")
@@ -4032,6 +4042,16 @@
 )
 
 ;; Unpredicated floating-point unary operations.
+(define_insn "@aarch64_sve_<optab><mode>"
+  [(set (match_operand:SVE_F 0 "register_operand" "=w")
+	(unspec:SVE_F [(match_operand:SVE_F 1 "register_operand" "w")]
+		      SVE_FP_UNARY))]
+  "TARGET_SVE"
+  "<sve_fp_op>\t%0.<Vetype>, %1.<Vetype>"
+)
+
+;; Unpredicated floating-point unary operations that need to be predicated
+;; for SVE.
 (define_expand "<optab><mode>2"
   [(set (match_operand:SVE_F 0 "register_operand")
 	(unspec:SVE_F

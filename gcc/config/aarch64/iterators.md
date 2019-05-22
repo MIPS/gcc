@@ -537,6 +537,7 @@
     UNSPEC_COND_FMLS	; Used in aarch64-sve.md.
     UNSPEC_COND_FNMLA	; Used in aarch64-sve.md.
     UNSPEC_COND_FNMLS	; Used in aarch64-sve.md.
+    UNSPEC_COND_FRECPX	; Used in aarch64-sve.md.
     UNSPEC_COND_FRINTA	; Used in aarch64-sve.md.
     UNSPEC_COND_FRINTI	; Used in aarch64-sve.md.
     UNSPEC_COND_FRINTM	; Used in aarch64-sve.md.
@@ -1781,12 +1782,15 @@
 (define_int_iterator SVE_INT_UNARY [UNSPEC_RBIT UNSPEC_REVB
 				    UNSPEC_REVH UNSPEC_REVW])
 
+(define_int_iterator SVE_FP_UNARY [UNSPEC_FRECPE])
+
 (define_int_iterator SVE_INT_BINARY_REG [UNSPEC_SMUL_HIGHPART
 					 UNSPEC_UMUL_HIGHPART
 					 UNSPEC_SABD UNSPEC_UABD])
 
 (define_int_iterator SVE_COND_FP_UNARY [UNSPEC_COND_FABS
 					UNSPEC_COND_FNEG
+					UNSPEC_COND_FRECPX
 					UNSPEC_COND_FRINTA
 					UNSPEC_COND_FRINTI
 					UNSPEC_COND_FRINTM
@@ -1795,6 +1799,8 @@
 					UNSPEC_COND_FRINTX
 					UNSPEC_COND_FRINTZ
 					UNSPEC_COND_FSQRT])
+
+(define_int_iterator SVE_FP_BINARY [UNSPEC_FRECPS])
 
 (define_int_iterator SVE_COND_FP_BINARY [UNSPEC_COND_ADD UNSPEC_COND_SUB
 					 UNSPEC_COND_FABD
@@ -1915,6 +1921,8 @@
 			(UNSPEC_ANDV "and")
 			(UNSPEC_IORV "ior")
 			(UNSPEC_XORV "xor")
+			(UNSPEC_FRECPE "frecpe")
+			(UNSPEC_FRECPS "frecps")
 			(UNSPEC_FADDV "plus")
 			(UNSPEC_FMAXNMV "smax")
 			(UNSPEC_FMAXV "smax_nan")
@@ -1955,6 +1963,7 @@
 			(UNSPEC_COND_FCMLA90 "fcmla90")
 			(UNSPEC_COND_FCMLA180 "fcmla180")
 			(UNSPEC_COND_FCMLA270 "fcmla270")
+			(UNSPEC_COND_FRECPX "frecpx")
 			(UNSPEC_COND_FRINTA "round")
 			(UNSPEC_COND_FRINTI "nearbyint")
 			(UNSPEC_COND_FRINTM "floor")
@@ -2218,7 +2227,9 @@
 			     (UNSPEC_REVH "revh")
 			     (UNSPEC_REVW "revw")])
 
-(define_int_attr sve_fp_op [(UNSPEC_FADDV "faddv")
+(define_int_attr sve_fp_op [(UNSPEC_FRECPE "frecpe")
+			    (UNSPEC_FRECPS "frecps")
+			    (UNSPEC_FADDV "faddv")
 			    (UNSPEC_FMAXNMV "fmaxnmv")
 			    (UNSPEC_FMAXV "fmaxv")
 			    (UNSPEC_FMINNMV "fminnmv")
@@ -2242,6 +2253,7 @@
 			    (UNSPEC_COND_FMIN "fmin")
 			    (UNSPEC_COND_FMAXNM "fmaxnm")
 			    (UNSPEC_COND_FMINNM "fminnm")
+			    (UNSPEC_COND_FRECPX "frecpx")
 			    (UNSPEC_COND_FRINTA "frinta")
 			    (UNSPEC_COND_FRINTI "frinti")
 			    (UNSPEC_COND_FRINTM "frintm")
