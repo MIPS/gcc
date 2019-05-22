@@ -514,6 +514,8 @@
     UNSPEC_UMUL_HIGHPART ; Used in aarch64-sve.md.
     UNSPEC_FMLA		; Used in aarch64-sve.md.
     UNSPEC_FMLS		; Used in aarch64-sve.md.
+    UNSPEC_FTSMUL	; Used in aarch64-sve.md.
+    UNSPEC_FTSSEL	; Used in aarch64-sve.md.
     UNSPEC_COND_FABS	; Used in aarch64-sve.md.
     UNSPEC_COND_FNEG	; Used in aarch64-sve.md.
     UNSPEC_COND_FSQRT	; Used in aarch64-sve.md.
@@ -1803,6 +1805,8 @@
 
 (define_int_iterator SVE_FP_BINARY [UNSPEC_FRECPS UNSPEC_RSQRTS])
 
+(define_int_iterator SVE_FP_BINARY_INT [UNSPEC_FTSMUL UNSPEC_FTSSEL])
+
 (define_int_iterator SVE_COND_FP_BINARY [UNSPEC_COND_ADD UNSPEC_COND_SUB
 					 UNSPEC_COND_FABD
 					 UNSPEC_COND_FCADD90
@@ -1947,6 +1951,8 @@
 			(UNSPEC_FCMLA90 "fcmla90")
 			(UNSPEC_FCMLA180 "fcmla180")
 			(UNSPEC_FCMLA270 "fcmla270")
+			(UNSPEC_FTSMUL "ftsmul")
+			(UNSPEC_FTSSEL "ftssel")
 			(UNSPEC_COND_FABS "abs")
 			(UNSPEC_COND_FABD "abd")
 			(UNSPEC_COND_FCADD90 "cadd90")
@@ -2248,6 +2254,8 @@
 			    (UNSPEC_FCMLA90 "fcmla")
 			    (UNSPEC_FCMLA180 "fcmla")
 			    (UNSPEC_FCMLA270 "fcmla")
+			    (UNSPEC_FTSMUL "ftsmul")
+			    (UNSPEC_FTSSEL "ftssel")
 			    (UNSPEC_COND_FABS "fabs")
 			    (UNSPEC_COND_FNEG "fneg")
 			    (UNSPEC_COND_FSQRT "fsqrt")

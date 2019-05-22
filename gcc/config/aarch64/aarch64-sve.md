@@ -3314,6 +3314,17 @@
   "<sve_fp_op>\t%0.<Vetype>, %1.<Vetype>, %2.<Vetype>"
 )
 
+;; Unpredicated floating-point binary operations that take an integer as
+;; their second operand.
+(define_insn "@aarch64_sve_<optab><mode>"
+  [(set (match_operand:SVE_F 0 "register_operand" "=w")
+	(unspec:SVE_F [(match_operand:SVE_F 1 "register_operand" "w")
+		       (match_operand:<V_INT_EQUIV> 2 "register_operand" "w")]
+		      SVE_FP_BINARY_INT))]
+  "TARGET_SVE"
+  "<sve_fp_op>\t%0.<Vetype>, %1.<Vetype>, %2.<Vetype>"
+)
+
 ;; Unpredicated floating-point MIN/MAX.
 (define_expand "<maxmin_uns><mode>3"
   [(set (match_operand:SVE_F 0 "register_operand")

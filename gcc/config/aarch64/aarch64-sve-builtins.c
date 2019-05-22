@@ -1070,6 +1070,8 @@ private:
   rtx expand_stnt1 ();
   rtx expand_sub (bool);
   rtx expand_tbl ();
+  rtx expand_tsmul ();
+  rtx expand_tssel ();
   rtx expand_unary_count (rtx_code);
   rtx expand_undef ();
   rtx expand_while (int, int);
@@ -3558,6 +3560,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svsqrt:
     case FUNC_svsub:
     case FUNC_svsubr:
+    case FUNC_svtsmul:
       if (type_suffixes[instance.types[0]].integer_p)
 	{
 	  attrs = add_attribute ("const", attrs);
@@ -3629,6 +3632,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svtbl:
     case FUNC_svtrn1:
     case FUNC_svtrn2:
+    case FUNC_svtssel:
     case FUNC_svundef:
     case FUNC_svundef2:
     case FUNC_svundef3:
@@ -5663,6 +5667,8 @@ gimple_folder::fold ()
     case FUNC_svsub:
     case FUNC_svsubr:
     case FUNC_svtbl:
+    case FUNC_svtsmul:
+    case FUNC_svtssel:
     /* Don't fold svundef at the gimple level.  There's no exact
        correspondence for SSA_NAMEs, and we explicitly don't want
        to generate a specific value (like an all-zeros vector).  */
@@ -6814,6 +6820,12 @@ function_expander::expand ()
 
     case FUNC_svtrn2:
       return expand_permute (UNSPEC_TRN2);
+
+    case FUNC_svtsmul:
+      return expand_tsmul ();
+
+    case FUNC_svtssel:
+      return expand_tssel ();
 
     case FUNC_svundef:
     case FUNC_svundef2:
@@ -8203,6 +8215,22 @@ rtx
 function_expander::expand_tbl ()
 {
   return expand_via_exact_insn (code_for_aarch64_sve_tbl (get_mode (0)));
+}
+
+/* Expand a call to svtsmul.  */
+rtx
+function_expander::expand_tsmul ()
+{
+  insn_code icode = code_for_aarch64_sve (UNSPEC_FTSMUL, get_mode (0));
+  return expand_via_exact_insn (icode);
+}
+
+/* Expand a call to svtssel.  */
+rtx
+function_expander::expand_tssel ()
+{
+  insn_code icode = code_for_aarch64_sve (UNSPEC_FTSSEL, get_mode (0));
+  return expand_via_exact_insn (icode);
 }
 
 /* Expand a call to sv{cls,clz,cnt}; CODE says which.  */
