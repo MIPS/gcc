@@ -1782,7 +1782,7 @@
 (define_int_iterator SVE_INT_UNARY [UNSPEC_RBIT UNSPEC_REVB
 				    UNSPEC_REVH UNSPEC_REVW])
 
-(define_int_iterator SVE_FP_UNARY [UNSPEC_FRECPE])
+(define_int_iterator SVE_FP_UNARY [UNSPEC_FRECPE UNSPEC_RSQRTE])
 
 (define_int_iterator SVE_INT_BINARY_REG [UNSPEC_SMUL_HIGHPART
 					 UNSPEC_UMUL_HIGHPART
@@ -1800,7 +1800,7 @@
 					UNSPEC_COND_FRINTZ
 					UNSPEC_COND_FSQRT])
 
-(define_int_iterator SVE_FP_BINARY [UNSPEC_FRECPS])
+(define_int_iterator SVE_FP_BINARY [UNSPEC_FRECPS UNSPEC_RSQRTS])
 
 (define_int_iterator SVE_COND_FP_BINARY [UNSPEC_COND_ADD UNSPEC_COND_SUB
 					 UNSPEC_COND_FABD
@@ -1923,6 +1923,8 @@
 			(UNSPEC_XORV "xor")
 			(UNSPEC_FRECPE "frecpe")
 			(UNSPEC_FRECPS "frecps")
+			(UNSPEC_RSQRTE "frsqrte")
+			(UNSPEC_RSQRTS "frsqrts")
 			(UNSPEC_FADDV "plus")
 			(UNSPEC_FMAXNMV "smax")
 			(UNSPEC_FMAXV "smax_nan")
@@ -2229,6 +2231,8 @@
 
 (define_int_attr sve_fp_op [(UNSPEC_FRECPE "frecpe")
 			    (UNSPEC_FRECPS "frecps")
+			    (UNSPEC_RSQRTE "frsqrte")
+			    (UNSPEC_RSQRTS "frsqrts")
 			    (UNSPEC_FADDV "faddv")
 			    (UNSPEC_FMAXNMV "fmaxnmv")
 			    (UNSPEC_FMAXV "fmaxv")

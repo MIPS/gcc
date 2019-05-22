@@ -1042,6 +1042,8 @@ private:
   rtx expand_rev ();
   rtx expand_rev_bhw (int);
   rtx expand_rint (int);
+  rtx expand_rsqrte ();
+  rtx expand_rsqrts ();
   rtx expand_sel ();
   rtx expand_set ();
   rtx expand_setffr ();
@@ -3485,6 +3487,8 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svrintp:
     case FUNC_svrintx:
     case FUNC_svrintz:
+    case FUNC_svrsqrte:
+    case FUNC_svrsqrts:
     case FUNC_svsqrt:
     case FUNC_svsub:
     case FUNC_svsubr:
@@ -5573,6 +5577,8 @@ gimple_folder::fold ()
     case FUNC_svrintp:
     case FUNC_svrintx:
     case FUNC_svrintz:
+    case FUNC_svrsqrte:
+    case FUNC_svrsqrts:
     case FUNC_svsetffr:
     case FUNC_svsplice:
     case FUNC_svsqrt:
@@ -6673,6 +6679,12 @@ function_expander::expand ()
 
     case FUNC_svrintz:
       return expand_rint (UNSPEC_COND_FRINTZ);
+
+    case FUNC_svrsqrte:
+      return expand_rsqrte ();
+
+    case FUNC_svrsqrts:
+      return expand_rsqrts ();
 
     case FUNC_svsel:
       return expand_sel ();
@@ -7944,6 +7956,22 @@ rtx
 function_expander::expand_rint (int unspec_code)
 {
   return expand_pred_op (-1, unspec_code);
+}
+
+/* Expand a call to svrsqrte.  */
+rtx
+function_expander::expand_rsqrte ()
+{
+  insn_code icode = code_for_aarch64_sve (UNSPEC_RSQRTE, get_mode (0));
+  return expand_via_exact_insn (icode);
+}
+
+/* Expand a call to svrsqrts.  */
+rtx
+function_expander::expand_rsqrts ()
+{
+  insn_code icode = code_for_aarch64_sve (UNSPEC_RSQRTS, get_mode (0));
+  return expand_via_exact_insn (icode);
 }
 
 /* Expand a call to svsetffr.  */
