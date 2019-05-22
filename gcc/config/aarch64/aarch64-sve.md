@@ -5028,6 +5028,20 @@
   [(set_attr "movprfx" "yes")]
 )
 
+;; FTMAD.
+(define_insn "@aarch64_sve_tmad<mode>"
+  [(set (match_operand:SVE_F 0 "register_operand" "=w, ?&w")
+	(unspec:SVE_F [(match_operand:SVE_F 1 "register_operand" "0, w")
+		       (match_operand:SVE_F 2 "register_operand" "w, w")
+		       (match_operand:DI 3 "const_int_operand")]
+		      UNSPEC_FTMAD))]
+  "TARGET_SVE"
+  "@
+   ftmad\t%0.<Vetype>, %0.<Vetype>, %2.<Vetype>, #%3
+   movprfx\t%0, %1\;ftmad\t%0.<Vetype>, %0.<Vetype>, %2.<Vetype>, #%3"
+  [(set_attr "movprfx" "*,yes")]
+)
+
 ;; Shift an SVE vector left and insert a scalar into element 0.
 (define_insn "vec_shl_insert_<mode>"
   [(set (match_operand:SVE_ALL 0 "register_operand" "=?w, w, ??&w, ?&w")

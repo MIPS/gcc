@@ -441,6 +441,11 @@ enum function_shape {
      where the final argument must be 0, 90, 180 or 270.  */
   SHAPE_ternary_rotate,
 
+  /* svbool_t svfoo[_<t0>](sv<t0>_t, sv<t0>_t, uint64_t)
+
+     where the final argument must be in the range [0, 7].  */
+  SHAPE_ternary_tmad,
+
   /* sv<t0>_t svfoo[_t0](sv<t0>_t).  */
   SHAPE_unary,
 
@@ -1070,6 +1075,7 @@ private:
   rtx expand_stnt1 ();
   rtx expand_sub (bool);
   rtx expand_tbl ();
+  rtx expand_tmad ();
   rtx expand_tsmul ();
   rtx expand_tssel ();
   rtx expand_unary_count (rtx_code);
@@ -2086,6 +2092,7 @@ arm_sve_h_builder::build (const function_group &group)
     case SHAPE_binary_extract:
     case SHAPE_binary_lane:
     case SHAPE_binary_rotate:
+    case SHAPE_ternary_tmad:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_nary_u64_n<3>, group, MODE_none);
       break;
@@ -3560,6 +3567,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svsqrt:
     case FUNC_svsub:
     case FUNC_svsubr:
+    case FUNC_svtmad:
     case FUNC_svtsmul:
       if (type_suffixes[instance.types[0]].integer_p)
 	{
@@ -3788,6 +3796,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_ternary_qq_lane:
     case SHAPE_ternary_qq_opt_n:
     case SHAPE_ternary_rotate:
+    case SHAPE_ternary_tmad:
     case SHAPE_unary:
     case SHAPE_unary_count:
       return 0;
@@ -4006,6 +4015,8 @@ function_resolver::resolve ()
       return resolve_multitype (4, 1);
     case SHAPE_ternary_qq_opt_n:
       return resolve_multitype (3, 1);
+    case SHAPE_ternary_tmad:
+      return resolve_uniform_imm (3, 1);
     case SHAPE_unary:
     case SHAPE_unary_count:
     case SHAPE_reduction:
@@ -5152,6 +5163,9 @@ function_checker::check ()
 
     case SHAPE_ternary_rotate:
       return require_immediate_rotate (pg_args + 3, true);
+
+    case SHAPE_ternary_tmad:
+      return require_immediate_range (pg_args + 2, 0, 7);
     }
   gcc_unreachable ();
 }
@@ -5667,6 +5681,7 @@ gimple_folder::fold ()
     case FUNC_svsub:
     case FUNC_svsubr:
     case FUNC_svtbl:
+    case FUNC_svtmad:
     case FUNC_svtsmul:
     case FUNC_svtssel:
     /* Don't fold svundef at the gimple level.  There's no exact
@@ -6814,6 +6829,9 @@ function_expander::expand ()
 
     case FUNC_svtbl:
       return expand_tbl ();
+
+    case FUNC_svtmad:
+      return expand_tmad ();
 
     case FUNC_svtrn1:
       return expand_permute (UNSPEC_TRN1);
@@ -8215,6 +8233,14 @@ rtx
 function_expander::expand_tbl ()
 {
   return expand_via_exact_insn (code_for_aarch64_sve_tbl (get_mode (0)));
+}
+
+/* Expand a call to svtmad.  */
+rtx
+function_expander::expand_tmad ()
+{
+  require_immediate_range (2, 0, 7);
+  return expand_via_exact_insn (code_for_aarch64_sve_tmad (get_mode (0)));
 }
 
 /* Expand a call to svtsmul.  */

@@ -514,6 +514,7 @@
     UNSPEC_UMUL_HIGHPART ; Used in aarch64-sve.md.
     UNSPEC_FMLA		; Used in aarch64-sve.md.
     UNSPEC_FMLS		; Used in aarch64-sve.md.
+    UNSPEC_FTMAD	; Used in aarch64-sve.md.
     UNSPEC_FTSMUL	; Used in aarch64-sve.md.
     UNSPEC_FTSSEL	; Used in aarch64-sve.md.
     UNSPEC_COND_FABS	; Used in aarch64-sve.md.
