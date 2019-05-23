@@ -1186,7 +1186,7 @@
 ;; duplicate the input and do a compare with zero.
 (define_expand "vec_duplicate<mode>"
   [(set (match_operand:PRED_ALL 0 "register_operand")
-	(vec_duplicate:PRED_ALL (match_operand 1 "register_operand")))]
+	(vec_duplicate:PRED_ALL (match_operand:QI 1 "register_operand")))]
   "TARGET_SVE"
   {
     rtx tmp = gen_reg_rtx (DImode);

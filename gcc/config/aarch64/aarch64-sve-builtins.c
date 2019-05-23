@@ -6127,10 +6127,17 @@ gimple_folder::fold_dup ()
 
   if ((m_fi.pred == PRED_none || m_fi.pred == PRED_x)
       && CONSTANT_CLASS_P (elt))
-    return gimple_build_assign (m_lhs, build_vector_from_val (vec_type, elt));
+    {
+      if (type_suffixes[m_fi.types[0]].bool_p)
+	return tree_to_shwi (elt) ? fold_ptrue () : fold_pfalse ();
+      tree vec = build_vector_from_val (vec_type, elt);
+      return gimple_build_assign (m_lhs, vec);
+    }
 
-  /* Avoid folding away the predicate for _x, since we'll need it later.  */
-  if (m_fi.pred == PRED_none)
+  /* Avoid folding away the predicate for _x, since we'll need it later.
+     Also avoid folding _b, since to do that we would need to introduce
+     an extra and unwanted conversion to the truth vector element type.  */
+  if (m_fi.pred == PRED_none && !type_suffixes[m_fi.types[0]].bool_p)
     return gimple_build_assign (m_lhs, VEC_DUPLICATE_EXPR, elt);
 
   return NULL;

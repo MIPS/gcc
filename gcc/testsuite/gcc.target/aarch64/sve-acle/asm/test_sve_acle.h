@@ -156,6 +156,16 @@
     BIND_OUTPUT_P (p0);						\
   }
 
+#define TEST_UNIFORM_PS(NAME, CODE1, CODE2)		\
+  START (NAME)						\
+  {							\
+    BIND_INPUT_P0_P3;					\
+    BIND_INPUT_X (bool, x0);				\
+    BIND_INPUT_D (bool, d0);				\
+    INVOKE (CODE1, CODE2);				\
+    BIND_OUTPUT_P (p0);					\
+  }
+
 #define TEST_DUAL_ZS(NAME, ZTYPE1, ZTYPE2, STYPE, CODE1, CODE2)	\
   START (NAME)							\
   {								\
