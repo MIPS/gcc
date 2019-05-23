@@ -466,7 +466,10 @@ enum function_shape {
   SHAPE_unary_n,
 
   /* svbool_t svfoo_<t0>(svbool_t).  */
-  SHAPE_unary_pred
+  SHAPE_unary_pred,
+
+  /* sv<t0>_t svfoo[_<t0>](sv<t0:half>_t).  */
+  SHAPE_unary_widen
 };
 
 /* Classifies an operation into "modes"; for example, to distinguish
@@ -609,6 +612,7 @@ struct GTY(()) function_instance {
   tree scalar_type (unsigned int) const;
   tree vector_type (unsigned int) const;
   tree tuple_type (unsigned int, unsigned int) const;
+  tree half_vector_type (unsigned int i) const;
   tree quarter_vector_type (unsigned int i) const;
   tree quarter_scalar_type (unsigned int i) const;
   tree signed_scalar_type (unsigned int) const;
@@ -728,6 +732,8 @@ private:
   template <unsigned int N>
   void sig_nary (const function_instance &, vec<tree> &);
   template <unsigned int N>
+  void sig_nary_h (const function_instance &, vec<tree> &);
+  template <unsigned int N>
   void sig_nary_index (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_nary_index_n (const function_instance &, vec<tree> &);
@@ -836,6 +842,7 @@ private:
   tree resolve_uniform_imm (unsigned int, unsigned int);
   tree resolve_unary_convert ();
   tree resolve_unary_index ();
+  tree resolve_unary_widen ();
 
   bool check_first_vector_argument (unsigned int, unsigned int &,
 				    unsigned int &, vector_type &);
@@ -863,6 +870,7 @@ private:
 		     type_suffix = NUM_TYPE_SUFFIXES);
   tree lookup_form (function_mode, type_suffix,
 		    type_suffix = NUM_TYPE_SUFFIXES);
+  tree report_no_such_form (type_suffix);
 
   tree get_vector_type (vector_type);
   tree get_vector_type (type_suffix);
@@ -949,6 +957,7 @@ private:
   gimple *fold_st234 ();
   gimple *fold_trn ();
   gimple *fold_undef ();
+  gimple *fold_unpk ();
   gimple *fold_uzp ();
   template<typename T> gimple *fold_while_type (bool);
   gimple *fold_while (bool);
@@ -1101,6 +1110,7 @@ private:
   rtx expand_tssel ();
   rtx expand_unary_count (rtx_code);
   rtx expand_undef ();
+  rtx expand_unpk (int, int);
   rtx expand_while (int, int);
   rtx expand_wrffr ();
 
@@ -1556,6 +1566,17 @@ unsigned_type_suffix (type_suffix type)
   return find_integer_type_suffix (true, type_suffixes[type].elem_bits);
 }
 
+/* Return the type suffix for elements that are half the size of
+   integer type suffix TYPE.  */
+static type_suffix
+find_half_type_suffix (type_suffix type)
+{
+  if (type == TYPE_SUFFIX_b)
+    return type;
+  return find_integer_type_suffix (type_suffixes[type].unsigned_p,
+				   type_suffixes[type].elem_bits / 2);
+}
+
 /* Return the type suffix for elements that are a quarter the size of
    integer type suffix TYPE.  */
 static type_suffix
@@ -1960,6 +1981,14 @@ inline tree
 function_instance::tuple_type (unsigned int num_vectors, unsigned int i) const
 {
   return acle_vector_types[num_vectors - 1][type_suffixes[types[i]].type];
+}
+
+/* Return the half size vector type associated with type suffix I.  */
+tree
+function_instance::half_vector_type (unsigned int i) const
+{
+  type_suffix half_type = find_half_type_suffix (types[i]);
+  return acle_vector_types[0][type_suffixes[half_type].type];
 }
 
 /* Return the quarter size vector type associated with type suffix I.  */
@@ -2559,6 +2588,11 @@ arm_sve_h_builder::build (const function_group &group)
     case SHAPE_unary_pred:
       build_all (&arm_sve_h_builder::sig_nary<1>, group, MODE_none);
       break;
+
+    case SHAPE_unary_widen:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_nary_h<1>, group, MODE_none);
+      break;
     }
 }
 
@@ -3067,6 +3101,18 @@ arm_sve_h_builder::sig_nary (const function_instance &instance,
 {
   for (unsigned int i = 0; i < N + 1; ++i)
     types.quick_push (instance.vector_type (0));
+}
+
+/* Describe the signature "sv<t0>_t svfoo[_t0](sv<t0>_t, ..., sv<t0:half>_t)"
+   for INSTANCE in TYPES, where N is the number of arguments.  */
+template<unsigned int N>
+void
+arm_sve_h_builder::sig_nary_h (const function_instance &instance,
+			       vec<tree> &types)
+{
+  for (unsigned int i = 0; i < N; ++i)
+    types.quick_push (instance.vector_type (0));
+  types.quick_push (instance.half_vector_type (0));
 }
 
 /* Describe the signature "sv<t0>_t svfoo(sv<t0>_t, ..., sv<t0:uint>_t)"
@@ -3741,6 +3787,8 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svundef2:
     case FUNC_svundef3:
     case FUNC_svundef4:
+    case FUNC_svunpkhi:
+    case FUNC_svunpklo:
     case FUNC_svuzp1:
     case FUNC_svuzp2:
     case FUNC_svwhilele:
@@ -3897,6 +3945,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_unary:
     case SHAPE_unary_count:
     case SHAPE_unary_index:
+    case SHAPE_unary_widen:
       return 0;
     case SHAPE_binary_pred:
     case SHAPE_binary_scalar:
@@ -4127,6 +4176,8 @@ function_resolver::resolve ()
       return resolve_unary_convert ();
     case SHAPE_unary_index:
       return resolve_unary_index ();
+    case SHAPE_unary_widen:
+      return resolve_unary_widen ();
     }
   gcc_unreachable ();
 }
@@ -4599,6 +4650,32 @@ function_resolver::resolve_unary_index ()
 
   /* This will always fail.  */
   return require_form (m_fi.mode, suffix);
+}
+
+/* Resolve a function that has SHAPE_unary_widen.  */
+tree
+function_resolver::resolve_unary_widen ()
+{
+  unsigned int i, nargs;
+  vector_type type;
+  if (!check_first_vector_argument (1, i, nargs, type))
+    return error_mark_node;
+
+  type_suffix suffix = get_type_suffix (type);
+  if (suffix == TYPE_SUFFIX_b)
+    return require_form (m_fi.mode, suffix);
+
+  if (type_suffixes[suffix].integer_p
+      && type_suffixes[suffix].elem_bits < 64)
+    {
+      type_suffix wide_suffix
+	= find_integer_type_suffix (type_suffixes[suffix].unsigned_p,
+				    type_suffixes[suffix].elem_bits * 2);
+      if (tree res = lookup_form (m_fi.mode, wide_suffix))
+	return res;
+    }
+
+  return report_no_such_form (suffix);
 }
 
 /* Check that the function is passed NOPS arguments plus the governing
@@ -5118,15 +5195,11 @@ function_resolver::require_form (function_mode mode, type_suffix type0,
   if (!res)
     {
       if (type1 == NUM_TYPE_SUFFIXES)
-	error_at (m_location, "%qE has no form that takes %qT arguments",
-		  m_rfn.decl, get_vector_type (type0));
-      else if (type0 == m_fi.types[0])
-	error_at (m_location, "%qE has no form that takes %qT arguments",
-		  m_rfn.decl, get_vector_type (type1));
-      else
-	/* To be filled in when we have other cases.  */
-	gcc_unreachable ();
-      return error_mark_node;
+	return report_no_such_form (type0);
+      if (type0 == m_fi.types[0])
+	return report_no_such_form (type1);
+      /* To be filled in when we have other cases.  */
+      gcc_unreachable ();
     }
   return res;
 }
@@ -5143,6 +5216,16 @@ function_resolver::lookup_form (function_mode mode, type_suffix type0,
   registered_function *rfn
     = function_table->find_with_hash (instance, instance.hash ());
   return rfn ? rfn->decl : NULL_TREE;
+}
+
+/* Report that the function has no form that takes type suffix SUFFIX.
+   Return error_mark_node.  */
+tree
+function_resolver::report_no_such_form (type_suffix type)
+{
+  error_at (m_location, "%qE has no form that takes %qT arguments",
+	    m_rfn.decl, get_vector_type (type));
+  return error_mark_node;
 }
 
 /* Return the vector type associated with TYPE.  */
@@ -5278,6 +5361,7 @@ function_checker::check ()
     case SHAPE_unary_index:
     case SHAPE_unary_n:
     case SHAPE_unary_pred:
+    case SHAPE_unary_widen:
       return true;
 
     case SHAPE_binary_extract:
@@ -5947,6 +6031,10 @@ gimple_folder::fold ()
     case FUNC_svundef4:
       return fold_undef ();
 
+    case FUNC_svunpkhi:
+    case FUNC_svunpklo:
+      return fold_unpk ();
+
     case FUNC_svuzp1:
     case FUNC_svuzp2:
       return fold_uzp ();
@@ -6281,6 +6369,22 @@ gimple *
 gimple_folder::fold_undef ()
 {
   return gimple_build_assign (m_lhs, build_clobber (TREE_TYPE (m_lhs)));
+}
+
+/* Fold a call to svunpkhi or svunpklo.  */
+gimple *
+gimple_folder::fold_unpk ()
+{
+  /* Don't fold the predicate ops, since every bit of the svbool_t
+     result is significant.  */
+  if (m_fi.types[0] == TYPE_SUFFIX_b)
+    return NULL;
+
+  /* The first half in memory is VEC_UNPACK_LO_EXPR for little-endian
+     and VEC_UNPACK_HI_EXPR for big-endian.  */
+  tree_code code = ((m_fi.func == FUNC_svunpkhi) == BYTES_BIG_ENDIAN
+		    ? VEC_UNPACK_LO_EXPR : VEC_UNPACK_HI_EXPR);
+  return gimple_build_assign (m_lhs, code, gimple_call_arg (m_call, 0));
 }
 
 /* Fold a call to svuzp1 or svuzp2.  */
@@ -7054,6 +7158,12 @@ function_expander::expand ()
 
     case FUNC_svtssel:
       return expand_tssel ();
+
+    case FUNC_svunpkhi:
+      return expand_unpk (UNSPEC_UNPACKSHI, UNSPEC_UNPACKUHI);
+
+    case FUNC_svunpklo:
+      return expand_unpk (UNSPEC_UNPACKSLO, UNSPEC_UNPACKULO);
 
     case FUNC_svundef:
     case FUNC_svundef2:
@@ -8579,6 +8689,26 @@ function_expander::expand_undef ()
 {
   emit_clobber (copy_rtx (m_target));
   return m_target;
+}
+
+/* Expand a call to svunpk{hi,lo}.  UNSPEC_FOR_SINT is the unspec code
+   for signed integers while UNSPEC_FOR_UINT is the unspec code for
+   unsigned integers and predicates.  */
+rtx
+function_expander::expand_unpk (int unspec_for_sint, int unspec_for_uint)
+{
+  machine_mode mode = GET_MODE (m_args[0]);
+  insn_code icode;
+  if (GET_MODE_CLASS (mode) == MODE_VECTOR_BOOL)
+    icode = code_for_aarch64_sve_punpk (unspec_for_uint, mode);
+  else
+    {
+      int unspec = (type_suffixes[m_fi.types[0]].unsigned_p
+		    ? unspec_for_uint
+		    : unspec_for_sint);
+      icode = code_for_aarch64_sve_unpk (unspec, unspec, mode);
+    }
+  return expand_via_exact_insn (icode);
 }
 
 /* Expand a call to svwhile*.  UNSPEC_FOR_SINT is the unspec code to

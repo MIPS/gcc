@@ -4382,7 +4382,7 @@
 )
 
 ;; PUNPKHI and PUNPKLO.
-(define_insn "aarch64_sve_punpk<perm_hilo>_<mode>"
+(define_insn "@aarch64_sve_punpk<perm_hilo>_<mode>"
   [(set (match_operand:<VWIDE> 0 "register_operand" "=Upa")
 	(unspec:<VWIDE> [(match_operand:PRED_BHS 1 "register_operand" "Upa")]
 			UNPACK_UNSIGNED))]
@@ -4407,7 +4407,7 @@
 )
 
 ;; SUNPKHI, UUNPKHI, SUNPKLO and UUNPKLO.
-(define_insn "aarch64_sve_<su>unpk<perm_hilo>_<SVE_BHSI:mode>"
+(define_insn "@aarch64_sve_<su>unpk<perm_hilo>_<SVE_BHSI:mode>"
   [(set (match_operand:<VWIDE> 0 "register_operand" "=w")
 	(unspec:<VWIDE> [(match_operand:SVE_BHSI 1 "register_operand" "w")]
 			UNPACK))]

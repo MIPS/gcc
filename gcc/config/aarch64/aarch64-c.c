@@ -259,8 +259,11 @@ static tree
 aarch64_resolve_overloaded_builtin (unsigned int uncast_location,
 				    tree fndecl, void *uncast_arglist)
 {
+  vec<tree, va_gc> empty = {};
   location_t location = (location_t) uncast_location;
-  vec<tree, va_gc> *arglist = (vec<tree, va_gc> *) uncast_arglist;
+  vec<tree, va_gc> *arglist = (uncast_arglist
+			       ? (vec<tree, va_gc> *) uncast_arglist
+			       : &empty);
   unsigned int code = DECL_FUNCTION_CODE (fndecl);
   unsigned int subcode = code >> AARCH64_BUILTIN_SHIFT;
   tree new_fndecl;
