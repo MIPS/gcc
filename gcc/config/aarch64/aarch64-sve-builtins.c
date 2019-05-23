@@ -373,7 +373,7 @@ enum function_shape {
   /* void svfoo().  */
   SHAPE_setffr,
 
-  /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t)
+  /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0:uint>_t)
      sv<t0>_t svfoo[_t0](sv<t0>_t, uint64_t).  */
   SHAPE_shift_opt_n,
 
@@ -2491,7 +2491,7 @@ arm_sve_h_builder::build (const function_group &group)
 
     case SHAPE_shift_opt_n:
       add_overloaded_functions (group, MODE_none);
-      build_all (&arm_sve_h_builder::sig_nary<2>, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_nary_index<2>, group, MODE_none);
       build_all (&arm_sve_h_builder::sig_nary_u64_n<2>, group, MODE_n);
       break;
 
@@ -4078,7 +4078,6 @@ function_resolver::resolve ()
     case SHAPE_binary:
     case SHAPE_binary_opt_n:
     case SHAPE_compare_opt_n:
-    case SHAPE_shift_opt_n:
       return resolve_uniform (2);
     case SHAPE_binary_extract:
     case SHAPE_binary_lane:
@@ -4089,6 +4088,7 @@ function_resolver::resolve ()
     case SHAPE_binary_index64_n:
     case SHAPE_binary_int_opt_n:
     case SHAPE_binary_n:
+    case SHAPE_shift_opt_n:
       return resolve_multitype (2, 1);
     case SHAPE_binary_pred:
     case SHAPE_binary_scalar:
