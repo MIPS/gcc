@@ -1064,16 +1064,16 @@
 
 ;; Extract the last active element of operand 1 into operand 0.
 ;; If no elements are active, extract the last inactive element instead.
-(define_insn "extract_last_<mode>"
-  [(set (match_operand:<VEL> 0 "register_operand" "=r, w")
+(define_insn "@extract_<last_op>_<mode>"
+  [(set (match_operand:<VEL> 0 "register_operand" "=?r, w")
 	(unspec:<VEL>
 	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl")
 	   (match_operand:SVE_ALL 2 "register_operand" "w, w")]
-	  UNSPEC_LASTB))]
+	  LAST))]
   "TARGET_SVE"
   "@
-   lastb\t%<vwcore>0, %1, %2.<Vetype>
-   lastb\t%<Vetype>0, %1, %2.<Vetype>"
+   last<ab>\t%<vwcore>0, %1, %2.<Vetype>
+   last<ab>\t%<Vetype>0, %1, %2.<Vetype>"
 )
 
 (define_expand "vec_duplicate<mode>"

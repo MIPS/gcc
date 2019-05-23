@@ -1022,6 +1022,7 @@ private:
   rtx expand_get ();
   rtx expand_index ();
   rtx expand_insr ();
+  rtx expand_last (int);
   rtx expand_ld1 ();
   rtx expand_ld1_ext (rtx_code);
   rtx expand_ld1_ext_gather (rtx_code);
@@ -3713,6 +3714,8 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svget3:
     case FUNC_svget4:
     case FUNC_svinsr:
+    case FUNC_svlasta:
+    case FUNC_svlastb:
     case FUNC_svpfalse:
     case FUNC_svptest_any:
     case FUNC_svptest_first:
@@ -5721,6 +5724,8 @@ gimple_folder::fold ()
     case FUNC_svexth:
     case FUNC_svextw:
     case FUNC_svindex:
+    case FUNC_svlasta:
+    case FUNC_svlastb:
     case FUNC_svld1_gather:
     case FUNC_svld1rq:
     case FUNC_svld1sb:
@@ -6681,6 +6686,12 @@ function_expander::expand ()
 
     case FUNC_svinsr:
       return expand_insr ();
+
+    case FUNC_svlasta:
+      return expand_last (UNSPEC_LASTA);
+
+    case FUNC_svlastb:
+      return expand_last (UNSPEC_LASTB);
 
     case FUNC_svld1:
       return expand_ld1 ();
@@ -7706,6 +7717,13 @@ function_expander::expand_insr ()
 {
   insn_code icode = direct_optab_handler (vec_shl_insert_optab, get_mode (0));
   return expand_via_exact_insn (icode);
+}
+
+/* Expand a call to svlast[ab]; UNSPEC_CODE says which.  */
+rtx
+function_expander::expand_last (int unspec_code)
+{
+  return expand_via_exact_insn (code_for_extract (unspec_code, get_mode (0)));
 }
 
 /* Expand a call to svld1.  */

@@ -573,6 +573,7 @@
     UNSPEC_WHILE_LO	; Used in aarch64-sve.md.
     UNSPEC_WHILE_LS	; Used in aarch64-sve.md.
     UNSPEC_WHILE_LT	; Used in aarch64-sve.md.
+    UNSPEC_LASTA	; Used in aarch64-sve.md.
     UNSPEC_LASTB	; Used in aarch64-sve.md.
     UNSPEC_ASHIFT_WIDE  ; Used in aarch64-sve.md.
     UNSPEC_ASHIFTRT_WIDE ; Used in aarch64-sve.md.
@@ -1796,6 +1797,8 @@
 
 (define_int_iterator CLAST [UNSPEC_CLASTA UNSPEC_CLASTB])
 
+(define_int_iterator LAST [UNSPEC_LASTA UNSPEC_LASTB])
+
 (define_int_iterator SVE_INT_UNARY [UNSPEC_RBIT UNSPEC_REVB
 				    UNSPEC_REVH UNSPEC_REVW])
 
@@ -2062,7 +2065,9 @@
 			      (UNSPEC_XORF "eor")])
 
 (define_int_attr last_op [(UNSPEC_CLASTA "after_last")
-			  (UNSPEC_CLASTB "last")])
+			  (UNSPEC_CLASTB "last")
+			  (UNSPEC_LASTA "after_last")
+			  (UNSPEC_LASTB "last")])
 
 ;; "s" for signed operations and "u" for unsigned ones.
 (define_int_attr su [(UNSPEC_SADDV "s")
@@ -2128,7 +2133,8 @@
 
 (define_int_attr f [(UNSPEC_LDFF1 "f") (UNSPEC_LDNF1 "n")])
 
-(define_int_attr ab [(UNSPEC_CLASTA "a") (UNSPEC_CLASTB "b")])
+(define_int_attr ab [(UNSPEC_CLASTA "a") (UNSPEC_CLASTB "b")
+		     (UNSPEC_LASTA "a") (UNSPEC_LASTB "b")])
 
 (define_int_attr addsub [(UNSPEC_SHADD "add")
 			 (UNSPEC_UHADD "add")
