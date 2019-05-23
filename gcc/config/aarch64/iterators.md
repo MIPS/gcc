@@ -1794,6 +1794,8 @@
 
 (define_int_iterator MUL_HIGHPART [UNSPEC_SMUL_HIGHPART UNSPEC_UMUL_HIGHPART])
 
+(define_int_iterator CLAST [UNSPEC_CLASTA UNSPEC_CLASTB])
+
 (define_int_iterator SVE_INT_UNARY [UNSPEC_RBIT UNSPEC_REVB
 				    UNSPEC_REVH UNSPEC_REVW])
 
@@ -2056,8 +2058,11 @@
 
 ;; The SVE logical instruction that implements an unspec.
 (define_int_attr logicalf_op [(UNSPEC_ANDF "and")
-		 	      (UNSPEC_IORF "orr")
+			      (UNSPEC_IORF "orr")
 			      (UNSPEC_XORF "eor")])
+
+(define_int_attr last_op [(UNSPEC_CLASTA "after_last")
+			  (UNSPEC_CLASTB "last")])
 
 ;; "s" for signed operations and "u" for unsigned ones.
 (define_int_attr su [(UNSPEC_SADDV "s")
@@ -2122,6 +2127,8 @@
 		    (UNSPEC_SRHADD "") (UNSPEC_URHADD "u")])
 
 (define_int_attr f [(UNSPEC_LDFF1 "f") (UNSPEC_LDNF1 "n")])
+
+(define_int_attr ab [(UNSPEC_CLASTA "a") (UNSPEC_CLASTB "b")])
 
 (define_int_attr addsub [(UNSPEC_SHADD "add")
 			 (UNSPEC_UHADD "add")

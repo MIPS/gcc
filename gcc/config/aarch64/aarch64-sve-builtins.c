@@ -175,6 +175,10 @@ enum function_shape {
   /* sv<t0>_t svfoo_wide[_t0](sv<t0>_t, svuint64_t).  */
   SHAPE_binary_wide,
 
+  /* sv<t0>_t svfoo[_t0](svbool_t, sv<t0>_t, sv<t0>_t)
+     <t0>_t svfoo[_n_t0](svbool_t, sv<t0>_t, <t0>_t).  */
+  SHAPE_clast,
+
   /* svbool_t svfoo[_t0](sv<t0>_t, sv<t0>_t)
      svbool_t svfoo[_n_t0](sv<t0>_t, int64_t)  (for signed t0)
      svbool_t svfoo[_n_t0](sv<t0>_t, uint64_t)  (for unsigned t0)
@@ -812,6 +816,7 @@ private:
   tree resolve_pointer ();
   tree resolve_uniform (unsigned int);
   tree resolve_adr ();
+  tree resolve_clast ();
   tree resolve_create (unsigned int);
   tree resolve_fold_left ();
   tree resolve_get (unsigned int);
@@ -990,6 +995,7 @@ private:
   rtx expand_brk_binary (int);
   rtx expand_bic ();
   rtx expand_cadd ();
+  rtx expand_clast (int);
   rtx expand_cmla ();
   rtx expand_cmla_lane ();
   rtx expand_cmp (rtx_code, rtx_code, int, int);
@@ -2202,6 +2208,12 @@ arm_sve_h_builder::build (const function_group &group)
     case SHAPE_binary_wide:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_nary_u64<2>, group, MODE_none);
+      break;
+
+    case SHAPE_clast:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_nary<2>, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_fold_left, group, MODE_n);
       break;
 
     case SHAPE_compare_opt_n:
@@ -3670,6 +3682,8 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svbrkn:
     case FUNC_svbrkpa:
     case FUNC_svbrkpb:
+    case FUNC_svclasta:
+    case FUNC_svclastb:
     case FUNC_svcls:
     case FUNC_svclz:
     case FUNC_svcnt:
@@ -3829,6 +3843,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_binary_opt_n:
     case SHAPE_binary_rotate:
     case SHAPE_binary_wide:
+    case SHAPE_clast:
     case SHAPE_compare_opt_n:
     case SHAPE_compare_wide:
     case SHAPE_create2:
@@ -4014,6 +4029,8 @@ function_resolver::resolve ()
       break;
     case SHAPE_binary_wide:
       return resolve_binary_wide ();
+    case SHAPE_clast:
+      return resolve_clast ();
     case SHAPE_compare_scalar:
       return resolve_compare_scalar ();
     case SHAPE_compare_wide:
@@ -4180,6 +4197,32 @@ function_resolver::resolve_adr ()
     }
 
   return require_form (mode);
+}
+
+/* Resolve a function that has SHAPE_clast.  */
+tree
+function_resolver::resolve_clast ()
+{
+  if (!check_num_arguments (3)
+      || !check_argument (0, VECTOR_TYPE_svbool_t))
+    return error_mark_node;
+
+  if (scalar_argument_p (1))
+    {
+      /* Leave the frontend to check whether the scalar argument is suitable
+	 and resolve purely based on the final vector argument.  */
+      vector_type type = require_vector_type (2);
+      if (type == NUM_VECTOR_TYPES)
+	return error_mark_node;
+      return require_form (MODE_n, get_type_suffix (type));
+    }
+
+  vector_type type;
+  if ((type = require_vector_type (1)) == NUM_VECTOR_TYPES
+      || !require_matching_type (2, type))
+    return error_mark_node;
+
+  return require_form (MODE_none, get_type_suffix (type));
 }
 
 /* Resolve a function that has SHAPE_create<NUM_VECTORS>.  */
@@ -5184,6 +5227,7 @@ function_checker::check ()
     case SHAPE_binary_pred:
     case SHAPE_binary_scalar:
     case SHAPE_binary_wide:
+    case SHAPE_clast:
     case SHAPE_compare_opt_n:
     case SHAPE_compare_scalar:
     case SHAPE_compare_wide:
@@ -5639,6 +5683,8 @@ gimple_folder::fold ()
     case FUNC_svbrkpa:
     case FUNC_svbrkpb:
     case FUNC_svcadd:
+    case FUNC_svclasta:
+    case FUNC_svclastb:
     case FUNC_svcls:
     case FUNC_svclz:
     case FUNC_svcmla:
@@ -6495,6 +6541,12 @@ function_expander::expand ()
     case FUNC_svcadd:
       return expand_cadd ();
 
+    case FUNC_svclasta:
+      return expand_clast (UNSPEC_CLASTA);
+
+    case FUNC_svclastb:
+      return expand_clast (UNSPEC_CLASTB);
+
     case FUNC_svcls:
       return expand_unary_count (CLRSB);
 
@@ -7164,6 +7216,20 @@ function_expander::expand_cadd ()
   m_args.ordered_remove (3);
   int unspec_code = rot == 90 ? UNSPEC_COND_FCADD90 : UNSPEC_COND_FCADD270;
   return expand_pred_op (UNKNOWN, unspec_code);
+}
+
+/* Expand a call to svclast[ab]; UNSPEC_CODE says which.  */
+rtx
+function_expander::expand_clast (int unspec_code)
+{
+  /* Match the optab order.  */
+  std::swap (m_args[0], m_args[1]);
+  insn_code icode;
+  if (m_fi.mode == MODE_n)
+    icode = code_for_fold_extract (unspec_code, get_mode (0));
+  else
+    icode = code_for_aarch64_fold_extract_vector (unspec_code, get_mode (0));
+  return expand_via_exact_insn (icode);
 }
 
 /* Expand a call to svcmla.  */

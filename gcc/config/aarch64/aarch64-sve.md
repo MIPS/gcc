@@ -3680,17 +3680,30 @@
 
 ;; Set operand 0 to the last active element in operand 3, or to tied
 ;; operand 1 if no elements are active.
-(define_insn "fold_extract_last_<mode>"
-  [(set (match_operand:<VEL> 0 "register_operand" "=r, w")
+(define_insn "@fold_extract_<last_op>_<mode>"
+  [(set (match_operand:<VEL> 0 "register_operand" "=?r, w")
 	(unspec:<VEL>
 	  [(match_operand:<VEL> 1 "register_operand" "0, 0")
 	   (match_operand:<VPRED> 2 "register_operand" "Upl, Upl")
 	   (match_operand:SVE_ALL 3 "register_operand" "w, w")]
-	  UNSPEC_CLASTB))]
+	  CLAST))]
   "TARGET_SVE"
   "@
-   clastb\t%<vwcore>0, %2, %<vwcore>0, %3.<Vetype>
-   clastb\t%<vw>0, %2, %<vw>0, %3.<Vetype>"
+   clast<ab>\t%<vwcore>0, %2, %<vwcore>0, %3.<Vetype>
+   clast<ab>\t%<Vetype>0, %2, %<Vetype>0, %3.<Vetype>"
+)
+
+(define_insn "@aarch64_fold_extract_vector_<last_op>_<mode>"
+  [(set (match_operand:SVE_ALL 0 "register_operand" "=w, ?&w")
+	(unspec:SVE_ALL
+	  [(match_operand:SVE_ALL 1 "register_operand" "0, w")
+	   (match_operand:<VPRED> 2 "register_operand" "Upl, Upl")
+	   (match_operand:SVE_ALL 3 "register_operand" "w, w")]
+	  CLAST))]
+  "TARGET_SVE"
+  "@
+   clast<ab>\t%0.<Vetype>, %2, %0.<Vetype>, %3.<Vetype>
+   movprfx\t%0, %1\;clast<ab>\t%0.<Vetype>, %2, %0.<Vetype>, %3.<Vetype>"
 )
 
 ;; Unpredicated integer add reduction.
