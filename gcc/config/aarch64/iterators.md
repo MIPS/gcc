@@ -500,6 +500,8 @@
     UNSPEC_BRKN		; Used in aarch64-sve.md.
     UNSPEC_BRKPA	; Used in aarch64-sve.md.
     UNSPEC_BRKPB	; Used in aarch64-sve.md.
+    UNSPEC_PFIRST	; Used in aarch64-sve.md.
+    UNSPEC_PNEXT	; Used in aarch64-sve.md.
     UNSPEC_CNTP		; Used in aarch64-sve.md.
     UNSPEC_SADDV	; Used in aarch64-sve.md.
     UNSPEC_UADDV	; Used in aarch64-sve.md.
@@ -706,7 +708,9 @@
 			  (HF "#15") (SF "#31") (DF "#63")])
 
 ;; The number of bits in an element.
-(define_mode_attr elem_bits [(VNx16QI "8") (VNx8HI "16")
+(define_mode_attr elem_bits [(VNx16BI "8") (VNx8BI "16")
+			     (VNx4BI "32") (VNx2BI "64")
+			     (VNx16QI "8") (VNx8HI "16")
 			     (VNx4SI "32") (VNx2DI "64")
 			     (VNx8HF "16") (VNx4SF "32") (VNx2DF "64")])
 
@@ -1922,6 +1926,8 @@
 
 (define_int_iterator SVE_BRK_BINARY [UNSPEC_BRKN UNSPEC_BRKPA UNSPEC_BRKPB])
 
+(define_int_iterator SVE_PITER [UNSPEC_PFIRST UNSPEC_PNEXT])
+
 ;; Iterators for atomic operations.
 
 (define_int_iterator ATOMIC_LDOP
@@ -2268,6 +2274,8 @@
 			 (UNSPEC_BRKN "n")
 			 (UNSPEC_BRKPA "pa") (UNSPEC_BRKPB "pb")])
 
+(define_int_attr sve_pred_op [(UNSPEC_PFIRST "pfirst") (UNSPEC_PNEXT "pnext")])
+
 (define_int_attr sve_int_op [(UNSPEC_SABD "sabd")
 			     (UNSPEC_UABD "uabd")
 			     (UNSPEC_SMUL_HIGHPART "smulh")
@@ -2427,7 +2435,8 @@
 			       (UNSPEC_BRKPA "3") (UNSPEC_BRKPB "3")])
 
 ;; The maximum number of element bits that an instruction can handle.
-(define_int_attr max_elem_bits [(UNSPEC_UADDV "64") (UNSPEC_SADDV "32")])
+(define_int_attr max_elem_bits [(UNSPEC_UADDV "64") (UNSPEC_SADDV "32")
+				(UNSPEC_PFIRST "8") (UNSPEC_PNEXT "64")])
 
 ;; The minimum number of element bits that an instruction can handle.
 (define_int_attr min_elem_bits [(UNSPEC_RBIT "8")

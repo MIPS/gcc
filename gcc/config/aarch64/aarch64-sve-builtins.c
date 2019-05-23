@@ -1070,6 +1070,7 @@ private:
   rtx expand_orr ();
   rtx expand_permute (int);
   rtx expand_pfalse ();
+  rtx expand_piter (int);
   rtx expand_prf ();
   rtx expand_prf_gather ();
   rtx expand_ptest (rtx_code);
@@ -3766,6 +3767,8 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svlastb:
     case FUNC_svmov:
     case FUNC_svpfalse:
+    case FUNC_svpfirst:
+    case FUNC_svpnext:
     case FUNC_svptest_any:
     case FUNC_svptest_first:
     case FUNC_svptest_last:
@@ -5882,6 +5885,8 @@ gimple_folder::fold ()
     case FUNC_svorn:
     case FUNC_svorr:
     case FUNC_svorv:
+    case FUNC_svpfirst:
+    case FUNC_svpnext:
     case FUNC_svprfb:
     case FUNC_svprfb_gather:
     case FUNC_svprfd:
@@ -6992,6 +6997,12 @@ function_expander::expand ()
 
     case FUNC_svpfalse:
       return expand_pfalse ();
+
+    case FUNC_svpfirst:
+      return expand_piter (UNSPEC_PFIRST);
+
+    case FUNC_svpnext:
+      return expand_piter (UNSPEC_PNEXT);
 
     case FUNC_svprfb:
     case FUNC_svprfd:
@@ -8317,6 +8328,14 @@ function_expander::expand_pfalse ()
   return CONST0_RTX (VNx16BImode);
 }
 
+/* Expand a call to svpfirst or svpnext; UNSPEC_CODE says which.  */
+rtx
+function_expander::expand_piter (int unspec_code)
+{
+  insn_code icode = code_for_aarch64_sve (unspec_code, get_mode (0));
+  return expand_via_exact_insn (icode);
+}
+
 /* Expand a call to svprf[bhwd].  */
 rtx
 function_expander::expand_prf ()
@@ -8360,8 +8379,9 @@ function_expander::expand_ptest (rtx_code code)
     }
 
   rtx pg = force_reg (VNx16BImode, m_args[0]);
+  rtx wide_pg = gen_lowpart (GET_MODE (m_args[1]), pg);
   rtx op = force_reg (GET_MODE (m_args[1]), m_args[1]);
-  emit_insn (gen_aarch64_ptestvnx16bi (pg, pg, op, is_ptrue));
+  emit_insn (gen_aarch64_ptestvnx16bi (pg, wide_pg, op, is_ptrue));
 
   rtx target = m_target;
   if (!target

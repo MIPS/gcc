@@ -2745,6 +2745,61 @@
   "brk<brk_op>s\t%0.b, %1/z, %2.b, %<brk_reg_opno>.b"
 )
 
+;; PFIRST and PNEXT.
+(define_insn "@aarch64_sve_<sve_pred_op><mode>"
+  [(set (match_operand:PRED_ALL 0 "register_operand" "=Upa")
+	(unspec:PRED_ALL
+	  [(match_operand:PRED_ALL 1 "register_operand" "Upa")
+	   (match_operand:PRED_ALL 2 "register_operand" "0")]
+	  SVE_PITER))
+   (clobber (reg:CC_NZC CC_REGNUM))]
+  "TARGET_SVE && <max_elem_bits> >= <elem_bits>"
+  "<sve_pred_op>\t%0.<Vetype>, %1, %0.<Vetype>"
+)
+
+;; Same, but also producing a flags result.
+(define_insn_and_rewrite "*aarch64_sve_<sve_pred_op><mode>_cc"
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC
+	  [(match_operand:VNx16BI 1 "register_operand" "Upa")
+	   (match_operand 4)
+	   (unspec:PRED_ALL
+	     [(match_dup 4)
+	      (match_operand:PRED_ALL 2 "register_operand" "0")]
+	     SVE_PITER)
+	   (match_operand 3 "const_int_operand")]
+	  UNSPEC_PTEST))
+   (set (match_operand:PRED_ALL 0 "register_operand" "=Upa")
+	(unspec:PRED_ALL [(match_dup 4) (match_dup 2)] SVE_PITER))]
+  "TARGET_SVE && <max_elem_bits> >= <elem_bits>"
+  "<sve_pred_op>\t%0.<Vetype>, %1, %0.<Vetype>"
+  "&& !CONSTANT_P (operands[4])"
+  {
+    operands[4] = CONSTM1_RTX (<MODE>mode);
+  }
+)
+
+;; Same, but with only the flags result being interesting.
+(define_insn_and_rewrite "*aarch64_sve_<sve_pred_op><mode>_ptest"
+  [(set (reg:CC_NZC CC_REGNUM)
+	(unspec:CC_NZC
+	  [(match_operand:VNx16BI 1 "register_operand" "Upa")
+	   (match_operand 4)
+	   (unspec:PRED_ALL
+	     [(match_dup 4)
+	      (match_operand:PRED_ALL 2 "register_operand" "0")]
+	     SVE_PITER)
+	   (match_operand 3 "const_int_operand")]
+	  UNSPEC_PTEST))
+   (clobber (match_scratch:PRED_ALL 0 "=Upa"))]
+  "TARGET_SVE && <max_elem_bits> >= <elem_bits>"
+  "<sve_pred_op>\t%0.<Vetype>, %1, %0.<Vetype>"
+  "&& !CONSTANT_P (operands[4])"
+  {
+    operands[4] = CONSTM1_RTX (<MODE>mode);
+  }
+)
+
 ;; Integer comparisons predicated with a PTRUE.
 (define_insn "*cmp<cmp_op><mode>"
   [(set (match_operand:<VPRED> 0 "register_operand" "=Upa, Upa")
