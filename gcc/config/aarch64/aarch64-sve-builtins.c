@@ -946,6 +946,7 @@ private:
   gimple *fold_insr ();
   gimple *fold_ld1 ();
   gimple *fold_ld234 ();
+  gimple *fold_mov ();
   gimple *fold_pfalse ();
   gimple *fold_ptrue ();
   gimple *fold_ptrue_pat ();
@@ -1051,6 +1052,7 @@ private:
   rtx expand_mla ();
   rtx expand_mla_mls_lane (int);
   rtx expand_mls ();
+  rtx expand_mov ();
   rtx expand_msb (unsigned int);
   rtx expand_mul ();
   rtx expand_mul_lane ();
@@ -3762,6 +3764,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svinsr:
     case FUNC_svlasta:
     case FUNC_svlastb:
+    case FUNC_svmov:
     case FUNC_svpfalse:
     case FUNC_svptest_any:
     case FUNC_svptest_first:
@@ -5991,6 +5994,9 @@ gimple_folder::fold ()
     case FUNC_svld4:
       return fold_ld234 ();
 
+    case FUNC_svmov:
+      return fold_mov ();
+
     case FUNC_svpfalse:
       return fold_pfalse ();
 
@@ -6213,6 +6219,15 @@ gimple_folder::fold_ld234 ()
   gsi_insert_after (m_gsi, new_call, GSI_SAME_STMT);
 
   return gimple_build_assign (m_lhs, build_clobber (TREE_TYPE (m_lhs)));
+}
+
+/* Fold a call to svmov.  */
+gimple *
+gimple_folder::fold_mov ()
+{
+  return gimple_build_assign (m_lhs, BIT_AND_EXPR,
+			      gimple_call_arg (m_call, 0),
+			      gimple_call_arg (m_call, 1));
 }
 
 /* Fold a call to svpfalse.  */
@@ -6923,6 +6938,9 @@ function_expander::expand ()
 
     case FUNC_svmls_lane:
       return expand_mla_mls_lane (UNSPEC_FMLS);
+
+    case FUNC_svmov:
+      return expand_mov ();
 
     case FUNC_svmsb:
       return expand_msb (1);
@@ -8050,6 +8068,15 @@ function_expander::expand_mls ()
   return expand_msb (3);
 }
 
+/* Expand a call to svmov_z, which only takes predicates.  This is
+   effectively a normal unpredicated AND.  */
+rtx
+function_expander::expand_mov ()
+{
+  m_args.quick_push (m_args[1]);
+  return expand_and ();
+}
+
 /* Expand a call to svmsb.
    svmsb (pg, a, b, c) maps directly to cond_fnma_optab and aarch64_pred_fnma
    with the same operand order:
@@ -8164,6 +8191,13 @@ function_expander::expand_nor ()
 rtx
 function_expander::expand_not ()
 {
+  if (m_fi.types[0] == TYPE_SUFFIX_b)
+    {
+      /* The canonical form for the assembler alias "NOT Pa.B, Pb/Z, Pc.B"
+	 is "EOR Pa.B, Pb/Z, Pb.B, Pc.B".  */
+      m_args.quick_insert (1, m_args[0]);
+      return expand_eor ();
+    }
   return expand_pred_op (NOT, -1);
 }
 
