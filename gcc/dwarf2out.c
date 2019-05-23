@@ -19698,6 +19698,7 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
     case MINUS:
     case SIGN_EXTEND:
     case ZERO_EXTEND:
+    case CONST_POLY_INT:
       return false;
 
     case MEM:

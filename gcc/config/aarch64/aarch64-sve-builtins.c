@@ -469,7 +469,10 @@ enum function_shape {
   SHAPE_unary_pred,
 
   /* sv<t0>_t svfoo[_<t0>](sv<t0:half>_t).  */
-  SHAPE_unary_widen
+  SHAPE_unary_widen,
+
+  /* uint64_t svfoo[_t0](sv<t0>_t).  */
+  SHAPE_vector_count
 };
 
 /* Classifies an operation into "modes"; for example, to distinguish
@@ -777,6 +780,7 @@ private:
   void sig_store_scatter_sv (const function_instance &, vec<tree> &);
   void sig_store_scatter_vs (const function_instance &, vec<tree> &);
   void sig_unary_convert (const function_instance &, vec<tree> &);
+  void sig_vector_count (const function_instance &, vec<tree> &);
 
   tree build_const_pointer (tree);
 
@@ -946,6 +950,7 @@ private:
   gimple *fold_insr ();
   gimple *fold_ld1 ();
   gimple *fold_ld234 ();
+  gimple *fold_len ();
   gimple *fold_mov ();
   gimple *fold_pfalse ();
   gimple *fold_ptrue ();
@@ -1044,6 +1049,7 @@ private:
   rtx expand_ldff1_ext_gather (rtx_code);
   rtx expand_ldff1_gather ();
   rtx expand_ldnt1 ();
+  rtx expand_len ();
   rtx expand_mad (unsigned int);
   rtx expand_max ();
   rtx expand_maxnm ();
@@ -2596,6 +2602,11 @@ arm_sve_h_builder::build (const function_group &group)
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_nary_h<1>, group, MODE_none);
       break;
+
+    case SHAPE_vector_count:
+      add_overloaded_functions (group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_vector_count, group, MODE_none);
+      break;
     }
 }
 
@@ -3446,6 +3457,15 @@ arm_sve_h_builder::sig_unary_convert (const function_instance &instance,
   types.quick_push (instance.vector_type (1));
 }
 
+/* Describe the signature "uint64_t svfoo[_t0](sv<t0>_t)" in TYPES.  */
+void
+arm_sve_h_builder::sig_vector_count (const function_instance &instance,
+				     vec<tree> &types)
+{
+  types.quick_push (scalar_types[VECTOR_TYPE_svuint64_t]);
+  types.quick_push (instance.vector_type (0));
+}
+
 /* Return a representation of "const T *".  */
 tree
 arm_sve_h_builder::build_const_pointer (tree t)
@@ -3765,6 +3785,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
     case FUNC_svinsr:
     case FUNC_svlasta:
     case FUNC_svlastb:
+    case FUNC_svlen:
     case FUNC_svmov:
     case FUNC_svpfalse:
     case FUNC_svpfirst:
@@ -3952,6 +3973,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_unary_count:
     case SHAPE_unary_index:
     case SHAPE_unary_widen:
+    case SHAPE_vector_count:
       return 0;
     case SHAPE_binary_pred:
     case SHAPE_binary_scalar:
@@ -4177,6 +4199,7 @@ function_resolver::resolve ()
     case SHAPE_unary_count:
     case SHAPE_reduction:
     case SHAPE_reduction_wide:
+    case SHAPE_vector_count:
       return resolve_uniform (1);
     case SHAPE_unary_convert:
       return resolve_unary_convert ();
@@ -5368,6 +5391,7 @@ function_checker::check ()
     case SHAPE_unary_n:
     case SHAPE_unary_pred:
     case SHAPE_unary_widen:
+    case SHAPE_vector_count:
       return true;
 
     case SHAPE_binary_extract:
@@ -5999,6 +6023,9 @@ gimple_folder::fold ()
     case FUNC_svld4:
       return fold_ld234 ();
 
+    case FUNC_svlen:
+      return fold_len ();
+
     case FUNC_svmov:
       return fold_mov ();
 
@@ -6231,6 +6258,16 @@ gimple_folder::fold_ld234 ()
   gsi_insert_after (m_gsi, new_call, GSI_SAME_STMT);
 
   return gimple_build_assign (m_lhs, build_clobber (TREE_TYPE (m_lhs)));
+}
+
+/* Fold a call to svlen.  */
+gimple *
+gimple_folder::fold_len ()
+{
+  tree rhs_type = TREE_TYPE (gimple_call_arg (m_call, 0));
+  tree count = build_int_cstu (TREE_TYPE (m_lhs),
+			       TYPE_VECTOR_SUBPARTS (rhs_type));
+  return gimple_build_assign (m_lhs, count);
 }
 
 /* Fold a call to svmov.  */
@@ -6899,6 +6936,9 @@ function_expander::expand ()
 
     case FUNC_svldnt1:
       return expand_ldnt1 ();
+
+    case FUNC_svlen:
+      return expand_len ();
 
     case FUNC_svlsl:
       return expand_shift (ASHIFT, UNSPEC_ASHIFT_WIDE);
@@ -7987,6 +8027,13 @@ rtx
 function_expander::expand_ldnt1 ()
 {
   return expand_via_load_insn (code_for_aarch64_ldnt1 (get_mode (0)));
+}
+
+/* Expand a call to svlen.  */
+rtx
+function_expander::expand_len ()
+{
+  return gen_int_mode (GET_MODE_NUNITS (get_mode (0)), DImode);
 }
 
 /* Expand a call to svmad.
