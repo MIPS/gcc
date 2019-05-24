@@ -91,7 +91,7 @@ struct directive
 
 static void skip_rest_of_line (cpp_reader *);
 static void check_eol (cpp_reader *, bool);
-static void start_directive (cpp_reader *);
+static void start_directive (cpp_reader *, location_t);
 static void prepare_directive_trad (cpp_reader *);
 static void end_directive (cpp_reader *, int);
 static void directive_diagnostics (cpp_reader *, const directive *, int);
@@ -289,7 +289,7 @@ check_eol_return_comments (cpp_reader *pfile)
 
 /* Called when entering a directive, _Pragma or command-line directive.  */
 static void
-start_directive (cpp_reader *pfile)
+start_directive (cpp_reader *pfile, location_t start_loc)
 {
   /* Setup in-directive state.  */
   pfile->state.in_directive = 1;
@@ -297,7 +297,7 @@ start_directive (cpp_reader *pfile)
   pfile->directive_result.type = CPP_PADDING;
 
   /* Some handlers need the position of the # for diagnostics.  */
-  pfile->directive_line = pfile->line_table->highest_line;
+  pfile->directive_line = start_loc;
 }
 
 /* Called when leaving a directive, _Pragma or command-line directive.  */
@@ -406,19 +406,20 @@ directive_diagnostics (cpp_reader *pfile, const directive *dir, int indented)
     }
 }
 
-/* Check if we have a known directive.  INDENTED is true if the
-   '#' of the directive was indented.  This function is in this file
-   to save unnecessarily exporting dtable etc. to lex.c.  Returns
-   nonzero if the line of tokens has been handled, zero if we should
-   continue processing the line.  */
+/* Check if we have a known directive.  START is the '#' token (we are only
+   interested in its location and whether it was indented, in case you are
+   faking it).  This function is in this file to save unnecessarily exporting
+   dtable etc. to lex.c.  Returns nonzero if the line of tokens has been
+   handled, zero if we should continue processing the line.  */
 int
-_cpp_handle_directive (cpp_reader *pfile, bool indented)
+_cpp_handle_directive (cpp_reader *pfile, const cpp_token *start)
 {
   const directive *dir = 0;
   const cpp_token *dname;
   bool was_parsing_args = pfile->state.parsing_args;
   bool was_discarding_output = pfile->state.discarding_output;
   int skip = 1;
+  int indented = start->flags & PREV_WHITE;
 
   if (was_discarding_output)
     pfile->state.prevent_expansion = 0;
@@ -431,7 +432,7 @@ _cpp_handle_directive (cpp_reader *pfile, bool indented)
       pfile->state.parsing_args = 0;
       pfile->state.prevent_expansion = 0;
     }
-  start_directive (pfile);
+  start_directive (pfile, start->src_loc);
   dname = _cpp_lex_token (pfile);
 
   if (dname->type == CPP_NAME)
@@ -561,7 +562,7 @@ run_directive (cpp_reader *pfile, int dir_no, const char *buf, size_t count)
 {
   cpp_push_buffer (pfile, (const uchar *) buf, count,
 		   /* from_stage3 */ true);
-  start_directive (pfile);
+  start_directive (pfile, pfile->line_table->highest_line); // ??? Location?
 
   /* This is a short-term fix to prevent a leading '#' being
      interpreted as a directive.  */
@@ -1864,7 +1865,7 @@ destringize_and_run (cpp_reader *pfile, const cpp_string *in,
   if (pfile->buffer->prev)
     pfile->buffer->file = pfile->buffer->prev->file;
 
-  start_directive (pfile);
+  start_directive (pfile, expansion_loc);
   _cpp_clean_line (pfile);
   save_directive = pfile->directive;
   pfile->directive = &dtable[T_PRAGMA];
