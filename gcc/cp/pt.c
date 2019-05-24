@@ -26800,6 +26800,13 @@ start_concept_definition (location_t loc, tree id)
   gcc_assert (identifier_p (id));
   gcc_assert (processing_template_decl);
 
+  /* A concept-definition shall not have associated constraints.  */
+  if (TEMPLATE_PARMS_CONSTRAINTS (current_template_parms))
+    {
+      error_at (loc, "a concept cannot be constrained");
+      TEMPLATE_PARMS_CONSTRAINTS (current_template_parms) = NULL_TREE;
+    }
+
   /* A concept-definition shall appear in namespace scope.  Templates
      aren't allowed in block scope, so we only need to check for class
      scope.  */

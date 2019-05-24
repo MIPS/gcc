@@ -43,3 +43,7 @@ void driver()
   f15(0);
   f15('a'); // { dg-error "before deduction" }
 }
+
+template<class T> concept bool C1() { return false; }                            
+template<C1 T> concept bool C2() { return true; } // { dg-error "cannot be constrained" }                          
+template<C1 T> concept bool C3 = true; // { dg-error "cannot be constrained" }

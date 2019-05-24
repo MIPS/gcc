@@ -48,3 +48,5 @@ static_assert(True<int>);
 static_assert(False<int>); // { dg-error "static assertion failed" }
 
 void f4(True auto);
+
+template<C2 T> concept C4 = true; // { dg-error "cannot be constrained" }

@@ -1,8 +1,9 @@
-2019-05-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2019-05-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
-	Diagnose invalid use of concepts.
-	* constraint.cc (build_concept_check): Diagnose cases where no
-	template arguments are provided for the concept check.
+	Diagnose constraints on concept definitions.
+	* decl.c (grokfndecl): Add check for constraints on declaration.
+	(grokvardecl): Likewise.
+	* pt.c (start_concept_definition): Likewise.
 
 2019-05-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
