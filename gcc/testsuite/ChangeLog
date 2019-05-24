@@ -1,5 +1,10 @@
 2019-05-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	PR c++/67684.
+	* g++.dg/cpp2a/concepts-pr67684.C: New.
+
+2019-05-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	PR c++/67658.
 	* g++.dg/cpp2a/concepts.C: Add test for constrained concept.
 	* g++.dg/cpp2a/concept-ts1.C: Likewise.

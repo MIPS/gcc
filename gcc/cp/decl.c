@@ -1045,7 +1045,7 @@ decls_match (tree newdecl, tree olddecl, bool record_versions /* = true */)
     }
   else if (TREE_CODE (newdecl) == TEMPLATE_DECL)
     {
-      if (!template_heads_equivalent_p (olddecl, newdecl))
+      if (!template_heads_equivalent_p (newdecl, olddecl))
       	return 0;
 
       tree oldres = DECL_TEMPLATE_RESULT (olddecl);

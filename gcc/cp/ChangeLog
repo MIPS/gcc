@@ -1,5 +1,11 @@
 2019-05-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	PR c++/67684. Rebuild friend template constraints for the 
+	purpose of declaration matching.
+	* pt.c (tsubst_friend_function): 
+
+2019-05-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Diagnose constraints on concept definitions.
 	* decl.c (grokfndecl): Add check for constraints on declaration.
 	(grokvardecl): Likewise.
