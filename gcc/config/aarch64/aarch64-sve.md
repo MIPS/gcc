@@ -4026,7 +4026,7 @@
   [(set (match_operand:SVE_F 0 "register_operand" "=w")
 	(mult:SVE_F
 	  (unspec:SVE_F
-	    [(match_operand:SVE_F 2 "register_operand" "w")
+	    [(match_operand:SVE_F 2 "register_operand" "<sve_lane_con>")
 	     (match_operand:SI 3 "const_int_operand")]
 	    UNSPEC_SVE_LANE_SELECT)
 	  (match_operand:SVE_F 1 "register_operand" "w")))]
@@ -4119,19 +4119,36 @@
   [(set_attr "movprfx" "*,yes")]
 )
 
-;; Predicated FMLA, FMLS and FCMLA by selected lanes.  It doesn't seem
-;; worth using (fma ...) for FMLA and FMLS since target-independent code
-;; won't understand the indexing.
+;; Predicated FMLA and FMLS by selected lanes.  It doesn't seem worth using
+;; (fma ...) since target-independent code won't understand the indexing.
 (define_insn "@aarch64_<optab>_lane_<mode>"
   [(set (match_operand:SVE_F 0 "register_operand" "=w, ?&w")
 	(unspec:SVE_F
 	  [(match_operand:SVE_F 1 "register_operand" "w, w")
 	   (unspec:SVE_F
-	     [(match_operand:SVE_F 2 "register_operand" "w, w")
+	     [(match_operand:SVE_F 2 "register_operand" "<sve_lane_con>, <sve_lane_con>")
 	      (match_operand:SI 3 "const_int_operand")]
 	     UNSPEC_SVE_LANE_SELECT)
 	   (match_operand:SVE_F 4 "register_operand" "0, w")]
 	  SVE_FP_TERNARY_LANE))]
+  "TARGET_SVE"
+  "@
+   <sve_fp_op>\t%0.<Vetype>, %1.<Vetype>, %2.<Vetype>[%3]
+   movprfx\t%0, %4\;<sve_fp_op>\t%0.<Vetype>, %1.<Vetype>, %2.<Vetype>[%3]"
+  [(set_attr "movprfx" "*,yes")]
+)
+
+;; Predicated FCMLA by selected lanes.
+(define_insn "@aarch64_<optab>_lane_<mode>"
+  [(set (match_operand:SVE_HSF 0 "register_operand" "=w, ?&w")
+	(unspec:SVE_HSF
+	  [(match_operand:SVE_HSF 1 "register_operand" "w, w")
+	   (unspec:SVE_HSF
+	     [(match_operand:SVE_HSF 2 "register_operand" "<sve_lane_pair_con>, <sve_lane_pair_con>")
+	      (match_operand:SI 3 "const_int_operand")]
+	     UNSPEC_SVE_LANE_SELECT)
+	   (match_operand:SVE_HSF 4 "register_operand" "0, w")]
+	  SVE_CFP_TERNARY_LANE))]
   "TARGET_SVE"
   "@
    <sve_fp_op>\t%0.<Vetype>, %1.<Vetype>, %2.<Vetype>[%3]<maybe_op_imm>
@@ -5302,7 +5319,7 @@
 	  (unspec:SVE_SDI
 	    [(match_operand:<VSI2QI> 1 "register_operand" "w, w")
 	     (unspec:<VSI2QI>
-	       [(match_operand:<VSI2QI> 2 "register_operand" "w, w")
+	       [(match_operand:<VSI2QI> 2 "register_operand" "<sve_lane_con>, <sve_lane_con>")
 		(match_operand:SI 3 "const_int_operand")]
 	       UNSPEC_SVE_LANE_SELECT)]
 	    DOTPROD)

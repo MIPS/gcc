@@ -148,6 +148,17 @@
 #define TEST_WIDE_Z(NAME, TYPE, CODE1, CODE2)		\
   TEST_DUAL_Z (NAME, TYPE, svuint64_t, CODE1, CODE2)
 
+#define TEST_DUAL_LANE_REG(NAME, TYPE1, TYPE2, REG, CODE1, CODE2) \
+  START (NAME)						\
+  {							\
+    BIND_INPUT_Z0_Z3 (TYPE1);				\
+    BIND_INPUT_Z6_Z7 (TYPE2);				\
+    BIND_INPUT_Z (TYPE2, REG);				\
+    BIND_INPUT_P (p0);					\
+    INVOKE (CODE1, CODE2);				\
+    BIND_OUTPUT_Z (z0);					\
+  }
+
 #define TEST_UNIFORM_ZS(NAME, ZTYPE, STYPE, CODE1, CODE2)	\
   START (NAME)							\
   {								\

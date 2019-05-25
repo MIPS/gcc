@@ -106,3 +106,24 @@ TEST_UNIFORM_Z (mla_lane_6_f16, svfloat16_t,
 TEST_UNIFORM_Z (mla_lane_7_f16, svfloat16_t,
 		z0 = svmla_lane_f16 (z0, z1, z2, 7),
 		z0 = svmla_lane (z0, z1, z2, 7))
+
+/*
+** mla_lane_z7_f16:
+**	fmla	z0\.h, z1\.h, z7\.h\[7\]
+**	ret
+*/
+TEST_DUAL_Z (mla_lane_z7_f16, svfloat16_t, svfloat16_t,
+	     z0 = svmla_lane_f16 (z0, z1, z7, 7),
+	     z0 = svmla_lane (z0, z1, z7, 7))
+
+/*
+** mla_lane_z8_f16:
+**	str	d8, \[sp, -16\]!
+**	mov	(z[0-7])\.d, z8\.d
+**	fmla	z0\.h, z1\.h, \1\.h\[7\]
+**	ldr	d8, \[sp\], 16
+**	ret
+*/
+TEST_DUAL_LANE_REG (mla_lane_z8_f16, svfloat16_t, svfloat16_t, z8,
+		    z0 = svmla_lane_f16 (z0, z1, z8, 7),
+		    z0 = svmla_lane (z0, z1, z8, 7))

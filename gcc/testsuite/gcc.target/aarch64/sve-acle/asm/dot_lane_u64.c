@@ -52,3 +52,24 @@ TEST_DUAL_Z (dot_lane_0_u64_untied, svuint64_t, svuint16_t,
 TEST_DUAL_Z (dot_lane_1_u64, svuint64_t, svuint16_t,
 	     z0 = svdot_lane_u64 (z0, z6, z7, 1),
 	     z0 = svdot_lane (z0, z6, z7, 1))
+
+/*
+** dot_lane_z15_u64:
+**	str	d15, \[sp, -16\]!
+**	udot	z0\.d, z6\.h, z15\.h\[1\]
+**	ldr	d15, \[sp\], 16
+**	ret
+*/
+TEST_DUAL_LANE_REG (dot_lane_z15_u64, svuint64_t, svuint16_t, z15,
+		    z0 = svdot_lane_u64 (z0, z6, z15, 1),
+		    z0 = svdot_lane (z0, z6, z15, 1))
+
+/*
+** dot_lane_z16_u64:
+**	mov	(z[0-9]|z1[0-5])\.d, z16\.d
+**	udot	z0\.d, z6\.h, \1\.h\[1\]
+**	ret
+*/
+TEST_DUAL_LANE_REG (dot_lane_z16_u64, svuint64_t, svuint16_t, z16,
+		    z0 = svdot_lane_u64 (z0, z6, z16, 1),
+		    z0 = svdot_lane (z0, z6, z16, 1))

@@ -1280,6 +1280,13 @@
 (define_mode_attr data_bytes [(VNx16BI "1") (VNx8BI "2")
 			      (VNx4BI "4") (VNx2BI "8")])
 
+;; The constraint to use for an SVE [SU]DOT, FMUL, FMLA or FMLS lane index.
+(define_mode_attr sve_lane_con [(VNx4SI "y") (VNx2DI "x")
+				(VNx8HF "y") (VNx4SF "y") (VNx2DF "x")])
+
+;; The constraint to use for an SVE FCMLA lane index.
+(define_mode_attr sve_lane_pair_con [(VNx8HF "y") (VNx4SF "x")])
+
 ;; -------------------------------------------------------------------
 ;; Code Iterators
 ;; -------------------------------------------------------------------
@@ -1901,9 +1908,10 @@
 (define_int_iterator SVE_COND_FP_ABS_CMP [UNSPEC_COND_LT UNSPEC_COND_LE
 					  UNSPEC_COND_GE UNSPEC_COND_GT])
 
-(define_int_iterator SVE_FP_TERNARY_LANE [UNSPEC_FMLA UNSPEC_FMLS
-					  UNSPEC_FCMLA UNSPEC_FCMLA90
-					  UNSPEC_FCMLA180 UNSPEC_FCMLA270])
+(define_int_iterator SVE_FP_TERNARY_LANE [UNSPEC_FMLA UNSPEC_FMLS])
+
+(define_int_iterator SVE_CFP_TERNARY_LANE [UNSPEC_FCMLA UNSPEC_FCMLA90
+					   UNSPEC_FCMLA180 UNSPEC_FCMLA270])
 
 (define_int_iterator SVE_WHILE [UNSPEC_WHILE_LE UNSPEC_WHILE_LO
 				UNSPEC_WHILE_LS UNSPEC_WHILE_LT])
