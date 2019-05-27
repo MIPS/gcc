@@ -19519,24 +19519,7 @@ cp_parser_using_declaration (cp_parser* parser,
 	    finish_member_declaration (decl);
 	}
       else
-	{
-	  decl = cp_parser_lookup_name_simple (parser,
-					       identifier,
-					       token->location);
-	  if (decl == error_mark_node)
-	    cp_parser_name_lookup_error (parser, identifier,
-					 decl, NLE_NULL,
-					 token->location);
-	  else if (check_for_bare_parameter_packs (decl))
-	    {
-	      cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON);
-	      return false;
-	    }
-	  else if (!at_namespace_scope_p ())
-	    finish_local_using_decl (decl, qscope, identifier);
-	  else
-	    finish_namespace_using_decl (decl, qscope, identifier);
-	}
+	finish_nonmember_using_decl (qscope, identifier);
     }
 
   if (!access_declaration_p
@@ -19737,10 +19720,7 @@ cp_parser_using_directive (cp_parser* parser)
   attribs = cp_parser_attributes_opt (parser);
 
   /* Update the symbol table.  */
-  if (namespace_bindings_p ())
-    finish_namespace_using_directive (namespace_decl, attribs);
-  else
-    finish_local_using_directive (namespace_decl, attribs);
+  finish_using_directive (namespace_decl, attribs);
 
   /* Look for the final `;'.  */
   cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON);
@@ -27613,9 +27593,19 @@ cp_parser_constructor_declarator_p (cp_parser *parser, cp_parser_flags flags,
 	  parser->num_template_parameter_lists = 0;
 
 	  /* Look for the type-specifier.  It's not optional, but its typename
-	     might be.  */
+	     might be.  Unless this is a friend declaration; we don't want to
+	     treat
+
+	       friend S (T::fn)(int);
+
+	     as a constructor, but with P0634, we might assume a type when
+	     looking for the type-specifier.  It is actually a function named
+	     `T::fn' that takes one parameter (of type `int') and returns a
+	     value of type `S'.  Constructors can be friends, but they must
+	     use a qualified name.  */
 	  cp_parser_type_specifier (parser,
-				    (flags & ~CP_PARSER_FLAGS_OPTIONAL),
+				    (friend_p ? CP_PARSER_FLAGS_NONE
+				     : (flags & ~CP_PARSER_FLAGS_OPTIONAL)),
 				    /*decl_specs=*/NULL,
 				    /*is_declarator=*/true,
 				    /*declares_class_or_enum=*/NULL,
@@ -27915,14 +27905,16 @@ cp_parser_template_declaration_after_parameters (cp_parser* parser,
       if (!ok)
 	{
 	  if (cxx_dialect > cxx17)
-	    error ("literal operator template %qD has invalid parameter list;"
-		   " expected non-type template parameter pack %<<char...>%> "
-		   "or single non-type parameter of class type",
-		   decl);
+	    error_at (DECL_SOURCE_LOCATION (decl), "literal operator "
+		      "template %qD has invalid parameter list; expected "
+		      "non-type template parameter pack %<<char...>%> or "
+		      "single non-type parameter of class type",
+		      decl);
 	  else
-	    error ("literal operator template %qD has invalid parameter list;"
-		   " expected non-type template parameter pack %<<char...>%>",
-		   decl);
+	    error_at (DECL_SOURCE_LOCATION (decl), "literal operator "
+		      "template %qD has invalid parameter list; expected "
+		      "non-type template parameter pack %<<char...>%>",
+		      decl);
 	}
     }
 

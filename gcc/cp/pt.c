@@ -7963,10 +7963,22 @@ convert_template_argument (tree parm,
 		     "parameter list for %qD",
 		     i + 1, in_decl);
 	      if (is_type)
-		inform (input_location,
-			"  expected a constant of type %qT, got %qT",
-			TREE_TYPE (parm),
-			(DECL_P (arg) ? DECL_NAME (arg) : orig_arg));
+		{
+		  /* The template argument is a type, but we're expecting
+		     an expression.  */
+		  inform (input_location,
+			  "  expected a constant of type %qT, got %qT",
+			  TREE_TYPE (parm),
+			  (DECL_P (arg) ? DECL_NAME (arg) : orig_arg));
+		  /* [temp.arg]/2: "In a template-argument, an ambiguity
+		     between a type-id and an expression is resolved to a
+		     type-id, regardless of the form of the corresponding
+		     template-parameter."  So give the user a clue.  */
+		  if (TREE_CODE (arg) == FUNCTION_TYPE)
+		    inform (input_location, "  ambiguous template argument "
+			    "for non-type template parameter is treated as "
+			    "function type");
+		}
 	      else if (requires_tmpl_type)
 		inform (input_location,
 			"  expected a class template, got %qE", orig_arg);
@@ -17043,8 +17055,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       break;
 
     case USING_STMT:
-      finish_local_using_directive (USING_STMT_NAMESPACE (t),
-				    /*attribs=*/NULL_TREE);
+      finish_using_directive (USING_STMT_NAMESPACE (t), /*attribs=*/NULL_TREE);
       break;
 
     case DECL_EXPR:
@@ -17061,13 +17072,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 	    tree name = DECL_NAME (decl);
 
 	    scope = tsubst (scope, args, complain, in_decl);
-	    decl = lookup_qualified_name (scope, name,
-					  /*is_type_p=*/false,
-					  /*complain=*/false);
-	    if (decl == error_mark_node || TREE_CODE (decl) == TREE_LIST)
-	      qualified_name_lookup_error (scope, name, decl, input_location);
-	    else
-	      finish_local_using_decl (decl, scope, name);
+	    finish_nonmember_using_decl (scope, name);
 	  }
 	else if (is_capture_proxy (decl)
 		 && !DECL_TEMPLATE_INSTANTIATION (current_function_decl))

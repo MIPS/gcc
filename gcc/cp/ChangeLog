@@ -1,3 +1,97 @@
+2019-05-25  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/90572 - wrong disambiguation in friend declaration.
+	* parser.c (cp_parser_constructor_declarator_p): Don't allow missing
+	typename for friend declarations.
+
+2019-05-23  Jonathan Wakely  <jwakely@redhat.com>
+
+	* cp-tree.h (CP_AGGREGATE_TYPE_P): Fix whitespace.
+
+	* init.c (std_placement_new_fn_p): Remove outdated TODO comment that
+	was resolved by r254694.
+
+2019-05-22  Jason Merrill  <jason@redhat.com>
+
+	PR c++/20408 - unnecessary code for empty struct.
+	* call.c (build_call_a): Use simple_empty_class_p.
+
+	PR c++/86485 - -Wmaybe-unused with empty class ?:
+	* cp-gimplify.c (simple_empty_class_p): Also true for MODIFY_EXPR.
+
+2019-05-21  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* parser.c (cp_parser_template_declaration_after_parameters): Use
+	DECL_SOURCE_LOCATION in literal operator template errors.
+
+2019-05-21  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/67184
+	PR c++/69445
+	* call.c (build_over_call): Devirtualize when the final overrider
+	comes from the base.
+
+2019-05-21  Nathan Sidwell  <nathan@acm.org>
+
+	* name-lookup.c (do_nonmember_using_decl): Drop INSERT_P
+	parameter.  Document.
+	(finish_nonmember_using_decl): Adjust do_nonmember_using_decl
+	calls.  Remove stray FIXME comment.
+
+	* name-lookup.h (struct cp_binding_level): Drop usings field.
+	(finish_namespace_using_decl, finish_local_using_decl): Replace with ...
+	(finish_nonmember_using_decl): ... this.
+	* name-lookup.c (push_using_decl_1, push_using_decl):
+	(do_nonmember_using_decl): ... here.  Add INSERT_P arg.  Reimplement.
+	(validate_nonmember_using_decl, finish_namespace_using_decl)
+	(finish_local_using_decl): Replace with ...
+	(finish_nonmember_using_decl): ... this.  Drop DECL parm.
+	* parser.c (cp_parser_using_declaration): Don't do lookup here.
+	* pt.c (tsubst_expr): Do not do using decl lookup here.
+
+2019-05-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* decl2.c (cpp_check) <IS_ASSIGNMENT_OPERATOR>: New case.
+
+2019-05-20  Marek Polacek  <polacek@redhat.com>
+
+	CWG 2094 - volatile scalars are trivially copyable.
+	PR c++/85679
+	* tree.c (trivially_copyable_p): Don't check CP_TYPE_VOLATILE_P for
+	scalar types.
+
+2019-05-20  Marek Polacek  <polacek@redhat.com>
+
+	* pt.c (convert_template_argument): Add a diagnostic for the
+	[temp.arg]/2 ambiguity case.
+
+	* name-lookup.c (finish_using_directive): Don't issue inform() if the
+	warning didn't trigger.  Add quoting.  Tweak the inform message.
+
+2019-05-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* cp-tree.h: Remove remnants of CONV_NONCONVERTING.
+
+2019-05-20  Nathan Sidwell  <nathan@acm.org>
+
+	* name-lookup.c (finish_namespace_using_directive)
+	(finish_local_using_directive): Merge to ...
+	(finish_using_directive): ... here.  Handle both contexts.
+	* name-lookup.h (finish_namespace_using_directive)
+	(finish_local_using_directive): Replace with ...
+	(finish_using_directive): ... this.
+	* parser.c (cp_parser_using_directive): Adjust.
+	* pt.c (tsubst_expr): Likewise.
+
+	* cp-tree.h (struct lang_decl_ns): Remove usings field.
+	(DECL_NAMESPACE_USING): Delete.
+	* name-lookup.c (name_lookup::search_usings): Use namespace's
+	binding scope.
+	(name_lookup::queue_namespae): Likewise.
+	(finish_namespace_using_directive, push_namespace): Likewise.
+	(has_using_namespace_std_directive): Just search the entire
+	binding stack.
+
 2019-05-20  Jonathan Wakely  <jwakely@redhat.com>
 
 	PR c++/90532 Ensure __is_constructible(T[]) is false
