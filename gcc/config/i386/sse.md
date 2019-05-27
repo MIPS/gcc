@@ -279,6 +279,9 @@
 (define_mode_iterator VF1
   [(V16SF "TARGET_AVX512F") (V8SF "TARGET_AVX") V4SF])
 
+(define_mode_iterator VF1_AVX2
+  [(V16SF "TARGET_AVX512F") (V8SF "TARGET_AVX2") V4SF])
+
 ;; 128- and 256-bit SF vector modes
 (define_mode_iterator VF1_128_256
   [(V8SF "TARGET_AVX") V4SF])
@@ -3523,6 +3526,15 @@
   operands[4] = gen_reg_rtx (<MODE>mode);
 })
 
+(define_expand "signbit<mode>2"
+  [(set (match_operand:<sseintvecmode> 0 "register_operand")
+	(lshiftrt:<sseintvecmode>
+	  (subreg:<sseintvecmode>
+	    (match_operand:VF1_AVX2 1 "register_operand") 0)
+	  (match_dup 2)))]
+  "TARGET_SSE2"
+  "operands[2] = GEN_INT (GET_MODE_UNIT_BITSIZE (<MODE>mode)-1);")
+
 ;; Also define scalar versions.  These are used for abs, neg, and
 ;; conditional move.  Using subregs into vector modes causes register
 ;; allocation lossage.  These patterns do not allow memory operands
@@ -5000,7 +5012,7 @@
 	  (match_operand:V4SF 1 "register_operand" "0,0,Yv")
 	  (const_int 3)))
    (clobber (match_scratch:V4SF 3 "=X,x,Yv"))]
-  "TARGET_SSE || TARGET_MMX_WITH_SSE"
+  "(TARGET_MMX || TARGET_MMX_WITH_SSE) && TARGET_SSE"
   "@
    cvtpi2ps\t{%2, %0|%0, %2}
    #
@@ -5011,8 +5023,7 @@
   rtx op2 = lowpart_subreg (V4SImode, operands[2],
 			    GET_MODE (operands[2]));
   /* Generate SSE2 cvtdq2ps.  */
-  rtx insn = gen_floatv4siv4sf2 (operands[3], op2);
-  emit_insn (insn);
+  emit_insn (gen_floatv4siv4sf2 (operands[3], op2));
 
   /* Merge operands[3] with operands[0].  */
   rtx mask, op1;
@@ -5023,7 +5034,7 @@
 					  GEN_INT (6), GEN_INT (7)));
       op1 = gen_rtx_VEC_CONCAT (V8SFmode, operands[3], operands[1]);
       op2 = gen_rtx_VEC_SELECT (V4SFmode, op1, mask);
-      insn = gen_rtx_SET (operands[0], op2);
+      emit_insn (gen_rtx_SET (operands[0], op2));
     }
   else
     {
@@ -5033,8 +5044,7 @@
 					  GEN_INT (4), GEN_INT (5)));
       op1 = gen_rtx_VEC_CONCAT (V8SFmode, operands[0], operands[3]);
       op2 = gen_rtx_VEC_SELECT (V4SFmode, op1, mask);
-      insn = gen_rtx_SET (operands[0], op2);
-      emit_insn (insn);
+      emit_insn (gen_rtx_SET (operands[0], op2));
 
       /* Swap bits 0:63 with bits 64:127.  */
       mask = gen_rtx_PARALLEL (VOIDmode,
@@ -5043,9 +5053,8 @@
       rtx dest = lowpart_subreg (V4SImode, operands[0],
 				 GET_MODE (operands[0]));
       op1 = gen_rtx_VEC_SELECT (V4SImode, dest, mask);
-      insn = gen_rtx_SET (dest, op1);
+      emit_insn (gen_rtx_SET (dest, op1));
     }
-  emit_insn (insn);
   DONE;
 }
   [(set_attr "mmx_isa" "native,x64_noavx,x64_avx")
@@ -15559,7 +15568,7 @@
   "mwait"
   [(set_attr "length" "3")])
 
-(define_insn "sse3_monitor_<mode>"
+(define_insn "@sse3_monitor_<mode>"
   [(unspec_volatile [(match_operand:P 0 "register_operand" "a")
 		     (match_operand:SI 1 "register_operand" "c")
 		     (match_operand:SI 2 "register_operand" "d")]
@@ -16344,14 +16353,12 @@
   /* Emulate MMX palignrdi with SSE psrldq.  */
   rtx op0 = lowpart_subreg (V2DImode, operands[0],
 			    GET_MODE (operands[0]));
-  rtx insn;
   if (TARGET_AVX)
-    insn = gen_vec_concatv2di (op0, operands[2], operands[1]);
+    emit_insn (gen_vec_concatv2di (op0, operands[2], operands[1]));
   else
     {
       /* NB: SSE can only concatenate OP0 and OP1 to OP0.  */
-      insn = gen_vec_concatv2di (op0, operands[1], operands[2]);
-      emit_insn (insn);
+      emit_insn (gen_vec_concatv2di (op0, operands[1], operands[2]));
       /* Swap bits 0:63 with bits 64:127.  */
       rtx mask = gen_rtx_PARALLEL (VOIDmode,
 				   gen_rtvec (4, GEN_INT (2),
@@ -16360,9 +16367,8 @@
 					      GEN_INT (1)));
       rtx op1 = lowpart_subreg (V4SImode, op0, GET_MODE (op0));
       rtx op2 = gen_rtx_VEC_SELECT (V4SImode, op1, mask);
-      insn = gen_rtx_SET (op1, op2);
+      emit_insn (gen_rtx_SET (op1, op2));
     }
-  emit_insn (insn);
   operands[0] = lowpart_subreg (V1TImode, op0, GET_MODE (op0));
 }
   [(set_attr "mmx_isa" "native,x64_noavx,x64_avx")

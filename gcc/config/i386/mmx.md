@@ -1521,8 +1521,7 @@
 
       op = gen_rtx_VEC_SELECT (V8HImode, operands[1], mask);
     }
-  rtx insn = gen_rtx_SET (operands[0], op);
-  emit_insn (insn);
+  emit_insn (gen_rtx_SET (operands[0], op));
   DONE;
 }
   [(set_attr "mmx_isa" "native,x64,x64_avx")
@@ -1745,7 +1744,7 @@
 				  (const_int 1) (const_int 1)]))
 	    (const_int 1))))]
   "(TARGET_MMX || TARGET_MMX_WITH_SSE)
-   && (TARGET_SSE || TARGET_3DNOW_A)"
+   && (TARGET_SSE || TARGET_3DNOW)"
   "ix86_fixup_binary_operands_no_copy (PLUS, V8QImode, operands);")
 
 (define_insn "*mmx_uavgv8qi3"
@@ -1764,7 +1763,7 @@
 				  (const_int 1) (const_int 1)]))
 	    (const_int 1))))]
   "(TARGET_MMX || TARGET_MMX_WITH_SSE)
-   && (TARGET_SSE || TARGET_3DNOW_A)
+   && (TARGET_SSE || TARGET_3DNOW)
    && ix86_binary_operator_ok (PLUS, V8QImode, operands)"
 {
   /* These two instructions have the same operation, but their encoding

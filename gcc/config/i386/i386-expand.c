@@ -7969,7 +7969,7 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
       if (fndecl
 	  && (lookup_attribute ("interrupt",
 				TYPE_ATTRIBUTES (TREE_TYPE (fndecl)))))
-	error ("interrupt service routine can%'t be called directly");
+	error ("interrupt service routine cannot be called directly");
     }
   else
     fndecl = NULL_TREE;
@@ -10761,7 +10761,8 @@ get_element_number (tree vec_type, tree arg)
   if (!tree_fits_uhwi_p (arg)
       || (elt = tree_to_uhwi (arg), elt > max))
     {
-      error ("selector must be an integer constant in the range 0..%wi", max);
+      error ("selector must be an integer constant in the range "
+	     "[0, %wi]", max);
       return 0;
     }
 
@@ -10937,8 +10938,10 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
       && (isa & (OPTION_MASK_ISA_FMA | OPTION_MASK_ISA_FMA4)) != 0)
     isa |= (OPTION_MASK_ISA_FMA | OPTION_MASK_ISA_FMA4);
   /* Use SSE/SSE2/SSSE3 to emulate MMX intrinsics in 64-bit mode when
-     MMX is disabled.  */
-  if (TARGET_MMX_WITH_SSE)
+     MMX is disabled.  NB: Since MMX intrinsics are marked with
+     SSE/SSE2/SSSE3, enable them without SSE/SSE2/SSSE3 if MMX is
+     enabled.  */
+  if (TARGET_MMX || TARGET_MMX_WITH_SSE)
     {
       if (((bisa & (OPTION_MASK_ISA_SSE | OPTION_MASK_ISA_MMX))
 	   == (OPTION_MASK_ISA_SSE | OPTION_MASK_ISA_MMX))
@@ -11064,8 +11067,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
 	op2 = copy_to_mode_reg (SImode, op2);
 
       emit_insn (fcode == IX86_BUILTIN_MONITOR 
-		 ? ix86_gen_monitor (op0, op1, op2)
-		 : ix86_gen_monitorx (op0, op1, op2));
+		 ? gen_sse3_monitor (Pmode, op0, op1, op2)
+		 : gen_monitorx (Pmode, op0, op1, op2));
       return 0;
 
     case IX86_BUILTIN_MWAIT:
@@ -11177,7 +11180,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
       op0 = expand_normal (arg0);
       if (!REG_P (op0))
 	op0 = ix86_zero_extend_to_Pmode (op0);
-      emit_insn (ix86_gen_clzero (op0));
+      emit_insn (gen_clzero (Pmode, op0));
       return 0;
 
     case IX86_BUILTIN_CLDEMOTE:
