@@ -2605,6 +2605,12 @@ gcc_GAS_CHECK_FEATURE([.nsubspa comdat], gcc_cv_as_nsubspa_comdat,
 	.NSUBSPA $CODE$,COMDAT],,
 [AC_DEFINE(HAVE_GAS_NSUBSPA_COMDAT, 1, [Define if your assembler supports .nsubspa comdat option.])])
 
+gcc_GAS_CHECK_FEATURE([.bundle_align_mode extended], gcc_cv_as_bundle_align_mode_extended,
+ [2,33,0],,
+ [.bundle_align_mode 6,7,0],,
+[AC_DEFINE(HAVE_GAS_BUNDLE_ALIGN_MODE_EXTENDED, 1,
+  [Define if your assembler supports extended format of .bundle_align_mode.])])
+
 # .hidden needs to be supported in both the assembler and the linker,
 # because GNU LD versions before 2.12.1 have buggy support for STV_HIDDEN.
 # This is irritatingly difficult to feature test for; we have to check the

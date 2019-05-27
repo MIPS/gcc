@@ -631,6 +631,99 @@ insn_current_reference_address (rtx_insn *branch)
     }
 }
 
+/* Create .bundle_lock and .bundle_unlock sequences for hot basic
+   blocks of loops.  That is used instead of loop alignment.  */
+
+void compute_loop_bundle_alignments (void)
+{
+  profile_count count_threshold = cfun->cfg->count_max.apply_scale
+    (1, PARAM_VALUE (PARAM_ALIGN_THRESHOLD));
+
+  struct loop *loop;
+  FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
+    {
+      basic_block header = loop->header;
+      bool has_fallthru = 0;
+      profile_count fallthru_count = profile_count::zero ();
+      profile_count branch_count = profile_count::zero ();
+      edge e;
+      edge_iterator ei;
+
+      FOR_EACH_EDGE (e, ei, header->preds)
+	{
+	  if (e->flags & EDGE_FALLTHRU)
+	    has_fallthru = 1, fallthru_count += e->count ();
+	  else
+	    branch_count += e->count ();
+	}
+
+      /* Loop header is hot enough.  */
+      if (has_fallthru
+	  && optimize_bb_for_speed_p (header)
+	  && branch_count + fallthru_count > count_threshold
+	  && (branch_count
+	      > fallthru_count.apply_scale
+	      (PARAM_VALUE (PARAM_ALIGN_LOOP_ITERATIONS), 1)))
+	{
+	  auto_sbitmap loop_bbs (last_basic_block_for_fn (cfun));
+	  basic_block *bbs = get_loop_body (loop);
+	  for (unsigned i = 0; i < loop->num_nodes; ++i)
+	    bitmap_set_bit (loop_bbs, bbs[i]->index);
+	  free (bbs);
+
+	  basic_block ending;
+	  unsigned int bbcount = 1;
+	  for (ending = header; ending->next_bb != NULL;)
+	    {
+	      edge e = find_fallthru_edge (ending->succs);
+	      if (e == NULL
+		  || !bitmap_bit_p (loop_bbs, e->dest->index)
+		  || BB_PARTITION (header) != BB_PARTITION (e->dest)
+		  || !optimize_bb_for_speed_p (e->dest)
+		  || e->dest != ending->next_bb)
+		break;
+	      ++bbcount;
+	      ending = ending->next_bb;
+	    }
+
+	  /* Emit loop bundle beginning.  */
+	  for (rtx_insn *insn = BB_HEAD (header); insn != BB_END (header);
+	       insn = next_insn (insn))
+	    if (NOTE_INSN_BASIC_BLOCK_P (insn))
+	      {
+		emit_note_after (NOTE_INSN_BUNDLE_LOCK, insn);
+		break;
+	      }
+
+	  /* Emit loop bundle ending.  */
+	  if (ending->next_bb == EXIT_BLOCK_PTR_FOR_FN (cfun))
+	    {
+	      if (BB_HEADER (ending) != NULL)
+		emit_note_before (NOTE_INSN_BUNDLE_UNLOCK, BB_HEADER (ending));
+	      else
+		{
+		  rtx_note *note = emit_note (NOTE_INSN_BUNDLE_UNLOCK);
+		  BB_HEADER (ending) = note;
+		}
+	    }
+	  else
+	    for (rtx_insn *insn = BB_HEAD (ending->next_bb);
+		 insn != BB_END (ending->next_bb);
+		 insn = next_insn (insn))
+	      if (NOTE_INSN_BASIC_BLOCK_P (insn))
+		{
+		  emit_note_after (NOTE_INSN_BUNDLE_UNLOCK, insn);
+		  break;
+		}
+
+	  if (dump_file)
+	    fprintf (dump_file,
+		     "  bundle_lock used for an internal loop with "
+		     "%d BBs.\n", bbcount);
+	}
+    }
+}
+
 /* Compute branch alignments based on CFG profile.  */
 
 unsigned int
@@ -736,7 +829,8 @@ compute_alignments (void)
 	}
       /* In case block is frequent and reached mostly by non-fallthru edge,
 	 align it.  It is most likely a first block of loop.  */
-      if (has_fallthru
+      if (align_loops_bundle == 0
+	  && has_fallthru
 	  && !(single_succ_p (bb)
 	       && single_succ (bb) == EXIT_BLOCK_PTR_FOR_FN (cfun))
 	  && optimize_bb_for_speed_p (bb)
@@ -752,6 +846,11 @@ compute_alignments (void)
 	}
       LABEL_TO_ALIGNMENT (label) = max_alignment;
     }
+
+  /* flag_align_loops_bundle is overwritten if
+     HAVE_GAS_BUNDLE_ALIGN_MODE_EXTENDED is undefined.  */
+  if (align_loops_bundle)
+    compute_loop_bundle_alignments ();
 
   loop_optimizer_finalize ();
   free_dominance_info (CDI_DOMINATORS);
@@ -2437,6 +2536,23 @@ final_scan_insn_1 (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 					    (NOTE_MARKER_LOCATION (insn)));
 	      goto output_source_line;
 	    }
+	  break;
+
+	case NOTE_INSN_BUNDLE_LOCK:
+	  {
+	    static bool bundle_align_mode_emitted = false;
+	    if (!bundle_align_mode_emitted)
+	      {
+		fprintf (asm_out_file, "\t.bundle_align_mode %d, -1, 0\n",
+			 exact_log2 (align_loops_bundle));
+		bundle_align_mode_emitted = true;
+	      }
+	    fprintf (asm_out_file, "\t.bundle_lock\n");
+	    break;
+	  }
+
+	case NOTE_INSN_BUNDLE_UNLOCK:
+	  fprintf (asm_out_file, "\t.bundle_unlock\n");
 	  break;
 
 	default:

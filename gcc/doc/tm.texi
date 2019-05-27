@@ -9740,6 +9740,9 @@ satisfy the alignment request.  @var{power} and @var{max_skip} will be
 a C expression of type @code{int}.
 @end defmac
 
+@defmac ASM_OUTPUT_LOOP_BUNDLE (@var{stream}, @var{power})
+@end defmac
+
 @need 3000
 @node Debugging Info
 @section Controlling Debugging Information Format
