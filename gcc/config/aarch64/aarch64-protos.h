@@ -598,6 +598,8 @@ void aarch64_err_no_fpadvsimd (machine_mode);
 void aarch64_expand_epilogue (bool);
 machine_mode aarch64_widest_sve_pred_mode (rtx);
 rtx aarch64_ptrue_all (unsigned int);
+rtx aarch64_ptrue_reg (machine_mode);
+rtx aarch64_pfalse_reg (machine_mode);
 opt_machine_mode aarch64_ptrue_all_mode (rtx);
 int aarch64_partial_ptrue_length (machine_mode, rtx);
 rtx aarch64_convert_sve_data_to_pred (rtx, machine_mode, rtx);

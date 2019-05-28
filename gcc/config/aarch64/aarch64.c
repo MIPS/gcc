@@ -3567,6 +3567,26 @@ aarch64_ptrue_all (unsigned int elem_bytes)
   return builder.build ();
 }
 
+/* Return an all-true predicate register of mode MODE.  */
+
+rtx
+aarch64_ptrue_reg (machine_mode mode)
+{
+  unsigned int elt_bytes = vector_element_size (BYTES_PER_SVE_VECTOR,
+						GET_MODE_NUNITS (mode));
+  rtx reg = force_reg (VNx16BImode, aarch64_ptrue_all (elt_bytes));
+  return gen_lowpart (mode, reg);
+}
+
+/* Return an all-false predicate register of mode MODE.  */
+
+rtx
+aarch64_pfalse_reg (machine_mode mode)
+{
+  rtx reg = force_reg (VNx16BImode, CONST0_RTX (VNx16BImode));
+  return gen_lowpart (mode, reg);
+}
+
 /* If VNx16BImode rtx X is a canonical PTRUE for a predicate mode,
    return that predicate mode, otherwise return opt_machine_mode ().  */
 
@@ -4424,7 +4444,7 @@ aarch64_maybe_expand_sve_subreg_move (rtx dest, rtx src)
     return false;
 
   /* Generate *aarch64_sve_mov<mode>_subreg_be.  */
-  rtx ptrue = force_reg (VNx16BImode, CONSTM1_RTX (VNx16BImode));
+  rtx ptrue = aarch64_ptrue_reg (VNx16BImode);
   rtx unspec = gen_rtx_UNSPEC (GET_MODE (dest), gen_rtvec (2, ptrue, src),
 			       UNSPEC_REV_SUBREG);
   emit_insn (gen_rtx_SET (dest, unspec));
@@ -15815,7 +15835,17 @@ aarch64_mov_operand_p (rtx x, machine_mode mode)
     return true;
 
   if (VECTOR_MODE_P (GET_MODE (x)))
-    return aarch64_simd_valid_immediate (x, NULL);
+    {
+      /* Require predicate constants to be VNx16BI before RA, so that we
+	 force everything to have a canonical form.  */
+      if (!lra_in_progress
+	  && !reload_completed
+	  && GET_MODE_CLASS (GET_MODE (x)) == MODE_VECTOR_BOOL
+	  && GET_MODE (x) != VNx16BImode)
+	return false;
+
+      return aarch64_simd_valid_immediate (x, NULL);
+    }
 
   if (GET_CODE (x) == SYMBOL_REF && mode == DImode && CONSTANT_ADDRESS_P (x))
     return true;
