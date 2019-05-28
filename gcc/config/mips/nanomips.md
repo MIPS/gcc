@@ -172,7 +172,7 @@
 	  (match_operand:SI 16 "register_operand" "r"))])]
   "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 8"
   { return mips_output_word_multiple (true, operands[0]); }
-  [(set_attr "type" "multimem")
+  [(set_attr "move_type" "multimem_store")
    (set_attr "mode" "SI")
    (set_attr "can_delay" "no")])
 
@@ -194,7 +194,7 @@
 	  (match_operand:SI 14 "register_operand" "r"))])]
   "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 7"
   { return mips_output_word_multiple (true, operands[0]); }
-  [(set_attr "type" "multimem")
+  [(set_attr "move_type" "multimem_store")
    (set_attr "mode" "SI")
    (set_attr "can_delay" "no")])
 
@@ -214,7 +214,7 @@
 	  (match_operand:SI 12 "register_operand" "r"))])]
   "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 6"
   { return mips_output_word_multiple (true, operands[0]); }
-  [(set_attr "type" "multimem")
+  [(set_attr "move_type" "multimem_store")
    (set_attr "mode" "SI")
    (set_attr "can_delay" "no")])
 
@@ -232,7 +232,7 @@
 	  (match_operand:SI 10 "register_operand" "r"))])]
   "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 5"
   { return mips_output_word_multiple (true, operands[0]); }
-  [(set_attr "type" "multimem")
+  [(set_attr "move_type" "multimem_store")
    (set_attr "mode" "SI")
    (set_attr "can_delay" "no")])
 
@@ -248,7 +248,7 @@
 	  (match_operand:SI 8 "register_operand" "r"))])]
   "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 4"
   { return mips_output_word_multiple (true, operands[0]); }
-  [(set_attr "type" "multimem")
+  [(set_attr "move_type" "multimem_store")
    (set_attr "mode" "SI")
    (set_attr "can_delay" "no")])
 
@@ -262,7 +262,7 @@
 	  (match_operand:SI 6 "register_operand" "r"))])]
   "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 3"
   { return mips_output_word_multiple (true, operands[0]); }
-  [(set_attr "type" "multimem")
+  [(set_attr "move_type" "multimem_store")
    (set_attr "mode" "SI")
    (set_attr "can_delay" "no")])
 
@@ -274,7 +274,7 @@
 	  (match_operand:SI 4 "register_operand" "r"))])]
   "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 2"
   { return mips_output_word_multiple (true, operands[0]); }
-  [(set_attr "type" "multimem")
+  [(set_attr "move_type" "multimem_store")
    (set_attr "mode" "SI")
    (set_attr "can_delay" "no")])
 
@@ -335,7 +335,7 @@
 	  (match_operand:SI 16 "memory_operand" "m"))])]
   "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 8"
   { return mips_output_word_multiple (false, operands[0]); }
-  [(set_attr "type" "multimem")
+  [(set_attr "move_type" "multimem_load")
    (set_attr "mode" "SI")
    (set_attr "can_delay" "no")])
 
@@ -357,7 +357,7 @@
 	  (match_operand:SI 14 "memory_operand" "m"))])]
   "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 7"
   { return mips_output_word_multiple (false, operands[0]); }
-  [(set_attr "type" "multimem")
+  [(set_attr "move_type" "multimem_load")
    (set_attr "mode" "SI")
    (set_attr "can_delay" "no")])
 
@@ -377,7 +377,7 @@
 	  (match_operand:SI 12 "memory_operand" "m"))])]
   "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 6"
   { return mips_output_word_multiple (false, operands[0]); }
-  [(set_attr "type" "multimem")
+  [(set_attr "move_type" "multimem_load")
    (set_attr "mode" "SI")
    (set_attr "can_delay" "no")])
 
@@ -395,7 +395,7 @@
 	  (match_operand:SI 10 "memory_operand" "m"))])]
   "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 5"
   { return mips_output_word_multiple (false, operands[0]); }
-  [(set_attr "type" "multimem")
+  [(set_attr "move_type" "multimem_load")
    (set_attr "mode" "SI")
    (set_attr "can_delay" "no")])
 
@@ -411,7 +411,7 @@
 	  (match_operand:SI 8 "memory_operand" "m"))])]
   "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 4"
   { return mips_output_word_multiple (false, operands[0]); }
-  [(set_attr "type" "multimem")
+  [(set_attr "move_type" "multimem_load")
    (set_attr "mode" "SI")
    (set_attr "can_delay" "no")])
 
@@ -425,7 +425,7 @@
 	  (match_operand:SI 6 "memory_operand" "m"))])]
   "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 3"
   { return mips_output_word_multiple (false, operands[0]); }
-  [(set_attr "type" "multimem")
+  [(set_attr "move_type" "multimem_load")
    (set_attr "mode" "SI")
    (set_attr "can_delay" "no")])
 
@@ -437,7 +437,7 @@
 	  (match_operand:SI 4 "memory_operand" "m"))])]
   "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 2"
   { return mips_output_word_multiple (false, operands[0]); }
-  [(set_attr "type" "multimem")
+  [(set_attr "move_type" "multimem_load")
    (set_attr "mode" "SI")
    (set_attr "can_delay" "no")])
 

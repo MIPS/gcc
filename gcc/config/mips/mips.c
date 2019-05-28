@@ -28063,6 +28063,10 @@ mips_load_store_insn_p (rtx_insn *insn, rtx *base, HOST_WIDE_INT *offset,
 
   op[0] = SET_DEST (x);
   op[1] = SET_SRC (x);
+
+  if (GET_CODE (op[1]) == SIGN_EXTEND)
+    op[1] = XEXP (op[1], 0);
+
   return mips_load_store_p (op, base, offset, load_p);
 }
 

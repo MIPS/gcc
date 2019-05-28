@@ -190,7 +190,7 @@
 (define_attr "move_type"
   "unknown,load,fpload,store,fpstore,mtc,mfc,mtlo,mflo,imul,move,fmove,
    const,constN,signext,ext_ins,logical,arith,sll0,andi,loadpool,
-   shift_shift"
+   shift_shift, multimem_load, multimem_store"
   (const_string "unknown"))
 
 (define_attr "alu_type" "unknown,add,sub,not,nor,and,or,xor,simd_add"
