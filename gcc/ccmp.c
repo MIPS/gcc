@@ -58,6 +58,9 @@ ccmp_tree_comparison_p (tree t, basic_block bb)
   if (bb != gimple_bb (g))
     return false;
   tcode = gimple_assign_rhs_code (g);
+  /* For booleans, ~X is equivalent to X == 0.  */
+  if (tcode == BIT_NOT_EXPR && TREE_CODE (TREE_TYPE (t)) == BOOLEAN_TYPE)
+    return true;
   return TREE_CODE_CLASS (tcode) == tcc_comparison;
 }
 
@@ -140,9 +143,17 @@ get_compare_parts (tree t, int *up, rtx_code *rcode,
     {
       *up = TYPE_UNSIGNED (TREE_TYPE (gimple_assign_rhs1 (g)));
       code = gimple_assign_rhs_code (g);
-      *rcode = get_rtx_code (code, *up);
       *rhs1 = gimple_assign_rhs1 (g);
-      *rhs2 = gimple_assign_rhs2 (g);
+      if (code == BIT_NOT_EXPR)
+	{
+	  *rcode = EQ;
+	  *rhs2 = build_zero_cst (TREE_TYPE (t));
+	}
+      else
+	{
+	  *rcode = get_rtx_code (code, *up);
+	  *rhs2 = gimple_assign_rhs2 (g);
+	}
     }
   else
     {
