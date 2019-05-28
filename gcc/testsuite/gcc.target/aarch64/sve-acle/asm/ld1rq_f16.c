@@ -14,8 +14,7 @@ TEST_LOAD (ld1rq_f16_base, svfloat16_t, float16_t,
 
 /*
 ** ld1rq_f16_index:
-**	add	(x[0-9]+), x0, x1, lsl #?1
-**	ld1rqh	z0\.h, p0/z, \[\1\]
+**	ld1rqh	z0\.h, p0/z, \[x0, x1, lsl 1\]
 **	ret
 */
 TEST_LOAD (ld1rq_f16_index, svfloat16_t, float16_t,

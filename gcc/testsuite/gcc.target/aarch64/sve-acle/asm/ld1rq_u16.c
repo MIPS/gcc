@@ -14,8 +14,7 @@ TEST_LOAD (ld1rq_u16_base, svuint16_t, uint16_t,
 
 /*
 ** ld1rq_u16_index:
-**	add	(x[0-9]+), x0, x1, lsl #?1
-**	ld1rqh	z0\.h, p0/z, \[\1\]
+**	ld1rqh	z0\.h, p0/z, \[x0, x1, lsl 1\]
 **	ret
 */
 TEST_LOAD (ld1rq_u16_index, svuint16_t, uint16_t,

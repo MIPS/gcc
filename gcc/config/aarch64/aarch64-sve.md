@@ -1178,7 +1178,10 @@
 	   (match_operand:<V128> 1 "aarch64_sve_ld1rq_operand" "UtQ")]
 	  UNSPEC_LD1RQ))]
   "TARGET_SVE"
-  "ld1rq<Vesize>\t%0.<Vetype>, %2/z, %1"
+  {
+    operands[1] = gen_rtx_MEM (<VEL>mode, XEXP (operands[1], 0));
+    return "ld1rq<Vesize>\t%0.<Vetype>, %2/z, %1";
+  }
 )
 
 ;; Implement a predicate broadcast by shifting the low bit of the scalar

@@ -14,8 +14,7 @@ TEST_LOAD (ld1rq_s64_base, svint64_t, int64_t,
 
 /*
 ** ld1rq_s64_index:
-**	add	(x[0-9]+), x0, x1, lsl #?3
-**	ld1rqd	z0\.d, p0/z, \[\1\]
+**	ld1rqd	z0\.d, p0/z, \[x0, x1, lsl 3\]
 **	ret
 */
 TEST_LOAD (ld1rq_s64_index, svint64_t, int64_t,

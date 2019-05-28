@@ -16010,10 +16010,18 @@ bool
 aarch64_sve_ld1rq_operand_p (rtx op)
 {
   struct aarch64_address_info addr;
-  return (MEM_P (op)
-	  && aarch64_classify_address (&addr, XEXP (op, 0), TImode, false)
-	  && addr.type == ADDRESS_REG_IMM
-	  && offset_4bit_signed_scaled_p (TImode, addr.const_offset));
+  scalar_mode elem_mode = GET_MODE_INNER (GET_MODE (op));
+  if (!MEM_P (op)
+      || !aarch64_classify_address (&addr, XEXP (op, 0), elem_mode, false))
+    return false;
+
+  if (addr.type == ADDRESS_REG_IMM)
+    return offset_4bit_signed_scaled_p (TImode, addr.const_offset);
+
+  if (addr.type == ADDRESS_REG_REG)
+    return (1U << addr.shift) == GET_MODE_SIZE (elem_mode);
+
+  return false;
 }
 
 /* Return true if OP is a valid MEM operand for an SVE LDFF1 instruction.  */

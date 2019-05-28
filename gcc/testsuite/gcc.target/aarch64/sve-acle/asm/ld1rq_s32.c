@@ -14,8 +14,7 @@ TEST_LOAD (ld1rq_s32_base, svint32_t, int32_t,
 
 /*
 ** ld1rq_s32_index:
-**	add	(x[0-9]+), x0, x1, lsl #?2
-**	ld1rqw	z0\.s, p0/z, \[\1\]
+**	ld1rqw	z0\.s, p0/z, \[x0, x1, lsl 2\]
 **	ret
 */
 TEST_LOAD (ld1rq_s32_index, svint32_t, int32_t,

@@ -14,8 +14,7 @@ TEST_LOAD (ld1rq_s8_base, svint8_t, int8_t,
 
 /*
 ** ld1rq_s8_index:
-**	add	(x[0-9]+), (x0, x1|x1, x0)
-**	ld1rqb	z0\.b, p0/z, \[\1\]
+**	ld1rqb	z0\.b, p0/z, \[x0, x1\]
 **	ret
 */
 TEST_LOAD (ld1rq_s8_index, svint8_t, int8_t,
