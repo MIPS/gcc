@@ -18591,6 +18591,25 @@ aarch64_asan_shadow_offset (void)
   return (HOST_WIDE_INT_1 << 36);
 }
 
+/* Return true if OP is the result of an svptest call.  */
+
+static bool
+aarch64_svptest_result_p (tree op)
+{
+  if (TREE_CODE (op) != SSA_NAME)
+    return false;
+
+  gcall *call = dyn_cast <gcall *> (SSA_NAME_DEF_STMT (op));
+  if (!call)
+    return false;
+
+  tree decl = gimple_call_fndecl (call);
+  return (decl
+	  && fndecl_built_in_p (decl, BUILT_IN_MD)
+	  && strncmp (IDENTIFIER_POINTER (DECL_NAME (decl)),
+		      "svptest_", 8) == 0);
+}
+
 static rtx
 aarch64_gen_ccmp_first (rtx_insn **prep_seq, rtx_insn **gen_seq,
 			int code, tree treeop0, tree treeop1)
@@ -18675,6 +18694,19 @@ aarch64_gen_ccmp_next (rtx_insn **prep_seq, rtx_insn **gen_seq, rtx prev,
   insn_code icode;
   struct expand_operand ops[6];
   int aarch64_cond;
+
+  /* Don't use CCMPs for testing the result of a call to svptest.
+     This is for two reasons:
+
+     - it lets us fold two svptest comparisons into a single pmore/plast
+       test through normal rtl simplification.  CCMP is too complex for that.
+
+     - it forces comparisons involving one svptest result to test the
+       svptest first.  We can then fold away the CSET from the svptest
+       call and the CMP that feeds the CCMP if_then_else condition,
+       giving a net saving of two instructions.  */
+  if (integer_zerop (treeop1) && aarch64_svptest_result_p (treeop0))
+    return NULL_RTX;
 
   push_to_sequence (*prep_seq);
   expand_operands (treeop0, treeop1, NULL_RTX, &op0, &op1, EXPAND_NORMAL);

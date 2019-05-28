@@ -225,8 +225,11 @@ expand_ccmp_expr_1 (gimple *g, rtx_insn **prep_seq, rtx_insn **gen_seq)
 	  if (tmp != NULL)
 	    {
 	      ret = expand_ccmp_next (op1, code, tmp, &prep_seq_1, &gen_seq_1);
-	      cost1 = seq_cost (prep_seq_1, speed_p);
-	      cost1 += seq_cost (gen_seq_1, speed_p);
+	      if (ret)
+		{
+		  cost1 = seq_cost (prep_seq_1, speed_p);
+		  cost1 += seq_cost (gen_seq_1, speed_p);
+		}
 	    }
 
 	  /* FIXME: Temporary workaround for PR69619.
@@ -234,19 +237,24 @@ expand_ccmp_expr_1 (gimple *g, rtx_insn **prep_seq, rtx_insn **gen_seq)
 	     If gs0 and gs1 are complex, the cost will be high, so avoid
 	     reevaluation if above an arbitrary threshold.  */
 	  rtx_insn *prep_seq_2, *gen_seq_2;
-	  if (tmp == NULL || cost1 < COSTS_N_INSNS (25))
+	  if (ret == NULL || cost1 < COSTS_N_INSNS (25))
 	    tmp2 = targetm.gen_ccmp_first (&prep_seq_2, &gen_seq_2, rcode1,
 					   logical_op1_rhs1, logical_op1_rhs2);
-	  if (!tmp && !tmp2)
+	  if (!ret && !tmp2)
 	    return NULL_RTX;
 	  if (tmp2 != NULL)
 	    {
 	      ret2 = expand_ccmp_next (op0, code, tmp2, &prep_seq_2,
 				       &gen_seq_2);
-	      cost2 = seq_cost (prep_seq_2, speed_p);
-	      cost2 += seq_cost (gen_seq_2, speed_p);
+	      if (ret2)
+		{
+		  cost2 = seq_cost (prep_seq_2, speed_p);
+		  cost2 += seq_cost (gen_seq_2, speed_p);
+		}
+	      else if (!ret)
+		return NULL_RTX;
 	    }
-	  if (cost2 < cost1)
+	  if (!ret || cost2 < cost1)
 	    {
 	      *prep_seq = prep_seq_2;
 	      *gen_seq = gen_seq_2;
