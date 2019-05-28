@@ -7341,6 +7341,9 @@ function_expander::expand_adrhwd ()
   rtx shift = gen_int_mode (exact_log2 (bytes), GET_MODE_INNER (mode));
   m_args.quick_push (expand_vector_broadcast (mode, shift));
 
+  /* Add the predicate.  */
+  m_args.quick_push (CONSTM1_RTX (VNx16BImode));
+
   return expand_via_exact_insn (code_for_aarch64_adr_shift (mode));
 }
 

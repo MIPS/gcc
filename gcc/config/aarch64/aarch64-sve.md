@@ -1480,50 +1480,67 @@
 )
 
 ;; ADR with a nonzero shift.
-(define_insn "@aarch64_adr<mode>_shift"
+(define_insn_and_rewrite "@aarch64_adr<mode>_shift"
   [(set (match_operand:SVE_SDI 0 "register_operand" "=w")
 	(plus:SVE_SDI
-	  (ashift:SVE_SDI
-	    (match_operand:SVE_SDI 2 "register_operand" "w")
-	    (match_operand:SVE_SDI 3 "const_1_to_3_operand"))
+	  (unspec:SVE_SDI
+	    [(match_operand:<VPRED> 4 "general_operand" "g")
+	     (ashift:SVE_SDI
+	       (match_operand:SVE_SDI 2 "register_operand" "w")
+	       (match_operand:SVE_SDI 3 "const_1_to_3_operand"))]
+	    UNSPEC_MERGE_PTRUE)
 	  (match_operand:SVE_SDI 1 "register_operand" "w")))]
   "TARGET_SVE"
   "adr\t%0.<Vetype>, [%1.<Vetype>, %2.<Vetype>, lsl %3]"
+  "&& !CONSTANT_P (operands[4])"
+  {
+    operands[4] = CONSTM1_RTX (<VPRED>mode);
+  }
 )
 
 ;; Same, but with the index being sign-extended from the low 32 bits.
 (define_insn_and_rewrite "*aarch64_adr_shift_sxtw"
   [(set (match_operand:VNx2DI 0 "register_operand" "=w")
 	(plus:VNx2DI
-	  (ashift:VNx2DI
-	    (unspec:VNx2DI
-	      [(match_operand 4)
-	       (sign_extend:VNx2DI
-		 (truncate:VNx2SI
-		   (match_operand:VNx2DI 2 "register_operand" "w")))]
-	      UNSPEC_MERGE_PTRUE)
-	    (match_operand:VNx2DI 3 "const_1_to_3_operand"))
+	  (unspec:VNx2DI
+	    [(match_operand 4)
+	     (ashift:VNx2DI
+	       (unspec:VNx2DI
+		 [(match_operand 5)
+		  (sign_extend:VNx2DI
+		    (truncate:VNx2SI
+		      (match_operand:VNx2DI 2 "register_operand" "w")))]
+		 UNSPEC_MERGE_PTRUE)
+	       (match_operand:VNx2DI 3 "const_1_to_3_operand"))]
+	    UNSPEC_MERGE_PTRUE)
 	  (match_operand:VNx2DI 1 "register_operand" "w")))]
   "TARGET_SVE"
   "adr\t%0.d, [%1.d, %2.d, sxtw %3]"
-  "&& !CONSTANT_P (operands[4])"
+  "&& (!CONSTANT_P (operands[4]) || !CONSTANT_P (operands[5]))"
   {
-    operands[4] = CONSTM1_RTX (VNx2BImode);
+    operands[5] = operands[4] = CONSTM1_RTX (VNx2BImode);
   }
 )
 
 ;; Same, but with the index being zero-extended from the low 32 bits.
-(define_insn "*aarch64_adr_shift_uxtw"
+(define_insn_and_rewrite "*aarch64_adr_shift_uxtw"
   [(set (match_operand:VNx2DI 0 "register_operand" "=w")
 	(plus:VNx2DI
-	  (ashift:VNx2DI
-	    (and:VNx2DI
-	      (match_operand:VNx2DI 2 "register_operand" "w")
-	      (match_operand:VNx2DI 4 "aarch64_sve_uxtw_immediate"))
-	    (match_operand:VNx2DI 3 "const_1_to_3_operand"))
+	  (unspec:VNx2DI
+	    [(match_operand 5)
+	     (ashift:VNx2DI
+	       (and:VNx2DI
+		 (match_operand:VNx2DI 2 "register_operand" "w")
+		 (match_operand:VNx2DI 4 "aarch64_sve_uxtw_immediate"))
+	       (match_operand:VNx2DI 3 "const_1_to_3_operand"))]
+	    UNSPEC_MERGE_PTRUE)
 	  (match_operand:VNx2DI 1 "register_operand" "w")))]
   "TARGET_SVE"
   "adr\t%0.d, [%1.d, %2.d, uxtw %3]"
+  "&& !CONSTANT_P (operands[5])"
+  {
+    operands[5] = CONSTM1_RTX (VNx2BImode);
+  }
 )
 
 ;; Unpredicated integer binary operations that have an immediate form.
@@ -2096,7 +2113,7 @@
 	   ;; tells us that operand 5 doesn't matter.
 	   (unspec:SVE_I
 	     [(unspec:<VPRED>
-		[(match_operand:<VPRED> 5 "general_operand")
+		[(match_operand:<VPRED> 5 "general_operand" "g, g, g")
 		 (eq:<VPRED>
 		   (match_operand:SVE_I 2 "register_operand" "w, w, w")
 		   (match_operand:SVE_I 3 "aarch64_simd_imm_zero"))]
