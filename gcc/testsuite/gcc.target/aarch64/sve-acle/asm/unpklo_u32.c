@@ -5,18 +5,18 @@
 
 /*
 ** unpklo_u32_tied1:
-**	uunpklo	z16\.s, z16\.h
+**	uunpklo	z6\.s, z6\.h
 **	ret
 */
 TEST_DUAL_Z (unpklo_u32_tied1, svuint32_t, svuint16_t,
-	     z16_res = svunpklo_u32 (z16),
-	     z16_res = svunpklo (z16))
+	     z6_res = svunpklo_u32 (z6),
+	     z6_res = svunpklo (z6))
 
 /*
 ** unpklo_u32_untied:
-**	uunpklo	z0\.s, z16\.h
+**	uunpklo	z0\.s, z6\.h
 **	ret
 */
 TEST_DUAL_Z (unpklo_u32_untied, svuint32_t, svuint16_t,
-	     z0 = svunpklo_u32 (z16),
-	     z0 = svunpklo (z16))
+	     z0 = svunpklo_u32 (z6),
+	     z0 = svunpklo (z6))

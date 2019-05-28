@@ -5,33 +5,33 @@
 
 /*
 ** lsl_s16_m_tied1:
-**	lsl	z0\.h, p0/m, z0\.h, z16\.h
+**	lsl	z0\.h, p0/m, z0\.h, z6\.h
 **	ret
 */
 TEST_DUAL_Z (lsl_s16_m_tied1, svint16_t, svuint16_t,
-	     z0 = svlsl_s16_m (p0, z0, z16),
-	     z0 = svlsl_m (p0, z0, z16))
+	     z0 = svlsl_s16_m (p0, z0, z6),
+	     z0 = svlsl_m (p0, z0, z6))
 
 /*
 ** lsl_s16_m_tied2:
-**	mov	(z[0-9]+)\.d, z16\.d
-**	movprfx	z16, z0
-**	lsl	z16\.h, p0/m, z16\.h, \1\.h
+**	mov	(z[0-9]+)\.d, z6\.d
+**	movprfx	z6, z0
+**	lsl	z6\.h, p0/m, z6\.h, \1\.h
 **	ret
 */
 TEST_DUAL_Z (lsl_s16_m_tied2, svint16_t, svuint16_t,
-	     z16_res = svlsl_s16_m (p0, z0, z16),
-	     z16_res = svlsl_m (p0, z0, z16))
+	     z6_res = svlsl_s16_m (p0, z0, z6),
+	     z6_res = svlsl_m (p0, z0, z6))
 
 /*
 ** lsl_s16_m_untied:
 **	movprfx	z0, z1
-**	lsl	z0\.h, p0/m, z0\.h, z16\.h
+**	lsl	z0\.h, p0/m, z0\.h, z6\.h
 **	ret
 */
 TEST_DUAL_Z (lsl_s16_m_untied, svint16_t, svuint16_t,
-	     z0 = svlsl_s16_m (p0, z1, z16),
-	     z0 = svlsl_m (p0, z1, z16))
+	     z0 = svlsl_s16_m (p0, z1, z6),
+	     z0 = svlsl_m (p0, z1, z6))
 
 /*
 ** lsl_x0_s16_m_tied1:
@@ -137,37 +137,37 @@ TEST_UNIFORM_Z (lsl_16_s16_m_untied, svint16_t,
 /*
 ** lsl_s16_z_tied1:
 **	movprfx	z0\.h, p0/z, z0\.h
-**	lsl	z0\.h, p0/m, z0\.h, z16\.h
+**	lsl	z0\.h, p0/m, z0\.h, z6\.h
 **	ret
 */
 TEST_DUAL_Z (lsl_s16_z_tied1, svint16_t, svuint16_t,
-	     z0 = svlsl_s16_z (p0, z0, z16),
-	     z0 = svlsl_z (p0, z0, z16))
+	     z0 = svlsl_s16_z (p0, z0, z6),
+	     z0 = svlsl_z (p0, z0, z6))
 
 /*
 ** lsl_s16_z_tied2:
-**	movprfx	z16\.h, p0/z, z16\.h
-**	lslr	z16\.h, p0/m, z16\.h, z0\.h
+**	movprfx	z6\.h, p0/z, z6\.h
+**	lslr	z6\.h, p0/m, z6\.h, z0\.h
 **	ret
 */
 TEST_DUAL_Z (lsl_s16_z_tied2, svint16_t, svuint16_t,
-	     z16_res = svlsl_s16_z (p0, z0, z16),
-	     z16_res = svlsl_z (p0, z0, z16))
+	     z6_res = svlsl_s16_z (p0, z0, z6),
+	     z6_res = svlsl_z (p0, z0, z6))
 
 /*
 ** lsl_s16_z_untied:
 ** (
 **	movprfx	z0\.h, p0/z, z1\.h
-**	lsl	z0\.h, p0/m, z0\.h, z16\.h
+**	lsl	z0\.h, p0/m, z0\.h, z6\.h
 ** |
-**	movprfx	z0\.h, p0/z, z16\.h
+**	movprfx	z0\.h, p0/z, z6\.h
 **	lslr	z0\.h, p0/m, z0\.h, z1\.h
 ** )
 **	ret
 */
 TEST_DUAL_Z (lsl_s16_z_untied, svint16_t, svuint16_t,
-	     z0 = svlsl_s16_z (p0, z1, z16),
-	     z0 = svlsl_z (p0, z1, z16))
+	     z0 = svlsl_s16_z (p0, z1, z6),
+	     z0 = svlsl_z (p0, z1, z6))
 
 /*
 ** lsl_x0_s16_z_tied1:
@@ -277,36 +277,36 @@ TEST_UNIFORM_Z (lsl_16_s16_z_untied, svint16_t,
 
 /*
 ** lsl_s16_x_tied1:
-**	lsl	z0\.h, p0/m, z0\.h, z16\.h
+**	lsl	z0\.h, p0/m, z0\.h, z6\.h
 **	ret
 */
 TEST_DUAL_Z (lsl_s16_x_tied1, svint16_t, svuint16_t,
-	     z0 = svlsl_s16_x (p0, z0, z16),
-	     z0 = svlsl_x (p0, z0, z16))
+	     z0 = svlsl_s16_x (p0, z0, z6),
+	     z0 = svlsl_x (p0, z0, z6))
 
 /*
 ** lsl_s16_x_tied2:
-**	lslr	z16\.h, p0/m, z16\.h, z0\.h
+**	lslr	z6\.h, p0/m, z6\.h, z0\.h
 **	ret
 */
 TEST_DUAL_Z (lsl_s16_x_tied2, svint16_t, svuint16_t,
-	     z16_res = svlsl_s16_x (p0, z0, z16),
-	     z16_res = svlsl_x (p0, z0, z16))
+	     z6_res = svlsl_s16_x (p0, z0, z6),
+	     z6_res = svlsl_x (p0, z0, z6))
 
 /*
 ** lsl_s16_x_untied:
 ** (
 **	movprfx	z0, z1
-**	lsl	z0\.h, p0/m, z0\.h, z16\.h
+**	lsl	z0\.h, p0/m, z0\.h, z6\.h
 ** |
-**	movprfx	z0, z16
+**	movprfx	z0, z6
 **	lslr	z0\.h, p0/m, z0\.h, z1\.h
 ** )
 **	ret
 */
 TEST_DUAL_Z (lsl_s16_x_untied, svint16_t, svuint16_t,
-	     z0 = svlsl_s16_x (p0, z1, z16),
-	     z0 = svlsl_x (p0, z1, z16))
+	     z0 = svlsl_s16_x (p0, z1, z6),
+	     z0 = svlsl_x (p0, z1, z6))
 
 /*
 ** lsl_x0_s16_x_tied1:

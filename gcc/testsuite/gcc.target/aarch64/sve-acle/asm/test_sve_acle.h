@@ -48,11 +48,13 @@
   BIND_INPUT_Z0_Z3 (TYPE);			\
   BIND_INPUT_Z (TYPE, z4)
 
-#define BIND_INPUT_Z16_Z19(TYPE)		\
-  BIND_INPUT_Z (TYPE, z16);			\
-  BIND_INPUT_Z (TYPE, z17);			\
-  BIND_INPUT_Z (TYPE, z18);			\
-  BIND_INPUT_Z (TYPE, z19)
+#define BIND_INPUT_Z6_Z7(TYPE)			\
+  BIND_INPUT_Z (TYPE, z6);			\
+  BIND_INPUT_Z (TYPE, z7)
+
+#define DECLARE_RESULT_Z6_Z7(TYPE)		\
+  DECLARE_RESULT (TYPE, z6);			\
+  DECLARE_RESULT (TYPE, z7)
 
 #define DECLARE_RESULT_Z16_Z19(TYPE)		\
   DECLARE_RESULT (TYPE, z16);			\
@@ -83,6 +85,10 @@
   BIND_INPUT_X (TYPE, x1);			\
   BIND_INPUT_X (TYPE, x2);			\
   BIND_INPUT_X (TYPE, x3)
+
+#define BIND_RESULT_Z6_Z7			\
+  BIND_OUTPUT_Z (z6_res);			\
+  BIND_OUTPUT_Z (z7_res)
 
 #define BIND_RESULT_Z16_Z19			\
   BIND_OUTPUT_Z (z16_res);			\
@@ -130,13 +136,13 @@
   START (NAME)						\
   {							\
     BIND_INPUT_Z0_Z3 (TYPE1);				\
-    BIND_INPUT_Z16_Z19 (TYPE2);				\
-    DECLARE_RESULT_Z16_Z19 (TYPE1);			\
+    BIND_INPUT_Z6_Z7 (TYPE2);				\
+    DECLARE_RESULT_Z6_Z7 (TYPE1);			\
     BIND_INPUT_P (p0);					\
     INVOKE (CODE1, CODE2);				\
     BIND_OUTPUT_Z0_Z3;					\
     BIND_OUTPUT_P (p0);					\
-    BIND_RESULT_Z16_Z19;				\
+    BIND_RESULT_Z6_Z7;					\
   }
 
 #define TEST_WIDE_Z(NAME, TYPE, CODE1, CODE2)		\
@@ -170,8 +176,8 @@
   START (NAME)							\
   {								\
     BIND_INPUT_Z0_Z3 (ZTYPE1);					\
-    BIND_INPUT_Z16_Z19 (ZTYPE2);				\
-    DECLARE_RESULT_Z16_Z19 (ZTYPE1);				\
+    BIND_INPUT_Z6_Z7 (ZTYPE2);					\
+    DECLARE_RESULT_Z6_Z7 (ZTYPE1);				\
     BIND_INPUT_P (p0);						\
     BIND_INPUT_X (STYPE, x0);					\
     BIND_INPUT_D (STYPE, d4);					\
@@ -180,7 +186,7 @@
     BIND_OUTPUT_X (x0);						\
     BIND_OUTPUT_D (d4);						\
     BIND_OUTPUT_P (p0);						\
-    BIND_RESULT_Z16_Z19;					\
+    BIND_RESULT_Z6_Z7;						\
   }
 
 #define TEST_LOAD(NAME, ZTYPE, STYPE, CODE1, CODE2)	\
