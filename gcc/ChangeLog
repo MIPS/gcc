@@ -1,3 +1,365 @@
+2019-05-31  Thomas De Schampheleire  <thomas.de_schampheleire@nokia.com>
+
+	PR debug/86964
+	* common.opt (feliminate-unused-debug-symbols): Enable by default.
+	* doc/invoke.texi (Debugging Options): Document new default of
+	-feliminate-unused-debug-symbols and remove restriction to 'stabs'.
+
+2019-05-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/90671
+	* tree-ssa-threadupdate.c (ssa_create_duplicates): If
+	template_block used to be empty on the first call, don't use
+	gsi_split_seq_after and gsi_insert_seq_after, but remember whole
+	seq with bb_seq and set it with set_bb_seq.
+
+2019-05-31  Iain Sandoe  <iain@sandoe.co.uk>
+
+	* config/i386/darwin.h (ASM_OUTPUT_MAX_SKIP_ALIGN): New.
+
+2019-05-30  Bill Schmidt  <wschmidt@linux.ibm.com>
+	    Michael Meissner  <meissner@linux.ibm.com>
+
+	* config/rs6000/predicates.md (pcrel_address): New define_predicate.
+	(prefixed_mem_operand): Likewise.
+	(non_prefixed_mem_operand): Likewise.
+	* config/rs6000/rs6000-protos.h (rs6000_prefixed_address): New
+	prototype.
+	* config/rs6000/rs6000.c (print_operand_address): Handle
+	PC-relative addresses.
+	(mode_supports_prefixed_address_p): New function.
+	(rs6000_prefixed_address): New function.
+	* config/rs6000/rs6000.h (SYMBOL_FLAG_PCREL): New #define.
+	(SYMBOL_REF_PCREL_P): Likewise.
+
+2019-05-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (enum gimplify_omp_var_data): Add GOVD_CONDTEMP.
+	(gimplify_adjust_omp_clauses_1): Handle GOVD_CONDTEMP.
+	(gimplify_omp_for): If worksharing loop with lastprivate conditional
+	is nested inside of parallel region, add _condtemp_ clause to both.
+	* tree-nested.c (convert_nonlocal_omp_clauses,
+	convert_local_omp_clauses): Ignore OMP_CLAUSE__CONDTEMP_ instead of
+	assertion failure.
+	* omp-general.h (struct omp_for_data): Add have_pointer_condtemp
+	member.
+	* omp-general.c (omp_extract_for_data): Compute it.
+	* omp-low.c (scan_sharing_clauses): Handle OMP_CLAUSE__CONDTEMP_.
+	(lower_rec_input_clauses): Likewise.
+	(lower_lastprivate_conditional_clauses): If OMP_CLAUSE__CONDTEMP_
+	clause is already present, just add one further one after it.
+	(lower_lastprivate_clauses): Handle cond_ptr with array type.
+	(lower_send_shared_vars): Clear _condtemp_ vars.
+	(lower_omp_1) <case GIMPLE_ASSIGN>: Handle target data like critical
+	or section or taskgroup.
+	* omp-expand.c (determine_parallel_type): Disallow combining only if
+	first OMP_CLAUSE__CONDTEMP_ has pointer type.  Disallow combining
+	of parallel sections if OMP_CLAUSE__CONDTEMP_ is present.
+	(expand_omp_for_generic, expand_omp_for_static_nochunk,
+	expand_omp_for_static_chunk, expand_omp_for): Use
+	fd->have_pointer_condtemp instead of fd->lastprivate_conditional to
+	determine if a special set of API routines are needed and if condtemp
+	needs to be initialized, while always initialize cond_var if
+	fd->lastprivate_conditional is non-zero.
+
+2019-05-30  Bill Schmidt  <wschmidt@linux.ibm.com>
+	    Michael Meissner  <meissner@linux.ibm.com>
+
+	* config/rs6000/constraints.md (eI): New constraint.
+	* config/rs6000/predicates.md (cint34_operand): New predicate.
+	* config/rs6000/rs6000.h (SIGNED_16BIT_OFFSET_P): New #define.
+	(SIGNED_34BIT_OFFSET_P): Likewise.
+	* doc/md.texi (eI): Document constraint.
+
+2019-05-30  Sylvia Taylor  <sylvia.taylor@arm.com>
+
+	* config/aarch64/aarch64-sve.md (*fabd<mode>3): New.
+
+2019-05-30  Bill Schmidt  <wschmidt@linux.ibm.com>
+	    Michael Meissner  <meissner@linux.ibm.com>
+
+	* rs6000-cpus.def (OTHER_FUSION_MASKS): New #define.
+	(ISA_3_0_MASKS_SERVER): Mask off OTHER_FUSION_MASKS.
+	(ISA_3_0_MASKS_IEEE): Remove OPTION_MASK_DIRECT_MOVE.
+	(ISA_FUTURE_MASKS_SERVER): Add OPTION_MASK_PREFIXED_ADDR.
+	(OTHER_FUTURE_MASKS): Likewise.
+	(POWERPC_MASKS): Likewise.
+	* rs6000.c (rs6000_option_override_internal): Error if -mpcrel is
+	specified without -mprefixed-addr or -mcpu=future.  Error if
+	-mprefixed-addr is specified without -mcpu=future.
+	(rs6000_opt_masks): Add entry for prefixed-addr.
+	* rs6000.opt (mprefixed-addr): New option.
+
+2019-05-30  Sam Tebbs  <sam.tebbs@arm.com>
+
+	* aarch64/aarch64.c (aarch64_post_cfi_startproc): Add 
+	cfun->is_thunk check.
+
+2019-05-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-predcom.c (is_inv_store_elimination_chain): Fix a typo - lenght
+	to length.
+
+2019-05-30  Martin Liska  <mliska@suse.cz>
+
+	* gdbinit.in: Fix 'ptc' command.  Add trt
+	that prints TREE_TYPE($).
+
+2019-05-29  Bill Schmidt  <wschmidt@linux.ibm.com>
+	    Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_call_template_1): Handle pcrel
+	calls here...
+	(rs6000_indirect_call_template_1): ...and here.
+	(rs6000_pltseq_template): Handle plt_pcrel34.  Rework tocsave,
+	plt16_ha, plt16_lo, mtctr indirect calls.  Use
+	rs6000_pltseq_enum.
+	(rs6000_decl_ok_for_sibcall): New function.
+	(rs6000_function_ok_for_sibcall): Refactor.
+	(rs6000_longcall_ref): Use UNSPEC_PLT_PCREL when pcrel.
+	(rs6000_call_aix): Don't emit toc restore rtl for indirect calls
+	when pcrel.  Reorganize.
+	(rs6000_sibcall_aix): Don't add r2 to function usage when pcrel.
+	* rs6000.h (rs6000_pltseq_enum): New enum.
+	* rs6000.md (UNSPEC_PLT_PCREL): New unspec.
+	(*pltseq_tocsave): Use rs6000_pltseq_enum.
+	(*pltseq_plt16_ha): Likewise.
+	(*pltseq_plt16_lo): Likewise.
+	(*pltseq_mtctr): Likewise.
+	(*pltseq_plt_pcrel): New insn.
+	(*call_local_aix): Handle @notoc calls.
+	(*call_value_local_aix): Likewise.
+	(*call_nonlocal_aix): Adjust lengths for pcrel calls.
+	(*call_value_nonlocal_aix): Likewise.
+	(*call_indirect_pcrel): New insn.
+	(*call_value_indirect_pcrel): Likewise.
+
+
+2019-05-29  Uroš Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (*save_multiple<mode>): Rename from
+	save_multiple<mode>.
+	(*restore_multiple<mode>): Rename from restore_multiple<mode>.
+	(*restore_multiple_and_return<mode>): Rename from
+	restore_multiple_and_return<mode>.
+	(*restore_multiple_leave_return<mode>): Rename from
+	restore_multiple_leave_return<mode>.
+
+2019-05-29  Yoshinori Sato  <ysato@users.sourceforge.jp>
+
+	* config.gcc (rx-*-linux*): New target.
+	* config/rx/elf.opt: New file.
+	* config/rx/linux.h: Likewise.
+	* config/rx/t-linux: Likewise.
+	* config/rx/rx.c (TARGET_SAVE_ACC_REGISTER): If not defined,
+	make it zero.
+	* config/rx/rx.h (ASM_APP_ON): Allow to be overridden.
+	(ASM_APP_OFF): Likewise.
+	* config/rx/rx.opt: Drop -msim and -mas100-syntax, they were
+	moved elsewhere.
+
+2019-05-29  Jan Hubicka  <jh@suse.cz>
+
+	* tree-ssa-alias.c (same_type_for_tbaa): Return ture if main
+	variants are pointer equivalent.
+
+2019-05-29  Alejandro Martinez  <alejandro.martinezvicente@arm.com>
+
+	* config/aarch64/aarch64-c.c: Added TARGET_SVE2.
+	* config/aarch64/aarch64-sve2.md: New file.
+	(<u>avg<mode>3_floor): New pattern.
+	(<u>avg<mode>3_ceil): Likewise.
+	(*<sur>h<addsub><mode>): Likewise.
+	* config/aarch64/aarch64.h: Added AARCH64_ISA_SVE2 and TARGET_SVE2.
+	* config/aarch64/aarch64.md: Include aarch64-sve2.md.
+
+2019-05-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/90543
+	* optc-save-gen.awk: In cl_optimization_print, use correct condition
+	for var_opt_string printing.  In cl_optimization_print_diff, print
+	(null) instead of invoking undefined behavior if one of the
+	var_opt_string pointers is NULL and use && instead of first || in the
+	guarding condition.  For var_target_other options, handle const char *
+	target variables similarly to const char * optimize node variables.
+
+2019-05-29  Sam Tebbs  <sam.tebbs@arm.com>
+
+	* config/aarch64/aarch64-builtins.c (aarch64_builtins): Add
+	AARCH64_PAUTH_BUILTIN_AUTIB1716 and AARCH64_PAUTH_BUILTIN_PACIB1716.
+	* config/aarch64/aarch64-builtins.c (aarch64_init_pauth_hint_builtins):
+	Add autib1716 and pacib1716 initialisation.
+	* config/aarch64/aarch64-builtins.c (aarch64_expand_builtin): Add checks
+	for autib1716 and pacib1716.
+	* config/aarch64/aarch64-protos.h (aarch64_key_type,
+	aarch64_post_cfi_startproc): Define.
+	* config/aarch64/aarch64-protos.h (aarch64_ra_sign_key): Define extern.
+	* config/aarch64/aarch64.c (aarch64_handle_standard_branch_protection,
+	aarch64_handle_pac_ret_protection): Set default sign key to A.
+	* config/aarch64/aarch64.c (aarch64_expand_epilogue,
+	aarch64_expand_prologue): Add check for b-key.
+	* config/aarch64/aarch64.c (aarch64_ra_sign_key,
+	aarch64_post_cfi_startproc, aarch64_handle_pac_ret_b_key): Define.
+	* config/aarch64/aarch64.h (TARGET_ASM_POST_CFI_STARTPROC): Define.
+	* config/aarch64/aarch64.c (aarch64_pac_ret_subtypes): Add "b-key".
+	* config/aarch64/aarch64.md (unspec): Add UNSPEC_AUTIA1716,
+	UNSPEC_AUTIB1716, UNSPEC_AUTIASP, UNSPEC_AUTIBSP, UNSPEC_PACIA1716,
+	UNSPEC_PACIB1716, UNSPEC_PACIASP, UNSPEC_PACIBSP.
+	* config/aarch64/aarch64.md (do_return): Add check for b-key.
+	* config/aarch64/aarch64.md (<pauth_mnem_prefix>sp): Replace
+	pauth_hint_num_a with pauth_hint_num.
+	* config/aarch64/aarch64.md (<pauth_mnem_prefix>1716): Replace
+	pauth_hint_num_a with pauth_hint_num.
+	* config/aarch64/aarch64.opt (msign-return-address=): Deprecate.
+	* config/aarch64/iterators.md (PAUTH_LR_SP): Add UNSPEC_AUTIASP,
+	UNSPEC_AUTIBSP, UNSPEC_PACIASP, UNSPEC_PACIBSP.
+	* config/aarch64/iterators.md (PAUTH_17_16): Add UNSPEC_AUTIA1716,
+	UNSPEC_AUTIB1716, UNSPEC_PACIA1716, UNSPEC_PACIB1716.
+	* config/aarch64/iterators.md (pauth_mnem_prefix): Add UNSPEC_AUTIA1716,
+	UNSPEC_AUTIB1716, UNSPEC_PACIA1716, UNSPEC_PACIB1716, UNSPEC_AUTIASP,
+	UNSPEC_AUTIBSP, UNSPEC_PACIASP, UNSPEC_PACIBSP.
+	* config/aarch64/iterators.md (pauth_hint_num_a): Replace
+	UNSPEC_PACI1716 and UNSPEC_AUTI1716 with UNSPEC_PACIA1716 and
+	UNSPEC_AUTIA1716 respectively.
+	* config/aarch64/iterators.md (pauth_hint_num_a): Rename to pauth_hint_num
+	and add UNSPEC_PACIBSP, UNSPEC_AUTIBSP, UNSPEC_PACIB1716, UNSPEC_AUTIB1716.
+	* doc/invoke.texi (-mbranch-protection): Add b-key type.
+	* config/aarch64/aarch64-bti-insert.c (aarch64_pac_insn_p): Rename
+	UNSPEC_PACISP to UNSPEC_PACIASP and UNSPEC_PACIBSP.
+
+2019-05-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (struct gimplify_omp_ctx): Add clauses member.
+	(gimplify_scan_omp_clauses): Initialize ctx->clauses.
+	(gimplify_adjust_omp_clauses_1): Transform lastprivate conditional
+	explicit clause on combined parallel into implicit shared clause.
+	(gimplify_adjust_omp_clauses): Move lastprivate conditional clause
+	and firstprivate if the decl has one too from combined parallel to
+	the worksharing construct.
+
+2019-05-28  Bill Schmidt  <wschmidt@linux.ibm.com>
+	    Michael Meissner  <meissner@linux.ibm.com>
+
+	* config/rs6000/rs6000-cpus.def (OTHER_FUTURES_MASK): New #define.
+
+2019-05-28  Michael Meissner  <meissner@linux.ibm.com>
+
+	* rtl.h (LABEL_REF_P): New #define.
+
+2019-05-28  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.c (hppa_profile_hook): Remove offset adjustment.
+
+2019-05-28  Alejandro Martinez  <alejandro.martinezvicente@arm.com>
+
+	* internal-fn.c: Marked mask_load_direct as vectorizable.
+	* tree-data-ref.c (data_ref_compare_tree): Fixed comment typo.
+	* tree-vect-data-refs.c (can_group_stmts_p): Allow masked loads to be
+	combined even if masks different with allow_slp_p param.
+	(vect_analyze_data_ref_accesses): Mark SLP only vectorizable groups.
+	* tree-vect-loop.c (vect_dissolve_slp_only_groups): New function to
+	dissolve SLP-only vectorizable groups when SLP has been discarded.
+	(vect_analyze_loop_2): Call vect_dissolve_slp_only_groups when needed.
+	* tree-vect-slp.c (vect_get_and_check_slp_defs): Check masked loads
+	masks.
+	(vect_build_slp_tree_1): Fixed comment typo.
+	(vect_build_slp_tree_2): Include masks from masked loads in SLP tree.
+	* tree-vect-stmts.c (vectorizable_load): Allow vectorizaion of masked
+	loads for SLP only.
+	* tree-vectorizer.h (_stmt_vec_info): Added flag for SLP-only
+	vectorizable.
+	* tree-vectorizer.c (vec_info::new_stmt_vec_info): Likewise.
+
+2019-05-28  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/alpha/alpha.c [TARGET_ABI_OSF] (alpha_output_mi_thunk_osf):
+	Remove obsolete use_thunk reference.
+	* config/i386/i386.c (x86_output_mi_thunk): Likewise.
+	* config/ia64/ia64.c (ia64_output_mi_thunk): Likewise.
+	* config/nios2/nios2.c (nios2_asm_output_mi_thunk): Likewise.
+	* config/or1k/or1k.c (or1k_output_mi_thunk): Likewise.
+	* config/rs6000/rs6000.c (rs6000_output_mi_thunk): Likewise.
+	* config/sh/sh.c (sh_output_mi_thunk): Likewise.
+	* config/sparc/sparc.c (sparc_output_mi_thunk): Likewise.
+	* config/tilegx/tilegx.c (tilegx_output_mi_thunk): Likewise.
+	* config/tilepro/tilepro.c (tilepro_asm_output_mi_thunk): Likewise.
+
+2019-05-28  Nathan Sidwell  <nathan@acm.org>
+
+	* tree.h (IDENTIFIER_ANON_P): New.
+	(anon_aggrname_format, anon_aggname_p): Don't declare.
+	(make_anon_name): Declare.
+	* lto-streamer-out.c (DFS::DFS_write_tree_body): Use IDENTIFIER_ANON_P.
+	(hash_tree): Likewise.
+	* tree-streamer-out.c (write_ts_decl_minimal_tree): Likewise.
+	* tree.c (anon_aggrname_p, anon_aggrname_format): Delete.
+	(anon_cnt, make_anon_name): New.
+
+2019-05-28  Martin Liska  <mliska@suse.cz>
+
+	PR other/90315
+	* opts-global.c (decode_options): Print help for all
+	help_option_arguments.
+	* opts.c (print_help): Add new argument.
+	(common_handle_option): Remember all values into
+	help_option_arguments.
+	* opts.h (print_help): Add new argument.
+
+2019-05-28  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/90555
+	* ipa-icf-gimple.c (func_checker::compare_loops): New function.
+	* ipa-icf-gimple.h (func_checker::compare_loops): Likewise.
+	(func_checker::compare_bb): Call compare_loops.
+
+2019-05-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (gimplify_scan_omp_clauses): Allow lastprivate conditional
+	on sections construct.
+	* omp-low.c (lower_lastprivate_conditional_clauses): Handle sections
+	construct.
+	(lower_omp_sections): Handle lastprivate conditional.
+	(lower_omp_1) <case GIMPLE_ASSIGN>: Handle sections construct with
+	lastprivate_conditional_map.
+	* omp-expand.c (expand_omp_sections): Handle lastprivate conditional.
+
+	* omp-low.c (lower_omp_1) <case GIMPLE_ASSIGN>: Look through ordered,
+	critical, taskgroup and section regions when looking for a region
+	with non-NULL lastprivate_conditional_map.
+
+2019-05-27  Uroš Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_gen_add3): Remove indirect function.
+	(*ix86_gen_sub3): Ditto.
+	(*ix86_gen_sub3_carry): Ditto.
+	(*ix86_gen_one_cmpl2): Ditto.
+	(*ix86_gen_andsp): Ditto.
+	(ix86_init_large_pic_reg): Use gen_add2_insn instead of ix86_gen_add3.
+	(gen_and2_insn): New static function.
+	(ix86_expand_prologue): Use gen_and2_insn instead of ix86_gen_andsp.
+	Use gen_add3_insn instead of ix86_gen_add3.
+	(ix86_expand_split_stack_prologue): Use gen_add2_insn
+	instead of ix86_gen_add3.
+	(legitimize_tls_address): Use gen_add2_insn instead of ix86_gen_add3.
+	Use gen_sub3_insn instead of ix86_gen_sub3.
+	* config/i386-expand.c (ix86_split_long_move): Use gen_add2_insn
+	instead of ix86_gen_add3.
+	(ix86_expand_strlensi_unroll_1): Use gen_add2_insn instead of
+	ix86_gen_add3.  Use gen_sub3_insn instead of ix86_gen_sub3.
+	(construct_plt_address): Use gen_add2_insn instead of ix86_gen_add3.
+	* config/i386/i386-options.c (ix86_option_override_internal):
+	Do not initialize ix86_gen_add3, ix86_gen_sub3, ix86_gen_sub3_carry,
+	ix86_gen_one_cmpl2 and ix86_gen_andsp.
+
+2019-05-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* dwarf2out.c (resolve_args_picking_1): Deal with DW_OP_GNU_addr_index
+	and DW_OP_GNU_const_index opcodes.
+
+2019-05-27  Uroš Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.h (STACK_SIZE_MODE): Define.
+
 2019-05-27  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/90637
@@ -12,29 +374,32 @@
 
 2019-05-26  Uroš Bizjak  <ubizjak@gmail.com>
 
-	* config/i386/i386.md (@leave_<mode>): New expander.
+	* config/i386/i386.md (@sub<mode>3_carry): Rename
+	from sub<mode>3_carry.
+	(@leave_<mode>): New expander.
 	(*leave): Rename from leave.
 	(*leave_rex64): Rename from leave_rex64.
 	(@monitorx_<mode>): Rename from monitorx_<mode>.
 	(@clzero_<mode>): Rename from clzero_<mode>.
-	* config/i386/sse.md (@sse3_monitor_<mode>): Rename from
-	sse3_monitor_<mode>.
-	* config/i386/i386.c (*ix86_gen_leave): Remove indirect function.
+	* config/i386/sse.md (@sse3_monitor_<mode>): Rename
+	from sse3_monitor_<mode>.
+	* config/i386/i386.c (ix86_gen_sub3_carry): Remove indirect function.
+	(*ix86_gen_leave): Ditto.
 	(*ix86_gen_monitor): Ditto.
 	(*ix86_gen_monitorx): Ditto.
 	(*ix86_gen_clzero): Ditto.
-	(*ix86_gen_one_cmpl2): Ditto.
 	(ix86_emit_leave): Use gen_leave instead of ix86_gen_leave.
-	* config/i386/i386-expand.c (ix86_expand_builtin)
-	<case IX86_BUILTIN_MONITOR>: Use gen_sse3_monitor
-	instead of ix86_gen_monitor.
+	* config/i386/i386-expand.c (ix86_expand_strlensi_unroll_1):
+	Use gen_sub3_carry instead of ix86_gen_sub3_carry.
+	(ix86_expand_builtin) <case IX86_BUILTIN_MONITOR>:
+	Use gen_sse3_monitor instead of ix86_gen_monitor.
 	<case IX86_BUILTIN_MONITORX>: Use gen_monitorx
 	instead of ix86_gen_monitorx.
 	<case IX86_BUILTIN_CLZERO>: Use gen_clzero
 	instead of ix86_gen_clzero.
 	* config/i386/i386-options.c (ix86_option_override_internal):
-	Do not initialize ix86_gen_leave, ix86_gen_monitor,
-	ix86_gen_monitorx, ix86_gen_clzero and ix86_gen_one_cmpl2.
+	Do not initialize ix86_gen_leave, ix86_gen_sub3_carry,
+	ix86_gen_monitor, ix86_gen_monitorx and ix86_gen_clzero.
 
 2019-05-26  Uroš Bizjak  <ubizjak@gmail.com>
 
@@ -7488,6 +7853,37 @@ Fix test-suite.
 
 	* tree-ssa-dom.c (test_for_singularity): Fix a comment typo.
 	* vr-values.c (find_case_label_ranges): Fix a comment typo.
+
+2019-01-23  Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	* common/config/i386/i386-common.c
+	(OPTION_MASK_ISA_ENQCMD_SET,
+	OPTION_MASK_ISA_ENQCMD_UNSET): New macros.
+	(ix86_handle_option): Handle -menqcmd.
+	* config.gcc (enqcmdintrin.h): New header file.
+	* config/i386/cpuid.h (bit_ENQCMD): New bit.
+	* config/i386/driver-i386.c (host_detect_local_cpu): Handle
+	-menqcmd.
+	* config/i386/i386-builtin-types.def ((INT, PVOID, PCVOID)): New
+	function type.
+	* config/i386/i386-builtin.def (__builtin_ia32_enqcmd,
+	__builtin_ia32_enqcmds): New builtins.
+	* config/i386/i386-c.c (__ENQCMD__): New macro.
+	* config/i386/i386-option.c (ix86_target_string): Add
+	-menqcmd.
+	(ix86_valid_target_attribute_inner_p): Likewise.
+	* config/i386/i386-expand.c
+	(ix86_expand_builtin): Expand IX86_BUILTIN_ENQCMD and
+	IX86_BUILTIN_ENQCMDS.
+	* config/i386/i386.h (TARGET_ENQCMD): New.
+	* config/i386/i386.md (UNSPECV_ENQCMD, UNSPECV_ENQCMDS): New.
+	(@enqcmd<enqcmd_sfx>_<mode>): New insn pattern.
+	(movdir64b_<mode>): Parameterize to enable share expansion code
+	with ENQCMD in function ix86_expand_builtin.
+	* config/i386/i386.opt: Add -menqcmd.
+	* config/i386/immintrin.h: Include enqcmdintrin.h.
+	* config/i386/enqcmdintrin.h: New intrinsic file.
+	* doc/invoke.texi: Add -menqcmd.
 
 2019-01-23  Bin Cheng  <bin.cheng@arm.com>
 	    Steve Ellcey <sellcey@marvell.com>

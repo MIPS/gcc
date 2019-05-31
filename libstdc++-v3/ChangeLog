@@ -1,3 +1,110 @@
+2019-05-30  Nina Dinka Ranns  <dinka.ranns@gmail.com>
+
+	LWG2788 basic_string spurious use of a default constructible allocator
+	* include/bits/basic_string.tcc [_GLIBCXX_USE_CXX11_ABI]
+	(basic_string::_M_replace_dispatch): Construct temporary string with
+	the current allocator.
+	* testsuite/21_strings/basic_string/allocator/char/lwg2788.cc: New.
+	* testsuite/21_strings/basic_string/allocator/wchar_t/lwg2788.cc: New.
+
+2019-05-30  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/diagnostics.xml: Update list of headers that define
+	exception classes.
+	* doc/xml/manual/support.xml: Rewrite advice around NULL. Rewrite
+	section about new/delete overloads. Improve section on verbose
+	terminate handler.
+	* doc/html/*: Regenerate.
+
+	* doc/xml/manual/status_cxx2020.xml: Add feature-test macro for
+	P0811R3. Change status of P1353R0.
+	* doc/html/*: Regenerate.
+
+	* doc/xml/manual/status_cxx2011.xml: Use <variablelist> for
+	documentation of implementation-defined types for [thread.req.native].
+	* doc/xml/manual/status_cxx2017.xml: Update documentation of
+	implementation-defined strings for [variant.bad.access]. Fix typo in
+	documentation of implementation-defined support for [fs.conform.9945].
+	* doc/html/*: Regenerate.
+
+2019-05-29  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/85494
+	* testsuite/26_numerics/random/random_device/cons/token.cc: Fix test
+	that fails on mingw-w64.
+
+	PR libstdc++/88881
+	* src/c++17/fs_ops.cc [_GLIBCXX_FILESYSTEM_IS_WINDOWS]
+	(status(const path&, error_code&)): Use parent_path() to remove
+	trailing slash.
+	(symlink_status(const path&, error_code&)): Duplicate workaround for
+	bug in _wstat for paths with trailing slash.
+	* testsuite/27_io/filesystem/operations/remove_all.cc: Check path
+	with trailing slash.
+	* testsuite/27_io/filesystem/operations/status.cc: Likewise.
+	* testsuite/27_io/filesystem/operations/symlink_status.cc: Likewise.
+
+	* src/c++17/fs_path.cc (path::parent_path()): Create whole path at
+	once instead of building it iteratively.
+
+	* testsuite/util/testsuite_api.h: Remove names of unused parameters.
+
+	PR libstdc++/85494 use rdseed and rand_s in std::random_device
+	* acinclude.m4 (GLIBCXX_CHECK_X86_RDSEED): Define macro to check if
+	the assembler supports rdseed.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* configure.ac: Use GLIBCXX_CHECK_X86_RDSEED.
+	* config/os/mingw32-w64/os_defines.h (_GLIBCXX_USE_CRT_RAND_S): Define.
+	* doc/html/*: Regenerate.
+	* doc/xml/manual/status_cxx2011.xml: Document new tokens.
+	* include/bits/random.h (random_device::random_device()): Always call
+	_M_init rather than _M_init_pretr1.
+	(random_device::random_device(const string&)): Likewise.
+	(random_device::operator()()): Always call _M_getval().
+	(random_device::_M_file): Replace first member of union with an
+	anonymous struct, with _M_file as its first member.
+	* src/c++11/random.cc [_GLIBCXX_X86_RDRAND] (USE_RDRAND): Define.
+	[_GLIBCXX_X86_RDSEED] (USE_RDSEED): Define.
+	(USE_MT19937): Define if none of the above are defined.
+	(USE_POSIX_FILE_IO): Define.
+	(_M_strtoul): Remove.
+	[USE_RDSEED] (__x86_rdseed): Define new function.
+	[_GLIBCXX_USE_CRT_RAND_S] (__winxp_rand_s): Define new function.
+	(random_device::_M_init(const string&)): Initialize new union members.
+	Add support for "rdseed" and "rand_s" tokens. Decide what the
+	"default" token does according to which USE_* macros are defined.
+	[USE_POSIX_FILE_IO]: Store a file descriptor.
+	[USE_MT19937]: Forward to _M_init_pretr1 instead.
+	(random_device::_M_init_pretr1(const string&)) [USE_MT19937]: Inline
+	code from _M_strtoul.
+	[!USE_MT19937]: Call _M_init, transforming the old default token or
+	numeric tokens to "default".
+	(random_device::_M_fini()) [USE_POSIX_FILE_IO]: Use close not fclose.
+	(random_device::_M_getval()): Use new union members to obtain a
+	random number from the stored function pointer or file descriptor.
+	[USE_MT19937]: Obtain a value from the mt19937 engine.
+	(random_device::_M_getval_pretr1()): Call _M_getval().
+	(random_device::_M_getentropy()) [USE_POSIX_FILE_IO]: Use _M_fd
+	instead of fileno.
+	[!USE_MT19937] (mersenne_twister): Do not instantiate when not needed.
+	* testsuite/26_numerics/random/random_device/85494.cc: New test.
+
+2019-05-28  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/90634
+	* include/experimental/bits/fs_path.h (path::path(path&&)): Only call
+	_M_split_cmpts() for a path with multiple components.
+	(path::_S_is_dir_sep()): Add missing 'static' keyword to function.
+	* src/filesystem/path.cc (path::_M_split_cmpts()): Count number of
+	components and reserve space in vector. Return early when there is
+	only one component.
+	* testsuite/27_io/filesystem/path/construct/90634.cc: New test.
+	* testsuite/experimental/filesystem/path/construct/90634.cc: New test.
+
+	* testsuite/util/testsuite_fs.h (compare_paths): Use three-argument
+	form of std::equals for C++11 compatibility.
+
 2019-05-26  Gerald Pfeifer  <gerald@pfeifer.com>
 
 	* doc/xml/manual/appendix_contributing.xml: Update pointer to
