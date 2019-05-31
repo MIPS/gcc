@@ -95,4 +95,10 @@ INSN_NOTE (CFI_LABEL)
    the Setjmp/Longjmp exception mechanism is used.  */
 INSN_NOTE (UPDATE_SJLJ_CONTEXT)
 
+/* The note corresponds to .bundle_lock GAS directive.  */
+INSN_NOTE (BUNDLE_LOCK)
+
+/* The note corresponds to .bundle_unlock GAS directive.  */
+INSN_NOTE (BUNDLE_UNLOCK)
+
 #undef INSN_NOTE

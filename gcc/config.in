@@ -1220,6 +1220,12 @@
 #endif
 
 
+/* Define if your assembler supports extended format of .bundle_align_mode. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_GAS_BUNDLE_ALIGN_MODE_EXTENDED
+#endif
+
+
 /* Define 0/1 if your assembler supports CFI directives. */
 #undef HAVE_GAS_CFI_DIRECTIVE
 

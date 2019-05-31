@@ -2810,6 +2810,13 @@ common_handle_option (struct gcc_options *opts,
       check_alignment_argument (loc, arg, "functions");
       break;
 
+    case OPT_falign_loops_bundle_:
+      if (value <= 0 || (value & (value - 1)) || value > MAX_CODE_ALIGN_VALUE)
+	error_at (loc,
+		  "loop bundle alignment must be a small power of two, not %wu",
+		  value);
+      break;
+
     default:
       /* If the flag was handled in a standard way, assume the lack of
 	 processing here is intentional.  */
