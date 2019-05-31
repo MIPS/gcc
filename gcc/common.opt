@@ -993,6 +993,12 @@ Align the start of loops.
 falign-loops=
 Common RejectNegative Joined Var(str_align_loops) Optimization
 
+falign-loops-bundle
+Common Var(flag_align_loops_bundle) Init(0) Optimization
+
+falign-loops-bundle=
+Common RejectNegative Joined UInteger Var(align_loops_bundle) Optimization
+
 fargument-alias
 Common Ignore
 Does nothing. Preserved for backward compatibility.
