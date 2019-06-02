@@ -965,12 +965,20 @@ cp_lexer_tokenize (cp_lexer *lexer, int extern_c_depth)
 		;
 	      else if (tok->keyword == RID_EXTERN)
 		mode = decl_extern_c;
-	      else if (tok->type == CPP_NAME && !depth && modules_p ()
-		       && C_RID_CODE (tok->u.value) == RID_IMPORT
-		       /* 'import' at top level, or __import inside extern C.  */
-		       && (!extern_c_depth
-			   || IDENTIFIER_POINTER (tok->u.value)[0] == '_'))
+              /* Note: if this is fused 'export import' then we handle it
+                 regardless of the context (since nobody else will recognize
+                 it as anything valid).  See also below.  */
+	      else if (tok->type == CPP_NAME && modules_p ()
+                       && (C_RID_CODE (tok->u.value) == RID_EXPORT_IMPORT
+                           || (!depth
+                               && C_RID_CODE (tok->u.value) == RID_IMPORT
+                               /* 'import' at top level, or __import inside extern C.  */
+                               && (!extern_c_depth
+                                   || IDENTIFIER_POINTER (tok->u.value)[0] == '_'))))
 		{
+                  /* FIXME: all our header unit paths are translated (see also
+                     lexer).  */
+#if 0
 		  bool search = IDENTIFIER_POINTER (tok->u.value)[0] != '_';
 		  if (search)
 		    cpp_enable_filename_token (parse_in, true);
@@ -987,7 +995,18 @@ cp_lexer_tokenize (cp_lexer *lexer, int extern_c_depth)
 			 search && !cpp_get_options (parse_in)->preprocessed,
 			 TREE_STRING_POINTER (tok->u.value),
 			 TREE_STRING_LENGTH (tok->u.value));
-		      tok->type = CPP_HEADER_NAME;
+#else
+                  tok = vec_safe_push (lexer->buffer, cp_token ());
+                  cp_lexer_get_preprocessor_token (C_LEX_STRING_NO_JOIN, tok);
+                  if (tok->type == CPP_STRING)
+                    {
+                      /* Strip quoting.  */
+                      tok->u.value = build_string (
+                        TREE_STRING_LENGTH (tok->u.value) - 2,
+                        TREE_STRING_POINTER (tok->u.value) + 1);
+
+#endif
+                      tok->type = CPP_HEADER_NAME;
 		      mode = decl_header;
 		    }
 		  else
@@ -3522,7 +3541,9 @@ cp_parser_diagnose_invalid_type_name (cp_parser *parser, tree id,
 		"%<-std=c++2a%> or %<-std=gnu++2a%>");
       else if (!flag_concepts && id == ridpointers[(int)RID_CONCEPT])
 	inform (location, "%<concept%> only available with %<-fconcepts%>");
-      else if (C_RID_CODE (id) == RID_MODULE || C_RID_CODE (id) == RID_IMPORT)
+      else if (C_RID_CODE (id) == RID_MODULE ||
+               C_RID_CODE (id) == RID_IMPORT ||
+               C_RID_CODE (id) == RID_EXPORT_IMPORT)
 	{
 	  if (!modules_p ())
 	    inform (location, "%qE only available with -fmodules-ts", id);
@@ -4925,14 +4946,18 @@ cp_parser_translation_unit (cp_parser* parser, cp_token *tok)
 	      deferred_imports = true;
 	      continue;
 	    }
-	  else if (C_RID_CODE (next->u.value) == RID_IMPORT
-		   && (!extern_c_depth
-		       || IDENTIFIER_POINTER (next->u.value)[0] == '_'))
+          /* Note: the same story about fused 'export import' as above.  */
+	  else if (C_RID_CODE (next->u.value) == RID_EXPORT_IMPORT
+                   || (C_RID_CODE (next->u.value) == RID_IMPORT
+                       && (!extern_c_depth
+                           || IDENTIFIER_POINTER (next->u.value)[0] == '_')))
 	    {
 	      if (preamble == MP_FIRST)
 		preamble = MP_NOTHING;
 	      if (exporting)
 		cp_lexer_consume_token (parser->lexer);
+              else if (C_RID_CODE (next->u.value) == RID_EXPORT_IMPORT)
+                exporting = true;
 	      if (named_module_p ()
 		  && IDENTIFIER_POINTER (next->u.value)[0] == '_')
 		{

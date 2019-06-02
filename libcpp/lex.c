@@ -1384,7 +1384,7 @@ lex_identifier_intern (cpp_reader *pfile, const uchar *base)
   unsigned int hash = HT_HASHSTEP (0, *base);
 
   cur = base + 1;
-  while (ISIDNUM (*cur))
+  while (ISIDNUM (*cur) || *cur == ' ') //@@ TMP: add flag to allow?
     {
       hash = HT_HASHSTEP (hash, *cur);
       cur++;
@@ -2614,13 +2614,68 @@ _cpp_lex_token (cpp_reader *pfile)
 
       if (result->flags & BOL)
 	{
-	  /* Is this a directive.  If _cpp_handle_directive returns
-	     false, it is an assembler #.  */
-	  if (result->type == CPP_HASH
-	      /* 6.10.3 p 11: Directives in a list of macro arguments
-		 gives undefined behavior.  This implementation
-		 handles the directive as normal.  */
-	      && pfile->state.parsing_args != 1)
+	  /* Is this a directive.  */
+	  bool directive = false;
+
+	  /* 6.10.3 p 11: Directives in a list of macro arguments gives
+	     undefined behavior.  This implementation handles the directive as
+	     normal.  */
+	  if (!pfile->state.parsing_args &&
+	      result->type != CPP_EOF && /* pfile->buffer is NULL */
+	      !pfile->buffer->ignore_directives)
+	    {
+	      switch (result->type)
+		{
+		case CPP_HASH:
+		  directive = true;
+		  break;
+
+		case CPP_NAME:
+		  {
+		    /* This token should not be the result of macro
+		       expansion.  */
+		    gcc_assert (!pfile->context->prev);
+
+		    //@@ TODO: only in modules_p() mode & not traditional.
+		    //break;
+
+		    /* Handle the 'import' and 'export import' pseude-
+		       directives.  */
+
+		    if (cpp_ideq (result, "import"))
+		      directive = true;
+		    else if (cpp_ideq (result, "export"))
+		      {
+			//@@ Redo as _cpp_lex_token().
+
+			/* In the in_directive mode cpp_lex_direct returns
+			   EOF on end-of-line.  */
+			const cpp_token *peek;
+			if (pfile->lookaheads)
+			  peek = pfile->cur_token;
+			else
+			  {
+			    pfile->state.in_directive = 1;
+			    peek = _cpp_lex_direct (pfile);
+			    if (peek->type != CPP_EOF) /* End of line.  */
+			      _cpp_backup_tokens (pfile, 1);
+			    pfile->state.in_directive = 0;
+			  }
+
+			if (peek->type == CPP_NAME && cpp_ideq (peek, "import"))
+			  directive = true;
+		      }
+		  }
+
+		  break;
+
+		default:
+		  break;
+		}
+	    }
+
+	  /* If _cpp_handle_directive returns false, it is an assembler #.  */
+	  if (directive)
 	    {
 	      if (_cpp_handle_directive (pfile, result))
 		{

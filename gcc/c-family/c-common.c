@@ -535,8 +535,9 @@ const struct c_common_resword c_common_reswords[] =
   { "requires", 	RID_REQUIRES,	D_CXX_CONCEPTS_FLAGS | D_CXXWARN },
 
   /* Modules-related keywords */
-  { "module",		RID_MODULE,	D_CXX_MODULES_FLAGS },
-  { "import", 		RID_IMPORT,	D_CXX_MODULES_FLAGS },
+  { "module",		RID_MODULE,	   D_CXX_MODULES_FLAGS },
+  { "import", 		RID_IMPORT,	   D_CXX_MODULES_FLAGS },
+  { "export import", 	RID_EXPORT_IMPORT, D_CXX_MODULES_FLAGS },
   /* A distinguished spelling for include xlation, recognized inside
      extern "C" {} blocks, because stupid C header idiom.   */
   { "__import",		RID_IMPORT,	D_CXX_MODULES_FLAGS },

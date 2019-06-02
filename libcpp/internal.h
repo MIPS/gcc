@@ -116,18 +116,21 @@ extern unsigned char *_cpp_unaligned_alloc (cpp_reader *, size_t);
 enum include_type
   {
    /* Directive-based including mechanisms.  */
-   IT_INCLUDE,  /* #include */
-   IT_INCLUDE_NEXT,  /* #include_next */
-   IT_IMPORT,   /* #import  */
+   IT_INCLUDE,          /* #include  */
+   IT_INCLUDE_NEXT,     /* #include_next  */
+   IT_IMPORT,           /* #import  */
+
+   IT_CP_IMPORT,        /* C++ header unit import  */
+   IT_CP_EXPORT_IMPORT, /* C++ header unit export import  */
 
    /* Non-directive including mechanisms.  */
-   IT_CMDLINE,  /* -include */
-   IT_DEFAULT,  /* forced header  */
-   IT_MAIN_REAL,  /* main, start line 1  */
-   IT_MAIN_ZERO,  /* main, start line zero  */
+   IT_CMDLINE,   /* -include */
+   IT_DEFAULT,   /* forced header  */
+   IT_MAIN_REAL, /* main, start line 1  */
+   IT_MAIN_ZERO, /* main, start line zero  */
 
-   IT_DIRECTIVE_HWM = IT_IMPORT + 1,  /* Directives below this.  */
-   IT_HEADER_HWM = IT_DEFAULT + 1,    /* Header files below this.  */
+   IT_DIRECTIVE_HWM = IT_CP_EXPORT_IMPORT + 1, /* Directives below this.  */
+   IT_HEADER_HWM = IT_DEFAULT + 1              /* Header files below this.  */
   };
 
 union utoken
@@ -363,6 +366,10 @@ struct cpp_buffer
 
   /* Is from main file.  */
   bool main_file : 1;
+
+  /* Don't recognize directives in this buffer (useful for include/import
+     translation).  */
+  bool ignore_directives : 1;
 
   /* One for a system header, two for a C system header file that therefore
      needs to be extern "C" protected in C++, and zero otherwise.  */

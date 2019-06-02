@@ -469,6 +469,9 @@ module_preprocess_token (cpp_reader *pfile, cpp_token *tok, void *data_)
 	      data->mode = msm_extern_decl;
 	      break;
 
+	    case RID_EXPORT_IMPORT:
+	      data->got_export = true;
+	      /* FALLTHROUGH */
 	    case RID_IMPORT:
 	    case RID_MODULE:
 	      /* We allow __import inside extern C blocks, because
@@ -476,12 +479,15 @@ module_preprocess_token (cpp_reader *pfile, cpp_token *tok, void *data_)
 	      data->is_translated = IDENTIFIER_POINTER (ident)[0] == '_';
 	      if (!data->is_translated && data->extern_c)
 		goto maybe_end;
-	      if (keyword == RID_IMPORT)
+	      if (keyword != RID_MODULE)
 		{
+		  /* FIXME: all our header unit paths are translated.  */
+#if 0
 		  if (cpp_get_options (pfile)->preprocessed)
 		    data->is_translated = true;
 		  if (!data->is_translated)
 		    cpp_enable_filename_token (pfile, true);
+#endif
 		  data->is_import = true;
 		}
 	      data->mode = msm_module_decl;
@@ -555,6 +561,9 @@ module_preprocess_token (cpp_reader *pfile, cpp_token *tok, void *data_)
     case msm_module_decl:
       if (data->is_import && !data->want_dot && !data->got_colon)
 	{
+	  /* FIXME: all our header unit paths are translated (see also
+	     parser).  */
+#if 0
 	  if (!data->is_translated)
 	    cpp_enable_filename_token (pfile, false);
 	  if (tok->type == CPP_HEADER_NAME || tok->type == CPP_STRING)
@@ -571,6 +580,13 @@ module_preprocess_token (cpp_reader *pfile, cpp_token *tok, void *data_)
 		= (const unsigned char *)TREE_STRING_POINTER (string);
 	      ident = string;
 	      tok->type = CPP_HEADER_NAME;
+#else
+	  if (tok->type == CPP_STRING)
+	    {
+	      /* Strip quoting.  */
+	      ident = build_string (tok->val.str.len - 2,
+				    (const char *)tok->val.str.text + 1);
+#endif
 	      data->is_header = true;
 	      data->header_loc = tok->src_loc;
 	      goto header_unit;

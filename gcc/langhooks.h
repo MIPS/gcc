@@ -20,6 +20,8 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_LANG_HOOKS_H
 #define GCC_LANG_HOOKS_H
 
+#include "cpplib.h" /* For enum cpp_include_type.  */
+
 /* FIXME: This file should be #include-d after tree.h (for enum tree_code).  */
 
 struct diagnostic_info;
@@ -334,9 +336,9 @@ struct lang_hooks
   void (*preprocess_main_file) (cpp_reader *, line_maps *,
 				const line_map_ordinary *);
 
-  /* Translate include hook hook.  */
+  /* Translate include hook.  */
   const char *(*preprocess_translate_include)
-    (cpp_reader *, line_maps *, location_t,
+    (cpp_reader *, line_maps *, location_t, cpp_include_type,
      const char *name, bool angle_p, const char *path);
 
   /* Undefining a macro.  */

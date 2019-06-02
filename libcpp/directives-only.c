@@ -86,7 +86,7 @@ _cpp_preprocess_dir_only (cpp_reader *pfile,
 
       if (__builtin_expect (last_c == '#', false) && !(flags & DO_SPECIAL))
 	{
-	  if (c != '#' && (flags & DO_BOL))
+	  if (c != '#' && (flags & DO_BOL) && !buffer->ignore_directives)
 	  {
 	    class line_maps *line_table;
 
@@ -133,6 +133,104 @@ _cpp_preprocess_dir_only (cpp_reader *pfile,
 	  flags &= ~DO_BOL;
 	  pfile->mi_valid = false;
 	}
+      //
+      // @@ We probably should keep it separate because of module_p.
+      // @@ We want it *after* previous if-else clears DO_BOL (/import).
+      //
+      /* Note: we always have a newline at the end, even if the file does not
+	 end with one.  As a result, if the current character is not a
+	 newline, we can safely look at the next one without checking rlimit.
+	 Check the first three characters to quickly distinguish from other
+	 common names (like extern).  */
+
+      else if ((__builtin_expect (c      == 'i' &&
+				  cur[1] == 'm' &&
+				  cur[2] == 'p', false) ||
+		__builtin_expect (c      == 'e' &&
+				  cur[1] == 'x' &&
+				  cur[2] == 'p', false)) &&
+	       (flags & DO_BOL) && !(flags & DO_SPECIAL) &&
+	       !buffer->ignore_directives)
+	{
+	  const cpp_token *token;
+	  const unsigned char *p = cur + 3;
+
+	  /* Handle the 'export' prefix.  */
+	  if (c == 'e')
+	    {
+	      if (*p++ != 'o' || *p++ != 'r' || *p++ != 't' ||
+		  !is_nvspace (*p++))
+		goto skip;
+
+	      while (is_nvspace (*p))
+		p++;
+
+	      if (*p++ != 'i' || *p++ != 'm' || *p++ != 'p')
+		goto skip;
+	    }
+
+	  if (*p++ != 'o' || *p++ != 'r' || *p++ != 't' ||
+	      (!is_nvspace (*p) && *p != '<' && *p != '"'))
+	    goto skip;
+
+	  /* Similar code to the real directive above, except here we don't
+	     need to worry about the line information. (@@ Is that really the
+	     case?)  */
+
+	  next_line = cur;
+
+	  struct line_maps *line_table;
+
+	  if (!pfile->state.skipping && next_line != base)
+	    cb->print_lines (lines, base, next_line - base);
+
+	  /* Prep things for directive handling. */
+	  buffer->next_line = cur;
+	  buffer->need_line = true;
+	  _cpp_get_fresh_line (pfile);
+
+	  /* Ensure proper column numbering for generated error messages. */
+	  buffer->line_base -= col - 1;
+
+	  // @@ Create a fake or just lex from the beginning? If fake, then
+	  //    will need to adjust column number. If fusing then fake is
+	  //    probably easier. Also will allow to factor to sep. function.
+
+	  token = _cpp_lex_direct (pfile);
+	  gcc_assert (token->type == CPP_NAME);
+	  _cpp_handle_directive (pfile, token);
+
+	  /* Sanitize the line settings.  Duplicate #include's can mess
+	     things up. */
+	  line_table = pfile->line_table;
+	  line_table->highest_location = line_table->highest_line;
+
+	  /* The if block prevents us from outputing line information when
+	     the file ends with a directive and no newline.  Note that we
+	     must use pfile->buffer, not buffer. */
+	  if (pfile->buffer->next_line < pfile->buffer->rlimit)
+	    cb->maybe_print_line (pfile->line_table->highest_line);
+
+	  /* If we get something other than padding, then we assume it's a
+	     module import and write the original line.  */
+	  if (pfile->directive_result.type == CPP_PADDING)
+	    goto restart;
+
+	  /* We need to drop any tokens that _cpp_handle_directive() may have
+	     backed up (failed that, we will see them when handling the next
+	     directive).  Also clean up any macro expansion contexts.  */
+	  while (pfile->context->prev)
+	    _cpp_pop_context (pfile);
+
+	  pfile->cur_token += pfile->lookaheads;
+	  pfile->lookaheads = 0;
+
+	  /* We've already written lines up to cur.  */
+	  base = cur;
+
+	skip:
+	  ;
+	}
 
       switch (c)
 	{
@@ -147,7 +245,7 @@ _cpp_preprocess_dir_only (cpp_reader *pfile,
 	  else if (!(flags & DO_SPECIAL))
 	    /* Mark the position for possible error reporting. */
 	    loc = linemap_position_for_column (pfile->line_table, col);
-
+	  /* Don't update DO_BOL yet. */
 	  break;
 
 	case '*':

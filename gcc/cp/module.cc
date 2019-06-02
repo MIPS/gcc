@@ -17220,7 +17220,8 @@ module_map_header (cpp_reader *reader, location_t loc, bool search,
 
 const char *
 module_translate_include (cpp_reader *reader, line_maps *lmaps, location_t loc,
-			  const char *name, bool angle, const char *path)
+			  cpp_include_type type, const char *name, bool angle,
+                          const char *path)
 {
   if (!modules_p ())
     {
@@ -17235,19 +17236,24 @@ module_translate_include (cpp_reader *reader, line_maps *lmaps, location_t loc,
 
   dump.push (NULL);
 
-  dump (dumper::MAPPER) && dump ("Checking include translation '%s'", path);
-  const char *res = path;
-  module_mapper *mapper = module_mapper::get (loc);
-  if (mapper->is_live ())
+  const char *res;
+  if (type == CPP_IT_INCLUDE)
     {
-      size_t len = strlen (path);
-      /*
-        @@ TODO: perhaps we don't need this anymore? If we do, then it
-           will definitely need to be adjusted for the new return value
-           semantics.
-      path = canonicalize_header_name (NULL, loc, true, path, len);
-      */
-      res = mapper->translate_include (loc, name, angle, path, len);
+      dump (dumper::MAPPER) && dump ("Checking include translation '%s'", path);
+      res = path;
+      module_mapper *mapper = module_mapper::get (loc);
+      if (mapper->is_live ())
+        {
+          size_t len = strlen (path);
+          /*
+            @@ TODO: perhaps we don't need this anymore? If we do, then it
+            will definitely need to be adjusted for the new return value
+            semantics.
+
+            path = canonicalize_header_name (NULL, loc, true, path, len);
+          */
+          res = mapper->translate_include (loc, name, angle, path, len);
+        }
 
       bool note = false;
 
@@ -17271,11 +17277,17 @@ module_translate_include (cpp_reader *reader, line_maps *lmaps, location_t loc,
 	inform (loc, res
 		? G_("include %qs processed textually")
 		: G_("include %qs translated to import"), path);
+
+      /* @@ TODO */
+      dump (dumper::MAPPER) && dump (res ? "Keeping include as include"
+                                     : "Translating include to import");
+    }
+  else
+    {
+      //@@ TODO: imported header re-search.
+      res = *path != '\0' ? NULL : path;
     }
 
-  /* @@ TODO */
-  dump (dumper::MAPPER) && dump (res ? "Keeping include as include"
-                                 : "Translating include to import");
   if (!res)
     {
       size_t len = strlen (path);
@@ -17300,15 +17312,38 @@ module_translate_include (cpp_reader *reader, line_maps *lmaps, location_t loc,
 
       char *res = XNEWVEC (char, len + 60 + col);
 
-      /* Internal keyword to permit use inside extern "C" {...}.
-	 Bad glibc! No biscuit!  */
-      strcpy (res, "__import");
-      size_t actual = 8;
+      // FIXME: if header comes from macro expansion, then we get no space:
+      //
+      // #include/import MODNAME -> __import/import"/usr/include/stdio.h"
+      //
+      // I believe this is something to do with macro-expanded token not
+      // having PREV_WHITE. See also do_cp_import_common() in libcpp with
+      // the same issue.
+      //
+      size_t actual;
+      switch (type)
+        {
+        case CPP_IT_INCLUDE:
+          /* Internal keyword to permit use inside extern "C" {...}.
+             Bad glibc! No biscuit!  */
+          strcpy (res, "__import");
+          actual = 8;
+          break;
+        case CPP_IT_CP_IMPORT:
+          strcpy (res, "import");
+          actual = 6;
+          break;
+        case CPP_IT_CP_EXPORT_IMPORT:
+          strcpy (res, "export import");
+          actual = 13;
+          break;
+        }
       if (col > actual)
-	{
-	  memset (res + actual, ' ', col - actual);
-	  actual = col;
-	}
+        {
+          memset (res + actual, ' ', col - actual);
+          actual = col;
+        }
+
       /* No need to encode characters, that's not how header names are
 	 handled.  */
       res[actual++] = '"';

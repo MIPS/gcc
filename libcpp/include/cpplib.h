@@ -613,6 +613,15 @@ enum cpp_warning_reason {
   CPP_W_EXPANSION_TO_DEFINED
 };
 
+/* Inclusion type being handled by the translate_include callback below.  A
+   subset of the more detailed internal include_type enum.  */
+enum cpp_include_type
+{
+  CPP_IT_INCLUDE,         /* #include, #include_next, and #import  */
+  CPP_IT_CP_IMPORT,       /* C++ header unit import  */
+  CPP_IT_CP_EXPORT_IMPORT /* C++ header unit export import  */
+};
+
 /* Callback for header lookup for HEADER, which is the name of a
    source file.  It is used as a method of last resort to find headers
    that are not otherwise found during the normal include processing.
@@ -704,8 +713,8 @@ struct cpp_callbacks
      will be empty, and the missing_header callback is called before this
      callback with its result, if any, passed as path.  */
   const char *(*translate_include) (cpp_reader *, line_maps *, location_t,
-                                    const char *name, bool angle_p,
-                                    const char *path);
+                                    cpp_include_type, const char *name,
+                                    bool angle_p, const char *path);
 };
 
 #ifdef VMS

@@ -59,21 +59,25 @@ struct pragma_entry
    1989 C standard.  EXTENSION directives are extensions.  */
 #define KANDR		0
 #define STDC89		1
-#define EXTENSION	2
+#define CXX2A		2
+#define EXTENSION	3
 
 /* Values for the flags field of struct directive.  COND indicates a
    conditional; IF_COND an opening conditional.  INCL means to treat
    "..." and <...> as q-char and h-char sequences respectively.  IN_I
    means this directive should be handled even if -fpreprocessed is in
-   effect (these are the directives with callback hooks).
+   effect (these are the directives with callback hooks) and IN_DO
+   means it should be skipped even if only directives are preprocessed
+   (-fdirectives-only).
 
    EXPAND is set on directives that are always macro-expanded.  */
 #define COND		(1 << 0)
 #define IF_COND		(1 << 1)
 #define INCL		(1 << 2)
 #define IN_I		(1 << 3)
-#define EXPAND		(1 << 4)
-#define DEPRECATED	(1 << 5)
+#define IN_DO		(1 << 4)
+#define EXPAND		(1 << 5)
+#define DEPRECATED	(1 << 6)
 
 /* Defines one #-directive, including how to handle it.  */
 typedef void (*directive_handler) (cpp_reader *);
@@ -97,8 +101,8 @@ static void end_directive (cpp_reader *, int);
 static void directive_diagnostics (cpp_reader *, const directive *, int);
 static void run_directive (cpp_reader *, int, const char *, size_t);
 static char *glue_header_name (cpp_reader *);
-static const char *parse_include (cpp_reader *, int *, const cpp_token ***,
-				  location_t *);
+static const char *parse_include (cpp_reader *, const cpp_token *, int *,
+				  const cpp_token ***);
 static void push_conditional (cpp_reader *, int, int, const cpp_hashnode *);
 static unsigned int read_flag (cpp_reader *, unsigned int);
 static bool strtolinenum (const uchar *, size_t, linenum_type *, bool *);
@@ -166,27 +170,37 @@ static void cpp_pop_definition (cpp_reader *, struct def_pragma_macro *);
 
 #define D(name, t, o, f) static void do_##name (cpp_reader *);
 DIRECTIVE_TABLE
+D(cp_import, t, o, f) /* 'import' (C++ modules pseudo-directive) */
+D(cp_export, t, o, f) /* 'export import' */
 #undef D
 
 #define D(n, tag, o, f) tag,
 enum
 {
   DIRECTIVE_TABLE
+  D(n, T_CP_IMPORT, o, f)
+  D(n, T_CP_EXPORT, o, f)
   N_DIRECTIVES
 };
 #undef D
 
-#define D(name, t, origin, flags) \
-{ do_##name, (const uchar *) #name, \
+#define E(fname, name, t, origin, flags)	\
+{ do_##fname, (const uchar *) #name, \
   sizeof #name - 1, origin, flags },
+#define D(name, t, origin, flags) E(name, name, t, origin, flags)
 static const directive dtable[] =
 {
 DIRECTIVE_TABLE
+E(cp_import, import, t, CXX2A, INCL | EXPAND | IN_DO)
+E(cp_export, export, t, CXX2A, INCL | EXPAND | IN_DO)
 };
 #undef D
+#undef E
 
-/* A NULL-terminated array of directive names for use
-   when suggesting corrections for misspelled directives.  */
+//@@ TODO: is INCL | EXPAND correct?
+
+/* A NULL-terminated array of directive names for use when suggesting
+   corrections for misspelled directives.  Note: nothing for cp_import.  */
 #define D(name, t, origin, flags) #name,
 static const char * const directive_names[] = {
 DIRECTIVE_TABLE
@@ -218,7 +232,7 @@ skip_rest_of_line (cpp_reader *pfile)
       ;
 }
 
-/* Helper function for check_oel.  */
+/* Helper function for check_eol.  */
 
 static void
 check_eol_1 (cpp_reader *pfile, bool expand, enum cpp_warning_reason reason)
@@ -414,12 +428,15 @@ directive_diagnostics (cpp_reader *pfile, const directive *dir, int indented)
 int
 _cpp_handle_directive (cpp_reader *pfile, const cpp_token *start)
 {
+  //@@ TODO: indented logic & directive_diagnostics(): disable for pseudo?
+
   const directive *dir = 0;
   const cpp_token *dname;
   bool was_parsing_args = pfile->state.parsing_args;
   bool was_discarding_output = pfile->state.discarding_output;
   int skip = 1;
   int indented = start->flags & PREV_WHITE;
+  bool pseudo = start->type != CPP_HASH;
 
   if (was_discarding_output)
     pfile->state.prevent_expansion = 0;
@@ -433,7 +450,8 @@ _cpp_handle_directive (cpp_reader *pfile, const cpp_token *start)
       pfile->state.prevent_expansion = 0;
     }
   start_directive (pfile, start->src_loc);
-  dname = _cpp_lex_token (pfile);
+
+  dname = pseudo ? start : _cpp_lex_token (pfile);
 
   if (dname->type == CPP_NAME)
     {
@@ -468,11 +486,11 @@ _cpp_handle_directive (cpp_reader *pfile, const cpp_token *start)
 	 -fpreprocessed mode only if the # is in column 1.  macro.c
 	 puts a space in front of any '#' at the start of a macro.
 
-	 We exclude the -fdirectives-only case because macro expansion
-	 has not been performed yet, and block comments can cause spaces
-	 to precede the directive.  */
+	 We exclude the -fdirectives-only case (unless requested otherwise)
+	 because macro expansion has not been performed yet, and block
+	 comments can cause spaces to precede the directive.  */
       if (CPP_OPTION (pfile, preprocessed)
-	  && !CPP_OPTION (pfile, directives_only)
+	  && (!CPP_OPTION (pfile, directives_only) || (dir->flags & IN_DO))
 	  && (indented || !(dir->flags & IN_I)))
 	{
 	  skip = 0;
@@ -540,10 +558,11 @@ _cpp_handle_directive (cpp_reader *pfile, const cpp_token *start)
 
   if (dir)
     pfile->directive->handler (pfile);
-  else if (skip == 0)
+  else if (skip == 0 && !pseudo)
     _cpp_backup_tokens (pfile, 1);
 
-  end_directive (pfile, skip);
+  /* Pseudo-directive takes care of its line end.  */
+  end_directive (pfile, skip && !pseudo);
   if (was_parsing_args && !pfile->state.in_deferred_pragma)
     {
       /* Restore state when within macro args.  */
@@ -751,57 +770,43 @@ glue_header_name (cpp_reader *pfile)
 
 /* Returns the file name of #include, #include_next, #import and
    #pragma dependency.  The string is malloced and the caller should
-   free it.  Returns NULL on error.  LOCATION is the source location
-   of the file name.  */
+   free it.  Returns NULL if the passed token does not start a valid
+   file name.  Unless BUF is NULL, check for EOL returning comments in
+   *BUF if not discarded. LOCATION is the source location of the file
+   name.  */
 
 static const char *
-parse_include (cpp_reader *pfile, int *pangle_brackets,
-	       const cpp_token ***buf, location_t *location)
+parse_include (cpp_reader *pfile, const cpp_token *start,
+	       int *pangle_brackets, const cpp_token ***buf)
 {
   char *fname;
-  const cpp_token *header;
 
-  /* Allow macro expansion.  */
-  header = get_token_no_padding (pfile);
-  *location = header->src_loc;
-  if ((header->type == CPP_STRING && header->val.str.text[0] != 'R')
-      || header->type == CPP_HEADER_NAME)
+  if ((start->type == CPP_STRING && start->val.str.text[0] != 'R')
+      || start->type == CPP_HEADER_NAME)
     {
-      fname = XNEWVEC (char, header->val.str.len - 1);
-      memcpy (fname, header->val.str.text + 1, header->val.str.len - 2);
-      fname[header->val.str.len - 2] = '\0';
-      *pangle_brackets = header->type == CPP_HEADER_NAME;
+      fname = XNEWVEC (char, start->val.str.len - 1);
+      memcpy (fname, start->val.str.text + 1, start->val.str.len - 2);
+      fname[start->val.str.len - 2] = '\0';
+      *pangle_brackets = start->type == CPP_HEADER_NAME;
     }
-  else if (header->type == CPP_LESS)
+  else if (start->type == CPP_LESS)
     {
-      fname = glue_header_name (pfile);
+      fname = glue_header_name (pfile); /* Note: never returns NULL. */
       *pangle_brackets = 1;
     }
   else
-    {
-      const unsigned char *dir;
+    return NULL;
 
-      if (pfile->directive == &dtable[T_PRAGMA])
-	dir = UC"pragma dependency";
+  if (buf)
+    {
+      if (CPP_OPTION (pfile, discard_comments))
+	check_eol (pfile, true);
       else
-	dir = pfile->directive->name;
-      cpp_error (pfile, CPP_DL_ERROR, "#%s expects \"FILENAME\" or <FILENAME>",
-		 dir);
-
-      return NULL;
-    }
-
-  if (pfile->directive == &dtable[T_PRAGMA])
-    {
-      /* This pragma allows extra tokens after the file name.  */
-    }
-  else if (buf == NULL || CPP_OPTION (pfile, discard_comments))
-    check_eol (pfile, true);
-  else
-    {
-      /* If we are not discarding comments, then gather them while
-	 doing the eol check.  */
-      *buf = check_eol_return_comments (pfile);
+	{
+	  /* If we are not discarding comments, then gather them while
+	     doing the eol check.  */
+	  *buf = check_eol_return_comments (pfile);
+	}
     }
 
   return fname;
@@ -812,6 +817,7 @@ static void
 do_include_common (cpp_reader *pfile, enum include_type type)
 {
   const char *fname;
+  const cpp_token *header;
   int angle_brackets;
   const cpp_token **buf = NULL;
   location_t location;
@@ -824,9 +830,17 @@ do_include_common (cpp_reader *pfile, enum include_type type)
      increment the line number even if this is the last line of a file.  */
   pfile->state.in_directive = 2;
 
-  fname = parse_include (pfile, &angle_brackets, &buf, &location);
+  /* Allow macro expansion.  */
+  header = get_token_no_padding (pfile);
+  location = header->src_loc;
+
+  fname = parse_include (pfile, header, &angle_brackets, &buf);
   if (!fname)
-    goto done;
+    {
+      cpp_error (pfile, CPP_DL_ERROR, "#%s expects \"FILENAME\" or <FILENAME>",
+		 pfile->directive->name);
+      return;
+    }
 
   if (!*fname)
     {
@@ -849,7 +863,8 @@ do_include_common (cpp_reader *pfile, enum include_type type)
       /* Get out of macro context, if we are.  */
       skip_rest_of_line (pfile);
 
-      // FIXME: why here, not when we do the stacking?
+      // FIXME: why here, not when we do the stacking? Maybe in order not
+      // to drag extra stuff down there?
       if (pfile->cb.include)
 	pfile->cb.include (pfile, pfile->directive_line,
 			   pfile->directive->name, fname, angle_brackets,
@@ -890,6 +905,126 @@ do_include_next (cpp_reader *pfile)
       type = IT_INCLUDE;
     }
   do_include_common (pfile, type);
+}
+
+static void
+do_cp_import_common (cpp_reader *pfile, include_type type)
+{
+  const cpp_token *start_token, *token;
+  int angle_brackets;
+  location_t header_location;
+
+  start_token = pfile->cur_token - 1;
+  if (type == IT_CP_EXPORT_IMPORT)
+    {
+      token = _cpp_lex_token (pfile);
+      gcc_assert (token->type == CPP_NAME && cpp_ideq (token, "import"));
+    }
+
+  /* From now on we allow macro expansion.  */
+  token = get_token_no_padding (pfile);
+  header_location = token->src_loc;
+
+  const char *fname = parse_include (pfile, token, &angle_brackets, NULL);
+  if (!fname)
+    {
+      //@@ Move to lex so can sidestep using directive_result? Can probably
+      //   cleanup/simplify other things (like pseudo in end_directive!). Or
+      //   maybe not, this has pros/cons.
+      //
+      // @@ Maybe we should do the fusing there?
+
+      /* Note that this arrangement is relied upon by -fdirectives-only.  */
+
+      if (token->type != CPP_EOF) /* End of line.  */
+	{
+	  /* This hack is required if the token came from macro expansion.
+
+	     FIXME: maybe macro expansion should propagate PREV_WHITE from the
+	     first token it consumes?  Sure feels like the correct thing to do,
+	     conceptually.  */
+	  const_cast<cpp_token*> (token)->flags |= PREV_WHITE;
+	  _cpp_backup_tokens (pfile, 1);
+	}
+
+      pfile->directive_result = *start_token;
+      if (type == IT_CP_EXPORT_IMPORT)
+	{
+	  /* Fuse export and import into a single 'export import' token.  */
+	  pfile->directive_result.val.node.node =
+	    pfile->directive_result.val.node.spelling =
+	    _cpp_lex_identifier (pfile, "export import");
+	}
+
+      return;
+    }
+
+  /* FIXME: would be nice match frontend diagnostics with regards to quoting
+     (%<;%>).  */
+
+  /* Skip attributes if any (this is what the cp frontend is currently doing).
+     If/when we recognize any, we will need to pass them along to be
+     interpreted and/or included into the translation.  */
+  while ((token = get_token_no_padding (pfile))->type == CPP_OPEN_SQUARE)
+    {
+      if ((token = get_token_no_padding (pfile))->type != CPP_OPEN_SQUARE)
+	{
+	  cpp_error (pfile, CPP_DL_ERROR, "expected second [ after [");
+	  goto skip_diag;
+	}
+
+      while ((token = get_token_no_padding (pfile))->type != CPP_CLOSE_SQUARE)
+	{
+	  /* FIXME: attribute syntax is tighter than that.  */
+	  if (token->type == CPP_EOF || token->type == CPP_SEMICOLON)
+	    {
+	      cpp_error (pfile, CPP_DL_ERROR, "expected closing ] after [");
+	      goto skip_diag;
+	    }
+	}
+
+      if ((token = get_token_no_padding (pfile))->type != CPP_CLOSE_SQUARE)
+	{
+	  cpp_error (pfile, CPP_DL_ERROR, "expected second ] after ]");
+	  goto skip_diag;
+	}
+    }
+
+  if (token->type != CPP_SEMICOLON)
+    cpp_error (pfile, CPP_DL_ERROR, "expected ; after import");
+  else if ((token = get_token_no_padding (pfile))->type != CPP_EOF)
+    cpp_error (pfile, CPP_DL_ERROR, "extra tokens after import");
+
+ skip_diag:
+
+  /* Get out of macro context, if we are.  */
+  skip_rest_of_line (pfile);
+
+  /* This call is expected to stack a new buffer with the translation.
+
+     Note that because we handle both #include and header unit imports via
+     _cpp_stack_include(), we get automatic second include/import suppression,
+     even in the mixed case and regardless of order.  */
+  _cpp_stack_include (pfile, fname, angle_brackets, type, header_location);
+
+  /* Tail of end_directive() that we have to handle ourselves.  */
+  if (!pfile->keep_tokens)
+    {
+      pfile->cur_run = &pfile->base_run;
+      pfile->cur_token = pfile->base_run.base;
+    }
+}
+
+static void
+do_cp_import (cpp_reader *pfile)
+{
+  do_cp_import_common (pfile, IT_CP_IMPORT);
+}
+
+static void
+do_cp_export (cpp_reader *pfile)
+{
+  do_cp_import_common (pfile, IT_CP_EXPORT_IMPORT);
 }
 
 /* Subroutine of do_linemarker.  Read possible flags after file name.
@@ -1714,11 +1849,15 @@ do_pragma_dependency (cpp_reader *pfile)
 {
   const char *fname;
   int angle_brackets, ordering;
-  location_t location;
 
-  fname = parse_include (pfile, &angle_brackets, NULL, &location);
+  fname = parse_include (pfile, get_token_no_padding (pfile),
+			 &angle_brackets, NULL);
   if (!fname)
-    return;
+    {
+      cpp_error (pfile, CPP_DL_ERROR,
+		 "#pragma dependency expects \"FILENAME\" or <FILENAME>");
+      return;
+    }
 
   ordering = _cpp_compare_file_date (pfile, fname, angle_brackets);
   if (ordering < 0)

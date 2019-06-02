@@ -1154,11 +1154,16 @@ _cpp_stack_include (cpp_reader *pfile, const char *fname, int angle_brackets,
   if (!err && is_known_idempotent_file (pfile, file, type == IT_IMPORT))
     return false;
 
-  /* Check for include re-search/translation.  */
+  /* Check for include/import re-search/translation.  */
   if (!file->header_unit &&
       type < IT_HEADER_HWM &&
       pfile->cb.translate_include)
     {
+      cpp_include_type cpp_type =
+	type == IT_CP_IMPORT        ? CPP_IT_CP_IMPORT        :
+	type == IT_CP_EXPORT_IMPORT ? CPP_IT_CP_EXPORT_IMPORT :
+	CPP_IT_INCLUDE;
+
       /*  If we re-searched an include, call again to see if it needs to
 	  be translated.  */
       for (;;)
@@ -1166,7 +1171,8 @@ _cpp_stack_include (cpp_reader *pfile, const char *fname, int angle_brackets,
 	  const char *old_path = err != ENOENT ? file->path : "";
 	  const char *new_path =
 	    pfile->cb.translate_include (pfile, pfile->line_table, loc,
-					 fname, angle_brackets, old_path);
+					 cpp_type, fname, angle_brackets,
+					 old_path);
 	  if (!new_path)
 	    {
 	      /* Translating a header we couldn't find does not make sense (we
@@ -1181,7 +1187,12 @@ _cpp_stack_include (cpp_reader *pfile, const char *fname, int angle_brackets,
 		 fixed buffer under TOS.  */
 	      cpp_buffer *buf = CPP_BUFFER (pfile);
 	      gcc_assert (buf->rlimit[-1] == '\n' && buf->rlimit[-2] == '\n');
+	      // FIXME: the second newline causes an extra in -fdirectives-only.
+	      if (CPP_OPTION (pfile, directives_only))
+		buf->rlimit--;
+	      // FIXME: Extend cpp_push_buffer() and let the callback decide.
 	      buf->to_free = buf->buf;
+	      buf->ignore_directives = true;
 
 	      file->header_unit = +1;
 	      _cpp_mark_file_once_only (pfile, file);
@@ -1230,6 +1241,9 @@ _cpp_stack_include (cpp_reader *pfile, const char *fname, int angle_brackets,
 		 matches the returned path in the same heavy-handed way as
 		 #pragma once does it (comparing file contents, etc).  */
 	      gcc_assert (new_path == old_path);
+
+	      /* Import must be translated unless the header doesn't exist.  */
+	      gcc_assert (cpp_type == CPP_IT_INCLUDE || err == ENOENT);
 	    }
 	  break;
 	}
