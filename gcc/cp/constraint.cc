@@ -47,6 +47,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "type-utils.h"
 #include "print-tree.h"
 
+static tree satisfaction_value (tree t);
+
 static int parsing_constraint_expr = 0;
 
 parsing_constraint_expression_sentinel::
@@ -1406,9 +1408,20 @@ tsubst_nested_requirement (tree t, tree args, subst_info info)
   /* Ensure that concrete results are satisfied.  */
   if (!uses_template_parms (args))
     {
-      expr = evaluate_constraints (expr, NULL_TREE);
-      if (expr != boolean_true_node)
+      /* [17.4.1.2] ... lvalue-to-value conversion is performed as necessary,
+	 and EXPR shall be a constant expression of type bool.  */
+      tree result = force_rvalue (expr, tf_error);
+      if (result == error_mark_node)
 	return error_mark_node;
+
+      /* FIXME: The expression must have boolean type.  */
+      if (cv_unqualified (TREE_TYPE (result)) != boolean_type_node)
+	return error_mark_node;
+
+      /* Compute the value of the expression.  */
+      result = satisfaction_value (cxx_constant_value (result));
+      if (result == error_mark_node || result == boolean_false_node)
+        return error_mark_node;
     }
 
   return finish_nested_requirement (expr);
@@ -1669,7 +1682,7 @@ satisfy_check (tree check, tree args, subst_info info)
 /* Ensures that T is a truth value and not (accidentally, as sometimes
    happens) an integer value.  */
 
-static tree
+tree
 satisfaction_value (tree t)
 {
   if (t == error_mark_node)
@@ -2561,7 +2574,7 @@ diagnose_requiremnt (tree req, tree args, tree in_decl)
 static void
 diagnose_requires (tree expr, tree args, tree in_decl)
 {
-  local_specialization_stack stack;
+  local_specialization_stack stack (lss_copy);
   tree parms = TREE_OPERAND (expr, 0);
   tree body = TREE_OPERAND (expr, 1);
 

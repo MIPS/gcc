@@ -1,5 +1,13 @@
 2019-06-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	PR c++/67697.
+	* constraint.cc (tsubst_nested_requirement): Don't recursively
+	satisfy nested requirements; they've already been substituted
+	into.
+	(diagnose_requirement): Copy local specialization stack.
+
+2019-06-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	PR c++/67685.
 	* constraint.cc (tsubst_requires_expr): Copy the previous local
 	specialization stack, so references to non-local parameters can
