@@ -1543,7 +1543,7 @@ tree
 tsubst_requires_expr (tree t, tree args,
 		      tsubst_flags_t complain, tree in_decl)
 {
-  local_specialization_stack stack;
+  local_specialization_stack stack(lss_copy);
 
   subst_info info(complain, in_decl);
 

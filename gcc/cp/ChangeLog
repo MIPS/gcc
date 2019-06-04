@@ -1,8 +1,15 @@
+2019-06-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	PR c++/67685.
+	* constraint.cc (tsubst_requires_expr): Copy the previous local
+	specialization stack, so references to non-local parameters can
+	be found.
+
 2019-05-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
-	PR c++/67684. Rebuild friend template constraints for the 
+	PR c++/67684. Rebuild friend template constraints for the
 	purpose of declaration matching.
-	* pt.c (tsubst_friend_function): 
+	* pt.c (tsubst_friend_function): Rebuild friend constraints.
 
 2019-05-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
