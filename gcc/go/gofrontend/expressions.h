@@ -1068,6 +1068,11 @@ class Expression
   static Expression*
   unpack_direct_iface(Expression*, Location);
 
+  // Look through the expression of a Slice_value_expression's valmem to
+  // find an call to makeslice.
+  static std::pair<Call_expression*, Temporary_statement*>
+  find_makeslice_call(Expression*);
+
   // Dump an expression to a dump constext.
   void
   dump_expression(Ast_dump_context*) const;
@@ -1196,6 +1201,10 @@ class Expression
   void
   report_error(const char*);
 
+  // Write a name to export data.
+  static void
+  export_name(Export_function_body* efb, const Named_object*);
+
   // Child class implements dumping to a dump context.
   virtual void
   do_dump_expression(Ast_dump_context*) const = 0;
@@ -1240,6 +1249,9 @@ class Expression
 
   static Expression*
   convert_interface_to_type(Type*, Expression*, Location);
+
+  static Expression*
+  import_identifier(Import_function_body*, Location);
 
   // The expression classification.
   Expression_classification classification_;
@@ -1405,7 +1417,8 @@ class Var_expression : public Expression
   { return this; }
 
   int
-  do_inlining_cost() const;
+  do_inlining_cost() const
+  { return 1; }
 
   void
   do_export(Export_function_body*) const;
