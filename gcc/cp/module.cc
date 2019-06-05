@@ -12494,6 +12494,29 @@ module_mapper::translate_include (location_t loc,
           break;
 	case 1:  /* Translate/rewrite.  */
 	  res = NULL;
+
+          /* The mapper can either respond with just IMPORT (in which case
+             another IMPORT command is forthcoming) or it can provide the BMI
+             immediately.  Replying with just IMPORT could be useful if, for
+             example, the mapping is split between a server and a file.  */
+          if (!eol_p ())
+            {
+              // FIXME: refactor with bmi_reponse() and mapping file init --
+              // quite a bit of code duplication.
+              char *bmi = response_token (loc, true);
+              bmi = maybe_strip_bmi_prefix (bmi);
+
+              module_state *state =
+                get_module (build_string (strlen (path), path), NULL);
+
+              if (!state->filename)
+                state->filename = xstrdup (bmi);
+              // FIXME: Can this really happen if/when we consult the existing
+              // state before asking the server?
+              else if (strcmp (state->filename, bmi))
+                warning_at (loc, 0, "ignoring conflicting mapping of %qs to %qs",
+                            state->get_flatname (), bmi);
+            }
 	  break;
 	case 2:  /* Treat as include.  */
 	  break;
@@ -16862,7 +16885,9 @@ module_state::direct_import (cpp_reader *reader, bool lazy)
 	    spans.close ();
 
 	  maybe_create_loc ();
-	  fname = module_mapper::import_export (this, false);
+
+          if (!filename)
+            fname = module_mapper::import_export (this, false);
 	}
 
       if (!do_import (fname, reader)
