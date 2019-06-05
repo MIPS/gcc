@@ -1907,6 +1907,7 @@ fixup_type_variants (tree t)
 	= TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t);
 
       TYPE_POLYMORPHIC_P (variants) = TYPE_POLYMORPHIC_P (t);
+      CLASSTYPE_FINAL (variants) = CLASSTYPE_FINAL (t);
 
       TYPE_BINFO (variants) = TYPE_BINFO (t);
 
@@ -6585,7 +6586,7 @@ find_flexarrays (tree t, flexmems_t *fmem, bool base_p,
       if (TREE_CODE (fld) == TYPE_DECL
 	  && DECL_IMPLICIT_TYPEDEF_P (fld)
 	  && CLASS_TYPE_P (TREE_TYPE (fld))
-	  && anon_aggrname_p (DECL_NAME (fld)))
+	  && IDENTIFIER_ANON_P (DECL_NAME (fld)))
 	{
 	  /* Check the nested unnamed type referenced via a typedef
 	     independently of FMEM (since it's not a data member of

@@ -195,6 +195,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_PTWRITE_P(x)	TARGET_ISA_PTWRITE_P(x)
 #define TARGET_AVX512BF16	TARGET_ISA_AVX512BF16
 #define TARGET_AVX512BF16_P(x)	TARGET_ISA_AVX512BF16_P(x)
+#define TARGET_ENQCMD	TARGET_ISA_ENQCMD
+#define TARGET_ENQCMD_P(x) TARGET_ISA_ENQCMD_P(x)
 
 #define TARGET_LP64	TARGET_ABI_64
 #define TARGET_LP64_P(x)	TARGET_ABI_64_P(x)
@@ -1946,6 +1948,10 @@ do {							\
  */
 #define STACK_SAVEAREA_MODE(LEVEL)			\
   ((LEVEL) == SAVE_NONLOCAL ? (TARGET_64BIT ? TImode : DImode) : Pmode)
+
+/* Specify the machine_mode of the size increment
+   operand of an 'allocate_stack' named pattern.  */
+#define STACK_SIZE_MODE Pmode
 
 /* A C expression whose value is zero if pointers that need to be extended
    from being `POINTER_SIZE' bits wide to `Pmode' are sign-extended and

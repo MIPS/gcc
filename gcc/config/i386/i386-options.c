@@ -210,7 +210,8 @@ ix86_target_string (HOST_WIDE_INT isa, HOST_WIDE_INT isa2,
     { "-mwaitpkg",	OPTION_MASK_ISA_WAITPKG },
     { "-mcldemote",	OPTION_MASK_ISA_CLDEMOTE },
     { "-mptwrite",	OPTION_MASK_ISA_PTWRITE },
-    { "-mavx512bf16",	OPTION_MASK_ISA_AVX512BF16 }
+    { "-mavx512bf16",	OPTION_MASK_ISA_AVX512BF16 },
+    { "-menqcmd",       OPTION_MASK_ISA_ENQCMD }
   };
   static struct ix86_target_opts isa_opts[] =
   {
@@ -921,6 +922,7 @@ ix86_valid_target_attribute_inner_p (tree fndecl, tree args, char *p_strings[],
     IX86_ATTR_ISA ("cldemote", OPT_mcldemote),
     IX86_ATTR_ISA ("ptwrite",   OPT_mptwrite),
     IX86_ATTR_ISA ("avx512bf16",   OPT_mavx512bf16),
+    IX86_ATTR_ISA ("enqcmd", OPT_menqcmd),
 
     /* enum options */
     IX86_ATTR_ENUM ("fpmath=",	OPT_mfpmath_),
@@ -2551,21 +2553,6 @@ ix86_option_override_internal (bool main_args_p,
      can be opts->x_optimized to ap = __builtin_next_arg (0).  */
   if (!TARGET_64BIT_P (opts->x_ix86_isa_flags) && !opts->x_flag_split_stack)
     targetm.expand_builtin_va_start = NULL;
-
-  if (Pmode == DImode)
-    {
-      ix86_gen_add3 = gen_adddi3;
-      ix86_gen_sub3 = gen_subdi3;
-      ix86_gen_sub3_carry = gen_subdi3_carry;
-      ix86_gen_andsp = gen_anddi3;
-    }
-  else
-    {
-      ix86_gen_add3 = gen_addsi3;
-      ix86_gen_sub3 = gen_subsi3;
-      ix86_gen_sub3_carry = gen_subsi3_carry;
-      ix86_gen_andsp = gen_andsi3;
-    }
 
 #ifdef USE_IX86_CLD
   /* Use -mcld by default for 32-bit code if configured with --enable-cld.  */

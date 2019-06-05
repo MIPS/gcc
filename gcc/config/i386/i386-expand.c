@@ -5380,8 +5380,7 @@ ix86_split_long_move (rtx operands[])
 	  if (nparts == 3)
 	    {
 	      if (TARGET_128BIT_LONG_DOUBLE && mode == XFmode)
-                emit_insn (ix86_gen_add3 (stack_pointer_rtx,
-					  stack_pointer_rtx, GEN_INT (-4)));
+                emit_insn (gen_add2_insn (stack_pointer_rtx, GEN_INT (-4)));
 	      emit_move_insn (part[0][2], part[1][2]);
 	    }
 	  else if (nparts == 4)
@@ -7789,7 +7788,7 @@ ix86_expand_strlensi_unroll_1 (rtx out, rtx src, rtx align_rtx)
 			       QImode, 1, end_0_label);
 
       /* Increment the address.  */
-      emit_insn (ix86_gen_add3 (out, out, const1_rtx));
+      emit_insn (gen_add2_insn (out, const1_rtx));
 
       /* Not needed with an alignment of 2 */
       if (align != 2)
@@ -7799,7 +7798,7 @@ ix86_expand_strlensi_unroll_1 (rtx out, rtx src, rtx align_rtx)
 	  emit_cmp_and_jump_insns (mem, const0_rtx, EQ, NULL, QImode, 1,
 				   end_0_label);
 
-	  emit_insn (ix86_gen_add3 (out, out, const1_rtx));
+	  emit_insn (gen_add2_insn (out, const1_rtx));
 
 	  emit_label (align_3_label);
 	}
@@ -7807,7 +7806,7 @@ ix86_expand_strlensi_unroll_1 (rtx out, rtx src, rtx align_rtx)
       emit_cmp_and_jump_insns (mem, const0_rtx, EQ, NULL, QImode, 1,
 			       end_0_label);
 
-      emit_insn (ix86_gen_add3 (out, out, const1_rtx));
+      emit_insn (gen_add2_insn (out, const1_rtx));
     }
 
   /* Generate loop to check 4 bytes at a time.  It is not a good idea to
@@ -7817,7 +7816,7 @@ ix86_expand_strlensi_unroll_1 (rtx out, rtx src, rtx align_rtx)
 
   mem = change_address (src, SImode, out);
   emit_move_insn (scratch, mem);
-  emit_insn (ix86_gen_add3 (out, out, GEN_INT (4)));
+  emit_insn (gen_add2_insn (out, GEN_INT (4)));
 
   /* This formula yields a nonzero result iff one of the bytes is zero.
      This saves three branches inside loop and many cycles.  */
@@ -7871,7 +7870,7 @@ ix86_expand_strlensi_unroll_1 (rtx out, rtx src, rtx align_rtx)
 
        /* Not in the first two.  Move two bytes forward.  */
        emit_insn (gen_lshrsi3 (tmpreg, tmpreg, GEN_INT (16)));
-       emit_insn (ix86_gen_add3 (out, out, const2_rtx));
+       emit_insn (gen_add2_insn (out, const2_rtx));
 
        emit_label (end_2_label);
 
@@ -7882,7 +7881,7 @@ ix86_expand_strlensi_unroll_1 (rtx out, rtx src, rtx align_rtx)
   emit_insn (gen_addqi3_cconly_overflow (tmpreg, tmpreg));
   tmp = gen_rtx_REG (CCmode, FLAGS_REG);
   cmp = gen_rtx_LTU (VOIDmode, tmp, const0_rtx);
-  emit_insn (ix86_gen_sub3_carry (out, out, GEN_INT (3), tmp, cmp));
+  emit_insn (gen_sub3_carry (Pmode, out, out, GEN_INT (3), tmp, cmp));
 
   emit_label (end_0_label);
 }
@@ -7915,7 +7914,7 @@ if (TARGET_UNROLL_STRLEN
       /* strlensi_unroll_1 returns the address of the zero at the end of
 	 the string, like memchr(), so compute the length by subtracting
 	 the start address.  */
-      emit_insn (ix86_gen_sub3 (out, out, addr));
+      emit_insn (gen_sub2_insn (out, addr));
       return true;
     }
   else
@@ -7938,7 +7937,7 @@ construct_plt_address (rtx symbol)
   unspec = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, symbol), UNSPEC_PLTOFF);
 
   emit_move_insn (tmp, gen_rtx_CONST (Pmode, unspec));
-  emit_insn (ix86_gen_add3 (tmp, tmp, pic_offset_table_rtx));
+  emit_insn (gen_add2_insn (tmp, pic_offset_table_rtx));
   return tmp;
 }
 
@@ -10008,17 +10007,23 @@ ix86_expand_sse_comi_round (const struct builtin_description *d,
   const struct insn_data_d *insn_p = &insn_data[icode];
   machine_mode mode0 = insn_p->operand[0].mode;
   machine_mode mode1 = insn_p->operand[1].mode;
-  enum rtx_code comparison = UNEQ;
-  bool need_ucomi = false;
 
   /* See avxintrin.h for values.  */
-  enum rtx_code comi_comparisons[32] =
+  static const enum rtx_code comparisons[32] =
     {
-      UNEQ, GT, GE, UNORDERED, LTGT, UNLE, UNLT, ORDERED, UNEQ, UNLT,
-      UNLE, LT, LTGT, GE, GT, LT, UNEQ, GT, GE, UNORDERED, LTGT, UNLE,
-      UNLT, ORDERED, UNEQ, UNLT, UNLE, LT, LTGT, GE, GT, LT
+      EQ, LT, LE, UNORDERED, NE, UNGE, UNGT, ORDERED,
+      UNEQ, UNLT, UNLE, UNORDERED, LTGT, GE, GT, ORDERED,
+      EQ, LT, LE, UNORDERED, NE, UNGE, UNGT, ORDERED,
+      UNEQ, UNLT, UNLE, UNORDERED, LTGT, GE, GT, ORDERED
     };
-  bool need_ucomi_values[32] =
+  static const bool ordereds[32] =
+    {
+      true,  true,  true,  false, false, false, false, true,
+      false, false, false, true,  true,  true,  true,  false,
+      true,  true,  true,  false, false, false, false, true,
+      false, false, false, true,  true,  true,  true,  false
+    };
+  static const bool non_signalings[32] =
     {
       true,  false, false, true,  true,  false, false, true,
       true,  false, false, true,  true,  false, false, true,
@@ -10043,16 +10048,94 @@ ix86_expand_sse_comi_round (const struct builtin_description *d,
       return const0_rtx;
     }
 
-  comparison = comi_comparisons[INTVAL (op2)];
-  need_ucomi = need_ucomi_values[INTVAL (op2)];
-
   if (VECTOR_MODE_P (mode0))
     op0 = safe_vector_operand (op0, mode0);
   if (VECTOR_MODE_P (mode1))
     op1 = safe_vector_operand (op1, mode1);
 
+  enum rtx_code comparison = comparisons[INTVAL (op2)];
+  bool ordered = ordereds[INTVAL (op2)];
+  bool non_signaling = non_signalings[INTVAL (op2)];
+  rtx const_val = const0_rtx;
+
+  bool check_unordered = false;
+  machine_mode mode = CCFPmode;
+  switch (comparison)
+    {
+    case ORDERED:
+      if (!ordered)
+	{
+	  /* NB: Use CCSmode/NE for _CMP_TRUE_UQ/_CMP_TRUE_US.  */
+	  if (!non_signaling)
+	    ordered = true;
+	  mode = CCSmode;
+	}
+      else
+	{
+	  /* NB: Use CCPmode/NE for _CMP_ORD_Q/_CMP_ORD_S.  */
+	  if (non_signaling)
+	    ordered = false;
+	  mode = CCPmode;
+	}
+      comparison = NE;
+      break;
+    case UNORDERED:
+      if (ordered)
+	{
+	  /* NB: Use CCSmode/EQ for _CMP_FALSE_OQ/_CMP_FALSE_OS.  */
+	  if (non_signaling)
+	    ordered = false;
+	  mode = CCSmode;
+	}
+      else
+	{
+	  /* NB: Use CCPmode/NE for _CMP_UNORD_Q/_CMP_UNORD_S.  */
+	  if (!non_signaling)
+	    ordered = true;
+	  mode = CCPmode;
+	}
+      comparison = EQ;
+      break;
+
+    case LE:	/* -> GE  */
+    case LT:	/* -> GT  */
+    case UNGE:	/* -> UNLE  */
+    case UNGT:	/* -> UNLT  */
+      std::swap (op0, op1);
+      comparison = swap_condition (comparison);
+      /* FALLTHRU */
+    case GT:
+    case GE:
+    case UNEQ:
+    case UNLT:
+    case UNLE:
+    case LTGT:
+      /* These are supported by CCFPmode.  NB: Use ordered/signaling
+	 COMI or unordered/non-signaling UCOMI.  Both set ZF, PF, CF
+	 with NAN operands.  */
+      if (ordered == non_signaling)
+	ordered = !ordered;
+      break;
+    case EQ:
+      /* NB: COMI/UCOMI will set ZF with NAN operands.  Use CCZmode for
+	 _CMP_EQ_OQ/_CMP_EQ_OS.  */
+      check_unordered = true;
+      mode = CCZmode;
+      break;
+    case NE:
+      /* NB: COMI/UCOMI will set ZF with NAN operands.  Use CCZmode for
+	 _CMP_NEQ_UQ/_CMP_NEQ_US.  */
+      gcc_assert (!ordered);
+      check_unordered = true;
+      mode = CCZmode;
+      const_val = const1_rtx;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
   target = gen_reg_rtx (SImode);
-  emit_move_insn (target, const0_rtx);
+  emit_move_insn (target, const_val);
   target = gen_rtx_SUBREG (QImode, target, 0);
 
   if ((optimize && !register_operand (op0, mode0))
@@ -10062,10 +10145,14 @@ ix86_expand_sse_comi_round (const struct builtin_description *d,
       || !insn_p->operand[1].predicate (op1, mode1))
     op1 = copy_to_mode_reg (mode1, op1);
 
-  if (need_ucomi)
-    icode = icode == CODE_FOR_sse_comi_round
-		     ? CODE_FOR_sse_ucomi_round
-		     : CODE_FOR_sse2_ucomi_round;
+  /*
+     1. COMI: ordered and signaling.
+     2. UCOMI: unordered and non-signaling.
+   */
+  if (non_signaling)
+    icode = (icode == CODE_FOR_sse_comi_round
+	     ? CODE_FOR_sse_ucomi_round
+	     : CODE_FOR_sse2_ucomi_round);
 
   pat = GEN_FCN (icode) (op0, op1, op3);
   if (! pat)
@@ -10087,10 +10174,41 @@ ix86_expand_sse_comi_round (const struct builtin_description *d,
     }
 
   emit_insn (pat);
+
+  rtx_code_label *label = NULL;
+
+  /* NB: For ordered EQ or unordered NE, check ZF alone isn't sufficient
+     with NAN operands.  */
+  if (check_unordered)
+    {
+      gcc_assert (comparison == EQ || comparison == NE);
+
+      rtx flag = gen_rtx_REG (CCFPmode, FLAGS_REG);
+      label = gen_label_rtx ();
+      rtx tmp = gen_rtx_fmt_ee (UNORDERED, VOIDmode, flag, const0_rtx);
+      tmp = gen_rtx_IF_THEN_ELSE (VOIDmode, tmp,
+				  gen_rtx_LABEL_REF (VOIDmode, label),
+				  pc_rtx);
+      emit_jump_insn (gen_rtx_SET (pc_rtx, tmp));
+    }
+
+  /* NB: Set CCFPmode and check a different CCmode which is in subset
+     of CCFPmode.  */
+  if (GET_MODE (set_dst) != mode)
+    {
+      gcc_assert (mode == CCAmode || mode == CCCmode
+		  || mode == CCOmode || mode == CCPmode
+		  || mode == CCSmode || mode == CCZmode);
+      set_dst = gen_rtx_REG (mode, FLAGS_REG);
+    }
+
   emit_insn (gen_rtx_SET (gen_rtx_STRICT_LOW_PART (VOIDmode, target),
 			  gen_rtx_fmt_ee (comparison, QImode,
 					  set_dst,
 					  const0_rtx)));
+
+  if (label)
+    emit_label (label);
 
   return SUBREG_REG (target);
 }
@@ -11314,6 +11432,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
       emit_move_insn (target, op0);
       return target;
 
+    case IX86_BUILTIN_ENQCMD:
+    case IX86_BUILTIN_ENQCMDS:
     case IX86_BUILTIN_MOVDIR64B:
 
       arg0 = CALL_EXPR_ARG (exp, 0);
@@ -11329,11 +11449,33 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
       }
       op1 = gen_rtx_MEM (XImode, op1);
 
-      insn = (TARGET_64BIT
-		? gen_movdir64b_di (op0, op1)
-		: gen_movdir64b_si (op0, op1));
-      emit_insn (insn);
-      return 0;
+      if (fcode == IX86_BUILTIN_MOVDIR64B)
+	{
+	  emit_insn (gen_movdir64b (Pmode, op0, op1));
+	  return 0;
+	}
+      else
+	{
+	  rtx pat;
+
+	  target = gen_reg_rtx (SImode);
+	  emit_move_insn (target, const0_rtx);
+	  target = gen_rtx_SUBREG (QImode, target, 0);
+
+	  if (fcode == IX86_BUILTIN_ENQCMD)
+	    pat = gen_enqcmd (UNSPECV_ENQCMD, Pmode, op0, op1);
+	  else
+	    pat = gen_enqcmd (UNSPECV_ENQCMDS, Pmode, op0, op1);
+
+	  emit_insn (pat);
+
+	  emit_insn (gen_rtx_SET (gen_rtx_STRICT_LOW_PART (VOIDmode, target),
+				  gen_rtx_fmt_ee (EQ, QImode,
+						  SET_DEST (pat),
+						  const0_rtx)));
+
+	  return SUBREG_REG (target);
+	}
 
     case IX86_BUILTIN_FXSAVE:
     case IX86_BUILTIN_FXRSTOR:

@@ -2025,9 +2025,10 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       tree old_result = DECL_TEMPLATE_RESULT (olddecl);
       tree new_result = DECL_TEMPLATE_RESULT (newdecl);
       TREE_TYPE (olddecl) = TREE_TYPE (old_result);
-      DECL_TEMPLATE_SPECIALIZATIONS (olddecl)
-	= chainon (DECL_TEMPLATE_SPECIALIZATIONS (olddecl),
-		   DECL_TEMPLATE_SPECIALIZATIONS (newdecl));
+
+      /* The new decl should not already have gathered any
+	 specializations.  */
+      gcc_assert (!DECL_TEMPLATE_SPECIALIZATIONS (newdecl));
 
       DECL_ATTRIBUTES (old_result)
 	= (*targetm.merge_decl_attributes) (old_result, new_result);
@@ -7625,7 +7626,7 @@ cp_maybe_mangle_decomp (tree decl, tree first, unsigned int count)
 {
   if (!processing_template_decl
       && !error_operand_p (decl)
-      && DECL_NAMESPACE_SCOPE_P (decl))
+      && TREE_STATIC (decl))
     {
       auto_vec<tree, 16> v;
       v.safe_grow (count);
@@ -7856,8 +7857,27 @@ cp_finish_decomp (tree decl, tree first, unsigned int count)
 	      DECL_HAS_VALUE_EXPR_P (v[i]) = 0;
 	    }
 	  if (!processing_template_decl)
-	    cp_finish_decl (v[i], init, /*constexpr*/false,
-			    /*asm*/NULL_TREE, LOOKUP_NORMAL);
+	    {
+	      TREE_PUBLIC (v[i]) = TREE_PUBLIC (decl);
+	      TREE_STATIC (v[i]) = TREE_STATIC (decl);
+	      DECL_COMMON (v[i]) = DECL_COMMON (decl);
+	      DECL_COMDAT (v[i]) = DECL_COMDAT (decl);
+	      if (TREE_STATIC (v[i]))
+		{
+		  CP_DECL_THREAD_LOCAL_P (v[i])
+		    = CP_DECL_THREAD_LOCAL_P (decl);
+		  set_decl_tls_model (v[i], DECL_TLS_MODEL (decl));
+		  if (DECL_ONE_ONLY (decl))
+		    make_decl_one_only (v[i], cxx_comdat_group (v[i]));
+		  if (TREE_PUBLIC (decl))
+		    DECL_WEAK (v[i]) = DECL_WEAK (decl);
+		  DECL_VISIBILITY (v[i]) = DECL_VISIBILITY (decl);
+		  DECL_VISIBILITY_SPECIFIED (v[i])
+		    = DECL_VISIBILITY_SPECIFIED (decl);
+		}
+	      cp_finish_decl (v[i], init, /*constexpr*/false,
+			      /*asm*/NULL_TREE, LOOKUP_NORMAL);
+	    }
 	}
       /* Ignore reads from the underlying decl performed during initialization
 	 of the individual variables.  If those will be read, we'll mark
@@ -10233,15 +10253,12 @@ name_unnamed_type (tree type, tree decl)
 
   /* Replace the anonymous name with the real name everywhere.  */
   for (tree t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
-    {
-      if (anon_aggrname_p (TYPE_IDENTIFIER (t)))
-	/* We do not rename the debug info representing the
-	   unnamed tagged type because the standard says in
-	   [dcl.typedef] that the naming applies only for
-	   linkage purposes.  */
-	/*debug_hooks->set_name (t, decl);*/
-	TYPE_NAME (t) = decl;
-    }
+    if (IDENTIFIER_ANON_P (TYPE_IDENTIFIER (t)))
+      /* We do not rename the debug info representing the unnamed
+	 tagged type because the standard says in [dcl.typedef] that
+	 the naming applies only for linkage purposes.  */
+      /*debug_hooks->set_name (t, decl);*/
+      TYPE_NAME (t) = decl;
 
   if (TYPE_LANG_SPECIFIC (type))
     TYPE_WAS_UNNAMED (type) = 1;
@@ -10592,7 +10609,8 @@ grokdeclarator (const cp_declarator *declarator,
      D1 ( parameter-declaration-clause) ...  */
   if (funcdef_flag && innermost_code != cdk_function)
     {
-      error ("function definition does not declare parameters");
+      error_at (declarator->id_loc,
+		"function definition does not declare parameters");
       return error_mark_node;
     }
 
@@ -10600,7 +10618,8 @@ grokdeclarator (const cp_declarator *declarator,
       && innermost_code != cdk_function
       && ! (ctype && !declspecs->any_specifiers_p))
     {
-      error ("declaration of %qD as non-function", dname);
+      error_at (declarator->id_loc,
+		"declaration of %qD as non-function", dname);
       return error_mark_node;
     }
 
@@ -10609,7 +10628,8 @@ grokdeclarator (const cp_declarator *declarator,
       if (UDLIT_OPER_P (dname)
 	  && innermost_code != cdk_function)
 	{
-	  error ("declaration of %qD as non-function", dname);
+	  error_at (declarator->id_loc,
+		    "declaration of %qD as non-function", dname);
 	  return error_mark_node;
 	}
 
@@ -10617,12 +10637,14 @@ grokdeclarator (const cp_declarator *declarator,
 	{
 	  if (typedef_p)
 	    {
-	      error ("declaration of %qD as %<typedef%>", dname);
+	      error_at (declarator->id_loc,
+			"declaration of %qD as %<typedef%>", dname);
 	      return error_mark_node;
 	    }
 	  else if (decl_context == PARM || decl_context == CATCHPARM)
 	    {
-	      error ("declaration of %qD as parameter", dname);
+	      error_at (declarator->id_loc,
+			"declaration of %qD as parameter", dname);
 	      return error_mark_node;
 	    }
 	}
@@ -11069,40 +11091,43 @@ grokdeclarator (const cp_declarator *declarator,
 			? declarator->declarator->id_loc : declarator->id_loc);
       if (inlinep)
 	error_at (declspecs->locations[ds_inline],
-		  "structured binding declaration cannot be %<inline%>");
+		  "structured binding declaration cannot be %qs", "inline");
       if (typedef_p)
 	error_at (declspecs->locations[ds_typedef],
-		  "structured binding declaration cannot be %<typedef%>");
+		  "structured binding declaration cannot be %qs", "typedef");
       if (constexpr_p)
 	error_at (declspecs->locations[ds_constexpr], "structured "
-		  "binding declaration cannot be %<constexpr%>");
-      if (thread_p)
-	error_at (declspecs->locations[ds_thread],
-		  "structured binding declaration cannot be %qs",
-		  declspecs->gnu_thread_keyword_p
-		  ? "__thread" : "thread_local");
+		  "binding declaration cannot be %qs", "constexpr");
+      if (thread_p && cxx_dialect < cxx2a)
+	pedwarn (declspecs->locations[ds_thread], 0,
+		 "structured binding declaration can be %qs only in "
+		 "%<-std=c++2a%> or %<-std=gnu++2a%>",
+		 declspecs->gnu_thread_keyword_p
+		 ? "__thread" : "thread_local");
       if (concept_p)
 	error_at (declspecs->locations[ds_concept],
-		  "structured binding declaration cannot be %<concept%>");
+		  "structured binding declaration cannot be %qs", "concept");
       switch (storage_class)
 	{
 	case sc_none:
 	  break;
 	case sc_register:
-	  error_at (loc, "structured binding declaration cannot be "
-		    "%<register%>");
+	  error_at (loc, "structured binding declaration cannot be %qs",
+		    "register");
 	  break;
 	case sc_static:
-	  error_at (loc, "structured binding declaration cannot be "
-		    "%<static%>");
+	  if (cxx_dialect < cxx2a)
+	    pedwarn (loc, 0,
+		     "structured binding declaration can be %qs only in "
+		     "%<-std=c++2a%> or %<-std=gnu++2a%>", "static");
 	  break;
 	case sc_extern:
-	  error_at (loc, "structured binding declaration cannot be "
-		    "%<extern%>");
+	  error_at (loc, "structured binding declaration cannot be %qs",
+		    "extern");
 	  break;
 	case sc_mutable:
-	  error_at (loc, "structured binding declaration cannot be "
-		    "%<mutable%>");
+	  error_at (loc, "structured binding declaration cannot be %qs",
+		    "mutable");
 	  break;
 	case sc_auto:
 	  error_at (loc, "structured binding declaration cannot be "
@@ -11128,12 +11153,12 @@ grokdeclarator (const cp_declarator *declarator,
       inlinep = 0;
       typedef_p = 0;
       constexpr_p = 0;
-      thread_p = 0;
       concept_p = 0;
-      storage_class = sc_none;
-      staticp = 0;
-      declspecs->storage_class = sc_none;
-      declspecs->locations[ds_thread] = UNKNOWN_LOCATION;
+      if (storage_class != sc_static)
+	{
+	  storage_class = sc_none;
+	  declspecs->storage_class = sc_none;
+	}
     }
 
   /* Static anonymous unions are dealt with here.  */
@@ -14061,7 +14086,7 @@ xref_tag_1 (enum tag_types tag_code, tree name,
   /* In case of anonymous name, xref_tag is only called to
      make type node and push name.  Name lookup is not required.  */
   tree t = NULL_TREE;
-  if (scope != ts_lambda && !anon_aggrname_p (name))
+  if (scope != ts_lambda && !IDENTIFIER_ANON_P (name))
     t = lookup_and_check_tag  (tag_code, name, scope, template_header_p);
   
   if (t == error_mark_node)
