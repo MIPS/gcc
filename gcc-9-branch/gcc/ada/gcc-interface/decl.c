@@ -3373,7 +3373,6 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, bool definition)
 	     Unchecked_Union (it must be an Itype), just return the type.  */
 	  if (Has_Discriminants (gnat_entity)
 	      && Stored_Constraint (gnat_entity) != No_Elist
-	      && !Is_For_Access_Subtype (gnat_entity)
 	      && Is_Record_Type (gnat_base_type)
 	      && !Is_Unchecked_Union (gnat_base_type))
 	    {
@@ -8162,6 +8161,8 @@ components_to_record (Node_Id gnat_component_list, Entity_Id gnat_record_type,
 	gnu_field_list = gnu_rep_list;
       else
 	{
+	  TYPE_NAME (gnu_rep_type)
+	    = create_concat_name (gnat_record_type, "REP");
 	  TYPE_REVERSE_STORAGE_ORDER (gnu_rep_type)
 	    = TYPE_REVERSE_STORAGE_ORDER (gnu_record_type);
 	  finish_record_type (gnu_rep_type, gnu_rep_list, 1, debug_info);

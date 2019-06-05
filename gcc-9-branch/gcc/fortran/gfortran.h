@@ -1866,6 +1866,9 @@ typedef struct gfc_namespace
 
   /* Set to 1 for !$ACC ROUTINE namespaces.  */
   unsigned oacc_routine:1;
+
+  /* Set to 1 if there are any calls to procedures with implicit interface.  */
+  unsigned implicit_interface_calls:1;
 }
 gfc_namespace;
 
@@ -3462,6 +3465,7 @@ void gfc_delete_bbt (void *, void *, compare_fn);
 /* dump-parse-tree.c */
 void gfc_dump_parse_tree (gfc_namespace *, FILE *);
 void gfc_dump_c_prototypes (gfc_namespace *, FILE *);
+void gfc_dump_external_c_prototypes (FILE *);
 
 /* parse.c */
 bool gfc_parse_file (void);

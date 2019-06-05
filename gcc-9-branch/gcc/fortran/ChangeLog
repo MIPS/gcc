@@ -1,3 +1,117 @@
+2019-05-30  Marek Polacek  <polacek@redhat.com>
+
+	* lang.opt (ftail-call-workaround): Fix a typo.
+
+2019-05-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* lang.opt (ftail-call-workaround=): Fix a typo - lenghts to lengths.
+
+2019-05-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/90329
+	Backported from mainline
+	2019-05-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/90329
+	* lang.opt (fbroken-callers): Remove.
+	(ftail-call-workaround, ftail-call-workaround=): New options.
+	* gfortran.h (struct gfc_namespace): Add implicit_interface_calls.
+	* interface.c (gfc_procedure_use): Set implicit_interface_calls
+	for calls to implicit interface procedures.
+	* trans-decl.c (create_function_arglist): Use flag_tail_call_workaround
+	instead of flag_broken_callers.  If it is not 2, also require
+	sym->ns->implicit_interface_calls.
+	* invoke.texi (fbroken-callers): Remove documentation.
+	(ftail-call-workaround, ftail-call-workaround=): Document.
+
+	2019-05-19  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/90329
+	* invoke.texi: Document -fbroken-callers.
+	* lang.opt: Add -fbroken-callers.
+	* trans-decl.c (create_function_arglist): Only set
+	DECL_HIDDEN_STRING_LENGTH if flag_broken_callers is set.
+
+	2019-05-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/90329
+	* trans-decl.c (create_function_arglist): Set
+	DECL_HIDDEN_STRING_LENGTH on hidden string length PARM_DECLs if
+	len is constant.
+
+2019-05-21  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	Backport from trunk
+	PR libfortran/90038
+	* intrinsic.texi (EXECUTE_COMMAND_LINE): Explain new
+	wait=.false. implementation.
+
+2019-05-19  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/90498
+	* trans-stmt.c (trans_associate_var) Do not use the saved
+	descriptor if the expression is a COMPONENT_REF.
+
+2019-05-15  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	Backport from trunk
+	* parse.c (gfc_parse_file): Remove translation string markers.
+
+2019-05-12  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	Backport from trunk
+	* dump-parse-tree.c (get_c_type_name): Use macros for complex type
+	names.
+	* parse.c (gfc_parse_file): Define complex macros, add CPP support
+	when printing C prototypes.
+
+2019-05-11  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/90093
+	* trans-decl.c (convert_CFI_desc): Test that the dummy is
+	present before doing any of the conversions.
+
+	PR fortran/90352
+	* decl.c (gfc_verify_c_interop_param): Restore the error for
+	charlen > 1 actual arguments passed to bind(C) procs.
+	Clean up trailing white space.
+
+	PR fortran/90355
+	* trans-array.c (gfc_trans_create_temp_array): Set the 'span'
+	field to the element length for all types.
+	(gfc_conv_expr_descriptor): The force_no_tmp flag is used to
+	prevent temporary creation, especially for substrings.
+	* trans-decl.c (gfc_trans_deferred_vars): Rather than assert
+	that the backend decl for the string length is non-null, use it
+	as a condition before calling gfc_trans_vla_type_sizes.
+	* trans-expr.c (gfc_conv_gfc_desc_to_cfi_desc): 'force_no_tmp'
+	is set before calling gfc_conv_expr_descriptor.
+	* trans.c (get_array_span): Move the code for extracting 'span'
+	from gfc_build_array_ref to this function. This is specific to
+	descriptors that are component and indirect references.
+	* trans.h : Add the force_no_tmp flag bitfield to gfc_se.
+
+2019-05-09  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/90351
+	PR fortran/90329
+	* gfortran.dg/dump-parse-tree.c: Include version.h.
+	(gfc_dump_external_c_prototypes): New function.
+	(get_c_type_name): Select "char" as a name for a simple char.
+	Adjust to handling external functions. Also handle complex.
+	(write_decl): Add argument bind_c. Adjust for dumping of external
+	procedures.
+	(write_proc): Likewise.
+	(write_interop_decl): Add bind_c argument to call of write_proc.
+	* gfortran.h: Add prototype for gfc_dump_external_c_prototypes.
+	* lang.opt: Add -fc-prototypes-external flag.
+	* parse.c (gfc_parse_file): Move dumping of BIND(C) prototypes.
+	Call gfc_dump_external_c_prototypes if option is set.
+	* invoke.texi: Document -fc-prototypes-external.
+
 2019-05-03  Release Manager
 
 	* GCC 9.1.0 released.
