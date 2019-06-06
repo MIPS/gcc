@@ -131,7 +131,9 @@ extern int darwin_emit_branch_islands;
 #undef CC1_SPEC
 #define CC1_SPEC "%(cc1_cpu) \
   %{!mkernel:%{!static:%{!mdynamic-no-pic:-fPIC}}} \
-  %{g: %{!fno-eliminate-unused-debug-symbols: -feliminate-unused-debug-symbols }} " \
+  %{g: %{!fno-eliminate-unused-debug-symbols: -feliminate-unused-debug-symbols }} \
+  %{mx32:%eDarwin is not an mx32 platform} \
+  %{mfentry*:%eDarwin does not support -mfentry or associated options}" \
   DARWIN_CC1_SPEC
 
 #undef ASM_SPEC
@@ -220,6 +222,18 @@ extern int darwin_emit_branch_islands;
 	  fprintf (FILE, "\t%s %d\n", ALIGN_ASM_OP, (LOG));	   \
       }								   \
   } while (0)
+
+#ifdef HAVE_GAS_MAX_SKIP_P2ALIGN
+#define ASM_OUTPUT_MAX_SKIP_ALIGN(FILE,LOG,MAX_SKIP)                    \
+  do {                                                                  \
+    if ((LOG) != 0) {                                                   \
+      if ((MAX_SKIP) == 0 || (MAX_SKIP) >= (1 << (LOG)) - 1)            \
+        fprintf ((FILE), "\t.p2align %d\n", (LOG));                     \
+      else                                                              \
+        fprintf ((FILE), "\t.p2align %d,,%d\n", (LOG), (MAX_SKIP));     \
+    }                                                                   \
+  } while (0)
+#endif
 
 /* Darwin x86 assemblers support the .ident directive.  */
 

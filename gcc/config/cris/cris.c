@@ -903,7 +903,7 @@ cris_print_operand (FILE *file, rtx x, int code)
     case ':':
       /* The PIC register.  */
       if (! flag_pic)
-	internal_error ("invalid use of ':' modifier");
+	internal_error ("invalid use of %<:%> modifier");
       fprintf (file, "$%s", reg_names [PIC_OFFSET_TABLE_REGNUM]);
       return;
 
@@ -2764,6 +2764,9 @@ cris_asm_output_mi_thunk (FILE *stream,
 			  HOST_WIDE_INT vcall_offset ATTRIBUTE_UNUSED,
 			  tree funcdecl)
 {
+  const char *fnname = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (thunkdecl));
+
+  assemble_start_function (thunkdecl, fnname);
   /* Make sure unwind info is emitted for the thunk if needed.  */
   final_start_function (emit_barrier (), stream, 1);
 
@@ -2806,6 +2809,7 @@ cris_asm_output_mi_thunk (FILE *stream,
     }
 
   final_end_function ();
+  assemble_end_function (thunkdecl, fnname);
 }
 
 /* Boilerplate emitted at start of file.

@@ -4849,6 +4849,7 @@ mips_split_move (rtx dest, rtx src, enum mips_split_type split_type, rtx insn_)
      can forward SRC for DEST.  This is most useful if the next insn is a
      simple store.   */
   rtx_insn *insn = (rtx_insn *)insn_;
+  struct mips_address_info addr;
   if (insn)
     {
       rtx_insn *next = next_nonnote_nondebug_insn_bb (insn);
@@ -4856,7 +4857,17 @@ mips_split_move (rtx dest, rtx src, enum mips_split_type split_type, rtx insn_)
 	{
 	  rtx set = single_set (next);
 	  if (set && SET_SRC (set) == dest)
-	    validate_change (next, &SET_SRC (set), src, false);
+	    {
+	      if (MEM_P (src))
+		{
+		  rtx tmp = XEXP (src, 0);
+		  mips_classify_address (&addr, tmp, GET_MODE (tmp), true);
+		  if (REGNO (addr.reg) != REGNO (dest))
+		    validate_change (next, &SET_SRC (set), src, false);
+		}
+	      else
+		validate_change (next, &SET_SRC (set), src, false);
+	    }
 	}
     }
 }
@@ -9577,7 +9588,7 @@ mips_dwarf_frame_reg_mode (int regno)
 {
   machine_mode mode = default_dwarf_frame_reg_mode (regno);
 
-  if (FP_REG_P (regno) && mips_abi == ABI_32 && TARGET_FLOAT64)
+  if (FP_REG_P (regno) && mips_abi == ABI_32 && !TARGET_FLOAT32)
     mode = SImode;
 
   return mode;
@@ -13449,7 +13460,7 @@ mips_preferred_simd_mode (scalar_mode mode)
 /* Implement TARGET_VECTORIZE_AUTOVECTORIZE_VECTOR_SIZES.  */
 
 static void
-mips_autovectorize_vector_sizes (vector_sizes *sizes)
+mips_autovectorize_vector_sizes (vector_sizes *sizes, bool)
 {
   if (ISA_HAS_MSA)
     sizes->safe_push (16);
@@ -16856,6 +16867,19 @@ mips_expand_builtin_insn (enum insn_code icode, unsigned int nops,
       std::swap (ops[1], ops[2]);
       break;
 
+    case CODE_FOR_msa_maddv_b:
+    case CODE_FOR_msa_maddv_h:
+    case CODE_FOR_msa_maddv_w:
+    case CODE_FOR_msa_maddv_d:
+    case CODE_FOR_msa_fmadd_w:
+    case CODE_FOR_msa_fmadd_d:
+    case CODE_FOR_msa_fmsub_w:
+    case CODE_FOR_msa_fmsub_d:
+      /* fma(a, b, c) results into (a * b + c), however builtin_msa_fmadd expects
+	 it to be (a + b * c).  Swap the 1st and 3rd operands.  */
+      std::swap (ops[1], ops[3]);
+      break;
+
     case CODE_FOR_msa_slli_b:
     case CODE_FOR_msa_slli_h:
     case CODE_FOR_msa_slli_w:
@@ -19420,6 +19444,7 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 		      HOST_WIDE_INT delta, HOST_WIDE_INT vcall_offset,
 		      tree function)
 {
+  const char *fnname = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (thunk_fndecl));
   rtx this_rtx, temp1, temp2, fnaddr;
   rtx_insn *insn;
   bool use_sibcall_p;
@@ -19532,9 +19557,11 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   split_all_insns_noflow ();
   mips16_lay_out_constants (true);
   shorten_branches (insn);
+  assemble_start_function (thunk_fndecl, fnname);
   final_start_function (insn, file, 1);
   final (insn, file, 1);
   final_end_function ();
+  assemble_end_function (thunk_fndecl, fnname);
 
   /* Clean up the vars set above.  Note that final_end_function resets
      the global pointer for us.  */

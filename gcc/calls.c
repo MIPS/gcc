@@ -1555,7 +1555,10 @@ maybe_warn_nonstring_arg (tree fndecl, tree exp)
   if (TREE_NO_WARNING (exp) || !warn_stringop_overflow)
     return;
 
+  /* Avoid clearly invalid calls (more checking done below).  */
   unsigned nargs = call_expr_nargs (exp);
+  if (!nargs)
+    return;
 
   /* The bound argument to a bounded string function like strncpy.  */
   tree bound = NULL_TREE;
@@ -3624,6 +3627,28 @@ expand_call (tree exp, rtx target, int ignore)
       || args_size.var
       || dbg_cnt (tail_call) == false)
     try_tail_call = 0;
+
+  /* Workaround buggy C/C++ wrappers around Fortran routines with
+     character(len=constant) arguments if the hidden string length arguments
+     are passed on the stack; if the callers forget to pass those arguments,
+     attempting to tail call in such routines leads to stack corruption.
+     Avoid tail calls in functions where at least one such hidden string
+     length argument is passed (partially or fully) on the stack in the
+     caller and the callee needs to pass any arguments on the stack.
+     See PR90329.  */
+  if (try_tail_call && maybe_ne (args_size.constant, 0))
+    for (tree arg = DECL_ARGUMENTS (current_function_decl);
+	 arg; arg = DECL_CHAIN (arg))
+      if (DECL_HIDDEN_STRING_LENGTH (arg) && DECL_INCOMING_RTL (arg))
+	{
+	  subrtx_iterator::array_type array;
+	  FOR_EACH_SUBRTX (iter, array, DECL_INCOMING_RTL (arg), NONCONST)
+	    if (MEM_P (*iter))
+	      {
+		try_tail_call = 0;
+		break;
+	      }
+	}
 
   /* If the user has marked the function as requiring tail-call
      optimization, attempt it.  */

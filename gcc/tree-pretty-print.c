@@ -35,6 +35,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "gomp-constants.h"
 #include "gimple.h"
 
+/* Disable warnings about quoting issues in the pp_xxx calls below
+   that (intentionally) don't follow GCC diagnostic conventions.  */
+#if __GNUC__ >= 10
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wformat-diag"
+#endif
+
 /* Local functions, macros and variables.  */
 static const char *op_symbol (const_tree);
 static void pretty_print_string (pretty_printer *, const char*, unsigned);
@@ -465,6 +472,9 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, dump_flags_t flags)
       goto print_remap;
     case OMP_CLAUSE__REDUCTEMP_:
       name = "_reductemp_";
+      goto print_remap;
+    case OMP_CLAUSE__CONDTEMP_:
+      name = "_condtemp_";
       goto print_remap;
     case OMP_CLAUSE_TO_DECLARE:
       name = "to";
@@ -1676,9 +1686,17 @@ dump_generic_node (pretty_printer *pp, tree node, int spc, dump_flags_t flags,
 	  {
 	    if (TREE_CODE (TREE_OPERAND (node, 0)) != ADDR_EXPR)
 	      {
+		/* Enclose pointers to arrays in parentheses.  */
+		tree op0 = TREE_OPERAND (node, 0);
+		tree op0type = TREE_TYPE (op0);
+		if (POINTER_TYPE_P (op0type)
+		    && TREE_CODE (TREE_TYPE (op0type)) == ARRAY_TYPE)
+		  pp_left_paren (pp);
 		pp_star (pp);
-		dump_generic_node (pp, TREE_OPERAND (node, 0),
-				   spc, flags, false);
+		dump_generic_node (pp, op0, spc, flags, false);
+		if (POINTER_TYPE_P (op0type)
+		    && TREE_CODE (TREE_TYPE (op0type)) == ARRAY_TYPE)
+		  pp_right_paren (pp);
 	      }
 	    else
 	      dump_generic_node (pp,
@@ -2111,13 +2129,39 @@ dump_generic_node (pretty_printer *pp, tree node, int spc, dump_flags_t flags,
       break;
 
     case BIT_FIELD_REF:
-      pp_string (pp, "BIT_FIELD_REF <");
-      dump_generic_node (pp, TREE_OPERAND (node, 0), spc, flags, false);
-      pp_string (pp, ", ");
-      dump_generic_node (pp, TREE_OPERAND (node, 1), spc, flags, false);
-      pp_string (pp, ", ");
-      dump_generic_node (pp, TREE_OPERAND (node, 2), spc, flags, false);
-      pp_greater (pp);
+      if (flags & TDF_GIMPLE)
+	{
+	  pp_string (pp, "__BIT_FIELD_REF <");
+	  dump_generic_node (pp, TREE_TYPE (node),
+			     spc, flags | TDF_SLIM, false);
+	  if (TYPE_ALIGN (TREE_TYPE (node))
+	      != TYPE_ALIGN (TYPE_MAIN_VARIANT (TREE_TYPE (node))))
+	    {
+	      pp_string (pp, ", ");
+	      pp_decimal_int (pp, TYPE_ALIGN (TREE_TYPE (node)));
+	    }
+	  pp_greater (pp);
+	  pp_string (pp, " (");
+	  dump_generic_node (pp, TREE_OPERAND (node, 0), spc,
+			     flags | TDF_SLIM, false);
+	  pp_string (pp, ", ");
+	  dump_generic_node (pp, TREE_OPERAND (node, 1), spc,
+			     flags | TDF_SLIM, false);
+	  pp_string (pp, ", ");
+	  dump_generic_node (pp, TREE_OPERAND (node, 2), spc,
+			     flags | TDF_SLIM, false);
+	  pp_right_paren (pp);
+	}
+      else
+	{
+	  pp_string (pp, "BIT_FIELD_REF <");
+	  dump_generic_node (pp, TREE_OPERAND (node, 0), spc, flags, false);
+	  pp_string (pp, ", ");
+	  dump_generic_node (pp, TREE_OPERAND (node, 1), spc, flags, false);
+	  pp_string (pp, ", ");
+	  dump_generic_node (pp, TREE_OPERAND (node, 2), spc, flags, false);
+	  pp_greater (pp);
+	}
       break;
 
     case BIT_INSERT_EXPR:
@@ -2653,7 +2697,10 @@ dump_generic_node (pretty_printer *pp, tree node, int spc, dump_flags_t flags,
       break;
 
     case VIEW_CONVERT_EXPR:
-      pp_string (pp, "VIEW_CONVERT_EXPR<");
+      if (flags & TDF_GIMPLE)
+	pp_string (pp, "__VIEW_CONVERT <");
+      else
+	pp_string (pp, "VIEW_CONVERT_EXPR<");
       dump_generic_node (pp, TREE_TYPE (node), spc, flags, false);
       pp_string (pp, ">(");
       dump_generic_node (pp, TREE_OPERAND (node, 0), spc, flags, false);
@@ -4210,3 +4257,7 @@ pp_double_int (pretty_printer *pp, double_int d, bool uns)
       pp_string (pp, pp_buffer (pp)->digit_buffer);
     }
 }
+
+#if __GNUC__ >= 10
+#  pragma GCC diagnostic pop
+#endif

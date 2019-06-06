@@ -1733,6 +1733,29 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
   bool non_constant_args = false;
   cxx_bind_parameters_in_call (ctx, t, &new_call,
 			       non_constant_p, overflow_p, &non_constant_args);
+
+  /* We build up the bindings list before we know whether we already have this
+     call cached.  If we don't end up saving these bindings, ggc_free them when
+     this function exits.  */
+  struct free_bindings
+  {
+    tree &bindings;
+    bool do_free;
+    free_bindings (tree &b): bindings (b), do_free(true) { }
+    void preserve () { do_free = false; }
+    ~free_bindings () {
+      if (do_free)
+	{
+	  while (bindings)
+	    {
+	      tree b = bindings;
+	      bindings = TREE_CHAIN (bindings);
+	      ggc_free (b);
+	    }
+	}
+    }
+  } fb (new_call.bindings);
+
   if (*non_constant_p)
     return t;
 
@@ -1760,6 +1783,7 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
 	     slot can move in the call to cxx_eval_builtin_function_call.  */
 	  *slot = entry = ggc_alloc<constexpr_call> ();
 	  *entry = new_call;
+	  fb.preserve ();
 	}
       /* Calls that are in progress have their result set to NULL,
 	 so that we can detect circular dependencies.  */
@@ -2020,9 +2044,9 @@ cxx_eval_check_shift_p (location_t loc, const constexpr_ctx *ctx,
   if (compare_tree_int (rhs, uprec) >= 0)
     {
       if (!ctx->quiet)
-	permerror (loc, "right operand of shift expression %q+E is >= than "
-		   "the precision of the left operand",
-		   build2_loc (loc, code, type, lhs, rhs));
+	permerror (loc, "right operand of shift expression %q+E is greater "
+		   "than or equal to the precision %wu of the left operand",
+		   build2_loc (loc, code, type, lhs, rhs), uprec);
       return (!flag_permissive || ctx->quiet);
     }
 
@@ -2459,7 +2483,7 @@ diag_array_subscript (const constexpr_ctx *ctx, tree array, tree index)
 	    error ("array subscript value %qE is outside the bounds "
 	           "of array %qD of type %qT", sidx, array, arraytype);
 	  else
-	    error ("non-zero array subscript %qE is used with array %qD of "
+	    error ("nonzero array subscript %qE is used with array %qD of "
 		   "type %qT with unknown bounds", sidx, array, arraytype);
 	  inform (DECL_SOURCE_LOCATION (array), "declared here");
 	}
@@ -2467,7 +2491,7 @@ diag_array_subscript (const constexpr_ctx *ctx, tree array, tree index)
 	error ("array subscript value %qE is outside the bounds "
 	       "of array type %qT", sidx, arraytype);
       else
-	error ("non-zero array subscript %qE is used with array of type %qT "
+	error ("nonzero array subscript %qE is used with array of type %qT "
 	       "with unknown bounds", sidx, arraytype);
     }
 }
@@ -3113,11 +3137,10 @@ cxx_eval_vec_init_1 (const constexpr_ctx *ctx, tree atype, tree init,
     }
   else if (!init)
     {
-      vec<tree, va_gc> *argvec = make_tree_vector ();
+      releasing_vec argvec;
       init = build_special_member_call (NULL_TREE, complete_ctor_identifier,
 					&argvec, elttype, LOOKUP_NORMAL,
 					complain);
-      release_tree_vector (argvec);
       init = build_aggr_init_expr (elttype, init);
       pre_init = true;
     }
@@ -3740,7 +3763,7 @@ cxx_eval_store_expression (const constexpr_ctx *ctx, tree t,
     }
 
   /* And then find the underlying variable.  */
-  vec<tree,va_gc> *refs = make_tree_vector();
+  releasing_vec refs;
   tree object = NULL_TREE;
   for (tree probe = target; object == NULL_TREE; )
     {
@@ -3784,7 +3807,7 @@ cxx_eval_store_expression (const constexpr_ctx *ctx, tree t,
   type = TREE_TYPE (object);
   bool no_zero_init = true;
 
-  vec<tree,va_gc> *ctors = make_tree_vector ();
+  releasing_vec ctors;
   while (!refs->is_empty())
     {
       if (*valp == NULL_TREE)
@@ -3897,7 +3920,6 @@ cxx_eval_store_expression (const constexpr_ctx *ctx, tree t,
 	}
       valp = &cep->value;
     }
-  release_tree_vector (refs);
 
   if (!preeval)
     {
@@ -3941,14 +3963,13 @@ cxx_eval_store_expression (const constexpr_ctx *ctx, tree t,
   bool c = TREE_CONSTANT (init);
   bool s = TREE_SIDE_EFFECTS (init);
   if (!c || s)
-    FOR_EACH_VEC_SAFE_ELT (ctors, i, elt)
+    FOR_EACH_VEC_ELT (*ctors, i, elt)
       {
 	if (!c)
 	  TREE_CONSTANT (elt) = false;
 	if (s)
 	  TREE_SIDE_EFFECTS (elt) = true;
       }
-  release_tree_vector (ctors);
 
   if (*non_constant_p)
     return t;
@@ -4005,6 +4026,7 @@ cxx_eval_increment_expression (const constexpr_ctx *ctx, tree t,
   tree store = build2 (MODIFY_EXPR, type, op, mod);
   cxx_eval_constant_expression (ctx, store,
 				true, non_constant_p, overflow_p);
+  ggc_free (store);
 
   /* And the value of the expression.  */
   if (code == PREINCREMENT_EXPR || code == PREDECREMENT_EXPR)
@@ -4152,6 +4174,15 @@ cxx_eval_statement_list (const constexpr_ctx *ctx, tree t,
 	break;
       if (returns (jump_target) || breaks (jump_target))
 	break;
+    }
+  if (*jump_target && jump_target == &local_target)
+    {
+      /* We aren't communicating the jump to our caller, so give up.  We don't
+	 need to support evaluation of jumps out of statement-exprs.  */
+      if (!ctx->quiet)
+	error_at (cp_expr_loc_or_loc (r, input_location),
+		  "statement is not a constant expression");
+      *non_constant_p = true;
     }
   return r;
 }
@@ -4414,7 +4445,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
       if (!ctx->quiet)
 	error_at (cp_expr_loc_or_loc (t, input_location),
 		  "%<constexpr%> evaluation operation count exceeds limit of "
-		  "%wd (use -fconstexpr-ops-limit= to increase the limit)",
+		  "%wd (use %<-fconstexpr-ops-limit=%> to increase the limit)",
 		  constexpr_ops_limit);
       *ctx->constexpr_ops_count = INTTYPE_MINIMUM (HOST_WIDE_INT);
       *non_constant_p = true;
@@ -4951,7 +4982,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 	{
 	  if (!ctx->quiet)
 	    error_at (cp_expr_loc_or_loc (t, input_location),
-		      "a reinterpret_cast is not a constant expression");
+		      "%<reinterpret_cast%> is not a constant expression");
 	  *non_constant_p = true;
 	  return t;
 	}
@@ -5412,27 +5443,6 @@ cxx_eval_outermost_constant_expr (tree t, bool allow_non_constant,
     }
 
   return r;
-}
-
-/* Returns true if T is a valid subexpression of a constant expression,
-   even if it isn't itself a constant expression.  */
-
-bool
-is_sub_constant_expr (tree t)
-{
-  bool non_constant_p = false;
-  bool overflow_p = false;
-  hash_map <tree, tree> map;
-  HOST_WIDE_INT constexpr_ops_count = 0;
-
-  constexpr_ctx ctx
-    = { NULL, &map, NULL, NULL, NULL, NULL, &constexpr_ops_count,
-	true, true, false };
-
-  instantiate_constexpr_fns (t);
-  cxx_eval_constant_expression (&ctx, t, false, &non_constant_p,
-				&overflow_p);
-  return !non_constant_p && !overflow_p;
 }
 
 /* If T represents a constant expression returns its reduced value.
@@ -6131,7 +6141,7 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict, bool now,
       if (REINTERPRET_CAST_P (t))
 	{
 	  if (flags & tf_error)
-	    error_at (loc, "a reinterpret_cast is not a constant expression");
+	    error_at (loc, "%<reinterpret_cast%> is not a constant expression");
 	  return false;
 	}
       /* FALLTHRU */
@@ -6150,7 +6160,8 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict, bool now,
 		&& !integer_zerop (from))
 	      {
 		if (flags & tf_error)
-		  error_at (loc, "reinterpret_cast from integer to pointer");
+		  error_at (loc,
+			    "%<reinterpret_cast%> from integer to pointer");
 		return false;
 	      }
 	  }
@@ -6404,7 +6415,8 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict, bool now,
 	/* In C++2a virtual calls can be constexpr, don't give up yet.  */
 	return true;
       else if (flags & tf_error)
-	error_at (loc, "virtual functions cannot be constexpr before C++2a");
+	error_at (loc,
+		  "virtual functions cannot be %<constexpr%> before C++2a");
       return false;
 
     case TYPEID_EXPR:
@@ -6416,7 +6428,7 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict, bool now,
 	    && TYPE_POLYMORPHIC_P (TREE_TYPE (e)))
           {
             if (flags & tf_error)
-              error_at (loc, "typeid-expression is not a constant expression "
+	      error_at (loc, "%<typeid%> is not a constant expression "
 			"because %qE is of polymorphic type", e);
             return false;
           }

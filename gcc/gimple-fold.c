@@ -207,6 +207,9 @@ create_tmp_reg_or_ssa_name (tree type, gimple *stmt)
 tree
 canonicalize_constructor_val (tree cval, tree from_decl)
 {
+  if (CONSTANT_CLASS_P (cval))
+    return cval;
+
   tree orig_cval = cval;
   STRIP_NOPS (cval);
   if (TREE_CODE (cval) == POINTER_PLUS_EXPR
@@ -257,8 +260,15 @@ canonicalize_constructor_val (tree cval, tree from_decl)
 	cval = fold_convert (TREE_TYPE (orig_cval), cval);
       return cval;
     }
-  if (TREE_OVERFLOW_P (cval))
-    return drop_tree_overflow (cval);
+  /* In CONSTRUCTORs we may see unfolded constants like (int (*) ()) 0.  */
+  if (TREE_CODE (cval) == INTEGER_CST)
+    {
+      if (TREE_OVERFLOW_P (cval))
+	cval = drop_tree_overflow (cval);
+      if (!useless_type_conversion_p (TREE_TYPE (orig_cval), TREE_TYPE (cval)))
+	cval = fold_convert (TREE_TYPE (orig_cval), cval);
+      return cval;
+    }
   return orig_cval;
 }
 
@@ -692,7 +702,7 @@ size_must_be_zero_p (tree size)
 
 static bool
 gimple_fold_builtin_memory_op (gimple_stmt_iterator *gsi,
-			       tree dest, tree src, int endp)
+			       tree dest, tree src, enum built_in_function code)
 {
   gimple *stmt = gsi_stmt (*gsi);
   tree lhs = gimple_call_lhs (stmt);
@@ -839,7 +849,7 @@ gimple_fold_builtin_memory_op (gimple_stmt_iterator *gsi,
 	    }
 	}
 
-      if (endp == 3)
+      if (code == BUILT_IN_MEMMOVE)
 	{
 	  /* Both DEST and SRC must be pointer types.
 	     ??? This is what old code did.  Is the testing for pointer types
@@ -1102,17 +1112,16 @@ set_vop_and_replace:
 
 done:
   gimple_seq stmts = NULL;
-  if (endp == 0 || endp == 3)
+  if (code == BUILT_IN_MEMCPY || code == BUILT_IN_MEMMOVE)
     len = NULL_TREE;
-  else if (endp == 2)
-    len = gimple_build (&stmts, loc, MINUS_EXPR, TREE_TYPE (len), len,
-			ssize_int (1));
-  if (endp == 2 || endp == 1)
+  else if (code == BUILT_IN_MEMPCPY)
     {
       len = gimple_convert_to_ptrofftype (&stmts, loc, len);
       dest = gimple_build (&stmts, loc, POINTER_PLUS_EXPR,
 			   TREE_TYPE (dest), dest, len);
     }
+  else
+    gcc_unreachable ();
 
   gsi_insert_seq_before (gsi, stmts, GSI_SAME_STMT);
   gimple *repl = gimple_build_assign (lhs, dest);
@@ -3231,11 +3240,10 @@ gimple_fold_builtin_sprintf (gimple_stmt_iterator *gsi)
 	gimple_set_no_warning (repl, true);
 
       gimple_seq_add_stmt_without_update (&stmts, repl);
-      if (gimple_call_lhs (stmt))
+      if (tree lhs = gimple_call_lhs (stmt))
 	{
-	  repl = gimple_build_assign (gimple_call_lhs (stmt),
-				      build_int_cst (integer_type_node,
-						     strlen (fmt_str)));
+	  repl = gimple_build_assign (lhs, build_int_cst (TREE_TYPE (lhs),
+							  strlen (fmt_str)));
 	  gimple_seq_add_stmt_without_update (&stmts, repl);
 	  gsi_replace_with_seq_vops (gsi, stmts);
 	  /* gsi now points at the assignment to the lhs, get a
@@ -3285,12 +3293,12 @@ gimple_fold_builtin_sprintf (gimple_stmt_iterator *gsi)
 	gimple_set_no_warning (repl, true);
 
       gimple_seq_add_stmt_without_update (&stmts, repl);
-      if (gimple_call_lhs (stmt))
+      if (tree lhs = gimple_call_lhs (stmt))
 	{
-	  if (!useless_type_conversion_p (integer_type_node,
+	  if (!useless_type_conversion_p (TREE_TYPE (lhs),
 					  TREE_TYPE (orig_len)))
-	    orig_len = fold_convert (integer_type_node, orig_len);
-	  repl = gimple_build_assign (gimple_call_lhs (stmt), orig_len);
+	    orig_len = fold_convert (TREE_TYPE (lhs), orig_len);
+	  repl = gimple_build_assign (lhs, orig_len);
 	  gimple_seq_add_stmt_without_update (&stmts, repl);
 	  gsi_replace_with_seq_vops (gsi, stmts);
 	  /* gsi now points at the assignment to the lhs, get a
@@ -3370,10 +3378,10 @@ gimple_fold_builtin_snprintf (gimple_stmt_iterator *gsi)
       gimple_seq stmts = NULL;
       gimple *repl = gimple_build_call (fn, 2, dest, fmt);
       gimple_seq_add_stmt_without_update (&stmts, repl);
-      if (gimple_call_lhs (stmt))
+      if (tree lhs = gimple_call_lhs (stmt))
 	{
-	  repl = gimple_build_assign (gimple_call_lhs (stmt),
-				      build_int_cst (integer_type_node, len));
+	  repl = gimple_build_assign (lhs,
+				      build_int_cst (TREE_TYPE (lhs), len));
 	  gimple_seq_add_stmt_without_update (&stmts, repl);
 	  gsi_replace_with_seq_vops (gsi, stmts);
 	  /* gsi now points at the assignment to the lhs, get a
@@ -3422,12 +3430,12 @@ gimple_fold_builtin_snprintf (gimple_stmt_iterator *gsi)
       gimple_seq stmts = NULL;
       gimple *repl = gimple_build_call (fn, 2, dest, orig);
       gimple_seq_add_stmt_without_update (&stmts, repl);
-      if (gimple_call_lhs (stmt))
+      if (tree lhs = gimple_call_lhs (stmt))
 	{
-	  if (!useless_type_conversion_p (integer_type_node,
+	  if (!useless_type_conversion_p (TREE_TYPE (lhs),
 					  TREE_TYPE (orig_len)))
-	    orig_len = fold_convert (integer_type_node, orig_len);
-	  repl = gimple_build_assign (gimple_call_lhs (stmt), orig_len);
+	    orig_len = fold_convert (TREE_TYPE (lhs), orig_len);
+	  repl = gimple_build_assign (lhs, orig_len);
 	  gimple_seq_add_stmt_without_update (&stmts, repl);
 	  gsi_replace_with_seq_vops (gsi, stmts);
 	  /* gsi now points at the assignment to the lhs, get a
@@ -3848,14 +3856,10 @@ gimple_fold_builtin (gimple_stmt_iterator *gsi)
 					 gimple_call_arg (stmt, 1),
 					 gimple_call_arg (stmt, 2));
     case BUILT_IN_MEMCPY:
-      return gimple_fold_builtin_memory_op (gsi, gimple_call_arg (stmt, 0),
-					    gimple_call_arg (stmt, 1), 0);
     case BUILT_IN_MEMPCPY:
-      return gimple_fold_builtin_memory_op (gsi, gimple_call_arg (stmt, 0),
-					    gimple_call_arg (stmt, 1), 1);
     case BUILT_IN_MEMMOVE:
       return gimple_fold_builtin_memory_op (gsi, gimple_call_arg (stmt, 0),
-					    gimple_call_arg (stmt, 1), 3);
+					    gimple_call_arg (stmt, 1), fcode);
     case BUILT_IN_SPRINTF_CHK:
     case BUILT_IN_VSPRINTF_CHK:
       return gimple_fold_builtin_sprintf_chk (gsi, fcode);
@@ -6984,14 +6988,10 @@ fold_const_aggregate_ref_1 (tree t, tree (*valueize) (tree))
 		= wi::sext (wi::to_poly_offset (idx)
 			    - wi::to_poly_offset (low_bound),
 			    TYPE_PRECISION (TREE_TYPE (idx)));
-
+	      woffset *= tree_to_uhwi (unit_size);
+	      woffset *= BITS_PER_UNIT;
 	      if (woffset.to_shwi (&offset))
 		{
-		  /* TODO: This code seems wrong, multiply then check
-		     to see if it fits.  */
-		  offset *= tree_to_uhwi (unit_size);
-		  offset *= BITS_PER_UNIT;
-
 		  base = TREE_OPERAND (t, 0);
 		  ctor = get_base_constructor (base, &offset, valueize);
 		  /* Empty constructor.  Always fold to 0.  */
@@ -7329,6 +7329,7 @@ arith_code_with_undefined_signed_overflow (tree_code code)
 {
   switch (code)
     {
+    case ABS_EXPR:
     case PLUS_EXPR:
     case MINUS_EXPR:
     case MULT_EXPR:
@@ -7361,12 +7362,15 @@ rewrite_to_defined_overflow (gimple *stmt)
   tree lhs = gimple_assign_lhs (stmt);
   tree type = unsigned_type_for (TREE_TYPE (lhs));
   gimple_seq stmts = NULL;
-  for (unsigned i = 1; i < gimple_num_ops (stmt); ++i)
-    {
-      tree op = gimple_op (stmt, i);
-      op = gimple_convert (&stmts, type, op);
-      gimple_set_op (stmt, i, op);
-    }
+  if (gimple_assign_rhs_code (stmt) == ABS_EXPR)
+    gimple_assign_set_rhs_code (stmt, ABSU_EXPR);
+  else
+    for (unsigned i = 1; i < gimple_num_ops (stmt); ++i)
+      {
+	tree op = gimple_op (stmt, i);
+	op = gimple_convert (&stmts, type, op);
+	gimple_set_op (stmt, i, op);
+      }
   gimple_assign_set_lhs (stmt, make_ssa_name (type, stmt));
   if (gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR)
     gimple_assign_set_rhs_code (stmt, PLUS_EXPR);
