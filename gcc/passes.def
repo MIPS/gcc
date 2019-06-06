@@ -100,7 +100,6 @@ along with GCC; see the file COPYING3.  If not see
 	      late.  */
 	  NEXT_PASS (pass_split_functions);
 	  NEXT_PASS (pass_strip_predict_hints, true /* early_p */);
-	  NEXT_PASS (pass_tbaa_modref);
       POP_INSERT_PASSES ()
       NEXT_PASS (pass_release_ssa_names);
       NEXT_PASS (pass_rebuild_cgraph_edges);
@@ -348,7 +347,6 @@ along with GCC; see the file COPYING3.  If not see
       NEXT_PASS (pass_late_warn_uninitialized);
       NEXT_PASS (pass_uncprop);
       NEXT_PASS (pass_local_pure_const);
-      NEXT_PASS (pass_tbaa_modref);
   POP_INSERT_PASSES ()
   NEXT_PASS (pass_all_optimizations_g);
   PUSH_INSERT_PASSES_WITHIN (pass_all_optimizations_g)
@@ -381,7 +379,6 @@ along with GCC; see the file COPYING3.  If not see
       NEXT_PASS (pass_late_warn_uninitialized);
       NEXT_PASS (pass_uncprop);
       NEXT_PASS (pass_local_pure_const);
-      NEXT_PASS (pass_tbaa_modref);
   POP_INSERT_PASSES ()
   NEXT_PASS (pass_tm_init);
   PUSH_INSERT_PASSES_WITHIN (pass_tm_init)

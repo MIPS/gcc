@@ -38,7 +38,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dfa.h"
 #include "ipa-reference.h"
 #include "varasm.h"
-#include "ipa-tbaa-modref.h"
 
 /* Broad overview of how alias analysis on gimple works:
 
@@ -1567,38 +1566,6 @@ refs_output_dependent_p (tree store1, tree store2)
   return refs_may_alias_p_1 (&r1, &r2, false);
 }
 
-/* TODO  */
-
-static bool
-tbaa_modref_may_conflict(std::vector<ipa_tbaa_caset> &accesses, ao_ref *ref)
-{
-  if (!flag_strict_aliasing)
-    return true;
-
-  alias_set_type base_set = ao_ref_base_alias_set(ref);
-  if (!base_set)
-     return true;
-
-  alias_set_type ref_set = ao_ref_alias_set(ref);
-  for (ipa_tbaa_caset &a: accesses)
-    {
-      if (!a.base)
-	return true;
-      if (alias_sets_conflict_p (base_set, a.base)
-	  && alias_sets_conflict_p (ref_set, a.ref))
-	{
-	  return true;
-#if 0
-	  if (a.base == ref_set || alias_set_subset_of(a.base, ref_set))
-	    return true;
-	  if (base_set == a.ref || alias_set_subset_of(base_set, a.ref))
-	    return true;
-#endif
-	}
-    }
-  return false;
-}
-
 /* If the call CALL may use the memory reference REF return true,
    otherwise return false.  */
 
@@ -1614,35 +1581,9 @@ ref_maybe_used_by_call_p_1 (gcall *call, ao_ref *ref, bool tbaa_p)
       && (flags & (ECF_CONST|ECF_NOVOPS)))
     goto process_args;
 
-  callee = gimple_call_fndecl (call);
-
   base = ao_ref_base (ref);
   if (!base)
     return true;
-
-  if (callee != NULL_TREE)
-    {
-      struct cgraph_node *node = cgraph_node::get (callee);
-      if (node)
-        {
-          ipa_tbaa_funcref *summary = get_ipa_tbaa_summary (node);
-	  if (summary) {
-	    if (!tbaa_modref_may_conflict(summary->loads, ref))
-	      {
-		if (dump_file)
-		  {
-		    fprintf(dump_file, "TBAA said: in %s, call to %s does not use ",
-			    current_function_name (), summary->fname);
-		    print_generic_expr(dump_file, ref->ref);
-		    fprintf(dump_file, " %i->%i\n",
-			    ao_ref_base_alias_set (ref),
-			    ao_ref_alias_set (ref));
-		  }
-		return false;
-	      }
-	  }
-       }
-    }
 
   /* A call that is not without side-effects might involve volatile
      accesses and thus conflicts with all other volatile accesses.  */
@@ -1656,6 +1597,8 @@ ref_maybe_used_by_call_p_1 (gcall *call, ao_ref *ref, bool tbaa_p)
       /* But local statics can be used through recursion.  */
       && !is_global_var (base))
     goto process_args;
+
+  callee = gimple_call_fndecl (call);
 
   /* Handle those builtin functions explicitly that do not act as
      escape points.  See tree-ssa-structalias.c:find_func_aliases
@@ -2039,38 +1982,6 @@ call_may_clobber_ref_p_1 (gcall *call, ao_ref *ref)
   if (!base)
     return true;
 
-  callee = gimple_call_fndecl (call);
-  if (callee != NULL_TREE)
-    {
-      struct cgraph_node *node = cgraph_node::get (callee);
-      if (node)
-	{
-          enum availability avail;
-          node = node->function_symbol(&avail);
-	  if (avail > AVAIL_INTERPOSABLE) {
-	    ipa_tbaa_funcref *summary = get_ipa_tbaa_summary (node);
-	    if (summary)
-	      {
-	        //if (dump_file)
-		//  fprintf(dump_file, "[%s] Found IPA TBAA summary for current function\n", __func__);
-		if (!tbaa_modref_may_conflict(summary->stores, ref))
-		  {
-		    if (dump_file)
-		      {
-			fprintf(dump_file, "TBAA said: in %s, call to %s does not clobber ",
-				current_function_name (), summary->fname);
-			print_generic_expr(dump_file, ref->ref);
-			fprintf(dump_file, " %i->%i\n",
-				ao_ref_base_alias_set (ref),
-				ao_ref_alias_set (ref));
-		      }
-		    return false;
-		  }
-	      }
-	   }
-	}
-    }
-
   if (TREE_CODE (base) == SSA_NAME
       || CONSTANT_CLASS_P (base))
     return false;
@@ -2098,6 +2009,8 @@ call_may_clobber_ref_p_1 (gcall *call, ao_ref *ref)
       && TREE_CODE (TREE_OPERAND (base, 0)) == SSA_NAME
       && SSA_NAME_POINTS_TO_READONLY_MEMORY (TREE_OPERAND (base, 0)))
     return false;
+
+  callee = gimple_call_fndecl (call);
 
   /* Handle those builtin functions explicitly that do not act as
      escape points.  See tree-ssa-structalias.c:find_func_aliases
