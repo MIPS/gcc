@@ -6988,9 +6988,15 @@ fold_plusminus_mult_expr (location_t loc, enum tree_code code, tree type,
 	     increased the number of multiplications necessary.  */
 	  && TREE_CODE (arg10) != INTEGER_CST)
         {
+	  HOST_WIDE_INT tmp1 = int01 / int11;
+	  HOST_WIDE_INT t = exact_log2 (absu_hwi (int11));
+	  HOST_WIDE_INT size = tree_to_shwi (TYPE_SIZE_UNIT (TREE_TYPE (arg00))) * BITS_PER_UNIT;
+	  HOST_WIDE_INT sign_bit = HOST_WIDE_INT_1U << (size - t - 1);
+	  if (tmp1 & sign_bit)
+	    tmp1 |= HOST_WIDE_INT_M1U << (size - t);
+	  tree tmp2 = build_int_cst (TREE_TYPE (arg00), tmp1);
 	  alt0 = fold_build2_loc (loc, MULT_EXPR, TREE_TYPE (arg00), arg00,
-			      build_int_cst (TREE_TYPE (arg00),
-					     int01 / int11));
+				 tmp2);
 	  alt1 = arg10;
 	  same = maybe_same;
 	  if (swap)

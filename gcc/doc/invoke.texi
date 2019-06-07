@@ -376,6 +376,7 @@ Objective-C and Objective-C++ Dialects}.
 -finline-small-functions  -fipa-cp  -fipa-cp-clone @gol
 -fipa-bit-cp -fipa-vrp @gol
 -fipa-pta  -fipa-profile  -fipa-pure-const  -fipa-reference  -fipa-icf @gol
+-fipa-struct-reorg @gol
 -fira-algorithm=@var{algorithm} @gol
 -fira-region=@var{region}  -fira-hoist-pressure @gol
 -fira-loop-pressure  -fno-ira-share-save-slots @gol
@@ -8068,6 +8069,19 @@ Discover which static variables do not escape the
 compilation unit.
 Enabled by default at @option{-O} and higher.
 
+@item -fipa-struct-reorg
+@opindex fipa-struct-reorg
+Perform structure reorganization optimization, that change C-like structures
+layout in order to better utilize spatial locality.  This transformation is
+affective for programs containing arrays of structures.  Available in two
+compilation modes: profile-based (enabled with @option{-fprofile-generate})
+or static (which uses built-in heuristics).  It works only in whole program
+mode, so it requires @option{-fwhole-program} to be
+enabled.  Structures considered @samp{cold} by this transformation are not
+affected (see @option{--param struct-reorg-cold-struct-ratio=@var{value}}).
+
+With this flag, the program debug info reflects a new structure layout.
+
 @item -fipa-pta
 @opindex fipa-pta
 Perform interprocedural pointer analysis and interprocedural modification
@@ -9620,6 +9634,15 @@ In each case, the @var{value} is an integer.  The allowable choices for
 @var{name} are:
 
 @table @gcctabopt
+@item struct-reorg-cold-struct-ratio
+The threshold ratio (as a percentage) between a structure frequency
+and the frequency of the hottest structure in the program.  This parameter
+is used by struct-reorg optimization enabled by @option{-fipa-struct-reorg}.
+We say that if the ratio of a structure frequency, calculated by profiling,
+to the hottest structure frequency in the program is less than this
+parameter, then structure reorganization is not applied to this structure.
+The default is 10.
+
 @item predictable-branch-outcome
 When branch is predicted to be taken with probability lower than this threshold
 (in percent), then it is considered well predictable. The default is 10.

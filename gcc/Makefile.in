@@ -1335,6 +1335,7 @@ OBJS = \
 	init-regs.o \
 	internal-fn.o \
 	ipa-chkp.o \
+        ipa-struct-reorg/ipa-struct-reorg.o \
 	ipa-cp.o \
 	ipa-devirt.o \
 	ipa-polymorphic-call.o \

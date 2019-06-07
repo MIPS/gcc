@@ -1,3 +1,4 @@
+/* This used to crash Struct reorg.  */
 struct a
 {
   int t;
