@@ -1,6 +1,4 @@
-// { dg-do compile { target c++11 } }
-
-// Copyright (C) 2009-2019 Free Software Foundation, Inc.
+// Copyright (C) 2017-2019 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -17,8 +15,15 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// This file tests explicit instantiation of library containers
+// { dg-options "-std=gnu++2a" }
+// { dg-do compile { target c++2a } }
 
-#include <deque>
+#include <vector>
 
-template class std::deque<int>;
+void
+test01()
+{
+  std::vector<int, std::allocator<long>> c;
+}
+
+// { dg-error "same value_type as its allocator" "" { target *-*-* } 0 }

@@ -237,7 +237,7 @@ class Expression
 
   // Make an expression that evaluates to some characteristic of an string.
   // For simplicity, the enum values must match the field indexes in the
-  // underlying struct.
+  // underlying struct.  This returns an lvalue.
   enum String_info
     {
       // The underlying data in the string.
@@ -448,7 +448,7 @@ class Expression
 
   // Make an expression that evaluates to some characteristic of a
   // slice.  For simplicity, the enum values must match the field indexes
-  // in the underlying struct.
+  // in the underlying struct.  This returns an lvalue.
   enum Slice_info
     {
       // The underlying data of the slice.
@@ -469,7 +469,7 @@ class Expression
 
   // Make an expression that evaluates to some characteristic of an
   // interface.  For simplicity, the enum values must match the field indexes
-  // in the underlying struct.
+  // in the underlying struct.  This returns an lvalue.
   enum Interface_info
     {
       // The type descriptor of an empty interface.
@@ -580,6 +580,12 @@ class Expression
   bool
   string_constant_value(std::string* val) const
   { return this->do_string_constant_value(val); }
+
+  // If this is not a constant expression with boolean type, return
+  // false.  If it is one, return true, and set VAL to the value.
+  bool
+  boolean_constant_value(bool* val) const
+  { return this->do_boolean_constant_value(val); }
 
   // This is called if the value of this expression is being
   // discarded.  This issues warnings about computed values being
@@ -1125,6 +1131,12 @@ class Expression
   do_string_constant_value(std::string*) const
   { return false; }
 
+  // Return whether this is a constant expression of boolean type, and
+  // set VAL to the value.
+  virtual bool
+  do_boolean_constant_value(bool*) const
+  { return false; }
+
   // Called by the parser if the value is being discarded.
   virtual bool
   do_discarding_value();
@@ -1201,6 +1213,10 @@ class Expression
   void
   report_error(const char*);
 
+  // Write a name to export data.
+  static void
+  export_name(Export_function_body* efb, const Named_object*);
+
   // Child class implements dumping to a dump context.
   virtual void
   do_dump_expression(Ast_dump_context*) const = 0;
@@ -1245,6 +1261,12 @@ class Expression
 
   static Expression*
   convert_interface_to_type(Type*, Expression*, Location);
+
+  static Expression*
+  import_identifier(Import_function_body*, Location);
+
+  static Expression*
+  import_expression_without_suffix(Import_expression*, Location);
 
   // The expression classification.
   Expression_classification classification_;
@@ -1410,7 +1432,8 @@ class Var_expression : public Expression
   { return this; }
 
   int
-  do_inlining_cost() const;
+  do_inlining_cost() const
+  { return 1; }
 
   void
   do_export(Export_function_body*) const;
@@ -1520,6 +1543,9 @@ class Temporary_reference_expression : public Expression
   set_is_lvalue()
   { this->is_lvalue_ = true; }
 
+  static Expression*
+  do_import(Import_function_body*, Location);
+
  protected:
   Type*
   do_type();
@@ -1531,6 +1557,13 @@ class Temporary_reference_expression : public Expression
   Expression*
   do_copy()
   { return make_temporary_reference(this->statement_, this->location()); }
+
+  int
+  do_inlining_cost() const
+  { return 1; }
+
+  void
+  do_export(Export_function_body*) const;
 
   bool
   do_is_addressable() const
@@ -1750,6 +1783,9 @@ class Type_conversion_expression : public Expression
   bool
   do_string_constant_value(std::string*) const;
 
+  bool
+  do_boolean_constant_value(bool*) const;
+
   Type*
   do_type()
   { return this->type_; }
@@ -1944,6 +1980,9 @@ class Unary_expression : public Expression
   bool
   do_numeric_constant_value(Numeric_constant*) const;
 
+  bool
+  do_boolean_constant_value(bool*) const;
+
   Type*
   do_type();
 
@@ -2097,6 +2136,9 @@ class Binary_expression : public Expression
 
   bool
   do_numeric_constant_value(Numeric_constant*) const;
+
+  bool
+  do_boolean_constant_value(bool*) const;
 
   bool
   do_discarding_value();
@@ -2401,6 +2443,12 @@ class Call_expression : public Expression
   virtual Bexpression*
   do_get_backend(Translate_context*);
 
+  int
+  do_inlining_cost() const;
+
+  void
+  do_export(Export_function_body*) const;
+
   virtual bool
   do_is_recover_call() const;
 
@@ -2422,6 +2470,9 @@ class Call_expression : public Expression
   // determined.
   bool
   determining_types();
+
+  void
+  export_arguments(Export_function_body*) const;
 
   void
   do_dump_expression(Ast_dump_context*) const;
@@ -2562,6 +2613,10 @@ class Builtin_call_expression : public Call_expression
 
   Bexpression*
   do_get_backend(Translate_context*);
+
+  int
+  do_inlining_cost() const
+  { return 1; }
 
   void
   do_export(Export_function_body*) const;
@@ -2736,6 +2791,12 @@ class Func_expression : public Expression
 
   Bexpression*
   do_get_backend(Translate_context*);
+
+  int
+  do_inlining_cost() const;
+
+  void
+  do_export(Export_function_body*) const;
 
   void
   do_dump_expression(Ast_dump_context*) const;

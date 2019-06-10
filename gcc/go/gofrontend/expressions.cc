@@ -87,6 +87,27 @@ Expression::do_export(Export_function_body*) const
   go_unreachable();
 }
 
+// Write a name to the export data.
+
+void
+Expression::export_name(Export_function_body* efb, const Named_object* no)
+{
+  if (no->package() != NULL)
+    {
+      char buf[50];
+      snprintf(buf, sizeof buf, "<p%d>", efb->package_index(no->package()));
+      efb->write_c_string(buf);
+    }
+
+  if (!Gogo::is_hidden_name(no->name()))
+    efb->write_string(no->name());
+  else
+    {
+      efb->write_c_string(".");
+      efb->write_string(Gogo::unpack_hidden_name(no->name()));
+    }
+}
+
 // Give an error saying that the value of the expression is not used.
 
 void
@@ -302,9 +323,14 @@ Expression::convert_type_to_interface(Type* lhs_type, Expression* rhs,
     {
       // We are assigning a non-pointer value to the interface; the
       // interface gets a copy of the value in the heap if it escapes.
-      obj = Expression::make_heap_expression(rhs, location);
-      if (on_stack)
-        obj->heap_expression()->set_allocate_on_stack();
+      if (rhs->is_constant())
+        obj = Expression::make_unary(OPERATOR_AND, rhs, location);
+      else
+        {
+          obj = Expression::make_heap_expression(rhs, location);
+          if (on_stack)
+            obj->heap_expression()->set_allocate_on_stack();
+        }
     }
 
   return Expression::make_interface_value(lhs_type, first_field, obj, location);
@@ -842,29 +868,16 @@ Var_expression::do_address_taken(bool escapes)
     }
 }
 
-// The cost to inline a variable reference.  We currently only support
-// references to parameters and local variables.
-
-int
-Var_expression::do_inlining_cost() const
-{
-  if (this->variable_->is_variable())
-    {
-      if (!this->variable_->var_value()->is_global())
-	return 1;
-    }
-  else if (this->variable_->is_result_variable())
-    return 1;
-
-  return 0x100000;
-}
-
 // Export a reference to a variable.
 
 void
 Var_expression::do_export(Export_function_body* efb) const
 {
-  efb->write_string(Gogo::unpack_hidden_name(this->variable_->name()));
+  Named_object* no = this->variable_;
+  if (no->is_result_variable() || !no->var_value()->is_global())
+    efb->write_string(Gogo::unpack_hidden_name(no->name()));
+  else
+    Expression::export_name(efb, no);
 }
 
 // Get the backend representation for a reference to a variable.
@@ -1010,6 +1023,57 @@ void
 Temporary_reference_expression::do_address_taken(bool)
 {
   this->statement_->set_is_address_taken();
+}
+
+// Export a reference to a temporary.
+
+void
+Temporary_reference_expression::do_export(Export_function_body* efb) const
+{
+  unsigned int idx = efb->temporary_index(this->statement_);
+  char buf[50];
+  snprintf(buf, sizeof buf, "$t%u", idx);
+  efb->write_c_string(buf);
+}
+
+// Import a reference to a temporary.
+
+Expression*
+Temporary_reference_expression::do_import(Import_function_body* ifb,
+					  Location loc)
+{
+  std::string id = ifb->read_identifier();
+  go_assert(id[0] == '$' && id[1] == 't');
+  const char *p = id.c_str();
+  char *end;
+  long idx = strtol(p + 2, &end, 10);
+  if (*end != '\0' || idx > 0x7fffffff)
+    {
+      if (!ifb->saw_error())
+	go_error_at(loc,
+		    ("invalid export data for %qs: "
+		     "invalid temporary reference index at %lu"),
+		    ifb->name().c_str(),
+		    static_cast<unsigned long>(ifb->off()));
+      ifb->set_saw_error();
+      return Expression::make_error(loc);
+    }
+
+  Temporary_statement* temp =
+    ifb->temporary_statement(static_cast<unsigned int>(idx));
+  if (temp == NULL)
+    {
+      if (!ifb->saw_error())
+	go_error_at(loc,
+		    ("invalid export data for %qs: "
+		     "undefined temporary reference index at %lu"),
+		    ifb->name().c_str(),
+		    static_cast<unsigned long>(ifb->off()));
+      ifb->set_saw_error();
+      return Expression::make_error(loc);
+    }
+
+  return Expression::make_temporary_reference(temp, loc);
 }
 
 // Get a backend expression referring to the variable.
@@ -1341,6 +1405,29 @@ Func_expression::do_get_backend(Translate_context* context)
   Gogo* gogo = context->gogo();
   Btype *btype = this->type()->get_backend(gogo);
   return gogo->backend()->convert_expression(btype, bexpr, this->location());
+}
+
+// The cost of inlining a function reference.
+
+int
+Func_expression::do_inlining_cost() const
+{
+  // FIXME: We don't inline references to nested functions.
+  if (this->closure_ != NULL)
+    return 0x100000;
+  if (this->function_->is_function()
+      && this->function_->func_value()->enclosing() != NULL)
+    return 0x100000;
+
+  return 1;
+}
+
+// Export a reference to a function.
+
+void
+Func_expression::do_export(Export_function_body* efb) const
+{
+  Expression::export_name(efb, this->function_);
 }
 
 // Ast dump for function.
@@ -1675,6 +1762,13 @@ class Boolean_expression : public Expression
   bool
   do_is_zero_value() const
   { return this->val_ == false; }
+
+  bool
+  do_boolean_constant_value(bool* val) const
+  {
+    *val = this->val_;
+    return true;
+  }
 
   bool
   do_is_static_initializer() const
@@ -3045,6 +3139,9 @@ class Const_expression : public Expression
   bool
   do_string_constant_value(std::string* val) const;
 
+  bool
+  do_boolean_constant_value(bool* val) const;
+
   Type*
   do_type();
 
@@ -3158,6 +3255,21 @@ Const_expression::do_string_constant_value(std::string* val) const
 
   this->seen_ = true;
   bool ok = e->string_constant_value(val);
+  this->seen_ = false;
+
+  return ok;
+}
+
+bool
+Const_expression::do_boolean_constant_value(bool* val) const
+{
+  if (this->seen_)
+    return false;
+
+  Expression* e = this->constant_->const_value()->expr();
+
+  this->seen_ = true;
+  bool ok = e->boolean_constant_value(val);
   this->seen_ = false;
 
   return ok;
@@ -3752,6 +3864,16 @@ Type_conversion_expression::do_string_constant_value(std::string* val) const
   // FIXME: Could handle conversion from const []int here.
 
   return false;
+}
+
+// Return the constant boolean value if there is one.
+
+bool
+Type_conversion_expression::do_boolean_constant_value(bool* val) const
+{
+  if (!this->type_->is_boolean_type())
+    return false;
+  return this->expr_->boolean_constant_value(val);
 }
 
 // Determine the resulting type of the conversion.
@@ -4623,6 +4745,20 @@ Unary_expression::do_numeric_constant_value(Numeric_constant* nc) const
 					 nc, &issued_error);
 }
 
+// Return the boolean constant value of a unary expression, if it has one.
+
+bool
+Unary_expression::do_boolean_constant_value(bool* val) const
+{
+  if (this->op_ == OPERATOR_NOT
+      && this->expr_->boolean_constant_value(val))
+    {
+      *val = !*val;
+      return true;
+    }
+  return false;
+}
+
 // Return the type of a unary expression.
 
 Type*
@@ -4886,6 +5022,18 @@ Unary_expression::do_get_backend(Translate_context* context)
                                                 true, false, btype, loc);
           gogo->backend()->immutable_struct_set_init(decl, var_name, true,
 						     false, btype, loc, bexpr);
+          bexpr = gogo->backend()->var_expression(decl, loc);
+        }
+      else if (this->expr_->is_constant())
+        {
+          std::string var_name(gogo->initializer_name());
+          std::string asm_name(go_selectively_encode_id(var_name));
+          Bvariable* decl =
+              gogo->backend()->implicit_variable(var_name, asm_name, btype,
+                                                 true, true, false, 0);
+          gogo->backend()->implicit_variable_set_init(decl, var_name, btype,
+                                                      true, true, false,
+                                                      bexpr);
           bexpr = gogo->backend()->var_expression(decl, loc);
         }
 
@@ -6086,6 +6234,86 @@ Binary_expression::do_numeric_constant_value(Numeric_constant* nc) const
   bool issued_error;
   return Binary_expression::eval_constant(this->op_, &left_nc, &right_nc,
 					  this->location(), nc, &issued_error);
+}
+
+// Return the boolean constant value, if it has one.
+
+bool
+Binary_expression::do_boolean_constant_value(bool* val) const
+{
+  bool is_comparison = false;
+  switch (this->op_)
+    {
+    case OPERATOR_EQEQ:
+    case OPERATOR_NOTEQ:
+    case OPERATOR_LT:
+    case OPERATOR_LE:
+    case OPERATOR_GT:
+    case OPERATOR_GE:
+      is_comparison = true;
+      break;
+    case OPERATOR_ANDAND:
+    case OPERATOR_OROR:
+      break;
+    default:
+      return false;
+    }
+
+  Numeric_constant left_nc, right_nc;
+  if (is_comparison
+      && this->left_->numeric_constant_value(&left_nc)
+      && this->right_->numeric_constant_value(&right_nc))
+    return Binary_expression::compare_constant(this->op_, &left_nc,
+                                               &right_nc,
+                                               this->location(),
+                                               val);
+
+  std::string left_str, right_str;
+  if (is_comparison
+      && this->left_->string_constant_value(&left_str)
+      && this->right_->string_constant_value(&right_str))
+    {
+      *val = Binary_expression::cmp_to_bool(this->op_,
+                                            left_str.compare(right_str));
+      return true;
+    }
+
+  bool left_bval;
+  if (this->left_->boolean_constant_value(&left_bval))
+    {
+      if (this->op_ == OPERATOR_ANDAND && !left_bval)
+        {
+          *val = false;
+          return true;
+        }
+      else if (this->op_ == OPERATOR_OROR && left_bval)
+        {
+          *val = true;
+          return true;
+        }
+
+      bool right_bval;
+      if (this->right_->boolean_constant_value(&right_bval))
+        {
+          switch (this->op_)
+            {
+            case OPERATOR_EQEQ:
+              *val = (left_bval == right_bval);
+              return true;
+            case OPERATOR_NOTEQ:
+              *val = (left_bval != right_bval);
+              return true;
+            case OPERATOR_ANDAND:
+            case OPERATOR_OROR:
+              *val = right_bval;
+              return true;
+            default:
+              go_unreachable();
+            }
+        }
+    }
+
+  return false;
 }
 
 // Note that the value is being discarded.
@@ -7795,63 +8023,33 @@ Builtin_call_expression::do_lower(Gogo*, Named_object* function,
 
     case BUILTIN_DELETE:
       {
-	// Lower to a runtime function call.
-	const Expression_list* args = this->args();
-	if (args == NULL || args->size() < 2)
-	  this->report_error(_("not enough arguments"));
-	else if (args->size() > 2)
-	  this->report_error(_("too many arguments"));
-	else if (args->front()->type()->map_type() == NULL)
-	  this->report_error(_("argument 1 must be a map"));
-	else
-	  {
-	    // Since this function returns no value it must appear in
-	    // a statement by itself, so we don't have to worry about
-	    // order of evaluation of values around it.  Evaluate the
-	    // map first to get order of evaluation right.
-	    Map_type* mt = args->front()->type()->map_type();
-	    Temporary_statement* map_temp =
-	      Statement::make_temporary(mt, args->front(), loc);
-	    inserter->insert(map_temp);
-
-	    Temporary_statement* key_temp =
-	      Statement::make_temporary(mt->key_type(), args->back(), loc);
-	    inserter->insert(key_temp);
-
-	    Expression* e1 = Expression::make_type_descriptor(mt, loc);
-	    Expression* e2 = Expression::make_temporary_reference(map_temp,
-								  loc);
-	    Expression* e3 = Expression::make_temporary_reference(key_temp,
-								  loc);
-
-	    // If the call to delete is deferred, and is in a loop,
-	    // then the loop will only have a single instance of the
-	    // temporary variable.  Passing the address of the
-	    // temporary variable here means that the deferred call
-	    // will see the last value in the loop, not the current
-	    // value.  So for this unusual case copy the value into
-	    // the heap.
-	    if (!this->is_deferred())
-	      e3 = Expression::make_unary(OPERATOR_AND, e3, loc);
-	    else
-	      {
-		Expression* a = Expression::make_allocation(mt->key_type(),
-							    loc);
-		Temporary_statement* atemp =
-		  Statement::make_temporary(NULL, a, loc);
-		inserter->insert(atemp);
-
-		a = Expression::make_temporary_reference(atemp, loc);
-		a = Expression::make_dereference(a, NIL_CHECK_NOT_NEEDED, loc);
-		Statement* s = Statement::make_assignment(a, e3, loc);
-		inserter->insert(s);
-
-		e3 = Expression::make_temporary_reference(atemp, loc);
-	      }
-
-	    return Runtime::make_call(Runtime::MAPDELETE, this->location(),
-				      3, e1, e2, e3);
-	  }
+        const Expression_list* args = this->args();
+        if (args == NULL || args->size() < 2)
+          this->report_error(_("not enough arguments"));
+        else if (args->size() > 2)
+          this->report_error(_("too many arguments"));
+        else if (args->front()->type()->map_type() == NULL)
+          this->report_error(_("argument 1 must be a map"));
+        else
+          {
+            Type* key_type =
+              args->front()->type()->map_type()->key_type();
+            Expression_list::iterator pa = this->args()->begin();
+            pa++;
+            Type* arg_type = (*pa)->type();
+            std::string reason;
+            if (!Type::are_assignable(key_type, arg_type, &reason))
+              {
+                if (reason.empty())
+                  go_error_at(loc, "argument 2 has incompatible type");
+                else
+                  go_error_at(loc, "argument 2 has incompatible type (%s)",
+                              reason.c_str());
+                this->set_is_error();
+              }
+            else if (!Type::are_identical(key_type, arg_type, 0, NULL))
+              *pa = Expression::make_cast(key_type, *pa, loc);
+          }
       }
       break;
 
@@ -7887,6 +8085,12 @@ Expression*
 Builtin_call_expression::do_flatten(Gogo* gogo, Named_object* function,
                                     Statement_inserter* inserter)
 {
+  if (this->is_error_expression())
+    {
+      go_assert(saw_errors());
+      return this;
+    }
+
   Location loc = this->location();
 
   switch (this->code_)
@@ -8030,6 +8234,96 @@ Builtin_call_expression::do_flatten(Gogo* gogo, Named_object* function,
 	  }
       }
       break;
+
+    case BUILTIN_DELETE:
+      {
+        // Lower to a runtime function call.
+        const Expression_list* args = this->args();
+
+        // Since this function returns no value it must appear in
+        // a statement by itself, so we don't have to worry about
+        // order of evaluation of values around it.  Evaluate the
+        // map first to get order of evaluation right.
+        Map_type* mt = args->front()->type()->map_type();
+        Temporary_statement* map_temp =
+          Statement::make_temporary(mt, args->front(), loc);
+        inserter->insert(map_temp);
+
+        Temporary_statement* key_temp =
+          Statement::make_temporary(mt->key_type(), args->back(), loc);
+        inserter->insert(key_temp);
+
+        Expression* e1 = Expression::make_type_descriptor(mt, loc);
+        Expression* e2 = Expression::make_temporary_reference(map_temp,
+                                                              loc);
+        Expression* e3 = Expression::make_temporary_reference(key_temp,
+                                                              loc);
+
+        Runtime::Function code;
+        switch (mt->algorithm(gogo))
+          {
+            case Map_type::MAP_ALG_FAST32:
+            case Map_type::MAP_ALG_FAST32PTR:
+              {
+                code = Runtime::MAPDELETE_FAST32;
+                Type* uint32_type = Type::lookup_integer_type("uint32");
+                Type* uint32_ptr_type = Type::make_pointer_type(uint32_type);
+                e3 = Expression::make_unary(OPERATOR_AND, e3, loc);
+                e3 = Expression::make_unsafe_cast(uint32_ptr_type, e3,
+                                                  loc);
+                e3 = Expression::make_dereference(e3,
+                                                  Expression::NIL_CHECK_NOT_NEEDED,
+                                                  loc);
+                break;
+              }
+            case Map_type::MAP_ALG_FAST64:
+            case Map_type::MAP_ALG_FAST64PTR:
+              {
+                code = Runtime::MAPDELETE_FAST64;
+                Type* uint64_type = Type::lookup_integer_type("uint64");
+                Type* uint64_ptr_type = Type::make_pointer_type(uint64_type);
+                e3 = Expression::make_unary(OPERATOR_AND, e3, loc);
+                e3 = Expression::make_unsafe_cast(uint64_ptr_type, e3,
+                                                  loc);
+                e3 = Expression::make_dereference(e3,
+                                                  Expression::NIL_CHECK_NOT_NEEDED,
+                                                  loc);
+                break;
+              }
+            case Map_type::MAP_ALG_FASTSTR:
+              code = Runtime::MAPDELETE_FASTSTR;
+              break;
+            default:
+              code = Runtime::MAPDELETE;
+
+              // If the call to delete is deferred, and is in a loop,
+              // then the loop will only have a single instance of the
+              // temporary variable.  Passing the address of the
+              // temporary variable here means that the deferred call
+              // will see the last value in the loop, not the current
+              // value.  So for this unusual case copy the value into
+              // the heap.
+              if (!this->is_deferred())
+                e3 = Expression::make_unary(OPERATOR_AND, e3, loc);
+              else
+                {
+                  Expression* a = Expression::make_allocation(mt->key_type(),
+                                                              loc);
+                  Temporary_statement* atemp =
+                    Statement::make_temporary(NULL, a, loc);
+                  inserter->insert(atemp);
+
+                  a = Expression::make_temporary_reference(atemp, loc);
+                  a = Expression::make_dereference(a, NIL_CHECK_NOT_NEEDED, loc);
+                  Statement* s = Statement::make_assignment(a, e3, loc);
+                  inserter->insert(s);
+
+                  e3 = Expression::make_temporary_reference(atemp, loc);
+                }
+          }
+
+        return Runtime::make_call(code, loc, 3, e1, e2, e3);
+      }
     }
 
   return this;
@@ -10063,38 +10357,85 @@ void
 Builtin_call_expression::do_export(Export_function_body* efb) const
 {
   Numeric_constant nc;
-  if (!this->numeric_constant_value(&nc))
+  if (this->numeric_constant_value(&nc))
     {
-      go_error_at(this->location(), "value is not constant");
-      return;
-    }
+      if (nc.is_int())
+	{
+	  mpz_t val;
+	  nc.get_int(&val);
+	  Integer_expression::export_integer(efb, val);
+	  mpz_clear(val);
+	}
+      else if (nc.is_float())
+	{
+	  mpfr_t fval;
+	  nc.get_float(&fval);
+	  Float_expression::export_float(efb, fval);
+	  mpfr_clear(fval);
+	}
+      else if (nc.is_complex())
+	{
+	  mpc_t cval;
+	  nc.get_complex(&cval);
+	  Complex_expression::export_complex(efb, cval);
+	  mpc_clear(cval);
+	}
+      else
+	go_unreachable();
 
-  if (nc.is_int())
-    {
-      mpz_t val;
-      nc.get_int(&val);
-      Integer_expression::export_integer(efb, val);
-      mpz_clear(val);
-    }
-  else if (nc.is_float())
-    {
-      mpfr_t fval;
-      nc.get_float(&fval);
-      Float_expression::export_float(efb, fval);
-      mpfr_clear(fval);
-    }
-  else if (nc.is_complex())
-    {
-      mpc_t cval;
-      nc.get_complex(&cval);
-      Complex_expression::export_complex(efb, cval);
-      mpc_clear(cval);
+      // A trailing space lets us reliably identify the end of the number.
+      efb->write_c_string(" ");
     }
   else
-    go_unreachable();
-
-  // A trailing space lets us reliably identify the end of the number.
-  efb->write_c_string(" ");
+    {
+      const char *s = NULL;
+      switch (this->code_)
+	{
+	default:
+	  go_unreachable();
+	case BUILTIN_APPEND:
+	  s = "append";
+	  break;
+	case BUILTIN_COPY:
+	  s = "copy";
+	  break;
+	case BUILTIN_LEN:
+	  s = "len";
+	  break;
+	case BUILTIN_CAP:
+	  s = "cap";
+	  break;
+	case BUILTIN_DELETE:
+	  s = "delete";
+	  break;
+	case BUILTIN_PRINT:
+	  s = "print";
+	  break;
+	case BUILTIN_PRINTLN:
+	  s = "println";
+	  break;
+	case BUILTIN_PANIC:
+	  s = "panic";
+	  break;
+	case BUILTIN_RECOVER:
+	  s = "recover";
+	  break;
+	case BUILTIN_CLOSE:
+	  s = "close";
+	  break;
+	case BUILTIN_REAL:
+	  s = "real";
+	  break;
+	case BUILTIN_IMAG:
+	  s = "imag";
+	  break;
+	case BUILTIN_COMPLEX:
+	  s = "complex";
+	  break;
+	}
+      efb->write_c_string(s);
+      this->export_arguments(efb);
+    }
 }
 
 // Class Call_expression.
@@ -11612,7 +11953,55 @@ Call_expression::do_get_backend(Translate_context* context)
   return this->call_;
 }
 
-// Dump ast representation for a call expressin.
+// The cost of inlining a call expression.
+
+int
+Call_expression::do_inlining_cost() const
+{
+  Func_expression* fn = this->fn_->func_expression();
+
+  // FIXME: We don't yet support all kinds of calls.
+  if (fn != NULL && fn->closure() != NULL)
+    return 0x100000;
+  if (this->fn_->interface_field_reference_expression())
+    return 0x100000;
+  if (this->get_function_type()->is_method())
+    return 0x100000;
+
+  return 5;
+}
+
+// Export a call expression.
+
+void
+Call_expression::do_export(Export_function_body* efb) const
+{
+  this->fn_->export_expression(efb);
+  this->export_arguments(efb);
+}
+
+// Export call expression arguments.
+
+void
+Call_expression::export_arguments(Export_function_body* efb) const
+{
+  efb->write_c_string("(");
+  if (this->args_ != NULL && !this->args_->empty())
+    {
+      Expression_list::const_iterator pa = this->args_->begin();
+      (*pa)->export_expression(efb);
+      for (pa++; pa != this->args_->end(); pa++)
+	{
+	  efb->write_c_string(", ");
+	  (*pa)->export_expression(efb);
+	}
+      if (this->is_varargs_)
+	efb->write_c_string("...");
+    }
+  efb->write_c_string(")");
+}
+
+// Dump ast representation for a call expression.
 
 void
 Call_expression::do_dump_expression(Ast_dump_context* ast_dump_context) const
@@ -12891,20 +13280,54 @@ Map_index_expression::get_value_pointer(Gogo* gogo)
 						     this->index_,
                                                      loc);
 
+      Expression* type_expr = Expression::make_type_descriptor(type, loc);
       Expression* zero = type->fat_zero_value(gogo);
-
       Expression* map_index;
-
       if (zero == NULL)
-	map_index =
-          Runtime::make_call(Runtime::MAPACCESS1, loc, 3,
-			     Expression::make_type_descriptor(type, loc),
-                             map_ref, index_ptr);
+        {
+          Runtime::Function code;
+          Expression* key;
+          switch (type->algorithm(gogo))
+            {
+              case Map_type::MAP_ALG_FAST32:
+              case Map_type::MAP_ALG_FAST32PTR:
+                {
+                  Type* uint32_type = Type::lookup_integer_type("uint32");
+                  Type* uint32_ptr_type = Type::make_pointer_type(uint32_type);
+                  key = Expression::make_unsafe_cast(uint32_ptr_type, index_ptr,
+                                                     loc);
+                  key = Expression::make_dereference(key, NIL_CHECK_NOT_NEEDED,
+                                                     loc);
+                  code = Runtime::MAPACCESS1_FAST32;
+                  break;
+                }
+              case Map_type::MAP_ALG_FAST64:
+              case Map_type::MAP_ALG_FAST64PTR:
+                {
+                  Type* uint64_type = Type::lookup_integer_type("uint64");
+                  Type* uint64_ptr_type = Type::make_pointer_type(uint64_type);
+                  key = Expression::make_unsafe_cast(uint64_ptr_type, index_ptr,
+                                                     loc);
+                  key = Expression::make_dereference(key, NIL_CHECK_NOT_NEEDED,
+                                                     loc);
+                  code = Runtime::MAPACCESS1_FAST64;
+                  break;
+                }
+              case Map_type::MAP_ALG_FASTSTR:
+                key = this->index_;
+                code = Runtime::MAPACCESS1_FASTSTR;
+                break;
+              default:
+                key = index_ptr;
+                code = Runtime::MAPACCESS1;
+                break;
+            }
+          map_index = Runtime::make_call(code, loc, 3,
+                                         type_expr, map_ref, key);
+        }
       else
-	map_index =
-	  Runtime::make_call(Runtime::MAPACCESS1_FAT, loc, 4,
-			     Expression::make_type_descriptor(type, loc),
-			     map_ref, index_ptr, zero);
+        map_index = Runtime::make_call(Runtime::MAPACCESS1_FAT, loc, 4,
+                                       type_expr, map_ref, index_ptr, zero);
 
       Type* val_type = type->val_type();
       this->value_pointer_ =
@@ -17498,6 +17921,47 @@ Expression::make_backend(Bexpression* bexpr, Type* type, Location location)
 Expression*
 Expression::import_expression(Import_expression* imp, Location loc)
 {
+  Expression* expr = Expression::import_expression_without_suffix(imp, loc);
+  while (true)
+    {
+      if (imp->match_c_string("("))
+	{
+	  imp->advance(1);
+	  Expression_list* args = new Expression_list();
+	  bool is_varargs = false;
+	  while (!imp->match_c_string(")"))
+	    {
+	      Expression* arg = Expression::import_expression(imp, loc);
+	      if (arg->is_error_expression())
+		return arg;
+	      args->push_back(arg);
+	      if (imp->match_c_string(")"))
+		break;
+	      else if (imp->match_c_string("...)"))
+		{
+		  imp->advance(3);
+		  is_varargs = true;
+		  break;
+		}
+	      imp->require_c_string(", ");
+	    }
+	  imp->require_c_string(")");
+	  expr = Expression::make_call(expr, args, is_varargs, loc);
+	}
+      else
+	break;
+    }
+
+  return expr;
+}
+
+// Import an expression without considering a suffix (function
+// arguments, index operations, etc.).
+
+Expression*
+Expression::import_expression_without_suffix(Import_expression* imp,
+					     Location loc)
+{
   int c = imp->peek_char();
   if (c == '+' || c == '-' || c == '!' || c == '^' || c == '&' || c == '*')
     return Unary_expression::do_import(imp, loc);
@@ -17535,26 +17999,73 @@ Expression::import_expression(Import_expression* imp, Location loc)
     }
   if (ifb->saw_error())
     return Expression::make_error(loc);
-  std::string id = ifb->read_identifier();
-  if (id.empty())
+
+  if (ifb->match_c_string("$t"))
+    return Temporary_reference_expression::do_import(ifb, loc);
+
+  return Expression::import_identifier(ifb, loc);
+}
+
+// Import an identifier in an expression.  This is a reference to a
+// variable or function.
+
+Expression*
+Expression::import_identifier(Import_function_body* ifb, Location loc)
+{
+  std::string id;
+  Package* pkg;
+  bool is_exported;
+  if (!Import::read_qualified_identifier(ifb, &id, &pkg, &is_exported))
     {
       if (!ifb->saw_error())
-	go_error_at(imp->location(),
-		    "import error: expected identifier at %lu",
+	go_error_at(ifb->location(),
+		    "import error for %qs: bad qualified identifier at %lu",
+		    ifb->name().c_str(),
 		    static_cast<unsigned long>(ifb->off()));
       ifb->set_saw_error();
       return Expression::make_error(loc);
     }
-  Named_object* var = ifb->block()->bindings()->lookup(id);
-  if (var == NULL)
+
+  Named_object* no = NULL;
+  if (pkg == NULL && is_exported)
+    no = ifb->block()->bindings()->lookup(id);
+  if (no == NULL)
+    {
+      const Package* ipkg = pkg;
+      if (ipkg == NULL)
+	ipkg = ifb->function()->package();
+      if (!is_exported)
+	id = '.' + ipkg->pkgpath() + '.' + id;
+      no = ipkg->bindings()->lookup(id);
+    }
+  if (no == NULL)
+    no = ifb->gogo()->lookup_global(id.c_str());
+
+  if (no == NULL)
     {
       if (!ifb->saw_error())
-	go_error_at(imp->location(), "import error: lookup of %qs failed",
-		    id.c_str());
+	go_error_at(ifb->location(),
+		    "import error for %qs: lookup of %qs failed",
+		    ifb->name().c_str(), id.c_str());
       ifb->set_saw_error();
       return Expression::make_error(loc);
     }
-  return Expression::make_var_reference(var, loc);
+
+  if (no->is_variable() || no->is_result_variable())
+    return Expression::make_var_reference(no, loc);
+  else if (no->is_function() || no->is_function_declaration())
+    return Expression::make_func_reference(no, NULL, loc);
+  else
+    {
+      if (!ifb->saw_error())
+	go_error_at(ifb->location(),
+		    ("import error for %qs: "
+		     "unexpected type of identifier %qs (%d)"),
+		    ifb->name().c_str(),
+		    id.c_str(), no->classification());
+      ifb->set_saw_error();
+      return Expression::make_error(loc);
+    }
 }
 
 // Class Expression_list.

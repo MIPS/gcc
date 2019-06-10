@@ -5131,7 +5131,7 @@ start_decl (const cp_declarator *declarator,
       && DECL_UNINLINABLE (decl)
       && lookup_attribute ("noinline", DECL_ATTRIBUTES (decl)))
     warning_at (DECL_SOURCE_LOCATION (decl), 0,
-		"inline function %qD given attribute noinline", decl);
+		"inline function %qD given attribute %qs", decl, "noinline");
 
   if (TYPE_P (context) && COMPLETE_TYPE_P (complete_type (context)))
     {
@@ -5703,7 +5703,7 @@ check_for_uninitialized_const_var (tree decl, bool constexpr_context_p,
 	    {
 	      if (complain & tf_error)
 		show_notes = permerror (DECL_SOURCE_LOCATION (decl),
-				        "uninitialized const %qD", decl);
+				        "uninitialized %<const %D%>", decl);
 	    }
 	  else
 	    {
@@ -9148,7 +9148,7 @@ grokfndecl (tree ctype,
 	  else if (long_double_p)
 	    {
 	      if (cpp_interpret_float_suffix (parse_in, suffix, strlen (suffix)))
-		warning_at (location, 0, "floating point suffix %qs"
+		warning_at (location, 0, "floating-point suffix %qs"
 			    " shadowed by implementation", suffix);
 	    }
 	  /* 17.6.3.3.5  */
@@ -10111,6 +10111,15 @@ smallest_type_quals_location (int type_quals, const location_t* locations)
   return loc;
 }
 
+/* Returns the smallest among the latter and locations[ds_type_spec].  */
+
+static location_t
+smallest_type_location (int type_quals, const location_t* locations)
+{
+  location_t loc = smallest_type_quals_location (type_quals, locations);
+  return min_location (loc, locations[ds_type_spec]);
+}
+
 /* Check that it's OK to declare a function with the indicated TYPE
    and TYPE_QUALS.  SFK indicates the kind of special function (if any)
    that this function is.  OPTYPE is the type given in a conversion
@@ -10129,7 +10138,8 @@ check_special_function_return_type (special_function_kind sfk,
     {
     case sfk_constructor:
       if (type)
-	error ("return type specification for constructor invalid");
+	error_at (smallest_type_location (type_quals, locations),
+		  "return type specification for constructor invalid");
       else if (type_quals != TYPE_UNQUALIFIED)
 	error_at (smallest_type_quals_location (type_quals, locations),
 		  "qualifiers are not allowed on constructor declaration");
@@ -10142,7 +10152,8 @@ check_special_function_return_type (special_function_kind sfk,
 
     case sfk_destructor:
       if (type)
-	error ("return type specification for destructor invalid");
+	error_at (smallest_type_location (type_quals, locations),
+		  "return type specification for destructor invalid");
       else if (type_quals != TYPE_UNQUALIFIED)
 	error_at (smallest_type_quals_location (type_quals, locations),
 		  "qualifiers are not allowed on destructor declaration");
@@ -10157,7 +10168,8 @@ check_special_function_return_type (special_function_kind sfk,
 
     case sfk_conversion:
       if (type)
-	error ("return type specified for %<operator %T%>", optype);
+	error_at (smallest_type_location (type_quals, locations),
+		  "return type specified for %<operator %T%>", optype);
       else if (type_quals != TYPE_UNQUALIFIED)
 	error_at (smallest_type_quals_location (type_quals, locations),
 		  "qualifiers are not allowed on declaration of "
@@ -10168,7 +10180,8 @@ check_special_function_return_type (special_function_kind sfk,
 
     case sfk_deduction_guide:
       if (type)
-	error ("return type specified for deduction guide");
+	error_at (smallest_type_location (type_quals, locations),
+		  "return type specified for deduction guide");
       else if (type_quals != TYPE_UNQUALIFIED)
 	error_at (smallest_type_quals_location (type_quals, locations),
 		  "qualifiers are not allowed on declaration of "
@@ -10184,7 +10197,7 @@ check_special_function_return_type (special_function_kind sfk,
       for (int i = 0; i < ds_last; ++i)
 	if (i != ds_explicit && locations[i])
 	  error_at (locations[i],
-		    "decl-specifier in declaration of deduction guide");
+		    "%<decl-specifier%> in declaration of deduction guide");
       break;
 
     default:
@@ -10438,10 +10451,8 @@ grokdeclarator (const cp_declarator *declarator,
   if (initialized > 1)
     funcdef_flag = true;
 
-  location_t typespec_loc = smallest_type_quals_location (type_quals,
-						      declspecs->locations);
-  typespec_loc = min_location (typespec_loc,
-			       declspecs->locations[ds_type_spec]);
+  location_t typespec_loc = smallest_type_location (type_quals,
+						    declspecs->locations);
   if (typespec_loc == UNKNOWN_LOCATION)
     typespec_loc = input_location;
 
@@ -11873,6 +11884,8 @@ grokdeclarator (const cp_declarator *declarator,
       unqualified_id = dname;
     }
 
+  location_t loc = declarator ? declarator->id_loc : input_location;
+
   /* If TYPE is a FUNCTION_TYPE, but the function name was explicitly
      qualified with a class-name, turn it into a METHOD_TYPE, unless
      we know that the function is static.  We take advantage of this
@@ -11893,13 +11906,13 @@ grokdeclarator (const cp_declarator *declarator,
 	{
 	  if (friendp)
 	    {
-	      permerror (input_location, "member functions are implicitly "
-					 "friends of their class");
+	      permerror (declspecs->locations[ds_friend],
+			 "member functions are implicitly "
+			 "friends of their class");
 	      friendp = 0;
 	    }
 	  else
-	    permerror (declarator->id_loc, 
-		       "extra qualification %<%T::%> on member %qs",
+	    permerror (loc, "extra qualification %<%T::%> on member %qs",
 		       ctype, name);
 	}
       else if (/* If the qualifying type is already complete, then we
@@ -11928,19 +11941,19 @@ grokdeclarator (const cp_declarator *declarator,
 	  if (current_class_type
 	      && (!friendp || funcdef_flag || initialized))
 	    {
-	      error (funcdef_flag || initialized
-		     ? G_("cannot define member function %<%T::%s%> "
-			  "within %qT")
-		     : G_("cannot declare member function %<%T::%s%> "
-			  "within %qT"),
-		     ctype, name, current_class_type);
+	      error_at (loc, funcdef_flag || initialized
+			? G_("cannot define member function %<%T::%s%> "
+			     "within %qT")
+			: G_("cannot declare member function %<%T::%s%> "
+			     "within %qT"),
+			ctype, name, current_class_type);
 	      return error_mark_node;
 	    }
 	}
       else if (typedef_p && current_class_type)
 	{
-	  error ("cannot declare member %<%T::%s%> within %qT",
-		 ctype, name, current_class_type);
+	  error_at (loc, "cannot declare member %<%T::%s%> within %qT",
+		    ctype, name, current_class_type);
 	  return error_mark_node;
 	}
     }
@@ -12052,8 +12065,6 @@ grokdeclarator (const cp_declarator *declarator,
 	  storage_class = sc_none;
 	}
     }
-
-  location_t loc = declarator ? declarator->id_loc : input_location;
 
   /* If this is declaring a typedef name, return a TYPE_DECL.  */
   if (typedef_p && decl_context != TYPENAME)
@@ -14748,7 +14759,7 @@ finish_enum_value_list (tree enumtype)
       if (TYPE_PRECISION (enumtype))
 	{
 	  if (precision > TYPE_PRECISION (enumtype))
-	    error ("specified mode too small for enumeral values");
+	    error ("specified mode too small for enumerated values");
 	  else
 	    {
 	      use_short_enum = true;
@@ -15277,7 +15288,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
   if (DECL_DECLARED_INLINE_P (decl1)
       && lookup_attribute ("noinline", attrs))
     warning_at (DECL_SOURCE_LOCATION (decl1), 0,
-		"inline function %qD given attribute noinline", decl1);
+		"inline function %qD given attribute %qs", decl1, "noinline");
 
   /* Handle gnu_inline attribute.  */
   if (GNU_INLINE_P (decl1))

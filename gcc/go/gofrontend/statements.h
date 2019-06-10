@@ -739,6 +739,10 @@ class Temporary_statement : public Statement
   Bvariable*
   get_backend_variable(Translate_context*) const;
 
+  // Import the declaration of a temporary.
+  static Statement*
+  do_import(Import_function_body*, Location);
+
  protected:
   int
   do_traverse(Traverse*);
@@ -751,6 +755,13 @@ class Temporary_statement : public Statement
 
   void
   do_check_types(Gogo*);
+
+  int
+  do_inlining_cost()
+  { return 1; }
+
+  void
+  do_export_statement(Export_function_body*);
 
   Statement*
   do_flatten(Gogo*, Named_object*, Block*, Statement_inserter*);
@@ -942,6 +953,14 @@ class Block_statement : public Statement
   bool
   is_lowered_for_statement()
   { return this->is_lowered_for_statement_; }
+
+  // Export a block for a block statement.
+  static void
+  export_block(Export_function_body*, Block*);
+
+  // Import a block statement, returning the block.
+  static Block*
+  do_import(Import_function_body*, Location);
 
  protected:
   int
@@ -1510,6 +1529,18 @@ class If_statement : public Statement
   condition() const
   { return this->cond_; }
 
+  Block*
+  then_block() const
+  { return this->then_block_; }
+
+  Block*
+  else_block() const
+  { return this->else_block_; }
+
+  // Import an if statement.
+  static Statement*
+  do_import(Import_function_body*, Location);
+
  protected:
   int
   do_traverse(Traverse*);
@@ -1519,6 +1550,13 @@ class If_statement : public Statement
 
   void
   do_check_types(Gogo*);
+
+  int
+  do_inlining_cost()
+  { return 5; }
+
+  void
+  do_export_statement(Export_function_body*);
 
   bool
   do_may_fall_through() const;
