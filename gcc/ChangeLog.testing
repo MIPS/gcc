@@ -1,6 +1,11 @@
 2019-06-12 Jan Hubicka  <hubicka@ucw.cz>
 
+	* opts.c: Set inlining limits AUTO 30->15 and SINGLE 200->100
+
+2019-06-12 Jan Hubicka  <hubicka@ucw.cz>
+
 	* opts.c: Enable -finline-functions at -O2
+
 2019-01-29 Jan Hubicka  <hubicka@ucw.cz>
 
 	* inline-insns-small to 4, inline-insns-size to 2.
