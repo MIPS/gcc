@@ -3343,6 +3343,7 @@ const char *decNumberClassToString(enum decClass eclass) {
 /* All fields are updated as required.	This is a utility operation,  */
 /* so special values are unchanged and no error is possible.	      */
 /* ------------------------------------------------------------------ */
+__attribute__((noinline))
 decNumber * decNumberCopy(decNumber *dest, const decNumber *src) {
 
   #if DECCHECK

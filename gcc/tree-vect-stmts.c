@@ -6539,7 +6539,7 @@ vectorizable_store (stmt_vec_info stmt_info, gimple_stmt_iterator *gsi,
       tree vec_oprnd0 = NULL_TREE, vec_oprnd1 = NULL_TREE, src;
       tree arglist = TYPE_ARG_TYPES (TREE_TYPE (gs_info.decl));
       tree rettype, srctype, ptrtype, idxtype, masktype, scaletype;
-      tree ptr, var, scale, vec_mask;
+      tree ptr, var, scale, vec_mask = NULL_TREE;
       tree mask_arg = NULL_TREE, mask_op = NULL_TREE, perm_mask = NULL_TREE;
       tree mask_halfvectype = mask_vectype;
       edge pe = loop_preheader_edge (loop);
