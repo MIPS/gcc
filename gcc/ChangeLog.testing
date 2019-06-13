@@ -1,3 +1,7 @@
+2019-06-14 Jan Hubicka  <hubicka@ucw.cz>
+
+	* back to trunk.
+
 2019-06-12 Jan Hubicka  <hubicka@ucw.cz>
 
 	* opts.c: Set inlining limits AUTO 30->15 and SINGLE 200->100
