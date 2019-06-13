@@ -3942,14 +3942,22 @@ mips_valid_lo_sum_offset_p (rtx reg, rtx offset, machine_mode mode)
    /* The function will return true unless the lo_sum is of the form:
       (lo_sum (reg) (const (plus (symbol_ref <symbol>) (const_int <offset>)))
 
-      And the alignment of the symbol is less than the offset. */
+      And the alignment of the symbol is less than the offset.
 
-   if ((REG_P (reg) && REGNO (reg) == GLOBAL_POINTER_REGNUM)
-       || GET_CODE (offset) != CONST
-       || GET_CODE (XEXP (offset, 0)) != PLUS)
+      If we might split multiword moves, ensure that symbol is sufficiently
+      aligned, so that each word can be accessed without inducing a carry.  */
+
+
+   if (REG_P (reg) && REGNO (reg) == GLOBAL_POINTER_REGNUM)
+     return true;
+
+   if ((GET_CODE (offset) != CONST || GET_CODE (XEXP (offset, 0)) != PLUS)
+       && GET_MODE_SIZE (mode) <= UNITS_PER_WORD)
      return true;
 
   split_const (offset, &symbol, &offset);
+
+  gcc_assert (GET_CODE (symbol) == SYMBOL_REF);
 
   if (SYMBOL_REF_DECL (symbol))
     align = DECL_ALIGN (SYMBOL_REF_DECL (symbol));
@@ -3962,6 +3970,9 @@ mips_valid_lo_sum_offset_p (rtx reg, rtx offset, machine_mode mode)
   ref_size = GET_MODE_SIZE (mode);
   if (ref_size == 0)
     ref_size = GET_MODE_SIZE (SImode);
+
+  if (ref_size > UNITS_PER_WORD && ((align / BITS_PER_UNIT) < ref_size))
+    return false;
 
   return ((INTVAL (offset) & (ref_size - 1)) == 0
 	  && ((align / BITS_PER_UNIT) & (ref_size - 1)) == 0);
@@ -5371,6 +5382,9 @@ mips_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
       && !mips_valid_lo_sum_offset_p (XEXP (x, 0), XEXP (x, 1), mode))
     {
       rtx symbol;
+
+      if (GET_CODE (XEXP (x, 1)) != CONST)
+        return mips_force_address (x, mode);
 
       mips_split_plus (XEXP (XEXP (x, 1), 0), &symbol, &offset);
 
