@@ -1234,7 +1234,12 @@ public:
       err = e;
   }
   /* Get an error string.  */
-  const char *get_error (const char *) const;
+  const char *get_error (const char *name) const
+  {
+    return get_error (name, err);
+  }
+
+  static const char *get_error (const char *, int);
 
 public:
   /* Begin reading/writing file.  Return false on error.  */
@@ -1249,7 +1254,7 @@ public:
 /* Return error string.  */
 
 const char *
-elf::get_error (const char *name) const
+elf::get_error (const char *name, int err)
 {
   if (!name)
     return "Unknown CMI mapping";
@@ -3781,7 +3786,8 @@ public:
     return get_response (state->from_loc) > 0 ? cmi_response (state) : NULL;
   }
 
-  const char *translate_include (location_t, const char *fname, bool angle_p,
+  const char *translate_include (location_t, cpp_include_type,
+                                 const char *fname, bool angle_p,
                                  const char *path, size_t path_len);
 public:
   /* After a response that may be corked, eat blank lines until it is
@@ -12419,13 +12425,15 @@ module_mapper::export_done (const module_state *state)
   return ok;
 }
 
-/* Include translation.  Query if PATH should be turned into a header
-   import.  Return false @@ TODO if it should remain a #include, true
-   otherwise.  If READER is non-NULL, do the translation by pushing a
-   buffer containing the translation text (ending in two \n's).  */
+/* Header include/import translation.  Query if ANGLE/FNAME which was resolved
+   to PATH (empty if not found) should be re-searched (return FNAME),
+   translated/rewritten (return NULL), or, in case of an include, included as
+   is (return PATH).  If PATH is return in case of an import, then assume
+   no mapping was found.  */
 
 const char *
 module_mapper::translate_include (location_t loc,
+                                  cpp_include_type type,
                                   const char *fname, bool angle,
                                   const char *path, size_t path_len)
 {
@@ -12434,26 +12442,29 @@ module_mapper::translate_include (location_t loc,
   timevar_start (TV_MODULE_MAPPER);
   if (mapper->is_server ())
     {
-      send_command (loc, "INCLUDE %c%s%c %s",
+      send_command (loc, "%s %c%s%c %s",
+                    type == CPP_IT_INCLUDE ? "INCLUDE" : "IMPORT",
                     angle ? '<' : '"', fname, angle ? '>' : '"',
                     path);
       if (get_response (loc) <= 0)
 	return path;
 
-      switch (response_word (loc, "IMPORT", "TEXT", "SEARCH", NULL))
+      switch (response_word (loc,
+                             "SEARCH",
+                             "IMPORT",
+                             type == CPP_IT_INCLUDE ? "INCLUDE" : NULL,
+                             NULL))
 	{
 	default:
 	  break;
-
-	case 0:  /* Divert to import.  */
-	  res = NULL;
-	  break;
-
-	case 1:  /* Treat as include.  */
-	  break;
-        case 2:  /* Re-search. */
+        case 0: /* Re-search. */
           res = fname;
           break;
+	case 1:  /* Translate/rewrite.  */
+	  res = NULL;
+	  break;
+	case 2:  /* Treat as include.  */
+	  break;
 	}
       response_eol (loc);
     }
@@ -17216,7 +17227,10 @@ module_map_header (cpp_reader *reader, location_t loc, bool search,
   return build_string (len, str);
 }
 
-/* Figure out whether to treat HEADER as an include or an import.  */
+/* Figure out what to do with an included or imported header.  For include we
+   can return NAME to cause a re-search, PATH to include, or translate it to
+   import by pushing a buffer and returning NULL.  For import we can either
+   cause a re-search or translate (to import with NAME rewritten to PATH).  */
 
 const char *
 module_translate_include (cpp_reader *reader, line_maps *lmaps, location_t loc,
@@ -17235,57 +17249,70 @@ module_translate_include (cpp_reader *reader, line_maps *lmaps, location_t loc,
     return path;
 
   dump.push (NULL);
+  dump (dumper::MAPPER) && dump ("Checking %s translation %c%s%c '%s'",
+                                 type == CPP_IT_INCLUDE ? "include" : "import",
+                                 angle ? '<' : '"', name, angle ? '>' : '"',
+                                 path);
+  const char *res = path;
+  module_mapper *mapper = module_mapper::get (loc);
+  if (mapper->is_live ())
+    {
+      size_t len = strlen (path);
+      res = mapper->translate_include (loc, type, name, angle, path, len);
+    }
 
-  const char *res;
   if (type == CPP_IT_INCLUDE)
     {
-      dump (dumper::MAPPER) && dump ("Checking include translation '%s'", path);
-      res = path;
-      module_mapper *mapper = module_mapper::get (loc);
-      if (mapper->is_live ())
+      /* If re-searching, then wait for the subsequent call before noting.  */
+      if (!res || res == path)
         {
-          size_t len = strlen (path);
-          /*
-            @@ TODO: perhaps we don't need this anymore? If we do, then it
-            will definitely need to be adjusted for the new return value
-            semantics.
+          bool note = false;
 
-            path = canonicalize_header_name (NULL, loc, true, path, len);
-          */
-          res = mapper->translate_include (loc, name, angle, path, len);
+          if (note_include_translate < 0)
+            note = true;
+          else if (note_include_translate > 0 && !res)
+            note = true;
+          else if (note_includes)
+            {
+              /* We do not expect the note_includes vector to be large, so O(N)
+                 iteration.  */
+              for (unsigned ix = note_includes->length (); !note && ix--;)
+                {
+                  const char *hdr = (*note_includes)[ix];
+                  if (!strcmp (hdr, path))
+                    note = true;
+                }
+            }
+
+          if (note)
+            inform (loc, res
+                    ? G_("include %qs processed textually")
+                    : G_("include %qs translated to import"), path);
         }
 
-      bool note = false;
-
-      if (note_include_translate < 0)
-	note = true;
-      else if (note_include_translate > 0 && !res)
-	note = true;
-      else if (note_includes)
-	{
-	  /* We do not expect the note_includes vector to be large, so O(N)
-	     iteration.  */
-	  for (unsigned ix = note_includes->length (); !note && ix--;)
-	    {
-	      const char *hdr = (*note_includes)[ix];
-	      if (!strcmp (hdr, path))
-		note = true;
-	    }
-	}
-
-      if (note)
-	inform (loc, res
-		? G_("include %qs processed textually")
-		: G_("include %qs translated to import"), path);
-
-      /* @@ TODO */
-      dump (dumper::MAPPER) && dump (res ? "Keeping include as include"
-                                     : "Translating include to import");
+      dump (dumper::MAPPER) && dump (res == path ? "Keeping include as include" :
+                                     !res ? "Translating include to import" :
+                                     "Re-searching included header");
     }
   else
     {
-      //@@ TODO: imported header re-search.
-      res = *path != '\0' ? NULL : path;
+      /* If import was not rewritten, assume no mapping.  */
+      if (res == path)
+        {
+          /* What if the header is not found? Should we complain about a
+             missing BMI or should we let preprocessor complain about a
+             missing header?  Since the mapper could potentially fix the
+             missing header situtation, let's complain about the BMI.  */
+
+          // FIXME: We want this diagnostics consistent with the case when the
+          // same happens to an already rewritten import.
+
+          fatal_error (loc, "failed to read module: %s",
+                       elf::get_error (NULL, ENOENT));
+        }
+
+      dump (dumper::MAPPER) && dump (!res ? "Rewriting import" :
+                                     "Re-searching imported header");
     }
 
   if (!res)
