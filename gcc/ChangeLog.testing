@@ -1,5 +1,9 @@
 2019-06-14 Jan Hubicka  <hubicka@ucw.cz>
 
+	* enable -O2 inlining. AUTO 10, SINGLE 100.
+
+2019-06-14 Jan Hubicka  <hubicka@ucw.cz>
+
 	* back to trunk.
 
 2019-06-12 Jan Hubicka  <hubicka@ucw.cz>
