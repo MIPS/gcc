@@ -1,3 +1,7 @@
+2019-06-17 Jan Hubicka  <hubicka@ucw.cz>
+
+	* no big speedup, auto 30, single 100.
+
 2019-06-16 Jan Hubicka  <hubicka@ucw.cz>
 
 	* disable big speedup for -O2.

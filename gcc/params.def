@@ -90,7 +90,7 @@ DEFPARAM (PARAM_MAX_INLINE_INSNS_AUTO,
 DEFPARAM (PARAM_MAX_INLINE_INSNS_AUTO_O2,
 	  "max-inline-insns-auto-O2",
 	  "The maximum number of instructions when automatically inlining.",
-	  10, 0, 0)
+	  20, 0, 0)
 
 DEFPARAM (PARAM_MAX_INLINE_INSNS_SMALL,
 	  "max-inline-insns-small",
