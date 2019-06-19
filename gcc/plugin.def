@@ -99,6 +99,9 @@ DEFEVENT (PLUGIN_NEW_PASS)
    as a const char* pointer.  */
 DEFEVENT (PLUGIN_INCLUDE_FILE)
 
+/* Called when running selftests.  */
+DEFEVENT (PLUGIN_RUN_SELFTESTS)
+
 /* When adding a new hard-coded plugin event, don't forget to edit in
    file plugin.c the functions register_callback and
    invoke_plugin_callbacks_full accordingly!  */
