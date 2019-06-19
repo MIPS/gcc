@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "options.h"
 #include "stringpool.h"
 #include "attribs.h"
+#include "plugin.h"
 
 /* This function needed to be split out from selftest.c as it references
    tests from the whole source tree, and so is within
@@ -113,6 +114,9 @@ selftest::run_tests ()
 
   /* Run any lang-specific selftests.  */
   lang_hooks.run_lang_selftests ();
+
+  /* Run any plugin-provided selftests.  */
+  invoke_plugin_callbacks (PLUGIN_RUN_SELFTESTS, NULL);
 
   /* Force a GC at the end of the selftests, to shake out GC-related
      issues.  For example, if any GC-managed items have buggy (or missing)
