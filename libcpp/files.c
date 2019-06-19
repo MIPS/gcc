@@ -1162,7 +1162,8 @@ _cpp_stack_include (cpp_reader *pfile, const char *fname, int angle_brackets,
       cpp_include_type cpp_type =
 	type == IT_CP_IMPORT        ? CPP_IT_CP_IMPORT        :
 	type == IT_CP_EXPORT_IMPORT ? CPP_IT_CP_EXPORT_IMPORT :
-	CPP_IT_INCLUDE;
+	type <  IT_DIRECTIVE_HWM    ? CPP_IT_INCLUDE          :
+	CPP_IT_DEFAULT;
 
       /*  If we re-searched an include, call again to see if it needs to
 	  be translated.  */
@@ -1177,7 +1178,7 @@ _cpp_stack_include (cpp_reader *pfile, const char *fname, int angle_brackets,
 	    {
 	      /* Translating a header we couldn't find does not make sense (we
 		 will fail below anyway).  */
-	      gcc_assert (err != ENOENT);
+	      gcc_assert (cpp_type != CPP_IT_DEFAULT && err != ENOENT);
 
 	      // FIXME: should we have just returned the buffer to stack?
 	      /* The hook has stacked a buffer containing replacement text
@@ -1209,6 +1210,8 @@ _cpp_stack_include (cpp_reader *pfile, const char *fname, int angle_brackets,
 	    }
 	  else if (new_path == fname)
 	    {
+	      gcc_assert (cpp_type != CPP_IT_DEFAULT);
+
 	      /* The motivating use-case we want to handle is this: based on
 		 the dependency information the caller detects a missing
 		 header (-MG) or a header that came from the wrong location
@@ -1243,7 +1246,9 @@ _cpp_stack_include (cpp_reader *pfile, const char *fname, int angle_brackets,
 	      gcc_assert (new_path == old_path);
 
 	      /* Import must be translated unless the header doesn't exist.  */
-	      gcc_assert (cpp_type == CPP_IT_INCLUDE || err == ENOENT);
+	      gcc_assert (cpp_type == CPP_IT_DEFAULT ||
+			  cpp_type == CPP_IT_INCLUDE ||
+			  err == ENOENT);
 	    }
 	  break;
 	}

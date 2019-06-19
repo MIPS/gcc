@@ -617,6 +617,7 @@ enum cpp_warning_reason {
    subset of the more detailed internal include_type enum.  */
 enum cpp_include_type
 {
+  CPP_IT_DEFAULT,         /* Forced (predef) or command line (-include)  */
   CPP_IT_INCLUDE,         /* #include, #include_next, and #import  */
   CPP_IT_CP_IMPORT,       /* C++ header unit import  */
   CPP_IT_CP_EXPORT_IMPORT /* C++ header unit export import  */
@@ -708,10 +709,11 @@ struct cpp_callbacks
   /* Maybe re-search a #include to a different path or translate it into
      something else entirely.  Return the original path if no re-search or
      translation is required, the original name to re-search, or push a
-     cpp_buffer containing the translation and return NULL.  Note that this
-     callback is called even if the file was not found, in which case the path
-     will be empty, and the missing_header callback is called before this
-     callback with its result, if any, passed as path.  */
+     cpp_buffer containing the translation and return NULL.  If include type
+     is CPP_IT_DEFAULT, then it should enither be re-searched nor translated.
+     Note that this callback is called even if the file was not found, in
+     which case the path will be empty, and the missing_header callback is
+     called before this callback with its result, if any, passed as path.  */
   const char *(*translate_include) (cpp_reader *, line_maps *, location_t,
                                     cpp_include_type, const char *name,
                                     bool angle_p, const char *path);
