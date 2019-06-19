@@ -888,7 +888,8 @@ public:
 #endif
 
 private:
-  void imex_response (unsigned id, const char *module, bool deferred);
+  void imex_response (unsigned id, const char *module,
+                      bool deferred, bool exporting);
 
 public:
   bool process (int = -1);
@@ -988,12 +989,14 @@ client::process (int epoll_fd)
 }
 
 void
-client::imex_response (unsigned id, const char *name, bool deferred)
+client::imex_response (unsigned id, const char *name,
+                       bool deferred, bool exporting)
 {
   const char *sfx = &" "[!deferred];
   const char *pfx = deferred ? name : sfx;
   if (const char *bmi = module2bmi (name))
-    write.send_response (id, "%s%sOK %s", pfx, sfx, bmi);
+    write.send_response (id, "%s%s%sPORT %s", pfx, sfx,
+                         exporting ? "EX" : "IM", bmi);
   else
     write.send_response (id, "%s%sERROR Unknown module", pfx, sfx);
 }
@@ -1079,13 +1082,26 @@ client::action ()
 	      case 2: /* DONE */
 	      case 3: /* INCLUDE */
 		{
-		  char *module = read.get_token (id);
+		  const char *module = read.get_token (id);
+
+                  //@@ TODO: for export it's just EXPORT 'header'.
+
+                  /* See if this is a header unit.  */
+                  char type (module[0]);
+                  if (type == '<' || type == '"' || type == '\'')
+                    {
+                      /* There will be no path if the header wasn't found.  */
+                      module = read.eol_p () ? "" : read.get_token (id);
+                    }
+                  else
+                    type = '\0';
+
 		  read.get_eol (id);
 		  switch (word)
 		    {
 		    case 0:
 		    case 1:
-		      imex_response (id, module, false);
+		      imex_response (id, module, false, word == 1);
 		      break;
 		    case 2:
 		      /* No response.  */
@@ -1094,34 +1110,38 @@ client::action ()
 		    case 3:
 		      {
 			bool do_imp = false;
-			if (module_map)
-			  {
-			    module_map_t::iterator iter
-			      = module_map->find (module);
-			    if (iter != module_map->end ())
-			      do_imp = true;
-			  }
-			if (!do_imp)
-			  /* See if the BMI exists.  */
-			  // FIXME: We should have syntax for this in
-			  // a config file?  This is unpleasant.
-			  if (const char *bmi = module2bmi (module))
-			    {
-			      size_t l = strlen (bmi);
-			      size_t r = strlen (flag_root);
-			      char *buf = new char [l + r + 2];
-			      memcpy (buf, flag_root, r);
-			      buf[r] = DIR_SEPARATOR;
-			      memcpy (buf + r + 1, bmi, l + 1);
-			      int fd = ::open (buf, O_RDONLY);
-			      delete[] buf;
-			      if (fd >= 0)
-				{
-				  ::close (fd);
-				  do_imp = true;
-				}
-			    }
-			write.send_response (id, do_imp ? "IMPORT" : "TEXT");
+
+                        if (*module != '\0' && type != '\'')
+                          {
+                            if (module_map)
+                              {
+                                module_map_t::iterator iter
+                                  = module_map->find (module);
+                                if (iter != module_map->end ())
+                                  do_imp = true;
+                              }
+                            if (!do_imp)
+                              /* See if the BMI exists.  */
+                              // FIXME: We should have syntax for this in
+                              // a config file?  This is unpleasant.
+                              if (const char *bmi = module2bmi (module))
+                                {
+                                  size_t l = strlen (bmi);
+                                  size_t r = strlen (flag_root);
+                                  char *buf = new char [l + r + 2];
+                                  memcpy (buf, flag_root, r);
+                                  buf[r] = DIR_SEPARATOR;
+                                  memcpy (buf + r + 1, bmi, l + 1);
+                                  int fd = ::open (buf, O_RDONLY);
+                                  delete[] buf;
+                                  if (fd >= 0)
+                                    {
+                                      ::close (fd);
+                                      do_imp = true;
+                                    }
+                                }
+                          }
+			write.send_response (id, do_imp ? "IMPORT" : "INCLUDE");
 		      }
 		      break;
 
