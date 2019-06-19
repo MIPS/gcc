@@ -85,7 +85,7 @@ DEFPARAM (PARAM_MAX_INLINE_INSNS_SINGLE_O2,
 DEFPARAM (PARAM_MAX_INLINE_INSNS_AUTO,
 	  "max-inline-insns-auto",
 	  "The maximum number of instructions when automatically inlining with -O3 and -Ofast.",
-	  30, 0, 0)
+	  15, 0, 0)
 
 DEFPARAM (PARAM_MAX_INLINE_INSNS_AUTO_O2,
 	  "max-inline-insns-auto-O2",
@@ -244,7 +244,7 @@ DEFPARAM(PARAM_IPCP_UNIT_GROWTH,
 DEFPARAM(PARAM_EARLY_INLINING_INSNS,
 	 "early-inlining-insns",
 	 "Maximal estimated growth of function body caused by early inlining of single call.",
-	 14, 0, 0)
+	 8, 0, 0)
 DEFPARAM(PARAM_LARGE_STACK_FRAME,
 	 "large-stack-frame",
 	 "The size of stack frame to be considered large.",

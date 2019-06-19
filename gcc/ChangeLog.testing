@@ -1,3 +1,7 @@
+2019-06-19 Jan Hubicka  <hubicka@ucw.cz>
+
+	* no big speedup, early 8, auto 15, single 100.
+
 2019-06-17 Jan Hubicka  <hubicka@ucw.cz>
 
 	* no big speedup, auto 30, single 100.
@@ -5,14 +9,17 @@
 2019-06-16 Jan Hubicka  <hubicka@ucw.cz>
 
 	* disable big speedup for -O2.
+	570ad17340bf2617d2ada4c0b67f9ec4bc9ec149
 
 2019-06-14 Jan Hubicka  <hubicka@ucw.cz>
 
 	* enable -O2 inlining. AUTO 10, SINGLE 100.
+	c48b0f346147d214f19b772ceea699d58b27fce8
 
 2019-06-14 Jan Hubicka  <hubicka@ucw.cz>
 
 	* back to trunk.
+	8ed7bd1e1d8ce6861c7f73da8ca916a06bd6fe9d
 
 2019-06-12 Jan Hubicka  <hubicka@ucw.cz>
 
