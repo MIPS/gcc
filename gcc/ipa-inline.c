@@ -659,6 +659,9 @@ want_early_inline_function_p (struct cgraph_edge *e)
     {
       int growth = estimate_edge_growth (e);
       int n;
+      int early_inlining_insns = opt_for_fn (e->caller->decl, optimize) >= 3
+				 ? PARAM_VALUE (PARAM_EARLY_INLINING_INSNS)
+				 : PARAM_VALUE (PARAM_EARLY_INLINING_INSNS_O2);
 
       if (growth <= PARAM_VALUE (PARAM_MAX_INLINE_INSNS_SIZE))
 	;
@@ -672,7 +675,7 @@ want_early_inline_function_p (struct cgraph_edge *e)
 			     growth);
 	  want_inline = false;
 	}
-      else if (growth > PARAM_VALUE (PARAM_EARLY_INLINING_INSNS))
+      else if (growth > early_inlining_insns)
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, e->call_stmt,
@@ -683,7 +686,7 @@ want_early_inline_function_p (struct cgraph_edge *e)
 	  want_inline = false;
 	}
       else if ((n = num_calls (callee)) != 0
-	       && growth * (n + 1) > PARAM_VALUE (PARAM_EARLY_INLINING_INSNS))
+	       && growth * (n + 1) > early_inlining_insns)
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, e->call_stmt,
@@ -757,12 +760,14 @@ big_speedup_p (struct cgraph_edge *e)
   sreal spec_time = estimate_edge_time (e, &unspec_time);
   sreal time = compute_uninlined_call_time (e, unspec_time);
   sreal inlined_time = compute_inlined_call_time (e, spec_time);
+  cgraph_node *caller = e->caller->global.inlined_to
+		        ? e->caller->global.inlined_to
+		        : e->caller;
+  int limit = opt_for_fn (caller->decl, optimize) >= 3
+	      ? PARAM_VALUE (PARAM_INLINE_MIN_SPEEDUP)
+	      : PARAM_VALUE (PARAM_INLINE_MIN_SPEEDUP_O2);
 
-  if (opt_for_fn (e->caller->decl, optimize) <= 2)
-    return false;
-
-  if ((time - inlined_time) * 100
-      > (sreal) (time * PARAM_VALUE (PARAM_INLINE_MIN_SPEEDUP)))
+  if ((time - inlined_time) * 100 > time * limit)
     return true;
   return false;
 }
