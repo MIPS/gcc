@@ -739,6 +739,7 @@ compute_alignments (void)
       if (has_fallthru
 	  && !(single_succ_p (bb)
 	       && single_succ (bb) == EXIT_BLOCK_PTR_FOR_FN (cfun))
+	  && bb->loop_father->header == bb
 	  && optimize_bb_for_speed_p (bb)
 	  && branch_count + fallthru_count > count_threshold
 	  && (branch_count
