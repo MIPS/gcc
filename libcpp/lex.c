@@ -2615,7 +2615,8 @@ _cpp_lex_token (cpp_reader *pfile)
       if (result->flags & BOL)
 	{
 	  /* Is this a directive.  */
-	  bool directive = false;
+	  const cpp_token* directive_start = NULL;
+	  cpp_token start_token;
 
 	  /* 6.10.3 p 11: Directives in a list of macro arguments gives
 	     undefined behavior.  This implementation handles the directive as
@@ -2627,7 +2628,7 @@ _cpp_lex_token (cpp_reader *pfile)
 	      switch (result->type)
 		{
 		case CPP_HASH:
-		  directive = true;
+		  directive_start = result;
 		  break;
 
 		case CPP_NAME:
@@ -2637,36 +2638,35 @@ _cpp_lex_token (cpp_reader *pfile)
 		    gcc_assert (!pfile->context->prev);
 
 		    //@@ TODO: only in modules_p() mode & not traditional.
-		    //break;
+		    //@@ TODO: better way than calling cpp_ideq (hash)?
 
 		    /* Handle the 'import' and 'export import' pseude-
 		       directives.  */
-
 		    if (cpp_ideq (result, "import"))
-		      directive = true;
+		      directive_start = result;
 		    else if (cpp_ideq (result, "export"))
 		      {
-			//@@ Redo as _cpp_lex_token().
+			pfile->state.in_directive = 1;
 
-			/* In the in_directive mode cpp_lex_direct returns
-			   EOF on end-of-line.  */
-			const cpp_token *peek;
-			if (pfile->lookaheads)
-			  peek = pfile->cur_token;
-			else
-			  {
-			    pfile->state.in_directive = 1;
-			    peek = _cpp_lex_direct (pfile);
-			    if (peek->type != CPP_EOF) /* End of line.  */
-			      _cpp_backup_tokens (pfile, 1);
-			    pfile->state.in_directive = 0;
-			  }
+			/* Note that in the in_directive mode cpp_lex_direct()
+			   returns EOF on end-of-line.  */
+			const cpp_token *peek = _cpp_lex_token (pfile);
+			if (peek->type != CPP_EOF)
+			  _cpp_backup_tokens (pfile, 1);
 
 			if (peek->type == CPP_NAME && cpp_ideq (peek, "import"))
-			  directive = true;
+			  {
+			    /* Fuse into a single 'export import' token. */
+			    start_token = *result;
+			    start_token.val.node.node =
+			      start_token.val.node.spelling =
+			      _cpp_lex_identifier (pfile, "export import");
+			    directive_start = &start_token;
+			  }
+
+			pfile->state.in_directive = 0;
 		      }
 		  }
-
 		  break;
 
 		default:
@@ -2675,9 +2675,9 @@ _cpp_lex_token (cpp_reader *pfile)
 	    }
 
 	  /* If _cpp_handle_directive returns false, it is an assembler #.  */
-	  if (directive)
+	  if (directive_start)
 	    {
-	      if (_cpp_handle_directive (pfile, result))
+	      if (_cpp_handle_directive (pfile, directive_start))
 		{
 		  if (pfile->directive_result.type == CPP_PADDING)
 		    continue;

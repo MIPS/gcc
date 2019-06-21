@@ -95,7 +95,7 @@ struct directive
 
 static void skip_rest_of_line (cpp_reader *);
 static void check_eol (cpp_reader *, bool);
-static void start_directive (cpp_reader *, location_t);
+static void start_directive (cpp_reader *, const cpp_token *);
 static void prepare_directive_trad (cpp_reader *);
 static void end_directive (cpp_reader *, int);
 static void directive_diagnostics (cpp_reader *, const directive *, int);
@@ -170,37 +170,35 @@ static void cpp_pop_definition (cpp_reader *, struct def_pragma_macro *);
 
 #define D(name, t, o, f) static void do_##name (cpp_reader *);
 DIRECTIVE_TABLE
-D(cp_import, t, o, f) /* 'import' (C++ modules pseudo-directive) */
-D(cp_export, t, o, f) /* 'export import' */
+D(cp_import,        t, o, f) /* 'import' (C++ modules pseudo-directive) */
+D(cp_export_import, t, o, f) /* 'export import' */
 #undef D
 
 #define D(n, tag, o, f) tag,
 enum
 {
   DIRECTIVE_TABLE
-  D(n, T_CP_IMPORT, o, f)
-  D(n, T_CP_EXPORT, o, f)
+  D(n, T_CP_IMPORT,        o, f)
+  D(n, T_CP_EXPORT_IMPORT, o, f)
   N_DIRECTIVES
 };
 #undef D
 
-#define E(fname, name, t, origin, flags)	\
-{ do_##fname, (const uchar *) #name, \
-  sizeof #name - 1, origin, flags },
-#define D(name, t, origin, flags) E(name, name, t, origin, flags)
+#define E(fname, sname, t, origin, flags)	\
+{ do_##fname, (const uchar *) sname, \
+  sizeof sname - 1, origin, flags },
+#define D(name, t, origin, flags) E(name, #name, t, origin, flags)
 static const directive dtable[] =
 {
 DIRECTIVE_TABLE
-E(cp_import, import, t, CXX2A, INCL | EXPAND | IN_DO)
-E(cp_export, export, t, CXX2A, INCL | EXPAND | IN_DO)
+E(cp_import,        "import",        t, CXX2A, INCL | EXPAND | IN_DO)
+E(cp_export_import, "export import", t, CXX2A, INCL | EXPAND | IN_DO)
 };
 #undef D
 #undef E
 
-//@@ TODO: is INCL | EXPAND correct?
-
 /* A NULL-terminated array of directive names for use when suggesting
-   corrections for misspelled directives.  Note: nothing for cp_import.  */
+   corrections for misspelled directives.  Note: nothing for cp_*import.  */
 #define D(name, t, origin, flags) #name,
 static const char * const directive_names[] = {
 DIRECTIVE_TABLE
@@ -303,15 +301,16 @@ check_eol_return_comments (cpp_reader *pfile)
 
 /* Called when entering a directive, _Pragma or command-line directive.  */
 static void
-start_directive (cpp_reader *pfile, location_t start_loc)
+start_directive (cpp_reader *pfile, const cpp_token* start)
 {
   /* Setup in-directive state.  */
   pfile->state.in_directive = 1;
   pfile->state.save_comments = 0;
   pfile->directive_result.type = CPP_PADDING;
 
-  /* Some handlers need the position of the # for diagnostics.  */
-  pfile->directive_line = start_loc;
+  /* Some handlers need the position of the # for diagnostics.  While
+     pseudo-directive handlers may need the actual token.  */
+  pfile->directive_start = start;
 }
 
 /* Called when leaving a directive, _Pragma or command-line directive.  */
@@ -346,6 +345,7 @@ end_directive (cpp_reader *pfile, int skip_line)
   pfile->state.in_expression = 0;
   pfile->state.angled_headers = 0;
   pfile->directive = 0;
+  pfile->directive_start = 0;
 }
 
 /* Prepare to handle the directive in pfile->directive.  */
@@ -449,7 +449,7 @@ _cpp_handle_directive (cpp_reader *pfile, const cpp_token *start)
       pfile->state.parsing_args = 0;
       pfile->state.prevent_expansion = 0;
     }
-  start_directive (pfile, start->src_loc);
+  start_directive (pfile, start);
 
   dname = pseudo ? start : _cpp_lex_token (pfile);
 
@@ -581,7 +581,11 @@ run_directive (cpp_reader *pfile, int dir_no, const char *buf, size_t count)
 {
   cpp_push_buffer (pfile, (const uchar *) buf, count,
 		   /* from_stage3 */ true);
-  start_directive (pfile, pfile->line_table->highest_line); // ??? Location?
+
+  cpp_token start;
+  start.type = CPP_HASH;
+  start.src_loc = pfile->line_table->highest_line;
+  start_directive (pfile, &start);
 
   /* This is a short-term fix to prevent a leading '#' being
      interpreted as a directive.  */
@@ -657,7 +661,7 @@ do_define (cpp_reader *pfile)
 
       if (_cpp_create_definition (pfile, node))
 	if (pfile->cb.define)
-	  pfile->cb.define (pfile, pfile->directive_line, node);
+	  pfile->cb.define (pfile, pfile->directive_start->src_loc, node);
 
       node->flags &= ~NODE_USED;
     }
@@ -675,7 +679,7 @@ do_undef (cpp_reader *pfile)
 	pfile->cb.before_define (pfile);
 
       if (pfile->cb.undef)
-	pfile->cb.undef (pfile, pfile->directive_line, node);
+	pfile->cb.undef (pfile, pfile->directive_start->src_loc, node);
 
       /* 6.10.3.5 paragraph 2: [#undef] is ignored if the specified
 	 identifier is not currently defined as a macro name.  */
@@ -687,7 +691,7 @@ do_undef (cpp_reader *pfile)
 	  else if (cpp_builtin_macro_p (node)
 		   && CPP_OPTION (pfile, warn_builtin_macro_redefined))
 	    cpp_warning_with_line (pfile, CPP_W_BUILTIN_MACRO_REDEFINED,
-				   pfile->directive_line, 0,
+				   pfile->directive_start->src_loc, 0,
 				   "undefining \"%s\"", NODE_NAME (node));
 
 	  if (node->value.macro
@@ -866,7 +870,7 @@ do_include_common (cpp_reader *pfile, enum include_type type)
       // FIXME: why here, not when we do the stacking? Maybe in order not
       // to drag extra stuff down there?
       if (pfile->cb.include)
-	pfile->cb.include (pfile, pfile->directive_line,
+	pfile->cb.include (pfile, pfile->directive_start->src_loc,
 			   pfile->directive->name, fname, angle_brackets,
 			   buf);
 
@@ -910,16 +914,9 @@ do_include_next (cpp_reader *pfile)
 static void
 do_cp_import_common (cpp_reader *pfile, include_type type)
 {
-  const cpp_token *start_token, *token;
+  const cpp_token *token;
   int angle_brackets;
   location_t header_location;
-
-  start_token = pfile->cur_token - 1;
-  if (type == IT_CP_EXPORT_IMPORT)
-    {
-      token = _cpp_lex_token (pfile);
-      gcc_assert (token->type == CPP_NAME && cpp_ideq (token, "import"));
-    }
 
   /* From now on we allow macro expansion.  */
   token = get_token_no_padding (pfile);
@@ -928,14 +925,8 @@ do_cp_import_common (cpp_reader *pfile, include_type type)
   const char *fname = parse_include (pfile, token, &angle_brackets, NULL);
   if (!fname)
     {
-      //@@ Move to lex so can sidestep using directive_result? Can probably
-      //   cleanup/simplify other things (like pseudo in end_directive!). Or
-      //   maybe not, this has pros/cons.
-      //
-      // @@ Maybe we should do the fusing there?
-
-      /* Note that this arrangement is relied upon by -fdirectives-only.  */
-
+      /* Note that this backup/directive_result arrangement is relied upon by
+	 -fdirectives-only.  */
       if (token->type != CPP_EOF) /* End of line.  */
 	{
 	  /* This hack is required if the token came from macro expansion.
@@ -947,20 +938,13 @@ do_cp_import_common (cpp_reader *pfile, include_type type)
 	  _cpp_backup_tokens (pfile, 1);
 	}
 
-      pfile->directive_result = *start_token;
-      if (type == IT_CP_EXPORT_IMPORT)
-	{
-	  /* Fuse export and import into a single 'export import' token.  */
-	  pfile->directive_result.val.node.node =
-	    pfile->directive_result.val.node.spelling =
-	    _cpp_lex_identifier (pfile, "export import");
-	}
-
+      /* Note: returning the fused token for 'export import'.  */
+      pfile->directive_result = *pfile->directive_start;
       return;
     }
 
-  /* FIXME: would be nice match frontend diagnostics with regards to quoting
-     (%<;%>).  */
+  /* FIXME: would be nice to match frontend diagnostics with regards to
+     quoting (%<;%>).  */
 
   /* Skip attributes if any (this is what the cp frontend is currently doing).
      If/when we recognize any, we will need to pass them along to be
@@ -1022,8 +1006,9 @@ do_cp_import (cpp_reader *pfile)
 }
 
 static void
-do_cp_export (cpp_reader *pfile)
+do_cp_export_import (cpp_reader *pfile)
 {
+  _cpp_lex_token (pfile); /* Skip import.  */
   do_cp_import_common (pfile, IT_CP_EXPORT_IMPORT);
 }
 
@@ -1331,7 +1316,7 @@ do_ident (cpp_reader *pfile)
     cpp_error (pfile, CPP_DL_ERROR, "invalid #%s directive",
 	       pfile->directive->name);
   else if (pfile->cb.ident)
-    pfile->cb.ident (pfile, pfile->directive_line, &str->val.str);
+    pfile->cb.ident (pfile, pfile->directive_start->src_loc, &str->val.str);
 
   check_eol (pfile, false);
 }
@@ -1660,7 +1645,7 @@ do_pragma (cpp_reader *pfile)
 	  toks[1].flags |= NO_EXPAND;
 	  _cpp_push_token_context (pfile, NULL, toks, 2);
 	}
-      pfile->cb.def_pragma (pfile, pfile->directive_line);
+      pfile->cb.def_pragma (pfile, pfile->directive_start->src_loc);
     }
 
   pfile->state.prevent_expansion--;
@@ -2004,7 +1989,10 @@ destringize_and_run (cpp_reader *pfile, const cpp_string *in,
   if (pfile->buffer->prev)
     pfile->buffer->file = pfile->buffer->prev->file;
 
-  start_directive (pfile, expansion_loc);
+  cpp_token start;
+  start.type = CPP_HASH;
+  start.src_loc = expansion_loc;
+  start_directive (pfile, &start);
   _cpp_clean_line (pfile);
   save_directive = pfile->directive;
   pfile->directive = &dtable[T_PRAGMA];
@@ -2111,12 +2099,13 @@ do_ifdef (cpp_reader *pfile)
 	     and 'pixel' to act as conditional keywords.  This messes up tests
 	     like #ifndef bool.  */
 	  skip = !cpp_macro_p (node) || (node->flags & NODE_CONDITIONAL);
-	  if (!_cpp_maybe_notify_macro_use (pfile, node, pfile->directive_line))
+	  if (!_cpp_maybe_notify_macro_use (pfile, node,
+					    pfile->directive_start->src_loc))
 	    /* It wasn't a macro after all.  */
 	    skip = true;
 	  _cpp_mark_macro_used (node);
 	  if (pfile->cb.used)
-	    pfile->cb.used (pfile, pfile->directive_line, node);
+	    pfile->cb.used (pfile, pfile->directive_start->src_loc, node);
 	  check_eol (pfile, false);
 	}
     }
@@ -2143,12 +2132,13 @@ do_ifndef (cpp_reader *pfile)
 	     like #ifndef bool.  */
 	  skip = (cpp_macro_p (node)
 		  && !(node->flags & NODE_CONDITIONAL));
-	  if (!_cpp_maybe_notify_macro_use (pfile, node, pfile->directive_line))
+	  if (!_cpp_maybe_notify_macro_use (pfile, node,
+					    pfile->directive_start->src_loc))
 	    /* It wasn't a macro after all.  */
 	    skip = false;
 	  _cpp_mark_macro_used (node);
 	  if (pfile->cb.used)
-	    pfile->cb.used (pfile, pfile->directive_line, node);
+	    pfile->cb.used (pfile, pfile->directive_start->src_loc, node);
 	  check_eol (pfile, false);
 	}
     }
@@ -2283,7 +2273,7 @@ push_conditional (cpp_reader *pfile, int skip, int type,
   cpp_buffer *buffer = pfile->buffer;
 
   ifs = XOBNEW (&pfile->buffer_ob, struct if_stack);
-  ifs->line = pfile->directive_line;
+  ifs->line = pfile->directive_start->src_loc;
   ifs->next = buffer->if_stack;
   ifs->skip_elses = pfile->state.skipping || !skip;
   ifs->was_skipping = pfile->state.skipping;
@@ -2608,7 +2598,7 @@ cpp_pop_definition (cpp_reader *pfile, struct def_pragma_macro *c)
   if (cpp_macro_p (node))
     {
       if (pfile->cb.undef)
-	pfile->cb.undef (pfile, pfile->directive_line, node);
+	pfile->cb.undef (pfile, pfile->directive_start->src_loc, node);
       if (CPP_OPTION (pfile, warn_unused_macros))
 	_cpp_warn_if_unused_macro (pfile, node, NULL);
       _cpp_free_definition (node);

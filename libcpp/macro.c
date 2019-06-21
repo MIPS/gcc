@@ -2659,7 +2659,7 @@ maybe_adjust_loc_for_trad_cpp (cpp_reader *pfile, location_t location)
   if (CPP_OPTION (pfile, traditional))
     {
       if (pfile->state.in_directive)
-	return pfile->directive_line;
+	return pfile->directive_start->src_loc;
     }
   return location;
 }
@@ -3491,7 +3491,7 @@ _cpp_new_macro (cpp_reader *pfile, cpp_macro_kind kind, void *placement)
      following inits are writing a virgin object.  */
   memset (macro, 0, offsetof (cpp_macro, exp));
 
-  macro->line = pfile->directive_line;
+  macro->line = pfile->directive_start->src_loc;
   macro->parm.params = 0;
   macro->lazy = 0;
   macro->paramc = 0;
@@ -3536,7 +3536,7 @@ _cpp_create_definition (cpp_reader *pfile, cpp_hashnode *node)
 
 	  bool warned =
 	    cpp_pedwarning_with_line (pfile, reason,
-				      pfile->directive_line, 0,
+				      pfile->directive_start->src_loc, 0,
 				      "\"%s\" redefined", NODE_NAME (node));
 
 	  if (warned && cpp_user_macro_p (node))

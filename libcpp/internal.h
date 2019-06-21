@@ -421,9 +421,6 @@ struct cpp_reader
   /* Source line tracking.  */
   class line_maps *line_table;
 
-  /* The line of the '#' of the current directive.  */
-  location_t directive_line;
-
   /* Memory buffers.  */
   _cpp_buff *a_buff;		/* Aligned permanent storage.  */
   _cpp_buff *u_buff;		/* Unaligned permanent storage.  */
@@ -435,6 +432,9 @@ struct cpp_reader
 
   /* If in_directive, the directive if known.  */
   const struct directive *directive;
+
+  /* First token (normally '#') of a directive.  */
+  const cpp_token* directive_start;
 
   /* Token generated while handling a directive, if any. */
   cpp_token directive_result;

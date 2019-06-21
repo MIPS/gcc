@@ -57,7 +57,7 @@ cpp_diagnostic (cpp_reader * pfile, enum cpp_diagnostic_level level,
   if (CPP_OPTION (pfile, traditional))
     {
       if (pfile->state.in_directive)
-	src_loc = pfile->directive_line;
+	src_loc = pfile->directive_start->src_loc;
       else
 	src_loc = pfile->line_table->highest_line;
     }

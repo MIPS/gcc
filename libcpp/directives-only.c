@@ -195,9 +195,23 @@ _cpp_preprocess_dir_only (cpp_reader *pfile,
 	  // @@ Create a fake or just lex from the beginning? If fake, then
 	  //    will need to adjust column number. If fusing then fake is
 	  //    probably easier. Also will allow to factor to sep. function.
+	  //
+	  // @@ TODO: redo by skiping import/export import.
 
 	  token = _cpp_lex_direct (pfile);
 	  gcc_assert (token->type == CPP_NAME);
+
+	  cpp_token start_token;
+	  if (c == 'e')
+	    {
+	      /* Fuse into a single 'export import' token. */
+	      start_token = *token;
+	      start_token.val.node.node =
+		start_token.val.node.spelling =
+		_cpp_lex_identifier (pfile, "export import");
+	      token = &start_token;
+	    }
+
 	  _cpp_handle_directive (pfile, token);
 
 	  /* Sanitize the line settings.  Duplicate #include's can mess
