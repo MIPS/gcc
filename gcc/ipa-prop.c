@@ -5017,7 +5017,7 @@ ipcp_update_bits (struct cgraph_node *node)
       need_remapping = true;
     }
   auto_vec <tree, 16> parm_decls;
-  ipa_fill_vector_with_formal_parms (&parm_decls, node->decl);
+  push_function_arg_decls (&parm_decls, node->decl);
 
   for (unsigned i = 0; i < count; ++i)
     {
@@ -5125,7 +5125,7 @@ ipcp_update_vr (struct cgraph_node *node)
       need_remapping = true;
     }
   auto_vec <tree, 16> parm_decls;
-  ipa_fill_vector_with_formal_parms (&parm_decls, node->decl);
+  push_function_arg_decls (&parm_decls, node->decl);
 
   for (unsigned i = 0; i < count; ++i)
     {

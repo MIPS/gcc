@@ -751,8 +751,17 @@ struct GTY(()) cgraph_clone_info
   vec<ipa_replace_map *, va_gc> *tree_map;
   /* Parameter modification that IPA-SRA decided to perform.  */
   ipa_param_adjustments *param_adjustments;
-  /* Lists of all splits with their offsets for each dummy variables
-     representing a replaced-by-splits parameter.  */
+  /* Lists of dummy-decl and offset pairs representing split formal parameters
+     in the caller.  Offsets of all new replacements are enumerated, those
+     coming from the same original parameter have the same dummy decl stored
+     along with them.
+
+     Dummy decls sit in call statement arguments followed by new parameter
+     decls (or their SSA names) in between (caller) clone materialization and
+     call redirection.  Redirection then recognizes the dummy variable and
+     together with the stored offsets can reconstruct what exactly the new
+     parameter decls represent and can leave in place only those that the
+     callee expects.  */
   vec<ipa_param_performed_split, va_gc> *performed_splits;
 };
 

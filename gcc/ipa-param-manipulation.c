@@ -46,24 +46,26 @@ along with GCC; see the file COPYING3.  If not see
 /* Actual prefixes of different newly synthetized parameters.  Keep in sync
    with IPA_PARAM_PREFIX_* defines.  */
 
-static const char *ipa_param_prefixes[] = {"SYNTH",
-					   "ISRA",
-					   "simd",
-					   "mask"};
+static const char *ipa_param_prefixes[IPA_PARAM_PREFIX_COUNT]
+  = {"SYNTH",
+     "ISRA",
+     "simd",
+     "mask"};
 
 /* Names of parameters for dumping.  Keep in sync with enum ipa_parm_op.  */
 
-static const char *ipa_param_op_names[] = {"IPA_PARAM_OP_UNDEFINED",
-					   "IPA_PARAM_OP_COPY",
-					   "IPA_PARAM_OP_NEW",
-					   "IPA_PARAM_OP_SPLIT"};
+static const char *ipa_param_op_names[IPA_PARAM_PREFIX_COUNT]
+  = {"IPA_PARAM_OP_UNDEFINED",
+     "IPA_PARAM_OP_COPY",
+     "IPA_PARAM_OP_NEW",
+     "IPA_PARAM_OP_SPLIT"};
 
 /* Fill an empty vector ARGS with PARM_DECLs representing formal parameters of
    FNDECL.  The function should not be called during LTO WPA phase except for
    thunks (or functions with bodies streamed in). */
 
 void
-ipa_fill_vector_with_formal_parms (vec<tree> *args, tree fndecl)
+push_function_arg_decls (vec<tree> *args, tree fndecl)
 {
   int count;
   tree parm;
@@ -87,7 +89,7 @@ ipa_fill_vector_with_formal_parms (vec<tree> *args, tree fndecl)
    function type FNTYPE.  */
 
 void
-ipa_fill_vector_with_formal_parm_types (vec<tree> *types, tree fntype)
+push_function_arg_types (vec<tree> *types, tree fntype)
 {
   int count = 0;
   tree t;
@@ -357,7 +359,7 @@ ipa_param_adjustments::build_new_function_type (tree old_type,
   if (prototype_p (old_type))
     {
       auto_vec<tree, 16> otypes;
-      ipa_fill_vector_with_formal_parm_types (&otypes, old_type);
+      push_function_arg_types (&otypes, old_type);
       fill_vector_of_new_param_types (&new_param_types, &otypes, m_adj_params,
 				      !type_original_p);
       new_param_types_p = &new_param_types;
@@ -945,14 +947,14 @@ ipa_param_body_adjustments::common_initialization (tree old_fndecl,
 						   vec<ipa_replace_map *,
 						       va_gc> *tree_map)
 {
-  ipa_fill_vector_with_formal_parms (&m_oparms, old_fndecl);
+  push_function_arg_decls (&m_oparms, old_fndecl);
   auto_vec<tree,16> otypes;
   if (TYPE_ARG_TYPES (TREE_TYPE (old_fndecl)) != NULL_TREE)
-    ipa_fill_vector_with_formal_parm_types (&otypes, TREE_TYPE (old_fndecl));
+    push_function_arg_types (&otypes, TREE_TYPE (old_fndecl));
   else
     {
       auto_vec<tree,16> oparms;
-      ipa_fill_vector_with_formal_parms (&oparms, old_fndecl);
+      push_function_arg_decls (&oparms, old_fndecl);
       unsigned ocount = oparms.length ();
       otypes.reserve_exact (ocount);
       for (unsigned i = 0; i < ocount; i++)

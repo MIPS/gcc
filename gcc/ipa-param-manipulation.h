@@ -23,10 +23,14 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Indices into ipa_param_prefixes to identify a human-readable prefix for newly
    synthesized parameters.  Keep in sync with the array.  */
-#define IPA_PARAM_PREFIX_SYNTH  0
-#define IPA_PARAM_PREFIX_ISRA   1
-#define IPA_PARAM_PREFIX_SIMD   2
-#define IPA_PARAM_PREFIX_MASK   3
+enum ipa_param_name_prefix_indices
+  {
+   IPA_PARAM_PREFIX_SYNTH,
+   IPA_PARAM_PREFIX_ISRA,
+   IPA_PARAM_PREFIX_SIMD,
+   IPA_PARAM_PREFIX_MASK,
+   IPA_PARAM_PREFIX_COUNT
+};
 
 /* We do not support manipulating functions with more than
    1<<IPA_PARAM_MAX_INDEX_BITS parameters.  */
@@ -35,7 +39,8 @@ along with GCC; see the file COPYING3.  If not see
 /* Operation to be performed for the parameter in ipa_parm_adjustment
    below.  */
 
-enum ipa_parm_op {
+enum ipa_parm_op
+{
   /* Do not use or you will trigger an assert.  */
   IPA_PARAM_OP_UNDEFINED,
 
@@ -296,7 +301,7 @@ private:
   bool m_method2func;
 };
 
-void ipa_fill_vector_with_formal_parms (vec<tree> *args, tree fndecl);
-void ipa_fill_vector_with_formal_parm_types (vec<tree> *types, tree fntype);
+void push_function_arg_decls (vec<tree> *args, tree fndecl);
+void push_function_arg_types (vec<tree> *types, tree fntype);
 
 #endif	/* IPA_PARAM_MANIPULATION_H */

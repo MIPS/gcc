@@ -95,10 +95,10 @@ simd_clone_vector_of_formal_parm_types (vec<tree> *args, tree fndecl)
 {
   if (TYPE_ARG_TYPES (TREE_TYPE (fndecl)))
     {
-      ipa_fill_vector_with_formal_parm_types (args, TREE_TYPE (fndecl));
+      push_function_arg_types (args, TREE_TYPE (fndecl));
       return;
     }
-  ipa_fill_vector_with_formal_parms (args, fndecl);
+  push_function_arg_decls (args, fndecl);
   unsigned int i;
   tree arg;
   FOR_EACH_VEC_ELT (*args, i, arg)
@@ -573,7 +573,7 @@ simd_clone_adjust_argument_types (struct cgraph_node *node)
   auto_vec<tree> args;
 
   if (node->definition)
-    ipa_fill_vector_with_formal_parms (&args, node->decl);
+    push_function_arg_decls (&args, node->decl);
   else
     simd_clone_vector_of_formal_parm_types (&args, node->decl);
   struct cgraph_simd_clone *sc = node->simdclone;

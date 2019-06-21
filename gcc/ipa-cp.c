@@ -3847,6 +3847,7 @@ want_remove_some_param_p (cgraph_node *node, vec<tree> known_csts)
   bool filled_vec = false;
   ipa_node_params *info = IPA_NODE_REF (node);
   int i, count = ipa_get_param_count (info);
+
   for (i = 0; i < count; i++)
     {
       if (!known_csts[i] && ipa_is_param_used (info, i))
@@ -3905,8 +3906,8 @@ create_specialized_node (struct cgraph_node *node,
 	      || (!known_csts[old_adj->base_index]
 		  && ipa_is_param_used (info, old_adj->base_index)))
 	    {
-	      ipa_adjusted_param new_adj;
-	      memcpy (&new_adj, old_adj, sizeof (new_adj));
+	      ipa_adjusted_param new_adj = *old_adj;
+
 	      new_adj.prev_clone_adjustment = true;
 	      new_adj.prev_clone_index = i;
 	      vec_safe_push (new_params, new_adj);
