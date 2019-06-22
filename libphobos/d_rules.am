@@ -36,10 +36,10 @@ LTDCOMPILE = $(LIBTOOL) --tag=D $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 # Also override library link commands: This is not strictly
 # required, but we want to record additional dependencies such
 # as pthread in the library
-libgdruntime_la_LINK = $(LIBTOOL) --tag=D $(AM_LIBTOOLFLAGS) \
+libgdruntime2_la_LINK = $(LIBTOOL) --tag=D $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(GDC) $(AM_CFLAGS) $(CFLAGS) \
-	$(libgdruntime_la_LDFLAGS) $(LDFLAGS) -o $@
+	$(libgdruntime2_la_LDFLAGS) $(LDFLAGS) -o $@
 
-libgphobos_la_LINK = $(LIBTOOL) --tag=D $(libgphobos_la_LIBTOOLFLAGS) \
+libgphobos2_la_LINK = $(LIBTOOL) --tag=D $(libgphobos2_la_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(GDC) $(AM_CFLAGS) $(CFLAGS) \
-	$(libgphobos_la_LDFLAGS) $(LDFLAGS) -o $@
+	$(libgphobos2_la_LDFLAGS) $(LDFLAGS) -o $@

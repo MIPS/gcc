@@ -107,14 +107,14 @@ proc gdc_link_flags { paths } {
     global ld_library_path
     global GDC_UNDER_TEST
     global shlib_ext
-    global SHARED_OPTION
+    global STATIC_OPTION
 
     set gccpath ${paths}
     set libio_dir ""
     set flags ""
     set ld_library_path "."
     set shlib_ext [get_shlib_extension]
-    set SHARED_OPTION ""
+    set STATIC_OPTION ""
     verbose "shared lib extension: $shlib_ext"
 
     if { $gccpath != "" } {
@@ -125,24 +125,24 @@ proc gdc_link_flags { paths } {
 	    append flags "-B${gccpath}/libphobos/libdruntime/gcc "
 	}
 
-	if { [file exists "${gccpath}/libphobos/src/.libs/libgphobos.a"] \
-	     || [file exists "${gccpath}/libphobos/src/.libs/libgphobos.${shlib_ext}"] } {
+	if { [file exists "${gccpath}/libphobos/src/.libs/libgphobos2.a"] \
+	     || [file exists "${gccpath}/libphobos/src/.libs/libgphobos2.${shlib_ext}"] } {
 	    append flags "-L${gccpath}/libphobos/src/.libs "
 	    append ld_library_path ":${gccpath}/libphobos/src/.libs"
 	}
-	if { [file exists "${gccpath}/libphobos/libdruntime/.libs/libgdruntime.a"] \
-	     || [file exists "${gccpath}/libphobos/libdruntime/.libs/libgdruntime.${shlib_ext}"] } {
+	if { [file exists "${gccpath}/libphobos/libdruntime/.libs/libgdruntime2.a"] \
+	     || [file exists "${gccpath}/libphobos/libdruntime/.libs/libgdruntime2.${shlib_ext}"] } {
 	    append flags "-L${gccpath}/libphobos/libdruntime/.libs "
 	    append ld_library_path ":${gccpath}/libphobos/libdruntime/.libs"
 	}
-	# Static linking is default. If only the shared lib is available adjust
-	# flags to always use it. If both are available, set SHARED_OPTION which
+	# Shared linking is default. If only the static lib is available adjust
+	# flags to always use it. If both are available, set STATIC_OPTION which
 	# will be added to PERMUTE_ARGS
-	if { [file exists "${gccpath}/libphobos/libdruntime/.libs/libgdruntime.${shlib_ext}"] } {
-	    if { [file exists "${gccpath}/libphobos/libdruntime/.libs/libgdruntime.a"] } {
-		set SHARED_OPTION "-shared-libphobos"
+	if { [file exists "${gccpath}/libphobos/libdruntime/.libs/libgdruntime2.a"] } {
+	    if { [file exists "${gccpath}/libphobos/libdruntime/.libs/libgdruntime2.${shlib_ext}"] } {
+		set STATIC_OPTION "-static-libphobos"
 	    } else {
-		append flags "-shared-libphobos "
+		append flags "-static-libphobos "
 	    }
 	}
 	if [file exists "${gccpath}/libiberty/libiberty.a"] {
@@ -158,12 +158,12 @@ proc gdc_link_flags { paths } {
     } else {
 	global tool_root_dir
 
-	set libphobos [lookfor_file ${tool_root_dir} libgphobos]
+	set libphobos [lookfor_file ${tool_root_dir} libgphobos2]
 	if { $libphobos != "" } {
 	    append flags "-B${libphobos} -L${libphobos} "
 	    append ld_library_path ":${libphobos}"
 	}
-	set libdruntime [lookfor_file ${tool_root_dir} libgdruntime]
+	set libdruntime [lookfor_file ${tool_root_dir} libgdruntime2]
 	if { $libdruntime != "" } {
 	    append flags "-L${libdruntime} "
 	    append ld_library_path ":${libdruntime}"

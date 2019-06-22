@@ -26,6 +26,23 @@ else version (TVOS)
 else version (WatchOS)
     version = Darwin;
 
+version (ARM)     version = ARM_Any;
+version (AArch64) version = ARM_Any;
+version (HPPA)    version = HPPA_Any;
+version (HPPA64)  version = HPPA_Any;
+version (MIPS32)  version = MIPS_Any;
+version (MIPS64)  version = MIPS_Any;
+version (PPC)     version = PPC_Any;
+version (PPC64)   version = PPC_Any;
+version (RISCV32) version = RISCV_Any;
+version (RISCV64) version = RISCV_Any;
+version (S390)    version = IBMZ_Any;
+version (SPARC)   version = SPARC_Any;
+version (SPARC64) version = SPARC_Any;
+version (SystemZ) version = IBMZ_Any;
+version (X86)     version = X86_Any;
+version (X86_64)  version = X86_Any;
+
 version (Posix):
 extern (C) nothrow @nogc:
 
@@ -86,6 +103,15 @@ else version (FreeBSD)
     int posix_madvise(void *addr, size_t len, int advice);
 }
 else version (NetBSD)
+{
+    enum POSIX_MADV_NORMAL      = 0;
+    enum POSIX_MADV_RANDOM      = 1;
+    enum POSIX_MADV_SEQUENTIAL  = 2;
+    enum POSIX_MADV_WILLNEED    = 3;
+    enum POSIX_MADV_DONTNEED    = 4;
+    int posix_madvise(void *addr, size_t len, int advice);
+}
+else version (OpenBSD)
 {
     enum POSIX_MADV_NORMAL      = 0;
     enum POSIX_MADV_RANDOM      = 1;
@@ -167,6 +193,13 @@ else version (NetBSD)
     enum PROT_WRITE     = 0x02;
     enum PROT_EXEC      = 0x04;
 }
+else version (OpenBSD)
+{
+    enum PROT_NONE      = 0x00;
+    enum PROT_READ      = 0x01;
+    enum PROT_WRITE     = 0x02;
+    enum PROT_EXEC      = 0x04;
+}
 else version (DragonFlyBSD)
 {
     enum PROT_NONE      = 0x00;
@@ -235,6 +268,11 @@ else version (FreeBSD)
     int   munmap(void*, size_t);
 }
 else version (NetBSD)
+{
+    void* mmap(void*, size_t, int, int, int, off_t);
+    int   munmap(void*, size_t);
+}
+else version (OpenBSD)
 {
     void* mmap(void*, size_t, int, int, int, off_t);
     int   munmap(void*, size_t);
@@ -313,25 +351,13 @@ version (CRuntime_Glibc)
     }
     else version (SH)
         private enum DEFAULTS = true;
-    else version (AArch64)
+    else version (ARM_Any)
         private enum DEFAULTS = true;
-    else version (ARM)
-        private enum DEFAULTS = true;
-    else version (S390)
-        private enum DEFAULTS = true;
-    else version (SystemZ)
+    else version (IBMZ_Any)
         private enum DEFAULTS = true;
     else version (IA64)
         private enum DEFAULTS = true;
-    else version (HPPA)
-    {
-        private enum DEFAULTS = false;
-        enum MAP_ANON = 0x10;
-        enum MS_SYNC = 1;
-        enum MS_ASYNC = 2;
-        enum MS_INVALIDATE = 4;
-    }
-    else version (HPPA64)
+    else version (HPPA_Any)
     {
         private enum DEFAULTS = false;
         enum MAP_ANON = 0x10;
@@ -343,11 +369,9 @@ version (CRuntime_Glibc)
         private enum DEFAULTS = true;
     else version (TILE)
         private enum DEFAULTS = true;
-    else version (X86)
+    else version (X86_Any)
         private enum DEFAULTS = true;
-    else version (X86_64)
-        private enum DEFAULTS = true;
-    else version (MIPS32)
+    else version (MIPS_Any)
     {
         private enum DEFAULTS = false;
         enum MAP_ANON = 0x0800;
@@ -355,21 +379,11 @@ version (CRuntime_Glibc)
         enum MS_INVALIDATE = 2;
         enum MS_SYNC = 4;
     }
-    else version (MIPS64)
-    {
-        private enum DEFAULTS = false;
-        enum MAP_ANON = 0x0800;
-        enum MS_ASYNC = 1;
-        enum MS_INVALIDATE = 2;
-        enum MS_SYNC = 4;
-    }
-    else version (SPARC)
+    else version (RISCV_Any)
         private enum DEFAULTS = true;
-    else version (SPARC64)
+    else version (SPARC_Any)
         private enum DEFAULTS = true;
-    else version (PPC)
-        private enum DEFAULTS = true;
-    else version (PPC64)
+    else version (PPC_Any)
         private enum DEFAULTS = true;
     else
         static assert(0, "unimplemented");
@@ -429,6 +443,21 @@ else version (NetBSD)
 
     int __msync13(void*, size_t, int);
     alias msync = __msync13;
+}
+else version (OpenBSD)
+{
+    enum MAP_SHARED     = 0x0001;
+    enum MAP_PRIVATE    = 0x0002;
+    enum MAP_FIXED      = 0x0010;
+    enum MAP_ANON       = 0x1000;
+
+    enum MAP_FAILED     = cast(void*)-1;
+
+    enum MS_SYNC        = 0x0002;
+    enum MS_ASYNC       = 0x0001;
+    enum MS_INVALIDATE  = 0x0004;
+
+    int msync(void*, size_t, int);
 }
 else version (DragonFlyBSD)
 {
@@ -543,22 +572,12 @@ int munlockall();
 
 version (CRuntime_Glibc)
 {
-    version (SPARC) enum
+    version (SPARC_Any) enum
     {
         MCL_CURRENT = 0x2000,
         MCL_FUTURE = 0x4000,
     }
-    else version (SPARC64) enum
-    {
-        MCL_CURRENT = 0x2000,
-        MCL_FUTURE = 0x4000,
-    }
-    else version (PPC) enum
-    {
-        MCL_CURRENT = 0x2000,
-        MCL_FUTURE = 0x4000,
-    }
-    else version (PPC64) enum
+    else version (PPC_Any) enum
     {
         MCL_CURRENT = 0x2000,
         MCL_FUTURE = 0x4000,
@@ -595,6 +614,14 @@ else version (FreeBSD)
     int munlockall();
 }
 else version (NetBSD)
+{
+    enum MCL_CURRENT    = 0x0001;
+    enum MCL_FUTURE     = 0x0002;
+
+    int mlockall(int);
+    int munlockall();
+}
+else version (OpenBSD)
 {
     enum MCL_CURRENT    = 0x0001;
     enum MCL_FUTURE     = 0x0002;
@@ -674,6 +701,11 @@ else version (NetBSD)
     int mlock(in void*, size_t);
     int munlock(in void*, size_t);
 }
+else version (OpenBSD)
+{
+    int mlock(in void*, size_t);
+    int munlock(in void*, size_t);
+}
 else version (DragonFlyBSD)
 {
     int mlock(in void*, size_t);
@@ -722,6 +754,10 @@ else version (FreeBSD)
     int mprotect(void*, size_t, int);
 }
 else version (NetBSD)
+{
+    int mprotect(void*, size_t, int);
+}
+else version (OpenBSD)
 {
     int mprotect(void*, size_t, int);
 }
@@ -774,6 +810,11 @@ else version (FreeBSD)
     int shm_unlink(in char*);
 }
 else version (NetBSD)
+{
+    int shm_open(in char*, int, mode_t);
+    int shm_unlink(in char*);
+}
+else version (OpenBSD)
 {
     int shm_open(in char*, int, mode_t);
     int shm_unlink(in char*);

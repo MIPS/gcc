@@ -166,11 +166,11 @@ proc libphobos_init { args } {
 	append ld_library_path ":${gccdir}"
     }
 
-    if { [file exists "${blddir}/libdruntime/.libs/libgdruntime.${shlib_ext}"] } {
+    if { [file exists "${blddir}/libdruntime/.libs/libgdruntime2.${shlib_ext}"] } {
 	append ld_library_path ":${blddir}/libdruntime/.libs"
     }
 
-    if { [file exists "${blddir}/src/.libs/libgphobos.${shlib_ext}"] } {
+    if { [file exists "${blddir}/src/.libs/libgphobos2.${shlib_ext}"] } {
 	append ld_library_path ":${blddir}/src/.libs"
     }
 

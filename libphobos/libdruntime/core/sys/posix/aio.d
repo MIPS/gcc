@@ -72,6 +72,10 @@ version (CRuntime_Glibc)
         }
     }
 }
+else version (CRuntime_Bionic)
+{
+    // Bionic does not define aiocb.
+}
 else version (CRuntime_Musl)
 {
     // https://git.musl-libc.org/cgit/musl/tree/include/aio.h
@@ -203,6 +207,10 @@ else version (NetBSD)
 
     version = BSD_Posix;
 }
+else version (OpenBSD)
+{
+    // OpenBSD does not define aiocb.
+}
 else version (DragonFlyBSD)
 {
     struct aiocb
@@ -219,6 +227,28 @@ else version (DragonFlyBSD)
     }
 
     version = BSD_Posix;
+}
+else version (Solaris)
+{
+    struct aio_result_t
+    {
+        ssize_t aio_return;
+        int aio_errno;
+    }
+
+    struct aiocb
+    {
+        int aio_fildes;
+        void* aio_buf;   // volatile
+        size_t aio_nbytes;
+        off_t aio_offset;
+        int aio_reqprio;
+        sigevent aio_sigevent;
+        int aio_lio_opcode;
+        aio_result_t aio_resultp;
+        int aio_state;
+        int[1] aio__pad;
+    }
 }
 else
     static assert(false, "Unsupported platform");
@@ -264,9 +294,9 @@ else version (Solaris)
 {
     enum
     {
-        AIO_ALLDONE = 0x1,
-        AIO_CANCELED = 0x2,
-        AIO_NOTCANCELED = 0x4,
+        AIO_CANCELED,
+        AIO_ALLDONE,
+        AIO_NOTCANCELED
     }
 }
 else version (BSD_Posix)
@@ -320,9 +350,9 @@ else version (Solaris)
 {
     enum
     {
-        LIO_NOP = 0x0,
-        LIO_READ = 0x1,
-        LIO_WRITE = 0x2,
+        LIO_NOP,
+        LIO_READ,
+        LIO_WRITE,
     }
 }
 else version (BSD_Posix)
@@ -372,8 +402,8 @@ else version (Solaris)
 {
     enum
     {
-        LIO_NOWAIT = 0x1,
-        LIO_WAIT = 0x2,
+        LIO_NOWAIT,
+        LIO_WAIT
     }
 }
 else version (BSD_Posix)
@@ -420,7 +450,11 @@ version (CRuntime_Glibc)
         int lio_listio(int mode, const(aiocb*)* aiocb_list, int nitems, sigevent* sevp);
     }
 }
-version (CRuntime_UClibc)
+else version (CRuntime_Bionic)
+{
+    // Bionic does not implement aio.h
+}
+else version (CRuntime_UClibc)
 {
     static if (__USE_LARGEFILE64)
     {
@@ -453,6 +487,10 @@ version (CRuntime_UClibc)
         int aio_cancel(int fd, aiocb* aiocbp);
         int lio_listio(int mode, const(aiocb*)* aiocb_list, int nitems, sigevent* sevp);
     }
+}
+else version (OpenBSD)
+{
+    // OpenBSD does not implement aio.h
 }
 else
 {
@@ -487,7 +525,7 @@ version (CRuntime_Glibc)
         void aio_init(const(aioinit)* init);
     }
 }
-version (CRuntime_UClibc)
+else version (CRuntime_UClibc)
 {
     static if (__USE_GNU)
     {
