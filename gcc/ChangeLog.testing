@@ -1,14 +1,20 @@
 2019-06-20 Jan Hubicka  <hubicka@ucw.cz>
 
+	* big 30, early 6, auto 6, single 100, no array hints.
+
+2019-06-20 Jan Hubicka  <hubicka@ucw.cz>
+
 	* big 50, early 6, auto 15, single 100.
 
 2019-06-19 Jan Hubicka  <hubicka@ucw.cz>
 
 	* no big speedup, early 8, auto 15, single 100.
+	5775d76f4082369a3d87853199750fba9c931151
 
 2019-06-17 Jan Hubicka  <hubicka@ucw.cz>
 
 	* no big speedup, auto 30, single 100.
+	5775d76f4082369a3d87853199750fba9c931151
 
 2019-06-16 Jan Hubicka  <hubicka@ucw.cz>
 
