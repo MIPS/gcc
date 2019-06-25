@@ -16,7 +16,109 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
-<http://www.gnu.org/licenses/>.  */
+<http://www.gnu.org/licenses/>.
+
+
+
+This file defines classes and other data structures that are used to manipulate
+the prototype of a function, especially to create, remove or split its formal
+parameters, but also to remove its return value, and also its call statements
+correspondingly.
+
+The most basic one is a vector of structures ipa_adjusted_param.  It is simply
+a description how the new parameters should look like after the transformation
+in what way they relate to the previous ones (if in any).  Such relation to an
+old parameter can be an outright copy or an IPA-SRA replacement. If an old
+parameter is not listed or otherwise mentioned, it is removed as unused or at
+least unnecessary.  Note that this most basic structure does not work for
+modifying calls of functions with variable number of arguments.
+
+Class ipa_param_adjustments is only a little more than a thin encapsulation of
+a vector of ipa_param_adjustments.  Along with this vector it contains an index
+of the first potential vararg argument and a boolean flag whether the return
+value should be removed or not.  Moreover, the class contains method
+modify_call which can transform a call statement so that it correctly calls a
+modified function.  These two data structures were designed to have a small
+memory footprint because they are allocated for each clone of a call graph node
+that has its prototype changed and live until the end of IPA clone
+materialization and call redirection phase.
+
+On the other hand, class ipa_param_body_adjustments can afford to allocate more
+data because its life span is much smaller, it is allocated and destroyed in
+the course of materialization of each single clone that needs it or only when a
+particular pass needs to change a function it is operating on.  This class has
+various methods required to change function declaration and the body of the
+function according to instructions given either by class ipa_param_adjustments
+or only a vector of ipa_adjusted_params.
+
+When these classes are used in the context of call graph clone materialization
+and subsequent call statement redirection - which is the point at which we
+modify arguments in call statements - they need to cooperate with each other in
+order to handle what we refer to as transitive (IPA-SRA) splits.  These are
+situations when a formal parameter of one function is split into several
+smaller ones and some of them are then passed on in a call to another function
+because the formal parameter of this callee has also been split.
+
+Consider a simple example:
+
+struct S {int a, b, c;};
+struct Z {int x; S s;};
+
+foo (S s)
+{
+  use (s.b);
+}
+
+bar (Z z)
+{
+  use (z.s.a);
+  foo (z.s);
+}
+
+baz ()
+{
+  bar (*global);
+}
+
+Both bar and foo would have their parameter split.  Foo would receive one
+replacement representing s.b.  Function bar would see its parameter split into
+one replacement representing z.s.a and another representing z.s.b which would
+be passed on to foo.  It would be a so called transitive split IPA-SRA
+replacement, one which is passed in a call as an actual argument to another
+IPA-SRA replacement in another function.
+
+Note that the call chain the example can be arbitrarily long and recursive and
+that any function in it can be cloned by another IPA pass and any number of
+adjacent functions in the call chain can be inlined into each other.  Call
+redirection takes place only after bodies of the function have been modified by
+all of the above.
+
+Call redirection has to be able to find the right decl or SSA_NAME that
+corresponds to the transitive split in the caller.  The SSA names are assigned
+right after clone materialization/ modification and cannot be "added"
+afterwards.  Moreover, if the caller has been inlined the SSA_NAMEs in question
+no longer belong to PARM_DECLs but to VAR_DECLs, indistinguishable from any
+others.
+
+Therefore, when clone materialization finds a call statement which it knows is
+a part of a transitive split, it will modify it into:
+
+  foo (DUMMY_Z_VAR.s, repl_for_a, repl_for_b, <rest of original arguments>);
+
+It will also store {DUMMY_S_VAR, 32} and {DUMMY_S_VAR, 64} representing offsets
+of z.s.a and z.s.b (assuming a 32-bit int) into foo's cgraph node
+clone->performed_splits vector (which is storing structures of type
+ipa_param_performed_split also defined in this header file).
+
+Call redirection will identify that expression DUMMY_Z_VAR.s is based on a
+variable stored in performed_splits vector and learn that the following
+arguments, already in SSA form, represent offsets 32 and 64 in a split original
+parameter.  It subtracts offset of DUMMY_Z_VAR.s from 32 and 64 and arrives at
+offsets 0 and 32 within callee's original parameter.  At this point it also
+knows from the call graph that only the bit with offset 32 is needed and so
+changes the call statement into final:
+
+bar (repl_for_b, <rest of original arguments>);  */
 
 #ifndef IPA_PARAM_MANIPULATION_H
 #define IPA_PARAM_MANIPULATION_H
