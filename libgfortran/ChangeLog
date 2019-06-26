@@ -1,3 +1,15 @@
+2019-06-25  Kwok Cheung Yeung  <kcy@codesourcery.com>
+            Andrew Stubbs  <ams@codesourcery.com>
+
+	* configure: Regenerate.
+	* configure.ac (LIBGFOR_MINIMAL): Do not use on AMD GCN.
+
+2019-06-14  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR fortran/65921
+	* runtime/memory.c (SIZE_MAX):Remove macro definition.
+	(xmallocarray): Use __builtin_mul_overflow.
+
 2019-05-22  Jeff Law  <law@redhat.com>
 
 	PR fortran/89100

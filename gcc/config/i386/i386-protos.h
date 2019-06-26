@@ -47,6 +47,7 @@ extern void ix86_reset_previous_fndecl (void);
 
 extern bool ix86_using_red_zone (void);
 
+extern unsigned int ix86_regmode_natural_size (machine_mode);
 #ifdef RTX_CODE
 extern int standard_80387_constant_p (rtx);
 extern const char *standard_80387_constant_opcode (rtx);
@@ -121,6 +122,8 @@ extern rtx ix86_expand_adjust_ufix_to_sfix_si (rtx, rtx *);
 extern enum ix86_fpcmp_strategy ix86_fp_comparison_strategy (enum rtx_code);
 extern void ix86_expand_fp_absneg_operator (enum rtx_code, machine_mode,
 					    rtx[]);
+extern void ix86_split_fp_absneg_operator (enum rtx_code, machine_mode,
+					   rtx[]);
 extern void ix86_expand_copysign (rtx []);
 extern void ix86_split_copysign_const (rtx []);
 extern void ix86_split_copysign_var (rtx []);

@@ -306,12 +306,18 @@ enum omp_clause_code {
      OpenMP clause: map ({alloc:,to:,from:,tofrom:,}variable-list).  */
   OMP_CLAUSE_MAP,
 
-  /* OpenACC clause: use_device (variable_list).
+  /* OpenACC clause: use_device (variable-list).
      OpenMP clause: use_device_ptr (variable-list).  */
   OMP_CLAUSE_USE_DEVICE_PTR,
 
   /* OpenMP clause: is_device_ptr (variable-list).  */
   OMP_CLAUSE_IS_DEVICE_PTR,
+
+  /* OpenMP clause: inclusive (variable-list).  */
+  OMP_CLAUSE_INCLUSIVE,
+
+  /* OpenMP clause: exclusive (variable-list).  */
+  OMP_CLAUSE_EXCLUSIVE,
 
   /* Internal structure to hold OpenACC cache directive's variable-list.
      #pragma acc cache (variable-list).  */
@@ -1568,6 +1574,8 @@ struct GTY(()) tree_type_common {
 
   ENUM_BITFIELD(machine_mode) mode : 8;
 
+  /* TYPE_STRING_FLAG for INTEGER_TYPE and ARRAY_TYPE.
+     TYPE_CXX_ODR_P for RECORD_TYPE and UNION_TYPE.  */
   unsigned string_flag : 1;
   unsigned lang_flag_0 : 1;
   unsigned lang_flag_1 : 1;

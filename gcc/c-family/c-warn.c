@@ -1460,8 +1460,9 @@ c_do_switch_warnings (splay_tree cases, location_t switch_location,
 				       min_value) >= 0)
 	    {
 	      location_t loc = EXPR_LOCATION ((tree) node->value);
-	      warning_at (loc, 0, "lower value in case label range"
-				  " less than minimum value for type");
+	      warning_at (loc, OPT_Wswitch_outside_range,
+			  "lower value in case label range less than minimum"
+			  " value for type");
 	      CASE_LOW ((tree) node->value) = convert (TREE_TYPE (cond),
 						       min_value);
 	      node->key = (splay_tree_key) CASE_LOW ((tree) node->value);
@@ -1474,8 +1475,8 @@ c_do_switch_warnings (splay_tree cases, location_t switch_location,
 	      if (node == NULL || !node->key)
 		break;
 	      location_t loc = EXPR_LOCATION ((tree) node->value);
-	      warning_at (loc, 0, "case label value is less than minimum "
-				  "value for type");
+	      warning_at (loc, OPT_Wswitch_outside_range, "case label value is"
+			  " less than minimum value for type");
 	      splay_tree_remove (cases, node->key);
 	    }
 	  while (1);
@@ -1491,8 +1492,8 @@ c_do_switch_warnings (splay_tree cases, location_t switch_location,
 				   max_value) > 0)
 	{
 	  location_t loc = EXPR_LOCATION ((tree) node->value);
-	  warning_at (loc, 0, "upper value in case label range"
-			      " exceeds maximum value for type");
+	  warning_at (loc, OPT_Wswitch_outside_range, "upper value in case"
+		      " label range exceeds maximum value for type");
 	  CASE_HIGH ((tree) node->value)
 	    = convert (TREE_TYPE (cond), max_value);
 	  outside_range_p = true;
@@ -1503,7 +1504,7 @@ c_do_switch_warnings (splay_tree cases, location_t switch_location,
 	     != NULL)
 	{
 	  location_t loc = EXPR_LOCATION ((tree) node->value);
-	  warning_at (loc, 0,
+	  warning_at (loc, OPT_Wswitch_outside_range,
 		      "case label value exceeds maximum value for type");
 	  splay_tree_remove (cases, node->key);
 	  outside_range_p = true;
@@ -2232,10 +2233,12 @@ warn_for_sign_compare (location_t location,
 		{
 		  if (constant == 0)
 		    warning_at (location, OPT_Wsign_compare,
-				"promoted ~unsigned is always non-zero");
+				"promoted bitwise complement of an unsigned "
+				"value is always nonzero");
 		  else
 		    warning_at (location, OPT_Wsign_compare,
-				"comparison of promoted ~unsigned with constant");
+				"comparison of promoted bitwise complement "
+				"of an unsigned value with constant");
 		}
 	    }
 	}
@@ -2245,7 +2248,8 @@ warn_for_sign_compare (location_t location,
 	       && (TYPE_PRECISION (TREE_TYPE (op1))
 		   < TYPE_PRECISION (result_type)))
 	warning_at (location, OPT_Wsign_compare,
-		    "comparison of promoted ~unsigned with unsigned");
+		    "comparison of promoted bitwise complement "
+		    "of an unsigned value with unsigned");
     }
 }
 
@@ -2597,11 +2601,11 @@ warn_for_restrict (unsigned param_pos, tree *argarray, unsigned nargs)
     }
 
   return warning_n (&richloc, OPT_Wrestrict, arg_positions.length (),
-		    "passing argument %i to restrict-qualified parameter"
+		    "passing argument %i to %qs-qualified parameter"
 		    " aliases with argument %Z",
-		    "passing argument %i to restrict-qualified parameter"
+		    "passing argument %i to %qs-qualified parameter"
 		    " aliases with arguments %Z",
-		    param_pos + 1, arg_positions.address (),
+		    param_pos + 1, "restrict", arg_positions.address (),
 		    arg_positions.length ());
 }
 

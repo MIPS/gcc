@@ -4021,13 +4021,6 @@ locate_and_pad_parm (machine_mode passed_mode, tree type, int in_regs,
 	}
     }
 
-  /* Remember if the outgoing parameter requires extra alignment on the
-     calling function side.  */
-  if (crtl->stack_alignment_needed < boundary)
-    crtl->stack_alignment_needed = boundary;
-  if (crtl->preferred_stack_boundary < boundary)
-    crtl->preferred_stack_boundary = boundary;
-
   if (ARGS_GROW_DOWNWARD)
     {
       locate->slot_offset.constant = -initial_offset_ptr->constant;
@@ -5142,7 +5135,7 @@ expand_function_start (tree subr)
       r_save = expand_expr (t_save, NULL_RTX, VOIDmode, EXPAND_WRITE);
       gcc_assert (GET_MODE (r_save) == Pmode);
 
-      emit_move_insn (r_save, targetm.builtin_setjmp_frame_value ());
+      emit_move_insn (r_save, hard_frame_pointer_rtx);
       update_nonlocal_goto_save_area ();
     }
 

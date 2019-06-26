@@ -317,6 +317,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wignored-qualifiers  -Wignored-attributes  -Wincompatible-pointer-types @gol
 -Wimplicit  -Wimplicit-fallthrough  -Wimplicit-fallthrough=@var{n} @gol
 -Wimplicit-function-declaration  -Wimplicit-int @gol
+-Winaccessible-base @gol
 -Winit-self  -Winline  -Wno-int-conversion  -Wint-in-bool-context @gol
 -Wno-int-to-pointer-cast  -Winvalid-memory-model  -Wno-invalid-offsetof @gol
 -Winvalid-pch  -Wlarger-than=@var{byte-size} @gol
@@ -412,6 +413,7 @@ Objective-C and Objective-C++ Dialects}.
 -fdevirtualize-at-ltrans  -fdse @gol
 -fearly-inlining  -fipa-sra  -fexpensive-optimizations  -ffat-lto-objects @gol
 -ffast-math  -ffinite-math-only  -ffloat-store  -fexcess-precision=@var{style} @gol
+-ffinite-loops @gol
 -fforward-propagate  -ffp-contract=@var{style}  -ffunction-sections @gol
 -fgcse  -fgcse-after-reload  -fgcse-las  -fgcse-lm  -fgraphite-identity @gol
 -fgcse-sm  -fhoist-adjacent-loads  -fif-conversion @gol
@@ -1044,6 +1046,10 @@ Objective-C and Objective-C++ Dialects}.
 @emph{PowerPC Options}
 See RS/6000 and PowerPC Options.
 
+@emph{PRU Options}
+@gccoptlist{-mmcu=@var{mcu}  -minrt  -mno-relax  -mloop @gol
+-mabi=@var{variant} @gol}
+
 @emph{RISC-V Options}
 @gccoptlist{-mbranch-cost=@var{N-instruction} @gol
 -mplt  -mno-plt @gol
@@ -1278,7 +1284,7 @@ See RS/6000 and PowerPC Options.
 -mshstk -mmanual-endbr -mforce-indirect-call  -mavx512vbmi2 -mavx512bf16 -menqcmd @gol
 -mvpclmulqdq  -mavx512bitalg  -mmovdiri  -mmovdir64b  -mavx512vpopcntdq @gol
 -mavx5124fmaps  -mavx512vnni  -mavx5124vnniw  -mprfchw  -mrdpid @gol
--mrdseed  -msgx @gol
+-mrdseed  -msgx -mavx512vp2intersect@gol
 -mcldemote  -mms-bitfields  -mno-align-stringops  -minline-all-stringops @gol
 -minline-stringops-dynamically  -mstringop-strategy=@var{alg} @gol
 -mmemcpy-strategy=@var{strategy}  -mmemset-strategy=@var{strategy} @gol
@@ -2238,7 +2244,7 @@ Some cases of unnamed fields in structures and unions are only
 accepted with this option.  @xref{Unnamed Fields,,Unnamed struct/union
 fields within structs/unions}, for details.
 
-Note that this option is off for all targets but x86 
+Note that this option is off for all targets except for x86
 targets using ms-abi.
 
 @item -fplan9-extensions
@@ -4331,8 +4337,10 @@ without this option, certain GNU extensions and traditional C and C++
 features are supported as well.  With this option, they are rejected.
 
 @option{-Wpedantic} does not cause warning messages for use of the
-alternate keywords whose names begin and end with @samp{__}.  Pedantic
-warnings are also disabled in the expression that follows
+alternate keywords whose names begin and end with @samp{__}.  This alternate
+format can also be used to disable warnings for non-ISO @samp{__intN} types,
+i.e. @samp{__intN__}.
+Pedantic warnings are also disabled in the expression that follows
 @code{__extension__}.  However, only system header files should use
 these escape routes; application programs should avoid them.
 @xref{Alternate Keywords}.
@@ -4799,6 +4807,22 @@ undefined behavior due to dereferencing a null pointer.  This option
 is only active when @option{-fdelete-null-pointer-checks} is active,
 which is enabled by optimizations in most targets.  The precision of
 the warnings depends on the optimization options used.
+
+@item -Winaccessible-base @r{(C++, Objective-C++ only)}
+@opindex Winaccessible-base
+@opindex Wno-inaccessible-base
+Warn when a base class is inaccessible in a class derived from it due to
+ambiguity.  The warning is enabled by default.  Note the warning for virtual
+bases is enabled by the @option{-Wextra} option.
+@smallexample
+@group
+struct A @{ int a; @};
+
+struct B : A @{ @};
+
+struct C : B, A @{ @};
+@end group
+@end smallexample
 
 @item -Winit-self @r{(C, C++, Objective-C and Objective-C++ only)}
 @opindex Winit-self
@@ -5367,6 +5391,13 @@ switch ((int) (a == 4))
 @end group
 @end smallexample
 This warning is enabled by default for C and C++ programs.
+
+@item -Wswitch-outside-range
+@opindex Wswitch-outside-range
+@opindex Wno-switch-outside-range
+Warn whenever a @code{switch} case has a value that is outside of its
+respective type range.  This warning is enabled by default for
+C and C++ programs.
 
 @item -Wswitch-unreachable
 @opindex Wswitch-unreachable
@@ -6115,8 +6146,8 @@ false positives and is deactivated by default.
 
 @item -Wattribute-alias=@var{n}
 @itemx -Wno-attribute-alias
-@opindex -Wattribute-alias
-@opindex -Wno-attribute-alias
+@opindex Wattribute-alias
+@opindex Wno-attribute-alias
 Warn about declarations using the @code{alias} and similar attributes whose
 target is incompatible with the type of the alias.
 @xref{Function Attributes,,Declaring Attributes of Functions}.
@@ -7357,7 +7388,7 @@ Do not warn about compile-time overflow in constant expressions.
 @opindex Wno-odr
 @opindex Wodr
 Warn about One Definition Rule violations during link-time optimization.
-Requires @option{-flto-odr-type-merging} to be enabled.  Enabled by default.
+Enabled by default.
 
 @item -Wopenmp-simd
 @opindex Wopenmp-simd
@@ -8282,6 +8313,7 @@ also turns on the following optimization flags:
 -fdelete-null-pointer-checks @gol
 -fdevirtualize  -fdevirtualize-speculatively @gol
 -fexpensive-optimizations @gol
+-ffinite-loops @gol
 -fgcse  -fgcse-lm  @gol
 -fhoist-adjacent-loads @gol
 -finline-small-functions @gol
@@ -9503,6 +9535,15 @@ that may set @code{errno} but are otherwise free of side effects.  This flag is
 enabled by default at @option{-O2} and higher if @option{-Os} is not also
 specified.
 
+@item -ffinite-loops
+@opindex ffinite-loops
+@opindex fno-finite-loops
+Assume that a loop with an exit will eventually take the exit and not loop
+indefinitely.  This allows the compiler to remove loops that otherwise have
+no side-effects, not considering eventual endless looping as such.
+
+This option is enabled by default at @option{-O2}.
+
 @item -ftree-dominator-opts
 @opindex ftree-dominator-opts
 Perform a variety of simple scalar cleanups (constant/copy
@@ -10352,12 +10393,6 @@ partitioning is intended for internal testing only.
 The value @samp{one} specifies that exactly one partition should be
 used while the value @samp{none} bypasses partitioning and executes
 the link-time optimization step directly from the WPA phase.
-
-@item -flto-odr-type-merging
-@opindex flto-odr-type-merging
-Enable streaming of mangled types names of C++ types and their unification
-at link time.  This increases size of LTO object files, but enables
-diagnostics about One Definition Rule violations.
 
 @item -flto-compression-level=@var{n}
 @opindex flto-compression-level
@@ -12139,9 +12174,6 @@ will not try to thread through its block.
 @item uninit-control-dep-attempts
 Maximum number of nested calls to search for control dependencies
 during uninitialized variable analysis.
-
-@item indir-call-topn-profile
-Track top N target addresses in indirect-call profile.
 
 @item max-once-peeled-insns
 The maximum number of insns of a peeled loop that rolls only once.
@@ -15580,6 +15612,7 @@ platform.
 * PDP-11 Options::
 * picoChip Options::
 * PowerPC Options::
+* PRU Options::
 * RISC-V Options::
 * RL78 Options::
 * RS/6000 and PowerPC Options::
@@ -16219,6 +16252,9 @@ Compile for GCN3 Fiji devices (gfx803).
 
 @item gfx900
 Compile for GCN5 Vega 10 devices (gfx900).
+
+@item gfx906
+Compile for GCN5 Vega 20 devices (gfx906).
 
 @end table
 
@@ -23752,6 +23788,66 @@ these warnings.
 
 These are listed under @xref{RS/6000 and PowerPC Options}.
 
+@node PRU Options
+@subsection PRU Options
+@cindex PRU Options
+
+These command-line options are defined for PRU target:
+
+@table @gcctabopt
+@item -minrt
+@opindex minrt
+Link with a minimum runtime environment, with no support for static
+initializers and constructors.  Using this option can significantly reduce
+the size of the final ELF binary.  Beware that the compiler could still
+generate code with static initializers and constructors.  It is up to the
+programmer to ensure that the source program will not use those features.
+
+@item -mmcu=@var{mcu}
+@opindex mmcu
+Specify the PRU MCU variant to use.  Check Newlib for the exact list of
+supported MCUs.
+
+@item -mno-relax
+@opindex mno-relax
+Make GCC pass the @option{--no-relax} command-line option to the linker
+instead of the @option{--relax} option.
+
+@item -mloop
+@opindex mloop
+Allow (or do not allow) GCC to use the LOOP instruction.
+
+@item -mabi=@var{variant}
+@opindex mabi
+Specify the ABI variant to output code for.  @option{-mabi=ti} selects the
+unmodified TI ABI while @option{-mabi=gnu} selects a GNU variant that copes
+more naturally with certain GCC assumptions.  These are the differences:
+
+@table @samp
+@item Function Pointer Size
+TI ABI specifies that function (code) pointers are 16-bit, whereas GNU
+supports only 32-bit data and code pointers.
+
+@item Optional Return Value Pointer
+Function return values larger than 64 bits are passed by using a hidden
+pointer as the first argument of the function.  TI ABI, though, mandates that
+the pointer can be NULL in case the caller is not using the returned value.
+GNU always passes and expects a valid return value pointer.
+
+@end table
+
+The current @option{-mabi=ti} implementation simply raises a compile error
+when any of the above code constructs is detected.  As a consequence
+the standard C library cannot be built and it is omitted when linking with
+@option{-mabi=ti}.
+
+Relaxation is a GNU feature and for safety reasons is disabled when using
+@option{-mabi=ti}.  The TI toolchain does not emit relocations for QBBx
+instructions, so the GNU linker cannot adjust them when shortening adjacent
+LDI32 pseudo instructions.
+
+@end table
+
 @node RISC-V Options
 @subsection RISC-V Options
 @cindex RISC-V Options
@@ -27382,34 +27478,34 @@ instruction set extensions.)
 
 @item bdver1
 CPUs based on AMD Family 15h cores with x86-64 instruction set support.  (This
-supersets FMA4, AVX, XOP, LWP, AES, PCL_MUL, CX16, MMX, SSE, SSE2, SSE3, SSE4A,
+supersets FMA4, AVX, XOP, LWP, AES, PCLMUL, CX16, MMX, SSE, SSE2, SSE3, SSE4A,
 SSSE3, SSE4.1, SSE4.2, ABM and 64-bit instruction set extensions.)
 @item bdver2
 AMD Family 15h core based CPUs with x86-64 instruction set support.  (This
-supersets BMI, TBM, F16C, FMA, FMA4, AVX, XOP, LWP, AES, PCL_MUL, CX16, MMX,
+supersets BMI, TBM, F16C, FMA, FMA4, AVX, XOP, LWP, AES, PCLMUL, CX16, MMX,
 SSE, SSE2, SSE3, SSE4A, SSSE3, SSE4.1, SSE4.2, ABM and 64-bit instruction set 
 extensions.)
 @item bdver3
 AMD Family 15h core based CPUs with x86-64 instruction set support.  (This
 supersets BMI, TBM, F16C, FMA, FMA4, FSGSBASE, AVX, XOP, LWP, AES, 
-PCL_MUL, CX16, MMX, SSE, SSE2, SSE3, SSE4A, SSSE3, SSE4.1, SSE4.2, ABM and 
+PCLMUL, CX16, MMX, SSE, SSE2, SSE3, SSE4A, SSSE3, SSE4.1, SSE4.2, ABM and
 64-bit instruction set extensions.
 @item bdver4
 AMD Family 15h core based CPUs with x86-64 instruction set support.  (This
 supersets BMI, BMI2, TBM, F16C, FMA, FMA4, FSGSBASE, AVX, AVX2, XOP, LWP, 
-AES, PCL_MUL, CX16, MOVBE, MMX, SSE, SSE2, SSE3, SSE4A, SSSE3, SSE4.1, 
+AES, PCLMUL, CX16, MOVBE, MMX, SSE, SSE2, SSE3, SSE4A, SSSE3, SSE4.1,
 SSE4.2, ABM and 64-bit instruction set extensions.
 
 @item znver1
 AMD Family 17h core based CPUs with x86-64 instruction set support.  (This
 supersets BMI, BMI2, F16C, FMA, FSGSBASE, AVX, AVX2, ADCX, RDSEED, MWAITX,
-SHA, CLZERO, AES, PCL_MUL, CX16, MOVBE, MMX, SSE, SSE2, SSE3, SSE4A, SSSE3,
+SHA, CLZERO, AES, PCLMUL, CX16, MOVBE, MMX, SSE, SSE2, SSE3, SSE4A, SSSE3,
 SSE4.1, SSE4.2, ABM, XSAVEC, XSAVES, CLFLUSHOPT, POPCNT, and 64-bit
 instruction set extensions.
 @item znver2
 AMD Family 17h core based CPUs with x86-64 instruction set support. (This
 supersets BMI, BMI2, ,CLWB, F16C, FMA, FSGSBASE, AVX, AVX2, ADCX, RDSEED,
-MWAITX, SHA, CLZERO, AES, PCL_MUL, CX16, MOVBE, MMX, SSE, SSE2, SSE3, SSE4A,
+MWAITX, SHA, CLZERO, AES, PCLMUL, CX16, MOVBE, MMX, SSE, SSE2, SSE3, SSE4A,
 SSSE3, SSE4.1, SSE4.2, ABM, XSAVEC, XSAVES, CLFLUSHOPT, POPCNT, and 64-bit
 instruction set extensions.)
 
@@ -27421,7 +27517,7 @@ instruction set extensions.)
 
 @item btver2
 CPUs based on AMD Family 16h cores with x86-64 instruction set support. This
-includes MOVBE, F16C, BMI, AVX, PCL_MUL, AES, SSE4.2, SSE4.1, CX16, ABM,
+includes MOVBE, F16C, BMI, AVX, PCLMUL, AES, SSE4.2, SSE4.1, CX16, ABM,
 SSE4A, SSSE3, SSE3, SSE2, SSE, MMX and 64-bit instruction set extensions.
 
 @item winchip-c6
@@ -28095,6 +28191,9 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @need 200
 @itemx -mavx512vpopcntdq
 @opindex mavx512vpopcntdq
+@need 200
+@itemx -mavx512vp2intersect
+@opindex mavx512vp2intersect
 @need 200
 @itemx -mavx5124fmaps
 @opindex mavx5124fmaps
@@ -29260,7 +29359,7 @@ Like @samp{%g}, except if @option{-pipe} is in effect.  In that case
 all.  These are the two most common ways to instruct a program that it
 should read from standard input or write to standard output.  If you
 need something more elaborate you can use an @samp{%@{pipe:@code{X}@}}
-construct: see for example @file{f/lang-specs.h}.
+construct: see for example @file{gcc/fortran/lang-specs.h}.
 
 @item %.@var{SUFFIX}
 Substitutes @var{.SUFFIX} for the suffixes of a matched switch's args

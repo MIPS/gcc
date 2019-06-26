@@ -93,6 +93,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_AVX512VNNI_P(x) TARGET_ISA_AVX512VNNI_P(x)
 #define TARGET_AVX512BITALG	TARGET_ISA_AVX512BITALG
 #define TARGET_AVX512BITALG_P(x) TARGET_ISA_AVX512BITALG_P(x)
+#define TARGET_AVX512VP2INTERSECT	TARGET_ISA_AVX512VP2INTERSECT
+#define TARGET_AVX512VP2INTERSECT_P(x) TARGET_ISA_AVX512VP2INTERSECT_P(x)
 #define TARGET_FMA	TARGET_ISA_FMA
 #define TARGET_FMA_P(x)	TARGET_ISA_FMA_P(x)
 #define TARGET_SSE4A	TARGET_ISA_SSE4A
@@ -276,9 +278,8 @@ struct processor_costs {
   const int sse_store[5];	/* cost of storing SSE register
 				   in SImode, DImode and TImode.  */
   const int sse_unaligned_store[5];/* cost of unaligned store.  */
-  const int mmxsse_to_integer;	/* cost of moving mmxsse register to
-				   integer.  */
-  const int ssemmx_to_integer;  /* cost of moving integer to mmxsse register. */
+  const int sse_to_integer;	/* cost of moving SSE register to integer.  */
+  const int integer_to_sse;	/* cost of moving integer register to SSE. */
   const int gather_static, gather_per_elt; /* Cost of gather load is computed
 				   as static + per_item * nelts. */
   const int scatter_static, scatter_per_elt; /* Cost of gather store is
@@ -646,7 +647,7 @@ extern tree x86_mfence;
 /* Replace MACH-O, ifdefs by in-line tests, where possible. 
    (a) Macros defined in config/i386/darwin.h  */
 #define TARGET_MACHO 0
-#define TARGET_MACHO_BRANCH_ISLANDS 0
+#define TARGET_MACHO_PICSYM_STUBS 0
 #define MACHOPIC_ATT_STUB 0
 /* (b) Macros defined in config/darwin.h  */
 #define MACHO_DYNAMIC_NO_PIC_P 0
@@ -1126,6 +1127,8 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 
 #define HARD_REGNO_NREGS_WITH_PADDING(REGNO, MODE) ((MODE) == XFmode ? 4 : 8)
 
+#define REGMODE_NATURAL_SIZE(MODE) ix86_regmode_natural_size (MODE)
+
 #define VALID_AVX256_REG_MODE(MODE)					\
   ((MODE) == V32QImode || (MODE) == V16HImode || (MODE) == V8SImode	\
    || (MODE) == V4DImode || (MODE) == V2TImode || (MODE) == V8SFmode	\
@@ -1510,6 +1513,7 @@ enum reg_class
 
 #define MASK_REG_P(X) (REG_P (X) && MASK_REGNO_P (REGNO (X)))
 #define MASK_REGNO_P(N) IN_RANGE ((N), FIRST_MASK_REG, LAST_MASK_REG)
+#define MASK_PAIR_REGNO_P(N) ((((N) - FIRST_MASK_REG) & 1) == 0)
 
 #define MMX_REG_P(X) (REG_P (X) && MMX_REGNO_P (REGNO (X)))
 #define MMX_REGNO_P(N) IN_RANGE ((N), FIRST_MMX_REG, LAST_MMX_REG)
@@ -2363,6 +2367,7 @@ const wide_int_bitmask PTA_AVX512BITALG (0, HOST_WIDE_INT_1U << 5);
 const wide_int_bitmask PTA_RDPID (0, HOST_WIDE_INT_1U << 6);
 const wide_int_bitmask PTA_PCONFIG (0, HOST_WIDE_INT_1U << 7);
 const wide_int_bitmask PTA_WBNOINVD (0, HOST_WIDE_INT_1U << 8);
+const wide_int_bitmask PTA_AVX512VP2INTERSECT (0, HOST_WIDE_INT_1U << 9);
 const wide_int_bitmask PTA_WAITPKG (0, HOST_WIDE_INT_1U << 9);
 const wide_int_bitmask PTA_PTWRITE (0, HOST_WIDE_INT_1U << 10);
 const wide_int_bitmask PTA_AVX512BF16 (0, HOST_WIDE_INT_1U << 11);

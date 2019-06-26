@@ -199,7 +199,7 @@ static int walk_subobject_offsets (tree, subobject_offset_fn,
 static int layout_conflict_p (tree, tree, splay_tree, int);
 static int splay_tree_compare_integer_csts (splay_tree_key k1,
 					    splay_tree_key k2);
-static void warn_about_ambiguous_bases (tree);
+static void maybe_warn_about_inaccessible_bases (tree);
 static bool type_requires_array_cookie (tree);
 static bool base_derived_from (tree, tree);
 static int empty_base_at_nonzero_offset_p (tree, tree, splay_tree);
@@ -2150,10 +2150,10 @@ maybe_warn_about_overly_private_class (tree t)
 
       if (!nonprivate_ctor)
 	{
-	  warning (OPT_Wctor_dtor_privacy,
-		   "%q#T only defines private constructors and has no friends",
-		   t);
-	  if (copy_or_move)
+	  bool w = warning (OPT_Wctor_dtor_privacy,
+			    "%q#T only defines private constructors and has "
+			    "no friends", t);
+	  if (w && copy_or_move)
 	    inform (DECL_SOURCE_LOCATION (copy_or_move),
 		    "%q#D is public, but requires an existing %q#T object",
 		    copy_or_move, t);
@@ -6018,13 +6018,17 @@ end_of_class (tree t, bool include_virtuals_p)
    subobjects of U.  */
 
 static void
-warn_about_ambiguous_bases (tree t)
+maybe_warn_about_inaccessible_bases (tree t)
 {
   int i;
   vec<tree, va_gc> *vbases;
   tree basetype;
   tree binfo;
   tree base_binfo;
+
+  /* If not checking for warning then return early.  */
+  if (!warn_inaccessible_base)
+    return;
 
   /* If there are no repeated bases, nothing can be ambiguous.  */
   if (!CLASSTYPE_REPEATED_BASE_P (t))
@@ -6037,8 +6041,8 @@ warn_about_ambiguous_bases (tree t)
       basetype = BINFO_TYPE (base_binfo);
 
       if (!uniquely_derived_from_p (basetype, t))
-	warning (0, "direct base %qT inaccessible in %qT due to ambiguity",
-		 basetype, t);
+	warning (OPT_Winaccessible_base, "direct base %qT inaccessible "
+		 "in %qT due to ambiguity", basetype, t);
     }
 
   /* Check for ambiguous virtual bases.  */
@@ -6049,8 +6053,8 @@ warn_about_ambiguous_bases (tree t)
 	basetype = BINFO_TYPE (binfo);
 
 	if (!uniquely_derived_from_p (basetype, t))
-	  warning (OPT_Wextra, "virtual base %qT inaccessible in %qT due "
-		   "to ambiguity", basetype, t);
+	  warning (OPT_Winaccessible_base, "virtual base %qT inaccessible in "
+		   "%qT due to ambiguity", basetype, t);
       }
 }
 
@@ -6449,6 +6453,12 @@ layout_class_type (tree t, tree *virtuals_p)
   /* Let the back end lay out the type.  */
   finish_record_layout (rli, /*free_p=*/true);
 
+  /* If we didn't end up needing an as-base type, don't use it.  */
+  if (CLASSTYPE_AS_BASE (t) != t
+      && tree_int_cst_equal (TYPE_SIZE (t),
+			     TYPE_SIZE (CLASSTYPE_AS_BASE (t))))
+    CLASSTYPE_AS_BASE (t) = t;
+
   if (TYPE_SIZE_UNIT (t)
       && TREE_CODE (TYPE_SIZE_UNIT (t)) == INTEGER_CST
       && !TREE_OVERFLOW (TYPE_SIZE_UNIT (t))
@@ -6456,7 +6466,7 @@ layout_class_type (tree t, tree *virtuals_p)
     error ("size of type %qT is too large (%qE bytes)", t, TYPE_SIZE_UNIT (t));
 
   /* Warn about bases that can't be talked about due to ambiguity.  */
-  warn_about_ambiguous_bases (t);
+  maybe_warn_about_inaccessible_bases (t);
 
   /* Now that we're done with layout, give the base fields the real types.  */
   for (field = TYPE_FIELDS (t); field; field = DECL_CHAIN (field))
@@ -7467,10 +7477,12 @@ resolves_to_fixed_type_p (tree instance, int* nonnull)
     }
 
   fixed = fixed_type_or_null (instance, nonnull, &cdtorp);
-  if (fixed == NULL_TREE)
-    return 0;
   if (INDIRECT_TYPE_P (t))
     t = TREE_TYPE (t);
+  if (CLASS_TYPE_P (t) && CLASSTYPE_FINAL (t))
+    return 1;
+  if (fixed == NULL_TREE)
+    return 0;
   if (!same_type_ignoring_top_level_qualifiers_p (t, fixed))
     return 0;
   return cdtorp ? -1 : 1;

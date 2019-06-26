@@ -49,7 +49,6 @@ along with GCC; see the file COPYING3.  If not see
 static tree handle_packed_attribute (tree *, tree, tree, int, bool *);
 static tree handle_nocommon_attribute (tree *, tree, tree, int, bool *);
 static tree handle_common_attribute (tree *, tree, tree, int, bool *);
-static tree handle_noreturn_attribute (tree *, tree, tree, int, bool *);
 static tree handle_hot_attribute (tree *, tree, tree, int, bool *);
 static tree handle_cold_attribute (tree *, tree, tree, int, bool *);
 static tree handle_no_sanitize_attribute (tree *, tree, tree, int, bool *);
@@ -190,7 +189,7 @@ static const struct attribute_spec::exclusions attr_noinline_exclusions[] =
   ATTR_EXCL (NULL, false, false, false),
 };
 
-static const struct attribute_spec::exclusions attr_noreturn_exclusions[] =
+extern const struct attribute_spec::exclusions attr_noreturn_exclusions[] =
 {
   ATTR_EXCL ("alloc_align", true, true, true),
   ATTR_EXCL ("alloc_size", true, true, true),
@@ -779,7 +778,7 @@ handle_common_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 /* Handle a "noreturn" attribute; arguments as in
    struct attribute_spec.handler.  */
 
-static tree
+tree
 handle_noreturn_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 			   int ARG_UNUSED (flags), bool *no_add_attrs)
 {
@@ -1821,7 +1820,7 @@ handle_mode_attribute (tree *node, tree name, tree args,
 	     this mode for this type.  */
 	  if (TREE_CODE (typefm) != INTEGER_TYPE)
 	    {
-	      error ("cannot use mode %qs for enumeral types", p);
+	      error ("cannot use mode %qs for enumerated types", p);
 	      return NULL_TREE;
 	    }
 
@@ -2326,12 +2325,8 @@ handle_alias_ifunc_attribute (bool is_alias, tree *node, tree name, tree args,
     {
       struct symtab_node *n = symtab_node::get (decl);
       if (n && n->refuse_visibility_changes)
-	{
-	  if (is_alias)
-	    error ("%+qD declared alias after being used", decl);
-	  else
-	    error ("%+qD declared ifunc after being used", decl);
-	}
+	error ("%+qD declared %qs after being used",
+	       decl, is_alias ? "alias" : "ifunc");
     }
 
 
@@ -2548,7 +2543,7 @@ handle_copy_attribute (tree *node, tree name, tree args,
    attribute_spec.handler.  */
 
 static tree
-handle_weakref_attribute (tree *node, tree ARG_UNUSED (name), tree args,
+handle_weakref_attribute (tree *node, tree name, tree args,
 			  int flags, bool *no_add_attrs)
 {
   tree attr = NULL_TREE;
@@ -2567,7 +2562,8 @@ handle_weakref_attribute (tree *node, tree ARG_UNUSED (name), tree args,
 
   if (lookup_attribute ("ifunc", DECL_ATTRIBUTES (*node)))
     {
-      error ("indirect function %q+D cannot be declared weakref", *node);
+      error ("indirect function %q+D cannot be declared %qE",
+	     *node, name);
       *no_add_attrs = true;
       return NULL_TREE;
     }
@@ -2589,7 +2585,8 @@ handle_weakref_attribute (tree *node, tree ARG_UNUSED (name), tree args,
     {
       if (lookup_attribute ("alias", DECL_ATTRIBUTES (*node)))
 	error_at (DECL_SOURCE_LOCATION (*node),
-		  "weakref attribute must appear before alias attribute");
+		  "%qE attribute must appear before %qs attribute",
+		  name, "alias");
 
       /* Can't call declare_weak because it wants this to be TREE_PUBLIC,
 	 and that isn't supported; and because it wants to add it to
@@ -2601,7 +2598,7 @@ handle_weakref_attribute (tree *node, tree ARG_UNUSED (name), tree args,
     {
       struct symtab_node *n = symtab_node::get (*node);
       if (n && n->refuse_visibility_changes)
-	error ("%+qD declared weakref after being used", *node);
+	error ("%+qD declared %qE after being used", *node, name);
     }
 
   return NULL_TREE;
@@ -3625,7 +3622,8 @@ handle_nonnull_attribute (tree *node, tree name,
 	  && (!TYPE_ATTRIBUTES (type)
 	      || !lookup_attribute ("type generic", TYPE_ATTRIBUTES (type))))
 	{
-	  error ("nonnull attribute without arguments on a non-prototype");
+	  error ("%qE attribute without arguments on a non-prototype",
+		 name);
 	  *no_add_attrs = true;
 	}
       return NULL_TREE;

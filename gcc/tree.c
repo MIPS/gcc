@@ -300,6 +300,8 @@ unsigned const char omp_clause_num_ops[] =
   2, /* OMP_CLAUSE_MAP  */
   1, /* OMP_CLAUSE_USE_DEVICE_PTR  */
   1, /* OMP_CLAUSE_IS_DEVICE_PTR  */
+  1, /* OMP_CLAUSE_INCLUSIVE  */
+  1, /* OMP_CLAUSE_EXCLUSIVE  */
   2, /* OMP_CLAUSE__CACHE_  */
   2, /* OMP_CLAUSE_GANG  */
   1, /* OMP_CLAUSE_ASYNC  */
@@ -378,6 +380,8 @@ const char * const omp_clause_code_name[] =
   "map",
   "use_device_ptr",
   "is_device_ptr",
+  "inclusive",
+  "exclusive",
   "_cache_",
   "gang",
   "async",
@@ -2019,9 +2023,9 @@ verify_constructor_flags (tree c)
 /* Return a new CONSTRUCTOR node whose type is TYPE and whose values
    are in the vec pointed to by VALS.  */
 tree
-build_constructor (tree type, vec<constructor_elt, va_gc> *vals)
+build_constructor (tree type, vec<constructor_elt, va_gc> *vals MEM_STAT_DECL)
 {
-  tree c = make_node (CONSTRUCTOR);
+  tree c = make_node (CONSTRUCTOR PASS_MEM_STAT);
 
   TREE_TYPE (c) = type;
   CONSTRUCTOR_ELTS (c) = vals;
@@ -5590,11 +5594,13 @@ need_assembler_name_p (tree decl)
 
   if (TREE_CODE (decl) == TYPE_DECL)
     {
-      if (flag_lto_odr_type_mering
-	  && DECL_NAME (decl)
+      if (DECL_NAME (decl)
 	  && decl == TYPE_NAME (TREE_TYPE (decl))
 	  && TYPE_MAIN_VARIANT (TREE_TYPE (decl)) == TREE_TYPE (decl)
 	  && !TYPE_ARTIFICIAL (TREE_TYPE (decl))
+	  && ((TREE_CODE (TREE_TYPE (decl)) != RECORD_TYPE
+	       && TREE_CODE (TREE_TYPE (decl)) != UNION_TYPE)
+	      || TYPE_CXX_ODR_P (TREE_TYPE (decl)))
 	  && (type_with_linkage_p (TREE_TYPE (decl))
 	      || TREE_CODE (TREE_TYPE (decl)) == INTEGER_TYPE)
 	  && !variably_modified_type_p (TREE_TYPE (decl), NULL_TREE))
@@ -10379,10 +10385,12 @@ build_common_tree_nodes (bool signed_char)
       for (i = 0; i < NUM_INT_N_ENTS; i++)
 	if (int_n_enabled_p[i])
 	  {
-	    char name[50];
+	    char name[50], altname[50];
 	    sprintf (name, "__int%d unsigned", int_n_data[i].bitsize);
+	    sprintf (altname, "__int%d__ unsigned", int_n_data[i].bitsize);
 
-	    if (strcmp (name, SIZE_TYPE) == 0)
+	    if (strcmp (name, SIZE_TYPE) == 0
+		|| strcmp (altname, SIZE_TYPE) == 0)
 	      {
 		size_type_node = int_n_trees[i].unsigned_type;
 	      }
@@ -10406,9 +10414,12 @@ build_common_tree_nodes (bool signed_char)
       for (int i = 0; i < NUM_INT_N_ENTS; i++)
 	if (int_n_enabled_p[i])
 	  {
-	    char name[50];
+	    char name[50], altname[50];
 	    sprintf (name, "__int%d", int_n_data[i].bitsize);
-	    if (strcmp (name, PTRDIFF_TYPE) == 0)
+	    sprintf (altname, "__int%d__", int_n_data[i].bitsize);
+
+	    if (strcmp (name, PTRDIFF_TYPE) == 0
+		|| strcmp (altname, PTRDIFF_TYPE) == 0)
 	      ptrdiff_type_node = int_n_trees[i].signed_type;
 	  }
       if (ptrdiff_type_node == NULL_TREE)
@@ -12296,6 +12307,8 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_LINK:
 	case OMP_CLAUSE_USE_DEVICE_PTR:
 	case OMP_CLAUSE_IS_DEVICE_PTR:
+	case OMP_CLAUSE_INCLUSIVE:
+	case OMP_CLAUSE_EXCLUSIVE:
 	case OMP_CLAUSE__LOOPTEMP_:
 	case OMP_CLAUSE__REDUCTEMP_:
 	case OMP_CLAUSE__CONDTEMP_:
@@ -13445,7 +13458,11 @@ get_tree_code_name (enum tree_code code)
   const char *invalid = "<invalid tree code>";
 
   if (code >= MAX_TREE_CODES)
-    return invalid;
+    {
+      if (code == 0xa5a5)
+	return "ggc_freed";
+      return invalid;
+    }
 
   return tree_code_name[code];
 }
@@ -13872,7 +13889,10 @@ verify_type_variant (const_tree t, tree tv)
      Ada also builds variants of types with different TYPE_CONTEXT.   */
   if ((!in_lto_p || !TYPE_FILE_SCOPE_P (t)) && 0)
     verify_variant_match (TYPE_CONTEXT);
-  verify_variant_match (TYPE_STRING_FLAG);
+  if (TREE_CODE (t) == ARRAY_TYPE || TREE_CODE (t) == INTEGER_TYPE)
+    verify_variant_match (TYPE_STRING_FLAG);
+  if (TREE_CODE (t) == RECORD_TYPE || TREE_CODE (t) == UNION_TYPE)
+    verify_variant_match (TYPE_CXX_ODR_P);
   if (TYPE_ALIAS_SET_KNOWN_P (t))
     {
       error ("type variant with %<TYPE_ALIAS_SET_KNOWN_P%>");
@@ -14616,12 +14636,6 @@ verify_type (const_tree t)
       && TYPE_CACHED_VALUES_P (t))
     {
       error ("%<TYPE_CACHED_VALUES_P%> is set while it should not be");
-      error_found = true;
-    }
-  if (TYPE_STRING_FLAG (t)
-      && TREE_CODE (t) != ARRAY_TYPE && TREE_CODE (t) != INTEGER_TYPE)
-    {
-      error ("%<TYPE_STRING_FLAG%> is set on wrong type code");
       error_found = true;
     }
   

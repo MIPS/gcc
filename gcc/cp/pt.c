@@ -12814,7 +12814,7 @@ tsubst_default_argument (tree fn, int parmnum, tree type, tree arg,
   int errs = errorcount + sorrycount;
 
   /* This can happen in invalid code.  */
-  if (TREE_CODE (arg) == DEFAULT_ARG)
+  if (TREE_CODE (arg) == DEFERRED_PARSE)
     return arg;
 
   tree parm = FUNCTION_FIRST_USER_PARM (fn);
@@ -14092,7 +14092,7 @@ tsubst_arg_types (tree arg_types,
       default_arg = tsubst_copy_and_build (default_arg, args, complain, in_decl,
 					   false/*fn*/, false/*constexpr*/);
 
-    if (default_arg && TREE_CODE (default_arg) == DEFAULT_ARG)
+    if (default_arg && TREE_CODE (default_arg) == DEFERRED_PARSE)
       {
         /* We've instantiated a template before its default arguments
            have been parsed.  This can happen for a nested template
@@ -14100,7 +14100,8 @@ tsubst_arg_types (tree arg_types,
            argument in a call of this function.  */
         remaining_arg_types = 
           tree_cons (default_arg, type, remaining_arg_types);
-        vec_safe_push (DEFARG_INSTANTIATIONS(default_arg), remaining_arg_types);
+	vec_safe_push (DEFPARSE_INSTANTIATIONS (default_arg),
+		       remaining_arg_types);
       }
     else
       remaining_arg_types = 
@@ -16323,6 +16324,8 @@ tsubst_omp_clauses (tree clauses, enum c_omp_region_type ort,
 	case OMP_CLAUSE_NONTEMPORAL:
 	case OMP_CLAUSE_USE_DEVICE_PTR:
 	case OMP_CLAUSE_IS_DEVICE_PTR:
+	case OMP_CLAUSE_INCLUSIVE:
+	case OMP_CLAUSE_EXCLUSIVE:
 	  OMP_CLAUSE_DECL (nc)
 	    = tsubst_omp_clause_decl (OMP_CLAUSE_DECL (oc), args, complain,
 				      in_decl, iterator_cache);
@@ -16443,6 +16446,8 @@ tsubst_omp_clauses (tree clauses, enum c_omp_region_type ort,
 	  case OMP_CLAUSE_TASK_REDUCTION:
 	  case OMP_CLAUSE_USE_DEVICE_PTR:
 	  case OMP_CLAUSE_IS_DEVICE_PTR:
+	  case OMP_CLAUSE_INCLUSIVE:
+	  case OMP_CLAUSE_EXCLUSIVE:
 	    /* tsubst_expr on SCOPE_REF results in returning
 	       finish_non_static_data_member result.  Undo that here.  */
 	    if (TREE_CODE (OMP_CLAUSE_DECL (oc)) == SCOPE_REF
@@ -17639,6 +17644,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
     case OMP_TEAMS:
     case OMP_CRITICAL:
     case OMP_TASKGROUP:
+    case OMP_SCAN:
       r = push_omp_privatization_clauses (TREE_CODE (t) == OMP_TEAMS
 					  && OMP_TEAMS_COMBINED (t));
       tmp = tsubst_omp_clauses (OMP_CLAUSES (t), C_ORT_OMP, args, complain,
@@ -22781,7 +22787,9 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
       /* An unresolved overload is a nondeduced context.  */
       if (is_overloaded_fn (parm) || type_unknown_p (parm))
 	return unify_success (explain_p);
-      gcc_assert (EXPR_P (parm) || TREE_CODE (parm) == TRAIT_EXPR);
+      gcc_assert (EXPR_P (parm)
+		  || COMPOUND_LITERAL_P (parm)
+		  || TREE_CODE (parm) == TRAIT_EXPR);
     expr:
       /* We must be looking at an expression.  This can happen with
 	 something like:
@@ -22789,15 +22797,19 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
 	   template <int I>
 	   void foo(S<I>, S<I + 2>);
 
-	 This is a "nondeduced context":
+	 or
+
+	   template<typename T>
+	   void foo(A<T, T{}>);
+
+	 This is a "non-deduced context":
 
 	   [deduct.type]
 
-	   The nondeduced contexts are:
+	   The non-deduced contexts are:
 
-	   --A type that is a template-id in which one or more of
-	     the template-arguments is an expression that references
-	     a template-parameter.
+	   --A non-type template argument or an array bound in which
+	     a subexpression references a template parameter.
 
 	 In these cases, we assume deduction succeeded, but don't
 	 actually infer any unifications.  */
@@ -25302,8 +25314,9 @@ dependent_type_p_r (tree type)
 	  if (tree noex = TREE_PURPOSE (spec))
 	    /* Treat DEFERRED_NOEXCEPT as non-dependent, since it doesn't
 	       affect overload resolution and treating it as dependent breaks
-	       things.  */
+	       things.  Same for an unparsed noexcept expression.  */
 	    if (TREE_CODE (noex) != DEFERRED_NOEXCEPT
+		&& TREE_CODE (noex) != DEFERRED_PARSE
 		&& value_dependent_expression_p (noex))
 	      return true;
       return false;
@@ -26836,7 +26849,7 @@ listify (tree arg)
 static tree
 listify_autos (tree type, tree auto_node)
 {
-  tree init_auto = listify (auto_node);
+  tree init_auto = listify (strip_top_quals (auto_node));
   tree argvec = make_tree_vec (1);
   TREE_VEC_ELT (argvec, 0) = init_auto;
   if (processing_template_decl)
@@ -28311,8 +28324,9 @@ declare_integer_pack (void)
 void
 init_template_processing (void)
 {
-  decl_specializations = hash_table<spec_hasher>::create_ggc (37);
-  type_specializations = hash_table<spec_hasher>::create_ggc (37);
+  /* FIXME: enable sanitization (PR87847) */
+  decl_specializations = hash_table<spec_hasher>::create_ggc (37, false);
+  type_specializations = hash_table<spec_hasher>::create_ggc (37, false);
 
   if (cxx_dialect >= cxx11)
     declare_integer_pack ();
