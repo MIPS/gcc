@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-m32 -march=32r6 -mcmodel=auto -mpcrel -mno-gpopt" } */
-
+/* { dg-xfail-if "incompatible with PID mode" { *-*-* } { "-mpid" } { "" } } */
 
 long long var_di __attribute__ ((aligned (1)));
 
