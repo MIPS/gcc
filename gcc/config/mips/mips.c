@@ -3988,6 +3988,9 @@ mips_valid_lo_sum_offset_p (rtx reg, rtx offset, machine_mode mode)
 
   split_const (offset, &symbol, &offset);
 
+    if (UNSPEC_ADDRESS_P (symbol))
+      symbol = UNSPEC_ADDRESS (symbol);
+
   gcc_assert (GET_CODE (symbol) == SYMBOL_REF);
 
   if (SYMBOL_REF_DECL (symbol))
