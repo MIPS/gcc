@@ -115,7 +115,6 @@ struct processor_costs ix86_size_cost = {/* costs for tuning for size */
   NULL,					/* Jump alignment.  */
   NULL,					/* Label alignment.  */
   NULL,					/* Func alignment.  */
-  0,					/* Loop alignment bundle size.  */
 };
 
 /* Processor costs (relative to an add) */
@@ -206,7 +205,6 @@ struct processor_costs i386_cost = {	/* 386 specific costs */
   "4",					/* Jump alignment.  */
   NULL,					/* Label alignment.  */
   "4",					/* Func alignment.  */
-  0,					/* Loop alignment bundle size.  */
 };
 
 static stringop_algs i486_memcpy[2] = {
@@ -298,7 +296,6 @@ struct processor_costs i486_cost = {	/* 486 specific costs */
   "16",					/* Jump alignment.  */
   "0:0:8",				/* Label alignment.  */
   "16",					/* Func alignment.  */
-  0,					/* Loop alignment bundle size.  */
 };
 
 static stringop_algs pentium_memcpy[2] = {
@@ -388,7 +385,6 @@ struct processor_costs pentium_cost = {
   "16:8:8",				/* Jump alignment.  */
   "0:0:8",				/* Label alignment.  */
   "16",					/* Func alignment.  */
-  0,					/* Loop alignment bundle size.  */
 };
 
 static const
@@ -471,7 +467,6 @@ struct processor_costs lakemont_cost = {
   "16:8:8",				/* Jump alignment.  */
   "0:0:8",				/* Label alignment.  */
   "16",					/* Func alignment.  */
-  0,					/* Loop alignment bundle size.  */
 };
 
 /* PentiumPro has optimized rep instructions for blocks aligned by 8 bytes
@@ -569,7 +564,6 @@ struct processor_costs pentiumpro_cost = {
   "16:11:8",				/* Jump alignment.  */
   "0:0:8",				/* Label alignment.  */
   "16",					/* Func alignment.  */
-  0,					/* Loop alignment bundle size.  */
 };
 
 static stringop_algs geode_memcpy[2] = {
@@ -659,7 +653,6 @@ struct processor_costs geode_cost = {
   NULL,					/* Jump alignment.  */
   NULL,					/* Label alignment.  */
   NULL,					/* Func alignment.  */
-  0,					/* Loop alignment bundle size.  */
 };
 
 static stringop_algs k6_memcpy[2] = {
@@ -751,7 +744,6 @@ struct processor_costs k6_cost = {
   "32:8:8",				/* Jump alignment.  */
   "0:0:8",				/* Label alignment.  */
   "32",					/* Func alignment.  */
-  0,					/* Loop alignment bundle size.  */
 };
 
 /* For some reason, Athlon deals better with REP prefix (relative to loops)
@@ -844,7 +836,6 @@ struct processor_costs athlon_cost = {
   "16:8:8",				/* Jump alignment.  */
   "0:0:8",				/* Label alignment.  */
   "16",					/* Func alignment.  */
-  0,					/* Loop alignment bundle size.  */
 };
 
 /* K8 has optimized REP instruction for medium sized blocks, but for very
@@ -946,7 +937,6 @@ struct processor_costs k8_cost = {
   "16:8:8",				/* Jump alignment.  */
   "0:0:8",				/* Label alignment.  */
   "16",					/* Func alignment.  */
-  0,					/* Loop alignment bundle size.  */
 };
 
 /* AMDFAM10 has optimized REP instruction for medium sized blocks, but for
@@ -1055,7 +1045,6 @@ struct processor_costs amdfam10_cost = {
   "32:8:8",				/* Jump alignment.  */
   "0:0:8",				/* Label alignment.  */
   "32",					/* Func alignment.  */
-  0,					/* Loop alignment bundle size.  */
 };
 
 /*  BDVER has optimized REP instruction for medium sized blocks, but for
@@ -1158,7 +1147,6 @@ const struct processor_costs bdver_cost = {
   "16:8:8",				/* Jump alignment.  */
   "0:0:8",				/* Label alignment.  */
   "11",					/* Func alignment.  */
-  0,					/* Loop alignment bundle size.  */
 };
 
 
@@ -1283,7 +1271,6 @@ struct processor_costs znver1_cost = {
   "16",					/* Jump alignment.  */
   "0:0:8",				/* Label alignment.  */
   "16",					/* Func alignment.  */
-  32,					/* Loop alignment bundle size.  */
 };
 
 /*  ZNVER2 has optimized REP instruction for medium sized blocks, but for
@@ -1411,7 +1398,6 @@ struct processor_costs znver2_cost = {
   "16",					/* Jump alignment.  */
   "0:0:8",				/* Label alignment.  */
   "16",					/* Func alignment.  */
-  0,					/* Loop alignment bundle size.  */
 };
 
 /* skylake_cost should produce code tuned for Skylake familly of CPUs.  */
@@ -1508,7 +1494,6 @@ struct processor_costs skylake_cost = {
   "16:11:8",				/* Jump alignment.  */
   "0:0:8",				/* Label alignment.  */
   "16",					/* Func alignment.  */
-  32,					/* Loop alignment bundle size.  */
 };
   /* BTVER1 has optimized REP instruction for medium sized blocks, but for
      very small blocks it is better to use loop. For large blocks, libcall can
@@ -1602,7 +1587,6 @@ const struct processor_costs btver1_cost = {
   "16:8:8",				/* Jump alignment.  */
   "0:0:8",				/* Label alignment.  */
   "11",					/* Func alignment.  */
-  0,					/* Loop alignment bundle size.  */
 };
 
 static stringop_algs btver2_memcpy[2] = {
@@ -1694,7 +1678,6 @@ const struct processor_costs btver2_cost = {
   "16:8:8",				/* Jump alignment.  */
   "0:0:8",				/* Label alignment.  */
   "11",					/* Func alignment.  */
-  0,					/* Loop alignment bundle size.  */
 };
 
 static stringop_algs pentium4_memcpy[2] = {
@@ -1785,7 +1768,6 @@ struct processor_costs pentium4_cost = {
   NULL,					/* Jump alignment.  */
   NULL,					/* Label alignment.  */
   NULL,					/* Func alignment.  */
-  0,					/* Loop alignment bundle size.  */
 };
 
 static stringop_algs nocona_memcpy[2] = {
@@ -1879,7 +1861,6 @@ struct processor_costs nocona_cost = {
   NULL,					/* Jump alignment.  */
   NULL,					/* Label alignment.  */
   NULL,					/* Func alignment.  */
-  0,					/* Loop alignment bundle size.  */
 };
 
 static stringop_algs atom_memcpy[2] = {
@@ -1971,7 +1952,6 @@ struct processor_costs atom_cost = {
   "16:8:8",				/* Jump alignment.  */
   "0:0:8",				/* Label alignment.  */
   "16",					/* Func alignment.  */
-  0,					/* Loop alignment bundle size.  */
 };
 
 static stringop_algs slm_memcpy[2] = {
@@ -2063,7 +2043,6 @@ struct processor_costs slm_cost = {
   "16:8:8",				/* Jump alignment.  */
   "0:0:8",				/* Label alignment.  */
   "16",					/* Func alignment.  */
-  0,					/* Loop alignment bundle size.  */
 };
 
 static stringop_algs intel_memcpy[2] = {
@@ -2155,7 +2134,6 @@ struct processor_costs intel_cost = {
   "16:8:8",				/* Jump alignment.  */
   "0:0:8",				/* Label alignment.  */
   "16",					/* Func alignment.  */
-  0,					/* Loop alignment bundle size.  */
 };
 
 /* Generic should produce code tuned for Core-i7 (and newer chips)
@@ -2256,7 +2234,6 @@ struct processor_costs generic_cost = {
   "16:11:8",				/* Jump alignment.  */
   "0:0:8",				/* Label alignment.  */
   "16",					/* Func alignment.  */
-  0,					/* Loop alignment bundle size.  */
 };
 
 /* core_cost should produce code tuned for Core familly of CPUs.  */
@@ -2364,6 +2341,5 @@ struct processor_costs core_cost = {
   "16:11:8",				/* Jump alignment.  */
   "0:0:8",				/* Label alignment.  */
   "16",					/* Func alignment.  */
-  0,					/* Loop alignment bundle size.  */
 };
 
