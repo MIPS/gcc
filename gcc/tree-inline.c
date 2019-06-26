@@ -192,6 +192,10 @@ remap_ssa_name (tree name, copy_body_data *id)
   n = id->decl_map->get (name);
   if (n)
     {
+      /* WHen we perform edge redirection as part of CFG copy, IPA-SRA can
+	 remove an unused LHS from a call statement.  Such LHS can however
+	 still appear in debug statements, but their value is lost in this
+	 function and we do not want to map them.  */
       if (id->killed_new_ssa_names
 	  && id->killed_new_ssa_names->contains (*n))
 	{
@@ -2872,6 +2876,10 @@ redirect_all_calls (copy_body_data * id, basic_block bb)
 	  if (edge)
 	    {
 	      edge->redirect_call_stmt_to_callee ();
+	      /* If IPA-SRA transformation, run as part of edge redirection,
+		 removed the LHS because it is unused, save it to
+		 killed_new_ssa_names so that we can prune it from debug
+		 statements.  */
 	      if (old_lhs
 		  && TREE_CODE (old_lhs) == SSA_NAME
 		  && !gimple_call_lhs (edge->call_stmt))
@@ -5777,6 +5785,10 @@ copy_decl_for_dup_finish (copy_body_data *id, tree decl, tree copy)
 
   return copy;
 }
+
+/* Create a new VAR_DECL that is indentical in all respect to DECL except that
+   DECL can be either a VAR_DECL, a PARM_DECL or RESULT_DECL.  The original
+   DECL must come from ID->src_fn and the copy will be part of ID->dst_fn.  */
 
 tree
 copy_decl_to_var (tree decl, copy_body_data *id)

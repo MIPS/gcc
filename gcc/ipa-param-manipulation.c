@@ -939,7 +939,10 @@ carry_over_param (tree t, struct copy_body_data *id)
    constructors.  OLD_FNDECL is the declaration we take original arguments
    from, (it may be the same as M_FNDECL).  VARS, if non-NULL, is a pointer to
    a chained list of new local variables.  TREE_MAP is the IPA-CP produced
-   mapping of trees to constants.  */
+   mapping of trees to constants.
+
+   The function is rather long but it really onlu initializes all data members
+   of the class.  It creates new param DECLs, finds their new types,   */
 
 void
 ipa_param_body_adjustments::common_initialization (tree old_fndecl,
@@ -974,6 +977,11 @@ ipa_param_body_adjustments::common_initialization (tree old_fndecl,
 		   && (adj_len == 0
 		       || (*m_adj_params)[0].op != IPA_PARAM_OP_COPY
 		       || (*m_adj_params)[0].base_index != 0));
+
+  /* The main job of the this function is to go over the vector of adjusted
+     parameters and create declarations or find corresponding old ones and push
+     them to m_new_decls.  For IPA-SRA replacements it also creates
+     corresponding m_id->dst_node->clone.performed_splits entries.  */
 
   m_new_decls.reserve_exact (adj_len);
   for (unsigned i = 0; i < adj_len ; i++)
@@ -1046,18 +1054,22 @@ ipa_param_body_adjustments::common_initialization (tree old_fndecl,
 	gcc_unreachable ();
     }
 
+
+  /* As part of body modifications, we will also have to replace remaining uses
+     of remaining uses of removed PARM_DECLs (which do not however use the
+     initial value) with their VAR_DECL copies.
+
+     We do this differently with and without m_id.  With m_id, we rely on its
+     mapping and create a replacement straight away.  Without it, we have our
+     own mechanism for which we have to populate m_removed_decls vector.  Just
+     don't mix them, that is why you should not call
+     replace_removed_params_ssa_names or perform_cfun_body_modifications when
+     you construct with ID not equal to NULL.  */
+
   unsigned op_len = m_oparms.length ();
   for (unsigned i = 0; i < op_len; i++)
     if (!kept[i])
       {
-	/* We operate in different modes with and without m_id when it comes to
-	   converting remaining uses of removed PARM_DECLs (which do not
-	   however use the initial value) to VAR_DECL copies.  With m_id, we
-	   rely on its mapping and create a replacement straight away.  Without
-	   it, we have our own mechanism.  Just don't mix them, that is why you
-	   should not call replace_removed_params_ssa_names or
-	   perform_cfun_body_modifications when you construct with ID not equel
-	   to NULL.  */
 	if (m_id)
 	  {
 	    if (!m_id->decl_map->get (m_oparms[i]))
@@ -1080,6 +1092,10 @@ ipa_param_body_adjustments::common_initialization (tree old_fndecl,
 
   if (!MAY_HAVE_DEBUG_STMTS)
     return;
+
+  /* Finally, when generating debug info, we fill vector m_reset_debug_decls
+    with removed parameters declarations.  We do this in order to re-map their
+    debug bind statements and create debug decls for them.  */
 
   if (tree_map)
     {
