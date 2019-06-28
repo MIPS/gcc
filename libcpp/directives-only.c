@@ -31,6 +31,30 @@ along with this program; see the file COPYING3.  If not see
 #define DO_LINE_SPECIAL (DO_STRING | DO_CHAR | DO_LINE_COMMENT)
 #define DO_SPECIAL	(DO_LINE_SPECIAL | DO_BLOCK_COMMENT)
 
+/* Handle directive similar to the normal mode.  */
+static void
+handle_directive (cpp_reader *pfile, cpp_token *start,
+		  const unsigned char *cur, int col)
+{
+  struct line_maps *line_table;
+
+  /* Prep things for directive handling. */
+  pfile->buffer->next_line = cur;
+  pfile->buffer->need_line = true;
+  _cpp_get_fresh_line (pfile);
+
+  /* Ensure proper column numbering for generated error messages. */
+  pfile->buffer->line_base -= col - 1;
+
+  start->src_loc = pfile->line_table->highest_line;
+
+  _cpp_handle_directive (pfile, start);
+
+  /* Sanitize the line settings.  Duplicate #include's can mess things up. */
+  line_table = pfile->line_table;
+  line_table->highest_location = line_table->highest_line;
+}
+
 /* Writes out the preprocessed file, handling spacing and paste
    avoidance issues.  */
 void
@@ -88,30 +112,14 @@ _cpp_preprocess_dir_only (cpp_reader *pfile,
 	{
 	  if (c != '#' && (flags & DO_BOL) && !buffer->ignore_directives)
 	  {
-	    class line_maps *line_table;
-
 	    if (!pfile->state.skipping && next_line != base)
 	      cb->print_lines (lines, base, next_line - base);
 
-	    /* Prep things for directive handling. */
-	    buffer->next_line = cur;
-	    buffer->need_line = true;
-	    _cpp_get_fresh_line (pfile);
-
-	    /* Ensure proper column numbering for generated error messages. */
-	    buffer->line_base -= col - 1;
-
-            cpp_token start;
+	    cpp_token start;
             start.type = CPP_HASH;
             start.flags = 0; /* ignore indented */
-            start.src_loc = pfile->line_table->highest_line; // ??? Location?
 
-	    _cpp_handle_directive (pfile, &start);
-
-	    /* Sanitize the line settings.  Duplicate #include's can mess
-	       things up. */
-	    line_table = pfile->line_table;
-	    line_table->highest_location = line_table->highest_line;
+	    handle_directive (pfile, &start, cur, col);
 
 	    /* The if block prevents us from outputing line information when
 	       the file ends with a directive and no newline.  Note that we
@@ -152,7 +160,6 @@ _cpp_preprocess_dir_only (cpp_reader *pfile,
 	       (flags & DO_BOL) && !(flags & DO_SPECIAL) &&
 	       !buffer->ignore_directives)
 	{
-	  const cpp_token *token;
 	  const unsigned char *p = cur + 3;
 
 	  /* Handle the 'export' prefix.  */
@@ -173,60 +180,25 @@ _cpp_preprocess_dir_only (cpp_reader *pfile,
 	      (!is_nvspace (*p) && *p != '<' && *p != '"'))
 	    goto skip;
 
-	  /* Similar code to the real directive above, except here we don't
-	     need to worry about the line information. (@@ Is that really the
-	     case?)  */
-
+	  /* Similar code to the real directive above.  */
 	  next_line = cur;
-
-	  struct line_maps *line_table;
-
 	  if (!pfile->state.skipping && next_line != base)
 	    cb->print_lines (lines, base, next_line - base);
 
-	  /* Prep things for directive handling. */
-	  buffer->next_line = cur;
-	  buffer->need_line = true;
-	  _cpp_get_fresh_line (pfile);
+	  cpp_token start;
+	  start.type = CPP_NAME;
+	  start.flags = 0;
+	  start.val.node.node = start.val.node.spelling =
+	    _cpp_lex_identifier (pfile, c == 'e' ? "export import" : "import");
 
-	  /* Ensure proper column numbering for generated error messages. */
-	  buffer->line_base -= col - 1;
+	  /* Skip first token (import or export).  */
+	  handle_directive (pfile, &start, cur + 6, col + 6);
 
-	  // @@ Create a fake or just lex from the beginning? If fake, then
-	  //    will need to adjust column number. If fusing then fake is
-	  //    probably easier. Also will allow to factor to sep. function.
-	  //
-	  // @@ TODO: redo by skiping import/export import.
-
-	  token = _cpp_lex_direct (pfile);
-	  gcc_assert (token->type == CPP_NAME);
-
-	  cpp_token start_token;
-	  if (c == 'e')
-	    {
-	      /* Fuse into a single 'export import' token. */
-	      start_token = *token;
-	      start_token.val.node.node =
-		start_token.val.node.spelling =
-		_cpp_lex_identifier (pfile, "export import");
-	      token = &start_token;
-	    }
-
-	  _cpp_handle_directive (pfile, token);
-
-	  /* Sanitize the line settings.  Duplicate #include's can mess
-	     things up. */
-	  line_table = pfile->line_table;
-	  line_table->highest_location = line_table->highest_line;
-
-	  /* The if block prevents us from outputing line information when
-	     the file ends with a directive and no newline.  Note that we
-	     must use pfile->buffer, not buffer. */
 	  if (pfile->buffer->next_line < pfile->buffer->rlimit)
 	    cb->maybe_print_line (pfile->line_table->highest_line);
 
 	  /* If we get something other than padding, then we assume it's a
-	     module import and write the original line.  */
+	     normal module import and write the original line.  */
 	  if (pfile->directive_result.type == CPP_PADDING)
 	    goto restart;
 
