@@ -18129,7 +18129,7 @@ cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc,
 
   /* As per the standard, require auto or decltype(auto), except in some
      cases (template parameter lists, -fconcepts-ts enabled).  */
-  cp_token *placeholder = nullptr;
+  cp_token *placeholder = NULL;
   if (cxx_dialect >= cxx2a)
     {
       if (cp_lexer_next_token_is_keyword (parser->lexer, RID_AUTO))
