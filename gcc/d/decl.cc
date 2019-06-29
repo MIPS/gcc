@@ -21,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "dmd/aggregate.h"
 #include "dmd/attrib.h"
+#include "dmd/cond.h"
 #include "dmd/ctfe.h"
 #include "dmd/declaration.h"
 #include "dmd/enum.h"
@@ -121,9 +122,13 @@ class DeclVisitor : public Visitor
 {
   using Visitor::visit;
 
+  /* If we're lowering the body of a version(unittest) condition.  */
+  bool in_version_unittest_;
+
 public:
   DeclVisitor (void)
   {
+    this->in_version_unittest_ = false;
   }
 
   /* This should be overridden by each declaration class.  */
@@ -147,6 +152,9 @@ public:
 
   void visit (Import *d)
   {
+    if (d->semanticRun >= PASSobj)
+      return;
+
     /* Implements import declarations by telling the debug back-end we are
        importing the NAMESPACE_DECL of the module or IMPORTED_DECL of the
        declaration into the current lexical scope CONTEXT.  NAME is set if
@@ -188,6 +196,8 @@ public:
 	debug_hooks->imported_module_or_decl (decl, name, context,
 					      false, false);
       }
+
+    d->semanticRun = PASSobj;
   }
 
   /* Expand any local variables found in tuples.  */
@@ -241,6 +251,25 @@ public:
     visit ((AttribDeclaration *) d);
   }
 
+  /* Conditional compilation is the process of selecting which code to compile
+     and which code to not compile.  Look for version conditions that may  */
+
+  void visit (ConditionalDeclaration *d)
+  {
+    bool old_condition = this->in_version_unittest_;
+
+    if (global.params.useUnitTests)
+      {
+	VersionCondition *vc = d->condition->isVersionCondition ();
+	if (vc && vc->ident == Identifier::idPool ("unittest"))
+	  this->in_version_unittest_ = true;
+      }
+
+    visit ((AttribDeclaration *) d);
+
+    this->in_version_unittest_ = old_condition;
+  }
+
   /* Walk over all members in the namespace scope.  */
 
   void visit (Nspace *d)
@@ -253,6 +282,40 @@ public:
 	Dsymbol *s = (*d->members)[i];
 	s->accept (this);
       }
+  }
+
+  /* Templates are D's approach to generic programming.  They have no members
+     that can be emitted, however if the template is nested and used as a
+     voldemort type, then it's members must be compiled before the parent
+     function finishes.  */
+
+  void visit (TemplateDeclaration *d)
+  {
+    /* Type cannot be directly named outside of the scope it's declared in, so
+       the only way it can be escaped is if the function has auto return.  */
+    FuncDeclaration *fd = d_function_chain ? d_function_chain->function : NULL;
+
+    if (!fd || !fd->isAuto ())
+      return;
+
+    /* Check if the function returns an instantiated type that may contain
+       nested members.  Only applies to classes or structs.  */
+    Type *tb = fd->type->nextOf ()->baseElemOf ();
+
+    while (tb->ty == Tarray || tb->ty == Tpointer)
+      tb = tb->nextOf ()->baseElemOf ();
+
+    TemplateInstance *ti = NULL;
+
+    if (tb->ty == Tstruct)
+      ti = ((TypeStruct *) tb)->sym->isInstantiated ();
+    else if (tb->ty == Tclass)
+      ti = ((TypeClass *) tb)->sym->isInstantiated ();
+
+    /* Return type is instantiated from this template declaration, walk over
+       all members of the instance.  */
+    if (ti && ti->tempdecl == d)
+      ti->accept (this);
   }
 
   /* Walk over all members in the instantiated template.  */
@@ -291,6 +354,9 @@ public:
 
   void visit (StructDeclaration *d)
   {
+    if (d->semanticRun >= PASSobj)
+      return;
+
     if (d->type->ty == Terror)
       {
 	error_at (make_location_t (d->loc),
@@ -313,7 +379,8 @@ public:
       return;
 
     /* Generate TypeInfo.  */
-    create_typeinfo (d->type, NULL);
+    if (have_typeinfo_p (Type::dtypeinfo))
+      create_typeinfo (d->type, NULL);
 
     /* Generate static initializer.  */
     d->sinit = aggregate_initializer_decl (d);
@@ -342,6 +409,8 @@ public:
 
     if (d->xhash)
       d->xhash->accept (this);
+
+    d->semanticRun = PASSobj;
   }
 
   /* Finish semantic analysis of functions in vtbl for class CD.  */
@@ -394,7 +463,7 @@ public:
 			    fd2->toPrettyChars ());
 		    inform (make_location_t (d->loc),
 			    "use %<alias %s = %s.%s;%> to introduce base class "
-			    "overload set.", fd->toChars (),
+			    "overload set", fd->toChars (),
 			    fd->parent->toChars (), fd->toChars ());
 		  }
 		else
@@ -419,6 +488,9 @@ public:
 
   void visit (ClassDeclaration *d)
   {
+    if (d->semanticRun >= PASSobj)
+      return;
+
     if (d->type->ty == Terror)
       {
 	error_at (make_location_t (d->loc),
@@ -452,7 +524,9 @@ public:
     d_finish_decl (d->sinit);
 
     /* Put out the TypeInfo.  */
-    create_typeinfo (d->type, NULL);
+    if (have_typeinfo_p (Type::dtypeinfo))
+      create_typeinfo (d->type, NULL);
+
     DECL_INITIAL (d->csym) = layout_classinfo (d);
     d_linkonce_linkage (d->csym);
     d_finish_decl (d->csym);
@@ -484,6 +558,8 @@ public:
     tree ctype = TREE_TYPE (build_ctype (d->type));
     if (TYPE_NAME (ctype))
       d_pushdecl (TYPE_NAME (ctype));
+
+    d->semanticRun = PASSobj;
   }
 
   /* Write out compiler generated TypeInfo and vtables for the given interface
@@ -491,6 +567,9 @@ public:
 
   void visit (InterfaceDeclaration *d)
   {
+    if (d->semanticRun >= PASSobj)
+      return;
+
     if (d->type->ty == Terror)
       {
 	error_at (make_location_t (d->loc),
@@ -512,8 +591,11 @@ public:
     d->csym = get_classinfo_decl (d);
 
     /* Put out the TypeInfo.  */
-    create_typeinfo (d->type, NULL);
-    d->type->vtinfo->accept (this);
+    if (have_typeinfo_p (Type::dtypeinfo))
+      {
+	create_typeinfo (d->type, NULL);
+	d->type->vtinfo->accept (this);
+      }
 
     DECL_INITIAL (d->csym) = layout_classinfo (d);
     d_linkonce_linkage (d->csym);
@@ -523,6 +605,8 @@ public:
     tree ctype = TREE_TYPE (build_ctype (d->type));
     if (TYPE_NAME (ctype))
       d_pushdecl (TYPE_NAME (ctype));
+
+    d->semanticRun = PASSobj;
   }
 
   /* Write out compiler generated TypeInfo and initializer for the given
@@ -544,7 +628,8 @@ public:
       return;
 
     /* Generate TypeInfo.  */
-    create_typeinfo (d->type, NULL);
+    if (have_typeinfo_p (Type::dtypeinfo))
+      create_typeinfo (d->type, NULL);
 
     TypeEnum *tc = (TypeEnum *) d->type;
     if (tc->sym->members && !d->type->isZeroInit ())
@@ -572,6 +657,9 @@ public:
 
   void visit (VarDeclaration *d)
   {
+    if (d->semanticRun >= PASSobj)
+      return;
+
     if (d->type->ty == Terror)
       {
 	error_at (make_location_t (d->loc),
@@ -593,8 +681,11 @@ public:
 	if (d->isInstantiated ())
 	  return;
 
+	/* Cannot make an expression out of a void initializer.  */
+	if (!d->_init || d->_init->isVoidInitializer ())
+	  return;
+
 	tree decl = get_symbol_decl (d);
-	gcc_assert (d->_init && !d->_init->isVoidInitializer ());
 	Expression *ie = initializerToExpression (d->_init);
 
 	/* CONST_DECL was initially intended for enumerals and may be used for
@@ -694,6 +785,8 @@ public:
 	      }
 	  }
       }
+
+    d->semanticRun = PASSobj;
   }
 
   /* Generate and compile a static TypeInfo declaration, but only if it is
@@ -701,12 +794,16 @@ public:
 
   void visit (TypeInfoDeclaration *d)
   {
+    if (d->semanticRun >= PASSobj)
+      return;
+
     if (speculative_type_p (d->tinfo))
       return;
 
     tree t = get_typeinfo_decl (d);
     DECL_INITIAL (t) = layout_typeinfo (d);
     d_finish_decl (t);
+    d->semanticRun = PASSobj;
   }
 
   /* Finish up a function declaration and compile it all the way
@@ -831,6 +928,7 @@ public:
       }
 
     DECL_ARGUMENTS (fndecl) = param_list;
+    DECL_IN_UNITTEST_CONDITION_P (fndecl) = this->in_version_unittest_;
     rest_of_decl_compilation (fndecl, 1, 0);
 
     /* If this is a member function that nested (possibly indirectly) in another
@@ -2225,8 +2323,13 @@ build_type_decl (tree type, Dsymbol *dsym)
 
   gcc_assert (!POINTER_TYPE_P (type));
 
+  /* If a templated type, use the template instance name, as that includes all
+     template parameters.  */
+  const char *name = dsym->parent->isTemplateInstance ()
+    ? ((TemplateInstance *) dsym->parent)->toChars () : dsym->ident->toChars ();
+
   tree decl = build_decl (make_location_t (dsym->loc), TYPE_DECL,
-			  get_identifier (dsym->ident->toChars ()), type);
+			  get_identifier (name), type);
   SET_DECL_ASSEMBLER_NAME (decl, get_identifier (mangle_decl (dsym)));
   TREE_PUBLIC (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;

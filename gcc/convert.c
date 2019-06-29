@@ -216,12 +216,15 @@ convert_to_real_1 (tree type, tree expr, bool fold_p)
 	  CASE_MATHFN (FABS)
 	  CASE_MATHFN (LOGB)
 #undef CASE_MATHFN
+	    if (call_expr_nargs (expr) != 1
+		|| !SCALAR_FLOAT_TYPE_P (TREE_TYPE (CALL_EXPR_ARG (expr, 0))))
+	      break;
 	    {
 	      tree arg0 = strip_float_extensions (CALL_EXPR_ARG (expr, 0));
 	      tree newtype = type;
 
-	      /* We have (outertype)sqrt((innertype)x).  Choose the wider mode from
-		 the both as the safe type for operation.  */
+	      /* We have (outertype)sqrt((innertype)x).  Choose the wider mode
+		 from the both as the safe type for operation.  */
 	      if (TYPE_PRECISION (TREE_TYPE (arg0)) > TYPE_PRECISION (type))
 		newtype = TREE_TYPE (arg0);
 
@@ -232,7 +235,7 @@ convert_to_real_1 (tree type, tree expr, bool fold_p)
 		     (T1) sqrtT4 ((T4) exprT3)
 
 		  , where T1 is TYPE, T2 is ITYPE, T3 is TREE_TYPE (ARG0),
-		 and T4 is NEWTYPE.  All those types are of floating point types.
+		 and T4 is NEWTYPE.  All those types are of floating-point types.
 		 T4 (NEWTYPE) should be narrower than T2 (ITYPE). This conversion
 		 is safe only if P1 >= P2*2+2, where P1 and P2 are precisions of
 		 T2 and T4.  See the following URL for a reference:
@@ -412,11 +415,11 @@ convert_to_real_1 (tree type, tree expr, bool fold_p)
 
     case POINTER_TYPE:
     case REFERENCE_TYPE:
-      error ("pointer value used where a floating point value was expected");
+      error ("pointer value used where a floating-point was expected");
       return convert_to_real_1 (type, integer_zero_node, fold_p);
 
     default:
-      error ("aggregate value used where a float was expected");
+      error ("aggregate value used where a floating-point was expected");
       return convert_to_real_1 (type, integer_zero_node, fold_p);
     }
 }
@@ -618,7 +621,8 @@ convert_to_integer_1 (tree type, tree expr, bool dofold)
 	CASE_FLT_FN (BUILT_IN_ROUND):
 	CASE_FLT_FN_FLOATN_NX (BUILT_IN_ROUND):
 	  /* Only convert in ISO C99 mode and with -fno-math-errno.  */
-	  if (!targetm.libc_has_function (function_c99_misc) || flag_errno_math)
+	  if (!targetm.libc_has_function (function_c99_misc)
+	      || flag_errno_math)
 	    break;
 	  if (outprec < TYPE_PRECISION (integer_type_node)
 	      || (outprec == TYPE_PRECISION (integer_type_node)
@@ -641,7 +645,8 @@ convert_to_integer_1 (tree type, tree expr, bool dofold)
 	CASE_FLT_FN (BUILT_IN_RINT):
 	CASE_FLT_FN_FLOATN_NX (BUILT_IN_RINT):
 	  /* Only convert in ISO C99 mode and with -fno-math-errno.  */
-	  if (!targetm.libc_has_function (function_c99_misc) || flag_errno_math)
+	  if (!targetm.libc_has_function (function_c99_misc)
+	      || flag_errno_math)
 	    break;
 	  if (outprec < TYPE_PRECISION (integer_type_node)
 	      || (outprec == TYPE_PRECISION (integer_type_node)
@@ -657,14 +662,20 @@ convert_to_integer_1 (tree type, tree expr, bool dofold)
 
 	CASE_FLT_FN (BUILT_IN_TRUNC):
 	CASE_FLT_FN_FLOATN_NX (BUILT_IN_TRUNC):
-	  return convert_to_integer_1 (type, CALL_EXPR_ARG (s_expr, 0), dofold);
+	  if (call_expr_nargs (s_expr) != 1
+	      || !SCALAR_FLOAT_TYPE_P (TREE_TYPE (CALL_EXPR_ARG (s_expr, 0))))
+	    break;
+	  return convert_to_integer_1 (type, CALL_EXPR_ARG (s_expr, 0),
+				       dofold);
 
 	default:
 	  break;
 	}
 
-      if (fn)
-        {
+      if (fn
+	  && call_expr_nargs (s_expr) == 1
+	  && SCALAR_FLOAT_TYPE_P (TREE_TYPE (CALL_EXPR_ARG (s_expr, 0))))
+	{
 	  tree newexpr = build_call_expr (fn, 1, CALL_EXPR_ARG (s_expr, 0));
 	  return convert_to_integer_1 (type, newexpr, dofold);
 	}
@@ -694,7 +705,9 @@ convert_to_integer_1 (tree type, tree expr, bool dofold)
 	  break;
 	}
 
-      if (fn)
+      if (fn
+	  && call_expr_nargs (s_expr) == 1
+	  && SCALAR_FLOAT_TYPE_P (TREE_TYPE (CALL_EXPR_ARG (s_expr, 0))))
         {
 	  tree newexpr = build_call_expr (fn, 1, CALL_EXPR_ARG (s_expr, 0));
 	  return convert_to_integer_1 (type, newexpr, dofold);
@@ -1016,7 +1029,7 @@ convert_to_integer_1 (tree type, tree expr, bool dofold)
     case VECTOR_TYPE:
       if (!tree_int_cst_equal (TYPE_SIZE (type), TYPE_SIZE (TREE_TYPE (expr))))
 	{
-	  error ("can%'t convert a vector of type %qT"
+	  error ("cannot convert a vector of type %qT"
 		 " to type %qT which has different size",
 		 TREE_TYPE (expr), type);
 	  return error_mark_node;
@@ -1153,7 +1166,7 @@ convert_to_vector (tree type, tree expr)
     case VECTOR_TYPE:
       if (!tree_int_cst_equal (TYPE_SIZE (type), TYPE_SIZE (TREE_TYPE (expr))))
 	{
-	  error ("can%'t convert a value of type %qT"
+	  error ("cannot convert a value of type %qT"
 		 " to vector type %qT which has different size",
 		 TREE_TYPE (expr), type);
 	  return error_mark_node;
@@ -1161,7 +1174,7 @@ convert_to_vector (tree type, tree expr)
       return build1 (VIEW_CONVERT_EXPR, type, expr);
 
     default:
-      error ("can%'t convert value to a vector");
+      error ("cannot convert value to a vector");
       return error_mark_node;
     }
 }

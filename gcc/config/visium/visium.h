@@ -1045,16 +1045,20 @@ struct visium_args
 
 	moviu	r9,%u FUNCTION
 	movil	r9,%l FUNCTION
+	[nop]
 	moviu	r20,%u STATIC
 	bra	tr,r9,r0
-	movil	r20,%l STATIC
+	 movil	r20,%l STATIC
 
     A difficulty is setting the correct instruction parity at run time.
 
 
     TRAMPOLINE_SIZE 
     A C expression for the size in bytes of the trampoline, as an integer. */
-#define TRAMPOLINE_SIZE 20
+#define TRAMPOLINE_SIZE (visium_cpu == PROCESSOR_GR6 ? 24 : 20)
+
+/* Alignment required for trampolines, in bits.  */
+#define TRAMPOLINE_ALIGNMENT (visium_cpu == PROCESSOR_GR6 ? 64 : 32)
 
 /* Implicit calls to library routines
 
@@ -1134,8 +1138,8 @@ do									\
    always make code faster, but eventually incurs high cost in
    increased code size.
 
-   Since we have a movmemsi pattern, the default MOVE_RATIO is 2, which
-   is too low given that movmemsi will invoke a libcall.  */
+   Since we have a cpymemsi pattern, the default MOVE_RATIO is 2, which
+   is too low given that cpymemsi will invoke a libcall.  */
 #define MOVE_RATIO(speed) ((speed) ? 9 : 3)
 
 /* `CLEAR_RATIO (SPEED)`

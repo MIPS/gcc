@@ -61,6 +61,25 @@ update_cloned_parm (tree parm, tree cloned_parm, bool first)
   DECL_GIMPLE_REG_P (cloned_parm) = DECL_GIMPLE_REG_P (parm);
 }
 
+/* Like copy_decl_no_change, but handle DECL_OMP_PRIVATIZED_MEMBER
+   properly.  */
+
+static tree
+cxx_copy_decl (tree decl, copy_body_data *id)
+{
+  tree copy = copy_decl_no_change (decl, id);
+  if (VAR_P (decl)
+      && DECL_HAS_VALUE_EXPR_P (decl)
+      && DECL_ARTIFICIAL (decl)
+      && DECL_LANG_SPECIFIC (decl)
+      && DECL_OMP_PRIVATIZED_MEMBER (decl))
+    {
+      tree expr = DECL_VALUE_EXPR (copy);
+      walk_tree (&expr, copy_tree_body_r, id, NULL);
+      SET_DECL_VALUE_EXPR (copy, expr);
+    }
+  return copy;
+}
 
 /* FN is a function in High GIMPLE form that has a complete body and no
    CFG.  CLONE is a function whose body is to be set to a copy of FN,
@@ -80,7 +99,7 @@ clone_body (tree clone, tree fn, void *arg_map)
   id.src_cfun = DECL_STRUCT_FUNCTION (fn);
   id.decl_map = static_cast<hash_map<tree, tree> *> (arg_map);
 
-  id.copy_decl = copy_decl_no_change;
+  id.copy_decl = cxx_copy_decl;
   id.transform_call_graph_edges = CB_CGE_DUPLICATE;
   id.transform_new_cfg = true;
   id.transform_return_to_modify = false;
@@ -228,15 +247,19 @@ populate_clone_array (tree fn, tree *fns)
   fns[1] = NULL_TREE;
   fns[2] = NULL_TREE;
 
-  /* Look for the complete destructor which may be used to build the
-     delete destructor.  */
+  tree ctx = DECL_CONTEXT (fn);
+
   FOR_EACH_CLONE (clone, fn)
     if (DECL_NAME (clone) == complete_dtor_identifier
 	|| DECL_NAME (clone) == complete_ctor_identifier)
       fns[1] = clone;
     else if (DECL_NAME (clone) == base_dtor_identifier
 	     || DECL_NAME (clone) == base_ctor_identifier)
-      fns[0] = clone;
+      {
+	/* We don't need to define the base variants for a final class.  */
+	if (!CLASSTYPE_FINAL (ctx))
+	  fns[0] = clone;
+      }
     else if (DECL_NAME (clone) == deleting_dtor_identifier)
       fns[2] = clone;
     else
@@ -398,6 +421,8 @@ maybe_thunk_body (tree fn, bool force)
 		  gcc_assert (clone_parm);
 		  DECL_ABSTRACT_ORIGIN (clone_parm) = NULL;
 		  args[parmno] = clone_parm;
+		  /* Clear TREE_ADDRESSABLE on thunk arguments.  */
+		  TREE_ADDRESSABLE (clone_parm) = 0;
 		  clone_parm = TREE_CHAIN (clone_parm);
 		}
 	      if (fn_parm_typelist)
@@ -459,7 +484,7 @@ maybe_clone_body (tree fn)
 
   /* Remember if we can't have multiple clones for some reason.  We need to
      check this before we remap local static initializers in clone_body.  */
-  if (!tree_versionable_function_p (fn))
+  if (!tree_versionable_function_p (fn) && fns[0] && fns[1])
     need_alias = true;
 
   /* We know that any clones immediately follow FN in the TYPE_FIELDS

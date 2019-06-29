@@ -634,34 +634,43 @@ dnl  XSL_STYLE_DIR
 dnl
 AC_DEFUN([GLIBCXX_CONFIGURE_DOCBOOK], [
 
-AC_MSG_CHECKING([for docbook stylesheets for documentation creation])
-glibcxx_stylesheets=no
-if test x${XSLTPROC} = xyes && echo '<title/>' | xsltproc --noout --nonet --xinclude http://docbook.sourceforge.net/release/xsl-ns/current/xhtml-1_1/docbook.xsl - 2>/dev/null; then
-  glibcxx_stylesheets=yes
-fi
-AC_MSG_RESULT($glibcxx_stylesheets)
+glibcxx_docbook_url=http://docbook.sourceforge.net/release/xsl-ns/current/
 
 AC_MSG_CHECKING([for local stylesheet directory])
 glibcxx_local_stylesheets=no
-if test x"$glibcxx_stylesheets" = x"yes"; then
-  if test -d /usr/share/sgml/docbook/xsl-ns-stylesheets; then
-    glibcxx_local_stylesheets=yes
-    XSL_STYLE_DIR=/usr/share/sgml/docbook/xsl-ns-stylesheets
-  fi
-  if test -d /usr/share/xml/docbook/stylesheet/docbook-xsl-ns; then
-    glibcxx_local_stylesheets=yes
-    XSL_STYLE_DIR=/usr/share/xml/docbook/stylesheet/docbook-xsl-ns
-  fi
-  if test -d /usr/share/xml/docbook/stylesheet/nwalsh5/current; then
-    glibcxx_local_stylesheets=yes
-    XSL_STYLE_DIR=/usr/share/xml/docbook/stylesheet/nwalsh5/current
-  fi
+if test x${XMLCATALOG} = xyes && xsl_style_dir=`xmlcatalog "" $glibcxx_docbook_url 2>/dev/null`
+then
+  XSL_STYLE_DIR=`echo $xsl_style_dir | sed -n 's;^file://;;p'`
+  glibcxx_local_stylesheets=yes
+else
+  for dir in \
+    /usr/share/sgml/docbook/xsl-ns-stylesheets \
+    /usr/share/xml/docbook/stylesheet/docbook-xsl-ns \
+    /usr/share/xml/docbook/stylesheet/nwalsh5/current \
+    /usr/share/xml/docbook/stylesheet/nwalsh/current
+  do
+    if test -d $dir; then
+      glibcxx_local_stylesheets=yes
+      XSL_STYLE_DIR=$dir
+      break
+    fi
+  done
 fi
 AC_MSG_RESULT($glibcxx_local_stylesheets)
 
 if test x"$glibcxx_local_stylesheets" = x"yes"; then
   AC_SUBST(XSL_STYLE_DIR)
   AC_MSG_NOTICE($XSL_STYLE_DIR)
+
+  AC_MSG_CHECKING([for docbook stylesheets for documentation creation])
+  glibcxx_stylesheets=no
+  if test x${XMLCATALOG} = xno || xmlcatalog "" $glibcxx_docbook_url/xhtml/docbook.xsl >/dev/null 2>&1; then
+    if test x${XSLTPROC} = xyes && echo '<title/>' | xsltproc --noout --nonet --xinclude $glibcxx_docbook_url/xhtml/docbook.xsl - 2>/dev/null; then
+      glibcxx_stylesheets=yes
+    fi
+  fi
+  AC_MSG_RESULT($glibcxx_stylesheets)
+
 else
   glibcxx_stylesheets=no
 fi
@@ -2890,8 +2899,20 @@ dnl       Where DEFAULT is either `yes' or `no'.
 dnl
 AC_DEFUN([GLIBCXX_ENABLE_DEBUG], [
   AC_MSG_CHECKING([for additional debug build])
+  skip_debug_build=
   GLIBCXX_ENABLE(libstdcxx-debug,$1,,[build extra debug library])
-  AC_MSG_RESULT($enable_libstdcxx_debug)
+  if test x$enable_libstdcxx_debug = xyes; then
+    if test -f $toplevel_builddir/../stage_final \
+      && test -f $toplevel_builddir/../stage_current; then
+      stage_final=`cat $toplevel_builddir/../stage_final`
+      stage_current=`cat $toplevel_builddir/../stage_current`
+      if test x$stage_current != x$stage_final ; then
+	skip_debug_build=" (skipped for bootstrap stage $stage_current)"
+	enable_libstdcxx_debug=no
+      fi
+    fi
+  fi
+  AC_MSG_RESULT($enable_libstdcxx_debug$skip_debug_build)
   GLIBCXX_CONDITIONAL(GLIBCXX_BUILD_DEBUG, test $enable_libstdcxx_debug = yes)
 ])
 
@@ -4042,6 +4063,26 @@ AC_DEFUN([GLIBCXX_CHECK_X86_RDRAND], [
 		[ Defined if as can handle rdrand. ])
   fi
   AC_MSG_RESULT($ac_cv_x86_rdrand)
+])
+
+dnl
+dnl Check whether rdseed is supported in the assembler.
+AC_DEFUN([GLIBCXX_CHECK_X86_RDSEED], [
+  AC_MSG_CHECKING([for rdseed support in assembler])
+  AC_CACHE_VAL(ac_cv_x86_rdseed, [
+  ac_cv_x86_rdseed=no
+  case "$target" in
+    i?86-*-* | \
+    x86_64-*-*)
+    AC_TRY_COMPILE(, [asm("rdseed %eax");],
+		[ac_cv_x86_rdseed=yes], [ac_cv_x86_rdseed=no])
+  esac
+  ])
+  if test $ac_cv_x86_rdseed = yes; then
+    AC_DEFINE(_GLIBCXX_X86_RDSEED, 1,
+		[ Defined if as can handle rdseed. ])
+  fi
+  AC_MSG_RESULT($ac_cv_x86_rdseed)
 ])
 
 dnl

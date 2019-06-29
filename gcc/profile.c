@@ -172,7 +172,6 @@ instrument_values (histogram_values values)
 	  break;
 
  	case HIST_TYPE_INDIR_CALL:
- 	case HIST_TYPE_INDIR_CALL_TOPN:
  	  gimple_gen_ic_profiler (hist, t, 0);
   	  break;
 
@@ -1218,7 +1217,7 @@ branch_prob (bool thunk)
      various transformations.  */
   if (thunk)
     {
-      /* At stream in time we do not have CFG, so we can not do checksums.  */
+      /* At stream in time we do not have CFG, so we cannot do checksums.  */
       cfg_checksum = 0;
       lineno_checksum = 0;
     }

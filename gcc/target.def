@@ -1686,7 +1686,7 @@ are being validated and unspecified defaults should be filled in.\n\
 Diagnostics should be issued as appropriate.  Return\n\
 true, if changes have been made.  You must override this hook to\n\
 provide dimensions larger than 1.",
-bool, (tree decl, int *dims, int fn_level),
+bool, (tree decl, int *dims, int fn_level, unsigned used),
 default_goacc_validate_dims)
 
 DEFHOOK
@@ -1899,12 +1899,14 @@ DEFHOOK
 the only one that is worth considering, this hook should add all suitable\n\
 vector sizes to @var{sizes}, in order of decreasing preference.  The first\n\
 one should be the size of @code{TARGET_VECTORIZE_PREFERRED_SIMD_MODE}.\n\
+If @var{all} is true, add suitable vector sizes even when they are generally\n\
+not expected to be worthwhile.\n\
 \n\
 The hook does not need to do anything if the vector returned by\n\
 @code{TARGET_VECTORIZE_PREFERRED_SIMD_MODE} is the only one relevant\n\
 for autovectorization.  The default implementation does nothing.",
  void,
- (vector_sizes *sizes),
+ (vector_sizes *sizes, bool all),
  default_autovectorize_vector_sizes)
 
 /* Function to get a target mode for a vector mask.  */
@@ -2547,6 +2549,13 @@ DEFHOOK
  bool, (enum function_class fn_class),
  default_libc_has_function)
 
+DEFHOOK
+(libc_has_fast_function,
+ "This hook determines whether a function from a class of functions\n\
+@var{fn_class} has a fast implementation.",
+ bool, (int fcode),
+ default_libc_has_fast_function)
+
 /* True if new jumps cannot be created, to replace existing ones or
    not, at the current point in the compilation.  */
 DEFHOOK
@@ -2911,7 +2920,7 @@ or @code{NULL} if this is an indirect call.\n\
 It is not uncommon for limitations of calling conventions to prevent\n\
 tail calls to functions outside the current unit of translation, or\n\
 during PIC compilation.  The hook is used to enforce these restrictions,\n\
-as the @code{sibcall} md pattern can not fail, or fall over to a\n\
+as the @code{sibcall} md pattern cannot fail, or fall over to a\n\
 ``normal'' call.  The criteria for successful sibling call optimization\n\
 may vary greatly between different architectures.",
  bool, (tree decl, tree exp),
@@ -3522,7 +3531,7 @@ two areas of memory, or to set, clear or store to memory, for example\n\
 when copying a @code{struct}. The @code{by_pieces} infrastructure\n\
 implements such memory operations as a sequence of load, store or move\n\
 insns.  Alternate strategies are to expand the\n\
-@code{movmem} or @code{setmem} optabs, to emit a library call, or to emit\n\
+@code{cpymem} or @code{setmem} optabs, to emit a library call, or to emit\n\
 unit-by-unit, loop-based operations.\n\
 \n\
 This target hook should return true if, for a memory operation with a\n\
@@ -3541,7 +3550,7 @@ optimized for speed rather than size.\n\
 \n\
 Returning true for higher values of @var{size} can improve code generation\n\
 for speed if the target does not provide an implementation of the\n\
-@code{movmem} or @code{setmem} standard names, if the @code{movmem} or\n\
+@code{cpymem} or @code{setmem} standard names, if the @code{cpymem} or\n\
 @code{setmem} implementation would be more expensive than a sequence of\n\
 insns, or if the overhead of a library call would dominate that of\n\
 the body of the memory operation.\n\
@@ -4227,6 +4236,15 @@ DEFHOOK
 rtx, (machine_mode mode, rtx result, rtx val, rtx failval),
  default_speculation_safe_value)
  
+DEFHOOK
+(predict_doloop_p,
+ "Return true if we can predict it is possible to use a low-overhead loop\n\
+for a particular loop.  The parameter @var{loop} is a pointer to the loop.\n\
+This target hook is required only when the target supports low-overhead\n\
+loops, and will help ivopts to make some decisions.\n\
+The default version of this hook returns false.",
+ bool, (struct loop *loop),
+ default_predict_doloop_p)
 
 DEFHOOK
 (can_use_doloop_p,
@@ -5766,14 +5784,50 @@ DEFHOOK
 (hard_regno_call_part_clobbered,
  "This hook should return true if @var{regno} is partly call-saved and\n\
 partly call-clobbered, and if a value of mode @var{mode} would be partly\n\
-clobbered by a call.  For example, if the low 32 bits of @var{regno} are\n\
-preserved across a call but higher bits are clobbered, this hook should\n\
-return true for a 64-bit mode but false for a 32-bit mode.\n\
+clobbered by call instruction @var{insn}.  If @var{insn} is NULL then it\n\
+should return true if any call could partly clobber the register.\n\
+For example, if the low 32 bits of @var{regno} are preserved across a call\n\
+but higher bits are clobbered, this hook should return true for a 64-bit\n\
+mode but false for a 32-bit mode.\n\
 \n\
 The default implementation returns false, which is correct\n\
 for targets that don't have partly call-clobbered registers.",
- bool, (unsigned int regno, machine_mode mode),
- hook_bool_uint_mode_false)
+ bool, (rtx_insn *insn, unsigned int regno, machine_mode mode),
+ hook_bool_insn_uint_mode_false)
+
+DEFHOOK
+(return_call_with_max_clobbers,
+ "This hook returns a pointer to the call that partially clobbers the\n\
+most registers.  If a platform supports multiple ABIs where the registers\n\
+that are partially clobbered may vary, this function compares two\n\
+calls and returns a pointer to the one that clobbers the most registers.\n\
+If both calls clobber the same registers, @var{call_1} must be returned.\n\
+\n\
+The registers clobbered in different ABIs must be a proper subset or\n\
+superset of all other ABIs.  @var{call_1} must always be a call insn,\n\
+call_2 may be NULL or a call insn.",
+ rtx_insn *, (rtx_insn *call_1, rtx_insn *call_2),
+ NULL)
+
+DEFHOOK
+(get_multilib_abi_name,
+ "This hook returns name of multilib ABI name.",
+ const char *, (void),
+ hook_constcharptr_void_null)
+
+DEFHOOK
+(remove_extra_call_preserved_regs,
+ "This hook removes registers from the set of call-clobbered registers\n\
+ in @var{used_regs} if, contrary to the default rules, something guarantees\n\
+ that @samp{insn} preserves those registers.  For example, some targets\n\
+ support variant ABIs in which functions preserve more registers than\n\
+ normal functions would.  Removing those extra registers from @var{used_regs}\n\
+ can lead to better register allocation.\n\
+ \n\
+ The default implementation does nothing, which is always safe.\n\
+ Defining the hook is purely an optimization.",
+ void, (rtx_insn *insn, HARD_REG_SET *used_regs),
+ default_remove_extra_call_preserved_regs)
 
 /* Return the smallest number of different values for which it is best to
    use a jump-table instead of a tree of conditional branches.  */

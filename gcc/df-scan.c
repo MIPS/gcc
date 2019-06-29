@@ -229,7 +229,6 @@ void
 df_scan_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
 {
   struct df_scan_problem_data *problem_data;
-  unsigned int insn_num = get_max_uid () + 1;
   basic_block bb;
 
   /* Given the number of pools, this is really faster than tearing
@@ -257,7 +256,6 @@ df_scan_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
   bitmap_obstack_initialize (&problem_data->reg_bitmaps);
   bitmap_obstack_initialize (&problem_data->insn_bitmaps);
 
-  insn_num += insn_num / 4;
   df_grow_reg_info ();
 
   df_grow_insn_info ();
@@ -2208,10 +2206,7 @@ df_mw_compare (const df_mw_hardreg *mw1, const df_mw_hardreg *mw2)
   if (mw1->end_regno != mw2->end_regno)
     return mw1->end_regno - mw2->end_regno;
 
-  if (mw1->mw_reg != mw2->mw_reg)
-    return mw1->mw_order - mw2->mw_order;
-
-  return 0;
+  return mw1->mw_order - mw2->mw_order;
 }
 
 /* Like df_mw_compare, but compare two df_mw_hardreg** pointers R1 and R2.  */
@@ -2982,7 +2977,7 @@ df_uses_record (struct df_collection_rec *collection_rec,
 	   scanned and regs_asm_clobbered is filled out.
 
 	   For all ASM_OPERANDS, we must traverse the vector of input
-	   operands.  We can not just fall through here since then we
+	   operands.  We cannot just fall through here since then we
 	   would be confused by the ASM_INPUT rtx inside ASM_OPERANDS,
 	   which do not indicate traditional asms unlike their normal
 	   usage.  */
@@ -3604,23 +3599,13 @@ df_update_entry_block_defs (void)
 
   auto_bitmap refs (&df_bitmap_obstack);
   df_get_entry_block_def_set (refs);
-  if (df->entry_block_defs)
+  gcc_assert (df->entry_block_defs);
+  if (!bitmap_equal_p (df->entry_block_defs, refs))
     {
-      if (!bitmap_equal_p (df->entry_block_defs, refs))
-	{
-	  struct df_scan_bb_info *bb_info = df_scan_get_bb_info (ENTRY_BLOCK);
-	  df_ref_chain_delete_du_chain (bb_info->artificial_defs);
-	  df_ref_chain_delete (bb_info->artificial_defs);
-	  bb_info->artificial_defs = NULL;
-	  changed = true;
-	}
-    }
-  else
-    {
-      struct df_scan_problem_data *problem_data
-	= (struct df_scan_problem_data *) df_scan->problem_data;
-	gcc_unreachable ();
-      df->entry_block_defs = BITMAP_ALLOC (&problem_data->reg_bitmaps);
+      struct df_scan_bb_info *bb_info = df_scan_get_bb_info (ENTRY_BLOCK);
+      df_ref_chain_delete_du_chain (bb_info->artificial_defs);
+      df_ref_chain_delete (bb_info->artificial_defs);
+      bb_info->artificial_defs = NULL;
       changed = true;
     }
 
@@ -3778,23 +3763,13 @@ df_update_exit_block_uses (void)
 
   auto_bitmap refs (&df_bitmap_obstack);
   df_get_exit_block_use_set (refs);
-  if (df->exit_block_uses)
+  gcc_assert (df->exit_block_uses);
+  if (!bitmap_equal_p (df->exit_block_uses, refs))
     {
-      if (!bitmap_equal_p (df->exit_block_uses, refs))
-	{
-	  struct df_scan_bb_info *bb_info = df_scan_get_bb_info (EXIT_BLOCK);
-	  df_ref_chain_delete_du_chain (bb_info->artificial_uses);
-	  df_ref_chain_delete (bb_info->artificial_uses);
-	  bb_info->artificial_uses = NULL;
-	  changed = true;
-	}
-    }
-  else
-    {
-      struct df_scan_problem_data *problem_data
-	= (struct df_scan_problem_data *) df_scan->problem_data;
-	gcc_unreachable ();
-      df->exit_block_uses = BITMAP_ALLOC (&problem_data->reg_bitmaps);
+      struct df_scan_bb_info *bb_info = df_scan_get_bb_info (EXIT_BLOCK);
+      df_ref_chain_delete_du_chain (bb_info->artificial_uses);
+      df_ref_chain_delete (bb_info->artificial_uses);
+      bb_info->artificial_uses = NULL;
       changed = true;
     }
 

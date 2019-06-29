@@ -278,8 +278,8 @@ path::_List::operator=(const _List& other)
 	    to[i]._M_pathname.reserve(from[i]._M_pathname.length());
 	  if (newsize > oldsize)
 	    {
-	      std::uninitialized_copy_n(to + oldsize, newsize - oldsize,
-					from + oldsize);
+	      std::uninitialized_copy_n(from + oldsize, newsize - oldsize,
+					to + oldsize);
 	      impl->_M_size = newsize;
 	    }
 	  else if (newsize < oldsize)
@@ -444,6 +444,9 @@ path::_List::reserve(int newcap, bool exact = false)
 path&
 path::operator=(const path& p)
 {
+  if (&p == this) [[__unlikely__]]
+    return *this;
+
   _M_pathname.reserve(p._M_pathname.length());
   _M_cmpts = p._M_cmpts;	// might throw
   _M_pathname = p._M_pathname;	// won't throw because we reserved enough space
@@ -1258,17 +1261,16 @@ path::replace_extension(const path& replacement)
 	_M_pathname.erase(ext.second);
       else
 	{
-	  const auto& back = _M_cmpts.back();
-	  if (ext.first != &back._M_pathname)
-	    _GLIBCXX_THROW_OR_ABORT(
-		std::logic_error("path::replace_extension failed"));
+	  auto& back = _M_cmpts.back();
+	  __glibcxx_assert( ext.first == &back._M_pathname );
+	  back._M_pathname.erase(ext.second);
 	  _M_pathname.erase(back._M_pos + ext.second);
 	}
     }
    // If replacement is not empty and does not begin with a dot character,
    // a dot character is appended
   if (!replacement.empty() && replacement.native()[0] != dot)
-    _M_pathname += dot;
+    operator+=(".");
   operator+=(replacement);
   return *this;
 }
@@ -1521,17 +1523,15 @@ path::parent_path() const
     __ret = *this;
   else if (_M_cmpts.size() >= 2)
     {
-      for (auto __it = _M_cmpts.begin(), __end = std::prev(_M_cmpts.end());
-	   __it != __end; ++__it)
-	{
-	  __ret /= *__it;
-	}
+      const auto parent = std::prev(_M_cmpts.end(), 2);
+      const auto len = parent->_M_pos + parent->_M_pathname.length();
+      __ret.assign(_M_pathname.substr(0, len));
     }
   return __ret;
 }
 
 bool
-path::has_root_name() const
+path::has_root_name() const noexcept
 {
   if (_M_type() == _Type::_Root_name)
     return true;
@@ -1541,7 +1541,7 @@ path::has_root_name() const
 }
 
 bool
-path::has_root_directory() const
+path::has_root_directory() const noexcept
 {
   if (_M_type() == _Type::_Root_dir)
     return true;
@@ -1557,7 +1557,7 @@ path::has_root_directory() const
 }
 
 bool
-path::has_root_path() const
+path::has_root_path() const noexcept
 {
   if (_M_type() == _Type::_Root_name || _M_type() == _Type::_Root_dir)
     return true;
@@ -1571,7 +1571,7 @@ path::has_root_path() const
 }
 
 bool
-path::has_relative_path() const
+path::has_relative_path() const noexcept
 {
   if (_M_type() == _Type::_Filename && !_M_pathname.empty())
     return true;
@@ -1590,7 +1590,7 @@ path::has_relative_path() const
 
 
 bool
-path::has_parent_path() const
+path::has_parent_path() const noexcept
 {
   if (!has_relative_path())
     return !empty();
@@ -1598,7 +1598,7 @@ path::has_parent_path() const
 }
 
 bool
-path::has_filename() const
+path::has_filename() const noexcept
 {
   if (empty())
     return false;
@@ -1784,7 +1784,7 @@ path::lexically_proximate(const path& base) const
 }
 
 std::pair<const path::string_type*, std::size_t>
-path::_M_find_extension() const
+path::_M_find_extension() const noexcept
 {
   const string_type* s = nullptr;
 
@@ -1803,8 +1803,9 @@ path::_M_find_extension() const
 	{
 	  if (sz <= 2 && (*s)[0] == dot)
 	    return { s, string_type::npos };
-	  const auto pos = s->rfind(dot);
-	  return { s, pos ? pos : string_type::npos };
+	  if (const auto pos = s->rfind(dot))
+	    return { s , pos };
+	  return { s, string_type::npos };
 	}
     }
   return {};
@@ -1893,7 +1894,7 @@ path::_S_convert_loc(const char* __first, const char* __last,
 #if _GLIBCXX_USE_WCHAR_T
   auto& __cvt = std::use_facet<codecvt<wchar_t, char, mbstate_t>>(__loc);
   basic_string<wchar_t> __ws;
-  if (!__str_codecvt_in(__first, __last, __ws, __cvt))
+  if (!__str_codecvt_in_all(__first, __last, __ws, __cvt))
     _GLIBCXX_THROW_OR_ABORT(filesystem_error(
 	  "Cannot convert character sequence",
 	  std::make_error_code(errc::illegal_byte_sequence)));
@@ -1927,20 +1928,20 @@ fs::hash_value(const path& p) noexcept
 
 struct fs::filesystem_error::_Impl
 {
-  _Impl(const string& what_arg, const path& p1, const path& p2)
+  _Impl(string_view what_arg, const path& p1, const path& p2)
   : path1(p1), path2(p2), what(make_what(what_arg, &p1, &p2))
   { }
 
-  _Impl(const string& what_arg, const path& p1)
+  _Impl(string_view what_arg, const path& p1)
   : path1(p1), path2(), what(make_what(what_arg, &p1, nullptr))
   { }
 
-  _Impl(const string& what_arg)
+  _Impl(string_view what_arg)
   : what(make_what(what_arg, nullptr, nullptr))
   { }
 
   static std::string
-  make_what(const std::string& s, const path* p1, const path* p2)
+  make_what(string_view s, const path* p1, const path* p2)
   {
     const std::string pstr1 = p1 ? p1->u8string() : std::string{};
     const std::string pstr2 = p2 ? p2->u8string() : std::string{};
@@ -1976,20 +1977,20 @@ template class std::__shared_ptr<const fs::filesystem_error::_Impl>;
 fs::filesystem_error::
 filesystem_error(const string& what_arg, error_code ec)
 : system_error(ec, what_arg),
-  _M_impl(std::__make_shared<_Impl>(what_arg))
+  _M_impl(std::__make_shared<_Impl>(system_error::what()))
 { }
 
 fs::filesystem_error::
 filesystem_error(const string& what_arg, const path& p1, error_code ec)
 : system_error(ec, what_arg),
-  _M_impl(std::__make_shared<_Impl>(what_arg, p1))
+  _M_impl(std::__make_shared<_Impl>(system_error::what(), p1))
 { }
 
 fs::filesystem_error::
 filesystem_error(const string& what_arg, const path& p1, const path& p2,
 		 error_code ec)
 : system_error(ec, what_arg),
-  _M_impl(std::__make_shared<_Impl>(what_arg, p1, p2))
+  _M_impl(std::__make_shared<_Impl>(system_error::what(), p1, p2))
 { }
 
 fs::filesystem_error::~filesystem_error() = default;

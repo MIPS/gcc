@@ -347,16 +347,13 @@ type interfaceType struct {
 // mapType represents a map type.
 type mapType struct {
 	rtype
-	key           *rtype // map key type
-	elem          *rtype // map element (value) type
-	bucket        *rtype // internal bucket structure
-	keysize       uint8  // size of key slot
-	indirectkey   uint8  // store ptr to key instead of key itself
-	valuesize     uint8  // size of value slot
-	indirectvalue uint8  // store ptr to value instead of value itself
-	bucketsize    uint16 // size of bucket
-	reflexivekey  bool   // true if k==k for all keys
-	needkeyupdate bool   // true if we need to update key on an overwrite
+	key        *rtype // map key type
+	elem       *rtype // map element (value) type
+	bucket     *rtype // internal bucket structure
+	keysize    uint8  // size of key slot
+	valuesize  uint8  // size of value slot
+	bucketsize uint16 // size of bucket
+	flags      uint32
 }
 
 // ptrType represents a pointer type.
@@ -422,6 +419,7 @@ const (
 	kindMask        = (1 << 5) - 1
 )
 
+// String returns the name of k.
 func (k Kind) String() string {
 	if int(k) < len(kindNames) {
 		return kindNames[k]
@@ -1107,15 +1105,14 @@ func (t *rtype) ptrTo() *rtype {
 		return &pi.(*ptrType).rtype
 	}
 
+	// Look in known types.
 	s := "*" + *t.string
-
-	canonicalTypeLock.RLock()
-	r, ok := canonicalType[s]
-	canonicalTypeLock.RUnlock()
-	if ok {
-		p := (*ptrType)(unsafe.Pointer(r.(*rtype)))
-		pi, _ := ptrMap.LoadOrStore(t, p)
-		return &pi.(*ptrType).rtype
+	if tt := lookupType(s); tt != nil {
+		p := (*ptrType)(unsafe.Pointer(tt))
+		if p.elem == t {
+			pi, _ := ptrMap.LoadOrStore(t, p)
+			return &pi.(*ptrType).rtype
+		}
 	}
 
 	// Create a new ptrType starting with the description
@@ -1140,10 +1137,7 @@ func (t *rtype) ptrTo() *rtype {
 	pp.ptrToThis = nil
 	pp.elem = t
 
-	q := canonicalize(&pp.rtype)
-	p := (*ptrType)(unsafe.Pointer(q.(*rtype)))
-
-	pi, _ := ptrMap.LoadOrStore(t, p)
+	pi, _ := ptrMap.LoadOrStore(t, &pp)
 	return &pi.(*ptrType).rtype
 }
 
@@ -1449,6 +1443,13 @@ func ChanOf(dir ChanDir, t Type) Type {
 	case BothDir:
 		s = "chan " + *typ.string
 	}
+	if tt := lookupType(s); tt != nil {
+		ch := (*chanType)(unsafe.Pointer(tt))
+		if ch.elem == typ && ch.dir == uintptr(dir) {
+			ti, _ := lookupCache.LoadOrStore(ckey, tt)
+			return ti.(Type)
+		}
+	}
 
 	// Make a channel type.
 	var ichan interface{} = (chan unsafe.Pointer)(nil)
@@ -1474,10 +1475,8 @@ func ChanOf(dir ChanDir, t Type) Type {
 	ch.uncommonType = nil
 	ch.ptrToThis = nil
 
-	// Canonicalize before storing in lookupCache
-	ti := toType(&ch.rtype)
-	lookupCache.Store(ckey, ti.(*rtype))
-	return ti
+	ti, _ := lookupCache.LoadOrStore(ckey, &ch.rtype)
+	return ti.(Type)
 }
 
 func ismapkey(*rtype) bool // implemented in runtime
@@ -1504,8 +1503,17 @@ func MapOf(key, elem Type) Type {
 
 	// Look in known types.
 	s := "map[" + *ktyp.string + "]" + *etyp.string
+	if tt := lookupType(s); tt != nil {
+		mt := (*mapType)(unsafe.Pointer(tt))
+		if mt.key == ktyp && mt.elem == etyp {
+			ti, _ := lookupCache.LoadOrStore(ckey, tt)
+			return ti.(Type)
+		}
+	}
 
 	// Make a map type.
+	// Note: flag values must match those used in the TMAP case
+	// in ../cmd/compile/internal/gc/reflect.go:dtypesym.
 	var imap interface{} = (map[unsafe.Pointer]unsafe.Pointer)(nil)
 	mt := **(**mapType)(unsafe.Pointer(&imap))
 	mt.string = &s
@@ -1520,28 +1528,32 @@ func MapOf(key, elem Type) Type {
 	mt.ptrToThis = nil
 
 	mt.bucket = bucketOf(ktyp, etyp)
+	mt.flags = 0
 	if ktyp.size > maxKeySize {
 		mt.keysize = uint8(ptrSize)
-		mt.indirectkey = 1
+		mt.flags |= 1 // indirect key
 	} else {
 		mt.keysize = uint8(ktyp.size)
-		mt.indirectkey = 0
 	}
 	if etyp.size > maxValSize {
 		mt.valuesize = uint8(ptrSize)
-		mt.indirectvalue = 1
+		mt.flags |= 2 // indirect value
 	} else {
 		mt.valuesize = uint8(etyp.size)
-		mt.indirectvalue = 0
 	}
 	mt.bucketsize = uint16(mt.bucket.size)
-	mt.reflexivekey = isReflexive(ktyp)
-	mt.needkeyupdate = needKeyUpdate(ktyp)
+	if isReflexive(ktyp) {
+		mt.flags |= 4
+	}
+	if needKeyUpdate(ktyp) {
+		mt.flags |= 8
+	}
+	if hashMightPanic(ktyp) {
+		mt.flags |= 16
+	}
 
-	// Canonicalize before storing in lookupCache
-	ti := toType(&mt.rtype)
-	lookupCache.Store(ckey, ti.(*rtype))
-	return ti
+	ti, _ := lookupCache.LoadOrStore(ckey, &mt.rtype)
+	return ti.(Type)
 }
 
 // FuncOf returns the function type with the given argument and result types.
@@ -1619,15 +1631,17 @@ func FuncOf(in, out []Type, variadic bool) Type {
 	}
 
 	str := funcStr(ft)
+	if tt := lookupType(str); tt != nil {
+		if haveIdenticalUnderlyingType(&ft.rtype, tt, true) {
+			return addToCache(tt)
+		}
+	}
 
 	// Populate the remaining fields of ft and store in cache.
 	ft.string = &str
 	ft.uncommonType = nil
 	ft.ptrToThis = nil
-
-	// Canonicalize before storing in funcLookupCache
-	tc := toType(&ft.rtype)
-	return addToCache(tc.(*rtype))
+	return addToCache(&ft.rtype)
 }
 
 // funcStr builds a string representation of a funcType.
@@ -1712,6 +1726,27 @@ func needKeyUpdate(t *rtype) bool {
 	default:
 		// Func, Map, Slice, Invalid
 		panic("needKeyUpdate called on non-key type " + t.String())
+	}
+}
+
+// hashMightPanic reports whether the hash of a map key of type t might panic.
+func hashMightPanic(t *rtype) bool {
+	switch t.Kind() {
+	case Interface:
+		return true
+	case Array:
+		tt := (*arrayType)(unsafe.Pointer(t))
+		return hashMightPanic(tt.elem)
+	case Struct:
+		tt := (*structType)(unsafe.Pointer(t))
+		for _, f := range tt.fields {
+			if hashMightPanic(f.typ) {
+				return true
+			}
+		}
+		return false
+	default:
+		return false
 	}
 }
 
@@ -1846,6 +1881,13 @@ func SliceOf(t Type) Type {
 
 	// Look in known types.
 	s := "[]" + *typ.string
+	if tt := lookupType(s); tt != nil {
+		slice := (*sliceType)(unsafe.Pointer(tt))
+		if slice.elem == typ {
+			ti, _ := lookupCache.LoadOrStore(ckey, tt)
+			return ti.(Type)
+		}
+	}
 
 	// Make a slice type.
 	var islice interface{} = ([]unsafe.Pointer)(nil)
@@ -1861,10 +1903,8 @@ func SliceOf(t Type) Type {
 	slice.uncommonType = nil
 	slice.ptrToThis = nil
 
-	// Canonicalize before storing in lookupCache
-	ti := toType(&slice.rtype)
-	lookupCache.Store(ckey, ti.(*rtype))
-	return ti
+	ti, _ := lookupCache.LoadOrStore(ckey, &slice.rtype)
+	return ti.(Type)
 }
 
 // The structLookupCache caches StructOf lookups.
@@ -1878,7 +1918,7 @@ var structLookupCache struct {
 	m sync.Map
 }
 
-// isLetter returns true if a given 'rune' is classified as a Letter.
+// isLetter reports whether a given 'rune' is classified as a Letter.
 func isLetter(ch rune) bool {
 	return 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || ch == '_' || ch >= utf8.RuneSelf && unicode.IsLetter(ch)
 }
@@ -2079,6 +2119,13 @@ func StructOf(fields []StructField) Type {
 		return t
 	}
 
+	// Look in known types.
+	if tt := lookupType(str); tt != nil {
+		if haveIdenticalUnderlyingType(&typ.rtype, tt, true) {
+			return addToCache(tt)
+		}
+	}
+
 	typ.string = &str
 	typ.hash = hash
 	typ.size = size
@@ -2177,13 +2224,17 @@ func StructOf(fields []StructField) Type {
 		typ.equalfn = nil
 	}
 
-	typ.kind &^= kindDirectIface
+	switch {
+	case len(fs) == 1 && !ifaceIndir(fs[0].typ):
+		// structs of 1 direct iface type can be direct
+		typ.kind |= kindDirectIface
+	default:
+		typ.kind &^= kindDirectIface
+	}
+
 	typ.uncommonType = nil
 	typ.ptrToThis = nil
-
-	// Canonicalize before storing in structLookupCache
-	ti := toType(&typ.rtype)
-	return addToCache(ti.(*rtype))
+	return addToCache(&typ.rtype)
 }
 
 func runtimeStructField(field StructField) structField {
@@ -2266,6 +2317,13 @@ func ArrayOf(count int, elem Type) Type {
 
 	// Look in known types.
 	s := "[" + strconv.Itoa(count) + "]" + *typ.string
+	if tt := lookupType(s); tt != nil {
+		array := (*arrayType)(unsafe.Pointer(tt))
+		if array.elem == typ {
+			ti, _ := lookupCache.LoadOrStore(ckey, tt)
+			return ti.(Type)
+		}
+	}
 
 	// Make an array type.
 	var iarray interface{} = [1]unsafe.Pointer{}
@@ -2378,7 +2436,13 @@ func ArrayOf(count int, elem Type) Type {
 		array.ptrdata = array.size // overestimate but ok; must match program
 	}
 
-	array.kind &^= kindDirectIface
+	switch {
+	case count == 1 && !ifaceIndir(typ):
+		// array of 1 direct iface type can be direct
+		array.kind |= kindDirectIface
+	default:
+		array.kind &^= kindDirectIface
+	}
 
 	esize := typ.size
 
@@ -2411,10 +2475,8 @@ func ArrayOf(count int, elem Type) Type {
 		}
 	}
 
-	// Canonicalize before storing in lookupCache
-	ti := toType(&array.rtype)
-	lookupCache.Store(ckey, ti.(*rtype))
-	return ti
+	ti, _ := lookupCache.LoadOrStore(ckey, &array.rtype)
+	return ti.(Type)
 }
 
 func appendVarint(x []byte, v uintptr) []byte {
@@ -2426,41 +2488,18 @@ func appendVarint(x []byte, v uintptr) []byte {
 }
 
 // toType converts from a *rtype to a Type that can be returned
-// to the client of package reflect. In gc, the only concern is that
-// a nil *rtype must be replaced by a nil Type, but in gccgo this
-// function takes care of ensuring that multiple *rtype for the same
-// type are coalesced into a single Type.
-var canonicalType = make(map[string]Type)
-
-var canonicalTypeLock sync.RWMutex
-
-func canonicalize(t Type) Type {
-	if t == nil {
-		return nil
-	}
-	s := t.rawString()
-	canonicalTypeLock.RLock()
-	if r, ok := canonicalType[s]; ok {
-		canonicalTypeLock.RUnlock()
-		return r
-	}
-	canonicalTypeLock.RUnlock()
-	canonicalTypeLock.Lock()
-	if r, ok := canonicalType[s]; ok {
-		canonicalTypeLock.Unlock()
-		return r
-	}
-	canonicalType[s] = t
-	canonicalTypeLock.Unlock()
-	return t
-}
-
+// to the client of package reflect. The only concern is that
+// a nil *rtype must be replaced by a nil Type.
 func toType(p *rtype) Type {
 	if p == nil {
 		return nil
 	}
-	return canonicalize(p)
+	return p
 }
+
+// Look up a compiler-generated type descriptor.
+// Implemented in runtime.
+func lookupType(s string) *rtype
 
 // ifaceIndir reports whether t is stored indirectly in an interface value.
 func ifaceIndir(t *rtype) bool {

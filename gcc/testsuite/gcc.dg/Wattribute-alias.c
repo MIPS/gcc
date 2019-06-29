@@ -1,6 +1,6 @@
 /* PR middle-end/81824 - Warn for missing attributes with function aliases
    { dg-do compile }
-   { dg-require-ifunc "require ifunc support" }
+   { dg-require-ifunc "" }
    { dg-options "-Wall -Wattribute-alias=2" } */
 
 #define ATTR(...)   __attribute__ ((__VA_ARGS__))
@@ -12,6 +12,13 @@ target_no_nothrow (void)        /* { dg-message ".alias_nothrow. target declared
 
 ATTR (alias ("target_no_nothrow"), nothrow) void
 alias_nothrow (void);           /* { dg-warning ".alias_nothrow. specifies more restrictive attribute than its target .target_no_nothrow.: .nothrow." } */
+
+
+#pragma GCC diagnostic push "-Wattribute-alias"
+#pragma GCC diagnostic ignored "-Wattribute-alias"
+ATTR (alias ("target_no_nothrow"), nothrow) void
+alias_nothrow_ignored (void);
+#pragma GCC diagnostic pop "-Wattribute-alias"
 
 
 ATTR (pure) int

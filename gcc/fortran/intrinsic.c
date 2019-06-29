@@ -211,6 +211,7 @@ do_ts29113_check (gfc_intrinsic_sym *specific, gfc_actual_arglist *arg)
 	       && specific->id != GFC_ISYM_SIZE
 	       && specific->id != GFC_ISYM_SIZEOF
 	       && specific->id != GFC_ISYM_UBOUND
+	       && specific->id != GFC_ISYM_IS_CONTIGUOUS
 	       && specific->id != GFC_ISYM_C_LOC)
 	{
 	  gfc_error ("Assumed-type argument at %L is not permitted as actual"
@@ -1124,8 +1125,8 @@ gfc_is_intrinsic (gfc_symbol* sym, int subroutine_flag, locus loc)
 	gfc_warning_now (OPT_Wintrinsics_std, "The intrinsic %qs at %L is not "
 			 "included in the selected standard but %s and %qs will"
 			 " be treated as if declared EXTERNAL.  Use an"
-			 " appropriate -std=* option or define"
-			 " -fall-intrinsics to allow this intrinsic.",
+			 " appropriate %<-std=%>* option or define"
+			 " %<-fall-intrinsics%> to allow this intrinsic.",
 			 sym->name, &loc, symstd, sym->name);
 
       return false;
@@ -1156,7 +1157,7 @@ make_generic (const char *name, gfc_isym_id id, int standard ATTRIBUTE_UNUSED)
 
   g = gfc_find_function (name);
   if (g == NULL)
-    gfc_internal_error ("make_generic(): Can't find generic symbol %qs",
+    gfc_internal_error ("make_generic(): Cannot find generic symbol %qs",
 			name);
 
   gcc_assert (g->id == id);
@@ -2234,6 +2235,14 @@ add_functions (void)
 	     ut, BT_INTEGER, di, REQUIRED);
 
   make_generic ("isatty", GFC_ISYM_ISATTY, GFC_STD_GNU);
+
+  add_sym_1 ("is_contiguous", GFC_ISYM_IS_CONTIGUOUS, CLASS_INQUIRY, ACTUAL_NO,
+	     BT_LOGICAL, dl, GFC_STD_F2008,
+	     gfc_check_is_contiguous, gfc_simplify_is_contiguous,
+	     gfc_resolve_is_contiguous,
+	     ar, BT_REAL, dr, REQUIRED);
+
+  make_generic ("is_contiguous", GFC_ISYM_IS_CONTIGUOUS, GFC_STD_F2008);
 
   add_sym_1 ("is_iostat_end", GFC_ISYM_IS_IOSTAT_END,
 	     CLASS_ELEMENTAL, ACTUAL_NO, BT_LOGICAL, dl, GFC_STD_F2003,
@@ -4208,7 +4217,7 @@ keywords:
 	    gfc_error ("The argument list functions %%VAL, %%LOC or %%REF "
 		       "are not allowed in this context at %L", where);
 	  else
-	    gfc_error ("Can't find keyword named %qs in call to %qs at %L",
+	    gfc_error ("Cannot find keyword named %qs in call to %qs at %L",
 		       a->name, name, where);
 	  return false;
 	}
@@ -5019,6 +5028,8 @@ gfc_convert_type_warn (gfc_expr *expr, gfc_typespec *ts, int eflag, int wflag)
   if (ts->type == BT_UNKNOWN)
     goto bad;
 
+  expr->do_not_warn = ! wflag;
+
   /* NULL and zero size arrays get their type here, unless they already have a
      typespec.  */
   if ((expr->expr_type == EXPR_NULL
@@ -5168,12 +5179,12 @@ gfc_convert_type_warn (gfc_expr *expr, gfc_typespec *ts, int eflag, int wflag)
 bad:
   if (eflag == 1)
     {
-      gfc_error ("Can't convert %s to %s at %L",
+      gfc_error ("Cannot convert %s to %s at %L",
 		 gfc_typename (&from_ts), gfc_typename (ts), &expr->where);
       return false;
     }
 
-  gfc_internal_error ("Can't convert %qs to %qs at %L",
+  gfc_internal_error ("Cannot convert %qs to %qs at %L",
 		      gfc_typename (&from_ts), gfc_typename (ts),
 		      &expr->where);
   /* Not reached */

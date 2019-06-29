@@ -67,6 +67,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "pretty-print.h"
 #include "print-rtl.h"
 
+/* Disable warnings about quoting issues in the pp_xxx calls below
+   that (intentionally) don't follow GCC diagnostic conventions.  */
+#if __GNUC__ >= 10
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wformat-diag"
+#endif
+
 #ifdef INSN_SCHEDULING
 
 /* Some accessor macros for h_i_d members only used within this file.  */
@@ -927,7 +934,7 @@ haifa_find_rgns (void)
 	     The algorithm in the DFS traversal may not mark B & D as part
 	     of the loop (i.e. they will not have max_hdr set to A).
 
-	     We know they can not be loop latches (else they would have
+	     We know they cannot be loop latches (else they would have
 	     had max_hdr set since they'd have a backedge to a dominator
 	     block).  So we don't need them on the initial queue.
 
@@ -3947,3 +3954,7 @@ make_pass_sched_fusion (gcc::context *ctxt)
 {
   return new pass_sched_fusion (ctxt);
 }
+
+#if __GNUC__ >= 10
+#  pragma GCC diagnostic pop
+#endif

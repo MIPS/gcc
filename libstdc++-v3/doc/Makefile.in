@@ -254,6 +254,7 @@ VTV_CXXFLAGS = @VTV_CXXFLAGS@
 VTV_CXXLINKFLAGS = @VTV_CXXLINKFLAGS@
 VTV_PCH_CXXFLAGS = @VTV_PCH_CXXFLAGS@
 WARN_FLAGS = @WARN_FLAGS@
+XMLCATALOG = @XMLCATALOG@
 
 # Validate existing XML structure.
 XMLLINT = xmllint
@@ -476,7 +477,6 @@ xml_sources_manual = \
 	${xml_dir}/manual/policy_data_structures.xml \
 	${xml_dir}/manual/policy_data_structures_biblio.xml \
 	${xml_dir}/manual/prerequisites.xml \
-	${xml_dir}/manual/profile_mode.xml \
 	${xml_dir}/manual/shared_ptr.xml \
 	${xml_dir}/manual/spine.xml \
 	${xml_dir}/manual/status_cxx1998.xml \

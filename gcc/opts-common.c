@@ -205,8 +205,10 @@ integral_argument (const char *arg, int *err, bool byte_size_suffix)
 	  value = strtoull (arg, &end, 0);
 	  if (*end)
 	    {
-	      /* errno is most likely EINVAL here.  */
-	      *err = errno;
+	      if (errno)
+		*err = errno;
+	      else
+		*err = EINVAL;
 	      return -1;
 	    }
 
@@ -1015,7 +1017,9 @@ prune_options (struct cl_decoded_option **decoded_options,
 	    goto keep;
 
 	  /* Skip joined switches.  */
-	  if ((option->flags & CL_JOINED))
+	  if ((option->flags & CL_JOINED)
+	      && (!option->cl_reject_negative
+		  || (unsigned int) option->neg_index != opt_idx))
 	    goto keep;
 
 	  for (j = i + 1; j < old_decoded_options_count; j++)
@@ -1027,8 +1031,11 @@ prune_options (struct cl_decoded_option **decoded_options,
 		continue;
 	      if (cl_options[next_opt_idx].neg_index < 0)
 		continue;
-	      if ((cl_options[next_opt_idx].flags & CL_JOINED))
-		  continue;
+	      if ((cl_options[next_opt_idx].flags & CL_JOINED)
+		  && (!cl_options[next_opt_idx].cl_reject_negative
+		      || ((unsigned int) cl_options[next_opt_idx].neg_index
+			  != next_opt_idx)))
+		continue;
 	      if (cancel_option (opt_idx, next_opt_idx, next_opt_idx))
 		break;
 	    }
@@ -1227,7 +1234,7 @@ cmdline_handle_error (location_t loc, const struct cl_option *option,
 {
   if (errors & CL_ERR_DISABLED)
     {
-      error_at (loc, "command line option %qs"
+      error_at (loc, "command-line option %qs"
 		     " is not supported by this configuration", opt);
       return true;
     }
@@ -1316,7 +1323,7 @@ read_cmdline_option (struct gcc_options *opts,
   if (decoded->opt_index == OPT_SPECIAL_unknown)
     {
       if (handlers->unknown_option_callback (decoded))
-	error_at (loc, "unrecognized command line option %qs", decoded->arg);
+	error_at (loc, "unrecognized command-line option %qs", decoded->arg);
       return;
     }
 
@@ -1348,7 +1355,7 @@ read_cmdline_option (struct gcc_options *opts,
 
   if (!handle_option (opts, opts_set, decoded, lang_mask, DK_UNSPECIFIED,
 		      loc, handlers, false, dc))
-    error_at (loc, "unrecognized command line option %qs", opt);
+    error_at (loc, "unrecognized command-line option %qs", opt);
 }
 
 /* Set any field in OPTS, and OPTS_SET if not NULL, for option

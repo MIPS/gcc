@@ -1,6 +1,6 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (C) 1999-2018 by The D Language Foundation, All Rights Reserved
+ * Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
@@ -131,7 +131,7 @@ Expression *implicitCastTo(Expression *e, Scope *sc, Type *t)
             visit((Expression *)e);
 
             Type *tb = result->type->toBasetype();
-            if (tb->ty == Tarray)
+            if (tb->ty == Tarray && global.params.useTypeInfo && Type::dtypeinfo)
                 semanticTypeInfo(sc, ((TypeDArray *)tb)->next);
         }
 

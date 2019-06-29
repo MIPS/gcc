@@ -258,7 +258,7 @@ cb_def_pragma (cpp_reader *pfile, location_t loc)
 	    name = cpp_token_as_text (pfile, s);
 	}
 
-      warning_at (fe_loc, OPT_Wunknown_pragmas, "ignoring #pragma %s %s",
+      warning_at (fe_loc, OPT_Wunknown_pragmas, "ignoring %<#pragma %s %s%>",
 		  space, name);
     }
 }
@@ -818,7 +818,7 @@ interpret_float (const cpp_token *token, unsigned int flags,
       if (((flags & CPP_N_HEX) == 0) && ((flags & CPP_N_IMAGINARY) == 0))
 	{
 	  warning (OPT_Wunsuffixed_float_constants,
-		   "unsuffixed float constant");
+		   "unsuffixed floating constant");
 	  if (float_const_decimal64_p ())
 	    flags |= CPP_N_DFLOAT;
 	}
@@ -1281,8 +1281,13 @@ lex_string (const cpp_token *tok, tree *valp, bool objc_string, bool translate)
     {
     default:
     case CPP_STRING:
-    case CPP_UTF8STRING:
       TREE_TYPE (value) = char_array_type_node;
+      break;
+    case CPP_UTF8STRING:
+      if (flag_char8_t)
+        TREE_TYPE (value) = char8_array_type_node;
+      else
+        TREE_TYPE (value) = char_array_type_node;
       break;
     case CPP_STRING16:
       TREE_TYPE (value) = char16_array_type_node;
@@ -1323,7 +1328,12 @@ lex_charconst (const cpp_token *token)
   else if (token->type == CPP_CHAR16)
     type = char16_type_node;
   else if (token->type == CPP_UTF8CHAR)
-    type = char_type_node;
+    {
+      if (flag_char8_t)
+        type = char8_type_node;
+      else
+        type = char_type_node;
+    }
   /* In C, a character constant has type 'int'.
      In C++ 'char', but multi-char charconsts have type 'int'.  */
   else if (!c_dialect_cxx () || chars_seen > 1)

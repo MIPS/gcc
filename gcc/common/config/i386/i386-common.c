@@ -88,6 +88,7 @@ along with GCC; see the file COPYING3.  If not see
   (OPTION_MASK_ISA_AVX512VPOPCNTDQ | OPTION_MASK_ISA_AVX512F_SET)
 #define OPTION_MASK_ISA_AVX512BITALG_SET \
   (OPTION_MASK_ISA_AVX512BITALG | OPTION_MASK_ISA_AVX512F_SET)
+#define OPTION_MASK_ISA_AVX512BF16_SET OPTION_MASK_ISA_AVX512BF16
 #define OPTION_MASK_ISA_RTM_SET OPTION_MASK_ISA_RTM
 #define OPTION_MASK_ISA_PRFCHW_SET OPTION_MASK_ISA_PRFCHW
 #define OPTION_MASK_ISA_RDSEED_SET OPTION_MASK_ISA_RDSEED
@@ -99,6 +100,7 @@ along with GCC; see the file COPYING3.  If not see
 #define OPTION_MASK_ISA_XSAVEC_SET \
   (OPTION_MASK_ISA_XSAVEC | OPTION_MASK_ISA_XSAVE_SET)
 #define OPTION_MASK_ISA_CLWB_SET OPTION_MASK_ISA_CLWB
+#define OPTION_MASK_ISA_AVX512VP2INTERSECT_SET OPTION_MASK_ISA_AVX512VP2INTERSECT
 
 /* SSE4 includes both SSE4.1 and SSE4.2. -msse4 should be the same
    as -msse4.2.  */
@@ -155,6 +157,7 @@ along with GCC; see the file COPYING3.  If not see
 #define OPTION_MASK_ISA_MOVDIR64B_SET OPTION_MASK_ISA_MOVDIR64B
 #define OPTION_MASK_ISA_WAITPKG_SET OPTION_MASK_ISA_WAITPKG
 #define OPTION_MASK_ISA_CLDEMOTE_SET OPTION_MASK_ISA_CLDEMOTE
+#define OPTION_MASK_ISA_ENQCMD_SET OPTION_MASK_ISA_ENQCMD
 
 /* Define a set of ISAs which aren't available when a given ISA is
    disabled.  MMX and SSE ISAs are handled separately.  */
@@ -215,6 +218,7 @@ along with GCC; see the file COPYING3.  If not see
 #define OPTION_MASK_ISA_AVX512VNNI_UNSET OPTION_MASK_ISA_AVX512VNNI
 #define OPTION_MASK_ISA_AVX512VPOPCNTDQ_UNSET OPTION_MASK_ISA_AVX512VPOPCNTDQ
 #define OPTION_MASK_ISA_AVX512BITALG_UNSET OPTION_MASK_ISA_AVX512BITALG
+#define OPTION_MASK_ISA_AVX512BF16_UNSET OPTION_MASK_ISA_AVX512BF16
 #define OPTION_MASK_ISA_RTM_UNSET OPTION_MASK_ISA_RTM
 #define OPTION_MASK_ISA_PRFCHW_UNSET OPTION_MASK_ISA_PRFCHW
 #define OPTION_MASK_ISA_RDSEED_UNSET OPTION_MASK_ISA_RDSEED
@@ -236,6 +240,8 @@ along with GCC; see the file COPYING3.  If not see
 #define OPTION_MASK_ISA_MOVDIR64B_UNSET OPTION_MASK_ISA_MOVDIR64B
 #define OPTION_MASK_ISA_WAITPKG_UNSET OPTION_MASK_ISA_WAITPKG
 #define OPTION_MASK_ISA_CLDEMOTE_UNSET OPTION_MASK_ISA_CLDEMOTE
+#define OPTION_MASK_ISA_ENQCMD_UNSET OPTION_MASK_ISA_ENQCMD
+#define OPTION_MASK_ISA_AVX512VP2INTERSECT_UNSET OPTION_MASK_ISA_AVX512VP2INTERSECT
 
 /* SSE4 includes both SSE4.1 and SSE4.2.  -mno-sse4 should the same
    as -mno-sse4.1. */
@@ -276,9 +282,14 @@ along with GCC; see the file COPYING3.  If not see
    | OPTION_MASK_ISA_SSE_UNSET)
 
 #define OPTION_MASK_ISA2_AVX512F_UNSET \
-  (OPTION_MASK_ISA_AVX5124FMAPS_UNSET | OPTION_MASK_ISA_AVX5124VNNIW_UNSET)
+  (OPTION_MASK_ISA_AVX512BF16_UNSET \
+   | OPTION_MASK_ISA_AVX5124FMAPS_UNSET \
+   | OPTION_MASK_ISA_AVX5124VNNIW_UNSET \
+   | OPTION_MASK_ISA_AVX512VP2INTERSECT_UNSET)
 #define OPTION_MASK_ISA2_GENERAL_REGS_ONLY_UNSET \
   (OPTION_MASK_ISA2_AVX512F_UNSET)
+
+#define OPTION_MASK_ISA2_AVX512BW_UNSET OPTION_MASK_ISA_AVX512BF16_UNSET
 
 /* Set 1 << value as value of -malign-FLAG option.  */
 
@@ -653,6 +664,19 @@ ix86_handle_option (struct gcc_options *opts,
 	}
       return true;
 
+    case OPT_menqcmd:
+      if (value)
+	{
+	  opts->x_ix86_isa_flags2 |= OPTION_MASK_ISA_ENQCMD_SET;
+	  opts->x_ix86_isa_flags2_explicit |= OPTION_MASK_ISA_ENQCMD_SET;
+	}
+      else
+	{
+	  opts->x_ix86_isa_flags2 &= ~OPTION_MASK_ISA_ENQCMD_UNSET;
+	  opts->x_ix86_isa_flags2_explicit |= OPTION_MASK_ISA_ENQCMD_UNSET;
+	}
+      return true;
+
     case OPT_mavx5124fmaps:
       if (value)
 	{
@@ -738,6 +762,21 @@ ix86_handle_option (struct gcc_options *opts,
 	}
       return true;
 
+    case OPT_mavx512bf16:
+      if (value)
+	{
+	  opts->x_ix86_isa_flags2 |= OPTION_MASK_ISA_AVX512BF16_SET;
+	  opts->x_ix86_isa_flags2_explicit |= OPTION_MASK_ISA_AVX512BF16_SET;
+	  opts->x_ix86_isa_flags |= OPTION_MASK_ISA_AVX512BW_SET;
+	  opts->x_ix86_isa_flags_explicit |= OPTION_MASK_ISA_AVX512BW_SET;
+	}
+      else
+	{
+	  opts->x_ix86_isa_flags2 &= ~OPTION_MASK_ISA_AVX512BF16_UNSET;
+	  opts->x_ix86_isa_flags2_explicit |= OPTION_MASK_ISA_AVX512BF16_UNSET;
+	}
+      return true;
+
     case OPT_msgx:
       if (value)
 	{
@@ -800,6 +839,8 @@ ix86_handle_option (struct gcc_options *opts,
 	{
 	  opts->x_ix86_isa_flags &= ~OPTION_MASK_ISA_AVX512BW_UNSET;
 	  opts->x_ix86_isa_flags_explicit |= OPTION_MASK_ISA_AVX512BW_UNSET;
+	  opts->x_ix86_isa_flags2 &= ~OPTION_MASK_ISA2_AVX512BW_UNSET;
+	  opts->x_ix86_isa_flags2_explicit |= OPTION_MASK_ISA2_AVX512BW_UNSET;
 	}
       return true;
 
@@ -839,6 +880,23 @@ ix86_handle_option (struct gcc_options *opts,
 	{
 	  opts->x_ix86_isa_flags &= ~OPTION_MASK_ISA_AVX512VBMI_UNSET;
 	  opts->x_ix86_isa_flags_explicit |= OPTION_MASK_ISA_AVX512VBMI_UNSET;
+	}
+      return true;
+
+    case OPT_mavx512vp2intersect:
+      if (value)
+	{
+	  opts->x_ix86_isa_flags2 |= OPTION_MASK_ISA_AVX512VP2INTERSECT_SET;
+	  opts->x_ix86_isa_flags2_explicit |=
+	    OPTION_MASK_ISA_AVX512VP2INTERSECT_SET;
+	  opts->x_ix86_isa_flags |= OPTION_MASK_ISA_AVX512F_SET;
+	  opts->x_ix86_isa_flags_explicit |= OPTION_MASK_ISA_AVX512F_SET;
+	}
+      else
+	{
+	  opts->x_ix86_isa_flags2 &= ~OPTION_MASK_ISA_AVX512VP2INTERSECT_UNSET;
+	  opts->x_ix86_isa_flags2_explicit |=
+	    OPTION_MASK_ISA_AVX512VP2INTERSECT_UNSET;
 	}
       return true;
 
@@ -1337,18 +1395,20 @@ ix86_handle_option (struct gcc_options *opts,
 
 
     case OPT_malign_loops_:
-      warning_at (loc, 0, "-malign-loops is obsolete, use -falign-loops");
+      warning_at (loc, 0, "%<-malign-loops%> is obsolete, "
+		  "use %<-falign-loops%>");
       if (value > MAX_CODE_ALIGN)
-	error_at (loc, "-malign-loops=%d is not between 0 and %d",
+	error_at (loc, "%<-malign-loops=%d%> is not between 0 and %d",
 		  value, MAX_CODE_ALIGN);
       else
 	set_malign_value (&opts->x_str_align_loops, value);
       return true;
 
     case OPT_malign_jumps_:
-      warning_at (loc, 0, "-malign-jumps is obsolete, use -falign-jumps");
+      warning_at (loc, 0, "%<-malign-jumps%> is obsolete, "
+		  "use %<-falign-jumps%>");
       if (value > MAX_CODE_ALIGN)
-	error_at (loc, "-malign-jumps=%d is not between 0 and %d",
+	error_at (loc, "%<-malign-jumps=%d%> is not between 0 and %d",
 		  value, MAX_CODE_ALIGN);
       else
 	set_malign_value (&opts->x_str_align_jumps, value);
@@ -1356,9 +1416,10 @@ ix86_handle_option (struct gcc_options *opts,
 
     case OPT_malign_functions_:
       warning_at (loc, 0,
-		  "-malign-functions is obsolete, use -falign-functions");
+		  "%<-malign-functions%> is obsolete, "
+		  "use %<-falign-functions%>");
       if (value > MAX_CODE_ALIGN)
-	error_at (loc, "-malign-functions=%d is not between 0 and %d",
+	error_at (loc, "%<-malign-functions=%d%> is not between 0 and %d",
 		  value, MAX_CODE_ALIGN);
       else
 	set_malign_value (&opts->x_str_align_functions, value);
@@ -1367,7 +1428,7 @@ ix86_handle_option (struct gcc_options *opts,
     case OPT_mbranch_cost_:
       if (value > 5)
 	{
-	  error_at (loc, "-mbranch-cost=%d is not between 0 and 5", value);
+	  error_at (loc, "%<-mbranch-cost=%d%> is not between 0 and 5", value);
 	  opts->x_ix86_branch_cost = 5;
 	}
       return true;
@@ -1411,7 +1472,7 @@ ix86_option_init_struct (struct gcc_options *opts)
 }
 
 /* On the x86 -fsplit-stack and -fstack-protector both use the same
-   field in the TCB, so they can not be used together.  */
+   field in the TCB, so they cannot be used together.  */
 
 static bool
 ix86_supports_split_stack (bool report ATTRIBUTE_UNUSED,

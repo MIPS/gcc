@@ -84,12 +84,12 @@ func badsystemstack() {
 // used only when the caller knows that *ptr contains no heap pointers
 // because either:
 //
-// 1. *ptr is initialized memory and its type is pointer-free.
+// *ptr is initialized memory and its type is pointer-free, or
 //
-// 2. *ptr is uninitialized memory (e.g., memory that's being reused
-//    for a new allocation) and hence contains only "junk".
+// *ptr is uninitialized memory (e.g., memory that's being reused
+// for a new allocation) and hence contains only "junk".
 //
-// in memclr_*.s
+// The (CPU-specific) implementations of this function are in memclr_*.s.
 //go:noescape
 func memclrNoHeapPointers(ptr unsafe.Pointer, n uintptr)
 
@@ -100,6 +100,7 @@ func reflect_memclrNoHeapPointers(ptr unsafe.Pointer, n uintptr) {
 
 // memmove copies n bytes from "from" to "to".
 //go:noescape
+//extern __builtin_memmove
 func memmove(to, from unsafe.Pointer, n uintptr)
 
 //go:linkname reflect_memmove reflect.memmove
@@ -164,7 +165,7 @@ func breakpoint()
 
 func asminit() {}
 
-//go:linkname reflectcall reflect.call
+//go:linkname reflectcall runtime.reflectcall
 //go:noescape
 func reflectcall(fntype *functype, fn *funcval, isInterface, isMethod bool, params, results *unsafe.Pointer)
 
@@ -231,6 +232,10 @@ func getcallerpc() uintptr
 //go:noescape
 func getcallersp() uintptr // implemented as an intrinsic on all platforms
 
+// getsp returns the stack pointer (SP) of the caller of getsp.
+//go:noinline
+func getsp() uintptr { return getcallersp() }
+
 func asmcgocall(fn, arg unsafe.Pointer) int32 {
 	throw("asmcgocall")
 	return 0
@@ -268,23 +273,10 @@ func checkASM() bool {
 	return true
 }
 
-func eqstring(x, y string) bool {
-	a := stringStructOf(&x)
-	b := stringStructOf(&y)
-	if a.len != b.len {
-		return false
-	}
-	if a.str == b.str {
-		return true
-	}
-	return memequal(a.str, b.str, uintptr(a.len))
-}
-
 // For gccgo this is in the C code.
 func osyield()
 
-// For gccgo this can be called directly.
-//extern syscall
+//extern __go_syscall6
 func syscall(trap uintptr, a1, a2, a3, a4, a5, a6 uintptr) uintptr
 
 // For gccgo, to communicate from the C code to the Go code.
@@ -305,13 +297,6 @@ func errno() int
 // For gccgo these are written in C.
 func entersyscall()
 func entersyscallblock()
-
-// For gccgo to call from C code, so that the C code and the Go code
-// can share the memstats variable for now.
-//go:linkname getMstats runtime.getMstats
-func getMstats() *mstats {
-	return &memstats
-}
 
 // Get signal trampoline, written in C.
 func getSigtramp() uintptr
@@ -334,46 +319,10 @@ func dumpregs(*_siginfo_t, unsafe.Pointer)
 // Implemented in C for gccgo.
 func setRandomNumber(uint32)
 
-// Temporary for gccgo until we port proc.go.
-//go:linkname getsched runtime.getsched
-func getsched() *schedt {
-	return &sched
-}
-
-// Temporary for gccgo until we port proc.go.
-//go:linkname getCgoHasExtraM runtime.getCgoHasExtraM
-func getCgoHasExtraM() *bool {
-	return &cgoHasExtraM
-}
-
-// Temporary for gccgo until we port proc.go.
-//go:linkname getAllP runtime.getAllP
-func getAllP() **p {
-	return &allp[0]
-}
-
-// Temporary for gccgo until we port proc.go.
+// Called by gccgo's proc.c.
 //go:linkname allocg runtime.allocg
 func allocg() *g {
 	return new(g)
-}
-
-// Temporary for gccgo until we port the garbage collector.
-//go:linkname getallglen runtime.getallglen
-func getallglen() uintptr {
-	return allglen
-}
-
-// Temporary for gccgo until we port the garbage collector.
-//go:linkname getallg runtime.getallg
-func getallg(i int) *g {
-	return allgs[i]
-}
-
-// Temporary for gccgo until we port the garbage collector.
-//go:linkname getallm runtime.getallm
-func getallm() *m {
-	return allm
 }
 
 // Throw and rethrow an exception.
@@ -383,13 +332,6 @@ func rethrowException()
 // Fetch the size and required alignment of the _Unwind_Exception type
 // used by the stack unwinder.
 func unwindExceptionSize() uintptr
-
-// Temporary for gccgo until C code no longer needs it.
-//go:nosplit
-//go:linkname getPanicking runtime.getPanicking
-func getPanicking() uint32 {
-	return panicking
-}
 
 // Called by C code to set the number of CPUs.
 //go:linkname setncpu runtime.setncpu
@@ -403,18 +345,6 @@ func setpagesize(s uintptr) {
 	if physPageSize == 0 {
 		physPageSize = s
 	}
-}
-
-// Called by C code during library initialization.
-//go:linkname runtime_m0 runtime.runtime_m0
-func runtime_m0() *m {
-	return &m0
-}
-
-// Temporary for gccgo until we port mgc.go.
-//go:linkname runtime_g0 runtime.runtime_g0
-func runtime_g0() *g {
-	return &g0
 }
 
 const uintptrMask = 1<<(8*sys.PtrSize) - 1
@@ -454,3 +384,15 @@ var usestackmaps bool
 // probestackmaps detects whether there are stack maps.
 //go:linkname probestackmaps runtime.probestackmaps
 func probestackmaps() bool
+
+// For the math/bits packages for gccgo.
+//go:linkname getDivideError runtime.getDivideError
+func getDivideError() error {
+	return divideError
+}
+
+// For the math/bits packages for gccgo.
+//go:linkname getOverflowError runtime.getOverflowError
+func getOverflowError() error {
+	return overflowError
+}

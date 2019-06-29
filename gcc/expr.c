@@ -73,7 +73,7 @@ along with GCC; see the file COPYING3.  If not see
 int cse_not_expected;
 
 static bool block_move_libcall_safe_for_call_parm (void);
-static bool emit_block_move_via_movmem (rtx, rtx, rtx, unsigned, unsigned, HOST_WIDE_INT,
+static bool emit_block_move_via_cpymem (rtx, rtx, rtx, unsigned, unsigned, HOST_WIDE_INT,
 					unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT,
 					unsigned HOST_WIDE_INT);
 static void emit_block_move_via_loop (rtx, rtx, rtx, unsigned);
@@ -1550,7 +1550,7 @@ compare_by_pieces (rtx arg0, rtx arg1, unsigned HOST_WIDE_INT len,
    ALIGN is the maximum alignment we can assume they have.
    METHOD describes what kind of copy this is, and what mechanisms may be used.
    MIN_SIZE is the minimal size of block to move
-   MAX_SIZE is the maximal size of block to move, if it can not be represented
+   MAX_SIZE is the maximal size of block to move, if it cannot be represented
    in unsigned HOST_WIDE_INT, than it is mask of all ones.
 
    Return the address of the new block, if memcpy is called and returns it,
@@ -1561,11 +1561,15 @@ emit_block_move_hints (rtx x, rtx y, rtx size, enum block_op_methods method,
 		       unsigned int expected_align, HOST_WIDE_INT expected_size,
 		       unsigned HOST_WIDE_INT min_size,
 		       unsigned HOST_WIDE_INT max_size,
-		       unsigned HOST_WIDE_INT probable_max_size)
+		       unsigned HOST_WIDE_INT probable_max_size,
+		       bool bail_out_libcall, bool *is_move_done)
 {
   int may_use_call;
   rtx retval = 0;
   unsigned int align;
+
+  if (is_move_done)
+    *is_move_done = true;
 
   gcc_assert (size);
   if (CONST_INT_P (size) && INTVAL (size) == 0)
@@ -1620,7 +1624,7 @@ emit_block_move_hints (rtx x, rtx y, rtx size, enum block_op_methods method,
 
   if (CONST_INT_P (size) && can_move_by_pieces (INTVAL (size), align))
     move_by_pieces (x, y, INTVAL (size), align, RETURN_BEGIN);
-  else if (emit_block_move_via_movmem (x, y, size, align,
+  else if (emit_block_move_via_cpymem (x, y, size, align,
 				       expected_align, expected_size,
 				       min_size, max_size, probable_max_size))
     ;
@@ -1628,17 +1632,16 @@ emit_block_move_hints (rtx x, rtx y, rtx size, enum block_op_methods method,
 	   && ADDR_SPACE_GENERIC_P (MEM_ADDR_SPACE (x))
 	   && ADDR_SPACE_GENERIC_P (MEM_ADDR_SPACE (y)))
     {
+      if (bail_out_libcall)
+	{
+	  if (is_move_done)
+	    *is_move_done = false;
+	  return retval;
+	}
+
       if (may_use_call < 0)
 	return pc_rtx;
 
-      /* Since x and y are passed to a libcall, mark the corresponding
-	 tree EXPR as addressable.  */
-      tree y_expr = MEM_EXPR (y);
-      tree x_expr = MEM_EXPR (x);
-      if (y_expr)
-	mark_addressable (y_expr);
-      if (x_expr)
-	mark_addressable (x_expr);
       retval = emit_block_copy_via_libcall (x, y, size,
 					    method == BLOCK_OP_TAILCALL);
     }
@@ -1719,11 +1722,11 @@ block_move_libcall_safe_for_call_parm (void)
   return true;
 }
 
-/* A subroutine of emit_block_move.  Expand a movmem pattern;
+/* A subroutine of emit_block_move.  Expand a cpymem pattern;
    return true if successful.  */
 
 static bool
-emit_block_move_via_movmem (rtx x, rtx y, rtx size, unsigned int align,
+emit_block_move_via_cpymem (rtx x, rtx y, rtx size, unsigned int align,
 			    unsigned int expected_align, HOST_WIDE_INT expected_size,
 			    unsigned HOST_WIDE_INT min_size,
 			    unsigned HOST_WIDE_INT max_size,
@@ -1752,7 +1755,7 @@ emit_block_move_via_movmem (rtx x, rtx y, rtx size, unsigned int align,
   FOR_EACH_MODE_IN_CLASS (mode_iter, MODE_INT)
     {
       scalar_int_mode mode = mode_iter.require ();
-      enum insn_code code = direct_optab_handler (movmem_optab, mode);
+      enum insn_code code = direct_optab_handler (cpymem_optab, mode);
 
       if (code != CODE_FOR_nothing
 	  /* We don't need MODE to be narrower than BITS_PER_HOST_WIDE_INT
@@ -1789,7 +1792,7 @@ emit_block_move_via_movmem (rtx x, rtx y, rtx size, unsigned int align,
 	  if (nops >= 8)
 	    {
 	      create_integer_operand (&ops[6], min_size);
-	      /* If we can not represent the maximal size,
+	      /* If we cannot represent the maximal size,
 		 make parameter NULL.  */
 	      if ((HOST_WIDE_INT) max_size != -1)
 	        create_integer_operand (&ops[7], max_size);
@@ -1798,7 +1801,7 @@ emit_block_move_via_movmem (rtx x, rtx y, rtx size, unsigned int align,
 	    }
 	  if (nops == 9)
 	    {
-	      /* If we can not represent the maximal size,
+	      /* If we cannot represent the maximal size,
 		 make parameter NULL.  */
 	      if ((HOST_WIDE_INT) probable_max_size != -1)
 	        create_integer_operand (&ops[8], probable_max_size);
@@ -1883,6 +1886,15 @@ emit_block_op_via_libcall (enum built_in_function fncode, rtx dst, rtx src,
   rtx dst_addr, src_addr;
   tree call_expr, dst_tree, src_tree, size_tree;
   machine_mode size_mode;
+
+  /* Since dst and src are passed to a libcall, mark the corresponding
+     tree EXPR as addressable.  */
+  tree dst_expr = MEM_EXPR (dst);
+  tree src_expr = MEM_EXPR (src);
+  if (dst_expr)
+    mark_addressable (dst_expr);
+  if (src_expr)
+    mark_addressable (src_expr);
 
   dst_addr = copy_addr_to_reg (XEXP (dst, 0));
   dst_addr = convert_memory_address (ptr_mode, dst_addr);
@@ -3144,7 +3156,7 @@ set_storage_via_setmem (rtx object, rtx size, rtx val, unsigned int align,
 	  if (nops >= 8)
 	    {
 	      create_integer_operand (&ops[6], min_size);
-	      /* If we can not represent the maximal size,
+	      /* If we cannot represent the maximal size,
 		 make parameter NULL.  */
 	      if ((HOST_WIDE_INT) max_size != -1)
 	        create_integer_operand (&ops[7], max_size);
@@ -3153,7 +3165,7 @@ set_storage_via_setmem (rtx object, rtx size, rtx val, unsigned int align,
 	    }
 	  if (nops == 9)
 	    {
-	      /* If we can not represent the maximal size,
+	      /* If we cannot represent the maximal size,
 		 make parameter NULL.  */
 	      if ((HOST_WIDE_INT) probable_max_size != -1)
 	        create_integer_operand (&ops[8], probable_max_size);
@@ -5210,9 +5222,13 @@ expand_assignment (tree to, tree from, bool nontemporal)
 		}
 	      else
 		{
-		  rtx from_rtx
-		    = simplify_gen_subreg (to_mode, result,
-					   TYPE_MODE (TREE_TYPE (from)), 0);
+		  rtx from_rtx;
+		  if (MEM_P (result))
+		    from_rtx = change_address (result, to_mode, NULL_RTX);
+		  else
+		    from_rtx
+		      = simplify_gen_subreg (to_mode, result,
+					     TYPE_MODE (TREE_TYPE (from)), 0);
 		  if (from_rtx)
 		    {
 		      emit_move_insn (XEXP (to_rtx, 0),
@@ -5452,6 +5468,30 @@ emit_storent_insn (rtx to, rtx from)
   return maybe_expand_insn (code, 2, ops);
 }
 
+/* Helper function for store_expr storing of STRING_CST.  */
+
+static rtx
+string_cst_read_str (void *data, HOST_WIDE_INT offset, scalar_int_mode mode)
+{
+  tree str = (tree) data;
+
+  gcc_assert (offset >= 0);
+  if (offset >= TREE_STRING_LENGTH (str))
+    return const0_rtx;
+
+  if ((unsigned HOST_WIDE_INT) offset + GET_MODE_SIZE (mode)
+      > (unsigned HOST_WIDE_INT) TREE_STRING_LENGTH (str))
+    {
+      char *p = XALLOCAVEC (char, GET_MODE_SIZE (mode));
+      size_t l = TREE_STRING_LENGTH (str) - offset;
+      memcpy (p, TREE_STRING_POINTER (str) + offset, l);
+      memset (p + l, '\0', GET_MODE_SIZE (mode) - l);
+      return c_readstr (p, mode, false);
+    }
+
+  return c_readstr (TREE_STRING_POINTER (str) + offset, mode, false);
+}
+
 /* Generate code for computing expression EXP,
    and storing the value into TARGET.
 
@@ -5471,7 +5511,7 @@ emit_storent_insn (rtx to, rtx from)
 
 rtx
 store_expr (tree exp, rtx target, int call_param_p,
-			bool nontemporal, bool reverse)
+	    bool nontemporal, bool reverse)
 {
   rtx temp;
   rtx alt_rtl = NULL_RTX;
@@ -5605,36 +5645,33 @@ store_expr (tree exp, rtx target, int call_param_p,
       if (TREE_STRING_LENGTH (str) <= 0)
 	goto normal_expr;
 
-      str_copy_len = strlen (TREE_STRING_POINTER (str));
-      if (str_copy_len < TREE_STRING_LENGTH (str) - 1)
-	goto normal_expr;
+      if (can_store_by_pieces (exp_len, string_cst_read_str, (void *) str,
+			       MEM_ALIGN (target), false))
+	{
+	  store_by_pieces (target, exp_len, string_cst_read_str, (void *) str,
+			   MEM_ALIGN (target), false, RETURN_BEGIN);
+	  return NULL_RTX;
+	}
 
       str_copy_len = TREE_STRING_LENGTH (str);
-      if ((STORE_MAX_PIECES & (STORE_MAX_PIECES - 1)) == 0
-	  && TREE_STRING_POINTER (str)[TREE_STRING_LENGTH (str) - 1] == '\0')
+      if ((STORE_MAX_PIECES & (STORE_MAX_PIECES - 1)) == 0)
 	{
 	  str_copy_len += STORE_MAX_PIECES - 1;
 	  str_copy_len &= ~(STORE_MAX_PIECES - 1);
 	}
-      str_copy_len = MIN (str_copy_len, exp_len);
-      if (!can_store_by_pieces (str_copy_len, builtin_strncpy_read_str,
-				CONST_CAST (char *, TREE_STRING_POINTER (str)),
-				MEM_ALIGN (target), false))
+      if (str_copy_len >= exp_len)
 	goto normal_expr;
 
-      dest_mem = target;
+      if (!can_store_by_pieces (str_copy_len, string_cst_read_str,
+				(void *) str, MEM_ALIGN (target), false))
+	goto normal_expr;
 
-      memop_ret retmode = exp_len > str_copy_len ? RETURN_END : RETURN_BEGIN;
-      dest_mem = store_by_pieces (dest_mem,
-				  str_copy_len, builtin_strncpy_read_str,
-				  CONST_CAST (char *,
-					      TREE_STRING_POINTER (str)),
-				  MEM_ALIGN (target), false,
-				  retmode);
-      if (exp_len > str_copy_len)
-	clear_storage (adjust_address (dest_mem, BLKmode, 0),
-		       GEN_INT (exp_len - str_copy_len),
-		       BLOCK_OP_NORMAL);
+      dest_mem = store_by_pieces (target, str_copy_len, string_cst_read_str,
+				  (void *) str, MEM_ALIGN (target), false,
+				  RETURN_END);
+      clear_storage (adjust_address_1 (dest_mem, BLKmode, 0, 1, 1, 0,
+				       exp_len - str_copy_len),
+		     GEN_INT (exp_len - str_copy_len), BLOCK_OP_NORMAL);
       return NULL_RTX;
     }
   else
@@ -8134,12 +8171,12 @@ expand_constructor (tree exp, rtx target, enum expand_modifier modifier,
   if ((TREE_STATIC (exp)
        && ((mode == BLKmode
 	    && ! (target != 0 && safe_from_p (target, exp, 1)))
-		  || TREE_ADDRESSABLE (exp)
-		  || (tree_fits_uhwi_p (TYPE_SIZE_UNIT (type))
-		      && (! can_move_by_pieces
-				     (tree_to_uhwi (TYPE_SIZE_UNIT (type)),
-				      TYPE_ALIGN (type)))
-		      && ! mostly_zeros_p (exp))))
+	   || TREE_ADDRESSABLE (exp)
+	   || (tree_fits_uhwi_p (TYPE_SIZE_UNIT (type))
+	       && (! can_move_by_pieces
+		   (tree_to_uhwi (TYPE_SIZE_UNIT (type)),
+		    TYPE_ALIGN (type)))
+	       && ! mostly_zeros_p (exp))))
       || ((modifier == EXPAND_INITIALIZER || modifier == EXPAND_CONST_ADDRESS)
 	  && TREE_CONSTANT (exp)))
     {

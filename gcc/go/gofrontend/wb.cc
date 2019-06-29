@@ -142,16 +142,15 @@ Mark_address_taken::expression(Expression** pexpr)
     }
 
   // Rewrite non-escaping makeslice with constant size to stack allocation.
-  Unsafe_type_conversion_expression* uce =
-    expr->unsafe_conversion_expression();
-  if (uce != NULL
-      && uce->type()->is_slice_type()
-      && Node::make_node(uce->expr())->encoding() == Node::ESCAPE_NONE
-      && uce->expr()->call_expression() != NULL)
+  Slice_value_expression* sve = expr->slice_value_expression();
+  if (sve != NULL)
     {
-      Call_expression* call = uce->expr()->call_expression();
-      if (call->fn()->func_expression() != NULL
-          && call->fn()->func_expression()->runtime_code() == Runtime::MAKESLICE)
+      std::pair<Call_expression*, Temporary_statement*> p =
+        Expression::find_makeslice_call(sve);
+      Call_expression* call = p.first;
+      Temporary_statement* ts = p.second;
+      if (call != NULL
+	  && Node::make_node(call)->encoding() == Node::ESCAPE_NONE)
         {
           Expression* len_arg = call->args()->at(1);
           Expression* cap_arg = call->args()->at(2);
@@ -164,8 +163,7 @@ Mark_address_taken::expression(Expression** pexpr)
               && nclen.to_unsigned_long(&vlen) == Numeric_constant::NC_UL_VALID
               && nccap.to_unsigned_long(&vcap) == Numeric_constant::NC_UL_VALID)
             {
-              // Turn it into a slice expression of an addressable array,
-              // which is allocated on stack.
+	      // Stack allocate an array and make a slice value from it.
               Location loc = expr->location();
               Type* elmt_type = expr->type()->array_type()->element_type();
               Expression* len_expr =
@@ -173,11 +171,15 @@ Mark_address_taken::expression(Expression** pexpr)
               Type* array_type = Type::make_array_type(elmt_type, len_expr);
               Expression* alloc = Expression::make_allocation(array_type, loc);
               alloc->allocation_expression()->set_allocate_on_stack();
-              Expression* array = Expression::make_unary(OPERATOR_MULT, alloc, loc);
-              Expression* zero = Expression::make_integer_ul(0, len_arg->type(), loc);
-              Expression* slice =
-                Expression::make_array_index(array, zero, len_arg, cap_arg, loc);
+	      Type* ptr_type = Type::make_pointer_type(elmt_type);
+	      Expression* ptr = Expression::make_unsafe_cast(ptr_type, alloc,
+							     loc);
+	      Expression* slice =
+		Expression::make_slice_value(expr->type(), ptr, len_arg,
+					     cap_arg, loc);
               *pexpr = slice;
+              if (ts != NULL && ts->uses() == 1)
+                ts->set_init(Expression::make_nil(loc));
             }
         }
     }
@@ -639,11 +641,19 @@ Gogo::write_barrier_variable()
     {
       Location bloc = Linemap::predeclared_location();
 
-      // We pretend that writeBarrier is a uint32, so that we do a
-      // 32-bit load.  That is what the gc toolchain does.
-      Type* uint32_type = Type::lookup_integer_type("uint32");
-      Variable* var = new Variable(uint32_type, NULL, true, false, false,
-				   bloc);
+      Type* bool_type = Type::lookup_bool_type();
+      Array_type* pad_type = Type::make_array_type(this->lookup_global("byte")->type_value(),
+						   Expression::make_integer_ul(3, NULL, bloc));
+      Type* uint64_type = Type::lookup_integer_type("uint64");
+      Type* wb_type = Type::make_builtin_struct_type(5,
+						     "enabled", bool_type,
+						     "pad", pad_type,
+						     "needed", bool_type,
+						     "cgo", bool_type,
+						     "alignme", uint64_type);
+
+      Variable* var = new Variable(wb_type, NULL,
+				    true, false, false, bloc);
 
       bool add_to_globals;
       Package* package = this->add_imported_package("runtime", "_", false,
@@ -723,6 +733,26 @@ Gogo::assign_needs_write_barrier(Expression* lhs)
 	  if (!rvar->is_in_heap())
 	    return false;
 	}
+    }
+
+  // Nothing to do for an assignment to *(convert(&x)) where
+  // x is local variable or a temporary variable.
+  Unary_expression* ue = lhs->unary_expression();
+  if (ue != NULL && ue->op() == OPERATOR_MULT)
+    {
+      Expression* expr = ue->operand();
+      while (true)
+        {
+          if (expr->conversion_expression() != NULL)
+            expr = expr->conversion_expression()->expr();
+          else if (expr->unsafe_conversion_expression() != NULL)
+            expr = expr->unsafe_conversion_expression()->expr();
+          else
+            break;
+        }
+      ue = expr->unary_expression();
+      if (ue != NULL && ue->op() == OPERATOR_AND)
+        return this->assign_needs_write_barrier(ue->operand());
     }
 
   // For a struct assignment, we don't need a write barrier if all the
@@ -812,6 +842,7 @@ Gogo::assign_with_write_barrier(Function* function, Block* enclosing,
   Type* unsafe_ptr_type = Type::make_pointer_type(Type::make_void_type());
   lhs = Expression::make_unsafe_cast(unsafe_ptr_type, lhs, loc);
 
+  Type* uintptr_type = Type::lookup_integer_type("uintptr");
   Expression* call;
   switch (type->base()->classification())
     {
@@ -825,21 +856,140 @@ Gogo::assign_with_write_barrier(Function* function, Block* enclosing,
     case Type::TYPE_FUNCTION:
     case Type::TYPE_MAP:
     case Type::TYPE_CHANNEL:
-      // These types are all represented by a single pointer.
-      call = Runtime::make_call(Runtime::GCWRITEBARRIER, loc, 2, lhs, rhs);
+      {
+	// These types are all represented by a single pointer.
+	rhs = Expression::make_unsafe_cast(uintptr_type, rhs, loc);
+	call = Runtime::make_call(Runtime::GCWRITEBARRIER, loc, 2, lhs, rhs);
+      }
       break;
 
     case Type::TYPE_STRING:
-    case Type::TYPE_STRUCT:
-    case Type::TYPE_ARRAY:
+      {
+        // Assign the length field directly.
+        Expression* llen =
+          Expression::make_string_info(indir->copy(),
+                                       Expression::STRING_INFO_LENGTH,
+                                       loc);
+        Expression* rlen =
+          Expression::make_string_info(rhs,
+                                       Expression::STRING_INFO_LENGTH,
+                                       loc);
+        Statement* as = Statement::make_assignment(llen, rlen, loc);
+        inserter->insert(as);
+
+        // Assign the data field with a write barrier.
+        lhs =
+          Expression::make_string_info(indir->copy(),
+                                       Expression::STRING_INFO_DATA,
+                                       loc);
+        rhs =
+          Expression::make_string_info(rhs,
+                                       Expression::STRING_INFO_DATA,
+                                       loc);
+        assign = Statement::make_assignment(lhs, rhs, loc);
+        lhs = Expression::make_unary(OPERATOR_AND, lhs, loc);
+        rhs = Expression::make_unsafe_cast(uintptr_type, rhs, loc);
+        call = Runtime::make_call(Runtime::GCWRITEBARRIER, loc, 2, lhs, rhs);
+      }
+      break;
+
     case Type::TYPE_INTERFACE:
       {
-	rhs = Expression::make_unary(OPERATOR_AND, rhs, loc);
-	rhs->unary_expression()->set_does_not_escape();
-	call = Runtime::make_call(Runtime::TYPEDMEMMOVE, loc, 3,
-				  Expression::make_type_descriptor(type, loc),
-				  lhs, rhs);
+        // Assign the first field directly.
+        // The first field is either a type descriptor or a method table.
+        // Type descriptors are either statically created, or created by
+        // the reflect package. For the latter the reflect package keeps
+        // all references.
+        // Method tables are either statically created or persistently
+        // allocated.
+        // In all cases they don't need a write barrier.
+        Expression* ltab =
+          Expression::make_interface_info(indir->copy(),
+                                          Expression::INTERFACE_INFO_METHODS,
+                                          loc);
+        Expression* rtab =
+          Expression::make_interface_info(rhs,
+                                          Expression::INTERFACE_INFO_METHODS,
+                                          loc);
+        Statement* as = Statement::make_assignment(ltab, rtab, loc);
+        inserter->insert(as);
+
+        // Assign the data field with a write barrier.
+        lhs =
+          Expression::make_interface_info(indir->copy(),
+                                          Expression::INTERFACE_INFO_OBJECT,
+                                          loc);
+        rhs =
+          Expression::make_interface_info(rhs,
+                                          Expression::INTERFACE_INFO_OBJECT,
+                                          loc);
+        assign = Statement::make_assignment(lhs, rhs, loc);
+        lhs = Expression::make_unary(OPERATOR_AND, lhs, loc);
+        rhs = Expression::make_unsafe_cast(uintptr_type, rhs, loc);
+        call = Runtime::make_call(Runtime::GCWRITEBARRIER, loc, 2, lhs, rhs);
       }
+      break;
+
+    case Type::TYPE_ARRAY:
+      if (type->is_slice_type())
+       {
+          // Assign the lenth fields directly.
+          Expression* llen =
+            Expression::make_slice_info(indir->copy(),
+                                        Expression::SLICE_INFO_LENGTH,
+                                        loc);
+          Expression* rlen =
+            Expression::make_slice_info(rhs,
+                                        Expression::SLICE_INFO_LENGTH,
+                                        loc);
+          Statement* as = Statement::make_assignment(llen, rlen, loc);
+          inserter->insert(as);
+
+          // Assign the capacity fields directly.
+          Expression* lcap =
+            Expression::make_slice_info(indir->copy(),
+                                        Expression::SLICE_INFO_CAPACITY,
+                                        loc);
+          Expression* rcap =
+            Expression::make_slice_info(rhs,
+                                        Expression::SLICE_INFO_CAPACITY,
+                                        loc);
+          as = Statement::make_assignment(lcap, rcap, loc);
+          inserter->insert(as);
+
+          // Assign the data field with a write barrier.
+          lhs =
+            Expression::make_slice_info(indir->copy(),
+                                        Expression::SLICE_INFO_VALUE_POINTER,
+                                        loc);
+          rhs =
+            Expression::make_slice_info(rhs,
+                                        Expression::SLICE_INFO_VALUE_POINTER,
+                                        loc);
+          assign = Statement::make_assignment(lhs, rhs, loc);
+          lhs = Expression::make_unary(OPERATOR_AND, lhs, loc);
+          rhs = Expression::make_unsafe_cast(uintptr_type, rhs, loc);
+          call = Runtime::make_call(Runtime::GCWRITEBARRIER, loc, 2, lhs, rhs);
+          break;
+        }
+      // fallthrough
+
+    case Type::TYPE_STRUCT:
+      if (type->is_direct_iface_type())
+        {
+          rhs = Expression::unpack_direct_iface(rhs, loc);
+          rhs = Expression::make_unsafe_cast(uintptr_type, rhs, loc);
+          call = Runtime::make_call(Runtime::GCWRITEBARRIER, loc, 2, lhs, rhs);
+        }
+      else
+        {
+          // TODO: split assignments for small struct/array?
+          rhs = Expression::make_unary(OPERATOR_AND, rhs, loc);
+          rhs->unary_expression()->set_does_not_escape();
+          call = Runtime::make_call(Runtime::TYPEDMEMMOVE, loc, 3,
+                                    Expression::make_type_descriptor(type, loc),
+                                    lhs, rhs);
+        }
       break;
     }
 
@@ -857,7 +1007,18 @@ Gogo::check_write_barrier(Block* enclosing, Statement* without,
 {
   Location loc = without->location();
   Named_object* wb = this->write_barrier_variable();
+  // We pretend that writeBarrier is a uint32, so that we do a
+  // 32-bit load.  That is what the gc toolchain does.
+  Type* void_type = Type::make_void_type();
+  Type* unsafe_pointer_type = Type::make_pointer_type(void_type);
+  Type* uint32_type = Type::lookup_integer_type("uint32");
+  Type* puint32_type = Type::make_pointer_type(uint32_type);
   Expression* ref = Expression::make_var_reference(wb, loc);
+  ref = Expression::make_unary(OPERATOR_AND, ref, loc);
+  ref = Expression::make_cast(unsafe_pointer_type, ref, loc);
+  ref = Expression::make_cast(puint32_type, ref, loc);
+  ref = Expression::make_dereference(ref,
+                                     Expression::NIL_CHECK_NOT_NEEDED, loc);
   Expression* zero = Expression::make_integer_ul(0, ref->type(), loc);
   Expression* cond = Expression::make_binary(OPERATOR_EQEQ, ref, zero, loc);
 

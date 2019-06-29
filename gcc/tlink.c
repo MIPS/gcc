@@ -484,13 +484,15 @@ recompile_files (void)
 	 the new file name already exists.  Therefore, we explicitly
 	 remove the old file first.  */
       if (remove (f->key) == -1)
-	fatal_error (input_location, "removing .rpo file: %m");
+	fatal_error (input_location,
+		     "removing repository file %qs: %m", f->key);
       if (rename (outname, f->key) == -1)
-	fatal_error (input_location, "renaming .rpo file: %m");
+	fatal_error (input_location, "renaming repository file from "
+		     "%qs to %qs: %m", outname, f->key);
 
       if (!f->args)
 	{
-	  error ("repository file '%s' does not contain command-line "
+	  error ("repository file %qs does not contain command-line "
 		 "arguments", f->key);
 	  return 0;
 	}
@@ -616,7 +618,7 @@ start_tweaking (symbol *sym)
 {
   if (sym && sym->tweaked)
     {
-      error ("'%s' was assigned to '%s', but was not defined "
+      error ("%qs was assigned to %qs, but was not defined "
 	     "during recompilation, or vice versa",
 	     sym->key, sym->file->key);
       return 0;

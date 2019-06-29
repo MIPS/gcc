@@ -53,6 +53,8 @@ static void gcov_error_exit (void);
 
 #include "gcov-io.c"
 
+#define GCOV_PROF_PREFIX "libgcov profiling error:%s:"
+
 struct gcov_fn_buffer
 {
   struct gcov_fn_buffer *next;
@@ -151,10 +153,31 @@ buffer_fn_data (const char *filename, const struct gcov_info *gi_ptr,
   return &fn_buffer->next;
 
 fail:
-  gcov_error ("profiling:%s:Function %u %s %u \n", filename, fn_ix,
+  gcov_error (GCOV_PROF_PREFIX "Function %u %s %u \n", filename, fn_ix,
               len ? "cannot allocate" : "counter mismatch", len ? len : ix);
 
   return (struct gcov_fn_buffer **)free_fn_data (gi_ptr, fn_buffer, ix);
+}
+
+/* Convert VERSION into a string description and return the it.
+   BUFFER is used for storage of the string.  The code should be
+   aligned wit gcov-iov.c.  */
+
+static char *
+gcov_version_string (char *buffer, char version[4])
+{
+  if (version[0] < 'A' || version[0] > 'Z'
+      || version[1] < '0' || version[1] > '9'
+      || version[2] < '0' || version[2] > '9')
+    sprintf (buffer, "(unknown)");
+  else
+    {
+      unsigned major = 10 * (version[0] - 'A') + (version[1] - '0');
+      unsigned minor = version[2] - '0';
+      sprintf (buffer, "%u.%u (%s)", major, minor,
+	       version[3] == '*' ? "release" : "experimental");
+    }
+  return buffer;
 }
 
 /* Check if VERSION of the info block PTR matches libgcov one.
@@ -169,12 +192,16 @@ gcov_version (struct gcov_info *ptr, gcov_unsigned_t version,
   if (version != GCOV_VERSION)
     {
       char v[4], e[4];
+      char version_string[128], expected_string[128];
 
       GCOV_UNSIGNED2STRING (v, version);
       GCOV_UNSIGNED2STRING (e, GCOV_VERSION);
 
-      gcov_error ("profiling:%s:Version mismatch - expected %.4s got %.4s\n",
-                  filename? filename : ptr->filename, e, v);
+      gcov_error (GCOV_PROF_PREFIX "Version mismatch - expected %s (%.4s) "
+		  "got %s (%.4s)\n",
+		  filename? filename : ptr->filename,
+		  gcov_version_string (expected_string, e), e,
+		  gcov_version_string (version_string, v), v);
       return 0;
     }
   return 1;
@@ -209,7 +236,7 @@ merge_one_data (const char *filename,
   if (length != gi_ptr->stamp)
     {
       /* Read from a different compilation.  Overwrite the file.  */
-      gcov_error ("profiling:%s:overwriting an existing profile data "
+      gcov_error (GCOV_PROF_PREFIX "overwriting an existing profile data "
 		  "with a different timestamp\n", filename);
       return 0;
     }
@@ -289,7 +316,7 @@ merge_one_data (const char *filename,
   if (tag)
     {
     read_mismatch:;
-      gcov_error ("profiling:%s:Merge mismatch for %s %u\n",
+      gcov_error (GCOV_PROF_PREFIX "Merge mismatch for %s %u\n",
                   filename, f_ix >= 0 ? "function" : "summary",
                   f_ix < 0 ? -1 - f_ix : f_ix);
       return -1;
@@ -297,7 +324,7 @@ merge_one_data (const char *filename,
   return 0;
 
 read_error:
-  gcov_error ("profiling:%s:%s merging\n", filename,
+  gcov_error (GCOV_PROF_PREFIX "%s merging\n", filename,
               error < 0 ? "Overflow": "Error");
   return -1;
 }
@@ -388,84 +415,6 @@ merge_summary (int run_counted, struct gcov_summary *summary,
     }
 }
 
-/* Sort N entries in VALUE_ARRAY in descending order.
-   Each entry in VALUE_ARRAY has two values. The sorting
-   is based on the second value.  */
-
-GCOV_LINKAGE  void
-gcov_sort_n_vals (gcov_type *value_array, int n)
-{
-  int j, k;
-
-  for (j = 2; j < n; j += 2)
-    {
-      gcov_type cur_ent[2];
-
-      cur_ent[0] = value_array[j];
-      cur_ent[1] = value_array[j + 1];
-      k = j - 2;
-      while (k >= 0 && value_array[k + 1] < cur_ent[1])
-        {
-          value_array[k + 2] = value_array[k];
-          value_array[k + 3] = value_array[k+1];
-          k -= 2;
-        }
-      value_array[k + 2] = cur_ent[0];
-      value_array[k + 3] = cur_ent[1];
-    }
-}
-
-/* Sort the profile counters for all indirect call sites. Counters
-   for each call site are allocated in array COUNTERS.  */
-
-static void
-gcov_sort_icall_topn_counter (const struct gcov_ctr_info *counters)
-{
-  int i;
-  gcov_type *values;
-  int n = counters->num;
-
-  gcc_assert (!(n % GCOV_ICALL_TOPN_NCOUNTS));
-  values = counters->values;
-
-  for (i = 0; i < n; i += GCOV_ICALL_TOPN_NCOUNTS)
-    {
-      gcov_type *value_array = &values[i + 1];
-      gcov_sort_n_vals (value_array, GCOV_ICALL_TOPN_NCOUNTS - 1);
-    }
-}
-
-/* Sort topn indirect_call profile counters in GI_PTR.  */
-
-static void
-gcov_sort_topn_counter_arrays (const struct gcov_info *gi_ptr)
-{
-  unsigned int i;
-  int f_ix;
-  const struct gcov_fn_info *gfi_ptr;
-  const struct gcov_ctr_info *ci_ptr;
-
-  if (!gi_ptr->merge[GCOV_COUNTER_ICALL_TOPNV]) 
-    return;
-
-  for (f_ix = 0; (unsigned)f_ix != gi_ptr->n_functions; f_ix++)
-    {
-      gfi_ptr = gi_ptr->functions[f_ix];
-      ci_ptr = gfi_ptr->ctrs;
-      for (i = 0; i < GCOV_COUNTERS; i++)
-        {
-          if (!gi_ptr->merge[i])
-            continue;
-          if (i == GCOV_COUNTER_ICALL_TOPNV)
-            {
-              gcov_sort_icall_topn_counter (ci_ptr);
-              break;
-            }
-          ci_ptr++;
-        }
-    }
-}
-
 /* Dump the coverage counts for one gcov_info object. We merge with existing
    counts when possible, to avoid growing the .da files ad infinitum. We use
    this program's checksum to make sure we only accumulate whole program
@@ -483,8 +432,6 @@ dump_one_gcov (struct gcov_info *gi_ptr, struct gcov_filename *gf,
 
   fn_buffer = 0;
 
-  gcov_sort_topn_counter_arrays (gi_ptr);
-
   error = gcov_exit_open_gcda_file (gi_ptr, gf);
   if (error == -1)
     return;
@@ -495,7 +442,8 @@ dump_one_gcov (struct gcov_info *gi_ptr, struct gcov_filename *gf,
       /* Merge data from file.  */
       if (tag != GCOV_DATA_MAGIC)
         {
-          gcov_error ("profiling:%s:Not a gcov data file\n", gf->filename);
+	  gcov_error (GCOV_PROF_PREFIX "Not a gcov data file\n",
+		      gf->filename);
           goto read_fatal;
         }
       error = merge_one_data (gf->filename, gi_ptr, &summary);
@@ -516,8 +464,8 @@ read_fatal:;
 
   if ((error = gcov_close ()))
     gcov_error (error  < 0 ?
-                "profiling:%s:Overflow writing\n" :
-                "profiling:%s:Error writing\n",
+		GCOV_PROF_PREFIX "Overflow writing\n" :
+		GCOV_PROF_PREFIX "Error writing\n",
                 gf->filename);
 }
 

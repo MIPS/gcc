@@ -637,6 +637,9 @@ extern tree create_index_type (tree min, tree max, tree index,
    sizetype is used.  */
 extern tree create_range_type (tree type, tree min, tree max);
 
+/* Return an extra subtype of TYPE with range MIN to MAX.  */
+extern tree create_extra_subtype (tree type, tree min, tree max);
+
 /* Return a TYPE_DECL node suitable for the TYPE_STUB_DECL field of TYPE.
    NAME gives the name of the type to be used in the declaration.  */
 extern tree create_type_stub_decl (tree name, tree type);
@@ -1135,7 +1138,9 @@ gnat_signed_type_for (tree type_node)
 static inline tree
 maybe_character_type (tree type)
 {
-  if (TYPE_STRING_FLAG (type) && !TYPE_UNSIGNED (type))
+  if (TREE_CODE (type) == INTEGER_TYPE
+      && TYPE_STRING_FLAG (type)
+      && !TYPE_UNSIGNED (type))
     type = gnat_unsigned_type_for (type);
 
   return type;
@@ -1148,7 +1153,9 @@ maybe_character_value (tree expr)
 {
   tree type = TREE_TYPE (expr);
 
-  if (TYPE_STRING_FLAG (type) && !TYPE_UNSIGNED (type))
+  if (TREE_CODE (type) == INTEGER_TYPE
+      && TYPE_STRING_FLAG (type)
+      && !TYPE_UNSIGNED (type))
     {
       type = gnat_unsigned_type_for (type);
       expr = convert (type, expr);

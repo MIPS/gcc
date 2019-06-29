@@ -1125,8 +1125,15 @@ number_of_iterations_ne (struct loop *loop, tree type, affine_iv *iv,
     }
 
   c = fold_build2 (EXACT_DIV_EXPR, niter_type, c, d);
-  tmp = fold_build2 (MULT_EXPR, niter_type, c, inverse (s, bound));
-  niter->niter = fold_build2 (BIT_AND_EXPR, niter_type, tmp, bound);
+  if (integer_onep (s))
+    {
+      niter->niter = c;
+    }
+  else
+    {
+      tmp = fold_build2 (MULT_EXPR, niter_type, c, inverse (s, bound));
+      niter->niter = fold_build2 (BIT_AND_EXPR, niter_type, tmp, bound);
+    }
   return true;
 }
 
@@ -1824,6 +1831,8 @@ number_of_iterations_cond (struct loop *loop,
   tree tem = fold_binary (code, boolean_type_node, iv0->base, iv1->base);
   if (tem && integer_zerop (tem))
     {
+      if (!every_iteration)
+	return false;
       niter->niter = build_int_cst (unsigned_type_for (type), 0);
       niter->max = 0;
       return true;
@@ -1975,8 +1984,8 @@ simplify_replace_tree (tree expr, tree old, tree new_tree,
    enough, and return the new expression.  If STOP is specified, stop
    expanding if EXPR equals to it.  */
 
-tree
-expand_simple_operations (tree expr, tree stop)
+static tree
+expand_simple_operations (tree expr, tree stop, hash_map<tree, tree> &cache)
 {
   unsigned i, n;
   tree ret = NULL_TREE, e, ee, e1;
@@ -1996,7 +2005,24 @@ expand_simple_operations (tree expr, tree stop)
       for (i = 0; i < n; i++)
 	{
 	  e = TREE_OPERAND (expr, i);
-	  ee = expand_simple_operations (e, stop);
+	  /* SCEV analysis feeds us with a proper expression
+	     graph matching the SSA graph.  Avoid turning it
+	     into a tree here, thus handle tree sharing
+	     properly.
+	     ???  The SSA walk below still turns the SSA graph
+	     into a tree but until we find a testcase do not
+	     introduce additional tree sharing here.  */
+	  bool existed_p;
+	  tree &cee = cache.get_or_insert (e, &existed_p);
+	  if (existed_p)
+	    ee = cee;
+	  else
+	    {
+	      cee = e;
+	      ee = expand_simple_operations (e, stop, cache);
+	      if (ee != e)
+		*cache.get (e) = ee;
+	    }
 	  if (e == ee)
 	    continue;
 
@@ -2036,7 +2062,7 @@ expand_simple_operations (tree expr, tree stop)
 	  && src->loop_father != dest->loop_father)
 	return expr;
 
-      return expand_simple_operations (e, stop);
+      return expand_simple_operations (e, stop, cache);
     }
   if (gimple_code (stmt) != GIMPLE_ASSIGN)
     return expr;
@@ -2056,7 +2082,7 @@ expand_simple_operations (tree expr, tree stop)
 	return e;
 
       if (code == SSA_NAME)
-	return expand_simple_operations (e, stop);
+	return expand_simple_operations (e, stop, cache);
       else if (code == ADDR_EXPR)
 	{
 	  poly_int64 offset;
@@ -2065,7 +2091,8 @@ expand_simple_operations (tree expr, tree stop)
 	  if (base
 	      && TREE_CODE (base) == MEM_REF)
 	    {
-	      ee = expand_simple_operations (TREE_OPERAND (base, 0), stop);
+	      ee = expand_simple_operations (TREE_OPERAND (base, 0), stop,
+					     cache);
 	      return fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (expr), ee,
 				  wide_int_to_tree (sizetype,
 						    mem_ref_offset (base)
@@ -2080,7 +2107,7 @@ expand_simple_operations (tree expr, tree stop)
     {
     CASE_CONVERT:
       /* Casts are simple.  */
-      ee = expand_simple_operations (e, stop);
+      ee = expand_simple_operations (e, stop, cache);
       return fold_build1 (code, TREE_TYPE (expr), ee);
 
     case PLUS_EXPR:
@@ -2095,12 +2122,19 @@ expand_simple_operations (tree expr, tree stop)
       if (!is_gimple_min_invariant (e1))
 	return expr;
 
-      ee = expand_simple_operations (e, stop);
+      ee = expand_simple_operations (e, stop, cache);
       return fold_build2 (code, TREE_TYPE (expr), ee, e1);
 
     default:
       return expr;
     }
+}
+
+tree
+expand_simple_operations (tree expr, tree stop)
+{
+  hash_map<tree, tree> cache;
+  return expand_simple_operations (expr, stop, cache);
 }
 
 /* Tries to simplify EXPR using the condition COND.  Returns the simplified
@@ -2796,6 +2830,27 @@ finite_loop_p (struct loop *loop)
 		 loop->num);
       return true;
     }
+
+  if (flag_finite_loops)
+    {
+      unsigned i;
+      vec<edge> exits = get_loop_exit_edges (loop);
+      edge ex;
+
+      /* If the loop has a normal exit, we can assume it will terminate.  */
+      FOR_EACH_VEC_ELT (exits, i, ex)
+	if (!(ex->flags & (EDGE_EH | EDGE_ABNORMAL | EDGE_FAKE)))
+	  {
+	    exits.release ();
+	    if (dump_file)
+	      fprintf (dump_file, "Assume loop %i to be finite: it has an exit "
+		       "and -ffinite-loops is on.\n", loop->num);
+	    return true;
+	  }
+
+      exits.release ();
+    }
+
   return false;
 }
 
@@ -4505,7 +4560,7 @@ n_of_executions_at_most (gimple *stmt,
 
 	  /* By stmt_dominates_stmt_p we already know that STMT appears
 	     before NITER_BOUND->STMT.  Still need to test that the loop
-	     can not be terinated by a side effect in between.  */
+	     cannot be terinated by a side effect in between.  */
 	  for (bsi = gsi_for_stmt (stmt); gsi_stmt (bsi) != niter_bound->stmt;
 	       gsi_next (&bsi))
 	    if (gimple_has_side_effects (gsi_stmt (bsi)))

@@ -380,48 +380,36 @@ find_var_scev_info (basic_block instantiated_below, tree var)
   return &res->chrec;
 }
 
-/* Return true when CHREC contains symbolic names defined in
-   LOOP_NB.  */
 
-bool
-chrec_contains_symbols_defined_in_loop (const_tree chrec, unsigned loop_nb)
+/* Hashtable helpers for a temporary hash-table used when
+   analyzing a scalar evolution, instantiating a CHREC or
+   resolving mixers.  */
+
+struct instantiate_cache_type
 {
-  int i, n;
+  htab_t map;
+  vec<scev_info_str> entries;
 
-  if (chrec == NULL_TREE)
-    return false;
+  instantiate_cache_type () : map (NULL), entries (vNULL) {}
+  ~instantiate_cache_type ();
+  tree get (unsigned slot) { return entries[slot].chrec; }
+  void set (unsigned slot, tree chrec) { entries[slot].chrec = chrec; }
+};
 
-  if (is_gimple_min_invariant (chrec))
-    return false;
-
-  if (TREE_CODE (chrec) == SSA_NAME)
+instantiate_cache_type::~instantiate_cache_type ()
+{
+  if (map != NULL)
     {
-      gimple *def;
-      loop_p def_loop, loop;
-
-      if (SSA_NAME_IS_DEFAULT_DEF (chrec))
-	return false;
-
-      def = SSA_NAME_DEF_STMT (chrec);
-      def_loop = loop_containing_stmt (def);
-      loop = get_loop (cfun, loop_nb);
-
-      if (def_loop == NULL)
-	return false;
-
-      if (loop == def_loop || flow_loop_nested_p (loop, def_loop))
-	return true;
-
-      return false;
+      htab_delete (map);
+      entries.release ();
     }
-
-  n = TREE_OPERAND_LENGTH (chrec);
-  for (i = 0; i < n; i++)
-    if (chrec_contains_symbols_defined_in_loop (TREE_OPERAND (chrec, i),
-						loop_nb))
-      return true;
-  return false;
 }
+
+/* Cache to avoid infinite recursion when instantiating an SSA name.
+   Live during the outermost analyze_scalar_evolution, instantiate_scev
+   or resolve_mixers call.  */
+static instantiate_cache_type *global_cache;
+
 
 /* Return true when PHI is a loop-phi-node.  */
 
@@ -879,7 +867,7 @@ get_loop_exit_condition (const struct loop *loop)
       gimple *stmt;
 
       stmt = last_stmt (exit_edge->src);
-      if (gcond *cond_stmt = dyn_cast <gcond *> (stmt))
+      if (gcond *cond_stmt = safe_dyn_cast <gcond *> (stmt))
 	res = cond_stmt;
     }
 
@@ -1424,6 +1412,11 @@ simplify_peeled_chrec (struct loop *loop, tree arg, tree init_cond)
 
       return build_polynomial_chrec (loop->num, init_cond, right);
     }
+
+  /* The affine code only deals with pointer and integer types.  */
+  if (!POINTER_TYPE_P (type)
+      && !INTEGRAL_TYPE_P (type))
+    return chrec_dont_know;
 
   /* Try harder to check if they are equal.  */
   tree_to_aff_combination_expand (left, type, &aff1, &peeled_chrec_map);
@@ -2117,7 +2110,22 @@ analyze_scalar_evolution (struct loop *loop, tree var)
 
   res = get_scalar_evolution (block_before_loop (loop), var);
   if (res == chrec_not_analyzed_yet)
-    res = analyze_scalar_evolution_1 (loop, var);
+    {
+      /* We'll recurse into instantiate_scev, avoid tearing down the
+         instantiate cache repeatedly and keep it live from here.  */
+      bool destr = false;
+      if (!global_cache)
+	{
+	  global_cache = new instantiate_cache_type;
+	  destr = true;
+	}
+      res = analyze_scalar_evolution_1 (loop, var);
+      if (destr)
+	{
+	  delete global_cache;
+	  global_cache = NULL;
+	}
+    }
 
   if (dump_file && (dump_flags & TDF_SCEV))
     fprintf (dump_file, ")\n");
@@ -2230,34 +2238,6 @@ analyze_scalar_evolution_in_loop (struct loop *wrto_loop, struct loop *use_loop,
     }
 }
 
-
-/* Hashtable helpers for a temporary hash-table used when
-   instantiating a CHREC or resolving mixers.  For this use
-   instantiated_below is always the same.  */
-
-struct instantiate_cache_type
-{
-  htab_t map;
-  vec<scev_info_str> entries;
-
-  instantiate_cache_type () : map (NULL), entries (vNULL) {}
-  ~instantiate_cache_type ();
-  tree get (unsigned slot) { return entries[slot].chrec; }
-  void set (unsigned slot, tree chrec) { entries[slot].chrec = chrec; }
-};
-
-instantiate_cache_type::~instantiate_cache_type ()
-{
-  if (map != NULL)
-    {
-      htab_delete (map);
-      entries.release ();
-    }
-}
-
-/* Cache to avoid infinite recursion when instantiating an SSA name.
-   Live during the outermost instantiate_scev or resolve_mixers call.  */
-static instantiate_cache_type *global_cache;
 
 /* Computes a hash function for database element ELT.  */
 
@@ -2562,10 +2542,18 @@ instantiate_scev_binary (edge instantiate_below,
   if (op0 == chrec_dont_know)
     return chrec_dont_know;
 
-  op1 = instantiate_scev_r (instantiate_below, evolution_loop, inner_loop,
-			    c1, fold_conversions, size_expr);
-  if (op1 == chrec_dont_know)
-    return chrec_dont_know;
+  /* While we eventually compute the same op1 if c0 == c1 the process
+     of doing this is expensive so the following short-cut prevents
+     exponential compile-time behavior.  */
+  if (c0 != c1)
+    {
+      op1 = instantiate_scev_r (instantiate_below, evolution_loop, inner_loop,
+				c1, fold_conversions, size_expr);
+      if (op1 == chrec_dont_know)
+	return chrec_dont_know;
+    }
+  else
+    op1 = op0;
 
   if (c0 != op0
       || c1 != op1)
@@ -3474,8 +3462,9 @@ scev_finalize (void)
 /* Returns true if the expression EXPR is considered to be too expensive
    for scev_const_prop.  */
 
-bool
-expression_expensive_p (tree expr)
+static bool
+expression_expensive_p (tree expr, hash_map<tree, uint64_t> &cache,
+			uint64_t &cost)
 {
   enum tree_code code;
 
@@ -3499,6 +3488,19 @@ expression_expensive_p (tree expr)
 	return true;
     }
 
+  bool visited_p;
+  uint64_t &local_cost = cache.get_or_insert (expr, &visited_p);
+  if (visited_p)
+    {
+      uint64_t tem = cost + local_cost;
+      if (tem < cost)
+	return true;
+      cost = tem;
+      return false;
+    }
+  local_cost = 1;
+
+  uint64_t op_cost = 0;
   if (code == CALL_EXPR)
     {
       tree arg;
@@ -3537,37 +3539,60 @@ expression_expensive_p (tree expr)
       if (!is_inexpensive_builtin (get_callee_fndecl (expr)))
 	return true;
       FOR_EACH_CALL_EXPR_ARG (arg, iter, expr)
-	if (expression_expensive_p (arg))
+	if (expression_expensive_p (arg, cache, op_cost))
 	  return true;
+      *cache.get (expr) += op_cost;
+      cost += op_cost + 1;
       return false;
     }
 
   if (code == COND_EXPR)
-    return (expression_expensive_p (TREE_OPERAND (expr, 0))
-	    || (EXPR_P (TREE_OPERAND (expr, 1))
-		&& EXPR_P (TREE_OPERAND (expr, 2)))
-	    /* If either branch has side effects or could trap.  */
-	    || TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 1))
-	    || generic_expr_could_trap_p (TREE_OPERAND (expr, 1))
-	    || TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 0))
-	    || generic_expr_could_trap_p (TREE_OPERAND (expr, 0))
-	    || expression_expensive_p (TREE_OPERAND (expr, 1))
-	    || expression_expensive_p (TREE_OPERAND (expr, 2)));
+    {
+      if (expression_expensive_p (TREE_OPERAND (expr, 0), cache, op_cost)
+	  || (EXPR_P (TREE_OPERAND (expr, 1))
+	      && EXPR_P (TREE_OPERAND (expr, 2)))
+	  /* If either branch has side effects or could trap.  */
+	  || TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 1))
+	  || generic_expr_could_trap_p (TREE_OPERAND (expr, 1))
+	  || TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 0))
+	  || generic_expr_could_trap_p (TREE_OPERAND (expr, 0))
+	  || expression_expensive_p (TREE_OPERAND (expr, 1),
+				     cache, op_cost)
+	  || expression_expensive_p (TREE_OPERAND (expr, 2),
+				     cache, op_cost))
+	return true;
+      *cache.get (expr) += op_cost;
+      cost += op_cost + 1;
+      return false;
+    }
 
   switch (TREE_CODE_CLASS (code))
     {
     case tcc_binary:
     case tcc_comparison:
-      if (expression_expensive_p (TREE_OPERAND (expr, 1)))
+      if (expression_expensive_p (TREE_OPERAND (expr, 1), cache, op_cost))
 	return true;
 
       /* Fallthru.  */
     case tcc_unary:
-      return expression_expensive_p (TREE_OPERAND (expr, 0));
+      if (expression_expensive_p (TREE_OPERAND (expr, 0), cache, op_cost))
+	return true;
+      *cache.get (expr) += op_cost;
+      cost += op_cost + 1;
+      return false;
 
     default:
       return true;
     }
+}
+
+bool
+expression_expensive_p (tree expr)
+{
+  hash_map<tree, uint64_t> cache;
+  uint64_t expanded_size = 0;
+  return (expression_expensive_p (expr, cache, expanded_size)
+	  || expanded_size > cache.elements ());
 }
 
 /* Do final value replacement for LOOP, return true if we did anything.  */

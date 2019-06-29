@@ -419,6 +419,81 @@
 }
 )
 
+;; The fcadd and fcmla patterns are made UNSPEC for the explicitly due to the
+;; fact that their usage need to guarantee that the source vectors are
+;; contiguous.  It would be wrong to describe the operation without being able
+;; to describe the permute that is also required, but even if that is done
+;; the permute would have been created as a LOAD_LANES which means the values
+;; in the registers are in the wrong order.
+(define_insn "aarch64_fcadd<rot><mode>"
+  [(set (match_operand:VHSDF 0 "register_operand" "=w")
+	(unspec:VHSDF [(match_operand:VHSDF 1 "register_operand" "w")
+		       (match_operand:VHSDF 2 "register_operand" "w")]
+		       FCADD))]
+  "TARGET_COMPLEX"
+  "fcadd\t%0.<Vtype>, %1.<Vtype>, %2.<Vtype>, #<rot>"
+  [(set_attr "type" "neon_fcadd")]
+)
+
+(define_insn "aarch64_fcmla<rot><mode>"
+  [(set (match_operand:VHSDF 0 "register_operand" "=w")
+	(plus:VHSDF (match_operand:VHSDF 1 "register_operand" "0")
+		    (unspec:VHSDF [(match_operand:VHSDF 2 "register_operand" "w")
+				   (match_operand:VHSDF 3 "register_operand" "w")]
+				   FCMLA)))]
+  "TARGET_COMPLEX"
+  "fcmla\t%0.<Vtype>, %2.<Vtype>, %3.<Vtype>, #<rot>"
+  [(set_attr "type" "neon_fcmla")]
+)
+
+
+(define_insn "aarch64_fcmla_lane<rot><mode>"
+  [(set (match_operand:VHSDF 0 "register_operand" "=w")
+	(plus:VHSDF (match_operand:VHSDF 1 "register_operand" "0")
+		    (unspec:VHSDF [(match_operand:VHSDF 2 "register_operand" "w")
+				   (match_operand:VHSDF 3 "register_operand" "w")
+				   (match_operand:SI 4 "const_int_operand" "n")]
+				   FCMLA)))]
+  "TARGET_COMPLEX"
+{
+  operands[4] = aarch64_endian_lane_rtx (<VHALF>mode, INTVAL (operands[4]));
+  return "fcmla\t%0.<Vtype>, %2.<Vtype>, %3.<FCMLA_maybe_lane>, #<rot>";
+}
+  [(set_attr "type" "neon_fcmla")]
+)
+
+(define_insn "aarch64_fcmla_laneq<rot>v4hf"
+  [(set (match_operand:V4HF 0 "register_operand" "=w")
+	(plus:V4HF (match_operand:V4HF 1 "register_operand" "0")
+		   (unspec:V4HF [(match_operand:V4HF 2 "register_operand" "w")
+				 (match_operand:V8HF 3 "register_operand" "w")
+				 (match_operand:SI 4 "const_int_operand" "n")]
+				 FCMLA)))]
+  "TARGET_COMPLEX"
+{
+  operands[4] = aarch64_endian_lane_rtx (V4HFmode, INTVAL (operands[4]));
+  return "fcmla\t%0.4h, %2.4h, %3.h[%4], #<rot>";
+}
+  [(set_attr "type" "neon_fcmla")]
+)
+
+(define_insn "aarch64_fcmlaq_lane<rot><mode>"
+  [(set (match_operand:VQ_HSF 0 "register_operand" "=w")
+	(plus:VQ_HSF (match_operand:VQ_HSF 1 "register_operand" "0")
+		     (unspec:VQ_HSF [(match_operand:VQ_HSF 2 "register_operand" "w")
+				     (match_operand:<VHALF> 3 "register_operand" "w")
+				     (match_operand:SI 4 "const_int_operand" "n")]
+				     FCMLA)))]
+  "TARGET_COMPLEX"
+{
+  int nunits = GET_MODE_NUNITS (<VHALF>mode).to_constant ();
+  operands[4]
+    = gen_int_mode (ENDIAN_LANE_N (nunits / 2, INTVAL (operands[4])), SImode);
+  return "fcmla\t%0.<Vtype>, %2.<Vtype>, %3.<FCMLA_maybe_lane>, #<rot>";
+}
+  [(set_attr "type" "neon_fcmla")]
+)
+
 ;; These instructions map to the __builtins for the Dot Product operations.
 (define_insn "aarch64_<sur>dot<vsi2qi>"
   [(set (match_operand:VS 0 "register_operand" "=w")
@@ -428,7 +503,7 @@
 		DOTPROD)))]
   "TARGET_DOTPROD"
   "<sur>dot\\t%0.<Vtype>, %2.<Vdottype>, %3.<Vdottype>"
-  [(set_attr "type" "neon_dot")]
+  [(set_attr "type" "neon_dot<q>")]
 )
 
 ;; These expands map to the Dot Product optab the vectorizer checks for.
@@ -480,7 +555,7 @@
     operands[4] = aarch64_endian_lane_rtx (V8QImode, INTVAL (operands[4]));
     return "<sur>dot\\t%0.<Vtype>, %2.<Vdottype>, %3.4b[%4]";
   }
-  [(set_attr "type" "neon_dot")]
+  [(set_attr "type" "neon_dot<q>")]
 )
 
 (define_insn "aarch64_<sur>dot_laneq<vsi2qi>"
@@ -495,7 +570,7 @@
     operands[4] = aarch64_endian_lane_rtx (V16QImode, INTVAL (operands[4]));
     return "<sur>dot\\t%0.<Vtype>, %2.<Vdottype>, %3.4b[%4]";
   }
-  [(set_attr "type" "neon_dot")]
+  [(set_attr "type" "neon_dot<q>")]
 )
 
 (define_expand "copysign<mode>3"
@@ -630,13 +705,22 @@
   [(set_attr "type" "neon_abs<q>")]
 )
 
-(define_insn "abd<mode>_3"
+;; It's tempting to represent SABD as ABS (MINUS op1 op2).
+;; This isn't accurate as ABS treats always its input as a signed value.
+;; So (ABS:QI (minus:QI 64 -128)) == (ABS:QI (192 or -64 signed)) == 64.
+;; Whereas SABD would return 192 (-64 signed) on the above example.
+;; Use MINUS ([us]max (op1, op2), [us]min (op1, op2)) instead.
+(define_insn "aarch64_<su>abd<mode>_3"
   [(set (match_operand:VDQ_BHSI 0 "register_operand" "=w")
-	(abs:VDQ_BHSI (minus:VDQ_BHSI
-		       (match_operand:VDQ_BHSI 1 "register_operand" "w")
-		       (match_operand:VDQ_BHSI 2 "register_operand" "w"))))]
+	(minus:VDQ_BHSI
+	  (USMAX:VDQ_BHSI
+	    (match_operand:VDQ_BHSI 1 "register_operand" "w")
+	    (match_operand:VDQ_BHSI 2 "register_operand" "w"))
+	  (<max_opp>:VDQ_BHSI
+	    (match_dup 1)
+	    (match_dup 2))))]
   "TARGET_SIMD"
-  "sabd\t%0.<Vtype>, %1.<Vtype>, %2.<Vtype>"
+  "<su>abd\t%0.<Vtype>, %1.<Vtype>, %2.<Vtype>"
   [(set_attr "type" "neon_abd<q>")]
 )
 
@@ -680,7 +764,16 @@
 ;; UABAL	tmp.8h, op1.16b, op2.16b
 ;; UADALP	op3.4s, tmp.8h
 ;; MOV		op0, op3 // should be eliminated in later passes.
-;; The signed version just uses the signed variants of the above instructions.
+;;
+;; For TARGET_DOTPROD we do:
+;; MOV	tmp1.16b, #1 // Can be CSE'd and hoisted out of loops.
+;; UABD	tmp2.16b, op1.16b, op2.16b
+;; UDOT	op3.4s, tmp2.16b, tmp1.16b
+;; MOV	op0, op3 // RA will tie the operands of UDOT appropriately.
+;;
+;; The signed version just uses the signed variants of the above instructions
+;; but for TARGET_DOTPROD still emits a UDOT as the absolute difference is
+;; unsigned.
 
 (define_expand "<sur>sadv16qi"
   [(use (match_operand:V4SI 0 "register_operand"))
@@ -689,6 +782,15 @@
    (use (match_operand:V4SI 3 "register_operand"))]
   "TARGET_SIMD"
   {
+    if (TARGET_DOTPROD)
+      {
+	rtx ones = force_reg (V16QImode, CONST1_RTX (V16QImode));
+	rtx abd = gen_reg_rtx (V16QImode);
+	emit_insn (gen_aarch64_<sur>abdv16qi_3 (abd, operands[1], operands[2]));
+	emit_insn (gen_aarch64_udotv16qi (operands[0], operands[3],
+					  abd, ones));
+	DONE;
+      }
     rtx reduc = gen_reg_rtx (V8HImode);
     emit_insn (gen_aarch64_<sur>abdl2v16qi_3 (reduc, operands[1],
 					       operands[2]));
@@ -850,6 +952,21 @@
   }
   [(set_attr "type" "neon_ins<q>")]
 )
+
+(define_expand "signbit<mode>2"
+  [(use (match_operand:<V_INT_EQUIV> 0 "register_operand"))
+   (use (match_operand:VDQSF 1 "register_operand"))]
+  "TARGET_SIMD"
+{
+  int shift_amount = GET_MODE_UNIT_BITSIZE (<V_INT_EQUIV>mode) - 1;
+  rtx shift_vector = aarch64_simd_gen_const_vector_dup (<V_INT_EQUIV>mode,
+                                                        shift_amount);
+  operands[1] = lowpart_subreg (<V_INT_EQUIV>mode, operands[1], <MODE>mode);
+
+  emit_insn (gen_aarch64_simd_lshr<v_int_equiv> (operands[0], operands[1],
+                                                 shift_vector));
+  DONE;
+})
 
 (define_insn "aarch64_simd_lshr<mode>"
  [(set (match_operand:VDQ_I 0 "register_operand" "=w")
@@ -3099,7 +3216,7 @@
 ;; In this insn, operand 1 should be low, and operand 2 the high part of the
 ;; dest vector.
 
-(define_insn "*aarch64_combinez<mode>"
+(define_insn "@aarch64_combinez<mode>"
   [(set (match_operand:<VDBL> 0 "register_operand" "=w,w,w")
 	(vec_concat:<VDBL>
 	  (match_operand:VDC 1 "general_operand" "w,?r,m")
@@ -3113,7 +3230,7 @@
    (set_attr "arch" "simd,fp,simd")]
 )
 
-(define_insn "*aarch64_combinez_be<mode>"
+(define_insn "@aarch64_combinez_be<mode>"
   [(set (match_operand:<VDBL> 0 "register_operand" "=w,w,w")
         (vec_concat:<VDBL>
 	  (match_operand:VDC 2 "aarch64_simd_or_scalar_imm_zero")
@@ -5835,6 +5952,15 @@
 
 (define_expand "vec_init<mode><Vel>"
   [(match_operand:VALL_F16 0 "register_operand" "")
+   (match_operand 1 "" "")]
+  "TARGET_SIMD"
+{
+  aarch64_expand_vector_init (operands[0], operands[1]);
+  DONE;
+})
+
+(define_expand "vec_init<mode><Vhalf>"
+  [(match_operand:VQ_NO2E 0 "register_operand" "")
    (match_operand 1 "" "")]
   "TARGET_SIMD"
 {

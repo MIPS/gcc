@@ -82,15 +82,6 @@ struct arg_data
   /* If REG is a PARALLEL, this is a copy of VALUE pulled into the correct
      form for emit_group_move.  */
   rtx parallel_value;
-  /* If value is passed in neither reg nor stack, this field holds a number
-     of a special slot to be used.  */
-  rtx special_slot;
-  /* For pointer bounds hold an index of parm bounds are bound to.  -1 if
-     there is no such pointer.  */
-  int pointer_arg;
-  /* If pointer_arg refers a structure, then pointer_offset holds an offset
-     of a pointer in this structure.  */
-  int pointer_offset;
   /* If REG was promoted from the actual mode of the argument expression,
      indicates whether the promotion is sign- or zero-extended.  */
   int unsignedp;
@@ -1564,7 +1555,10 @@ maybe_warn_nonstring_arg (tree fndecl, tree exp)
   if (TREE_NO_WARNING (exp) || !warn_stringop_overflow)
     return;
 
+  /* Avoid clearly invalid calls (more checking done below).  */
   unsigned nargs = call_expr_nargs (exp);
+  if (!nargs)
+    return;
 
   /* The bound argument to a bounded string function like strncpy.  */
   tree bound = NULL_TREE;
@@ -2129,10 +2123,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 						argpos < n_named_args);
 
       if (args[i].reg && CONST_INT_P (args[i].reg))
-	{
-	  args[i].special_slot = args[i].reg;
-	  args[i].reg = NULL;
-	}
+	args[i].reg = NULL;
 
       /* If this is a sibling call and the machine has register windows, the
 	 register window has to be unwinded before calling the routine, so
@@ -3145,7 +3136,7 @@ can_implement_as_sibling_call_p (tree exp,
     }
 
 #ifdef REG_PARM_STACK_SPACE
-  /* If outgoing reg parm stack space changes, we can not do sibcall.  */
+  /* If outgoing reg parm stack space changes, we cannot do sibcall.  */
   if (OUTGOING_REG_PARM_STACK_SPACE (funtype)
       != OUTGOING_REG_PARM_STACK_SPACE (TREE_TYPE (current_function_decl))
       || (reg_parm_stack_space != REG_PARM_STACK_SPACE (current_function_decl)))
@@ -3233,6 +3224,19 @@ can_implement_as_sibling_call_p (tree exp,
 
   /* All checks passed.  */
   return true;
+}
+
+/* Update stack alignment when the parameter is passed in the stack
+   since the outgoing parameter requires extra alignment on the calling
+   function side. */
+
+static void
+update_stack_alignment_for_call (struct locate_and_pad_arg_data *locate)
+{
+  if (crtl->stack_alignment_needed < locate->boundary)
+    crtl->stack_alignment_needed = locate->boundary;
+  if (crtl->preferred_stack_boundary < locate->boundary)
+    crtl->preferred_stack_boundary = locate->boundary;
 }
 
 /* Generate all the code for a CALL_EXPR exp
@@ -3637,6 +3641,28 @@ expand_call (tree exp, rtx target, int ignore)
       || dbg_cnt (tail_call) == false)
     try_tail_call = 0;
 
+  /* Workaround buggy C/C++ wrappers around Fortran routines with
+     character(len=constant) arguments if the hidden string length arguments
+     are passed on the stack; if the callers forget to pass those arguments,
+     attempting to tail call in such routines leads to stack corruption.
+     Avoid tail calls in functions where at least one such hidden string
+     length argument is passed (partially or fully) on the stack in the
+     caller and the callee needs to pass any arguments on the stack.
+     See PR90329.  */
+  if (try_tail_call && maybe_ne (args_size.constant, 0))
+    for (tree arg = DECL_ARGUMENTS (current_function_decl);
+	 arg; arg = DECL_CHAIN (arg))
+      if (DECL_HIDDEN_STRING_LENGTH (arg) && DECL_INCOMING_RTL (arg))
+	{
+	  subrtx_iterator::array_type array;
+	  FOR_EACH_SUBRTX (iter, array, DECL_INCOMING_RTL (arg), NONCONST)
+	    if (MEM_P (*iter))
+	      {
+		try_tail_call = 0;
+		break;
+	      }
+	}
+
   /* If the user has marked the function as requiring tail-call
      optimization, attempt it.  */
   if (must_tail_call)
@@ -3690,6 +3716,12 @@ expand_call (tree exp, rtx target, int ignore)
   /* Ensure current function's preferred stack boundary is at least
      what we need.  Stack alignment may also increase preferred stack
      boundary.  */
+  for (i = 0; i < num_actuals; i++)
+    if (reg_parm_stack_space > 0
+	|| args[i].reg == 0
+	|| args[i].partial != 0
+	|| args[i].pass_on_stack)
+      update_stack_alignment_for_call (&args[i].locate);
   if (crtl->preferred_stack_boundary < preferred_stack_boundary)
     crtl->preferred_stack_boundary = preferred_stack_boundary;
   else
@@ -4294,7 +4326,7 @@ expand_call (tree exp, rtx target, int ignore)
 
 	  emit_move_insn (temp, valreg);
 
-	  /* The return value from a malloc-like function can not alias
+	  /* The return value from a malloc-like function cannot alias
 	     anything else.  */
 	  last = get_last_insn ();
 	  add_reg_note (last, REG_NOALIAS, temp);
@@ -4947,6 +4979,12 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 
       targetm.calls.function_arg_advance (args_so_far, mode, (tree) 0, true);
     }
+
+  for (int i = 0; i < nargs; i++)
+    if (reg_parm_stack_space > 0
+	|| argvec[i].reg == 0
+	|| argvec[i].partial != 0)
+      update_stack_alignment_for_call (&argvec[i].locate);
 
   /* If this machine requires an external definition for library
      functions, write one out.  */

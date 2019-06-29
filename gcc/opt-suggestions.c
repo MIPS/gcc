@@ -134,15 +134,21 @@ option_proposer::build_option_suggestions (const char *prefix)
 					      with_arg);
 		  free (with_arg);
 		}
+
+	      /* Add also variant without an option argument.  */
+	      add_misspelling_candidates (m_option_suggestions, option,
+					  opt_text);
 	    }
 	  else
 	    {
+	      bool option_added = false;
 	      if (option->flags & CL_TARGET)
 		{
 		  vec<const char *> option_values
 		    = targetm_common.get_valid_option_values (i, prefix);
 		  if (!option_values.is_empty ())
 		    {
+		      option_added = true;
 		      for (unsigned j = 0; j < option_values.length (); j++)
 			{
 			  char *with_arg = concat (opt_text, option_values[j],
@@ -154,7 +160,8 @@ option_proposer::build_option_suggestions (const char *prefix)
 		    }
 		  option_values.release ();
 		}
-	      else
+
+	      if (!option_added)
 		add_misspelling_candidates (m_option_suggestions, option,
 					    opt_text);
 	    }
@@ -172,6 +179,10 @@ option_proposer::build_option_suggestions (const char *prefix)
 	       "-fsanitize=address"
 	     rather than to "-Wframe-address" (PR driver/69265).  */
 	  {
+	    /* Add also variant without an option argument.  */
+	    add_misspelling_candidates (m_option_suggestions, option,
+					opt_text);
+
 	    for (int j = 0; sanitizer_opts[j].name != NULL; ++j)
 	      {
 		struct cl_option optb;

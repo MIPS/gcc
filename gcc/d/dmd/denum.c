@@ -1,6 +1,6 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (C) 1999-2018 by The D Language Foundation, All Rights Reserved
+ * Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
@@ -109,6 +109,9 @@ void EnumDeclaration::semantic(Scope *sc)
         scx = _scope;            // save so we don't make redundant copies
         _scope = NULL;
     }
+
+    if (!sc)
+        return;
 
     parent = sc->parent;
     type = type->semantic(loc, sc);

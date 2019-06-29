@@ -357,42 +357,32 @@ void test16()
 
 void test17()
 {
+    version(D_InlineAsm_X86_64)
+        enum AsmX86 = true;
+    else version(D_InlineAsm_X86)
+        enum AsmX86 = true;
+    else
+        enum AsmX86 = false;
+
     version (OSX)
     {
     }
     else
     {
-        /*const*/ float f = 1.2f;
+        const f = 1.2f;
         float g = void;
 
-
-        version(D_SoftFloat)
-        {
-            g = f;
-        }
-        else version(GNU)
-        {
-            version(X86) asm
-            {
-                "flds %1; fstps %0;" : "=m" (g) : "m" (f) : ;
-            }
-            else version(X86_64) asm
-            {
-                "flds %1; fstps %0;" : "=m" (g) : "m" (f) : ;
-            }
-            else version(ARM) asm
-            {
-                "vldr d0, %1; vstr d0, %0;" : "=m" (g) : "m" (f), : "d0";
-            }
-            else static assert(false, "ASM code not implemented for this architecture");
-        }
-        else
+        static if (AsmX86)
         {
             asm
             {
                 fld f;  // doesn't work with PIC
                 fstp g;
             }
+        }
+        else
+        {
+            g = f;
         }
         assert(g == 1.2f);
     }
@@ -563,19 +553,22 @@ void test24()
 
 void test25()
 {
-  char[6] cstr = "123456"c;
-  auto str1 = cast(wchar[3])(cstr);
+    char[6] cstr = "123456"c;
+    auto str1 = cast(wchar[3])(cstr);
 
-  writefln("str1: ", (cast(char[])str1).length , " : ", (cast(char[])str1));
-  assert(cast(char[])str1 == "123456"c);
+    writefln("str1: ", (cast(char[])str1).length , " : ", (cast(char[])str1));
+    assert(cast(char[])str1 == "123456"c);
 
-  auto str2 = cast(wchar[3])("789abc"c);
-  writefln("str2: ", (cast(char[])str2).length , " : ", (cast(char[])str2));
-  assert(cast(char[])str2 == "789abc"c);
+    auto str2 = cast(wchar[3])("789abc"c);
+    writefln("str2: ", (cast(char[])str2).length , " : ", (cast(char[])str2));
+    assert(cast(char[])str2 == "789abc"c);
 
-  auto str3 = cast(wchar[3])("defghi");
-  writefln("str3: ", (cast(char[])str3).length , " : ", (cast(char[])str3));
-  assert(cast(char[])str3 == "d\000e\000f\000"c);
+    auto str3 = cast(wchar[3])("defghi");
+    writefln("str3: ", (cast(char[])str3).length , " : ", (cast(char[])str3));
+    version (LittleEndian)
+        assert(cast(char[])str3 == "d\000e\000f\000"c);
+    version (BigEndian)
+        assert(cast(char[])str3 == "\000d\000e\000f"c);
 }
 
 /*******************************************/

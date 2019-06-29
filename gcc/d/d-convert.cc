@@ -376,7 +376,7 @@ convert_expr (tree exp, Type *etype, Type *totype)
 	}
       else
 	{
-	  error ("can't convert a delegate expression to %qs",
+	  error ("cannot convert a delegate expression to %qs",
 		 totype->toChars ());
 	  return error_mark_node;
 	}
@@ -392,7 +392,7 @@ convert_expr (tree exp, Type *etype, Type *totype)
 	    }
 	  else
 	    {
-	      error ("can't convert struct %qs to %qs",
+	      error ("cannot convert struct %qs to %qs",
 		     etype->toChars (), totype->toChars ());
 	      return error_mark_node;
 	    }
@@ -475,7 +475,7 @@ convert_expr (tree exp, Type *etype, Type *totype)
 
 	  if ((dim * esize) % tsize != 0)
 	    {
-	      error ("cannot cast %qs to %qs since sizes don't line up",
+	      error ("cannot cast %qs to %qs since sizes do not line up",
 		     etype->toChars (), totype->toChars ());
 	      return error_mark_node;
 	    }
@@ -560,18 +560,12 @@ convert_expr (tree exp, Type *etype, Type *totype)
 
     case Tnull:
       /* Casting from typeof(null) is represented as all zeros.  */
-      if (tbtype->ty == Tarray)
-	{
-	  tree ptrtype = build_ctype (tbtype->nextOf ()->pointerTo ());
-	  return d_array_value (build_ctype (totype), size_int (0),
-				build_nop (ptrtype, exp));
-	}
-      else if (tbtype->ty == Taarray)
-	return build_constructor (build_ctype (totype), NULL);
-      else if (tbtype->ty == Tdelegate)
-	return build_delegate_cst (exp, null_pointer_node, totype);
+      result = build_typeof_null_value (totype);
 
-      return build_zero_cst (build_ctype (totype));
+      /* Make sure the expression is still evaluated if necessary.  */
+      if (TREE_SIDE_EFFECTS (exp))
+	result = compound_expr (exp, result);
+      break;
 
     case Tvector:
       if (tbtype->ty == Tsarray)

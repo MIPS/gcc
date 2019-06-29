@@ -2256,13 +2256,13 @@ diagnose_trait (tree expr, tree args)
   switch (TRAIT_EXPR_KIND (expr))
     {
     case CPTK_HAS_NOTHROW_ASSIGN:
-      inform (loc, "  %qT is not nothrow copy assignable", t1);
+      inform (loc, "  %qT is not %<nothrow%> copy assignable", t1);
       break;
     case CPTK_HAS_NOTHROW_CONSTRUCTOR:
-      inform (loc, "  %qT is not nothrow default constructible", t1);
+      inform (loc, "  %qT is not %<nothrow%> default constructible", t1);
       break;
     case CPTK_HAS_NOTHROW_COPY:
-      inform (loc, "  %qT is not nothrow copy constructible", t1);
+      inform (loc, "  %qT is not %<nothrow%> copy constructible", t1);
       break;
     case CPTK_HAS_TRIVIAL_ASSIGN:
       inform (loc, "  %qT is not trivially copy assignable", t1);

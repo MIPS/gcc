@@ -52,6 +52,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "dbgcnt.h"
 #include "domwalk.h"
 #include "builtins.h"
+#include "tree-cfgcleanup.h"
 
 /* Function summary where the parameter infos are actually stored. */
 ipa_node_params_t *ipa_node_params_sum = NULL;
@@ -686,14 +687,14 @@ check_stmt_for_type_change (ao_ref *ao ATTRIBUTE_UNUSED, tree vdef, void *data)
    in between beggining of the function until CALL is invoked.
 
    Generally functions are not allowed to change type of such instances,
-   but they call destructors.  We assume that methods can not destroy the THIS
+   but they call destructors.  We assume that methods cannot destroy the THIS
    pointer.  Also as a special cases, constructor and destructors may change
    type of the THIS pointer.  */
 
 static bool
 param_type_may_change_p (tree function, tree arg, gimple *call)
 {
-  /* Pure functions can not do any changes on the dynamic type;
+  /* Pure functions cannot do any changes on the dynamic type;
      that require writting to memory.  */
   if (flags_from_decl_or_type (function) & (ECF_PURE | ECF_CONST))
     return false;
@@ -746,13 +747,13 @@ param_type_may_change_p (tree function, tree arg, gimple *call)
    that does the heavy work which is usually unnecesary.  */
 
 static bool
-detect_type_change_from_memory_writes (tree arg, tree base, tree comp_type,
-				       gcall *call, struct ipa_jump_func *jfunc,
+detect_type_change_from_memory_writes (ipa_func_body_info *fbi, tree arg,
+				       tree base, tree comp_type, gcall *call,
+				       struct ipa_jump_func *jfunc,
 				       HOST_WIDE_INT offset)
 {
   struct prop_type_change_info tci;
   ao_ref ao;
-  bool entry_reached = false;
 
   gcc_checking_assert (DECL_P (arg)
 		       || TREE_CODE (arg) == MEM_REF
@@ -780,9 +781,11 @@ detect_type_change_from_memory_writes (tree arg, tree base, tree comp_type,
   tci.object = get_base_address (arg);
   tci.type_maybe_changed = false;
 
-  walk_aliased_vdefs (&ao, gimple_vuse (call), check_stmt_for_type_change,
-		      &tci, NULL, &entry_reached);
-  if (!tci.type_maybe_changed)
+  int walked
+    = walk_aliased_vdefs (&ao, gimple_vuse (call), check_stmt_for_type_change,
+			  &tci, NULL, NULL, fbi->aa_walk_budget + 1);
+
+  if (walked >= 0 && !tci.type_maybe_changed)
     return false;
 
   ipa_set_jf_unknown (jfunc);
@@ -796,8 +799,9 @@ detect_type_change_from_memory_writes (tree arg, tree base, tree comp_type,
    returned by get_ref_base_and_extent, as is the offset.  */
 
 static bool
-detect_type_change (tree arg, tree base, tree comp_type, gcall *call,
-		    struct ipa_jump_func *jfunc, HOST_WIDE_INT offset)
+detect_type_change (ipa_func_body_info *fbi, tree arg, tree base,
+		    tree comp_type, gcall *call, struct ipa_jump_func *jfunc,
+		    HOST_WIDE_INT offset)
 {
   if (!flag_devirtualize)
     return false;
@@ -807,7 +811,7 @@ detect_type_change (tree arg, tree base, tree comp_type, gcall *call,
 				   TREE_OPERAND (base, 0),
 				   call))
     return false;
-  return detect_type_change_from_memory_writes (arg, base, comp_type,
+  return detect_type_change_from_memory_writes (fbi, arg, base, comp_type,
 						call, jfunc, offset);
 }
 
@@ -816,7 +820,7 @@ detect_type_change (tree arg, tree base, tree comp_type, gcall *call,
    be zero).  */
 
 static bool
-detect_type_change_ssa (tree arg, tree comp_type,
+detect_type_change_ssa (ipa_func_body_info *fbi, tree arg, tree comp_type,
 			gcall *call, struct ipa_jump_func *jfunc)
 {
   gcc_checking_assert (TREE_CODE (arg) == SSA_NAME);
@@ -830,7 +834,7 @@ detect_type_change_ssa (tree arg, tree comp_type,
   arg = build2 (MEM_REF, ptr_type_node, arg,
 		build_int_cst (ptr_type_node, 0));
 
-  return detect_type_change_from_memory_writes (arg, arg, comp_type,
+  return detect_type_change_from_memory_writes (fbi, arg, arg, comp_type,
 						call, jfunc, 0);
 }
 
@@ -844,16 +848,6 @@ mark_modified (ao_ref *ao ATTRIBUTE_UNUSED, tree vdef ATTRIBUTE_UNUSED,
   bool *b = (bool *) data;
   *b = true;
   return true;
-}
-
-/* Return true if we have already walked so many statements in AA that we
-   should really just start giving up.  */
-
-static bool
-aa_overwalked (struct ipa_func_body_info *fbi)
-{
-  gcc_checking_assert (fbi);
-  return fbi->aa_walked > (unsigned) PARAM_VALUE (PARAM_IPA_MAX_AA_STEPS);
 }
 
 /* Find the nearest valid aa status for parameter specified by INDEX that
@@ -922,28 +916,24 @@ parm_preserved_before_stmt_p (struct ipa_func_body_info *fbi, int index,
   if (TREE_READONLY (base))
     return true;
 
-  /* FIXME: FBI can be NULL if we are being called from outside
-     ipa_node_analysis or ipcp_transform_function, which currently happens
-     during inlining analysis.  It would be great to extend fbi's lifetime and
-     always have it.  Currently, we are just not afraid of too much walking in
-     that case.  */
-  if (fbi)
-    {
-      if (aa_overwalked (fbi))
-	return false;
-      paa = parm_bb_aa_status_for_bb (fbi, gimple_bb (stmt), index);
-      if (paa->parm_modified)
-	return false;
-    }
-  else
-    paa = NULL;
+  gcc_checking_assert (fbi);
+  paa = parm_bb_aa_status_for_bb (fbi, gimple_bb (stmt), index);
+  if (paa->parm_modified)
+    return false;
 
   gcc_checking_assert (gimple_vuse (stmt) != NULL_TREE);
   ao_ref_init (&refd, parm_load);
   int walked = walk_aliased_vdefs (&refd, gimple_vuse (stmt), mark_modified,
-				   &modified, NULL);
-  if (fbi)
-    fbi->aa_walked += walked;
+				   &modified, NULL, NULL,
+				   fbi->aa_walk_budget + 1);
+  if (walked < 0)
+    {
+      modified = true;
+      if (fbi)
+	fbi->aa_walk_budget = 0;
+    }
+  else if (fbi)
+    fbi->aa_walk_budget -= walked;
   if (paa && modified)
     paa->parm_modified = true;
   return !modified;
@@ -988,29 +978,24 @@ parm_ref_data_preserved_p (struct ipa_func_body_info *fbi,
   bool modified = false;
   ao_ref refd;
 
-  /* FIXME: FBI can be NULL if we are being called from outside
-     ipa_node_analysis or ipcp_transform_function, which currently happens
-     during inlining analysis.  It would be great to extend fbi's lifetime and
-     always have it.  Currently, we are just not afraid of too much walking in
-     that case.  */
-  if (fbi)
-    {
-      if (aa_overwalked (fbi))
-	return false;
-      paa = parm_bb_aa_status_for_bb (fbi, gimple_bb (stmt), index);
-      if (paa->ref_modified)
-	return false;
-    }
-  else
-    paa = NULL;
+  gcc_checking_assert (fbi);
+  paa = parm_bb_aa_status_for_bb (fbi, gimple_bb (stmt), index);
+  if (paa->ref_modified)
+    return false;
 
   gcc_checking_assert (gimple_vuse (stmt));
   ao_ref_init (&refd, ref);
   int walked = walk_aliased_vdefs (&refd, gimple_vuse (stmt), mark_modified,
-				   &modified, NULL);
-  if (fbi)
-    fbi->aa_walked += walked;
-  if (paa && modified)
+				   &modified, NULL, NULL,
+				   fbi->aa_walk_budget + 1);
+  if (walked < 0)
+    {
+      modified = true;
+      fbi->aa_walk_budget = 0;
+    }
+  else
+    fbi->aa_walk_budget -= walked;
+  if (modified)
     paa->ref_modified = true;
   return !modified;
 }
@@ -1030,8 +1015,7 @@ parm_ref_data_pass_through_p (struct ipa_func_body_info *fbi, int index,
      function because it is not goin to use it.  But do not cache the result
      either.  Also, no such calculations for non-pointers.  */
   if (!gimple_vuse (call)
-      || !POINTER_TYPE_P (TREE_TYPE (parm))
-      || aa_overwalked (fbi))
+      || !POINTER_TYPE_P (TREE_TYPE (parm)))
     return false;
 
   struct ipa_param_aa_status *paa = parm_bb_aa_status_for_bb (fbi,
@@ -1042,8 +1026,15 @@ parm_ref_data_pass_through_p (struct ipa_func_body_info *fbi, int index,
 
   ao_ref_init_from_ptr_and_size (&refd, parm, NULL_TREE);
   int walked = walk_aliased_vdefs (&refd, gimple_vuse (call), mark_modified,
-				   &modified, NULL);
-  fbi->aa_walked += walked;
+				   &modified, NULL, NULL,
+				   fbi->aa_walk_budget + 1);
+  if (walked < 0)
+    {
+      fbi->aa_walk_budget = 0;
+      modified = true;
+    }
+  else
+    fbi->aa_walk_budget -= walked;
   if (modified)
     paa->pt_modified = true;
   return !modified;
@@ -1467,7 +1458,7 @@ get_ssa_def_if_simple_copy (tree rhs)
   return rhs;
 }
 
-/* Simple linked list, describing known contents of an aggregate beforere
+/* Simple linked list, describing known contents of an aggregate before
    call.  */
 
 struct ipa_known_agg_contents_list
@@ -1480,41 +1471,48 @@ struct ipa_known_agg_contents_list
   struct ipa_known_agg_contents_list *next;
 };
 
-/* Find the proper place in linked list of ipa_known_agg_contents_list
-   structures where to put a new one with the given LHS_OFFSET and LHS_SIZE,
-   unless there is a partial overlap, in which case return NULL, or such
-   element is already there, in which case set *ALREADY_THERE to true.  */
+/* Add a known content item into a linked list of ipa_known_agg_contents_list
+   structure, in which all elements are sorted ascendingly by offset.  */
 
-static struct ipa_known_agg_contents_list **
-get_place_in_agg_contents_list (struct ipa_known_agg_contents_list **list,
-				HOST_WIDE_INT lhs_offset,
-				HOST_WIDE_INT lhs_size,
-				bool *already_there)
+static inline void
+add_to_agg_contents_list (struct ipa_known_agg_contents_list **plist,
+			  struct ipa_known_agg_contents_list *item)
 {
-  struct ipa_known_agg_contents_list **p = list;
-  while (*p && (*p)->offset < lhs_offset)
+  struct ipa_known_agg_contents_list *list = *plist;
+
+  for (; list; list = list->next)
     {
-      if ((*p)->offset + (*p)->size > lhs_offset)
-	return NULL;
-      p = &(*p)->next;
+      if (list->offset >= item->offset)
+	break;
+
+      plist = &list->next;
     }
 
-  if (*p && (*p)->offset < lhs_offset + lhs_size)
+  item->next = list;
+  *plist = item;
+}
+
+/* Check whether a given known content is clobbered by certain element in
+   a linked list of ipa_known_agg_contents_list.  */
+
+static inline bool
+clobber_by_agg_contents_list_p (struct ipa_known_agg_contents_list *list,
+				struct ipa_known_agg_contents_list *item)
+{
+  for (; list; list = list->next)
     {
-      if ((*p)->offset == lhs_offset && (*p)->size == lhs_size)
-	/* We already know this value is subsequently overwritten with
-	   something else.  */
-	*already_there = true;
-      else
-	/* Otherwise this is a partial overlap which we cannot
-	   represent.  */
-	return NULL;
+      if (list->offset >= item->offset)
+	return list->offset < item->offset + item->size;
+
+      if (list->offset + list->size > item->offset)
+	return true;
     }
-  return p;
+
+  return false;
 }
 
 /* Build aggregate jump function from LIST, assuming there are exactly
-   CONST_COUNT constant entries there and that th offset of the passed argument
+   CONST_COUNT constant entries there and that offset of the passed argument
    is ARG_OFFSET and store it into JFUNC.  */
 
 static void
@@ -1537,26 +1535,79 @@ build_agg_jump_func_from_list (struct ipa_known_agg_contents_list *list,
     }
 }
 
+/* If STMT is a memory store to the object whose address is BASE, extract
+   information (offset, size, and value) into CONTENT, and return true,
+   otherwise we conservatively assume the whole object is modified with
+   unknown content, and return false.  CHECK_REF means that access to object
+   is expected to be in form of MEM_REF expression.  */
+
+static bool
+extract_mem_content (gimple *stmt, tree base, bool check_ref,
+		     struct ipa_known_agg_contents_list *content)
+{
+  HOST_WIDE_INT lhs_offset, lhs_size;
+  tree lhs, rhs, lhs_base;
+  bool reverse;
+
+  if (!gimple_assign_single_p (stmt))
+    return false;
+
+  lhs = gimple_assign_lhs (stmt);
+  rhs = gimple_assign_rhs1 (stmt);
+
+  if (!is_gimple_reg_type (TREE_TYPE (rhs))
+      || TREE_CODE (lhs) == BIT_FIELD_REF
+      || contains_bitfld_component_ref_p (lhs))
+    return false;
+
+  lhs_base = get_ref_base_and_extent_hwi (lhs, &lhs_offset,
+					  &lhs_size, &reverse);
+  if (!lhs_base)
+    return false;
+
+  if (check_ref)
+    {
+      if (TREE_CODE (lhs_base) != MEM_REF
+	  || TREE_OPERAND (lhs_base, 0) != base
+	  || !integer_zerop (TREE_OPERAND (lhs_base, 1)))
+	return false;
+    }
+  else if (lhs_base != base)
+    return false;
+
+  rhs = get_ssa_def_if_simple_copy (rhs);
+
+  content->size = lhs_size;
+  content->offset = lhs_offset;
+  content->constant = is_gimple_ip_invariant (rhs) ? rhs : NULL_TREE;
+  content->next = NULL;
+
+  return true;
+}
+
 /* Traverse statements from CALL backwards, scanning whether an aggregate given
    in ARG is filled in with constant values.  ARG can either be an aggregate
    expression or a pointer to an aggregate.  ARG_TYPE is the type of the
    aggregate.  JFUNC is the jump function into which the constants are
-   subsequently stored.  */
+   subsequently stored.  AA_WALK_BUDGET_P points to limit on number of
+   statements we allow get_continuation_for_phi to examine.  */
 
 static void
-determine_locally_known_aggregate_parts (gcall *call, tree arg,
-					 tree arg_type,
-					 struct ipa_jump_func *jfunc)
+determine_known_aggregate_parts (gcall *call, tree arg,
+				 tree arg_type,
+				 struct ipa_jump_func *jfunc,
+				 unsigned *aa_walk_budget_p)
 {
-  struct ipa_known_agg_contents_list *list = NULL;
+  struct ipa_known_agg_contents_list *list = NULL, *all_list = NULL;
+  bitmap visited = NULL;
   int item_count = 0, const_count = 0;
+  int ipa_max_agg_items = PARAM_VALUE (PARAM_IPA_MAX_AGG_ITEMS);
   HOST_WIDE_INT arg_offset, arg_size;
-  gimple_stmt_iterator gsi;
   tree arg_base;
   bool check_ref, by_ref;
   ao_ref r;
 
-  if (PARAM_VALUE (PARAM_IPA_MAX_AGG_ITEMS) == 0)
+  if (ipa_max_agg_items == 0)
     return;
 
   /* The function operates in three stages.  First, we prepare check_ref, r,
@@ -1615,82 +1666,61 @@ determine_locally_known_aggregate_parts (gcall *call, tree arg,
       ao_ref_init (&r, arg);
     }
 
-  /* Second stage walks back the BB, looks at individual statements and as long
-     as it is confident of how the statements affect contents of the
-     aggregates, it builds a sorted linked list of ipa_agg_jf_list structures
-     describing it.  */
-  gsi = gsi_for_stmt (call);
-  gsi_prev (&gsi);
-  for (; !gsi_end_p (gsi); gsi_prev (&gsi))
+  /* Second stage traverses virtual SSA web backwards starting from the call
+     statement, only looks at individual dominating virtual operand (its
+     definition dominates the call), as long as it is confident that content
+     of the aggregate is affected by definition of the virtual operand, it
+     builds a sorted linked list of ipa_agg_jf_list describing that.  */
+
+  for (tree dom_vuse = gimple_vuse (call); dom_vuse;)
     {
-      struct ipa_known_agg_contents_list *n, **p;
-      gimple *stmt = gsi_stmt (gsi);
-      HOST_WIDE_INT lhs_offset, lhs_size;
-      tree lhs, rhs, lhs_base;
-      bool reverse;
+      gimple *stmt = SSA_NAME_DEF_STMT (dom_vuse);
 
-      if (!stmt_may_clobber_ref_p_1 (stmt, &r))
-	continue;
-      if (!gimple_assign_single_p (stmt))
-	break;
-
-      lhs = gimple_assign_lhs (stmt);
-      rhs = gimple_assign_rhs1 (stmt);
-      if (!is_gimple_reg_type (TREE_TYPE (rhs))
-	  || TREE_CODE (lhs) == BIT_FIELD_REF
-	  || contains_bitfld_component_ref_p (lhs))
-	break;
-
-      lhs_base = get_ref_base_and_extent_hwi (lhs, &lhs_offset,
-					      &lhs_size, &reverse);
-      if (!lhs_base)
-	break;
-
-      if (check_ref)
+      if (gimple_code (stmt) == GIMPLE_PHI)
 	{
-	  if (TREE_CODE (lhs_base) != MEM_REF
-	      || TREE_OPERAND (lhs_base, 0) != arg_base
-	      || !integer_zerop (TREE_OPERAND (lhs_base, 1)))
+	  dom_vuse = get_continuation_for_phi (stmt, &r, *aa_walk_budget_p,
+					       &visited, false, NULL, NULL);
+	  continue;
+	}
+
+      if (stmt_may_clobber_ref_p_1 (stmt, &r))
+	{
+	  struct ipa_known_agg_contents_list *content
+			= XALLOCA (struct ipa_known_agg_contents_list);
+
+	  if (!extract_mem_content (stmt, arg_base, check_ref, content))
+	    break;
+
+	  /* Now we get a dominating virtual operand, and need to check
+	     whether its value is clobbered any other dominating one.  */
+	  if (content->constant
+	      && !clobber_by_agg_contents_list_p (all_list, content))
+	    {
+	      struct ipa_known_agg_contents_list *copy
+			= XALLOCA (struct ipa_known_agg_contents_list);
+
+	      /* Add to the list consisting of only dominating virtual
+		 operands, whose definitions can finally reach the call.  */
+	      add_to_agg_contents_list (&list, (*copy = *content, copy));
+
+	      if (++const_count == ipa_max_agg_items)
+		break;
+	    }
+
+	  /* Add to the list consisting of all dominating virtual operands.  */
+	  add_to_agg_contents_list (&all_list, content);
+
+	  if (++item_count == 2 * ipa_max_agg_items)
 	    break;
 	}
-      else if (lhs_base != arg_base)
-	{
-	  if (DECL_P (lhs_base))
-	    continue;
-	  else
-	    break;
-	}
+      dom_vuse = gimple_vuse (stmt);
+   }
 
-      bool already_there = false;
-      p = get_place_in_agg_contents_list (&list, lhs_offset, lhs_size,
-					  &already_there);
-      if (!p)
-	break;
-      if (already_there)
-	continue;
-
-      rhs = get_ssa_def_if_simple_copy (rhs);
-      n = XALLOCA (struct ipa_known_agg_contents_list);
-      n->size = lhs_size;
-      n->offset = lhs_offset;
-      if (is_gimple_ip_invariant (rhs))
-	{
-	  n->constant = rhs;
-	  const_count++;
-	}
-      else
-	n->constant = NULL_TREE;
-      n->next = *p;
-      *p = n;
-
-      item_count++;
-      if (const_count == PARAM_VALUE (PARAM_IPA_MAX_AGG_ITEMS)
-	  || item_count == 2 * PARAM_VALUE (PARAM_IPA_MAX_AGG_ITEMS))
-	break;
-    }
+  if (visited)
+    BITMAP_FREE (visited);
 
   /* Third stage just goes over the list and creates an appropriate vector of
-     ipa_agg_jf_item structures out of it, of sourse only if there are
+     ipa_agg_jf_item structures out of it, of course only if there are
      any known constants to begin with.  */
 
   if (const_count)
@@ -1699,6 +1729,7 @@ determine_locally_known_aggregate_parts (gcall *call, tree arg,
       build_agg_jump_func_from_list (list, const_count, arg_offset, jfunc);
     }
 }
+
 
 /* Return the Ith param type of callee associated with call graph
    edge E.  */
@@ -1806,7 +1837,7 @@ ipa_set_jfunc_vr (ipa_jump_func *jf, enum value_range_kind type,
   jf->m_vr = ipa_get_value_range (type, min, max);
 }
 
-/* Assign to JF a pointer to a value_range just liek TMP but either fetch a
+/* Assign to JF a pointer to a value_range just like TMP but either fetch a
    copy from ipa_vr_hash_table or allocate a new on in GC memory.  */
 
 static void
@@ -1851,7 +1882,8 @@ ipa_compute_jump_functions_for_edge (struct ipa_func_body_info *fbi,
 	  struct ipa_polymorphic_call_context context (cs->caller->decl,
 						       arg, cs->call_stmt,
 						       &instance);
-	  context.get_dynamic_type (instance, arg, NULL, cs->call_stmt);
+	  context.get_dynamic_type (instance, arg, NULL, cs->call_stmt,
+				    &fbi->aa_walk_budget);
 	  *ipa_get_ith_polymorhic_call_context (args, n) = context;
 	  if (!context.useless_p ())
 	    useful_context = true;
@@ -1971,7 +2003,7 @@ ipa_compute_jump_functions_for_edge (struct ipa_func_body_info *fbi,
 	    }
 	}
 
-      /* If ARG is pointer, we can not use its type to determine the type of aggregate
+      /* If ARG is pointer, we cannot use its type to determine the type of aggregate
 	 passed (because type conversions are ignored in gimple).  Usually we can
 	 safely get type from function declaration, but in case of K&R prototypes or
 	 variadic functions we can try our luck with type of the pointer passed.
@@ -1986,7 +2018,8 @@ ipa_compute_jump_functions_for_edge (struct ipa_func_body_info *fbi,
 	      || !ipa_get_jf_ancestor_agg_preserved (jfunc))
 	  && (AGGREGATE_TYPE_P (TREE_TYPE (arg))
 	      || POINTER_TYPE_P (param_type)))
-	determine_locally_known_aggregate_parts (call, arg, param_type, jfunc);
+	determine_known_aggregate_parts (call, arg, param_type, jfunc,
+					 &fbi->aa_walk_budget);
     }
   if (!useful_context)
     vec_free (args->polymorphic_call_contexts);
@@ -2324,7 +2357,7 @@ ipa_analyze_virtual_call_uses (struct ipa_func_body_info *fbi,
       anc_offset = 0;
       index = ipa_get_param_decl_index (info, SSA_NAME_VAR (obj));
       gcc_assert (index >= 0);
-      if (detect_type_change_ssa (obj, obj_type_ref_class (target),
+      if (detect_type_change_ssa (fbi, obj, obj_type_ref_class (target),
 				  call, &jfunc))
 	return;
     }
@@ -2340,7 +2373,7 @@ ipa_analyze_virtual_call_uses (struct ipa_func_body_info *fbi,
       index = ipa_get_param_decl_index (info,
 					SSA_NAME_VAR (TREE_OPERAND (expr, 0)));
       gcc_assert (index >= 0);
-      if (detect_type_change (obj, expr, obj_type_ref_class (target),
+      if (detect_type_change (fbi, obj, expr, obj_type_ref_class (target),
 			      call, &jfunc, anc_offset))
 	return;
     }
@@ -2388,7 +2421,8 @@ ipa_analyze_call_uses (struct ipa_func_body_info *fbi, gcall *call)
       cs->indirect_info->vptr_changed
 	= !context.get_dynamic_type (instance,
 				     OBJ_TYPE_REF_OBJECT (target),
-				     obj_type_ref_class (target), call);
+				     obj_type_ref_class (target), call,
+				     &fbi->aa_walk_budget);
       cs->indirect_info->context = context;
     }
 
@@ -2588,7 +2622,7 @@ ipa_analyze_node (struct cgraph_node *node)
   fbi.bb_infos = vNULL;
   fbi.bb_infos.safe_grow_cleared (last_basic_block_for_fn (cfun));
   fbi.param_count = ipa_get_param_count (info);
-  fbi.aa_walked = 0;
+  fbi.aa_walk_budget = PARAM_VALUE (PARAM_IPA_MAX_AA_STEPS);
 
   for (struct cgraph_edge *cs = node->callees; cs; cs = cs->next_callee)
     {
@@ -2875,7 +2909,7 @@ ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target,
 	{
 	  if (dump_file)
 	    fprintf (dump_file, "ipa-prop: Discovered call to a known target "
-		     "(%s -> %s) but can not refer to it. Giving up.\n",
+		     "(%s -> %s) but cannot refer to it. Giving up.\n",
 		     ie->caller->dump_name (),
 		     ie->callee->dump_name ());
 	  return NULL;
@@ -2914,7 +2948,7 @@ ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target,
 
   ipa_check_create_node_params ();
 
-  /* We can not make edges to inline clones.  It is bug that someone removed
+  /* We cannot make edges to inline clones.  It is bug that someone removed
      the cgraph node too early.  */
   gcc_assert (!callee->global.inlined_to);
 
@@ -5157,7 +5191,7 @@ ipcp_transform_function (struct cgraph_node *node)
   fbi.bb_infos = vNULL;
   fbi.bb_infos.safe_grow_cleared (last_basic_block_for_fn (cfun));
   fbi.param_count = param_count;
-  fbi.aa_walked = 0;
+  fbi.aa_walk_budget = PARAM_VALUE (PARAM_IPA_MAX_AA_STEPS);
 
   vec_safe_grow_cleared (descriptors, param_count);
   ipa_populate_param_decls (node, *descriptors);
@@ -5181,10 +5215,11 @@ ipcp_transform_function (struct cgraph_node *node)
 
   if (!something_changed)
     return 0;
-  else if (cfg_changed)
-    return TODO_update_ssa_only_virtuals | TODO_cleanup_cfg;
-  else
-    return TODO_update_ssa_only_virtuals;
+
+  if (cfg_changed)
+    delete_unreachable_blocks_update_callgraph (node, false);
+
+  return TODO_update_ssa_only_virtuals;
 }
 
 #include "gt-ipa-prop.h"

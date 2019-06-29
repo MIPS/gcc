@@ -285,7 +285,7 @@ if (GET_MODE_CLASS (MODE) == MODE_INT		\
 /* On the ARC the lower address bits are masked to 0 as necessary.  The chip
    won't croak when given an unaligned address, but the insn will still fail
    to produce the correct result.  */
-#define STRICT_ALIGNMENT (!unaligned_access && !TARGET_HS)
+#define STRICT_ALIGNMENT (!unaligned_access)
 
 /* Layout of source language data types.  */
 
@@ -325,7 +325,7 @@ if (GET_MODE_CLASS (MODE) == MODE_INT		\
    argument pointer.  */
 
 /* r63 is pc, r64-r127 = simd vregs, r128-r143 = simd dma config regs
-   r144, r145 = lp_start, lp_end
+   r144, r145 = ARG_POINTER, FRAME_POINTER
    and therefore the pseudo registers start from r146. */
 #define FIRST_PSEUDO_REGISTER 146
 
@@ -361,12 +361,11 @@ if (GET_MODE_CLASS (MODE) == MODE_INT		\
 
    By default, the extension registers are not available.  */
 /* Present implementations only have VR0-VR23 only.  */
-/* ??? FIXME: r27 and r31 should not be fixed registers.  */
 #define FIXED_REGISTERS \
 { 0, 0, 0, 0, 0, 0, 0, 0,	\
   0, 0, 0, 0, 0, 0, 0, 0,	\
   0, 0, 0, 0, 0, 0, 0, 0,	\
-  0, 0, 1, 1, 1, 1, 1, 1,	\
+  0, 0, 1, 0, 1, 1, 1, 1,	\
 				\
   1, 1, 1, 1, 1, 1, 1, 1,	\
   0, 0, 0, 0, 1, 1, 1, 1,	\
@@ -398,7 +397,7 @@ if (GET_MODE_CLASS (MODE) == MODE_INT		\
   1, 1, 1, 1, 1, 1, 1, 1,	\
   1, 1, 1, 1, 1, 0, 0, 0,	\
   0, 0, 0, 0, 0, 0, 0, 0,	\
-  0, 0, 1, 1, 1, 1, 1, 1,	\
+  0, 0, 1, 0, 1, 1, 1, 1,	\
 				\
   1, 1, 1, 1, 1, 1, 1, 1,	\
   1, 1, 1, 1, 1, 1, 1, 1,	\
@@ -422,12 +421,34 @@ if (GET_MODE_CLASS (MODE) == MODE_INT		\
 /* If defined, an initializer for a vector of integers, containing the
    numbers of hard registers in the order in which GCC should
    prefer to use them (from most preferred to least).  */
-#define REG_ALLOC_ORDER \
-{ 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1,			\
-  16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 				\
+#define REG_ALLOC_ORDER							\
+{									\
+  /* General registers.  */						\
+  2, 3, 12, 13, 14, 15, 1, 0, 4, 5, 6, 7, 8, 9, 10, 11,			\
+  16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 30,			\
+  /* Extension core registers.  */					\
   32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47,	\
-  48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62,		\
-  27, 28, 29, 30, 31, 63}
+  48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59,			\
+  /* VR regs.  */							\
+  64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79,	\
+  80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95,	\
+  96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109,	\
+  110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, \
+  124, 125, 126, 127,							\
+  /* DMA registers.  */							\
+  128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, \
+  142, 143,								\
+  /* Register not used for general use.  */				\
+  62, FRAME_POINTER_REGNUM, ARG_POINTER_REGNUM,				\
+  SP_REG, ILINK1_REG, RETURN_ADDR_REGNUM, LP_COUNT, CC_REG, PCL_REG	\
+}
+
+/* Use different register alloc ordering for Thumb.  */
+#define ADJUST_REG_ALLOC_ORDER arc_adjust_reg_alloc_order ()
+
+/* Tell IRA to use the order we define rather than messing it up with its
+   own cost calculations.  */
+#define HONOR_REG_ALLOC_ORDER 1
 
 /* Internal macros to classify a register number as to whether it's a
    general purpose register for compact insns (r0-r3,r12-r15), or
@@ -511,10 +532,10 @@ enum reg_class
   {0x00000003, 0x00000000, 0x00000000, 0x00000000, 0x00000000}, /* 'Rsd'.  */ \
   {0x0000000f, 0x00000000, 0x00000000, 0x00000000, 0x00000000}, /* 'Rcd'.  */ \
   {0x0000f00f, 0x00000000, 0x00000000, 0x00000000, 0x00000000}, /* 'q'.  */ \
-  {0x1c001fff, 0x00000000, 0x00000000, 0x00000000, 0x00000000}, /* 'Rsc'.  */ \
+  {0x00001fff, 0x00000000, 0x00000000, 0x00000000, 0x00000000}, /* 'Rsc'.  */ \
   {0x9fffffff, 0x00000000, 0x00000000, 0x00000000, 0x00000000}, /* 'h'.  */ \
   {0x00000000, 0x00000f00, 0x00000000, 0x00000000, 0x00000000}, /* 'D'.  */ \
-  {0xffffffff, 0x8fffffff, 0x00000000, 0x00000000, 0x00000000}, /* 'r'.  */ \
+  {0xffffffff, 0x8fffffff, 0x00000000, 0x00000000, 0x00030000}, /* 'r'.  */ \
   {0x00000000, 0x00000000, 0xffffffff, 0xffffffff, 0x00000000}, /* 'v'.  */ \
   {0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x0000ffff}, /* 'd'.  */ \
   {0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0x0003ffff} /* ALL_REGS.  */\
@@ -562,11 +583,14 @@ extern enum reg_class arc_regno_reg_class[];
    Since they use reg_renumber, they are safe only once reg_renumber
    has been allocated, which happens in local-alloc.c.  */
 #define REGNO_OK_FOR_BASE_P(REGNO)					\
-  ((REGNO) < 29 || ((REGNO) == ARG_POINTER_REGNUM) || ((REGNO) == 63)	\
+  ((REGNO) < 29								\
+   || ((REGNO) == ARG_POINTER_REGNUM)					\
+   || ((REGNO) == FRAME_POINTER_REGNUM)					\
+   || ((REGNO) == PCL_REG)						\
    || ((unsigned) reg_renumber[REGNO] < 29)				\
    || ((unsigned) (REGNO) == (unsigned) arc_tp_regno)			\
    || (fixed_regs[REGNO] == 0 && IN_RANGE (REGNO, 32, 59))		\
-   || ((REGNO) == 30 && fixed_regs[REGNO] == 0))
+   || (fixed_regs[REGNO] == 0 && (REGNO) == R30_REG))
 
 #define REGNO_OK_FOR_INDEX_P(REGNO) REGNO_OK_FOR_BASE_P(REGNO)
 
@@ -652,11 +676,12 @@ arc_return_addr_rtx(COUNT,FRAME)
 #define STACK_POINTER_REGNUM 28
 
 /* Base register for access to local variables of the function.  */
-#define FRAME_POINTER_REGNUM 27
+#define FRAME_POINTER_REGNUM 145
+#define HARD_FRAME_POINTER_REGNUM 27
 
 /* Base register for access to arguments of the function. This register
    will be eliminated into either fp or sp.  */
-#define ARG_POINTER_REGNUM 62
+#define ARG_POINTER_REGNUM 144
 
 #define RETURN_ADDR_REGNUM 31
 
@@ -766,8 +791,9 @@ arc_return_addr_rtx(COUNT,FRAME)
 
 #define ELIMINABLE_REGS					\
 {{ARG_POINTER_REGNUM, STACK_POINTER_REGNUM},		\
- {ARG_POINTER_REGNUM, FRAME_POINTER_REGNUM},		\
- {FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM}}
+ {ARG_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM},	\
+ {FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM},	\
+ {FRAME_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM}}
 
 /* Define the offset between two registers, one to be eliminated, and the other
    its replacement, at the start of a routine.  */
@@ -898,17 +924,6 @@ arc_select_cc_mode (OP, X, Y)
 #define REVERSIBLE_CC_MODE(MODE) 1 /*???*/
 
 /* Costs.  */
-
-/* Compute extra cost of moving data between one register class
-   and another.  */
-#define REGISTER_MOVE_COST(MODE, CLASS, TO_CLASS) \
-   arc_register_move_cost ((MODE), (CLASS), (TO_CLASS))
-
-/* Compute the cost of moving data between registers and memory.  */
-/* Memory is 3 times as expensive as registers.
-   ??? Is that the right way to look at it?  */
-#define MEMORY_MOVE_COST(MODE,CLASS,IN) \
-(GET_MODE_SIZE (MODE) <= UNITS_PER_WORD ? 6 : 12)
 
 /* The cost of a branch insn.  */
 /* ??? What's the right value here?  Branches are certainly more
@@ -1161,7 +1176,7 @@ extern char rname56[], rname57[], rname58[], rname59[];
   "r32",  "r33",  "r34",  "r35",      "r36",    "r37",    "r38",   "r39",	\
    "d1",   "d1",   "d2",   "d2",      "r44",    "r45",    "r46",   "r47",	\
   "r48",  "r49",  "r50",  "r51",      "r52",    "r53",    "r54",   "r55",	\
-  rname56,rname57,rname58,rname59,"lp_count",    "cc",     "ap",   "pcl",	\
+  rname56,rname57,rname58,rname59,"lp_count",    "cc",   "limm",   "pcl",	\
   "vr0",  "vr1",  "vr2",  "vr3",      "vr4",    "vr5",    "vr6",   "vr7",       \
   "vr8",  "vr9", "vr10", "vr11",     "vr12",   "vr13",   "vr14",  "vr15",	\
  "vr16", "vr17", "vr18", "vr19",     "vr20",   "vr21",   "vr22",  "vr23",	\
@@ -1172,7 +1187,7 @@ extern char rname56[], rname57[], rname58[], rname59[];
  "vr56", "vr57", "vr58", "vr59",     "vr60",   "vr61",   "vr62",  "vr63",	\
   "dr0",  "dr1",  "dr2",  "dr3",      "dr4",    "dr5",    "dr6",   "dr7",	\
   "dr0",  "dr1",  "dr2",  "dr3",      "dr4",    "dr5",    "dr6",   "dr7",	\
-  "lp_start", "lp_end" \
+  "arg", "frame" \
 }
 
 #define ADDITIONAL_REGISTER_NAMES		\
@@ -1408,7 +1423,7 @@ do { \
    in one reasonably fast instruction.  */
 #define MOVE_MAX 4
 
-/* Undo the effects of the movmem pattern presence on STORE_BY_PIECES_P .  */
+/* Undo the effects of the cpymem pattern presence on STORE_BY_PIECES_P .  */
 #define MOVE_RATIO(SPEED) ((SPEED) ? 15 : 3)
 
 /* Define this to be nonzero if shift instructions ignore all but the

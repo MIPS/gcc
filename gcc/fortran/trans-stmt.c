@@ -1576,12 +1576,13 @@ gfc_trans_critical (gfc_code *code)
 
   if (flag_coarray == GFC_FCOARRAY_LIB)
     {
+      tree zero_size = build_zero_cst (size_type_node);
       token = gfc_get_symbol_decl (code->resolved_sym);
       token = GFC_TYPE_ARRAY_CAF_TOKEN (TREE_TYPE (token));
       tmp = build_call_expr_loc (input_location, gfor_fndecl_caf_lock, 7,
-				 token, integer_zero_node, integer_one_node,
+				 token, zero_size, integer_one_node,
 				 null_pointer_node, null_pointer_node,
-				 null_pointer_node, integer_zero_node);
+				 null_pointer_node, zero_size);
       gfc_add_expr_to_block (&block, tmp);
 
       /* It guarantees memory consistency within the same segment */
@@ -1601,10 +1602,11 @@ gfc_trans_critical (gfc_code *code)
 
   if (flag_coarray == GFC_FCOARRAY_LIB)
     {
+      tree zero_size = build_zero_cst (size_type_node);
       tmp = build_call_expr_loc (input_location, gfor_fndecl_caf_unlock, 6,
-				 token, integer_zero_node, integer_one_node,
+				 token, zero_size, integer_one_node,
 				 null_pointer_node, null_pointer_node,
-				 integer_zero_node);
+				 zero_size);
       gfc_add_expr_to_block (&block, tmp);
 
       /* It guarantees memory consistency within the same segment */
@@ -1707,17 +1709,19 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
       /* If association is to an expression, evaluate it and create temporary.
 	 Otherwise, get descriptor of target for pointer assignment.  */
       gfc_init_se (&se, NULL);
+
       if (sym->assoc->variable || cst_array_ctor)
 	{
 	  se.direct_byref = 1;
 	  se.use_offset = 1;
 	  se.expr = desc;
+	  GFC_DECL_PTR_ARRAY_P (sym->backend_decl) = 1;
 	}
 
       gfc_conv_expr_descriptor (&se, e);
 
       if (sym->ts.type == BT_CHARACTER
-	  && sym->ts.deferred
+	  && !se.direct_byref && sym->ts.deferred
 	  && !sym->attr.select_type_temporary
 	  && VAR_P (sym->ts.u.cl->backend_decl)
 	  && se.string_length != sym->ts.u.cl->backend_decl)
@@ -1746,7 +1750,7 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
 
       /* If this is a subreference array pointer associate name use the
 	 associate variable element size for the value of 'span'.  */
-      if (sym->attr.subref_array_pointer)
+      if (sym->attr.subref_array_pointer && !se.direct_byref)
 	{
 	  gcc_assert (e->expr_type == EXPR_VARIABLE);
 	  tmp = gfc_get_array_span (se.expr, e);
@@ -1856,7 +1860,8 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
 	    {
 	      if (e->symtree
 		  && DECL_LANG_SPECIFIC (e->symtree->n.sym->backend_decl)
-		 && GFC_DECL_SAVED_DESCRIPTOR (e->symtree->n.sym->backend_decl))
+		  && GFC_DECL_SAVED_DESCRIPTOR (e->symtree->n.sym->backend_decl)
+		  && TREE_CODE (target_expr) != COMPONENT_REF)
 		/* Use the original class descriptor stored in the saved
 		   descriptor to get the target_expr.  */
 		target_expr =
@@ -6303,7 +6308,7 @@ gfc_trans_allocate (gfc_code * code)
 	al_len = se.string_length;
 
       al_len_needs_set = al_len != NULL_TREE;
-      /* When allocating an array one can not use much of the
+      /* When allocating an array one cannot use much of the
 	 pre-evaluated expr3 expressions, because for most of them the
 	 scalarizer is needed which is not available in the pre-evaluation
 	 step.  Therefore gfc_array_allocate () is responsible (and able)
@@ -6554,7 +6559,7 @@ gfc_trans_allocate (gfc_code * code)
 		 information in future loop iterations.  */
 	      if (tmp_expr3_len_flag)
 		/* No need to reset tmp_expr3_len_flag, because the
-		   presence of an expr3 can not change within in the
+		   presence of an expr3 cannot change within in the
 		   loop.  */
 		expr3_len = NULL_TREE;
 	    }
@@ -6641,7 +6646,7 @@ gfc_trans_allocate (gfc_code * code)
 	  /* Use class_init_assign to initialize expr.  */
 	  gfc_code *ini;
 	  ini = gfc_get_code (EXEC_INIT_ASSIGN);
-	  ini->expr1 = gfc_find_and_cut_at_last_class_ref (expr);
+	  ini->expr1 = gfc_find_and_cut_at_last_class_ref (expr, true);
 	  tmp = gfc_trans_class_init_assign (ini);
 	  gfc_free_statements (ini);
 	  gfc_add_expr_to_block (&block, tmp);
@@ -6769,9 +6774,10 @@ gfc_trans_allocate (gfc_code * code)
   if (needs_caf_sync)
     {
       /* Add a sync all after the allocation has been executed.  */
+      tree zero_size = build_zero_cst (size_type_node);
       tmp = build_call_expr_loc (input_location, gfor_fndecl_caf_sync_all,
 				 3, null_pointer_node, null_pointer_node,
-				 integer_zero_node);
+				 zero_size);
       gfc_add_expr_to_block (&post, tmp);
     }
 

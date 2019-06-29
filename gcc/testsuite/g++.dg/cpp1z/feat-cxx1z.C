@@ -292,12 +292,12 @@
 #if __has_include(<array>)
 #  define STD_ARRAY 1
 #  include <array>
-  template<typename _Tp, size_t _Num>
+  template<typename _Tp, std::size_t _Num>
     using array = std::array<_Tp, _Num>;
 #elif __has_include(<tr1/array>)
 #  define TR1_ARRAY 1
 #  include <tr1/array>
-  template<typename _Tp, size_t _Num>
+  template<typename _Tp, std::size_t _Num>
     typedef std::tr1::array<_Tp, _Num> array;
 #endif
 
@@ -415,6 +415,18 @@
 #  error "__cpp_variadic_using"
 #elif __cpp_variadic_using != 201611
 #  error "__cpp_variadic_using != 201611"
+#endif
+
+#ifndef __cpp_guaranteed_copy_elision
+#  error "__cpp_guaranteed_copy_elision"
+#elif __cpp_guaranteed_copy_elision != 201606
+#  error "__cpp_guaranteed_copy_elision != 201606"
+#endif
+
+#ifndef __cpp_nontype_template_parameter_auto
+#  error "__cpp_nontype_template_parameter_auto"
+#elif __cpp_nontype_template_parameter_auto != 201606
+#  error "__cpp_nontype_template_parameter_auto != 201606"
 #endif
 
 #ifdef __has_cpp_attribute

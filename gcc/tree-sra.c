@@ -106,6 +106,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-utils.h"
 #include "builtins.h"
 
+
 /* Enumeration of all aggregate reductions we can do.  */
 enum sra_mode { SRA_MODE_EARLY_IPA,   /* early call regularization */
 		SRA_MODE_EARLY_INTRA, /* early intraprocedural SRA */
@@ -241,6 +242,10 @@ struct access
      access which is not to be scalarized.  This flag is propagated up in the
      access tree.  */
   unsigned grp_unscalarized_data : 1;
+
+  /* Set if all accesses in the group consist of the same chain of
+     COMPONENT_REFs and ARRAY_REFs.  */
+  unsigned grp_same_access_path : 1;
 
   /* Does this access and/or group contain a write access through a
      BIT_FIELD_REF?  */
@@ -443,16 +448,18 @@ dump_access (FILE *f, struct access *access, bool grp)
 	     "grp_scalar_write = %d, grp_total_scalarization = %d, "
 	     "grp_hint = %d, grp_covered = %d, "
 	     "grp_unscalarizable_region = %d, grp_unscalarized_data = %d, "
-	     "grp_partial_lhs = %d, grp_to_be_replaced = %d, "
-	     "grp_to_be_debug_replaced = %d, grp_maybe_modified = %d, "
+	     "grp_same_access_path = %d, grp_partial_lhs = %d, "
+	     "grp_to_be_replaced = %d, grp_to_be_debug_replaced = %d, "
+	     "grp_maybe_modified = %d, "
 	     "grp_not_necessarilly_dereferenced = %d\n",
 	     access->grp_read, access->grp_write, access->grp_assignment_read,
 	     access->grp_assignment_write, access->grp_scalar_read,
 	     access->grp_scalar_write, access->grp_total_scalarization,
 	     access->grp_hint, access->grp_covered,
 	     access->grp_unscalarizable_region, access->grp_unscalarized_data,
-	     access->grp_partial_lhs, access->grp_to_be_replaced,
-	     access->grp_to_be_debug_replaced, access->grp_maybe_modified,
+	     access->grp_same_access_path, access->grp_partial_lhs,
+	     access->grp_to_be_replaced, access->grp_to_be_debug_replaced,
+	     access->grp_maybe_modified,
 	     access->grp_not_necessarilly_dereferenced);
   else
     fprintf (f, ", write = %d, grp_total_scalarization = %d, "
@@ -1150,29 +1157,36 @@ contains_view_convert_expr_p (const_tree ref)
   return false;
 }
 
-/* Return true if REF contains a VIEW_CONVERT_EXPR or a MEM_REF that performs
-   type conversion or a COMPONENT_REF with a bit-field field declaration.  */
+/* Return true if REF contains a VIEW_CONVERT_EXPR or a COMPONENT_REF with a
+   bit-field field declaration.  If TYPE_CHANGING_P is non-NULL, set the bool
+   it points to will be set if REF contains any of the above or a MEM_REF
+   expression that effectively performs type conversion.  */
 
 static bool
-contains_vce_or_bfcref_p (const_tree ref)
+contains_vce_or_bfcref_p (const_tree ref, bool *type_changing_p = NULL)
 {
   while (handled_component_p (ref))
     {
       if (TREE_CODE (ref) == VIEW_CONVERT_EXPR
 	  || (TREE_CODE (ref) == COMPONENT_REF
 	      && DECL_BIT_FIELD (TREE_OPERAND (ref, 1))))
-	return true;
+	{
+	  if (type_changing_p)
+	    *type_changing_p = true;
+	  return true;
+	}
       ref = TREE_OPERAND (ref, 0);
     }
 
-  if (TREE_CODE (ref) != MEM_REF
+  if (!type_changing_p
+      || TREE_CODE (ref) != MEM_REF
       || TREE_CODE (TREE_OPERAND (ref, 0)) != ADDR_EXPR)
     return false;
 
   tree mem = TREE_OPERAND (TREE_OPERAND (ref, 0), 0);
   if (TYPE_MAIN_VARIANT (TREE_TYPE (ref))
       != TYPE_MAIN_VARIANT (TREE_TYPE (mem)))
-    return true;
+    *type_changing_p = true;
 
   return false;
 }
@@ -1368,15 +1382,26 @@ build_accesses_from_assign (gimple *stmt)
       lacc->grp_assignment_write = 1;
       if (storage_order_barrier_p (rhs))
 	lacc->grp_unscalarizable_region = 1;
+
+      if (should_scalarize_away_bitmap && !is_gimple_reg_type (lacc->type))
+	{
+	  bool type_changing_p = false;
+	  contains_vce_or_bfcref_p (lhs, &type_changing_p);
+	  if (type_changing_p)
+	    bitmap_set_bit (cannot_scalarize_away_bitmap,
+			    DECL_UID (lacc->base));
+	}
     }
 
   if (racc)
     {
       racc->grp_assignment_read = 1;
-      if (should_scalarize_away_bitmap && !gimple_has_volatile_ops (stmt)
-	  && !is_gimple_reg_type (racc->type))
+      if (should_scalarize_away_bitmap && !is_gimple_reg_type (racc->type))
 	{
-	  if (contains_vce_or_bfcref_p (rhs))
+	  bool type_changing_p = false;
+	  contains_vce_or_bfcref_p (rhs, &type_changing_p);
+
+	  if (type_changing_p || gimple_has_volatile_ops (stmt))
 	    bitmap_set_bit (cannot_scalarize_away_bitmap,
 			    DECL_UID (racc->base));
 	  else
@@ -1777,6 +1802,27 @@ build_ref_for_offset (location_t loc, tree base, poly_int64 offset,
   return mem_ref;
 }
 
+/* Construct and return a memory reference that is equal to a portion of
+   MODEL->expr but is based on BASE.  If this cannot be done, return NULL.  */
+
+static tree
+build_reconstructed_reference (location_t, tree base, struct access *model)
+{
+  tree expr = model->expr, prev_expr = NULL;
+  while (!types_compatible_p (TREE_TYPE (expr), TREE_TYPE (base)))
+    {
+      if (!handled_component_p (expr))
+	return NULL;
+      prev_expr = expr;
+      expr = TREE_OPERAND (expr, 0);
+    }
+
+  TREE_OPERAND (prev_expr, 0) = base;
+  tree ref = unshare_expr (model->expr);
+  TREE_OPERAND (prev_expr, 0) = expr;
+  return ref;
+}
+
 /* Construct a memory reference to a part of an aggregate BASE at the given
    OFFSET and of the same type as MODEL.  In case this is a reference to a
    bit-field, the function will replicate the last component_ref of model's
@@ -1804,9 +1850,21 @@ build_ref_for_model (location_t loc, tree base, HOST_WIDE_INT offset,
 			      NULL_TREE);
     }
   else
-    return
-      build_ref_for_offset (loc, base, offset, model->reverse, model->type,
-			    gsi, insert_after);
+    {
+      tree res;
+      if (model->grp_same_access_path
+	  && !TREE_THIS_VOLATILE (base)
+	  && (TYPE_ADDR_SPACE (TREE_TYPE (base))
+	      == TYPE_ADDR_SPACE (TREE_TYPE (model->expr)))
+	  && offset <= model->offset
+	  /* build_reconstructed_reference can still fail if we have already
+	     massaged BASE because of another type incompatibility.  */
+	  && (res = build_reconstructed_reference (loc, base, model)))
+	return res;
+      else
+	return build_ref_for_offset (loc, base, offset, model->reverse,
+				     model->type, gsi, insert_after);
+    }
 }
 
 /* Attempt to build a memory reference that we could but into a gimple
@@ -2058,6 +2116,69 @@ find_var_candidates (void)
   return ret;
 }
 
+/* Return true if EXP is a reference chain of COMPONENT_REFs and AREAY_REFs
+   ending either with a DECL or a MEM_REF with zero offset.  */
+
+static bool
+path_comparable_for_same_access (tree expr)
+{
+  while (handled_component_p (expr))
+    {
+      if (TREE_CODE (expr) == ARRAY_REF)
+	{
+	  /* SSA name indices can occur here too when the array is of sie one.
+	     But we cannot just re-use array_refs with SSA names elsewhere in
+	     the function, so disallow non-constant indices.  TODO: Remove this
+	     limitation after teaching build_reconstructed_reference to replace
+	     the index with the index type lower bound.  */
+	  if (TREE_CODE (TREE_OPERAND (expr, 1)) != INTEGER_CST)
+	    return false;
+	}
+      expr = TREE_OPERAND (expr, 0);
+    }
+
+  if (TREE_CODE (expr) == MEM_REF)
+    {
+      if (!zerop (TREE_OPERAND (expr, 1)))
+	return false;
+    }
+  else
+    gcc_assert (DECL_P (expr));
+
+  return true;
+}
+
+/* Assuming that EXP1 consists of only COMPONENT_REFs and ARRAY_REFs, return
+   true if the chain of these handled components are exactly the same as EXP2
+   and the expression under them is the same DECL or an equivalent MEM_REF.
+   The reference picked by compare_access_positions must go to EXP1.  */
+
+static bool
+same_access_path_p (tree exp1, tree exp2)
+{
+  if (TREE_CODE (exp1) != TREE_CODE (exp2))
+    {
+      /* Special case single-field structures loaded sometimes as the field
+	 and sometimes as the structure.  If the field is of a scalar type,
+	 compare_access_positions will put it into exp1.
+
+	 TODO: The gimple register type condition can be removed if teach
+	 compare_access_positions to put inner types first.  */
+      if (is_gimple_reg_type (TREE_TYPE (exp1))
+	  && TREE_CODE (exp1) == COMPONENT_REF
+	  && (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (exp1, 0)))
+	      == TYPE_MAIN_VARIANT (TREE_TYPE (exp2))))
+	exp1 = TREE_OPERAND (exp1, 0);
+      else
+	return false;
+    }
+
+  if (!operand_equal_p (exp1, exp2, OEP_ADDRESS_OF))
+    return false;
+
+  return true;
+}
+
 /* Sort all accesses for the given variable, check for partial overlaps and
    return NULL if there are any.  If there are none, pick a representative for
    each combination of offset and size and create a linked list out of them.
@@ -2098,6 +2219,7 @@ sort_and_splice_var_accesses (tree var)
       bool grp_partial_lhs = access->grp_partial_lhs;
       bool first_scalar = is_gimple_reg_type (access->type);
       bool unscalarizable_region = access->grp_unscalarizable_region;
+      bool grp_same_access_path = true;
       bool bf_non_full_precision
 	= (INTEGRAL_TYPE_P (access->type)
 	   && TYPE_PRECISION (access->type) != access->size
@@ -2115,6 +2237,8 @@ sort_and_splice_var_accesses (tree var)
       else
 	gcc_assert (access->offset >= low
 		    && access->offset + access->size <= high);
+
+      grp_same_access_path = path_comparable_for_same_access (access->expr);
 
       j = i + 1;
       while (j < access_count)
@@ -2166,6 +2290,11 @@ sort_and_splice_var_accesses (tree var)
 		}
 	      unscalarizable_region = true;
 	    }
+
+	  if (grp_same_access_path
+	      && !same_access_path_p (access->expr, ac2->expr))
+	    grp_same_access_path = false;
+
 	  ac2->group_representative = access;
 	  j++;
 	}
@@ -2184,6 +2313,7 @@ sort_and_splice_var_accesses (tree var)
       access->grp_total_scalarization = total_scalarization;
       access->grp_partial_lhs = grp_partial_lhs;
       access->grp_unscalarizable_region = unscalarizable_region;
+      access->grp_same_access_path = grp_same_access_path;
 
       *prev_acc_ptr = access;
       prev_acc_ptr = &access->next_grp;
@@ -2195,12 +2325,19 @@ sort_and_splice_var_accesses (tree var)
 
 /* Create a variable for the given ACCESS which determines the type, name and a
    few other properties.  Return the variable declaration and store it also to
-   ACCESS->replacement.  */
+   ACCESS->replacement.  REG_TREE is used when creating a declaration to base a
+   default-definition SSA name on on in order to facilitate an uninitialized
+   warning.  It is used instead of the actual ACCESS type if that is not of a
+   gimple register type.  */
 
 static tree
-create_access_replacement (struct access *access)
+create_access_replacement (struct access *access, tree reg_type = NULL_TREE)
 {
   tree repl;
+
+  tree type = access->type;
+  if (reg_type && !is_gimple_reg_type (type))
+    type = reg_type;
 
   if (access->grp_to_be_debug_replaced)
     {
@@ -2210,17 +2347,16 @@ create_access_replacement (struct access *access)
   else
     /* Drop any special alignment on the type if it's not on the main
        variant.  This avoids issues with weirdo ABIs like AAPCS.  */
-    repl = create_tmp_var (build_qualified_type
-			     (TYPE_MAIN_VARIANT (access->type),
-			      TYPE_QUALS (access->type)), "SR");
-  if (TREE_CODE (access->type) == COMPLEX_TYPE
-      || TREE_CODE (access->type) == VECTOR_TYPE)
+    repl = create_tmp_var (build_qualified_type (TYPE_MAIN_VARIANT (type),
+						 TYPE_QUALS (type)), "SR");
+  if (TREE_CODE (type) == COMPLEX_TYPE
+      || TREE_CODE (type) == VECTOR_TYPE)
     {
       if (!access->grp_partial_lhs)
 	DECL_GIMPLE_REG_P (repl) = 1;
     }
   else if (access->grp_partial_lhs
-	   && is_gimple_reg_type (access->type))
+	   && is_gimple_reg_type (type))
     TREE_ADDRESSABLE (repl) = 1;
 
   DECL_SOURCE_LOCATION (repl) = DECL_SOURCE_LOCATION (access->base);
@@ -2447,6 +2583,8 @@ analyze_access_subtree (struct access *root, struct access *parent,
 	root->grp_assignment_write = 1;
       if (parent->grp_total_scalarization)
 	root->grp_total_scalarization = 1;
+      if (!parent->grp_same_access_path)
+	root->grp_same_access_path = 0;
     }
 
   if (root->grp_unscalarizable_region)
@@ -2697,13 +2835,17 @@ propagate_subaccesses_across_link (struct access *lacc, struct access *racc)
 	  lacc->type = racc->type;
 	  if (build_user_friendly_ref_for_offset (&t, TREE_TYPE (t),
 						  lacc->offset, racc->type))
-	    lacc->expr = t;
+	    {
+	      lacc->expr = t;
+	      lacc->grp_same_access_path = true;
+	    }
 	  else
 	    {
 	      lacc->expr = build_ref_for_model (EXPR_LOCATION (lacc->base),
 						lacc->base, lacc->offset,
 						racc, NULL, false);
 	      lacc->grp_no_warning = true;
+	      lacc->grp_same_access_path = false;
 	    }
 	}
       return ret;
@@ -2728,8 +2870,12 @@ propagate_subaccesses_across_link (struct access *lacc, struct access *racc)
 
 	      rchild->grp_hint = 1;
 	      new_acc->grp_hint |= new_acc->grp_read;
-	      if (rchild->first_child)
-		ret |= propagate_subaccesses_across_link (new_acc, rchild);
+	      if (rchild->first_child
+		  && propagate_subaccesses_across_link (new_acc, rchild))
+		{
+		  ret = 1;
+		  add_access_to_work_queue (new_acc);
+		}
 	    }
 	  else
 	    {
@@ -3450,15 +3596,16 @@ sra_modify_constructor_assign (gimple *stmt, gimple_stmt_iterator *gsi)
 
 /* Create and return a new suitable default definition SSA_NAME for RACC which
    is an access describing an uninitialized part of an aggregate that is being
-   loaded.  */
+   loaded.  REG_TREE is used instead of the actual RACC type if that is not of
+   a gimple register type.  */
 
 static tree
-get_repl_default_def_ssa_name (struct access *racc)
+get_repl_default_def_ssa_name (struct access *racc, tree reg_type)
 {
   gcc_checking_assert (!racc->grp_to_be_replaced
 		       && !racc->grp_to_be_debug_replaced);
   if (!racc->replacement_decl)
-    racc->replacement_decl = create_access_replacement (racc);
+    racc->replacement_decl = create_access_replacement (racc, reg_type);
   return get_or_create_ssa_default_def (cfun, racc->replacement_decl);
 }
 
@@ -3530,7 +3677,7 @@ sra_modify_assign (gimple *stmt, gimple_stmt_iterator *gsi)
 	   && TREE_CODE (lhs) == SSA_NAME
 	   && !access_has_replacements_p (racc))
     {
-      rhs = get_repl_default_def_ssa_name (racc);
+      rhs = get_repl_default_def_ssa_name (racc, TREE_TYPE (lhs));
       modify_this_stmt = true;
       sra_stats.exprs++;
     }
@@ -3548,7 +3695,8 @@ sra_modify_assign (gimple *stmt, gimple_stmt_iterator *gsi)
 	      lhs = build_ref_for_model (loc, lhs, 0, racc, gsi, false);
 	      gimple_assign_set_lhs (stmt, lhs);
 	    }
-	  else if (AGGREGATE_TYPE_P (TREE_TYPE (rhs))
+	  else if (lacc
+		   && AGGREGATE_TYPE_P (TREE_TYPE (rhs))
 		   && !contains_vce_or_bfcref_p (rhs))
 	    rhs = build_ref_for_model (loc, rhs, 0, lacc, gsi, false);
 
@@ -5430,7 +5578,7 @@ ipa_sra_preliminary_function_checks (struct cgraph_node *node)
   if (!node->local.can_change_signature)
     {
       if (dump_file)
-	fprintf (dump_file, "Function can not change signature.\n");
+	fprintf (dump_file, "Function cannot change signature.\n");
       return false;
     }
 

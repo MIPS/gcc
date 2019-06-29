@@ -806,6 +806,20 @@ public:
   {}
 };
 
+/* Skip edges from and to nodes without ipa_cp enabled.
+   Ignore not available symbols.  */
+
+static bool
+ignore_edge_p (cgraph_edge *e)
+{
+  enum availability avail;
+  cgraph_node *ultimate_target
+    = e->callee->function_or_virtual_thunk_symbol (&avail, e->caller);
+
+  return (avail <= AVAIL_INTERPOSABLE
+	  || !opt_for_fn (ultimate_target->decl, flag_ipa_cp));
+}
+
 /* Allocate the arrays in TOPO and topologically sort the nodes into order.  */
 
 static void
@@ -815,7 +829,8 @@ build_toporder_info (struct ipa_topo_info *topo)
   topo->stack = XCNEWVEC (struct cgraph_node *, symtab->cgraph_count);
 
   gcc_checking_assert (topo->stack_top == 0);
-  topo->nnodes = ipa_reduced_postorder (topo->order, true, true, NULL);
+  topo->nnodes = ipa_reduced_postorder (topo->order, true,
+					ignore_edge_p);
 }
 
 /* Free information about strongly connected components and the arrays in
@@ -1070,7 +1085,6 @@ ipcp_bits_lattice::meet_with (ipcp_bits_lattice& other, unsigned precision,
   if (TREE_CODE_CLASS (code) == tcc_binary)
     {
       tree type = TREE_TYPE (operand);
-      gcc_assert (INTEGRAL_TYPE_P (type));
       widest_int o_value, o_mask;
       get_value_and_mask (operand, &o_value, &o_mask);
 
@@ -1129,7 +1143,7 @@ count_callers (cgraph_node *node, void *data)
   int *caller_count = (int *) data;
 
   for (cgraph_edge *cs = node->callers; cs; cs = cs->next_caller)
-    /* Local thunks can be handled transparently, but if the thunk can not
+    /* Local thunks can be handled transparently, but if the thunk cannot
        be optimized out, count it as a real use.  */
     if (!cs->caller->thunk.thunk_p || !cs->caller->local.local)
       ++*caller_count;
@@ -2818,11 +2832,18 @@ perform_estimation_of_a_value (cgraph_node *node, vec<tree> known_csts,
   base_time -= time;
   if (base_time > 65535)
     base_time = 65535;
-  time_benefit = base_time.to_int ()
-    + devirtualization_time_bonus (node, known_csts, known_contexts,
-				   known_aggs_ptrs)
-    + hint_time_bonus (hints)
-    + removable_params_cost + est_move_cost;
+
+  /* Extern inline functions have no cloning local time benefits because they
+     will be inlined anyway.  The only reason to clone them is if it enables
+     optimization in any of the functions they call.  */
+  if (DECL_EXTERNAL (node->decl) && DECL_DECLARED_INLINE_P (node->decl))
+    time_benefit = 0;
+  else
+    time_benefit = base_time.to_int ()
+      + devirtualization_time_bonus (node, known_csts, known_contexts,
+				     known_aggs_ptrs)
+      + hint_time_bonus (hints)
+      + removable_params_cost + est_move_cost;
 
   gcc_checking_assert (size >=0);
   /* The inliner-heuristics based estimates may think that in certain
@@ -4424,7 +4445,6 @@ static bool
 cgraph_edge_brings_all_agg_vals_for_node (struct cgraph_edge *cs,
 					  struct cgraph_node *node)
 {
-  struct ipa_node_params *orig_caller_info = IPA_NODE_REF (cs->caller);
   struct ipa_node_params *orig_node_info;
   struct ipa_agg_replacement_value *aggval;
   int i, ec, count;
@@ -4441,8 +4461,6 @@ cgraph_edge_brings_all_agg_vals_for_node (struct cgraph_edge *cs,
 	return false;
 
   orig_node_info = IPA_NODE_REF (IPA_NODE_REF (node)->ipcp_orig_node);
-  if (orig_caller_info->ipcp_orig_node)
-    orig_caller_info = IPA_NODE_REF (orig_caller_info->ipcp_orig_node);
 
   for (i = 0; i < count; i++)
     {

@@ -11,14 +11,17 @@ nothrow:
 
 version (ARM)     version = ARM_Any;
 version (AArch64) version = ARM_Any;
+version (HPPA)    version = HPPA_Any;
 version (MIPS32)  version = MIPS_Any;
 version (MIPS64)  version = MIPS_Any;
 version (PPC)     version = PPC_Any;
 version (PPC64)   version = PPC_Any;
 version (RISCV32) version = RISCV_Any;
 version (RISCV64) version = RISCV_Any;
+version (S390)    version = IBMZ_Any;
 version (SPARC)   version = SPARC_Any;
 version (SPARC64) version = SPARC_Any;
+version (SystemZ) version = IBMZ_Any;
 version (X86)     version = X86_Any;
 version (X86_64)  version = X86_Any;
 
@@ -29,6 +32,12 @@ import core.sys.linux.elf;
 
 // <bits/elfclass.h>
 version (X86_Any)
+{
+    // http://sourceware.org/git/?p=glibc.git;a=blob;f=bits/elfclass.h
+    alias __WORDSIZE __ELF_NATIVE_CLASS;
+    alias uint32_t Elf_Symndx;
+}
+else version (HPPA_Any)
 {
     // http://sourceware.org/git/?p=glibc.git;a=blob;f=bits/elfclass.h
     alias __WORDSIZE __ELF_NATIVE_CLASS;
@@ -64,11 +73,14 @@ else version (SPARC_Any)
     alias __WORDSIZE __ELF_NATIVE_CLASS;
     alias uint32_t Elf_Symndx;
 }
-else version (SystemZ)
+else version (IBMZ_Any)
 {
     // http://sourceware.org/git/?p=glibc.git;a=blob;f=sysdeps/unix/sysv/linux/s390/bits/elfclass.h
     alias __WORDSIZE __ELF_NATIVE_CLASS;
-    alias uint64_t Elf_Symndx;
+    static if (__WORDSIZE == 64)
+        alias uint64_t Elf_Symndx;
+    else
+        alias uint32_t Elf_Symndx;
 }
 else
     static assert(0, "unimplemented");

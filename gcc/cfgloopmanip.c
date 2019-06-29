@@ -364,7 +364,6 @@ remove_path (edge e, bool *irred_invalidated,
 
   for (i = 0; i < nrem; i++)
     {
-      bb = rem_bbs[i];
       FOR_EACH_EDGE (ae, ei, rem_bbs[i]->succs)
 	if (ae->dest != EXIT_BLOCK_PTR_FOR_FN (cfun)
 	    && !bitmap_bit_p (seen, ae->dest->index))
@@ -1015,10 +1014,17 @@ copy_loop_info (struct loop *loop, struct loop *target)
   target->any_estimate = loop->any_estimate;
   target->nb_iterations_estimate = loop->nb_iterations_estimate;
   target->estimate_state = loop->estimate_state;
+  target->safelen = loop->safelen;
+  target->simdlen = loop->simdlen;
   target->constraints = loop->constraints;
+  target->can_be_parallel = loop->can_be_parallel;
   target->warned_aggressive_loop_optimizations
     |= loop->warned_aggressive_loop_optimizations;
+  target->dont_vectorize = loop->dont_vectorize;
+  target->force_vectorize = loop->force_vectorize;
   target->in_oacc_kernels_region = loop->in_oacc_kernels_region;
+  target->unroll = loop->unroll;
+  target->owned_clique = loop->owned_clique;
 }
 
 /* Copies copy of LOOP as subloop of TARGET loop, placing newly

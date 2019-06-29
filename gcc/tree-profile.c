@@ -101,11 +101,7 @@ init_ic_make_global_vars (void)
 
   ic_tuple_var
     = build_decl (UNKNOWN_LOCATION, VAR_DECL,
-		  get_identifier (
-			  (PARAM_VALUE (PARAM_INDIR_CALL_TOPN_PROFILE) ?
-			   "__gcov_indirect_call_topn" :
-			   "__gcov_indirect_call")),
-		  tuple_type);
+		  get_identifier ("__gcov_indirect_call"), tuple_type);
   TREE_PUBLIC (ic_tuple_var) = 1;
   DECL_ARTIFICIAL (ic_tuple_var) = 1;
   DECL_INITIAL (ic_tuple_var) = NULL;
@@ -169,10 +165,10 @@ gimple_init_gcov_profiler (void)
 	      = build_function_type_list (void_type_node,
 					  gcov_type_ptr, gcov_type_node,
 					  NULL_TREE);
-      fn_name = concat ("__gcov_one_value_profiler", fn_suffix, NULL);
+      fn_name = concat ("__gcov_one_value_profiler_v2", fn_suffix, NULL);
       tree_one_value_profiler_fn = build_fn_decl (fn_name,
 						  one_value_profiler_fn_type);
-      free (CONST_CAST (char *, fn_name));
+
       TREE_NOTHROW (tree_one_value_profiler_fn) = 1;
       DECL_ATTRIBUTES (tree_one_value_profiler_fn)
 	= tree_cons (get_identifier ("leaf"), NULL,
@@ -186,9 +182,7 @@ gimple_init_gcov_profiler (void)
 					  gcov_type_node,
 					  ptr_type_node,
 					  NULL_TREE);
-      profiler_fn_name = "__gcov_indirect_call_profiler_v2";
-      if (PARAM_VALUE (PARAM_INDIR_CALL_TOPN_PROFILE))
-	profiler_fn_name = "__gcov_indirect_call_topn_profiler";
+      profiler_fn_name = "__gcov_indirect_call_profiler_v4";
 
       tree_indirect_call_profiler_fn
 	      = build_fn_decl (profiler_fn_name, ic_profiler_fn_type);
@@ -376,12 +370,6 @@ gimple_gen_ic_profiler (histogram_value value, unsigned tag, unsigned base)
   gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
   tree ref_ptr = tree_coverage_counter_addr (tag, base);
 
-  if ( (PARAM_VALUE (PARAM_INDIR_CALL_TOPN_PROFILE) &&
-        tag == GCOV_COUNTER_V_INDIR) ||
-       (!PARAM_VALUE (PARAM_INDIR_CALL_TOPN_PROFILE) &&
-        tag == GCOV_COUNTER_ICALL_TOPNV))
-    return;
-
   ref_ptr = force_gimple_operand_gsi (&gsi, ref_ptr,
 				      true, NULL_TREE, true, GSI_SAME_STMT);
 
@@ -459,9 +447,9 @@ gimple_gen_ic_func_profiler (void)
   /* Insert code:
 
      if (__gcov_indirect_call_callee != NULL)
-       __gcov_indirect_call_profiler_v2 (profile_id, &current_function_decl);
+       __gcov_indirect_call_profiler_v3 (profile_id, &current_function_decl);
 
-     The function __gcov_indirect_call_profiler_v2 is responsible for
+     The function __gcov_indirect_call_profiler_v3 is responsible for
      resetting __gcov_indirect_call_callee to NULL.  */
 
   gimple_stmt_iterator gsi = gsi_start_bb (cond_bb);
@@ -632,7 +620,7 @@ parse_profile_filter (const char *regex, vec<regex_t> *v,
 	  regex_t r;
 	  if (regcomp (&r, p, REG_EXTENDED | REG_NOSUB) != 0)
 	    {
-	      error ("invalid regular expression '%s' in %<%s%>",
+	      error ("invalid regular expression %qs in %qs",
 		     p, flag_name);
 	      return;
 	    }
@@ -763,7 +751,7 @@ tree_profiling (void)
 
       if (node->thunk.thunk_p)
 	{
-	  /* We can not expand variadic thunks to Gimple.  */
+	  /* We cannot expand variadic thunks to Gimple.  */
 	  if (stdarg_p (TREE_TYPE (node->decl)))
 	    continue;
 	  thunk = true;

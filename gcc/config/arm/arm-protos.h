@@ -109,6 +109,8 @@ extern int arm_coproc_mem_operand (rtx, bool);
 extern int neon_vector_mem_operand (rtx, int, bool);
 extern int neon_struct_mem_operand (rtx);
 
+extern rtx *neon_vcmla_lane_prepare_operands (rtx *);
+
 extern int tls_mentioned_p (rtx);
 extern int symbol_mentioned_p (rtx);
 extern int label_mentioned_p (rtx);
@@ -123,8 +125,9 @@ extern rtx arm_gen_store_multiple (int *, int, rtx, int, rtx, HOST_WIDE_INT *);
 extern bool offset_ok_for_ldrd_strd (HOST_WIDE_INT);
 extern bool operands_ok_ldrd_strd (rtx, rtx, rtx, HOST_WIDE_INT, bool, bool);
 extern bool gen_operands_ldrd_strd (rtx *, bool, bool, bool);
-extern int arm_gen_movmemqi (rtx *);
-extern bool gen_movmem_ldrd_strd (rtx *);
+extern bool valid_operands_ldrd_strd (rtx *, bool);
+extern int arm_gen_cpymemqi (rtx *);
+extern bool gen_cpymem_ldrd_strd (rtx *);
 extern machine_mode arm_select_cc_mode (RTX_CODE, rtx, rtx);
 extern machine_mode arm_select_dominance_cc_mode (rtx, rtx,
 						       HOST_WIDE_INT);
@@ -144,6 +147,7 @@ extern const char *output_mov_long_double_arm_from_arm (rtx *);
 extern const char *output_move_double (rtx *, bool, int *count);
 extern const char *output_move_quad (rtx *);
 extern int arm_count_output_move_double_insns (rtx *);
+extern int arm_count_ldrdstrd_insns (rtx *, bool);
 extern const char *output_move_vfp (rtx *operands);
 extern const char *output_move_neon (rtx *operands);
 extern int arm_attr_length_move_neon (rtx_insn *);
@@ -199,7 +203,7 @@ extern void thumb2_final_prescan_insn (rtx_insn *);
 extern const char *thumb_load_double_from_address (rtx *);
 extern const char *thumb_output_move_mem_multiple (int, rtx *);
 extern const char *thumb_call_via_reg (rtx);
-extern void thumb_expand_movmemqi (rtx *);
+extern void thumb_expand_cpymemqi (rtx *);
 extern rtx arm_return_addr (int, rtx);
 extern void thumb_reload_out_hi (rtx *);
 extern void thumb_set_return_address (rtx, rtx);

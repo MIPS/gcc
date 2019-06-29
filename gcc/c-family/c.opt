@@ -477,8 +477,8 @@ C++ ObjC++ Var(warn_delnonvdtor) Warning LangEnabledBy(C++ ObjC++,Wall || Weffc+
 Warn about deleting polymorphic objects with non-virtual destructors.
 
 Wdeprecated
-C C++ ObjC ObjC++ CPP(cpp_warn_deprecated) CppReason(CPP_W_DEPRECATED) Var(warn_deprecated) Init(1) Warning
-Warn if a deprecated compiler feature, class, method, or field is used.
+C C++ ObjC ObjC++ CPP(cpp_warn_deprecated) CppReason(CPP_W_DEPRECATED)
+; Documented in common.opt
 
 Wdeprecated-copy
 C++ ObjC++ Var(warn_deprecated_copy) Warning LangEnabledBy(C++ ObjC++, Wextra)
@@ -562,6 +562,10 @@ Wformat-contains-nul
 C ObjC C++ ObjC++ Var(warn_format_contains_nul) Warning LangEnabledBy(C ObjC C++ ObjC++,Wformat=, warn_format >= 1, 0)
 Warn about format strings that contain NUL bytes.
 
+Wformat-diag
+C ObjC C++ ObjC++ Var(warn_format_diag) Warning LangEnabledBy(C ObjC C++ ObjC++,Wformat=, warn_format >= 1, 0)
+Warn about GCC format strings with strings unsuitable for diagnostics.
+
 Wformat-extra-args
 C ObjC C++ ObjC++ Var(warn_format_extra_args) Warning LangEnabledBy(C ObjC C++ ObjC++,Wformat=, warn_format >= 1, 0)
 Warn if passing too many arguments to a function for its format string.
@@ -620,6 +624,10 @@ Warn whenever type qualifiers are ignored.
 Wignored-attributes
 C C++ Var(warn_ignored_attributes) Init(1) Warning
 Warn whenever attributes are ignored.
+
+Winaccessible-base
+C++ ObjC++ Var(warn_inaccessible_base) Init(1) Warning
+Warn when a base is inaccessible in derived due to ambiguity.
 
 Wincompatible-pointer-types
 C ObjC Var(warn_incompatible_pointer_types) Init(1) Warning
@@ -811,6 +819,10 @@ Wswitch-bool
 C ObjC C++ ObjC++ Var(warn_switch_bool) Warning Init(1)
 Warn about switches with boolean controlling expression.
 
+Wswitch-outside-range
+C ObjC C++ ObjC++ Var(warn_switch_outside_range) Warning Init(1)
+Warn about switch values that are outside of the switch's type range.
+
 Wtemplates
 C++ ObjC++ Var(warn_templates) Warning
 Warn on primary template declaration.
@@ -818,7 +830,7 @@ Warn on primary template declaration.
 Wmissing-attributes
 C ObjC C++ ObjC++ Var(warn_missing_attributes) Warning LangEnabledBy(C ObjC C++ ObjC++,Wall)
 Warn about declarations of entities that may be missing attributes
-that related entities have been declared with it.
+that related entities have been declared with.
 
 Wmissing-format-attribute
 C ObjC C++ ObjC++ Warning Alias(Wsuggest-attribute=format)
@@ -1300,6 +1312,11 @@ fcanonical-system-headers
 C ObjC C++ ObjC++
 Where shorter, use canonicalized paths to systems headers.
 
+fchar8_t
+C++ ObjC++ Var(flag_char8_t) Init(-1)
+Enable the char8_t fundamental type and use it as the type for UTF-8 string
+and character literals.
+
 fcheck-pointer-bounds
 C ObjC C++ ObjC++ LTO Deprecated
 Deprecated in GCC 9.  This switch has no effect.
@@ -1411,9 +1428,17 @@ fconstexpr-depth=
 C++ ObjC++ Joined RejectNegative UInteger Var(max_constexpr_depth) Init(512)
 -fconstexpr-depth=<number>	Specify maximum constexpr recursion depth.
 
+fconstexpr-cache-depth=
+C++ ObjC++ Joined RejectNegative UInteger Var(constexpr_cache_depth) Init(8)
+-fconstexpr-cache-depth=<number>	Specify maximum constexpr recursion cache depth.
+
 fconstexpr-loop-limit=
 C++ ObjC++ Joined RejectNegative UInteger Var(constexpr_loop_limit) Init(262144)
 -fconstexpr-loop-limit=<number>	Specify maximum constexpr loop iteration count.
+
+fconstexpr-ops-limit=
+C++ ObjC++ Joined RejectNegative Host_Wide_Int Var(constexpr_ops_limit) Init(33554432)
+-fconstexpr-ops-limit=<number>	Specify maximum number of constexpr operations during a single constexpr evaluation.
 
 fdebug-cpp
 C ObjC C++ ObjC++
@@ -1511,7 +1536,7 @@ fguiding-decls
 C++ ObjC++ Deprecated
 
 fhandle-exceptions
-C++ ObjC++ Optimization Alias(fexceptions) Warn({-fhandle-exceptions has been renamed -fexceptions (and is now on by default)})
+C++ ObjC++ Optimization Alias(fexceptions) Warn({%<-fhandle-exceptions%> has been renamed %<-fexceptions%> (and is now on by default)})
 
 fhonor-std
 C++ ObjC++ Deprecated

@@ -188,7 +188,7 @@ default_const_not_ok_for_debug_p (rtx x)
 rtx
 default_expand_builtin_saveregs (void)
 {
-  error ("__builtin_saveregs not supported by this target");
+  error ("%<__builtin_saveregs%> not supported by this target");
   return const0_rtx;
 }
 
@@ -641,6 +641,19 @@ bool
 default_has_ifunc_p (void)
 {
   return HAVE_GNU_INDIRECT_FUNCTION;
+}
+
+/* Return true if we predict the loop LOOP will be transformed to a
+   low-overhead loop, otherwise return false.
+
+   By default, false is returned, as this hook's applicability should be
+   verified for each target.  Target maintainers should re-define the hook
+   if the target can take advantage of it.  */
+
+bool
+default_predict_doloop_p (struct loop *loop ATTRIBUTE_UNUSED)
+{
+  return false;
 }
 
 /* NULL if INSN insn is valid within a low-overhead loop, otherwise returns
@@ -1247,14 +1260,18 @@ constant_alignment_word_strings (const_tree exp, HOST_WIDE_INT align)
   return align;
 }
 
-/* Default to natural alignment for vector types.  */
+/* Default to natural alignment for vector types, bounded by
+   MAX_OFILE_ALIGNMENT.  */
+
 HOST_WIDE_INT
 default_vector_alignment (const_tree type)
 {
-  HOST_WIDE_INT align = tree_to_shwi (TYPE_SIZE (type));
-  if (align > MAX_OFILE_ALIGNMENT)
-    align = MAX_OFILE_ALIGNMENT;
-  return align;
+  unsigned HOST_WIDE_INT align = MAX_OFILE_ALIGNMENT;
+  tree size = TYPE_SIZE (type);
+  if (tree_fits_uhwi_p (size))
+    align = tree_to_uhwi (size);
+
+  return align < MAX_OFILE_ALIGNMENT ? align : MAX_OFILE_ALIGNMENT;
 }
 
 /* The default implementation of
@@ -1312,7 +1329,7 @@ default_split_reduction (machine_mode mode)
    is tried.  */
 
 void
-default_autovectorize_vector_sizes (vector_sizes *)
+default_autovectorize_vector_sizes (vector_sizes *, bool)
 {
 }
 
@@ -1596,7 +1613,7 @@ default_target_option_pragma_parse (tree ARG_UNUSED (args),
      do not have the "target" pragma.  */
   if (args)
     warning (OPT_Wpragmas,
-	     "#pragma GCC target is not supported for this machine");
+	     "%<#pragma GCC target%> is not supported for this machine");
 
   return false;
 }
@@ -1644,6 +1661,14 @@ default_libc_has_function (enum function_class fn_class)
       || fn_class == function_c99_math_complex)
     return true;
 
+  return false;
+}
+
+/* By default assume that libc has not a fast implementation.  */
+
+bool
+default_libc_has_fast_function (int fcode ATTRIBUTE_UNUSED)
+{
   return false;
 }
 
@@ -1721,9 +1746,9 @@ get_move_ratio (bool speed_p ATTRIBUTE_UNUSED)
 #ifdef MOVE_RATIO
   move_ratio = (unsigned int) MOVE_RATIO (speed_p);
 #else
-#if defined (HAVE_movmemqi) || defined (HAVE_movmemhi) || defined (HAVE_movmemsi) || defined (HAVE_movmemdi) || defined (HAVE_movmemti)
+#if defined (HAVE_cpymemqi) || defined (HAVE_cpymemhi) || defined (HAVE_cpymemsi) || defined (HAVE_cpymemdi) || defined (HAVE_cpymemti)
   move_ratio = 2;
-#else /* No movmem patterns, pick a default.  */
+#else /* No cpymem patterns, pick a default.  */
   move_ratio = ((speed_p) ? 15 : 3);
 #endif
 #endif
@@ -1731,7 +1756,7 @@ get_move_ratio (bool speed_p ATTRIBUTE_UNUSED)
 }
 
 /* Return TRUE if the move_by_pieces/set_by_pieces infrastructure should be
-   used; return FALSE if the movmem/setmem optab should be expanded, or
+   used; return FALSE if the cpymem/setmem optab should be expanded, or
    a call to memcpy emitted.  */
 
 bool
@@ -1814,7 +1839,7 @@ default_print_patchable_function_entry (FILE *file,
       ASM_GENERATE_INTERNAL_LABEL (buf, "LPFE", patch_area_number);
 
       switch_to_section (get_section ("__patchable_function_entries",
-				      0, NULL));
+				      SECTION_WRITE | SECTION_RELRO, NULL));
       fputs (asm_op, file);
       assemble_name_raw (file, buf);
       fputc ('\n', file);
@@ -1930,7 +1955,7 @@ default_dwarf_frame_reg_mode (int regno)
 {
   machine_mode save_mode = reg_raw_mode[regno];
 
-  if (targetm.hard_regno_call_part_clobbered (regno, save_mode))
+  if (targetm.hard_regno_call_part_clobbered (NULL, regno, save_mode))
     save_mode = choose_hard_reg_mode (regno, 1, true);
   return save_mode;
 }
@@ -2031,9 +2056,9 @@ default_pch_valid_p (const void *data_p, size_t len)
 
   /* -fpic and -fpie also usually make a PCH invalid.  */
   if (data[0] != flag_pic)
-    return _("created and used with different settings of -fpic");
+    return _("created and used with different settings of %<-fpic%>");
   if (data[1] != flag_pie)
-    return _("created and used with different settings of -fpie");
+    return _("created and used with different settings of %<-fpie%>");
   data += 2;
 
   /* Check target_flags.  */
@@ -2372,6 +2397,11 @@ default_speculation_safe_value (machine_mode mode ATTRIBUTE_UNUSED,
 #endif
 
   return result;
+}
+
+void
+default_remove_extra_call_preserved_regs (rtx_insn *, HARD_REG_SET *)
+{
 }
 
 #include "gt-targhooks.h"

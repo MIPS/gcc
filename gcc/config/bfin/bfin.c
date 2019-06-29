@@ -2379,16 +2379,19 @@ bfin_option_override (void)
 
 #ifdef SUBTARGET_FDPIC_NOT_SUPPORTED
   if (TARGET_FDPIC)
-    error ("-mfdpic is not supported, please use a bfin-linux-uclibc target");
+    error ("%<-mfdpic%> is not supported, please use a bfin-linux-uclibc "
+	   "target");
 #endif
 
   /* Library identification */
   if (global_options_set.x_bfin_library_id && ! TARGET_ID_SHARED_LIBRARY)
-    error ("-mshared-library-id= specified without -mid-shared-library");
+    error ("%<-mshared-library-id=%> specified without "
+	   "%<-mid-shared-library%>");
 
   if (stack_limit_rtx && TARGET_FDPIC)
     {
-      warning (0, "-fstack-limit- options are ignored with -mfdpic; use -mstack-check-l1");
+      warning (0, "%<-fstack-limit-%> options are ignored with %<-mfdpic%>; "
+	       "use %<-mstack-check-l1%>");
       stack_limit_rtx = NULL_RTX;
     }
 
@@ -2401,7 +2404,7 @@ bfin_option_override (void)
   /* Don't allow the user to specify -mid-shared-library and -msep-data
      together, as it makes little sense from a user's point of view...  */
   if (TARGET_SEP_DATA && TARGET_ID_SHARED_LIBRARY)
-    error ("cannot specify both -msep-data and -mid-shared-library");
+    error ("cannot specify both %<-msep-data%> and %<-mid-shared-library%>");
   /* ... internally, however, it's nearly the same.  */
   if (TARGET_SEP_DATA)
     target_flags |= MASK_ID_SHARED_LIBRARY | MASK_LEAF_ID_SHARED_LIBRARY;
@@ -2421,16 +2424,16 @@ bfin_option_override (void)
     flag_pic = 0;
 
   if (TARGET_MULTICORE && bfin_cpu_type != BFIN_CPU_BF561)
-    error ("-mmulticore can only be used with BF561");
+    error ("%<-mmulticore%> can only be used with BF561");
 
   if (TARGET_COREA && !TARGET_MULTICORE)
-    error ("-mcorea should be used with -mmulticore");
+    error ("%<-mcorea%> should be used with %<-mmulticore%>");
 
   if (TARGET_COREB && !TARGET_MULTICORE)
-    error ("-mcoreb should be used with -mmulticore");
+    error ("%<-mcoreb%> should be used with %<-mmulticore%>");
 
   if (TARGET_COREA && TARGET_COREB)
-    error ("-mcorea and -mcoreb can%'t be used together");
+    error ("%<-mcorea%> and %<-mcoreb%> can%'t be used together");
 
   flag_schedule_insns = 0;
 
@@ -3205,7 +3208,7 @@ output_pop_multiple (rtx insn, rtx *operands)
 /* Adjust DST and SRC by OFFSET bytes, and generate one move in mode MODE.  */
 
 static void
-single_move_for_movmem (rtx dst, rtx src, machine_mode mode, HOST_WIDE_INT offset)
+single_move_for_cpymem (rtx dst, rtx src, machine_mode mode, HOST_WIDE_INT offset)
 {
   rtx scratch = gen_reg_rtx (mode);
   rtx srcmem, dstmem;
@@ -3221,7 +3224,7 @@ single_move_for_movmem (rtx dst, rtx src, machine_mode mode, HOST_WIDE_INT offse
    back on a different method.  */
 
 bool
-bfin_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp)
+bfin_expand_cpymem (rtx dst, rtx src, rtx count_exp, rtx align_exp)
 {
   rtx srcreg, destreg, countreg;
   HOST_WIDE_INT align = 0;
@@ -3266,7 +3269,7 @@ bfin_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp)
 	{
 	  if ((count & ~3) == 4)
 	    {
-	      single_move_for_movmem (dst, src, SImode, offset);
+	      single_move_for_cpymem (dst, src, SImode, offset);
 	      offset = 4;
 	    }
 	  else if (count & ~3)
@@ -3279,7 +3282,7 @@ bfin_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp)
 	    }
 	  if (count & 2)
 	    {
-	      single_move_for_movmem (dst, src, HImode, offset);
+	      single_move_for_cpymem (dst, src, HImode, offset);
 	      offset += 2;
 	    }
 	}
@@ -3287,7 +3290,7 @@ bfin_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp)
 	{
 	  if ((count & ~1) == 2)
 	    {
-	      single_move_for_movmem (dst, src, HImode, offset);
+	      single_move_for_cpymem (dst, src, HImode, offset);
 	      offset = 2;
 	    }
 	  else if (count & ~1)
@@ -3301,7 +3304,7 @@ bfin_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp)
 	}
       if (count & 1)
 	{
-	  single_move_for_movmem (dst, src, QImode, offset);
+	  single_move_for_cpymem (dst, src, QImode, offset);
 	}
       return true;
     }
@@ -4973,10 +4976,12 @@ bfin_output_mi_thunk (FILE *file ATTRIBUTE_UNUSED,
 		      tree thunk ATTRIBUTE_UNUSED, HOST_WIDE_INT delta,
 		      HOST_WIDE_INT vcall_offset, tree function)
 {
+  const char *fnname = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (thunk));
   rtx xops[3];
   /* The this parameter is passed as the first argument.  */
   rtx this_rtx = gen_rtx_REG (Pmode, REG_R0);
 
+  assemble_start_function (thunk, fnname);
   /* Adjust the this parameter by a fixed constant.  */
   if (delta)
     {
@@ -5031,6 +5036,7 @@ bfin_output_mi_thunk (FILE *file ATTRIBUTE_UNUSED,
   xops[0] = XEXP (DECL_RTL (function), 0);
   if (1 || !flag_pic || (*targetm.binds_local_p) (function))
     output_asm_insn ("jump.l\t%P0", xops);
+  assemble_end_function (thunk, fnname);
 }
 
 /* Codes for all the Blackfin builtins.  */

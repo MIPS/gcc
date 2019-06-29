@@ -1,3 +1,115 @@
+2019-06-27  Jan Hubicka  <jh@suse.cz>
+
+	* lto-common.c: tree-pretty-print.h
+	(type_streaming_finished): New static var.
+	(gimple_register_canonical_type_1): Return updated hash; handle ODR
+	types.
+	(iterative_hash_canonical_type): Update use of
+	gimple_register_canonical_type_1.
+
+2019-06-27  Martin Liska  <mliska@suse.cz>
+
+	* lto-dump.c (struct symbol_entry): Add default dtor.
+	(struct variable_entry): Likewise.
+	(struct function_entry): Likewise.
+	(dump_list_functions): Release memory.
+	(dump_list_variables): Likewise.
+
+2019-06-24  Jan Hubicka  <jh@suse.cz>
+
+	* lto-common.c (compare_tree_sccs_1): Compare CXX_ODR_P;
+	compare STRING_FLAG only for arrays and integers.
+
+2019-06-05  Martin Sebor  <msebor@redhat.com>
+
+	* lto-common.c (lto_file_finalize): Adjust quoting and hyphenation.
+
+2019-05-16  Martin Sebor  <msebor@redhat.com>
+
+        * lto-dump.c (lto_main): Same.
+        * lto.c (stream_out): Same.
+
+2019-05-10  Martin Liska  <mliska@suse.cz>
+
+	* Make-lang.in: Use program_transform_name for lto-dump.
+	* config-lang.in: Do not mark lto-dump compiler as we don't
+	want to have it installed at
+	lib/gcc/x86_64-pc-linux-gnu/10.0.0/lto-dump.
+
+2019-05-07  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* lto-common.c (lto_file_read): Print section->start as int64_t,
+	section->len as uint64_t.
+	* lto-dump.c (symbol_entry::dump): Print sz as uint64_t.
+
+2019-05-06  Martin Liska  <mliska@suse.cz>
+
+	* lto-common.c: Update coding style.
+	* lto.c (materialize_cgraph): Likewise.
+
+2019-05-06  Hrishikesh Kulkarni  <hrishikeshparag@gmail.com>
+	    Martin Liska  <mliska@suse.cz>
+
+	* Make-lang.in: Add lto_dump-related definition.
+	* config-lang.in: Likewise.
+	* lang.opt: Add new language LTODump and options related
+	to LTO dump tool.
+	* lto-common.c (lto_read_decls): Support type statistics dump.
+	(lto_file_read): Likewise for object files.
+	* lto-dump.c: New file.
+	* lto-lang.c (lto_option_lang_mask): Move from ..
+	* lto.c (lto_option_lang_mask): .. here.
+	* lto.h (lto_option_lang_mask): New declaration.
+
+2019-05-06  Martin Liska  <mliska@suse.cz>
+	    Hrishikesh Kulkarni  <hrishikeshparag@gmail.com>
+
+	* Make-lang.in: Add lto-common.o.
+	* config-lang.in: Likewise for gtfiles.
+	* lto-common.c: New file.
+	* lto-common.h: New file.
+	* lto-lang.c: Include lto-common.h.
+	* lto.c: Move most of the functionality
+	into lto-common.c file.
+
+2019-04-12  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto.c (do_stream_out): rename to ...
+	(stream_out): ... this one; move original code to ...
+	(stream_out_partitions_1, stream_out_partitions): ... these new
+	functions.
+	(lto_wpa_write_files): Honnor lto_parallelism
+
+2019-03-26  Martin Liska  <mliska@suse.cz>
+
+	* lto-symtab.c (lto_symtab_merge_decls_2): Fix option name
+	wrapping.
+
+2019-03-11  Martin Liska  <mliska@suse.cz>
+
+	* lto-lang.c (lto_post_options): Wrap an option name
+	in a string format message and fix GNU coding style.
+	* lto-symtab.c (lto_symtab_merge_decls_2): Likewise.
+
+2019-03-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/79645
+	* lang.opt: Terminate description text with a dot.
+
+2019-02-28  Jason Merrill  <jason@redhat.com>
+
+	PR c++/88049 - ICE with undefined destructor and anon namespace.
+	* lto-symtab.c (lto_symtab_prevailing_virtual_decl): Return early
+	for a type in an anonymous namespace.
+
+2019-01-09  Sandra Loosemore  <sandra@codesourcery.com>
+
+	PR other/16615
+
+	* lto-partition.c: Mechanically replace "can not" with "cannot".
+	* lto-symtab.c: Likewise.
+	* lto.c: Likewise.
+
 2019-01-01  Jakub Jelinek  <jakub@redhat.com>
 
 	Update copyright years.

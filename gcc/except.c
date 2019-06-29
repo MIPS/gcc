@@ -1159,7 +1159,7 @@ sjlj_emit_function_enter (rtx_code_label *dispatch_label)
 
   /* We're storing this libcall's address into memory instead of
      calling it directly.  Thus, we must call assemble_external_libcall
-     here, as we can not depend on emit_library_call to do it for us.  */
+     here, as we cannot depend on emit_library_call to do it for us.  */
   assemble_external_libcall (personality);
   mem = adjust_address (fc, Pmode, sjlj_fc_personality_ofs);
   emit_move_insn (mem, personality);
@@ -1756,6 +1756,8 @@ copy_reg_eh_region_note_forward (rtx note_or_insn, rtx_insn *first, rtx last)
       if (note == NULL)
 	return;
     }
+  else if (is_a <rtx_insn *> (note_or_insn))
+    return;
   note = XEXP (note, 0);
 
   for (insn = first; insn != last ; insn = NEXT_INSN (insn))
@@ -1778,6 +1780,8 @@ copy_reg_eh_region_note_backward (rtx note_or_insn, rtx_insn *last, rtx first)
       if (note == NULL)
 	return;
     }
+  else if (is_a <rtx_insn *> (note_or_insn))
+    return;
   note = XEXP (note, 0);
 
   for (insn = last; insn != first; insn = PREV_INSN (insn))
@@ -2284,7 +2288,7 @@ expand_eh_return (void)
       if (rtx handler = EH_RETURN_HANDLER_RTX)
 	emit_move_insn (handler, crtl->eh.ehr_handler);
       else
-	error ("__builtin_eh_return not supported on this target");
+	error ("%<__builtin_eh_return%> not supported on this target");
     }
 
   emit_label (around_label);
@@ -3408,7 +3412,7 @@ verify_eh_tree (struct function *fun)
 	  count_r++;
 	else
 	  {
-	    error ("region_array is corrupted for region %i", r->index);
+	    error ("%<region_array%> is corrupted for region %i", r->index);
 	    err = true;
 	  }
       }
@@ -3421,7 +3425,7 @@ verify_eh_tree (struct function *fun)
 	  count_lp++;
 	else
 	  {
-	    error ("lp_array is corrupted for lp %i", lp->index);
+	    error ("%<lp_array%> is corrupted for lp %i", lp->index);
 	    err = true;
 	  }
       }
@@ -3433,7 +3437,7 @@ verify_eh_tree (struct function *fun)
     {
       if ((*fun->eh->region_array)[r->index] != r)
 	{
-	  error ("region_array is corrupted for region %i", r->index);
+	  error ("%<region_array%> is corrupted for region %i", r->index);
 	  err = true;
 	}
       if (r->outer != outer)
@@ -3452,7 +3456,7 @@ verify_eh_tree (struct function *fun)
 	{
 	  if ((*fun->eh->lp_array)[lp->index] != lp)
 	    {
-	      error ("lp_array is corrupted for lp %i", lp->index);
+	      error ("%<lp_array%> is corrupted for lp %i", lp->index);
 	      err = true;
 	    }
 	  if (lp->region != r)
@@ -3489,19 +3493,19 @@ verify_eh_tree (struct function *fun)
     }
   if (count_r != nvisited_r)
     {
-      error ("region_array does not match region_tree");
+      error ("%<region_array%> does not match %<region_tree%>");
       err = true;
     }
   if (count_lp != nvisited_lp)
     {
-      error ("lp_array does not match region_tree");
+      error ("%<lp_array%> does not match %<region_tree%>");
       err = true;
     }
 
   if (err)
     {
       dump_eh_tree (stderr, fun);
-      internal_error ("verify_eh_tree failed");
+      internal_error ("%qs failed", __func__);
     }
 }
 

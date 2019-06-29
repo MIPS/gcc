@@ -195,6 +195,7 @@ Some basic guidelines for editing this document:
 * @code{IOR}:           IOR,       Bitwise logical or
 * @code{IPARITY}:       IPARITY,   Bitwise XOR of array elements
 * @code{IRAND}:         IRAND,     Integer pseudo-random number
+* @code{IS_CONTIGUOUS}:  IS_CONTIGUOUS, Test whether an array is contiguous
 * @code{IS_IOSTAT_END}:  IS_IOSTAT_END, Test for end-of-file value
 * @code{IS_IOSTAT_EOR}:  IS_IOSTAT_EOR, Test for end-of-record value
 * @code{ISATTY}:        ISATTY,    Whether a unit is a terminal device
@@ -5595,12 +5596,12 @@ end program atomic
 @code{EXECUTE_COMMAND_LINE} runs a shell command, synchronously or
 asynchronously.
 
-The @code{COMMAND} argument is passed to the shell and executed, using
-the C library's @code{system} call.  (The shell is @code{sh} on Unix
-systems, and @code{cmd.exe} on Windows.)  If @code{WAIT} is present
-and has the value false, the execution of the command is asynchronous
-if the system supports it; otherwise, the command is executed
-synchronously.
+The @code{COMMAND} argument is passed to the shell and executed (The
+shell is @code{sh} on Unix systems, and @code{cmd.exe} on Windows.).
+If @code{WAIT} is present and has the value false, the execution of
+the command is asynchronous if the system supports it; otherwise, the
+command is executed synchronously using the C library's @code{system}
+call.
 
 The three last arguments allow the user to get status information.  After
 synchronous execution, @code{EXITSTAT} contains the integer exit code of
@@ -5611,6 +5612,10 @@ if the command line was executed (whatever its exit status was).
 Note that the @code{system} function need not be thread-safe. It is
 the responsibility of the user to ensure that @code{system} is not
 called concurrently.
+
+For asynchronous execution on supported targets, the POSIX
+@code{posix_spawn} or @code{fork} functions are used.  Also, a signal
+handler for the @code{SIGCHLD} signal is installed.
 
 @item @emph{Standard}:
 Fortran 2008 and later
@@ -6761,7 +6766,7 @@ kind.
 
 @item @emph{Return value}:
 After @code{GETARG} returns, the @var{VALUE} argument holds the
-@var{POS}th command line argument. If @var{VALUE} can not hold the
+@var{POS}th command line argument. If @var{VALUE} cannot hold the
 argument, it is truncated to fit the length of @var{VALUE}. If there are
 less than @var{POS} arguments specified at the command line, @var{VALUE}
 will be filled with blanks. If @math{@var{POS} = 0}, @var{VALUE} is set
@@ -6874,7 +6879,7 @@ and of default kind.
 
 @item @emph{Return value}:
 After @code{GET_COMMAND_ARGUMENT} returns, the @var{VALUE} argument holds the 
-@var{NUMBER}-th command line argument. If @var{VALUE} can not hold the argument, it is 
+@var{NUMBER}-th command line argument. If @var{VALUE} cannot hold the argument, it is 
 truncated to fit the length of @var{VALUE}. If there are less than @var{NUMBER}
 arguments specified at the command line, @var{VALUE} will be filled with blanks. 
 If @math{@var{NUMBER} = 0}, @var{VALUE} is set to the name of the program (on
@@ -8438,6 +8443,55 @@ end program test_irand
 
 
 
+@node IS_CONTIGUOUS
+@section @code{IS_CONTIGUOUS} --- Test whether an array is contiguous
+@fnindex IS_IOSTAT_EOR
+@cindex array, contiguity
+
+@table @asis
+@item @emph{Description}:
+@code{IS_CONTIGUOUS} tests whether an array is contiguous.
+
+@item @emph{Standard}:
+Fortran 2008 and later
+
+@item @emph{Class}:
+Inquiry function
+
+@item @emph{Syntax}:
+@code{RESULT = IS_CONTIGUOUS(ARRAY)}
+
+@item @emph{Arguments}:
+@multitable @columnfractions .15 .70
+@item @var{ARRAY} @tab Shall be an array of any type.
+@end multitable
+
+@item @emph{Return value}:
+Returns a @code{LOGICAL} of the default kind, which @code{.TRUE.} if
+@var{ARRAY} is contiguous and false otherwise.
+
+@item @emph{Example}:
+@smallexample
+program test
+  integer :: a(10)
+  a = [1,2,3,4,5,6,7,8,9,10]
+  call sub (a)      ! every element, is contiguous
+  call sub (a(::2)) ! every other element, is noncontiguous
+contains
+  subroutine sub (x)
+    integer :: x(:)
+    if (is_contiguous (x)) then
+      write (*,*) 'X is contiguous'
+    else
+      write (*,*) 'X is not contiguous'
+    end if
+  end subroutine sub
+end program test
+@end smallexample
+@end table
+
+
+
 @node IS_IOSTAT_END
 @section @code{IS_IOSTAT_END} --- Test for end-of-file value
 @fnindex IS_IOSTAT_END
@@ -8525,7 +8579,6 @@ PROGRAM iostat
 END PROGRAM
 @end smallexample
 @end table
-
 
 
 @node ISATTY
@@ -9636,10 +9689,10 @@ The return value is a @code{INTEGER(4)} variable.
 @table @asis
 @item @emph{Description}:
 @code{LSHIFT} returns a value corresponding to @var{I} with all of the
-bits shifted left by @var{SHIFT} places.  If the absolute value of
-@var{SHIFT} is greater than @code{BIT_SIZE(I)}, the value is undefined. 
-Bits shifted out from the left end are lost; zeros are shifted in from
-the opposite end.
+bits shifted left by @var{SHIFT} places.  @var{SHIFT} shall be
+nonnegative and less than or equal to @code{BIT_SIZE(I)}, otherwise
+the result value is undefined.  Bits shifted out from the left end are
+lost; zeros are shifted in from the opposite end.
 
 This function has been superseded by the @code{ISHFT} intrinsic, which
 is standard in Fortran 95 and later, and the @code{SHIFTL} intrinsic,
@@ -10062,8 +10115,8 @@ locations of the maximum element along each row of the array in the
 which @var{MASK} is @code{.TRUE.} are considered.  If more than one
 element in the array has the maximum value, the location returned is
 that of the first such element in array element order if the
-@var{BACK} is not present, or if it false; otherwise, the location
-returned is that of the first such element. If the array has zero
+@var{BACK} is not present, or is false; if @var{BACK} is true, the location
+returned is that of the last such element. If the array has zero
 size, or all of the elements of @var{MASK} are @code{.FALSE.}, then
 the result is an array of zeroes.  Similarly, if @var{DIM} is supplied
 and all of the elements of @var{MASK} along a given row are zero, the
@@ -10419,8 +10472,8 @@ locations of the minimum element along each row of the array in the
 which @var{MASK} is @code{.TRUE.} are considered.  If more than one
 element in the array has the minimum value, the location returned is
 that of the first such element in array element order if the
-@var{BACK} is not present, or if it false; otherwise, the location
-returned is that of the first such element.  If the array has
+@var{BACK} is not present, or is false; if @var{BACK} is true, the location
+returned is that of the last such element.  If the array has
 zero size, or all of the elements of @var{MASK} are @code{.FALSE.}, then
 the result is an array of zeroes.  Similarly, if @var{DIM} is supplied
 and all of the elements of @var{MASK} along a given row are zero, the
@@ -12191,11 +12244,12 @@ The value returned is equal to
 @table @asis
 @item @emph{Description}:
 @code{RSHIFT} returns a value corresponding to @var{I} with all of the
-bits shifted right by @var{SHIFT} places.  If the absolute value of
-@var{SHIFT} is greater than @code{BIT_SIZE(I)}, the value is undefined.
-Bits shifted out from the right end are lost. The fill is arithmetic: the
-bits shifted in from the left end are equal to the leftmost bit, which in
-two's complement representation is the sign bit.
+bits shifted right by @var{SHIFT} places.  @var{SHIFT} shall be
+nonnegative and less than or equal to @code{BIT_SIZE(I)}, otherwise
+the result value is undefined.  Bits shifted out from the right end
+are lost. The fill is arithmetic: the bits shifted in from the left
+end are equal to the leftmost bit, which in two's complement
+representation is the sign bit.
 
 This function has been superseded by the @code{SHIFTA} intrinsic, which
 is standard in Fortran 2008 and later.
@@ -12730,11 +12784,12 @@ END PROGRAM
 @table @asis
 @item @emph{Description}:
 @code{SHIFTA} returns a value corresponding to @var{I} with all of the
-bits shifted right by @var{SHIFT} places.  If the absolute value of
-@var{SHIFT} is greater than @code{BIT_SIZE(I)}, the value is undefined.
-Bits shifted out from the right end are lost. The fill is arithmetic: the
-bits shifted in from the left end are equal to the leftmost bit, which in
-two's complement representation is the sign bit.
+bits shifted right by @var{SHIFT} places.  @var{SHIFT} that be
+nonnegative and less than or equal to @code{BIT_SIZE(I)}, otherwise
+the result value is undefined.  Bits shifted out from the right end
+are lost. The fill is arithmetic: the bits shifted in from the left
+end are equal to the leftmost bit, which in two's complement
+representation is the sign bit.
 
 @item @emph{Standard}:
 Fortran 2008 and later
@@ -12770,10 +12825,10 @@ The return value is of type @code{INTEGER} and of the same kind as
 @table @asis
 @item @emph{Description}:
 @code{SHIFTL} returns a value corresponding to @var{I} with all of the
-bits shifted left by @var{SHIFT} places.  If the absolute value of
-@var{SHIFT} is greater than @code{BIT_SIZE(I)}, the value is undefined.
-Bits shifted out from the left end are lost, and bits shifted in from
-the right end are set to 0.
+bits shifted left by @var{SHIFT} places.  @var{SHIFT} shall be
+nonnegative and less than or equal to @code{BIT_SIZE(I)}, otherwise
+the result value is undefined.  Bits shifted out from the left end are
+lost, and bits shifted in from the right end are set to 0.
 
 @item @emph{Standard}:
 Fortran 2008 and later
@@ -12809,10 +12864,10 @@ The return value is of type @code{INTEGER} and of the same kind as
 @table @asis
 @item @emph{Description}:
 @code{SHIFTR} returns a value corresponding to @var{I} with all of the
-bits shifted right by @var{SHIFT} places.  If the absolute value of
-@var{SHIFT} is greater than @code{BIT_SIZE(I)}, the value is undefined.
-Bits shifted out from the right end are lost, and bits shifted in from
-the left end are set to 0.
+bits shifted right by @var{SHIFT} places.  @var{SHIFT} shall be
+nonnegative and less than or equal to @code{BIT_SIZE(I)}, otherwise
+the result value is undefined.  Bits shifted out from the right end
+are lost, and bits shifted in from the left end are set to 0.
 
 @item @emph{Standard}:
 Fortran 2008 and later

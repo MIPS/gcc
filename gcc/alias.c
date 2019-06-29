@@ -39,6 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfganal.h"
 #include "rtl-iter.h"
 #include "cgraph.h"
+#include "ipa-utils.h"
 
 /* The aliasing API provided here solves related but different problems:
 
@@ -306,18 +307,6 @@ ao_ref_from_mem (ao_ref *ref, const_rtx mem)
 	|| (TREE_CODE (base) == TARGET_MEM_REF
 	    && TREE_CODE (TMR_BASE (base)) == SSA_NAME)))
     return false;
-
-  /* If this is a reference based on a partitioned decl replace the
-     base with a MEM_REF of the pointer representative we
-     created during stack slot partitioning.  */
-  if (VAR_P (base)
-      && ! is_global_var (base)
-      && cfun->gimple_df->decls_to_pointers != NULL)
-    {
-      tree *namep = cfun->gimple_df->decls_to_pointers->get (base);
-      if (namep)
-	ref->base = build_simple_mem_ref (*namep);
-    }
 
   ref->ref_alias_set = MEM_ALIAS_SET (mem);
 
@@ -832,7 +821,7 @@ get_alias_set (tree t)
 {
   alias_set_type set;
 
-  /* We can not give up with -fno-strict-aliasing because we need to build
+  /* We cannot give up with -fno-strict-aliasing because we need to build
      proper type representation for possible functions which are build with
      -fstrict-aliasing.  */
 
@@ -894,7 +883,7 @@ get_alias_set (tree t)
       /* Handle structure type equality for pointer types, arrays and vectors.
 	 This is easy to do, because the code bellow ignore canonical types on
 	 these anyway.  This is important for LTO, where TYPE_CANONICAL for
-	 pointers can not be meaningfuly computed by the frotnend.  */
+	 pointers cannot be meaningfuly computed by the frotnend.  */
       if (canonical_type_used_p (t))
 	{
 	  /* In LTO we set canonical types for all types where it makes
@@ -1020,6 +1009,14 @@ get_alias_set (tree t)
 	}
       p = TYPE_MAIN_VARIANT (p);
 
+      /* In LTO for C++ programs we can turn in complete types to complete
+	 using ODR name lookup.  */
+      if (in_lto_p && TYPE_STRUCTURAL_EQUALITY_P (p) && odr_type_p (p))
+	{
+	  p = prevailing_odr_type (p);
+	  gcc_checking_assert (TYPE_MAIN_VARIANT (p) == p);
+	}
+
       /* Make void * compatible with char * and also void **.
 	 Programs are commonly violating TBAA by this.
 
@@ -1058,7 +1055,7 @@ get_alias_set (tree t)
 	    }
 
 	  /* Assign the alias set to both p and t.
-	     We can not call get_alias_set (p) here as that would trigger
+	     We cannot call get_alias_set (p) here as that would trigger
 	     infinite recursion when p == t.  In other cases it would just
 	     trigger unnecesary legwork of rebuilding the pointer again.  */
 	  gcc_checking_assert (p == TYPE_MAIN_VARIANT (p));
@@ -2061,7 +2058,7 @@ may_be_sp_based_p (rtx x)
 }
 
 /* BASE1 and BASE2 are decls.  Return 1 if they refer to same object, 0
-   if they refer to different objects and -1 if we can not decide.  */
+   if they refer to different objects and -1 if we cannot decide.  */
 
 int
 compare_base_decls (tree base1, tree base2)
@@ -2135,7 +2132,7 @@ compare_base_symbol_refs (const_rtx x_base, const_rtx y_base)
 
       symtab_node *x_node = symtab_node::get_create (x_decl)
 			    ->ultimate_alias_target ();
-      /* External variable can not be in section anchor.  */
+      /* External variable cannot be in section anchor.  */
       if (!x_node->definition)
 	return 0;
       x_base = XEXP (DECL_RTL (x_node->decl), 0);
@@ -2651,7 +2648,7 @@ memrefs_conflict_p (poly_int64 xsize, rtx x, poly_int64 ysize, rtx y,
    ways.
 
    If both memory references are volatile, then there must always be a
-   dependence between the two references, since their order can not be
+   dependence between the two references, since their order cannot be
    changed.  A volatile and non-volatile reference can be interchanged
    though.
 

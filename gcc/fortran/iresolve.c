@@ -35,6 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "intrinsic.h"
 #include "constructor.h"
 #include "arith.h"
+#include "trans.h"
 
 /* Given printf-like arguments, return a stable version of the result string.
 
@@ -1452,6 +1453,15 @@ gfc_resolve_isatty (gfc_expr *f, gfc_expr *u)
 
 
 void
+gfc_resolve_is_contiguous (gfc_expr *f, gfc_expr *array ATTRIBUTE_UNUSED)
+{
+  f->ts.type = BT_LOGICAL;
+  f->ts.kind = gfc_default_logical_kind;
+  f->value.function.name = gfc_get_string ("__is_contiguous");
+}
+
+
+void
 gfc_resolve_ishft (gfc_expr *f, gfc_expr *i, gfc_expr *shift)
 {
   f->ts = i->ts;
@@ -2486,6 +2496,10 @@ gfc_resolve_fe_runtime_error (gfc_code *c)
     a->name = "%VAL";
 
   c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+  /* We set the backend_decl here because runtime_error is a
+     variadic function and we would use the wrong calling
+     convention otherwise.  */
+  c->resolved_sym->backend_decl = gfor_fndecl_runtime_error;
 }
 
 void

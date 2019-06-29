@@ -86,6 +86,15 @@ along with GCC; see the file COPYING3.  If not see
 /* Loop or bb location, with hotness information.  */
 dump_user_location_t vect_location;
 
+/* auto_purge_vect_location's dtor: reset the vect_location
+   global, to avoid stale location_t values that could reference
+   GC-ed blocks.  */
+
+auto_purge_vect_location::~auto_purge_vect_location ()
+{
+  vect_location = dump_user_location_t ();
+}
+
 /* Dump a cost entry according to args to F.  */
 
 void
@@ -632,6 +641,7 @@ vec_info::new_stmt_vec_info (gimple *stmt)
   STMT_VINFO_VECTORIZABLE (res) = true;
   STMT_VINFO_VEC_REDUCTION_TYPE (res) = TREE_CODE_REDUCTION;
   STMT_VINFO_VEC_CONST_COND_REDUC_CODE (res) = ERROR_MARK;
+  STMT_VINFO_SLP_VECT_ONLY (res) = false;
 
   if (gimple_code (stmt) == GIMPLE_PHI
       && is_loop_header_bb_p (gimple_bb (stmt)))
@@ -717,8 +727,8 @@ vect_free_loop_info_assumptions (struct loop *loop)
 /* If LOOP has been versioned during ifcvt, return the internal call
    guarding it.  */
 
-static gimple *
-vect_loop_vectorized_call (struct loop *loop)
+gimple *
+vect_loop_vectorized_call (struct loop *loop, gcond **cond)
 {
   basic_block bb = loop_preheader_edge (loop)->src;
   gimple *g;
@@ -734,6 +744,8 @@ vect_loop_vectorized_call (struct loop *loop)
   while (1);
   if (g && gimple_code (g) == GIMPLE_COND)
     {
+      if (cond)
+	*cond = as_a <gcond *> (g);
       gimple_stmt_iterator gsi = gsi_for_stmt (g);
       gsi_prev (&gsi);
       if (!gsi_end_p (gsi))
@@ -860,6 +872,7 @@ try_vectorize_loop_1 (hash_table<simduid_to_vf> *&simduid_to_vf_htab,
 {
   unsigned ret = 0;
   vec_info_shared shared;
+  auto_purge_vect_location sentinel;
   vect_location = find_loop_location (loop);
   if (LOCATION_LOCUS (vect_location.get_location_t ()) != UNKNOWN_LOCATION
       && dump_enabled_p ())
@@ -1269,6 +1282,7 @@ public:
 unsigned int
 pass_slp_vectorize::execute (function *fun)
 {
+  auto_purge_vect_location sentinel;
   basic_block bb;
 
   bool in_loop_pipeline = scev_initialized_p ();
@@ -1302,8 +1316,6 @@ pass_slp_vectorize::execute (function *fun)
       scev_finalize ();
       loop_optimizer_finalize ();
     }
-
-  vect_location = dump_user_location_t ();
 
   return 0;
 }

@@ -109,7 +109,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 #if __cplusplus >= 201103L
       static_assert(is_same<typename remove_cv<_Key>::type, _Key>::value,
 	  "std::multiset must have a non-const, non-volatile value_type");
-# ifdef __STRICT_ANSI__
+# if __cplusplus > 201703L || defined __STRICT_ANSI__
       static_assert(is_same<typename _Alloc::value_type, _Key>::value,
 	  "std::multiset must have the same value_type as its allocator");
 # endif
@@ -406,7 +406,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 #endif
 
       ///  Returns true if the %set is empty.
-      bool
+      _GLIBCXX_NODISCARD bool
       empty() const _GLIBCXX_NOEXCEPT
       { return _M_t.empty(); }
 
@@ -917,32 +917,34 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 	   typename _Allocator =
 	     allocator<typename iterator_traits<_InputIterator>::value_type>,
 	   typename = _RequireInputIter<_InputIterator>,
+	   typename = _RequireNotAllocator<_Compare>,
 	   typename = _RequireAllocator<_Allocator>>
-   multiset(_InputIterator, _InputIterator,
-	    _Compare = _Compare(), _Allocator = _Allocator())
-   -> multiset<typename iterator_traits<_InputIterator>::value_type,
-	       _Compare, _Allocator>;
+    multiset(_InputIterator, _InputIterator,
+	     _Compare = _Compare(), _Allocator = _Allocator())
+    -> multiset<typename iterator_traits<_InputIterator>::value_type,
+		_Compare, _Allocator>;
 
- template<typename _Key,
-	  typename _Compare = less<_Key>,
-	  typename _Allocator = allocator<_Key>,
-	  typename = _RequireAllocator<_Allocator>>
-   multiset(initializer_list<_Key>,
-	    _Compare = _Compare(), _Allocator = _Allocator())
-   -> multiset<_Key, _Compare, _Allocator>;
+  template<typename _Key,
+	   typename _Compare = less<_Key>,
+	   typename _Allocator = allocator<_Key>,
+	   typename = _RequireNotAllocator<_Compare>,
+	   typename = _RequireAllocator<_Allocator>>
+    multiset(initializer_list<_Key>,
+	     _Compare = _Compare(), _Allocator = _Allocator())
+    -> multiset<_Key, _Compare, _Allocator>;
 
- template<typename _InputIterator, typename _Allocator,
-	  typename = _RequireInputIter<_InputIterator>,
-	  typename = _RequireAllocator<_Allocator>>
-   multiset(_InputIterator, _InputIterator, _Allocator)
-   -> multiset<typename iterator_traits<_InputIterator>::value_type,
-	       less<typename iterator_traits<_InputIterator>::value_type>,
-	       _Allocator>;
+  template<typename _InputIterator, typename _Allocator,
+	   typename = _RequireInputIter<_InputIterator>,
+	   typename = _RequireAllocator<_Allocator>>
+    multiset(_InputIterator, _InputIterator, _Allocator)
+    -> multiset<typename iterator_traits<_InputIterator>::value_type,
+	        less<typename iterator_traits<_InputIterator>::value_type>,
+	        _Allocator>;
 
- template<typename _Key, typename _Allocator,
-	  typename = _RequireAllocator<_Allocator>>
-   multiset(initializer_list<_Key>, _Allocator)
-   -> multiset<_Key, less<_Key>, _Allocator>;
+  template<typename _Key, typename _Allocator,
+	   typename = _RequireAllocator<_Allocator>>
+    multiset(initializer_list<_Key>, _Allocator)
+    -> multiset<_Key, less<_Key>, _Allocator>;
 
 #endif
 

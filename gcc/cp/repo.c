@@ -110,7 +110,7 @@ get_base_filename (const char *filename)
 
   if (p && ! compiling)
     {
-      warning (0, "-frepo must be used with -c");
+      warning (0, "%<-frepo%> must be used with %<-c%>");
       flag_use_repository = 0;
       return NULL;
     }
@@ -218,7 +218,7 @@ reopen_repo_file_for_write (void)
 
   if (repo_file == 0)
     {
-      error ("can%'t create repository information file %qs", repo_name);
+      error ("cannot create repository information file %qs", repo_name);
       flag_use_repository = 0;
     }
 

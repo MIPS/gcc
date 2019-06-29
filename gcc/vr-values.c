@@ -118,7 +118,10 @@ vr_values::get_value_range (const_tree var)
 	  if (POINTER_TYPE_P (TREE_TYPE (sym))
 	      && (nonnull_arg_p (sym)
 		  || get_ptr_nonnull (var)))
-	    vr->set_nonnull (TREE_TYPE (sym));
+	    {
+	      vr->set_nonzero (TREE_TYPE (sym));
+	      vr->equiv_clear ();
+	    }
 	  else if (INTEGRAL_TYPE_P (TREE_TYPE (sym)))
 	    {
 	      get_range_info (var, *vr);
@@ -130,7 +133,10 @@ vr_values::get_value_range (const_tree var)
 	}
       else if (TREE_CODE (sym) == RESULT_DECL
 	       && DECL_BY_REFERENCE (sym))
-	vr->set_nonnull (TREE_TYPE (sym));
+	{
+	  vr->set_nonzero (TREE_TYPE (sym));
+	  vr->equiv_clear ();
+	}
     }
 
   return vr;
@@ -189,8 +195,13 @@ vr_values::update_value_range (const_tree var, value_range *new_vr)
 	 because VR_RANGE and VR_ANTI_RANGE need to be considered
 	 the same.  We may not have is_new when transitioning to
 	 UNDEFINED.  If old_vr->type is VARYING, we shouldn't be
-	 called.  */
-      if (new_vr->undefined_p ())
+	 called, if we are anyway, keep it VARYING.  */
+      if (old_vr->varying_p ())
+	{
+	  new_vr->set_varying ();
+	  is_new = false;
+	}
+      else if (new_vr->undefined_p ())
 	{
 	  old_vr->set_varying ();
 	  new_vr->set_varying ();
@@ -376,7 +387,10 @@ vr_values::op_with_constant_singleton_value_range (tree op)
   if (TREE_CODE (op) != SSA_NAME)
     return NULL_TREE;
 
-  return value_range_constant_singleton (get_value_range (op));
+  tree t;
+  if (get_value_range (op)->singleton_p (&t))
+    return t;
+  return NULL;
 }
 
 /* Return true if op is in a boolean [0, 1] value-range.  */
@@ -708,7 +722,8 @@ vr_values::extract_range_from_ssa_name (value_range *vr, tree var)
   else
     vr->set (var);
 
-  vr->equiv_add (var, get_value_range (var), &vrp_equiv_obstack);
+  if (!vr->undefined_p ())
+    vr->equiv_add (var, get_value_range (var), &vrp_equiv_obstack);
 }
 
 /* Extract range information from a binary expression OP0 CODE OP1 based on
@@ -853,7 +868,10 @@ vr_values::extract_range_from_binary_expr (value_range *vr,
 	  || (vr1.kind () == VR_ANTI_RANGE
 	      && vr1.min () == op0
 	      && vr1.min () == vr1.max ())))
-      vr->set_nonnull (expr_type);
+    {
+      vr->set_nonzero (expr_type);
+      vr->equiv_clear ();
+    }
 }
 
 /* Extract range information from a unary expression CODE OP0 based on
@@ -1080,7 +1098,8 @@ vr_values::extract_range_basic (value_range *vr, gimple *stmt)
 	      && TREE_CODE (SSA_NAME_VAR (arg)) == PARM_DECL
 	      && cfun->after_inlining)
 	    {
-	      vr->set_null (type);
+	      vr->set_zero (type);
+	      vr->equiv_clear ();
 	      return;
 	    }
 	  break;
@@ -1387,7 +1406,10 @@ vr_values::extract_range_basic (value_range *vr, gimple *stmt)
       && gimple_stmt_nonnegative_warnv_p (stmt, &sop))
     set_value_range_to_nonnegative (vr, type);
   else if (vrp_stmt_computes_nonzero (stmt))
-    vr->set_nonnull (type);
+    {
+      vr->set_nonzero (type);
+      vr->equiv_clear ();
+    }
   else
     vr->set_varying ();
 }
@@ -1603,7 +1625,7 @@ compare_range_with_value (enum tree_code comp, value_range *vr, tree val,
 	return NULL_TREE;
 
       /* ~[VAL_1, VAL_2] OP VAL is known if VAL_1 <= VAL <= VAL_2.  */
-      if (value_inside_range (val, vr->min (), vr->max ()) == 1)
+      if (!vr->may_contain_p (val))
 	return (comp == NE_EXPR) ? boolean_true_node : boolean_false_node;
 
       return NULL_TREE;
@@ -2338,7 +2360,7 @@ vr_values::vrp_evaluate_conditional_warnv_with_ops (enum tree_code code,
 	}
       else
 	{
-	  value_range vro, vri;
+	  value_range_base vro, vri;
 	  if (code == GT_EXPR || code == GE_EXPR)
 	    {
 	      vro.set (VR_ANTI_RANGE, TYPE_MIN_VALUE (TREE_TYPE (op0)), x);
@@ -2390,7 +2412,7 @@ vr_values::vrp_evaluate_conditional_warnv_with_ops (enum tree_code code,
 }
 
 /* Given (CODE OP0 OP1) within STMT, try to simplify it based on value range
-   information.  Return NULL if the conditional can not be evaluated.
+   information.  Return NULL if the conditional cannot be evaluated.
    The ranges of all the names equivalent with the operands in COND
    will be used when trying to compute the value.  If the result is
    based on undefined signed overflow, issue a warning if
@@ -2597,7 +2619,7 @@ find_case_label_ranges (gswitch *stmt, value_range *vr, size_t *min_idx1,
 
   take_default = !find_case_label_range (stmt, min, max, &i, &j);
 
-  /* Set second range to emtpy.  */
+  /* Set second range to empty.  */
   *min_idx2 = 1;
   *max_idx2 = 0;
 

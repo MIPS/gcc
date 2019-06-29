@@ -1671,18 +1671,11 @@ vn_reference_lookup_1 (vn_reference_t vr, vn_reference_t *vnresult)
    with the current VUSE and performs the expression lookup.  */
 
 static void *
-vn_reference_lookup_2 (ao_ref *op ATTRIBUTE_UNUSED, tree vuse,
-		       unsigned int cnt, void *vr_)
+vn_reference_lookup_2 (ao_ref *op ATTRIBUTE_UNUSED, tree vuse, void *vr_)
 {
   vn_reference_t vr = (vn_reference_t)vr_;
   vn_reference_s **slot;
   hashval_t hash;
-
-  /* This bounds the stmt walks we perform on reference lookups
-     to O(1) instead of O(N) where N is the number of dominating
-     stores.  */
-  if (cnt > (unsigned) PARAM_VALUE (PARAM_SCCVN_MAX_ALIAS_QUERIES_PER_ACCESS))
-    return (void *)-1;
 
   if (last_vuse_ptr)
     *last_vuse_ptr = vuse;
@@ -1865,6 +1858,86 @@ vn_nary_simplify (vn_nary_op_t nary)
   return vn_nary_build_or_lookup_1 (&op, false);
 }
 
+/* Elimination engine.  */
+
+class eliminate_dom_walker : public dom_walker
+{
+public:
+  eliminate_dom_walker (cdi_direction, bitmap);
+  ~eliminate_dom_walker ();
+
+  virtual edge before_dom_children (basic_block);
+  virtual void after_dom_children (basic_block);
+
+  virtual tree eliminate_avail (basic_block, tree op);
+  virtual void eliminate_push_avail (basic_block, tree op);
+  tree eliminate_insert (basic_block, gimple_stmt_iterator *gsi, tree val);
+
+  void eliminate_stmt (basic_block, gimple_stmt_iterator *);
+
+  unsigned eliminate_cleanup (bool region_p = false);
+
+  bool do_pre;
+  unsigned int el_todo;
+  unsigned int eliminations;
+  unsigned int insertions;
+
+  /* SSA names that had their defs inserted by PRE if do_pre.  */
+  bitmap inserted_exprs;
+
+  /* Blocks with statements that have had their EH properties changed.  */
+  bitmap need_eh_cleanup;
+
+  /* Blocks with statements that have had their AB properties changed.  */
+  bitmap need_ab_cleanup;
+
+  /* Local state for the eliminate domwalk.  */
+  auto_vec<gimple *> to_remove;
+  auto_vec<gimple *> to_fixup;
+  auto_vec<tree> avail;
+  auto_vec<tree> avail_stack;
+};
+
+/* Adaptor to the elimination engine using RPO availability.  */
+
+class rpo_elim : public eliminate_dom_walker
+{
+public:
+  rpo_elim(basic_block entry_)
+    : eliminate_dom_walker (CDI_DOMINATORS, NULL), entry (entry_) {}
+  ~rpo_elim();
+
+  virtual tree eliminate_avail (basic_block, tree op);
+
+  virtual void eliminate_push_avail (basic_block, tree);
+
+  basic_block entry;
+  /* Instead of having a local availability lattice for each
+     basic-block and availability at X defined as union of
+     the local availabilities at X and its dominators we're
+     turning this upside down and track availability per
+     value given values are usually made available at very
+     few points (at least one).
+     So we have a value -> vec<location, leader> map where
+     LOCATION is specifying the basic-block LEADER is made
+     available for VALUE.  We push to this vector in RPO
+     order thus for iteration we can simply pop the last
+     entries.
+     LOCATION is the basic-block index and LEADER is its
+     SSA name version.  */
+  /* ???  We'd like to use auto_vec here with embedded storage
+     but that doesn't play well until we can provide move
+     constructors and use std::move on hash-table expansion.
+     So for now this is a bit more expensive than necessary.
+     We eventually want to switch to a chaining scheme like
+     for hashtable entries for unwinding which would make
+     making the vector part of the vn_ssa_aux structure possible.  */
+  typedef hash_map<tree, vec<std::pair<int, int> > > rpo_avail_t;
+  rpo_avail_t m_rpo_avail;
+};
+
+/* Global RPO state for access from hooks.  */
+static rpo_elim *rpo_avail;
 basic_block vn_context_bb;
 
 /* Callback for walk_non_aliased_vuses.  Tries to perform a lookup
@@ -1943,8 +2016,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 	  last_vuse_ptr = NULL;
 	  tree saved_vuse = vr->vuse;
 	  hashval_t saved_hashcode = vr->hashcode;
-	  void *res = vn_reference_lookup_2 (ref,
-					     gimple_vuse (def_stmt), 0, vr);
+	  void *res = vn_reference_lookup_2 (ref, gimple_vuse (def_stmt), vr);
 	  /* Need to restore vr->vuse and vr->hashcode.  */
 	  vr->vuse = saved_vuse;
 	  vr->hashcode = saved_hashcode;
@@ -2170,7 +2242,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 	  tree rhs = gimple_assign_rhs1 (def_stmt);
 	  if (TREE_CODE (rhs) == SSA_NAME)
 	    rhs = SSA_VAL (rhs);
-	  len = native_encode_expr (gimple_assign_rhs1 (def_stmt),
+	  len = native_encode_expr (rhs,
 				    buffer, sizeof (buffer),
 				    (offseti - offset2) / BITS_PER_UNIT);
 	  if (len > 0 && len * BITS_PER_UNIT >= maxsizei)
@@ -2218,6 +2290,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
       base2 = get_ref_base_and_extent (gimple_assign_lhs (def_stmt),
 				       &offset2, &size2, &maxsize2,
 				       &reverse);
+      tree def_rhs = gimple_assign_rhs1 (def_stmt);
       if (!reverse
 	  && known_size_p (maxsize2)
 	  && known_eq (maxsize2, size2)
@@ -2229,11 +2302,13 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 	     according to endianness.  */
 	  && (! INTEGRAL_TYPE_P (vr->type)
 	      || known_eq (ref->size, TYPE_PRECISION (vr->type)))
-	  && multiple_p (ref->size, BITS_PER_UNIT))
+	  && multiple_p (ref->size, BITS_PER_UNIT)
+	  && (! INTEGRAL_TYPE_P (TREE_TYPE (def_rhs))
+	      || type_has_mode_precision_p (TREE_TYPE (def_rhs))))
 	{
 	  gimple_match_op op (gimple_match_cond::UNCOND,
 			      BIT_FIELD_REF, vr->type,
-			      vn_valueize (gimple_assign_rhs1 (def_stmt)),
+			      vn_valueize (def_rhs),
 			      bitsize_int (ref->size),
 			      bitsize_int (offset - offset2));
 	  tree val = vn_nary_build_or_lookup (&op);
@@ -2588,13 +2663,14 @@ vn_reference_lookup_pieces (tree vuse, alias_set_type set, tree type,
       && vr1.vuse)
     {
       ao_ref r;
+      unsigned limit = PARAM_VALUE (PARAM_SCCVN_MAX_ALIAS_QUERIES_PER_ACCESS);
       vn_walk_kind = kind;
       if (ao_ref_init_from_vn_reference (&r, set, type, vr1.operands))
 	*vnresult =
 	  (vn_reference_t)walk_non_aliased_vuses (&r, vr1.vuse,
 						  vn_reference_lookup_2,
 						  vn_reference_lookup_3,
-						  vuse_valueize, &vr1);
+						  vuse_valueize, limit, &vr1);
       gcc_checking_assert (vr1.operands == shared_lookup_references);
     }
 
@@ -2637,6 +2713,7 @@ vn_reference_lookup (tree op, tree vuse, vn_lookup_kind kind,
     {
       vn_reference_t wvnresult;
       ao_ref r;
+      unsigned limit = PARAM_VALUE (PARAM_SCCVN_MAX_ALIAS_QUERIES_PER_ACCESS);
       /* Make sure to use a valueized reference if we valueized anything.
          Otherwise preserve the full reference for advanced TBAA.  */
       if (!valuezied_anything
@@ -2650,7 +2727,7 @@ vn_reference_lookup (tree op, tree vuse, vn_lookup_kind kind,
 	(vn_reference_t)walk_non_aliased_vuses (&r, vr1.vuse,
 						vn_reference_lookup_2,
 						vn_reference_lookup_3,
-						vuse_valueize, &vr1);
+						vuse_valueize, limit, &vr1);
       gcc_checking_assert (vr1.operands == shared_lookup_references);
       if (wvnresult)
 	{
@@ -3663,10 +3740,13 @@ set_ssa_val_to (tree from, tree to)
 	    }
 	  return false;
 	}
-      else if (currval != VN_TOP
-	       && ! is_gimple_min_invariant (currval)
-	       && ! ssa_undefined_value_p (currval, false)
-	       && is_gimple_min_invariant (to))
+      bool curr_invariant = is_gimple_min_invariant (currval);
+      bool curr_undefined = (TREE_CODE (currval) == SSA_NAME
+			     && ssa_undefined_value_p (currval, false));
+      if (currval != VN_TOP
+	  && !curr_invariant
+	  && !curr_undefined
+	  && is_gimple_min_invariant (to))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
@@ -3678,6 +3758,24 @@ set_ssa_val_to (tree from, tree to)
 	      fprintf (dump_file, " (non-constant) to ");
 	      print_generic_expr (dump_file, to);
 	      fprintf (dump_file, " (constant)\n");
+	    }
+	  to = from;
+	}
+      else if (currval != VN_TOP
+	       && !curr_undefined
+	       && TREE_CODE (to) == SSA_NAME
+	       && ssa_undefined_value_p (to, false))
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "Forcing VARYING instead of changing "
+		       "value number of ");
+	      print_generic_expr (dump_file, from);
+	      fprintf (dump_file, " from ");
+	      print_generic_expr (dump_file, currval);
+	      fprintf (dump_file, " (non-undefined) to ");
+	      print_generic_expr (dump_file, to);
+	      fprintf (dump_file, " (undefined)\n");
 	    }
 	  to = from;
 	}
@@ -3843,7 +3941,15 @@ visit_nary_op (tree lhs, gassign *stmt)
 		  ops[0] = vn_nary_op_lookup_pieces
 		      (2, gimple_assign_rhs_code (def), type, ops, NULL);
 		  /* We have wider operation available.  */
-		  if (ops[0])
+		  if (ops[0]
+		      /* If the leader is a wrapping operation we can
+		         insert it for code hoisting w/o introducing
+			 undefined overflow.  If it is not it has to
+			 be available.  See PR86554.  */
+		      && (TYPE_OVERFLOW_WRAPS (TREE_TYPE (ops[0]))
+			  || (rpo_avail && vn_context_bb
+			      && rpo_avail->eliminate_avail (vn_context_bb,
+							     ops[0]))))
 		    {
 		      unsigned lhs_prec = TYPE_PRECISION (type);
 		      unsigned rhs_prec = TYPE_PRECISION (TREE_TYPE (rhs1));
@@ -3953,6 +4059,7 @@ visit_reference_op_call (tree lhs, gcall *stmt)
       vr2->hashcode = vr1.hashcode;
       vr2->result = lhs;
       vr2->result_vdef = vdef_val;
+      vr2->value_id = 0;
       slot = valid_info->references->find_slot_with_hash (vr2, vr2->hashcode,
 							  INSERT);
       gcc_assert (!*slot);
@@ -4654,44 +4761,56 @@ vn_nary_may_trap (vn_nary_op_t nary)
   return false;
 }
 
+/* Return true if the reference operation REF may trap.  */
 
-class eliminate_dom_walker : public dom_walker
+bool
+vn_reference_may_trap (vn_reference_t ref)
 {
-public:
-  eliminate_dom_walker (cdi_direction, bitmap);
-  ~eliminate_dom_walker ();
+  switch (ref->operands[0].opcode)
+    {
+    case MODIFY_EXPR:
+    case CALL_EXPR:
+      /* We do not handle calls.  */
+    case ADDR_EXPR:
+      /* And toplevel address computations never trap.  */
+      return false;
+    default:;
+    }
 
-  virtual edge before_dom_children (basic_block);
-  virtual void after_dom_children (basic_block);
-
-  virtual tree eliminate_avail (basic_block, tree op);
-  virtual void eliminate_push_avail (basic_block, tree op);
-  tree eliminate_insert (basic_block, gimple_stmt_iterator *gsi, tree val);
-
-  void eliminate_stmt (basic_block, gimple_stmt_iterator *);
-
-  unsigned eliminate_cleanup (bool region_p = false);
-
-  bool do_pre;
-  unsigned int el_todo;
-  unsigned int eliminations;
-  unsigned int insertions;
-
-  /* SSA names that had their defs inserted by PRE if do_pre.  */
-  bitmap inserted_exprs;
-
-  /* Blocks with statements that have had their EH properties changed.  */
-  bitmap need_eh_cleanup;
-
-  /* Blocks with statements that have had their AB properties changed.  */
-  bitmap need_ab_cleanup;
-
-  /* Local state for the eliminate domwalk.  */
-  auto_vec<gimple *> to_remove;
-  auto_vec<gimple *> to_fixup;
-  auto_vec<tree> avail;
-  auto_vec<tree> avail_stack;
-};
+  vn_reference_op_t op;
+  unsigned i;
+  FOR_EACH_VEC_ELT (ref->operands, i, op)
+    {
+      switch (op->opcode)
+	{
+	case WITH_SIZE_EXPR:
+	case TARGET_MEM_REF:
+	  /* Always variable.  */
+	  return true;
+	case COMPONENT_REF:
+	  if (op->op1 && TREE_CODE (op->op1) == SSA_NAME)
+	    return true;
+	  break;
+	case ARRAY_RANGE_REF:
+	case ARRAY_REF:
+	  if (TREE_CODE (op->op0) == SSA_NAME)
+	    return true;
+	  break;
+	case MEM_REF:
+	  /* Nothing interesting in itself, the base is separate.  */
+	  break;
+	/* The following are the address bases.  */
+	case SSA_NAME:
+	  return true;
+	case ADDR_EXPR:
+	  if (op->op0)
+	    return tree_could_trap_p (TREE_OPERAND (op->op0, 0));
+	  return false;
+	default:;
+	}
+    }
+  return false;
+}
 
 eliminate_dom_walker::eliminate_dom_walker (cdi_direction direction,
 					    bitmap inserted_exprs_)
@@ -5226,7 +5345,7 @@ eliminate_dom_walker::eliminate_stmt (basic_block b, gimple_stmt_iterator *gsi)
 	  ipa_polymorphic_call_context context (current_function_decl,
 						fn, stmt, &instance);
 	  context.get_dynamic_type (instance, OBJ_TYPE_REF_OBJECT (fn),
-				    otr_type, stmt);
+				    otr_type, stmt, NULL);
 	  bool final;
 	  vec <cgraph_node *> targets
 	      = possible_polymorphic_call_targets (obj_type_ref_class (fn),
@@ -5648,47 +5767,6 @@ free_rpo_vn (void)
   BITMAP_FREE (constant_value_ids);
 }
 
-/* Adaptor to the elimination engine using RPO availability.  */
-
-class rpo_elim : public eliminate_dom_walker
-{
-public:
-  rpo_elim(basic_block entry_)
-    : eliminate_dom_walker (CDI_DOMINATORS, NULL), entry (entry_) {}
-  ~rpo_elim();
-
-  virtual tree eliminate_avail (basic_block, tree op);
-
-  virtual void eliminate_push_avail (basic_block, tree);
-
-  basic_block entry;
-  /* Instead of having a local availability lattice for each
-     basic-block and availability at X defined as union of
-     the local availabilities at X and its dominators we're
-     turning this upside down and track availability per
-     value given values are usually made available at very
-     few points (at least one).
-     So we have a value -> vec<location, leader> map where
-     LOCATION is specifying the basic-block LEADER is made
-     available for VALUE.  We push to this vector in RPO
-     order thus for iteration we can simply pop the last
-     entries.
-     LOCATION is the basic-block index and LEADER is its
-     SSA name version.  */
-  /* ???  We'd like to use auto_vec here with embedded storage
-     but that doesn't play well until we can provide move
-     constructors and use std::move on hash-table expansion.
-     So for now this is a bit more expensive than necessary.
-     We eventually want to switch to a chaining scheme like
-     for hashtable entries for unwinding which would make
-     making the vector part of the vn_ssa_aux structure possible.  */
-  typedef hash_map<tree, vec<std::pair<int, int> > > rpo_avail_t;
-  rpo_avail_t m_rpo_avail;
-};
-
-/* Global RPO state for access from hooks.  */
-static rpo_elim *rpo_avail;
-
 /* Hook for maybe_push_res_to_seq, lookup the expression in the VN tables.  */
 
 static tree
@@ -5901,7 +5979,7 @@ insert_related_predicates_on_edge (enum tree_code code, tree *ops, edge pred_e)
 static unsigned
 process_bb (rpo_elim &avail, basic_block bb,
 	    bool bb_visited, bool iterate_phis, bool iterate, bool eliminate,
-	    bool do_region, bitmap exit_bbs)
+	    bool do_region, bitmap exit_bbs, bool skip_phis)
 {
   unsigned todo = 0;
   edge_iterator ei;
@@ -5912,7 +5990,8 @@ process_bb (rpo_elim &avail, basic_block bb,
   /* If we are in loop-closed SSA preserve this state.  This is
      relevant when called on regions from outside of FRE/PRE.  */
   bool lc_phi_nodes = false;
-  if (loops_state_satisfies_p (LOOP_CLOSED_SSA))
+  if (!skip_phis
+      && loops_state_satisfies_p (LOOP_CLOSED_SSA))
     FOR_EACH_EDGE (e, ei, bb->preds)
       if (e->src->loop_father != e->dest->loop_father
 	  && flow_loop_nested_p (e->dest->loop_father,
@@ -5933,67 +6012,68 @@ process_bb (rpo_elim &avail, basic_block bb,
     }
 
   /* Value-number all defs in the basic-block.  */
-  for (gphi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
-       gsi_next (&gsi))
-    {
-      gphi *phi = gsi.phi ();
-      tree res = PHI_RESULT (phi);
-      vn_ssa_aux_t res_info = VN_INFO (res);
-      if (!bb_visited)
-	{
-	  gcc_assert (!res_info->visited);
-	  res_info->valnum = VN_TOP;
-	  res_info->visited = true;
-	}
+  if (!skip_phis)
+    for (gphi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
+	 gsi_next (&gsi))
+      {
+	gphi *phi = gsi.phi ();
+	tree res = PHI_RESULT (phi);
+	vn_ssa_aux_t res_info = VN_INFO (res);
+	if (!bb_visited)
+	  {
+	    gcc_assert (!res_info->visited);
+	    res_info->valnum = VN_TOP;
+	    res_info->visited = true;
+	  }
 
-      /* When not iterating force backedge values to varying.  */
-      visit_stmt (phi, !iterate_phis);
-      if (virtual_operand_p (res))
-	continue;
+	/* When not iterating force backedge values to varying.  */
+	visit_stmt (phi, !iterate_phis);
+	if (virtual_operand_p (res))
+	  continue;
 
-      /* Eliminate */
-      /* The interesting case is gcc.dg/tree-ssa/pr22230.c for correctness
-	 how we handle backedges and availability.
-	 And gcc.dg/tree-ssa/ssa-sccvn-2.c for optimization.  */
-      tree val = res_info->valnum;
-      if (res != val && !iterate && eliminate)
-	{
-	  if (tree leader = avail.eliminate_avail (bb, res))
-	    {
-	      if (leader != res
-		  /* Preserve loop-closed SSA form.  */
-		  && (! lc_phi_nodes
-		      || is_gimple_min_invariant (leader)))
-		{
-		  if (dump_file && (dump_flags & TDF_DETAILS))
-		    {
-		      fprintf (dump_file, "Replaced redundant PHI node "
-			       "defining ");
-		      print_generic_expr (dump_file, res);
-		      fprintf (dump_file, " with ");
-		      print_generic_expr (dump_file, leader);
-		      fprintf (dump_file, "\n");
-		    }
-		  avail.eliminations++;
+	/* Eliminate */
+	/* The interesting case is gcc.dg/tree-ssa/pr22230.c for correctness
+	   how we handle backedges and availability.
+	   And gcc.dg/tree-ssa/ssa-sccvn-2.c for optimization.  */
+	tree val = res_info->valnum;
+	if (res != val && !iterate && eliminate)
+	  {
+	    if (tree leader = avail.eliminate_avail (bb, res))
+	      {
+		if (leader != res
+		    /* Preserve loop-closed SSA form.  */
+		    && (! lc_phi_nodes
+			|| is_gimple_min_invariant (leader)))
+		  {
+		    if (dump_file && (dump_flags & TDF_DETAILS))
+		      {
+			fprintf (dump_file, "Replaced redundant PHI node "
+				 "defining ");
+			print_generic_expr (dump_file, res);
+			fprintf (dump_file, " with ");
+			print_generic_expr (dump_file, leader);
+			fprintf (dump_file, "\n");
+		      }
+		    avail.eliminations++;
 
-		  if (may_propagate_copy (res, leader))
-		    {
-		      /* Schedule for removal.  */
-		      avail.to_remove.safe_push (phi);
-		      continue;
-		    }
-		  /* ???  Else generate a copy stmt.  */
-		}
-	    }
-	}
-      /* Only make defs available that not already are.  But make
-	 sure loop-closed SSA PHI node defs are picked up for
-	 downstream uses.  */
-      if (lc_phi_nodes
-	  || res == val
-	  || ! avail.eliminate_avail (bb, res))
-	avail.eliminate_push_avail (bb, res);
-    }
+		    if (may_propagate_copy (res, leader))
+		      {
+			/* Schedule for removal.  */
+			avail.to_remove.safe_push (phi);
+			continue;
+		      }
+		    /* ???  Else generate a copy stmt.  */
+		  }
+	      }
+	  }
+	/* Only make defs available that not already are.  But make
+	   sure loop-closed SSA PHI node defs are picked up for
+	   downstream uses.  */
+	if (lc_phi_nodes
+	    || res == val
+	    || ! avail.eliminate_avail (bb, res))
+	  avail.eliminate_push_avail (bb, res);
+      }
 
   /* For empty BBs mark outgoing edges executable.  For non-empty BBs
      we do this when processing the last stmt as we have to do this
@@ -6337,6 +6417,13 @@ do_rpo_vn (function *fn, edge entry, bitmap exit_bbs,
       bitmap_set_bit (exit_bbs, EXIT_BLOCK);
     }
 
+  /* Clear EDGE_DFS_BACK on "all" entry edges, RPO order compute will
+     re-mark those that are contained in the region.  */
+  edge_iterator ei;
+  edge e;
+  FOR_EACH_EDGE (e, ei, entry->dest->preds)
+    e->flags &= ~EDGE_DFS_BACK;
+
   int *rpo = XNEWVEC (int, n_basic_blocks_for_fn (fn) - NUM_FIXED_BLOCKS);
   int n = rev_post_order_and_mark_dfs_back_seme
     (fn, entry, exit_bbs, !loops_state_satisfies_p (LOOPS_NEED_FIXUP), rpo);
@@ -6346,6 +6433,18 @@ do_rpo_vn (function *fn, edge entry, bitmap exit_bbs,
 
   if (!do_region)
     BITMAP_FREE (exit_bbs);
+
+  /* If there are any non-DFS_BACK edges into entry->dest skip
+     processing PHI nodes for that block.  This supports
+     value-numbering loop bodies w/o the actual loop.  */
+  FOR_EACH_EDGE (e, ei, entry->dest->preds)
+    if (e != entry
+	&& !(e->flags & EDGE_DFS_BACK))
+      break;
+  bool skip_entry_phis = e != NULL;
+  if (skip_entry_phis && dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "Region does not contain all edges into "
+	     "the entry block, skipping its PHIs.\n");
 
   int *bb_to_rpo = XNEWVEC (int, last_basic_block_for_fn (fn));
   for (int i = 0; i < n; ++i)
@@ -6376,7 +6475,9 @@ do_rpo_vn (function *fn, edge entry, bitmap exit_bbs,
 	  edge e;
 	  edge_iterator ei;
 	  FOR_EACH_EDGE (e, ei, bb->preds)
-	    gcc_assert (e == entry || (e->src->flags & bb_in_region));
+	    gcc_assert (e == entry
+			|| (skip_entry_phis && bb == entry->dest)
+			|| (e->src->flags & bb_in_region));
 	}
       for (int i = 0; i < n; ++i)
 	{
@@ -6390,6 +6491,7 @@ do_rpo_vn (function *fn, edge entry, bitmap exit_bbs,
   unsigned region_size = (((unsigned HOST_WIDE_INT)n * num_ssa_names)
 			  / (n_basic_blocks_for_fn (fn) - NUM_FIXED_BLOCKS));
   VN_TOP = create_tmp_var_raw (void_type_node, "vn_top");
+  next_value_id = 1;
 
   vn_ssa_aux_hash = new hash_table <vn_ssa_aux_hasher> (region_size * 2);
   gcc_obstack_init (&vn_ssa_aux_obstack);
@@ -6420,7 +6522,7 @@ do_rpo_vn (function *fn, edge entry, bitmap exit_bbs,
 	  if (e->flags & EDGE_DFS_BACK)
 	    has_backedges = true;
 	  e->flags &= ~EDGE_EXECUTABLE;
-	  if (iterate || e == entry)
+	  if (iterate || e == entry || (skip_entry_phis && bb == entry->dest))
 	    continue;
 	  if (bb_to_rpo[e->src->index] > i)
 	    {
@@ -6453,7 +6555,7 @@ do_rpo_vn (function *fn, edge entry, bitmap exit_bbs,
 	  edge_iterator ei;
 	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    {
-	      if (e == entry)
+	      if (e == entry || (skip_entry_phis && bb == entry->dest))
 		continue;
 	      int max_rpo = MAX (rpo_state[i].max_rpo,
 				 rpo_state[bb_to_rpo[e->src->index]].max_rpo);
@@ -6542,7 +6644,7 @@ do_rpo_vn (function *fn, edge entry, bitmap exit_bbs,
 	todo |= process_bb (avail, bb,
 			    rpo_state[idx].visited != 0,
 			    rpo_state[idx].iterate,
-			    iterate, eliminate, do_region, exit_bbs);
+			    iterate, eliminate, do_region, exit_bbs, false);
 	rpo_state[idx].visited++;
 
 	/* Verify if changed values flow over executable outgoing backedges
@@ -6640,8 +6742,10 @@ do_rpo_vn (function *fn, edge entry, bitmap exit_bbs,
 	  edge e;
 	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    if (!(e->flags & EDGE_EXECUTABLE)
-		&& !rpo_state[bb_to_rpo[e->src->index]].visited
-		&& rpo_state[bb_to_rpo[e->src->index]].max_rpo >= (int)idx)
+		&& (bb == entry->dest
+		    || (!rpo_state[bb_to_rpo[e->src->index]].visited
+			&& (rpo_state[bb_to_rpo[e->src->index]].max_rpo
+			    >= (int)idx))))
 	      {
 		if (dump_file && (dump_flags & TDF_DETAILS))
 		  fprintf (dump_file, "Cannot trust state of predecessor "
@@ -6652,7 +6756,8 @@ do_rpo_vn (function *fn, edge entry, bitmap exit_bbs,
 
 	  nblk++;
 	  todo |= process_bb (avail, bb, false, false, false, eliminate,
-			      do_region, exit_bbs);
+			      do_region, exit_bbs,
+			      skip_entry_phis && bb == entry->dest);
 	  rpo_state[idx].visited++;
 
 	  FOR_EACH_EDGE (e, ei, bb->succs)
@@ -6734,7 +6839,9 @@ do_rpo_vn (function *fn, edge entry, bitmap exit_bbs,
 }
 
 /* Region-based entry for RPO VN.  Performs value-numbering and elimination
-   on the SEME region specified by ENTRY and EXIT_BBS.  */
+   on the SEME region specified by ENTRY and EXIT_BBS.  If ENTRY is not
+   the only edge into the region at ENTRY->dest PHI nodes in ENTRY->dest
+   are not considered.  */
 
 unsigned
 do_rpo_vn (function *fn, edge entry, bitmap exit_bbs)

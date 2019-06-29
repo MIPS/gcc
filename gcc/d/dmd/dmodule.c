@@ -1,6 +1,6 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (C) 1999-2018 by The D Language Foundation, All Rights Reserved
+ * Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
@@ -35,6 +35,7 @@ Dsymbols Module::deferred3; // deferred Dsymbol's needing semantic3() run on the
 unsigned Module::dprogress;
 
 const char *lookForSourceFile(const char **path, const char *filename);
+StringExp *semanticString(Scope *sc, Expression *exp, const char *s);
 
 void Module::_init()
 {
@@ -301,7 +302,7 @@ bool Module::read(Loc loc)
         {
             ::error(loc, "cannot find source code for runtime library file 'object.d'");
             errorSupplemental(loc, "dmd might not be correctly installed. Run 'dmd -man' for installation instructions.");
-            const char *dmdConfFile = FileName::canonicalName(global.inifilename);
+            const char *dmdConfFile = global.inifilename ? FileName::canonicalName(global.inifilename) : NULL;
             errorSupplemental(loc, "config file: %s", dmdConfFile ? dmdConfFile : "not found");
         }
         else
@@ -574,69 +575,6 @@ Module *Module::parse()
             error("has non-identifier characters in filename, use module declaration instead");
     }
 
-    // Add internal used functions in 'object' module members.
-    if (!parent && ident == Id::object)
-    {
-        static const utf8_t code_ArrayEq[] =
-            "bool _ArrayEq(T1, T2)(T1[] a, T2[] b) {\n"
-            " if (a.length != b.length) return false;\n"
-            " foreach (size_t i; 0 .. a.length) { if (a[i] != b[i]) return false; }\n"
-            " return true; }\n";
-
-        static const utf8_t code_ArrayPostblit[] =
-            "void _ArrayPostblit(T)(T[] a) { foreach (ref T e; a) e.__xpostblit(); }\n";
-
-        static const utf8_t code_ArrayDtor[] =
-            "void _ArrayDtor(T)(T[] a) { foreach_reverse (ref T e; a) e.__xdtor(); }\n";
-
-        static const utf8_t code_xopEquals[] =
-            "bool _xopEquals(in void*, in void*) { throw new Error(\"TypeInfo.equals is not implemented\"); }\n";
-
-        static const utf8_t code_xopCmp[] =
-            "bool _xopCmp(in void*, in void*) { throw new Error(\"TypeInfo.compare is not implemented\"); }\n";
-
-        Identifier *arreq = Id::_ArrayEq;
-        Identifier *xopeq = Identifier::idPool("_xopEquals");
-        Identifier *xopcmp = Identifier::idPool("_xopCmp");
-        for (size_t i = 0; i < members->dim; i++)
-        {
-            Dsymbol *sx = (*members)[i];
-            if (!sx) continue;
-            if (arreq && sx->ident == arreq) arreq = NULL;
-            if (xopeq && sx->ident == xopeq) xopeq = NULL;
-            if (xopcmp && sx->ident == xopcmp) xopcmp = NULL;
-        }
-
-        if (arreq)
-        {
-            Parser p(loc, this, code_ArrayEq, strlen((const char *)code_ArrayEq), 0);
-            p.nextToken();
-            members->append(p.parseDeclDefs(0));
-        }
-        {
-            Parser p(loc, this, code_ArrayPostblit, strlen((const char *)code_ArrayPostblit), 0);
-            p.nextToken();
-            members->append(p.parseDeclDefs(0));
-        }
-        {
-            Parser p(loc, this, code_ArrayDtor, strlen((const char *)code_ArrayDtor), 0);
-            p.nextToken();
-            members->append(p.parseDeclDefs(0));
-        }
-        if (xopeq)
-        {
-            Parser p(loc, this, code_xopEquals, strlen((const char *)code_xopEquals), 0);
-            p.nextToken();
-            members->append(p.parseDeclDefs(0));
-        }
-        if (xopcmp)
-        {
-            Parser p(loc, this, code_xopCmp, strlen((const char *)code_xopCmp), 0);
-            p.nextToken();
-            members->append(p.parseDeclDefs(0));
-        }
-    }
-
     // Insert module into the symbol table
     Dsymbol *s = this;
     if (isPackageFile)
@@ -727,14 +665,6 @@ void Module::importAll(Scope *)
         return;
     }
 
-    if (md && md->msg)
-    {
-        if (StringExp *se = md->msg->toStringExp())
-            md->msg = se;
-        else
-            md->msg->error("string expected, not '%s'", md->msg->toChars());
-    }
-
     /* Note that modules get their own scope, from scratch.
      * This is so regardless of where in the syntax a module
      * gets imported, it is unaffected by context.
@@ -742,11 +672,15 @@ void Module::importAll(Scope *)
      */
     Scope *sc = Scope::createGlobal(this);      // create root scope
 
+    if (md && md->msg)
+      md->msg = semanticString(sc, md->msg, "deprecation message");
+
     // Add import of "object", even for the "object" module.
     // If it isn't there, some compiler rewrites, like
     //    classinst == classinst -> .object.opEquals(classinst, classinst)
     // would fail inside object.d.
-    if (members->dim == 0 || ((*members)[0])->ident != Id::object)
+    if (members->dim == 0 || ((*members)[0])->ident != Id::object ||
+        (*members)[0]->isImport() == NULL)
     {
         Import *im = new Import(Loc(), NULL, Id::object, NULL, 0);
         members->shift(im);

@@ -797,26 +797,31 @@ msp430_option_override (void)
 	    if (msp430_warn_mcu)
 	      {
 		if (target_cpu&& msp430x != xisa)
-		  warning (0, "MCU '%s' supports %s ISA but -mcpu option is set to %s",
+		  warning (0, "MCU %qs supports %s ISA but %<-mcpu%> option "
+			   "is set to %s",
 			   target_mcu, xisa ? "430X" : "430", msp430x ? "430X" : "430");
 
 		if (msp430_mcu_data[i].hwmpy == 0
 		    && msp430_hwmult_type != MSP430_HWMULT_AUTO
 		    && msp430_hwmult_type != MSP430_HWMULT_NONE)
-		  warning (0, "MCU '%s' does not have hardware multiply support, but -mhwmult is set to %s",
+		  warning (0, "MCU %qs does not have hardware multiply "
+			   "support, but %<-mhwmult%> is set to %s",
 			   target_mcu,
 			   msp430_hwmult_type == MSP430_HWMULT_SMALL ? "16-bit"
 			   : msp430_hwmult_type == MSP430_HWMULT_LARGE ? "32-bit" : "f5series");
 		else if (msp430_hwmult_type == MSP430_HWMULT_SMALL
 		    && msp430_mcu_data[i].hwmpy != 1
 		    && msp430_mcu_data[i].hwmpy != 2 )
-		  warning (0, "MCU '%s' supports %s hardware multiply, but -mhwmult is set to 16-bit",
+		  warning (0, "MCU %qs supports %s hardware multiply, "
+			   "but %<-mhwmult%> is set to 16-bit",
 			   target_mcu, hwmult_name (msp430_mcu_data[i].hwmpy));
 		else if (msp430_hwmult_type == MSP430_HWMULT_LARGE && msp430_mcu_data[i].hwmpy != 4)
-		  warning (0, "MCU '%s' supports %s hardware multiply, but -mhwmult is set to 32-bit",
+		  warning (0, "MCU %qs supports %s hardware multiply, "
+			   "but %<-mhwmult%> is set to 32-bit",
 			   target_mcu, hwmult_name (msp430_mcu_data[i].hwmpy));
 		else if (msp430_hwmult_type == MSP430_HWMULT_F5SERIES && msp430_mcu_data[i].hwmpy != 8)
-		  warning (0, "MCU '%s' supports %s hardware multiply, but -mhwmult is set to f5series",
+		  warning (0, "MCU %qs supports %s hardware multiply, "
+			   "but %<-mhwmult%> is set to f5series",
 			   target_mcu, hwmult_name (msp430_mcu_data[i].hwmpy));
 	      }
 
@@ -832,15 +837,15 @@ msp430_option_override (void)
 		{
 		  if (target_cpu == NULL)
 		    warning (0,
-			     "Unrecognized MCU name '%s', assuming that it is "
+			     "Unrecognized MCU name %qs, assuming that it is "
 			     "just a MSP430 with no hardware multiply.\n"
-			     "Use the -mcpu and -mhwmult options to set "
-			     "these explicitly.",
+			     "Use the %<-mcpu%> and %<-mhwmult%> options to "
+			     "set these explicitly.",
 			     target_mcu);
 		  else
 		    warning (0,
-			     "Unrecognized MCU name '%s', assuming that it "
-			     "has no hardware multiply.\nUse the -mhwmult "
+			     "Unrecognized MCU name %qs, assuming that it "
+			     "has no hardware multiply.\nUse the %<-mhwmult%> "
 			     "option to set this explicitly.",
 			     target_mcu);
 		}
@@ -851,15 +856,15 @@ msp430_option_override (void)
 	    {
 	      if (msp430_warn_mcu)
 		warning (0,
-			 "Unrecognized MCU name '%s', assuming that it just "
-			 "supports the MSP430 ISA.\nUse the -mcpu option to "
-			 "set the ISA explicitly.",
+			 "Unrecognized MCU name %qs, assuming that it just "
+			 "supports the MSP430 ISA.\nUse the %<-mcpu%> option "
+			 "to set the ISA explicitly.",
 			 target_mcu);
 
 	      msp430x = false;
 	    }
 	  else if (msp430_warn_mcu)
-	    warning (0, "Unrecognized MCU name '%s'.", target_mcu);
+	    warning (0, "Unrecognized MCU name %qs.", target_mcu);
 	}
     }
 
@@ -868,12 +873,12 @@ msp430_option_override (void)
     msp430x = true;
 
   if (TARGET_LARGE && !msp430x)
-    error ("-mlarge requires a 430X-compatible -mmcu=");
+    error ("%<-mlarge%> requires a 430X-compatible %<-mmcu=%>");
 
   if (msp430_code_region == MSP430_REGION_UPPER && ! msp430x)
-    error ("-mcode-region=upper requires 430X-compatible cpu");
+    error ("%<-mcode-region=upper%> requires 430X-compatible cpu");
   if (msp430_data_region == MSP430_REGION_UPPER && ! msp430x)
-    error ("-mdata-region=upper requires 430X-compatible cpu");
+    error ("%<-mdata-region=upper%> requires 430X-compatible cpu");
 
   if (flag_exceptions || flag_non_call_exceptions
       || flag_unwind_tables || flag_asynchronous_unwind_tables)
@@ -3041,6 +3046,7 @@ msp430_expand_helper (rtx *operands, const char *helper_name, bool const_variant
 {
   rtx c, f;
   char *helper_const = NULL;
+  int arg1 = 12;
   int arg2 = 13;
   int arg1sz = 1;
   machine_mode arg0mode = GET_MODE (operands[0]);
@@ -3074,6 +3080,13 @@ msp430_expand_helper (rtx *operands, const char *helper_name, bool const_variant
       arg2 = 14;
       arg1sz = 2;
     }
+  else if (arg1mode == DImode)
+    {
+      /* Shift value in R8:R11, shift amount in R12.  */
+      arg1 = 8;
+      arg1sz = 4;
+      arg2 = 12;
+    }
 
   if (const_variants
       && CONST_INT_P (operands[2])
@@ -3086,7 +3099,7 @@ msp430_expand_helper (rtx *operands, const char *helper_name, bool const_variant
       snprintf (helper_const, len, "%s_%d", helper_name, (int) INTVAL (operands[2]));
     }
 
-  emit_move_insn (gen_rtx_REG (arg1mode, 12),
+  emit_move_insn (gen_rtx_REG (arg1mode, arg1),
 		  operands[1]);
   if (!helper_const)
     emit_move_insn (gen_rtx_REG (arg2mode, arg2),
@@ -3099,12 +3112,13 @@ msp430_expand_helper (rtx *operands, const char *helper_name, bool const_variant
   RTL_CONST_CALL_P (c) = 1;
 
   f = 0;
-  use_regs (&f, 12, arg1sz);
+  use_regs (&f, arg1, arg1sz);
   if (!helper_const)
     use_regs (&f, arg2, 1);
   add_function_usage_to (c, f);
 
   emit_move_insn (operands[0],
+		  /* Return value will always start in R12.  */
 		  gen_rtx_REG (arg0mode, 12));
 }
 

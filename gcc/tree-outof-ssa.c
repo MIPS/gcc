@@ -653,6 +653,8 @@ get_temp_reg (tree name)
   tree type = TREE_TYPE (name);
   int unsignedp;
   machine_mode reg_mode = promote_ssa_mode (name, &unsignedp);
+  if (reg_mode == BLKmode)
+    return assign_temp (type, 0, 0);
   rtx x = gen_reg_rtx (reg_mode);
   if (POINTER_TYPE_P (type))
     mark_reg_pointer (x, TYPE_ALIGN (TREE_TYPE (type)));
@@ -809,26 +811,7 @@ eliminate_useless_phis (void)
 	  gphi *phi = gsi.phi ();
 	  result = gimple_phi_result (phi);
 	  if (virtual_operand_p (result))
-	    {
-	      /* There should be no arguments which are not virtual, or the
-	         results will be incorrect.  */
-	      if (flag_checking)
-		for (size_t i = 0; i < gimple_phi_num_args (phi); i++)
-		  {
-		    tree arg = PHI_ARG_DEF (phi, i);
-		    if (TREE_CODE (arg) == SSA_NAME
-			&& !virtual_operand_p (arg))
-		      {
-			fprintf (stderr, "Argument of PHI is not virtual (");
-			print_generic_expr (stderr, arg, TDF_SLIM);
-			fprintf (stderr, "), but the result is :");
-			print_gimple_stmt (stderr, phi, 0, TDF_SLIM);
-			internal_error ("SSA corruption");
-		      }
-		  }
-
-	      remove_phi_node (&gsi, true);
-	    }
+	    remove_phi_node (&gsi, true);
           else
 	    {
 	      /* Also remove real PHIs with no uses.  */

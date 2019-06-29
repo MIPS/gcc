@@ -662,6 +662,17 @@ typedef struct {
 #define BRANCH_COST(speed_p, predictable_p) \
   ((!(speed_p) || (predictable_p)) ? 2 : riscv_branch_cost)
 
+/* True if the target optimizes short forward branches around integer
+   arithmetic instructions into predicated operations, e.g., for
+   conditional-move operations.  The macro assumes that all branch
+   instructions (BEQ, BNE, BLT, BLTU, BGE, BGEU, C.BEQZ, and C.BNEZ)
+   support this feature.  The macro further assumes that any integer
+   arithmetic and logical operation (ADD[I], SUB, SLL[I], SRL[I], SRA[I],
+   SLT[I][U], AND[I], XOR[I], OR[I], LUI, AUIPC, and their compressed
+   counterparts, including C.MV and C.LI) can be in the branch shadow.  */
+
+#define TARGET_SFB_ALU (riscv_microarchitecture == sifive_7)
+
 #define LOGICAL_OP_NON_SHORT_CIRCUIT 0
 
 /* Control the assembler format that we output.  */
@@ -829,20 +840,20 @@ while (0)
 #undef PTRDIFF_TYPE
 #define PTRDIFF_TYPE (POINTER_SIZE == 64 ? "long int" : "int")
 
-/* The maximum number of bytes copied by one iteration of a movmemsi loop.  */
+/* The maximum number of bytes copied by one iteration of a cpymemsi loop.  */
 
 #define RISCV_MAX_MOVE_BYTES_PER_LOOP_ITER (UNITS_PER_WORD * 4)
 
 /* The maximum number of bytes that can be copied by a straight-line
-   movmemsi implementation.  */
+   cpymemsi implementation.  */
 
 #define RISCV_MAX_MOVE_BYTES_STRAIGHT (RISCV_MAX_MOVE_BYTES_PER_LOOP_ITER * 3)
 
 /* If a memory-to-memory move would take MOVE_RATIO or more simple
-   move-instruction pairs, we will do a movmem or libcall instead.
+   move-instruction pairs, we will do a cpymem or libcall instead.
    Do not use move_by_pieces at all when strict alignment is not
    in effect but the target has slow unaligned accesses; in this
-   case, movmem or libcall is more efficient.  */
+   case, cpymem or libcall is more efficient.  */
 
 #define MOVE_RATIO(speed)						\
   (!STRICT_ALIGNMENT && riscv_slow_unaligned_access_p ? 1 :		\
@@ -881,12 +892,6 @@ extern unsigned riscv_stack_boundary;
   "%{mabi=lp64:lp64}" \
   "%{mabi=lp64f:lp64f}" \
   "%{mabi=lp64d:lp64d}" \
-
-#define STARTFILE_PREFIX_SPEC 			\
-   "/lib" XLEN_SPEC "/" ABI_SPEC "/ "		\
-   "/usr/lib" XLEN_SPEC "/" ABI_SPEC "/ "	\
-   "/lib/ "					\
-   "/usr/lib/ "
 
 /* ISA constants needed for code generation.  */
 #define OPCODE_LW    0x2003

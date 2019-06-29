@@ -336,6 +336,7 @@ lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
     case GIMPLE_OMP_MASTER:
     case GIMPLE_OMP_TASKGROUP:
     case GIMPLE_OMP_ORDERED:
+    case GIMPLE_OMP_SCAN:
     case GIMPLE_OMP_CRITICAL:
     case GIMPLE_OMP_RETURN:
     case GIMPLE_OMP_ATOMIC_LOAD:
@@ -723,8 +724,8 @@ lower_gimple_return (gimple_stmt_iterator *gsi, struct lower_data *data)
   if (!optimize && gimple_has_location (stmt))
     DECL_ARTIFICIAL (tmp_rs.label) = 0;
   t = gimple_build_goto (tmp_rs.label);
+  /* location includes block.  */
   gimple_set_location (t, gimple_location (stmt));
-  gimple_set_block (t, gimple_block (stmt));
   gsi_insert_before (gsi, t, GSI_SAME_STMT);
   gsi_remove (gsi, false);
 }
@@ -806,8 +807,8 @@ lower_builtin_setjmp (gimple_stmt_iterator *gsi)
   arg = build_addr (next_label);
   t = builtin_decl_implicit (BUILT_IN_SETJMP_SETUP);
   g = gimple_build_call (t, 2, gimple_call_arg (stmt, 0), arg);
+  /* location includes block.  */
   gimple_set_location (g, loc);
-  gimple_set_block (g, gimple_block (stmt));
   gsi_insert_before (gsi, g, GSI_SAME_STMT);
 
   /* Build 'DEST = 0' and insert.  */
@@ -815,7 +816,6 @@ lower_builtin_setjmp (gimple_stmt_iterator *gsi)
     {
       g = gimple_build_assign (dest, build_zero_cst (TREE_TYPE (dest)));
       gimple_set_location (g, loc);
-      gimple_set_block (g, gimple_block (stmt));
       gsi_insert_before (gsi, g, GSI_SAME_STMT);
     }
 
@@ -832,7 +832,6 @@ lower_builtin_setjmp (gimple_stmt_iterator *gsi)
   t = builtin_decl_implicit (BUILT_IN_SETJMP_RECEIVER);
   g = gimple_build_call (t, 1, arg);
   gimple_set_location (g, loc);
-  gimple_set_block (g, gimple_block (stmt));
   gsi_insert_before (gsi, g, GSI_SAME_STMT);
 
   /* Build 'DEST = 1' and insert.  */
@@ -841,7 +840,6 @@ lower_builtin_setjmp (gimple_stmt_iterator *gsi)
       g = gimple_build_assign (dest, fold_convert_loc (loc, TREE_TYPE (dest),
 						       integer_one_node));
       gimple_set_location (g, loc);
-      gimple_set_block (g, gimple_block (stmt));
       gsi_insert_before (gsi, g, GSI_SAME_STMT);
     }
 

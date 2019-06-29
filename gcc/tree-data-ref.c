@@ -460,7 +460,6 @@ dump_data_dependence_relation (FILE *outf,
 	  dump_subscript (outf, sub);
 	}
 
-      fprintf (outf, "  inner loop index: %d\n", DDR_INNER_LOOP (ddr));
       fprintf (outf, "  loop nest: (");
       FOR_EACH_VEC_ELT (DDR_LOOP_NEST (ddr), i, loopi)
 	fprintf (outf, "%d ", loopi->num);
@@ -1272,7 +1271,7 @@ create_data_ref (edge nest, loop_p loop, tree memref, gimple *stmt,
   return dr;
 }
 
-/*  A helper function computes order between two tree epxressions T1 and T2.
+/*  A helper function computes order between two tree expressions T1 and T2.
     This is used in comparator functions sorting objects based on the order
     of tree expressions.  The function returns -1, 0, or 1.  */
 
@@ -2232,7 +2231,7 @@ object_address_invariant_in_loop_p (const struct loop *loop, const_tree obj)
 
 bool
 dr_may_alias_p (const struct data_reference *a, const struct data_reference *b,
-		bool loop_nest)
+		struct loop *loop_nest)
 {
   tree addr_a = DR_BASE_OBJECT (a);
   tree addr_b = DR_BASE_OBJECT (b);
@@ -2256,6 +2255,11 @@ dr_may_alias_p (const struct data_reference *a, const struct data_reference *b,
 
   if ((TREE_CODE (addr_a) == MEM_REF || TREE_CODE (addr_a) == TARGET_MEM_REF)
       && (TREE_CODE (addr_b) == MEM_REF || TREE_CODE (addr_b) == TARGET_MEM_REF)
+      /* For cross-iteration dependences the cliques must be valid for the
+	 whole loop, not just individual iterations.  */
+      && (!loop_nest
+	  || MR_DEPENDENCE_CLIQUE (addr_a) == 1
+	  || MR_DEPENDENCE_CLIQUE (addr_a) == loop_nest->owned_clique)
       && MR_DEPENDENCE_CLIQUE (addr_a) == MR_DEPENDENCE_CLIQUE (addr_b)
       && MR_DEPENDENCE_BASE (addr_a) != MR_DEPENDENCE_BASE (addr_b))
     return false;
@@ -2367,7 +2371,7 @@ initialize_data_dependence_relation (struct data_reference *a,
     }
 
   /* If the data references do not alias, then they are independent.  */
-  if (!dr_may_alias_p (a, b, loop_nest.exists ()))
+  if (!dr_may_alias_p (a, b, loop_nest.exists () ? loop_nest[0] : NULL))
     {
       DDR_ARE_DEPENDENT (res) = chrec_known;
       return res;
@@ -2643,7 +2647,6 @@ initialize_data_dependence_relation (struct data_reference *a,
   DDR_ARE_DEPENDENT (res) = NULL_TREE;
   DDR_SUBSCRIPTS (res).create (full_seq.length);
   DDR_LOOP_NEST (res) = loop_nest;
-  DDR_INNER_LOOP (res) = 0;
   DDR_SELF_REFERENCE (res) = false;
 
   for (i = 0; i < full_seq.length; ++i)
@@ -3191,6 +3194,8 @@ initialize_matrix_A (lambda_matrix A, tree chrec, unsigned index, int mult)
   switch (TREE_CODE (chrec))
     {
     case POLYNOMIAL_CHREC:
+      if (!cst_and_fits_in_hwi (CHREC_RIGHT (chrec)))
+	return chrec_dont_know;
       A[index][0] = mult * int_cst_value (CHREC_RIGHT (chrec));
       return initialize_matrix_A (A, CHREC_LEFT (chrec), index + 1, mult);
 
@@ -3574,7 +3579,7 @@ analyze_subscript_affine_affine (tree chrec_a,
 				 tree *last_conflicts)
 {
   unsigned nb_vars_a, nb_vars_b, dim;
-  HOST_WIDE_INT init_a, init_b, gamma, gcd_alpha_beta;
+  HOST_WIDE_INT gamma, gcd_alpha_beta;
   lambda_matrix A, U, S;
   struct obstack scratch_obstack;
 
@@ -3611,9 +3616,20 @@ analyze_subscript_affine_affine (tree chrec_a,
   A = lambda_matrix_new (dim, 1, &scratch_obstack);
   S = lambda_matrix_new (dim, 1, &scratch_obstack);
 
-  init_a = int_cst_value (initialize_matrix_A (A, chrec_a, 0, 1));
-  init_b = int_cst_value (initialize_matrix_A (A, chrec_b, nb_vars_a, -1));
-  gamma = init_b - init_a;
+  tree init_a = initialize_matrix_A (A, chrec_a, 0, 1);
+  tree init_b = initialize_matrix_A (A, chrec_b, nb_vars_a, -1);
+  if (init_a == chrec_dont_know
+      || init_b == chrec_dont_know)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "affine-affine test failed: "
+		 "representation issue.\n");
+      *overlaps_a = conflict_fn_not_known ();
+      *overlaps_b = conflict_fn_not_known ();
+      *last_conflicts = chrec_dont_know;
+      goto end_analyze_subs_aa;
+    }
+  gamma = int_cst_value (init_b) - int_cst_value (init_a);
 
   /* Don't do all the hard work of solving the Diophantine equation
      when we already know the solution: for example,
@@ -4047,9 +4063,9 @@ analyze_miv_subscript (tree chrec_a,
     }
 
   else if (evolution_function_is_affine_in_loop (chrec_a, loop_nest->num)
-	   && !chrec_contains_symbols (chrec_a)
+	   && !chrec_contains_symbols (chrec_a, loop_nest)
 	   && evolution_function_is_affine_in_loop (chrec_b, loop_nest->num)
-	   && !chrec_contains_symbols (chrec_b))
+	   && !chrec_contains_symbols (chrec_b, loop_nest))
     {
       /* testsuite/.../ssa-chrec-35.c
 	 {0, +, 1}_2  vs.  {0, +, 1}_3
@@ -4259,6 +4275,7 @@ build_classic_dist_vector_1 (struct data_dependence_relation *ddr,
 {
   unsigned i;
   lambda_vector init_v = lambda_vector_new (DDR_NB_LOOPS (ddr));
+  struct loop *loop = DDR_LOOP_NEST (ddr)[0];
 
   for (i = 0; i < DDR_NUM_SUBSCRIPTS (ddr); i++)
     {
@@ -4288,6 +4305,15 @@ build_classic_dist_vector_1 (struct data_dependence_relation *ddr,
 	      non_affine_dependence_relation (ddr);
 	      return false;
 	    }
+
+	  /* When data references are collected in a loop while data
+	     dependences are analyzed in loop nest nested in the loop, we
+	     would have more number of access functions than number of
+	     loops.  Skip access functions of loops not in the loop nest.
+
+	     See PR89725 for more information.  */
+	  if (flow_loop_nested_p (get_loop (cfun, var_a), loop))
+	    continue;
 
 	  dist = int_cst_value (SUB_DISTANCE (subscript));
 	  index = index_in_loop_nest (var_a, DDR_LOOP_NEST (ddr));
@@ -4400,6 +4426,7 @@ add_other_self_distances (struct data_dependence_relation *ddr)
   unsigned i;
   int index_carry = DDR_NB_LOOPS (ddr);
   subscript *sub;
+  struct loop *loop = DDR_LOOP_NEST (ddr)[0];
 
   FOR_EACH_VEC_ELT (DDR_SUBSCRIPTS (ddr), i, sub)
     {
@@ -4407,7 +4434,7 @@ add_other_self_distances (struct data_dependence_relation *ddr)
 
       if (TREE_CODE (access_fun) == POLYNOMIAL_CHREC)
 	{
-	  if (!evolution_function_is_univariate_p (access_fun))
+	  if (!evolution_function_is_univariate_p (access_fun, loop->num))
 	    {
 	      if (DDR_NUM_SUBSCRIPTS (ddr) != 1)
 		{
@@ -4429,6 +4456,16 @@ add_other_self_distances (struct data_dependence_relation *ddr)
 	      return;
 	    }
 
+	  /* When data references are collected in a loop while data
+	     dependences are analyzed in loop nest nested in the loop, we
+	     would have more number of access functions than number of
+	     loops.  Skip access functions of loops not in the loop nest.
+
+	     See PR89725 for more information.  */
+	  if (flow_loop_nested_p (get_loop (cfun, CHREC_VARIABLE (access_fun)),
+				  loop))
+	    continue;
+
 	  index_carry = MIN (index_carry,
 			     index_in_loop_nest (CHREC_VARIABLE (access_fun),
 						 DDR_LOOP_NEST (ddr)));
@@ -4444,7 +4481,7 @@ insert_innermost_unit_dist_vector (struct data_dependence_relation *ddr)
 {
   lambda_vector dist_v = lambda_vector_new (DDR_NB_LOOPS (ddr));
 
-  dist_v[DDR_INNER_LOOP (ddr)] = 1;
+  dist_v[0] = 1;
   save_dist_v (ddr, dist_v);
 }
 

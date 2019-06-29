@@ -692,6 +692,16 @@ gfc_compare_types (gfc_typespec *ts1, gfc_typespec *ts2)
   if (ts1->type == BT_VOID || ts2->type == BT_VOID)
     return true;
 
+  /* Special case for our C interop types.  FIXME: There should be a
+     better way of doing this.  When ISO C binding is cleared up,
+     this can probably be removed.  See PR 57048.  */
+
+  if (((ts1->type == BT_INTEGER && ts2->type == BT_DERIVED)
+       || (ts1->type == BT_DERIVED && ts2->type == BT_INTEGER))
+      && ts1->u.derived && ts2->u.derived
+      && ts1->u.derived == ts2->u.derived)
+    return true;
+
   /* The _data component is not always present, therefore check for its
      presence before assuming, that its derived->attr is available.
      When the _data component is not present, then nevertheless the
@@ -2959,17 +2969,19 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 
       if (f->sym == NULL)
 	{
+	  /* These errors have to be issued, otherwise an ICE can occur.
+	     See PR 78865.  */
 	  if (where)
-	    gfc_error ("Missing alternate return spec in subroutine call "
-		       "at %L", where);
+	    gfc_error_now ("Missing alternate return specifier in subroutine "
+			   "call at %L", where);
 	  return false;
 	}
 
       if (a->expr == NULL)
 	{
 	  if (where)
-	    gfc_error ("Unexpected alternate return spec in subroutine "
-		       "call at %L", where);
+	    gfc_error_now ("Unexpected alternate return specifier in "
+			   "subroutine call at %L", where);
 	  return false;
 	}
 
@@ -2977,7 +2989,8 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 	 polymorphic formal arguments.  */
       if (UNLIMITED_POLY (f->sym)
 	  && a->expr->ts.type != BT_DERIVED
-	  && a->expr->ts.type != BT_CLASS)
+	  && a->expr->ts.type != BT_CLASS
+	  && a->expr->ts.type != BT_ASSUMED)
 	gfc_find_vtab (&a->expr->ts);
 
       if (a->expr->expr_type == EXPR_NULL
@@ -3673,6 +3686,7 @@ gfc_procedure_use (gfc_symbol *sym, gfc_actual_arglist **ap, locus *where)
 	gfc_warning (OPT_Wimplicit_procedure,
 		     "Procedure %qs called at %L is not explicitly declared",
 		     sym->name, where);
+      gfc_find_proc_namespace (sym->ns)->implicit_interface_calls = 1;
     }
 
   if (sym->attr.if_source == IFSRC_UNKNOWN)
@@ -4542,7 +4556,7 @@ gfc_check_typebound_override (gfc_symtree* proc, gfc_symtree* old)
   /* If the overwritten procedure is GENERIC, this is an error.  */
   if (old->n.tb->is_generic)
     {
-      gfc_error ("Can't overwrite GENERIC %qs at %L",
+      gfc_error ("Cannot overwrite GENERIC %qs at %L",
 		 old->name, &proc->n.tb->where);
       return false;
     }

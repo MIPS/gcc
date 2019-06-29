@@ -62,6 +62,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "print-rtl.h"
 
+/* Disable warnings about missing quoting in GCC diagnostics.  */
+#if __GNUC__ >= 10
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wformat-diag"
+#endif
+
 /* Holds the interesting leading and trailing notes for the function.
    Only applicable if the CFG is in cfglayout mode.  */
 static GTY(()) rtx_insn *cfg_layout_function_footer;
@@ -543,7 +549,7 @@ update_bb_for_insn (basic_block bb)
 }
 
 
-/* Like active_insn_p, except keep the return value clobber around
+/* Like active_insn_p, except keep the return value use or clobber around
    even after reload.  */
 
 static bool
@@ -556,8 +562,12 @@ flow_active_insn_p (const rtx_insn *insn)
      programs that fail to return a value.  Its effect is to
      keep the return value from being live across the entire
      function.  If we allow it to be skipped, we introduce the
-     possibility for register lifetime confusion.  */
-  if (GET_CODE (PATTERN (insn)) == CLOBBER
+     possibility for register lifetime confusion.
+     Similarly, keep a USE of the function return value, otherwise
+     the USE is dropped and we could fail to thread jump if USE
+     appears on some paths and not on others, see PR90257.  */
+  if ((GET_CODE (PATTERN (insn)) == CLOBBER
+       || GET_CODE (PATTERN (insn)) == USE)
       && REG_P (XEXP (PATTERN (insn), 0))
       && REG_FUNCTION_VALUE_P (XEXP (PATTERN (insn), 0)))
     return true;
@@ -988,6 +998,31 @@ block_label (basic_block block)
   return as_a <rtx_code_label *> (BB_HEAD (block));
 }
 
+/* Remove all barriers from BB_FOOTER of a BB.  */
+
+static void
+remove_barriers_from_footer (basic_block bb)
+{
+  rtx_insn *insn = BB_FOOTER (bb);
+
+  /* Remove barriers but keep jumptables.  */
+  while (insn)
+    {
+      if (BARRIER_P (insn))
+	{
+	  if (PREV_INSN (insn))
+	    SET_NEXT_INSN (PREV_INSN (insn)) = NEXT_INSN (insn);
+	  else
+	    BB_FOOTER (bb) = NEXT_INSN (insn);
+	  if (NEXT_INSN (insn))
+	    SET_PREV_INSN (NEXT_INSN (insn)) = PREV_INSN (insn);
+	}
+      if (LABEL_P (insn))
+	return;
+      insn = NEXT_INSN (insn);
+    }
+}
+
 /* Attempt to perform edge redirection by replacing possibly complex jump
    instruction by unconditional jump or removing jump completely.  This can
    apply only if all edges now point to the same block.  The parameters and
@@ -1051,26 +1086,8 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
       /* Selectively unlink whole insn chain.  */
       if (in_cfglayout)
 	{
-	  rtx_insn *insn = BB_FOOTER (src);
-
 	  delete_insn_chain (kill_from, BB_END (src), false);
-
-	  /* Remove barriers but keep jumptables.  */
-	  while (insn)
-	    {
-	      if (BARRIER_P (insn))
-		{
-		  if (PREV_INSN (insn))
-		    SET_NEXT_INSN (PREV_INSN (insn)) = NEXT_INSN (insn);
-		  else
-		    BB_FOOTER (src) = NEXT_INSN (insn);
-		  if (NEXT_INSN (insn))
-		    SET_PREV_INSN (NEXT_INSN (insn)) = PREV_INSN (insn);
-		}
-	      if (LABEL_P (insn))
-		break;
-	      insn = NEXT_INSN (insn);
-	    }
+	  remove_barriers_from_footer (src);
 	}
       else
 	delete_insn_chain (kill_from, PREV_INSN (BB_HEAD (target)),
@@ -2951,7 +2968,6 @@ rtl_verify_bb_layout (void)
   basic_block last_bb_seen = ENTRY_BLOCK_PTR_FOR_FN (cfun), curr_bb = NULL;
 
   num_bb_notes = 0;
-  last_bb_seen = ENTRY_BLOCK_PTR_FOR_FN (cfun);
 
   for (x = rtx_first; x; x = NEXT_INSN (x))
     {
@@ -4243,7 +4259,7 @@ duplicate_insn_chain (rtx_insn *from, rtx_insn *to)
 /* Create a duplicate of the basic block BB.  */
 
 static basic_block
-cfg_layout_duplicate_bb (basic_block bb)
+cfg_layout_duplicate_bb (basic_block bb, copy_bb_data *)
 {
   rtx_insn *insn;
   basic_block new_bb;
@@ -4396,6 +4412,7 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
 	  	 "Removing crossing jump while redirecting edge form %i to %i\n",
 		 e->src->index, dest->index);
       delete_insn (BB_END (src));
+      remove_barriers_from_footer (src);
       e->flags |= EDGE_FALLTHRU;
     }
 
@@ -5072,9 +5089,9 @@ rtl_can_remove_branch_p (const_edge e)
 }
 
 static basic_block
-rtl_duplicate_bb (basic_block bb)
+rtl_duplicate_bb (basic_block bb, copy_bb_data *id)
 {
-  bb = cfg_layout_duplicate_bb (bb);
+  bb = cfg_layout_duplicate_bb (bb, id);
   bb->aux = NULL;
   return bb;
 }
@@ -5179,3 +5196,7 @@ struct cfg_hooks cfg_layout_rtl_cfg_hooks = {
 };
 
 #include "gt-cfgrtl.h"
+
+#if __GNUC__ >= 10
+#  pragma GCC diagnostic pop
+#endif

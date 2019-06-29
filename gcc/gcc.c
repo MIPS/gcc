@@ -2976,6 +2976,44 @@ add_sysrooted_prefix (struct path_prefix *pprefix, const char *prefix,
   add_prefix (pprefix, prefix, component, priority,
 	      require_machine_suffix, os_multilib);
 }
+
+/* Same as add_prefix, but prepending target_sysroot_hdrs_suffix to prefix.  */
+
+static void
+add_sysrooted_hdrs_prefix (struct path_prefix *pprefix, const char *prefix,
+			   const char *component,
+			   /* enum prefix_priority */ int priority,
+			   int require_machine_suffix, int os_multilib)
+{
+  if (!IS_ABSOLUTE_PATH (prefix))
+    fatal_error (input_location, "system path %qs is not absolute", prefix);
+
+  if (target_system_root)
+    {
+      char *sysroot_no_trailing_dir_separator = xstrdup (target_system_root);
+      size_t sysroot_len = strlen (target_system_root);
+
+      if (sysroot_len > 0
+	  && target_system_root[sysroot_len - 1] == DIR_SEPARATOR)
+	sysroot_no_trailing_dir_separator[sysroot_len - 1] = '\0';
+
+      if (target_sysroot_hdrs_suffix)
+	prefix = concat (sysroot_no_trailing_dir_separator,
+			 target_sysroot_hdrs_suffix, prefix, NULL);
+      else
+	prefix = concat (sysroot_no_trailing_dir_separator, prefix, NULL);
+
+      free (sysroot_no_trailing_dir_separator);
+
+      /* We have to override this because GCC's notion of sysroot
+	 moves along with GCC.  */
+      component = "GCC";
+    }
+
+  add_prefix (pprefix, prefix, component, priority,
+	      require_machine_suffix, os_multilib);
+}
+
 
 /* Execute the command specified by the arguments on the current line of spec.
    When using pipes, this includes several piped-together commands
@@ -3030,17 +3068,17 @@ execute (void)
   if (!wrapper_string)
     {
       string = find_a_file (&exec_prefixes, commands[0].prog, X_OK, false);
-      commands[0].argv[0] = (string) ? string : commands[0].argv[0];
+      if (string)
+	commands[0].argv[0] = string;
     }
 
   for (n_commands = 1, i = 0; argbuf.iterate (i, &arg); i++)
     if (arg && strcmp (arg, "|") == 0)
       {				/* each command.  */
 #if defined (__MSDOS__) || defined (OS2) || defined (VMS)
-	fatal_error (input_location, "-pipe not supported");
+	fatal_error (input_location, "%<-pipe%> not supported");
 #endif
-	argbuf[i] = 0; /* Termination of
-						     command args.  */
+	argbuf[i] = 0; /* Termination of command args.  */
 	commands[n_commands].prog = argbuf[i + 1];
 	commands[n_commands].argv
 	  = &(argbuf.address ())[i + 1];
@@ -3160,7 +3198,7 @@ execute (void)
 				   ? PEX_RECORD_TIMES : 0),
 		  progname, temp_filename);
   if (pex == NULL)
-    fatal_error (input_location, "pex_init failed: %m");
+    fatal_error (input_location, "%<pex_init%> failed: %m");
 
   for (i = 0; i < n_commands; i++)
     {
@@ -3731,7 +3769,7 @@ driver_wrong_lang_callback (const struct cl_decoded_option *decoded,
   const struct cl_option *option = &cl_options[decoded->opt_index];
 
   if (option->cl_reject_driver)
-    error ("unrecognized command line option %qs",
+    error ("unrecognized command-line option %qs",
 	   decoded->orig_option_with_args_text);
   else
     save_switch (decoded->canonical_option[0],
@@ -4110,7 +4148,7 @@ driver_handle_option (struct gcc_options *opts,
 	       || strcmp (arg, "object") == 0)
 	save_temps_flag = SAVE_TEMPS_OBJ;
       else
-	fatal_error (input_location, "%qs is an unknown -save-temps option",
+	fatal_error (input_location, "%qs is an unknown %<-save-temps%> option",
 		     decoded->orig_option_with_args_text);
       break;
 
@@ -4613,7 +4651,7 @@ process_command (unsigned int decoded_options_count,
     {
       /* -save-temps overrides -pipe, so that temp files are produced */
       if (save_temps_flag)
-	warning (0, "-pipe ignored because -save-temps specified");
+	warning (0, "%<-pipe%> ignored because %<-save-temps%> specified");
       use_pipes = 0;
     }
 
@@ -4713,10 +4751,9 @@ process_command (unsigned int decoded_options_count,
     }
 
   /* Ensure we only invoke each subprocess once.  */
-  if (print_subprocess_help || print_help_list || print_version)
+  if (n_infiles == 0
+      && (print_subprocess_help || print_help_list || print_version))
     {
-      n_infiles = 0;
-
       /* Create a dummy input file, so that we can pass
 	 the help option on to the various sub-processes.  */
       add_infile ("help-dummy", "c");
@@ -6101,7 +6138,8 @@ eval_spec_function (const char *func, const char *args,
 
   alloc_args ();
   if (do_spec_2 (args, soft_matched_part) < 0)
-    fatal_error (input_location, "error in args to spec function %qs", func);
+    fatal_error (input_location, "error in arguments to spec function %qs",
+		 func);
 
   /* argbuf_index is an index for the next argument to be inserted, and
      so contains the count of the args already inserted.  */
@@ -6886,11 +6924,11 @@ run_attempt (const char **new_argv, const char *out_temp,
 
   pex = pex_init (PEX_USE_PIPES, new_argv[0], NULL);
   if (!pex)
-    fatal_error (input_location, "pex_init failed: %m");
+    fatal_error (input_location, "%<pex_init%> failed: %m");
 
   errmsg = pex_run (pex, pex_flags, new_argv[0],
-		    CONST_CAST2 (char *const *, const char **, &new_argv[1]), out_temp,
-		    err_temp, &err);
+		    CONST_CAST2 (char *const *, const char **, &new_argv[1]),
+		    out_temp, err_temp, &err);
   if (errmsg != NULL)
     {
       errno = err;
@@ -7205,7 +7243,7 @@ compare_files (char *cmpfile[])
 
     if (!ret && length[0] != length[1])
       {
-	error ("%s: -fcompare-debug failure (length)", gcc_input_filename);
+	error ("%s: %<-fcompare-debug%> failure (length)", gcc_input_filename);
 	ret = 1;
       }
 
@@ -7235,7 +7273,7 @@ compare_files (char *cmpfile[])
       {
 	if (memcmp (map[0], map[1], length[0]) != 0)
 	  {
-	    error ("%s: -fcompare-debug failure", gcc_input_filename);
+	    error ("%s: %<-fcompare-debug%> failure", gcc_input_filename);
 	    ret = 1;
 	  }
       }
@@ -7272,7 +7310,7 @@ compare_files (char *cmpfile[])
 
 	if (c0 != c1)
 	  {
-	    error ("%s: -fcompare-debug failure",
+	    error ("%s: %<-fcompare-debug%> failure",
 		   gcc_input_filename);
 	    ret = 1;
 	    break;
@@ -7577,7 +7615,8 @@ driver::set_up_specs () const
       && do_spec_2 (sysroot_suffix_spec, NULL) == 0)
     {
       if (argbuf.length () > 1)
-        error ("spec failure: more than one arg to SYSROOT_SUFFIX_SPEC");
+	error ("spec failure: more than one argument to "
+	       "%<SYSROOT_SUFFIX_SPEC%>");
       else if (argbuf.length () == 1)
         target_sysroot_suffix = xstrdup (argbuf.last ());
     }
@@ -7601,7 +7640,8 @@ driver::set_up_specs () const
       && do_spec_2 (sysroot_hdrs_suffix_spec, NULL) == 0)
     {
       if (argbuf.length () > 1)
-        error ("spec failure: more than one arg to SYSROOT_HEADERS_SUFFIX_SPEC");
+	error ("spec failure: more than one argument "
+	       "to %<SYSROOT_HEADERS_SUFFIX_SPEC%>");
       else if (argbuf.length () == 1)
         target_sysroot_hdrs_suffix = xstrdup (argbuf.last ());
     }
@@ -7806,11 +7846,11 @@ driver::handle_unrecognized_options ()
       {
 	const char *hint = m_option_proposer.suggest_option (switches[i].part1);
 	if (hint)
-	  error ("unrecognized command line option %<-%s%>;"
+	  error ("unrecognized command-line option %<-%s%>;"
 		 " did you mean %<-%s%>?",
 		 switches[i].part1, hint);
 	else
-	  error ("unrecognized command line option %<-%s%>",
+	  error ("unrecognized command-line option %<-%s%>",
 		 switches[i].part1);
       }
 }
@@ -8048,7 +8088,8 @@ driver::prepare_infiles ()
 
   if (!combine_inputs && have_c && have_o && lang_n_infiles > 1)
     fatal_error (input_location,
-		 "cannot specify -o with -c, -S or -E with multiple files");
+		 "cannot specify %<-o%> with %<-c%>, %<-S%> or %<-E%> "
+		 "with multiple files");
 
   /* No early exit needed from main; we can continue.  */
   return false;
@@ -8114,7 +8155,7 @@ driver::do_spec_on_infiles () const
 		{
 		  if (verbose_flag)
 		    inform (UNKNOWN_LOCATION,
-			    "recompiling with -fcompare-debug");
+			    "recompiling with %<-fcompare-debug%>");
 
 		  compare_debug = -compare_debug;
 		  n_switches = n_switches_debug_check[1];
@@ -8130,7 +8171,7 @@ driver::do_spec_on_infiles () const
 
 		  if (value < 0)
 		    {
-		      error ("during -fcompare-debug recompilation");
+		      error ("during %<-fcompare-debug%> recompilation");
 		      this_file_error = 1;
 		    }
 
@@ -8256,7 +8297,7 @@ driver::maybe_run_linker (const char *argv0) const
 					     false);
 	      if (!temp_spec)
 		fatal_error (input_location,
-			     "-fuse-linker-plugin, but %s not found",
+			     "%<-fuse-linker-plugin%>, but %s not found",
 			     LTOPLUGINSONAME);
 	      linker_plugin_file_spec = convert_white_space (temp_spec);
 	    }
@@ -9759,7 +9800,7 @@ compare_debug_auxbase_opt_spec_function (int arg,
   len = strlen (argv[0]);
   if (len < 3 || strcmp (argv[0] + len - 3, ".gk") != 0)
     fatal_error (input_location, "argument to %%:compare-debug-auxbase-opt "
-		 "does not end in .gk");
+		 "does not end in %<.gk%>");
 
   if (debug_auxbase_opt)
     return debug_auxbase_opt;
@@ -9896,20 +9937,61 @@ debug_level_greater_than_spec_func (int argc, const char **argv)
   return NULL;
 }
 
-/* The function takes 2 arguments: OPTION name and file name.
+static void
+path_prefix_reset (path_prefix *prefix)
+{
+  struct prefix_list *iter, *next;
+  iter = prefix->plist;
+  while (iter)
+    {
+      next = iter->next;
+      free (const_cast <char *> (iter->prefix));
+      XDELETE (iter);
+      iter = next;
+    }
+  prefix->plist = 0;
+  prefix->max_len = 0;
+}
+
+/* The function takes 3 arguments: OPTION name, file name and location
+   where we search for Fortran modules.
    When the FILE is found by find_file, return OPTION=path_to_file.  */
 
 static const char *
 find_fortran_preinclude_file (int argc, const char **argv)
 {
-  if (argc != 2)
+  char *result = NULL;
+  if (argc != 3)
     return NULL;
 
-  const char *path = find_a_file (&include_prefixes, argv[1], R_OK, true);
-  if (path != NULL)
-    return concat (argv[0], path, NULL);
+  struct path_prefix prefixes = { 0, 0, "preinclude" };
 
-  return NULL;
+  /* Search first for 'finclude' folder location for a header file
+     installed by the compiler (similar to omp_lib.h).  */
+  add_prefix (&prefixes, argv[2], NULL, 0, 0, 0);
+#ifdef TOOL_INCLUDE_DIR
+  /* Then search: <prefix>/<target>/<include>/finclude */
+  add_prefix (&prefixes, TOOL_INCLUDE_DIR "/finclude/",
+	      NULL, 0, 0, 0);
+#endif
+#ifdef NATIVE_SYSTEM_HEADER_DIR
+  /* Then search: <sysroot>/usr/include/finclude/<multilib> */
+  add_sysrooted_hdrs_prefix (&prefixes, NATIVE_SYSTEM_HEADER_DIR "/finclude/",
+			     NULL, 0, 0, 0);
+#endif
+
+  const char *path = find_a_file (&include_prefixes, argv[1], R_OK, false);
+  if (path != NULL)
+    result = concat (argv[0], path, NULL);
+  else
+    {
+      path = find_a_file (&prefixes, argv[1], R_OK, false);
+      if (path != NULL)
+	result = concat (argv[0], path, NULL);
+    }
+
+  path_prefix_reset (&prefixes);
+  return result;
 }
 
 
@@ -9959,22 +10041,6 @@ convert_white_space (char *orig)
   }
   else
     return orig;
-}
-
-static void
-path_prefix_reset (path_prefix *prefix)
-{
-  struct prefix_list *iter, *next;
-  iter = prefix->plist;
-  while (iter)
-    {
-      next = iter->next;
-      free (const_cast <char *> (iter->prefix));
-      XDELETE (iter);
-      iter = next;
-    }
-  prefix->plist = 0;
-  prefix->max_len = 0;
 }
 
 /* Restore all state within gcc.c to the initial state, so that the driver

@@ -1,4 +1,4 @@
-/* { dg-do compile } */
+/* { dg-do compile { target c99_runtime } } */
 /* { dg-options "-Wabsolute-value" } */
 
 #include <stdlib.h>
@@ -34,9 +34,9 @@ tst_notint (float *pf, double *pd, _Complex double *pc)
 void
 tst_notfloat (int *pi, long *pl, complex double *pc)
 {
-  *pi = fabsf (*pi);  /* { dg-warning "using floating point absolute value function" } */
-  *pl = fabs (*pl);   /* { dg-warning "using floating point absolute value function" } */
-  *pc = fabs (*pc);   /* { dg-warning "using floating point absolute value function" } */
+  *pi = fabsf (*pi);  /* { dg-warning "using floating-point absolute value function" } */
+  *pl = fabs (*pl);   /* { dg-warning "using floating-point absolute value function" } */
+  *pc = fabs (*pc);   /* { dg-warning "using floating-point absolute value function" } */
 }
 
 void

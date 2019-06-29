@@ -300,13 +300,22 @@ oacc_xform_loop (gcall *call)
   tree chunk_size = NULL_TREE;
   unsigned mask = (unsigned) TREE_INT_CST_LOW (gimple_call_arg (call, 5));
   tree lhs = gimple_call_lhs (call);
-  tree type = TREE_TYPE (lhs);
+  tree type = NULL_TREE;
   tree diff_type = TREE_TYPE (range);
   tree r = NULL_TREE;
   gimple_seq seq = NULL;
   bool chunking = false, striding = true;
   unsigned outer_mask = mask & (~mask + 1); // Outermost partitioning
   unsigned inner_mask = mask & ~outer_mask; // Inner partitioning (if any)
+
+  /* Skip lowering if return value of IFN_GOACC_LOOP call is not used.  */
+  if (!lhs)
+    {
+      gsi_replace_with_seq (&gsi, seq, true);
+      return;
+    }
+
+  type = TREE_TYPE (lhs);
 
 #ifdef ACCEL_COMPILER
   chunk_size = gimple_call_arg (call, 4);
@@ -639,13 +648,13 @@ oacc_parse_default_dims (const char *dims)
 	{
 	malformed:
 	  error_at (UNKNOWN_LOCATION,
-		    "-fopenacc-dim operand is malformed at '%s'", pos);
+		    "%<-fopenacc-dim%> operand is malformed at %qs", pos);
 	}
     }
 
   /* Allow the backend to validate the dimensions.  */
-  targetm.goacc.validate_dims (NULL_TREE, oacc_default_dims, -1);
-  targetm.goacc.validate_dims (NULL_TREE, oacc_min_dims, -2);
+  targetm.goacc.validate_dims (NULL_TREE, oacc_default_dims, -1, 0);
+  targetm.goacc.validate_dims (NULL_TREE, oacc_min_dims, -2, 0);
 }
 
 /* Validate and update the dimensions for offloaded FN.  ATTRS is the
@@ -673,7 +682,7 @@ oacc_validate_dims (tree fn, tree attrs, int *dims, int level, unsigned used)
       pos = TREE_CHAIN (pos);
     }
 
-  bool changed = targetm.goacc.validate_dims (fn, dims, level);
+  bool changed = targetm.goacc.validate_dims (fn, dims, level, used);
 
   /* Default anything left to 1 or a partitioned default.  */
   for (ix = 0; ix != GOMP_DIM_MAX; ix++)
@@ -1717,7 +1726,8 @@ execute_oacc_device_lower ()
 
 bool
 default_goacc_validate_dims (tree ARG_UNUSED (decl), int *dims,
-			     int ARG_UNUSED (fn_level))
+			     int ARG_UNUSED (fn_level),
+			     unsigned ARG_UNUSED (used))
 {
   bool changed = false;
 

@@ -122,12 +122,18 @@ extern tree arm_fp16_type_node;
 #define TARGET_32BIT_P(flags)  (TARGET_ARM_P (flags) || TARGET_THUMB2_P (flags))
 
 /* Run-time Target Specification.  */
-/* Use hardware floating point instructions. */
-#define TARGET_HARD_FLOAT	(arm_float_abi != ARM_FLOAT_ABI_SOFT	\
+/* Use hardware floating point instructions. -mgeneral-regs-only prevents
+the use of floating point instructions and registers but does not prevent
+emission of floating point pcs attributes.  */
+#define TARGET_HARD_FLOAT_SUB	(arm_float_abi != ARM_FLOAT_ABI_SOFT	\
 				 && bitmap_bit_p (arm_active_target.isa, \
 						  isa_bit_vfpv2) \
 				 && TARGET_32BIT)
-#define TARGET_SOFT_FLOAT	(!TARGET_HARD_FLOAT)
+
+#define TARGET_HARD_FLOAT	(TARGET_HARD_FLOAT_SUB		\
+				 && !TARGET_GENERAL_REGS_ONLY)
+
+#define TARGET_SOFT_FLOAT	(!TARGET_HARD_FLOAT_SUB)
 /* User has permitted use of FP instructions, if they exist for this
    target.  */
 #define TARGET_MAYBE_HARD_FLOAT (arm_float_abi != ARM_FLOAT_ABI_SOFT)
@@ -135,8 +141,10 @@ extern tree arm_fp16_type_node;
 #define TARGET_HARD_FLOAT_ABI		(arm_float_abi == ARM_FLOAT_ABI_HARD)
 #define TARGET_IWMMXT			(arm_arch_iwmmxt)
 #define TARGET_IWMMXT2			(arm_arch_iwmmxt2)
-#define TARGET_REALLY_IWMMXT		(TARGET_IWMMXT && TARGET_32BIT)
-#define TARGET_REALLY_IWMMXT2		(TARGET_IWMMXT2 && TARGET_32BIT)
+#define TARGET_REALLY_IWMMXT		(TARGET_IWMMXT && TARGET_32BIT \
+					 && !TARGET_GENERAL_REGS_ONLY)
+#define TARGET_REALLY_IWMMXT2		(TARGET_IWMMXT2 && TARGET_32BIT \
+					 && !TARGET_GENERAL_REGS_ONLY)
 #define TARGET_IWMMXT_ABI (TARGET_32BIT && arm_abi == ARM_ABI_IWMMXT)
 #define TARGET_ARM                      (! TARGET_THUMB)
 #define TARGET_EITHER			1 /* (TARGET_ARM | TARGET_THUMB) */
@@ -195,7 +203,7 @@ extern tree arm_fp16_type_node;
 /* FPU supports converting between HFmode and DFmode in a single hardware
    step.  */
 #define TARGET_FP16_TO_DOUBLE						\
-  (TARGET_HARD_FLOAT && (TARGET_FP16 && TARGET_VFP5))
+  (TARGET_HARD_FLOAT && TARGET_FP16 && TARGET_VFP5 && TARGET_VFP_DOUBLE)
 
 /* FPU supports fused-multiply-add operations.  */
 #define TARGET_FMA (bitmap_bit_p (arm_active_target.isa, isa_bit_vfpv4))
@@ -219,6 +227,9 @@ extern tree arm_fp16_type_node;
 			&& bitmap_bit_p (arm_active_target.isa,		\
 					isa_bit_dotprod)		\
 			&& arm_arch8_2)
+
+/* Supports the Armv8.3-a Complex number AdvSIMD extensions.  */
+#define TARGET_COMPLEX (TARGET_NEON && arm_arch8_3)
 
 /* FPU supports the floating point FP16 instructions for ARMv8.2-A
    and later.  */
@@ -441,6 +452,12 @@ extern int arm_arch8_1;
 
 /* Nonzero if this chip supports the ARM Architecture 8.2 extensions.  */
 extern int arm_arch8_2;
+
+/* Nonzero if this chip supports the ARM Architecture 8.3 extensions.  */
+extern int arm_arch8_3;
+
+/* Nonzero if this chip supports the ARM Architecture 8.4 extensions.  */
+extern int arm_arch8_4;
 
 /* Nonzero if this chip supports the FP16 instructions extension of ARM
    Architecture 8.2.  */
@@ -1168,7 +1185,7 @@ enum reg_class
    : GET_MODE_SIZE (MODE) >= 4 ? BASE_REGS			\
    : LO_REGS)
 
-/* For Thumb we can not support SP+reg addressing, so we return LO_REGS
+/* For Thumb we cannot support SP+reg addressing, so we return LO_REGS
    instead of BASE_REGS.  */
 #define MODE_BASE_REG_REG_CLASS(MODE) BASE_REG_CLASS
 
@@ -1647,7 +1664,7 @@ enum arm_auto_incmodes
    : ARM_REGNO_OK_FOR_BASE_P (REGNO))
 
 /* Nonzero if X can be the base register in a reg+reg addressing mode.
-   For Thumb, we can not use SP + reg, so reject SP.  */
+   For Thumb, we cannot use SP + reg, so reject SP.  */
 #define REGNO_MODE_OK_FOR_REG_BASE_P(X, MODE)	\
   REGNO_MODE_OK_FOR_BASE_P (X, QImode)
 
@@ -1823,7 +1840,7 @@ enum arm_auto_incmodes
    : ARM_REG_OK_FOR_INDEX_P (X))
 
 /* Nonzero if X can be the base register in a reg+reg addressing mode.
-   For Thumb, we can not use SP + reg, so reject SP.  */
+   For Thumb, we cannot use SP + reg, so reject SP.  */
 #define REG_MODE_OK_FOR_REG_BASE_P(X, MODE)	\
   REG_OK_FOR_INDEX_P (X)
 

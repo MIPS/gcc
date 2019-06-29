@@ -921,7 +921,7 @@ sh_option_override (void)
 	 to the pressure on R0.  */
       /* Enable sched1 for SH4 if the user explicitly requests.
 	 When sched1 is enabled, the ready queue will be reordered by
-	 the target hooks if pressure is high.  We can not do this for
+	 the target hooks if pressure is high.  We cannot do this for
 	 PIC, SH3 and lower as they give spill failures for R0.  */
       if (!TARGET_HARD_SH4 || flag_pic)
 	flag_schedule_insns = 0;
@@ -933,7 +933,7 @@ sh_option_override (void)
       else if (flag_exceptions)
 	{
 	  if (flag_schedule_insns && global_options_set.x_flag_schedule_insns)
-	    warning (0, "ignoring -fschedule-insns because of exception "
+	    warning (0, "ignoring %<-fschedule-insns%> because of exception "
 			"handling bug");
 	  flag_schedule_insns = 0;
 	}
@@ -951,7 +951,7 @@ sh_option_override (void)
       && flag_omit_frame_pointer && !TARGET_ACCUMULATE_OUTGOING_ARGS)
     {
       warning (0, "unwind tables currently require either a frame pointer "
-	       "or -maccumulate-outgoing-args for correctness");
+	       "or %<-maccumulate-outgoing-args%> for correctness");
       TARGET_ACCUMULATE_OUTGOING_ARGS = 1;
     }
 
@@ -7413,7 +7413,7 @@ sh_builtin_saveregs (void)
 
   if (!TARGET_FPU_ANY)
     {
-      error ("__builtin_saveregs not supported by this subtarget");
+      error ("%<__builtin_saveregs%> not supported by this subtarget");
       return const0_rtx;
     }
 
@@ -8279,7 +8279,7 @@ sh_fix_range (const char *const_str)
       char* dash = strchr (str, '-');
       if (!dash)
 	{
-	  warning (0, "value of -mfixed-range must have form REG1-REG2");
+	  warning (0, "value of %<-mfixed-range%> must have form REG1-REG2");
 	  return;
 	}
       *dash = '\0';
@@ -8646,7 +8646,7 @@ sh2a_function_vector_p (tree func)
     return false;
 
   for (tree list = SH_ATTRIBUTES (func); list; list = TREE_CHAIN (list))
-    if (is_attribute_p ("function_vector", TREE_PURPOSE (list)))
+    if (is_attribute_p ("function_vector", get_attribute_name (list)))
       return true;
 
   return false;
@@ -10796,6 +10796,7 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 		    HOST_WIDE_INT delta, HOST_WIDE_INT vcall_offset,
 		    tree function)
 {
+  const char *fnname = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (thunk_fndecl));
   CUMULATIVE_ARGS cum;
   int structure_value_byref = 0;
   rtx this_rtx, this_value, sibcall, funexp;
@@ -10939,8 +10940,7 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   emit_barrier ();
 
   /* Run just enough of rest_of_compilation to do scheduling and get
-     the insns emitted.  Note that use_thunk calls
-     assemble_start_function and assemble_end_function.  */
+     the insns emitted.  */
 
   insns = get_insns ();
 
@@ -10953,9 +10953,11 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 
   sh_reorg ();
   shorten_branches (insns);
+  assemble_start_function (thunk_fndecl, fnname);
   final_start_function (insns, file, 1);
   final (insns, file, 1);
   final_end_function ();
+  assemble_end_function (thunk_fndecl, fnname);
 
   reload_completed = 0;
   epilogue_completed = 0;

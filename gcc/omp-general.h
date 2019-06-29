@@ -63,6 +63,8 @@ struct omp_for_data
   int collapse;  /* Collapsed loops, 1 for a non-collapsed loop.  */
   int ordered;
   bool have_nowait, have_ordered, simd_schedule, have_reductemp;
+  bool have_pointer_condtemp;
+  int lastprivate_conditional;
   unsigned char sched_modifiers;
   enum omp_clause_schedule_kind sched_kind;
   struct omp_for_data_loop *loops;
@@ -73,7 +75,7 @@ struct omp_for_data
 extern tree omp_find_clause (tree clauses, enum omp_clause_code kind);
 extern bool omp_is_reference (tree decl);
 extern void omp_adjust_for_condition (location_t loc, enum tree_code *cond_code,
-				      tree *n2);
+				      tree *n2, tree v, tree step);
 extern tree omp_get_for_step_from_incr (location_t loc, tree incr);
 extern void omp_extract_for_data (gomp_for *for_stmt, struct omp_for_data *fd,
 				  struct omp_for_data_loop *loops);
@@ -81,8 +83,11 @@ extern gimple *omp_build_barrier (tree lhs);
 extern poly_uint64 omp_max_vf (void);
 extern int omp_max_simt_vf (void);
 extern tree oacc_launch_pack (unsigned code, tree device, unsigned op);
+extern tree oacc_replace_fn_attrib_attr (tree attribs, tree dims);
 extern void oacc_replace_fn_attrib (tree fn, tree dims);
 extern void oacc_set_fn_attrib (tree fn, tree clauses, vec<tree> *args);
+extern int oacc_verify_routine_clauses (tree, tree *, location_t,
+					const char *);
 extern tree oacc_build_routine_dims (tree clauses);
 extern tree oacc_get_fn_attrib (tree fn);
 extern bool offloading_function_p (tree fn);

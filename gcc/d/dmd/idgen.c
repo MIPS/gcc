@@ -1,6 +1,6 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (C) 1999-2018 by The D Language Foundation, All Rights Reserved
+ * Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
@@ -264,9 +264,12 @@ Msgtable msgtable[] =
     { "monitorexit", "_d_monitorexit" },
     { "criticalenter", "_d_criticalenter" },
     { "criticalexit", "_d_criticalexit" },
-    { "_ArrayEq", NULL },
-    { "_ArrayPostblit", NULL },
-    { "_ArrayDtor", NULL },
+    { "__ArrayEq", NULL },
+    { "__ArrayPostblit", NULL },
+    { "__ArrayDtor", NULL },
+    { "dup", NULL },
+    { "_aaApply", NULL },
+    { "_aaApply2", NULL },
 
     // For pragma's
     { "Pinline", "inline" },
@@ -371,10 +374,11 @@ Msgtable msgtable[] =
     { "udaSelector", "selector" },
 
     // C names, for undefined identifier error messages
-    { "_NULL", "NULL" },
-    { "_TRUE", "TRUE" },
-    { "_FALSE", "FALSE" },
-    { "_unsigned", "unsigned" },
+    { "C_NULL", "NULL" },
+    { "C_TRUE", "TRUE" },
+    { "C_FALSE", "FALSE" },
+    { "C_unsigned", "unsigned" },
+    { "C_wchar_t", "wchar_t" },
 };
 
 

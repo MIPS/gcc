@@ -77,6 +77,20 @@ version (CRuntime_Glibc)
     {
         alias int[64] __jmp_buf;
     }
+    else version (HPPA)
+    {
+        struct __jmp_buf
+        {
+            int __r3;
+            int[15] __r4_r18;
+            int __r19;
+            int __r27;
+            int __sp;
+            int __rp;
+            int __pad1;
+            double[10] __fr12_fr21;
+        }
+    }
     else version (PPC)
     {
         alias int[64 + (12*4)] __jmp_buf;
@@ -138,6 +152,15 @@ version (CRuntime_Glibc)
             double[12] __fpregs;
         }
         alias __jmp_buf = __riscv_jmp_buf[1];
+    }
+    else version (S390)
+    {
+        struct __s390_jmp_buf
+        {
+            c_long[10] __gregs;
+            c_long[4] __fpregs;
+        }
+        alias __jmp_buf = __s390_jmp_buf[1];
     }
     else version (SystemZ)
     {
@@ -282,6 +305,10 @@ else version (CRuntime_Bionic)
     else version (AArch64)
     {
         enum _JBLEN = 32;
+    }
+    else version (X86_64)
+    {
+        enum _JBLEN = 11;
     }
     else
     {

@@ -890,12 +890,17 @@ struct S186
     }
 }
 
+static if (size_t.sizeof == 8)
+    enum checkval = 0x0200000000000002;
+else
+    enum checkval = 0x02000002;
+
 void check186(in S186 obj, byte fieldB)
 {
     assert(obj.fieldA == 2);
     assert(obj.fieldB == 0);
     assert(obj.fieldC == 0);
-    assert(obj._complete == 2);
+    assert(obj._complete == checkval);
     assert(fieldB == 0);
 }
 
@@ -907,7 +912,7 @@ void test186a(size_t val)
     assert(obj.fieldA == 2);
     assert(obj.fieldB == 0);
     assert(obj.fieldC == 0);
-    assert(obj._complete == 2);
+    assert(obj._complete == checkval);
 
     obj = S186(val);
     check186(obj, obj.fieldB);
@@ -915,12 +920,12 @@ void test186a(size_t val)
     assert(obj.fieldA == 2);
     assert(obj.fieldB == 0);
     assert(obj.fieldC == 0);
-    assert(obj._complete == 2);
+    assert(obj._complete == checkval);
 }
 
 void test186()
 {
-    test186a(2);
+    test186a(checkval);
 }
 
 /******************************************/
@@ -1535,6 +1540,47 @@ void test286()
 }
 
 /******************************************/
+// https://bugzilla.gdcproject.org/show_bug.cgi?id=309
+
+void test309()
+{
+    creal f1 = +0.0 + 0.0i;
+    creal f2 = +0.0 - 0.0i;
+    creal f3 = -0.0 + 0.0i;
+    creal f4 = +0.0 + 0.0i;
+
+    assert(f1 !is f2);
+    assert(f1 !is f3);
+    assert(f2 !is f3);
+    assert(f1 is f4);
+
+    assert(!(f1 is f2));
+    assert(!(f1 is f3));
+    assert(!(f2 is f3));
+    assert(!(f1 !is f4));
+
+    struct CReal
+    {
+        creal value;
+    }
+
+    CReal s1 = CReal(+0.0 + 0.0i);
+    CReal s2 = CReal(+0.0 - 0.0i);
+    CReal s3 = CReal(-0.0 + 0.0i);
+    CReal s4 = CReal(+0.0 + 0.0i);
+
+    assert(s1 !is s2);
+    assert(s1 !is s3);
+    assert(s2 !is s3);
+    assert(s1 is s4);
+
+    assert(!(s1 is s2));
+    assert(!(s1 is s3));
+    assert(!(s2 is s3));
+    assert(!(s1 !is s4));
+}
+
+/******************************************/
 
 void main()
 {
@@ -1571,6 +1617,7 @@ void main()
     test273();
     test285();
     test286();
+    test309();
 
     printf("Success!\n");
 }

@@ -110,23 +110,22 @@ static bitmap_obstack local_info_obstack;
 /* Obstack holding global analysis live forever.  */
 static bitmap_obstack optimization_summary_obstack;
 
-class ipa_ref_var_info_summary_t: public function_summary
-			  <ipa_reference_vars_info_d *>
+class ipa_ref_var_info_summary_t: public fast_function_summary
+			  <ipa_reference_vars_info_d *, va_heap>
 {
 public:
   ipa_ref_var_info_summary_t (symbol_table *symtab):
-    function_summary <ipa_reference_vars_info_d *> (symtab) {}
+    fast_function_summary <ipa_reference_vars_info_d *, va_heap> (symtab) {}
 };
 
 static ipa_ref_var_info_summary_t *ipa_ref_var_info_summaries = NULL;
 
-class ipa_ref_opt_summary_t: public function_summary
-			     <ipa_reference_optimization_summary_d *>
+class ipa_ref_opt_summary_t: public fast_function_summary
+			     <ipa_reference_optimization_summary_d *, va_heap>
 {
 public:
   ipa_ref_opt_summary_t (symbol_table *symtab):
-    function_summary <ipa_reference_optimization_summary_d *> (symtab) {}
-
+    fast_function_summary <ipa_reference_optimization_summary_d *, va_heap> (symtab) {}
 
   virtual void remove (cgraph_node *src_node,
 		       ipa_reference_optimization_summary_d *data);
@@ -239,7 +238,7 @@ is_improper (symtab_node *n, void *v ATTRIBUTE_UNUSED)
   if (TREE_READONLY (t))
     return true;
 
-  /* We can not track variables with address taken.  */
+  /* We cannot track variables with address taken.  */
   if (TREE_ADDRESSABLE (t))
     return true;
 
@@ -641,7 +640,7 @@ get_read_write_all_from_node (struct cgraph_node *node,
 {
   struct cgraph_edge *e, *ie;
 
-  /* When function is overwritable, we can not assume anything.  */
+  /* When function is overwritable, we cannot assume anything.  */
   if (node->get_availability () <= AVAIL_INTERPOSABLE
       || (node->analyzed && !opt_for_fn (node->decl, flag_ipa_reference)))
     read_write_all_from_decl (node, read_all, write_all);
@@ -677,16 +676,23 @@ get_read_write_all_from_node (struct cgraph_node *node,
       }
 }
 
-/* Skip edges from and to nodes without ipa_reference enables.  This leave
-   them out of strongy connected coponents and makes them easyto skip in the
+/* Skip edges from and to nodes without ipa_reference enabled.
+   Ignore not available symbols.  This leave
+   them out of strongly connected components and makes them easy to skip in the
    propagation loop bellow.  */
 
 static bool
 ignore_edge_p (cgraph_edge *e)
 {
-  return (!opt_for_fn (e->caller->decl, flag_ipa_reference)
-          || !opt_for_fn (e->callee->function_symbol ()->decl,
-			  flag_ipa_reference));
+  enum availability avail;
+  cgraph_node *ultimate_target
+    = e->callee->function_or_virtual_thunk_symbol (&avail, e->caller);
+
+  return (avail < AVAIL_INTERPOSABLE
+	  || (avail == AVAIL_INTERPOSABLE
+	      && !(flags_from_decl_or_type (e->callee->decl) & ECF_LEAF))
+	  || !opt_for_fn (e->caller->decl, flag_ipa_reference)
+          || !opt_for_fn (ultimate_target->decl, flag_ipa_reference));
 }
 
 /* Produce the global information by preforming a transitive closure
@@ -712,7 +718,7 @@ propagate (void)
      the global information.  All the nodes within a cycle will have
      the same info so we collapse cycles first.  Then we can do the
      propagation in one pass from the leaves to the roots.  */
-  order_pos = ipa_reduced_postorder (order, true, true, ignore_edge_p);
+  order_pos = ipa_reduced_postorder (order, true, ignore_edge_p);
   if (dump_file)
     ipa_print_order (dump_file, "reduced", order, order_pos);
 

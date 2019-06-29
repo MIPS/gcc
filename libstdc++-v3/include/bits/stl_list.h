@@ -563,7 +563,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
 #if __cplusplus >= 201103L
       static_assert(is_same<typename remove_cv<_Tp>::type, _Tp>::value,
 	  "std::list must have a non-const, non-volatile value_type");
-# ifdef __STRICT_ANSI__
+# if __cplusplus > 201703L || defined __STRICT_ANSI__
       static_assert(is_same<typename _Alloc::value_type, _Tp>::value,
 	  "std::list must have the same value_type as its allocator");
 # endif
@@ -1047,7 +1047,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        *  Returns true if the %list is empty.  (Thus begin() would equal
        *  end().)
        */
-      bool
+      _GLIBCXX_NODISCARD bool
       empty() const _GLIBCXX_NOEXCEPT
       { return this->_M_impl._M_node._M_next == &this->_M_impl._M_node; }
 

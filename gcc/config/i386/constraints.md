@@ -96,7 +96,7 @@
 
 ;; We use the Y prefix to denote any number of conditional register sets:
 ;;  z	First SSE register.
-;;  d	any EVEX encodable SSE register for AVX512BW target or
+;;  d	any EVEX encodable SSE register for AVX512DQ target or
 ;;	any SSE register for SSE4_1 target.
 ;;  p	Integer register when TARGET_PARTIAL_REG_STALL is disabled
 ;;  a	Integer register when zero extensions with AND are disabled
@@ -110,6 +110,8 @@
 ;;  v	any EVEX encodable SSE register for AVX512VL target,
 ;;	otherwise any SSE register
 ;;  h	EVEX encodable SSE register with number factor of four
+;;  w	any EVEX encodable SSE register for AVX512BW with TARGET_AVX512VL
+;;	target.
 
 (define_register_constraint "Yz" "TARGET_SSE ? SSE_FIRST_REG : NO_REGS"
  "First SSE register (@code{%xmm0}).")
@@ -145,6 +147,10 @@
 (define_register_constraint "Yv"
  "TARGET_AVX512VL ? ALL_SSE_REGS : TARGET_SSE ? SSE_REGS : NO_REGS"
  "@internal For AVX512VL, any EVEX encodable SSE register (@code{%xmm0-%xmm31}), otherwise any SSE register.")
+
+(define_register_constraint "Yw"
+ "TARGET_AVX512BW && TARGET_AVX512VL ? ALL_SSE_REGS : NO_REGS"
+ "@internal Any EVEX encodable SSE register (@code{%xmm0-%xmm31}) for AVX512BW with TARGET_AVX512VL target.")
 
 ;; We use the B prefix to denote any number of internal operands:
 ;;  f  FLAGS_REG

@@ -1115,7 +1115,7 @@ dwarf2out_begin_prologue (unsigned int line ATTRIBUTE_UNUSED,
 	 function anymore.  */
       if (personality && current_unit_personality != personality)
 	sorry ("multiple EH personalities are supported only with assemblers "
-	       "supporting .cfi_personality directive");
+	       "supporting %<.cfi_personality%> directive");
     }
 }
 
@@ -2914,9 +2914,13 @@ const struct gcc_debug_hooks dwarf2_lineno_debug_hooks =
    separate comdat sections since the linker will then be able to
    remove duplicates.  But not all tools support .debug_types sections
    yet.  For Dwarf V5 or higher .debug_types doesn't exist any more,
-   it is DW_UT_type unit type in .debug_info section.  */
+   it is DW_UT_type unit type in .debug_info section.  For late LTO
+   debug there should be almost no types emitted so avoid enabling
+   -fdebug-types-section there.  */
 
-#define use_debug_types (dwarf_version >= 4 && flag_debug_types_section)
+#define use_debug_types (dwarf_version >= 4 \
+			 && flag_debug_types_section \
+			 && !in_lto_p)
 
 /* Various DIE's use offsets relative to the beginning of the
    .debug_info section to refer to each other.  */
@@ -3746,7 +3750,7 @@ static void output_die_abbrevs (unsigned long, dw_die_ref);
 static void output_die (dw_die_ref);
 static void output_compilation_unit_header (enum dwarf_unit_type);
 static void output_comp_unit (dw_die_ref, int, const unsigned char *);
-static void output_comdat_type_unit (comdat_type_node *);
+static void output_comdat_type_unit (comdat_type_node *, bool);
 static const char *dwarf2_name (tree, int);
 static void add_pubname (tree, dw_die_ref);
 static void add_enumerator_pubname (const char *, dw_die_ref);
@@ -3903,6 +3907,8 @@ static void prune_unused_types (void);
 static int maybe_emit_file (struct dwarf_file_data *fd);
 static inline const char *AT_vms_delta1 (dw_attr_node *);
 static inline const char *AT_vms_delta2 (dw_attr_node *);
+static inline void add_AT_vms_delta (dw_die_ref, enum dwarf_attribute,
+				     const char *, const char *);
 static void append_entry_to_tmpl_value_parm_die_table (dw_die_ref, tree);
 static void gen_remaining_tmpl_value_param_die_attribute (void);
 static bool generic_type_p (tree);
@@ -5136,6 +5142,22 @@ AT_file (dw_attr_node *a)
   gcc_assert (a && (AT_class (a) == dw_val_class_file
 		    || AT_class (a) == dw_val_class_file_implicit));
   return a->dw_attr_val.v.val_file;
+}
+
+/* Add a vms delta attribute value to a DIE.  */
+
+static inline void
+add_AT_vms_delta (dw_die_ref die, enum dwarf_attribute attr_kind,
+		  const char *lbl1, const char *lbl2)
+{
+  dw_attr_node attr;
+
+  attr.dw_attr = attr_kind;
+  attr.dw_attr_val.val_class = dw_val_class_vms_delta;
+  attr.dw_attr_val.val_entry = NULL;
+  attr.dw_attr_val.v.val_vms_delta.lbl1 = xstrdup (lbl1);
+  attr.dw_attr_val.v.val_vms_delta.lbl2 = xstrdup (lbl2);
+  add_dwarf_attr (die, &attr);
 }
 
 /* Add a symbolic view identifier attribute value to a DIE.  */
@@ -8169,6 +8191,11 @@ copy_ancestor_tree (dw_die_ref unit, dw_die_ref die,
   decl_table_entry **slot = NULL;
   struct decl_table_entry *entry = NULL;
 
+  /* If DIE refers to a stub unfold that so we get the appropriate
+     DIE registered as orig in decl_table.  */
+  if (dw_die_ref c = get_AT_ref (die, DW_AT_signature))
+    die = c;
+
   if (decl_table)
     {
       /* Check if the entry has already been copied to UNIT.  */
@@ -8549,11 +8576,12 @@ break_out_comdat_types (dw_die_ref die)
         /* Break out nested types into their own type units.  */
         break_out_comdat_types (c);
 
-        /* Create a new type unit DIE as the root for the new tree, and
-           add it to the list of comdat types.  */
+        /* Create a new type unit DIE as the root for the new tree.  */
         unit = new_die (DW_TAG_type_unit, NULL, NULL);
         add_AT_unsigned (unit, DW_AT_language,
                          get_AT_unsigned (comp_unit_die (), DW_AT_language));
+
+	/* Add the new unit's type DIE into the comdat type list.  */
         type_node = ggc_cleared_alloc<comdat_type_node> ();
         type_node->root_die = unit;
         type_node->next = comdat_type_list;
@@ -8722,6 +8750,33 @@ copy_decls_walk (dw_die_ref unit, dw_die_ref die, decl_hash_type *decl_table)
   FOR_EACH_CHILD (die, c, copy_decls_walk (unit, c, decl_table));
 }
 
+/* Collect skeleton dies in DIE created by break_out_comdat_types already
+   and record them in DECL_TABLE.  */
+
+static void
+collect_skeleton_dies (dw_die_ref die, decl_hash_type *decl_table)
+{
+  dw_die_ref c;
+
+  if (dw_attr_node *a = get_AT (die, DW_AT_signature))
+    {
+      dw_die_ref targ = AT_ref (a);
+      gcc_assert (targ->die_mark == 0 && targ->comdat_type_p);
+      decl_table_entry **slot
+        = decl_table->find_slot_with_hash (targ,
+					   htab_hash_pointer (targ),
+					   INSERT);
+      gcc_assert (*slot == HTAB_EMPTY_ENTRY);
+      /* Record in DECL_TABLE that TARG has been already copied
+	 by remove_child_or_replace_with_skeleton.  */
+      decl_table_entry *entry = XCNEW (struct decl_table_entry);
+      entry->orig = targ;
+      entry->copy = die;
+      *slot = entry;
+    }
+  FOR_EACH_CHILD (die, c, collect_skeleton_dies (c, decl_table));
+}
+
 /* Copy declarations for "unworthy" types into the new comdat section.
    Incomplete types, modified types, and certain other types aren't broken
    out into comdat sections of their own, so they don't have a signature,
@@ -8733,6 +8788,7 @@ copy_decls_for_unworthy_types (dw_die_ref unit)
 {
   mark_dies (unit);
   decl_hash_type decl_table (10);
+  collect_skeleton_dies (unit, &decl_table);
   copy_decls_walk (unit, unit, &decl_table);
   unmark_dies (unit);
 }
@@ -9029,7 +9085,10 @@ build_abbrev_table (dw_die_ref die, external_ref_hash_type *extern_map)
 	if (is_type_die (c)
 	    && (ref_p = lookup_external_ref (extern_map, c))
 	    && ref_p->stub && ref_p->stub != die)
-	  change_AT_die_ref (a, ref_p->stub);
+	  {
+	    gcc_assert (a->dw_attr != DW_AT_signature);
+	    change_AT_die_ref (a, ref_p->stub);
+	  }
 	else
 	  /* We aren't changing this reference, so mark it external.  */
 	  set_AT_ref_external (a, 1);
@@ -9311,7 +9370,6 @@ size_of_die (dw_die_ref die)
 	  }
 	  break;
 	case dw_val_class_loc_list:
-	case dw_val_class_view_list:
 	  if (dwarf_split_debug_info && dwarf_version >= 5)
 	    {
 	      gcc_assert (AT_loc_list (a)->num_assigned);
@@ -9319,6 +9377,9 @@ size_of_die (dw_die_ref die)
 	    }
           else
             size += DWARF_OFFSET_SIZE;
+	  break;
+	case dw_val_class_view_list:
+	  size += DWARF_OFFSET_SIZE;
 	  break;
 	case dw_val_class_range_list:
 	  if (value_format (a) == DW_FORM_rnglistx)
@@ -9397,7 +9458,7 @@ size_of_die (dw_die_ref die)
 		 we use DW_FORM_ref_addr.  In DWARF2, DW_FORM_ref_addr
 		 is sized by target address length, whereas in DWARF3
 		 it's always sized as an offset.  */
-	      if (use_debug_types)
+	      if (AT_ref (a)->comdat_type_p)
 		size += DWARF_TYPE_SIGNATURE_SIZE;
 	      else if (dwarf_version == 2)
 		size += DWARF2_ADDR_SIZE;
@@ -9693,12 +9754,12 @@ value_format (dw_attr_node *a)
 	  gcc_unreachable ();
 	}
     case dw_val_class_loc_list:
-    case dw_val_class_view_list:
       if (dwarf_split_debug_info
 	  && dwarf_version >= 5
 	  && AT_loc_list (a)->num_assigned)
 	return DW_FORM_loclistx;
       /* FALLTHRU */
+    case dw_val_class_view_list:
     case dw_val_class_range_list:
       /* For range lists in DWARF 5, use DW_FORM_rnglistx from .debug_info.dwo
 	 but in .debug_info use DW_FORM_sec_offset, which is shorter if we
@@ -9841,7 +9902,12 @@ value_format (dw_attr_node *a)
       return DW_FORM_flag;
     case dw_val_class_die_ref:
       if (AT_ref_external (a))
-	return use_debug_types ? DW_FORM_ref_sig8 : DW_FORM_ref_addr;
+	{
+	  if (AT_ref (a)->comdat_type_p)
+	    return DW_FORM_ref_sig8;
+	  else
+	    return DW_FORM_ref_addr;
+	}
       else
 	return DW_FORM_ref;
     case dw_val_class_fde_ref:
@@ -10919,8 +10985,8 @@ output_dwarf_version ()
       static bool once;
       if (!once)
 	{
-	  warning (0,
-		   "-gdwarf-6 is output as version 5 with incompatibilities");
+	  warning (0, "%<-gdwarf-6%> is output as version 5 with "
+		   "incompatibilities");
 	  once = true;
 	}
       dw2_asm_output_data (2, 5, "DWARF version number");
@@ -11074,7 +11140,9 @@ output_comp_unit (dw_die_ref die, int output_if_empty,
 static inline bool
 want_pubnames (void)
 {
-  if (debug_info_level <= DINFO_LEVEL_TERSE)
+  if (debug_info_level <= DINFO_LEVEL_TERSE
+      /* Names and types go to the early debug part only.  */
+      || in_lto_p)
     return false;
   if (debug_generate_pub_sections != -1)
     return debug_generate_pub_sections;
@@ -11187,7 +11255,8 @@ output_skeleton_debug_sections (dw_die_ref comp_unit,
 /* Output a comdat type unit DIE and its children.  */
 
 static void
-output_comdat_type_unit (comdat_type_node *node)
+output_comdat_type_unit (comdat_type_node *node,
+			 bool early_lto_debug ATTRIBUTE_UNUSED)
 {
   const char *secname;
   char *tmp;
@@ -11214,14 +11283,16 @@ output_comdat_type_unit (comdat_type_node *node)
   if (dwarf_version >= 5)
     {
       if (!dwarf_split_debug_info)
-	secname = ".debug_info";
+	secname = early_lto_debug ? DEBUG_LTO_INFO_SECTION : DEBUG_INFO_SECTION;
       else
-	secname = ".debug_info.dwo";
+	secname = (early_lto_debug
+		   ? DEBUG_LTO_DWO_INFO_SECTION : DEBUG_DWO_INFO_SECTION);
     }
   else if (!dwarf_split_debug_info)
-    secname = ".debug_types";
+    secname = early_lto_debug ? ".gnu.debuglto_.debug_types" : ".debug_types";
   else
-    secname = ".debug_types.dwo";
+    secname = (early_lto_debug
+	       ? ".gnu.debuglto_.debug_types.dwo" : ".debug_types.dwo");
 
   tmp = XALLOCAVEC (char, 4 + DWARF_TYPE_SIGNATURE_SIZE * 2);
   sprintf (tmp, dwarf_version >= 5 ? "wi." : "wt.");
@@ -13533,6 +13604,13 @@ generic_parameter_die (tree parm, tree arg,
   dw_die_ref tmpl_die = NULL;
   const char *name = NULL;
 
+  /* C++2a accepts class literals as template parameters, and var
+     decls with initializers represent them.  The VAR_DECLs would be
+     rejected, but we can take the DECL_INITIAL constructor and
+     attempt to expand it.  */
+  if (arg && VAR_P (arg))
+    arg = DECL_INITIAL (arg);
+
   if (!parm || !DECL_NAME (parm) || !arg)
     return NULL;
 
@@ -14432,11 +14510,10 @@ const_ok_for_output_1 (rtx rtl)
 		"non-delegitimized UNSPEC %s (%d) found in variable location",
 		((XINT (rtl, 1) >= 0 && XINT (rtl, 1) < NUM_UNSPEC_VALUES)
 		 ? unspec_strings[XINT (rtl, 1)] : "unknown"),
-		XINT (rtl, 1));
 #else
 		"non-delegitimized UNSPEC %d found in variable location",
-		XINT (rtl, 1));
 #endif
+		XINT (rtl, 1));
       expansion_failed (NULL_TREE, rtl,
 			"UNSPEC hasn't been delegitimized.\n");
       return false;
@@ -15384,7 +15461,7 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
   if (mode != GET_MODE (rtl) && GET_MODE (rtl) != VOIDmode)
     return NULL;
 
-  scalar_int_mode int_mode, inner_mode, op1_mode;
+  scalar_int_mode int_mode = BImode, inner_mode, op1_mode;
   switch (GET_CODE (rtl))
     {
     case POST_INC:
@@ -17829,6 +17906,8 @@ resolve_args_picking_1 (dw_loc_descr_ref loc, unsigned initial_frame_offset,
 	case DW_OP_push_object_address:
 	case DW_OP_call_frame_cfa:
 	case DW_OP_GNU_variable_value:
+	case DW_OP_GNU_addr_index:
+	case DW_OP_GNU_const_index:
 	  ++frame_offset_;
 	  break;
 
@@ -19600,6 +19679,9 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
 
     case HIGH:
     case CONST_FIXED:
+    case MINUS:
+    case SIGN_EXTEND:
+    case ZERO_EXTEND:
       return false;
 
     case MEM:
@@ -20622,7 +20704,7 @@ static const char *
 comp_dir_string (void)
 {
   const char *wd;
-  char *wd1;
+  char *wd_plus_sep = NULL;
   static const char *cached_wd = NULL;
 
   if (cached_wd != NULL)
@@ -20634,17 +20716,26 @@ comp_dir_string (void)
 
   if (DWARF2_DIR_SHOULD_END_WITH_SEPARATOR)
     {
-      int wdlen;
-
-      wdlen = strlen (wd);
-      wd1 = ggc_vec_alloc<char> (wdlen + 2);
-      strcpy (wd1, wd);
-      wd1 [wdlen] = DIR_SEPARATOR;
-      wd1 [wdlen + 1] = 0;
-      wd = wd1;
+      size_t wdlen = strlen (wd);
+      wd_plus_sep = XNEWVEC (char, wdlen + 2);
+      strcpy (wd_plus_sep, wd);
+      wd_plus_sep [wdlen] = DIR_SEPARATOR;
+      wd_plus_sep [wdlen + 1] = 0;
+      wd = wd_plus_sep;
     }
 
   cached_wd = remap_debug_filename (wd);
+
+  /* remap_debug_filename can just pass through wd or return a new gc string.
+     These two types can't be both stored in a GTY(())-tagged string, but since
+     the cached value lives forever just copy it if needed.  */
+  if (cached_wd != wd)
+    {
+      cached_wd = xstrdup (cached_wd);
+      if (DWARF2_DIR_SHOULD_END_WITH_SEPARATOR && wd_plus_sep != NULL)
+        free (wd_plus_sep);
+    }
+
   return cached_wd;
 }
 
@@ -21759,8 +21850,8 @@ gen_array_type_die (tree type, dw_die_ref context_die)
 
   /* Emit DW_TAG_string_type for Fortran character types (with kind 1 only, as
      DW_TAG_string_type doesn't have DW_AT_type attribute).  */
-  if (TYPE_STRING_FLAG (type)
-      && TREE_CODE (type) == ARRAY_TYPE
+  if (TREE_CODE (type) == ARRAY_TYPE
+      && TYPE_STRING_FLAG (type)
       && is_fortran ()
       && TYPE_MODE (TREE_TYPE (type)) == TYPE_MODE (char_type_node))
     {
@@ -22643,6 +22734,21 @@ premark_types_used_by_global_vars (void)
       ->traverse<void *, premark_types_used_by_global_vars_helper> (NULL);
 }
 
+/* Mark all variables used by the symtab as perennial.  */
+
+static void
+premark_used_variables (void)
+{
+  /* Mark DIEs in the symtab as used.  */
+  varpool_node *var;
+  FOR_EACH_VARIABLE (var)
+    {
+      dw_die_ref die = lookup_decl_die (var->decl);
+      if (die)
+	die->die_perennial_p = 1;
+    }
+}
+
 /* Generate a DW_TAG_call_site DIE in function DECL under SUBR_DIE
    for CA_LOC call arg loc node.  */
 
@@ -23265,8 +23371,6 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 
 	      parm = DECL_CHAIN (parm);
 	    }
-	  else if (parm)
-	    parm = DECL_CHAIN (parm);
 
 	  if (generic_decl_parm)
 	    generic_decl_parm = DECL_CHAIN (generic_decl_parm);
@@ -25046,7 +25150,7 @@ gen_member_die (tree type, dw_die_ref context_die)
      the TREE node representing the appropriate (containing) type.  */
 
   /* First output info about the base classes.  */
-  if (binfo)
+  if (binfo && early_dwarf)
     {
       vec<tree, va_gc> *accesses = BINFO_BASE_ACCESSES (binfo);
       int i;
@@ -25059,18 +25163,19 @@ gen_member_die (tree type, dw_die_ref context_die)
 			     context_die);
     }
 
-  /* Now output info about the data members and type members.  */
+  /* Now output info about the members. */
   for (member = TYPE_FIELDS (type); member; member = DECL_CHAIN (member))
     {
-      struct vlr_context vlr_ctx = { type, NULL_TREE };
-      bool static_inline_p
-	= (TREE_STATIC (member)
-	   && (lang_hooks.decls.decl_dwarf_attribute (member, DW_AT_inline)
-	       != -1));
-
       /* Ignore clones.  */
       if (DECL_ABSTRACT_ORIGIN (member))
 	continue;
+
+      struct vlr_context vlr_ctx = { type, NULL_TREE };
+      bool static_inline_p
+	= (VAR_P (member)
+	   && TREE_STATIC (member)
+	   && (lang_hooks.decls.decl_dwarf_attribute (member, DW_AT_inline)
+	       != -1));
 
       /* If we thought we were generating minimal debug info for TYPE
 	 and then changed our minds, some of the member declarations
@@ -25081,11 +25186,14 @@ gen_member_die (tree type, dw_die_ref context_die)
 	{
 	  /* Handle inline static data members, which only have in-class
 	     declarations.  */
-	  dw_die_ref ref = NULL; 
+	  bool splice = true;
+
+	  dw_die_ref ref = NULL;
 	  if (child->die_tag == DW_TAG_variable
 	      && child->die_parent == comp_unit_die ())
 	    {
 	      ref = get_AT_ref (child, DW_AT_specification);
+
 	      /* For C++17 inline static data members followed by redundant
 		 out of class redeclaration, we might get here with
 		 child being the DIE created for the out of class
@@ -25104,17 +25212,17 @@ gen_member_die (tree type, dw_die_ref context_die)
 		  ref = NULL;
 		  static_inline_p = false;
 		}
+
+	      if (!ref)
+		{
+		  reparent_child (child, context_die);
+		  if (dwarf_version < 5)
+		    child->die_tag = DW_TAG_member;
+		  splice = false;
+		}
 	    }
 
-	  if (child->die_tag == DW_TAG_variable
-	      && child->die_parent == comp_unit_die ()
-	      && ref == NULL)
-	    {
-	      reparent_child (child, context_die);
-	      if (dwarf_version < 5)
-		child->die_tag = DW_TAG_member;
-	    }
-	  else
+	  if (splice)
 	    splice_child_die (context_die, child);
 	}
 
@@ -27568,11 +27676,8 @@ dwarf2out_inline_entry (tree block)
   if (cur_line_info_table)
     ied->view = cur_line_info_table->view;
 
-  char label[MAX_ARTIFICIAL_LABEL_BYTES];
-
-  ASM_GENERATE_INTERNAL_LABEL (label, BLOCK_INLINE_ENTRY_LABEL,
-			       BLOCK_NUMBER (block));
-  ASM_OUTPUT_LABEL (asm_out_file, label);
+  ASM_OUTPUT_DEBUG_LABEL (asm_out_file, BLOCK_INLINE_ENTRY_LABEL,
+			  BLOCK_NUMBER (block));
 }
 
 /* Called from finalize_size_functions for size functions so that their body
@@ -29307,6 +29412,26 @@ prune_unused_types_walk (dw_die_ref die)
 
       return;
 
+    case DW_TAG_variable:
+      if (flag_debug_only_used_symbols)
+	{
+	  if (die->die_perennial_p)
+	    break;
+
+	  /* premark_used_variables marks external variables --- don't mark
+	     them here.  But function-local externals are always considered
+	     used.  */
+	  if (get_AT (die, DW_AT_external))
+	    {
+	      for (c = die->die_parent; c; c = c->die_parent)
+		if (c->die_tag == DW_TAG_subprogram)
+		  break;
+	      if (!c)
+		return;
+	    }
+	}
+      /* FALLTHROUGH */
+
     default:
       /* Mark everything else.  */
       break;
@@ -29432,6 +29557,10 @@ prune_unused_types (void)
 
   /* Mark types that are used in global variables.  */
   premark_types_used_by_global_vars ();
+
+  /* Mark variables used in the symtab.  */
+  if (flag_debug_only_used_symbols)
+    premark_used_variables ();
 
   /* Set the mark on nodes that are actually used.  */
   prune_unused_types_walk (comp_unit_die ());
@@ -31202,7 +31331,7 @@ dwarf2out_finish (const char *filename)
   flush_limbo_die_list ();
 
   if (inline_entry_data_table)
-    gcc_assert (inline_entry_data_table->elements () == 0);
+    gcc_assert (inline_entry_data_table->is_empty ());
 
   if (flag_checking)
     {
@@ -31462,7 +31591,7 @@ dwarf2out_finish (const char *filename)
                          ? dl_section_ref
                          : debug_skeleton_line_section_label));
 
-      output_comdat_type_unit (ctnode);
+      output_comdat_type_unit (ctnode, false);
       *slot = ctnode;
     }
 
@@ -32153,7 +32282,7 @@ dwarf2out_early_finish (const char *filename)
                          ? debug_line_section_label
                          : debug_skeleton_line_section_label));
 
-      output_comdat_type_unit (ctnode);
+      output_comdat_type_unit (ctnode, true);
       *slot = ctnode;
     }
 

@@ -15,7 +15,8 @@
 module core.sys.windows.dll;
 version (Windows):
 
-import core.sys.windows.windows;
+import core.sys.windows.winbase;
+import core.sys.windows.winnt;
 import core.stdc.string;
 import core.runtime;
 
@@ -327,7 +328,9 @@ public:
  */
 bool dll_fixTLS( HINSTANCE hInstance, void* tlsstart, void* tlsend, void* tls_callbacks_a, int* tlsindex ) nothrow
 {
-    version (Win64)
+    version (GNU_EMUTLS)
+        return true;
+    else version (Win64)
         return true;                // fixed
     else version (Win32)
     {
@@ -486,12 +489,12 @@ bool dll_thread_detach( bool detach_thread = true, bool exitTls = true )
 /// ---
 mixin template SimpleDllMain()
 {
-    import core.sys.windows.windows : HINSTANCE;
+    import core.sys.windows.windef : HINSTANCE;
 
     extern(Windows)
     bool DllMain(HINSTANCE hInstance, uint ulReason, void* reserved)
     {
-        import core.sys.windows.windows;
+        import core.sys.windows.winnt;
         import core.sys.windows.dll :
             dll_process_attach, dll_process_detach,
             dll_thread_attach, dll_thread_detach;

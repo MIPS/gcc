@@ -9,6 +9,14 @@ import (
 	"unsafe"
 )
 
+// For gccgo, use go:linkname to rename compiler-called functions to
+// themselves, so that the compiler will export them.
+//
+//go:linkname mapaccess1_faststr runtime.mapaccess1_faststr
+//go:linkname mapaccess2_faststr runtime.mapaccess2_faststr
+//go:linkname mapassign_faststr runtime.mapassign_faststr
+//go:linkname mapdelete_faststr runtime.mapdelete_faststr
+
 func mapaccess1_faststr(t *maptype, h *hmap, ky string) unsafe.Pointer {
 	if raceenabled && h != nil {
 		callerpc := getcallerpc()
@@ -28,7 +36,10 @@ func mapaccess1_faststr(t *maptype, h *hmap, ky string) unsafe.Pointer {
 			// short key, doing lots of comparisons is ok
 			for i, kptr := uintptr(0), b.keys(); i < bucketCnt; i, kptr = i+1, add(kptr, 2*sys.PtrSize) {
 				k := (*stringStruct)(kptr)
-				if k.len != key.len || b.tophash[i] == empty {
+				if k.len != key.len || isEmpty(b.tophash[i]) {
+					if b.tophash[i] == emptyRest {
+						break
+					}
 					continue
 				}
 				if k.str == key.str || memequal(k.str, key.str, uintptr(key.len)) {
@@ -41,7 +52,10 @@ func mapaccess1_faststr(t *maptype, h *hmap, ky string) unsafe.Pointer {
 		keymaybe := uintptr(bucketCnt)
 		for i, kptr := uintptr(0), b.keys(); i < bucketCnt; i, kptr = i+1, add(kptr, 2*sys.PtrSize) {
 			k := (*stringStruct)(kptr)
-			if k.len != key.len || b.tophash[i] == empty {
+			if k.len != key.len || isEmpty(b.tophash[i]) {
+				if b.tophash[i] == emptyRest {
+					break
+				}
 				continue
 			}
 			if k.str == key.str {
@@ -117,7 +131,10 @@ func mapaccess2_faststr(t *maptype, h *hmap, ky string) (unsafe.Pointer, bool) {
 			// short key, doing lots of comparisons is ok
 			for i, kptr := uintptr(0), b.keys(); i < bucketCnt; i, kptr = i+1, add(kptr, 2*sys.PtrSize) {
 				k := (*stringStruct)(kptr)
-				if k.len != key.len || b.tophash[i] == empty {
+				if k.len != key.len || isEmpty(b.tophash[i]) {
+					if b.tophash[i] == emptyRest {
+						break
+					}
 					continue
 				}
 				if k.str == key.str || memequal(k.str, key.str, uintptr(key.len)) {
@@ -130,7 +147,10 @@ func mapaccess2_faststr(t *maptype, h *hmap, ky string) (unsafe.Pointer, bool) {
 		keymaybe := uintptr(bucketCnt)
 		for i, kptr := uintptr(0), b.keys(); i < bucketCnt; i, kptr = i+1, add(kptr, 2*sys.PtrSize) {
 			k := (*stringStruct)(kptr)
-			if k.len != key.len || b.tophash[i] == empty {
+			if k.len != key.len || isEmpty(b.tophash[i]) {
+				if b.tophash[i] == emptyRest {
+					break
+				}
 				continue
 			}
 			if k.str == key.str {
@@ -202,7 +222,7 @@ func mapassign_faststr(t *maptype, h *hmap, s string) unsafe.Pointer {
 	hash := t.key.hashfn(noescape(unsafe.Pointer(&s)), uintptr(h.hash0))
 
 	// Set hashWriting after calling alg.hash for consistency with mapassign.
-	h.flags |= hashWriting
+	h.flags ^= hashWriting
 
 	if h.buckets == nil {
 		h.buckets = newobject(t.bucket) // newarray(t.bucket, 1)
@@ -220,12 +240,16 @@ again:
 	var inserti uintptr
 	var insertk unsafe.Pointer
 
+bucketloop:
 	for {
 		for i := uintptr(0); i < bucketCnt; i++ {
 			if b.tophash[i] != top {
-				if b.tophash[i] == empty && insertb == nil {
+				if isEmpty(b.tophash[i]) && insertb == nil {
 					insertb = b
 					inserti = i
+				}
+				if b.tophash[i] == emptyRest {
+					break bucketloop
 				}
 				continue
 			}
@@ -294,13 +318,14 @@ func mapdelete_faststr(t *maptype, h *hmap, ky string) {
 	hash := t.key.hashfn(noescape(unsafe.Pointer(&ky)), uintptr(h.hash0))
 
 	// Set hashWriting after calling alg.hash for consistency with mapdelete
-	h.flags |= hashWriting
+	h.flags ^= hashWriting
 
 	bucket := hash & bucketMask(h.B)
 	if h.growing() {
 		growWork_faststr(t, h, bucket)
 	}
 	b := (*bmap)(add(h.buckets, bucket*uintptr(t.bucketsize)))
+	bOrig := b
 	top := tophash(hash)
 search:
 	for ; b != nil; b = b.overflow(t) {
@@ -320,7 +345,37 @@ search:
 			} else {
 				memclrNoHeapPointers(v, t.elem.size)
 			}
-			b.tophash[i] = empty
+			b.tophash[i] = emptyOne
+			// If the bucket now ends in a bunch of emptyOne states,
+			// change those to emptyRest states.
+			if i == bucketCnt-1 {
+				if b.overflow(t) != nil && b.overflow(t).tophash[0] != emptyRest {
+					goto notLast
+				}
+			} else {
+				if b.tophash[i+1] != emptyRest {
+					goto notLast
+				}
+			}
+			for {
+				b.tophash[i] = emptyRest
+				if i == 0 {
+					if b == bOrig {
+						break // beginning of initial bucket, we're done.
+					}
+					// Find previous bucket, continue at its last entry.
+					c := b
+					for b = bOrig; b.overflow(t) != c; b = b.overflow(t) {
+					}
+					i = bucketCnt - 1
+				} else {
+					i--
+				}
+				if b.tophash[i] != emptyOne {
+					break
+				}
+			}
+		notLast:
 			h.count--
 			break search
 		}
@@ -371,7 +426,7 @@ func evacuate_faststr(t *maptype, h *hmap, oldbucket uintptr) {
 			v := add(k, bucketCnt*2*sys.PtrSize)
 			for i := 0; i < bucketCnt; i, k, v = i+1, add(k, 2*sys.PtrSize), add(v, uintptr(t.valuesize)) {
 				top := b.tophash[i]
-				if top == empty {
+				if isEmpty(top) {
 					b.tophash[i] = evacuatedEmpty
 					continue
 				}

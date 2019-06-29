@@ -93,6 +93,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_AVX512VNNI_P(x) TARGET_ISA_AVX512VNNI_P(x)
 #define TARGET_AVX512BITALG	TARGET_ISA_AVX512BITALG
 #define TARGET_AVX512BITALG_P(x) TARGET_ISA_AVX512BITALG_P(x)
+#define TARGET_AVX512VP2INTERSECT	TARGET_ISA_AVX512VP2INTERSECT
+#define TARGET_AVX512VP2INTERSECT_P(x) TARGET_ISA_AVX512VP2INTERSECT_P(x)
 #define TARGET_FMA	TARGET_ISA_FMA
 #define TARGET_FMA_P(x)	TARGET_ISA_FMA_P(x)
 #define TARGET_SSE4A	TARGET_ISA_SSE4A
@@ -193,6 +195,10 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_CLDEMOTE_P(x) TARGET_ISA_CLDEMOTE_P(x)
 #define TARGET_PTWRITE	TARGET_ISA_PTWRITE
 #define TARGET_PTWRITE_P(x)	TARGET_ISA_PTWRITE_P(x)
+#define TARGET_AVX512BF16	TARGET_ISA_AVX512BF16
+#define TARGET_AVX512BF16_P(x)	TARGET_ISA_AVX512BF16_P(x)
+#define TARGET_ENQCMD	TARGET_ISA_ENQCMD
+#define TARGET_ENQCMD_P(x) TARGET_ISA_ENQCMD_P(x)
 
 #define TARGET_LP64	TARGET_ABI_64
 #define TARGET_LP64_P(x)	TARGET_ABI_64_P(x)
@@ -200,6 +206,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_X32_P(x)	TARGET_ABI_X32_P(x)
 #define TARGET_16BIT	TARGET_CODE16
 #define TARGET_16BIT_P(x)	TARGET_CODE16_P(x)
+
+#define TARGET_MMX_WITH_SSE	(TARGET_64BIT && TARGET_SSE2)
 
 #include "config/vxworks-dummy.h"
 
@@ -270,9 +278,8 @@ struct processor_costs {
   const int sse_store[5];	/* cost of storing SSE register
 				   in SImode, DImode and TImode.  */
   const int sse_unaligned_store[5];/* cost of unaligned store.  */
-  const int mmxsse_to_integer;	/* cost of moving mmxsse register to
-				   integer.  */
-  const int ssemmx_to_integer;  /* cost of moving integer to mmxsse register. */
+  const int sse_to_integer;	/* cost of moving SSE register to integer.  */
+  const int integer_to_sse;	/* cost of moving integer register to SSE. */
   const int gather_static, gather_per_elt; /* Cost of gather load is computed
 				   as static + per_item * nelts. */
   const int scatter_static, scatter_per_elt; /* Cost of gather store is
@@ -633,12 +640,14 @@ extern tree x86_mfence;
 
 /* Extra bits to force on w/ 64-bit mode.  */
 #define TARGET_SUBTARGET64_DEFAULT 0
-#define TARGET_SUBTARGET64_ISA_DEFAULT 0
+/* Enable MMX, SSE and SSE2 by default.  */
+#define TARGET_SUBTARGET64_ISA_DEFAULT \
+  (OPTION_MASK_ISA_MMX | OPTION_MASK_ISA_SSE | OPTION_MASK_ISA_SSE2)
 
 /* Replace MACH-O, ifdefs by in-line tests, where possible. 
    (a) Macros defined in config/i386/darwin.h  */
 #define TARGET_MACHO 0
-#define TARGET_MACHO_BRANCH_ISLANDS 0
+#define TARGET_MACHO_PICSYM_STUBS 0
 #define MACHOPIC_ATT_STUB 0
 /* (b) Macros defined in config/darwin.h  */
 #define MACHO_DYNAMIC_NO_PIC_P 0
@@ -1118,6 +1127,8 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 
 #define HARD_REGNO_NREGS_WITH_PADDING(REGNO, MODE) ((MODE) == XFmode ? 4 : 8)
 
+#define REGMODE_NATURAL_SIZE(MODE) ix86_regmode_natural_size (MODE)
+
 #define VALID_AVX256_REG_MODE(MODE)					\
   ((MODE) == V32QImode || (MODE) == V16HImode || (MODE) == V8SImode	\
    || (MODE) == V4DImode || (MODE) == V2TImode || (MODE) == V8SFmode	\
@@ -1156,7 +1167,7 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
   ((MODE) == V2SFmode || (MODE) == SFmode)
 
 #define VALID_MMX_REG_MODE(MODE)					\
-  ((MODE == V1DImode) || (MODE) == DImode				\
+  ((MODE) == V1DImode || (MODE) == DImode				\
    || (MODE) == V2SImode || (MODE) == SImode				\
    || (MODE) == V4HImode || (MODE) == V8QImode)
 
@@ -1502,6 +1513,7 @@ enum reg_class
 
 #define MASK_REG_P(X) (REG_P (X) && MASK_REGNO_P (REGNO (X)))
 #define MASK_REGNO_P(N) IN_RANGE ((N), FIRST_MASK_REG, LAST_MASK_REG)
+#define MASK_PAIR_REGNO_P(N) ((((N) - FIRST_MASK_REG) & 1) == 0)
 
 #define MMX_REG_P(X) (REG_P (X) && MMX_REGNO_P (REGNO (X)))
 #define MMX_REGNO_P(N) IN_RANGE ((N), FIRST_MMX_REG, LAST_MMX_REG)
@@ -1889,7 +1901,7 @@ typedef struct ix86_args {
    ? GET_MODE_SIZE (TImode) : UNITS_PER_WORD)
 
 /* If a memory-to-memory move would take MOVE_RATIO or more simple
-   move-instruction pairs, we will do a movmem or libcall instead.
+   move-instruction pairs, we will do a cpymem or libcall instead.
    Increasing the value will always make code faster, but eventually
    incurs high cost in increased code size.
 
@@ -1940,6 +1952,10 @@ do {							\
  */
 #define STACK_SAVEAREA_MODE(LEVEL)			\
   ((LEVEL) == SAVE_NONLOCAL ? (TARGET_64BIT ? TImode : DImode) : Pmode)
+
+/* Specify the machine_mode of the size increment
+   operand of an 'allocate_stack' named pattern.  */
+#define STACK_SIZE_MODE Pmode
 
 /* A C expression whose value is zero if pointers that need to be extended
    from being `POINTER_SIZE' bits wide to `Pmode' are sign-extended and
@@ -2351,14 +2367,16 @@ const wide_int_bitmask PTA_AVX512BITALG (0, HOST_WIDE_INT_1U << 5);
 const wide_int_bitmask PTA_RDPID (0, HOST_WIDE_INT_1U << 6);
 const wide_int_bitmask PTA_PCONFIG (0, HOST_WIDE_INT_1U << 7);
 const wide_int_bitmask PTA_WBNOINVD (0, HOST_WIDE_INT_1U << 8);
+const wide_int_bitmask PTA_AVX512VP2INTERSECT (0, HOST_WIDE_INT_1U << 9);
 const wide_int_bitmask PTA_WAITPKG (0, HOST_WIDE_INT_1U << 9);
 const wide_int_bitmask PTA_PTWRITE (0, HOST_WIDE_INT_1U << 10);
+const wide_int_bitmask PTA_AVX512BF16 (0, HOST_WIDE_INT_1U << 11);
 
 const wide_int_bitmask PTA_CORE2 = PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2
   | PTA_SSE3 | PTA_SSSE3 | PTA_CX16 | PTA_FXSR;
 const wide_int_bitmask PTA_NEHALEM = PTA_CORE2 | PTA_SSE4_1 | PTA_SSE4_2
   | PTA_POPCNT;
-const wide_int_bitmask PTA_WESTMERE = PTA_NEHALEM | PTA_AES | PTA_PCLMUL;
+const wide_int_bitmask PTA_WESTMERE = PTA_NEHALEM | PTA_PCLMUL;
 const wide_int_bitmask PTA_SANDYBRIDGE = PTA_WESTMERE | PTA_AVX | PTA_XSAVE
   | PTA_XSAVEOPT;
 const wide_int_bitmask PTA_IVYBRIDGE = PTA_SANDYBRIDGE | PTA_FSGSBASE
@@ -2367,7 +2385,7 @@ const wide_int_bitmask PTA_HASWELL = PTA_IVYBRIDGE | PTA_AVX2 | PTA_BMI
   | PTA_BMI2 | PTA_LZCNT | PTA_FMA | PTA_MOVBE | PTA_HLE;
 const wide_int_bitmask PTA_BROADWELL = PTA_HASWELL | PTA_ADX | PTA_PRFCHW
   | PTA_RDSEED;
-const wide_int_bitmask PTA_SKYLAKE = PTA_BROADWELL | PTA_CLFLUSHOPT
+const wide_int_bitmask PTA_SKYLAKE = PTA_BROADWELL | PTA_AES | PTA_CLFLUSHOPT
   | PTA_XSAVEC | PTA_XSAVES | PTA_SGX;
 const wide_int_bitmask PTA_SKYLAKE_AVX512 = PTA_SKYLAKE | PTA_AVX512F
   | PTA_AVX512CD | PTA_AVX512VL | PTA_AVX512BW | PTA_AVX512DQ | PTA_PKU
@@ -2385,7 +2403,7 @@ const wide_int_bitmask PTA_KNL = PTA_BROADWELL | PTA_AVX512PF | PTA_AVX512ER
   | PTA_AVX512F | PTA_AVX512CD;
 const wide_int_bitmask PTA_BONNELL = PTA_CORE2 | PTA_MOVBE;
 const wide_int_bitmask PTA_SILVERMONT = PTA_WESTMERE | PTA_MOVBE | PTA_RDRND;
-const wide_int_bitmask PTA_GOLDMONT = PTA_SILVERMONT | PTA_SHA | PTA_XSAVE
+const wide_int_bitmask PTA_GOLDMONT = PTA_SILVERMONT | PTA_AES | PTA_SHA | PTA_XSAVE
   | PTA_RDSEED | PTA_XSAVEC | PTA_XSAVES | PTA_CLFLUSHOPT | PTA_XSAVEOPT
   | PTA_FSGSBASE;
 const wide_int_bitmask PTA_GOLDMONT_PLUS = PTA_GOLDMONT | PTA_RDPID
@@ -2747,6 +2765,9 @@ struct GTY(()) machine_function {
   /* If true, ENDBR is queued at function entrance.  */
   BOOL_BITFIELD endbr_queued_at_entrance : 1;
 
+  /* True if the function needs a stack frame.  */
+  BOOL_BITFIELD stack_frame_required : 1;
+
   /* The largest alignment, in bytes, of stack slot actually used.  */
   unsigned int max_used_stack_alignment;
 
@@ -2757,6 +2778,9 @@ struct GTY(()) machine_function {
   /* During SEH output, this is non-null.  */
   struct seh_frame_state * GTY((skip(""))) seh;
 };
+
+extern GTY(()) tree sysv_va_list_type_node;
+extern GTY(()) tree ms_va_list_type_node;
 #endif
 
 #define ix86_stack_locals (cfun->machine->stack_locals)
@@ -2853,6 +2877,12 @@ extern void debug_dispatch_window (int);
 #define SWITCHABLE_TARGET 1
 
 #define TARGET_SUPPORTS_WIDE_INT 1
+
+#if !defined(GENERATOR_FILE) && !defined(IN_LIBGCC2)
+extern enum attr_cpu ix86_schedule;
+
+#define NUM_X86_64_MS_CLOBBERED_REGS 12
+#endif
 
 /*
 Local variables:

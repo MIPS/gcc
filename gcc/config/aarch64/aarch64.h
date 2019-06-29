@@ -177,6 +177,28 @@ extern unsigned aarch64_architecture_version;
 /* Statistical Profiling extensions.  */
 #define AARCH64_FL_PROFILE    (1 << 21)
 
+/* ARMv8.5-A architecture extensions.  */
+#define AARCH64_FL_V8_5	      (1 << 22)  /* Has ARMv8.5-A features.  */
+#define AARCH64_FL_RNG	      (1 << 23)  /* ARMv8.5-A Random Number Insns.  */
+#define AARCH64_FL_MEMTAG     (1 << 24)  /* ARMv8.5-A Memory Tagging
+					    Extensions.  */
+
+/* Speculation Barrier instruction supported.  */
+#define AARCH64_FL_SB	      (1 << 25)
+
+/* Speculative Store Bypass Safe instruction supported.  */
+#define AARCH64_FL_SSBS	      (1 << 26)
+
+/* Execution and Data Prediction Restriction instructions supported.  */
+#define AARCH64_FL_PREDRES    (1 << 27)
+
+/* SVE2 instruction supported.  */
+#define AARCH64_FL_SVE2		(1 << 28)
+#define AARCH64_FL_SVE2_AES	(1 << 29)
+#define AARCH64_FL_SVE2_SM4	(1 << 30)
+#define AARCH64_FL_SVE2_SHA3	(1ULL << 31)
+#define AARCH64_FL_SVE2_BITPERM	(1ULL << 32)
+
 /* Has FP and SIMD.  */
 #define AARCH64_FL_FPSIMD     (AARCH64_FL_FP | AARCH64_FL_SIMD)
 
@@ -195,6 +217,9 @@ extern unsigned aarch64_architecture_version;
 #define AARCH64_FL_FOR_ARCH8_4			\
   (AARCH64_FL_FOR_ARCH8_3 | AARCH64_FL_V8_4 | AARCH64_FL_F16FML \
    | AARCH64_FL_DOTPROD | AARCH64_FL_RCPC8_4)
+#define AARCH64_FL_FOR_ARCH8_5			\
+  (AARCH64_FL_FOR_ARCH8_4 | AARCH64_FL_V8_5	\
+   | AARCH64_FL_SB | AARCH64_FL_SSBS | AARCH64_FL_PREDRES)
 
 /* Macros to test ISA flags.  */
 
@@ -207,6 +232,7 @@ extern unsigned aarch64_architecture_version;
 #define AARCH64_ISA_V8_2	   (aarch64_isa_flags & AARCH64_FL_V8_2)
 #define AARCH64_ISA_F16		   (aarch64_isa_flags & AARCH64_FL_F16)
 #define AARCH64_ISA_SVE            (aarch64_isa_flags & AARCH64_FL_SVE)
+#define AARCH64_ISA_SVE2	   (aarch64_isa_flags & AARCH64_FL_SVE2)
 #define AARCH64_ISA_V8_3	   (aarch64_isa_flags & AARCH64_FL_V8_3)
 #define AARCH64_ISA_DOTPROD	   (aarch64_isa_flags & AARCH64_FL_DOTPROD)
 #define AARCH64_ISA_AES	           (aarch64_isa_flags & AARCH64_FL_AES)
@@ -216,6 +242,7 @@ extern unsigned aarch64_architecture_version;
 #define AARCH64_ISA_SHA3	   (aarch64_isa_flags & AARCH64_FL_SHA3)
 #define AARCH64_ISA_F16FML	   (aarch64_isa_flags & AARCH64_FL_F16FML)
 #define AARCH64_ISA_RCPC8_4	   (aarch64_isa_flags & AARCH64_FL_RCPC8_4)
+#define AARCH64_ISA_V8_5	   (aarch64_isa_flags & AARCH64_FL_V8_5)
 
 /* Crypto is an optional extension to AdvSIMD.  */
 #define TARGET_CRYPTO (TARGET_SIMD && AARCH64_ISA_CRYPTO)
@@ -251,8 +278,14 @@ extern unsigned aarch64_architecture_version;
 /* SVE instructions, enabled through +sve.  */
 #define TARGET_SVE (AARCH64_ISA_SVE)
 
+/* SVE2 instructions, enabled through +sve2.  */
+#define TARGET_SVE2 (AARCH64_ISA_SVE2)
+
 /* ARMv8.3-A features.  */
 #define TARGET_ARMV8_3	(AARCH64_ISA_V8_3)
+
+/* Armv8.3-a Complex number extension to AdvSIMD extensions.  */
+#define TARGET_COMPLEX (TARGET_SIMD && TARGET_ARMV8_3)
 
 /* Make sure this is always defined so we don't have to check for ifdefs
    but rather use normal ifs.  */
@@ -483,6 +516,18 @@ extern unsigned aarch64_architecture_version;
 #define ASM_DECLARE_FUNCTION_NAME(STR, NAME, DECL)	\
   aarch64_declare_function_name (STR, NAME, DECL)
 
+/* Output assembly strings for alias definition.  */
+#define ASM_OUTPUT_DEF_FROM_DECLS(STR, DECL, TARGET) \
+  aarch64_asm_output_alias (STR, DECL, TARGET)
+
+/* Output assembly strings for undefined extern symbols.  */
+#undef ASM_OUTPUT_EXTERNAL
+#define ASM_OUTPUT_EXTERNAL(STR, DECL, NAME) \
+  aarch64_asm_output_external (STR, DECL, NAME)
+
+/* Output assembly strings after .cfi_startproc is emitted.  */
+#define ASM_POST_CFI_STARTPROC  aarch64_post_cfi_startproc
+
 /* For EH returns X4 contains the stack adjustment.  */
 #define EH_RETURN_STACKADJ_RTX	gen_rtx_REG (Pmode, R4_REGNUM)
 #define EH_RETURN_HANDLER_RTX  aarch64_eh_return_handler_rtx ()
@@ -560,7 +605,7 @@ enum reg_class
 #define REG_CLASS_CONTENTS						\
 {									\
   { 0x00000000, 0x00000000, 0x00000000 },	/* NO_REGS */		\
-  { 0x0004ffff, 0x00000000, 0x00000000 },	/* TAILCALL_ADDR_REGS */\
+  { 0x00030000, 0x00000000, 0x00000000 },	/* TAILCALL_ADDR_REGS */\
   { 0x7fffffff, 0x00000000, 0x00000003 },	/* GENERAL_REGS */	\
   { 0x80000000, 0x00000000, 0x00000000 },	/* STACK_REG */		\
   { 0xffffffff, 0x00000000, 0x00000003 },	/* POINTER_REGS */	\
@@ -810,7 +855,7 @@ typedef struct
 /* MOVE_RATIO dictates when we will use the move_by_pieces infrastructure.
    move_by_pieces will continually copy the largest safe chunks.  So a
    7-byte copy is a 4-byte + 2-byte + byte copy.  This proves inefficient
-   for both size and speed of copy, so we will instead use the "movmem"
+   for both size and speed of copy, so we will instead use the "cpymem"
    standard name to implement the copy.  This logic does not apply when
    targeting -mstrict-align, so keep a sensible default in that case.  */
 #define MOVE_RATIO(speed) \
@@ -899,7 +944,7 @@ typedef struct
 
 #define RETURN_ADDR_RTX aarch64_return_addr
 
-/* 3 insns + padding + 2 pointer-sized entries.  */
+/* BTI c + 3 insns + 2 pointer-sized entries.  */
 #define TRAMPOLINE_SIZE	(TARGET_ILP32 ? 24 : 32)
 
 /* Trampolines contain dwords, so must be dword aligned.  */

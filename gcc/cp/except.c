@@ -415,7 +415,7 @@ doing_eh (void)
       static int warned = 0;
       if (! warned)
 	{
-	  error ("exception handling disabled, use -fexceptions to enable");
+	  error ("exception handling disabled, use %<-fexceptions%> to enable");
 	  warned = 1;
 	}
       return 0;
@@ -756,7 +756,6 @@ build_throw (tree exp)
       if (CLASS_TYPE_P (temp_type))
 	{
 	  int flags = LOOKUP_NORMAL | LOOKUP_ONLYCONVERTING;
-	  vec<tree, va_gc> *exp_vec;
 	  bool converted = false;
 
 	  /* Under C++0x [12.8/16 class.copy], a thrown lvalue is sometimes
@@ -767,12 +766,11 @@ build_throw (tree exp)
 	      && !CP_TYPE_VOLATILE_P (TREE_TYPE (exp)))
 	    {
 	      tree moved = move (exp);
-	      exp_vec = make_tree_vector_single (moved);
+	      releasing_vec exp_vec (make_tree_vector_single (moved));
 	      moved = (build_special_member_call
 		       (object, complete_ctor_identifier, &exp_vec,
 			TREE_TYPE (object), flags|LOOKUP_PREFER_RVALUE,
 			tf_none));
-	      release_tree_vector (exp_vec);
 	      if (moved != error_mark_node)
 		{
 		  exp = moved;
@@ -783,11 +781,10 @@ build_throw (tree exp)
 	  /* Call the copy constructor.  */
 	  if (!converted)
 	    {
-	      exp_vec = make_tree_vector_single (exp);
+	      releasing_vec exp_vec (make_tree_vector_single (exp));
 	      exp = (build_special_member_call
 		     (object, complete_ctor_identifier, &exp_vec,
 		      TREE_TYPE (object), flags, tf_warning_or_error));
-	      release_tree_vector (exp_vec);
 	    }
 
 	  if (exp == error_mark_node)
@@ -939,7 +936,7 @@ is_admissible_throw_operand_or_catch_parameter (tree t, bool is_throw)
 	   && TYPE_REF_P (type)
 	   && TYPE_REF_IS_RVALUE (type))
     {
-      error ("cannot declare catch parameter to be of rvalue "
+      error ("cannot declare %<catch%> parameter to be of rvalue "
 	     "reference type %qT", type);
       return false;
     }
@@ -1128,11 +1125,14 @@ check_noexcept_r (tree *tp, int * /*walk_subtrees*/, void * /*data*/)
 	      && (DECL_ARTIFICIAL (fn)
 		  || nothrow_libfn_p (fn)))
 	    return TREE_NOTHROW (fn) ? NULL_TREE : fn;
-	  /* A call to a constexpr function is noexcept if the call
-	     is a constant expression.  */
-	  if (DECL_DECLARED_CONSTEXPR_P (fn)
-	      && is_sub_constant_expr (t))
-	    return NULL_TREE;
+	  /* We used to treat a call to a constexpr function as noexcept if
+	     the call was a constant expression (CWG 1129).  This has changed
+	     in P0003 whereby noexcept has no special rule for constant
+	     expressions anymore.  Since the current behavior is important for
+	     certain library functionality, we treat this as a DR, therefore
+	     adjusting the behavior for C++11 and C++14.  Previously, we had
+	     to evaluate the noexcept-specifier's operand here, but that could
+	     cause instantiations that would fail.  */
 	}
       if (!TYPE_NOTHROW_P (type))
 	return fn;
@@ -1245,6 +1245,7 @@ nothrow_spec_p (const_tree spec)
 	      || TREE_VALUE (spec)
 	      || spec == noexcept_false_spec
 	      || TREE_PURPOSE (spec) == error_mark_node
+	      || UNPARSED_NOEXCEPT_SPEC_P (spec)
 	      || processing_template_decl);
 
   return false;
@@ -1285,10 +1286,10 @@ build_noexcept_spec (tree expr, tsubst_flags_t complain)
   if (TREE_CODE (expr) != DEFERRED_NOEXCEPT
       && !value_dependent_expression_p (expr))
     {
-      expr = perform_implicit_conversion_flags (boolean_type_node, expr,
-						complain,
-						LOOKUP_NORMAL);
-      expr = instantiate_non_dependent_expr (expr);
+      expr = instantiate_non_dependent_expr_sfinae (expr, complain);
+      /* Don't let convert_like_real create more template codes.  */
+      processing_template_decl_sentinel s;
+      expr = build_converted_constant_bool_expr (expr, complain);
       expr = cxx_constant_value (expr);
     }
   if (TREE_CODE (expr) == INTEGER_CST)

@@ -762,13 +762,13 @@ avr_option_override (void)
     }
 
   if (flag_pic == 1)
-    warning (OPT_fpic, "-fpic is not supported");
+    warning (OPT_fpic, "%<-fpic%> is not supported");
   if (flag_pic == 2)
-    warning (OPT_fPIC, "-fPIC is not supported");
+    warning (OPT_fPIC, "%<-fPIC%> is not supported");
   if (flag_pie == 1)
-    warning (OPT_fpie, "-fpie is not supported");
+    warning (OPT_fpie, "%<-fpie%> is not supported");
   if (flag_pie == 2)
-    warning (OPT_fPIE, "-fPIE is not supported");
+    warning (OPT_fPIE, "%<-fPIE%> is not supported");
 
 #if !defined (HAVE_AS_AVR_MGCCISR_OPTION)
   avr_gasisr_prologues = 0;
@@ -1299,22 +1299,6 @@ avr_build_builtin_va_list (void)
   /* Dispatch to the default handler.  */
 
   return std_build_builtin_va_list ();
-}
-
-
-/* Implement `TARGET_BUILTIN_SETJMP_FRAME_VALUE'.  */
-/* Actual start of frame is virtual_stack_vars_rtx this is offset from
-   frame pointer by +TARGET_STARTING_FRAME_OFFSET.
-   Using saved frame = virtual_stack_vars_rtx - TARGET_STARTING_FRAME_OFFSET
-   avoids creating add/sub of offset in nonlocal goto and setjmp.  */
-
-static rtx
-avr_builtin_setjmp_frame_value (void)
-{
-  rtx xval = gen_reg_rtx (Pmode);
-  emit_insn (gen_subhi3 (xval, virtual_stack_vars_rtx,
-                         gen_int_mode (avr_starting_frame_offset (), Pmode)));
-  return xval;
 }
 
 
@@ -9420,7 +9404,7 @@ avr_adjust_insn_length (rtx_insn *insn, int len)
     case ADJUST_LEN_MOV16: output_movhi (insn, op, &len); break;
     case ADJUST_LEN_MOV24: avr_out_movpsi (insn, op, &len); break;
     case ADJUST_LEN_MOV32: output_movsisf (insn, op, &len); break;
-    case ADJUST_LEN_MOVMEM: avr_out_movmem (insn, op, &len); break;
+    case ADJUST_LEN_CPYMEM: avr_out_cpymem (insn, op, &len); break;
     case ADJUST_LEN_XLOAD: avr_out_xload (insn, op, &len); break;
     case ADJUST_LEN_SEXT: avr_out_sign_extend (insn, op, &len); break;
 
@@ -12181,7 +12165,8 @@ avr_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
 /* Implement TARGET_HARD_REGNO_CALL_PART_CLOBBERED.  */
 
 static bool
-avr_hard_regno_call_part_clobbered (unsigned regno, machine_mode mode)
+avr_hard_regno_call_part_clobbered (rtx_insn *insn ATTRIBUTE_UNUSED,
+				    unsigned regno, machine_mode mode)
 {
   /* FIXME: This hook gets called with MODE:REGNO combinations that don't
         represent valid hard registers like, e.g. HI:29.  Returning TRUE
@@ -13336,7 +13321,7 @@ avr_emit3_fix_outputs (rtx (*gen)(rtx,rtx,rtx), rtx *op,
 }
 
 
-/* Worker function for movmemhi expander.
+/* Worker function for cpymemhi expander.
    XOP[0]  Destination as MEM:BLK
    XOP[1]  Source      "     "
    XOP[2]  # Bytes to copy
@@ -13345,7 +13330,7 @@ avr_emit3_fix_outputs (rtx (*gen)(rtx,rtx,rtx), rtx *op,
    Return FALSE if the operand compination is not supported.  */
 
 bool
-avr_emit_movmemhi (rtx *xop)
+avr_emit_cpymemhi (rtx *xop)
 {
   HOST_WIDE_INT count;
   machine_mode loop_mode;
@@ -13422,14 +13407,14 @@ avr_emit_movmemhi (rtx *xop)
          Do the copy-loop inline.  */
 
       rtx (*fun) (rtx, rtx, rtx)
-        = QImode == loop_mode ? gen_movmem_qi : gen_movmem_hi;
+        = QImode == loop_mode ? gen_cpymem_qi : gen_cpymem_hi;
 
       insn = fun (xas, loop_reg, loop_reg);
     }
   else
     {
       rtx (*fun) (rtx, rtx)
-        = QImode == loop_mode ? gen_movmemx_qi : gen_movmemx_hi;
+        = QImode == loop_mode ? gen_cpymemx_qi : gen_cpymemx_hi;
 
       emit_move_insn (gen_rtx_REG (QImode, 23), a_hi8);
 
@@ -13443,7 +13428,7 @@ avr_emit_movmemhi (rtx *xop)
 }
 
 
-/* Print assembler for movmem_qi, movmem_hi insns...
+/* Print assembler for cpymem_qi, cpymem_hi insns...
        $0     : Address Space
        $1, $2 : Loop register
        Z      : Source address
@@ -13451,7 +13436,7 @@ avr_emit_movmemhi (rtx *xop)
 */
 
 const char*
-avr_out_movmem (rtx_insn *insn ATTRIBUTE_UNUSED, rtx *op, int *plen)
+avr_out_cpymem (rtx_insn *insn ATTRIBUTE_UNUSED, rtx *op, int *plen)
 {
   addr_space_t as = (addr_space_t) INTVAL (op[0]);
   machine_mode loop_mode = GET_MODE (op[1]);
@@ -14670,9 +14655,6 @@ avr_fold_builtin (tree fndecl, int n_args ATTRIBUTE_UNUSED, tree *arg,
 
 #undef  TARGET_STRICT_ARGUMENT_NAMING
 #define TARGET_STRICT_ARGUMENT_NAMING hook_bool_CUMULATIVE_ARGS_true
-
-#undef  TARGET_BUILTIN_SETJMP_FRAME_VALUE
-#define TARGET_BUILTIN_SETJMP_FRAME_VALUE avr_builtin_setjmp_frame_value
 
 #undef TARGET_CONDITIONAL_REGISTER_USAGE
 #define TARGET_CONDITIONAL_REGISTER_USAGE avr_conditional_register_usage

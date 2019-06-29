@@ -1,6 +1,6 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (C) 1999-2018 by The D Language Foundation, All Rights Reserved
+ * Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
@@ -36,6 +36,14 @@ enum BOUNDSCHECK
     BOUNDSCHECKsafeonly // do bounds checking only in @safe functions
 };
 
+typedef unsigned char CHECKACTION;
+enum
+{
+    CHECKACTION_D,        // call D assert on failure
+    CHECKACTION_C,        // call C assert on failure
+    CHECKACTION_halt      // cause program halt on failure
+};
+
 enum CPU
 {
     x87,
@@ -53,6 +61,14 @@ enum CPU
     // Special values that don't survive past the command line processing
     baseline,           // (default) the minimum capability CPU
     native              // the machine the compiler is being run on
+};
+
+enum CppStdRevision
+{
+    CppStdRevisionCpp98 = 199711,
+    CppStdRevisionCpp11 = 201103,
+    CppStdRevisionCpp14 = 201402,
+    CppStdRevisionCpp17 = 201703
 };
 
 // Put command line switches in here
@@ -108,16 +124,22 @@ struct Param
     bool nofloat;       // code should not pull in floating point support
     bool ignoreUnsupportedPragmas;      // rather than error on them
     bool enforcePropertySyntax;
+    bool useModuleInfo; // generate runtime module information
+    bool useTypeInfo;   // generate runtime type information
+    bool useExceptions; // support exception handling
     bool betterC;       // be a "better C" compiler; no dependency on D runtime
     bool addMain;       // add a default main() function
     bool allInst;       // generate code for all template instantiations
     bool check10378;    // check for issues transitioning to 10738
     bool bug10378;      // use pre-bugzilla 10378 search strategy
     bool vsafe;         // use enhanced @safe checking
+    unsigned cplusplus;     // version of C++ name mangling to support
     bool showGaggedErrors;  // print gagged errors anyway
 
     CPU cpu;                // CPU instruction set to target
-    BOUNDSCHECK useArrayBounds;
+
+    BOUNDSCHECK useArrayBounds;    // when to generate code for array bounds checks
+    CHECKACTION checkAction;       // action to take when bounds, asserts or switch defaults are violated
 
     const char *argv0;    // program name
     Array<const char *> *modFileAliasStrings; // array of char*'s of -I module filename alias strings

@@ -192,9 +192,9 @@ static void d_init_info (const char *, int, size_t, struct d_info *);
 #else
 #ifdef __STDC__
 #ifdef __STDC_VERSION__
-#if __STDC_VERSION__ >= 199901L
+#if __STDC_VERSION__ >= 199901L && !__STDC_NO_VLA__
 #define CP_DYNAMIC_ARRAYS
-#endif /* __STDC__VERSION >= 199901L */
+#endif /* __STDC_VERSION__ >= 199901L && !__STDC_NO_VLA__ */
 #endif /* defined (__STDC_VERSION__) */
 #endif /* defined (__STDC__) */
 #endif /* ! defined (__GNUC__) */
@@ -861,7 +861,7 @@ CP_STATIC_IF_GLIBCPP_V3
 int
 cplus_demangle_fill_name (struct demangle_component *p, const char *s, int len)
 {
-  if (p == NULL || s == NULL || len == 0)
+  if (p == NULL || s == NULL || len <= 0)
     return 0;
   p->d_printing = 0;
   p->type = DEMANGLE_COMPONENT_NAME;
@@ -1330,8 +1330,14 @@ d_encoding (struct d_info *di, int top_level)
 	     really apply here; this happens when parsing a class
 	     which is local to a function.  */
 	  if (dc->type == DEMANGLE_COMPONENT_LOCAL_NAME)
-	    while (is_fnqual_component_type (d_right (dc)->type))
-	      d_right (dc) = d_left (d_right (dc));
+	    {
+	      while (d_right (dc) != NULL
+		     && is_fnqual_component_type (d_right (dc)->type))
+		d_right (dc) = d_left (d_right (dc));
+
+	      if (d_right (dc) == NULL)
+		dc = NULL;
+	    }
 	}
       else
 	{
@@ -2364,9 +2370,10 @@ cplus_demangle_builtin_types[D_BUILTIN_TYPE_COUNT] =
   /* 27 */ { NL ("decimal64"),	NL ("decimal64"),	D_PRINT_DEFAULT },
   /* 28 */ { NL ("decimal128"),	NL ("decimal128"),	D_PRINT_DEFAULT },
   /* 29 */ { NL ("half"),	NL ("half"),		D_PRINT_FLOAT },
-  /* 30 */ { NL ("char16_t"),	NL ("char16_t"),	D_PRINT_DEFAULT },
-  /* 31 */ { NL ("char32_t"),	NL ("char32_t"),	D_PRINT_DEFAULT },
-  /* 32 */ { NL ("decltype(nullptr)"),	NL ("decltype(nullptr)"),
+  /* 30 */ { NL ("char8_t"),	NL ("char8_t"),		D_PRINT_DEFAULT },
+  /* 31 */ { NL ("char16_t"),	NL ("char16_t"),	D_PRINT_DEFAULT },
+  /* 32 */ { NL ("char32_t"),	NL ("char32_t"),	D_PRINT_DEFAULT },
+  /* 33 */ { NL ("decltype(nullptr)"),	NL ("decltype(nullptr)"),
 	     D_PRINT_DEFAULT },
 };
 
@@ -2654,14 +2661,19 @@ cplus_demangle_type (struct d_info *di)
 	  ret = d_make_builtin_type (di, &cplus_demangle_builtin_types[29]);
 	  di->expansion += ret->u.s_builtin.type->len;
 	  break;
+	case 'u':
+	  /* char8_t */
+	  ret = d_make_builtin_type (di, &cplus_demangle_builtin_types[30]);
+	  di->expansion += ret->u.s_builtin.type->len;
+	  break;
 	case 's':
 	  /* char16_t */
-	  ret = d_make_builtin_type (di, &cplus_demangle_builtin_types[30]);
+	  ret = d_make_builtin_type (di, &cplus_demangle_builtin_types[31]);
 	  di->expansion += ret->u.s_builtin.type->len;
 	  break;
 	case 'i':
 	  /* char32_t */
-	  ret = d_make_builtin_type (di, &cplus_demangle_builtin_types[31]);
+	  ret = d_make_builtin_type (di, &cplus_demangle_builtin_types[32]);
 	  di->expansion += ret->u.s_builtin.type->len;
 	  break;
 
@@ -2687,7 +2699,7 @@ cplus_demangle_type (struct d_info *di)
 
         case 'n':
           /* decltype(nullptr) */
-	  ret = d_make_builtin_type (di, &cplus_demangle_builtin_types[32]);
+	  ret = d_make_builtin_type (di, &cplus_demangle_builtin_types[33]);
 	  di->expansion += ret->u.s_builtin.type->len;
 	  break;
 
@@ -3353,7 +3365,7 @@ d_expression_1 (struct d_info *di)
       d_advance (di, 2);
       if (peek == 't')
 	type = cplus_demangle_type (di);
-      if (!d_peek_next_char (di))
+      if (!d_peek_char (di) || !d_peek_next_char (di))
 	return NULL;
       return d_make_comp (di, DEMANGLE_COMPONENT_INITIALIZER_LIST,
 			  type, d_exprlist (di, 'E'));
@@ -4055,7 +4067,7 @@ d_growable_string_callback_adapter (const char *s, size_t l, void *opaque)
    are larger than the actual numbers encountered.  */
 
 static void
-d_count_templates_scopes (int *num_templates, int *num_scopes,
+d_count_templates_scopes (struct d_print_info *dpi,
 			  const struct demangle_component *dc)
 {
   if (dc == NULL)
@@ -4075,13 +4087,13 @@ d_count_templates_scopes (int *num_templates, int *num_scopes,
       break;
 
     case DEMANGLE_COMPONENT_TEMPLATE:
-      (*num_templates)++;
+      dpi->num_copy_templates++;
       goto recurse_left_right;
 
     case DEMANGLE_COMPONENT_REFERENCE:
     case DEMANGLE_COMPONENT_RVALUE_REFERENCE:
       if (d_left (dc)->type == DEMANGLE_COMPONENT_TEMPLATE_PARAM)
-	(*num_scopes)++;
+	dpi->num_saved_scopes++;
       goto recurse_left_right;
 
     case DEMANGLE_COMPONENT_QUAL_NAME:
@@ -4146,42 +4158,42 @@ d_count_templates_scopes (int *num_templates, int *num_scopes,
     case DEMANGLE_COMPONENT_TAGGED_NAME:
     case DEMANGLE_COMPONENT_CLONE:
     recurse_left_right:
-      d_count_templates_scopes (num_templates, num_scopes,
-				d_left (dc));
-      d_count_templates_scopes (num_templates, num_scopes,
-				d_right (dc));
+      /* PR 89394 - Check for too much recursion.  */
+      if (dpi->recursion > DEMANGLE_RECURSION_LIMIT)
+	/* FIXME: There ought to be a way to report to the
+	   user that the recursion limit has been reached.  */
+	return;
+
+      ++ dpi->recursion;
+      d_count_templates_scopes (dpi, d_left (dc));
+      d_count_templates_scopes (dpi, d_right (dc));
+      -- dpi->recursion;
       break;
 
     case DEMANGLE_COMPONENT_CTOR:
-      d_count_templates_scopes (num_templates, num_scopes,
-				dc->u.s_ctor.name);
+      d_count_templates_scopes (dpi, dc->u.s_ctor.name);
       break;
 
     case DEMANGLE_COMPONENT_DTOR:
-      d_count_templates_scopes (num_templates, num_scopes,
-				dc->u.s_dtor.name);
+      d_count_templates_scopes (dpi, dc->u.s_dtor.name);
       break;
 
     case DEMANGLE_COMPONENT_EXTENDED_OPERATOR:
-      d_count_templates_scopes (num_templates, num_scopes,
-				dc->u.s_extended_operator.name);
+      d_count_templates_scopes (dpi, dc->u.s_extended_operator.name);
       break;
 
     case DEMANGLE_COMPONENT_FIXED_TYPE:
-      d_count_templates_scopes (num_templates, num_scopes,
-                                dc->u.s_fixed.length);
+      d_count_templates_scopes (dpi, dc->u.s_fixed.length);
       break;
 
     case DEMANGLE_COMPONENT_GLOBAL_CONSTRUCTORS:
     case DEMANGLE_COMPONENT_GLOBAL_DESTRUCTORS:
-      d_count_templates_scopes (num_templates, num_scopes,
-				d_left (dc));
+      d_count_templates_scopes (dpi, d_left (dc));
       break;
 
     case DEMANGLE_COMPONENT_LAMBDA:
     case DEMANGLE_COMPONENT_DEFAULT_ARG:
-      d_count_templates_scopes (num_templates, num_scopes,
-				dc->u.s_unary_num.sub);
+      d_count_templates_scopes (dpi, dc->u.s_unary_num.sub);
       break;
     }
 }
@@ -4216,8 +4228,12 @@ d_print_init (struct d_print_info *dpi, demangle_callbackref callback,
   dpi->next_copy_template = 0;
   dpi->num_copy_templates = 0;
 
-  d_count_templates_scopes (&dpi->num_copy_templates,
-			    &dpi->num_saved_scopes, dc);
+  d_count_templates_scopes (dpi, dc);
+  /* If we did not reach the recursion limit, then reset the
+     current recursion value back to 0, so that we can print
+     the templates.  */
+  if (dpi->recursion < DEMANGLE_RECURSION_LIMIT)
+    dpi->recursion = 0;
   dpi->num_copy_templates *= dpi->num_saved_scopes;
 
   dpi->current_template = NULL;
@@ -4751,12 +4767,8 @@ d_print_comp_inner (struct d_print_info *dpi, int options,
 	    typed_name = d_right (typed_name);
 	    if (typed_name->type == DEMANGLE_COMPONENT_DEFAULT_ARG)
 	      typed_name = typed_name->u.s_unary_num.sub;
-	    if (typed_name == NULL)
-	      {
-		d_print_error (dpi);
-		return;
-	      }
-	    while (is_fnqual_component_type (typed_name->type))
+	    while (typed_name != NULL
+		   && is_fnqual_component_type (typed_name->type))
 	      {
 		if (i >= sizeof adpm / sizeof adpm[0])
 		  {
@@ -4774,6 +4786,11 @@ d_print_comp_inner (struct d_print_info *dpi, int options,
 		++i;
 
 		typed_name = d_left (typed_name);
+	      }
+	    if (typed_name == NULL)
+	      {
+		d_print_error (dpi);
+		return;
 	      }
 	  }
 
@@ -6201,13 +6218,13 @@ cplus_demangle_init_info (const char *mangled, int options, size_t len,
 
   di->n = mangled;
 
-  /* We can not need more components than twice the number of chars in
+  /* We cannot need more components than twice the number of chars in
      the mangled string.  Most components correspond directly to
      chars, but the ARGLIST types are exceptions.  */
   di->num_comps = 2 * len;
   di->next_comp = 0;
 
-  /* Similarly, we can not need more substitutions than there are
+  /* Similarly, we cannot need more substitutions than there are
      chars in the mangled string.  */
   di->num_subs = len;
   di->next_sub = 0;

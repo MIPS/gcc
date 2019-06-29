@@ -47,15 +47,17 @@
    whether or not new function declarations receive a longcall
    attribute by default.  */
 
-#define SYNTAX_ERROR(gmsgid) do {					\
-  warning (OPT_Wpragmas, gmsgid);					\
-  warning (OPT_Wpragmas, "ignoring malformed #pragma longcall");	\
-  return;								\
-} while (0)
-
 void
 rs6000_pragma_longcall (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
+#define SYNTAX_ERROR(gmsgid) do {					\
+  warning (OPT_Wpragmas, gmsgid);					\
+  warning (OPT_Wpragmas, "ignoring malformed %<#pragma longcall%>");	\
+  return;								\
+} while (0)
+
+
+
   tree x, n;
 
   /* If we get here, generic code has already scanned the directive
@@ -72,7 +74,7 @@ rs6000_pragma_longcall (cpp_reader *pfile ATTRIBUTE_UNUSED)
     SYNTAX_ERROR ("number must be 0 or 1");
 
   if (pragma_lex (&x) != CPP_EOF)
-    warning (OPT_Wpragmas, "junk at end of #pragma longcall");
+    warning (OPT_Wpragmas, "junk at end of %<#pragma longcall%>");
 
   rs6000_default_long_calls = (n == integer_one_node);
 }
@@ -428,8 +430,6 @@ rs6000_target_modify_macros (bool define_p, HOST_WIDE_INT flags,
     rs6000_define_or_undefine_macro (define_p, "_ARCH_PWR5X");
   if ((flags & OPTION_MASK_CMPB) != 0)
     rs6000_define_or_undefine_macro (define_p, "_ARCH_PWR6");
-  if ((flags & OPTION_MASK_MFPGPR) != 0)
-    rs6000_define_or_undefine_macro (define_p, "_ARCH_PWR6X");
   if ((flags & OPTION_MASK_POPCNTD) != 0)
     rs6000_define_or_undefine_macro (define_p, "_ARCH_PWR7");
   /* Note that the OPTION_MASK_DIRECT_MOVE flag is automatically
@@ -1531,11 +1531,18 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
 
   { ALTIVEC_BUILTIN_VEC_LD, ALTIVEC_BUILTIN_LVX_V2DF,
     RS6000_BTI_V2DF, RS6000_BTI_INTSI, ~RS6000_BTI_V2DF, 0 },
+  { ALTIVEC_BUILTIN_VEC_LD, ALTIVEC_BUILTIN_LVX_V2DF,
+    RS6000_BTI_V2DF, RS6000_BTI_INTSI, ~RS6000_BTI_double, 0 },
   { ALTIVEC_BUILTIN_VEC_LD, ALTIVEC_BUILTIN_LVX_V2DI,
     RS6000_BTI_V2DI, RS6000_BTI_INTSI, ~RS6000_BTI_V2DI, 0 },
   { ALTIVEC_BUILTIN_VEC_LD, ALTIVEC_BUILTIN_LVX_V2DI,
+    RS6000_BTI_V2DI, RS6000_BTI_INTSI, ~RS6000_BTI_long_long, 0 },
+  { ALTIVEC_BUILTIN_VEC_LD, ALTIVEC_BUILTIN_LVX_V2DI,
     RS6000_BTI_unsigned_V2DI, RS6000_BTI_INTSI,
     ~RS6000_BTI_unsigned_V2DI, 0 },
+  { ALTIVEC_BUILTIN_VEC_LD, ALTIVEC_BUILTIN_LVX_V2DI,
+    RS6000_BTI_unsigned_V2DI, RS6000_BTI_INTSI,
+    ~RS6000_BTI_unsigned_long_long, 0 },
   { ALTIVEC_BUILTIN_VEC_LD, ALTIVEC_BUILTIN_LVX_V2DI,
     RS6000_BTI_bool_V2DI, RS6000_BTI_INTSI, ~RS6000_BTI_bool_V2DI, 0 },
   { ALTIVEC_BUILTIN_VEC_LD, ALTIVEC_BUILTIN_LVX_V4SF,
@@ -3737,14 +3744,27 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
 
   { ALTIVEC_BUILTIN_VEC_ST, ALTIVEC_BUILTIN_STVX_V2DF,
     RS6000_BTI_void, RS6000_BTI_V2DF, RS6000_BTI_INTSI, ~RS6000_BTI_V2DF },
+  { ALTIVEC_BUILTIN_VEC_ST, ALTIVEC_BUILTIN_STVX_V2DF,
+    RS6000_BTI_void, RS6000_BTI_V2DF, RS6000_BTI_INTSI, ~RS6000_BTI_double },
   { ALTIVEC_BUILTIN_VEC_ST, ALTIVEC_BUILTIN_STVX_V2DI,
     RS6000_BTI_void, RS6000_BTI_V2DI, RS6000_BTI_INTSI, ~RS6000_BTI_V2DI },
+  { ALTIVEC_BUILTIN_VEC_ST, ALTIVEC_BUILTIN_STVX_V2DI,
+    RS6000_BTI_void, RS6000_BTI_V2DI, RS6000_BTI_INTSI, ~RS6000_BTI_long_long },
   { ALTIVEC_BUILTIN_VEC_ST, ALTIVEC_BUILTIN_STVX_V2DI,
     RS6000_BTI_void, RS6000_BTI_unsigned_V2DI, RS6000_BTI_INTSI,
     ~RS6000_BTI_unsigned_V2DI },
   { ALTIVEC_BUILTIN_VEC_ST, ALTIVEC_BUILTIN_STVX_V2DI,
+    RS6000_BTI_void, RS6000_BTI_unsigned_V2DI, RS6000_BTI_INTSI,
+    ~RS6000_BTI_unsigned_long_long },
+  { ALTIVEC_BUILTIN_VEC_ST, ALTIVEC_BUILTIN_STVX_V2DI,
     RS6000_BTI_void, RS6000_BTI_bool_V2DI, RS6000_BTI_INTSI,
     ~RS6000_BTI_bool_V2DI },
+  { ALTIVEC_BUILTIN_VEC_ST, ALTIVEC_BUILTIN_STVX_V2DI,
+    RS6000_BTI_void, RS6000_BTI_bool_V2DI, RS6000_BTI_INTSI,
+    ~RS6000_BTI_long_long },
+  { ALTIVEC_BUILTIN_VEC_ST, ALTIVEC_BUILTIN_STVX_V2DI,
+    RS6000_BTI_void, RS6000_BTI_bool_V2DI, RS6000_BTI_INTSI,
+    ~RS6000_BTI_unsigned_long_long },
   { ALTIVEC_BUILTIN_VEC_ST, ALTIVEC_BUILTIN_STVX_V4SF,
     RS6000_BTI_void, RS6000_BTI_V4SF, RS6000_BTI_INTSI, ~RS6000_BTI_V4SF },
   { ALTIVEC_BUILTIN_VEC_ST, ALTIVEC_BUILTIN_STVX_V4SF,
@@ -6120,11 +6140,11 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
   /* vec_lvsl and vec_lvsr are deprecated for use with LE element order.  */
   if (fcode == ALTIVEC_BUILTIN_VEC_LVSL && !BYTES_BIG_ENDIAN)
     warning (OPT_Wdeprecated,
-	     "vec_lvsl is deprecated for little endian; use "
+	     "%<vec_lvsl%> is deprecated for little endian; use "
 	     "assignment for unaligned loads and stores");
   else if (fcode == ALTIVEC_BUILTIN_VEC_LVSR && !BYTES_BIG_ENDIAN)
     warning (OPT_Wdeprecated,
-	     "vec_lvsr is deprecated for little endian; use "
+	     "%<vec_lvsr%> is deprecated for little endian; use "
 	     "assignment for unaligned loads and stores");
 
   if (fcode == ALTIVEC_BUILTIN_VEC_MUL)
@@ -6545,12 +6565,14 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 
 	  arg2 = fold_for_warn (arg2);
 
-	  /* If the second argument is an integer constant, if the value is in
-	     the expected range, generate the built-in code if we can.  We need
-	     64-bit and direct move to extract the small integer vectors.  */
-	  if (TREE_CODE (arg2) == INTEGER_CST
-	      && wi::ltu_p (wi::to_wide (arg2), nunits))
+	  /* If the second argument is an integer constant, generate
+	     the built-in code if we can.  We need 64-bit and direct
+	     move to extract the small integer vectors.  */
+	  if (TREE_CODE (arg2) == INTEGER_CST)
 	    {
+	      wide_int selector = wi::to_wide (arg2);
+	      selector = wi::umod_trunc (selector, nunits);
+	      arg2 = wide_int_to_tree (TREE_TYPE (arg2), selector);
 	      switch (mode)
 		{
 		default:
@@ -6625,7 +6647,13 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 	    }
 
 	  if (call)
-	    return build_call_expr (call, 2, arg1, arg2);
+	    {
+	      tree result = build_call_expr (call, 2, arg1, arg2);
+	      /* Coerce the result to vector element type.  May be no-op.  */
+	      arg1_inner_type = TREE_TYPE (arg1_type);
+	      result = fold_convert (arg1_inner_type, result);
+	      return result;
+	    }
 	}
 
       /* Build *(((arg1_inner_type*)&(vector type){arg1})+arg2). */
@@ -6708,11 +6736,13 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
       /* If we can use the VSX xxpermdi instruction, use that for insert.  */
       mode = TYPE_MODE (arg1_type);
       if ((mode == V2DFmode || mode == V2DImode) && VECTOR_UNIT_VSX_P (mode)
-	  && TREE_CODE (arg2) == INTEGER_CST
-	  && wi::ltu_p (wi::to_wide (arg2), 2))
+	  && TREE_CODE (arg2) == INTEGER_CST)
 	{
+	  wide_int selector = wi::to_wide (arg2);
+	  selector = wi::umod_trunc (selector, 2);
 	  tree call = NULL_TREE;
 
+	  arg2 = wide_int_to_tree (TREE_TYPE (arg2), selector);
 	  if (mode == V2DFmode)
 	    call = rs6000_builtin_decls[VSX_BUILTIN_VEC_SET_V2DF];
 	  else if (mode == V2DImode)
@@ -6724,11 +6754,12 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 	    return build_call_expr (call, 3, arg1, arg0, arg2);
 	}
       else if (mode == V1TImode && VECTOR_UNIT_VSX_P (mode)
-	       && TREE_CODE (arg2) == INTEGER_CST
-	       && wi::eq_p (wi::to_wide (arg2), 0))
+	       && TREE_CODE (arg2) == INTEGER_CST)
 	{
 	  tree call = rs6000_builtin_decls[VSX_BUILTIN_VEC_SET_V1TI];
+	  wide_int selector = wi::zero(32);
 
+	  arg2 = wide_int_to_tree (TREE_TYPE (arg2), selector);
 	  /* Note, __builtin_vec_insert_<xxx> has vector and scalar types
 	     reversed.  */
 	  return build_call_expr (call, 3, arg1, arg0, arg2);
@@ -6736,10 +6767,13 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 
       /* Build *(((arg1_inner_type*)&(vector type){arg1})+arg2) = arg0. */
       arg1_inner_type = TREE_TYPE (arg1_type);
-      arg2 = build_binary_op (loc, BIT_AND_EXPR, arg2,
-			      build_int_cst (TREE_TYPE (arg2),
-					     TYPE_VECTOR_SUBPARTS (arg1_type)
-					     - 1), 0);
+      if (TYPE_VECTOR_SUBPARTS (arg1_type) == 1)
+	arg2 = build_int_cst (TREE_TYPE (arg2), 0);
+      else
+	arg2 = build_binary_op (loc, BIT_AND_EXPR, arg2,
+				build_int_cst (TREE_TYPE (arg2),
+					       TYPE_VECTOR_SUBPARTS (arg1_type)
+					       - 1), 0);
       decl = build_decl (loc, VAR_DECL, NULL_TREE, arg1_type);
       DECL_EXTERNAL (decl) = 0;
       TREE_PUBLIC (decl) = 0;
@@ -6812,7 +6846,7 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 	{
           if (TYPE_READONLY (TREE_TYPE (type))
 	      && !TYPE_READONLY (TREE_TYPE (decl_type)))
-	    warning (0, "passing arg %d of %qE discards qualifiers from "
+	    warning (0, "passing argument %d of %qE discards qualifiers from "
 		        "pointer target type", n + 1, fndecl);
 	  type = build_pointer_type (build_qualified_type (TREE_TYPE (type),
 							   0));

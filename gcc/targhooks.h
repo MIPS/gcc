@@ -85,6 +85,7 @@ extern bool default_fixed_point_supported_p (void);
 
 extern bool default_has_ifunc_p (void);
 
+extern bool default_predict_doloop_p (struct loop *);
 extern const char * default_invalid_within_doloop (const rtx_insn *);
 
 extern tree default_builtin_vectorized_function (unsigned int, tree, tree);
@@ -110,7 +111,7 @@ default_builtin_support_vector_misalignment (machine_mode mode,
 					     int, bool);
 extern machine_mode default_preferred_simd_mode (scalar_mode mode);
 extern machine_mode default_split_reduction (machine_mode);
-extern void default_autovectorize_vector_sizes (vector_sizes *);
+extern void default_autovectorize_vector_sizes (vector_sizes *, bool);
 extern opt_machine_mode default_get_mask_mode (poly_uint64, poly_uint64);
 extern bool default_empty_mask_is_expensive (unsigned);
 extern void *default_init_cost (struct loop *);
@@ -121,7 +122,7 @@ extern void default_finish_cost (void *, unsigned *, unsigned *, unsigned *);
 extern void default_destroy_cost_data (void *);
 
 /* OpenACC hooks.  */
-extern bool default_goacc_validate_dims (tree, int [], int);
+extern bool default_goacc_validate_dims (tree, int [], int, unsigned);
 extern int default_goacc_dim_limit (int);
 extern bool default_goacc_fork_join (gcall *, const int [], bool);
 extern void default_goacc_reduction (gcall *);
@@ -205,6 +206,7 @@ extern unsigned int default_case_values_threshold (void);
 extern bool default_have_conditional_execution (void);
 
 extern bool default_libc_has_function (enum function_class);
+extern bool default_libc_has_fast_function (int fcode);
 extern bool no_c99_libc_has_function (enum function_class);
 extern bool gnu_libc_has_function (enum function_class);
 
@@ -284,5 +286,7 @@ extern tree default_preferred_else_value (unsigned, tree, unsigned, tree *);
 extern bool default_have_speculation_safe_value (bool);
 extern bool speculation_safe_value_not_needed (bool);
 extern rtx default_speculation_safe_value (machine_mode, rtx, rtx, rtx);
+extern void default_remove_extra_call_preserved_regs (rtx_insn *,
+						      HARD_REG_SET *);
 
 #endif /* GCC_TARGHOOKS_H */

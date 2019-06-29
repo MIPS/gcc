@@ -796,8 +796,8 @@ process_function_and_variable_attributes (cgraph_node *first,
 	  /* redefining extern inline function makes it DECL_UNINLINABLE.  */
 	  && !DECL_UNINLINABLE (decl))
 	warning_at (DECL_SOURCE_LOCATION (decl), OPT_Wattributes,
-		    "always_inline function might not be inlinable");
-     
+		    "%<always_inline%> function might not be inlinable");
+
       process_common_attributes (node, decl);
     }
   for (vnode = symtab->first_variable (); vnode != first_var;
@@ -1051,7 +1051,7 @@ analyze_functions (bool first_time)
   symtab->state = CONSTRUCTION;
   input_location = UNKNOWN_LOCATION;
 
-  /* Ugly, but the fixup can not happen at a time same body alias is created;
+  /* Ugly, but the fixup cannot happen at a time same body alias is created;
      C++ FE is confused about the COMDAT groups being right.  */
   if (symtab->cpp_implicit_aliases_done)
     FOR_EACH_SYMBOL (node)
@@ -1226,6 +1226,15 @@ analyze_functions (bool first_time)
        && node != first_handled_var; node = next)
     {
       next = node->next;
+      /* For symbols declared locally we clear TREE_READONLY when emitting
+	 the construtor (if one is needed).  For external declarations we can
+	 not safely assume that the type is readonly because we may be called
+	 during its construction.  */
+      if (TREE_CODE (node->decl) == VAR_DECL
+	  && TYPE_P (TREE_TYPE (node->decl))
+	  && TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (node->decl))
+	  && DECL_EXTERNAL (node->decl))
+	TREE_READONLY (node->decl) = 0;
       if (!node->aux && !node->referred_to_p ())
 	{
 	  if (symtab->dump_file)
@@ -1773,11 +1782,6 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
   tree thunk_fndecl = decl;
   tree a;
 
-  /* Instrumentation thunk is the same function with
-     a different signature.  Never need to expand it.  */
-  if (thunk.add_pointer_bounds_args)
-    return false;
-
   if (!force_gimple_thunk
       && this_adjusting
       && indirect_offset == 0
@@ -1786,7 +1790,6 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
       && targetm.asm_out.can_output_mi_thunk (thunk_fndecl, fixed_offset,
 					      virtual_value, alias))
     {
-      const char *fnname;
       tree fn_block;
       tree restype = TREE_TYPE (TREE_TYPE (thunk_fndecl));
 
@@ -1810,7 +1813,6 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
 	= build_decl (DECL_SOURCE_LOCATION (thunk_fndecl),
 		      RESULT_DECL, 0, restype);
       DECL_CONTEXT (DECL_RESULT (thunk_fndecl)) = thunk_fndecl;
-      fnname = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (thunk_fndecl));
 
       /* The back end expects DECL_INITIAL to contain a BLOCK, so we
 	 create one.  */
@@ -1824,12 +1826,10 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
       insn_locations_init ();
       set_curr_insn_location (DECL_SOURCE_LOCATION (thunk_fndecl));
       prologue_location = curr_insn_location ();
-      assemble_start_function (thunk_fndecl, fnname);
 
       targetm.asm_out.output_mi_thunk (asm_out_file, thunk_fndecl,
 				       fixed_offset, virtual_value, alias);
 
-      assemble_end_function (thunk_fndecl, fnname);
       insn_locations_finalize ();
       init_insn_lengths ();
       free_after_compilation (cfun);
@@ -1916,10 +1916,9 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
 	      restmp = gimple_fold_indirect_ref (resdecl);
 	      if (!restmp)
 		restmp = build2 (MEM_REF,
-				 TREE_TYPE (TREE_TYPE (DECL_RESULT (alias))),
+				 TREE_TYPE (TREE_TYPE (resdecl)),
 				 resdecl,
-				 build_int_cst (TREE_TYPE
-				   (DECL_RESULT (alias)), 0));
+				 build_int_cst (TREE_TYPE (resdecl), 0));
 	    }
 	  else if (!is_gimple_reg_type (restype))
 	    {
@@ -2115,8 +2114,7 @@ cgraph_node::assemble_thunks_and_aliases (void)
 
   for (e = callers; e;)
     if (e->caller->thunk.thunk_p
-	&& !e->caller->global.inlined_to
-	&& !e->caller->thunk.add_pointer_bounds_args)
+	&& !e->caller->global.inlined_to)
       {
 	cgraph_node *thunk = e->caller;
 

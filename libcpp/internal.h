@@ -512,7 +512,7 @@ struct cpp_reader
   cpp_token eof;
 
   /* Opaque handle to the dependencies of mkdeps.c.  */
-  struct deps *deps;
+  struct mkdeps *deps;
 
   /* Obstack holding all macro hash nodes.  This never shrinks.
      See identifiers.c */
@@ -592,6 +592,8 @@ struct cpp_reader
 #define is_vspace(x)	IS_VSPACE(x)
 #define is_nvspace(x)	IS_NVSPACE(x)
 #define is_space(x)	IS_SPACE_OR_NUL(x)
+
+#define SEEN_EOL() (pfile->cur_token[-1].type == CPP_EOF)
 
 /* This table is constant if it can be initialized at compile time,
    which is the case if cpp was compiled with GCC >=2.7, or another

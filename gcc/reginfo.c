@@ -639,7 +639,7 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
     if (hard_regno_nregs (regno, mode) == nregs
 	&& targetm.hard_regno_mode_ok (regno, mode)
 	&& (!call_saved
-	    || !targetm.hard_regno_call_part_clobbered (regno, mode))
+	    || !targetm.hard_regno_call_part_clobbered (NULL, regno, mode))
 	&& maybe_gt (GET_MODE_SIZE (mode), GET_MODE_SIZE (found_mode)))
       found_mode = mode;
 
@@ -647,7 +647,7 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
     if (hard_regno_nregs (regno, mode) == nregs
 	&& targetm.hard_regno_mode_ok (regno, mode)
 	&& (!call_saved
-	    || !targetm.hard_regno_call_part_clobbered (regno, mode))
+	    || !targetm.hard_regno_call_part_clobbered (NULL, regno, mode))
 	&& maybe_gt (GET_MODE_SIZE (mode), GET_MODE_SIZE (found_mode)))
       found_mode = mode;
 
@@ -655,7 +655,7 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
     if (hard_regno_nregs (regno, mode) == nregs
 	&& targetm.hard_regno_mode_ok (regno, mode)
 	&& (!call_saved
-	    || !targetm.hard_regno_call_part_clobbered (regno, mode))
+	    || !targetm.hard_regno_call_part_clobbered (NULL, regno, mode))
 	&& maybe_gt (GET_MODE_SIZE (mode), GET_MODE_SIZE (found_mode)))
       found_mode = mode;
 
@@ -663,7 +663,7 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
     if (hard_regno_nregs (regno, mode) == nregs
 	&& targetm.hard_regno_mode_ok (regno, mode)
 	&& (!call_saved
-	    || !targetm.hard_regno_call_part_clobbered (regno, mode))
+	    || !targetm.hard_regno_call_part_clobbered (NULL, regno, mode))
 	&& maybe_gt (GET_MODE_SIZE (mode), GET_MODE_SIZE (found_mode)))
       found_mode = mode;
 
@@ -677,7 +677,7 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
       if (hard_regno_nregs (regno, mode) == nregs
 	  && targetm.hard_regno_mode_ok (regno, mode)
 	  && (!call_saved
-	      || !targetm.hard_regno_call_part_clobbered (regno, mode)))
+	      || !targetm.hard_regno_call_part_clobbered (NULL, regno, mode)))
 	return mode;
     }
 
@@ -717,11 +717,11 @@ fix_register (const char *name, int fixed, int call_used)
 		  switch (call_used)
 		    {
 		    case 0:
-		      error ("can%'t use %qs as a call-saved register", name);
+		      error ("cannot use %qs as a call-saved register", name);
 		      break;
 
 		    case 1:
-		      error ("can%'t use %qs as a call-used register", name);
+		      error ("cannot use %qs as a call-used register", name);
 		      break;
 
 		    default:
@@ -733,7 +733,7 @@ fix_register (const char *name, int fixed, int call_used)
 		  switch (call_used)
 		    {
 		    case 1:
-		      error ("can%'t use %qs as a fixed register", name);
+		      error ("cannot use %qs as a fixed register", name);
 		      break;
 
 		    case 0:

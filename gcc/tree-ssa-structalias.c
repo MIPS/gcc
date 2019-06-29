@@ -43,6 +43,7 @@
 #include "stringpool.h"
 #include "attribs.h"
 #include "tree-ssa.h"
+#include "tree-cfg.h"
 
 /* The idea behind this analyzer is to generate set constraints from the
    program, then solve the resulting constraints in order to generate the
@@ -299,6 +300,11 @@ struct variable_info
   /* Full size of the base variable, in bits.  */
   unsigned HOST_WIDE_INT fullsize;
 
+  /* In IPA mode the shadow UID in case the variable needs to be duplicated in
+     the final points-to solution because it reaches its containing
+     function recursively.  Zero if none is needed.  */
+  unsigned int shadow_var_uid;
+
   /* Name of this variable */
   const char *name;
 
@@ -397,6 +403,7 @@ new_var_info (tree t, const char *name, bool add_id)
   ret->solution = BITMAP_ALLOC (&pta_obstack);
   ret->oldsolution = NULL;
   ret->next = 0;
+  ret->shadow_var_uid = 0;
   ret->head = ret->id;
 
   stats.total_vars++;
@@ -3848,7 +3855,6 @@ make_heapvar (const char *name, bool add_id)
   DECL_EXTERNAL (heapvar) = 1;
 
   vi = new_var_info (heapvar, name, add_id);
-  vi->is_artificial_var = true;
   vi->is_heap_var = true;
   vi->is_unknown_size_var = true;
   vi->offset = 0;
@@ -4403,6 +4409,32 @@ find_func_aliases_for_builtin_call (struct function *fn, gcall *t)
 	      process_constraint (new_constraint (*lhsp, ac));
 	  return true;
 	}
+      case BUILT_IN_STACK_SAVE:
+      case BUILT_IN_STACK_RESTORE:
+        /* Nothing interesting happens.  */
+        return true;
+      case BUILT_IN_ALLOCA:
+      case BUILT_IN_ALLOCA_WITH_ALIGN:
+      case BUILT_IN_ALLOCA_WITH_ALIGN_AND_MAX:
+	{
+	  tree ptr = gimple_call_lhs (t);
+	  if (ptr == NULL_TREE)
+	    return true;
+	  get_constraint_for (ptr, &lhsc);
+	  varinfo_t vi = make_heapvar ("HEAP", true);
+	  /* Alloca storage is never global.  To exempt it from escaped
+	     handling make it a non-heap var.  */
+	  DECL_EXTERNAL (vi->decl) = 0;
+	  vi->is_global_var = 0;
+	  vi->is_heap_var = 0;
+	  struct constraint_expr tmpc;
+	  tmpc.var = vi->id;
+	  tmpc.offset = 0;
+	  tmpc.type = ADDRESSOF;
+	  rhsc.safe_push (tmpc);
+	  process_all_all_constraints (lhsc, rhsc);
+	  return true;
+	}
       case BUILT_IN_POSIX_MEMALIGN:
         {
 	  tree ptrptr = gimple_call_arg (t, 0);
@@ -4894,6 +4926,9 @@ find_func_aliases (struct function *fn, gimple *origt)
 	  if (code == POINTER_PLUS_EXPR)
 	    get_constraint_for_ptr_offset (gimple_assign_rhs1 (t),
 					   gimple_assign_rhs2 (t), &rhsc);
+	  else if (code == POINTER_DIFF_EXPR)
+	    /* The result is not a pointer (part).  */
+	    ;
 	  else if (code == BIT_AND_EXPR
 		   && TREE_CODE (gimple_assign_rhs2 (t)) == INTEGER_CST)
 	    {
@@ -4902,6 +4937,17 @@ find_func_aliases (struct function *fn, gimple *origt)
 	      get_constraint_for_ptr_offset (gimple_assign_rhs1 (t),
 					     NULL_TREE, &rhsc);
 	    }
+	  else if (code == TRUNC_DIV_EXPR
+		   || code == CEIL_DIV_EXPR
+		   || code == FLOOR_DIV_EXPR
+		   || code == ROUND_DIV_EXPR
+		   || code == EXACT_DIV_EXPR
+		   || code == TRUNC_MOD_EXPR
+		   || code == CEIL_MOD_EXPR
+		   || code == FLOOR_MOD_EXPR
+		   || code == ROUND_MOD_EXPR)
+	    /* Division and modulo transfer the pointer from the LHS.  */
+	    get_constraint_for_rhs (gimple_assign_rhs1 (t), &rhsc);
 	  else if ((CONVERT_EXPR_CODE_P (code)
 		    && !(POINTER_TYPE_P (gimple_expr_type (t))
 			 && !POINTER_TYPE_P (TREE_TYPE (rhsop))))
@@ -4956,7 +5002,12 @@ find_func_aliases (struct function *fn, gimple *origt)
       greturn *return_stmt = as_a <greturn *> (t);
       fi = NULL;
       if (!in_ipa_mode
-	  || !(fi = get_vi_for_tree (fn->decl)))
+	  && SSA_VAR_P (gimple_return_retval (return_stmt)))
+	{
+	  /* We handle simple returns by post-processing the solutions.  */
+	  ;
+	}
+      if (!(fi = get_vi_for_tree (fn->decl)))
 	make_escape_constraint (gimple_return_retval (return_stmt));
       else if (in_ipa_mode)
 	{
@@ -6402,9 +6453,7 @@ set_uids_in_ptset (bitmap into, bitmap from, struct pt_solution *pt,
     {
       varinfo_t vi = get_varinfo (i);
 
-      /* The only artificial variables that are allowed in a may-alias
-	 set are heap variables.  */
-      if (vi->is_artificial_var && !vi->is_heap_var)
+      if (vi->is_artificial_var)
 	continue;
 
       if (everything_escaped
@@ -6412,7 +6461,7 @@ set_uids_in_ptset (bitmap into, bitmap from, struct pt_solution *pt,
 	      && bitmap_bit_p (escaped_vi->solution, i)))
 	{
 	  pt->vars_contains_escaped = true;
-	  pt->vars_contains_escaped_heap = vi->is_heap_var;
+	  pt->vars_contains_escaped_heap |= vi->is_heap_var;
 	}
 
       if (vi->is_restrict_var)
@@ -6452,6 +6501,16 @@ set_uids_in_ptset (bitmap into, bitmap from, struct pt_solution *pt,
 	      && (TREE_STATIC (vi->decl) || DECL_EXTERNAL (vi->decl))
 	      && ! decl_binds_to_current_def_p (vi->decl))
 	    pt->vars_contains_interposable = true;
+
+	  /* If this is a local variable we can have overlapping lifetime
+	     of different function invocations through recursion duplicate
+	     it with its shadow variable.  */
+	  if (in_ipa_mode
+	      && vi->shadow_var_uid != 0)
+	    {
+	      bitmap_set_bit (into, vi->shadow_var_uid);
+	      pt->vars_contains_nonlocal = true;
+	    }
 	}
 
       else if (TREE_CODE (vi->decl) == FUNCTION_DECL
@@ -6514,9 +6573,6 @@ find_what_var_points_to (tree fndecl, varinfo_t orig_vi)
 	    }
 	  else if (vi->id == nonlocal_id)
 	    pt->nonlocal = 1;
-	  else if (vi->is_heap_var)
-	    /* We represent heapvars in the points-to set properly.  */
-	    ;
 	  else if (vi->id == string_id)
 	    /* Nobody cares - STRING_CSTs are read-only entities.  */
 	    ;
@@ -7224,9 +7280,6 @@ solve_constraints (void)
       dump_constraint_graph (dump_file);
       fprintf (dump_file, "\n\n");
     }
-
-  if (dump_file)
-    dump_sa_points_to_info (dump_file);
 }
 
 /* Create points-to sets for the current function.  See the comments
@@ -7273,6 +7326,73 @@ compute_points_to_sets (void)
 
   /* From the constraints compute the points-to sets.  */
   solve_constraints ();
+
+  /* Post-process solutions for escapes through returns.  */
+  edge_iterator ei;
+  edge e;
+  FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR_FOR_FN (cfun)->preds)
+    if (greturn *ret = safe_dyn_cast <greturn *> (last_stmt (e->src)))
+      {
+	tree val = gimple_return_retval (ret);
+	/* ???  Easy to handle simple indirections with some work.
+	   Arbitrary references like foo.bar.baz are more difficult
+	   (but conservatively easy enough with just looking at the base).
+	   Mind to fixup find_func_aliases as well.  */
+	if (!val || !SSA_VAR_P (val))
+	  continue;
+	/* returns happen last in non-IPA so they only influence
+	   the ESCAPED solution and we can filter local variables.  */
+	varinfo_t escaped_vi = get_varinfo (find (escaped_id));
+	varinfo_t vi = lookup_vi_for_tree (val);
+	bitmap delta = BITMAP_ALLOC (&pta_obstack);
+	bitmap_iterator bi;
+	unsigned i;
+	for (; vi; vi = vi_next (vi))
+	  {
+	    varinfo_t part_vi = get_varinfo (find (vi->id));
+	    EXECUTE_IF_AND_COMPL_IN_BITMAP (part_vi->solution,
+					    escaped_vi->solution, 0, i, bi)
+	      {
+		varinfo_t pointed_to_vi = get_varinfo (i);
+		if (pointed_to_vi->is_global_var
+		    /* We delay marking of heap memory as global.  */
+		    || pointed_to_vi->is_heap_var)
+		  bitmap_set_bit (delta, i);
+	      }
+	  }
+
+	/* Now compute the transitive closure.  */
+	bitmap_ior_into (escaped_vi->solution, delta);
+	bitmap new_delta = BITMAP_ALLOC (&pta_obstack);
+	while (!bitmap_empty_p (delta))
+	  {
+	    EXECUTE_IF_SET_IN_BITMAP (delta, 0, i, bi)
+	      {
+		varinfo_t pointed_to_vi = get_varinfo (i);
+		pointed_to_vi = get_varinfo (find (pointed_to_vi->id));
+		unsigned j;
+		bitmap_iterator bi2;
+		EXECUTE_IF_AND_COMPL_IN_BITMAP (pointed_to_vi->solution,
+						escaped_vi->solution,
+						0, j, bi2)
+		  {
+		    varinfo_t pointed_to_vi2 = get_varinfo (j);
+		    if (pointed_to_vi2->is_global_var
+			/* We delay marking of heap memory as global.  */
+			|| pointed_to_vi2->is_heap_var)
+		      bitmap_set_bit (new_delta, j);
+		  }
+	      }
+	    bitmap_ior_into (escaped_vi->solution, new_delta);
+	    bitmap_clear (delta);
+	    std::swap (delta, new_delta);
+	  }
+	BITMAP_FREE (delta);
+	BITMAP_FREE (new_delta);
+      }
+
+  if (dump_file)
+    dump_sa_points_to_info (dump_file);
 
   /* Compute the points-to set for ESCAPED used for call-clobber analysis.  */
   cfun->gimple_df->escaped = find_what_var_points_to (cfun->decl,
@@ -7495,7 +7615,11 @@ maybe_set_dependence_info (gimple *, tree base, tree, void *data)
       if (MR_DEPENDENCE_CLIQUE (base) == 0)
 	{
 	  if (clique == 0)
-	    clique = ++cfun->last_clique;
+	    {
+	      if (cfun->last_clique == 0)
+		cfun->last_clique = 1;
+	      clique = 1;
+	    }
 	  if (restrict_var->ruid == 0)
 	    restrict_var->ruid = ++last_ruid;
 	  MR_DEPENDENCE_CLIQUE (base) = clique;
@@ -7506,12 +7630,42 @@ maybe_set_dependence_info (gimple *, tree base, tree, void *data)
   return false;
 }
 
+/* Clear dependence info for the clique DATA.  */
+
+static bool
+clear_dependence_clique (gimple *, tree base, tree, void *data)
+{
+  unsigned short clique = (uintptr_t)data;
+  if ((TREE_CODE (base) == MEM_REF
+       || TREE_CODE (base) == TARGET_MEM_REF)
+      && MR_DEPENDENCE_CLIQUE (base) == clique)
+    {
+      MR_DEPENDENCE_CLIQUE (base) = 0;
+      MR_DEPENDENCE_BASE (base) = 0;
+    }
+
+  return false;
+}
+
 /* Compute the set of independend memory references based on restrict
    tags and their conservative propagation to the points-to sets.  */
 
 static void
 compute_dependence_clique (void)
 {
+  /* First clear the special "local" clique.  */
+  basic_block bb;
+  if (cfun->last_clique != 0)
+    FOR_EACH_BB_FN (bb, cfun)
+      for (gimple_stmt_iterator gsi = gsi_start_bb (bb);
+	   !gsi_end_p (gsi); gsi_next (&gsi))
+	{
+	  gimple *stmt = gsi_stmt (gsi);
+	  walk_stmt_load_store_ops (stmt, (void *)(uintptr_t) 1,
+				    clear_dependence_clique,
+				    clear_dependence_clique);
+	}
+
   unsigned short clique = 0;
   unsigned short last_ruid = 0;
   bitmap rvars = BITMAP_ALLOC (NULL);
@@ -7538,9 +7692,12 @@ compute_dependence_clique (void)
       EXECUTE_IF_SET_IN_BITMAP (vi->solution, 0, j, bi)
 	{
 	  varinfo_t oi = get_varinfo (j);
+	  if (oi->head != j)
+	    oi = get_varinfo (oi->head);
 	  if (oi->is_restrict_var)
 	    {
-	      if (restrict_var)
+	      if (restrict_var
+		  && restrict_var != oi)
 		{
 		  if (dump_file && (dump_flags & TDF_DETAILS))
 		    {
@@ -7579,7 +7736,10 @@ compute_dependence_clique (void)
 					      maybe_set_dependence_info);
 	  if (used)
 	    {
-	      bitmap_set_bit (rvars, restrict_var->id);
+	      /* Add all subvars to the set of restrict pointed-to set. */
+	      for (unsigned sv = restrict_var->head; sv != 0;
+		   sv = get_varinfo (sv)->next)
+		bitmap_set_bit (rvars, sv);
 	      varinfo_t escaped = get_varinfo (find (escaped_id));
 	      if (bitmap_bit_p (escaped->solution, restrict_var->id))
 		escaped_p = true;
@@ -8038,6 +8198,65 @@ ipa_pta_execute (void)
 
   /* From the constraints compute the points-to sets.  */
   solve_constraints ();
+
+  if (dump_file)
+    dump_sa_points_to_info (dump_file);
+
+  /* Now post-process solutions to handle locals from different
+     runtime instantiations coming in through recursive invocations.  */
+  unsigned shadow_var_cnt = 0;
+  for (unsigned i = 1; i < varmap.length (); ++i)
+    {
+      varinfo_t fi = get_varinfo (i);
+      if (fi->is_fn_info
+	  && fi->decl)
+	/* Automatic variables pointed to by their containing functions
+	   parameters need this treatment.  */
+	for (varinfo_t ai = first_vi_for_offset (fi, fi_parm_base);
+	     ai; ai = vi_next (ai))
+	  {
+	    varinfo_t vi = get_varinfo (find (ai->id));
+	    bitmap_iterator bi;
+	    unsigned j;
+	    EXECUTE_IF_SET_IN_BITMAP (vi->solution, 0, j, bi)
+	      {
+		varinfo_t pt = get_varinfo (j);
+		if (pt->shadow_var_uid == 0
+		    && pt->decl
+		    && auto_var_in_fn_p (pt->decl, fi->decl))
+		  {
+		    pt->shadow_var_uid = allocate_decl_uid ();
+		    shadow_var_cnt++;
+		  }
+	      }
+	  }
+      /* As well as global variables which are another way of passing
+         arguments to recursive invocations.  */
+      else if (fi->is_global_var)
+	{
+	  for (varinfo_t ai = fi; ai; ai = vi_next (ai))
+	    {
+	      varinfo_t vi = get_varinfo (find (ai->id));
+	      bitmap_iterator bi;
+	      unsigned j;
+	      EXECUTE_IF_SET_IN_BITMAP (vi->solution, 0, j, bi)
+		{
+		  varinfo_t pt = get_varinfo (j);
+		  if (pt->shadow_var_uid == 0
+		      && pt->decl
+		      && auto_var_p (pt->decl))
+		    {
+		      pt->shadow_var_uid = allocate_decl_uid ();
+		      shadow_var_cnt++;
+		    }
+		}
+	    }
+	}
+    }
+  if (shadow_var_cnt && dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "Allocated %u shadow variables for locals "
+	     "maybe leaking into recursive invocations of their containing "
+	     "functions\n", shadow_var_cnt);
 
   /* Compute the global points-to sets for ESCAPED.
      ???  Note that the computed escape set is not correct

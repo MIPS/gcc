@@ -1348,6 +1348,7 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_AUTO:
 	case OMP_CLAUSE_IF_PRESENT:
 	case OMP_CLAUSE_FINALIZE:
+	case OMP_CLAUSE__CONDTEMP_:
 	  break;
 
 	  /* The following clause belongs to the OpenACC cache directive, which
@@ -1497,6 +1498,20 @@ convert_nonlocal_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 	}
       break;
 
+    case GIMPLE_OMP_TEAMS:
+      if (!gimple_omp_teams_host (as_a <gomp_teams *> (stmt)))
+	{
+	  save_suppress = info->suppress_expansion;
+	  convert_nonlocal_omp_clauses (gimple_omp_teams_clauses_ptr (stmt),
+					wi);
+	  walk_body (convert_nonlocal_reference_stmt,
+		     convert_nonlocal_reference_op, info,
+		     gimple_omp_body_ptr (stmt));
+	  info->suppress_expansion = save_suppress;
+	  break;
+	}
+      /* FALLTHRU */
+
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_TASK:
       save_suppress = info->suppress_expansion;
@@ -1601,17 +1616,10 @@ convert_nonlocal_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       info->suppress_expansion = save_suppress;
       break;
 
-    case GIMPLE_OMP_TEAMS:
-      save_suppress = info->suppress_expansion;
-      convert_nonlocal_omp_clauses (gimple_omp_teams_clauses_ptr (stmt), wi);
-      walk_body (convert_nonlocal_reference_stmt, convert_nonlocal_reference_op,
-		 info, gimple_omp_body_ptr (stmt));
-      info->suppress_expansion = save_suppress;
-      break;
-
     case GIMPLE_OMP_SECTION:
     case GIMPLE_OMP_MASTER:
     case GIMPLE_OMP_ORDERED:
+    case GIMPLE_OMP_SCAN:
       walk_body (convert_nonlocal_reference_stmt, convert_nonlocal_reference_op,
 	         info, gimple_omp_body_ptr (stmt));
       break;
@@ -2069,6 +2077,7 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_AUTO:
 	case OMP_CLAUSE_IF_PRESENT:
 	case OMP_CLAUSE_FINALIZE:
+	case OMP_CLAUSE__CONDTEMP_:
 	  break;
 
 	  /* The following clause belongs to the OpenACC cache directive, which
@@ -2168,6 +2177,18 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 
   switch (gimple_code (stmt))
     {
+    case GIMPLE_OMP_TEAMS:
+      if (!gimple_omp_teams_host (as_a <gomp_teams *> (stmt)))
+	{
+	  save_suppress = info->suppress_expansion;
+	  convert_local_omp_clauses (gimple_omp_teams_clauses_ptr (stmt), wi);
+	  walk_body (convert_local_reference_stmt, convert_local_reference_op,
+		     info, gimple_omp_body_ptr (stmt));
+	  info->suppress_expansion = save_suppress;
+	  break;
+	}
+      /* FALLTHRU */
+
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_TASK:
       save_suppress = info->suppress_expansion;
@@ -2299,17 +2320,10 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       info->static_chain_added |= save_static_chain_added;
       break;
 
-    case GIMPLE_OMP_TEAMS:
-      save_suppress = info->suppress_expansion;
-      convert_local_omp_clauses (gimple_omp_teams_clauses_ptr (stmt), wi);
-      walk_body (convert_local_reference_stmt, convert_local_reference_op,
-		 info, gimple_omp_body_ptr (stmt));
-      info->suppress_expansion = save_suppress;
-      break;
-
     case GIMPLE_OMP_SECTION:
     case GIMPLE_OMP_MASTER:
     case GIMPLE_OMP_ORDERED:
+    case GIMPLE_OMP_SCAN:
       walk_body (convert_local_reference_stmt, convert_local_reference_op,
 		 info, gimple_omp_body_ptr (stmt));
       break;
@@ -2607,6 +2621,14 @@ convert_tramp_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 	break;
       }
 
+    case GIMPLE_OMP_TEAMS:
+      if (!gimple_omp_teams_host (as_a <gomp_teams *> (stmt)))
+	{
+	  *handled_ops_p = false;
+	  return NULL_TREE;
+	}
+      goto do_parallel;
+
     case GIMPLE_OMP_TARGET:
       if (!is_gimple_omp_offloaded (stmt))
 	{
@@ -2616,6 +2638,7 @@ convert_tramp_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       /* FALLTHRU */
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_TASK:
+    do_parallel:
       {
 	tree save_local_var_chain = info->new_local_var_chain;
         walk_gimple_op (stmt, convert_tramp_reference_op, wi);
@@ -2723,6 +2746,15 @@ convert_gimple_call (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 	}
       break;
 
+    case GIMPLE_OMP_TEAMS:
+      if (!gimple_omp_teams_host (as_a <gomp_teams *> (stmt)))
+	{
+	  walk_body (convert_gimple_call, NULL, info,
+		     gimple_omp_body_ptr (stmt));
+	  break;
+	}
+      /* FALLTHRU */
+
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_TASK:
       save_static_chain_added = info->static_chain_added;
@@ -2798,10 +2830,10 @@ convert_gimple_call (gimple_stmt_iterator *gsi, bool *handled_ops_p,
     case GIMPLE_OMP_SECTIONS:
     case GIMPLE_OMP_SECTION:
     case GIMPLE_OMP_SINGLE:
-    case GIMPLE_OMP_TEAMS:
     case GIMPLE_OMP_MASTER:
     case GIMPLE_OMP_TASKGROUP:
     case GIMPLE_OMP_ORDERED:
+    case GIMPLE_OMP_SCAN:
     case GIMPLE_OMP_CRITICAL:
       walk_body (convert_gimple_call, NULL, info, gimple_omp_body_ptr (stmt));
       break;

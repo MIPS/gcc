@@ -3031,7 +3031,7 @@ static void
 mips_emit_move_or_split (rtx dest, rtx src, enum mips_split_type split_type)
 {
   if (mips_split_move_p (dest, src, split_type))
-    mips_split_move (dest, src, split_type);
+    mips_split_move (dest, src, split_type, NULL);
   else
     mips_emit_move (dest, src);
 }
@@ -4780,10 +4780,11 @@ mips_split_move_p (rtx dest, rtx src, enum mips_split_type split_type)
 }
 
 /* Split a move from SRC to DEST, given that mips_split_move_p holds.
-   SPLIT_TYPE describes the split condition.  */
+   SPLIT_TYPE describes the split condition.  INSN is the insn being
+   split, if we know it, NULL otherwise.  */
 
 void
-mips_split_move (rtx dest, rtx src, enum mips_split_type split_type)
+mips_split_move (rtx dest, rtx src, enum mips_split_type split_type, rtx insn_)
 {
   rtx low_dest;
 
@@ -4841,6 +4842,32 @@ mips_split_move (rtx dest, rtx src, enum mips_split_type split_type)
 	{
 	  mips_emit_move (low_dest, mips_subword (src, false));
 	  mips_emit_move (mips_subword (dest, true), mips_subword (src, true));
+	}
+    }
+
+  /* This is a hack.  See if the next insn uses DEST and if so, see if we
+     can forward SRC for DEST.  This is most useful if the next insn is a
+     simple store.   */
+  rtx_insn *insn = (rtx_insn *)insn_;
+  struct mips_address_info addr;
+  if (insn)
+    {
+      rtx_insn *next = next_nonnote_nondebug_insn_bb (insn);
+      if (next)
+	{
+	  rtx set = single_set (next);
+	  if (set && SET_SRC (set) == dest)
+	    {
+	      if (MEM_P (src))
+		{
+		  rtx tmp = XEXP (src, 0);
+		  mips_classify_address (&addr, tmp, GET_MODE (tmp), true);
+		  if (REGNO (addr.reg) != REGNO (dest))
+		    validate_change (next, &SET_SRC (set), src, false);
+		}
+	      else
+		validate_change (next, &SET_SRC (set), src, false);
+	    }
 	}
     }
 }
@@ -5070,7 +5097,7 @@ mips_split_move_insn_p (rtx dest, rtx src, rtx insn)
 void
 mips_split_move_insn (rtx dest, rtx src, rtx insn)
 {
-  mips_split_move (dest, src, mips_insn_split_type (insn));
+  mips_split_move (dest, src, mips_insn_split_type (insn), insn);
 }
 
 /* Return the appropriate instructions to move SRC into DEST.  Assume
@@ -7911,15 +7938,15 @@ mips_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT size,
 {
   if (op == STORE_BY_PIECES)
     return mips_store_by_pieces_p (size, align);
-  if (op == MOVE_BY_PIECES && HAVE_movmemsi)
+  if (op == MOVE_BY_PIECES && HAVE_cpymemsi)
     {
-      /* movmemsi is meant to generate code that is at least as good as
-	 move_by_pieces.  However, movmemsi effectively uses a by-pieces
+      /* cpymemsi is meant to generate code that is at least as good as
+	 move_by_pieces.  However, cpymemsi effectively uses a by-pieces
 	 implementation both for moves smaller than a word and for
 	 word-aligned moves of no more than MIPS_MAX_MOVE_BYTES_STRAIGHT
 	 bytes.  We should allow the tree-level optimisers to do such
 	 moves by pieces, as it often exposes other optimization
-	 opportunities.  We might as well continue to use movmemsi at
+	 opportunities.  We might as well continue to use cpymemsi at
 	 the rtl level though, as it produces better code when
 	 scheduling is disabled (such as at -O).  */
       if (currently_expanding_to_rtl)
@@ -8138,7 +8165,7 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
     emit_insn (gen_nop ());
 }
 
-/* Expand a movmemsi instruction, which copies LENGTH bytes from
+/* Expand a cpymemsi instruction, which copies LENGTH bytes from
    memory reference SRC to memory reference DEST.  */
 
 bool
@@ -9561,7 +9588,7 @@ mips_dwarf_frame_reg_mode (int regno)
 {
   machine_mode mode = default_dwarf_frame_reg_mode (regno);
 
-  if (FP_REG_P (regno) && mips_abi == ABI_32 && TARGET_FLOAT64)
+  if (FP_REG_P (regno) && mips_abi == ABI_32 && !TARGET_FLOAT32)
     mode = SImode;
 
   return mode;
@@ -11951,7 +11978,7 @@ static void
 mips_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
 {
   if (TARGET_MIPS16)
-    sorry ("-fstack-check=specific not implemented for MIPS16");
+    sorry ("%<-fstack-check=specific%> not implemented for MIPS16");
 
   /* See if we have a constant small number of probes to generate.  If so,
      that's the easy case.  */
@@ -12906,7 +12933,8 @@ mips_hard_regno_scratch_ok (unsigned int regno)
    registers with MODE > 64 bits are part clobbered too.  */
 
 static bool
-mips_hard_regno_call_part_clobbered (unsigned int regno, machine_mode mode)
+mips_hard_regno_call_part_clobbered (rtx_insn *insn ATTRIBUTE_UNUSED,
+				     unsigned int regno, machine_mode mode)
 {
   if (TARGET_FLOATXX
       && hard_regno_nregs (regno, mode) == 1
@@ -13432,7 +13460,7 @@ mips_preferred_simd_mode (scalar_mode mode)
 /* Implement TARGET_VECTORIZE_AUTOVECTORIZE_VECTOR_SIZES.  */
 
 static void
-mips_autovectorize_vector_sizes (vector_sizes *sizes)
+mips_autovectorize_vector_sizes (vector_sizes *sizes, bool)
 {
   if (ISA_HAS_MSA)
     sizes->safe_push (16);
@@ -16839,6 +16867,19 @@ mips_expand_builtin_insn (enum insn_code icode, unsigned int nops,
       std::swap (ops[1], ops[2]);
       break;
 
+    case CODE_FOR_msa_maddv_b:
+    case CODE_FOR_msa_maddv_h:
+    case CODE_FOR_msa_maddv_w:
+    case CODE_FOR_msa_maddv_d:
+    case CODE_FOR_msa_fmadd_w:
+    case CODE_FOR_msa_fmadd_d:
+    case CODE_FOR_msa_fmsub_w:
+    case CODE_FOR_msa_fmsub_d:
+      /* fma(a, b, c) results into (a * b + c), however builtin_msa_fmadd expects
+	 it to be (a + b * c).  Swap the 1st and 3rd operands.  */
+      std::swap (ops[1], ops[3]);
+      break;
+
     case CODE_FOR_msa_slli_b:
     case CODE_FOR_msa_slli_h:
     case CODE_FOR_msa_slli_w:
@@ -19403,6 +19444,7 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 		      HOST_WIDE_INT delta, HOST_WIDE_INT vcall_offset,
 		      tree function)
 {
+  const char *fnname = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (thunk_fndecl));
   rtx this_rtx, temp1, temp2, fnaddr;
   rtx_insn *insn;
   bool use_sibcall_p;
@@ -19515,9 +19557,11 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   split_all_insns_noflow ();
   mips16_lay_out_constants (true);
   shorten_branches (insn);
+  assemble_start_function (thunk_fndecl, fnname);
   final_start_function (insn, file, 1);
   final (insn, file, 1);
   final_end_function ();
+  assemble_end_function (thunk_fndecl, fnname);
 
   /* Clean up the vars set above.  Note that final_end_function resets
      the global pointer for us.  */
@@ -19597,7 +19641,7 @@ mips_set_compression_mode (unsigned int compression_mode)
 	sorry ("MIPS16 PIC for ABIs other than o32 and o64");
 
       if (TARGET_XGOT)
-	sorry ("MIPS16 -mxgot code");
+	sorry ("MIPS16 %<-mxgot%> code");
 
       if (TARGET_HARD_FLOAT_ABI && !TARGET_OLDABI)
 	sorry ("hard-float MIPS16 code for ABIs other than o32 and o64");
@@ -20592,9 +20636,19 @@ mips_final_postscan_insn (FILE *file ATTRIBUTE_UNUSED, rtx_insn *insn,
   if (INSN_P (insn)
       && GET_CODE (PATTERN (insn)) == UNSPEC_VOLATILE
       && XINT (PATTERN (insn), 1) == UNSPEC_CONSTTABLE_END)
-    mips_set_text_contents_type (asm_out_file, "__pend_",
-				 INTVAL (XVECEXP (PATTERN (insn), 0, 0)),
-				 TRUE);
+    {
+      rtx_insn *next_insn = next_real_nondebug_insn (insn);
+      bool code_p = (next_insn != NULL
+		     && INSN_P (next_insn)
+		     && (GET_CODE (PATTERN (next_insn)) != UNSPEC_VOLATILE
+			 || XINT (PATTERN (next_insn), 1) != UNSPEC_CONSTTABLE));
+
+      /* Switch content type depending on whether there is code beyond
+	 the constant pool.  */
+      mips_set_text_contents_type (asm_out_file, "__pend_",
+				   INTVAL (XVECEXP (PATTERN (insn), 0, 0)),
+				   code_p);
+    }
 }
 
 /* Return the function that is used to expand the <u>mulsidi3 pattern.
@@ -22264,7 +22318,7 @@ mips_expand_vec_cond_expr (machine_mode mode, machine_mode vimode,
 	  if (mode != vimode)
 	    {
 	      xop1 = gen_reg_rtx (vimode);
-	      emit_move_insn (xop1, gen_rtx_SUBREG (vimode, operands[1], 0));
+	      emit_move_insn (xop1, gen_lowpart (vimode, operands[1]));
 	    }
 	  emit_move_insn (src1, xop1);
 	}
@@ -22281,7 +22335,7 @@ mips_expand_vec_cond_expr (machine_mode mode, machine_mode vimode,
 	  if (mode != vimode)
 	    {
 	      xop2 = gen_reg_rtx (vimode);
-	      emit_move_insn (xop2, gen_rtx_SUBREG (vimode, operands[2], 0));
+	      emit_move_insn (xop2, gen_lowpart (vimode, operands[2]));
 	    }
 	  emit_move_insn (src2, xop2);
 	}

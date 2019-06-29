@@ -35,7 +35,7 @@ extern void arc_final_prescan_insn (rtx_insn *, rtx *, int);
 extern const char *arc_output_libcall (const char *);
 extern int arc_output_addsi (rtx *operands, bool, bool);
 extern int arc_output_commutative_cond_exec (rtx *operands, bool);
-extern bool arc_expand_movmem (rtx *operands);
+extern bool arc_expand_cpymem (rtx *operands);
 extern bool prepare_move_operands (rtx *operands, machine_mode mode);
 extern void emit_shift (enum rtx_code, rtx, rtx, rtx);
 extern void arc_expand_atomic_op (enum rtx_code, rtx, rtx, rtx, rtx, rtx);
@@ -47,6 +47,11 @@ extern unsigned int arc_compute_function_type (struct function *);
 extern bool arc_is_uncached_mem_p (rtx);
 extern bool gen_operands_ldd_std (rtx *operands, bool load, bool commute);
 extern bool arc_check_multi (rtx, bool);
+extern void arc_adjust_reg_alloc_order (void);
+extern bool arc_check_ior_const (HOST_WIDE_INT );
+extern void arc_split_ior (rtx *);
+extern bool arc_check_mov_const (HOST_WIDE_INT );
+extern bool arc_split_mov_const (rtx *);
 #endif /* RTX_CODE */
 
 extern unsigned int arc_compute_frame_size (int);
@@ -67,8 +72,6 @@ extern bool arc_is_shortcall_p (rtx);
 extern bool valid_brcc_with_delay_p (rtx *);
 extern bool arc_ccfsm_cond_exec_p (void);
 struct secondary_reload_info;
-extern int arc_register_move_cost (machine_mode, enum reg_class,
-				   enum reg_class);
 extern rtx disi_highpart (rtx);
 extern int arc_adjust_insn_length (rtx_insn *, int, bool);
 extern int arc_corereg_hazard (rtx, rtx);

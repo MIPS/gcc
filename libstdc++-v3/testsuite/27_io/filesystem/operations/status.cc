@@ -56,6 +56,11 @@ test02()
 void
 test03()
 {
+#if defined(__MINGW32__) || defined(__MINGW64__)
+  // No permissions support
+  return;
+#endif
+
   fs::path dir = __gnu_test::nonexistent_path();
   fs::create_directory(dir);
   __gnu_test::scoped_file d(dir, __gnu_test::scoped_file::adopt_file);
@@ -88,10 +93,20 @@ test03()
   fs::permissions(dir, fs::perms::owner_all, ec);
 }
 
+void
+test04()
+{
+  // PR libstdc++/88881
+  fs::path p = "./";
+  auto st = status(p);
+  VERIFY( is_directory(st) );
+}
+
 int
 main()
 {
   test01();
   test02();
   test03();
+  test04();
 }

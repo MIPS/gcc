@@ -206,7 +206,7 @@ genericize_if_stmt (tree *stmt_p)
 	  richloc.add_range (EXPR_LOC_OR_LOC (fe, locus));
 	  warning_at (&richloc, OPT_Wattributes,
 		      "both branches of %<if%> statement marked as %qs",
-		      predictor_name (pr));
+		      pr == PRED_HOT_LABEL ? "likely" : "unlikely");
 	}
     }
 
@@ -241,16 +241,26 @@ genericize_cp_loop (tree *stmt_p, location_t start_locus, tree cond, tree body,
   tree blab, clab;
   tree exit = NULL;
   tree stmt_list = NULL;
+  tree debug_begin = NULL;
+
+  if (EXPR_LOCATION (incr) == UNKNOWN_LOCATION)
+    protected_set_expr_location (incr, start_locus);
+
+  cp_walk_tree (&cond, cp_genericize_r, data, NULL);
+  cp_walk_tree (&incr, cp_genericize_r, data, NULL);
 
   blab = begin_bc_block (bc_break, start_locus);
   clab = begin_bc_block (bc_continue, start_locus);
 
-  protected_set_expr_location (incr, start_locus);
-
-  cp_walk_tree (&cond, cp_genericize_r, data, NULL);
   cp_walk_tree (&body, cp_genericize_r, data, NULL);
-  cp_walk_tree (&incr, cp_genericize_r, data, NULL);
   *walk_subtrees = 0;
+
+  if (MAY_HAVE_DEBUG_MARKER_STMTS
+      && (!cond || !integer_zerop (cond)))
+    {
+      debug_begin = build0 (DEBUG_BEGIN_STMT, void_type_node);
+      SET_EXPR_LOCATION (debug_begin, cp_expr_loc_or_loc (cond, start_locus));
+    }
 
   if (cond && TREE_CODE (cond) != INTEGER_CST)
     {
@@ -264,10 +274,24 @@ genericize_cp_loop (tree *stmt_p, location_t start_locus, tree cond, tree body,
     }
 
   if (exit && cond_is_first)
-    append_to_statement_list (exit, &stmt_list);
+    {
+      append_to_statement_list (debug_begin, &stmt_list);
+      debug_begin = NULL_TREE;
+      append_to_statement_list (exit, &stmt_list);
+    }
   append_to_statement_list (body, &stmt_list);
   finish_bc_block (&stmt_list, bc_continue, clab);
-  append_to_statement_list (incr, &stmt_list);
+  if (incr)
+    {
+      if (MAY_HAVE_DEBUG_MARKER_STMTS)
+	{
+	  tree d = build0 (DEBUG_BEGIN_STMT, void_type_node);
+	  SET_EXPR_LOCATION (d, cp_expr_loc_or_loc (incr, start_locus));
+	  append_to_statement_list (d, &stmt_list);
+	}
+      append_to_statement_list (incr, &stmt_list);
+    }
+  append_to_statement_list (debug_begin, &stmt_list);
   if (exit && !cond_is_first)
     append_to_statement_list (exit, &stmt_list);
 
@@ -356,16 +380,17 @@ genericize_switch_stmt (tree *stmt_p, int *walk_subtrees, void *data)
   tree break_block, body, cond, type;
   location_t stmt_locus = EXPR_LOCATION (stmt);
 
-  break_block = begin_bc_block (bc_break, stmt_locus);
-
   body = SWITCH_STMT_BODY (stmt);
   if (!body)
     body = build_empty_stmt (stmt_locus);
   cond = SWITCH_STMT_COND (stmt);
   type = SWITCH_STMT_TYPE (stmt);
 
-  cp_walk_tree (&body, cp_genericize_r, data, NULL);
   cp_walk_tree (&cond, cp_genericize_r, data, NULL);
+
+  break_block = begin_bc_block (bc_break, stmt_locus);
+
+  cp_walk_tree (&body, cp_genericize_r, data, NULL);
   cp_walk_tree (&type, cp_genericize_r, data, NULL);
   *walk_subtrees = 0;
 
@@ -568,21 +593,22 @@ gimplify_must_not_throw_expr (tree *expr_p, gimple_seq *pre_p)
    non-empty CONSTRUCTORs get reduced properly, and we leave the
    return slot optimization alone because it isn't a copy.  */
 
-static bool
-simple_empty_class_p (tree type, tree op)
+bool
+simple_empty_class_p (tree type, tree op, tree_code code)
 {
+  if (TREE_CODE (op) == COMPOUND_EXPR)
+    return simple_empty_class_p (type, TREE_OPERAND (op, 1), code);
   return
-    ((TREE_CODE (op) == COMPOUND_EXPR
-      && simple_empty_class_p (type, TREE_OPERAND (op, 1)))
-     || TREE_CODE (op) == EMPTY_CLASS_EXPR
+    (TREE_CODE (op) == EMPTY_CLASS_EXPR
+     || code == MODIFY_EXPR
      || is_gimple_lvalue (op)
      || INDIRECT_REF_P (op)
      || (TREE_CODE (op) == CONSTRUCTOR
-	 && CONSTRUCTOR_NELTS (op) == 0
-	 && !TREE_CLOBBER_P (op))
+	 && CONSTRUCTOR_NELTS (op) == 0)
      || (TREE_CODE (op) == CALL_EXPR
 	 && !CALL_EXPR_RETURN_SLOT_OPT (op)))
-    && is_really_empty_class (type);
+    && !TREE_CLOBBER_P (op)
+    && is_really_empty_class (type, /*ignore_vptr*/true);
 }
 
 /* Returns true if evaluating E as an lvalue has side-effects;
@@ -690,7 +716,7 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 	  TREE_OPERAND (*expr_p, 1) = build1 (VIEW_CONVERT_EXPR,
 					      TREE_TYPE (op0), op1);
 
-	else if (simple_empty_class_p (TREE_TYPE (op0), op1))
+	else if (simple_empty_class_p (TREE_TYPE (op0), op1, code))
 	  {
 	    /* Remove any copies of empty classes.  Also drop volatile
 	       variables on the RHS to avoid infinite recursion from
@@ -1212,6 +1238,8 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	case OMP_CLAUSE_COPYIN:
 	case OMP_CLAUSE_COPYPRIVATE:
+	case OMP_CLAUSE_INCLUSIVE:
+	case OMP_CLAUSE_EXCLUSIVE:
 	  /* Don't dereference an invisiref in OpenMP clauses.  */
 	  if (is_invisiref_parm (OMP_CLAUSE_DECL (stmt)))
 	    *walk_subtrees = 0;
@@ -1464,10 +1492,10 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 	      {
 		auto_diagnostic_group d;
 		if (warning_at (loc, OPT_Wterminate,
-				"throw will always call terminate()")
+				"%<throw%> will always call %<terminate%>")
 		    && cxx_dialect >= cxx11
 		    && DECL_DESTRUCTOR_P (current_function_decl))
-		  inform (loc, "in C++11 destructors default to noexcept");
+		  inform (loc, "in C++11 destructors default to %<noexcept%>");
 	      }
 	  }
 	else
@@ -1479,8 +1507,8 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 		&& (get_defaulted_eh_spec (current_function_decl)
 		    == empty_except_spec))
 	      warning_at (loc, OPT_Wc__11_compat,
-			  "in C++11 this throw will terminate because "
-			  "destructors default to noexcept");
+			  "in C++11 this %<throw%> will call %<terminate%> "
+			  "because destructors default to %<noexcept%>");
 	  }
       }
       break;
@@ -2124,6 +2152,8 @@ cp_fold_maybe_rvalue (tree x, bool rval)
   while (true)
     {
       x = cp_fold (x);
+      if (rval)
+	x = mark_rvalue_use (x);
       if (rval && DECL_P (x)
 	  && !TYPE_REF_P (TREE_TYPE (x)))
 	{
@@ -2320,8 +2350,7 @@ cp_fold (tree x)
 
       /* Cope with user tricks that amount to offsetof.  */
       if (op0 != error_mark_node
-	  && TREE_CODE (TREE_TYPE (op0)) != FUNCTION_TYPE
-	  && TREE_CODE (TREE_TYPE (op0)) != METHOD_TYPE)
+	  && !FUNC_OR_METHOD_TYPE_P (TREE_TYPE (op0)))
 	{
 	  tree val = get_base_address (op0);
 	  if (val
@@ -2651,7 +2680,7 @@ cp_fold (tree x)
     case TREE_VEC:
       {
 	bool changed = false;
-	vec<tree, va_gc> *vec = make_tree_vector ();
+	releasing_vec vec;
 	int i, n = TREE_VEC_LENGTH (x);
 	vec_safe_reserve (vec, n);
 
@@ -2670,8 +2699,6 @@ cp_fold (tree x)
 	      TREE_VEC_ELT (r, i) = (*vec)[i];
 	    x = r;
 	  }
-
-	release_tree_vector (vec);
       }
 
       break;
@@ -2761,7 +2788,7 @@ remove_hotness_attribute (tree list)
    PREDICT_EXPR.  */
 
 tree
-process_stmt_hotness_attribute (tree std_attrs)
+process_stmt_hotness_attribute (tree std_attrs, location_t attrs_loc)
 {
   if (std_attrs == error_mark_node)
     return std_attrs;
@@ -2772,7 +2799,7 @@ process_stmt_hotness_attribute (tree std_attrs)
 		  || is_attribute_p ("likely", name));
       tree pred = build_predict_expr (hot ? PRED_HOT_LABEL : PRED_COLD_LABEL,
 				      hot ? TAKEN : NOT_TAKEN);
-      SET_EXPR_LOCATION (pred, input_location);
+      SET_EXPR_LOCATION (pred, attrs_loc);
       add_stmt (pred);
       if (tree other = lookup_hotness_attribute (TREE_CHAIN (attr)))
 	warning (OPT_Wattributes, "ignoring attribute %qE after earlier %qE",

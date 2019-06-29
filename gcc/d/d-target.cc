@@ -140,8 +140,9 @@ Target::_init (void)
   /* Size of run-time TypeInfo object.  */
   Target::classinfosize = 19 * Target::ptrsize;
 
-  /* Allow data sizes up to half of the address space.  */
-  Target::maxStaticDataSize = tree_to_shwi (TYPE_MAX_VALUE (ptrdiff_type_node));
+  /* Much of the dmd front-end uses ints for sizes and offsets, and cannot
+     handle any larger data type without some pervasive rework.  */
+  Target::maxStaticDataSize = tree_to_shwi (TYPE_MAX_VALUE (integer_type_node));
 
   /* Define what type to use for size_t, ptrdiff_t.  */
   if (POINTER_SIZE == 64)
@@ -383,6 +384,15 @@ Target::cppParameterType (Parameter *arg)
     }
 
   return t;
+}
+
+/* Checks whether TYPE is a vendor-specific fundamental type.  Stores the result
+   in IS_FUNDAMENTAL and returns true if the parameter was set.  */
+
+bool
+Target::cppFundamentalType (const Type *, bool &)
+{
+  return false;
 }
 
 /* Return the default system linkage for the target.  */

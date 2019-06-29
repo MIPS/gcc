@@ -361,7 +361,7 @@ static bool has_short_buffer;
    we can't do with expected alignment of the stack boundary.  */
 
 static unsigned int
-align_local_variable (tree decl)
+align_local_variable (tree decl, bool really_expand)
 {
   unsigned int align;
 
@@ -370,7 +370,12 @@ align_local_variable (tree decl)
   else
     {
       align = LOCAL_DECL_ALIGNMENT (decl);
-      SET_DECL_ALIGN (decl, align);
+      /* Don't change DECL_ALIGN when called from estimated_stack_frame_size.
+	 That is done before IPA and could bump alignment based on host
+	 backend even for offloaded code which wants different
+	 LOCAL_DECL_ALIGNMENT.  */
+      if (really_expand)
+	SET_DECL_ALIGN (decl, align);
     }
   return align / BITS_PER_UNIT;
 }
@@ -418,7 +423,7 @@ alloc_stack_frame_space (poly_int64 size, unsigned HOST_WIDE_INT align)
 /* Accumulate DECL into STACK_VARS.  */
 
 static void
-add_stack_var (tree decl)
+add_stack_var (tree decl, bool really_expand)
 {
   struct stack_var *v;
 
@@ -446,7 +451,7 @@ add_stack_var (tree decl)
      variables that are simultaneously live.  */
   if (known_eq (v->size, 0U))
     v->size = 1;
-  v->alignb = align_local_variable (decl);
+  v->alignb = align_local_variable (decl, really_expand);
   /* An alignment of zero can mightily confuse us later.  */
   gcc_assert (v->alignb != 0);
 
@@ -470,6 +475,8 @@ add_stack_var_conflict (size_t x, size_t y)
 {
   struct stack_var *a = &stack_vars[x];
   struct stack_var *b = &stack_vars[y];
+  if (x == y)
+    return;
   if (!a->conflicts)
     a->conflicts = BITMAP_ALLOC (&stack_var_bitmap_obstack);
   if (!b->conflicts)
@@ -1321,7 +1328,7 @@ expand_one_stack_var_1 (tree var)
   else
     {
       size = tree_to_poly_uint64 (DECL_SIZE_UNIT (var));
-      byte_align = align_local_variable (var);
+      byte_align = align_local_variable (var, true);
     }
 
   /* We handle highly aligned variables in expand_stack_vars.  */
@@ -1411,7 +1418,7 @@ expand_one_ssa_partition (tree var)
   if (!use_register_for_decl (var))
     {
       if (defer_stack_allocation (var, true))
-	add_stack_var (var);
+	add_stack_var (var, true);
       else
 	expand_one_stack_var_1 (var);
       return;
@@ -1693,14 +1700,14 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
 	}
     }
   else if (defer_stack_allocation (var, toplevel))
-    add_stack_var (origvar);
+    add_stack_var (origvar, really_expand);
   else
     {
       if (really_expand)
         {
           if (lookup_attribute ("naked",
                                 DECL_ATTRIBUTES (current_function_decl)))
-            error ("cannot allocate stack for variable %q+D, naked function.",
+	    error ("cannot allocate stack for variable %q+D, naked function",
                    var);
 
           expand_one_stack_var (origvar);
@@ -2838,7 +2845,8 @@ tree_conflicts_with_clobbers_p (tree t, HARD_REG_SET *clobbered_regs)
 
   if (overlap)
     {
-      error ("asm-specifier for variable %qE conflicts with asm clobber list",
+      error ("%<asm%> specifier for variable %qE conflicts with "
+	     "%<asm%> clobber list",
 	     DECL_NAME (overlap));
 
       /* Reset registerness to stop multiple errors emitted for a single
@@ -2872,12 +2880,25 @@ asm_clobber_reg_is_valid (int regno, int nregs, const char *regname)
       error ("PIC register clobbered by %qs in %<asm%>", regname);
       is_valid = false;
     }
-  /* Clobbering the STACK POINTER register is an error.  */
-  if (overlaps_hard_reg_set_p (regset, Pmode, STACK_POINTER_REGNUM))
+  else if (!in_hard_reg_set_p
+	   (accessible_reg_set, reg_raw_mode[regno], regno))
     {
-      error ("Stack Pointer register clobbered by %qs in %<asm%>", regname);
+      /* ??? Diagnose during gimplification?  */
+      error ("the register %qs cannot be clobbered in %<asm%>"
+	     " for the current target", regname);
       is_valid = false;
     }
+
+  /* Clobbering the stack pointer register is deprecated.  GCC expects
+     the value of the stack pointer after an asm statement to be the same
+     as it was before, so no asm can validly clobber the stack pointer in
+     the usual sense.  Adding the stack pointer to the clobber list has
+     traditionally had some undocumented and somewhat obscure side-effects.  */
+  if (overlaps_hard_reg_set_p (regset, Pmode, STACK_POINTER_REGNUM)
+      && warning (OPT_Wdeprecated, "listing the stack pointer register"
+		  " %qs in a clobber list is deprecated", regname))
+    inform (input_location, "the value of the stack pointer after an %<asm%>"
+	    " statement must be the same as it was before the statement");
 
   return is_valid;
 }
@@ -3023,7 +3044,6 @@ expand_asm_stmt (gasm *stmt)
 	      }
 	}
     }
-  unsigned nclobbers = clobber_rvec.length();
 
   /* First pass over inputs and outputs checks validity and sets
      mark_addressable if needed.  */
@@ -3247,7 +3267,8 @@ expand_asm_stmt (gasm *stmt)
 	  if (allows_reg && TYPE_MODE (type) != BLKmode)
 	    op = force_reg (TYPE_MODE (type), op);
 	  else if (!allows_mem)
-	    warning (0, "asm operand %d probably doesn%'t match constraints",
+	    warning (0, "%<asm%> operand %d probably does not match "
+		     "constraints",
 		     i + noutputs);
 	  else if (MEM_P (op))
 	    {
@@ -3295,7 +3316,7 @@ expand_asm_stmt (gasm *stmt)
   gcc_assert (constraints.length() == noutputs + ninputs);
 
   /* But it certainly can adjust the clobbers.  */
-  nclobbers = clobber_rvec.length();
+  unsigned nclobbers = clobber_rvec.length ();
 
   /* Third pass checks for easy conflicts.  */
   /* ??? Why are we doing this on trees instead of rtx.  */
@@ -3430,11 +3451,13 @@ expand_asm_stmt (gasm *stmt)
 		 tripping over the under-construction body.  */
 	      for (unsigned k = 0; k < noutputs; ++k)
 		if (reg_overlap_mentioned_p (clobbered_reg, output_rvec[k]))
-		  internal_error ("asm clobber conflict with output operand");
+		  internal_error ("%<asm%> clobber conflict with "
+				  "output operand");
 
 	      for (unsigned k = 0; k < ninputs - ninout; ++k)
 		if (reg_overlap_mentioned_p (clobbered_reg, input_rvec[k]))
-		  internal_error ("asm clobber conflict with input operand");
+		  internal_error ("%<asm%> clobber conflict with "
+				  "input operand");
 	    }
 
 	  XVECEXP (body, 0, i++) = gen_rtx_CLOBBER (VOIDmode, clobbered_reg);
@@ -4363,7 +4386,11 @@ expand_debug_expr (tree exp)
       op0 = DECL_RTL_IF_SET (exp);
 
       /* This decl was probably optimized away.  */
-      if (!op0)
+      if (!op0
+	  /* At least label RTXen are sometimes replaced by
+	     NOTE_INSN_DELETED_LABEL.  Any notes here are not
+	     handled by copy_rtx.  */
+	  || NOTE_P (op0))
 	{
 	  if (!VAR_P (exp)
 	      || DECL_EXTERNAL (exp)
@@ -5969,11 +5996,11 @@ construct_init_block (void)
     {
       first_block = e->dest;
       redirect_edge_succ (e, init_block);
-      e = make_single_succ_edge (init_block, first_block, flags);
+      make_single_succ_edge (init_block, first_block, flags);
     }
   else
-    e = make_single_succ_edge (init_block, EXIT_BLOCK_PTR_FOR_FN (cfun),
-			       EDGE_FALLTHRU);
+    make_single_succ_edge (init_block, EXIT_BLOCK_PTR_FOR_FN (cfun),
+			   EDGE_FALLTHRU);
 
   update_bb_for_insn (init_block);
   return init_block;
@@ -6219,6 +6246,7 @@ stack_protect_prologue (void)
   tree guard_decl = targetm.stack_protect_guard ();
   rtx x, y;
 
+  crtl->stack_protect_guard_decl = guard_decl;
   x = expand_normal (crtl->stack_protect_guard);
 
   if (targetm.have_stack_protect_combined_set () && guard_decl)

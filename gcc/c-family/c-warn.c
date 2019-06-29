@@ -35,6 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify.h"
 #include "c-family/c-indentation.h"
 #include "calls.h"
+#include "stor-layout.h"
 
 /* Print a warning if a constant expression had overflow in folding.
    Invoke this function on every expression that the language
@@ -142,12 +143,16 @@ overflow_warning (location_t loc, tree value, tree expr)
       return;
     }
 
+  bool warned;
   if (expr)
-    warning_at (loc, OPT_Woverflow, warnfmt, expr, TREE_TYPE (expr), value);
+    warned = warning_at (loc, OPT_Woverflow, warnfmt, expr, TREE_TYPE (expr),
+			 value);
   else
-    warning_at (loc, OPT_Woverflow, warnfmt, TREE_TYPE (value), value);
+    warned = warning_at (loc, OPT_Woverflow, warnfmt, TREE_TYPE (value),
+			 value);
 
-  TREE_NO_WARNING (value) = 1;
+  if (warned)
+    TREE_NO_WARNING (value) = 1;
 }
 
 /* Helper function for walk_tree.  Unwrap C_MAYBE_CONST_EXPRs in an expression
@@ -215,13 +220,17 @@ warn_logical_operator (location_t location, enum tree_code code, tree type,
 	  && !integer_zerop (folded_op_right)
 	  && !integer_onep (folded_op_right))
 	{
+	  bool warned;
 	  if (or_op)
-	    warning_at (location, OPT_Wlogical_op, "logical %<or%>"
-			" applied to non-boolean constant");
+	    warned
+	      = warning_at (location, OPT_Wlogical_op,
+			    "logical %<or%> applied to non-boolean constant");
 	  else
-	    warning_at (location, OPT_Wlogical_op, "logical %<and%>"
-			" applied to non-boolean constant");
-	  TREE_NO_WARNING (op_left) = true;
+	    warned
+	      = warning_at (location, OPT_Wlogical_op,
+			    "logical %<and%> applied to non-boolean constant");
+	  if (warned)
+	    TREE_NO_WARNING (op_left) = true;
 	  return;
 	}
     }
@@ -737,7 +746,7 @@ strict_aliasing_warning (location_t loc, tree type, tree expr)
 	 are not revealed at higher levels.  */
       alias_set_type set1 = get_alias_set (TREE_TYPE (otype));
       alias_set_type set2 = get_alias_set (TREE_TYPE (type));
-      if (!COMPLETE_TYPE_P (type)
+      if (!COMPLETE_TYPE_P (TREE_TYPE (type))
 	  || !alias_sets_must_conflict_p (set1, set2))
 	{
 	  warning_at (loc, OPT_Wstrict_aliasing,
@@ -1419,12 +1428,88 @@ match_case_to_enum (splay_tree_node node, void *data)
 
 void
 c_do_switch_warnings (splay_tree cases, location_t switch_location,
-		      tree type, tree cond, bool bool_cond_p,
-		      bool outside_range_p)
+		      tree type, tree cond, bool bool_cond_p)
 {
   splay_tree_node default_node;
   splay_tree_node node;
   tree chain;
+  bool outside_range_p = false;
+
+  if (type != error_mark_node
+      && type != TREE_TYPE (cond)
+      && INTEGRAL_TYPE_P (type)
+      && INTEGRAL_TYPE_P (TREE_TYPE (cond))
+      && (!tree_int_cst_equal (TYPE_MIN_VALUE (type),
+			       TYPE_MIN_VALUE (TREE_TYPE (cond)))
+	  || !tree_int_cst_equal (TYPE_MAX_VALUE (type),
+				  TYPE_MAX_VALUE (TREE_TYPE (cond)))))
+    {
+      tree min_value = TYPE_MIN_VALUE (type);
+      tree max_value = TYPE_MAX_VALUE (type);
+
+      node = splay_tree_predecessor (cases, (splay_tree_key) min_value);
+      if (node && node->key)
+	{
+	  outside_range_p = true;
+	  /* There is at least one case smaller than TYPE's minimum value.
+	     NODE itself could be still a range overlapping the valid values,
+	     but any predecessors thereof except the default case will be
+	     completely outside of range.  */
+	  if (CASE_HIGH ((tree) node->value)
+	      && tree_int_cst_compare (CASE_HIGH ((tree) node->value),
+				       min_value) >= 0)
+	    {
+	      location_t loc = EXPR_LOCATION ((tree) node->value);
+	      warning_at (loc, OPT_Wswitch_outside_range,
+			  "lower value in case label range less than minimum"
+			  " value for type");
+	      CASE_LOW ((tree) node->value) = convert (TREE_TYPE (cond),
+						       min_value);
+	      node->key = (splay_tree_key) CASE_LOW ((tree) node->value);
+	    }
+	  /* All the following ones are completely outside of range.  */
+	  do
+	    {
+	      node = splay_tree_predecessor (cases,
+					     (splay_tree_key) min_value);
+	      if (node == NULL || !node->key)
+		break;
+	      location_t loc = EXPR_LOCATION ((tree) node->value);
+	      warning_at (loc, OPT_Wswitch_outside_range, "case label value is"
+			  " less than minimum value for type");
+	      splay_tree_remove (cases, node->key);
+	    }
+	  while (1);
+	}
+      node = splay_tree_lookup (cases, (splay_tree_key) max_value);
+      if (node == NULL)
+	node = splay_tree_predecessor (cases, (splay_tree_key) max_value);
+      /* Handle a single node that might partially overlap the range.  */
+      if (node
+	  && node->key
+	  && CASE_HIGH ((tree) node->value)
+	  && tree_int_cst_compare (CASE_HIGH ((tree) node->value),
+				   max_value) > 0)
+	{
+	  location_t loc = EXPR_LOCATION ((tree) node->value);
+	  warning_at (loc, OPT_Wswitch_outside_range, "upper value in case"
+		      " label range exceeds maximum value for type");
+	  CASE_HIGH ((tree) node->value)
+	    = convert (TREE_TYPE (cond), max_value);
+	  outside_range_p = true;
+	}
+      /* And any nodes that are completely outside of the range.  */
+      while ((node = splay_tree_successor (cases,
+					   (splay_tree_key) max_value))
+	     != NULL)
+	{
+	  location_t loc = EXPR_LOCATION ((tree) node->value);
+	  warning_at (loc, OPT_Wswitch_outside_range,
+		      "case label value exceeds maximum value for type");
+	  splay_tree_remove (cases, node->key);
+	  outside_range_p = true;
+	}
+    }
 
   if (!warn_switch && !warn_switch_enum && !warn_switch_default
       && !warn_switch_bool)
@@ -1579,7 +1664,7 @@ warn_for_omitted_condop (location_t location, tree cond)
       || (TREE_TYPE (cond) != NULL_TREE
 	  && TREE_CODE (TREE_TYPE (cond)) == BOOLEAN_TYPE))
       warning_at (location, OPT_Wparentheses,
-		"the omitted middle operand in ?: will always be %<true%>, "
+		"the omitted middle operand in %<?:%> will always be %<true%>, "
 		"suggest explicit middle operand");
 }
 
@@ -1678,7 +1763,7 @@ lvalue_error (location_t loc, enum lvalue_use use)
       error_at (loc, "lvalue required as unary %<&%> operand");
       break;
     case lv_asm:
-      error_at (loc, "lvalue required in asm statement");
+      error_at (loc, "lvalue required in %<asm%> statement");
       break;
     default:
       gcc_unreachable ();
@@ -2064,6 +2149,9 @@ warn_for_sign_compare (location_t location,
       else
 	sop = orig_op1, uop = orig_op0;
 
+      sop = fold_for_warn (sop);
+      uop = fold_for_warn (uop);
+
       STRIP_TYPE_NOPS (sop);
       STRIP_TYPE_NOPS (uop);
       base_type = (TREE_CODE (result_type) == COMPLEX_TYPE
@@ -2145,10 +2233,12 @@ warn_for_sign_compare (location_t location,
 		{
 		  if (constant == 0)
 		    warning_at (location, OPT_Wsign_compare,
-				"promoted ~unsigned is always non-zero");
+				"promoted bitwise complement of an unsigned "
+				"value is always nonzero");
 		  else
 		    warning_at (location, OPT_Wsign_compare,
-				"comparison of promoted ~unsigned with constant");
+				"comparison of promoted bitwise complement "
+				"of an unsigned value with constant");
 		}
 	    }
 	}
@@ -2158,7 +2248,8 @@ warn_for_sign_compare (location_t location,
 	       && (TYPE_PRECISION (TREE_TYPE (op1))
 		   < TYPE_PRECISION (result_type)))
 	warning_at (location, OPT_Wsign_compare,
-		    "comparison of promoted ~unsigned with unsigned");
+		    "comparison of promoted bitwise complement "
+		    "of an unsigned value with unsigned");
     }
 }
 
@@ -2510,11 +2601,11 @@ warn_for_restrict (unsigned param_pos, tree *argarray, unsigned nargs)
     }
 
   return warning_n (&richloc, OPT_Wrestrict, arg_positions.length (),
-		    "passing argument %i to restrict-qualified parameter"
+		    "passing argument %i to %qs-qualified parameter"
 		    " aliases with argument %Z",
-		    "passing argument %i to restrict-qualified parameter"
+		    "passing argument %i to %qs-qualified parameter"
 		    " aliases with arguments %Z",
-		    param_pos + 1, arg_positions.address (),
+		    param_pos + 1, "restrict", arg_positions.address (),
 		    arg_positions.length ());
 }
 
@@ -2688,43 +2779,108 @@ warn_for_multistatement_macros (location_t body_loc, location_t next_loc,
 }
 
 /* Return struct or union type if the alignment of data memeber, FIELD,
-   is less than the alignment of TYPE.  Otherwise, return NULL_TREE.  */
+   is less than the alignment of TYPE.  Otherwise, return NULL_TREE.
+   If RVALUE is true, only arrays evaluate to pointers.  */
 
 static tree
-check_alignment_of_packed_member (tree type, tree field)
+check_alignment_of_packed_member (tree type, tree field, bool rvalue)
 {
   /* Check alignment of the data member.  */
   if (TREE_CODE (field) == FIELD_DECL
-      && (DECL_PACKED (field)
-	  || TYPE_PACKED (TREE_TYPE (field))))
+      && (DECL_PACKED (field) || TYPE_PACKED (TREE_TYPE (field)))
+      && (!rvalue || TREE_CODE (TREE_TYPE (field)) == ARRAY_TYPE))
     {
       /* Check the expected alignment against the field alignment.  */
-      unsigned int type_align = TYPE_ALIGN (type);
+      unsigned int type_align = min_align_of_type (type);
       tree context = DECL_CONTEXT (field);
-      unsigned int record_align = TYPE_ALIGN (context);
-      if ((record_align % type_align) != 0)
+      unsigned int record_align = min_align_of_type (context);
+      if (record_align < type_align)
 	return context;
       tree field_off = byte_position (field);
       if (!multiple_of_p (TREE_TYPE (field_off), field_off,
-			  size_int (type_align / BITS_PER_UNIT)))
+			  size_int (type_align)))
 	return context;
     }
 
   return NULL_TREE;
 }
 
-/* Return struct or union type if the right hand value, RHS, takes the
-   unaligned address of packed member of struct or union when assigning
-   to TYPE.  Otherwise, return NULL_TREE.  */
+/* Return struct or union type if the right hand value, RHS:
+   1. Is a pointer value which isn't aligned to a pointer type TYPE.
+   2. Is an address which takes the unaligned address of packed member
+      of struct or union when assigning to TYPE.
+   Otherwise, return NULL_TREE.  */
 
 static tree
-check_address_of_packed_member (tree type, tree rhs)
+check_address_or_pointer_of_packed_member (tree type, tree rhs)
 {
+  bool rvalue = true;
+  bool indirect = false;
+
   if (INDIRECT_REF_P (rhs))
-    rhs = TREE_OPERAND (rhs, 0);
+    {
+      rhs = TREE_OPERAND (rhs, 0);
+      STRIP_NOPS (rhs);
+      indirect = true;
+    }
 
   if (TREE_CODE (rhs) == ADDR_EXPR)
-    rhs = TREE_OPERAND (rhs, 0);
+    {
+      rhs = TREE_OPERAND (rhs, 0);
+      rvalue = indirect;
+    }
+
+  if (!POINTER_TYPE_P (type))
+    return NULL_TREE;
+
+  type = TREE_TYPE (type);
+
+  if (TREE_CODE (rhs) == PARM_DECL
+      || VAR_P (rhs)
+      || TREE_CODE (rhs) == CALL_EXPR)
+    {
+      tree rhstype = TREE_TYPE (rhs);
+      if (TREE_CODE (rhs) == CALL_EXPR)
+	{
+	  rhs = CALL_EXPR_FN (rhs);	/* Pointer expression.  */
+	  if (rhs == NULL_TREE)
+	    return NULL_TREE;
+	  rhs = TREE_TYPE (rhs);	/* Pointer type.  */
+	  rhs = TREE_TYPE (rhs);	/* Function type.  */
+	  rhstype = TREE_TYPE (rhs);
+	  if (!rhstype || !POINTER_TYPE_P (rhstype))
+	    return NULL_TREE;
+	  rvalue = true;
+	}
+      if (rvalue && POINTER_TYPE_P (rhstype))
+	rhstype = TREE_TYPE (rhstype);
+      while (TREE_CODE (rhstype) == ARRAY_TYPE)
+	rhstype = TREE_TYPE (rhstype);
+      if (TYPE_PACKED (rhstype))
+	{
+	  unsigned int type_align = min_align_of_type (type);
+	  unsigned int rhs_align = min_align_of_type (rhstype);
+	  if (rhs_align < type_align)
+	    {
+	      auto_diagnostic_group d;
+	      location_t location = EXPR_LOC_OR_LOC (rhs, input_location);
+	      if (warning_at (location, OPT_Waddress_of_packed_member,
+			      "converting a packed %qT pointer (alignment %d) "
+			      "to a %qT pointer (alignment %d) may result in "
+			      "an unaligned pointer value",
+			      rhstype, rhs_align, type, type_align))
+		{
+		  tree decl = TYPE_STUB_DECL (rhstype);
+		  if (decl)
+		    inform (DECL_SOURCE_LOCATION (decl), "defined here");
+		  decl = TYPE_STUB_DECL (type);
+		  if (decl)
+		    inform (DECL_SOURCE_LOCATION (decl), "defined here");
+		}
+	    }
+	}
+      return NULL_TREE;
+    }
 
   tree context = NULL_TREE;
 
@@ -2734,28 +2890,74 @@ check_address_of_packed_member (tree type, tree rhs)
       if (TREE_CODE (rhs) == COMPONENT_REF)
 	{
 	  tree field = TREE_OPERAND (rhs, 1);
-	  context = check_alignment_of_packed_member (type, field);
+	  context = check_alignment_of_packed_member (type, field, rvalue);
 	  if (context)
 	    break;
 	}
+      if (TREE_CODE (TREE_TYPE (rhs)) == ARRAY_TYPE)
+	rvalue = false;
+      if (rvalue)
+	return NULL_TREE;
       rhs = TREE_OPERAND (rhs, 0);
     }
 
   return context;
 }
 
-/* Check and warn if the right hand value, RHS, takes the unaligned
-   address of packed member of struct or union when assigning to TYPE.  */
+/* Check and warn if the right hand value, RHS:
+   1. Is a pointer value which isn't aligned to a pointer type TYPE.
+   2. Is an address which takes the unaligned address of packed member
+      of struct or union when assigning to TYPE.
+ */
 
 static void
-check_and_warn_address_of_packed_member (tree type, tree rhs)
+check_and_warn_address_or_pointer_of_packed_member (tree type, tree rhs)
 {
-  if (TREE_CODE (rhs) != COND_EXPR)
+  bool nop_p = false;
+  tree orig_rhs;
+
+  do
     {
       while (TREE_CODE (rhs) == COMPOUND_EXPR)
 	rhs = TREE_OPERAND (rhs, 1);
+      orig_rhs = rhs;
+      STRIP_NOPS (rhs);
+      nop_p |= orig_rhs != rhs;
+    }
+  while (orig_rhs != rhs);
 
-      tree context = check_address_of_packed_member (type, rhs);
+  if (TREE_CODE (rhs) == COND_EXPR)
+    {
+      /* Check the THEN path.  */
+      check_and_warn_address_or_pointer_of_packed_member
+	(type, TREE_OPERAND (rhs, 1));
+
+      /* Check the ELSE path.  */
+      check_and_warn_address_or_pointer_of_packed_member
+	(type, TREE_OPERAND (rhs, 2));
+    }
+  else
+    {
+      if (nop_p)
+	{
+	  switch (TREE_CODE (rhs))
+	    {
+	    case ADDR_EXPR:
+	      /* Address is taken.   */
+	    case PARM_DECL:
+	    case VAR_DECL:
+	      /* Pointer conversion.  */
+	      break;
+	    case CALL_EXPR:
+	      /* Function call. */
+	      break;
+	    default:
+	      return;
+	    }
+	}
+
+      tree context
+	= check_address_or_pointer_of_packed_member (type, rhs);
       if (context)
 	{
 	  location_t loc = EXPR_LOC_OR_LOC (rhs, input_location);
@@ -2764,26 +2966,17 @@ check_and_warn_address_of_packed_member (tree type, tree rhs)
 		      "in an unaligned pointer value",
 		      context);
 	}
-      return;
     }
-
-  /* Check the THEN path.  */
-  check_and_warn_address_of_packed_member (type, TREE_OPERAND (rhs, 1));
-
-  /* Check the ELSE path.  */
-  check_and_warn_address_of_packed_member (type, TREE_OPERAND (rhs, 2));
 }
 
 /* Warn if the right hand value, RHS:
-   1. For CONVERT_P == true, is a pointer value which isn't aligned to a
-      pointer type TYPE.
-   2. For CONVERT_P == false, is an address which takes the unaligned
-      address of packed member of struct or union when assigning to TYPE.
+   1. Is a pointer value which isn't aligned to a pointer type TYPE.
+   2. Is an address which takes the unaligned address of packed member
+      of struct or union when assigning to TYPE.
 */
 
 void
-warn_for_address_or_pointer_of_packed_member (bool convert_p, tree type,
-					      tree rhs)
+warn_for_address_or_pointer_of_packed_member (tree type, tree rhs)
 {
   if (!warn_address_of_packed_member)
     return;
@@ -2792,61 +2985,5 @@ warn_for_address_or_pointer_of_packed_member (bool convert_p, tree type,
   if (!POINTER_TYPE_P (type))
     return;
 
-  while (TREE_CODE (rhs) == COMPOUND_EXPR)
-    rhs = TREE_OPERAND (rhs, 1);
-
-  if (convert_p)
-    {
-      bool rhspointer_p;
-      tree rhstype;
-
-      /* Check the original type of RHS.  */
-      switch (TREE_CODE (rhs))
-	{
-	case PARM_DECL:
-	case VAR_DECL:
-	  rhstype = TREE_TYPE (rhs);
-	  rhspointer_p = POINTER_TYPE_P (rhstype);
-	  break;
-	case NOP_EXPR:
-	  rhs = TREE_OPERAND (rhs, 0);
-	  if (TREE_CODE (rhs) == ADDR_EXPR)
-	    rhs = TREE_OPERAND (rhs, 0);
-	  rhstype = TREE_TYPE (rhs);
-	  rhspointer_p = TREE_CODE (rhstype) == ARRAY_TYPE;
-	  break;
-	default:
-	  return;
-	}
-
-      if (rhspointer_p && TYPE_PACKED (TREE_TYPE (rhstype)))
-	{
-	  unsigned int type_align = TYPE_ALIGN_UNIT (TREE_TYPE (type));
-	  unsigned int rhs_align = TYPE_ALIGN_UNIT (TREE_TYPE (rhstype));
-	  if ((rhs_align % type_align) != 0)
-	    {
-	      location_t location = EXPR_LOC_OR_LOC (rhs, input_location);
-	      warning_at (location, OPT_Waddress_of_packed_member,
-			  "converting a packed %qT pointer (alignment %d) "
-			  "to %qT (alignment %d) may may result in an "
-			  "unaligned pointer value",
-			  rhstype, rhs_align, type, type_align);
-	      tree decl = TYPE_STUB_DECL (TREE_TYPE (rhstype));
-	      inform (DECL_SOURCE_LOCATION (decl), "defined here");
-	      decl = TYPE_STUB_DECL (TREE_TYPE (type));
-	      if (decl)
-		inform (DECL_SOURCE_LOCATION (decl), "defined here");
-	    }
-	}
-    }
-  else
-    {
-      /* Get the type of the pointer pointing to.  */
-      type = TREE_TYPE (type);
-
-      if (TREE_CODE (rhs) == NOP_EXPR)
-	rhs = TREE_OPERAND (rhs, 0);
-
-      check_and_warn_address_of_packed_member (type, rhs);
-    }
+  check_and_warn_address_or_pointer_of_packed_member (type, rhs);
 }

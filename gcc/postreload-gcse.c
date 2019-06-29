@@ -504,7 +504,7 @@ dump_hash_table (FILE *file)
            (long) expr_table->size (),
            (long) expr_table->elements (),
            expr_table->collisions ());
-  if (expr_table->elements () > 0)
+  if (!expr_table->is_empty ())
     {
       fprintf (file, "\n\ntable entries:\n");
       expr_table->traverse <FILE *, dump_expr_hash_table_entry> (file);
@@ -1386,13 +1386,13 @@ gcse_after_reload_main (rtx f ATTRIBUTE_UNUSED)
   if (dump_file)
     dump_hash_table (dump_file);
 
-  if (expr_table->elements () > 0)
+  if (!expr_table->is_empty ())
     {
       /* Knowing which MEMs are transparent through a block can signifiantly
 	 increase the number of redundant loads found.  So compute transparency
 	 information for each memory expression in the hash table.  */
       df_analyze ();
-      /* This can not be part of the normal allocation routine because
+      /* This cannot be part of the normal allocation routine because
 	 we have to know the number of elements in the hash table.  */
       transp = sbitmap_vector_alloc (last_basic_block_for_fn (cfun),
 				     expr_table->elements ());

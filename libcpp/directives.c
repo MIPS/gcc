@@ -204,8 +204,6 @@ static const directive linemarker_dir =
   do_linemarker, UC"#", 1, KANDR, IN_I
 };
 
-#define SEEN_EOL() (pfile->cur_token[-1].type == CPP_EOF)
-
 /* Skip any remaining tokens in a directive.  */
 static void
 skip_rest_of_line (cpp_reader *pfile)
@@ -2541,7 +2539,7 @@ cpp_set_callbacks (cpp_reader *pfile, cpp_callbacks *cb)
 }
 
 /* The dependencies structure.  (Creates one if it hasn't already been.)  */
-struct deps *
+struct mkdeps *
 cpp_get_deps (cpp_reader *pfile)
 {
   if (!pfile->deps)

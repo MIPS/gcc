@@ -72,6 +72,9 @@ static phobos_action phobos_library = PHOBOS_DEFAULT;
    standard libraries.  */
 static bool need_phobos = true;
 
+/* If true, do load libgphobos.spec even if not needed otherwise.  */
+static bool need_spec = false;
+
 void
 lang_specific_driver (cl_decoded_option **in_decoded_options,
 		      unsigned int *in_decoded_options_count,
@@ -141,9 +144,14 @@ lang_specific_driver (cl_decoded_option **in_decoded_options,
   for (i = 1; i < argc; i++)
     {
       const char *arg = decoded_options[i].arg;
+      const int value = decoded_options[i].value;
 
       switch (decoded_options[i].opt_index)
 	{
+	case OPT_dstartfiles:
+	  need_spec = true;
+	  break;
+
 	case OPT_nostdlib:
 	case OPT_nodefaultlibs:
 	  phobos_library = PHOBOS_NOLINK;
@@ -152,6 +160,11 @@ lang_specific_driver (cl_decoded_option **in_decoded_options,
 	case OPT_nophoboslib:
 	  need_phobos = false;
 	  args[i] |= SKIPOPT;
+	  break;
+
+	case OPT_fdruntime:
+	  if (!value)
+	    need_phobos = false;
 	  break;
 
 	case OPT_defaultlib_:
@@ -491,7 +504,7 @@ lang_specific_driver (cl_decoded_option **in_decoded_options,
 int
 lang_specific_pre_link (void)
 {
-  if (phobos_library != PHOBOS_NOLINK && need_phobos)
+  if ((phobos_library != PHOBOS_NOLINK && need_phobos) || need_spec)
     do_spec ("%:include(libgphobos.spec)");
 
   return 0;

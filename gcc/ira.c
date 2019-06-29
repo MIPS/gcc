@@ -233,7 +233,7 @@ along with GCC; see the file COPYING3.  If not see
 	 more profitable than memory usage.
 
        * Popping the allocnos from the stack and assigning them hard
-         registers.  If IRA can not assign a hard register to an
+         registers.  If IRA cannot assign a hard register to an
          allocno and the allocno is coalesced, IRA undoes the
          coalescing and puts the uncoalesced allocnos onto the stack in
          the hope that some such allocnos will get a hard register
@@ -937,7 +937,7 @@ setup_uniform_class_p (void)
       ira_uniform_class_p[cl] = false;
       if (ira_class_hard_regs_num[cl] == 0)
 	continue;
-      /* We can not use alloc_reg_class_subclasses here because move
+      /* We cannot use alloc_reg_class_subclasses here because move
 	 cost hooks does not take into account that some registers are
 	 unavailable for the subtarget.  E.g. for i686, INT_SSE_REGS
 	 is element of alloc_reg_class_subclasses for GENERAL_REGS
@@ -966,7 +966,7 @@ setup_uniform_class_p (void)
    IRA_IMPORTANT_CLASSES, and IRA_IMPORTANT_CLASSES_NUM.
 
    Target may have many subtargets and not all target hard registers can
-   be used for allocation, e.g. x86 port in 32-bit mode can not use
+   be used for allocation, e.g. x86 port in 32-bit mode cannot use
    hard registers introduced in x86-64 like r8-r15).  Some classes
    might have the same allocatable hard registers, e.g.  INDEX_REGS
    and GENERAL_REGS in x86 port in 32-bit mode.  To decrease different
@@ -2326,7 +2326,7 @@ ira_setup_eliminable_regset (void)
 	      SET_HARD_REG_BIT (ira_no_alloc_regs, eliminables[i].from);
 	}
       else if (cannot_elim)
-	error ("%s cannot be used in asm here",
+	error ("%s cannot be used in %<asm%> here",
 	       reg_names[eliminables[i].from]);
       else
 	df_set_regs_ever_live (eliminables[i].from, true);
@@ -2340,7 +2340,7 @@ ira_setup_eliminable_regset (void)
 	    SET_HARD_REG_BIT (ira_no_alloc_regs, HARD_FRAME_POINTER_REGNUM);
 	}
       else if (frame_pointer_needed)
-	error ("%s cannot be used in asm here",
+	error ("%s cannot be used in %<asm%> here",
 	       reg_names[HARD_FRAME_POINTER_REGNUM]);
       else
 	df_set_regs_ever_live (HARD_FRAME_POINTER_REGNUM, true);
@@ -3140,10 +3140,30 @@ equiv_init_movable_p (rtx x, int regno)
   return 1;
 }
 
-/* TRUE if X references a memory location that would be affected by a store
-   to MEMREF.  */
-static int
-memref_referenced_p (rtx memref, rtx x)
+static bool memref_referenced_p (rtx memref, rtx x, bool read_p);
+
+/* Auxiliary function for memref_referenced_p.  Process setting X for
+   MEMREF store.  */
+static bool
+process_set_for_memref_referenced_p (rtx memref, rtx x)
+{
+  /* If we are setting a MEM, it doesn't count (its address does), but any
+     other SET_DEST that has a MEM in it is referencing the MEM.  */
+  if (MEM_P (x))
+    {
+      if (memref_referenced_p (memref, XEXP (x, 0), true))
+	return true;
+    }
+  else if (memref_referenced_p (memref, x, false))
+    return true;
+  
+  return false;
+}
+
+/* TRUE if X references a memory location (as a read if READ_P) that
+   would be affected by a store to MEMREF.  */
+static bool
+memref_referenced_p (rtx memref, rtx x, bool read_p)
 {
   int i, j;
   const char *fmt;
@@ -3159,30 +3179,51 @@ memref_referenced_p (rtx memref, rtx x)
     case CC0:
     case HIGH:
     case LO_SUM:
-      return 0;
+      return false;
 
     case REG:
       return (reg_equiv[REGNO (x)].replacement
 	      && memref_referenced_p (memref,
-				      reg_equiv[REGNO (x)].replacement));
+				      reg_equiv[REGNO (x)].replacement, read_p));
 
     case MEM:
-      if (true_dependence (memref, VOIDmode, x))
-	return 1;
+      /* Memory X might have another effective type than MEMREF.  */
+      if (read_p || true_dependence (memref, VOIDmode, x))
+	return true;
       break;
 
     case SET:
-      /* If we are setting a MEM, it doesn't count (its address does), but any
-	 other SET_DEST that has a MEM in it is referencing the MEM.  */
-      if (MEM_P (SET_DEST (x)))
-	{
-	  if (memref_referenced_p (memref, XEXP (SET_DEST (x), 0)))
-	    return 1;
-	}
-      else if (memref_referenced_p (memref, SET_DEST (x)))
-	return 1;
+      if (process_set_for_memref_referenced_p (memref, SET_DEST (x)))
+	return true;
 
-      return memref_referenced_p (memref, SET_SRC (x));
+      return memref_referenced_p (memref, SET_SRC (x), true);
+
+    case CLOBBER:
+    case CLOBBER_HIGH:
+      if (process_set_for_memref_referenced_p (memref, XEXP (x, 0)))
+	return true;
+
+      return false;
+
+    case PRE_DEC:
+    case POST_DEC:
+    case PRE_INC:
+    case POST_INC:
+      if (process_set_for_memref_referenced_p (memref, XEXP (x, 0)))
+	return true;
+
+      return memref_referenced_p (memref, XEXP (x, 0), true);
+      
+    case POST_MODIFY:
+    case PRE_MODIFY:
+      /* op0 = op0 + op1 */
+      if (process_set_for_memref_referenced_p (memref, XEXP (x, 0)))
+	return true;
+
+      if (memref_referenced_p (memref, XEXP (x, 0), true))
+	return true;
+
+      return memref_referenced_p (memref, XEXP (x, 1), true);
 
     default:
       break;
@@ -3193,17 +3234,17 @@ memref_referenced_p (rtx memref, rtx x)
     switch (fmt[i])
       {
       case 'e':
-	if (memref_referenced_p (memref, XEXP (x, i)))
-	  return 1;
+	if (memref_referenced_p (memref, XEXP (x, i), read_p))
+	  return true;
 	break;
       case 'E':
 	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  if (memref_referenced_p (memref, XVECEXP (x, i, j)))
-	    return 1;
+	  if (memref_referenced_p (memref, XVECEXP (x, i, j), read_p))
+	    return true;
 	break;
       }
 
-  return 0;
+  return false;
 }
 
 /* TRUE if some insn in the range (START, END] references a memory location
@@ -3224,7 +3265,7 @@ memref_used_between_p (rtx memref, rtx_insn *start, rtx_insn *end)
       if (!NONDEBUG_INSN_P (insn))
 	continue;
 
-      if (memref_referenced_p (memref, PATTERN (insn)))
+      if (memref_referenced_p (memref, PATTERN (insn), false))
 	return 1;
 
       /* Nonconst functions may access memory.  */
@@ -3506,7 +3547,7 @@ update_equiv_regs (void)
 	      rtx_insn_list *list;
 
 	      /* If we have already processed this pseudo and determined it
-		 can not have an equivalence, then honor that decision.  */
+		 cannot have an equivalence, then honor that decision.  */
 	      if (reg_equiv[regno].no_equiv)
 		continue;
 
@@ -4373,10 +4414,9 @@ rtx_moveable_p (rtx *loc, enum op_type type)
 {
   const char *fmt;
   rtx x = *loc;
-  enum rtx_code code = GET_CODE (x);
   int i, j;
 
-  code = GET_CODE (x);
+  enum rtx_code code = GET_CODE (x);
   switch (code)
     {
     case CONST:
@@ -5157,6 +5197,8 @@ ira (FILE *f)
   int ira_max_point_before_emit;
   bool saved_flag_caller_saves = flag_caller_saves;
   enum ira_region saved_flag_ira_region = flag_ira_region;
+  unsigned int i;
+  int num_used_regs = 0;
 
   clear_bb_flags ();
 
@@ -5172,12 +5214,17 @@ ira (FILE *f)
 
   ira_conflicts_p = optimize > 0;
 
+  /* Determine the number of pseudos actually requiring coloring.  */
+  for (i = FIRST_PSEUDO_REGISTER; i < DF_REG_SIZE (df); i++)
+    num_used_regs += !!(DF_REG_USE_COUNT (i) + DF_REG_DEF_COUNT (i));
+
   /* If there are too many pseudos and/or basic blocks (e.g. 10K
      pseudos and 10K blocks or 100K pseudos and 1K blocks), we will
      use simplified and faster algorithms in LRA.  */
   lra_simple_p
     = (ira_use_lra_p
-       && max_reg_num () >= (1 << 26) / last_basic_block_for_fn (cfun));
+       && num_used_regs >= (1 << 26) / last_basic_block_for_fn (cfun));
+
   if (lra_simple_p)
     {
       /* It permits to skip live range splitting in LRA.  */
@@ -5390,7 +5437,7 @@ ira (FILE *f)
   if (ira_conflicts_p && ! ira_use_lra_p)
     /* Opposite to reload pass, LRA does not use any conflict info
        from IRA.  We don't rebuild conflict info for LRA (through
-       ira_flattening call) and can not use the check here.  We could
+       ira_flattening call) and cannot use the check here.  We could
        rebuild this info for LRA in the check mode but there is a risk
        that code generated with the check and without it will be a bit
        different.  Calling ira_flattening in any mode would be a

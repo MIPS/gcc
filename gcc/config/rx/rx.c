@@ -648,8 +648,8 @@ rx_print_operand (FILE * file, rtx op, int letter)
 	case CTRLREG_FINTV: fprintf (file, "fintv"); break;
 	case CTRLREG_INTB:  fprintf (file, "intb"); break;
 	default:
-	  warning (0, "unrecognized control register number: %d - using 'psw'",
-		   (int) INTVAL (op));
+	  warning (0, "unrecognized control register number: %d"
+		   "- using %<psw%>", (int) INTVAL (op));
 	  fprintf (file, "psw");
 	  break;
 	}
@@ -1438,10 +1438,14 @@ bit_count (unsigned int x)
   return (x + (x >> 16)) & 0x3f;
 }
 
+#if defined(TARGET_SAVE_ACC_REGISTER)
 #define MUST_SAVE_ACC_REGISTER			\
   (TARGET_SAVE_ACC_REGISTER			\
    && (is_interrupt_func (NULL_TREE)		\
        || is_fast_interrupt_func (NULL_TREE)))
+#else
+#define MUST_SAVE_ACC_REGISTER 0
+#endif
 
 /* Returns either the lowest numbered and highest numbered registers that
    occupy the call-saved area of the stack frame, if the registers are
@@ -2593,9 +2597,10 @@ valid_psw_flag (rtx op, const char *which)
 	return 1;
       }
 
-  error ("__builtin_rx_%s takes 'C', 'Z', 'S', 'O', 'I', or 'U'", which);
+  error ("%<__builtin_rx_%s%> takes %<C%>, %<Z%>, %<S%>, %<O%>, %<I%>, "
+	 "or %<U%>", which);
   if (!mvtc_inform_done)
-    error ("use __builtin_rx_mvtc (0, ... ) to write arbitrary values to PSW");
+    error ("use %<__builtin_rx_mvtc%> (0, ... ) to write arbitrary values to PSW");
   mvtc_inform_done = 1;
 
   return 0;
@@ -2642,7 +2647,8 @@ rx_expand_builtin (tree exp,
       if (rx_allow_string_insns)
 	emit_insn (gen_rmpa ());
       else
-	error ("-mno-allow-string-insns forbids the generation of the RMPA instruction");
+	error ("%<-mno-allow-string-insns%> forbids the generation "
+	       "of the RMPA instruction");
       return NULL_RTX;
     case RX_BUILTIN_MVFC:    return rx_expand_builtin_mvfc (arg, target);
     case RX_BUILTIN_MVTC:    return rx_expand_builtin_mvtc (exp);

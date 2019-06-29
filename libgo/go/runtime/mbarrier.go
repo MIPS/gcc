@@ -23,6 +23,7 @@ import (
 //
 //go:linkname typedmemmove runtime.typedmemmove
 //go:linkname typedslicecopy runtime.typedslicecopy
+//go:linkname memclrHasPointers runtime.memclrHasPointers
 
 // Go uses a hybrid barrier that combines a Yuasa-style deletion
 // barrier—which shades the object whose reference is being
@@ -215,8 +216,6 @@ func reflect_typedmemmovepartial(typ *_type, dst, src unsafe.Pointer, off, size 
 
 //go:nosplit
 func typedslicecopy(typ *_type, dst, src slice) int {
-	// TODO(rsc): If typedslicecopy becomes faster than calling
-	// typedmemmove repeatedly, consider using during func growslice.
 	n := dst.len
 	if n > src.len {
 		n = src.len

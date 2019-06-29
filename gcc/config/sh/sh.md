@@ -7170,7 +7170,7 @@
 })
 
 ;; The use of operand 1 / 2 helps us distinguish case table jumps
-;; which can be present in structured code from indirect jumps which can not
+;; which can be present in structured code from indirect jumps which cannot
 ;; be present in structured code.  This allows -fprofile-arcs to work.
 
 ;; For SH1 processors.
@@ -8906,7 +8906,7 @@
 
 ;; String/block move insn.
 
-(define_expand "movmemsi"
+(define_expand "cpymemsi"
   [(parallel [(set (mem:BLK (match_operand:BLK 0))
 		   (mem:BLK (match_operand:BLK 1)))
 	      (use (match_operand:SI 2 "nonmemory_operand"))

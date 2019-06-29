@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2018, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2019, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -90,14 +90,30 @@ static tree handle_novops_attribute (tree *, tree, tree, int, bool *);
 static tree handle_nonnull_attribute (tree *, tree, tree, int, bool *);
 static tree handle_sentinel_attribute (tree *, tree, tree, int, bool *);
 static tree handle_noreturn_attribute (tree *, tree, tree, int, bool *);
+static tree handle_stack_protect_attribute (tree *, tree, tree, int, bool *);
 static tree handle_noinline_attribute (tree *, tree, tree, int, bool *);
 static tree handle_noclone_attribute (tree *, tree, tree, int, bool *);
+static tree handle_noicf_attribute (tree *, tree, tree, int, bool *);
+static tree handle_noipa_attribute (tree *, tree, tree, int, bool *);
 static tree handle_leaf_attribute (tree *, tree, tree, int, bool *);
 static tree handle_always_inline_attribute (tree *, tree, tree, int, bool *);
 static tree handle_malloc_attribute (tree *, tree, tree, int, bool *);
 static tree handle_type_generic_attribute (tree *, tree, tree, int, bool *);
+static tree handle_flatten_attribute (tree *, tree, tree, int, bool *);
+static tree handle_used_attribute (tree *, tree, tree, int, bool *);
+static tree handle_cold_attribute (tree *, tree, tree, int, bool *);
+static tree handle_hot_attribute (tree *, tree, tree, int, bool *);
+static tree handle_target_attribute (tree *, tree, tree, int, bool *);
+static tree handle_target_clones_attribute (tree *, tree, tree, int, bool *);
 static tree handle_vector_size_attribute (tree *, tree, tree, int, bool *);
 static tree handle_vector_type_attribute (tree *, tree, tree, int, bool *);
+
+static const struct attribute_spec::exclusions attr_cold_hot_exclusions[] =
+{
+  { "cold", true,  true,  true  },
+  { "hot" , true,  true,  true  },
+  { NULL  , false, false, false }
+};
 
 /* Fake handler for attributes we don't properly support, typically because
    they'd require dragging a lot of the common-c front-end circuitry.  */
@@ -123,34 +139,55 @@ const struct attribute_spec gnat_internal_attribute_table[] =
     handle_sentinel_attribute, NULL },
   { "noreturn",     0, 0,  true,  false, false, false,
     handle_noreturn_attribute, NULL },
+  { "stack_protect",0, 0, true,  false, false, false,
+    handle_stack_protect_attribute, NULL },
   { "noinline",     0, 0,  true,  false, false, false,
     handle_noinline_attribute, NULL },
   { "noclone",      0, 0,  true,  false, false, false,
     handle_noclone_attribute, NULL },
+  { "no_icf",       0, 0,  true,  false, false, false,
+    handle_noicf_attribute, NULL },
+  { "noipa",        0, 0,  true,  false, false, false,
+    handle_noipa_attribute, NULL },
   { "leaf",         0, 0,  true,  false, false, false,
     handle_leaf_attribute, NULL },
   { "always_inline",0, 0,  true,  false, false, false,
     handle_always_inline_attribute, NULL },
   { "malloc",       0, 0,  true,  false, false, false,
     handle_malloc_attribute, NULL },
-  { "type generic", 0, 0,  false, true, true, false,
+  { "type generic", 0, 0,  false, true,  true,  false,
     handle_type_generic_attribute, NULL },
 
-  { "vector_size",  1, 1,  false, true, false,  false,
+  { "flatten",      0, 0,  true,  false, false, false,
+    handle_flatten_attribute, NULL },
+  { "used",         0, 0,  true,  false, false, false,
+    handle_used_attribute, NULL },
+  { "cold",         0, 0,  true,  false, false, false,
+    handle_cold_attribute, attr_cold_hot_exclusions },
+  { "hot",          0, 0,  true,  false, false, false,
+    handle_hot_attribute, attr_cold_hot_exclusions },
+  { "target",       1, -1, true,  false, false, false,
+    handle_target_attribute, NULL },
+  { "target_clones",1, -1, true,  false, false, false,
+    handle_target_clones_attribute, NULL },
+
+  { "vector_size",  1, 1,  false, true,  false, false,
     handle_vector_size_attribute, NULL },
-  { "vector_type",  0, 0,  false, true, false,  false,
+  { "vector_type",  0, 0,  false, true,  false, false,
     handle_vector_type_attribute, NULL },
-  { "may_alias",    0, 0, false, true, false, false, NULL, NULL },
+  { "may_alias",    0, 0,  false, true,  false, false,
+    NULL, NULL },
 
   /* ??? format and format_arg are heavy and not supported, which actually
      prevents support for stdio builtins, which we however declare as part
      of the common builtins.def contents.  */
-  { "format",     3, 3,  false, true,  true,  false, fake_attribute_handler,
-    NULL },
-  { "format_arg", 1, 1,  false, true,  true,  false, fake_attribute_handler,
-    NULL },
+  { "format",       3, 3,  false, true,  true,  false,
+    fake_attribute_handler, NULL },
+  { "format_arg",   1, 1,  false, true,  true,  false,
+    fake_attribute_handler, NULL },
 
-  { NULL,         0, 0, false, false, false, false, NULL, NULL }
+  { NULL,           0, 0,  false, false, false, false,
+    NULL, NULL }
 };
 
 /* Associates a GNAT tree node to a GCC tree node. It is used in
@@ -1530,13 +1567,13 @@ built:
 	 generated for some other corresponding source entity.  */
       if (Comes_From_Source (gnat_entity))
 	{
-	  if (Present (gnat_error_node))
-	    post_error_ne_tree ("{^ }bits of & unused?",
-				gnat_error_node, gnat_entity,
-				size_diffop (size, orig_size));
-	  else if (is_component_type)
+	  if (is_component_type)
 	    post_error_ne_tree ("component of& padded{ by ^ bits}?",
 				gnat_entity, gnat_entity,
+				size_diffop (size, orig_size));
+	  else if (Present (gnat_error_node))
+	    post_error_ne_tree ("{^ }bits of & unused?",
+				gnat_error_node, gnat_entity,
 				size_diffop (size, orig_size));
 	}
     }
@@ -1860,6 +1897,9 @@ finish_record_type (tree record_type, tree field_list, int rep_level,
       else
 	this_ada_size = this_size;
 
+      const bool variant_part = (TREE_CODE (type) == QUAL_UNION_TYPE);
+      const bool variant_part_at_zero = variant_part && integer_zerop (pos);
+
       /* Clear DECL_BIT_FIELD for the cases layout_decl does not handle.  */
       if (DECL_BIT_FIELD (field)
 	  && operand_equal_p (this_size, TYPE_SIZE (type), 0))
@@ -1901,9 +1941,7 @@ finish_record_type (tree record_type, tree field_list, int rep_level,
       /* Clear DECL_BIT_FIELD_TYPE for a variant part at offset 0, it's simply
 	 not supported by the DECL_BIT_FIELD_REPRESENTATIVE machinery because
 	 the variant part is always the last field in the list.  */
-      if (DECL_INTERNAL_P (field)
-	  && TREE_CODE (TREE_TYPE (field)) == QUAL_UNION_TYPE
-	  && integer_zerop (pos))
+      if (variant_part_at_zero)
 	DECL_BIT_FIELD_TYPE (field) = NULL_TREE;
 
       /* If we still have DECL_BIT_FIELD set at this point, we know that the
@@ -1938,18 +1976,18 @@ finish_record_type (tree record_type, tree field_list, int rep_level,
 	case RECORD_TYPE:
 	  /* Since we know here that all fields are sorted in order of
 	     increasing bit position, the size of the record is one
-	     higher than the ending bit of the last field processed
-	     unless we have a rep clause, since in that case we might
-	     have a field outside a QUAL_UNION_TYPE that has a higher ending
-	     position.  So use a MAX in that case.  Also, if this field is a
-	     QUAL_UNION_TYPE, we need to take into account the previous size in
-	     the case of empty variants.  */
+	     higher than the ending bit of the last field processed,
+	     unless we have a variant part at offset 0, since in this
+	     case we might have a field outside the variant part that
+	     has a higher ending position; so use a MAX in this case.
+	     Also, if this field is a QUAL_UNION_TYPE, we need to take
+	     into account the previous size in the case of empty variants.  */
 	  ada_size
-	    = merge_sizes (ada_size, pos, this_ada_size,
-			   TREE_CODE (type) == QUAL_UNION_TYPE, rep_level > 0);
+	    = merge_sizes (ada_size, pos, this_ada_size, variant_part,
+			   variant_part_at_zero);
 	  size
-	    = merge_sizes (size, pos, this_size,
-			   TREE_CODE (type) == QUAL_UNION_TYPE, rep_level > 0);
+	    = merge_sizes (size, pos, this_size, variant_part,
+			   variant_part_at_zero);
 	  break;
 
 	default:
@@ -2230,13 +2268,12 @@ rest_of_record_type_compilation (tree record_type)
 /* Utility function of above to merge LAST_SIZE, the previous size of a record
    with FIRST_BIT and SIZE that describe a field.  SPECIAL is true if this
    represents a QUAL_UNION_TYPE in which case we must look for COND_EXPRs and
-   replace a value of zero with the old size.  If HAS_REP is true, we take the
+   replace a value of zero with the old size.  If MAX is true, we take the
    MAX of the end position of this field with LAST_SIZE.  In all other cases,
    we use FIRST_BIT plus SIZE.  Return an expression for the size.  */
 
 static tree
-merge_sizes (tree last_size, tree first_bit, tree size, bool special,
-	     bool has_rep)
+merge_sizes (tree last_size, tree first_bit, tree size, bool special, bool max)
 {
   tree type = TREE_TYPE (last_size);
   tree new_size;
@@ -2244,7 +2281,7 @@ merge_sizes (tree last_size, tree first_bit, tree size, bool special,
   if (!special || TREE_CODE (size) != COND_EXPR)
     {
       new_size = size_binop (PLUS_EXPR, first_bit, size);
-      if (has_rep)
+      if (max)
 	new_size = size_binop (MAX_EXPR, last_size, new_size);
     }
 
@@ -2253,14 +2290,14 @@ merge_sizes (tree last_size, tree first_bit, tree size, bool special,
 			    integer_zerop (TREE_OPERAND (size, 1))
 			    ? last_size : merge_sizes (last_size, first_bit,
 						       TREE_OPERAND (size, 1),
-						       1, has_rep),
+						       1, max),
 			    integer_zerop (TREE_OPERAND (size, 2))
 			    ? last_size : merge_sizes (last_size, first_bit,
 						       TREE_OPERAND (size, 2),
-						       1, has_rep));
+						       1, max));
 
   /* We don't need any NON_VALUE_EXPRs and they can confuse us (especially
-     when fed through substitute_in_expr) into thinking that a constant
+     when fed through SUBSTITUTE_IN_EXPR) into thinking that a constant
      size is not constant.  */
   while (TREE_CODE (new_size) == NON_LVALUE_EXPR)
     new_size = TREE_OPERAND (new_size, 0);
@@ -2427,6 +2464,24 @@ create_range_type (tree type, tree min, tree max)
   SET_TYPE_RM_MAX_VALUE (range_type, max);
 
   return range_type;
+}
+
+/* Return an extra subtype of TYPE with range MIN to MAX.  */
+
+tree
+create_extra_subtype (tree type, tree min, tree max)
+{
+  const bool uns = TYPE_UNSIGNED (type);
+  const unsigned prec = TYPE_PRECISION (type);
+  tree subtype = uns ? make_unsigned_type (prec) : make_signed_type (prec);
+
+  TREE_TYPE (subtype) = type;
+  TYPE_EXTRA_SUBTYPE_P (subtype) = 1;
+
+  SET_TYPE_RM_MIN_VALUE (subtype, min);
+  SET_TYPE_RM_MAX_VALUE (subtype, max);
+
+  return subtype;
 }
 
 /* Return a TYPE_DECL node suitable for the TYPE_STUB_DECL field of TYPE.
@@ -2811,8 +2866,8 @@ create_field_decl (tree name, tree type, tree record_type, tree size, tree pos,
 
       layout_decl (field_decl, known_align);
       SET_DECL_OFFSET_ALIGN (field_decl,
-			     tree_fits_uhwi_p (pos) ? BIGGEST_ALIGNMENT
-			     : BITS_PER_UNIT);
+			     tree_fits_uhwi_p (pos)
+			     ? BIGGEST_ALIGNMENT : BITS_PER_UNIT);
       pos_from_bit (&DECL_FIELD_OFFSET (field_decl),
 		    &DECL_FIELD_BIT_OFFSET (field_decl),
 		    DECL_OFFSET_ALIGN (field_decl), pos);
@@ -2829,6 +2884,15 @@ create_field_decl (tree name, tree type, tree record_type, tree size, tree pos,
   if (!addressable && !type_for_nonaliased_component_p (type))
     addressable = 1;
 
+  /* Note that there is a trade-off in making a field nonaddressable because
+     this will cause type-based alias analysis to use the same alias set for
+     accesses to the field as for accesses to the whole record: while doing
+     so will make it more likely to disambiguate accesses to other objects
+     and accesses to the field, it will make it less likely to disambiguate
+     accesses to the other fields of the record and accesses to the field.
+     If the record is fully static, then the trade-off is irrelevant since
+     the fields of the record can always be disambiguated by their offsets
+     but, if the record is dynamic, then it can become problematic.  */
   DECL_NONADDRESSABLE_P (field_decl) = !addressable;
 
   return field_decl;
@@ -3367,8 +3431,6 @@ begin_subprog_body (tree subprog_decl)
   for (param_decl = DECL_ARGUMENTS (subprog_decl); param_decl;
        param_decl = DECL_CHAIN (param_decl))
     DECL_CONTEXT (param_decl) = subprog_decl;
-
-  make_decl_rtl (subprog_decl);
 }
 
 /* Finish translating the current subprogram and set its BODY.  */
@@ -3615,7 +3677,10 @@ fntype_same_flags_p (const_tree t, tree cico_list, bool return_unconstrained_p,
 
 /* EXP is an expression for the size of an object.  If this size contains
    discriminant references, replace them with the maximum (if MAX_P) or
-   minimum (if !MAX_P) possible value of the discriminant.  */
+   minimum (if !MAX_P) possible value of the discriminant.
+
+   Note that the expression may have already been gimplified,in which case
+   COND_EXPRs have VOID_TYPE and no operands, and this must be handled.  */
 
 tree
 max_size (tree exp, bool max_p)
@@ -3658,11 +3723,27 @@ max_size (tree exp, bool max_p)
 	 modify.  Otherwise, we treat it like a variable.  */
       if (CONTAINS_PLACEHOLDER_P (exp))
 	{
-	  tree val_type = TREE_TYPE (TREE_OPERAND (exp, 1));
-	  tree val = (max_p ? TYPE_MAX_VALUE (type) : TYPE_MIN_VALUE (type));
-	  return
-	    convert (type,
-		     max_size (convert (get_base_type (val_type), val), true));
+	  tree base_type = get_base_type (TREE_TYPE (TREE_OPERAND (exp, 1)));
+	  tree val
+	    = fold_convert (base_type,
+			    max_p
+			    ? TYPE_MAX_VALUE (type) : TYPE_MIN_VALUE (type));
+
+	  /* Walk down the extra subtypes to get more restrictive bounds.  */
+	  while (TYPE_IS_EXTRA_SUBTYPE_P (type))
+	    {
+	      type = TREE_TYPE (type);
+	      if (max_p)
+		val = fold_build2 (MIN_EXPR, base_type, val,
+				   fold_convert (base_type,
+						 TYPE_MAX_VALUE (type)));
+	      else
+		val = fold_build2 (MAX_EXPR, base_type, val,
+				   fold_convert (base_type,
+						 TYPE_MIN_VALUE (type)));
+	    }
+
+	  return fold_convert (type, max_size (val, max_p));
 	}
 
       return exp;
@@ -3671,11 +3752,15 @@ max_size (tree exp, bool max_p)
       return build_int_cst (type, max_p ? 1 : 0);
 
     case tcc_unary:
-      if (code == NON_LVALUE_EXPR)
-	return max_size (TREE_OPERAND (exp, 0), max_p);
+      op0 = TREE_OPERAND (exp, 0);
 
-      op0 = max_size (TREE_OPERAND (exp, 0),
-		      code == NEGATE_EXPR ? !max_p : max_p);
+      if (code == NON_LVALUE_EXPR)
+	return max_size (op0, max_p);
+
+      if (VOID_TYPE_P (TREE_TYPE (op0)))
+	return max_p ? TYPE_MAX_VALUE (type) : TYPE_MIN_VALUE (type);
+
+      op0 = max_size (op0, code == NEGATE_EXPR ? !max_p : max_p);
 
       if (op0 == TREE_OPERAND (exp, 0))
 	return exp;
@@ -3683,49 +3768,57 @@ max_size (tree exp, bool max_p)
       return fold_build1 (code, type, op0);
 
     case tcc_binary:
-      {
-	tree lhs = max_size (TREE_OPERAND (exp, 0), max_p);
-	tree rhs = max_size (TREE_OPERAND (exp, 1),
-			     code == MINUS_EXPR ? !max_p : max_p);
+      op0 = TREE_OPERAND (exp, 0);
+      op1 = TREE_OPERAND (exp, 1);
 
-	/* Special-case wanting the maximum value of a MIN_EXPR.
-	   In that case, if one side overflows, return the other.  */
-	if (max_p && code == MIN_EXPR)
-	  {
-	    if (TREE_CODE (rhs) == INTEGER_CST && TREE_OVERFLOW (rhs))
-	      return lhs;
+      /* If we have a multiply-add with a "negative" value in an unsigned
+	 type, do a multiply-subtract with the negated value, in order to
+	 avoid creating a spurious overflow below.  */
+      if (code == PLUS_EXPR
+	  && TREE_CODE (op0) == MULT_EXPR
+	  && TYPE_UNSIGNED (type)
+	  && TREE_CODE (TREE_OPERAND (op0, 1)) == INTEGER_CST
+	  && !TREE_OVERFLOW (TREE_OPERAND (op0, 1))
+	  && tree_int_cst_sign_bit (TREE_OPERAND (op0, 1)))
+	{
+	  tree tmp = op1;
+	  op1 = build2 (MULT_EXPR, type, TREE_OPERAND (op0, 0),
+			fold_build1 (NEGATE_EXPR, type,
+				    TREE_OPERAND (op0, 1)));
+	  op0 = tmp;
+	  code = MINUS_EXPR;
+	}
 
-	    if (TREE_CODE (lhs) == INTEGER_CST && TREE_OVERFLOW (lhs))
-	      return rhs;
-	  }
+      op0 = max_size (op0, max_p);
+      op1 = max_size (op1, code == MINUS_EXPR ? !max_p : max_p);
 
-	/* Likewise, handle a MINUS_EXPR or PLUS_EXPR with the LHS
-	   overflowing and the RHS a variable.  */
-	if ((code == MINUS_EXPR || code == PLUS_EXPR)
-	    && TREE_CODE (lhs) == INTEGER_CST
-	    && TREE_OVERFLOW (lhs)
-	    && TREE_CODE (rhs) != INTEGER_CST)
-	  return lhs;
+      if ((code == MINUS_EXPR || code == PLUS_EXPR))
+	{
+	  /* If the op0 has overflowed and the op1 is a variable,
+	     propagate the overflow by returning the op0.  */
+	  if (TREE_CODE (op0) == INTEGER_CST
+	      && TREE_OVERFLOW (op0)
+	      && TREE_CODE (op1) != INTEGER_CST)
+	    return op0;
 
-	/* If we are going to subtract a "negative" value in an unsigned type,
-	   do the operation as an addition of the negated value, in order to
-	   avoid creating a spurious overflow below.  */
-	if (code == MINUS_EXPR
-	    && TYPE_UNSIGNED (type)
-	    && TREE_CODE (rhs) == INTEGER_CST
-	    && !TREE_OVERFLOW (rhs)
-	    && tree_int_cst_sign_bit (rhs) != 0)
-	  {
-	    rhs = fold_build1 (NEGATE_EXPR, type, rhs);
-	    code = PLUS_EXPR;
-	  }
+	  /* If we have a "negative" value in an unsigned type, do the
+	     opposite operation on the negated value, in order to avoid
+	     creating a spurious overflow below.  */
+	  if (TYPE_UNSIGNED (type)
+	      && TREE_CODE (op1) == INTEGER_CST
+	      && !TREE_OVERFLOW (op1)
+	      && tree_int_cst_sign_bit (op1))
+	    {
+	      op1 = fold_build1 (NEGATE_EXPR, type, op1);
+	      code = (code == MINUS_EXPR ? PLUS_EXPR : MINUS_EXPR);
+	    }
+	}
 
-	if (lhs == TREE_OPERAND (exp, 0) && rhs == TREE_OPERAND (exp, 1))
-	  return exp;
+      if (op0 == TREE_OPERAND (exp, 0) && op1 == TREE_OPERAND (exp, 1))
+	return exp;
 
-	/* We need to detect overflows so we call size_binop here.  */
-	return size_binop (code, lhs, rhs);
-      }
+      /* We need to detect overflows so we call size_binop here.  */
+      return size_binop (code, op0, op1);
 
     case tcc_expression:
       switch (TREE_CODE_LENGTH (code))
@@ -3757,15 +3850,28 @@ max_size (tree exp, bool max_p)
 	case 3:
 	  if (code == COND_EXPR)
 	    {
+	      op0 = TREE_OPERAND (exp, 0);
 	      op1 = TREE_OPERAND (exp, 1);
 	      op2 = TREE_OPERAND (exp, 2);
 
 	      if (!op1 || !op2)
 		return exp;
 
-	      return
-		fold_build2 (max_p ? MAX_EXPR : MIN_EXPR, type,
-			     max_size (op1, max_p), max_size (op2, max_p));
+	      op1 = max_size (op1, max_p);
+	      op2 = max_size (op2, max_p);
+
+	      /* If we have the MAX of a "negative" value in an unsigned type
+		 and zero for a length expression, just return zero.  */
+	      if (max_p
+		  && TREE_CODE (op0) == LE_EXPR
+		  && TYPE_UNSIGNED (type)
+		  && TREE_CODE (op1) == INTEGER_CST
+		  && !TREE_OVERFLOW (op1)
+		  && tree_int_cst_sign_bit (op1)
+		  && integer_zerop (op2))
+		return op2;
+
+	      return fold_build2 (max_p ? MAX_EXPR : MIN_EXPR, type, op1, op2);
 	    }
 	  break;
 
@@ -4285,19 +4391,12 @@ convert (tree type, tree expr)
 
       /* If the inner type is of self-referential size and the expression type
 	 is a record, do this as an unchecked conversion unless both types are
-	 essentially the same.  But first pad the expression if possible to
-	 have the same size on both sides.  */
+	 essentially the same.  */
       if (ecode == RECORD_TYPE
 	  && CONTAINS_PLACEHOLDER_P (DECL_SIZE (TYPE_FIELDS (type)))
 	  && TYPE_MAIN_VARIANT (etype)
 	     != TYPE_MAIN_VARIANT (TREE_TYPE (TYPE_FIELDS (type))))
-	{
-	  if (TREE_CODE (TYPE_SIZE (etype)) == INTEGER_CST)
-	    expr = convert (maybe_pad_type (etype, TYPE_SIZE (type), 0, Empty,
-					    false, false, false, true),
-			    expr);
-	  return unchecked_convert (type, expr, false);
-	}
+	return unchecked_convert (type, expr, false);
 
       /* If we are converting between array types with variable size, do the
 	 final conversion as an unchecked conversion, again to avoid the need
@@ -4412,9 +4511,9 @@ convert (tree type, tree expr)
     case STRING_CST:
       /* If we are converting a STRING_CST to another constrained array type,
 	 just make a new one in the proper type.  */
-      if (code == ecode && AGGREGATE_TYPE_P (etype)
-	  && !(TREE_CODE (TYPE_SIZE (etype)) == INTEGER_CST
-	       && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST))
+      if (code == ecode
+	  && !(TREE_CONSTANT (TYPE_SIZE (etype))
+	       && !TREE_CONSTANT (TYPE_SIZE (type))))
 	{
 	  expr = copy_node (expr);
 	  TREE_TYPE (expr) = type;
@@ -5261,7 +5360,7 @@ unchecked_convert (tree type, tree expr, bool notrunc_p)
      so we skip all expressions that are references.  */
   else if (!REFERENCE_CLASS_P (expr)
 	   && !AGGREGATE_TYPE_P (etype)
-	   && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
+	   && TREE_CONSTANT (TYPE_SIZE (type))
 	   && (c = tree_int_cst_compare (TYPE_SIZE (etype), TYPE_SIZE (type))))
     {
       if (c < 0)
@@ -5309,13 +5408,33 @@ unchecked_convert (tree type, tree expr, bool notrunc_p)
       return unchecked_convert (type, expr, notrunc_p);
     }
 
-  /* If we are converting a CONSTRUCTOR to a more aligned RECORD_TYPE, bump
-     the alignment of the CONSTRUCTOR to speed up the copy operation.  */
+  /* If we are converting a CONSTRUCTOR to a more aligned aggregate type, bump
+     the alignment of the CONSTRUCTOR to speed up the copy operation.  But do
+     not do it for a conversion between original and packable version to avoid
+     an infinite recursion.  */
   else if (TREE_CODE (expr) == CONSTRUCTOR
-	   && code == RECORD_TYPE
+	   && AGGREGATE_TYPE_P (type)
+	   && TYPE_NAME (type) != TYPE_NAME (etype)
 	   && TYPE_ALIGN (etype) < TYPE_ALIGN (type))
     {
       expr = convert (maybe_pad_type (etype, NULL_TREE, TYPE_ALIGN (type),
+				      Empty, false, false, false, true),
+		      expr);
+      return unchecked_convert (type, expr, notrunc_p);
+    }
+
+  /* If we are converting a CONSTRUCTOR to a larger aggregate type, bump the
+     size of the CONSTRUCTOR to make sure there are enough allocated bytes.
+     But do not do it for a conversion between original and packable version
+     to avoid an infinite recursion.  */
+  else if (TREE_CODE (expr) == CONSTRUCTOR
+	   && AGGREGATE_TYPE_P (type)
+	   && TYPE_NAME (type) != TYPE_NAME (etype)
+	   && TREE_CONSTANT (TYPE_SIZE (type))
+	   && (!TREE_CONSTANT (TYPE_SIZE (etype))
+	       || tree_int_cst_lt (TYPE_SIZE (etype), TYPE_SIZE (type))))
+    {
+      expr = convert (maybe_pad_type (etype, TYPE_SIZE (type), 0,
 				      Empty, false, false, false, true),
 		      expr);
       return unchecked_convert (type, expr, notrunc_p);
@@ -5793,6 +5912,7 @@ enum c_builtin_type
 				ARG6, ARG7) NAME,
 #define DEF_POINTER_TYPE(NAME, TYPE) NAME,
 #include "builtin-types.def"
+#include "ada-builtin-types.def"
 #undef DEF_PRIMITIVE_TYPE
 #undef DEF_FUNCTION_TYPE_0
 #undef DEF_FUNCTION_TYPE_1
@@ -5941,6 +6061,7 @@ install_builtin_function_types (void)
   builtin_types[(int) ENUM] = build_pointer_type (builtin_types[(int) TYPE]);
 
 #include "builtin-types.def"
+#include "ada-builtin-types.def"
 
 #undef DEF_PRIMITIVE_TYPE
 #undef DEF_FUNCTION_TYPE_0
@@ -6113,7 +6234,8 @@ handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
 	  && (!TYPE_ATTRIBUTES (type)
 	      || !lookup_attribute ("type generic", TYPE_ATTRIBUTES (type))))
 	{
-	  error ("nonnull attribute without arguments on a non-prototype");
+	  error ("%qs attribute without arguments on a non-prototype",
+		 "nonnull");
 	  *no_add_attrs = true;
 	}
       return NULL_TREE;
@@ -6127,8 +6249,8 @@ handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
 
       if (!get_nonnull_operand (TREE_VALUE (args), &arg_num))
 	{
-	  error ("nonnull argument has invalid operand number (argument %lu)",
-		 (unsigned long) attr_arg_num);
+	  error ("%qs argument has invalid operand number (argument %lu)",
+		 "nonnull", (unsigned long) attr_arg_num);
 	  *no_add_attrs = true;
 	  return NULL_TREE;
 	}
@@ -6149,8 +6271,8 @@ handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
 	  if (!argument
 	      || TREE_CODE (argument) == VOID_TYPE)
 	    {
-	      error ("nonnull argument with out-of-range operand number "
-		     "(argument %lu, operand %lu)",
+	      error ("%qs argument with out-of-range operand number "
+		     "(argument %lu, operand %lu)", "nonnull",
 		     (unsigned long) attr_arg_num, (unsigned long) arg_num);
 	      *no_add_attrs = true;
 	      return NULL_TREE;
@@ -6158,8 +6280,8 @@ handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
 
 	  if (TREE_CODE (argument) != POINTER_TYPE)
 	    {
-	      error ("nonnull argument references non-pointer operand "
-		     "(argument %lu, operand %lu)",
+	      error ("%qs argument references non-pointer operand "
+		     "(argument %lu, operand %lu)", "nonnull",
 		   (unsigned long) attr_arg_num, (unsigned long) arg_num);
 	      *no_add_attrs = true;
 	      return NULL_TREE;
@@ -6243,6 +6365,22 @@ handle_noreturn_attribute (tree *node, tree name, tree ARG_UNUSED (args),
   return NULL_TREE;
 }
 
+/* Handle a "stack_protect" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_stack_protect_attribute (tree *node, tree name, tree, int,
+				bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
 /* Handle a "noinline" attribute; arguments as in
    struct attribute_spec.handler.  */
 
@@ -6278,6 +6416,38 @@ static tree
 handle_noclone_attribute (tree *node, tree name,
 			  tree ARG_UNUSED (args),
 			  int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "no_icf" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_noicf_attribute (tree *node, tree name,
+			tree ARG_UNUSED (args),
+			int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "noipa" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_noipa_attribute (tree *node, tree name, tree, int, bool *no_add_attrs)
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
@@ -6375,6 +6545,166 @@ handle_type_generic_attribute (tree *node, tree ARG_UNUSED (name),
   /* Ensure we have a variadic function.  */
   gcc_assert (!prototype_p (*node) || stdarg_p (*node));
 
+  return NULL_TREE;
+}
+
+/* Handle a "flatten" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_flatten_attribute (tree *node, tree name,
+			  tree args ATTRIBUTE_UNUSED,
+			  int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL)
+    /* Do nothing else, just set the attribute.  We'll get at
+       it later with lookup_attribute.  */
+    ;
+  else
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "used" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_used_attribute (tree *pnode, tree name, tree ARG_UNUSED (args),
+		       int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  tree node = *pnode;
+
+  if (TREE_CODE (node) == FUNCTION_DECL
+      || (VAR_P (node) && TREE_STATIC (node))
+      || (TREE_CODE (node) == TYPE_DECL))
+    {
+      TREE_USED (node) = 1;
+      DECL_PRESERVE_P (node) = 1;
+      if (VAR_P (node))
+	DECL_READ_P (node) = 1;
+    }
+  else
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "cold" and attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_cold_attribute (tree *node, tree name, tree ARG_UNUSED (args),
+		       int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL
+      || TREE_CODE (*node) == LABEL_DECL)
+    {
+      /* Attribute cold processing is done later with lookup_attribute.  */
+    }
+  else
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "hot" and attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_hot_attribute (tree *node, tree name, tree ARG_UNUSED (args),
+		      int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL
+      || TREE_CODE (*node) == LABEL_DECL)
+    {
+      /* Attribute hot processing is done later with lookup_attribute.  */
+    }
+  else
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "target" attribute.  */
+
+static tree
+handle_target_attribute (tree *node, tree name, tree args, int flags,
+			 bool *no_add_attrs)
+{
+  /* Ensure we have a function type.  */
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+  else if (lookup_attribute ("target_clones", DECL_ATTRIBUTES (*node)))
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored due to conflict "
+		   "with %qs attribute", name, "target_clones");
+      *no_add_attrs = true;
+    }
+  else if (!targetm.target_option.valid_attribute_p (*node, name, args, flags))
+    *no_add_attrs = true;
+
+  /* Check that there's no empty string in values of the attribute.  */
+  for (tree t = args; t != NULL_TREE; t = TREE_CHAIN (t))
+    {
+      tree value = TREE_VALUE (t);
+      if (TREE_CODE (value) == STRING_CST
+	  && TREE_STRING_LENGTH (value) == 1
+	  && TREE_STRING_POINTER (value)[0] == '\0')
+	{
+	  warning (OPT_Wattributes, "empty string in attribute %<target%>");
+	  *no_add_attrs = true;
+	}
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "target_clones" attribute.  */
+
+static tree
+handle_target_clones_attribute (tree *node, tree name, tree ARG_UNUSED (args),
+			  int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  /* Ensure we have a function type.  */
+  if (TREE_CODE (*node) == FUNCTION_DECL)
+    {
+      if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (*node)))
+	{
+	  warning (OPT_Wattributes, "%qE attribute ignored due to conflict "
+		   "with %qs attribute", name, "always_inline");
+	  *no_add_attrs = true;
+	}
+      else if (lookup_attribute ("target", DECL_ATTRIBUTES (*node)))
+	{
+	  warning (OPT_Wattributes, "%qE attribute ignored due to conflict "
+		   "with %qs attribute", name, "target");
+	  *no_add_attrs = true;
+	}
+      else
+	/* Do not inline functions with multiple clone targets.  */
+	DECL_UNINLINABLE (*node) = 1;
+    }
+  else
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
   return NULL_TREE;
 }
 
@@ -6490,7 +6820,10 @@ static int flag_isoc94 = 0;
 static int flag_isoc99 = 0;
 static int flag_isoc11 = 0;
 
-/* Install what the common builtins.def offers.  */
+/* Install what the common builtins.def offers plus our local additions.
+
+   Note that ada-builtins.def is included first so that locally redefined
+   built-in functions take precedence over the commonly defined ones.  */
 
 static void
 install_builtin_functions (void)
@@ -6503,6 +6836,10 @@ install_builtin_functions (void)
                    builtin_types[(int) LIBTYPE],                        \
                    BOTH_P, FALLBACK_P, NONANSI_P,                       \
                    built_in_attributes[(int) ATTRS], IMPLICIT);
+#define DEF_ADA_BUILTIN(ENUM, NAME, TYPE, ATTRS)		\
+  DEF_BUILTIN (ENUM, "__builtin_" NAME, BUILT_IN_FRONTEND, TYPE, BT_LAST, \
+	       false, false, false, ATTRS, true, true)
+#include "ada-builtins.def"
 #include "builtins.def"
 }
 

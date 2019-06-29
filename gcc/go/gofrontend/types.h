@@ -186,6 +186,22 @@ class Method
     this->stub_ = no;
   }
 
+  // Get the direct interface method stub object.
+  Named_object*
+  iface_stub_object() const
+  {
+    go_assert(this->iface_stub_ != NULL);
+    return this->iface_stub_;
+  }
+
+  // Set the direct interface method stub object.
+  void
+  set_iface_stub_object(Named_object* no)
+  {
+    go_assert(this->iface_stub_ == NULL);
+    this->iface_stub_ = no;
+  }
+
   // Return true if this method should not participate in any
   // interfaces.
   bool
@@ -196,7 +212,7 @@ class Method
   // These objects are only built by the child classes.
   Method(const Field_indexes* field_indexes, unsigned int depth,
 	 bool is_value_method, bool needs_stub_method)
-    : field_indexes_(field_indexes), depth_(depth), stub_(NULL),
+    : field_indexes_(field_indexes), depth_(depth), stub_(NULL), iface_stub_(NULL),
       is_value_method_(is_value_method), needs_stub_method_(needs_stub_method),
       is_ambiguous_(false)
   { }
@@ -230,6 +246,9 @@ class Method
   // If a stub method is required, this is its object.  This is only
   // set after stub methods are built in finalize_methods.
   Named_object* stub_;
+  // Stub object for direct interface type.  This is only set after
+  // stub methods are built in finalize_methods.
+  Named_object* iface_stub_;
   // Whether this is a value method--a method that does not require a
   // pointer.
   bool is_value_method_;
@@ -577,6 +596,11 @@ class Type
   // Compare aliases: treat an alias to T as distinct from T.
   static const int COMPARE_ALIASES = 4;
 
+  // When comparing interface types compare the interface embedding heirarchy,
+  // if any, rather than only comparing method sets. Useful primarily when
+  // exporting types.
+  static const int COMPARE_EMBEDDED_INTERFACES = 8;
+
   // Return true if two types are identical.  If this returns false,
   // and REASON is not NULL, it may set *REASON.
   static bool
@@ -634,6 +658,12 @@ class Type
   bool
   needs_key_update()
   { return this->do_needs_key_update(); }
+
+  // Return whether the hash function of this type might panic.  This
+  // is only called for types used as a key in a map type.
+  bool
+  hash_might_panic()
+  { return this->do_hash_might_panic(); }
 
   // Whether the type is permitted in the heap.
   bool
@@ -912,6 +942,11 @@ class Type
   is_unsafe_pointer_type() const
   { return this->points_to() != NULL && this->points_to()->is_void_type(); }
 
+  // Return whether this type is stored directly in an interface's
+  // data word.
+  bool
+  is_direct_iface_type() const;
+
   // Return a version of this type with any expressions copied, but
   // only if copying the expressions will affect the size of the type.
   // If there are no such expressions in the type (expressions can
@@ -1074,6 +1109,10 @@ class Type
   { return false; }
 
   virtual bool
+  do_hash_might_panic()
+  { return false; }
+
+  virtual bool
   do_in_heap()
   { return true; }
 
@@ -1150,10 +1189,6 @@ class Type
   void
   append_mangled_name(const Type* type, Gogo* gogo, std::string* ret) const
   { type->do_mangled_name(gogo, ret); }
-
-  // Incorporate a string into a hash code.
-  static unsigned int
-  hash_string(const std::string&, unsigned int);
 
   // Return the backend representation for the underlying type of a
   // named type.
@@ -1310,6 +1345,15 @@ class Type
 			const Typed_identifier_list*, bool is_varargs,
 			Location);
 
+  // Build direct interface stub methods for a type.
+  static void
+  build_direct_iface_stub_methods(Gogo*, const Type*, Methods*, Location);
+
+  static void
+  build_one_iface_stub_method(Gogo*, Method*, const char*,
+                              const Typed_identifier_list*,
+                              bool, Location);
+
   static Expression*
   apply_field_indexes(Expression*, const Method::Field_indexes*,
 		      Location);
@@ -1321,6 +1365,11 @@ class Type
 		       std::vector<const Named_type*>*, int* level,
 		       bool* is_method, bool* found_pointer_method,
 		       std::string* ambig1, std::string* ambig2);
+
+  // Helper function for is_direct_iface_type, to prevent infinite
+  // recursion.
+  bool
+  is_direct_iface_type_helper(Unordered_set(const Type*)*) const;
 
   // Get the backend representation for a type without looking in the
   // hash table for identical types.
@@ -1445,7 +1494,12 @@ class Typed_identifier
   // Set the escape note.
   void
   set_note(const std::string& note)
-  { this->note_ = new std::string(note); }
+  {
+    if (this->note_ != NULL)
+      go_assert(*this->note_ == note);
+    else
+      this->note_ = new std::string(note);
+  }
 
  private:
   // Identifier name.
@@ -2432,7 +2486,7 @@ class Struct_type : public Type
   Struct_type(Struct_field_list* fields, Location location)
     : Type(TYPE_STRUCT),
       fields_(fields), location_(location), all_methods_(NULL),
-      is_struct_incomparable_(false)
+      is_struct_incomparable_(false), has_padding_(false)
   { }
 
   // Return the field NAME.  This only looks at local fields, not at
@@ -2552,6 +2606,17 @@ class Struct_type : public Type
   set_is_struct_incomparable()
   { this->is_struct_incomparable_ = true; }
 
+  // Return whether this struct's backend type has padding, due to
+  // trailing zero-sized field.
+  bool
+  has_padding() const
+  { return this->has_padding_; }
+
+  // Record that this struct's backend type has padding.
+  void
+  set_has_padding()
+  { this->has_padding_ = true; }
+
   // Write the hash function for this type.
   void
   write_hash_function(Gogo*, Named_type*, Function_type*, Function_type*);
@@ -2588,6 +2653,9 @@ class Struct_type : public Type
 
   bool
   do_needs_key_update();
+
+  bool
+  do_hash_might_panic();
 
   bool
   do_in_heap();
@@ -2656,6 +2724,9 @@ class Struct_type : public Type
   // True if this is a generated struct that is not considered to be
   // comparable.
   bool is_struct_incomparable_;
+  // True if this struct's backend type has padding, due to trailing
+  // zero-sized field.
+  bool has_padding_;
 };
 
 // The type of an array.
@@ -2683,7 +2754,7 @@ class Array_type : public Type
   // length can not be determined.  This will assert if called for a
   // slice.
   bool
-  int_length(int64_t* plen);
+  int_length(int64_t* plen) const;
 
   // Whether this type is identical with T.
   bool
@@ -2765,6 +2836,10 @@ class Array_type : public Type
   { return this->element_type_->needs_key_update(); }
 
   bool
+  do_hash_might_panic()
+  { return this->length_ != NULL && this->element_type_->hash_might_panic(); }
+
+  bool
   do_in_heap()
   { return this->length_ == NULL || this->element_type_->in_heap(); }
 
@@ -2842,6 +2917,27 @@ class Map_type : public Type
   Expression*
   fat_zero_value(Gogo*);
 
+  // Map algorithm to use for this map type.  We may use specialized
+  // fast map routines for certain key types.
+  enum Map_alg
+    {
+      // 32-bit key.
+      MAP_ALG_FAST32,
+      // 32-bit pointer key.
+      MAP_ALG_FAST32PTR,
+      // 64-bit key.
+      MAP_ALG_FAST64,
+      // 64-bit pointer key.
+      MAP_ALG_FAST64PTR,
+      // String key.
+      MAP_ALG_FASTSTR,
+      // Anything else.
+      MAP_ALG_SLOW,
+    };
+
+  Map_alg
+  algorithm(Gogo*);
+
   // Return whether VAR is the map zero value.
   static bool
   is_zero_value(Variable* var);
@@ -2861,7 +2957,7 @@ class Map_type : public Type
   static Type*
   make_map_type_descriptor_type();
 
-  // This must be in  sync with libgo/go/runtime/hashmap.go.
+  // This must be in  sync with libgo/go/runtime/map.go.
   static const int bucket_size = 8;
 
  protected:
@@ -2904,7 +3000,7 @@ class Map_type : public Type
   do_export(Export*) const;
 
  private:
-  // These must be in sync with libgo/go/runtime/hashmap.go.
+  // These must be in sync with libgo/go/runtime/map.go.
   static const int max_key_size = 128;
   static const int max_val_size = 128;
   static const int max_zero_size = 1024;
@@ -3059,7 +3155,7 @@ class Interface_type : public Type
     return this->all_methods_ == NULL;
   }
 
-  // Return the list of locally defined methos.  This will return NULL
+  // Return the list of locally defined methods.  This will return NULL
   // for an empty interface.  Embedded interfaces will appear in this
   // list as an entry with no name.
   const Typed_identifier_list*
@@ -3133,6 +3229,20 @@ class Interface_type : public Type
   static Type*
   make_interface_type_descriptor_type();
 
+  // Return whether methods are finalized for this interface.
+  bool
+  methods_are_finalized() const
+  { return this->methods_are_finalized_; }
+
+  // Sort embedded interfaces by name. Needed when we are preparing
+  // to emit types into the export data.
+  void
+  sort_embedded()
+  {
+    if (parse_methods_ != NULL)
+      parse_methods_->sort_by_name();
+  }
+
  protected:
   int
   do_traverse(Traverse*);
@@ -3154,6 +3264,11 @@ class Interface_type : public Type
   // contains a float.
   bool
   do_needs_key_update()
+  { return true; }
+
+  // Hashing an unhashable type stored in an interface might panic.
+  bool
+  do_hash_might_panic()
   { return true; }
 
   unsigned int

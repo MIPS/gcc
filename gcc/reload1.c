@@ -2062,7 +2062,7 @@ static void
 spill_failure (rtx_insn *insn, enum reg_class rclass)
 {
   if (asm_noperands (PATTERN (insn)) >= 0)
-    error_for_asm (insn, "can%'t find a register in class %qs while "
+    error_for_asm (insn, "cannot find a register in class %qs while "
 		   "reloading %<asm%>",
 		   reg_class_names[rclass]);
   else
@@ -3234,96 +3234,6 @@ eliminate_regs_in_insn (rtx_insn *insn, int replace)
       return 0;
     }
 
-  if (old_set != 0 && REG_P (SET_DEST (old_set))
-      && REGNO (SET_DEST (old_set)) < FIRST_PSEUDO_REGISTER)
-    {
-      /* Check for setting an eliminable register.  */
-      for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
-	if (ep->from_rtx == SET_DEST (old_set) && ep->can_eliminate)
-	  {
-	    /* If this is setting the frame pointer register to the
-	       hardware frame pointer register and this is an elimination
-	       that will be done (tested above), this insn is really
-	       adjusting the frame pointer downward to compensate for
-	       the adjustment done before a nonlocal goto.  */
-	    if (!HARD_FRAME_POINTER_IS_FRAME_POINTER
-		&& ep->from == FRAME_POINTER_REGNUM
-		&& ep->to == HARD_FRAME_POINTER_REGNUM)
-	      {
-		rtx base = SET_SRC (old_set);
-		rtx_insn *base_insn = insn;
-		HOST_WIDE_INT offset = 0;
-
-		while (base != ep->to_rtx)
-		  {
-		    rtx_insn *prev_insn;
-		    rtx prev_set;
-
-		    if (GET_CODE (base) == PLUS
-		        && CONST_INT_P (XEXP (base, 1)))
-		      {
-		        offset += INTVAL (XEXP (base, 1));
-		        base = XEXP (base, 0);
-		      }
-		    else if ((prev_insn = prev_nonnote_insn (base_insn)) != 0
-			     && (prev_set = single_set (prev_insn)) != 0
-			     && rtx_equal_p (SET_DEST (prev_set), base))
-		      {
-		        base = SET_SRC (prev_set);
-		        base_insn = prev_insn;
-		      }
-		    else
-		      break;
-		  }
-
-		if (base == ep->to_rtx)
-		  {
-		    rtx src = plus_constant (Pmode, ep->to_rtx,
-					     offset - ep->offset);
-
-		    new_body = old_body;
-		    if (! replace)
-		      {
-			new_body = copy_insn (old_body);
-			if (REG_NOTES (insn))
-			  REG_NOTES (insn) = copy_insn_1 (REG_NOTES (insn));
-		      }
-		    PATTERN (insn) = new_body;
-		    old_set = single_set (insn);
-
-		    /* First see if this insn remains valid when we
-		       make the change.  If not, keep the INSN_CODE
-		       the same and let reload fit it up.  */
-		    validate_change (insn, &SET_SRC (old_set), src, 1);
-		    validate_change (insn, &SET_DEST (old_set),
-				     ep->to_rtx, 1);
-		    if (! apply_change_group ())
-		      {
-			SET_SRC (old_set) = src;
-			SET_DEST (old_set) = ep->to_rtx;
-		      }
-
-		    val = 1;
-		    goto done;
-		  }
-	      }
-
-	    /* In this case this insn isn't serving a useful purpose.  We
-	       will delete it in reload_as_needed once we know that this
-	       elimination is, in fact, being done.
-
-	       If REPLACE isn't set, we can't delete this insn, but needn't
-	       process it since it won't be used unless something changes.  */
-	    if (replace)
-	      {
-		delete_dead_insn (insn);
-		return 1;
-	      }
-	    val = 1;
-	    goto done;
-	  }
-    }
-
   /* We allow one special case which happens to work on all machines we
      currently support: a single set with the source or a REG_EQUAL
      note being a PLUS of an eliminable register and a constant.  */
@@ -4029,8 +3939,8 @@ update_eliminables_and_spill (void)
 	did_spill = true;
 
 	/* Regardless of the state of spills, if we previously had
-	   a register that we thought we could eliminate, but now can
-	   not eliminate, we must run another pass.
+	   a register that we thought we could eliminate, but now
+	   cannot eliminate, we must run another pass.
 
 	   Consider pseudos which have an entry in reg_equiv_* which
 	   reference an eliminable register.  We must make another pass
@@ -6048,7 +5958,7 @@ reload_reg_free_for_value_p (int start_regno, int regno, int opnum,
    RELOADNUM is the number of the reload we want to load this value for;
    a reload does not conflict with itself.
 
-   When IGNORE_ADDRESS_RELOADS is set, we can not have conflicts with
+   When IGNORE_ADDRESS_RELOADS is set, we cannot have conflicts with
    reloads that load an address for the very reload we are considering.
 
    The caller has to make sure that there is no conflict with the return
@@ -8289,7 +8199,8 @@ emit_reload_insns (struct insn_chain *chain)
 			   : out_regno + k);
 		      reg_reloaded_insn[regno + k] = insn;
 		      SET_HARD_REG_BIT (reg_reloaded_valid, regno + k);
-		      if (targetm.hard_regno_call_part_clobbered (regno + k,
+		      if (targetm.hard_regno_call_part_clobbered (NULL,
+								  regno + k,
 								  mode))
 			SET_HARD_REG_BIT (reg_reloaded_call_part_clobbered,
 					  regno + k);
@@ -8369,7 +8280,8 @@ emit_reload_insns (struct insn_chain *chain)
 			   : in_regno + k);
 		      reg_reloaded_insn[regno + k] = insn;
 		      SET_HARD_REG_BIT (reg_reloaded_valid, regno + k);
-		      if (targetm.hard_regno_call_part_clobbered (regno + k,
+		      if (targetm.hard_regno_call_part_clobbered (NULL,
+								  regno + k,
 								  mode))
 			SET_HARD_REG_BIT (reg_reloaded_call_part_clobbered,
 					  regno + k);
@@ -8485,7 +8397,7 @@ emit_reload_insns (struct insn_chain *chain)
 		      CLEAR_HARD_REG_BIT (reg_reloaded_dead, src_regno + k);
 		      SET_HARD_REG_BIT (reg_reloaded_valid, src_regno + k);
 		      if (targetm.hard_regno_call_part_clobbered
-			  (src_regno + k, mode))
+			  (NULL, src_regno + k, mode))
 			SET_HARD_REG_BIT (reg_reloaded_call_part_clobbered,
 					  src_regno + k);
 		      else
@@ -8764,9 +8676,9 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
     emit_insn (gen_rtx_SET (out, in));
 
   /* Return the first insn emitted.
-     We can not just return get_last_insn, because there may have
+     We cannot just return get_last_insn, because there may have
      been multiple instructions emitted.  Also note that gen_move_insn may
-     emit more than one insn itself, so we can not assume that there is one
+     emit more than one insn itself, so we cannot assume that there is one
      insn emitted per emit_insn_before call.  */
 
   return last ? NEXT_INSN (last) : get_insns ();

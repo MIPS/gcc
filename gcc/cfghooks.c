@@ -32,6 +32,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa.h"
 #include "cfgloop.h"
 
+/* Disable warnings about missing quoting in GCC diagnostics.  */
+#if __GNUC__ >= 10
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wformat-diag"
+#endif
+
 /* A pointer to one of the hooks containers.  */
 static struct cfg_hooks *cfg_hooks;
 
@@ -252,8 +258,6 @@ verify_flow_info (void)
 	error ("basic block %i edge lists are corrupted", bb->index);
 	err = 1;
       }
-
-  last_bb_seen = ENTRY_BLOCK_PTR_FOR_FN (cfun);
 
   /* Clean up.  */
   free (last_visited);
@@ -1066,7 +1070,7 @@ can_duplicate_block_p (const_basic_block bb)
    AFTER.  */
 
 basic_block
-duplicate_block (basic_block bb, edge e, basic_block after)
+duplicate_block (basic_block bb, edge e, basic_block after, copy_bb_data *id)
 {
   edge s, n;
   basic_block new_bb;
@@ -1082,7 +1086,7 @@ duplicate_block (basic_block bb, edge e, basic_block after)
 
   gcc_checking_assert (can_duplicate_block_p (bb));
 
-  new_bb = cfg_hooks->duplicate_block (bb);
+  new_bb = cfg_hooks->duplicate_block (bb, id);
   if (after)
     move_block_after (new_bb, after);
 
@@ -1337,6 +1341,7 @@ copy_bbs (basic_block *bbs, unsigned n, basic_block *new_bbs,
   unsigned i, j;
   basic_block bb, new_bb, dom_bb;
   edge e;
+  copy_bb_data id;
 
   /* Mark the blocks to be copied.  This is used by edge creation hooks
      to decide whether to reallocate PHI nodes capacity to avoid reallocating
@@ -1349,7 +1354,7 @@ copy_bbs (basic_block *bbs, unsigned n, basic_block *new_bbs,
     {
       /* Duplicate.  */
       bb = bbs[i];
-      new_bb = new_bbs[i] = duplicate_block (bb, NULL, after);
+      new_bb = new_bbs[i] = duplicate_block (bb, NULL, after, &id);
       after = new_bb;
       if (bb->loop_father)
 	{
@@ -1490,3 +1495,7 @@ profile_record_account_profile (profile_record *record)
       cfg_hooks->account_profile_record (bb, record);
    }
 }
+
+#if __GNUC__ >= 10
+#  pragma GCC diagnostic pop
+#endif

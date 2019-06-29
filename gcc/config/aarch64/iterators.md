@@ -485,6 +485,12 @@
     UNSPEC_COND_GE	; Used in aarch64-sve.md.
     UNSPEC_COND_GT	; Used in aarch64-sve.md.
     UNSPEC_LASTB	; Used in aarch64-sve.md.
+    UNSPEC_FCADD90	; Used in aarch64-simd.md.
+    UNSPEC_FCADD270	; Used in aarch64-simd.md.
+    UNSPEC_FCMLA	; Used in aarch64-simd.md.
+    UNSPEC_FCMLA90	; Used in aarch64-simd.md.
+    UNSPEC_FCMLA180	; Used in aarch64-simd.md.
+    UNSPEC_FCMLA270	; Used in aarch64-simd.md.
 ])
 
 ;; ------------------------------------------------------------------
@@ -657,6 +663,9 @@
 			  (QI "b")   (HI "h")
 			  (SI "s")   (DI "d")])
 
+;; Like Vetype, but map to types that are a quarter of the element size.
+(define_mode_attr Vetype_fourth [(VNx4SI "b") (VNx2DI "h")])
+
 ;; Equivalent of "size" for a vector element.
 (define_mode_attr Vesize [(VNx16QI "b")
 			  (VNx8HI  "h") (VNx8HF  "h")
@@ -759,6 +768,7 @@
 ;; Half modes of all vector modes, in lower-case.
 (define_mode_attr Vhalf [(V8QI "v4qi")  (V16QI "v8qi")
 			 (V4HI "v2hi")  (V8HI  "v4hi")
+			 (V8HF  "v4hf")
 			 (V2SI "si")    (V4SI  "v2si")
 			 (V2DI "di")    (V2SF  "sf")
 			 (V4SF "v2sf")  (V2DF  "df")])
@@ -1023,8 +1033,10 @@
 		      (V2SF "p") (V4SF  "v")
 		      (V4HF "v") (V8HF  "v")])
 
-(define_mode_attr vsi2qi [(V2SI "v8qi") (V4SI "v16qi")])
-(define_mode_attr VSI2QI [(V2SI "V8QI") (V4SI "V16QI")])
+(define_mode_attr vsi2qi [(V2SI "v8qi") (V4SI "v16qi")
+			  (VNx4SI "vnx16qi") (VNx2DI "vnx8hi")])
+(define_mode_attr VSI2QI [(V2SI "V8QI") (V4SI "V16QI")
+			  (VNx4SI "VNx16QI") (VNx2DI "VNx8HI")])
 
 
 ;; Register suffix for DOTPROD input types from the return type.
@@ -1045,6 +1057,12 @@
 (define_mode_attr f16quad [(V2SF "") (V4SF "q")])
 
 (define_code_attr f16mac [(plus "a") (minus "s")])
+
+;; Map smax to smin and umax to umin.
+(define_code_attr max_opp [(smax "smin") (umax "umin")])
+
+;; Same as above, but louder.
+(define_code_attr MAX_OPP [(smax "SMIN") (umax "UMIN")])
 
 ;; The number of subvectors in an SVE_STRUCT.
 (define_mode_attr vector_count [(VNx32QI "2") (VNx16HI "2")
@@ -1134,6 +1152,13 @@
 			 (VNx16SI "vnx4bi") (VNx16SF "vnx4bi")
 			 (VNx8DI "vnx2bi") (VNx8DF "vnx2bi")])
 
+;; On AArch64 the By element instruction doesn't have a 2S variant.
+;; However because the instruction always selects a pair of values
+;; The normal 3SAME instruction can be used here instead.
+(define_mode_attr FCMLA_maybe_lane [(V2SF "<Vtype>") (V4SF "<Vetype>[%4]")
+				    (V4HF "<Vetype>[%4]") (V8HF "<Vetype>[%4]")
+				    ])
+
 ;; -------------------------------------------------------------------
 ;; Code Iterators
 ;; -------------------------------------------------------------------
@@ -1187,7 +1212,10 @@
 
 (define_code_iterator FMAXMIN [smax smin])
 
-;; Code iterator for variants of vector max and min.
+;; Signed and unsigned max operations.
+(define_code_iterator USMAX [smax umax])
+
+;; Code iterator for plus and minus.
 (define_code_iterator ADDSUB [plus minus])
 
 ;; Code iterator for variants of vector saturating binary ops.
@@ -1489,9 +1517,11 @@
 (define_int_iterator FMAXMIN_UNS [UNSPEC_FMAX UNSPEC_FMIN
 				  UNSPEC_FMAXNM UNSPEC_FMINNM])
 
-(define_int_iterator PAUTH_LR_SP [UNSPEC_PACISP UNSPEC_AUTISP])
+(define_int_iterator PAUTH_LR_SP [UNSPEC_PACIASP UNSPEC_AUTIASP
+				  UNSPEC_PACIBSP UNSPEC_AUTIBSP])
 
-(define_int_iterator PAUTH_17_16 [UNSPEC_PACI1716 UNSPEC_AUTI1716])
+(define_int_iterator PAUTH_17_16 [UNSPEC_PACIA1716 UNSPEC_AUTIA1716
+				  UNSPEC_PACIB1716 UNSPEC_AUTIB1716])
 
 (define_int_iterator VQDMULH [UNSPEC_SQDMULH UNSPEC_SQRDMULH])
 
@@ -1586,6 +1616,14 @@
 (define_int_iterator SVE_COND_FP_CMP [UNSPEC_COND_LT UNSPEC_COND_LE
 				      UNSPEC_COND_EQ UNSPEC_COND_NE
 				      UNSPEC_COND_GE UNSPEC_COND_GT])
+
+(define_int_iterator FCADD [UNSPEC_FCADD90
+			    UNSPEC_FCADD270])
+
+(define_int_iterator FCMLA [UNSPEC_FCMLA
+			    UNSPEC_FCMLA90
+			    UNSPEC_FCMLA180
+			    UNSPEC_FCMLA270])
 
 ;; Iterators for atomic operations.
 
@@ -1762,16 +1800,34 @@
 				  (UNSPEC_FCVTZU "fcvtzu")])
 
 ;; Pointer authentication mnemonic prefix.
-(define_int_attr pauth_mnem_prefix [(UNSPEC_PACISP "paci")
-				    (UNSPEC_AUTISP "auti")
-				    (UNSPEC_PACI1716 "paci")
-				    (UNSPEC_AUTI1716 "auti")])
+(define_int_attr pauth_mnem_prefix [(UNSPEC_PACIASP "pacia")
+				    (UNSPEC_PACIBSP "pacib")
+				    (UNSPEC_PACIA1716 "pacia")
+				    (UNSPEC_PACIB1716 "pacib")
+				    (UNSPEC_AUTIASP "autia")
+				    (UNSPEC_AUTIBSP "autib")
+				    (UNSPEC_AUTIA1716 "autia")
+				    (UNSPEC_AUTIB1716 "autib")])
 
-;; Pointer authentication HINT number for NOP space instructions using A Key.
-(define_int_attr pauth_hint_num_a [(UNSPEC_PACISP "25")
-				    (UNSPEC_AUTISP "29")
-				    (UNSPEC_PACI1716 "8")
-				    (UNSPEC_AUTI1716 "12")])
+(define_int_attr pauth_key [(UNSPEC_PACIASP "AARCH64_KEY_A")
+			    (UNSPEC_PACIBSP "AARCH64_KEY_B")
+			    (UNSPEC_PACIA1716 "AARCH64_KEY_A")
+			    (UNSPEC_PACIB1716 "AARCH64_KEY_B")
+			    (UNSPEC_AUTIASP "AARCH64_KEY_A")
+			    (UNSPEC_AUTIBSP "AARCH64_KEY_B")
+			    (UNSPEC_AUTIA1716 "AARCH64_KEY_A")
+			    (UNSPEC_AUTIB1716 "AARCH64_KEY_B")])
+
+;; Pointer authentication HINT number for NOP space instructions using A and
+;; B key.
+(define_int_attr pauth_hint_num [(UNSPEC_PACIASP "25")
+				   (UNSPEC_PACIBSP "27")
+				   (UNSPEC_AUTIASP "29")
+				   (UNSPEC_AUTIBSP "31")
+				   (UNSPEC_PACIA1716 "8")
+				   (UNSPEC_PACIB1716 "10")
+				   (UNSPEC_AUTIA1716 "12")
+				   (UNSPEC_AUTIB1716 "14")])
 
 (define_int_attr perm_insn [(UNSPEC_ZIP1 "zip") (UNSPEC_ZIP2 "zip")
 			    (UNSPEC_TRN1 "trn") (UNSPEC_TRN2 "trn")
@@ -1847,6 +1903,13 @@
 			        (UNSPEC_COND_DIV "fdivr")
 			        (UNSPEC_COND_MAX "fmaxnm")
 			        (UNSPEC_COND_MIN "fminnm")])
+
+(define_int_attr rot [(UNSPEC_FCADD90 "90")
+		      (UNSPEC_FCADD270 "270")
+		      (UNSPEC_FCMLA "0")
+		      (UNSPEC_FCMLA90 "90")
+		      (UNSPEC_FCMLA180 "180")
+		      (UNSPEC_FCMLA270 "270")])
 
 (define_int_attr sve_fmla_op [(UNSPEC_COND_FMLA "fmla")
 			      (UNSPEC_COND_FMLS "fmls")

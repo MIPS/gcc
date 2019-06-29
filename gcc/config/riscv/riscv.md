@@ -156,7 +156,7 @@
 (define_attr "type"
   "unknown,branch,jump,call,load,fpload,store,fpstore,
    mtc,mfc,const,arith,logical,shift,slt,imul,idiv,move,fmove,fadd,fmul,
-   fmadd,fdiv,fcmp,fcvt,fsqrt,multi,nop,ghost"
+   fmadd,fdiv,fcmp,fcvt,fsqrt,multi,auipc,sfb_alu,nop,ghost"
   (cond [(eq_attr "got" "load") (const_string "load")
 
 	 ;; If a doubleword move uses these expensive instructions,
@@ -234,6 +234,12 @@
 
 ;; Is copying of this instruction disallowed?
 (define_attr "cannot_copy" "no,yes" (const_string "no"))
+
+;; Microarchitectures we know how to tune for.
+;; Keep this in sync with enum riscv_microarchitecture.
+(define_attr "tune"
+  "generic,sifive_7"
+  (const (symbol_ref "((enum attr_tune) riscv_microarchitecture)")))
 
 ;; Describe a user's asm statement.
 (define_asm_attributes
@@ -1247,7 +1253,7 @@
 	    UNSPEC_AUIPC))]
   ""
   ".LA%2: auipc\t%0,%h1"
-  [(set_attr "type" "arith")
+  [(set_attr "type" "auipc")
    (set_attr "cannot_copy" "yes")])
 
 ;; Instructions for adding the low 12 bits of an address to a register.
@@ -1272,7 +1278,8 @@
   ""
   [(const_int 0)]
 {
-  riscv_move_integer (operands[2], operands[0], INTVAL (operands[1]));
+  riscv_move_integer (operands[2], operands[0], INTVAL (operands[1]),
+		      <GPR:MODE>mode);
   DONE;
 })
 
@@ -1491,7 +1498,7 @@
   DONE;
 })
 
-(define_expand "movmemsi"
+(define_expand "cpymemsi"
   [(parallel [(set (match_operand:BLK 0 "general_operand")
 		   (match_operand:BLK 1 "general_operand"))
 	      (use (match_operand:SI 2 ""))
@@ -1797,31 +1804,52 @@
 
 ;; Conditional branches
 
-(define_insn "*branch_order<mode>"
+(define_insn "*branch<mode>"
   [(set (pc)
 	(if_then_else
 	 (match_operator 1 "order_operator"
 			 [(match_operand:X 2 "register_operand" "r")
-			  (match_operand:X 3 "register_operand" "r")])
+			  (match_operand:X 3 "reg_or_0_operand" "rJ")])
 	 (label_ref (match_operand 0 "" ""))
 	 (pc)))]
   ""
-  "b%C1\t%2,%3,%0"
+  "b%C1\t%2,%z3,%0"
   [(set_attr "type" "branch")
    (set_attr "mode" "none")])
 
-(define_insn "*branch_zero<mode>"
-  [(set (pc)
-	(if_then_else
-	 (match_operator 1 "signed_order_operator"
-			 [(match_operand:X 2 "register_operand" "r")
-			  (const_int 0)])
-	 (label_ref (match_operand 0 "" ""))
-	 (pc)))]
-  ""
-  "b%C1z\t%2,%0"
-  [(set_attr "type" "branch")
-   (set_attr "mode" "none")])
+;; Patterns for implementations that optimize short forward branches.
+
+(define_expand "mov<mode>cc"
+  [(set (match_operand:GPR 0 "register_operand")
+	(if_then_else:GPR (match_operand 1 "comparison_operator")
+			  (match_operand:GPR 2 "register_operand")
+			  (match_operand:GPR 3 "sfb_alu_operand")))]
+  "TARGET_SFB_ALU"
+{
+  rtx cmp = operands[1];
+  /* We only handle word mode integer compares for now.  */
+  if (GET_MODE (XEXP (cmp, 0)) != word_mode)
+    FAIL;
+  riscv_expand_conditional_move (operands[0], operands[2], operands[3],
+				 GET_CODE (cmp), XEXP (cmp, 0), XEXP (cmp, 1));
+  DONE;
+})
+
+(define_insn "*mov<GPR:mode><X:mode>cc"
+  [(set (match_operand:GPR 0 "register_operand" "=r,r")
+	(if_then_else:GPR
+	 (match_operator 5 "order_operator"
+		[(match_operand:X 1 "register_operand" "r,r")
+		 (match_operand:X 2 "reg_or_0_operand" "rJ,rJ")])
+	 (match_operand:GPR 3 "register_operand" "0,0")
+	 (match_operand:GPR 4 "sfb_alu_operand" "rJ,IL")))]
+  "TARGET_SFB_ALU"
+  "@
+   b%C5 %1,%z2,1f; mv %0,%z4; 1: # movcc
+   b%C5 %1,%z2,1f; li %0,%4; 1: # movcc"
+  [(set_attr "length" "8")
+   (set_attr "type" "sfb_alu")
+   (set_attr "mode" "<GPR:MODE>")])
 
 ;; Used to implement built-in functions.
 (define_expand "condjump"
@@ -2422,7 +2450,25 @@
   [(set_attr "length" "0")]
 )
 
+;; This fixes a failure with gcc.c-torture/execute/pr64242.c at -O2 for a
+;; 32-bit target when using -mtune=sifive-7-series.  The first sched pass
+;; runs before register elimination, and we have a non-obvious dependency
+;; between a use of the soft fp and a set of the hard fp.  We fix this by
+;; emitting a clobber using the hard fp between the two insns.
+(define_expand "restore_stack_nonlocal"
+  [(match_operand 0 "register_operand")
+   (match_operand 1 "memory_operand")]
+  ""
+{
+  emit_move_insn (operands[0], operands[1]);
+  /* Prevent the following hard fp restore from being moved before the move
+     insn above which uses a copy of the soft fp reg.  */
+  emit_clobber (gen_rtx_MEM (BLKmode, hard_frame_pointer_rtx));
+  DONE;
+})
+
 (include "sync.md")
 (include "peephole.md")
 (include "pic.md")
 (include "generic.md")
+(include "sifive-7.md")

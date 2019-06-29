@@ -178,7 +178,7 @@ version (unittest)
     import std.range;
     import std.stdio;
 
-    import std.socket : Address, INADDR_LOOPBACK, Socket, TcpSocket;
+    import std.socket : Address, INADDR_LOOPBACK, Socket, SocketShutdown, TcpSocket;
 
     private struct TestServer
     {
@@ -192,6 +192,7 @@ version (unittest)
     private:
         string _addr;
         Tid tid;
+        TcpSocket sock;
 
         static void loop(shared TcpSocket listener)
         {
@@ -206,27 +207,39 @@ version (unittest)
             }
             catch (Throwable e)
             {
-                import core.stdc.stdlib : exit, EXIT_FAILURE;
-                stderr.writeln(e);
-                exit(EXIT_FAILURE); // Bugzilla 7018
+                stderr.writeln(e);  // Bugzilla 7018
             }
         }
     }
 
     private TestServer startServer()
     {
+        tlsInit = true;
         auto sock = new TcpSocket;
         sock.bind(new InternetAddress(INADDR_LOOPBACK, InternetAddress.PORT_ANY));
         sock.listen(1);
         auto addr = sock.localAddress.toString();
         auto tid = spawn(&TestServer.loop, cast(shared) sock);
-        return TestServer(addr, tid);
+        return TestServer(addr, tid, sock);
     }
+
+    __gshared TestServer server;
+    bool tlsInit;
 
     private ref TestServer testServer()
     {
-        __gshared TestServer server;
         return initOnce!server(startServer());
+    }
+
+    static ~this()
+    {
+        // terminate server from a thread local dtor of the thread that started it,
+        //  because thread_joinall is called before shared module dtors
+        if (tlsInit && server.sock)
+        {
+            server.sock.shutdown(SocketShutdown.RECEIVE);
+            server.sock.close();
+        }
     }
 
     private struct Request(T)
@@ -429,7 +442,11 @@ if (isCurlConn!Conn)
             s.send(httpOK("Hello world"));
         });
         auto fn = std.file.deleteme;
-        scope (exit) std.file.remove(fn);
+        scope (exit)
+        {
+            if (std.file.exists(fn))
+                std.file.remove(fn);
+        }
         download(host, fn);
         assert(std.file.readText(fn) == "Hello world");
     }
@@ -491,7 +508,11 @@ if (isCurlConn!Conn)
     foreach (host; [testServer.addr, "http://"~testServer.addr])
     {
         auto fn = std.file.deleteme;
-        scope (exit) std.file.remove(fn);
+        scope (exit)
+        {
+            if (std.file.exists(fn))
+                std.file.remove(fn);
+        }
         std.file.write(fn, "upload data\n");
         testServer.handle((s) {
             auto req = s.recvReq;
@@ -659,7 +680,7 @@ if (is(T == char) || is(T == ubyte))
             s.send(httpOK(req.bdy));
         });
         auto res = post(host ~ "/path", ["name1" : "value1", "name2" : "value2"]);
-        assert(res == "name1=value1&name2=value2");
+        assert(res == "name1=value1&name2=value2" || res == "name2=value2&name1=value1");
     }
 }
 

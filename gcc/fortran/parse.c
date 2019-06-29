@@ -3746,7 +3746,7 @@ loop:
 	  break;
       }
 
-  /* If we find a statement that can not be followed by an IMPLICIT statement
+  /* If we find a statement that cannot be followed by an IMPLICIT statement
      (and thus we can expect to see none any further), type the function result
      if it has not yet been typed.  Be careful not to give the END statement
      to verify_st_order!  */
@@ -4543,7 +4543,7 @@ parse_associate (void)
 	 in case of association to a derived-type.  */
       sym->ts = a->target->ts;
 
-      /* Check if the target expression is array valued.  This can not always
+      /* Check if the target expression is array valued.  This cannot always
 	 be done by looking at target.rank, because that might not have been
 	 set yet.  Therefore traverse the chain of refs, looking for the last
 	 array ref and evaluate that.  */
@@ -5839,7 +5839,7 @@ parse_block_data (void)
     }
   else
     {
-      s = gfc_get_gsymbol (gfc_new_block->name);
+      s = gfc_get_gsymbol (gfc_new_block->name, false);
       if (s->defined
 	  || (s->type != GSYM_UNKNOWN && s->type != GSYM_BLOCK_DATA))
        gfc_global_used (s, &gfc_new_block->declared_at);
@@ -5921,7 +5921,7 @@ parse_module (void)
   gfc_gsymbol *s;
   bool error;
 
-  s = gfc_get_gsymbol (gfc_new_block->name);
+  s = gfc_get_gsymbol (gfc_new_block->name, false);
   if (s->defined || (s->type != GSYM_UNKNOWN && s->type != GSYM_MODULE))
     gfc_global_used (s, &gfc_new_block->declared_at);
   else
@@ -5985,7 +5985,7 @@ add_global_procedure (bool sub)
      name is a global identifier.  */
   if (!gfc_new_block->binding_label || gfc_notification_std (GFC_STD_F2008))
     {
-      s = gfc_get_gsymbol (gfc_new_block->name);
+      s = gfc_get_gsymbol (gfc_new_block->name, false);
 
       if (s->defined
 	  || (s->type != GSYM_UNKNOWN
@@ -6010,7 +6010,7 @@ add_global_procedure (bool sub)
       && (!gfc_notification_std (GFC_STD_F2008)
           || strcmp (gfc_new_block->name, gfc_new_block->binding_label) != 0))
     {
-      s = gfc_get_gsymbol (gfc_new_block->binding_label);
+      s = gfc_get_gsymbol (gfc_new_block->binding_label, true);
 
       if (s->defined
 	  || (s->type != GSYM_UNKNOWN
@@ -6042,7 +6042,7 @@ add_global_program (void)
 
   if (gfc_new_block == NULL)
     return;
-  s = gfc_get_gsymbol (gfc_new_block->name);
+  s = gfc_get_gsymbol (gfc_new_block->name, false);
 
   if (s->defined || (s->type != GSYM_UNKNOWN && s->type != GSYM_PROGRAM))
     gfc_global_used (s, &gfc_new_block->declared_at);
@@ -6278,9 +6278,6 @@ loop:
   if (flag_dump_fortran_original)
     gfc_dump_parse_tree (gfc_current_ns, stdout);
 
-  if (flag_c_prototypes)
-    gfc_dump_c_prototypes (gfc_current_ns, stdout);
-
   gfc_get_errors (NULL, &errors);
   if (s.state == COMP_MODULE || s.state == COMP_SUBMODULE)
     {
@@ -6332,6 +6329,39 @@ done:
 	gfc_dump_parse_tree (gfc_current_ns, stdout);
 	fputs ("------------------------------------------\n\n", stdout);
       }
+
+  /* Dump C prototypes.  */
+  if (flag_c_prototypes || flag_c_prototypes_external)
+    {
+      fprintf (stdout,
+	       "#include <stddef.h>\n"
+	       "#ifdef __cplusplus\n"
+	       "#include <complex>\n"
+	       "#define __GFORTRAN_FLOAT_COMPLEX std::complex<float>\n"
+	       "#define __GFORTRAN_DOUBLE_COMPLEX std::complex<double>\n"
+	       "#define __GFORTRAN_LONG_DOUBLE_COMPLEX std::complex<long double>\n"
+	       "extern \"C\" {\n"
+	       "#else\n"
+	       "#define __GFORTRAN_FLOAT_COMPLEX float _Complex\n"
+	       "#define __GFORTRAN_DOUBLE_COMPLEX double _Complex\n"
+	       "#define __GFORTRAN_LONG_DOUBLE_COMPLEX long double _Complex\n"
+	       "#endif\n\n");
+    }
+
+  /* First dump BIND(C) prototypes.  */
+  if (flag_c_prototypes)
+    {
+      for (gfc_current_ns = gfc_global_ns_list; gfc_current_ns;
+	   gfc_current_ns = gfc_current_ns->sibling)
+	gfc_dump_c_prototypes (gfc_current_ns, stdout);
+    }
+
+  /* Dump external prototypes.  */
+  if (flag_c_prototypes_external)
+    gfc_dump_external_c_prototypes (stdout);
+
+  if (flag_c_prototypes || flag_c_prototypes_external)
+    fprintf (stdout, "\n#ifdef __cplusplus\n}\n#endif\n");
 
   /* Do the translation.  */
   translate_all_program_units (gfc_global_ns_list);

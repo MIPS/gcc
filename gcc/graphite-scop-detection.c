@@ -555,14 +555,19 @@ scop_detection::can_represent_loop (loop_p loop, sese_l scop)
   tree niter;
   struct tree_niter_desc niter_desc;
 
-  return single_exit (loop)
-    && !(loop_preheader_edge (loop)->flags & EDGE_IRREDUCIBLE_LOOP)
+  /* We can only handle do {} while () style loops correctly.  */
+  edge exit = single_exit (loop);
+  if (!exit
+      || !single_pred_p (loop->latch)
+      || exit->src != single_pred (loop->latch)
+      || !empty_block_p (loop->latch))
+    return false;
+
+  return !(loop_preheader_edge (loop)->flags & EDGE_IRREDUCIBLE_LOOP)
     && number_of_iterations_exit (loop, single_exit (loop), &niter_desc, false)
     && niter_desc.control.no_overflow
     && (niter = number_of_latch_executions (loop))
     && !chrec_contains_undetermined (niter)
-    && !chrec_contains_undetermined (scalar_evolution_in_region (scop,
-								 loop, niter))
     && graphite_can_represent_expr (scop, loop, niter);
 }
 
@@ -892,6 +897,10 @@ scop_detection::graphite_can_represent_scev (sese_l scop, tree scev)
 	return false;
       return graphite_can_represent_scev (scop, CHREC_LEFT (scev));
 
+    case ADDR_EXPR:
+      /* We cannot encode addresses for ISL.  */
+      return false;
+
     default:
       break;
     }
@@ -913,7 +922,7 @@ bool
 scop_detection::graphite_can_represent_expr (sese_l scop, loop_p loop,
 					     tree expr)
 {
-  tree scev = scalar_evolution_in_region (scop, loop, expr);
+  tree scev = cached_scalar_evolution_in_region (scop, loop, expr);
   return graphite_can_represent_scev (scop, scev);
 }
 
@@ -1050,7 +1059,8 @@ scop_detection::stmt_simple_for_scop_p (sese_l scop, gimple *stmt,
 	FOR_EACH_SSA_TREE_OPERAND (op, stmt, i, SSA_OP_USE)
 	  if (scev_analyzable_p (op, scop)
 	      && chrec_contains_undetermined
-		   (scalar_evolution_in_region (scop, bb->loop_father, op)))
+		   (cached_scalar_evolution_in_region (scop,
+						       bb->loop_father, op)))
 	    {
 	      DEBUG_PRINT (dp << "[scop-detection-fail] "
 			   << "Graphite cannot code-gen stmt:\n";
@@ -1095,14 +1105,12 @@ assign_parameter_index_in_region (tree name, sese_info_p region)
   gcc_assert (TREE_CODE (name) == SSA_NAME
 	      && INTEGRAL_TYPE_P (TREE_TYPE (name))
 	      && ! defined_in_sese_p (name, region->region));
-
   int i;
   tree p;
   FOR_EACH_VEC_ELT (region->params, i, p)
     if (p == name)
       return;
 
-  i = region->params.length ();
   region->params.safe_push (name);
 }
 
@@ -1179,10 +1187,10 @@ find_params_in_bb (sese_info_p region, gimple_poly_bb_p gbb)
   FOR_EACH_VEC_ELT (GBB_CONDITIONS (gbb), i, stmt)
     {
       loop_p loop = gimple_bb (stmt)->loop_father;
-      tree lhs = scalar_evolution_in_region (region->region, loop,
-					     gimple_cond_lhs (stmt));
-      tree rhs = scalar_evolution_in_region (region->region, loop,
-					     gimple_cond_rhs (stmt));
+      tree lhs = cached_scalar_evolution_in_region (region->region, loop,
+						    gimple_cond_lhs (stmt));
+      tree rhs = cached_scalar_evolution_in_region (region->region, loop,
+						    gimple_cond_rhs (stmt));
       gcc_assert (!chrec_contains_undetermined (lhs)
 		  && !chrec_contains_undetermined (rhs));
 
@@ -1407,9 +1415,13 @@ build_alias_set (scop_p scop)
   int i, j;
   int *all_vertices;
 
+  struct loop *nest
+    = find_common_loop (scop->scop_info->region.entry->dest->loop_father,
+			scop->scop_info->region.exit->src->loop_father);
+
   FOR_EACH_VEC_ELT (scop->drs, i, dr1)
     for (j = i+1; scop->drs.iterate (j, &dr2); j++)
-      if (dr_may_alias_p (dr1->dr, dr2->dr, true))
+      if (dr_may_alias_p (dr1->dr, dr2->dr, nest))
 	{
 	  /* Dependences in the same alias set need to be handled
 	     by just looking at DR_ACCESS_FNs.  */
@@ -1481,8 +1493,8 @@ gather_bbs::before_dom_children (basic_block bb)
       tree nb_iters = number_of_latch_executions (loop);
       if (chrec_contains_symbols (nb_iters))
 	{
-	  nb_iters = scalar_evolution_in_region (region->region,
-						 loop, nb_iters);
+	  nb_iters = cached_scalar_evolution_in_region (region->region,
+							loop, nb_iters);
 	  scan_tree_for_params (region, nb_iters);
 	}
     }

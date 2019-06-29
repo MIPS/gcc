@@ -414,8 +414,7 @@ canonicalize_for_substitution (tree node)
       else
 	node = cp_build_qualified_type (TYPE_MAIN_VARIANT (node),
 					cp_type_quals (node));
-      if (TREE_CODE (node) == FUNCTION_TYPE
-	  || TREE_CODE (node) == METHOD_TYPE)
+      if (FUNC_OR_METHOD_TYPE_P (node))
 	{
 	  node = build_ref_qualified_type (node, type_memfn_rqual (orig));
 	  tree r = canonical_eh_spec (TYPE_RAISES_EXCEPTIONS (orig));
@@ -1366,8 +1365,7 @@ write_unqualified_name (tree decl)
 	      type = TREE_TYPE (fn_type);
 	    }
 	  else if (FNDECL_USED_AUTO (decl))
-	    type = (DECL_STRUCT_FUNCTION (decl)->language
-		    ->x_auto_return_pattern);
+	    type = DECL_SAVED_AUTO_RETURN_TYPE (decl);
 	  else
 	    type = DECL_CONV_FN_TYPE (decl);
 	  write_conversion_operator_name (type);
@@ -2006,8 +2004,7 @@ write_local_name (tree function, const tree local_entity,
       write_name (entity, /*ignore_local_scope=*/1);
       if (DECL_DISCRIMINATOR_P (local_entity)
 	  && !(TREE_CODE (local_entity) == TYPE_DECL
-	       && (LAMBDA_TYPE_P (TREE_TYPE (local_entity))
-		   || TYPE_UNNAMED_P (TREE_TYPE (local_entity)))))
+	       && TYPE_ANON_P (TREE_TYPE (local_entity))))
 	write_discriminator (discriminator_for_local_entity (local_entity));
     }
 }
@@ -2071,8 +2068,7 @@ write_type (tree type)
 	  t = cp_build_type_attribute_variant (t, attrs);
 	}
       gcc_assert (t != type);
-      if (TREE_CODE (t) == FUNCTION_TYPE
-	  || TREE_CODE (t) == METHOD_TYPE)
+      if (FUNC_OR_METHOD_TYPE_P (t))
 	{
 	  t = build_ref_qualified_type (t, type_memfn_rqual (type));
 	  if (flag_noexcept_type)
@@ -2103,8 +2099,7 @@ write_type (tree type)
 
       /* See through any typedefs.  */
       type = TYPE_MAIN_VARIANT (type);
-      if (TREE_CODE (type) == FUNCTION_TYPE
-	  || TREE_CODE (type) == METHOD_TYPE)
+      if (FUNC_OR_METHOD_TYPE_P (type))
 	type = cxx_copy_lang_qualifiers (type, type_orig);
 
       /* According to the C++ ABI, some library classes are passed the
@@ -2309,11 +2304,11 @@ write_type (tree type)
 	      break;
 
 	    case TYPEOF_TYPE:
-	      sorry ("mangling typeof, use decltype instead");
+	      sorry ("mangling %<typeof%>, use %<decltype%> instead");
 	      break;
 
 	    case UNDERLYING_TYPE:
-	      sorry ("mangling __underlying_type");
+	      sorry ("mangling %<__underlying_type%>");
 	      break;
 
 	    case LANG_TYPE:
@@ -2473,10 +2468,12 @@ write_builtin_type (tree type)
       break;
 
     case INTEGER_TYPE:
-      /* TYPE may still be wchar_t, char16_t, or char32_t, since that
+      /* TYPE may still be wchar_t, char8_t, char16_t, or char32_t, since that
 	 isn't in integer_type_nodes.  */
       if (type == wchar_type_node)
 	write_char ('w');
+      else if (type == char8_type_node)
+	write_string ("Du");
       else if (type == char16_type_node)
 	write_string ("Ds");
       else if (type == char32_type_node)
@@ -3001,7 +2998,8 @@ write_expression (tree expr)
 	{
 	  scope = TREE_OPERAND (expr, 0);
 	  member = TREE_OPERAND (expr, 1);
-	  gcc_assert (!BASELINK_P (member));
+	  if (BASELINK_P (member))
+	    member = BASELINK_FUNCTIONS (member);
 	}
       else
 	{
@@ -3133,18 +3131,48 @@ write_expression (tree expr)
     }
   else if (code == CONSTRUCTOR)
     {
-      vec<constructor_elt, va_gc> *elts = CONSTRUCTOR_ELTS (expr);
-      unsigned i; tree val;
+      bool braced_init = BRACE_ENCLOSED_INITIALIZER_P (expr);
+      tree etype = TREE_TYPE (expr);
 
-      if (BRACE_ENCLOSED_INITIALIZER_P (expr))
+      if (braced_init)
 	write_string ("il");
       else
 	{
 	  write_string ("tl");
-	  write_type (TREE_TYPE (expr));
+	  write_type (etype);
 	}
-      FOR_EACH_CONSTRUCTOR_VALUE (elts, i, val)
-	write_expression (val);
+
+      if (!initializer_zerop (expr) || !trivial_type_p (etype))
+	{
+	  /* Convert braced initializer lists to STRING_CSTs so that
+	     A<"Foo"> mangles the same as A<{'F', 'o', 'o', 0}> while
+	     still using the latter mangling for strings that
+	     originated as braced initializer lists.  */
+	  expr = braced_lists_to_strings (etype, expr);
+
+	  if (TREE_CODE (expr) == CONSTRUCTOR)
+	    {
+	      vec<constructor_elt, va_gc> *elts = CONSTRUCTOR_ELTS (expr);
+	      unsigned last_nonzero = -1, i;
+	      tree val;
+
+	      FOR_EACH_CONSTRUCTOR_VALUE (elts, i, val)
+		if (!initializer_zerop (val))
+		  last_nonzero = i;
+
+	      FOR_EACH_CONSTRUCTOR_VALUE (elts, i, val)
+		{
+		  if (i > last_nonzero)
+		    break;
+		  write_expression (val);
+		}
+	    }
+	  else
+	    {
+	      gcc_assert (TREE_CODE (expr) == STRING_CST);
+	      write_expression (expr);
+	    }
+	}
       write_char ('E');
     }
   else if (code == LAMBDA_EXPR)
@@ -3249,8 +3277,7 @@ write_expression (tree expr)
 
 	    /* Mangle a dependent name as the name, not whatever happens to
 	       be the first function in the overload set.  */
-	    if ((TREE_CODE (fn) == FUNCTION_DECL
-		 || TREE_CODE (fn) == OVERLOAD)
+	    if (OVL_P (fn)
 		&& type_dependent_expression_p_push (expr))
 	      fn = OVL_NAME (fn);
 
@@ -3350,8 +3377,14 @@ write_expression (tree expr)
 static void
 write_template_arg_literal (const tree value)
 {
-  write_char ('L');
-  write_type (TREE_TYPE (value));
+  if (TREE_CODE (value) == STRING_CST)
+    /* Temporarily mangle strings as braced initializer lists.  */
+    write_string ("tl");
+  else
+    write_char ('L');
+
+  tree valtype = TREE_TYPE (value);
+  write_type (valtype);
 
   /* Write a null member pointer value as (type)0, regardless of its
      real representation.  */
@@ -3394,8 +3427,31 @@ write_template_arg_literal (const tree value)
 	break;
 
       case STRING_CST:
-	sorry ("string literal in function template signature");
-	break;
+	{
+	  /* Mangle strings the same as braced initializer lists.  */
+	  unsigned n = TREE_STRING_LENGTH (value);
+	  const char *str = TREE_STRING_POINTER (value);
+
+	  /* Count the number of trailing nuls and subtract them from
+	     STRSIZE because they don't need to be mangled.  */
+	  for (const char *p = str + n - 1; ; --p)
+	    {
+	      if (*p || p == str)
+		{
+		  n -= str + n - !!*p - p;
+		  break;
+		}
+	    }
+	  tree eltype = TREE_TYPE (valtype);
+	  for (const char *p = str; n--; ++p)
+	    {
+	      write_char ('L');
+	      write_type (eltype);
+	      write_unsigned_number (*(const unsigned char*)p);
+	      write_string ("E");
+	    }
+	  break;
+	}
 
       default:
 	gcc_unreachable ();
@@ -4152,18 +4208,18 @@ maybe_check_abi_tags (tree t, tree for_decl, int ver)
       if (for_decl && DECL_THUNK_P (for_decl))
 	warning_at (DECL_SOURCE_LOCATION (t), OPT_Wabi,
 		    "the mangled name of a thunk for %qD changes between "
-		    "-fabi-version=%d and -fabi-version=%d",
+		    "%<-fabi-version=%d%> and %<-fabi-version=%d%>",
 		    t, flag_abi_version, warn_abi_version);
       else if (for_decl)
 	warning_at (DECL_SOURCE_LOCATION (for_decl), OPT_Wabi,
 		    "the mangled name of %qD changes between "
-		    "-fabi-version=%d and -fabi-version=%d",
+		    "%<-fabi-version=%d%> and %<-fabi-version=%d%>",
 		    for_decl, flag_abi_version, warn_abi_version);
       else
 	warning_at (DECL_SOURCE_LOCATION (t), OPT_Wabi,
 		    "the mangled name of the initialization guard variable "
-		    "for %qD changes between -fabi-version=%d and "
-		    "-fabi-version=%d",
+		    "for %qD changes between %<-fabi-version=%d%> and "
+		    "%<-fabi-version=%d%>",
 		    t, flag_abi_version, warn_abi_version);
     }
 }
@@ -4238,10 +4294,7 @@ decl_tls_wrapper_p (const tree fn)
 }
 
 /* Return an identifier for the name of a temporary variable used to
-   initialize a static reference.  This isn't part of the ABI, but we might
-   as well call them something readable.  */
-
-static GTY(()) int temp_count;
+   initialize a static reference.  This is now part of the ABI.  */
 
 tree
 mangle_ref_init_variable (const tree variable)
@@ -4252,7 +4305,7 @@ mangle_ref_init_variable (const tree variable)
   write_name (variable, /*ignore_local_scope=*/0);
   /* Avoid name clashes with aggregate initialization of multiple
      references at once.  */
-  write_unsigned_number (temp_count++);
+  write_compact_number (current_ref_temp_count++);
   return finish_mangling_get_identifier ();
 }
 

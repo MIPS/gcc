@@ -44,6 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "attribs.h"
 #include "asan.h"
+#include "langhooks.h"
 
 
 /* All the tuples have their operand vector (if present) at the very bottom
@@ -1107,6 +1108,25 @@ gimple_build_omp_return (bool wait_p)
 }
 
 
+/* Build a GIMPLE_OMP_SCAN statement.
+
+   BODY is the sequence of statements to be executed by the scan
+   construct.
+   CLAUSES are any of the construct's clauses.  */
+
+gomp_scan *
+gimple_build_omp_scan (gimple_seq body, tree clauses)
+{
+  gomp_scan *p
+    = as_a <gomp_scan *> (gimple_alloc (GIMPLE_OMP_SCAN, 0));
+  gimple_omp_scan_set_clauses (p, clauses);
+  if (body)
+    gimple_omp_set_body (p, body);
+
+  return p;
+}
+
+
 /* Build a GIMPLE_OMP_SECTIONS statement.
 
    BODY is a sequence of section statements.
@@ -1942,6 +1962,12 @@ gimple_copy (gimple *stmt)
 	  gimple_omp_ordered_set_clauses (as_a <gomp_ordered *> (copy), t);
 	  goto copy_omp_body;
 
+	case GIMPLE_OMP_SCAN:
+	  t = gimple_omp_scan_clauses (as_a <gomp_scan *> (stmt));
+	  t = unshare_expr (t);
+	  gimple_omp_scan_set_clauses (as_a <gomp_scan *> (copy), t);
+	  goto copy_omp_body;
+
 	case GIMPLE_OMP_TASKGROUP:
 	  t = unshare_expr (gimple_omp_taskgroup_clauses (stmt));
 	  gimple_omp_taskgroup_set_clauses (copy, t);
@@ -2585,6 +2611,16 @@ gimple_get_alias_set (tree t)
       /* t1 == t can happen for boolean nodes which are always unsigned.  */
       if (t1 != t)
 	return get_alias_set (t1);
+    }
+
+  /* Allow aliasing between enumeral types and the underlying
+     integer type.  This is required for C since those are
+     compatible types.  */
+  else if (TREE_CODE (t) == ENUMERAL_TYPE)
+    {
+      tree t1 = lang_hooks.types.type_for_size (tree_to_uhwi (TYPE_SIZE (t)),
+						false /* short-cut above */);
+      return get_alias_set (t1);
     }
 
   return -1;

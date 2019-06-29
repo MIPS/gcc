@@ -1,6 +1,6 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (C) 1999-2018 by The D Language Foundation, All Rights Reserved
+ * Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
@@ -46,7 +46,7 @@ bool checkFrameAccess(Loc loc, Scope *sc, AggregateDeclaration *ad, size_t istar
 bool symbolIsVisible(Module *mod, Dsymbol *s);
 VarDeclaration *copyToTemp(StorageClass stc, const char *name, Expression *e);
 Expression *extractSideEffect(Scope *sc, const char *name, Expression **e0, Expression *e, bool alwaysCopy = false);
-Type *getTypeInfoType(Type *t, Scope *sc);
+Type *getTypeInfoType(Loc loc, Type *t, Scope *sc);
 bool MODimplicitConv(MOD modfrom, MOD modto);
 MATCH MODmethodConv(MOD modfrom, MOD modto);
 void MODMatchToBuffer(OutBuffer *buf, unsigned char lhsMod, unsigned char rhsMod);
@@ -74,6 +74,8 @@ Expression *binSemanticProp(BinExp *e, Scope *sc);
 Expression *semantic(Expression *e, Scope *sc);
 Expression *semanticY(DotIdExp *exp, Scope *sc, int flag);
 Expression *semanticY(DotTemplateInstanceExp *exp, Scope *sc, int flag);
+StringExp *semanticString(Scope *sc, Expression *exp, const char *s);
+Initializer *semantic(Initializer *init, Scope *sc, Type *t, NeedInterpret needInterpret);
 
 /****************************************
  * Preprocess arguments to function.
@@ -96,6 +98,12 @@ static bool preFunctionParameters(Scope *sc, Expressions *exps)
 
             arg = resolveProperties(sc, arg);
             if (arg->op == TOKtype)
+            {
+                arg->error("cannot pass type %s as a function argument", arg->toChars());
+                arg = new ErrorExp();
+                err = true;
+            }
+            else if (arg->type->toBasetype()->ty == Tfunction)
             {
                 arg->error("cannot pass type %s as a function argument", arg->toChars());
                 arg = new ErrorExp();
@@ -389,6 +397,7 @@ public:
             // Create the magic __ctfe bool variable
             VarDeclaration *vd = new VarDeclaration(exp->loc, Type::tbool, Id::ctfe, NULL);
             vd->storage_class |= STCtemp;
+            vd->semanticRun = PASSsemanticdone;
             Expression *e = new VarExp(exp->loc, vd);
             e = semantic(e, sc);
             result = e;
@@ -706,7 +715,8 @@ public:
             return setError();
         }
 
-        semanticTypeInfo(sc, e->type);
+        if (global.params.useTypeInfo && Type::dtypeinfo)
+            semanticTypeInfo(sc, e->type);
 
         result = e;
     }
@@ -1218,6 +1228,23 @@ public:
                     exp->error("no constructor for %s", cd->toChars());
                     return setError();
                 }
+
+                // https://issues.dlang.org/show_bug.cgi?id=19941
+                // Run semantic on all field initializers to resolve any forward
+                // references. This is the same as done for structs in sd->fill().
+                for (ClassDeclaration *c = cd; c; c = c->baseClass)
+                {
+                    for (size_t i = 0; i < c->fields.dim; i++)
+                    {
+                        VarDeclaration *v = c->fields[i];
+                        if (v->inuse || v->_scope == NULL || v->_init == NULL ||
+                            v->_init->isVoidInitializer())
+                            continue;
+                        v->inuse++;
+                        v->_init = semantic(v->_init, v->_scope, v->type, INITinterpret);
+                        v->inuse--;
+                    }
+                }
             }
         }
         else if (tb->ty == Tstruct)
@@ -1415,7 +1442,10 @@ public:
 
     void visit(VarExp *e)
     {
-        if (FuncDeclaration *fd = e->var->isFuncDeclaration())
+        VarDeclaration *vd = e->var->isVarDeclaration();
+        FuncDeclaration *fd = e->var->isFuncDeclaration();
+
+        if (fd)
         {
             //printf("L%d fd = %s\n", __LINE__, f->toChars());
             if (!fd->functionSemantic())
@@ -1426,7 +1456,14 @@ public:
             e->type = e->var->type;
 
         if (e->type && !e->type->deco)
+        {
+            Declaration *decl = e->var->isDeclaration();
+            if (decl)
+                decl->inuse++;
             e->type = e->type->semantic(e->loc, sc);
+            if (decl)
+                decl->inuse--;
+        }
 
         /* Fix for 1161 doesn't work because it causes protection
          * problems when instantiating imported templates passing private
@@ -1434,7 +1471,7 @@ public:
          */
         //checkAccess(e->loc, sc, NULL, e->var);
 
-        if (VarDeclaration *vd = e->var->isVarDeclaration())
+        if (vd)
         {
             if (vd->checkNestedReference(sc, e->loc))
                 return setError();
@@ -1442,7 +1479,7 @@ public:
             // the purity violation error is redundant.
             //checkPurity(sc, vd);
         }
-        else if (FuncDeclaration *fd = e->var->isFuncDeclaration())
+        else if (fd)
         {
             // TODO: If fd isn't yet resolved its overload, the checkNestedReference
             // call would cause incorrect validation.
@@ -1798,11 +1835,19 @@ public:
         Expression *e;
         if (ea && ta->toBasetype()->ty == Tclass)
         {
-            /* Get the dynamic type, which is .classinfo
-            */
-            ea = semantic(ea, sc);
-            e = new TypeidExp(ea->loc, ea);
-            e->type = Type::typeinfoclass->type;
+            if (!Type::typeinfoclass)
+            {
+                error(exp->loc, "`object.TypeInfo_Class` could not be found, but is implicitly used");
+                e = new ErrorExp();
+            }
+            else
+            {
+                /* Get the dynamic type, which is .classinfo
+                */
+                ea = semantic(ea, sc);
+                e = new TypeidExp(ea->loc, ea);
+                e->type = Type::typeinfoclass->type;
+            }
         }
         else if (ta->ty == Terror)
         {
@@ -1812,7 +1857,7 @@ public:
         {
             // Handle this in the glue layer
             e = new TypeidExp(exp->loc, ta);
-            e->type = getTypeInfoType(ta, sc);
+            e->type = getTypeInfoType(exp->loc, ta, sc);
 
             semanticTypeInfo(sc, ta);
 
@@ -1928,8 +1973,8 @@ public:
                         ClassDeclaration *cd = ((TypeClass *)e->targ)->sym;
                         Parameters *args = new Parameters;
                         args->reserve(cd->baseclasses->dim);
-                        if (cd->_scope && !cd->symtab)
-                            cd->semantic(cd->_scope);
+                        if (cd->semanticRun < PASSsemanticdone)
+                            cd->semantic(NULL);
                         for (size_t i = 0; i < cd->baseclasses->dim; i++)
                         {
                             BaseClass *b = (*cd->baseclasses)[i];
@@ -2177,6 +2222,9 @@ public:
         }
         if (exp->e1->op == TOKslice || exp->e1->type->ty == Tarray || exp->e1->type->ty == Tsarray)
         {
+            if (checkNonAssignmentArrayOp(exp->e1))
+                return setError();
+
             if (exp->e1->op == TOKslice)
                 ((SliceExp *)exp->e1)->arrayop = true;
 
@@ -2259,27 +2307,9 @@ public:
 
     void visit(CompileExp *exp)
     {
-        sc = sc->startCTFE();
-        exp->e1 = semantic(exp->e1, sc);
-        exp->e1 = resolveProperties(sc, exp->e1);
-        sc = sc->endCTFE();
-        if (exp->e1->op == TOKerror)
-        {
-            result = exp->e1;
-            return;
-        }
-        if (!exp->e1->type->isString())
-        {
-            exp->error("argument to mixin must be a string type, not %s", exp->e1->type->toChars());
-            return setError();
-        }
-        exp->e1 = exp->e1->ctfeInterpret();
-        StringExp *se = exp->e1->toStringExp();
+        StringExp *se = semanticString(sc, exp->e1, "argument to mixin");
         if (!se)
-        {
-            exp->error("argument to mixin must be a string, not (%s)", exp->e1->toChars());
             return setError();
-        }
         se = se->toUTF8(sc);
         unsigned errors = global.errors;
         Parser p(exp->loc, sc->_module, (utf8_t *)se->string, se->len, 0);
@@ -2301,27 +2331,16 @@ public:
 
     void visit(ImportExp *e)
     {
-        const char *name;
-        StringExp *se;
-
-        sc = sc->startCTFE();
-        e->e1 = semantic(e->e1, sc);
-        e->e1 = resolveProperties(sc, e->e1);
-        sc = sc->endCTFE();
-        e->e1 = e->e1->ctfeInterpret();
-        if (e->e1->op != TOKstring)
-        {
-            e->error("file name argument must be a string, not (%s)", e->e1->toChars());
-            goto Lerror;
-        }
-        se = (StringExp *)e->e1;
+        StringExp *se = semanticString(sc, e->e1, "file name argument");
+        if (!se)
+            return setError();
         se = se->toUTF8(sc);
-        name = (char *)se->string;
 
+        const char *name = (char *)se->string;
         if (!global.params.fileImppath)
         {
             e->error("need -Jpath switch to import text file %s", name);
-            goto Lerror;
+            return setError();
         }
 
         /* Be wary of CWE-22: Improper Limitation of a Pathname to a Restricted Directory
@@ -2333,7 +2352,7 @@ public:
         if (!name)
         {
             e->error("file %s cannot be found or not in a path specified with -J", se->toChars());
-            goto Lerror;
+            return setError();
         }
 
         if (global.params.verbose)
@@ -2363,7 +2382,7 @@ public:
             if (f.read())
             {
                 e->error("cannot read file %s", f.toChars());
-                goto Lerror;
+                return setError();
             }
             else
             {
@@ -2372,10 +2391,6 @@ public:
             }
         }
         result = semantic(se, sc);
-        return;
-
-    Lerror:
-        return setError();
     }
 
     void visit(AssertExp *exp)
@@ -4325,6 +4340,25 @@ public:
         result = e;
     }
 
+    void visit(VectorArrayExp *e)
+    {
+        if (!e->type)
+        {
+            unaSemantic(e, sc);
+            e->e1 = resolveProperties(sc, e->e1);
+
+            if (e->e1->op == TOKerror)
+            {
+                result = e->e1;
+                return;
+            }
+            assert(e->e1->type->ty == Tvector);
+            TypeVector *tv = (TypeVector *)e->e1->type;
+            e->type = tv->basetype;
+        }
+        result = e;
+    }
+
     void visit(SliceExp *exp)
     {
         if (exp->type)
@@ -5828,16 +5862,8 @@ public:
                 if (exp->op != TOKassign)
                 {
                     // If multidimensional static array, treat as one large array
-                    dinteger_t dim = ((TypeSArray *)t1)->dim->toInteger();
-                    Type *t = t1;
-                    while (1)
-                    {
-                        t = t->nextOf()->toBasetype();
-                        if (t->ty != Tsarray)
-                            break;
-                        dim *= ((TypeSArray *)t)->dim->toInteger();
-                        e1x->type = t->nextOf()->sarrayOf(dim);
-                    }
+                    dinteger_t dim = t1->numberOfElems(exp->loc);
+                    e1x->type = t1->baseElemOf()->sarrayOf(dim);
                 }
                 SliceExp *sle = new SliceExp(e1x->loc, e1x, NULL, NULL);
                 sle->arrayop = true;
@@ -6238,6 +6264,9 @@ public:
         assert(exp->e1->type && exp->e2->type);
         if (exp->e1->op == TOKslice || exp->e1->type->ty == Tarray || exp->e1->type->ty == Tsarray)
         {
+            if (checkNonAssignmentArrayOp(exp->e1))
+                return setError();
+
             // T[] ^^= ...
             if (exp->e2->implicitConvTo(exp->e1->type->nextOf()))
             {
@@ -6632,8 +6661,7 @@ public:
                 if (tb2->ty == Tarray || tb2->ty == Tsarray)
                 {
                     // Make e2 into [e2]
-                    exp->e2 = new ArrayLiteralExp(exp->e2->loc, exp->e2);
-                    exp->e2->type = exp->type;
+                    exp->e2 = new ArrayLiteralExp(exp->e2->loc, exp->type, exp->e2);
                 }
                 result = exp->optimize(WANTvalue);
                 return;
@@ -6669,8 +6697,7 @@ public:
                 if (tb1->ty == Tarray || tb1->ty == Tsarray)
                 {
                     // Make e1 into [e1]
-                    exp->e1 = new ArrayLiteralExp(exp->e1->loc, exp->e1);
-                    exp->e1->type = exp->type;
+                    exp->e1 = new ArrayLiteralExp(exp->e1->loc, exp->type, exp->e1);
                 }
                 result = exp->optimize(WANTvalue);
                 return;

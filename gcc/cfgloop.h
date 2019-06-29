@@ -174,6 +174,9 @@ struct GTY ((chain_next ("%h.next"))) loop {
      of the loop can be safely evaluated concurrently.  */
   int safelen;
 
+  /* Preferred vectorization factor for the loop if non-zero.  */
+  int simdlen;
+
   /* Constraints are generally set by consumers and affect certain
      semantics of niter analyzer APIs.  Currently the APIs affected are
      number_of_iterations_exit* functions and their callers.  One typical
@@ -226,6 +229,10 @@ struct GTY ((chain_next ("%h.next"))) loop {
      A value of USHRT_MAX means unroll with no specific unrolling factor.
      Other values means unroll with the given unrolling factor.  */
   unsigned short unroll;
+
+  /* If this loop was inlined the main clique of the callee which does
+     not need remapping when copying the loop body.  */
+  unsigned short owned_clique;
 
   /* For SIMD loops, this is a unique identifier of the loop, referenced
      by IFN_GOMP_SIMD_VF, IFN_GOMP_SIMD_LANE and IFN_GOMP_SIMD_LAST_LANE

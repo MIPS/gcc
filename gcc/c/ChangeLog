@@ -1,3 +1,324 @@
+2019-06-24  Martin Sebor  <msebor@redhat.com>
+
+	* c-typeck.c (build_binary_op): Hyphenate floating-point.
+
+2019-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_pragma): Reject PRAGMA_OMP_SCAN.
+	(c_parser_omp_clause_reduction): Don't sorry_at on inscan reductions.
+	(c_parser_omp_scan_loop_body): New function.
+	(c_parser_omp_for_loop): Call c_parser_omp_scan_loop_body if there are
+	inscan reduction clauses.
+	* c-typeck.c (c_finish_omp_clauses): Reject mixing inscan with
+	non-inscan reductions on the same construct, or inscan reductions with
+	ordered or schedule clauses, or inscan array reductions.
+
+2019-06-05  Martin Sebor  <msebor@redhat.com>
+
+	PR c/90737
+	* c-typeck.c (c_finish_return): Only consider functions returning
+	pointers as candidates for -Wreturn-local-addr.
+
+2019-06-05  Martin Sebor  <msebor@redhat.com>
+
+	* c-decl.c (start_decl): Adjust quoting and hyphenation
+	in diagnostics.
+	(finish_decl): Same.
+	(finish_enum): Same.
+	(start_function): Same.
+	(declspecs_add_type): Same.
+	* c-parser.c (warn_for_abs): Same.
+	* c-typeck.c (build_binary_op): Same.
+
+2019-05-17  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR c/89433
+	* c-parser.c (c_finish_oacc_routine): Rework checking if already
+	marked with an OpenACC 'routine' directive.
+
+	PR c/89433
+	* c-parser.c (c_parser_oacc_routine): Normalize order of clauses.
+	(c_finish_oacc_routine): Call oacc_verify_routine_clauses.
+
+	PR c/89433
+	* c-parser.c (c_finish_oacc_routine): Refer to OpenACC 'routine'
+	clauses from "omp declare target" attribute.
+
+2019-05-16  Martin Sebor  <msebor@redhat.com>
+
+        * c-decl.c (start_decl): Quote keywords, operators, and
+        types in diagnostics.
+        (finish_decl): Same.
+        * c-parser.c (c_parser_asm_statement): Same.
+        (c_parser_conditional_expression): Same.
+        (c_parser_transaction_cancel): Same.
+        * c-typeck.c (c_common_type): Same.
+        (build_conditional_expr): Same.
+        (digest_init): Same.
+        (process_init_element): Same.
+        (build_binary_op): Same.
+
+2019-05-17  Richard Biener  <rguenther@suse.de>
+
+	* gimple-parser.c (c_parser_gimple_statement): Handle __VEC_PERM.
+	(c_parser_gimple_unary_expression): Likewise.
+	(c_parser_gimple_parentized_ternary_expression): New function.
+
+2019-05-16  Richard Biener  <rguenther@suse.de>
+
+	* gimple-parser.c (c_parser_gimple_statement): Handle __BIT_INSERT.
+	(c_parser_gimple_unary_expression): Likewise.
+
+2019-05-15  Richard Biener  <rguenther@suse.de>
+
+	* gimple-parser.c (c_parser_gimple_postfix_expression): Handle
+	__BIT_FIELD_REF.
+
+2019-05-14  Richard Biener  <rguenther@suse.de>
+
+	* gimple-parser.c (c_parser_gimple_statement): Remove
+	questionable auto-promotion to VIEW_CONVERT_EXPR.
+	(c_parser_gimple_typespec): Split out from __MEM parsing.
+	(c_parser_gimple_postfix_expression): Handle __VIEW_CONVERT.
+	* tree-pretty-print.c (dump_generic_node): Dump VIEW_CONVERT_EXPR
+	as __VIEW_CONVERT with -gimple.
+
+2019-05-09  Martin Liska  <mliska@suse.cz>
+
+	* gimple-parser.c (c_parser_gimple_statement): Support __MIN and
+	__MAX.
+	(c_parser_gimple_unary_expression): Parse also binary expression
+	__MIN and __MAX.
+	(c_parser_gimple_parentized_binary_expression): New function.
+
+2019-05-09  Martin Liska  <mliska@suse.cz>
+
+	* gimple-parser.c (struct gimple_parser): Add probability.
+	for gimple_parser_edge.
+	(gimple_parser::push_edge): Add new argument probability.
+	(c_parser_gimple_parse_bb_spec): Parse also probability
+	if present.
+	(c_parser_parse_gimple_body): Set edge probability.
+	(c_parser_gimple_compound_statement): Consume token
+	before calling c_parser_gimple_goto_stmt.
+	Parse BB counts.
+	(c_parser_gimple_statement): Pass new argument.
+	(c_parser_gimple_goto_stmt): Likewise.
+	(c_parser_gimple_if_stmt): Likewise.
+	(c_parser_gimple_or_rtl_pass_list): Parse hot_bb_threshold.
+	* c-parser.c (c_parser_declaration_or_fndef): Pass
+	hot_bb_threshold argument.
+	* c-tree.h (struct c_declspecs): Add hot_bb_threshold
+	field.
+	(c_parser_gimple_parse_bb_spec_edge_probability): New.
+
+2019-04-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/90197
+	* c-tree.h (c_finish_loop): Add 2 further location_t arguments.
+	* c-parser.c (c_parser_while_statement): Adjust c_finish_loop caller.
+	(c_parser_do_statement): Likewise.
+	(c_parser_for_statement): Likewise.  Formatting fixes.
+	* c-typeck.c (c_finish_loop): Add COND_LOCUS and INCR_LOCUS arguments,
+	emit DEBUG_BEGIN_STMTs if needed.
+
+2019-04-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/89888
+	* c-typeck.c (struct c_switch): Remove outside_range_p member.
+	(c_start_case): Don't clear it.
+	(do_case): Adjust c_add_case_label caller.
+	(c_finish_case): Adjust c_do_switch_warnings caller.
+
+	PR c++/90108
+	* c-decl.c (merge_decls): If remove is main variant and
+	DECL_ORIGINAL_TYPE is some other type, remove a DECL_ORIGINAL_TYPE
+	variant that has newdecl as TYPE_NAME if any.
+
+2019-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/89933
+	* c-decl.c (merge_decls): When newdecl's type is its main variant,
+	don't try to remove it from the variant list, but instead assert
+	it has no variants.
+
+2019-04-01  Richard Biener  <rguenther@suse.de>
+
+	PR c/71598
+	* c-tree.h (c_get_alias_set): Declare.
+	* c-objc-common.h (LANG_HOOKS_GET_ALIAS_SET): Use c_get_alias_set.
+	* c-objc-common.c (c_get_alias_set): Treat enumeral types
+	as the underlying integer type.
+
+2019-03-19  Martin Sebor  <msebor@redhat.com>
+
+	PR tree-optimization/89688
+	* c-decl.c (finish_decl): Call braced_lists_to_string for more
+	kinds of initializers.
+
+2019-03-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/89734
+	* c-decl.c (grokdeclarator): Call c_build_qualified_type on function
+	return type even if quals_used is 0.  Formatting fixes.
+
+2019-03-14  Richard Biener  <rguenther@suse.de>
+
+	* c-tree.h (enum c_declspec_il): New.
+	(struct c_declspecs): Merge gimple_p and rtl_p into declspec_il
+	enum bitfield.
+	* c-parser.c (c_parser_declaration_or_fndef): Adjust accordingly.
+	Pass start pass and declspec_il to c_parser_parse_gimple_body.
+	(c_parser_declspecs): Adjust.
+	* gimple-parser.c: Include cfg.h, cfghooks.h, cfganal.h, tree-cfg.h,
+	gimple-iterator.h, cfgloop.h, tree-phinodes.h, tree-into-ssa.h
+	and bitmap.h.
+	(struct gimple_parser): New.
+	(gimple_parser::push_edge): New method.
+	(c_parser_gimple_parse_bb_spec): New helper.
+	(c_parser_parse_gimple_body): Get start pass and IL specification.
+	Initialize SSA and CFG.
+	(c_parser_gimple_compound_statement): Handle CFG and SSA build.
+	Build a gimple_parser parsing state and pass it along.
+	(c_parser_gimple_statement): Change intermittend __PHI internal
+	function argument for the edge.
+	(c_parser_gimple_or_rtl_pass_list): Handle ssa, cfg flags.
+	(c_parser_gimple_goto_stmt): Record edges to build.
+	(c_parser_gimple_if_stmt): Likewise.
+	* gimple-parser.h (c_parser_parse_gimple_body): Adjust.
+	(c_parser_gimple_or_rtl_pass_list): Likewise.
+
+2019-03-11  Martin Liska  <mliska@suse.cz>
+
+	* c-decl.c (check_for_loop_decls): Wrap an option name
+	in a string format message and fix GNU coding style.
+	* c-parser.c (c_parser_declspecs): Likewise.
+
+2019-03-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/89550
+	* c-decl.c (finish_function): Only set TREE_NO_WARNING if warning_at
+	returned true.
+	(c_write_global_declarations_1): Only set TREE_NO_WARNING if pedwarn
+	or warning returned true.
+
+2019-02-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/89525
+	* c-typeck.c (convert_arguments): Call inform_declaration only if
+	the previous warning_at call returned true.
+
+2019-02-22  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-parser.c (c_parser_oacc_shape_clause): Add loc formal
+	parameter.  Adjust all users.
+	(c_parser_oacc_simple_clause): Replace parser with loc formal
+	parameter.  Adjust all users.
+
+2019-02-19  Chung-Lin Tang <cltang@codesourcery.com>
+
+	PR c/87924
+	* c-parser.c (c_parser_oacc_clause_wait): Add representation of wait
+	clause without argument as 'wait (GOMP_ASYNC_NOVAL)', adjust comments.
+
+2019-02-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/89340
+	* c-decl.c (start_function): Clear TREE_PUBLIC on nested functions
+	before c_decl_attributes rather than after it.
+
+2019-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/89211
+	* c-parser.c (c_parser_declaration_or_fndef): Don't update
+	DECL_ARGUMENTS of d if it has been defined already.  Use a single if
+	instead of 3 nested ifs.
+
+2019-02-06  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/88584
+	* c-decl.c (finish_decl): Do not complete array types for arrays
+	with external linkage not at file scope.
+
+2019-02-05  Richard Biener  <rguenther@suse.de>
+
+	PR c/88606
+	* c-decl.c (finish_struct): Reset TYPE_TRANSPARENT_AGGR on
+	all type variants when not supported.
+
+2019-01-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/89061
+	* c-tree.h (C_DECL_COMPOUND_LITERAL_P): Define.
+	* c-decl.c (decl_jump_unsafe): Return false for
+	C_DECL_COMPOUND_LITERAL_P decls.
+	(build_compound_literal): Set C_DECL_COMPOUND_LITERAL_P.
+
+2019-01-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/89045
+	* c-decl.c (build_compound_literal): Don't pushdecl if in parameter
+	scope.
+
+	PR c/86125
+	* c-decl.c (last_fileptr_type): Remove.
+	(last_structptr_types): New variable.
+	(match_builtin_function_types): Compare TYPE_MAIN_VARIANT of
+	{old,new}rettype instead of the types themselves.  Assert
+	last_structptr_types array has the same number of elements
+	as builtin_structptr_types array.  Use TYPE_MAIN_VARIANT for
+	argument oldtype and newtype.  Instead of handling
+	just fileptr_type_node specially, handle all builtin_structptr_types
+	pointer nodes.  Formatting fix.
+
+2019-01-24  Martin Sebor  <msebor@redhat.com>
+
+	PR c/86125
+	PR c/88886
+	PR middle-end/86308
+	* c-decl.c (match_builtin_function_types): Add arguments.
+	(diagnose_mismatched_decls): Diagnose mismatched declarations
+	of built-ins more strictly.
+
+2019-01-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/88976
+	* c-typeck.c (c_finish_omp_cancel): Diagnose more than one if
+	on #pragma omp cancel with different modifiers.
+
+2019-01-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c/51628
+	PR c/88664
+	* c-typeck.c (convert_for_assignment): Upate the
+	warn_for_address_or_pointer_of_packed_member call.
+
+2019-01-16  Tom Honermann  <tom@honermann.net>
+	    Jason Merrill  <jason@redhat.com>
+
+	* c-typeck.c (digest_init): Revised the error message produced for
+	ill-formed cases of array initialization with a string literal.
+	(error_init): Make variadic.
+
+2019-01-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-typeck.c (convert_for_assignment): Fix a comment typo.
+
+2019-01-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/88701
+	* c-decl.c (build_compound_literal): If not TREE_STATIC, only pushdecl
+	if current_function_decl is non-NULL.
+
+2019-01-07  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/88720
+	PR c/88726
+	* c-decl.c (pop_scope): Use TREE_PUBLIC and b->nested to determine
+	whether a function is nested, not DECL_EXTERNAL.  Diagnose inline
+	functions declared but never defined only for external scope, not
+	for other scopes.
+
 2019-01-07  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/85052

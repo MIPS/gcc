@@ -49,6 +49,13 @@
   (and (match_code "reg")
        (match_test "MMX_REGNO_P (REGNO (op))")))
 
+;; Match register operands, but include memory operands for
+;; !TARGET_MMX_WITH_SSE.
+(define_predicate "register_mmxmem_operand"
+  (ior (match_operand 0 "register_operand")
+       (and (not (match_test "TARGET_MMX_WITH_SSE"))
+	    (match_operand 0 "memory_operand"))))
+
 ;; True if the operand is an SSE register.
 (define_predicate "sse_reg_operand"
   (and (match_code "reg")
@@ -182,7 +189,7 @@
 	  rtx op1 = XEXP (XEXP (op, 0), 0);
 	  rtx op2 = XEXP (XEXP (op, 0), 1);
 
-	  if (ix86_cmodel == CM_LARGE)
+	  if (ix86_cmodel == CM_LARGE && GET_CODE (op1) != UNSPEC)
 	    return false;
 	  if (!CONST_INT_P (op2))
 	    return false;
@@ -1396,9 +1403,6 @@
 
 (define_predicate "compare_operator"
   (match_code "compare"))
-
-(define_predicate "absneg_operator"
-  (match_code "abs,neg"))
 
 ;; Return true if OP is a memory operand, aligned to
 ;; less than its natural alignment.

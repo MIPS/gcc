@@ -39,6 +39,13 @@ along with GCC; see the file COPYING3.  If not see
 # include <sys/ioctl.h>
 #endif
 
+/* Disable warnings about quoting issues in the pp_xxx calls below
+   that (intentionally) don't follow GCC diagnostic conventions.  */
+#if __GNUC__ >= 10
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wformat-diag"
+#endif
+
 /* Classes for rendering source code and diagnostics, within an
    anonymous namespace.
    The work is done by "class layout", which embeds and uses
@@ -1211,7 +1218,8 @@ layout::calculate_line_spans ()
       const line_span *next = &tmp_spans[i];
       gcc_assert (next->m_first_line >= current->m_first_line);
       const int merger_distance = m_show_line_numbers_p ? 1 : 0;
-      if (next->m_first_line <= current->m_last_line + 1 + merger_distance)
+      if ((linenum_arith_t)next->m_first_line
+	  <= (linenum_arith_t)current->m_last_line + 1 + merger_distance)
 	{
 	  /* We can merge them. */
 	  if (next->m_last_line > current->m_last_line)
@@ -2301,8 +2309,10 @@ diagnostic_show_locus (diagnostic_context * context,
 	      context->start_span (context, exploc);
 	    }
 	}
-      linenum_type last_line = line_span->get_last_line ();
-      for (linenum_type row = line_span->get_first_line ();
+      /* Iterate over the lines within this span (using linenum_arith_t to
+	 avoid overflow with 0xffffffff causing an infinite loop).  */
+      linenum_arith_t last_line = line_span->get_last_line ();
+      for (linenum_arith_t row = line_span->get_first_line ();
 	   row <= last_line; row++)
 	layout.print_line (row);
     }
@@ -3737,3 +3747,7 @@ diagnostic_show_locus_c_tests ()
 } // namespace selftest
 
 #endif /* #if CHECKING_P */
+
+#if __GNUC__ >= 10
+#  pragma GCC diagnostic pop
+#endif

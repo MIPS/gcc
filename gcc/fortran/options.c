@@ -74,6 +74,8 @@ set_dec_flags (int value)
   SET_BITFLAG (flag_dec_static, value, value);
   SET_BITFLAG (flag_dec_math, value, value);
   SET_BITFLAG (flag_dec_include, value, value);
+  SET_BITFLAG (flag_dec_format_defaults, value, value);
+  SET_BITFLAG (flag_dec_blank_format_item, value, value);
 }
 
 /* Finalize DEC flags.  */
@@ -263,7 +265,7 @@ gfc_post_options (const char **pfilename)
   /* Excess precision other than "fast" requires front-end
      support.  */
   if (flag_excess_precision_cmdline == EXCESS_PRECISION_STANDARD)
-    sorry ("-fexcess-precision=standard for Fortran");
+    sorry ("%<-fexcess-precision=standard%> for Fortran");
   flag_excess_precision_cmdline = EXCESS_PRECISION_FAST;
 
   /* Fortran allows associative math - but we cannot reassociate if
@@ -708,7 +710,7 @@ gfc_handle_option (size_t scode, const char *arg, HOST_WIDE_INT value,
 
     case OPT_finit_integer_:
       gfc_option.flag_init_integer = GFC_INIT_INTEGER_ON;
-      gfc_option.flag_init_integer_value = atoi (arg);
+      gfc_option.flag_init_integer_value = strtol (arg, NULL, 10);
       break;
 
     case OPT_finit_character_:

@@ -396,7 +396,7 @@ typedef struct _loop_vec_info : public vec_info {
   /* Condition under which this loop is analyzed and versioned.  */
   tree num_iters_assumptions;
 
-  /* Threshold of number of iterations below which vectorzation will not be
+  /* Threshold of number of iterations below which vectorization will not be
      performed. It is calculated from MIN_PROFITABLE_ITERS and
      PARAM_MIN_VECT_LOOP_BOUND.  */
   unsigned int th;
@@ -427,6 +427,17 @@ typedef struct _loop_vec_info : public vec_info {
   /* Type of the variables to use in the WHILE_ULT call for fully-masked
      loops.  */
   tree mask_compare_type;
+
+  /* For #pragma omp simd if (x) loops the x expression.  If constant 0,
+     the loop should not be vectorized, if constant non-zero, simd_if_cond
+     shouldn't be set and loop vectorized normally, if SSA_NAME, the loop
+     should be versioned on that condition, using scalar loop if the condition
+     is false and vectorized loop otherwise.  */
+  tree simd_if_cond;
+
+  /* Type of the IV to use in the WHILE_ULT call for fully-masked
+     loops.  */
+  tree iv_type;
 
   /* Unknown DRs according to which loop was peeled.  */
   struct dr_vec_info *unaligned_dr;
@@ -479,6 +490,10 @@ typedef struct _loop_vec_info : public vec_info {
 
   /* Map of IV base/step expressions to inserted name in the preheader.  */
   hash_map<tree_operand_hash, tree> *ivexpr_map;
+
+  /* Map of OpenMP "omp simd array" scan variables to corresponding
+     rhs of the store of the initializer.  */
+  hash_map<tree, tree> *scan_map;
 
   /* The unrolling factor needed to SLP the loop. In case of that pure SLP is
      applied to the loop, i.e., no unrolling is needed, this is 1.  */
@@ -563,6 +578,7 @@ typedef struct _loop_vec_info : public vec_info {
 #define LOOP_VINFO_MASKS(L)                (L)->masks
 #define LOOP_VINFO_MASK_SKIP_NITERS(L)     (L)->mask_skip_niters
 #define LOOP_VINFO_MASK_COMPARE_TYPE(L)    (L)->mask_compare_type
+#define LOOP_VINFO_MASK_IV_TYPE(L)         (L)->iv_type
 #define LOOP_VINFO_PTR_MASK(L)             (L)->ptr_mask
 #define LOOP_VINFO_LOOP_NEST(L)            (L)->shared->loop_nest
 #define LOOP_VINFO_DATAREFS(L)             (L)->shared->datarefs
@@ -591,6 +607,7 @@ typedef struct _loop_vec_info : public vec_info {
 #define LOOP_VINFO_SCALAR_ITERATION_COST(L) (L)->scalar_cost_vec
 #define LOOP_VINFO_SINGLE_SCALAR_ITERATION_COST(L) (L)->single_scalar_iteration_cost
 #define LOOP_VINFO_ORIG_LOOP_INFO(L)       (L)->orig_loop_info
+#define LOOP_VINFO_SIMD_IF_COND(L)         (L)->simd_if_cond
 
 #define LOOP_REQUIRES_VERSIONING_FOR_ALIGNMENT(L)	\
   ((L)->may_misalign_stmts.length () > 0)
@@ -600,10 +617,13 @@ typedef struct _loop_vec_info : public vec_info {
    || (L)->lower_bounds.length () > 0)
 #define LOOP_REQUIRES_VERSIONING_FOR_NITERS(L)		\
   (LOOP_VINFO_NITERS_ASSUMPTIONS (L))
+#define LOOP_REQUIRES_VERSIONING_FOR_SIMD_IF_COND(L)	\
+  (LOOP_VINFO_SIMD_IF_COND (L))
 #define LOOP_REQUIRES_VERSIONING(L)			\
   (LOOP_REQUIRES_VERSIONING_FOR_ALIGNMENT (L)		\
    || LOOP_REQUIRES_VERSIONING_FOR_ALIAS (L)		\
-   || LOOP_REQUIRES_VERSIONING_FOR_NITERS (L))
+   || LOOP_REQUIRES_VERSIONING_FOR_NITERS (L)		\
+   || LOOP_REQUIRES_VERSIONING_FOR_SIMD_IF_COND (L))
 
 #define LOOP_VINFO_NITERS_KNOWN_P(L)          \
   (tree_fits_shwi_p ((L)->num_iters) && tree_to_shwi ((L)->num_iters) > 0)
@@ -872,9 +892,6 @@ struct _stmt_vec_info {
   stmt_vec_info first_element;
   /* Pointer to the next element in the group.  */
   stmt_vec_info next_element;
-  /* For data-refs, in case that two or more stmts share data-ref, this is the
-     pointer to the previously detected stmt with the same dr.  */
-  stmt_vec_info same_dr_stmt;
   /* The size of the group.  */
   unsigned int size;
   /* For stores, number of stores from this group seen. We vectorize the last
@@ -900,7 +917,7 @@ struct _stmt_vec_info {
   bool strided_p;
 
   /* For both loads and stores.  */
-  bool simd_lane_access_p;
+  unsigned simd_lane_access_p : 3;
 
   /* Classifies how the load or store is going to be implemented
      for loop vectorization.  */
@@ -938,6 +955,9 @@ struct _stmt_vec_info {
      and OPERATION_BITS without changing the result.  */
   unsigned int operation_precision;
   signop operation_sign;
+
+  /* True if this is only suitable for SLP vectorization.  */
+  bool slp_vect_only_p;
 };
 
 /* Information about a gather/scatter call.  */
@@ -1033,6 +1053,7 @@ STMT_VINFO_BB_VINFO (stmt_vec_info stmt_vinfo)
 #define STMT_VINFO_NUM_SLP_USES(S)	(S)->num_slp_uses
 #define STMT_VINFO_REDUC_TYPE(S)	(S)->reduc_type
 #define STMT_VINFO_REDUC_DEF(S)		(S)->reduc_def
+#define STMT_VINFO_SLP_VECT_ONLY(S)     (S)->slp_vect_only_p
 
 #define DR_GROUP_FIRST_ELEMENT(S) \
   (gcc_checking_assert ((S)->dr_aux.dr), (S)->first_element)
@@ -1044,8 +1065,6 @@ STMT_VINFO_BB_VINFO (stmt_vec_info stmt_vinfo)
   (gcc_checking_assert ((S)->dr_aux.dr), (S)->store_count)
 #define DR_GROUP_GAP(S) \
   (gcc_checking_assert ((S)->dr_aux.dr), (S)->gap)
-#define DR_GROUP_SAME_DR_STMT(S) \
-  (gcc_checking_assert ((S)->dr_aux.dr), (S)->same_dr_stmt)
 
 #define REDUC_GROUP_FIRST_ELEMENT(S) \
   (gcc_checking_assert (!(S)->dr_aux.dr), (S)->first_element)
@@ -1420,6 +1439,24 @@ extern dump_user_location_t vect_location;
 #define DUMP_VECT_SCOPE(MSG) \
   AUTO_DUMP_SCOPE (MSG, vect_location)
 
+/* A sentinel class for ensuring that the "vect_location" global gets
+   reset at the end of a scope.
+
+   The "vect_location" global is used during dumping and contains a
+   location_t, which could contain references to a tree block via the
+   ad-hoc data.  This data is used for tracking inlining information,
+   but it's not a GC root; it's simply assumed that such locations never
+   get accessed if the blocks are optimized away.
+
+   Hence we need to ensure that such locations are purged at the end
+   of any operations using them (e.g. via this class).  */
+
+class auto_purge_vect_location
+{
+ public:
+  ~auto_purge_vect_location ();
+};
+
 /*-----------------------------------------------------------------*/
 /* Function prototypes.                                            */
 /*-----------------------------------------------------------------*/
@@ -1431,8 +1468,8 @@ extern void vect_set_loop_condition (struct loop *, loop_vec_info,
 extern bool slpeel_can_duplicate_loop_p (const struct loop *, const_edge);
 struct loop *slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *,
 						     struct loop *, edge);
-extern void vect_loop_versioning (loop_vec_info, unsigned int, bool,
-				  poly_uint64);
+struct loop *vect_loop_versioning (loop_vec_info, unsigned int, bool,
+				   poly_uint64);
 extern struct loop *vect_do_peeling (loop_vec_info, tree, tree,
 				     tree *, tree *, tree *, int, bool, bool);
 extern void vect_prepare_for_masked_peels (loop_vec_info);
@@ -1554,6 +1591,7 @@ extern tree vect_create_addr_base_for_vector_ref (stmt_vec_info, gimple_seq *,
 /* FORNOW: Used in tree-parloops.c.  */
 extern stmt_vec_info vect_force_simple_reduction (loop_vec_info, stmt_vec_info,
 						  bool *, bool);
+extern widest_int vect_iv_limit_for_full_masking (loop_vec_info loop_vinfo);
 /* Used in gimple-loop-interchange.c.  */
 extern bool check_reduction_path (dump_user_location_t, loop_p, gphi *, tree,
 				  enum tree_code);
@@ -1622,5 +1660,7 @@ void vect_pattern_recog (vec_info *);
 /* In tree-vectorizer.c.  */
 unsigned vectorize_loops (void);
 void vect_free_loop_info_assumptions (struct loop *);
+gimple *vect_loop_vectorized_call (struct loop *, gcond **cond = NULL);
+
 
 #endif  /* GCC_TREE_VECTORIZER_H  */

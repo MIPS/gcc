@@ -1894,15 +1894,45 @@ of @code{CALL_USED_REGISTERS}.
 @cindex call-used register
 @cindex call-clobbered register
 @cindex call-saved register
-@deftypefn {Target Hook} bool TARGET_HARD_REGNO_CALL_PART_CLOBBERED (unsigned int @var{regno}, machine_mode @var{mode})
+@deftypefn {Target Hook} bool TARGET_HARD_REGNO_CALL_PART_CLOBBERED (rtx_insn *@var{insn}, unsigned int @var{regno}, machine_mode @var{mode})
 This hook should return true if @var{regno} is partly call-saved and
 partly call-clobbered, and if a value of mode @var{mode} would be partly
-clobbered by a call.  For example, if the low 32 bits of @var{regno} are
-preserved across a call but higher bits are clobbered, this hook should
-return true for a 64-bit mode but false for a 32-bit mode.
+clobbered by call instruction @var{insn}.  If @var{insn} is NULL then it
+should return true if any call could partly clobber the register.
+For example, if the low 32 bits of @var{regno} are preserved across a call
+but higher bits are clobbered, this hook should return true for a 64-bit
+mode but false for a 32-bit mode.
 
 The default implementation returns false, which is correct
 for targets that don't have partly call-clobbered registers.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_REMOVE_EXTRA_CALL_PRESERVED_REGS (rtx_insn *@var{insn}, HARD_REG_SET *@var{used_regs})
+This hook removes registers from the set of call-clobbered registers
+ in @var{used_regs} if, contrary to the default rules, something guarantees
+ that @samp{insn} preserves those registers.  For example, some targets
+ support variant ABIs in which functions preserve more registers than
+ normal functions would.  Removing those extra registers from @var{used_regs}
+ can lead to better register allocation.
+ 
+ The default implementation does nothing, which is always safe.
+ Defining the hook is purely an optimization.
+@end deftypefn
+
+@deftypefn {Target Hook} {rtx_insn *} TARGET_RETURN_CALL_WITH_MAX_CLOBBERS (rtx_insn *@var{call_1}, rtx_insn *@var{call_2})
+This hook returns a pointer to the call that partially clobbers the
+most registers.  If a platform supports multiple ABIs where the registers
+that are partially clobbered may vary, this function compares two
+calls and returns a pointer to the one that clobbers the most registers.
+If both calls clobber the same registers, @var{call_1} must be returned.
+
+The registers clobbered in different ABIs must be a proper subset or
+superset of all other ABIs.  @var{call_1} must always be a call insn,
+call_2 may be NULL or a call insn.
+@end deftypefn
+
+@deftypefn {Target Hook} {const char *} TARGET_GET_MULTILIB_ABI_NAME (void)
+This hook returns name of multilib ABI name.
 @end deftypefn
 
 @findex fixed_regs
@@ -4960,7 +4990,7 @@ or @code{NULL} if this is an indirect call.
 It is not uncommon for limitations of calling conventions to prevent
 tail calls to functions outside the current unit of translation, or
 during PIC compilation.  The hook is used to enforce these restrictions,
-as the @code{sibcall} md pattern can not fail, or fall over to a
+as the @code{sibcall} md pattern cannot fail, or fall over to a
 ``normal'' call.  The criteria for successful sibling call optimization
 may vary greatly between different architectures.
 @end deftypefn
@@ -5564,6 +5594,11 @@ This hook determines whether a function from a class of functions
 @var{fn_class} is present at the runtime.
 @end deftypefn
 
+@deftypefn {Target Hook} bool TARGET_LIBC_HAS_FAST_FUNCTION (int @var{fcode})
+This hook determines whether a function from a class of functions
+@var{fn_class} has a fast implementation.
+@end deftypefn
+
 @defmac NEXT_OBJC_RUNTIME
 Set this macro to 1 to use the "NeXT" Objective-C message sending conventions
 by default.  This calling convention involves passing the object, the selector
@@ -5986,11 +6021,13 @@ against lower halves of vectors recursively until the specified mode is
 reached.  The default is @var{mode} which means no splitting.
 @end deftypefn
 
-@deftypefn {Target Hook} void TARGET_VECTORIZE_AUTOVECTORIZE_VECTOR_SIZES (vector_sizes *@var{sizes})
+@deftypefn {Target Hook} void TARGET_VECTORIZE_AUTOVECTORIZE_VECTOR_SIZES (vector_sizes *@var{sizes}, bool @var{all})
 If the mode returned by @code{TARGET_VECTORIZE_PREFERRED_SIMD_MODE} is not
 the only one that is worth considering, this hook should add all suitable
 vector sizes to @var{sizes}, in order of decreasing preference.  The first
 one should be the size of @code{TARGET_VECTORIZE_PREFERRED_SIMD_MODE}.
+If @var{all} is true, add suitable vector sizes even when they are generally
+not expected to be worthwhile.
 
 The hook does not need to do anything if the vector returned by
 @code{TARGET_VECTORIZE_PREFERRED_SIMD_MODE} is the only one relevant
@@ -6071,7 +6108,7 @@ to use it.
 Return number of threads in SIMT thread group on the target.
 @end deftypefn
 
-@deftypefn {Target Hook} bool TARGET_GOACC_VALIDATE_DIMS (tree @var{decl}, int *@var{dims}, int @var{fn_level})
+@deftypefn {Target Hook} bool TARGET_GOACC_VALIDATE_DIMS (tree @var{decl}, int *@var{dims}, int @var{fn_level}, unsigned @var{used})
 This hook should check the launch dimensions provided for an OpenACC
 compute region, or routine.  Defaulted values are represented as -1
 and non-constant values as 0.  The @var{fn_level} is negative for the
@@ -6624,7 +6661,7 @@ two areas of memory, or to set, clear or store to memory, for example
 when copying a @code{struct}. The @code{by_pieces} infrastructure
 implements such memory operations as a sequence of load, store or move
 insns.  Alternate strategies are to expand the
-@code{movmem} or @code{setmem} optabs, to emit a library call, or to emit
+@code{cpymem} or @code{setmem} optabs, to emit a library call, or to emit
 unit-by-unit, loop-based operations.
 
 This target hook should return true if, for a memory operation with a
@@ -6643,7 +6680,7 @@ optimized for speed rather than size.
 
 Returning true for higher values of @var{size} can improve code generation
 for speed if the target does not provide an implementation of the
-@code{movmem} or @code{setmem} standard names, if the @code{movmem} or
+@code{cpymem} or @code{setmem} standard names, if the @code{cpymem} or
 @code{setmem} implementation would be more expensive than a sequence of
 insns, or if the overhead of a library call would dominate that of
 the body of the memory operation.
@@ -11571,6 +11608,14 @@ This hook is used to generate the dispatcher logic to invoke the right
 function version at run-time for a given set of function versions.
 @var{arg} points to the callgraph node of the dispatcher function whose
 body must be generated.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_PREDICT_DOLOOP_P (struct loop *@var{loop})
+Return true if we can predict it is possible to use a low-overhead loop
+for a particular loop.  The parameter @var{loop} is a pointer to the loop.
+This target hook is required only when the target supports low-overhead
+loops, and will help ivopts to make some decisions.
+The default version of this hook returns false.
 @end deftypefn
 
 @deftypefn {Target Hook} bool TARGET_CAN_USE_DOLOOP_P (const widest_int @var{&iterations}, const widest_int @var{&iterations_max}, unsigned int @var{loop_depth}, bool @var{entered_at_top})
