@@ -1,5 +1,4 @@
-// { dg-do compile }
-// { dg-options "-std=c++2a" }
+// { dg-do compile { target c++2a } }
 
 // A poor mans Integral concept.
 template<typename T>
@@ -12,7 +11,7 @@ template<typename... Args>
 concept UnaryPack = (sizeof...(Args) == 1);
 
 template<typename... Args>
-  requires Integral<Args...> // { dg-error "pack expansion argument" }
+  requires Integral<Args...> // { dg-error "too many arguments" }
 void f1();
 
 template<typename... Args>
@@ -27,14 +26,13 @@ template<Integral... Args>
 void f4() { }
 
 // FIXME: This syntax is likely to be made invalid.
-template<Nonnegative... Args>
+template<Nonnegative... Args> // { dg-error "does not constrain a type" }
 void f5() { }
 
-template<UnaryPack Args> // { dg-error "variadic constraint" }
+template<UnaryPack Arg> // requires UnaryPack<Arg>
 void f6() { }
 
-// FIXME: This syntax is likely to be made invalid.
-template<UnaryPack... Args>
+template<UnaryPack... Args> // requires (... && UnaryPack<Args>)
 void f7() { }
 
 void driver()
@@ -44,8 +42,6 @@ void driver()
   f3<int, void>(); // { dg-error "cannot call function" }
   f4<int, int>();
   f4<int, void>(); // { dg-error "cannot call function" }
-  f5<0, 1, 2, 3>();
-  f5<1, 0, -1>(); // { dg-error "cannot call function" }
   f7<int>();
-  f7<int, int>(); // { dg-error "cannot call function" }
+  f7<int, int>();
 }

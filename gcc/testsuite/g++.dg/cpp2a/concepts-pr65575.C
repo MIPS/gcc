@@ -1,5 +1,6 @@
-// { dg-do compile { target c++17 } }
-// { dg-options "-fconcepts" }
+// PR c++/65575
+// { dg-do compile { target c++17_only } }
+// { dg-additional-options "-fconcepts" }
 
 template<typename T>
 concept bool C = false;
@@ -11,11 +12,9 @@ auto f4() -> int& requires false;
 auto f5() -> int* requires false;
 auto f6() -> int requires false;
 
-int (*p)() requires true; // { dg-error "" }
-int (&p)() requires true; // { dg-error "" }
+int (*p1)() requires true; // { dg-error "" }
+int (&p2)() requires true; // { dg-error "" }
 int g(int (*)() requires true); // { dg-error "" }
-
-int f() { return 0; }
 
 int
 main()

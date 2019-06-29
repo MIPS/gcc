@@ -1,7 +1,7 @@
+// { dg-do compile { target c++2a } }
 // { dg-final { scan-assembler "_Z1gI1XEvT_" } }
 // { dg-final { scan-assembler "_Z1gI1YEvT_" } }
 // { dg-final { scan-assembler "_Z1gIiEvT_" } }
-// { dg-options "-std=c++2a" }
 
 template<typename T>
   concept C = __is_class(T);

@@ -1,5 +1,4 @@
-// { dg-do run }
-// { dg-options "-std=c++2a" }
+// { dg-do run { target c++2a } }
 
 #include <cassert>
 

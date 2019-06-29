@@ -1,16 +1,16 @@
-// needs port; no clear match
+// { dg-do run { target c++17_only } }
+// { dg-options "-fconcepts" }
+
 // TODO: ICE on gimplify 16?
-// { dg-do run }
-// { dg-options "-std=c++2a" }
 
 #include <cassert>
 #include <iostream>
 
 template<typename T>
-  concept C1 = __is_class(T);
+  concept bool C1 = __is_class(T);
 
 template<typename T>
-  concept C3 = requires (T a) { ++a; };
+  concept bool C3 = requires (T a) { ++a; };
 
 int main() {
   if (C1<int>) assert(false);

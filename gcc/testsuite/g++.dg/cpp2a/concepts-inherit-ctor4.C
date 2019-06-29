@@ -1,4 +1,4 @@
-// { dg-options "-std=c++2a" }
+// { dg-do compile { target c++2a } }
 
 template<typename T>
   concept C = __is_class(T);
@@ -10,9 +10,9 @@ template<typename T>
 
 template<typename T>
   struct S2 : S1<T> {
-    using S1<T>::S1;
+    using S1<T>::S1; // { dg-error "no matching function" }
   };
 
 int main() {
-  S2<int> s(0); // { dg-error "no matching function" }
+  S2<int> s(0); // { dg-error "use of deleted function" }
 }

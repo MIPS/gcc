@@ -1,12 +1,12 @@
 // PR c++/67138
-// { dg-options "-std=c++2a" }
+// { dg-do compile { target c++2a } }
 
 template <class T>
-concept _Auto = true;
+concept Auto = true;
 
-template <_Auto T>
+template <Auto T>
 struct test {};
 
-template <_Auto T>
+template <Auto T>
   requires requires (T t) { t + t; }
 struct test<T> {};

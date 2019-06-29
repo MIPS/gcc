@@ -1,5 +1,5 @@
-// needs port; no tests where parent type is constrained
-// { dg-options "-std=c++17 -fconcepts" }
+// { dg-do compile { target c++17_only } }
+// { dg-options "-fconcepts" }
 
 template<typename T>
   concept bool C() { return __is_class(T); }
@@ -11,12 +11,13 @@ template<typename T>
   };
 
 template<typename T>
-  struct S2 : S1<T> {
-    using S1<T>::S1;
+  struct S2 : S1<T> { // { dg-error "no matching function" }
+    using S1<T>::S1; // { dg-error "no matching function" }
   };
 
 struct X { } x;
 
 int main() {
-  S2<X> s(0);
+  S2<X> s1(0); // { dg-error "use of deleted function" }
+  S2<X> s2; // { dg-error "use of deleted function" }
 }

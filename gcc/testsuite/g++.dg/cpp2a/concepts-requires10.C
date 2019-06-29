@@ -1,6 +1,5 @@
 // PR c++/66988
-// { dg-do compile }
-// { dg-options "-std=c++2a" }
+// { dg-do compile { target c++2a } }
 
 template<bool B>
 struct bool_constant {

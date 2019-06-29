@@ -1,6 +1,6 @@
 // PR c++/67084
 // { dg-do compile { target c++17 } }
-// { dg-options "-fconcepts" }
+// { dg-additional-options "-fconcepts" }
 
 template <class T>
 constexpr bool p = false;
@@ -13,7 +13,7 @@ template <class T>
 constexpr bool p<T*> = false;
 
 template <class T>
-  requires true && T() == 0
+  requires true && (T() == 0)
 constexpr bool p<T*> = true;
 
 template <class T>
@@ -27,7 +27,7 @@ template <class T>
 constexpr bool q<T*> = false;
 
 template <class T>
-  requires false && T() != 0
+  requires false && (T() != 0)
 constexpr bool q<T*> = false;
 
 static_assert (p<int*>,"");

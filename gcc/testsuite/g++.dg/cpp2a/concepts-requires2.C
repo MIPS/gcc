@@ -1,5 +1,4 @@
-// { dg-do compile }
-// { dg-options "-std=c++2a" }
+// { dg-do compile { target c++2a } }
 
 // Test the types of atomic constraints
 

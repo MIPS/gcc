@@ -1,7 +1,7 @@
-// { dg-do compile { target c++14 } }
-// { dg-additional-options "-fconcepts" }
+// { dg-do compile { target c++17_only } }
+// { dg-options "-fconcepts" }
 
 template<template<typename> class T>
 concept bool C = true;
 
-C c = 1;  // { dg-error "does not designate a type|does not name a type" }
+C c = 1;  // { dg-error "does not constrain a type" }

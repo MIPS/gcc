@@ -1,4 +1,4 @@
-// { dg-do compile { target c++17 } }
+// { dg-do compile { target c++17_only } }
 // { dg-options "-fconcepts" }
 
 typedef concept int CINT; // { dg-error "'concept' cannot appear in a typedef declaration" }

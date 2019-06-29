@@ -1,5 +1,4 @@
-// { dg-do compile }
-// { dg-options "-std=c++2a" }
+// { dg-do compile { target c++2a } }
 
 template<typename T>
 concept Class = __is_class(T);
@@ -42,7 +41,7 @@ S1<1> x0; // { dg-error "template constraint failure|does not have type" }
 
 // We want to diagnose the syntax error (N == 0 must be in parens). Don't
 // diagnose constraint errors during parsing.
-template<int N> requires N == 0 struct S2 { }; // { dg-error "expected unqualified-id" }
+template<int N> requires N == 0 struct S2 { }; // { dg-error "expected unqualified-id|extra" }
 
 template<int N> requires (N == 0) struct S3 { }; // OK
 

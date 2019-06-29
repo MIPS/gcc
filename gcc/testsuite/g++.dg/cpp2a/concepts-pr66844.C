@@ -1,5 +1,5 @@
 // PR c++/66844
-// { dg-options "-std=c++2a" }
+// { dg-do compile { target c++2a } }
 
 template <class T, class U>
 concept Same = __is_same_as(T, U);
@@ -11,8 +11,6 @@ concept C = requires (T t) {
 
 template <typename T>
   requires C<T>
-constexpr bool is_c() { return true; }
+constexpr bool is_c() { return true; } 
 
-static_assert(is_c<void>(), "");
-
-int main() {}
+static_assert(is_c<void>(), ""); // { dg-error "cannot call|invalid parameter" }

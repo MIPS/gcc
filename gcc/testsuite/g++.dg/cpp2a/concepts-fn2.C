@@ -1,8 +1,6 @@
-// { dg-do run}
-// { dg-options "-std=c++2a" }
+// { dg-do run { target c++2a } }
 
 #define assert(E) if (!(E)) __builtin_abort();
-
 
 template<typename T>
   concept C = __is_class(T);
@@ -25,7 +23,7 @@ template<typename T>
 
     void f3() { called = 1; }
     void f3() requires C<T> { called = 2; }
-    // void f3() requires C<T> && D<T> { called = 3; }
+    void f3() requires C<T> && D<T> { called = 3; }
 
     void g1() requires C<T> && true;
 

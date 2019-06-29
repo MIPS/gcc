@@ -3015,8 +3015,8 @@ finish_template_template_parm (tree aggr, tree identifier)
   DECL_TEMPLATE_RESULT (tmpl) = decl;
   DECL_ARTIFICIAL (decl) = 1;
 
-  // Associate the constraints with the underlying declaration,
-  // not the template.
+  /* Associate the constraints with the underlying declaration,
+     not the template.  */
   tree reqs = TEMPLATE_PARMS_CONSTRAINTS (current_template_parms);
   tree constr = build_constraints (reqs, NULL_TREE);
   set_constraints (decl, constr);
@@ -9964,7 +9964,6 @@ apply_deduced_return_type (tree fco, tree return_type)
 #endif
       cfun->returns_struct = aggr;
     }
-
 }
 
 /* DECL is a local variable or parameter from the surrounding scope of a

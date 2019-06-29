@@ -6683,6 +6683,8 @@ extern int num_template_headers_for_class	(tree);
 extern void check_template_variable		(tree);
 extern tree make_auto				(void);
 extern tree make_decltype_auto			(void);
+extern tree make_constrained_auto		(tree, tree);
+extern tree make_constrained_decltype_auto	(tree, tree);
 extern tree make_template_placeholder		(tree);
 extern bool template_placeholder_p		(tree);
 extern tree do_auto_deduction                   (tree, tree, tree,
@@ -6763,7 +6765,9 @@ extern tree tsubst_copy_and_build		(tree, tree, tsubst_flags_t,
 						 tree, bool, bool);
 extern tree tsubst_expr                         (tree, tree, tsubst_flags_t,
                                                  tree, bool);
-extern tree tsubst_pack_expansion               (tree, tree, tsubst_flags_t, tree);
+extern tree tsubst_pack_expansion		(tree, tree, tsubst_flags_t, tree);
+extern tree tsubst_template_args		(tree, tree, tsubst_flags_t, tree);
+extern tree tsubst_function_parms		(tree, tree, tsubst_flags_t, tree);
 extern tree most_general_template		(tree);
 extern tree get_mostly_instantiated_function_type (tree);
 extern bool problematic_instantiation_changed	(void);
@@ -7592,10 +7596,14 @@ extern tree build_constraints                   (tree, tree);
 extern tree get_template_head_requirements	(tree);
 extern tree get_trailing_function_requirements	(tree);
 extern tree get_shorthand_constraints           (tree);
+
+extern tree build_concept_id			(tree, tree);
+extern tree build_type_constraint		(tree, tree);
 extern tree build_concept_check                 (tree, tree, tsubst_flags_t);
 extern tree build_concept_check                 (tree, tree, tree, tsubst_flags_t);
+
+extern tree_pair finish_type_constraints	(tree, tree);
 extern tree build_constrained_parameter         (tree, tree, tree = NULL_TREE);
-extern tree make_constrained_auto               (tree, tree);
 extern void placeholder_extract_concept_and_args (tree, tree&, tree&);
 extern bool equivalent_placeholder_constraints  (tree, tree);
 extern hashval_t hash_placeholder_constraint	(tree);

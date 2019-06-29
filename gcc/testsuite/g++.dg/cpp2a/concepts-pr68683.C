@@ -1,5 +1,5 @@
 // PR c++/68683
-// { dg-options "-std=c++2a" }
+// { dg-do compile { target c++2a } }
 
 template <typename, typename>
 struct is_same {

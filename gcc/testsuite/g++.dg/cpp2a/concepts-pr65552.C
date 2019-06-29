@@ -1,4 +1,4 @@
-// { dg-options "-std=c++2a" }
+// { dg-do compile { target c++2a } }
 
 template<typename T>
 concept Concept =

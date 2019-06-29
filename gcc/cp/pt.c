@@ -42,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify.h"
 #include "gcc-rich-location.h"
 #include "selftest.h"
+#include "print-tree.h"
 
 /* The type of functions taking a tree, and some additional data, and
    returning an int.  */
@@ -187,7 +188,6 @@ static int unify_pack_expansion (tree, tree, tree,
 				 tree, unification_kind_t, bool, bool);
 static tree copy_template_args (tree);
 static tree tsubst_template_arg (tree, tree, tsubst_flags_t, tree);
-static tree tsubst_template_args (tree, tree, tsubst_flags_t, tree);
 static tree tsubst_template_parms (tree, tree, tsubst_flags_t);
 static tree most_specialized_partial_spec (tree, tsubst_flags_t);
 static tree tsubst_aggr_type (tree, tree, tsubst_flags_t, tree, int);
@@ -2441,7 +2441,7 @@ determine_specialization (tree template_id,
       tree fn = TREE_VALUE (candidates);
       *targs_out = copy_node (DECL_TI_ARGS (fn));
 
-      // Propagate the candidate's constraints to the declaration.
+      /* Propagate the candidate's constraints to the declaration.  */
       set_constraints (decl, get_constraints (fn));
 
       /* DECL is a re-declaration or partial instantiation of a template
@@ -10649,6 +10649,30 @@ tsubst_friend_function (tree decl, tree args)
       DECL_USE_TEMPLATE (DECL_TEMPLATE_RESULT (new_friend)) = 0;
       DECL_SAVED_TREE (DECL_TEMPLATE_RESULT (new_friend))
 	= DECL_SAVED_TREE (DECL_TEMPLATE_RESULT (decl));
+
+      /* Attach the template requirements to the new declaration
+         for declaration matching. We need to rebuild the requirements
+         so that parameter levels match.  */
+      if (tree ci = get_constraints (decl))
+	{
+	  tree parms = DECL_TEMPLATE_PARMS (new_friend);
+	  tree args = template_parms_to_args (parms);
+	  tree treqs = tsubst_expr (CI_TEMPLATE_REQS (ci), args,
+				    tf_warning_or_error, NULL_TREE, true);
+	  tree freqs = tsubst_expr (CI_DECLARATOR_REQS (ci), args,
+				    tf_warning_or_error, NULL_TREE, true);
+
+	  /* Update the constraints -- these won't really be valid for
+	     checking, but that's not what we need them for. These ensure
+	     that the declared function can find the friend during
+	     declaration matching.  */
+	  tree new_ci = get_constraints (new_friend);
+	  CI_TEMPLATE_REQS (new_ci) = treqs;
+	  CI_DECLARATOR_REQS (new_ci) = freqs;
+
+	  /* Also update the template parameter list.  */
+	  TEMPLATE_PARM_CONSTRAINTS (parms) = treqs;
+	}
     }
 
   /* The mangled name for the NEW_FRIEND is incorrect.  The function
@@ -12748,7 +12772,7 @@ copy_template_args (tree t)
 
 /* Substitute ARGS into the vector or list of template arguments T.  */
 
-static tree
+tree
 tsubst_template_args (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 {
   tree orig_t = t;
@@ -14219,6 +14243,17 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
   input_location = saved_loc;
 
   return r;
+}
+
+/* Substitute into the complete parameter type list PARMS.  */
+
+tree
+tsubst_function_parms (tree parms,
+		       tree args,
+		       tsubst_flags_t complain,
+		       tree in_decl)
+{
+  return tsubst_arg_types (parms, args, NULL_TREE, complain, in_decl);
 }
 
 /* Substitute into the ARG_TYPES of a function type.
@@ -27012,8 +27047,7 @@ static tree
 make_auto_1 (tree name, bool set_canonical)
 {
   tree au = cxx_make_type (TEMPLATE_TYPE_PARM);
-  TYPE_NAME (au) = build_decl (input_location,
-			       TYPE_DECL, name, au);
+  TYPE_NAME (au) = build_decl (input_location, TYPE_DECL, name, au);
   TYPE_STUB_DECL (au) = TYPE_NAME (au);
   TEMPLATE_TYPE_PARM_INDEX (au) = build_template_parm_index
     (0, processing_template_decl + 1, processing_template_decl + 1,
@@ -27058,17 +27092,16 @@ template_placeholder_p (tree t)
   return is_auto (t) && CLASS_PLACEHOLDER_TEMPLATE (t);
 }
 
-/* Make a "constrained auto" type-specifier. This is an
-   auto type with constraints that must be associated after
-   deduction.  The constraint is formed from the given
-   CONC and its optional sequence of arguments, which are
-   non-null if written as partial-concept-id.  */
+/* Make a "constrained auto" type-specifier. This is an auto or 
+  decltype(auto) type with constraints that must be associated after
+  deduction.  The constraint is formed from the given concept CON 
+  and its optional sequence of template arguments ARGS. 
 
-tree
-make_constrained_auto (tree con, tree args)
+  TYPE must be the result of make_auto_type or make_decltype_auto_type. */
+
+static tree
+make_constrained_placeholder_type (tree type, tree con, tree args)
 {
-  tree type = make_auto_1 (auto_identifier, false);
-
   /* Build the constraint. */
   tree tmpl = DECL_TI_TEMPLATE (con);
   tree expr = tmpl;
@@ -27082,8 +27115,27 @@ make_constrained_auto (tree con, tree args)
   TYPE_CANONICAL (type) = canonical_type_parameter (type);
 
   /* Attach the constraint to the type declaration. */
-  tree decl = TYPE_NAME (type);
-  return decl;
+  return TYPE_NAME (type);
+}
+
+/* Make a "constrained auto" type-specifier.  */
+
+tree
+make_constrained_auto (tree con, tree args)
+{
+  tree type = make_auto_1 (auto_identifier, false);
+  return make_constrained_placeholder_type (type, con, args);
+}
+
+/* Make a "constrained decltype(auto)" type-specifier.  */
+
+tree
+make_constrained_decltype_auto (tree con, tree args)
+{
+  tree type = make_auto_1 (decltype_auto_identifier, false);
+  /* FIXME: I don't know why this isn't done in make_auto_1.  */
+  AUTO_IS_DECLTYPE (type) = true;
+  return make_constrained_placeholder_type (type, con, args);
 }
 
 /* Build and return a concept definition. Like other templates, the
@@ -27095,6 +27147,13 @@ start_concept_definition (location_t loc, tree id)
 {
   gcc_assert (identifier_p (id));
   gcc_assert (processing_template_decl);
+
+  /* A concept-definition shall not have associated constraints.  */
+  if (TEMPLATE_PARMS_CONSTRAINTS (current_template_parms))
+    {
+      error_at (loc, "a concept cannot be constrained");
+      TEMPLATE_PARMS_CONSTRAINTS (current_template_parms) = NULL_TREE;
+    }
 
   /* A concept-definition shall appear in namespace scope.  Templates
      aren't allowed in block scope, so we only need to check for class

@@ -53,6 +53,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "asan.h"
 #include "gcc-rich-location.h"
 #include "langhooks.h"
+#include "print-tree.h"
 
 /* Possible cases of bad specifiers type used by bad_specifiers. */
 enum bad_spec_place {
@@ -1043,7 +1044,7 @@ decls_match (tree newdecl, tree olddecl, bool record_versions /* = true */)
     }
   else if (TREE_CODE (newdecl) == TEMPLATE_DECL)
     {
-      if (!template_heads_equivalent_p (olddecl, newdecl))
+      if (!template_heads_equivalent_p (newdecl, olddecl))
       	return 0;
 
       tree oldres = DECL_TEMPLATE_RESULT (olddecl);
@@ -8927,10 +8928,10 @@ grokfndecl (tree ctype,
   if (location == UNKNOWN_LOCATION)
     location = input_location;
 
-  // Was the concept specifier present?
+  /* Was the concept specifier present?  */
   bool concept_p = inlinep & 4;
 
-  // Concept declarations must have a corresponding definition.
+  /* Concept declarations must have a corresponding definition.  */
   if (concept_p && !funcdef_flag)
     {
       error_at (location, "concept %qD has no definition", declarator);
@@ -8946,8 +8947,13 @@ grokfndecl (tree ctype,
     {
       tree tmpl_reqs = NULL_TREE;
       if (processing_template_decl > template_class_depth (ctype))
-        tmpl_reqs = TEMPLATE_PARMS_CONSTRAINTS (current_template_parms);      
+        tmpl_reqs = TEMPLATE_PARMS_CONSTRAINTS (current_template_parms);
       tree ci = build_constraints (tmpl_reqs, decl_reqs);
+      if (concept_p && ci)
+        {
+          error_at (location, "a function concept cannot be constrained");
+          ci = NULL_TREE;
+        }
       set_constraints (decl, ci);
     }
 
@@ -9587,12 +9593,18 @@ grokvardecl (tree type,
       if (!same_type_ignoring_top_level_qualifiers_p (type, boolean_type_node))
 	error_at (declspecs->locations[ds_type_spec],
 		  "concept must have type %<bool%>");
+      if (TEMPLATE_PARMS_CONSTRAINTS (current_template_parms))
+        {
+          error_at (location, "a variable concept cannot be constrained");
+          TEMPLATE_PARMS_CONSTRAINTS (current_template_parms) = NULL_TREE;
+        }
     }
   else if (flag_concepts
 	   && processing_template_decl > template_class_depth (scope))
     {
       tree reqs = TEMPLATE_PARMS_CONSTRAINTS (current_template_parms);
       tree ci = build_constraints (reqs, NULL_TREE);
+
       set_constraints (decl, ci);
     }
 
@@ -16227,8 +16239,17 @@ finish_function (bool inline_p)
   if (!processing_template_decl && FNDECL_USED_AUTO (fndecl)
       && TREE_TYPE (fntype) == DECL_SAVED_AUTO_RETURN_TYPE (fndecl))
     {
-      if (is_auto (DECL_SAVED_AUTO_RETURN_TYPE (fndecl)))
+      if (is_auto (DECL_SAVED_AUTO_RETURN_TYPE (fndecl))
+          && !current_function_returns_value
+          && !current_function_returns_null)
 	{
+	  /* We haven't applied return type deduction because we haven't
+             seen any return statements. Do that now.  */
+	  tree node = type_uses_auto (DECL_SAVED_AUTO_RETURN_TYPE (fndecl));
+	  do_auto_deduction (DECL_SAVED_AUTO_RETURN_TYPE (fndecl),
+			     void_node, node, tf_warning_or_error,
+                             adc_return_type);
+
 	  apply_deduced_return_type (fndecl, void_type_node);
 	  fntype = TREE_TYPE (fndecl);
 	}

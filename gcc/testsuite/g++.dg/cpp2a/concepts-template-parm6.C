@@ -1,4 +1,4 @@
-// { dg-options "-std=c++2a" }
+// { dg-do compile { target c++2a } }
 
 template<typename... Ts> struct are_same;
 
@@ -18,24 +18,27 @@ template<typename T, typename U, typename... Ts>
       __is_same_as(T, U) && are_same<U, Ts...>::value;
   };
 
-constexpr bool all_of() { return true; }
-constexpr bool all_of(bool b) { return b; }
-
 template<typename... Ts>
-  constexpr bool all_of(bool a, bool b, Ts... args) {
-    return (a && b) && all_of(b, args...);
-  }
+concept Same = are_same<Ts...>::value;
 
-template<typename... Ts>
-  concept C1 = are_same<Ts...>::value;
+template<typename T>
+concept Int = __is_same_as(T, int);
 
-template<bool... Bs>
-  concept C2 = all_of(Bs...);
-
-template<C1... Ts> struct S1 { };
-template<C1...> struct S2 { };
-template<C2... Bs> struct S4 { };
-template<C2...> struct S5 { };
-
+// NOTE: The use of Same is misleading; it constraints each T, not
+// the pack of Ts.
+template<Same... Ts> struct S1 { }; // requires (C<Ts> && ...)
 S1<int, int, int> s1;
-S4<true, true, true> s4;
+S1<int, int, bool> s2;
+
+// // NOTE: The use of Same is misleading; it constraints each deduced
+// // type, not the pack of Ts.
+template<Same auto... Xs> struct S2 { }; // requires (C<X> && ...) with each X deduced
+S2<true, true, true> s3;
+S2<true, true, 'a'> s4;  // OK
+
+template<Int... Ts> struct S3 { }; // requires (C<Ts> && ...)
+S3<int, int, char> x0; // { dg-error "template constraint failure" }
+
+template<Int auto... Xs> struct S4 { }; // requires (C<X> && ...) with each X deduced
+S4<0, 1, 2, 'a'> x1; // { dg-error "placeholder constraints not satisfied" }
+

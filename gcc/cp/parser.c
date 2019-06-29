@@ -169,6 +169,7 @@ enum required_token {
   RT_TRY, /* try */
   RT_CATCH, /* catch */
   RT_THROW, /* throw */
+  RT_AUTO, /* auto */
   RT_LABEL, /* __label__ */
   RT_AT_TRY, /* @try */
   RT_AT_SYNCHRONIZED, /* @synchronized */
@@ -2171,6 +2172,8 @@ static tree cp_parser_type_specifier
    int *, bool *);
 static tree cp_parser_simple_type_specifier
   (cp_parser *, cp_decl_specifier_seq *, cp_parser_flags);
+static tree cp_parser_placeholder_type_specifier
+  (cp_parser *, location_t, tree);
 static tree cp_parser_type_name
   (cp_parser *, bool);
 static tree cp_parser_nonclass_name
@@ -9681,7 +9684,7 @@ cp_parser_question_colon_clause (cp_parser* parser, cp_expr logical_or_expr)
   if (cp_parser_allow_gnu_extensions_p (parser)
       && token->type == CPP_COLON)
     {
-      pedwarn (token->location, OPT_Wpedantic, 
+      pedwarn (token->location, OPT_Wpedantic,
 	       "ISO C++ does not allow %<?:%> with omitted middle operand");
       /* Implicit true clause.  */
       expr = NULL_TREE;
@@ -15878,12 +15881,6 @@ finish_constrained_parameter (cp_parser *parser,
   tree def = parmdecl->default_argument;
   tree proto = DECL_INITIAL (decl);
 
-  /* A template parameter constrained by a variadic concept shall also
-     be declared as a template parameter pack.  */
-  bool is_variadic = template_parameter_pack_p (proto);
-  if (is_variadic && !*is_parameter_pack)
-    cp_parser_error (parser, "variadic constraint introduced without %<...%>");
-
   /* Build the parameter. Return an error if the declarator was invalid. */
   tree parm;
   if (TREE_CODE (proto) == TYPE_DECL)
@@ -16089,7 +16086,7 @@ cp_parser_template_parameter (cp_parser* parser, bool *is_non_type,
 	cp_lexer_consume_token (parser->lexer);
     }
 
-  // The parameter may have been constrained.
+  /* The parameter may have been constrained type parameter.  */
   if (is_constrained_parameter (parameter_declarator))
     return finish_constrained_parameter (parser,
                                          parameter_declarator,
@@ -16297,7 +16294,7 @@ cp_parser_type_parameter (cp_parser* parser, bool *is_parameter_pack)
 }
 
 static tree
-cp_parser_check_constrained_type_specifier(tree result, tree tmpl, tree args)
+cp_parser_check_constrained_type_specifier (tree result, tree tmpl, tree args)
 {
   /* The template-id was a constrained-type-specifier.  */
   if (result && TREE_CODE (result) == TYPE_DECL)
@@ -16350,6 +16347,7 @@ cp_parser_template_id (cp_parser *parser,
   /* If the next token corresponds to a template-id, there is no need
      to reparse it.  */
   cp_token *token = cp_lexer_peek_token (parser->lexer);
+
   if (token->type == CPP_TEMPLATE_ID)
     {
       cp_lexer_consume_token (parser->lexer);
@@ -16522,6 +16520,14 @@ cp_parser_template_id (cp_parser *parser,
     }
   else if (concept_definition_p (templ))
     {
+      /* Try building an actual concept check as an expression.  */
+      template_id = build_concept_id (templ, arguments);
+
+      /* If that failed, then this is probably a type constraint.  */
+      if (template_id == error_mark_node)
+	template_id = build_type_constraint (templ, arguments);
+
+#if OLD_CONCEPTS
       /* The template-id could name a concept. Note that this can
          fail. For example:
 
@@ -16545,6 +16551,7 @@ cp_parser_template_id (cp_parser *parser,
 
       if (TREE_CODE (template_id) == TEMPLATE_ID_EXPR)
 	SET_EXPR_LOCATION (template_id, combined_loc);
+#endif
     }
   else if (variable_template_p (templ))
     {
@@ -17022,6 +17029,8 @@ cp_parser_template_argument (cp_parser* parser)
 					  /*check_dependency=*/true,
 					  /*ambiguous_decls=*/NULL,
 					  argument_start_token->location);
+
+#if OLD_CONCEPTS
       /* Handle a constrained-type-specifier for a non-type template
 	 parameter.
 
@@ -17029,6 +17038,11 @@ cp_parser_template_argument (cp_parser* parser)
       if (tree decl = cp_parser_maybe_concept_name (parser, argument))
 	argument = decl;
       else if (TREE_CODE (argument) != TEMPLATE_DECL
+	       && TREE_CODE (argument) != UNBOUND_CLASS_TEMPLATE)
+	cp_parser_error (parser, "expected template-name");
+#endif
+
+      if (TREE_CODE (argument) != TEMPLATE_DECL
 	       && TREE_CODE (argument) != UNBOUND_CLASS_TEMPLATE)
 	cp_parser_error (parser, "expected template-name");
     }
@@ -17962,6 +17976,7 @@ cp_parser_simple_type_specifier (cp_parser* parser,
 					       /*check_dependency_p=*/true,
 					       /*type_p=*/false,
 					       /*is_declaration=*/false);
+	  location_t loc = input_location;
 	  tree name = cp_parser_identifier (parser);
 	  if (name && TREE_CODE (name) == IDENTIFIER_NODE
 	      && parser->scope != error_mark_node)
@@ -17977,14 +17992,8 @@ cp_parser_simple_type_specifier (cp_parser* parser,
 		  && (DECL_CLASS_TEMPLATE_P (tmpl)
 		      || DECL_TEMPLATE_TEMPLATE_PARM_P (tmpl)))
 		type = make_template_placeholder (tmpl);
-	      else if (tmpl && concept_definition_p (tmpl))
-		{
-		  /* Getting here means that we've previously failed to
-		     interpret a concept-name as a constrained-type-specifier.
-		     The error should already have been diagnosed, so fail
-		     silently.  */
-		  type = error_mark_node;
-		}
+	      else if (flag_concepts && tmpl && concept_definition_p (tmpl))
+		type = cp_parser_placeholder_type_specifier (parser, loc, tmpl);
 	      else
 		{
 		  type = error_mark_node;
@@ -18000,6 +18009,19 @@ cp_parser_simple_type_specifier (cp_parser* parser,
 	      && !cp_parser_parse_definitely (parser))
 	    type = NULL_TREE;
 	}
+      else if (type && concept_check_p (type))
+        {
+          /* We have a type-constraint of the form C<?, Args...>, which
+             is actually a template-id. This falls out of the template-id 
+             parsed in cp_parser_class_name.  */
+          location_t loc = EXPR_LOCATION (type);
+	  type = cp_parser_placeholder_type_specifier (parser, loc, type);
+
+	  /* Bypass the usual diagnostics if that fails.  */
+	  if (type == error_mark_node)
+	    return error_mark_node;
+        }
+
       if (type && decl_specs)
 	cp_parser_set_decl_spec_type (decl_specs, type,
 				      token,
@@ -18044,6 +18066,143 @@ cp_parser_simple_type_specifier (cp_parser* parser,
     }
 
   return type;
+}
+
+/* Parse the remainder of a placholder-type-specifier.  
+
+   placeholder-type-specifier:
+     type-constraint_opt auto
+     type-constraint_opt decltype(auto) 
+
+  The type constraint is parsed in cp_parser_simple_type_specifier and
+  passed as TMPL. This function parses the actual placeholder type and
+  performs some contextual syntactic analysis.
+
+  LOC provides the location of the template name.
+
+  Note that the Concepts TS allows the auto or decltype(auto) to be
+  omitted in a constrained-type-specifier.  */
+
+tree
+cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc, 
+				      tree tmpl)
+{
+  tree orig_tmpl = tmpl;
+
+  /* Get the arguments as written for subsequent analysis.  */
+  tree args = NULL_TREE;
+  if (TREE_CODE (tmpl) == TEMPLATE_ID_EXPR)
+    {
+      tree old_args = TREE_OPERAND (tmpl, 1);
+      tmpl = TREE_OPERAND (tmpl, 0);
+
+      /* Check for a wildcard. If there isn't one, then this is not
+         a partial application. 
+
+         FIXME: Does this ever actually trigger? We're filtering
+         non-wildcard constraints in cp_parser_class_name.  */
+      if (TREE_CODE (TREE_VEC_ELT (old_args, 0)) != WILDCARD_DECL)
+	{
+	  if (!cp_parser_parsing_tentatively (parser))
+	    {
+	      error_at(EXPR_LOC_OR_LOC (tmpl, input_location),
+		       "all template arguments provided in type-constraint");
+	      inform(DECL_SOURCE_LOCATION (tmpl), "concept defined here");
+	    }
+	  return error_mark_node;
+	}
+
+      /* Rebuild the argument vector without the wildcard.  */
+      args = make_tree_vec (TREE_VEC_LENGTH (old_args) - 1);
+      for (int i = 0; i < TREE_VEC_LENGTH (args); ++i)
+      	TREE_VEC_ELT (args, i) = TREE_VEC_ELT (old_args, i + 1);
+      SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (args, 
+      	  GET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (old_args) - 1);
+    }
+
+  /* Get the concept and prototype parameter for the constraint.  */
+  tree_pair info = finish_type_constraints (tmpl, args);
+  tree con = info.first;
+  tree proto = info.second;
+  if (con == error_mark_node)
+    return con;
+
+  /* As per the standard, require auto or decltype(auto), except in some
+     cases (template parameter lists, -fconcepts-ts enabled).  */
+  cp_token *placeholder = nullptr;
+  if (cxx_dialect >= cxx2a)
+    {
+      if (cp_lexer_next_token_is_keyword (parser->lexer, RID_AUTO))
+	placeholder = cp_lexer_consume_token (parser->lexer); 
+      else if (cp_lexer_next_token_is_keyword (parser->lexer, RID_DECLTYPE))
+	{
+	  placeholder = cp_lexer_consume_token (parser->lexer);
+	  cp_token* open
+	    = cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN);
+	  cp_parser_require_keyword (parser, RID_AUTO, RT_AUTO);
+          cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN, 
+			     open->location);
+	}
+    }
+
+  /* A type constraint constrains a contextually determined type or type
+     parameter pack. However, the the Concepts TS does allow concepts
+     to introduce non-type and template template parameters.  */
+  if (TREE_CODE (proto) != TYPE_DECL)
+    {
+      if ((cxx_dialect >= cxx2a && !flag_concepts_ts)
+	  || !processing_template_parmlist)
+	{
+	  error_at (loc, "%qE does not constrain a type", DECL_NAME (con));
+	  inform (DECL_SOURCE_LOCATION (con), "concept defined here");
+	  return error_mark_node;
+	}
+    }
+
+  /* In a template parameter list, a type-parameter can be introduced 
+     by type-constraints alone.  */
+  if (processing_template_parmlist && !placeholder)
+    return build_constrained_parameter (con, proto, args);
+
+  /* Diagnose issues placeholder issues.  */
+  if (!parser->in_result_type_constraint_p 
+      && !placeholder 
+      && (cxx_dialect >= cxx2a && !flag_concepts_ts))
+    {
+      tree id = build_nt (TEMPLATE_ID_EXPR, tmpl, args);
+      tree expr = DECL_P (orig_tmpl) ? DECL_NAME (con) : id;
+      error_at (input_location,
+		"expected %<auto%> or %<decltype(auto)%> after %qE", expr);
+      /* Fall through. This is an error of omission.  */
+    }
+  else if (parser->in_result_type_constraint_p && placeholder)
+    {
+      /* A trailing return type only allows type-constraints.  */
+      error_at(input_location, "unexpected placeholder in constrained "
+			       "result type");
+    }
+
+  /* In a parameter-declaration-clause, a placeholder-type-specifier
+     results in an invented template parameter.  */
+  if (parser->auto_is_implicit_function_template_parm_p)
+    {
+      /* FIXME: Is decltype(auto) valid here?  */
+      tree parm = build_constrained_parameter (con, proto, args);
+      return synthesize_implicit_template_parm (parser, parm);
+    }
+
+  /* Determine if the type should be deduced using template argument
+     deduction or decltype deduction. Note that the latter is always
+     used for type-constraints in trailing return types.  */
+  bool decltype_p = placeholder 
+      ? placeholder->keyword == RID_DECLTYPE 
+      : parser->in_result_type_constraint_p;
+
+  /* Otherwise, this is the type of a variable or return type.  */
+  if (decltype_p)
+    return make_constrained_decltype_auto (con, args);
+  else
+    return make_constrained_auto (con, args);
 }
 
 /* Parse a type-name.
@@ -18118,8 +18277,10 @@ cp_parser_type_name (cp_parser* parser, bool typename_keyword_p)
 	  && TREE_CODE (type_decl) == TYPE_DECL
 	  && TYPE_DECL_ALIAS_P (type_decl))
 	gcc_assert (DECL_TEMPLATE_INSTANTIATION (type_decl));
+#ifdef OLD_CONCEPTS
       else if (is_constrained_parameter (type_decl))
         /* Do nothing. */ ;
+#endif
       else
 	cp_parser_simulate_error (parser);
 
@@ -18314,9 +18475,11 @@ cp_parser_nonclass_name (cp_parser* parser)
 
   type_decl = strip_using_decl (type_decl);
 
+#if OLD_CONCEPTS
   /* If we found an overload set, then it may refer to a concept-name. */
   if (tree decl = cp_parser_maybe_concept_name (parser, type_decl))
     type_decl = decl;
+#endif
 
   if (TREE_CODE (type_decl) != TYPE_DECL
       && (objc_is_id (identifier) || objc_is_class_name (identifier)))
@@ -19811,7 +19974,7 @@ cp_parser_alias_declaration (cp_parser* parser)
   if (decl == error_mark_node)
     return decl;
 
-  // Attach constraints to the alias declaration.
+  /* Attach constraints to the alias declaration.  */
   if (flag_concepts && current_template_parms)
     {
       tree reqs = TEMPLATE_PARMS_CONSTRAINTS (current_template_parms);
@@ -23429,6 +23592,17 @@ cp_parser_class_name (cp_parser *parser,
       if (decl != error_mark_node)
 	decl = TYPE_NAME (decl);
     }
+  else if (flag_concepts && concept_check_p (decl))
+    {
+      /* A concept-id is not a type name, but it may be part of one
+         as a type constraint.  */
+      gcc_assert (TREE_CODE (decl) == TEMPLATE_ID_EXPR);
+      tree tmpl = TREE_OPERAND (decl, 0);
+      tree args = TREE_OPERAND (decl, 1);
+      if ((TREE_VEC_LENGTH (args) == 0)
+	  || (TREE_CODE (TREE_VEC_ELT (args, 0)) != WILDCARD_DECL))
+      	decl = error_mark_node;
+    }
   else if (TREE_CODE (decl) != TYPE_DECL
 	   || TREE_TYPE (decl) == error_mark_node
 	   || !(MAYBE_CLASS_TYPE_P (TREE_TYPE (decl))
@@ -26943,6 +27117,7 @@ cp_parser_concept_definition (cp_parser *parser)
   if (id == error_mark_node)
     {
       cp_parser_skip_to_end_of_statement (parser);
+      cp_parser_consume_semicolon_at_end_of_statement (parser);
       return NULL_TREE;
     }
   tree decl = start_concept_definition (id.get_location(), id);
@@ -26950,6 +27125,7 @@ cp_parser_concept_definition (cp_parser *parser)
   if (!cp_parser_require (parser, CPP_EQ, RT_EQ))
     {
       cp_parser_skip_to_end_of_statement (parser);
+      cp_parser_consume_semicolon_at_end_of_statement (parser);
       return error_mark_node;
     }
 
@@ -26958,10 +27134,15 @@ cp_parser_concept_definition (cp_parser *parser)
   if (init == error_mark_node)
     {
       cp_parser_skip_to_end_of_statement (parser);
+      cp_parser_consume_semicolon_at_end_of_statement (parser);
       return error_mark_node;
     }
 
-  return finish_concept_definition (decl, init);
+  /* Consume the trailing ';'. Diagnose the problem if it isn't there, 
+     but continue as if it were.  */
+  cp_parser_consume_semicolon_at_end_of_statement (parser);
+
+  tree def = finish_concept_definition (decl, init);
 }
 
 // -------------------------------------------------------------------------- //
@@ -27351,10 +27532,25 @@ cp_parser_compound_requirement (cp_parser *parser)
       cp_lexer_consume_token (parser->lexer);
       bool saved_result_type_constraint_p = parser->in_result_type_constraint_p;
       parser->in_result_type_constraint_p = true;
+      /* C++2a allows either a type-id or a type-constraint. Parsing
+         a type-id will subsume the parsing for a type-constraint but
+         allow for more syntactic forms (e.g., const C<T>*).  */
       type = cp_parser_trailing_type_id (parser);
       parser->in_result_type_constraint_p = saved_result_type_constraint_p;
       if (type == error_mark_node)
         return error_mark_node;
+
+      /* Check that we haven't written something like 'const C<T>*'.  */
+      if (tree auto_node = type_uses_auto (type))
+	{
+	  if (!is_auto (type))
+	    {
+	      error_at (input_location,
+			"result type is not a plain type-constraint");
+	      cp_parser_consume_semicolon_at_end_of_statement (parser);
+	      return error_mark_node;
+	    }
+	}
     }
 
   return finish_compound_requirement (expr, type, noexcept_p);
@@ -29794,6 +29990,9 @@ cp_parser_required_error (cp_parser *parser,
       case RT_THROW:
 	gmsgid = G_("expected %<throw%>");
 	break;
+      case RT_AUTO:
+        gmsgid = G_("expected %<auto%>");
+        break;
       case RT_LABEL:
 	gmsgid = G_("expected %<__label__%>");
 	break;
@@ -41756,6 +41955,13 @@ make_generic_type_name ()
 static tree
 synthesize_implicit_template_parm  (cp_parser *parser, tree constr)
 {
+  /* A requires-clause is not a function and cannot have placeholders.  */
+  if (current_binding_level->kind == sk_block)
+    {
+      error ("placeholder type not allowed in this context");
+      return error_mark_node;
+    }
+  
   gcc_assert (current_binding_level->kind == sk_function_parms);
 
   /* We are either continuing a function template that already contains implicit

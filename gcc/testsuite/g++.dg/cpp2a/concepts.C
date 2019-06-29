@@ -1,5 +1,4 @@
-// { dg-do compile }
-// { dg-options "-std=c++2a" }
+// { dg-do compile { target c++2a } }
 
 // Change in grammar for the expression trailing `requires`.
 template<typename T>
@@ -48,4 +47,6 @@ concept False = false;
 static_assert(True<int>);
 static_assert(False<int>); // { dg-error "static assertion failed" }
 
-void f4(True);// { dg-warning "using a concept" }
+void f4(True auto);
+
+template<C2 T> concept C4 = true; // { dg-error "cannot be constrained" }

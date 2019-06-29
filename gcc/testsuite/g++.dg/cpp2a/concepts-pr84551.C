@@ -1,5 +1,6 @@
 // PR c++/84551
-// { dg-options "-g -O -std=c++2a" }
+// { dg-do compile { target c++2a } }
+// { dg-additional-options "-g -O" }
 
 template<typename> concept C = true;
 

@@ -1,5 +1,5 @@
 // PR c++/66962
-// { dg-options "-std=c++2a" }
+// { dg-do compile { target c++2a } }
 
 template <typename> struct remove_cv;
 template <typename> struct is_reference;

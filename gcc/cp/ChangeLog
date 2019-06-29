@@ -1,3 +1,235 @@
+2019-06-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	PR c++/67697.
+	* constraint.cc (tsubst_nested_requirement): Don't recursively
+	satisfy nested requirements; they've already been substituted
+	into.
+	(diagnose_requirement): Copy local specialization stack.
+
+2019-06-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	PR c++/67685.
+	* constraint.cc (tsubst_requires_expr): Copy the previous local
+	specialization stack, so references to non-local parameters can
+	be found.
+
+2019-05-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	PR c++/67684. Rebuild friend template constraints for the
+	purpose of declaration matching.
+	* pt.c (tsubst_friend_function): Rebuild friend constraints.
+
+2019-05-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Diagnose constraints on concept definitions.
+	* decl.c (grokfndecl): Add check for constraints on declaration.
+	(grokvardecl): Likewise.
+	* pt.c (start_concept_definition): Likewise.
+
+2019-05-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Add test for noexcept requirements.
+	* constraint.cc (diagnose_valid_expression, diagnose_valid_type):
+	Don't substitute as if in template decls. This causes substitution
+	to generate expressions that aren't suitable for use with the
+	noexcept routines.
+
+2019-05-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	PR c++/67217. Add constraints to union types.
+	* constraint.cc (associate_classtype_constraints): Also add constraints
+	to union types.
+
+2019-05-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	PR c++/67178. Disallow placeholder types in requires-expressions.
+	* parser.c (synthesize_implicit_template_parm): Fail if we
+	get a placeholder in block scope.
+
+2019-05-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Disallow void constraint variables.
+	* constraint.cc (check_constaint_variables): New.
+	(tsubst_constraint_variables): Check that type substitutions are
+	okay.
+	* cp-tree.h (tsubst_function_parms): New.
+	* pt.c (tsubst_function_parms): New.
+
+2019-05-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Implement constrained decltype(auto).
+	* decl.c (finish_function): Only do auto deduction if we haven't
+	previously seen any return statements. This prevents multiple
+	diagnostics of the same error.
+	* parser.c (enum required_token): New required token for auto.
+	(cp_parser_placeholder_type_specifier): Parse the
+	decltype(auto) sequence of tokens. Update diagnostics.
+	* (cp_parser_required_error): Diagnose missing auto.
+	* typeck.c (check_return_expr): Actually use the diagnostic kind
+	when performing return-type deduction.
+
+2019-05-09  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Better diagnostics for ill-formed constrained result types
+	in compound requirements.
+	* parser.c (cp_parser_compound_requirement): Diagnose ill-formed
+	constrained result types.
+
+2019-05-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Re-enable Concepts TS constrained parameters that declare
+	non-type parameters.
+	* parser.c (cp_parser_placeholder_type_specifier): Only limit the
+	error to C++2a without -fconcepts-ts and outside of template parameter
+	lists otherwise.
+	* constraint.cc (diagnose_constraint): Emit a diagnostic when the
+	constraint is ill-formed.
+
+2019-05-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Only diagnose P1141 issues in C++2a mode or greater.
+	* parser.c (cp_parser_placeholder_type_specifier): Check dialect
+	version.
+
+2019-05-07  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Consume semicolons if we get errors in concept definitions.
+	* parser.c (cp_parser_concept_definition): Consume semicolons.
+
+2019-04-22  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Remove restriction on the use of variadic constraints.
+	* parser.c (finish_constrained_parameter): Don't diagnose the use
+	of variadic concepts with non-pack template parameters.
+
+2019-04-22  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Implement working paper rules for constrained variadics.
+	* constraint.cc (finish_shorthand_constraint): Always apply the
+	constraint to each template argument.
+
+2019-04-22  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix a parsing bug in concept definitions.
+	* parser.c (cp_parser_concept_definition): Match and consume
+	the trailing semicolon after the definition.
+
+2019-04-22  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix a regression caused by producing call expressions for 
+	concept checks and type constraints where template-ids are parsed.
+	* cp-tree.h (build_concept_id, build_type_constraint): New.
+	(build_wildcard_concept_check): Removed.
+	* constraint.cc (finish_type_constraints): Use build_type_constraint.
+	(build_wildcard_concept_check): Removed.
+	(build_concept_id): New.
+	(build_type_constraint): New.
+	* parser.c (cp_parser_template_id): Use build_concept_id and
+	build_type_constraint.
+
+2019-04-18  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Update parsing of type-constraints in compound requirements
+	and make that perform decltype deduction.
+	* constraint.cc: (type_deducible_p) Wrap the input expression
+	in parens for the purpose of deduction.
+	(diagnose_valid_expression) Stop wrongly diagnosing valid expressions.
+	(diagnose_valid_type) Likewise.
+	(diagnose_compound_requirement) Actually emit diagnostics for
+	the causes of errors.
+	* cp-tree.h: (make_constrained_auto) Moved.
+	(make_constrained_decltype_auto) New.
+	* parser.c: (cp_parser_placeholder_type_specifier): Update for
+	rules involving compound requirements.
+	* pt.c: (make_constrained_placeholder_type): Refactored from
+	make_constrained_auto.
+	(make_constrained_auto) Use make_constrained_placeholder_type.
+	(make_constrained_decltype_auto) New.
+
+2019-04-17  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Update the implementation of constrained parameters.
+	* constraint.cc (cp_parser_placeholder_type_specifier): Handle
+	type-constraints that introduce template parameters in template
+	parameter lists.
+
+2019-04-17  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Update the implementation of abbreviated function templates.
+	* parser.c (cp_parser_placeholder_type_specifier): Remove
+	the early return when auto or decltype(auto) is left off. Create
+	implicit template parameters for type specifiers of function
+	parameters.
+
+2019-04-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Rewrite parsing of constrained-type-specifiers so that it
+	conforms to standard names and concepts.
+	* constraint.cc (finish_type_constraints): New.
+	(build_wildcard_concept_check): New.
+	* cp-tree.h (finish_type_constraints, build_wildcard_concept_check):
+	New declarations.
+	* decl.c (finish_function): Perform auto deduction to ensure
+	that constraints are checked even when functions contain no
+	return statements.
+	* parser.c (cp_parser_placeholder_type_specifier): New. Implement
+	parsing of placeholder type specifiers following a concept name
+	or partial concept check.
+	(cp_parser_template_id): Simplify logic for processing
+	type constraints. Disable old implementation.
+	(cp_parser_template_argument): Disable old implementation.
+	(cp_parser_simple_type_specifier): Expect auto or decltype after
+	a concept name. Also handle the case where we have a template-id
+	as a concept check.
+	(cp_parser_type_name): Disable old implementation.
+	(cp_parser_class_name): Handle template ids as concept checks.
+
+2019-04-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Check constraints on inherited constructors.
+	* constraint.cc (evaluate_constraint_expression): Adjust declaration
+	for inherited constructor.
+	(diagnose_declaration_constraints): Likewise.
+
+2019-04-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Correctly diagnose misuse of variable concept.
+	* constraint.cc (satisfy_check): Diagnose misuse of concept.
+
+2019-04-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix ICE normalizing constraints for template template parameters.
+	* constraint.cc (normalize_concept_check): Only substitute the
+	innermost template arguments.
+
+2019-04-01  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Replace subproblem estimation with an exact count.
+	* logic.cc (distributes_p): Removed; no longer needed.
+	(count_conjunction): Same.
+	(count_disjunction): Same.
+	(count_terms): Same.
+	(add_clamped): Same.
+	(mul_clamped): Same.
+	(disjunction_p): New query for constraints.
+	(conjunction_p): Same.
+	(atomic_p): Same.
+	(dnf_size_r): Recursively count subproblems for a DNF rewrite.
+	(cnf_size_r): Same but for a CNF rewrite.
+	(dnf_size): Rewrite to use new subproblem counts.
+	(cnf_size): Same.
+
+2019-04-01  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix normalization bug that was causing subsumption errors.
+	* constraint.cc (normalize_concept_check): Substitute through
+	written template arguments before normalizing the definition.
+	(get_normalized_constraints_from_info): Turn on template processing
+	prior to normalization.
+	* cp-tree.h (tsubst_template_args): Make this visible to constraint
+	processing.
+	* pt.c (tsubst_template_args): Same.
+
 2019-06-27  Jason Merrill  <jason@redhat.com>
 
 	PR c++/55442 - memory-hog with highly recursive constexpr.

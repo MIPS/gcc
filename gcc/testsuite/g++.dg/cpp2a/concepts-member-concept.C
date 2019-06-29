@@ -1,4 +1,4 @@
-// { dg-options "-std=c++2a" }
+// { dg-do compile { target c++2a } }
 
 // FIXME: Diagnostics should be better.
 

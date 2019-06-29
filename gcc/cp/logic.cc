@@ -270,7 +270,7 @@ struct clause
   }
 
   std::list<tree> m_terms; /* The list of terms.  */
-  hash_set<tree, constraint_hash> m_set; /* The set of atomic constraints.  */
+  hash_set<tree, false, constraint_hash> m_set; /* The set of atomic constraints.  */
   iterator m_current; /* The current term.  */
 };
 
@@ -384,117 +384,263 @@ enum rules
   left, right
 };
 
-/* Returns true if t distributes over its operands.  */
+/* Distribution counting.  */
 
-static bool
-distributes_p (tree t)
+static inline bool
+disjunction_p(tree t)
 {
-  tree t1 = TREE_OPERAND (t, 0);
-  tree t2 = TREE_OPERAND (t, 1);
-  if (TREE_CODE (t) == CONJ_CONSTR)
-    return TREE_CODE (t1) == DISJ_CONSTR && TREE_CODE (t2) == DISJ_CONSTR;
-  if (TREE_CODE (t) == DISJ_CONSTR)
-    return TREE_CODE (t1) == CONJ_CONSTR && TREE_CODE (t2) == CONJ_CONSTR;
-  return false;
+  return TREE_CODE (t) == DISJ_CONSTR;
 }
 
-static int count_terms (tree, rules);
-
-/* The maximum number of allowable terms in a constraint.  */
-
-static int max_size = 4096;
-
-/* Returns the sum of a and b. If the result would overflow,
-   returns -1 to indicate an error condition.  */
-
-static inline int
-add_clamped (int a, int b)
+static inline bool
+conjunction_p(tree t)
 {
-  long long n = (long long)a + (long long)b;
-  if (n > max_size)
-    return -1;
-  return n;
+  return TREE_CODE (t) == CONJ_CONSTR;
 }
 
-/* Returns the product of a and b. If the result would overflow,
-   returns -1 to indicate an error condition.  */
-
-static inline int
-mul_clamped (int a, int b)
+static inline bool
+atomic_p(tree t)
 {
-  long long n = (long long) a * (long long)b;
-  if (n > max_size)
-    return -1;
-  return n;
+  return TREE_CODE (t) == ATOMIC_CONSTR;
 }
 
-/* Returns the number of clauses for a conjunction. When converting
-   to DNF (when R == LEFT), a conjunction of disjunctions (i.e., 
-   terms in CNF-like form) can grow exponentially.  */
+/* Recursively count the number of clauses produced when converting T
+   to DNF. Returns a pair containing the number of clauses and a bool
+   value signifying that the the tree would be rewritten as a result of 
+   distributing. In general, a conjunction for which this flag is set 
+   is considered a disjunction for the purpose of counting.  */
 
-int
-count_conjunction (tree t, rules r)
+static std::pair<int, bool>
+dnf_size_r (tree t)
 {
-  int n1 = count_terms (TREE_OPERAND (t, 0), r);
-  int n2 = count_terms (TREE_OPERAND (t, 1), r);
-  if (n1 == -1 || n2 == -1)
-    return -1;
-  if (r == left && distributes_p (t))
-    return mul_clamped (n1, n2);
-  return add_clamped (n1, n2);
-}
+  if (atomic_p(t))
+    /* Atomic constraints produce no clauses.  */
+    return std::make_pair(0, false);
 
-/* Returns the number of clauses for a conjunction. When converting
-   to CNF (when R == RIGHT), a disjunction of conjunctions (i.e., 
-   terms in DNF-like form) can grow exponentially.  */
+  /* For compound constraints, recursively count clauses and unpack 
+     the results.  */  
+  tree lhs = TREE_OPERAND (t, 0);
+  tree rhs = TREE_OPERAND (t, 1);
+  std::pair<int, bool> p1 = dnf_size_r (lhs);
+  std::pair<int, bool> p2 = dnf_size_r (rhs);
+  int n1 = p1.first, n2 = p2.first;
+  bool d1 = p1.second, d2 = p2.second;
 
-static int
-count_disjunction (tree t, rules r)
-{
-  int n1 = count_terms (TREE_OPERAND (t, 0), r);
-  int n2 = count_terms (TREE_OPERAND (t, 1), r);
-  if (n1 == -1 || n2 == -1)
-    return -1;
-  if (r == right && distributes_p (t))
-    return mul_clamped (n1, n2);
-  return add_clamped (n1, n2);
-}
-
-/* Count the number of subproblems in T.  */
-
-static int
-count_terms (tree t, rules r)
-{
-  switch (TREE_CODE (t))
+  if (disjunction_p (t))
     {
-    case CONJ_CONSTR:
-      return count_conjunction (t, r);
-    case DISJ_CONSTR:
-      return count_disjunction (t, r);
-    default:
-      return 1;
+      /* Matches constraints of the form P \/ Q. Disjunctions contribute
+	 linearly to the number of constraints.  When both P and Q are
+	 disjunctions, clauses are added. When only one of P and Q
+	 is a disjunction, an additional clause is produced. When neither
+	 P nor Q are disjunctions, two clauses are produced.  */
+      if (disjunction_p (lhs))
+	{
+	  if (disjunction_p (rhs) || (conjunction_p (rhs) && d2))
+	    /* Both P and Q are disjunctions.  */
+	    return std::make_pair(n1 + n2, d1 | d2);
+	  else
+	    /* Only LHS is a disjunction.  */
+	    return std::make_pair(1 + n1 + n2, d1 | d2);
+	  gcc_unreachable();
+	}
+      if (conjunction_p (lhs))
+	{
+	  if ((disjunction_p (rhs) && d1) || (conjunction_p (rhs) && d1 && d2))
+	    /* Both P and Q are disjunctions.  */
+	    return std::make_pair(n1 + n2, d1 | d2);
+	  if (disjunction_p (rhs) 
+	      || (conjunction_p (rhs) && d1 != d2)
+	      || (atomic_p (rhs) && d1))
+	    /* Either LHS or RHS is a disjunction.  */
+	    return std::make_pair(1 + n1 + n2, d1 | d2);
+	  else
+	    /* Neither LHS nor RHS is a disjunction.  */
+	    return std::make_pair(2, false);
+	}
+      if (atomic_p (lhs))
+	{
+	  if (disjunction_p (rhs) || (conjunction_p (rhs) && d2))
+	    /* Only RHS is a disjunction.  */
+	    return std::make_pair(1 + n1 + n2, d1 | d2);
+	  else
+	    /* Neither LHS nor RHS is a disjunction.  */
+	    return std::make_pair(2, false);
+	}
     }
+  else /* conjunction_p (t)  */
+    {
+      /* Matches constraints of the form P /\ Q, possibly resulting
+         in the distribution of one side over the other. When both
+         P and Q are disjunctions, the number of clauses are multiplied.
+         When only one of P and Q is a disjunction, the the number of
+         clauses are added. Otherwise, neither side is a disjunction and 
+         no clauses are created.  */
+      if (disjunction_p (lhs))
+	{
+	  if (disjunction_p (rhs) || (conjunction_p (rhs) && d2))
+	    /* Both P and Q are disjunctions.  */
+	    return std::make_pair(n1 * n2, true);
+	  else
+	    /* Only LHS is a disjunction.  */
+	    return std::make_pair(n1 + n2, true);
+	  gcc_unreachable();
+	}
+      if (conjunction_p (lhs))
+	{
+	  if ((disjunction_p (rhs) && d1) || (conjunction_p (rhs) && d1 && d2))
+	    /* Both P and Q are disjunctions.  */
+	    return std::make_pair(n1 * n2, true);
+	  if (disjunction_p (rhs) 
+	      || (conjunction_p (rhs) && d1 != d2)
+	      || (atomic_p (rhs) && d1))
+	    /* Either LHS or RHS is a disjunction.  */
+	    return std::make_pair(n1 + n2, true);
+	  else
+	    /* Neither LHS nor RHS is a disjunction.  */
+	    return std::make_pair(0, false);
+	}
+      if (atomic_p (lhs))
+	{
+	  if (disjunction_p (rhs) || (conjunction_p (rhs) && d2))
+	    /* Only RHS is a disjunction.  */
+	    return std::make_pair(n1 + n2, true);
+	  else
+	    /* Neither LHS nor RHS is a disjunction.  */
+	    return std::make_pair(0, false);
+	}      
+    }
+  gcc_unreachable ();
 }
 
-/* Returns the maximum number of terms in T if it were
-   converted to DNF.  Returns -1 if the count exceeds the
-   maximum formula size.  */
+/* Recursively count the number of clauses produced when converting T
+   to CNF. Returns a pair containing the number of clauses and a bool
+   value signifying that the the tree would be rewritten as a result of 
+   distributing. In general, a disjunction for which this flag is set 
+   is considered a conjunction for the purpose of counting.  */
+
+static std::pair<int, bool>
+cnf_size_r (tree t)
+{
+  if (atomic_p(t))
+    /* Atomic constraints produce no clauses.  */
+    return std::make_pair(0, false);
+
+  /* For compound constraints, recursively count clauses and unpack 
+     the results.  */  
+  tree lhs = TREE_OPERAND (t, 0);
+  tree rhs = TREE_OPERAND (t, 1);
+  std::pair<int, bool> p1 = cnf_size_r (lhs);
+  std::pair<int, bool> p2 = cnf_size_r (rhs);
+  int n1 = p1.first, n2 = p2.first;
+  bool d1 = p1.second, d2 = p2.second;
+
+  if (disjunction_p (t))
+    {
+      /* Matches constraints of the form P \/ Q, possibly resulting
+         in the distribution of one side over the other. When both
+         P and Q are conjunctions, the number of clauses are multiplied.
+         When only one of P and Q is a conjunction, the the number of
+         clauses are added. Otherwise, neither side is a conjunction and 
+         no clauses are created.  */
+      if (disjunction_p (lhs))
+	{
+	  if ((disjunction_p (rhs) && d1 && d2) || (conjunction_p (rhs) && d1))
+	    /* Both P and Q are conjunctions.  */
+	    return std::make_pair(n1 * n2, true);
+	  if ((disjunction_p (rhs) && d1 != d2)
+	      || conjunction_p (rhs)
+	      || (atomic_p (rhs) && d1))
+	    /* Either LHS or RHS is a conjunction.  */
+	    return std::make_pair(n1 + n2, true);
+	  else
+	    /* Neither LHS nor RHS is a conjunction.  */
+	    return std::make_pair(0, false);
+	  gcc_unreachable();
+	}
+      if (conjunction_p (lhs))
+	{
+	  if ((disjunction_p (rhs) && d2) || conjunction_p (rhs))
+	    /* Both LHS and RHS are conjunctions.  */
+	    return std::make_pair(n1 * n2, true);
+	  else
+	    /* Only LHS is a conjunction.  */
+	    return std::make_pair(n1 + n2, true);
+	}
+      if (atomic_p (lhs))
+	{
+	  if ((disjunction_p (rhs) && d2) || conjunction_p (rhs))
+	    /* Only RHS is a disjunction.  */
+	    return std::make_pair(n1 + n2, true);
+	  else
+	    /* Neither LHS nor RHS is a disjunction.  */
+	    return std::make_pair(0, false);
+	}
+    }
+  else /* conjunction_p (t)  */
+    {
+      /* Matches constraints of the form P /\ Q. Conjunctions contribute
+	 linearly to the number of constraints.  When both P and Q are
+	 conjunctions, clauses are added. When only one of P and Q
+	 is a conjunction, an additional clause is produced. When neither
+	 P nor Q are conjunctions, two clauses are produced.  */
+      if (disjunction_p (lhs))
+	{
+	  if ((disjunction_p (rhs) && d1 && d2) || (conjunction_p (rhs) && d1))
+	    /* Both P and Q are conjunctions.  */
+	    return std::make_pair(n1 + n2, d1 | d2);
+	  if ((disjunction_p (rhs) && d1 != d2)
+	      || conjunction_p (rhs)
+	      || (atomic_p (rhs) && d1))
+	    /* Either LHS or RHS is a conjunction.  */
+	    return std::make_pair(1 + n1 + n2, d1 | d2);
+	  else
+	    /* Neither LHS nor RHS is a conjunction.  */
+	    return std::make_pair(2, false);
+	  gcc_unreachable();
+	}
+      if (conjunction_p (lhs))
+	{
+	  if ((disjunction_p (rhs) && d2) || conjunction_p (rhs))
+	    /* Both LHS and RHS are conjunctions.  */
+	    return std::make_pair(n1 + n2, d1 | d2);
+	  else
+	    /* Only LHS is a conjunction.  */
+	    return std::make_pair(1 + n1 + n2, d1 | d2);
+	}
+      if (atomic_p (lhs))
+	{
+	  if ((disjunction_p (rhs) && d2) || conjunction_p (rhs))
+	    /* Only RHS is a disjunction.  */
+	    return std::make_pair(1 + n1 + n2, d1 | d2);
+	  else
+	    /* Neither LHS nor RHS is a disjunction.  */
+	    return std::make_pair(2, false);
+	}
+    }
+  gcc_unreachable ();
+}
+
+/* Count the number conjunctive clauses that would be created
+   when rewriting T to DNF. */
 
 static int
 dnf_size (tree t)
 {
-  return count_terms (t, left);
+  std::pair<int, bool> result = dnf_size_r(t);
+  return result.first == 0 ? 1 : result.first;
 }
 
-/* Returns the maximum number of terms in T if it were 
-   converted to CNF.  Returns -1 if the count exceeds the
-   maximum formula size.  */
+
+/* Count the number disjunctive clauses that would be created
+   when rewriting T to CNF. */
 
 static int
 cnf_size (tree t)
 {
-  return count_terms (t, right);
+  std::pair<int, bool> result = cnf_size_r(t);
+  return result.first == 0 ? 1 : result.first;
 }
+
 
 /* A left-conjunction is replaced by its operands.  */
 
@@ -593,7 +739,7 @@ decompose_formula (formula& f, rules r)
    a list of atomic constraints, as if T were an antecedent.  */
 
 static formula 
-decompose_antecedent (tree t)
+decompose_antecedents (tree t)
 {
   formula f (t);
   decompose_formula (f, left);
@@ -674,6 +820,10 @@ derive_proofs (formula& f, tree t, rules r)
   return true;
 }
 
+/* The largest number of clauses in CNF or DNF we accept as input
+   for subsumption. This an upper bound of 2^16 expressions.  */
+static int max_problem_size = 16;
+
 static inline bool
 diagnose_constraint_size (tree t)
 {
@@ -693,17 +843,23 @@ subsumes_constraints_nonnull (tree lhs, tree rhs)
   int n1 = dnf_size (lhs);
   int n2 = cnf_size (rhs);
   
-  /* If either constraint would overflow complexity, bail.  */
-  if (n1 == -1)
-    return diagnose_constraint_size (lhs);
-  if (n2 == -1)
-    return diagnose_constraint_size (rhs);
-  
+  /* Make sure we haven't exceeded the largest acceptable problem.  */
+  if (std::min(n1, n2) >= max_problem_size)
+    {
+      if (n1 < n2)
+        diagnose_constraint_size (lhs);
+      else
+      	diagnose_constraint_size (rhs);
+      return false;
+    }
+
   /* Decompose the smaller of the two formulas, and recursively
-     check the implication using the larger.  */
+     check the implication using the larger.  Note that for 
+     constraints that are largely comprised of conjunctions the
+     it will usually be the case that n1 <= n2. */
   if (n1 <= n2)
     {
-      formula dnf = decompose_antecedent (lhs);
+      formula dnf = decompose_antecedents (lhs);
       return derive_proofs (dnf, rhs, left);
     }
   else
@@ -727,3 +883,4 @@ subsumes (tree lhs, tree rhs)
     return true;
   return subsumes_constraints_nonnull (lhs, rhs);
 }
+

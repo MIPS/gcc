@@ -1,3 +1,304 @@
+2019-06-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	PR c++/67697.
+	* g++.dg/cpp2a/concepts-pr67697.C: New.
+
+2019-06-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	PR c++/67692.
+	* g++.dg/cpp2a/concepts-pr67692.C: New.
+
+2019-06-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	PR c++/67685.
+	* g++.dg/cpp2a/concepts-pr67685.C: New.
+
+2019-05-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	PR c++/67684.
+	* g++.dg/cpp2a/concepts-pr67684.C: New.
+
+2019-05-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	PR c++/67658.
+	* g++.dg/cpp2a/concepts.C: Add test for constrained concept.
+	* g++.dg/cpp2a/concept-ts1.C: Likewise.
+
+2019-05-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	PR c++/67654.
+	* g++.dg/cpp2a/concepts-pr67654.C: New.
+
+2019-05-22  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	PR c++/67427.
+	* g++.dg/cpp2a/concepts-pr67427.C: New.
+
+2019-05-22  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	PR c++/67319.
+	* g++.dg/cpp2a/concepts-pr67319.C: New.
+
+2019-05-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	PR c++/67225. Adding tests.
+	* g++.dg/cpp2a/concepts-pr67225-1.C: New.
+	* g++.dg/cpp2a/concepts-pr67225-2.C: New.
+	* g++.dg/cpp2a/concepts-pr67225-3.C: New.
+	* g++.dg/cpp2a/concepts-pr67225-4.C: New.
+	* g++.dg/cpp2a/concepts-pr67225-5.C: New.
+
+2019-05-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	* g++.dg/cpp2a/concepts-template-parm10.C: New.
+
+2019-05-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Add test for noexcept requirements.
+	* g++.dg/cpp2a/concepts-noexcept1.C: New.
+
+2019-05-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	PR c++/67217.
+	* g++.dg/cpp2a/concepts-pr67217.C: New.
+
+2019-05-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	PR c++/67210.
+	* g++.dg/cpp2a/concepts-pr67210.C: New.
+
+2019-05-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	PR c++/67178.
+	* g++.dg/cpp2a/concepts-pr67178.C: New.
+
+2019-05-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	PR c++/67148.
+	* g++.dg/cpp2a/concepts-pr67148.C: New.
+
+2019-05-16  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	PR c++/PR67070.
+	* g++.dg/cpp2a/concepts-pr67070.C: New.
+
+2019-05-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Disallow void constraint varaibles.
+	* g++.dg/cpp2a/concepts-pr66844.C: Update diagnostics.
+
+2019-05-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Add test for C++20 concepts.
+	* g++.dg/cpp2a/concepts-dr1430.C: New. Extends concepts/dr1430.C
+	for standard concepts.
+
+2019-05-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	* g++.dg/cpp2a/concepts-alias.C: Update compile directive.
+	* g++.dg/cpp2a/concepts-ts1.C: Update compile directive.
+	* g++.dg/cpp2a/concepts-decltype.C: New.
+
+2019-05-09  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	* g++.dg/cpp2a/concepts-requires-17.C: New.
+	* g++.dg/concepts/placeholder5.C: Update diagnostics.
+
+2019-05-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Update test targets.
+	* g++.dg/concepts/auto1.C: Change the target to c++17 only.
+	* g++.dg/concepts/auto3.C: Likewise.
+	* g++.dg/concepts/auto4.C: Likewise.
+	* g++.dg/concepts/class-deduction1.C.C: Likewise.
+	* g++.dg/concepts/class5.C: Likewise.
+	* g++.dg/concepts/class6.C: Likewise.
+	* g++.dg/concepts/decl-diagnose.C: Likewise.
+	* g++.dg/concepts/deduction-constraint1.C: Likewise.
+	* g++.dg/concepts/diagnostic1.C: Likewise. 
+	* g++.dg/concepts/dr1430.C: Likewise. XFail a test that broke with
+	the new parsing/semantics for placeholder types.
+	* g++.dg/concepts/equiv.C: Change the target to c++17 only.
+	* g++.dg/concepts/equiv2.C: Likewise.
+	* g++.dg/concepts/expression.C: Likewise. Re-add 'bool' to concepts.
+	* g++.dg/concepts/expression2.C: Change the target to c++17 only.
+	* g++.dg/concepts/expression3.C: Likewise.
+	* g++.dg/concepts/fn-concept1.C: Likewise.
+	* g++.dg/concepts/fn-concept2.C: Likewise.
+	* g++.dg/concepts/fn1.C: Likewise.
+	* g++.dg/concepts/fn10.C: Likewise.
+	* g++.dg/concepts/fn2.C: Likewise.
+	* g++.dg/concepts/fn3.C: Likewise.
+	* g++.dg/concepts/fn4.C: Likewise.
+	* g++.dg/concepts/fn5.C: Likewise.
+	* g++.dg/concepts/fn6.C: Likewise.
+	* g++.dg/concepts/fn7.C: Likewise.
+	* g++.dg/concepts/fn8.C: Likewise.
+	* g++.dg/concepts/fn9.C: Likewise.
+	* g++.dg/concepts/generic-fn-err.C: Likewise. Update diagnostics.
+	* g++.dg/concepts/inherit-ctor1.C: Change the target to c++17 only.
+	* g++.dg/concepts/inherit-ctor3.C: Likewise.
+	* g++.dg/concepts/intro1.C: Likewise.
+	* g++.dg/concepts/intro2.C: Likewise.
+	* g++.dg/concepts/intro3.C: Likewise.
+	* g++.dg/concepts/intro4.C: Likewise.
+	* g++.dg/concepts/intro5.C: Likewise.
+	* g++.dg/concepts/intro6.C: Likewise.
+	* g++.dg/concepts/intro7.C: Likewise.
+	* g++.dg/concepts/locations1.C: Likewise.
+	* g++.dg/concepts/partial-concept-id1.C: Likewise.
+	* g++.dg/concepts/partial-concept-id2.C: Likewise.
+	* g++.dg/concepts/partial-spec5.C: Likewise.
+	* g++.dg/concepts/placeholder2.C: Likewise.
+	* g++.dg/concepts/placeholder3.C: Likewise.
+	* g++.dg/concepts/placeholder4.C: Likewise.
+	* g++.dg/concepts/placeholder5.C: Likewise. Update diagnostics.
+	* g++.dg/concepts/placeholder6.C: Likewise.
+	* g++.dg/concepts/pr65634.C: Change the target to c++17 only.
+	* g++.dg/concepts/pr65636.C: Likewise.
+	* g++.dg/concepts/pr65681.C: Likewise.
+	* g++.dg/concepts/pr65848.C: Likewise.
+	* g++.dg/concepts/pr67249.C: Likewise.
+	* g++.dg/concepts/pr67544.C: Change the target to c++11.
+	* g++.dg/concepts/pr67595.C: Change the target to c++17 only.
+	* g++.dg/concepts/pr68434.C: Likewise.
+	* g++.dg/concepts/pr71128.C: Likewise.
+	* g++.dg/concepts/pr71131.C: Likewise.
+	* g++.dg/concepts/pr71385.C: Likewise.
+	* g++.dg/concepts/pr84330.C: Fix requires-clause to allow testing 
+	in future modes.
+	* g++.dg/concepts/pr85065.C: Change the target to c++17 only.
+	* g++.dg/concepts/template-parm11.C: Likewise.
+	* g++.dg/concepts/template-parm12.C: Likewise.
+	* g++.dg/concepts/template-parm2.C: Likewise.
+	* g++.dg/concepts/template-parm3.C: Likewise.
+	* g++.dg/concepts/template-parm4.C: Likewise.
+	* g++.dg/concepts/template-template-parm1.C: Likewise.
+	* g++.dg/concepts/var-concept1.C: Likewise.
+	* g++.dg/concepts/var-concept2.C: Likewise.
+	* g++.dg/concepts/var-concept3.C: Likewise. Update diagnostics.
+	* g++.dg/concepts/var-concept4.C: Change the target to c++17 only.
+	* g++.dg/concepts/var-concept5.C: Likewise. Update diagnostics.
+	* g++.dg/concepts/var-concept6.C: Change the target to c++17 only.
+	* g++.dg/concepts/var-concept7.C: Likewise.
+	* g++.dg/concepts/var-templ2.C: Likewise.
+	* g++.dg/concepts/var-templ3.C: Likewise.
+	* g++.dg/concepts/variadic1.C: Likewise.
+	* g++.dg/concepts/variadic2.C: Likewise.
+	* g++.dg/concepts/variadic3.C: Likewise.
+	* g++.dg/concepts/variadic4.C: Likewise.
+
+2019-05-07  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Add c++2a tests by default.
+	* lib/g++-dg.exp (dg-runtest): Add c++2a to run by default.
+	* g++.dg/cpp2a/concepts-class.C: Change target to c++2a.
+	* g++.dg/cpp2a/concepts-cmath.C: Likewise.
+	* g++.dg/cpp2a/concepts-constrained-parm.C: Likewise.
+	* g++.dg/cpp2a/concepts-explicit-inst1.C: Likewise.
+	* g++.dg/cpp2a/concepts-explicit-inst2.C: Likewise.
+	* g++.dg/cpp2a/concepts-explicit-inst3.C: Likewise.
+	* g++.dg/cpp2a/concepts-explicit-inst4.C: Likewise.
+	* g++.dg/cpp2a/concepts-explicit-spec1.C: Likewise.
+	* g++.dg/cpp2a/concepts-explicit-spec2.C: Likewise.
+	* g++.dg/cpp2a/concepts-explicit-spec3.C: Likewise.
+	* g++.dg/cpp2a/concepts-explicit-spec4.C: Likewise.
+	* g++.dg/cpp2a/concepts-explicit-spec5.C: Likewise.
+	* g++.dg/cpp2a/concepts-explicit-spec6.C: Likewise.
+	* g++.dg/cpp2a/concepts-feature-macro.C: Likewise.
+	* g++.dg/cpp2a/concepts-fn1.C: Likewise.
+	* g++.dg/cpp2a/concepts-fn2.C: Likewise. Uncomment a line of code
+	that was causing a spurious error.
+	* g++.dg/cpp2a/concepts-friend1.C: Change target to c++2a.
+	* g++.dg/cpp2a/concepts-friend2.C: Likewise.
+	* g++.dg/cpp2a/concepts-iconv1.C: Likewise.
+	* g++.dg/cpp2a/concepts-inherit-ctor2.C: Likewise.
+	* g++.dg/cpp2a/concepts-inherit-ctor4.C: Likewise.
+	* g++.dg/cpp2a/concepts-inherit-lambda1.C: Likewise.
+	* g++.dg/cpp2a/concepts-locations1.C: Likewise.
+	* g++.dg/cpp2a/concepts-member-concept.C: Likewise.
+	* g++.dg/cpp2a/concepts-memfun-err.C: Likewise.
+	* g++.dg/cpp2a/concepts-memtmpl1.C: Likewise. Add parens to make the
+	grammar conform.
+	* g++.dg/cpp2a/concepts-partial-spec.C: Change the target to c++17 only.
+	* g++.dg/cpp2a/concepts-partial-spec2.C: Add options. Add parens to 
+	make the grammar conform.
+	* g++.dg/cpp2a/concepts-partial-spec5.C: Change the target to c++2a.
+	* g++.dg/cpp2a/concepts-partial-spec6.C: Likewise.
+	* g++.dg/cpp2a/concepts-placeholder1.C: Likewise.
+	* g++.dg/cpp2a/concepts-locations1.C: Likewise.
+	* g++.dg/cpp2a/concepts-pr59200.C: Change the target to c++17.
+	* g++.dg/cpp2a/concepts-pr65552.C: Change the target to c++2a.
+	* g++.dg/cpp2a/concepts-pr65575.C: Change the target to c++17 only.
+	Change variable names to avoid unneeded diagnostic.
+	* g++.dg/cpp2a/concepts-pr65634.C: Change the target to c++2a.
+	* g++.dg/cpp2a/concepts-pr65636.C: Likewise.
+	* g++.dg/cpp2a/concepts-pr65848.C: Likewise.
+	* g++.dg/cpp2a/concepts-pr66091.C: Change the target to c++17 only.
+	* g++.dg/cpp2a/concepts-pr66894.C: Change the target to c++2a.
+	* g++.dg/cpp2a/concepts-pr66962.C: Likewise.
+	* g++.dg/cpp2a/concepts-pr66894.C: Likewise.
+	* g++.dg/cpp2a/concepts-pr67147.C: Likewise. Remove invalid tests.
+	* g++.dg/cpp2a/concepts-pr68434.C: Change the target to c++2a.
+	* g++.dg/cpp2a/concepts-pr68683.C: Likewise.
+	* g++.dg/cpp2a/concepts-pr71368.C: Likewise.
+	* g++.dg/cpp2a/concepts-pr71385.C: Likewise. Use P1141 syntax.
+	* g++.dg/cpp2a/concepts-pr71965.C: Change the target to c++2a.
+	* g++.dg/cpp2a/concepts-pr84551.C: Likewise.
+	* g++.dg/cpp2a/concepts-pr84980.C: Change the target to c++17 only.
+	* g++.dg/cpp2a/concepts-pr85265.C: Change the target to c++17 only.
+	* g++.dg/cpp2a/concepts-requires1.C: Change the target to c++2a. Add
+	diagnostic for additional semicolon diagnosed with pedantic.
+	* g++.dg/cpp2a/concepts-requires10.C: Change the target to c++2a.
+	* g++.dg/cpp2a/concepts-requires11.C: Likewise.
+	* g++.dg/cpp2a/concepts-requires12.C: Likewise.
+	* g++.dg/cpp2a/concepts-requires13.C: Likewise.
+	* g++.dg/cpp2a/concepts-requires14.C: Likewise.
+	* g++.dg/cpp2a/concepts-requires15.C: Likewise.
+	* g++.dg/cpp2a/concepts-requires16.C: Change the target to c++2a. 
+	Update diagnostics.
+	* g++.dg/cpp2a/concepts-requires2.C: Change the target to c++2a.
+	* g++.dg/cpp2a/concepts-requires3.C: Likewise.
+	* g++.dg/cpp2a/concepts-requires4.C: Likewise.
+	* g++.dg/cpp2a/concepts-requires5.C: Likewise.
+	* g++.dg/cpp2a/concepts-requires6.C: Likewise. Add tests for compound
+	requirement type deduction.
+	* g++.dg/cpp2a/concepts-requires7.C: Change the target to c++2a.
+	* g++.dg/cpp2a/concepts-requires8.C: Likewise.
+	* g++.dg/cpp2a/concepts-requires9.C: Likewise.
+	* g++.dg/cpp2a/concepts-template-parm1.C: Change the target to c++2a. 
+	Use P1141 syntax. Add tests.
+	* g++.dg/cpp2a/concepts-template-parm2.C: Likewise.
+	* g++.dg/cpp2a/concepts-template-parm5.C: Likewise.
+	* g++.dg/cpp2a/concepts-template-parm6.C: Likewise.
+	* g++.dg/cpp2a/concepts-template-parm8.C: Change the target to c++2a.
+	* g++.dg/cpp2a/concepts-template-parm9.C: Likewise.
+	* g++.dg/cpp2a/concepts-traits.C: Likewise.
+	* g++.dg/cpp2a/concepts-ts1.C: Likewise.
+	* g++.dg/cpp2a/concepts-ts2.C: Likewise.
+	* g++.dg/cpp2a/concepts-ts3.C: Likewise.
+	* g++.dg/cpp2a/concepts-ts4.C: Likewise.
+	* g++.dg/cpp2a/concepts-ts5.C: Likewise.
+	* g++.dg/cpp2a/concepts-ts6.C: Likewise.
+	* g++.dg/cpp2a/concepts.C: Likewise. Update diagnostics for P1141.
+	* g++.dg/cpp2a/concepts1.C: Change the target to c++2a.
+	* g++.dg/cpp2a/concepts2.C: Likewise.
+	* g++.dg/cpp2a/concepts3.C: Likewise.
+
+2019-04-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Correctly diagnose misuse of variable concept.
+	* g++.dg/concepts/inherit-ctor1.C: Update tests and diagnostics.
+	* g++.dg/concepts/inherit-ctor3.C: Update diagnostics.
+	* g++.dg/cpp2a/inherit-ctor4.C: Update diagnostics.
+
+2019-04-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Correctly diagnose misuse of variable concept.
+	* g++.dg/concepts/var-concept3.C: Update diagnostics.
+
+2019-01-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 2019-06-28  Jan Beulich  <jbeulich@suse.com>
 
 	* gcc.target/i386/gfni-5.c: New.
@@ -8288,43 +8589,43 @@
 2019-01-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Update tests, options, and diagnostics.
-	* g++dg/concepts/inherit-ctor3.C: Directly invoke the constructor.
-	* g++dg/concepts/placeholder2.C: Revert to use the concepts TS; also
+	* g++.dg/concepts/inherit-ctor3.C: Directly invoke the constructor.
+	* g++.dg/concepts/placeholder2.C: Revert to use the concepts TS; also
 	make the test valid; there are no errors here.
-	* g++dg/concepts/placeholder6.C: Update diagnostics.
-	* g++dg/concepts/pr65681.C: Revert to use the concepts TS. Simplify
+	* g++.dg/concepts/placeholder6.C: Update diagnostics.
+	* g++.dg/concepts/pr65681.C: Revert to use the concepts TS. Simplify
 	the test to only static assertions. (The test should be invalid).
-	* g++dg/concepts/pr71127.C: Update diagnostics.
-	* g++dg/concepts/pr71131.C: Likewise.
-	* g++dg/concepts/pr84330.C: Only for C++14 and later. Remove a
+	* g++.dg/concepts/pr71127.C: Update diagnostics.
+	* g++.dg/concepts/pr71131.C: Likewise.
+	* g++.dg/concepts/pr84330.C: Only for C++14 and later. Remove a
 	diagnostic that is no longer emitted.
-	* g++dg/concepts/pr85065.C: Update diagnostics.
-	* g++dg/concepts/variadic2.C: Add diagnostics for new error.
-	* g++dg/concepts/variadic4.C: Add diagnostics for new error.
+	* g++.dg/concepts/pr85065.C: Update diagnostics.
+	* g++.dg/concepts/variadic2.C: Add diagnostics for new error.
+	* g++.dg/concepts/variadic4.C: Add diagnostics for new error.
 
 2019-01-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Make tests not fail.
-	* g++dg/concepts/generic-fn-err.C: XFail tests related to placeholders
+	* g++.dg/concepts/generic-fn-err.C: XFail tests related to placeholders
 	using variadic concepts.
 
 2019-01-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Add error diagnostics.
-	* g++dg/concepts/generic-fn-err.C: Add diagnostics for invalid cases.
+	* g++.dg/concepts/generic-fn-err.C: Add diagnostics for invalid cases.
 
 2019-01-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Update introduction tests.
-	* g++dg/concepts/intro4.C: Update diagnostics to match newer template 
+	* g++.dg/concepts/intro4.C: Update diagnostics to match newer template 
 	introduction implementation.
-	* g++dg/concepts/intro5.C: Add error for disallowed deduction of
+	* g++.dg/concepts/intro5.C: Add error for disallowed deduction of
 	defaulted template parameters.
 
 2019-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Update tests.
-	* g++dg/concepts/expression2.C: Add error about private member. This
+	* g++.dg/concepts/expression2.C: Add error about private member. This
 	is emitted during diagnostics; fix typos.
 
 2019-01-10  Andrew Sutton  <andrew.n.sutton@gmail.com>

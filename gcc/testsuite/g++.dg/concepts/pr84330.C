@@ -4,10 +4,10 @@
 
 struct A
 {
-  template<typename T> requires sizeof(T) >> 0 void foo(T);
+  template<typename T> requires (sizeof(T) >> 0) void foo(T);
 
   void bar()
   {
-    foo(0);  // { dg-error "no matching" }
+    foo(0);  // { dg-error "no matching function" }
   }
 };

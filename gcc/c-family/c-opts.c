@@ -1021,16 +1021,12 @@ c_common_post_options (const char **pfilename)
   if (warn_return_type == -1 && c_dialect_cxx ())
     warn_return_type = 1;
 
-  /* C++2a includes a variation of concepts. Warn when -fconcepts is
-     specified for a language version greater than C++2a. Concepts TS
-     behavior can be identified when flag_concepts is set, but the
-     dialect is less than C++2a.  */
+  /* C++2a is the final version of concepts. We still use -fconcepts
+     to know when concepts are enabled. Note that -fconcepts-ts can
+     be used to include additional features, although modified to
+     work with the standard.  */
   if (cxx_dialect >= cxx2a)
-    {
-      if (flag_concepts)
-        warning (0, "%<-fconcepts%> is ignored for C++2a and later");
-      flag_concepts = 1;
-    }
+    flag_concepts = 1;
 
   if (num_in_fnames > 1)
     error ("too many filenames given; type %<%s %s%> for usage",

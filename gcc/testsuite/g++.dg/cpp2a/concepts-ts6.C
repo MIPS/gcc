@@ -1,5 +1,5 @@
-// { dg-do compile }
-// { dg-options "-std=c++2a -fconcepts-ts" }
+// { dg-do compile { target c++2a } }
+// { dg-additional-options "-fconcepts-ts" }
 
 template<typename T, int N, typename... Xs> concept bool C1 = true;
 
