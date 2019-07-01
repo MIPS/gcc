@@ -41,7 +41,7 @@ void driver()
   f4(0, 0);
   f4(0, 'a'); // { dg-error "cannot call" }
   f15(0);
-  f15('a'); // { dg-error "before deduction" }
+  f15('a'); // { dg-message "" }
 }
 
 template<class T> concept bool C1() { return false; }                            

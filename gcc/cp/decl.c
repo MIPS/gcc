@@ -16841,7 +16841,9 @@ require_deduced_type (tree decl, tsubst_flags_t complain)
 {
   if (undeduced_auto_decl (decl))
     {
-      if (complain & tf_error)
+      if (TREE_NO_WARNING (decl) && seen_error ())
+	/* We probably already complained about deduction failure.  */;
+      else if (complain & tf_error)
 	error ("use of %qD before deduction of %<auto%>", decl);
       return false;
     }
