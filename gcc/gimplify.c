@@ -2120,6 +2120,8 @@ collect_fallthrough_labels (gimple_stmt_iterator *gsi_p,
 	}
       else if (gimple_call_internal_p (gsi_stmt (*gsi_p), IFN_ASAN_MARK))
 	;
+      else if (gimple_code (gsi_stmt (*gsi_p)) == GIMPLE_PREDICT)
+	;
       else if (!is_gimple_debug (gsi_stmt (*gsi_p)))
 	prev = gsi_stmt (*gsi_p);
       gsi_next (gsi_p);
@@ -9123,7 +9125,10 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 			  " or private in outer context", DECL_NAME (decl));
 	    }
 	do_notice:
-	  if ((region_type & ORT_TASKLOOP) == ORT_TASKLOOP
+	  if (((region_type & ORT_TASKLOOP) == ORT_TASKLOOP
+	       || (region_type == ORT_WORKSHARE
+		   && OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
+		   && OMP_CLAUSE_REDUCTION_INSCAN (c)))
 	      && outer_ctx
 	      && outer_ctx->region_type == ORT_COMBINED_PARALLEL
 	      && (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
