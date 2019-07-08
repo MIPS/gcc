@@ -1,3 +1,7 @@
+2019-07-03 Jan Hubicka  <hubicka@ucw.cz>
+
+	* big 30, early 6, auto 6, single 100, no array hints.
+
 2019-06-20 Jan Hubicka  <hubicka@ucw.cz>
 
 	* back to trunk 2.
