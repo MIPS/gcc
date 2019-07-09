@@ -4,12 +4,18 @@
 
 struct Base {
   template<typename T>
-    static concept D = __is_same_as(T, int); // { dg-error "does not name a type" }
+  static concept D = __is_same_as(T, int); // { dg-error "static data member" }
 
   template<typename T, typename U>
-    static concept E = __is_same_as(T, U); // { dg-error "does not name a type" }
+  static concept E = __is_same_as(T, U); // { dg-error "static data member" }
+
+  template<typename T>
+  concept C1 = __is_same_as(T, int); // { dg-error "not in namespace scope" }
 };
 
-// FIXME: Actually trap these.
+union U {
+  template<typename T>
+  concept C = true; // // { dg-error "not in namespace scope" }
+};
 
 // { dg-excess-errors "deprecated" }

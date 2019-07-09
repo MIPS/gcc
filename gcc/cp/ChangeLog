@@ -1,3 +1,28 @@
+2019-07-03  Andrew Sutton  <asutton@lock3software.com>
+
+	Fix wrong diagnostics and remove dead code.
+	* parser.c (cp_parser_decl_specifier_seq): Don't add the type
+	specifier if we've already seen a type specifier.
+	(cp_parser_template_id): Remove unused code.
+	(cp_parser_template_argument): Likewise.
+	(cp_parser_nonclass_name): Likewise.
+	* pt.c (start_concept_definition): Handle type scope separately
+	from namespace scope to avoid an ICE.
+	* typeck.c (check_return_expr): Correctly indicate the deduction
+	context.
+
+2019-07-03  Andrew Sutton  <asutton@lock3software.com>
+
+	Fixing bootstrap issues.
+	* parser.c (cp_parser_maybe_concept_name): Removed because unused.
+	(cp_parser_maybe_partial_concept_id). Likewise.
+	(cp_parser_check_constrained_type_specifier): Likewise.
+	(cp_parser_maybe_constrained_type_specifier): Likewise.
+	(finish_constrained_parameter): Remove unused parameter.
+	(cp_parser_template_parameter): Don't provide unused argument.
+	(cp_parser_class_name): Actually return concept definition.
+	(cp_parser_compound_requirement): Remove unused local.
+
 2019-06-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	PR c++/67697.

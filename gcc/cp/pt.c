@@ -27158,9 +27158,9 @@ start_concept_definition (location_t loc, tree id)
   /* A concept-definition shall appear in namespace scope.  Templates
      aren't allowed in block scope, so we only need to check for class
      scope.  */
-  if (!DECL_NAMESPACE_SCOPE_P (current_scope ()))
+  if (TYPE_P (current_scope()) || !DECL_NAMESPACE_SCOPE_P (current_scope ()))
     {
-      error_at (loc, "concept definition not in namespace scope");
+      error_at (loc, "concept %qE not in namespace scope", id);
       return error_mark_node;
     }
 

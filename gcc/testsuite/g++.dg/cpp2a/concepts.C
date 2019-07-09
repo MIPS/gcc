@@ -17,24 +17,24 @@ template<typename T>
 void f3(T)
 { }
 
-template<typename T> 
+template<typename T>
 concept bool C1 = true; // { dg-warning "deprecated as a declaration specifier" }
-template<typename T> 
-bool concept C1 = true; // { dg-warning "deprecated as a declaration specifier" }
+template<typename T>
+bool concept C2 = true; // { dg-warning "deprecated as a declaration specifier" }
 
 template<typename T>
-concept C2 = true; // OK
+concept C3 = true; // OK
 template<typename T>
-concept C2 = true; // { dg-error "redefinition" }
+concept C3 = true; // { dg-error "redefinition" }
 template<typename T, typename U>
-concept C2 = true; // { dg-error "different template parameters" }
+concept C3 = true; // { dg-error "different template parameters" }
 template<int>
-concept C2 = true; // { dg-error "different template parameters" }
-int C2 = 0; // { dg-error "different kind of entity" }
+concept C3 = true; // { dg-error "different template parameters" }
+int C3 = 0; // { dg-error "different kind of entity" }
 
-int C3 = 0;
+int C4 = 0;
 template<typename T>
-concept C3 = true; // { dg-error "different kind of entity" }
+concept C4 = true; // { dg-error "different kind of entity" }
 
 // Concepts as expressions
 
@@ -49,4 +49,4 @@ static_assert(False<int>); // { dg-error "static assertion failed" }
 
 void f4(True auto);
 
-template<C2 T> concept C4 = true; // { dg-error "cannot be constrained" }
+template<True T> concept C5 = true; // { dg-error "cannot be constrained" }

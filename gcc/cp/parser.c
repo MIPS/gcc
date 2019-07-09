@@ -2665,11 +2665,6 @@ static bool cp_parser_init_statement_p
 static bool cp_parser_skip_to_closing_square_bracket
   (cp_parser *);
 
-/* Concept-related syntactic transformations */
-
-static tree cp_parser_maybe_concept_name       (cp_parser *, tree);
-static tree cp_parser_maybe_partial_concept_id (cp_parser *, tree, tree);
-
 // -------------------------------------------------------------------------- //
 // Unevaluated Operand Guard
 //
@@ -14020,9 +14015,11 @@ cp_parser_decl_specifier_seq (cp_parser* parser,
           ds = ds_concept;
           cp_lexer_consume_token (parser->lexer);
 	  /* In C++20 a concept definition is just 'concept name = expr;'
-	     Support that syntax by pretending we've seen 'bool'.  */
+	     Support that syntax as a TS extension by pretending we've seen
+	     the 'bool' specifier.  */
 	  if (cp_lexer_next_token_is (parser->lexer, CPP_NAME)
-	      && cp_lexer_nth_token_is (parser->lexer, 2, CPP_EQ))
+	      && cp_lexer_nth_token_is (parser->lexer, 2, CPP_EQ)
+	      && !decl_specs->any_type_specifiers_p)
 	    {
 	      cp_parser_set_decl_spec_type (decl_specs, boolean_type_node,
 					    token, /*type_definition*/false);
@@ -15873,8 +15870,7 @@ cp_parser_constrained_non_type_template_parm (bool *is_non_type,
 static tree
 finish_constrained_parameter (cp_parser *parser,
                               cp_parameter_declarator *parmdecl,
-                              bool *is_non_type,
-                              bool *is_parameter_pack)
+                              bool *is_non_type)
 {
   tree decl = parmdecl->decl_specifiers.type;
   tree id = get_unqualified_id (parmdecl->declarator);
@@ -16074,7 +16070,7 @@ cp_parser_template_parameter (cp_parser* parser, bool *is_non_type,
     return error_mark_node;
 
   /* If the parameter declaration is marked as a parameter pack, set
-   *IS_PARAMETER_PACK to notify the caller.  */
+     IS_PARAMETER_PACK to notify the caller.  */
   if (parameter_declarator->template_parameter_pack_p)
     *is_parameter_pack = true;
 
@@ -16090,8 +16086,7 @@ cp_parser_template_parameter (cp_parser* parser, bool *is_non_type,
   if (is_constrained_parameter (parameter_declarator))
     return finish_constrained_parameter (parser,
                                          parameter_declarator,
-                                         is_non_type,
-                                         is_parameter_pack);
+                                         is_non_type);
 
   // Now we're sure that the parameter is a non-type parameter.
   *is_non_type = true;
@@ -16291,29 +16286,6 @@ cp_parser_type_parameter (cp_parser* parser, bool *is_parameter_pack)
     }
 
   return parameter;
-}
-
-static tree
-cp_parser_check_constrained_type_specifier (tree result, tree tmpl, tree args)
-{
-  /* The template-id was a constrained-type-specifier.  */
-  if (result && TREE_CODE (result) == TYPE_DECL)
-    return result;
-
-  /* If it's not a constrained-type specifier, and we didn't build a
-     normal concept check when deducing that, then build a normal
-     check now.  */
-  if (!result || !concept_check_p (result))
-    result = build_concept_check (tmpl, args, tf_warning_or_error);
-  else
-    gcc_assert (concept_check_p (result));
-
-  /* The build_concept_check will prematurely generate call
-     expressions. Extract the template-id from the call.  */
-  if (TREE_CODE (result) == CALL_EXPR)
-    result = CALL_EXPR_FN (result);
-
-  return result;
 }
 
 /* Parse a template-id.
@@ -16526,32 +16498,6 @@ cp_parser_template_id (cp_parser *parser,
       /* If that failed, then this is probably a type constraint.  */
       if (template_id == error_mark_node)
 	template_id = build_type_constraint (templ, arguments);
-
-#if OLD_CONCEPTS
-      /* The template-id could name a concept. Note that this can
-         fail. For example:
-
-         template<typename T> concept C = ...;
-         template<typename T> requires C<T> void f(T);
-         			       ~~~~
-	  We're trying to form a partial-concept-id from the
-	  expression C<T>, which is invalid. This tries to form
-	  the constraint C<?, T>, which won't work.
-
-	  If that fails, this could still be a valid concept-id. */
-      template_id = cp_parser_maybe_partial_concept_id (parser,
-							templ,
-							arguments);
-
-      /* Handle any adjustments resulting from concept-id deduction.  */
-      template_id =
-	cp_parser_check_constrained_type_specifier (template_id,
-						    templ,
-						    arguments);
-
-      if (TREE_CODE (template_id) == TEMPLATE_ID_EXPR)
-	SET_EXPR_LOCATION (template_id, combined_loc);
-#endif
     }
   else if (variable_template_p (templ))
     {
@@ -17029,19 +16975,6 @@ cp_parser_template_argument (cp_parser* parser)
 					  /*check_dependency=*/true,
 					  /*ambiguous_decls=*/NULL,
 					  argument_start_token->location);
-
-#if OLD_CONCEPTS
-      /* Handle a constrained-type-specifier for a non-type template
-	 parameter.
-
-	 FIXME [concepts]: I don't believe this is allowed in C++20. */
-      if (tree decl = cp_parser_maybe_concept_name (parser, argument))
-	argument = decl;
-      else if (TREE_CODE (argument) != TEMPLATE_DECL
-	       && TREE_CODE (argument) != UNBOUND_CLASS_TEMPLATE)
-	cp_parser_error (parser, "expected template-name");
-#endif
-
       if (TREE_CODE (argument) != TEMPLATE_DECL
 	       && TREE_CODE (argument) != UNBOUND_CLASS_TEMPLATE)
 	cp_parser_error (parser, "expected template-name");
@@ -18277,10 +18210,6 @@ cp_parser_type_name (cp_parser* parser, bool typename_keyword_p)
 	  && TREE_CODE (type_decl) == TYPE_DECL
 	  && TYPE_DECL_ALIAS_P (type_decl))
 	gcc_assert (DECL_TEMPLATE_INSTANTIATION (type_decl));
-#ifdef OLD_CONCEPTS
-      else if (is_constrained_parameter (type_decl))
-        /* Do nothing. */ ;
-#endif
       else
 	cp_parser_simulate_error (parser);
 
@@ -18290,159 +18219,6 @@ cp_parser_type_name (cp_parser* parser, bool typename_keyword_p)
     }
 
   return type_decl;
-}
-
-/*  Check if DECL and ARGS can form a constrained-type-specifier.
-    If ARGS is non-null, we try to form a concept check of the
-    form DECL<?, ARGS> where ? is a wildcard that matches any
-    kind of template argument. If ARGS is NULL, then we try to
-    form a concept check of the form DECL<?>. */
-
-static tree
-cp_parser_maybe_constrained_type_specifier (cp_parser *parser,
-					    tree decl,
-                                            tree args)
-{
-  gcc_assert (args ? TREE_CODE (args) == TREE_VEC : true);
-
-  /* A constrained-type-specifier cannot be deduced. */
-  if (parser->prevent_constrained_type_specifiers)
-    return NULL_TREE;
-
-  /* Only concepts are constrained type specifiers.  */
-  if (!concept_definition_p (decl))
-    return NULL_TREE;
-
-  /* Try to build a call expression that evaluates the concept.
-     Fail quietly if we get errors.  */
-  tree placeholder = build_nt (WILDCARD_DECL);
-  tree check = build_concept_check (decl, placeholder, args, tf_none);
-  if (check == error_mark_node)
-    return NULL_TREE;
-
-  /* In the process of trying to form a partial-concept-id, try to
-     build a check expression with just the arguments. If this succeeds,
-     then we've detected two possible interpretations of template-id
-     'C<Args...>'. This is either a constrained-type-specifier or a
-     concept-check. As an example:
-
-	template<typename T, typename... Args>
-	concept C = true;
-
-	template<typename T>
-	  requires C<T> // ambiguity
-	void f(T);
-
-     The formed type specifier would be C<?, T>, which would present a valid
-     deduction against C.
-
-     We can also get this problem with default arguments.
-
-     Prefer the concept check over the constrained-type-specifier by
-     rejecting this as a type specifier if C<Args...> is a template-id.
-
-     NOTE: This is made unambiguous with P1141 since the auto is required.  */
-  if (args)
-    {
-      /* Set up a second check for a normal concept check. If that
-         succeeds, then we'll prefer that one. */
-      tree alt = build_concept_check (decl, args, tf_none);
-      if (alt != error_mark_node)
-	return alt;
-    }
-
-  /* Deduce the checked constraint and the prototype parameter.  */
-  tree con;
-  tree proto;
-  if (!deduce_constrained_parameter (check, con, proto))
-    return NULL_TREE;
-
-  /* In template parameter scope, this results in a constrained
-     parameter. Return a descriptor of that parm.  */
-  if (processing_template_parmlist)
-    {
-      /* If auto appears after the type name, then we're introducing
-         an auto-declared parameter.  */
-      if (cp_lexer_next_token_is_keyword (parser->lexer, RID_AUTO))
-	{
-	  /* This error might occur in pre-C++20, which allows concepts
-	     to introduce any kind of parameter.  */
-	  if (TREE_CODE (proto) != TYPE_DECL)
-	    error_at (input_location, "invalid use of %<auto%>");
-	  cp_lexer_consume_token (parser->lexer);
-	  return make_constrained_auto (con, args);
-        }
-
-      /* Otherwise, this is a constrained type parameter.  */
-      return build_constrained_parameter (con, proto, args);
-    }
-
-  /* In other contexts, concepts can only introduce types.
-     FIXME: In P1141, constrained-type-specifiers only introduce types,
-     so this needs to apply more broadly (i.e., check just after
-     deduction).  */
-  if (TREE_CODE (proto) != TYPE_DECL)
-    {
-      error_at (input_location, "%qE does not designate a type", con);
-      inform (DECL_SOURCE_LOCATION (proto), "prototype declared here");
-      return error_mark_node;
-    }
-
-  /* In a parameter-declaration-clause, constrained-type
-     specifiers result in invented template parameters.  */
-  if (parser->auto_is_implicit_function_template_parm_p)
-    {
-      /* Allow `auto` after a concept-id.
-         FIXME: P1141 requires this.  */
-      if (cp_lexer_next_token_is_keyword (parser->lexer, RID_AUTO))
-        cp_lexer_consume_token (parser->lexer);
-      else if (cxx_dialect >= cxx2a && !flag_concepts_ts)
-	warning (0, "using a concept to declare a parameter is only "
-		    "supported with %<-fconcepts-ts%>");
-
-      tree parm = build_constrained_parameter (con, proto, args);
-      return synthesize_implicit_template_parm (parser, parm);
-    }
-
-  /* Otherwise, we're in a context where the constrained type name is
-     deduced and the constraint applies after deduction.
-
-     FIXME: Warn if auto is not present using some flag for
-     concepts.  Except for for constrained return types.  */
-  if (cp_lexer_next_token_is_keyword (parser->lexer, RID_AUTO))
-    cp_lexer_consume_token (parser->lexer);
-
-  return make_constrained_auto (con, args);
-}
-
-/* If DECL refers to a concept, return a TYPE_DECL representing
-   the result of using the constrained type specifier in the
-   current context.  DECL refers to a concept if
-
-  - it is an overload set containing a function concept taking a single
-    type argument, or
-
-  - it is a variable concept taking a single type argument.  */
-
-static tree
-cp_parser_maybe_concept_name (cp_parser* parser, tree decl)
-{
-  if (flag_concepts && concept_definition_p (decl))
-    return cp_parser_maybe_constrained_type_specifier (parser, decl, NULL_TREE);
-  return NULL_TREE;
-}
-
-/* Check if DECL and ARGS form a partial-concept-id.  If so,
-   assign ID to the resulting constrained placeholder.
-
-   Returns true if the partial-concept-id designates a placeholder
-   and false otherwise. Note that *id is set to NULL_TREE in
-   this case. */
-
-static tree
-cp_parser_maybe_partial_concept_id (cp_parser *parser, tree decl, tree args)
-{
-  return cp_parser_maybe_constrained_type_specifier (parser, decl, args);
 }
 
 /* Parse a non-class type-name, that is, either an enum-name, a typedef-name,
@@ -18474,12 +18250,6 @@ cp_parser_nonclass_name (cp_parser* parser)
   type_decl = cp_parser_lookup_name_simple (parser, identifier, token->location);
 
   type_decl = strip_using_decl (type_decl);
-
-#if OLD_CONCEPTS
-  /* If we found an overload set, then it may refer to a concept-name. */
-  if (tree decl = cp_parser_maybe_concept_name (parser, type_decl))
-    type_decl = decl;
-#endif
 
   if (TREE_CODE (type_decl) != TYPE_DECL
       && (objc_is_id (identifier) || objc_is_class_name (identifier)))
@@ -23597,7 +23367,6 @@ cp_parser_class_name (cp_parser *parser,
       /* A concept-id is not a type name, but it may be part of one
          as a type constraint.  */
       gcc_assert (TREE_CODE (decl) == TEMPLATE_ID_EXPR);
-      tree tmpl = TREE_OPERAND (decl, 0);
       tree args = TREE_OPERAND (decl, 1);
       if ((TREE_VEC_LENGTH (args) == 0)
 	  || (TREE_CODE (TREE_VEC_ELT (args, 0)) != WILDCARD_DECL))
@@ -27142,7 +26911,7 @@ cp_parser_concept_definition (cp_parser *parser)
      but continue as if it were.  */
   cp_parser_consume_semicolon_at_end_of_statement (parser);
 
-  tree def = finish_concept_definition (decl, init);
+  return finish_concept_definition (decl, init);
 }
 
 // -------------------------------------------------------------------------- //
@@ -27541,7 +27310,7 @@ cp_parser_compound_requirement (cp_parser *parser)
         return error_mark_node;
 
       /* Check that we haven't written something like 'const C<T>*'.  */
-      if (tree auto_node = type_uses_auto (type))
+      if (type_uses_auto (type))
 	{
 	  if (!is_auto (type))
 	    {

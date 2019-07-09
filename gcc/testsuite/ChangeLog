@@ -1,3 +1,11 @@
+2019-07-03  Andrew Sutton  <asutton@lock3software.com>
+
+	Fixing diagnostics issues and add new member tests.
+	* g++.dg/cpp2a/concepts.C: Rename declarations to avoid accidental
+	redefinitions.
+	* g++.dg/cpp2a/concepts-member-concept.C: Update diagnostics and
+	add tests for non-declarator based concepts.
+
 2019-06-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	PR c++/67697.
