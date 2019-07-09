@@ -13,9 +13,9 @@ struct X
 {
   template<typename T>
   concept int f4() { return 0; } // { dg-error "cannot be a member" }
-  concept f5 = true; // { dg-error "does not name a type" }
+  concept f5 = true; // { dg-error "declared 'concept'" }
   template<typename T>
-  static concept f6 = true; // { dg-error "does not name a type" }
+  static concept f6 = true; // { dg-error "declared 'concept'" }
   static concept bool x; // { dg-error "declared 'concept'" }
 			 // { dg-error "uninitialized 'const" "" { target *-*-* } .-1 }
   concept int x2; // { dg-error "declared 'concept'" }
