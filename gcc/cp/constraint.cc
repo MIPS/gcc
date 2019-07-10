@@ -1917,8 +1917,8 @@ constraints_satisfied_p (tree decl)
 {
   /* For inherited constructors, consider the original declaration;
      it has the correct template information attached. */
-  if (tree ctor = DECL_INHERITED_CTOR (decl))
-    decl = ctor;
+  if (flag_new_inheriting_ctors)
+    decl = strip_inheriting_ctors (decl);
 
   /* Get the constraints to check for satisfaction. This depends
      on whether we're looking at a template specialization or not. */
