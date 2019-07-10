@@ -1,6 +1,11 @@
 2019-06-20 Jan Hubicka  <hubicka@ucw.cz>
 
 	* big 30, early 6, auto 6, single 100, no array hints.
+	* big 30, early 6, auto 6, single 100, no array hints.
+
+	back to trunk
+	e1c92f8d1f87634e0d951e0d620148d0986bc016
+	7bae40ce4daa4f8545169e38b615574d3a365f63
 
 2019-06-20 Jan Hubicka  <hubicka@ucw.cz>
 
