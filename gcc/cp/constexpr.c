@@ -5293,7 +5293,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
         /* We can evaluate template-id that refers to a concept only if
 	   the template arguments are non-dependent.  */
 	if (!concept_definition_p (TREE_OPERAND (t, 0)))
-	  internal_error ("unexpected template_id_expr %qE", t);
+	  internal_error ("unexpected template-id %qE", t);
 
 	if (!processing_template_decl)
 	  return evaluate_constraint_expression (t, NULL_TREE);

@@ -1,3 +1,22 @@
+2019-07-10  Andrew Sutton  <asutton@lock3software.com>
+
+	Generate better diagnostics for invalid requires-clauses.
+	* constexpr.c (cxx_eval_constant_expression): Suppress a format string
+	warning.
+	* constraint.cc (finish_constraint_binary_op): Explicitly handle
+	error cases.
+	(finish_constraint_primary_expr): Likewise.
+	* parser.c (cp_parser_diagnose_ungrouped_constraint_plain): New.
+	(cp_parser_diagnose_ungrouped_constraint_plain): New.
+	(cp_parser_constraint_primary_expression): Tentatively parse the
+	primary expression. If that fails tentatively parse a lower
+	precedence expression in order to diagnose the error.
+	(cp_parser_check_non_logical_constraint): New; performs a trial
+	parse of the right-hand-side of non-logical operators in order to
+	generate good diagnostics.
+	(cp_parser_constraint_logical_and_expression): Use the function above.
+	(cp_parser_constraint_logical_or_expression): Likewise.
+
 2019-07-03  Andrew Sutton  <asutton@lock3software.com>
 
 	Fix wrong diagnostics and remove dead code.

@@ -26917,11 +26917,32 @@ cp_parser_concept_definition (cp_parser *parser)
 // -------------------------------------------------------------------------- //
 // Requires Clause
 
+/* Diagnose an expression that should appear in ()'s within a requires-clause
+   and suggest where to place those parentheses.  */
+
+static void
+cp_parser_diagnose_ungrouped_constraint_plain (location_t loc)
+{
+  error_at (loc, "expression must be enclosed in parentheses after "
+		 "%<requires%>");
+}
+
+static void
+cp_parser_diagnose_ungrouped_constraint_rich (location_t loc)
+{
+  gcc_rich_location richloc (loc);
+  richloc.add_fixit_insert_before ("(");
+  richloc.add_fixit_insert_after (")");
+  error_at (&richloc, "expression must be enclosed in parentheses after "
+		      "%<requires%>");
+}
 
 /* Parse a primary expression within a constraint.  */
+
 static tree
 cp_parser_constraint_primary_expression (cp_parser *parser)
 {
+  cp_parser_parse_tentatively (parser);
   cp_id_kind idk;
   location_t loc = input_location;
   tree expr = cp_parser_primary_expression (parser,
@@ -26929,7 +26950,122 @@ cp_parser_constraint_primary_expression (cp_parser *parser)
                                             /*cast_p=*/false,
                                             /*template_arg_p=*/false,
                                             &idk);
-  return finish_constraint_primary_expr (loc, expr);
+  if (cp_parser_parse_definitely (parser))
+    return finish_constraint_primary_expr (loc, expr);
+
+  /* Retry the parse at a lower precedence.  */
+  cp_parser_parse_tentatively (parser);
+  expr = cp_parser_simple_cast_expression (parser);
+  if (cp_parser_parse_definitely (parser))
+    {
+      cp_parser_diagnose_ungrouped_constraint_rich (EXPR_LOCATION (expr));
+      return expr;
+    }
+
+  /* Otherwise, something has gone wrong, but we can't generate a more
+     meaningful diagnostic or recover.  */
+  loc = cp_lexer_peek_token (parser->lexer)->location;
+  cp_parser_diagnose_ungrouped_constraint_plain (loc);
+  return error_mark_node;
+}
+
+/* Examine the token following EXPR. If it is an operator in a non-logical
+   binary expression, diagnose that as an error.  */
+
+static tree
+cp_parser_check_non_logical_constraint (cp_parser *parser, tree lhs)
+{
+  cp_token *token = cp_lexer_peek_token (parser->lexer);
+  switch (token->type)
+    {
+      default:
+        return lhs;
+
+      /* Arithmetic operators.  */
+      case CPP_PLUS:
+      case CPP_MINUS:
+      case CPP_MULT:
+      case CPP_DIV:
+      case CPP_MOD:
+      /* Bitwise operators.  */
+      case CPP_AND:
+      case CPP_OR:
+      case CPP_XOR:
+      case CPP_RSHIFT:
+      case CPP_LSHIFT:
+      /* Relational operators.  */
+      /* FIXME: Handle '<=>'.  */
+      case CPP_EQ_EQ:
+      case CPP_NOT_EQ:
+      case CPP_LESS:
+      case CPP_GREATER:
+      case CPP_LESS_EQ:
+      case CPP_GREATER_EQ:
+      /* Conditional operator */
+      case CPP_QUERY:
+      /* Pointer-to-member.  */
+      case CPP_DOT_STAR:
+      case CPP_DEREF_STAR:
+      /* Assignment operators.  */
+      case CPP_PLUS_EQ:
+      case CPP_MINUS_EQ:
+      case CPP_MULT_EQ:
+      case CPP_DIV_EQ:
+      case CPP_MOD_EQ:
+      case CPP_AND_EQ:
+      case CPP_OR_EQ:
+      case CPP_XOR_EQ:
+      case CPP_RSHIFT_EQ:
+      case CPP_LSHIFT_EQ:
+        break;
+
+      case CPP_EQ: {
+	/* An equal sign may be part of the the definition of a function,
+	   and not an assignment operator, when parsing the expression
+	   for a trailing requires-clause. For example:
+
+	      template<typename T>
+	      struct S {
+		S() requires C<T> = default;
+	      }
+
+	   This is not an error.  */
+	if (cp_lexer_nth_token_is_keyword (parser->lexer, 2, RID_DELETE)
+	    || cp_lexer_nth_token_is_keyword (parser->lexer, 2, RID_DEFAULT))
+	  return lhs;
+
+        break;
+      }
+   }
+
+   /* Try to parse the RHS as either the remainder of a conditional-expression
+      or a logical-or-expression so we can form a good diagnostic.  */
+  cp_parser_parse_tentatively (parser);
+  tree rhs;
+  if (token->type == CPP_QUERY)
+    rhs = cp_parser_question_colon_clause (parser, lhs);
+  else
+    {
+      cp_lexer_consume_token (parser->lexer);
+      rhs = cp_parser_binary_expression (parser, false, false, false,
+					 PREC_NOT_OPERATOR, NULL);
+    }
+
+  /* If we couldn't parse the RHS, then emit the best diagnostic we can.  */
+  if (!cp_parser_parse_definitely (parser))
+    {
+      cp_parser_diagnose_ungrouped_constraint_plain (token->location);
+      return error_mark_node;
+    }
+
+  /* Otherwise, emit a fixit for the complete binary expression.  */
+  cp_expr left(lhs, EXPR_LOCATION (lhs));
+  cp_expr right(lhs, EXPR_LOCATION (rhs));
+  location_t loc = make_location (token->location,
+				  left.get_start(),
+				  right.get_finish());
+  cp_parser_diagnose_ungrouped_constraint_rich (loc);
+  return error_mark_node;
 }
 
 /* Parse a constraint-logical-and-expression.
@@ -26937,6 +27073,7 @@ cp_parser_constraint_primary_expression (cp_parser *parser)
      constraint-logical-and-expression:
        primary-expression
        constraint-logical-and-expression '&&' primary-expression  */
+
 static tree
 cp_parser_constraint_logical_and_expression (cp_parser *parser)
 {
@@ -26947,7 +27084,7 @@ cp_parser_constraint_logical_and_expression (cp_parser *parser)
       tree rhs = cp_parser_constraint_primary_expression (parser);
       lhs = finish_constraint_and_expr (op->location, lhs, rhs);
     }
-  return lhs;
+  return cp_parser_check_non_logical_constraint (parser, lhs);
 }
 
 /* Parse a constraint-logical-or-expression.
@@ -26955,6 +27092,7 @@ cp_parser_constraint_logical_and_expression (cp_parser *parser)
      constraint-logical-or-expression:
        constraint-logical-and-expression
        constraint-logical-or-expression '||' constraint-logical-and-expression  */
+
 static tree
 cp_parser_constraint_logical_or_expression (cp_parser *parser)
 {
@@ -26965,11 +27103,12 @@ cp_parser_constraint_logical_or_expression (cp_parser *parser)
       tree rhs = cp_parser_constraint_logical_and_expression (parser);
       lhs = finish_constraint_or_expr (op->location, lhs, rhs);
     }
-  return lhs;
+  return cp_parser_check_non_logical_constraint (parser, lhs);
 }
 
 /* Parse the expression after a requires-clause. This has a different grammar
     than that in the concepts TS.  */
+
 static tree
 cp_parser_requires_clause_expression (cp_parser *parser)
 {
@@ -26990,6 +27129,7 @@ cp_parser_requires_clause_expression (cp_parser *parser)
    The required logical-or-expression must be a constant expression. Note
    that we don't check that the expression is constepxr here. We defer until
    we analyze constraints and then, we only check atomic constraints.  */
+
 static tree
 cp_parser_constraint_expression (cp_parser *parser)
 {
@@ -27009,6 +27149,7 @@ cp_parser_constraint_expression (cp_parser *parser)
         `requires` constraint-logical-or-expression.
    [ConceptsTS]
         `requires constraint-expression.  */
+
 static tree
 cp_parser_requires_clause_opt (cp_parser *parser)
 {
@@ -27043,6 +27184,7 @@ cp_parser_requires_clause_opt (cp_parser *parser)
 
    requirement-expression:
        'requires' requirement-parameter-list [opt] requirement-body */
+
 static tree
 cp_parser_requires_expression (cp_parser *parser)
 {
@@ -27107,6 +27249,7 @@ cp_parser_requires_expression (cp_parser *parser)
 
    requirement-parameter-list:
        '(' parameter-declaration-clause ')' */
+
 static tree
 cp_parser_requirement_parameter_list (cp_parser *parser)
 {
@@ -27147,6 +27290,7 @@ cp_parser_requirement_body (cp_parser *parser)
    requirement-list:
        requirement
        requirement-list ';' requirement[opt] */
+
 static tree
 cp_parser_requirement_list (cp_parser *parser)
 {
@@ -27180,6 +27324,7 @@ cp_parser_requirement_list (cp_parser *parser)
        compound-requirement
        type-requirement
        nested-requirement */
+
 static tree
 cp_parser_requirement (cp_parser *parser)
 {
@@ -27197,6 +27342,7 @@ cp_parser_requirement (cp_parser *parser)
 
      simple-requirement:
        expression ';' */
+
 static tree
 cp_parser_simple_requirement (cp_parser *parser)
 {
@@ -27218,6 +27364,7 @@ cp_parser_simple_requirement (cp_parser *parser)
      required-type-name:
          type-name
          'template' [opt] simple-template-id  */
+
 static tree
 cp_parser_type_requirement (cp_parser *parser)
 {
@@ -27271,6 +27418,7 @@ cp_parser_type_requirement (cp_parser *parser)
 
      compound-requirement:
          '{' expression '}' 'noexcept' [opt] trailing-return-type [opt] ';' */
+
 static tree
 cp_parser_compound_requirement (cp_parser *parser)
 {
@@ -27329,6 +27477,7 @@ cp_parser_compound_requirement (cp_parser *parser)
 
    nested-requirement:
      requires-clause */
+
 static tree
 cp_parser_nested_requirement (cp_parser *parser)
 {

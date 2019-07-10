@@ -39,9 +39,7 @@ template<bool B> requires B struct S0; // OK
 template<int N> requires N struct S1 { };
 S1<1> x0; // { dg-error "template constraint failure|does not have type" }
 
-// We want to diagnose the syntax error (N == 0 must be in parens). Don't
-// diagnose constraint errors during parsing.
-template<int N> requires N == 0 struct S2 { }; // { dg-error "expected unqualified-id|extra" }
+template<int N> requires N == 0 struct S2 { }; // { dg-error "must be enclosed" }
 
 template<int N> requires (N == 0) struct S3 { }; // OK
 
@@ -62,7 +60,7 @@ concept Range = requires (T t) { t; };
 // just one.Note that !Range<T> is not a primary-expression and needs to
 // be wrapped in parens to be syntactically valid.
 template<class T>
-  requires Streamable<T> && !Range<T> // { dg-error "expected primary-expression|expected unqualified-id" }
+  requires Streamable<T> && !Range<T> // { dg-error "must be enclosed" }
 void print1(const T& x) { }
 
 template<class T>

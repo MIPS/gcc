@@ -2,12 +2,12 @@
 
 // Change in grammar for the expression trailing `requires`.
 template<typename T>
-  requires true != false // { dg-error "expected unqualified-id" }
+  requires true != false // { dg-error "must be enclosed" }
 void f1(T)
 { }
 
 template<typename T>
-void f3(T) requires true != false // { dg-error "expected initializer" }
+void f3(T) requires true != false // { dg-error "must be enclosed" }
 { }
 
 template<typename T>

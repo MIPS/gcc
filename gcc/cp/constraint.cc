@@ -92,6 +92,8 @@ static tree
 finish_constraint_binary_op (location_t loc, tree_code code, tree lhs, tree rhs)
 {
   gcc_assert (parsing_constraint_expression_p ());
+  if (lhs == error_mark_node || rhs == error_mark_node)
+    return error_mark_node;
   tree overload;
   tree expr = build_x_binary_op (loc, code,
 				 lhs, TREE_CODE (lhs),
@@ -118,6 +120,8 @@ finish_constraint_and_expr (location_t loc, tree lhs, tree rhs)
 tree
 finish_constraint_primary_expr (location_t loc, tree expr)
 {
+  if (expr == error_mark_node)
+    return error_mark_node;
   if (CAN_HAVE_LOCATION_P (expr) && !EXPR_HAS_LOCATION (expr))
     SET_EXPR_LOCATION (expr, loc);
   return expr;
