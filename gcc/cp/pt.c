@@ -8787,7 +8787,7 @@ coerce_template_parms (tree parms,
              template<typename T> concept C = true;
 
              template<typename... Args>
-             	requires C<Args...>
+	       requires C<Args...>
              void f();
 
          When parsing C<Args...>, we try to form a concept check of
@@ -23491,7 +23491,7 @@ more_specialized_fn (tree pat1, tree pat2, int len)
       if (winner > 0)
 	lose2 = true;
       else if (winner < 0)
-      	lose1 = true;
+	lose1 = true;
     }
 
   /* All things being equal, if the next argument is a pack expansion
@@ -27093,10 +27093,10 @@ template_placeholder_p (tree t)
   return is_auto (t) && CLASS_PLACEHOLDER_TEMPLATE (t);
 }
 
-/* Make a "constrained auto" type-specifier. This is an auto or 
+/* Make a "constrained auto" type-specifier. This is an auto or
   decltype(auto) type with constraints that must be associated after
-  deduction.  The constraint is formed from the given concept CON 
-  and its optional sequence of template arguments ARGS. 
+  deduction.  The constraint is formed from the given concept CON
+  and its optional sequence of template arguments ARGS.
 
   TYPE must be the result of make_auto_type or make_decltype_auto_type. */
 
@@ -28033,7 +28033,7 @@ do_auto_deduction (tree type, tree init, tree auto_node,
         else
           cargs = targs;
 
-  	/* Rebuild the check using the deduced arguments.  */
+	/* Rebuild the check using the deduced arguments.  */
 	check = build_concept_check (cdecl, cargs, tf_none);
 
 	if (!constraints_satisfied_p (check, cargs))

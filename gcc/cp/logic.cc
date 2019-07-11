@@ -47,7 +47,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "type-utils.h"
 
-static bool 
+static bool
 parameter_mapping_equivalent_p (tree t1, tree t2)
 {
   tree map1 = TREE_TYPE (t1);
@@ -76,7 +76,7 @@ constraint_identical_p (tree t1, tree t2)
 
   if (!parameter_mapping_equivalent_p (t1, t2))
     return false;
-  
+
   return true;
 }
 
@@ -85,7 +85,7 @@ hash_atomic_constraint (tree t)
 {
   /* Hash the identity of the expression.  */
   hashval_t val = htab_hash_pointer (ATOMIC_CONSTR_EXPR (t));
-    
+
   /* Hash the targets of the parameter map.  */
   tree p = TREE_TYPE (t);
   while (p)
@@ -191,7 +191,7 @@ struct clause
     if (TREE_CODE (t) == ATOMIC_CONSTR)
     {
       if (m_set.add (t))
-      	return std::make_pair (iter, false);
+	return std::make_pair (iter, false);
     }
     return std::make_pair (m_terms.insert (iter, t), true);
   }
@@ -199,17 +199,17 @@ struct clause
   /* Replaces the current term with T. In the case where the
      current term is erased (because T is redundant), update
      the position of the current term to the next term.  */
-  
+
   void replace (tree t)
   {
     m_current = replace (m_current, t).first;
   }
-  
+
   /* Replace the current term with T1 and T2, in that order.  */
 
   void replace (tree t1, tree t2)
   {
-    /* Replace the current term with t1. Ensure that iter points 
+    /* Replace the current term with t1. Ensure that iter points
        to the term before which t2 will be inserted.  Update the
        current term as needed.  */
     std::pair<iterator, bool> rep = replace (m_current, t1);
@@ -217,7 +217,7 @@ struct clause
       m_current = rep.first;
     else
       ++rep.first;
-    
+
     /* Insert the t2. Make this the current term if we erased
        the prior term.  */
     std::pair<iterator, bool> ins = insert (rep.first, t2);
@@ -308,7 +308,7 @@ struct formula
     ++m_current;
   }
 
-  /* Insert a copy of clause into the formula. This corresponds 
+  /* Insert a copy of clause into the formula. This corresponds
      to a distribution of one logical operation over the other.  */
 
   clause& branch ()
@@ -379,7 +379,7 @@ debug (formula& f)
    "left" and "right" refer to the position of formula in a
    sequent (as in sequent calculus).  */
 
-enum rules 
+enum rules
 {
   left, right
 };
@@ -406,8 +406,8 @@ atomic_p (tree t)
 
 /* Recursively count the number of clauses produced when converting T
    to DNF. Returns a pair containing the number of clauses and a bool
-   value signifying that the the tree would be rewritten as a result of 
-   distributing. In general, a conjunction for which this flag is set 
+   value signifying that the the tree would be rewritten as a result of
+   distributing. In general, a conjunction for which this flag is set
    is considered a disjunction for the purpose of counting.  */
 
 static std::pair<int, bool>
@@ -417,8 +417,8 @@ dnf_size_r (tree t)
     /* Atomic constraints produce no clauses.  */
     return std::make_pair (0, false);
 
-  /* For compound constraints, recursively count clauses and unpack 
-     the results.  */  
+  /* For compound constraints, recursively count clauses and unpack
+     the results.  */
   tree lhs = TREE_OPERAND (t, 0);
   tree rhs = TREE_OPERAND (t, 1);
   std::pair<int, bool> p1 = dnf_size_r (lhs);
@@ -448,7 +448,7 @@ dnf_size_r (tree t)
 	  if ((disjunction_p (rhs) && d1) || (conjunction_p (rhs) && d1 && d2))
 	    /* Both P and Q are disjunctions.  */
 	    return std::make_pair (n1 + n2, d1 | d2);
-	  if (disjunction_p (rhs) 
+	  if (disjunction_p (rhs)
 	      || (conjunction_p (rhs) && d1 != d2)
 	      || (atomic_p (rhs) && d1))
 	    /* Either LHS or RHS is a disjunction.  */
@@ -473,7 +473,7 @@ dnf_size_r (tree t)
          in the distribution of one side over the other. When both
          P and Q are disjunctions, the number of clauses are multiplied.
          When only one of P and Q is a disjunction, the the number of
-         clauses are added. Otherwise, neither side is a disjunction and 
+         clauses are added. Otherwise, neither side is a disjunction and
          no clauses are created.  */
       if (disjunction_p (lhs))
 	{
@@ -490,7 +490,7 @@ dnf_size_r (tree t)
 	  if ((disjunction_p (rhs) && d1) || (conjunction_p (rhs) && d1 && d2))
 	    /* Both P and Q are disjunctions.  */
 	    return std::make_pair (n1 * n2, true);
-	  if (disjunction_p (rhs) 
+	  if (disjunction_p (rhs)
 	      || (conjunction_p (rhs) && d1 != d2)
 	      || (atomic_p (rhs) && d1))
 	    /* Either LHS or RHS is a disjunction.  */
@@ -507,15 +507,15 @@ dnf_size_r (tree t)
 	  else
 	    /* Neither LHS nor RHS is a disjunction.  */
 	    return std::make_pair (0, false);
-	}      
+	}
     }
   gcc_unreachable ();
 }
 
 /* Recursively count the number of clauses produced when converting T
    to CNF. Returns a pair containing the number of clauses and a bool
-   value signifying that the the tree would be rewritten as a result of 
-   distributing. In general, a disjunction for which this flag is set 
+   value signifying that the the tree would be rewritten as a result of
+   distributing. In general, a disjunction for which this flag is set
    is considered a conjunction for the purpose of counting.  */
 
 static std::pair<int, bool>
@@ -525,8 +525,8 @@ cnf_size_r (tree t)
     /* Atomic constraints produce no clauses.  */
     return std::make_pair (0, false);
 
-  /* For compound constraints, recursively count clauses and unpack 
-     the results.  */  
+  /* For compound constraints, recursively count clauses and unpack
+     the results.  */
   tree lhs = TREE_OPERAND (t, 0);
   tree rhs = TREE_OPERAND (t, 1);
   std::pair<int, bool> p1 = cnf_size_r (lhs);
@@ -540,7 +540,7 @@ cnf_size_r (tree t)
          in the distribution of one side over the other. When both
          P and Q are conjunctions, the number of clauses are multiplied.
          When only one of P and Q is a conjunction, the the number of
-         clauses are added. Otherwise, neither side is a conjunction and 
+         clauses are added. Otherwise, neither side is a conjunction and
          no clauses are created.  */
       if (disjunction_p (lhs))
 	{
@@ -653,8 +653,8 @@ replace_term (clause& c, tree t)
 }
 
 /* Create a new clause in the formula by copying the current
-   clause. In the current clause, the term at CI is replaced 
-   by the first operand, and in the new clause, it is replaced 
+   clause. In the current clause, the term at CI is replaced
+   by the first operand, and in the new clause, it is replaced
    by the second.  */
 
 void
@@ -713,7 +713,7 @@ decompose_term (formula& f, clause& c, tree t, rules r)
     }
 }
 
-/* Decompose C (in F) using the logical rules R until it 
+/* Decompose C (in F) using the logical rules R until it
    is comprised of only atomic constraints.  */
 
 void
@@ -738,7 +738,7 @@ decompose_formula (formula& f, rules r)
 /* Fully decomposing T into a list of sequents, each comprised of
    a list of atomic constraints, as if T were an antecedent.  */
 
-static formula 
+static formula
 decompose_antecedents (tree t)
 {
   formula f (t);
@@ -798,12 +798,12 @@ derive_proof (clause& c, tree t, rules r)
       if (r == left)
         return derive_proof_for_both_operands (c, t, r);
       else
-      	return derive_proof_for_either_operand (c, t, r);
+	return derive_proof_for_either_operand (c, t, r);
     case DISJ_CONSTR:
       if (r == left)
         return derive_proof_for_either_operand (c, t, r);
       else
-      	return derive_proof_for_both_operands (c, t, r);
+	return derive_proof_for_both_operands (c, t, r);
     default:
       return derive_atomic_proof (c, t);
   }
@@ -842,19 +842,19 @@ subsumes_constraints_nonnull (tree lhs, tree rhs)
 
   int n1 = dnf_size (lhs);
   int n2 = cnf_size (rhs);
-  
+
   /* Make sure we haven't exceeded the largest acceptable problem.  */
   if (std::min (n1, n2) >= max_problem_size)
     {
       if (n1 < n2)
         diagnose_constraint_size (lhs);
       else
-      	diagnose_constraint_size (rhs);
+	diagnose_constraint_size (rhs);
       return false;
     }
 
   /* Decompose the smaller of the two formulas, and recursively
-     check the implication using the larger.  Note that for 
+     check the implication using the larger.  Note that for
      constraints that are largely comprised of conjunctions the
      it will usually be the case that n1 <= n2. */
   if (n1 <= n2)
@@ -883,4 +883,3 @@ subsumes (tree lhs, tree rhs)
     return true;
   return subsumes_constraints_nonnull (lhs, rhs);
 }
-

@@ -2270,7 +2270,7 @@ diagnose_name_conflict (tree decl, tree bval)
       && CP_DECL_CONTEXT (decl) == CP_DECL_CONTEXT (bval))
     {
       if (concept_definition_p (decl))
-        error ("redeclaration of %q#D with different template parameters", 
+        error ("redeclaration of %q#D with different template parameters",
                decl);
       else
         error ("redeclaration of %q#D", decl);

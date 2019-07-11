@@ -243,11 +243,11 @@ pp_cxx_nested_name_specifier (cxx_pretty_printer *pp, tree t)
      to the fact that pp->enclosing_namespace is null.  */
   if (t == global_namespace)
     {
-      pp_cxx_colon_colon (pp);   
+      pp_cxx_colon_colon (pp);
     }
   else if (!SCOPE_FILE_SCOPE_P (t) && t != pp->enclosing_scope)
     {
-      tree scope = get_containing_scope (t);      
+      tree scope = get_containing_scope (t);
       pp_cxx_nested_name_specifier (pp, scope);
       pp_cxx_template_keyword_if_needed (pp, scope, t);
       pp_cxx_unqualified_id (pp, t);

@@ -351,9 +351,9 @@ deduce_concept_introduction (tree check)
 /* Build a constrained placeholder type where SPEC is a type-constraint.
    SPEC can be anything were concept_definition_p is true.
 
-   If DECLTYPE_P is true, then the placeholder is decltype(auto).  
+   If DECLTYPE_P is true, then the placeholder is decltype(auto).
 
-   Returns a pair whose FIRST is the concept being checked and whose 
+   Returns a pair whose FIRST is the concept being checked and whose
    SECOND is the prototype parameter.  */
 
 tree_pair
@@ -562,7 +562,7 @@ current_template_constraints (void)
   return build_constraints (tmpl_constr, NULL_TREE);
 }
 
-/* If the recently parsed TYPE declares or defines a template or 
+/* If the recently parsed TYPE declares or defines a template or
    template specialization, get its corresponding constraints from the
    current template parameters and bind them to TYPE's declaration.  */
 tree
@@ -777,7 +777,7 @@ build_concept_check (tree decl, tree arg, tree rest, tsubst_flags_t complain)
       error ("invalid use concept %qE", id);
       return error_mark_node;
     }
-  
+
   tree args = build_concept_check_arguments (arg, rest);
 
   if (standard_concept_p (decl))
@@ -1047,7 +1047,7 @@ introduce_template_parameters (tree parms, tree wildcards, int& index)
       if (WILDCARD_PACK_P (arg))
 	parms = introduce_template_parameter_pack (parms, arg);
       else
-      	parms = introduce_template_parameter (parms, arg);
+	parms = introduce_template_parameter (parms, arg);
     }
 
   return parms;
@@ -1161,8 +1161,8 @@ finish_template_introduction (tree tmpl_decl, tree intro_list)
 
   /* Associate the constraint.  */
   tree check = build_concept_check (tmpl_decl,
-  				    check_args,
-  				    tf_warning_or_error);
+				    check_args,
+				    tf_warning_or_error);
   TEMPLATE_PARMS_CONSTRAINTS (current_template_parms) = check;
 
   return parm_list;
@@ -2535,7 +2535,7 @@ diagnose_compound_requirement (tree req, tree args, tree in_decl)
       {
 	tree orig_expr = TREE_OPERAND (req, 0);
 	inform (loc, "cannot convert %qE to %qT", orig_expr, type);
-	expression_convertible_p (expr, type, noisy); 
+	expression_convertible_p (expr, type, noisy);
       }
     }
 }

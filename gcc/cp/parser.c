@@ -17946,7 +17946,7 @@ cp_parser_simple_type_specifier (cp_parser* parser,
       else if (type && concept_check_p (type))
         {
           /* We have a type-constraint of the form C<?, Args...>, which
-             is actually a template-id. This falls out of the template-id 
+             is actually a template-id. This falls out of the template-id
              parsed in cp_parser_class_name.  */
           location_t loc = EXPR_LOCATION (type);
 	  type = cp_parser_placeholder_type_specifier (parser, loc, type);
@@ -18002,11 +18002,11 @@ cp_parser_simple_type_specifier (cp_parser* parser,
   return type;
 }
 
-/* Parse the remainder of a placholder-type-specifier.  
+/* Parse the remainder of a placholder-type-specifier.
 
    placeholder-type-specifier:
      type-constraint_opt auto
-     type-constraint_opt decltype(auto) 
+     type-constraint_opt decltype(auto)
 
   The type constraint is parsed in cp_parser_simple_type_specifier and
   passed as TMPL. This function parses the actual placeholder type and
@@ -18018,7 +18018,7 @@ cp_parser_simple_type_specifier (cp_parser* parser,
   omitted in a constrained-type-specifier.  */
 
 tree
-cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc, 
+cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc,
 				      tree tmpl)
 {
   tree orig_tmpl = tmpl;
@@ -18031,7 +18031,7 @@ cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc,
       tmpl = TREE_OPERAND (tmpl, 0);
 
       /* Check for a wildcard. If there isn't one, then this is not
-         a partial application. 
+         a partial application.
 
          FIXME: Does this ever actually trigger? We're filtering
          non-wildcard constraints in cp_parser_class_name.  */
@@ -18049,9 +18049,9 @@ cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc,
       /* Rebuild the argument vector without the wildcard.  */
       args = make_tree_vec (TREE_VEC_LENGTH (old_args) - 1);
       for (int i = 0; i < TREE_VEC_LENGTH (args); ++i)
-      	TREE_VEC_ELT (args, i) = TREE_VEC_ELT (old_args, i + 1);
-      SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (args, 
-      	  GET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (old_args) - 1);
+	TREE_VEC_ELT (args, i) = TREE_VEC_ELT (old_args, i + 1);
+      SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT
+	(args, GET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (old_args) - 1);
     }
 
   /* Get the concept and prototype parameter for the constraint.  */
@@ -18067,14 +18067,14 @@ cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc,
   if (cxx_dialect >= cxx2a)
     {
       if (cp_lexer_next_token_is_keyword (parser->lexer, RID_AUTO))
-	placeholder = cp_lexer_consume_token (parser->lexer); 
+	placeholder = cp_lexer_consume_token (parser->lexer);
       else if (cp_lexer_next_token_is_keyword (parser->lexer, RID_DECLTYPE))
 	{
 	  placeholder = cp_lexer_consume_token (parser->lexer);
 	  cp_token* open
 	    = cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN);
 	  cp_parser_require_keyword (parser, RID_AUTO, RT_AUTO);
-          cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN, 
+          cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN,
 			     open->location);
 	}
     }
@@ -18093,14 +18093,14 @@ cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc,
 	}
     }
 
-  /* In a template parameter list, a type-parameter can be introduced 
+  /* In a template parameter list, a type-parameter can be introduced
      by type-constraints alone.  */
   if (processing_template_parmlist && !placeholder)
     return build_constrained_parameter (con, proto, args);
 
   /* Diagnose issues placeholder issues.  */
-  if (!parser->in_result_type_constraint_p 
-      && !placeholder 
+  if (!parser->in_result_type_constraint_p
+      && !placeholder
       && (cxx_dialect >= cxx2a && !flag_concepts_ts))
     {
       tree id = build_nt (TEMPLATE_ID_EXPR, tmpl, args);
@@ -18128,9 +18128,9 @@ cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc,
   /* Determine if the type should be deduced using template argument
      deduction or decltype deduction. Note that the latter is always
      used for type-constraints in trailing return types.  */
-  bool decltype_p = placeholder 
-      ? placeholder->keyword == RID_DECLTYPE 
-      : parser->in_result_type_constraint_p;
+  bool decltype_p = placeholder
+    ? placeholder->keyword == RID_DECLTYPE
+    : parser->in_result_type_constraint_p;
 
   /* Otherwise, this is the type of a variable or return type.  */
   if (decltype_p)
@@ -23371,7 +23371,7 @@ cp_parser_class_name (cp_parser *parser,
       tree args = TREE_OPERAND (decl, 1);
       if ((TREE_VEC_LENGTH (args) == 0)
 	  || (TREE_CODE (TREE_VEC_ELT (args, 0)) != WILDCARD_DECL))
-      	decl = error_mark_node;
+	decl = error_mark_node;
     }
   else if (TREE_CODE (decl) != TYPE_DECL
 	   || TREE_TYPE (decl) == error_mark_node
@@ -26908,7 +26908,7 @@ cp_parser_concept_definition (cp_parser *parser)
       return error_mark_node;
     }
 
-  /* Consume the trailing ';'. Diagnose the problem if it isn't there, 
+  /* Consume the trailing ';'. Diagnose the problem if it isn't there,
      but continue as if it were.  */
   cp_parser_consume_semicolon_at_end_of_statement (parser);
 
@@ -41881,7 +41881,7 @@ synthesize_implicit_template_parm  (cp_parser *parser, tree constr)
       error ("placeholder type not allowed in this context");
       return error_mark_node;
     }
-  
+
   gcc_assert (current_binding_level->kind == sk_function_parms);
 
   /* We are either continuing a function template that already contains implicit

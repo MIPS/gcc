@@ -10779,7 +10779,7 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn,
 	return winner;
     }
 
-  /* Concepts: ... or, if not that, F1 is more constrained than F2.  
+  /* Concepts: ... or, if not that, F1 is more constrained than F2.
 
      FIXME: For function templates with no winner, this subsumption may
      be computed a separate time.  This needs to be validated, and if

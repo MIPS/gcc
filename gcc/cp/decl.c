@@ -1029,7 +1029,7 @@ decls_match (tree newdecl, tree olddecl, bool record_versions /* = true */)
          then both have a requires-clause and their constraints-expressions
          are equivalent.  */
       if (types_match && flag_concepts)
-      	types_match = function_requirements_equivalent_p (newdecl, olddecl);
+	types_match = function_requirements_equivalent_p (newdecl, olddecl);
 
       /* The decls dont match if they correspond to two different versions
 	 of the same function.   Disallow extern "C" functions to be
@@ -1046,7 +1046,7 @@ decls_match (tree newdecl, tree olddecl, bool record_versions /* = true */)
   else if (TREE_CODE (newdecl) == TEMPLATE_DECL)
     {
       if (!template_heads_equivalent_p (newdecl, olddecl))
-      	return 0;
+	return 0;
 
       tree oldres = DECL_TEMPLATE_RESULT (olddecl);
       tree newres = DECL_TEMPLATE_RESULT (newdecl);
@@ -1386,7 +1386,7 @@ duplicate_function_template_decls (tree newdecl, tree olddecl)
 		  "old declaration %q#D", olddecl);
 	  return true;
 	}
-      
+
       /* FIXME: The types are the same but the are differences
 	 in either the template heads or function requirements.
 	 We should be able to diagnose a set of common errors
