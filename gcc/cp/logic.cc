@@ -132,7 +132,7 @@ struct clause
     if (TREE_CODE (t) == ATOMIC_CONSTR)
       m_set.add (t);
 
-    m_current = m_terms.begin();
+    m_current = m_terms.begin ();
   }
 
   /* Create a copy of the current term. The current
@@ -140,14 +140,14 @@ struct clause
      copied list of terms.  */
 
   clause (clause const& c)
-    : m_terms (c.m_terms), m_set(c.m_set), m_current (m_terms.begin ())
+    : m_terms (c.m_terms), m_set (c.m_set), m_current (m_terms.begin ())
   {
     std::advance (m_current, std::distance (c.begin (), c.current ()));
   }
 
   /* Returns true when all terms are atoms.  */
 
-  bool done() const
+  bool done () const
   {
     return m_current == end ();
   }
@@ -173,7 +173,7 @@ struct clause
     if (TREE_CODE (t) == ATOMIC_CONSTR)
       {
 	if (m_set.add (t))
-	  return std::make_pair (m_terms.erase(iter), true);
+	  return std::make_pair (m_terms.erase (iter), true);
       }
     *iter = t;
     return std::make_pair (iter, false);
@@ -238,28 +238,28 @@ struct clause
 
   iterator begin ()
   {
-    return m_terms.begin();
+    return m_terms.begin ();
   }
 
   /* Returns an iterator to the first clause in the formula.  */
 
   const_iterator begin () const
   {
-    return m_terms.begin();
+    return m_terms.begin ();
   }
 
   /* Returns an iterator past the last clause in the formula.  */
 
   iterator end ()
   {
-    return m_terms.end();
+    return m_terms.end ();
   }
 
   /* Returns an iterator past the last clause in the formula.  */
 
   const_iterator end () const
   {
-    return m_terms.end();
+    return m_terms.end ();
   }
 
   /* Returns the current iterator.  */
@@ -315,7 +315,7 @@ struct formula
   {
     gcc_assert (!done ());
     m_clauses.push_back (*m_current);
-    return m_clauses.back();
+    return m_clauses.back ();
   }
 
   /* Returns the position of the current clause.  */
@@ -329,28 +329,28 @@ struct formula
 
   iterator begin ()
   {
-    return m_clauses.begin();
+    return m_clauses.begin ();
   }
 
   /* Returns an iterator to the first clause in the formula.  */
 
   const_iterator begin () const
   {
-    return m_clauses.begin();
+    return m_clauses.begin ();
   }
 
   /* Returns an iterator past the last clause in the formula.  */
 
   iterator end ()
   {
-    return m_clauses.end();
+    return m_clauses.end ();
   }
 
   /* Returns an iterator past the last clause in the formula.  */
 
   const_iterator end () const
   {
-    return m_clauses.end();
+    return m_clauses.end ();
   }
 
   std::list<clause> m_clauses; /* The list of clauses.  */
@@ -387,19 +387,19 @@ enum rules
 /* Distribution counting.  */
 
 static inline bool
-disjunction_p(tree t)
+disjunction_p (tree t)
 {
   return TREE_CODE (t) == DISJ_CONSTR;
 }
 
 static inline bool
-conjunction_p(tree t)
+conjunction_p (tree t)
 {
   return TREE_CODE (t) == CONJ_CONSTR;
 }
 
 static inline bool
-atomic_p(tree t)
+atomic_p (tree t)
 {
   return TREE_CODE (t) == ATOMIC_CONSTR;
 }
@@ -413,9 +413,9 @@ atomic_p(tree t)
 static std::pair<int, bool>
 dnf_size_r (tree t)
 {
-  if (atomic_p(t))
+  if (atomic_p (t))
     /* Atomic constraints produce no clauses.  */
-    return std::make_pair(0, false);
+    return std::make_pair (0, false);
 
   /* For compound constraints, recursively count clauses and unpack 
      the results.  */  
@@ -437,34 +437,34 @@ dnf_size_r (tree t)
 	{
 	  if (disjunction_p (rhs) || (conjunction_p (rhs) && d2))
 	    /* Both P and Q are disjunctions.  */
-	    return std::make_pair(n1 + n2, d1 | d2);
+	    return std::make_pair (n1 + n2, d1 | d2);
 	  else
 	    /* Only LHS is a disjunction.  */
-	    return std::make_pair(1 + n1 + n2, d1 | d2);
-	  gcc_unreachable();
+	    return std::make_pair (1 + n1 + n2, d1 | d2);
+	  gcc_unreachable ();
 	}
       if (conjunction_p (lhs))
 	{
 	  if ((disjunction_p (rhs) && d1) || (conjunction_p (rhs) && d1 && d2))
 	    /* Both P and Q are disjunctions.  */
-	    return std::make_pair(n1 + n2, d1 | d2);
+	    return std::make_pair (n1 + n2, d1 | d2);
 	  if (disjunction_p (rhs) 
 	      || (conjunction_p (rhs) && d1 != d2)
 	      || (atomic_p (rhs) && d1))
 	    /* Either LHS or RHS is a disjunction.  */
-	    return std::make_pair(1 + n1 + n2, d1 | d2);
+	    return std::make_pair (1 + n1 + n2, d1 | d2);
 	  else
 	    /* Neither LHS nor RHS is a disjunction.  */
-	    return std::make_pair(2, false);
+	    return std::make_pair (2, false);
 	}
       if (atomic_p (lhs))
 	{
 	  if (disjunction_p (rhs) || (conjunction_p (rhs) && d2))
 	    /* Only RHS is a disjunction.  */
-	    return std::make_pair(1 + n1 + n2, d1 | d2);
+	    return std::make_pair (1 + n1 + n2, d1 | d2);
 	  else
 	    /* Neither LHS nor RHS is a disjunction.  */
-	    return std::make_pair(2, false);
+	    return std::make_pair (2, false);
 	}
     }
   else /* conjunction_p (t)  */
@@ -479,34 +479,34 @@ dnf_size_r (tree t)
 	{
 	  if (disjunction_p (rhs) || (conjunction_p (rhs) && d2))
 	    /* Both P and Q are disjunctions.  */
-	    return std::make_pair(n1 * n2, true);
+	    return std::make_pair (n1 * n2, true);
 	  else
 	    /* Only LHS is a disjunction.  */
-	    return std::make_pair(n1 + n2, true);
-	  gcc_unreachable();
+	    return std::make_pair (n1 + n2, true);
+	  gcc_unreachable ();
 	}
       if (conjunction_p (lhs))
 	{
 	  if ((disjunction_p (rhs) && d1) || (conjunction_p (rhs) && d1 && d2))
 	    /* Both P and Q are disjunctions.  */
-	    return std::make_pair(n1 * n2, true);
+	    return std::make_pair (n1 * n2, true);
 	  if (disjunction_p (rhs) 
 	      || (conjunction_p (rhs) && d1 != d2)
 	      || (atomic_p (rhs) && d1))
 	    /* Either LHS or RHS is a disjunction.  */
-	    return std::make_pair(n1 + n2, true);
+	    return std::make_pair (n1 + n2, true);
 	  else
 	    /* Neither LHS nor RHS is a disjunction.  */
-	    return std::make_pair(0, false);
+	    return std::make_pair (0, false);
 	}
       if (atomic_p (lhs))
 	{
 	  if (disjunction_p (rhs) || (conjunction_p (rhs) && d2))
 	    /* Only RHS is a disjunction.  */
-	    return std::make_pair(n1 + n2, true);
+	    return std::make_pair (n1 + n2, true);
 	  else
 	    /* Neither LHS nor RHS is a disjunction.  */
-	    return std::make_pair(0, false);
+	    return std::make_pair (0, false);
 	}      
     }
   gcc_unreachable ();
@@ -521,9 +521,9 @@ dnf_size_r (tree t)
 static std::pair<int, bool>
 cnf_size_r (tree t)
 {
-  if (atomic_p(t))
+  if (atomic_p (t))
     /* Atomic constraints produce no clauses.  */
-    return std::make_pair(0, false);
+    return std::make_pair (0, false);
 
   /* For compound constraints, recursively count clauses and unpack 
      the results.  */  
@@ -546,34 +546,34 @@ cnf_size_r (tree t)
 	{
 	  if ((disjunction_p (rhs) && d1 && d2) || (conjunction_p (rhs) && d1))
 	    /* Both P and Q are conjunctions.  */
-	    return std::make_pair(n1 * n2, true);
+	    return std::make_pair (n1 * n2, true);
 	  if ((disjunction_p (rhs) && d1 != d2)
 	      || conjunction_p (rhs)
 	      || (atomic_p (rhs) && d1))
 	    /* Either LHS or RHS is a conjunction.  */
-	    return std::make_pair(n1 + n2, true);
+	    return std::make_pair (n1 + n2, true);
 	  else
 	    /* Neither LHS nor RHS is a conjunction.  */
-	    return std::make_pair(0, false);
-	  gcc_unreachable();
+	    return std::make_pair (0, false);
+	  gcc_unreachable ();
 	}
       if (conjunction_p (lhs))
 	{
 	  if ((disjunction_p (rhs) && d2) || conjunction_p (rhs))
 	    /* Both LHS and RHS are conjunctions.  */
-	    return std::make_pair(n1 * n2, true);
+	    return std::make_pair (n1 * n2, true);
 	  else
 	    /* Only LHS is a conjunction.  */
-	    return std::make_pair(n1 + n2, true);
+	    return std::make_pair (n1 + n2, true);
 	}
       if (atomic_p (lhs))
 	{
 	  if ((disjunction_p (rhs) && d2) || conjunction_p (rhs))
 	    /* Only RHS is a disjunction.  */
-	    return std::make_pair(n1 + n2, true);
+	    return std::make_pair (n1 + n2, true);
 	  else
 	    /* Neither LHS nor RHS is a disjunction.  */
-	    return std::make_pair(0, false);
+	    return std::make_pair (0, false);
 	}
     }
   else /* conjunction_p (t)  */
@@ -587,34 +587,34 @@ cnf_size_r (tree t)
 	{
 	  if ((disjunction_p (rhs) && d1 && d2) || (conjunction_p (rhs) && d1))
 	    /* Both P and Q are conjunctions.  */
-	    return std::make_pair(n1 + n2, d1 | d2);
+	    return std::make_pair (n1 + n2, d1 | d2);
 	  if ((disjunction_p (rhs) && d1 != d2)
 	      || conjunction_p (rhs)
 	      || (atomic_p (rhs) && d1))
 	    /* Either LHS or RHS is a conjunction.  */
-	    return std::make_pair(1 + n1 + n2, d1 | d2);
+	    return std::make_pair (1 + n1 + n2, d1 | d2);
 	  else
 	    /* Neither LHS nor RHS is a conjunction.  */
-	    return std::make_pair(2, false);
-	  gcc_unreachable();
+	    return std::make_pair (2, false);
+	  gcc_unreachable ();
 	}
       if (conjunction_p (lhs))
 	{
 	  if ((disjunction_p (rhs) && d2) || conjunction_p (rhs))
 	    /* Both LHS and RHS are conjunctions.  */
-	    return std::make_pair(n1 + n2, d1 | d2);
+	    return std::make_pair (n1 + n2, d1 | d2);
 	  else
 	    /* Only LHS is a conjunction.  */
-	    return std::make_pair(1 + n1 + n2, d1 | d2);
+	    return std::make_pair (1 + n1 + n2, d1 | d2);
 	}
       if (atomic_p (lhs))
 	{
 	  if ((disjunction_p (rhs) && d2) || conjunction_p (rhs))
 	    /* Only RHS is a disjunction.  */
-	    return std::make_pair(1 + n1 + n2, d1 | d2);
+	    return std::make_pair (1 + n1 + n2, d1 | d2);
 	  else
 	    /* Neither LHS nor RHS is a disjunction.  */
-	    return std::make_pair(2, false);
+	    return std::make_pair (2, false);
 	}
     }
   gcc_unreachable ();
@@ -626,7 +626,7 @@ cnf_size_r (tree t)
 static int
 dnf_size (tree t)
 {
-  std::pair<int, bool> result = dnf_size_r(t);
+  std::pair<int, bool> result = dnf_size_r (t);
   return result.first == 0 ? 1 : result.first;
 }
 
@@ -637,7 +637,7 @@ dnf_size (tree t)
 static int
 cnf_size (tree t)
 {
-  std::pair<int, bool> result = cnf_size_r(t);
+  std::pair<int, bool> result = cnf_size_r (t);
   return result.first == 0 ? 1 : result.first;
 }
 
@@ -649,7 +649,7 @@ replace_term (clause& c, tree t)
 {
   tree t1 = TREE_OPERAND (t, 0);
   tree t2 = TREE_OPERAND (t, 1);
-  return c.replace(t1, t2);
+  return c.replace (t1, t2);
 }
 
 /* Create a new clause in the formula by copying the current
@@ -844,7 +844,7 @@ subsumes_constraints_nonnull (tree lhs, tree rhs)
   int n2 = cnf_size (rhs);
   
   /* Make sure we haven't exceeded the largest acceptable problem.  */
-  if (std::min(n1, n2) >= max_problem_size)
+  if (std::min (n1, n2) >= max_problem_size)
     {
       if (n1 < n2)
         diagnose_constraint_size (lhs);

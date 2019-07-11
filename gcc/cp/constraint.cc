@@ -58,7 +58,7 @@ parsing_constraint_expression_sentinel ()
 }
 
 parsing_constraint_expression_sentinel::
-~parsing_constraint_expression_sentinel()
+~parsing_constraint_expression_sentinel ()
 {
   --parsing_constraint_expr;
 }
@@ -276,7 +276,7 @@ resolve_function_concept_check (tree call)
     }
 
   tree args = TREE_OPERAND (target, 1);
-  return resolve_function_concept_overload(ovl, args);
+  return resolve_function_concept_overload (ovl, args);
 }
 
 /* Returns a pair containing the checked concept and its associated
@@ -364,15 +364,15 @@ finish_type_constraints (tree spec, tree args)
   /* Build an initial concept check.  */
   tree check = build_type_constraint (spec, args);
   if (check == error_mark_node)
-    return std::make_pair(error_mark_node, NULL_TREE);
+    return std::make_pair (error_mark_node, NULL_TREE);
 
   /* Extract the concept and prototype parameter from the check. */
   tree con;
   tree proto;
   if (!deduce_constrained_parameter (check, con, proto))
-    return std::make_pair(error_mark_node, NULL_TREE);
+    return std::make_pair (error_mark_node, NULL_TREE);
 
-  return std::make_pair(con, proto);
+  return std::make_pair (con, proto);
 }
 
 /*---------------------------------------------------------------------------
@@ -683,7 +683,7 @@ build_concept_check_arguments (tree arg, tree rest)
    concept.  */
 
 static tree
-build_function_check(tree tmpl, tree args, tsubst_flags_t /*complain*/)
+build_function_check (tree tmpl, tree args, tsubst_flags_t /*complain*/)
 {
   if (TREE_CODE (tmpl) == TEMPLATE_DECL)
     {
@@ -719,7 +719,7 @@ build_function_check(tree tmpl, tree args, tsubst_flags_t /*complain*/)
 
   /* Finally, build the call expression around the overload.  */
   ++processing_template_decl;
-  vec<tree, va_gc> *fargs = make_tree_vector();
+  vec<tree, va_gc> *fargs = make_tree_vector ();
   tree call = build_min_nt_call_vec (id, fargs);
   release_tree_vector (fargs);
   --processing_template_decl;
@@ -731,7 +731,7 @@ build_function_check(tree tmpl, tree args, tsubst_flags_t /*complain*/)
    concept.  */
 
 static tree
-build_variable_check(tree tmpl, tree args, tsubst_flags_t complain)
+build_variable_check (tree tmpl, tree args, tsubst_flags_t complain)
 {
   gcc_assert (variable_concept_p (tmpl));
   gcc_assert (TREE_CODE (tmpl) == TEMPLATE_DECL);
@@ -746,7 +746,7 @@ build_variable_check(tree tmpl, tree args, tsubst_flags_t complain)
    concept.  */
 
 static tree
-build_standard_check(tree tmpl, tree args, tsubst_flags_t complain)
+build_standard_check (tree tmpl, tree args, tsubst_flags_t complain)
 {
   gcc_assert (standard_concept_p (tmpl));
   gcc_assert (TREE_CODE (tmpl) == TEMPLATE_DECL);
@@ -916,7 +916,7 @@ get_shorthand_constraints (tree parms)
    wildcard is a pack, return the first argument of that pack.  */
 
 static tree
-get_deduced_wildcard(tree wildcard)
+get_deduced_wildcard (tree wildcard)
 {
   if (ARGUMENT_PACK_P (wildcard))
     wildcard = TREE_VEC_ELT (ARGUMENT_PACK_ARGS (wildcard), 0);
@@ -927,7 +927,7 @@ get_deduced_wildcard(tree wildcard)
 /* Returns the prototype parameter for the nth deduced wildcard.  */
 
 static tree
-get_introdcution_prototype(tree wildcards, int index)
+get_introdcution_prototype (tree wildcards, int index)
 {
   return TREE_TYPE (get_deduced_wildcard (TREE_VEC_ELT (wildcards, index)));
 }
@@ -935,7 +935,7 @@ get_introdcution_prototype(tree wildcards, int index)
 /* Introduce a type template parameter.  */
 
 static tree
-introduce_type_template_parameter(tree wildcard, bool& non_type_p)
+introduce_type_template_parameter (tree wildcard, bool& non_type_p)
 {
   non_type_p = false;
   return finish_template_type_parm (class_type_node, DECL_NAME (wildcard));
@@ -944,7 +944,7 @@ introduce_type_template_parameter(tree wildcard, bool& non_type_p)
 /* Introduce a template template parameter.  */
 
 static tree
-introduce_template_template_parameter(tree wildcard, bool& non_type_p)
+introduce_template_template_parameter (tree wildcard, bool& non_type_p)
 {
   non_type_p = false;
   begin_template_parm_list ();
@@ -956,7 +956,7 @@ introduce_template_template_parameter(tree wildcard, bool& non_type_p)
 /* Introduce a template non-type parameter.  */
 
 static tree
-introduce_nontype_template_parameter(tree wildcard, bool& non_type_p)
+introduce_nontype_template_parameter (tree wildcard, bool& non_type_p)
 {
   non_type_p = true;
   tree parm = copy_decl (TREE_TYPE (wildcard));
@@ -967,7 +967,7 @@ introduce_nontype_template_parameter(tree wildcard, bool& non_type_p)
 /* Introduce a single template parameter.  */
 
 static tree
-build_introduced_template_parameter(tree wildcard, bool& non_type_p)
+build_introduced_template_parameter (tree wildcard, bool& non_type_p)
 {
   tree proto = TREE_TYPE (wildcard);
 
@@ -987,7 +987,7 @@ build_introduced_template_parameter(tree wildcard, bool& non_type_p)
 /* Introduce a single template parameter.  */
 
 static tree
-introduce_template_parameter(tree parms, tree wildcard)
+introduce_template_parameter (tree parms, tree wildcard)
 {
   gcc_assert (!ARGUMENT_PACK_P (wildcard));
   tree proto = TREE_TYPE (wildcard);
@@ -998,7 +998,7 @@ introduce_template_parameter(tree parms, tree wildcard)
     {
       tree id = DECL_NAME (wildcard);
       error_at (loc, "%qE cannot be introduced with an ellipsis %<...%>", id);
-      inform(DECL_SOURCE_LOCATION (proto), "prototype declared here");
+      inform (DECL_SOURCE_LOCATION (proto), "prototype declared here");
     }
 
   bool non_type_p;
@@ -1009,7 +1009,7 @@ introduce_template_parameter(tree parms, tree wildcard)
 /* Introduce a template parameter pack.  */
 
 static tree
-introduce_template_parameter_pack(tree parms, tree wildcard)
+introduce_template_parameter_pack (tree parms, tree wildcard)
 {
   bool non_type_p;
   tree parm = build_introduced_template_parameter (wildcard, non_type_p);
@@ -1020,7 +1020,7 @@ introduce_template_parameter_pack(tree parms, tree wildcard)
 /* Introduce the nth template parameter.  */
 
 static tree
-introduce_template_parameter(tree parms, tree wildcards, int& index)
+introduce_template_parameter (tree parms, tree wildcards, int& index)
 {
   tree deduced = TREE_VEC_ELT (wildcards, index++);
   return introduce_template_parameter (parms, deduced);
@@ -1030,7 +1030,7 @@ introduce_template_parameter(tree parms, tree wildcards, int& index)
    parameters.  */
 
 static tree
-introduce_template_parameters(tree parms, tree wildcards, int& index)
+introduce_template_parameters (tree parms, tree wildcards, int& index)
 {
   /* If the prototype was a parameter, we better have deduced an
      argument pack, and that argument must be the last deduced value
@@ -1495,7 +1495,7 @@ declare_constraint_vars (tree parms, tree vars)
    if an error occurred.  */
 
 static tree
-check_constaint_variables(tree t, tree args, subst_info info)
+check_constaint_variables (tree t, tree args, subst_info info)
 {
   tree types = NULL_TREE;
   tree p = t;
@@ -1560,9 +1560,9 @@ tree
 tsubst_requires_expr (tree t, tree args,
 		      tsubst_flags_t complain, tree in_decl)
 {
-  local_specialization_stack stack(lss_copy);
+  local_specialization_stack stack (lss_copy);
 
-  subst_info info(complain, in_decl);
+  subst_info info (complain, in_decl);
 
   tree parms = TREE_OPERAND (t, 0);
   if (parms)
@@ -1728,7 +1728,7 @@ satisfy_atom (tree expr, tree args, subst_info info)
 
   /* Compute the value of the constraint.  */
   result = cxx_constant_value (result);
-  return satisfaction_value(result);
+  return satisfaction_value (result);
 }
 
 /* Determine if the expression T, when normalized, is satisfied.
@@ -2518,8 +2518,8 @@ diagnose_compound_requirement (tree req, tree args, tree in_decl)
 
   if (type)
     {
-      subst_info quiet(tf_none, in_decl);
-      subst_info noisy(tf_error, in_decl);
+      subst_info quiet (tf_none, in_decl);
+      subst_info noisy (tf_error, in_decl);
 
       /* Check the expression against the result type.  */
       if (tree placeholder = type_uses_auto (type))
@@ -2582,7 +2582,7 @@ diagnose_requires (tree expr, tree args, tree in_decl)
   tree parms = TREE_OPERAND (expr, 0);
   tree body = TREE_OPERAND (expr, 1);
 
-  subst_info info(tf_warning_or_error, NULL_TREE);
+  subst_info info (tf_warning_or_error, NULL_TREE);
   tree vars = tsubst_constraint_variables (parms, args, info);
   if (vars == error_mark_node)
     return;
