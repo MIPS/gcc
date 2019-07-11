@@ -57,7 +57,7 @@ compilation is specified by a string called a "spec".  */
      getenv ();
    Hence we need to use "get" for the accessor method, not "getenv".  */
 
-class env_manager
+struct env_manager
 {
  public:
   void init (bool can_restore, bool debug);
@@ -6791,6 +6791,11 @@ print_configuration (FILE *file)
 #endif
 
   fnotice (file, "Thread model: %s\n", thrmod);
+  fnotice (file, "Supported LTO compression algorithms: zlib");
+#ifdef HAVE_ZSTD_H
+  fnotice (file, " zstd");
+#endif
+  fnotice (file, "\n");
 
   /* compiler_version is truncated at the first space when initialized
   from version string, so truncate version_string at the first space
@@ -8574,7 +8579,7 @@ static int n_mdswitches;
 /* Check whether a particular argument was used.  The first time we
    canonicalize the switches to keep only the ones we care about.  */
 
-class used_arg_t
+struct used_arg_t
 {
  public:
   int operator () (const char *p, int len);

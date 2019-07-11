@@ -1,3 +1,31 @@
+2019-07-10  Richard Biener  <rguenther@suse.de>
+
+	* gimple-parser.c (c_parser_gimple_postfix_expression): Support
+	_Literal (int *) &x for address literals.
+
+2019-07-09  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/61339
+	* c-decl.c (xref_tag): Change class-key of PODs to struct and others
+	to class.
+	(field_decl_cmp): Same.
+	* c-parser.c (c_parser_struct_or_union_specifier): Same.
+	* c-tree.h: Same.
+	* gimple-parser.c (c_parser_gimple_compound_statement): Same.
+
+2019-07-09  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/61339
+	* c-decl.c: Change class-key from class to struct and vice versa
+	to match convention and avoid -Wclass-is-pod and -Wstruct-no-pod.
+	* gimple-parser.c: Same.
+
+2019-07-01  Richard Biener  <rguenther@suse.de>
+
+	* gimple-parser.c (c_parser_gimple_postfix_expression): Handle
+	_Literal (char *) &"foo" for address literals pointing to
+	STRING_CSTs.
+
 2019-06-24  Martin Sebor  <msebor@redhat.com>
 
 	* c-typeck.c (build_binary_op): Hyphenate floating-point.

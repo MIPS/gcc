@@ -389,6 +389,8 @@ package body Sem_Ch7 is
                      end if;
 
                      --  An inlined subprogram body acts as a referencer
+                     --  unless we generate C code since inlining is then
+                     --  handled by the C compiler.
 
                      --  Note that we test Has_Pragma_Inline here in addition
                      --  to Is_Inlined. We are doing this for a client, since
@@ -397,8 +399,9 @@ package body Sem_Ch7 is
                      --  should occur, so we need to catch all cases where the
                      --  subprogram may be inlined by the client.
 
-                     if Is_Inlined (Decl_Id)
-                       or else Has_Pragma_Inline (Decl_Id)
+                     if not Generate_C_Code
+                       and then (Is_Inlined (Decl_Id)
+                                  or else Has_Pragma_Inline (Decl_Id))
                      then
                         Has_Referencer_Of_Non_Subprograms := True;
 
@@ -415,9 +418,12 @@ package body Sem_Ch7 is
                      Decl_Id := Defining_Entity (Decl);
 
                      --  An inlined subprogram body acts as a referencer
+                     --  unless we generate C code since inlining is then
+                     --  handled by the C compiler.
 
-                     if Is_Inlined (Decl_Id)
-                       or else Has_Pragma_Inline (Decl_Id)
+                     if not Generate_C_Code
+                       and then (Is_Inlined (Decl_Id)
+                                  or else Has_Pragma_Inline (Decl_Id))
                      then
                         Has_Referencer_Of_Non_Subprograms := True;
 
@@ -784,7 +790,7 @@ package body Sem_Ch7 is
       --  Deactivate expansion inside the body of ignored Ghost entities,
       --  as this code will ultimately be ignored. This avoids requiring the
       --  presence of run-time units which are not needed. Only do this for
-      --  user entities, as internally generated entitities might still need
+      --  user entities, as internally generated entities might still need
       --  to be expanded (e.g. those generated for types).
 
       if Present (Ignored_Ghost_Region)
@@ -1057,7 +1063,7 @@ package body Sem_Ch7 is
       --  to the linker as their Is_Public flag is set to True. This proactive
       --  approach is necessary because an inlined or a generic body for which
       --  code is generated in other units may need to see these entities. Cut
-      --  down the number of global symbols that do not neet public visibility
+      --  down the number of global symbols that do not need public visibility
       --  as this has two beneficial effects:
       --    (1) It makes the compilation process more efficient.
       --    (2) It gives the code generator more leeway to optimize within each
@@ -1751,7 +1757,7 @@ package body Sem_Ch7 is
          end if;
 
       --  There may be inherited private subprograms that need to be declared,
-      --  even in the absence of an explicit private part.  If there are any
+      --  even in the absence of an explicit private part. If there are any
       --  public declarations in the package and the package is a public child
       --  unit, then an implicit private part is assumed.
 
@@ -1877,7 +1883,7 @@ package body Sem_Ch7 is
       end if;
 
       --  Nested package specs that do not require bodies are not checked for
-      --  ineffective use clauses due to the possbility of subunits. This is
+      --  ineffective use clauses due to the possibility of subunits. This is
       --  because at this stage it is impossible to tell whether there will be
       --  a separate body.
 
@@ -2255,7 +2261,7 @@ package body Sem_Ch7 is
       procedure Swap_Private_Dependents (Priv_Deps : Elist_Id);
       --  When the full view of a private type is made available, we do the
       --  same for its private dependents under proper visibility conditions.
-      --  When compiling a grand-chid unit this needs to be done recursively.
+      --  When compiling a grandchild unit this needs to be done recursively.
 
       -----------------------------
       -- Swap_Private_Dependents --
@@ -3190,7 +3196,7 @@ package body Sem_Ch7 is
       E : Entity_Id;
 
       Requires_Body : Boolean := False;
-      --  Flag set when the unit has at least one construct that requries
+      --  Flag set when the unit has at least one construct that requires
       --  completion in a body.
 
    begin
@@ -3253,7 +3259,7 @@ package body Sem_Ch7 is
 
       --  A [generic] package that defines at least one non-null abstract state
       --  requires a completion only when at least one other construct requires
-      --  a completion in a body (SPARK RM 7.1.4(4) and (6)). This check is not
+      --  a completion in a body (SPARK RM 7.1.4(4) and (5)). This check is not
       --  performed if the caller requests this behavior.
 
       if Do_Abstract_States

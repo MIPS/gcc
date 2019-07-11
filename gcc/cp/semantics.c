@@ -4423,8 +4423,9 @@ expand_or_defer_fn (tree fn)
     }
 }
 
-struct nrv_data
+class nrv_data
 {
+public:
   nrv_data () : visited (37) {}
 
   tree var;
@@ -4437,7 +4438,7 @@ struct nrv_data
 static tree
 finalize_nrv_r (tree* tp, int* walk_subtrees, void* data)
 {
-  struct nrv_data *dp = (struct nrv_data *)data;
+  class nrv_data *dp = (class nrv_data *)data;
   tree_node **slot;
 
   /* No need to walk into types.  There wouldn't be any need to walk into
@@ -4495,7 +4496,7 @@ finalize_nrv_r (tree* tp, int* walk_subtrees, void* data)
 void
 finalize_nrv (tree *tp, tree var, tree result)
 {
-  struct nrv_data data;
+  class nrv_data data;
 
   /* Copy name from VAR to RESULT.  */
   DECL_NAME (result) = DECL_NAME (var);
@@ -7133,6 +7134,7 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 				"array section does not have mappable type "
 				"in %qs clause",
 				omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+		      cp_omp_emit_unmappable_type_notes (TREE_TYPE (t));
 		      remove = true;
 		    }
 		  while (TREE_CODE (t) == ARRAY_REF)
@@ -7201,6 +7203,7 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 		  error_at (OMP_CLAUSE_LOCATION (c),
 			    "%qE does not have a mappable type in %qs clause",
 			    t, omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+		  cp_omp_emit_unmappable_type_notes (TREE_TYPE (t));
 		  remove = true;
 		}
 	      while (TREE_CODE (t) == COMPONENT_REF)
@@ -7279,6 +7282,7 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	      error_at (OMP_CLAUSE_LOCATION (c),
 			"%qD does not have a mappable type in %qs clause", t,
 			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+	      cp_omp_emit_unmappable_type_notes (TREE_TYPE (t));
 	      remove = true;
 	    }
 	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
@@ -7427,6 +7431,7 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	      error_at (OMP_CLAUSE_LOCATION (c),
 			"%qD does not have a mappable type in %qs clause", t,
 			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+	      cp_omp_emit_unmappable_type_notes (TREE_TYPE (t));
 	      remove = true;
 	    }
 	  if (remove)

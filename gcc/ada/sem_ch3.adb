@@ -924,22 +924,26 @@ package body Sem_Ch3 is
          Set_Has_Delayed_Freeze (Current_Scope);
       end if;
 
-      --  Ada 2005: If the designated type is an interface that may contain
-      --  tasks, create a Master entity for the declaration. This must be done
-      --  before expansion of the full declaration, because the declaration may
-      --  include an expression that is an allocator, whose expansion needs the
-      --  proper Master for the created tasks.
+      --  If the designated type is limited and class-wide, the object might
+      --  contain tasks, so we create a Master entity for the declaration. This
+      --  must be done before expansion of the full declaration, because the
+      --  declaration may include an expression that is an allocator, whose
+      --  expansion needs the proper Master for the created tasks.
 
-      if Nkind (Related_Nod) = N_Object_Declaration and then Expander_Active
+      if Expander_Active
+        and then Nkind (Related_Nod) = N_Object_Declaration
       then
-         if Is_Interface (Desig_Type) and then Is_Limited_Record (Desig_Type)
+         if Is_Limited_Record (Desig_Type)
+           and then Is_Class_Wide_Type (Desig_Type)
+           and then Tasking_Allowed
          then
             Build_Class_Wide_Master (Anon_Type);
 
          --  Similarly, if the type is an anonymous access that designates
          --  tasks, create a master entity for it in the current context.
 
-         elsif Has_Task (Desig_Type) and then Comes_From_Source (Related_Nod)
+         elsif Has_Task (Desig_Type)
+           and then Comes_From_Source (Related_Nod)
          then
             Build_Master_Entity (Defining_Identifier (Related_Nod));
             Build_Master_Renaming (Anon_Type);
@@ -3005,14 +3009,15 @@ package body Sem_Ch3 is
                --  is consistent with that of the parent.
 
                declare
-                  Par_Discr  : constant Entity_Id :=
-                                Get_Reference_Discriminant (Par_Type);
-                  Cur_Discr  : constant Entity_Id :=
+                  Cur_Discr : constant Entity_Id :=
                                 Get_Reference_Discriminant (Prev);
+                  Par_Discr : constant Entity_Id :=
+                                Get_Reference_Discriminant (Par_Type);
 
                begin
                   if Corresponding_Discriminant (Cur_Discr) /= Par_Discr then
-                     Error_Msg_N ("aspect incosistent with that of parent", N);
+                     Error_Msg_N
+                       ("aspect inconsistent with that of parent", N);
                   end if;
 
                   --  Check that specification in partial view matches the
@@ -3025,7 +3030,7 @@ package body Sem_Ch3 is
                                Chars (Cur_Discr)
                   then
                      Error_Msg_N
-                       ("aspect incosistent with that of parent", N);
+                       ("aspect inconsistent with that of parent", N);
                   end if;
                end;
             end if;
@@ -3645,8 +3650,10 @@ package body Sem_Ch3 is
    --  Ghost mode.
 
    procedure Analyze_Object_Declaration (N : Node_Id) is
-      Loc   : constant Source_Ptr := Sloc (N);
-      Id    : constant Entity_Id  := Defining_Identifier (N);
+      Loc       : constant Source_Ptr := Sloc (N);
+      Id        : constant Entity_Id  := Defining_Identifier (N);
+      Next_Decl : constant Node_Id    := Next (N);
+
       Act_T : Entity_Id;
       T     : Entity_Id;
 
@@ -3908,6 +3915,11 @@ package body Sem_Ch3 is
             A_Id := Get_Aspect_Id (Chars (Identifier (A)));
             while Present (A) loop
                if A_Id = Aspect_Alignment or else A_Id = Aspect_Address then
+
+                  --  Set flag on object entity, for later processing at
+                  --  the freeze point.
+
+                  Set_Has_Delayed_Aspects (Id);
                   return True;
                end if;
 
@@ -4491,8 +4503,20 @@ package body Sem_Ch3 is
             null;
 
          else
-            Insert_After (N,
-              Make_Predicate_Check (T, New_Occurrence_Of (Id, Loc)));
+            --  The check must be inserted after the expanded aggregate
+            --  expansion code, if any.
+
+            declare
+               Check : constant Node_Id :=
+                         Make_Predicate_Check (T, New_Occurrence_Of (Id, Loc));
+
+            begin
+               if No (Next_Decl) then
+                  Append_To (List_Containing (N), Check);
+               else
+                  Insert_Before (Next_Decl, Check);
+               end if;
+            end;
          end if;
       end if;
 
@@ -4586,14 +4610,6 @@ package body Sem_Ch3 is
             --  its expansion because there are cases in they are not required.
 
             elsif Is_Interface (T) then
-               null;
-
-            --  In GNATprove mode, Expand_Subtype_From_Expr does nothing. Thus,
-            --  we should prevent the generation of another Itype with the
-            --  same name as the one already generated, or we end up with
-            --  two identical types in GNATprove.
-
-            elsif GNATprove_Mode then
                null;
 
             --  If the type is an unchecked union, no subtype can be built from
@@ -8582,6 +8598,16 @@ package body Sem_Ch3 is
          Parent_Base := Base_Type (Parent_Type);
       end if;
 
+      --  If the parent type is declared as a subtype of another private
+      --  type with inherited discriminants, its generated base type is
+      --  itself a record subtype. To further inherit the constraint we
+      --  need to use its own base to have an unconstrained type on which
+      --  to apply the inherited constraint.
+
+      if Ekind (Parent_Base) = E_Record_Subtype then
+         Parent_Base := Base_Type (Parent_Base);
+      end if;
+
       --  AI05-0115: if this is a derivation from a private type in some
       --  other scope that may lead to invisible components for the derived
       --  type, mark it accordingly.
@@ -10376,10 +10402,9 @@ package body Sem_Ch3 is
          --  build-in-place library function, child unit or not.
 
          if (Nkind (Nod) in N_Entity and then Is_Compilation_Unit (Nod))
-           or else
-             (Nkind_In (Nod,
-                N_Defining_Program_Unit_Name, N_Subprogram_Declaration)
-               and then Is_Compilation_Unit (Defining_Entity (Nod)))
+           or else (Nkind_In (Nod, N_Defining_Program_Unit_Name,
+                                   N_Subprogram_Declaration)
+                      and then Is_Compilation_Unit (Defining_Entity (Nod)))
          then
             Add_Global_Declaration (IR);
          else
@@ -10617,9 +10642,9 @@ package body Sem_Ch3 is
             if Ekind (Contr_Typ) /= E_Protected_Type then
                Error_Msg_Node_2 := Contr_Typ;
                Error_Msg_NE
-                 ("interface subprogram & cannot be implemented by a " &
-                  "primitive procedure of task type &", Subp_Alias,
-                  Iface_Alias);
+                 ("interface subprogram & cannot be implemented by a "
+                  & "primitive procedure of task type &",
+                  Subp_Alias, Iface_Alias);
 
             --  An interface subprogram whose implementation kind is By_
             --  Protected_Procedure must be implemented by a procedure.
@@ -10627,28 +10652,27 @@ package body Sem_Ch3 is
             elsif Ekind (Impl_Subp) /= E_Procedure then
                Error_Msg_Node_2 := Iface_Alias;
                Error_Msg_NE
-                 ("type & must implement abstract subprogram & with a " &
-                  "procedure", Subp_Alias, Contr_Typ);
+                 ("type & must implement abstract subprogram & with a "
+                  & "procedure", Subp_Alias, Contr_Typ);
 
             elsif Present (Get_Rep_Pragma (Impl_Subp, Name_Implemented))
               and then Implementation_Kind (Impl_Subp) /= Impl_Kind
             then
                Error_Msg_Name_1 := Impl_Kind;
                Error_Msg_N
-                ("overriding operation& must have synchronization%",
-                 Subp_Alias);
+                 ("overriding operation& must have synchronization%",
+                  Subp_Alias);
             end if;
 
          --  If primitive has Optional synchronization, overriding operation
-         --  must match if it has an explicit synchronization..
+         --  must match if it has an explicit synchronization.
 
          elsif Present (Get_Rep_Pragma (Impl_Subp, Name_Implemented))
            and then Implementation_Kind (Impl_Subp) /= Impl_Kind
          then
-               Error_Msg_Name_1 := Impl_Kind;
-               Error_Msg_N
-                ("overriding operation& must have syncrhonization%",
-                 Subp_Alias);
+            Error_Msg_Name_1 := Impl_Kind;
+            Error_Msg_N
+              ("overriding operation& must have synchronization%", Subp_Alias);
          end if;
       end Check_Pragma_Implemented;
 

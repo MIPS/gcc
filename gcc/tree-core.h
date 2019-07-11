@@ -352,6 +352,9 @@ enum omp_clause_code {
   /* Internal clause: temporary for lastprivate(conditional:).  */
   OMP_CLAUSE__CONDTEMP_,
 
+  /* Internal clause: temporary for inscan reductions.  */
+  OMP_CLAUSE__SCANTEMP_,
+
   /* OpenACC/OpenMP clause: if (scalar-expression).  */
   OMP_CLAUSE_IF,
 
@@ -757,6 +760,9 @@ enum tree_index {
   TI_TARGET_OPTION_CURRENT,
   TI_CURRENT_TARGET_PRAGMA,
   TI_CURRENT_OPTIMIZE_PRAGMA,
+
+  TI_CHREC_DONT_KNOW,
+  TI_CHREC_KNOWN,
 
   TI_MAX
 };
@@ -1902,7 +1908,7 @@ struct GTY(()) tree_optimization_option {
 
 /* Forward declaration, defined in target-globals.h.  */
 
-struct GTY(()) target_globals;
+class GTY(()) target_globals;
 
 /* Target options used by a function.  */
 
@@ -1910,7 +1916,7 @@ struct GTY(()) tree_target_option {
   struct tree_base base;
 
   /* Target globals for the corresponding target option.  */
-  struct target_globals *globals;
+  class target_globals *globals;
 
   /* The optimization options used by the user.  */
   struct cl_target_option *opts;

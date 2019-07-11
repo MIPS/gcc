@@ -2019,7 +2019,7 @@ vect_analyze_slp_instance (vec_info *vinfo,
       else
 	{
 	  /* Create a new SLP instance.  */
-	  new_instance = XNEW (struct _slp_instance);
+	  new_instance = XNEW (class _slp_instance);
 	  SLP_INSTANCE_TREE (new_instance) = node;
 	  SLP_INSTANCE_GROUP_SIZE (new_instance) = group_size;
 	  SLP_INSTANCE_UNROLLING_FACTOR (new_instance) = unrolling_factor;
@@ -2861,7 +2861,7 @@ vect_slp_analyze_bb_1 (gimple_stmt_iterator region_begin,
 
   /* Analyze the data references.  */
 
-  if (!vect_analyze_data_refs (bb_vinfo, &min_vf))
+  if (!vect_analyze_data_refs (bb_vinfo, &min_vf, NULL))
     {
       if (dump_enabled_p ())
         dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,

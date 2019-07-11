@@ -873,8 +873,9 @@ struct named_decl_hash : ggc_remove <tree>
 
 /* Simplified unique_ptr clone to release a tree vec on exit.  */
 
-struct releasing_vec
+class releasing_vec
 {
+public:
   typedef vec<tree, va_gc> vec_t;
 
   releasing_vec (vec_t *v): v(v) { }
@@ -1688,8 +1689,9 @@ extern GTY(()) struct saved_scope *scope_chain;
 /* RAII sentinel to handle clearing processing_template_decl and restoring
    it when done.  */
 
-struct processing_template_decl_sentinel
+class processing_template_decl_sentinel
 {
+public:
   int saved;
   processing_template_decl_sentinel (bool reset = true)
     : saved (processing_template_decl)
@@ -1706,8 +1708,9 @@ struct processing_template_decl_sentinel
 /* RAII sentinel to disable certain warnings during template substitution
    and elsewhere.  */
 
-struct warning_sentinel
+class warning_sentinel
 {
+public:
   int &flag;
   int val;
   warning_sentinel(int& flag, bool suppress=true)
@@ -5255,8 +5258,9 @@ extern int cp_unevaluated_operand;
 /* RAII class used to inhibit the evaluation of operands during parsing
    and template instantiation. Evaluation warnings are also inhibited. */
 
-struct cp_unevaluated
+class cp_unevaluated
 {
+public:
   cp_unevaluated ();
   ~cp_unevaluated ();
 };
@@ -5264,8 +5268,9 @@ struct cp_unevaluated
 /* The reverse: an RAII class used for nested contexts that are evaluated even
    if the enclosing context is not.  */
 
-struct cp_evaluated
+class cp_evaluated
 {
+public:
   int uneval;
   int inhibit;
   cp_evaluated ()
@@ -5292,8 +5297,9 @@ enum unification_kind_t {
 // specializations. When the stack goes out of scope, the
 // previous pointer map is restored.
 enum lss_policy { lss_blank, lss_copy };
-struct local_specialization_stack
+class local_specialization_stack
 {
+public:
   local_specialization_stack (lss_policy = lss_blank);
   ~local_specialization_stack ();
 
@@ -6487,6 +6493,7 @@ extern int parm_index                           (tree);
 extern tree vtv_start_verification_constructor_init_function (void);
 extern tree vtv_finish_verification_constructor_init_function (tree);
 extern bool cp_omp_mappable_type		(tree);
+extern bool cp_omp_emit_unmappable_type_notes	(tree);
 extern void cp_check_const_attributes (tree);
 
 /* in error.c */
@@ -6930,8 +6937,9 @@ extern bool perform_or_defer_access_check	(tree, tree, tree,
 /* RAII sentinel to ensures that deferred access checks are popped before
   a function returns.  */
 
-struct deferring_access_check_sentinel
+class deferring_access_check_sentinel
 {
+public:
   deferring_access_check_sentinel (enum deferring_kind kind = dk_deferred)
   {
     push_deferring_access_checks (kind);

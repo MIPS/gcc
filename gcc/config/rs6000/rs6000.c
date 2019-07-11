@@ -5547,22 +5547,26 @@ const char *rs6000_machine;
 const char *
 rs6000_machine_from_flags (void)
 {
-  if ((rs6000_isa_flags & (ISA_FUTURE_MASKS_SERVER & ~ISA_3_0_MASKS_SERVER))
-      != 0)
+  HOST_WIDE_INT flags = rs6000_isa_flags;
+
+  /* Disable the flags that should never influence the .machine selection.  */
+  flags &= ~(OPTION_MASK_PPC_GFXOPT | OPTION_MASK_PPC_GPOPT);
+
+  if ((flags & (ISA_FUTURE_MASKS_SERVER & ~ISA_3_0_MASKS_SERVER)) != 0)
     return "future";
-  if ((rs6000_isa_flags & (ISA_3_0_MASKS_SERVER & ~ISA_2_7_MASKS_SERVER)) != 0)
+  if ((flags & (ISA_3_0_MASKS_SERVER & ~ISA_2_7_MASKS_SERVER)) != 0)
     return "power9";
-  if ((rs6000_isa_flags & (ISA_2_7_MASKS_SERVER & ~ISA_2_6_MASKS_SERVER)) != 0)
+  if ((flags & (ISA_2_7_MASKS_SERVER & ~ISA_2_6_MASKS_SERVER)) != 0)
     return "power8";
-  if ((rs6000_isa_flags & (ISA_2_6_MASKS_SERVER & ~ISA_2_5_MASKS_SERVER)) != 0)
+  if ((flags & (ISA_2_6_MASKS_SERVER & ~ISA_2_5_MASKS_SERVER)) != 0)
     return "power7";
-  if ((rs6000_isa_flags & (ISA_2_5_MASKS_SERVER & ~ISA_2_4_MASKS)) != 0)
+  if ((flags & (ISA_2_5_MASKS_SERVER & ~ISA_2_4_MASKS)) != 0)
     return "power6";
-  if ((rs6000_isa_flags & (ISA_2_4_MASKS & ~ISA_2_1_MASKS)) != 0)
+  if ((flags & (ISA_2_4_MASKS & ~ISA_2_1_MASKS)) != 0)
     return "power5";
-  if ((rs6000_isa_flags & ISA_2_1_MASKS) != 0)
+  if ((flags & ISA_2_1_MASKS) != 0)
     return "power4";
-  if ((rs6000_isa_flags & OPTION_MASK_POWERPC64) != 0)
+  if ((flags & OPTION_MASK_POWERPC64) != 0)
     return "ppc64";
   return "ppc";
 }
@@ -7729,6 +7733,45 @@ constant_pool_expr_p (rtx op)
   return (SYMBOL_REF_P (base)
 	  && CONSTANT_POOL_ADDRESS_P (base)
 	  && ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (get_pool_constant (base), Pmode));
+}
+
+/* Create a TOC reference for symbol_ref SYMBOL.  If LARGETOC_REG is non-null,
+   use that as the register to put the HIGH value into if register allocation
+   is already done.  */
+
+rtx
+create_TOC_reference (rtx symbol, rtx largetoc_reg)
+{
+  rtx tocrel, tocreg, hi;
+
+  if (TARGET_DEBUG_ADDR)
+    {
+      if (SYMBOL_REF_P (symbol))
+	fprintf (stderr, "\ncreate_TOC_reference, (symbol_ref %s)\n",
+		 XSTR (symbol, 0));
+      else
+	{
+	  fprintf (stderr, "\ncreate_TOC_reference, code %s:\n",
+		   GET_RTX_NAME (GET_CODE (symbol)));
+	  debug_rtx (symbol);
+	}
+    }
+
+  if (!can_create_pseudo_p ())
+    df_set_regs_ever_live (TOC_REGISTER, true);
+
+  tocreg = gen_rtx_REG (Pmode, TOC_REGISTER);
+  tocrel = gen_rtx_UNSPEC (Pmode, gen_rtvec (2, symbol, tocreg), UNSPEC_TOCREL);
+  if (TARGET_CMODEL == CMODEL_SMALL || can_create_pseudo_p ())
+    return tocrel;
+
+  hi = gen_rtx_HIGH (Pmode, copy_rtx (tocrel));
+  if (largetoc_reg != NULL)
+    {
+      emit_move_insn (largetoc_reg, hi);
+      hi = largetoc_reg;
+    }
+  return gen_rtx_LO_SUM (Pmode, hi, tocrel);
 }
 
 /* These are only used to pass through from print_operand/print_operand_address
@@ -21480,11 +21523,11 @@ rs6000_prefixed_address (rtx addr, machine_mode mode)
 	return false;
 
       HOST_WIDE_INT value = INTVAL (op1);
-      if (!SIGNED_34BIT_OFFSET_P (value, 0))
+      if (!SIGNED_34BIT_OFFSET_P (value))
 	return false;
 
       /* Offset larger than 16-bits?  */
-      if (!SIGNED_16BIT_OFFSET_P (value, 0))
+      if (!SIGNED_16BIT_OFFSET_P (value))
 	return true;
 
       /* DQ instruction (bottom 4 bits must be 0) for vectors.  */
@@ -32100,7 +32143,16 @@ rs6000_force_indexed_or_indirect_mem (rtx x)
 	  addr = reg;
 	}
 
-      x = replace_equiv_address (x, force_reg (Pmode, addr));
+      if (GET_CODE (addr) == PLUS)
+	{
+	  rtx op0 = XEXP (addr, 0);
+	  rtx op1 = XEXP (addr, 1);
+	  op0 = force_reg (Pmode, op0);
+	  op1 = force_reg (Pmode, op1);
+	  x = replace_equiv_address (x, gen_rtx_PLUS (Pmode, op0, op1));
+	}
+      else
+	x = replace_equiv_address (x, force_reg (Pmode, addr));
     }
 
   return x;

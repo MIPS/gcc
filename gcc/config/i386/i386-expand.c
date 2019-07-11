@@ -9573,15 +9573,6 @@ ix86_expand_args_builtin (const struct builtin_description *d,
     case USI_FTYPE_V32HI_V32HI_INT_USI:
     case UHI_FTYPE_V16HI_V16HI_INT_UHI:
     case UQI_FTYPE_V8HI_V8HI_INT_UQI:
-    case V32HI_FTYPE_V32HI_V32HI_V32HI_INT:
-    case V16HI_FTYPE_V16HI_V16HI_V16HI_INT:
-    case V8HI_FTYPE_V8HI_V8HI_V8HI_INT:
-    case V8SI_FTYPE_V8SI_V8SI_V8SI_INT:
-    case V4DI_FTYPE_V4DI_V4DI_V4DI_INT:
-    case V8DI_FTYPE_V8DI_V8DI_V8DI_INT:
-    case V16SI_FTYPE_V16SI_V16SI_V16SI_INT:
-    case V2DI_FTYPE_V2DI_V2DI_V2DI_INT:
-    case V4SI_FTYPE_V4SI_V4SI_V4SI_INT:
       nargs = 4;
       mask_pos = 1;
       nargs_constant = 1;
@@ -19779,8 +19770,7 @@ ix86_expand_sse2_mulvxdi3 (rtx op0, rtx op1, rtx op2)
       emit_insn (gen_vec_widen_umult_even_v4si (t5, 
 					gen_lowpart (V4SImode, op1),
 					gen_lowpart (V4SImode, op2)));
-      op0 = expand_binop (mode, add_optab, t5, t4, op0, 1, OPTAB_DIRECT);
-
+      force_expand_binop (mode, add_optab, t5, t4, op0, 1, OPTAB_DIRECT);
     }
   else
     {

@@ -15745,7 +15745,7 @@ aarch64_asm_output_external (FILE *stream, tree decl, const char* name)
 void
 aarch64_post_cfi_startproc (FILE *f, tree ignored ATTRIBUTE_UNUSED)
 {
-  if (!cfun->is_thunk && aarch64_return_address_signing_enabled ()
+  if (cfun->machine->frame.laid_out && aarch64_return_address_signing_enabled ()
       && aarch64_ra_sign_key == AARCH64_KEY_B)
 	asm_fprintf (f, "\t.cfi_b_key_frame\n");
 }
@@ -17964,10 +17964,6 @@ aarch_macro_fusion_pair_p (rtx_insn *prev, rtx_insn *curr)
               return true;
         }
     }
-
-  if (aarch64_fusion_enabled_p (AARCH64_FUSE_AES_AESMC)
-       && aarch_crypto_can_dual_issue (prev, curr))
-    return true;
 
   if (aarch64_fusion_enabled_p (AARCH64_FUSE_CMP_BRANCH)
       && any_condjump_p (curr))

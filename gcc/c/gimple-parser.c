@@ -68,8 +68,9 @@ along with GCC; see the file COPYING3.  If not see
 
 /* GIMPLE parser state.  */
 
-struct gimple_parser
+class gimple_parser
 {
+public:
   gimple_parser (c_parser *p) : parser (p), edges(), current_bb(NULL) {}
   /* c_parser is not visible here, use composition and fake inheritance
      via a conversion operator.  */
@@ -77,8 +78,9 @@ struct gimple_parser
   c_parser *parser;
 
   /* CFG build state.  */
-  struct gimple_parser_edge
+  class gimple_parser_edge
   {
+  public:
     int src;
     int dest;
     int flags;
@@ -583,7 +585,7 @@ c_parser_gimple_compound_statement (gimple_parser &parser, gimple_seq *seq)
 				  profile_probability::always ());
 
 	      /* We leave the proper setting to fixup.  */
-	      struct loop *loop_father = loops_for_fn (cfun)->tree_root;
+	      class loop *loop_father = loops_for_fn (cfun)->tree_root;
 	      /* If the new block is a loop header, allocate a loop
 		 struct.  Fixup will take care of proper placement within
 		 the loop tree.  */
@@ -596,7 +598,7 @@ c_parser_gimple_compound_statement (gimple_parser &parser, gimple_seq *seq)
 		    }
 		  else
 		    {
-		      struct loop *loop = alloc_loop ();
+		      class loop *loop = alloc_loop ();
 		      loop->num = is_loop_header_of;
 		      loop->header = bb;
 		      vec_safe_grow_cleared (loops_for_fn (cfun)->larray,
@@ -1596,17 +1598,24 @@ c_parser_gimple_postfix_expression (gimple_parser &parser)
 		}
 	      else
 		{
-		  bool neg_p;
+		  bool neg_p, addr_p;
 		  if ((neg_p = c_parser_next_token_is (parser, CPP_MINUS)))
+		    c_parser_consume_token (parser);
+		  if ((addr_p = c_parser_next_token_is (parser, CPP_AND)))
 		    c_parser_consume_token (parser);
 		  tree val = c_parser_gimple_postfix_expression (parser).value;
 		  if (! val
 		      || val == error_mark_node
-		      || ! CONSTANT_CLASS_P (val))
+		      || (!CONSTANT_CLASS_P (val)
+			  && !(addr_p
+			       && (TREE_CODE (val) == STRING_CST
+				   || DECL_P (val)))))
 		    {
 		      c_parser_error (parser, "invalid _Literal");
 		      return expr;
 		    }
+		  if (addr_p)
+		    val = build1 (ADDR_EXPR, type, val);
 		  if (neg_p)
 		    {
 		      val = const_unop (NEGATE_EXPR, TREE_TYPE (val), val);

@@ -26,8 +26,7 @@ enum hist_type
   HIST_TYPE_INTERVAL,	/* Measures histogram of values inside a specified
 			   interval.  */
   HIST_TYPE_POW2,	/* Histogram of power of 2 values.  */
-  HIST_TYPE_SINGLE_VALUE, /* Tries to identify the value that is (almost)
-			   always constant.  */
+  HIST_TYPE_TOPN_VALUES, /* Tries to identify the N most common values.  */
   HIST_TYPE_INDIR_CALL,   /* Tries to identify the function that is (almost)
 			    called in indirect call */
   HIST_TYPE_AVERAGE,	/* Compute average value (sum of all values).  */
@@ -101,14 +100,15 @@ extern void gimple_init_gcov_profiler (void);
 extern void gimple_gen_edge_profiler (int, edge);
 extern void gimple_gen_interval_profiler (histogram_value, unsigned, unsigned);
 extern void gimple_gen_pow2_profiler (histogram_value, unsigned, unsigned);
-extern void gimple_gen_one_value_profiler (histogram_value, unsigned, unsigned);
+extern void gimple_gen_topn_values_profiler (histogram_value, unsigned,
+					     unsigned);
 extern void gimple_gen_ic_profiler (histogram_value, unsigned, unsigned);
 extern void gimple_gen_ic_func_profiler (void);
 extern void gimple_gen_time_profiler (unsigned, unsigned);
 extern void gimple_gen_average_profiler (histogram_value, unsigned, unsigned);
 extern void gimple_gen_ior_profiler (histogram_value, unsigned, unsigned);
 extern void stream_out_histogram_value (struct output_block *, histogram_value);
-extern void stream_in_histogram_value (struct lto_input_block *, gimple *);
+extern void stream_in_histogram_value (class lto_input_block *, gimple *);
 extern struct cgraph_node* find_func_by_profile_id (int func_id);
 
 
