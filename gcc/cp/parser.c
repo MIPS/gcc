@@ -28554,7 +28554,8 @@ cp_parser_template_introduction (cp_parser* parser, bool member_p)
   parser->object_scope = saved_object_scope;
   parser->qualifying_scope = saved_qualifying_scope;
 
-  if (concept_name == error_mark_node)
+  if (concept_name == error_mark_node
+      || (seen_error () && !concept_definition_p (tmpl_decl)))
     cp_parser_simulate_error (parser);
 
   /* Look for opening brace for introduction.  */
