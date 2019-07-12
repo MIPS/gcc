@@ -27203,6 +27203,9 @@ cp_parser_requires_expression (cp_parser *parser)
       return error_mark_node;
     }
 
+  /* This is definitely a requires-expression.  */
+  cp_parser_commit_to_tentative_parse (parser);
+
   tree parms, reqs;
   {
     /* Local parameters are delared as variables within the scope
