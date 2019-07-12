@@ -27375,7 +27375,7 @@ cp_parser_type_requirement (cp_parser *parser)
   tree saved_scope = parser->scope;
   tree saved_object_scope = parser->object_scope;
   tree saved_qualifying_scope = parser->qualifying_scope;
-  cp_parser_global_scope_opt (parser, /*current_scope_valid_p=*/true);
+  cp_parser_global_scope_opt (parser, /*current_scope_valid_p=*/false);
   cp_parser_nested_name_specifier_opt (parser,
                                        /*typename_keyword_p=*/true,
                                        /*check_dependency_p=*/false,
