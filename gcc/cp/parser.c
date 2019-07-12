@@ -774,6 +774,16 @@ cp_lexer_previous_token (cp_lexer *lexer)
   return cp_lexer_token_at (lexer, tp);
 }
 
+/* Overload for make_location, taking the lexer to mean the location of the
+   previous token.  */
+
+static inline location_t
+make_location (location_t caret, location_t start, cp_lexer *lexer)
+{
+  cp_token *t = cp_lexer_previous_token (lexer);
+  return make_location (caret, start, t->location);
+}
+
 /* nonzero if we are presently saving tokens.  */
 
 static inline int
@@ -27246,7 +27256,8 @@ cp_parser_requires_expression (cp_parser *parser)
   /* This needs to happen after pop_bindings_and_leave_scope, as it reverses
      the parm chain.  */
   grokparms (parms, &parms);
-  return finish_requires_expr (parms, reqs);
+  loc = make_location (loc, loc, parser->lexer);
+  return finish_requires_expr (loc, parms, reqs);
 }
 
 /* Parse a parameterized requirement.

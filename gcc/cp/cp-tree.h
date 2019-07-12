@@ -7622,7 +7622,7 @@ extern tree finish_template_introduction        (tree, tree);
 extern bool valid_requirements_p                (tree);
 extern tree finish_concept_name                 (tree);
 extern tree finish_shorthand_constraint         (tree, tree);
-extern tree finish_requires_expr                (tree, tree);
+extern tree finish_requires_expr                (location_t, tree, tree);
 extern tree finish_simple_requirement           (tree);
 extern tree finish_type_requirement             (tree);
 extern tree finish_compound_requirement         (tree, tree, bool);

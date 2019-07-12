@@ -1579,7 +1579,7 @@ tsubst_requires_expr (tree t, tree args,
   /* In certain cases, produce a new requires-expression.
      Otherwise the value of the expression is true.  */
   if (processing_template_decl && uses_template_parms (args))
-    return finish_requires_expr (parms, reqs);
+    return finish_requires_expr (EXPR_LOCATION (t), parms, reqs);
 
   return boolean_true_node;
 }
@@ -1964,7 +1964,7 @@ constraints_satisfied_p (tree t, tree args)
    null) and the non-empty sequence of requirements.  */
 
 tree
-finish_requires_expr (tree parms, tree reqs)
+finish_requires_expr (location_t loc, tree parms, tree reqs)
 {
   /* Modify the declared parameters by removing their context
      so they don't refer to the enclosing scope and explicitly
@@ -1979,6 +1979,7 @@ finish_requires_expr (tree parms, tree reqs)
   tree r = build_min (REQUIRES_EXPR, boolean_type_node, parms, reqs);
   TREE_SIDE_EFFECTS (r) = false;
   TREE_CONSTANT (r) = true;
+  SET_EXPR_LOCATION (r, loc);
   return r;
 }
 
