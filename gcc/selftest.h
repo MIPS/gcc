@@ -242,6 +242,7 @@ extern void input_c_tests ();
 extern void json_cc_tests ();
 extern void opt_problem_cc_tests ();
 extern void optinfo_emit_json_cc_tests ();
+extern void ordered_hash_map_tests_cc_tests ();
 extern void predict_c_tests ();
 extern void pretty_print_c_tests ();
 extern void read_rtl_function_c_tests ();

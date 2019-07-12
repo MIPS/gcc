@@ -1443,6 +1443,7 @@ OBJS = \
 	optinfo-emit-json.o \
 	options-save.o \
 	opts-global.o \
+	ordered-hash-map-tests.o \
 	passes.o \
 	plugin.o \
 	postreload-gcse.o \
