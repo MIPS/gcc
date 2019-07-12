@@ -18039,9 +18039,9 @@ cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc,
 	{
 	  if (!cp_parser_parsing_tentatively (parser))
 	    {
-	      error_at(EXPR_LOC_OR_LOC (tmpl, input_location),
+	      error_at (EXPR_LOC_OR_LOC (tmpl, input_location),
 		       "all template arguments provided in type-constraint");
-	      inform(DECL_SOURCE_LOCATION (tmpl), "concept defined here");
+	      inform (DECL_SOURCE_LOCATION (tmpl), "concept defined here");
 	    }
 	  return error_mark_node;
 	}
