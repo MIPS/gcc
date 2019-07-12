@@ -992,8 +992,9 @@ c_cpp_builtins (cpp_reader *pfile)
       if (flag_concepts)
         {
           if (cxx_dialect >= cxx2a)
-            /* FIXME: Update this to the value required by the IS.  */
-            cpp_define (pfile, "__cpp_concepts=201707");
+            /* FIXME: Update this to the value required by the IS.
+	       This value indicates support for P1084 to cmcstl2.  */
+            cpp_define (pfile, "__cpp_concepts=201811");
           else
             cpp_define (pfile, "__cpp_concepts=201507");
         }
