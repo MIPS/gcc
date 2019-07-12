@@ -21,7 +21,7 @@
 
 @copying
 @quotation
-GNAT Reference Manual , Sep 24, 2018
+GNAT Reference Manual , Jun 21, 2019
 
 AdaCore
 
@@ -3870,7 +3870,7 @@ then the name will be forced to all lowercase letters.  A specification of
 taken from the string provided.
 @end itemize
 
-This pragma may appear anywhere that a pragma is valid.  In particular, it
+This pragma may appear anywhere that a pragma is valid. In particular, it
 can be used as a configuration pragma in the @code{gnat.adc} file, in which
 case it applies to all subsequent compilations, or it can be used as a program
 unit pragma, in which case it only applies to the current unit, or it can
@@ -4441,58 +4441,102 @@ in the SPARK 2014 Reference Manual, section 7.1.6.
 Syntax:
 
 @example
-pragma Initialize_Scalars;
+pragma Initialize_Scalars
+  [ ( TYPE_VALUE_PAIR @{, TYPE_VALUE_PAIR@} ) ];
+
+TYPE_VALUE_PAIR ::=
+  SCALAR_TYPE => static_EXPRESSION
+
+SCALAR_TYPE :=
+  Short_Float
+| Float
+| Long_Float
+| Long_Long_Flat
+| Signed_8
+| Signed_16
+| Signed_32
+| Signed_64
+| Unsigned_8
+| Unsigned_16
+| Unsigned_32
+| Unsigned_64
 @end example
 
-This pragma is similar to @code{Normalize_Scalars} conceptually but has
-two important differences.  First, there is no requirement for the pragma
-to be used uniformly in all units of a partition, in particular, it is fine
-to use this just for some or all of the application units of a partition,
-without needing to recompile the run-time library.
+This pragma is similar to @code{Normalize_Scalars} conceptually but has two
+important differences.
 
-In the case where some units are compiled with the pragma, and some without,
-then a declaration of a variable where the type is defined in package
-Standard or is locally declared will always be subject to initialization,
-as will any declaration of a scalar variable.  For composite variables,
-whether the variable is initialized may also depend on whether the package
-in which the type of the variable is declared is compiled with the pragma.
+First, there is no requirement for the pragma to be used uniformly in all units
+of a partition. In particular, it is fine to use this just for some or all of
+the application units of a partition, without needing to recompile the run-time
+library. In the case where some units are compiled with the pragma, and some
+without, then a declaration of a variable where the type is defined in package
+Standard or is locally declared will always be subject to initialization, as
+will any declaration of a scalar variable. For composite variables, whether the
+variable is initialized may also depend on whether the package in which the
+type of the variable is declared is compiled with the pragma.
 
-The other important difference is that you can control the value used
-for initializing scalar objects.  At bind time, you can select several
-options for initialization. You can
-initialize with invalid values (similar to Normalize_Scalars, though for
-Initialize_Scalars it is not always possible to determine the invalid
-values in complex cases like signed component fields with non-standard
-sizes). You can also initialize with high or
-low values, or with a specified bit pattern.  See the GNAT
-User's Guide for binder options for specifying these cases.
+The other important difference is that the programmer can control the value
+used for initializing scalar objects. This effect can be achieved in several
+different ways:
 
-This means that you can compile a program, and then without having to
-recompile the program, you can run it with different values being used
-for initializing otherwise uninitialized values, to test if your program
-behavior depends on the choice.  Of course the behavior should not change,
-and if it does, then most likely you have an incorrect reference to an
-uninitialized value.
 
-It is even possible to change the value at execution time eliminating even
-the need to rebind with a different switch using an environment variable.
-See the GNAT User's Guide for details.
+@itemize *
 
-Note that pragma @code{Initialize_Scalars} is particularly useful in
-conjunction with the enhanced validity checking that is now provided
-in GNAT, which checks for invalid values under more conditions.
-Using this feature (see description of the @emph{-gnatV} flag in the
-GNAT User's Guide) in conjunction with
-pragma @code{Initialize_Scalars}
-provides a powerful new tool to assist in the detection of problems
-caused by uninitialized variables.
+@item 
+At compile time, the programmer can specify the invalid value for a
+particular family of scalar types using the optional arguments of the pragma.
 
-Note: the use of @code{Initialize_Scalars} has a fairly extensive
-effect on the generated code. This may cause your code to be
-substantially larger. It may also cause an increase in the amount
-of stack required, so it is probably a good idea to turn on stack
-checking (see description of stack checking in the GNAT
-User's Guide) when using this pragma.
+The compile-time approach is intended to optimize the generated code for the
+pragma, by possibly using fast operations such as @code{memset}.
+
+@item 
+At bind time, the programmer has several options:
+
+
+@itemize *
+
+@item 
+Initialization with invalid values (similar to Normalize_Scalars, though
+for Initialize_Scalars it is not always possible to determine the invalid
+values in complex cases like signed component fields with nonstandard
+sizes).
+
+@item 
+Initialization with high values.
+
+@item 
+Initialization with low values.
+
+@item 
+Initialization with a specific bit pattern.
+@end itemize
+
+See the GNAT User's Guide for binder options for specifying these cases.
+
+The bind-time approach is intended to provide fast turnaround for testing
+with different values, without having to recompile the program.
+
+@item 
+At execution time, the programmer can speify the invalid values using an
+environment variable. See the GNAT User's Guide for details.
+
+The execution-time approach is intended to provide fast turnaround for
+testing with different values, without having to recompile and rebind the
+program.
+@end itemize
+
+Note that pragma @code{Initialize_Scalars} is particularly useful in conjunction
+with the enhanced validity checking that is now provided in GNAT, which checks
+for invalid values under more conditions. Using this feature (see description
+of the @emph{-gnatV} flag in the GNAT User's Guide) in conjunction with pragma
+@code{Initialize_Scalars} provides a powerful new tool to assist in the detection
+of problems caused by uninitialized variables.
+
+Note: the use of @code{Initialize_Scalars} has a fairly extensive effect on the
+generated code. This may cause your code to be substantially larger. It may
+also cause an increase in the amount of stack required, so it is probably a
+good idea to turn on stack checking (see description of stack checking in the
+GNAT User's Guide) when using this pragma.
 
 @node Pragma Initializes,Pragma Inline_Always,Pragma Initialize_Scalars,Implementation Defined Pragmas
 @anchor{gnat_rm/implementation_defined_pragmas pragma-initializes}@anchor{83}@anchor{gnat_rm/implementation_defined_pragmas id17}@anchor{84}
@@ -5220,18 +5264,19 @@ Syntax:
 pragma Machine_Attribute (
      [Entity         =>] LOCAL_NAME,
      [Attribute_Name =>] static_string_EXPRESSION
-  [, [Info           =>] static_EXPRESSION] );
+  [, [Info           =>] static_EXPRESSION @{, static_EXPRESSION@}] );
 @end example
 
 Machine-dependent attributes can be specified for types and/or
 declarations.  This pragma is semantically equivalent to
 @code{__attribute__((@emph{attribute_name}))} (if @code{info} is not
 specified) or @code{__attribute__((@emph{attribute_name(info})))}
-in GNU C, where @emph{attribute_name} is recognized by the
-compiler middle-end or the @code{TARGET_ATTRIBUTE_TABLE} machine
-specific macro.  A string literal for the optional parameter @code{info}
-is transformed into an identifier, which may make this pragma unusable
-for some attributes.
+or @code{__attribute__((@emph{attribute_name(info,...})))} in GNU C,
+where @emph{attribute_name} is recognized by the compiler middle-end
+or the @code{TARGET_ATTRIBUTE_TABLE} machine specific macro.  Note
+that a string literal for the optional parameter @code{info} or the
+following ones is transformed by default into an identifier,
+which may make this pragma unusable for some attributes.
 For further information see @cite{GNU Compiler Collection (GCC) Internals}.
 
 @node Pragma Main,Pragma Main_Storage,Pragma Machine_Attribute,Implementation Defined Pragmas
@@ -8778,11 +8823,10 @@ $ gcc -c -gnatVim ...
 @end itemize
 
 The form ALL_CHECKS activates all standard checks (its use is equivalent
-to the use of the @code{gnatva} switch.
+to the use of the @code{gnatVa} switch).
 
-The forms with @code{Off} and @code{On}
-can be used to temporarily disable validity checks
-as shown in the following example:
+The forms with @code{Off} and @code{On} can be used to temporarily disable
+validity checks as shown in the following example:
 
 @example
 pragma Validity_Checks ("c"); -- validity checks for copies
@@ -12463,7 +12507,8 @@ of exceptions when they are declared.
 @geindex No_Exceptions
 
 [RM H.4] This restriction ensures at compile time that there are no
-raise statements and no exception handlers.
+raise statements and no exception handlers and also suppresses the
+generation of language-defined run-time checks.
 
 @node No_Finalization,No_Fixed_Point,No_Exceptions,Partition-Wide Restrictions
 @anchor{gnat_rm/standard_and_implementation_defined_restrictions no-finalization}@anchor{1d2}
@@ -12673,15 +12718,14 @@ Long_Integer'Size.
 
 @geindex No_Multiple_Elaboration
 
-[GNAT] When this restriction is active, we are not requesting control-flow
-preservation with -fpreserve-control-flow, and the static elaboration model is
-used, the compiler is allowed to suppress the elaboration counter normally
-associated with the unit, even if the unit has elaboration code. This counter
-is typically used to check for access before elaboration and to control
-multiple elaboration attempts. If the restriction is used, then the
-situations in which multiple elaboration is possible, including non-Ada main
-programs and Stand Alone libraries, are not permitted and will be diagnosed
-by the binder.
+[GNAT] When this restriction is active and the static elaboration model is
+used, and -fpreserve-control-flow is not used, the compiler is allowed to
+suppress the elaboration counter normally associated with the unit, even if
+the unit has elaboration code. This counter is typically used to check for
+access before elaboration and to control multiple elaboration attempts. If the
+restriction is used, then the situations in which multiple elaboration is
+possible, including non-Ada main programs and Stand Alone libraries, are not
+permitted and will be diagnosed by the binder.
 
 @node No_Nested_Finalization,No_Protected_Type_Allocators,No_Multiple_Elaboration,Partition-Wide Restrictions
 @anchor{gnat_rm/standard_and_implementation_defined_restrictions no-nested-finalization}@anchor{1e1}
@@ -12839,7 +12883,7 @@ user-defined storage pool.
 [GNAT] This restriction affects the performance of stream operations on types
 @code{String}, @code{Wide_String} and @code{Wide_Wide_String}. By default, the
 compiler uses block reads and writes when manipulating @code{String} objects
-due to their supperior performance. When this restriction is in effect, the
+due to their superior performance. When this restriction is in effect, the
 compiler performs all IO operations on a per-character basis.
 
 @node No_Streams,No_Task_Allocators,No_Stream_Optimizations,Partition-Wide Restrictions
@@ -18982,14 +19026,23 @@ type R is record
 end record;
 @end example
 
-On a typical 32-bit architecture, the X component will be four bytes, and
-require four-byte alignment, and the Y component will be one byte. In this
-case @code{R'Value_Size} will be 40 (bits) since this is the minimum size
-required to store a value of this type, and for example, it is permissible
-to have a component of type R in an outer array whose component size is
-specified to be 48 bits. However, @code{R'Object_Size} will be 64 (bits),
-since it must be rounded up so that this value is a multiple of the
-alignment (4 bytes = 32 bits).
+On a typical 32-bit architecture, the X component will occupy four bytes
+and the Y component will occupy one byte, for a total of 5 bytes. As a
+result @code{R'Value_Size} will be 40 (bits) since this is the minimum size
+required to store a value of this type. For example, it is permissible
+to have a component of type R in an array whose component size is
+specified to be 40 bits.
+
+However, @code{R'Object_Size} will be 64 (bits). The difference is due to
+the alignment requirement for objects of the record type. The X
+component will require four-byte alignment because that is what type
+Integer requires, whereas the Y component, a Character, will only
+require 1-byte alignment. Since the alignment required for X is the
+greatest of all the components' alignments, that is the alignment
+required for the enclosing record type, i.e., 4 bytes or 32 bits. As
+indicated above, the actual object size must be rounded up so that it is
+a multiple of the alignment value. Therefore, 40 bits rounded up to the
+next multiple of 32 yields 64 bits.
 
 For all other types, the @code{Object_Size}
 and @code{Value_Size} are the same (and equivalent to the RM attribute @code{Size}).
@@ -25531,8 +25584,10 @@ and C types:
 
 @item 
 Ada enumeration types map to C enumeration types directly if pragma
-@code{Convention C} is specified, which causes them to have int
-length.  Without pragma @code{Convention C}, Ada enumeration types map to
+@code{Convention C} is specified, which causes them to have a length of
+32 bits, except for boolean types which map to C99 @code{bool} and for
+which the length is 8 bits.
+Without pragma @code{Convention C}, Ada enumeration types map to
 8, 16, or 32 bits (i.e., C types @code{signed char}, @code{short},
 @code{int}, respectively) depending on the number of values passed.
 This is the only case in which pragma @code{Convention C} affects the

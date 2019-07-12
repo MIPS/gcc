@@ -3181,20 +3181,47 @@ Alternatively, you may run the script using the following command line:
      Do not place the keyword ``is`` on a separate line in a subprogram body in
      case if the spec occupies more than one line.
 
+   .. index:: --separate-loop (gnatpp)
+
+
+   :switch:`--separate-loop`
+     Place the keyword ``loop`` in FOR and WHILE loop statements
+     on a separate line.
+
+   .. index:: --no-separate-then (gnatpp)
+
+
+   :switch:`--separate-then`
+     Place the keyword ``then`` in IF statements
+     on a separate line.
+
+   .. index:: --no-separate-loop (gnatpp)
+
+
+   :switch:`--no-separate-loop`
+     Do not place the keyword ``loop`` in FOR and WHILE loop statements
+     on a separate line. This option is
+     incompatible with the :switch:`--separate-loop` option.
+
+   .. index:: --no-separate-then (gnatpp)
+
+
+   :switch:`--no-separate-then`
+     Do not place the keyword ``then`` in IF statements
+     on a separate line. This option is
+     incompatible with the :switch:`--separate-then` option.
+
    .. index:: --separate-loop-then (gnatpp)
 
 
    :switch:`--separate-loop-then`
-     Place the keyword ``loop`` in FOR and WHILE loop statements and the
-     keyword ``then`` in IF statements on a separate line.
+     Equivalent to :switch:`--separate-loop` :switch:`--separate-then`.
 
    .. index:: --no-separate-loop-then (gnatpp)
 
 
    :switch:`--no-separate-loop-then`
-     Do not place the keyword ``loop`` in FOR and WHILE loop statements and the
-     keyword ``then`` in IF statements on a separate line. This option is
-     incompatible with the :switch:`--separate-loop-then` option.
+     Equivalent to :switch:`--no-separate-loop` :switch:`--no-separate-then`.
 
    .. index:: --use-on-new-line (gnatpp)
 
@@ -3308,12 +3335,6 @@ Alternatively, you may run the script using the following command line:
    :switch:`--RM-style-spacing`
      Do not insert an extra blank before various occurrences of
      '(' and ':'. This also turns off alignment.
-
-
-   .. index:: --ff-after-pragma-page (gnatpp)
-
-   :switch:`--ff-after-pragma-page`
-     Insert a Form Feed character after a pragma Page.
 
 
    .. index:: --call_threshold (gnatpp)
@@ -3457,6 +3478,8 @@ Alternatively, you may run the script using the following command line:
      * *crlf*  - the same as *dos*
      * *unix* - UNIX style, lines end with LF character*
      * *lf* -  the same as *unix*
+
+     The default is to use the same end-of-line convention as the input.
 
    .. index:: --wide-character-encoding (gnatpp)
 
@@ -3904,6 +3927,67 @@ Alternatively, you may run the script using the following command line:
            Name2_NAME3_Name4 := Name4_NAME3_Name2 > NAME1;
         end Test;
 
+   .. _Preprocessor_directives:
+
+   Preprocessor Directives
+   ^^^^^^^^^^^^^^^^^^^^^^^
+
+   ``gnatpp`` has some support for preprocessor directives.
+   You can use preprocessor symbols, as in ``$symbol``.
+   In addition, you can use conditional compilation,
+   so long as the program text is syntactically legal Ada code
+   after removing all the preprocessor directives (lines starting
+   with ``#``). For example, ``gnatpp`` can format the following:
+
+     .. code-block:: ada
+
+        package P is
+        #IF SOMETHING
+           X : constant Integer := 123;
+        #ELSE
+           X : constant Integer := 456;
+        #END IF;
+        end P;
+
+   which will be formatted as if it were:
+
+     .. code-block:: ada
+
+        package P is
+           X : constant Integer := 123;
+           X : constant Integer := 456;
+        end P;
+
+   except that the ``#`` lines will be preserved.
+   However, ``gnatpp`` cannot format the following:
+
+     .. code-block:: ada
+
+        procedure P is
+        begin
+        #IF SOMETHING
+           if X = 0 then
+        #ELSE
+           if X = 1 then
+        #END IF;
+              null;
+           end if;
+        end P;
+
+   because removing the ``#`` lines gives:
+
+     .. code-block:: ada
+
+        procedure P is
+        begin
+           if X = 0 then
+           if X = 1 then
+              null;
+           end if;
+        end P;
+
+   which is not syntactically legal.
+
    Legacy Switches
    ^^^^^^^^^^^^^^^
 
@@ -4032,11 +4116,6 @@ Alternatively, you may run the script using the following command line:
 
    :switch:`-cl{nnn}`
      :switch:`--indent-continuation={nnn}`
-
-   .. index:: -ff (gnatpp)
-
-   :switch:`-ff`
-     :switch:`--ff-after-pragma-page`
 
    .. index:: -pipe (gnatpp)
 
