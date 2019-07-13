@@ -56,7 +56,7 @@ parameter_mapping_equivalent_p (tree t1, tree t2)
     {
       tree arg1 = TREE_PURPOSE (map1);
       tree arg2 = TREE_PURPOSE (map2);
-      if (!cp_tree_equal (arg1, arg2))
+      if (!template_args_equal (arg1, arg2))
 	return false;
       map1 = TREE_CHAIN (map1);
       map2 = TREE_CHAIN (map2);
