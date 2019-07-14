@@ -26004,7 +26004,7 @@ value_dependent_expression_p (tree expression)
       }
 
     case TEMPLATE_ID_EXPR:
-      return variable_concept_p (TREE_OPERAND (expression, 0));
+      return concept_definition_p (TREE_OPERAND (expression, 0));
 
     case CONSTRUCTOR:
       {
