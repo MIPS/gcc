@@ -1,5 +1,16 @@
 2019-07-16  Jason Merrill  <jason@redhat.com>
 
+	* parser.c (cp_parser_template_id): Don't try to resolve a concept
+	template-id yet.
+	(cp_parser_template_id_expr): Resolve it as a concept check.
+	(cp_parser_id_expression, cp_parser_unqualified_id): Call it.
+	(cp_parser_simple_type_specifier): Parse type-constraints here.
+	(cp_parser_class_name): Not here.
+	(cp_parser_placeholder_type_specifier): Add tentative parm.  Don't
+	expect a WILDCARD_DECL.
+	* constraint.cc	(build_concept_id): Pass tf_warning_or_error.
+	(finish_type_constraints, build_type_constraint): Add complain parm.
+
 	* parser.c (make_location): Add overload taking cp_lexer* as last
 	parameter.
 

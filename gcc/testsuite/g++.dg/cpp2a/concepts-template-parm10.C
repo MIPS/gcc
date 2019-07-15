@@ -5,6 +5,6 @@ concept Dummy = true;
 
 template <typename>
 class example {
-    template <Dummy<> U> // { dg-error "invalid use" }
+    template <Dummy<> U>
     friend auto func();
 };

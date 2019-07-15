@@ -356,12 +356,12 @@ deduce_concept_introduction (tree check)
    SECOND is the prototype parameter.  */
 
 tree_pair
-finish_type_constraints (tree spec, tree args)
+finish_type_constraints (tree spec, tree args, tsubst_flags_t complain)
 {
   gcc_assert (concept_definition_p (spec));
 
   /* Build an initial concept check.  */
-  tree check = build_type_constraint (spec, args);
+  tree check = build_type_constraint (spec, args, complain);
   if (check == error_mark_node)
     return std::make_pair (error_mark_node, NULL_TREE);
 
@@ -794,7 +794,7 @@ build_concept_check (tree decl, tree arg, tree rest, tsubst_flags_t complain)
 tree
 build_concept_id (tree decl, tree args)
 {
-  tree check = build_concept_check (decl, args, tf_none);
+  tree check = build_concept_check (decl, args, tf_warning_or_error);
   if (check == error_mark_node)
     return error_mark_node;
   return unpack_concept_check (check);
@@ -807,10 +807,10 @@ build_concept_id (tree decl, tree args)
    cannot be built.  */
 
 tree
-build_type_constraint (tree decl, tree args)
+build_type_constraint (tree decl, tree args, tsubst_flags_t complain)
 {
   tree wildcard = build_nt (WILDCARD_DECL);
-  tree check = build_concept_check (decl, wildcard, args, tf_error);
+  tree check = build_concept_check (decl, wildcard, args, complain);
   if (check == error_mark_node)
     return error_mark_node;
   return unpack_concept_check (check);

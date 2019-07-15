@@ -28,8 +28,8 @@ template<Same<int> A>
 void h0(A* a) { }
 template<C1<int> A>
 void h1(A* a) { }
-template<C2<char, short, int, long> A> // { dg-error "" { xfail *-*-* } }
-void h2(A* a) { } // { dg-error "" { xfail *-*-* } }
+template<C2<char, short, int, long> A>
+void h2(A* a) { }
 template<C3<double> A>
 void h3(A* a) { }
 

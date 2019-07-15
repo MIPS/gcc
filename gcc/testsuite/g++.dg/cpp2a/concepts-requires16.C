@@ -11,7 +11,7 @@ template<typename... Args>
 concept UnaryPack = (sizeof...(Args) == 1);
 
 template<typename... Args>
-  requires Integral<Args...> // { dg-error "too many arguments" }
+  requires Integral<Args...> // { dg-error "non-pack parameter" }
 void f1();
 
 template<typename... Args>
