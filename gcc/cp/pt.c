@@ -9639,7 +9639,7 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
           if (complain & tf_error)
             {
 	      auto_diagnostic_group d;
-              error ("template constraint failure");
+              error ("template constraint failure for %qD", gen_tmpl);
               diagnose_constraints (input_location, gen_tmpl, arglist);
             }
           return error_mark_node;
