@@ -8963,8 +8963,7 @@ package body Sem_Prag is
             Mark_Rewrite_Insertion (Decl);
 
          else
-            Error_Pragma_Arg ("no matching type found for pragma%",
-            Arg2);
+            Error_Pragma_Arg ("no matching type found for pragma%", Arg2);
          end if;
       end Process_Import_Predefined_Type;
 
@@ -13621,8 +13620,8 @@ package body Sem_Prag is
          -- Async_Readers/Async_Writers/Effective_Reads/Effective_Writes --
          ------------------------------------------------------------------
 
-         --  pragma Asynch_Readers   [ (boolean_EXPRESSION) ];
-         --  pragma Asynch_Writers   [ (boolean_EXPRESSION) ];
+         --  pragma Async_Readers    [ (boolean_EXPRESSION) ];
+         --  pragma Async_Writers    [ (boolean_EXPRESSION) ];
          --  pragma Effective_Reads  [ (boolean_EXPRESSION) ];
          --  pragma Effective_Writes [ (boolean_EXPRESSION) ];
 
@@ -14114,9 +14113,14 @@ package body Sem_Prag is
 
             Expr := Get_Pragma_Arg (Arg2);
 
-            --  Deal with SCO generation
+            --  Mark the pragma (or, if rewritten from an aspect, the original
+            --  aspect) as enabled. Nothing to do for an internally generated
+            --  check for a dynamic predicate.
 
-            if Is_Checked (N) and then not Split_PPC (N) then
+            if Is_Checked (N)
+              and then not Split_PPC (N)
+              and then Cname /= Name_Dynamic_Predicate
+            then
                Set_SCO_Pragma_Enabled (Loc);
             end if;
 
@@ -25788,7 +25792,7 @@ package body Sem_Prag is
 
                --  Otherwise we have a call to an overridden primitive, and we
                --  will create a common class-wide clone for the body of
-               --  original operation and its eventual inherited versions.  If
+               --  original operation and its eventual inherited versions. If
                --  the original operation dispatches on result it is never
                --  inherited and there is no need for a clone. There is not
                --  need for a clone either in GNATprove mode, as cases that

@@ -3422,24 +3422,6 @@ Gogo::create_function_descriptors()
   this->traverse(&cfd);
 }
 
-// Look for interface types to finalize methods of inherited
-// interfaces.
-
-class Finalize_methods : public Traverse
-{
- public:
-  Finalize_methods(Gogo* gogo)
-    : Traverse(traverse_types),
-      gogo_(gogo)
-  { }
-
-  int
-  type(Type*);
-
- private:
-  Gogo* gogo_;
-};
-
 // Finalize the methods of an interface type.
 
 int
@@ -4115,6 +4097,15 @@ Gogo::order_evaluations()
   this->traverse(&order_eval);
 }
 
+// Order evaluations in a block.
+
+void
+Gogo::order_block(Block* block)
+{
+  Order_eval order_eval(this);
+  block->traverse(&order_eval);
+}
+
 // A traversal class used to find a single shortcut operator within an
 // expression.
 
@@ -4322,6 +4313,15 @@ Gogo::remove_shortcuts()
 {
   Shortcuts shortcuts(this);
   this->traverse(&shortcuts);
+}
+
+// Turn shortcut operators into explicit if statements in a block.
+
+void
+Gogo::remove_shortcuts_in_block(Block* block)
+{
+  Shortcuts shortcuts(this);
+  block->traverse(&shortcuts);
 }
 
 // Traversal to flatten parse tree after order of evaluation rules are applied.

@@ -23,9 +23,11 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Binderr; use Binderr;
-with Debug;   use Debug;
-with Types;   use Types;
+with Binderr;  use Binderr;
+with Debug;    use Debug;
+with Restrict; use Restrict;
+with Rident;   use Rident;
+with Types;    use Types;
 
 with Bindo.Validators;
 use  Bindo.Validators;
@@ -34,6 +36,7 @@ use  Bindo.Validators.Cycle_Validators;
 with Bindo.Writers;
 use  Bindo.Writers;
 use  Bindo.Writers.Cycle_Writers;
+use  Bindo.Writers.Phase_Writers;
 
 package body Bindo.Diagnostics is
 
@@ -76,13 +79,6 @@ package body Bindo.Diagnostics is
    pragma Inline (Output_All_Cycles_Suggestions);
    --  Suggest the diagnostic of all cycles in library graph G if circumstances
    --  allow it.
-
-   procedure Output_Dynamic_Model_Suggestions
-     (G     : Library_Graph;
-      Cycle : Library_Graph_Cycle_Id);
-   pragma Inline (Output_Dynamic_Model_Suggestions);
-   --  Suggest the use of the dynamic elaboration model to break cycle Cycle of
-   --  library graph G if circumstances allow it.
 
    procedure Output_Elaborate_All_Suggestions
      (G    : Library_Graph;
@@ -191,6 +187,13 @@ package body Bindo.Diagnostics is
    pragma Inline (Output_Invocation_Path_Transition);
    --  Output a transition through edge Edge of invocation graph G, which is
    --  part of an invocation path. Lib_Graph is the related library graph.
+
+   procedure Output_Invocation_Related_Suggestions
+     (G     : Library_Graph;
+      Cycle : Library_Graph_Cycle_Id);
+   pragma Inline (Output_Invocation_Related_Suggestions);
+   --  Suggest ways to break cycle Cycle of library graph G that involves at
+   --  least one invocation edge.
 
    procedure Output_Invocation_Transition
      (Inv_Graph   : Invocation_Graph;
@@ -346,6 +349,8 @@ package body Bindo.Diagnostics is
       Next_Edge    : Library_Graph_Edge_Id;
 
    begin
+      Start_Phase (Cycle_Diagnostics);
+
       First_Edge := No_Library_Graph_Edge;
 
       --  Inspect the edges of the cycle in pairs, emitting diagnostics based
@@ -400,6 +405,8 @@ package body Bindo.Diagnostics is
         (G          => Lib_Graph,
          Cycle      => Cycle,
          First_Edge => First_Edge);
+
+      End_Phase (Cycle_Diagnostics);
    end Diagnose_Cycle;
 
    --------------------------------------
@@ -521,30 +528,6 @@ package body Bindo.Diagnostics is
            ("    diagnose all circularities (binder switch -d_C)");
       end if;
    end Output_All_Cycles_Suggestions;
-
-   --------------------------------------
-   -- Output_Dynamic_Model_Suggestions --
-   --------------------------------------
-
-   procedure Output_Dynamic_Model_Suggestions
-     (G     : Library_Graph;
-      Cycle : Library_Graph_Cycle_Id)
-   is
-   begin
-      pragma Assert (Present (G));
-      pragma Assert (Present (Cycle));
-
-      --  The cycle contains at least one invocation edge where the successor
-      --  was statically elaborated. Using the dynamic model may eliminate an
-      --  invocation edge, and thus the cycle.
-
-      if Invocation_Edge_Count (G, Cycle) > 0
-        and then Contains_Weak_Static_Successor (G, Cycle)
-      then
-         Error_Msg_Info
-           ("    use the dynamic elaboration model (compiler switch -gnatE)");
-      end if;
-   end Output_Dynamic_Model_Suggestions;
 
    --------------------------------------
    -- Output_Elaborate_All_Suggestions --
@@ -1155,6 +1138,48 @@ package body Bindo.Diagnostics is
       end case;
    end Output_Invocation_Path_Transition;
 
+   -------------------------------------------
+   -- Output_Invocation_Related_Suggestions --
+   -------------------------------------------
+
+   procedure Output_Invocation_Related_Suggestions
+     (G     : Library_Graph;
+      Cycle : Library_Graph_Cycle_Id)
+   is
+   begin
+      pragma Assert (Present (G));
+      pragma Assert (Present (Cycle));
+
+      --  Nothing to do when the cycle does not contain an invocation edge
+
+      if Invocation_Edge_Count (G, Cycle) = 0 then
+         return;
+      end if;
+
+      --  The cycle contains at least one invocation edge, where at least
+      --  one of the paths the edge represents activates a task. The use of
+      --  restriction No_Entry_Calls_In_Elaboration_Code may halt the flow
+      --  within the task body on a select or accept statement, eliminating
+      --  subsequent invocation edges, thus breaking the cycle.
+
+      if not Restriction_Active (No_Entry_Calls_In_Elaboration_Code)
+        and then Contains_Task_Activation (G, Cycle)
+      then
+         Error_Msg_Info
+           ("    use pragma Restrictions "
+            & "(No_Entry_Calls_In_Elaboration_Code)");
+      end if;
+
+      --  The cycle contains at least one invocation edge where the successor
+      --  was statically elaborated. The use of the dynamic model may remove
+      --  one of the invocation edges in the cycle, thus breaking the cycle.
+
+      if Contains_Static_Successor_Edge (G, Cycle) then
+         Error_Msg_Info
+           ("    use the dynamic elaboration model (compiler switch -gnatE)");
+      end if;
+   end Output_Invocation_Related_Suggestions;
+
    ----------------------------------
    -- Output_Invocation_Transition --
    ----------------------------------
@@ -1257,7 +1282,7 @@ package body Bindo.Diagnostics is
 
       --  Output general purpose suggestions
 
-      Output_Dynamic_Model_Suggestions
+      Output_Invocation_Related_Suggestions
         (G     => G,
          Cycle => Cycle);
 

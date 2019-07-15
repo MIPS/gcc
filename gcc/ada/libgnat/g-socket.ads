@@ -475,16 +475,17 @@ package GNAT.Sockets is
    --  The order of the enumeration elements should not be changed unilaterally
    --  because the IPv6_TCP_Preferred routine rely on it.
 
-   type Mode_Type is (Socket_Stream, Socket_Datagram);
+   type Mode_Type is (Socket_Stream, Socket_Datagram, Socket_Raw);
    --  Stream sockets provide connection-oriented byte streams. Datagram
-   --  sockets support unreliable connectionless message based communication.
+   --  sockets support unreliable connectionless message-based communication.
+   --  Raw sockets provide raw network-protocol access.
    --  The order of the enumeration elements should not be changed unilaterally
-   --  because the IPv6_TCP_Preferred routine rely on it.
+   --  because the IPv6_TCP_Preferred routine relies on it.
 
    type Shutmode_Type is (Shut_Read, Shut_Write, Shut_Read_Write);
    --  When a process closes a socket, the policy is to retain any data queued
    --  until either a delivery or a timeout expiration (in this case, the data
-   --  are discarded). A finer control is available through shutdown. With
+   --  are discarded). Finer control is available through shutdown. With
    --  Shut_Read, no more data can be received from the socket. With_Write, no
    --  more data can be transmitted. Neither transmission nor reception can be
    --  performed with Shut_Read_Write.
@@ -772,7 +773,10 @@ package GNAT.Sockets is
       IP_Protocol_For_IP_Level,
       IP_Protocol_For_IPv6_Level,
       IP_Protocol_For_UDP_Level,
-      IP_Protocol_For_TCP_Level);
+      IP_Protocol_For_TCP_Level,
+      IP_Protocol_For_ICMP_Level,
+      IP_Protocol_For_IGMP_Level,
+      IP_Protocol_For_RAW_Level);
 
    --  There are several options available to manipulate sockets. Each option
    --  has a name and several values available. Most of the time, the value

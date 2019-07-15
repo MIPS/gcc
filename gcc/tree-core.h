@@ -448,6 +448,9 @@ enum omp_clause_code {
   /* OpenMP clause: defaultmap (tofrom: scalar).  */
   OMP_CLAUSE_DEFAULTMAP,
 
+  /* OpenMP clause: order (concurrent).  */
+  OMP_CLAUSE_ORDER,
+
   /* Internally used only clause, holding SIMD uid.  */
   OMP_CLAUSE__SIMDUID_,
 
@@ -1908,7 +1911,7 @@ struct GTY(()) tree_optimization_option {
 
 /* Forward declaration, defined in target-globals.h.  */
 
-struct GTY(()) target_globals;
+class GTY(()) target_globals;
 
 /* Target options used by a function.  */
 
@@ -1916,7 +1919,7 @@ struct GTY(()) tree_target_option {
   struct tree_base base;
 
   /* Target globals for the corresponding target option.  */
-  struct target_globals *globals;
+  class target_globals *globals;
 
   /* The optimization options used by the user.  */
   struct cl_target_option *opts;

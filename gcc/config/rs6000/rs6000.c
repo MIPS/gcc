@@ -5547,22 +5547,26 @@ const char *rs6000_machine;
 const char *
 rs6000_machine_from_flags (void)
 {
-  if ((rs6000_isa_flags & (ISA_FUTURE_MASKS_SERVER & ~ISA_3_0_MASKS_SERVER))
-      != 0)
+  HOST_WIDE_INT flags = rs6000_isa_flags;
+
+  /* Disable the flags that should never influence the .machine selection.  */
+  flags &= ~(OPTION_MASK_PPC_GFXOPT | OPTION_MASK_PPC_GPOPT);
+
+  if ((flags & (ISA_FUTURE_MASKS_SERVER & ~ISA_3_0_MASKS_SERVER)) != 0)
     return "future";
-  if ((rs6000_isa_flags & (ISA_3_0_MASKS_SERVER & ~ISA_2_7_MASKS_SERVER)) != 0)
+  if ((flags & (ISA_3_0_MASKS_SERVER & ~ISA_2_7_MASKS_SERVER)) != 0)
     return "power9";
-  if ((rs6000_isa_flags & (ISA_2_7_MASKS_SERVER & ~ISA_2_6_MASKS_SERVER)) != 0)
+  if ((flags & (ISA_2_7_MASKS_SERVER & ~ISA_2_6_MASKS_SERVER)) != 0)
     return "power8";
-  if ((rs6000_isa_flags & (ISA_2_6_MASKS_SERVER & ~ISA_2_5_MASKS_SERVER)) != 0)
+  if ((flags & (ISA_2_6_MASKS_SERVER & ~ISA_2_5_MASKS_SERVER)) != 0)
     return "power7";
-  if ((rs6000_isa_flags & (ISA_2_5_MASKS_SERVER & ~ISA_2_4_MASKS)) != 0)
+  if ((flags & (ISA_2_5_MASKS_SERVER & ~ISA_2_4_MASKS)) != 0)
     return "power6";
-  if ((rs6000_isa_flags & (ISA_2_4_MASKS & ~ISA_2_1_MASKS)) != 0)
+  if ((flags & (ISA_2_4_MASKS & ~ISA_2_1_MASKS)) != 0)
     return "power5";
-  if ((rs6000_isa_flags & ISA_2_1_MASKS) != 0)
+  if ((flags & ISA_2_1_MASKS) != 0)
     return "power4";
-  if ((rs6000_isa_flags & OPTION_MASK_POWERPC64) != 0)
+  if ((flags & OPTION_MASK_POWERPC64) != 0)
     return "ppc64";
   return "ppc";
 }
@@ -7729,6 +7733,45 @@ constant_pool_expr_p (rtx op)
   return (SYMBOL_REF_P (base)
 	  && CONSTANT_POOL_ADDRESS_P (base)
 	  && ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (get_pool_constant (base), Pmode));
+}
+
+/* Create a TOC reference for symbol_ref SYMBOL.  If LARGETOC_REG is non-null,
+   use that as the register to put the HIGH value into if register allocation
+   is already done.  */
+
+rtx
+create_TOC_reference (rtx symbol, rtx largetoc_reg)
+{
+  rtx tocrel, tocreg, hi;
+
+  if (TARGET_DEBUG_ADDR)
+    {
+      if (SYMBOL_REF_P (symbol))
+	fprintf (stderr, "\ncreate_TOC_reference, (symbol_ref %s)\n",
+		 XSTR (symbol, 0));
+      else
+	{
+	  fprintf (stderr, "\ncreate_TOC_reference, code %s:\n",
+		   GET_RTX_NAME (GET_CODE (symbol)));
+	  debug_rtx (symbol);
+	}
+    }
+
+  if (!can_create_pseudo_p ())
+    df_set_regs_ever_live (TOC_REGISTER, true);
+
+  tocreg = gen_rtx_REG (Pmode, TOC_REGISTER);
+  tocrel = gen_rtx_UNSPEC (Pmode, gen_rtvec (2, symbol, tocreg), UNSPEC_TOCREL);
+  if (TARGET_CMODEL == CMODEL_SMALL || can_create_pseudo_p ())
+    return tocrel;
+
+  hi = gen_rtx_HIGH (Pmode, copy_rtx (tocrel));
+  if (largetoc_reg != NULL)
+    {
+      emit_move_insn (largetoc_reg, hi);
+      hi = largetoc_reg;
+    }
+  return gen_rtx_LO_SUM (Pmode, hi, tocrel);
 }
 
 /* These are only used to pass through from print_operand/print_operand_address
@@ -14742,62 +14785,53 @@ rs6000_invalid_builtin (enum rs6000_builtins fncode)
 
   gcc_assert (name != NULL);
   if ((fnmask & RS6000_BTM_CELL) != 0)
-    error ("builtin function %qs is only valid for the cell processor", name);
+    error ("%qs is only valid for the cell processor", name);
   else if ((fnmask & RS6000_BTM_VSX) != 0)
-    error ("builtin function %qs requires the %qs option", name, "-mvsx");
+    error ("%qs requires the %qs option", name, "-mvsx");
   else if ((fnmask & RS6000_BTM_HTM) != 0)
-    error ("builtin function %qs requires the %qs option", name, "-mhtm");
+    error ("%qs requires the %qs option", name, "-mhtm");
   else if ((fnmask & RS6000_BTM_ALTIVEC) != 0)
-    error ("builtin function %qs requires the %qs option", name, "-maltivec");
+    error ("%qs requires the %qs option", name, "-maltivec");
   else if ((fnmask & (RS6000_BTM_DFP | RS6000_BTM_P8_VECTOR))
 	   == (RS6000_BTM_DFP | RS6000_BTM_P8_VECTOR))
-    error ("builtin function %qs requires the %qs and %qs options",
-	   name, "-mhard-dfp", "-mpower8-vector");
-  else if ((fnmask & RS6000_BTM_DFP) != 0)
-    error ("builtin function %qs requires the %qs option", name, "-mhard-dfp");
-  else if ((fnmask & RS6000_BTM_P8_VECTOR) != 0)
-    error ("builtin function %qs requires the %qs option", name,
+    error ("%qs requires the %qs and %qs options", name, "-mhard-dfp",
 	   "-mpower8-vector");
+  else if ((fnmask & RS6000_BTM_DFP) != 0)
+    error ("%qs requires the %qs option", name, "-mhard-dfp");
+  else if ((fnmask & RS6000_BTM_P8_VECTOR) != 0)
+    error ("%qs requires the %qs option", name, "-mpower8-vector");
   else if ((fnmask & (RS6000_BTM_P9_VECTOR | RS6000_BTM_64BIT))
 	   == (RS6000_BTM_P9_VECTOR | RS6000_BTM_64BIT))
-    error ("builtin function %qs requires the %qs and %qs options",
-	   name, "-mcpu=power9", "-m64");
+    error ("%qs requires the %qs and %qs options", name, "-mcpu=power9",
+	   "-m64");
   else if ((fnmask & RS6000_BTM_P9_VECTOR) != 0)
-    error ("builtin function %qs requires the %qs option", name,
-	   "-mcpu=power9");
+    error ("%qs requires the %qs option", name, "-mcpu=power9");
   else if ((fnmask & (RS6000_BTM_P9_MISC | RS6000_BTM_64BIT))
 	   == (RS6000_BTM_P9_MISC | RS6000_BTM_64BIT))
-    error ("builtin function %qs requires the %qs and %qs options",
-	   name, "-mcpu=power9", "-m64");
+    error ("%qs requires the %qs and %qs options", name, "-mcpu=power9",
+	   "-m64");
   else if ((fnmask & RS6000_BTM_P9_MISC) == RS6000_BTM_P9_MISC)
-    error ("builtin function %qs requires the %qs option", name,
-	   "-mcpu=power9");
+    error ("%qs requires the %qs option", name, "-mcpu=power9");
   else if ((fnmask & RS6000_BTM_LDBL128) == RS6000_BTM_LDBL128)
     {
       if (!TARGET_HARD_FLOAT)
-	error ("builtin function %qs requires the %qs option", name,
-	       "-mhard-float");
+	error ("%qs requires the %qs option", name, "-mhard-float");
       else
-	error ("builtin function %qs requires the %qs option", name,
+	error ("%qs requires the %qs option", name,
 	       TARGET_IEEEQUAD ? "-mabi=ibmlongdouble" : "-mlong-double-128");
     }
   else if ((fnmask & RS6000_BTM_HARD_FLOAT) != 0)
-    error ("builtin function %qs requires the %qs option", name,
-	   "-mhard-float");
+    error ("%qs requires the %qs option", name, "-mhard-float");
   else if ((fnmask & RS6000_BTM_FLOAT128_HW) != 0)
-    error ("builtin function %qs requires ISA 3.0 IEEE 128-bit floating point",
-	   name);
+    error ("%qs requires ISA 3.0 IEEE 128-bit floating point", name);
   else if ((fnmask & RS6000_BTM_FLOAT128) != 0)
-    error ("builtin function %qs requires the %qs option", name,
-	   "%<-mfloat128%>");
+    error ("%qs requires the %qs option", name, "%<-mfloat128%>");
   else if ((fnmask & (RS6000_BTM_POPCNTD | RS6000_BTM_POWERPC64))
 	   == (RS6000_BTM_POPCNTD | RS6000_BTM_POWERPC64))
-    error ("builtin function %qs requires the %qs (or newer), and "
-	   "%qs or %qs options",
+    error ("%qs requires the %qs (or newer), and %qs or %qs options",
 	   name, "-mcpu=power7", "-m64", "-mpowerpc64");
   else
-    error ("builtin function %qs is not supported with the current options",
-	   name);
+    error ("%qs is not supported with the current options", name);
 }
 
 /* Target hook for early folding of built-ins, shamelessly stolen
@@ -21480,11 +21514,11 @@ rs6000_prefixed_address (rtx addr, machine_mode mode)
 	return false;
 
       HOST_WIDE_INT value = INTVAL (op1);
-      if (!SIGNED_34BIT_OFFSET_P (value, 0))
+      if (!SIGNED_34BIT_OFFSET_P (value))
 	return false;
 
       /* Offset larger than 16-bits?  */
-      if (!SIGNED_16BIT_OFFSET_P (value, 0))
+      if (!SIGNED_16BIT_OFFSET_P (value))
 	return true;
 
       /* DQ instruction (bottom 4 bits must be 0) for vectors.  */

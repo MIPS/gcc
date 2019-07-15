@@ -23,7 +23,8 @@ along with GCC; see the file COPYING3.  If not see
 #include <profile-count.h>
 
 /* Control flow edge information.  */
-struct GTY((user)) edge_def {
+class GTY((user)) edge_def {
+public:
   /* The two blocks at the ends of the edge.  */
   basic_block src;
   basic_block dest;
@@ -122,7 +123,7 @@ struct GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb"))) basic_block_d
   PTR GTY ((skip (""))) aux;
 
   /* Innermost loop containing the block.  */
-  struct loop *loop_father;
+  class loop *loop_father;
 
   /* The dominance and postdominance information node.  */
   struct et_node * GTY ((skip (""))) dom[2];

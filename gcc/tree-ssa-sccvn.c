@@ -70,6 +70,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-loop.h"
 #include "tree-scalar-evolution.h"
 #include "tree-ssa-loop-niter.h"
+#include "builtins.h"
 #include "tree-ssa-sccvn.h"
 
 /* This algorithm is based on the SCC algorithm presented by Keith
@@ -1669,15 +1670,18 @@ struct pd_data
 
 struct vn_walk_cb_data
 {
-  vn_walk_cb_data (vn_reference_t vr_, tree *last_vuse_ptr_,
+  vn_walk_cb_data (vn_reference_t vr_, tree orig_ref_, tree *last_vuse_ptr_,
 		   vn_lookup_kind vn_walk_kind_, bool tbaa_p_)
-    : vr (vr_), last_vuse_ptr (last_vuse_ptr_), vn_walk_kind (vn_walk_kind_),
-      tbaa_p (tbaa_p_), known_ranges (NULL)
-   {}
+    : vr (vr_), last_vuse_ptr (last_vuse_ptr_),
+      vn_walk_kind (vn_walk_kind_), tbaa_p (tbaa_p_), known_ranges (NULL)
+   {
+     ao_ref_init (&orig_ref, orig_ref_);
+   }
   ~vn_walk_cb_data ();
   void *push_partial_def (const pd_data& pd, tree, HOST_WIDE_INT);
 
   vn_reference_t vr;
+  ao_ref orig_ref;
   tree *last_vuse_ptr;
   vn_lookup_kind vn_walk_kind;
   bool tbaa_p;
@@ -1828,10 +1832,20 @@ vn_walk_cb_data::push_partial_def (const pd_data &pd, tree vuse,
 			    0, MIN ((HOST_WIDE_INT)sizeof (buffer), pd.size));
 		  else
 		    {
+		      unsigned pad = 0;
+		      if (BYTES_BIG_ENDIAN
+			  && is_a <scalar_mode> (TYPE_MODE (TREE_TYPE (pd.rhs))))
+			{
+			  /* On big-endian the padding is at the 'front' so
+			     just skip the initial bytes.  */
+			  fixed_size_mode mode = as_a <fixed_size_mode>
+					       (TYPE_MODE (TREE_TYPE (pd.rhs)));
+			  pad = GET_MODE_SIZE (mode) - pd.size;
+			}
 		      len = native_encode_expr (pd.rhs,
 						buffer + MAX (0, pd.offset),
 						sizeof (buffer - MAX (0, pd.offset)),
-						MAX (0, -pd.offset));
+						MAX (0, -pd.offset) + pad);
 		      if (len <= 0
 			  || len < (pd.size - MAX (0, -pd.offset)))
 			{
@@ -1964,21 +1978,25 @@ vn_nary_build_or_lookup_1 (gimple_match_op *res_op, bool insert)
        RCODE (OPS...).
      So first simplify and lookup this expression to see if it
      is already available.  */
-  mprts_hook = vn_lookup_simplify_result;
+  /* For simplification valueize.  */
+  unsigned i;
+  for (i = 0; i < res_op->num_ops; ++i)
+    if (TREE_CODE (res_op->ops[i]) == SSA_NAME)
+      {
+	tree tem = vn_valueize (res_op->ops[i]);
+	if (!tem)
+	  break;
+	res_op->ops[i] = tem;
+      }
+  /* If valueization of an operand fails (it is not available), skip
+     simplification.  */
   bool res = false;
-  switch (TREE_CODE_LENGTH ((tree_code) res_op->code))
+  if (i == res_op->num_ops)
     {
-    case 1:
-      res = gimple_resimplify1 (NULL, res_op, vn_valueize);
-      break;
-    case 2:
-      res = gimple_resimplify2 (NULL, res_op, vn_valueize);
-      break;
-    case 3:
-      res = gimple_resimplify3 (NULL, res_op, vn_valueize);
-      break;
+      mprts_hook = vn_lookup_simplify_result;
+      res = res_op->resimplify (NULL, vn_valueize);
+      mprts_hook = NULL;
     }
-  mprts_hook = NULL;
   gimple *new_stmt = NULL;
   if (res
       && gimple_simplified_result_is_gimple_val (res_op))
@@ -2245,27 +2263,35 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *data_,
 	  lhs_ref_ok = true;
 	}
 
+      /* Besides valueizing the LHS we can also use access-path based
+         disambiguation on the original non-valueized ref.  */
+      if (!ref->ref
+	  && lhs_ref_ok
+	  && data->orig_ref.ref)
+	{
+	  /* We want to use the non-valueized LHS for this, but avoid redundant
+	     work.  */
+	  ao_ref *lref = &lhs_ref;
+	  ao_ref lref_alt;
+	  if (valueized_anything)
+	    {
+	      ao_ref_init (&lref_alt, lhs);
+	      lref = &lref_alt;
+	    }
+	  if (!refs_may_alias_p_1 (&data->orig_ref, lref, data->tbaa_p))
+	    {
+	      *disambiguate_only = true;
+	      return NULL;
+	    }
+	}
+
       /* If we reach a clobbering statement try to skip it and see if
          we find a VN result with exactly the same value as the
 	 possible clobber.  In this case we can ignore the clobber
-	 and return the found value.
-	 Note that we don't need to worry about partial overlapping
-	 accesses as we then can use TBAA to disambiguate against the
-	 clobbering statement when looking up a load (thus the
-	 VN_WALKREWRITE guard).  */
-      if (data->vn_walk_kind == VN_WALKREWRITE
-	  && is_gimple_reg_type (TREE_TYPE (lhs))
+	 and return the found value.  */
+      if (is_gimple_reg_type (TREE_TYPE (lhs))
 	  && types_compatible_p (TREE_TYPE (lhs), vr->type)
-	  /* The overlap restriction breaks down when either access
-	     alias-set is zero.  Still for accesses of the size of
-	     an addressable unit there can be no overlaps.  Overlaps
-	     between different union members are not an issue since
-	     activation of a union member via a store makes the
-	     values of untouched bytes unspecified.  */
-	  && (known_eq (ref->size, BITS_PER_UNIT)
-	      || (flag_strict_aliasing
-		  && get_alias_set (lhs) != 0
-		  && ao_ref_alias_set (ref) != 0)))
+	  && ref->ref)
 	{
 	  tree *saved_last_vuse_ptr = data->last_vuse_ptr;
 	  /* Do not update last_vuse_ptr in vn_reference_lookup_2.  */
@@ -2284,7 +2310,14 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *data_,
 	      if (TREE_CODE (rhs) == SSA_NAME)
 		rhs = SSA_VAL (rhs);
 	      if (vnresult->result
-		  && operand_equal_p (vnresult->result, rhs, 0))
+		  && operand_equal_p (vnresult->result, rhs, 0)
+		  /* We have to honor our promise about union type punning
+		     and also support arbitrary overlaps with
+		     -fno-strict-aliasing.  So simply resort to alignment to
+		     rule out overlaps.  Do this check last because it is
+		     quite expensive compared to the hash-lookup above.  */
+		  && multiple_p (get_object_alignment (ref->ref), ref->size)
+		  && multiple_p (get_object_alignment (lhs), ref->size))
 		return res;
 	    }
 	}
@@ -2465,12 +2498,22 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *data_,
 	   && gimple_assign_rhs_code (def_stmt) == CONSTRUCTOR
 	   && CONSTRUCTOR_NELTS (gimple_assign_rhs1 (def_stmt)) == 0)
     {
+      tree lhs = gimple_assign_lhs (def_stmt);
       tree base2;
       poly_int64 offset2, size2, maxsize2;
       HOST_WIDE_INT offset2i, size2i;
       bool reverse;
-      base2 = get_ref_base_and_extent (gimple_assign_lhs (def_stmt),
-				       &offset2, &size2, &maxsize2, &reverse);
+      if (lhs_ref_ok)
+	{
+	  base2 = ao_ref_base (&lhs_ref);
+	  offset2 = lhs_ref.offset;
+	  size2 = lhs_ref.size;
+	  maxsize2 = lhs_ref.max_size;
+	  reverse = reverse_storage_order_for_component_p (lhs);
+	}
+      else
+	base2 = get_ref_base_and_extent (lhs,
+					 &offset2, &size2, &maxsize2, &reverse);
       if (known_size_p (maxsize2)
 	  && known_eq (maxsize2, size2)
 	  && adjust_offsets_for_equal_base_address (base, &offset,
@@ -2518,12 +2561,22 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *data_,
 	       || (TREE_CODE (gimple_assign_rhs1 (def_stmt)) == SSA_NAME
 		   && is_gimple_min_invariant (SSA_VAL (gimple_assign_rhs1 (def_stmt))))))
     {
+      tree lhs = gimple_assign_lhs (def_stmt);
       tree base2;
       poly_int64 offset2, size2, maxsize2;
       HOST_WIDE_INT offset2i, size2i;
       bool reverse;
-      base2 = get_ref_base_and_extent (gimple_assign_lhs (def_stmt),
-				       &offset2, &size2, &maxsize2, &reverse);
+      if (lhs_ref_ok)
+	{
+	  base2 = ao_ref_base (&lhs_ref);
+	  offset2 = lhs_ref.offset;
+	  size2 = lhs_ref.size;
+	  maxsize2 = lhs_ref.max_size;
+	  reverse = reverse_storage_order_for_component_p (lhs);
+	}
+      else
+	base2 = get_ref_base_and_extent (lhs,
+					 &offset2, &size2, &maxsize2, &reverse);
       if (base2
 	  && !reverse
 	  && known_eq (maxsize2, size2)
@@ -2545,9 +2598,20 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *data_,
 	      tree rhs = gimple_assign_rhs1 (def_stmt);
 	      if (TREE_CODE (rhs) == SSA_NAME)
 		rhs = SSA_VAL (rhs);
+	      unsigned pad = 0;
+	      if (BYTES_BIG_ENDIAN
+		  && is_a <scalar_mode> (TYPE_MODE (TREE_TYPE (rhs))))
+		{
+		  /* On big-endian the padding is at the 'front' so
+		     just skip the initial bytes.  */
+		  fixed_size_mode mode
+		    = as_a <fixed_size_mode> (TYPE_MODE (TREE_TYPE (rhs)));
+		  pad = GET_MODE_SIZE (mode) - size2i / BITS_PER_UNIT;
+		}
 	      len = native_encode_expr (rhs,
 					buffer, sizeof (buffer),
-					(offseti - offset2i) / BITS_PER_UNIT);
+					((offseti - offset2i) / BITS_PER_UNIT
+					 + pad));
 	      if (len > 0 && len * BITS_PER_UNIT >= maxsizei)
 		{
 		  tree type = vr->type;
@@ -2604,12 +2668,21 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *data_,
 	      downstream, not so much for actually doing the insertion.  */
 	   && data->partial_defs.is_empty ())
     {
+      tree lhs = gimple_assign_lhs (def_stmt);
       tree base2;
       poly_int64 offset2, size2, maxsize2;
       bool reverse;
-      base2 = get_ref_base_and_extent (gimple_assign_lhs (def_stmt),
-				       &offset2, &size2, &maxsize2,
-				       &reverse);
+      if (lhs_ref_ok)
+	{
+	  base2 = ao_ref_base (&lhs_ref);
+	  offset2 = lhs_ref.offset;
+	  size2 = lhs_ref.size;
+	  maxsize2 = lhs_ref.max_size;
+	  reverse = reverse_storage_order_for_component_p (lhs);
+	}
+      else
+	base2 = get_ref_base_and_extent (lhs,
+					 &offset2, &size2, &maxsize2, &reverse);
       tree def_rhs = gimple_assign_rhs1 (def_stmt);
       if (!reverse
 	  && known_size_p (maxsize2)
@@ -2769,6 +2842,9 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *data_,
 
       /* Do not update last seen VUSE after translating.  */
       data->last_vuse_ptr = NULL;
+      /* Invalidate the original access path since it now contains
+         the wrong base.  */
+      data->orig_ref.ref = NULL_TREE;
 
       /* Keep looking for the adjusted *REF / VR pair.  */
       return NULL;
@@ -2929,6 +3005,9 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *data_,
 
       /* Do not update last seen VUSE after translating.  */
       data->last_vuse_ptr = NULL;
+      /* Invalidate the original access path since it now contains
+         the wrong base.  */
+      data->orig_ref.ref = NULL_TREE;
 
       /* Keep looking for the adjusted *REF / VR pair.  */
       return NULL;
@@ -2989,7 +3068,7 @@ vn_reference_lookup_pieces (tree vuse, alias_set_type set, tree type,
     {
       ao_ref r;
       unsigned limit = PARAM_VALUE (PARAM_SCCVN_MAX_ALIAS_QUERIES_PER_ACCESS);
-      vn_walk_cb_data data (&vr1, NULL, kind, true);
+      vn_walk_cb_data data (&vr1, NULL_TREE, NULL, kind, true);
       if (ao_ref_init_from_vn_reference (&r, set, type, vr1.operands))
 	*vnresult =
 	  (vn_reference_t)walk_non_aliased_vuses (&r, vr1.vuse, true,
@@ -3046,7 +3125,8 @@ vn_reference_lookup (tree op, tree vuse, vn_lookup_kind kind,
 	  || !ao_ref_init_from_vn_reference (&r, vr1.set, vr1.type,
 					     vr1.operands))
 	ao_ref_init (&r, op);
-      vn_walk_cb_data data (&vr1, last_vuse_ptr, kind, tbaa_p);
+      vn_walk_cb_data data (&vr1, r.ref ? NULL_TREE : op,
+			    last_vuse_ptr, kind, tbaa_p);
       wvnresult =
 	(vn_reference_t)walk_non_aliased_vuses (&r, vr1.vuse, tbaa_p,
 						vn_reference_lookup_2,

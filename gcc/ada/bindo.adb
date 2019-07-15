@@ -24,7 +24,7 @@
 ------------------------------------------------------------------------------
 
 with Binde;
-with Debug; use Debug;
+with Opt;   use Opt;
 
 with Bindo.Elaborators;
 use  Bindo.Elaborators;
@@ -322,6 +322,11 @@ package body Bindo is
    --        In addition, GNATbind does not create an edge to the body of the
    --        pragma argument.
    --
+   --  -d_t  Output cycle-detection trace information
+   --
+   --        GNATbind outputs trace information on cycle-detection activities
+   --        to standard output.
+   --
    --  -d_A  Output ALI invocation tables
    --
    --        GNATbind outputs the contents of ALI table Invocation_Constructs
@@ -342,18 +347,19 @@ package body Bindo is
    --        GNATbind outputs the library graph in textual format to standard
    --        output.
    --
-   --  -d_N  New bindo order
-   --
-   --        GNATbind utilizes the new bindo elaboration order
-   --
    --  -d_P  Output cycle paths
    --
-   --        GNATbind output the cycle paths in text format to standard output
+   --        GNATbind outputs the cycle paths in text format to standard output
+   --
+   --  -d_S  Output elaboration-order status information
+   --
+   --        GNATbind outputs trace information concerning the status of its
+   --        various phases to standard output.
    --
    --  -d_T  Output elaboration-order trace information
    --
-   --        GNATbind outputs trace information on elaboration-order and cycle-
-   --        detection activities to standard output.
+   --        GNATbind outputs trace information on elaboration-order detection
+   --        activities to standard output.
    --
    --  -d_V  Validate bindo cycles, graphs, and order
    --
@@ -395,7 +401,7 @@ package body Bindo is
    --  number of files in the bind, Bindo may emit anywhere between several MBs
    --  to several hundred MBs of data to standard output. The switches are:
    --
-   --    -d_A -d_C -d_I -d_L -d_P -d_T -d_V
+   --    -d_A -d_C -d_I -d_L -d_P -d_t -d_T -d_V
    --
    --  Bindo offers several debugging routines that can be invoked from gdb.
    --  Those are defined in the body of Bindo.Writers, in sections denoted by
@@ -410,6 +416,11 @@ package body Bindo is
    --    plge   --  print library-graph edge
    --    plgv   --  print library-graph vertex
    --    pu     --  print units
+   --
+   --  * Apparent infinite loop
+   --
+   --    The elaboration order mechanism appears to be stuck in an infinite
+   --    loop. Use switch -d_S to output the status of each elaboration phase.
    --
    --  * Invalid elaboration order
    --
@@ -426,9 +437,7 @@ package body Bindo is
    --    Units and routines of interest:
    --      Bindo.Elaborators
    --      Elaborate_Library_Graph
-   --      Elaborate_Units_Common
-   --      Elaborate_Units_Dynamic
-   --      Elaborate_Units_Static
+   --      Elaborate_Units
    --
    --  * Invalid invocation graph
    --
@@ -490,40 +499,19 @@ package body Bindo is
       Main_Lib_File : File_Name_Type)
    is
    begin
-      --  ??? Enable the following code when switching from the old to the new
-      --  elaboration-order mechanism.
-
       --  Use the library graph and heuristic-based elaboration order when
       --  switch -H (legacy elaboration-order mode enabled).
 
-      --  if Legacy_Elaboration_Order then
-      --     Binde.Find_Elab_Order (Order, Main_Lib_File);
+      if Legacy_Elaboration_Order then
+         Binde.Find_Elab_Order (Order, Main_Lib_File);
 
       --  Otherwise use the invocation and library-graph-based elaboration
       --  order.
 
-      --  else
-      --     Invocation_And_Library_Graph_Elaborators.Elaborate_Units
-      --       (Order         => Order,
-      --        Main_Lib_File => Main_Lib_File);
-      --  end if;
-
-      --  ??? Remove the following code when switching from the old to the new
-      --  elaboration-order mechanism.
-
-      --  Use the invocation and library-graph-based elaboration order when
-      --  switch -d_N (new bindo order) is in effect.
-
-      if Debug_Flag_Underscore_NN then
+      else
          Invocation_And_Library_Graph_Elaborators.Elaborate_Units
            (Order         => Order,
             Main_Lib_File => Main_Lib_File);
-
-      --  Otherwise use the library-graph and heuristic-based elaboration
-      --  order.
-
-      else
-         Binde.Find_Elab_Order (Order, Main_Lib_File);
       end if;
    end Find_Elaboration_Order;
 

@@ -11562,7 +11562,7 @@ package body Sem_Ch13 is
 
    begin
       --  A representation item is either subtype-specific (Size and Alignment
-      --  clauses) or type-related (all others).  Subtype-specific aspects may
+      --  clauses) or type-related (all others). Subtype-specific aspects may
       --  differ for different subtypes of the same type (RM 13.1.8).
 
       --  A derived type inherits each type-related representation aspect of
@@ -12548,6 +12548,30 @@ package body Sem_Ch13 is
    ------------------------
 
    function Rep_Item_Too_Early (T : Entity_Id; N : Node_Id) return Boolean is
+      function Has_Generic_Parent (E : Entity_Id) return Boolean;
+      --  Return True if any ancestor is a generic type
+
+      ------------------------
+      -- Has_Generic_Parent --
+      ------------------------
+
+      function Has_Generic_Parent (E : Entity_Id) return Boolean is
+         Ancestor_Type : Entity_Id := Etype (E);
+
+      begin
+         while Present (Ancestor_Type)
+           and then not Is_Generic_Type (Ancestor_Type)
+           and then Etype (Ancestor_Type) /= Ancestor_Type
+         loop
+            Ancestor_Type := Etype (Ancestor_Type);
+         end loop;
+
+         return
+           Present (Ancestor_Type) and then Is_Generic_Type (Ancestor_Type);
+      end Has_Generic_Parent;
+
+   --  Start of processing for Rep_Item_Too_Early
+
    begin
       --  Cannot apply non-operational rep items to generic types
 
@@ -12555,7 +12579,7 @@ package body Sem_Ch13 is
          return False;
 
       elsif Is_Type (T)
-        and then Is_Generic_Type (Root_Type (T))
+        and then Has_Generic_Parent (T)
         and then (Nkind (N) /= N_Pragma
                    or else Get_Pragma_Id (N) /= Pragma_Convention)
       then
@@ -12605,7 +12629,7 @@ package body Sem_Ch13 is
       function Is_Derived_Type_With_Constraint return Boolean;
       --  Check whether T is a derived type with an explicit constraint, in
       --  which case the constraint has frozen the type and the item is too
-      --  late.  This compensates for the fact that for derived scalar types
+      --  late. This compensates for the fact that for derived scalar types
       --  we freeze the base type unconditionally on account of a long-standing
       --  issue in gigi.
 

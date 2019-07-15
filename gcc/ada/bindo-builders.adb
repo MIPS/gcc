@@ -37,6 +37,10 @@ use  Bindo.Validators;
 use  Bindo.Validators.Invocation_Graph_Validators;
 use  Bindo.Validators.Library_Graph_Validators;
 
+with Bindo.Writers;
+use  Bindo.Writers;
+use  Bindo.Writers.Phase_Writers;
+
 with GNAT;                 use GNAT;
 with GNAT.Dynamic_HTables; use GNAT.Dynamic_HTables;
 
@@ -99,6 +103,8 @@ package body Bindo.Builders is
       begin
          pragma Assert (Present (Lib_G));
 
+         Start_Phase (Invocation_Graph_Construction);
+
          --  Prepare the global data
 
          Inv_Graph :=
@@ -111,6 +117,7 @@ package body Bindo.Builders is
          For_Each_Elaborable_Unit (Create_Edges'Access);
 
          Validate_Invocation_Graph (Inv_Graph);
+         End_Phase (Invocation_Graph_Construction);
 
          return Inv_Graph;
       end Build_Invocation_Graph;
@@ -375,6 +382,8 @@ package body Bindo.Builders is
 
       function Build_Library_Graph return Library_Graph is
       begin
+         Start_Phase (Library_Graph_Construction);
+
          --  Prepare the global data
 
          Lib_Graph :=
@@ -388,6 +397,7 @@ package body Bindo.Builders is
          Create_Forced_Edges;
 
          Validate_Library_Graph (Lib_Graph);
+         End_Phase (Library_Graph_Construction);
 
          return Lib_Graph;
       end Build_Library_Graph;
@@ -415,10 +425,11 @@ package body Bindo.Builders is
          Write_Eol;
 
          Add_Edge
-           (G    => Lib_Graph,
-            Pred => Pred_Vertex,
-            Succ => Succ_Vertex,
-            Kind => Forced_Edge);
+           (G              => Lib_Graph,
+            Pred           => Pred_Vertex,
+            Succ           => Succ_Vertex,
+            Kind           => Forced_Edge,
+            Activates_Task => False);
       end Create_Forced_Edge;
 
       -------------------------
@@ -497,10 +508,11 @@ package body Bindo.Builders is
             Set_Corresponding_Item (Lib_Graph, Vertex, Extra_Vertex);
 
             Add_Edge
-              (G    => Lib_Graph,
-               Pred => Extra_Vertex,
-               Succ => Vertex,
-               Kind => Spec_Before_Body_Edge);
+              (G              => Lib_Graph,
+               Pred           => Extra_Vertex,
+               Succ           => Vertex,
+               Kind           => Spec_Before_Body_Edge,
+               Activates_Task => False);
 
          --  The unit denotes a spec with a completing body. Link the spec and
          --  body.
@@ -570,12 +582,13 @@ package body Bindo.Builders is
 
             if Is_Spec_With_Body (Lib_Graph, Withed_Vertex) then
                Add_Edge
-                 (G    => Lib_Graph,
-                  Pred =>
+                 (G              => Lib_Graph,
+                  Pred           =>
                     Corresponding_Vertex
                       (Lib_Graph, Corresponding_Body (Withed_U_Id)),
-                  Succ => Succ,
-                  Kind => Kind);
+                  Succ           => Succ,
+                  Kind           => Kind,
+                  Activates_Task => False);
             end if;
 
          --  The with comes with pragma Elaborate_All. Treat the edge as a with
@@ -597,10 +610,11 @@ package body Bindo.Builders is
          --  successor.
 
          Add_Edge
-           (G    => Lib_Graph,
-            Pred => Withed_Vertex,
-            Succ => Succ,
-            Kind => Kind);
+           (G              => Lib_Graph,
+            Pred           => Withed_Vertex,
+            Succ           => Succ,
+            Kind           => Kind,
+            Activates_Task => False);
       end Create_With_Edge;
 
       -----------------------
