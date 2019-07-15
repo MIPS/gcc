@@ -1,5 +1,11 @@
 2019-07-16  Jason Merrill  <jason@redhat.com>
 
+	Substitute requires-expressions as an unevaluated context.
+	* semantics.c (force_paren_expr): Add even_uneval parm.
+	* cp-tree.h (force_paren_expr_uneval): Pass it.
+	* constraint.cc (tsubst_compound_requirement): Call it.
+	(tsubst_requires_expr): Use cp_unevaluated.
+
 	* parser.c (cp_parser_template_id): Don't try to resolve a concept
 	template-id yet.
 	(cp_parser_template_id_expr): Resolve it as a concept check.

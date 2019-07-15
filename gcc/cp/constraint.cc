@@ -1390,6 +1390,8 @@ tsubst_compound_requirement (tree t, tree args, subst_info info)
     {
       if (tree placeholder = type_uses_auto (type))
 	{
+	  /* The type being constrained is decltype((E)).  */
+	  expr = force_paren_expr_uneval (expr);
 	  if (!type_deducible_p (expr, type, placeholder, args, info))
 	    return error_mark_node;
 	}
@@ -1562,6 +1564,9 @@ tsubst_requires_expr (tree t, tree args,
   local_specialization_stack stack (lss_copy);
 
   subst_info info (complain, in_decl);
+
+  /* A requires-expression is an unevaluated context.  */
+  cp_unevaluated u;
 
   tree parms = TREE_OPERAND (t, 0);
   if (parms)

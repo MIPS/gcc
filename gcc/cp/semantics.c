@@ -1726,10 +1726,10 @@ finish_mem_initializers (tree mem_inits)
 
 /* Obfuscate EXPR if it looks like an id-expression or member access so
    that the call to finish_decltype in do_auto_deduction will give the
-   right result.  */
+   right result.  If EVEN_UNEVAL, do this even in unevaluated context.  */
 
 tree
-force_paren_expr (tree expr)
+force_paren_expr (tree expr, bool even_uneval)
 {
   /* This is only needed for decltype(auto) in C++14.  */
   if (cxx_dialect < cxx14)
@@ -1737,7 +1737,7 @@ force_paren_expr (tree expr)
 
   /* If we're in unevaluated context, we can't be deducing a
      return/initializer type, so we don't need to mess with this.  */
-  if (cp_unevaluated_operand)
+  if (cp_unevaluated_operand && !even_uneval)
     return expr;
 
   if (!DECL_P (tree_strip_any_location_wrapper (expr))
