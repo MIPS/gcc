@@ -1718,7 +1718,7 @@ satisfy_atom (tree expr, tree args, subst_info info)
   result = force_rvalue (result, tf_error);
   if (result == error_mark_node)
     return error_mark_node;
-  if (cv_unqualified (TREE_TYPE (result)) != boolean_type_node)
+  if (!same_type_p (TREE_TYPE (result), boolean_type_node))
     return error_mark_node;
 
   /* If we already have value, don't bother folding.  */
@@ -2668,7 +2668,7 @@ diagnose_atom (tree expr, tree args, tree in_decl)
   result = force_rvalue (result, tf_warning_or_error);
   if (result == error_mark_node)
     return;
-  if (cv_unqualified (TREE_TYPE (result)) != boolean_type_node)
+  if (!same_type_p (TREE_TYPE (result), boolean_type_node))
     {
       inform (loc, "atomic constraint %qE does not have type %<bool%>", expr);
       return;
