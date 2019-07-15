@@ -18122,8 +18122,8 @@ cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc,
   else if (parser->in_result_type_constraint_p && placeholder)
     {
       /* A trailing return type only allows type-constraints.  */
-      error_at(input_location, "unexpected placeholder in constrained "
-			       "result type");
+      error_at (input_location,
+		"unexpected placeholder in constrained result type");
     }
 
   /* In a parameter-declaration-clause, a placeholder-type-specifier
