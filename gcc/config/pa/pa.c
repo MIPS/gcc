@@ -107,7 +107,7 @@ static int pa_can_combine_p (rtx_insn *, rtx_insn *, rtx_insn *, int, rtx,
 static bool forward_branch_p (rtx_insn *);
 static void compute_zdepwi_operands (unsigned HOST_WIDE_INT, unsigned *);
 static void compute_zdepdi_operands (unsigned HOST_WIDE_INT, unsigned *);
-static int compute_movmem_length (rtx_insn *);
+static int compute_cpymem_length (rtx_insn *);
 static int compute_clrmem_length (rtx_insn *);
 static bool pa_assemble_integer (rtx, unsigned int, int);
 static void remove_useless_addtr_insns (int);
@@ -118,7 +118,8 @@ static void set_reg_plus_d (int, int, HOST_WIDE_INT, int);
 static rtx pa_function_value (const_tree, const_tree, bool);
 static rtx pa_libcall_value (machine_mode, const_rtx);
 static bool pa_function_value_regno_p (const unsigned int);
-static void pa_output_function_prologue (FILE *);
+static void pa_output_function_prologue (FILE *) ATTRIBUTE_UNUSED;
+static void pa_linux_output_function_prologue (FILE *) ATTRIBUTE_UNUSED;
 static void update_total_code_bytes (unsigned int);
 static void pa_output_function_epilogue (FILE *);
 static int pa_adjust_cost (rtx_insn *, int, rtx_insn *, int, unsigned int);
@@ -262,8 +263,6 @@ static size_t n_deferred_plabels = 0;
 #undef TARGET_ASM_INTEGER
 #define TARGET_ASM_INTEGER pa_assemble_integer
 
-#undef TARGET_ASM_FUNCTION_PROLOGUE
-#define TARGET_ASM_FUNCTION_PROLOGUE pa_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE pa_output_function_epilogue
 
@@ -2986,7 +2985,7 @@ pa_output_block_move (rtx *operands, int size_is_constant ATTRIBUTE_UNUSED)
    count insns rather than emit them.  */
 
 static int
-compute_movmem_length (rtx_insn *insn)
+compute_cpymem_length (rtx_insn *insn)
 {
   rtx pat = PATTERN (insn);
   unsigned int align = INTVAL (XEXP (XVECEXP (pat, 0, 7), 0));
@@ -3842,16 +3841,10 @@ pa_compute_frame_size (poly_int64 size, int *fregs_live)
 	  & ~(PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT - 1));
 }
 
-/* On HP-PA, move-double insns between fpu and cpu need an 8-byte block
-   of memory.  If any fpu reg is used in the function, we allocate
-   such a block here, at the bottom of the frame, just in case it's needed.
+/* Output function label, and associated .PROC and .CALLINFO statements.  */
 
-   If this function is a leaf procedure, then we may choose not
-   to do a "save" insn.  The decision about whether or not
-   to do this is made in regclass.c.  */
-
-static void
-pa_output_function_prologue (FILE *file)
+void
+pa_output_function_label (FILE *file)
 {
   /* The function's label and associated .PROC must never be
      separated and must be output *after* any profiling declarations
@@ -3897,7 +3890,22 @@ pa_output_function_prologue (FILE *file)
     fprintf (file, ",ENTRY_FR=%d", fr_saved + 11);
 
   fputs ("\n\t.ENTRY\n", file);
+}
 
+/* Output function prologue.  */
+
+static void
+pa_output_function_prologue (FILE *file)
+{
+  pa_output_function_label (file);
+  remove_useless_addtr_insns (0);
+}
+
+/* The label is output by ASM_DECLARE_FUNCTION_NAME on linux.  */
+
+static void
+pa_linux_output_function_prologue (FILE *file ATTRIBUTE_UNUSED)
+{
   remove_useless_addtr_insns (0);
 }
 
@@ -5052,7 +5060,7 @@ pa_adjust_insn_length (rtx_insn *insn, int length)
       && GET_CODE (XEXP (XVECEXP (pat, 0, 0), 1)) == MEM
       && GET_MODE (XEXP (XVECEXP (pat, 0, 0), 0)) == BLKmode
       && GET_MODE (XEXP (XVECEXP (pat, 0, 0), 1)) == BLKmode)
-    length += compute_movmem_length (insn) - 4;
+    length += compute_cpymem_length (insn) - 4;
   /* Block clear pattern.  */
   else if (NONJUMP_INSN_P (insn)
 	   && GET_CODE (pat) == PARALLEL

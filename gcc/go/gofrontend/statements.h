@@ -187,7 +187,7 @@ class Statement
 
   // Make a block statement from a Block.  This is an embedded list of
   // statements which may also include variable definitions.
-  static Statement*
+  static Block_statement*
   make_block_statement(Block*, Location);
 
   // Make an increment statement.
@@ -739,6 +739,10 @@ class Temporary_statement : public Statement
   Bvariable*
   get_backend_variable(Translate_context*) const;
 
+  // Import the declaration of a temporary.
+  static Statement*
+  do_import(Import_function_body*, Location);
+
  protected:
   int
   do_traverse(Traverse*);
@@ -751,6 +755,13 @@ class Temporary_statement : public Statement
 
   void
   do_check_types(Gogo*);
+
+  int
+  do_inlining_cost()
+  { return 1; }
+
+  void
+  do_export_statement(Export_function_body*);
 
   Statement*
   do_flatten(Gogo*, Named_object*, Block*, Statement_inserter*);
@@ -943,6 +954,16 @@ class Block_statement : public Statement
   is_lowered_for_statement()
   { return this->is_lowered_for_statement_; }
 
+  // Export a block for a block statement.
+  static void
+  export_block(Export_function_body*, Block*, bool is_lowered_for_statement);
+
+  // Import a block statement, returning the block.
+  // *IS_LOWERED_FOR_STATEMENT reports whether this block statement
+  // was lowered from a for statement.
+  static Block*
+  do_import(Import_function_body*, Location, bool* is_lowered_for_statement);
+
  protected:
   int
   do_traverse(Traverse* traverse)
@@ -1040,7 +1061,7 @@ class Select_clauses
   // for the variable to set, and CLOSED is either NULL or a
   // Var_expression to set to whether the channel is closed.  If VAL
   // is NULL, VAR may be a variable to be initialized with the
-  // received value, and CLOSEDVAR ma be a variable to be initialized
+  // received value, and CLOSEDVAR may be a variable to be initialized
   // with whether the channel is closed.  IS_DEFAULT is true if this
   // is the default clause.  STATEMENTS is the list of statements to
   // execute.
@@ -1089,7 +1110,6 @@ class Select_clauses
   void
   dump_clauses(Ast_dump_context*) const;
 
- private:
   // A single clause.
   class Select_clause
   {
@@ -1145,8 +1165,30 @@ class Select_clauses
       return this->is_send_;
     }
 
+    // Return the value to send or the lvalue to receive into.
+    Expression*
+    val() const
+    { return this->val_; }
+
+    // Return the lvalue to set to whether the channel is closed
+    // on a receive.
+    Expression*
+    closed() const
+    { return this->closed_; }
+
+    // Return the variable to initialize, for "case a := <-ch".
+    Named_object*
+    var() const
+    { return this->var_; }
+
+    // Return the variable to initialize to whether the channel
+    // is closed, for "case a, c := <-ch".
+    Named_object*
+    closedvar() const
+    { return this->closedvar_; }
+
     // Return the statements.
-    const Block*
+    Block*
     statements() const
     { return this->statements_; }
 
@@ -1214,6 +1256,11 @@ class Select_clauses
     bool is_lowered_;
   };
 
+  Select_clause&
+  at(size_t i)
+  { return this->clauses_.at(i); }
+
+ private:
   typedef std::vector<Select_clause> Clauses;
 
   Clauses clauses_;
@@ -1267,6 +1314,14 @@ class Select_statement : public Statement
   do_dump_statement(Ast_dump_context*) const;
 
  private:
+  // Lower a one-case select statement.
+  Statement*
+  lower_one_case(Block*);
+
+  // Lower a two-case select statement with one defualt case.
+  Statement*
+  lower_two_case(Block*);
+
   // The select clauses.
   Select_clauses* clauses_;
   // A temporary that holds the index value returned by selectgo.
@@ -1390,6 +1445,10 @@ class Goto_statement : public Statement
   label() const
   { return this->label_; }
 
+  // Import a goto statement.
+  static Statement*
+  do_import(Import_function_body*, Location);
+
  protected:
   int
   do_traverse(Traverse*);
@@ -1403,6 +1462,13 @@ class Goto_statement : public Statement
 
   Bstatement*
   do_get_backend(Translate_context*);
+
+  int
+  do_inlining_cost()
+  { return 5; }
+
+  void
+  do_export_statement(Export_function_body*);
 
   void
   do_dump_statement(Ast_dump_context*) const;
@@ -1436,6 +1502,13 @@ class Goto_unnamed_statement : public Statement
   Bstatement*
   do_get_backend(Translate_context* context);
 
+  int
+  do_inlining_cost()
+  { return 5; }
+
+  void
+  do_export_statement(Export_function_body*);
+
   void
   do_dump_statement(Ast_dump_context*) const;
 
@@ -1458,12 +1531,23 @@ class Label_statement : public Statement
   label() const
   { return this->label_; }
 
+  // Import a label or unnamed label.
+  static Statement*
+  do_import(Import_function_body*, Location);
+
  protected:
   int
   do_traverse(Traverse*);
 
   Bstatement*
   do_get_backend(Translate_context*);
+
+  int
+  do_inlining_cost()
+  { return 1; }
+
+  void
+  do_export_statement(Export_function_body*);
 
   void
   do_dump_statement(Ast_dump_context*) const;
@@ -1486,6 +1570,13 @@ class Unnamed_label_statement : public Statement
 
   Bstatement*
   do_get_backend(Translate_context* context);
+
+  int
+  do_inlining_cost()
+  { return 1; }
+
+  void
+  do_export_statement(Export_function_body*);
 
   void
   do_dump_statement(Ast_dump_context*) const;
@@ -1510,6 +1601,18 @@ class If_statement : public Statement
   condition() const
   { return this->cond_; }
 
+  Block*
+  then_block() const
+  { return this->then_block_; }
+
+  Block*
+  else_block() const
+  { return this->else_block_; }
+
+  // Import an if statement.
+  static Statement*
+  do_import(Import_function_body*, Location);
+
  protected:
   int
   do_traverse(Traverse*);
@@ -1519,6 +1622,13 @@ class If_statement : public Statement
 
   void
   do_check_types(Gogo*);
+
+  int
+  do_inlining_cost()
+  { return 5; }
+
+  void
+  do_export_statement(Export_function_body*);
 
   bool
   do_may_fall_through() const;

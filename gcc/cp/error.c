@@ -107,8 +107,9 @@ static bool cp_printer (pretty_printer *, text_info *, const char *,
 /* Struct for handling %H or %I, which require delaying printing the
    type until a postprocessing stage.  */
 
-struct deferred_printed_type
+class deferred_printed_type
 {
+public:
   deferred_printed_type ()
   : m_tree (NULL_TREE), m_buffer_ptr (NULL), m_verbose (false), m_quote (false)
   {}
@@ -2661,7 +2662,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
       dump_expr (pp, TREE_OPERAND (t, 0), flags);
       break;
 
-    case DEFAULT_ARG:
+    case DEFERRED_PARSE:
       pp_string (pp, M_("<unparsed>"));
       break;
 
@@ -3050,8 +3051,8 @@ location_of (tree t)
 
   if (DECL_P (t))
     return DECL_SOURCE_LOCATION (t);
-  if (TREE_CODE (t) == DEFAULT_ARG)
-    return defarg_location (t);
+  if (TREE_CODE (t) == DEFERRED_PARSE)
+    return defparse_location (t);
   return cp_expr_loc_or_loc (t, input_location);
 }
 

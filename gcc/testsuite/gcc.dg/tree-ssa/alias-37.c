@@ -1,4 +1,5 @@
 /* { dg-do compile } */
+/* { dg-require-effective-target alloca } */
 /* { dg-options "-O2 -fdump-tree-dse1-details" } */
 
 int i;
@@ -11,7 +12,7 @@ int *foo (int bogus, int n)
     p = &a[2];
   else
     p = &i;
-  return p;
+  return p;         /* { dg-warning "\\\[-Wreturn-local-addr" } */
 }
 
 /* { dg-final { scan-tree-dump "Deleted dead store" "dse1" } } */

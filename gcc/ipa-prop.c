@@ -203,7 +203,7 @@ ipa_get_param_decl_index_1 (vec<ipa_param_descriptor, va_gc> *descriptors,
    to INFO.  */
 
 int
-ipa_get_param_decl_index (struct ipa_node_params *info, tree ptree)
+ipa_get_param_decl_index (class ipa_node_params *info, tree ptree)
 {
   return ipa_get_param_decl_index_1 (info->descriptors, ptree);
 }
@@ -253,7 +253,7 @@ count_formal_params (tree fndecl)
    using ipa_initialize_node_params. */
 
 void
-ipa_dump_param (FILE *file, struct ipa_node_params *info, int i)
+ipa_dump_param (FILE *file, class ipa_node_params *info, int i)
 {
   fprintf (file, "param #%i", i);
   if ((*info->descriptors)[i].decl_or_type)
@@ -269,7 +269,7 @@ ipa_dump_param (FILE *file, struct ipa_node_params *info, int i)
 static bool
 ipa_alloc_node_params (struct cgraph_node *node, int param_count)
 {
-  struct ipa_node_params *info = IPA_NODE_REF (node);
+  class ipa_node_params *info = IPA_NODE_REF (node);
 
   if (!info->descriptors && param_count)
     {
@@ -287,7 +287,7 @@ ipa_alloc_node_params (struct cgraph_node *node, int param_count)
 void
 ipa_initialize_node_params (struct cgraph_node *node)
 {
-  struct ipa_node_params *info = IPA_NODE_REF (node);
+  class ipa_node_params *info = IPA_NODE_REF (node);
 
   if (!info->descriptors
       && ipa_alloc_node_params (node, count_formal_params (node->decl)))
@@ -375,7 +375,7 @@ ipa_print_node_jump_functions_for_edge (FILE *f, struct cgraph_edge *cs)
 	    }
 	}
 
-      struct ipa_polymorphic_call_context *ctx
+      class ipa_polymorphic_call_context *ctx
 	= ipa_get_ith_polymorhic_call_context (IPA_EDGE_REF (cs), i);
       if (ctx && !ctx->useless_p ())
 	{
@@ -432,7 +432,7 @@ ipa_print_node_jump_functions (FILE *f, struct cgraph_node *node)
 
   for (cs = node->indirect_calls; cs; cs = cs->next_callee)
     {
-      struct cgraph_indirect_call_info *ii;
+      class cgraph_indirect_call_info *ii;
       if (!ipa_edge_args_info_available_for_edge_p (cs))
 	continue;
 
@@ -1190,7 +1190,7 @@ ipa_load_from_parm_agg (struct ipa_func_body_info *fbi,
 
 static void
 compute_complex_assign_jump_func (struct ipa_func_body_info *fbi,
-				  struct ipa_node_params *info,
+				  class ipa_node_params *info,
 				  struct ipa_jump_func *jfunc,
 				  gcall *call, gimple *stmt, tree name,
 				  tree param_type)
@@ -1346,7 +1346,7 @@ get_ancestor_addr_info (gimple *assign, tree *obj_p, HOST_WIDE_INT *offset)
 
 static void
 compute_complex_ancestor_jump_func (struct ipa_func_body_info *fbi,
-				    struct ipa_node_params *info,
+				    class ipa_node_params *info,
 				    struct ipa_jump_func *jfunc,
 				    gcall *call, gphi *phi)
 {
@@ -1458,7 +1458,7 @@ get_ssa_def_if_simple_copy (tree rhs)
   return rhs;
 }
 
-/* Simple linked list, describing known contents of an aggregate beforere
+/* Simple linked list, describing known contents of an aggregate before
    call.  */
 
 struct ipa_known_agg_contents_list
@@ -1471,41 +1471,48 @@ struct ipa_known_agg_contents_list
   struct ipa_known_agg_contents_list *next;
 };
 
-/* Find the proper place in linked list of ipa_known_agg_contents_list
-   structures where to put a new one with the given LHS_OFFSET and LHS_SIZE,
-   unless there is a partial overlap, in which case return NULL, or such
-   element is already there, in which case set *ALREADY_THERE to true.  */
+/* Add a known content item into a linked list of ipa_known_agg_contents_list
+   structure, in which all elements are sorted ascendingly by offset.  */
 
-static struct ipa_known_agg_contents_list **
-get_place_in_agg_contents_list (struct ipa_known_agg_contents_list **list,
-				HOST_WIDE_INT lhs_offset,
-				HOST_WIDE_INT lhs_size,
-				bool *already_there)
+static inline void
+add_to_agg_contents_list (struct ipa_known_agg_contents_list **plist,
+			  struct ipa_known_agg_contents_list *item)
 {
-  struct ipa_known_agg_contents_list **p = list;
-  while (*p && (*p)->offset < lhs_offset)
+  struct ipa_known_agg_contents_list *list = *plist;
+
+  for (; list; list = list->next)
     {
-      if ((*p)->offset + (*p)->size > lhs_offset)
-	return NULL;
-      p = &(*p)->next;
+      if (list->offset >= item->offset)
+	break;
+
+      plist = &list->next;
     }
 
-  if (*p && (*p)->offset < lhs_offset + lhs_size)
+  item->next = list;
+  *plist = item;
+}
+
+/* Check whether a given known content is clobbered by certain element in
+   a linked list of ipa_known_agg_contents_list.  */
+
+static inline bool
+clobber_by_agg_contents_list_p (struct ipa_known_agg_contents_list *list,
+				struct ipa_known_agg_contents_list *item)
+{
+  for (; list; list = list->next)
     {
-      if ((*p)->offset == lhs_offset && (*p)->size == lhs_size)
-	/* We already know this value is subsequently overwritten with
-	   something else.  */
-	*already_there = true;
-      else
-	/* Otherwise this is a partial overlap which we cannot
-	   represent.  */
-	return NULL;
+      if (list->offset >= item->offset)
+	return list->offset < item->offset + item->size;
+
+      if (list->offset + list->size > item->offset)
+	return true;
     }
-  return p;
+
+  return false;
 }
 
 /* Build aggregate jump function from LIST, assuming there are exactly
-   CONST_COUNT constant entries there and that th offset of the passed argument
+   CONST_COUNT constant entries there and that offset of the passed argument
    is ARG_OFFSET and store it into JFUNC.  */
 
 static void
@@ -1528,26 +1535,79 @@ build_agg_jump_func_from_list (struct ipa_known_agg_contents_list *list,
     }
 }
 
+/* If STMT is a memory store to the object whose address is BASE, extract
+   information (offset, size, and value) into CONTENT, and return true,
+   otherwise we conservatively assume the whole object is modified with
+   unknown content, and return false.  CHECK_REF means that access to object
+   is expected to be in form of MEM_REF expression.  */
+
+static bool
+extract_mem_content (gimple *stmt, tree base, bool check_ref,
+		     struct ipa_known_agg_contents_list *content)
+{
+  HOST_WIDE_INT lhs_offset, lhs_size;
+  tree lhs, rhs, lhs_base;
+  bool reverse;
+
+  if (!gimple_assign_single_p (stmt))
+    return false;
+
+  lhs = gimple_assign_lhs (stmt);
+  rhs = gimple_assign_rhs1 (stmt);
+
+  if (!is_gimple_reg_type (TREE_TYPE (rhs))
+      || TREE_CODE (lhs) == BIT_FIELD_REF
+      || contains_bitfld_component_ref_p (lhs))
+    return false;
+
+  lhs_base = get_ref_base_and_extent_hwi (lhs, &lhs_offset,
+					  &lhs_size, &reverse);
+  if (!lhs_base)
+    return false;
+
+  if (check_ref)
+    {
+      if (TREE_CODE (lhs_base) != MEM_REF
+	  || TREE_OPERAND (lhs_base, 0) != base
+	  || !integer_zerop (TREE_OPERAND (lhs_base, 1)))
+	return false;
+    }
+  else if (lhs_base != base)
+    return false;
+
+  rhs = get_ssa_def_if_simple_copy (rhs);
+
+  content->size = lhs_size;
+  content->offset = lhs_offset;
+  content->constant = is_gimple_ip_invariant (rhs) ? rhs : NULL_TREE;
+  content->next = NULL;
+
+  return true;
+}
+
 /* Traverse statements from CALL backwards, scanning whether an aggregate given
    in ARG is filled in with constant values.  ARG can either be an aggregate
    expression or a pointer to an aggregate.  ARG_TYPE is the type of the
    aggregate.  JFUNC is the jump function into which the constants are
-   subsequently stored.  */
+   subsequently stored.  AA_WALK_BUDGET_P points to limit on number of
+   statements we allow get_continuation_for_phi to examine.  */
 
 static void
-determine_locally_known_aggregate_parts (gcall *call, tree arg,
-					 tree arg_type,
-					 struct ipa_jump_func *jfunc)
+determine_known_aggregate_parts (gcall *call, tree arg,
+				 tree arg_type,
+				 struct ipa_jump_func *jfunc,
+				 unsigned *aa_walk_budget_p)
 {
-  struct ipa_known_agg_contents_list *list = NULL;
+  struct ipa_known_agg_contents_list *list = NULL, *all_list = NULL;
+  bitmap visited = NULL;
   int item_count = 0, const_count = 0;
+  int ipa_max_agg_items = PARAM_VALUE (PARAM_IPA_MAX_AGG_ITEMS);
   HOST_WIDE_INT arg_offset, arg_size;
-  gimple_stmt_iterator gsi;
   tree arg_base;
   bool check_ref, by_ref;
   ao_ref r;
 
-  if (PARAM_VALUE (PARAM_IPA_MAX_AGG_ITEMS) == 0)
+  if (ipa_max_agg_items == 0)
     return;
 
   /* The function operates in three stages.  First, we prepare check_ref, r,
@@ -1606,82 +1666,62 @@ determine_locally_known_aggregate_parts (gcall *call, tree arg,
       ao_ref_init (&r, arg);
     }
 
-  /* Second stage walks back the BB, looks at individual statements and as long
-     as it is confident of how the statements affect contents of the
-     aggregates, it builds a sorted linked list of ipa_agg_jf_list structures
-     describing it.  */
-  gsi = gsi_for_stmt (call);
-  gsi_prev (&gsi);
-  for (; !gsi_end_p (gsi); gsi_prev (&gsi))
+  /* Second stage traverses virtual SSA web backwards starting from the call
+     statement, only looks at individual dominating virtual operand (its
+     definition dominates the call), as long as it is confident that content
+     of the aggregate is affected by definition of the virtual operand, it
+     builds a sorted linked list of ipa_agg_jf_list describing that.  */
+
+  for (tree dom_vuse = gimple_vuse (call); dom_vuse;)
     {
-      struct ipa_known_agg_contents_list *n, **p;
-      gimple *stmt = gsi_stmt (gsi);
-      HOST_WIDE_INT lhs_offset, lhs_size;
-      tree lhs, rhs, lhs_base;
-      bool reverse;
+      gimple *stmt = SSA_NAME_DEF_STMT (dom_vuse);
 
-      if (!stmt_may_clobber_ref_p_1 (stmt, &r))
-	continue;
-      if (!gimple_assign_single_p (stmt))
-	break;
-
-      lhs = gimple_assign_lhs (stmt);
-      rhs = gimple_assign_rhs1 (stmt);
-      if (!is_gimple_reg_type (TREE_TYPE (rhs))
-	  || TREE_CODE (lhs) == BIT_FIELD_REF
-	  || contains_bitfld_component_ref_p (lhs))
-	break;
-
-      lhs_base = get_ref_base_and_extent_hwi (lhs, &lhs_offset,
-					      &lhs_size, &reverse);
-      if (!lhs_base)
-	break;
-
-      if (check_ref)
+      if (gimple_code (stmt) == GIMPLE_PHI)
 	{
-	  if (TREE_CODE (lhs_base) != MEM_REF
-	      || TREE_OPERAND (lhs_base, 0) != arg_base
-	      || !integer_zerop (TREE_OPERAND (lhs_base, 1)))
+	  dom_vuse = get_continuation_for_phi (stmt, &r, true,
+					       *aa_walk_budget_p,
+					       &visited, false, NULL, NULL);
+	  continue;
+	}
+
+      if (stmt_may_clobber_ref_p_1 (stmt, &r))
+	{
+	  struct ipa_known_agg_contents_list *content
+			= XALLOCA (struct ipa_known_agg_contents_list);
+
+	  if (!extract_mem_content (stmt, arg_base, check_ref, content))
+	    break;
+
+	  /* Now we get a dominating virtual operand, and need to check
+	     whether its value is clobbered any other dominating one.  */
+	  if (content->constant
+	      && !clobber_by_agg_contents_list_p (all_list, content))
+	    {
+	      struct ipa_known_agg_contents_list *copy
+			= XALLOCA (struct ipa_known_agg_contents_list);
+
+	      /* Add to the list consisting of only dominating virtual
+		 operands, whose definitions can finally reach the call.  */
+	      add_to_agg_contents_list (&list, (*copy = *content, copy));
+
+	      if (++const_count == ipa_max_agg_items)
+		break;
+	    }
+
+	  /* Add to the list consisting of all dominating virtual operands.  */
+	  add_to_agg_contents_list (&all_list, content);
+
+	  if (++item_count == 2 * ipa_max_agg_items)
 	    break;
 	}
-      else if (lhs_base != arg_base)
-	{
-	  if (DECL_P (lhs_base))
-	    continue;
-	  else
-	    break;
-	}
+      dom_vuse = gimple_vuse (stmt);
+   }
 
-      bool already_there = false;
-      p = get_place_in_agg_contents_list (&list, lhs_offset, lhs_size,
-					  &already_there);
-      if (!p)
-	break;
-      if (already_there)
-	continue;
-
-      rhs = get_ssa_def_if_simple_copy (rhs);
-      n = XALLOCA (struct ipa_known_agg_contents_list);
-      n->size = lhs_size;
-      n->offset = lhs_offset;
-      if (is_gimple_ip_invariant (rhs))
-	{
-	  n->constant = rhs;
-	  const_count++;
-	}
-      else
-	n->constant = NULL_TREE;
-      n->next = *p;
-      *p = n;
-
-      item_count++;
-      if (const_count == PARAM_VALUE (PARAM_IPA_MAX_AGG_ITEMS)
-	  || item_count == 2 * PARAM_VALUE (PARAM_IPA_MAX_AGG_ITEMS))
-	break;
-    }
+  if (visited)
+    BITMAP_FREE (visited);
 
   /* Third stage just goes over the list and creates an appropriate vector of
-     ipa_agg_jf_item structures out of it, of sourse only if there are
+     ipa_agg_jf_item structures out of it, of course only if there are
      any known constants to begin with.  */
 
   if (const_count)
@@ -1690,6 +1730,7 @@ determine_locally_known_aggregate_parts (gcall *call, tree arg,
       build_agg_jump_func_from_list (list, const_count, arg_offset, jfunc);
     }
 }
+
 
 /* Return the Ith param type of callee associated with call graph
    edge E.  */
@@ -1797,7 +1838,7 @@ ipa_set_jfunc_vr (ipa_jump_func *jf, enum value_range_kind type,
   jf->m_vr = ipa_get_value_range (type, min, max);
 }
 
-/* Assign to JF a pointer to a value_range just liek TMP but either fetch a
+/* Assign to JF a pointer to a value_range just like TMP but either fetch a
    copy from ipa_vr_hash_table or allocate a new on in GC memory.  */
 
 static void
@@ -1814,8 +1855,8 @@ static void
 ipa_compute_jump_functions_for_edge (struct ipa_func_body_info *fbi,
 				     struct cgraph_edge *cs)
 {
-  struct ipa_node_params *info = IPA_NODE_REF (cs->caller);
-  struct ipa_edge_args *args = IPA_EDGE_REF (cs);
+  class ipa_node_params *info = IPA_NODE_REF (cs->caller);
+  class ipa_edge_args *args = IPA_EDGE_REF (cs);
   gcall *call = cs->call_stmt;
   int n, arg_num = gimple_call_num_args (call);
   bool useful_context = false;
@@ -1839,7 +1880,7 @@ ipa_compute_jump_functions_for_edge (struct ipa_func_body_info *fbi,
       if (flag_devirtualize && POINTER_TYPE_P (TREE_TYPE (arg)))
 	{
 	  tree instance;
-	  struct ipa_polymorphic_call_context context (cs->caller->decl,
+	  class ipa_polymorphic_call_context context (cs->caller->decl,
 						       arg, cs->call_stmt,
 						       &instance);
 	  context.get_dynamic_type (instance, arg, NULL, cs->call_stmt,
@@ -1978,7 +2019,8 @@ ipa_compute_jump_functions_for_edge (struct ipa_func_body_info *fbi,
 	      || !ipa_get_jf_ancestor_agg_preserved (jfunc))
 	  && (AGGREGATE_TYPE_P (TREE_TYPE (arg))
 	      || POINTER_TYPE_P (param_type)))
-	determine_locally_known_aggregate_parts (call, arg, param_type, jfunc);
+	determine_known_aggregate_parts (call, arg, param_type, jfunc,
+					 &fbi->aa_walk_budget);
     }
   if (!useful_context)
     vec_free (args->polymorphic_call_contexts);
@@ -2155,7 +2197,7 @@ static void
 ipa_analyze_indirect_call_uses (struct ipa_func_body_info *fbi, gcall *call,
 				tree target)
 {
-  struct ipa_node_params *info = fbi->info;
+  class ipa_node_params *info = fbi->info;
   HOST_WIDE_INT offset;
   bool by_ref;
 
@@ -2306,7 +2348,7 @@ ipa_analyze_virtual_call_uses (struct ipa_func_body_info *fbi,
   if (TREE_CODE (obj) != SSA_NAME)
     return;
 
-  struct ipa_node_params *info = fbi->info;
+  class ipa_node_params *info = fbi->info;
   if (SSA_NAME_IS_DEFAULT_DEF (obj))
     {
       struct ipa_jump_func jfunc;
@@ -2338,7 +2380,7 @@ ipa_analyze_virtual_call_uses (struct ipa_func_body_info *fbi,
     }
 
   struct cgraph_edge *cs = ipa_note_param_call (fbi->node, index, call);
-  struct cgraph_indirect_call_info *ii = cs->indirect_info;
+  class cgraph_indirect_call_info *ii = cs->indirect_info;
   ii->offset = anc_offset;
   ii->otr_token = tree_to_uhwi (OBJ_TYPE_REF_TOKEN (target));
   ii->otr_type = obj_type_ref_class (target);
@@ -2410,7 +2452,7 @@ ipa_analyze_stmt_uses (struct ipa_func_body_info *fbi, gimple *stmt)
 static bool
 visit_ref_for_mod_analysis (gimple *, tree op, tree, void *data)
 {
-  struct ipa_node_params *info = (struct ipa_node_params *) data;
+  class ipa_node_params *info = (class ipa_node_params *) data;
 
   op = get_base_address (op);
   if (op
@@ -2458,7 +2500,7 @@ ipa_analyze_params_uses_in_bb (struct ipa_func_body_info *fbi, basic_block bb)
 static void
 ipa_analyze_controlled_uses (struct cgraph_node *node)
 {
-  struct ipa_node_params *info = IPA_NODE_REF (node);
+  class ipa_node_params *info = IPA_NODE_REF (node);
 
   for (int i = 0; i < ipa_get_param_count (info); i++)
     {
@@ -2550,7 +2592,7 @@ void
 ipa_analyze_node (struct cgraph_node *node)
 {
   struct ipa_func_body_info fbi;
-  struct ipa_node_params *info;
+  class ipa_node_params *info;
 
   ipa_check_create_node_params ();
   ipa_check_create_edge_args ();
@@ -2610,22 +2652,22 @@ static void
 update_jump_functions_after_inlining (struct cgraph_edge *cs,
 				      struct cgraph_edge *e)
 {
-  struct ipa_edge_args *top = IPA_EDGE_REF (cs);
-  struct ipa_edge_args *args = IPA_EDGE_REF (e);
+  class ipa_edge_args *top = IPA_EDGE_REF (cs);
+  class ipa_edge_args *args = IPA_EDGE_REF (e);
   int count = ipa_get_cs_argument_count (args);
   int i;
 
   for (i = 0; i < count; i++)
     {
       struct ipa_jump_func *dst = ipa_get_ith_jump_func (args, i);
-      struct ipa_polymorphic_call_context *dst_ctx
+      class ipa_polymorphic_call_context *dst_ctx
 	= ipa_get_ith_polymorhic_call_context (args, i);
 
       if (dst->type == IPA_JF_ANCESTOR)
 	{
 	  struct ipa_jump_func *src;
 	  int dst_fid = dst->value.ancestor.formal_id;
-	  struct ipa_polymorphic_call_context *src_ctx
+	  class ipa_polymorphic_call_context *src_ctx
 	    = ipa_get_ith_polymorhic_call_context (top, dst_fid);
 
 	  /* Variable number of arguments can cause havoc if we try to access
@@ -2641,7 +2683,7 @@ update_jump_functions_after_inlining (struct cgraph_edge *cs,
 
 	  if (src_ctx && !src_ctx->useless_p ())
 	    {
-	      struct ipa_polymorphic_call_context ctx = *src_ctx;
+	      class ipa_polymorphic_call_context ctx = *src_ctx;
 
 	      /* TODO: Make type preserved safe WRT contexts.  */
 	      if (!ipa_get_jf_ancestor_type_preserved (dst))
@@ -2711,12 +2753,12 @@ update_jump_functions_after_inlining (struct cgraph_edge *cs,
 	      int dst_fid = dst->value.pass_through.formal_id;
 	      src = ipa_get_ith_jump_func (top, dst_fid);
 	      bool dst_agg_p = ipa_get_jf_pass_through_agg_preserved (dst);
-	      struct ipa_polymorphic_call_context *src_ctx
+	      class ipa_polymorphic_call_context *src_ctx
 		= ipa_get_ith_polymorhic_call_context (top, dst_fid);
 
 	      if (src_ctx && !src_ctx->useless_p ())
 		{
-		  struct ipa_polymorphic_call_context ctx = *src_ctx;
+		  class ipa_polymorphic_call_context ctx = *src_ctx;
 
 		  /* TODO: Make type preserved safe WRT contexts.  */
 		  if (!ipa_get_jf_pass_through_type_preserved (dst))
@@ -3189,7 +3231,7 @@ try_decrement_rdesc_refcount (struct ipa_jump_func *jfunc)
 static struct cgraph_edge *
 try_make_edge_direct_simple_call (struct cgraph_edge *ie,
 				  struct ipa_jump_func *jfunc, tree target_type,
-				  struct ipa_node_params *new_root_info)
+				  class ipa_node_params *new_root_info)
 {
   struct cgraph_edge *cs;
   tree target;
@@ -3260,7 +3302,7 @@ ipa_impossible_devirt_target (struct cgraph_edge *ie, tree target)
 static struct cgraph_edge *
 try_make_edge_direct_virtual_call (struct cgraph_edge *ie,
 				   struct ipa_jump_func *jfunc,
-				   struct ipa_polymorphic_call_context ctx)
+				   class ipa_polymorphic_call_context ctx)
 {
   tree target = NULL;
   bool speculative = false;
@@ -3370,9 +3412,9 @@ update_indirect_edges_after_inlining (struct cgraph_edge *cs,
 				      struct cgraph_node *node,
 				      vec<cgraph_edge *> *new_edges)
 {
-  struct ipa_edge_args *top;
+  class ipa_edge_args *top;
   struct cgraph_edge *ie, *next_ie, *new_direct_edge;
-  struct ipa_node_params *new_root_info, *inlined_node_info;
+  class ipa_node_params *new_root_info, *inlined_node_info;
   bool res = false;
 
   ipa_check_create_edge_args ();
@@ -3384,7 +3426,7 @@ update_indirect_edges_after_inlining (struct cgraph_edge *cs,
 
   for (ie = node->indirect_calls; ie; ie = next_ie)
     {
-      struct cgraph_indirect_call_info *ici = ie->indirect_info;
+      class cgraph_indirect_call_info *ici = ie->indirect_info;
       struct ipa_jump_func *jfunc;
       int param_index;
       cgraph_node *spec_target = NULL;
@@ -3541,11 +3583,11 @@ combine_controlled_uses_counters (int c, int d)
 static void
 propagate_controlled_uses (struct cgraph_edge *cs)
 {
-  struct ipa_edge_args *args = IPA_EDGE_REF (cs);
+  class ipa_edge_args *args = IPA_EDGE_REF (cs);
   struct cgraph_node *new_root = cs->caller->global.inlined_to
     ? cs->caller->global.inlined_to : cs->caller;
-  struct ipa_node_params *new_root_info = IPA_NODE_REF (new_root);
-  struct ipa_node_params *old_root_info = IPA_NODE_REF (cs->callee);
+  class ipa_node_params *new_root_info = IPA_NODE_REF (new_root);
+  class ipa_node_params *old_root_info = IPA_NODE_REF (cs->callee);
   int count, i;
 
   count = MIN (ipa_get_cs_argument_count (args),
@@ -3839,7 +3881,7 @@ ipa_edge_args_sum_t::duplicate (cgraph_edge *src, cgraph_edge *dst,
 	{
 	  struct cgraph_node *inline_root = dst->caller->global.inlined_to
 	    ? dst->caller->global.inlined_to : dst->caller;
-	  struct ipa_node_params *root_info = IPA_NODE_REF (inline_root);
+	  class ipa_node_params *root_info = IPA_NODE_REF (inline_root);
 	  int idx = ipa_get_jf_pass_through_formal_id (dst_jf);
 
 	  int c = ipa_get_controlled_uses (root_info, idx);
@@ -3983,7 +4025,7 @@ void
 ipa_print_node_params (FILE *f, struct cgraph_node *node)
 {
   int i, count;
-  struct ipa_node_params *info;
+  class ipa_node_params *info;
 
   if (!node->definition)
     return;
@@ -4131,10 +4173,10 @@ ipa_write_jump_function (struct output_block *ob,
 /* Read in jump function JUMP_FUNC from IB.  */
 
 static void
-ipa_read_jump_function (struct lto_input_block *ib,
+ipa_read_jump_function (class lto_input_block *ib,
 			struct ipa_jump_func *jump_func,
 			struct cgraph_edge *cs,
-			struct data_in *data_in,
+			class data_in *data_in,
 			bool prevails)
 {
   enum jump_func_type jftype;
@@ -4243,7 +4285,7 @@ static void
 ipa_write_indirect_edge_info (struct output_block *ob,
 			      struct cgraph_edge *cs)
 {
-  struct cgraph_indirect_call_info *ii = cs->indirect_info;
+  class cgraph_indirect_call_info *ii = cs->indirect_info;
   struct bitpack_d bp;
 
   streamer_write_hwi (ob, ii->param_index);
@@ -4272,11 +4314,11 @@ ipa_write_indirect_edge_info (struct output_block *ob,
    relevant to indirect inlining from IB.  */
 
 static void
-ipa_read_indirect_edge_info (struct lto_input_block *ib,
-			     struct data_in *data_in,
+ipa_read_indirect_edge_info (class lto_input_block *ib,
+			     class data_in *data_in,
 			     struct cgraph_edge *cs)
 {
-  struct cgraph_indirect_call_info *ii = cs->indirect_info;
+  class cgraph_indirect_call_info *ii = cs->indirect_info;
   struct bitpack_d bp;
 
   ii->param_index = (int) streamer_read_hwi (ib);
@@ -4306,7 +4348,7 @@ ipa_write_node_info (struct output_block *ob, struct cgraph_node *node)
 {
   int node_ref;
   lto_symtab_encoder_t encoder;
-  struct ipa_node_params *info = IPA_NODE_REF (node);
+  class ipa_node_params *info = IPA_NODE_REF (node);
   int j;
   struct cgraph_edge *e;
   struct bitpack_d bp;
@@ -4333,7 +4375,7 @@ ipa_write_node_info (struct output_block *ob, struct cgraph_node *node)
     }
   for (e = node->callees; e; e = e->next_callee)
     {
-      struct ipa_edge_args *args = IPA_EDGE_REF (e);
+      class ipa_edge_args *args = IPA_EDGE_REF (e);
 
       streamer_write_uhwi (ob,
 			   ipa_get_cs_argument_count (args) * 2
@@ -4347,7 +4389,7 @@ ipa_write_node_info (struct output_block *ob, struct cgraph_node *node)
     }
   for (e = node->indirect_calls; e; e = e->next_callee)
     {
-      struct ipa_edge_args *args = IPA_EDGE_REF (e);
+      class ipa_edge_args *args = IPA_EDGE_REF (e);
 
       streamer_write_uhwi (ob,
 			   ipa_get_cs_argument_count (args) * 2
@@ -4365,8 +4407,8 @@ ipa_write_node_info (struct output_block *ob, struct cgraph_node *node)
 /* Stream in edge E from IB.  */
 
 static void
-ipa_read_edge_info (struct lto_input_block *ib,
-		    struct data_in *data_in,
+ipa_read_edge_info (class lto_input_block *ib,
+		    class data_in *data_in,
 		    struct cgraph_edge *e, bool prevails)
 {
   int count = streamer_read_uhwi (ib);
@@ -4377,7 +4419,7 @@ ipa_read_edge_info (struct lto_input_block *ib,
     return;
   if (prevails && e->possibly_call_in_translation_unit_p ())
     {
-      struct ipa_edge_args *args = IPA_EDGE_REF (e);
+      class ipa_edge_args *args = IPA_EDGE_REF (e);
       vec_safe_grow_cleared (args->jump_functions, count);
       if (contexts_computed)
 	vec_safe_grow_cleared (args->polymorphic_call_contexts, count);
@@ -4399,7 +4441,7 @@ ipa_read_edge_info (struct lto_input_block *ib,
 				  data_in, prevails);
 	  if (contexts_computed)
 	    {
-	      struct ipa_polymorphic_call_context ctx;
+	      class ipa_polymorphic_call_context ctx;
 	      ctx.stream_in (ib, data_in);
 	    }
 	}
@@ -4409,14 +4451,14 @@ ipa_read_edge_info (struct lto_input_block *ib,
 /* Stream in NODE info from IB.  */
 
 static void
-ipa_read_node_info (struct lto_input_block *ib, struct cgraph_node *node,
-		    struct data_in *data_in)
+ipa_read_node_info (class lto_input_block *ib, struct cgraph_node *node,
+		    class data_in *data_in)
 {
   int k;
   struct cgraph_edge *e;
   struct bitpack_d bp;
   bool prevails = node->prevailing_p ();
-  struct ipa_node_params *info = prevails ? IPA_NODE_REF (node) : NULL;
+  class ipa_node_params *info = prevails ? IPA_NODE_REF (node) : NULL;
 
   int param_count = streamer_read_uhwi (ib);
   if (prevails)
@@ -4513,7 +4555,7 @@ ipa_prop_read_section (struct lto_file_decl_data *file_data, const char *data,
   const int cfg_offset = sizeof (struct lto_function_header);
   const int main_offset = cfg_offset + header->cfg_size;
   const int string_offset = main_offset + header->main_size;
-  struct data_in *data_in;
+  class data_in *data_in;
   unsigned int i;
   unsigned int count;
 
@@ -4761,7 +4803,7 @@ read_replacements_section (struct lto_file_decl_data *file_data,
   const int cfg_offset = sizeof (struct lto_function_header);
   const int main_offset = cfg_offset + header->cfg_size;
   const int string_offset = main_offset + header->main_size;
-  struct data_in *data_in;
+  class data_in *data_in;
   unsigned int i;
   unsigned int count;
 

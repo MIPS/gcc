@@ -4136,7 +4136,6 @@ ix86_setup_incoming_vararg_bounds (cumulative_args_t cum_v,
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
   CUMULATIVE_ARGS next_cum;
   tree fntype;
-  int max;
 
   gcc_assert (!no_rtl);
 
@@ -4152,10 +4151,6 @@ ix86_setup_incoming_vararg_bounds (cumulative_args_t cum_v,
   if (stdarg_p (fntype))
     ix86_function_arg_advance (pack_cumulative_args (&next_cum), mode, type,
 			       true);
-
-  max = cum->regno + cfun->va_list_gpr_size / UNITS_PER_WORD;
-  if (max > X86_64_REGPARM_MAX)
-    max = X86_64_REGPARM_MAX;
 }
 
 
@@ -5788,17 +5783,6 @@ ix86_initial_elimination_offset (int from, int to)
     }
 }
 
-/* In a dynamically-aligned function, we can't know the offset from
-   stack pointer to frame pointer, so we must ensure that setjmp
-   eliminates fp against the hard fp (%ebp) rather than trying to
-   index from %esp up to the top of the frame across a gap that is
-   of unknown (at compile-time) size.  */
-static rtx
-ix86_builtin_setjmp_frame_value (void)
-{
-  return stack_realign_fp ? hard_frame_pointer_rtx : virtual_stack_vars_rtx;
-}
-
 /* Emits a warning for unsupported msabi to sysv pro/epilogues.  */
 void warn_once_call_ms2sysv_xlogues (const char *feature)
 {
@@ -6302,7 +6286,6 @@ choose_basereg (HOST_WIDE_INT cfa_offset, rtx &base_reg,
 	    {
 	      base_reg = hard_frame_pointer_rtx;
 	      base_offset = toffset;
-	      len = tlen;
 	    }
 	}
     }
@@ -7706,7 +7689,7 @@ ix86_emit_outlined_ms2sysv_save (const struct ix86_frame &frame)
   rtx_insn *insn;
   rtx sym, addr;
   rtx rax = gen_rtx_REG (word_mode, AX_REG);
-  const struct xlogue_layout &xlogue = xlogue_layout::get_instance ();
+  const class xlogue_layout &xlogue = xlogue_layout::get_instance ();
 
   /* AL should only be live with sysv_abi.  */
   gcc_assert (!ix86_eax_live_at_start_p ());
@@ -8014,8 +7997,7 @@ ix86_expand_prologue (void)
 				   GEN_INT (-allocate), -1, false);
 
       /* Align the stack.  */
-      insn = emit_insn (gen_and2_insn (stack_pointer_rtx,
-				       GEN_INT (-align_bytes)));
+      emit_insn (gen_and2_insn (stack_pointer_rtx, GEN_INT (-align_bytes)));
       m->fs.sp_offset = ROUND_UP (m->fs.sp_offset, align_bytes);
       m->fs.sp_realigned_offset = m->fs.sp_offset
 					      - frame.stack_realign_allocate;
@@ -8510,7 +8492,7 @@ ix86_emit_outlined_ms2sysv_restore (const struct ix86_frame &frame,
   rtx sym, tmp;
   rtx rsi = gen_rtx_REG (word_mode, SI_REG);
   rtx r10 = NULL_RTX;
-  const struct xlogue_layout &xlogue = xlogue_layout::get_instance ();
+  const class xlogue_layout &xlogue = xlogue_layout::get_instance ();
   HOST_WIDE_INT stub_ptr_offset = xlogue.get_stub_ptr_offset ();
   HOST_WIDE_INT rsi_offset = frame.stack_realign_offset + stub_ptr_offset;
   rtx rsi_frame_load = NULL_RTX;
@@ -11463,7 +11445,7 @@ output_pic_addr_const (FILE *file, rtx x, int code)
       break;
 
     case SYMBOL_REF:
-      if (TARGET_64BIT || ! TARGET_MACHO_BRANCH_ISLANDS)
+      if (TARGET_64BIT || ! TARGET_MACHO_PICSYM_STUBS)
 	output_addr_const (file, x);
       else
 	{
@@ -18187,12 +18169,10 @@ ix86_preferred_reload_class (rtx x, reg_class_t regclass)
 static reg_class_t
 ix86_preferred_output_reload_class (rtx x, reg_class_t regclass)
 {
-  machine_mode mode = GET_MODE (x);
-
   /* Restrict the output reload class to the register bank that we are doing
      math on.  If we would like not to return a subset of CLASS, reject this
      alternative: if reload cannot do this, it will still use its choice.  */
-  mode = GET_MODE (x);
+  machine_mode mode = GET_MODE (x);
   if (SSE_FLOAT_MODE_P (mode) && TARGET_SSE_MATH)
     return MAYBE_SSE_CLASS_P (regclass) ? ALL_SSE_REGS : NO_REGS;
 
@@ -18633,18 +18613,21 @@ ix86_register_move_cost (machine_mode mode, reg_class_t class1_i,
       return cost;
     }
 
-  /* Moves between SSE/MMX and integer unit are expensive.  */
-  if (MMX_CLASS_P (class1) != MMX_CLASS_P (class2)
-      || SSE_CLASS_P (class1) != SSE_CLASS_P (class2))
+  /* Moves between MMX and non-MMX units require secondary memory.  */
+  if (MMX_CLASS_P (class1) != MMX_CLASS_P (class2))
+    gcc_unreachable ();
+
+  /* Moves between SSE and integer units are expensive.  */
+  if (SSE_CLASS_P (class1) != SSE_CLASS_P (class2))
 
     /* ??? By keeping returned value relatively high, we limit the number
-       of moves between integer and MMX/SSE registers for all targets.
+       of moves between integer and SSE registers for all targets.
        Additionally, high value prevents problem with x86_modes_tieable_p(),
-       where integer modes in MMX/SSE registers are not tieable
+       where integer modes in SSE registers are not tieable
        because of missing QImode and HImode moves to, from or between
        MMX/SSE registers.  */
-    return MAX (8, MMX_CLASS_P (class1) || MMX_CLASS_P (class2)
-		? ix86_cost->mmxsse_to_integer : ix86_cost->ssemmx_to_integer);
+    return MAX (8, SSE_CLASS_P (class1)
+		? ix86_cost->sse_to_integer : ix86_cost->integer_to_sse);
 
   if (MAYBE_FLOAT_CLASS_P (class1))
     return ix86_cost->fp_move;
@@ -18682,9 +18665,21 @@ ix86_hard_regno_nregs (unsigned int regno, machine_mode mode)
     }
   if (COMPLEX_MODE_P (mode))
     return 2;
+  /* Register pair for mask registers.  */
+  if (mode == P2QImode || mode == P2HImode)
+    return 2;
   if (mode == V64SFmode || mode == V64SImode)
     return 4;
   return 1;
+}
+
+/* Implement REGMODE_NATURAL_SIZE(MODE).  */
+unsigned int
+ix86_regmode_natural_size (machine_mode mode)
+{
+  if (mode == P2HImode || mode == P2QImode)
+    return GET_MODE_SIZE (mode) / 2;
+  return UNITS_PER_WORD;
 }
 
 /* Implement TARGET_HARD_REGNO_MODE_OK.  */
@@ -18696,15 +18691,24 @@ ix86_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
   if (CC_REGNO_P (regno))
     return GET_MODE_CLASS (mode) == MODE_CC;
   if (GET_MODE_CLASS (mode) == MODE_CC
-      || GET_MODE_CLASS (mode) == MODE_RANDOM
-      || GET_MODE_CLASS (mode) == MODE_PARTIAL_INT)
+      || GET_MODE_CLASS (mode) == MODE_RANDOM)
     return false;
   if (STACK_REGNO_P (regno))
     return VALID_FP_MODE_P (mode);
   if (MASK_REGNO_P (regno))
-    return (VALID_MASK_REG_MODE (mode)
-	    || (TARGET_AVX512BW
-		&& VALID_MASK_AVX512BW_MODE (mode)));
+    {
+      /* Register pair only starts at even register number.  */
+      if ((mode == P2QImode || mode == P2HImode))
+	return MASK_PAIR_REGNO_P(regno);
+
+      return (VALID_MASK_REG_MODE (mode)
+	      || (TARGET_AVX512BW
+		  && VALID_MASK_AVX512BW_MODE (mode)));
+    }
+
+  if (GET_MODE_CLASS (mode) == MODE_PARTIAL_INT)
+    return false;
+
   if (SSE_REGNO_P (regno))
     {
       /* We implement the move patterns for all vector modes into and
@@ -21388,6 +21392,11 @@ ix86_autovectorize_vector_sizes (vector_sizes *sizes, bool all)
       sizes->safe_push (16);
       sizes->safe_push (32);
     }
+  else if (TARGET_MMX_WITH_SSE)
+    sizes->safe_push (16);
+
+  if (TARGET_MMX_WITH_SSE)
+    sizes->safe_push (8);
 }
 
 /* Implemenation of targetm.vectorize.get_mask_mode.  */
@@ -21494,7 +21503,7 @@ ix86_noce_conversion_profitable_p (rtx_insn *seq, struct noce_if_info *if_info)
 /* Implement targetm.vectorize.init_cost.  */
 
 static void *
-ix86_init_cost (struct loop *)
+ix86_init_cost (class loop *)
 {
   unsigned *cost = XNEWVEC (unsigned, 3);
   cost[vect_prologue] = cost[vect_body] = cost[vect_epilogue] = 0;
@@ -21505,7 +21514,7 @@ ix86_init_cost (struct loop *)
 
 static unsigned
 ix86_add_stmt_cost (void *data, int count, enum vect_cost_for_stmt kind,
-		    struct _stmt_vec_info *stmt_info, int misalign,
+		    class _stmt_vec_info *stmt_info, int misalign,
 		    enum vect_cost_model_location where)
 {
   unsigned *cost = (unsigned *) data;
@@ -21933,7 +21942,7 @@ ix86_simd_clone_usable (struct cgraph_node *node)
    (value 32 is used) as a heuristic. */
 
 static unsigned
-ix86_loop_unroll_adjust (unsigned nunroll, struct loop *loop)
+ix86_loop_unroll_adjust (unsigned nunroll, class loop *loop)
 {
   basic_block *bbs;
   rtx_insn *insn;
@@ -22763,9 +22772,6 @@ ix86_run_selftests (void)
 
 #undef TARGET_MACHINE_DEPENDENT_REORG
 #define TARGET_MACHINE_DEPENDENT_REORG ix86_reorg
-
-#undef TARGET_BUILTIN_SETJMP_FRAME_VALUE
-#define TARGET_BUILTIN_SETJMP_FRAME_VALUE ix86_builtin_setjmp_frame_value
 
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST ix86_build_builtin_va_list

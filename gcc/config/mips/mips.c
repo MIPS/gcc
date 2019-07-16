@@ -4849,7 +4849,7 @@ mips_split_move (rtx dest, rtx src, enum mips_split_type split_type, rtx insn_)
      can forward SRC for DEST.  This is most useful if the next insn is a
      simple store.   */
   rtx_insn *insn = (rtx_insn *)insn_;
-  struct mips_address_info addr;
+  struct mips_address_info addr = {};
   if (insn)
     {
       rtx_insn *next = next_nonnote_nondebug_insn_bb (insn);
@@ -4862,7 +4862,7 @@ mips_split_move (rtx dest, rtx src, enum mips_split_type split_type, rtx insn_)
 		{
 		  rtx tmp = XEXP (src, 0);
 		  mips_classify_address (&addr, tmp, GET_MODE (tmp), true);
-		  if (REGNO (addr.reg) != REGNO (dest))
+		  if (addr.reg && REGNO (addr.reg) != REGNO (dest))
 		    validate_change (next, &SET_SRC (set), src, false);
 		}
 	      else
@@ -7938,15 +7938,15 @@ mips_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT size,
 {
   if (op == STORE_BY_PIECES)
     return mips_store_by_pieces_p (size, align);
-  if (op == MOVE_BY_PIECES && HAVE_movmemsi)
+  if (op == MOVE_BY_PIECES && HAVE_cpymemsi)
     {
-      /* movmemsi is meant to generate code that is at least as good as
-	 move_by_pieces.  However, movmemsi effectively uses a by-pieces
+      /* cpymemsi is meant to generate code that is at least as good as
+	 move_by_pieces.  However, cpymemsi effectively uses a by-pieces
 	 implementation both for moves smaller than a word and for
 	 word-aligned moves of no more than MIPS_MAX_MOVE_BYTES_STRAIGHT
 	 bytes.  We should allow the tree-level optimisers to do such
 	 moves by pieces, as it often exposes other optimization
-	 opportunities.  We might as well continue to use movmemsi at
+	 opportunities.  We might as well continue to use cpymemsi at
 	 the rtl level though, as it produces better code when
 	 scheduling is disabled (such as at -O).  */
       if (currently_expanding_to_rtl)
@@ -8165,7 +8165,7 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
     emit_insn (gen_nop ());
 }
 
-/* Expand a movmemsi instruction, which copies LENGTH bytes from
+/* Expand a cpymemsi instruction, which copies LENGTH bytes from
    memory reference SRC to memory reference DEST.  */
 
 bool
@@ -20636,9 +20636,19 @@ mips_final_postscan_insn (FILE *file ATTRIBUTE_UNUSED, rtx_insn *insn,
   if (INSN_P (insn)
       && GET_CODE (PATTERN (insn)) == UNSPEC_VOLATILE
       && XINT (PATTERN (insn), 1) == UNSPEC_CONSTTABLE_END)
-    mips_set_text_contents_type (asm_out_file, "__pend_",
-				 INTVAL (XVECEXP (PATTERN (insn), 0, 0)),
-				 TRUE);
+    {
+      rtx_insn *next_insn = next_real_nondebug_insn (insn);
+      bool code_p = (next_insn != NULL
+		     && INSN_P (next_insn)
+		     && (GET_CODE (PATTERN (next_insn)) != UNSPEC_VOLATILE
+			 || XINT (PATTERN (next_insn), 1) != UNSPEC_CONSTTABLE));
+
+      /* Switch content type depending on whether there is code beyond
+	 the constant pool.  */
+      mips_set_text_contents_type (asm_out_file, "__pend_",
+				   INTVAL (XVECEXP (PATTERN (insn), 0, 0)),
+				   code_p);
+    }
 }
 
 /* Return the function that is used to expand the <u>mulsidi3 pattern.

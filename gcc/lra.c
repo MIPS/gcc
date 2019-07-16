@@ -972,7 +972,7 @@ lra_set_insn_recog_data (rtx_insn *insn)
 	/* It might be a new simple insn which is not recognized yet.  */
 	INSN_CODE (insn) = icode = recog_memoized (insn);
     }
-  data = XNEW (struct lra_insn_recog_data);
+  data = XNEW (class lra_insn_recog_data);
   lra_insn_recog_data[uid] = data;
   data->insn = insn;
   data->used_insn_alternative = LRA_UNKNOWN_ALT;
@@ -1029,12 +1029,8 @@ lra_set_insn_recog_data (rtx_insn *insn)
 			       data->operand_loc,
 			       constraints, operand_mode, NULL);
 	  if (nop > 0)
-	    {
-	      const char *p =  recog_data.constraints[0];
-
-	      for (p =	constraints[0]; *p; p++)
-		nalt += *p == ',';
-	    }
+	    for (const char *p =constraints[0]; *p; p++)
+	      nalt += *p == ',';
 	  data->insn_static_data = insn_static_data
 	    = get_static_insn_data (-1, nop, 0, nalt);
 	  for (i = 0; i < nop; i++)
@@ -1310,7 +1306,7 @@ lra_set_used_insn_alternative_by_uid (int uid, int alt)
 /* The size of the following array.  */
 static int reg_info_size;
 /* Common info about each register.  */
-struct lra_reg *lra_reg_info;
+class lra_reg *lra_reg_info;
 
 HARD_REG_SET hard_regs_spilled_into;
 
@@ -1360,7 +1356,7 @@ init_reg_info (void)
 
   last_reg_value = 0;
   reg_info_size = max_reg_num () * 3 / 2 + 1;
-  lra_reg_info = XNEWVEC (struct lra_reg, reg_info_size);
+  lra_reg_info = XNEWVEC (class lra_reg, reg_info_size);
   for (i = 0; i < reg_info_size; i++)
     initialize_lra_reg_info_element (i);
   copy_vec.truncate (0);
@@ -1389,7 +1385,7 @@ expand_reg_info (void)
   if (reg_info_size > max_reg_num ())
     return;
   reg_info_size = max_reg_num () * 3 / 2 + 1;
-  lra_reg_info = XRESIZEVEC (struct lra_reg, lra_reg_info, reg_info_size);
+  lra_reg_info = XRESIZEVEC (class lra_reg, lra_reg_info, reg_info_size);
   for (i = old; i < reg_info_size; i++)
     initialize_lra_reg_info_element (i);
 }

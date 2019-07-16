@@ -183,7 +183,7 @@ vect_get_smallest_scalar_type (stmt_vec_info stmt_info,
 static opt_result
 vect_mark_for_runtime_alias_test (ddr_p ddr, loop_vec_info loop_vinfo)
 {
-  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+  class loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
 
   if ((unsigned) PARAM_VALUE (PARAM_VECT_MAX_VERSION_FOR_ALIAS_CHECKS) == 0)
     return opt_result::failure_at (vect_location,
@@ -306,7 +306,7 @@ vect_analyze_possibly_independent_ddr (data_dependence_relation *ddr,
 				       loop_vec_info loop_vinfo,
 				       int loop_depth, unsigned int *max_vf)
 {
-  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+  class loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   lambda_vector dist_v;
   unsigned int i;
   FOR_EACH_VEC_ELT (DDR_DIST_VECTS (ddr), i, dist_v)
@@ -363,7 +363,7 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 				  unsigned int *max_vf)
 {
   unsigned int i;
-  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+  class loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   struct data_reference *dra = DDR_A (ddr);
   struct data_reference *drb = DDR_B (ddr);
   dr_vec_info *dr_info_a = loop_vinfo->lookup_dr (dra);
@@ -867,7 +867,7 @@ void
 vect_record_base_alignments (vec_info *vinfo)
 {
   loop_vec_info loop_vinfo = dyn_cast <loop_vec_info> (vinfo);
-  struct loop *loop = loop_vinfo ? LOOP_VINFO_LOOP (loop_vinfo) : NULL;
+  class loop *loop = loop_vinfo ? LOOP_VINFO_LOOP (loop_vinfo) : NULL;
   data_reference *dr;
   unsigned int i;
   FOR_EACH_VEC_ELT (vinfo->shared->datarefs, i, dr)
@@ -914,7 +914,7 @@ vect_compute_data_ref_alignment (dr_vec_info *dr_info)
   stmt_vec_info stmt_info = dr_info->stmt;
   vec_base_alignments *base_alignments = &stmt_info->vinfo->base_alignments;
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
-  struct loop *loop = NULL;
+  class loop *loop = NULL;
   tree ref = DR_REF (dr_info->dr);
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
 
@@ -1659,7 +1659,7 @@ opt_result
 vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 {
   vec<data_reference_p> datarefs = LOOP_VINFO_DATAREFS (loop_vinfo);
-  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+  class loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   enum dr_alignment_support supportable_dr_alignment;
   dr_vec_info *first_store = NULL;
   dr_vec_info *dr0_info = NULL;
@@ -1822,7 +1822,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 		 computation will be invariant in the outermost loop.  */
 	      else if (same_align_drs_max == same_align_drs)
 		{
-		  struct loop *ivloop0, *ivloop;
+		  class loop *ivloop0, *ivloop;
 		  ivloop0 = outermost_invariant_loop_for_expr
 		    (loop, DR_BASE_ADDRESS (dr0_info->dr));
 		  ivloop = outermost_invariant_loop_for_expr
@@ -2710,7 +2710,7 @@ vect_analyze_data_ref_access (dr_vec_info *dr_info)
   tree scalar_type = TREE_TYPE (DR_REF (dr));
   stmt_vec_info stmt_info = dr_info->stmt;
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
-  struct loop *loop = NULL;
+  class loop *loop = NULL;
 
   if (STMT_VINFO_GATHER_SCATTER_P (stmt_info))
     return true;
@@ -3001,6 +3001,13 @@ vect_analyze_data_ref_accesses (vec_info *vinfo)
 	  /* Check that the DR_INITs are compile-time constants.  */
 	  if (TREE_CODE (DR_INIT (dra)) != INTEGER_CST
 	      || TREE_CODE (DR_INIT (drb)) != INTEGER_CST)
+	    break;
+
+	  /* Different .GOMP_SIMD_LANE calls still give the same lane,
+	     just hold extra information.  */
+	  if (STMT_VINFO_SIMD_LANE_ACCESS_P (stmtinfo_a)
+	      && STMT_VINFO_SIMD_LANE_ACCESS_P (stmtinfo_b)
+	      && data_ref_compare_tree (DR_INIT (dra), DR_INIT (drb)) == 0)
 	    break;
 
 	  /* Sorting has ensured that DR_INIT (dra) <= DR_INIT (drb).  */
@@ -3723,7 +3730,7 @@ vect_check_gather_scatter (stmt_vec_info stmt_info, loop_vec_info loop_vinfo,
 {
   HOST_WIDE_INT scale = 1;
   poly_int64 pbitpos, pbitsize;
-  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+  class loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
   tree offtype = NULL_TREE;
   tree decl = NULL_TREE, base, off;
@@ -4065,47 +4072,67 @@ vect_find_stmt_data_reference (loop_p loop, gimple *stmt,
 	  && DR_OFFSET (newdr)
 	  && DR_INIT (newdr)
 	  && DR_STEP (newdr)
+	  && TREE_CODE (DR_INIT (newdr)) == INTEGER_CST
 	  && integer_zerop (DR_STEP (newdr)))
 	{
+	  tree base_address = DR_BASE_ADDRESS (newdr);
 	  tree off = DR_OFFSET (newdr);
+	  tree step = ssize_int (1);
+	  if (integer_zerop (off)
+	      && TREE_CODE (base_address) == POINTER_PLUS_EXPR)
+	    {
+	      off = TREE_OPERAND (base_address, 1);
+	      base_address = TREE_OPERAND (base_address, 0);
+	    }
 	  STRIP_NOPS (off);
-	  if (TREE_CODE (DR_INIT (newdr)) == INTEGER_CST
-	      && TREE_CODE (off) == MULT_EXPR
+	  if (TREE_CODE (off) == MULT_EXPR
 	      && tree_fits_uhwi_p (TREE_OPERAND (off, 1)))
 	    {
-	      tree step = TREE_OPERAND (off, 1);
+	      step = TREE_OPERAND (off, 1);
 	      off = TREE_OPERAND (off, 0);
 	      STRIP_NOPS (off);
-	      if (CONVERT_EXPR_P (off)
-		  && (TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (off, 0)))
-		      < TYPE_PRECISION (TREE_TYPE (off))))
-		off = TREE_OPERAND (off, 0);
-	      if (TREE_CODE (off) == SSA_NAME)
+	    }
+	  if (CONVERT_EXPR_P (off)
+	      && (TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (off, 0)))
+		  < TYPE_PRECISION (TREE_TYPE (off))))
+	    off = TREE_OPERAND (off, 0);
+	  if (TREE_CODE (off) == SSA_NAME)
+	    {
+	      gimple *def = SSA_NAME_DEF_STMT (off);
+	      /* Look through widening conversion.  */
+	      if (is_gimple_assign (def)
+		  && CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def)))
 		{
-		  gimple *def = SSA_NAME_DEF_STMT (off);
+		  tree rhs1 = gimple_assign_rhs1 (def);
+		  if (TREE_CODE (rhs1) == SSA_NAME
+		      && INTEGRAL_TYPE_P (TREE_TYPE (rhs1))
+		      && (TYPE_PRECISION (TREE_TYPE (off))
+			  > TYPE_PRECISION (TREE_TYPE (rhs1))))
+		    def = SSA_NAME_DEF_STMT (rhs1);
+		}
+	      if (is_gimple_call (def)
+		  && gimple_call_internal_p (def)
+		  && (gimple_call_internal_fn (def) == IFN_GOMP_SIMD_LANE))
+		{
+		  tree arg = gimple_call_arg (def, 0);
 		  tree reft = TREE_TYPE (DR_REF (newdr));
-		  if (is_gimple_call (def)
-		      && gimple_call_internal_p (def)
-		      && (gimple_call_internal_fn (def) == IFN_GOMP_SIMD_LANE))
+		  gcc_assert (TREE_CODE (arg) == SSA_NAME);
+		  arg = SSA_NAME_VAR (arg);
+		  if (arg == loop->simduid
+		      /* For now.  */
+		      && tree_int_cst_equal (TYPE_SIZE_UNIT (reft), step))
 		    {
-		      tree arg = gimple_call_arg (def, 0);
-		      gcc_assert (TREE_CODE (arg) == SSA_NAME);
-		      arg = SSA_NAME_VAR (arg);
-		      if (arg == loop->simduid
-			  /* For now.  */
-			  && tree_int_cst_equal (TYPE_SIZE_UNIT (reft), step))
-			{
-			  DR_OFFSET (newdr) = ssize_int (0);
-			  DR_STEP (newdr) = step;
-			  DR_OFFSET_ALIGNMENT (newdr) = BIGGEST_ALIGNMENT;
-			  DR_STEP_ALIGNMENT (newdr)
-			    = highest_pow2_factor (step);
-			  /* Mark as simd-lane access.  */
-			  newdr->aux = (void *)-1;
-			  free_data_ref (dr);
-			  datarefs->safe_push (newdr);
-			  return opt_result::success ();
-			}
+		      DR_BASE_ADDRESS (newdr) = base_address;
+		      DR_OFFSET (newdr) = ssize_int (0);
+		      DR_STEP (newdr) = step;
+		      DR_OFFSET_ALIGNMENT (newdr) = BIGGEST_ALIGNMENT;
+		      DR_STEP_ALIGNMENT (newdr) = highest_pow2_factor (step);
+		      /* Mark as simd-lane access.  */
+		      tree arg2 = gimple_call_arg (def, 1);
+		      newdr->aux = (void *) (-1 - tree_to_uhwi (arg2));
+		      free_data_ref (dr);
+		      datarefs->safe_push (newdr);
+		      return opt_result::success ();
 		    }
 		}
 	    }
@@ -4133,9 +4160,9 @@ vect_find_stmt_data_reference (loop_p loop, gimple *stmt,
 */
 
 opt_result
-vect_analyze_data_refs (vec_info *vinfo, poly_uint64 *min_vf)
+vect_analyze_data_refs (vec_info *vinfo, poly_uint64 *min_vf, bool *fatal)
 {
-  struct loop *loop = NULL;
+  class loop *loop = NULL;
   unsigned int i;
   struct data_reference *dr;
   tree scalar_type;
@@ -4210,14 +4237,18 @@ vect_analyze_data_refs (vec_info *vinfo, poly_uint64 *min_vf)
         }
 
       /* See if this was detected as SIMD lane access.  */
-      if (dr->aux == (void *)-1)
+      if (dr->aux == (void *)-1
+	  || dr->aux == (void *)-2
+	  || dr->aux == (void *)-3
+	  || dr->aux == (void *)-4)
 	{
 	  if (nested_in_vect_loop_p (loop, stmt_info))
 	    return opt_result::failure_at (stmt_info->stmt,
 					   "not vectorized:"
 					   " data ref analysis failed: %G",
 					   stmt_info->stmt);
-	  STMT_VINFO_SIMD_LANE_ACCESS_P (stmt_info) = true;
+	  STMT_VINFO_SIMD_LANE_ACCESS_P (stmt_info)
+	    = -(uintptr_t) dr->aux;
 	}
 
       tree base = get_base_address (DR_REF (dr));
@@ -4329,6 +4360,8 @@ vect_analyze_data_refs (vec_info *vinfo, poly_uint64 *min_vf)
 	      STMT_VINFO_VECTORIZABLE (stmt_info) = false;
 	      continue;
 	    }
+	  if (fatal)
+	    *fatal = false;
 	  return opt_result::failure_at (stmt_info->stmt,
 					 "not vectorized:"
 					 " no vectype for stmt: %G"
@@ -4355,12 +4388,16 @@ vect_analyze_data_refs (vec_info *vinfo, poly_uint64 *min_vf)
 					  as_a <loop_vec_info> (vinfo),
 					  &gs_info)
 	      || !get_vectype_for_scalar_type (TREE_TYPE (gs_info.offset)))
-	    return opt_result::failure_at
-	      (stmt_info->stmt,
-	       (gatherscatter == GATHER) ?
-	       "not vectorized: not suitable for gather load %G" :
-	       "not vectorized: not suitable for scatter store %G",
-	       stmt_info->stmt);
+	    {
+	      if (fatal)
+		*fatal = false;
+	      return opt_result::failure_at
+			(stmt_info->stmt,
+			 (gatherscatter == GATHER)
+			 ? "not vectorized: not suitable for gather load %G"
+			 : "not vectorized: not suitable for scatter store %G",
+			 stmt_info->stmt);
+	    }
 	  STMT_VINFO_GATHER_SCATTER_P (stmt_info) = gatherscatter;
 	}
     }
@@ -4636,16 +4673,16 @@ vect_create_addr_base_for_vector_ref (stmt_vec_info stmt_info,
 
 tree
 vect_create_data_ref_ptr (stmt_vec_info stmt_info, tree aggr_type,
-			  struct loop *at_loop, tree offset,
+			  class loop *at_loop, tree offset,
 			  tree *initial_address, gimple_stmt_iterator *gsi,
 			  gimple **ptr_incr, bool only_init,
 			  tree byte_offset, tree iv_step)
 {
   const char *base_name;
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
-  struct loop *loop = NULL;
+  class loop *loop = NULL;
   bool nested_in_vect_loop = false;
-  struct loop *containing_loop = NULL;
+  class loop *containing_loop = NULL;
   tree aggr_ptr_type;
   tree aggr_ptr;
   tree new_temp;
@@ -5390,13 +5427,13 @@ vect_setup_realignment (stmt_vec_info stmt_info, gimple_stmt_iterator *gsi,
                         tree *realignment_token,
 			enum dr_alignment_support alignment_support_scheme,
 			tree init_addr,
-			struct loop **at_loop)
+			class loop **at_loop)
 {
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   dr_vec_info *dr_info = STMT_VINFO_DR_INFO (stmt_info);
   struct data_reference *dr = dr_info->dr;
-  struct loop *loop = NULL;
+  class loop *loop = NULL;
   edge pe = NULL;
   tree scalar_dest = gimple_assign_lhs (stmt_info->stmt);
   tree vec_dest;
@@ -5411,8 +5448,8 @@ vect_setup_realignment (stmt_vec_info stmt_info, gimple_stmt_iterator *gsi,
   gimple_seq stmts = NULL;
   bool compute_in_loop = false;
   bool nested_in_vect_loop = false;
-  struct loop *containing_loop = (gimple_bb (stmt_info->stmt))->loop_father;
-  struct loop *loop_for_initial_load = NULL;
+  class loop *containing_loop = (gimple_bb (stmt_info->stmt))->loop_father;
+  class loop *loop_for_initial_load = NULL;
 
   if (loop_vinfo)
     {
@@ -6422,7 +6459,7 @@ vect_supportable_dr_alignment (dr_vec_info *dr_info,
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   machine_mode mode = TYPE_MODE (vectype);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
-  struct loop *vect_loop = NULL;
+  class loop *vect_loop = NULL;
   bool nested_in_vect_loop = false;
 
   if (aligned_access_p (dr_info) && !check_aligned_accesses)

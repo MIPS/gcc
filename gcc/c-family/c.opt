@@ -625,6 +625,10 @@ Wignored-attributes
 C C++ Var(warn_ignored_attributes) Init(1) Warning
 Warn whenever attributes are ignored.
 
+Winaccessible-base
+C++ ObjC++ Var(warn_inaccessible_base) Init(1) Warning
+Warn when a base is inaccessible in derived due to ambiguity.
+
 Wincompatible-pointer-types
 C ObjC Var(warn_incompatible_pointer_types) Init(1) Warning
 Warn when there is a conversion between pointers that have incompatible types.
@@ -814,6 +818,10 @@ Warn about all enumerated switches missing a specific case.
 Wswitch-bool
 C ObjC C++ ObjC++ Var(warn_switch_bool) Warning Init(1)
 Warn about switches with boolean controlling expression.
+
+Wswitch-outside-range
+C ObjC C++ ObjC++ Var(warn_switch_outside_range) Warning Init(1)
+Warn about switch values that are outside of the switch's type range.
 
 Wtemplates
 C++ ObjC++ Var(warn_templates) Warning
@@ -1416,6 +1424,10 @@ fconstexpr-depth=
 C++ ObjC++ Joined RejectNegative UInteger Var(max_constexpr_depth) Init(512)
 -fconstexpr-depth=<number>	Specify maximum constexpr recursion depth.
 
+fconstexpr-cache-depth=
+C++ ObjC++ Joined RejectNegative UInteger Var(constexpr_cache_depth) Init(8)
+-fconstexpr-cache-depth=<number>	Specify maximum constexpr recursion cache depth.
+
 fconstexpr-loop-limit=
 C++ ObjC++ Joined RejectNegative UInteger Var(constexpr_loop_limit) Init(262144)
 -fconstexpr-loop-limit=<number>	Specify maximum constexpr loop iteration count.
@@ -1562,6 +1574,10 @@ C++ ObjC++ Deprecated
 flax-vector-conversions
 C ObjC C++ ObjC++ Var(flag_lax_vector_conversions)
 Allow implicit conversions between vectors with differing numbers of subparts and/or differing element types.
+
+fmax-include-depth=
+C ObjC C++ ObjC++ Joined RejectNegative UInteger
+fmax-include-depth=<number> Set the maximum depth of the nested #include.
 
 fms-extensions
 C ObjC C++ ObjC++ Var(flag_ms_extensions)

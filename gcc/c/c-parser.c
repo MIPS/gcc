@@ -157,6 +157,11 @@ c_parse_init (void)
       id = get_identifier (name);
       C_SET_RID_CODE (id, RID_FIRST_INT_N + i);
       C_IS_RESERVED_WORD (id) = 1;
+
+      sprintf (name, "__int%d__", int_n_data[i].bitsize);
+      id = get_identifier (name);
+      C_SET_RID_CODE (id, RID_FIRST_INT_N + i);
+      C_IS_RESERVED_WORD (id) = 1;
     }
 }
 
@@ -3140,7 +3145,7 @@ c_parser_struct_or_union_specifier (c_parser *parser)
     {
       /* Parse a struct or union definition.  Start the scope of the
 	 tag before parsing components.  */
-      struct c_struct_parse_info *struct_info;
+      class c_struct_parse_info *struct_info;
       tree type = start_struct (struct_loc, code, ident, &struct_info);
       tree postfix_attrs;
       /* We chain the components in reverse order, then put them in
@@ -11494,6 +11499,13 @@ c_parser_pragma (c_parser *parser, enum pragma_context context, bool *if_p)
       c_parser_omp_end_declare_target (parser);
       return false;
 
+    case PRAGMA_OMP_SCAN:
+      error_at (c_parser_peek_token (parser)->location,
+		"%<#pragma omp scan%> may only be used in "
+		"a loop construct with %<inscan%> %<reduction%> clause");
+      c_parser_skip_until_found (parser, CPP_PRAGMA_EOL, NULL);
+      return false;
+
     case PRAGMA_OMP_SECTION:
       error_at (c_parser_peek_token (parser)->location,
 		"%<#pragma omp section%> may only be used in "
@@ -11777,6 +11789,8 @@ c_parser_omp_clause_name (c_parser *parser)
 	case 'o':
 	  if (!strcmp ("ordered", p))
 	    result = PRAGMA_OMP_CLAUSE_ORDERED;
+	  else if (!strcmp ("order", p))
+	    result = PRAGMA_OMP_CLAUSE_ORDER;
 	  break;
 	case 'p':
 	  if (!strcmp ("parallel", p))
@@ -13455,6 +13469,44 @@ c_parser_oacc_clause_wait (c_parser *parser, tree list)
   return list;
 }
 
+
+/* OpenMP 5.0:
+   order ( concurrent ) */
+
+static tree
+c_parser_omp_clause_order (c_parser *parser, tree list)
+{
+  location_t loc = c_parser_peek_token (parser)->location;
+  tree c;
+  const char *p;
+
+  matching_parens parens;
+  if (!parens.require_open (parser))
+    return list;
+  if (!c_parser_next_token_is (parser, CPP_NAME))
+    {
+      c_parser_error (parser, "expected %<concurrent%>");
+      goto out_err;
+    }
+  p = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
+  if (strcmp (p, "concurrent") != 0)
+    {
+      c_parser_error (parser, "expected %<concurrent%>");
+      goto out_err;
+    }
+  c_parser_consume_token (parser);
+  parens.skip_until_found_close (parser);
+  /* check_no_duplicate_clause (list, OMP_CLAUSE_ORDER, "order"); */
+  c = build_omp_clause (loc, OMP_CLAUSE_ORDER);
+  OMP_CLAUSE_CHAIN (c) = list;
+  return c;
+
+ out_err:
+  parens.skip_until_found_close (parser);
+  return list;
+}
+
+
 /* OpenMP 2.5:
    ordered
 
@@ -13558,11 +13610,7 @@ c_parser_omp_clause_reduction (c_parser *parser, enum omp_clause_code kind,
 	      if (strcmp (p, "task") == 0)
 		task = true;
 	      else if (strcmp (p, "inscan") == 0)
-		{
-		  inscan = true;
-		  sorry ("%<inscan%> modifier on %<reduction%> clause "
-			 "not supported yet");
-		}
+		inscan = true;
 	      if (task || inscan)
 		{
 		  c_parser_consume_token (parser);
@@ -15083,6 +15131,10 @@ c_parser_omp_all_clauses (c_parser *parser, omp_clause_mask mask,
 	case PRAGMA_OMP_CLAUSE_NUM_THREADS:
 	  clauses = c_parser_omp_clause_num_threads (parser, clauses);
 	  c_name = "num_threads";
+	  break;
+	case PRAGMA_OMP_CLAUSE_ORDER:
+	  clauses = c_parser_omp_clause_order (parser, clauses);
+	  c_name = "order";
 	  break;
 	case PRAGMA_OMP_CLAUSE_ORDERED:
 	  clauses = c_parser_omp_clause_ordered (parser, clauses);
@@ -16738,6 +16790,71 @@ c_parser_omp_flush (c_parser *parser)
   c_finish_omp_flush (loc, mo);
 }
 
+/* OpenMP 5.0:
+
+   scan-loop-body:
+     { structured-block scan-directive structured-block }  */
+
+static void
+c_parser_omp_scan_loop_body (c_parser *parser, bool open_brace_parsed)
+{
+  tree substmt;
+  location_t loc;
+  tree clauses = NULL_TREE;
+
+  loc = c_parser_peek_token (parser)->location;
+  if (!open_brace_parsed
+      && !c_parser_require (parser, CPP_OPEN_BRACE, "expected %<{%>"))
+    {
+      /* Avoid skipping until the end of the block.  */
+      parser->error = false;
+      return;
+    }
+
+  substmt = c_parser_omp_structured_block (parser, NULL);
+  substmt = build2 (OMP_SCAN, void_type_node, substmt, NULL_TREE);
+  SET_EXPR_LOCATION (substmt, loc);
+  add_stmt (substmt);
+
+  loc = c_parser_peek_token (parser)->location;
+  if (c_parser_peek_token (parser)->pragma_kind == PRAGMA_OMP_SCAN)
+    {
+      enum omp_clause_code clause = OMP_CLAUSE_ERROR;
+
+      c_parser_consume_pragma (parser);
+
+      if (c_parser_next_token_is (parser, CPP_NAME))
+	{
+	  const char *p
+	    = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
+	  if (strcmp (p, "inclusive") == 0)
+	    clause = OMP_CLAUSE_INCLUSIVE;
+	  else if (strcmp (p, "exclusive") == 0)
+	    clause = OMP_CLAUSE_EXCLUSIVE;
+	}
+      if (clause != OMP_CLAUSE_ERROR)
+	{
+	  c_parser_consume_token (parser);
+	  clauses = c_parser_omp_var_list_parens (parser, clause, NULL_TREE);
+	}
+      else
+	c_parser_error (parser, "expected %<inclusive%> or "
+				"%<exclusive%> clause");
+      c_parser_skip_to_pragma_eol (parser);
+    }
+  else
+    error ("expected %<#pragma omp scan%>");
+
+  clauses = c_finish_omp_clauses (clauses, C_ORT_OMP);
+  substmt = c_parser_omp_structured_block (parser, NULL);
+  substmt = build2 (OMP_SCAN, void_type_node, substmt, clauses);
+  SET_EXPR_LOCATION (substmt, loc);
+  add_stmt (substmt);
+
+  c_parser_skip_until_found (parser, CPP_CLOSE_BRACE,
+			     "expected %<}%>");
+}
+
 /* Parse the restricted form of loop statements allowed by OpenACC and OpenMP.
    The real trick here is to determine the loop control variable early
    so that we can push a new decl if necessary to make it private.
@@ -16756,6 +16873,7 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
   int i, collapse = 1, ordered = 0, count, nbraces = 0;
   location_t for_loc;
   bool tiling = false;
+  bool inscan = false;
   vec<tree, va_gc> *for_block = make_tree_vector ();
 
   for (cl = clauses; cl; cl = OMP_CLAUSE_CHAIN (cl))
@@ -16772,6 +16890,10 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
 	ordered_cl = cl;
 	ordered = tree_to_shwi (OMP_CLAUSE_ORDERED_EXPR (cl));
       }
+    else if (OMP_CLAUSE_CODE (cl) == OMP_CLAUSE_REDUCTION
+	     && OMP_CLAUSE_REDUCTION_INSCAN (cl)
+	     && (code == OMP_SIMD || code == OMP_FOR))
+      inscan = true;
 
   if (ordered && ordered < collapse)
     {
@@ -16992,7 +17114,9 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
   c_cont_label = NULL_TREE;
   body = push_stmt_list ();
 
-  if (open_brace_parsed)
+  if (inscan)
+    c_parser_omp_scan_loop_body (parser, open_brace_parsed);
+  else if (open_brace_parsed)
     {
       location_t here = c_parser_peek_token (parser)->location;
       stmt = c_begin_compound_stmt (true);
@@ -17141,7 +17265,8 @@ omp_split_clauses (location_t loc, enum tree_code code,
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_REDUCTION)	\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_COLLAPSE)	\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_IF)		\
-	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NONTEMPORAL))
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NONTEMPORAL)	\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_ORDER))
 
 static tree
 c_parser_omp_simd (location_t loc, c_parser *parser,
@@ -17197,7 +17322,8 @@ c_parser_omp_simd (location_t loc, c_parser *parser,
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_ORDERED)	\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_SCHEDULE)	\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_COLLAPSE)	\
-	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NOWAIT))
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NOWAIT)	\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_ORDER))
 
 static tree
 c_parser_omp_for (location_t loc, c_parser *parser,

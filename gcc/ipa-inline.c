@@ -840,7 +840,6 @@ want_inline_small_function_p (struct cgraph_edge *e, bool report)
 		   || (!(hints & (INLINE_HINT_indirect_call
 				  | INLINE_HINT_known_hot
 				  | INLINE_HINT_loop_iterations
-				  | INLINE_HINT_array_index
 				  | INLINE_HINT_loop_stride))
 		       && !(big_speedup = big_speedup_p (e)))))
 	{
@@ -866,7 +865,6 @@ want_inline_small_function_p (struct cgraph_edge *e, bool report)
 	       && !(hints & INLINE_HINT_known_hot)
 	       && growth >= ((hints & (INLINE_HINT_indirect_call
 				       | INLINE_HINT_loop_iterations
-			               | INLINE_HINT_array_index
 				       | INLINE_HINT_loop_stride))
 			     ? MAX (inline_insns_auto (e->caller),
 				    inline_insns_single (e->caller))
@@ -1070,7 +1068,7 @@ edge_badness (struct cgraph_edge *edge, bool dump)
   int growth;
   sreal edge_time, unspec_edge_time;
   struct cgraph_node *callee = edge->callee->ultimate_alias_target ();
-  struct ipa_fn_summary *callee_info = ipa_fn_summaries->get (callee);
+  class ipa_fn_summary *callee_info = ipa_fn_summaries->get (callee);
   ipa_hints hints;
   cgraph_node *caller = (edge->caller->global.inlined_to 
 			 ? edge->caller->global.inlined_to
@@ -1260,7 +1258,6 @@ edge_badness (struct cgraph_edge *edge, bool dump)
     badness = badness.shift (badness > 0 ? 4 : -4);
   if ((hints & (INLINE_HINT_indirect_call
 		| INLINE_HINT_loop_iterations
-		| INLINE_HINT_array_index
 		| INLINE_HINT_loop_stride))
       || callee_info->growth <= 0)
     badness = badness.shift (badness > 0 ? -2 : 2);
@@ -1785,6 +1782,16 @@ sum_callers (struct cgraph_node *node, void *data)
   return false;
 }
 
+/* We only propagate across edges with non-interposable callee.  */
+
+inline bool
+ignore_edge_p (struct cgraph_edge *e)
+{
+  enum availability avail;
+  e->callee->function_or_virtual_thunk_symbol (&avail, e->caller);
+  return (avail <= AVAIL_INTERPOSABLE);
+}
+
 /* We use greedy algorithm for inlining of small functions:
    All inline candidates are put into prioritized heap ordered in
    increasing badness.
@@ -1812,7 +1819,7 @@ inline_small_functions (void)
      metrics.  */
 
   max_count = profile_count::uninitialized ();
-  ipa_reduced_postorder (order, true, NULL);
+  ipa_reduced_postorder (order, true, ignore_edge_p);
   free (order);
 
   FOR_EACH_DEFINED_FUNCTION (node)
@@ -1822,7 +1829,7 @@ inline_small_functions (void)
 	    && (node->has_gimple_body_p () || node->thunk.thunk_p)
 	    && opt_for_fn (node->decl, optimize))
 	  {
-	    struct ipa_fn_summary *info = ipa_fn_summaries->get (node);
+	    class ipa_fn_summary *info = ipa_fn_summaries->get (node);
 	    struct ipa_dfs_info *dfs = (struct ipa_dfs_info *) node->aux;
 
 	    /* Do not account external functions, they will be optimized out

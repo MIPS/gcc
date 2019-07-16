@@ -2309,7 +2309,9 @@ gfc_conv_substring (gfc_se * se, gfc_ref * ref, int kind,
 	start.expr = gfc_evaluate_now (start.expr, &se->pre);
 
       /* Change the start of the string.  */
-      if (TYPE_STRING_FLAG (TREE_TYPE (se->expr)))
+      if ((TREE_CODE (TREE_TYPE (se->expr)) == ARRAY_TYPE
+	   || TREE_CODE (TREE_TYPE (se->expr)) == INTEGER_TYPE)
+	  && TYPE_STRING_FLAG (TREE_TYPE (se->expr)))
 	tmp = se->expr;
       else
 	tmp = build_fold_indirect_ref_loc (input_location,
@@ -4881,7 +4883,7 @@ class_array_fcn:
     parmse->expr = gfc_build_addr_expr (NULL_TREE, parmse->expr);
 
   /* Basically make this into
-     
+
      if (present)
        {
 	 if (contiguous)
@@ -8910,7 +8912,6 @@ trans_class_vptr_len_assignment (stmtblock_t *block, gfc_expr * le,
 		from_len = rse->string_length;
 	      else if (re->ts.type == BT_CHARACTER && re->ts.u.cl->length)
 		{
-		  from_len = gfc_get_expr_charlen (re);
 		  gfc_init_se (&se, NULL);
 		  gfc_conv_expr (&se, re->ts.u.cl->length);
 		  gfc_add_block_to_block (block, &se.pre);
@@ -8979,23 +8980,6 @@ trans_caf_token_assign (gfc_se *lse, gfc_se *rse, gfc_expr *expr1,
     }
 }
 
-/* Indentify class valued proc_pointer assignments.  */
-
-static bool
-pointer_assignment_is_proc_pointer (gfc_expr * expr1, gfc_expr * expr2)
-{
-  gfc_ref * ref;
-
-  ref = expr1->ref;
-  while (ref && ref->next)
-     ref = ref->next;
-
-  return ref && ref->type == REF_COMPONENT
-      && ref->u.c.component->attr.proc_pointer
-      && expr2->expr_type == EXPR_VARIABLE
-      && expr2->symtree->n.sym->attr.flavor == FL_PROCEDURE;
-}
-
 
 /* Do everything that is needed for a CLASS function expr2.  */
 
@@ -9048,7 +9032,7 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
   tree desc;
   tree tmp;
   tree expr1_vptr = NULL_TREE;
-  bool scalar, non_proc_pointer_assign;
+  bool scalar, non_proc_ptr_assign;
   gfc_ss *ss;
 
   gfc_start_block (&block);
@@ -9056,7 +9040,9 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
   gfc_init_se (&lse, NULL);
 
   /* Usually testing whether this is not a proc pointer assignment.  */
-  non_proc_pointer_assign = !pointer_assignment_is_proc_pointer (expr1, expr2);
+  non_proc_ptr_assign = !(gfc_expr_attr (expr1).proc_pointer
+			&& expr2->expr_type == EXPR_VARIABLE
+			&& expr2->symtree->n.sym->attr.flavor == FL_PROCEDURE);
 
   /* Check whether the expression is a scalar or not; we cannot use
      expr1->rank as it can be nonzero for proc pointers.  */
@@ -9066,7 +9052,7 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
     gfc_free_ss_chain (ss);
 
   if (expr1->ts.type == BT_DERIVED && expr2->ts.type == BT_CLASS
-      && expr2->expr_type != EXPR_FUNCTION && non_proc_pointer_assign)
+      && expr2->expr_type != EXPR_FUNCTION && non_proc_ptr_assign)
     {
       gfc_add_data_component (expr2);
       /* The following is required as gfc_add_data_component doesn't
@@ -9086,7 +9072,7 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
       else
 	gfc_conv_expr (&rse, expr2);
 
-      if (non_proc_pointer_assign && expr1->ts.type == BT_CLASS)
+      if (non_proc_ptr_assign && expr1->ts.type == BT_CLASS)
 	{
 	  trans_class_vptr_len_assignment (&block, expr1, expr2, &rse, NULL,
 					   NULL);
@@ -9494,7 +9480,9 @@ gfc_conv_string_parameter (gfc_se * se)
       return;
     }
 
-  if (TYPE_STRING_FLAG (TREE_TYPE (se->expr)))
+  if ((TREE_CODE (TREE_TYPE (se->expr)) == ARRAY_TYPE
+       || TREE_CODE (TREE_TYPE (se->expr)) == INTEGER_TYPE)
+      && TYPE_STRING_FLAG (TREE_TYPE (se->expr)))
     {
       if (TREE_CODE (se->expr) != INDIRECT_REF)
 	{
@@ -10181,10 +10169,6 @@ gfc_trans_array_constructor_copy (gfc_expr * expr1, gfc_expr * expr2)
 
   stype = gfc_typenode_for_spec (&expr2->ts);
   src = gfc_build_constant_array_constructor (expr2, stype);
-
-  stype = TREE_TYPE (src);
-  if (POINTER_TYPE_P (stype))
-    stype = TREE_TYPE (stype);
 
   return gfc_build_memcpy_call (dst, src, len);
 }
@@ -10935,7 +10919,6 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
 		       && (gfc_is_class_array_function (expr2)
 			   || gfc_is_alloc_class_scalar_function (expr2)))
     {
-      tmp = rse.expr;
       tmp = gfc_nullify_alloc_comp (expr1->ts.u.derived, rse.expr, 0);
       gfc_prepend_expr_to_block (&rse.post, tmp);
       if (lss != gfc_ss_terminator && rss == gfc_ss_terminator)

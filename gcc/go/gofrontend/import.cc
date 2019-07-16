@@ -290,8 +290,14 @@ Import::Import(Stream* stream, Location location)
   : gogo_(NULL), stream_(stream), location_(location), package_(NULL),
     add_to_globals_(false), packages_(), type_data_(), type_pos_(0),
     type_offsets_(), builtin_types_((- SMALLEST_BUILTIN_CODE) + 1),
-    types_(), version_(EXPORT_FORMAT_UNKNOWN)
+    types_(), finalizer_(NULL), version_(EXPORT_FORMAT_UNKNOWN)
 {
+}
+
+Import::~Import()
+{
+  if (this->finalizer_ != NULL)
+    delete this->finalizer_;
 }
 
 // Import the data in the associated stream.
@@ -672,7 +678,38 @@ Import::read_types()
 	this->gogo_->add_named_type(nt);
     }
 
+  // Finalize methods for any imported types. This is done after most of
+  // read_types() is complete so as to avoid method finalization of a type
+  // whose methods refer to types that are only partially read in.
+  // See issue #33013 for more on why this is needed.
+  this->finalize_methods();
+
   return true;
+}
+
+void
+Import::finalize_methods()
+{
+  if (this->finalizer_ == NULL)
+    this->finalizer_ = new Finalize_methods(gogo_);
+  Unordered_set(Type*) real_for_named;
+  for (size_t i = 1; i < this->types_.size(); i++)
+    {
+      Type* type = this->types_[i];
+      if (type != NULL && type->named_type() != NULL)
+        {
+          this->finalizer_->type(type);
+          real_for_named.insert(type->named_type()->real_type());
+        }
+    }
+  for (size_t i = 1; i < this->types_.size(); i++)
+    {
+      Type* type = this->types_[i];
+      if (type != NULL
+          && type->named_type() == NULL
+          && real_for_named.find(type) == real_for_named.end())
+        this->finalizer_->type(type);
+    }
 }
 
 // Import a constant.
@@ -925,7 +962,7 @@ Import::read_type()
     {
       if (!stream->saw_error())
 	go_error_at(this->location_,
-		    "error in import data at %d: expected %< %> or %<>%>'",
+		    "error in import data at %d: expected %< %> or %<>%>",
 		    stream->pos());
       stream->set_saw_error();
       stream->advance(1);
@@ -1126,7 +1163,7 @@ Import::type_for_index(int index, const std::string& input_name,
       if (static_cast<size_t>(index) >= this->type_offsets_.size())
 	{
 	  go_error_at(this->location_,
-		      "error in %s at %lu: bad type index %d >= %d",
+		      "error in %s at %lu: bad type index %d, max %d",
 		      input_name.c_str(),
 		      static_cast<unsigned long>(input_offset),
 		      index, static_cast<int>(this->type_offsets_.size()));
@@ -1238,7 +1275,7 @@ Import::register_builtin_type(Gogo* gogo, const char* name, Builtin_code code)
 // characters that stop an identifier, without worrying about
 // characters that are permitted in an identifier.  That lets us skip
 // UTF-8 parsing.
-static const char * const identifier_stop = " \n;,()[]";
+static const char * const identifier_stop = " \n;:,()[]";
 
 // Read an identifier from the stream.
 
@@ -1610,4 +1647,65 @@ Import_function_body::read_type()
     this->gogo_->finalize_methods_for_type(type);
 
   return type;
+}
+
+// Return the next size to use for a vector mapping indexes to values.
+
+size_t
+Import_function_body::next_size(size_t have)
+{
+  if (have == 0)
+    return 8;
+  else if (have < 256)
+    return have * 2;
+  else
+    return have + 64;
+}
+
+// Record the index of a temporary statement.
+
+void
+Import_function_body::record_temporary(Temporary_statement* temp,
+				       unsigned int idx)
+{
+  size_t have = this->temporaries_.size();
+  while (static_cast<size_t>(idx) >= have)
+    {
+      size_t want = Import_function_body::next_size(have);
+      this->temporaries_.resize(want, NULL);
+      have = want;
+    }
+  this->temporaries_[idx] = temp;
+}
+
+// Return a temporary statement given an index.
+
+Temporary_statement*
+Import_function_body::temporary_statement(unsigned int idx)
+{
+  if (static_cast<size_t>(idx) >= this->temporaries_.size())
+    return NULL;
+  return this->temporaries_[idx];
+}
+
+// Return an unnamed label given an index, defining the label if we
+// haven't seen it already.
+
+Unnamed_label*
+Import_function_body::unnamed_label(unsigned int idx, Location loc)
+{
+  size_t have = this->labels_.size();
+  while (static_cast<size_t>(idx) >= have)
+    {
+      size_t want = Import_function_body::next_size(have);
+      this->labels_.resize(want, NULL);
+      have = want;
+    }
+  Unnamed_label* label = this->labels_[idx];
+  if (label == NULL)
+    {
+      label = new Unnamed_label(loc);
+      this->labels_[idx] = label;
+    }
+  return label;
 }

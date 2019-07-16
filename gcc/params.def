@@ -1010,14 +1010,6 @@ DEFPARAM (PARAM_PROFILE_FUNC_INTERNAL_ID,
 	  "Use internal function id in profile lookup.",
 	  0, 0, 1)
 
-/* When the parameter is 1, track the most frequent N target
-   addresses in indirect-call profile. This disables
-   indirect_call_profiler_v3 which tracks single target.  */
-DEFPARAM (PARAM_INDIR_CALL_TOPN_PROFILE,
-	  "indir-call-topn-profile",
-	  "Track top N target addresses in indirect-call profile.",
-	  0, 0, 1)
-
 /* Avoid SLP vectorization of large basic blocks.  */
 DEFPARAM (PARAM_SLP_MAX_INSNS_IN_BB,
 	  "slp-max-insns-in-bb",
@@ -1134,12 +1126,6 @@ DEFPARAM (PARAM_IPA_CP_LOOP_HINT_BONUS,
 	  "Compile-time bonus IPA-CP assigns to candidates which make loop "
 	  "bounds or strides known.",
 	  64, 0, 0)
-
-DEFPARAM (PARAM_IPA_CP_ARRAY_INDEX_HINT_BONUS,
-	  "ipa-cp-array-index-hint-bonus",
-	  "Compile-time bonus IPA-CP assigns to candidates which make an array "
-	  "index known.",
-	  48, 0, 0)
 
 DEFPARAM (PARAM_IPA_MAX_AA_STEPS,
 	  "ipa-max-aa-steps",
@@ -1456,6 +1442,18 @@ DEFPARAM(PARAM_GIMPLE_FE_COMPUTED_HOT_BB_THRESHOLD,
 	 "The number of executions of a basic block which is considered hot."
 	 " The parameter is used only in GIMPLE FE.",
 	 0, 0, 0)
+
+DEFPARAM(PARAM_HASH_TABLE_VERIFICATION_LIMIT,
+	 "hash-table-verification-limit",
+	 "The number of elements for which hash table verification is done for "
+	 "each searched element.",
+	 10, 0, 0)
+
+DEFPARAM(PARAM_SSA_NAME_DEF_CHAIN_LIMIT,
+	 "ssa-name-def-chain-limit",
+	 "The maximum number of SSA_NAME assignments to follow in determining "
+	 "a value.",
+	 512, 0, 0)
 
 /*
 

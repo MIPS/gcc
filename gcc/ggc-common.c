@@ -818,8 +818,9 @@ init_ggc_heuristics (void)
 }
 
 /* GGC memory usage.  */
-struct ggc_usage: public mem_usage
+class ggc_usage: public mem_usage
 {
+public:
   /* Default constructor.  */
   ggc_usage (): m_freed (0), m_collected (0), m_overhead (0) {}
   /* Constructor.  */
@@ -1014,5 +1015,5 @@ ggc_prune_overhead_list (void)
       (*it).second.first->m_collected += (*it).second.second;
 
   delete ggc_mem_desc.m_reverse_object_map;
-  ggc_mem_desc.m_reverse_object_map = new map_t (13, false, false);
+  ggc_mem_desc.m_reverse_object_map = new map_t (13, false, false, false);
 }

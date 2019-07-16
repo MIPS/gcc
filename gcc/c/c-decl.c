@@ -574,8 +574,9 @@ typedef struct c_binding *c_binding_ptr;
 /* Information that we keep for a struct or union while it is being
    parsed.  */
 
-struct c_struct_parse_info
+class c_struct_parse_info
 {
+public:
   /* If warn_cxx_compat, a list of types defined within this
      struct.  */
   auto_vec<tree> struct_types;
@@ -591,7 +592,7 @@ struct c_struct_parse_info
 
 /* Information for the struct or union currently being parsed, or
    NULL if not parsing a struct or union.  */
-static struct c_struct_parse_info *struct_parse_info;
+static class c_struct_parse_info *struct_parse_info;
 
 /* Forward declarations.  */
 static tree lookup_name_in_scope (tree, struct c_scope *);
@@ -7767,7 +7768,7 @@ xref_tag (enum tree_code code, tree name)
 
 tree
 start_struct (location_t loc, enum tree_code code, tree name,
-	      struct c_struct_parse_info **enclosing_struct_parse_info)
+	      class c_struct_parse_info **enclosing_struct_parse_info)
 {
   /* If there is already a tag defined at this scope
      (as a forward reference), just return it.  */
@@ -8182,7 +8183,7 @@ field_decl_cmp (const void *x_p, const void *y_p)
 
 tree
 finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
-	       struct c_struct_parse_info *enclosing_struct_parse_info)
+	       class c_struct_parse_info *enclosing_struct_parse_info)
 {
   tree x;
   bool toplevel = file_scope == current_scope;
@@ -10637,7 +10638,11 @@ declspecs_add_type (location_t loc, struct c_declspecs *specs,
 	    case RID_INT_N_2:
 	    case RID_INT_N_3:
 	      specs->int_n_idx = i - RID_INT_N_0;
-	      if (!in_system_header_at (input_location))
+	      if (!in_system_header_at (input_location)
+		  /* If the INT_N type ends in "__", and so is of the format
+		     "__intN__", don't pedwarn.  */
+		  && (strncmp (IDENTIFIER_POINTER (type)
+			       + (IDENTIFIER_LENGTH (type) - 2), "__", 2) != 0))
 		pedwarn (loc, OPT_Wpedantic,
 			 "ISO C does not support %<__int%d%> types",
 			 int_n_data[specs->int_n_idx].bitsize);

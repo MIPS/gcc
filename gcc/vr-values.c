@@ -387,7 +387,10 @@ vr_values::op_with_constant_singleton_value_range (tree op)
   if (TREE_CODE (op) != SSA_NAME)
     return NULL_TREE;
 
-  return value_range_constant_singleton (get_value_range (op));
+  tree t;
+  if (get_value_range (op)->singleton_p (&t))
+    return t;
+  return NULL;
 }
 
 /* Return true if op is in a boolean [0, 1] value-range.  */
@@ -1622,7 +1625,7 @@ compare_range_with_value (enum tree_code comp, value_range *vr, tree val,
 	return NULL_TREE;
 
       /* ~[VAL_1, VAL_2] OP VAL is known if VAL_1 <= VAL <= VAL_2.  */
-      if (value_inside_range (val, vr->min (), vr->max ()) == 1)
+      if (!vr->may_contain_p (val))
 	return (comp == NE_EXPR) ? boolean_true_node : boolean_false_node;
 
       return NULL_TREE;
@@ -1708,7 +1711,7 @@ compare_range_with_value (enum tree_code comp, value_range *vr, tree val,
    for VAR.  If so, update VR with the new limits.  */
 
 void
-vr_values::adjust_range_with_scev (value_range *vr, struct loop *loop,
+vr_values::adjust_range_with_scev (value_range *vr, class loop *loop,
 				   gimple *stmt, tree var)
 {
   tree init, step, chrec, tmin, tmax, min, max, type, tem;
@@ -2357,7 +2360,7 @@ vr_values::vrp_evaluate_conditional_warnv_with_ops (enum tree_code code,
 	}
       else
 	{
-	  value_range vro, vri;
+	  value_range_base vro, vri;
 	  if (code == GT_EXPR || code == GE_EXPR)
 	    {
 	      vro.set (VR_ANTI_RANGE, TYPE_MIN_VALUE (TREE_TYPE (op0)), x);
@@ -2803,7 +2806,7 @@ vr_values::extract_range_from_phi_node (gphi *phi, value_range *vr_result)
   value_range *lhs_vr = get_value_range (lhs);
   bool first = true;
   int edges, old_edges;
-  struct loop *l;
+  class loop *l;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {

@@ -287,18 +287,7 @@ value_range::set_varying ()
 bool
 value_range_base::may_contain_p (tree val) const
 {
-  if (varying_p ())
-    return true;
-
-  if (undefined_p ())
-    return true;
-
-  if (m_kind == VR_ANTI_RANGE)
-    {
-      int res = value_inside_range (val, min (), max ());
-      return res == 0 || res == -2;
-    }
-  return value_inside_range (val, min (), max ()) != 0;
+  return value_inside_range (val) != 0;
 }
 
 void
@@ -1118,55 +1107,38 @@ compare_values (tree val1, tree val2)
 }
 
 
-/* Return 1 if VAL is inside value range MIN <= VAL <= MAX,
-          0 if VAL is not inside [MIN, MAX],
+/* Return 1 if VAL is inside value range.
+          0 if VAL is not inside value range.
 	 -2 if we cannot tell either way.
 
    Benchmark compile/20001226-1.c compilation time after changing this
    function.  */
 
 int
-value_inside_range (tree val, tree min, tree max)
+value_range_base::value_inside_range (tree val) const
 {
   int cmp1, cmp2;
 
-  cmp1 = operand_less_p (val, min);
+  if (varying_p ())
+    return 1;
+
+  if (undefined_p ())
+    return 0;
+
+  cmp1 = operand_less_p (val, m_min);
   if (cmp1 == -2)
     return -2;
   if (cmp1 == 1)
-    return 0;
+    return m_kind != VR_RANGE;
 
-  cmp2 = operand_less_p (max, val);
+  cmp2 = operand_less_p (m_max, val);
   if (cmp2 == -2)
     return -2;
 
-  return !cmp2;
-}
-
-
-/* Return TRUE if *VR includes the value X.  */
-
-bool
-range_includes_p (const value_range_base *vr, HOST_WIDE_INT x)
-{
-  if (vr->varying_p () || vr->undefined_p ())
-    return true;
-  return vr->may_contain_p (build_int_cst (vr->type (), x));
-}
-
-/* If *VR has a value range that is a single constant value return that,
-   otherwise return NULL_TREE.
-
-   ?? This actually returns TRUE for [&x, &x], so perhaps "constant"
-   is not the best name.  */
-
-tree
-value_range_constant_singleton (const value_range_base *vr)
-{
-  tree result = NULL;
-  if (vr->singleton_p (&result))
-    return result;
-  return NULL;
+  if (m_kind == VR_RANGE)
+    return !cmp2;
+  else
+    return !!cmp2;
 }
 
 /* Value range wrapper for wide_int_range_set_zero_nonzero_bits.
@@ -4520,7 +4492,8 @@ vrp_prop::check_mem_ref (location_t location, tree ref,
      The loop computes the range of the final offset for expressions such
      as (A + i0 + ... + iN)[CSTOFF] where i0 through iN are SSA_NAMEs in
      some range.  */
-  while (TREE_CODE (arg) == SSA_NAME)
+  const unsigned limit = PARAM_VALUE (PARAM_SSA_NAME_DEF_CHAIN_LIMIT);
+  for (unsigned n = 0; TREE_CODE (arg) == SSA_NAME && n < limit; ++n)
     {
       gimple *def = SSA_NAME_DEF_STMT (arg);
       if (!is_gimple_assign (def))
@@ -6005,6 +5978,11 @@ intersect_ranges (enum value_range_kind *vr0type,
 	gcc_unreachable ();
     }
 
+  /* If we know the intersection is empty, there's no need to
+     conservatively add anything else to the set.  */
+  if (*vr0type == VR_UNDEFINED)
+    return;
+
   /* As a fallback simply use { *VRTYPE, *VR0MIN, *VR0MAX } as
      result for the intersection.  That's always a conservative
      correct estimate unless VR1 is a constant singleton range
@@ -6020,30 +5998,26 @@ intersect_ranges (enum value_range_kind *vr0type,
 }
 
 
-/* Intersect the two value-ranges *VR0 and *VR1 and store the result
-   in *VR0.  This may not be the smallest possible such range.  */
+/* Helper for the intersection operation for value ranges.  Given two
+   value ranges VR0 and VR1, return the intersection of the two
+   ranges.  This may not be the smallest possible such range.  */
 
-void
-value_range::intersect_helper (value_range *vr0, const value_range *vr1)
+value_range_base
+value_range_base::intersect_helper (const value_range_base *vr0,
+				    const value_range_base *vr1)
 {
   /* If either range is VR_VARYING the other one wins.  */
   if (vr1->varying_p ())
-    return;
+    return *vr0;
   if (vr0->varying_p ())
-    {
-      vr0->deep_copy (vr1);
-      return;
-    }
+    return *vr1;
 
   /* When either range is VR_UNDEFINED the resulting range is
      VR_UNDEFINED, too.  */
   if (vr0->undefined_p ())
-    return;
+    return *vr0;
   if (vr1->undefined_p ())
-    {
-      vr0->set_undefined ();
-      return;
-    }
+    return *vr1;
 
   value_range_kind vr0type = vr0->kind ();
   tree vr0min = vr0->min ();
@@ -6053,28 +6027,34 @@ value_range::intersect_helper (value_range *vr0, const value_range *vr1)
   /* Make sure to canonicalize the result though as the inversion of a
      VR_RANGE can still be a VR_RANGE.  Work on a temporary so we can
      fall back to vr0 when this turns things to varying.  */
-  value_range tem;
+  value_range_base tem;
   tem.set_and_canonicalize (vr0type, vr0min, vr0max);
   /* If that failed, use the saved original VR0.  */
   if (tem.varying_p ())
-    return;
-  vr0->update (tem.kind (), tem.min (), tem.max ());
+    return *vr0;
 
-  /* If the result is VR_UNDEFINED there is no need to mess with
-     the equivalencies.  */
-  if (vr0->undefined_p ())
-    return;
+  return tem;
+}
 
-  /* The resulting set of equivalences for range intersection is the union of
-     the two sets.  */
-  if (vr0->m_equiv && vr1->m_equiv && vr0->m_equiv != vr1->m_equiv)
-    bitmap_ior_into (vr0->m_equiv, vr1->m_equiv);
-  else if (vr1->m_equiv && !vr0->m_equiv)
+void
+value_range_base::intersect (const value_range_base *other)
+{
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      /* All equivalence bitmaps are allocated from the same obstack.  So
-	 we can use the obstack associated with VR to allocate vr0->equiv.  */
-      vr0->m_equiv = BITMAP_ALLOC (vr1->m_equiv->obstack);
-      bitmap_copy (m_equiv, vr1->m_equiv);
+      fprintf (dump_file, "Intersecting\n  ");
+      dump_value_range (dump_file, this);
+      fprintf (dump_file, "\nand\n  ");
+      dump_value_range (dump_file, other);
+      fprintf (dump_file, "\n");
+    }
+
+  *this = intersect_helper (this, other);
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "to\n  ");
+      dump_value_range (dump_file, this);
+      fprintf (dump_file, "\n");
     }
 }
 
@@ -6089,7 +6069,36 @@ value_range::intersect (const value_range *other)
       dump_value_range (dump_file, other);
       fprintf (dump_file, "\n");
     }
-  intersect_helper (this, other);
+
+  /* If THIS is varying we want to pick up equivalences from OTHER.
+     Just special-case this here rather than trying to fixup after the
+     fact.  */
+  if (this->varying_p ())
+    this->deep_copy (other);
+  else
+    {
+      value_range_base tem = intersect_helper (this, other);
+      this->update (tem.kind (), tem.min (), tem.max ());
+
+      /* If the result is VR_UNDEFINED there is no need to mess with
+	 equivalencies.  */
+      if (!undefined_p ())
+	{
+	  /* The resulting set of equivalences for range intersection
+	     is the union of the two sets.  */
+	  if (m_equiv && other->m_equiv && m_equiv != other->m_equiv)
+	    bitmap_ior_into (m_equiv, other->m_equiv);
+	  else if (other->m_equiv && !m_equiv)
+	    {
+	      /* All equivalence bitmaps are allocated from the same
+		 obstack.  So we can use the obstack associated with
+		 VR to allocate this->m_equiv.  */
+	      m_equiv = BITMAP_ALLOC (other->m_equiv->obstack);
+	      bitmap_copy (m_equiv, other->m_equiv);
+	    }
+	}
+    }
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "to\n  ");

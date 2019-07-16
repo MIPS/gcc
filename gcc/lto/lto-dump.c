@@ -38,10 +38,14 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Stores details of symbols for dumping symbol list.  */
 
-struct symbol_entry
+class symbol_entry
 {
+public:
   symtab_node *node;
   symbol_entry (symtab_node *node_): node (node_)
+  {}
+
+  virtual ~symbol_entry ()
   {}
 
   char* get_name () const
@@ -67,9 +71,13 @@ struct symbol_entry
 
 /* Stores variable specific details of symbols for dumping symbol list.  */
 
-struct variable_entry: public symbol_entry
+class variable_entry: public symbol_entry
 {
+public:
   variable_entry (varpool_node *node_): symbol_entry (node_)
+  {}
+
+  virtual ~variable_entry ()
   {}
 
   virtual size_t get_size () const
@@ -94,9 +102,13 @@ struct variable_entry: public symbol_entry
 
 /* Stores function specific details of symbols for dumping symbol list.  */
 
-struct function_entry: public symbol_entry
+class function_entry: public symbol_entry
 {
+public:
   function_entry (cgraph_node *node_): symbol_entry (node_)
+  {}
+
+  virtual ~function_entry ()
   {}
 
   virtual void dump ()
@@ -166,7 +178,10 @@ void dump_list_functions (void)
   int i=0;
   symbol_entry* e;
   FOR_EACH_VEC_ELT (v, i, e)
-    e->dump ();
+    {
+      e->dump ();
+      delete e;
+    }
 }
 
 /* Dump list of variables and their details.  */
@@ -194,7 +209,10 @@ void dump_list_variables (void)
   int i=0;
   symbol_entry* e;
   FOR_EACH_VEC_ELT (v, i, e)
-    e->dump ();
+    {
+      e->dump ();
+      delete e;
+    }
 }
 
 /* Dump symbol list.  */

@@ -72,6 +72,7 @@ with Ttypes;   use Ttypes;
 with Uintp;    use Uintp;
 with Urealp;   use Urealp;
 with Validsw;  use Validsw;
+with Warnsw;   use Warnsw;
 
 package body Exp_Ch4 is
 
@@ -414,6 +415,52 @@ package body Exp_Ch4 is
       when RE_Not_Available =>
          return;
    end Build_Boolean_Array_Proc_Call;
+
+   -----------------------
+   -- Build_Eq_Call --
+   -----------------------
+
+   function Build_Eq_Call
+     (Typ : Entity_Id;
+      Loc : Source_Ptr;
+      Lhs : Node_Id;
+      Rhs : Node_Id) return Node_Id
+   is
+      Prim   : Node_Id;
+      Prim_E : Elmt_Id;
+
+   begin
+      Prim_E := First_Elmt (Collect_Primitive_Operations (Typ));
+      while Present (Prim_E) loop
+         Prim := Node (Prim_E);
+
+         --  Locate primitive equality with the right signature
+
+         if Chars (Prim) = Name_Op_Eq
+           and then Etype (First_Formal (Prim)) =
+                    Etype (Next_Formal (First_Formal (Prim)))
+           and then Etype (Prim) = Standard_Boolean
+         then
+            if Is_Abstract_Subprogram (Prim) then
+               return
+                 Make_Raise_Program_Error (Loc,
+                   Reason => PE_Explicit_Raise);
+
+            else
+               return
+                 Make_Function_Call (Loc,
+                   Name                   => New_Occurrence_Of (Prim, Loc),
+                   Parameter_Associations => New_List (Lhs, Rhs));
+            end if;
+         end if;
+
+         Next_Elmt (Prim_E);
+      end loop;
+
+      --  If not found, predefined operation will be used
+
+      return Empty;
+   end Build_Eq_Call;
 
    --------------------------------
    -- Displace_Allocator_Pointer --
@@ -1938,7 +1985,7 @@ package body Exp_Ch4 is
               Parameter_Specifications => Formals,
               Result_Definition => New_Occurrence_Of (Standard_Boolean, Loc)),
 
-          Declarations =>  Decls,
+          Declarations => Decls,
 
           Handled_Statement_Sequence =>
             Make_Handled_Sequence_Of_Statements (Loc,
@@ -2338,52 +2385,6 @@ package body Exp_Ch4 is
       Full_Type : Entity_Id;
       Eq_Op     : Entity_Id;
 
-      function Find_Primitive_Eq return Node_Id;
-      --  AI05-0123: Locate primitive equality for type if it exists, and
-      --  build the corresponding call. If operation is abstract, replace
-      --  call with an explicit raise. Return Empty if there is no primitive.
-
-      -----------------------
-      -- Find_Primitive_Eq --
-      -----------------------
-
-      function Find_Primitive_Eq return Node_Id is
-         Prim_E : Elmt_Id;
-         Prim   : Node_Id;
-
-      begin
-         Prim_E := First_Elmt (Collect_Primitive_Operations (Typ));
-         while Present (Prim_E) loop
-            Prim := Node (Prim_E);
-
-            --  Locate primitive equality with the right signature
-
-            if Chars (Prim) = Name_Op_Eq
-              and then Etype (First_Formal (Prim)) =
-                       Etype (Next_Formal (First_Formal (Prim)))
-              and then Etype (Prim) = Standard_Boolean
-            then
-               if Is_Abstract_Subprogram (Prim) then
-                  return
-                    Make_Raise_Program_Error (Loc,
-                      Reason => PE_Explicit_Raise);
-
-               else
-                  return
-                    Make_Function_Call (Loc,
-                      Name                   => New_Occurrence_Of (Prim, Loc),
-                      Parameter_Associations => New_List (Lhs, Rhs));
-               end if;
-            end if;
-
-            Next_Elmt (Prim_E);
-         end loop;
-
-         --  If not found, predefined operation will be used
-
-         return Empty;
-      end Find_Primitive_Eq;
-
    --  Start of processing for Expand_Composite_Equality
 
    begin
@@ -2654,7 +2655,7 @@ package body Exp_Ch4 is
             --  a primitive equality declared for it.
 
             declare
-               Op : constant Node_Id := Find_Primitive_Eq;
+               Op : constant Node_Id := Build_Eq_Call (Typ, Loc, Lhs, Rhs);
 
             begin
                --  Use user-defined primitive if it exists, otherwise use
@@ -4354,6 +4355,15 @@ package body Exp_Ch4 is
    --  Start of processing for Expand_N_Allocator
 
    begin
+      --  Warn on the presence of an allocator of an anonymous access type when
+      --  enabled.
+
+      if Warn_On_Anonymous_Allocators
+        and then Ekind (PtrT) = E_Anonymous_Access_Type
+      then
+         Error_Msg_N ("?use of an anonymous access type allocator", N);
+      end if;
+
       --  RM E.2.3(22). We enforce that the expected type of an allocator
       --  shall not be a remote access-to-class-wide-limited-private type
 
@@ -4751,6 +4761,9 @@ package body Exp_Ch4 is
 
          --  Case of initialization procedure present, must be called
 
+         --  NOTE: There is a *huge* amount of code duplication here from
+         --  Build_Initialization_Call. We should probably refactor???
+
          else
             Check_Restriction (No_Default_Initialization, N);
 
@@ -5074,7 +5087,6 @@ package body Exp_Ch4 is
    ------------------------------
 
    procedure Expand_N_Case_Expression (N : Node_Id) is
-
       function Is_Copy_Type (Typ : Entity_Id) return Boolean;
       --  Return True if we can copy objects of this type when expanding a case
       --  expression.
@@ -5093,7 +5105,7 @@ package body Exp_Ch4 is
              or else
                (Minimize_Expression_With_Actions
                  and then Is_Constrained (Underlying_Type (Typ))
-                 and then not Is_Limited_View (Underlying_Type (Typ)));
+                 and then not Is_Limited_Type (Underlying_Type (Typ)));
       end Is_Copy_Type;
 
       --  Local variables
@@ -5270,6 +5282,7 @@ package body Exp_Ch4 is
          declare
             Alt_Expr : Node_Id             := Expression (Alt);
             Alt_Loc  : constant Source_Ptr := Sloc (Alt_Expr);
+            LHS      : Node_Id;
             Stmts    : List_Id;
 
          begin
@@ -5299,9 +5312,12 @@ package body Exp_Ch4 is
             --    Target := AX['Unrestricted_Access];
 
             else
+               LHS := New_Occurrence_Of (Target, Loc);
+               Set_Assignment_OK (LHS);
+
                Stmts := New_List (
                  Make_Assignment_Statement (Alt_Loc,
-                   Name       => New_Occurrence_Of (Target, Loc),
+                   Name       => LHS,
                    Expression => Alt_Expr));
             end if;
 
@@ -6759,7 +6775,7 @@ package body Exp_Ch4 is
       --    Renaming objects in renaming associations
       --      This case is handled when a use of the renamed variable occurs
 
-      --    Actual parameters for a procedure call
+      --    Actual parameters for a subprogram call
       --      This case is handled in Exp_Ch6.Expand_Actuals
 
       --    The second expression in a 'Read attribute reference
@@ -6780,11 +6796,12 @@ package body Exp_Ch4 is
             if Nkind (Parnt) = N_Unchecked_Expression then
                null;
 
-            elsif Nkind_In (Parnt, N_Object_Renaming_Declaration,
-                                   N_Procedure_Call_Statement)
+            elsif Nkind (Parnt) = N_Object_Renaming_Declaration then
+               return;
+
+            elsif Nkind (Parnt) in N_Subprogram_Call
               or else (Nkind (Parnt) = N_Parameter_Association
-                        and then
-                          Nkind (Parent (Parnt)) = N_Procedure_Call_Statement)
+                        and then Nkind (Parent (Parnt)) in N_Subprogram_Call)
             then
                return;
 
@@ -7400,7 +7417,7 @@ package body Exp_Ch4 is
                --     Obj1 : Enclosing_Non_UU_Type;
                --     Obj2 : Enclosing_Non_UU_Type (1);
 
-               --     ...  Obj1 = Obj2 ...
+               --     ... Obj1 = Obj2 ...
 
                --     Generated code:
 
@@ -11468,6 +11485,7 @@ package body Exp_Ch4 is
          then
             if not Comes_From_Source (N)
               and then Nkind_In (Parent (N), N_Function_Call,
+                                             N_Parameter_Association,
                                              N_Procedure_Call_Statement)
               and then Is_Interface (Designated_Type (Target_Type))
               and then Is_Class_Wide_Type (Designated_Type (Target_Type))
@@ -12032,10 +12050,13 @@ package body Exp_Ch4 is
 
          begin
             --  Avoid infinite recursion on the subsequent expansion of
-            --  of the copy of the original type conversion.
+            --  of the copy of the original type conversion. When needed,
+            --  a range check has already been applied to the expression.
 
             Set_Comes_From_Source (New_Expr, False);
-            Insert_Action (N, Make_Predicate_Check (Target_Type, New_Expr));
+            Insert_Action (N,
+               Make_Predicate_Check (Target_Type, New_Expr),
+               Suppress => Range_Check);
          end;
       end if;
    end Expand_N_Type_Conversion;
@@ -12391,6 +12412,10 @@ package body Exp_Ch4 is
       --  For Opnd a boolean expression, return a Boolean expression equivalent
       --  to Opnd /= Shortcut_Value.
 
+      function Useful (Actions : List_Id) return Boolean;
+      --  Return True if Actions is not empty and contains useful nodes to
+      --  process.
+
       --------------------
       -- Make_Test_Expr --
       --------------------
@@ -12403,6 +12428,31 @@ package body Exp_Ch4 is
             return Opnd;
          end if;
       end Make_Test_Expr;
+
+      ------------
+      -- Useful --
+      ------------
+
+      function Useful (Actions : List_Id) return Boolean is
+         L : Node_Id;
+      begin
+         if Present (Actions) then
+            L := First (Actions);
+
+            --  For now "useful" means not N_Variable_Reference_Marker.
+            --  Consider stripping other nodes in the future.
+
+            while Present (L) loop
+               if Nkind (L) /= N_Variable_Reference_Marker then
+                  return True;
+               end if;
+
+               Next (L);
+            end loop;
+         end if;
+
+         return False;
+      end Useful;
 
       --  Local variables
 
@@ -12463,7 +12513,7 @@ package body Exp_Ch4 is
       --  must only be executed if the right operand of the short circuit is
       --  executed and not otherwise.
 
-      if Present (Actions (N)) then
+      if Useful (Actions (N)) then
          Actlist := Actions (N);
 
          --  The old approach is to expand:
@@ -12567,7 +12617,7 @@ package body Exp_Ch4 is
       Adjust_Result_Type (N, Typ);
    end Expand_Short_Circuit_Operator;
 
-   -------------------------------------
+   ------------------------------------
    -- Fixup_Universal_Fixed_Operation --
    -------------------------------------
 
@@ -14122,7 +14172,8 @@ package body Exp_Ch4 is
          --    Obj1 in DT'Class;     --  Compile time error
          --    Obj1 in Iface'Class;  --  Compile time error
 
-         if not Is_Class_Wide_Type (Left_Type)
+         if not Is_Interface (Left_Type)
+           and then not Is_Class_Wide_Type (Left_Type)
            and then (Is_Ancestor (Etype (Right_Type), Left_Type,
                                   Use_Full_View => True)
                       or else (Is_Interface (Etype (Right_Type))

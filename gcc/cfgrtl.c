@@ -2105,7 +2105,8 @@ commit_edge_insertions (void)
      which will be done by fixup_partitions.  */
   fixup_partitions ();
 
-  checking_verify_flow_info ();
+  if (!currently_expanding_to_rtl)
+    checking_verify_flow_info ();
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (cfun),
 		  EXIT_BLOCK_PTR_FOR_FN (cfun), next_bb)
@@ -2115,7 +2116,11 @@ commit_edge_insertions (void)
 
       FOR_EACH_EDGE (e, ei, bb->succs)
 	if (e->insns.r)
-	  commit_one_edge_insertion (e);
+	  {
+	    if (currently_expanding_to_rtl)
+	      rebuild_jump_labels_chain (e->insns.r);
+	    commit_one_edge_insertion (e);
+	  }
     }
 }
 
@@ -2193,7 +2198,7 @@ print_rtl_with_bb (FILE *outf, const rtx_insn *rtx_first, dump_flags_t flags)
       if (df)
 	df_dump_start (outf);
 
-      if (flags & TDF_BLOCKS)
+      if (cfun->curr_properties & PROP_cfg)
 	{
 	  FOR_EACH_BB_REVERSE_FN (bb, cfun)
 	    {
@@ -2201,16 +2206,19 @@ print_rtl_with_bb (FILE *outf, const rtx_insn *rtx_first, dump_flags_t flags)
 
 	      start[INSN_UID (BB_HEAD (bb))] = bb;
 	      end[INSN_UID (BB_END (bb))] = bb;
-	      for (x = BB_HEAD (bb); x != NULL_RTX; x = NEXT_INSN (x))
+	      if (flags & TDF_BLOCKS)
 		{
-		  enum bb_state state = IN_MULTIPLE_BB;
+		  for (x = BB_HEAD (bb); x != NULL_RTX; x = NEXT_INSN (x))
+		    {
+		      enum bb_state state = IN_MULTIPLE_BB;
 
-		  if (in_bb_p[INSN_UID (x)] == NOT_IN_BB)
-		    state = IN_ONE_BB;
-		  in_bb_p[INSN_UID (x)] = state;
+		      if (in_bb_p[INSN_UID (x)] == NOT_IN_BB)
+			state = IN_ONE_BB;
+		      in_bb_p[INSN_UID (x)] = state;
 
-		  if (x == BB_END (bb))
-		    break;
+		      if (x == BB_END (bb))
+			break;
+		    }
 		}
 	    }
 	}
@@ -2244,15 +2252,35 @@ print_rtl_with_bb (FILE *outf, const rtx_insn *rtx_first, dump_flags_t flags)
 	  if (flags & TDF_DETAILS)
 	    df_dump_insn_bottom (tmp_rtx, outf);
 
-	  if (flags & TDF_BLOCKS)
+	  bb = end[INSN_UID (tmp_rtx)];
+	  if (bb != NULL)
 	    {
-	      bb = end[INSN_UID (tmp_rtx)];
-	      if (bb != NULL)
+	      if (flags & TDF_BLOCKS)
 		{
 		  dump_bb_info (outf, bb, 0, dump_flags, false, true);
 		  if (df && (flags & TDF_DETAILS))
 		    df_dump_bottom (bb, outf);
 		  putc ('\n', outf);
+		}
+	      /* Emit a hint if the fallthrough target of current basic block
+	         isn't the one placed right next.  */
+	      else if (EDGE_COUNT (bb->succs) > 0)
+		{
+		  gcc_assert (BB_END (bb) == tmp_rtx);
+		  const rtx_insn *ninsn = NEXT_INSN (tmp_rtx);
+		  /* Bypass intervening deleted-insn notes and debug insns.  */
+		  while (ninsn
+			 && !NONDEBUG_INSN_P (ninsn)
+			 && !start[INSN_UID (ninsn)])
+		    ninsn = NEXT_INSN (ninsn);
+		  edge e = find_fallthru_edge (bb->succs);
+		  if (e && ninsn)
+		    {
+		      basic_block dest = e->dest;
+		      if (start[INSN_UID (ninsn)] != dest)
+			fprintf (outf, "%s      ; pc falls through to BB %d\n",
+				 print_rtx_head, dest->index);
+		    }
 		}
 	    }
 	}
@@ -2968,7 +2996,6 @@ rtl_verify_bb_layout (void)
   basic_block last_bb_seen = ENTRY_BLOCK_PTR_FOR_FN (cfun), curr_bb = NULL;
 
   num_bb_notes = 0;
-  last_bb_seen = ENTRY_BLOCK_PTR_FOR_FN (cfun);
 
   for (x = rtx_first; x; x = NEXT_INSN (x))
     {

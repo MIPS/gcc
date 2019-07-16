@@ -981,7 +981,7 @@ expand_builtin_setjmp_setup (rtx buf_addr, rtx receiver_label)
 
   mem = gen_rtx_MEM (Pmode, buf_addr);
   set_mem_alias_set (mem, setjmp_alias_set);
-  emit_move_insn (mem, targetm.builtin_setjmp_frame_value ());
+  emit_move_insn (mem, hard_frame_pointer_rtx);
 
   mem = gen_rtx_MEM (Pmode, plus_constant (Pmode, buf_addr,
 					   GET_MODE_SIZE (Pmode))),
@@ -1022,31 +1022,6 @@ expand_builtin_setjmp_receiver (rtx receiver_label)
   chain = rtx_for_static_chain (current_function_decl, true);
   if (chain && REG_P (chain))
     emit_clobber (chain);
-
-  /* Now put in the code to restore the frame pointer, and argument
-     pointer, if needed.  */
-  if (! targetm.have_nonlocal_goto ())
-    {
-      /* First adjust our frame pointer to its actual value.  It was
-	 previously set to the start of the virtual area corresponding to
-	 the stacked variables when we branched here and now needs to be
-	 adjusted to the actual hardware fp value.
-
-	 Assignments to virtual registers are converted by
-	 instantiate_virtual_regs into the corresponding assignment
-	 to the underlying register (fp in this case) that makes
-	 the original assignment true.
-	 So the following insn will actually be decrementing fp by
-	 TARGET_STARTING_FRAME_OFFSET.  */
-      emit_move_insn (virtual_stack_vars_rtx, hard_frame_pointer_rtx);
-
-      /* Restoring the frame pointer also modifies the hard frame pointer.
-	 Mark it used (so that the previous assignment remains live once
-	 the frame pointer is eliminated) and clobbered (to represent the
-	 implicit update from the assignment).  */
-      emit_use (hard_frame_pointer_rtx);
-      emit_clobber (hard_frame_pointer_rtx);
-    }
 
   if (!HARD_FRAME_POINTER_IS_ARG_POINTER && fixed_regs[ARG_POINTER_REGNUM])
     {
@@ -1425,7 +1400,7 @@ expand_builtin_prefetch (tree exp)
 
   if (targetm.have_prefetch ())
     {
-      struct expand_operand ops[3];
+      class expand_operand ops[3];
 
       create_address_operand (&ops[0], op0);
       create_integer_operand (&ops[1], INTVAL (op1));
@@ -1441,7 +1416,7 @@ expand_builtin_prefetch (tree exp)
 }
 
 /* Get a MEM rtx for expression EXP which is the address of an operand
-   to be used in a string instruction (cmpstrsi, movmemsi, ..).  LEN is
+   to be used in a string instruction (cmpstrsi, cpymemsi, ..).  LEN is
    the maximum length of the block of memory that might be accessed or
    NULL if unknown.  */
 
@@ -1663,11 +1638,8 @@ expand_builtin_apply_args_1 (void)
   /* Save the structure value address unless this is passed as an
      "invisible" first argument.  */
   if (struct_incoming_value)
-    {
-      emit_move_insn (adjust_address (registers, Pmode, size),
-		      copy_to_reg (struct_incoming_value));
-      size += GET_MODE_SIZE (Pmode);
-    }
+    emit_move_insn (adjust_address (registers, Pmode, size),
+		    copy_to_reg (struct_incoming_value));
 
   /* Return the address of the block.  */
   return copy_addr_to_reg (XEXP (registers, 0));
@@ -1816,7 +1788,6 @@ expand_builtin_apply (rtx function, rtx arguments, rtx argsize)
       emit_move_insn (struct_value, value);
       if (REG_P (struct_value))
 	use_reg (&call_fusage, struct_value);
-      size += GET_MODE_SIZE (Pmode);
     }
 
   /* All arguments and registers used for the call are set up by now!  */
@@ -2474,7 +2445,7 @@ expand_builtin_interclass_mathfn (tree exp, rtx target)
 
   if (icode != CODE_FOR_nothing)
     {
-      struct expand_operand ops[1];
+      class expand_operand ops[1];
       rtx_insn *last = get_last_insn ();
       tree orig_arg = arg;
 
@@ -2975,7 +2946,7 @@ expand_builtin_strlen (tree exp, rtx target,
   if (!validate_arglist (exp, POINTER_TYPE, VOID_TYPE))
     return NULL_RTX;
 
-  struct expand_operand ops[4];
+  class expand_operand ops[4];
   rtx pat;
   tree len;
   tree src = CALL_EXPR_ARG (exp, 0);
@@ -3952,7 +3923,7 @@ expand_builtin_mempcpy_args (tree dest, tree src, tree len,
 static rtx
 expand_movstr (tree dest, tree src, rtx target, memop_ret retmode)
 {
-  struct expand_operand ops[3];
+  class expand_operand ops[3];
   rtx dest_mem;
   rtx src_mem;
 
@@ -4662,7 +4633,7 @@ expand_cmpstr (insn_code icode, rtx target, rtx arg1_rtx, rtx arg2_rtx,
   if (target && (!REG_P (target) || HARD_REGISTER_P (target)))
     target = NULL_RTX;
 
-  struct expand_operand ops[4];
+  class expand_operand ops[4];
   create_output_operand (&ops[0], target, insn_mode);
   create_fixed_operand (&ops[1], arg1_rtx);
   create_fixed_operand (&ops[2], arg2_rtx);
@@ -5635,7 +5606,7 @@ expand_builtin___clear_cache (tree exp)
 
   if (targetm.have_clear_cache ())
     {
-      struct expand_operand ops[2];
+      class expand_operand ops[2];
 
       begin = CALL_EXPR_ARG (exp, 0);
       begin_rtx = expand_expr (begin, NULL_RTX, Pmode, EXPAND_NORMAL);
@@ -6595,7 +6566,7 @@ expand_ifn_atomic_bit_test_and (gcall *call)
   machine_mode mode = TYPE_MODE (TREE_TYPE (flag));
   enum rtx_code code;
   optab optab;
-  struct expand_operand ops[5];
+  class expand_operand ops[5];
 
   gcc_assert (flag_inline_atomics);
 
@@ -6903,7 +6874,7 @@ expand_builtin_thread_pointer (tree exp, rtx target)
   icode = direct_optab_handler (get_thread_pointer_optab, Pmode);
   if (icode != CODE_FOR_nothing)
     {
-      struct expand_operand op;
+      class expand_operand op;
       /* If the target is not sutitable then create a new target. */
       if (target == NULL_RTX
 	  || !REG_P (target)
@@ -6926,7 +6897,7 @@ expand_builtin_set_thread_pointer (tree exp)
   icode = direct_optab_handler (set_thread_pointer_optab, Pmode);
   if (icode != CODE_FOR_nothing)
     {
-      struct expand_operand op;
+      class expand_operand op;
       rtx val = expand_expr (CALL_EXPR_ARG (exp, 0), NULL_RTX,
 			     Pmode, EXPAND_NORMAL);      
       create_input_operand (&op, val, Pmode);
@@ -7147,8 +7118,19 @@ inline_expand_builtin_string_cmp (tree exp, rtx target)
     return NULL_RTX;
 
   /* For strncmp, if the length is not a const, not qualify.  */
-  if (is_ncmp && !tree_fits_uhwi_p (len3_tree))
-    return NULL_RTX;
+  if (is_ncmp)
+    {
+      if (!tree_fits_uhwi_p (len3_tree))
+	return NULL_RTX;
+      else
+	len3 = tree_to_uhwi (len3_tree);
+    }
+
+  if (src_str1 != NULL)
+    len1 = strnlen (src_str1, len1) + 1;
+
+  if (src_str2 != NULL)
+    len2 = strnlen (src_str2, len2) + 1;
 
   int const_str_n = 0;
   if (!len1)
@@ -7163,7 +7145,7 @@ inline_expand_builtin_string_cmp (tree exp, rtx target)
   gcc_checking_assert (const_str_n > 0);
   length = (const_str_n == 1) ? len1 : len2;
 
-  if (is_ncmp && (len3 = tree_to_uhwi (len3_tree)) < length)
+  if (is_ncmp && len3 < length)
     length = len3;
 
   /* If the length of the comparision is larger than the threshold,

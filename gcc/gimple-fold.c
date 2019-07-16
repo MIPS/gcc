@@ -684,10 +684,10 @@ size_must_be_zero_p (tree size)
   /* Compute the value of SSIZE_MAX, the largest positive value that
      can be stored in ssize_t, the signed counterpart of size_t.  */
   wide_int ssize_max = wi::lshift (wi::one (prec), prec - 1) - 1;
-  value_range valid_range (VR_RANGE,
-			   build_int_cst (type, 0),
-			   wide_int_to_tree (type, ssize_max));
-  value_range vr;
+  value_range_base valid_range (VR_RANGE,
+				build_int_cst (type, 0),
+				wide_int_to_tree (type, ssize_max));
+  value_range_base vr;
   get_range_info (size, vr);
   vr.intersect (&valid_range);
   return vr.zero_p ();
@@ -1672,30 +1672,16 @@ get_range_strlen (tree arg, bitmap *visited,
     }
 }
 
-/* Determine the minimum and maximum value or string length that ARG
-   refers to and store each in the first two elements of MINMAXLEN.
-   For expressions that point to strings of unknown lengths that are
-   character arrays, use the upper bound of the array as the maximum
-   length.  For example, given an expression like 'x ? array : "xyz"'
-   and array declared as 'char array[8]', MINMAXLEN[0] will be set
-   to 0 and MINMAXLEN[1] to 7, the longest string that could be
-   stored in array.
-   Return true if the range of the string lengths has been obtained
-   from the upper bound of an array at the end of a struct.  Such
-   an array may hold a string that's longer than its upper bound
-   due to it being used as a poor-man's flexible array member.
-
-   STRICT is true if it will handle PHIs and COND_EXPRs conservatively
-   and false if PHIs and COND_EXPRs are to be handled optimistically,
-   if we can determine string length minimum and maximum; it will use
-   the minimum from the ones where it can be determined.
-   STRICT false should be only used for warning code.
-   When non-null, clear *NONSTR if ARG refers to a constant array
-   that is known not be nul-terminated.  Otherwise set it to
-   the declaration of the constant non-terminated array.
-
-   ELTSIZE is 1 for normal single byte character strings, and 2 or
-   4 for wide characer strings.  ELTSIZE is by default 1.  */
+/* Try to obtain the range of the lengths of the string(s) referenced
+   by ARG, or the size of the largest array ARG refers to if the range
+   of lengths cannot be determined, and store all in *PDATA.  ELTSIZE
+   is the expected size of the string element in bytes: 1 for char and
+   some power of 2 for wide characters.
+   Return true if the range [PDATA->MINLEN, PDATA->MAXLEN] is suitable
+   for optimization.  Returning false means that a nonzero PDATA->MINLEN
+   doesn't reflect the true lower bound of the range when PDATA->MAXLEN
+   is -1 (in that case, the actual range is indeterminate, i.e.,
+   [0, PTRDIFF_MAX - 2].  */
 
 bool
 get_range_strlen (tree arg, c_strlen_data *pdata, unsigned eltsize)
@@ -2557,7 +2543,15 @@ gimple_fold_builtin_memchr (gimple_stmt_iterator *gsi)
       const char *r = (const char *)memchr (p1, c, MIN (length, string_length));
       if (r == NULL)
 	{
-	  if (length <= string_length)
+	  tree mem_size, offset_node;
+	  string_constant (arg1, &offset_node, &mem_size, NULL);
+	  unsigned HOST_WIDE_INT offset = (offset_node == NULL_TREE)
+					  ? 0 : tree_to_uhwi (offset_node);
+	  /* MEM_SIZE is the size of the array the string literal
+	     is stored in.  */
+	  unsigned HOST_WIDE_INT string_size = tree_to_uhwi (mem_size) - offset;
+	  gcc_checking_assert (string_length <= string_size);
+	  if (length <= string_size)
 	    {
 	      replace_call_with_value (gsi, build_int_cst (ptr_type_node, 0));
 	      return true;
@@ -6722,14 +6716,13 @@ fold_array_ctor_reference (tree type, tree ctor,
   elt_size = wi::to_offset (TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (ctor))));
 
   /* When TYPE is non-null, verify that it specifies a constant-sized
-     accessed not larger than size of array element.  Avoid division
+     access of a multiple of the array element size.  Avoid division
      by zero below when ELT_SIZE is zero, such as with the result of
      an initializer for a zero-length array or an empty struct.  */
   if (elt_size == 0
       || (type
 	  && (!TYPE_SIZE_UNIT (type)
-	      || TREE_CODE (TYPE_SIZE_UNIT (type)) != INTEGER_CST
-	      || elt_size < wi::to_offset (TYPE_SIZE_UNIT (type)))))
+	      || TREE_CODE (TYPE_SIZE_UNIT (type)) != INTEGER_CST)))
     return NULL_TREE;
 
   /* Compute the array index we look for.  */
@@ -6740,10 +6733,88 @@ fold_array_ctor_reference (tree type, tree ctor,
   /* And offset within the access.  */
   inner_offset = offset % (elt_size.to_uhwi () * BITS_PER_UNIT);
 
-  /* See if the array field is large enough to span whole access.  We do not
-     care to fold accesses spanning multiple array indexes.  */
-  if (inner_offset + size > elt_size.to_uhwi () * BITS_PER_UNIT)
-    return NULL_TREE;
+  if (size > elt_size.to_uhwi () * BITS_PER_UNIT)
+    {
+      /* native_encode_expr constraints.  */
+      if (size > MAX_BITSIZE_MODE_ANY_MODE
+	  || size % BITS_PER_UNIT != 0
+	  || inner_offset % BITS_PER_UNIT != 0)
+	return NULL_TREE;
+
+      unsigned ctor_idx;
+      tree val = get_array_ctor_element_at_index (ctor, access_index,
+						  &ctor_idx);
+      if (!val && ctor_idx >= CONSTRUCTOR_NELTS  (ctor))
+	return build_zero_cst (type);
+
+      /* native-encode adjacent ctor elements.  */
+      unsigned char buf[MAX_BITSIZE_MODE_ANY_MODE / BITS_PER_UNIT];
+      unsigned bufoff = 0;
+      offset_int index = 0;
+      offset_int max_index = access_index;
+      constructor_elt *elt = CONSTRUCTOR_ELT (ctor, ctor_idx);
+      if (!val)
+	val = build_zero_cst (TREE_TYPE (TREE_TYPE (ctor)));
+      else if (!CONSTANT_CLASS_P (val))
+	return NULL_TREE;
+      if (!elt->index)
+	;
+      else if (TREE_CODE (elt->index) == RANGE_EXPR)
+	{
+	  index = wi::to_offset (TREE_OPERAND (elt->index, 0));
+	  max_index = wi::to_offset (TREE_OPERAND (elt->index, 1));
+	}
+      else
+	index = max_index = wi::to_offset (elt->index);
+      index = wi::umax (index, access_index);
+      do
+	{
+	  int len = native_encode_expr (val, buf + bufoff,
+					elt_size.to_uhwi (),
+					inner_offset / BITS_PER_UNIT);
+	  if (len != elt_size - inner_offset / BITS_PER_UNIT)
+	    return NULL_TREE;
+	  inner_offset = 0;
+	  bufoff += len;
+
+	  access_index += 1;
+	  if (wi::cmpu (access_index, index) == 0)
+	    val = elt->value;
+	  else if (wi::cmpu (access_index, max_index) > 0)
+	    {
+	      ctor_idx++;
+	      if (ctor_idx >= CONSTRUCTOR_NELTS (ctor))
+		{
+		  val = build_zero_cst (TREE_TYPE (TREE_TYPE (ctor)));
+		  ++max_index;
+		}
+	      else
+		{
+		  elt = CONSTRUCTOR_ELT (ctor, ctor_idx);
+		  index = 0;
+		  max_index = access_index;
+		  if (!elt->index)
+		    ;
+		  else if (TREE_CODE (elt->index) == RANGE_EXPR)
+		    {
+		      index = wi::to_offset (TREE_OPERAND (elt->index, 0));
+		      max_index = wi::to_offset (TREE_OPERAND (elt->index, 1));
+		    }
+		  else
+		    index = max_index = wi::to_offset (elt->index);
+		  index = wi::umax (index, access_index);
+		  if (wi::cmpu (access_index, index) == 0)
+		    val = elt->value;
+		  else
+		    val = build_zero_cst (TREE_TYPE (TREE_TYPE (ctor)));
+		}
+	    }
+	}
+      while (bufoff < size / BITS_PER_UNIT);
+      *suboff += size;
+      return native_interpret_expr (type, buf, size / BITS_PER_UNIT);
+    }
+
   if (tree val = get_array_ctor_element_at_index (ctor, access_index))
     {
       if (!size && TREE_CODE (val) != CONSTRUCTOR)

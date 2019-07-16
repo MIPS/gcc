@@ -152,7 +152,7 @@ const xlogue_layout xlogue_layout::s_instances[XLOGUE_SET_COUNT] = {
 
 /* Return an appropriate const instance of xlogue_layout based upon values
    in cfun->machine and crtl.  */
-const struct xlogue_layout &
+const class xlogue_layout &
 xlogue_layout::get_instance ()
 {
   enum xlogue_stub_sets stub_set;
@@ -554,7 +554,7 @@ dimode_scalar_chain::compute_convert_gain ()
     fprintf (dump_file, "  Instruction conversion gain: %d\n", gain);
 
   EXECUTE_IF_SET_IN_BITMAP (defs_conv, 0, insn_uid, bi)
-    cost += DF_REG_DEF_COUNT (insn_uid) * ix86_cost->mmxsse_to_integer;
+    cost += DF_REG_DEF_COUNT (insn_uid) * ix86_cost->sse_to_integer;
 
   if (dump_file)
     fprintf (dump_file, "  Registers conversion cost: %d\n", cost);

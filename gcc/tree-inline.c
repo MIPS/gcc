@@ -259,6 +259,11 @@ remap_ssa_name (tree name, copy_body_data *id)
 	  struct ptr_info_def *new_pi = get_ptr_info (new_tree);
 	  new_pi->pt = pi->pt;
 	}
+      /* So can range-info.  */
+      if (!POINTER_TYPE_P (TREE_TYPE (name))
+	  && SSA_NAME_RANGE_INFO (name))
+	duplicate_ssa_name_range_info (new_tree, SSA_NAME_RANGE_TYPE (name),
+				       SSA_NAME_RANGE_INFO (name));
       return new_tree;
     }
 
@@ -292,6 +297,11 @@ remap_ssa_name (tree name, copy_body_data *id)
 	  struct ptr_info_def *new_pi = get_ptr_info (new_tree);
 	  new_pi->pt = pi->pt;
 	}
+      /* So can range-info.  */
+      if (!POINTER_TYPE_P (TREE_TYPE (name))
+	  && SSA_NAME_RANGE_INFO (name))
+	duplicate_ssa_name_range_info (new_tree, SSA_NAME_RANGE_TYPE (name),
+				       SSA_NAME_RANGE_INFO (name));
       if (SSA_NAME_IS_DEFAULT_DEF (name))
 	{
 	  /* By inlining function having uninitialized variable, we might
@@ -1638,6 +1648,12 @@ remap_gimple_stmt (gimple *stmt, copy_body_data *id)
 		    gimple_omp_ordered_clauses (as_a <gomp_ordered *> (stmt)));
 	  break;
 
+	case GIMPLE_OMP_SCAN:
+	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
+	  copy = gimple_build_omp_scan
+		   (s1, gimple_omp_scan_clauses (as_a <gomp_scan *> (stmt)));
+	  break;
+
 	case GIMPLE_OMP_SECTION:
 	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
 	  copy = gimple_build_omp_section (s1);
@@ -1740,6 +1756,18 @@ remap_gimple_stmt (gimple *stmt, copy_body_data *id)
 				    gimple_bb (def_stmt)->index))
 		return NULL;
 	    }
+	}
+     
+      /* We do not allow CLOBBERs of handled components.  In case
+	 returned value is stored via such handled component, remove
+	 the clobber so stmt verifier is happy.  */
+      if (gimple_clobber_p (stmt)
+	  && TREE_CODE (gimple_assign_lhs (stmt)) == RESULT_DECL)
+	{
+	  tree remapped = remap_decl (gimple_assign_lhs (stmt), id);
+	  if (!DECL_P (remapped)
+	      && TREE_CODE (remapped) != MEM_REF)
+	    return NULL;
 	}
 
       if (gimple_debug_bind_p (stmt))
@@ -2776,15 +2804,15 @@ maybe_move_debug_stmts_to_successors (copy_body_data *id, basic_block new_bb)
 
 static void
 copy_loops (copy_body_data *id,
-	    struct loop *dest_parent, struct loop *src_parent)
+	    class loop *dest_parent, class loop *src_parent)
 {
-  struct loop *src_loop = src_parent->inner;
+  class loop *src_loop = src_parent->inner;
   while (src_loop)
     {
       if (!id->blocks_to_copy
 	  || bitmap_bit_p (id->blocks_to_copy, src_loop->header->index))
 	{
-	  struct loop *dest_loop = alloc_loop ();
+	  class loop *dest_loop = alloc_loop ();
 
 	  /* Assign the new loop its header and latch and associate
 	     those with the new loop.  */
@@ -3893,7 +3921,7 @@ function_attribute_inlinable_p (const_tree fndecl)
 
       for (a = DECL_ATTRIBUTES (fndecl); a; a = TREE_CHAIN (a))
 	{
-	  const_tree name = TREE_PURPOSE (a);
+	  const_tree name = get_attribute_name (a);
 	  int i;
 
 	  for (i = 0; targetm.attribute_table[i].name != NULL; i++)
@@ -4365,6 +4393,7 @@ estimate_num_insns (gimple *stmt, eni_weights *weights)
     case GIMPLE_OMP_MASTER:
     case GIMPLE_OMP_TASKGROUP:
     case GIMPLE_OMP_ORDERED:
+    case GIMPLE_OMP_SCAN:
     case GIMPLE_OMP_SECTION:
     case GIMPLE_OMP_SECTIONS:
     case GIMPLE_OMP_SINGLE:
@@ -6224,11 +6253,11 @@ tree_function_versioning (tree old_decl, tree new_decl,
 	     in the debug info that var (whole DECL_ORIGIN is the parm
 	     PARM_DECL) is optimized away, but could be looked up at the
 	     call site as value of D#X there.  */
-	  tree var = vars, vexpr;
+	  tree vexpr;
 	  gimple_stmt_iterator cgsi
 	    = gsi_after_labels (single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
 	  gimple *def_temp;
-	  var = vars;
+	  tree var = vars;
 	  i = vec_safe_length (*debug_args);
 	  do
 	    {

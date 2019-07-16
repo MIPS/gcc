@@ -92,9 +92,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     struct conditional;
 
   template <typename _Type>
-    struct __type_identity {
-      using type = _Type;
-    };
+    struct __type_identity
+    { using type = _Type; };
+
+  template<typename _Tp>
+    using __type_identity_t = typename __type_identity<_Tp>::type;
 
   template<typename...>
     struct __or_;
@@ -658,6 +660,51 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     struct is_member_pointer
     : public __is_member_pointer_helper<typename remove_cv<_Tp>::type>::type
     { };
+
+  template<typename, typename>
+    struct is_same;
+
+  template<typename _Tp, typename... _Types>
+    using __is_one_of = __or_<is_same<_Tp, _Types>...>;
+
+  // Check if a type is one of the signed integer types.
+  template<typename _Tp>
+    using __is_signed_integer = __is_one_of<typename remove_cv<_Tp>::type,
+	  signed char, signed short, signed int, signed long,
+	  signed long long
+#if defined(__GLIBCXX_TYPE_INT_N_0)
+	  , signed __GLIBCXX_TYPE_INT_N_0
+#endif
+#if defined(__GLIBCXX_TYPE_INT_N_1)
+	  , signed __GLIBCXX_TYPE_INT_N_1
+#endif
+#if defined(__GLIBCXX_TYPE_INT_N_2)
+	  , signed __GLIBCXX_TYPE_INT_N_2
+#endif
+#if defined(__GLIBCXX_TYPE_INT_N_3)
+	  , signed __GLIBCXX_TYPE_INT_N_3
+#endif
+	  >;
+
+  // Check if a type is one of the unsigned integer types.
+  template<typename _Tp>
+    using __is_unsigned_integer = __is_one_of<typename remove_cv<_Tp>::type,
+	  unsigned char, unsigned short, unsigned int, unsigned long,
+	  unsigned long long
+#if defined(__GLIBCXX_TYPE_INT_N_0)
+	  , unsigned __GLIBCXX_TYPE_INT_N_0
+#endif
+#if defined(__GLIBCXX_TYPE_INT_N_1)
+	  , unsigned __GLIBCXX_TYPE_INT_N_1
+#endif
+#if defined(__GLIBCXX_TYPE_INT_N_2)
+	  , unsigned __GLIBCXX_TYPE_INT_N_2
+#endif
+#if defined(__GLIBCXX_TYPE_INT_N_3)
+	  , unsigned __GLIBCXX_TYPE_INT_N_3
+#endif
+	  >;
+
 
   // Utility to detect referenceable types ([defns.referenceable]).
 
@@ -1448,6 +1495,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       typedef typename is_void<_To>::type type;
     };
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wctor-dtor-privacy"
   template<typename _From, typename _To>
     class __is_convertible_helper<_From, _To, false>
     {
@@ -1466,7 +1515,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     public:
       typedef decltype(__test<_From, _To>(0)) type;
     };
-
+#pragma GCC diagnostic pop
 
   /// is_convertible
   template<typename _From, typename _To>
@@ -1481,6 +1530,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     : is_void<_To>
     { };
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wctor-dtor-privacy"
   template<typename _From, typename _To>
     class __is_nt_convertible_helper<_From, _To, false>
     {
@@ -1499,6 +1550,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     public:
       using type = decltype(__test<_From, _To>(0));
     };
+#pragma GCC diagnostic pop
 
   // is_nothrow_convertible for C++11
   template<typename _From, typename _To>
@@ -2894,12 +2946,15 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
              __call_is_nothrow_<_Fn, _Args...>>::type
     { };
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wctor-dtor-privacy"
   struct __nonesuchbase {};
   struct __nonesuch : private __nonesuchbase {
     ~__nonesuch() = delete;
     __nonesuch(__nonesuch const&) = delete;
     void operator=(__nonesuch const&) = delete;
   };
+#pragma GCC diagnostic pop
 
 #if __cplusplus >= 201703L
 # define __cpp_lib_is_invocable 201703

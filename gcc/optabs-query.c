@@ -120,7 +120,7 @@ get_traditional_extraction_insn (extraction_insn *insn,
    POS_OP is the operand number of the bit position.  */
 
 static bool
-get_optab_extraction_insn (struct extraction_insn *insn,
+get_optab_extraction_insn (class extraction_insn *insn,
 			   enum extraction_type type,
 			   machine_mode mode, direct_optab reg_optab,
 			   direct_optab misalign_optab, int pos_op)
@@ -415,8 +415,9 @@ can_vec_perm_var_p (machine_mode mode)
    permute (if the target supports that).
 
    Note that additional permutations representing whole-vector shifts may
-   also be handled via the vec_shr optab, but only where the second input
-   vector is entirely constant zeroes; this case is not dealt with here.  */
+   also be handled via the vec_shr or vec_shl optab, but only where the
+   second input vector is entirely constant zeroes; this case is not dealt
+   with here.  */
 
 bool
 can_vec_perm_const_p (machine_mode mode, const vec_perm_indices &sel,

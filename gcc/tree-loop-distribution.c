@@ -506,7 +506,7 @@ bb_top_order_cmp (const void *x, const void *y)
    statements in loop copies.  */
 
 static void
-stmts_from_loop (struct loop *loop, vec<gimple *> *stmts)
+stmts_from_loop (class loop *loop, vec<gimple *> *stmts)
 {
   unsigned int i;
   basic_block *bbs = get_loop_body_in_custom_order (loop, bb_top_order_cmp);
@@ -564,7 +564,7 @@ free_rdg (struct graph *rdg)
    collected and recorded in global data DATAREFS_VEC.  */
 
 static struct graph *
-build_rdg (struct loop *loop, control_dependences *cd)
+build_rdg (class loop *loop, control_dependences *cd)
 {
   struct graph *rdg;
 
@@ -787,10 +787,10 @@ stmt_has_scalar_dependences_outside_loop (loop_p loop, gimple *stmt)
 
 /* Return a copy of LOOP placed before LOOP.  */
 
-static struct loop *
-copy_loop_before (struct loop *loop)
+static class loop *
+copy_loop_before (class loop *loop)
 {
-  struct loop *res;
+  class loop *res;
   edge preheader = loop_preheader_edge (loop);
 
   initialize_original_copy_tables ();
@@ -805,7 +805,7 @@ copy_loop_before (struct loop *loop)
 /* Creates an empty basic block after LOOP.  */
 
 static void
-create_bb_after_loop (struct loop *loop)
+create_bb_after_loop (class loop *loop)
 {
   edge exit = single_exit (loop);
 
@@ -822,7 +822,7 @@ create_bb_after_loop (struct loop *loop)
    basic blocks of a loop are taken in dom order.  */
 
 static void
-generate_loops_for_partition (struct loop *loop, partition *partition,
+generate_loops_for_partition (class loop *loop, partition *partition,
 			      bool copy_p)
 {
   unsigned i;
@@ -994,7 +994,7 @@ const_with_all_bytes_same (tree val)
 /* Generate a call to memset for PARTITION in LOOP.  */
 
 static void
-generate_memset_builtin (struct loop *loop, partition *partition)
+generate_memset_builtin (class loop *loop, partition *partition)
 {
   gimple_stmt_iterator gsi;
   tree mem, fn, nb_bytes;
@@ -1048,7 +1048,7 @@ generate_memset_builtin (struct loop *loop, partition *partition)
 /* Generate a call to memcpy for PARTITION in LOOP.  */
 
 static void
-generate_memcpy_builtin (struct loop *loop, partition *partition)
+generate_memcpy_builtin (class loop *loop, partition *partition)
 {
   gimple_stmt_iterator gsi;
   gimple *fn_call;
@@ -1092,7 +1092,7 @@ generate_memcpy_builtin (struct loop *loop, partition *partition)
 /* Remove and destroy the loop LOOP.  */
 
 static void
-destroy_loop (struct loop *loop)
+destroy_loop (class loop *loop)
 {
   unsigned nbbs = loop->num_nodes;
   edge exit = single_exit (loop);
@@ -1169,7 +1169,7 @@ destroy_loop (struct loop *loop)
 /* Generates code for PARTITION.  Return whether LOOP needs to be destroyed.  */
 
 static bool 
-generate_code_for_partition (struct loop *loop,
+generate_code_for_partition (class loop *loop,
 			     partition *partition, bool copy_p)
 {
   switch (partition->kind)
@@ -1346,7 +1346,7 @@ build_rdg_partition_for_vertex (struct graph *rdg, int v)
    data references.  */
 
 static bool
-find_single_drs (struct loop *loop, struct graph *rdg, partition *partition,
+find_single_drs (class loop *loop, struct graph *rdg, partition *partition,
 		 data_reference_p *dst_dr, data_reference_p *src_dr)
 {
   unsigned i;
@@ -1469,7 +1469,7 @@ compute_access_range (loop_p loop_nest, data_reference_p dr, tree *base,
 {
   location_t loc = gimple_location (DR_STMT (dr));
   basic_block bb = gimple_bb (DR_STMT (dr));
-  struct loop *loop = bb->loop_father;
+  class loop *loop = bb->loop_father;
   tree ref = DR_REF (dr);
   tree access_base = build_fold_addr_expr (ref);
   tree access_size = TYPE_SIZE_UNIT (TREE_TYPE (ref));
@@ -1658,9 +1658,11 @@ classify_builtin_ldst (loop_p loop, struct graph *rdg, partition *partition,
 
 /* Classifies the builtin kind we can generate for PARTITION of RDG and LOOP.
    For the moment we detect memset, memcpy and memmove patterns.  Bitmap
-   STMT_IN_ALL_PARTITIONS contains statements belonging to all partitions.  */
+   STMT_IN_ALL_PARTITIONS contains statements belonging to all partitions.
+   Returns true if there is a reduction in all partitions and we
+   possibly did not mark PARTITION as having one for this reason.  */
 
-static void
+static bool
 classify_partition (loop_p loop, struct graph *rdg, partition *partition,
 		    bitmap stmt_in_all_partitions)
 {
@@ -1688,25 +1690,27 @@ classify_partition (loop_p loop, struct graph *rdg, partition *partition,
 	     to all partitions.  In such case, reduction will be computed
 	     correctly no matter how partitions are fused/distributed.  */
 	  if (!bitmap_bit_p (stmt_in_all_partitions, i))
-	    {
-	      partition->reduction_p = true;
-	      return;
-	    }
-	  has_reduction = true;
+	    partition->reduction_p = true;
+	  else
+	    has_reduction = true;
 	}
     }
 
+  /* Simple workaround to prevent classifying the partition as builtin
+     if it contains any use outside of loop.  For the case where all
+     partitions have the reduction this simple workaround is delayed
+     to only affect the last partition.  */
+  if (partition->reduction_p)
+     return has_reduction;
+
   /* Perform general partition disqualification for builtins.  */
   if (volatiles_p
-      /* Simple workaround to prevent classifying the partition as builtin
-	 if it contains any use outside of loop.  */
-      || has_reduction
       || !flag_tree_loop_distribute_patterns)
-    return;
+    return has_reduction;
 
   /* Find single load/store data references for builtin partition.  */
   if (!find_single_drs (loop, rdg, partition, &single_st, &single_ld))
-    return;
+    return has_reduction;
 
   partition->loc = gimple_location (DR_STMT (single_st));
 
@@ -1715,6 +1719,7 @@ classify_partition (loop_p loop, struct graph *rdg, partition *partition,
     classify_builtin_st (loop, partition, single_st);
   else
     classify_builtin_ldst (loop, rdg, partition, single_st, single_ld);
+  return has_reduction;
 }
 
 /* Returns true when PARTITION1 and PARTITION2 access the same memory
@@ -2421,7 +2426,7 @@ data_ref_segment_size (struct data_reference *dr, tree niters)
    DR.  */
 
 static inline bool
-latch_dominated_by_data_ref (struct loop *loop, data_reference *dr)
+latch_dominated_by_data_ref (class loop *loop, data_reference *dr)
 {
   return dominated_by_p (CDI_DOMINATORS, single_exit (loop)->src,
 			 gimple_bb (DR_STMT (dr)));
@@ -2431,7 +2436,7 @@ latch_dominated_by_data_ref (struct loop *loop, data_reference *dr)
    data dependence relations ALIAS_DDRS.  */
 
 static void
-compute_alias_check_pairs (struct loop *loop, vec<ddr_p> *alias_ddrs,
+compute_alias_check_pairs (class loop *loop, vec<ddr_p> *alias_ddrs,
 			   vec<dr_with_seg_len_pair_t> *comp_alias_pairs)
 {
   unsigned int i;
@@ -2503,11 +2508,11 @@ compute_alias_check_pairs (struct loop *loop, vec<ddr_p> *alias_ddrs,
 
 static void
 version_loop_by_alias_check (vec<struct partition *> *partitions,
-			     struct loop *loop, vec<ddr_p> *alias_ddrs)
+			     class loop *loop, vec<ddr_p> *alias_ddrs)
 {
   profile_probability prob;
   basic_block cond_bb;
-  struct loop *nloop;
+  class loop *nloop;
   tree lhs, arg0, cond_expr = NULL_TREE;
   gimple_seq cond_stmts = NULL;
   gimple *call_stmt = NULL;
@@ -2718,7 +2723,7 @@ fuse_memset_builtins (vec<struct partition *> *partitions)
    ALIAS_DDRS contains ddrs which need runtime alias check.  */
 
 static void
-finalize_partitions (struct loop *loop, vec<struct partition *> *partitions,
+finalize_partitions (class loop *loop, vec<struct partition *> *partitions,
 		     vec<ddr_p> *alias_ddrs)
 {
   unsigned i;
@@ -2775,14 +2780,13 @@ finalize_partitions (struct loop *loop, vec<struct partition *> *partitions,
    Set *DESTROY_P to whether LOOP needs to be destroyed.  */
 
 static int
-distribute_loop (struct loop *loop, vec<gimple *> stmts,
+distribute_loop (class loop *loop, vec<gimple *> stmts,
 		 control_dependences *cd, int *nb_calls, bool *destroy_p,
 		 bool only_patterns_p)
 {
   ddrs_table = new hash_table<ddr_hasher> (389);
   struct graph *rdg;
   partition *partition;
-  bool any_builtin;
   int i, nbp;
 
   *destroy_p = false;
@@ -2842,10 +2846,12 @@ distribute_loop (struct loop *loop, vec<gimple *> stmts,
   for (i = 1; partitions.iterate (i, &partition); ++i)
     bitmap_and_into (stmt_in_all_partitions, partitions[i]->stmts);
 
-  any_builtin = false;
+  bool any_builtin = false;
+  bool reduction_in_all = false;
   FOR_EACH_VEC_ELT (partitions, i, partition)
     {
-      classify_partition (loop, rdg, partition, stmt_in_all_partitions);
+      reduction_in_all
+	|= classify_partition (loop, rdg, partition, stmt_in_all_partitions);
       any_builtin |= partition_builtin_p (partition);
     }
 
@@ -2920,6 +2926,21 @@ distribute_loop (struct loop *loop, vec<gimple *> stmts,
 	i--;
     }
 
+  /* Put a non-builtin partition last if we need to preserve a reduction.
+     ???  This is a workaround that makes sort_partitions_by_post_order do
+     the correct thing while in reality it should sort each component
+     separately and then put the component with a reduction or a non-builtin
+     last.  */
+  if (reduction_in_all
+      && partition_builtin_p (partitions.last()))
+    FOR_EACH_VEC_ELT (partitions, i, partition)
+      if (!partition_builtin_p (partition))
+	{
+	  partitions.unordered_remove (i);
+	  partitions.quick_push (partition);
+	  break;
+	}
+
   /* Build the partition dependency graph and fuse partitions in strong
      connected component.  */
   if (partitions.length () > 1)
@@ -2939,6 +2960,21 @@ distribute_loop (struct loop *loop, vec<gimple *> stmts,
     }
 
   finalize_partitions (loop, &partitions, &alias_ddrs);
+
+  /* If there is a reduction in all partitions make sure the last one
+     is not classified for builtin code generation.  */
+  if (reduction_in_all)
+    {
+      partition = partitions.last ();
+      if (only_patterns_p
+	  && partition_builtin_p (partition)
+	  && !partition_builtin_p (partitions[0]))
+	{
+	  nbp = 0;
+	  goto ldist_done;
+	}
+      partition->kind = PKIND_NORMAL;
+    }
 
   nbp = partitions.length ();
   if (nbp == 0
@@ -3024,7 +3060,7 @@ public:
    WORK_LIST.  Return false if there is nothing for distribution.  */
 
 static bool
-find_seed_stmts_for_distribution (struct loop *loop, vec<gimple *> *work_list)
+find_seed_stmts_for_distribution (class loop *loop, vec<gimple *> *work_list)
 {
   basic_block *bbs = get_loop_body_in_dom_order (loop);
 
@@ -3078,10 +3114,10 @@ find_seed_stmts_for_distribution (struct loop *loop, vec<gimple *> *work_list)
 /* Given innermost LOOP, return the outermost enclosing loop that forms a
    perfect loop nest.  */
 
-static struct loop *
-prepare_perfect_loop_nest (struct loop *loop)
+static class loop *
+prepare_perfect_loop_nest (class loop *loop)
 {
-  struct loop *outer = loop_outer (loop);
+  class loop *outer = loop_outer (loop);
   tree niters = number_of_latch_executions (loop);
 
   /* TODO: We only support the innermost 3-level loop nest distribution
@@ -3107,7 +3143,7 @@ prepare_perfect_loop_nest (struct loop *loop)
 unsigned int
 pass_loop_distribution::execute (function *fun)
 {
-  struct loop *loop;
+  class loop *loop;
   bool changed = false;
   basic_block bb;
   control_dependences *cd = NULL;

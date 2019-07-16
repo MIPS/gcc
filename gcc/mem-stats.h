@@ -31,8 +31,9 @@ class hash_map;
 #define LOCATION_LINE_WIDTH	  48
 
 /* Memory allocation location.  */
-struct mem_location
+class mem_location
 {
+public:
   /* Default constructor.  */
   inline
   mem_location () {}
@@ -123,8 +124,9 @@ struct mem_location
 };
 
 /* Memory usage register to a memory location.  */
-struct mem_usage
+class mem_usage
 {
+public:
   /* Default constructor.  */
   mem_usage (): m_allocated (0), m_times (0), m_peak (0), m_instances (1) {}
 
@@ -260,8 +262,9 @@ struct mem_usage
 /* Memory usage pair that connectes memory usage and number
    of allocated bytes.  */
 template <class T>
-struct mem_usage_pair
+class mem_usage_pair
 {
+public:
   mem_usage_pair (T *usage_, size_t allocated_): usage (usage_),
   allocated (allocated_) {}
 
@@ -559,9 +562,9 @@ template <class T>
 inline
 mem_alloc_description<T>::mem_alloc_description ()
 {
-  m_map = new mem_map_t (13, false, false);
-  m_reverse_map = new reverse_mem_map_t (13, false, false);
-  m_reverse_object_map = new reverse_object_map_t (13, false, false);
+  m_map = new mem_map_t (13, false, false, false);
+  m_reverse_map = new reverse_mem_map_t (13, false, false, false);
+  m_reverse_object_map = new reverse_object_map_t (13, false, false, false);
 }
 
 /* Default destructor.  */

@@ -686,7 +686,7 @@ finish_expr_stmt (tree expr)
 	  expr = convert_to_void (expr, ICV_STATEMENT, tf_warning_or_error);
 	}
       else if (!type_dependent_expression_p (expr))
-	convert_to_void (build_non_dependent_expr (expr), ICV_STATEMENT, 
+	convert_to_void (build_non_dependent_expr (expr), ICV_STATEMENT,
                          tf_warning_or_error);
 
       if (check_for_bare_parameter_packs (expr))
@@ -906,7 +906,7 @@ finish_return_stmt (tree expr)
     {
       if (warn_sequence_point)
 	verify_sequence_points (expr);
-      
+
       if (DECL_DESTRUCTOR_P (current_function_decl)
 	  || (DECL_CONSTRUCTOR_P (current_function_decl)
 	      && targetm.cxx.cdtor_returns_this ()))
@@ -1570,7 +1570,7 @@ finish_asm_stmt (int volatile_p, tree string, tree output_operands,
 	{
 	  constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t)));
 	  bool constraint_parsed
-	    = parse_input_constraint (&constraint, i, ninputs, noutputs, 0,   
+	    = parse_input_constraint (&constraint, i, ninputs, noutputs, 0,
 				      oconstraints, &allows_mem, &allows_reg);
 	  /* If the operand is going to end up in memory, don't call
 	     decay_conversion.  */
@@ -2020,7 +2020,7 @@ check_accessibility_of_qualified_id (tree decl,
        its bases.  */
     qualifying_type = currently_open_derived_class (scope);
 
-  if (qualifying_type 
+  if (qualifying_type
       /* It is possible for qualifying type to be a TEMPLATE_TYPE_PARM
 	 or similar in a default argument value.  */
       && CLASS_TYPE_P (qualifying_type)
@@ -3004,7 +3004,7 @@ finish_template_template_parm (tree aggr, tree identifier)
 
   gcc_assert (DECL_TEMPLATE_PARMS (tmpl));
 
-  check_default_tmpl_args (decl, DECL_TEMPLATE_PARMS (tmpl), 
+  check_default_tmpl_args (decl, DECL_TEMPLATE_PARMS (tmpl),
 			   /*is_primary=*/true, /*is_partial=*/false,
 			   /*is_friend=*/0);
 
@@ -3379,7 +3379,7 @@ baselink_for_fns (tree fns)
   tree scope;
   tree cl;
 
-  if (BASELINK_P (fns) 
+  if (BASELINK_P (fns)
       || error_operand_p (fns))
     return fns;
 
@@ -3868,7 +3868,7 @@ finish_id_expression_1 (tree id_expression,
 	  if (DECL_P (decl) && DECL_NONLOCAL (decl)
 	      && DECL_CLASS_SCOPE_P (decl))
 	    {
-	      tree context = context_for_name_lookup (decl); 
+	      tree context = context_for_name_lookup (decl);
 	      if (context != current_class_type)
 		{
 		  tree path = currently_open_derived_class (context);
@@ -4380,8 +4380,9 @@ expand_or_defer_fn (tree fn)
     }
 }
 
-struct nrv_data
+class nrv_data
 {
+public:
   nrv_data () : visited (37) {}
 
   tree var;
@@ -4394,7 +4395,7 @@ struct nrv_data
 static tree
 finalize_nrv_r (tree* tp, int* walk_subtrees, void* data)
 {
-  struct nrv_data *dp = (struct nrv_data *)data;
+  class nrv_data *dp = (class nrv_data *)data;
   tree_node **slot;
 
   /* No need to walk into types.  There wouldn't be any need to walk into
@@ -4452,7 +4453,7 @@ finalize_nrv_r (tree* tp, int* walk_subtrees, void* data)
 void
 finalize_nrv (tree *tp, tree var, tree result)
 {
-  struct nrv_data data;
+  class nrv_data data;
 
   /* Copy name from VAR to RESULT.  */
   DECL_NAME (result) = DECL_NAME (var);
@@ -6126,10 +6127,14 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
   bool branch_seen = false;
   bool copyprivate_seen = false;
   bool ordered_seen = false;
+  bool order_seen = false;
+  bool schedule_seen = false;
   bool oacc_async = false;
   tree last_iterators = NULL_TREE;
   bool last_iterators_remove = false;
-  bool reduction_seen = false;
+  /* 1 if normal/task reduction has been seen, -1 if inscan reduction
+     has been seen, -2 if mixed inscan/normal reduction diagnosed.  */
+  int reduction_seen = 0;
 
   bitmap_obstack_initialize (NULL);
   bitmap_initialize (&generic_head, &bitmap_default_obstack);
@@ -6164,7 +6169,17 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	  field_ok = ((ort & C_ORT_OMP_DECLARE_SIMD) == C_ORT_OMP);
 	  goto check_dup_generic;
 	case OMP_CLAUSE_REDUCTION:
-	  reduction_seen = true;
+	  if (reduction_seen == 0)
+	    reduction_seen = OMP_CLAUSE_REDUCTION_INSCAN (c) ? -1 : 1;
+	  else if (reduction_seen != -2
+		   && reduction_seen != (OMP_CLAUSE_REDUCTION_INSCAN (c)
+					 ? -1 : 1))
+	    {
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"%<inscan%> and non-%<inscan%> %<reduction%> clauses "
+			"on the same construct");
+	      reduction_seen = -2;
+	    }
 	  /* FALLTHRU */
 	case OMP_CLAUSE_IN_REDUCTION:
 	case OMP_CLAUSE_TASK_REDUCTION:
@@ -6174,6 +6189,15 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	    {
 	      if (handle_omp_array_sections (c, ort))
 		{
+		  remove = true;
+		  break;
+		}
+	      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
+		  && OMP_CLAUSE_REDUCTION_INSCAN (c))
+		{
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "%<inscan%> %<reduction%> clause with array "
+			    "section");
 		  remove = true;
 		  break;
 		}
@@ -6684,6 +6708,8 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 		}
 	      OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (c) = t;
 	    }
+	  if (!remove)
+	    schedule_seen = true;
 	  break;
 
 	case OMP_CLAUSE_SIMDLEN:
@@ -7066,6 +7092,7 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 				"array section does not have mappable type "
 				"in %qs clause",
 				omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+		      cp_omp_emit_unmappable_type_notes (TREE_TYPE (t));
 		      remove = true;
 		    }
 		  while (TREE_CODE (t) == ARRAY_REF)
@@ -7134,6 +7161,7 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 		  error_at (OMP_CLAUSE_LOCATION (c),
 			    "%qE does not have a mappable type in %qs clause",
 			    t, omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+		  cp_omp_emit_unmappable_type_notes (TREE_TYPE (t));
 		  remove = true;
 		}
 	      while (TREE_CODE (t) == COMPONENT_REF)
@@ -7212,6 +7240,7 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	      error_at (OMP_CLAUSE_LOCATION (c),
 			"%qD does not have a mappable type in %qs clause", t,
 			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+	      cp_omp_emit_unmappable_type_notes (TREE_TYPE (t));
 	      remove = true;
 	    }
 	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
@@ -7360,6 +7389,7 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	      error_at (OMP_CLAUSE_LOCATION (c),
 			"%qD does not have a mappable type in %qs clause", t,
 			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+	      cp_omp_emit_unmappable_type_notes (TREE_TYPE (t));
 	      remove = true;
 	    }
 	  if (remove)
@@ -7571,6 +7601,13 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	  ordered_seen = true;
 	  break;
 
+	case OMP_CLAUSE_ORDER:
+	  if (order_seen)
+	    remove = true;
+	  else
+	    order_seen = true;
+	  break;
+
 	case OMP_CLAUSE_INBRANCH:
 	case OMP_CLAUSE_NOTINBRANCH:
 	  if (branch_seen)
@@ -7583,6 +7620,37 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	  branch_seen = true;
 	  break;
 
+	case OMP_CLAUSE_INCLUSIVE:
+	case OMP_CLAUSE_EXCLUSIVE:
+	  t = omp_clause_decl_field (OMP_CLAUSE_DECL (c));
+	  if (!t)
+	    t = OMP_CLAUSE_DECL (c);
+	  if (t == current_class_ptr)
+	    {
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"%<this%> allowed in OpenMP only in %<declare simd%>"
+			" clauses");
+	      remove = true;
+	      break;
+	    }
+	  if (!VAR_P (t)
+	      && TREE_CODE (t) != PARM_DECL
+	      && TREE_CODE (t) != FIELD_DECL)
+	    {
+	      if (processing_template_decl && TREE_CODE (t) != OVERLOAD)
+		break;
+	      if (DECL_P (t))
+		error_at (OMP_CLAUSE_LOCATION (c),
+			  "%qD is not a variable in clause %qs", t,
+			  omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+	      else
+		error_at (OMP_CLAUSE_LOCATION (c),
+			  "%qE is not a variable in clause %qs", t,
+			  omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+	      remove = true;
+	    }
+	  break;
+
 	default:
 	  gcc_unreachable ();
 	}
@@ -7592,6 +7660,9 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
       else
 	pc = &OMP_CLAUSE_CHAIN (c);
     }
+
+  if (reduction_seen < 0 && (ordered_seen || schedule_seen))
+    reduction_seen = -2;
 
   for (pc = &clauses, c = clauses; c ; c = *pc)
     {
@@ -7628,8 +7699,16 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	  need_implicitly_determined = true;
 	  break;
 	case OMP_CLAUSE_REDUCTION:
+	  if (reduction_seen == -2)
+	    OMP_CLAUSE_REDUCTION_INSCAN (c) = 0;
+	  if (OMP_CLAUSE_REDUCTION_INSCAN (c))
+	    need_copy_assignment = true;
+	  need_implicitly_determined = true;
+	  break;
 	case OMP_CLAUSE_IN_REDUCTION:
 	case OMP_CLAUSE_TASK_REDUCTION:
+	case OMP_CLAUSE_INCLUSIVE:
+	case OMP_CLAUSE_EXCLUSIVE:
 	  need_implicitly_determined = true;
 	  break;
 	case OMP_CLAUSE_LINEAR:
@@ -7680,6 +7759,10 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 		  (OMP_CLAUSE_SCHEDULE_KIND (c)
 		   & ~OMP_CLAUSE_SCHEDULE_NONMONOTONIC);
 	    }
+	  if (reduction_seen == -2)
+	    error_at (OMP_CLAUSE_LOCATION (c),
+		      "%qs clause specified together with %<inscan%> "
+		      "%<reduction%> clause", "schedule");
 	  pc = &OMP_CLAUSE_CHAIN (c);
 	  continue;
 	case OMP_CLAUSE_NOGROUP:
@@ -7688,6 +7771,24 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	      error_at (OMP_CLAUSE_LOCATION (c),
 			"%<nogroup%> clause must not be used together with "
 			"%<reduction%> clause");
+	      *pc = OMP_CLAUSE_CHAIN (c);
+	      continue;
+	    }
+	  pc = &OMP_CLAUSE_CHAIN (c);
+	  continue;
+	case OMP_CLAUSE_ORDERED:
+	  if (reduction_seen == -2)
+	    error_at (OMP_CLAUSE_LOCATION (c),
+		      "%qs clause specified together with %<inscan%> "
+		      "%<reduction%> clause", "ordered");
+	  pc = &OMP_CLAUSE_CHAIN (c);
+	  continue;
+	case OMP_CLAUSE_ORDER:
+	  if (ordered_seen)
+	    {
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"%<order%> clause must not be used together "
+			"with %<ordered%>");
 	      *pc = OMP_CLAUSE_CHAIN (c);
 	      continue;
 	    }
@@ -7754,7 +7855,8 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	  t = require_complete_type (t);
 	  if (t == error_mark_node)
 	    remove = true;
-	  else if (TYPE_REF_P (TREE_TYPE (t))
+	  else if (!processing_template_decl
+		   && TYPE_REF_P (TREE_TYPE (t))
 		   && !complete_type_or_else (TREE_TYPE (TREE_TYPE (t)), t))
 	    remove = true;
 	}
@@ -7954,7 +8056,7 @@ restore_omp_privatization_clauses (vec<tree> &save)
       save.release ();
       return;
     }
-    
+
   omp_private_member_map = new hash_map <tree, tree>;
   while (!save.is_empty ())
     {
@@ -8968,7 +9070,7 @@ finish_omp_atomic (location_t loc, enum tree_code code, enum tree_code opcode,
 	{
 	  if (opcode == NOP_EXPR)
 	    stmt = build2 (MODIFY_EXPR, void_type_node, orig_lhs, orig_rhs);
-	  else 
+	  else
 	    stmt = build2 (opcode, void_type_node, orig_lhs, orig_rhs);
 	  if (orig_rhs1)
 	    stmt = build_min_nt_loc (EXPR_LOCATION (orig_rhs1),
@@ -9239,8 +9341,8 @@ init_cp_semantics (void)
    CONDITION and the message text MESSAGE.  LOCATION is the location
    of the static assertion in the source code.  When MEMBER_P, this
    static assertion is a member of a class.  */
-void 
-finish_static_assert (tree condition, tree message, location_t location, 
+void
+finish_static_assert (tree condition, tree message, location_t location,
                       bool member_p)
 {
   tsubst_flags_t complain = tf_warning_or_error;
@@ -9266,7 +9368,7 @@ finish_static_assert (tree condition, tree message, location_t location,
       STATIC_ASSERT_SOURCE_LOCATION (assertion) = location;
 
       if (member_p)
-        maybe_add_class_template_decl_list (current_class_type, 
+        maybe_add_class_template_decl_list (current_class_type,
                                             assertion,
                                             /*friend_p=*/0);
       else
@@ -9284,12 +9386,12 @@ finish_static_assert (tree condition, tree message, location_t location,
   if (TREE_CODE (condition) == INTEGER_CST && !integer_zerop (condition))
     /* Do nothing; the condition is satisfied. */
     ;
-  else 
+  else
     {
       location_t saved_loc = input_location;
 
       input_location = location;
-      if (TREE_CODE (condition) == INTEGER_CST 
+      if (TREE_CODE (condition) == INTEGER_CST
           && integer_zerop (condition))
 	{
 	  int sz = TREE_INT_CST_LOW (TYPE_SIZE_UNIT
@@ -9504,7 +9606,7 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
   return type;
 }
 
-/* Called from trait_expr_value to evaluate either __has_nothrow_assign or 
+/* Called from trait_expr_value to evaluate either __has_nothrow_assign or
    __has_nothrow_copy, depending on assign_p.  Returns true iff all
    the copy {ctor,assign} fns are nothrow.  */
 
@@ -9565,7 +9667,7 @@ trait_expr_value (cp_trait_kind kind, tree type1, tree type2)
 
     case CPTK_HAS_NOTHROW_CONSTRUCTOR:
       type1 = strip_array_types (type1);
-      return (trait_expr_value (CPTK_HAS_TRIVIAL_CONSTRUCTOR, type1, type2) 
+      return (trait_expr_value (CPTK_HAS_TRIVIAL_CONSTRUCTOR, type1, type2)
 	      || (CLASS_TYPE_P (type1)
 		  && (t = locate_ctor (type1))
 		  && maybe_instantiate_noexcept (t)

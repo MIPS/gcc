@@ -494,6 +494,7 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_2_PLUS, OPT_fdevirtualize, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fdevirtualize_speculatively, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fexpensive_optimizations, NULL, 1 },
+    { OPT_LEVELS_2_PLUS, OPT_ffinite_loops, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fgcse, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fhoist_adjacent_loads, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_findirect_inlining, NULL, 1 },
@@ -1278,8 +1279,9 @@ wrap_help (const char *help,
 
 /* Data structure used to print list of valid option values.  */
 
-struct option_help_tuple
+class option_help_tuple
 {
+public:
   option_help_tuple (int code, vec<const char *> values):
     m_code (code), m_values (values)
   {}
@@ -1797,8 +1799,9 @@ const struct sanitizer_opts_s coverage_sanitizer_opts[] =
 
 /* A struct for describing a run of chars within a string.  */
 
-struct string_fragment
+class string_fragment
 {
+public:
   string_fragment (const char *start, size_t len)
   : m_start (start), m_len (len) {}
 

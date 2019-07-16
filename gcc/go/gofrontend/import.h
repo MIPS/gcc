@@ -18,6 +18,9 @@ class Named_object;
 class Named_type;
 class Expression;
 class Import_function_body;
+class Temporary_statement;
+class Unnamed_label;
+class Finalize_methods;
 
 // Expressions can be imported either directly from import data (for
 // simple constant expressions that can appear in a const declaration
@@ -205,8 +208,7 @@ class Import : public Import_expression
   // Constructor.
   Import(Stream*, Location);
 
-  virtual ~Import()
-  {}
+  virtual ~Import();
 
   // Register the builtin types.
   void
@@ -421,6 +423,10 @@ class Import : public Import_expression
     return true;
   }
 
+  // Finalize methods for newly imported types.
+  void
+  finalize_methods();
+
   // The general IR.
   Gogo* gogo_;
   // The stream from which to read import data.
@@ -444,6 +450,8 @@ class Import : public Import_expression
   std::vector<Named_type*> builtin_types_;
   // Mapping from exported type codes to Type structures.
   std::vector<Type*> types_;
+  // Helper for finalizing methods.
+  Finalize_methods* finalizer_;
   // Version of export data we're reading.
   Export_data_version version_;
 };
@@ -587,7 +595,8 @@ class Import_function_body : public Import_expression
 		       const std::string& body, size_t off, Block* block,
 		       int indent)
     : gogo_(gogo), imp_(imp), named_object_(named_object), body_(body),
-      off_(off), block_(block), indent_(indent), saw_error_(false)
+      off_(off), block_(block), indent_(indent), temporaries_(), labels_(),
+      saw_error_(false)
   { }
 
   // The IR.
@@ -695,6 +704,19 @@ class Import_function_body : public Import_expression
   version() const
   { return this->imp_->version(); }
 
+  // Record the index of a temporary statement.
+  void
+  record_temporary(Temporary_statement*, unsigned int);
+
+  // Return a temporary statement given an index.
+  Temporary_statement*
+  temporary_statement(unsigned int);
+
+  // Return an unnamed label given an index, defining the label if we
+  // haven't seen it already.
+  Unnamed_label*
+  unnamed_label(unsigned int, Location);
+
   // Implement Import_expression.
   Import_function_body*
   ifb()
@@ -721,6 +743,9 @@ class Import_function_body : public Import_expression
   { this->saw_error_ = true; }
 
  private:
+  static size_t
+  next_size(size_t);
+
   // The IR.
   Gogo* gogo_;
   // The importer.
@@ -736,6 +761,10 @@ class Import_function_body : public Import_expression
   Block* block_;
   // Current expected indentation level.
   int indent_;
+  // Temporary statements by index.
+  std::vector<Temporary_statement*> temporaries_;
+  // Unnamed labels by index.
+  std::vector<Unnamed_label*> labels_;
   // Whether we've seen an error.  Used to avoid reporting excess
   // errors.
   bool saw_error_;

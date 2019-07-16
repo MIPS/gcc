@@ -296,34 +296,83 @@ get_stridx (tree exp)
     {
       if (ssa_ver_to_stridx[SSA_NAME_VERSION (exp)])
 	return ssa_ver_to_stridx[SSA_NAME_VERSION (exp)];
-      int i;
+
       tree e = exp;
-      HOST_WIDE_INT off = 0;
-      for (i = 0; i < 5; i++)
+      HOST_WIDE_INT offset = 0;
+      /* Follow a chain of at most 5 assignments.  */
+      for (int i = 0; i < 5; i++)
 	{
 	  gimple *def_stmt = SSA_NAME_DEF_STMT (e);
-	  if (!is_gimple_assign (def_stmt)
-	      || gimple_assign_rhs_code (def_stmt) != POINTER_PLUS_EXPR)
+	  if (!is_gimple_assign (def_stmt))
 	    return 0;
-	  tree rhs1 = gimple_assign_rhs1 (def_stmt);
-	  tree rhs2 = gimple_assign_rhs2 (def_stmt);
-	  if (TREE_CODE (rhs1) != SSA_NAME
-	      || !tree_fits_shwi_p (rhs2))
+
+	  tree_code rhs_code = gimple_assign_rhs_code (def_stmt);
+	  tree ptr, off;
+
+	  if (rhs_code == ADDR_EXPR)
+	    {
+	      /* Handle indices/offsets into VLAs which are implemented
+	         as pointers to arrays.  */
+	      ptr = gimple_assign_rhs1 (def_stmt);
+	      ptr = TREE_OPERAND (ptr, 0);
+
+	      /* Handle also VLAs of types larger than char.  */
+	      if (tree eltsize = TYPE_SIZE_UNIT (TREE_TYPE (ptr)))
+		{
+		  if (TREE_CODE (ptr) == ARRAY_REF)
+		    {
+		      off = TREE_OPERAND (ptr, 1);
+		      ptr = TREE_OPERAND (ptr, 0);
+		      if (!integer_onep (eltsize))
+			{
+			  /* Scale the array index by the size of the element
+			     type in the rare case that it's greater than
+			     the typical 1 for char, making sure both operands
+			     have the same type.  */
+			  eltsize = fold_convert (ssizetype, eltsize);
+			  off = fold_convert (ssizetype, off);
+			  off = fold_build2 (MULT_EXPR, ssizetype, off, eltsize);
+			}
+		    }
+		  else
+		    off = integer_zero_node;
+		}
+	      else
+		return 0;
+
+	      if (TREE_CODE (ptr) != MEM_REF)
+	        return 0;
+
+	      /* Add the MEM_REF byte offset.  */
+	      tree mem_off = TREE_OPERAND (ptr, 1);
+	      off = fold_build2 (PLUS_EXPR, TREE_TYPE (off), off, mem_off);
+	      ptr = TREE_OPERAND (ptr, 0);
+	    }
+	  else if (rhs_code == POINTER_PLUS_EXPR)
+	    {
+	      ptr = gimple_assign_rhs1 (def_stmt);
+	      off = gimple_assign_rhs2 (def_stmt);
+	    }
+	  else
 	    return 0;
-	  HOST_WIDE_INT this_off = tree_to_shwi (rhs2);
+
+	  if (TREE_CODE (ptr) != SSA_NAME
+	      || !tree_fits_shwi_p (off))
+	    return 0;
+	  HOST_WIDE_INT this_off = tree_to_shwi (off);
 	  if (this_off < 0)
 	    return 0;
-	  off = (unsigned HOST_WIDE_INT) off + this_off;
-	  if (off < 0)
+	  offset = (unsigned HOST_WIDE_INT) offset + this_off;
+	  if (offset < 0)
 	    return 0;
-	  if (ssa_ver_to_stridx[SSA_NAME_VERSION (rhs1)])
+	  if (ssa_ver_to_stridx[SSA_NAME_VERSION (ptr)])
 	    {
 	      strinfo *si
-		= get_strinfo (ssa_ver_to_stridx[SSA_NAME_VERSION (rhs1)]);
-	      if (si && compare_nonzero_chars (si, off) >= 0)
-		return get_stridx_plus_constant (si, off, exp);
+	        = get_strinfo (ssa_ver_to_stridx[SSA_NAME_VERSION (ptr)]);
+	      if (si && compare_nonzero_chars (si, offset) >= 0)
+	        return get_stridx_plus_constant (si, offset, exp);
 	    }
-	  e = rhs1;
+	  e = ptr;
 	}
       return 0;
     }
@@ -2898,6 +2947,74 @@ handle_builtin_memcmp (gimple_stmt_iterator *gsi)
   return true;
 }
 
+/* If IDX1 and IDX2 refer to strings A and B of unequal lengths, return
+   the result of 0 == strncmp (A, B, N) (which is the same as strcmp for
+   sufficiently large N).  Otherwise return false.  */
+
+static bool
+strxcmp_unequal (int idx1, int idx2, unsigned HOST_WIDE_INT n)
+{
+  unsigned HOST_WIDE_INT len1;
+  unsigned HOST_WIDE_INT len2;
+
+  bool nulterm1;
+  bool nulterm2;
+
+  if (idx1 < 0)
+    {
+      len1 = ~idx1;
+      nulterm1 = true;
+    }
+  else if (strinfo *si = get_strinfo (idx1))
+    {
+      if (tree_fits_uhwi_p (si->nonzero_chars))
+	{
+	  len1 = tree_to_uhwi (si->nonzero_chars);
+	  nulterm1 = si->full_string_p;
+	}
+      else
+	return false;
+    }
+  else
+    return false;
+
+  if (idx2 < 0)
+    {
+      len2 = ~idx2;
+      nulterm2 = true;
+    }
+  else if (strinfo *si = get_strinfo (idx2))
+    {
+      if (tree_fits_uhwi_p (si->nonzero_chars))
+	{
+	  len2 = tree_to_uhwi (si->nonzero_chars);
+	  nulterm2 = si->full_string_p;
+	}
+      else
+	return false;
+    }
+  else
+    return false;
+
+  /* N is set to UHWI_MAX for strcmp and less to strncmp.  Adjust
+     the length of each string to consider to be no more than N.  */
+  if (len1 > n)
+    len1 = n;
+  if (len2 > n)
+    len2 = n;
+
+  if ((len1 < len2 && nulterm1)
+      || (len2 < len1 && nulterm2))
+    /* The string lengths are definitely unequal and the result can
+       be folded to one (since it's used for comparison with zero).  */
+    return true;
+
+  /* The string lengths may be equal or unequal.  Even when equal and
+     both strings nul-terminated, without the string contents there's
+     no way to determine whether they are equal.  */
+  return false;
+}
+
 /* Given an index to the strinfo vector, compute the string length
    for the corresponding string. Return -1 when unknown.  */
 
@@ -3083,18 +3200,12 @@ handle_builtin_string_cmp (gimple_stmt_iterator *gsi)
         return false;
     }
 
-  /* When the lengths of both arguments are known, and they are unequal,
+  /* When the lengths of the arguments are known to be unequal
      we can safely fold the call to a non-zero value for strcmp;
-     othewise, do nothing now.  */
+     otherwise, do nothing now.  */
   if (idx1 != 0 && idx2 != 0)
     {
-      HOST_WIDE_INT const_string_leni1 = compute_string_length (idx1);
-      HOST_WIDE_INT const_string_leni2 = compute_string_length (idx2);
-
-      if (!is_ncmp
-	  && const_string_leni1 != -1
-	  && const_string_leni2 != -1
-	  && const_string_leni1 != const_string_leni2)
+      if (strxcmp_unequal (idx1, idx2, length))
 	{
 	  replace_call_with_value (gsi, integer_one_node);
 	  return true;
@@ -3351,34 +3462,38 @@ handle_char_store (gimple_stmt_iterator *gsi)
 	      return false;
 	    }
 	}
-      /* If si->nonzero_chars > OFFSET, we aren't overwriting '\0',
-	 and if we aren't storing '\0', we know that the length of the
-	 string and any other zero terminated string in memory remains
-	 the same.  In that case we move to the next gimple statement and
-	 return to signal the caller that it shouldn't invalidate anything.
 
-	 This is benefical for cases like:
-
-	 char p[20];
-	 void foo (char *q)
-	 {
-	   strcpy (p, "foobar");
-	   size_t len = strlen (p);        // This can be optimized into 6
-	   size_t len2 = strlen (q);        // This has to be computed
-	   p[0] = 'X';
-	   size_t len3 = strlen (p);        // This can be optimized into 6
-	   size_t len4 = strlen (q);        // This can be optimized into len2
-	   bar (len, len2, len3, len4);
-        }
-	*/
-      else if (storing_nonzero_p && cmp > 0)
+      if (cmp > 0
+	  && storing_nonzero_p
+	  && TREE_CODE (TREE_TYPE (rhs)) == INTEGER_TYPE)
 	{
+	  /* Handle a single non-nul character store.
+	     If si->nonzero_chars > OFFSET, we aren't overwriting '\0',
+	     and if we aren't storing '\0', we know that the length of the
+	     string and any other zero terminated string in memory remains
+	     the same.  In that case we move to the next gimple statement and
+	     return to signal the caller that it shouldn't invalidate anything.
+
+	     This is benefical for cases like:
+
+	     char p[20];
+	     void foo (char *q)
+	     {
+	       strcpy (p, "foobar");
+	       size_t len = strlen (p);     // can be folded to 6
+	       size_t len2 = strlen (q);    // has to be computed
+	       p[0] = 'X';
+	       size_t len3 = strlen (p);    // can be folded to 6
+	       size_t len4 = strlen (q);    // can be folded to len2
+	       bar (len, len2, len3, len4);
+	       } */
 	  gsi_next (gsi);
 	  return false;
 	}
-      else if (storing_all_zeros_p
-	       || storing_nonzero_p
-	       || (offset != 0 && cmp > 0))
+
+      if (storing_all_zeros_p
+	  || storing_nonzero_p
+	  || (offset != 0 && cmp > 0))
 	{
 	  /* When STORING_NONZERO_P, we know that the string will start
 	     with at least OFFSET + 1 nonzero characters.  If storing

@@ -159,9 +159,9 @@ HOST_WIDE_INT random_seed;
    the support provided depends on the backend.  */
 rtx stack_limit_rtx;
 
-struct target_flag_state default_target_flag_state;
+class target_flag_state default_target_flag_state;
 #if SWITCHABLE_TARGET
-struct target_flag_state *this_target_flag_state = &default_target_flag_state;
+class target_flag_state *this_target_flag_state = &default_target_flag_state;
 #else
 #define this_target_flag_state (&default_target_flag_state)
 #endif
@@ -1798,6 +1798,10 @@ process_options (void)
   /* Save the current optimization options.  */
   optimization_default_node = build_optimization_node (&global_options);
   optimization_current_node = optimization_default_node;
+
+  if (flag_checking >= 2)
+    hash_table_sanitize_eq_limit
+      = PARAM_VALUE (PARAM_HASH_TABLE_VERIFICATION_LIMIT);
 
   /* Please don't change global_options after this point, those changes won't
      be reflected in optimization_{default,current}_node.  */

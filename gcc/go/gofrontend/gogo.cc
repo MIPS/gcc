@@ -552,7 +552,7 @@ Gogo::import_package(const std::string& filename,
       if (package->pkgpath() == this->pkgpath())
 	go_error_at(location,
 		    ("imported package uses same package path as package "
-		     "being compiled (see -fgo-pkgpath option)"));
+		     "being compiled (see %<-fgo-pkgpath%> option)"));
 
       this->imports_.insert(std::make_pair(filename, package));
     }
@@ -724,6 +724,9 @@ Gogo::init_imports(std::vector<Bstatement*>& init_stmts, Bfunction *bfunction)
        p != this->imported_init_fns_.end();
        ++p)
     {
+      // Don't include dummy inits. They are not real functions.
+      if ((*p)->is_dummy())
+        continue;
       if ((*p)->priority() < 0)
 	go_error_at(Linemap::unknown_location(),
 		    "internal error: failed to set init priority for %s",
@@ -941,7 +944,7 @@ Gogo::build_type_descriptor_list()
   Btype* bat = list_type->field(1)->type()->get_backend(this);
 
   // Create the variable
-  std::string name = this->type_descriptor_list_symbol(this->package_);
+  std::string name = this->type_descriptor_list_symbol(this->pkgpath_symbol());
   Bvariable* bv = this->backend()->implicit_variable(name, name, bt,
                                                      false, true, false,
                                                      0);
@@ -986,20 +989,29 @@ Gogo::register_type_descriptors(std::vector<Bstatement*>& init_stmts,
   Struct_type* list_type = type_descriptor_list_type(1);
   Btype* bt = list_type->get_backend(this);
 
+  // Collect type lists from transitive imports.
+  std::vector<std::string> list_names;
+  for (Import_init_set::iterator it = this->imported_init_fns_.begin();
+       it != this->imported_init_fns_.end();
+       ++it)
+    {
+      std::string pkgpath =
+        this->pkgpath_from_init_fn_name((*it)->init_name());
+      list_names.push_back(this->type_descriptor_list_symbol(pkgpath));
+    }
+  // Add the main package itself.
+  list_names.push_back(this->type_descriptor_list_symbol("main"));
+
   // Build a list of lists.
   std::vector<unsigned long> indexes;
   std::vector<Bexpression*> vals;
   unsigned long i = 0;
-  for (Packages::iterator it = this->packages_.begin();
-       it != this->packages_.end();
-       ++it)
+  for (std::vector<std::string>::iterator p = list_names.begin();
+       p != list_names.end();
+       ++p)
     {
-      if (it->second->pkgpath() == "unsafe")
-        continue;
-
-      std::string name = this->type_descriptor_list_symbol(it->second);
       Bvariable* bv =
-        this->backend()->implicit_variable_reference(name, name, bt);
+        this->backend()->implicit_variable_reference(*p, *p, bt);
       Bexpression* bexpr = this->backend()->var_expression(bv, builtin_loc);
       bexpr = this->backend()->address_expression(bexpr, builtin_loc);
 
@@ -2525,7 +2537,7 @@ Gogo::add_linkname(const std::string& go_name, bool is_exported,
   else
     go_error_at(loc,
 		("%s is not a function; "
-		 "//go:linkname is only supported for functions"),
+		 "%<//go:linkname%> is only supported for functions"),
 		go_name.c_str());
 }
 
@@ -3196,6 +3208,80 @@ Gogo::add_conversions_in_block(Block *b)
   b->traverse(&add_conversions);
 }
 
+// Traversal class for simple deadcode elimination.
+
+class Remove_deadcode : public Traverse
+{
+ public:
+  Remove_deadcode()
+    : Traverse(traverse_statements
+               | traverse_expressions)
+  { }
+
+  int
+  statement(Block*, size_t* pindex, Statement*);
+
+  int
+  expression(Expression**);
+};
+
+// Remove deadcode in a statement.
+
+int
+Remove_deadcode::statement(Block* block, size_t* pindex, Statement* sorig)
+{
+  Location loc = sorig->location();
+  If_statement* ifs = sorig->if_statement();
+  if (ifs != NULL)
+    {
+      // Remove the dead branch of an if statement.
+      bool bval;
+      if (ifs->condition()->boolean_constant_value(&bval))
+        {
+          Statement* s;
+          if (bval)
+            s = Statement::make_block_statement(ifs->then_block(),
+                                                loc);
+          else
+            if (ifs->else_block() != NULL)
+              s = Statement::make_block_statement(ifs->else_block(),
+                                                  loc);
+            else
+              // Make a dummy statement.
+              s = Statement::make_statement(Expression::make_boolean(false, loc),
+                                            true);
+
+          block->replace_statement(*pindex, s);
+        }
+    }
+  return TRAVERSE_CONTINUE;
+}
+
+// Remove deadcode in an expression.
+
+int
+Remove_deadcode::expression(Expression** pexpr)
+{
+  // Discard the right arm of a shortcut expression of constant value.
+  Binary_expression* be = (*pexpr)->binary_expression();
+  bool bval;
+  if (be != NULL
+      && be->boolean_constant_value(&bval)
+      && (be->op() == OPERATOR_ANDAND
+          || be->op() == OPERATOR_OROR))
+    *pexpr = Expression::make_boolean(bval, be->location());
+  return TRAVERSE_CONTINUE;
+}
+
+// Remove deadcode.
+
+void
+Gogo::remove_deadcode()
+{
+  Remove_deadcode remove_deadcode;
+  this->traverse(&remove_deadcode);
+}
+
 // Traverse the tree to create function descriptors as needed.
 
 class Create_function_descriptors : public Traverse
@@ -3335,24 +3421,6 @@ Gogo::create_function_descriptors()
   Create_function_descriptors cfd(this);
   this->traverse(&cfd);
 }
-
-// Look for interface types to finalize methods of inherited
-// interfaces.
-
-class Finalize_methods : public Traverse
-{
- public:
-  Finalize_methods(Gogo* gogo)
-    : Traverse(traverse_types),
-      gogo_(gogo)
-  { }
-
-  int
-  type(Type*);
-
- private:
-  Gogo* gogo_;
-};
 
 // Finalize the methods of an interface type.
 
@@ -3619,7 +3687,7 @@ Check_types_traverse::variable(Named_object* named_object)
           if (fntype->is_builtin())
             {
 	      go_error_at(init->location(),
-			  "invalid use of special builtin function %qs; "
+			  "invalid use of special built-in function %qs; "
 			  "must be called",
 			  no->message_name().c_str());
             }
@@ -4029,6 +4097,15 @@ Gogo::order_evaluations()
   this->traverse(&order_eval);
 }
 
+// Order evaluations in a block.
+
+void
+Gogo::order_block(Block* block)
+{
+  Order_eval order_eval(this);
+  block->traverse(&order_eval);
+}
+
 // A traversal class used to find a single shortcut operator within an
 // expression.
 
@@ -4236,6 +4313,15 @@ Gogo::remove_shortcuts()
 {
   Shortcuts shortcuts(this);
   this->traverse(&shortcuts);
+}
+
+// Turn shortcut operators into explicit if statements in a block.
+
+void
+Gogo::remove_shortcuts_in_block(Block* block)
+{
+  Shortcuts shortcuts(this);
+  block->traverse(&shortcuts);
 }
 
 // Traversal to flatten parse tree after order of evaluation rules are applied.
@@ -5084,6 +5170,14 @@ Gogo::do_exports()
   else
     prefix = "go";
 
+  std::string init_fn_name;
+  if (this->is_main_package())
+    init_fn_name = "";
+  else if (this->need_init_fn_)
+    init_fn_name = this->get_init_fn_name();
+  else
+    init_fn_name = this->dummy_init_fn_name();
+
   Export exp(&stream);
   exp.register_builtin_types(this);
   exp.export_globals(this->package_name(),
@@ -5091,9 +5185,7 @@ Gogo::do_exports()
 		     pkgpath,
 		     this->packages_,
 		     this->imports_,
-		     (this->need_init_fn_ && !this->is_main_package()
-		      ? this->get_init_fn_name()
-		      : ""),
+		     init_fn_name,
 		     this->imported_init_fns_,
 		     this->package_->bindings());
 
@@ -6169,7 +6261,9 @@ Function_declaration::get_or_make_decl(Gogo* gogo, Named_object* no)
 	    }
 
 	  if (this->asm_name_ == "runtime.gopanic"
-	      || this->asm_name_ == "__go_runtime_error")
+	      || this->asm_name_ == "__go_runtime_error"
+              || this->asm_name_ == "runtime.panicdottype"
+              || this->asm_name_ == "runtime.block")
 	    flags |= Backend::function_does_not_return;
 	}
 
@@ -6249,7 +6343,7 @@ Function::build(Gogo* gogo, Named_object* named_function)
   // Variables that need to be declared for this function and their
   // initial values.
   std::vector<Bvariable*> vars;
-  std::vector<Bexpression*> var_inits;
+  std::vector<Expression*> var_inits;
   std::vector<Statement*> var_decls_stmts;
   for (Bindings::const_definitions_iterator p =
 	 this->block_->bindings()->begin_definitions();
@@ -6292,7 +6386,7 @@ Function::build(Gogo* gogo, Named_object* named_function)
                                                  loc);
               if ((*p)->var_value()->is_in_heap())
                 parm_ref = Expression::make_heap_expression(parm_ref, loc);
-              var_inits.push_back(parm_ref->get_backend(&context));
+              var_inits.push_back(parm_ref);
 	    }
 	  else if ((*p)->var_value()->is_in_heap())
 	    {
@@ -6309,7 +6403,7 @@ Function::build(Gogo* gogo, Named_object* named_function)
 	      Expression* var_ref =
 		  Expression::make_var_reference(parm_no, loc);
 	      var_ref = Expression::make_heap_expression(var_ref, loc);
-              var_inits.push_back(var_ref->get_backend(&context));
+              var_inits.push_back(var_ref);
 	    }
           param_vars.push_back(parm_bvar);
 	}
@@ -6318,15 +6412,15 @@ Function::build(Gogo* gogo, Named_object* named_function)
 	  Bvariable* bvar = (*p)->get_backend_variable(gogo, named_function);
 
 	  Type* type = (*p)->result_var_value()->type();
-	  Bexpression* init;
+	  Expression* init;
 	  if (!(*p)->result_var_value()->is_in_heap())
 	    {
 	      Btype* btype = type->get_backend(gogo);
-	      init = gogo->backend()->zero_expression(btype);
+	      Bexpression* binit = gogo->backend()->zero_expression(btype);
+              init = Expression::make_backend(binit, type, loc);
 	    }
 	  else
-	    init = Expression::make_allocation(type,
-					       loc)->get_backend(&context);
+	    init = Expression::make_allocation(type, loc);
 
           vars.push_back(bvar);
           var_inits.push_back(init);
@@ -6399,13 +6493,16 @@ Function::build(Gogo* gogo, Named_object* named_function)
       Bblock* code_block = this->block_->get_backend(&context);
 
       // Initialize variables if necessary.
+      Translate_context icontext(gogo, named_function, this->block_,
+                                 var_decls);
       std::vector<Bstatement*> init;
       go_assert(vars.size() == var_inits.size());
       for (size_t i = 0; i < vars.size(); ++i)
 	{
+          Bexpression* binit = var_inits[i]->get_backend(&icontext);
           Bstatement* init_stmt =
               gogo->backend()->init_statement(this->fndecl_, vars[i],
-                                              var_inits[i]);
+                                              binit);
           init.push_back(init_stmt);
 	}
       Bstatement* var_init = gogo->backend()->statement_list(init);
@@ -6867,7 +6964,12 @@ Block::import_block(Block* set, Import_function_body *ifb, Location loc)
 
       if (at_end)
 	{
-	  off = nl + 1;
+	  // An if statement can have an "else" following the "}", in
+	  // which case we want to leave the offset where it is, just
+	  // after the "}".  We don't get the block ending location
+	  // quite right for if statements.
+	  if (body.compare(off, 6, " else ") != 0)
+	    off = nl + 1;
 	  break;
 	}
 
@@ -7200,6 +7302,7 @@ Function_declaration::import_function_body(Gogo* gogo, Named_object* no)
     return;
 
   gogo->lower_block(no, outer);
+  outer->determine_types();
 
   gogo->add_imported_inline_function(no);
 }
@@ -8077,7 +8180,7 @@ Type_declaration::define_methods(Named_type* nt)
 	       ++p)
 	    go_error_at((*p)->location(),
 			("invalid receiver type "
-			 "(receiver must be a named type"));
+			 "(receiver must be a named type)"));
 	  return;
 	}
     }

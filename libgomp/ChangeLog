@@ -1,3 +1,116 @@
+2019-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c++/scan-13.C: Replace xfail with target x86.
+	* testsuite/libgomp.c++/scan-16.C: Likewise.
+
+2019-07-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/scan-19.c: New test.
+	* testsuite/libgomp.c/scan-20.c: New test.
+
+	* testsuite/libgomp.c/scan-11.c: New test.
+	* testsuite/libgomp.c/scan-12.c: New test.
+	* testsuite/libgomp.c/scan-13.c: New test.
+	* testsuite/libgomp.c/scan-14.c: New test.
+	* testsuite/libgomp.c/scan-15.c: New test.
+	* testsuite/libgomp.c/scan-16.c: New test.
+	* testsuite/libgomp.c/scan-17.c: New test.
+	* testsuite/libgomp.c/scan-18.c: New test.
+	* testsuite/libgomp.c++/scan-9.C: New test.
+	* testsuite/libgomp.c++/scan-10.C: New test.
+	* testsuite/libgomp.c++/scan-11.C: New test.
+	* testsuite/libgomp.c++/scan-12.C: New test.
+	* testsuite/libgomp.c++/scan-13.C: New test.
+	* testsuite/libgomp.c++/scan-14.C: New test.
+	* testsuite/libgomp.c++/scan-15.C: New test.
+	* testsuite/libgomp.c++/scan-16.C: New test.
+
+2019-07-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/scan-9.c: New test.
+	* testsuite/libgomp.c/scan-10.c: New test.
+
+2019-07-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c++/scan-1.C: New test.
+	* testsuite/libgomp.c++/scan-2.C: New test.
+	* testsuite/libgomp.c++/scan-3.C: New test.
+	* testsuite/libgomp.c++/scan-4.C: New test.
+	* testsuite/libgomp.c++/scan-5.C: New test.
+	* testsuite/libgomp.c++/scan-6.C: New test.
+	* testsuite/libgomp.c++/scan-7.C: New test.
+	* testsuite/libgomp.c++/scan-8.C: New test.
+	* testsuite/libgomp.c/scan-1.c: New test.
+	* testsuite/libgomp.c/scan-2.c: New test.
+	* testsuite/libgomp.c/scan-3.c: New test.
+	* testsuite/libgomp.c/scan-4.c: New test.
+	* testsuite/libgomp.c/scan-5.c: New test.
+	* testsuite/libgomp.c/scan-6.c: New test.
+	* testsuite/libgomp.c/scan-7.c: New test.
+	* testsuite/libgomp.c/scan-8.c: New test.
+
+2019-06-18  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c++/firstprivate-mappings-1.C: New file.
+	* testsuite/libgomp.oacc-c-c++-common/firstprivate-mappings-1.c:
+	Likewise.
+
+	* testsuite/libgomp.fortran/allocatable3.f90: Add missing results
+	check.
+
+2019-06-18  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-fortran/allocatable-array-1.f90: New
+	file.
+
+2019-06-18  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR fortran/90743
+	* oacc-parallel.c (GOACC_parallel_keyed): Handle NULL mapping
+	case.
+	* testsuite/libgomp.fortran/target-allocatable-1-1.f90: New file.
+	* testsuite/libgomp.fortran/target-allocatable-1-2.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/allocatable-1-1.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/allocatable-1-2.f90: Likewise.
+
+	PR testsuite/90861
+	* testsuite/libgomp.oacc-c-c++-common/declare-vla.c: Update.
+
+	PR middle-end/90862
+	* testsuite/libgomp.oacc-c-c++-common/declare-1.c: Update.
+
+2019-06-16  Tom de Vries  <tdevries@suse.de>
+
+	PR tree-optimization/89376
+	* testsuite/libgomp.oacc-c-c++-common/pr89376.c: New test.
+
+2019-06-15  Tom de Vries  <tdevries@suse.de>
+
+	PR tree-optimization/89713
+	* testsuite/libgomp.oacc-c-c++-common/pr85381-2.c: Expect no bar.sync.
+	* testsuite/libgomp.oacc-c-c++-common/pr85381-4.c: Same.
+
+2019-06-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/90779
+	* testsuite/libgomp.c/pr90779.c: New test.
+	* testsuite/libgomp.fortran/pr90779.f90: New test.
+
+2019-06-15  Tom de Vries  <tdevries@suse.de>
+
+	PR tree-optimization/90009
+	* testsuite/libgomp.oacc-c-c++-common/pr90009.c: New test.
+
+2019-06-13  Feng Xue  <fxue@os.amperecomputing.com>
+
+	PR tree-optimization/89713
+	* testsuite/libgomp.oacc-c-c++-common/pr84955-1.c: New test.
+
+2019-06-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/90811
+	* testsuite/libgomp.c/pr90811.c: New test.
+
 2019-06-05  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.c++/lastprivate-conditional-1.C: New test.

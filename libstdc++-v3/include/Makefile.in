@@ -446,6 +446,7 @@ bits_headers = \
 	${bits_srcdir}/boost_concept_check.h \
 	${bits_srcdir}/c++0x_warning.h \
 	${bits_srcdir}/char_traits.h \
+	${bits_srcdir}/charconv.h \
 	${bits_srcdir}/codecvt.h \
 	${bits_srcdir}/concept_check.h \
 	${bits_srcdir}/cpp_type_traits.h \
@@ -591,6 +592,7 @@ pstl_headers = \
 	${pstl_srcdir}/numeric_impl.h \
 	${pstl_srcdir}/parallel_backend.h \
 	${pstl_srcdir}/parallel_backend_tbb.h \
+	${pstl_srcdir}/parallel_backend_serial.h \
 	${pstl_srcdir}/parallel_backend_utils.h \
 	${pstl_srcdir}/parallel_impl.h \
 	${pstl_srcdir}/pstl_config.h \

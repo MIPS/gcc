@@ -186,6 +186,9 @@
 ;; Modes with 8-bit elements.
 (define_mode_iterator VE [V8QI V16QI])
 
+;; V2DI only (for use with @ patterns).
+(define_mode_iterator V2DI_ONLY [V2DI])
+
 ;; Modes with 64-bit elements only.
 (define_mode_iterator V64 [DI V2DI])
 
@@ -341,6 +344,8 @@
 
 (define_int_iterator VSUBHN [UNSPEC_VSUBHN UNSPEC_VRSUBHN])
 
+(define_int_iterator VABAL [UNSPEC_VABAL_S UNSPEC_VABAL_U])
+
 (define_int_iterator VABD [UNSPEC_VABD_S UNSPEC_VABD_U])
 
 (define_int_iterator VABDL [UNSPEC_VABDL_S UNSPEC_VABDL_U])
@@ -411,10 +416,11 @@
 (define_int_iterator CRC [UNSPEC_CRC32B UNSPEC_CRC32H UNSPEC_CRC32W
                           UNSPEC_CRC32CB UNSPEC_CRC32CH UNSPEC_CRC32CW])
 
-(define_int_iterator CRYPTO_UNARY [UNSPEC_AESMC UNSPEC_AESIMC])
+(define_int_iterator CRYPTO_AESMC [UNSPEC_AESMC UNSPEC_AESIMC])
 
-(define_int_iterator CRYPTO_BINARY [UNSPEC_AESD UNSPEC_AESE
-                                    UNSPEC_SHA1SU1 UNSPEC_SHA256SU0])
+(define_int_iterator CRYPTO_AES [UNSPEC_AESD UNSPEC_AESE])
+
+(define_int_iterator CRYPTO_BINARY [UNSPEC_SHA1SU1 UNSPEC_SHA256SU0])
 
 (define_int_iterator CRYPTO_TERNARY [UNSPEC_SHA1SU0 UNSPEC_SHA256H
                                      UNSPEC_SHA256H2 UNSPEC_SHA256SU1])
@@ -834,6 +840,7 @@
   (UNSPEC_VSUBW_S "s") (UNSPEC_VSUBW_U "u")
   (UNSPEC_VHSUB_S "s") (UNSPEC_VHSUB_U "u")
   (UNSPEC_VQSUB_S "s") (UNSPEC_VQSUB_U "u")
+  (UNSPEC_VABAL_S "s") (UNSPEC_VABAL_U "u")
   (UNSPEC_VABD_S "s") (UNSPEC_VABD_U "u")
   (UNSPEC_VABDL_S "s") (UNSPEC_VABDL_U "u")
   (UNSPEC_VMAX "s") (UNSPEC_VMAX_U "u")

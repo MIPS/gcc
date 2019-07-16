@@ -167,12 +167,11 @@ instrument_values (histogram_values values)
 	  gimple_gen_pow2_profiler (hist, t, 0);
 	  break;
 
-	case HIST_TYPE_SINGLE_VALUE:
-	  gimple_gen_one_value_profiler (hist, t, 0);
+	case HIST_TYPE_TOPN_VALUES:
+	  gimple_gen_topn_values_profiler (hist, t, 0);
 	  break;
 
  	case HIST_TYPE_INDIR_CALL:
- 	case HIST_TYPE_INDIR_CALL_TOPN:
  	  gimple_gen_ic_profiler (hist, t, 0);
   	  break;
 
@@ -1371,7 +1370,7 @@ branch_prob (bool thunk)
   if (flag_branch_probabilities
       && (profile_status_for_fn (cfun) == PROFILE_READ))
     {
-      struct loop *loop;
+      class loop *loop;
       if (dump_file && (dump_flags & TDF_DETAILS))
 	report_predictor_hitrates ();
 

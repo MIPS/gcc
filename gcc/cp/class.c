@@ -199,7 +199,7 @@ static int walk_subobject_offsets (tree, subobject_offset_fn,
 static int layout_conflict_p (tree, tree, splay_tree, int);
 static int splay_tree_compare_integer_csts (splay_tree_key k1,
 					    splay_tree_key k2);
-static void warn_about_ambiguous_bases (tree);
+static void maybe_warn_about_inaccessible_bases (tree);
 static bool type_requires_array_cookie (tree);
 static bool base_derived_from (tree, tree);
 static int empty_base_at_nonzero_offset_p (tree, tree, splay_tree);
@@ -1715,11 +1715,15 @@ check_bases (tree t,
 	      && (same_type_ignoring_top_level_qualifiers_p
 		  (TREE_TYPE (field), basetype)))
 	    CLASSTYPE_NON_STD_LAYOUT (t) = 1;
+	  /* DR 1813:
+	     ...has at most one base class subobject of any given type...  */
+	  else if (CLASSTYPE_REPEATED_BASE_P (t))
+	    CLASSTYPE_NON_STD_LAYOUT (t) = 1;
 	  else
 	    /* ...either has no non-static data members in the most-derived
 	       class and at most one base class with non-static data
 	       members, or has no base classes with non-static data
-	       members */
+	       members.  FIXME This was reworded in DR 1813.  */
 	    for (basefield = TYPE_FIELDS (basetype); basefield;
 		 basefield = DECL_CHAIN (basefield))
 	      if (TREE_CODE (basefield) == FIELD_DECL
@@ -2150,10 +2154,10 @@ maybe_warn_about_overly_private_class (tree t)
 
       if (!nonprivate_ctor)
 	{
-	  warning (OPT_Wctor_dtor_privacy,
-		   "%q#T only defines private constructors and has no friends",
-		   t);
-	  if (copy_or_move)
+	  bool w = warning (OPT_Wctor_dtor_privacy,
+			    "%q#T only defines private constructors and has "
+			    "no friends", t);
+	  if (w && copy_or_move)
 	    inform (DECL_SOURCE_LOCATION (copy_or_move),
 		    "%q#D is public, but requires an existing %q#T object",
 		    copy_or_move, t);
@@ -4718,8 +4722,6 @@ adjust_clone_args (tree decl)
       tree orig_decl_parms = TYPE_ARG_TYPES (TREE_TYPE (decl));
       tree decl_parms, clone_parms;
 
-      clone_parms = orig_clone_parms;
-
       /* Skip the 'this' parameter.  */
       orig_clone_parms = TREE_CHAIN (orig_clone_parms);
       orig_decl_parms = TREE_CHAIN (orig_decl_parms);
@@ -6018,13 +6020,17 @@ end_of_class (tree t, bool include_virtuals_p)
    subobjects of U.  */
 
 static void
-warn_about_ambiguous_bases (tree t)
+maybe_warn_about_inaccessible_bases (tree t)
 {
   int i;
   vec<tree, va_gc> *vbases;
   tree basetype;
   tree binfo;
   tree base_binfo;
+
+  /* If not checking for warning then return early.  */
+  if (!warn_inaccessible_base)
+    return;
 
   /* If there are no repeated bases, nothing can be ambiguous.  */
   if (!CLASSTYPE_REPEATED_BASE_P (t))
@@ -6037,8 +6043,8 @@ warn_about_ambiguous_bases (tree t)
       basetype = BINFO_TYPE (base_binfo);
 
       if (!uniquely_derived_from_p (basetype, t))
-	warning (0, "direct base %qT inaccessible in %qT due to ambiguity",
-		 basetype, t);
+	warning (OPT_Winaccessible_base, "direct base %qT inaccessible "
+		 "in %qT due to ambiguity", basetype, t);
     }
 
   /* Check for ambiguous virtual bases.  */
@@ -6049,8 +6055,8 @@ warn_about_ambiguous_bases (tree t)
 	basetype = BINFO_TYPE (binfo);
 
 	if (!uniquely_derived_from_p (basetype, t))
-	  warning (OPT_Wextra, "virtual base %qT inaccessible in %qT due "
-		   "to ambiguity", basetype, t);
+	  warning (OPT_Winaccessible_base, "virtual base %qT inaccessible in "
+		   "%qT due to ambiguity", basetype, t);
       }
 }
 
@@ -6391,6 +6397,7 @@ layout_class_type (tree t, tree *virtuals_p)
       SET_TYPE_ALIGN (base_t, rli->record_align);
       TYPE_USER_ALIGN (base_t) = TYPE_USER_ALIGN (t);
       TYPE_TYPELESS_STORAGE (base_t) = TYPE_TYPELESS_STORAGE (t);
+      TYPE_CXX_ODR_P (base_t) = TYPE_CXX_ODR_P (t);
 
       /* Copy the non-static data members of T. This will include its
 	 direct non-virtual bases & vtable.  */
@@ -6449,6 +6456,12 @@ layout_class_type (tree t, tree *virtuals_p)
   /* Let the back end lay out the type.  */
   finish_record_layout (rli, /*free_p=*/true);
 
+  /* If we didn't end up needing an as-base type, don't use it.  */
+  if (CLASSTYPE_AS_BASE (t) != t
+      && tree_int_cst_equal (TYPE_SIZE (t),
+			     TYPE_SIZE (CLASSTYPE_AS_BASE (t))))
+    CLASSTYPE_AS_BASE (t) = t;
+
   if (TYPE_SIZE_UNIT (t)
       && TREE_CODE (TYPE_SIZE_UNIT (t)) == INTEGER_CST
       && !TREE_OVERFLOW (TYPE_SIZE_UNIT (t))
@@ -6456,7 +6469,7 @@ layout_class_type (tree t, tree *virtuals_p)
     error ("size of type %qT is too large (%qE bytes)", t, TYPE_SIZE_UNIT (t));
 
   /* Warn about bases that can't be talked about due to ambiguity.  */
-  warn_about_ambiguous_bases (t);
+  maybe_warn_about_inaccessible_bases (t);
 
   /* Now that we're done with layout, give the base fields the real types.  */
   for (field = TYPE_FIELDS (t); field; field = DECL_CHAIN (field))
@@ -7467,10 +7480,12 @@ resolves_to_fixed_type_p (tree instance, int* nonnull)
     }
 
   fixed = fixed_type_or_null (instance, nonnull, &cdtorp);
-  if (fixed == NULL_TREE)
-    return 0;
   if (INDIRECT_TYPE_P (t))
     t = TREE_TYPE (t);
+  if (CLASS_TYPE_P (t) && CLASSTYPE_FINAL (t))
+    return 1;
+  if (fixed == NULL_TREE)
+    return 0;
   if (!same_type_ignoring_top_level_qualifiers_p (t, fixed))
     return 0;
   return cdtorp ? -1 : 1;
@@ -8537,7 +8552,6 @@ dump_class_hierarchy_r (FILE *stream,
   tree base_binfo;
   int i;
 
-  indented = maybe_indent_hierarchy (stream, indent, 0);
   fprintf (stream, "%s (0x" HOST_WIDE_INT_PRINT_HEX ") ",
 	   type_as_string (BINFO_TYPE (binfo), TFF_PLAIN_IDENTIFIER),
 	   (HOST_WIDE_INT) (uintptr_t) binfo);
@@ -8558,7 +8572,6 @@ dump_class_hierarchy_r (FILE *stream,
     fprintf (stream, " virtual");
   fprintf (stream, "\n");
 
-  indented = 0;
   if (BINFO_PRIMARY_P (binfo))
     {
       indented = maybe_indent_hierarchy (stream, indent + 3, indented);

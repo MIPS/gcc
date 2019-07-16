@@ -100,6 +100,7 @@ static tree build_cp_library_fn (tree, enum tree_code, tree, int);
 static void store_parm_decls (tree);
 static void initialize_local_var (tree, tree);
 static void expand_static_init (tree, tree);
+static location_t smallest_type_location (const cp_decl_specifier_seq*);
 
 /* The following symbols are subsumed in the cp_global_trees array, and
    listed here individually for documentation purposes.
@@ -1922,10 +1923,29 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 
   if (TREE_CODE (newdecl) == FUNCTION_DECL)
     {
-      if (merge_attr && diagnose_mismatched_attributes (olddecl, newdecl))
-	inform (olddecl_loc, DECL_INITIAL (olddecl)
-		? G_("previous definition of %qD here")
-		: G_("previous declaration of %qD here"), olddecl);
+      if (merge_attr)
+	{
+	  if (diagnose_mismatched_attributes (olddecl, newdecl))
+	    inform (olddecl_loc, DECL_INITIAL (olddecl)
+		    ? G_("previous definition of %qD here")
+		    : G_("previous declaration of %qD here"), olddecl);
+
+	  /* [dcl.attr.noreturn]: The first declaration of a function shall
+	     specify the noreturn attribute if any declaration of that function
+	     specifies the noreturn attribute.  */
+	  tree a;
+	  if (TREE_THIS_VOLATILE (newdecl)
+	      && !TREE_THIS_VOLATILE (olddecl)
+	      /* This applies to [[noreturn]] only, not its GNU variants.  */
+	      && (a = lookup_attribute ("noreturn", DECL_ATTRIBUTES (newdecl)))
+	      && cxx11_attribute_p (a)
+	      && get_attribute_namespace (a) == NULL_TREE)
+	    {
+	      error_at (newdecl_loc, "function %qD declared %<[[noreturn]]%> "
+			"but its first declaration was not", newdecl);
+	      inform (olddecl_loc, "previous declaration of %qD", olddecl);
+	    }
+	}
 
       /* Now that functions must hold information normally held
 	 by field decls, there is extra work to do so that
@@ -4783,6 +4803,24 @@ warn_misplaced_attr_for_class_type (location_t location,
 	    class_type, class_key_or_enum_as_string (class_type));
 }
 
+/* Returns the cv-qualifiers that apply to the type specified
+   by the DECLSPECS.  */
+
+static int
+get_type_quals (const cp_decl_specifier_seq *declspecs)
+{
+  int type_quals = TYPE_UNQUALIFIED;
+
+  if (decl_spec_seq_has_spec_p (declspecs, ds_const))
+    type_quals |= TYPE_QUAL_CONST;
+  if (decl_spec_seq_has_spec_p (declspecs, ds_volatile))
+    type_quals |= TYPE_QUAL_VOLATILE;
+  if (decl_spec_seq_has_spec_p (declspecs, ds_restrict))
+    type_quals |= TYPE_QUAL_RESTRICT;
+
+  return type_quals;
+}
+
 /* Make sure that a declaration with no declarator is well-formed, i.e.
    just declares a tagged type or anonymous union.
 
@@ -4802,7 +4840,8 @@ check_tag_decl (cp_decl_specifier_seq *declspecs,
   bool error_p = false;
 
   if (declspecs->multiple_types_p)
-    error ("multiple types in one declaration");
+    error_at (smallest_type_location (declspecs),
+	      "multiple types in one declaration");
   else if (declspecs->redefined_builtin_type)
     {
       if (!in_system_header_at (input_location))
@@ -6382,7 +6421,7 @@ build_aggr_init_full_exprs (tree decl, tree init, int flags)
 static tree
 check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
 {
-  tree type = TREE_TYPE (decl);
+  tree type;
   tree init_code = NULL;
   tree core_type;
 
@@ -7414,8 +7453,11 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 			    DECL_ATTRIBUTES (decl));
       complete_type (TREE_TYPE (decl));
       if (!cp_omp_mappable_type (TREE_TYPE (decl)))
-	error ("%q+D in declare target directive does not have mappable type",
-	       decl);
+	{
+	  error ("%q+D in declare target directive does not have mappable"
+		 " type", decl);
+	  cp_omp_emit_unmappable_type_notes (TREE_TYPE (decl));
+	}
       else if (!lookup_attribute ("omp declare target",
 				  DECL_ATTRIBUTES (decl))
 	       && !lookup_attribute ("omp declare target link",
@@ -8944,9 +8986,9 @@ grokfndecl (tree ctype,
 
 	  for (t = TYPE_ARG_TYPES (TREE_TYPE (decl)); t; t = TREE_CHAIN (t))
 	    if (TREE_PURPOSE (t)
-		&& TREE_CODE (TREE_PURPOSE (t)) == DEFAULT_ARG)
+		&& TREE_CODE (TREE_PURPOSE (t)) == DEFERRED_PARSE)
 	    {
-	      error_at (defarg_location (TREE_PURPOSE (t)),
+	      error_at (defparse_location (TREE_PURPOSE (t)),
 			"default arguments are not allowed in declaration "
 			"of friend template specialization %qD",
 			decl);
@@ -10120,6 +10162,13 @@ smallest_type_location (int type_quals, const location_t* locations)
   return min_location (loc, locations[ds_type_spec]);
 }
 
+static location_t
+smallest_type_location (const cp_decl_specifier_seq *declspecs)
+{
+  int type_quals = get_type_quals (declspecs);
+  return smallest_type_location (type_quals, declspecs->locations);
+}
+
 /* Check that it's OK to declare a function with the indicated TYPE
    and TYPE_QUALS.  SFK indicates the kind of special function (if any)
    that this function is.  OPTYPE is the type given in a conversion
@@ -10349,6 +10398,7 @@ grokdeclarator (const cp_declarator *declarator,
   tree type = NULL_TREE;
   int longlong = 0;
   int explicit_intN = 0;
+  int int_n_alt = 0;
   int virtualp, explicitp, friendp, inlinep, staticp;
   int explicit_int = 0;
   int explicit_char = 0;
@@ -10384,7 +10434,7 @@ grokdeclarator (const cp_declarator *declarator,
      a member function.  */
   cp_ref_qualifier rqual = REF_QUAL_NONE;
   /* cv-qualifiers that apply to the type specified by the DECLSPECS.  */
-  int type_quals = TYPE_UNQUALIFIED;
+  int type_quals = get_type_quals (declspecs);
   tree raises = NULL_TREE;
   int template_count = 0;
   tree returned_attrs = NULL_TREE;
@@ -10422,6 +10472,7 @@ grokdeclarator (const cp_declarator *declarator,
   long_p = decl_spec_seq_has_spec_p (declspecs, ds_long);
   longlong = decl_spec_seq_has_spec_p (declspecs, ds_long_long);
   explicit_intN = declspecs->explicit_intN_p;
+  int_n_alt = declspecs->int_n_alt;
   thread_p = decl_spec_seq_has_spec_p (declspecs, ds_thread);
 
   // Was concept_p specified? Note that ds_concept
@@ -10429,13 +10480,6 @@ grokdeclarator (const cp_declarator *declarator,
   bool concept_p = decl_spec_seq_has_spec_p (declspecs, ds_concept);
   if (concept_p)
     constexpr_p = true;
-
-  if (decl_spec_seq_has_spec_p (declspecs, ds_const))
-    type_quals |= TYPE_QUAL_CONST;
-  if (decl_spec_seq_has_spec_p (declspecs, ds_volatile))
-    type_quals |= TYPE_QUAL_VOLATILE;
-  if (decl_spec_seq_has_spec_p (declspecs, ds_restrict))
-    type_quals |= TYPE_QUAL_RESTRICT;
 
   if (decl_context == FUNCDEF)
     funcdef_flag = true, decl_context = NORMAL;
@@ -10455,6 +10499,10 @@ grokdeclarator (const cp_declarator *declarator,
 						    declspecs->locations);
   if (typespec_loc == UNKNOWN_LOCATION)
     typespec_loc = input_location;
+
+  location_t id_loc = declarator ? declarator->id_loc : input_location;
+  if (id_loc == UNKNOWN_LOCATION)
+    id_loc = input_location;
 
   /* Look inside a declarator for the name being declared
      and get it as a string, for an error message.  */
@@ -10620,8 +10668,7 @@ grokdeclarator (const cp_declarator *declarator,
      D1 ( parameter-declaration-clause) ...  */
   if (funcdef_flag && innermost_code != cdk_function)
     {
-      error_at (declarator->id_loc,
-		"function definition does not declare parameters");
+      error_at (id_loc, "function definition does not declare parameters");
       return error_mark_node;
     }
 
@@ -10629,8 +10676,7 @@ grokdeclarator (const cp_declarator *declarator,
       && innermost_code != cdk_function
       && ! (ctype && !declspecs->any_specifiers_p))
     {
-      error_at (declarator->id_loc,
-		"declaration of %qD as non-function", dname);
+      error_at (id_loc, "declaration of %qD as non-function", dname);
       return error_mark_node;
     }
 
@@ -10639,8 +10685,7 @@ grokdeclarator (const cp_declarator *declarator,
       if (UDLIT_OPER_P (dname)
 	  && innermost_code != cdk_function)
 	{
-	  error_at (declarator->id_loc,
-		    "declaration of %qD as non-function", dname);
+	  error_at (id_loc, "declaration of %qD as non-function", dname);
 	  return error_mark_node;
 	}
 
@@ -10648,14 +10693,12 @@ grokdeclarator (const cp_declarator *declarator,
 	{
 	  if (typedef_p)
 	    {
-	      error_at (declarator->id_loc,
-			"declaration of %qD as %<typedef%>", dname);
+	      error_at (id_loc, "declaration of %qD as %<typedef%>", dname);
 	      return error_mark_node;
 	    }
 	  else if (decl_context == PARM || decl_context == CATCHPARM)
 	    {
-	      error_at (declarator->id_loc,
-			"declaration of %qD as parameter", dname);
+	      error_at (id_loc, "declaration of %qD as parameter", dname);
 	      return error_mark_node;
 	    }
 	}
@@ -10705,13 +10748,16 @@ grokdeclarator (const cp_declarator *declarator,
      issue an error message.  */
   if (declspecs->multiple_types_p)
     {
-      error ("two or more data types in declaration of %qs", name);
+      error_at (typespec_loc,
+		"two or more data types in declaration of %qs", name);
       return error_mark_node;
     }
 
   if (declspecs->conflicting_specifiers_p)
     {
-      error ("conflicting specifiers in declaration of %qs", name);
+      error_at (min_location (declspecs->locations[ds_typedef],
+			      declspecs->locations[ds_storage_class]),
+		"conflicting specifiers in declaration of %qs", name);
       return error_mark_node;
     }
 
@@ -10795,13 +10841,14 @@ grokdeclarator (const cp_declarator *declarator,
       else if (in_system_header_at (input_location) || flag_ms_extensions)
 	/* Allow it, sigh.  */;
       else if (! is_main)
-	permerror (input_location, "ISO C++ forbids declaration of %qs with no type", name);
+	permerror (id_loc, "ISO C++ forbids declaration of %qs with no type",
+		   name);
       else if (pedantic)
-	pedwarn (input_location, OPT_Wpedantic,
+	pedwarn (id_loc, OPT_Wpedantic,
 		 "ISO C++ forbids declaration of %qs with no type", name);
       else
-	warning (OPT_Wreturn_type,
-		 "ISO C++ forbids declaration of %qs with no type", name);
+	warning_at (id_loc, OPT_Wreturn_type,
+		    "ISO C++ forbids declaration of %qs with no type", name);
 
       if (type_was_error_mark_node && template_parm_flag)
 	/* FIXME we should be able to propagate the error_mark_node as is
@@ -10821,7 +10868,9 @@ grokdeclarator (const cp_declarator *declarator,
 		 int_n_data[declspecs->int_n_idx].bitsize);
 	  explicit_intN = false;
 	}
-      else if (pedantic && ! in_system_header_at (input_location))
+      /* Don't pedwarn if the alternate "__intN__" form has been used instead
+	 of "__intN".  */
+      else if (!int_n_alt && pedantic && ! in_system_header_at (input_location))
 	pedwarn (input_location, OPT_Wpedantic,
 		 "ISO C++ does not support %<__int%d%> for %qs",
 		 int_n_data[declspecs->int_n_idx].bitsize, name);
@@ -10970,7 +11019,8 @@ grokdeclarator (const cp_declarator *declarator,
   if (decl_spec_seq_has_spec_p (declspecs, ds_complex))
     {
       if (TREE_CODE (type) != INTEGER_TYPE && TREE_CODE (type) != REAL_TYPE)
-	error ("complex invalid for %qs", name);
+	error_at (declspecs->locations[ds_complex],
+		  "complex invalid for %qs", name);
       /* If a modifier is specified, the resulting complex is the complex
 	 form of TYPE.  E.g, "complex short" is "complex short int".  */
       else if (type == integer_type_node)
@@ -11230,7 +11280,8 @@ grokdeclarator (const cp_declarator *declarator,
   else if (toplevel_bindings_p ())
     {
       if (storage_class == sc_auto)
-	error ("top-level declaration of %qs specifies %<auto%>", name);
+	error_at (declspecs->locations[ds_storage_class],
+		  "top-level declaration of %qs specifies %<auto%>", name);
     }
   else if (thread_p
 	   && storage_class != sc_extern
@@ -11548,9 +11599,12 @@ grokdeclarator (const cp_declarator *declarator,
 		   virtual.  A constructor may not be static.
 		   A constructor may not be declared with ref-qualifier. */
 		if (staticp == 2)
-		  error ((flags == DTOR_FLAG)
-			 ? G_("destructor cannot be static member function")
-			 : G_("constructor cannot be static member function"));
+		  error_at (declspecs->locations[ds_storage_class],
+			    (flags == DTOR_FLAG)
+			    ? G_("destructor cannot be static member "
+				 "function")
+			    : G_("constructor cannot be static member "
+				 "function"));
 		if (memfn_quals)
 		  {
 		    error ((flags == DTOR_FLAG)
@@ -11603,12 +11657,28 @@ grokdeclarator (const cp_declarator *declarator,
 		    friendp = 0;
 		  }
 		if (decl_context == NORMAL)
-		  error ("friend declaration not in class definition");
+		  error_at (declarator->id_loc,
+			    "friend declaration not in class definition");
 		if (current_function_decl && funcdef_flag)
 		  {
-		    error ("cannot define friend function %qs in a local "
-			   "class definition", name);
+		    error_at (declarator->id_loc,
+			      "cannot define friend function %qs in a local "
+			      "class definition", name);
 		    friendp = 0;
+		  }
+		/* [class.friend]/6: A function can be defined in a friend
+		   declaration if the function name is unqualified.  */
+		if (funcdef_flag && in_namespace)
+		  {
+		    if (in_namespace == global_namespace)
+		      error_at (declarator->id_loc,
+				"friend function definition %qs cannot have "
+				"a name qualified with %<::%>", name);
+		    else
+		      error_at (declarator->id_loc,
+				"friend function definition %qs cannot have "
+				"a name qualified with %<%D::%>", name,
+				in_namespace);
 		  }
 	      }
 	    else if (ctype && sfk == sfk_conversion)
@@ -11861,6 +11931,8 @@ grokdeclarator (const cp_declarator *declarator,
 	}
     }
 
+  id_loc = declarator ? declarator->id_loc : input_location;
+
   /* A `constexpr' specifier used in an object declaration declares
      the object as `const'.  */
   if (constexpr_p && innermost_code != cdk_function)
@@ -11883,8 +11955,6 @@ grokdeclarator (const cp_declarator *declarator,
 	     unqualified_id);
       unqualified_id = dname;
     }
-
-  location_t loc = declarator ? declarator->id_loc : input_location;
 
   /* If TYPE is a FUNCTION_TYPE, but the function name was explicitly
      qualified with a class-name, turn it into a METHOD_TYPE, unless
@@ -11912,7 +11982,7 @@ grokdeclarator (const cp_declarator *declarator,
 	      friendp = 0;
 	    }
 	  else
-	    permerror (loc, "extra qualification %<%T::%> on member %qs",
+	    permerror (id_loc, "extra qualification %<%T::%> on member %qs",
 		       ctype, name);
 	}
       else if (/* If the qualifying type is already complete, then we
@@ -11941,7 +12011,7 @@ grokdeclarator (const cp_declarator *declarator,
 	  if (current_class_type
 	      && (!friendp || funcdef_flag || initialized))
 	    {
-	      error_at (loc, funcdef_flag || initialized
+	      error_at (id_loc, funcdef_flag || initialized
 			? G_("cannot define member function %<%T::%s%> "
 			     "within %qT")
 			: G_("cannot declare member function %<%T::%s%> "
@@ -11952,7 +12022,7 @@ grokdeclarator (const cp_declarator *declarator,
 	}
       else if (typedef_p && current_class_type)
 	{
-	  error_at (loc, "cannot declare member %<%T::%s%> within %qT",
+	  error_at (id_loc, "cannot declare member %<%T::%s%> within %qT",
 		    ctype, name, current_class_type);
 	  return error_mark_node;
 	}
@@ -12000,9 +12070,11 @@ grokdeclarator (const cp_declarator *declarator,
       && variably_modified_type_p (type, NULL_TREE))
     {
       if (decl_context == FIELD)
-	error ("data member may not have variably modified type %qT", type);
+	error_at (id_loc,
+		  "data member may not have variably modified type %qT", type);
       else
-	error ("parameter may not have variably modified type %qT", type);
+	error_at (id_loc,
+		  "parameter may not have variably modified type %qT", type);
       type = error_mark_node;
     }
 
@@ -12106,14 +12178,14 @@ grokdeclarator (const cp_declarator *declarator,
 
       if (id_declarator && declarator->u.id.qualifying_scope)
 	{
-	  error ("typedef name may not be a nested-name-specifier");
+	  error_at (id_loc, "typedef name may not be a nested-name-specifier");
 	  type = error_mark_node;
 	}
 
       if (decl_context == FIELD)
-	decl = build_lang_decl_loc (loc, TYPE_DECL, unqualified_id, type);
+	decl = build_lang_decl_loc (id_loc, TYPE_DECL, unqualified_id, type);
       else
-	decl = build_decl (loc, TYPE_DECL, unqualified_id, type);
+	decl = build_decl (id_loc, TYPE_DECL, unqualified_id, type);
 
       if (decl_context != FIELD)
 	{
@@ -12130,7 +12202,7 @@ grokdeclarator (const cp_declarator *declarator,
 	}
       else if (current_class_type
 	       && constructor_name_p (unqualified_id, current_class_type))
-	permerror (input_location, "ISO C++ forbids nested type %qD with same name "
+	permerror (id_loc, "ISO C++ forbids nested type %qD with same name "
 		   "as enclosing class",
 		   unqualified_id);
 
@@ -12288,7 +12360,7 @@ grokdeclarator (const cp_declarator *declarator,
       /* Only functions may be declared using an operator-function-id.  */
       if (dname && IDENTIFIER_ANY_OP_P (dname))
 	{
-	  error ("declaration of %qD as non-function", dname);
+	  error_at (id_loc, "declaration of %qD as non-function", dname);
 	  return error_mark_node;
 	}
 
@@ -12319,9 +12391,10 @@ grokdeclarator (const cp_declarator *declarator,
 	  && !(cxx_dialect >= cxx17 && template_parm_flag))
 	{
 	  if (cxx_dialect >= cxx14)
-	    error ("%<auto%> parameter not permitted in this context");
+	    error_at (typespec_loc,
+		      "%<auto%> parameter not permitted in this context");
 	  else
-	    error ("parameter declared %<auto%>");
+	    error_at (typespec_loc, "parameter declared %<auto%>");
 	  type = error_mark_node;
 	}
 
@@ -12389,7 +12462,7 @@ grokdeclarator (const cp_declarator *declarator,
 		&& (TREE_CODE (ctype) == UNION_TYPE
 		    || TREE_CODE (ctype) == QUAL_UNION_TYPE))
 	      {
-		error ("flexible array member in union");
+		error_at (id_loc, "flexible array member in union");
 		type = error_mark_node;
 	      }
 	    else
@@ -12398,8 +12471,8 @@ grokdeclarator (const cp_declarator *declarator,
 		if (in_system_header_at (input_location))
 		  /* Do not warn on flexible array members in system
 		     headers because glibc uses them.  */;
-		else if (name && declarator)
-		  pedwarn (declarator->id_loc, OPT_Wpedantic,
+		else if (name)
+		  pedwarn (id_loc, OPT_Wpedantic,
 			   "ISO C++ forbids flexible array member %qs", name);
 		else
 		  pedwarn (input_location, OPT_Wpedantic,
@@ -12551,7 +12624,7 @@ grokdeclarator (const cp_declarator *declarator,
 			       initialized == SD_DELETED, sfk,
 			       funcdef_flag, late_return_type_p,
 			       template_count, in_namespace,
-			       attrlist, declarator->id_loc);
+			       attrlist, id_loc);
             decl = set_virt_specifiers (decl, virt_specifiers);
 	    if (decl == NULL_TREE)
 	      return error_mark_node;
@@ -12584,8 +12657,7 @@ grokdeclarator (const cp_declarator *declarator,
 	      {
 		if (unqualified_id)
 		  {
-		    error_at (declarator->id_loc,
-			      "field %qD has incomplete type %qT",
+		    error_at (id_loc, "field %qD has incomplete type %qT",
 			      unqualified_id, type);
 		    cxx_incomplete_type_inform (strip_array_types (type));
 		  }
@@ -12600,8 +12672,8 @@ grokdeclarator (const cp_declarator *declarator,
 	  {
 	    if (friendp)
 	      {
-		if (unqualified_id && declarator)
-		  error_at (declarator->id_loc,
+		if (unqualified_id)
+		  error_at (id_loc,
 			    "%qE is neither function nor member function; "
 			    "cannot be declared friend", unqualified_id);
 		else
@@ -12645,7 +12717,7 @@ grokdeclarator (const cp_declarator *declarator,
 	      {
 		/* C++ allows static class members.  All other work
 		   for this is done by grokfield.  */
-		decl = build_lang_decl_loc (loc, VAR_DECL,
+		decl = build_lang_decl_loc (id_loc, VAR_DECL,
 					    unqualified_id, type);
 		set_linkage_for_static_data_member (decl);
 		if (concept_p)
@@ -12693,7 +12765,7 @@ grokdeclarator (const cp_declarator *declarator,
 			      unqualified_id);
 		    constexpr_p = false;
 		  }
-		decl = build_decl (loc, FIELD_DECL, unqualified_id, type);
+		decl = build_decl (id_loc, FIELD_DECL, unqualified_id, type);
 		DECL_NONADDRESSABLE_P (decl) = bitfield;
 		if (bitfield && !unqualified_id)
 		  {
@@ -12743,9 +12815,12 @@ grokdeclarator (const cp_declarator *declarator,
 	// FIXME:gcc_assert (original_name == dname);
 
 	if (storage_class == sc_auto)
-	  error ("storage class %<auto%> invalid for function %qs", name);
+	  error_at (declspecs->locations[ds_storage_class],
+		    "storage class %<auto%> invalid for function %qs", name);
 	else if (storage_class == sc_register)
-	  error ("storage class %<register%> invalid for function %qs", name);
+	  error_at (declspecs->locations[ds_storage_class],
+		    "storage class %<register%> invalid for function %qs",
+		    name);
 	else if (thread_p)
 	  {
 	    if (declspecs->gnu_thread_keyword_p)
@@ -12811,7 +12886,7 @@ grokdeclarator (const cp_declarator *declarator,
                            funcdef_flag,
 			   late_return_type_p,
 			   template_count, in_namespace, attrlist,
-			   declarator->id_loc);
+			   id_loc);
 	if (decl == NULL_TREE)
 	  return error_mark_node;
 
@@ -12858,7 +12933,7 @@ grokdeclarator (const cp_declarator *declarator,
 			    concept_p,
 			    template_count,
 			    ctype ? ctype : in_namespace,
-			    loc);
+			    id_loc);
 	if (decl == NULL_TREE)
 	  return error_mark_node;
 
@@ -12904,7 +12979,7 @@ grokdeclarator (const cp_declarator *declarator,
 	if (innermost_code == cdk_decomp)
 	  {
 	    gcc_assert (declarator && declarator->kind == cdk_decomp);
-	    DECL_SOURCE_LOCATION (decl) = declarator->id_loc;
+	    DECL_SOURCE_LOCATION (decl) = id_loc;
 	    DECL_ARTIFICIAL (decl) = 1;
 	    fit_decomposition_lang_decl (decl, NULL_TREE);
 	  }
@@ -13045,8 +13120,8 @@ check_default_argument (tree decl, tree arg, tsubst_flags_t complain)
   tree var;
   tree decl_type;
 
-  if (TREE_CODE (arg) == DEFAULT_ARG)
-    /* We get a DEFAULT_ARG when looking at an in-class declaration
+  if (TREE_CODE (arg) == DEFERRED_PARSE)
+    /* We get a DEFERRED_PARSE when looking at an in-class declaration
        with a default argument.  Ignore the argument for now; we'll
        deal with it after the class is complete.  */
     return arg;
@@ -15717,6 +15792,39 @@ use_eh_spec_block (tree fn)
 	  && !DECL_DEFAULTED_FN (fn));
 }
 
+/* Helper function to push ARGS into the current lexical scope.  DECL
+   is the function declaration.  NONPARMS is used to handle enum
+   constants.  */
+
+void
+do_push_parm_decls (tree decl, tree args, tree *nonparms)
+{
+  /* If we're doing semantic analysis, then we'll call pushdecl
+     for each of these.  We must do them in reverse order so that
+     they end in the correct forward order.  */
+  args = nreverse (args);
+
+  tree next;
+  for (tree parm = args; parm; parm = next)
+    {
+      next = DECL_CHAIN (parm);
+      if (TREE_CODE (parm) == PARM_DECL)
+	pushdecl (parm);
+      else if (nonparms)
+	{
+	  /* If we find an enum constant or a type tag, put it aside for
+	     the moment.  */
+	  TREE_CHAIN (parm) = NULL_TREE;
+	  *nonparms = chainon (*nonparms, parm);
+	}
+    }
+
+  /* Get the decls in their original chain order and record in the
+     function.  This is all and only the PARM_DECLs that were
+     pushed into scope by the loop above.  */
+  DECL_ARGUMENTS (decl) = get_local_decls ();
+}
+
 /* Store the parameter declarations into the current function declaration.
    This is called after parsing the parameter declarations, before
    digesting the body of the function.
@@ -15727,7 +15835,6 @@ static void
 store_parm_decls (tree current_function_parms)
 {
   tree fndecl = current_function_decl;
-  tree parm;
 
   /* This is a chain of any other decls that came in among the parm
      declarations.  If a parm is declared with  enum {foo, bar} x;
@@ -15742,35 +15849,12 @@ store_parm_decls (tree current_function_parms)
 	 and complain if any redundant old-style parm decls were written.  */
 
       tree specparms = current_function_parms;
-      tree next;
 
       /* Must clear this because it might contain TYPE_DECLs declared
 	     at class level.  */
       current_binding_level->names = NULL;
 
-      /* If we're doing semantic analysis, then we'll call pushdecl
-	     for each of these.  We must do them in reverse order so that
-	     they end in the correct forward order.  */
-      specparms = nreverse (specparms);
-
-      for (parm = specparms; parm; parm = next)
-	{
-	  next = DECL_CHAIN (parm);
-	  if (TREE_CODE (parm) == PARM_DECL)
-	    pushdecl (parm);
-	  else
-	    {
-	      /* If we find an enum constant or a type tag,
-		 put it aside for the moment.  */
-	      TREE_CHAIN (parm) = NULL_TREE;
-	      nonparms = chainon (nonparms, parm);
-	    }
-	}
-
-      /* Get the decls in their original chain order and record in the
-	 function.  This is all and only the PARM_DECLs that were
-	 pushed into scope by the loop above.  */
-      DECL_ARGUMENTS (fndecl) = get_local_decls ();
+      do_push_parm_decls (fndecl, specparms, &nonparms);
     }
   else
     DECL_ARGUMENTS (fndecl) = NULL_TREE;
@@ -16608,7 +16692,7 @@ cp_tree_node_structure (union lang_tree_node * t)
 {
   switch (TREE_CODE (&t->generic))
     {
-    case DEFAULT_ARG:		return TS_CP_DEFAULT_ARG;
+    case DEFERRED_PARSE:	return TS_CP_DEFERRED_PARSE;
     case DEFERRED_NOEXCEPT:	return TS_CP_DEFERRED_NOEXCEPT;
     case IDENTIFIER_NODE:	return TS_CP_IDENTIFIER;
     case OVERLOAD:		return TS_CP_OVERLOAD;
