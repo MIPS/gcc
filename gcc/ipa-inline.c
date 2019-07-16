@@ -824,12 +824,6 @@ want_inline_small_function_p (struct cgraph_edge *e, bool report)
       ipa_hints hints = estimate_edge_hints (e);
       int big_speedup = -1; /* compute this lazily */
 
-      /* array_index matches very often, for example on all gcc predicates
-	 where mode parameter is constant leading to large code size
-	 growth at -O2.  */
-      if (opt_for_fn (e->caller->decl, optimize) <= 2)
-	hints &= ~INLINE_HINT_array_index;
-
       if (growth <= PARAM_VALUE (PARAM_MAX_INLINE_INSNS_SIZE))
 	;
       /* Apply MAX_INLINE_INSNS_SINGLE limit.  Do not do so when
