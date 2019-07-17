@@ -123,6 +123,8 @@
 	* gcc.dg/ipa/ipa-sra-20.c: Likewise.
 	* gcc.dg/ipa/ipa-sra-21.c: Likewise.
 	* gcc.dg/sso/ipa-sra-1.c: Likewise.
+	* g++.dg/ipa/devirt-19.C: Add missing return, add -fipa-cp-clone
+	option.
 
 	* gcc.dg/ipa/ipa-sra-2.c: Mark to be removed.
 	* gcc.dg/ipa/ipa-sra-6.c: Likewise.

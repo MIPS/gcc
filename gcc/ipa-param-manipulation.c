@@ -910,7 +910,7 @@ ipa_param_body_adjustments::register_replacement (ipa_adjusted_param *apm,
 		       || apm->op == IPA_PARAM_OP_NEW);
   gcc_checking_assert (!apm->prev_clone_adjustment);
   ipa_param_body_replacement psr;
-  psr.base = m_oparms[apm->base_index];
+  psr.base = m_oparms[apm->prev_clone_index];
   psr.repl = replacement;
   psr.dummy = dummy;
   psr.unit_offset = apm->unit_offset;
