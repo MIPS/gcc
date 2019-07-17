@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -fipa-sra -fdump-ipa-sra" } */
+/* { dg-options "-O2 -fno-ipa-cp -fipa-sra -fdump-ipa-sra" } */
 
 struct bovid
 {

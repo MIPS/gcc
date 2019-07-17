@@ -407,6 +407,11 @@ class ipa_sra_call_summaries: public call_summary <isra_call_summary *>
 public:
   ipa_sra_call_summaries (symbol_table *table):
     call_summary<isra_call_summary *> (table) { }
+
+  /* Duplicate info when an edge is cloned.  */
+  virtual void duplicate (cgraph_edge *, cgraph_edge *,
+			  isra_call_summary *old_sum,
+			  isra_call_summary *new_sum);
 };
 
 static ipa_sra_call_summaries *call_sums;
@@ -469,6 +474,24 @@ isra_call_summary::dump (FILE *f)
 		 "safe_to_import_accesses: %u\n", ipf->safe_to_import_accesses);
     }
 }
+
+/* Duplicate edge summare when an edge is cloned.  */
+
+void
+ipa_sra_call_summaries::duplicate (cgraph_edge *, cgraph_edge *,
+				   isra_call_summary *old_sum,
+				   isra_call_summary *new_sum)
+{
+  unsigned arg_count = old_sum->m_arg_flow.length ();
+  new_sum->init_inputs (arg_count);
+  for (unsigned i = 0; i < arg_count; i++)
+    new_sum->m_arg_flow[i] = old_sum->m_arg_flow[i];
+
+  new_sum->m_return_ignored = old_sum->m_return_ignored;
+  new_sum->m_return_returned = old_sum->m_return_returned;
+  new_sum->m_bit_aligned_arg = old_sum->m_bit_aligned_arg;
+}
+
 
 /* With all GTY stuff done, we can move to anonymous namespace.  */
 namespace {
@@ -3506,6 +3529,76 @@ propagate_unused_ret_first_stage (cgraph_node *node, void *)
   return false;
 }
 
+/* Push into NEW_PARAMS all required parameter adjustment entries to copy or
+   modify parameter which originally had index BASE_INDEX, in the adjustment
+   vector of parent clone (if any) had PREV_CLONE_INDEX and was described by
+   PREV_ADJUSTMENT.  If the parent clone is the original function,
+   PREV_ADJUSTMENT is NULL and PREV_CLONE_INDEX is equal to BASE_INDEX.  */
+
+
+static void
+push_param_adjustments_for_index (isra_func_summary *ifs, unsigned base_index,
+				  unsigned prev_clone_index,
+				  ipa_adjusted_param *prev_adjustment,
+				  vec<ipa_adjusted_param, va_gc> **new_params)
+{
+  isra_param_desc *desc = &(*ifs->m_parameters)[base_index];
+  if (desc->locally_unused)
+    {
+      if (dump_file)
+	fprintf (dump_file, "  Will remove parameter %u\n", base_index);
+      return;
+    }
+
+  if (!desc->split_candidate)
+    {
+      ipa_adjusted_param adj;
+      if (prev_adjustment)
+	{
+	  adj = *prev_adjustment;
+	  adj.prev_clone_adjustment = true;
+	  adj.prev_clone_index = prev_clone_index;
+	}
+      else
+	{
+	  memset (&adj, 0, sizeof (adj));
+	  adj.op = IPA_PARAM_OP_COPY;
+	  adj.base_index = base_index;
+	  adj.prev_clone_index = prev_clone_index;
+	}
+      vec_safe_push ((*new_params), adj);
+      return;
+    }
+
+  if (dump_file)
+    fprintf (dump_file, "  Will split parameter %u\n", base_index);
+
+  gcc_assert (!prev_adjustment || prev_adjustment->op == IPA_PARAM_OP_COPY);
+  unsigned aclen = vec_safe_length (desc->accesses);
+  for (unsigned j = 0; j < aclen; j++)
+    {
+      param_access *pa = (*desc->accesses)[j];
+      if (!pa->certain)
+	continue;
+      if (dump_file)
+	fprintf (dump_file, "    - component at byte offset %u, "
+		 "size %u\n", pa->unit_offset, pa->unit_size);
+
+      ipa_adjusted_param adj;
+      memset (&adj, 0, sizeof (adj));
+      adj.op = IPA_PARAM_OP_SPLIT;
+      adj.base_index = base_index;
+      adj.prev_clone_index = prev_clone_index;
+      adj.param_prefix_index = IPA_PARAM_PREFIX_ISRA;
+      adj.reverse = pa->reverse;
+      adj.type = pa->type;
+      adj.alias_ptr_type = pa->alias_ptr_type;
+      adj.unit_offset = pa->unit_offset;
+      vec_safe_push ((*new_params), adj);
+    }
+}
+
+
 /* Do finall processing of results of IPA propagation regarding NODE, clone it
    if appropriate.  */
 
@@ -3542,58 +3635,21 @@ process_isra_node_results (cgraph_node *node,
 	fprintf (dump_file, "  Will remove return value.\n");
     }
 
-  /* Currently IPA-SRA is the first IPA pass creating param_adjustments.  If
-     that ever changes, we'll have to add logic to combine pre-existing
-     adjustments with the modifications IPA-SRA wishes to make, similar to what
-     is done in IPA-CP.  */
-  gcc_assert (!node->clone.param_adjustments);
   vec<ipa_adjusted_param, va_gc> *new_params = NULL;
-  for (unsigned parm_num = 0; parm_num < param_count; parm_num++)
+  if (ipa_param_adjustments *old_adjustments = node->clone.param_adjustments)
     {
-      isra_param_desc *desc = &(*ifs->m_parameters)[parm_num];
-      if (desc->locally_unused)
+      unsigned old_adj_len = vec_safe_length (old_adjustments->m_adj_params);
+      for (unsigned i = 0; i < old_adj_len; i++)
 	{
-	  if (dump_file)
-	    fprintf (dump_file, "  Will remove parameter %u\n", parm_num);
-	  continue;
-	}
-
-      if (!desc->split_candidate)
-	{
-	  ipa_adjusted_param adj;
-	  memset (&adj, 0, sizeof (adj));
-	  adj.op = IPA_PARAM_OP_COPY;
-	  adj.base_index = parm_num;
-	  adj.prev_clone_index = parm_num;
-	  vec_safe_push (new_params, adj);
-	  continue;
-	}
-
-      if (dump_file)
-	fprintf (dump_file, "  Will split parameter %u\n", parm_num);
-      unsigned aclen = vec_safe_length (desc->accesses);
-      for (unsigned j = 0; j < aclen; j++)
-	{
-	  param_access *pa = (*desc->accesses)[j];
-	  if (!pa->certain)
-	    continue;
-	  if (dump_file)
-	    fprintf (dump_file, "    - component at byte offset %u, "
-		     "size %u\n", pa->unit_offset, pa->unit_size);
-
-	  ipa_adjusted_param adj;
-	  memset (&adj, 0, sizeof (adj));
-	  adj.op = IPA_PARAM_OP_SPLIT;
-	  adj.base_index = parm_num;
-	  adj.prev_clone_index = parm_num;
-	  adj.param_prefix_index = IPA_PARAM_PREFIX_ISRA;
-	  adj.reverse = pa->reverse;
-	  adj.type = pa->type;
-	  adj.alias_ptr_type = pa->alias_ptr_type;
-	  adj.unit_offset = pa->unit_offset;
-	  vec_safe_push (new_params, adj);
+	  ipa_adjusted_param *old_adj = &(*old_adjustments->m_adj_params)[i];
+	  push_param_adjustments_for_index (ifs, old_adj->base_index, i,
+					    old_adj, &new_params);
 	}
     }
+  else
+    for (unsigned i = 0; i < param_count; i++)
+      push_param_adjustments_for_index (ifs, i, i, NULL, &new_params);
+
   ipa_param_adjustments *new_adjustments
     = (new (ggc_alloc <ipa_param_adjustments> ())
        ipa_param_adjustments (new_params, param_count,
@@ -3618,6 +3674,52 @@ process_isra_node_results (cgraph_node *node,
     fprintf (dump_file, "  Created new node %s\n", new_node->dump_name ());
   callers.release ();
 }
+
+/* Check which parameters of NODE described by IFS have survived until IPA-SRA
+   and disable transformations for those which have not.  Return true if none
+   survived or if there were no candidates to begin with.  */
+
+static bool
+disable_removed_parameters (cgraph_node *node, isra_func_summary *ifs)
+{
+  bool ret = true;
+  unsigned len = vec_safe_length (ifs->m_parameters);
+  if (!len)
+    return true;
+  if (!node->clone.param_adjustments)
+    return false;
+
+  auto_vec<bool, 16> surviving_params;
+  node->clone.param_adjustments->get_surviving_params (&surviving_params);
+  bool dumped_first = false;
+  for (unsigned i = 0; i < len; i++)
+    if (i >= surviving_params.length ()
+	|| !surviving_params[i])
+      {
+	isra_param_desc *desc = &(*ifs->m_parameters)[i];
+	desc->split_candidate = false;
+
+	if (dump_file && (dump_flags & TDF_DETAILS))
+	  {
+	    if (!dumped_first)
+	      {
+		  fprintf (dump_file,
+			   "The following parameters of %s are dead on "
+			   "arrival:", node->dump_name ());
+		  dumped_first = true;
+	      }
+	      fprintf (dump_file, " %u", i);
+	  }
+      }
+    else
+      ret = false;
+
+  if (dumped_first)
+    fprintf (dump_file, "\n");
+
+  return ret;
+}
+
 
 /* Run the interprocedural part of IPA-SRA. */
 
@@ -3657,7 +3759,7 @@ ipa_sra_analysis (void)
 	      ifs->zap ();
 	      continue;
 	    }
-	  if (vec_safe_is_empty (ifs->m_parameters))
+	  if (disable_removed_parameters (v, ifs))
 	    continue;
 	  for (cgraph_edge *cs = v->indirect_calls; cs; cs = cs->next_callee)
 	    process_edge_to_unknown_caller (cs);

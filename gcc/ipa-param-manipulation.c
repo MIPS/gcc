@@ -1651,8 +1651,7 @@ ipa_param_body_adjustments::modify_call_stmt (gcall **stmt_p)
 	      vargs.safe_push (t);
 	    }
 	}
-      gcall *new_stmt = gimple_build_call_vec (gimple_call_fndecl (stmt),
-					       vargs);
+      gcall *new_stmt = gimple_build_call_vec (gimple_call_fn (stmt), vargs);
       gimple_call_set_chain (new_stmt, gimple_call_chain (stmt));
       gimple_call_copy_flags (new_stmt, stmt);
       if (tree lhs = gimple_call_lhs (stmt))
