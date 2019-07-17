@@ -10668,7 +10668,7 @@ tsubst_friend_function (tree decl, tree args)
 	  CI_DECLARATOR_REQS (new_ci) = freqs;
 
 	  /* Also update the template parameter list.  */
-	  TEMPLATE_PARM_CONSTRAINTS (parms) = treqs;
+	  TEMPLATE_PARMS_CONSTRAINTS (parms) = treqs;
 	}
     }
 

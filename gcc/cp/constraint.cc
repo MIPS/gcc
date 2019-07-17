@@ -557,7 +557,7 @@ current_template_constraints (void)
 {
   if (!current_template_parms)
     return NULL_TREE;
-  tree tmpl_constr = TEMPLATE_PARM_CONSTRAINTS (current_template_parms);
+  tree tmpl_constr = TEMPLATE_PARMS_CONSTRAINTS (current_template_parms);
   return build_constraints (tmpl_constr, NULL_TREE);
 }
 
