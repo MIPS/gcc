@@ -2529,6 +2529,8 @@ diagnose_compound_requirement (tree req, tree args, tree in_decl)
       /* Check the expression against the result type.  */
       if (tree placeholder = type_uses_auto (type))
 	{
+	  /* The type being constrained is decltype((E)).  */
+	  expr = force_paren_expr_uneval (expr);
 	  if (!type_deducible_p (expr, type, placeholder, args, quiet))
 	    {
 	      tree orig_expr = TREE_OPERAND (req, 0);
@@ -2587,6 +2589,7 @@ diagnose_requires (tree expr, tree args, tree in_decl)
   tree parms = TREE_OPERAND (expr, 0);
   tree body = TREE_OPERAND (expr, 1);
 
+  cp_unevaluated u;
   subst_info info (tf_warning_or_error, NULL_TREE);
   tree vars = tsubst_constraint_variables (parms, args, info);
   if (vars == error_mark_node)
