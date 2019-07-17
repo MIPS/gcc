@@ -1599,8 +1599,8 @@ tsubst_constraint_info (tree t, tree args,
   if (!t || t == error_mark_node || !check_constraint_info (t))
     return NULL_TREE;
 
-  tree tr = tsubst_expr (CI_TEMPLATE_REQS (t), args, complain, in_decl, true);
-  tree dr = tsubst_expr (CI_DECLARATOR_REQS (t), args, complain, in_decl, true);
+  tree tr = tsubst_constraint (CI_TEMPLATE_REQS (t), args, complain, in_decl);
+  tree dr = tsubst_constraint (CI_DECLARATOR_REQS (t), args, complain, in_decl);
   return build_constraints (tr, dr);
 }
 
@@ -1622,6 +1622,18 @@ bool
 satisfying_constraint_p ()
 {
   return satisfying_constraint;
+}
+
+/* We also don't want to evaluate concept-checks when substituting the
+   constraint-expressions of a declaration.  */
+
+tree
+tsubst_constraint (tree t, tree args, tsubst_flags_t complain, tree in_decl)
+{
+  ++satisfying_constraint;
+  tree expr = tsubst_expr (t, args, complain, in_decl, false);
+  --satisfying_constraint;
+  return expr;
 }
 
 static tree satisfy_expression (tree, tree, subst_info info);
@@ -1657,9 +1669,7 @@ static tree
 satisfy_check (tree check, tree args, subst_info info)
 {
   /* Apply the parameter mapping (i.e., substitute), if needed.  */
-  ++satisfying_constraint;
-  tree expr = tsubst_expr (check, args, info.complain, info.in_decl, false);
-  --satisfying_constraint;
+  tree expr = tsubst_constraint (check, args, info.complain, info.in_decl);
   if (expr == error_mark_node)
     return error_mark_node;
 

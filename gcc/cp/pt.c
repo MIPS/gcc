@@ -10654,10 +10654,10 @@ tsubst_friend_function (tree decl, tree args)
 	{
 	  tree parms = DECL_TEMPLATE_PARMS (new_friend);
 	  tree args = template_parms_to_args (parms);
-	  tree treqs = tsubst_expr (CI_TEMPLATE_REQS (ci), args,
-				    tf_warning_or_error, NULL_TREE, true);
-	  tree freqs = tsubst_expr (CI_DECLARATOR_REQS (ci), args,
-				    tf_warning_or_error, NULL_TREE, true);
+	  tree treqs = tsubst_constraint (CI_TEMPLATE_REQS (ci), args,
+					  tf_warning_or_error, NULL_TREE);
+	  tree freqs = tsubst_constraint (CI_DECLARATOR_REQS (ci), args,
+					  tf_warning_or_error, NULL_TREE);
 
 	  /* Update the constraints -- these won't really be valid for
 	     checking, but that's not what we need them for. These ensure
@@ -12953,6 +12953,7 @@ tsubst_template_parm (tree t, tree args, tsubst_flags_t complain)
 
   default_value = TREE_PURPOSE (t);
   parm_decl = TREE_VALUE (t);
+  tree constraint = TEMPLATE_PARM_CONSTRAINTS (t);
 
   parm_decl = tsubst (parm_decl, args, complain, NULL_TREE);
   if (TREE_CODE (parm_decl) == PARM_DECL
@@ -12960,8 +12961,11 @@ tsubst_template_parm (tree t, tree args, tsubst_flags_t complain)
     parm_decl = error_mark_node;
   default_value = tsubst_template_arg (default_value, args,
 				       complain, NULL_TREE);
+  constraint = tsubst_constraint (constraint, args, complain, NULL_TREE);
 
-  return build_tree_list (default_value, parm_decl);
+  tree r = build_tree_list (default_value, parm_decl);
+  TEMPLATE_PARM_CONSTRAINTS (r) = constraint;
+  return r;
 }
 
 /* Substitute the ARGS into the indicated aggregate (or enumeration)
