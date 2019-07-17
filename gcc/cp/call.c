@@ -718,24 +718,12 @@ inherited_ctor_rejection (void)
   return r;
 }
 
-// Build a constraint failure record, saving information into the
-// template_instantiation field of the rejection. If FN is not a template
-// declaration, the TMPL member is the FN declaration and TARGS is empty.
+/* Build a constraint failure record.  */
 
 static struct rejection_reason *
-constraint_failure (tree fn)
+constraint_failure (void)
 {
   struct rejection_reason *r = alloc_rejection (rr_constraint_failure);
-  if (tree ti = DECL_TEMPLATE_INFO (fn))
-    {
-      r->u.template_instantiation.tmpl = TI_TEMPLATE (ti);
-      r->u.template_instantiation.targs = TI_ARGS (ti);
-    }
-  else
-    {
-      r->u.template_instantiation.tmpl = fn;
-      r->u.template_instantiation.targs = NULL_TREE;
-    }
   return r;
 }
 
@@ -2220,7 +2208,7 @@ add_function_candidate (struct z_candidate **candidates,
      satisfied. */
   if (flag_concepts && viable && !constraints_satisfied_p (fn))
     {
-      reason = constraint_failure (fn);
+      reason = constraint_failure ();
       viable = false;
     }
 
@@ -3695,11 +3683,7 @@ print_z_candidate (location_t loc, const char *msgstr,
 		  "class type is invalid");
 	  break;
 	case rr_constraint_failure:
-	  {
-	    tree tmpl = r->u.template_instantiation.tmpl;
-	    tree args = r->u.template_instantiation.targs;
-	    diagnose_constraints (cloc, tmpl, args);
-	  }
+	  diagnose_constraints (cloc, fn, NULL_TREE);
 	  break;
 	case rr_inherited_ctor:
 	  inform (cloc, "  an inherited constructor is not a candidate for "

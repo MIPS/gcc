@@ -6671,6 +6671,8 @@ extern void maybe_show_extern_c_location (void);
 extern bool literal_integer_zerop (const_tree);
 
 /* in pt.c */
+extern void push_access_scope			(tree);
+extern void pop_access_scope			(tree);
 extern bool check_template_shadow		(tree);
 extern bool check_auto_in_tmpl_args             (tree, tree);
 extern tree get_innermost_template_args		(tree, int);

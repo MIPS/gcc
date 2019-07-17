@@ -135,8 +135,6 @@ enum template_base_result {
   tbr_success
 };
 
-static void push_access_scope (tree);
-static void pop_access_scope (tree);
 static bool resolve_overloaded_unification (tree, tree, tree, tree,
 					    unification_kind_t, int,
 					    bool);
@@ -230,7 +228,7 @@ static tree enclosing_instantiation_of (tree tctx);
    template, VAR_DECL for static member variable, or TYPE_DECL for
    alias template (needed by instantiate_decl).  */
 
-static void
+void
 push_access_scope (tree t)
 {
   gcc_assert (VAR_OR_FUNCTION_DECL_P (t)
@@ -254,7 +252,7 @@ push_access_scope (tree t)
 /* Restore the scope set up by push_access_scope.  T is the node we
    are processing.  */
 
-static void
+void
 pop_access_scope (tree t)
 {
   if (TREE_CODE (t) == FUNCTION_DECL)

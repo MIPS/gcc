@@ -1,5 +1,12 @@
 2019-07-17  Jason Merrill  <jason@redhat.com>
 
+	Fix access control in requires-expressions.
+	* pt.c (push_access_scope, pop_access_scope): No longer static.
+	* constraint.cc (constraints_satisfied_p)
+	(diagnose_declaration_constraints): Use them.
+	* call.c (constraint_failure): Don't record the template.
+	(print_z_candidate): Don't extract the template.
+
 	* constraint.cc (diagnose_requires): Use cp_unevaluated.
 	(diagnose_compound_requirement): Call force_paren_expr_uneval.
 

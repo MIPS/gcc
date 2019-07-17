@@ -1942,7 +1942,9 @@ constraints_satisfied_p (tree decl)
       ci = get_constraints (decl);
     }
 
+  push_access_scope (decl);
   tree eval = satisfy_associated_constraints (ci, args);
+  pop_access_scope (decl);
   return eval == boolean_true_node;
 }
 
@@ -2745,23 +2747,33 @@ diagnose_declaration_constraints (location_t loc, tree decl, tree args)
   inform (loc, "constraints not satisfied");
 
   /* Adjust the inherited constructors.  */
-  if (tree ctor = DECL_INHERITED_CTOR (decl))
-    decl = ctor;
-
-  /* Constraints are attached to the template.  */
-  if (tree ti = DECL_TEMPLATE_INFO (decl))
-    {
-      decl = TI_TEMPLATE (ti);
-      if (!args)
-	args = TI_ARGS (ti);
-    }
+  if (flag_new_inheriting_ctors)
+    decl = strip_inheriting_ctors (decl);
 
   /* Turn off template processing, regardless of context.  */
   processing_template_decl_sentinel proc (true);
 
+  tree access_decl = NULL_TREE;
+  if (TREE_CODE (decl) != TEMPLATE_DECL)
+    {
+      gcc_assert (!args);
+
+      access_decl = decl;
+      push_access_scope (access_decl);
+
+      /* Constraints are attached to the template.  */
+      if (tree ti = DECL_TEMPLATE_INFO (decl))
+	{
+	  decl = TI_TEMPLATE (ti);
+	  args = TI_ARGS (ti);
+	}
+    }
+
   /* Diagnose the failed constraint.  */
   tree expr = CI_ASSOCIATED_CONSTRAINTS (get_constraints (decl));
   diagnose_constraint (expr, args, decl);
+  if (access_decl)
+    pop_access_scope (access_decl);
 }
 
 /* Emit diagnostics detailing the failure ARGS to satisfy the
