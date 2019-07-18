@@ -16278,8 +16278,11 @@ module_state::read (int fd, int e, cpp_reader *reader)
   if (!read_macro_maps ())
     return;
 
+  /* Note that we still have to read macros if only directives are
+     preprocessed.  */
   cpp_options *cpp_opts = cpp_get_options (reader);
-  if (config.num_macros && !cpp_opts->preprocessed)
+  if (config.num_macros &&
+      (!cpp_opts->preprocessed || cpp_opts->directives_only))
     if (!read_macros ())
       return;
 
