@@ -1301,9 +1301,7 @@ tsubst_type_requirement (tree t, tree args, subst_info info)
 
 /* True if TYPE can be deduced from EXPR.
 
-   FIXME: This doesn't appear to support generalized auto.
-
-   FIXME: Perform decltype deduction, not template argument deduction.  */
+   FIXME: This doesn't appear to support generalized auto.  */
 
 static bool
 type_deducible_p (tree expr, tree type, tree placeholder, tree args,
@@ -1312,7 +1310,7 @@ type_deducible_p (tree expr, tree type, tree placeholder, tree args,
   /* Make sure deduction is performed against ( EXPR ), so that
      references are preserved in the result.  */
   if (type_uses_auto (type))
-    expr = force_paren_expr (expr);
+    expr = force_paren_expr_uneval (expr);
 
   /* Replace the constraints with the instantiated constraints.  */
   tree saved_constr = PLACEHOLDER_TYPE_CONSTRAINTS (placeholder);
@@ -1390,8 +1388,6 @@ tsubst_compound_requirement (tree t, tree args, subst_info info)
     {
       if (tree placeholder = type_uses_auto (type))
 	{
-	  /* The type being constrained is decltype((E)).  */
-	  expr = force_paren_expr_uneval (expr);
 	  if (!type_deducible_p (expr, type, placeholder, args, info))
 	    return error_mark_node;
 	}
@@ -2541,8 +2537,6 @@ diagnose_compound_requirement (tree req, tree args, tree in_decl)
       /* Check the expression against the result type.  */
       if (tree placeholder = type_uses_auto (type))
 	{
-	  /* The type being constrained is decltype((E)).  */
-	  expr = force_paren_expr_uneval (expr);
 	  if (!type_deducible_p (expr, type, placeholder, args, quiet))
 	    {
 	      tree orig_expr = TREE_OPERAND (req, 0);
