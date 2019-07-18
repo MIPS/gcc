@@ -1722,7 +1722,9 @@ satisfy_atom (tree expr, tree args, subst_info info)
   /* Apply the parameter mapping (i.e., just substitute).  */
   tree result = tsubst_expr (expr, args, info.complain, info.in_decl, false);
   if (result == error_mark_node)
-    return error_mark_node;
+    /* If substitution results in an invalid type or expression, the constraint
+       is not satisfied.  */
+    return boolean_false_node;
 
   /* [17.4.1.2] ... lvalue-to-value conversion is performed as necessary,
      and EXPR shall be a constant expression of type bool.  */

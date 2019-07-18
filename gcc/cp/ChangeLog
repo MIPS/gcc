@@ -1,5 +1,8 @@
 2019-07-18  Jason Merrill  <jason@redhat.com>
 
+	* constraint.cc (satisfy_atom): Substitution failure means not
+	satisfied.
+
 	Fix constrained friend templates.
 	* pt.c (tsubst_template_parm): Substitute
 	TEMPLATE_PARM_CONSTRAINTS.
