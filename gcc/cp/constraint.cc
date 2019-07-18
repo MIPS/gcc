@@ -2551,11 +2551,11 @@ diagnose_compound_requirement (tree req, tree args, tree in_decl)
 	    }
 	}
       else if (!expression_convertible_p (expr, type, quiet))
-      {
-	tree orig_expr = TREE_OPERAND (req, 0);
-	inform (loc, "cannot convert %qE to %qT", orig_expr, type);
-	expression_convertible_p (expr, type, noisy);
-      }
+	{
+	  tree orig_expr = TREE_OPERAND (req, 0);
+	  inform (loc, "cannot convert %qE to %qT", orig_expr, type);
+	  expression_convertible_p (expr, type, noisy);
+	}
     }
 }
 
