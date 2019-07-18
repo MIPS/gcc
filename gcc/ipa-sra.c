@@ -3506,7 +3506,7 @@ verify_final_splitting_accesses (cgraph_node *node)
    return true.  */
 
 static bool
-propagate_unused_ret_first_stage (cgraph_node *node, void *)
+retval_used_p (cgraph_node *node, void *)
 {
   for (cgraph_edge *cs = node->callers; cs; cs = cs->next_caller)
     {
@@ -3676,43 +3676,55 @@ process_isra_node_results (cgraph_node *node,
 }
 
 /* Check which parameters of NODE described by IFS have survived until IPA-SRA
-   and disable transformations for those which have not.  Return true if none
-   survived or if there were no candidates to begin with.  */
+   and disable transformations for those which have not or which should not
+   transformed because the associated debug counter reached its limit.  Return
+   true if none survived or if there were no candidates to begin with.  */
 
 static bool
-disable_removed_parameters (cgraph_node *node, isra_func_summary *ifs)
+disable_unavailable_parameters (cgraph_node *node, isra_func_summary *ifs)
 {
   bool ret = true;
   unsigned len = vec_safe_length (ifs->m_parameters);
   if (!len)
     return true;
-  if (!node->clone.param_adjustments)
-    return false;
 
   auto_vec<bool, 16> surviving_params;
-  node->clone.param_adjustments->get_surviving_params (&surviving_params);
+  bool check_surviving = false;
+  if (node->clone.param_adjustments)
+    {
+      check_surviving = true;
+      node->clone.param_adjustments->get_surviving_params (&surviving_params);
+    }
   bool dumped_first = false;
   for (unsigned i = 0; i < len; i++)
-    if (i >= surviving_params.length ()
-	|| !surviving_params[i])
-      {
-	isra_param_desc *desc = &(*ifs->m_parameters)[i];
-	desc->split_candidate = false;
+    {
+      isra_param_desc *desc = &(*ifs->m_parameters)[i];
+      if (!dbg_cnt (ipa_sra_params))
+	{
+	  desc->locally_unused = false;
+	  desc->split_candidate = false;
+	}
+      else if (check_surviving
+	       && (i >= surviving_params.length ()
+		   || !surviving_params[i]))
+	{
+	  desc->split_candidate = false;
 
-	if (dump_file && (dump_flags & TDF_DETAILS))
-	  {
-	    if (!dumped_first)
-	      {
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      if (!dumped_first)
+		{
 		  fprintf (dump_file,
 			   "The following parameters of %s are dead on "
 			   "arrival:", node->dump_name ());
 		  dumped_first = true;
-	      }
+		}
 	      fprintf (dump_file, " %u", i);
-	  }
-      }
-    else
-      ret = false;
+	    }
+	}
+      else if (desc->locally_unused || desc->split_candidate)
+	ret = false;
+    }
 
   if (dumped_first)
     fprintf (dump_file, "\n");
@@ -3759,7 +3771,7 @@ ipa_sra_analysis (void)
 	      ifs->zap ();
 	      continue;
 	    }
-	  if (disable_removed_parameters (v, ifs))
+	  if (disable_unavailable_parameters (v, ifs))
 	    continue;
 	  for (cgraph_edge *cs = v->indirect_calls; cs; cs = cs->next_callee)
 	    process_edge_to_unknown_caller (cs);
@@ -3828,8 +3840,10 @@ ipa_sra_analysis (void)
 	    continue;
 
 	  bool return_needed
-	    = v->call_for_symbol_and_aliases (propagate_unused_ret_first_stage,
-					      NULL, true);
+	    = (ifs->m_returns_value
+	       && (!dbg_cnt (ipa_sra_retvalues)
+		   || v->call_for_symbol_and_aliases (retval_used_p,
+						      NULL, true)));
 	  ifs->m_return_ignored = !return_needed;
 	  if (return_needed)
 	    isra_push_node_to_stack (v, ifs, &stack);
