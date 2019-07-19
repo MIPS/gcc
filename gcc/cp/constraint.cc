@@ -1315,11 +1315,10 @@ type_deducible_p (tree expr, tree type, tree placeholder, tree args,
   /* Replace the constraints with the instantiated constraints.  */
   tree saved_constr = PLACEHOLDER_TYPE_CONSTRAINTS (placeholder);
   PLACEHOLDER_TYPE_CONSTRAINTS (placeholder)
-    = tsubst_expr (saved_constr,
-		   args,
-		   info.complain | tf_partial,
-		   info.in_decl,
-		   false);
+    = tsubst_constraint (saved_constr,
+			 args,
+			 info.complain | tf_partial,
+			 info.in_decl);
 
   /* Unlink the canonical type.  */
   tree saved_type = TYPE_CANONICAL (placeholder);
@@ -2342,9 +2341,7 @@ diagnose_check (tree expr, tree args, tree in_decl)
   location_t eloc = get_constraint_location (expr);
 
   tree orig_expr = expr;
-  ++satisfying_constraint;
-  expr = tsubst_expr (expr, args, tf_none, in_decl, false);
-  --satisfying_constraint;
+  expr = tsubst_constraint (expr, args, tf_none, in_decl);
   if (expr == error_mark_node)
     {
       inform (eloc, "invalid use of the concept %qE", orig_expr);
