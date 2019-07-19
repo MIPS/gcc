@@ -1,5 +1,5 @@
 /* { dg-options "-march=5kc" } */
-/* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
+/* { dg-skip-if "code quality test" { *-*-* } { "-O0" "-O1" } { "" } } */
 /* { dg-skip-if "requires -fira-region=all or =mixed" { *-*-* } { "-Os" } { "" } } */
 /* { dg-final { scan-assembler-not "\tmul\t" } } */
 /* { dg-final { scan-assembler "\tmadd\t" } } */
