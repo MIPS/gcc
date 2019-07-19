@@ -122,6 +122,7 @@
 	* gcc.dg/ipa/ipa-sra-19.c: Likewise.
 	* gcc.dg/ipa/ipa-sra-20.c: Likewise.
 	* gcc.dg/ipa/ipa-sra-21.c: Likewise.
+	* gcc.dg/ipa/ipa-sra-22.c: Likewise.
 	* gcc.dg/sso/ipa-sra-1.c: Likewise.
 	* gcc.dg/tree-ssa/ipa-cp-1.c: Make return value used.
 	* g++.dg/ipa/devirt-19.C: Add missing return, add -fipa-cp-clone

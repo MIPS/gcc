@@ -3203,7 +3203,7 @@ pull_accesses_from_callee (isra_param_desc *param_desc,
 		  prop_size += argacc->unit_size;
 		  change = true;
 		}
-	      break;
+	      continue;
 	    }
 
 	  if (offset < pacc->unit_offset + pacc->unit_size
@@ -3265,6 +3265,36 @@ pull_accesses_from_callee (isra_param_desc *param_desc,
   param_desc->size_reached += prop_size;
 
   return NULL;
+}
+
+/* Return true if there are any overlaps among certain accesses of DESC.  If
+   non-NULL, set *CERTAIN_ACCESS_PRESENT_P upon encountering a certain accesss
+   too.  DESC is assumed to be a split candidate that is not locally
+   unused.  */
+
+static bool
+overlapping_certain_accesses_p (isra_param_desc *desc,
+				bool *certain_access_present_p)
+{
+  unsigned pclen = vec_safe_length (desc->accesses);
+  for (unsigned i = 0; i < pclen; i++)
+    {
+      param_access *a1 = (*desc->accesses)[i];
+
+      if (!a1->certain)
+	continue;
+      if (certain_access_present_p)
+	*certain_access_present_p = true;
+      for (unsigned j = i + 1; j < pclen; j++)
+	{
+	  param_access *a2 = (*desc->accesses)[j];
+	  if (a2->certain
+	      && a1->unit_offset < a2->unit_offset + a2->unit_size
+	      && a1->unit_offset + a1->unit_size > a2->unit_offset)
+	    return true;
+	}
+    }
+  return false;
 }
 
 /* Propagate parameter splitting information through call graph edge CS.
@@ -3410,10 +3440,22 @@ param_splitting_across_edge (cgraph_edge *cs)
 		  if (dump_file && (dump_flags & TDF_DETAILS))
 		    fprintf (dump_file, "  %u->%u: arg access pull "
 			     "failed: %s.\n", idx, i, pull_failure);
-		  bump_reached_size (param_desc, pacc->unit_size, idx);
-		  pacc->certain = true;
-		  res = true;
+
 		  ipf->aggregate_pass_through = false;
+		  pacc->certain = true;
+
+		  if (overlapping_certain_accesses_p (param_desc, NULL))
+		    {
+		      if (dump_file && (dump_flags & TDF_DETAILS))
+			fprintf (dump_file, "    ...leading to overlap, "
+				 " disqualifying candidate parameter %u\n",
+				 idx);
+		      param_desc->split_candidate = false;
+		    }
+		  else
+		    bump_reached_size (param_desc, pacc->unit_size, idx);
+
+		  res = true;
 		}
 	      else
 		{
@@ -3469,30 +3511,9 @@ verify_final_splitting_accesses (cgraph_node *node)
 	continue;
 
       bool certain_access_present = false;
-      unsigned pclen = vec_safe_length (desc->accesses);
-      for (unsigned i = 0; i < pclen; i++)
-	{
-	  param_access *a1 = (*desc->accesses)[i];
-
-	  if (!a1->certain)
-	    continue;
-	  certain_access_present = true;
-	  bool overlap = false;
-	  for (unsigned j = i + 1; j < pclen; j++)
-	    {
-	      param_access *a2 = (*desc->accesses)[j];
-	      if (a2->certain
-		  && a1->unit_offset < a2->unit_offset + a2->unit_size
-		  && a1->unit_offset + a1->unit_size > a2->unit_offset)
-		{
-		  overlap = true;
-		  break;
-		}
-	    }
-	  if (overlap)
-	    internal_error ("Function %s, parameter %u, has IPA_SRA accesses "
-			    "which overlap", node->dump_name (), pidx);
-	}
+      if (overlapping_certain_accesses_p (desc, &certain_access_present))
+	internal_error ("Function %s, parameter %u, has IPA_SRA accesses "
+			"which overlap", node->dump_name (), pidx);
       if (!certain_access_present)
 	internal_error ("Function %s, parameter %u, is used but does not "
 			"have any certain IPA-SRA access",
