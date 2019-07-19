@@ -1,5 +1,11 @@
 2019-07-20  Jason Merrill  <jason@redhat.com>
 
+	Fix subsumption with inheriting ctors.
+	* constraint.cc (get_normalized_constraints_from_decl): Handle
+	inheriting ctors.
+
+2019-07-20  Jason Merrill  <jason@redhat.com>
+
 	Record satisfaction result on the TEMPLATE_INFO.
 	* cp-tree.h (TINFO_CONSTRAINTS_SATISIFIED)
 	(TINFO_CONSTRAINTS_UNSATISIFIED): New.

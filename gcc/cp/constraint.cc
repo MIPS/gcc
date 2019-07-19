@@ -2201,6 +2201,11 @@ get_normalized_constraints_from_decl (tree d)
 {
   tree tmpl;
   tree decl;
+
+  /* For inherited constructors, consider the original declaration;
+     it has the correct template information attached. */
+  d = strip_inheriting_ctors (d);
+
   if (TREE_CODE (d) == TEMPLATE_DECL)
     {
       tmpl = d;
