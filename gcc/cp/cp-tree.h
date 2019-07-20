@@ -444,6 +444,7 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
       SWITCH_STMT_NO_BREAK_P (in SWITCH_STMT)
       LAMBDA_EXPR_CAPTURE_OPTIMIZED (in LAMBDA_EXPR)
       IMPLICIT_CONV_EXPR_BRACED_INIT (in IMPLICIT_CONV_EXPR)
+      TINFO_CONSTRAINTS_SATISIFIED (in TEMPLATE_INFO)
    3: (TREE_REFERENCE_EXPR) (in NON_LVALUE_EXPR) (commented-out).
       ICS_BAD_FLAG (in _CONV)
       FN_TRY_BLOCK_P (in TRY_BLOCK)
@@ -454,6 +455,7 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
       CONSTRUCTOR_C99_COMPOUND_LITERAL (in CONSTRUCTOR)
       OVL_NESTED_P (in OVERLOAD)
       LAMBDA_EXPR_INSTANTIATED (in LAMBDA_EXPR)
+      TINFO_CONSTRAINTS_UNSATISIFIED (in TEMPLATE_INFO)
    4: IDENTIFIER_MARKED (IDENTIFIER_NODEs)
       TREE_HAS_CONSTRUCTOR (in INDIRECT_REF, SAVE_EXPR, CONSTRUCTOR,
 	  CALL_EXPR, or FIELD_DECL).
@@ -1435,6 +1437,13 @@ typedef struct qualified_typedef_usage_s qualified_typedef_usage_t;
    of the member template of a particular class specialization.  */
 #define TINFO_USED_TEMPLATE_ID(NODE) \
   (TREE_LANG_FLAG_1 (TEMPLATE_INFO_CHECK (NODE)))
+
+/* Remember whether constraints for a particular template specialization are
+   satisfied.  If neither flag is set, we haven't decided yet.  */
+#define TINFO_CONSTRAINTS_SATISIFIED(NODE) \
+  (TREE_LANG_FLAG_2 (TEMPLATE_INFO_CHECK (NODE)))
+#define TINFO_CONSTRAINTS_UNSATISIFIED(NODE) \
+  (TREE_LANG_FLAG_3 (TEMPLATE_INFO_CHECK (NODE)))
 
 struct GTY(()) tree_template_info {
   struct tree_common common;

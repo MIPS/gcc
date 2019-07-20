@@ -1935,8 +1935,14 @@ constraints_satisfied_p (tree decl)
      on whether we're looking at a template specialization or not. */
   tree ci;
   tree args = NULL_TREE;
-  if (tree ti = DECL_TEMPLATE_INFO (decl))
+  tree ti = DECL_TEMPLATE_INFO (decl);
+  if (ti)
     {
+      if (TINFO_CONSTRAINTS_SATISIFIED (ti))
+	return true;
+      if (TINFO_CONSTRAINTS_UNSATISIFIED (ti))
+	return false;
+
       tree tmpl = TI_TEMPLATE (ti);
       ci = get_constraints (tmpl);
 
@@ -1949,10 +1955,24 @@ constraints_satisfied_p (tree decl)
       ci = get_constraints (decl);
     }
 
-  push_access_scope (decl);
-  tree eval = satisfy_associated_constraints (ci, args);
-  pop_access_scope (decl);
-  return eval == boolean_true_node;
+  bool r = true;
+  if (ci)
+    {
+      push_access_scope (decl);
+      tree eval = satisfy_associated_constraints (ci, args);
+      pop_access_scope (decl);
+      r = (eval == boolean_true_node);
+    }
+
+  if (ti)
+    {
+      if (r)
+	TINFO_CONSTRAINTS_SATISIFIED (ti) = true;
+      else
+	TINFO_CONSTRAINTS_UNSATISIFIED (ti) = true;
+    }
+
+  return r;
 }
 
 /* Returns true if the constraints are satisfied by ARGS.

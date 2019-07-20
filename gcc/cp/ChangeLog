@@ -1,5 +1,12 @@
 2019-07-20  Jason Merrill  <jason@redhat.com>
 
+	Record satisfaction result on the TEMPLATE_INFO.
+	* cp-tree.h (TINFO_CONSTRAINTS_SATISIFIED)
+	(TINFO_CONSTRAINTS_UNSATISIFIED): New.
+	* constraint.cc (constraints_satisfied_p): Use them.
+
+2019-07-20  Jason Merrill  <jason@redhat.com>
+
 	* cp-tree.h (ovl_iterator::using_p): A USING_DECL by itself was also
 	introduced by a using-declaration.
 
