@@ -22,7 +22,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
 #include "ssa.h"
@@ -41,7 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "tree-ssa.h"
 #include "tree-inline.h"
-#include "gimple-walk.h"
+
 
 /* Actual prefixes of different newly synthetized parameters.  Keep in sync
    with IPA_PARAM_PREFIX_* defines.  */
