@@ -2129,6 +2129,12 @@ check_gensum_access (tree parm, gensum_param_desc *desc,
     {
       *only_calls = false;
       *nonarg_acc_size += access->size;
+
+      if (access->first_child)
+	{
+	  disqualify_split_candidate (desc, "Overlapping non-call uses.");
+	  return true;
+	}
     }
   /* Do not decompose a non-BLKmode param in a way that would create
      BLKmode params.  Especially for by-reference passing (thus,
@@ -2368,6 +2374,64 @@ process_scan_results (cgraph_node *node, struct function *fun,
     dump_isra_param_descriptors (dump_file, node->decl, ifs);
 }
 
+/* Return true if there are any overlaps among certain accesses of DESC.  If
+   non-NULL, set *CERTAIN_ACCESS_PRESENT_P upon encountering a certain accesss
+   too.  DESC is assumed to be a split candidate that is not locally
+   unused.  */
+
+static bool
+overlapping_certain_accesses_p (isra_param_desc *desc,
+				bool *certain_access_present_p)
+{
+  unsigned pclen = vec_safe_length (desc->accesses);
+  for (unsigned i = 0; i < pclen; i++)
+    {
+      param_access *a1 = (*desc->accesses)[i];
+
+      if (!a1->certain)
+	continue;
+      if (certain_access_present_p)
+	*certain_access_present_p = true;
+      for (unsigned j = i + 1; j < pclen; j++)
+	{
+	  param_access *a2 = (*desc->accesses)[j];
+	  if (a2->certain
+	      && a1->unit_offset < a2->unit_offset + a2->unit_size
+	      && a1->unit_offset + a1->unit_size > a2->unit_offset)
+	    return true;
+	}
+    }
+  return false;
+}
+
+/* Check for any overlaps of certain param accesses among splitting candidates
+   and signal an ICE if there are any.  If CERTAIN_MUST_EXIST is set, also
+   check that used splitting candidates have at least one certain access.  */
+
+static void
+verify_splitting_accesses (cgraph_node *node, bool certain_must_exist)
+{
+  isra_func_summary *ifs = func_sums->get (node);
+  if (!ifs || !ifs->m_candidate)
+    return;
+  unsigned param_count = vec_safe_length (ifs->m_parameters);
+  for (unsigned pidx = 0; pidx < param_count; pidx++)
+    {
+      isra_param_desc *desc = &(*ifs->m_parameters)[pidx];
+      if (!desc->split_candidate || desc->locally_unused)
+	continue;
+
+      bool certain_access_present = !certain_must_exist;
+      if (overlapping_certain_accesses_p (desc, &certain_access_present))
+	internal_error ("Function %s, parameter %u, has IPA_SRA accesses "
+			"which overlap", node->dump_name (), pidx);
+      if (!certain_access_present)
+	internal_error ("Function %s, parameter %u, is used but does not "
+			"have any certain IPA-SRA access",
+			node->dump_name (), pidx);
+    }
+}
+
 /* Intraprocedural part of IPA-SRA analysis.  Scan function body of NODE and
    create a summary structure describing IPA-SRA opportunities and constraints
    in it.  */
@@ -2436,6 +2500,8 @@ ipa_sra_summarize_function (cgraph_node *node)
   obstack_free (&gensum_obstack, NULL);
   if (dump_file)
     fprintf (dump_file, "\n\n");
+  if (flag_checking)
+    verify_splitting_accesses (node, false);
   return;
 }
 
@@ -3267,36 +3333,6 @@ pull_accesses_from_callee (isra_param_desc *param_desc,
   return NULL;
 }
 
-/* Return true if there are any overlaps among certain accesses of DESC.  If
-   non-NULL, set *CERTAIN_ACCESS_PRESENT_P upon encountering a certain accesss
-   too.  DESC is assumed to be a split candidate that is not locally
-   unused.  */
-
-static bool
-overlapping_certain_accesses_p (isra_param_desc *desc,
-				bool *certain_access_present_p)
-{
-  unsigned pclen = vec_safe_length (desc->accesses);
-  for (unsigned i = 0; i < pclen; i++)
-    {
-      param_access *a1 = (*desc->accesses)[i];
-
-      if (!a1->certain)
-	continue;
-      if (certain_access_present_p)
-	*certain_access_present_p = true;
-      for (unsigned j = i + 1; j < pclen; j++)
-	{
-	  param_access *a2 = (*desc->accesses)[j];
-	  if (a2->certain
-	      && a1->unit_offset < a2->unit_offset + a2->unit_size
-	      && a1->unit_offset + a1->unit_size > a2->unit_offset)
-	    return true;
-	}
-    }
-  return false;
-}
-
 /* Propagate parameter splitting information through call graph edge CS.
    Return true if any changes that might need to be propagated within SCCs have
    been made.  The function also clears the aggregate_pass_through and
@@ -3491,34 +3527,6 @@ param_splitting_across_edge (cgraph_edge *cs)
 	}
     }
   return res;
-}
-
-/* Check for any overlaps of certain param accesses among splitting candidates
-   and signal an ICE if there are any.  Similarly, check that used splitting
-   candidates have a certain access.  */
-
-static void
-verify_final_splitting_accesses (cgraph_node *node)
-{
-  isra_func_summary *ifs = func_sums->get (node);
-  if (!ifs || !ifs->m_candidate)
-    return;
-  unsigned param_count = vec_safe_length (ifs->m_parameters);
-  for (unsigned pidx = 0; pidx < param_count; pidx++)
-    {
-      isra_param_desc *desc = &(*ifs->m_parameters)[pidx];
-      if (!desc->split_candidate || desc->locally_unused)
-	continue;
-
-      bool certain_access_present = false;
-      if (overlapping_certain_accesses_p (desc, &certain_access_present))
-	internal_error ("Function %s, parameter %u, has IPA_SRA accesses "
-			"which overlap", node->dump_name (), pidx);
-      if (!certain_access_present)
-	internal_error ("Function %s, parameter %u, is used but does not "
-			"have any certain IPA-SRA access",
-			node->dump_name (), pidx);
-    }
 }
 
 /* Worker for call_for_symbol_and_aliases, look at all callers and if all their
@@ -3841,7 +3849,7 @@ ipa_sra_analysis (void)
 
       if (flag_checking)
 	FOR_EACH_VEC_ELT (cycle_nodes, j, v)
-	  verify_final_splitting_accesses (v);
+	  verify_splitting_accesses (v, true);
 
       cycle_nodes.release ();
     }
