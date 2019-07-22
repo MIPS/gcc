@@ -1,3 +1,199 @@
+2019-07-22  Martin Liska  <mliska@suse.cz>
+
+	PR driver/91172
+	* gcc.dg/pr91172.c: New test.
+
+2019-07-22  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* gcc.target/arc/tls-2.c: New test.
+	* gcc.target/arc/tls-3.c: Likewise.
+
+2019-07-21  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/67853
+	* g++.dg/cpp0x/decltype72.C: New test.
+
+2019-07-22  Stafford Horne  <shorne@gmail.com>
+
+	* gcc.target/or1k/ror-4.c: New file.
+	* gcc.target/or1k/shftimm-1.c: Update test from rotate to shift
+	as the shftimm option no longer controls rotate.
+
+2019-07-22  Stafford Horne  <shorne@gmail.com>
+
+	PR target/90362
+	* gcc.target/or1k/div-mul-3.c: New test.
+
+2019-07-22  Stafford Horne  <shorne@gmail.com>
+
+	PR target/90363
+	* gcc.target/or1k/swap-1.c: New test.
+	* gcc.target/or1k/swap-2.c: New test.
+
+2019-07-20  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* gcc.target/powerpc/volatile-mem.c: New testcase.
+
+2019-07-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/91204
+	* gcc.c-torture/compile/pr91204.c: New test.
+
+	* c-c++-common/gomp/cancel-1.c: Adjust expected diagnostic wording.
+	* c-c++-common/gomp/clauses-1.c (foo, baz, bar): Add order(concurrent)
+	clause where allowed.  Add combined constructs with loop with all
+	possible clauses.
+	(qux): New function.
+	* c-c++-common/gomp/loop-1.c: New test.
+	* c-c++-common/gomp/loop-2.c: New test.
+	* c-c++-common/gomp/loop-3.c: New test.
+	* c-c++-common/gomp/loop-4.c: New test.
+	* c-c++-common/gomp/loop-5.c: New test.
+	* c-c++-common/gomp/order-3.c: Adjust expected diagnostic wording.
+	* c-c++-common/gomp/simd-setjmp-1.c: New test.
+	* c-c++-common/gomp/teams-2.c: Adjust expected diagnostic wording.
+
+	* gcc.dg/vect/vect-simd-16.c: New test.
+
+2019-07-19  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/ssa-dse-37.c: New test.
+	* gcc.dg/tree-ssa/ssa-dse-38.c: New test.
+
+2019-07-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/91211
+	* gcc.dg/torture/pr91211.c: New testcase.
+
+2019-07-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/91200
+	* gcc.dg/torture/pr91200.c: New testcase.
+
+2019-07-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/91190
+	* gcc.c-torture/compile/pr91190.c: New test.
+
+2019-07-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/91207
+	* gcc.dg/torture/pr91207.c: New testcase.
+
+2019-07-18  Uroš Bizjak  <ubizjak@gmail.com>
+
+	PR target/91188
+	* gcc.target/i386/pr91188-1a.c: New test.
+	* gcc.target/i386/pr91188-1b.c: Ditto.
+	* gcc.target/i386/pr91188-1c.c: Ditto.
+	* gcc.target/i386/pr91188-2a.c: Ditto.
+	* gcc.target/i386/pr91188-2b.c: Ditto.
+	* gcc.target/i386/pr91188-2c.c: Ditto.
+
+2019-07-18  Sylvia Taylor  <sylvia.taylor@arm.com>
+
+        PR target/90317
+        * gcc.target/arm/crypto-vsha1cq_u32.c (foo): Change return type to
+        uint32_t.
+        (GET_LANE, TEST_SHA1C_VEC_SELECT): New.
+        * gcc.target/arm/crypto-vsha1h_u32.c (foo): Change return type to
+        uint32_t.
+        (GET_LANE, TEST_SHA1H_VEC_SELECT): New.
+        * gcc.target/arm/crypto-vsha1mq_u32.c (foo): Change return type to
+        uint32_t.
+        (GET_LANE, TEST_SHA1M_VEC_SELECT): New.
+        * gcc.target/arm/crypto-vsha1pq_u32.c (foo): Change return type to
+        uint32_t.
+        (GET_LANE, TEST_SHA1P_VEC_SELECT): New.
+
+2019-07-18  Jan Hubicka  <hubicka@ucw.cz>
+
+	* g++.dg/lto/alias-5_0.C: New testcase.
+	* g++.dg/lto/alias-5_1.C: New.
+	* g++.dg/lto/alias-5_2.c: New.
+
+2019-07-18  Bin Cheng  <bin.linux@linux.alibaba.com>
+
+	PR tree-optimization/91137
+	* gcc.c-torture/execute/pr91137.c: New test.
+
+2019-07-18  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* c-c++-common/pr53633-2.c: New test.
+
+2019-07-17  Alexandre Oliva <oliva@adacore.com>
+
+	PR middle-end/81824
+	* g++.dg/Wmissing-attributes-1.C: New.  Some of its fragments
+	are from Martin Sebor.
+
+2019-07-17  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/90455
+	* g++.dg/cpp0x/nsdmi-list6.C: New test.
+
+2019-07-17  Jan Hubicka  <hubicka@ucw.cz>
+
+	* g++.dg/lto/alias-4_0.C
+
+2019-07-17  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/91178
+	* gcc.dg/torture/pr91178.c: New testcase.
+
+2019-07-17  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/91180
+	* gcc.dg/torture/pr91180.c: New testcase.
+
+2019-07-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/91157
+	* gcc.target/i386/avx512f-pr91157.c: New test.
+	* gcc.target/i386/avx512bw-pr91157.c: New test.
+
+2019-07-17  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/91181
+	* gcc.dg/pr91181.c: New testcase.
+
+2019-07-16  Harald Anlauf  <anlauf@gmx.de>
+
+	PR fortran/90903
+	* gfortran.dg/check_bits_1.f90: New testcase.
+
+2019-07-16  Jeff Law  <law@redhat.com>
+
+	PR rtl-optimization/91173
+	* g++.dg/pr91173.C: New test.
+
+2019-07-16  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	PR target/89190
+	* gcc.target/arm/pr89190.c: New test.
+
+2019-07-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/91164
+	* g++.dg/opt/pr91164.C: New test.
+
+2019-07-16  Jan Hubicka  <jh@suse.cz>
+
+	* g++.dg/lto/alias-1_0.C: Use -O3.
+	* g++.dg/lto/alias-2_0.C: Use -O3.
+	* g++.dg/lto/alias-3_0.C: Add loop to enable inlining with
+	-fno-use-linker-plugin.
+	* g++.dg/lto/alias-3_1.C: Remove dg-lto-do and dg-lto-options.
+
+2019-07-16  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/tree-ssa/pr84512.c: Don't xfail scan-tree-dump on
+	sparcv9.
+
+2019-07-16  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/autopar/pr91162.c: Require int128 support.
+
 2019-07-15  Richard Biener  <rguenther@suse.de>
 
 	PR middle-end/91162

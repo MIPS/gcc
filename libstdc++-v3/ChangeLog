@@ -1,3 +1,27 @@
+2019-07-19  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/bits/stl_tempbuf.h (__detail::__return_temporary_buffer): Fix
+	sized deallocation size computation.
+
+2019-07-19  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* config/abi/post/m68k-linux-gnu/baseline_symbols.txt: Update.
+
+2019-07-18  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/bits/stl_tempbuf.h (__detail::__return_temporary_buffer): New.
+	(~_Temporary_buffer()): Use latter.
+	(_Temporary_buffer(_FIterator, size_type)): Likewise.
+
+2019-07-17  Andreas Schwab  <schwab@suse.de>
+
+	* config/abi/post/ia64-linux-gnu/baseline_symbols.txt: Update.
+
+2019-07-16  Jason Merrill  <jason@redhat.com>
+
+	* include/std/memory (uses_allocator_construction_args): Add parens
+	around constraint.
+
 2019-07-12  Jonathan Wakely  <jwakely@redhat.com>
 
 	* testsuite/29_atomics/atomic_float/1.cc: Fix comment.
