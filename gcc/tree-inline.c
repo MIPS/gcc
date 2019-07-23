@@ -6237,6 +6237,7 @@ tree_function_versioning (tree old_decl, tree new_decl,
 	= build_decl (DECL_SOURCE_LOCATION (DECL_RESULT (old_decl)),
 		      RESULT_DECL, NULL_TREE, void_type_node);
       DECL_CONTEXT (DECL_RESULT (new_decl)) = new_decl;
+      DECL_IS_MALLOC (new_decl) = false;
       cfun->returns_struct = 0;
       cfun->returns_pcc_struct = 0;
     }
