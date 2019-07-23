@@ -1,4 +1,4 @@
-2019-05-09  Martin Jambor  <mjambor@suse.cz>
+2019-07-22  Martin Jambor  <mjambor@suse.cz>
 
         * coretypes.h (cgraph_edge): Declare.
         * ipa-param-manipulation.c: Rewrite.
@@ -124,6 +124,7 @@
 	* gcc.dg/ipa/ipa-sra-21.c: Likewise.
 	* gcc.dg/ipa/ipa-sra-22.c: Likewise.
 	* gcc.dg/sso/ipa-sra-1.c: Likewise.
+	* g++.dg/ipa/ipa-sra-2.C: Likewise.
 	* gcc.dg/tree-ssa/ipa-cp-1.c: Make return value used.
 	* g++.dg/ipa/devirt-19.C: Add missing return, add -fipa-cp-clone
 	option.

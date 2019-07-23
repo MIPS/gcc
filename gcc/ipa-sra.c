@@ -19,6 +19,45 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+/* IPA-SRA is an interprocedural pass that removes unused function return
+   values (turning functions returning a value which is never used into void
+   functions), removes unused function parameters.  It can also replace an
+   aggregate parameter by a set of other parameters representing part of the
+   original, turning those passed by reference into new ones which pass the
+   value directly.
+
+   The pass is a true IPA one, which means that it works in three stages in
+   order to be able to take advantage of LTO.  First, summaries about functions
+   and each calls are generated.  Function summaries (often called call graph
+   node summaries) contain mainly information about which parameters are
+   potential transformation candidates and which bits of candidates are
+   accessed.  We differentiate between accesses done as a part of a call
+   statement (which might be not necessary if the callee is also transformed)
+   and others (which are mandatory).  Call summaries (often called call graph
+   edge summaries) contain information about which function formal parameters
+   feed into which actual call arguments so that if two parameters are only
+   used in a sum which is then passed to another function which then however
+   does not use this parameter, all three parameters of the two functions can
+   be eliminated.  Edge summaries also have flags whether the return value is
+   used or if it is only returned in the caller too.  In LTO mode these
+   summaries are then streamed to the object file in the compilation phase and
+   streamed back in in the WPA analysis stage.
+
+   The interprocedural analysis phase traverses the graph in topological order
+   in two sweeps, one in each direction.  First, from callees to callers for
+   parameter removal and splitting.  Each strongly-connected component is
+   processed iteratively until the situation in it stabilizes.  The pass from
+   callers to callees is then carried out to remove unused return values in a
+   very similar fashion.
+
+   Because parameter manipulation has big implications for call redirection
+   which is done only after all call graph nodes materialize, the
+   transformation phase is not part of this patch but is carried out by the
+   clone materialization and edge redirection itself, see comments in
+   ipa-param-manipulation.h for more details.  */
+
+
+
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
