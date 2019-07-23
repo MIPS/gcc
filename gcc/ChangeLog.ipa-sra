@@ -1,4 +1,4 @@
-2019-07-22  Martin Jambor  <mjambor@suse.cz>
+2019-07-23  Martin Jambor  <mjambor@suse.cz>
 
         * coretypes.h (cgraph_edge): Declare.
         * ipa-param-manipulation.c: Rewrite.
@@ -43,7 +43,8 @@
         (input_node_opt_summary): Likewise.
         * lto-section-in.c (lto_section_name): Added ipa-sra section.
         * lto-streamer.h (lto_section_type): Likewise.
-        * tree-inline.h (copy_body_data): New field killed_new_ssa_names.
+        * tree-inline.h (copy_body_data): New fields killed_new_ssa_names and
+	param_body_adjs.
         (copy_decl_to_var): Declare.
         * tree-inline.c (update_clone_info): Do not remap old_tree.
         (remap_gimple_stmt): Use ipa_param_body_adjustments to modify gimple
@@ -59,7 +60,6 @@
         (update_clone_info): Likewise.
         (tree_function_versioning): Simplify tree_map processing.  Updated to
         accept ipa_param_adjustments and use ipa_param_body_adjustments.
-        * tree-inline.h (struct copy_body_data): New field param_body_adjs.
         * omp-simd-clone.c (simd_clone_vector_of_formal_parm_types): Adjust
         for the new interface.
         (simd_clone_clauses_extract): Likewise, make args an auto_vec.
@@ -76,8 +76,8 @@
         * ipa-inline-transform.c (save_inline_function_body): Update to
         refelct new tree_function_versioning signature.
         * ipa-prop.c (adjust_agg_replacement_values): Use a helper from
-        (ipcp_modif_dom_walker::before_dom_children): Likewise.
         ipa_param_adjustments to get current parameter indices.
+        (ipcp_modif_dom_walker::before_dom_children): Likewise.
         (ipcp_update_bits): Likewise.
         (ipcp_update_vr): Likewise.
         * ipa-split.c (split_function): Convert to using ipa_param_adjustments.
@@ -86,13 +86,15 @@
         of create_version_clone_with_body.
         * trans-mem.c (ipa_tm_create_version): Update to reflect new type of
         tree_function_versioning.
-        * tree-sra.c (modify_function): Update to reflect new type of
-        tree_function_versioning.
-        * params.def (PARAM_IPA_SRA_MAX_REPLACEMENT): New.
-        (PARAM_SRA_MAX_TYPE_CHECK_STEPS): New.
+	(modify_function): Update to reflect new type of
+	tree_function_versioning.
+        * params.def (PARAM_IPA_SRA_MAX_REPLACEMENTS): New.
         * passes.def: Remove old IPA-SRA and add new one.
         * tree-pass.h (make_pass_early_ipa_sra): Remove declaration.
         (make_pass_ipa_sra): Declare.
+	* dbgcnt.def: Remove eipa_sra.  Added ipa_sra_params and
+	ipa_sra_retvalues.
+	* doc/invoke.texi (ipa-sra-max-replacements): New.
 
         testsuite/
         * g++.dg/ipa/pr81248.C: Adjust dg-options and dump-scan.
