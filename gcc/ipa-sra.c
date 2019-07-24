@@ -3661,8 +3661,16 @@ process_isra_node_results (cgraph_node *node,
 			   hash_map<const char *, unsigned> *clone_num_suffixes)
 {
   isra_func_summary *ifs = func_sums->get (node);
-  if (!ifs)
+  if (!ifs || !ifs->m_candidate)
     return;
+
+  auto_vec<bool, 16> surviving_params;
+  bool check_surviving = false;
+  if (node->clone.param_adjustments)
+    {
+      check_surviving = true;
+      node->clone.param_adjustments->get_surviving_params (&surviving_params);
+    }
 
   unsigned param_count = vec_safe_length (ifs->m_parameters);
   bool will_change_function = false;
@@ -3671,12 +3679,17 @@ process_isra_node_results (cgraph_node *node,
   else
     for (unsigned i = 0; i < param_count; i++)
       {
-      isra_param_desc *desc = &(*ifs->m_parameters)[i];
-      if (desc->locally_unused || desc->split_candidate)
-	{
-	  will_change_function = true;
-	  break;
-	}
+	isra_param_desc *desc = &(*ifs->m_parameters)[i];
+	if ((desc->locally_unused || desc->split_candidate)
+	    /* Make sure we do not clone just to attempt to remove an already
+	       removed unused argument.  */
+	    && (!check_surviving
+		|| (i < surviving_params.length ()
+		    && surviving_params[i])))
+	  {
+	    will_change_function = true;
+	    break;
+	  }
       }
   if (!will_change_function)
     return;
@@ -3762,6 +3775,9 @@ disable_unavailable_parameters (cgraph_node *node, isra_func_summary *ifs)
 	       && (i >= surviving_params.length ()
 		   || !surviving_params[i]))
 	{
+	  /* Even if the parameter was removed by a previous IPA pass, we do
+	     not clear locally_unused because if it really is unused, this
+	     information might be useful in callers.  */
 	  desc->split_candidate = false;
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
