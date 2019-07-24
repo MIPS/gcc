@@ -2897,14 +2897,14 @@ redirect_all_calls (copy_body_data * id, basic_block bb)
 	  struct cgraph_edge *edge = id->dst_node->get_edge (stmt);
 	  if (edge)
 	    {
-	      edge->redirect_call_stmt_to_callee ();
+	      gimple *new_stmt = edge->redirect_call_stmt_to_callee ();
 	      /* If IPA-SRA transformation, run as part of edge redirection,
 		 removed the LHS because it is unused, save it to
 		 killed_new_ssa_names so that we can prune it from debug
 		 statements.  */
 	      if (old_lhs
 		  && TREE_CODE (old_lhs) == SSA_NAME
-		  && !gimple_call_lhs (edge->call_stmt))
+		  && !gimple_call_lhs (new_stmt))
 		{
 		  if (!id->killed_new_ssa_names)
 		    id->killed_new_ssa_names = new hash_set<tree> (16);
