@@ -42052,19 +42052,9 @@ synthesize_implicit_template_parm  (cp_parser *parser, tree constr)
   tree synth_tmpl_parm;
   bool non_type = false;
 
-  /* FIXME: In C++20, only type parameters can be introduced.  */
-  if (proto == NULL_TREE || TREE_CODE (proto) == TYPE_DECL)
-    synth_tmpl_parm
-      = finish_template_type_parm (class_type_node, synth_id);
-  else if (TREE_CODE (proto) == TEMPLATE_DECL)
-    synth_tmpl_parm
-      = finish_constrained_template_template_parm (proto, synth_id);
-  else
-    {
-      synth_tmpl_parm = copy_decl (proto);
-      DECL_NAME (synth_tmpl_parm) = synth_id;
-      non_type = true;
-    }
+  /* Synthesize the type template parameter.  */
+  gcc_assert(!proto || TREE_CODE (proto) == TYPE_DECL);
+  synth_tmpl_parm = finish_template_type_parm (class_type_node, synth_id);
 
   /* Attach the constraint to the parm before processing.  */
   tree node = build_tree_list (NULL_TREE, synth_tmpl_parm);
