@@ -1,3 +1,8 @@
+2019-07-15  Andrew Sutton  <asutton@lock3software.com>
+
+	Disallow decltype(auto) parameters.
+	* g++.dg/cpp2a/concepts-decltype.C: New tests.
+
 2019-07-15  Richard Biener  <rguenther@suse.de>
 
 	PR middle-end/91162

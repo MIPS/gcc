@@ -1,3 +1,10 @@
+2019-07-29  Andrew Sutton  <asutton@lock3software.com>
+
+	Disallow decltype(auto) parameters.
+	* decl.c (grokdeclarator): Check for and disallow decltype(auto) in
+	parameter declarations.
+	* parser.c (cp_parser_placeholder_type_specifier): Likewise.
+
 2019-07-20  Jason Merrill  <jason@redhat.com>
 
 	Fix subsumption with inheriting ctors.

@@ -12452,12 +12452,18 @@ grokdeclarator (const cp_declarator *declarator,
       if (ctype || in_namespace)
 	error ("cannot use %<::%> in parameter declaration");
 
-      if (type_uses_auto (type)
-	  && !(cxx_dialect >= cxx17 && template_parm_flag))
+      tree auto_node = type_uses_auto (type);
+      if (auto_node && !(cxx_dialect >= cxx17 && template_parm_flag))
 	{
 	  if (cxx_dialect >= cxx14)
-	    error_at (typespec_loc,
-		      "%<auto%> parameter not permitted in this context");
+	    {
+	      if (decl_context == PARM && AUTO_IS_DECLTYPE (auto_node))
+		error_at (typespec_loc,
+			  "cannot declare a parameter with %<decltype(auto)%>");
+	      else
+		error_at (typespec_loc,
+			  "%<auto%> parameter not permitted in this context");
+	    }
 	  else
 	    error_at (typespec_loc, "parameter declared %<auto%>");
 	  type = error_mark_node;

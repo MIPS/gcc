@@ -18071,11 +18071,11 @@ cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc,
   tree con = info.first;
   tree proto = info.second;
   if (con == error_mark_node)
-    return con;
+    return error_mark_node;
 
   /* As per the standard, require auto or decltype(auto), except in some
      cases (template parameter lists, -fconcepts-ts enabled).  */
-  cp_token *placeholder = NULL;
+  cp_token *placeholder = NULL, *open_paren = NULL, *close_paren = NULL;
   if (cxx_dialect >= cxx2a)
     {
       if (cp_lexer_next_token_is_keyword (parser->lexer, RID_AUTO))
@@ -18083,11 +18083,12 @@ cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc,
       else if (cp_lexer_next_token_is_keyword (parser->lexer, RID_DECLTYPE))
 	{
 	  placeholder = cp_lexer_consume_token (parser->lexer);
-	  cp_token* open
-	    = cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN);
+	  open_paren = cp_parser_require (parser, CPP_OPEN_PAREN,
+					  RT_OPEN_PAREN);
 	  cp_parser_require_keyword (parser, RID_AUTO, RT_AUTO);
-          cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN,
-			     open->location);
+          close_paren = cp_parser_require (parser, CPP_CLOSE_PAREN,
+					   RT_CLOSE_PAREN,
+					   open_paren->location);
 	}
     }
 
@@ -18111,9 +18112,9 @@ cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc,
     return build_constrained_parameter (con, proto, args);
 
   /* Diagnose issues placeholder issues.  */
-  if (!parser->in_result_type_constraint_p
-      && !placeholder
-      && (cxx_dialect >= cxx2a && !flag_concepts_ts))
+  if ((cxx_dialect >= cxx2a && !flag_concepts_ts)
+      && !parser->in_result_type_constraint_p
+      && !placeholder)
     {
       tree id = build_nt (TEMPLATE_ID_EXPR, tmpl, args);
       tree expr = DECL_P (orig_tmpl) ? DECL_NAME (con) : id;
@@ -18132,7 +18133,14 @@ cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc,
      results in an invented template parameter.  */
   if (parser->auto_is_implicit_function_template_parm_p)
     {
-      /* FIXME: Is decltype(auto) valid here?  */
+      if (placeholder && token_is_decltype (placeholder))
+	{
+	  location_t loc = make_location (placeholder->location,
+					  placeholder->location,
+					  close_paren->location);
+	  error_at (loc, "cannot declare a parameter with %<decltype(auto)%>");
+	  return error_mark_node;
+	}
       tree parm = build_constrained_parameter (con, proto, args);
       return synthesize_implicit_template_parm (parser, parm);
     }

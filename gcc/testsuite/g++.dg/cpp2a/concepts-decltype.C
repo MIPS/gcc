@@ -50,6 +50,8 @@ Int decltype(auto) b3 = (cb); // { dg-error "deduced initializer" }
 Int decltype(auto) g1() { } // { dg-error "deduced return type" }
 Int decltype(auto) g2() { return; } // { dg-error "deduced return type" }
 Int decltype(auto) g3() { return true; } // { dg-error "deduced return type" }
+int g4(Type decltype(auto) x) { return 0; } // { dg-error "cannot declare" }
+int g5(decltype(auto) x) { return 0; } // { dg-error "cannot declare" }
 
 template<Type decltype(auto) X, typename T>
   requires SameAs<decltype(X), T>
@@ -62,3 +64,4 @@ static_assert(deduced_as<0, int&>); // { dg-error "invalid variable template" }
 static_assert(deduced_as<Z, const int>);
 static_assert(deduced_as<(Z), const int>); // { dg-error "invalid variable template" }
 static_assert(deduced_as<(Z), const int&>);
+
