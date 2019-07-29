@@ -1,5 +1,12 @@
 2019-07-29  Andrew Sutton  <asutton@lock3software.com>
 
+	Implicit template parameters are not equivalent to those that are
+	explicitly declared.
+	* pt.c (template_parameters_equivalent_p): Add a comparison for
+	implicitly vs. explicitly declared parameters.
+
+2019-07-29  Andrew Sutton  <asutton@lock3software.com>
+
 	Disallow decltype(auto) parameters.
 	* decl.c (grokdeclarator): Check for and disallow decltype(auto) in
 	parameter declarations.

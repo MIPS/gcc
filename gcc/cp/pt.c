@@ -3329,6 +3329,12 @@ template_parameters_equivalent_p (const_tree parm1, const_tree parm2)
   if (TREE_CODE (decl1) != TREE_CODE (decl2))
     return false;
 
+  /* ... one parameter was introduced by a parameter declaration, then
+     both are. This case arises as a result of eagerly rewriting declarations
+     during parsing.  */
+  if (DECL_VIRTUAL_P (decl1) != DECL_VIRTUAL_P (decl2))
+    return false;
+
   /* ... if either declares a pack, they both do.  */
   if (template_parameter_pack_p (decl1) != template_parameter_pack_p (decl2))
     return false;
