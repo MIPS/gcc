@@ -1446,7 +1446,9 @@ typedef struct qualified_typedef_usage_s qualified_typedef_usage_t;
   (TREE_LANG_FLAG_3 (TEMPLATE_INFO_CHECK (NODE)))
 
 struct GTY(()) tree_template_info {
-  struct tree_common common;
+  struct tree_base base;
+  tree tmpl;
+  tree args;
   vec<qualified_typedef_usage_t, va_gc> *typedefs_needing_access_checking;
 };
 
@@ -3417,8 +3419,10 @@ template_info_decl_check (const_tree t, const char* f, int l, const char* fn)
    ? (TYPE_LANG_SLOT_1 (NODE) = (VAL))				\
    : (DECL_TEMPLATE_INFO (TYPE_NAME (NODE)) = (VAL)))
 
-#define TI_TEMPLATE(NODE) TREE_TYPE (TEMPLATE_INFO_CHECK (NODE))
-#define TI_ARGS(NODE) TREE_CHAIN (TEMPLATE_INFO_CHECK (NODE))
+#define TI_TEMPLATE(NODE) \
+  ((struct tree_template_info*)TEMPLATE_INFO_CHECK (NODE))->tmpl
+#define TI_ARGS(NODE) \
+  ((struct tree_template_info*)TEMPLATE_INFO_CHECK (NODE))->args
 #define TI_PENDING_TEMPLATE_FLAG(NODE) \
   TREE_LANG_FLAG_1 (TEMPLATE_INFO_CHECK (NODE))
 /* For a given TREE_VEC containing a template argument list,

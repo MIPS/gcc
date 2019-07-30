@@ -1,3 +1,10 @@
+2019-07-29  Jason Merrill  <jason@redhat.com>
+
+	Fix copy_node of TEMPLATE_INFO.
+	* cp-tree.h (struct tree_template_info): Use tree_base instead of
+	tree_common.  Add tmpl and args fields.
+	(TI_TEMPLATE, TI_ARGS): Adjust.
+
 2019-07-30  Andrew Sutton  <asutton@lock3software.com>
 
 	Provide a better source location for introduction errors.
