@@ -21,7 +21,7 @@ err<int> err1; // { dg-error "template constraint failure" }
 err<int>* err2; // { dg-error "template constraint failure" }
 
 // Redeclarations
-template<typename T> 
+template<typename T>
   requires Class<T>
 struct S1;
 
@@ -33,7 +33,7 @@ template<typename T>
 struct S2;
 
 template<typename T>
-  requires Union<T> 
+  requires Union<T>
 struct S2; // { dg-error "redeclaration | different constraints" }
 
 
@@ -99,3 +99,17 @@ A(I) -> A<I>;
 
 A a(1);
 A a2(1.0);      // { dg-error "class template argument deduction | no matching function for call" }
+
+
+template<typename T>
+struct S6
+{
+  template<typename U>
+    requires true
+  struct Inner;
+};
+
+template<typename T>
+template<typename U>
+struct S6<T>::Inner { }; // { dg-error "does not match" }
+

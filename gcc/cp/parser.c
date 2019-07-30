@@ -28785,9 +28785,9 @@ cp_parser_single_declaration (cp_parser* parser,
       if (cp_parser_declares_only_class_p (parser)
 	  || (declares_class_or_enum & 2))
 	{
-	  // If this is a declaration, but not a definition, associate
-	  // any constraints with the type declaration. Constraints
-	  // are associated with definitions in cp_parser_class_specifier.
+	  /* If this is a declaration, but not a definition, associate
+	     any constraints with the type declaration. Constraints
+	     are associated with definitions in cp_parser_class_specifier.  */
 	  if (declares_class_or_enum == 1)
 	    associate_classtype_constraints (decl_specifiers.type);
 

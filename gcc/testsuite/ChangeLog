@@ -1,5 +1,10 @@
 2019-07-30  Andrew Sutton  <asutton@lock3software.com>
 
+	Add a new test for mismatched declarations.
+	* g++.dg/cpp2a/concepts-class.C: New test for nested templates.
+
+2019-07-30  Andrew Sutton  <asutton@lock3software.com>
+
 	Update diagnostic messages for improved error checking.
 	* g++.dg/cpp2a/concepts-requires1.C: Update diagnostics.
 	* g++.dg/concepts/pr84330.C: Change the build mode to 17 only since

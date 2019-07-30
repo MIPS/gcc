@@ -317,8 +317,7 @@ resolve_function_concept_check (tree call)
      resolve the target.  */
   tree ovl = TREE_OPERAND (target, 0);
 
-  /* This is a function call of a variable concept... ill-formed.
-     FIXME: Why is this diagnosed here? This seems wrong.  */
+  /* This is a function call of a variable concept... ill-formed.  */
   if (TREE_CODE (ovl) == TEMPLATE_DECL)
     {
       error_at (location_of (call),
@@ -616,6 +615,7 @@ current_template_constraints (void)
 /* If the recently parsed TYPE declares or defines a template or
    template specialization, get its corresponding constraints from the
    current template parameters and bind them to TYPE's declaration.  */
+
 tree
 associate_classtype_constraints (tree type)
 {
@@ -639,9 +639,11 @@ associate_classtype_constraints (tree type)
 	{
 	  if (!equivalent_constraints (ci, orig_ci))
 	    {
-	      /* FIXME: Improve diagnostics.  */
-	      error ("%qT does not match any declaration", type);
-	      return error_mark_node;
+	      error ("%qT does not match original declaration", type);
+	      tree tmpl = CLASSTYPE_TI_TEMPLATE (type);
+	      location_t loc = DECL_SOURCE_LOCATION (tmpl);
+	      inform (loc, "original template declaration here");
+	      /* Fall through, so that we define the type anyway.  */
 	    }
 	  return type;
 	}

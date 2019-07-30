@@ -1,5 +1,13 @@
 2019-07-30  Andrew Sutton  <asutton@lock3software.com>
 
+	Fix an ICE when failing to match template member classes. Also,
+	note the original declaration when failing.
+	* constraint.cc (associate_classtype_constraints): Note the original
+	declaration. Don't return error_mark_node in order to avoid an
+	assertion later.
+
+2019-07-30  Andrew Sutton  <asutton@lock3software.com>
+
 	Catch type errors in requires-clauses.
 	* constraint.cc (known_non_bool_p): New.
 	(check_constraint_operands): New.
