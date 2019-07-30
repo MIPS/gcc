@@ -84,45 +84,97 @@ struct subst_info
   tree in_decl;
 };
 
-/* Validate the semantic properties of the constraint.
+/* True if T is known to be some type other than bool. Note that this
+   is false for dependent types and errors.  */
 
-   FIXME: What happens if we find an overloaded operator?  */
-static tree
-finish_constraint_binary_op (location_t loc, tree_code code, tree lhs, tree rhs)
+static inline bool
+known_non_bool_p (tree t)
+{
+  return !dependent_type_p (t) && (t != boolean_type_node);
+}
+
+static bool
+check_constraint_operands (location_t loc, cp_expr lhs, cp_expr rhs)
+{
+  tree t1 = TREE_TYPE (lhs);
+  tree t2 = TREE_TYPE (rhs);
+  location_t loc1 = lhs.get_location ();
+  location_t loc2 = rhs.get_location ();
+  if (known_non_bool_p (t1))
+    {
+      if (known_non_bool_p (t2))
+	{
+	  loc = make_location(loc, loc1, loc2);
+	  error_at (loc, "neither constraint operand has type %<bool%>");
+	}
+      else
+	error_at (loc1, "constraint operand does not have type %<bool%>");
+      return false;
+    }
+  else if (known_non_bool_p (t2))
+    {
+      error_at (loc2, "constraint operand does not have type %<bool%>");
+      return false;
+    }
+  return true;
+}
+
+static bool
+check_constraint_atom (cp_expr expr)
+{
+  if (known_non_bool_p (TREE_TYPE (expr)))
+    {
+      error_at (expr.get_location (),
+		"constraint expression does not have type %<bool%>");
+      return false;
+    }
+  return true;
+}
+
+/* Validate the semantic properties of the constraint expression.  */
+
+static cp_expr
+finish_constraint_binary_op (location_t loc,
+			     tree_code code,
+			     cp_expr lhs,
+			     cp_expr rhs)
 {
   gcc_assert (parsing_constraint_expression_p ());
   if (lhs == error_mark_node || rhs == error_mark_node)
+    return error_mark_node;
+  if (!check_constraint_operands (loc, lhs, rhs))
     return error_mark_node;
   tree overload;
   tree expr = build_x_binary_op (loc, code,
 				 lhs, TREE_CODE (lhs),
 				 rhs, TREE_CODE (rhs),
 				 &overload, tf_none);
+  /* When either operand is dependent, the overload set may be non-empty.  */
   if (expr == error_mark_node)
     return error_mark_node;
   SET_EXPR_LOCATION (expr, loc);
   return expr;
 }
 
-tree
-finish_constraint_or_expr (location_t loc, tree lhs, tree rhs)
+cp_expr
+finish_constraint_or_expr (location_t loc, cp_expr lhs, cp_expr rhs)
 {
   return finish_constraint_binary_op (loc, TRUTH_ORIF_EXPR, lhs, rhs);
 }
 
-tree
-finish_constraint_and_expr (location_t loc, tree lhs, tree rhs)
+cp_expr
+finish_constraint_and_expr (location_t loc, cp_expr lhs, cp_expr rhs)
 {
   return finish_constraint_binary_op (loc, TRUTH_ANDIF_EXPR, lhs, rhs);
 }
 
-tree
-finish_constraint_primary_expr (location_t loc, tree expr)
+cp_expr
+finish_constraint_primary_expr (cp_expr expr)
 {
   if (expr == error_mark_node)
     return error_mark_node;
-  if (CAN_HAVE_LOCATION_P (expr) && !EXPR_HAS_LOCATION (expr))
-    SET_EXPR_LOCATION (expr, loc);
+  if (!check_constraint_atom (expr))
+    return cp_expr (error_mark_node, expr.get_location ());
   return expr;
 }
 

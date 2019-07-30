@@ -26934,8 +26934,8 @@ cp_parser_concept_definition (cp_parser *parser)
 static void
 cp_parser_diagnose_ungrouped_constraint_plain (location_t loc)
 {
-  error_at (loc, "expression must be enclosed in parentheses after "
-		 "%<requires%>");
+  error_at (loc, "expression after %<requires%> must be enclosed "
+		 "in parentheses");
 }
 
 static void
@@ -26944,47 +26944,49 @@ cp_parser_diagnose_ungrouped_constraint_rich (location_t loc)
   gcc_rich_location richloc (loc);
   richloc.add_fixit_insert_before ("(");
   richloc.add_fixit_insert_after (")");
-  error_at (&richloc, "expression must be enclosed in parentheses after "
-		      "%<requires%>");
+  error_at (&richloc, "expression after %<requires%> must be enclosed "
+		      "in parentheses");
 }
 
 /* Parse a primary expression within a constraint.  */
 
-static tree
+static cp_expr
 cp_parser_constraint_primary_expression (cp_parser *parser)
 {
   cp_parser_parse_tentatively (parser);
   cp_id_kind idk;
   location_t loc = input_location;
-  tree expr = cp_parser_primary_expression (parser,
-                                            /*address_p=*/false,
-                                            /*cast_p=*/false,
-                                            /*template_arg_p=*/false,
-                                            &idk);
+  cp_expr expr = cp_parser_primary_expression (parser,
+					       /*address_p=*/false,
+					       /*cast_p=*/false,
+					       /*template_arg_p=*/false,
+					       &idk);
+  if (expr != error_mark_node)
+    expr = finish_constraint_primary_expr (expr);
   if (cp_parser_parse_definitely (parser))
-    return finish_constraint_primary_expr (loc, expr);
+    return expr;
 
-  /* Retry the parse at a lower precedence.  */
+  /* Retry the parse at a lower precedence. If that succeeds, diagnose the
+     error, but return the expression as if it were valid.  */
   cp_parser_parse_tentatively (parser);
   expr = cp_parser_simple_cast_expression (parser);
   if (cp_parser_parse_definitely (parser))
     {
-      cp_parser_diagnose_ungrouped_constraint_rich (EXPR_LOCATION (expr));
+      cp_parser_diagnose_ungrouped_constraint_rich (expr.get_location());
       return expr;
     }
 
   /* Otherwise, something has gone wrong, but we can't generate a more
      meaningful diagnostic or recover.  */
-  loc = cp_lexer_peek_token (parser->lexer)->location;
   cp_parser_diagnose_ungrouped_constraint_plain (loc);
   return error_mark_node;
 }
 
 /* Examine the token following EXPR. If it is an operator in a non-logical
-   binary expression, diagnose that as an error.  */
+   binary expression, diagnose that as an error. Returns ERROR_MARK_NODE.  */
 
-static tree
-cp_parser_check_non_logical_constraint (cp_parser *parser, tree lhs)
+static cp_expr
+cp_parser_check_non_logical_constraint (cp_parser *parser, cp_expr lhs)
 {
   cp_token *token = cp_lexer_peek_token (parser->lexer);
   switch (token->type)
@@ -27052,7 +27054,7 @@ cp_parser_check_non_logical_constraint (cp_parser *parser, tree lhs)
    /* Try to parse the RHS as either the remainder of a conditional-expression
       or a logical-or-expression so we can form a good diagnostic.  */
   cp_parser_parse_tentatively (parser);
-  tree rhs;
+  cp_expr rhs;
   if (token->type == CPP_QUERY)
     rhs = cp_parser_question_colon_clause (parser, lhs);
   else
@@ -27070,11 +27072,9 @@ cp_parser_check_non_logical_constraint (cp_parser *parser, tree lhs)
     }
 
   /* Otherwise, emit a fixit for the complete binary expression.  */
-  cp_expr left(lhs, EXPR_LOCATION (lhs));
-  cp_expr right(lhs, EXPR_LOCATION (rhs));
   location_t loc = make_location (token->location,
-				  left.get_start(),
-				  right.get_finish());
+				  lhs.get_start(),
+				  rhs.get_finish());
   cp_parser_diagnose_ungrouped_constraint_rich (loc);
   return error_mark_node;
 }
@@ -27085,10 +27085,10 @@ cp_parser_check_non_logical_constraint (cp_parser *parser, tree lhs)
        primary-expression
        constraint-logical-and-expression '&&' primary-expression  */
 
-static tree
+static cp_expr
 cp_parser_constraint_logical_and_expression (cp_parser *parser)
 {
-  tree lhs = cp_parser_constraint_primary_expression (parser);
+  cp_expr lhs = cp_parser_constraint_primary_expression (parser);
   while (cp_lexer_next_token_is (parser->lexer, CPP_AND_AND))
     {
       cp_token *op = cp_lexer_consume_token (parser->lexer);
@@ -27104,14 +27104,14 @@ cp_parser_constraint_logical_and_expression (cp_parser *parser)
        constraint-logical-and-expression
        constraint-logical-or-expression '||' constraint-logical-and-expression  */
 
-static tree
+static cp_expr
 cp_parser_constraint_logical_or_expression (cp_parser *parser)
 {
-  tree lhs = cp_parser_constraint_logical_and_expression (parser);
+  cp_expr lhs = cp_parser_constraint_logical_and_expression (parser);
   while (cp_lexer_next_token_is (parser->lexer, CPP_OR_OR))
     {
       cp_token *op = cp_lexer_consume_token (parser->lexer);
-      tree rhs = cp_parser_constraint_logical_and_expression (parser);
+      cp_expr rhs = cp_parser_constraint_logical_and_expression (parser);
       lhs = finish_constraint_or_expr (op->location, lhs, rhs);
     }
   return cp_parser_check_non_logical_constraint (parser, lhs);
@@ -27125,7 +27125,7 @@ cp_parser_requires_clause_expression (cp_parser *parser)
 {
   parsing_constraint_expression_sentinel parsing_constraint;
   ++processing_template_decl;
-  tree expr = cp_parser_constraint_logical_or_expression (parser);
+  cp_expr expr = cp_parser_constraint_logical_or_expression (parser);
   if (check_for_bare_parameter_packs (expr))
     expr = error_mark_node;
   --processing_template_decl;

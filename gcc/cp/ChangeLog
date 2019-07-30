@@ -1,3 +1,23 @@
+2019-07-30  Andrew Sutton  <asutton@lock3software.com>
+
+	Catch type errors in requires-clauses.
+	* constraint.cc (known_non_bool_p): New.
+	(check_constraint_operands): New.
+	(check_constraint_atom): New.
+	(finish_constraint_binary_op): Take and return cp_exprs instead of
+	trees; check operand types.
+	(finish_constraint_or_expr): Take and return cp_exprs instead of trees.
+	(finish_constraint_and_expr): Likewise.
+	(finish_constraint_primary_expr): Likewise.
+	* cp-tree.h (finish_constraint_*): Likewise.
+	* parser.c (cp_parser_diagnose_ungrouped_constraint_rich): Update
+	error message.
+	(cp_parser_diagnose_ungrouped_constraint_plain): Likewise.
+	(cp_parser_constraint_primary_expression): Traffic in cp_exprs.
+	(cp_parser_check_non_logical_constraint): Likewise.
+	(cp_parser_constraint_logical_and_expression): Likewise.
+	(cp_parser_constraint_logical_or_expression): Likewise.
+
 2019-07-29  Andrew Sutton  <asutton@lock3software.com>
 
 	Replace FIXME and unused cases with an assertion.

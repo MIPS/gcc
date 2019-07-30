@@ -16,7 +16,7 @@ void (*fn(int))() requires false;     // { dg-error "return type" }
 void g(int (*)() requires true);      // { dg-error "parameter|non-function" }
 auto* p = new (void(*)(char) requires true); // { dg-error "type-id" }
 void f4(auto a) requires Class<decltype(a)> { }
-void f5(auto a) requires requires (decltype(a) x) { -x; } { } 
+void f5(auto a) requires requires (decltype(a) x) { -x; } { }
 
 struct Test {
   void f(auto a) requires Class<decltype(a)>;
@@ -34,12 +34,10 @@ void Test::f(auto a) requires Class<decltype(a)> { }
 
 template<bool B> requires B struct S0; // OK
 
-// Diagnostics are required only during satisfaction. We could test earlier,
-// but that causes multiple errors during parsing.
-template<int N> requires N struct S1 { };
+template<int N> requires N struct S1 { }; // { dg-error "does not have type" }
 S1<1> x0; // { dg-error "template constraint failure|does not have type" }
 
-template<int N> requires N == 0 struct S2 { }; // { dg-error "must be enclosed" }
+template<int N> requires N == 0 struct S2 { }; // { dg-error "does not have type|must be enclosed" }
 
 template<int N> requires (N == 0) struct S3 { }; // OK
 

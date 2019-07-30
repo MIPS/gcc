@@ -7602,12 +7602,12 @@ typedef void cp_binding_oracle_function (enum cp_oracle_request, tree identifier
 extern cp_binding_oracle_function *cp_binding_oracle;
 
 /* in constraint.cc */
-extern void init_constraint_processing          ();
-extern tree finish_constraint_or_expr           (location_t, tree, tree);
-extern tree finish_constraint_and_expr          (location_t, tree, tree);
-extern tree finish_constraint_primary_expr      (location_t, tree);
-extern tree start_concept_definition            (location_t, tree);
-extern tree finish_concept_definition           (tree, tree);
+extern void init_constraint_processing		();
+extern cp_expr finish_constraint_or_expr	(location_t, cp_expr, cp_expr);
+extern cp_expr finish_constraint_and_expr	(location_t, cp_expr, cp_expr);
+extern cp_expr finish_constraint_primary_expr	(cp_expr);
+extern tree start_concept_definition		(location_t, tree);
+extern tree finish_concept_definition		(tree, tree);
 extern tree combine_constraint_expressions      (tree, tree);
 extern tree get_constraints                     (tree);
 extern void set_constraints                     (tree, tree);
