@@ -1158,15 +1158,16 @@ check_introduction_list (tree intros, tree check)
    an error occurred when matching.  */
 
 tree
-finish_template_introduction (tree tmpl_decl, tree intro_list)
+finish_template_introduction (tree tmpl_decl,
+			      tree intro_list,
+			      location_t intro_loc)
 {
   /* Build a concept check to deduce the actual parameters.  */
   tree expr = build_concept_check (tmpl_decl, intro_list, tf_none);
   if (expr == error_mark_node)
     {
-      /* FIXME: The source location is wrong.  */
-      error_at (input_location, "cannot deduce template parameters from "
-				"introduction list");
+      error_at (intro_loc, "cannot deduce template parameters from "
+			   "introduction list");
       return error_mark_node;
     }
 

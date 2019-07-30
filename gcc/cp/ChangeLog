@@ -1,5 +1,13 @@
 2019-07-30  Andrew Sutton  <asutton@lock3software.com>
 
+	Provide a better source location for introduction errors.
+	* cp-tree.h (finish_template_introduction): Accept a location...
+	* constraint.cc (finish_template_introduction) ...and use it.
+	* parser.c (cp_parser_template_introduction): Build the location
+	over the concept name and introduction list.
+
+2019-07-30  Andrew Sutton  <asutton@lock3software.com>
+
 	Fix an ICE when failing to match template member classes. Also,
 	note the original declaration when failing.
 	* constraint.cc (associate_classtype_constraints): Note the original

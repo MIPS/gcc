@@ -7632,7 +7632,7 @@ extern hashval_t hash_placeholder_constraint	(tree);
 extern bool deduce_constrained_parameter        (tree, tree&, tree&);
 extern tree resolve_constraint_check            (tree);
 extern tree check_function_concept              (tree);
-extern tree finish_template_introduction        (tree, tree);
+extern tree finish_template_introduction        (tree, tree, location_t loc);
 extern bool valid_requirements_p                (tree);
 extern tree finish_concept_name                 (tree);
 extern tree finish_shorthand_constraint         (tree, tree);

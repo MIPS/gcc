@@ -7,14 +7,14 @@ template<template<typename> class X> concept bool C2 = true;
 
 template<typename... Ts> concept bool C3 = true;
 
-C1{A, B, ...C} struct S1 { }; 
+C1{A, B, ...C} struct S1 { };
 
 C2{T} void f();
 
 C2{...Ts} void g(); // { dg-error "cannot be introduced" }
 
 C3{...Ts} struct S2 { };
-C3{T, U, V} struct S3 { }; 
+C3{T, U, V} struct S3 { };
 C3{...Ts, U} struct S4 { }; // { dg-error "cannot deduce template parameters" }
 
 template<typename> struct X { };
@@ -25,11 +25,11 @@ void driver1() {
 
   f<X>();
   f<int>(); // { dg-error "no matching function for call" }
-  
+
   S2<int> s2a;
-  S2<char, signed char, unsigned char> s2b; 
+  S2<char, signed char, unsigned char> s2b;
   S2<0> s2c; // { dg-error "type/value mismatch" }
-  
+
   S3<int, int, int> s3a;
   S3<int, int> s3b; // { dg-error "wrong number of template arguments" }
 }

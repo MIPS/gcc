@@ -28547,6 +28547,8 @@ cp_parser_template_introduction (cp_parser* parser, bool member_p)
   tree saved_object_scope = parser->object_scope;
   tree saved_qualifying_scope = parser->qualifying_scope;
 
+  cp_token *start_token = cp_lexer_peek_token (parser->lexer);
+
   /* Look for the optional `::' operator.  */
   cp_parser_global_scope_opt (parser,
 			      /*current_scope_valid_p=*/false);
@@ -28575,6 +28577,7 @@ cp_parser_template_introduction (cp_parser* parser, bool member_p)
   /* Look for opening brace for introduction.  */
   matching_braces braces;
   braces.require_open (parser);
+  location_t open_loc = input_location;
 
   if (!cp_parser_parse_definitely (parser))
     return false;
@@ -28588,6 +28591,7 @@ cp_parser_template_introduction (cp_parser* parser, bool member_p)
   /* Look for closing brace for introduction.  */
   if (!braces.require_close (parser))
     return true;
+  location_t close_loc = input_location;
 
   /* The introduction-list shall not be empty.  */
   int nargs = TREE_VEC_LENGTH (introduction_list);
@@ -28605,7 +28609,12 @@ cp_parser_template_introduction (cp_parser* parser, bool member_p)
     }
 
   /* Build and associate the constraint.  */
-  tree parms = finish_template_introduction (tmpl_decl, introduction_list);
+  location_t introduction_loc = make_location (open_loc,
+					       start_token->location,
+					       close_loc);
+  tree parms = finish_template_introduction (tmpl_decl,
+					     introduction_list,
+					     introduction_loc);
   if (parms && parms != error_mark_node)
     {
       cp_parser_template_declaration_after_parameters (parser, parms,
