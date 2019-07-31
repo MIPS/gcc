@@ -151,7 +151,6 @@ static tree coerce_innermost_template_parms (tree, tree, tree, tsubst_flags_t,
 					      bool, bool);
 static void tsubst_enum	(tree, tree, tree);
 static tree add_to_template_args (tree, tree);
-static tree add_outermost_template_args (tree, tree);
 static bool check_instantiated_args (tree, tree, tsubst_flags_t);
 static int check_non_deducible_conversion (tree, tree, int, int,
 					   struct conversion **, bool);
@@ -580,7 +579,7 @@ add_to_template_args (tree args, tree extra_args)
    template arguments used to attain the full instantiation from the
    partial instantiation.  */
 
-static tree
+tree
 add_outermost_template_args (tree args, tree extra_args)
 {
   tree new_args;
@@ -4711,7 +4710,7 @@ template_parm_to_arg (tree t)
 /* Given a single level of template parameters (a TREE_VEC), return it
    as a set of template arguments.  */
 
-static tree
+tree
 template_parms_level_to_args (tree parms)
 {
   tree a = copy_node (parms);

@@ -6550,6 +6550,7 @@ extern tree build_eh_type_type			(tree);
 extern tree cp_protect_cleanup_actions		(void);
 extern tree create_try_catch_expr               (tree, tree);
 extern tree template_parms_to_args		(tree);
+extern tree template_parms_level_to_args	(tree);
 
 /* in expr.c */
 extern tree cplus_expand_constant		(tree);
@@ -6856,6 +6857,7 @@ extern bool deduction_guide_p			(const_tree);
 extern bool copy_guide_p			(const_tree);
 extern bool template_guide_p			(const_tree);
 extern void store_explicit_specifier		(tree, tree);
+extern tree add_outermost_template_args		(tree, tree);
 
 /* in repo.c */
 extern void init_repo				(void);
