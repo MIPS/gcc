@@ -28591,7 +28591,6 @@ cp_parser_template_introduction (cp_parser* parser, bool member_p)
   /* Look for closing brace for introduction.  */
   if (!braces.require_close (parser))
     return true;
-  location_t close_loc = input_location;
 
   /* The introduction-list shall not be empty.  */
   int nargs = TREE_VEC_LENGTH (introduction_list);
@@ -28611,7 +28610,7 @@ cp_parser_template_introduction (cp_parser* parser, bool member_p)
   /* Build and associate the constraint.  */
   location_t introduction_loc = make_location (open_loc,
 					       start_token->location,
-					       close_loc);
+					       parser->lexer);
   tree parms = finish_template_introduction (tmpl_decl,
 					     introduction_list,
 					     introduction_loc);
