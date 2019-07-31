@@ -90,7 +90,7 @@ struct subst_info
 static inline bool
 known_non_bool_p (tree t)
 {
-  return !dependent_type_p (t) && (t != boolean_type_node);
+  return !dependent_type_p (t) && !same_type_p (t, boolean_type_node);
 }
 
 static bool
