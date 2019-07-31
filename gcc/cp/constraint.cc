@@ -509,11 +509,7 @@ normalize_concept_check (tree check, tree args, subst_info info)
   if (TREE_CODE (tmpl) == OVERLOAD)
     tmpl = OVL_FIRST (tmpl);
 
-  /* Substitute through the check arguments. Note that args can be
-     a multilevel template argument list when normalizing constraints
-     on template template parameters; only substitute the innermost
-     arguments.  */
-  args = INNERMOST_TEMPLATE_ARGS (args);
+  /* Substitute through the check arguments. */
   targs = tsubst_template_args (targs, args, info.complain, info.in_decl);
   if (targs == error_mark_node)
     return error_mark_node;
@@ -2235,19 +2231,9 @@ rebuild_template_arguments (tree args, tree parms)
   if (!args)
     return NULL_TREE;
 
-  tree inner = template_parms_to_args (parms);
+  tree inner = template_parms_level_to_args (INNERMOST_TEMPLATE_PARMS (parms));
 
-  /* If there's only one level of ARGS, we can directly substitute INNER.  */
-  if (!TMPL_ARGS_HAVE_MULTIPLE_LEVELS (args))
-    return inner;
-
-  int n = TMPL_ARGS_DEPTH (args);
-  tree subst = make_tree_vec (n);
-  for (int i = 1; i <= n - 1; ++i)
-    SET_TMPL_ARGS_LEVEL (subst, i, TMPL_ARGS_LEVEL (args, i));
-  SET_TMPL_ARGS_LEVEL (subst, n, inner);
-
-  return subst;
+  return add_outermost_template_args (args, inner);
 }
 
 /* Returns the normalized constraints for the declaration D.  */
@@ -2285,8 +2271,8 @@ get_normalized_constraints_from_decl (tree d)
       if (TREE_CODE (type) == TEMPLATE_TEMPLATE_PARM)
 	{
 	  tree templ = TEMPLATE_TEMPLATE_PARM_TEMPLATE_DECL (type);
-	  tree parms = DECL_TEMPLATE_PARMS (templ);
-	  args = template_parms_to_args (parms);
+	  tree parms = DECL_INNERMOST_TEMPLATE_PARMS (templ);
+	  args = template_parms_level_to_args (parms);
 	}
       else
 	{

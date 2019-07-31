@@ -7962,9 +7962,9 @@ is_compatible_template_arg (tree parm, tree arg)
   tree new_args = NULL_TREE;
   if (parm_cons)
     {
-      new_args = template_parms_to_args (DECL_TEMPLATE_PARMS (arg));
-      parm_cons = tsubst_constraint_info (parm_cons,
-					  INNERMOST_TEMPLATE_ARGS (new_args),
+      tree aparms = DECL_INNERMOST_TEMPLATE_PARMS (arg);
+      new_args = template_parms_level_to_args (aparms);
+      parm_cons = tsubst_constraint_info (parm_cons, new_args,
 					  tf_none, NULL_TREE);
       if (parm_cons == error_mark_node)
         return false;
