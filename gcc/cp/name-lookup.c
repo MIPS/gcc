@@ -2340,6 +2340,9 @@ matching_fn_p (tree one, tree two)
 	return false;
     }
 
+  if (!equivalently_constrained (one, two))
+    return false;
+
   return true;
 }
 
