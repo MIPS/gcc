@@ -25304,6 +25304,12 @@ mips_noce_conversion_profitable_p (rtx_insn *seq, struct noce_if_info *if_info)
   return speed && cost <= if_info->max_seq_cost;
 }
 
+static void
+mips_asm_file_end (void)
+{
+  if (NEED_INDICATE_EXEC_STACK)
+    file_end_indicate_exec_stack ();
+}
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -25613,6 +25619,9 @@ mips_noce_conversion_profitable_p (rtx_insn *seq, struct noce_if_info *if_info)
 
 #undef TARGET_NOCE_CONVERSION_PROFITABLE_P
 #define TARGET_NOCE_CONVERSION_PROFITABLE_P mips_noce_conversion_profitable_p
+
+#undef TARGET_ASM_FILE_END
+#define TARGET_ASM_FILE_END mips_asm_file_end
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
