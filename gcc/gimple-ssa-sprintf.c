@@ -520,8 +520,9 @@ enum format_lengths
 /* Description of the result of conversion either of a single directive
    or the whole format string.  */
 
-struct fmtresult
+class fmtresult
 {
+public:
   /* Construct a FMTRESULT object with all counters initialized
      to MIN.  KNOWNRANGE is set when MIN is valid.  */
   fmtresult (unsigned HOST_WIDE_INT min = HOST_WIDE_INT_MAX)
@@ -1085,7 +1086,7 @@ get_int_range (tree arg, HOST_WIDE_INT *pmin, HOST_WIDE_INT *pmax,
 	  && TYPE_PRECISION (argtype) <= TYPE_PRECISION (type))
 	{
 	  /* Try to determine the range of values of the integer argument.  */
-	  value_range *vr = vr_values->get_value_range (arg);
+	  const value_range *vr = vr_values->get_value_range (arg);
 	  if (range_int_cst_p (vr))
 	    {
 	      HOST_WIDE_INT type_min
@@ -1385,7 +1386,7 @@ format_integer (const directive &dir, tree arg, vr_values *vr_values)
     {
       /* Try to determine the range of values of the integer argument
 	 (range information is not available for pointers).  */
-      value_range *vr = vr_values->get_value_range (arg);
+      const value_range *vr = vr_values->get_value_range (arg);
       if (range_int_cst_p (vr))
 	{
 	  argmin = vr->min ();
@@ -4118,7 +4119,7 @@ sprintf_dom_walker::handle_gimple_call (gimple_stmt_iterator *gsi)
 	  /* Try to determine the range of values of the argument
 	     and use the greater of the two at level 1 and the smaller
 	     of them at level 2.  */
-	  value_range *vr = evrp_range_analyzer.get_value_range (size);
+	  const value_range *vr = evrp_range_analyzer.get_value_range (size);
 	  if (range_int_cst_p (vr))
 	    {
 	      unsigned HOST_WIDE_INT minsize = TREE_INT_CST_LOW (vr->min ());

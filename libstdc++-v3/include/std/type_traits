@@ -92,9 +92,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     struct conditional;
 
   template <typename _Type>
-    struct __type_identity {
-      using type = _Type;
-    };
+    struct __type_identity
+    { using type = _Type; };
+
+  template<typename _Tp>
+    using __type_identity_t = typename __type_identity<_Tp>::type;
 
   template<typename...>
     struct __or_;
@@ -3224,14 +3226,6 @@ template <typename _From, typename _To>
 #endif // C++17
 
 #if __cplusplus > 201703L
-  /// Byte order
-  enum class endian
-  {
-    little = __ORDER_LITTLE_ENDIAN__,
-    big    = __ORDER_BIG_ENDIAN__,
-    native = __BYTE_ORDER__
-  };
-
   /// Remove references and cv-qualifiers.
   template<typename _Tp>
     struct remove_cvref

@@ -1003,7 +1003,7 @@ warn_types_mismatch (tree t1, tree t2, location_t loc1, location_t loc2)
 	n2 = DECL_NAME (n2);
       /* Most of the time, the type names will match, do not be unnecesarily
          verbose.  */
-      if (IDENTIFIER_POINTER (n1) != IDENTIFIER_POINTER (n2))
+      if (n1 != n2)
         inform (loc_t1,
 	        "type %qT defined in anonymous namespace cannot match "
 	        "type %qT across the translation unit boundary",
@@ -1613,7 +1613,7 @@ add_type_duplicate (odr_type val, tree type)
   val->types_set->add (type);
 
   if (!odr_hash)
-    return NULL;
+    return false;
 
   gcc_checking_assert (can_be_name_hashed_p (type)
 		       && can_be_name_hashed_p (val->type));
@@ -2626,8 +2626,9 @@ possible_polymorphic_call_targets_1 (vec <cgraph_node *> &nodes,
    polymorphic calls in the program, so we memoize all the previous
    queries and avoid duplicated work.  */
 
-struct polymorphic_call_target_d
+class polymorphic_call_target_d
 {
+public:
   HOST_WIDE_INT otr_token;
   ipa_polymorphic_call_context context;
   odr_type type;
@@ -2949,8 +2950,9 @@ struct decl_warn_count
 
 /* Information about type and decl warnings.  */
 
-struct final_warning_record
+class final_warning_record
 {
+public:
   /* If needed grow type_warnings vector and initialize new decl_warn_count
      to have dyn_count set to profile_count::zero ().  */
   void grow_type_warnings (unsigned newlen);
@@ -2972,7 +2974,7 @@ final_warning_record::grow_type_warnings (unsigned newlen)
     }
 }
 
-struct final_warning_record *final_warning_records;
+class final_warning_record *final_warning_records;
 
 /* Return vector containing possible targets of polymorphic call of type
    OTR_TYPE calling method OTR_TOKEN within type of OTR_OUTER_TYPE and OFFSET.
@@ -3524,7 +3526,7 @@ likely_target_p (struct cgraph_node *n)
 /* Compare type warning records P1 and P2 and choose one with larger count;
    helper for qsort.  */
 
-int
+static int
 type_warning_cmp (const void *p1, const void *p2)
 {
   const odr_type_warn_count *t1 = (const odr_type_warn_count *)p1;
@@ -3540,7 +3542,7 @@ type_warning_cmp (const void *p1, const void *p2)
 /* Compare decl warning records P1 and P2 and choose one with larger count;
    helper for qsort.  */
 
-int
+static int
 decl_warning_cmp (const void *p1, const void *p2)
 {
   const decl_warn_count *t1 = *(const decl_warn_count * const *)p1;

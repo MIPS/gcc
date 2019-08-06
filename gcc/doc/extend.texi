@@ -6719,6 +6719,33 @@ attributes.
 The following attributes are supported on most targets.
 
 @table @code
+
+@item alias ("@var{target}")
+@cindex @code{alias} variable attribute
+The @code{alias} variable attribute causes the declaration to be emitted
+as an alias for another symbol known as an @dfn{alias target}.  Except
+for top-level qualifiers the alias target must have the same type as
+the alias.  For instance, the following
+
+@smallexample
+int var_target;
+extern int __attribute__ ((alias ("var_target"))) var_alias;
+@end smallexample
+
+@noindent
+defines @code{var_alias} to be an alias for the @code{var_target} variable.
+
+It is an error if the alias target is not defined in the same translation
+unit as the alias.
+
+Note that in the absence of the attribute GCC assumes that distinct
+declarations with external linkage denote distinct objects.  Using both
+the alias and the alias target to access the same object is undefined
+in a translation unit without a declaration of the alias with the attribute.
+
+This attribute requires assembler and object file support, and may not be
+available on all targets.
+
 @cindex @code{aligned} variable attribute
 @item aligned
 @itemx aligned (@var{alignment})
@@ -13045,8 +13072,11 @@ when testing pointer or floating-point values.
 For the purposes of branch prediction optimizations, the probability that
 a @code{__builtin_expect} expression is @code{true} is controlled by GCC's
 @code{builtin-expect-probability} parameter, which defaults to 90%.  
+
 You can also use @code{__builtin_expect_with_probability} to explicitly 
-assign a probability value to individual expressions.
+assign a probability value to individual expressions.  If the built-in
+is used in a loop construct, the provided probability will influence
+the expected number of iterations made by loop optimizations.
 @end deftypefn
 
 @deftypefn {Built-in Function} long __builtin_expect_with_probability
@@ -16845,6 +16875,7 @@ unsigned long __builtin_ppc_mftb ();
 double __builtin_unpack_ibm128 (__ibm128, int);
 __ibm128 __builtin_pack_ibm128 (double, double);
 double __builtin_mffs (void);
+double __builtin_mtfsf (const int, double);
 void __builtin_mtfsb0 (const int);
 void __builtin_mtfsb1 (const int);
 void __builtin_set_fpscr_rn (int);
@@ -16860,7 +16891,10 @@ the most significant word on 32-bit environments.  The @code{__builtin_mffs}
 return the value of the FPSCR register.  Note, ISA 3.0 supports the
 @code{__builtin_mffsl()} which permits software to read the control and
 non-sticky status bits in the FSPCR without the higher latency associated with
-accessing the sticky status bits.  The
+accessing the sticky status bits.  The @code{__builtin_mtfsf} takes a constant
+8-bit integer field mask and a double precision floating point argument
+and generates the @code{mtfsf} (extended mnemonic) instruction to write new
+values to selected fields of the FPSCR.  The
 @code{__builtin_mtfsb0} and @code{__builtin_mtfsb1} take the bit to change
 as an argument.  The valid bit range is between 0 and 31.  The builtins map to
 the @code{mtfsb0} and @code{mtfsb1} instructions which take the argument and

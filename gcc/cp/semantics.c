@@ -658,7 +658,7 @@ maybe_convert_cond (tree cond)
   if (TREE_CODE (cond) == MODIFY_EXPR
       && !TREE_NO_WARNING (cond)
       && warn_parentheses
-      && warning_at (cp_expr_loc_or_loc (cond, input_location),
+      && warning_at (cp_expr_loc_or_input_loc (cond),
 		     OPT_Wparentheses, "suggest parentheses around "
 				       "assignment used as truth value"))
     TREE_NO_WARNING (cond) = 1;
@@ -1745,14 +1745,16 @@ force_paren_expr (tree expr)
       && TREE_CODE (expr) != SCOPE_REF)
     return expr;
 
+  location_t loc = cp_expr_location (expr);
+
   if (TREE_CODE (expr) == COMPONENT_REF
       || TREE_CODE (expr) == SCOPE_REF)
     REF_PARENTHESIZED_P (expr) = true;
   else if (processing_template_decl)
-    expr = build1 (PAREN_EXPR, TREE_TYPE (expr), expr);
+    expr = build1_loc (loc, PAREN_EXPR, TREE_TYPE (expr), expr);
   else
     {
-      expr = build1 (VIEW_CONVERT_EXPR, TREE_TYPE (expr), expr);
+      expr = build1_loc (loc, VIEW_CONVERT_EXPR, TREE_TYPE (expr), expr);
       REF_PARENTHESIZED_P (expr) = true;
     }
 
@@ -2426,7 +2428,7 @@ finish_call_expr (tree fn, vec<tree, va_gc> **args, bool disallow_virtual,
 	  || any_type_dependent_arguments_p (*args))
 	{
 	  result = build_min_nt_call_vec (orig_fn, *args);
-	  SET_EXPR_LOCATION (result, cp_expr_loc_or_loc (fn, input_location));
+	  SET_EXPR_LOCATION (result, cp_expr_loc_or_input_loc (fn));
 	  KOENIG_LOOKUP_P (result) = koenig_p;
 	  if (is_overloaded_fn (fn))
 	    fn = get_fns (fn);
@@ -4380,8 +4382,9 @@ expand_or_defer_fn (tree fn)
     }
 }
 
-struct nrv_data
+class nrv_data
 {
+public:
   nrv_data () : visited (37) {}
 
   tree var;
@@ -4394,7 +4397,7 @@ struct nrv_data
 static tree
 finalize_nrv_r (tree* tp, int* walk_subtrees, void* data)
 {
-  struct nrv_data *dp = (struct nrv_data *)data;
+  class nrv_data *dp = (class nrv_data *)data;
   tree_node **slot;
 
   /* No need to walk into types.  There wouldn't be any need to walk into
@@ -4452,7 +4455,7 @@ finalize_nrv_r (tree* tp, int* walk_subtrees, void* data)
 void
 finalize_nrv (tree *tp, tree var, tree result)
 {
-  struct nrv_data data;
+  class nrv_data data;
 
   /* Copy name from VAR to RESULT.  */
   DECL_NAME (result) = DECL_NAME (var);
@@ -6126,6 +6129,7 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
   bool branch_seen = false;
   bool copyprivate_seen = false;
   bool ordered_seen = false;
+  bool order_seen = false;
   bool schedule_seen = false;
   bool oacc_async = false;
   tree last_iterators = NULL_TREE;
@@ -7090,6 +7094,7 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 				"array section does not have mappable type "
 				"in %qs clause",
 				omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+		      cp_omp_emit_unmappable_type_notes (TREE_TYPE (t));
 		      remove = true;
 		    }
 		  while (TREE_CODE (t) == ARRAY_REF)
@@ -7158,6 +7163,7 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 		  error_at (OMP_CLAUSE_LOCATION (c),
 			    "%qE does not have a mappable type in %qs clause",
 			    t, omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+		  cp_omp_emit_unmappable_type_notes (TREE_TYPE (t));
 		  remove = true;
 		}
 	      while (TREE_CODE (t) == COMPONENT_REF)
@@ -7236,6 +7242,7 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	      error_at (OMP_CLAUSE_LOCATION (c),
 			"%qD does not have a mappable type in %qs clause", t,
 			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+	      cp_omp_emit_unmappable_type_notes (TREE_TYPE (t));
 	      remove = true;
 	    }
 	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
@@ -7384,6 +7391,7 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	      error_at (OMP_CLAUSE_LOCATION (c),
 			"%qD does not have a mappable type in %qs clause", t,
 			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+	      cp_omp_emit_unmappable_type_notes (TREE_TYPE (t));
 	      remove = true;
 	    }
 	  if (remove)
@@ -7544,6 +7552,7 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	case OMP_CLAUSE_THREADS:
 	case OMP_CLAUSE_SIMD:
 	case OMP_CLAUSE_DEFAULTMAP:
+	case OMP_CLAUSE_BIND:
 	case OMP_CLAUSE_AUTO:
 	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_SEQ:
@@ -7593,6 +7602,13 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 
 	case OMP_CLAUSE_ORDERED:
 	  ordered_seen = true;
+	  break;
+
+	case OMP_CLAUSE_ORDER:
+	  if (order_seen)
+	    remove = true;
+	  else
+	    order_seen = true;
 	  break;
 
 	case OMP_CLAUSE_INBRANCH:
@@ -7768,6 +7784,17 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	    error_at (OMP_CLAUSE_LOCATION (c),
 		      "%qs clause specified together with %<inscan%> "
 		      "%<reduction%> clause", "ordered");
+	  pc = &OMP_CLAUSE_CHAIN (c);
+	  continue;
+	case OMP_CLAUSE_ORDER:
+	  if (ordered_seen)
+	    {
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"%<order%> clause must not be used together "
+			"with %<ordered%>");
+	      *pc = OMP_CLAUSE_CHAIN (c);
+	      continue;
+	    }
 	  pc = &OMP_CLAUSE_CHAIN (c);
 	  continue;
 	case OMP_CLAUSE_NOWAIT:
@@ -8395,24 +8422,25 @@ handle_omp_for_class_iterator (int i, location_t locus, enum tree_code code,
 
   incr = cp_convert (TREE_TYPE (diff), incr, tf_warning_or_error);
   incr = cp_fully_fold (incr);
-  bool taskloop_iv_seen = false;
+  tree loop_iv_seen = NULL_TREE;
   for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
     if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE
 	&& OMP_CLAUSE_DECL (c) == iter)
       {
-	if (code == OMP_TASKLOOP)
+	if (code == OMP_TASKLOOP || code == OMP_LOOP)
 	  {
-	    taskloop_iv_seen = true;
-	    OMP_CLAUSE_LASTPRIVATE_TASKLOOP_IV (c) = 1;
+	    loop_iv_seen = c;
+	    OMP_CLAUSE_LASTPRIVATE_LOOP_IV (c) = 1;
 	  }
 	break;
       }
-    else if (code == OMP_TASKLOOP
+    else if ((code == OMP_TASKLOOP || code == OMP_LOOP)
 	     && OMP_CLAUSE_CODE (c) == OMP_CLAUSE_PRIVATE
 	     && OMP_CLAUSE_DECL (c) == iter)
       {
-	taskloop_iv_seen = true;
-	OMP_CLAUSE_PRIVATE_TASKLOOP_IV (c) = 1;
+	loop_iv_seen = c;
+	if (code == OMP_TASKLOOP)
+	  OMP_CLAUSE_PRIVATE_TASKLOOP_IV (c) = 1;
       }
 
   decl = create_temporary_var (TREE_TYPE (diff));
@@ -8432,7 +8460,7 @@ handle_omp_for_class_iterator (int i, location_t locus, enum tree_code code,
   tree diffvar = NULL_TREE;
   if (code == OMP_TASKLOOP)
     {
-      if (!taskloop_iv_seen)
+      if (!loop_iv_seen)
 	{
 	  tree ivc = build_omp_clause (locus, OMP_CLAUSE_FIRSTPRIVATE);
 	  OMP_CLAUSE_DECL (ivc) = iter;
@@ -8447,6 +8475,28 @@ handle_omp_for_class_iterator (int i, location_t locus, enum tree_code code,
       diffvar = create_temporary_var (TREE_TYPE (diff));
       pushdecl (diffvar);
       add_decl_expr (diffvar);
+    }
+  else if (code == OMP_LOOP)
+    {
+      if (!loop_iv_seen)
+	{
+	  /* While iterators on the loop construct are predetermined
+	     lastprivate, if the decl is not declared inside of the
+	     loop, OMP_CLAUSE_LASTPRIVATE should have been added
+	     already.  */
+	  loop_iv_seen = build_omp_clause (locus, OMP_CLAUSE_FIRSTPRIVATE);
+	  OMP_CLAUSE_DECL (loop_iv_seen) = iter;
+	  OMP_CLAUSE_CHAIN (loop_iv_seen) = clauses;
+	  clauses = loop_iv_seen;
+	}
+      else if (OMP_CLAUSE_CODE (loop_iv_seen) == OMP_CLAUSE_PRIVATE)
+	{
+	  OMP_CLAUSE_PRIVATE_DEBUG (loop_iv_seen) = 0;
+	  OMP_CLAUSE_PRIVATE_OUTER_REF (loop_iv_seen) = 0;
+	  OMP_CLAUSE_CODE (loop_iv_seen) = OMP_CLAUSE_FIRSTPRIVATE;
+	}
+      if (OMP_CLAUSE_CODE (loop_iv_seen) == OMP_CLAUSE_FIRSTPRIVATE)
+	cxx_omp_finish_clause (loop_iv_seen, NULL);
     }
 
   orig_pre_body = *pre_body;
@@ -8798,9 +8848,7 @@ finish_omp_for (location_t locus, enum tree_code code, tree declv,
     omp_for = NULL_TREE;
 
   if (omp_for == NULL)
-    {
-      return NULL;
-    }
+    return NULL;
 
   add_stmt (omp_for);
 
@@ -8899,6 +8947,16 @@ finish_omp_for (location_t locus, enum tree_code code, tree declv,
 	      gcc_unreachable ();
 	    }
 	}
+  /* Override saved methods on OMP_LOOP's OMP_CLAUSE_LASTPRIVATE_LOOP_IV
+     clauses, we need copy ctor for those rather than default ctor,
+     plus as for other lastprivates assignment op and dtor.  */
+  if (code == OMP_LOOP && !processing_template_decl)
+    for (tree c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
+      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE
+	  && OMP_CLAUSE_LASTPRIVATE_LOOP_IV (c)
+	  && cxx_omp_create_clause_info (c, TREE_TYPE (OMP_CLAUSE_DECL (c)),
+					 false, true, true, true))
+	CP_OMP_CLAUSE_INFO (c) = NULL_TREE;
 
   return omp_for;
 }
@@ -10077,7 +10135,7 @@ cp_build_vec_convert (tree arg, location_t loc, tree type,
 
   tree ret = NULL_TREE;
   if (!type_dependent_expression_p (arg) && !dependent_type_p (type))
-    ret = c_build_vec_convert (cp_expr_loc_or_loc (arg, input_location), arg,
+    ret = c_build_vec_convert (cp_expr_loc_or_input_loc (arg), arg,
 			       loc, type, (complain & tf_error) != 0);
 
   if (!processing_template_decl)

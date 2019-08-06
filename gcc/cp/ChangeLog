@@ -1,3 +1,318 @@
+2019-08-06  Jason Merrill  <jason@redhat.com>
+
+	PR c++/91378 - ICE with noexcept and auto return type.
+	* pt.c (maybe_instantiate_noexcept): push_to_top_level.
+
+2019-08-06  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* decl.c (check_array_designated_initializer): Use
+	cp_expr_loc_or_input_loc in one place.
+
+2019-08-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_for_loop): For OMP_LOOP, ignore parallel
+	clauses and predetermine iterator as lastprivate.
+	* semantics.c (handle_omp_for_class_iterator): Use
+	OMP_CLAUSE_LASTPRIVATE_LOOP_IV instead of
+	OMP_CLAUSE_LASTPRIVATE_TASKLOOP_IV, set it for lastprivate also
+	on OMP_LOOP construct.  If a clause is missing for class iterator
+	on OMP_LOOP, add firstprivate clause, and if there is private
+	clause, turn it into firstprivate too.
+	(finish_omp_for): Formatting fix.  For OMP_LOOP, adjust
+	OMP_CLAUSE_LASTPRIVATE_LOOP_IV clause CP_CLAUSE_INFO, so that it
+	uses copy ctor instead of default ctor.
+	* cp-gimplify.c (cp_gimplify_expr): Handle OMP_LOOP like
+	OMP_DISTRIBUTE etc.
+	(cp_fold_r): Likewise.
+	(cp_genericize_r): Likewise.
+	(cxx_omp_finish_clause): Also finish lastprivate clause with
+	OMP_CLAUSE_LASTPRIVATE_LOOP_IV flag.
+	* pt.c (tsubst_omp_clauses): Handle OMP_CLAUSE_BIND.
+	(tsubst_omp_for_iterator): For OMP_LOOP, ignore parallel
+	clauses and predetermine iterator as lastprivate.
+	* constexpr.c (potential_constant_expression_1): Handle OMP_LOOP
+	like OMP_DISTRIBUTE etc.
+
+2019-08-05  Marek Polacek  <polacek@redhat.com>
+
+	DR 2413 - typename in conversion-function-ids.
+	* parser.c (cp_parser_conversion_type_id): Call
+	cp_parser_type_specifier_seq with CP_PARSER_FLAGS_TYPENAME_OPTIONAL
+	instead of CP_PARSER_FLAGS_NONE.
+
+2019-08-05  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* cp-tree.h (cp_expr_loc_or_input_loc): New.
+	(cxx_incomplete_type_diagnostic): Use it.
+	* call.c (build_converted_constant_expr_internal, convert_like_real,
+	convert_arg_to_ellipsis, convert_for_arg_passing, build_over_call,
+	build_cxx_call, perform_implicit_conversion_flags,
+	initialize_reference): Likewise.
+	* constexpr.c (cxx_eval_internal_function, cxx_eval_call_expression,
+	eval_and_check_array_index, cxx_eval_store_expression,
+	cxx_eval_statement_list, cxx_eval_loop_expr,
+	cxx_eval_constant_expression, potential_constant_expression_1):
+	Likewise.
+	* constraint.cc (check_for_logical_overloads,
+	satisfy_predicate_constraint): Likewise.
+	* cp-gimplify.c (cp_gimplify_expr): Likewise.
+	* cvt.c (cp_convert_to_pointer, convert_to_reference,
+	cp_convert_and_check, ocp_convert, maybe_warn_nodiscard): Likewise.
+	* decl.c (pop_switch): Likewise.
+	* decl2.c (delete_sanity): Likewise.
+	* error.c (location_of): Likewise.
+	* init.c (maybe_warn_list_ctor, build_aggr_init,
+	warn_placement_new_too_small, build_new_1, build_vec_init): Likewise.
+	* lex.c (unqualified_name_lookup_error): Likewise.
+	* parser.c (cp_parser_initializer_list, cp_parser_omp_for_cond):
+	Likewise.
+	* pt.c (check_for_bare_parameter_packs, check_valid_ptrmem_cst_expr,
+	unify_arg_conversion, convert_nontype_argument,
+	tsubst_copy_and_build, resolve_typename_type): Likewise.
+	* semantics.c (maybe_convert_cond, finish_call_expr,
+	cp_build_vec_convert): Likewise.
+	* typeck.c (decay_conversion, rationalize_conditional_expr,
+	cp_build_unary_op, build_x_compound_expr_from_list,
+	maybe_warn_about_returning_address_of_local,
+	maybe_warn_pessimizing_move): Likewise.
+	* typeck2.c (check_narrowing, digest_init_r,
+	process_init_constructor_array): Likewise.
+
+2019-08-05  Tom Honermann  <tom@honermann.net>
+
+	* parser.c (cp_parser_template_declaration_after_parameters): Enable
+	class template argument deduction for non-type template parameters
+	in literal operator templates.
+
+2019-08-05  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/91338 - Implement P1161R3: Deprecate a[b,c].
+	* parser.c (cp_parser_postfix_open_square_expression): Warn about uses
+	of a comma operator within a subscripting expression.
+	(cp_parser_skip_to_closing_square_bracket_1): New function, made out
+	of...
+	(cp_parser_skip_to_closing_square_bracket): ...this.
+
+2019-08-05  Jason Merrill  <jason@redhat.com>
+
+	* semantics.c (force_paren_expr): Preserve location.
+
+2019-08-02  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/91230 - wrong error with __PRETTY_FUNCTION__ and generic lambda.
+	* pt.c (value_dependent_expression_p): Consider __PRETTY_FUNCTION__
+	inside a template function value-dependent.
+
+2019-08-02  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* tree.c (handle_nodiscard_attribute): Do not warn about nodiscard
+	applied to a constructor.
+
+2019-08-02  Martin Liska  <mliska@suse.cz>
+
+	* decl.c (grok_op_properties):
+	Mark DECL_SET_IS_OPERATOR_DELETE for user-provided delete operators.
+
+2019-08-01  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/90947
+	* decl.c (reshape_init_array_1): Avoid truncating initializer
+	lists containing string literals.
+
+2019-08-01  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/90805 - detect narrowing in case values.
+	* decl.c (case_conversion): Detect narrowing in case values.
+
+2019-07-31  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* decl2.c (delete_sanity): Improve diagnostic locations, use
+	cp_expr_loc_or_loc in four places.
+
+2019-07-31  Jason Merrill  <jason@redhat.com>
+
+	PR c++/90538 - multiple expansions of capture packs
+	* cp-tree.h (DECLTYPE_FOR_INIT_CAPTURE): Remove.
+	* lambda.c (add_capture): Copy parameter packs from init.
+	(lambda_capture_field_type): Always use auto for init-capture.
+	* pt.c (uses_parameter_packs): Return tree.
+	(tsubst) [DECLTYPE_TYPE]: Remove init-capture handling.
+	(gen_elem_of_pack_expansion_instantiation): Don't push
+	local_specialization_stack.
+	(prepend_one_capture): New.
+	(tsubst_lambda_expr): Use it.  Don't touch local_specializations.
+	(do_auto_deduction): Avoid redundant error.
+
+	Fix copy_node of TEMPLATE_INFO.
+	* cp-tree.h (struct tree_template_info): Use tree_base instead of
+	tree_common.  Add tmpl and args fields.
+	(TI_TEMPLATE, TI_ARGS): Adjust.
+
+2019-07-30  Martin Liska  <mliska@suse.cz>
+
+	PR tree-optimization/91270
+	* tree-ssa-dce.c (propagate_necessity): Mark 2nd argument
+	of delete operator as needed.
+
+2019-07-25  Martin Liska  <mliska@suse.cz>
+	    Dominik Infuhr  <dominik.infuehr@theobroma-systems.com>
+
+	PR c++/23383
+	* decl.c (cxx_init_decl_processing): Mark delete operators
+	with DECL_SET_IS_OPERATOR_DELETE.
+
+2019-07-25  Martin Liska  <mliska@suse.cz>
+
+	* decl.c (duplicate_decls): Use new macros
+	(e.g. DECL_SET_LAMBDA_FUNCTION and DECL_LAMBDA_FUNCTION_P).
+	(cxx_init_decl_processing): Likewise.
+	(grok_op_properties): Likewise.
+	* parser.c (cp_parser_lambda_declarator_opt): Likewise.
+
+2019-07-24  Martin Sebor  <msebor@redhat.com>
+
+	PR driver/80545
+	* decl.c (finish_function): Use lang_mask.
+
+2019-07-20  Jason Merrill  <jason@redhat.com>
+
+	* cp-tree.h (ovl_iterator::using_p): A USING_DECL by itself was also
+	introduced by a using-declaration.
+
+2019-07-20  Jason Merrill  <jason@redhat.com>
+
+	Reduce memory consumption for push/pop_access_scope.
+	* name-lookup.c (leave_scope): Do add class levels other than
+	previous_class_level to free_binding_level.
+	(invalidate_class_lookup_cache): Move from class.c, add to
+	free_binding_level.
+	* pt.c (saved_access_scope): Change from list to vec.
+
+2019-07-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-tree.h (OMP_FOR_GIMPLIFYING_P): Use OMP_LOOPING_CHECK
+	instead of OMP_LOOP_CHECK.
+	* parser.c (cp_parser_omp_clause_name): Handle bind clause.
+	(cp_parser_omp_clause_bind): New function.
+	(cp_parser_omp_all_clauses): Handle PRAGMA_OMP_CLAUSE_BIND.
+	(OMP_LOOP_CLAUSE_MASK): Define.
+	(cp_parser_omp_loop): New function.
+	(cp_parser_omp_parallel, cp_parser_omp_teams): Handle parsing of
+	loop combined with parallel or teams.
+	(cp_parser_omp_construct): Handle PRAGMA_OMP_LOOP.
+	(cp_parser_pragma): Likewise.
+	* pt.c (tsubst_expr): Handle OMP_LOOP.
+	* semantics.c (finish_omp_clauses): Handle OMP_CLAUSE_BIND.
+
+2019-07-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/90101 - dependent class non-type parameter.
+	* pt.c (invalid_nontype_parm_type_p): Check for dependent class type.
+
+2019-07-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/90098 - partial specialization and class non-type parms.
+	PR c++/90099
+	PR c++/90101
+	* call.c (build_converted_constant_expr_internal): Don't copy.
+	* pt.c (process_partial_specialization): Allow VIEW_CONVERT_EXPR
+	around class non-type parameter.
+	(unify) [TEMPLATE_PARM_INDEX]: Ignore cv-quals.
+
+2019-07-16  Jason Merrill  <jason@redhat.com>
+
+	* parser.c (make_location): Add overload taking cp_lexer* as last
+	parameter.
+
+	* parser.c (cp_parser_simple_type_specifier): Separate tentative
+	parses for optional type-spec and CTAD.
+
+	* parser.c (cp_parser_nested_name_specifier_opt): If the token is
+	already CPP_NESTED_NAME_SPECIFIER, leave it alone.
+
+2019-07-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_clause_name): Handle order clause.
+	(cp_parser_omp_clause_order): New function.
+	(cp_parser_omp_all_clauses): Handle PRAGMA_OMP_CLAUSE_ORDER.
+	(OMP_SIMD_CLAUSE_MASK, OMP_FOR_CLAUSE_MASK): Add
+	PRAGMA_OMP_CLAUSE_ORDER.
+	* semantics.c (finish_omp_clauses): Handle OMP_CLAUSE_ORDER.
+	* pt.c (tsubst_omp_clauses): Likewise.
+
+2019-07-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* decl.c (get_type_quals,
+	smallest_type_location (const cp_decl_specifier_seq*)): New.
+	(check_tag_decl): Use smallest_type_location in error_at about
+	multiple types in one declaration.
+	(grokdeclarator): Use locations[ds_complex] in error_at about
+	complex invalid; use locations[ds_storage_class] in error_at
+	about static cdtor; use id_loc in error_at about flexible
+	array member in union; use get_type_quals.
+
+2019-07-09  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/61339
+	* cp-tree.h: Change class-key of PODs to struct and others to class.
+	* search.c: Same.
+	* semantics.c (finalize_nrv_r): Same.
+
+2019-07-09  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/61339
+	* constexpr.c (cxx_eval_call_expression): Change class-key from class
+	to struct and vice versa to match convention and avoid -Wclass-is-pod
+	and -Wstruct-no-pod.
+	* constraint.cc (get_concept_definition): Same.
+	* cp-tree.h: Same.
+	* cxx-pretty-print.h: Same.
+	* error.c: Same.
+	* logic.cc (term_list::replace): Same.
+	* name-lookup.c (find_local_binding): Same.
+	* pt.c (tsubst_binary_right_fold): Same.
+	* search.c (field_accessor_p): Same.
+	* semantics.c (expand_or_defer_fn): Same.
+
+2019-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/91110
+	* decl2.c (cp_omp_mappable_type_1): Don't emit any note for
+	error_mark_node type.
+
+2019-07-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/67184
+	PR c++/69445
+	* call.c (build_new_method_call_1): Remove set but not used variable
+	binfo.
+
+2019-07-05  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/67184 (again)
+	PR c++/69445
+	* call.c (build_over_call): Devirtualize user-defined operators
+	coming from a base too.
+	(build_new_method_call_1): Do not devirtualize here.
+
+2019-07-04  Marek Polacek  <polacek@redhat.com>
+
+	DR 1813
+	PR c++/83374 - __is_standard_layout wrong for a class with repeated
+	bases.
+	* class.c (check_bases): Set CLASSTYPE_NON_STD_LAYOUT for a class if
+	CLASSTYPE_REPEATED_BASE_P is true.
+
+2019-07-04  Andrew Stubbs  <ams@codesourcery.com>
+
+	* cp-tree.h (cp_omp_emit_unmappable_type_notes): New prototype.
+	* decl.c (cp_finish_decl): Call cp_omp_emit_unmappable_type_notes.
+	* decl2.c (cp_omp_mappable_type): Move contents to ...
+	(cp_omp_mappable_type_1):  ... here and add note output.
+	(cp_omp_emit_unmappable_type_notes): New function.
+	* semantics.c (finish_omp_clauses): Call
+	cp_omp_emit_unmappable_type_notes in four places.
+
 2019-07-03  Martin Liska  <mliska@suse.cz>
 
 	* call.c (build_new_op_1): Remove

@@ -230,7 +230,8 @@ in the following sections.
 -fvisibility-inlines-hidden @gol
 -fvisibility-ms-compat @gol
 -fext-numeric-literals @gol
--Wabi=@var{n}  -Wabi-tag  -Wconversion-null  -Wctor-dtor-privacy @gol
+-Wabi=@var{n}  -Wabi-tag  -Wcomma-subscript  -Wconversion-null @gol
+-Wctor-dtor-privacy @gol
 -Wdelete-non-virtual-dtor  -Wdeprecated-copy  -Wdeprecated-copy-dtor @gol
 -Wliteral-suffix @gol
 -Wmultiple-inheritance  -Wno-init-list-lifetime @gol
@@ -467,7 +468,7 @@ Objective-C and Objective-C++ Dialects}.
 -fsignaling-nans @gol
 -fsingle-precision-constant  -fsplit-ivs-in-unroller  -fsplit-loops@gol
 -fsplit-paths @gol
--fsplit-wide-types  -fssa-backprop  -fssa-phiopt @gol
+-fsplit-wide-types  -fsplit-wide-types-early  -fssa-backprop  -fssa-phiopt @gol
 -fstdarg-opt  -fstore-merging  -fstrict-aliasing @gol
 -fthread-jumps  -ftracer  -ftree-bit-ccp @gol
 -ftree-builtin-call-dce  -ftree-ccp  -ftree-ch @gol
@@ -1034,7 +1035,8 @@ Objective-C and Objective-C++ Dialects}.
 @emph{OpenRISC Options}
 @gccoptlist{-mboard=@var{name}  -mnewlib  -mhard-mul  -mhard-div @gol
 -msoft-mul  -msoft-div @gol
--mcmov  -mror  -msext  -msfimm  -mshftimm}
+-msoft-float  -mhard-float  -mdouble-float -munordered-float @gol
+-mcmov  -mror  -mrori  -msext  -msfimm  -mshftimm}
 
 @emph{PDP-11 Options}
 @gccoptlist{-mfpu  -msoft-float  -mac0  -mno-ac0  -m40  -m45  -m10 @gol
@@ -1067,7 +1069,8 @@ See RS/6000 and PowerPC Options.
 -mcmodel=medlow  -mcmodel=medany @gol
 -mexplicit-relocs  -mno-explicit-relocs @gol
 -mrelax  -mno-relax @gol
--mriscv-attribute  -mmo-riscv-attribute}
+-mriscv-attribute  -mmo-riscv-attribute @gol
+-malign-data=@var{type}}
 
 @emph{RL78 Options}
 @gccoptlist{-msim  -mmul=none  -mmul=g13  -mmul=g14  -mallregs @gol
@@ -3034,6 +3037,24 @@ union U @{
 Warn when a type with an ABI tag is used in a context that does not
 have that ABI tag.  See @ref{C++ Attributes} for more information
 about ABI tags.
+
+@item -Wcomma-subscript @r{(C++ and Objective-C++ only)}
+@opindex Wcomma-subscript
+@opindex Wno-comma-subscript
+Warn about uses of a comma expression within a subscripting expression.
+This usage was deprecated in C++2a.  However, a comma expression wrapped
+in @code{( )} is not deprecated.  Example:
+
+@smallexample
+@group
+void f(int *a, int b, int c) @{
+    a[b,c];     // deprecated
+    a[(b,c)];   // OK
+@}
+@end group
+@end smallexample
+
+Enabled by default with @option{-std=c++2a}.
 
 @item -Wctor-dtor-privacy @r{(C++ and Objective-C++ only)}
 @opindex Wctor-dtor-privacy
@@ -8421,10 +8442,10 @@ no effect.  Otherwise @option{-Og} enables all @option{-O1}
 optimization flags except for those that may interfere with debugging:
 
 @gccoptlist{-fbranch-count-reg  -fdelayed-branch @gol
--fif-conversion  -fif-conversion2  @gol
+-fdse  -fif-conversion  -fif-conversion2  @gol
 -finline-functions-called-once @gol
 -fmove-loop-invariants  -fssa-phiopt @gol
--ftree-bit-ccp  -ftree-pta  -ftree-sra}
+-ftree-bit-ccp  -ftree-dse  -ftree-pta  -ftree-sra}
 
 @end table
 
@@ -8730,6 +8751,13 @@ but may make debugging more difficult.
 
 Enabled at levels @option{-O}, @option{-O2}, @option{-O3},
 @option{-Os}.
+
+@item -fsplit-wide-types-early
+@opindex fsplit-wide-types-early
+Fully split wide types early, instead of very late.
+This option has no effect unless @option{-fsplit-wide-types} is turned on.
+
+This is the default on some targets.
 
 @item -fcse-follow-jumps
 @opindex fcse-follow-jumps
@@ -10387,7 +10415,8 @@ If you specify the optional @var{n}, the optimization and code
 generation done at link time is executed in parallel using @var{n}
 parallel jobs by utilizing an installed @command{make} program.  The
 environment variable @env{MAKE} may be used to override the program
-used.  The default value for @var{n} is 1.
+used.  The default value for @var{n} is automatically detected based
+on number of cores.
 
 You can also specify @option{-flto=jobserver} to use GNU make's
 job server mode to determine the number of parallel jobs. This
@@ -11433,13 +11462,38 @@ for vectorizer. Value -1 means no limit.
 The maximum number of iterations of a loop the brute-force algorithm
 for analysis of the number of iterations of the loop tries to evaluate.
 
+@item hot-bb-count-fraction
+The denominator n of fraction 1/n of the maximal execution count of a
+basic block in the entire program that a basic block needs to at least
+have in order to be considered hot.  The default is 10000, which means
+that a basic block is considered hot if its execution count is greater
+than 1/10000 of the maximal execution count.  0 means that it is never
+considered hot.  Used in non-LTO mode.
+
 @item hot-bb-count-ws-permille
-A basic block profile count is considered hot if it contributes to 
-the given permillage (i.e.@: 0...1000) of the entire profiled execution.
+The number of most executed permilles, ranging from 0 to 1000, of the
+profiled execution of the entire program to which the execution count
+of a basic block must be part of in order to be considered hot.  The
+default is 990, which means that a basic block is considered hot if
+its execution count contributes to the upper 990 permilles, or 99.0%,
+of the profiled execution of the entire program.  0 means that it is
+never considered hot.  Used in LTO mode.
 
 @item hot-bb-frequency-fraction
-Select fraction of the entry block frequency of executions of basic block in
-function given basic block needs to have to be considered hot.
+The denominator n of fraction 1/n of the execution frequency of the
+entry block of a function that a basic block of this function needs
+to at least have in order to be considered hot.  The default is 1000,
+which means that a basic block is considered hot in a function if it
+is executed more frequently than 1/1000 of the frequency of the entry
+block of the function.  0 means that it is never considered hot.
+
+@item unlikely-bb-count-fraction
+The denominator n of fraction 1/n of the number of profiled runs of
+the entire program below which the execution count of a basic block
+must be in order for the basic block to be considered unlikely executed.
+The default is 20, which means that a basic block is considered unlikely
+executed if it is executed in fewer than 1/20, or 5%, of the runs of
+the program.  0 means that it is always considered unlikely executed.
 
 @item max-predicted-iterations
 The maximum number of loop iterations we predict statically.  This is useful
@@ -11888,12 +11942,6 @@ of iterations of a loop known, it adds a bonus of
 @option{ipa-cp-loop-hint-bonus} to the profitability score of
 the candidate.
 
-@item ipa-cp-array-index-hint-bonus
-When IPA-CP determines that a cloning candidate would make the index of
-an array access known, it adds a bonus of
-@option{ipa-cp-array-index-hint-bonus} to the profitability
-score of the candidate.
-
 @item ipa-max-aa-steps
 During its analysis of function bodies, IPA-CP employs alias analysis
 in order to track values pointed to by function parameters.  In order
@@ -12126,11 +12174,6 @@ A threshold on the average loop count considered by the swing modulo scheduler.
 The number of cycles the swing modulo scheduler considers when checking
 conflicts using DFA.
 
-@item hot-bb-count-fraction
-Select fraction of the maximal count of repetitions of basic block
-in program given basic block needs
-to have to be considered hot (used in non-LTO mode)
-
 @item max-inline-insns-recursive-auto
 The maximum number of instructions non-inline function
 can grow to via recursive inlining.
@@ -12167,10 +12210,6 @@ Maximum number of arrays per scop.
 
 @item max-vartrack-reverse-op-size
 Max. size of loc list for which reverse ops should be added.
-
-@item unlikely-bb-count-fraction
-The minimum fraction of profile runs a given basic block execution count
-must be not to be considered unlikely.
 
 @item tracer-dynamic-coverage-feedback
 The percentage of function, weighted by execution frequency,
@@ -12217,6 +12256,13 @@ The maximum number of instructions that an outer loop can have
 before the loop versioning pass considers it too big to copy,
 discounting any instructions in inner loops that directly benefit
 from versioning.
+
+@item ssa-name-def-chain-limit
+The maximum number of SSA_NAME assignments to follow in determining
+a property of a variable such as its value.  This limits the number
+of iterations or recursive calls GCC performs when optimizing certain
+statements or when determining their validity prior to issuing
+diagnostics.
 
 @end table
 @end table
@@ -12369,7 +12415,7 @@ profile data file appears in the same directory as the object file.
 In order to prevent the file name clashing, if the object file name is
 not an absolute path, we mangle the absolute path of the
 @file{@var{sourcename}.gcda} file and use it as the file name of a
-@file{.gcda} file.
+@file{.gcda} file.  See similar option @option{-fprofile-note}.
 
 When an executable is run in a massive parallel environment, it is recommended
 to save profile to different folders.  That can be done with variables
@@ -12407,7 +12453,9 @@ To optimize the program based on the collected profile information, use
 @item -fprofile-note=@var{path}
 @opindex fprofile-note
 
-If @var{path} is specified, GCC saves gcno filename into @var{path} location.
+If @var{path} is specified, GCC saves @file{.gcno} file into @var{path}
+location.  If you combine the option with multiple source files,
+the @file{.gcno} file will be overwritten.
 
 @item -fprofile-update=@var{method}
 @opindex fprofile-update
@@ -16073,7 +16121,7 @@ not affect code generation.  This option is enabled by default for
 @item sve2
 Enable the Armv8-a Scalable Vector Extension 2.  This also enables SVE
 instructions.
-@item bitperm
+@item sve2-bitperm
 Enable SVE2 bitperm instructions.  This also enables SVE2 instructions.
 @item sve2-sm4
 Enable SVE2 sm4 instructions.  This also enables SVE2 instructions.
@@ -16082,6 +16130,8 @@ Enable SVE2 aes instructions.  This also enables SVE2 instructions.
 @item sve2-sha3
 Enable SVE2 sha3 instructions.  This also enables SVE2 instructions.
 @option{-march=armv8.5-a}.
+@item tme
+Enable the Transactional Memory Extension.
 
 @end table
 
@@ -23639,50 +23689,76 @@ newlib board library linking.  The default is @code{or1ksim}.
 
 @item -mnewlib
 @opindex mnewlib
-For compatibility, it's always newlib for elf now.
+This option is ignored; it is for compatibility purposes only.  This used to
+select linker and preprocessor options for use with newlib.
 
-@item -mhard-div
+@item -msoft-div
+@itemx -mhard-div
+@opindex msoft-div
 @opindex mhard-div
-Generate code for hardware which supports divide instructions.  This is the
-default.
+Select software or hardware divide (@code{l.div}, @code{l.divu}) instructions.
+This default is hardware divide.
 
-@item -mhard-mul
+@item -msoft-mul
+@itemx -mhard-mul
+@opindex msoft-mul
 @opindex mhard-mul
-Generate code for hardware which supports multiply instructions.  This is the
-default.
+Select software or hardware multiply (@code{l.mul}, @code{l.muli}) instructions.
+This default is hardware multiply.
+
+@item -msoft-float
+@itemx -mhard-float
+@opindex msoft-float
+@opindex mhard-float
+Select software or hardware for floating point operations.
+The default is software.
+
+@item -mdouble-float
+@opindex mdouble-float
+When @option{-mhard-float} is selected, enables generation of double-precision
+floating point instructions.  By default functions from @file{libgcc} are used
+to perform double-precision floating point operations.
+
+@item -munordered-float
+@opindex munordered-float
+When @option{-mhard-float} is selected, enables generation of unordered
+floating point compare and set flag (@code{lf.sfun*}) instructions.  By default
+functions from @file{libgcc} are used to perform unordered floating point
+compare and set flag operations.
 
 @item -mcmov
 @opindex mcmov
-Generate code for hardware which supports the conditional move (@code{l.cmov})
-instruction.
+Enable generation of conditional move (@code{l.cmov}) instructions.  By
+default the equivalent will be generated using using set and branch.
 
 @item -mror
 @opindex mror
-Generate code for hardware which supports rotate right instructions.
+Enable generation of rotate right (@code{l.ror}) instructions.  By default
+functions from @file{libgcc} are used to perform rotate right operations.
+
+@item -mrori
+@opindex mrori
+Enable generation of rotate right with immediate (@code{l.rori}) instructions.
+By default functions from @file{libgcc} are used to perform rotate right with
+immediate operations.
 
 @item -msext
 @opindex msext
-Generate code for hardware which supports sign-extension instructions.
+Enable generation of sign extension (@code{l.ext*}) instructions.  By default
+memory loads are used to perform sign extension.
 
 @item -msfimm
 @opindex msfimm
-Generate code for hardware which supports set flag immediate (@code{l.sf*i})
-instructions.
+Enable generation of compare and set flag with immediate (@code{l.sf*i})
+instructions.  By default extra instructions will be generated to store the
+immediate to a register first.
 
 @item -mshftimm
 @opindex mshftimm
-Generate code for hardware which supports shift immediate related instructions
-(i.e. @code{l.srai}, @code{l.srli}, @code{l.slli}, @code{1.rori}).  Note, to
-enable generation of the @code{l.rori} instruction the @option{-mror} flag must
-also be specified.
+Enable generation of shift with immediate (@code{l.srai}, @code{l.srli},
+@code{l.slli}) instructions.  By default extra instructions will be generated
+to store the immediate to a register first.
 
-@item -msoft-div
-@opindex msoft-div
-Generate code for hardware which requires divide instruction emulation.
-
-@item -msoft-mul
-@opindex msoft-mul
-Generate code for hardware which requires multiply instruction emulation.
 
 @end table
 
@@ -24002,6 +24078,13 @@ linker relaxations.
 @itemx -mno-emit-attribute
 Emit (do not emit) RISC-V attribute to record extra information into ELF
 objects.  This feature requires at least binutils 2.32.
+
+@item -malign-data=@var{type}
+@opindex malign-data
+Control how GCC aligns variables and constants of array, structure, or union
+types.  Supported values for @var{type} are @samp{xlen} which uses x register
+width as the alignment value, and @samp{natural} which uses natural alignment.
+@samp{xlen} is the default.
 @end table
 
 @node RL78 Options

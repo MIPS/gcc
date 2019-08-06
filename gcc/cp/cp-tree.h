@@ -423,7 +423,6 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
       LAMBDA_EXPR_MUTABLE_P (in LAMBDA_EXPR)
       DECL_FINAL_P (in FUNCTION_DECL)
       QUALIFIED_NAME_IS_TEMPLATE (in SCOPE_REF)
-      DECLTYPE_FOR_INIT_CAPTURE (in DECLTYPE_TYPE)
       CONSTRUCTOR_IS_DEPENDENT (in CONSTRUCTOR)
       TINFO_USED_TEMPLATE_ID (in TEMPLATE_INFO)
       PACK_EXPANSION_SIZEOF_P (in *_PACK_EXPANSION)
@@ -774,7 +773,8 @@ class ovl_iterator
   /* Whether this overload was introduced by a using decl.  */
   bool using_p () const
   {
-    return TREE_CODE (ovl) == OVERLOAD && OVL_USING_P (ovl);
+    return (TREE_CODE (ovl) == USING_DECL
+	    || (TREE_CODE (ovl) == OVERLOAD && OVL_USING_P (ovl)));
   }
   bool hidden_p () const
   {
@@ -873,8 +873,9 @@ struct named_decl_hash : ggc_remove <tree>
 
 /* Simplified unique_ptr clone to release a tree vec on exit.  */
 
-struct releasing_vec
+class releasing_vec
 {
+public:
   typedef vec<tree, va_gc> vec_t;
 
   releasing_vec (vec_t *v): v(v) { }
@@ -1435,7 +1436,9 @@ typedef struct qualified_typedef_usage_s qualified_typedef_usage_t;
   (TREE_LANG_FLAG_1 (TEMPLATE_INFO_CHECK (NODE)))
 
 struct GTY(()) tree_template_info {
-  struct tree_common common;
+  struct tree_base base;
+  tree tmpl;
+  tree args;
   vec<qualified_typedef_usage_t, va_gc> *typedefs_needing_access_checking;
 };
 
@@ -1728,8 +1731,9 @@ extern GTY(()) struct saved_scope *scope_chain;
 /* RAII sentinel to handle clearing processing_template_decl and restoring
    it when done.  */
 
-struct processing_template_decl_sentinel
+class processing_template_decl_sentinel
 {
+public:
   int saved;
   processing_template_decl_sentinel (bool reset = true)
     : saved (processing_template_decl)
@@ -1746,8 +1750,9 @@ struct processing_template_decl_sentinel
 /* RAII sentinel to disable certain warnings during template substitution
    and elsewhere.  */
 
-struct warning_sentinel
+class warning_sentinel
 {
+public:
   int &flag;
   int val;
   warning_sentinel(int& flag, bool suppress=true)
@@ -3416,8 +3421,10 @@ struct GTY(()) lang_decl {
    ? (TYPE_LANG_SLOT_1 (NODE) = (VAL))				\
    : (DECL_TEMPLATE_INFO (TYPE_NAME (NODE)) = (VAL)))
 
-#define TI_TEMPLATE(NODE) TREE_TYPE (TEMPLATE_INFO_CHECK (NODE))
-#define TI_ARGS(NODE) TREE_CHAIN (TEMPLATE_INFO_CHECK (NODE))
+#define TI_TEMPLATE(NODE) \
+  ((struct tree_template_info*)TEMPLATE_INFO_CHECK (NODE))->tmpl
+#define TI_ARGS(NODE) \
+  ((struct tree_template_info*)TEMPLATE_INFO_CHECK (NODE))->args
 #define TI_PENDING_TEMPLATE_FLAG(NODE) \
   TREE_LANG_FLAG_1 (TEMPLATE_INFO_CHECK (NODE))
 /* For a given TREE_VEC containing a template argument list,
@@ -4476,12 +4483,10 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
   (DECLTYPE_TYPE_CHECK (NODE))->type_common.string_flag
 
 /* These flags indicate that we want different semantics from normal
-   decltype: lambda capture just drops references, init capture
-   uses auto semantics, lambda proxies look through implicit dereference.  */
+   decltype: lambda capture just drops references,
+   lambda proxies look through implicit dereference.  */
 #define DECLTYPE_FOR_LAMBDA_CAPTURE(NODE) \
   TREE_LANG_FLAG_0 (DECLTYPE_TYPE_CHECK (NODE))
-#define DECLTYPE_FOR_INIT_CAPTURE(NODE) \
-  TREE_LANG_FLAG_1 (DECLTYPE_TYPE_CHECK (NODE))
 #define DECLTYPE_FOR_LAMBDA_PROXY(NODE) \
   TREE_LANG_FLAG_2 (DECLTYPE_TYPE_CHECK (NODE))
 #define DECLTYPE_FOR_REF_CAPTURE(NODE) \
@@ -4920,7 +4925,7 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 
 /* Used while gimplifying continue statements bound to OMP_FOR nodes.  */
 #define OMP_FOR_GIMPLIFYING_P(NODE) \
-  (TREE_LANG_FLAG_0 (OMP_LOOP_CHECK (NODE)))
+  (TREE_LANG_FLAG_0 (OMP_LOOPING_CHECK (NODE)))
 
 /* A language-specific token attached to the OpenMP data clauses to
    hold code (or code fragments) related to ctors, dtors, and op=.
@@ -5267,8 +5272,9 @@ extern int cp_unevaluated_operand;
 /* RAII class used to inhibit the evaluation of operands during parsing
    and template instantiation. Evaluation warnings are also inhibited. */
 
-struct cp_unevaluated
+class cp_unevaluated
 {
+public:
   cp_unevaluated ();
   ~cp_unevaluated ();
 };
@@ -5276,8 +5282,9 @@ struct cp_unevaluated
 /* The reverse: an RAII class used for nested contexts that are evaluated even
    if the enclosing context is not.  */
 
-struct cp_evaluated
+class cp_evaluated
 {
+public:
   int uneval;
   int inhibit;
   cp_evaluated ()
@@ -5304,8 +5311,9 @@ enum unification_kind_t {
 // specializations. When the stack goes out of scope, the
 // previous pointer map is restored.
 enum lss_policy { lss_blank, lss_copy };
-struct local_specialization_stack
+class local_specialization_stack
 {
+public:
   local_specialization_stack (lss_policy = lss_blank);
   ~local_specialization_stack ();
 
@@ -6536,6 +6544,7 @@ extern int parm_index                           (tree);
 extern tree vtv_start_verification_constructor_init_function (void);
 extern tree vtv_finish_verification_constructor_init_function (tree);
 extern bool cp_omp_mappable_type		(tree);
+extern bool cp_omp_emit_unmappable_type_notes	(tree);
 extern void cp_check_const_attributes (tree);
 
 /* in error.c */
@@ -6782,7 +6791,7 @@ extern bool maybe_instantiate_noexcept		(tree, tsubst_flags_t = tf_warning_or_er
 extern tree instantiate_decl			(tree, bool, bool);
 extern int comp_template_parms			(const_tree, const_tree);
 extern bool builtin_pack_fn_p			(tree);
-extern bool uses_parameter_packs                (tree);
+extern tree uses_parameter_packs                (tree);
 extern bool template_parameter_pack_p           (const_tree);
 extern bool function_parameter_pack_p		(const_tree);
 extern bool function_parameter_expanded_from_pack_p (tree, tree);
@@ -6972,8 +6981,9 @@ extern bool perform_or_defer_access_check	(tree, tree, tree,
 /* RAII sentinel to ensures that deferred access checks are popped before
   a function returns.  */
 
-struct deferring_access_check_sentinel
+class deferring_access_check_sentinel
 {
+public:
   deferring_access_check_sentinel (enum deferring_kind kind = dk_deferred)
   {
     push_deferring_access_checks (kind);
@@ -7499,11 +7509,17 @@ cp_expr_loc_or_loc (const_tree t, location_t or_loc)
   return loc;
 }
 
+inline location_t
+cp_expr_loc_or_input_loc (const_tree t)
+{
+  return cp_expr_loc_or_loc (t, input_location);
+}
+
 inline void
 cxx_incomplete_type_diagnostic (const_tree value, const_tree type,
 				diagnostic_t diag_kind)
 {
-  cxx_incomplete_type_diagnostic (cp_expr_loc_or_loc (value, input_location),
+  cxx_incomplete_type_diagnostic (cp_expr_loc_or_input_loc (value),
 				  value, type, diag_kind);
 }
 

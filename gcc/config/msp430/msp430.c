@@ -875,10 +875,26 @@ msp430_option_override (void)
   if (TARGET_LARGE && !msp430x)
     error ("%<-mlarge%> requires a 430X-compatible %<-mmcu=%>");
 
-  if (msp430_code_region == MSP430_REGION_UPPER && ! msp430x)
-    error ("%<-mcode-region=upper%> requires 430X-compatible cpu");
-  if (msp430_data_region == MSP430_REGION_UPPER && ! msp430x)
-    error ("%<-mdata-region=upper%> requires 430X-compatible cpu");
+  if (!TARGET_LARGE && msp430_code_region == MSP430_REGION_EITHER)
+    error ("%<-mcode-region=either%> requires the large memory model "
+	   "(%<-mlarge%>)");
+  else if (!TARGET_LARGE && msp430_code_region == MSP430_REGION_UPPER)
+    error ("%<-mcode-region=upper%> requires the large memory model "
+	   "(%<-mlarge%>)");
+  else if (!TARGET_LARGE && msp430_code_region == MSP430_REGION_LOWER)
+    error ("%<-mcode-region=lower%> requires the large memory model "
+	   "(%<-mlarge%>)");
+
+  if (!TARGET_LARGE && msp430_data_region == MSP430_REGION_EITHER)
+    error ("%<-mdata-region=either%> requires the large memory model "
+	   "(%<-mlarge%>)");
+  else if (!TARGET_LARGE && msp430_data_region == MSP430_REGION_UPPER)
+    error ("%<-mdata-region=upper%> requires the large memory model "
+	   "(%<-mlarge%>)");
+  else if (!TARGET_LARGE && msp430_data_region == MSP430_REGION_LOWER)
+    error ("%<-mdata-region=lower%> requires the large memory model "
+	   "(%<-mlarge%>)");
+
 
   if (flag_exceptions || flag_non_call_exceptions
       || flag_unwind_tables || flag_asynchronous_unwind_tables)
@@ -1755,11 +1771,19 @@ msp430_preserve_reg_p (int regno)
   if (fixed_regs [regno])
     return false;
 
-  /* Interrupt handlers save all registers they use, even
-     ones which are call saved.  If they call other functions
-     then *every* register is saved.  */
-  if (msp430_is_interrupt_func ())
-    return ! crtl->is_leaf || df_regs_ever_live_p (regno);
+  /* For interrupt functions we must save and restore the used regs that
+     would normally be caller-saved (R11->R15).  */
+  if (msp430_is_interrupt_func () && regno >= 11 && regno <= 15)
+    {
+      if (crtl->is_leaf && df_regs_ever_live_p (regno))
+	/* If the interrupt func is a leaf then we only need to restore the
+	   caller-saved regs that are used.  */
+	return true;
+      else if (!crtl->is_leaf)
+	/* If the interrupt function is not a leaf we must save all
+	   caller-saved regs in case the callee modifies them.  */
+	return true;
+    }
 
   if (!call_used_regs [regno]
       && df_regs_ever_live_p (regno))
@@ -2029,6 +2053,17 @@ msp430_section_attr (tree * node,
       else if (has_attr (ATTR_UPPER, * node))
 	message = "already marked with 'upper' attribute";
     }
+
+  /* It does not make sense to use upper/lower/either attributes without
+     -mlarge.
+     Without -mlarge, "lower" is the default and only region, so is redundant.
+     Without -mlarge, "upper" will (and "either" might) place code/data in the
+     upper region, which for data could result in relocation overflows, and for
+     code could result in stack mismanagement and incorrect call/return
+     instructions.  */
+  if (!TARGET_LARGE)
+    message = G_("%qE attribute ignored. large memory model (%<-mlarge%>) "
+		 "is required");
 
   if (message)
     {

@@ -9250,7 +9250,7 @@ tree_expr_nonzero_warnv_p (tree t, bool *strict_overflow_p)
 	tree fndecl = get_callee_fndecl (t);
 	if (!fndecl) return false;
 	if (flag_delete_null_pointer_checks && !flag_check_new
-	    && DECL_IS_OPERATOR_NEW (fndecl)
+	    && DECL_IS_OPERATOR_NEW_P (fndecl)
 	    && !TREE_NOTHROW (fndecl))
 	  return true;
 	if (flag_delete_null_pointer_checks
@@ -11839,12 +11839,18 @@ fold_ternary_loc (location_t loc, enum tree_code code, tree type,
 }
 
 /* Gets the element ACCESS_INDEX from CTOR, which must be a CONSTRUCTOR
-   of an array (or vector).  */
+   of an array (or vector).  *CTOR_IDX if non-NULL is updated with the
+   constructor element index of the value returned.  If the element is
+   not found NULL_TREE is returned and *CTOR_IDX is updated to
+   the index of the element after the ACCESS_INDEX position (which
+   may be outside of the CTOR array).  */
 
 tree
-get_array_ctor_element_at_index (tree ctor, offset_int access_index)
+get_array_ctor_element_at_index (tree ctor, offset_int access_index,
+				 unsigned *ctor_idx)
 {
   tree index_type = NULL_TREE;
+  signop index_sgn = UNSIGNED;
   offset_int low_bound = 0;
 
   if (TREE_CODE (TREE_TYPE (ctor)) == ARRAY_TYPE)
@@ -11855,22 +11861,37 @@ get_array_ctor_element_at_index (tree ctor, offset_int access_index)
 	  /* Static constructors for variably sized objects makes no sense.  */
 	  gcc_assert (TREE_CODE (TYPE_MIN_VALUE (domain_type)) == INTEGER_CST);
 	  index_type = TREE_TYPE (TYPE_MIN_VALUE (domain_type));
-	  low_bound = wi::to_offset (TYPE_MIN_VALUE (domain_type));
+	  /* ???  When it is obvious that the range is signed, treat it so.  */
+	  if (TYPE_UNSIGNED (index_type)
+	      && TYPE_MAX_VALUE (domain_type)
+	      && tree_int_cst_lt (TYPE_MAX_VALUE (domain_type),
+				  TYPE_MIN_VALUE (domain_type)))
+	    {
+	      index_sgn = SIGNED;
+	      low_bound
+		= offset_int::from (wi::to_wide (TYPE_MIN_VALUE (domain_type)),
+				    SIGNED);
+	    }
+	  else
+	    {
+	      index_sgn = TYPE_SIGN (index_type);
+	      low_bound = wi::to_offset (TYPE_MIN_VALUE (domain_type));
+	    }
 	}
     }
 
   if (index_type)
     access_index = wi::ext (access_index, TYPE_PRECISION (index_type),
-			    TYPE_SIGN (index_type));
+			    index_sgn);
 
-  offset_int index = low_bound - 1;
+  offset_int index = low_bound;
   if (index_type)
-    index = wi::ext (index, TYPE_PRECISION (index_type),
-		     TYPE_SIGN (index_type));
+    index = wi::ext (index, TYPE_PRECISION (index_type), index_sgn);
 
-  offset_int max_index;
-  unsigned HOST_WIDE_INT cnt;
+  offset_int max_index = index;
+  unsigned cnt;
   tree cfield, cval;
+  bool first_p = true;
 
   FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (ctor), cnt, cfield, cval)
     {
@@ -11880,28 +11901,50 @@ get_array_ctor_element_at_index (tree ctor, offset_int access_index)
       if (cfield)
 	{
 	  if (TREE_CODE (cfield) == INTEGER_CST)
-	    max_index = index = wi::to_offset (cfield);
+	    max_index = index
+	      = offset_int::from (wi::to_wide (cfield), index_sgn);
 	  else
 	    {
 	      gcc_assert (TREE_CODE (cfield) == RANGE_EXPR);
-	      index = wi::to_offset (TREE_OPERAND (cfield, 0));
-	      max_index = wi::to_offset (TREE_OPERAND (cfield, 1));
+	      index = offset_int::from (wi::to_wide (TREE_OPERAND (cfield, 0)),
+					index_sgn);
+	      max_index
+	        = offset_int::from (wi::to_wide (TREE_OPERAND (cfield, 1)),
+				    index_sgn);
+	      gcc_checking_assert (wi::le_p (index, max_index, index_sgn));
 	    }
 	}
-      else
+      else if (!first_p)
 	{
-	  index += 1;
+	  index = max_index + 1;
 	  if (index_type)
-	    index = wi::ext (index, TYPE_PRECISION (index_type),
-			     TYPE_SIGN (index_type));
+	    index = wi::ext (index, TYPE_PRECISION (index_type), index_sgn);
+	  gcc_checking_assert (wi::gt_p (index, max_index, index_sgn));
 	  max_index = index;
 	}
+      else
+	first_p = false;
 
-    /* Do we have match?  */
-    if (wi::cmpu (access_index, index) >= 0
-	&& wi::cmpu (access_index, max_index) <= 0)
-      return cval;
-  }
+      /* Do we have match?  */
+      if (wi::cmp (access_index, index, index_sgn) >= 0)
+	{
+	  if (wi::cmp (access_index, max_index, index_sgn) <= 0)
+	    {
+	      if (ctor_idx)
+		*ctor_idx = cnt;
+	      return cval;
+	    }
+	}
+      else if (in_gimple_form)
+	/* We're past the element we search for.  Note during parsing
+	   the elements might not be sorted.
+	   ???  We should use a binary search and a flag on the
+	   CONSTRUCTOR as to whether elements are sorted in declaration
+	   order.  */
+	break;
+    }
+  if (ctor_idx)
+    *ctor_idx = cnt;
   return NULL_TREE;
 }
 
@@ -14026,13 +14069,13 @@ fold_relational_const (enum tree_code code, tree type, tree op0, tree op1)
 	    {
 	      tree elem0 = VECTOR_CST_ELT (op0, i);
 	      tree elem1 = VECTOR_CST_ELT (op1, i);
-	      tree tmp = fold_relational_const (code, type, elem0, elem1);
+	      tree tmp = fold_relational_const (EQ_EXPR, type, elem0, elem1);
 	      if (tmp == NULL_TREE)
 		return NULL_TREE;
 	      if (integer_zerop (tmp))
-		return constant_boolean_node (false, type);
+		return constant_boolean_node (code == NE_EXPR, type);
 	    }
-	  return constant_boolean_node (true, type);
+	  return constant_boolean_node (code == EQ_EXPR, type);
 	}
       tree_vector_builder elts;
       if (!elts.new_binary_operation (type, op0, op1, false))
@@ -14803,6 +14846,7 @@ test_vector_folding ()
   tree type = build_vector_type (inner_type, 4);
   tree zero = build_zero_cst (type);
   tree one = build_one_cst (type);
+  tree index = build_index_vector (type, 0, 1);
 
   /* Verify equality tests that return a scalar boolean result.  */
   tree res_type = boolean_type_node;
@@ -14810,6 +14854,13 @@ test_vector_folding ()
   ASSERT_TRUE (integer_nonzerop (fold_build2 (EQ_EXPR, res_type, zero, zero)));
   ASSERT_TRUE (integer_nonzerop (fold_build2 (NE_EXPR, res_type, zero, one)));
   ASSERT_FALSE (integer_nonzerop (fold_build2 (NE_EXPR, res_type, one, one)));
+  ASSERT_TRUE (integer_nonzerop (fold_build2 (NE_EXPR, res_type, index, one)));
+  ASSERT_FALSE (integer_nonzerop (fold_build2 (EQ_EXPR, res_type,
+					       index, one)));
+  ASSERT_FALSE (integer_nonzerop (fold_build2 (NE_EXPR, res_type,
+					      index, index)));
+  ASSERT_TRUE (integer_nonzerop (fold_build2 (EQ_EXPR, res_type,
+					      index, index)));
 }
 
 /* Verify folding of VEC_DUPLICATE_EXPRs.  */

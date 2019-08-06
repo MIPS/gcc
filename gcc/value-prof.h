@@ -89,11 +89,10 @@ void free_histograms (function *);
 void stringop_block_profile (gimple *, unsigned int *, HOST_WIDE_INT *);
 gcall *gimple_ic (gcall *, struct cgraph_node *, profile_probability);
 bool check_ic_target (gcall *, struct cgraph_node *);
-bool get_most_common_single_value (gimple *stmt, const char *counter_type,
-				   histogram_value hist,
-				   gcov_type *value, gcov_type *count,
-				   gcov_type *all);
-
+bool get_nth_most_common_value (gimple *stmt, const char *counter_type,
+				histogram_value hist, gcov_type *value,
+				gcov_type *count, gcov_type *all,
+				unsigned n = 0);
 
 /* In tree-profile.c.  */
 extern void gimple_init_gcov_profiler (void);
@@ -108,7 +107,7 @@ extern void gimple_gen_time_profiler (unsigned, unsigned);
 extern void gimple_gen_average_profiler (histogram_value, unsigned, unsigned);
 extern void gimple_gen_ior_profiler (histogram_value, unsigned, unsigned);
 extern void stream_out_histogram_value (struct output_block *, histogram_value);
-extern void stream_in_histogram_value (struct lto_input_block *, gimple *);
+extern void stream_in_histogram_value (class lto_input_block *, gimple *);
 extern struct cgraph_node* find_func_by_profile_id (int func_id);
 
 

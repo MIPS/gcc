@@ -448,6 +448,12 @@ enum omp_clause_code {
   /* OpenMP clause: defaultmap (tofrom: scalar).  */
   OMP_CLAUSE_DEFAULTMAP,
 
+  /* OpenMP clause: order (concurrent).  */
+  OMP_CLAUSE_ORDER,
+
+  /* OpenMP clause: bind (binding).  */
+  OMP_CLAUSE_BIND,
+
   /* Internally used only clause, holding SIMD uid.  */
   OMP_CLAUSE__SIMDUID_,
 
@@ -534,6 +540,12 @@ enum omp_clause_defaultmap_kind {
   OMP_CLAUSE_DEFAULTMAP_DEFAULT
     = 7 * (OMP_CLAUSE_DEFAULTMAP_CATEGORY_MASK + 1),
   OMP_CLAUSE_DEFAULTMAP_MASK = 7 * (OMP_CLAUSE_DEFAULTMAP_CATEGORY_MASK + 1)
+};
+
+enum omp_clause_bind_kind {
+  OMP_CLAUSE_BIND_TEAMS,
+  OMP_CLAUSE_BIND_PARALLEL,
+  OMP_CLAUSE_BIND_THREAD
 };
 
 /* memory-order-clause on OpenMP atomic/flush constructs or
@@ -1528,6 +1540,7 @@ struct GTY(()) tree_omp_clause {
     enum omp_clause_linear_kind    linear_kind;
     enum tree_code                 if_modifier;
     enum omp_clause_defaultmap_kind defaultmap_kind;
+    enum omp_clause_bind_kind      bind_kind;
     /* The dimension a OMP_CLAUSE__GRIDDIM_ clause of a gridified target
        construct describes.  */
     unsigned int		   dimension;
@@ -1807,6 +1820,18 @@ struct GTY(()) tree_decl_non_common {
   tree result;
 };
 
+/* Classify a special function declaration type.  */
+
+enum function_decl_type
+{
+  NONE,
+  OPERATOR_NEW,
+  OPERATOR_DELETE,
+  LAMBDA_FUNCTION
+
+  /* 0 values left */
+};
+
 /* FUNCTION_DECL inherits from DECL_NON_COMMON because of the use of the
    arguments/result/saved_tree fields by front ends.   It was either inherit
    FUNCTION_DECL from non_common, or inherit non_common from FUNCTION_DECL,
@@ -1832,33 +1857,32 @@ struct GTY(()) tree_function_decl {
   tree vindex;
 
   /* In a FUNCTION_DECL for which DECL_BUILT_IN holds, this is
-     DECL_FUNCTION_CODE.  Otherwise unused.
-     ???  The bitfield needs to be able to hold all target function
-	  codes as well.  */
-  ENUM_BITFIELD(built_in_function) function_code : 12;
-  ENUM_BITFIELD(built_in_class) built_in_class : 2;
+     DECL_FUNCTION_CODE.  Otherwise unused.  */
+  enum built_in_function function_code;
 
+  ENUM_BITFIELD(built_in_class) built_in_class : 2;
   unsigned static_ctor_flag : 1;
   unsigned static_dtor_flag : 1;
-
   unsigned uninlinable : 1;
   unsigned possibly_inlined : 1;
   unsigned novops_flag : 1;
   unsigned returns_twice_flag : 1;
+
   unsigned malloc_flag : 1;
-  unsigned operator_new_flag : 1;
   unsigned declared_inline_flag : 1;
   unsigned no_inline_warning_flag : 1;
-
   unsigned no_instrument_function_entry_exit : 1;
   unsigned no_limit_stack : 1;
   unsigned disregard_inline_limits : 1;
   unsigned pure_flag : 1;
   unsigned looping_const_or_pure_flag : 1;
+
+  /* Align the bitfield to boundary of a byte.  */
+  ENUM_BITFIELD(function_decl_type) decl_type: 2;
   unsigned has_debug_args_flag : 1;
   unsigned versioned_function : 1;
-  unsigned lambda_function: 1;
-  /* No bits left.  */
+
+  /* 12 bits left for future expansion.  */
 };
 
 struct GTY(()) tree_translation_unit_decl {
@@ -1908,7 +1932,7 @@ struct GTY(()) tree_optimization_option {
 
 /* Forward declaration, defined in target-globals.h.  */
 
-struct GTY(()) target_globals;
+class GTY(()) target_globals;
 
 /* Target options used by a function.  */
 
@@ -1916,7 +1940,7 @@ struct GTY(()) tree_target_option {
   struct tree_base base;
 
   /* Target globals for the corresponding target option.  */
-  struct target_globals *globals;
+  class target_globals *globals;
 
   /* The optimization options used by the user.  */
   struct cl_target_option *opts;

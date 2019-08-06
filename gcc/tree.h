@@ -1387,14 +1387,14 @@ class auto_suppress_location_wrappers
 #define OMP_TASKREG_BODY(NODE)    TREE_OPERAND (OMP_TASKREG_CHECK (NODE), 0)
 #define OMP_TASKREG_CLAUSES(NODE) TREE_OPERAND (OMP_TASKREG_CHECK (NODE), 1)
 
-#define OMP_LOOP_CHECK(NODE) TREE_RANGE_CHECK (NODE, OMP_FOR, OACC_LOOP)
-#define OMP_FOR_BODY(NODE)	   TREE_OPERAND (OMP_LOOP_CHECK (NODE), 0)
-#define OMP_FOR_CLAUSES(NODE)	   TREE_OPERAND (OMP_LOOP_CHECK (NODE), 1)
-#define OMP_FOR_INIT(NODE)	   TREE_OPERAND (OMP_LOOP_CHECK (NODE), 2)
-#define OMP_FOR_COND(NODE)	   TREE_OPERAND (OMP_LOOP_CHECK (NODE), 3)
-#define OMP_FOR_INCR(NODE)	   TREE_OPERAND (OMP_LOOP_CHECK (NODE), 4)
-#define OMP_FOR_PRE_BODY(NODE)	   TREE_OPERAND (OMP_LOOP_CHECK (NODE), 5)
-#define OMP_FOR_ORIG_DECLS(NODE)   TREE_OPERAND (OMP_LOOP_CHECK (NODE), 6)
+#define OMP_LOOPING_CHECK(NODE) TREE_RANGE_CHECK (NODE, OMP_FOR, OACC_LOOP)
+#define OMP_FOR_BODY(NODE)	   TREE_OPERAND (OMP_LOOPING_CHECK (NODE), 0)
+#define OMP_FOR_CLAUSES(NODE)	   TREE_OPERAND (OMP_LOOPING_CHECK (NODE), 1)
+#define OMP_FOR_INIT(NODE)	   TREE_OPERAND (OMP_LOOPING_CHECK (NODE), 2)
+#define OMP_FOR_COND(NODE)	   TREE_OPERAND (OMP_LOOPING_CHECK (NODE), 3)
+#define OMP_FOR_INCR(NODE)	   TREE_OPERAND (OMP_LOOPING_CHECK (NODE), 4)
+#define OMP_FOR_PRE_BODY(NODE)	   TREE_OPERAND (OMP_LOOPING_CHECK (NODE), 5)
+#define OMP_FOR_ORIG_DECLS(NODE)   TREE_OPERAND (OMP_LOOPING_CHECK (NODE), 6)
 
 #define OMP_SECTIONS_BODY(NODE)    TREE_OPERAND (OMP_SECTIONS_CHECK (NODE), 0)
 #define OMP_SECTIONS_CLAUSES(NODE) TREE_OPERAND (OMP_SECTIONS_CHECK (NODE), 1)
@@ -1517,10 +1517,11 @@ class auto_suppress_location_wrappers
 #define OMP_CLAUSE_LASTPRIVATE_GIMPLE_SEQ(NODE) \
   (OMP_CLAUSE_CHECK (NODE))->omp_clause.gimple_reduction_init
 
-/* True if a LASTPRIVATE clause is for a C++ class IV on taskloop construct
-   (thus should be lastprivate on the outer taskloop and firstprivate on
-   task).  */
-#define OMP_CLAUSE_LASTPRIVATE_TASKLOOP_IV(NODE) \
+/* True if a LASTPRIVATE clause is for a C++ class IV on taskloop or
+   loop construct (thus should be lastprivate on the outer taskloop and
+   firstprivate on task for the taskloop construct and carefully handled
+   for loop construct).  */
+#define OMP_CLAUSE_LASTPRIVATE_LOOP_IV(NODE) \
   TREE_PROTECTED (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LASTPRIVATE))
 
 /* True if a LASTPRIVATE clause has CONDITIONAL: modifier.  */
@@ -1741,6 +1742,9 @@ class auto_suppress_location_wrappers
 #define OMP_CLAUSE_DEFAULTMAP_SET_KIND(NODE, BEHAVIOR, CATEGORY) \
   (OMP_CLAUSE_DEFAULTMAP_KIND (NODE) \
    = (enum omp_clause_defaultmap_kind) (CATEGORY | BEHAVIOR))
+
+#define OMP_CLAUSE_BIND_KIND(NODE) \
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_BIND)->omp_clause.subcode.bind_kind)
 
 #define OMP_CLAUSE_TILE_LIST(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_TILE), 0)
@@ -2991,11 +2995,45 @@ extern void decl_fini_priority_insert (tree, priority_type);
 #define DECL_IS_MALLOC(NODE) \
   (FUNCTION_DECL_CHECK (NODE)->function_decl.malloc_flag)
 
+/* Macro for direct set and get of function_decl.decl_type.  */
+#define FUNCTION_DECL_DECL_TYPE(NODE) \
+  (NODE->function_decl.decl_type)
+
+/* Set decl_type of a DECL.  Set it to T when SET is true, or reset
+   it to NONE.  */
+
+static inline void
+set_function_decl_type (tree decl, function_decl_type t, bool set)
+{
+  if (set)
+    {
+      gcc_assert (FUNCTION_DECL_DECL_TYPE (decl) == NONE
+		  || FUNCTION_DECL_DECL_TYPE (decl) == t);
+      decl->function_decl.decl_type = t;
+    }
+  else if (FUNCTION_DECL_DECL_TYPE (decl) == t)
+    FUNCTION_DECL_DECL_TYPE (decl) = NONE;
+}
+
 /* Nonzero in a FUNCTION_DECL means this function should be treated as
    C++ operator new, meaning that it returns a pointer for which we
    should not use type based aliasing.  */
-#define DECL_IS_OPERATOR_NEW(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->function_decl.operator_new_flag)
+#define DECL_IS_OPERATOR_NEW_P(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.decl_type == OPERATOR_NEW)
+
+#define DECL_IS_REPLACEABLE_OPERATOR_NEW_P(NODE) \
+  (DECL_IS_OPERATOR_NEW_P (NODE) && DECL_IS_MALLOC (NODE))
+
+#define DECL_SET_IS_OPERATOR_NEW(NODE, VAL) \
+  set_function_decl_type (FUNCTION_DECL_CHECK (NODE), OPERATOR_NEW, VAL)
+
+/* Nonzero in a FUNCTION_DECL means this function should be treated as
+   C++ operator delete.  */
+#define DECL_IS_OPERATOR_DELETE_P(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.decl_type == OPERATOR_DELETE)
+
+#define DECL_SET_IS_OPERATOR_DELETE(NODE, VAL) \
+  set_function_decl_type (FUNCTION_DECL_CHECK (NODE), OPERATOR_DELETE, VAL)
 
 /* Nonzero in a FUNCTION_DECL means this function may return more
    than once.  */
@@ -3140,8 +3178,11 @@ extern vec<tree, va_gc> **decl_debug_args_insert (tree);
    (FUNCTION_DECL_CHECK (NODE)->decl_with_vis.cxx_destructor)
 
 /* In FUNCTION_DECL, this is set if this function is a lambda function.  */
-#define DECL_LAMBDA_FUNCTION(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->function_decl.lambda_function)
+#define DECL_LAMBDA_FUNCTION_P(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.decl_type == LAMBDA_FUNCTION)
+
+#define DECL_SET_LAMBDA_FUNCTION(NODE, VAL) \
+  set_function_decl_type (FUNCTION_DECL_CHECK (NODE), LAMBDA_FUNCTION, VAL)
 
 /* In FUNCTION_DECL that represent an virtual method this is set when
    the method is final.  */
@@ -4583,6 +4624,12 @@ extern tree first_field (const_tree);
 extern bool initializer_zerop (const_tree, bool * = NULL);
 extern bool initializer_each_zero_or_onep (const_tree);
 
+/* Analogous to initializer_zerop but also examines the type for
+   which the initializer is being used.  Unlike initializer_zerop,
+   considers empty strings to be zero initializers for arrays and
+   non-zero for pointers.  */
+extern bool type_initializer_zero_p (tree, tree);
+
 extern wide_int vector_cst_int_elt (const_tree, unsigned int);
 extern tree vector_cst_elt (const_tree, unsigned int);
 
@@ -5984,8 +6031,9 @@ desired_pro_or_demotion_p (const_tree to_type, const_tree from_type)
 
 /* Pointer type used to declare builtins before we have seen its real
    declaration.  */
-struct builtin_structptr_type
+class builtin_structptr_type
 {
+public:
   tree& node;
   tree& base;
   const char *str;
@@ -6069,8 +6117,9 @@ fndecl_built_in_p (const_tree node, built_in_function name)
 
    where it is not.  */
 
-struct op_location_t
+class op_location_t
 {
+public:
   location_t m_operator_loc;
   location_t m_combined_loc;
 
