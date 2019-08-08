@@ -391,7 +391,6 @@ extern bool mips_bit_clear_p (enum machine_mode, unsigned HOST_WIDE_INT);
 extern void mips_bit_clear_info (enum machine_mode, unsigned HOST_WIDE_INT,
 				 int *, int *);
 
-/* Routines implemented in mips-d.c  */
-extern void mips_d_target_versions (void);
+extern void mips_split_msa_subreg_move (rtx, rtx);
 
 #endif /* ! GCC_MIPS_PROTOS_H */
