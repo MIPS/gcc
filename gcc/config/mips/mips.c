@@ -4628,6 +4628,116 @@ mips_legitimize_const_move (machine_mode mode, rtx dest, rtx src)
   mips_emit_move (dest, src);
 }
 
+/* Called only on big-endian targets.  See whether an MSA vector move from
+   SRC to DEST is effectively a (pair of) SHF instruction(s), because at least
+   one operand is a SUBREG of an MSA vector that has wider or narrower
+   elements.  Return true and emit the instruction if so.
+
+   VIEW_CONVERT (bitconvert) between the two vectors should change only the
+   compiler's interpretation of the data, not the data itself, which is what
+   happens on big-endian targets.  Therefore, we insert one or two shuffle
+   instructions to keep the data in registers in a valid state.
+
+   Without this modification, we would spill the SUBREG operand to stack in
+   one mode and reload it in the other, which is also valid, but obviously
+   a lot slower.  */
+
+static bool
+mips_maybe_expand_msa_subreg_move (rtx dest, rtx src)
+{
+  gcc_assert (TARGET_BIG_ENDIAN);
+
+  if (GET_CODE (dest) == SUBREG)
+    dest = SUBREG_REG (dest);
+  if (GET_CODE (src) == SUBREG)
+    src = SUBREG_REG (src);
+
+  /* The optimization handles two MSA REGs with different element size.  */
+  if (!REG_P (dest)
+      || !REG_P (src)
+      || (GET_MODE_UNIT_SIZE (GET_MODE (dest))
+	  == GET_MODE_UNIT_SIZE (GET_MODE (src))))
+    return false;
+
+  /* Generate *msa_mov<mode>_subreg_be.  */
+  rtx unspec = gen_rtx_UNSPEC (GET_MODE (dest),
+			       gen_rtvec (1, src),
+			       UNSPEC_MSA_SUBREG_BE);
+  emit_insn (gen_rtx_SET (dest, unspec));
+  return true;
+}
+
+/* Return a copy of X with mode MODE, without changing its other
+   attributes.  */
+static rtx
+mips_replace_reg_mode (rtx x, machine_mode mode)
+{
+  if (GET_MODE (x) == mode)
+    return x;
+
+  x = shallow_copy_rtx (x);
+  set_mode_and_regno (x, mode, REGNO (x));
+  return x;
+}
+
+/* Split a *msa_mov<mode>_subreg_be pattern with the given operands.  */
+void
+mips_split_msa_subreg_move (rtx dest, rtx src)
+{
+  /* Decide how many and which SHF operations we need.  The size ratio of
+     machine modes defines the number of operations, while the mode with the
+     narrower elements determines the mode of the operands.  */
+  int shf_value_1, shf_value_2 = 0xb1;
+  machine_mode mode_with_wider_elts = GET_MODE (dest);
+  machine_mode mode_with_narrower_elts = GET_MODE (src);
+  unsigned char wider_mode_size, narrower_mode_size;
+  rtx x;
+
+  wider_mode_size = GET_MODE_UNIT_SIZE (mode_with_wider_elts);
+  narrower_mode_size = GET_MODE_UNIT_SIZE (mode_with_narrower_elts);
+
+  if (wider_mode_size < narrower_mode_size)
+    {
+      std::swap (mode_with_wider_elts, mode_with_narrower_elts);
+      std::swap (wider_mode_size, narrower_mode_size);
+    }
+
+  int size_ratio = wider_mode_size / narrower_mode_size;
+  switch (size_ratio)
+    {
+    case 8:
+    case 4:
+      shf_value_1 = 0x1b;
+      break;
+    case 2:
+      shf_value_1 = 0xb1;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  /* Emit the first SHF instruction with appropriate modes.  */
+  dest = mips_replace_reg_mode (dest, mode_with_narrower_elts);
+  src = mips_replace_reg_mode (src, mode_with_narrower_elts);
+  x = mips_gen_const_int_vector_shuffle (mode_with_narrower_elts,
+					 shf_value_1);
+  x = gen_rtx_VEC_SELECT (mode_with_narrower_elts, src, x);
+  x = gen_rtx_SET (dest, x);
+  emit_insn (x);
+
+  /* Emit the second SHF instruction (if needed) with appropriate modes.  */
+  if (size_ratio == 8)
+    {
+      dest = mips_replace_reg_mode (dest, V4SImode);
+      src = mips_replace_reg_mode (src, V4SImode);
+      x = mips_gen_const_int_vector_shuffle (V4SImode,
+					     shf_value_2);
+      x = gen_rtx_VEC_SELECT (V4SImode, src, x);
+      x = gen_rtx_SET (dest, x);
+      emit_insn (x);
+    }
+}
+
 /* If (set DEST SRC) is not a valid move instruction, emit an equivalent
    sequence that is valid.  */
 
@@ -4655,6 +4765,33 @@ mips_legitimize_move (machine_mode mode, rtx dest, rtx src)
       set_unique_reg_note (get_last_insn (), REG_EQUAL, copy_rtx (src));
       return true;
     }
+
+  if (TARGET_BIG_ENDIAN
+      && MSA_SUPPORTED_MODE_P (GET_MODE (dest))
+      && MSA_SUPPORTED_MODE_P (GET_MODE (src)))
+    {
+      /* SRC or DEST with an MSA mode have an allocated hard register only if
+	 they are function call arguments or return values.  In that case,
+	 force their machine modes to V2DImode or V4SI mode, depending on the
+	 target size.  This will produce shuffle instruction(s) which will
+	 reorder the elements within a vector, so that they conform to the
+	 calling convention.  This fixes the discrepancy between calling
+	 conventions of MSA and non-MSA builds.  */
+      if (REG_P (dest)
+	  && HARD_REGISTER_P (dest)
+	  && GP_REG_P (REGNO (dest)))
+	dest = mips_replace_reg_mode (dest, TARGET_64BIT ? V2DImode : V4SImode);
+
+      if (REG_P (src)
+	  && HARD_REGISTER_P (src)
+	  && GP_REG_P (REGNO (src)))
+	src = mips_replace_reg_mode (src, TARGET_64BIT ? V2DImode : V4SImode);
+
+      /* See whether MSA SUBREG move can be replaced with shuffle(s).  */
+      if (mips_maybe_expand_msa_subreg_move (dest, src))
+	return true;
+    }
+
   return false;
 }
 
@@ -5835,12 +5972,12 @@ mips_split_128bit_move (rtx dest, rtx src)
       if (!TARGET_64BIT)
 	{
 	  if (GET_MODE (dest) != V4SImode)
-	    new_dest = gen_rtx_REG (V4SImode, REGNO (dest));
+	    new_dest = mips_replace_reg_mode (dest, V4SImode);
 	}
       else
 	{
 	  if (GET_MODE (dest) != V2DImode)
-	    new_dest = gen_rtx_REG (V2DImode, REGNO (dest));
+	    new_dest = mips_replace_reg_mode (dest, V2DImode);
 	}
 
       for (byte = 0, index = 0; byte < GET_MODE_SIZE (TImode);
@@ -5863,12 +6000,12 @@ mips_split_128bit_move (rtx dest, rtx src)
       if (!TARGET_64BIT)
 	{
 	  if (GET_MODE (src) != V4SImode)
-	    new_src = gen_rtx_REG (V4SImode, REGNO (src));
+	    new_src = mips_replace_reg_mode (src, V4SImode);
 	}
       else
 	{
 	  if (GET_MODE (src) != V2DImode)
-	    new_src = gen_rtx_REG (V2DImode, REGNO (src));
+	    new_src = mips_replace_reg_mode (src, V2DImode);
 	}
 
       for (byte = 0, index = 0; byte < GET_MODE_SIZE (TImode);
@@ -5925,7 +6062,7 @@ mips_split_msa_copy_d (rtx dest, rtx src, rtx index,
   rtx low = mips_subword (dest, false);
   rtx high = mips_subword (dest, true);
 
-  rtx new_src = gen_rtx_REG (V4SImode, REGNO (src));
+  rtx new_src = mips_replace_reg_mode (src, V4SImode);
 
   emit_insn (gen_fn (low, new_src, GEN_INT (INTVAL (index) * 2)));
   emit_insn (gen_fn (high, new_src, GEN_INT (INTVAL (index) * 2 + 1)));
@@ -5946,8 +6083,8 @@ mips_split_msa_insert_d (rtx dest, rtx src1, rtx index, rtx src2)
      from the higher index.  */
   rtx low = mips_subword (src2, false);
   rtx high = mips_subword (src2, true);
-  rtx new_dest = gen_rtx_REG (V4SImode, REGNO (dest));
-  rtx new_src1 = gen_rtx_REG (V4SImode, REGNO (src1));
+  rtx new_dest = mips_replace_reg_mode (dest, V4SImode);
+  rtx new_src1 = mips_replace_reg_mode (src1, V4SImode);
   i = exact_log2 (INTVAL (index));
   gcc_assert (i != -1);
 
@@ -5979,7 +6116,7 @@ mips_split_msa_fill_d (rtx dest, rtx src)
       low = mips_subword (src, false);
       high = mips_subword (src, true);
     }
-  rtx new_dest = gen_rtx_REG (V4SImode, REGNO (dest));
+  rtx new_dest = mips_replace_reg_mode (dest, V4SImode);
   emit_insn (gen_msa_fill_w (new_dest, low));
   emit_insn (gen_msa_insert_w (new_dest, high, new_dest, GEN_INT (1 << 1)));
   emit_insn (gen_msa_insert_w (new_dest, high, new_dest, GEN_INT (1 << 3)));

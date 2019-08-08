@@ -656,3 +656,8 @@
 (define_predicate "reg_or_vector_same_uimm6_operand"
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "const_vector_same_uimm6_operand")))
+
+(define_predicate "msa_reg_operand"
+  (if_then_else (match_test "TARGET_BIG_ENDIAN")
+       (match_code "reg")
+       (match_operand 0 "register_operand")))
