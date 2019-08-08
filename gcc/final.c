@@ -728,7 +728,7 @@ compute_alignments (void)
 		  <= ENTRY_BLOCK_PTR_FOR_FN (cfun)->count.apply_scale (1, 2))))
 	{
 	  align_flags alignment
-	    = has_fallthru ? JUMP_ALIGN (label) : LOOP_ALIGN (label);
+	    = !has_fallthru ? JUMP_ALIGN (label) : LOOP_ALIGN (label);
 	  if (dump_file)
 	    fprintf (dump_file, "  %s alignment added.\n",
 		     has_fallthru ? "loop" : "internal loop");
