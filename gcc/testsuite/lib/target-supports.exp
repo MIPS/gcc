@@ -1181,6 +1181,16 @@ proc check_effective_target_mips64 { } {
     }]
 }
 
+# Return true if the target is a MIPS rev 6 target.
+
+proc check_effective_target_mipsisar6 { } {
+    return [check_no_compiler_messages mipsisar6 assembly {
+    #if __mips_isa_rev < 6
+    #error !__mips_isa_rev
+    #endif
+    }]
+}
+
 # Return true if the target is using a compressed MIPS ISA.
 
 proc check_effective_target_mips_compressed { } {

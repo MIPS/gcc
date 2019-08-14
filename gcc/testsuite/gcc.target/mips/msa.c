@@ -362,8 +362,11 @@
 /* { dg-final { scan-assembler-times "test37_v8u16:.*maddv.h.*test37_v8u16" 1 } } */
 /* { dg-final { scan-assembler-times "test37_v4u32:.*maddv.w.*test37_v4u32" 1 } } */
 /* { dg-final { scan-assembler-times "test37_v2u64:.*maddv.d.*test37_v2u64" 1 } } */
-/* { dg-final { scan-assembler-times "test37_v4f32:.*fmadd.w.*test37_v4f32" 1 } } */
-/* { dg-final { scan-assembler-times "test37_v2f64:.*fmadd.d.*test37_v2f64" 1 } } */
+/* Note: We chose not to emit fmadd.* on pre-r6 targets that lack scalar fma.  */
+/* { dg-final { scan-assembler-times "test37_v4f32:.*fmadd.w.*test37_v4f32" 1 { target mipsisar6 } } } */
+/* { dg-final { scan-assembler-times "test37_v2f64:.*fmadd.d.*test37_v2f64" 1 { target mipsisar6 } } } */
+/* { dg-final { scan-assembler-times "test37_v4f32:.*fmul.w.*fadd.w.*test37_v4f32" 1 { target {! mipsisar6 } } } } */
+/* { dg-final { scan-assembler-times "test37_v2f64:.*fmul.d.*fadd.d.*test37_v2f64" 1 { target {! mipsisar6 } } } } */
 /* { dg-final { scan-assembler-times "test38_v16i8:.*msubv.b.*test38_v16i8" 1 } } */
 /* { dg-final { scan-assembler-times "test38_v8i16:.*msubv.h.*test38_v8i16" 1 } } */
 /* { dg-final { scan-assembler-times "test38_v4i32:.*msubv.w.*test38_v4i32" 1 } } */
@@ -372,8 +375,11 @@
 /* { dg-final { scan-assembler-times "test38_v8u16:.*msubv.h.*test38_v8u16" 1 } } */
 /* { dg-final { scan-assembler-times "test38_v4u32:.*msubv.w.*test38_v4u32" 1 } } */
 /* { dg-final { scan-assembler-times "test38_v2u64:.*msubv.d.*test38_v2u64" 1 } } */
-/* { dg-final { scan-assembler-times "test38_v4f32:.*fmsub.w.*test38_v4f32" 1 } } */
-/* { dg-final { scan-assembler-times "test38_v2f64:.*fmsub.d.*test38_v2f64" 1 } } */
+/* Note: We chose not to emit fmsub.* on pre-r6 targets that lack scalar fma.  */
+/* { dg-final { scan-assembler-times "test38_v4f32:.*fmsub.w.*test38_v4f32" 1 { target mipsisar6 } } } */
+/* { dg-final { scan-assembler-times "test38_v2f64:.*fmsub.d.*test38_v2f64" 1 { target mipsisar6 } } } */
+/* { dg-final { scan-assembler-times "test38_v4f32:.*fmul.w.*fsub.w.*test38_v4f32" 1 { target {! mipsisar6 } } } } */
+/* { dg-final { scan-assembler-times "test38_v2f64:.*fmul.d.*fsub.d.*test38_v2f64" 1 { target {! mipsisar6 } } } } */
 /* { dg-final { scan-assembler-times "test39_v16i8:.*ld.b.*test39_v16i8" 1 } } */
 /* { dg-final { scan-assembler-times "test39_v8i16:.*ld.h.*test39_v8i16" 1 } } */
 /* { dg-final { scan-assembler-times "test39_v4i32:.*ld.w.*test39_v4i32" 1 } } */

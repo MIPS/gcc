@@ -930,21 +930,35 @@
   [(set_attr "type" "simd_fdiv")
    (set_attr "mode" "<MODE>")])
 
-(define_insn "fma<mode>4"
+(define_expand "fma<mode>4"
   [(set (match_operand:FMSA 0 "msa_reg_operand" "=f")
 	(fma:FMSA (match_operand:FMSA 1 "msa_reg_operand" "f")
 		  (match_operand:FMSA 2 "msa_reg_operand" "f")
 		  (match_operand:FMSA 3 "msa_reg_operand" "0")))]
-  "ISA_HAS_MSA"
-  "fmadd.<msafmt>\t%w0,%w1,%w2"
-  [(set_attr "type" "simd_fmadd")
-   (set_attr "mode" "<MODE>")])
+  "ISA_HAS_MSA && ISA_HAS_FUSED_MADDF")
 
-(define_insn "fnma<mode>4"
+(define_expand "fnma<mode>4"
   [(set (match_operand:FMSA 0 "msa_reg_operand" "=f")
 	(fma:FMSA (neg:FMSA (match_operand:FMSA 1 "msa_reg_operand" "f"))
 		  (match_operand:FMSA 2 "msa_reg_operand" "f")
 		  (match_operand:FMSA 3 "msa_reg_operand" "0")))]
+  "ISA_HAS_MSA && ISA_HAS_FUSED_MADDF")
+
+(define_insn "msa_fmadd_<msafmt>"
+  [(set (match_operand:FMSA 0 "msa_reg_operand" "=f")
+  (fma:FMSA (match_operand:FMSA 1 "msa_reg_operand" "f")
+      (match_operand:FMSA 2 "msa_reg_operand" "f")
+      (match_operand:FMSA 3 "msa_reg_operand" "0")))]
+ "ISA_HAS_MSA"
+  "fmadd.<msafmt>\t%w0,%w1,%w2"
+  [(set_attr "type" "simd_fmadd")
+   (set_attr "mode" "<MODE>")])
+
+(define_insn "msa_fmsub_<msafmt>"
+  [(set (match_operand:FMSA 0 "msa_reg_operand" "=f")
+  (fma:FMSA (neg:FMSA (match_operand:FMSA 1 "msa_reg_operand" "f"))
+      (match_operand:FMSA 2 "msa_reg_operand" "f")
+      (match_operand:FMSA 3 "msa_reg_operand" "0")))]
   "ISA_HAS_MSA"
   "fmsub.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type" "simd_fmadd")

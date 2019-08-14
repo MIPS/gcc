@@ -17306,10 +17306,6 @@ AVAIL_NON_MIPS16 (msa, TARGET_MSA)
 #define CODE_FOR_msa_ffint_u_d CODE_FOR_floatunsv2div2df2
 #define CODE_FOR_msa_fsub_w CODE_FOR_subv4sf3
 #define CODE_FOR_msa_fsub_d CODE_FOR_subv2df3
-#define CODE_FOR_msa_fmadd_w CODE_FOR_fmav4sf4
-#define CODE_FOR_msa_fmadd_d CODE_FOR_fmav2df4
-#define CODE_FOR_msa_fmsub_w CODE_FOR_fnmav4sf4
-#define CODE_FOR_msa_fmsub_d CODE_FOR_fnmav2df4
 #define CODE_FOR_msa_fmul_w CODE_FOR_mulv4sf3
 #define CODE_FOR_msa_fmul_d CODE_FOR_mulv2df3
 #define CODE_FOR_msa_fdiv_w CODE_FOR_divv4sf3
