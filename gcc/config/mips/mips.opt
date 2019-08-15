@@ -571,6 +571,9 @@ Target Undocumented Var(mips_use_multi_memcpy) Init(0)
 mopt-movebalc
 Target Undocumented Var(TARGET_OPT_MOVEBALC) Init(1)
 
+mopt-movep
+Target Undocumented Var(TARGET_OPT_MOVEP) Init(0)
+
 mjump-table-density=
 Target RejectNegative Joined UInteger Var(mips_jumptable_density) Init(0)
 -mjump-table-density=DENSITY	Percentage of non default target labels.

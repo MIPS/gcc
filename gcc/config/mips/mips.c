@@ -25873,7 +25873,7 @@ mips_reorg (void)
       free_bb_for_insn ();
     }
 
-  if (TARGET_NANOMIPS)
+  if (TARGET_NANOMIPS && TARGET_OPT_MOVEP)
     mips_movep_opt ();
 
   if (TARGET_NANOMIPS && TARGET_OPT_MOVEBALC)
