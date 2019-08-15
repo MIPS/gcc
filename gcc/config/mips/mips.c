@@ -24861,6 +24861,9 @@ get_movep_insn_location (rtx_insn *move1, rtx_insn *move2,
           && ! reg_set_between_p (src2, move1, move2))
 	  /* (3): Emit movep at MOVE2 or at next suitable program point.  */
 	{
+          if (move_curr_pos != move2_pos)
+            move_curr_pos++;
+
 	  rsrc1 = tmp_src1;
 	  rsrc2 = tmp_src2;
 	  rcopies1.release ();
