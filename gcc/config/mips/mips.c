@@ -24668,7 +24668,8 @@ get_reg_copies (rtx rcopies[], rtx reg, vec<rtx> &ret)
 {
   rtx tmp_reg = reg;
 
-  if (!REG_P (reg))
+  if (!REG_P (reg) ||
+      !mips_movep_follow_copy_chains /* Ignore other reg copies.  */)
     {
       /* It is const zero.  */
       ret.safe_push (reg);
