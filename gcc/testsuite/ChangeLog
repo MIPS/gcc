@@ -1,5 +1,9 @@
 2019-08-19  Andrew Sutton  <asutton@lock3software.com>
 
+	* g++.dg/concepts/concept4.C: New normalization test.
+
+2019-08-19  Andrew Sutton  <asutton@lock3software.com>
+
 	Update diagnostics for function concept misuse.
 	* g++.dg/concepts/var-concept3.C: Update diagnostics.
 
