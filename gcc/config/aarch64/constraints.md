@@ -36,6 +36,9 @@
 (define_register_constraint "x" "FP_LO_REGS"
   "Floating point and SIMD vector registers V0 - V15.")
 
+(define_register_constraint "y" "FP_LO8_REGS"
+  "Floating point and SIMD vector registers V0 - V7.")
+
 (define_constraint "I"
  "A constant that can be used with an ADD operation."
  (and (match_code "const_int")
@@ -114,8 +117,8 @@
        (match_test "aarch64_float_const_zero_rtx_p (op)")))
 
 (define_constraint "Z"
-  "Integer constant zero."
-  (match_test "op == const0_rtx"))
+  "Integer or floating-point constant zero."
+  (match_test "op == CONST0_RTX (GET_MODE (op))"))
 
 (define_constraint "Ush"
   "A constraint that matches an absolute symbolic address high part."
@@ -268,6 +271,12 @@
   (and (match_code "mem")
        (match_test "aarch64_legitimate_address_p (V2DImode,
 						  XEXP (op, 0), 1)")))
+
+(define_memory_constraint "UtQ"
+  "@internal
+   An address valid for SVE LD1RQs."
+  (and (match_code "mem")
+       (match_test "aarch64_sve_ld1rq_operand_p (op)")))
 
 (define_memory_constraint "Uty"
   "@internal

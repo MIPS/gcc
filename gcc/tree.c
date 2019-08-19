@@ -299,6 +299,7 @@ unsigned const char omp_clause_num_ops[] =
   2, /* OMP_CLAUSE_TO  */
   2, /* OMP_CLAUSE_MAP  */
   1, /* OMP_CLAUSE_USE_DEVICE_PTR  */
+  1, /* OMP_CLAUSE_USE_DEVICE_ADDR  */
   1, /* OMP_CLAUSE_IS_DEVICE_PTR  */
   1, /* OMP_CLAUSE_INCLUSIVE  */
   1, /* OMP_CLAUSE_EXCLUSIVE  */
@@ -331,6 +332,7 @@ unsigned const char omp_clause_num_ops[] =
   0, /* OMP_CLAUSE_PROC_BIND  */
   1, /* OMP_CLAUSE_SAFELEN  */
   1, /* OMP_CLAUSE_SIMDLEN  */
+  0, /* OMP_CLAUSE_DEVICE_TYPE  */
   0, /* OMP_CLAUSE_FOR  */
   0, /* OMP_CLAUSE_PARALLEL  */
   0, /* OMP_CLAUSE_SECTIONS  */
@@ -382,6 +384,7 @@ const char * const omp_clause_code_name[] =
   "to",
   "map",
   "use_device_ptr",
+  "use_device_addr",
   "is_device_ptr",
   "inclusive",
   "exclusive",
@@ -414,6 +417,7 @@ const char * const omp_clause_code_name[] =
   "proc_bind",
   "safelen",
   "simdlen",
+  "device_type",
   "for",
   "parallel",
   "sections",
@@ -1975,6 +1979,23 @@ build_index_vector (tree vec_type, poly_uint64 base, poly_uint64 step)
   for (unsigned int i = 0; i < 3; ++i)
     v.quick_push (build_int_cstu (index_elt_type, base + i * step));
   return v.build ();
+}
+
+/* Return a VECTOR_CST of type VEC_TYPE in which the first NUM_A
+   elements are A and the rest are B.  */
+
+tree
+build_vector_a_then_b (tree vec_type, unsigned int num_a, tree a, tree b)
+{
+  gcc_assert (known_le (num_a, TYPE_VECTOR_SUBPARTS (vec_type)));
+  unsigned int count = constant_lower_bound (TYPE_VECTOR_SUBPARTS (vec_type));
+  /* Optimize the constant case.  */
+  if ((count & 1) == 0 && TYPE_VECTOR_SUBPARTS (vec_type).is_constant ())
+    count /= 2;
+  tree_vector_builder builder (vec_type, count, 2);
+  for (unsigned int i = 0; i < count * 2; ++i)
+    builder.quick_push (i < num_a ? a : b);
+  return builder.build ();
 }
 
 /* Something has messed with the elements of CONSTRUCTOR C after it was built;
@@ -5527,8 +5548,7 @@ free_lang_data_in_type (tree type, class free_lang_data_d *fld)
 	  free_lang_data_in_binfo (TYPE_BINFO (type));
 	  /* We need to preserve link to bases and virtual table for all
 	     polymorphic types to make devirtualization machinery working.  */
-	  if (!BINFO_VTABLE (TYPE_BINFO (type))
-	      || !flag_devirtualize)
+	  if (!BINFO_VTABLE (TYPE_BINFO (type)))
 	    TYPE_BINFO (type) = NULL;
 	}
     }
@@ -12384,6 +12404,7 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_TO_DECLARE:
 	case OMP_CLAUSE_LINK:
 	case OMP_CLAUSE_USE_DEVICE_PTR:
+	case OMP_CLAUSE_USE_DEVICE_ADDR:
 	case OMP_CLAUSE_IS_DEVICE_PTR:
 	case OMP_CLAUSE_INCLUSIVE:
 	case OMP_CLAUSE_EXCLUSIVE:
@@ -12401,6 +12422,7 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_UNTIED:
 	case OMP_CLAUSE_MERGEABLE:
 	case OMP_CLAUSE_PROC_BIND:
+	case OMP_CLAUSE_DEVICE_TYPE:
 	case OMP_CLAUSE_INBRANCH:
 	case OMP_CLAUSE_NOTINBRANCH:
 	case OMP_CLAUSE_FOR:

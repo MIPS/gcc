@@ -2518,7 +2518,12 @@ insert_index (gfc_expr *e, gfc_symbol *sym, mpz_t val, mpz_t ret)
   data.sym = sym;
   mpz_init_set (data.val, val);
   gfc_expr_walker (&n, callback_insert_index, (void *) &data);
+
+  /* Suppress errors here - we could get errors here such as an
+     out of bounds access for arrays, see PR 90563.  */
+  gfc_push_suppress_errors ();
   gfc_simplify_expr (n, 0);
+  gfc_pop_suppress_errors ();
 
   if (n->expr_type == EXPR_CONSTANT)
     {
@@ -2555,6 +2560,12 @@ do_subscript (gfc_expr **e)
   /* Wrong warnings will be generated in an associate list.  */
   if (in_assoc_list)
     return 0;
+
+  /* We already warned about this.  */
+  if (v->do_not_warn)
+    return 0;
+
+  v->do_not_warn = 1;
 
   for (ref = v->ref; ref; ref = ref->next)
     {
@@ -2608,7 +2619,6 @@ do_subscript (gfc_expr **e)
 	      else
 		have_do_start = false;
 
-
 	      if (dl->ext.iterator->end->expr_type == EXPR_CONSTANT)
 		{
 		  have_do_end = true;
@@ -2619,6 +2629,17 @@ do_subscript (gfc_expr **e)
 
 	      if (!have_do_start && !have_do_end)
 		return 0;
+
+	      /* No warning inside a zero-trip loop.  */
+	      if (have_do_start && have_do_end)
+		{
+		  int sgn, cmp;
+
+		  sgn = mpz_cmp_ui (do_step, 0);
+		  cmp = mpz_cmp (do_end, do_start);
+		  if ((sgn > 0 && cmp < 0) || (sgn < 0 && cmp > 0))
+		    break;
+		}
 
 	      /* May have to correct the end value if the step does not equal
 		 one.  */
@@ -2761,6 +2782,12 @@ static void
 doloop_warn (gfc_namespace *ns)
 {
   gfc_code_walker (&ns->code, doloop_code, do_function, NULL);
+
+  for (ns = ns->contained; ns; ns = ns->sibling)
+    {
+      if (ns->code == NULL || ns->code->op != EXEC_BLOCK)
+	doloop_warn (ns);
+    }
 }
 
 /* This selction deals with inlining calls to MATMUL.  */

@@ -2064,6 +2064,7 @@ package body Sem_Prag is
      (N        : Node_Id;
       Expr_Val : out Boolean)
    is
+      Prag_Id  : constant Pragma_Id := Get_Pragma_Id (Pragma_Name (N));
       Arg1     : constant Node_Id   :=
                    First (Pragma_Argument_Associations (N));
       Obj_Decl : constant Node_Id   := Find_Related_Context (N);
@@ -2090,9 +2091,28 @@ package body Sem_Prag is
       --    pragma Async_Readers (Obj);
       --    pragma Volatile (Obj);
 
-      if not Is_Effectively_Volatile (Obj_Id) then
-         SPARK_Msg_N
-           ("external property % must apply to a volatile object", N);
+      if Prag_Id /= Pragma_No_Caching
+        and then not Is_Effectively_Volatile (Obj_Id)
+      then
+         if No_Caching_Enabled (Obj_Id) then
+            SPARK_Msg_N
+              ("illegal combination of external property % and property "
+               & """No_Caching"" (SPARK RM 7.1.2(6))", N);
+         else
+            SPARK_Msg_N
+              ("external property % must apply to a volatile object", N);
+         end if;
+
+      --  Pragma No_Caching should only apply to volatile variables of
+      --  a non-effectively volatile type (SPARK RM 7.1.2).
+
+      elsif Prag_Id = Pragma_No_Caching then
+         if Is_Effectively_Volatile (Etype (Obj_Id)) then
+            SPARK_Msg_N ("property % must not apply to an object of "
+                         & "an effectively volatile type", N);
+         elsif not Is_Volatile (Obj_Id) then
+            SPARK_Msg_N ("property % must apply to a volatile object", N);
+         end if;
       end if;
 
       --  Ensure that the Boolean expression (if present) is static. A missing
@@ -13618,17 +13638,20 @@ package body Sem_Prag is
 
          ------------------------------------------------------------------
          -- Async_Readers/Async_Writers/Effective_Reads/Effective_Writes --
+         --                          No_Caching                          --
          ------------------------------------------------------------------
 
          --  pragma Async_Readers    [ (boolean_EXPRESSION) ];
          --  pragma Async_Writers    [ (boolean_EXPRESSION) ];
          --  pragma Effective_Reads  [ (boolean_EXPRESSION) ];
          --  pragma Effective_Writes [ (boolean_EXPRESSION) ];
+         --  pragma No_Caching       [ (boolean_EXPRESSION) ];
 
          when Pragma_Async_Readers
             | Pragma_Async_Writers
             | Pragma_Effective_Reads
             | Pragma_Effective_Writes
+            | Pragma_No_Caching
          =>
          Async_Effective : declare
             Obj_Decl : Node_Id;
@@ -19549,16 +19572,18 @@ package body Sem_Prag is
             end loop;
          end Main_Storage;
 
-         ----------------------
-         -- Max_Queue_Length --
-         ----------------------
+         ----------------------------
+         -- Max_Entry_Queue_Length --
+         ----------------------------
 
-         --  pragma Max_Queue_Length (static_integer_EXPRESSION);
+         --  pragma Max_Entry_Queue_Length (static_integer_EXPRESSION);
 
-         --  This processing is shared by Pragma_Max_Entry_Queue_Depth
+         --  This processing is shared by Pragma_Max_Entry_Queue_Depth and
+         --  Pragma_Max_Queue_Length.
 
-         when Pragma_Max_Queue_Length
+         when Pragma_Max_Entry_Queue_Length
             | Pragma_Max_Entry_Queue_Depth
+            | Pragma_Max_Queue_Length
          =>
          Max_Queue_Length : declare
             Arg        : Node_Id;
@@ -19567,7 +19592,9 @@ package body Sem_Prag is
             Val        : Uint;
 
          begin
-            if Prag_Id = Pragma_Max_Queue_Length then
+            if Prag_Id = Pragma_Max_Entry_Queue_Depth
+              or else Prag_Id = Pragma_Max_Queue_Length
+            then
                GNAT_Pragma;
             end if;
 
@@ -24146,7 +24173,7 @@ package body Sem_Prag is
                   Error_Pragma_Arg
                     ("argument of pragma% cannot be an incomplete type", Arg1);
                else
-                  Set_Suppress_Initialization (Full_View (Base_Type (E)));
+                  Set_Suppress_Initialization (Full_View (E));
                end if;
 
             --  For first subtype, set flag on base type
@@ -31036,14 +31063,16 @@ package body Sem_Prag is
       Pragma_Main                           => -1,
       Pragma_Main_Storage                   => -1,
       Pragma_Max_Entry_Queue_Depth          =>  0,
+      Pragma_Max_Entry_Queue_Length         =>  0,
       Pragma_Max_Queue_Length               =>  0,
       Pragma_Memory_Size                    =>  0,
-      Pragma_No_Return                      =>  0,
       Pragma_No_Body                        =>  0,
+      Pragma_No_Caching                     =>  0,
       Pragma_No_Component_Reordering        => -1,
       Pragma_No_Elaboration_Code_All        =>  0,
       Pragma_No_Heap_Finalization           =>  0,
       Pragma_No_Inline                      =>  0,
+      Pragma_No_Return                      =>  0,
       Pragma_No_Run_Time                    => -1,
       Pragma_No_Strict_Aliasing             => -1,
       Pragma_No_Tagged_Streams              =>  0,

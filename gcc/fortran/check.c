@@ -1340,6 +1340,10 @@ gfc_check_all_any (gfc_expr *mask, gfc_expr *dim)
 }
 
 
+/* Limited checking for ALLOCATED intrinsic.  Additional checking
+   is performed in intrinsic.c(sort_actual), because ALLOCATED
+   has two mutually exclusive non-optional arguments.  */
+
 bool
 gfc_check_allocated (gfc_expr *array)
 {
@@ -6480,9 +6484,8 @@ gfc_check_random_seed (gfc_expr *size, gfc_expr *put, gfc_expr *get)
   mpz_t put_size, get_size;
 
   /* Keep the number of bytes in sync with master_state in
-     libgfortran/intrinsics/random.c. +1 due to the integer p which is
-     part of the state too.  */
-  seed_size = 128 / gfc_default_integer_kind + 1;
+     libgfortran/intrinsics/random.c.  */
+  seed_size = 32 / gfc_default_integer_kind;
 
   if (size != NULL)
     {

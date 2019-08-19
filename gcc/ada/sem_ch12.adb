@@ -1025,26 +1025,6 @@ package body Sem_Ch12 is
       raise Instantiation_Error;
    end Abandon_Instantiation;
 
-   --------------------------------
-   --  Add_Pending_Instantiation --
-   --------------------------------
-
-   procedure Add_Pending_Instantiation (Inst : Node_Id; Act_Decl : Node_Id) is
-   begin
-      --  Capture the body of the generic instantiation along with its context
-      --  for later processing by Instantiate_Bodies.
-
-      Pending_Instantiations.Append
-        ((Act_Decl                 => Act_Decl,
-          Config_Switches          => Save_Config_Switches,
-          Current_Sem_Unit         => Current_Sem_Unit,
-          Expander_Status          => Expander_Active,
-          Inst_Node                => Inst,
-          Local_Suppress_Stack_Top => Local_Suppress_Stack_Top,
-          Scope_Suppress           => Scope_Suppress,
-          Warnings                 => Save_Warnings));
-   end Add_Pending_Instantiation;
-
    ----------------------------------
    -- Adjust_Inherited_Pragma_Sloc --
    ----------------------------------
@@ -3895,10 +3875,7 @@ package body Sem_Ch12 is
          E : Entity_Id;
 
       begin
-         if not Inline_Processing_Required then
-            return False;
-
-         else
+         if Inline_Processing_Required then
             E := First_Entity (Gen_Unit);
             while Present (E) loop
                if Is_Subprogram (E) and then Is_Inlined (E) then
@@ -4281,12 +4258,13 @@ package body Sem_Ch12 is
             end if;
          end if;
 
-         --  Save the instantiation node, for subsequent instantiation of the
-         --  body, if there is one and we are generating code for the current
-         --  unit. Mark unit as having a body (avoids premature error message).
+         --  Save the instantiation node for a subsequent instantiation of the
+         --  body if there is one and the main unit is not generic, and either
+         --  we are generating code for this main unit, or the instantiation
+         --  contains inlined subprograms and is not done in a generic unit.
 
-         --  We instantiate the body if we are generating code, if we are
-         --  generating cross-reference information, or if we are building
+         --  We instantiate the body only if we are generating code, or if we
+         --  are generating cross-reference information, or if we are building
          --  trees for ASIS use or GNATprove use.
 
          declare
@@ -4379,14 +4357,15 @@ package body Sem_Ch12 is
               (Unit_Requires_Body (Gen_Unit)
                 or else Enclosing_Body_Present
                 or else Present (Corresponding_Body (Gen_Decl)))
+               and then not Is_Generic_Unit (Cunit_Entity (Main_Unit))
                and then (Is_In_Main_Unit (N)
-                          or else Might_Inline_Subp (Gen_Unit))
+                          or else (Might_Inline_Subp (Gen_Unit)
+                                    and then
+                                   not Is_Generic_Unit
+                                         (Cunit_Entity (Get_Code_Unit (N)))))
                and then not Is_Actual_Pack
                and then not Inline_Now
                and then (Operating_Mode = Generate_Code
-
-                          --  Need comment for this check ???
-
                           or else (Operating_Mode = Check_Semantics
                                     and then (ASIS_Mode or GNATprove_Mode)));
 
@@ -4394,9 +4373,9 @@ package body Sem_Ch12 is
             --  marked with Inline_Always, do not instantiate body when within
             --  a generic context.
 
-            if ((Front_End_Inlining or else Has_Inline_Always)
-                  and then not Expander_Active)
-              or else Is_Generic_Unit (Cunit_Entity (Main_Unit))
+            if not Back_End_Inlining
+              and then (Front_End_Inlining or else Has_Inline_Always)
+              and then not Expander_Active
             then
                Needs_Body := False;
             end if;
@@ -6825,7 +6804,12 @@ package body Sem_Ch12 is
                Check_Private_View (Subtype_Indication (Parent (E)));
             end if;
 
-            Set_Is_Generic_Actual_Type (E, True);
+            Set_Is_Generic_Actual_Type (E);
+
+            if Is_Private_Type (E) and then Present (Full_View (E)) then
+               Set_Is_Generic_Actual_Type (Full_View (E));
+            end if;
+
             Set_Is_Hidden (E, False);
             Set_Is_Potentially_Use_Visible (E, In_Use (Instance));
 
@@ -11601,25 +11585,7 @@ package body Sem_Ch12 is
             --  indicate that the body instance is to be delayed.
 
             Install_Body (Act_Body, Inst_Node, Gen_Body, Gen_Decl);
-
-            --  Now analyze the body. We turn off all checks if this is an
-            --  internal unit, since there is no reason to have checks on for
-            --  any predefined run-time library code. All such code is designed
-            --  to be compiled with checks off.
-
-            --  Note that we do NOT apply this criterion to children of GNAT
-            --  The latter units must suppress checks explicitly if needed.
-
-            --  We also do not suppress checks in CodePeer mode where we are
-            --  interested in finding possible runtime errors.
-
-            if not CodePeer_Mode
-              and then In_Predefined_Unit (Gen_Decl)
-            then
-               Analyze (Act_Body, Suppress => All_Checks);
-            else
-               Analyze (Act_Body);
-            end if;
+            Analyze (Act_Body);
          end if;
 
          Inherit_Context (Gen_Body, Inst_Node);
@@ -14642,6 +14608,10 @@ package body Sem_Ch12 is
                null;
             else
                Set_Is_Generic_Actual_Type (E, False);
+
+               if Is_Private_Type (E) and then Present (Full_View (E)) then
+                  Set_Is_Generic_Actual_Type (Full_View (E), False);
+               end if;
             end if;
 
             --  An unusual case of aliasing: the actual may also be directly

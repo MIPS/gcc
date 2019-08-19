@@ -3065,9 +3065,9 @@ struct GTY(()) lang_decl {
   (DECL_NONSTATIC_MEMBER_FUNCTION_P (NODE)	\
    || TREE_CODE (NODE) == FIELD_DECL)
 
-/* Nonzero for _DECL means that this member object type
+/* Nonzero for a FIELD_DECL means that this member object type
    is mutable.  */
-#define DECL_MUTABLE_P(NODE) (DECL_LANG_FLAG_0 (NODE))
+#define DECL_MUTABLE_P(NODE) (DECL_LANG_FLAG_0 (FIELD_DECL_CHECK (NODE)))
 
 /* Nonzero for _DECL means that this constructor or conversion function is
    non-converting.  */
@@ -7052,8 +7052,8 @@ enum {
 extern tree begin_compound_stmt			(unsigned int);
 
 extern void finish_compound_stmt		(tree);
-extern tree finish_asm_stmt			(int, tree, tree, tree, tree,
-						 tree, bool);
+extern tree finish_asm_stmt			(location_t, int, tree, tree,
+						 tree, tree, tree, bool);
 extern tree finish_label_stmt			(tree);
 extern void finish_label_decl			(tree);
 extern cp_expr finish_parenthesized_expr	(cp_expr);
@@ -7509,11 +7509,17 @@ cp_expr_loc_or_loc (const_tree t, location_t or_loc)
   return loc;
 }
 
+inline location_t
+cp_expr_loc_or_input_loc (const_tree t)
+{
+  return cp_expr_loc_or_loc (t, input_location);
+}
+
 inline void
 cxx_incomplete_type_diagnostic (const_tree value, const_tree type,
 				diagnostic_t diag_kind)
 {
-  cxx_incomplete_type_diagnostic (cp_expr_loc_or_loc (value, input_location),
+  cxx_incomplete_type_diagnostic (cp_expr_loc_or_input_loc (value),
 				  value, type, diag_kind);
 }
 

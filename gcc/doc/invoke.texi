@@ -230,7 +230,8 @@ in the following sections.
 -fvisibility-inlines-hidden @gol
 -fvisibility-ms-compat @gol
 -fext-numeric-literals @gol
--Wabi=@var{n}  -Wabi-tag  -Wconversion-null  -Wctor-dtor-privacy @gol
+-Wabi=@var{n}  -Wabi-tag  -Wcomma-subscript  -Wconversion-null @gol
+-Wctor-dtor-privacy @gol
 -Wdelete-non-virtual-dtor  -Wdeprecated-copy  -Wdeprecated-copy-dtor @gol
 -Wliteral-suffix @gol
 -Wmultiple-inheritance  -Wno-init-list-lifetime @gol
@@ -3036,6 +3037,24 @@ union U @{
 Warn when a type with an ABI tag is used in a context that does not
 have that ABI tag.  See @ref{C++ Attributes} for more information
 about ABI tags.
+
+@item -Wcomma-subscript @r{(C++ and Objective-C++ only)}
+@opindex Wcomma-subscript
+@opindex Wno-comma-subscript
+Warn about uses of a comma expression within a subscripting expression.
+This usage was deprecated in C++2a.  However, a comma expression wrapped
+in @code{( )} is not deprecated.  Example:
+
+@smallexample
+@group
+void f(int *a, int b, int c) @{
+    a[b,c];     // deprecated
+    a[(b,c)];   // OK
+@}
+@end group
+@end smallexample
+
+Enabled by default with @option{-std=c++2a}.
 
 @item -Wctor-dtor-privacy @r{(C++ and Objective-C++ only)}
 @opindex Wctor-dtor-privacy
@@ -10396,15 +10415,19 @@ If you specify the optional @var{n}, the optimization and code
 generation done at link time is executed in parallel using @var{n}
 parallel jobs by utilizing an installed @command{make} program.  The
 environment variable @env{MAKE} may be used to override the program
-used.  The default value for @var{n} is automatically detected based
-on number of cores.
+used.
 
 You can also specify @option{-flto=jobserver} to use GNU make's
 job server mode to determine the number of parallel jobs. This
 is useful when the Makefile calling GCC is already executing in parallel.
 You must prepend a @samp{+} to the command recipe in the parent Makefile
 for this to work.  This option likely only works if @env{MAKE} is
-GNU make.
+GNU make.  Even without the option value, GCC tries to automatically
+detect a running GNU make's job server.
+
+Use @option{-flto=auto} to use GNU make's job server, if available,
+or otherwise fall back to autodetection of the number of CPU threads
+present in your system.
 
 @item -flto-partition=@var{alg}
 @opindex flto-partition
@@ -23026,7 +23049,12 @@ command line.  The script's name is the name of the MCU with
 command line defines the C preprocessor symbol @code{__XXX__} and
 cause the linker to search for a script called @file{xxx.ld}.
 
-This option is also passed on to the assembler.
+The ISA and hardware multiply supported for the different MCUs is hard-coded
+into GCC.  However, an external @samp{devices.csv} file can be used to
+extend device support beyond those that have been hard-coded.
+
+GCC searches for the @samp{devices.csv} file on the paths specified
+with the @code{-I} and @code{-L} options.
 
 @item -mwarn-mcu
 @itemx -mno-warn-mcu
@@ -23114,6 +23142,13 @@ the named silicon errata.
 @opindex msilicon-errata-warn
 This option passes on a request to the assembler to enable warning
 messages when a silicon errata might need to be applied.
+
+@item -mwarn-devices-csv
+@itemx -mno-warn-devices-csv
+@opindex mwarn-devices-csv
+@opindex mno-warn-devices-csv
+Warn if @samp{devices.csv} is not found or there are problem parsing it
+(default: on).
 
 @end table
 

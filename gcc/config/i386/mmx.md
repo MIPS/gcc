@@ -1394,6 +1394,36 @@
    (set_attr "type" "mmxcvt,sselog,sselog")
    (set_attr "mode" "DI,TI,TI")])
 
+(define_insn "*mmx_pinsrd"
+  [(set (match_operand:V2SI 0 "register_operand" "=x,Yv")
+        (vec_merge:V2SI
+          (vec_duplicate:V2SI
+            (match_operand:SI 2 "nonimmediate_operand" "rm,rm"))
+	  (match_operand:V2SI 1 "register_operand" "0,Yv")
+          (match_operand:SI 3 "const_int_operand")))]
+  "TARGET_MMX_WITH_SSE && TARGET_SSE4_1
+   && ((unsigned) exact_log2 (INTVAL (operands[3]))
+       < GET_MODE_NUNITS (V2SImode))"
+{
+  operands[3] = GEN_INT (exact_log2 (INTVAL (operands[3])));
+  switch (which_alternative)
+    {
+    case 1:
+      return "vpinsrd\t{%3, %2, %1, %0|%0, %1, %2, %3}";
+    case 0:
+      return "pinsrd\t{%3, %2, %0|%0, %2, %3}";
+    default:
+      gcc_unreachable ();
+    }
+}
+  [(set_attr "isa" "noavx,avx")
+   (set_attr "prefix_data16" "1")
+   (set_attr "prefix_extra" "1")
+   (set_attr "type" "sselog")
+   (set_attr "length_immediate" "1")
+   (set_attr "prefix" "orig,vex")
+   (set_attr "mode" "TI")])
+
 (define_expand "mmx_pinsrw"
   [(set (match_operand:V4HI 0 "register_operand")
         (vec_merge:V4HI
@@ -1444,22 +1474,108 @@
    (set_attr "length_immediate" "1")
    (set_attr "mode" "DI,TI,TI")])
 
-(define_insn "mmx_pextrw"
-  [(set (match_operand:SI 0 "register_operand" "=r,r")
-        (zero_extend:SI
+(define_insn "*mmx_pinsrb"
+  [(set (match_operand:V8QI 0 "register_operand" "=x,Yv")
+        (vec_merge:V8QI
+          (vec_duplicate:V8QI
+            (match_operand:QI 2 "nonimmediate_operand" "rm,rm"))
+	  (match_operand:V8QI 1 "register_operand" "0,Yv")
+          (match_operand:SI 3 "const_int_operand")))]
+  "TARGET_MMX_WITH_SSE && TARGET_SSE4_1
+   && ((unsigned) exact_log2 (INTVAL (operands[3]))
+       < GET_MODE_NUNITS (V8QImode))"
+{
+  operands[3] = GEN_INT (exact_log2 (INTVAL (operands[3])));
+  switch (which_alternative)
+    {
+    case 1:
+      if (MEM_P (operands[2]))
+	return "vpinsrb\t{%3, %2, %1, %0|%0, %1, %2, %3}";
+      else
+	return "vpinsrb\t{%3, %k2, %1, %0|%0, %1, %k2, %3}";
+    case 0:
+      if (MEM_P (operands[2]))
+	return "pinsrb\t{%3, %2, %0|%0, %2, %3}";
+      else
+	return "pinsrb\t{%3, %k2, %0|%0, %k2, %3}";
+    default:
+      gcc_unreachable ();
+    }
+}
+  [(set_attr "isa" "noavx,avx")
+   (set_attr "type" "sselog")
+   (set_attr "prefix_data16" "1")
+   (set_attr "prefix_extra" "1")
+   (set_attr "length_immediate" "1")
+   (set_attr "prefix" "orig,vex")
+   (set_attr "mode" "TI")])
+
+(define_insn "*mmx_pextrw"
+  [(set (match_operand:HI 0 "register_sse4nonimm_operand" "=r,r,m")
+	(vec_select:HI
+	  (match_operand:V4HI 1 "register_operand" "y,Yv,Yv")
+	  (parallel [(match_operand:SI 2 "const_0_to_3_operand" "n,n,n")])))]
+  "(TARGET_MMX || TARGET_MMX_WITH_SSE)
+   && (TARGET_SSE || TARGET_3DNOW_A)"
+  "@
+   pextrw\t{%2, %1, %k0|%k0, %1, %2}
+   %vpextrw\t{%2, %1, %k0|%k0, %1, %2}
+   %vpextrw\t{%2, %1, %0|%0, %1, %2}"
+  [(set_attr "isa" "*,sse2,sse4")
+   (set_attr "mmx_isa" "native,*,*")
+   (set_attr "type" "mmxcvt,sselog1,sselog1")
+   (set_attr "length_immediate" "1")
+   (set_attr "prefix" "orig,maybe_vex,maybe_vex")
+   (set_attr "mode" "DI,TI,TI")])
+
+(define_insn "*mmx_pextrw_zext"
+  [(set (match_operand:SWI48 0 "register_operand" "=r,r")
+	(zero_extend:SWI48
 	  (vec_select:HI
 	    (match_operand:V4HI 1 "register_operand" "y,Yv")
 	    (parallel [(match_operand:SI 2 "const_0_to_3_operand" "n,n")]))))]
   "(TARGET_MMX || TARGET_MMX_WITH_SSE)
    && (TARGET_SSE || TARGET_3DNOW_A)"
   "@
-   pextrw\t{%2, %1, %0|%0, %1, %2}
-   %vpextrw\t{%2, %1, %0|%0, %1, %2}"
+   pextrw\t{%2, %1, %k0|%k0, %1, %2}
+   %vpextrw\t{%2, %1, %k0|%k0, %1, %2}"
   [(set_attr "isa" "*,sse2")
    (set_attr "mmx_isa" "native,*")
    (set_attr "type" "mmxcvt,sselog1")
    (set_attr "length_immediate" "1")
+   (set_attr "prefix" "orig,maybe_vex")
    (set_attr "mode" "DI,TI")])
+
+(define_insn "*mmx_pextrb"
+  [(set (match_operand:QI 0 "nonimmediate_operand" "=r,m")
+	(vec_select:QI
+	  (match_operand:V8QI 1 "register_operand" "Yv,Yv")
+	  (parallel [(match_operand:SI 2 "const_0_to_7_operand" "n,n")])))]
+  "TARGET_MMX_WITH_SSE && TARGET_SSE4_1"
+  "@
+   %vpextrb\t{%2, %1, %k0|%k0, %1, %2}
+   %vpextrb\t{%2, %1, %0|%0, %1, %2}"
+  [(set_attr "type" "sselog1")
+   (set_attr "prefix_data16" "1")
+   (set_attr "prefix_extra" "1")
+   (set_attr "length_immediate" "1")
+   (set_attr "prefix" "maybe_vex")
+   (set_attr "mode" "TI")])
+
+(define_insn "*mmx_pextrb_zext"
+  [(set (match_operand:SWI248 0 "register_operand" "=r")
+	(zero_extend:SWI248
+	  (vec_select:QI
+	    (match_operand:V8QI 1 "register_operand" "Yv")
+	    (parallel [(match_operand:SI 2 "const_0_to_7_operand" "n")]))))]
+  "TARGET_MMX_WITH_SSE && TARGET_SSE4_1"
+  "%vpextrb\t{%2, %1, %k0|%k0, %1, %2}"
+  [(set_attr "type" "sselog1")
+   (set_attr "prefix_data16" "1")
+   (set_attr "prefix_extra" "1")
+   (set_attr "length_immediate" "1")
+   (set_attr "prefix" "maybe_vex")
+   (set_attr "mode" "TI")])
 
 (define_expand "mmx_pshufw"
   [(match_operand:V4HI 0 "register_operand")
@@ -1973,8 +2089,8 @@
 (define_expand "usadv8qi"
   [(match_operand:V2SI 0 "register_operand")
    (match_operand:V8QI 1 "register_operand")
-   (match_operand:V8QI 2 "vector_operand")
-   (match_operand:V2SI 3 "vector_operand")]
+   (match_operand:V8QI 2 "register_operand")
+   (match_operand:V2SI 3 "register_operand")]
   "TARGET_MMX_WITH_SSE"
 {
   rtx t1 = gen_reg_rtx (V1DImode);

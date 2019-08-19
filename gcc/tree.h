@@ -1517,10 +1517,11 @@ class auto_suppress_location_wrappers
 #define OMP_CLAUSE_LASTPRIVATE_GIMPLE_SEQ(NODE) \
   (OMP_CLAUSE_CHECK (NODE))->omp_clause.gimple_reduction_init
 
-/* True if a LASTPRIVATE clause is for a C++ class IV on taskloop construct
-   (thus should be lastprivate on the outer taskloop and firstprivate on
-   task).  */
-#define OMP_CLAUSE_LASTPRIVATE_TASKLOOP_IV(NODE) \
+/* True if a LASTPRIVATE clause is for a C++ class IV on taskloop or
+   loop construct (thus should be lastprivate on the outer taskloop and
+   firstprivate on task for the taskloop construct and carefully handled
+   for loop construct).  */
+#define OMP_CLAUSE_LASTPRIVATE_LOOP_IV(NODE) \
   TREE_PROTECTED (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LASTPRIVATE))
 
 /* True if a LASTPRIVATE clause has CONDITIONAL: modifier.  */
@@ -1618,6 +1619,9 @@ class auto_suppress_location_wrappers
 
 #define OMP_CLAUSE_PROC_BIND_KIND(NODE) \
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_PROC_BIND)->omp_clause.subcode.proc_bind_kind)
+
+#define OMP_CLAUSE_DEVICE_TYPE_KIND(NODE) \
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_DEVICE_TYPE)->omp_clause.subcode.device_type_kind)
 
 #define OMP_CLAUSE_COLLAPSE_EXPR(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_COLLAPSE), 0)
@@ -4310,6 +4314,7 @@ extern tree build_vector_from_val (tree, tree);
 extern tree build_uniform_cst (tree, tree);
 extern tree build_vec_series (tree, tree, tree);
 extern tree build_index_vector (tree, poly_uint64, poly_uint64);
+extern tree build_vector_a_then_b (tree, unsigned int, tree, tree);
 extern void recompute_constructor_flags (tree);
 extern void verify_constructor_flags (tree);
 extern tree build_constructor (tree, vec<constructor_elt, va_gc> * CXX_MEM_STAT_INFO);

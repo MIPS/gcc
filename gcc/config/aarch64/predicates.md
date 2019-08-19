@@ -53,13 +53,12 @@
 
 (define_predicate "aarch64_simd_register"
   (and (match_code "reg")
-       (ior (match_test "REGNO_REG_CLASS (REGNO (op)) == FP_LO_REGS")
-            (match_test "REGNO_REG_CLASS (REGNO (op)) == FP_REGS"))))
+       (match_test "FP_REGNUM_P (REGNO (op))")))
 
 (define_predicate "aarch64_reg_or_zero"
-  (and (match_code "reg,subreg,const_int")
+  (and (match_code "reg,subreg,const_int,const_double")
        (ior (match_operand 0 "register_operand")
-	    (match_test "op == const0_rtx"))))
+	    (match_test "op == CONST0_RTX (GET_MODE (op))"))))
 
 (define_predicate "aarch64_reg_or_fp_zero"
   (ior (match_operand 0 "register_operand")
@@ -432,6 +431,12 @@
   return aarch64_simd_check_vect_par_cnst_half (op, mode, false);
 })
 
+(define_predicate "descending_int_parallel"
+  (match_code "parallel")
+{
+  return aarch64_stepped_int_parallel_p (op, -1);
+})
+
 (define_special_predicate "aarch64_simd_lshift_imm"
   (match_code "const,const_vector")
 {
@@ -543,6 +548,10 @@
 (define_predicate "aarch64_sve_ld1r_operand"
   (and (match_operand 0 "memory_operand")
        (match_test "aarch64_sve_ld1r_operand_p (op)")))
+
+(define_predicate "aarch64_sve_ld1rq_operand"
+  (and (match_code "mem")
+       (match_test "aarch64_sve_ld1rq_operand_p (op)")))
 
 ;; Like memory_operand, but restricted to addresses that are valid for
 ;; SVE LDR and STR instructions.
