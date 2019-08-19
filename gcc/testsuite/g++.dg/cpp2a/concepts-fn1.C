@@ -86,7 +86,7 @@ template<typename T>
 struct S
 {
   void f() requires Class<T> { }
-  
+
   template<typename U>
   struct Inner
   {
@@ -110,7 +110,7 @@ void driver_1()
 
   S<X>::Inner<X> si1;
   si1.g();
-  
+
   S<X>::Inner<int> si2;
   si2.g(); // { dg-error "no matching function" }
 }

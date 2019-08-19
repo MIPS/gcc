@@ -545,9 +545,7 @@ dump_type (cxx_pretty_printer *pp, tree t, int flags)
 
     case TEMPLATE_TYPE_PARM:
       pp_cxx_cv_qualifier_seq (pp, t);
-      if (tree c = PLACEHOLDER_TYPE_CONSTRAINTS (t))
-	pp_cxx_constrained_type_spec (pp, c);
-      else if (template_placeholder_p (t))
+      if (template_placeholder_p (t))
 	{
 	  t = TREE_TYPE (CLASS_PLACEHOLDER_TEMPLATE (t));
 	  pp_cxx_tree_identifier (pp, TYPE_IDENTIFIER (t));
@@ -558,6 +556,9 @@ dump_type (cxx_pretty_printer *pp, tree t, int flags)
       else
 	pp_cxx_canonical_template_parameter
 	  (pp, TEMPLATE_TYPE_PARM_INDEX (t));
+      /* If this is a constrained placeholder, add the requirements.  */
+      if (tree c = PLACEHOLDER_TYPE_CONSTRAINTS (t))
+        pp_cxx_constrained_type_spec (pp, c);
       break;
 
       /* This is not always necessary for pointers and such, but doing this

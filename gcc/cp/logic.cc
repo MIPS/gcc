@@ -50,8 +50,8 @@ along with GCC; see the file COPYING3.  If not see
 static bool
 parameter_mapping_equivalent_p (tree t1, tree t2)
 {
-  tree map1 = TREE_TYPE (t1);
-  tree map2 = TREE_TYPE (t2);
+  tree map1 = ATOMIC_CONSTR_MAP (t1);
+  tree map2 = ATOMIC_CONSTR_MAP (t2);
   while (map1 && map2)
     {
       tree arg1 = TREE_PURPOSE (map1);
@@ -87,7 +87,7 @@ hash_atomic_constraint (tree t)
   hashval_t val = htab_hash_pointer (ATOMIC_CONSTR_EXPR (t));
 
   /* Hash the targets of the parameter map.  */
-  tree p = TREE_TYPE (t);
+  tree p = ATOMIC_CONSTR_MAP (t);
   while (p)
     {
       val = iterative_hash_template_arg (TREE_PURPOSE (p), val);

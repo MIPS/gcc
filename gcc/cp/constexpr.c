@@ -5273,7 +5273,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
          '!requires (T t) { ... }' which is not transformed into
          a constraint.  */
       if (!processing_template_decl)
-        return evaluate_constraint_expression (t, NULL_TREE);
+        return satisfy_constraint_expression (t);
       else
         *non_constant_p = true;
       return t;
@@ -5297,7 +5297,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 	  internal_error ("unexpected template-id %qE", t);
 
 	if (!processing_template_decl)
-	  return evaluate_constraint_expression (t, NULL_TREE);
+	  return satisfy_constraint_expression (t);
 	else
 	  *non_constant_p = true;
 	return t;

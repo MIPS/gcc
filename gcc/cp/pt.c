@@ -183,7 +183,6 @@ static int check_cv_quals_for_unify (int, tree, tree);
 static int unify_pack_expansion (tree, tree, tree,
 				 tree, unification_kind_t, bool, bool);
 static tree copy_template_args (tree);
-static tree tsubst_template_arg (tree, tree, tsubst_flags_t, tree);
 static tree tsubst_template_parms (tree, tree, tsubst_flags_t);
 static tree most_specialized_partial_spec (tree, tsubst_flags_t);
 static tree tsubst_aggr_type (tree, tree, tsubst_flags_t, tree, int);
@@ -10289,39 +10288,100 @@ for_each_template_parm (tree t, tree_fn_t fn, void* data,
   return result;
 }
 
-/* A simplified interface for the function above.  */
-
-static tree
-for_each_template_parm (tree t, tree_fn_t fn, void* data)
+struct find_template_parameter_info
 {
-  return for_each_template_parm (t, fn, data, NULL, true, NULL);
-}
+  explicit find_template_parameter_info (int d)
+    : max_depth (d)
+  {}
+
+  hash_set<tree> visited;
+  hash_set<tree> parms;
+  int max_depth;
+};
 
 /* Appends the declaration of T to the list in DATA.  */
 
 static int
 keep_template_parm (tree t, void* data)
 {
-  tree* parms = (tree*)data;
-  *parms = tree_cons (NULL_TREE, t, *parms);
+  find_template_parameter_info *ftpi = (find_template_parameter_info*)data;
 
-  // tree decl;
-  // if (TREE_CODE (t) == TEMPLATE_PARM_INDEX)
-  //   decl = TEMPLATE_PARM_DECL (t);
-  // else
-  //   decl = TEMPLATE_TYPE_DECL (t);
-  // *parms = tree_cons (NULL_TREE, decl, *parms);
-  return 1;
+  /* Template parameters declared within the expression are not part of
+     the parameter mapping. For example, in this concept:
+
+       template<typename T>
+       concept C = requires { <expr> } -> same_as<int>;
+
+     the return specifier same_as<int> declares a new decltype parameter
+     that must not be part of the parameter mapping. The same is true
+     for generic lambda parameters, lambda template parameters, etc.  */
+  int level;
+  int index;
+  template_parm_level_and_index (t, &level, &index);
+
+  if (level > ftpi->max_depth)
+    return 0;
+
+  /* Arguments like const T yield parameters like const T. This means that
+     a template-id like X<T, const T> would yield two distinct parameters:
+     T and const T. Adjust types to their unqualified versions.  */
+  if (TYPE_P (t))
+    t = TYPE_MAIN_VARIANT (t);
+  ftpi->parms.add (t);
+
+  return 0;
+}
+
+/* Ensure that we recursively examine certain terms that are not normally
+   visited in for_each_template_parm_r.  */
+
+static int
+any_template_parm_r (tree t, void *data)
+{
+  find_template_parameter_info *ftpi = (find_template_parameter_info*)data;
+
+#define WALK_SUBTREE(NODE)						\
+  do									\
+    {									\
+      for_each_template_parm (NODE, keep_template_parm, data,		\
+			      &ftpi->visited, true,			\
+			      any_template_parm_r);			\
+    }									\
+  while (0)
+
+  switch (TREE_CODE (t))
+    {
+    case TEMPLATE_TYPE_PARM:
+      /* Type constraints of a placeholder type may contain parameters.  */
+      if (is_auto (t))
+	if (tree constr = PLACEHOLDER_TYPE_CONSTRAINTS (t))
+	  WALK_SUBTREE (constr);
+      break;
+
+    case CONSTRUCTOR:
+      if (TREE_TYPE (t))
+        WALK_SUBTREE (TREE_TYPE (t));
+      break;
+    default:
+      break;
+    }
+
+  /* Keep walking.  */
+  return 0;
 }
 
 /* Returns a list of unique template parameters found within T.  */
 
 tree
-find_template_parameters (tree t)
+find_template_parameters (tree t, int depth)
 {
-  tree parms = NULL_TREE;
-  for_each_template_parm (t, keep_template_parm, &parms);
-  return parms;
+  find_template_parameter_info ftpi (depth);
+  for_each_template_parm (t, keep_template_parm, &ftpi, &ftpi.visited,
+			  /*include_nondeduced*/true, any_template_parm_r);
+  tree list = NULL_TREE;
+  for (auto iter = ftpi.parms.begin(); iter != ftpi.parms.end(); ++iter)
+    list = tree_cons (NULL_TREE, *iter, list);
+  return list;
 }
 
 /* Returns true if T depends on any template parameter.  */
@@ -11776,7 +11836,7 @@ instantiate_class_template (tree type)
   return ret;
 }
 
-static tree
+tree
 tsubst_template_arg (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 {
   tree r;
@@ -12018,16 +12078,6 @@ gen_elem_of_pack_expansion_instantiation (tree pattern,
     t = tsubst_decl (pattern, args, complain);
   else if (pattern == error_mark_node)
     t = error_mark_node;
-  /* FIXME: We shouldn't get constraints here.
-  else if (constraint_p (pattern))
-    {
-      if (processing_template_decl)
-	t = tsubst_constraint (pattern, args, complain, in_decl);
-      else
-	t = (constraints_satisfied_p (pattern, args)
-	     ? boolean_true_node : boolean_false_node);
-    }
-  */
   else if (!TYPE_P (pattern))
     t = tsubst_expr (pattern, args, complain, in_decl,
 		     /*integral_constant_expression_p=*/false);
@@ -12507,7 +12557,6 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
         {
 	  int idx;
           template_parm_level_and_index (parm_pack, &level, &idx);
-
           if (level <= levels)
             arg_pack = TMPL_ARG (args, level, idx);
         }
@@ -12561,6 +12610,10 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
 	  /* We can't substitute for this parameter pack.  We use a flag as
 	     well as the missing_level counter because function parameter
 	     packs don't have a level.  */
+          if (!(processing_template_decl || is_auto (parm_pack)))
+	    {
+	      gcc_unreachable ();
+	    }
 	  gcc_assert (processing_template_decl || is_auto (parm_pack));
 	  unsubstituted_packs = true;
 	}
@@ -14962,7 +15015,8 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 
                 if (TREE_CODE (t) == TEMPLATE_TYPE_PARM)
 		  {
-		    /* Propagate constraints on placeholders.  */
+		    /* Propagate constraints on placeholders since they are
+		       only instantiated during satisfaction.  */
 		    if (tree constr = PLACEHOLDER_TYPE_CONSTRAINTS (t))
 		      PLACEHOLDER_TYPE_CONSTRAINTS (r) = constr;
 		    else if (tree pl = CLASS_PLACEHOLDER_TEMPLATE (t))
@@ -27189,12 +27243,8 @@ tree
 finish_concept_definition (tree decl, tree init)
 {
   gcc_assert (concept_definition_p (decl) || decl == error_mark_node);
-
-  if (decl == error_mark_node)
-    return error_mark_node;
-
-  DECL_INITIAL (decl) = init;
-
+  if (decl != error_mark_node)
+    DECL_INITIAL (decl) = init;
   return decl;
 }
 

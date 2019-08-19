@@ -1514,7 +1514,7 @@ check_constraint_info (tree t)
 #define TEMPLATE_PARM_CONSTRAINTS(NODE) \
   TREE_TYPE (TREE_LIST_CHECK (NODE))
 
-/* Non-zero if the noexcept is present in a compound requirement. */
+/* Non-zero if the noexcept is present in a compound requirement.  */
 #define COMPOUND_REQ_NOEXCEPT_P(NODE) \
   TREE_LANG_FLAG_0 (TREE_CHECK (NODE, COMPOUND_REQ))
 
@@ -1523,9 +1523,37 @@ check_constraint_info (tree t)
 #define PLACEHOLDER_TYPE_CONSTRAINTS(NODE) \
   DECL_SIZE_UNIT (TYPE_NAME (NODE))
 
-/* The expression evaluated by the predicate constraint. */
-#define ATOMIC_CONSTR_EXPR(NODE) \
+/* Valid for any normalized constraint.  */
+#define CONSTR_CHECK(NODE) \
+  TREE_CHECK3 (NODE, ATOMIC_CONSTR, CONJ_CONSTR, DISJ_CONSTR)
+
+/* The CONSTR_INFO stores normalization data for a constraint. In particular,
+   it refers to the original expression and the expression or declaration
+   from which the constraint was normalized.
+
+   This is TREE_LIST whose TREE_PURPOSE is the original expression and whose
+   TREE_VALUE is a list of contexts.  */
+#define CONSTR_INFO(NODE) \
+  TREE_TYPE (CONSTR_CHECK (NODE))
+
+/* The expression evaluated by the constraint.  */
+#define CONSTR_EXPR(NODE) \
+  TREE_PURPOSE (CONSTR_INFO (NODE))
+
+/* The expression or declaration from which this constraint was normalized.
+   This is a TREE_LIST whose TREE_VALUE is either a template-id expression
+   denoting a concept check or the declaration introducing the constraint.
+   These are chained to other context objects.  */
+#define CONSTR_CONTEXT(NODE) \
+  TREE_VALUE (CONSTR_INFO (NODE))
+
+/* The parameter mapping for an atomic constraint. */
+#define ATOMIC_CONSTR_MAP(NODE) \
   TREE_OPERAND (TREE_CHECK (NODE, ATOMIC_CONSTR), 0)
+
+/* The expression of an atomic constraint. */
+#define ATOMIC_CONSTR_EXPR(NODE) \
+  CONSTR_EXPR (ATOMIC_CONSTR_CHECK (NODE))
 
 /* The concept of a concept check. */
 #define CHECK_CONSTR_CONCEPT(NODE) \
@@ -6788,6 +6816,7 @@ extern tree tsubst_expr                         (tree, tree, tsubst_flags_t,
                                                  tree, bool);
 extern tree tsubst_pack_expansion		(tree, tree, tsubst_flags_t, tree);
 extern tree tsubst_template_args		(tree, tree, tsubst_flags_t, tree);
+extern tree tsubst_template_arg			(tree, tree, tsubst_flags_t, tree);
 extern tree tsubst_function_parms		(tree, tree, tsubst_flags_t, tree);
 extern tree most_general_template		(tree);
 extern tree get_mostly_instantiated_function_type (tree);
@@ -7660,13 +7689,9 @@ extern bool parsing_constraint_expression_p	();
 extern bool satisfying_constraint_p		();
 
 extern tree unpack_concept_check		(tree);
-extern tree evaluate_constraints                (tree, tree);
 extern tree evaluate_concept_check              (tree);
-extern tree evaluate_concept                    (tree, tree);
-extern tree evaluate_function_concept           (tree, tree);
-extern tree evaluate_variable_concept           (tree, tree);
-extern tree evaluate_constraint_expression      (tree, tree);
-extern tree evaluate_constraint_expression      (tree);
+extern tree satisfy_constraint_expression	(tree);
+extern tree satisfy_constraint_expression	(tree, tree);
 extern bool constraints_satisfied_p             (tree);
 extern bool constraints_satisfied_p             (tree, tree);
 extern tree lookup_constraint_satisfaction      (tree, tree);
@@ -7677,7 +7702,7 @@ extern tree get_concept_expansion               (tree, tree);
 extern tree save_concept_expansion              (tree, tree, tree);
 extern bool* lookup_subsumption_result          (tree, tree);
 extern bool save_subsumption_result             (tree, tree, bool);
-extern tree find_template_parameters		(tree);
+extern tree find_template_parameters		(tree, int);
 
 extern bool equivalent_constraints              (tree, tree);
 extern bool equivalently_constrained            (tree, tree);

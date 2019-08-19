@@ -2,7 +2,7 @@
 // { dg-do compile { target c++17 } }
 // { dg-options "-fconcepts" }
 
-template<int... Indices>
+template<int... Xs>
 struct indices {};
 
 template<typename Dummy>

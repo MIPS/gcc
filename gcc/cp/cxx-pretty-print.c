@@ -1351,6 +1351,8 @@ cxx_pretty_printer::simple_type_specifier (tree t)
     case TEMPLATE_PARM_INDEX:
     case BOUND_TEMPLATE_TEMPLATE_PARM:
       pp_cxx_unqualified_id (this, t);
+      if (tree c = PLACEHOLDER_TYPE_CONSTRAINTS (t))
+        pp_cxx_constrained_type_spec (this, c);
       break;
 
     case TYPENAME_TYPE:
@@ -1878,7 +1880,7 @@ pp_cxx_template_argument_list (cxx_pretty_printer *pp, tree t)
 	{
 	  if (argpack)
 	    arg = TREE_VEC_ELT (argpack, idx);
-	  
+
 	  if (need_comma)
 	    pp_cxx_separate_with (pp, ',');
 	  else
@@ -2304,24 +2306,28 @@ pp_cxx_canonical_template_parameter (cxx_pretty_printer *pp, tree parm)
 void
 pp_cxx_constrained_type_spec (cxx_pretty_printer *pp, tree c)
 {
+  pp_cxx_whitespace (pp);
+  pp_cxx_left_bracket (pp);
+  pp->translate_string ("requires");
+  pp_cxx_whitespace (pp);
   if (c == error_mark_node)
     {
-      pp_cxx_ws_string(pp, "<unsatisfied-constrained-placeholder>");
+      pp_cxx_ws_string(pp, "<unsatisfied-type-constraint>");
       return;
     }
   tree t, a;
   placeholder_extract_concept_and_args (c, t, a);
   pp->id_expression (t);
-  if (TREE_VEC_LENGTH (a) > 1)
-    {
-      pp_cxx_begin_template_argument_list (pp);
-      tree args = make_tree_vec (TREE_VEC_LENGTH (a) - 1);
-      for (int i = TREE_VEC_LENGTH (a) - 1; i > 0; --i)
-	TREE_VEC_ELT (args, i-1) = TREE_VEC_ELT (a, i);
-      pp_cxx_template_argument_list (pp, args);
-      ggc_free (args);
-      pp_cxx_end_template_argument_list (pp);
-    }
+  pp_cxx_begin_template_argument_list (pp);
+  pp_cxx_ws_string (pp, "<placeholder>");
+  pp_cxx_separate_with (pp, ',');
+  tree args = make_tree_vec (TREE_VEC_LENGTH (a) - 1);
+  for (int i = 0; i < TREE_VEC_LENGTH (a) - 1; ++i)
+    TREE_VEC_ELT (args, i) = TREE_VEC_ELT (a, i + 1);
+  pp_cxx_template_argument_list (pp, args);
+  ggc_free (args);
+  pp_cxx_end_template_argument_list (pp);
+  pp_cxx_right_bracket (pp);
 }
 
 /*
@@ -2856,6 +2862,7 @@ pp_cxx_compound_requirement (cxx_pretty_printer *pp, tree t)
 
   if (tree type = TREE_OPERAND (t, 1))
     {
+      pp_cxx_whitespace (pp);
       pp_cxx_ws_string (pp, "->");
       pp->type_id (type);
     }
@@ -2895,12 +2902,55 @@ pp_cxx_check_constraint (cxx_pretty_printer *pp, tree t)
     gcc_unreachable ();
 }
 
+/* Output the "[with ...]" clause for a parameter mapping of an atomic
+   constraint.   */
+
+static void
+pp_cxx_parameter_mapping (cxx_pretty_printer *pp, tree map)
+{
+  for (tree p = map; p; p = TREE_CHAIN (p))
+    {
+      tree parm = TREE_VALUE (p);
+      tree arg = TREE_PURPOSE (p);
+
+      if (TYPE_P (parm))
+	pp_cxx_tree_identifier (pp, DECL_NAME (TEMPLATE_TYPE_DECL (parm)));
+      else
+	pp_cxx_tree_identifier (pp, DECL_NAME (TEMPLATE_PARM_DECL (parm)));
+
+      pp_cxx_whitespace (pp);
+      pp_equal (pp);
+      pp_cxx_whitespace (pp);
+
+      if (TYPE_P (arg) || DECL_TEMPLATE_TEMPLATE_PARM_P (arg))
+	pp->type_id (arg);
+      else
+	pp->expression (arg);
+
+      if (TREE_CHAIN (p) != NULL_TREE)
+	pp_cxx_separate_with (pp, ';');
+    }
+}
+
 void
 pp_cxx_atomic_constraint (cxx_pretty_printer *pp, tree t)
 {
-  pp_string(pp, "(");
-  pp->expression (TREE_OPERAND (t, 0));
-  pp_string(pp, ")");
+  /* Emit the expression.  */
+  pp_left_paren (pp);
+  pp->expression (ATOMIC_CONSTR_EXPR (t));
+  pp_right_paren (pp);
+
+  /* Emit the parameter mapping.  */
+  tree map = ATOMIC_CONSTR_MAP (t);
+  if (map && map != error_mark_node)
+    {
+      pp_cxx_whitespace (pp);
+      pp_cxx_left_bracket (pp);
+      pp->translate_string ("with");
+      pp_cxx_whitespace (pp);
+      pp_cxx_parameter_mapping (pp, map);
+      pp_cxx_right_bracket (pp);
+   }
 }
 
 void

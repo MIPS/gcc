@@ -26912,11 +26912,7 @@ cp_parser_concept_definition (cp_parser *parser)
   parsing_constraint_expression_sentinel parsing_constraint;
   tree init = cp_parser_constraint_expression (parser);
   if (init == error_mark_node)
-    {
-      cp_parser_skip_to_end_of_statement (parser);
-      cp_parser_consume_semicolon_at_end_of_statement (parser);
-      return error_mark_node;
-    }
+    cp_parser_skip_to_end_of_statement (parser);
 
   /* Consume the trailing ';'. Diagnose the problem if it isn't there,
      but continue as if it were.  */

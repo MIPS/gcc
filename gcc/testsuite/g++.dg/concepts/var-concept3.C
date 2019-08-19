@@ -25,6 +25,6 @@ template<C3 T>  // { dg-error "not a type" }
 void foo()
 {
   struct S { } s;
-  f2(s); // { dg-error "must be a function call" }
+  f2(s); // { dg-error "must be called" }
   // f2(0);
 }

@@ -44,6 +44,6 @@ void driver()
   f15('a'); // { dg-message "" }
 }
 
-template<class T> concept bool C1() { return false; }                            
-template<C1 T> concept bool C2() { return true; } // { dg-error "cannot be constrained" }                          
+template<class T> concept bool C1() { return false; }
+template<C1 T> concept bool C2() { return true; } // { dg-error "cannot be constrained" }
 template<C1 T> concept bool C3 = true; // { dg-error "cannot be constrained" }

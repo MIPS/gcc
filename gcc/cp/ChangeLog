@@ -1,3 +1,99 @@
+2019-08-19  Andrew Sutton  <asutton@lock3software.com>
+
+	Normalize constraints before satisfaction.
+	* constexpr.c (cxx_eval_constant_expression): Use
+	satisfy_constraint_expression.
+	* constraint.cc (check_constraint_atom): Add check for misuse of
+	function concepts.
+	(get_concept_check_template): New.
+	(debug_parameter_mapping): New.
+	(debug_argument_list): New.
+	(build_parameter_mapping): Compute the maximum depth for finding
+	parameters in the expression.
+	(norm_info): Track more information about the normalization of
+	each term.
+	(normalize_logical_operation): Add the normalization context to the
+	constraint.
+	(normalize_concept_check): Add check for misuses of function concepts;
+	enable template processing to suppress spurious errors.
+	(normalize_atom): Add the normalization context to the
+	expression.
+	(get_normalized_constraints_from_decl): Build the normalization
+	arguments from the full set of template parameters of the most
+	general template. This guarantees that we have no concrete arguments
+	in the parameter mapping (e.g., from template members of class
+	templates).
+	(normalize_concept_definition): New.
+	(normalize_template_requirements): New.
+	(normalize_nontemplate_requirements): New.
+	(normalize_constraint_expression): New.
+	(tsubst_parameter_mapping): New.
+	(satisfy_check): Removed. Constraints are normalized first.
+	(resize_vector): New.
+	(get_mapped_args): New.
+	(satisfy_atom): Don't call satisfy_check. Instantiate the parameter
+	mapping and extract a new argument list from that.
+	(satisfy_constraint_r): Rename from satisfy_expression, and update
+	usage throughout.
+	(satisfy_constraint_expression): New.
+	(constraint_expression_satisfied_p): New.
+	(constraints_satisfied_p): Normalize constraints before satisfying.
+	(constraints_satisfied_p): Likewise.
+	(evaluate_concept_check): Likewise.
+	(evaluate_constraints): Removed.
+	(diagnose_check): Removed.
+	(diagnose_trait): Renamed to diagnose_trait_expr.
+	(diagnose_requires): Renamed to diagnose_requires_expr.
+	(rebuild_concept_check): New.
+	(diagnose_constraint_context_head): New.
+	(diagnose_constraint_context): New.
+	(get_error_location): New.
+	(diagnose_atom_failure): New.
+	(diagnose_disjunction_failure): New.
+	(find_atomic_failure): New.
+	(find_conjunction_failure): New.
+	(find_disjunction_failure): New.
+	(find_constraint_failure): New.
+	(diagnose_declaration_constraints): Search for the first constraint
+	that failed and diagnose only that.
+	(diagnose_constraint_expression): Likewise.
+	* cp-tree.def (*_CONSTR): Add normalization info to the "type" of
+	the constraint, including the original expression. The parameter
+	mapping is the operand of atomic constraints.
+	* cp-tree.h (CONSTR_CHECK): New.
+	(CONSTR_INFO): New.
+	(CONSTR_EXPR): New.
+	(CONSTR_CONTEXT): New.
+	(ATOMIC_CONSTR_MAP): New.
+	(evaluate_*): Removed unused satisfaction primitives.
+	(satisfy_constraint_expression): New.
+	(find_template_parameters): Update signature.
+	* cxx-petty-print.c (simple_type_specifier): Print requirements for
+	placeholder types.
+	(pp_cxx_constrained_type_spec): Print the associated requirements of
+	a placeholder type.
+	(pp_cxx_compound_requirement): Add space before the '->'.
+	(pp_cxx_parameter_mapping): Print the parameter mapping.
+	(pp_cxx_atomic_constraint): Use the function above.
+	* error.c (dump_type): Print associated requirements for placeholder
+	types.
+	* logic.cc (parameter_mapping_equivalent_p): Use ATOMIC_CONSTR_MAP
+	instead of TREE_TYPE.
+	* parser.c (cp_parser_concept_definition): Don't fail parsing the
+	concept definition if the initializer is ill-formed.
+	* pt. (tsubst_template_arg): Make extern.
+	(find_template_parameter_info): New. Provide context for finding
+	template parameters.
+	(keep_template_parm): Don't keep parameters declared at depth levels
+	greater than those of the template parameters of the source declaration.
+	Don't propagate cv-qualified types. Return 0, so we find all template
+	parameters, not the just first.
+	* (any_template_parm_r): New. Handle cases that are mishandled by
+	for_each_template_parm_r.
+	(for_each_template_parm): Removed overload.
+	(finish_concept_definition): Don't invalid concept declarations with
+	invalid initializers.
+
 2019-08-14  Jason Merrill  <jason@redhat.com>
 
 	Implement P0848R3, Conditionally Trivial Special Member Functions.
