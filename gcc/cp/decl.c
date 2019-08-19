@@ -2293,7 +2293,8 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	  DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (newdecl)
 	    |= DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (olddecl);
 	  DECL_NO_LIMIT_STACK (newdecl) |= DECL_NO_LIMIT_STACK (olddecl);
-	  DECL_IS_OPERATOR_NEW (newdecl) |= DECL_IS_OPERATOR_NEW (olddecl);
+	  if (DECL_IS_OPERATOR_NEW_P (olddecl))
+	    DECL_SET_IS_OPERATOR_NEW (newdecl, true);
 	  DECL_LOOPING_CONST_OR_PURE_P (newdecl)
 	    |= DECL_LOOPING_CONST_OR_PURE_P (olddecl);
 
@@ -3630,16 +3631,23 @@ case_conversion (tree type, tree value)
 
   value = mark_rvalue_use (value);
 
+  if (INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (type))
+    type = type_promotes_to (type);
+
+  tree ovalue = value;
+  /* The constant-expression VALUE shall be a converted constant expression
+     of the adjusted type of the switch condition, which doesn't allow
+     narrowing conversions.  */
+  value = build_converted_constant_expr (type, value, tf_warning_or_error);
+
   if (cxx_dialect >= cxx11
       && (SCOPED_ENUM_P (type)
-	  || !INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (TREE_TYPE (value))))
-    {
-      if (INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (type))
-	type = type_promotes_to (type);
-      value = (perform_implicit_conversion_flags
-	       (type, value, tf_warning_or_error,
-		LOOKUP_IMPLICIT | LOOKUP_NO_NON_INTEGRAL));
-    }
+	  || !INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (TREE_TYPE (ovalue))))
+    /* Use the converted value.  */;
+  else
+    /* The already integral case.  */
+    value = ovalue;
+
   return cxx_constant_value (value);
 }
 
@@ -4358,12 +4366,14 @@ cxx_init_decl_processing (void)
     deltype = build_exception_variant (deltype, empty_except_spec);
     tree opnew = push_cp_library_fn (NEW_EXPR, newtype, 0);
     DECL_IS_MALLOC (opnew) = 1;
-    DECL_IS_OPERATOR_NEW (opnew) = 1;
+    DECL_SET_IS_OPERATOR_NEW (opnew, true);
     opnew = push_cp_library_fn (VEC_NEW_EXPR, newtype, 0);
     DECL_IS_MALLOC (opnew) = 1;
-    DECL_IS_OPERATOR_NEW (opnew) = 1;
-    push_cp_library_fn (DELETE_EXPR, deltype, ECF_NOTHROW);
-    push_cp_library_fn (VEC_DELETE_EXPR, deltype, ECF_NOTHROW);
+    DECL_SET_IS_OPERATOR_NEW (opnew, true);
+    tree opdel = push_cp_library_fn (DELETE_EXPR, deltype, ECF_NOTHROW);
+    DECL_SET_IS_OPERATOR_DELETE (opdel, true);
+    opdel = push_cp_library_fn (VEC_DELETE_EXPR, deltype, ECF_NOTHROW);
+    DECL_SET_IS_OPERATOR_DELETE (opdel, true);
     if (flag_sized_deallocation)
       {
 	/* Also push the sized deallocation variants:
@@ -4375,8 +4385,10 @@ cxx_init_decl_processing (void)
 	deltype = cp_build_type_attribute_variant (void_ftype_ptr_size,
 						   extvisattr);
 	deltype = build_exception_variant (deltype, empty_except_spec);
-	push_cp_library_fn (DELETE_EXPR, deltype, ECF_NOTHROW);
-	push_cp_library_fn (VEC_DELETE_EXPR, deltype, ECF_NOTHROW);
+	opdel = push_cp_library_fn (DELETE_EXPR, deltype, ECF_NOTHROW);
+	DECL_SET_IS_OPERATOR_DELETE (opdel, true);
+	opdel = push_cp_library_fn (VEC_DELETE_EXPR, deltype, ECF_NOTHROW);
+	DECL_SET_IS_OPERATOR_DELETE (opdel, true);
       }
 
     if (aligned_new_threshold)
@@ -4394,18 +4406,20 @@ cxx_init_decl_processing (void)
 	newtype = build_exception_variant (newtype, new_eh_spec);
 	opnew = push_cp_library_fn (NEW_EXPR, newtype, 0);
 	DECL_IS_MALLOC (opnew) = 1;
-	DECL_IS_OPERATOR_NEW (opnew) = 1;
+	DECL_SET_IS_OPERATOR_NEW (opnew, true);
 	opnew = push_cp_library_fn (VEC_NEW_EXPR, newtype, 0);
 	DECL_IS_MALLOC (opnew) = 1;
-	DECL_IS_OPERATOR_NEW (opnew) = 1;
+	DECL_SET_IS_OPERATOR_NEW (opnew, true);
 
 	/* operator delete (void *, align_val_t); */
 	deltype = build_function_type_list (void_type_node, ptr_type_node,
 					    align_type_node, NULL_TREE);
 	deltype = cp_build_type_attribute_variant (deltype, extvisattr);
 	deltype = build_exception_variant (deltype, empty_except_spec);
-	push_cp_library_fn (DELETE_EXPR, deltype, ECF_NOTHROW);
-	push_cp_library_fn (VEC_DELETE_EXPR, deltype, ECF_NOTHROW);
+	opdel = push_cp_library_fn (DELETE_EXPR, deltype, ECF_NOTHROW);
+	DECL_SET_IS_OPERATOR_DELETE (opdel, true);
+	opdel = push_cp_library_fn (VEC_DELETE_EXPR, deltype, ECF_NOTHROW);
+	DECL_SET_IS_OPERATOR_DELETE (opdel, true);
 
 	if (flag_sized_deallocation)
 	  {
@@ -4415,8 +4429,10 @@ cxx_init_decl_processing (void)
 						NULL_TREE);
 	    deltype = cp_build_type_attribute_variant (deltype, extvisattr);
 	    deltype = build_exception_variant (deltype, empty_except_spec);
-	    push_cp_library_fn (DELETE_EXPR, deltype, ECF_NOTHROW);
-	    push_cp_library_fn (VEC_DELETE_EXPR, deltype, ECF_NOTHROW);
+	    opdel = push_cp_library_fn (DELETE_EXPR, deltype, ECF_NOTHROW);
+	    DECL_SET_IS_OPERATOR_DELETE (opdel, true);
+	    opdel = push_cp_library_fn (VEC_DELETE_EXPR, deltype, ECF_NOTHROW);
+	    DECL_SET_IS_OPERATOR_DELETE (opdel, true);
 	  }
       }
 
@@ -5883,8 +5899,9 @@ reshape_init_array_1 (tree elt_type, tree max_index, reshape_iter *d,
       /* Pointers initialized to strings must be treated as non-zero
 	 even if the string is empty.  */
       tree init_type = TREE_TYPE (elt_init);
-      if ((POINTER_TYPE_P (elt_type) != POINTER_TYPE_P (init_type))
-	  || !initializer_zerop (elt_init))
+      if ((POINTER_TYPE_P (elt_type) != POINTER_TYPE_P (init_type)))
+	last_nonzero = index;
+      else if (!type_initializer_zero_p (elt_type, elt_init))
 	last_nonzero = index;
 
       /* This can happen with an invalid initializer (c++/54501).  */
@@ -13661,10 +13678,13 @@ grok_op_properties (tree decl, bool complain)
 	}
 
       if (op_flags & OVL_OP_FLAG_DELETE)
-	coerce_delete_type (decl, loc);
+	{
+	  DECL_SET_IS_OPERATOR_DELETE (decl, true);
+	  coerce_delete_type (decl, loc);
+	}
       else
 	{
-	  DECL_IS_OPERATOR_NEW (decl) = 1;
+	  DECL_SET_IS_OPERATOR_NEW (decl, true);
 	  TREE_TYPE (decl) = coerce_new_type (TREE_TYPE (decl), loc);
 	}
 
@@ -16301,6 +16321,7 @@ finish_function (bool inline_p)
 	      && same_type_ignoring_top_level_qualifiers_p
 		  (TREE_TYPE (valtype), TREE_TYPE (current_class_ref))
 	      && global_dc->option_enabled (OPT_Wreturn_type,
+					    global_dc->lang_mask,
 					    global_dc->option_state))
 	    add_return_star_this_fixit (&richloc, fndecl);
 	}

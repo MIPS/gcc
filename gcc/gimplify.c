@@ -10663,6 +10663,22 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 		  && OMP_CLAUSE_DECL (*pc) == orig_decl)
 		break;
 	    if (*pc == NULL_TREE)
+	      {
+		tree *spc;
+		for (spc = &OMP_PARALLEL_CLAUSES (*data[1]);
+		     *spc; spc = &OMP_CLAUSE_CHAIN (*spc))
+		  if (OMP_CLAUSE_CODE (*spc) == OMP_CLAUSE_PRIVATE
+		      && OMP_CLAUSE_DECL (*spc) == orig_decl)
+		    break;
+		if (*spc)
+		  {
+		    tree c = *spc;
+		    *spc = OMP_CLAUSE_CHAIN (c);
+		    OMP_CLAUSE_CHAIN (c) = NULL_TREE;
+		    *pc = c;
+		  }
+	      }
+	    if (*pc == NULL_TREE)
 	      ;
 	    else if (OMP_CLAUSE_CODE (*pc) == OMP_CLAUSE_PRIVATE)
 	      {
@@ -14354,7 +14370,7 @@ flag_instrument_functions_exclude_p (tree fndecl)
       int i;
       char *s;
 
-      name = lang_hooks.decl_printable_name (fndecl, 0);
+      name = lang_hooks.decl_printable_name (fndecl, 1);
       FOR_EACH_VEC_ELT (*v, i, s)
 	if (strstr (name, s) != NULL)
 	  return true;

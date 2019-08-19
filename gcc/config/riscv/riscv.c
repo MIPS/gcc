@@ -4904,9 +4904,36 @@ riscv_can_change_mode_class (machine_mode, machine_mode, reg_class_t rclass)
 static HOST_WIDE_INT
 riscv_constant_alignment (const_tree exp, HOST_WIDE_INT align)
 {
-  if (TREE_CODE (exp) == STRING_CST || TREE_CODE (exp) == CONSTRUCTOR)
+  if ((TREE_CODE (exp) == STRING_CST || TREE_CODE (exp) == CONSTRUCTOR)
+      && (riscv_align_data_type == riscv_align_data_type_xlen))
     return MAX (align, BITS_PER_WORD);
   return align;
+}
+
+/* Implement TARGET_PROMOTE_FUNCTION_MODE.  */
+
+/* This function is equivalent to default_promote_function_mode_always_promote
+   except that it returns a promoted mode even if type is NULL_TREE.  This is
+   needed by libcalls which have no type (only a mode) such as fixed conversion
+   routines that take a signed or unsigned char/short/int argument and convert
+   it to a fixed type.  */
+
+static machine_mode
+riscv_promote_function_mode (const_tree type ATTRIBUTE_UNUSED,
+			     machine_mode mode,
+			     int *punsignedp ATTRIBUTE_UNUSED,
+			     const_tree fntype ATTRIBUTE_UNUSED,
+			     int for_return ATTRIBUTE_UNUSED)
+{
+  int unsignedp;
+
+  if (type != NULL_TREE)
+    return promote_mode (type, mode, punsignedp);
+
+  unsignedp = *punsignedp;
+  PROMOTE_MODE (mode, unsignedp, type);
+  *punsignedp = unsignedp;
+  return mode;
 }
 
 /* Initialize the GCC target structure.  */
@@ -4950,7 +4977,7 @@ riscv_constant_alignment (const_tree exp, HOST_WIDE_INT align)
 #define TARGET_EXPAND_BUILTIN_VA_START riscv_va_start
 
 #undef  TARGET_PROMOTE_FUNCTION_MODE
-#define TARGET_PROMOTE_FUNCTION_MODE default_promote_function_mode_always_promote
+#define TARGET_PROMOTE_FUNCTION_MODE riscv_promote_function_mode
 
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY riscv_return_in_memory

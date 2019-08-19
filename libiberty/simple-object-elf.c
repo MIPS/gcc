@@ -548,7 +548,15 @@ simple_object_elf_match (unsigned char header[SIMPLE_OBJECT_MATCH_HEADER_LEN],
       XDELETE (eor);
       return NULL;
     }
-
+  
+  if (eor->shstrndx == 0)
+    {
+      *errmsg = "invalid ELF shstrndx == 0";
+      *err = 0;
+      XDELETE (eor);
+      return NULL;
+    }
+  
   return (void *) eor;
 }
 
@@ -1380,8 +1388,8 @@ simple_object_elf_copy_lto_debug_sections (simple_object_read *sobj,
 				       (unsigned char *)strings,
 				       strsz, &errmsg, err);
 	  /* Find first '\0' in strings.  */
-	  gnu_lto = (char *) memchr (gnu_lto, '\0',
-				     strings + strsz - gnu_lto + 1);
+	  gnu_lto = (char *) memchr (gnu_lto + 1, '\0',
+				     strings + strsz - gnu_lto);
 	  /* Read the section index table if present.  */
 	  if (symtab_indices_shndx[i - 1] != 0)
 	    {
