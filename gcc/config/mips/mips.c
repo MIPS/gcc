@@ -25180,6 +25180,22 @@ mips_set_up_by_prologue (hard_reg_set_container *regs)
     CLEAR_HARD_REG_BIT (regs->set, GLOBAL_POINTER_REGNUM);
 }
 
+/* Implemet TARGET_LEGITIMATE_COMBINED_INSN hook.  */
+
+static bool
+mips_legitimate_combined_insn (rtx_insn *insn)
+{
+  rtx p = PATTERN (insn);
+  if (GET_CODE (p) == SET
+      && GET_CODE (XEXP (p, 1)) == VEC_DUPLICATE
+      && GET_CODE (XEXP (XEXP (p, 1), 0)) == REG
+      && (GET_MODE_UNIT_SIZE (GET_MODE (XEXP (XEXP (p, 1), 0)))
+	  > UNITS_PER_WORD))
+    return false;
+
+  return true;
+}
+
 void
 mips_bit_clear_info (enum machine_mode mode, unsigned HOST_WIDE_INT m,
 		     int *start_pos, int *size)
@@ -25556,6 +25572,9 @@ mips_noce_conversion_profitable_p (rtx_insn *seq, struct noce_if_info *if_info)
 #define TARGET_LRA_P mips_lra_p
 #undef TARGET_IRA_CHANGE_PSEUDO_ALLOCNO_CLASS
 #define TARGET_IRA_CHANGE_PSEUDO_ALLOCNO_CLASS mips_ira_change_pseudo_allocno_class
+
+#undef TARGET_LEGITIMATE_COMBINED_INSN
+#define TARGET_LEGITIMATE_COMBINED_INSN mips_legitimate_combined_insn
 
 #undef TARGET_HARD_REGNO_SCRATCH_OK
 #define TARGET_HARD_REGNO_SCRATCH_OK mips_hard_regno_scratch_ok
