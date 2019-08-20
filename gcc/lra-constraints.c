@@ -5416,6 +5416,30 @@ choose_split_class (enum reg_class allocno_class,
 #endif
 }
 
+/* Copy any equivalence information from ORIGINAL_REGNO to NEW_REGNO.
+   It only makes sense to call this function if NEW_REGNO is always
+   equal to ORIGINAL_REGNO.  */
+
+static void
+lra_copy_reg_equiv (unsigned int new_regno, unsigned int original_regno)
+{
+  if (!ira_reg_equiv[original_regno].defined_p)
+    return;
+
+  ira_expand_reg_equiv ();
+  ira_reg_equiv[new_regno].defined_p = true;
+  if (ira_reg_equiv[original_regno].memory)
+    ira_reg_equiv[new_regno].memory
+      = copy_rtx (ira_reg_equiv[original_regno].memory);
+  if (ira_reg_equiv[original_regno].constant)
+    ira_reg_equiv[new_regno].constant
+      = copy_rtx (ira_reg_equiv[original_regno].constant);
+  if (ira_reg_equiv[original_regno].invariant)
+    ira_reg_equiv[new_regno].invariant
+      = copy_rtx (ira_reg_equiv[original_regno].invariant);
+}
+
+
 /* Do split transformations for insn INSN, which defines or uses
    ORIGINAL_REGNO.  NEXT_USAGE_INSNS specifies which instruction in
    the EBB next uses ORIGINAL_REGNO; it has the same form as the
@@ -5567,6 +5591,12 @@ split_reg (bool before_p, int original_regno, rtx_insn *insn,
 	}
       return false;
     }
+  /* Transfer equivalence information to the spill register, so that
+     if we fail to allocate the spill register, we have the option of
+     rematerializing the original value instead of spilling to the stack.  */
+  if (!HARD_REGISTER_NUM_P (original_regno)
+      && mode == PSEUDO_REGNO_MODE (original_regno))
+    lra_copy_reg_equiv (REGNO (new_reg), original_regno);
   after_p = usage_insns[original_regno].after_p;
   lra_reg_info[REGNO (new_reg)].restore_rtx = regno_reg_rtx[original_regno];
   bitmap_set_bit (&check_only_regs, REGNO (new_reg));
