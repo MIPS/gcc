@@ -393,10 +393,7 @@ ipa_param_adjustments::adjust_decl (tree orig_decl)
 
   /* When signature changes, we need to clear builtin info.  */
   if (fndecl_built_in_p (new_decl))
-    {
-      DECL_BUILT_IN_CLASS (new_decl) = NOT_BUILT_IN;
-      DECL_FUNCTION_CODE (new_decl) = (enum built_in_function) 0;
-    }
+    set_decl_built_in_function (new_decl, NOT_BUILT_IN, 0);
 
   DECL_VIRTUAL_P (new_decl) = 0;
   DECL_LANG_SPECIFIC (new_decl) = NULL;
@@ -1206,10 +1203,7 @@ ipa_param_body_adjustments::modify_formal_parameters ()
 
   /* When signature changes, we need to clear builtin info.  */
   if (fndecl_built_in_p (m_fndecl))
-    {
-      DECL_BUILT_IN_CLASS (m_fndecl) = NOT_BUILT_IN;
-      DECL_FUNCTION_CODE (m_fndecl) = (enum built_in_function) 0;
-    }
+    set_decl_built_in_function (m_fndecl, NOT_BUILT_IN, 0);
 
   /* At this point, removing return value is only implemented when going
      through tree_function_versioning, not when modifying function body
