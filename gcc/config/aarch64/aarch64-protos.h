@@ -475,9 +475,11 @@ bool aarch64_masks_and_shift_for_bfi_p (scalar_int_mode, unsigned HOST_WIDE_INT,
 bool aarch64_zero_extend_const_eq (machine_mode, rtx, machine_mode, rtx);
 bool aarch64_move_imm (HOST_WIDE_INT, machine_mode);
 opt_machine_mode aarch64_sve_pred_mode (unsigned int);
+bool aarch64_sve_mode_p (machine_mode);
 bool aarch64_sve_cnt_immediate_p (rtx);
+bool aarch64_sve_scalar_inc_dec_immediate_p (rtx);
 bool aarch64_sve_addvl_addpl_immediate_p (rtx);
-bool aarch64_sve_inc_dec_immediate_p (rtx);
+bool aarch64_sve_vector_inc_dec_immediate_p (rtx);
 int aarch64_add_offset_temporaries (rtx);
 void aarch64_split_add_offset (scalar_int_mode, rtx, rtx, rtx, rtx, rtx);
 bool aarch64_mov_operand_p (rtx, machine_mode);
@@ -485,8 +487,9 @@ rtx aarch64_reverse_mask (machine_mode, unsigned int);
 bool aarch64_offset_7bit_signed_scaled_p (machine_mode, poly_int64);
 bool aarch64_offset_9bit_signed_unscaled_p (machine_mode, poly_int64);
 char *aarch64_output_sve_cnt_immediate (const char *, const char *, rtx);
-char *aarch64_output_sve_addvl_addpl (rtx, rtx, rtx);
-char *aarch64_output_sve_inc_dec_immediate (const char *, rtx);
+char *aarch64_output_sve_scalar_inc_dec (rtx);
+char *aarch64_output_sve_addvl_addpl (rtx);
+char *aarch64_output_sve_vector_inc_dec (const char *, rtx);
 char *aarch64_output_scalar_simd_mov_immediate (rtx, scalar_int_mode);
 char *aarch64_output_simd_mov_immediate (rtx, unsigned,
 			enum simd_immediate_check w = AARCH64_CHECK_MOV);
@@ -550,9 +553,12 @@ const char * aarch64_output_probe_stack_range (rtx, rtx);
 const char * aarch64_output_probe_sve_stack_clash (rtx, rtx, rtx, rtx);
 void aarch64_err_no_fpadvsimd (machine_mode);
 void aarch64_expand_epilogue (bool);
+rtx aarch64_ptrue_all (unsigned int);
 void aarch64_expand_mov_immediate (rtx, rtx);
 rtx aarch64_ptrue_reg (machine_mode);
 rtx aarch64_pfalse_reg (machine_mode);
+bool aarch64_sve_pred_dominates_p (rtx *, rtx);
+bool aarch64_sve_same_pred_for_ptest_p (rtx *, rtx *);
 void aarch64_emit_sve_pred_move (rtx, rtx, rtx);
 void aarch64_expand_sve_mem_move (rtx, rtx, machine_mode);
 bool aarch64_maybe_expand_sve_subreg_move (rtx, rtx);
@@ -627,6 +633,9 @@ bool aarch64_gen_adjusted_ldpstp (rtx *, bool, scalar_mode, RTX_CODE);
 void aarch64_expand_sve_vec_cmp_int (rtx, rtx_code, rtx, rtx);
 bool aarch64_expand_sve_vec_cmp_float (rtx, rtx_code, rtx, rtx, bool);
 void aarch64_expand_sve_vcond (machine_mode, machine_mode, rtx *);
+
+bool aarch64_prepare_sve_int_fma (rtx *, rtx_code);
+bool aarch64_prepare_sve_cond_int_fma (rtx *, rtx_code);
 #endif /* RTX_CODE */
 
 void aarch64_init_builtins (void);

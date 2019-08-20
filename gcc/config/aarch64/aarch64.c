@@ -73,6 +73,7 @@
 #include "selftest-rtl.h"
 #include "rtx-vector-builder.h"
 #include "intl.h"
+#include "expmed.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -1482,6 +1483,16 @@ aarch64_dbx_register_number (unsigned regno)
    return DWARF_FRAME_REGISTERS;
 }
 
+/* If X is a CONST_DOUBLE, return its bit representation as a constant
+   integer, otherwise return X unmodified.  */
+static rtx
+aarch64_bit_representation (rtx x)
+{
+  if (CONST_DOUBLE_P (x))
+    x = gen_lowpart (int_mode_for_mode (GET_MODE (x)).require (), x);
+  return x;
+}
+
 /* Return true if MODE is any of the Advanced SIMD structure modes.  */
 static bool
 aarch64_advsimd_struct_mode_p (machine_mode mode)
@@ -1595,6 +1606,14 @@ aarch64_vector_data_mode_p (machine_mode mode)
   return aarch64_classify_vector_mode (mode) & VEC_ANY_DATA;
 }
 
+/* Return true if MODE is any form of SVE mode, including predicates,
+   vectors and structures.  */
+bool
+aarch64_sve_mode_p (machine_mode mode)
+{
+  return aarch64_classify_vector_mode (mode) & VEC_ANY_SVE;
+}
+
 /* Return true if MODE is an SVE data vector mode; either a single vector
    or a structure of vectors.  */
 static bool
@@ -1665,6 +1684,22 @@ aarch64_get_mask_mode (poly_uint64 nunits, poly_uint64 nbytes)
   return default_get_mask_mode (nunits, nbytes);
 }
 
+/* Return the SVE vector mode that has NUNITS elements of mode INNER_MODE.  */
+
+static opt_machine_mode
+aarch64_sve_data_mode (scalar_mode inner_mode, poly_uint64 nunits)
+{
+  enum mode_class mclass = (is_a <scalar_float_mode> (inner_mode)
+			    ? MODE_VECTOR_FLOAT : MODE_VECTOR_INT);
+  machine_mode mode;
+  FOR_EACH_MODE_IN_CLASS (mode, mclass)
+    if (inner_mode == GET_MODE_INNER (mode)
+	&& known_eq (nunits, GET_MODE_NUNITS (mode))
+	&& aarch64_sve_data_mode_p (mode))
+      return mode;
+  return opt_machine_mode ();
+}
+
 /* Return the integer element mode associated with SVE mode MODE.  */
 
 static scalar_int_mode
@@ -1673,6 +1708,17 @@ aarch64_sve_element_int_mode (machine_mode mode)
   unsigned int elt_bits = vector_element_size (BITS_PER_SVE_VECTOR,
 					       GET_MODE_NUNITS (mode));
   return int_mode_for_size (elt_bits, 0).require ();
+}
+
+/* Return the integer vector mode associated with SVE mode MODE.
+   Unlike mode_for_int_vector, this can handle the case in which
+   MODE is a predicate (and thus has a different total size).  */
+
+static machine_mode
+aarch64_sve_int_mode (machine_mode mode)
+{
+  scalar_int_mode int_mode = aarch64_sve_element_int_mode (mode);
+  return aarch64_sve_data_mode (int_mode, GET_MODE_NUNITS (mode)).require ();
 }
 
 /* Implement TARGET_PREFERRED_ELSE_VALUE.  For binary operations,
@@ -2546,6 +2592,36 @@ aarch64_zero_extend_const_eq (machine_mode xmode, rtx x,
 }
 			      
 
+/* Return TARGET if it is nonnull and a register of mode MODE.
+   Otherwise, return a fresh register of mode MODE if we can,
+   or TARGET reinterpreted as MODE if we can't.  */
+
+static rtx
+aarch64_target_reg (rtx target, machine_mode mode)
+{
+  if (target && REG_P (target) && GET_MODE (target) == mode)
+    return target;
+  if (!can_create_pseudo_p ())
+    {
+      gcc_assert (target);
+      return gen_lowpart (mode, target);
+    }
+  return gen_reg_rtx (mode);
+}
+
+/* Return a register that contains the constant in BUILDER, given that
+   the constant is a legitimate move operand.  Use TARGET as the register
+   if it is nonnull and convenient.  */
+
+static rtx
+aarch64_emit_set_immediate (rtx target, rtx_vector_builder &builder)
+{
+  rtx src = builder.build ();
+  target = aarch64_target_reg (target, GET_MODE (src));
+  emit_insn (gen_rtx_SET (target, src));
+  return target;
+}
+
 static rtx
 aarch64_force_temporary (machine_mode mode, rtx x, rtx value)
 {
@@ -2699,13 +2775,30 @@ aarch64_svpattern_for_vl (machine_mode pred_mode, int vl)
   return AARCH64_NUM_SVPATTERNS;
 }
 
+/* Return a VNx16BImode constant in which every sequence of ELT_SIZE
+   bits has the lowest bit set and the upper bits clear.  This is the
+   VNx16BImode equivalent of a PTRUE for controlling elements of
+   ELT_SIZE bytes.  However, because the constant is VNx16BImode,
+   all bits are significant, even the upper zeros.  */
+
+rtx
+aarch64_ptrue_all (unsigned int elt_size)
+{
+  rtx_vector_builder builder (VNx16BImode, elt_size, 1);
+  builder.quick_push (const1_rtx);
+  for (unsigned int i = 1; i < elt_size; ++i)
+    builder.quick_push (const0_rtx);
+  return builder.build ();
+}
+
 /* Return an all-true predicate register of mode MODE.  */
 
 rtx
 aarch64_ptrue_reg (machine_mode mode)
 {
   gcc_assert (GET_MODE_CLASS (mode) == MODE_VECTOR_BOOL);
-  return force_reg (mode, CONSTM1_RTX (mode));
+  rtx reg = force_reg (VNx16BImode, CONSTM1_RTX (VNx16BImode));
+  return gen_lowpart (mode, reg);
 }
 
 /* Return an all-false predicate register of mode MODE.  */
@@ -2714,7 +2807,80 @@ rtx
 aarch64_pfalse_reg (machine_mode mode)
 {
   gcc_assert (GET_MODE_CLASS (mode) == MODE_VECTOR_BOOL);
-  return force_reg (mode, CONST0_RTX (mode));
+  rtx reg = force_reg (VNx16BImode, CONST0_RTX (VNx16BImode));
+  return gen_lowpart (mode, reg);
+}
+
+/* Return true if predicate PRED1[0] is true whenever predicate PRED2 is
+   true, or alternatively if we know that the operation predicated by
+   PRED1[0] is safe to perform whenever PRED2 is true.  PRED1[1] is a
+   aarch64_sve_gp_strictness operand that describes the operation
+   predicated by PRED1[0].  */
+
+bool
+aarch64_sve_pred_dominates_p (rtx *pred1, rtx pred2)
+{
+  machine_mode mode = GET_MODE (pred2);
+  gcc_assert (GET_MODE_CLASS (mode) == MODE_VECTOR_BOOL
+	      && mode == GET_MODE (pred1[0])
+	      && aarch64_sve_gp_strictness (pred1[1], SImode));
+  return (pred1[0] == CONSTM1_RTX (mode)
+	  || INTVAL (pred1[1]) == SVE_RELAXED_GP
+	  || rtx_equal_p (pred1[0], pred2));
+}
+
+/* PRED1[0] is a PTEST predicate and PRED1[1] is an aarch64_sve_ptrue_flag
+   for it.  PRED2[0] is the predicate for the instruction whose result
+   is tested by the PTEST and PRED2[1] is again an aarch64_sve_ptrue_flag
+   for it.  Return true if we can prove that the two predicates are
+   equivalent for PTEST purposes; that is, if we can replace PRED2[0]
+   with PRED1[0] without changing behavior.  */
+
+bool
+aarch64_sve_same_pred_for_ptest_p (rtx *pred1, rtx *pred2)
+{
+  machine_mode mode = GET_MODE (pred1[0]);
+  gcc_assert (GET_MODE_CLASS (mode) == MODE_VECTOR_BOOL
+	      && mode == GET_MODE (pred2[0])
+	      && aarch64_sve_ptrue_flag (pred1[1], SImode)
+	      && aarch64_sve_ptrue_flag (pred2[1], SImode));
+
+  bool ptrue1_p = (pred1[0] == CONSTM1_RTX (mode)
+		   || INTVAL (pred1[1]) == SVE_KNOWN_PTRUE);
+  bool ptrue2_p = (pred2[0] == CONSTM1_RTX (mode)
+		   || INTVAL (pred2[1]) == SVE_KNOWN_PTRUE);
+  return (ptrue1_p && ptrue2_p) || rtx_equal_p (pred1[0], pred2[0]);
+}
+
+/* Emit a comparison CMP between OP0 and OP1, both of which have mode
+   DATA_MODE, and return the result in a predicate of mode PRED_MODE.
+   Use TARGET as the target register if nonnull and convenient.  */
+
+static rtx
+aarch64_sve_emit_int_cmp (rtx target, machine_mode pred_mode, rtx_code cmp,
+			  machine_mode data_mode, rtx op1, rtx op2)
+{
+  insn_code icode = code_for_aarch64_pred_cmp (cmp, data_mode);
+  expand_operand ops[5];
+  create_output_operand (&ops[0], target, pred_mode);
+  create_input_operand (&ops[1], CONSTM1_RTX (pred_mode), pred_mode);
+  create_integer_operand (&ops[2], SVE_KNOWN_PTRUE);
+  create_input_operand (&ops[3], op1, data_mode);
+  create_input_operand (&ops[4], op2, data_mode);
+  expand_insn (icode, 5, ops);
+  return ops[0].value;
+}
+
+/* Use a comparison to convert integer vector SRC into MODE, which is
+   the corresponding SVE predicate mode.  Use TARGET for the result
+   if it's nonnull and convenient.  */
+
+static rtx
+aarch64_convert_sve_data_to_pred (rtx target, machine_mode mode, rtx src)
+{
+  machine_mode src_mode = GET_MODE (src);
+  return aarch64_sve_emit_int_cmp (target, mode, NE, src_mode,
+				   src, CONST0_RTX (src_mode));
 }
 
 /* Return true if we can move VALUE into a register using a single
@@ -2744,16 +2910,17 @@ aarch64_sve_cnt_immediate_p (rtx x)
    operand (a vector pattern followed by a multiplier in the range [1, 16]).
    PREFIX is the mnemonic without the size suffix and OPERANDS is the
    first part of the operands template (the part that comes before the
-   vector size itself).  FACTOR is the number of quadwords.
-   NELTS_PER_VQ, if nonzero, is the number of elements in each quadword.
-   If it is zero, we can use any element size.  */
+   vector size itself).  PATTERN is the pattern to use.  FACTOR is the
+   number of quadwords.  NELTS_PER_VQ, if nonzero, is the number of elements
+   in each quadword.  If it is zero, we can use any element size.  */
 
 static char *
 aarch64_output_sve_cnt_immediate (const char *prefix, const char *operands,
+				  aarch64_svpattern pattern,
 				  unsigned int factor,
 				  unsigned int nelts_per_vq)
 {
-  static char buffer[sizeof ("sqincd\t%x0, %w0, all, mul #16")];
+  static char buffer[sizeof ("sqincd\t%x0, %w0, vl256, mul #16")];
 
   if (nelts_per_vq == 0)
     /* There is some overlap in the ranges of the four CNT instructions.
@@ -2766,12 +2933,16 @@ aarch64_output_sve_cnt_immediate (const char *prefix, const char *operands,
 
   factor >>= shift;
   unsigned int written;
-  if (factor == 1)
+  if (pattern == AARCH64_SV_ALL && factor == 1)
     written = snprintf (buffer, sizeof (buffer), "%s%c\t%s",
 			prefix, suffix, operands);
+  else if (factor == 1)
+    written = snprintf (buffer, sizeof (buffer), "%s%c\t%s, %s",
+			prefix, suffix, operands, svpattern_token (pattern));
   else
-    written = snprintf (buffer, sizeof (buffer), "%s%c\t%s, all, mul #%d",
-			prefix, suffix, operands, factor);
+    written = snprintf (buffer, sizeof (buffer), "%s%c\t%s, %s, mul #%d",
+			prefix, suffix, operands, svpattern_token (pattern),
+			factor);
   gcc_assert (written < sizeof (buffer));
   return buffer;
 }
@@ -2781,7 +2952,8 @@ aarch64_output_sve_cnt_immediate (const char *prefix, const char *operands,
    PREFIX is the mnemonic without the size suffix and OPERANDS is the
    first part of the operands template (the part that comes before the
    vector size itself).  X is the value of the vector size operand,
-   as a polynomial integer rtx.  */
+   as a polynomial integer rtx; we need to convert this into an "all"
+   pattern with a multiplier.  */
 
 char *
 aarch64_output_sve_cnt_immediate (const char *prefix, const char *operands,
@@ -2789,8 +2961,35 @@ aarch64_output_sve_cnt_immediate (const char *prefix, const char *operands,
 {
   poly_int64 value = rtx_to_poly_int64 (x);
   gcc_assert (aarch64_sve_cnt_immediate_p (value));
-  return aarch64_output_sve_cnt_immediate (prefix, operands,
+  return aarch64_output_sve_cnt_immediate (prefix, operands, AARCH64_SV_ALL,
 					   value.coeffs[1], 0);
+}
+
+/* Return true if we can add X using a single SVE INC or DEC instruction.  */
+
+bool
+aarch64_sve_scalar_inc_dec_immediate_p (rtx x)
+{
+  poly_int64 value;
+  return (poly_int_rtx_p (x, &value)
+	  && (aarch64_sve_cnt_immediate_p (value)
+	      || aarch64_sve_cnt_immediate_p (-value)));
+}
+
+/* Return the asm string for adding SVE INC/DEC immediate OFFSET to
+   operand 0.  */
+
+char *
+aarch64_output_sve_scalar_inc_dec (rtx offset)
+{
+  poly_int64 offset_value = rtx_to_poly_int64 (offset);
+  gcc_assert (offset_value.coeffs[0] == offset_value.coeffs[1]);
+  if (offset_value.coeffs[1] > 0)
+    return aarch64_output_sve_cnt_immediate ("inc", "%x0", AARCH64_SV_ALL,
+					     offset_value.coeffs[1], 0);
+  else
+    return aarch64_output_sve_cnt_immediate ("dec", "%x0", AARCH64_SV_ALL,
+					     -offset_value.coeffs[1], 0);
 }
 
 /* Return true if we can add VALUE to a register using a single ADDVL
@@ -2818,26 +3017,15 @@ aarch64_sve_addvl_addpl_immediate_p (rtx x)
 	  && aarch64_sve_addvl_addpl_immediate_p (value));
 }
 
-/* Return the asm string for adding ADDVL or ADDPL immediate X to operand 1
-   and storing the result in operand 0.  */
+/* Return the asm string for adding ADDVL or ADDPL immediate OFFSET
+   to operand 1 and storing the result in operand 0.  */
 
 char *
-aarch64_output_sve_addvl_addpl (rtx dest, rtx base, rtx offset)
+aarch64_output_sve_addvl_addpl (rtx offset)
 {
   static char buffer[sizeof ("addpl\t%x0, %x1, #-") + 3 * sizeof (int)];
   poly_int64 offset_value = rtx_to_poly_int64 (offset);
   gcc_assert (aarch64_sve_addvl_addpl_immediate_p (offset_value));
-
-  /* Use INC or DEC if possible.  */
-  if (rtx_equal_p (dest, base) && GP_REGNUM_P (REGNO (dest)))
-    {
-      if (aarch64_sve_cnt_immediate_p (offset_value))
-	return aarch64_output_sve_cnt_immediate ("inc", "%x0",
-						 offset_value.coeffs[1], 0);
-      if (aarch64_sve_cnt_immediate_p (-offset_value))
-	return aarch64_output_sve_cnt_immediate ("dec", "%x0",
-						 -offset_value.coeffs[1], 0);
-    }
 
   int factor = offset_value.coeffs[1];
   if ((factor & 15) == 0)
@@ -2853,8 +3041,8 @@ aarch64_output_sve_addvl_addpl (rtx dest, rtx base, rtx offset)
    factor in *FACTOR_OUT (if nonnull).  */
 
 bool
-aarch64_sve_inc_dec_immediate_p (rtx x, int *factor_out,
-				 unsigned int *nelts_per_vq_out)
+aarch64_sve_vector_inc_dec_immediate_p (rtx x, int *factor_out,
+					unsigned int *nelts_per_vq_out)
 {
   rtx elt;
   poly_int64 value;
@@ -2888,9 +3076,9 @@ aarch64_sve_inc_dec_immediate_p (rtx x, int *factor_out,
    instruction.  */
 
 bool
-aarch64_sve_inc_dec_immediate_p (rtx x)
+aarch64_sve_vector_inc_dec_immediate_p (rtx x)
 {
-  return aarch64_sve_inc_dec_immediate_p (x, NULL, NULL);
+  return aarch64_sve_vector_inc_dec_immediate_p (x, NULL, NULL);
 }
 
 /* Return the asm template for an SVE vector INC or DEC instruction.
@@ -2898,18 +3086,18 @@ aarch64_sve_inc_dec_immediate_p (rtx x)
    value of the vector count operand itself.  */
 
 char *
-aarch64_output_sve_inc_dec_immediate (const char *operands, rtx x)
+aarch64_output_sve_vector_inc_dec (const char *operands, rtx x)
 {
   int factor;
   unsigned int nelts_per_vq;
-  if (!aarch64_sve_inc_dec_immediate_p (x, &factor, &nelts_per_vq))
+  if (!aarch64_sve_vector_inc_dec_immediate_p (x, &factor, &nelts_per_vq))
     gcc_unreachable ();
   if (factor < 0)
-    return aarch64_output_sve_cnt_immediate ("dec", operands, -factor,
-					     nelts_per_vq);
+    return aarch64_output_sve_cnt_immediate ("dec", operands, AARCH64_SV_ALL,
+					     -factor, nelts_per_vq);
   else
-    return aarch64_output_sve_cnt_immediate ("inc", operands, factor,
-					     nelts_per_vq);
+    return aarch64_output_sve_cnt_immediate ("inc", operands, AARCH64_SV_ALL,
+					     factor, nelts_per_vq);
 }
 
 static int
@@ -3292,20 +3480,36 @@ aarch64_add_offset (scalar_int_mode mode, rtx dest, rtx src,
 	}
       else
 	{
-	  /* Use CNTD, then multiply it by FACTOR.  */
-	  val = gen_int_mode (poly_int64 (2, 2), mode);
+	  /* Base the factor on LOW_BIT if we can calculate LOW_BIT
+	     directly, since that should increase the chances of being
+	     able to use a shift and add sequence.  If LOW_BIT itself
+	     is out of range, just use CNTD.  */
+	  if (low_bit <= 16 * 8)
+	    factor /= low_bit;
+	  else
+	    low_bit = 1;
+
+	  val = gen_int_mode (poly_int64 (low_bit * 2, low_bit * 2), mode);
 	  val = aarch64_force_temporary (mode, temp1, val);
 
-	  /* Go back to using a negative multiplication factor if we have
-	     no register from which to subtract.  */
-	  if (code == MINUS && src == const0_rtx)
+	  if (can_create_pseudo_p ())
 	    {
-	      factor = -factor;
-	      code = PLUS;
+	      rtx coeff1 = gen_int_mode (factor, mode);
+	      val = expand_mult (mode, val, coeff1, NULL_RTX, false, true);
 	    }
-	  rtx coeff1 = gen_int_mode (factor, mode);
-	  coeff1 = aarch64_force_temporary (mode, temp2, coeff1);
-	  val = gen_rtx_MULT (mode, val, coeff1);
+	  else
+	    {
+	      /* Go back to using a negative multiplication factor if we have
+		 no register from which to subtract.  */
+	      if (code == MINUS && src == const0_rtx)
+		{
+		  factor = -factor;
+		  code = PLUS;
+		}
+	      rtx coeff1 = gen_int_mode (factor, mode);
+	      coeff1 = aarch64_force_temporary (mode, temp2, coeff1);
+	      val = gen_rtx_MULT (mode, val, coeff1);
+	    }
 	}
 
       if (shift > 0)
@@ -3617,15 +3821,246 @@ aarch64_expand_sve_const_vector (rtx target, rtx src)
   return target;
 }
 
-/* Use WHILE to set predicate register DEST so that the first VL bits
-   are set and the rest are clear.  */
+/* Use WHILE to set a predicate register of mode MODE in which the first
+   VL bits are set and the rest are clear.  Use TARGET for the register
+   if it's nonnull and convenient.  */
 
-static void
-aarch64_sve_move_pred_via_while (rtx dest, unsigned int vl)
+static rtx
+aarch64_sve_move_pred_via_while (rtx target, machine_mode mode,
+				 unsigned int vl)
 {
   rtx limit = force_reg (DImode, gen_int_mode (vl, DImode));
-  emit_insn (gen_while_ult (DImode, GET_MODE (dest),
-			    dest, const0_rtx, limit));
+  target = aarch64_target_reg (target, mode);
+  emit_insn (gen_while_ult (DImode, mode, target, const0_rtx, limit));
+  return target;
+}
+
+static rtx
+aarch64_expand_sve_const_pred_1 (rtx, rtx_vector_builder &, bool);
+
+/* BUILDER is a constant predicate in which the index of every set bit
+   is a multiple of ELT_SIZE (which is <= 8).  Try to load the constant
+   by inverting every element at a multiple of ELT_SIZE and EORing the
+   result with an ELT_SIZE PTRUE.
+
+   Return a register that contains the constant on success, otherwise
+   return null.  Use TARGET as the register if it is nonnull and
+   convenient.  */
+
+static rtx
+aarch64_expand_sve_const_pred_eor (rtx target, rtx_vector_builder &builder,
+				   unsigned int elt_size)
+{
+  /* Invert every element at a multiple of ELT_SIZE, keeping the
+     other bits zero.  */
+  rtx_vector_builder inv_builder (VNx16BImode, builder.npatterns (),
+				  builder.nelts_per_pattern ());
+  for (unsigned int i = 0; i < builder.encoded_nelts (); ++i)
+    if ((i & (elt_size - 1)) == 0 && INTVAL (builder.elt (i)) == 0)
+      inv_builder.quick_push (const1_rtx);
+    else
+      inv_builder.quick_push (const0_rtx);
+  inv_builder.finalize ();
+
+  /* See if we can load the constant cheaply.  */
+  rtx inv = aarch64_expand_sve_const_pred_1 (NULL_RTX, inv_builder, false);
+  if (!inv)
+    return NULL_RTX;
+
+  /* EOR the result with an ELT_SIZE PTRUE.  */
+  rtx mask = aarch64_ptrue_all (elt_size);
+  mask = force_reg (VNx16BImode, mask);
+  target = aarch64_target_reg (target, VNx16BImode);
+  emit_insn (gen_aarch64_pred_z (XOR, VNx16BImode, target, mask, inv, mask));
+  return target;
+}
+
+/* BUILDER is a constant predicate in which the index of every set bit
+   is a multiple of ELT_SIZE (which is <= 8).  Try to load the constant
+   using a TRN1 of size PERMUTE_SIZE, which is >= ELT_SIZE.  Return the
+   register on success, otherwise return null.  Use TARGET as the register
+   if nonnull and convenient.  */
+
+static rtx
+aarch64_expand_sve_const_pred_trn (rtx target, rtx_vector_builder &builder,
+				   unsigned int elt_size,
+				   unsigned int permute_size)
+{
+  /* We're going to split the constant into two new constants A and B,
+     with element I of BUILDER going into A if (I & PERMUTE_SIZE) == 0
+     and into B otherwise.  E.g. for PERMUTE_SIZE == 4 && ELT_SIZE == 1:
+
+     A: { 0, 1, 2, 3, _, _, _, _, 8, 9, 10, 11, _, _, _, _ }
+     B: { 4, 5, 6, 7, _, _, _, _, 12, 13, 14, 15, _, _, _, _ }
+
+     where _ indicates elements that will be discarded by the permute.
+
+     First calculate the ELT_SIZEs for A and B.  */
+  unsigned int a_elt_size = GET_MODE_SIZE (DImode);
+  unsigned int b_elt_size = GET_MODE_SIZE (DImode);
+  for (unsigned int i = 0; i < builder.encoded_nelts (); i += elt_size)
+    if (INTVAL (builder.elt (i)) != 0)
+      {
+	if (i & permute_size)
+	  b_elt_size |= i - permute_size;
+	else
+	  a_elt_size |= i;
+      }
+  a_elt_size &= -a_elt_size;
+  b_elt_size &= -b_elt_size;
+
+  /* Now construct the vectors themselves.  */
+  rtx_vector_builder a_builder (VNx16BImode, builder.npatterns (),
+				builder.nelts_per_pattern ());
+  rtx_vector_builder b_builder (VNx16BImode, builder.npatterns (),
+				builder.nelts_per_pattern ());
+  unsigned int nelts = builder.encoded_nelts ();
+  for (unsigned int i = 0; i < nelts; ++i)
+    if (i & (elt_size - 1))
+      {
+	a_builder.quick_push (const0_rtx);
+	b_builder.quick_push (const0_rtx);
+      }
+    else if ((i & permute_size) == 0)
+      {
+	/* The A and B elements are significant.  */
+	a_builder.quick_push (builder.elt (i));
+	b_builder.quick_push (builder.elt (i + permute_size));
+      }
+    else
+      {
+	/* The A and B elements are going to be discarded, so pick whatever
+	   is likely to give a nice constant.  We are targeting element
+	   sizes A_ELT_SIZE and B_ELT_SIZE for A and B respectively,
+	   with the aim of each being a sequence of ones followed by
+	   a sequence of zeros.  So:
+
+	   * if X_ELT_SIZE <= PERMUTE_SIZE, the best approach is to
+	     duplicate the last X_ELT_SIZE element, to extend the
+	     current sequence of ones or zeros.
+
+	   * if X_ELT_SIZE > PERMUTE_SIZE, the best approach is to add a
+	     zero, so that the constant really does have X_ELT_SIZE and
+	     not a smaller size.  */
+	if (a_elt_size > permute_size)
+	  a_builder.quick_push (const0_rtx);
+	else
+	  a_builder.quick_push (a_builder.elt (i - a_elt_size));
+	if (b_elt_size > permute_size)
+	  b_builder.quick_push (const0_rtx);
+	else
+	  b_builder.quick_push (b_builder.elt (i - b_elt_size));
+      }
+  a_builder.finalize ();
+  b_builder.finalize ();
+
+  /* Try loading A into a register.  */
+  rtx_insn *last = get_last_insn ();
+  rtx a = aarch64_expand_sve_const_pred_1 (NULL_RTX, a_builder, false);
+  if (!a)
+    return NULL_RTX;
+
+  /* Try loading B into a register.  */
+  rtx b = a;
+  if (a_builder != b_builder)
+    {
+      b = aarch64_expand_sve_const_pred_1 (NULL_RTX, b_builder, false);
+      if (!b)
+	{
+	  delete_insns_since (last);
+	  return NULL_RTX;
+	}
+    }
+
+  /* Emit the TRN1 itself.  */
+  machine_mode mode = aarch64_sve_pred_mode (permute_size).require ();
+  target = aarch64_target_reg (target, mode);
+  emit_insn (gen_aarch64_sve (UNSPEC_TRN1, mode, target,
+			      gen_lowpart (mode, a),
+			      gen_lowpart (mode, b)));
+  return target;
+}
+
+/* Subroutine of aarch64_expand_sve_const_pred.  Try to load the VNx16BI
+   constant in BUILDER into an SVE predicate register.  Return the register
+   on success, otherwise return null.  Use TARGET for the register if
+   nonnull and convenient.
+
+   ALLOW_RECURSE_P is true if we can use methods that would call this
+   function recursively.  */
+
+static rtx
+aarch64_expand_sve_const_pred_1 (rtx target, rtx_vector_builder &builder,
+				 bool allow_recurse_p)
+{
+  if (builder.encoded_nelts () == 1)
+    /* A PFALSE or a PTRUE .B ALL.  */
+    return aarch64_emit_set_immediate (target, builder);
+
+  unsigned int elt_size = aarch64_widest_sve_pred_elt_size (builder);
+  if (int vl = aarch64_partial_ptrue_length (builder, elt_size))
+    {
+      /* If we can load the constant using PTRUE, use it as-is.  */
+      machine_mode mode = aarch64_sve_pred_mode (elt_size).require ();
+      if (aarch64_svpattern_for_vl (mode, vl) != AARCH64_NUM_SVPATTERNS)
+	return aarch64_emit_set_immediate (target, builder);
+
+      /* Otherwise use WHILE to set the first VL bits.  */
+      return aarch64_sve_move_pred_via_while (target, mode, vl);
+    }
+
+  if (!allow_recurse_p)
+    return NULL_RTX;
+
+  /* Try inverting the vector in element size ELT_SIZE and then EORing
+     the result with an ELT_SIZE PTRUE.  */
+  if (INTVAL (builder.elt (0)) == 0)
+    if (rtx res = aarch64_expand_sve_const_pred_eor (target, builder,
+						     elt_size))
+      return res;
+
+  /* Try using TRN1 to permute two simpler constants.  */
+  for (unsigned int i = elt_size; i <= 8; i *= 2)
+    if (rtx res = aarch64_expand_sve_const_pred_trn (target, builder,
+						     elt_size, i))
+      return res;
+
+  return NULL_RTX;
+}
+
+/* Return an SVE predicate register that contains the VNx16BImode
+   constant in BUILDER, without going through the move expanders.
+
+   The returned register can have whatever mode seems most natural
+   given the contents of BUILDER.  Use TARGET for the result if
+   convenient.  */
+
+static rtx
+aarch64_expand_sve_const_pred (rtx target, rtx_vector_builder &builder)
+{
+  /* Try loading the constant using pure predicate operations.  */
+  if (rtx res = aarch64_expand_sve_const_pred_1 (target, builder, true))
+    return res;
+
+  /* Try forcing the constant to memory.  */
+  if (builder.full_nelts ().is_constant ())
+    if (rtx mem = force_const_mem (VNx16BImode, builder.build ()))
+      {
+	target = aarch64_target_reg (target, VNx16BImode);
+	emit_move_insn (target, mem);
+	return target;
+      }
+
+  /* The last resort is to load the constant as an integer and then
+     compare it against zero.  Use -1 for set bits in order to increase
+     the changes of using SVE DUPM or an Advanced SIMD byte mask.  */
+  rtx_vector_builder int_builder (VNx16QImode, builder.npatterns (),
+				  builder.nelts_per_pattern ());
+  for (unsigned int i = 0; i < builder.encoded_nelts (); ++i)
+    int_builder.quick_push (INTVAL (builder.elt (i))
+			    ? constm1_rtx : const0_rtx);
+  return aarch64_convert_sve_data_to_pred (target, VNx16BImode,
+					   int_builder.build ());
 }
 
 /* Set DEST to immediate IMM.  */
@@ -3754,24 +4189,37 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm)
 
   if (!CONST_INT_P (imm))
     {
+      if (GET_MODE_CLASS (mode) == MODE_VECTOR_BOOL)
+	{
+	  /* Only the low bit of each .H, .S and .D element is defined,
+	     so we can set the upper bits to whatever we like.  If the
+	     predicate is all-true in MODE, prefer to set all the undefined
+	     bits as well, so that we can share a single .B predicate for
+	     all modes.  */
+	  if (imm == CONSTM1_RTX (mode))
+	    imm = CONSTM1_RTX (VNx16BImode);
+
+	  /* All methods for constructing predicate modes wider than VNx16BI
+	     will set the upper bits of each element to zero.  Expose this
+	     by moving such constants as a VNx16BI, so that all bits are
+	     significant and so that constants for different modes can be
+	     shared.  The wider constant will still be available as a
+	     REG_EQUAL note.  */
+	  rtx_vector_builder builder;
+	  if (aarch64_get_sve_pred_bits (builder, imm))
+	    {
+	      rtx res = aarch64_expand_sve_const_pred (dest, builder);
+	      if (dest != res)
+		emit_move_insn (dest, gen_lowpart (mode, res));
+	      return;
+	    }
+	}
+
       if (GET_CODE (imm) == HIGH
 	  || aarch64_simd_valid_immediate (imm, NULL))
 	{
 	  emit_insn (gen_rtx_SET (dest, imm));
 	  return;
-	}
-
-      rtx_vector_builder builder;
-      if (GET_MODE_CLASS (GET_MODE (imm)) == MODE_VECTOR_BOOL
-	  && aarch64_get_sve_pred_bits (builder, imm))
-	{
-	  unsigned int elt_size = aarch64_widest_sve_pred_elt_size (builder);
-	  int vl = aarch64_partial_ptrue_length (builder, elt_size);
-	  if (vl > 0)
-	    {
-	      aarch64_sve_move_pred_via_while (dest, vl);
-	      return;
-	    }
 	}
 
       if (GET_CODE (imm) == CONST_VECTOR && aarch64_sve_data_mode_p (mode))
@@ -3906,14 +4354,29 @@ aarch64_replace_reg_mode (rtx x, machine_mode mode)
   return x;
 }
 
+/* Return the SVE REV[BHW] unspec for reversing quantites of mode MODE
+   stored in wider integer containers.  */
+
+static unsigned int
+aarch64_sve_rev_unspec (machine_mode mode)
+{
+  switch (GET_MODE_UNIT_SIZE (mode))
+    {
+    case 1: return UNSPEC_REVB;
+    case 2: return UNSPEC_REVH;
+    case 4: return UNSPEC_REVW;
+    }
+  gcc_unreachable ();
+}
+
 /* Split a *aarch64_sve_mov<mode>_subreg_be pattern with the given
    operands.  */
 
 void
 aarch64_split_sve_subreg_move (rtx dest, rtx ptrue, rtx src)
 {
-  /* Decide which REV operation we need.  The mode with narrower elements
-     determines the mode of the operands and the mode with the wider
+  /* Decide which REV operation we need.  The mode with wider elements
+     determines the mode of the operands and the mode with the narrower
      elements determines the reverse width.  */
   machine_mode mode_with_wider_elts = GET_MODE (dest);
   machine_mode mode_with_narrower_elts = GET_MODE (src);
@@ -3921,31 +4384,16 @@ aarch64_split_sve_subreg_move (rtx dest, rtx ptrue, rtx src)
       < GET_MODE_UNIT_SIZE (mode_with_narrower_elts))
     std::swap (mode_with_wider_elts, mode_with_narrower_elts);
 
+  unsigned int unspec = aarch64_sve_rev_unspec (mode_with_narrower_elts);
   unsigned int wider_bytes = GET_MODE_UNIT_SIZE (mode_with_wider_elts);
-  unsigned int unspec;
-  if (wider_bytes == 8)
-    unspec = UNSPEC_REV64;
-  else if (wider_bytes == 4)
-    unspec = UNSPEC_REV32;
-  else if (wider_bytes == 2)
-    unspec = UNSPEC_REV16;
-  else
-    gcc_unreachable ();
   machine_mode pred_mode = aarch64_sve_pred_mode (wider_bytes).require ();
 
-  /* Emit:
-
-       (set DEST (unspec [PTRUE (unspec [SRC] UNSPEC_REV<nn>)]
-			 UNSPEC_MERGE_PTRUE))
-
-     with the appropriate modes.  */
+  /* Get the operands in the appropriate modes and emit the instruction.  */
   ptrue = gen_lowpart (pred_mode, ptrue);
-  dest = aarch64_replace_reg_mode (dest, mode_with_narrower_elts);
-  src = aarch64_replace_reg_mode (src, mode_with_narrower_elts);
-  src = gen_rtx_UNSPEC (mode_with_narrower_elts, gen_rtvec (1, src), unspec);
-  src = gen_rtx_UNSPEC (mode_with_narrower_elts, gen_rtvec (2, ptrue, src),
-			UNSPEC_MERGE_PTRUE);
-  emit_insn (gen_rtx_SET (dest, src));
+  dest = aarch64_replace_reg_mode (dest, mode_with_wider_elts);
+  src = aarch64_replace_reg_mode (src, mode_with_wider_elts);
+  emit_insn (gen_aarch64_pred (unspec, mode_with_wider_elts,
+			       dest, ptrue, src));
 }
 
 static bool
@@ -7912,15 +8360,24 @@ aarch64_print_vector_float_operand (FILE *f, rtx x, bool negate)
   if (negate)
     r = real_value_negate (&r);
 
-  /* We only handle the SVE single-bit immediates here.  */
+  /* Handle the SVE single-bit immediates specially, since they have a
+     fixed form in the assembly syntax.  */
   if (real_equal (&r, &dconst0))
     asm_fprintf (f, "0.0");
+  else if (real_equal (&r, &dconst2))
+    asm_fprintf (f, "2.0");
   else if (real_equal (&r, &dconst1))
     asm_fprintf (f, "1.0");
   else if (real_equal (&r, &dconsthalf))
     asm_fprintf (f, "0.5");
   else
-    return false;
+    {
+      const int buf_size = 20;
+      char float_buf[buf_size] = {'\0'};
+      real_to_decimal_for_mode (float_buf, &r, buf_size, buf_size,
+				1, GET_MODE (elt));
+      asm_fprintf (f, "%s", float_buf);
+    }
 
   return true;
 }
@@ -7948,7 +8405,13 @@ sizetochar (int size)
      'D':		Take the duplicated element in a vector constant
 			and print it as an unsigned integer, in decimal.
      'e':		Print the sign/zero-extend size as a character 8->b,
-			16->h, 32->w.
+			16->h, 32->w.  Can also be used for masks:
+			0xff->b, 0xffff->h, 0xffffffff->w.
+     'I':		If the operand is a duplicated vector constant,
+			replace it with the duplicated scalar.  If the
+			operand is then a floating-point constant, replace
+			it with the integer bit representation.  Print the
+			transformed constant as a signed decimal number.
      'p':		Prints N such that 2^N == X (X must be power of 2 and
 			const int).
      'P':		Print the number of non-zero bits in X (a const_int).
@@ -8014,27 +8477,22 @@ aarch64_print_operand (FILE *f, rtx x, int code)
 
     case 'e':
       {
-	int n;
-
-	if (!CONST_INT_P (x)
-	    || (n = exact_log2 (INTVAL (x) & ~7)) <= 0)
+	x = unwrap_const_vec_duplicate (x);
+	if (!CONST_INT_P (x))
 	  {
 	    output_operand_lossage ("invalid operand for '%%%c'", code);
 	    return;
 	  }
 
-	switch (n)
+	HOST_WIDE_INT val = INTVAL (x);
+	if ((val & ~7) == 8 || val == 0xff)
+	  fputc ('b', f);
+	else if ((val & ~7) == 16 || val == 0xffff)
+	  fputc ('h', f);
+	else if ((val & ~7) == 32 || val == 0xffffffff)
+	  fputc ('w', f);
+	else
 	  {
-	  case 3:
-	    fputc ('b', f);
-	    break;
-	  case 4:
-	    fputc ('h', f);
-	    break;
-	  case 5:
-	    fputc ('w', f);
-	    break;
-	  default:
 	    output_operand_lossage ("invalid operand for '%%%c'", code);
 	    return;
 	  }
@@ -8080,6 +8538,19 @@ aarch64_print_operand (FILE *f, rtx x, int code)
 
       asm_fprintf (f, "%s", reg_names [REGNO (x) + 1]);
       break;
+
+    case 'I':
+      {
+	x = aarch64_bit_representation (unwrap_const_vec_duplicate (x));
+	if (CONST_INT_P (x))
+	  asm_fprintf (f, "%wd", INTVAL (x));
+	else
+	  {
+	    output_operand_lossage ("invalid operand for '%%%c'", code);
+	    return;
+	  }
+	break;
+      }
 
     case 'M':
     case 'm':
@@ -14753,13 +15224,11 @@ aarch64_sve_bitmask_immediate_p (rtx x)
 bool
 aarch64_sve_dup_immediate_p (rtx x)
 {
-  rtx elt;
-
-  if (!const_vec_duplicate_p (x, &elt)
-      || !CONST_INT_P (elt))
+  x = aarch64_bit_representation (unwrap_const_vec_duplicate (x));
+  if (!CONST_INT_P (x))
     return false;
 
-  HOST_WIDE_INT val = INTVAL (elt);
+  HOST_WIDE_INT val = INTVAL (x);
   if (val & 0xff)
     return IN_RANGE (val, -0x80, 0x7f);
   return IN_RANGE (val, -0x8000, 0x7f00);
@@ -14813,11 +15282,10 @@ aarch64_sve_float_mul_immediate_p (rtx x)
 {
   rtx elt;
 
-  /* GCC will never generate a multiply with an immediate of 2, so there is no
-     point testing for it (even though it is a valid constant).  */
   return (const_vec_duplicate_p (x, &elt)
 	  && GET_CODE (elt) == CONST_DOUBLE
-	  && real_equal (CONST_DOUBLE_REAL_VALUE (elt), &dconsthalf));
+	  && (real_equal (CONST_DOUBLE_REAL_VALUE (elt), &dconsthalf)
+	      || real_equal (CONST_DOUBLE_REAL_VALUE (elt), &dconst2)));
 }
 
 /* Return true if replicating VAL32 is a valid 2-byte or 4-byte immediate
@@ -15162,7 +15630,17 @@ aarch64_mov_operand_p (rtx x, machine_mode mode)
     return true;
 
   if (VECTOR_MODE_P (GET_MODE (x)))
-    return aarch64_simd_valid_immediate (x, NULL);
+    {
+      /* Require predicate constants to be VNx16BI before RA, so that we
+	 force everything to have a canonical form.  */
+      if (!lra_in_progress
+	  && !reload_completed
+	  && GET_MODE_CLASS (GET_MODE (x)) == MODE_VECTOR_BOOL
+	  && GET_MODE (x) != VNx16BImode)
+	return false;
+
+      return aarch64_simd_valid_immediate (x, NULL);
+    }
 
   if (GET_CODE (x) == SYMBOL_REF && mode == DImode && CONSTANT_ADDRESS_P (x))
     return true;
@@ -15445,11 +15923,13 @@ aarch64_simd_attr_length_rglist (machine_mode mode)
 static HOST_WIDE_INT
 aarch64_simd_vector_alignment (const_tree type)
 {
+  /* ??? Checking the mode isn't ideal, but VECTOR_BOOLEAN_TYPE_P can
+     be set for non-predicate vectors of booleans.  Modes are the most
+     direct way we have of identifying real SVE predicate types.  */
+  if (GET_MODE_CLASS (TYPE_MODE (type)) == MODE_VECTOR_BOOL)
+    return 16;
   if (TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
-    /* ??? Checking the mode isn't ideal, but VECTOR_BOOLEAN_TYPE_P can
-       be set for non-predicate vectors of booleans.  Modes are the most
-       direct way we have of identifying real SVE predicate types.  */
-    return GET_MODE_CLASS (TYPE_MODE (type)) == MODE_VECTOR_BOOL ? 16 : 128;
+    return 128;
   return wi::umin (wi::to_wide (TYPE_SIZE (type)), 128).to_uhwi ();
 }
 
@@ -16066,6 +16546,98 @@ aarch64_sve_expand_vector_init (rtx target, rtx vals)
     aarch64_sve_expand_vector_init_insert_elems (target, v, nelts);
 }
 
+/* Check whether VALUE is a vector constant in which every element
+   is either a power of 2 or a negated power of 2.  If so, return
+   a constant vector of log2s, and flip CODE between PLUS and MINUS
+   if VALUE contains negated powers of 2.  Return NULL_RTX otherwise.  */
+
+static rtx
+aarch64_convert_mult_to_shift (rtx value, rtx_code &code)
+{
+  if (GET_CODE (value) != CONST_VECTOR)
+    return NULL_RTX;
+
+  rtx_vector_builder builder;
+  if (!builder.new_unary_operation (GET_MODE (value), value, false))
+    return NULL_RTX;
+
+  scalar_mode int_mode = GET_MODE_INNER (GET_MODE (value));
+  /* 1 if the result of the multiplication must be negated,
+     0 if it mustn't, or -1 if we don't yet care.  */
+  int negate = -1;
+  unsigned int encoded_nelts = const_vector_encoded_nelts (value);
+  for (unsigned int i = 0; i < encoded_nelts; ++i)
+    {
+      rtx elt = CONST_VECTOR_ENCODED_ELT (value, i);
+      if (!CONST_SCALAR_INT_P (elt))
+	return NULL_RTX;
+      rtx_mode_t val (elt, int_mode);
+      wide_int pow2 = wi::neg (val);
+      if (val != pow2)
+	{
+	  /* It matters whether we negate or not.  Make that choice,
+	     and make sure that it's consistent with previous elements.  */
+	  if (negate == !wi::neg_p (val))
+	    return NULL_RTX;
+	  negate = wi::neg_p (val);
+	  if (!negate)
+	    pow2 = val;
+	}
+      /* POW2 is now the value that we want to be a power of 2.  */
+      int shift = wi::exact_log2 (pow2);
+      if (shift < 0)
+	return NULL_RTX;
+      builder.quick_push (gen_int_mode (shift, int_mode));
+    }
+  if (negate == -1)
+    /* PLUS and MINUS are equivalent; canonicalize on PLUS.  */
+    code = PLUS;
+  else if (negate == 1)
+    code = code == PLUS ? MINUS : PLUS;
+  return builder.build ();
+}
+
+/* Prepare for an integer SVE multiply-add or multiply-subtract pattern;
+   CODE is PLUS for the former and MINUS for the latter.  OPERANDS is the
+   operands array, in the same order as for fma_optab.  Return true if
+   the function emitted all the necessary instructions, false if the caller
+   should generate the pattern normally with the new OPERANDS array.  */
+
+bool
+aarch64_prepare_sve_int_fma (rtx *operands, rtx_code code)
+{
+  machine_mode mode = GET_MODE (operands[0]);
+  if (rtx shifts = aarch64_convert_mult_to_shift (operands[2], code))
+    {
+      rtx product = expand_binop (mode, vashl_optab, operands[1], shifts,
+				  NULL_RTX, true, OPTAB_DIRECT);
+      force_expand_binop (mode, code == PLUS ? add_optab : sub_optab,
+			  operands[3], product, operands[0], true,
+			  OPTAB_DIRECT);
+      return true;
+    }
+  operands[2] = force_reg (mode, operands[2]);
+  return false;
+}
+
+/* Likewise, but for a conditional pattern.  */
+
+bool
+aarch64_prepare_sve_cond_int_fma (rtx *operands, rtx_code code)
+{
+  machine_mode mode = GET_MODE (operands[0]);
+  if (rtx shifts = aarch64_convert_mult_to_shift (operands[3], code))
+    {
+      rtx product = expand_binop (mode, vashl_optab, operands[2], shifts,
+				  NULL_RTX, true, OPTAB_DIRECT);
+      emit_insn (gen_cond (code, mode, operands[0], operands[1],
+			   operands[4], product, operands[5]));
+      return true;
+    }
+  operands[3] = force_reg (mode, operands[3]);
+  return false;
+}
+
 static unsigned HOST_WIDE_INT
 aarch64_shift_truncation_mask (machine_mode mode)
 {
@@ -16592,6 +17164,7 @@ aarch64_float_const_representable_p (rtx x)
   REAL_VALUE_TYPE r, m;
   bool fail;
 
+  x = unwrap_const_vec_duplicate (x);
   if (!CONST_DOUBLE_P (x))
     return false;
 
@@ -17257,13 +17830,31 @@ aarch64_evpc_rev_local (struct expand_vec_perm_d *d)
   if (d->testing_p)
     return true;
 
-  rtx src = gen_rtx_UNSPEC (d->vmode, gen_rtvec (1, d->op0), unspec);
   if (d->vec_flags == VEC_SVE_DATA)
     {
-      rtx pred = aarch64_ptrue_reg (pred_mode);
-      src = gen_rtx_UNSPEC (d->vmode, gen_rtvec (2, pred, src),
-			    UNSPEC_MERGE_PTRUE);
+      machine_mode int_mode = aarch64_sve_int_mode (pred_mode);
+      rtx target = gen_reg_rtx (int_mode);
+      if (BYTES_BIG_ENDIAN)
+	/* The act of taking a subreg between INT_MODE and d->vmode
+	   is itself a reversing operation on big-endian targets;
+	   see the comment at the head of aarch64-sve.md for details.
+	   First reinterpret OP0 as INT_MODE without using a subreg
+	   and without changing the contents.  */
+	emit_insn (gen_aarch64_sve_reinterpret (int_mode, target, d->op0));
+      else
+	{
+	  /* For SVE we use REV[BHW] unspecs derived from the element size
+	     of v->mode and vector modes whose elements have SIZE bytes.
+	     This ensures that the vector modes match the predicate modes.  */
+	  int unspec = aarch64_sve_rev_unspec (d->vmode);
+	  rtx pred = aarch64_ptrue_reg (pred_mode);
+	  emit_insn (gen_aarch64_pred (unspec, int_mode, target, pred,
+				       gen_lowpart (int_mode, d->op0)));
+	}
+      emit_move_insn (d->target, gen_lowpart (d->vmode, target));
+      return true;
     }
+  rtx src = gen_rtx_UNSPEC (d->vmode, gen_rtvec (1, d->op0), unspec);
   emit_set_insn (d->target, src);
   return true;
 }
@@ -17496,60 +18087,19 @@ aarch64_reverse_mask (machine_mode mode, unsigned int nunits)
   return force_reg (V16QImode, mask);
 }
 
-/* Return true if X is a valid second operand for the SVE instruction
-   that implements integer comparison OP_CODE.  */
+/* Expand an SVE integer comparison using the SVE equivalent of:
 
-static bool
-aarch64_sve_cmp_operand_p (rtx_code op_code, rtx x)
+     (set TARGET (CODE OP0 OP1)).  */
+
+void
+aarch64_expand_sve_vec_cmp_int (rtx target, rtx_code code, rtx op0, rtx op1)
 {
-  if (register_operand (x, VOIDmode))
-    return true;
-
-  switch (op_code)
-    {
-    case LTU:
-    case LEU:
-    case GEU:
-    case GTU:
-      return aarch64_sve_cmp_immediate_p (x, false);
-    case LT:
-    case LE:
-    case GE:
-    case GT:
-    case NE:
-    case EQ:
-      return aarch64_sve_cmp_immediate_p (x, true);
-    default:
-      gcc_unreachable ();
-    }
-}
-
-/* Use predicated SVE instructions to implement the equivalent of:
-
-     (set TARGET OP)
-
-   given that PTRUE is an all-true predicate of the appropriate mode.  */
-
-static void
-aarch64_emit_sve_ptrue_op (rtx target, rtx ptrue, rtx op)
-{
-  rtx unspec = gen_rtx_UNSPEC (GET_MODE (target),
-			       gen_rtvec (2, ptrue, op),
-			       UNSPEC_MERGE_PTRUE);
-  rtx_insn *insn = emit_set_insn (target, unspec);
-  set_unique_reg_note (insn, REG_EQUAL, copy_rtx (op));
-}
-
-/* Likewise, but also clobber the condition codes.  */
-
-static void
-aarch64_emit_sve_ptrue_op_cc (rtx target, rtx ptrue, rtx op)
-{
-  rtx unspec = gen_rtx_UNSPEC (GET_MODE (target),
-			       gen_rtvec (2, ptrue, op),
-			       UNSPEC_MERGE_PTRUE);
-  rtx_insn *insn = emit_insn (gen_set_clobber_cc_nzc (target, unspec));
-  set_unique_reg_note (insn, REG_EQUAL, copy_rtx (op));
+  machine_mode pred_mode = GET_MODE (target);
+  machine_mode data_mode = GET_MODE (op0);
+  rtx res = aarch64_sve_emit_int_cmp (target, pred_mode, code, data_mode,
+				      op0, op1);
+  if (!rtx_equal_p (target, res))
+    emit_move_insn (target, res);
 }
 
 /* Return the UNSPEC_COND_* code for comparison CODE.  */
@@ -17571,6 +18121,8 @@ aarch64_unspec_cond_code (rtx_code code)
       return UNSPEC_COND_FCMLE;
     case GE:
       return UNSPEC_COND_FCMGE;
+    case UNORDERED:
+      return UNSPEC_COND_FCMUO;
     default:
       gcc_unreachable ();
     }
@@ -17578,78 +18130,58 @@ aarch64_unspec_cond_code (rtx_code code)
 
 /* Emit:
 
-      (set TARGET (unspec [PRED OP0 OP1] UNSPEC_COND_<X>))
+      (set TARGET (unspec [PRED KNOWN_PTRUE_P OP0 OP1] UNSPEC_COND_<X>))
 
-   where <X> is the operation associated with comparison CODE.  This form
-   of instruction is used when (and (CODE OP0 OP1) PRED) would have different
-   semantics, such as when PRED might not be all-true and when comparing
-   inactive lanes could have side effects.  */
+   where <X> is the operation associated with comparison CODE.
+   KNOWN_PTRUE_P is true if PRED is known to be a PTRUE.  */
 
 static void
-aarch64_emit_sve_predicated_cond (rtx target, rtx_code code,
-				  rtx pred, rtx op0, rtx op1)
+aarch64_emit_sve_fp_cond (rtx target, rtx_code code, rtx pred,
+			  bool known_ptrue_p, rtx op0, rtx op1)
 {
+  rtx flag = gen_int_mode (known_ptrue_p, SImode);
   rtx unspec = gen_rtx_UNSPEC (GET_MODE (pred),
-			       gen_rtvec (3, pred, op0, op1),
+			       gen_rtvec (4, pred, flag, op0, op1),
 			       aarch64_unspec_cond_code (code));
   emit_set_insn (target, unspec);
 }
 
-/* Expand an SVE integer comparison using the SVE equivalent of:
-
-     (set TARGET (CODE OP0 OP1)).  */
-
-void
-aarch64_expand_sve_vec_cmp_int (rtx target, rtx_code code, rtx op0, rtx op1)
-{
-  machine_mode pred_mode = GET_MODE (target);
-  machine_mode data_mode = GET_MODE (op0);
-
-  if (!aarch64_sve_cmp_operand_p (code, op1))
-    op1 = force_reg (data_mode, op1);
-
-  rtx ptrue = aarch64_ptrue_reg (pred_mode);
-  rtx cond = gen_rtx_fmt_ee (code, pred_mode, op0, op1);
-  aarch64_emit_sve_ptrue_op_cc (target, ptrue, cond);
-}
-
 /* Emit the SVE equivalent of:
 
-      (set TMP1 (CODE1 OP0 OP1))
-      (set TMP2 (CODE2 OP0 OP1))
+      (set TMP1 (unspec [PRED KNOWN_PTRUE_P OP0 OP1] UNSPEC_COND_<X1>))
+      (set TMP2 (unspec [PRED KNOWN_PTRUE_P OP0 OP1] UNSPEC_COND_<X2>))
       (set TARGET (ior:PRED_MODE TMP1 TMP2))
 
-   PTRUE is an all-true predicate with the same mode as TARGET.  */
+   where <Xi> is the operation associated with comparison CODEi.
+   KNOWN_PTRUE_P is true if PRED is known to be a PTRUE.  */
 
 static void
-aarch64_emit_sve_or_conds (rtx target, rtx_code code1, rtx_code code2,
-			   rtx ptrue, rtx op0, rtx op1)
+aarch64_emit_sve_or_fp_conds (rtx target, rtx_code code1, rtx_code code2,
+			      rtx pred, bool known_ptrue_p, rtx op0, rtx op1)
 {
-  machine_mode pred_mode = GET_MODE (ptrue);
+  machine_mode pred_mode = GET_MODE (pred);
   rtx tmp1 = gen_reg_rtx (pred_mode);
-  aarch64_emit_sve_ptrue_op (tmp1, ptrue,
-			     gen_rtx_fmt_ee (code1, pred_mode, op0, op1));
+  aarch64_emit_sve_fp_cond (tmp1, code1, pred, known_ptrue_p, op0, op1);
   rtx tmp2 = gen_reg_rtx (pred_mode);
-  aarch64_emit_sve_ptrue_op (tmp2, ptrue,
-			     gen_rtx_fmt_ee (code2, pred_mode, op0, op1));
+  aarch64_emit_sve_fp_cond (tmp2, code2, pred, known_ptrue_p, op0, op1);
   aarch64_emit_binop (target, ior_optab, tmp1, tmp2);
 }
 
 /* Emit the SVE equivalent of:
 
-      (set TMP (CODE OP0 OP1))
+      (set TMP (unspec [PRED KNOWN_PTRUE_P OP0 OP1] UNSPEC_COND_<X>))
       (set TARGET (not TMP))
 
-   PTRUE is an all-true predicate with the same mode as TARGET.  */
+   where <X> is the operation associated with comparison CODE.
+   KNOWN_PTRUE_P is true if PRED is known to be a PTRUE.  */
 
 static void
-aarch64_emit_sve_inverted_cond (rtx target, rtx ptrue, rtx_code code,
-				rtx op0, rtx op1)
+aarch64_emit_sve_invert_fp_cond (rtx target, rtx_code code, rtx pred,
+				 bool known_ptrue_p, rtx op0, rtx op1)
 {
-  machine_mode pred_mode = GET_MODE (ptrue);
+  machine_mode pred_mode = GET_MODE (pred);
   rtx tmp = gen_reg_rtx (pred_mode);
-  aarch64_emit_sve_ptrue_op (tmp, ptrue,
-			     gen_rtx_fmt_ee (code, pred_mode, op0, op1));
+  aarch64_emit_sve_fp_cond (tmp, code, pred, known_ptrue_p, op0, op1);
   aarch64_emit_unop (target, one_cmpl_optab, tmp);
 }
 
@@ -17682,14 +18214,13 @@ aarch64_expand_sve_vec_cmp_float (rtx target, rtx_code code,
     case NE:
       {
 	/* There is native support for the comparison.  */
-	rtx cond = gen_rtx_fmt_ee (code, pred_mode, op0, op1);
-	aarch64_emit_sve_ptrue_op (target, ptrue, cond);
+	aarch64_emit_sve_fp_cond (target, code, ptrue, true, op0, op1);
 	return false;
       }
 
     case LTGT:
       /* This is a trapping operation (LT or GT).  */
-      aarch64_emit_sve_or_conds (target, LT, GT, ptrue, op0, op1);
+      aarch64_emit_sve_or_fp_conds (target, LT, GT, ptrue, true, op0, op1);
       return false;
 
     case UNEQ:
@@ -17697,7 +18228,8 @@ aarch64_expand_sve_vec_cmp_float (rtx target, rtx_code code,
 	{
 	  /* This would trap for signaling NaNs.  */
 	  op1 = force_reg (data_mode, op1);
-	  aarch64_emit_sve_or_conds (target, UNORDERED, EQ, ptrue, op0, op1);
+	  aarch64_emit_sve_or_fp_conds (target, UNORDERED, EQ,
+					ptrue, true, op0, op1);
 	  return false;
 	}
       /* fall through */
@@ -17710,7 +18242,8 @@ aarch64_expand_sve_vec_cmp_float (rtx target, rtx_code code,
 	  /* Work out which elements are ordered.  */
 	  rtx ordered = gen_reg_rtx (pred_mode);
 	  op1 = force_reg (data_mode, op1);
-	  aarch64_emit_sve_inverted_cond (ordered, ptrue, UNORDERED, op0, op1);
+	  aarch64_emit_sve_invert_fp_cond (ordered, UNORDERED,
+					   ptrue, true, op0, op1);
 
 	  /* Test the opposite condition for the ordered elements,
 	     then invert the result.  */
@@ -17720,13 +18253,12 @@ aarch64_expand_sve_vec_cmp_float (rtx target, rtx_code code,
 	    code = reverse_condition_maybe_unordered (code);
 	  if (can_invert_p)
 	    {
-	      aarch64_emit_sve_predicated_cond (target, code,
-						ordered, op0, op1);
+	      aarch64_emit_sve_fp_cond (target, code,
+					ordered, false, op0, op1);
 	      return true;
 	    }
-	  rtx tmp = gen_reg_rtx (pred_mode);
-	  aarch64_emit_sve_predicated_cond (tmp, code, ordered, op0, op1);
-	  aarch64_emit_unop (target, one_cmpl_optab, tmp);
+	  aarch64_emit_sve_invert_fp_cond (target, code,
+					   ordered, false, op0, op1);
 	  return false;
 	}
       break;
@@ -17744,11 +18276,10 @@ aarch64_expand_sve_vec_cmp_float (rtx target, rtx_code code,
   code = reverse_condition_maybe_unordered (code);
   if (can_invert_p)
     {
-      rtx cond = gen_rtx_fmt_ee (code, pred_mode, op0, op1);
-      aarch64_emit_sve_ptrue_op (target, ptrue, cond);
+      aarch64_emit_sve_fp_cond (target, code, ptrue, true, op0, op1);
       return true;
     }
-  aarch64_emit_sve_inverted_cond (target, ptrue, code, op0, op1);
+  aarch64_emit_sve_invert_fp_cond (target, code, ptrue, true, op0, op1);
   return false;
 }
 
@@ -17772,6 +18303,13 @@ aarch64_expand_sve_vcond (machine_mode data_mode, machine_mode cmp_mode,
     }
   else
     aarch64_expand_sve_vec_cmp_int (pred, GET_CODE (ops[3]), ops[4], ops[5]);
+
+  if (!aarch64_sve_reg_or_dup_imm (ops[1], data_mode))
+    ops[1] = force_reg (data_mode, ops[1]);
+  /* The "false" value can only be zero if the "true" value is a constant.  */
+  if (register_operand (ops[1], data_mode)
+      || !aarch64_simd_reg_or_zero (ops[2], data_mode))
+    ops[2] = force_reg (data_mode, ops[2]);
 
   rtvec vec = gen_rtvec (3, pred, ops[1], ops[2]);
   emit_set_insn (ops[0], gen_rtx_UNSPEC (data_mode, vec, UNSPEC_SEL));
@@ -19432,12 +19970,8 @@ aarch64_select_early_remat_modes (sbitmap modes)
   /* SVE values are not normally live across a call, so it should be
      worth doing early rematerialization even in VL-specific mode.  */
   for (int i = 0; i < NUM_MACHINE_MODES; ++i)
-    {
-      machine_mode mode = (machine_mode) i;
-      unsigned int vec_flags = aarch64_classify_vector_mode (mode);
-      if (vec_flags & VEC_ANY_SVE)
-	bitmap_set_bit (modes, i);
-    }
+    if (aarch64_sve_mode_p ((machine_mode) i))
+      bitmap_set_bit (modes, i);
 }
 
 /* Override the default target speculation_safe_value.  */

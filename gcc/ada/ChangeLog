@@ -1,3 +1,521 @@
+2019-08-19  Bob Duff  <duff@adacore.com>
+
+	* doc/gnat_rm/implementation_advice.rst: Fix documentation for
+	stream oriented attributes.
+	* gnat_rm.texi: Regenerate.
+
+2019-08-19  Gary Dismukes  <dismukes@adacore.com>
+
+	* einfo.ads (E_Function, E_Procedure): Update comments to
+	reflect that Renamed_Entity is also used for nongeneric
+	subprograms.
+
+2019-08-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* sem_prag.adb (Is_Before_First_Decl): Deal with rewritten
+	pragmas.
+
+2019-08-19  Bob Duff  <duff@adacore.com>
+
+	* sem_warn.adb (Warn_On_Unreferenced_Entity): Suppress warning
+	on formal parameters of dispatching operations.
+
+2019-08-19  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_res.adb (Resolve_Call): A call to an expression function
+	freezes when expander is active, unless the call appears within
+	the body of another expression function,
+
+2019-08-19  Dmitriy Anisimkov  <anisimko@adacore.com>
+
+	* libgnat/s-os_lib.ads, libgnat/s-os_lib.adb (To_Ada, To_C): New
+	routines.
+
+2019-08-19  Bob Duff  <duff@adacore.com>
+
+	* exp_attr.adb (Attribute_Valid): Correct the handling of
+	private types where the full type is modular. System.Address is
+	an example. Otherwise, we convert uncheckedly to a signed type,
+	so we get an incorrect range 0 .. -1, for which all values will
+	fail.  The 'Valid attribute is illegal for such types, but we
+	generate such illegal attribute_references for 'Valid_Scalars,
+	and we generate 'Valid_Scalars when the -gnateV switch is used.
+	Rename Btyp --> PBtyp to avoid hiding the outer Btyp, which was
+	confusing.
+	* libgnat/a-except.adb: Set the Exception_Raised component.
+	Otherwise, we have incorrect reads of invalid data.
+
+2019-08-19  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* libgnat/a-cgaaso.ads, libgnat/a-cgarso.ads,
+	libgnat/a-cogeso.ads, libgnat/a-contai.ads,
+	libgnat/a-locale.ads: Import documentation from the RM.
+
+2019-08-19  Jerome Guitton  <guitton@adacore.com>
+
+	* Makefile.rtl (system.o): New target to add generation of
+	target properties.
+	* gcc-interface/Makefile.in (install-gnatlib): Install
+	ada_target_properties.
+
+2019-08-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* inline.adb (Add_Inlined_Body): Do not special-case instances
+	that are compilation units.
+	(Add_Pending_Instantiation): Likewise.
+	(Instantiate_Body): Skip instantiations that are compilation
+	units and have already been performed.
+	* sem_ch12.adb (Needs_Body_Instantiated): Do not special-case
+	instances that are compilation units.
+	(Load_Parent_Of_Generic): Be prepared for parent that is a
+	compilation unit but whose instantiation node has not been
+	replaced.
+
+2019-08-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* inline.adb (Initialize, Lock): Deal with
+	Called_Pending_Instantiations.
+
+2019-08-19  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch6.adb (Check_Synchronized_Overriding): Complete
+	predicate that applies legality check in 9.4 (11.9/2): if an
+	inherited subprogram is implemented by a protected procedure or
+	entry, its first paarameter must be out, in_out or
+	access_to_varible.
+
+2019-08-19  Javier Miranda  <miranda@adacore.com>
+
+	PR ada/65696
+	* exp_atag.ads, exp_atag.adb (Build_Inherit_Predefined_Prims):
+	Adding formal to specify how many predefined primitives are
+	inherited from the parent type.
+	* exp_disp.adb (Number_Of_Predefined_Prims): New subprogram.
+	(Make_Secondary_DT): Compute the number of predefined primitives
+	of all tagged types (including tagged types not defined at
+	library level).  Previously we unconditionally relied on the
+	Max_Predef_Prims constant value when building the dispatch
+	tables of tagged types not defined at library level (thus
+	consuming more memory for their dispatch tables than required).
+	(Make_DT): Compute the number of predefined primitives that must
+	be inherited from their parent type when building the dispatch
+	tables of tagged types not defined at library level. Previously
+	we unconditionally relied on the Max_Predef_Prims constant value
+	when building the dispatch tables of tagged types not defined at
+	library level (thus copying more data than required from the
+	parent type).
+
+2019-08-19  Bob Duff  <duff@adacore.com>
+
+	* sem_ch13.adb (Record_Hole_Check): Procedure to check for holes
+	that incudes processing type extensions. A type extension is
+	processed by first calling Record_Hole_Check recursively on the
+	parent type to compute the bit number after the last component
+	of the parent.
+
+2019-08-19  Gary Dismukes  <dismukes@adacore.com>
+
+	* checks.adb (Length_Mismatch_Info_Message): New function in
+	Selected_Length_Checks to return a message indicating the
+	element counts for the mismatched lengths for a failed
+	compile-time length check.
+	(Plural_Or_Singular_Ending): Support function in
+	Length_Mismatch_Info_Message to return either "" or "s", for
+	concatenating to the end of words.
+	(Selected_Length_Checks): Pass the result of
+	Length_Mismatch_Info_Message as an extra warning message to
+	Compile_Time_Constraint_Error to indicate the mismatched lengths
+	for a failed compile-time length check.
+	* sem_util.ads (Compile_Time_Constraint_Error): Add an optional
+	message formal (Extra_Msg), defaulted to the empty string.
+	* sem_util.adb (Compile_Time_Constraint_Error): Output an extra
+	message following the main warning message (when Extra_Msg is
+	not the empty string).
+
+2019-08-19  Patrick Bernardi  <bernardi@adacore.com>
+
+	* socket.c: Removed the redefinition of getaddrinfo, getnameinfo
+	and freeaddrinfo to internal VxWorks kernel calls because they
+	are, well, internal kernel calls and cannot be called from RTPs.
+	VxWorks provides the necessary components to call these routines
+	directly.
+
+2019-08-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* exp_dist.adb (Is_Generic_Actual_Subtype): New predicate.
+	(Build_From_Any_Call, Build_To_Any_Call, Build_TypeCode_Call):
+	Use it instead of Is_Generic_Actual_Type flag to detect subtypes
+	representing generic actual types.
+
+2019-08-19  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_warn.adb (Check_References, Generic_Body_Formal): When a
+	formal parameter of a generic subprogram is not referenced in
+	the body, place the corresponding warning on the corresponding
+	entity in the specification of the generic body, as is done for
+	non-generic subprograms.
+
+2019-08-19  Bob Duff  <duff@adacore.com>
+
+	* errout.ads (Size_Too_Small_Message): New constant.
+	* errout.adb, freeze.adb, sem_ch13.adb: Use it.
+
+2019-08-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* exp_dist.adb (Build_Package_Stubs): Do not specifically visit
+	the declarations of an N_Subprogram_Instantiation node.
+
+2019-08-19  Bob Duff  <duff@adacore.com>
+
+	* doc/gnat_ugn/gnat_utility_programs.rst: Document missing
+	metrics switches.
+
+2019-08-19  Piotr Trojanek  <trojanek@adacore.com>
+
+	* sem_ch12.adb (Get_Unit_Instantiation_Node): Simplify Nkind_In
+	membership test.
+	* sem.adb (Depends_On_Main): Whitespace cleanup; only assign a
+	local variable if needed.
+
+2019-08-19  Claire Dross  <dross@adacore.com>
+
+	* sem_spark.ads, sem_spark.adb (Is_Pledge_Function): New
+	parameter of the generic. Function used to decide whether a
+	function is a pledge function.
+	(Check_Not_Borrowed): Disable check inside the second parameter
+	of a pledge function for the path borrowed by the first
+	parameter. Also disable checks for entities inside a Global
+	contract.
+
+2019-08-19  Joffrey Huguet  <huguet@adacore.com>
+
+	* libgnat/a-cfdlli.ads, libgnat/a-cfhama.ads,
+	libgnat/a-cfinve.ads, libgnat/a-cforma.ads,
+	libgnat/a-cofove.ads, libgnat/a-cofuma.ads,
+	libgnat/a-cofuve.ads: Add formal function parameter "=" (L, R :
+	Element_Type) to the generic packages.
+
+2019-08-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* opt.ads: Clean up left-overs of earlier implementation in
+	comment:
+
+2019-08-19  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch3.adb (Derived_Enumeration_Type): Do no freeze anonymous
+	base type if the bounds in the derived type declaration are
+	literals of the type.
+
+2019-08-19  Yannick Moy  <moy@adacore.com>
+
+	* sem_res.adb (Resolve_Call): Check non-aliasing rules before
+	GNATprove inlining.
+
+2019-08-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* inline.adb (Add_Inlined_Body): Do not add pending
+	instantiations.
+	* sem_ch12.adb (Needs_Body_Instantiated): New predicate.
+	(Analyze_Package_Instantiation): Use it to decide whether to add
+	a pending instantiation for the body of the package.
+
+2019-08-19  Olivier Hainque  <hainque@adacore.com>
+
+	* gcc-interface/trans.c (Acc_Loop_to_gnu): Return the openacc
+	BIND_EXPR node we have constructed on purpose.  Remove unused
+	variable.
+
+2019-08-19  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* gcc-interface/lang.opt (fdump-scos): Define.
+	* gcc-interface/misc.c (gnat_handle_option): Handle
+	OPT_fdump_scos.
+
+2019-08-14  Joffrey Huguet  <huguet@adacore.com>
+
+	* libgnat/a-cofuba.ads: Add a Length attribute to type
+	Container. Add a type Array_Base which replaces the previous
+	Elements attribute of Container.
+	(Content_Init): New subprogram. It is used to initialize the
+	Base attribute of Container.
+	* libgnat/a-cofuba.adb (Resize): New subprogram. It is used to
+	resize the underlying array of a container if necessary.
+	(=, <=, Find, Get, Intersection, Length, Num_Overlaps, Set,
+	Union): Update to match changes in type declarations.
+	(Add): Modify body to damp the time and space cost in a specific
+	case.
+	(Content_Init): New subprogram. It is used to initialize the
+	Base attribute of Container.
+	(Remove): Modify body to damp the time and space cost in a
+	specific case.
+
+2019-08-14  Bob Duff  <duff@adacore.com>
+
+	* sem_ch13.adb (Get_Alignment_Value): Return 1 for Alignment 0,
+	and do not give an error.
+	* doc/gnat_rm/representation_clauses_and_pragmas.rst: Update the
+	corresponding documentation.
+	* gnat_rm.texi: Regenerate.
+
+2019-08-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* inline.adb (Add_Pending_Instantiation): Fix off-by-one error
+	in the comparison against the maximum number of instantiations.
+
+2019-08-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* inline.adb (Add_Pending_Instantiation): Use greater-or-equal
+	in the comparison against the maximum number of instantiations.
+
+2019-08-14  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_aux.adb (Next_Rep_Item): If a node in the rep chain
+	involves a Ghost aspect it may have been replaced by a null
+	statement; use the original node to find next Rep_Item.
+	* repinfo.adb (List_Entities): Do not list an Ignored
+	Ghost_Entity, for which information may have been deleted.
+
+2019-08-14  Bob Duff  <duff@adacore.com>
+
+	* sem_prag.ads, sem_prag.adb
+	(Process_Compile_Time_Warning_Or_Error): In parameterless
+	version, improve detection of whether we are in a generic unit
+	to cover the case of an instance within a generic unit.
+	(Process_Compile_Time_Warning_Or_Error): Rename the
+	two-parameter version to be
+	Validate_Compile_Time_Warning_Or_Error, and do not export it.
+	Issue a warning if the condition is not known at compile time.
+	The key point is that the warning must be given only for pragmas
+	deferred to the back end, because the back end discovers
+	additional values that are known at compile time.  Previous
+	changes in this ticket have enabled this by deferring to the
+	back end without checking for special cases such as 'Size.
+	(Validate_Compile_Time_Warning_Or_Error): Rename to be
+	Defer_Compile_Time_Warning_Error_To_BE.
+	* warnsw.ads, warnsw.adb (Warn_On_Unknown_Compile_Time_Warning):
+	Add new switches -gnatw_c and -gnatw_C to control the above
+	warning.
+	* doc/gnat_ugn/building_executable_programs_with_gnat.rst:
+	Document new switches.
+	* gnat_ugn.texi: Regenerate.
+
+2019-08-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* sem_ch12.adb (Might_Inline_Subp): Rework comment and restrict
+	the shortcut based on Is_Inlined to the back-end inlining case.
+
+2019-08-14  Bob Duff  <duff@adacore.com>
+
+	* inline.adb (Check_And_Split_Unconstrained_Function): Ignore
+	protected functions to get rid of spurious error. The
+	transformation done by this procedure triggers legality errors
+	in the generated code in this case.
+
+2019-08-14  Bob Duff  <duff@adacore.com>
+
+	* sem_prag.adb (Process_Compile_Time_Warning_Or_Error): Defer
+	processing to the back end in all cases where the pragma's
+	condition is not known at compile time during the front end
+	(except in generics), as opposed to detecting 'Size attributes
+	and the like. This ensures that we take advantage of whatever
+	can be compile-time known after running the back end, as opposed
+	to having the front end guess what the back end can do.  Remove
+	a little duplicated code at the call site.
+	* gnat1drv.adb (Post_Compilation_Validation_Checks): Unlock the
+	Elists while in Validate_Compile_Time_Warning_Errors, because it
+	does analysis and name resolution, which sometimes involves
+	adding Elists.
+
+2019-08-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* einfo.ads (Is_Called): Document new usage on E_Package
+	entities.
+	* einfo.adb (Is_Called): Accept E_Package entities.
+	(Set_Is_Called): Likewise.
+	* exp_ch6.adb (Expand_Call_Helper): Move code dealing with
+	instances for back-end inlining to Add_Inlined_Body.
+	* inline.ads: Remove with clauses for Alloc and Table.
+	(Pending_Instantiations): Move to...
+	* inline.adb: Add with clauses for Alloc, Uintp, Table and
+	GNAT.HTable.
+	(Backend_Instances): New variable.
+	(Pending_Instantiations): ...here.
+	(Called_Pending_Instantiations): New table.
+	(Node_Table_Size): New constant.
+	(Node_Header_Num): New subtype.
+	(Node_Hash): New function.
+	(To_Pending_Instantiations): New hash table.
+	(Add_Inlined_Body): Bail out early for subprograms in the main
+	unit or subunit.  Likewise if the Is_Called flag is set.  If the
+	subprogram is an instance, invoke Add_Inlined_Instance.  Call
+	Set_Is_Called earlier.  If the subrogram is within an instance,
+	invoke Add_Inlined_Instance.  Also deal with the case where the
+	call itself is within an instance.
+	(Add_Inlined_Instance): New procedure.
+	(Add_Inlined_Subprogram): Remove conditions always fulfilled.
+	(Add_Pending_Instantiation): Move the defence against ludicruous
+	number of instantiations to here. When back-end inlining is
+	enabled, associate an instantiation with its index in table and
+	mark a few selected kinds of instantiations as always needed.
+	(Initialize): Set Backend_Instances to No_Elist.
+	(Instantiate_Body): New procedure doing the work extracted
+	from...
+	(Instantiate_Bodies): ...here.  When back-end inlining is
+	enabled, loop over Called_Pending_Instantiations instead of
+	Pending_Instantiations.
+	(Is_Nested): Minor tweak.
+	(List_Inlining_Info): Also list the contents of
+	Backend_Instances.
+	* sem_ch12.adb (Might_Inline_Subp): Return early if Is_Inlined
+	is set and otherwise set it before returning true.
+	(Analyze_Package_Instantiation): Remove the defence against
+	ludicruous number of instantiations.  Invoke
+	Remove_Dead_Instance instead of doing the removal manually if
+	there is a guaranteed ABE.
+
+2019-08-14  Gary Dismukes  <dismukes@adacore.com>
+
+	* exp_ch3.adb (Predef_Spec_Or_Body): For an equality operation
+	of an interface type, create an expression function (that
+	returns False) rather than declaring an abstract function.
+	* freeze.adb (Check_Inherited_Conditions): Set Needs_Wrapper to
+	False unconditionally at the start of the loop creating wrappers
+	for inherited operations.
+
+2019-08-14  Bob Duff  <duff@adacore.com>
+
+	* table.adb: Assert that the table is not locked when increasing
+	Last, even if it doesn't cause reallocation.  In other words,
+	assert that on operations that MIGHT cause reallocation.
+	* table.ads: Fix comment accordingly.
+
+2019-08-14  Arnaud Charlet  <charlet@adacore.com>
+
+	* doc/gnat_ugn/gnat_and_program_execution.rst: Remove
+	documentation of gnatelim.
+
+2019-08-14  Bob Duff  <duff@adacore.com>
+
+	* sem_prag.adb (Validate_Compile_Time_Warning_Error): Attach the
+	warning to the Sloc of the first pragma argument, rather than to
+	the pragma itself. This is to make pragmas processed after the
+	back end use the same Sloc as pragmas processed earlier, in the
+	front end. There's no reason for this discrepancy, and it
+	hinders further work on this ticket.
+
+2019-08-14  Bob Duff  <duff@adacore.com>
+
+	* sem.ads (Inside_A_Generic): Remove the ??? comment.
+
+2019-08-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* inline.ads (Pending_Descriptor): Delete.
+	* inline.adb (Initialize): Do not initialize it.
+	* sem_ch12.adb (Delay_Descriptors): Delete.
+	(Analyze_Package_Instantiation): Call
+	Set_Delay_Subprogram_Descriptors instead of Delay_Descriptors
+	throughout.
+
+2019-08-14  Bob Duff  <duff@adacore.com>
+
+	* exp_aggr.adb (Init_Hidden_Discriminants): Avoid processing the
+	wrong discriminant, which could be of the wrong type.
+
+2019-08-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* sem_ch12.adb (Analyze_Instance_And_Renamings): Do not reset
+	the Is_Generic_Instance flag previously set on the package
+	generated for the instantiation of a generic subprogram.
+
+2019-08-14  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_ch4.adb (Expand_N_Quantified_Expression): Freeze
+	explicitly the type of the loop parameter.
+
+2019-08-14  Javier Miranda  <miranda@adacore.com>
+
+	* sem_util.adb (New_Copy_Tree.Copy_Node_With_Replacement):
+	Update the Chars attribute of identifiers.
+
+2019-08-14  Yannick Moy  <moy@adacore.com>
+
+	* sem_spark.adb, sem_spark.ads (Is_Legal): New function exposed
+	for use in GNATprove, to test legality rules not related to
+	permissions.
+	(Check_Declaration_Legality): Extract the part of
+	Check_Declaration that checks rules not related to permissions.
+	(Check_Declaration): Call the new Check_Declaration_Legality.
+	(Check_Type_Legality): Rename of Check_Type. Introduce
+	parameters to force or not checking, and update a flag detecting
+	illegalities.
+	(Check_Node): Ignore attribute references in statement position.
+
+2019-08-14  Yannick Moy  <moy@adacore.com>
+
+	* sem_spark.adb (Check_Old_Loop_Entry): New procedure to check
+	correct use of Old  and Loop_Entry.
+	(Check_Node): Check subprogram contracts.
+	(Check_Pragma): Check Loop_Variant.
+	(Check_Safe_Pointers): Apply checking to library-level
+	subprogram  declarations as well, in order to check their
+	contract.
+
+2019-08-14  Yannick Moy  <moy@adacore.com>
+
+	* sem_spark.adb (Is_Subpath_Expression): Take into account
+	conversion and qualification.
+
+2019-08-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* sem_ch7.adb (Install_Private_Declarations)
+	<Swap_Private_Dependents>: Do not rely solely on the
+	Is_Child_Unit flag on the unit to recurse.
+	(Uninstall_Declarations) <Swap_Private_Dependents>: New
+	function.  Use it to recurse on the private dependent entities
+	for child units.
+
+2019-08-14  Javier Miranda  <miranda@adacore.com>
+
+	* exp_aggr.adb (Is_CCG_Supported_Aggregate): Return False for
+	arrays with bounds not known at compile time.
+
+2019-08-14  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_util.adb (New_Copy_Tree, Visit_Entity): A quantified
+	expression includes the implicit declaration of the loop
+	parameter. When a quantified expression is copied during
+	expansion, for example when building the precondition code from
+	the generated pragma, a new loop parameter must be created for
+	the new tree, to prevent duplicate declarations for the same
+	symbol.
+
+2019-08-14  Yannick Moy  <moy@adacore.com>
+
+	* sem_disp.adb (Check_Dispatching_Operation): Update assertion
+	for the separate declarations created in GNATprove mode.
+	* sem_disp.ads (Is_Overriding_Subprogram): Update comment.
+	* sem_elab.adb (SPARK_Processor): Fix test for checking of
+	overriding primitives.
+
+2019-08-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* inline.adb (Add_Inlined_Body): Tweak comments.
+	(List_Inlining_Info): Also list information about non-main
+	units.
+
+2019-08-14  Gary Dismukes  <dismukes@adacore.com>
+
+	* sem_ch4.adb (Analyze_Selected_Component): In the case where
+	the prefix is of a concurrent type, and the selected entity
+	matching the selector is the first private declaration of the
+	type (such as the first local variable in a task's body), set
+	Is_Private_Op.
+
+2019-08-14  Piotr Trojanek  <trojanek@adacore.com>
+
+	* einfo.adb (Is_Generic_Actual_Subprogram): Replace repeated
+	calls to Ekind with Ekind_In.
+
 2019-08-13  Richard Sandiford  <richard.sandiford@arm.com>
 
 	PR middle-end/91421

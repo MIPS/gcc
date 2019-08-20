@@ -5358,11 +5358,12 @@ package body Sem_Util is
    -----------------------------------
 
    function Compile_Time_Constraint_Error
-     (N    : Node_Id;
-      Msg  : String;
-      Ent  : Entity_Id  := Empty;
-      Loc  : Source_Ptr := No_Location;
-      Warn : Boolean    := False) return Node_Id
+     (N         : Node_Id;
+      Msg       : String;
+      Ent       : Entity_Id  := Empty;
+      Loc       : Source_Ptr := No_Location;
+      Warn      : Boolean    := False;
+      Extra_Msg : String     := "") return Node_Id
    is
       Msgc : String (1 .. Msg'Length + 3);
       --  Copy of message, with room for possible ?? or << and ! at end
@@ -5454,6 +5455,12 @@ package body Sem_Util is
                Error_Msg_NEL (Msgc (1 .. Msgl), N, Ent, Eloc);
             else
                Error_Msg_NEL (Msgc (1 .. Msgl), N, Etype (N), Eloc);
+            end if;
+
+            --  Emit any extra message as a continuation
+
+            if Extra_Msg /= "" then
+               Error_Msg_N ('\' & Extra_Msg, N);
             end if;
 
             if Wmsg then
@@ -20427,6 +20434,21 @@ package body Sem_Util is
                Update_First_Real_Statement
                  (Old_HSS => N,
                   New_HSS => Result);
+
+            --  Update the Chars attribute of identifiers
+
+            elsif Nkind (N) = N_Identifier then
+
+               --  The Entity field of identifiers that denote aspects is used
+               --  to store arbitrary expressions (and hence we must check that
+               --  they reference an actual entity before copying their Chars
+               --  value).
+
+               if Present (Entity (Result))
+                 and then Nkind (Entity (Result)) in N_Entity
+               then
+                  Set_Chars (Result, Chars (Entity (Result)));
+               end if;
             end if;
          end if;
 
@@ -20799,13 +20821,24 @@ package body Sem_Util is
          --  this restriction leads to a performance penalty.
 
          --  ??? this list is flaky, and may hide dormant bugs
+         --  Should functions be included???
+
+         --  Loop parameters appear within quantified expressions and contain
+         --  an entity declaration that must be replaced when the expander is
+         --  active if the expression has been preanalyzed or analyzed.
 
          elsif not Ekind_In (Id, E_Block,
                                  E_Constant,
                                  E_Label,
+                                 E_Loop_Parameter,
                                  E_Procedure,
                                  E_Variable)
            and then not Is_Type (Id)
+         then
+            return;
+
+         elsif Ekind (Id) = E_Loop_Parameter
+           and then No (Etype (Condition (Parent (Parent (Id)))))
          then
             return;
 
@@ -21081,7 +21114,14 @@ package body Sem_Util is
       begin
          pragma Assert (Nkind (N) not in N_Entity);
 
-         if Nkind (N) = N_Expression_With_Actions then
+         --  If the node is a quantified expression and expander is active,
+         --  it contains an implicit declaration that may require a new entity
+         --  when the condition has already been (pre)analyzed.
+
+         if Nkind (N) = N_Expression_With_Actions
+           or else
+             (Nkind (N) = N_Quantified_Expression and then Expander_Active)
+         then
             EWA_Level := EWA_Level + 1;
 
          elsif EWA_Level > 0
@@ -21224,6 +21264,12 @@ package body Sem_Util is
 
       --    * Semantic fields of nodes such as First_Real_Statement must be
       --      updated to reference the proper replicated nodes.
+
+      --  Finally, quantified expressions contain an implicit delaration for
+      --  the bound variable. Given that quantified expressions appearing
+      --  in contracts are copied to create pragmas and eventually checking
+      --  procedures, a new bound variable must be created for each copy, to
+      --  prevent multiple declarations of the same symbol.
 
       --  To meet all these demands, routine New_Copy_Tree is split into two
       --  phases.

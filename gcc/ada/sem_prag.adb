@@ -299,11 +299,20 @@ package body Sem_Prag is
    --  pragma. Entity name for unit and its parents is taken from item in
    --  previous with_clause that mentions the unit.
 
-   procedure Validate_Compile_Time_Warning_Error (N : Node_Id);
+   procedure Validate_Compile_Time_Warning_Or_Error
+     (N    : Node_Id;
+      Eloc : Source_Ptr);
+   --  Common processing for Compile_Time_Error and Compile_Time_Warning of
+   --  pragma N. Called when the pragma is processed as part of its regular
+   --  analysis but also called after calling the back end to validate these
+   --  pragmas for size and alignment appropriateness.
+
+   procedure Defer_Compile_Time_Warning_Error_To_BE (N : Node_Id);
    --  N is a pragma Compile_Time_Error or Compile_Warning_Error whose boolean
-   --  expression is not known at compile time. This procedure makes an entry
-   --  in a table. The actual checking is performed by Validate_Compile_Time_
-   --  Warning_Errors, which is invoked after calling the back end.
+   --  expression is not known at compile time during the front end. This
+   --  procedure makes an entry in a table. The actual checking is performed by
+   --  Validate_Compile_Time_Warning_Errors, which is invoked after calling the
+   --  back end.
 
    Dummy : Integer := 0;
    pragma Volatile (Dummy);
@@ -323,21 +332,21 @@ package body Sem_Prag is
    --  pragma in the source program, a breakpoint on rv catches this place in
    --  the source, allowing convenient stepping to the point of interest.
 
-   ---------------------------------------------------
-   -- Table for Validate_Compile_Time_Warning_Error --
-   ---------------------------------------------------
+   ------------------------------------------------------
+   -- Table for Defer_Compile_Time_Warning_Error_To_BE --
+   ------------------------------------------------------
 
    --  The following table collects pragmas Compile_Time_Error and Compile_
    --  Time_Warning for validation. Entries are made by calls to subprogram
-   --  Validate_Compile_Time_Warning_Error, and the call to the procedure
+   --  Defer_Compile_Time_Warning_Error_To_BE, and the call to the procedure
    --  Validate_Compile_Time_Warning_Errors does the actual error checking
    --  and posting of warning and error messages. The reason for this delayed
    --  processing is to take advantage of back-annotations of attributes size
    --  and alignment values performed by the back end.
 
    --  Note: the reason we store a Source_Ptr value instead of a Node_Id is
-   --  that by the time Validate_Unchecked_Conversions is called, Sprint will
-   --  already have modified all Sloc values if the -gnatD option is set.
+   --  that by the time Validate_Compile_Time_Warning_Errors is called, Sprint
+   --  will already have modified all Sloc values if the -gnatD option is set.
 
    type CTWE_Entry is record
       Eloc  : Source_Ptr;
@@ -7137,10 +7146,11 @@ package body Sem_Prag is
          Item : Node_Id := First (Decls);
 
       begin
-         --  Only other pragmas can come before this pragma
+         --  Only other pragmas can come before this pragma, but they might
+         --  have been rewritten so check the original node.
 
          loop
-            if No (Item) or else Nkind (Item) /= N_Pragma then
+            if No (Item) or else Nkind (Original_Node (Item)) /= N_Pragma then
                return False;
 
             elsif Item = Pragma_Node then
@@ -7598,46 +7608,8 @@ package body Sem_Prag is
       -------------------------------------------
 
       procedure Process_Compile_Time_Warning_Or_Error is
-         Validation_Needed : Boolean := False;
-
-         function Check_Node (N : Node_Id) return Traverse_Result;
-         --  Tree visitor that checks if N is an attribute reference that can
-         --  be statically computed by the back end. Validation_Needed is set
-         --  to True if found.
-
-         ----------------
-         -- Check_Node --
-         ----------------
-
-         function Check_Node (N : Node_Id) return Traverse_Result is
-         begin
-            if Nkind (N) = N_Attribute_Reference
-              and then Is_Entity_Name (Prefix (N))
-              and then not Is_Generic_Unit (Scope (Entity (Prefix (N))))
-            then
-               declare
-                  Attr_Id : constant Attribute_Id :=
-                              Get_Attribute_Id (Attribute_Name (N));
-               begin
-                  if Attr_Id = Attribute_Alignment
-                    or else Attr_Id = Attribute_Size
-                  then
-                     Validation_Needed := True;
-                  end if;
-               end;
-            end if;
-
-            return OK;
-         end Check_Node;
-
-         procedure Check_Expression is new Traverse_Proc (Check_Node);
-
-         --  Local variables
-
+         P : Node_Id := Parent (N);
          Arg1x : constant Node_Id := Get_Pragma_Arg (Arg1);
-
-      --  Start of processing for Process_Compile_Time_Warning_Or_Error
-
       begin
          --  In GNATprove mode, pragmas Compile_Time_Error and
          --  Compile_Time_Warning are ignored, as the analyzer may not have the
@@ -7655,19 +7627,28 @@ package body Sem_Prag is
          Check_Arg_Is_OK_Static_Expression (Arg2, Standard_String);
          Analyze_And_Resolve (Arg1x, Standard_Boolean);
 
+         --  If the condition is known at compile time (now), validate it now.
+         --  Otherwise, register the expression for validation after the back
+         --  end has been called, because it might be known at compile time
+         --  then. For example, if the expression is "Record_Type'Size /= 32"
+         --  it might be known after the back end has determined the size of
+         --  Record_Type. We do not defer validation if we're inside a generic
+         --  unit, because we will have more information in the instances.
+
          if Compile_Time_Known_Value (Arg1x) then
-            Process_Compile_Time_Warning_Or_Error (N, Sloc (Arg1));
-
-         --  Register the expression for its validation after the back end has
-         --  been called if it has occurrences of attributes Size or Alignment
-         --  (because they may be statically computed by the back end and hence
-         --  the whole expression needs to be reevaluated).
-
+            Validate_Compile_Time_Warning_Or_Error (N, Sloc (Arg1));
          else
-            Check_Expression (Arg1x);
+            while Present (P) and then Nkind (P) not in N_Generic_Declaration
+            loop
+               if Nkind_In (P, N_Package_Body, N_Subprogram_Body) then
+                  P := Corresponding_Spec (P);
+               else
+                  P := Parent (P);
+               end if;
+            end loop;
 
-            if Validation_Needed then
-               Validate_Compile_Time_Warning_Error (N);
+            if No (P) then
+               Defer_Compile_Time_Warning_Error_To_BE (N);
             end if;
          end if;
       end Process_Compile_Time_Warning_Or_Error;
@@ -14449,25 +14430,17 @@ package body Sem_Prag is
 
          --  Processing for this pragma is shared with Psect_Object
 
-         ------------------------
-         -- Compile_Time_Error --
-         ------------------------
+         ----------------------------------------------
+         -- Compile_Time_Error, Compile_Time_Warning --
+         ----------------------------------------------
 
          --  pragma Compile_Time_Error
          --    (boolean_EXPRESSION, static_string_EXPRESSION);
 
-         when Pragma_Compile_Time_Error =>
-            GNAT_Pragma;
-            Process_Compile_Time_Warning_Or_Error;
-
-         --------------------------
-         -- Compile_Time_Warning --
-         --------------------------
-
          --  pragma Compile_Time_Warning
          --    (boolean_EXPRESSION, static_string_EXPRESSION);
 
-         when Pragma_Compile_Time_Warning =>
+         when Pragma_Compile_Time_Error | Pragma_Compile_Time_Warning =>
             GNAT_Pragma;
             Process_Compile_Time_Warning_Or_Error;
 
@@ -31468,11 +31441,11 @@ package body Sem_Prag is
 
    end Process_Compilation_Unit_Pragmas;
 
-   -------------------------------------------
-   -- Process_Compile_Time_Warning_Or_Error --
-   -------------------------------------------
+   --------------------------------------------
+   -- Validate_Compile_Time_Warning_Or_Error --
+   --------------------------------------------
 
-   procedure Process_Compile_Time_Warning_Or_Error
+   procedure Validate_Compile_Time_Warning_Or_Error
      (N     : Node_Id;
       Eloc  : Source_Ptr)
    is
@@ -31579,8 +31552,16 @@ package body Sem_Prag is
                end loop;
             end;
          end if;
+
+      --  Arg1x is not known at compile time, so issue a warning. This can
+      --  happen only if the pragma's processing was deferred until after the
+      --  back end is run (see Process_Compile_Time_Warning_Or_Error).
+      --  Note that the warning control switch applies to both pragmas.
+
+      elsif Warn_On_Unknown_Compile_Time_Warning then
+         Error_Msg_N ("?condition is not known at compile time", Arg1x);
       end if;
-   end Process_Compile_Time_Warning_Or_Error;
+   end Validate_Compile_Time_Warning_Or_Error;
 
    ------------------------------------
    -- Record_Possible_Body_Reference --
@@ -32143,16 +32124,17 @@ package body Sem_Prag is
    end Test_Case_Arg;
 
    -----------------------------------------
-   -- Validate_Compile_Time_Warning_Error --
+   -- Defer_Compile_Time_Warning_Error_To_BE --
    -----------------------------------------
 
-   procedure Validate_Compile_Time_Warning_Error (N : Node_Id) is
+   procedure Defer_Compile_Time_Warning_Error_To_BE (N : Node_Id) is
+      Arg1  : constant Node_Id := First (Pragma_Argument_Associations (N));
    begin
       Compile_Time_Warnings_Errors.Append
-        (New_Val => CTWE_Entry'(Eloc  => Sloc (N),
+        (New_Val => CTWE_Entry'(Eloc  => Sloc (Arg1),
                                 Scope => Current_Scope,
                                 Prag  => N));
-   end Validate_Compile_Time_Warning_Error;
+   end Defer_Compile_Time_Warning_Error_To_BE;
 
    ------------------------------------------
    -- Validate_Compile_Time_Warning_Errors --
@@ -32206,7 +32188,7 @@ package body Sem_Prag is
          begin
             Set_Scope (T.Scope);
             Reset_Analyzed_Flags (T.Prag);
-            Process_Compile_Time_Warning_Or_Error (T.Prag, T.Eloc);
+            Validate_Compile_Time_Warning_Or_Error (T.Prag, T.Eloc);
             Unset_Scope (T.Scope);
          end;
       end loop;

@@ -219,14 +219,14 @@
     UNSPEC_LD1RQ
     UNSPEC_LD1_GATHER
     UNSPEC_ST1_SCATTER
-    UNSPEC_MERGE_PTRUE
-    UNSPEC_PTEST_PTRUE
+    UNSPEC_PRED_X
+    UNSPEC_PRED_Z
+    UNSPEC_PTEST
     UNSPEC_UNPACKSHI
     UNSPEC_UNPACKUHI
     UNSPEC_UNPACKSLO
     UNSPEC_UNPACKULO
     UNSPEC_PACK
-    UNSPEC_FLOAT_CONVERT
     UNSPEC_WHILE_LO
     UNSPEC_LDN
     UNSPEC_STN
@@ -258,6 +258,27 @@
     UNSPECV_TCANCEL		; Represent transaction cancel.
   ]
 )
+
+;; These constants are used as a const_int in various SVE unspecs
+;; to indicate whether the governing predicate is known to be a PTRUE.
+(define_constants
+  [; Indicates that the predicate might not be a PTRUE.
+   (SVE_MAYBE_NOT_PTRUE 0)
+
+   ; Indicates that the predicate is known to be a PTRUE.
+   (SVE_KNOWN_PTRUE 1)])
+
+;; These constants are used as a const_int in predicated SVE FP arithmetic
+;; to indicate whether the operation is allowed to make additional lanes
+;; active without worrying about the effect on faulting behavior.
+(define_constants
+  [; Indicates either that all lanes are active or that the instruction may
+   ; operate on inactive inputs even if doing so could induce a fault.
+   (SVE_RELAXED_GP 0)
+
+   ; Indicates that some lanes might be inactive and that the instruction
+   ; must not operate on inactive inputs if doing so could induce a fault.
+   (SVE_STRICT_GP 1)])
 
 ;; If further include files are added the defintion of MD_INCLUDES
 ;; must be updated.
@@ -1732,6 +1753,7 @@
   /* If the constant is too large for a single instruction and isn't frame
      based, split off the immediate so it is available for CSE.  */
   if (!aarch64_plus_immediate (operands[2], <MODE>mode)
+      && !(TARGET_SVE && aarch64_sve_plus_immediate (operands[2], <MODE>mode))
       && can_create_pseudo_p ()
       && (!REG_P (op1)
 	 || !REGNO_PTR_FRAME_P (REGNO (op1))))
@@ -1749,10 +1771,10 @@
 
 (define_insn "*add<mode>3_aarch64"
   [(set
-    (match_operand:GPI 0 "register_operand" "=rk,rk,w,rk,r,rk")
+    (match_operand:GPI 0 "register_operand" "=rk,rk,w,rk,r,r,rk")
     (plus:GPI
-     (match_operand:GPI 1 "register_operand" "%rk,rk,w,rk,rk,rk")
-     (match_operand:GPI 2 "aarch64_pluslong_operand" "I,r,w,J,Uaa,Uav")))]
+     (match_operand:GPI 1 "register_operand" "%rk,rk,w,rk,rk,0,rk")
+     (match_operand:GPI 2 "aarch64_pluslong_operand" "I,r,w,J,Uaa,Uai,Uav")))]
   ""
   "@
   add\\t%<w>0, %<w>1, %2
@@ -1760,10 +1782,11 @@
   add\\t%<rtn>0<vas>, %<rtn>1<vas>, %<rtn>2<vas>
   sub\\t%<w>0, %<w>1, #%n2
   #
-  * return aarch64_output_sve_addvl_addpl (operands[0], operands[1], operands[2]);"
-  ;; The "alu_imm" type for ADDVL/ADDPL is just a placeholder.
-  [(set_attr "type" "alu_imm,alu_sreg,neon_add,alu_imm,multiple,alu_imm")
-   (set_attr "arch" "*,*,simd,*,*,*")]
+  * return aarch64_output_sve_scalar_inc_dec (operands[2]);
+  * return aarch64_output_sve_addvl_addpl (operands[2]);"
+  ;; The "alu_imm" types for INC/DEC and ADDVL/ADDPL are just placeholders.
+  [(set_attr "type" "alu_imm,alu_sreg,neon_add,alu_imm,multiple,alu_imm,alu_imm")
+   (set_attr "arch" "*,*,simd,*,*,sve,sve")]
 )
 
 ;; zero_extend version of above
@@ -1842,17 +1865,18 @@
 ;; this pattern.
 (define_insn_and_split "*add<mode>3_poly_1"
   [(set
-    (match_operand:GPI 0 "register_operand" "=r,r,r,r,r,&r")
+    (match_operand:GPI 0 "register_operand" "=r,r,r,r,r,r,&r")
     (plus:GPI
-     (match_operand:GPI 1 "register_operand" "%rk,rk,rk,rk,rk,rk")
-     (match_operand:GPI 2 "aarch64_pluslong_or_poly_operand" "I,r,J,Uaa,Uav,Uat")))]
+     (match_operand:GPI 1 "register_operand" "%rk,rk,rk,rk,rk,0,rk")
+     (match_operand:GPI 2 "aarch64_pluslong_or_poly_operand" "I,r,J,Uaa,Uav,Uai,Uat")))]
   "TARGET_SVE && operands[0] != stack_pointer_rtx"
   "@
   add\\t%<w>0, %<w>1, %2
   add\\t%<w>0, %<w>1, %<w>2
   sub\\t%<w>0, %<w>1, #%n2
   #
-  * return aarch64_output_sve_addvl_addpl (operands[0], operands[1], operands[2]);
+  * return aarch64_output_sve_scalar_inc_dec (operands[2]);
+  * return aarch64_output_sve_addvl_addpl (operands[2]);
   #"
   "&& epilogue_completed
    && !reg_overlap_mentioned_p (operands[0], operands[1])
@@ -1863,8 +1887,8 @@
 			      operands[2], operands[0], NULL_RTX);
     DONE;
   }
-  ;; The "alu_imm" type for ADDVL/ADDPL is just a placeholder.
-  [(set_attr "type" "alu_imm,alu_sreg,alu_imm,multiple,alu_imm,multiple")]
+  ;; The "alu_imm" types for INC/DEC and ADDVL/ADDPL are just placeholders.
+  [(set_attr "type" "alu_imm,alu_sreg,alu_imm,multiple,alu_imm,alu_imm,multiple")]
 )
 
 (define_split
@@ -7133,12 +7157,6 @@
   "hint\t38 // bti jc"
   [(set_attr "type" "no_insn")]
 )
-
-;; Helper for aarch64.c code.
-(define_expand "set_clobber_cc_nzc"
-  [(parallel [(set (match_operand 0)
-		   (match_operand 1))
-	      (clobber (reg:CC_NZC CC_REGNUM))])])
 
 ;; Hard speculation barrier.
 (define_insn "speculation_barrier"
