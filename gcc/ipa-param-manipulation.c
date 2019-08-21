@@ -985,7 +985,7 @@ ipa_param_body_adjustments::common_initialization (tree old_fndecl,
 	  m_new_decls.quick_push (new_parm);
 	}
       else if (apm->op == IPA_PARAM_OP_NEW
-	  || apm->op == IPA_PARAM_OP_SPLIT)
+	       || apm->op == IPA_PARAM_OP_SPLIT)
 	{
 	  tree new_type = m_new_types[i];
 	  gcc_checking_assert (new_type);
