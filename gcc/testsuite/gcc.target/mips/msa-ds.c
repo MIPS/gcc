@@ -25,4 +25,4 @@ int __attribute__ ((cold)) bar (v4si v , int a, int b)
    return b + c;
 }
 
-/* { dg-final { scan-assembler-not "nop" } } */
+/* { dg-final { scan-assembler-not "bnz\.w\t\\\$w.,\.L.\n\tnop" } } */
