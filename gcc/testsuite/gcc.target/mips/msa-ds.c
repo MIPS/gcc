@@ -1,4 +1,4 @@
-/* { dg-options "-mmsa" } */
+/* { dg-options "-mmsa -mhard-float -mfp64" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 
 typedef unsigned v4si __attribute__ ((vector_size (16)));
