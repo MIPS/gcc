@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-mabi=32 -mfp64 -mhard-float -mmsa" } */
+/* { dg-options "-mfp64 -mhard-float -mmsa" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 
 #include <msa.h>
@@ -16,4 +16,5 @@ void pgather2cf1(const float complex* from, v4f32* pv, size_t stride) {
 }
 
 /* { dg-final { scan-assembler-not "mfc1" } } */
-/* { dg-final { scan-assembler-not "lwc1" } } */
+/* { dg-final { scan-assembler-not "mtc1" } } */
+
