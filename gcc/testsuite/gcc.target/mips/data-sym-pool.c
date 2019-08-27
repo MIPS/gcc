@@ -19,5 +19,4 @@ $L3:						# The label must match.
 
    that is `__pool_*' symbol is inserted before a constant pool.  */
 
-/* { dg-final { scan-assembler "\tlw\t\\\$\[0-9\]+,(.L(\[0-9\]+))\n.*\t\\.type\t(__pool_frob_\\2), @object\n\\3:\n\t\\.align\t2\n\\1:\n\t\\.word\t305419896\n" } } */
-
+/* { dg-final { scan-assembler "\tl\[wd\]\t\\\$\[0-9\]+,(.L(\[0-9\]+))\n.*\t\\.type\t(__pool_frob_\\2), @object\n\\3:\n\t\\.align\t\[23\]\n\\1:\n\t\\.\[d\]?word\t305419896\n" } } */
