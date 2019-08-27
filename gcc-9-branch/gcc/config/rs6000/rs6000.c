@@ -3639,10 +3639,22 @@ darwin_rs6000_override_options (void)
       rs6000_isa_flags |= OPTION_MASK_POWERPC64;
       warning (0, "%qs requires PowerPC64 architecture, enabling", "-m64");
     }
+
+  /* The linkers [ld64] that support 64Bit do not need the JBSR longcall
+     optimisation, and will not work with the most generic case (where the
+     symbol is undefined external, but there is no symbl stub).  */
+  if (TARGET_64BIT)
+    rs6000_default_long_calls = 0;
+
+  /* ld_classic is (so far) still used for kernel (static) code, and supports
+     the JBSR longcall / branch islands.  */
   if (flag_mkernel)
     {
       rs6000_default_long_calls = 1;
-      rs6000_isa_flags |= OPTION_MASK_SOFT_FLOAT;
+
+      /* Allow a kext author to do -mkernel -mhard-float.  */
+      if (! (rs6000_isa_flags_explicit & OPTION_MASK_SOFT_FLOAT))
+        rs6000_isa_flags |= OPTION_MASK_SOFT_FLOAT;
     }
 
   /* Make -m64 imply -maltivec.  Darwin's 64-bit ABI includes
@@ -29158,6 +29170,8 @@ rs6000_output_function_epilogue (FILE *file)
 	i = 1;
       else if (! strcmp (language_string, "GNU Ada"))
 	i = 3;
+      else if (! strcmp (language_string, "GNU Modula-2"))
+	i = 8;
       else if (lang_GNU_CXX ()
 	       || ! strcmp (language_string, "GNU Objective-C++"))
 	i = 9;
@@ -36290,10 +36304,20 @@ rs6000_init_dwarf_reg_sizes_extra (tree address)
 unsigned int
 rs6000_dbx_register_number (unsigned int regno, unsigned int format)
 {
-  /* Except for the above, we use the internal number for non-DWARF
-     debug information, and also for .eh_frame.  */
+  /* We use the GCC 7 (and before) internal number for non-DWARF debug
+     information, and also for .eh_frame.  */
   if ((format == 0 && write_symbols != DWARF2_DEBUG) || format == 2)
-    return regno;
+    {
+      /* Translate the regnos to their numbers in GCC 7 (and before).  */
+      if (regno == TFHAR_REGNO)
+	regno = 114;
+      else if (regno == TFIAR_REGNO)
+	regno = 115;
+      else if (regno == TEXASR_REGNO)
+	regno = 116;
+
+      return regno;
+    }
 
   /* On some platforms, we use the standard DWARF register
      numbering for .debug_info and .debug_frame.  */
@@ -36320,6 +36344,12 @@ rs6000_dbx_register_number (unsigned int regno, unsigned int format)
     return 356;
   if (regno == VSCR_REGNO)
     return 67;
+  if (regno == TFHAR_REGNO)
+    return 228;
+  if (regno == TFIAR_REGNO)
+    return 229;
+  if (regno == TEXASR_REGNO)
+    return 230;
 #endif
   return regno;
 }

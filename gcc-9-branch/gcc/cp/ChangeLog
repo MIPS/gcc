@@ -1,3 +1,169 @@
+2019-08-23  Marek Polacek  <polacek@redhat.com>
+
+	Backported from mainline
+	2019-08-23  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/91521 - wrong error with operator->.
+	* decl.c (grokdeclarator): Return error_mark_node for an invalid
+	trailing return type.
+
+2019-08-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/90393 - ICE with throw in ?:
+	* call.c (build_conditional_expr_1): Revert changes from
+	PR c++/64372 and c++/86205.
+
+2019-08-15  Marek Polacek  <polacek@redhat.com>
+
+	Backported from mainline
+	2019-08-07  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/81429 - wrong parsing of constructor with C++11 attribute.
+	* parser.c (cp_parser_constructor_declarator_p): Handle the scenario
+	when a parameter declaration begins with [[attribute]].
+
+	2019-08-08  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/87519 - bogus warning with -Wsign-conversion.
+	* typeck.c (cp_build_binary_op): Use same_type_p instead of comparing
+	the types directly.
+
+	2019-08-13  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/90473 - wrong code with nullptr in default argument.
+	* call.c (null_ptr_cst_p): Update quote from the standard.
+	* decl.c (check_default_argument): Don't return nullptr when the arg
+	has side-effects.
+
+	2019-06-14  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/90884 - stray note with -Wctor-dtor-privacy.
+	* class.c (maybe_warn_about_overly_private_class): Guard the call to
+	inform.
+
+2019-08-14  Martin Sebor  <msebor@redhat.com>
+
+	Backported from mainline
+	2019-08-01  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/90947
+	* decl.c (reshape_init_array_1): Avoid truncating initializer
+	lists containing string literals.
+
+2019-08-14  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR c++/91436
+	* name-lookup.c (get_std_name_hint): Fix min_dialect field for
+	complex_literals and make_unique entries.
+
+2019-08-12  Tom Honermann  <tom@honermann.net>
+
+	* parser.c (cp_parser_template_declaration_after_parameters): Enable
+	class template argument deduction for non-type template parameters
+	in literal operator templates.
+
+2019-08-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/91378 - ICE with noexcept and auto return type.
+	* pt.c (maybe_instantiate_noexcept): push_to_top_level.
+
+	PR c++/90538 - multiple expansions of capture packs
+	* cp-tree.h (DECLTYPE_FOR_INIT_CAPTURE): Remove.
+	* lambda.c (add_capture): Copy parameter packs from init.
+	(lambda_capture_field_type): Always use auto for init-capture.
+	* pt.c (uses_parameter_packs): Return tree.
+	(tsubst) [DECLTYPE_TYPE]: Remove init-capture handling.
+	(gen_elem_of_pack_expansion_instantiation): Don't push
+	local_specialization_stack.
+	(prepend_one_capture): New.
+	(tsubst_lambda_expr): Use it.  Don't touch local_specializations.
+	(do_auto_deduction): Avoid redundant error.
+
+2019-08-12  Release Manager
+
+	* GCC 9.2.0 released.
+
+2019-08-02  Martin Sebor  <msebor@redhat.com>
+
+	Backport from mainline
+	2019-06-05  Martin Sebor  <msebor@redhat.com>
+
+	PR c/90737
+	* typeck.c (maybe_warn_about_returning_address_of_local): Only
+	consider functions returning pointers as candidates for
+	-Wreturn-local-addr.
+
+2019-08-02  Marek Polacek  <polacek@redhat.com>
+
+	Backported from mainline
+	2019-08-02  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/91230 - wrong error with __PRETTY_FUNCTION__ and generic lambda.
+	* pt.c (value_dependent_expression_p): Consider __PRETTY_FUNCTION__
+	inside a template function value-dependent.
+
+2019-07-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/90098 - partial specialization and class non-type parms.
+	PR c++/90099
+	PR c++/90101
+	* call.c (build_converted_constant_expr_internal): Don't copy.
+	* pt.c (process_partial_specialization): Allow VIEW_CONVERT_EXPR
+	around class non-type parameter.
+	(unify) [TEMPLATE_PARM_INDEX]: Ignore cv-quals.
+	(invalid_nontype_parm_type_p): Check for dependent class type.
+
+	PR c++/85552 - wrong instantiation of dtor for DMI.
+	* typeck2.c (digest_nsdmi_init): Set tf_no_cleanup for direct-init.
+
+2019-07-19  Nina Dinka Ranns  <dinka.ranns@gmail.com>
+
+	PR c++/63149 - Wrong auto deduction from braced-init-list.
+	* pt.c (listify_autos): use non cv qualified auto_node in
+	std::initializer_list<auto>.
+
+2019-07-01  Marek Polacek  <polacek@redhat.com>
+
+	Backported from mainline
+	2019-06-21  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/60223 - ICE with T{} in non-deduced context.
+	* pt.c (unify): Allow COMPOUND_LITERAL_P in a non-deduced context.
+
+	PR c++/90490 - fix decltype issues in noexcept-specifier.
+	* except.c (build_noexcept_spec): Call
+	instantiate_non_dependent_expr_sfinae before
+	build_converted_constant_expr instead of calling
+	instantiate_non_dependent_expr after it.  Add
+	processing_template_decl_sentinel.
+
+2019-06-29  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2019-06-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/90950
+	* semantics.c (finish_omp_clauses): Don't reject references to
+	incomplete types if processing_template_decl.
+
+2019-06-12  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/90825 - endless recursion when evaluating sizeof.
+	PR c++/90832 - endless recursion when evaluating sizeof.
+	* constexpr.c (cxx_eval_constant_expression): Don't recurse on the
+	result of fold_sizeof_expr if is returns a SIZEOF_EXPR.
+	* typeck.c (cxx_sizeof_expr): Only return a SIZEOF_EXPR if the operand
+	is instantiation-dependent.
+
+	PR c++/90736 - bogus error with alignof.
+	* constexpr.c (adjust_temp_type): Use cv_unqualified type.
+
+2019-06-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/90810
+	* init.c (constant_value_1): Handle VECTOR_CST DECL_INITIAL for
+	!DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P decls like CONSTRUCTOR.
+
 2019-06-05  Jakub Jelinek  <jakub@redhat.com>
 
 	Backported from mainline

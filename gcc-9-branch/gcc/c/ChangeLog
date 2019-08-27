@@ -1,3 +1,35 @@
+2019-08-12  Release Manager
+
+	* GCC 9.2.0 released.
+
+2019-08-02  Martin Sebor  <msebor@redhat.com>
+
+	Backport from mainline
+	2019-06-05  Martin Sebor  <msebor@redhat.com>
+
+	PR c/90737
+	* c-typeck.c (c_finish_return): Only consider functions returning
+	pointers as candidates for -Wreturn-local-addr.
+
+2019-08-01  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2019-07-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/91192
+	* c-parser.c (c_parser_sizeof_expression): Call set_c_expr_source_range
+	even if finish is UNKNOWN_LOCATION, just use start as finish in that
+	case.
+
+2019-07-20  Richard Sandiford  <richard.sandiford@arm.com>
+
+	Backport from mainline
+	2019-07-18  Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR c/53633
+	* c-decl.c (finish_function): Check targetm.warn_func_return
+	before issuing a -Wreturn-type warning.
+
 2019-05-17  Jakub Jelinek  <jakub@redhat.com>
 
 	Backported from mainline

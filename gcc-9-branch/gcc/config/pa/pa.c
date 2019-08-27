@@ -118,7 +118,8 @@ static void set_reg_plus_d (int, int, HOST_WIDE_INT, int);
 static rtx pa_function_value (const_tree, const_tree, bool);
 static rtx pa_libcall_value (machine_mode, const_rtx);
 static bool pa_function_value_regno_p (const unsigned int);
-static void pa_output_function_prologue (FILE *);
+static void pa_output_function_prologue (FILE *) ATTRIBUTE_UNUSED;
+static void pa_linux_output_function_prologue (FILE *) ATTRIBUTE_UNUSED;
 static void update_total_code_bytes (unsigned int);
 static void pa_output_function_epilogue (FILE *);
 static int pa_adjust_cost (rtx_insn *, int, rtx_insn *, int, unsigned int);
@@ -262,8 +263,6 @@ static size_t n_deferred_plabels = 0;
 #undef TARGET_ASM_INTEGER
 #define TARGET_ASM_INTEGER pa_assemble_integer
 
-#undef TARGET_ASM_FUNCTION_PROLOGUE
-#define TARGET_ASM_FUNCTION_PROLOGUE pa_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE pa_output_function_epilogue
 
@@ -3842,16 +3841,10 @@ pa_compute_frame_size (poly_int64 size, int *fregs_live)
 	  & ~(PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT - 1));
 }
 
-/* On HP-PA, move-double insns between fpu and cpu need an 8-byte block
-   of memory.  If any fpu reg is used in the function, we allocate
-   such a block here, at the bottom of the frame, just in case it's needed.
+/* Output function label, and associated .PROC and .CALLINFO statements.  */
 
-   If this function is a leaf procedure, then we may choose not
-   to do a "save" insn.  The decision about whether or not
-   to do this is made in regclass.c.  */
-
-static void
-pa_output_function_prologue (FILE *file)
+void
+pa_output_function_label (FILE *file)
 {
   /* The function's label and associated .PROC must never be
      separated and must be output *after* any profiling declarations
@@ -3897,7 +3890,22 @@ pa_output_function_prologue (FILE *file)
     fprintf (file, ",ENTRY_FR=%d", fr_saved + 11);
 
   fputs ("\n\t.ENTRY\n", file);
+}
 
+/* Output function prologue.  */
+
+static void
+pa_output_function_prologue (FILE *file)
+{
+  pa_output_function_label (file);
+  remove_useless_addtr_insns (0);
+}
+
+/* The label is output by ASM_DECLARE_FUNCTION_NAME on linux.  */
+
+static void
+pa_linux_output_function_prologue (FILE *file ATTRIBUTE_UNUSED)
+{
   remove_useless_addtr_insns (0);
 }
 
@@ -9794,19 +9802,22 @@ pa_som_asm_init_sections (void)
       = get_unnamed_section (0, output_section_asm_op,
 			     "\t.SPACE $PRIVATE$\n\t.SUBSPA $TM_CLONE_TABLE$");
 
-  /* FIXME: HPUX ld generates incorrect GOT entries for "T" fixups
-     which reference data within the $TEXT$ space (for example constant
+  /* HPUX ld generates incorrect GOT entries for "T" fixups which
+     reference data within the $TEXT$ space (for example constant
      strings in the $LIT$ subspace).
 
      The assemblers (GAS and HP as) both have problems with handling
-     the difference of two symbols which is the other correct way to
+     the difference of two symbols.  This is the other correct way to
      reference constant data during PIC code generation.
 
-     So, there's no way to reference constant data which is in the
-     $TEXT$ space during PIC generation.  Instead place all constant
-     data into the $PRIVATE$ subspace (this reduces sharing, but it
-     works correctly).  */
-  readonly_data_section = flag_pic ? data_section : som_readonly_data_section;
+     Thus, we can't put constant data needing relocation in the $TEXT$
+     space during PIC generation.
+
+     Previously, we placed all constant data into the $DATA$ subspace
+     when generating PIC code.  This reduces sharing, but it works
+     correctly.  Now we rely on pa_reloc_rw_mask() for section selection.
+     This puts constant data not needing relocation into the $TEXT$ space.  */
+  readonly_data_section = som_readonly_data_section;
 
   /* We must not have a reference to an external symbol defined in a
      shared library in a readonly section, else the SOM linker will
@@ -9839,7 +9850,7 @@ pa_select_section (tree exp, int reloc,
       && DECL_INITIAL (exp)
       && (DECL_INITIAL (exp) == error_mark_node
           || TREE_CONSTANT (DECL_INITIAL (exp)))
-      && !reloc)
+      && !(reloc & pa_reloc_rw_mask ()))
     {
       if (TARGET_SOM
 	  && DECL_ONE_ONLY (exp)
@@ -9848,7 +9859,8 @@ pa_select_section (tree exp, int reloc,
       else
 	return readonly_data_section;
     }
-  else if (CONSTANT_CLASS_P (exp) && !reloc)
+  else if (CONSTANT_CLASS_P (exp)
+	   && !(reloc & pa_reloc_rw_mask ()))
     return readonly_data_section;
   else if (TARGET_SOM
 	   && TREE_CODE (exp) == VAR_DECL
@@ -9864,12 +9876,11 @@ pa_select_section (tree exp, int reloc,
 static int
 pa_reloc_rw_mask (void)
 {
-  /* We force (const (plus (symbol) (const_int))) to memory when the
-     const_int doesn't fit in a 14-bit integer.  The SOM linker can't
-     handle this construct in read-only memory and we want to avoid
-     this for ELF.  So, we always force an RTX needing relocation to
-     the data section.  */
-  return 3;
+  if (flag_pic || (TARGET_SOM && !TARGET_HPUX_11))
+    return 3;
+
+  /* HP linker does not support global relocs in readonly memory.  */
+  return TARGET_SOM ? 2 : 0;
 }
 
 static void

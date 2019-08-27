@@ -1691,7 +1691,7 @@ cxx_sizeof_expr (tree e, tsubst_flags_t complain)
   if (e == error_mark_node)
     return error_mark_node;
 
-  if (processing_template_decl)
+  if (instantiation_dependent_uneval_expression_p (e))
     {
       e = build_min (SIZEOF_EXPR, size_type_node, e);
       TREE_SIDE_EFFECTS (e) = 0;
@@ -5516,9 +5516,9 @@ cp_build_binary_op (const op_location_t &location,
   if (! converted)
     {
       warning_sentinel w (warn_sign_conversion, short_compare);
-      if (TREE_TYPE (op0) != result_type)
+      if (!same_type_p (TREE_TYPE (op0), result_type))
 	op0 = cp_convert_and_check (result_type, op0, complain);
-      if (TREE_TYPE (op1) != result_type)
+      if (!same_type_p (TREE_TYPE (op1), result_type))
 	op1 = cp_convert_and_check (result_type, op1, complain);
 
       if (op0 == error_mark_node || op1 == error_mark_node)
@@ -9311,11 +9311,12 @@ maybe_warn_about_returning_address_of_local (tree retval)
 			"returning local initializer_list variable %qD "
 			"does not extend the lifetime of the underlying array",
 			whats_returned);
-      else if (TREE_CODE (whats_returned) == LABEL_DECL)
+      else if (POINTER_TYPE_P (valtype)
+	       && TREE_CODE (whats_returned) == LABEL_DECL)
 	w = warning_at (loc, OPT_Wreturn_local_addr,
 			"address of label %qD returned",
 			whats_returned);
-      else
+      else if (POINTER_TYPE_P (valtype))
 	w = warning_at (loc, OPT_Wreturn_local_addr,
 			"address of local variable %qD returned",
 			whats_returned);

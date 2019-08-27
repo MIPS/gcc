@@ -583,6 +583,9 @@ resolve_contained_fntype (gfc_symbol *sym, gfc_namespace *ns)
       || sym->attr.entry_master)
     return;
 
+  if (!sym->result)
+    return;
+
   /* Try to find out of what the return type is.  */
   if (sym->result->ts.type == BT_UNKNOWN && sym->result->ts.interface == NULL)
     {
@@ -1862,6 +1865,25 @@ resolve_procedure_expression (gfc_expr* expr)
 }
 
 
+/* Check that name is not a derived type.  */
+ 
+static bool
+is_dt_name (const char *name)
+{
+  gfc_symbol *dt_list, *dt_first;
+
+  dt_list = dt_first = gfc_derived_types;
+  for (; dt_list; dt_list = dt_list->dt_next)
+    {
+      if (strcmp(dt_list->name, name) == 0)
+	return true;
+      if (dt_first == dt_list->dt_next)
+	break;
+    }
+  return false;
+}
+
+
 /* Resolve an actual argument list.  Most of the time, this is just
    resolving the expressions in the list.
    The exception is that we sometimes have to decide whether arguments
@@ -1922,6 +1944,13 @@ resolve_actual_arglist (gfc_actual_arglist *arg, procedure_type ptype,
       /* See if the expression node should really be a variable reference.  */
 
       sym = e->symtree->n.sym;
+
+      if (sym->attr.flavor == FL_PROCEDURE && is_dt_name (sym->name))
+	{
+	  gfc_error ("Derived type %qs is used as an actual "
+		     "argument at %L", sym->name, &e->where);
+	  goto cleanup;
+	}
 
       if (sym->attr.flavor == FL_PROCEDURE
 	  || sym->attr.intrinsic
@@ -13510,14 +13539,34 @@ resolve_typebound_procedure (gfc_symtree* stree)
     }
   else
     {
+      /* If proc has not been resolved at this point, proc->name may 
+	 actually be a USE associated entity. See PR fortran/89647. */
+      if (!proc->resolved
+	  && proc->attr.function == 0 && proc->attr.subroutine == 0)
+	{
+	  gfc_symbol *tmp;
+	  gfc_find_symbol (proc->name, gfc_current_ns->parent, 1, &tmp);
+	  if (tmp && tmp->attr.use_assoc)
+	    {
+	      proc->module = tmp->module;
+	      proc->attr.proc = tmp->attr.proc;
+	      proc->attr.function = tmp->attr.function;
+	      proc->attr.subroutine = tmp->attr.subroutine;
+	      proc->attr.use_assoc = tmp->attr.use_assoc;
+	      proc->ts = tmp->ts;
+	      proc->result = tmp->result;
+	    }
+	}
+
       /* Check for F08:C465.  */
       if ((!proc->attr.subroutine && !proc->attr.function)
 	  || (proc->attr.proc != PROC_MODULE
 	      && proc->attr.if_source != IFSRC_IFBODY)
 	  || proc->attr.abstract)
 	{
-	  gfc_error ("%qs must be a module procedure or an external procedure with"
-		    " an explicit interface at %L", proc->name, &where);
+	  gfc_error ("%qs must be a module procedure or an external "
+		     "procedure with an explicit interface at %L",
+		     proc->name, &where);
 	  goto error;
 	}
     }
@@ -15633,8 +15682,6 @@ check_data_variable (gfc_data_variable *var, locus *where)
       return false;
     }
 
-  has_pointer = sym->attr.pointer;
-
   if (gfc_is_coindexed (e))
     {
       gfc_error ("DATA element %qs at %L cannot have a coindex", sym->name,
@@ -15642,19 +15689,30 @@ check_data_variable (gfc_data_variable *var, locus *where)
       return false;
     }
 
+  has_pointer = sym->attr.pointer;
+
   for (ref = e->ref; ref; ref = ref->next)
     {
       if (ref->type == REF_COMPONENT && ref->u.c.component->attr.pointer)
 	has_pointer = 1;
 
-      if (has_pointer
-	    && ref->type == REF_ARRAY
-	    && ref->u.ar.type != AR_FULL)
-	  {
-	    gfc_error ("DATA element %qs at %L is a pointer and so must "
-			"be a full array", sym->name, where);
-	    return false;
-	  }
+      if (has_pointer)
+	{
+	  if (ref->type == REF_ARRAY && ref->u.ar.type != AR_FULL)
+	    {
+	      gfc_error ("DATA element %qs at %L is a pointer and so must "
+			 "be a full array", sym->name, where);
+	      return false;
+	    }
+
+	  if (values.vnode->expr->expr_type == EXPR_CONSTANT)
+	    {
+	      gfc_error ("DATA object near %L has the pointer attribute "
+			 "and the corresponding DATA value is not a valid "
+			 "initial-data-target", where);
+	      return false;
+	    }
+	}
     }
 
   if (e->rank == 0 || has_pointer)

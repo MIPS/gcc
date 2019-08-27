@@ -7124,8 +7124,19 @@ inline_expand_builtin_string_cmp (tree exp, rtx target)
     return NULL_RTX;
 
   /* For strncmp, if the length is not a const, not qualify.  */
-  if (is_ncmp && !tree_fits_uhwi_p (len3_tree))
-    return NULL_RTX;
+  if (is_ncmp)
+    {
+      if (!tree_fits_uhwi_p (len3_tree))
+	return NULL_RTX;
+      else
+	len3 = tree_to_uhwi (len3_tree);
+    }
+
+  if (src_str1 != NULL)
+    len1 = strnlen (src_str1, len1) + 1;
+
+  if (src_str2 != NULL)
+    len2 = strnlen (src_str2, len2) + 1;
 
   int const_str_n = 0;
   if (!len1)
@@ -7140,7 +7151,7 @@ inline_expand_builtin_string_cmp (tree exp, rtx target)
   gcc_checking_assert (const_str_n > 0);
   length = (const_str_n == 1) ? len1 : len2;
 
-  if (is_ncmp && (len3 = tree_to_uhwi (len3_tree)) < length)
+  if (is_ncmp && len3 < length)
     length = len3;
 
   /* If the length of the comparision is larger than the threshold,
@@ -11224,4 +11235,91 @@ target_char_cst_p (tree t, char *p)
 
   *p = (char)tree_to_uhwi (t);
   return true;
+}
+
+/* Return true if the builtin DECL is implemented in a standard library.
+   Otherwise returns false which doesn't guarantee it is not (thus the list of
+   handled builtins below may be incomplete).  */
+
+bool
+builtin_with_linkage_p (tree decl)
+{
+  if (DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
+    switch (DECL_FUNCTION_CODE (decl))
+    {
+      CASE_FLT_FN (BUILT_IN_ACOS):
+      CASE_FLT_FN (BUILT_IN_ACOSH):
+      CASE_FLT_FN (BUILT_IN_ASIN):
+      CASE_FLT_FN (BUILT_IN_ASINH):
+      CASE_FLT_FN (BUILT_IN_ATAN):
+      CASE_FLT_FN (BUILT_IN_ATANH):
+      CASE_FLT_FN (BUILT_IN_ATAN2):
+      CASE_FLT_FN (BUILT_IN_CBRT):
+      CASE_FLT_FN (BUILT_IN_CEIL):
+      CASE_FLT_FN_FLOATN_NX (BUILT_IN_CEIL):
+      CASE_FLT_FN (BUILT_IN_COPYSIGN):
+      CASE_FLT_FN_FLOATN_NX (BUILT_IN_COPYSIGN):
+      CASE_FLT_FN (BUILT_IN_COS):
+      CASE_FLT_FN (BUILT_IN_COSH):
+      CASE_FLT_FN (BUILT_IN_ERF):
+      CASE_FLT_FN (BUILT_IN_ERFC):
+      CASE_FLT_FN (BUILT_IN_EXP):
+      CASE_FLT_FN (BUILT_IN_EXP2):
+      CASE_FLT_FN (BUILT_IN_EXPM1):
+      CASE_FLT_FN (BUILT_IN_FABS):
+      CASE_FLT_FN_FLOATN_NX (BUILT_IN_FABS):
+      CASE_FLT_FN (BUILT_IN_FDIM):
+      CASE_FLT_FN (BUILT_IN_FLOOR):
+      CASE_FLT_FN_FLOATN_NX (BUILT_IN_FLOOR):
+      CASE_FLT_FN (BUILT_IN_FMA):
+      CASE_FLT_FN_FLOATN_NX (BUILT_IN_FMA):
+      CASE_FLT_FN (BUILT_IN_FMAX):
+      CASE_FLT_FN_FLOATN_NX (BUILT_IN_FMAX):
+      CASE_FLT_FN (BUILT_IN_FMIN):
+      CASE_FLT_FN_FLOATN_NX (BUILT_IN_FMIN):
+      CASE_FLT_FN (BUILT_IN_FMOD):
+      CASE_FLT_FN (BUILT_IN_FREXP):
+      CASE_FLT_FN (BUILT_IN_HYPOT):
+      CASE_FLT_FN (BUILT_IN_ILOGB):
+      CASE_FLT_FN (BUILT_IN_LDEXP):
+      CASE_FLT_FN (BUILT_IN_LGAMMA):
+      CASE_FLT_FN (BUILT_IN_LLRINT):
+      CASE_FLT_FN (BUILT_IN_LLROUND):
+      CASE_FLT_FN (BUILT_IN_LOG):
+      CASE_FLT_FN (BUILT_IN_LOG10):
+      CASE_FLT_FN (BUILT_IN_LOG1P):
+      CASE_FLT_FN (BUILT_IN_LOG2):
+      CASE_FLT_FN (BUILT_IN_LOGB):
+      CASE_FLT_FN (BUILT_IN_LRINT):
+      CASE_FLT_FN (BUILT_IN_LROUND):
+      CASE_FLT_FN (BUILT_IN_MODF):
+      CASE_FLT_FN (BUILT_IN_NAN):
+      CASE_FLT_FN (BUILT_IN_NEARBYINT):
+      CASE_FLT_FN_FLOATN_NX (BUILT_IN_NEARBYINT):
+      CASE_FLT_FN (BUILT_IN_NEXTAFTER):
+      CASE_FLT_FN (BUILT_IN_NEXTTOWARD):
+      CASE_FLT_FN (BUILT_IN_POW):
+      CASE_FLT_FN (BUILT_IN_REMAINDER):
+      CASE_FLT_FN (BUILT_IN_REMQUO):
+      CASE_FLT_FN (BUILT_IN_RINT):
+      CASE_FLT_FN_FLOATN_NX (BUILT_IN_RINT):
+      CASE_FLT_FN (BUILT_IN_ROUND):
+      CASE_FLT_FN_FLOATN_NX (BUILT_IN_ROUND):
+      CASE_FLT_FN (BUILT_IN_SCALBLN):
+      CASE_FLT_FN (BUILT_IN_SCALBN):
+      CASE_FLT_FN (BUILT_IN_SIN):
+      CASE_FLT_FN (BUILT_IN_SINH):
+      CASE_FLT_FN (BUILT_IN_SINCOS):
+      CASE_FLT_FN (BUILT_IN_SQRT):
+      CASE_FLT_FN_FLOATN_NX (BUILT_IN_SQRT):
+      CASE_FLT_FN (BUILT_IN_TAN):
+      CASE_FLT_FN (BUILT_IN_TANH):
+      CASE_FLT_FN (BUILT_IN_TGAMMA):
+      CASE_FLT_FN (BUILT_IN_TRUNC):
+      CASE_FLT_FN_FLOATN_NX (BUILT_IN_TRUNC):
+	return true;
+      default:
+	break;
+    }
+  return false;
 }

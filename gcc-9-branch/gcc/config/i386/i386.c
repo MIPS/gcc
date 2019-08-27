@@ -4817,7 +4817,11 @@ ix86_option_override_internal (bool main_args_p,
     opts->x_flag_cf_protection
       = (cf_protection_level) (opts->x_flag_cf_protection | CF_SET);
 
-  if (ix86_tune_features [X86_TUNE_AVOID_128FMA_CHAINS])
+  if (ix86_tune_features [X86_TUNE_AVOID_256FMA_CHAINS])
+    maybe_set_param_value (PARAM_AVOID_FMA_MAX_BITS, 256,
+			   opts->x_param_values,
+			   opts_set->x_param_values);
+  else if (ix86_tune_features [X86_TUNE_AVOID_128FMA_CHAINS])
     maybe_set_param_value (PARAM_AVOID_FMA_MAX_BITS, 128,
 			   opts->x_param_values,
 			   opts_set->x_param_values);
@@ -46195,7 +46199,8 @@ static bool
 expand_vec_perm_blend (struct expand_vec_perm_d *d)
 {
   machine_mode mmode, vmode = d->vmode;
-  unsigned i, mask, nelt = d->nelt;
+  unsigned i, nelt = d->nelt;
+  unsigned HOST_WIDE_INT mask;
   rtx target, op0, op1, maskop, x;
   rtx rperm[32], vperm;
 
@@ -46249,7 +46254,7 @@ expand_vec_perm_blend (struct expand_vec_perm_d *d)
     case E_V16SImode:
     case E_V8DImode:
       for (i = 0; i < nelt; ++i)
-	mask |= (d->perm[i] >= nelt) << i;
+	mask |= ((unsigned HOST_WIDE_INT) (d->perm[i] >= nelt)) << i;
       break;
 
     case E_V2DImode:

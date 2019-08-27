@@ -27596,7 +27596,9 @@ cp_parser_constructor_declarator_p (cp_parser *parser, cp_parser_flags flags,
 	  /* A parameter declaration begins with a decl-specifier,
 	     which is either the "attribute" keyword, a storage class
 	     specifier, or (usually) a type-specifier.  */
-	  && !cp_lexer_next_token_is_decl_specifier_keyword (parser->lexer))
+	  && !cp_lexer_next_token_is_decl_specifier_keyword (parser->lexer)
+	  /* A parameter declaration can also begin with [[attribute]].  */
+	  && !cp_next_tokens_can_be_std_attribute_p (parser))
 	{
 	  tree type;
 	  tree pushed_scope = NULL_TREE;
@@ -27911,7 +27913,10 @@ cp_parser_template_declaration_after_parameters (cp_parser* parser,
 	    {
 	      tree parm_list = TREE_VEC_ELT (parameter_list, 0);
 	      tree parm = INNERMOST_TEMPLATE_PARMS (parm_list);
-	      if (CLASS_TYPE_P (TREE_TYPE (parm)))
+	      if (TREE_CODE (parm) != PARM_DECL)
+		ok = false;
+	      else if (MAYBE_CLASS_TYPE_P (TREE_TYPE (parm))
+		       && !TEMPLATE_PARM_PARAMETER_PACK (DECL_INITIAL (parm)))
 		/* OK, C++20 string literal operator template.  We don't need
 		   to warn in lower dialects here because we will have already
 		   warned about the template parameter.  */;
@@ -27925,7 +27930,7 @@ cp_parser_template_declaration_after_parameters (cp_parser* parser,
 	      tree type = INNERMOST_TEMPLATE_PARMS (parm_type);
 	      tree parm_list = TREE_VEC_ELT (parameter_list, 1);
 	      tree parm = INNERMOST_TEMPLATE_PARMS (parm_list);
-	      if (parm == error_mark_node
+	      if (TREE_CODE (parm) != PARM_DECL
 		  || TREE_TYPE (parm) != TREE_TYPE (type)
 		  || !TEMPLATE_PARM_PARAMETER_PACK (DECL_INITIAL (parm)))
 		ok = false;

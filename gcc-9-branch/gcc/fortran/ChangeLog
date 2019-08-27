@@ -1,3 +1,254 @@
+2019-08-18  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/91485
+	module.c (gfc_match_use): User defined operator cannot conflict with
+	a rename symbol.
+
+2019-08-17  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/91471
+	* primary.c (gfc_variable_attr): Remove a gfc_internal_error(),
+	which cannot be reached by conforming Fortran code, but seems to
+	be reachable from nonconforming Fortran code.  Treat the AR_UNKNOWN
+	case as a no-op.
+
+2019-08-17  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/78739
+	* match.c (gfc_match_st_function):  When matching a statement function,
+	need to check if the statement function name shadows the function
+	name.
+
+2019-08-17  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/78719
+	* decl.c (get_proc_name): Check for a CLASS entity when trying to
+	add attributes to an entity that already has an explicit interface.
+
+2019-08-17  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/82992
+	* module.c (gfc_match_use):  When renaming a module entity, search
+	current namespace for conflicting symbol.
+
+2019-08-13  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/87991
+	* resolve.c (check_data_variable): data-stmt-object with pointer
+	attribute requires a data-stmt-value with the target attribute.
+
+2013-08-13  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/90563
+	* frontend-passes.c (insert_index): Suppress errors while
+	simplifying the resulting expression.
+ 
+2019-08-13  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/88072
+	* misc.c (gfc_typename): Do not point to something that ought not to
+	be pointed at.
+
+2019-08-13  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/90561
+	* trans.h (gfc_evaluate_now_function_scope): New function.
+	* trans.c (gfc_evaluate_now_function_scope): New function.
+	* trans-expr.c (gfc_trans_assignment): Use it.
+
+2019-08-13  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/89647
+	resolve.c (resolve_typebound_procedure): Allow host associated
+	procedure to be a binding target.  While here, wrap long line.
+
+2019-08-13  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/87993
+	* expr.c (gfc_simplify_expr): Simplifcation of an array with a kind
+	type inquiry suffix yields a constant expression.
+
+2019-08-13  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/91424
+	* frontend-passes.c (do_subscript): Do not warn for an
+	expression a second time.  Do not warn about a zero-trip loop.
+	(doloop_warn): Also look at contained namespaces.
+
+2019-08-12  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/91359
+	* trans-decl.c (gfc_generate_return): Ensure something is returned
+	from a function.
+
+2019-08-12  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/42546
+	* check.c(gfc_check_allocated): Add comment pointing to ...
+ 	* intrinsic.c(sort_actual): ... the checking done here.
+
+2019-08-12  Release Manager
+
+	* GCC 9.2.0 released.
+
+2019-08-04  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/87233
+	* expr.c (check_restricted): Relax constraint C1279 which was
+	removed from F2008 and above.
+
+2019-07-30  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/91296
+	* interface.c (compare_actual_expr): When checking for aliasing, add
+	a case to handle REF_INQUIRY (e.g., foo(x%re, x%im) do not alias).
+
+2019-07-29  Thomas Koenig  <tkoenig@gcc.gnu.org>
+	Paul Thomas <pault@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/90786
+	PR fortran/90813
+	* trans-expr.c (pointer_assignment_is_proc_pointer) Remove as
+	it is very simple and only called from one place.
+	(gfc_trans_pointer_assignment): Rename non_proc_pointer_assign
+	as non_proc_ptr_assign. Assign to it directly, rather than call
+	to above, deleted function and use gfc_expr_attr instead of
+	only checking the reference chain.
+	* dump-parse-tree.c (show_global_symbol): New function.
+	(gfc_dump_global_symbols): New function.
+	* gfortran.h (gfc_traverse_gsymbol): Add prototype.
+	(gfc_dump_global_symbols): Likewise.
+	* invoke.texi: Document -fdump-fortran-global.
+	* lang.opt: Add -fdump-fortran-global.
+	* parse.c (gfc_parse_file): Handle flag_dump_fortran_global.
+	* symbol.c (gfc_traverse_gsymbol): New function.
+	* trans-decl.c (sym_identifier): New function.
+	(mangled_identifier): New function, doing most of the work
+	of gfc_sym_mangled_identifier.
+	(gfc_sym_mangled_identifier): Use mangled_identifier.  Add mangled
+	identifier to global symbol table.
+	(get_proc_pointer_decl): Use backend decl from global identifier
+	if present.
+
+2019-07-23  Thomas König  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR libfortran/91030
+	* gfortran.texi (GFORTRAN_FORMATTED_BUFFER_SIZE): Document.
+	(GFORTRAN_UNFORMATTED_BUFFER_SIZE): Likewise.
+
+2019-07-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from mainline
+	PR fortran/91077
+	* trans-array.c (gfc_conv_scalarized_array_ref) Delete code
+	that gave symbol backend decl for subref arrays and deferred
+	length variables.
+
+2019-06-21  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/90937
+	* trans-types.c (get_formal_from_actual_arglist): Get symbol from
+	current namespace so it will be freed later.  If symbol is of type
+	character, get an empty character length.
+
+2019-06-20  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	Backport from mainline
+	PR fortran/90290
+	* match.c (gfc_match_stopcode): Check F2008 condition on stop code.
+
+2019-06-20  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	Backport from mainline
+	PR fortran/90002
+	* array.c (gfc_free_array_spec): When freeing an array-spec, avoid
+	an ICE for assumed-shape coarrays.
+
+2019-06-20  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	Backport from mainline
+	PR fortran/89344
+	* expr.c (gfc_check_vardef_context): Check for INTENT(IN) variable
+	in SELECT TYPE construct.
+
+2019-06-20  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	Backport from mainline
+	PR fortran/87907
+	* resolve.c (resolve_contained_fntype): Do not dereference a NULL
+	pointer.
+
+2019-06-20  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	Backport from mainline
+	PR fortran/86587
+	* symbol.c (verify_bind_c_derived_type): Remove erroneous error
+	checking for BIND(C) and PRIVATE attributes.
+
+2019-06-20  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	Backport from mainline
+	PR fortran/77632
+	* /decl.c (variable_decl): Mark a variable that is a target in pointer
+	initialization when in PROGRAM, MODULE, or SUBMODULE scope with an
+	implicit save.
+
+2019-06-20  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	Backport from mainline
+	PR fortran/69499
+	* match.c (gfc_match_select_type):  SELECT TYPE is an executable
+	statement, and cannot appear in MODULE or SUBMODULE scope.
+
+2019-06-20  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	Backport from mainline
+	PR fortran/69398
+	* decl.c (attr_decl): Check for duplicate DIMENSION attribute for a
+	CLASS entity.
+
+2019-06-20  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	Backport from mainline
+	PR fortran/68544
+	* resolve.c (is_dt_name): New function to compare symbol name against
+	list of derived types.
+	(resolve_actual_arglist): Use it to find wrong code.
+
+2019-06-20  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	Backport from mainline
+	* arith.c (arith_power): Rework overflow of an integer to an integer
+	exponent.
+
+2019-06-18  Harald Anlauf  <anlauf@gmx.de>
+
+	Backport from mainline
+	2019-06-14  Harald Anlauf  <anlauf@gmx.de>
+
+	PR fortran/90577
+	PR fortran/90578
+	* trans-intrinsic.c (gfc_conv_intrinsic_shift): Properly
+	distinguish logical/arithmetic shifts.
+	* intrinsic.texi: Update documentation for SHIFTR/SHIFTL/SHIFTA
+	(Fortran 2008) and LSHIFT/RSHIFT (GNU extensions).
+
+2019-06-11  Thomas Koenig  <tkoenig@gcc.gnu.org>
+	Tomáš Trnka  <trnka@scm.com>
+
+	Backport from trunk
+	PR fortran/90744
+	* trans-types.c (get_formal_from_actual_arglist): Unset typespec
+	flags which make no sense for procedures without explicit
+	interface.
+
 2019-05-30  Marek Polacek  <polacek@redhat.com>
 
 	* lang.opt (ftail-call-workaround): Fix a typo.

@@ -1335,9 +1335,9 @@ get_proc_name (const char *name, gfc_symbol **result, bool module_fcn_entry)
 	}
 
       /* Trap declarations of attributes in encompassing scope.  The
-	 signature for this is that ts.kind is set.  Legitimate
-	 references only set ts.type.  */
-      if (sym->ts.kind != 0
+	 signature for this is that ts.kind is nonzero for no-CLASS
+	 entity.  For a CLASS entity, ts.kind is zero.  */
+      if ((sym->ts.kind != 0 || sym->ts.type == BT_CLASS)
 	  && !sym->attr.implicit_type
 	  && sym->attr.proc == 0
 	  && gfc_current_ns->parent != NULL
@@ -2779,6 +2779,16 @@ variable_decl (int elem)
 	  m = match_pointer_init (&initializer, 0);
 	  if (m != MATCH_YES)
 	    goto cleanup;
+
+	  /* The target of a pointer initialization must have the SAVE
+	     attribute.  A variable in PROGRAM, MODULE, or SUBMODULE scope
+	     is implicit SAVEd.  Explicitly, set the SAVE_IMPLICIT value.  */
+	  if (initializer->expr_type == EXPR_VARIABLE
+	      && initializer->symtree->n.sym->attr.save == SAVE_NONE
+	      && (gfc_current_state () == COMP_PROGRAM
+		  || gfc_current_state () == COMP_MODULE
+		  || gfc_current_state () == COMP_SUBMODULE))
+	    initializer->symtree->n.sym->attr.save = SAVE_IMPLICIT;
 	}
       else if (gfc_match_char ('=') == MATCH_YES)
 	{
@@ -8372,6 +8382,15 @@ attr_decl1 (void)
      to the first component, or '_data' field.  */
   if (sym->ts.type == BT_CLASS && sym->ts.u.derived->attr.is_class)
     {
+      /* gfc_set_array_spec set sym->attr not CLASS_DATA(sym)->attr.  Check
+	 for duplicate attribute here.  */
+      if (CLASS_DATA(sym)->attr.dimension == 1 && as)
+	{
+	  gfc_error ("Duplicate DIMENSION attribute at %C");
+	  m = MATCH_ERROR;
+	  goto cleanup;
+	}
+
       if (!gfc_copy_attr (&CLASS_DATA(sym)->attr, &current_attr, &var_locus))
 	{
 	  m = MATCH_ERROR;

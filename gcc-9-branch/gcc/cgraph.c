@@ -1779,8 +1779,6 @@ cgraph_node::release_body (bool keep_arguments)
 void
 cgraph_node::remove (void)
 {
-  cgraph_node *n;
-
   if (symtab->ipa_clones_dump_file && symtab->cloned_nodes.contains (this))
     fprintf (symtab->ipa_clones_dump_file,
 	     "Callgraph removal;%s;%d;%s;%d;%d\n", asm_name (), order,
@@ -1797,8 +1795,13 @@ cgraph_node::remove (void)
      */
   force_output = false;
   forced_by_abi = false;
-  for (n = nested; n; n = n->next_nested)
+  cgraph_node *next = nested;
+  for (cgraph_node *n = nested; n; n = next)
+  {
+    next = n->next_nested;
     n->origin = NULL;
+    n->next_nested = NULL;
+  }
   nested = NULL;
   if (origin)
     {
@@ -1852,7 +1855,7 @@ cgraph_node::remove (void)
      */
   if (symtab->state != LTO_STREAMING)
     {
-      n = cgraph_node::get (decl);
+      cgraph_node *n = cgraph_node::get (decl);
       if (!n
 	  || (!n->clones && !n->clone_of && !n->global.inlined_to
 	      && ((symtab->global_info_ready || in_lto_p)
@@ -3449,6 +3452,30 @@ cgraph_node::verify_node (void)
 	  e->aux = 0;
 	}
     }
+
+  if (nested != NULL)
+    {
+      for (cgraph_node *n = nested; n != NULL; n = n->next_nested)
+	{
+	  if (n->origin == NULL)
+	    {
+	      error ("missing origin for a node in a nested list");
+	      error_found = true;
+	    }
+	  else if (n->origin != this)
+	    {
+	      error ("origin points to a different parent");
+	      error_found = true;
+	      break;
+	    }
+	}
+    }
+  if (next_nested != NULL && origin == NULL)
+    {
+      error ("missing origin for a node in a nested list");
+      error_found = true;
+    }
+
   if (error_found)
     {
       dump (stderr);
@@ -3607,7 +3634,7 @@ cgraph_node::get_body (void)
       set_dump_file (NULL);
 
       push_cfun (DECL_STRUCT_FUNCTION (decl));
-      execute_all_ipa_transforms ();
+      execute_all_ipa_transforms (true);
       cgraph_edge::rebuild_edges ();
       free_dominance_info (CDI_DOMINATORS);
       free_dominance_info (CDI_POST_DOMINATORS);

@@ -20845,6 +20845,7 @@ add_scalar_info (dw_die_ref die, enum dwarf_attribute attr, tree value,
 	  if (decl_die != NULL)
 	    {
 	      if (get_AT (decl_die, DW_AT_location)
+		  || get_AT (decl_die, DW_AT_data_member_location)
 		  || get_AT (decl_die, DW_AT_const_value))
 		{
 		  add_AT_die_ref (die, attr, decl_die);
@@ -29418,9 +29419,16 @@ prune_unused_types_walk (dw_die_ref die)
 	    break;
 
 	  /* premark_used_variables marks external variables --- don't mark
-	     them here.  */
+	     them here.  But function-local externals are always considered
+	     used.  */
 	  if (get_AT (die, DW_AT_external))
-	    return;
+	    {
+	      for (c = die->die_parent; c; c = c->die_parent)
+		if (c->die_tag == DW_TAG_subprogram)
+		  break;
+	      if (!c)
+		return;
+	    }
 	}
       /* FALLTHROUGH */
 
