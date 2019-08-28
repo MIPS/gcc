@@ -4726,7 +4726,7 @@ mips_split_msa_subreg_move (rtx dest, rtx src)
   if (size_ratio == 8)
     {
       dest = mips_replace_reg_mode (dest, V4SImode);
-      src = mips_replace_reg_mode (src, V4SImode);
+      src = mips_replace_reg_mode (dest, V4SImode);
       x = mips_gen_const_int_vector_shuffle (V4SImode,
 					     shf_value_2);
       x = gen_rtx_VEC_SELECT (V4SImode, src, x);
