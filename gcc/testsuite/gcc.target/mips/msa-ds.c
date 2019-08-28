@@ -1,6 +1,8 @@
 /* { dg-options "-mmsa -mhard-float -mfp64" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 
+/* Check that delay slots for MSA branches are filled. */
+
 typedef unsigned v4si __attribute__ ((vector_size (16)));
 
 int __attribute__ ((cold)) foo (v4si v , int a, int b)
@@ -25,4 +27,5 @@ int __attribute__ ((cold)) bar (v4si v , int a, int b)
    return b + c;
 }
 
-/* { dg-final { scan-assembler-not "bnz\.w\t\\\$w.,\.L.\n\tnop" } } */
+/* { dg-final { scan-assembler-not "foo:.*nop.*jr.*foo" } } */
+/* { dg-final { scan-assembler-not "bar:.*nop.*jr.*bar" } } */
