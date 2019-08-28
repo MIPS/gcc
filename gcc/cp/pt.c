@@ -10379,7 +10379,8 @@ find_template_parameters (tree t, int depth)
   for_each_template_parm (t, keep_template_parm, &ftpi, &ftpi.visited,
 			  /*include_nondeduced*/true, any_template_parm_r);
   tree list = NULL_TREE;
-  for (auto iter = ftpi.parms.begin(); iter != ftpi.parms.end(); ++iter)
+  for (hash_set<tree>::iterator iter = ftpi.parms.begin();
+       iter != ftpi.parms.end(); ++iter)
     list = tree_cons (NULL_TREE, *iter, list);
   return list;
 }
