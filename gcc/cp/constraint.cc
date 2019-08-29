@@ -1863,7 +1863,7 @@ tsubst_requires_expr (tree t, tree args,
   /* In certain cases, produce a new requires-expression.
      Otherwise the value of the expression is true.  */
   if (processing_template_decl && uses_template_parms (args))
-    return finish_requires_expr (EXPR_LOCATION (t), parms, reqs);
+    return finish_requires_expr (cp_expr_location (t), parms, reqs);
 
   return boolean_true_node;
 }
@@ -2665,7 +2665,7 @@ undiagnosed_constraint_failures ()
 static inline location_t
 get_constraint_location (tree expr)
 {
-  return EXPR_LOC_OR_LOC (expr, input_location);
+  return cp_expr_loc_or_loc (expr, input_location);
 }
 
 /* Emit a diagnostic for a failed trait.  */
@@ -2984,8 +2984,8 @@ get_error_location (tree t)
 {
   /* If we a specific location give it.  */
   tree expr = CONSTR_EXPR (t);
-  if (EXPR_HAS_LOCATION (expr))
-    return EXPR_LOCATION (t);
+  if (location_t loc = cp_expr_location (expr))
+    return loc;
 
   /* If the constraint is normalized from a requires-clause, give
      the location as that of the constrained declaration.  */
