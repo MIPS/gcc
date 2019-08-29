@@ -4763,6 +4763,23 @@ current_template_args (void)
   return template_parms_to_args (current_template_parms);
 }
 
+/* Return the fully generic arguments for of TMPL, i.e. what
+   current_template_args would be while parsing it.  */
+
+tree
+generic_targs_for (tree tmpl)
+{
+  if (tmpl == NULL_TREE)
+    return NULL_TREE;
+  if (DECL_TEMPLATE_TEMPLATE_PARM_P (tmpl)
+      || DECL_TEMPLATE_SPECIALIZATION (tmpl))
+    /* DECL_TEMPLATE_RESULT doesn't have the arguments we want.  */;
+  else if (tree result = DECL_TEMPLATE_RESULT (tmpl))
+    if (tree ti = get_template_info (result))
+      return TI_ARGS (ti);
+  return template_parms_to_args (DECL_TEMPLATE_PARMS (tmpl));
+}
+
 /* Update the declared TYPE by doing any lookups which were thought to be
    dependent, but are not now that we know the SCOPE of the declarator.  */
 
@@ -6368,8 +6385,7 @@ get_underlying_template (tree tmpl)
 	      != num_innermost_template_parms (underlying)))
 	break;
 
-      tree alias_args = INNERMOST_TEMPLATE_ARGS
-	(template_parms_to_args (DECL_TEMPLATE_PARMS (tmpl)));
+      tree alias_args = INNERMOST_TEMPLATE_ARGS (generic_targs_for (tmpl));
       if (!comp_template_args (TI_ARGS (tinfo), alias_args))
 	break;
 
@@ -7471,14 +7487,7 @@ coerce_template_args_for_ttp (tree templ, tree arglist,
 
   tree outer = DECL_CONTEXT (templ);
   if (outer)
-    {
-      if (DECL_TEMPLATE_SPECIALIZATION (outer))
-	/* We want arguments for the partial specialization, not arguments for
-	   the primary template.  */
-	outer = template_parms_to_args (DECL_TEMPLATE_PARMS (outer));
-      else
-	outer = TI_ARGS (get_template_info (DECL_TEMPLATE_RESULT (outer)));
-    }
+    outer = generic_targs_for (outer);
   else if (current_template_parms)
     {
       /* This is an argument of the current template, so we haven't set
@@ -10719,7 +10728,7 @@ tsubst_friend_function (tree decl, tree args)
       if (tree ci = get_constraints (decl))
 	{
 	  tree parms = DECL_TEMPLATE_PARMS (new_friend);
-	  tree args = template_parms_to_args (parms);
+	  tree args = generic_targs_for (new_friend);
 	  tree treqs = tsubst_constraint (CI_TEMPLATE_REQS (ci), args,
 					  tf_warning_or_error, NULL_TREE);
 	  tree freqs = tsubst_constraint (CI_DECLARATOR_REQS (ci), args,

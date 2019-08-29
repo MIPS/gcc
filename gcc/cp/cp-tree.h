@@ -6579,6 +6579,7 @@ extern tree cp_protect_cleanup_actions		(void);
 extern tree create_try_catch_expr               (tree, tree);
 extern tree template_parms_to_args		(tree);
 extern tree template_parms_level_to_args	(tree);
+extern tree generic_targs_for			(tree);
 
 /* in expr.c */
 extern tree cplus_expand_constant		(tree);

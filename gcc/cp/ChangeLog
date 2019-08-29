@@ -1,5 +1,11 @@
 2019-08-30  Jason Merrill  <jason@redhat.com>
 
+	* pt.c (generic_targs_for): Factor out of
+	coerce_template_args_for_ttp.
+	(get_underlying_template, tsubst_friend_function): Use it.
+	* constraint.cc (get_normalized_constraints_from_decl)
+	(normalize_concept_definition): Use it.
+
 	* parser.c (cp_parser_constraint_expression): Add location wrapper.
 	(cp_parser_constraint_primary_expression): Likewise.
 	(cp_parser_binary_expression): Add wrappers to operands when

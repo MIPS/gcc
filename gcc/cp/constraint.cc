@@ -767,9 +767,7 @@ get_normalized_constraints_from_decl (tree d)
   if (tmpl)
     tmpl = most_general_template (tmpl);
 
-  tree parms = tmpl ? DECL_TEMPLATE_PARMS (tmpl) : NULL_TREE;
-  tree args = parms ? template_parms_to_args (parms) : NULL_TREE;
-
+  tree args = generic_targs_for (tmpl);
   tree ci = get_constraints (decl);
   return get_normalized_constraints_from_info (ci, args, tmpl);
 }
@@ -785,7 +783,7 @@ normalize_concept_definition (tree tmpl)
   if (OVL_P (tmpl))
     tmpl = OVL_FIRST (tmpl);
   gcc_assert (TREE_CODE (tmpl) == TEMPLATE_DECL);
-  tree args = template_parms_to_args (DECL_TEMPLATE_PARMS (tmpl));
+  tree args = generic_targs_for (tmpl);
   tree def = get_concept_definition (DECL_TEMPLATE_RESULT (tmpl));
   ++processing_template_decl;
   tree norm = normalize_expression (def, args, norm_info (tmpl));
