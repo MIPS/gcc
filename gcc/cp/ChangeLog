@@ -1,5 +1,7 @@
 2019-08-30  Jason Merrill  <jason@redhat.com>
 
+	* logic.cc (subsumes): Handle error_mark_node.
+
 	* constraint.cc: Use cp_expr_location instead of EXPR_LOCATION.
 
 2019-08-19  Andrew Sutton  <asutton@lock3software.com>

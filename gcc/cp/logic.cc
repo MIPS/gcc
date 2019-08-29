@@ -877,9 +877,9 @@ subsumes (tree lhs, tree rhs)
 {
   if (lhs == rhs)
     return true;
-  if (!lhs)
+  if (!lhs || lhs == error_mark_node)
     return false;
-  if (!rhs)
+  if (!rhs || rhs == error_mark_node)
     return true;
   return subsumes_constraints_nonnull (lhs, rhs);
 }
