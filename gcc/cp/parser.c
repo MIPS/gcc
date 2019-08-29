@@ -9604,6 +9604,8 @@ cp_parser_binary_expression (cp_parser* parser, bool cast_p,
 	    current.lhs = error_mark_node;
 	  else
 	    {
+	      current.lhs.maybe_add_location_wrapper ();
+	      rhs.maybe_add_location_wrapper ();
 	      current.lhs
 		= build_min (current.tree_type,
 			     TREE_CODE_CLASS (current.tree_type)
@@ -26957,6 +26959,7 @@ cp_parser_constraint_primary_expression (cp_parser *parser)
 					       /*cast_p=*/false,
 					       /*template_arg_p=*/false,
 					       &idk);
+  expr.maybe_add_location_wrapper ();
   if (expr != error_mark_node)
     expr = finish_constraint_primary_expr (expr);
   if (cp_parser_parse_definitely (parser))
@@ -27142,11 +27145,12 @@ cp_parser_constraint_expression (cp_parser *parser)
 {
   parsing_constraint_expression_sentinel parsing_constraint;
   ++processing_template_decl;
-  tree expr = cp_parser_binary_expression (parser, false, false,
-                                           PREC_NOT_OPERATOR, NULL);
+  cp_expr expr = cp_parser_binary_expression (parser, false, true,
+					      PREC_NOT_OPERATOR, NULL);
   if (check_for_bare_parameter_packs (expr))
     expr = error_mark_node;
   --processing_template_decl;
+  expr.maybe_add_location_wrapper ();
   return expr;
 }
 

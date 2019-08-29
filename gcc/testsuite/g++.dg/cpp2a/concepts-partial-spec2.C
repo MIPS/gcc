@@ -3,17 +3,22 @@
 // { dg-additional-options "-fconcepts" }
 
 template <class T>
+concept True = true;
+template <class T>
+concept False = false;
+
+template <class T>
 constexpr bool p = false;
 
 template <class T>
 constexpr bool p<T*> = false;
 
 template <class T>
-  requires true
+  requires True<T>
 constexpr bool p<T*> = false;
 
 template <class T>
-  requires true && (T() == 0)
+  requires True<T> && (T() == 0)
 constexpr bool p<T*> = true;
 
 template <class T>
@@ -23,11 +28,11 @@ template <class T>
 constexpr bool q<T*> = true;
 
 template <class T>
-  requires false
+  requires False<T>
 constexpr bool q<T*> = false;
 
 template <class T>
-  requires false && (T() != 0)
+  requires False<T> && (T() != 0)
 constexpr bool q<T*> = false;
 
 static_assert (p<int*>,"");

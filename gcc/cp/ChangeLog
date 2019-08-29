@@ -1,5 +1,11 @@
 2019-08-30  Jason Merrill  <jason@redhat.com>
 
+	* parser.c (cp_parser_constraint_expression): Add location wrapper.
+	(cp_parser_constraint_primary_expression): Likewise.
+	(cp_parser_binary_expression): Add wrappers to operands when
+	no_toplevel_fold_p.
+	* constraint.cc (diagnose_atom_failure): Strip location wrapper.
+
 	* logic.cc (subsumes): Handle error_mark_node.
 
 	* constraint.cc: Use cp_expr_location instead of EXPR_LOCATION.

@@ -3059,6 +3059,8 @@ diagnose_atom_failure (tree t, tree args, tree in_decl)
       return;
     }
 
+  STRIP_ANY_LOCATION_WRAPPER (expr);
+
   /* Otherwise, the expression is false, so we should try to extract
      semantic information from the expression.  */
   switch (TREE_CODE (expr))

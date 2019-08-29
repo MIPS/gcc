@@ -4,8 +4,8 @@
 
 template<typename> concept bool C() { return true; }
 
-template<template<typename T> requires C<T>() class> struct A {};
+template<template<typename T> requires C<T>() class TT> struct A {};
 
-template<typename> requires true struct B {};
+template<typename U> requires C<U>() struct B {};
 
 A<B> a;
