@@ -1,5 +1,8 @@
 2019-08-30  Jason Merrill  <jason@redhat.com>
 
+	* pt.c (tsubst_argument_pack): Factor out of tsubst_template_args.
+	* constraint.cc (tsubst_parameter_mapping): Use it.
+
 	* pt.c (generic_targs_for): Factor out of
 	coerce_template_args_for_ttp.
 	(get_underlying_template, tsubst_friend_function): Use it.

@@ -1928,27 +1928,11 @@ tsubst_parameter_mapping (tree map, tree args, subst_info info)
             }
         }
       else if (ARGUMENT_PACK_P (arg))
-        {
-          /* Substitute through the argument argument pack.  */
-	  new_arg = TYPE_P (arg)
-	    ? cxx_make_type (TREE_CODE (arg))
-	    : make_node (TREE_CODE (arg));
-	  tree pack_args = tsubst_template_args (ARGUMENT_PACK_ARGS (arg),
-						 args, complain, in_decl);
-	  if (pack_args == error_mark_node)
-	    new_arg = error_mark_node;
-	  else
-	    SET_ARGUMENT_PACK_ARGS (new_arg, pack_args);
-
-	  if (TREE_CODE (new_arg) == NONTYPE_ARGUMENT_PACK)
-	    TREE_CONSTANT (new_arg) = TREE_CONSTANT (arg);
-	}
+	new_arg = tsubst_argument_pack (arg, args, complain, in_decl);
       if (!new_arg)
-	{
-	  new_arg = tsubst_template_arg (arg, args, complain, in_decl);
-	  if (new_arg == error_mark_node)
-	    return error_mark_node;
-	}
+	new_arg = tsubst_template_arg (arg, args, complain, in_decl);
+      if (new_arg == error_mark_node)
+	return error_mark_node;
 
       result = tree_cons (new_arg, parm, result);
     }

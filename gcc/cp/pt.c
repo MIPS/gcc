@@ -4773,7 +4773,10 @@ generic_targs_for (tree tmpl)
     return NULL_TREE;
   if (DECL_TEMPLATE_TEMPLATE_PARM_P (tmpl)
       || DECL_TEMPLATE_SPECIALIZATION (tmpl))
-    /* DECL_TEMPLATE_RESULT doesn't have the arguments we want.  */;
+    /* DECL_TEMPLATE_RESULT doesn't have the arguments we want.  For a template
+       template parameter, it has no TEMPLATE_INFO; for a partial
+       specialization, it has the arguments for the primary template, and we
+       want the arguments for the partial specialization.  */;
   else if (tree result = DECL_TEMPLATE_RESULT (tmpl))
     if (tree ti = get_template_info (result))
       return TI_ARGS (ti);
@@ -12832,6 +12835,30 @@ copy_template_args (tree t)
   return new_vec;
 }
 
+/* Substitute ARGS into the *_ARGUMENT_PACK orig_arg.  */
+
+tree
+tsubst_argument_pack (tree orig_arg, tree args, tsubst_flags_t complain,
+		      tree in_decl)
+{
+  /* Substitute into each of the arguments.  */
+  tree new_arg = TYPE_P (orig_arg)
+    ? cxx_make_type (TREE_CODE (orig_arg))
+    : make_node (TREE_CODE (orig_arg));
+
+  tree pack_args = tsubst_template_args (ARGUMENT_PACK_ARGS (orig_arg),
+					 args, complain, in_decl);
+  if (pack_args == error_mark_node)
+    new_arg = error_mark_node;
+  else
+    SET_ARGUMENT_PACK_ARGS (new_arg, pack_args);
+
+  if (TREE_CODE (new_arg) == NONTYPE_ARGUMENT_PACK)
+    TREE_CONSTANT (new_arg) = TREE_CONSTANT (orig_arg);
+
+  return new_arg;
+}
+
 /* Substitute ARGS into the vector or list of template arguments T.  */
 
 tree
@@ -12869,22 +12896,7 @@ tsubst_template_args (tree t, tree args, tsubst_flags_t complain, tree in_decl)
             expanded_len_adjust += TREE_VEC_LENGTH (new_arg) - 1;
         }
       else if (ARGUMENT_PACK_P (orig_arg))
-        {
-          /* Substitute into each of the arguments.  */
-          new_arg = TYPE_P (orig_arg)
-            ? cxx_make_type (TREE_CODE (orig_arg))
-            : make_node (TREE_CODE (orig_arg));
-
-	  tree pack_args = tsubst_template_args (ARGUMENT_PACK_ARGS (orig_arg),
-						 args, complain, in_decl);
-          if (pack_args == error_mark_node)
-            new_arg = error_mark_node;
-	  else
-	    SET_ARGUMENT_PACK_ARGS (new_arg, pack_args);
-
-          if (TREE_CODE (new_arg) == NONTYPE_ARGUMENT_PACK)
-	    TREE_CONSTANT (new_arg) = TREE_CONSTANT (orig_arg);
-        }
+	new_arg = tsubst_argument_pack (orig_arg, args, complain, in_decl);
       else
 	new_arg = tsubst_template_arg (orig_arg, args, complain, in_decl);
 
