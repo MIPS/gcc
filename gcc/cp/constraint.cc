@@ -2012,17 +2012,6 @@ satisfaction_value (tree t)
   gcc_assert (false);
 }
 
-/* Resize V so it has N elements, default constructing any new elements.  */
-
-template<typename T>
-static void
-resize_vector (auto_vec<T> &v, int n)
-{
-  gcc_assert ((int)v.length () <= n);
-  while ((int)v.length () < n)
-    v.safe_push (T ());
-}
-
 /* Build a new template argument list with template arguments corresponding
    to the parameters used in an atomic constraint.  */
 
@@ -2033,37 +2022,33 @@ get_mapped_args (tree map)
   if (!map)
     return NULL_TREE;
 
-  /* Find the mapped parameter with the highest index; we need that
-     many arguments.  */
+  /* Find the mapped parameter with the highest level.  */
   int count = 0;
   for (tree p = map; p; p = TREE_CHAIN (p))
     {
       int level;
       int index;
       template_parm_level_and_index (TREE_VALUE (p), &level, &index);
-      if (index > count)
-        count = index;
+      if (level > count)
+        count = level;
     }
 
   /* Place each argument at its corresponding position in the argument
      list. Note that the list will be sparse (not all arguments supplied),
      but instantiation is guaranteed to only use the parameters in the
      mapping, so null arguments would never be used.  */
-  auto_vec< auto_vec<tree> > lists(1);
+  auto_vec< auto_vec<tree> > lists (count);
+  lists.quick_grow_cleared (count);
   for (tree p = map; p; p = TREE_CHAIN (p))
     {
       int level;
       int index;
       template_parm_level_and_index (TREE_VALUE (p), &level, &index);
 
-      /* Ensure the nth level list exists.  */
-      if (level > (int)lists.length())
-	resize_vector (lists, level);
-
       /* Insert the argument into its corresponding position.  */
       auto_vec<tree> &list = lists[level - 1];
       if (index >= (int)list.length ())
-	resize_vector (list, index + 1);
+	list.safe_grow_cleared (index + 1);
       list[index] = TREE_PURPOSE (p);
     }
 
