@@ -1,3 +1,272 @@
+2019-09-02  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/tree-ssa/slsr-42.c: New test.
+
+2019-09-02  Martin Liska  <mliska@suse.cz>
+
+	PR c++/91155
+	* g++.dg/torture/pr91155.C: New test.
+
+2019-09-01  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/91129 - wrong error with binary op in template argument.
+	* g++.dg/cpp1y/nontype1.C: New test.
+
+2019-09-01  Iain Sandoe  <iain@sandoe.co.uk>
+
+	* gcc.c-torture/compile/20190827-1.c: Add dg-requires-alias.
+
+2019-09-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/execute/20190901-1.c: New test.
+
+	* lib/target-supports.exp (check_effective_target_pthread): Add
+	#include <pthread.h> directive to the test.
+
+2019-09-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	* gfortran.dg/select_rank_1.f90 : New test.
+	* gfortran.dg/select_rank_2.f90 : New test.
+
+2019-09-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/91623
+	* gcc.target/i386/pr91623.c: New test.
+
+	PR lto/91572
+	* g++.dg/lto/pr91572_0.C: New test.
+
+2019-08-30  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/91587
+	* gfortran.dg/pr91587.f90: New test.
+
+2019-08-30  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/91599
+	* gcc.dg/Wstringop-overflow-16.c: New test.
+
+	PR middle-end/91584
+	* gfortran.dg/char_array_constructor_4.f90: New test.
+
+2019-08-30  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/pack24.adb: New test.
+
+2019-08-30  Jeff Law  <law@redhat.com>
+
+	* gcc.target/mips/r10k-cache-barrier-9.c: Suppress warnings.
+
+2019-08-30  Martin Jambor  <mjambor@suse.cz>
+
+	tree-optimization/91579
+	* gcc.dg/tree-ssa/pr91579.c: New test.
+
+2019-08-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/91560
+	* gcc.dg/torture/vshuf-8.inc: Add two further permutations.
+
+	PR tree-optimization/91351
+	* g++.dg/opt/pr91351.C: New test.
+
+2019-08-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/spellcheck-typenames.C: Adjust expected locations.
+	* g++.dg/cpp0x/pr84676.C: Check locations.
+	* g++.dg/other/pr88187.C: Likewise.
+	* g++.dg/parse/crash13.C: Likewise.
+	* g++.dg/parse/crash46.C: Likewise.
+	* g++.dg/parse/template28.C: Likewise.
+	* g++.dg/parse/typename4.C: Likewise.
+
+2019-08-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/91568
+	* gfortran.dg/pr91568.f: New testcase.
+
+2019-08-28  Marek Polacek  <polacek@redhat.com>
+
+	Implement P1152R4: Deprecating some uses of volatile.
+	PR c++/91361
+	* c-c++-common/Wbool-operation-1.c: Use -Wno-volatile in C++.
+	* c-c++-common/gomp/atomic-1.c: Likewise.
+	* c-c++-common/gomp/atomic-9.c: Likewise.
+	* c-c++-common/gomp/depend-iterator-1.c: Likewise.
+	* c-c++-common/gomp/loop-1.c: Adjust warning location for C++.
+	* c-c++-common/gomp/order-3.c: Likewise.
+	* c-c++-common/pr69733.c: Use -Wno-volatile in C++.
+	* c-c++-common/spec-barrier-2.c: Likewise.
+	* c-c++-common/tm/pr54893.c: Likewise.
+	* g++.dg/cpp0x/pr65327.C: Add dg-warning.
+	* g++.dg/cpp0x/rv-conv2.C: Likewise.
+	* g++.dg/cpp0x/rv1n.C: Likewise.
+	* g++.dg/cpp0x/rv1p.C: Likewise.
+	* g++.dg/cpp0x/rv2n.C: Likewise.
+	* g++.dg/cpp0x/rv2p.C: Likewise.
+	* g++.dg/cpp0x/rv3n.C: Likewise.
+	* g++.dg/cpp0x/rv3p.C: Likewise.
+	* g++.dg/cpp0x/rv4n.C: Likewise.
+	* g++.dg/cpp0x/rv4p.C: Likewise.
+	* g++.dg/cpp0x/rv5n.C: Likewise.
+	* g++.dg/cpp0x/rv5p.C: Likewise.
+	* g++.dg/cpp0x/rv6n.C: Likewise.
+	* g++.dg/cpp0x/rv6p.C: Likewise.
+	* g++.dg/cpp0x/rv7n.C: Likewise.
+	* g++.dg/cpp0x/rv7p.C: Likewise.
+	* g++.dg/cpp0x/rv8p.C: Likewise.
+	* g++.dg/cpp0x/trailing14.C: Use -Wno-volatile.
+	* g++.dg/cpp1y/new1.C: Add dg-warning.
+	* g++.dg/cpp2a/volatile1.C: New test.
+	* g++.dg/cpp2a/volatile2.C: New test.
+	* g++.dg/cpp2a/volatile3.C: New test.
+	* g++.dg/cpp2a/volatile4.C: New test.
+	* g++.dg/expr/bool3.C: Add dg-warning.
+	* g++.dg/expr/bool4.C: Likewise.
+	* g++.dg/expr/cond9.C: Likewise.
+	* g++.dg/ext/vector25.C: Likewise.
+	* g++.dg/gomp/depend-iterator-1.C: Use -Wno-volatile.
+	* g++.dg/inherit/covariant21.C: Add dg-warning.
+	* g++.dg/init/ref18.C: Likewise.
+	* g++.dg/ipa/pr63838.C: Likewise.
+	* g++.dg/overload/rvalue2.C: Likewise.
+	* g++.dg/parse/semicolon4.C: Likewise.
+	* g++.dg/warn/Wreturn-type-4.C: Likewise.
+	* g++.dg/warn/pr36069.C: Likewise.
+	* g++.old-deja/g++.mike/p9506.C: Likewise.
+	* g++.old-deja/g++.other/volatile1.C: Likewise.
+
+2019-08-28  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/91551
+	* gfortran.dg/allocated_3.f90
+
+2019-08-28  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/91360 - Implement C++20 P1143R2: constinit.
+	* g++.dg/cpp2a/constinit1.C: New test.
+	* g++.dg/cpp2a/constinit2.C: New test.
+	* g++.dg/cpp2a/constinit3.C: New test.
+	* g++.dg/cpp2a/constinit4.C: New test.
+	* g++.dg/cpp2a/constinit5.C: New test.
+	* g++.dg/cpp2a/constinit6.C: New test.
+	* g++.dg/cpp2a/constinit7.C: New test.
+	* g++.dg/cpp2a/constinit8.C: New test.
+	* g++.dg/cpp2a/constinit9.C: New test.
+	* g++.dg/cpp2a/constinit10.C: New test.
+	* g++.dg/cpp2a/constinit11.C: New test.
+	* g++.dg/cpp2a/constinit12.C: New test.
+
+2019-08-28  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/91565
+	* gfortran.dg/pr91565.f90: New test.
+
+2019-08-28  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/91564
+	* gfortran.dg/pr91564.f90: New test.
+
+2019-08-28  Martin Sebor  <msebor@redhat.com>
+
+	PR tree-optimization/91457
+	* c-c++-common/Wstringop-overflow-2.c: New test.
+	* g++.dg/warn/Warray-bounds-8.C: New test.
+	* g++.dg/warn/Wstringop-overflow-3.C: New test.
+	* gcc.dg/Wstringop-overflow-15.c: New test.
+
+2019-08-16  Martin Liska  <mliska@suse.cz>
+
+	PR c++/90613
+	* g++.dg/lookup/using61.C: New.
+
+2019-08-28  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR middle-end/89544
+	* gcc.target/arm/unaligned-argument-3.c: New test.
+
+2019-08-27  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/81676 - bogus -Wunused warnings in constexpr if.
+	* g++.dg/cpp1z/constexpr-if31.C: New test.
+	* g++.dg/cpp1z/constexpr-if32.C: New test.
+
+	PR c++/91428 - warn about std::is_constant_evaluated in if constexpr.
+	* g++.dg/cpp2a/is-constant-evaluated9.C: New test.
+
+2019-08-27  Martin Sebor  <msebor@redhat.com>
+
+	PR tree-optimization/91567
+	* gcc.dg/tree-ssa/builtin-snprintf-6.c: Xfail a subset of assertions
+	on targets other than x86_64 to work around PR 83543.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-22.c: New test.
+
+2019-08-27  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/compile/20190827-1.c: New test.
+
+2019-08-27  Harald Anlauf  <anlauf@gmx.de>
+
+	PR fortran/91496
+	* gfortran.dg/pr91496.f90: New testcase.
+
+2019-08-27  Uroš Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/sse4_1-round-roundeven-1.c (dg-options):
+	Add -mfpmath=sse.
+	* gcc.target/i386/sse4_1-round-roundeven-2.c (dg-options): Ditto.
+
+2019-08-27  Uroš Bizjak  <ubizjak@gmail.com>
+
+	PR target/91528
+	* gcc.target/i386/pr91528.c: New test.
+
+2019-08-27  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/83431
+	PR testsuite/91562
+	* gcc.dg/strlenopt-8.c: Adjust pass/dump name.
+
+2019-08-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/91415
+	* g++.dg/warn/sequence-pt-4.C: New test.
+
+2019-08-27  Robin Dapp  <rdapp@linux.ibm.com>
+
+	PR testsuite/91549
+	* gcc.dg/wrapped-binop-simplify.c: Test only on x86, s390 with lp64.
+
+2019-08-26  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/91390
+	PR fortran/91473
+	* gfortran.dg/used_before_typed_4.f90: Change warning to error.
+	* gfortran.dg/argument_checking_20.f90: New test.
+
+2019-08-26  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/91545 - ICE in constexpr store evaluation.
+	* g++.dg/cpp0x/pr91545.C: New test.
+
+2019-08-26  Tejas Joshi  <tejasjoshi9673@gmail.com>
+
+	* gcc.target/i386/sse4_1-round-roundeven-1.c: New test.
+	* gcc.target/i386/sse4_1-round-roundeven-2.c: New test.
+
+2019-08-26  Tejas Joshi  <tejasjoshi9673@gmail.com>
+
+	* gcc.dg/torture/builtin-round-roundeven.c: New test.
+	* gcc.dg/torture/builtin-round-roundevenf128.c: Likewise.
+
+2019-08-26  Robin Dapp  <rdapp@linux.ibm.com>
+
+	* gcc.dg/tree-ssa/copy-headers-5.c: Do not run vrp pass.
+	* gcc.dg/tree-ssa/copy-headers-7.c: Do not run vrp pass.
+	* gcc.dg/tree-ssa/loop-15.c: Remove XFAIL.
+	* gcc.dg/tree-ssa/pr23744.c: Change search pattern.
+	* gcc.dg/wrapped-binop-simplify.c: New test.
+
 2019-08-26  Kito Cheng  <kito.cheng@sifive.com>
 
 	* gcc.target/riscv/li.c: New test.
@@ -53,6 +322,76 @@
 2019-08-23  Mihailo Stojanovic  <mistojanovic@wavecomp.com>
 
 	* gcc.target/mips/get-fcsr-3.c: New test.
+
+2019-08-23  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/83431
+	* gcc.dg/strlenopt-63.c: New test.
+	* gcc.dg/pr79538.c: Adjust text of expected warning.
+	* gcc.dg/pr81292-1.c: Adjust pass name.
+	* gcc.dg/pr81292-2.c: Same.
+	* gcc.dg/pr81703.c: Same.
+	* gcc.dg/strcmpopt_2.c: Same.
+	* gcc.dg/strcmpopt_3.c: Same.
+	* gcc.dg/strcmpopt_4.c: Same.
+	* gcc.dg/strlenopt-1.c: Same.
+	* gcc.dg/strlenopt-10.c: Same.
+	* gcc.dg/strlenopt-11.c: Same.
+	* gcc.dg/strlenopt-13.c: Same.
+	* gcc.dg/strlenopt-14g.c: Same.
+	* gcc.dg/strlenopt-14gf.c: Same.
+	* gcc.dg/strlenopt-15.c: Same.
+	* gcc.dg/strlenopt-16g.c: Same.
+	* gcc.dg/strlenopt-17g.c: Same.
+	* gcc.dg/strlenopt-18g.c: Same.
+	* gcc.dg/strlenopt-19.c: Same.
+	* gcc.dg/strlenopt-1f.c: Same.
+	* gcc.dg/strlenopt-2.c: Same.
+	* gcc.dg/strlenopt-20.c: Same.
+	* gcc.dg/strlenopt-21.c: Same.
+	* gcc.dg/strlenopt-22.c: Same.
+	* gcc.dg/strlenopt-22g.c: Same.
+	* gcc.dg/strlenopt-24.c: Same.
+	* gcc.dg/strlenopt-25.c: Same.
+	* gcc.dg/strlenopt-26.c: Same.
+	* gcc.dg/strlenopt-27.c: Same.
+	* gcc.dg/strlenopt-28.c: Same.
+	* gcc.dg/strlenopt-29.c: Same.
+	* gcc.dg/strlenopt-2f.c: Same.
+	* gcc.dg/strlenopt-3.c: Same.
+	* gcc.dg/strlenopt-30.c: Same.
+	* gcc.dg/strlenopt-31g.c: Same.
+	* gcc.dg/strlenopt-32.c: Same.
+	* gcc.dg/strlenopt-33.c: Same.
+	* gcc.dg/strlenopt-33g.c: Same.
+	* gcc.dg/strlenopt-34.c: Same.
+	* gcc.dg/strlenopt-35.c: Same.
+	* gcc.dg/strlenopt-4.c: Same.
+	* gcc.dg/strlenopt-48.c: Same.
+	* gcc.dg/strlenopt-49.c: Same.
+	* gcc.dg/strlenopt-4g.c: Same.
+	* gcc.dg/strlenopt-4gf.c: Same.
+	* gcc.dg/strlenopt-5.c: Same.
+	* gcc.dg/strlenopt-50.c: Same.
+	* gcc.dg/strlenopt-51.c: Same.
+	* gcc.dg/strlenopt-52.c: Same.
+	* gcc.dg/strlenopt-53.c: Same.
+	* gcc.dg/strlenopt-54.c: Same.
+	* gcc.dg/strlenopt-55.c: Same.
+	* gcc.dg/strlenopt-56.c: Same.
+	* gcc.dg/strlenopt-6.c: Same.
+	* gcc.dg/strlenopt-61.c: Same.
+	* gcc.dg/strlenopt-7.c: Same.
+	* gcc.dg/strlenopt-8.c: Same.
+	* gcc.dg/strlenopt-9.c: Same.
+	* gcc.dg/strlenopt.h (snprintf, snprintf): Declare.
+	* gcc.dg/tree-ssa/builtin-snprintf-6.c: New test.
+	* gcc.dg/tree-ssa/builtin-snprintf-7.c: New test.
+	* gcc.dg/tree-ssa/builtin-snprintf-8.c: New test.
+	* gcc.dg/tree-ssa/builtin-snprintf-9.c: New test.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-21.c: New test.
+	* gcc.dg/tree-ssa/dump-4.c: New test.
+	* gcc.dg/tree-ssa/pr83501.c: Adjust pass name.
 
 2019-08-23  Martin Sebor  <msebor@redhat.com>
 
