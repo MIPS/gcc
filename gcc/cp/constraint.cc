@@ -1697,6 +1697,7 @@ tsubst_nested_requirement (tree t, tree args, subst_info info)
 static tree
 tsubst_requirement (tree t, tree args, subst_info info)
 {
+  temp_override<location_t> loc_s (input_location, cp_expr_location (t));
   switch (TREE_CODE (t))
     {
     case SIMPLE_REQ:
