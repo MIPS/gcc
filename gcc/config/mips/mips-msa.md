@@ -2748,7 +2748,8 @@
 }
  [(set_attr "type" "simd_branch")
   (set_attr "mode" "<MODE>")
-  (set_attr "compact_form" "never")])
+  (set_attr "compact_form" "never")
+  (set_attr "branch_likely" "no")])
 
 (define_insn "msa_<msabr>_v_<msafmt_f>"
  [(set (pc) (if_then_else
@@ -2767,7 +2768,8 @@
 }
  [(set_attr "type" "simd_branch")
   (set_attr "mode" "TI")
-  (set_attr "compact_form" "never")])
+  (set_attr "compact_form" "never")
+  (set_attr "branch_likely" "no")])
 
 ;; On big-endian targets we cannot use subregs to refer to MSA register
 ;; in different mode. See mips_cannot_change_mode_class.  This is used

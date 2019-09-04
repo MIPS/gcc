@@ -1,4 +1,4 @@
-/* { dg-options "-mmsa -mhard-float -mfp64" } */
+/* { dg-options "-mmsa -mfp64 -mhard-float" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 
 /* Check that delay slots for MSA branches are filled. */
@@ -27,5 +27,5 @@ int __attribute__ ((cold)) bar (v4si v , int a, int b)
    return b + c;
 }
 
-/* { dg-final { scan-assembler-not "foo:.*nop.*jr.*foo" } } */
-/* { dg-final { scan-assembler-not "bar:.*nop.*jr.*bar" } } */
+/* { dg-final { scan-assembler-not "foo:.*nop.*jr.*foo," } } */
+/* { dg-final { scan-assembler-not "bar:.*nop.*jr.*bar," } } */
