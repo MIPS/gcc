@@ -10327,7 +10327,6 @@ keep_template_parm (tree t, void* data)
   int level;
   int index;
   template_parm_level_and_index (t, &level, &index);
-
   if (level > ftpi->max_depth)
     return 0;
 
@@ -10360,11 +10359,28 @@ any_template_parm_r (tree t, void *data)
 
   switch (TREE_CODE (t))
     {
+    case RECORD_TYPE:
+    case UNION_TYPE:
+    case ENUMERAL_TYPE:
+      /* Search for template parameters in type aliases.  */
+      if (alias_template_specialization_p (t))
+	{
+	  tree tinfo = TYPE_ALIAS_TEMPLATE_INFO (t);
+	  WALK_SUBTREE (TI_ARGS (tinfo));
+        }
+      break;
+
     case TEMPLATE_TYPE_PARM:
       /* Type constraints of a placeholder type may contain parameters.  */
       if (is_auto (t))
 	if (tree constr = PLACEHOLDER_TYPE_CONSTRAINTS (t))
 	  WALK_SUBTREE (constr);
+      break;
+
+    case TEMPLATE_ID_EXPR:
+      /* Search through references to variable templates.  */
+      WALK_SUBTREE (TREE_OPERAND (t, 0));
+      WALK_SUBTREE (TREE_OPERAND (t, 1));
       break;
 
     case CONSTRUCTOR:

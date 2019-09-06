@@ -747,7 +747,10 @@ get_normalized_constraints_from_decl (tree d)
      to be reduced in a way that makes it overly difficult substitute
      concrete arguments (i.e., eventually {int, int} during satisfaction.  */
   if (tmpl)
-    tmpl = most_general_template (tmpl);
+  {
+    if (DECL_LANG_SPECIFIC(tmpl) && !DECL_TEMPLATE_SPECIALIZATION (tmpl))
+      tmpl = most_general_template (tmpl);
+  }
 
   tree args = generic_targs_for (tmpl);
   tree ci = get_constraints (decl);

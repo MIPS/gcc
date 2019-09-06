@@ -1,3 +1,11 @@
+2019-09-06  Andrew Sutton  <asutton@lock3software.com>
+
+	PR c++/67682
+	* constraint.cc (get_normalized_constraints_from_decl): Don't adjust
+	the template decl for partial specialization.
+	* pt.c (any_template_parm_r): Walk template arguments of alias template
+	specializations and template-id expressions for variable templates.
+
 2019-09-17  Jason Merrill  <jason@redhat.com>
 
 	Implement P1452.
