@@ -3569,6 +3569,7 @@ declare_return_variable (copy_body_data *id, tree return_slot, tree modify_dest,
 	     taken by alias analysis.  */
 	  gcc_assert (TREE_CODE (return_slot) != SSA_NAME);
 	  var = return_slot_addr;
+	  mark_addressable (return_slot);
 	}
       else
 	{
@@ -4895,7 +4896,7 @@ expand_call_inline (basic_block bb, gimple *stmt, copy_body_data *id)
      we may get confused if the compiler sees that the inlined new
      function returns a pointer which was just deleted.  See bug
      33407.  */
-  if (DECL_IS_OPERATOR_NEW (fn))
+  if (DECL_IS_OPERATOR_NEW_P (fn))
     {
       return_slot = NULL;
       modify_dest = NULL;

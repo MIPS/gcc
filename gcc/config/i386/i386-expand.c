@@ -106,6 +106,8 @@ split_double_mode (machine_mode mode, rtx operands[],
 {
   machine_mode half_mode;
   unsigned int byte;
+  rtx mem_op = NULL_RTX;
+  int mem_num = 0;
 
   switch (mode)
     {
@@ -129,8 +131,18 @@ split_double_mode (machine_mode mode, rtx operands[],
          but we still have to handle it.  */
       if (MEM_P (op))
 	{
-	  lo_half[num] = adjust_address (op, half_mode, 0);
-	  hi_half[num] = adjust_address (op, half_mode, byte);
+	  if (mem_op && rtx_equal_p (op, mem_op))
+	    {
+	      lo_half[num] = lo_half[mem_num];
+	      hi_half[num] = hi_half[mem_num];
+	    }
+	  else
+	    {
+	      mem_op = op;
+	      mem_num = num;
+	      lo_half[num] = adjust_address (op, half_mode, 0);
+	      hi_half[num] = adjust_address (op, half_mode, byte);
+	    }
 	}
       else
 	{
@@ -2286,16 +2298,16 @@ ix86_unordered_fp_compare (enum rtx_code code)
 
   switch (code)
     {
-    case GT:
-    case GE:
     case LT:
     case LE:
+    case GT:
+    case GE:
+    case LTGT:
       return false;
 
     case EQ:
     case NE:
 
-    case LTGT:
     case UNORDERED:
     case ORDERED:
     case UNLT:
@@ -10978,7 +10990,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
   tree arg0, arg1, arg2, arg3, arg4;
   rtx op0, op1, op2, op3, op4, pat, pat2, insn;
   machine_mode mode0, mode1, mode2, mode3, mode4;
-  unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
+  unsigned int fcode = DECL_MD_FUNCTION_CODE (fndecl);
 
   /* For CPU builtins that can be folded, fold first and expand the fold.  */
   switch (fcode)
@@ -12535,7 +12547,7 @@ rdseed_step:
 		  tree fndecl = gimple_call_fndecl (def_stmt);
 		  if (fndecl
 		      && fndecl_built_in_p (fndecl, BUILT_IN_MD))
-		    switch ((unsigned int) DECL_FUNCTION_CODE (fndecl))
+		    switch (DECL_MD_FUNCTION_CODE (fndecl))
 		      {
 		      case IX86_BUILTIN_CMPPD:
 		      case IX86_BUILTIN_CMPPS:
@@ -13383,6 +13395,9 @@ ix86_expand_vector_init_one_nonzero (bool mmx_ok, machine_mode mode,
     case E_V8HImode:
       use_vector_set = TARGET_SSE2;
       break;
+    case E_V8QImode:
+      use_vector_set = TARGET_MMX_WITH_SSE && TARGET_SSE4_1;
+      break;
     case E_V4HImode:
       use_vector_set = TARGET_SSE || TARGET_3DNOW_A;
       break;
@@ -13590,6 +13605,8 @@ ix86_expand_vector_init_one_var (bool mmx_ok, machine_mode mode,
       wmode = V8HImode;
       goto widen;
     case E_V8QImode:
+      if (TARGET_MMX_WITH_SSE && TARGET_SSE4_1)
+	break;
       wmode = V4HImode;
       goto widen;
     widen:
@@ -14243,8 +14260,13 @@ ix86_expand_vector_set (bool mmx_ok, rtx target, rtx val, int elt)
 
   switch (mode)
     {
-    case E_V2SFmode:
     case E_V2SImode:
+      use_vec_merge = TARGET_MMX_WITH_SSE && TARGET_SSE4_1;
+      if (use_vec_merge)
+	break;
+      /* FALLTHRU */
+
+    case E_V2SFmode:
       if (mmx_ok)
 	{
 	  tmp = gen_reg_rtx (GET_MODE_INNER (mode));
@@ -14409,6 +14431,7 @@ ix86_expand_vector_set (bool mmx_ok, rtx target, rtx val, int elt)
       break;
 
     case E_V8QImode:
+      use_vec_merge = TARGET_MMX_WITH_SSE && TARGET_SSE4_1;
       break;
 
     case E_V32QImode:
@@ -14611,6 +14634,11 @@ ix86_expand_vector_extract (bool mmx_ok, rtx target, rtx vec, int elt)
   switch (mode)
     {
     case E_V2SImode:
+      use_vec_extr = TARGET_MMX_WITH_SSE && TARGET_SSE4_1;
+      if (use_vec_extr)
+	break;
+      /* FALLTHRU */
+
     case E_V2SFmode:
       if (!mmx_ok)
 	break;
@@ -14706,6 +14734,17 @@ ix86_expand_vector_extract (bool mmx_ok, rtx target, rtx vec, int elt)
 
     case E_V16QImode:
       use_vec_extr = TARGET_SSE4_1;
+      if (!use_vec_extr
+	  && TARGET_SSE2
+	  && elt == 0
+	  && (optimize_insn_for_size_p () || TARGET_INTER_UNIT_MOVES_FROM_VEC))
+	{
+	  tmp = gen_reg_rtx (SImode);
+	  ix86_expand_vector_extract (false, tmp, gen_lowpart (V4SImode, vec),
+				      0);
+	  emit_insn (gen_rtx_SET (target, gen_lowpart (QImode, tmp)));
+	  return;
+	}
       break;
 
     case E_V8SFmode:
@@ -14849,7 +14888,10 @@ ix86_expand_vector_extract (bool mmx_ok, rtx target, rtx vec, int elt)
       return;
 
     case E_V8QImode:
+      use_vec_extr = TARGET_MMX_WITH_SSE && TARGET_SSE4_1;
       /* ??? Could extract the appropriate HImode element and shift.  */
+      break;
+
     default:
       break;
     }
@@ -16342,7 +16384,7 @@ expand_vselect_vconcat (rtx target, rtx op0, rtx op1,
   return ok;
 }
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Try to implement D
+/* A subroutine of ix86_expand_vec_perm_const_1.  Try to implement D
    using movss or movsd.  */
 static bool
 expand_vec_perm_movs (struct expand_vec_perm_d *d)
@@ -16378,14 +16420,15 @@ expand_vec_perm_movs (struct expand_vec_perm_d *d)
   return true;
 }
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Try to implement D
+/* A subroutine of ix86_expand_vec_perm_const_1.  Try to implement D
    in terms of blendp[sd] / pblendw / pblendvb / vpblendd.  */
 
 static bool
 expand_vec_perm_blend (struct expand_vec_perm_d *d)
 {
   machine_mode mmode, vmode = d->vmode;
-  unsigned i, mask, nelt = d->nelt;
+  unsigned i, nelt = d->nelt;
+  unsigned HOST_WIDE_INT mask;
   rtx target, op0, op1, maskop, x;
   rtx rperm[32], vperm;
 
@@ -16439,7 +16482,7 @@ expand_vec_perm_blend (struct expand_vec_perm_d *d)
     case E_V16SImode:
     case E_V8DImode:
       for (i = 0; i < nelt; ++i)
-	mask |= (d->perm[i] >= nelt) << i;
+	mask |= ((unsigned HOST_WIDE_INT) (d->perm[i] >= nelt)) << i;
       break;
 
     case E_V2DImode:
@@ -16602,7 +16645,7 @@ expand_vec_perm_blend (struct expand_vec_perm_d *d)
   return true;
 }
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Try to implement D
+/* A subroutine of ix86_expand_vec_perm_const_1.  Try to implement D
    in terms of the variable form of vpermilps.
 
    Note that we will have already failed the immediate input vpermilps,
@@ -16678,7 +16721,7 @@ valid_perm_using_mode_p (machine_mode vmode, struct expand_vec_perm_d *d)
   return true;
 }
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Try to implement D
+/* A subroutine of ix86_expand_vec_perm_const_1.  Try to implement D
    in terms of pshufb, vpperm, vpermq, vpermd, vpermps or vperm2i128.  */
 
 static bool
@@ -16995,7 +17038,7 @@ ix86_expand_vec_one_operand_perm_avx512 (struct expand_vec_perm_d *d)
 
 static bool expand_vec_perm_palignr (struct expand_vec_perm_d *d, bool);
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Try to instantiate D
+/* A subroutine of ix86_expand_vec_perm_const_1.  Try to instantiate D
    in a single instruction.  */
 
 static bool
@@ -17185,7 +17228,7 @@ expand_vec_perm_1 (struct expand_vec_perm_d *d)
   return false;
 }
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Try to implement D
+/* A subroutine of ix86_expand_vec_perm_const_1.  Try to implement D
    in terms of a pair of pshuflw + pshufhw instructions.  */
 
 static bool
@@ -17226,7 +17269,7 @@ expand_vec_perm_pshuflw_pshufhw (struct expand_vec_perm_d *d)
   return true;
 }
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Try to simplify
+/* A subroutine of ix86_expand_vec_perm_const_1.  Try to simplify
    the permutation using the SSSE3 palignr instruction.  This succeeds
    when all of the elements in PERM fit within one vector and we merely
    need to shift them down so that a single vector permutation has a
@@ -17443,7 +17486,7 @@ expand_vec_perm_pblendv (struct expand_vec_perm_d *d)
 
 static bool expand_vec_perm_interleave3 (struct expand_vec_perm_d *d);
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Try to simplify
+/* A subroutine of ix86_expand_vec_perm_const_1.  Try to simplify
    a two vector permutation into a single vector permutation by using
    an interleave operation to merge the vectors.  */
 
@@ -17721,7 +17764,7 @@ expand_vec_perm_interleave2 (struct expand_vec_perm_d *d)
   return true;
 }
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Try to simplify
+/* A subroutine of ix86_expand_vec_perm_const_1.  Try to simplify
    a single vector cross-lane permutation into vpermq followed
    by any of the single insn permutations.  */
 
@@ -17802,7 +17845,7 @@ expand_vec_perm_vpermq_perm_1 (struct expand_vec_perm_d *d)
 
 static bool canonicalize_perm (struct expand_vec_perm_d *d);
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Try to expand
+/* A subroutine of ix86_expand_vec_perm_const_1.  Try to expand
    a vector permutation using two instructions, vperm2f128 resp.
    vperm2i128 followed by any single in-lane permutation.  */
 
@@ -17919,7 +17962,7 @@ expand_vec_perm_vperm2f128 (struct expand_vec_perm_d *d)
   return false;
 }
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Try to simplify
+/* A subroutine of ix86_expand_vec_perm_const_1.  Try to simplify
    a two vector permutation using 2 intra-lane interleave insns
    and cross-lane shuffle for 32-byte vectors.  */
 
@@ -17995,7 +18038,7 @@ expand_vec_perm_interleave3 (struct expand_vec_perm_d *d)
   return true;
 }
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Try to implement
+/* A subroutine of ix86_expand_vec_perm_const_1.  Try to implement
    a single vector permutation using a single intra-lane vector
    permutation, vperm2f128 swapping the lanes and vblend* insn blending
    the non-swapped and swapped vectors together.  */
@@ -18063,7 +18106,7 @@ expand_vec_perm_vperm2f128_vblend (struct expand_vec_perm_d *d)
   return true;
 }
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Implement a V4DF
+/* A subroutine of ix86_expand_vec_perm_const_1.  Implement a V4DF
    permutation using two vperm2f128, followed by a vshufpd insn blending
    the two vectors together.  */
 
@@ -18111,6 +18154,106 @@ expand_vec_perm_2vperm2f128_vshuf (struct expand_vec_perm_d *d)
 
   gcc_assert (ok);
 
+  return true;
+}
+
+static bool ix86_expand_vec_perm_const_1 (struct expand_vec_perm_d *);
+
+/* A subroutine of ix86_expand_vec_perm_const_1.  Try to implement
+   a two vector permutation using two intra-lane vector
+   permutations, vperm2f128 swapping the lanes and vblend* insn blending
+   the non-swapped and swapped vectors together.  */
+
+static bool
+expand_vec_perm2_vperm2f128_vblend (struct expand_vec_perm_d *d)
+{
+  struct expand_vec_perm_d dfirst, dsecond, dthird;
+  unsigned i, j, msk, nelt = d->nelt, nelt2 = nelt / 2, which1 = 0, which2 = 0;
+  rtx_insn *seq1, *seq2;
+  bool ok;
+  rtx (*blend) (rtx, rtx, rtx, rtx) = NULL;
+
+  if (!TARGET_AVX
+      || TARGET_AVX2
+      || (d->vmode != V8SFmode && d->vmode != V4DFmode)
+      || d->one_operand_p)
+    return false;
+
+  dfirst = *d;
+  dsecond = *d;
+  for (i = 0; i < nelt; i++)
+    {
+      dfirst.perm[i] = 0xff;
+      dsecond.perm[i] = 0xff;
+    }
+  for (i = 0, msk = 0; i < nelt; i++)
+    {
+      j = (d->perm[i] & nelt2) ? i | nelt2 : i & ~nelt2;
+      if (j == i)
+	{
+	  dfirst.perm[j] = d->perm[i];
+	  which1 |= (d->perm[i] < nelt ? 1 : 2);
+	}
+      else
+	{
+	  dsecond.perm[j] = d->perm[i];
+	  which2 |= (d->perm[i] < nelt ? 1 : 2);
+	  msk |= (1U << i);
+	}
+    }
+  if (msk == 0 || msk == (1U << nelt) - 1)
+    return false;
+
+  if (!d->testing_p)
+    {
+      dfirst.target = gen_reg_rtx (dfirst.vmode);
+      dsecond.target = gen_reg_rtx (dsecond.vmode);
+    }
+
+  for (i = 0; i < nelt; i++)
+    {
+      if (dfirst.perm[i] == 0xff)
+	dfirst.perm[i] = (which1 == 2 ? i + nelt : i);
+      if (dsecond.perm[i] == 0xff)
+	dsecond.perm[i] = (which2 == 2 ? i + nelt : i);
+    }
+  canonicalize_perm (&dfirst);
+  start_sequence ();
+  ok = ix86_expand_vec_perm_const_1 (&dfirst);
+  seq1 = get_insns ();
+  end_sequence ();
+
+  if (!ok)
+    return false;
+
+  canonicalize_perm (&dsecond);
+  start_sequence ();
+  ok = ix86_expand_vec_perm_const_1 (&dsecond);
+  seq2 = get_insns ();
+  end_sequence ();
+
+  if (!ok)
+    return false;
+
+  if (d->testing_p)
+    return true;
+
+  emit_insn (seq1);
+  emit_insn (seq2);
+
+  dthird = *d;
+  dthird.op0 = dsecond.target;
+  dthird.op1 = dsecond.target;
+  dthird.one_operand_p = true;
+  dthird.target = gen_reg_rtx (dthird.vmode);
+  for (i = 0; i < nelt; i++)
+    dthird.perm[i] = i ^ nelt2;
+
+  ok = expand_vec_perm_1 (&dthird);
+  gcc_assert (ok);
+
+  blend = d->vmode == V8SFmode ? gen_avx_blendps256 : gen_avx_blendpd256;
+  emit_insn (blend (d->target, dfirst.target, dthird.target, GEN_INT (msk)));
   return true;
 }
 
@@ -18503,7 +18646,7 @@ expand_vec_perm_even_odd_trunc (struct expand_vec_perm_d *d)
   return true;
 }
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Implement extract-even
+/* A subroutine of ix86_expand_vec_perm_const_1.  Implement extract-even
    and extract-odd permutations.  */
 
 static bool
@@ -18712,7 +18855,7 @@ expand_vec_perm_even_odd_1 (struct expand_vec_perm_d *d, unsigned odd)
   return true;
 }
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Pattern match
+/* A subroutine of ix86_expand_vec_perm_const_1.  Pattern match
    extract-even and extract-odd permutations.  */
 
 static bool
@@ -18731,7 +18874,7 @@ expand_vec_perm_even_odd (struct expand_vec_perm_d *d)
   return expand_vec_perm_even_odd_1 (d, odd);
 }
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Implement broadcast
+/* A subroutine of ix86_expand_vec_perm_const_1.  Implement broadcast
    permutations.  We assume that expand_vec_perm_1 has already failed.  */
 
 static bool
@@ -18810,7 +18953,7 @@ expand_vec_perm_broadcast_1 (struct expand_vec_perm_d *d)
     }
 }
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Pattern match
+/* A subroutine of ix86_expand_vec_perm_const_1.  Pattern match
    broadcast permutations.  */
 
 static bool
@@ -19106,6 +19249,10 @@ ix86_expand_vec_perm_const_1 (struct expand_vec_perm_d *d)
       return true;
     }
 
+  /* Even longer, including recursion to ix86_expand_vec_perm_const_1.  */
+  if (expand_vec_perm2_vperm2f128_vblend (d))
+    return true;
+
   return false;
 }
 
@@ -19118,7 +19265,7 @@ canonicalize_perm (struct expand_vec_perm_d *d)
   int i, which, nelt = d->nelt;
 
   for (i = which = 0; i < nelt; ++i)
-      which |= (d->perm[i] < nelt ? 1 : 2);
+    which |= (d->perm[i] < nelt ? 1 : 2);
 
   d->one_operand_p = true;
   switch (which)

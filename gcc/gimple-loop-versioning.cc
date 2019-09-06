@@ -1266,6 +1266,12 @@ loop_versioning::record_address_fragment (gimple *stmt,
 		  continue;
 		}
 	    }
+	  if (CONVERT_EXPR_CODE_P (code))
+	    {
+	      tree op1 = gimple_assign_rhs1 (assign);
+	      address->terms[i].expr = strip_casts (op1);
+	      continue;
+	    }
 	}
       i += 1;
     }
@@ -1489,7 +1495,7 @@ loop_versioning::prune_loop_conditions (class loop *loop, vr_values *vrs)
   EXECUTE_IF_SET_IN_BITMAP (&li.unity_names, 0, i, bi)
     {
       tree name = ssa_name (i);
-      value_range *vr = vrs->get_value_range (name);
+      const value_range *vr = vrs->get_value_range (name);
       if (vr && !vr->may_contain_p (build_one_cst (TREE_TYPE (name))))
 	{
 	  if (dump_enabled_p ())

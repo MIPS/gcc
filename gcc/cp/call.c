@@ -529,9 +529,8 @@ null_ptr_cst_p (tree t)
 
   /* [conv.ptr]
 
-     A null pointer constant is an integral constant expression
-     (_expr.const_) rvalue of integer type that evaluates to zero or
-     an rvalue of type std::nullptr_t. */
+     A null pointer constant is an integer literal ([lex.icon]) with value
+     zero or a prvalue of type std::nullptr_t.  */
   if (NULLPTR_TYPE_P (type))
     return true;
 
@@ -4167,7 +4166,7 @@ build_converted_constant_expr_internal (tree type, tree expr,
   conversion *conv;
   void *p;
   tree t;
-  location_t loc = cp_expr_loc_or_loc (expr, input_location);
+  location_t loc = cp_expr_loc_or_input_loc (expr);
 
   if (error_operand_p (expr))
     return error_mark_node;
@@ -4261,6 +4260,11 @@ build_converted_constant_expr_internal (tree type, tree expr,
 
   if (conv)
     {
+      /* Don't copy a class in a template.  */
+      if (CLASS_TYPE_P (type) && conv->kind == ck_rvalue
+	  && processing_template_decl)
+	conv = next_conversion (conv);
+
       conv->check_narrowing = true;
       conv->check_narrowing_const_only = true;
       expr = convert_like (conv, expr, complain);
@@ -6921,7 +6925,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
   tree totype = convs->type;
   diagnostic_t diag_kind;
   int flags;
-  location_t loc = cp_expr_loc_or_loc (expr, input_location);
+  location_t loc = cp_expr_loc_or_input_loc (expr);
 
   if (convs->bad_p && !(complain & tf_error))
     return error_mark_node;
@@ -7441,7 +7445,7 @@ tree
 convert_arg_to_ellipsis (tree arg, tsubst_flags_t complain)
 {
   tree arg_type;
-  location_t loc = cp_expr_loc_or_loc (arg, input_location);
+  location_t loc = cp_expr_loc_or_input_loc (arg);
 
   /* [expr.call]
 
@@ -7749,7 +7753,7 @@ convert_for_arg_passing (tree type, tree val, tsubst_flags_t complain)
 		     "argument of function call might be a candidate "
 		     "for a format attribute");
 	}
-      maybe_warn_parm_abi (type, cp_expr_loc_or_loc (val, input_location));
+      maybe_warn_parm_abi (type, cp_expr_loc_or_input_loc (val));
     }
 
   if (complain & tf_warning)
@@ -8298,38 +8302,6 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
           && !(flags & LOOKUP_EXPLICIT_TMPL_ARGS))
         conversion_warning = false;
 
-      /* Warn about initializer_list deduction that isn't currently in the
-	 working draft.  */
-      if (cxx_dialect > cxx98
-	  && flag_deduce_init_list
-	  && cand->template_decl
-	  && is_std_init_list (non_reference (type))
-	  && BRACE_ENCLOSED_INITIALIZER_P (arg))
-	{
-	  tree tmpl = TI_TEMPLATE (cand->template_decl);
-	  tree realparm = chain_index (j, DECL_ARGUMENTS (cand->fn));
-	  tree patparm = get_pattern_parm (realparm, tmpl);
-	  tree pattype = TREE_TYPE (patparm);
-	  if (PACK_EXPANSION_P (pattype))
-	    pattype = PACK_EXPANSION_PATTERN (pattype);
-	  pattype = non_reference (pattype);
-
-	  if (TREE_CODE (pattype) == TEMPLATE_TYPE_PARM
-	      && (cand->explicit_targs == NULL_TREE
-		  || (TREE_VEC_LENGTH (cand->explicit_targs)
-		      <= TEMPLATE_TYPE_IDX (pattype))))
-	    {
-	      pedwarn (input_location, 0, "deducing %qT as %qT",
-		       non_reference (TREE_TYPE (patparm)),
-		       non_reference (type));
-	      pedwarn (DECL_SOURCE_LOCATION (cand->fn), 0,
-		       "  in call to %qD", cand->fn);
-	      pedwarn (input_location, 0,
-		       "  (you can disable this with "
-		       "%<-fno-deduce-init-list%>)");
-	    }
-	}
-
       /* Set user_conv_p on the argument conversions, so rvalue/base handling
 	 knows not to allow any more UDCs.  This needs to happen after we
 	 process cand->warnings.  */
@@ -8555,7 +8527,7 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
       tree type = TREE_TYPE (to);
       tree as_base = CLASSTYPE_AS_BASE (type);
       tree arg = argarray[1];
-      location_t loc = cp_expr_loc_or_loc (arg, input_location);
+      location_t loc = cp_expr_loc_or_input_loc (arg);
 
       if (is_really_empty_class (type, /*ignore_vptr*/true))
 	{
@@ -9103,7 +9075,7 @@ build_cxx_call (tree fn, int nargs, tree *argarray,
   tree fndecl;
 
   /* Remember roughly where this call is.  */
-  location_t loc = cp_expr_loc_or_loc (fn, input_location);
+  location_t loc = cp_expr_loc_or_input_loc (fn);
   fn = build_call_a (fn, nargs, argarray);
   SET_EXPR_LOCATION (fn, loc);
 
@@ -11146,7 +11118,7 @@ perform_implicit_conversion_flags (tree type, tree expr,
 {
   conversion *conv;
   void *p;
-  location_t loc = cp_expr_loc_or_loc (expr, input_location);
+  location_t loc = cp_expr_loc_or_input_loc (expr);
 
   if (TYPE_REF_P (type))
     expr = mark_lvalue_use (expr);
@@ -11495,7 +11467,7 @@ initialize_reference (tree type, tree expr,
 {
   conversion *conv;
   void *p;
-  location_t loc = cp_expr_loc_or_loc (expr, input_location);
+  location_t loc = cp_expr_loc_or_input_loc (expr);
 
   if (type == error_mark_node || error_operand_p (expr))
     return error_mark_node;

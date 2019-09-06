@@ -986,6 +986,18 @@
   [(set_attr "type" "neon_shift_imm<q>")]
 )
 
+(define_insn "*aarch64_simd_sra<mode>"
+ [(set (match_operand:VDQ_I 0 "register_operand" "=w")
+	(plus:VDQ_I
+	   (SHIFTRT:VDQ_I
+		(match_operand:VDQ_I 1 "register_operand" "w")
+		(match_operand:VDQ_I 2 "aarch64_simd_rshift_imm" "Dr"))
+	   (match_operand:VDQ_I 3 "register_operand" "0")))]
+  "TARGET_SIMD"
+  "<sra_op>sra\t%0.<Vtype>, %1.<Vtype>, %2"
+  [(set_attr "type" "neon_shift_acc<q>")]
+)
+
 (define_insn "aarch64_simd_imm_shl<mode>"
  [(set (match_operand:VDQ_I 0 "register_operand" "=w")
        (ashift:VDQ_I (match_operand:VDQ_I 1 "register_operand" "w")
@@ -5272,6 +5284,28 @@
   [(set_attr "type" "neon_load1_3reg<q>")]
 )
 
+(define_expand "aarch64_ld1x4<VALLDIF:mode>"
+  [(match_operand:XI 0 "register_operand" "=w")
+   (match_operand:DI 1 "register_operand" "r")
+   (unspec:VALLDIF [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
+  "TARGET_SIMD"
+{
+  rtx mem = gen_rtx_MEM (XImode, operands[1]);
+  emit_insn (gen_aarch64_ld1_x4_<VALLDIF:mode> (operands[0], mem));
+  DONE;
+})
+
+(define_insn "aarch64_ld1_x4_<mode>"
+  [(set (match_operand:XI 0 "register_operand" "=w")
+	(unspec:XI
+	  [(match_operand:XI 1 "aarch64_simd_struct_operand" "Utv")
+	   (unspec:VALLDIF [(const_int 4)] UNSPEC_VSTRUCTDUMMY)]
+	UNSPEC_LD1))]
+  "TARGET_SIMD"
+  "ld1\\t{%S0.<Vtype> - %V0.<Vtype>}, %1"
+  [(set_attr "type" "neon_load1_4reg<q>")]
+)
+
 (define_expand "aarch64_st1x2<VALLDIF:mode>"
   [(match_operand:DI 0 "register_operand")
    (match_operand:OI 1 "register_operand")
@@ -5312,6 +5346,28 @@
   "TARGET_SIMD"
   "st1\\t{%S1.<Vtype> - %U1.<Vtype>}, %0"
   [(set_attr "type" "neon_store1_3reg<q>")]
+)
+
+(define_expand "aarch64_st1x4<VALLDIF:mode>"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:XI 1 "register_operand" "")
+   (unspec:VALLDIF [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
+  "TARGET_SIMD"
+{
+  rtx mem = gen_rtx_MEM (XImode, operands[0]);
+  emit_insn (gen_aarch64_st1_x4_<VALLDIF:mode> (mem, operands[1]));
+  DONE;
+})
+
+(define_insn "aarch64_st1_x4_<mode>"
+  [(set (match_operand:XI 0 "aarch64_simd_struct_operand" "=Utv")
+	(unspec:XI
+	   [(match_operand:XI 1 "register_operand" "w")
+	   (unspec:VALLDIF [(const_int 4)] UNSPEC_VSTRUCTDUMMY)]
+	UNSPEC_ST1))]
+  "TARGET_SIMD"
+  "st1\\t{%S1.<Vtype> - %V1.<Vtype>}, %0"
+  [(set_attr "type" "neon_store1_4reg<q>")]
 )
 
 (define_insn "*aarch64_mov<mode>"
@@ -5769,13 +5825,13 @@
 ;; This instruction's pattern is generated directly by
 ;; aarch64_expand_vec_perm_const, so any changes to the pattern would
 ;; need corresponding changes there.
-(define_insn "aarch64_<PERMUTE:perm_insn><PERMUTE:perm_hilo><mode>"
+(define_insn "aarch64_<PERMUTE:perm_insn><mode>"
   [(set (match_operand:VALL_F16 0 "register_operand" "=w")
 	(unspec:VALL_F16 [(match_operand:VALL_F16 1 "register_operand" "w")
 			  (match_operand:VALL_F16 2 "register_operand" "w")]
 	 PERMUTE))]
   "TARGET_SIMD"
-  "<PERMUTE:perm_insn><PERMUTE:perm_hilo>\\t%0.<Vtype>, %1.<Vtype>, %2.<Vtype>"
+  "<PERMUTE:perm_insn>\\t%0.<Vtype>, %1.<Vtype>, %2.<Vtype>"
   [(set_attr "type" "neon_permute<q>")]
 )
 

@@ -72,6 +72,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "file-prefix-map.h" /* remap_macro_filename()  */
 #include "gomp-constants.h"
 #include "omp-general.h"
+#include "tree-dfa.h"
 
 struct target_builtins default_target_builtins;
 #if SWITCHABLE_TARGET
@@ -620,7 +621,7 @@ unterminated_array (tree exp, tree *size /* = NULL */, bool *exact /* = NULL */)
    into the instruction stream and zero if it is going to be expanded.
    E.g. with i++ ? "foo" : "bar", if ONLY_VALUE is nonzero, constant 3
    is returned, otherwise NULL, since
-   len = c_strlen (src, 1); if (len) expand_expr (len, ...); would not
+   len = c_strlen (ARG, 1); if (len) expand_expr (len, ...); would not
    evaluate the side-effects.
 
    If ONLY_VALUE is two then we do not emit warnings about out-of-bound
@@ -628,7 +629,7 @@ unterminated_array (tree exp, tree *size /* = NULL */, bool *exact /* = NULL */)
    into the instruction stream.
 
    Additional information about the string accessed may be recorded
-   in DATA.  For example, if SRC references an unterminated string,
+   in DATA.  For example, if ARG references an unterminated string,
    then the declaration will be stored in the DECL field.   If the
    length of the unterminated string can be determined, it'll be
    stored in the LEN field.  Note this length could well be different
@@ -640,7 +641,7 @@ unterminated_array (tree exp, tree *size /* = NULL */, bool *exact /* = NULL */)
    The value returned is of type `ssizetype'.  */
 
 tree
-c_strlen (tree src, int only_value, c_strlen_data *data, unsigned eltsize)
+c_strlen (tree arg, int only_value, c_strlen_data *data, unsigned eltsize)
 {
   /* If we were not passed a DATA pointer, then get one to a local
      structure.  That avoids having to check DATA for NULL before
@@ -650,7 +651,8 @@ c_strlen (tree src, int only_value, c_strlen_data *data, unsigned eltsize)
     data = &local_strlen_data;
 
   gcc_checking_assert (eltsize == 1 || eltsize == 2 || eltsize == 4);
-  STRIP_NOPS (src);
+
+  tree src = STRIP_NOPS (arg);
   if (TREE_CODE (src) == COND_EXPR
       && (only_value || !TREE_SIDE_EFFECTS (TREE_OPERAND (src, 0))))
     {
@@ -762,11 +764,15 @@ c_strlen (tree src, int only_value, c_strlen_data *data, unsigned eltsize)
     {
       /* Suppress multiple warnings for propagated constant strings.  */
       if (only_value != 2
-	  && !TREE_NO_WARNING (src)
+	  && !TREE_NO_WARNING (arg)
 	  && warning_at (loc, OPT_Warray_bounds,
 			 "offset %qwi outside bounds of constant string",
 			 eltoff))
-	TREE_NO_WARNING (src) = 1;
+	{
+	  if (decl)
+	    inform (DECL_SOURCE_LOCATION (decl), "%qE declared here", decl);
+	  TREE_NO_WARNING (arg) = 1;
+	}
       return NULL_TREE;
     }
 
@@ -2056,6 +2062,7 @@ mathfn_built_in_2 (tree type, combined_fn fn)
     CASE_MATHFN (REMQUO)
     CASE_MATHFN_FLOATN (RINT)
     CASE_MATHFN_FLOATN (ROUND)
+    CASE_MATHFN_FLOATN (ROUNDEVEN)
     CASE_MATHFN (SCALB)
     CASE_MATHFN (SCALBLN)
     CASE_MATHFN (SCALBN)
@@ -3469,11 +3476,6 @@ check_access (tree exp, tree, tree, tree dstwrite,
   if (maxread)
     {
       get_size_range (maxread, range);
-
-      /* Use the lower end for MAXREAD from now on.  */
-      if (range[0])
-	maxread = range[0];
-
       if (range[0] && dstsize && tree_fits_uhwi_p (dstsize))
 	{
 	  location_t loc = tree_nonartificial_location (exp);
@@ -3560,6 +3562,54 @@ check_access (tree exp, tree, tree, tree dstwrite,
   return true;
 }
 
+/* Determines the size of the member referenced by the COMPONENT_REF
+   REF, using its initializer expression if necessary in order to
+   determine the size of an initialized flexible array member.
+   Returns the size (which might be zero for an object with
+   an uninitialized flexible array member) or null if the size
+   cannot be determined.  */
+
+static tree
+component_size (tree ref)
+{
+  gcc_assert (TREE_CODE (ref) == COMPONENT_REF);
+
+  tree member = TREE_OPERAND (ref, 1);
+
+  /* If the member is not last or has a size greater than one, return
+     it.  Otherwise it's either a flexible array member or a zero-length
+     array member, or an array of length one treated as such.  */
+  tree size = DECL_SIZE_UNIT (member);
+  if (size
+      && (!array_at_struct_end_p (ref)
+	  || (!integer_zerop (size)
+	      && !integer_onep (size))))
+    return size;
+
+  /* If the reference is to a declared object and the member a true
+     flexible array, try to determine its size from its initializer.  */
+  poly_int64 off = 0;
+  tree base = get_addr_base_and_unit_offset (ref, &off);
+  if (!base || !VAR_P (base))
+    return NULL_TREE;
+
+  /* The size of any member of a declared object other than a flexible
+     array member is that obtained above.  */
+  if (size)
+    return size;
+
+  if (tree init = DECL_INITIAL (base))
+    if (TREE_CODE (init) == CONSTRUCTOR)
+      {
+	off <<= LOG2_BITS_PER_UNIT;
+	init = fold_ctor_reference (NULL_TREE, init, off, 0, base);
+	if (init)
+	  return TYPE_SIZE_UNIT (TREE_TYPE (init));
+      }
+
+  return DECL_EXTERNAL (base) ? NULL_TREE : integer_zero_node;
+}
+
 /* Helper to compute the size of the object referenced by the DEST
    expression which must have pointer type, using Object Size type
    OSTYPE (only the least significant 2 bits are used).  Return
@@ -3567,12 +3617,18 @@ check_access (tree exp, tree, tree, tree dstwrite,
    the size cannot be determined.  When the referenced object involves
    a non-constant offset in some range the returned value represents
    the largest size given the smallest non-negative offset in the
-   range.  The function is intended for diagnostics and should not
-   be used to influence code generation or optimization.  */
+   range.  If nonnull, set *PDECL to the decl of the referenced
+   subobject if it can be determined, or to null otherwise.
+   The function is intended for diagnostics and should not be used
+   to influence code generation or optimization.  */
 
 tree
-compute_objsize (tree dest, int ostype)
+compute_objsize (tree dest, int ostype, tree *pdecl /* = NULL */)
 {
+  tree dummy = NULL_TREE;
+  if (!pdecl)
+    pdecl = &dummy;
+
   unsigned HOST_WIDE_INT size;
 
   /* Only the two least significant bits are meaningful.  */
@@ -3599,7 +3655,7 @@ compute_objsize (tree dest, int ostype)
 	  tree off = gimple_assign_rhs2 (stmt);
 	  if (TREE_CODE (off) == INTEGER_CST)
 	    {
-	      if (tree size = compute_objsize (dest, ostype))
+	      if (tree size = compute_objsize (dest, ostype, pdecl))
 		{
 		  wide_int wioff = wi::to_wide (off);
 		  wide_int wisiz = wi::to_wide (size);
@@ -3624,7 +3680,7 @@ compute_objsize (tree dest, int ostype)
 
 	      if (rng == VR_RANGE)
 		{
-		  if (tree size = compute_objsize (dest, ostype))
+		  if (tree size = compute_objsize (dest, ostype, pdecl))
 		    {
 		      wide_int wisiz = wi::to_wide (size);
 
@@ -3652,8 +3708,54 @@ compute_objsize (tree dest, int ostype)
   if (!ostype)
     return NULL_TREE;
 
+  if (TREE_CODE (dest) == ARRAY_REF
+      || TREE_CODE (dest) == MEM_REF)
+    {
+      tree ref = TREE_OPERAND (dest, 0);
+      tree off = TREE_OPERAND (dest, 1);
+      if (tree size = compute_objsize (ref, ostype, pdecl))
+	{
+	  /* If the declaration of the destination object is known
+	     to have zero size, return zero.  */
+	  if (integer_zerop (size))
+	    return integer_zero_node;
+
+	  if (TREE_CODE (off) != INTEGER_CST
+	      || TREE_CODE (size) != INTEGER_CST)
+	    return NULL_TREE;
+
+	  if (TREE_CODE (dest) == ARRAY_REF)
+	    {
+	      tree eltype = TREE_TYPE (dest);
+	      if (tree tpsize = TYPE_SIZE_UNIT (eltype))
+		off = fold_build2 (MULT_EXPR, size_type_node, off, tpsize);
+	      else
+		return NULL_TREE;
+	    }
+
+	  if (tree_int_cst_lt (off, size))
+	    return fold_build2 (MINUS_EXPR, size_type_node, size, off);
+	  return integer_zero_node;
+	}
+
+      return NULL_TREE;
+    }
+
+  if (TREE_CODE (dest) == COMPONENT_REF)
+    {
+      *pdecl = TREE_OPERAND (dest, 1);
+      return component_size (dest);
+    }
+
   if (TREE_CODE (dest) != ADDR_EXPR)
     return NULL_TREE;
+
+  tree ref = TREE_OPERAND (dest, 0);
+  if (DECL_P (ref))
+    {
+      *pdecl = ref;
+      return DECL_SIZE_UNIT (ref);
+    }
 
   tree type = TREE_TYPE (dest);
   if (TREE_CODE (type) == POINTER_TYPE)
@@ -3662,14 +3764,10 @@ compute_objsize (tree dest, int ostype)
   type = TYPE_MAIN_VARIANT (type);
 
   if (TREE_CODE (type) == ARRAY_TYPE
-      && !array_at_struct_end_p (TREE_OPERAND (dest, 0)))
+      && !array_at_struct_end_p (ref))
     {
-      /* Return the constant size unless it's zero (that's a zero-length
-	 array likely at the end of a struct).  */
-      tree size = TYPE_SIZE_UNIT (type);
-      if (size && TREE_CODE (size) == INTEGER_CST
-	  && !integer_zerop (size))
-	return size;
+      if (tree size = TYPE_SIZE_UNIT (type))
+	return TREE_CODE (size) == INTEGER_CST ? size : NULL_TREE;
     }
 
   return NULL_TREE;
@@ -5742,6 +5840,7 @@ expand_builtin_init_descriptor (tree exp)
   r_descr = expand_normal (t_descr);
   m_descr = gen_rtx_MEM (BLKmode, r_descr);
   MEM_NOTRAP_P (m_descr) = 1;
+  set_mem_align (m_descr, GET_MODE_ALIGNMENT (ptr_mode));
 
   r_func = expand_normal (t_func);
   r_chain = expand_normal (t_chain);
@@ -7222,7 +7321,6 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
 		int ignore)
 {
   tree fndecl = get_callee_fndecl (exp);
-  enum built_in_function fcode = DECL_FUNCTION_CODE (fndecl);
   machine_mode target_mode = TYPE_MODE (TREE_TYPE (exp));
   int flags;
 
@@ -7234,6 +7332,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
      redundant checks and be sure, that possible overflow will be detected
      by ASan.  */
 
+  enum built_in_function fcode = DECL_FUNCTION_CODE (fndecl);
   if ((flag_sanitize & SANITIZE_ADDRESS) && asan_intercepted_p (fcode))
     return expand_call (exp, target, ignore);
 
@@ -11229,4 +11328,91 @@ target_char_cst_p (tree t, char *p)
 
   *p = (char)tree_to_uhwi (t);
   return true;
+}
+
+/* Return true if the builtin DECL is implemented in a standard library.
+   Otherwise returns false which doesn't guarantee it is not (thus the list of
+   handled builtins below may be incomplete).  */
+
+bool
+builtin_with_linkage_p (tree decl)
+{
+  if (DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
+    switch (DECL_FUNCTION_CODE (decl))
+    {
+      CASE_FLT_FN (BUILT_IN_ACOS):
+      CASE_FLT_FN (BUILT_IN_ACOSH):
+      CASE_FLT_FN (BUILT_IN_ASIN):
+      CASE_FLT_FN (BUILT_IN_ASINH):
+      CASE_FLT_FN (BUILT_IN_ATAN):
+      CASE_FLT_FN (BUILT_IN_ATANH):
+      CASE_FLT_FN (BUILT_IN_ATAN2):
+      CASE_FLT_FN (BUILT_IN_CBRT):
+      CASE_FLT_FN (BUILT_IN_CEIL):
+      CASE_FLT_FN_FLOATN_NX (BUILT_IN_CEIL):
+      CASE_FLT_FN (BUILT_IN_COPYSIGN):
+      CASE_FLT_FN_FLOATN_NX (BUILT_IN_COPYSIGN):
+      CASE_FLT_FN (BUILT_IN_COS):
+      CASE_FLT_FN (BUILT_IN_COSH):
+      CASE_FLT_FN (BUILT_IN_ERF):
+      CASE_FLT_FN (BUILT_IN_ERFC):
+      CASE_FLT_FN (BUILT_IN_EXP):
+      CASE_FLT_FN (BUILT_IN_EXP2):
+      CASE_FLT_FN (BUILT_IN_EXPM1):
+      CASE_FLT_FN (BUILT_IN_FABS):
+      CASE_FLT_FN_FLOATN_NX (BUILT_IN_FABS):
+      CASE_FLT_FN (BUILT_IN_FDIM):
+      CASE_FLT_FN (BUILT_IN_FLOOR):
+      CASE_FLT_FN_FLOATN_NX (BUILT_IN_FLOOR):
+      CASE_FLT_FN (BUILT_IN_FMA):
+      CASE_FLT_FN_FLOATN_NX (BUILT_IN_FMA):
+      CASE_FLT_FN (BUILT_IN_FMAX):
+      CASE_FLT_FN_FLOATN_NX (BUILT_IN_FMAX):
+      CASE_FLT_FN (BUILT_IN_FMIN):
+      CASE_FLT_FN_FLOATN_NX (BUILT_IN_FMIN):
+      CASE_FLT_FN (BUILT_IN_FMOD):
+      CASE_FLT_FN (BUILT_IN_FREXP):
+      CASE_FLT_FN (BUILT_IN_HYPOT):
+      CASE_FLT_FN (BUILT_IN_ILOGB):
+      CASE_FLT_FN (BUILT_IN_LDEXP):
+      CASE_FLT_FN (BUILT_IN_LGAMMA):
+      CASE_FLT_FN (BUILT_IN_LLRINT):
+      CASE_FLT_FN (BUILT_IN_LLROUND):
+      CASE_FLT_FN (BUILT_IN_LOG):
+      CASE_FLT_FN (BUILT_IN_LOG10):
+      CASE_FLT_FN (BUILT_IN_LOG1P):
+      CASE_FLT_FN (BUILT_IN_LOG2):
+      CASE_FLT_FN (BUILT_IN_LOGB):
+      CASE_FLT_FN (BUILT_IN_LRINT):
+      CASE_FLT_FN (BUILT_IN_LROUND):
+      CASE_FLT_FN (BUILT_IN_MODF):
+      CASE_FLT_FN (BUILT_IN_NAN):
+      CASE_FLT_FN (BUILT_IN_NEARBYINT):
+      CASE_FLT_FN_FLOATN_NX (BUILT_IN_NEARBYINT):
+      CASE_FLT_FN (BUILT_IN_NEXTAFTER):
+      CASE_FLT_FN (BUILT_IN_NEXTTOWARD):
+      CASE_FLT_FN (BUILT_IN_POW):
+      CASE_FLT_FN (BUILT_IN_REMAINDER):
+      CASE_FLT_FN (BUILT_IN_REMQUO):
+      CASE_FLT_FN (BUILT_IN_RINT):
+      CASE_FLT_FN_FLOATN_NX (BUILT_IN_RINT):
+      CASE_FLT_FN (BUILT_IN_ROUND):
+      CASE_FLT_FN_FLOATN_NX (BUILT_IN_ROUND):
+      CASE_FLT_FN (BUILT_IN_SCALBLN):
+      CASE_FLT_FN (BUILT_IN_SCALBN):
+      CASE_FLT_FN (BUILT_IN_SIN):
+      CASE_FLT_FN (BUILT_IN_SINH):
+      CASE_FLT_FN (BUILT_IN_SINCOS):
+      CASE_FLT_FN (BUILT_IN_SQRT):
+      CASE_FLT_FN_FLOATN_NX (BUILT_IN_SQRT):
+      CASE_FLT_FN (BUILT_IN_TAN):
+      CASE_FLT_FN (BUILT_IN_TANH):
+      CASE_FLT_FN (BUILT_IN_TGAMMA):
+      CASE_FLT_FN (BUILT_IN_TRUNC):
+      CASE_FLT_FN_FLOATN_NX (BUILT_IN_TRUNC):
+	return true;
+      default:
+	break;
+    }
+  return false;
 }

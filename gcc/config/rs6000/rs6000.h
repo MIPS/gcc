@@ -54,6 +54,13 @@
 #define TARGET_AIX_OS 0
 #endif
 
+/* Turn off TOC support if pc-relative addressing is used.  */
+#define TARGET_TOC             (TARGET_HAS_TOC && !TARGET_PCREL)
+
+/* On 32-bit systems without a TOC or pc-relative addressing, we need to use
+   ADDIS/ADDI to load up the address of a symbol.  */
+#define TARGET_NO_TOC_OR_PCREL (!TARGET_HAS_TOC && !TARGET_PCREL)
+
 /* Control whether function entry points use a "dot" symbol when
    ABI_AIX.  */
 #define DOT_SYMBOLS 1
@@ -69,6 +76,20 @@
 #else
 #define PPC405_ERRATUM77 0
 #endif
+
+#ifndef SUBTARGET_DRIVER_SELF_SPECS
+# define SUBTARGET_DRIVER_SELF_SPECS ""
+#endif
+
+/* Only for use in the testsuite: -mdejagnu-cpu= simply overrides -mcpu=.
+   With older versions of Dejagnu the command line arguments you set in
+   RUNTESTFLAGS override those set in the testcases; with this option,
+   the testcase will always win.  Ditto for -mdejagnu-tune=.  */
+#define DRIVER_SELF_SPECS \
+  "%{mdejagnu-cpu=*: %<mcpu=* -mcpu=%*}", \
+  "%{mdejagnu-tune=*: %<mtune=* -mtune=%*}", \
+  "%{mdejagnu-*: %<mdejagnu-*}", \
+   SUBTARGET_DRIVER_SELF_SPECS
 
 #if CHECKING_P
 #define ASM_OPT_ANY ""
@@ -150,6 +171,7 @@ ASM_OPT_ANY
 #define CPP_DEFAULT_SPEC ""
 
 #define ASM_DEFAULT_SPEC ""
+#define ASM_DEFAULT_EXTRA ""
 
 /* This macro defines names of additional specifications to put in the specs
    that can be used in various specifications like CC1_SPEC.  Its definition
@@ -167,7 +189,7 @@ ASM_OPT_ANY
   { "cpp_default",		CPP_DEFAULT_SPEC },			\
   { "asm_cpu",			ASM_CPU_SPEC },				\
   { "asm_cpu_native",		ASM_CPU_NATIVE_SPEC },			\
-  { "asm_default",		ASM_DEFAULT_SPEC },			\
+  { "asm_default",		ASM_DEFAULT_SPEC ASM_DEFAULT_EXTRA },	\
   { "cc1_cpu",			CC1_CPU_SPEC },				\
   SUBTARGET_EXTRA_SPECS
 

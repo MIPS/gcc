@@ -88,8 +88,26 @@
 #endif
 
 #ifdef IN_RTS
+
+#ifdef STANDALONE
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* for CPU_SET/CPU_ZERO */
+#define _GNU_SOURCE
+#define __USE_GNU
+
+#include "runtime.h"
+
+#else
 #include "tconfig.h"
 #include "tsystem.h"
+#endif
+
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <time.h>
@@ -326,7 +344,7 @@ int __gnat_use_acl = 1;
    system provides the routine readdir_r.
    ... but we never define it anywhere???  */
 #undef HAVE_READDIR_R
-
+
 #define MAYBE_TO_PTR32(argv) argv
 
 static const char ATTR_UNSET = 127;
@@ -392,13 +410,6 @@ __gnat_to_gm_time (OS_Time *p_time, int *p_year, int *p_month, int *p_day,
 {
   struct tm *res;
   time_t time = (time_t) *p_time;
-
-#ifdef _WIN32
-  /* On Windows systems, the time is sometimes rounded up to the nearest
-     even second, so if the number of seconds is odd, increment it.  */
-  if (time & 1)
-    time++;
-#endif
 
   res = gmtime (&time);
   if (res)

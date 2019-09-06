@@ -2315,6 +2315,32 @@ ccp_folder::fold_stmt (gimple_stmt_iterator *gsi)
 	      }
           }
 
+	/* If there's no extra info from an assume_aligned call,
+	   drop it so it doesn't act as otherwise useless dataflow
+	   barrier.  */
+	if (gimple_call_builtin_p (stmt, BUILT_IN_ASSUME_ALIGNED))
+	  {
+	    tree ptr = gimple_call_arg (stmt, 0);
+	    ccp_prop_value_t ptrval = get_value_for_expr (ptr, true);
+	    if (ptrval.lattice_val == CONSTANT
+		&& TREE_CODE (ptrval.value) == INTEGER_CST
+		&& ptrval.mask != 0)
+	      {
+		ccp_prop_value_t val
+		  = bit_value_assume_aligned (stmt, NULL_TREE, ptrval, false);
+		unsigned int ptralign = least_bit_hwi (ptrval.mask.to_uhwi ());
+		unsigned int align = least_bit_hwi (val.mask.to_uhwi ());
+		if (ptralign == align
+		    && ((TREE_INT_CST_LOW (ptrval.value) & (align - 1))
+			== (TREE_INT_CST_LOW (val.value) & (align - 1))))
+		  {
+		    bool res = update_call_from_tree (gsi, ptr);
+		    gcc_assert (res);
+		    return true;
+		  }
+	      }
+	  }
+
 	/* Propagate into the call arguments.  Compared to replace_uses_in
 	   this can use the argument slot types for type verification
 	   instead of the current argument type.  We also can safely
@@ -2598,7 +2624,7 @@ optimize_stack_restore (gimple_stmt_iterator i)
 	  || ALLOCA_FUNCTION_CODE_P (DECL_FUNCTION_CODE (callee)))
 	return NULL_TREE;
 
-      if (DECL_FUNCTION_CODE (callee) == BUILT_IN_STACK_RESTORE)
+      if (fndecl_built_in_p (callee, BUILT_IN_STACK_RESTORE))
 	goto second_stack_restore;
     }
 
@@ -2656,9 +2682,6 @@ optimize_stdarg_builtin (gimple *call)
   tree callee, lhs, rhs, cfun_va_list;
   bool va_list_simple_ptr;
   location_t loc = gimple_location (call);
-
-  if (gimple_code (call) != GIMPLE_CALL)
-    return NULL_TREE;
 
   callee = gimple_call_fndecl (call);
 
@@ -2962,12 +2985,10 @@ optimize_atomic_bit_test_and (gimple_stmt_iterator *gsip,
 				    bit, flag);
   gimple_call_set_lhs (g, new_lhs);
   gimple_set_location (g, gimple_location (call));
-  gimple_set_vuse (g, gimple_vuse (call));
-  gimple_set_vdef (g, gimple_vdef (call));
+  gimple_move_vops (g, call);
   bool throws = stmt_can_throw_internal (cfun, call);
   gimple_call_set_nothrow (as_a <gcall *> (g),
 			   gimple_call_nothrow_p (as_a <gcall *> (call)));
-  SSA_NAME_DEF_STMT (gimple_vdef (call)) = g;
   gimple_stmt_iterator gsi = *gsip;
   gsi_insert_after (&gsi, g, GSI_NEW_STMT);
   edge e = NULL;

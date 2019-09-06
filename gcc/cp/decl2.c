@@ -434,8 +434,8 @@ grok_array_decl (location_t loc, tree array_expr, tree index_exp,
 	array_expr = p2, index_exp = i1;
       else
 	{
-	  error ("invalid types %<%T[%T]%> for array subscript",
-		 type, TREE_TYPE (index_exp));
+	  error_at (loc, "invalid types %<%T[%T]%> for array subscript",
+		    type, TREE_TYPE (index_exp));
 	  return error_mark_node;
 	}
 
@@ -487,15 +487,19 @@ delete_sanity (tree exp, tree size, bool doing_vec, int use_global_delete,
     }
 
   /* An array can't have been allocated by new, so complain.  */
-  if (TREE_CODE (TREE_TYPE (exp)) == ARRAY_TYPE)
-    warning (0, "deleting array %q#E", exp);
+  if (TREE_CODE (TREE_TYPE (exp)) == ARRAY_TYPE
+      && (complain & tf_warning))
+    warning_at (cp_expr_loc_or_input_loc (exp), 0,
+		"deleting array %q#E", exp);
 
   t = build_expr_type_conversion (WANT_POINTER, exp, true);
 
   if (t == NULL_TREE || t == error_mark_node)
     {
-      error ("type %q#T argument given to %<delete%>, expected pointer",
-	     TREE_TYPE (exp));
+      if (complain & tf_error)
+	error_at (cp_expr_loc_or_input_loc (exp),
+		  "type %q#T argument given to %<delete%>, expected pointer",
+		  TREE_TYPE (exp));
       return error_mark_node;
     }
 
@@ -506,15 +510,19 @@ delete_sanity (tree exp, tree size, bool doing_vec, int use_global_delete,
   /* You can't delete functions.  */
   if (TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE)
     {
-      error ("cannot delete a function.  Only pointer-to-objects are "
-	     "valid arguments to %<delete%>");
+      if (complain & tf_error)
+	error_at (cp_expr_loc_or_input_loc (exp),
+		  "cannot delete a function.  Only pointer-to-objects are "
+		  "valid arguments to %<delete%>");
       return error_mark_node;
     }
 
   /* Deleting ptr to void is undefined behavior [expr.delete/3].  */
   if (VOID_TYPE_P (TREE_TYPE (type)))
     {
-      warning (OPT_Wdelete_incomplete, "deleting %qT is undefined", type);
+      if (complain & tf_warning)
+	warning_at (cp_expr_loc_or_input_loc (exp), OPT_Wdelete_incomplete,
+		    "deleting %qT is undefined", type);
       doing_vec = 0;
     }
 
@@ -5399,6 +5407,43 @@ cp_warn_deprecated_use (tree decl, tsubst_flags_t complain)
   return warned;
 }
 
+/* Like above, but takes into account outer scopes.  */
+
+void
+cp_warn_deprecated_use_scopes (tree scope)
+{
+  while (scope
+	 && scope != error_mark_node
+	 && scope != global_namespace)
+    {
+      if (cp_warn_deprecated_use (scope))
+	return;
+      if (TYPE_P (scope))
+	scope = CP_TYPE_CONTEXT (scope);
+      else
+	scope = CP_DECL_CONTEXT (scope);
+    }
+}
+
+/* True if DECL or its enclosing scope have unbound template parameters.  */
+
+bool
+decl_dependent_p (tree decl)
+{
+  if (DECL_FUNCTION_SCOPE_P (decl)
+      || TREE_CODE (decl) == CONST_DECL
+      || TREE_CODE (decl) == USING_DECL
+      || TREE_CODE (decl) == FIELD_DECL)
+    decl = CP_DECL_CONTEXT (decl);
+  if (tree tinfo = get_template_info (decl))
+    if (any_dependent_template_arguments_p (TI_ARGS (tinfo)))
+      return true;
+  if (LAMBDA_FUNCTION_P (decl)
+      && dependent_type_p (DECL_CONTEXT (decl)))
+    return true;
+  return false;
+}
+
 /* Mark DECL (either a _DECL or a BASELINK) as "used" in the program.
    If DECL is a specialization or implicitly declared class member,
    generate the actual definition.  Return false if something goes
@@ -5424,6 +5469,9 @@ mark_used (tree decl, tsubst_flags_t complain)
 	return true;
       decl = OVL_FIRST (decl);
     }
+
+  if (!DECL_P (decl))
+    return true;
 
   /* Set TREE_USED for the benefit of -Wunused.  */
   TREE_USED (decl) = 1;
@@ -5472,7 +5520,7 @@ mark_used (tree decl, tsubst_flags_t complain)
       || DECL_LANG_SPECIFIC (decl) == NULL
       || DECL_THUNK_P (decl))
     {
-      if (!processing_template_decl
+      if (!decl_dependent_p (decl)
 	  && !require_deduced_type (decl, complain))
 	return false;
       return true;

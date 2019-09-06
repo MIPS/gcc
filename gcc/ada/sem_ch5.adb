@@ -2234,8 +2234,16 @@ package body Sem_Ch5 is
                It : Interp;
 
             begin
+               --  The domain of iteration must implement either the RM
+               --  iterator interface, or the SPARK Iterable aspect.
+
                if No (Iterator) then
-                  null;  --  error reported below
+                  if No (Find_Aspect (Etype (Iter_Name), Aspect_Iterable)) then
+                     Error_Msg_NE
+                       ("cannot iterate over&",
+                        N, Base_Type (Etype (Iter_Name)));
+                     return;
+                  end if;
 
                elsif not Is_Overloaded (Iterator) then
                   Check_Reverse_Iteration (Etype (Iterator));
@@ -3627,10 +3635,15 @@ package body Sem_Ch5 is
             then
                Rng := Range_Expression (Constraint (Rng));
 
-               --  Preanalyze the bounds of the range constraint
+               --  Preanalyze the bounds of the range constraint, setting
+               --  parent fields to associate the copied bounds with the range,
+               --  allowing proper tree climbing during preanalysis.
 
                Low  := New_Copy_Tree (Low_Bound  (Rng));
                High := New_Copy_Tree (High_Bound (Rng));
+
+               Set_Parent (Low, Rng);
+               Set_Parent (High, Rng);
 
                Preanalyze (Low);
                Preanalyze (High);

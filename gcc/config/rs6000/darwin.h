@@ -43,8 +43,7 @@
 
 /* We're not ever going to do TOCs.  */
 
-#define TARGET_TOC 0
-#define TARGET_NO_TOC 1
+#define TARGET_HAS_TOC 0
 
 /* Override the default rs6000 definition.  */
 #undef  PTRDIFF_TYPE
@@ -53,18 +52,27 @@
 #define TARGET_OS_CPP_BUILTINS()			\
   do							\
     {							\
-      if (!TARGET_64BIT) builtin_define ("__ppc__");	\
-      if (!TARGET_64BIT) builtin_define ("__PPC__");	\
-      if (TARGET_64BIT) builtin_define ("__ppc64__");	\
-      if (TARGET_64BIT) builtin_define ("__PPC64__");	\
       builtin_define ("__POWERPC__");			\
+      builtin_define ("__PPC__");			\
+      if (TARGET_64BIT)					\
+	{						\
+	  builtin_define ("__ppc64__");			\
+	  builtin_define ("__PPC64__");			\
+	  builtin_define ("__powerpc64__");		\
+	  builtin_assert ("cpu=powerpc64");		\
+	  builtin_assert ("machine=powerpc64");		\
+	}						\
+      else						\
+	{						\
+	  builtin_define ("__ppc__");			\
+	  builtin_define_std ("PPC");			\
+	  builtin_assert ("cpu=powerpc");		\
+	  builtin_assert ("machine=powerpc");		\
+	}						\
       builtin_define ("__NATURAL_ALIGNMENT__");		\
       darwin_cpp_builtins (pfile);			\
     }							\
   while (0)
-
-/* Generate pic symbol stubs if this is true.  */
-extern int darwin_emit_picsym_stub;
 
 #define SUBTARGET_OVERRIDE_OPTIONS darwin_rs6000_override_options ()
 
@@ -118,11 +126,10 @@ extern int darwin_emit_picsym_stub;
   %<faltivec %<fno-altivec " \
   DARWIN_CC1_SPEC
 
-#define DARWIN_ARCH_SPEC "%{m64:ppc64;:ppc}"
+/* Default to PPC for single arch builds.  */
+#define DARWIN_ARCH_SPEC "ppc"
 
 #define DARWIN_SUBARCH_SPEC "			\
- %{m64: ppc64}					\
- %{!m64:					\
  %{mcpu=601:ppc601;				\
    mcpu=603:ppc603;				\
    mcpu=603e:ppc603;				\
@@ -137,7 +144,7 @@ extern int darwin_emit_picsym_stub;
    mcpu=970:ppc970;				\
    mcpu=power4:ppc970;				\
    mcpu=G5:ppc970;				\
-   :ppc}}"
+   :ppc}"
 
 /* We need to jam the crt to 10.5 for 10.6 (Rosetta) use.  */
 #undef DARWIN_CRT1_SPEC

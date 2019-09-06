@@ -809,18 +809,12 @@ package body Sem_Ch8 is
             --  in particular with record types with an access discriminant
             --  that are used in iterators. This is an optimization, but it
             --  also prevents typing anomalies when the prefix is further
-            --  expanded. This also applies to limited types with access
-            --  discriminants.
+            --  expanded.
             --  Note that we cannot just use the Is_Limited_Record flag because
             --  it does not apply to records with limited components, for which
             --  this syntactic flag is not set, but whose size is also fixed.
 
-            elsif (Is_Record_Type (Typ) and then Is_Limited_Type (Typ))
-              or else
-                (Ekind (Typ) = E_Limited_Private_Type
-                  and then Has_Discriminants (Typ)
-                  and then Is_Access_Type (Etype (First_Discriminant (Typ))))
-            then
+            elsif Is_Limited_Type (Typ) then
                null;
 
             else
@@ -1702,7 +1696,7 @@ package body Sem_Ch8 is
       --  AI05-0225: If the renamed entity is a procedure or entry of a
       --  protected object, the target object must be a variable.
 
-      if Ekind (Scope (Old_S)) in Protected_Kind
+      if Is_Protected_Type (Scope (Old_S))
         and then Ekind (New_S) = E_Procedure
         and then not Is_Variable (Prefix (Nam))
       then
@@ -3374,7 +3368,16 @@ package body Sem_Ch8 is
 
             if CW_Actual then
                null;
-            elsif not Is_Actual or else No (Enclosing_Instance) then
+
+            --  No need for a redundant error message if this is a nested
+            --  instance, unless the current instantiation (of a child unit)
+            --  is a compilation unit, which is not analyzed when the parent
+            --  generic is analyzed.
+
+            elsif not Is_Actual
+               or else No (Enclosing_Instance)
+               or else Is_Compilation_Unit (Current_Scope)
+            then
                Check_Mode_Conformant (New_S, Old_S);
             end if;
 
@@ -4842,6 +4845,13 @@ package body Sem_Ch8 is
             Set_In_Use (Base_Type (T), False);
             Set_Current_Use_Clause (T, Empty);
             Set_Current_Use_Clause (Base_Type (T), Empty);
+
+            --  See Use_One_Type for the rationale. This is a bit on the naive
+            --  side, but should be good enough in practice.
+
+            if Is_Tagged_Type (T) then
+               Set_In_Use (Class_Wide_Type (T), False);
+            end if;
          end if;
       end if;
 
@@ -6720,6 +6730,15 @@ package body Sem_Ch8 is
       Old_S : Entity_Id;
       Inst  : Entity_Id;
 
+      function Find_Nearer_Entity
+        (New_S  : Entity_Id;
+         Old1_S : Entity_Id;
+         Old2_S : Entity_Id) return Entity_Id;
+      --  Determine whether one of Old_S1 and Old_S2 is nearer to New_S than
+      --  the other, and return it if so. Return Empty otherwise. We use this
+      --  in conjunction with Inherit_Renamed_Profile to simplify later type
+      --  disambiguation for actual subprograms in instances.
+
       function Is_Visible_Operation (Op : Entity_Id) return Boolean;
       --  If the renamed entity is an implicit operator, check whether it is
       --  visible because its operand type is properly visible. This check
@@ -6734,6 +6753,99 @@ package body Sem_Ch8 is
       function Within (Inner, Outer : Entity_Id) return Boolean;
       --  Determine whether a candidate subprogram is defined within the
       --  enclosing instance. If yes, it has precedence over outer candidates.
+
+      --------------------------
+      --  Find_Nearer_Entity  --
+      --------------------------
+
+      function Find_Nearer_Entity
+        (New_S  : Entity_Id;
+         Old1_S : Entity_Id;
+         Old2_S : Entity_Id) return Entity_Id
+      is
+         New_F  : Entity_Id;
+         Old1_F : Entity_Id;
+         Old2_F : Entity_Id;
+         Anc_T  : Entity_Id;
+
+      begin
+         New_F  := First_Formal (New_S);
+         Old1_F := First_Formal (Old1_S);
+         Old2_F := First_Formal (Old2_S);
+
+         --  The criterion is whether the type of the formals of one of Old1_S
+         --  and Old2_S is an ancestor subtype of the type of the corresponding
+         --  formals of New_S while the other is not (we already know that they
+         --  are all subtypes of the same base type).
+
+         --  This makes it possible to find the more correct renamed entity in
+         --  the case of a generic instantiation nested in an enclosing one for
+         --  which different formal types get the same actual type, which will
+         --  in turn make it possible for Inherit_Renamed_Profile to preserve
+         --  types on formal parameters and ultimately simplify disambiguation.
+
+         --  Consider the follow package G:
+
+         --    generic
+         --       type Item_T is private;
+         --       with function Compare (L, R: Item_T) return Boolean is <>;
+
+         --       type Bound_T is private;
+         --       with function Compare (L, R : Bound_T) return Boolean is <>;
+         --    package G is
+         --       ...
+         --    end G;
+
+         --    package body G is
+         --       package My_Inner is Inner_G (Bound_T);
+         --       ...
+         --    end G;
+
+         --    with the following package Inner_G:
+
+         --    generic
+         --       type T is private;
+         --       with function Compare (L, R: T) return Boolean is <>;
+         --    package Inner_G is
+         --       function "<" (L, R: T) return Boolean is (Compare (L, R));
+         --    end Inner_G;
+
+         --  If G is instantiated on the same actual type with a single Compare
+         --  function:
+
+         --    type T is ...
+         --    function Compare (L, R : T) return Boolean;
+         --    package My_G is new (T, T);
+
+         --  then the renaming generated for Compare in the inner instantiation
+         --  is ambiguous: it can rename either of the renamings generated for
+         --  the outer instantiation. Now if the first one is picked up, then
+         --  the subtypes of the formal parameters of the renaming will not be
+         --  preserved in Inherit_Renamed_Profile because they are subtypes of
+         --  the Bound_T formal type and not of the Item_T formal type, so we
+         --  need to arrange for the second one to be picked up instead.
+
+         while Present (New_F) loop
+            if Etype (Old1_F) /= Etype (Old2_F) then
+               Anc_T := Ancestor_Subtype (Etype (New_F));
+
+               if Etype (Old1_F) = Anc_T then
+                  return Old1_S;
+               elsif Etype (Old2_F) = Anc_T then
+                  return Old2_S;
+               end if;
+            end if;
+
+            Next_Formal (New_F);
+            Next_Formal (Old1_F);
+            Next_Formal (Old2_F);
+         end loop;
+
+         pragma Assert (No (Old1_F));
+         pragma Assert (No (Old2_F));
+
+         return Empty;
+      end Find_Nearer_Entity;
 
       --------------------------
       -- Is_Visible_Operation --
@@ -6859,21 +6971,37 @@ package body Sem_Ch8 is
                      if Present (Inst) then
                         if Within (It.Nam, Inst) then
                            if Within (Old_S, Inst) then
+                              declare
+                                 It_D  : constant Uint := Scope_Depth (It.Nam);
+                                 Old_D : constant Uint := Scope_Depth (Old_S);
+                                 N_Ent : Entity_Id;
+                              begin
+                                 --  Choose the innermost subprogram, which
+                                 --  would hide the outer one in the generic.
 
-                              --  Choose the innermost subprogram, which would
-                              --  have hidden the outer one in the generic.
+                                 if Old_D > It_D then
+                                    return Old_S;
+                                 elsif It_D > Old_D then
+                                    return It.Nam;
+                                 end if;
 
-                              if Scope_Depth (It.Nam) <
-                                Scope_Depth (Old_S)
-                              then
-                                 return Old_S;
-                              else
-                                 return It.Nam;
-                              end if;
+                                 --  Otherwise, if we can determine that one
+                                 --  of the entities is nearer to the renaming
+                                 --  than the other, choose it. If not, then
+                                 --  return the newer one as done historically.
+
+                                 N_Ent :=
+                                     Find_Nearer_Entity (New_S, Old_S, It.Nam);
+                                 if Present (N_Ent) then
+                                    return N_Ent;
+                                 else
+                                    return It.Nam;
+                                 end if;
+                              end;
                            end if;
 
                         elsif Within (Old_S, Inst) then
-                           return (Old_S);
+                           return Old_S;
 
                         else
                            return Report_Overload;
@@ -9991,7 +10119,10 @@ package body Sem_Ch8 is
          Set_In_Use (T);
 
          --  If T is tagged, primitive operators on class-wide operands are
-         --  also available.
+         --  also deemed available. Note that this is really necessary only
+         --  in semantics-only mode, because the primitive operators are not
+         --  fully constructed in this mode, but we do it in all modes for the
+         --  sake of uniformity, as this should not matter in practice.
 
          if Is_Tagged_Type (T) then
             Set_In_Use (Class_Wide_Type (T));

@@ -443,7 +443,7 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
       SWITCH_STMT_NO_BREAK_P (in SWITCH_STMT)
       LAMBDA_EXPR_CAPTURE_OPTIMIZED (in LAMBDA_EXPR)
       IMPLICIT_CONV_EXPR_BRACED_INIT (in IMPLICIT_CONV_EXPR)
-      TINFO_CONSTRAINTS_SATISIFIED (in TEMPLATE_INFO)
+      TINFO_VAR_DECLARED_CONSTINIT (in TEMPLATE_INFO)
    3: (TREE_REFERENCE_EXPR) (in NON_LVALUE_EXPR) (commented-out).
       ICS_BAD_FLAG (in _CONV)
       FN_TRY_BLOCK_P (in TRY_BLOCK)
@@ -462,8 +462,8 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
       FUNCTION_REF_QUALIFIED (in FUNCTION_TYPE, METHOD_TYPE)
       OVL_LOOKUP_P (in OVERLOAD)
       LOOKUP_FOUND_P (in RECORD_TYPE, UNION_TYPE, NAMESPACE_DECL)
+      TINFO_CONSTRAINTS_SATISIFIED (in TEMPLATE_INFO)
    5: IDENTIFIER_VIRTUAL_P (in IDENTIFIER_NODE)
-      DECL_VTABLE_OR_VTT_P (in VAR_DECL)
       FUNCTION_RVALUE_QUALIFIED (in FUNCTION_TYPE, METHOD_TYPE)
       CALL_EXPR_REVERSE_ARGS (in CALL_EXPR, AGGR_INIT_EXPR)
       CONSTRUCTOR_PLACEHOLDER_BOUNDARY (in CONSTRUCTOR)
@@ -1441,12 +1441,17 @@ typedef struct qualified_typedef_usage_s qualified_typedef_usage_t;
 #define TINFO_USED_TEMPLATE_ID(NODE) \
   (TREE_LANG_FLAG_1 (TEMPLATE_INFO_CHECK (NODE)))
 
+/* Non-zero if this variable template specialization was declared with the
+   `constinit' specifier.  */
+#define TINFO_VAR_DECLARED_CONSTINIT(NODE) \
+  (TREE_LANG_FLAG_2 (TEMPLATE_INFO_CHECK (NODE)))
+
 /* Remember whether constraints for a particular template specialization are
    satisfied.  If neither flag is set, we haven't decided yet.  */
-#define TINFO_CONSTRAINTS_SATISIFIED(NODE) \
-  (TREE_LANG_FLAG_2 (TEMPLATE_INFO_CHECK (NODE)))
 #define TINFO_CONSTRAINTS_UNSATISIFIED(NODE) \
   (TREE_LANG_FLAG_3 (TEMPLATE_INFO_CHECK (NODE)))
+#define TINFO_CONSTRAINTS_SATISIFIED(NODE) \
+  (TREE_LANG_FLAG_4 (TEMPLATE_INFO_CHECK (NODE)))
 
 struct GTY(()) tree_template_info {
   struct tree_base base;
@@ -3067,9 +3072,9 @@ struct GTY(()) lang_decl {
   (DECL_NONSTATIC_MEMBER_FUNCTION_P (NODE)	\
    || TREE_CODE (NODE) == FIELD_DECL)
 
-/* Nonzero for _DECL means that this member object type
+/* Nonzero for a FIELD_DECL means that this member object type
    is mutable.  */
-#define DECL_MUTABLE_P(NODE) (DECL_LANG_FLAG_0 (NODE))
+#define DECL_MUTABLE_P(NODE) (DECL_LANG_FLAG_0 (FIELD_DECL_CHECK (NODE)))
 
 /* Nonzero for _DECL means that this constructor or conversion function is
    non-converting.  */
@@ -3250,8 +3255,10 @@ struct GTY(()) lang_decl {
    both the primary typeinfo object and the associated NTBS name.  */
 #define DECL_TINFO_P(NODE) TREE_LANG_FLAG_4 (VAR_DECL_CHECK (NODE))
 
-/* 1 iff VAR_DECL node NODE is virtual table or VTT.  */
-#define DECL_VTABLE_OR_VTT_P(NODE) TREE_LANG_FLAG_5 (VAR_DECL_CHECK (NODE))
+/* 1 iff VAR_DECL node NODE is virtual table or VTT.  We forward to
+   DECL_VIRTUAL_P from the common code, as that has the semantics we
+   need.  But we want a more descriptive name.  */
+#define DECL_VTABLE_OR_VTT_P(NODE) DECL_VIRTUAL_P (VAR_DECL_CHECK (NODE))
 
 /* 1 iff FUNCTION_TYPE or METHOD_TYPE has a ref-qualifier (either & or &&). */
 #define FUNCTION_REF_QUALIFIED(NODE) \
@@ -4954,7 +4961,7 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 
 /* Used while gimplifying continue statements bound to OMP_FOR nodes.  */
 #define OMP_FOR_GIMPLIFYING_P(NODE) \
-  (TREE_LANG_FLAG_0 (OMP_LOOP_CHECK (NODE)))
+  (TREE_LANG_FLAG_0 (OMP_LOOPING_CHECK (NODE)))
 
 /* A language-specific token attached to the OpenMP data clauses to
    hold code (or code fragments) related to ctors, dtors, and op=.
@@ -5531,6 +5538,8 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, TYPENAME_FLAG };
 #define LOOKUP_DELEGATING_CONS (LOOKUP_NO_NON_INTEGRAL << 1)
 /* Allow initialization of a flexible array members.  */
 #define LOOKUP_ALLOW_FLEXARRAY_INIT (LOOKUP_DELEGATING_CONS << 1)
+/* Require constant initialization of a non-constant variable.  */
+#define LOOKUP_CONSTINIT (LOOKUP_ALLOW_FLEXARRAY_INIT << 1)
 
 #define LOOKUP_NAMESPACES_ONLY(F)  \
   (((F) & LOOKUP_PREFER_NAMESPACES) && !((F) & LOOKUP_PREFER_TYPES))
@@ -5844,6 +5853,7 @@ enum cp_decl_spec {
   ds_alias,
   ds_constexpr,
   ds_complex,
+  ds_constinit,
   ds_thread,
   ds_type_spec,
   ds_redefined_builtin_type_spec,
@@ -6256,6 +6266,7 @@ extern bool is_list_ctor			(tree);
 extern void validate_conversion_obstack		(void);
 extern void mark_versions_used			(tree);
 extern bool cp_warn_deprecated_use		(tree, tsubst_flags_t = tf_warning_or_error);
+extern void cp_warn_deprecated_use_scopes	(tree);
 extern tree get_function_version_dispatcher	(tree);
 
 /* in class.c */
@@ -6460,7 +6471,7 @@ extern tree cxx_comdat_group			(tree);
 extern bool cp_missing_noreturn_ok_p		(tree);
 extern bool is_direct_enum_init			(tree, tree);
 extern void initialize_artificial_var		(tree, vec<constructor_elt, va_gc> *);
-extern tree check_var_type			(tree, tree);
+extern tree check_var_type			(tree, tree, location_t);
 extern tree reshape_init                        (tree, tree, tsubst_flags_t);
 extern tree next_initializable_field (tree);
 extern tree fndecl_declared_return_type		(tree);
@@ -7058,8 +7069,8 @@ enum {
 extern tree begin_compound_stmt			(unsigned int);
 
 extern void finish_compound_stmt		(tree);
-extern tree finish_asm_stmt			(int, tree, tree, tree, tree,
-						 tree, bool);
+extern tree finish_asm_stmt			(location_t, int, tree, tree,
+						 tree, tree, tree, bool);
 extern tree finish_label_stmt			(tree);
 extern void finish_label_decl			(tree);
 extern cp_expr finish_parenthesized_expr	(cp_expr);
@@ -7503,6 +7514,7 @@ extern tree finish_left_unary_fold_expr      (tree, int);
 extern tree finish_right_unary_fold_expr     (tree, int);
 extern tree finish_binary_fold_expr          (tree, tree, int);
 extern bool treat_lvalue_as_rvalue_p	     (tree, bool);
+extern bool decl_in_std_namespace_p	     (tree);
 
 /* in typeck2.c */
 extern void require_complete_eh_spec_types	(tree, tree);
@@ -7518,11 +7530,17 @@ cp_expr_loc_or_loc (const_tree t, location_t or_loc)
   return loc;
 }
 
+inline location_t
+cp_expr_loc_or_input_loc (const_tree t)
+{
+  return cp_expr_loc_or_loc (t, input_location);
+}
+
 inline void
 cxx_incomplete_type_diagnostic (const_tree value, const_tree type,
 				diagnostic_t diag_kind)
 {
-  cxx_incomplete_type_diagnostic (cp_expr_loc_or_loc (value, input_location),
+  cxx_incomplete_type_diagnostic (cp_expr_loc_or_input_loc (value),
 				  value, type, diag_kind);
 }
 

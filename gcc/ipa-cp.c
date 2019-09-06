@@ -977,7 +977,12 @@ ipcp_vr_lattice::set_to_bottom ()
 {
   if (m_vr.varying_p ())
     return false;
-  m_vr.set_varying ();
+  /* ?? We create all sorts of VARYING ranges for floats, structures,
+     and other types which we cannot handle as ranges.  We should
+     probably avoid handling them throughout the pass, but it's easier
+     to create a sensible VARYING here and let the lattice
+     propagate.  */
+  m_vr.set_varying (integer_type_node);
   return true;
 }
 
@@ -2021,15 +2026,13 @@ merge_agg_lats_step (class ipcp_param_lattices *dest_plats,
 
   if (**aglat && (**aglat)->offset == offset)
     {
-      if ((**aglat)->size != val_size
-	  || ((**aglat)->next
-	      && (**aglat)->next->offset < offset + val_size))
+      if ((**aglat)->size != val_size)
 	{
 	  set_agg_lats_to_bottom (dest_plats);
 	  return false;
 	}
-      gcc_checking_assert (!(**aglat)->next
-			   || (**aglat)->next->offset >= offset + val_size);
+      gcc_assert (!(**aglat)->next
+		  || (**aglat)->next->offset >= offset + val_size);
       return true;
     }
   else
@@ -2436,8 +2439,7 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
 	  if (can_refer)
 	    {
 	      if (!target
-		  || (TREE_CODE (TREE_TYPE (target)) == FUNCTION_TYPE
-		      && DECL_FUNCTION_CODE (target) == BUILT_IN_UNREACHABLE)
+		  || fndecl_built_in_p (target, BUILT_IN_UNREACHABLE)
 		  || !possible_polymorphic_call_target_p
 		       (ie, cgraph_node::get (target)))
 		{

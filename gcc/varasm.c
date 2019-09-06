@@ -47,6 +47,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stmt.h"
 #include "expr.h"
 #include "expmed.h"
+#include "optabs.h"
 #include "output.h"
 #include "langhooks.h"
 #include "debug.h"
@@ -3386,7 +3387,15 @@ build_constant_desc (tree exp)
   if (TREE_CODE (exp) == STRING_CST)
     SET_DECL_ALIGN (decl, targetm.constant_alignment (exp, DECL_ALIGN (decl)));
   else
-    align_variable (decl, 0);
+    {
+      align_variable (decl, 0);
+      if (DECL_ALIGN (decl) < GET_MODE_ALIGNMENT (DECL_MODE (decl))
+	  && ((optab_handler (movmisalign_optab, DECL_MODE (decl))
+	       != CODE_FOR_nothing)
+	      || targetm.slow_unaligned_access (DECL_MODE (decl),
+						DECL_ALIGN (decl))))
+	SET_DECL_ALIGN (decl, GET_MODE_ALIGNMENT (DECL_MODE (decl)));
+    }
 
   /* Now construct the SYMBOL_REF and the MEM.  */
   if (use_object_blocks_p ())
@@ -6430,6 +6439,9 @@ default_section_type_flags (tree decl, const char *name, int reloc)
       || strncmp (name, ".gnu.linkonce.tb.", 17) == 0)
     flags |= SECTION_TLS | SECTION_BSS;
 
+  if (strcmp (name, ".noinit") == 0)
+    flags |= SECTION_WRITE | SECTION_BSS | SECTION_NOTYPE;
+
   /* Various sections have special ELF types that the assembler will
      assign by default based on the name.  They are neither SHT_PROGBITS
      nor SHT_NOBITS, so when changing sections we don't want to print a
@@ -6755,6 +6767,7 @@ default_elf_select_section (tree decl, int reloc,
 			    unsigned HOST_WIDE_INT align)
 {
   const char *sname;
+
   switch (categorize_decl_for_section (decl, reloc))
     {
     case SECCAT_TEXT:
@@ -6792,6 +6805,13 @@ default_elf_select_section (tree decl, int reloc,
       sname = ".tdata";
       break;
     case SECCAT_BSS:
+      if (DECL_P (decl)
+	  && lookup_attribute ("noinit", DECL_ATTRIBUTES (decl)) != NULL_TREE)
+	{
+	  sname = ".noinit";
+	  break;
+	}
+
       if (bss_section)
 	return bss_section;
       sname = ".bss";

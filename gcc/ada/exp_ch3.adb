@@ -5518,7 +5518,14 @@ package body Exp_Ch3 is
          --  Note: This code covers access-to-limited-interfaces because they
          --        can be used to reference tasks implementing them.
 
-         elsif Is_Limited_Class_Wide_Type (Desig_Typ)
+         --  Suppress the master creation for access types created for entry
+         --  formal parameters (parameter block component types). Seems like
+         --  suppression should be more general for compiler-generated types,
+         --  but testing Comes_From_Source, like the code above does, may be
+         --  too general in this case (affects some test output)???
+
+         elsif not Is_Param_Block_Component_Type (Ptr_Typ)
+           and then Is_Limited_Class_Wide_Type (Desig_Typ)
            and then Tasking_Allowed
          then
             Build_Class_Wide_Master (Ptr_Typ);
@@ -10313,8 +10320,24 @@ package body Exp_Ch3 is
              Result_Definition        => New_Occurrence_Of (Ret_Type, Loc));
       end if;
 
+      --  Declare an abstract subprogram for primitive subprograms of an
+      --  interface type (except for "=").
+
       if Is_Interface (Tag_Typ) then
-         return Make_Abstract_Subprogram_Declaration (Loc, Spec);
+         if Name /= Name_Op_Eq then
+            return Make_Abstract_Subprogram_Declaration (Loc, Spec);
+
+         --  The equality function (if any) for an interface type is defined
+         --  to be nonabstract, so we create an expression function for it that
+         --  always returns False. Note that the function can never actually be
+         --  invoked because interface types are abstract, so there aren't any
+         --  objects of such types (and their equality operation will always
+         --  dispatch).
+
+         else
+            return Make_Expression_Function
+                     (Loc, Spec, New_Occurrence_Of (Standard_False, Loc));
+         end if;
 
       --  If body case, return empty subprogram body. Note that this is ill-
       --  formed, because there is not even a null statement, and certainly not

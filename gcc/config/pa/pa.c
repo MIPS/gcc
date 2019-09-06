@@ -164,14 +164,12 @@ static void output_deferred_profile_counters (void) ATTRIBUTE_UNUSED;
 static void pa_file_end (void);
 static void pa_init_libfuncs (void);
 static rtx pa_struct_value_rtx (tree, int);
-static bool pa_pass_by_reference (cumulative_args_t, machine_mode,
-				  const_tree, bool);
-static int pa_arg_partial_bytes (cumulative_args_t, machine_mode,
-				 tree, bool);
-static void pa_function_arg_advance (cumulative_args_t, machine_mode,
-				     const_tree, bool);
-static rtx pa_function_arg (cumulative_args_t, machine_mode,
-			    const_tree, bool);
+static bool pa_pass_by_reference (cumulative_args_t,
+				  const function_arg_info &);
+static int pa_arg_partial_bytes (cumulative_args_t, const function_arg_info &);
+static void pa_function_arg_advance (cumulative_args_t,
+				     const function_arg_info &);
+static rtx pa_function_arg (cumulative_args_t, const function_arg_info &);
 static pad_direction pa_function_arg_padding (machine_mode, const_tree);
 static unsigned int pa_function_arg_boundary (machine_mode, const_tree);
 static struct machine_function * pa_init_machine_status (void);
@@ -199,8 +197,7 @@ static bool pa_cannot_force_const_mem (machine_mode, rtx);
 static bool pa_legitimate_constant_p (machine_mode, rtx);
 static unsigned int pa_section_type_flags (tree, const char *, int);
 static bool pa_legitimate_address_p (machine_mode, rtx, bool);
-static bool pa_callee_copies (cumulative_args_t, machine_mode,
-			      const_tree, bool);
+static bool pa_callee_copies (cumulative_args_t, const function_arg_info &);
 static unsigned int pa_hard_regno_nregs (unsigned int, machine_mode);
 static bool pa_hard_regno_mode_ok (unsigned int, machine_mode);
 static bool pa_modes_tieable_p (machine_mode, machine_mode);
@@ -653,7 +650,7 @@ pa_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 		   int ignore ATTRIBUTE_UNUSED)
 {
   tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
-  unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
+  unsigned int fcode = DECL_MD_FUNCTION_CODE (fndecl);
 
   switch (fcode)
     {
@@ -6223,17 +6220,9 @@ pa_eh_return_handler_rtx (void)
    or updates the ABI.  */
 
 static bool
-pa_pass_by_reference (cumulative_args_t ca ATTRIBUTE_UNUSED,
-		      machine_mode mode, const_tree type,
-		      bool named ATTRIBUTE_UNUSED)
+pa_pass_by_reference (cumulative_args_t, const function_arg_info &arg)
 {
-  HOST_WIDE_INT size;
-
-  if (type)
-    size = int_size_in_bytes (type);
-  else
-    size = GET_MODE_SIZE (mode);
-
+  HOST_WIDE_INT size = arg.type_size_in_bytes ();
   if (TARGET_64BIT)
     return size <= 0;
   else
@@ -6377,7 +6366,7 @@ hppa_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
       unsigned int size, ofs;
       bool indirect;
 
-      indirect = pass_by_reference (NULL, TYPE_MODE (type), type, 0);
+      indirect = pass_va_arg_by_reference (type);
       if (indirect)
 	{
 	  type = ptr;
@@ -9447,21 +9436,19 @@ pa_function_value_regno_p (const unsigned int regno)
   return false;
 }
 
-/* Update the data in CUM to advance over an argument
-   of mode MODE and data type TYPE.
-   (TYPE is null for libcalls where that information may not be available.)  */
+/* Update the data in CUM to advance over argument ARG.  */
 
 static void
-pa_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
-			 const_tree type, bool named ATTRIBUTE_UNUSED)
+pa_function_arg_advance (cumulative_args_t cum_v,
+			 const function_arg_info &arg)
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
-  int arg_size = pa_function_arg_size (mode, type);
+  int arg_size = pa_function_arg_size (arg.mode, arg.type);
 
   cum->nargs_prototype--;
   cum->words += (arg_size
 		 + ((cum->words & 01)
-		    && type != NULL_TREE
+		    && arg.type != NULL_TREE
 		    && arg_size > 1));
 }
 
@@ -9474,10 +9461,11 @@ pa_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
    ??? We might want to restructure this so that it looks more like other
    ports.  */
 static rtx
-pa_function_arg (cumulative_args_t cum_v, machine_mode mode,
-		 const_tree type, bool named ATTRIBUTE_UNUSED)
+pa_function_arg (cumulative_args_t cum_v, const function_arg_info &arg)
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
+  tree type = arg.type;
+  machine_mode mode = arg.mode;
   int max_arg_words = (TARGET_64BIT ? 8 : 4);
   int alignment = 0;
   int arg_size;
@@ -9485,7 +9473,7 @@ pa_function_arg (cumulative_args_t cum_v, machine_mode mode,
   int gpr_reg_base;
   rtx retval;
 
-  if (mode == VOIDmode)
+  if (arg.end_marker_p ())
     return NULL_RTX;
 
   arg_size = pa_function_arg_size (mode, type);
@@ -9685,8 +9673,7 @@ pa_function_arg_boundary (machine_mode mode, const_tree type)
    then this routine should return zero.  */
 
 static int
-pa_arg_partial_bytes (cumulative_args_t cum_v, machine_mode mode,
-		      tree type, bool named ATTRIBUTE_UNUSED)
+pa_arg_partial_bytes (cumulative_args_t cum_v, const function_arg_info &arg)
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
   unsigned int max_arg_words = 8;
@@ -9695,10 +9682,11 @@ pa_arg_partial_bytes (cumulative_args_t cum_v, machine_mode mode,
   if (!TARGET_64BIT)
     return 0;
 
-  if (pa_function_arg_size (mode, type) > 1 && (cum->words & 1))
+  if (pa_function_arg_size (arg.mode, arg.type) > 1 && (cum->words & 1))
     offset = 1;
 
-  if (cum->words + offset + pa_function_arg_size (mode, type) <= max_arg_words)
+  if (cum->words + offset + pa_function_arg_size (arg.mode, arg.type)
+      <= max_arg_words)
     /* Arg fits fully into registers.  */
     return 0;
   else if (cum->words + offset >= max_arg_words)
@@ -9805,19 +9793,22 @@ pa_som_asm_init_sections (void)
       = get_unnamed_section (0, output_section_asm_op,
 			     "\t.SPACE $PRIVATE$\n\t.SUBSPA $TM_CLONE_TABLE$");
 
-  /* FIXME: HPUX ld generates incorrect GOT entries for "T" fixups
-     which reference data within the $TEXT$ space (for example constant
+  /* HPUX ld generates incorrect GOT entries for "T" fixups which
+     reference data within the $TEXT$ space (for example constant
      strings in the $LIT$ subspace).
 
      The assemblers (GAS and HP as) both have problems with handling
-     the difference of two symbols which is the other correct way to
+     the difference of two symbols.  This is the other correct way to
      reference constant data during PIC code generation.
 
-     So, there's no way to reference constant data which is in the
-     $TEXT$ space during PIC generation.  Instead place all constant
-     data into the $PRIVATE$ subspace (this reduces sharing, but it
-     works correctly).  */
-  readonly_data_section = flag_pic ? data_section : som_readonly_data_section;
+     Thus, we can't put constant data needing relocation in the $TEXT$
+     space during PIC generation.
+
+     Previously, we placed all constant data into the $DATA$ subspace
+     when generating PIC code.  This reduces sharing, but it works
+     correctly.  Now we rely on pa_reloc_rw_mask() for section selection.
+     This puts constant data not needing relocation into the $TEXT$ space.  */
+  readonly_data_section = som_readonly_data_section;
 
   /* We must not have a reference to an external symbol defined in a
      shared library in a readonly section, else the SOM linker will
@@ -9850,7 +9841,7 @@ pa_select_section (tree exp, int reloc,
       && DECL_INITIAL (exp)
       && (DECL_INITIAL (exp) == error_mark_node
           || TREE_CONSTANT (DECL_INITIAL (exp)))
-      && !reloc)
+      && !(reloc & pa_reloc_rw_mask ()))
     {
       if (TARGET_SOM
 	  && DECL_ONE_ONLY (exp)
@@ -9859,7 +9850,8 @@ pa_select_section (tree exp, int reloc,
       else
 	return readonly_data_section;
     }
-  else if (CONSTANT_CLASS_P (exp) && !reloc)
+  else if (CONSTANT_CLASS_P (exp)
+	   && !(reloc & pa_reloc_rw_mask ()))
     return readonly_data_section;
   else if (TARGET_SOM
 	   && TREE_CODE (exp) == VAR_DECL
@@ -9875,12 +9867,11 @@ pa_select_section (tree exp, int reloc,
 static int
 pa_reloc_rw_mask (void)
 {
-  /* We force (const (plus (symbol) (const_int))) to memory when the
-     const_int doesn't fit in a 14-bit integer.  The SOM linker can't
-     handle this construct in read-only memory and we want to avoid
-     this for ELF.  So, we always force an RTX needing relocation to
-     the data section.  */
-  return 3;
+  if (flag_pic || (TARGET_SOM && !TARGET_HPUX_11))
+    return 3;
+
+  /* HP linker does not support global relocs in readonly memory.  */
+  return TARGET_SOM ? 2 : 0;
 }
 
 static void
@@ -10772,10 +10763,7 @@ pa_maybe_emit_compare_and_swap_exchange_loop (rtx target, rtx mem, rtx val)
    in the 64-bit HP runtime.  */
 
 static bool
-pa_callee_copies (cumulative_args_t cum ATTRIBUTE_UNUSED,
-		  machine_mode mode ATTRIBUTE_UNUSED,
-		  const_tree type ATTRIBUTE_UNUSED,
-		  bool named ATTRIBUTE_UNUSED)
+pa_callee_copies (cumulative_args_t, const function_arg_info &)
 {
   return !TARGET_CALLER_COPIES;
 }

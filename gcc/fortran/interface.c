@@ -2878,10 +2878,10 @@ lookup_arg_fuzzy (const char *arg, gfc_formal_arglist *arguments)
    errors when things don't match instead of just returning the status
    code.  */
 
-static bool
-compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
-	 	       int ranks_must_agree, int is_elemental,
-		       bool in_statement_function, locus *where)
+bool
+gfc_compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
+			   int ranks_must_agree, int is_elemental,
+			   bool in_statement_function, locus *where)
 {
   gfc_actual_arglist **new_arg, *a, *actual;
   gfc_formal_arglist *f;
@@ -2979,10 +2979,15 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 
       if (a->expr == NULL)
 	{
-	  if (where)
-	    gfc_error_now ("Unexpected alternate return specifier in "
-			   "subroutine call at %L", where);
-	  return false;
+	  if (f->sym->attr.optional)
+	    continue;
+	  else
+	    {
+	      if (where)
+		gfc_error_now ("Unexpected alternate return specifier in "
+			       "subroutine call at %L", where);
+	      return false;
+	    }
 	}
 
       /* Make sure that intrinsic vtables exist for calls to unlimited
@@ -3489,6 +3494,13 @@ compare_actual_expr (gfc_expr *e1, gfc_expr *e2)
 	case REF_SUBSTRING:
 	  return false;
 
+	case REF_INQUIRY:
+	  if (e1->symtree->n.sym->ts.type == BT_COMPLEX
+	      && e1->ts.type == BT_REAL && e2->ts.type == BT_REAL
+	      && r1->u.i != r2->u.i)
+	    return false;
+	  break;
+
 	default:
 	  gfc_internal_error ("compare_actual_expr(): Bad component code");
 	}
@@ -3716,6 +3728,9 @@ gfc_procedure_use (gfc_symbol *sym, gfc_actual_arglist **ap, locus *where)
 
       for (a = *ap; a; a = a->next)
 	{
+	  if (a->expr && a->expr->error)
+	    return false;
+
 	  /* Skip g77 keyword extensions like %VAL, %REF, %LOC.  */
 	  if (a->name != NULL && a->name[0] != '%')
 	    {
@@ -3731,6 +3746,7 @@ gfc_procedure_use (gfc_symbol *sym, gfc_actual_arglist **ap, locus *where)
 	      gfc_error ("Assumed-type argument %s at %L requires an explicit "
 			 "interface", a->expr->symtree->n.sym->name,
 			 &a->expr->where);
+	      a->expr->error = 1;
 	      break;
 	    }
 
@@ -3744,6 +3760,7 @@ gfc_procedure_use (gfc_symbol *sym, gfc_actual_arglist **ap, locus *where)
 	      gfc_error ("Actual argument of LOCK_TYPE or with LOCK_TYPE "
 			 "component at %L requires an explicit interface for "
 			 "procedure %qs", &a->expr->where, sym->name);
+	      a->expr->error = 1;
 	      break;
 	    }
 
@@ -3757,13 +3774,16 @@ gfc_procedure_use (gfc_symbol *sym, gfc_actual_arglist **ap, locus *where)
 	      gfc_error ("Actual argument of EVENT_TYPE or with EVENT_TYPE "
 			 "component at %L requires an explicit interface for "
 			 "procedure %qs", &a->expr->where, sym->name);
+	      a->expr->error = 1;
 	      break;
 	    }
 
 	  if (a->expr && a->expr->expr_type == EXPR_NULL
 	      && a->expr->ts.type == BT_UNKNOWN)
 	    {
-	      gfc_error ("MOLD argument to NULL required at %L", &a->expr->where);
+	      gfc_error ("MOLD argument to NULL required at %L",
+			 &a->expr->where);
+	      a->expr->error = 1;
 	      return false;
 	    }
 
@@ -3773,6 +3793,7 @@ gfc_procedure_use (gfc_symbol *sym, gfc_actual_arglist **ap, locus *where)
 	    {
 	      gfc_error ("Assumed-rank argument requires an explicit interface "
 			 "at %L", &a->expr->where);
+	      a->expr->error = 1;
 	      return false;
 	    }
 	}
@@ -3784,8 +3805,8 @@ gfc_procedure_use (gfc_symbol *sym, gfc_actual_arglist **ap, locus *where)
 
   /* For a statement function, check that types and type parameters of actual
      arguments and dummy arguments match.  */
-  if (!compare_actual_formal (ap, dummy_args, 0, sym->attr.elemental,
-			      sym->attr.proc == PROC_ST_FUNCTION, where))
+  if (!gfc_compare_actual_formal (ap, dummy_args, 0, sym->attr.elemental,
+				  sym->attr.proc == PROC_ST_FUNCTION, where))
     return false;
  
   if (!check_intents (dummy_args, *ap))
@@ -3833,7 +3854,7 @@ gfc_ppc_use (gfc_component *comp, gfc_actual_arglist **ap, locus *where)
       return;
     }
 
-  if (!compare_actual_formal (ap, comp->ts.interface->formal, 0,
+  if (!gfc_compare_actual_formal (ap, comp->ts.interface->formal, 0,
 			      comp->attr.elemental, false, where))
     return;
 
@@ -3859,7 +3880,7 @@ gfc_arglist_matches_symbol (gfc_actual_arglist** args, gfc_symbol* sym)
   dummy_args = gfc_sym_get_dummy_args (sym);
 
   r = !sym->attr.elemental;
-  if (compare_actual_formal (args, dummy_args, r, !r, false, NULL))
+  if (gfc_compare_actual_formal (args, dummy_args, r, !r, false, NULL))
     {
       check_intents (dummy_args, *args);
       if (warn_aliasing)
@@ -4273,6 +4294,12 @@ gfc_extend_assign (gfc_code *c, gfc_namespace *ns)
 
   lhs = c->expr1;
   rhs = c->expr2;
+
+  /* Don't allow an intrinsic assignment with a BOZ rhs to be replaced.  */
+  if (c->op == EXEC_ASSIGN
+      && c->expr1->expr_type == EXPR_VARIABLE
+      && c->expr2->expr_type == EXPR_CONSTANT && c->expr2->ts.type == BT_BOZ)
+    return false;
 
   /* Don't allow an intrinsic assignment to be replaced.  */
   if (lhs->ts.type != BT_DERIVED && lhs->ts.type != BT_CLASS
@@ -5103,4 +5130,66 @@ finish:
     gfc_find_derived_vtab (derived);
 
   return dtio_sub;
+}
+
+/* Helper function - if we do not find an interface for a procedure,
+   construct it from the actual arglist.  Luckily, this can only
+   happen for call by reference, so the information we actually need
+   to provide (and which would be impossible to guess from the call
+   itself) is not actually needed.  */
+
+void
+gfc_get_formal_from_actual_arglist (gfc_symbol *sym,
+				    gfc_actual_arglist *actual_args)
+{
+  gfc_actual_arglist *a;
+  gfc_formal_arglist **f;
+  gfc_symbol *s;
+  char name[GFC_MAX_SYMBOL_LEN + 1];
+  static int var_num;
+
+  f = &sym->formal;
+  for (a = actual_args; a != NULL; a = a->next)
+    {
+      (*f) = gfc_get_formal_arglist ();
+      if (a->expr)
+	{
+	  snprintf (name, GFC_MAX_SYMBOL_LEN, "_formal_%d", var_num ++);
+	  gfc_get_symbol (name, gfc_current_ns, &s);
+	  if (a->expr->ts.type == BT_PROCEDURE)
+	    {
+	      s->attr.flavor = FL_PROCEDURE;
+	    }
+	  else
+	    {
+	      s->ts = a->expr->ts;
+
+	      if (s->ts.type == BT_CHARACTER)
+		s->ts.u.cl = gfc_get_charlen ();
+
+	      s->ts.deferred = 0;
+	      s->ts.is_iso_c = 0;
+	      s->ts.is_c_interop = 0;
+	      s->attr.flavor = FL_VARIABLE;
+	      s->attr.artificial = 1;
+	      if (a->expr->rank > 0)
+		{
+		  s->attr.dimension = 1;
+		  s->as = gfc_get_array_spec ();
+		  s->as->rank = 1;
+		  s->as->lower[0] = gfc_get_int_expr (gfc_index_integer_kind,
+						      &a->expr->where, 1);
+		  s->as->upper[0] = NULL;
+		  s->as->type = AS_ASSUMED_SIZE;
+		}
+	    }
+	  s->attr.dummy = 1;
+	  s->attr.intent = INTENT_UNKNOWN;
+	  (*f)->sym = s;
+	}
+      else  /* If a->expr is NULL, this is an alternate rerturn.  */
+	(*f)->sym = NULL;
+
+      f = &((*f)->next);
+    }
 }

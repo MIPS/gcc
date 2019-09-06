@@ -1,3 +1,30 @@
+2019-09-03  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* MAINTAINERS: Remove spu port maintainers.
+
+2019-08-28  Martin Liska  <mliska@suse.cz>
+
+	* .gitignore: Add .clangd and compile_commands.json
+	to .gitignore.
+
+2019-08-23  Michael Forney  <mforney@mforney.org>
+
+	* Makefile.tpl (HOST_EXPORTS): Add CXX_FOR_BUILD.
+	* Makefile.in: Regenerate.
+
+2019-08-19  Tom Tromey  <tom@tromey.com>
+
+	* configure: Rebuild.
+	* configure.ac: Add --with-static-standard-libraries.
+
+2019-08-16  Alexandre Oliva <oliva@gnu.org>
+
+	* MAINTAINERS: aoliva from @redhat.com to @gcc.gnu.org.
+
+2019-08-13  Mark Eggleston  <mark.eggleston@codethink.co.uk>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
 2019-07-08  Kito Cheng  <kito.cheng@sifive.com>
 
 	* MAINTAINERS (Write After Approval): Remove myself, already listed in

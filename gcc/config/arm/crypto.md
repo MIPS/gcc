@@ -105,14 +105,28 @@
   [(set_attr "type" "<crypto_type>")]
 )
 
-(define_insn "crypto_sha1h"
-  [(set (match_operand:V4SI 0 "register_operand" "=w")
-        (zero_extend:V4SI
-          (unspec:SI [(vec_select:SI
-                        (match_operand:V4SI 1 "register_operand" "w")
-                        (parallel [(match_operand:SI 2 "immediate_operand" "i")]))]
-           UNSPEC_SHA1H)))]
+/* The vec_select operation always selects index 0 from the lower V2SI subreg
+   of the V4SI, adjusted for endianness. Required due to neon_vget_lane and
+   neon_set_lane that change the element ordering in memory for big-endian.  */
+
+(define_expand "crypto_sha1h"
+  [(set (match_operand:V4SI 0 "register_operand")
+	(match_operand:V4SI 1 "register_operand"))]
   "TARGET_CRYPTO"
+{
+  rtx op2 = GEN_INT (NEON_ENDIAN_LANE_N (V2SImode, 0));
+  emit_insn (gen_crypto_sha1h_lb (operands[0], operands[1], op2));
+  DONE;
+})
+
+(define_insn "crypto_sha1h_lb"
+  [(set (match_operand:V4SI 0 "register_operand" "=w")
+	(unspec:V4SI
+	  [(vec_select:SI
+	   (match_operand:V4SI 1 "register_operand" "w")
+	   (parallel [(match_operand:SI 2 "immediate_operand" "i")]))]
+	UNSPEC_SHA1H))]
+  "TARGET_CRYPTO && INTVAL (operands[2]) == NEON_ENDIAN_LANE_N (V2SImode, 0)"
   "sha1h.32\\t%q0, %q1"
   [(set_attr "type" "crypto_sha1_fast")]
 )
@@ -127,7 +141,26 @@
   [(set_attr "type" "crypto_pmull")]
 )
 
-(define_insn "crypto_<crypto_pattern>"
+/* The vec_select operation always selects index 0 from the lower V2SI subreg
+   of the V4SI, adjusted for endianness. Required due to neon_vget_lane and
+   neon_set_lane that change the element ordering in memory for big-endian.  */
+
+(define_expand "crypto_<crypto_pattern>"
+  [(set (match_operand:V4SI 0 "register_operand")
+	(unspec:<crypto_mode>
+		[(match_operand:<crypto_mode> 1 "register_operand")
+		 (match_operand:<crypto_mode> 2 "register_operand")
+		 (match_operand:<crypto_mode> 3 "register_operand")]
+	CRYPTO_SELECTING))]
+  "TARGET_CRYPTO"
+{
+  rtx op4 = GEN_INT (NEON_ENDIAN_LANE_N (V2SImode, 0));
+  emit_insn (gen_crypto_<crypto_pattern>_lb
+	     (operands[0], operands[1], operands[2], operands[3], op4));
+  DONE;
+})
+
+(define_insn "crypto_<crypto_pattern>_lb"
   [(set (match_operand:V4SI 0 "register_operand" "=w")
         (unspec:<crypto_mode>
                      [(match_operand:<crypto_mode> 1 "register_operand" "0")
@@ -136,7 +169,7 @@
                         (parallel [(match_operand:SI 4 "immediate_operand" "i")]))
                       (match_operand:<crypto_mode> 3 "register_operand" "w")]
          CRYPTO_SELECTING))]
-  "TARGET_CRYPTO"
+  "TARGET_CRYPTO && INTVAL (operands[4]) == NEON_ENDIAN_LANE_N (V2SImode, 0)"
   "<crypto_pattern>.<crypto_size_sfx>\\t%q0, %q2, %q3"
   [(set_attr "type" "<crypto_type>")]
 )

@@ -703,15 +703,20 @@
 ;; memory references.  So this function allows us to recognize volatile
 ;; references where it's safe.
 (define_predicate "volatile_mem_operand"
-  (and (and (match_code "mem")
-	    (match_test "MEM_VOLATILE_P (op)"))
+  (and (match_code "mem")
+       (match_test "MEM_VOLATILE_P (op)")
        (if_then_else (match_test "reload_completed")
 	 (match_operand 0 "memory_operand")
 	 (match_test "memory_address_p (mode, XEXP (op, 0))"))))
 
+;; Return 1 if the operand is a volatile or non-volatile memory operand.
+(define_predicate "any_memory_operand"
+  (ior (match_operand 0 "memory_operand")
+       (match_operand 0 "volatile_mem_operand")))
+
 ;; Return 1 if the operand is an offsettable memory operand.
 (define_predicate "offsettable_mem_operand"
-  (and (match_operand 0 "memory_operand")
+  (and (match_operand 0 "any_memory_operand")
        (match_test "offsettable_nonstrict_memref_p (op)")))
 
 ;; Return 1 if the operand is a simple offsettable memory operand
@@ -891,11 +896,10 @@
 
 ;; Return 1 if the operand is a general non-special register or memory operand.
 (define_predicate "reg_or_mem_operand"
-  (ior (match_operand 0 "memory_operand")
+  (ior (match_operand 0 "gpc_reg_operand")
+       (match_operand 0 "any_memory_operand")
        (and (match_code "mem")
-	    (match_test "macho_lo_sum_memory_operand (op, mode)"))
-       (match_operand 0 "volatile_mem_operand")
-       (match_operand 0 "gpc_reg_operand")))
+	    (match_test "macho_lo_sum_memory_operand (op, mode)"))))
 
 ;; Return 1 if the operand is CONST_DOUBLE 0, register or memory operand.
 (define_predicate "zero_reg_mem_operand"
@@ -925,7 +929,7 @@
 
   if (gpc_reg_operand (inner, mode))
     return true;
-  if (!memory_operand (inner, mode))
+  if (!any_memory_operand (inner, mode))
     return false;
 
   addr = XEXP (inner, 0);
@@ -1027,7 +1031,7 @@
 	       const_double,const_wide_int,const_vector,const_int")
 {
   /* Memory is always valid.  */
-  if (memory_operand (op, mode))
+  if (any_memory_operand (op, mode))
     return 1;
 
   /* For floating-point, easy constants are valid.  */
@@ -1652,7 +1656,7 @@
 
 ;; Return true if the operand is an external symbol whose address can be loaded
 ;; into a register using:
-;;	PLA reg,label@pcrel@got
+;;	PLD reg,label@pcrel@got
 ;;
 ;; The linker will either optimize this to either a PADDI if the label is
 ;; defined locally in another module or a PLD of the address if the label is
@@ -1686,7 +1690,7 @@
 (define_predicate "prefixed_mem_operand"
   (match_code "mem")
 {
-  return rs6000_prefixed_address (XEXP (op, 0), GET_MODE (op));
+  return rs6000_prefixed_address_mode_p (XEXP (op, 0), GET_MODE (op));
 })
 
 ;; Return 1 if op is a memory operand to an external variable when we

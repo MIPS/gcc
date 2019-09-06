@@ -236,10 +236,23 @@ lvalue_kind (const_tree ref)
 	  gcc_assert (!type_dependent_expression_p (CONST_CAST_TREE (ref)));
 	  goto default_;
 	}
-      op1_lvalue_kind = lvalue_kind (TREE_OPERAND (ref, 1)
-				    ? TREE_OPERAND (ref, 1)
-				    : TREE_OPERAND (ref, 0));
-      op2_lvalue_kind = lvalue_kind (TREE_OPERAND (ref, 2));
+      {
+	tree op1 = TREE_OPERAND (ref, 1);
+	if (!op1) op1 = TREE_OPERAND (ref, 0);
+	tree op2 = TREE_OPERAND (ref, 2);
+	op1_lvalue_kind = lvalue_kind (op1);
+	op2_lvalue_kind = lvalue_kind (op2);
+	if (!op1_lvalue_kind != !op2_lvalue_kind)
+	  {
+	    /* The second or the third operand (but not both) is a
+	       throw-expression; the result is of the type
+	       and value category of the other.  */
+	    if (op1_lvalue_kind && TREE_CODE (op2) == THROW_EXPR)
+	      op2_lvalue_kind = op1_lvalue_kind;
+	    else if (op2_lvalue_kind && TREE_CODE (op1) == THROW_EXPR)
+	      op1_lvalue_kind = op2_lvalue_kind;
+	  }
+      }
       break;
 
     case MODOP_EXPR:
@@ -4361,7 +4374,8 @@ handle_nodiscard_attribute (tree *node, tree name, tree /*args*/,
 {
   if (TREE_CODE (*node) == FUNCTION_DECL)
     {
-      if (VOID_TYPE_P (TREE_TYPE (TREE_TYPE (*node))))
+      if (VOID_TYPE_P (TREE_TYPE (TREE_TYPE (*node)))
+	  && !DECL_CONSTRUCTOR_P (*node))
 	warning_at (DECL_SOURCE_LOCATION (*node),
 		    OPT_Wattributes, "%qE attribute applied to %qD with void "
 		    "return type", name, *node);

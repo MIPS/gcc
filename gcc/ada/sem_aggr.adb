@@ -2799,6 +2799,11 @@ package body Sem_Aggr is
       Base : constant Node_Id := Expression (N);
 
    begin
+      if Ada_Version < Ada_2020 then
+         Error_Msg_N ("delta_aggregate is an Ada 202x feature", N);
+         Error_Msg_N ("\compile with -gnatX", N);
+      end if;
+
       if not Is_Composite_Type (Typ) then
          Error_Msg_N ("not a composite type", N);
       end if;
@@ -4264,8 +4269,15 @@ package body Sem_Aggr is
             Expr_Disc : Node_Id)
          is
          begin
-            if Nkind (Bound) = N_Identifier
-              and then Entity (Bound) = Disc
+            if Nkind (Bound) /= N_Identifier then
+               return;
+            end if;
+
+            --  We expect either the discriminant or the discriminal
+
+            if Entity (Bound) = Disc
+              or else (Ekind (Entity (Bound)) = E_In_Parameter
+                        and then Discriminal_Link (Entity (Bound)) = Disc)
             then
                Rewrite (Bound, New_Copy_Tree (Expr_Disc));
             end if;
@@ -4280,9 +4292,7 @@ package body Sem_Aggr is
       --  Start of processing for Rewrite_Range
 
       begin
-         if Has_Discriminants (Root_Type)
-           and then Nkind (Rge) = N_Range
-         then
+         if Has_Discriminants (Root_Type) and then Nkind (Rge) = N_Range then
             Low := Low_Bound (Rge);
             High := High_Bound (Rge);
 
@@ -4903,7 +4913,9 @@ package body Sem_Aggr is
                         --  Root record type whose discriminants may be used as
                         --  bounds in range nodes.
 
-                        Index : Node_Id;
+                        Assoc  : Node_Id;
+                        Choice : Node_Id;
+                        Index  : Node_Id;
 
                      begin
                         --  Rewrite the range nodes occurring in the indexes
@@ -4919,12 +4931,26 @@ package body Sem_Aggr is
                         end loop;
 
                         --  Rewrite the range nodes occurring as aggregate
-                        --  bounds.
+                        --  bounds and component associations.
 
-                        if Nkind (Expr) = N_Aggregate
-                          and then Present (Aggregate_Bounds (Expr))
-                        then
-                           Rewrite_Range (Rec_Typ, Aggregate_Bounds (Expr));
+                        if Nkind (Expr) = N_Aggregate then
+                           if Present (Aggregate_Bounds (Expr)) then
+                              Rewrite_Range (Rec_Typ, Aggregate_Bounds (Expr));
+                           end if;
+
+                           if Present (Component_Associations (Expr)) then
+                              Assoc := First (Component_Associations (Expr));
+                              while Present (Assoc) loop
+                                 Choice := First (Choices (Assoc));
+                                 while Present (Choice) loop
+                                    Rewrite_Range (Rec_Typ, Choice);
+
+                                    Next (Choice);
+                                 end loop;
+
+                                 Next (Assoc);
+                              end loop;
+                           end if;
                         end if;
                      end;
                   end if;
