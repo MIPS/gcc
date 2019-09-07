@@ -1780,10 +1780,11 @@ check_constaint_variables (tree t, tree args, subst_info info)
 {
   tree types = NULL_TREE;
   tree p = t;
-  while (p && !VOID_TYPE_P (p)) {
-    types = tree_cons (NULL_TREE, TREE_TYPE (p), types);
-    p = TREE_CHAIN (p);
-  }
+  while (p && !VOID_TYPE_P (p))
+    {
+      types = tree_cons (NULL_TREE, TREE_TYPE (p), types);
+      p = TREE_CHAIN (p);
+    }
   types = chainon (nreverse (types), void_list_node);
   return tsubst_function_parms (types, args, info.complain, info.in_decl);
 }
