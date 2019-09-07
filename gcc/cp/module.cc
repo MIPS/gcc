@@ -12443,6 +12443,7 @@ module_mapper::export_done (const module_state *state)
     {
       timevar_start (TV_MODULE_MAPPER);
       dump (dumper::MAPPER) && dump ("Completed mapper");
+      // @@ TODO: header quoting.
       mapper->send_command (state->from_loc, "DONE %s",
 			    state->get_flatname ());
       timevar_stop (TV_MODULE_MAPPER);
@@ -12473,7 +12474,8 @@ module_mapper::translate_include (location_t loc,
     {
       // FIXME: Why not use file mapping for include translation? If there is
       // a mapping, then the header is importable and if it's importable, then
-      // it should be translated (15.2/7).
+      // it should be translated (15.2/7). Note: no longer the case after
+      // Cologne.
 
       send_command (loc, "%s %c%s%c %s",
                     type == CPP_IT_INCLUDE || predef ? "INCLUDE" : "IMPORT",
@@ -12500,6 +12502,9 @@ module_mapper::translate_include (location_t loc,
           break;
 	case 1:  /* Translate/rewrite.  */
 	  res = NULL;
+
+          //@@ TODO: handle no-BMI response when importing a non-existent
+          //   header.
 
           /* The mapper can either respond with just IMPORT (in which case
              another IMPORT command is forthcoming) or it can provide the BMI
