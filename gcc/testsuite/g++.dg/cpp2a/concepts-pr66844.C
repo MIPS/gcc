@@ -5,7 +5,7 @@ template <class T, class U>
 concept Same = __is_same_as(T, U);
 
 template <class T>
-concept C = requires (T t) {
+concept C = requires (T t) {	// { dg-error "invalid parameter" }
     requires Same<decltype(t),void>;
   };
 
@@ -13,4 +13,4 @@ template <typename T>
   requires C<T>
 constexpr bool is_c() { return true; } 
 
-static_assert(is_c<void>(), ""); // { dg-error "cannot call|invalid parameter" }
+static_assert(is_c<void>(), ""); // { dg-error "cannot call" }

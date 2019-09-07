@@ -4874,6 +4874,8 @@ class token_pair
 			      m_open_loc);
   }
 
+  location_t open_location () const { return m_open_loc; }
+
  private:
   location_t m_open_loc;
 };
@@ -27427,7 +27429,7 @@ cp_parser_simple_requirement (cp_parser *parser)
   if (!cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON))
     return error_mark_node;
 
-  return finish_simple_requirement (expr);
+  return finish_simple_requirement (cp_expr_location (expr), expr);
 }
 
 /* Parse a type requirement
@@ -27442,7 +27444,8 @@ cp_parser_simple_requirement (cp_parser *parser)
 static tree
 cp_parser_type_requirement (cp_parser *parser)
 {
-  cp_lexer_consume_token (parser->lexer);
+  cp_token *start_tok = cp_lexer_consume_token (parser->lexer);
+  location_t loc = cp_lexer_peek_token (parser->lexer)->location;
 
   // Save the scope before parsing name specifiers.
   tree saved_scope = parser->scope;
@@ -27485,7 +27488,8 @@ cp_parser_type_requirement (cp_parser *parser)
   if (type == error_mark_node)
     return error_mark_node;
 
-  return finish_type_requirement (type);
+  loc = make_location (loc, start_tok->location, parser->lexer);
+  return finish_type_requirement (loc, type);
 }
 
 /* Parse a compound requirement
@@ -27500,6 +27504,8 @@ cp_parser_compound_requirement (cp_parser *parser)
   matching_braces braces;
   if (!braces.require_open (parser))
     return error_mark_node;
+
+  cp_token *expr_token = cp_lexer_peek_token (parser->lexer);
 
   tree expr = cp_parser_expression (parser, NULL, false, false);
   if (!expr || expr == error_mark_node)
@@ -27544,7 +27550,11 @@ cp_parser_compound_requirement (cp_parser *parser)
 	}
     }
 
-  return finish_compound_requirement (expr, type, noexcept_p);
+  location_t loc = make_location (expr_token->location,
+				  braces.open_location (),
+				  parser->lexer);
+
+  return finish_compound_requirement (loc, expr, type, noexcept_p);
 }
 
 /* Parse a nested requirement. This is the same as a requires clause.
@@ -27556,11 +27566,13 @@ static tree
 cp_parser_nested_requirement (cp_parser *parser)
 {
   gcc_assert (cp_lexer_next_token_is_keyword (parser->lexer, RID_REQUIRES));
-  cp_lexer_consume_token (parser->lexer);
+  cp_token *tok = cp_lexer_consume_token (parser->lexer);
+  location_t loc = cp_lexer_peek_token (parser->lexer)->location;
   tree req = cp_parser_constraint_expression (parser);
   if (req == error_mark_node)
     return error_mark_node;
-  return finish_nested_requirement (req);
+  loc = make_location (loc, tok->location, parser->lexer);
+  return finish_nested_requirement (loc, req);
 }
 
 /* Support Functions */

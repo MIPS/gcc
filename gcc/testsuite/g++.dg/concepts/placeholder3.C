@@ -8,7 +8,7 @@ concept bool Same = __is_same_as(T, U);
 template <class T>
 concept bool C =
   requires {
-    { 0 } -> Same<T>;
+    { 0 } -> Same<T>;		// { dg-error "does not satisfy" }
   };
 
 template <C c>

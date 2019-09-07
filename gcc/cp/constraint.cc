@@ -1564,7 +1564,7 @@ tsubst_simple_requirement (tree t, tree args, subst_info info)
   tree expr = tsubst_valid_expression_requirement (t0, args, info);
   if (expr == error_mark_node)
     return error_mark_node;
-  return finish_simple_requirement (expr);
+  return finish_simple_requirement (EXPR_LOCATION (t), expr);
 }
 
 /* Substitute through the type requirement.  */
@@ -1579,7 +1579,7 @@ tsubst_type_requirement (tree t, tree args, subst_info info)
   tree type = tsubst (t0, args, info.complain, info.in_decl);
   if (type == error_mark_node)
     return error_mark_node;
-  return finish_type_requirement (type);
+  return finish_type_requirement (EXPR_LOCATION (t), type);
 }
 
 /* True if TYPE can be deduced from EXPR.
@@ -1679,7 +1679,8 @@ tsubst_compound_requirement (tree t, tree args, subst_info info)
 	return error_mark_node;
     }
 
-  return finish_compound_requirement (expr, type, noexcept_p);
+  return finish_compound_requirement (EXPR_LOCATION (t),
+				      expr, type, noexcept_p);
 }
 
 static tree
@@ -1709,7 +1710,7 @@ tsubst_nested_requirement (tree t, tree args, subst_info info)
         return error_mark_node;
     }
 
-  return finish_nested_requirement (expr);
+  return finish_nested_requirement (EXPR_LOCATION (t), expr);
 }
 
 /* Substitute ARGS into the requirement T.  */
@@ -2403,17 +2404,21 @@ finish_requires_expr (location_t loc, tree parms, tree reqs)
 /* Construct a requirement for the validity of EXPR.   */
 
 tree
-finish_simple_requirement (tree expr)
+finish_simple_requirement (location_t loc, tree expr)
 {
-  return build_nt (SIMPLE_REQ, expr);
+  tree r = build_nt (SIMPLE_REQ, expr);
+  SET_EXPR_LOCATION (r, loc);
+  return r;
 }
 
 /* Construct a requirement for the validity of TYPE.  */
 
 tree
-finish_type_requirement (tree type)
+finish_type_requirement (location_t loc, tree type)
 {
-  return build_nt (TYPE_REQ, type);
+  tree r = build_nt (TYPE_REQ, type);
+  SET_EXPR_LOCATION (r, loc);
+  return r;
 }
 
 /* Construct a requirement for the validity of EXPR, along with
@@ -2423,9 +2428,10 @@ finish_type_requirement (tree type)
    NOEXCEPT_P is true iff the noexcept keyword was specified.  */
 
 tree
-finish_compound_requirement (tree expr, tree type, bool noexcept_p)
+finish_compound_requirement (location_t loc, tree expr, tree type, bool noexcept_p)
 {
   tree req = build_nt (COMPOUND_REQ, expr, type);
+  SET_EXPR_LOCATION (req, loc);
   COMPOUND_REQ_NOEXCEPT_P (req) = noexcept_p;
   return req;
 }
@@ -2433,9 +2439,11 @@ finish_compound_requirement (tree expr, tree type, bool noexcept_p)
 /* Finish a nested requirement.  */
 
 tree
-finish_nested_requirement (tree expr)
+finish_nested_requirement (location_t loc, tree expr)
 {
-  return build_nt (NESTED_REQ, expr);
+  tree r = build_nt (NESTED_REQ, expr);
+  SET_EXPR_LOCATION (r, loc);
+  return r;
 }
 
 /* Check that FN satisfies the structural requirements of a
@@ -2825,8 +2833,9 @@ diagnose_nested_requirement (tree req, tree args)
 }
 
 static void
-diagnose_requiremnt (tree req, tree args, tree in_decl)
+diagnose_requirement (tree req, tree args, tree in_decl)
 {
+  temp_override<location_t> loc_s (input_location, cp_expr_location (req));
   switch (TREE_CODE (req))
     {
     case SIMPLE_REQ:
@@ -2867,7 +2876,7 @@ diagnose_requires_expr (tree expr, tree args, tree in_decl)
   while (p)
     {
       tree req = TREE_VALUE (p);
-      diagnose_requiremnt (req, args, in_decl);
+      diagnose_requirement (req, args, in_decl);
       p = TREE_CHAIN (p);
     }
 }
@@ -2994,6 +3003,7 @@ diagnose_atom_failure (tree t, tree args, tree in_decl)
   diagnose_constraint_context (CONSTR_CONTEXT (t), args);
 
   location_t loc = get_error_location (t);
+  temp_override<location_t> loc_s (input_location, loc);
 
   /* Instantiate the parameter mapping.  */
   subst_info info (tf_none, in_decl);
