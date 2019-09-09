@@ -3325,20 +3325,6 @@ init_vn_nary_op_from_pieces (vn_nary_op_t vno, unsigned int length,
   memcpy (&vno->op[0], ops, sizeof (tree) * length);
 }
 
-/* Initialize VNO from OP.  */
-
-static void
-init_vn_nary_op_from_op (vn_nary_op_t vno, tree op)
-{
-  unsigned i;
-
-  vno->opcode = TREE_CODE (op);
-  vno->length = TREE_CODE_LENGTH (TREE_CODE (op));
-  vno->type = TREE_TYPE (op);
-  for (i = 0; i < vno->length; ++i)
-    vno->op[i] = TREE_OPERAND (op, i);
-}
-
 /* Return the number of operands for a vn_nary ops structure from STMT.  */
 
 static unsigned int
@@ -3437,22 +3423,6 @@ vn_nary_op_lookup_pieces (unsigned int length, enum tree_code code,
   vn_nary_op_t vno1 = XALLOCAVAR (struct vn_nary_op_s,
 				  sizeof_vn_nary_op (length));
   init_vn_nary_op_from_pieces (vno1, length, code, type, ops);
-  return vn_nary_op_lookup_1 (vno1, vnresult);
-}
-
-/* Lookup OP in the current hash table, and return the resulting value
-   number if it exists in the hash table.  Return NULL_TREE if it does
-   not exist in the hash table or if the result field of the operation
-   is NULL. VNRESULT will contain the vn_nary_op_t from the hashtable
-   if it exists.  */
-
-tree
-vn_nary_op_lookup (tree op, vn_nary_op_t *vnresult)
-{
-  vn_nary_op_t vno1
-    = XALLOCAVAR (struct vn_nary_op_s,
-		  sizeof_vn_nary_op (TREE_CODE_LENGTH (TREE_CODE (op))));
-  init_vn_nary_op_from_op (vno1, op);
   return vn_nary_op_lookup_1 (vno1, vnresult);
 }
 
@@ -3706,21 +3676,6 @@ vn_nary_op_get_predicated_value (vn_nary_op_t vno, basic_block bb)
 			    (cfun, val->valid_dominated_by_p[i])))
 	return val->result;
   return NULL_TREE;
-}
-
-/* Insert OP into the current hash table with a value number of
-   RESULT.  Return the vn_nary_op_t structure we created and put in
-   the hashtable.  */
-
-vn_nary_op_t
-vn_nary_op_insert (tree op, tree result)
-{
-  unsigned length = TREE_CODE_LENGTH (TREE_CODE (op));
-  vn_nary_op_t vno1;
-
-  vno1 = alloc_vn_nary_op (length, result, VN_INFO (result)->value_id);
-  init_vn_nary_op_from_op (vno1, op);
-  return vn_nary_op_insert_into (vno1, valid_info->nary, true);
 }
 
 /* Insert the rhs of STMT into the current hash table with a value number of
@@ -4312,8 +4267,12 @@ visit_nary_op (tree lhs, gassign *stmt)
 	 operation.  */
       if (INTEGRAL_TYPE_P (type)
 	  && TREE_CODE (rhs1) == SSA_NAME
-	  /* We only handle sign-changes or zero-extension -> & mask.  */
-	  && ((TYPE_UNSIGNED (TREE_TYPE (rhs1))
+	  /* We only handle sign-changes, zero-extension -> & mask or
+	     sign-extension if we know the inner operation doesn't
+	     overflow.  */
+	  && (((TYPE_UNSIGNED (TREE_TYPE (rhs1))
+		|| (INTEGRAL_TYPE_P (TREE_TYPE (rhs1))
+		    && TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (rhs1))))
 	       && TYPE_PRECISION (type) > TYPE_PRECISION (TREE_TYPE (rhs1)))
 	      || TYPE_PRECISION (type) == TYPE_PRECISION (TREE_TYPE (rhs1))))
 	{
@@ -4347,7 +4306,9 @@ visit_nary_op (tree lhs, gassign *stmt)
 		    {
 		      unsigned lhs_prec = TYPE_PRECISION (type);
 		      unsigned rhs_prec = TYPE_PRECISION (TREE_TYPE (rhs1));
-		      if (lhs_prec == rhs_prec)
+		      if (lhs_prec == rhs_prec
+			  || (INTEGRAL_TYPE_P (TREE_TYPE (rhs1))
+			      && TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (rhs1))))
 			{
 			  gimple_match_op match_op (gimple_match_cond::UNCOND,
 						    NOP_EXPR, type, ops[0]);
@@ -7305,6 +7266,11 @@ pass_fre::execute (function *fun)
 
   if (iterate_p)
     loop_optimizer_finalize ();
+
+  /* For late FRE after IVOPTs and unrolling, see if we can
+     remove some TREE_ADDRESSABLE and rewrite stuff into SSA.  */
+  if (!may_iterate)
+    todo |= TODO_update_address_taken;
 
   return todo;
 }

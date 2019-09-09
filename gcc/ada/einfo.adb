@@ -2140,7 +2140,7 @@ package body Einfo is
 
    function Is_Called (Id : E) return B is
    begin
-      pragma Assert (Ekind_In (Id, E_Procedure, E_Function));
+      pragma Assert (Ekind_In (Id, E_Procedure, E_Function, E_Package));
       return Flag102 (Id);
    end Is_Called;
 
@@ -2314,7 +2314,7 @@ package body Einfo is
 
    function Is_Generic_Actual_Subprogram (Id : E) return B is
    begin
-      pragma Assert (Ekind (Id) = E_Function or else Ekind (Id) = E_Procedure);
+      pragma Assert (Ekind_In (Id, E_Function, E_Procedure));
       return Flag274 (Id);
    end Is_Generic_Actual_Subprogram;
 
@@ -5344,7 +5344,7 @@ package body Einfo is
 
    procedure Set_Is_Called (Id : E; V : B := True) is
    begin
-      pragma Assert (Ekind_In (Id, E_Procedure, E_Function));
+      pragma Assert (Ekind_In (Id, E_Procedure, E_Function, E_Package));
       Set_Flag102 (Id, V);
    end Set_Is_Called;
 
@@ -7589,6 +7589,7 @@ package body Einfo is
                  Id = Pragma_Initial_Condition          or else
                  Id = Pragma_Initializes                or else
                  Id = Pragma_Interrupt_Handler          or else
+                 Id = Pragma_No_Caching                 or else
                  Id = Pragma_Part_Of                    or else
                  Id = Pragma_Refined_Depends            or else
                  Id = Pragma_Refined_Global             or else
@@ -8031,10 +8032,8 @@ package body Einfo is
    ------------------------
 
    function Is_Constant_Object (Id : E) return B is
-      K : constant Entity_Kind := Ekind (Id);
    begin
-      return
-        K = E_Constant or else K = E_In_Parameter or else K = E_Loop_Parameter;
+      return Ekind_In (Id, E_Constant, E_In_Parameter, E_Loop_Parameter);
    end Is_Constant_Object;
 
    -------------------
@@ -8052,8 +8051,8 @@ package body Einfo is
 
    function Is_Discriminal (Id : E) return B is
    begin
-      return (Ekind_In (Id, E_Constant, E_In_Parameter)
-                and then Present (Discriminal_Link (Id)));
+      return Ekind_In (Id, E_Constant, E_In_Parameter)
+               and then Present (Discriminal_Link (Id));
    end Is_Discriminal;
 
    ----------------------
@@ -8180,8 +8179,8 @@ package body Einfo is
 
    function Is_Prival (Id : E) return B is
    begin
-      return (Ekind_In (Id, E_Constant, E_Variable)
-                and then Present (Prival_Link (Id)));
+      return Ekind_In (Id, E_Constant, E_Variable)
+               and then Present (Prival_Link (Id));
    end Is_Prival;
 
    ----------------------------

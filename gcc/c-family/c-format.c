@@ -497,7 +497,7 @@ static const format_length_info printf_length_specs[] =
 static const format_length_info asm_fprintf_length_specs[] =
 {
   { "l", FMT_LEN_l, STD_C89, "ll", FMT_LEN_ll, STD_C89, 0 },
-  { "w", FMT_LEN_none, STD_C89, NO_FMT, 0 },
+  { "w", FMT_LEN_w, STD_C89, NO_FMT, 0 },
   { NO_FMT, NO_FMT, 0 }
 };
 
@@ -505,7 +505,7 @@ static const format_length_info asm_fprintf_length_specs[] =
 static const format_length_info gcc_diag_length_specs[] =
 {
   { "l", FMT_LEN_l, STD_C89, "ll", FMT_LEN_ll, STD_C89, 0 },
-  { "w", FMT_LEN_none, STD_C89, NO_FMT, 0 },
+  { "w", FMT_LEN_w, STD_C89, NO_FMT, 0 },
   { NO_FMT, NO_FMT, 0 }
 };
 
@@ -2958,6 +2958,7 @@ static const token_t cxx_keywords[] =
    NAME ("catch", NULL),
    NAME ("constexpr if", NULL),
    NAME ("constexpr", NULL),
+   NAME ("constinit", NULL),
    NAME ("consteval", NULL),
    NAME ("decltype", NULL),
    NAME ("nullptr", NULL),

@@ -2531,9 +2531,22 @@ Gogo::add_linkname(const std::string& go_name, bool is_exported,
   if (no == NULL)
     go_error_at(loc, "%s is not defined", go_name.c_str());
   else if (no->is_function())
-    no->func_value()->set_asm_name(ext_name);
+    {
+      if (ext_name.empty())
+	no->func_value()->set_is_exported_by_linkname();
+      else
+	no->func_value()->set_asm_name(ext_name);
+    }
   else if (no->is_function_declaration())
-    no->func_declaration_value()->set_asm_name(ext_name);
+    {
+      if (ext_name.empty())
+	go_error_at(loc,
+		    ("//%<go:linkname%> missing external name "
+		     "for declaration of %s"),
+		    go_name.c_str());
+      else
+	no->func_declaration_value()->set_asm_name(ext_name);
+    }
   else
     go_error_at(loc,
 		("%s is not a function; "
@@ -5238,11 +5251,11 @@ Gogo::write_c_header()
       // package they are mostly types defined by mkrsysinfo.sh based
       // on the C system header files.  We don't need to translate
       // types to C and back to Go.  But do accept the special cases
-      // _defer and _panic.
+      // _defer, _panic, and _type.
       std::string name = Gogo::unpack_hidden_name(no->name());
       if (name[0] == '_'
 	  && (name[1] < 'A' || name[1] > 'Z')
-	  && (name != "_defer" && name != "_panic"))
+	  && (name != "_defer" && name != "_panic" && name != "_type"))
 	continue;
 
       if (no->is_type() && no->type_value()->struct_type() != NULL)
@@ -5430,6 +5443,29 @@ Gogo::convert_named_types_in_bindings(Bindings* bindings)
     }
 }
 
+void
+debug_go_gogo(Gogo* gogo)
+{
+  if (gogo != NULL)
+    gogo->debug_dump();
+}
+
+void
+Gogo::debug_dump()
+{
+  std::cerr << "Packages:\n";
+  for (Packages::const_iterator p = this->packages_.begin();
+       p != this->packages_.end();
+       ++p)
+    {
+      const char *tag = "  ";
+      if (p->second == this->package_)
+        tag = "* ";
+      std::cerr << tag << "'" << p->first << "' "
+                << p->second->pkgpath() << " " << ((void*)p->second) << "\n";
+    }
+}
+
 // Class Function.
 
 Function::Function(Function_type* type, Named_object* enclosing, Block* block,
@@ -5442,7 +5478,8 @@ Function::Function(Function_type* type, Named_object* enclosing, Block* block,
     calls_recover_(false), is_recover_thunk_(false), has_recover_thunk_(false),
     calls_defer_retaddr_(false), is_type_specific_function_(false),
     in_unique_section_(false), export_for_inlining_(false),
-    is_inline_only_(false), is_referenced_by_inline_(false)
+    is_inline_only_(false), is_referenced_by_inline_(false),
+    is_exported_by_linkname_(false)
 {
 }
 
@@ -6197,6 +6234,11 @@ Function::get_or_make_decl(Gogo* gogo, Named_object* no)
       if (this->is_referenced_by_inline_)
 	flags |= Backend::function_is_visible;
 
+      // A go:linkname directive can be used to force a function to be
+      // visible.
+      if (this->is_exported_by_linkname_)
+	flags |= Backend::function_is_visible;
+
       // If a function calls the predeclared recover function, we
       // can't inline it, because recover behaves differently in a
       // function passed directly to defer.  If this is a recover
@@ -6277,6 +6319,7 @@ Function_declaration::get_or_make_decl(Gogo* gogo, Named_object* no)
 	    }
 
 	  if (this->asm_name_ == "runtime.gopanic"
+	      || this->asm_name_.compare(0, 15, "runtime.goPanic") == 0
 	      || this->asm_name_ == "__go_runtime_error"
               || this->asm_name_ == "runtime.panicdottype"
               || this->asm_name_ == "runtime.block")
@@ -8593,6 +8636,61 @@ Named_object::get_id(Gogo* gogo)
   return decl_name;
 }
 
+void
+debug_go_named_object(Named_object* no)
+{
+  if (no == NULL)
+    {
+      std::cerr << "<null>";
+      return;
+    }
+  std::cerr << "'" << no->name() << "': ";
+  const char *tag;
+  switch (no->classification())
+    {
+      case Named_object::NAMED_OBJECT_UNINITIALIZED:
+        tag = "uninitialized";
+        break;
+      case Named_object::NAMED_OBJECT_ERRONEOUS:
+        tag = "<error>";
+        break;
+      case Named_object::NAMED_OBJECT_UNKNOWN:
+        tag = "<unknown>";
+        break;
+      case Named_object::NAMED_OBJECT_CONST:
+        tag = "constant";
+        break;
+      case Named_object::NAMED_OBJECT_TYPE:
+        tag = "type";
+        break;
+      case Named_object::NAMED_OBJECT_TYPE_DECLARATION:
+        tag = "type_decl";
+        break;
+      case Named_object::NAMED_OBJECT_VAR:
+        tag = "var";
+        break;
+      case Named_object::NAMED_OBJECT_RESULT_VAR:
+        tag = "result_var";
+        break;
+      case Named_object::NAMED_OBJECT_SINK:
+        tag = "<sink>";
+        break;
+      case Named_object::NAMED_OBJECT_FUNC:
+        tag = "func";
+        break;
+      case Named_object::NAMED_OBJECT_FUNC_DECLARATION:
+        tag = "func_decl";
+        break;
+      case Named_object::NAMED_OBJECT_PACKAGE:
+        tag = "package";
+        break;
+      default:
+        tag = "<unknown named object classification>";
+        break;
+  };
+  std::cerr << tag << "\n";
+}
+
 // Get the backend representation for this named object.
 
 void
@@ -9138,6 +9236,31 @@ Bindings::traverse(Traverse* traverse, bool is_global)
     }
 
   return TRAVERSE_CONTINUE;
+}
+
+void
+Bindings::debug_dump()
+{
+  std::set<Named_object*> defs;
+  for (size_t i = 0; i < this->named_objects_.size(); ++i)
+    defs.insert(this->named_objects_[i]);
+  for (Contour::iterator p = this->bindings_.begin();
+       p != this->bindings_.end();
+       ++p)
+    {
+      const char* tag = "  ";
+      if (defs.find(p->second) != defs.end())
+        tag = "* ";
+      std::cerr << tag;
+      debug_go_named_object(p->second);
+    }
+}
+
+void
+debug_go_bindings(Bindings* bindings)
+{
+  if (bindings != NULL)
+    bindings->debug_dump();
 }
 
 // Class Label.

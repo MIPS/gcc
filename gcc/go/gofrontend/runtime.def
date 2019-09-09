@@ -287,6 +287,10 @@ DEF_GO_RUNTIME(GO, "__go_go", P2(UINTPTR, POINTER), R1(POINTER))
 DEF_GO_RUNTIME(DEFERPROC, "runtime.deferproc", P3(BOOLPTR, UINTPTR, POINTER),
 	       R0())
 
+// Defer a function, with stack-allocated defer structure.
+DEF_GO_RUNTIME(DEFERPROCSTACK, "runtime.deferprocStack",
+               P4(POINTER, BOOLPTR, UINTPTR, POINTER), R0())
+
 
 // Convert an empty interface to an empty interface, returning ok.
 DEF_GO_RUNTIME(IFACEE2E2, "runtime.ifaceE2E2", P1(EFACE), R2(EFACE, BOOL))
@@ -383,6 +387,9 @@ DEF_GO_RUNTIME(PRINTSTRING, "runtime.printstring", P1(STRING), R0())
 
 // Print a uint64 (for print/println).
 DEF_GO_RUNTIME(PRINTUINT, "runtime.printuint", P1(UINT64), R0())
+
+// Print a uint64 in hex (for print/println, used for runtime.hex type).
+DEF_GO_RUNTIME(PRINTHEX, "runtime.printhex", P1(UINT64), R0())
 
 // Print a int64 (for print/println).
 DEF_GO_RUNTIME(PRINTINT, "runtime.printint", P1(INT64), R0())
@@ -491,6 +498,75 @@ DEF_GO_RUNTIME(ATOMIC_AND_FETCH_1, "__atomic_and_fetch_1",
 DEF_GO_RUNTIME(ATOMIC_OR_FETCH_1, "__atomic_or_fetch_1",
                P3(POINTER, UINT8, INT32),
                R1(UINT8))
+
+// Panics reporting an index or slice out of bounds error.
+DEF_GO_RUNTIME(PANIC_INDEX, "runtime.goPanicIndex",
+	       P2(INT, INT), R0())
+DEF_GO_RUNTIME(PANIC_INDEX_U, "runtime.goPanicIndexU",
+	       P2(UINT, INT), R0())
+DEF_GO_RUNTIME(PANIC_SLICE_ALEN, "runtime.goPanicSliceAlen",
+	       P2(INT, INT), R0())
+DEF_GO_RUNTIME(PANIC_SLICE_ALEN_U, "runtime.goPanicSliceAlenU",
+	       P2(UINT, INT), R0())
+DEF_GO_RUNTIME(PANIC_SLICE_ACAP, "runtime.goPanicSliceAcap",
+	       P2(INT, INT), R0())
+DEF_GO_RUNTIME(PANIC_SLICE_ACAP_U, "runtime.goPanicSliceAcapU",
+	       P2(UINT, INT), R0())
+DEF_GO_RUNTIME(PANIC_SLICE_B, "runtime.goPanicSliceB",
+	       P2(INT, INT), R0())
+DEF_GO_RUNTIME(PANIC_SLICE_B_U, "runtime.goPanicSliceBU",
+	       P2(UINT, INT), R0())
+DEF_GO_RUNTIME(PANIC_SLICE3_ALEN, "runtime.goPanicSlice3Alen",
+	       P2(INT, INT), R0())
+DEF_GO_RUNTIME(PANIC_SLICE3_ALEN_U, "runtime.goPanicSlice3AlenU",
+	       P2(UINT, INT), R0())
+DEF_GO_RUNTIME(PANIC_SLICE3_ACAP, "runtime.goPanicSlice3Acap",
+	       P2(INT, INT), R0())
+DEF_GO_RUNTIME(PANIC_SLICE3_ACAP_U, "runtime.goPanicSlice3AcapU",
+	       P2(UINT, INT), R0())
+DEF_GO_RUNTIME(PANIC_SLICE3_B, "runtime.goPanicSlice3B",
+	       P2(INT, INT), R0())
+DEF_GO_RUNTIME(PANIC_SLICE3_B_U, "runtime.goPanicSlice3BU",
+	       P2(UINT, INT), R0())
+DEF_GO_RUNTIME(PANIC_SLICE3_C, "runtime.goPanicSlice3C",
+	       P2(INT, INT), R0())
+DEF_GO_RUNTIME(PANIC_SLICE3_C_U, "runtime.goPanicSlice3CU",
+	       P2(UINT, INT), R0())
+
+// Panics reporting an index or slice out of bounds error with a
+// 64-bit index type.  These are only used by 32-bit targets.
+DEF_GO_RUNTIME(PANIC_EXTEND_INDEX, "runtime.goPanicExtendIndex",
+	       P2(INT64, INT), R0())
+DEF_GO_RUNTIME(PANIC_EXTEND_INDEX_U, "runtime.goPanicExtendIndexU",
+	       P2(UINT64, INT), R0())
+DEF_GO_RUNTIME(PANIC_EXTEND_SLICE_ALEN, "runtime.goPanicExtendSliceAlen",
+	       P2(INT64, INT), R0())
+DEF_GO_RUNTIME(PANIC_EXTEND_SLICE_ALEN_U, "runtime.goPanicExtendSliceAlenU",
+	       P2(UINT64, INT), R0())
+DEF_GO_RUNTIME(PANIC_EXTEND_SLICE_ACAP, "runtime.goPanicExtendSliceAcap",
+	       P2(INT64, INT), R0())
+DEF_GO_RUNTIME(PANIC_EXTEND_SLICE_ACAP_U, "runtime.goPanicExtendSliceAcapU",
+	       P2(UINT64, INT), R0())
+DEF_GO_RUNTIME(PANIC_EXTEND_SLICE_B, "runtime.goPanicExtendSliceB",
+	       P2(INT64, INT), R0())
+DEF_GO_RUNTIME(PANIC_EXTEND_SLICE_B_U, "runtime.goPanicExtendSliceBU",
+	       P2(UINT64, INT), R0())
+DEF_GO_RUNTIME(PANIC_EXTEND_SLICE3_ALEN, "runtime.goPanicExtendSlice3Alen",
+	       P2(INT64, INT), R0())
+DEF_GO_RUNTIME(PANIC_EXTEND_SLICE3_ALEN_U, "runtime.goPanicExtendSlice3AlenU",
+	       P2(UINT64, INT), R0())
+DEF_GO_RUNTIME(PANIC_EXTEND_SLICE3_ACAP, "runtime.goPanicExtendSlice3Acap",
+	       P2(INT64, INT), R0())
+DEF_GO_RUNTIME(PANIC_EXTEND_SLICE3_ACAP_U, "runtime.goPanicExtendSlice3AcapU",
+	       P2(UINT64, INT), R0())
+DEF_GO_RUNTIME(PANIC_EXTEND_SLICE3_B, "runtime.goPanicExtendSlice3B",
+	       P2(INT64, INT), R0())
+DEF_GO_RUNTIME(PANIC_EXTEND_SLICE3_B_U, "runtime.goPanicExtendSlice3BU",
+	       P2(UINT64, INT), R0())
+DEF_GO_RUNTIME(PANIC_EXTEND_SLICE3_C, "runtime.goPanicExtendSlice3C",
+	       P2(INT64, INT), R0())
+DEF_GO_RUNTIME(PANIC_EXTEND_SLICE3_C_U, "runtime.goPanicExtendSlice3CU",
+	       P2(UINT64, INT), R0())
 
 // Remove helper macros.
 #undef ABFT6

@@ -288,8 +288,14 @@ extern unsigned aarch64_architecture_version;
 /* ARMv8.3-A features.  */
 #define TARGET_ARMV8_3	(AARCH64_ISA_V8_3)
 
+/* Javascript conversion instruction from Armv8.3-a.  */
+#define TARGET_JSCVT	(TARGET_FLOAT && AARCH64_ISA_V8_3)
+
 /* Armv8.3-a Complex number extension to AdvSIMD extensions.  */
 #define TARGET_COMPLEX (TARGET_SIMD && TARGET_ARMV8_3)
+
+/* Floating-point rounding instructions from Armv8.5-a.  */
+#define TARGET_FRINT (AARCH64_ISA_V8_5 && TARGET_FLOAT)
 
 /* TME instructions are enabled.  */
 #define TARGET_TME (AARCH64_ISA_TME)
@@ -563,6 +569,9 @@ extern unsigned aarch64_architecture_version;
 #define FP_LO_REGNUM_P(REGNO)            \
   (((unsigned) (REGNO - V0_REGNUM)) <= (V15_REGNUM - V0_REGNUM))
 
+#define FP_LO8_REGNUM_P(REGNO)            \
+  (((unsigned) (REGNO - V0_REGNUM)) <= (V7_REGNUM - V0_REGNUM))
+
 #define PR_REGNUM_P(REGNO)\
   (((unsigned) (REGNO - P0_REGNUM)) <= (P15_REGNUM - P0_REGNUM))
 
@@ -581,6 +590,7 @@ enum reg_class
   GENERAL_REGS,
   STACK_REG,
   POINTER_REGS,
+  FP_LO8_REGS,
   FP_LO_REGS,
   FP_REGS,
   POINTER_AND_FP_REGS,
@@ -600,6 +610,7 @@ enum reg_class
   "GENERAL_REGS",				\
   "STACK_REG",					\
   "POINTER_REGS",				\
+  "FP_LO8_REGS",				\
   "FP_LO_REGS",					\
   "FP_REGS",					\
   "POINTER_AND_FP_REGS",			\
@@ -616,6 +627,7 @@ enum reg_class
   { 0x7fffffff, 0x00000000, 0x00000003 },	/* GENERAL_REGS */	\
   { 0x80000000, 0x00000000, 0x00000000 },	/* STACK_REG */		\
   { 0xffffffff, 0x00000000, 0x00000003 },	/* POINTER_REGS */	\
+  { 0x00000000, 0x000000ff, 0x00000000 },       /* FP_LO8_REGS  */	\
   { 0x00000000, 0x0000ffff, 0x00000000 },       /* FP_LO_REGS  */	\
   { 0x00000000, 0xffffffff, 0x00000000 },       /* FP_REGS  */		\
   { 0xffffffff, 0xffffffff, 0x00000003 },	/* POINTER_AND_FP_REGS */\

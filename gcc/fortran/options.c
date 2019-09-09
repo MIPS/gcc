@@ -264,9 +264,9 @@ gfc_post_options (const char **pfilename)
 
   /* Excess precision other than "fast" requires front-end
      support.  */
-  if (flag_excess_precision_cmdline == EXCESS_PRECISION_STANDARD)
+  if (flag_excess_precision == EXCESS_PRECISION_STANDARD)
     sorry ("%<-fexcess-precision=standard%> for Fortran");
-  flag_excess_precision_cmdline = EXCESS_PRECISION_FAST;
+  flag_excess_precision = EXCESS_PRECISION_FAST;
 
   /* Fortran allows associative math - but we cannot reassociate if
      we want traps or signed zeros. Cf. also flag_protect_parens.  */
@@ -437,7 +437,7 @@ gfc_post_options (const char **pfilename)
 
   /* Set default.  */
   if (flag_max_stack_var_size == -2)
-    flag_max_stack_var_size = 32768;
+    flag_max_stack_var_size = 65536;
 
   /* Implement -fno-automatic as -fmax-stack-var-size=0.  */
   if (!flag_automatic)

@@ -300,7 +300,7 @@ dump_histogram_value (FILE *dump_file, histogram_value hist)
 	fprintf (dump_file, "Time profile time:%" PRId64 ".\n",
 		 (int64_t) hist->hvalue.counters[0]);
       break;
-    case HIST_TYPE_MAX:
+    default:
       gcc_unreachable ();
    }
 }
@@ -360,7 +360,7 @@ stream_in_histogram_value (class lto_input_block *ib, gimple *stmt)
       bp = streamer_read_bitpack (ib);
       type = bp_unpack_enum (&bp, hist_type, HIST_TYPE_MAX);
       next = bp_unpack_value (&bp, 1);
-      new_val = gimple_alloc_histogram_value (cfun, type, stmt, NULL);
+      new_val = gimple_alloc_histogram_value (cfun, type, stmt);
       switch (type)
 	{
 	case HIST_TYPE_INTERVAL:
@@ -384,7 +384,7 @@ stream_in_histogram_value (class lto_input_block *ib, gimple *stmt)
 	  ncounters = 1;
 	  break;
 
-	case HIST_TYPE_MAX:
+	default:
 	  gcc_unreachable ();
 	}
       new_val->hvalue.counters = XNEWVAR (gcov_type, sizeof (*new_val->hvalue.counters) * ncounters);
@@ -429,7 +429,7 @@ gimple_duplicate_stmt_histograms (struct function *fun, gimple *stmt,
   histogram_value val;
   for (val = gimple_histogram_value (ofun, ostmt); val != NULL; val = val->hvalue.next)
     {
-      histogram_value new_val = gimple_alloc_histogram_value (fun, val->type, NULL, NULL);
+      histogram_value new_val = gimple_alloc_histogram_value (fun, val->type);
       memcpy (new_val, val, sizeof (*val));
       new_val->hvalue.stmt = stmt;
       new_val->hvalue.counters = XNEWVAR (gcov_type, sizeof (*new_val->hvalue.counters) * new_val->n_counters);
@@ -809,12 +809,9 @@ gimple_divmod_fixed_value_transform (gimple_stmt_iterator *si)
     }
   result = gimple_divmod_fixed_value (stmt, tree_val, prob, count, all);
 
-  if (dump_file)
-    {
-      fprintf (dump_file, "Transformation done: div/mod by constant ");
-      print_generic_expr (dump_file, tree_val, TDF_SLIM);
-      fprintf (dump_file, "\n");
-    }
+  if (dump_enabled_p ())
+    dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, stmt,
+		     "Transformation done: div/mod by constant %T\n", tree_val);
 
   gimple_assign_set_rhs_from_tree (si, result);
   update_stmt (gsi_stmt (*si));
@@ -949,8 +946,9 @@ gimple_mod_pow2_value_transform (gimple_stmt_iterator *si)
   if (check_counter (stmt, "pow2", &count, &all, gimple_bb (stmt)->count))
     return false;
 
-  if (dump_file)
-    fprintf (dump_file, "Transformation done: mod power of 2\n");
+  if (dump_enabled_p ())
+    dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, stmt,
+		     "Transformation done: mod power of 2\n");
 
   if (all > 0)
     prob = profile_probability::probability_in_gcov_type (count, all);
@@ -1133,8 +1131,9 @@ gimple_mod_subtract_transform (gimple_stmt_iterator *si)
     return false;
 
   gimple_remove_histogram_value (cfun, stmt, histogram);
-  if (dump_file)
-    fprintf (dump_file, "Transformation done: mod subtract\n");
+  if (dump_enabled_p ())
+    dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, stmt,
+		     "Transformation done: mod subtract\n");
 
   /* Compute probability of taking the optimal path(s).  */
   if (all > 0)
@@ -1185,37 +1184,40 @@ init_node_map (bool local)
     if (n->has_gimple_body_p () || n->thunk.thunk_p)
       {
 	cgraph_node **val;
+	dump_user_location_t loc
+	  = dump_user_location_t::from_function_decl (n->decl);
 	if (local)
 	  {
 	    n->profile_id = coverage_compute_profile_id (n);
 	    while ((val = cgraph_node_map->get (n->profile_id))
 		   || !n->profile_id)
 	      {
-		if (dump_file)
-		  fprintf (dump_file, "Local profile-id %i conflict"
-			   " with nodes %s %s\n",
-			   n->profile_id,
-			   n->dump_name (),
-			   (*val)->dump_name ());
+		if (dump_enabled_p ())
+		  dump_printf_loc (MSG_MISSED_OPTIMIZATION, loc,
+				   "Local profile-id %i conflict"
+				   " with nodes %s %s\n",
+				   n->profile_id,
+				   n->dump_name (),
+				   (*val)->dump_name ());
 		n->profile_id = (n->profile_id + 1) & 0x7fffffff;
 	      }
 	  }
 	else if (!n->profile_id)
 	  {
-	    if (dump_file)
-	      fprintf (dump_file,
-		       "Node %s has no profile-id"
-		       " (profile feedback missing?)\n",
-		       n->dump_name ());
+	    if (dump_enabled_p ())
+	      dump_printf_loc (MSG_MISSED_OPTIMIZATION, loc,
+			       "Node %s has no profile-id"
+			       " (profile feedback missing?)\n",
+			       n->dump_name ());
 	    continue;
 	  }
 	else if ((val = cgraph_node_map->get (n->profile_id)))
 	  {
-	    if (dump_file)
-	      fprintf (dump_file,
-		       "Node %s has IP profile-id %i conflict. "
-		       "Giving up.\n",
-		       n->dump_name (), n->profile_id);
+	    if (dump_enabled_p ())
+	      dump_printf_loc (MSG_MISSED_OPTIMIZATION, loc,
+			       "Node %s has IP profile-id %i conflict. "
+			       "Giving up.\n",
+			       n->dump_name (), n->profile_id);
 	    *val = NULL;
 	    continue;
 	  }
@@ -1445,41 +1447,35 @@ gimple_ic_transform (gimple_stmt_iterator *gsi)
     {
       if (val)
 	{
-	  if (dump_file)
-	    {
-	      fprintf (dump_file, "Indirect call -> direct call from other module");
-	      print_generic_expr (dump_file, gimple_call_fn (stmt), TDF_SLIM);
-	      fprintf (dump_file, "=> %i (will resolve only with LTO)\n", (int)val);
-	    }
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, stmt,
+			     "Indirect call -> direct call from other "
+			     "module %T=> %i (will resolve only with LTO)\n",
+			     gimple_call_fn (stmt), (int)val);
 	}
       return false;
     }
 
   if (!check_ic_target (stmt, direct_call))
     {
-      if (dump_file)
-	{
-	  fprintf (dump_file, "Indirect call -> direct call ");
-	  print_generic_expr (dump_file, gimple_call_fn (stmt), TDF_SLIM);
-	  fprintf (dump_file, "=> ");
-	  print_generic_expr (dump_file, direct_call->decl, TDF_SLIM);
-	  fprintf (dump_file, " transformation skipped because of type mismatch");
-	  print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
-	}
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, stmt,
+			 "Indirect call -> direct call %T => %T "
+			 "transformation skipped because of type mismatch: %G",
+			 gimple_call_fn (stmt), direct_call->decl, stmt);
       gimple_remove_histogram_value (cfun, stmt, histogram);
       return false;
     }
 
-  if (dump_file)
+  if (dump_enabled_p ())
     {
-      fprintf (dump_file, "Indirect call -> direct call ");
-      print_generic_expr (dump_file, gimple_call_fn (stmt), TDF_SLIM);
-      fprintf (dump_file, "=> ");
-      print_generic_expr (dump_file, direct_call->decl, TDF_SLIM);
-      fprintf (dump_file, " transformation on insn postponned to ipa-profile");
-      print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
-      fprintf (dump_file, "hist->count %" PRId64
-	       " hist->all %" PRId64"\n", count, all);
+      dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, stmt,
+		       "Indirect call -> direct call "
+		       "%T => %T transformation on insn postponed\n",
+		       gimple_call_fn (stmt), direct_call->decl);
+      dump_printf_loc (MSG_NOTE, stmt,
+		       "hist->count %" PRId64
+		       " hist->all %" PRId64"\n", count, all);
     }
 
   return true;
@@ -1708,10 +1704,10 @@ gimple_stringops_transform (gimple_stmt_iterator *gsi)
 	TYPE_PRECISION (get_gcov_type ()), false));
     }
 
-  if (dump_file)
-    fprintf (dump_file,
-	     "Transformation done: single value %i stringop for %s\n",
-	     (int)val, built_in_names[(int)fcode]);
+  if (dump_enabled_p ())
+    dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, stmt,
+		     "Transformation done: single value %i stringop for %s\n",
+		     (int)val, built_in_names[(int)fcode]);
 
   gimple_stringop_fixed_value (stmt, tree_val, prob, count, all);
 
@@ -1795,14 +1791,12 @@ gimple_divmod_values_to_profile (gimple *stmt, histogram_values *values)
       divisor = gimple_assign_rhs2 (stmt);
       op0 = gimple_assign_rhs1 (stmt);
 
-      values->reserve (3);
-
       if (TREE_CODE (divisor) == SSA_NAME)
 	/* Check for the case where the divisor is the same value most
 	   of the time.  */
-	values->quick_push (gimple_alloc_histogram_value (cfun,
-						      HIST_TYPE_TOPN_VALUES,
-						      stmt, divisor));
+	values->safe_push (gimple_alloc_histogram_value (cfun,
+							 HIST_TYPE_TOPN_VALUES,
+							 stmt, divisor));
 
       /* For mod, check whether it is not often a noop (or replaceable by
 	 a few subtractions).  */
@@ -1812,16 +1806,15 @@ gimple_divmod_values_to_profile (gimple *stmt, histogram_values *values)
 	{
           tree val;
           /* Check for a special case where the divisor is power of 2.  */
-	  values->quick_push (gimple_alloc_histogram_value (cfun,
-		                                            HIST_TYPE_POW2,
-							    stmt, divisor));
-
+	  values->safe_push (gimple_alloc_histogram_value (cfun,
+							   HIST_TYPE_POW2,
+							   stmt, divisor));
 	  val = build2 (TRUNC_DIV_EXPR, type, op0, divisor);
 	  hist = gimple_alloc_histogram_value (cfun, HIST_TYPE_INTERVAL,
 					       stmt, val);
 	  hist->hdata.intvl.int_start = 0;
 	  hist->hdata.intvl.steps = 2;
-	  values->quick_push (hist);
+	  values->safe_push (hist);
 	}
       return;
 
@@ -1844,11 +1837,9 @@ gimple_indirect_call_to_profile (gimple *stmt, histogram_values *values)
     return;
 
   callee = gimple_call_fn (stmt);
-
-  values->reserve (3);
-
-  values->quick_push (gimple_alloc_histogram_value (cfun, HIST_TYPE_INDIR_CALL,
-						    stmt, callee));
+  histogram_value v = gimple_alloc_histogram_value (cfun, HIST_TYPE_INDIR_CALL,
+						    stmt, callee);
+  values->safe_push (v);
 
   return;
 }
@@ -1915,7 +1906,8 @@ gimple_find_values_to_profile (histogram_values *values)
     for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       gimple_values_to_profile (gsi_stmt (gsi), values);
 
-  values->safe_push (gimple_alloc_histogram_value (cfun, HIST_TYPE_TIME_PROFILE, 0, 0));
+  values->safe_push (gimple_alloc_histogram_value (cfun,
+						   HIST_TYPE_TIME_PROFILE));
 
   FOR_EACH_VEC_ELT (*values, i, hist)
     {

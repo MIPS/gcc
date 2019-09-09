@@ -3785,8 +3785,6 @@ These machine description macros help implement varargs:
 
 @hook TARGET_STORE_RETURNED_BOUNDS
 
-@hook TARGET_SETUP_INCOMING_VARARG_BOUNDS
-
 @node Trampolines
 @section Support for Nested Functions
 @cindex support for nested functions
@@ -7201,6 +7199,8 @@ on this implementation detail.
 @end defmac
 
 @hook TARGET_INSERT_ATTRIBUTES
+
+@hook TARGET_HANDLE_GENERIC_ATTRIBUTE
 
 @hook TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P
 

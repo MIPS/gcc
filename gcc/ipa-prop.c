@@ -1059,7 +1059,7 @@ bool
 ipa_load_from_parm_agg (struct ipa_func_body_info *fbi,
 			vec<ipa_param_descriptor, va_gc> *descriptors,
 			gimple *stmt, tree op, int *index_p,
-			HOST_WIDE_INT *offset_p, HOST_WIDE_INT *size_p,
+			HOST_WIDE_INT *offset_p, poly_int64 *size_p,
 			bool *by_ref_p, bool *guaranteed_unmodified)
 {
   int index;
@@ -1243,9 +1243,7 @@ compute_complex_assign_jump_func (struct ipa_func_body_info *fbi,
 	    break;
 	  }
 	case GIMPLE_UNARY_RHS:
-	  if (is_gimple_assign (stmt)
-	      && gimple_assign_rhs_class (stmt) == GIMPLE_UNARY_RHS
-	      && ! CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (stmt)))
+	  if (!CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (stmt)))
 	    ipa_set_jf_unary_pass_through (jfunc, index,
 					   gimple_assign_rhs_code (stmt));
 	default:;
@@ -2725,12 +2723,6 @@ update_jump_functions_after_inlining (struct cgraph_edge *cs,
 	      dst->value.ancestor.agg_preserved &=
 		src->value.pass_through.agg_preserved;
 	    }
-	  else if (src->type == IPA_JF_PASS_THROUGH
-		   && TREE_CODE_CLASS (src->value.pass_through.operation) == tcc_unary)
-	    {
-	      dst->value.ancestor.formal_id = src->value.pass_through.formal_id;
-	      dst->value.ancestor.agg_preserved = false;
-	    }
 	  else if (src->type == IPA_JF_ANCESTOR)
 	    {
 	      dst->value.ancestor.formal_id = src->value.ancestor.formal_id;
@@ -3331,8 +3323,7 @@ try_make_edge_direct_virtual_call (struct cgraph_edge *ie,
 	  if (can_refer)
 	    {
 	      if (!t
-		  || (TREE_CODE (TREE_TYPE (t)) == FUNCTION_TYPE
-		      && DECL_FUNCTION_CODE (t) == BUILT_IN_UNREACHABLE)
+		  || fndecl_built_in_p (t, BUILT_IN_UNREACHABLE)
 		  || !possible_polymorphic_call_target_p
 		       (ie, cgraph_node::get (t)))
 		{
@@ -4917,7 +4908,8 @@ ipcp_modif_dom_walker::before_dom_children (basic_block bb)
       struct ipa_agg_replacement_value *v;
       gimple *stmt = gsi_stmt (gsi);
       tree rhs, val, t;
-      HOST_WIDE_INT offset, size;
+      HOST_WIDE_INT offset;
+      poly_int64 size;
       int index;
       bool by_ref, vce;
 
@@ -4933,7 +4925,7 @@ ipcp_modif_dom_walker::before_dom_children (basic_block bb)
 	{
 	  /* V_C_E can do things like convert an array of integers to one
 	     bigger integer and similar things we do not handle below.  */
-	  if (TREE_CODE (rhs) == VIEW_CONVERT_EXPR)
+	  if (TREE_CODE (t) == VIEW_CONVERT_EXPR)
 	    {
 	      vce = true;
 	      break;
@@ -4952,7 +4944,8 @@ ipcp_modif_dom_walker::before_dom_children (basic_block bb)
 	  break;
       if (!v
 	  || v->by_ref != by_ref
-	  || tree_to_shwi (TYPE_SIZE (TREE_TYPE (v->value))) != size)
+	  || maybe_ne (tree_to_poly_int64 (TYPE_SIZE (TREE_TYPE (v->value))),
+		       size))
 	continue;
 
       gcc_checking_assert (is_gimple_ip_invariant (v->value));

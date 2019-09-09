@@ -299,6 +299,7 @@ unsigned const char omp_clause_num_ops[] =
   2, /* OMP_CLAUSE_TO  */
   2, /* OMP_CLAUSE_MAP  */
   1, /* OMP_CLAUSE_USE_DEVICE_PTR  */
+  1, /* OMP_CLAUSE_USE_DEVICE_ADDR  */
   1, /* OMP_CLAUSE_IS_DEVICE_PTR  */
   1, /* OMP_CLAUSE_INCLUSIVE  */
   1, /* OMP_CLAUSE_EXCLUSIVE  */
@@ -331,6 +332,7 @@ unsigned const char omp_clause_num_ops[] =
   0, /* OMP_CLAUSE_PROC_BIND  */
   1, /* OMP_CLAUSE_SAFELEN  */
   1, /* OMP_CLAUSE_SIMDLEN  */
+  0, /* OMP_CLAUSE_DEVICE_TYPE  */
   0, /* OMP_CLAUSE_FOR  */
   0, /* OMP_CLAUSE_PARALLEL  */
   0, /* OMP_CLAUSE_SECTIONS  */
@@ -382,6 +384,7 @@ const char * const omp_clause_code_name[] =
   "to",
   "map",
   "use_device_ptr",
+  "use_device_addr",
   "is_device_ptr",
   "inclusive",
   "exclusive",
@@ -414,6 +417,7 @@ const char * const omp_clause_code_name[] =
   "proc_bind",
   "safelen",
   "simdlen",
+  "device_type",
   "for",
   "parallel",
   "sections",
@@ -1975,6 +1979,23 @@ build_index_vector (tree vec_type, poly_uint64 base, poly_uint64 step)
   for (unsigned int i = 0; i < 3; ++i)
     v.quick_push (build_int_cstu (index_elt_type, base + i * step));
   return v.build ();
+}
+
+/* Return a VECTOR_CST of type VEC_TYPE in which the first NUM_A
+   elements are A and the rest are B.  */
+
+tree
+build_vector_a_then_b (tree vec_type, unsigned int num_a, tree a, tree b)
+{
+  gcc_assert (known_le (num_a, TYPE_VECTOR_SUBPARTS (vec_type)));
+  unsigned int count = constant_lower_bound (TYPE_VECTOR_SUBPARTS (vec_type));
+  /* Optimize the constant case.  */
+  if ((count & 1) == 0 && TYPE_VECTOR_SUBPARTS (vec_type).is_constant ())
+    count /= 2;
+  tree_vector_builder builder (vec_type, count, 2);
+  for (unsigned int i = 0; i < count * 2; ++i)
+    builder.quick_push (i < num_a ? a : b);
+  return builder.build ();
 }
 
 /* Something has messed with the elements of CONSTRUCTOR C after it was built;
@@ -5527,8 +5548,7 @@ free_lang_data_in_type (tree type, class free_lang_data_d *fld)
 	  free_lang_data_in_binfo (TYPE_BINFO (type));
 	  /* We need to preserve link to bases and virtual table for all
 	     polymorphic types to make devirtualization machinery working.  */
-	  if (!BINFO_VTABLE (TYPE_BINFO (type))
-	      || !flag_devirtualize)
+	  if (!BINFO_VTABLE (TYPE_BINFO (type)))
 	    TYPE_BINFO (type) = NULL;
 	}
     }
@@ -6122,6 +6142,13 @@ find_decls_types_in_node (struct cgraph_node *n, class free_lang_data_d *fld)
 	    {
 	      tree arg = gimple_op (stmt, i);
 	      find_decls_types (arg, fld);
+	      /* find_decls_types doesn't walk TREE_PURPOSE of TREE_LISTs,
+		 which we need for asm stmts.  */
+	      if (arg
+		  && TREE_CODE (arg) == TREE_LIST
+		  && TREE_PURPOSE (arg)
+		  && gimple_code (stmt) == GIMPLE_ASM)
+		find_decls_types (TREE_PURPOSE (arg), fld);
 	    }
 	}
     }
@@ -11852,18 +11879,23 @@ build_alloca_call_expr (tree size, unsigned int align, HOST_WIDE_INT max_size)
     }
 }
 
-/* Create a new constant string literal consisting of elements of type
-   ELTYPE and return a tree node representing char* pointer to it as
-   an ADDR_EXPR (ARRAY_REF (ELTYPE, ...)).  The STRING_CST value is
-   the LEN bytes at STR (the representation of the string, which may
+/* Create a new constant string literal of type ELTYPE[SIZE] (or LEN
+   if SIZE == -1) and return a tree node representing char* pointer to
+   it as an ADDR_EXPR (ARRAY_REF (ELTYPE, ...)).  The STRING_CST value
+   is the LEN bytes at STR (the representation of the string, which may
    be wide).  */
 
 tree
 build_string_literal (int len, const char *str,
-		      tree eltype /* = char_type_node */)
+		      tree eltype /* = char_type_node */,
+		      unsigned HOST_WIDE_INT size /* = -1 */)
 {
   tree t = build_string (len, str);
-  tree index = build_index_type (size_int (len - 1));
+  /* Set the maximum valid index based on the string length or SIZE.  */
+  unsigned HOST_WIDE_INT maxidx
+    = (size == HOST_WIDE_INT_M1U ? len : size) - 1;
+
+  tree index = build_index_type (size_int (maxidx));
   eltype = build_type_variant (eltype, 1, 0);
   tree type = build_array_type (eltype, index);
   TREE_TYPE (t) = type;
@@ -12384,6 +12416,7 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_TO_DECLARE:
 	case OMP_CLAUSE_LINK:
 	case OMP_CLAUSE_USE_DEVICE_PTR:
+	case OMP_CLAUSE_USE_DEVICE_ADDR:
 	case OMP_CLAUSE_IS_DEVICE_PTR:
 	case OMP_CLAUSE_INCLUSIVE:
 	case OMP_CLAUSE_EXCLUSIVE:
@@ -12401,6 +12434,7 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_UNTIED:
 	case OMP_CLAUSE_MERGEABLE:
 	case OMP_CLAUSE_PROC_BIND:
+	case OMP_CLAUSE_DEVICE_TYPE:
 	case OMP_CLAUSE_INBRANCH:
 	case OMP_CLAUSE_NOTINBRANCH:
 	case OMP_CLAUSE_FOR:

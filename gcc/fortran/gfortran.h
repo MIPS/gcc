@@ -216,7 +216,7 @@ enum gfc_statement
   ST_POINTER_ASSIGNMENT, ST_SELECT_CASE, ST_SEQUENCE, ST_SIMPLE_IF,
   ST_STATEMENT_FUNCTION, ST_DERIVED_DECL, ST_LABEL_ASSIGNMENT, ST_ENUM,
   ST_ENUMERATOR, ST_END_ENUM, ST_SELECT_TYPE, ST_TYPE_IS, ST_CLASS_IS,
-  ST_STRUCTURE_DECL, ST_END_STRUCTURE,
+  ST_SELECT_RANK, ST_RANK, ST_STRUCTURE_DECL, ST_END_STRUCTURE,
   ST_UNION, ST_END_UNION, ST_MAP, ST_END_MAP,
   ST_OACC_PARALLEL_LOOP, ST_OACC_END_PARALLEL_LOOP, ST_OACC_PARALLEL,
   ST_OACC_END_PARALLEL, ST_OACC_KERNELS, ST_OACC_END_KERNELS, ST_OACC_DATA,
@@ -423,6 +423,7 @@ enum gfc_isym_id
   GFC_ISYM_C_SIZEOF,
   GFC_ISYM_DATE_AND_TIME,
   GFC_ISYM_DBLE,
+  GFC_ISYM_DFLOAT,
   GFC_ISYM_DIGITS,
   GFC_ISYM_DIM,
   GFC_ISYM_DOT_PRODUCT,
@@ -448,6 +449,7 @@ enum gfc_isym_id
   GFC_ISYM_FGET,
   GFC_ISYM_FGETC,
   GFC_ISYM_FINDLOC,
+  GFC_ISYM_FLOAT,
   GFC_ISYM_FLOOR,
   GFC_ISYM_FLUSH,
   GFC_ISYM_FNUM,
@@ -573,6 +575,7 @@ enum gfc_isym_id
   GFC_ISYM_RANGE,
   GFC_ISYM_RANK,
   GFC_ISYM_REAL,
+  GFC_ISYM_REALPART,
   GFC_ISYM_RENAME,
   GFC_ISYM_REPEAT,
   GFC_ISYM_RESHAPE,
@@ -598,6 +601,7 @@ enum gfc_isym_id
   GFC_ISYM_SIZE,
   GFC_ISYM_SLEEP,
   GFC_ISYM_SIZEOF,
+  GFC_ISYM_SNGL,
   GFC_ISYM_SPACING,
   GFC_ISYM_SPREAD,
   GFC_ISYM_SQRT,
@@ -890,9 +894,9 @@ typedef struct
 	   event_comp:1, defined_assign_comp:1, unlimited_polymorphic:1,
 	   has_dtio_procs:1, caf_token:1;
 
-  /* This is a temporary selector for SELECT TYPE or an associate
-     variable for SELECT_TYPE or ASSOCIATE.  */
-  unsigned select_type_temporary:1, associate_var:1;
+  /* This is a temporary selector for SELECT TYPE/RANK or an associate
+     variable for SELECT TYPE/RANK or ASSOCIATE.  */
+  unsigned select_type_temporary:1, select_rank_temporary:1, associate_var:1;
 
   /* These are the attributes required for parameterized derived
      types.  */
@@ -2414,6 +2418,9 @@ typedef struct
 {
   gfc_expr *var, *start, *end, *step;
   unsigned short unroll;
+  bool ivdep;
+  bool vector;
+  bool novector;
 }
 gfc_iterator;
 
@@ -2548,8 +2555,8 @@ enum gfc_exec_op
   EXEC_IF, EXEC_ARITHMETIC_IF, EXEC_DO, EXEC_DO_CONCURRENT, EXEC_DO_WHILE,
   EXEC_SELECT, EXEC_BLOCK, EXEC_FORALL, EXEC_WHERE, EXEC_CYCLE, EXEC_EXIT,
   EXEC_CALL_PPC, EXEC_ALLOCATE, EXEC_DEALLOCATE, EXEC_END_PROCEDURE,
-  EXEC_SELECT_TYPE, EXEC_SYNC_ALL, EXEC_SYNC_MEMORY, EXEC_SYNC_IMAGES,
-  EXEC_OPEN, EXEC_CLOSE, EXEC_WAIT,
+  EXEC_SELECT_TYPE, EXEC_SELECT_RANK, EXEC_SYNC_ALL, EXEC_SYNC_MEMORY,
+  EXEC_SYNC_IMAGES, EXEC_OPEN, EXEC_CLOSE, EXEC_WAIT,
   EXEC_READ, EXEC_WRITE, EXEC_IOLENGTH, EXEC_TRANSFER, EXEC_DT_END,
   EXEC_BACKSPACE, EXEC_ENDFILE, EXEC_INQUIRE, EXEC_REWIND, EXEC_FLUSH,
   EXEC_FORM_TEAM, EXEC_CHANGE_TEAM, EXEC_END_TEAM, EXEC_SYNC_TEAM,
@@ -2790,6 +2797,9 @@ gfc_finalizer;
 bool gfc_in_match_data (void);
 match gfc_match_char_spec (gfc_typespec *);
 extern int directive_unroll;
+extern bool directive_ivdep;
+extern bool directive_vector;
+extern bool directive_novector;
 
 /* SIMD clause enum.  */
 enum gfc_simd_clause
@@ -3003,6 +3013,7 @@ bool gfc_merge_new_implicit (gfc_typespec *);
 void gfc_set_implicit_none (bool, bool, locus *);
 void gfc_check_function_type (gfc_namespace *);
 bool gfc_is_intrinsic_typename (const char *);
+bool gfc_check_conflict (symbol_attribute *, const char *, locus *);
 
 gfc_typespec *gfc_get_default_type (const char *, gfc_namespace *);
 bool gfc_set_default_type (gfc_symbol *, int, gfc_namespace *);
@@ -3416,6 +3427,9 @@ bool gfc_check_typebound_override (gfc_symtree*, gfc_symtree*);
 void gfc_check_dtio_interfaces (gfc_symbol*);
 gfc_symtree* gfc_find_typebound_dtio_proc (gfc_symbol *, bool, bool);
 gfc_symbol* gfc_find_specific_dtio_proc (gfc_symbol*, bool, bool);
+void gfc_get_formal_from_actual_arglist (gfc_symbol *, gfc_actual_arglist *);
+bool gfc_compare_actual_formal (gfc_actual_arglist **, gfc_formal_arglist *,
+				int, int, bool, locus *);
 
 
 /* io.c */
@@ -3473,6 +3487,8 @@ void gfc_dump_parse_tree (gfc_namespace *, FILE *);
 void gfc_dump_c_prototypes (gfc_namespace *, FILE *);
 void gfc_dump_external_c_prototypes (FILE *);
 void gfc_dump_global_symbols (FILE *);
+void debug (gfc_symbol *);
+void debug (gfc_expr *);
 
 /* parse.c */
 bool gfc_parse_file (void);
@@ -3547,6 +3563,7 @@ int gfc_dummy_code_callback (gfc_code **, int *, void *);
 int gfc_expr_walker (gfc_expr **, walk_expr_fn_t, void *);
 int gfc_code_walker (gfc_code **, walk_code_fn_t, walk_expr_fn_t, void *);
 bool gfc_has_dimen_vector_ref (gfc_expr *e);
+void gfc_check_externals (gfc_namespace *);
 
 /* simplify.c */
 

@@ -247,8 +247,7 @@ md_file=
 
 # Obsolete configurations.
 case ${target} in
-  spu*-*-*				\
-  | tile*-*-*				\
+  tile*-*-*				\
  )
     if test "x$enable_obsolete" != xyes; then
       echo "*** Configuration ${target} is obsolete." >&2
@@ -280,6 +279,7 @@ case ${target} in
  | powerpc*-*-linux*paired*		\
  | powerpc*-*-*spe*			\
  | sparc-hal-solaris2*			\
+ | spu*-*-*				\
  | thumb-*-*				\
  | *-*-freebsd[12] | *-*-freebsd[1234].* \
  | *-*-freebsd*aout*			\
@@ -359,6 +359,9 @@ avr-*-*)
 	;;
 bfin*-*)
 	cpu_type=bfin
+	;;
+bpf-*-*)
+	cpu_type=bpf
 	;;
 crisv32-*)
 	cpu_type=cris
@@ -535,9 +538,6 @@ sparc*-*-*)
 	d_target_objs="sparc-d.o"
 	extra_headers="visintrin.h"
 	;;
-spu*-*-*)
-	cpu_type=spu
-	;;
 s390*-*-*)
 	cpu_type=s390
 	d_target_objs="s390-d.o"
@@ -664,7 +664,8 @@ bdver3 bdver4 znver1 znver2 btver1 btver2 k8 k8-sse3 opteron \
 opteron-sse3 nocona core2 corei7 corei7-avx core-avx-i core-avx2 atom \
 slm nehalem westmere sandybridge ivybridge haswell broadwell bonnell \
 silvermont knl knm skylake-avx512 cannonlake icelake-client icelake-server \
-skylake goldmont goldmont-plus tremont cascadelake x86-64 native"
+skylake goldmont goldmont-plus tremont cascadelake tigerlake cooperlake x86-64 \
+native"
 
 # Additional x86 processors supported by --with-cpu=.  Each processor
 # MUST be separated by exactly one space.
@@ -1310,6 +1311,12 @@ bfin*-*)
 	use_collect2=no
 	use_gcc_stdint=wrap
 	;;
+bpf-*-*)
+        tmake_file="${tmake_file} bpf/t-bpf"
+        use_collect2=no
+        extra_headers="bpf-helpers.h"
+        use_gcc_stdint=provide
+        ;;
 cr16-*-elf)
         tm_file="elfos.h ${tm_file} newlib-stdint.h"
         tmake_file="${tmake_file} cr16/t-cr16 "
@@ -2519,7 +2526,8 @@ msp430*-*-*)
 	c_target_objs="msp430-c.o"
 	cxx_target_objs="msp430-c.o"
 	tmake_file="${tmake_file} msp430/t-msp430"
-	extra_gcc_objs="driver-msp430.o"
+	extra_objs="${extra_objs} msp430-devices.o"
+	extra_gcc_objs="driver-msp430.o msp430-devices.o"
 	# Enable .init_array unless it has been explicitly disabled.
 	# The MSP430 EABI mandates the use of .init_array, and the Newlib CRT
 	# code since mid-2019 expects it.
@@ -3168,15 +3176,6 @@ sparc64-*-openbsd*)
 	gas=yes gnu_ld=yes
 	with_cpu=ultrasparc
 	tmake_file="${tmake_file} sparc/t-sparc"
-	;;
-spu-*-elf*)
-	tm_file="dbxelf.h elfos.h spu/spu-elf.h spu/spu.h newlib-stdint.h"
-	tmake_file="spu/t-spu-elf"
-        native_system_header_dir=/include
-	extra_headers="spu_intrinsics.h spu_internals.h vmx2spu.h spu_mfcio.h vec_types.h spu_cache.h"
-	extra_modes=spu/spu-modes.def
-	c_target_objs="${c_target_objs} spu-c.o"
-	cxx_target_objs="${cxx_target_objs} spu-c.o"
 	;;
 tic6x-*-elf)
 	tm_file="elfos.h ${tm_file} c6x/elf-common.h c6x/elf.h"
@@ -4886,23 +4885,6 @@ case "${target}" in
 			exit 1
 			;;
 		esac
-		;;
-
-	spu-*-*)
-		supported_defaults="arch tune"
-
-		for which in arch tune; do
-			eval "val=\$with_$which"
-			case ${val} in
-			"" | cell | celledp)
-				# OK
-				;;
-			*)
-				echo "Unknown cpu used in --with-$which=$val." 1>&2
-				exit 1
-				;;
-			esac
-		done
 		;;
 
 	tic6x-*-*)

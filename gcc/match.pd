@@ -83,12 +83,14 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
   plus minus
   mult trunc_div trunc_mod rdiv
   min max
-  bit_and bit_ior bit_xor)
+  bit_and bit_ior bit_xor
+  lshift rshift)
 (define_operator_list COND_BINARY
   IFN_COND_ADD IFN_COND_SUB
   IFN_COND_MUL IFN_COND_DIV IFN_COND_MOD IFN_COND_RDIV
   IFN_COND_MIN IFN_COND_MAX
-  IFN_COND_AND IFN_COND_IOR IFN_COND_XOR)
+  IFN_COND_AND IFN_COND_IOR IFN_COND_XOR
+  IFN_COND_SHL IFN_COND_SHR)
 
 /* Same for ternary operations.  */
 (define_operator_list UNCOND_TERNARY
@@ -829,6 +831,11 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
  (bit_xor:c (bit_and:cs @0 (bit_not @1)) (bit_not @0))
  (bit_not (bit_and @0 @1)))
 
+/* (~a & b) ^ a  -->   (a | b)   */
+(simplify
+ (bit_xor:c (bit_and:cs (bit_not @0) @1) @0)
+ (bit_ior @0 @1))
+
 /* (a | b) & ~(a ^ b)  -->  a & b  */
 (simplify
  (bit_and:c (bit_ior @0 @1) (bit_not (bit_xor:c @0 @1)))
@@ -1567,8 +1574,6 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
 	tree etype = range_check_type (TREE_TYPE (@0));
 	if (etype)
 	  {
-	    if (! TYPE_UNSIGNED (etype))
-	      etype = unsigned_type_for (etype);
 	    hi = fold_convert (etype, hi);
 	    lo = fold_convert (etype, lo);
 	    hi = const_binop (MINUS_EXPR, etype, hi, lo);
@@ -2019,6 +2024,37 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
    (with { tree cst = const_binop (MINUS_EXPR, type, @1, @2); }
     (if (cst && !TREE_OVERFLOW (cst))
      (plus { cst; } @0))))
+
+/* ((T)(A)) + CST -> (T)(A + CST)  */
+#if GIMPLE
+  (simplify
+   (plus (convert SSA_NAME@0) INTEGER_CST@1)
+    (if (TREE_CODE (TREE_TYPE (@0)) == INTEGER_TYPE
+         && TREE_CODE (type) == INTEGER_TYPE
+         && TYPE_PRECISION (type) > TYPE_PRECISION (TREE_TYPE (@0))
+         && int_fits_type_p (@1, TREE_TYPE (@0)))
+     /* Perform binary operation inside the cast if the constant fits
+        and (A + CST)'s range does not overflow.  */
+     (with
+      {
+	wi::overflow_type min_ovf = wi::OVF_OVERFLOW,
+			  max_ovf = wi::OVF_OVERFLOW;
+        tree inner_type = TREE_TYPE (@0);
+
+        wide_int w1 = wide_int::from (wi::to_wide (@1), TYPE_PRECISION (inner_type),
+	    TYPE_SIGN (inner_type));
+
+        wide_int wmin0, wmax0;
+        if (get_range_info (@0, &wmin0, &wmax0) == VR_RANGE)
+          {
+            wi::add (wmin0, w1, TYPE_SIGN (inner_type), &min_ovf);
+            wi::add (wmax0, w1, TYPE_SIGN (inner_type), &max_ovf);
+          }
+      }
+     (if (min_ovf == wi::OVF_NONE && max_ovf == wi::OVF_NONE)
+      (convert (plus @0 { wide_int_to_tree (TREE_TYPE (@0), w1); } )))
+     )))
+#endif
 
   /* ~A + A -> -1 */
   (simplify
@@ -5004,10 +5040,18 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
 	      && newtype == type
 	      && types_match (newtype, type))
 	    (op (convert:newtype @1) (convert:newtype @2))
-	    (with { if (TYPE_PRECISION (ty1) > TYPE_PRECISION (newtype))
+	    (with
+	      {
+		if (!flag_unsafe_math_optimizations)
+		  {
+		    if (TYPE_PRECISION (ty1) > TYPE_PRECISION (newtype))
 		      newtype = ty1;
+
 		    if (TYPE_PRECISION (ty2) > TYPE_PRECISION (newtype))
-		      newtype = ty2; }
+		      newtype = ty2;
+		  }
+	      }
+
 	       /* Sometimes this transformation is safe (cannot
 		  change results through affecting double rounding
 		  cases) and sometimes it is not.  If NEWTYPE is

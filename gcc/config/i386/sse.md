@@ -11900,7 +11900,7 @@
 	    (const_int 1))))]
   "TARGET_SSE2"
 {
-  operands[3] = CONST1_RTX(<MODE>mode);
+  operands[3] = CONST1_RTX(<ssedoublemode>mode);
   ix86_fixup_binary_operands_no_copy (PLUS, <MODE>mode, operands);
 })
 
@@ -12047,9 +12047,9 @@
 (define_expand "vec_shl_<mode>"
   [(set (match_dup 3)
 	(ashift:V1TI
-	 (match_operand:VI_128 1 "register_operand")
+	 (match_operand:V_128 1 "register_operand")
 	 (match_operand:SI 2 "const_0_to_255_mul_8_operand")))
-   (set (match_operand:VI_128 0 "register_operand") (match_dup 4))]
+   (set (match_operand:V_128 0 "register_operand") (match_dup 4))]
   "TARGET_SSE2"
 {
   operands[1] = gen_lowpart (V1TImode, operands[1]);
@@ -12060,9 +12060,9 @@
 (define_expand "vec_shr_<mode>"
   [(set (match_dup 3)
 	(lshiftrt:V1TI
-	 (match_operand:VI_128 1 "register_operand")
+	 (match_operand:V_128 1 "register_operand")
 	 (match_operand:SI 2 "const_0_to_255_mul_8_operand")))
-   (set (match_operand:VI_128 0 "register_operand") (match_dup 4))]
+   (set (match_operand:V_128 0 "register_operand") (match_dup 4))]
   "TARGET_SSE2"
 {
   operands[1] = gen_lowpart (V1TImode, operands[1]);
@@ -15641,7 +15641,7 @@
 	    (const_int 1))))]
   "TARGET_SSE2 && <mask_mode512bit_condition> && <mask_avx512bw_condition>"
 {
-  operands[<mask_expand_op3>] = CONST1_RTX(<MODE>mode);
+  operands[<mask_expand_op3>] = CONST1_RTX(<ssedoublemode>mode);
   ix86_fixup_binary_operands_no_copy (PLUS, <MODE>mode, operands);
 })
 
@@ -15655,7 +15655,7 @@
 		  (match_operand:VI12_AVX2 1 "vector_operand" "%0,v"))
 		(zero_extend:<ssedoublemode>
 		  (match_operand:VI12_AVX2 2 "vector_operand" "xBm,vm")))
-	      (match_operand:VI12_AVX2 <mask_expand_op3> "const1_operand"))
+	      (match_operand:<ssedoublemode> <mask_expand_op3> "const1_operand"))
 	    (const_int 1))))]
   "TARGET_SSE2 && <mask_mode512bit_condition> && <mask_avx512bw_condition>
    && !(MEM_P (operands[1]) && MEM_P (operands[2]))"

@@ -5835,7 +5835,7 @@ push_template_decl_real (tree decl, bool is_friend)
       && TREE_PUBLIC (decl)
       && VAR_OR_FUNCTION_DECL_P (decl))
     /* Set DECL_COMDAT on template instantiations; if we force
-       them to be emitted by explicit instantiation or -frepo,
+       them to be emitted by explicit instantiation,
        mark_needed will tell cgraph to do the right thing.  */
     DECL_COMDAT (decl) = true;
 
@@ -13894,8 +13894,8 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	    /* Wait until cp_finish_decl to set this again, to handle
 	       circular dependency (template/instantiate6.C). */
 	    DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (r) = 0;
-	    type = check_var_type (DECL_NAME (r), type);
-
+	    type = check_var_type (DECL_NAME (r), type,
+				   DECL_SOURCE_LOCATION (r));
 	    if (DECL_HAS_VALUE_EXPR_P (t))
 	      {
 		tree ve = DECL_VALUE_EXPR (t);
@@ -13955,6 +13955,10 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 
 	    DECL_TEMPLATE_INFO (r) = build_template_info (tmpl, argvec);
 	    SET_DECL_IMPLICIT_INSTANTIATION (r);
+	    /* Remember whether we require constant initialization of
+	       a non-constant template variable.  */
+	    TINFO_VAR_DECLARED_CONSTINIT (DECL_TEMPLATE_INFO (r))
+	      = TINFO_VAR_DECLARED_CONSTINIT (DECL_TEMPLATE_INFO (t));
 	    if (!error_operand_p (r) || (complain & tf_error))
 	      register_specialization (r, gen_tmpl, argvec, false, hash);
 	  }
@@ -16303,6 +16307,7 @@ tsubst_omp_clauses (tree clauses, enum c_omp_region_type ort,
 	case OMP_CLAUSE_MAP:
 	case OMP_CLAUSE_NONTEMPORAL:
 	case OMP_CLAUSE_USE_DEVICE_PTR:
+	case OMP_CLAUSE_USE_DEVICE_ADDR:
 	case OMP_CLAUSE_IS_DEVICE_PTR:
 	case OMP_CLAUSE_INCLUSIVE:
 	case OMP_CLAUSE_EXCLUSIVE:
@@ -16427,6 +16432,7 @@ tsubst_omp_clauses (tree clauses, enum c_omp_region_type ort,
 	  case OMP_CLAUSE_IN_REDUCTION:
 	  case OMP_CLAUSE_TASK_REDUCTION:
 	  case OMP_CLAUSE_USE_DEVICE_PTR:
+	  case OMP_CLAUSE_USE_DEVICE_ADDR:
 	  case OMP_CLAUSE_IS_DEVICE_PTR:
 	  case OMP_CLAUSE_INCLUSIVE:
 	  case OMP_CLAUSE_EXCLUSIVE:
@@ -17102,6 +17108,13 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 	else
 	  {
 	    init = DECL_INITIAL (decl);
+	    /* The following tsubst call will clear the DECL_TEMPLATE_INFO
+	       for local variables, so save if DECL was declared constinit.  */
+	    const bool constinit_p
+	      = (VAR_P (decl)
+		 && DECL_LANG_SPECIFIC (decl)
+		 && DECL_TEMPLATE_INFO (decl)
+		 && TINFO_VAR_DECLARED_CONSTINIT (DECL_TEMPLATE_INFO (decl)));
 	    decl = tsubst (decl, args, complain, in_decl);
 	    if (decl != error_mark_node)
 	      {
@@ -17140,7 +17153,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 		  }
 		else
 		  {
-		    int const_init = false;
+		    bool const_init = false;
 		    unsigned int cnt = 0;
 		    tree first = NULL_TREE, ndecl = error_mark_node;
 		    maybe_push_decl (decl);
@@ -17161,7 +17174,8 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 		    if (ndecl != error_mark_node)
 		      cp_maybe_mangle_decomp (ndecl, first, cnt);
 
-		    cp_finish_decl (decl, init, const_init, NULL_TREE, 0);
+		    cp_finish_decl (decl, init, const_init, NULL_TREE,
+				    constinit_p ? LOOKUP_CONSTINIT : 0);
 
 		    if (ndecl != error_mark_node)
 		      cp_finish_decomp (ndecl, first, cnt);
@@ -17394,8 +17408,9 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 	 					  complain, in_decl);
 	tree labels = tsubst_copy_asm_operands (ASM_LABELS (t), args,
 						complain, in_decl);
-	tmp = finish_asm_stmt (ASM_VOLATILE_P (t), string, outputs, inputs,
-			       clobbers, labels, ASM_INLINE_P (t));
+	tmp = finish_asm_stmt (EXPR_LOCATION (t), ASM_VOLATILE_P (t), string,
+			       outputs, inputs, clobbers, labels,
+			       ASM_INLINE_P (t));
 	tree asm_expr = tmp;
 	if (TREE_CODE (asm_expr) == CLEANUP_POINT_EXPR)
 	  asm_expr = TREE_OPERAND (asm_expr, 0);
@@ -19529,7 +19544,8 @@ tsubst_copy_and_build (tree t,
 	else if (type2)
 	  type2 = tsubst (type2, args, complain, in_decl);
 
-	RETURN (finish_trait_expr (TRAIT_EXPR_KIND (t), type1, type2));
+	RETURN (finish_trait_expr (TRAIT_EXPR_LOCATION (t),
+				   TRAIT_EXPR_KIND (t), type1, type2));
       }
 
     case STMT_EXPR:
@@ -22064,11 +22080,6 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
       tree elt, elttype;
       unsigned i;
       tree orig_parm = parm;
-
-      /* Replace T with std::initializer_list<T> for deduction.  */
-      if (TREE_CODE (parm) == TEMPLATE_TYPE_PARM
-	  && flag_deduce_init_list)
-	parm = listify (parm);
 
       if (!is_std_init_list (parm)
 	  && TREE_CODE (parm) != ARRAY_TYPE)
@@ -24660,22 +24671,6 @@ instantiate_decl (tree d, bool defer_ok, bool expl_inst_class_mem_p)
 	add_pending_template (d);
       goto out;
     }
-  /* Tell the repository that D is available in this translation unit
-     -- and see if it is supposed to be instantiated here.  */
-  if (TREE_PUBLIC (d) && !DECL_REALLY_EXTERN (d) && !repo_emit_p (d))
-    {
-      /* In a PCH file, despite the fact that the repository hasn't
-	 requested instantiation in the PCH it is still possible that
-	 an instantiation will be required in a file that includes the
-	 PCH.  */
-      if (pch_file)
-	add_pending_template (d);
-      /* Instantiate inline functions so that the inliner can do its
-	 job, even though we'll not be emitting a copy of this
-	 function.  */
-      if (!(TREE_CODE (d) == FUNCTION_DECL && possibly_inlined_p (d)))
-	goto out;
-    }
 
   bool push_to_top, nested;
   tree fn_context;
@@ -24741,7 +24736,9 @@ instantiate_decl (tree d, bool defer_ok, bool expl_inst_class_mem_p)
         push_nested_class (DECL_CONTEXT (d));
 
       const_init = DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (code_pattern);
-      cp_finish_decl (d, init, const_init, NULL_TREE, 0);
+      int flags = (TINFO_VAR_DECLARED_CONSTINIT (DECL_TEMPLATE_INFO (d))
+		   ? LOOKUP_CONSTINIT : 0);
+      cp_finish_decl (d, init, const_init, NULL_TREE, flags);
 
       if (enter_context)
         pop_nested_class ();
@@ -28328,9 +28325,8 @@ declare_integer_pack (void)
 							 NULL_TREE),
 			       NULL_TREE, ECF_CONST);
   DECL_DECLARED_CONSTEXPR_P (ipfn) = true;
-  DECL_BUILT_IN_CLASS (ipfn) = BUILT_IN_FRONTEND;
-  DECL_FUNCTION_CODE (ipfn)
-    = (enum built_in_function) (int) CP_BUILT_IN_INTEGER_PACK;
+  set_decl_built_in_function (ipfn, BUILT_IN_FRONTEND,
+			      CP_BUILT_IN_INTEGER_PACK);
 }
 
 /* Set up the hash tables for template instantiations.  */

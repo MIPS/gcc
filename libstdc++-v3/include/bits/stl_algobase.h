@@ -136,6 +136,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     struct __iter_swap
     {
       template<typename _ForwardIterator1, typename _ForwardIterator2>
+	_GLIBCXX20_CONSTEXPR
 	static void
 	iter_swap(_ForwardIterator1 __a, _ForwardIterator2 __b)
 	{
@@ -151,6 +152,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     struct __iter_swap<true>
     {
       template<typename _ForwardIterator1, typename _ForwardIterator2>
+	_GLIBCXX20_CONSTEXPR
 	static void
 	iter_swap(_ForwardIterator1 __a, _ForwardIterator2 __b)
 	{
@@ -170,6 +172,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *  iterators themselves.
   */
   template<typename _ForwardIterator1, typename _ForwardIterator2>
+    _GLIBCXX20_CONSTEXPR
     inline void
     iter_swap(_ForwardIterator1 __a, _ForwardIterator2 __b)
     {
@@ -216,6 +219,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *  The ranges must not overlap.
   */
   template<typename _ForwardIterator1, typename _ForwardIterator2>
+    _GLIBCXX20_CONSTEXPR
     _ForwardIterator2
     swap_ranges(_ForwardIterator1 __first1, _ForwardIterator1 __last1,
 		_ForwardIterator2 __first2)
@@ -355,7 +359,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   // (2) If we're using random access iterators, then write the loop as
   // a for loop with an explicit count.
 
-  template<bool, bool, typename>
+  template<bool _IsMove, bool _IsSimple, typename _Category>
     struct __copy_move
     {
       template<typename _II, typename _OI>
