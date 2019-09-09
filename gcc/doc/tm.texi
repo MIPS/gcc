@@ -6644,6 +6644,11 @@ The default implementation of this hook uses the
 and uses a multiple of @code{BRANCH_COST} otherwise.
 @end deftypefn
 
+@deftypefn {Target Hook} void TARGET_PRUNE_INSERTIONS_DELETIONS (struct edge_list *@var{edge_list}, unsigned int @var{n_elems}, sbitmap *@var{pre_insert_map}, sbitmap *@var{pre_delete_map})
+Test.
+  Test.
+@end deftypefn
+
 @deftypefn {Target Hook} bool TARGET_NOCE_CONVERSION_PROFITABLE_P (rtx_insn *@var{seq}, struct noce_if_info *@var{if_info})
 This hook returns true if the instruction sequence @code{seq} is a good
 candidate as a replacement for the if-convertible sequence described in

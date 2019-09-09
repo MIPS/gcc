@@ -5613,15 +5613,11 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
       return false;
 
     case IF_THEN_ELSE:
-      if (outer_code == SET)
+      if (outer_code == SET
+	  || reg_or_0_operand (XEXP (x, 1), VOIDmode)
+	  || reg_or_0_operand (XEXP (x, 2), VOIDmode))
 	*total = 0;
       return false;
-
-    case IF_THEN_ELSE:
-          if (reg_or_0_operand (XEXP (x, 1), VOIDmode)
-              || reg_or_0_operand (XEXP (x, 2), VOIDmode))
-         *total = 0;
-         return false;
 
     default:
       return false;
