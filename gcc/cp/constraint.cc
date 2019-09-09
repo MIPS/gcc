@@ -479,6 +479,9 @@ get_variable_initializer (tree var)
   tree init = DECL_INITIAL (var);
   if (!init)
     return error_mark_node;
+  if (BRACE_ENCLOSED_INITIALIZER_P (init)
+      && CONSTRUCTOR_NELTS (init) == 1)
+    init = CONSTRUCTOR_ELT (init, 0)->value;
   return init;
 }
 
