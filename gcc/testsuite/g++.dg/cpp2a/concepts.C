@@ -18,9 +18,9 @@ void f3(T)
 { }
 
 template<typename T>
-concept bool C1 = true; // { dg-warning "deprecated as a declaration specifier" }
+concept bool C1 = true; // { dg-error "bool" }
 template<typename T>
-bool concept C2 = true; // { dg-warning "deprecated as a declaration specifier" }
+bool concept C2 = true; // { dg-error "concept definition syntax" }
 
 template<typename T>
 concept C3 = true; // OK
