@@ -722,16 +722,32 @@ compute_alignments (void)
 	 than the predecessor and the predecessor is likely to not be executed
 	 when function is called.  */
 
-      if (branch_count > count_threshold
-	  || (bb->count > bb->prev_bb->count.apply_scale (10, 1)
-	      && (bb->prev_bb->count
-		  <= ENTRY_BLOCK_PTR_FOR_FN (cfun)->count.apply_scale (1, 2))))
+      if (!has_fallthru
+	  && (branch_count > count_threshold
+	      || (bb->count > bb->prev_bb->count.apply_scale (10, 1)
+		  && (bb->prev_bb->count
+		      <= ENTRY_BLOCK_PTR_FOR_FN (cfun)
+			   ->count.apply_scale (1, 2)))))
 	{
-	  align_flags alignment
-	    = !has_fallthru ? JUMP_ALIGN (label) : LOOP_ALIGN (label);
+	  align_flags alignment = JUMP_ALIGN (label);
 	  if (dump_file)
-	    fprintf (dump_file, "  %s alignment added.\n",
-		     has_fallthru ? "loop" : "internal loop");
+	    fprintf (dump_file, "  jump alignment added.\n");
+	  max_alignment = align_flags::max (max_alignment, alignment);
+	}
+      /* In case block is frequent and reached mostly by non-fallthru edge,
+	 align it.  It is most likely a first block of loop.  */
+      if (has_fallthru
+	  && !(single_succ_p (bb)
+	       && single_succ (bb) == EXIT_BLOCK_PTR_FOR_FN (cfun))
+	  && optimize_bb_for_speed_p (bb)
+	  && branch_count + fallthru_count > count_threshold
+	  && (branch_count
+	      > fallthru_count.apply_scale
+		    (PARAM_VALUE (PARAM_ALIGN_LOOP_ITERATIONS), 1)))
+	{
+	  align_flags alignment = LOOP_ALIGN (label);
+	  if (dump_file)
+	    fprintf (dump_file, "  internal loop alignment added.\n");
 	  max_alignment = align_flags::max (max_alignment, alignment);
 	}
       LABEL_TO_ALIGNMENT (label) = max_alignment;
