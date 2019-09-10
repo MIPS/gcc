@@ -927,7 +927,7 @@ determine_local_discriminator (tree decl)
 static bool
 function_requirements_equivalent_p (tree newfn, tree oldfn)
 {
-  /* In the concepts TS, the combined constrains are compared.  */
+  /* In the concepts TS, the combined constraints are compared.  */
   if (cxx_dialect < cxx2a)
     {
       tree ci1 = get_constraints (oldfn);

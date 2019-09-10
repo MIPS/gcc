@@ -1032,6 +1032,9 @@ c_common_post_options (const char **pfilename)
      work with the standard.  */
   if (cxx_dialect >= cxx2a)
     flag_concepts = 1;
+  else if (flag_concepts)
+    /* For -std=c++17 -fconcepts, imply -fconcepts-ts.  */
+    flag_concepts_ts = 1;
 
   if (num_in_fnames > 1)
     error ("too many filenames given; type %<%s %s%> for usage",

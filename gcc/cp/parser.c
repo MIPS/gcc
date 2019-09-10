@@ -14050,7 +14050,7 @@ cp_parser_decl_specifier_seq (cp_parser* parser,
 
           /* Warn for concept as a decl-specifier. We'll rewrite these as
              concept declarations later.  */
-          if (cxx_dialect >= cxx2a && !flag_concepts_ts)
+          if (!flag_concepts_ts)
             {
 	      cp_token *next = cp_lexer_peek_token (parser->lexer);
 	      if (next->keyword == RID_BOOL)
@@ -18152,7 +18152,7 @@ cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc,
      to introduce non-type and template template parameters.  */
   if (TREE_CODE (proto) != TYPE_DECL)
     {
-      if ((cxx_dialect >= cxx2a && !flag_concepts_ts)
+      if (!flag_concepts_ts
 	  || !processing_template_parmlist)
 	{
 	  error_at (loc, "%qE does not constrain a type", DECL_NAME (con));
@@ -18167,7 +18167,7 @@ cp_parser_placeholder_type_specifier (cp_parser *parser, location_t loc,
     return build_constrained_parameter (con, proto, args);
 
   /* Diagnose issues placeholder issues.  */
-  if ((cxx_dialect >= cxx2a && !flag_concepts_ts)
+  if (!flag_concepts_ts
       && !parser->in_result_type_constraint_p
       && !placeholder)
     {
@@ -27242,7 +27242,7 @@ cp_parser_requires_clause_opt (cp_parser *parser)
     }
   cp_lexer_consume_token (parser->lexer);
 
-  if (cxx_dialect >= cxx2a && !flag_concepts_ts)
+  if (!flag_concepts_ts)
     return cp_parser_requires_clause_expression (parser);
   else
     return cp_parser_constraint_expression (parser);
