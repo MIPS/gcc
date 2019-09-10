@@ -4345,7 +4345,7 @@ gcn_md_reorg (void)
 	  HARD_REG_SET defs, uses;
 	  CLEAR_HARD_REG_SET (defs);
 	  CLEAR_HARD_REG_SET (uses);
-	  note_stores (PATTERN (insn), record_hard_reg_sets, &defs);
+	  note_stores (insn, record_hard_reg_sets, &defs);
 	  note_uses (&PATTERN (insn), record_hard_reg_uses, &uses);
 
 	  bool exec_lo_def_p = TEST_HARD_REG_BIT (defs, EXEC_LO_REG);
@@ -4533,7 +4533,7 @@ gcn_md_reorg (void)
       HARD_REG_SET ireads, iwrites;
       CLEAR_HARD_REG_SET (ireads);
       CLEAR_HARD_REG_SET (iwrites);
-      note_stores (PATTERN (insn), record_hard_reg_sets, &iwrites);
+      note_stores (insn, record_hard_reg_sets, &iwrites);
       note_uses (&PATTERN (insn), record_hard_reg_uses, &ireads);
 
       /* Scan recent previous instructions for dependencies not handled in
@@ -4552,9 +4552,7 @@ gcn_md_reorg (void)
 	      && prev_insn->unit == UNIT_VECTOR
 	      && gcn_vmem_insn_p (itype))
 	    {
-	      HARD_REG_SET regs;
-	      COPY_HARD_REG_SET (regs, prev_insn->writes);
-	      AND_HARD_REG_SET (regs, ireads);
+	      HARD_REG_SET regs = prev_insn->writes & ireads;
 	      if (hard_reg_set_intersect_p
 		  (regs, reg_class_contents[(int) SGPR_REGS]))
 		nops_rqd = 5 - prev_insn->age;
@@ -4582,9 +4580,7 @@ gcn_md_reorg (void)
 	      && prev_insn->unit == UNIT_VECTOR
 	      && get_attr_laneselect (insn) == LANESELECT_YES)
 	    {
-	      HARD_REG_SET regs;
-	      COPY_HARD_REG_SET (regs, prev_insn->writes);
-	      AND_HARD_REG_SET (regs, ireads);
+	      HARD_REG_SET regs = prev_insn->writes & ireads;
 	      if (hard_reg_set_intersect_p
 		  (regs, reg_class_contents[(int) SGPR_REGS])
 		  || hard_reg_set_intersect_p
@@ -4598,9 +4594,7 @@ gcn_md_reorg (void)
 	      && prev_insn->unit == UNIT_VECTOR
 	      && itype == TYPE_VOP_DPP)
 	    {
-	      HARD_REG_SET regs;
-	      COPY_HARD_REG_SET (regs, prev_insn->writes);
-	      AND_HARD_REG_SET (regs, ireads);
+	      HARD_REG_SET regs = prev_insn->writes & ireads;
 	      if (hard_reg_set_intersect_p
 		  (regs, reg_class_contents[(int) VGPR_REGS]))
 		nops_rqd = 2 - prev_insn->age;
@@ -4633,16 +4627,16 @@ gcn_md_reorg (void)
 	     not publish the cycle times for instructions.  */
 	  prev_insn->age += 1 + nops_rqd;
 
-	  IOR_HARD_REG_SET (written, iwrites);
-	  AND_COMPL_HARD_REG_SET (prev_insn->writes, written);
+	  written |= iwrites;
+	  prev_insn->writes &= ~written;
 	}
 
       /* Track the current instruction as a previous instruction.  */
       back[oldest].insn = insn;
       back[oldest].unit = iunit;
       back[oldest].delayeduse = idelayeduse;
-      COPY_HARD_REG_SET (back[oldest].writes, iwrites);
-      COPY_HARD_REG_SET (back[oldest].reads, ireads);
+      back[oldest].writes = iwrites;
+      back[oldest].reads = ireads;
       back[oldest].age = 0;
       oldest = (oldest + 1) % max_waits;
 

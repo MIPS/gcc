@@ -249,7 +249,7 @@ static void sh_output_mi_thunk (FILE *, tree, HOST_WIDE_INT,
 				HOST_WIDE_INT, tree);
 static void sh_file_start (void);
 static bool sh_assemble_integer (rtx, unsigned int, int);
-static bool flow_dependent_p (rtx, rtx);
+static bool flow_dependent_p (rtx_insn *, rtx_insn *);
 static void flow_dependent_p_1 (rtx, const_rtx, void *);
 static int shiftcosts (rtx);
 static int and_xor_ior_costs (rtx, int);
@@ -6707,9 +6707,7 @@ output_stack_adjust (int size, rtx reg, int epilogue_p,
 	    temp = -1;
 	  if (temp < 0 && ! current_function_interrupt && epilogue_p >= 0)
 	    {
-	      HARD_REG_SET temps;
-	      COPY_HARD_REG_SET (temps, call_used_reg_set);
-	      AND_COMPL_HARD_REG_SET (temps, call_fixed_reg_set);
+	      HARD_REG_SET temps = call_used_reg_set & ~call_fixed_reg_set;
 	      if (epilogue_p > 0)
 		{
 		  int nreg = 0;
@@ -6743,7 +6741,7 @@ output_stack_adjust (int size, rtx reg, int epilogue_p,
 	    {
 	      HARD_REG_SET temps;
 
-	      COPY_HARD_REG_SET (temps, *live_regs_mask);
+	      temps = *live_regs_mask;
 	      CLEAR_HARD_REG_BIT (temps, REGNO (reg));
 	      temp = scavenge_reg (&temps);
 	    }
@@ -6908,11 +6906,8 @@ push_regs (HARD_REG_SET *mask, bool interrupt_handler)
       if (i == FIRST_FP_REG && interrupt_handler && TARGET_FMOVD
 	  && hard_reg_set_intersect_p (*mask, reg_class_contents[DF_REGS]))
 	{
-	  HARD_REG_SET unsaved;
-
 	  push (FPSCR_REG);
-	  COMPL_HARD_REG_SET (unsaved, *mask);
-	  fpscr_set_from_mem (NORMAL_MODE (FP_MODE), unsaved);
+	  fpscr_set_from_mem (NORMAL_MODE (FP_MODE), ~*mask);
 	  skip_fpscr = true;
 	}
       if (i != PR_REG
@@ -9633,11 +9628,11 @@ sh_adjust_cost (rtx_insn *insn, int dep_type, rtx_insn *dep_insn, int cost,
 /* Check if INSN is flow-dependent on DEP_INSN.  Can also be used to check
    if DEP_INSN is anti-flow dependent on INSN.  */
 static bool
-flow_dependent_p (rtx insn, rtx dep_insn)
+flow_dependent_p (rtx_insn *insn, rtx_insn *dep_insn)
 {
   rtx tmp = PATTERN (insn);
 
-  note_stores (PATTERN (dep_insn), flow_dependent_p_1, &tmp);
+  note_stores (dep_insn, flow_dependent_p_1, &tmp);
   return tmp == NULL_RTX;
 }
 
@@ -11700,7 +11695,7 @@ sh_find_equiv_gbr_addr (rtx_insn* insn, rtx mem)
 	{
 	  if (CALL_P (DF_REF_INSN (d)))
 	    {
-	      if (REGNO_REG_SET_P (regs_invalidated_by_call_regset, GBR_REG))
+	      if (TEST_HARD_REG_BIT (regs_invalidated_by_call, GBR_REG))
 		return NULL_RTX;
 	      else
 		continue;

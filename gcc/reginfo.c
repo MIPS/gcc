@@ -92,17 +92,6 @@ char global_regs[FIRST_PSEUDO_REGISTER];
 /* Declaration for the global register. */
 tree global_regs_decl[FIRST_PSEUDO_REGISTER];
 
-/* Same information as REGS_INVALIDATED_BY_CALL but in regset form to be used
-   in dataflow more conveniently.  */
-regset regs_invalidated_by_call_regset;
-
-/* Same information as FIXED_REG_SET but in regset form.  */
-regset fixed_reg_set_regset;
-
-/* The bitmap_obstack is used to hold some static variables that
-   should not be reset after each function is compiled.  */
-static bitmap_obstack persistent_obstack;
-
 /* Used to initialize reg_alloc_order.  */
 #ifdef REG_ALLOC_ORDER
 static int initial_reg_alloc_order[FIRST_PSEUDO_REGISTER] = REG_ALLOC_ORDER;
@@ -230,8 +219,8 @@ save_register_info (void)
   /* And similarly for reg_names.  */
   gcc_assert (sizeof reg_names == sizeof saved_reg_names);
   memcpy (saved_reg_names, reg_names, sizeof reg_names);
-  COPY_HARD_REG_SET (saved_accessible_reg_set, accessible_reg_set);
-  COPY_HARD_REG_SET (saved_operand_reg_set, operand_reg_set);
+  saved_accessible_reg_set = accessible_reg_set;
+  saved_operand_reg_set = operand_reg_set;
 }
 
 /* Restore the register information.  */
@@ -247,8 +236,8 @@ restore_register_info (void)
 #endif
 
   memcpy (reg_names, saved_reg_names, sizeof reg_names);
-  COPY_HARD_REG_SET (accessible_reg_set, saved_accessible_reg_set);
-  COPY_HARD_REG_SET (operand_reg_set, saved_operand_reg_set);
+  accessible_reg_set = saved_accessible_reg_set;
+  operand_reg_set = saved_operand_reg_set;
 }
 
 /* After switches have been processed, which perhaps alter
@@ -298,8 +287,7 @@ init_reg_sets_1 (void)
 	  HARD_REG_SET c;
 	  int k;
 
-	  COPY_HARD_REG_SET (c, reg_class_contents[i]);
-	  IOR_HARD_REG_SET (c, reg_class_contents[j]);
+	  c = reg_class_contents[i] | reg_class_contents[j];
 	  for (k = 0; k < N_REG_CLASSES; k++)
 	    if (hard_reg_set_subset_p (reg_class_contents[k], c)
 		&& !hard_reg_set_subset_p (reg_class_contents[k],
@@ -321,8 +309,7 @@ init_reg_sets_1 (void)
 	  HARD_REG_SET c;
 	  int k;
 
-	  COPY_HARD_REG_SET (c, reg_class_contents[i]);
-	  IOR_HARD_REG_SET (c, reg_class_contents[j]);
+	  c = reg_class_contents[i] | reg_class_contents[j];
 	  for (k = 0; k < N_REG_CLASSES; k++)
 	    if (hard_reg_set_subset_p (c, reg_class_contents[k]))
 	      break;
@@ -366,19 +353,8 @@ init_reg_sets_1 (void)
   CLEAR_HARD_REG_SET (call_used_reg_set);
   CLEAR_HARD_REG_SET (call_fixed_reg_set);
   CLEAR_HARD_REG_SET (regs_invalidated_by_call);
-  if (!regs_invalidated_by_call_regset)
-    {
-      bitmap_obstack_initialize (&persistent_obstack);
-      regs_invalidated_by_call_regset = ALLOC_REG_SET (&persistent_obstack);
-    }
-  else
-    CLEAR_REG_SET (regs_invalidated_by_call_regset);
-  if (!fixed_reg_set_regset)
-    fixed_reg_set_regset = ALLOC_REG_SET (&persistent_obstack);
-  else
-    CLEAR_REG_SET (fixed_reg_set_regset);
 
-  AND_HARD_REG_SET (operand_reg_set, accessible_reg_set);
+  operand_reg_set &= accessible_reg_set;
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
       /* As a special exception, registers whose class is NO_REGS are
@@ -407,10 +383,7 @@ init_reg_sets_1 (void)
 #endif
 
       if (fixed_regs[i])
-	{
-	  SET_HARD_REG_BIT (fixed_reg_set, i);
-	  SET_REGNO_REG_SET (fixed_reg_set_regset, i);
-	}
+	SET_HARD_REG_BIT (fixed_reg_set, i);
 
       if (call_used_regs[i])
 	SET_HARD_REG_BIT (call_used_reg_set, i);
@@ -428,10 +401,7 @@ init_reg_sets_1 (void)
       if (i == STACK_POINTER_REGNUM)
 	;
       else if (global_regs[i])
-        {
-	  SET_HARD_REG_BIT (regs_invalidated_by_call, i);
-	  SET_REGNO_REG_SET (regs_invalidated_by_call_regset, i);
-	}
+	SET_HARD_REG_BIT (regs_invalidated_by_call, i);
       else if (i == FRAME_POINTER_REGNUM)
 	;
       else if (!HARD_FRAME_POINTER_IS_FRAME_POINTER
@@ -444,14 +414,11 @@ init_reg_sets_1 (void)
 	       && i == (unsigned) PIC_OFFSET_TABLE_REGNUM && fixed_regs[i])
 	;
       else if (CALL_REALLY_USED_REGNO_P (i))
-        {
-	  SET_HARD_REG_BIT (regs_invalidated_by_call, i);
-	  SET_REGNO_REG_SET (regs_invalidated_by_call_regset, i);
-        }
+	SET_HARD_REG_BIT (regs_invalidated_by_call, i);
     }
 
-  COPY_HARD_REG_SET (call_fixed_reg_set, fixed_reg_set);
-  COPY_HARD_REG_SET (fixed_nonglobal_reg_set, fixed_reg_set);
+  call_fixed_reg_set = fixed_reg_set;
+  fixed_nonglobal_reg_set = fixed_reg_set;
 
   /* Preserve global registers if called more than once.  */
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
@@ -802,10 +769,7 @@ globalize_reg (tree decl, int i)
      appropriate regs_invalidated_by_call bit, even if it's already
      set in fixed_regs.  */
   if (i != STACK_POINTER_REGNUM)
-    {
-      SET_HARD_REG_BIT (regs_invalidated_by_call, i);
-      SET_REGNO_REG_SET (regs_invalidated_by_call_regset, i);
-    }
+    SET_HARD_REG_BIT (regs_invalidated_by_call, i);
 
   /* If already fixed, nothing else to do.  */
   if (fixed_regs[i])
@@ -1317,14 +1281,12 @@ record_subregs_of_mode (rtx subreg, bool partial_def)
     }
 
   if (valid_mode_changes[regno])
-    AND_HARD_REG_SET (*valid_mode_changes[regno],
-		      simplifiable_subregs (shape));
+    *valid_mode_changes[regno] &= simplifiable_subregs (shape);
   else
     {
       valid_mode_changes[regno]
 	= XOBNEW (&valid_mode_changes_obstack, HARD_REG_SET);
-      COPY_HARD_REG_SET (*valid_mode_changes[regno],
-			 simplifiable_subregs (shape));
+      *valid_mode_changes[regno] = simplifiable_subregs (shape);
     }
 }
 

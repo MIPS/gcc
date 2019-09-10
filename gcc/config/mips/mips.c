@@ -12975,13 +12975,13 @@ mips_class_max_nregs (enum reg_class rclass, machine_mode mode)
   HARD_REG_SET left;
 
   size = 0x8000;
-  COPY_HARD_REG_SET (left, reg_class_contents[(int) rclass]);
+  left = reg_class_contents[rclass];
   if (hard_reg_set_intersect_p (left, reg_class_contents[(int) ST_REGS]))
     {
       if (mips_hard_regno_mode_ok (ST_REG_FIRST, mode))
 	size = MIN (size, 4);
 
-      AND_COMPL_HARD_REG_SET (left, reg_class_contents[(int) ST_REGS]);
+      left &= ~reg_class_contents[ST_REGS];
     }
   if (hard_reg_set_intersect_p (left, reg_class_contents[(int) FP_REGS]))
     {
@@ -12993,7 +12993,7 @@ mips_class_max_nregs (enum reg_class rclass, machine_mode mode)
 	    size = MIN (size, UNITS_PER_FPREG);
 	}
 
-      AND_COMPL_HARD_REG_SET (left, reg_class_contents[(int) FP_REGS]);
+      left &= ~reg_class_contents[FP_REGS];
     }
   if (!hard_reg_set_empty_p (left))
     size = MIN (size, UNITS_PER_WORD);
@@ -14889,8 +14889,7 @@ vr4130_true_reg_dependence_p_1 (rtx x, const_rtx pat ATTRIBUTE_UNUSED,
 static bool
 vr4130_true_reg_dependence_p (rtx insn)
 {
-  note_stores (PATTERN (vr4130_last_insn),
-	       vr4130_true_reg_dependence_p_1, &insn);
+  note_stores (vr4130_last_insn, vr4130_true_reg_dependence_p_1, &insn);
   return insn == 0;
 }
 
@@ -17787,7 +17786,7 @@ r10k_needs_protection_p (rtx_insn *insn)
 
   if (mips_r10k_cache_barrier == R10K_CACHE_BARRIER_STORE)
     {
-      note_stores (PATTERN (insn), r10k_needs_protection_p_store, &insn);
+      note_stores (insn, r10k_needs_protection_p_store, &insn);
       return insn == NULL_RTX;
     }
 
@@ -18296,7 +18295,7 @@ mips_sim_issue_insn (struct mips_sim *state, rtx_insn *insn)
 						    state->insns_left);
 
   mips_sim_insn = insn;
-  note_stores (PATTERN (insn), mips_sim_record_set, state);
+  note_stores (insn, mips_sim_record_set, state);
 }
 
 /* Simulate issuing a NOP in state STATE.  */
@@ -19026,7 +19025,7 @@ mips_reorg_process_insns (void)
 			     &uses);
 		  HARD_REG_SET delay_sets;
 		  CLEAR_HARD_REG_SET (delay_sets);
-		  note_stores (PATTERN (SEQ_END (insn)), record_hard_reg_sets,
+		  note_stores (SEQ_END (insn), record_hard_reg_sets,
 			       &delay_sets);
 
 		  rtx_insn *prev = prev_active_insn (insn);
@@ -19036,8 +19035,7 @@ mips_reorg_process_insns (void)
 		    {
 		      HARD_REG_SET sets;
 		      CLEAR_HARD_REG_SET (sets);
-		      note_stores (PATTERN (prev), record_hard_reg_sets,
-				   &sets);
+		      note_stores (prev, record_hard_reg_sets, &sets);
 
 		      /* Re-order if safe.  */
 		      if (!hard_reg_set_intersect_p (delay_sets, uses)
@@ -20433,27 +20431,20 @@ mips_conditional_register_usage (void)
       global_regs[CCDSP_SC_REGNUM] = 1;
     }
   else
-    AND_COMPL_HARD_REG_SET (accessible_reg_set,
-			    reg_class_contents[(int) DSP_ACC_REGS]);
+    accessible_reg_set &= ~reg_class_contents[DSP_ACC_REGS];
 
   if (!ISA_HAS_HILO)
-    AND_COMPL_HARD_REG_SET (accessible_reg_set,
-			    reg_class_contents[(int) MD_REGS]);
+    accessible_reg_set &= ~reg_class_contents[MD_REGS];
 
   if (!TARGET_HARD_FLOAT)
-    {
-      AND_COMPL_HARD_REG_SET (accessible_reg_set,
-			      reg_class_contents[(int) FP_REGS]);
-      AND_COMPL_HARD_REG_SET (accessible_reg_set,
-			      reg_class_contents[(int) ST_REGS]);
-    }
+    accessible_reg_set &= ~(reg_class_contents[FP_REGS]
+			    | reg_class_contents[ST_REGS]);
   else if (!ISA_HAS_8CC)
     {
       /* We only have a single condition-code register.  We implement
 	 this by fixing all the condition-code registers and generating
 	 RTL that refers directly to ST_REG_FIRST.  */
-      AND_COMPL_HARD_REG_SET (accessible_reg_set,
-			      reg_class_contents[(int) ST_REGS]);
+      accessible_reg_set &= ~reg_class_contents[ST_REGS];
       if (!ISA_HAS_CCF)
 	SET_HARD_REG_BIT (accessible_reg_set, FPSW_REGNUM);
       fixed_regs[FPSW_REGNUM] = call_used_regs[FPSW_REGNUM] = 1;
@@ -20495,8 +20486,7 @@ mips_conditional_register_usage (void)
       /* Do not allow HI and LO to be treated as register operands.
 	 There are no MTHI or MTLO instructions (or any real need
 	 for them) and one-way registers cannot easily be reloaded.  */
-      AND_COMPL_HARD_REG_SET (operand_reg_set,
-			      reg_class_contents[(int) MD_REGS]);
+      operand_reg_set &= ~reg_class_contents[MD_REGS];
     }
   /* $f20-$f23 are call-clobbered for n64.  */
   if (mips_abi == ABI_64)

@@ -9474,7 +9474,7 @@ s390_regs_ever_clobbered (char regs_ever_clobbered[])
 		continue;
 	    }
 
-	  note_stores (pat,
+	  note_stores (cur_insn,
 		       s390_reg_clobbered_rtx,
 		       regs_ever_clobbered);
 	}
@@ -14073,7 +14073,7 @@ s390_adjust_loop_scan_osc (struct loop* loop)
 	return false;
 
       find_all_hard_reg_sets (insn, &newregs, true);
-      IOR_HARD_REG_SET (modregs, newregs);
+      modregs |= newregs;
 
       set = single_set (insn);
       if (!set)
@@ -14104,7 +14104,7 @@ s390_adjust_loop_scan_osc (struct loop* loop)
 	return false;
 
       find_all_hard_reg_sets (insn, &newregs, true);
-      IOR_HARD_REG_SET (modregs, newregs);
+      modregs |= newregs;
 
       set = single_set (insn);
       if (!set)

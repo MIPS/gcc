@@ -1094,7 +1094,7 @@ c6x_call_saved_register_used (tree call_expr)
   INIT_CUMULATIVE_ARGS (cum_v, NULL, NULL, 0, 0);
   cum = pack_cumulative_args (&cum_v);
 
-  COMPL_HARD_REG_SET (call_saved_regset, call_used_reg_set);
+  call_saved_regset = ~call_used_reg_set;
   for (i = 0; i < call_expr_nargs (call_expr); i++)
     {
       parameter = CALL_EXPR_ARG (call_expr, i);
@@ -3472,7 +3472,7 @@ try_rename_operands (rtx_insn *head, rtx_insn *tail, unit_req_table reqs,
     }
 
   /* If we get here, we can do the renaming.  */
-  COMPL_HARD_REG_SET (unavailable, reg_class_contents[(int) super_class]);
+  unavailable = ~reg_class_contents[super_class];
 
   old_reg = this_head->regno;
   best_reg =
@@ -4308,7 +4308,7 @@ clobber_cond_1 (rtx x, const_rtx pat ATTRIBUTE_UNUSED, void *data1)
    only those jumps which are still in flight.  */
 
 static void
-maybe_clobber_cond (rtx insn, int clock_var)
+maybe_clobber_cond (rtx_insn *insn, int clock_var)
 {
   int n, idx;
   idx = ss.jump_cycle_index;
@@ -4333,7 +4333,7 @@ maybe_clobber_cond (rtx insn, int clock_var)
 	  continue;
 	}
 
-      note_stores (PATTERN (insn), clobber_cond_1, ss.jump_cond + idx);
+      note_stores (insn, clobber_cond_1, ss.jump_cond + idx);
       for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
 	if (REG_NOTE_KIND (link) == REG_INC)
 	  clobber_cond_1 (XEXP (link, 0), NULL_RTX, ss.jump_cond + idx);

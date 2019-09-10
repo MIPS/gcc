@@ -5201,8 +5201,7 @@ frv_ifcvt_modify_tests (ce_if_block *ce_info, rtx *p_true, rtx *p_false)
      not fixed.  However, allow the ICC/ICR temporary registers to be allocated
      if we did not need to use them in reloading other registers.  */
   memset (&tmp_reg->regs, 0, sizeof (tmp_reg->regs));
-  COPY_HARD_REG_SET (tmp_reg->regs, call_used_reg_set);
-  AND_COMPL_HARD_REG_SET (tmp_reg->regs, fixed_reg_set);
+  tmp_reg->regs = call_used_reg_set &~ fixed_reg_set;
   SET_HARD_REG_BIT (tmp_reg->regs, ICC_TEMP);
   SET_HARD_REG_BIT (tmp_reg->regs, ICR_TEMP);
 
@@ -5311,7 +5310,7 @@ frv_ifcvt_modify_tests (ce_if_block *ce_info, rtx *p_true, rtx *p_false)
 
 	      CLEAR_HARD_REG_SET (mentioned_regs);
 	      find_all_hard_regs (PATTERN (insn), &mentioned_regs);
-	      AND_COMPL_HARD_REG_SET (tmp_reg->regs, mentioned_regs);
+	      tmp_reg->regs &= ~mentioned_regs;
 
 	      pattern = PATTERN (insn);
 	      if (GET_CODE (pattern) == COND_EXEC)
@@ -5347,8 +5346,7 @@ frv_ifcvt_modify_tests (ce_if_block *ce_info, rtx *p_true, rtx *p_false)
 		}
 
 	      if (! skip_nested_if)
-		AND_COMPL_HARD_REG_SET (frv_ifcvt.nested_cc_ok_rewrite,
-					mentioned_regs);
+		frv_ifcvt.nested_cc_ok_rewrite &= ~mentioned_regs;
 	    }
 
 	  if (insn == last_insn)
@@ -7136,7 +7134,7 @@ frv_registers_update (rtx x)
       flags |= frv_cond_flags (XEXP (x, 0));
       x = XEXP (x, 1);
     }
-  note_stores (x, frv_registers_update_1, &flags);
+  note_pattern_stores (x, frv_registers_update_1, &flags);
 }
 
 
@@ -7770,8 +7768,7 @@ frv_optimize_membar_local (basic_block bb, struct frv_io *next_io,
 	  /* Invalidate NEXT_IO's address if it depends on something that
 	     is clobbered by INSN.  */
 	  if (next_io->var_address)
-	    note_stores (PATTERN (insn), frv_io_check_address,
-			 &next_io->var_address);
+	    note_stores (insn, frv_io_check_address, &next_io->var_address);
 
 	  /* If the next membar is associated with a __builtin_read,
 	     see if INSN reads from that address.  If it does, and if
@@ -7814,7 +7811,7 @@ frv_optimize_membar_local (basic_block bb, struct frv_io *next_io,
 	  if (volatile_refs_p (PATTERN (insn)))
 	    CLEAR_HARD_REG_SET (used_regs);
 	  else
-	    note_stores (PATTERN (insn), frv_io_handle_set, &used_regs);
+	    note_stores (insn, frv_io_handle_set, &used_regs);
 
 	  note_uses (&PATTERN (insn), frv_io_handle_use, &used_regs);
 	  break;

@@ -493,18 +493,15 @@ find_hard_regno_for_1 (int regno, int *cost, int try_only_hard_regno,
   HARD_REG_SET impossible_start_hard_regs, available_regs;
 
   if (hard_reg_set_empty_p (regno_set))
-    COPY_HARD_REG_SET (conflict_set, lra_no_alloc_regs);
+    conflict_set = lra_no_alloc_regs;
   else
-    {
-      COMPL_HARD_REG_SET (conflict_set, regno_set);
-      IOR_HARD_REG_SET (conflict_set, lra_no_alloc_regs);
-    }
+    conflict_set = ~regno_set | lra_no_alloc_regs;
   rclass = regno_allocno_class_array[regno];
   rclass_intersect_p = ira_reg_classes_intersect_p[rclass];
   curr_hard_regno_costs_check++;
   sparseset_clear (conflict_reload_and_inheritance_pseudos);
   sparseset_clear (live_range_hard_reg_pseudos);
-  IOR_HARD_REG_SET (conflict_set, lra_reg_info[regno].conflict_hard_regs);
+  conflict_set |= lra_reg_info[regno].conflict_hard_regs;
   biggest_mode = lra_reg_info[regno].biggest_mode;
   for (r = lra_reg_info[regno].live_ranges; r != NULL; r = r->next)
     {
@@ -614,7 +611,7 @@ find_hard_regno_for_1 (int regno, int *cost, int try_only_hard_regno,
       }
   /* Make sure that all registers in a multi-word pseudo belong to the
      required class.  */
-  IOR_COMPL_HARD_REG_SET (conflict_set, reg_class_contents[rclass]);
+  conflict_set |= ~reg_class_contents[rclass];
   lra_assert (rclass != NO_REGS);
   rclass_size = ira_class_hard_regs_num[rclass];
   best_hard_regno = -1;
@@ -622,8 +619,7 @@ find_hard_regno_for_1 (int regno, int *cost, int try_only_hard_regno,
   biggest_nregs = hard_regno_nregs (hard_regno, biggest_mode);
   nregs_diff = (biggest_nregs
 		- hard_regno_nregs (hard_regno, PSEUDO_REGNO_MODE (regno)));
-  COPY_HARD_REG_SET (available_regs, reg_class_contents[rclass]);
-  AND_COMPL_HARD_REG_SET (available_regs, lra_no_alloc_regs);
+  available_regs = reg_class_contents[rclass] & ~lra_no_alloc_regs;
   for (i = 0; i < rclass_size; i++)
     {
       if (try_only_hard_regno >= 0)
@@ -1217,8 +1213,8 @@ setup_live_pseudos_and_spill_after_risky_transforms (bitmap
 		  sparseset_set_bit (live_range_hard_reg_pseudos, r2->regno);
 	    }
 	}
-      COPY_HARD_REG_SET (conflict_set, lra_no_alloc_regs);
-      IOR_HARD_REG_SET (conflict_set, lra_reg_info[regno].conflict_hard_regs);
+      conflict_set = lra_no_alloc_regs;
+      conflict_set |= lra_reg_info[regno].conflict_hard_regs;
       val = lra_reg_info[regno].val;
       offset = lra_reg_info[regno].offset;
       EXECUTE_IF_SET_IN_SPARSESET (live_range_hard_reg_pseudos, conflict_regno)
