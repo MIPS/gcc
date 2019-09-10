@@ -1,3 +1,12 @@
+2018-11-05  Tim van Deurzen  <tim@kompiler.org>
+
+	Add new tree code for the spaceship operator.
+	* cp-tree.def: Add new tree code.
+	Add new operator.
+	* operators.def: New binary operator.
+	Implement parsing of the spaceship operator.
+	* parser.c: Add new token and tree code.
+
 2019-09-15  Jason Merrill  <jason@redhat.com>
 
 	* call.c (build_new_op_1): Don't apply any standard conversions to
