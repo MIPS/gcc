@@ -1,5 +1,10 @@
 2019-09-10  Jonathan Wakely  <jwakely@redhat.com>
 
+	* include/Makefile.am: Add new header.
+	* include/Makefile.in: Regenerate.
+	* include/std/concepts: New header for C++20.
+	* include/std/version (__cpp_lib_concepts): Define.
+
 	* include/std/type_traits (__do_common_type_impl): Implement
 	additional COND-RES(CREF(D1), CRED(D2)) condition for C++20.
 	(basic_common_reference, common_reference, common_reference_t): Define
