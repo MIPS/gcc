@@ -541,6 +541,10 @@ Wenum-compare
 C ObjC C++ ObjC++ Var(warn_enum_compare) Init(-1) Warning LangEnabledBy(C ObjC,Wall || Wc++-compat)
 Warn about comparison of different enum types.
 
+Wenum-conversion
+C ObjC Var(warn_enum_conversion) Init(0) Warning LangEnabledBy(C ObjC,Wextra)
+Warn about implicit conversion of enum types.
+
 Werror
 C ObjC C++ ObjC++
 ; Documented in common.opt
@@ -1456,8 +1460,8 @@ C ObjC C++ ObjC++
 Emit debug annotations during preprocessing.
 
 fdeduce-init-list
-C++ ObjC++ Var(flag_deduce_init_list) Init(0)
--fdeduce-init-list	enable deduction of std::initializer_list for a template type parameter from a brace-enclosed initializer-list.
+C++ ObjC++ Ignore
+Does nothing.  Preserved for backward compatibility.
 
 fdeclone-ctor-dtor
 C++ ObjC++ Var(flag_declone_ctor_dtor) Init(-1)
@@ -1759,8 +1763,8 @@ ObjC ObjC++ LTO Var(flag_replace_objc_classes)
 Used in Fix-and-Continue mode to indicate that object files may be swapped in at runtime.
 
 frepo
-C++ ObjC++
-Enable automatic template instantiation.
+C++ ObjC++ Deprecated
+Deprecated in GCC 10.  This switch has no effect.
 
 frtti
 C++ ObjC++ Optimization Var(flag_rtti) Init(1)

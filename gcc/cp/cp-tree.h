@@ -448,12 +448,12 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
       ICS_BAD_FLAG (in _CONV)
       FN_TRY_BLOCK_P (in TRY_BLOCK)
       BIND_EXPR_BODY_BLOCK (in BIND_EXPR)
-      DECL_NONTRIVIALLY_INITIALIZED_P (in VAR_DECL)
       CALL_EXPR_ORDERED_ARGS (in CALL_EXPR, AGGR_INIT_EXPR)
       DECLTYPE_FOR_REF_CAPTURE (in DECLTYPE_TYPE)
       CONSTRUCTOR_C99_COMPOUND_LITERAL (in CONSTRUCTOR)
       OVL_NESTED_P (in OVERLOAD)
       LAMBDA_EXPR_INSTANTIATED (in LAMBDA_EXPR)
+      Reserved for DECL_MODULE_EXPORT (in DECL_)
    4: IDENTIFIER_MARKED (IDENTIFIER_NODEs)
       TREE_HAS_CONSTRUCTOR (in INDIRECT_REF, SAVE_EXPR, CONSTRUCTOR,
 	  CALL_EXPR, or FIELD_DECL).
@@ -462,13 +462,11 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
       OVL_LOOKUP_P (in OVERLOAD)
       LOOKUP_FOUND_P (in RECORD_TYPE, UNION_TYPE, NAMESPACE_DECL)
    5: IDENTIFIER_VIRTUAL_P (in IDENTIFIER_NODE)
-      DECL_VTABLE_OR_VTT_P (in VAR_DECL)
       FUNCTION_RVALUE_QUALIFIED (in FUNCTION_TYPE, METHOD_TYPE)
       CALL_EXPR_REVERSE_ARGS (in CALL_EXPR, AGGR_INIT_EXPR)
       CONSTRUCTOR_PLACEHOLDER_BOUNDARY (in CONSTRUCTOR)
-   6: IDENTIFIER_REPO_CHOSEN (in IDENTIFIER_NODE)
-      DECL_CONSTRUCTION_VTABLE_P (in VAR_DECL)
-      TYPE_MARKED_P (in _TYPE)
+   6: TYPE_MARKED_P (in _TYPE)
+      DECL_NON_TRIVIALLY_INITIALIZED_P (in VAR_DECL)
       RANGE_FOR_IVDEP (in RANGE_FOR_STMT)
       CALL_EXPR_OPERATOR_SYNTAX (in CALL_EXPR, AGGR_INIT_EXPR)
       CONSTRUCTOR_IS_DESIGNATED_INIT (in CONSTRUCTOR)
@@ -1112,12 +1110,6 @@ enum cp_identifier_kind {
    (optimizes searches).  */
 #define IDENTIFIER_VIRTUAL_P(NODE) \
   TREE_LANG_FLAG_5 (IDENTIFIER_NODE_CHECK (NODE))
-
-/* True iff NAME is the DECL_ASSEMBLER_NAME for an entity with vague
-   linkage which the prelinker has assigned to this translation
-   unit.  */
-#define IDENTIFIER_REPO_CHOSEN(NAME) \
-  (TREE_LANG_FLAG_6 (IDENTIFIER_NODE_CHECK (NAME)))
 
 /* True if this identifier is a reserved word.  C_RID_CODE (node) is
    then the RID_* value of the keyword.  Value 1.  */
@@ -2591,7 +2583,6 @@ struct GTY(()) lang_decl_base {
   unsigned use_template : 2;
   unsigned not_really_extern : 1;	   /* var or fn */
   unsigned initialized_in_class : 1;	   /* var or fn */
-  unsigned repo_available_p : 1;	   /* var or fn */
   unsigned threadprivate_or_deleted_p : 1; /* var or fn */
   unsigned anticipated_p : 1;		   /* fn, type or template */
   /* anticipated_p reused as DECL_OMP_PRIVATIZED_MEMBER in var */
@@ -2602,7 +2593,7 @@ struct GTY(()) lang_decl_base {
   unsigned concept_p : 1;                  /* applies to vars and functions */
   unsigned var_declared_inline_p : 1;	   /* var */
   unsigned dependent_init_p : 1;	   /* var */
-  /* 1 spare bit */
+  /* 2 spare bits */
 };
 
 /* True for DECL codes which have template info and access.  */
@@ -3002,7 +2993,7 @@ struct GTY(()) lang_decl {
 /* Nonzero for a VAR_DECL iff an explicit initializer was provided
    or a non-trivial constructor is called.  */
 #define DECL_NONTRIVIALLY_INITIALIZED_P(NODE)	\
-   (TREE_LANG_FLAG_3 (VAR_DECL_CHECK (NODE)))
+   (TREE_LANG_FLAG_6 (VAR_DECL_CHECK (NODE)))
 
 /* Nonzero for a VAR_DECL that was initialized with a
    constant-expression.  */
@@ -3163,11 +3154,6 @@ struct GTY(()) lang_decl {
 #define DECL_EXTERN_C_FUNCTION_P(NODE) \
   (DECL_NON_THUNK_FUNCTION_P (NODE) && DECL_EXTERN_C_P (NODE))
 
-/* True iff DECL is an entity with vague linkage whose definition is
-   available in this translation unit.  */
-#define DECL_REPO_AVAILABLE_P(NODE) \
-  (DECL_LANG_SPECIFIC (NODE)->u.base.repo_available_p)
-
 /* True if DECL is declared 'constexpr'.  */
 #define DECL_DECLARED_CONSTEXPR_P(DECL) \
   DECL_LANG_FLAG_8 (VAR_OR_FUNCTION_DECL_CHECK (STRIP_TEMPLATE (DECL)))
@@ -3258,8 +3244,10 @@ struct GTY(()) lang_decl {
    both the primary typeinfo object and the associated NTBS name.  */
 #define DECL_TINFO_P(NODE) TREE_LANG_FLAG_4 (VAR_DECL_CHECK (NODE))
 
-/* 1 iff VAR_DECL node NODE is virtual table or VTT.  */
-#define DECL_VTABLE_OR_VTT_P(NODE) TREE_LANG_FLAG_5 (VAR_DECL_CHECK (NODE))
+/* 1 iff VAR_DECL node NODE is virtual table or VTT.  We forward to
+   DECL_VIRTUAL_P from the common code, as that has the semantics we
+   need.  But we want a more descriptive name.  */
+#define DECL_VTABLE_OR_VTT_P(NODE) DECL_VIRTUAL_P (VAR_DECL_CHECK (NODE))
 
 /* 1 iff FUNCTION_TYPE or METHOD_TYPE has a ref-qualifier (either & or &&). */
 #define FUNCTION_REF_QUALIFIED(NODE) \
@@ -3268,12 +3256,6 @@ struct GTY(()) lang_decl {
 /* 1 iff FUNCTION_TYPE or METHOD_TYPE has &&-ref-qualifier.  */
 #define FUNCTION_RVALUE_QUALIFIED(NODE) \
   TREE_LANG_FLAG_5 (FUNC_OR_METHOD_CHECK (NODE))
-
-/* Returns 1 iff VAR_DECL is a construction virtual table.
-   DECL_VTABLE_OR_VTT_P will be true in this case and must be checked
-   before using this macro.  */
-#define DECL_CONSTRUCTION_VTABLE_P(NODE) \
-  TREE_LANG_FLAG_6 (VAR_DECL_CHECK (NODE))
 
 /* 1 iff NODE is function-local, but for types.  */
 #define LOCAL_CLASS_P(NODE)				\
@@ -6901,12 +6883,6 @@ extern bool deduction_guide_p			(const_tree);
 extern bool copy_guide_p			(const_tree);
 extern bool template_guide_p			(const_tree);
 extern void store_explicit_specifier		(tree, tree);
-
-/* in repo.c */
-extern void init_repo				(void);
-extern int repo_emit_p				(tree);
-extern bool repo_export_class_p			(const_tree);
-extern void finish_repo				(void);
 
 /* in rtti.c */
 /* A vector of all tinfo decls that haven't been emitted yet.  */

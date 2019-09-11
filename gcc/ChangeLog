@@ -1,3 +1,353 @@
+2019-09-09  Jose E. Marchesi  <jose.marchesi@oracle.com>
+
+	* doc/invoke.texi (Option Summary): Cover eBPF.
+	(eBPF Options): New section.
+	* doc/extend.texi (BPF Built-in Functions): Likewise.
+	(BPF Kernel Helpers): Likewise.
+
+2019-09-09  Jose E. Marchesi  <jose.marchesi@oracle.com>
+
+	* config.gcc: Support for bpf-*-* targets.
+	* common/config/bpf/bpf-common.c: New file.
+	* config/bpf/t-bpf: Likewise.
+	* config/bpf/predicates.md: Likewise.
+	* config/bpf/constraints.md: Likewise.
+	* config/bpf/bpf.opt: Likewise.
+	* config/bpf/bpf.md: Likewise.
+	* config/bpf/bpf.h: Likewise.
+	* config/bpf/bpf.c: Likewise.
+	* config/bpf/bpf-protos.h: Likewise.
+	* config/bpf/bpf-opts.h: Likewise.
+	* config/bpf/bpf-helpers.h: Likewise.
+	* config/bpf/bpf-helpers.def: Likewise.
+
+2019-09-09  Jose E. Marchesi  <jose.marchesi@oracle.com>
+
+	* doc/sourcebuild.texi (Effective-Target Keywords): Document
+	indirect_calls.
+
+2019-09-09  Jose E. Marchesi  <jose.marchesi@oracle.com>
+
+	* opt-functions.awk (integer_range_info): Make sure values are in
+	numeric context before operating with them.
+
+2019-09-08  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* genemit.c (gen_split): Print the filename and line number where the
+	splitter (or peephole2) was defined, to the dump file.
+
+2019-09-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/91665
+	* tree-vect-loop.c (vectorizable_reduction): Punt if base has type
+	incompatible with the type of PHI result.
+
+2019-09-07  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR target/91684
+	* config/arm/arm.c (arm_block_set_aligned_non_vect): Use
+	gen_unaligned_storedi for 4-byte aligned addresses.
+
+2019-09-06  Jim Wilson  <jimw@sifive.com>
+
+	* config/riscv/riscv.c (riscv_option_override): Revert 2019-08-30
+	change.
+
+2019-09-06  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.md (unspec): Delete UNSPEC_MV_CR_OV.
+
+2019-09-06  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.c (rs6000_rtx_costs) <case UNSPEC>: Delete.
+	* config/rs6000/rs6000.md (unspec): Delete UNSPEC_FRSP.
+
+2019-09-06  Uroš Bizjak  <ubizjak@gmail.com>
+
+	PR target/91654
+	* config/i386/x86-tune-costs.h (skylake_cost): Raise the
+	cost of SSE->integer and integer->SSE moves from 2 to 6.
+	(core_cost): Ditto.
+
+2019-09-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* function.c (assign_parm_find_data_types): Use RECORD_OR_UNION_TYPE_P
+	before testing TYPE_TRANSPARENT_AGGR.
+	* calls.c (initialize_argument_information, load_register_parameters):
+	Likewise.
+
+2019-09-06  Richard Earnshaw  <rearnsha@arm.com>
+
+	* config/arm/arm.md (cmp_and): Add short-it variant for thumb2 with
+	high regs.
+	(cmp_ior): Likewise.
+
+2019-09-06  Martin Liska  <mliska@suse.cz>
+
+	* doc/match-and-simplify.texi: Separate tuples with ;.
+
+2019-09-06  Martin Liska  <mliska@suse.cz>
+
+	PR c++/91125
+	* Makefile.in: Remove tlink.o.
+	* collect2.c (do_link): New function isolated
+	from do_tlink.
+	(main): Use.
+	* collect2.h (do_tlink): Remove declaration of do_tlink.
+	* doc/extend.texi: Remove documentation of -frepo.
+	* doc/invoke.texi: Likewise.
+	* doc/sourcebuild.texi: Remove cleanup-repo-files.
+	* tlink.c: Remove.
+
+2019-09-05  Jakub Jelinek  <jakub@redhat.com>
+	    Jim Wilson  <jimw@sifive.com>
+
+	PR target/91635
+	* config/riscv/riscv.md (zero_extendsidi2, zero_extendhi<GPR:mode>2,
+	extend<SHORT:mode><SUPERQI:mode>2): Don't split if
+	paradoxical_subreg_p (operands[0]).
+	(*lshrsi3_zero_extend_3+1, *lshrsi3_zero_extend_3+2): Add clobber and
+	use as intermediate value.
+
+2019-09-05  Andrew Stubbs  <ams@codesourcery.com>
+
+	* config/gcn/gcn.md (*movti_insn): Set delayeduse for global_store.
+	(sync_compare_and_swap<mode>_insn): Likewise.
+
+2019-09-05  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR middle-end/91615
+	* expr.c (expand_expr_real_1): Handle misaligned TARGET_MEM_REF
+	without movmisalign optab.
+
+2019-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/91001
+	PR middle-end/91105
+	PR middle-end/91106
+	* calls.c (load_register_parameters): For TYPE_TRANSPARENT_AGGR
+	types, use type of their first field instead of type of
+	args[i].tree_value.
+
+2019-09-05  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/91656
+	* postreload-gcse.c (record_last_mem_set_info): Revert addition
+	of early out.
+
+2019-09-05  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/90501
+	* tree-inline.c (declare_return_variable): Mark the return
+	slot as addressable after building an address of it.
+
+2019-09-05  Arnaud Charlet  <charlet@adacore.com>
+
+	* doc/install.texi: Update and clarify requirements to build GNAT.
+
+2019-09-05  Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR middle-end/91577
+	* cfgexpand.c (discover_nonconstant_array_refs): Force the source
+	of an IFN_LOAD_LANES call and the destination of an IFN_STORE_LANES
+	call to be in memory.
+	(pass_expand::execute): Call discover_nonconstant_array_refs before
+	setting currently_expanding_to_rtl.
+
+2019-09-04  Caroline Tice  <cmtice@google.com>
+
+	* opts.c (finish_options): Disallow -fvtable-verify and -flto to be
+	specified together.
+
+2019-09-04  Marek Polacek  <polacek@redhat.com>
+
+	* doc/invoke.texi: Remove -fdeduce-init-list documentation.
+
+2019-09-04  Uroš Bizjak  <ubizjak@gmail.com>
+
+	PR target/32413
+	* config/i386/i386.c (inline_secondary_memory_needed): Return true
+	for QI and HImode moves between SSE and general registers.
+
+2019-09-04  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	PR c/78736
+	* doc/invoke.texi: Document -Wenum-conversion.
+
+2019-09-04  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/36262
+	* postreload-gcse.c: Include intl.h and gcse.h.
+	(insert_expr_in_table): Insert at the head of cur_expr->avail_occr
+	to avoid linear list walk.
+	(record_last_mem_set_info): Gate off if not computing transparentness.
+	(get_bb_avail_insn): If transparentness isn't computed give up
+	early.
+	(gcse_after_reload_main): Skip compute_transp and extended PRE
+	if gcse_or_cprop_is_too_expensive says so.
+
+2019-09-03  Jozef Lawrynowicz  <jozef.l@mittosystems.com>
+
+	* config/msp430/msp430.c (msp430_init_sections): Remove handling of the
+	noinit section.
+	(msp430_select_section): Handle decls with the "noinit" attribute with
+	default_elf_select_section.
+	Handle SECCAT_RODATA_MERGE_* section types with
+	default_elf_select_section.
+	Add comments about handling of unsupported section types.
+	(msp430_section_type_flags): Remove handling of the noinit section.
+
+2019-09-03  Jozef Lawrynowicz  <jozef.l@mittosystems.com>
+
+	* config/msp430/msp430.c (msp430_attr): Remove warnings about
+	conflicting msp430-specific attributes.
+	(msp430_section_attr): Likewise.
+	Add warnings about conflicts with generic "noinit" and "section"
+	attributes.
+	Fix grammar in -mlarge error message.
+	(msp430_data_attr): Rename to msp430_persist_attr.
+	Add warnings about conflicts with generic "noinit" and "section"
+	attributes.
+	Add warning for when variable is not initialized.
+	Chain conditionals which prevent the attribute being added.
+	(ATTR_EXCL): New helper.
+	(attr_reent_exclusions): New exclusion table.
+	(attr_naked_exclusions): Likewise.
+	(attr_crit_exclusions): Likewise.
+	(attr_lower_exclusions): Likewise.
+	(attr_upper_exclusions): Likewise.
+	(attr_either_exclusions): Likewise.
+	(attr_persist_exclusions): Likewise.
+	(msp430_attribute_table): Update with exclusion rules.
+	(msp430_output_aligned_decl_common): Don't output common symbol if decl
+	has a section.
+
+2019-09-03  Jozef Lawrynowicz  <jozef.l@mittosystems.com>
+
+	* config/msp430/msp430.c (TARGET_HANDLE_GENERIC_ATTRIBUTE): Define.
+	(msp430_handle_generic_attribute): New function.
+	* doc/tm.texi: Regenerate.
+	* doc/tm.texi.in: Add TARGET_HANDLE_GENERIC_ATTRIBUTE.
+	* hooks.c (hook_tree_treeptr_tree_tree_int_boolptr_null): New.
+	* hooks.h (hook_tree_treeptr_tree_tree_int_boolptr_null): New.
+	* target.def: Define new hook TARGET_HANDLE_GENERIC_ATTRIBUTE.
+
+2019-09-03  Kamlesh Kumar  <kamleshbhalui@gmail.com>
+
+	PR tree-optimization/91504
+	* match.pd: Add ((~a & b) ^a) --> (a | b).
+
+2019-09-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/91604
+	* config/i386/i386-expand.c (split_double_mode): If there is more than
+	one MEM operand and they are rtx_equal_p, reuse lo_half/hi_half from
+	already split matching MEM operand instead of calling adjust_address
+	again.
+
+2019-09-03  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config.gcc: Obsolete spu target.  Remove references to spu.
+	* configure.ac: Remove references to spu.
+	* configure: Regenerate.
+	* config/spu/: Remove directory.
+	* common/config/spu/: Remove directory.
+
+	* doc/extend.texi: Remove references to spu.
+	* doc/invoke.texi: Likewise.
+	* doc/md.texi: Likewise.
+	* doc/sourcebuild.texi: Likewise.
+
+2019-09-03  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR middle-end/91603
+	PR middle-end/91612
+	PR middle-end/91613
+	* expr.c (expand_expr_real_1): Handle unaligned decl_rtl
+	and SSA_NAME referring to CONSTANT_P correctly.
+
+2019-09-03  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-sccvn.h (vn_nary_op_lookup): Remove.
+	(vn_nary_op_insert): Likewise.
+	* tree-ssa-sccvn.c (init_vn_nary_op_from_op): Remove.
+	(vn_nary_op_lookup): Likewise.
+	(vn_nary_op_insert): Likewise.
+
+2019-09-03  Ilya Leoshkevich  <iii@linux.ibm.com>
+
+	* config/s390/s390.c (s390_canonicalize_comparison): Use XEXP
+	(*op0, 1) instead of XEXP (*op1, 0).
+
+2019-09-03  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.md (UNSPEC_FJCVTZS): Define.
+	(aarch64_fjcvtzs): New define_insn.
+	* config/aarch64/aarch64.h (TARGET_JSCVT): Define.
+	* config/aarch64/aarch64-builtins.c (aarch64_builtins):
+	Add AARCH64_JSCVT.
+	(aarch64_init_builtins): Initialize __builtin_aarch64_jcvtzs.
+	(aarch64_expand_builtin): Handle AARCH64_JSCVT.
+	* config/aarch64/aarch64-c.c (aarch64_update_cpp_builtins): Define
+	__ARM_FEATURE_JCVT where appropriate.
+	* config/aarch64/arm_acle.h (__jcvt): Define.
+
+2019-09-03  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.md ("unspec"): Add UNSPEC_FRINT32Z,
+	UNSPEC_FRINT32X, UNSPEC_FRINT64Z, UNSPEC_FRINT64X.
+	(aarch64_<frintnzs_op><mode>): New define_insn.
+	* config/aarch64/aarch64.h (TARGET_FRINT): Define.
+	* config/aarch64/aarch64-c.c (aarch64_update_cpp_builtins): Define
+	__ARM_FEATURE_FRINT when appropriate.
+	* config/aarch64/aarch64-simd-builtins.def: Add builtins for frint32z,
+	frint32x, frint64z, frint64x.
+	* config/aarch64/arm_acle.h (__rint32zf, __rint32z, __rint64zf,
+	__rint64z, __rint32xf, __rint32x, __rint64xf, __rint64x): Define.
+	* config/aarch64/arm_neon.h (vrnd32z_f32, vrnd32zq_f32, vrnd32z_f64,
+	vrnd32zq_f64, vrnd32x_f32, vrnd32xq_f32, vrnd32x_f64, vrnd32xq_f64,
+	vrnd64z_f32, vrnd64zq_f32, vrnd64z_f64, vrnd64zq_f64, vrnd64x_f32,
+	vrnd64xq_f32, vrnd64x_f64, vrnd64xq_f64): Define.
+	* config/aarch64/iterators.md (VSFDF): Define.
+	(FRINTNZX): Likewise.
+	(frintnzs_op): Likewise.
+
+2019-09-03  Dennis Zhang  <dennis.zhang@arm.com>
+
+	* config/aarch64/aarch64-cores.def (AARCH64_CORE): New entries
+	for Cortex-A77, Cortex-A76AE, Cortex-A65, Cortex-A65AE, and
+	Cortex-A34.
+	* config/aarch64/aarch64-tune.md: Regenerated.
+	* doc/invoke.texi: Document the new processors.
+
+2019-09-03  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64-option-extensions.def (sb): Add feature
+	string.
+	(ssbs): Likewise.
+	(sve2): Likewise.
+	(sve2-sm4): Likewise.
+	(sveaes): Likewise.
+	(svesha3): Likewise.
+	(svebitperm): Likewise.
+
+2019-09-03  Jakub Jelinek  <jakub@redhat.com>
+	    Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/91597
+	* tree-vrp.c (extract_range_from_binary_expr): Remove unsafe
+	BIT_AND_EXPR optimization for pointers, even if both operand
+	ranges don't include NULL, the result can be NULL.
+
+2019-09-02  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR middle-end/91605
+	* expr.c (addr_expr_of_non_mem_decl_p_1): Refactor into...
+	(non_mem_decl_p): ...this.
+	(mem_ref_refers_to_non_mem_p): Handle DECL_P as well as MEM_REF.
+	(expand_assignment): Call mem_ref_referes_to_non_mem_p
+	unconditionally as before.
+
 2019-09-02  Eric Botcazou  <ebotcazou@adacore.com>
 
 	PR target/91323

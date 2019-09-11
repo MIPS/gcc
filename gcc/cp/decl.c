@@ -2388,7 +2388,6 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       /* Don't really know how much of the language-specific
 	 values we should copy from old to new.  */
       DECL_IN_AGGR_P (newdecl) = DECL_IN_AGGR_P (olddecl);
-      DECL_REPO_AVAILABLE_P (newdecl) = DECL_REPO_AVAILABLE_P (olddecl);
       DECL_INITIALIZED_IN_CLASS_P (newdecl)
 	|= DECL_INITIALIZED_IN_CLASS_P (olddecl);
 
@@ -5308,7 +5307,14 @@ start_decl (const cp_declarator *declarator,
     decl = maybe_push_decl (decl);
 
   if (processing_template_decl)
-    decl = push_template_decl (decl);
+    {
+      /* Make sure that for a `constinit' decl push_template_decl creates
+	 a DECL_TEMPLATE_INFO info for us, so that cp_finish_decl can then set
+	 TINFO_VAR_DECLARED_CONSTINIT.  */
+      if (decl_spec_seq_has_spec_p (declspecs, ds_constinit))
+	retrofit_lang_decl (decl);
+      decl = push_template_decl (decl);
+    }
   if (decl == error_mark_node)
     return error_mark_node;
 
