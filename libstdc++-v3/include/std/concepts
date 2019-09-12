@@ -122,8 +122,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       = is_lvalue_reference_v<_Lhs>
       && common_reference_with<__detail::__cref<_Lhs>, __detail::__cref<_Rhs>>
       && requires(_Lhs __lhs, _Rhs&& __rhs) {
-	// FIXME: should be -> same_as<_Lhs> once P1452R2 is supported
-	{ __lhs = static_cast<_Rhs&&>(__rhs) } -> _Lhs;
+	{ __lhs = static_cast<_Rhs&&>(__rhs) } -> same_as<_Lhs>;
       };
 
   /// [concept.destructible], concept destructible
