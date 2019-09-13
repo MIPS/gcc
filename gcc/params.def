@@ -77,7 +77,7 @@ DEFPARAM (PARAM_MAX_INLINE_INSNS_SINGLE,
 DEFPARAM (PARAM_MAX_INLINE_INSNS_SINGLE_O2,
 	  "max-inline-insns-single-O2",
 	  "The maximum number of instructions in a single function eligible for inlining.",
-	  25, 0, 0)
+	  40, 0, 0)
 
 /* The single function inlining limit for functions that are
    inlined by virtue of -finline-functions (-O3).
@@ -94,7 +94,7 @@ DEFPARAM (PARAM_MAX_INLINE_INSNS_AUTO,
 DEFPARAM (PARAM_MAX_INLINE_INSNS_AUTO_O2,
 	  "max-inline-insns-auto-O2",
 	  "The maximum number of instructions when automatically inlining.",
-	  10, 0, 0)
+	  20, 0, 0)
 
 DEFPARAM (PARAM_MAX_INLINE_INSNS_SMALL,
 	  "max-inline-insns-small",
