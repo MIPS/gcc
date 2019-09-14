@@ -7,7 +7,7 @@ int toto()
 
   switch (i)
     {
-    
+
       case 5:
         for (j = 0; j <= 20; j++)
           a[j] = b + i + 12;

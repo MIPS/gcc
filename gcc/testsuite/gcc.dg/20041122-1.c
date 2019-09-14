@@ -15,5 +15,3 @@ dumpCineonImageInfo(CineonImageInformation* imageInfo) {
 		dumpCineonChannelInfo(&imageInfo->channel[i]);
 	}
 }
-
-

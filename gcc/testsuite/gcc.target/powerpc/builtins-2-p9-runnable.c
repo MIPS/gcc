@@ -16,7 +16,7 @@ int main() {
   vector unsigned long long vulla, vullr, vullexpt;
   vector __int128_t  vs128a;
   vector __uint128_t vs128r, vs128expt;
-  vector __uint128_t vu128a, vu128r, vu128expt;  
+  vector __uint128_t vu128a, vu128r, vu128expt;
 
   /* Returns a vector with each element containing the parity of the low-order
      bit of each of the bytes in that element.  Note results are always

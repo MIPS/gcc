@@ -113,7 +113,7 @@ TEST (void)
       if (memcmp (&tmp, &res[i], sizeof (tmp)))
 	abort ();
     }
-    
+
   /* Check mpsadbw imm8, m128, xmm.  */
   for (i=0; i < 8; i++)
     {

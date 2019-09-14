@@ -1,7 +1,7 @@
 void make_file_symbol_completion_list (char *);
 /* This tests to make sure PRE doesn't choose the wrong name when
    inserting phi nodes.  Otherwise, we get uses that aren't dominated
-   by defs.  
+   by defs.
    PR 13177.  */
 void location_completer (char *text)
 {
@@ -11,10 +11,8 @@ void location_completer (char *text)
 			p++;
 		else if (*p == ':')
 			symbol_start = p + 1;
-		else 
+		else
 			symbol_start = p + 1;
 		make_file_symbol_completion_list(symbol_start);
 	}
 }
-
-

@@ -20,4 +20,3 @@ foo (void)
 {
   return v.u->s[0];
 }
-

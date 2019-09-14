@@ -11,4 +11,3 @@
 #else foo   /* { dg-bogus "extra tokens" "extra tokens in skipped block" } */
 #endif foo  /* { dg-bogus "extra tokens" "extra tokens in skipped block" } */
 #endif bar  /* { dg-error "extra tokens" "tokens after #endif" } */
-

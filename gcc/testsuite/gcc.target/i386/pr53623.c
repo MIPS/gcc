@@ -21,4 +21,3 @@ int main(void) {
 }
 
 /* { dg-final { scan-rtl-dump "copy needed" "ree" } } */
-

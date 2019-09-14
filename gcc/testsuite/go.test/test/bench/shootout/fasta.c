@@ -42,7 +42,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 
 #ifndef fwrite_unlocked
-// not available on OS X 
+// not available on OS X
 #define fwrite_unlocked fwrite
 #define fputc_unlocked fputc
 #define fputs_unlocked fputs

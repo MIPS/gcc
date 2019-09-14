@@ -690,4 +690,3 @@ do {									     \
 /* The assembler op to get a word.  */
 
 #define FILE_ASM_OP "\t.file\n"
-

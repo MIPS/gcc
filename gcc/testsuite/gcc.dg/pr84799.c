@@ -25,5 +25,5 @@ int main ()
 {
   b |= 1;
   fn1 ();
-  return 0; 
+  return 0;
 }

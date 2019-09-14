@@ -1,26 +1,26 @@
 /* Interface for NSGeometry routines for GNUStep
  * Copyright (C) 1995 Free Software Foundation, Inc.
- * 
+ *
  * Written by:  Adam Fedor <fedor@boulder.colorado.edu>
  * Date: 1995,199
- * 
+ *
  * This file is part of the GNUstep Base Library.
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2 of the License, or (at your option) any later version.
- * 
+ *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Library General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free
  * Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02111 USA.
- */ 
+ */
 
 #ifndef __NSGeometry_h_GNUSTEP_BASE_INCLUDE
 #define __NSGeometry_h_GNUSTEP_BASE_INCLUDE
@@ -171,7 +171,7 @@ static const NSEdgeInsets NSEdgeInsetsZero __attribute__((unused))  = {0.0,0.0,0
  */
 #ifdef	IN_NSGEOMETRY_M
 #define	GS_GEOM_SCOPE	extern
-#define GS_GEOM_ATTR	
+#define GS_GEOM_ATTR
 #else
 #define	GS_GEOM_SCOPE	static inline
 #define GS_GEOM_ATTR	__attribute__((unused))
@@ -440,7 +440,7 @@ GS_GEOM_SCOPE NSRect
 NSIntersectionRect (NSRect aRect, NSRect bRect)
 {
   if (NSMaxX(aRect) <= NSMinX(bRect) || NSMaxX(bRect) <= NSMinX(aRect)
-    || NSMaxY(aRect) <= NSMinY(bRect) || NSMaxY(bRect) <= NSMinY(aRect)) 
+    || NSMaxY(aRect) <= NSMinY(bRect) || NSMaxY(bRect) <= NSMinY(aRect))
     {
       return NSMakeRect(0.0, 0.0, 0.0, 0.0);
     }
@@ -490,7 +490,7 @@ NSEqualPoints(NSPoint aPoint, NSPoint bPoint) GS_GEOM_ATTR;
 GS_GEOM_SCOPE BOOL
 NSMouseInRect(NSPoint aPoint, NSRect aRect, BOOL flipped) GS_GEOM_ATTR;
 
-/** Returns 'YES' iff aPoint is inside aRect. */ 
+/** Returns 'YES' iff aPoint is inside aRect. */
 GS_GEOM_SCOPE BOOL
 NSMouseInRect(NSPoint aPoint, NSRect aRect, BOOL flipped)
 {

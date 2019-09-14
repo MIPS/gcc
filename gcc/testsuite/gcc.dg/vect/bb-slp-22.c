@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 16 
+#define N 16
 
 unsigned int b[N];
 unsigned int out[N];
@@ -39,7 +39,7 @@ main1 (unsigned int x, unsigned int y)
     __asm__ volatile ("" : : : "memory");
 
   /* Check results.  */
-  if ((x <= y 
+  if ((x <= y
        && (out[0] != (in[0] + 23) * x
            || out[1] != (in[1] + 142) * y
            || out[2] != (in[2] + 2) * x
@@ -65,4 +65,3 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "basic block vectorized" 1 "slp2"  { target { ! {vect_int_mult } } } } } */
 /* { dg-final { scan-tree-dump-times "basic block vectorized" 2 "slp2"  { target vect_int_mult  } } } */
-  

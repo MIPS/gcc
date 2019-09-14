@@ -52,7 +52,7 @@ init_arrays ()
 }
 
 int main (void)
-{ 
+{
   init_arrays();
   main1 (100, 100, 1);
   main1 (0, 15, 0);

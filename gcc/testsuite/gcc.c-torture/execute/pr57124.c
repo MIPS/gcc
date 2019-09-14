@@ -10,7 +10,7 @@ foo(short unsigned int *p1, short unsigned int *p2)
   short unsigned int x1, x4;
   int x2, x3, x5, x6;
   unsigned int x7;
-  
+
   x1 = *p1;
   x2 = (int) x1;
   x3 = x2 * 65536;

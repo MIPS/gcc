@@ -3,7 +3,7 @@
 /* { dg-options "-fgnu-tm -flto" } */
 
 __attribute__((transaction_safe))
-void foo() 
+void foo()
 {
 }
 

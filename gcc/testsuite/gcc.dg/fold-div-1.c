@@ -26,4 +26,3 @@ float i(float x)
 
 /* { dg-final { scan-tree-dump-times " \\* " 2 "gimple" } } */
 /* { dg-final { scan-tree-dump-times " / " 2 "gimple" } } */
-

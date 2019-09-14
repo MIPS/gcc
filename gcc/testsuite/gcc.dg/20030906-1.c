@@ -18,4 +18,4 @@ int bar (void)
 {
   if( i ) return; /* { dg-warning "'return' with no value, in function returning non-void" } */
   else    return 1;
-}		
+}

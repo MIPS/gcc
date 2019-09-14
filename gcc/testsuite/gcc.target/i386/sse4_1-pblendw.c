@@ -69,11 +69,11 @@ TEST (void)
   /* Check pblendw imm8, m128, xmm */
   for (i = 0; i < NUM; i++)
     {
-      dst.x[i] = _mm_blend_epi16 (src1.x[i], src2.x[i], MASK); 
+      dst.x[i] = _mm_blend_epi16 (src1.x[i], src2.x[i], MASK);
       if (check_pblendw (&dst.x[i], &src1.s[i * 8], &src2.s[i * 8]))
 	abort ();
     }
-    
+
    /* Check pblendw imm8, xmm, xmm */
   src3.x = _mm_setzero_si128 ();
 

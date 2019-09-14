@@ -6,7 +6,7 @@
 #define N 256
 
 __attribute__ ((noinline))
-void bar (float *pd, float *pa, float *pb, float *pc) 
+void bar (float *pd, float *pa, float *pb, float *pc)
 {
   int i;
 
@@ -55,8 +55,8 @@ int main (void)
   return 0;
 }
 
-/* For targets that support unaligned loads we version for the two unaligned 
-   stores and generate misaligned accesses for the loads. For targets that 
+/* For targets that support unaligned loads we version for the two unaligned
+   stores and generate misaligned accesses for the loads. For targets that
    don't support unaligned loads we version for all four accesses.  */
 
 /* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 2 "vect" { xfail { vect_no_align || vect_element_align} } } }  */

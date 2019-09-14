@@ -44,4 +44,3 @@ max4 (unsigned char op1, unsigned char op2)
 
 /* { dg-final { scan-tree-dump-times "MIN_EXPR" 4 "optimized" } } */
 /* { dg-final { scan-tree-dump-times "MAX_EXPR" 4 "optimized" } } */
-

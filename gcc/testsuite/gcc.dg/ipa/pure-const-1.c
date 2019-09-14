@@ -75,4 +75,3 @@ test()
 /* { dg-final { scan-tree-dump "found to be looping pure: i_am_pure4" "local-pure-const1"} } */
 /* { dg-final { scan-ipa-dump "found to be const: i_am_const2" "pure-const"} } */
 /* { dg-final { scan-ipa-dump "found to be const: i_am_const3" "pure-const"} } */
-

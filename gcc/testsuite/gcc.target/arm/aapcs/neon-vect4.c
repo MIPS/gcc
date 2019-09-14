@@ -23,6 +23,6 @@ ARG(float, 3.0f, S4) /* D2, Q1 */
 ARG(int32x4x2_t, i32x4x2_constvec1, Q2) /* Q2, Q3 - D4-D6 , s5-s12 */
 ARG(double, 12.0, D3) /* Backfill this particular argument.  */
 ARG(float, 5.0f, S5) /* Backfill in S5.  */
-ARG(int32x4x2_t, i32x4x2_constvec2, STACK) 
+ARG(int32x4x2_t, i32x4x2_constvec2, STACK)
 LAST_ARG(int, 3, R0)
 #endif

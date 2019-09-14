@@ -12,4 +12,3 @@ int main()
   e = vmls_lane_f32 (a, b, c, 0);
   return 0;
 }
-

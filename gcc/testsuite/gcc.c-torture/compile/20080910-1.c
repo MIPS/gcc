@@ -32,7 +32,7 @@ yy_find_action:
       case 2:
 	*yy_cp = 1;
 	return 265;
-      case 24: 
+      case 24:
       case 25:
 	addlit(orafce_sql_yytext, orafce_sql_yyleng);
       case 26:

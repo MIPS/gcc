@@ -14,4 +14,3 @@ test1 (vector signed int x)
 }
 
 /* { dg-final { scan-assembler-times "vnegw" 1 } } */
-

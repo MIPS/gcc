@@ -18,4 +18,3 @@ outer_func (int init)	/* { dg-error "'-mno-pointers-to-nested-functions' option"
   ext_call (inner);
   return value;
 }
-

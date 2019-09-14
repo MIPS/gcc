@@ -17,7 +17,7 @@ int foo(int x)
     default:
       break;
   }
-  
+
   return (int)tmp;
 }
 
@@ -27,4 +27,3 @@ int main()
     abort ();
   return 0;
 }
-

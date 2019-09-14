@@ -9,4 +9,3 @@ float foo (float x)
 {
   return sqrtf (x);
 }
-

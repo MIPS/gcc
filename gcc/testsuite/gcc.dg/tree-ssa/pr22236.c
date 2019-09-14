@@ -4,7 +4,7 @@
 /* PR tree-optimization/22236
 
     Avoid conversion of (signed char) {(uchar)1, +, (uchar)1}_x when
-    it is not possible to prove that the scev does not wrap.  
+    it is not possible to prove that the scev does not wrap.
 
     In this PR, a sequence 1, 2, ..., 255 has to be converted to
     signed char, but this would wrap: 1, 2, ..., 127, -128, ...  The
@@ -30,4 +30,3 @@ int main()
 
   return 0;
 }
-

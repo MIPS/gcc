@@ -18,7 +18,7 @@ static __m128d
 __attribute__((noinline, unused))
 test (__m128d s1, __m128d s2)
 {
-  return _mm_or_pd (s1, s2); 
+  return _mm_or_pd (s1, s2);
 }
 
 static void
@@ -39,7 +39,7 @@ TEST (void)
   _mm_storeu_pd (d2.d, s2.x);
 
   u.x = test (s1.x, s2.x);
-  
+
   e.ll[0] = d1.ll[0] | d2.ll[0];
   e.ll[1] = d1.ll[1] | d2.ll[1];
 

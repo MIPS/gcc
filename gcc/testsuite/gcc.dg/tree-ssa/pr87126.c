@@ -4,7 +4,7 @@
 int a, *b;
 
 void f ()
-{ 
+{
   int d = 0, e = d;
   while (a++)
     ;

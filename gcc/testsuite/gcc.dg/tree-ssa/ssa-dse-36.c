@@ -62,4 +62,3 @@ baz2 ()
 }
 /* { dg-final { scan-tree-dump-times "Deleted redundant call" 3 "dse1" } } */
 /* { dg-final { scan-tree-dump-times "Deleted redundant store" 3 "dse1" } } */
-

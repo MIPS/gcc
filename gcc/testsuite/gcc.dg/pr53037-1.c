@@ -72,7 +72,7 @@ union bar2
 union bar3
 {
   int i1;
-  int x __attribute__((warn_if_not_aligned(16))); 
+  int x __attribute__((warn_if_not_aligned(16)));
 }; /* { dg-warning "alignment 4 of 'union bar3' is less than 16" } */
 
 union bar4

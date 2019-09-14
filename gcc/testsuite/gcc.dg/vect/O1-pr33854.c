@@ -17,5 +17,3 @@ void uniform_correlation_matrix (VMatrix * v)
   for (i = 0; i < m; i++)
     xbar[i] /= m;
 }
-
-

@@ -43,4 +43,3 @@ func_96 (int8_t p_97, uint32_t p_98, uint32_t p_99)
     }
   return 0;
 }
-

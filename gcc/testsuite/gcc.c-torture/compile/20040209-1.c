@@ -6,4 +6,3 @@ int foo(float x)
 {
   return (double)ceilf(x);
 }
-

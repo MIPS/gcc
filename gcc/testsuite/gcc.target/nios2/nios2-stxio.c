@@ -30,4 +30,3 @@ void test_stwio (unsigned int* p1, unsigned int* p2)
   __builtin_stwio (p2 + 511, 5);
   __builtin_stwio (p2 + 512, 5);
 }
-

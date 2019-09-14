@@ -4,7 +4,7 @@
 
 typedef struct t_anim_info {
    char        *new_filename;
-   long         first_frame_nr; 
+   long         first_frame_nr;
 } t_anim_info;
 void gimp_image_delete(int);
 static int
@@ -17,14 +17,14 @@ p_frames_to_multilayer(t_anim_info *ainfo_ptr,
   int  l_new_image_id;
   if(range_from > range_to)
   {
-    l_step  = -1;      
+    l_step  = -1;
     if(range_to < ainfo_ptr->first_frame_nr)
-    { l_begin = ainfo_ptr->first_frame_nr; 
+    { l_begin = ainfo_ptr->first_frame_nr;
      }
   }
   else
   {
-    l_step  = 1;       
+    l_step  = 1;
   }
   l_cur_frame_nr = l_begin;
   while(1)

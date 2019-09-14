@@ -4089,7 +4089,7 @@ output_constant_pool_1 (class constant_descriptor_rtx *desc,
   /* Output the data.
      Pass actual alignment value while emitting string constant to asm code
      as function 'output_constant_pool_1' explicitly passes the alignment as 1
-     assuming that the data is already aligned which prevents the generation 
+     assuming that the data is already aligned which prevents the generation
      of fix-up table entries.  */
   output_constant_pool_2 (desc->mode, x, desc->align);
 
@@ -8030,7 +8030,7 @@ get_elf_initfini_array_priority_section (int priority,
   if (priority != DEFAULT_INIT_PRIORITY)
     {
       char buf[18];
-      sprintf (buf, "%s.%.5u", 
+      sprintf (buf, "%s.%.5u",
 	       constructor_p ? ".init_array" : ".fini_array",
 	       priority);
       sec = get_section (buf, SECTION_WRITE | SECTION_NOTYPE, NULL_TREE);

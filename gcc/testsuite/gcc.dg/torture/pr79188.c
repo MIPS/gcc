@@ -37,8 +37,8 @@ int main ()
 {
   fn1 ();
 
-  if (a != 0) 
+  if (a != 0)
     __builtin_abort ();
 
-  return 0; 
+  return 0;
 }

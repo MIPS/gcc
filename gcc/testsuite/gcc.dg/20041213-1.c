@@ -30,4 +30,3 @@ extern void foo9(); /* { dg-warning "13:conflicting types" } */
 
 int use10() { foo10(); } /* { dg-message "note: previous implicit declaration" } */
 void foo10() {} /* { dg-warning "6:conflicting types" } */
-

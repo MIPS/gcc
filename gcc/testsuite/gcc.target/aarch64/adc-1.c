@@ -15,4 +15,3 @@ void test_di() {
   /* { dg-final { scan-assembler "adc\tx\[0-9\]*, x\[0-9\]*, x\[0-9\]*\n" } } */
   x0 = x1 + x2 + (x3 >= x4);
 }
-

@@ -21,7 +21,7 @@ unsigned char compress(test *in)
    unsigned char p_in, p_out;
    while(1)
    {
-      if (in->state == 1) 
+      if (in->state == 1)
       {
          p_out |= copy(in);
          if (in->state_out < in->num) break;
@@ -29,4 +29,3 @@ unsigned char compress(test *in)
    }
    return p_in || p_out;
 }
-

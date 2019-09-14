@@ -11,4 +11,3 @@ int f(int *r)
 
 
 /* { dg-final { scan-tree-dump-times "return 0;" 1 "optimized" } } */
-

@@ -39,7 +39,7 @@ cb_walk_tree_fn (tree * tp, int * walk_subtrees,
 
   /* Forcibly mark the CALL_EXPR as requiring tail-call optimization.  */
   CALL_EXPR_MUST_TAIL_CALL (call_expr) = 1;
-  
+
   return NULL_TREE;
 }
 

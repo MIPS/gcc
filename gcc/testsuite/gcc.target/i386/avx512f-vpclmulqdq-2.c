@@ -38,7 +38,7 @@ TEST (void)
   int i;
   UNION_TYPE (AVX512F_LEN, i_q) res, src1, src2;
   unsigned long long res_ref[SIZE];
-  unsigned char imm = 1;  
+  unsigned char imm = 1;
 
   for (i = 0; i < SIZE; i++)
     {

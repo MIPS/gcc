@@ -4,7 +4,7 @@
 /* { dg-do compile } */
 /* { dg-options "-O3 -fdump-tree-optimized" } */
 
-int 
+int
 f (int n, int x, int stride)
 {
   int a, x1, x2, x3;

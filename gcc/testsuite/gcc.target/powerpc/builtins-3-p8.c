@@ -234,12 +234,12 @@ test_neg_double (vector double x)
 
 /* { dg-final { scan-assembler-times "vcmpequd" 1 } } */
 /* { dg-final { scan-assembler-times "vpksdss"  1 } } */
-/* { dg-final { scan-assembler-times "vpkudus"  2 } } */  
+/* { dg-final { scan-assembler-times "vpkudus"  2 } } */
 /* { dg-final { scan-assembler-times "vpkuhus"  2 } } */
-/* { dg-final { scan-assembler-times "vpkshss"  1 } } */  
-/* { dg-final { scan-assembler-times "vpkshus"  1 } } */  
-/* { dg-final { scan-assembler-times "vpksdus"  1 } } */  
-/* { dg-final { scan-assembler-times "vpkuwus"  2 } } */  
+/* { dg-final { scan-assembler-times "vpkshss"  1 } } */
+/* { dg-final { scan-assembler-times "vpkshus"  1 } } */
+/* { dg-final { scan-assembler-times "vpksdus"  1 } } */
+/* { dg-final { scan-assembler-times "vpkuwus"  2 } } */
 /* { dg-final { scan-assembler-times "vpopcntb" 2 } } */
 /* { dg-final { scan-assembler-times "vpopcnth" 2 } } */
 /* { dg-final { scan-assembler-times "vpopcntw" 2 } } */
@@ -255,4 +255,3 @@ test_neg_double (vector double x)
 /* { dg-final { scan-assembler-times "vsubuwm"  1 } } */
 /* { dg-final { scan-assembler-times "xvnegsp"  1 } } */
 /* { dg-final { scan-assembler-times "xvnegdp"  1 } } */
-

@@ -8,7 +8,7 @@ int
 foo (void)
 {
   int res;
-  
+
   __builtin_goacc_parlevel_id (GOMP_DIM_GANG);
   __builtin_goacc_parlevel_id (GOMP_DIM_WORKER);
   __builtin_goacc_parlevel_id (GOMP_DIM_VECTOR);

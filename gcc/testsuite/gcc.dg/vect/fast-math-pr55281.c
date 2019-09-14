@@ -26,4 +26,3 @@ foo (int *a, int b, float *d, float *e, int *f)
     for (i = 0; i != 8; ++i)
       f[i] = e[i] + bar (a[i], d[i]);
 }
-

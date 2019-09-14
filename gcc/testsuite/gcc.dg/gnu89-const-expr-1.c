@@ -28,7 +28,7 @@ f (void)
     E8 = __extension__ (1 ? 0 : i++), /* { dg-error "constant expression" } */
     E9 = __extension__ 0,
     /* Conditional expressions with omitted arguments act like the
-       standard type.  */ 
+       standard type.  */
     E10 = (1 ? : i++), /* { dg-error "constant expression" } */
     /* { dg-error "ISO C forbids omitting" "ISO" { target *-*-* } .-1 } */
     E11 = (1 ? : 0) /* { dg-error "ISO C forbids omitting" } */

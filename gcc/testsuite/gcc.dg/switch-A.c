@@ -4,4 +4,3 @@ void foo()
 {
   switch (,) { } /* { dg-error "expected expression before" } */
 }
-

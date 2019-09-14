@@ -21,7 +21,7 @@ sse4a_test_insert (long long in1, long long in2)
   index_length = 0x0000000000000810LL;
   pad = 0x0;
   v1 = _mm_set_epi64x (pad, in1);
-  v2 = _mm_set_epi64x (index_length, in2); 
+  v2 = _mm_set_epi64x (index_length, in2);
   v_out.vec = _mm_insert_si64 (v1, v2);
   return (v_out.i[0]);
 }
@@ -33,15 +33,15 @@ sse4a_test_inserti (long long in1, long long in2)
   long long pad = 0x0;
   LI v_out;
   v1 = _mm_set_epi64x (pad, in1);
-  v2 = _mm_set_epi64x (pad, in2); 
+  v2 = _mm_set_epi64x (pad, in2);
   v_out.vec = _mm_inserti_si64 (v1, v2, (unsigned int) 0x10, (unsigned int) 0x08);
-  return (v_out.i[0]);  
+  return (v_out.i[0]);
 }
 
 static int chk (long long i1, long long i2)
 {
   int n_fails =0;
-  if (i1 != i2) 
+  if (i1 != i2)
     n_fails +=1;
   return n_fails;
 }

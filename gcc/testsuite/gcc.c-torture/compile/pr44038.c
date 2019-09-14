@@ -1,5 +1,5 @@
 struct Ustr {
-    char data[1]; 
+    char data[1];
 };
 int ustr_xi__embed_val_get(char *);
 inline static int ustr_len(struct Ustr *s1)

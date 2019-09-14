@@ -16,33 +16,33 @@
 #define FPTEST0(FN) \
 double test_##FN(void) { return __builtin_##FN(); } \
 float test_##FN##f(void) { return __builtin_##FN##f(); } \
-long double test_##FN##l(void) { return __builtin_##FN##l(); } 
+long double test_##FN##l(void) { return __builtin_##FN##l(); }
 
 /* Test FP functions taking one FP argument.  */
 #define FPTEST1(FN) \
 double test_##FN(double x) { return __builtin_##FN(x); } \
 float test_##FN##f(float x) { return __builtin_##FN##f(x); } \
-long double test_##FN##l(long double x) { return __builtin_##FN##l(x); } 
+long double test_##FN##l(long double x) { return __builtin_##FN##l(x); }
 
 /* Test FP functions taking one argument of a supplied type.  */
 #define FPTEST1ARG(FN, TYPE) \
 double test_##FN(TYPE x) { return __builtin_##FN(x); } \
 float test_##FN##f(TYPE x) { return __builtin_##FN##f(x); } \
-long double test_##FN##l(TYPE x) { return __builtin_##FN##l(x); } 
+long double test_##FN##l(TYPE x) { return __builtin_##FN##l(x); }
 
 /* Test FP functions taking two arguments, the first argument is of a
    supplied type.  */
 #define FPTEST2ARG1(FN, TYPE) \
 double test_##FN(TYPE x, double y) { return __builtin_##FN(x, y); } \
 float test_##FN##f(TYPE x, float y) { return __builtin_##FN##f(x, y); } \
-long double test_##FN##l(TYPE x, long double y) { return __builtin_##FN##l(x, y); } 
+long double test_##FN##l(TYPE x, long double y) { return __builtin_##FN##l(x, y); }
 
 /* Test FP functions taking two arguments, the second argument is of a
    supplied type.  */
 #define FPTEST2ARG2(FN, TYPE) \
 double test_##FN(double x, TYPE y) { return __builtin_##FN(x, y); } \
 float test_##FN##f(float x, TYPE y) { return __builtin_##FN##f(x, y); } \
-long double test_##FN##l(long double x, TYPE y) { return __builtin_##FN##l(x, y); } 
+long double test_##FN##l(long double x, TYPE y) { return __builtin_##FN##l(x, y); }
 
 /* Test FP functions taking two arguments, the second argument is of a
    supplied type.  The function is named reentrant style, meaning "_r"
@@ -50,65 +50,65 @@ long double test_##FN##l(long double x, TYPE y) { return __builtin_##FN##l(x, y)
 #define FPTEST2ARG2_REENT(FN, TYPE) \
 double test_##FN##_r(double x, TYPE y) { return __builtin_##FN##_r(x, y); } \
 float test_##FN##f_r(float x, TYPE y) { return __builtin_##FN##f_r(x, y); } \
-long double test_##FN##l_r(long double x, TYPE y) { return __builtin_##FN##l_r(x, y); } 
+long double test_##FN##l_r(long double x, TYPE y) { return __builtin_##FN##l_r(x, y); }
 
 /* Test FP functions taking two arguments, the second argument is a
    FP pointer.  */
 #define FPTEST2FPP2(FN) \
 double test_##FN(double x, double *y) { return __builtin_##FN(x, y); } \
 float test_##FN##f(float x, float *y) { return __builtin_##FN##f(x, y); } \
-long double test_##FN##l(long double x, long double *y) { return __builtin_##FN##l(x, y); } 
+long double test_##FN##l(long double x, long double *y) { return __builtin_##FN##l(x, y); }
 
 /* Test FP functions taking one FP argument and a supplied return
    type.  */
 #define FPTEST1RET(FN, TYPE) \
 TYPE test_##FN(double x) { return __builtin_##FN(x); } \
 TYPE test_##FN##f(float x) { return __builtin_##FN##f(x); } \
-TYPE test_##FN##l(long double x) { return __builtin_##FN##l(x); } 
+TYPE test_##FN##l(long double x) { return __builtin_##FN##l(x); }
 
 /* Test FP functions taking two FP arguments.  */
 #define FPTEST2(FN) \
 double test_##FN(double x, double y) { return __builtin_##FN(x, y); } \
 float test_##FN##f(float x, float y) { return __builtin_##FN##f(x, y); } \
-long double test_##FN##l(long double x, long double y) { return __builtin_##FN##l(x, y); } 
+long double test_##FN##l(long double x, long double y) { return __builtin_##FN##l(x, y); }
 
 /* Test FP functions taking three FP arguments.  */
 #define FPTEST3(FN) \
 double test_##FN(double x, double y, double z) { return __builtin_##FN(x, y, z); } \
 float test_##FN##f(float x, float y, float z) { return __builtin_##FN##f(x, y, z); } \
-long double test_##FN##l(long double x, long double y, long double z) { return __builtin_##FN##l(x, y, z); } 
+long double test_##FN##l(long double x, long double y, long double z) { return __builtin_##FN##l(x, y, z); }
 
 /* Test FP functions taking three arguments, two FP and the third is
    of a supplied type.  */
 #define FPTEST3ARG3(FN, TYPE) \
 double test_##FN(double x, double y, TYPE z) { return __builtin_##FN(x, y, z); } \
 float test_##FN##f(float x, float y, TYPE z) { return __builtin_##FN##f(x, y, z); } \
-long double test_##FN##l(long double x, long double y, TYPE z) { return __builtin_##FN##l(x, y, z); } 
+long double test_##FN##l(long double x, long double y, TYPE z) { return __builtin_##FN##l(x, y, z); }
 
 /* Test FP functions taking three FP arguments.  The second and third
    are FP pointers.  The return type is void.  */
 #define FPTEST3FPP23VOID(FN) \
 double test_##FN(double x, double *y, double *z) { __builtin_##FN(x, y, z); return *y * *z; } \
 float test_##FN##f(float x, float *y, float *z) { __builtin_##FN##f(x, y, z); return *y * *z; } \
-long double test_##FN##l(long double x, long double *y, long double *z) { __builtin_##FN##l(x, y, z); return *y * *z; } 
+long double test_##FN##l(long double x, long double *y, long double *z) { __builtin_##FN##l(x, y, z); return *y * *z; }
 
 /* Test Complex functions taking one Complex argument.  */
 #define CPTEST1(FN) \
 _Complex double test_##FN(_Complex double x) { return __builtin_##FN(x); } \
 _Complex float test_##FN##f(_Complex float x) { return __builtin_##FN##f(x); } \
-_Complex long double test_##FN##l(_Complex long double x) { return __builtin_##FN##l(x); } 
+_Complex long double test_##FN##l(_Complex long double x) { return __builtin_##FN##l(x); }
 
 /* Test Complex functions taking one Complex argument and returning an FP type.  */
 #define CPTEST1RETFP(FN) \
 double test_##FN(_Complex double x) { return __builtin_##FN(x); } \
 float test_##FN##f(_Complex float x) { return __builtin_##FN##f(x); } \
-long double test_##FN##l(_Complex long double x) { return __builtin_##FN##l(x); } 
+long double test_##FN##l(_Complex long double x) { return __builtin_##FN##l(x); }
 
 /* Test Complex functions taking two Complex arguments.  */
 #define CPTEST2(FN) \
 _Complex double test_##FN(_Complex double x, _Complex double y) { return __builtin_##FN(x,y); } \
 _Complex float test_##FN##f(_Complex float x, _Complex float y) { return __builtin_##FN##f(x,y); } \
-_Complex long double test_##FN##l(_Complex long double x, _Complex long double y) { return __builtin_##FN##l(x,y); } 
+_Complex long double test_##FN##l(_Complex long double x, _Complex long double y) { return __builtin_##FN##l(x,y); }
 
 
 /* Keep this list sorted alphabetically by function name.  */

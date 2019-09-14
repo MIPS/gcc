@@ -78,4 +78,3 @@ test_func_07 (long long a)
      1x mov #0,Rn  */
   return __builtin_bswap64 (a) >> 32;
 }
-

@@ -5,4 +5,3 @@
 #include "../aarch64/mod_256.x"
 
 /* { dg-final { scan-assembler "rsbpl\tr\[0-9\]*" } } */
-

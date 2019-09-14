@@ -18,7 +18,7 @@ static __m128d
 __attribute__((noinline, unused))
 test (__m128i p)
 {
-  return _mm_cvtepi32_pd (p); 
+  return _mm_cvtepi32_pd (p);
 }
 #endif
 
@@ -34,8 +34,8 @@ TEST (void)
 
   u.x = test (s.x);
 
-  e[0] = (double)s.a[0]; 
-  e[1] = (double)s.a[1]; 
+  e[0] = (double)s.a[0];
+  e[1] = (double)s.a[1];
 
   if (check_union128d (u, e))
     {

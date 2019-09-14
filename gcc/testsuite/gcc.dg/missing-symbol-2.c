@@ -39,7 +39,7 @@ int missing_semicolon (void)
             ^
             ;
  }
- ~           
+ ~
    { dg-end-multiline-output "" } */
 
 

@@ -432,7 +432,7 @@ build_data_member_initialization (tree t, vec<constructor_elt, va_gc> **vec)
 }
 
 /* Subroutine of check_constexpr_ctor_body_1 and constexpr_fn_retval.
-   In C++11 mode checks that the TYPE_DECLs in the BIND_EXPR_VARS of a 
+   In C++11 mode checks that the TYPE_DECLs in the BIND_EXPR_VARS of a
    BIND_EXPR conform to 7.1.5/3/4 on typedef and alias declarations.  */
 
 static bool
@@ -759,7 +759,7 @@ static bool
 cx_check_missing_mem_inits (tree ctype, tree body, bool complain)
 {
   unsigned nelts = 0;
-  
+
   if (body)
     {
       if (TREE_CODE (body) != CONSTRUCTOR)
@@ -1466,7 +1466,7 @@ pop_cx_call_context (void)
   call_stack.pop ();
 }
 
-vec<tree> 
+vec<tree>
 cx_error_context (void)
 {
   vec<tree> r = vNULL;
@@ -3937,14 +3937,14 @@ cxx_eval_store_expression (const constexpr_ctx *ctx, tree t,
 	  vec_safe_reserve (CONSTRUCTOR_ELTS (ary_ctor), num_elts);
 	  for (unsigned ix = 0; ix != num_elts; ix++)
 	    {
-	      constructor_elt elt = 
+	      constructor_elt elt =
 		{
 		  build_int_cst (size_type_node, ix),
 		  extract_string_elt (string, chars_per_elt, ix)
 		};
 	      CONSTRUCTOR_ELTS (ary_ctor)->quick_push (elt);
 	    }
-	  
+
 	  *valp = ary_ctor;
 	}
 
@@ -5096,7 +5096,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
     case COMPONENT_REF:
       if (is_overloaded_fn (t))
 	{
-	  /* We can only get here in checking mode via 
+	  /* We can only get here in checking mode via
 	     build_non_dependent_expr,  because any expression that
 	     calls or takes the address of the function will have
 	     pulled a FUNCTION_DECL out of the COMPONENT_REF.  */

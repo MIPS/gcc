@@ -15,7 +15,7 @@ avx_test ()
 {
     union128d u, src;
     union128i_q ctl;
- 
+
     double  s[2] = {9674.67456, 13543.9788};
     long long m[2] = {mask_v(0), mask_v(1)};
     double  e[2];
@@ -30,4 +30,3 @@ avx_test ()
     if (check_union128d (u, e))
       abort ();
 }
-

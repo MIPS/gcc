@@ -8,7 +8,7 @@ void blah (int);
 int foo (int n, int m, int r)
 {
   int flag = 0;
-  int v; 
+  int v;
 
   if (n)
     {
@@ -20,7 +20,7 @@ int foo (int n, int m, int r)
   else bar();
 
   if (flag)
-    blah(v); /* { dg-bogus "uninitialized" "bogus uninitialized var warning" } */ 
+    blah(v); /* { dg-bogus "uninitialized" "bogus uninitialized var warning" } */
 
   return 0;
 }
@@ -28,7 +28,7 @@ int foo (int n, int m, int r)
 int foo_2 (int n, int m, int r)
 {
   int flag = 0;
-  int v; 
+  int v;
 
   if (n)
     {
@@ -40,7 +40,7 @@ int foo_2 (int n, int m, int r)
   else bar();
 
   if (flag)
-    blah(v); /* { dg-bogus "uninitialized" "bogus uninitialized var warning" } */ 
+    blah(v); /* { dg-bogus "uninitialized" "bogus uninitialized var warning" } */
   else
     blah(v); /* { dg-warning "uninitialized" "real uninitialized var warning" } */
 

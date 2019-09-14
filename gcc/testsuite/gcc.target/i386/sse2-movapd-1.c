@@ -18,7 +18,7 @@ static __m128d
 __attribute__((noinline, unused))
 test (double *e)
 {
-  return _mm_load_pd (e); 
+  return _mm_load_pd (e);
 }
 
 static void
@@ -27,7 +27,7 @@ TEST (void)
   union128d u;
   double e[2] __attribute__ ((aligned (16))) = {2134.3343,1234.635654};
 
-  u.x = test (e);   
+  u.x = test (e);
 
   if (check_union128d (u, e))
     abort ();

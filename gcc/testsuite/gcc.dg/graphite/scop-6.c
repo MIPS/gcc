@@ -13,12 +13,12 @@ int toto()
 
       if (i * 2 == i + 8)
         b[i+k] = b[i+k-1] + 2;
-      else 
+      else
         {
         for (k = 1; k < 100; k++)
           b[i+k] = b[i+k-1] + 2;
         }
-      
+
       for (k = 1; k < 100; k++)
         b[i+k] = b[i+k-5] + 2;
     }

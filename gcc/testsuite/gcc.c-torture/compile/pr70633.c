@@ -6,7 +6,7 @@ void foo (V *);
 
 void
 bar (void)
-{ 
+{
   V b = { (long) bar, 0, 0, 0 };
   foo (&b);
 }

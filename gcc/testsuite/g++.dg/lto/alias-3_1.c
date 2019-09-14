@@ -15,4 +15,3 @@ inline_me_late (void)
 {
   bptr->a[i].foo=1;
 }
-

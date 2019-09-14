@@ -19,8 +19,8 @@ struct S_norm
   int   f1: 4;
   short f3: 4;
 } S_norm;
- 
- 
+
+
 int
 main (void)
 {

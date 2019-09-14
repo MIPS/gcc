@@ -53,4 +53,3 @@ struct I {
   char i;
 };
 char testI[sizeof(struct I) == sizeof(struct E) ? 1 : -1];
-

@@ -4,7 +4,7 @@ void g(_Complex float);
 _Complex float f(int data, _Complex float x, _Complex float y)
 {
   _Complex float i, t;
-  if (data) 
+  if (data)
   {
     i = x +  __imag__ y;
     g(i);

@@ -221,7 +221,7 @@ static struct
   { { -2.0,  2.0, -3.0, 3.0 },	{ -1.5,  1.5, -2.55, 3.49 },	vnearbyint_f,	"vnearbyint_f" },
   { {  10.0,  18.0, 30.0, 40.0 }, {  10.1,  17.7, 30.0, 40.01 }, vrint_f,	"vrint_f" },
   { { -11.0, -18.0, -30.0, -40.0 }, { -11.1, -17.7, -30.0, -40.01 }, vrint_f,	"vrint_f" },
-  
+
   { {  2.0,  4.0 },	{  4.0, 16.0 },		vsqrt_f,	"vsqrt_f" },
 };
 
@@ -500,6 +500,6 @@ main (int argc, char *argv[])
   else
     printf ("There were no errors\n");
 #endif
-  
+
   return 0;
 }

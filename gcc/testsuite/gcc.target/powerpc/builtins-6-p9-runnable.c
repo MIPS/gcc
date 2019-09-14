@@ -1204,7 +1204,7 @@ int main() {
   vec_sc_result1 = vec_xl_len (&input_c[0], len);
   input_c = (vector signed char){ 9, 10, 11, 12, 13, 14, 15, 16,
 				  17, 18, 19, 20, 21, 22, 23, 24 };
-  
+
   for (i = 0; i < 16; i++)
     {
       if (vec_sc_result1[i] != vec_sc_expected1[i])
@@ -1304,7 +1304,7 @@ int main() {
 #endif
     }
 
-#if 1  
+#if 1
   len = 16;
   vec_sll_expected1 = (vector signed long long){1000, 1001};
   input_sll = (vector signed long long ){1000, 1001};
@@ -1340,7 +1340,7 @@ int main() {
     }
 #endif
 
-  
+
   len = 16;
   vec_f_expected1 = (vector float){100000.0, 100001.0, 100002.0, 100003.0};
   input_f = (vector float){100000.0, 100001.0, 100002.0, 100003.0};
@@ -1439,30 +1439,3 @@ int main() {
     }
 
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

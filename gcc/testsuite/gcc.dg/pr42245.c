@@ -27,4 +27,3 @@ build_DIS_CON_tree (void)
         }
     }
 }
-

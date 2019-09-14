@@ -5,7 +5,7 @@
 
 #define N 256
 
-void bar (float *pd, float *pa, float *pb, float *pc) 
+void bar (float *pd, float *pa, float *pb, float *pc)
 {
   int i;
 

@@ -22,7 +22,7 @@ float r[N];
 
 static void
 TEST (void)
-{  
+{
   int i;
 
   for (i = 0; i < N; i++)
@@ -33,4 +33,3 @@ TEST (void)
     if (r[i] != copysignf (a[i], b[i]))
       abort ();
 }
-

@@ -3,9 +3,9 @@
 /* { dg-options "-Wsequence-point" } */
 
 struct s { struct s *nxt; int v; } q;
-    
+
 int x[10];
-    
+
 int foo(int *p)
 {
   int i = 0;

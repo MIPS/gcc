@@ -84,7 +84,7 @@ main (void)
 /* At high levels of optimization gcc will probably fold func1 and func4 into
    main, but this does not really matter.  Those two functions are just there
    for a sanity check at low levels of optimization.  */
-			      
+
 uint32 func1 (uint32 a, uint32 b) { return a / b; }
 uint32 func2 (uint32 a, uint32 b) { return __mspabi_divul (a, b); }
 uint32 func3 (uint32 a, uint32 b) { return __mspabi_divlu (a, b); }
@@ -102,7 +102,7 @@ func6 (uint64 a, uint64 b)
      is not the correct spelling and so it will use the normal function
      calling convention - first argument in R12::R15, second argument on the
      stack.
-     
+
      The stub function for __mspabi_divllu in libgcc just does a BRAnch to
      the real __mspabi_divull function - it does *not* rearrange the arguments
      or pull anything off the stack.  This is correct, because in real code

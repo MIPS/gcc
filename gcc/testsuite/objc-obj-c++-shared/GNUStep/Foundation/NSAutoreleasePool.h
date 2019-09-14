@@ -3,24 +3,24 @@
 
    Written by:  Andrew Kachites McCallum <mccallum@gnu.ai.mit.edu>
    Date: 1995
-   
+
    This file is part of the GNUstep Base Library.
 
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Lesser General Public
    License as published by the Free Software Foundation; either
    version 2 of the License, or (at your option) any later version.
-   
+
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
    Library General Public License for more details.
-   
+
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
    Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
    Boston, MA 02111 USA.
-   */ 
+   */
 
 #ifndef __NSAutoreleasePool_h_GNUSTEP_BASE_INCLUDE
 #define __NSAutoreleasePool_h_GNUSTEP_BASE_INCLUDE
@@ -76,7 +76,7 @@ memset (TV, 0, sizeof (__typeof__ (*TV)))
 
 
 /**
- *  Each pool holds its objects-to-be-released in a linked-list of 
+ *  Each pool holds its objects-to-be-released in a linked-list of
     these structures.
     <example>
 {
@@ -134,9 +134,9 @@ typedef struct autorelease_array_list
  * <p>
  *   This mechanism provides a simple but controllable and reasonably
  *   efficient way of managing temporary objects.  An object can be
- *   autoreleased and then passed around and used until the topmost 
+ *   autoreleased and then passed around and used until the topmost
  *   pool in the stack is destroyed.
- * </p>   
+ * </p>
  * <p>
  *   Most methods return objects which are either owned by autorelease
  *   pools or by the receiver of the method, so the lifetime of the
@@ -179,7 +179,7 @@ typedef struct autorelease_array_list
  * </deflist>
  */
 NS_AUTOMATED_REFCOUNT_UNAVAILABLE
-@interface NSAutoreleasePool : NSObject 
+@interface NSAutoreleasePool : NSObject
 {
 #if	GS_EXPOSE(NSAutoreleasePool) && !__has_feature(objc_arc)
   /* For re-setting the current pool when we are dealloc'ed. */
@@ -264,7 +264,7 @@ NS_AUTOMATED_REFCOUNT_UNAVAILABLE
  */
 + (unsigned) autoreleaseCountForObject: (id)anObject;
 
-/** 
+/**
  * Return the currently active autorelease pool.
  */
 + (id) currentPool;

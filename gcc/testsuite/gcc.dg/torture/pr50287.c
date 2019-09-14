@@ -106,4 +106,3 @@ bar_2 (int * interp, Pcc_cell *c, struct PVC pvc)
   c->bla += 2;
   mark_cell(interp, c, pvc);
 }
-

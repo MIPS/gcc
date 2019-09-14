@@ -1,4 +1,4 @@
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-O2 -w -fdump-tree-dom2-details" } */
 
 typedef struct rtx_def *rtx;

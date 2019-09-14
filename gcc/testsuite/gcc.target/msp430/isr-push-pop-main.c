@@ -68,8 +68,8 @@ callee (void)
      registers.  */
   TRASH_REGS
 }
-int 
-#ifdef __MSP430X_LARGE__ 
+int
+#ifdef __MSP430X_LARGE__
 __attribute__((lower))
 #endif
 main (void)
@@ -108,7 +108,7 @@ main (void)
 
   /* CHECK_REGS will branch here if a register holds the wrong value.  */
   __asm__ ("ABORT:");
-#ifdef __MSP430X_LARGE__ 
+#ifdef __MSP430X_LARGE__
   __asm__ ("calla #abort");
 #else
   __asm__ ("call #abort");
@@ -117,4 +117,3 @@ main (void)
   __asm__ ("FINISH:");
   return 0;
 }
-

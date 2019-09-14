@@ -14,4 +14,3 @@ int test_assembly (int hi, int lo)
       : "r" (hi),  "r" (lo));
    return res;
 }
-

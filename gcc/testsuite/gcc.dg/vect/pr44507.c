@@ -20,11 +20,11 @@ int seeIf256ByteArrayIsConstant(
           andVal = andVal & curVal;
         }
 
-      if (!((orVal == andVal) 
+      if (!((orVal == andVal)
             && ((orVal >> 8) == (andVal & 0x00FFFFFF))))
         abort ();
     }
-     
+
   return 0;
 }
 
@@ -49,5 +49,3 @@ int main(int argc, char** argv)
 
   return seeIf256ByteArrayIsConstant(&array1[0]);
 }
-
-

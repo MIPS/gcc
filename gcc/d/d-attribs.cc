@@ -832,4 +832,3 @@ d_handle_weak_attribute (tree *node, tree name,
 
   return NULL_TREE;
 }
-

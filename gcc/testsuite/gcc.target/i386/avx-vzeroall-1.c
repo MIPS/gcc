@@ -14,7 +14,7 @@ avx_test (void)
 #else
   char reg_save[8][32];
   char d[8][32];
-#endif  
+#endif
 
   int s[8] = {1, 2, 3, 4, 5, 6, 7, 8};
 
@@ -23,7 +23,7 @@ avx_test (void)
 
   src = _mm256_loadu_si256 ((__m256i*) s);
 
-  _mm256_zeroall (); 
+  _mm256_zeroall ();
 
   __asm__ __volatile__ ("vmovdqu %%ymm0,%0":"=m"(reg_save[0]));
   __asm__ __volatile__ ("vmovdqu %%ymm1,%0":"=m"(reg_save[1]));

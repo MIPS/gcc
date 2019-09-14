@@ -15,7 +15,7 @@ signed char Y[N] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__)));
 
 /* char->short->int dot product.
    The dot-product pattern should be detected.
-   Vectorizable on vect_sdot_qi targets (targets that support dot-product of 
+   Vectorizable on vect_sdot_qi targets (targets that support dot-product of
    signed chars).
 
    In the future could also be vectorized as widening-mult + widening-summation,
@@ -57,4 +57,3 @@ int main (void)
 /* { dg-final { scan-tree-dump-times "vect_recog_widen_mult_pattern: detected" 1 "vect" } } */
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target vect_sdot_qi } } } */
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target { vect_widen_mult_qi_to_hi && vect_widen_sum_hi_to_si } } } } */
-

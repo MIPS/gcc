@@ -32,7 +32,7 @@ TEST (void)
 
   /* input unsigned short {1000, 45536, 45, 65535}.  */
   s1.as_m64 = _mm_setr_pi16 (1000, -20000, 45, -1);
-   
+
   u.x = test (s1.as_m64);
 
   if (check_union128 (u, e.a))

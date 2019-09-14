@@ -35,4 +35,3 @@ int main(void)
     test3();
     return 0;
 }
-

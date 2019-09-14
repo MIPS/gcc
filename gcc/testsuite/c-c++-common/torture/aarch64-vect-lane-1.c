@@ -5,4 +5,3 @@ search_line_fast (uint32x2_t t)
 {
   return vget_lane_u32 (t, 0);
 }
-

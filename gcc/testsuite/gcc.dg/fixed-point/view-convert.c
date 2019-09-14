@@ -117,6 +117,6 @@ int main()
   test16();
   test32();
   test64();
-  
+
   return 0;
 }

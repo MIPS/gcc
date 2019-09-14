@@ -20,4 +20,3 @@ test4(void)
   if (iftemp0)
     abort();
 }
-

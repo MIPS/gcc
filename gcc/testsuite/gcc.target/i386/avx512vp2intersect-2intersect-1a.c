@@ -15,4 +15,3 @@ int foo ()
   _mm512_2intersect_epi64 (a1, b1, &u8, &m8);
   _mm512_2intersect_epi32 (a2, b2, &u16, &m16);
 }
-

@@ -3,7 +3,7 @@
 int a, b, c, *d, e;
 
 static int
-fn1 () 
+fn1 ()
 {
   if (a)
     goto l1;
@@ -15,12 +15,12 @@ l2: while (b)
 	goto l2;
 l1:;
       }
-    return 0; 
+    return 0;
 }
 
 int
 main ()
 {
   fn1 ();
-  return 0; 
+  return 0;
 }

@@ -10,4 +10,3 @@ void bar(int j)
 
   if (k) foo();
 }
-

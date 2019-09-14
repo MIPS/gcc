@@ -15,26 +15,26 @@ int Labels()
     label31:
 
     __asm__ goto ("" /* Works. */
-        : /* no outputs */ 
-        : /* no inputs */ 
+        : /* no outputs */
+        : /* no inputs */
         : /* no clobbers */
-        : label01, label02, label03, label04, label05, 
-          label06, label07, label08, label09, label10, 
-          label11, label12, label13, label14, label15, 
-          label16, label17, label18, label19, label20, 
-          label21, label22, label23, label24, label25, 
+        : label01, label02, label03, label04, label05,
+          label06, label07, label08, label09, label10,
+          label11, label12, label13, label14, label15,
+          label16, label17, label18, label19, label20,
+          label21, label22, label23, label24, label25,
           label26, label27, label28, label29, label30);
 
     __asm__ goto ("" /* { dg-error "more than 30 operands" } */
-        : /* no outputs */ 
-        : /* no inputs */ 
+        : /* no outputs */
+        : /* no inputs */
         : /* no clobbers */
-        : label01, label02, label03, label04, label05, 
-          label06, label07, label08, label09, label10, 
-          label11, label12, label13, label14, label15, 
-          label16, label17, label18, label19, label20, 
-          label21, label22, label23, label24, label25, 
-          label26, label27, label28, label29, label30, 
+        : label01, label02, label03, label04, label05,
+          label06, label07, label08, label09, label10,
+          label11, label12, label13, label14, label15,
+          label16, label17, label18, label19, label20,
+          label21, label22, label23, label24, label25,
+          label26, label27, label28, label29, label30,
           label31);
 
     return 0;
@@ -62,10 +62,10 @@ int Labels_and_Inputs()
 
     __asm__ goto ("" /* Works. */
       : /* no outputs */
-      : "m" (b01), "m" (b02), "m" (b03), "m" (b04), "m" (b05), 
-        "m" (b06), "m" (b07), "m" (b08), "m" (b09), "m" (b10), 
+      : "m" (b01), "m" (b02), "m" (b03), "m" (b04), "m" (b05),
+        "m" (b06), "m" (b07), "m" (b08), "m" (b09), "m" (b10),
         "m" (b11), "m" (b12), "m" (b13), "m" (b14), "m" (b15),
-        "m" (b16), "m" (b17), "m" (b18), "m" (b19), "m" (b20), 
+        "m" (b16), "m" (b17), "m" (b18), "m" (b19), "m" (b20),
         "m" (b21), "m" (b22), "m" (b23), "m" (b24), "m" (b25),
         "m" (b26), "m" (b27), "m" (b28), "m" (b29)
       : /* no clobbers */
@@ -73,10 +73,10 @@ int Labels_and_Inputs()
 
     __asm__ goto ("" /* { dg-error "more than 30 operands" } */
       : /* no outputs */
-      : "m" (b01), "m" (b02), "m" (b03), "m" (b04), "m" (b05), 
-        "m" (b06), "m" (b07), "m" (b08), "m" (b09), "m" (b10), 
+      : "m" (b01), "m" (b02), "m" (b03), "m" (b04), "m" (b05),
+        "m" (b06), "m" (b07), "m" (b08), "m" (b09), "m" (b10),
         "m" (b11), "m" (b12), "m" (b13), "m" (b14), "m" (b15),
-        "m" (b16), "m" (b17), "m" (b18), "m" (b19), "m" (b20), 
+        "m" (b16), "m" (b17), "m" (b18), "m" (b19), "m" (b20),
         "m" (b21), "m" (b22), "m" (b23), "m" (b24), "m" (b25),
         "m" (b26), "m" (b27), "m" (b28), "m" (b29), "m" (b30)
       : /* no clobbers */
@@ -97,7 +97,7 @@ int Outputs()
          : "=m" (b01),  "=m" (b02),  "=m" (b03),  "=m" (b04), "=m" (b05),
            "=m" (b06),  "=m" (b07),  "=m" (b08),  "=m" (b09), "=m" (b10),
            "=m" (b11),  "=m" (b12),  "=m" (b13),  "=m" (b14), "=m" (b15),
-           "=m" (b16),  "=m" (b17),  "=m" (b18),  "=m" (b19), "=m" (b20), 
+           "=m" (b16),  "=m" (b17),  "=m" (b18),  "=m" (b19), "=m" (b20),
            "=m" (b21),  "=m" (b22),  "=m" (b23),  "=m" (b24), "=m" (b25),
            "=m" (b26),  "=m" (b27),  "=m" (b28),  "=m" (b29), "=m" (b30));
 
@@ -105,7 +105,7 @@ int Outputs()
          : "=m" (b01),  "=m" (b02),  "=m" (b03),  "=m" (b04), "=m" (b05),
            "=m" (b06),  "=m" (b07),  "=m" (b08),  "=m" (b09), "=m" (b10),
            "=m" (b11),  "=m" (b12),  "=m" (b13),  "=m" (b14), "=m" (b15),
-           "=m" (b16),  "=m" (b17),  "=m" (b18),  "=m" (b19), "=m" (b20), 
+           "=m" (b16),  "=m" (b17),  "=m" (b18),  "=m" (b19), "=m" (b20),
            "=m" (b21),  "=m" (b22),  "=m" (b23),  "=m" (b24), "=m" (b25),
            "=m" (b26),  "=m" (b27),  "=m" (b28),  "=m" (b29), "=m" (b30),
            "=m" (b31));
@@ -127,19 +127,19 @@ int Inputs()
 
     __asm__ volatile ("" /* Works. */
       : /* no outputs */
-      : "m" (b01), "m" (b02), "m" (b03), "m" (b04), "m" (b05), 
-        "m" (b06), "m" (b07), "m" (b08), "m" (b09), "m" (b10), 
+      : "m" (b01), "m" (b02), "m" (b03), "m" (b04), "m" (b05),
+        "m" (b06), "m" (b07), "m" (b08), "m" (b09), "m" (b10),
         "m" (b11), "m" (b12), "m" (b13), "m" (b14), "m" (b15),
-        "m" (b16), "m" (b17), "m" (b18), "m" (b19), "m" (b20), 
+        "m" (b16), "m" (b17), "m" (b18), "m" (b19), "m" (b20),
         "m" (b21), "m" (b22), "m" (b23), "m" (b24), "m" (b25),
         "m" (b26), "m" (b27), "m" (b28), "m" (b29), "m" (b30));
 
     __asm__ volatile ("" /* { dg-error "more than 30 operands" } */
       : /* no outputs */
-      : "m" (b01), "m" (b02), "m" (b03), "m" (b04), "m" (b05), 
-        "m" (b06), "m" (b07), "m" (b08), "m" (b09), "m" (b10), 
+      : "m" (b01), "m" (b02), "m" (b03), "m" (b04), "m" (b05),
+        "m" (b06), "m" (b07), "m" (b08), "m" (b09), "m" (b10),
         "m" (b11), "m" (b12), "m" (b13), "m" (b14), "m" (b15),
-        "m" (b16), "m" (b17), "m" (b18), "m" (b19), "m" (b20), 
+        "m" (b16), "m" (b17), "m" (b18), "m" (b19), "m" (b20),
         "m" (b21), "m" (b22), "m" (b23), "m" (b24), "m" (b25),
         "m" (b26), "m" (b27), "m" (b28), "m" (b29), "m" (b30),
         "m" (b31));

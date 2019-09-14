@@ -14,4 +14,3 @@ void foo(unsigned *bar, unsigned n)
     for (j = i - 1; j > 0; j--)
       bar[j - 1] = baz[j - 1];
 }
-

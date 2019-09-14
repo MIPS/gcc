@@ -12,4 +12,3 @@ void gftp_config_parse_args (int numargs, char **first, ...)
     }
   __builtin_va_end(argp);
 }
-

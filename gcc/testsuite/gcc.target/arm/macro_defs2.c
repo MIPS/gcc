@@ -10,5 +10,3 @@
 #ifndef __ARM_FP
 #error  __ARM_FP is not defined but should be
 #endif
-
-

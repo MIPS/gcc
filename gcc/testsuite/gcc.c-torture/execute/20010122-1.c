@@ -39,7 +39,7 @@ void NOINLINE *test3 (void)
 void NOINLINE *test4 (void)
 {
   char * save = (char*) alloca (4);
-  
+
   return test4a (save);
 }
 
@@ -53,7 +53,7 @@ void *NOINLINE test4a (char * p)
 void NOINLINE *test5 (void)
 {
   char * save = (char*) alloca (4);
-  
+
   return test5a (save);
 }
 
@@ -68,7 +68,7 @@ void NOINLINE *test5a (char * p)
 void NOINLINE *test6 (void)
 {
   char * save = (char*) alloca (4);
-  
+
   return test6a (save);
 }
 
@@ -116,7 +116,7 @@ void NOINLINE test9 (void)
 void NOINLINE test10 (void)
 {
   char * save = (char*) alloca (4);
-  
+
   test10a (save);
 }
 
@@ -129,7 +129,7 @@ void NOINLINE test10a (char * p)
 void NOINLINE test11 (void)
 {
   char * save = (char*) alloca (4);
-  
+
   test11a (save);
 }
 
@@ -143,7 +143,7 @@ void NOINLINE test11a (char * p)
 void NOINLINE test12 (void)
 {
   char * save = (char*) alloca (4);
-  
+
   test12a (save);
 }
 
@@ -157,7 +157,7 @@ void NOINLINE test12a (char * p)
 char * dummy (void)
 {
   char * save = (char*) alloca (4);
-  
+
   return save;
 }
 

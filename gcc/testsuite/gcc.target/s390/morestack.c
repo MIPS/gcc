@@ -117,7 +117,7 @@ asm(
   "jne testerr\n"
   /* Return.  */
   "lmg %r6, %r15, 0xd8(%r15)\n"
-  "br %r14\n" 
+  "br %r14\n"
 
   /* Parameters block.  */
   ".section .data\n"
@@ -230,7 +230,7 @@ asm(
   "jne testerr\n"
   /* Return.  */
   "lm %r6, %r15, 0x80(%r15)\n"
-  "br %r14\n" 
+  "br %r14\n"
 
   /* Parameters block.  */
   ".section .data\n"

@@ -21,7 +21,7 @@ __attribute__((noinline, unused))
 test (__m64 *p, __m128 a)
 {
   __asm("" : "+v"(a));
-  return _mm_storeh_pi (p, a); 
+  return _mm_storeh_pi (p, a);
 }
 
 static void
@@ -32,7 +32,7 @@ TEST (void)
   float d[2];
 
   s1.x = _mm_set_ps (5.13, 6.12, 7.11, 8.9);
- 
+
   test ((__m64 *)d, s1.x);
 
   e[0] = s1.a[2];

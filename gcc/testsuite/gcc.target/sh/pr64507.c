@@ -1,4 +1,4 @@
-/* Check that the __builtin_strnlen returns 0 with with 
+/* Check that the __builtin_strnlen returns 0 with with
    non-constant 0 length.  */
 /* { dg-do run } */
 /* { dg-options "-O2" } */

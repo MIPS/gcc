@@ -13,8 +13,7 @@
 // { dg-warning "converted" } Another ??/
    Test
 
-// { dg-warning "converted" } And another with space after ??/  
+// { dg-warning "converted" } And another with space after ??/
    the escape
 
 // { dg-bogus "converted" } A tricky one ??/\
-

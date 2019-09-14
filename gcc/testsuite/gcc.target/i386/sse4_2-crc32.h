@@ -21,7 +21,7 @@ shift_mem_by1 (unsigned char* buf, int len)
 }
 
 static void
-do_div (unsigned char* buf, unsigned char* div) 
+do_div (unsigned char* buf, unsigned char* div)
 {
   int i;
   for (i = 0; i < 5; i++)
@@ -54,7 +54,7 @@ calc_rem (unsigned char* buf, int len)
 
   for (i = 0; i < len - 32; i++)
     {
-      if ((div_buf[4] & 0x80)) 
+      if ((div_buf[4] & 0x80))
 	do_div (div_buf, divisor.c);
       shift_mem_by1 (divident, disp);
    }
@@ -63,7 +63,7 @@ calc_rem (unsigned char* buf, int len)
   return ret.i;
 }
 
-static void 
+static void
 reverse_bits (unsigned char *src, int len)
 {
   unsigned char buf[MAX_BUF];
@@ -84,23 +84,23 @@ reverse_bits (unsigned char *src, int len)
     src[i] = buf[i];
 }
 
-static void 
+static void
 shift_mem ( unsigned char *src, unsigned char *dst, int len, int shft)
 {
   int disp = shft / 8;
   int i;
-   
+
   memset (dst, 0, len + disp);
   for (i = 0; i < len; i++)
     dst[i + disp] = src[i];
 }
 
-static void 
+static void
 xor_mem (unsigned char *src, unsigned char *dst, int len)
 {
   int disp = len / 8;
   int i;
-   
+
   for (i = 0; i < disp; i++)
     dst[i] ^= src[i];
 }
@@ -122,7 +122,7 @@ compute_crc32 (DST_T crc, SRC_T inp)
   xor_sz = 32 + crc_sh;
   memcpy (crcbuf, &crc, sizeof (DST_T));
   memcpy (inbuf, &inp, sizeof (SRC_T));
-   
+
   reverse_bits (crcbuf, 4);
   reverse_bits (inbuf, sizeof (SRC_T));
 
@@ -132,7 +132,7 @@ compute_crc32 (DST_T crc, SRC_T inp)
   xor_mem (tmp1, tmp2, xor_sz);
 
   ret.i = calc_rem (tmp2, xor_sz);
-  
+
   reverse_bits (ret.c, 4);
 
   return (DST_T)ret.i;
@@ -143,7 +143,7 @@ compute_crc32 (DST_T crc, SRC_T inp)
 static void
 sse4_2_test (void)
 {
-  DST_T dst[NUM]; 
+  DST_T dst[NUM];
   SRC_T src[NUM];
   int i;
 

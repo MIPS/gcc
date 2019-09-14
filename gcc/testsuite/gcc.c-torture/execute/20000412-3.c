@@ -29,4 +29,3 @@ int f(X x, X y)
 
   return x.x[0] + y.x[0];
 }
-

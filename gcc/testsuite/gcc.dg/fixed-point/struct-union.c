@@ -60,4 +60,3 @@ void f()
   sv.f = 0.06r;
   sv.lf = 0.07lr;
 }
-

@@ -27,4 +27,3 @@ __seg_fs int val3() {return val;} /* { dg-warning "qualifiers ignored" } */
  __seg_fs int val3() {return val;}
  ^~~~~~~~
 { dg-end-multiline-output "" } */
-

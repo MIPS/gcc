@@ -1,7 +1,7 @@
 #include "harness.h"
 
 vector unsigned int
-f(vector unsigned int a, vector unsigned int b) 
+f(vector unsigned int a, vector unsigned int b)
 {
   return vec_vaddcuw(vec_vaddcuw(a,b),b);
 }

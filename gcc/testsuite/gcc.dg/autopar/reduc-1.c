@@ -58,7 +58,7 @@ unsigned int uc[N];
 }
 
 int main (void)
-{ 
+{
   init_arrays ();
   main1 (2000, 2000, 1);
   main1 (0, 1599, 0);
@@ -68,4 +68,3 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "Detected reduction" 3 "parloops2" } } */
 /* { dg-final { scan-tree-dump-times "SUCCESS: may be parallelized" 4 "parloops2" } } */
-

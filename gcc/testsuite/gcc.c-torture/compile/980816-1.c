@@ -10,23 +10,23 @@ extern WidgetClass commandWidgetClass;
 
 typedef void (*XtCallbackProc)(
     Widget 		 ,
-    XtPointer 		 ,	 
-    XtPointer 		 	 
+    XtPointer 		 ,
+    XtPointer
 );
 
 extern const  char XtStrings[];
 
 
-typedef struct						 
+typedef struct
 {
-	char			*Name,			 
-				*Label;			 
-	XtCallbackProc		Callback;		 
-	XtPointer		ClientData;		 
-	Widget			W;				 
+	char			*Name,
+				*Label;
+	XtCallbackProc		Callback;
+	XtPointer		ClientData;
+	Widget			W;
 } DialogButtonType, *DialogButtonTypePtr;
 
- 
+
 Widget AddButtons(Widget Parent, Widget Top,
 	DialogButtonTypePtr Buttons, size_t Count)
 {
@@ -50,4 +50,3 @@ Widget AddButtons(Widget Parent, Widget Top,
 	}
 	return(Buttons[Count-1].W);
 }
-

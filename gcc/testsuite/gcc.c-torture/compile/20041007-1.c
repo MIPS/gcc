@@ -5,7 +5,7 @@
 int bar(void);
 void baz (void)  __attribute__ ((noreturn)); /* noreturn is required */
 
-void foo (void) 
+void foo (void)
 {
   while (bar ()) {
     switch (1) {
@@ -13,4 +13,4 @@ void foo (void)
       baz ();
     }
   }
-} 
+}

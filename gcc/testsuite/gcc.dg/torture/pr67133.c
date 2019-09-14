@@ -8,7 +8,7 @@ int a, *b, c;
 
 static int
 fn1 ()
-{ 
+{
   if (a)
     return (a = 0);
   for (; a; )
@@ -18,7 +18,7 @@ fn1 ()
 
 static int
 fn2 (int p)
-{ 
+{
   fn1 ();
   c = 0;
   if (p)
@@ -29,6 +29,6 @@ fn2 (int p)
 
 void
 fn3 ()
-{ 
+{
   fn2 (0);
 }

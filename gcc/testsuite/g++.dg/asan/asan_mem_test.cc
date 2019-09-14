@@ -234,6 +234,3 @@ TEST(AddressSanitizer, MemCmpOOBTest) {
   free(s1);
   free(s2);
 }
-
-
-

@@ -23,11 +23,10 @@
 unsigned foo(int x[64], int y[64])
 {
   C4096(x,y);
-  
+
   return 0x01234567;
  gt:
   return 0x12345678;
  lt:
   return 0xF0123456;
 }
-

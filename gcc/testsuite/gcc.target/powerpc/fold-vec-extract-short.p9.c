@@ -51,4 +51,3 @@ testui_var (vector unsigned short vus2, signed int si)
 {
 return vec_extract (vus2, si);
 }
-

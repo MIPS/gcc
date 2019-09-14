@@ -10,4 +10,3 @@ rdseed_test (unsigned long long *p)
     volatile int r;
     r = _rdseed64_step (p);
 }
-

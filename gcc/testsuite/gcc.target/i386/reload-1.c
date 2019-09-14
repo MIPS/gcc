@@ -62,7 +62,7 @@ long bar (const buf *src, const buf *dest, float g, unsigned int flags)
     __m128i b0, b1, b2, b3;
     b0 = _mm_packs_epi32 (_mm_packs_epi32 (b0, b1), _mm_packs_epi32 (b2, b3));
     b1 = _mm_srli_epi64 (b0, 32);
-    unsigned int i0 = _mm_cvtsi128_si32 (b0); 
+    unsigned int i0 = _mm_cvtsi128_si32 (b0);
     unsigned int i2 = _mm_cvtsi128_si32 (b1);
     v0 -= _mm_loadh_pd (_mm_load_sd (r + (i0 & 0xff)), r + (i0 >> 16));
     v1 -= _mm_loadh_pd (_mm_load_sd (r + (i2 & 0xff)), r + (i2 >> 16));

@@ -5,4 +5,3 @@ struct Bar foo(struct Bar **p)
 {
   return foo((struct Bar**)*p);
 }
-

@@ -10,4 +10,3 @@
 /* { dg-warning "trigraph" "" { target *-*-* } 2 } */
 /* { dg-warning "trigraph" "" { target *-*-* } 3 } */
 /* { dg-warning "trigraph" "" { target *-*-* } 4 } */
-

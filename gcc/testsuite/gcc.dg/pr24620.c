@@ -13,7 +13,7 @@ struct rgba
 
 void g (struct rgba);
 
-void f (void) 
+void f (void)
 {
   struct rgba x;
 
@@ -24,4 +24,3 @@ void f (void)
 
   g (x);
 }
-

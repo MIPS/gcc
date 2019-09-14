@@ -2,14 +2,14 @@
 /* { dg-do run } */
 
 static void
- __attribute__((__noinline__)) 
+ __attribute__((__noinline__))
 foo (void)
 {
   __asm__ ("");
 }
 
 static void
-__attribute__((__noinline__)) 
+__attribute__((__noinline__))
 __attribute__((target("thumb")))
 bar (void)
 {

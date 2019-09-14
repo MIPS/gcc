@@ -65,7 +65,7 @@ tst_vrev322_u16 (uint16x4_t __a)
 uint16x8_t
 tst_vrev32q2_u16 (uint16x8_t __a)
 {
-  uint16x8_t __mask1 = { 1, 0, 3, 2, 5, 4, 7, 6 }; 
+  uint16x8_t __mask1 = { 1, 0, 3, 2, 5, 4, 7, 6 };
   return __builtin_shuffle (__a, __mask1);
 }
 
@@ -98,7 +98,7 @@ tst_vrev16q2_u8 (uint8x16_t __a)
 }
 
 /* { dg-final {scan-assembler-times "vrev32\.16\\t" 2} }  */
-/* { dg-final {scan-assembler-times "vrev32\.8\\t" 2} }  */ 
+/* { dg-final {scan-assembler-times "vrev32\.8\\t" 2} }  */
 /* { dg-final {scan-assembler-times "vrev16\.8\\t" 2} }  */
 /* { dg-final {scan-assembler-times "vrev64\.8\\t" 2} }  */
 /* { dg-final {scan-assembler-times "vrev64\.32\\t" 2} }  */

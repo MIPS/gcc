@@ -13,4 +13,3 @@ void foo (void)
   if (((struct S *)undeclared)->i); /* { dg-error "undeclared" } */
   /* { dg-message "reported only once" "" { target *-*-* } .-1 } */
 }
-

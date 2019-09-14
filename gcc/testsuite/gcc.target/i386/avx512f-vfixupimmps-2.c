@@ -119,4 +119,3 @@ TEST (void)
 	abort ();
     }
 }
-

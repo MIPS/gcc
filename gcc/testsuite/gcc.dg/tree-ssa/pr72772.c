@@ -18,4 +18,3 @@ int foo (int flag, char *a)
 
 /* Addresses of array reference a[j] and a[j - 1] are SCEVs.  */
 /* { dg-final { scan-tree-dump-not "failed: evolution of base is not affine." "ldist" } } */
-

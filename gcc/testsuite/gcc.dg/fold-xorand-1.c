@@ -25,4 +25,3 @@ int test4(int g, int h)
 /* { dg-final { scan-tree-dump-times "~c \& d" 1 "original" } } */
 /* { dg-final { scan-tree-dump-times "~f \& e" 1 "original" } } */
 /* { dg-final { scan-tree-dump-times "~h \& g" 1 "original" } } */
-

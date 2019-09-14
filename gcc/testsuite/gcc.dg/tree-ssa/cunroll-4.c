@@ -4,7 +4,7 @@ int a[1];
 void test2 (void);
 void
 test(int c)
-{ 
+{
   int i=0,j;
   for (i=0;i<c;i++)
     {

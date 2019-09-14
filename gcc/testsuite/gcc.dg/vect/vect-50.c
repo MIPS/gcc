@@ -6,7 +6,7 @@
 #define N 256
 
 __attribute__ ((noinline))
-void bar (float *pa, float *pb, float *pc) 
+void bar (float *pa, float *pb, float *pc)
 {
   int i;
 
@@ -39,7 +39,7 @@ main1 (int n, float * __restrict__ pa, float * __restrict__ pb, float * __restri
    The loop bound is unknown.
    No aliasing problems.
    vect-44.c is similar to this one with one difference:
-        the loop bound is known.  
+        the loop bound is known.
    vect-51.c is similar to this one with one difference:
         can't prove that pointers don't alias.  */
 

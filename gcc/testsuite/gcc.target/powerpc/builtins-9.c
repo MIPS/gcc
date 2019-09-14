@@ -15,4 +15,3 @@ test_pack_float (vector double x, vector double y)
 
 /* { dg-final { scan-assembler-times "xvcvdpsp"  2 } } */
 /* { dg-final { scan-assembler-times "xxpermdi"  2 } } */
-

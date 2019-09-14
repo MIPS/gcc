@@ -39,7 +39,7 @@ main ()
   sf = d64;
   if (sf != -7.0f)
     link_error ();
-  
+
   df = d64;
   if (df != -7.0)
     link_error ();
@@ -87,7 +87,7 @@ main ()
 
   d32 = df;
   if (d32 != -2.0df)
-    link_error ();  
+    link_error ();
 
   tf = -22.0l;
   d128 = tf;

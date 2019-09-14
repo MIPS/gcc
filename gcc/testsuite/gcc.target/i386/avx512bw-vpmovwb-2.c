@@ -58,8 +58,8 @@ TEST (void)
 
   INTRINSIC (_mask_cvtepi16_storeu_epi8) (res4, mask, src.x);
   CALC (res_ref2, src.a);
-  
+
   MASK_MERGE (i_b) (res_ref2, mask, SIZE);
   if (checkVc (res4, res_ref2, SIZE))
-    abort (); 
+    abort ();
 }

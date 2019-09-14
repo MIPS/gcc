@@ -3,7 +3,7 @@
 
 extern void abort (void);
 
-int b, c, d, f, g, h, i, j[6], *l = &b, *m, n, *o, r; 
+int b, c, d, f, g, h, i, j[6], *l = &b, *m, n, *o, r;
 char k;
 
 static int

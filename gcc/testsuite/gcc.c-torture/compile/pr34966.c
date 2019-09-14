@@ -18,4 +18,3 @@ f(double x)
   double t = atan (x);
   return cos (t) + sin (t);
 }
-

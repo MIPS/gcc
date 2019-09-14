@@ -31,4 +31,3 @@ void f3(int i)
 }
 
 /* { dg-final { scan-assembler-not "push.*lr" } } */
-

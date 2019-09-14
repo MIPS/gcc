@@ -2,7 +2,7 @@
 /* { dg-options "-O -msve-vector-bits=256 --save-temps" } */
 /* { dg-final { check-function-bodies "**" "" } } */
 
-/* Case 5.3: Repeated elements.  */ 
+/* Case 5.3: Repeated elements.  */
 
 #include <stdint.h>
 

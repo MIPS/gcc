@@ -33,7 +33,5 @@ int main (void)
   check_vect ();
   return main1 ();
 }
-     
+
 /* { dg-final { scan-tree-dump-times "vectorized 0 loops" 1 "vect" } } */
-
-

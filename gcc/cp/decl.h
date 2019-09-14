@@ -48,4 +48,3 @@ enum deprecated_states {
 };
 
 extern enum deprecated_states deprecated_state;
-

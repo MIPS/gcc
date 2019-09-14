@@ -76,7 +76,7 @@ static void test2hr (void)
   TEST2 (hr, 2, 0x70, 0x7f);
   TEST2 (hr, 3, 0x78, 0x7f);
   TEST2 (hr, 4, 0x7f, 0x7f);
- 
+
   TEST2 (uhr, 1, 0x7f, 0x80);
   TEST2 (uhr, 2, 0x7f, 0x80);
   TEST2 (uhr, 3, 0x7f, 0x80);
@@ -161,4 +161,3 @@ int main (void)
 
   return 0;
 }
-

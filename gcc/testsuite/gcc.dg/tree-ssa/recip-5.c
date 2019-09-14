@@ -27,4 +27,3 @@ double f1(double y, double z, double w, double j, double k)
 
 /* { dg-final { scan-tree-dump-times " / " 3 "recip" } } */
 /* { dg-final { scan-tree-dump-times " / " 2 "optimized" { xfail *-*-* } } } */
-

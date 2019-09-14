@@ -68,4 +68,3 @@ test_vnmls_1 (float16_t a, float16_t b, float16_t c)
   return vsubh_f16 (vmulh_f16 (a, b), c);
 }
 /* { dg-final { scan-assembler-times {vnmls\.f16\ts[0-9]+, s[0-9]+, s[0-9]+} 1 } } */
-

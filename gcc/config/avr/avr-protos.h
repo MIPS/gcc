@@ -1,5 +1,5 @@
 /* Prototypes for exported functions defined in avr.c
-   
+
    Copyright (C) 2000-2019 Free Software Foundation, Inc.
    Contributed by Denis Chertykov (chertykov@gmail.com)
 

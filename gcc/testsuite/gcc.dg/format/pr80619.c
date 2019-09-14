@@ -86,4 +86,3 @@ void test_suggested_modifier (void)
        %x
        { dg-end-multiline-output "" } */
 }
-

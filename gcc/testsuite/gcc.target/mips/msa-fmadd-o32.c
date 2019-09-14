@@ -98,4 +98,3 @@ fmsub_d_msa (void)
   e = __builtin_msa_fmsub_d (e, f, f);
 }
 /* { dg-final { scan-assembler "fmsub\\\.d\t\\\$w28,\\\$w30,\\\$w30" } }  */
-

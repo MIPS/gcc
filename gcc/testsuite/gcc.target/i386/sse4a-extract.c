@@ -12,21 +12,21 @@ typedef union
   __m128i vec;
 } LI;
 
-static long long 
+static long long
 sse4a_test_extrq (long long in)
 {
   __m128i v1, v2;
   long long index_length, pad;
   LI v_out;
-  index_length = 0x0000000000000810LL; 
+  index_length = 0x0000000000000810LL;
   pad = 0x0;
   v1 = _mm_set_epi64x (pad, in);
-  v2 = _mm_set_epi64x (pad, index_length); 
+  v2 = _mm_set_epi64x (pad, index_length);
   v_out.vec = _mm_extract_si64 (v1, v2);
-  return (v_out.i[0]); 
+  return (v_out.i[0]);
 }
 
-static long long 
+static long long
 sse4a_test_extrqi (long long in)
 {
   __m128i v1;
@@ -40,7 +40,7 @@ sse4a_test_extrqi (long long in)
 static int chk (long long i1, long long i2)
 {
   int n_fails =0;
-  if (i1 != i2) 
+  if (i1 != i2)
     n_fails +=1;
   return n_fails;
 }

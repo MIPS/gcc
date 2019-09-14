@@ -534,7 +534,7 @@ dump_ternary_rhs (pretty_printer *buffer, gassign *gs, int spc,
       dump_generic_node (buffer, gimple_assign_rhs3 (gs), spc, flags, false);
       pp_greater (buffer);
       break;
-    
+
     case VEC_PERM_EXPR:
       if (flags & TDF_GIMPLE)
 	pp_string (buffer, "__VEC_PERM (");
@@ -729,10 +729,10 @@ dump_gimple_call_args (pretty_printer *buffer, gcall *gs, dump_flags_t flags)
 	  static const char *const unique_args[] = {IFN_UNIQUE_CODES};
 #undef DEF
 	  enums = unique_args;
-	  
+
 	  limit = ARRAY_SIZE (unique_args);
 	  break;
-	  
+
 	case IFN_GOACC_LOOP:
 #define DEF(X) #X
 	  static const char *const loop_args[] = {IFN_GOACC_LOOP_CODES};

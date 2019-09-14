@@ -25,4 +25,3 @@ long double testl(__complex__ long double x)
 {
   return __builtin_cabsl (x);
 }
-

@@ -3905,7 +3905,7 @@ make_pack_expansion (tree arg, tsubst_flags_t complain)
          class initializer.  In this case, the TREE_PURPOSE will be a
          _TYPE node (representing the base class expansion we're
          initializing) and the TREE_VALUE will be a TREE_LIST
-         containing the initialization arguments. 
+         containing the initialization arguments.
 
          The resulting expansion looks somewhat different from most
          expansions. Rather than returning just one _EXPANSION, we
@@ -3950,7 +3950,7 @@ make_pack_expansion (tree arg, tsubst_flags_t complain)
             {
               /* Determine which parameter packs will be expanded in this
                  argument.  */
-              cp_walk_tree (&TREE_VALUE (value), &find_parameter_packs_r, 
+              cp_walk_tree (&TREE_VALUE (value), &find_parameter_packs_r,
                             &ppd, ppd.visited);
             }
         }
@@ -4958,7 +4958,7 @@ process_partial_specialization (tree decl)
                   || (packed_args && uses_template_parms (arg)))
                 error ("template argument %qE involves template parameter(s)",
                        arg);
-              else 
+              else
                 {
                   /* Look at the corresponding template parameter,
                      marking which template parameters its type depends
@@ -4973,7 +4973,7 @@ process_partial_specialization (tree decl)
                          main template, which, as checked in the assertion
                          above, is NARGS.  */
                       tpd2.parms = XALLOCAVEC (int, nargs);
-                      tpd2.level = 
+                      tpd2.level =
                         TMPL_PARMS_DEPTH (DECL_TEMPLATE_PARMS (maintmpl));
                     }
 
@@ -11128,7 +11128,7 @@ instantiate_class_template_1 (tree type)
 
           if (PACK_EXPANSION_P (BINFO_TYPE (pbase_binfo)))
             {
-              expanded_bases = 
+              expanded_bases =
 		tsubst_pack_expansion (BINFO_TYPE (pbase_binfo),
 				       args, tf_error, NULL_TREE);
               if (expanded_bases == error_mark_node)
@@ -11144,7 +11144,7 @@ instantiate_class_template_1 (tree type)
                 base = TREE_VEC_ELT (expanded_bases, idx);
               else
                 /* Substitute to figure out the base class.  */
-                base = tsubst (BINFO_TYPE (pbase_binfo), args, tf_error, 
+                base = tsubst (BINFO_TYPE (pbase_binfo), args, tf_error,
                                NULL_TREE);
 
               if (base == error_mark_node)
@@ -11276,7 +11276,7 @@ instantiate_class_template_1 (tree type)
 		  --c_inhibit_evaluation_warnings;
 
                   finish_static_assert (condition,
-                                        STATIC_ASSERT_MESSAGE (t), 
+                                        STATIC_ASSERT_MESSAGE (t),
                                         STATIC_ASSERT_SOURCE_LOCATION (t),
                                         /*member_p=*/true);
                 }
@@ -12304,7 +12304,7 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
 
       if (arg_pack)
         {
-          int my_len = 
+          int my_len =
             TREE_VEC_LENGTH (ARGUMENT_PACK_ARGS (arg_pack));
 
 	  /* Don't bother trying to do a partial substitution with
@@ -13534,7 +13534,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
                return the local specialization (which will be a single
                parm).  */
             tree spec = retrieve_local_specialization (t);
-            if (spec 
+            if (spec
                 && TREE_CODE (spec) == PARM_DECL
                 && TREE_CODE (TREE_TYPE (spec)) != TYPE_PACK_EXPANSION)
               RETURN (spec);
@@ -14131,7 +14131,7 @@ tsubst_arg_types (tree arg_types,
            have been parsed.  This can happen for a nested template
            class, and is not an error unless we require the default
            argument in a call of this function.  */
-        remaining_arg_types = 
+        remaining_arg_types =
           tree_cons (default_arg, type, remaining_arg_types);
 	vec_safe_push (DEFPARSE_INSTANTIATIONS (default_arg),
 		       remaining_arg_types);
@@ -14379,7 +14379,7 @@ tsubst_exception_specification (tree fntype,
                   spec = tsubst (TREE_VALUE (specs), args, complain, in_decl);
                 if (spec == error_mark_node)
                   return spec;
-                new_specs = add_exception_specifier (new_specs, spec, 
+                new_specs = add_exception_specifier (new_specs, spec,
                                                      complain);
               }
 
@@ -17537,8 +17537,8 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 	tree condition;
 
 	++c_inhibit_evaluation_warnings;
-        condition = 
-          tsubst_expr (STATIC_ASSERT_CONDITION (t), 
+        condition =
+          tsubst_expr (STATIC_ASSERT_CONDITION (t),
                        args,
                        complain, in_decl,
                        /*integral_constant_expression_p=*/true);
@@ -19279,9 +19279,9 @@ tsubst_copy_and_build (tree t,
               {
                 /* Grab the Ith values.  */
                 i--;
-                purpose = purposevec ? TREE_VEC_ELT (purposevec, i) 
+                purpose = purposevec ? TREE_VEC_ELT (purposevec, i)
 		                     : NULL_TREE;
-                value 
+                value
 		  = valuevec ? convert_from_reference (TREE_VEC_ELT (valuevec, i))
                              : NULL_TREE;
 
@@ -21876,7 +21876,7 @@ unify_pack_expansion (tree tparms, tree targs, tree packed_parms,
           int idx, level;
           template_parm_level_and_index (TREE_PURPOSE (pack), &level, &idx);
 
-          TREE_VEC_ELT (TREE_TYPE (pack), i - start) = 
+          TREE_VEC_ELT (TREE_TYPE (pack), i - start) =
             TMPL_ARG (targs, level, idx);
         }
     }
@@ -21938,7 +21938,7 @@ unify_pack_expansion (tree tparms, tree targs, tree packed_parms,
           TMPL_ARG (targs, level, idx) = result;
         }
       else if (ARGUMENT_PACK_INCOMPLETE_P (old_pack)
-               && (ARGUMENT_PACK_ARGS (old_pack) 
+               && (ARGUMENT_PACK_ARGS (old_pack)
                    == ARGUMENT_PACK_EXPLICIT_ARGS (old_pack)))
         {
           /* We only had the explicitly-provided arguments before, but
@@ -24196,7 +24196,7 @@ regenerate_decl_from_template (tree decl, tree tmpl, tree args)
           tree expanded_types;
           /* Expand the TYPE_PACK_EXPANSION that provides the types for
              the parameters in this function parameter pack.  */
-          expanded_types = tsubst_pack_expansion (TREE_TYPE (pattern_parm), 
+          expanded_types = tsubst_pack_expansion (TREE_TYPE (pattern_parm),
                                                  args, tf_error, NULL_TREE);
           len = TREE_VEC_LENGTH (expanded_types);
           for (i = 0; i < len; i++)
@@ -24206,7 +24206,7 @@ regenerate_decl_from_template (tree decl, tree tmpl, tree args)
 
               if (DECL_NAME (decl_parm) != DECL_NAME (pattern_parm))
                 /* Rename the parameter to include the index.  */
-                DECL_NAME (decl_parm) = 
+                DECL_NAME (decl_parm) =
                   make_ith_pack_parameter_name (DECL_NAME (pattern_parm), i);
               parm_type = TREE_VEC_ELT (expanded_types, i);
               parm_type = type_decays_to (parm_type);
@@ -25089,7 +25089,7 @@ tsubst_initializer_list (tree t, tree argvec)
           else
             {
 	      tree tmp;
-              decl = tsubst_copy (TREE_PURPOSE (t), argvec, 
+              decl = tsubst_copy (TREE_PURPOSE (t), argvec,
                                   tf_warning_or_error, NULL_TREE);
 
               decl = expand_member_init (decl);

@@ -35,7 +35,7 @@ foo
 
   /* Verify that quoted state is preserved over a newline.  */
   if (strcmp (g /* { dg-bogus "unterminated 2" } */ ("1
-, 2"), "1 , 2"))	
+, 2"), "1 , 2"))
     abort ();
 
   testquoting ();

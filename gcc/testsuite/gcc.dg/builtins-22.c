@@ -9,4 +9,3 @@ double foo(double x)
 {
   return exp(exp(x));
 }
-

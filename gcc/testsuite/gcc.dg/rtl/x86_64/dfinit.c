@@ -100,7 +100,7 @@ int __RTL (startwith ("no-opt dfinit")) test_1 (int i, int j, int k)
     ) ;; block 5
   ) ;; insn-chain
   (crtl
-    (return_rtx 
+    (return_rtx
       (reg/i:SI ax)
     ) ;; return_rtx
   ) ;; crtl

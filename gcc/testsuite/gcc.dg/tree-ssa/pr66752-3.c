@@ -15,7 +15,7 @@ foo (int N, int c, int b, int *a)
    if (pt)
      count++;
   }
-  else    
+  else
     for (i = -1, flag = 1; ++i < N && flag;)
       if (a[i] == b)
         {

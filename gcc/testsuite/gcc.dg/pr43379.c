@@ -10,4 +10,3 @@ lab:
   goto *p;
   return &&lab;
 }
-

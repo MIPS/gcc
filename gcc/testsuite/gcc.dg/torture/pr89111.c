@@ -15,11 +15,11 @@ foo (int x)
 
 int
 main ()
-{ 
+{
   struct A h = f;
   h.b = 0;
   while (e++ < 3)
-    { 
+    {
       while (d++ < 3)
 	c[46].b ^= 9890739;
       f = c[46] = h;

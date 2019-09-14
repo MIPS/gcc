@@ -7,7 +7,7 @@ int b, c, d, e;
 int
 main ()
 {
-  int g = d, h = 0, i = 1; 
+  int g = d, h = 0, i = 1;
   for (; h < 3; h++)
     {
       if (g > -1)

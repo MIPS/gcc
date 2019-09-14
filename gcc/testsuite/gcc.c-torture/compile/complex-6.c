@@ -15,4 +15,3 @@ int foo()
 
   return i == 0;
 }
-

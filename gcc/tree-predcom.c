@@ -3003,7 +3003,7 @@ prepare_initializers_chain (class loop *loop, chain_p chain)
 	continue;
 
       gcc_assert (laref->distance > 0);
-      chain->inits[n - laref->distance] 
+      chain->inits[n - laref->distance]
 	= PHI_ARG_DEF_FROM_EDGE (laref->stmt, entry);
     }
 
@@ -3377,5 +3377,3 @@ make_pass_predcom (gcc::context *ctxt)
 {
   return new pass_predcom (ctxt);
 }
-
-

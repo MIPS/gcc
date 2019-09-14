@@ -4,7 +4,7 @@
 #include <stdarg.h>
 #include "../../tree-vect.h"
 
-#define N 32 
+#define N 32
 #define OFF 4
 
 /* Check handling of accesses for which the "initial condition" -
@@ -29,10 +29,10 @@ int main1 (int *pib)
   for (i = OFF; i < N; i++)
     {
      if (ia[i] != ic[i - OFF])
-        abort ();  
+        abort ();
     }
 
-  return 0;  
+  return 0;
 }
 
 int main (void)

@@ -24,8 +24,8 @@ foo(void)
     {
       bar();
       y++;
-    }   
-} 
+    }
+}
 
 int main()
 {

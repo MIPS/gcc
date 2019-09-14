@@ -26,4 +26,3 @@ main ()
   __builtin_printf ("arr = %s\n", arr);
   return 0;
 }
-

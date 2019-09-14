@@ -28,18 +28,18 @@ main1 (float *pa, float *pb, float *pc)
       if (pa[i] != q[i] * pc[i])
 	abort();
     }
-  
+
   return 0;
 }
 
 
 int main (void)
-{ 
+{
   check_vect ();
 
   main1 (fa, fb, fc);
 
-  return 0;	
+  return 0;
 }
 
 /* Currently the loops fail to vectorize due to aliasing problems.

@@ -9,20 +9,20 @@
 #else
 #define N 26
 #endif
- 
+
 __attribute__ ((noinline))
 unsigned int main1 ()
-{  
+{
   unsigned short i;
   unsigned int intsum = 0;
 
-  /* vectorization of reduction with induction, and widenning sum: 
-     sum shorts into int. 
+  /* vectorization of reduction with induction, and widenning sum:
+     sum shorts into int.
      Need -fno-tree-scev-cprop or else the loop is eliminated.  */
   for (i = 0; i < N; i++)
     {
       intsum += i;
-    } 
+    }
 
   return intsum;
 }

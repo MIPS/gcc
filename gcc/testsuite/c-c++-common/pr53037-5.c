@@ -44,7 +44,7 @@ struct foo5
 struct foo6
 {
   int i1;
-  int x __attribute__((warn_if_not_aligned(16))); 
+  int x __attribute__((warn_if_not_aligned(16)));
 } __attribute__((aligned(16)));
 
 struct foo7
@@ -71,7 +71,7 @@ union bar2
 union bar3
 {
   int i1;
-  int x __attribute__((warn_if_not_aligned(16))); 
+  int x __attribute__((warn_if_not_aligned(16)));
 };
 
 union bar4

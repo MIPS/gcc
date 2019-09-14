@@ -2,7 +2,7 @@
 /* { dg-options "-O -msve-vector-bits=256 --save-temps" } */
 /* { dg-final { check-function-bodies "**" "" } } */
 
-/* Case 5.1: All elements.  */ 
+/* Case 5.1: All elements.  */
 
 #include <stdint.h>
 

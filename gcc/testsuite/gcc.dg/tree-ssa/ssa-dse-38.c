@@ -8,5 +8,3 @@
 
 /* { dg-final { scan-tree-dump-times "Deleted dead call" 2 "dse1" { xfail *-*-* } } } */
 /* { dg-final { scan-tree-dump-times "Trimming statement " 4 "dse1" { xfail *-*-* } } } */
-
-

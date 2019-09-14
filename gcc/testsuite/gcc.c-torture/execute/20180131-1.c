@@ -3,7 +3,7 @@
 
 extern void abort (void);
 
-typedef union 
+typedef union
 {
   signed short ss;
   unsigned short us;

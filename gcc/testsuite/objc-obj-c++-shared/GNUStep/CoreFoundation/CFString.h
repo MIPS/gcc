@@ -1,12 +1,12 @@
 /* CFString.h
-   
+
    Copyright (C) 2010 Free Software Foundation, Inc.
-   
+
    Written by: Stefan Bidigaray
    Date: January, 2010
-   
+
    This file is part of CoreBase.
-   
+
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Lesser General Public
    License as published by the Free Software Foundation; either
@@ -19,10 +19,10 @@
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; see the file COPYING.LIB.
-   If not, see <http://www.gnu.org/licenses/> or write to the 
-   Free Software Foundation, 51 Franklin Street, Fifth Floor, 
+   If not, see <http://www.gnu.org/licenses/> or write to the
+   Free Software Foundation, 51 Franklin Street, Fifth Floor,
    Boston, MA 02110-1301, USA.
-*/ 
+*/
 
 #ifndef __COREFOUNDATION_CFSTRING_H__
 #define __COREFOUNDATION_CFSTRING_H__
@@ -95,7 +95,7 @@ enum CFStringBuiltInEncodings
 
 /** \def CFSTR(x)
     \brief Creates a constant string object.
-    
+
     \note This macro will create the constant string at runtime.
  */
 /* The 'pure' attribute tells the compiler that this function will always
@@ -564,10 +564,10 @@ CFStringGetCharacterFromInlineBuffer (CFStringInlineBuffer *buf, CFIndex idx)
   else if (idx >= buf->bufferedRangeEnd || idx < buf->bufferedRangeStart)
     {
       CFRange range;
-      
+
       if (idx < 0 || idx >= buf->rangeToBuffer.length)
         return 0;
-      
+
       /* Use 16 here so it's efficient to go backwards, too */
       buf->bufferedRangeStart = idx - 16;
       if (buf->bufferedRangeStart < 0)
@@ -576,13 +576,13 @@ CFStringGetCharacterFromInlineBuffer (CFStringInlineBuffer *buf, CFIndex idx)
         buf->bufferedRangeStart + __kCFStringInlineBufferLength;
       if (buf->bufferedRangeEnd > buf->rangeToBuffer.length)
         buf->bufferedRangeEnd = buf->rangeToBuffer.length;
-      
+
       range = CFRangeMake (buf->rangeToBuffer.location + buf->bufferedRangeStart,
         buf->bufferedRangeEnd - buf->bufferedRangeStart);
-      
+
       CFStringGetCharacters (buf->theString, range, buf->buffer);
     }
-  
+
   return buf->buffer[(idx - buf->bufferedRangeStart)];
 }
 /** \} */
@@ -590,4 +590,3 @@ CFStringGetCharacterFromInlineBuffer (CFStringInlineBuffer *buf, CFIndex idx)
 CF_EXTERN_C_END
 
 #endif /* __COREFOUNDATION_CFSTRING_H__ */
-

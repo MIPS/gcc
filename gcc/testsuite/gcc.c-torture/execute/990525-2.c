@@ -35,5 +35,3 @@ int main()
     func1();
     exit (0);
 }
-
-

@@ -24,4 +24,3 @@ main (int argc, char **argv)
 
 /* { dg-final { scan-assembler-times "\[ \t\]*dup\[ \t\]+v\[0-9\]+\.2s, ?v\[0-9\]+\.s\\\[\[01\]\\\]" 1 } } */
 /* { dg-final { scan-assembler-not "zip" } } */
-

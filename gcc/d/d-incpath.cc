@@ -192,4 +192,3 @@ add_import_paths (const char *iprefix, const char *imultilib, bool stdinc)
 	}
     }
 }
-

@@ -53,4 +53,3 @@ constrain_operands (insn_code_num, strict)
     return constrain_operands (insn_code_num, -1);
   return 0;
 }
-

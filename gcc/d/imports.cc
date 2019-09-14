@@ -205,4 +205,3 @@ build_import_decl (Dsymbol *d)
   /* Not all visitors set 'isym'.  */
   return d->isym ? d->isym : NULL_TREE;
 }
-

@@ -30,4 +30,3 @@ extern const unsigned char *lto_mode_identity_table;
 extern tree first_personality_decl;
 
 #endif
-

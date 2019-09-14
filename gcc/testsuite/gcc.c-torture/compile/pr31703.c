@@ -8,4 +8,3 @@ int reload_reg_reaches_end_p (unsigned int regno, int opnum)
             & ((HARD_REG_ELT_TYPE)1 << regno))
             return 0;
 }
-

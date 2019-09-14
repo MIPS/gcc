@@ -9,7 +9,7 @@ void get(char **x)
 {
   *x = ptr;
 }
-  
+
 int main()
 {
   char *here = &cc;

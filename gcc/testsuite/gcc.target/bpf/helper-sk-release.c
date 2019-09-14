@@ -7,7 +7,7 @@ foo ()
 {
   int ret;
   void *sock;
-  
+
   ret = __builtin_bpf_helper_sk_release (sock);
 }
 

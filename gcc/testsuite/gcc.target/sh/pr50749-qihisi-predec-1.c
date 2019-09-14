@@ -25,4 +25,3 @@ test_func_02 (int* p, int c)
   *--p = c;
   return p;
 }
-

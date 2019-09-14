@@ -14,7 +14,7 @@ int test_mul () {
     m1 = m2 * m3 ;
 
   /* { dg-final { scan-assembler-not "muli" } } */
-    m3 = m1 * 1234 ;    
+    m3 = m1 * 1234 ;
 
   /* { dg-final { scan-assembler-not "mulh" } } */
     llp = ((long long)l1 * l2);
@@ -23,7 +23,7 @@ int test_mul () {
     ullp = ((unsigned long long)ul1 * ul2);
 
   /* { dg-final { scan-assembler-not "mulhsu" } } */
-    llp = ((long long)l1 * ul2);        
+    llp = ((long long)l1 * ul2);
 
   /* { dg-final { scan-assembler-not "bslli" } } */
     m3 = m2 << 25;
@@ -41,7 +41,7 @@ int test_mul () {
     m1 = m2 / m1;
 
   /* { dg-final { scan-assembler-not "idivu" } } */
-    u1 = u2 / u3;    
+    u1 = u2 / u3;
 
   /* { dg-final { scan-assembler-not "pcmpne" } } */
     m3 = (m3 != m1);
@@ -54,7 +54,7 @@ int test_mul () {
 
 volatile float f1, f2, f3;
 
-void float_func () 
+void float_func ()
 {
   /* { dg-final { scan-assembler-not "fmul" } } */
     f1 = f2 * f3;
@@ -70,20 +70,20 @@ void float_func ()
 
 }
 
-void float_cmp_func () 
+void float_cmp_func ()
 {
     /* { dg-final { scan-assembler-not "fcmp" } } */
-    if (f2 <= f3) 
+    if (f2 <= f3)
         print ("le");
-    else if (f2 == f3) 
+    else if (f2 == f3)
         print ("eq");
-    else if (f2 < f3) 
+    else if (f2 < f3)
         print ("lt");
-    else if (f2 > f3) 
+    else if (f2 > f3)
         print ("gt");
-    else if (f2 >= f3) 
+    else if (f2 >= f3)
         print ("ge");
-    else if (f2 != f3) 
+    else if (f2 != f3)
         print ("ne");
-    
+
 }

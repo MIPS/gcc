@@ -17,7 +17,7 @@ foo (){
   for (i = 0; i < N; i++) {
     diff = 0;
     for (j = 0; j < M; j+=8) {
-      diff += in[j+i]*coeff[j]; 
+      diff += in[j+i]*coeff[j];
     }
     out[i]=diff;
   }

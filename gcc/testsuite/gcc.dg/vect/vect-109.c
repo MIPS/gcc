@@ -18,7 +18,7 @@ int ic[N] = {0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45,
 int ib[N] = {0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45,
 	       0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
 
-__attribute__ ((noinline)) 
+__attribute__ ((noinline))
 int main1 (int n)
 {
   int i;
@@ -65,9 +65,9 @@ int main2 (int n)
 
 
 int main (void)
-{ 
+{
   check_vect ();
-  
+
   main1 (N-2);
   main2 (N-1);
 
@@ -77,4 +77,3 @@ int main (void)
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 2 "vect" { target vect_element_align } } } */
 /* { dg-final { scan-tree-dump-times "not vectorized: unsupported unaligned store" 2 "vect" { xfail vect_element_align } } } */
 /* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 3 "vect" { target vect_element_align xfail { ! vect_unaligned_possible } } } } */
-

@@ -56,11 +56,10 @@ void e (unsigned long long x)
   if (0 <= x) return;/* { dg-bogus "comparison of unsigned expression >= 0 is always true" } */
 }
 
-int test (int x) 
+int test (int x)
 {
-  if ((long long)x <= 0x123456789ABCLL) 
+  if ((long long)x <= 0x123456789ABCLL)
     return 1;
-  else 
+  else
     return 0;
 }
-

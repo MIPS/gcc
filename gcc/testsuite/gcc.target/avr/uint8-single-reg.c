@@ -3,7 +3,7 @@
 
 /* This testcase verifies that a uint8_t variable assigned from a wider variable
    with the same range is held in a single register. VRP must not fold away the
-   conversion and use two regs to hold the uint16_t - widenings are ok only upto 
+   conversion and use two regs to hold the uint16_t - widenings are ok only upto
    word mode (1 byte for AVR).
 */
 
@@ -21,4 +21,3 @@ unsigned int foo(const unsigned int wvalue)
 
 /* { dg-final { scan-assembler "cpi r25,lo8\\(1\\)" } } */
 /* { dg-final { scan-assembler-not "cpc r\\d+,__zero_reg__" } } */
-

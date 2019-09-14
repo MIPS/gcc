@@ -42,25 +42,25 @@ typedef union
   __m512i x;
   unsigned char a[64];
 } union512i_ub;
-          
+
 typedef union
 {
  __m512i x;
  unsigned short a[32];
  } union512i_uw;
-                      
+
 typedef union
 {
  __m512i x;
  unsigned int a[16];
 } union512i_ud;
-                  
+
 typedef union
 {
  __m512i x;
  unsigned long long a[8];
 } union512i_uq;
-                                    
+
 
 CHECK_EXP (union512i_b, char, "%d")
 CHECK_EXP (union512i_w, short, "%d")
@@ -72,7 +72,7 @@ CHECK_EXP (union512i_ub, unsigned char, "%d")
 CHECK_EXP (union512i_uw, unsigned short, "%d")
 CHECK_EXP (union512i_ud, unsigned int, "0x%x")
 CHECK_EXP (union512i_uq, unsigned long long, "0x%llx")
-     
+
 
 CHECK_FP_EXP (union512, float, ESP_FLOAT, "%f")
 CHECK_FP_EXP (union512d, double, ESP_DOUBLE, "%f")

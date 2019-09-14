@@ -54,4 +54,3 @@ main ()
    single LSHIFTRT by 34, instead of two - LSHIFTRT by 32 and LSHIFTRT by 2.  */
 
 /* { dg-final { scan-rtl-dump "\\(const_int 34 " "combine" { target aarch64*-*-* } } } */
-

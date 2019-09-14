@@ -16,5 +16,3 @@ int proc_keys_show(long expiry, long now)
 
 	return 0;
 }
-
-

@@ -87,4 +87,3 @@ test_8 (int code)
    with one uninitialized operand, thus it has been disabled.  */
 
 /* { dg-final { scan-tree-dump-times "simplified to if \\\(\[^ ]* \[<>\]" 4 "forwprop1" { xfail *-*-* } } } */
-

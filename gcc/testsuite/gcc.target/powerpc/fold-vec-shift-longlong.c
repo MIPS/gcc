@@ -60,4 +60,3 @@ testrl_unsigned (vector unsigned long long x, vector unsigned long long y)
 /* { dg-final { scan-assembler-times "vsrd" 2 } } */
 /* { dg-final { scan-assembler-times "vsrad" 2 } } */
 /* { dg-final { scan-assembler-times "vrld" 2 } } */
-

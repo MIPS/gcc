@@ -83,4 +83,3 @@ int main()
   testl(0.0);
   return 0;
 }
-

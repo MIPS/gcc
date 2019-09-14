@@ -5,4 +5,3 @@ __attribute__ ((__nothrow__)) strcpy (char *__restrict __dest, __const char *__r
 {
   return __builtin___strcpy_chk (__dest, __src, __builtin_object_size (__dest, 2 > 1));
 }
-

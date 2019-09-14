@@ -26,4 +26,3 @@ int test5()
 {
   return (const char*)0 == "foo";
 }
-

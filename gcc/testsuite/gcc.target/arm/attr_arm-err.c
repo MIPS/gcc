@@ -9,5 +9,3 @@ foo(int a)
 {  /* { dg-error "does not support" } */
   return a ? 1 : 5;
 }
-
-

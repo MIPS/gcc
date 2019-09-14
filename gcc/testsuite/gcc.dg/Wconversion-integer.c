@@ -87,12 +87,10 @@ void h (int x)
   uc = sc;  /* { dg-warning "conversion" } */
   fsi (ui); /* { dg-warning "conversion" } */
   si = ui;  /* { dg-warning "conversion" } */
-  fui (si); /* { dg-warning "conversion" } */ 
-  ui = si;  /* { dg-warning "conversion" } */ 
+  fui (si); /* { dg-warning "conversion" } */
+  ui = si;  /* { dg-warning "conversion" } */
   fui (sc); /* { dg-warning "conversion" } */
   ui = sc;  /* { dg-warning "conversion" } */
 }
 
 unsigned fui (unsigned a) { return a + -1; } /* { dg-warning "signed conversion" } */
-
-

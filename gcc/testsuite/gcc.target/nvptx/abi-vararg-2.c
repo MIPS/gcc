@@ -203,6 +203,6 @@ int main ()
     vc3 = 5, vfour.a = 6, vc4 = 7, veight.a = 8,
     vc5 = 9, vbig.a = 10;
   structs (1, vc1,  vone, vc2, vtwo, vc3, vfour, vc4, veight, vc5, vbig);
-  
+
   return 0;
 }

@@ -110,4 +110,3 @@ real_from_mpfr (REAL_VALUE_TYPE *r, mpfr_srcptr m, tree type, mp_rnd_t rndmode)
   real_from_mpfr (r, m, type ? REAL_MODE_FORMAT (TYPE_MODE (type)) : NULL,
 		  rndmode);
 }
-

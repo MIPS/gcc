@@ -20,4 +20,3 @@ struct A
 struct C
 {
 };
-

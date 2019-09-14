@@ -29,6 +29,3 @@ int main(int argc, char *argv[])
   test02(14, 16);
   exit (0);
 }
-
-
-

@@ -47,4 +47,3 @@ testui_eo (vector unsigned long long v1, vector unsigned long long v2)
 /* vec_mergee and vec_mergeo codegen will consist of some number of
  xxpermdi instructions that will vary.  Ensure we get at least one. */
 /* { dg-final { scan-assembler "xxpermdi" } } */
-

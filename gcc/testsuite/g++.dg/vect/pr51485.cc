@@ -10,4 +10,3 @@ foo (unsigned int x, double *y, A *z)
   for (i = 0; i < x; i++)
     y[i] = bar (z[i]);
 }
-

@@ -11,42 +11,42 @@ extern long double sinl (long double);
 extern long double cosl (long double);
 extern long double atanl (long double);
 
-float __attribute__ ((noinline)) 
+float __attribute__ ((noinline))
 cosatanf_(float x)
 {
     float atg = atanf(x);
     return cosf(atg) + atg;
 }
 
-double __attribute__ ((noinline)) 
+double __attribute__ ((noinline))
 cosatan_(double x)
 {
     double atg = atan(x);
     return cos(atg) + atg;
 }
 
-long double __attribute__ ((noinline)) 
+long double __attribute__ ((noinline))
 cosatanl_(long double x)
 {
     long double atg = atanl(x);
     return cosl(atg) + atg;
 }
 
-float __attribute__ ((noinline)) 
+float __attribute__ ((noinline))
 sinatanf_(float x)
 {
     float atg = atanf(x);
     return sinf(atg) + atg;
 }
 
-double __attribute__ ((noinline)) 
+double __attribute__ ((noinline))
 sinatan_(double x)
 {
     double atg = atan(x);
     return sin(atg) + atg;
 }
 
-long double __attribute__ ((noinline)) 
+long double __attribute__ ((noinline))
 sinatanl_(long double x)
 {
     long double atg = atanl(x);

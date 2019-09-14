@@ -2,7 +2,7 @@
 /* { dg-options "-O3 -march=armv8.2-a+sve -fdump-tree-optimized" } */
 
 void
-f1 (double x[][4]) 
+f1 (double x[][4])
 {
   for (int i = 0; i < 4; ++i)
     for (int j = 0; j < 4; ++j)

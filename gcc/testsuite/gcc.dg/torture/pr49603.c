@@ -13,8 +13,7 @@ void quickdraw_rgb( struct gl_context * ctx,
   int i, j;
   unsigned char alpha[1600];
   for (j=0; j<width; j++)
-    alpha[j] = (int) ctx->Visual->AlphaScale; 
+    alpha[j] = (int) ctx->Visual->AlphaScale;
   for (i=0; i<height; i++)
     foo( alpha);
 }
-

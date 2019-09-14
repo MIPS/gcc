@@ -14,4 +14,3 @@ test3 (vector signed long long x)
 }
 
 /* scan-assembler stanzas moved to fold-vec-abs-longlong.p*.c.  */
-

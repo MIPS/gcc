@@ -8,7 +8,7 @@ foo ()
   int ret;
   void *xdp_md;
   int delta;
-  
+
   ret = __builtin_bpf_helper_xdp_adjust_meta (xdp_md, delta);
 }
 

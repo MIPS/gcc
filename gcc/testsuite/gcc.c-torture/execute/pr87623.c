@@ -26,7 +26,7 @@ int main (void)
 {
    t_be x = { .a=1, .b=2  };
    t_le y = { .a=1, .b=2  };
-  
+
    if (a_or_b_different(&x,&y))
        __builtin_abort ();
 

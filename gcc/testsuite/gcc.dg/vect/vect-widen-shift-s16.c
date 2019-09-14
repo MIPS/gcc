@@ -103,4 +103,3 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "vect_recog_widen_shift_pattern: detected" 8 "vect" { target vect_widen_shift } } } */
 /* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" } } */
-

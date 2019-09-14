@@ -6,7 +6,7 @@ void set_color(void);
 void xml_colorize_line(unsigned int *p, int state)
 {
   int c;
-  switch(state) 
+  switch(state)
     {
     case 1:
       goto parse_tag;
@@ -14,16 +14,16 @@ void xml_colorize_line(unsigned int *p, int state)
       goto parse_comment;
     }
 
-  for(;;) 
+  for(;;)
     {
-      c = *p;  
-      if (c == '<' && state == 0) 
+      c = *p;
+      if (c == '<' && state == 0)
 	{
 parse_comment: ;
-	  while (*p != '\n') 
+	  while (*p != '\n')
 	    state = 3;
 parse_tag: ;
-	  while (*p != '\n') 
+	  while (*p != '\n')
 	    state = 0;
 	  set_color();
 	}

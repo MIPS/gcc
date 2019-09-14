@@ -43,7 +43,7 @@ void bar()
   /* Check for overflow/underflow.  */
   TESTIT (cexp, 1e20);
   TESTIT (cexp, -1e20);
-  
+
   /* An argument of NaN is not evaluated at compile-time.  */
   foof (__builtin_cpowf (__builtin_nanf(""), 2.5F));
   foo (__builtin_cpow (__builtin_nan(""), 2.5));

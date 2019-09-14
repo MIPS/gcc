@@ -83,4 +83,3 @@ test6_ne (vector unsigned long long x, vector unsigned long long y)
 /* { dg-final { scan-assembler-times "vcmpgtsd" 4 } } */
 /* { dg-final { scan-assembler-times "vcmpgtud" 4 } } */
 /* { dg-final { scan-assembler-times "xxlnor" 6 } } */
-

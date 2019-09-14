@@ -7,4 +7,3 @@ int t(int *a)
   i = a == 0;
   return i;
 }
-

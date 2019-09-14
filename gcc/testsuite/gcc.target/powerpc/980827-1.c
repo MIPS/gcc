@@ -22,7 +22,7 @@ void splat (double d)
     double f;
     unsigned int l[2];
   } u;
-  
+
   u.f = d + d;
   u.l[1] |= 1;
   asm volatile ("stfd %0,dval@sdarel(13)" : : "f" (u.f));

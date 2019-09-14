@@ -18,7 +18,7 @@ static __m128
 __attribute__((noinline, unused))
 test (__m128 a, __m64 *p)
 {
-  return _mm_loadh_pi (a, p); 
+  return _mm_loadh_pi (a, p);
 }
 
 static void
@@ -30,7 +30,7 @@ TEST (void)
 
   s1.x = _mm_set_ps (5.13, 6.12, 7.11, 8.9);
   u.x = _mm_loadu_ps (e);
- 
+
   u.x = test (s1.x, (__m64 *)d);
 
   e[0] = s1.a[0];

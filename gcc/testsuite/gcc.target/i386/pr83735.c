@@ -11,7 +11,7 @@ static void __attribute__((constructor))
 check_avx (void)
 {
   unsigned int eax, ebx, ecx, edx;
- 
+
   if (!__get_cpuid (1, &eax, &ebx, &ecx, &edx))
     exit (0);
 

@@ -1682,4 +1682,3 @@ extern bool sched_fusion;
 #endif /* INSN_SCHEDULING */
 
 #endif /* GCC_SCHED_INT_H */
-

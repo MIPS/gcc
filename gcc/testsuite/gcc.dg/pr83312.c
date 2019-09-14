@@ -27,4 +27,3 @@ int ptlrpcd_init_groupsize;
 void ptlrpcd_addref(void) {
     ptlrpcd_init(ptlrpcd_init_groupsize);
 }
-

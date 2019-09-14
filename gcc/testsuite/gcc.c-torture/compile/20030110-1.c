@@ -23,7 +23,7 @@ void foo()
     }
   else
     do
-      { 
+      {
 	while (inb(0x9ae8) & (0x0100 >> (1)));
       }
     while(0);
@@ -36,4 +36,3 @@ void foo()
       while(0);
     }
 }
-

@@ -24,7 +24,7 @@ foo (struct A *p)
 {
   union TMP t;
   struct A x;
-  
+
   x = *p;
   t.a = x;
   return t.b;

@@ -9,8 +9,8 @@ main ()
 {
   fn1 ();
 
-  if (a != 0) 
-    __builtin_abort (); 
+  if (a != 0)
+    __builtin_abort ();
 
   return 0;
 }

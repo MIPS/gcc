@@ -1436,7 +1436,7 @@ powi_as_mults (gimple_stmt_iterator *gsi, location_t loc,
    result.  */
 
 static tree
-gimple_expand_builtin_powi (gimple_stmt_iterator *gsi, location_t loc, 
+gimple_expand_builtin_powi (gimple_stmt_iterator *gsi, location_t loc,
 			    tree arg0, HOST_WIDE_INT n)
 {
   /* Avoid largest negative number.  */
@@ -1874,7 +1874,7 @@ expand_pow_as_sqrts (gimple_stmt_iterator *gsi, location_t loc,
    expession holding the result.  */
 
 static tree
-gimple_expand_builtin_pow (gimple_stmt_iterator *gsi, location_t loc, 
+gimple_expand_builtin_pow (gimple_stmt_iterator *gsi, location_t loc,
 			   tree arg0, tree arg1)
 {
   REAL_VALUE_TYPE c, cint, dconst1_3, dconst1_4, dconst1_6;
@@ -1944,7 +1944,7 @@ gimple_expand_builtin_pow (gimple_stmt_iterator *gsi, location_t loc,
       && (!HONOR_NANS (mode) || tree_expr_nonnegative_p (arg0))
       && real_equal (&c, &dconst1_3))
     return build_and_insert_call (gsi, loc, cbrtfn, arg0);
-  
+
   /* Optimize pow(x,1./6.) = cbrt(sqrt(x)).  Don't do this optimization
      if we don't have a hardware sqrt insn.  */
   dconst1_6 = dconst1_3;
@@ -3472,7 +3472,7 @@ match_uaddsub_overflow (gimple_stmt_iterator *gsi, gimple *stmt,
 /* Return true if target has support for divmod.  */
 
 static bool
-target_supports_divmod_p (optab divmod_optab, optab div_optab, machine_mode mode) 
+target_supports_divmod_p (optab divmod_optab, optab div_optab, machine_mode mode)
 {
   /* If target supports hardware divmod insn, use it for divmod.  */
   if (optab_handler (divmod_optab, mode) != CODE_FOR_nothing)
@@ -3483,7 +3483,7 @@ target_supports_divmod_p (optab divmod_optab, optab div_optab, machine_mode mode
   if (libfunc != NULL_RTX)
     {
       /* If optab_handler exists for div_optab, perhaps in a wider mode,
-	 we don't want to use the libfunc even if it exists for given mode.  */ 
+	 we don't want to use the libfunc even if it exists for given mode.  */
       machine_mode div_mode;
       FOR_EACH_MODE_FROM (div_mode, mode)
 	if (optab_handler (div_optab, div_mode) != CODE_FOR_nothing)
@@ -3491,8 +3491,8 @@ target_supports_divmod_p (optab divmod_optab, optab div_optab, machine_mode mode
 
       return targetm.expand_divmod_libfunc != NULL;
     }
-  
-  return false; 
+
+  return false;
 }
 
 /* Check if stmt is candidate for divmod transform.  */
@@ -3527,8 +3527,8 @@ divmod_candidate_p (gassign *stmt)
      expand using the [su]divv optabs.  */
   if (TYPE_OVERFLOW_TRAPS (type))
     return false;
-  
-  if (!target_supports_divmod_p (divmod_optab, div_optab, mode)) 
+
+  if (!target_supports_divmod_p (divmod_optab, div_optab, mode))
     return false;
 
   return true;
@@ -3561,12 +3561,12 @@ convert_to_divmod (gassign *stmt)
 
   tree op1 = gimple_assign_rhs1 (stmt);
   tree op2 = gimple_assign_rhs2 (stmt);
-  
+
   imm_use_iterator use_iter;
   gimple *use_stmt;
-  auto_vec<gimple *> stmts; 
+  auto_vec<gimple *> stmts;
 
-  gimple *top_stmt = stmt; 
+  gimple *top_stmt = stmt;
   basic_block top_bb = gimple_bb (stmt);
 
   /* Part 1: Try to set top_stmt to "topmost" stmt that dominates
@@ -3608,7 +3608,7 @@ convert_to_divmod (gassign *stmt)
   /* Part 2: Add all trunc_div/trunc_mod statements domianted by top_bb
      to stmts vector. The 2nd loop will always add stmt to stmts vector, since
      gimple_bb (top_stmt) dominates gimple_bb (stmt), so the
-     2nd loop ends up adding at-least single trunc_mod_expr stmt.  */  
+     2nd loop ends up adding at-least single trunc_mod_expr stmt.  */
 
   FOR_EACH_IMM_USE_STMT (use_stmt, use_iter, top_op1)
     {
@@ -3646,7 +3646,7 @@ convert_to_divmod (gassign *stmt)
   gimple_stmt_iterator top_stmt_gsi = gsi_for_stmt (top_stmt);
   gsi_insert_before (&top_stmt_gsi, call_stmt, GSI_SAME_STMT);
 
-  widen_mul_stats.divmod_calls_inserted++;		
+  widen_mul_stats.divmod_calls_inserted++;
 
   /* Update all statements in stmts vector:
      lhs = op1 TRUNC_DIV_EXPR op2 -> lhs = REALPART_EXPR<divmod_tmp>
@@ -3675,8 +3675,8 @@ convert_to_divmod (gassign *stmt)
       update_stmt (use_stmt);
     }
 
-  return true; 
-}    
+  return true;
+}
 
 /* Find integer multiplications where the operands are extended from
    smaller types, and replace the MULT_EXPR with a WIDEN_MULT_EXPR

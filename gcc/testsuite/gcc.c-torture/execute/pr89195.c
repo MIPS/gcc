@@ -6,7 +6,7 @@ struct S { unsigned i : 24; };
 volatile unsigned char x;
 
 __attribute__((noipa)) int
-foo (struct S d) 
+foo (struct S d)
 {
   return d.i & x;
 }

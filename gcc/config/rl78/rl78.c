@@ -1674,7 +1674,7 @@ static void
 rl78_start_function (FILE *file)
 {
   int i;
-  
+
   add_vector_labels (file, "interrupt");
   add_vector_labels (file, "vector");
 

@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include "simulate-thread.h"
 
-/* This test verifies that data races aren't introduced by structure subfield 
+/* This test verifies that data races aren't introduced by structure subfield
    stores. */
 
 struct test_struct {
@@ -32,7 +32,7 @@ static int global = 0;
    an incorrect full or partial word load, mask and store, it will
    write back an incorrect value to one or more of the other
    fields.  */
-void simulate_thread_other_threads() 
+void simulate_thread_other_threads()
 {
   global++;
   var.b = global;

@@ -17,4 +17,3 @@ int main(void)
     abort ();
   return 0;
 }
-

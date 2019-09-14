@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 128 
+#define N 128
 
 typedef struct {
    unsigned short a;
@@ -59,7 +59,7 @@ main1 ()
 int main (void)
 {
   int i;
-  
+
   check_vect ();
 
   main1 ();
@@ -68,4 +68,3 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect"  { target vect_strided4 } } } */
-  

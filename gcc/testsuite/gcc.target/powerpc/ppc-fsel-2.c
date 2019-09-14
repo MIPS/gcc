@@ -77,4 +77,3 @@ test_not_islessgreater(double x, double y, double a, double b)
 {
   return !__builtin_islessgreater(x, y) ? a : b;
 }
-

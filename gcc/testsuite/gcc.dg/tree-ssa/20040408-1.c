@@ -37,10 +37,10 @@ static int asctoeg(short unsigned int *y, int oprec)
 {
   unsigned short yy[13];
   char *s;
-  
+
   while( *s == ' ' )
     ++s;
-  
+
   toe64( yy, y );
 }
 

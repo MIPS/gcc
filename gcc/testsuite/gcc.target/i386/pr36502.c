@@ -4,4 +4,3 @@
 int a;
 void f() {a++;}
 /* { dg-final { scan-assembler-not "esp" } } */
-

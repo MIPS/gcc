@@ -9,4 +9,3 @@ foo ()
     ++bits;
   return bits;
 }
-

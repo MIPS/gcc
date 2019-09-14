@@ -59,7 +59,7 @@ compute_correct_result (int *i1, int *i2, int *r)
   int i;
 
   for (i = 0; i < 8; i++)
-    { 
+    {
       t0 = ((int) ub1[2 * i] * (int) sb2[2 * i] +
 	    (int) ub1[2 * i + 1] * (int) sb2[2 * i + 1]);
       sout[i] = signed_saturate_to_word (t0);

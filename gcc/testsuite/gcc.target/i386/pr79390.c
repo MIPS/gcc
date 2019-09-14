@@ -21,7 +21,7 @@ foo (void)
 	  t = ab;
 	}
     }
- 
+
   return jp;
 }
 

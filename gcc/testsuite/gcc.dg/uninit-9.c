@@ -29,7 +29,7 @@ func(struct foo *list, int count)
     if(list[0].type == PARALLEL)
     {
 	clob_list = __builtin_alloca(count * sizeof(struct foo *));
-	
+
 	for(i = 1; i < count; i++)
 	{
 	    if(list[i].type == CLOBBER)

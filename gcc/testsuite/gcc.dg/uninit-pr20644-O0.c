@@ -15,7 +15,7 @@ int foo ()
 int bar ()
 {
   int i = 1;
-  int j; 
+  int j;
 
   if (1 == i)
     return j; /* { dg-warning "uninitialized" "uninitialized" } */

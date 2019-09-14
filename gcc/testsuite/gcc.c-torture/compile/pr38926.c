@@ -38,4 +38,3 @@ unsigned baz (void)
       }
   return g_2;
 }
-

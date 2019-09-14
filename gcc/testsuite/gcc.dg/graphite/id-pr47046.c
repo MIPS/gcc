@@ -10,4 +10,3 @@ init_movntdqa (int *src)
 	sign = -sign;
       }
 }
-

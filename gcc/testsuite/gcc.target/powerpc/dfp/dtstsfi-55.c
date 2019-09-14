@@ -14,4 +14,3 @@ int doTestBCDSignificance (_Decimal128 *p)
 }
 
 /* { dg-final { scan-assembler	   "dtstsfiq" } } */
-

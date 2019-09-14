@@ -23,4 +23,3 @@ main()
     stub(1, "ab", "bc", "cx", (char *)0);
     exit (0);
 }
-

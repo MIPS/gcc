@@ -18,7 +18,7 @@ foo (int count)
   int res = x; /* { dg-final { gdb-test . "x" "101" } } */
   x = res + 1;
   return res; /* { dg-final { gdb-test . "x" "102" } } */
-  
+
 }
 
 int

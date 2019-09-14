@@ -200,4 +200,3 @@ any_le_int (vector int a, vector int b)
     g = 2;
 }
 /* { dg-final { scan-assembler-times any_le_int:\n\tvchfs\t%v\[0-9\]*,%v24,%v26\n\tber\t%r14\n 1 } } */
-

@@ -7,7 +7,7 @@
 
 #include <altivec.h>
 
-vector signed char 
+vector signed char
 test_misc () {
 	vector signed char vsc1c = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
 	vector signed char vsc2c = {9,10,11,12,13,14,15,16,0,1,2,3,4,5,6,7};
@@ -52,4 +52,3 @@ testuc_h (vector unsigned char vuc2, vector unsigned char vuc3)
 
 /* { dg-final { scan-assembler-times "vmrghb" 3 } } */
 /* { dg-final { scan-assembler-times "vmrglb" 3 } } */
-

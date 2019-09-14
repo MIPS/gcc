@@ -7,6 +7,6 @@ int main(int argc, char **argv)
 
    myCInt = -11;
    testOnly(&myCInt);
-   
+
    return 0;
 }/* end main() */

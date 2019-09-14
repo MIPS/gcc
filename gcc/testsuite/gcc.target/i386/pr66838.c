@@ -10,7 +10,7 @@ void sysv_abi_func(char const *desc, void *local)
 {
   register int esi asm ("esi");
   register int edi asm ("edi");
-  
+
   if (local != &global)
     abort ();
 

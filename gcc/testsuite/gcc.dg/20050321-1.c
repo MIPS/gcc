@@ -1,4 +1,4 @@
-/* This caused an ICE on powerpc-linux-gnu due to not 
+/* This caused an ICE on powerpc-linux-gnu due to not
    up-to-date life info (PR middle-end/20177).  */
 
 /* { dg-do compile } */

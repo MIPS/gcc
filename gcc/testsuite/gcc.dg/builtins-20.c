@@ -181,10 +181,10 @@ void test2(double x, double y)
 
   if (fmin (x,fmax(x,y)) != x)
     link_error ();
-  
+
   if (fmin (x,fmax(y,x)) != x)
     link_error ();
-  
+
   if (fmax (fmin(x,y),y) != y)
     link_error ();
 
@@ -193,7 +193,7 @@ void test2(double x, double y)
 
   if (fmax (x,fmin(x,y)) != x)
     link_error ();
-  
+
   if (fmax (x,fmin(y,x)) != x)
     link_error ();
 
@@ -409,10 +409,10 @@ void test2f(float x, float y)
 
   if (fminf (x,fmaxf(x,y)) != x)
     link_error ();
-  
+
   if (fminf (x,fmaxf(y,x)) != x)
     link_error ();
-  
+
   if (fmaxf (fminf(x,y),y) != y)
     link_error ();
 
@@ -421,7 +421,7 @@ void test2f(float x, float y)
 
   if (fmaxf (x,fminf(x,y)) != x)
     link_error ();
-  
+
   if (fmaxf (x,fminf(y,x)) != x)
     link_error ();
 
@@ -636,10 +636,10 @@ void test2l(long double x, long double y)
 
   if (fminl (x,fmaxl(x,y)) != x)
     link_error ();
-  
+
   if (fminl (x,fmaxl(y,x)) != x)
     link_error ();
-  
+
   if (fmaxl (fminl(x,y),y) != y)
     link_error ();
 
@@ -648,7 +648,7 @@ void test2l(long double x, long double y)
 
   if (fmaxl (x,fminl(x,y)) != x)
     link_error ();
-  
+
   if (fmaxl (x,fminl(y,x)) != x)
     link_error ();
 
@@ -746,4 +746,3 @@ int main()
 
   return 0;
 }
-

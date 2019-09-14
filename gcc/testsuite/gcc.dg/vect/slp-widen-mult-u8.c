@@ -33,10 +33,9 @@ int main (void)
     if (result[i] != X[i] * Y[i])
       abort ();
   }
-  
+
   return 0;
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target { vect_widen_mult_qi_to_hi || vect_unpack } } } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 1 "vect" { target { vect_widen_mult_hi_to_si || vect_unpack } } } } */
-

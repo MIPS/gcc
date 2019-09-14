@@ -17,4 +17,3 @@ int32x2x3_t test1 (void)
   int32x2x3_t res ;
   return vld3_lane_s32 (&a, res, 1);
 }
-

@@ -20,4 +20,3 @@ int rab (char *pt, int *pti)
 }
 
 /* { dg-final { scan-assembler-times "mov\t#0" 2 } } */
-

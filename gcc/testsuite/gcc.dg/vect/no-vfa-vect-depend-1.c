@@ -14,7 +14,7 @@ int main1 ()
 {
   int i;
 
-  /* Not vectorizable due to data dependence: dependence distance 1.  */ 
+  /* Not vectorizable due to data dependence: dependence distance 1.  */
   for (i = 0; i < N - 1; i++)
     {
       ia[i+1] = ia[i] * 4;
@@ -25,7 +25,7 @@ int main1 ()
     {
       if (ia[i] != 0)
         abort ();
-    } 
+    }
 
   /* Vectorizable. Dependence distance -1.  */
   for (i = 0; i < N - 1; i++)
@@ -52,4 +52,3 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" {xfail { vect_no_align && { ! vect_hw_misalign } } } } } */
 /* { dg-final { scan-tree-dump-times "dependence distance negative" 1 "vect"  } } */
-

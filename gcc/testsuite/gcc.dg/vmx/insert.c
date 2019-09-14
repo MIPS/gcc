@@ -34,4 +34,3 @@ static void test()
 		     ((vector float){-16.0f,-1.0f,0.0f,1.0f})),
 	 "vec_insert (vg)");
 }
-

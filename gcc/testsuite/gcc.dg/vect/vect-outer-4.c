@@ -19,7 +19,7 @@ foo (){
   for (i = 0; i < N; i++) {
     diff = 0;
     for (j = 0; j < M; j+=4) {
-      diff += in[j+i]*coeff[j]; 
+      diff += in[j+i]*coeff[j];
     }
     out[i]=diff;
   }
@@ -37,7 +37,7 @@ int main (void)
     in[i] = i;
 
   foo ();
-  
+
   for (i = 0; i < N; i++) {
     diff = 0;
     for (j = 0; j < M; j+=4) {

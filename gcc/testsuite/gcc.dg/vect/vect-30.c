@@ -53,9 +53,9 @@ int main2 (unsigned int n)
 }
 
 int main (void)
-{ 
+{
   check_vect ();
-  
+
   main1 (N);
   main2 (N);
   return 0;

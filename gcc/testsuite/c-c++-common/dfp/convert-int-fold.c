@@ -28,8 +28,8 @@ main ()
   long long sll;
   BOOL b;
 
-  /* C99 Section 6.7.2 Type specifiers.  Type _Bool is 
-     mentioned in this section.  Conversions between 
+  /* C99 Section 6.7.2 Type specifiers.  Type _Bool is
+     mentioned in this section.  Conversions between
      BOOL and DFP types.  */
 
   /* Decimal float to unsigned integer.  */
@@ -158,7 +158,7 @@ main ()
   d32 = 0.0DF;
   d64 = 0.0DD;
   d128 = 0.0DL;
-  
+
   b = d32;
   if (b)
     link_error ();

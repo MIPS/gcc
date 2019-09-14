@@ -17,4 +17,3 @@ void nl_ind(PLCI * plci)
 {
   plci->x = -((intptr_t)(plci->buf)) & 3;
 }
-

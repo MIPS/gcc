@@ -23,4 +23,3 @@ int __re_compile_fastmap(unsigned char *p)
 
     return 0;
 }
-

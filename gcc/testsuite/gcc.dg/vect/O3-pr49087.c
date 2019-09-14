@@ -11,7 +11,7 @@ int g;
 
 struct S0 s0;
 
-int 
+int
 foo (int arg)
 {
   int *ptr = &g;
@@ -33,4 +33,3 @@ foo (int arg)
 	}
     }
 }
-

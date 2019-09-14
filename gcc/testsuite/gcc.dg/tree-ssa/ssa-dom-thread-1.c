@@ -1,4 +1,4 @@
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-O2 -fno-tree-vrp -fdump-tree-dom2-details" } */
 void t(void);
 void q(void);

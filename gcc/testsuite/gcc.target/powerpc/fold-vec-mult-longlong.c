@@ -21,4 +21,3 @@ test6 (vector unsigned long long x, vector unsigned long long y)
 }
 
 /* { dg-final { scan-assembler-times "\[ \t\]mulld " 4 { target lp64 } } } */
-

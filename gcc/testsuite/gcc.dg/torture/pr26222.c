@@ -16,6 +16,5 @@ void f(int t1)
           double xf = ((double) x) / ((double) 16 - 1.0);
           double tt = xf;
           putShort(offset, tt);
-        } 
+        }
 }
-

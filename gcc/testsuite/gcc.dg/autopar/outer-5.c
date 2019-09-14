@@ -19,8 +19,8 @@ void parloop (int N)
   int i, j;
   int sum;
 
-  /* Inner cycle is currently not supported, outer loop is not 
-     parallelized.  Inner reduction is detected, inner loop is 
+  /* Inner cycle is currently not supported, outer loop is not
+     parallelized.  Inner reduction is detected, inner loop is
      parallelized.  */
   for (i = 0; i < N; i++)
   {
@@ -35,10 +35,10 @@ void parloop (int N)
 int main(void)
 {
   int i,j;
-  for (i = 0; i < 500; i++) 
+  for (i = 0; i < 500; i++)
     for (j = 0; j < 500; j++)
       init(i, j);
-  
+
   parloop(500);
 
   return 0;

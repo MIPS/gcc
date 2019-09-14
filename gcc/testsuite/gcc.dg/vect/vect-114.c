@@ -39,4 +39,3 @@ int main (void)
    the loop.  */
 /* { dg-final { scan-tree-dump-times "vectorized 0 loops" 1 "vect" { target { ! vect_perm } xfail { aarch64_sve && vect_variable_length } } } } */
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target vect_perm } } } */
-

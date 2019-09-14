@@ -12,7 +12,7 @@ int foo (int p)
 
 int *bar ()
 {
-  int j; 
+  int j;
   i = h ? 0 : 1 % h;
   for (j = 0; j < 1; j++)
     for (d = 0; d; d++)

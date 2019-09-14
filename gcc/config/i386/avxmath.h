@@ -25,4 +25,3 @@ along with GCC; see the file COPYING3.  If not see
    | OPTION_MASK_ISA_SSE3 | OPTION_MASK_ISA_SSSE3			\
    | OPTION_MASK_ISA_SSE4_1 | OPTION_MASK_ISA_SSE4_2			\
    | OPTION_MASK_ISA_AVX)
-

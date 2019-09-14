@@ -22,4 +22,4 @@ vector float t;
     vec_insert (t, 3);                  /* { dg-error "builtin 'vec_insert' only accepts 3" } */
     vec_insert (t, 3, 2, 4, 6, 6);      /* { dg-error "builtin 'vec_insert' only accepts 3" } */
     return 0;
-}  
+}

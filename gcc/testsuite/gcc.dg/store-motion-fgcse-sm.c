@@ -30,4 +30,3 @@ main ()
 
 /* Check that -fgcse-sm did something for f.  */
 /* { dg-final { scan-rtl-dump "STORE_MOTION of f, .* basic blocks, 1 insns deleted, 1 insns created" "store_motion" } } */
- 

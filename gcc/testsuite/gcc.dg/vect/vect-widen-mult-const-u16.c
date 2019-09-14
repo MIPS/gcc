@@ -5,7 +5,7 @@
 
 #define N 32
 
-__attribute__ ((noinline)) void 
+__attribute__ ((noinline)) void
 foo (unsigned int *__restrict a,
      unsigned short *__restrict b,
      int n)

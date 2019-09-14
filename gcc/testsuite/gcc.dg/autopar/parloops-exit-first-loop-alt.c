@@ -14,4 +14,3 @@ f (unsigned int n, unsigned int *__restrict__ a, unsigned int *__restrict__ b,
 }
 
 /* { dg-final { scan-tree-dump-times "alternative exit-first loop transform succeeded" 1 "parloops2" } } */
-

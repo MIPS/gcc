@@ -78,7 +78,7 @@ void test_arg2_non_const (int n, int a1)
   extern const int a2;
   static const int a3 = CHAR_BIT;
   static volatile const int a4 = CHAR_BIT;
-  
+
   p =  __builtin_alloca_with_align (n, a1);       /* { dg-error "must be a constant integer" } */
   p =  __builtin_alloca_with_align (n, a2);       /* { dg-error "must be a constant integer" } */
   p =  __builtin_alloca_with_align (n, a3);       /* { dg-error "must be a constant integer" } */

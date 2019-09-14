@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 16 
+#define N 16
 
 unsigned int out[N];
 unsigned int in[N] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
@@ -15,8 +15,8 @@ main1 (unsigned int x, unsigned int y)
   unsigned int a0, a1, a2, a3;
   unsigned int *pin = &in[0];
   unsigned int *pout = &out[0];
- 
-  /* pin and pout are different, so despite the fact that loads and stores 
+
+  /* pin and pout are different, so despite the fact that loads and stores
      are mixed the basic block is vectorizable.  */
   a0 = *pin++ + 23;
   *pout++ = a0 * x;
@@ -50,4 +50,3 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "basic block vectorized" 1 "slp2"  { target vect_hw_misalign } } } */
-  

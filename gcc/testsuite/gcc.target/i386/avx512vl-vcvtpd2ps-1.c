@@ -19,4 +19,3 @@ avx512vl_test (void)
   y = _mm_mask_cvtpd_ps (y, 4, xx);
   y = _mm_maskz_cvtpd_ps (6, xx);
 }
-

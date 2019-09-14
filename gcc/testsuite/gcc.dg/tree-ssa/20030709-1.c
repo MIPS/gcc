@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-O1 -fdump-tree-optimized" } */
-                                                                                
+
 static int copying_arguments;
 
 int

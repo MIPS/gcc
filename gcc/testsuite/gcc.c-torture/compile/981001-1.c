@@ -13,6 +13,6 @@ int main (void)
       code ^= 0x4000;
       low  |= 0x4000;
     }
-  
+
   exit (0);
 }

@@ -29,6 +29,3 @@ lbl_2582:
     __builtin_abort ();
   return 0;
 }
-
-
-

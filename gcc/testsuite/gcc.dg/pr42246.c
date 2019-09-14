@@ -33,4 +33,3 @@ Quiesce (int alpha, int beta, int wtm, int ply)
         while (!done);
       }
 }
-

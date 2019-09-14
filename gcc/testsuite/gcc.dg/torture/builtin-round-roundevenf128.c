@@ -18,4 +18,3 @@ main (void)
   TEST(roundeven,  (0x1.C00000000000039A5653p1f128), (0x1p2f128))
   return 0;
 }
-

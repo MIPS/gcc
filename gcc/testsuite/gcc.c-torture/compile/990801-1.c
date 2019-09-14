@@ -13,7 +13,7 @@ token()
 	case 1: break;
 	case 4: break;
 	case 5: break;
-	case 6: 
+	case 6:
             {
 	        switch (class(c)) {
 	        default: break;
@@ -23,4 +23,3 @@ token()
 	}
     }
 }
-

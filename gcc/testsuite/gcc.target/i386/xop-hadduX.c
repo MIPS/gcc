@@ -43,7 +43,7 @@ init_dword ()
     src1.li[i] = i;
 }
 
-static int 
+static int
 check_byte2word ()
 {
   int i, j, s, t, check_fails = 0;
@@ -54,13 +54,13 @@ check_byte2word ()
 	  t = i + (2 * j);
 	  s = (i / 2) + j;
 	  res.si[s] = src1.ssi[t] + src1.ssi[t + 1] ;
-	  if (res.si[s] != dst.si[s]) 
-	    check_fails++;	
+	  if (res.si[s] != dst.si[s])
+	    check_fails++;
 	}
     }
 }
 
-static int 
+static int
 check_byte2dword ()
 {
   int i, j, s, t, check_fails = 0;
@@ -71,8 +71,8 @@ check_byte2dword ()
 	  t = i + (4 * j);
 	  s = (i / 4) + j;
 	  res.li[s] = (src1.ssi[t] + src1.ssi[t + 1]) + (src1.ssi[t + 2]
-	              + src1.ssi[t + 3]); 
-	  if (res.li[s] != dst.li[s]) 
+	              + src1.ssi[t + 3]);
+	  if (res.li[s] != dst.li[s])
 	    check_fails++;
 	}
     }
@@ -89,10 +89,10 @@ check_byte2qword ()
 	{
 	  t = i + (8 * j);
 	  s = (i / 8) + j;
-	  res.lli[s] = ((src1.ssi[t] + src1.ssi[t + 1]) + (src1.ssi[t + 2] 
+	  res.lli[s] = ((src1.ssi[t] + src1.ssi[t + 1]) + (src1.ssi[t + 2]
 		       + src1.ssi[t + 3])) + ((src1.ssi[t + 4] + src1.ssi[t +5])
-	               + (src1.ssi[t + 6] + src1.ssi[t + 7])); 
-	  if (res.lli[s] != dst.lli[s]) 
+	               + (src1.ssi[t + 6] + src1.ssi[t + 7]));
+	  if (res.lli[s] != dst.lli[s])
 	    check_fails++;
 	}
     }
@@ -110,13 +110,13 @@ check_word2dword ()
 	  t = i + (2 * j);
 	  s = (i / 2) + j;
 	  res.li[s] = src1.si[t] + src1.si[t + 1] ;
-	  if (res.li[s] != dst.li[s]) 
-	    check_fails++;	
+	  if (res.li[s] != dst.li[s])
+	    check_fails++;
 	}
     }
 }
 
-static int 
+static int
 check_word2qword ()
 {
   int i, j, s, t, check_fails = 0;
@@ -127,8 +127,8 @@ check_word2qword ()
 	  t = i + (4 * j);
 	  s = (i / 4) + j;
 	  res.lli[s] = (src1.si[t] + src1.si[t + 1]) + (src1.si[t + 2]
-	               + src1.si[t + 3]); 
-	  if (res.lli[s] != dst.lli[s]) 
+	               + src1.si[t + 3]);
+	  if (res.lli[s] != dst.lli[s])
 	    check_fails++;
 	}
     }
@@ -146,8 +146,8 @@ check_dword2qword ()
 	  t = i + (2 * j);
 	  s = (i / 2) + j;
 	  res.lli[s] = src1.li[t] + src1.li[t + 1] ;
-	  if (res.lli[s] != dst.lli[s]) 
-	    check_fails++;	
+	  if (res.lli[s] != dst.lli[s])
+	    check_fails++;
 	}
     }
 }
@@ -156,27 +156,27 @@ static void
 xop_test (void)
 {
   int i;
-  
+
   /* Check haddubw */
   init_byte ();
-  
+
   for (i = 0; i < NUM; i++)
     dst.x[i] = _mm_haddw_epu8 (src1.x[i]);
-  
+
   if (check_byte2word())
   abort ();
-  
+
   /* Check haddubd */
   for (i = 0; i < (NUM ); i++)
     dst.x[i] = _mm_haddd_epu8 (src1.x[i]);
-  
+
   if (check_byte2dword())
-    abort (); 
-  
+    abort ();
+
   /* Check haddubq */
   for (i = 0; i < NUM; i++)
     dst.x[i] = _mm_haddq_epu8 (src1.x[i]);
-  
+
   if (check_byte2qword())
     abort ();
 
@@ -185,23 +185,23 @@ xop_test (void)
 
   for (i = 0; i < (NUM ); i++)
     dst.x[i] = _mm_haddd_epu16 (src1.x[i]);
-  
+
   if (check_word2dword())
-    abort (); 
-   
+    abort ();
+
   /* Check haddbuwq */
- 
+
   for (i = 0; i < NUM; i++)
     dst.x[i] = _mm_haddq_epu16 (src1.x[i]);
-  
+
   if (check_word2qword())
     abort ();
- 
+
   /* Check hadudq */
   init_dword ();
     for (i = 0; i < NUM; i++)
     dst.x[i] = _mm_haddq_epu32 (src1.x[i]);
-  
+
   if (check_dword2qword())
     abort ();
 }

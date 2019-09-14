@@ -11,4 +11,3 @@ int foo ()
 
   return sum;
 }
-

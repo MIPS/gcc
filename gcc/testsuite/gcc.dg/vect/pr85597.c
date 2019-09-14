@@ -23,4 +23,3 @@ foo (double *d, double *s)
 {
   bar (10, d, s);
 }
-

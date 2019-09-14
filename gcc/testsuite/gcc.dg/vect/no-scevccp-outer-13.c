@@ -49,7 +49,7 @@ int main (void)
   for (i=0; i<N; i++){
     in[i] = i;
   }
- 
+
   res = foo (2);
 
   /* check results:  */

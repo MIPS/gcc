@@ -51,5 +51,3 @@ tilegx_cpu_cpp_builtins (struct cpp_reader *pfile)
   TILEGX_CPU_CPP_ENDIAN_BUILTINS ();
   GNU_USER_TARGET_OS_CPP_BUILTINS ();
 }
-
-

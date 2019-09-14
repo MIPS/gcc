@@ -9,8 +9,8 @@ int check(int param)
 {
   int a = 0;
   int b = 1;
-  
-  switch (param) 
+
+  switch (param)
     {
     case -2:
       a = 0;
@@ -33,7 +33,7 @@ int check(int param)
       a = 16;
       b = 1;
     }
-  
+
   X = a;
   Y = b;
   return 0;
@@ -42,7 +42,7 @@ int check(int param)
 void assertions(int a, int b)
 {
   if (X != a || Y != b)
-    abort();  
+    abort();
 
   return;
 }

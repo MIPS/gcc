@@ -1,7 +1,7 @@
-/* 
+/*
    Origin: Dodji Seketeli <dodji@redhat.com>
-   { dg-options "-std=iso9899:1999 -pedantic" } 
-   { dg-do compile } 
+   { dg-options "-std=iso9899:1999 -pedantic" }
+   { dg-do compile }
  */
 
 #include "system-binary-constants-1.h"

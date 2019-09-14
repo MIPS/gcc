@@ -16,4 +16,3 @@ void func (int a, int b, int c, int d, int f, int g)
 }
 
 /* { dg-final { scan-assembler-times "cmp" 1 } } */
-

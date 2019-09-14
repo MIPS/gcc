@@ -35,7 +35,7 @@ static __m128
 __attribute__((noinline, unused))
 test (__m128 s1, __m128 s2)
 {
-  return _mm_shuffle_ps (s1, s2, MASK); 
+  return _mm_shuffle_ps (s1, s2, MASK);
 }
 
 static void
@@ -43,7 +43,7 @@ TEST (void)
 {
   union128 u, s1, s2;
   float e[4] = {0.0};
-   
+
   s1.x = _mm_set_ps (1.1, 1.2, 1.3, 1.4);
   s2.x = _mm_set_ps (2.1, 2.2, 2.3, 2.4);
   u.x = test (s1.x, s2.x);

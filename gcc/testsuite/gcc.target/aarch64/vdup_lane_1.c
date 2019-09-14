@@ -400,4 +400,3 @@ main ()
 /* Asm check for test_vdupq_lane_f32 and test_vdupq_lane_s32.  */
 /* { dg-final { scan-assembler-times "dup\\tv\[0-9\]+\.4s, v\[0-9\]+\.s\\\[0\\\]" 2 } } */
 /* { dg-final { scan-assembler-times "dup\\tv\[0-9\]+\.4s, v\[0-9\]+\.s\\\[1\\\]" 2 } } */
-

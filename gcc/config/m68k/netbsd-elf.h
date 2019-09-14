@@ -35,7 +35,7 @@ along with GCC; see the file COPYING3.  If not see
     }						\
   while (0)
 
-/* Don't try using XFmode on the 68010.  */ 
+/* Don't try using XFmode on the 68010.  */
 #undef LONG_DOUBLE_TYPE_SIZE
 #define LONG_DOUBLE_TYPE_SIZE (TARGET_68020 ? 80 : 64)
 

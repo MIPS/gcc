@@ -1,5 +1,5 @@
 /* PR c/32061
-   { dg-do compile } 
+   { dg-do compile }
    { dg-options "-Wlogical-op -Wall -Wextra" }
 */
 #define FORCE   1

@@ -6,7 +6,7 @@
 
 #include "arm-fp16-ops.h"
 
-/* We've specified options for hardware float, so we should not see any 
+/* We've specified options for hardware float, so we should not see any
    calls to libfuncs here except for those to the conversion functions.  */
 /* { dg-final { scan-assembler-not "\tbl\t__.*hf2" } } */
 /* { dg-final { scan-assembler-not "\tbl\t__.*hf3" } } */

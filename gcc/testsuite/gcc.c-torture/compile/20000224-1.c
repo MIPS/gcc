@@ -1,12 +1,12 @@
 enum Lisp_Type
 {
-  Lisp_Int                     
-  ,Lisp_Record                 
-  ,Lisp_Cons                   
-  ,Lisp_String                 
-  ,Lisp_Vector                 
+  Lisp_Int
+  ,Lisp_Record
+  ,Lisp_Cons
+  ,Lisp_String
+  ,Lisp_Vector
   ,Lisp_Symbol
-  ,Lisp_Char                     
+  ,Lisp_Char
 };
 typedef
 union Lisp_Object

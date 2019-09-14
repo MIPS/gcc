@@ -1,10 +1,10 @@
-/* 
+/*
  * Copyright 2004 Free Software Foundation, Inc.
  * Contributed and written by Nathanael Nerode.
  *
  * GCC 3.4 would attempt to open stdin as the included file
  * (PR 17610), causing a sort of hang.
- * 
+ *
  * We should get an error.
  */
 

@@ -19,7 +19,7 @@ __attribute__ ((noinline))
 int main1 () {
   int i;
   struct extraction *p;
-  
+
   p = (struct extraction *) malloc (sizeof (struct extraction));
 
   /* Vectorizable: alias analysis determines that p can't point to a and/or b.  */
@@ -65,15 +65,14 @@ int main2 () {
 }
 
 int main (void)
-{ 
+{
   check_vect ();
 
   main1 ();
   main2 ();
-  
-  return 0;	
+
+  return 0;
 }
 
 /* Requires versioning.  */
 /* { dg-final { scan-tree-dump-times "vectorized 2 loops" 0 "vect" } } */
-

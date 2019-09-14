@@ -14,11 +14,11 @@
 
 #include <emmintrin.h>
 
-static void 
+static void
 __attribute__((noinline, unused))
 test (double *p, __m128d a)
 {
-  _mm_store_sd (p, a); 
+  _mm_store_sd (p, a);
 }
 
 static void

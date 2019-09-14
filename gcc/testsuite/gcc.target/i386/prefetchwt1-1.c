@@ -11,4 +11,3 @@ prefetchw__test (void)
 {
     _mm_prefetch (p, _MM_HINT_ET1);
 }
-

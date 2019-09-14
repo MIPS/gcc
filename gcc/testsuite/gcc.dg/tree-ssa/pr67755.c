@@ -22,4 +22,3 @@ int * _zend_mm_alloc_int (int * heap, long int size)
 
   return best_fit;
 }
-

@@ -21,4 +21,3 @@ void xxx (void)
 
 /* { dg-final { scan-tree-dump-times "step \\* \[^0-9\]" 0 "optimized" } } */
 /* { dg-final { scan-tree-dump-times "\[^0-9\] \\* step" 0 "optimized" } } */
-

@@ -124,4 +124,3 @@ const_complex_int_narrowing (void)
   vfloatc = UINT_MAX + 1i; /* { dg-warning "conversion" } */
   vfloatc = UINT_MAX + UINT_MAX * 1i; /* { dg-warning "conversion" } */
 }
-

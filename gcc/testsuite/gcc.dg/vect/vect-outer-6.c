@@ -10,11 +10,11 @@ float A[N] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__)));
 float B[N] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__)));
 float C[N] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__)));
 float D[N] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__)));
-extern void abort(void); 
+extern void abort(void);
 
 __attribute__ ((noinline))
 int main1 ()
-{  
+{
   float s;
 
   int i, j;

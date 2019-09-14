@@ -18,7 +18,7 @@ avx_test (void)
   for (i = 0; i < 8; i++)
     if (i % 2)
       e[i] = s1.a[i] + s2.a[i];
-    else 
+    else
       e[i] = s1.a[i] - s2.a[i];
 
   if (check_union256 (u, e))

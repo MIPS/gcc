@@ -13,12 +13,12 @@ void fn2 ()
 
 int fn1 ()
 {
-  fn2 (); 
-  return 0; 
+  fn2 ();
+  return 0;
 }
 
 int main ()
 {
-  fn1 (); 
+  fn1 ();
   return 0;
 }

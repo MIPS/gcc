@@ -5,7 +5,7 @@ int main()
   int x;
   if (flag)
     x = -1;
-  else 
+  else
     x &= 0xff;
   if (x & ~0xff)
     abort ();

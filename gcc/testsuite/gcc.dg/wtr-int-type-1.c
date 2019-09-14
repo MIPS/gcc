@@ -8,7 +8,7 @@ void
 testfunc ()
 {
   long long i;
-  
+
   /* Octal and hex values shouldn't issue -Wtraditional warnings. */
   i = 0x80000000;
   i = 0xFFFFFFFF;
@@ -32,8 +32,8 @@ testfunc ()
 }
 
 void
-testfunc2( ) 
-{ 
+testfunc2( )
+{
   long long i;
 
 /* We are in system headers now, no -Wtraditional warnings should issue.  */
@@ -41,12 +41,11 @@ testfunc2( )
   i = 0x80000000;
   i = 0xFFFFFFFF;
   i = 037777777777;
-  
+
   i = 0x8000000000000000;
   i = 0xFFFFFFFFFFFFFFFF;
   i = 01777777777777777777777;
-  
+
   i = 9223372036854775807;
   i = 18446744073709551615;
 }
-

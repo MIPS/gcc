@@ -17,5 +17,5 @@ void f() {
  if (z >= (void*)0) /* { dg-error "distinct pointer types lacks a cast" } */
     z();
  if ((void*)0 >=z) /* { dg-error "distinct pointer types lacks a cast" } */
-    z(); 
+    z();
 }

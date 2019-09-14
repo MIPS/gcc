@@ -14,7 +14,7 @@ float repl1 (float varx)
 /* Should be turned to
 
    varx_4 = MIN_EXPR <1.0e+0, varx_2>;
-   varx_5 = MAX_EXPR <varx_4, 0.0>;  */  
+   varx_5 = MAX_EXPR <varx_4, 0.0>;  */
 
 /* phiopt1 confused by predictors.  */
 /* { dg-final { scan-tree-dump "varx.*MIN_EXPR.*1\\.0" "phiopt1" { xfail *-*-* } } } */

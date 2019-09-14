@@ -8,7 +8,7 @@
 extern void abort (void);
 extern void exit (int);
 
-   
+
 f1 (a)
      long a;
 {

@@ -31,4 +31,3 @@ void sbs (int *p, TYPE a) { *p = __builtin_signbit (a); }
 /* { dg-final { scan-assembler-not   {\mstxvw4x\M}   } } */
 /* { dg-final { scan-assembler-not   {\mstxvd2x\M}   } } */
 /* { dg-final { scan-assembler-not   {\mstvx\M}      } } */
-

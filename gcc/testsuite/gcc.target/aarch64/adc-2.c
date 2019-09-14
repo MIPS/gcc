@@ -10,73 +10,73 @@ extern void abort (void);
    adc x, c, d
  */
 
-unsigned long 
+unsigned long
 ltu_add (unsigned long a, unsigned long b, unsigned long c, unsigned long d)
 {
   return (a < b) + c + d;
 }
 
-unsigned long 
+unsigned long
 gtu_add (unsigned long a, unsigned long b, unsigned long c, unsigned long d)
 {
   return (a > b) + c + d;
 }
 
-unsigned long 
+unsigned long
 leu_add (unsigned long a, unsigned long b, unsigned long c, unsigned long d)
 {
   return (a <= b) + c + d;
 }
 
-unsigned long 
+unsigned long
 geu_add (unsigned long a, unsigned long b, unsigned long c, unsigned long d)
 {
   return (a >= b) + c + d;
 }
 
-unsigned long 
+unsigned long
 equ_add (unsigned long a, unsigned long b, unsigned long c, unsigned long d)
 {
   return (a == b) + c + d;
 }
 
-unsigned long 
+unsigned long
 neu_add (unsigned long a, unsigned long b, unsigned long c, unsigned long d)
 {
   return (a != b) + c + d;
 }
 
-long 
+long
 lt_add ( long a,  long b,  long c,  long d)
 {
   return (a < b) + c + d;
 }
 
-long 
+long
 gt_add ( long a,  long b,  long c,  long d)
 {
   return (a > b) + c + d;
 }
 
-long 
+long
 le_add ( long a,  long b,  long c,  long d)
 {
   return (a <= b) + c + d;
 }
 
-long 
+long
 ge_add ( long a,  long b,  long c,  long d)
 {
   return (a >= b) + c + d;
 }
 
-long 
+long
 eq_add ( long a,  long b,  long c,  long d)
 {
   return (a == b) + c + d;
 }
 
-long 
+long
 ne_add ( long a,  long b,  long c,  long d)
 {
   return (a != b) + c + d;

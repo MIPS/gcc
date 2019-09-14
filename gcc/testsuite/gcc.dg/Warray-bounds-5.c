@@ -4,18 +4,18 @@
 
 extern int printf (__const char *__restrict __format, ...);
 
-static int f2(char formatstr[10][100])  
+static int f2(char formatstr[10][100])
 {
   int anz;
   for( anz = 0; anz < 10; ++anz ) {
     printf( "%d %s\n", anz, formatstr[anz] );
-  } 
+  }
   return anz;
 }
 
 
 static   char formatstr[10][100];
-int main( void ) 
+int main( void )
 {
   int anz;
   anz = f2(formatstr);

@@ -18,7 +18,7 @@ int
 main ()
 {
   char *p = 0;
-  
+
   p = (char *) __builtin_alloca (20);
 
   strcpy (p, "test");
@@ -34,7 +34,7 @@ main ()
   {
     int *q = (int *) __builtin_alloca (p[2] * sizeof (int));
     int i;
-    
+
     for (i = 0; i < p[2]; i++)
       q[i] = 0;
 

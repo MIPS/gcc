@@ -9,7 +9,7 @@ foo ()
   void *ctx, *tuple;
   uint32_t tuple_size;
   uint64_t netns, flags;
-  
+
   ret = __builtin_bpf_helper_sk_lookup_tcp (ctx,
 					    tuple,
 					    tuple_size,

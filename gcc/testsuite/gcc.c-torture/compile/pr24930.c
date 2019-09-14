@@ -5,7 +5,7 @@ int
 main(int argc, char** argv)
 {
   const char *buf = argv[1];
-  
+
   unsigned int data = (((unsigned int) buf[0]) << 8) + (unsigned int) buf[1];
   if (data & 0x8000) {
     data &= 0x7fff ;

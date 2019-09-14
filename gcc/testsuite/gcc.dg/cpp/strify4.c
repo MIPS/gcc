@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* Tests we stringify without changing unprintable characts.  
+/* Tests we stringify without changing unprintable characts.
 
    Andrew Pinski */
 

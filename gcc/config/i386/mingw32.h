@@ -274,4 +274,3 @@ do {						         \
 #define LIBGCC_EH_EXTN "_sjlj"
 #endif
 #define LIBGCC_SONAME "libgcc_s" LIBGCC_EH_EXTN "-1.dll"
-

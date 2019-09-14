@@ -14,7 +14,7 @@ void bar1 (int n,int *index,rvec x[],matrix trans)
 {
   float   xt,yt,zt;
   int    i,ii;
-  
+
   for(i=0; (i<n); i++) {
     ii=index ? index[i] : i;
     xt=x[ii][XX];
@@ -27,16 +27,16 @@ void bar1 (int n,int *index,rvec x[],matrix trans)
 }
 
 
-void bar2 (int n, rvec x[]) 
+void bar2 (int n, rvec x[])
 {
   int     m;
   matrix  trans;
-  
+
   foo (trans);
-  
+
   if (det (trans) < 0) {
     for(m=0; (m<DIM); m++)
       trans[ZZ][m] = -trans[ZZ][m];
-  }  
+  }
   bar1 (n,(int*) 0,x,trans);
 }

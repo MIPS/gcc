@@ -1,6 +1,6 @@
 /* { dg-do run } */
 
-int a, c, e[5][2]; 
+int a, c, e[5][2];
 unsigned int d;
 
 int

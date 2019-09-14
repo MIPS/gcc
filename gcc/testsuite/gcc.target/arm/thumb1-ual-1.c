@@ -84,4 +84,3 @@ real_to_integer (const struct real_value *r, int *fail, int precision)
       exit(2);
     }
 }
-

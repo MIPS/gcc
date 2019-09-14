@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 16 
+#define N 16
 
 unsigned int out[N];
 unsigned int in[N] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
@@ -13,7 +13,7 @@ main1 (unsigned int x, unsigned int y, unsigned int *pin, unsigned int *pout)
 {
   int i;
   unsigned int a0, a1, a2, a3;
- 
+
   /* pin and pout may alias, and loads and stores are mixed.  The basic block
      cannot be vectorized.  */
   a0 = *pin++ + 23;
@@ -48,4 +48,3 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "basic block vectorized" 0 "slp2" } } */
-  

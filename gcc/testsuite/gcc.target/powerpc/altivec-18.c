@@ -18,7 +18,7 @@ extern vector int vi1, vi2;
 
 int signedness (void)
 {
-    return vec_all_le (vc1, vc2) 
+    return vec_all_le (vc1, vc2)
            && vec_all_le (vs1, vs2)
            && vec_all_le (vi1, vi2);
 }

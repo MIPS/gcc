@@ -7,7 +7,7 @@ int callee1(int *v)
 {
   if (*v < 2)
     return 0;
-  else 
+  else
     {
       int t = data1;
 
@@ -22,7 +22,7 @@ int __attribute__((pure)) callee2(int *v)
 {
   if (*v < 2)
     return 0;
-  else 
+  else
     {
       data1 = v[0] + v[2];
 

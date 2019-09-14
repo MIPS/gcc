@@ -33,7 +33,7 @@ sse4_2_test (void)
    }
 
  for (i=0; i < NUM; i++)
-   { 
+   {
      res = POPCNT (vals[i]);
      if (res != compute_popcnt (vals[i]))
        abort ();

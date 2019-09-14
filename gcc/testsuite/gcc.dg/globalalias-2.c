@@ -10,7 +10,7 @@ __attribute__ ((weak,noinline))
 __attribute ((alias("test")))
 void test2(void);
 
-void tt() 
+void tt()
 {
   int prev = test2count;
   /* This call must bind locally.  */

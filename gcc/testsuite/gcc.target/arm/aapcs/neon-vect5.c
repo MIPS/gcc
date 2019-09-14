@@ -22,7 +22,7 @@ ARG(int32x4_t, i32x4_constvec2, Q0) /* D0, D1 */
 ARG(float, 3.0f, S4) /* D2, Q1 */
 ARG(float32x4x2_t, f32x4x2_constvec1, Q2) /* Q2, Q3 - D4-D6 , s5-s12 */
 ARG(double, 12.0, D3) /* Backfill this particular argument.  */
-ARG(int32x4x2_t, i32x4x2_constvec2, STACK) 
+ARG(int32x4x2_t, i32x4x2_constvec2, STACK)
 ARG(float, 5.0f, STACK+sizeof(int32x4x2_t)) /* No backfill allowed.  */
 LAST_ARG(int, 3, R0)
 

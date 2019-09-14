@@ -377,7 +377,7 @@ check_callers (cgraph_node *node, int *max_callers)
 
 
 /* Make cheap estimation if growth of NODE is likely positive knowing
-   EDGE_GROWTH of one particular edge. 
+   EDGE_GROWTH of one particular edge.
    We assume that most of other edges will have similar growth
    and skip computation if there are too many callers.  */
 

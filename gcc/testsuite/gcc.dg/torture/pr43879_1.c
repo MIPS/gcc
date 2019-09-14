@@ -24,4 +24,3 @@ int main()
 	int c = 1;
 	return tbl.p(&c);
 }
-

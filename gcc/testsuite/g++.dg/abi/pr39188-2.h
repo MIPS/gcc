@@ -2,7 +2,7 @@ template<typename T>
 T
 f (T x)
 {
-  static union 
+  static union
     {
       T i;
     };

@@ -159,7 +159,7 @@ convert_to_real_1 (tree type, tree expr, bool fold_p)
 	return expr;
       return build2_loc (EXPR_LOCATION (expr), COMPOUND_EXPR, TREE_TYPE (t),
 			 TREE_OPERAND (expr, 0), t);
-    }    
+    }
 
   /* Disable until we figure out how to decide whether the functions are
      present in runtime.  */
@@ -441,7 +441,7 @@ do_narrow (location_t loc,
 				    convert (typex, arg1));
       return convert (type, expr);
     }
-  
+
   return NULL_TREE;
 }
 
@@ -479,7 +479,7 @@ convert_to_integer_1 (tree type, tree expr, bool dofold)
 	return expr;
       return build2_loc (EXPR_LOCATION (expr), COMPOUND_EXPR, TREE_TYPE (t),
 			 TREE_OPERAND (expr, 0), t);
-    }    
+    }
 
   /* Convert e.g. (long)round(d) -> lround(d).  */
   /* If we're converting to char, we may encounter differing behavior

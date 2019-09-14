@@ -22,7 +22,7 @@ check (__m128i x, unsigned char *v, int j)
   unsigned int i;
 
   u.x = x;
-  
+
   for (i = 0; i < sizeof (u) / sizeof (v[0]); i++)
     if (i == j)
       {

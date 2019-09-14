@@ -55,7 +55,7 @@ TEST (void)
       if (memcmp (&tmp, &res[i], sizeof (tmp)))
 	abort ();
     }
-    
+
   /* Check pinsrd imm8, m32, xmm.  */
   for (i = 0; i < 4; i++)
     {

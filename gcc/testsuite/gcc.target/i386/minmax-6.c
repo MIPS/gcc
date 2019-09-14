@@ -10,7 +10,7 @@ UMVLine16Y_11 (short unsigned int * Pic, int y, int width)
       return Pic[y * width];
     }
   return Pic[y];
-} 
+}
 
 /* We do not want the RA to spill %esi for it's dual-use but using
    pmaxsd is OK.  */

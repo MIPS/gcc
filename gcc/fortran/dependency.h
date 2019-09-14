@@ -23,7 +23,7 @@ enum gfc_dep_check
 {
   NOT_ELEMENTAL,        /* Not elemental case: normal dependency check.  */
   ELEM_CHECK_VARIABLE,  /* Test whether variables overlap.  */
-  ELEM_DONT_CHECK_VARIABLE  /* Test whether variables overlap only if used 
+  ELEM_DONT_CHECK_VARIABLE  /* Test whether variables overlap only if used
 			       in an expression.  */
 };
 

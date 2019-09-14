@@ -2356,4 +2356,3 @@ _mm_castsi128_pd(__m128i __A)
 }
 
 #endif /* EMMINTRIN_H_ */
-

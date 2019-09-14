@@ -41,4 +41,3 @@ int main ()
   testl (1.0l);
   return 0;
 }
-

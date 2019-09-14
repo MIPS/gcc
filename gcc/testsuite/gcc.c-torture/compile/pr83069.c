@@ -11,4 +11,3 @@ void foo (unsigned long *res, unsigned long in)
               for (unsigned long g = 0; g < MAX; g++)
                 *res += a * in;
 }
-

@@ -8,4 +8,3 @@ void fn1() {
     a[--m] = b;
   } while (n);
 }
-

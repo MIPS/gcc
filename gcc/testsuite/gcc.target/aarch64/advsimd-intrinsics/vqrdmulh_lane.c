@@ -166,4 +166,3 @@ int main (void)
   exec_vqrdmulh_lane ();
   return 0;
 }
-

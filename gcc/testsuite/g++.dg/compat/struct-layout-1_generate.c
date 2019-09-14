@@ -37,9 +37,9 @@ along with GCC; see the file COPYING3.  If not see
 # error Need 64-bit long long
 #endif
 
-#if defined __MSVCRT__ 
+#if defined __MSVCRT__
 #define COMPAT_PRLL "I64"
-#else 
+#else
 #define COMPAT_PRLL "ll"
 #endif
 
@@ -356,25 +356,25 @@ struct types aligned_bitfld_types[NATYPES2];
 int n_aligned_bitfld_types;
 
 const char *attributes[] = {
-"atal", 
-"atpa", 
-"atal1", 
-"atal2", 
-"atal4", 
-"atal8", 
-"atal16", 
+"atal",
+"atpa",
+"atal1",
+"atal2",
+"atal4",
+"atal8",
+"atal16",
 #define NATTRIBS1 7
-"atalpa", 
-"atpaal", 
-"atal1pa", 
-"atal2pa", 
-"atal4pa", 
-"atal8pa", 
-"atal16pa", 
-"atpaal1", 
-"atpaal2", 
-"atpaal4", 
-"atpaal8", 
+"atalpa",
+"atpaal",
+"atal1pa",
+"atal2pa",
+"atal4pa",
+"atal8pa",
+"atal16pa",
+"atpaal1",
+"atpaal2",
+"atpaal4",
+"atpaal8",
 "atpaal16"
 #define NATTRIBS2 (sizeof (attributes) / sizeof (attributes[0]))
 };
@@ -990,16 +990,16 @@ For every delta with one or two bit set, and the deltas of all three
   have at least 1/4 probability of changing.
 * If mix() is run forward, every bit of c will change between 1/3 and
   2/3 of the time.  (Well, 22/100 and 78/100 for some 2-bit deltas.)
-mix() was built out of 36 single-cycle latency instructions in a 
+mix() was built out of 36 single-cycle latency instructions in a
   structure that could supported 2x parallelism, like so:
-      a -= b; 
+      a -= b;
       a -= c; x = (c>>13);
       b -= c; a ^= x;
       b -= a; x = (a<<8);
       c -= a; b ^= x;
       c -= b; x = (b>>13);
       ...
-  Unfortunately, superscalar Pentiums and Sparcs can't take advantage 
+  Unfortunately, superscalar Pentiums and Sparcs can't take advantage
   of that parallelism.  They've also turned some of those single-cycle
   latency instructions into multi-cycle latency instructions.  Still,
   this is the fastest good hash I could find.  There were about 2^^68
@@ -1140,8 +1140,8 @@ e_eq (const void *a, const void *b)
   return 1;
 }
 
-static int 
-e_exists (const struct entry *e) 
+static int
+e_exists (const struct entry *e)
 {
   struct entry *h;
   hashval_t hval;
@@ -1193,7 +1193,7 @@ output (struct entry *e)
   int flex = 0;
   for (i = 1; i <= e[0].len; )
     i += subfield (e + i, &c, &flex, 0);
-  
+
   fputs (",", outfile);
   c = 'a';
   for (i = 1; i <= e[0].len; )
@@ -1569,9 +1569,9 @@ main (int argc, char **argv)
 
   if (sizeof (int) != 4 || sizeof (long long) != 8)
     return 1;
-  
+
   i = 1;
-  while (i < argc) 
+  while (i < argc)
     {
       c = '\0';
       if (argv[i][0] == '-' && argv[i][2] == '\0')

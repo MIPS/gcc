@@ -23,7 +23,7 @@ int main1 (float x, float max_result)
       b[i] = i * 3;
       c[i] = i;
     }
-  
+
   for (i = 0; i < N; i++) {
     diff += (b[i] - c[i]);
   }
@@ -48,7 +48,7 @@ int main1 (float x, float max_result)
 }
 
 int main (void)
-{ 
+{
   main1 (2000, 2000);
   main1 (0, 1599);
   return 0;

@@ -5103,7 +5103,7 @@ expand_assignment (tree to, tree from, bool nontemporal)
 	  else if (GET_MODE (to_rtx) == VOIDmode)
 	    to_rtx = adjust_address (to_rtx, BLKmode, 0);
 	}
- 
+
       if (offset != 0)
 	{
 	  machine_mode address_mode;
@@ -5693,7 +5693,7 @@ store_expr (tree exp, rtx target, int call_param_p,
 
   /* If TEMP is a VOIDmode constant and the mode of the type of EXP is not
      the same as that of TARGET, adjust the constant.  This is needed, for
-     example, in case it is a CONST_DOUBLE or CONST_WIDE_INT and we want 
+     example, in case it is a CONST_DOUBLE or CONST_WIDE_INT and we want
      only a word-sized value.  */
   if (CONSTANT_P (temp) && GET_MODE (temp) == VOIDmode
       && TREE_CODE (exp) != ERROR_MARK
@@ -9801,8 +9801,8 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 #undef REDUCE_BIT_FIELD
 
 
-/* Return TRUE if expression STMT is suitable for replacement.  
-   Never consider memory loads as replaceable, because those don't ever lead 
+/* Return TRUE if expression STMT is suitable for replacement.
+   Never consider memory loads as replaceable, because those don't ever lead
    into constant expressions.  */
 
 static bool
@@ -12390,7 +12390,7 @@ do_tablejump (rtx index, machine_mode mode, rtx range, rtx table_label,
 
 int
 try_tablejump (tree index_type, tree index_expr, tree minval, tree range,
-	       rtx table_label, rtx default_label, 
+	       rtx table_label, rtx default_label,
 	       profile_probability default_probability)
 {
   rtx index;

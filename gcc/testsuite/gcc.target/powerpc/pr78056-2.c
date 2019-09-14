@@ -15,4 +15,3 @@ int get_random ()
 { /* { dg-warning "lacks power9 support" } */
   return __builtin_darn_32 (); /* { dg-warning "implicit declaration" } */
 }
-

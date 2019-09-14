@@ -614,7 +614,7 @@ rtx_to_double_int (const_rtx cst)
     }
   else
     gcc_unreachable ();
-  
+
   return r;
 }
 #endif
@@ -2122,7 +2122,7 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 	}
 
       /* If this is an indirect reference, record it.  */
-      else if (TREE_CODE (t) == MEM_REF 
+      else if (TREE_CODE (t) == MEM_REF
 	       || TREE_CODE (t) == TARGET_MEM_REF)
 	{
 	  attrs.expr = t;
@@ -4321,7 +4321,7 @@ set_insn_deleted (rtx_insn *insn)
 /* Unlink INSN from the insn chain.
 
    This function knows how to handle sequences.
-   
+
    This function does not invalidate data flow information associated with
    INSN (i.e. does not call df_insn_delete).  That makes this function
    usable for only disconnecting an insn from the chain, and re-emit it
@@ -6244,7 +6244,7 @@ init_emit_once (void)
 
   /* Process stack-limiting command-line options.  */
   if (opt_fstack_limit_symbol_arg != NULL)
-    stack_limit_rtx 
+    stack_limit_rtx
       = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (opt_fstack_limit_symbol_arg));
   if (opt_fstack_limit_register_no >= 0)
     stack_limit_rtx = gen_rtx_REG (Pmode, opt_fstack_limit_register_no);

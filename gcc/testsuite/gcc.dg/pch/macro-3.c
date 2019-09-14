@@ -2,7 +2,7 @@
 
 #include "macro-3.h"
 
-int main(void) 
+int main(void)
 {
   return DEFINED_FUNC (1) - DEFINED_FUNC_2 (-1);
 }

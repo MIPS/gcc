@@ -367,4 +367,3 @@ return_3_globals_2_locals_varoff (int i, int j)
 
   return p;         /* { dg-warning "function may return address of local" } */
 }
-

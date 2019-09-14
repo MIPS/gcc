@@ -20,7 +20,7 @@ static __m128i
 __attribute__((noinline, unused))
 test (__m128i s1)
 {
-  return _mm_shuffle_epi32 (s1, N); 
+  return _mm_shuffle_epi32 (s1, N);
 }
 
 static void
@@ -29,7 +29,7 @@ TEST (void)
   union128i_d u, s1;
   int e[4] = {0};
   int i;
-   
+
   s1.x = _mm_set_epi32 (16,15,14,13);
   u.x = test (s1.x);
 

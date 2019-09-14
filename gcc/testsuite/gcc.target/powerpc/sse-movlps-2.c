@@ -32,7 +32,7 @@ TEST (void)
   float d[2];
 
   s1.x = _mm_set_ps (5.13, 6.12, 7.11, 8.9);
- 
+
   test ((__m64 *)d, s1.x);
 
   e[0] = s1.a[0];

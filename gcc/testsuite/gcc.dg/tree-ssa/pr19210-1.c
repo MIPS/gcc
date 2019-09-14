@@ -23,7 +23,7 @@ f (unsigned n)
   /* So we need the following loop, instead.  */
   for(k = 4;k <= n;k += 5) /* { dg-missed "missed loop optimization: niters analysis .*" } */
     g();
-  
+
   for(k = 15;k >= n;k--) /* { dg-missed "missed loop optimization: niters analysis .*" } */
     g();
 }

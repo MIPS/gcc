@@ -170,7 +170,7 @@ main (void)
 #endif
 #ifdef CHECK_M64_M128
   struct m128_struct m128s[8];
-  struct m128_2_struct m128_2s = { 
+  struct m128_2_struct m128_2s = {
       { 48.394, 39.3, -397.9, 3484.9 },
       { -8.394, -93.3, 7.9, 84.94 }
   };

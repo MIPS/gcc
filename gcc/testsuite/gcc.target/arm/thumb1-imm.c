@@ -9,4 +9,3 @@ int f()
 }
 
 /* { dg-final { scan-assembler-not "ldr" } } */
-

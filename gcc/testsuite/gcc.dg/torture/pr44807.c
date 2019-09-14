@@ -40,4 +40,3 @@ list_running_jobs (void)
 {
   map_over_jobs (print_job);
 }
-

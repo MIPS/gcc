@@ -19,4 +19,3 @@ test_vmull_high_p64 (poly64x2_t a, poly64x2_t b)
 }
 
 /* { dg-final { scan-assembler-times "pmull2\\tv" 1 } } */
-

@@ -17,4 +17,3 @@ void send_bits(void)
     if (outcnt)
         bi_buf = 1;
 }
-

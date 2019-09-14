@@ -4,7 +4,7 @@ static vector bool char x(void);
 static void g(void);
 
 static vector bool char
-f (void) 
+f (void)
 {
   vector bool char a = x();
   g();

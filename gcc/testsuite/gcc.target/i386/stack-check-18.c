@@ -21,4 +21,3 @@ f2 (void)
 /* { dg-final { scan-rtl-dump-times "allocation and probing residuals" 1 "expand" } } */
 
 /* { dg-final { scan-assembler-times "or\[ql\]" 1 } } */
-

@@ -15,4 +15,3 @@ long long overflow_sub (long long x, long long y)
 }
 
 /* { dg-final { scan-assembler "subs" } } */
-

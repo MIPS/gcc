@@ -5,9 +5,9 @@
 #include <stdlib.h>
 
 #define N 16
- 
+
 int main ()
-{  
+{
   struct {
     char ca[N];
   } s;

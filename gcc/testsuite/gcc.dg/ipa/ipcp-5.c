@@ -41,5 +41,3 @@ entry (void)
 
 /* { dg-final { scan-ipa-dump "loc_time: 0" "cp" } } */
 /* { dg-final { scan-ipa-dump-not "replacing param.*with const" "cp"  } } */
-
-

@@ -11,4 +11,3 @@ fn1 ()
  l1: goto *(a[0]);
  l2: return 0;
 }
-

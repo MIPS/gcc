@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-struct used_struct 
+struct used_struct
 {
   int key;
   char *name;
@@ -32,7 +32,7 @@ main (int argc, char **argv)
   struct used_struct *my_list;
 
   my_list = (struct used_struct *) malloc (10 * sizeof (struct used_struct));
-  
+
   for (i = 0; i < 10; i++)
     {
       my_list[i].key = i;
@@ -42,6 +42,6 @@ main (int argc, char **argv)
 
   for (i = 0; i < 10; i++)
     fprintf (stdout, "Key: %d, Name: %s\n", my_list[i].key, my_list[i].name);
-  
+
   return 0;
 }

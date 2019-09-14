@@ -23,4 +23,3 @@ Matrix Matrix::operator* (const Matrix matrix) const
       ret.data[j][i] = matrix.data[j][2] + matrix.data[j][3];
   return ret;
 }
-

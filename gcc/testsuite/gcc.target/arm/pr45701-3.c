@@ -23,6 +23,6 @@ history_expand_line_internal (char* line)
   new_line = pre_process_line (line);
   hist_verify = old_verify;
   /* Two tail calls here, but r3 is used to pass values.  */
-  return (new_line == line) ? savestring (line) : 
+  return (new_line == line) ? savestring (line) :
     savestring1 (new_line, line, 0, old_verify+1);
 }

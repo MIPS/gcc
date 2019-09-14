@@ -9,4 +9,3 @@ int foo(int t)
     result = t;
   return result;
 }
-

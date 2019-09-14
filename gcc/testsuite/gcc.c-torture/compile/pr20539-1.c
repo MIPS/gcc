@@ -7,4 +7,3 @@ void f()
      | !(((char )(l6_data_Z_0th>>35 & 15U))==14U)))
     t = 0ULL;
 }
-

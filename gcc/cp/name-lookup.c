@@ -90,7 +90,7 @@ create_local_binding (cp_binding_level *level, tree name)
   binding->previous = IDENTIFIER_BINDING (name);
 
   IDENTIFIER_BINDING (name) = binding;
-  
+
   return binding;
 }
 
@@ -129,7 +129,7 @@ search_imported_binding_slot (tree *slot, unsigned ix)
 
   if (TREE_CODE (*slot) != MODULE_VECTOR)
     return NULL;
-  
+
   unsigned clusters = MODULE_VECTOR_NUM_CLUSTERS (*slot);
   module_cluster *cluster = MODULE_VECTOR_CLUSTER_BASE (*slot);
 
@@ -418,7 +418,7 @@ protected:
   {
     return LOOKUP_FOUND_P (scope);
   }
-  
+
   void mark_seen (tree scope); /* Mark and add to scope vector. */
   static void mark_found (tree scope)
   {
@@ -931,7 +931,7 @@ name_lookup::search_qualified (tree scope, bool usings)
 
   if (seen_p (scope))
     found = found_p (scope);
-  else 
+  else
     {
       found = search_namespace (scope);
       if (!found && usings)
@@ -1435,7 +1435,7 @@ name_lookup::adl_template_arg (tree arg)
     {
       tree args = ARGUMENT_PACK_ARGS (arg);
       int i, len = TREE_VEC_LENGTH (args);
-      for (i = 0; i < len; ++i) 
+      for (i = 0; i < len; ++i)
 	adl_template_arg (TREE_VEC_ELT (args, i));
     }
   /* It's not a template template argument, but it is a type template
@@ -1624,7 +1624,7 @@ fields_linear_search (tree klass, tree name, bool want_type)
 
       if (DECL_NAME (decl) != name)
 	continue;
-      
+
       if (TREE_CODE (decl) == USING_DECL)
 	{
 	  decl = strip_using_decl (decl);
@@ -1904,7 +1904,7 @@ member_name_cmp (const void *a_p, const void *b_p)
 	 some erroneous cases get though. */
       gcc_assert (errorcount);
     }
-  
+
   /* Using source location would be the best thing here, but we can
      get identically-located decls in the following circumstances:
 
@@ -2127,7 +2127,7 @@ member_vec_dedup (vec<tree, va_gc> *member_vec)
    TYPE_DECL, except for anon aggregates, which will have at least
    one field anyway.  */
 
-void 
+void
 set_class_bindings (tree klass, unsigned extra)
 {
   unsigned n_fields = count_class_fields (klass);
@@ -2546,7 +2546,7 @@ strip_using_decl (tree decl)
       /* We have found a type introduced by a using
 	 declaration at class scope that refers to a dependent
 	 type.
-	     
+
 	 using typename :: [opt] nested-name-specifier unqualified-id ;
       */
       decl = make_typename_type (USING_DECL_SCOPE (decl),
@@ -3243,7 +3243,7 @@ check_local_shadow (tree decl)
   /* Don't warn for artificial things that are not implicit typedefs.  */
   if (DECL_ARTIFICIAL (decl) && !DECL_IMPLICIT_TYPEDEF_P (decl))
     return;
-  
+
   if (nonlambda_method_basetype ())
     if (tree member = lookup_member (current_nonlambda_class_type (),
 				     DECL_NAME (decl), /*protect=*/0,
@@ -4352,7 +4352,7 @@ get_lookup_ident (tree ctx, tree name, unsigned mod, tree decl)
       tree binding = get_binding_or_decl (ctx, name, mod);
 
       gcc_checking_assert (binding);
-  
+
       if (binding == decl)
 	res = 0;
       else
@@ -7814,7 +7814,7 @@ lookup_name_real_1 (tree name, int prefer_type, int nonclass, bool block_p,
 		       void g() {
 		         B* b; // error: B is hidden
 			 C* c; // OK, finds ::C
-		       } 
+		       }
 		     };
 		     B *b;  // error: B is hidden
 		     C *c;  // OK, finds ::C
@@ -8066,7 +8066,7 @@ lookup_type_scope_1 (tree name, tag_scope scope)
 
   return NULL_TREE;
 }
- 
+
 /* Wrapper for lookup_type_scope_1.  */
 
 tree
@@ -9098,7 +9098,7 @@ cp_emit_debug_info_for_using (tree t, tree context)
       if (TREE_CODE (fn) == TEMPLATE_DECL)
 	/* FIXME: Handle TEMPLATE_DECLs.  */
 	continue;
-      
+
       /* Ignore this FUNCTION_DECL if it refers to a builtin declaration
 	 of a builtin function.  */
       if (TREE_CODE (fn) == FUNCTION_DECL

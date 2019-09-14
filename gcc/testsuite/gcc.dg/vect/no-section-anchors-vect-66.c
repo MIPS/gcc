@@ -22,7 +22,7 @@ int main1 ()
         }
     }
 
-  /* check results: */  
+  /* check results: */
   for (i = 0; i < 16; i++)
     {
       for (j = 0; j < N; j++)
@@ -38,7 +38,7 @@ int main1 ()
            ia[3][6][j+2] = 5;
     }
 
-  /* check results: */  
+  /* check results: */
   for (i = 0; i < 16; i++)
     {
       for (j = 2; j < N+2; j++)
@@ -57,7 +57,7 @@ int main1 ()
         }
     }
 
-  /* check results: */  
+  /* check results: */
   for (i = 0; i < 16; i++)
     {
       for (j = 0; j < N; j++)
@@ -71,7 +71,7 @@ int main1 ()
 }
 
 int main (void)
-{ 
+{
   check_vect ();
 
   return main1 ();

@@ -44,4 +44,3 @@ fmsdbl (v2df a, v2df b, v2df c)
   return a * b - c;
 }
 /* { dg-final { scan-assembler-times "vfms" 1 } } */
-

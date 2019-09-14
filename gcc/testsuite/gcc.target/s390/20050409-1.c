@@ -15,4 +15,3 @@ void *test (void)
   __builtin_set_thread_pointer (p);
   return *p;
 }
-

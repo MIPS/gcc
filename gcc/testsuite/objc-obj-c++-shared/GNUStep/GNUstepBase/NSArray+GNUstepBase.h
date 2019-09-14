@@ -11,7 +11,7 @@
    modify it under the terms of the GNU Lesser General Public
    License as published by the Free Software Foundation; either
    version 2 of the License, or (at your option) any later version.
-   
+
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
@@ -58,7 +58,7 @@ extern "C" {
  * to determine the insertion location for an object.  If equal objects
  * already exist in the array, they will be located immediately before
  * the insertion position.
- * </p> 
+ * </p>
  * <p>The selector identifies a method returning NSOrderedAscending if
  * the receiver is 'less than' the argument, and NSOrderedDescending if
  * it is greate.
@@ -75,4 +75,3 @@ extern "C" {
 #endif
 
 #endif	/* INCLUDED_NSArray_GNUstepBase_h */
-

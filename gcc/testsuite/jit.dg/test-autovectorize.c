@@ -130,7 +130,7 @@ create_code (gcc_jit_context *ctxt, void * user_data)
     gcc_jit_rvalue_dereference_field (gcc_jit_param_as_rvalue (param_dest), /* gcc_jit_rvalue *ptr */
                                       NULL, /* gcc_jit_location *loc */
                                       field_size); /* gcc_jit_field *field */
-  gcc_jit_rvalue *rvalue_dest__size_x = 
+  gcc_jit_rvalue *rvalue_dest__size_x =
     gcc_jit_rvalue_access_field (gcc_jit_lvalue_as_rvalue (lvalue_dest__size), /*gcc_jit_rvalue *struct_or_union */
                                  NULL, /*gcc_jit_location *loc */
                                  field_x);
@@ -138,7 +138,7 @@ create_code (gcc_jit_context *ctxt, void * user_data)
                                 NULL, /* gcc_jit_location *loc */
                                 local_rowlen, /* gcc_jit_lvalue *lvalue */
                                 rvalue_dest__size_x); /* gcc_jit_rvalue *rvalue */
-  gcc_jit_rvalue *rvalue_dest__size_y = 
+  gcc_jit_rvalue *rvalue_dest__size_y =
     gcc_jit_rvalue_access_field (gcc_jit_lvalue_as_rvalue (lvalue_dest__size), /*gcc_jit_rvalue *struct_or_union */
                                  NULL, /*gcc_jit_location *loc */
                                  field_y);
@@ -172,7 +172,7 @@ create_code (gcc_jit_context *ctxt, void * user_data)
     gcc_jit_rvalue_dereference_field (gcc_jit_param_as_rvalue (param_dest), /* gcc_jit_rvalue *ptr */
                                       NULL, /* gcc_jit_location *loc */
                                       field_imrow); /* gcc_jit_field *field */
-  gcc_jit_lvalue *lvalue_dest__imrow_j_ = 
+  gcc_jit_lvalue *lvalue_dest__imrow_j_ =
     gcc_jit_context_new_array_access (ctxt, /* gcc_jit_context *ctxt */
                                       NULL, /*gcc_jit_location *loc */
                                       gcc_jit_lvalue_as_rvalue (lvalue_dest__imrow), /* gcc_jit_rvalue *ptr */
@@ -190,7 +190,7 @@ create_code (gcc_jit_context *ctxt, void * user_data)
     gcc_jit_rvalue_dereference_field (gcc_jit_param_as_rvalue (param_src), /* gcc_jit_rvalue *ptr */
                                       NULL, /* gcc_jit_location *loc */
                                       field_imrow); /* gcc_jit_field *field */
-  gcc_jit_lvalue *lvalue_src__imrow_j_ = 
+  gcc_jit_lvalue *lvalue_src__imrow_j_ =
     gcc_jit_context_new_array_access (ctxt, /* gcc_jit_context *ctxt */
                                       NULL, /*gcc_jit_location *loc */
                                       gcc_jit_lvalue_as_rvalue (lvalue_src__imrow), /* gcc_jit_rvalue *ptr */
@@ -300,7 +300,7 @@ create_code (gcc_jit_context *ctxt, void * user_data)
     gcc_jit_context_new_rvalue_from_int (ctxt, /* gcc_jit_context *ctxt */
                                          type_int, /* gcc_jit_type *numeric_type */
                                          1); /* int value */
-  gcc_jit_lvalue *lvalue_dptr__int_1_ = 
+  gcc_jit_lvalue *lvalue_dptr__int_1_ =
     gcc_jit_context_new_array_access (ctxt, /* gcc_jit_context *ctxt */
                                       NULL, /*gcc_jit_location *loc */
                                       gcc_jit_lvalue_as_rvalue (local_dptr), /* gcc_jit_rvalue *ptr */
@@ -316,7 +316,7 @@ create_code (gcc_jit_context *ctxt, void * user_data)
     gcc_jit_context_new_rvalue_from_int (ctxt, /* gcc_jit_context *ctxt */
                                          type_int, /* gcc_jit_type *numeric_type */
                                          1); /* int value */
-  gcc_jit_lvalue *lvalue_sptr__int_1_ = 
+  gcc_jit_lvalue *lvalue_sptr__int_1_ =
     gcc_jit_context_new_array_access (ctxt, /* gcc_jit_context *ctxt */
                                       NULL, /*gcc_jit_location *loc */
                                       gcc_jit_lvalue_as_rvalue (local_sptr), /* gcc_jit_rvalue *ptr */

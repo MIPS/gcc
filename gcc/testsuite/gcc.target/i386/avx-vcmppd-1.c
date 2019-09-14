@@ -39,7 +39,7 @@ avx_test ()
 
     d.ll[0] = e[0] = 222;
     d.ll[1] = e[1] = -33;
-    
+
     CMP(_CMP_EQ_OQ, !isunordered(s1[i], s2[i]) && s1[i] == s2[i]);
     CMP(_CMP_LT_OS, !isunordered(s1[i], s2[i]) && s1[i] < s2[i]);
     CMP(_CMP_LE_OS, !isunordered(s1[i], s2[i]) && s1[i] <= s2[i]);
@@ -75,5 +75,5 @@ avx_test ()
     CMP(_CMP_GE_OQ, !isunordered(s1[i], s2[i]) && s1[i] >= s2[i]);
     CMP(_CMP_GT_OQ, !isunordered(s1[i], s2[i]) && s1[i] > s2[i]);
     CMP(_CMP_TRUE_US, 1);
-    
+
 }

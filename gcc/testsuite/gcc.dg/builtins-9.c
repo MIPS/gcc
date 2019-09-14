@@ -100,4 +100,3 @@ long double test5l(long double x, long double y, long double z)
 {
   return powl(powl(x,y),z);
 }
-

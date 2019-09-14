@@ -30,4 +30,3 @@ struct_complex_1_x ()
 #else
 int dummy_x;
 #endif
-

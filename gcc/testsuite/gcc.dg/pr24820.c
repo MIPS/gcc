@@ -9,4 +9,3 @@ double bar (double sum)
    sum += floor (0.5 + (i - 128));
   return sum;
 }
-

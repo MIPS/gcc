@@ -27,4 +27,3 @@ int dtInsert1 (struct B *b)
   &d->c [d->n];
   return 0;
 }
-

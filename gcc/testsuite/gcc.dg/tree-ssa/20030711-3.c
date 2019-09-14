@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-O1 -fdump-tree-dom2" } */
-  
+
 
 struct rtx_def;
 typedef struct rtx_def *rtx;
@@ -46,16 +46,15 @@ get_alias_set (t)
 
 /* The calls to make_decl_rtl should be eliminated.  */
 /* { dg-final { scan-tree-dump-not "make_decl_rtl \\(\\)" "dom2" } } */
-    
+
 /* There should be two IF conditionals.  */
 /* { dg-final { scan-tree-dump-times "if " 2 "dom2"} } */
-                                                                                
+
 /* There should be one load of decl.rtl.  */
 /* { dg-final { scan-tree-dump-times "decl\\.rtl" 1 "dom2"} } */
-  
+
 /* There should be two loads of rtmem.  */
 /* { dg-final { scan-tree-dump-times "rtmem" 2 "dom2"} } */
 
 /* There should be one load of alias.  */
 /* { dg-final { scan-tree-dump-times "->alias" 1 "dom2"} } */
-

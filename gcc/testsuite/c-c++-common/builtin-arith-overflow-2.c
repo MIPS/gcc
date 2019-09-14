@@ -8,19 +8,19 @@
 #define INT_MAX	     __INT_MAX__
 #define LONG_MAX     __LONG_MAX__
 #define LLONG_MAX    __LONG_LONG_MAX__
-	
+
 #define SCHAR_MIN    (-__SCHAR_MAX__ - 1)
 #define SHRT_MIN     (-__SHRT_MAX__ - 1)
 #define INT_MIN	     (-__INT_MAX__ - 1)
 #define LONG_MIN     (-__LONG_MAX__ - 1)
 #define LLONG_MIN    (-__LONG_LONG_MAX__ - 1)
-	
+
 #define UCHAR_MAX    (SCHAR_MAX * 2U + 1)
 #define USHRT_MAX    (SHRT_MAX * 2U + 1)
 #define UINT_MAX     (INT_MAX * 2U + 1)
 #define ULONG_MAX    (LONG_MAX * 2LU + 1)
 #define ULLONG_MAX   (LLONG_MAX * 2LLU + 1)
-	
+
 #define USCHAR_MIN   (-__USCHAR_MAX__ - 1)
 #define USHRT_MIN    (-__USHRT_MAX__ - 1)
 #define UINT_MIN     (-__UINT_MAX__ - 1)

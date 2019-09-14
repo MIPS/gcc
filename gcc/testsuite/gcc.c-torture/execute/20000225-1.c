@@ -17,5 +17,3 @@ int main ()
     } while (i < 0);
     exit (0);
 }
-
-

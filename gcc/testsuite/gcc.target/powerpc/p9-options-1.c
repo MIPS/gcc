@@ -24,4 +24,3 @@ test_any_equal (vector bool char *arg1_p, vector bool char *arg2_p)
 
   return vec_any_eq (arg_1, arg_2);
 }
-

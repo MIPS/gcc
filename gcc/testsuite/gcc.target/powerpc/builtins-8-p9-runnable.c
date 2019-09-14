@@ -669,7 +669,7 @@ int main() {
     abort();
 #endif
 
-  /* Tests for: vec_first_match_or_eos_index() 
+  /* Tests for: vec_first_match_or_eos_index()
      The element index in BE order is returned for the first match
      or the number of elements if there is no match.  */
   /* char */

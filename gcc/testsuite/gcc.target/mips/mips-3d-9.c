@@ -61,7 +61,7 @@ void matrix_multiply1()
      c[i] = 0.0;
 
      for (j = 0; j < 4; j ++)
-       c[i] += a[j] * b[j][i]; 
+       c[i] += a[j] * b[j][i];
    }
 }
 
@@ -84,7 +84,7 @@ NOMIPS16 void matrix_multiply2()
        /* Multiply and add */
        result += m1 * m2;
      }
-     
+
      /* Reduction add at the end */
      temp = __builtin_mips_addr_ps (result, result);
      d[i] = __builtin_mips_cvt_s_pl (temp);
@@ -107,7 +107,7 @@ NOMIPS16 void matrix_multiply3()
 
      /* Multiply and add */
      result = m1 * n1 + m2 * n2;
-     
+
      /* Reduction add at the end */
      temp = __builtin_mips_addr_ps (result, result);
      e[i] = __builtin_mips_cvt_s_pl (temp);
@@ -150,7 +150,7 @@ NOMIPS16 void matrix_multiply4()
 
   result1 = __builtin_mips_addr_ps (temp1, temp2);
   result2 = __builtin_mips_addr_ps (temp3, temp4);
-  
+
   f[0] = __builtin_mips_cvt_s_pu (result1);
   f[1] = __builtin_mips_cvt_s_pl (result1);
   f[2] = __builtin_mips_cvt_s_pu (result2);

@@ -13,4 +13,3 @@ nf (int gy, int x0)
       return (x0 > (gy + x0)) ? (1 / 0) : 1; /* { dg-warning "division by zero" } */
     }
 }
-

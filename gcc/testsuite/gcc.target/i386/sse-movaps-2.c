@@ -18,7 +18,7 @@ static void
 __attribute__((noinline, unused))
 test (float *e, __m128 a)
 {
-  _mm_store_ps (e, a); 
+  _mm_store_ps (e, a);
 }
 
 static void

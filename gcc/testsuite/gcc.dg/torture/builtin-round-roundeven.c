@@ -33,4 +33,3 @@ main (void)
     link_error (__LINE__);
  return 0;
 }
-

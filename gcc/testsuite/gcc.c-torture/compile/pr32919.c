@@ -26,4 +26,3 @@ do_form_float:
   }
   while (*f != '\0');
 }
-

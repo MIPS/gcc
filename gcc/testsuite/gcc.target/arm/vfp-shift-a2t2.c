@@ -13,7 +13,7 @@ uint16x8_t test_vshll_n_u8 (uint8x8_t a)
 }
 
 uint32x4_t test_vshll_n_u16 (uint16x4_t a)
-{   
+{
     return vshll_n_u16(a, 16);
 }
 

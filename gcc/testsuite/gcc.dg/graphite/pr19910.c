@@ -13,4 +13,3 @@ void foo()
     for (j = i; j >= 0; --j)
       a[i+j] = 0;
 }
-

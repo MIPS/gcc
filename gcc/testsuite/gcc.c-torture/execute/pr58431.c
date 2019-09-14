@@ -27,7 +27,7 @@ main ()
     }
 
   if (h != 0)
-    __builtin_abort(); 
+    __builtin_abort();
 
   return 0;
 }

@@ -438,7 +438,7 @@ struct conversion_info {
   /* The location of the argument.  */
   location_t loc;
 };
-  
+
 struct rejection_reason {
   enum rejection_reason_code code;
   union {
@@ -1728,7 +1728,7 @@ reference_binding (tree rto, tree rfrom, tree expr, bool c_cast_p, int flags,
 	conv->rvaluedness_matches_p
 	  = (TYPE_REF_IS_RVALUE (rto) == TYPE_REF_IS_RVALUE (rfrom));
       else
-	conv->rvaluedness_matches_p 
+	conv->rvaluedness_matches_p
           = (TYPE_REF_IS_RVALUE (rto) == !is_lvalue);
 
       if ((gl_kind & clk_bitfield) != 0
@@ -2774,16 +2774,16 @@ add_builtin_candidate (struct z_candidate **candidates, enum tree_code code,
 	break;
       if (TYPE_PTR_P (type1) && TYPE_PTR_P (type2))
 	break;
-      if (TREE_CODE (type1) == ENUMERAL_TYPE 
+      if (TREE_CODE (type1) == ENUMERAL_TYPE
 	  && TREE_CODE (type2) == ENUMERAL_TYPE)
 	break;
-      if (TYPE_PTR_P (type1) 
+      if (TYPE_PTR_P (type1)
 	  && null_ptr_cst_p (args[1]))
 	{
 	  type2 = type1;
 	  break;
 	}
-      if (null_ptr_cst_p (args[0]) 
+      if (null_ptr_cst_p (args[0])
 	  && TYPE_PTR_P (type2))
 	{
 	  type1 = type2;
@@ -2948,7 +2948,7 @@ add_builtin_candidate (struct z_candidate **candidates, enum tree_code code,
       if (ARITHMETIC_TYPE_P (type1))
 	break;
       return;
- 
+
     default:
       gcc_unreachable ();
     }
@@ -4760,7 +4760,7 @@ build_op_call_1 (tree obj, vec<tree, va_gc> **args, tsubst_flags_t complain)
           if (complain & tf_error)
             {
               auto_diagnostic_group d;
-              error ("call of %<(%T) (%A)%> is ambiguous", 
+              error ("call of %<(%T) (%A)%> is ambiguous",
                      TREE_TYPE (obj), build_tree_list_vec (*args));
               print_z_candidates (location_of (TREE_TYPE (obj)), candidates);
             }
@@ -5729,7 +5729,7 @@ add_candidates (tree fns, tree first_arg, const vec<tree, va_gc> *args,
 				fn,
 				ctype,
 				explicit_targs,
-				fn_first_arg, 
+				fn_first_arg,
 				fn_args,
 				return_type,
 				access_path,
@@ -6004,7 +6004,7 @@ build_new_op_1 (const op_location_t &loc, enum tree_code code, int flags,
 	     -fpermissive.  */
 	  else
 	    {
-	      const char *msg = (flag_permissive) 
+	      const char *msg = (flag_permissive)
 		? G_("no %<%D(int)%> declared for postfix %qs,"
 		     " trying prefix operator instead")
 		: G_("no %<%D(int)%> declared for postfix %qs");
@@ -6247,8 +6247,8 @@ build_new_op_1 (const op_location_t &loc, enum tree_code code, int flags,
       return cp_build_array_ref (input_location, arg1, arg2, complain);
 
     case MEMBER_REF:
-      return build_m_component_ref (cp_build_indirect_ref (arg1, RO_ARROW_STAR, 
-                                                           complain), 
+      return build_m_component_ref (cp_build_indirect_ref (arg1, RO_ARROW_STAR,
+                                                           complain),
                                     arg2, complain);
 
       /* The caller will deal with these.  */
@@ -7261,7 +7261,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 
   expr = convert_like_real (next_conversion (convs), expr, fn, argnum,
 			    convs->kind == ck_ref_bind
-			    ? issue_conversion_warnings : false, 
+			    ? issue_conversion_warnings : false,
 			    c_cast_p, complain);
   if (expr == error_mark_node)
     return error_mark_node;
@@ -7359,7 +7359,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	    return error_mark_node;
 	  }
 
-	/* If necessary, create a temporary. 
+	/* If necessary, create a temporary.
 
            VA_ARG_EXPR and CONSTRUCTOR expressions are special cases
            that need temporaries, even when their types are reference
@@ -7746,7 +7746,7 @@ convert_for_arg_passing (tree type, tree val, tsubst_flags_t complain)
   tree bitfield_type;
 
   /* If VAL is a bitfield, then -- since it has already been converted
-     to TYPE -- it cannot have a precision greater than TYPE.  
+     to TYPE -- it cannot have a precision greater than TYPE.
 
      If it has a smaller precision, we must widen it here.  For
      example, passing "int f:3;" to a function expecting an "int" will
@@ -7760,7 +7760,7 @@ convert_for_arg_passing (tree type, tree val, tsubst_flags_t complain)
      if we call convert_bitfield_to_declared_type, the bitfield will
      be converted to "long long".  */
   bitfield_type = is_bitfield_expr_with_lowered_type (val);
-  if (bitfield_type 
+  if (bitfield_type
       && TYPE_PRECISION (TREE_TYPE (val)) < TYPE_PRECISION (type))
     val = convert_to_integer_nofold (TYPE_MAIN_VARIANT (bitfield_type), val);
 
@@ -7854,7 +7854,7 @@ get_function_version_dispatcher (tree fn)
   return dispatcher_decl;
 }
 
-/* fn is a function version dispatcher that is marked used. Mark all the 
+/* fn is a function version dispatcher that is marked used. Mark all the
    semantically identical function versions it will dispatch as used.  */
 
 void
@@ -8255,7 +8255,7 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
       if (DECL_FINAL_P (fn)
 	  || (resolves_to_fixed_type_p (arg, 0)
 	      && same_type_ignoring_top_level_qualifiers_p
-	      (DECL_CONTEXT (fn), BINFO_TYPE (cand->conversion_path)))) 
+	      (DECL_CONTEXT (fn), BINFO_TYPE (cand->conversion_path))))
 	flags |= LOOKUP_NONVIRTUAL;
 
       /* [class.mfct.nonstatic]: If a nonstatic member function of a class
@@ -8350,7 +8350,7 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
       val = convert_like_with_context (conv, arg, fn, i - is_method,
 				       arg_complain);
       val = convert_for_arg_passing (type, val, arg_complain);
-	
+
       if (val == error_mark_node)
         return error_mark_node;
       else
@@ -8462,8 +8462,8 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 
   if (! flag_elide_constructors && !force_elide)
     /* Do things the hard way.  */;
-  else if (cand->num_convs == 1 
-           && (DECL_COPY_CONSTRUCTOR_P (fn) 
+  else if (cand->num_convs == 1
+           && (DECL_COPY_CONSTRUCTOR_P (fn)
                || DECL_MOVE_CONSTRUCTOR_P (fn))
 	   /* It's unsafe to elide the constructor when handling
 	      a noexcept-expression, it may evaluate to the wrong
@@ -10708,7 +10708,7 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn,
 	  auto_diagnostic_group d;
 	  if (warning (OPT_Wconversion, "choosing %qD over %qD", w->fn, l->fn)
 	      && warning (OPT_Wconversion, "  for conversion from %qH to %qI",
-			  source, w->second_conv->type)) 
+			  source, w->second_conv->type))
 	    {
 	      inform (input_location, "  because conversion sequence "
 		      "for the argument is better");
@@ -10886,7 +10886,7 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn,
       tree f2 = TREE_TYPE (cand2->fn);
       tree p1 = TYPE_ARG_TYPES (f1);
       tree p2 = TYPE_ARG_TYPES (f2);
-     
+
       /* Check if cand1->fn and cand2->fn are versions of the same function.  It
          is possible that cand1->fn and cand2->fn are function versions but of
          different functions.  Check types to see if they are versions of the same

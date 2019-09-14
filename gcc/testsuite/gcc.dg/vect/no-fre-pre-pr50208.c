@@ -13,4 +13,3 @@ void foo (int j)
         a = b ^ c;
     }
 }
-

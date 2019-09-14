@@ -17,7 +17,7 @@ void test(int i)
   extern void link_failure_##FN(void); \
   if (FN(i) != FN(i)) \
     link_failure_##FN()
-  
+
 #ifdef __OPTIMIZE__
   TEST_CTYPE(isalnum);
   TEST_CTYPE(isalpha);

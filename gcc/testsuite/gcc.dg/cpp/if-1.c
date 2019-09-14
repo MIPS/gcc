@@ -1,4 +1,4 @@
-/* { dg-do preprocess } */ 
+/* { dg-do preprocess } */
 /* { dg-options "-pedantic-errors" } */
 
 #if 0xa != 10

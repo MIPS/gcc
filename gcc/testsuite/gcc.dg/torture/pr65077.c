@@ -31,7 +31,7 @@ void memcpy_bug()
       }
       memcpy(&s, intSptr, sizeof(intSptr));
       (s)->u.f1 = p;
-      verify_p((s)->u.f1);      
+      verify_p((s)->u.f1);
   } else {
       s = getS();
   }
@@ -67,4 +67,3 @@ int main(int argc, char *argv[])
     memcpy_bug();
     return 0;
 }
-

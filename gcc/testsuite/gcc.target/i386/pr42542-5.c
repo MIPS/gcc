@@ -6,7 +6,7 @@
 
 long long v1[] __attribute__ ((aligned(16))) =
 {
-  -3, 2, 3, -4 
+  -3, 2, 3, -4
 };
 long long v2[] __attribute__ ((aligned(16))) =
 {

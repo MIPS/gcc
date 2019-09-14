@@ -14,4 +14,3 @@ set_bit (unsigned int bit, unsigned char value)
     byte |= mask;
   /* { dg-final { scan-assembler "and\tw\[0-9\]+, w\[0-9\]+, 7" } } */
 }
-

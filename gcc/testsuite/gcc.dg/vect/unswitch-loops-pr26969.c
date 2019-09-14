@@ -11,4 +11,3 @@ ruby_re_compile_fastmap (char *fastmap, int options)
 	fastmap[j] = 1;
     }
 }
-

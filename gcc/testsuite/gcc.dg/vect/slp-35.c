@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 128 
+#define N 128
 
 typedef struct {
    int a;
@@ -27,13 +27,13 @@ main1 (s *arr)
       res[i].a = ptr->a + ptr->a;
       res[i].d = ptr->d + ptr->d;
       res[i].b = ptr->b + ptr->b;
-      res[i].e = ptr->e + ptr->e; 
-      ptr++; 
-    } 
-   
+      res[i].e = ptr->e + ptr->e;
+      ptr++;
+    }
+
   /* check results:  */
   for (i = 0; i < N; i++)
-    { 
+    {
       if (res[i].c != arr[i].c + arr[i].c
           || res[i].a != arr[i].a + arr[i].a
           || res[i].d != arr[i].d + arr[i].d
@@ -48,18 +48,18 @@ int main (void)
 {
   int i;
   s arr[N];
-  
+
   check_vect ();
 
   for (i = 0; i < N; i++)
-    { 
+    {
       arr[i].a = i;
       arr[i].b = i * 2;
       arr[i].c = 17;
       arr[i].d = i+34;
       arr[i].e = i * 3 + 5;
       asm volatile ("" ::: "memory");
-    } 
+    }
 
   main1 (arr);
 
@@ -68,4 +68,3 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 1 "vect" } } */
-  

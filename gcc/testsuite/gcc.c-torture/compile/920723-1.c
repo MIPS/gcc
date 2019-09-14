@@ -31,4 +31,3 @@ f(int count,vector_t*pos,double r,double *rho)
 	}
       }
 }
-

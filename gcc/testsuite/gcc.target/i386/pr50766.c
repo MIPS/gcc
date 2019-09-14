@@ -14,4 +14,3 @@ foo ()
   unsigned y = 0xF9494302;
   z = _pext_u32(x, y);
 }
-

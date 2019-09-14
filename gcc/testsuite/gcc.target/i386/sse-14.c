@@ -6,7 +6,7 @@
 
 /* Test that the intrinsics compile without optimization.  All of them are
    defined as inline functions in {,x,e,p,t,s,w,a,b,i}mmintrin.h, mm3dnow.h,
-   fma4intrin.h, xopintrin.h, abmintrin.h, bmiintrin.h, tbmintrin.h, 
+   fma4intrin.h, xopintrin.h, abmintrin.h, bmiintrin.h, tbmintrin.h,
    lwpintrin.h, fmaintrin.h gfniintrin.h and mm_malloc.h that reference
    the proper builtin functions.
 

@@ -71,4 +71,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 		       " assignment to param 1 (type: void *)"
 		       " from (int)42 (type: int)"));
 }
-

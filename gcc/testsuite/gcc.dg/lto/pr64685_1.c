@@ -1,6 +1,6 @@
 /* { dg-options "-O1" } */
 
-extern void fn1 (void); 
+extern void fn1 (void);
 
 int a[2], b;
 

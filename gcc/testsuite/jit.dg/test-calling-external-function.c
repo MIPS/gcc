@@ -115,4 +115,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
   CHECK_VALUE (called_with[1], 20);
   CHECK_VALUE (called_with[2], 25);
 }
-

@@ -10,7 +10,7 @@
 /* { dg-options "-O2 -std=gnu99 -pedantic-errors" } */
 
 /* __alignof__, OK.  */
-static int f0(void); 
+static int f0(void);
 void g0(void) { __alignof__(f0()); }
 
 /* __typeof__ not variably modified, OK.  */

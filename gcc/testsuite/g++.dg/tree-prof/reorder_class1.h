@@ -6,6 +6,3 @@ int A::foo()
 {
   return 1;
 }
-
-
-

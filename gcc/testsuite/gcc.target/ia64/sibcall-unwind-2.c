@@ -4,8 +4,8 @@
 /* { dg-options "-O2 -fno-omit-frame-pointer -w" } */
 /* { dg-final { scan-assembler-times "\\.restore sp" 1 } } */
 
-static void do_date (char *);  
-void rfc822_date (char *date)  
-{  
+static void do_date (char *);
+void rfc822_date (char *date)
+{
   do_date (date);
 }

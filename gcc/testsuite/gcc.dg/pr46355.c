@@ -11,4 +11,3 @@ foo (int *dest, int i, int u, int v)
       dest[j--] = u;
     }
 }
-

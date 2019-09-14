@@ -32,4 +32,3 @@ testf_cst (vector float vf2)
 {
   return vec_extract (vf2, 12);
 }
-

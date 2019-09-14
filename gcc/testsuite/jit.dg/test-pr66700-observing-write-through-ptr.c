@@ -106,4 +106,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
   /* Verify that it correctly called "write_back_through_ptr".  */
   CHECK_VALUE (d, 5.600000);
 }
-

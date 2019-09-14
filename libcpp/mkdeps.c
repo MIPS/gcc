@@ -461,7 +461,7 @@ make_write (const cpp_reader *pfile, FILE *fp, unsigned int colmax)
 	  fputs ("\n", fp);
 	}
     }
-  
+
   if (d->modules.size ())
     {
       column = fprintf (fp, "CXX_IMPORTS +=");

@@ -147,4 +147,3 @@ void foo (vector signed char *vscr,
 /* { dg-final { scan-assembler-times "vsum4sws" 0 } }  vec_sum4s */
 /* { dg-final { scan-assembler-times "vsum4shs" 1 } }  vec_sum4s */
 /* { dg-final { scan-assembler-times "vsum4ubs" 1 } }  vec_sum4s */
-

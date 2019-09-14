@@ -31,7 +31,7 @@ TEST (void)
   float e[4] = {1000.0, -20000.0, 45.0, -546.0};
 
   s1.as_m64 = _mm_setr_pi16 (1000, -20000, 45, -546);
-   
+
   u.x = test (s1.as_m64);
 
   if (check_union128 (u, e))

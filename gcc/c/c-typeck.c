@@ -3033,7 +3033,7 @@ build_function_call_vec (location_t loc, vec<location_t> arg_loc,
       if (flag_tm)
 	tm_malloc_replacement (function);
       fundecl = function;
-      /* Atomic functions have type checking/casting already done.  They are 
+      /* Atomic functions have type checking/casting already done.  They are
 	 often rewritten and don't match the original parameter list.  */
       if (name && !strncmp (IDENTIFIER_POINTER (name), "__atomic_", 9))
         origtypes = NULL;
@@ -6155,10 +6155,10 @@ build_modify_expr (location_t location, tree lhs, tree lhs_origtype,
   /* If the lhs is atomic, remove that qualifier.  */
   if (is_atomic_op)
     {
-      lhstype = build_qualified_type (lhstype, 
+      lhstype = build_qualified_type (lhstype,
 				      (TYPE_QUALS (lhstype)
 				       & ~TYPE_QUAL_ATOMIC));
-      olhstype = build_qualified_type (olhstype, 
+      olhstype = build_qualified_type (olhstype,
 				       (TYPE_QUALS (lhstype)
 					& ~TYPE_QUAL_ATOMIC));
     }
@@ -11006,9 +11006,9 @@ c_finish_bc_stmt (location_t loc, tree *label_p, bool is_break)
       return NULL_TREE;
 
     case 2:
-      if (is_break) 
+      if (is_break)
 	error ("break statement within %<#pragma simd%> loop body");
-      else 
+      else
 	error ("continue statement within %<#pragma simd%> loop body");
       return NULL_TREE;
 

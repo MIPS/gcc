@@ -2541,4 +2541,3 @@ Dsymbol *ThisDeclaration::syntaxCopy(Dsymbol *)
     assert(0);          // should never be produced by syntax
     return NULL;
 }
-

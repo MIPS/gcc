@@ -8,7 +8,7 @@
 /* -O1 in the options is significant.  Without it FP operations may not be
    optimized to custom instructions.  */
 
-#include <stdio.h> 
+#include <stdio.h>
 #include <math.h>
 
 #pragma GCC target ("custom-fabss=224")

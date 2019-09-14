@@ -3,7 +3,7 @@
 /* { dg-require-visibility "" } */
 /* { dg-final { scan-hidden "foo" } } */
 
-void 
+void
 __attribute__((visibility ("hidden")))
 foo();
 

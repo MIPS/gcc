@@ -7,7 +7,7 @@
    symbol defined on a target's location.  */
 
 /* { dg-do run }
-   { dg-options "-Wstrict-aliasing=2 -fstrict-aliasing" } 
+   { dg-options "-Wstrict-aliasing=2 -fstrict-aliasing" }
    { dg-require-alias "" }
    { dg-additional-sources "localalias-2.c" } */
 extern void abort (void);

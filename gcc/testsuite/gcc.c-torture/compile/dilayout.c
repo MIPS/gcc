@@ -30,4 +30,3 @@ ll (long long ab, long long *p)
 {
   *p = ab;
 }
-

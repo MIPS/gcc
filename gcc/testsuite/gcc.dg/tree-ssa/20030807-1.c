@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-O1 -fdump-tree-dom2" } */
-    
+
 struct rtx_def;
 typedef struct rtx_def *rtx;
 
@@ -33,7 +33,7 @@ bar (rtx r)
       && (place->fld[0].rtint > max_uid_cuid ? insn_cuid (place) :
 	  uid_cuid[place->fld[0].rtint]))
     return r;
-  
+
   return 0;
 }
 

@@ -6,5 +6,5 @@
 
 /* { dg-final { scan-assembler "xyzzy" } } */
 
-static const int local = 1; 
+static const int local = 1;
 #pragma weak xyzzy = local

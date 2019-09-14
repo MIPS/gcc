@@ -16,7 +16,7 @@ int main()
 
   if (__builtin_nand128("") == __builtin_nand128(""))
     FAILURE
-  
+
   if (!(__builtin_nand32("") != __builtin_nand32("")))
     FAILURE
 
@@ -71,7 +71,7 @@ int main()
 
   if (!__builtin_isnand128 (__builtin_infd128()/__builtin_infd128()) )
     FAILURE
-  
+
   /* 0.0/0.0 => NaN, but NaN != NaN.  */
   if ((0.0dd/0.0df) == (0.0dd/0.0df))
     FAILURE

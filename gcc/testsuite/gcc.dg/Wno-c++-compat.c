@@ -6,4 +6,3 @@
 /* { dg-options "-Wno-c++-compat" } */
 
 extern const int foo = 42;      /* { dg-warning "initialized and declared" } */
-

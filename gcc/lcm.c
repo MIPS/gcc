@@ -835,4 +835,3 @@ pre_edge_rev_lcm (int n_exprs, sbitmap *transp,
 #endif
   return edge_list;
 }
-

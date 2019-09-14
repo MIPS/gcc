@@ -8,7 +8,7 @@ foo ()
   int ret;
   void *skb;
   uint32_t offset, delta;
-  
+
   ret = __builtin_bpf_helper_lwt_seg6_adjust_srh (skb, offset,
 						  delta);
 }

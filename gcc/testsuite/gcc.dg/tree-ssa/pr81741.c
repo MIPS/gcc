@@ -19,4 +19,3 @@ int f(string_t s)
 }
 
 /* { dg-final { scan-assembler-not "strlen" } } */
-

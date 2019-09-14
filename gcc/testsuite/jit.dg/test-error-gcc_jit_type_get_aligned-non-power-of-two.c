@@ -27,4 +27,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 		      ("gcc_jit_type_get_aligned:"
 		       " alignment not a power of two: 7"));
 }
-

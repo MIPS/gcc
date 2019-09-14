@@ -21,8 +21,8 @@ extern void varargs_fn (int, ...);
 extern void double_fn (double);
 extern float float_fn (void);
 
-void 
-usual_arithmetic_conversions(void) 
+void
+usual_arithmetic_conversions(void)
 {
   float local_f;
   _Complex float local_cf;
@@ -39,14 +39,14 @@ usual_arithmetic_conversions(void)
   local_cf = cf - d;         /* { dg-warning "implicit" } */
   local_cf = cf + 1.0 * ID;  /* { dg-warning "implicit" } */
   local_cf = cf - cd;        /* { dg-warning "implicit" } */
-  
+
   local_f = i ? f : d;       /* { dg-warning "implicit" } */
   i = f == d;                /* { dg-warning "implicit" } */
   i = d != f;                /* { dg-warning "implicit" } */
 }
 
-void 
-default_argument_promotion (void) 
+void
+default_argument_promotion (void)
 {
   /* Because there is no prototype, "f" is promoted to "double".  */
   unprototyped_fn (f); /* { dg-warning "implicit" } */
@@ -60,7 +60,7 @@ default_argument_promotion (void)
    conversion.  */
 
 void
-casts (void) 
+casts (void)
 {
   float local_f;
   _Complex float local_cf;
@@ -83,7 +83,7 @@ casts (void)
 /* There is no warning on conversions that occur in assignment (and
    assignment-like) contexts.  */
 
-void 
+void
 assignments (void)
 {
   d = f;           /* { dg-bogus "implicit" } */

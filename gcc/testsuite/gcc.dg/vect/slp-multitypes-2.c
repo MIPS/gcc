@@ -3,10 +3,10 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 128 
+#define N 128
 
 __attribute__ ((noinline)) int
-main1 (unsigned short a0, unsigned short a1, unsigned short a2, 
+main1 (unsigned short a0, unsigned short a1, unsigned short a2,
        unsigned short a3, unsigned short a4, unsigned short a5,
        unsigned short a6, unsigned short a7, unsigned short a8,
        unsigned short a9, unsigned short a10, unsigned short a11,
@@ -78,4 +78,3 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect"  } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 2 "vect"  } } */
-  

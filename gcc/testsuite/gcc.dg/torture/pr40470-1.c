@@ -11,7 +11,7 @@ foo (char *p1, char *p2,
   int  cmp_s;
   if( !p2[0]) return p1;
   if( !p1[0] ) return NULL;
-  frag2 = load (p2); 
+  frag2 = load (p2);
   frag1 = load (p1);
   frag2 = _mm_blendv_epi8(frag2, mask2, mask1);
   frag1 = _mm_blendv_epi8(frag1, mask2, mask1);

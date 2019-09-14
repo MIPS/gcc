@@ -13,5 +13,3 @@ int main ()
 
   abort ();
 }
-
-

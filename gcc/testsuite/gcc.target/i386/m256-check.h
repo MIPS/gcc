@@ -49,25 +49,25 @@ typedef union
   __m256i x;
   unsigned char a[32];
 } union256i_ub;
-         
+
 typedef union
 {
   __m256i x;
   unsigned short a[16];
 } union256i_uw;
-                 
+
 typedef union
 {
   __m256i x;
   unsigned int a[8];
 } union256i_ud;
-  
+
 typedef union
 {
   __m256i x;
   unsigned long long a[4];
 } union256i_uq;
-                          
+
 CHECK_EXP (union256i_b, char, "%d")
 CHECK_EXP (union256i_w, short, "%d")
 CHECK_EXP (union256i_d, int, "0x%x")

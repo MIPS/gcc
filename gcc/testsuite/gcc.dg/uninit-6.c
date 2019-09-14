@@ -29,7 +29,7 @@ do {								\
 	 TREE->car = tmp;					\
      LAST = tmp;						\
 } while(0)
- 
+
 struct tree *
 make_something(int a, int b, int c)
 {

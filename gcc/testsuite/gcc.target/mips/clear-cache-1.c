@@ -10,4 +10,3 @@ NOMIPS16 void f()
   char *memory = __builtin_alloca(size);
   __builtin___clear_cache(memory, memory + size);
 }
-

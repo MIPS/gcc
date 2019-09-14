@@ -19,4 +19,3 @@ float f(vector float a, int b, vector float c)
 /* We should be able to optimize this to just "return 0.0;" */
 /* { dg-final { scan-tree-dump-not "BIT_FIELD_REF" "optimized"} } */
 /* { dg-final { scan-tree-dump-times "return 0.0" 1 "optimized"} } */
-

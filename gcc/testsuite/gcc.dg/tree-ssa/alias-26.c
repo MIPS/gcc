@@ -9,4 +9,3 @@ void f (const char *c, int *i)
 }
 
 /* { dg-final { scan-tree-dump-not "abort" "optimized" } } */
-

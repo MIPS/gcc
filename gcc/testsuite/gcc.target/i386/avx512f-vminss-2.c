@@ -45,7 +45,7 @@ avx512f_test (void)
   res5.x = _mm_maskz_min_round_ss (mask, src1.x, src2.x, _MM_FROUND_NO_EXC);
 
   calc_min (res_ref, src1.a, src2.a);
- 
+
   MASK_MERGE () (res_ref, mask, 1);
   if (check_union128 (res1, res_ref))
     abort ();
@@ -58,7 +58,7 @@ avx512f_test (void)
 
   if (check_union128 (res3, res_ref))
     abort();
-  
+
   MASK_MERGE () (res_ref, mask, 1);
   if (check_union128 (res4, res_ref))
     abort ();
@@ -67,4 +67,3 @@ avx512f_test (void)
   if (check_union128 (res5, res_ref))
     abort ();
 }
-

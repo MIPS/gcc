@@ -18,4 +18,3 @@ void g (const char *c, int *i)
 
 /* { dg-final { scan-tree-dump-not "abort" "optimized" } } */
 /* { dg-final { scan-tree-dump "keepit" "optimized" } } */
-

@@ -21,16 +21,16 @@ int main1()
 }
 
 int main (void)
-{ 
+{
   int i;
   check_vect ();
-  
+
   main1 ();
   for (i=0; i<N; i++)
     if (a.d[i] != 1)
       abort ();
   return 0;
-} 
+}
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target vector_alignment_reachable_for_64bit } } } */
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 0 "vect" { target { {! vector_alignment_reachable_for_64bit} && {! vect_hw_misalign} } } } } */

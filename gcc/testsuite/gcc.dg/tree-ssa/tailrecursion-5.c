@@ -73,4 +73,3 @@ int main(void)
 
 /* There is one recursive call to fib.  */
 /* { dg-final { scan-tree-dump-times "\\mfib\\M" 5 "optimized"} } */
-

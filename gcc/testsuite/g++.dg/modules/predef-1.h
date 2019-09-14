@@ -7,4 +7,3 @@
 # if GCC_IEC_559 > 0
 #  define STDC_IEC_559__		1
 # endif
-

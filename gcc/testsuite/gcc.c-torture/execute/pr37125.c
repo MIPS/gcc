@@ -20,4 +20,3 @@ int main (void)
   func_44 (2);
   return 0;
 }
-

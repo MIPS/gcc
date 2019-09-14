@@ -33,7 +33,7 @@ avx_test ()
     __m128d source1, source2, dest;
 
     e.d[1] = s1[1];
-    
+
     CMP(_CMP_EQ_OQ, !isunordered(s1[0], s2[0]) && s1[0] == s2[0]);
     CMP(_CMP_LT_OS, !isunordered(s1[0], s2[0]) && s1[0] < s2[0]);
     CMP(_CMP_LE_OS, !isunordered(s1[0], s2[0]) && s1[0] <= s2[0]);

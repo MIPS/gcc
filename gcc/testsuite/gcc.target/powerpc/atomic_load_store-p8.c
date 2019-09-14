@@ -19,4 +19,3 @@ atomic_store_128_relaxed (__int128 *ptr, __int128 val)
 {
 	__atomic_store_n (ptr, val, __ATOMIC_RELAXED);
 }
-

@@ -37,4 +37,3 @@ expand_shift_1 (int code, int unsignedp, int rotate,
    the test to compute the first first argument of the expand_binop
    call if we look backwards through the boolean logicals.  */
 /* { dg-final { scan-tree-dump-times "Threaded" 1 "dom2"} } */
-

@@ -3,7 +3,7 @@
 
 #pragma GCC target "+nosve"
 
-int 
+int
 t6(int len, void * dummy, short * __restrict x)
 {
   len = len & ~31;

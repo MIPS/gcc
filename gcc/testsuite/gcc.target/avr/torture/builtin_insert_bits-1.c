@@ -76,7 +76,7 @@ void test8 (void)
   for (ib = 0; ib < sizeof (V) / sizeof (*V); ib++)
     {
       unsigned char b = V[ib];
-      
+
       TEST1 (0x76543210, b);
       TEST1 (0x3210ffff, b);
       TEST1 (0x67452301, b);
@@ -92,6 +92,6 @@ void test8 (void)
 int main()
 {
   test8();
-  
+
   exit(0);
 }

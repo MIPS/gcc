@@ -14,4 +14,3 @@ test1 (vector float x, vector float y)
 }
 
 /* { dg-final { scan-assembler-times "\[ \t\]xvmulsp" 1 } } */
-

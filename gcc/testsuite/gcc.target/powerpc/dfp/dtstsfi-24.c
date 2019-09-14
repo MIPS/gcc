@@ -11,4 +11,3 @@ int doTestBCDSignificance (_Decimal64 *p, unsigned int significance)
 
   return __builtin_dfp_dtstsfi_gt (significance, source);	/* { dg-error "argument 1 must be a 6-bit unsigned literal" } */
 }
-

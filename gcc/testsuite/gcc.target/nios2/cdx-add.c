@@ -21,4 +21,3 @@ int h (int a)
 /* { dg-final { scan-assembler "\tadd\\.n\t.*" } } */
 /* { dg-final { scan-assembler "\taddi\\.n\t.*, 32" } } */
 /* { dg-final { scan-assembler "\taddi\t.*, 33" } } */
-

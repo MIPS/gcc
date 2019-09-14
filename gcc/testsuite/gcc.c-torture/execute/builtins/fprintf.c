@@ -15,7 +15,7 @@ main_test (void)
   FILE *s_array[] = {stdout, NULL}, **s_ptr = s_array;
   const char *const s1 = "hello world";
   const char *const s2[] = { s1, 0 }, *const*s3;
-  
+
   fprintf (*s_ptr, "");
   fprintf (*s_ptr, "%s", "");
   fprintf (*s_ptr, "%s", "hello");
@@ -29,7 +29,7 @@ main_test (void)
   fprintf (*s_ptr++, "%s", *s3++);
   if (s3 != s2+1 || *s3 != 0 || s_ptr != s_array+1 || *s_ptr != 0)
     abort();
-  
+
   s_ptr = s_array;
   fprintf (*s_ptr, "%c", '\n');
   fprintf (*s_ptr, "%c", **s2);
@@ -41,14 +41,14 @@ main_test (void)
   fprintf (*s_ptr++, "%c", **s3++);
   if (s3 != s2+1 || *s3 != 0 || s_ptr != s_array+1 || *s_ptr != 0)
     abort();
-  
+
   s_ptr = s_array;
   fprintf (*s_ptr++, "hello world");
   if (s_ptr != s_array+1 || *s_ptr != 0)
     abort();
   s_ptr = s_array;
   fprintf (*s_ptr, "\n");
-    
+
   /* Test at least one instance of the __builtin_ style.  We do this
      to ensure that it works and that the prototype is correct.  */
   __builtin_fprintf (*s_ptr, "%s", "hello world\n");

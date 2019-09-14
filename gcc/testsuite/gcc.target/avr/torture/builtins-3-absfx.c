@@ -111,7 +111,7 @@ void test1 (void)
   TEST1 (0.123, r);
   TEST1 (0.1234567, lr);
   TEST1 (0.1234567, llr);
-  
+
   TEST1 (223.123, hk);
   TEST1 (12345.123, k);
   TEST1 (12342345.123, lk);
@@ -125,7 +125,7 @@ void test2 (void)
   TEST2 (0.123, r);
   TEST2 (0.1234567, lr);
   TEST2 (0.1234567, llr);
-  
+
   TEST2 (223.123, hk);
   TEST2 (12345.123, k);
   TEST2 (12342345.123, lk);
@@ -172,4 +172,3 @@ int main (void)
 
   return 0;
 }
-

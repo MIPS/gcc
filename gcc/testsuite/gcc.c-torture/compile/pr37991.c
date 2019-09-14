@@ -11,4 +11,3 @@ void FindAndReadSignature(int processedSize)
       numPrevBytes = numBytesInBuffer - numTests;
     }
 }
-

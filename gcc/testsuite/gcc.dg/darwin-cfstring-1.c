@@ -1,4 +1,4 @@
-/* Test whether the __builtin__CFStringMakeConstantString 
+/* Test whether the __builtin__CFStringMakeConstantString
    "function" fails gracefully when handed a non-constant
    argument.  This will only work on MacOS X 10.1.2 and later.  */
 /* Developed by Ziemowit Laski <zlaski@apple.com>.  */

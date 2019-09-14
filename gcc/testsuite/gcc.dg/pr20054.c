@@ -19,5 +19,3 @@ baz (double x)
 
   return (h & ~0x80000000L) == 0x7FF00000 && l == 0;
 }
-
-

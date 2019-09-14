@@ -59,4 +59,3 @@ void link_error (void)
   abort ();
 }
 #endif
-

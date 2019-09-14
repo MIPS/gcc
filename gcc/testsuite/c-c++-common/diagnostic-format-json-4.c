@@ -52,4 +52,3 @@ int test (void)
 
 /* { dg-regexp "\"children\": \[\[\{\}, \]*\]" } */
 /* { dg-regexp "\[\[\{\}, \]*\]" } */
-

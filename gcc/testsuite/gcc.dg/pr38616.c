@@ -3,7 +3,7 @@
 /* { dg-options "-O2 -fstack-protector" } */
 /* { dg-require-effective-target fstack_protector } */
 
-#include <stdio.h> 
+#include <stdio.h>
 
 extern int strcmp (const char *, const char *);
 

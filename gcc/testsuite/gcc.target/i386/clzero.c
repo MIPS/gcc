@@ -10,4 +10,3 @@ foo (void *k)
 {
    _mm_clzero (k);
 }
-

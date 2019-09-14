@@ -1,12 +1,12 @@
 /* CFLocale.h
-   
+
    Copyright (C) 2010 Free Software Foundation, Inc.
-   
+
    Written by: Stefan Bidigaray
    Date: March, 2011
-   
+
    This file is part of the GNUstep CoreBase Library.
-   
+
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Lesser General Public
    License as published by the Free Software Foundation; either
@@ -19,8 +19,8 @@
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; see the file COPYING.LIB.
-   If not, see <http://www.gnu.org/licenses/> or write to the 
-   Free Software Foundation, 51 Franklin Street, Fifth Floor, 
+   If not, see <http://www.gnu.org/licenses/> or write to the
+   Free Software Foundation, 51 Franklin Street, Fifth Floor,
    Boston, MA 02110-1301, USA.
 */
 
@@ -39,18 +39,18 @@ CF_EXTERN_C_BEGIN
 /** \defgroup CFLocaleRef CFLocale Reference
     \brief CFLocale provides basic functionality for language and/or region
     specific operations.
-    
+
     Locale-sensitive operations, such as collation, calendars and
     capitalization, may use CFLocale objects to provide language and/or region
     specific functionality.
-  
+
     CFLocale is "toll-free bridged" to NSLocale.
-    
+
     \{
  */
 typedef const struct __CFLocale *CFLocaleRef;
 
-/** 
+/**
  */
 enum
 {
@@ -246,4 +246,3 @@ CF_EXTERN_C_END
 #endif /* OS_API_VERSION >= MAC_OS_X_VERSION_10_3 */
 
 #endif /* __COREFOUNDATION_CFLOCALE__ */
-

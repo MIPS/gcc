@@ -1,4 +1,4 @@
-/* Test __atomic routines for existence and proper execution on 2 byte 
+/* Test __atomic routines for existence and proper execution on 2 byte
    values with each valid memory model.  */
 /* { dg-do run } */
 /* { dg-require-effective-target sync_char_short } */
@@ -22,19 +22,19 @@ test_fetch_add ()
   if (__atomic_fetch_add (&v, count, __ATOMIC_RELAXED) != 0)
     abort ();
 
-  if (__atomic_fetch_add (&v, 1, __ATOMIC_CONSUME) != 1) 
+  if (__atomic_fetch_add (&v, 1, __ATOMIC_CONSUME) != 1)
     abort ();
 
   if (__atomic_fetch_add (&v, count, __ATOMIC_ACQUIRE) != 2)
     abort ();
 
-  if (__atomic_fetch_add (&v, 1, __ATOMIC_RELEASE) != 3) 
+  if (__atomic_fetch_add (&v, 1, __ATOMIC_RELEASE) != 3)
     abort ();
 
-  if (__atomic_fetch_add (&v, count, __ATOMIC_ACQ_REL) != 4) 
+  if (__atomic_fetch_add (&v, count, __ATOMIC_ACQ_REL) != 4)
     abort ();
 
-  if (__atomic_fetch_add (&v, 1, __ATOMIC_SEQ_CST) != 5) 
+  if (__atomic_fetch_add (&v, 1, __ATOMIC_SEQ_CST) != 5)
     abort ();
 }
 
@@ -45,22 +45,22 @@ test_fetch_sub()
   v = res = 20;
   count = 0;
 
-  if (__atomic_fetch_sub (&v, count + 1, __ATOMIC_RELAXED) !=  res--) 
+  if (__atomic_fetch_sub (&v, count + 1, __ATOMIC_RELAXED) !=  res--)
     abort ();
 
-  if (__atomic_fetch_sub (&v, 1, __ATOMIC_CONSUME) !=  res--) 
+  if (__atomic_fetch_sub (&v, 1, __ATOMIC_CONSUME) !=  res--)
     abort ();
 
-  if (__atomic_fetch_sub (&v, count + 1, __ATOMIC_ACQUIRE) !=  res--) 
+  if (__atomic_fetch_sub (&v, count + 1, __ATOMIC_ACQUIRE) !=  res--)
     abort ();
 
-  if (__atomic_fetch_sub (&v, 1, __ATOMIC_RELEASE) !=  res--) 
+  if (__atomic_fetch_sub (&v, 1, __ATOMIC_RELEASE) !=  res--)
     abort ();
 
-  if (__atomic_fetch_sub (&v, count + 1, __ATOMIC_ACQ_REL) !=  res--) 
+  if (__atomic_fetch_sub (&v, count + 1, __ATOMIC_ACQ_REL) !=  res--)
     abort ();
 
-  if (__atomic_fetch_sub (&v, 1, __ATOMIC_SEQ_CST) !=  res--) 
+  if (__atomic_fetch_sub (&v, 1, __ATOMIC_SEQ_CST) !=  res--)
     abort ();
 }
 
@@ -69,10 +69,10 @@ test_fetch_and ()
 {
   v = init;
 
-  if (__atomic_fetch_and (&v, 0, __ATOMIC_RELAXED) !=  init) 
+  if (__atomic_fetch_and (&v, 0, __ATOMIC_RELAXED) !=  init)
     abort ();
 
-  if (__atomic_fetch_and (&v, init, __ATOMIC_CONSUME) !=  0) 
+  if (__atomic_fetch_and (&v, init, __ATOMIC_CONSUME) !=  0)
     abort ();
 
   if (__atomic_fetch_and (&v, 0, __ATOMIC_ACQUIRE) !=  0)
@@ -82,10 +82,10 @@ test_fetch_and ()
   if (__atomic_fetch_and (&v, init, __ATOMIC_RELEASE) !=  init)
     abort ();
 
-  if (__atomic_fetch_and (&v, 0, __ATOMIC_ACQ_REL) !=  init) 
+  if (__atomic_fetch_and (&v, 0, __ATOMIC_ACQ_REL) !=  init)
     abort ();
 
-  if (__atomic_fetch_and (&v, 0, __ATOMIC_SEQ_CST) !=  0) 
+  if (__atomic_fetch_and (&v, 0, __ATOMIC_SEQ_CST) !=  0)
     abort ();
 }
 
@@ -94,22 +94,22 @@ test_fetch_nand ()
 {
   v = init;
 
-  if (__atomic_fetch_nand (&v, 0, __ATOMIC_RELAXED) !=  init) 
+  if (__atomic_fetch_nand (&v, 0, __ATOMIC_RELAXED) !=  init)
     abort ();
 
-  if (__atomic_fetch_nand (&v, init, __ATOMIC_CONSUME) !=  init) 
+  if (__atomic_fetch_nand (&v, init, __ATOMIC_CONSUME) !=  init)
     abort ();
 
-  if (__atomic_fetch_nand (&v, 0, __ATOMIC_ACQUIRE) !=  0 ) 
+  if (__atomic_fetch_nand (&v, 0, __ATOMIC_ACQUIRE) !=  0 )
     abort ();
 
   if (__atomic_fetch_nand (&v, init, __ATOMIC_RELEASE) !=  init)
     abort ();
 
-  if (__atomic_fetch_nand (&v, init, __ATOMIC_ACQ_REL) !=  0) 
+  if (__atomic_fetch_nand (&v, init, __ATOMIC_ACQ_REL) !=  0)
     abort ();
 
-  if (__atomic_fetch_nand (&v, 0, __ATOMIC_SEQ_CST) !=  init) 
+  if (__atomic_fetch_nand (&v, 0, __ATOMIC_SEQ_CST) !=  init)
     abort ();
 }
 
@@ -119,22 +119,22 @@ test_fetch_xor ()
   v = init;
   count = 0;
 
-  if (__atomic_fetch_xor (&v, count, __ATOMIC_RELAXED) !=  init) 
+  if (__atomic_fetch_xor (&v, count, __ATOMIC_RELAXED) !=  init)
     abort ();
 
-  if (__atomic_fetch_xor (&v, ~count, __ATOMIC_CONSUME) !=  init) 
+  if (__atomic_fetch_xor (&v, ~count, __ATOMIC_CONSUME) !=  init)
     abort ();
 
-  if (__atomic_fetch_xor (&v, 0, __ATOMIC_ACQUIRE) !=  0) 
+  if (__atomic_fetch_xor (&v, 0, __ATOMIC_ACQUIRE) !=  0)
     abort ();
 
-  if (__atomic_fetch_xor (&v, ~count, __ATOMIC_RELEASE) !=  0) 
+  if (__atomic_fetch_xor (&v, ~count, __ATOMIC_RELEASE) !=  0)
     abort ();
 
-  if (__atomic_fetch_xor (&v, 0, __ATOMIC_ACQ_REL) !=  init) 
+  if (__atomic_fetch_xor (&v, 0, __ATOMIC_ACQ_REL) !=  init)
     abort ();
 
-  if (__atomic_fetch_xor (&v, ~count, __ATOMIC_SEQ_CST) !=  init) 
+  if (__atomic_fetch_xor (&v, ~count, __ATOMIC_SEQ_CST) !=  init)
     abort ();
 }
 
@@ -144,27 +144,27 @@ test_fetch_or ()
   v = 0;
   count = 1;
 
-  if (__atomic_fetch_or (&v, count, __ATOMIC_RELAXED) !=  0) 
+  if (__atomic_fetch_or (&v, count, __ATOMIC_RELAXED) !=  0)
     abort ();
 
   count *= 2;
-  if (__atomic_fetch_or (&v, 2, __ATOMIC_CONSUME) !=  1) 
+  if (__atomic_fetch_or (&v, 2, __ATOMIC_CONSUME) !=  1)
     abort ();
 
   count *= 2;
-  if (__atomic_fetch_or (&v, count, __ATOMIC_ACQUIRE) !=  3) 
+  if (__atomic_fetch_or (&v, count, __ATOMIC_ACQUIRE) !=  3)
     abort ();
 
   count *= 2;
-  if (__atomic_fetch_or (&v, 8, __ATOMIC_RELEASE) !=  7) 
+  if (__atomic_fetch_or (&v, 8, __ATOMIC_RELEASE) !=  7)
     abort ();
 
   count *= 2;
-  if (__atomic_fetch_or (&v, count, __ATOMIC_ACQ_REL) !=  15) 
+  if (__atomic_fetch_or (&v, count, __ATOMIC_ACQ_REL) !=  15)
     abort ();
 
   count *= 2;
-  if (__atomic_fetch_or (&v, count, __ATOMIC_SEQ_CST) !=  31) 
+  if (__atomic_fetch_or (&v, count, __ATOMIC_SEQ_CST) !=  31)
     abort ();
 }
 
@@ -179,19 +179,19 @@ test_add_fetch ()
   if (__atomic_add_fetch (&v, count, __ATOMIC_RELAXED) != 1)
     abort ();
 
-  if (__atomic_add_fetch (&v, 1, __ATOMIC_CONSUME) != 2) 
+  if (__atomic_add_fetch (&v, 1, __ATOMIC_CONSUME) != 2)
     abort ();
 
   if (__atomic_add_fetch (&v, count, __ATOMIC_ACQUIRE) != 3)
     abort ();
 
-  if (__atomic_add_fetch (&v, 1, __ATOMIC_RELEASE) != 4) 
+  if (__atomic_add_fetch (&v, 1, __ATOMIC_RELEASE) != 4)
     abort ();
 
-  if (__atomic_add_fetch (&v, count, __ATOMIC_ACQ_REL) != 5) 
+  if (__atomic_add_fetch (&v, count, __ATOMIC_ACQ_REL) != 5)
     abort ();
 
-  if (__atomic_add_fetch (&v, count, __ATOMIC_SEQ_CST) != 6) 
+  if (__atomic_add_fetch (&v, count, __ATOMIC_SEQ_CST) != 6)
     abort ();
 }
 
@@ -202,22 +202,22 @@ test_sub_fetch ()
   v = res = 20;
   count = 0;
 
-  if (__atomic_sub_fetch (&v, count + 1, __ATOMIC_RELAXED) !=  --res) 
+  if (__atomic_sub_fetch (&v, count + 1, __ATOMIC_RELAXED) !=  --res)
     abort ();
 
-  if (__atomic_sub_fetch (&v, 1, __ATOMIC_CONSUME) !=  --res) 
-    abort ();                                                  
-                                                               
-  if (__atomic_sub_fetch (&v, count + 1, __ATOMIC_ACQUIRE) !=  --res) 
-    abort ();                                                  
-                                                               
-  if (__atomic_sub_fetch (&v, 1, __ATOMIC_RELEASE) !=  --res) 
-    abort ();                                                  
-                                                               
-  if (__atomic_sub_fetch (&v, count + 1, __ATOMIC_ACQ_REL) !=  --res) 
-    abort ();                                                  
-                                                               
-  if (__atomic_sub_fetch (&v, count + 1, __ATOMIC_SEQ_CST) !=  --res) 
+  if (__atomic_sub_fetch (&v, 1, __ATOMIC_CONSUME) !=  --res)
+    abort ();
+
+  if (__atomic_sub_fetch (&v, count + 1, __ATOMIC_ACQUIRE) !=  --res)
+    abort ();
+
+  if (__atomic_sub_fetch (&v, 1, __ATOMIC_RELEASE) !=  --res)
+    abort ();
+
+  if (__atomic_sub_fetch (&v, count + 1, __ATOMIC_ACQ_REL) !=  --res)
+    abort ();
+
+  if (__atomic_sub_fetch (&v, count + 1, __ATOMIC_SEQ_CST) !=  --res)
     abort ();
 }
 
@@ -226,25 +226,25 @@ test_and_fetch ()
 {
   v = init;
 
-  if (__atomic_and_fetch (&v, 0, __ATOMIC_RELAXED) !=  0) 
+  if (__atomic_and_fetch (&v, 0, __ATOMIC_RELAXED) !=  0)
     abort ();
 
   v = init;
-  if (__atomic_and_fetch (&v, init, __ATOMIC_CONSUME) !=  init) 
+  if (__atomic_and_fetch (&v, init, __ATOMIC_CONSUME) !=  init)
     abort ();
 
-  if (__atomic_and_fetch (&v, 0, __ATOMIC_ACQUIRE) !=  0) 
+  if (__atomic_and_fetch (&v, 0, __ATOMIC_ACQUIRE) !=  0)
     abort ();
 
   v = ~v;
   if (__atomic_and_fetch (&v, init, __ATOMIC_RELEASE) !=  init)
     abort ();
 
-  if (__atomic_and_fetch (&v, 0, __ATOMIC_ACQ_REL) !=  0) 
+  if (__atomic_and_fetch (&v, 0, __ATOMIC_ACQ_REL) !=  0)
     abort ();
 
   v = ~v;
-  if (__atomic_and_fetch (&v, 0, __ATOMIC_SEQ_CST) !=  0) 
+  if (__atomic_and_fetch (&v, 0, __ATOMIC_SEQ_CST) !=  0)
     abort ();
 }
 
@@ -253,22 +253,22 @@ test_nand_fetch ()
 {
   v = init;
 
-  if (__atomic_nand_fetch (&v, 0, __ATOMIC_RELAXED) !=  init) 
-    abort ();              
-                           
-  if (__atomic_nand_fetch (&v, init, __ATOMIC_CONSUME) !=  0) 
-    abort ();              
-                           
-  if (__atomic_nand_fetch (&v, 0, __ATOMIC_ACQUIRE) !=  init) 
-    abort ();              
-                           
+  if (__atomic_nand_fetch (&v, 0, __ATOMIC_RELAXED) !=  init)
+    abort ();
+
+  if (__atomic_nand_fetch (&v, init, __ATOMIC_CONSUME) !=  0)
+    abort ();
+
+  if (__atomic_nand_fetch (&v, 0, __ATOMIC_ACQUIRE) !=  init)
+    abort ();
+
   if (__atomic_nand_fetch (&v, init, __ATOMIC_RELEASE) !=  0)
-    abort ();              
-                           
-  if (__atomic_nand_fetch (&v, init, __ATOMIC_ACQ_REL) !=  init) 
-    abort ();              
-                           
-  if (__atomic_nand_fetch (&v, 0, __ATOMIC_SEQ_CST) !=  init) 
+    abort ();
+
+  if (__atomic_nand_fetch (&v, init, __ATOMIC_ACQ_REL) !=  init)
+    abort ();
+
+  if (__atomic_nand_fetch (&v, 0, __ATOMIC_SEQ_CST) !=  init)
     abort ();
 }
 
@@ -280,22 +280,22 @@ test_xor_fetch ()
   v = init;
   count = 0;
 
-  if (__atomic_xor_fetch (&v, count, __ATOMIC_RELAXED) !=  init) 
+  if (__atomic_xor_fetch (&v, count, __ATOMIC_RELAXED) !=  init)
     abort ();
 
-  if (__atomic_xor_fetch (&v, ~count, __ATOMIC_CONSUME) !=  0) 
+  if (__atomic_xor_fetch (&v, ~count, __ATOMIC_CONSUME) !=  0)
     abort ();
 
-  if (__atomic_xor_fetch (&v, 0, __ATOMIC_ACQUIRE) !=  0) 
+  if (__atomic_xor_fetch (&v, 0, __ATOMIC_ACQUIRE) !=  0)
     abort ();
 
-  if (__atomic_xor_fetch (&v, ~count, __ATOMIC_RELEASE) !=  init) 
+  if (__atomic_xor_fetch (&v, ~count, __ATOMIC_RELEASE) !=  init)
     abort ();
 
-  if (__atomic_xor_fetch (&v, 0, __ATOMIC_ACQ_REL) !=  init) 
+  if (__atomic_xor_fetch (&v, 0, __ATOMIC_ACQ_REL) !=  init)
     abort ();
 
-  if (__atomic_xor_fetch (&v, ~count, __ATOMIC_SEQ_CST) !=  0) 
+  if (__atomic_xor_fetch (&v, ~count, __ATOMIC_SEQ_CST) !=  0)
     abort ();
 }
 
@@ -305,27 +305,27 @@ test_or_fetch ()
   v = 0;
   count = 1;
 
-  if (__atomic_or_fetch (&v, count, __ATOMIC_RELAXED) !=  1) 
+  if (__atomic_or_fetch (&v, count, __ATOMIC_RELAXED) !=  1)
     abort ();
 
   count *= 2;
-  if (__atomic_or_fetch (&v, 2, __ATOMIC_CONSUME) !=  3) 
+  if (__atomic_or_fetch (&v, 2, __ATOMIC_CONSUME) !=  3)
     abort ();
 
   count *= 2;
-  if (__atomic_or_fetch (&v, count, __ATOMIC_ACQUIRE) !=  7) 
+  if (__atomic_or_fetch (&v, count, __ATOMIC_ACQUIRE) !=  7)
     abort ();
 
   count *= 2;
-  if (__atomic_or_fetch (&v, 8, __ATOMIC_RELEASE) !=  15) 
+  if (__atomic_or_fetch (&v, 8, __ATOMIC_RELEASE) !=  15)
     abort ();
 
   count *= 2;
-  if (__atomic_or_fetch (&v, count, __ATOMIC_ACQ_REL) !=  31) 
+  if (__atomic_or_fetch (&v, count, __ATOMIC_ACQ_REL) !=  31)
     abort ();
 
   count *= 2;
-  if (__atomic_or_fetch (&v, count, __ATOMIC_SEQ_CST) !=  63) 
+  if (__atomic_or_fetch (&v, count, __ATOMIC_SEQ_CST) !=  63)
     abort ();
 }
 
@@ -377,20 +377,20 @@ test_sub()
 
   __atomic_fetch_sub (&v, count + 1, __ATOMIC_CONSUME);
   if (v != --res)
-    abort ();                                                  
-                                                               
+    abort ();
+
   __atomic_sub_fetch (&v, 1, __ATOMIC_ACQUIRE);
   if (v != --res)
-    abort ();                                                  
-                                                               
+    abort ();
+
   __atomic_fetch_sub (&v, 1, __ATOMIC_RELEASE);
   if (v != --res)
-    abort ();                                                  
-                                                               
+    abort ();
+
   __atomic_sub_fetch (&v, count + 1, __ATOMIC_ACQ_REL);
   if (v != --res)
-    abort ();                                                  
-                                                               
+    abort ();
+
   __atomic_fetch_sub (&v, count + 1, __ATOMIC_SEQ_CST);
   if (v != --res)
     abort ();

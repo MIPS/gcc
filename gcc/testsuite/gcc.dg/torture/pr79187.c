@@ -15,5 +15,5 @@ int main ()
       c = g | (f && g) && e | b;
       a = ~(~g & b);
     }
-  return 0; 
+  return 0;
 }

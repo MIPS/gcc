@@ -50,7 +50,7 @@ void exec_vfma_n (void)
   VDUP(vector2, , float, f, 32, 2, 9.3f);
   VDUP(vector2, q, float, f, 32, 4, 29.7f);
   VDUP(vector2, q, float, f, 64, 2, 15.8f);
-  
+
   /* Choose init value arbitrarily.  */
   ASSIGN(scalar, , float, 32, 81.2f);
   ASSIGN(scalar, q, float, 32, 36.8f);

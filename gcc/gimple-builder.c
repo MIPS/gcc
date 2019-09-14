@@ -116,6 +116,3 @@ build_type_cast (tree to_type, gimple *op, tree lhs)
 {
   return build_type_cast (to_type, gimple_assign_lhs (op), lhs);
 }
-
-
-

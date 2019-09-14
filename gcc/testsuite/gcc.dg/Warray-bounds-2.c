@@ -10,4 +10,3 @@ int* f(void) {
 
     return a;
 }
-

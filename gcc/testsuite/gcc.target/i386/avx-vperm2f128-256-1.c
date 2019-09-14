@@ -21,7 +21,7 @@ avx_test (void)
       case 0:
         __builtin_memcpy (e, s1.a, 16);
         break;
-      case 1: 
+      case 1:
         __builtin_memcpy (e, s1.a+4, 16);
         break;
       case 2:
@@ -39,7 +39,7 @@ avx_test (void)
       case 0:
         __builtin_memcpy (e+4, s1.a, 16);
         break;
-      case 1: 
+      case 1:
         __builtin_memcpy (e+4, s1.a+4, 16);
         break;
       case 2:

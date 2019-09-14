@@ -1,9 +1,9 @@
 /* Without TARGET_MEM_REFs, dom creates code like
-   
+
    i1 = 4 * i;
    *(p + i1) = i;
    *(p + i1 + 4) = i
-   
+
    causing us to have unnecessary multiplication by 4 in the
    result.  */
 

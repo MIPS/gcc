@@ -12,4 +12,3 @@ void compute_predicate_codes (char *codes, struct pred_data *p)
   for (i = 0; i < ((int) 100); i++)
     codes[i] = p->codes[i] ? 2 : 0;
 }
-

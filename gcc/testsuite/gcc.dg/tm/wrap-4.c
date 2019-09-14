@@ -16,4 +16,3 @@ void foo()
 /* We still have one call to candy()-- on the uninstrumented path
    everything is as usual.  */
 /* { dg-final { scan-tree-dump-times "candy \\(\\);" 1 "optimized" } } */
-

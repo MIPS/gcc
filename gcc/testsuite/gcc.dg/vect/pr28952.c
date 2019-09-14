@@ -29,4 +29,3 @@ send_spaceship_info (void)
   }
   lsend_packet_spaceship_info (&info);
 }
-

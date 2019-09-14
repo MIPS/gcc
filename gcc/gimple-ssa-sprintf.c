@@ -2163,7 +2163,7 @@ format_string (const directive &dir, tree arg, const vr_values *vr_values)
 
       /* Now that we have a suitable node, get the number of
 	 bytes it occupies.  */
-      count_by = int_size_in_bytes (node); 
+      count_by = int_size_in_bytes (node);
       gcc_checking_assert (count_by == 2 || count_by == 4);
     }
 

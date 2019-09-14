@@ -30,4 +30,3 @@ main (int a, int b)
 
   return res;
 }
-

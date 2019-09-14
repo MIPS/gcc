@@ -15,7 +15,7 @@ void test()
         s16c = vec_splat_s16(-16);
         u8d  = vec_vsldoi(u8a, u8b, 15);
         f32e = vec_vmaddfp(f32a, f32b, f32c);
-         
+
         vec_dss(3);
         vec_dssall();
         vec_mtvscr(u8a);

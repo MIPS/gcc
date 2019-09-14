@@ -1,7 +1,7 @@
 /* { dg-do compile } */
 /* { dg-options "-O1 -ftree-vrp -fdump-tree-dom2" } */
 /* { dg-require-effective-target alloca } */
-     
+
 extern void abort (void);
 extern void bitmap_clear (int *);
 extern void bar (int *);
@@ -27,6 +27,6 @@ foo(int n)
     bar (space);
 }
 
-                                                                               
+
 /* There should be no IF conditionals.  */
 /* { dg-final { scan-tree-dump-times "if " 0 "dom2" } } */

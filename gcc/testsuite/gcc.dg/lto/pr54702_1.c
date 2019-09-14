@@ -13,4 +13,3 @@ int *f1 (j)
   d = *malloc;
   c = j;
 }
-

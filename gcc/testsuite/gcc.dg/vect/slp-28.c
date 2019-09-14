@@ -56,8 +56,8 @@ main1 ()
       if (in2[i] != (i % 4) + (i / 4) * 5)
         abort ();
     }
-  
-  /* Not vectorizable because of data dependencies: distance 3 is greater than 
+
+  /* Not vectorizable because of data dependencies: distance 3 is greater than
      the actual VF with SLP (2), but the analysis fail to detect that for now.  */
   for (i = 3; i < N/4; i++)
     {
@@ -90,4 +90,3 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect"  } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 1 "vect" } } */
-  

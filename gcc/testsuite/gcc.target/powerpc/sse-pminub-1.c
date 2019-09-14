@@ -23,7 +23,7 @@ test (__m64 s1, __m64 s2)
   return _mm_min_pu8 (s1, s2);
 }
 
-static void 
+static void
 TEST (void)
 {
   __m64_union u, e, s1, s2;

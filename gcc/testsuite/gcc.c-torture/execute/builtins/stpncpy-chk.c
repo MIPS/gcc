@@ -53,7 +53,7 @@ test1 (void)
   memset (dst, 0, sizeof (dst));
   if (stpncpy (dst, src, 0) != dst || strcmp (dst, ""))
     abort();
-  
+
   memset (dst, 0, sizeof (dst));
   dst2 = dst; src2 = src;
   if (stpncpy (++dst2, ++src2, 0) != dst+1 || strcmp (dst2, "")
@@ -124,7 +124,7 @@ test3 (void)
   size_t l2;
 
   /* The following calls should do runtime checking
-     - source length is not known, but destination is.  
+     - source length is not known, but destination is.
      The returned value is checked so that stpncpy calls
      are not rewritten to strncpy calls. */
   chk_calls = 0;
@@ -253,7 +253,7 @@ main_test (void)
   __asm ("" : "=r" (s3) : "0" (s3));
   __asm ("" : "=r" (l1) : "0" (l1));
   test1 ();
-  
+
   s4 = p;
   test2 ();
   test3 ();

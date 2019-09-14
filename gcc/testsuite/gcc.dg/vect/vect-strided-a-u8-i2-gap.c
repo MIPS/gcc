@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 64 
+#define N 64
 
 typedef struct {
    unsigned char a;
@@ -31,7 +31,7 @@ main1 ()
       res[i].b = ptr->a;
       ptr++;
     }
-  
+
   /* check results:  */
   for (i = 0; i < N; i++)
     {
@@ -41,7 +41,7 @@ main1 ()
     }
 
   ptr = arr;
-  /* gap in store, use strided stores  */ 
+  /* gap in store, use strided stores  */
   for (i = 0; i < N; i++)
     {
       res[i].a = ptr->b;
@@ -70,4 +70,3 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect"  { target { vect_strided2 && { ! vect_hw_misalign } } } } } */
 /* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect"  { target { vect_strided2 && vect_hw_misalign } } } } */
-  

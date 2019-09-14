@@ -10,4 +10,3 @@ int f(int x, int y)
 }
 
 /* { dg-final { scan-tree-dump "Replaced redundant expr \[^\r\n\]* with .0."  "dom2" } } */
-

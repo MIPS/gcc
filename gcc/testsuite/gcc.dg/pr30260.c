@@ -6,11 +6,11 @@
 void link_error (void);
 
 enum A {
-  A1 = 0, 
+  A1 = 0,
   A2 = A1 - 1
 };
 enum B {
-  B1 = 0u, 
+  B1 = 0u,
   B2 = B1 - 1 /* { dg-bogus "ISO C restricts enumerator values to range of 'int'" } */
 };
 int main(void)

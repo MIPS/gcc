@@ -2,7 +2,7 @@
 /* Reduced testcase by Arseny Solokha.  */
 /* { dg-do compile { target int128 } } */
 /* { dg-options "-O1 -fschedule-insns -ftrapv -funroll-all-loops -fno-tree-dominator-opts -fno-tree-loop-im" } */
-    
+
 void
 wh (__int128 *ku)
 {

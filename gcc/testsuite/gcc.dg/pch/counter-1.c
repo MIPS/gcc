@@ -3,7 +3,7 @@
 
 #include "counter-1.h"
 
-int main(void) 
+int main(void)
 {
   return __COUNTER__;
 }

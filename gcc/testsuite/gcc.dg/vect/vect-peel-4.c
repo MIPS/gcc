@@ -31,7 +31,7 @@ int main1 ()
 }
 
 int main (void)
-{ 
+{
   int i;
 
   check_vect ();

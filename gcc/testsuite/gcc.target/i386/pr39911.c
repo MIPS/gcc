@@ -1,8 +1,8 @@
 /* { dg-do assemble } */
 /* { dg-options "-O2" } */
 
-void 
-bar1 () 
+void
+bar1 ()
 {
   char foo;
   asm volatile ("mov%z0 %1, %0": "=m" (foo): "iq" (-23));
@@ -12,7 +12,7 @@ bar1 ()
 }
 
 void
-bar2 () 
+bar2 ()
 {
   short foo;
   asm volatile ("mov%z0 %1, %0": "=m" (foo): "ir" (-23));
@@ -25,7 +25,7 @@ bar2 ()
 }
 
 void
-bar3 () 
+bar3 ()
 {
   int foo;
   asm volatile ("mov%z0 %1, %0": "=m" (foo): "ir" (-23));
@@ -43,7 +43,7 @@ bar3 ()
 }
 
 void
-bar4 () 
+bar4 ()
 {
   if (sizeof (void *) == sizeof (long long))
     {

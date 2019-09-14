@@ -22,4 +22,3 @@ void Build_foo(foo **Root, foo **Finite, foo **Infinite)
   long low, high;
   while (sort_and_split(Root, Finite, low) == 0);
 }
-

@@ -83,7 +83,7 @@ test_105 (volatile unsigned short* x, unsigned short y)
 {
   x[5] = y;
 }
- 
+
 unsigned int
 test_06 (volatile unsigned int* x)
 {

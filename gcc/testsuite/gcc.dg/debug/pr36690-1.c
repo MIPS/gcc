@@ -1,5 +1,5 @@
 /* PR debug/36690 */
-/* Verify that break func is hit.  
+/* Verify that break func is hit.
    This version of the test just checks that it can be compiled, linked
    and executed, further testing is done in corresponding gcc.dg/dwarf2/
    test and hopefully in gdb testsuite.  */

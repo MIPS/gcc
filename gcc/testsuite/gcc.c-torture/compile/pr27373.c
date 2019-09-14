@@ -19,7 +19,7 @@ void f(atype **rng_stream, int *error, float u)
         ty *tt = &((*rng_stream)->bg);
         int i = 1;
 
-        do 
+        do
         {
             (*tt)[i - 1] = u;
             i ++;
@@ -28,13 +28,11 @@ void f(atype **rng_stream, int *error, float u)
             ty *tt = &(*rng_stream)->cg;
             int i = 1;
 
-            do 
+            do
             {
                 (*tt)[i - 1] = u;
                 i ++;
             }while (i > 1);
         }
-    }    
+    }
 }
-
-

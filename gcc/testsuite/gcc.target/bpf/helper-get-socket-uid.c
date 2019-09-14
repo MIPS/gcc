@@ -7,7 +7,7 @@ foo ()
 {
   uint32_t ret;
   void *skb;
-  
+
   ret = __builtin_bpf_helper_get_socket_uid (skb);
 }
 

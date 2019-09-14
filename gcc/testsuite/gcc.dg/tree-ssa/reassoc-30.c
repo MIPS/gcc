@@ -10,4 +10,3 @@ void f(void)
 {
     b = a ? : (a = b) - c + (d - (b + b));
 }
-

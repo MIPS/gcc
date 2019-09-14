@@ -84,4 +84,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 		       " not enough arguments to function \"called_function\""
 		       " (got 0 args, expected 1)"));
 }
-

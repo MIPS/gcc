@@ -9,9 +9,9 @@ struct s{
   short a;	/* aligned */
   char b[N-1];  /* unaligned (offset 2B) */
 };
- 
+
 int main1 ()
-{  
+{
   int i;
   struct s tmp;
 
@@ -34,10 +34,10 @@ int main1 ()
 }
 
 int main (void)
-{ 
+{
   check_vect ();
-  
+
   return main1 ();
-} 
+}
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 0 "vect" { target { ! vect_hw_misalign } } } } */

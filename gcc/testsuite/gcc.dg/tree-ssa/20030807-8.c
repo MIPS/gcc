@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-O1 -fdump-tree-dom2 -std=gnu89" } */
-                                                                                
+
 struct die_struct;
 typedef struct die_struct *dw_die_ref;
 typedef struct dw_loc_list_struct *dw_loc_list_ref;

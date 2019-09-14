@@ -1,4 +1,4 @@
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-O2 -fno-strict-aliasing -fdump-tree-optimized" } */
 
 struct data {

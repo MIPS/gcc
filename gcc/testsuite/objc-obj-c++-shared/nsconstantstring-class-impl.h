@@ -1,6 +1,6 @@
 /* A small NSConstantString implementation for use with the NeXT runtime.
    Copyright (C) 2011 Free Software Foundation, Inc.
-		     
+
    Contributed by Iain Sandoe <iains@gcc.gnu.org>
 
 This file is part of GCC.
@@ -26,7 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* On full-fledged Mac OS X systems, NSConstantString is provided
    as part of the Foundation framework.  However, on bare Darwin systems,
-   Foundation is not included, and hence there is no NSConstantString 
+   Foundation is not included, and hence there is no NSConstantString
    implementation to link against.
 
    This code is derived from the GNU runtime's NXConstantString implementation.

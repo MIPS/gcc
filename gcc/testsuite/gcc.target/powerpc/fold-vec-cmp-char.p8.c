@@ -11,4 +11,3 @@
 /* { dg-final { scan-assembler-times "vcmpgtsb" 4 } } */
 /* { dg-final { scan-assembler-times "vcmpgtub" 4 } } */
 /* { dg-final { scan-assembler-times "xxlnor" 6 } } */
-

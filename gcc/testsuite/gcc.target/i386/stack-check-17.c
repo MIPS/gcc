@@ -12,7 +12,7 @@ void f2 (int, int);
 __attribute__ ((noreturn))
 void
 f3 (void)
-{ 
+{
   int y0 = x0;
   int y1 = x1;
   f1 ();
@@ -36,4 +36,3 @@ f3 (void)
 /* { dg-final { scan-assembler-times "push\[ql\]" 2 { target { ! ia32 } } } }  */
 /* { dg-final { scan-assembler-times "push\[ql\]" 4 { target { ia32 } } } }  */
 /* { dg-final { scan-assembler-not "pop" } } */
-

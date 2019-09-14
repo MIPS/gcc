@@ -30,15 +30,15 @@ main1 (s *arr)
       res[i].d = ptr->f - ptr->b;
       res[i].b = ptr->f;
       res[i].f = ptr->b;
-      res[i].e = ptr->f - ptr->b; 
-      res[i].h = ptr->f;   
+      res[i].e = ptr->f - ptr->b;
+      res[i].h = ptr->f;
       res[i].g = ptr->f - ptr->b;
-      ptr++; 
-    } 
-   
+      ptr++;
+    }
+
   /* check results:  */
   for (i = 0; i < N; i++)
-    { 
+    {
       if (res[i].c != arr[i].b
           || res[i].a != arr[i].f + arr[i].b
           || res[i].d != arr[i].f - arr[i].b
@@ -56,11 +56,11 @@ int main (void)
 {
   int i;
   s arr[N];
-  
+
   check_vect ();
 
   for (i = 0; i < N; i++)
-    { 
+    {
       arr[i].a = i;
       arr[i].b = i * 2;
       arr[i].c = 17;
@@ -70,7 +70,7 @@ int main (void)
       arr[i].g = i - 3;
       arr[i].h = 56;
       asm volatile ("" ::: "memory");
-    } 
+    }
 
   main1 (arr);
 
@@ -78,4 +78,3 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target vect_strided8 } } } */
-  

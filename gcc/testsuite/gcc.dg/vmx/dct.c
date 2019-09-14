@@ -90,7 +90,7 @@ dct_vmx (vector signed short *input, vector signed short *output,
   in[0] = vec_adds (v3, v2);		/* y0 = v3 + v2 */
   in[4] = vec_subs (v3, v2);		/* y4 = v3 - v2 */
   in[2] = vec_mradds (v8, mul2, v4);	/* y2 = v8 * a0 + v4 */
-  v6 = vec_mradds (v4, mul2, mul6);	
+  v6 = vec_mradds (v4, mul2, mul6);
   in[6] = vec_subs (v6, v8);		/* y6 = v4 * a0 - v8 */
 
   /* Bottom */
@@ -143,7 +143,7 @@ dct_vmx (vector signed short *input, vector signed short *output,
   v20 = vec_adds (v3, v2);		/* y0 = v3 + v2 */
   v24 = vec_subs (v3, v2);		/* y4 = v3 - v2 */
   v22 = vec_mradds (v8, mul2, v4);	/* y2 = v8 * a0 + v4 */
-  v6 = vec_mradds (v4, mul2, v25);	
+  v6 = vec_mradds (v4, mul2, v25);
   v26 = vec_subs (v6, v8);		/* y6 = v4 * a0 - v8 */
 
   /* Bottom */

@@ -12,4 +12,3 @@ void foo (int base)
 /* { dg-final { scan-tree-dump "first match heuristics: 5.00%" "profile_estimate"} } */
 /* { dg-final { scan-tree-dump "__builtin_expect_with_probability heuristics of edge .*->.*: 5.00%" "profile_estimate"} } */
 /* { dg-final { scan-tree-dump "is probably executed at most 19" "profile_estimate"} } */
-

@@ -67,4 +67,3 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "basic block vectorized" 1 "slp2" { target { vect_int_mult &&  { vect_pack_trunc && vect_unpack } } } } } */
-

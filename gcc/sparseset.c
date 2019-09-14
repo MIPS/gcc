@@ -236,4 +236,3 @@ sparseset_equal_p (sparseset a, sparseset b)
 
   return true;
 }
-

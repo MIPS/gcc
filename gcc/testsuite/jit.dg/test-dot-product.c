@@ -126,4 +126,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
   note ("my_dot_product returned: %f", val);
   CHECK_VALUE (val, 385.0);
 }
-

@@ -8,7 +8,7 @@ int summation_helper_1(int64_t* products, uint64_t count)
 	int s = 0;
 	uint64_t i;
 	for(i=0; i<count; i++)
-	{	
+	{
 		int64_t val = (products[i]>0) ? 1 : -1;
 		products[i] *= val;
 		if(products[i] != i)
@@ -25,7 +25,7 @@ int summation_helper_2(int64_t* products, uint64_t count)
 	int s = 0;
 	uint64_t i;
 	for(i=0; i<count; i++)
-	{	
+	{
 		int val = (products[i]>0) ? 1 : -1;
 		products[i] *= val;
 		if(products[i] != i)

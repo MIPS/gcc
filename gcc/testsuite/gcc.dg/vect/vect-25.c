@@ -42,11 +42,11 @@ int main1 (int n, int *p)
 }
 
 int main (void)
-{ 
+{
   int m = 8;
 
   check_vect ();
-  
+
   return main1 (m, &m);
 }
 

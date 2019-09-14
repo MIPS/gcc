@@ -14,7 +14,7 @@ main()
   __atomic_fetch_and (&a, b, 0);
   __atomic_fetch_or (&a, b, 0);
   __atomic_fetch_xor (&a, b, 0);
-  
+
   return a;
 }
 

@@ -27,4 +27,3 @@ int main()
         t(a);
         return 0;
 }
-

@@ -16,4 +16,3 @@ static void find_route_ipv6(struct in6_addr *p1) {
   ip6_route_output(a, b);
 }
 void cxgbi_ep_connect() { find_route_ipv6(0); }
-

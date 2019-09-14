@@ -1,4 +1,4 @@
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-O2 -ftree-loop-linear" } */
 
 int a1[6][4][4];
@@ -17,4 +17,3 @@ void CalculateQuantParam(void)
           a1[k][j][i]  = c1/b1[temp];
         }
 }
-

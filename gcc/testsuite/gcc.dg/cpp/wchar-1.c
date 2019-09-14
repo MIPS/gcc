@@ -19,6 +19,6 @@ int main ()
   if (c < 0)
     abort ();
 #endif
- 
+
   return 0;
 }

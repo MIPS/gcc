@@ -24,8 +24,8 @@
 We used to get a space at the start of the line.  */
 
  EMPTY_WITH_LEADING_SPACE
-f(:,) 
+f(:,)
 g(2, 2)
 
-/* { dg-final { scan-file avoidpaste2.i "(^|\\n): : : - > - >" } } 
+/* { dg-final { scan-file avoidpaste2.i "(^|\\n): : : - > - >" } }
    { dg-final { scan-file avoidpaste2.i "(^|\\n):2: :22 22:" } } */

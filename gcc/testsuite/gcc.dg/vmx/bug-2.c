@@ -17,7 +17,7 @@ void initn_c (int p1, int p2, signed char p3, int p4, double p5 ,
   check(vec_all_eq(p6, value), "p6");
   check(p7 == 7, "p7");
 }
-         
+
 void test()
 {
   initn_c (3, 4, 5, 6, 1, value, 7);

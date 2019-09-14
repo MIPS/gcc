@@ -21,7 +21,7 @@ int main1 ()
        ia[i] = ib[i];
     }
 
-  /* check results: */  
+  /* check results: */
   for (i = 0; i < N; i++)
     {
        if (ia[i] != ib[i])
@@ -32,7 +32,7 @@ int main1 ()
 }
 
 int main (void)
-{ 
+{
   check_vect ();
 
   return main1 ();

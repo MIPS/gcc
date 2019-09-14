@@ -13,4 +13,3 @@ double t (double x)
 }
 
 /* { dg-final { scan-tree-dump-not "-x" "optimized" } } */
-

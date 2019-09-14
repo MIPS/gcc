@@ -135,4 +135,3 @@ const_complex_narrowing (void)
   ffloatc (__builtin_complex (0., MAX_FLOAT_PLUS)); /* { dg-warning "float-conversion" } */
   ffloatc (__builtin_complex (MAX_FLOAT_PLUS, MAX_FLOAT_PLUS)); /* { dg-warning "float-conversion" } */
 }
-

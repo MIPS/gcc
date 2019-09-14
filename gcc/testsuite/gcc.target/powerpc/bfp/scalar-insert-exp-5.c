@@ -4,7 +4,7 @@
 /* { dg-options "-mdejagnu-cpu=power9" } */
 
 /* This test only runs on 32-bit configurations, where a compiler error
-   should be issued because this builtin is not available on 
+   should be issued because this builtin is not available on
    32-bit configurations.  */
 
 #include <altivec.h>

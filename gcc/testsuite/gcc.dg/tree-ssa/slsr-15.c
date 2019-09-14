@@ -3,7 +3,7 @@
 /* { dg-do compile } */
 /* { dg-options "-O3 -fdump-tree-optimized" } */
 
-int 
+int
 f (int n, int c, int s)
 {
   int a, x1, x2, x3;

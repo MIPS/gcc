@@ -63,7 +63,7 @@ int main ()
 #endif
   }
 
-  
+
   vec_ss_arg = (vector signed short){ 0, 101, 202, 303,
 				    404, 505, 606, 707 };
   vec_si_expected = (vector signed int){ 0, 101, 202, 303 };

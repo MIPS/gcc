@@ -51,7 +51,7 @@ main ()
   f32 ();
   f64 ();
   f128 ();
-  
+
   FINISH
   return (0);
 }

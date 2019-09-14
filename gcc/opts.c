@@ -236,7 +236,7 @@ add_comma_separated_to_vector (void **pvec, const char *arg)
   char *w;
   char *token_start;
   vec<char_p> *v = (vec<char_p> *) *pvec;
-  
+
   vec_check_alloc (v, 1);
 
   /* We never free this string.  */
@@ -2477,7 +2477,7 @@ common_handle_option (struct gcc_options *opts,
     case OPT_fdiagnostics_show_location_:
       diagnostic_prefixing_rule (dc) = (diagnostic_prefixing_rule_t) value;
       break;
- 
+
     case OPT_fdiagnostics_show_caret:
       dc->show_caret = value;
       break;
@@ -2666,7 +2666,7 @@ common_handle_option (struct gcc_options *opts,
 	if (comma)
 	  {
 	    *comma = '\0';
-	    function_entry_patch_area_size = 
+	    function_entry_patch_area_size =
 	      integral_argument (patch_area_arg);
 	    function_entry_patch_area_start =
 	      integral_argument (comma + 1);
@@ -2679,7 +2679,7 @@ common_handle_option (struct gcc_options *opts,
 	  }
 	if (function_entry_patch_area_size < 0
 	    || function_entry_patch_area_start < 0
-	    || function_entry_patch_area_size 
+	    || function_entry_patch_area_size
 		< function_entry_patch_area_start)
 	  error ("invalid arguments for %<-fpatchable_function_entry%>");
 	free (patch_area_arg);
@@ -2774,7 +2774,7 @@ common_handle_option (struct gcc_options *opts,
         }
       else
         value = opts->x_dwarf_version;
-      
+
       /* FALLTHRU */
     case OPT_gdwarf_:
       if (value < 2 || value > 5)
@@ -3070,7 +3070,7 @@ set_debug_level (enum debug_info_type type, int extended, const char *arg,
 
   /* A debug flag without a level defaults to level 2.
      If off or at level 1, set it to level 2, but if already
-     at level 3, don't lower it.  */ 
+     at level 3, don't lower it.  */
   if (*arg == '\0')
     {
       if (opts->x_debug_info_level < DINFO_LEVEL_NORMAL)

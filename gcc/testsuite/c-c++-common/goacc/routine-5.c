@@ -125,7 +125,7 @@ using namespace g;
 #endif /* __cplusplus */
 
 #pragma acc routine (a) /* { dg-error ".a. does not refer to a function" } */
-  
+
 #pragma acc routine (c) /* { dg-error ".c. does not refer to a function" } */
 
 

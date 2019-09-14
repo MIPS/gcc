@@ -193,4 +193,3 @@ int StringTable::apply(int (*fp)(StringValue *))
     }
     return 0;
 }
-

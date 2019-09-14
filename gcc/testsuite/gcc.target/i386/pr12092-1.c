@@ -10,4 +10,3 @@ void DecodeAC(int index,int *matrix)
 
   for(mptr=matrix+index;mptr<matrix+64;mptr++) {*mptr = 0;}
 }
-

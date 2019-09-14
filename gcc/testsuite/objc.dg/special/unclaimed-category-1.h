@@ -21,5 +21,3 @@
 @interface TestClass (C)
 - (int)C;
 @end
-
-

@@ -1,4 +1,4 @@
-/* { dg-require-effective-target section_anchors } */ 
+/* { dg-require-effective-target section_anchors } */
 
 #include <stdarg.h>
 #include "tree-vect.h"
@@ -23,8 +23,7 @@ int main (void)
   check_vect ();
   foo ();
   for (i = 0; i < 100; i++)
-    if (f[i]!=1) 
+    if (f[i]!=1)
       abort ();
   return 0;
 }
-

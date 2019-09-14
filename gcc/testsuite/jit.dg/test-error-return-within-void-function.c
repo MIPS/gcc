@@ -51,4 +51,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 		      " mismatching types: return of (int)42 (type: int)"
 		      " in function test_fn (return type: void)");
 }
-

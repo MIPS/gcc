@@ -77,7 +77,7 @@ int main (void)
     abort();
   if (strcmp ((const char*) V2.str[1], "YYY..YYY"))
    abort();
-  
+
   exit (0);
   return 0;
 }

@@ -14,4 +14,3 @@ foo (int v)
 
   return i;
 }
-

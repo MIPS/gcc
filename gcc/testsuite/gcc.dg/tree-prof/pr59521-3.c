@@ -13,7 +13,7 @@ foo(int ch) {
     case 100: sink("100"); break;
     case 10: sink("10"); break;
     case 1: sink("1"); break;
-    } 
+    }
 }
 
 int main()

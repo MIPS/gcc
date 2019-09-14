@@ -1855,7 +1855,7 @@ can_combine_p (rtx_insn *insn, rtx_insn *i3, rtx_insn *pred ATTRIBUTE_UNUSED,
     }
   else if (next_active_insn (insn) != i3)
     all_adjacent = false;
-    
+
   /* Can combine only if previous insn is a SET of a REG, a SUBREG or CC0.
      or a PARALLEL consisting of such a SET and CLOBBERs.
 
@@ -2115,7 +2115,7 @@ can_combine_p (rtx_insn *insn, rtx_insn *i3, rtx_insn *pred ATTRIBUTE_UNUSED,
   is_volatile_p = volatile_refs_p (PATTERN (insn))
     ? volatile_refs_p
     : volatile_insn_p;
-    
+
   for (p = NEXT_INSN (insn); p != i3; p = NEXT_INSN (p))
     if (INSN_P (p) && p != succ && p != succ2 && is_volatile_p (PATTERN (p)))
       return 0;
@@ -2766,7 +2766,7 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
 
       /* If I0 loads a memory and I3 sets the same memory, then I1 and I2
 	 are likely manipulating its value.  Ideally we'll be able to combine
-	 all four insns into a bitfield insertion of some kind. 
+	 all four insns into a bitfield insertion of some kind.
 
 	 Note the source in I0 might be inside a sign/zero extension and the
 	 memory modes in I0 and I3 might be different.  So extract the address
@@ -9857,7 +9857,7 @@ make_field_assignment (rtx x)
       && rtx_equal_for_field_assignment_p (XEXP (rhs, 0), dest))
     c1 = INTVAL (XEXP (rhs, 1)), other = lhs;
   /* The second SUBREG that might get in the way is a paradoxical
-     SUBREG around the first operand of the AND.  We want to 
+     SUBREG around the first operand of the AND.  We want to
      pretend the operand is as wide as the destination here.   We
      do this by adjusting the MEM to wider mode for the sole
      purpose of the call to rtx_equal_for_field_assignment_p.   Also
@@ -9874,7 +9874,7 @@ make_field_assignment (rtx x)
 	   && rtx_equal_for_field_assignment_p (XEXP (lhs, 0), dest))
     c1 = INTVAL (XEXP (lhs, 1)), other = rhs;
   /* The second SUBREG that might get in the way is a paradoxical
-     SUBREG around the first operand of the AND.  We want to 
+     SUBREG around the first operand of the AND.  We want to
      pretend the operand is as wide as the destination here.   We
      do this by adjusting the MEM to wider mode for the sole
      purpose of the call to rtx_equal_for_field_assignment_p.   Also

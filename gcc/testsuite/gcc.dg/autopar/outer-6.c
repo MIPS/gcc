@@ -19,7 +19,7 @@ void parloop (int N)
   int i, j;
   int sum;
 
-  /* Outer loop reduction, outerloop is parallelized.  */ 
+  /* Outer loop reduction, outerloop is parallelized.  */
   sum=0;
   for (i = 0; i < N; i++)
   {
@@ -33,10 +33,10 @@ void parloop (int N)
 int main(void)
 {
   int i,j;
-  for (i = 0; i < 500; i++) 
+  for (i = 0; i < 500; i++)
     for (j = 0; j < 500; j++)
       init(i, j);
-  
+
   parloop(500);
 
   return 0;

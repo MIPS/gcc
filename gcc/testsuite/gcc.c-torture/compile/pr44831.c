@@ -12,4 +12,3 @@ PNCB *NBCmdQueueFindNBC(struct NBCmdQueue *queue, PNCB ncb)
   while (ret && *ret != ncb)
     ret = (PNCB *)((*ret)->ncb_reserve + sizeof(HANDLE));
 }
-

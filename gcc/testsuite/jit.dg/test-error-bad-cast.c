@@ -60,4 +60,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 		      " cannot cast f from type: struct foo"
 		      " to type: int");
 }
-

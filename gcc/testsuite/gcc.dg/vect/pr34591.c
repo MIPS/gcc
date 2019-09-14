@@ -8,4 +8,3 @@ int av_resample(int filter_length, short *src, short *filter)
       val += src[ i ] * filter[i];
     return val;
 }
-

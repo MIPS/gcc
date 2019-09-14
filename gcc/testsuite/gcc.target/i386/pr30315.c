@@ -41,7 +41,7 @@ void pluscconly##t##C (T a, T b)	\
 
 TEST (unsigned long,  l)
 TEST (unsigned int,   i)
-TEST (unsigned short, s) 
+TEST (unsigned short, s)
 TEST (unsigned char,  c)
 
 #define PLUSCCZEXT(C)	\

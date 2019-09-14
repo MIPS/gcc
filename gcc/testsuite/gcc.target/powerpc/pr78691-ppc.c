@@ -15,4 +15,3 @@ int fn1() {
         a = sizeof(void *);
     }
 }
-

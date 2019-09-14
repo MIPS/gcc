@@ -56,7 +56,7 @@ static void test()
   static vector unsigned int zerov;
 #define zcheck(val, tag) \
   check(vec_all_eq((vector unsigned int)(val), zerov), tag)
-  
+
   zcheck(zs16(), "zs16");
   zcheck(s16ss(), "s16ss");
   zcheck(s16s(), "s16s");

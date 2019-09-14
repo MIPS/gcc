@@ -13,4 +13,3 @@ k26(void)
   for (ndf = 0; ndf <= 1; ++ndf)
     *c4b = (db6 == l30) && (*a22)--;
 }
-

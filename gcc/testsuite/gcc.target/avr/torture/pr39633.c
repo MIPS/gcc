@@ -20,6 +20,6 @@ int main()
     abort();
 
   exit(0);
-    
+
   return 0;
 }

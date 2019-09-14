@@ -17,7 +17,7 @@ void f2(void)
 
 void f3(int p)
 {
-  int x;		
+  int x;
   if (p)
     x = p;
   sink = x;            /* { dg-warning "may be used" "conditional" } */

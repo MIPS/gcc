@@ -7,4 +7,3 @@ int main ()
 	/* This used to cause an ICE.  */
 	f ();
 }
-

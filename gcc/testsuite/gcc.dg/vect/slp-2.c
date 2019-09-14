@@ -3,10 +3,10 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 128 
+#define N 128
 
 int
-main1 (unsigned short a0, unsigned short a1, unsigned short a2, 
+main1 (unsigned short a0, unsigned short a1, unsigned short a2,
        unsigned short a3, unsigned short a4, unsigned short a5,
        unsigned short a6, unsigned short a7, unsigned short a8,
        unsigned short a9, unsigned short a10, unsigned short a11,
@@ -27,7 +27,7 @@ main1 (unsigned short a0, unsigned short a1, unsigned short a2,
   /* check results:  */
   for (i = 0; i < N; i++)
     {
-      if (out[i*4] != a8 
+      if (out[i*4] != a8
          || out[i*4 + 1] != a1
          || out[i*4 + 2] != a2
          || out[i*4 + 3] != a3)
@@ -141,4 +141,3 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "vectorized 4 loops" 1 "vect"  } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 4 "vect" { xfail vect_variable_length } } } */
-  

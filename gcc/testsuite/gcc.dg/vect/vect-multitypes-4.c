@@ -51,8 +51,8 @@ int main1 (int n)
 /* Current peeling-for-alignment scheme will consider the 'ia[i+3]'
    access for peeling, and therefore will examine the option of
    using a peeling factor = VF-3%VF. This will result in a peeling factor
-   1 if VF=4,2. This will not align the access to 'sa[i+3]', for which we 
-   need to peel 5,1 iterations for VF=4,2 respectively, so the loop can not 
+   1 if VF=4,2. This will not align the access to 'sa[i+3]', for which we
+   need to peel 5,1 iterations for VF=4,2 respectively, so the loop can not
    be vectorized.  However, 'ia[i+3]' also gets aligned if we peel 5
    iterations, so the loop is vectorizable on all targets that support
    unaligned loads.
@@ -83,9 +83,9 @@ int main2 (int n)
 }
 
 int main (void)
-{ 
+{
   check_vect ();
-  
+
   main1 (N-7);
   main2 (N-3);
 
@@ -97,4 +97,3 @@ int main (void)
 /* { dg-final { scan-tree-dump-times "Alignment of access forced using peeling" 2 "vect" { xfail { vect_no_align || vect_element_align } } } } */
 /* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 8 "vect" { target { ! vect_element_align } xfail { ! vect_unaligned_possible } } } } */
 /* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 4 "vect" { target { vect_element_align } xfail { ! vect_unaligned_possible } } } } */
-

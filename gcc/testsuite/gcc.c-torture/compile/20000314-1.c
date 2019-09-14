@@ -5,7 +5,7 @@ struct {
 int main ()
 {
    int i = -1;
-   
+
    if(p->a[-i])
      return 1;
 }

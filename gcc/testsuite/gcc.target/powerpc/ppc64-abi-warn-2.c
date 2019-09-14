@@ -8,4 +8,3 @@ struct test
 void test (struct test a) /* { dg-message "note: the ABI of passing aggregates with 16-byte alignment has changed" } */
 {
 }
-

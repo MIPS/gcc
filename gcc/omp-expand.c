@@ -518,7 +518,7 @@ parallel_needs_hsa_kernel_p (struct omp_region *region)
    Add CHILD_FNDECL to decl chain of the supercontext of the block
    ENTRY_BLOCK - this is the block which originally contained the
    code from which CHILD_FNDECL was created.
-   
+
    Together, these actions ensure that the debug info for the outlined
    function will be emitted with the correct lexical scope.  */
 
@@ -5515,7 +5515,7 @@ expand_omp_simd (struct omp_region *region, struct omp_for_data *fd)
       FALLTHRU_EDGE (entry_bb)->flags = EDGE_TRUE_VALUE;
       FALLTHRU_EDGE (entry_bb)->probability
 	 = profile_probability::guessed_always ().apply_scale (7, 8);
-      BRANCH_EDGE (entry_bb)->probability 
+      BRANCH_EDGE (entry_bb)->probability
 	 = FALLTHRU_EDGE (entry_bb)->probability.invert ();
       l2_dom_bb = entry_bb;
     }

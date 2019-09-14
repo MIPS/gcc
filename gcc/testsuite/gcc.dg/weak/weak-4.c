@@ -105,4 +105,3 @@ void * foo1j (void)
 
 #pragma weak vfoo1k
 int vfoo1k = 1;
-

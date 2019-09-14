@@ -11,4 +11,3 @@ void foo(int *p, int N)
         p[5] = j+k;
     }
 }
-

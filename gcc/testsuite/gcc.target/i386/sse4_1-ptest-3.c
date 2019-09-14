@@ -38,7 +38,7 @@ TEST (void)
   correct_zeros[0] = 0;
   correct_ones[0] = 0;
   correct_mixed[0] = 1;
-    
+
   val[1].i[0] = 0x00000000;
   val[1].i[1] = 0x11111111;
   val[1].i[2] = 0x11111111;

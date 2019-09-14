@@ -78,7 +78,7 @@ test_not_islessgreater(FLOAT x, FLOAT y, FLOAT a, FLOAT b)
 
 static void
 one_test(FLOAT x, FLOAT y, int expected,
-         FLOAT (*pos) (FLOAT, FLOAT, FLOAT, FLOAT), 
+         FLOAT (*pos) (FLOAT, FLOAT, FLOAT, FLOAT),
 	 FLOAT (*neg) (FLOAT, FLOAT, FLOAT, FLOAT))
 {
   if (((*pos)(x, y, 1.0, 2.0) == 1.0) != expected)

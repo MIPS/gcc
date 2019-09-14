@@ -63,4 +63,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 
   CHECK_VALUE (test_using_volatile (), 42);
 }
-

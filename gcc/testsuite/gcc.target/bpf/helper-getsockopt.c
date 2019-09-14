@@ -9,7 +9,7 @@ foo ()
   void *bpf_socket;
   int level, optname, optlen;
   char *optval;
-  
+
   ret = __builtin_bpf_helper_getsockopt (bpf_socket, level,
 					 optname, optval, optlen);
 }

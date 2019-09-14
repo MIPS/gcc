@@ -9,5 +9,5 @@ foo (int *x, int y, va_list ap)
 {
   __builtin_memset (x, 0, sizeof (int));
   for (int i = 0; i < y; i++)
-    va_arg (ap, long double);			/* { dg-bogus "uninitialized" } */  
+    va_arg (ap, long double);			/* { dg-bogus "uninitialized" } */
 }

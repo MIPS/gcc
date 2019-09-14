@@ -16,7 +16,7 @@ extern void g(vector unsigned char, ...);
 void
 f(vector unsigned char u8p, vector signed char s8p, vector bool char b8p,
   vector unsigned short u16p, vector signed short s16p,
-  vector bool short b16p, vector unsigned int u32p, 
+  vector bool short b16p, vector unsigned int u32p,
   vector signed int s32p, vector bool int b32p,
   vector float f32p, vector pixel p16p)
 {
@@ -120,5 +120,5 @@ g(vector unsigned char a, ...)
 int main()
 {
   f(u8(), s8(), b8(), u16(), s16(), b16(), u32(), s32(), b32(), f32(), p16());
-  return 0; 
+  return 0;
 }

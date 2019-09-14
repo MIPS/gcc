@@ -30,7 +30,7 @@ get_alias_set (t)
 /* There should be precisely one load of {t,__t}->code.  If there is
    more than one, then the dominator optimizations failed.  */
 /* { dg-final { scan-tree-dump-times "->code" 1 "dom2"} } */
-                                                                                
+
 /* There should be precisely one load of tree_code_type.  If there is
    more than one, then the dominator optimizations failed.  */
 /* { dg-final { scan-tree-dump-times "tree_code_type" 1 "dom2"} } */
@@ -40,4 +40,3 @@ get_alias_set (t)
    the call to abort() to be removed, which in turn causes the whole second
    if() to disappear.  */
 /* { dg-final { scan-tree-dump-times "if " 1 "dom2"} } */
-

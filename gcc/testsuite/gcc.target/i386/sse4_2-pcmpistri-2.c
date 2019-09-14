@@ -94,7 +94,7 @@ TEST (void)
 			    &correct_flags);
 	  break;
 	}
-      
+
       if (correct != res)
 	abort ();
 
@@ -107,7 +107,7 @@ TEST (void)
 	flags |= SFLAG;
       if (of)
 	flags |= OFLAG;
-      
+
       if (flags != correct_flags
 	  || (af && (cf || zf))
 	  || (!af && !(cf || zf)))

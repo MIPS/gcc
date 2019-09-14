@@ -2,7 +2,7 @@
 
 extern void abort (void);
 
-static void 
+static void
 foo (int *out, const int *lp, unsigned samples)
 {
   int x, target;
@@ -13,7 +13,7 @@ foo (int *out, const int *lp, unsigned samples)
     }
 }
 
-static void 
+static void
 foo_novec (int *out, const int *lp, unsigned samples)
 {
   int x, target;
@@ -50,4 +50,3 @@ int main(void)
 
   return 0;
 }
-

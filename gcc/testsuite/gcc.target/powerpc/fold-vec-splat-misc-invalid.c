@@ -30,4 +30,3 @@ testsc_2 (signed int si)
 {
   return vec_splat_u8 (si);/* { dg-error "argument 1 must be a 5-bit signed literal" } */
 }
-

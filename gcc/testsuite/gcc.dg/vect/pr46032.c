@@ -46,4 +46,3 @@ main (void)
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loop" 1 "vect" { xfail { vect_no_align && { ! vect_hw_misalign } } } } } */
 /* { dg-final { scan-tree-dump-not "versioning for alias required" "vect" } } */
-

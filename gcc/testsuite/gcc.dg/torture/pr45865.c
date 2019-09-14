@@ -38,7 +38,7 @@ reversed_comparison_code_parts (enum rtx_code code, rtx insn, rtx arg0,
     return (mode != CCFPmode && mode != CCFPUmode
 	    ? reverse_condition (code)
 	    : reverse_condition_maybe_unordered (code));
-  switch (code) 
+  switch (code)
     {
     case GEU:
       return reverse_condition (code);

@@ -21,5 +21,5 @@ test_api (float y, float x)
 int main ()
 {
   test_api (6, 7);
-  return (0); 
+  return (0);
 }

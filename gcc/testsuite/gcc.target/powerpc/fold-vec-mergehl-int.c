@@ -45,4 +45,3 @@ testui_h (vector unsigned int vui2, vector unsigned int vui3)
 
 /* { dg-final { scan-assembler-times "vmrghw|xxmrghw" 3 } } */
 /* { dg-final { scan-assembler-times "vmrglw|xxmrglw" 3 } } */
-

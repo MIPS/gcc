@@ -67,4 +67,3 @@ unsigned f5 (unsigned x, unsigned y, unsigned z)
 
 /* { dg-final { scan-tree-dump-times "\\\* 6" 1 "reassoc1" } } */
 /* { dg-final { scan-tree-dump-times "\\\* 9" 1 "reassoc1" } } */
-

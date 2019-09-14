@@ -3,7 +3,7 @@
 
 typedef int VInt __attribute__((vector_size(64)));
 
-void test(VInt*__restrict a, VInt*__restrict b, 
+void test(VInt*__restrict a, VInt*__restrict b,
 	  VInt*__restrict c)
 {
   *a = *b + *c;

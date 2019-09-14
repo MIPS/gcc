@@ -110,7 +110,7 @@ static int __attribute__((noinline)) fn0 ()
 }
 
 int main()
-{ 
+{
   fn0 ();
   abort ();
 }

@@ -6,5 +6,3 @@ void f(void)
   b+=4u;
   __builtin_memcpy (b, &OggFLAC__MAPPING_VERSION_MAJOR, (1u));
 }
-
-

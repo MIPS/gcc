@@ -3,24 +3,24 @@
 
    Written by: Nicola Pero <n.pero@mi.flashnet.it>
    Date: March, October 2001
-   
+
    This file is part of GNUstep.
 
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Lesser General Public
    License as published by the Free Software Foundation; either
    version 2 of the License, or (at your option) any later version.
-   
+
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
    Library General Public License for more details.
-   
+
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
    Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
    Boston, MA 02110-1301, USA.
-*/ 
+*/
 
 #ifndef __GNUSTEP_GNUSTEP_H_INCLUDED_
 #define __GNUSTEP_GNUSTEP_H_INCLUDED_
@@ -36,7 +36,7 @@
 /*
  * __has_extension has slightly different semantics from __has_feature.
  * It evaluates to true if the feature is supported by by clang for the
- * current compilation unit (language and -f switches), regardless of 
+ * current compilation unit (language and -f switches), regardless of
  * whether it is part of the language standard or just a (non-standard)
  * extension.
  */
@@ -58,7 +58,7 @@
 #define	RETAIN(object)		        (object)
 #endif
 #ifndef	RELEASE
-#define	RELEASE(object)		
+#define	RELEASE(object)
 #endif
 #ifndef	AUTORELEASE
 #define	AUTORELEASE(object)	        (object)
@@ -84,7 +84,7 @@
 #define	DESTROY(object) 	        object = nil
 #endif
 
-#define	IF_NO_GC(X)	
+#define	IF_NO_GC(X)
 
 #ifndef ENTER_POOL
 #define ENTER_POOL                      @autoreleasepool{do{
@@ -295,7 +295,7 @@ id __object = (object); (__object != nil) ? [__object autorelease] : nil; })
 #endif
 
 
- 
+
 /**
  * <p>
  *   This function (macro) is a GNUstep extension.
@@ -362,9 +362,9 @@ id __object = (object); (__object != nil) ? [__object autorelease] : nil; })
  *   <code>
  *     NSString *message = GSLocalizedStaticString (@"Hi there",
  *       @"Greeting");
- * 
+ *
  *     ... some code ...
- * 
+ *
  *     NSLog (NSLocalizedString (message, @""));
  *  </code>
  * </p>

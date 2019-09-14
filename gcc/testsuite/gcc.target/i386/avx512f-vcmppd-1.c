@@ -42,4 +42,3 @@ avx512f_test (void)
   m = _mm512_cmpord_pd_mask (x, x);
   m = _mm512_mask_cmpord_pd_mask (m, x, x);
 }
-

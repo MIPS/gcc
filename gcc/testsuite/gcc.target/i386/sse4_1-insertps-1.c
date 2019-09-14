@@ -76,4 +76,4 @@ TEST (void)
       if (memcmp (&res[i], &tmp, sizeof (tmp)))
 	abort ();
     }
-} 
+}

@@ -112,4 +112,3 @@ main ()
   baz (a + 512, b + 512 + 31, bar);
   return 0;
 }
-

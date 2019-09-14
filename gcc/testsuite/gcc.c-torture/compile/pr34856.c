@@ -15,4 +15,3 @@ void f1 (unsigned ctr)
   }
 while(ctr);
 }
-

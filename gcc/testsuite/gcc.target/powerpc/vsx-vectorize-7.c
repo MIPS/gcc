@@ -10,7 +10,7 @@
 #define N 256
 
 __attribute__ ((noinline))
-void bar (int *pd, int *pa, int *pb, int *pc) 
+void bar (int *pd, int *pa, int *pb, int *pc)
 {
   int i;
 

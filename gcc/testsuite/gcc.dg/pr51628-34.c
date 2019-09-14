@@ -8,7 +8,7 @@ short *
 baz (int x, struct S *p)
 {
   return (x
-	  ? &p->a 
+	  ? &p->a
 /* { dg-warning "may result in an unaligned pointer value" "" { target *-*-* } .-1 } */
 	  : &p->b);
 /* { dg-warning "may result in an unaligned pointer value" "" { target *-*-* } .-1 } */

@@ -8,7 +8,7 @@ foo (void)
 {
   __builtin_goacc_parlevel_id (GOMP_DIM_GANG);
   /* { dg-error "'__builtin_goacc_parlevel_id' only supported in OpenACC code" "" { target *-*-* } .-1 } */
-  
+
   __builtin_goacc_parlevel_size (GOMP_DIM_GANG);
   /* { dg-error "'__builtin_goacc_parlevel_size' only supported in OpenACC code" "" { target *-*-* } .-1 } */
 }

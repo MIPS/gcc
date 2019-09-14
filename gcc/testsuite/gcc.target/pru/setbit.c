@@ -10,4 +10,3 @@ test_setbit (unsigned int val)
   val |= (1u << 31);
   return val;
 }
-

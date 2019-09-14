@@ -3,7 +3,7 @@
 
 int global;
 
-int 
+int
 foo (int x)
 {
   switch (x & 7)

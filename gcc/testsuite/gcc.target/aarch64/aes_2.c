@@ -76,4 +76,3 @@ test7 (uint8x16_t a, uint8x16_t b)
   return result;
 }
 /* { dg-final { scan-assembler-not "mov" } } */
-

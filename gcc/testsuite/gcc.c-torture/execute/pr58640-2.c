@@ -1,11 +1,11 @@
 extern void abort (void);
 
-int a[20], b, c; 
+int a[20], b, c;
 
 int
 fn1 ()
 {
-  int d, e, f, g = 0; 
+  int d, e, f, g = 0;
 
   a[12] = 1;
   for (e = 0; e < 3; e++)
@@ -20,7 +20,7 @@ fn1 ()
 	      break;
 	  }
 	for (c = 0; c < 1; c++)
-	  a[d] = a[e * 3 + 9]; 
+	  a[d] = a[e * 3 + 9];
       }
   return 0;
 }

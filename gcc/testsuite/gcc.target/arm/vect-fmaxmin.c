@@ -11,4 +11,3 @@
 /* NOTE: There are no double precision vector versions of vmaxnm/vminnm.  */
 /* { dg-final { scan-assembler-times "vmaxnm.f64\td\[0-9\]+, d\[0-9\]+, d\[0-9\]+" 1 } } */
 /* { dg-final { scan-assembler-times "vminnm.f64\td\[0-9\]+, d\[0-9\]+, d\[0-9\]+" 1 } } */
-

@@ -65,15 +65,15 @@ sse2_test (void)
   if (x != expected_y)
     abort ();
 
-  res = foo3 (FLOAT_X); 
+  res = foo3 (FLOAT_X);
   if (memcmp (&res, &expected2, sizeof (res)))
     abort ();
 
-  res = foo4 (FLOAT_X); 
+  res = foo4 (FLOAT_X);
   if (memcmp (&res, &expected3, sizeof (res)))
     abort ();
 
-  res = foo5 (FLOAT_X, FLOAT_Y); 
+  res = foo5 (FLOAT_X, FLOAT_Y);
   if (memcmp (&res, &expected1, sizeof (res)))
     abort ();
 }

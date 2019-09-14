@@ -16,4 +16,3 @@ void test (void)
 
    func (p + idx + 1);
 }
-

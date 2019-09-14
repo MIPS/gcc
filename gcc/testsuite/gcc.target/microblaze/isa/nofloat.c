@@ -2,7 +2,7 @@
 
 volatile float f1, f2, f3;
 
-void float_func () 
+void float_func ()
 {
   /* { dg-final { scan-assembler-not "fmul" } } */
     f1 = f2 * f3;

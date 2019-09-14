@@ -11,4 +11,3 @@ void foo (TYPE *p, TYPE *q) { *p = *q; }
 /* { dg-final { scan-assembler-times {\mld\M} 2 } } */
 /* { dg-final { scan-assembler-times {\mstd\M} 2 } } */
 /* { dg-final { scan-assembler-not "xxpermdi" } } */
-

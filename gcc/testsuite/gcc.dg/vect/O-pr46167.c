@@ -7,4 +7,3 @@ int foo (char c, int i)
     s += c;
   return s;
 }
-

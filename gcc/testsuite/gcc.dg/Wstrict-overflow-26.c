@@ -4,7 +4,7 @@
 int
 f (int i, int j)
 {
-  unsigned int c = 0;                                                          
+  unsigned int c = 0;
   if (i < j)
     {
       unsigned int n = j - i;

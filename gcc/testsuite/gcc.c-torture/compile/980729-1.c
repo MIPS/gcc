@@ -11,4 +11,4 @@ regex_compile ()
         break;
       str[c1++] = c;
     }
-}  
+}

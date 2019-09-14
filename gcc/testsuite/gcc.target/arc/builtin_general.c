@@ -33,4 +33,3 @@ NORET1OP (seti, int)
 RET1OP (norm, int, int)
 RET1OP (normw, int, short)
 #endif
-

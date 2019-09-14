@@ -1,6 +1,6 @@
 /* This test exposed a bug in combine where it was improperly changing
    the mode of a register.  The bug appeared to be latent until web
-   was moved after combine.  This is the reduced test that fails 
+   was moved after combine.  This is the reduced test that fails
    by crashing in reload.  */
 
 

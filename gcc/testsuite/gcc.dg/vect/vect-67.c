@@ -18,7 +18,7 @@ int main1 (int a, int b)
   int ia[N][4][N + NINTS];
 
   /* Multidimensional array. Aligned. The "inner" dimensions
-     are invariant in the inner loop. Store. 
+     are invariant in the inner loop. Store.
      Not vectorizable: unsupported operation. */
   for (i = 0; i < N; i++)
     {
@@ -28,7 +28,7 @@ int main1 (int a, int b)
         }
     }
 
-  /* check results: */  
+  /* check results: */
   for (i = 0; i < N; i++)
     {
       for (j = 0; j < N; j++)
@@ -42,7 +42,7 @@ int main1 (int a, int b)
 }
 
 int main (void)
-{ 
+{
   check_vect ();
 
   return main1 (2 ,7);

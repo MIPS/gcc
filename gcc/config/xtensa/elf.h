@@ -57,7 +57,7 @@ along with GCC; see the file COPYING3.  If not see
   "crt1-sim%O%s crt0%O%s crti%O%s crtbegin%O%s _vectors%O%s"
 
 #undef ENDFILE_SPEC
-#define ENDFILE_SPEC "crtend%O%s crtn%O%s"  
+#define ENDFILE_SPEC "crtend%O%s crtn%O%s"
 
 #undef LINK_SPEC
 #define LINK_SPEC \

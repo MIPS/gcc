@@ -7,7 +7,7 @@
 /* -O1 in the options is significant.  Without it FP operations may not be
    optimized to custom instructions.  */
 
-#include <stdio.h> 
+#include <stdio.h>
 #include <math.h>
 
 /* This test case is expected to cause an error because GCC does not know

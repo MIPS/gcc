@@ -40,7 +40,7 @@ main1 (float *pa)
       if (pa[i] != 3.0)
 	abort ();
     }
-  
+
   return 0;
 }
 
@@ -85,4 +85,3 @@ int main (void)
 
 /* in main: */
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target { vect_no_align && { ! vect_hw_misalign } } } } } */
-

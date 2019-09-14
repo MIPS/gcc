@@ -40,8 +40,8 @@ main ()
   cf = d32;
   cd = d64;
   cld = d128;
- 
-  /* N1107 5.3 Conversions between decimal floating and complex. 
+
+  /* N1107 5.3 Conversions between decimal floating and complex.
      When a value of decimal floating type converted to a complex
      type, the real part of the complex result value is undermined
      by the rules of conversions in N1107 5.2 and the imaginary part

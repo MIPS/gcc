@@ -12,4 +12,3 @@ void c1 () { ++i; }
 
 void d1 () __attribute__((destructor));
 void d1 () { --i; }
-

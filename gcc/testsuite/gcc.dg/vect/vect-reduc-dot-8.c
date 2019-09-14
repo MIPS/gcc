@@ -7,4 +7,3 @@
 #include "vect-reduc-dot-1.c"
 
 /* { dg-final { scan-tree-dump "vect_recog_dot_prod_pattern: detected" "vect" } } */
-

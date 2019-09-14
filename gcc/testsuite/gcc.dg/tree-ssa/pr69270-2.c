@@ -40,5 +40,3 @@ insert_debug_temp_for_var_def (gimple stmt)
         value = unshare_expr (value);
     }
 }
-
-

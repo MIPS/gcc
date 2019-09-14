@@ -3,7 +3,7 @@
 
 #pragma GCC target "+nosve"
 
-int 
+int
 t6(int len, void * dummy, unsigned short * __restrict x)
 {
   len = len & ~31;
@@ -16,4 +16,3 @@ t6(int len, void * dummy, unsigned short * __restrict x)
 
 /* { dg-final { scan-assembler "uaddw" } } */
 /* { dg-final { scan-assembler "uaddw2" } } */
-

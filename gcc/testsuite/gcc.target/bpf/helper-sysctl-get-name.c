@@ -10,7 +10,7 @@ foo ()
   void *ctx, *buf;
   size_t buf_len;
   uint64_t flags;
-  
+
   ret = __builtin_bpf_helper_sysctl_get_name (ctx, buf,
 					      buf_len, flags);
 }

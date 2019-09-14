@@ -1,13 +1,13 @@
 /* { dg-require-effective-target vect_int } */
 /* { dg-add-options bind_pic_locally } */
-  
+
 #include <stdarg.h>
 #include "tree-vect.h"
 
 #define N 64
 
   int ia[N];
-  int ib[N]= 
+  int ib[N]=
     {1,1,0,0,1,0,1,0,
      1,1,0,0,1,0,1,0,
      1,1,0,0,1,0,1,0,

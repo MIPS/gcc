@@ -29,7 +29,7 @@ avx512er_test (void)
   _mm_setcsr ( _MM_MASK_MASK & ~_MM_MASK_INVALID );
   __m512 r1 = _mm512_rsqrt28_round_ps (a, _MM_FROUND_NO_EXC);
   __m512 r2 = _mm512_rsqrt28_round_ps (a, _MM_FROUND_CUR_DIRECTION);
-  
+
   if (r1[0] + r2[0])
     abort ();
 }

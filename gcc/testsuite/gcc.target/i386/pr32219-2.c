@@ -21,4 +21,3 @@ foo ()
 
 /* Darwin m32 defaults to PIC but common symbols need to be indirected.  */
 /* { dg-final { scan-assembler {movl[ \t]l_xxx\$non_lazy_ptr-L1\$pb\(%eax\),[ \t]%eax} { target { ia32 && *-*-darwin* } } } } */
-

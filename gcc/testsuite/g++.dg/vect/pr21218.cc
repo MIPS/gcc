@@ -13,5 +13,3 @@ void bar(B& b)
     for (int i=0; i<2; ++i)
         b.d[i] = b.foo(i);
 }
-
-

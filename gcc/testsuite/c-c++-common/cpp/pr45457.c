@@ -2,9 +2,9 @@
 /* { dg-do compile } */
 
 const char *a =
-#ifdef __DBL_DENORM_MIN__                                                                                                                         
+#ifdef __DBL_DENORM_MIN__
 "a"
-#endif                                                                                                                                            
+#endif
 #if defined(__DBL_EPSILON__)
 "b"
 #endif

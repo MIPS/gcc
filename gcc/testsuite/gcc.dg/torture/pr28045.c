@@ -19,4 +19,3 @@ int main ()
   Fnegate (b);
   return 0;
 }
-

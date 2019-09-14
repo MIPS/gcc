@@ -28,7 +28,7 @@ CALC (unsigned char *r, unsigned char *s1, unsigned char *s2, unsigned char imm)
             if (parity % 2)
               result |= (1 << (8 - bit - 1));
           }
-          r[a*8 + val] = result ^ imm; 
+          r[a*8 + val] = result ^ imm;
         }
     }
 }

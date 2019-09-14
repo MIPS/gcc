@@ -112,5 +112,3 @@ main (int argc, char **argv)
    vfms_laneq_f64.
    vfmsq_laneq_f64.  */
 /* { dg-final { scan-assembler-times "fmls\\tv\[0-9\]+\.2d, v\[0-9\]+\.2d, v\[0-9\]+\.2?d\\\[\[0-9\]+\\\]" 3 } } */
-
-

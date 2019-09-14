@@ -12,7 +12,7 @@
 /* { dg-error "one or more PCH files were found, but they were invalid" "invalid files" { target *-*-* } .-2 } */
 /* { dg-message "terminated" "" { target *-*-* } 0 } */
 
-int main(void) 
+int main(void)
 {
   return __COUNTER__;
 }

@@ -2,12 +2,12 @@
 
 /* Force big-endian because for little-endian, combine generates this:
 
- (if_then_else (ne (zero_extract:DI (subreg:DI (truncate:SI (reg:DI 196)) 0) 
-                 (const_int 1) 
-                 (const_int 0)) 
-             (const_int 0)) 
-         (label_ref 20) 
-         (pc))) 
+ (if_then_else (ne (zero_extract:DI (subreg:DI (truncate:SI (reg:DI 196)) 0)
+                 (const_int 1)
+                 (const_int 0))
+             (const_int 0))
+         (label_ref 20)
+         (pc)))
 
   which does not get recognized as a valid bbit pattern.  The
   middle-end should be able to simplify this further.  */

@@ -37,6 +37,6 @@ int main(int argc, char **argv)
     abort();
   if(f03_com2.j != 3)
     abort();
-  
+
   return 0;
 }/* end main() */

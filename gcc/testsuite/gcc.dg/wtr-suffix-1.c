@@ -19,7 +19,7 @@ testfunc ()
   f = 1.0f; /* { dg-warning "traditional C rejects" "numeric constant suffix" } */
   f = 1.0L; /* { dg-warning "traditional C rejects" "numeric constant suffix" } */
   f = 1.0l; /* { dg-warning "traditional C rejects" "numeric constant suffix" } */
- 
+
 # 24 "sys-header.h" 3
 /* We are in system headers now, no -Wtraditional warnings should issue.  */
 

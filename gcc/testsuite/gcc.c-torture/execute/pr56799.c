@@ -40,5 +40,3 @@ __attribute__ ((noinline)) int foo (S* ptr)
   c += ptr->y;
   return c;
 }
-
-     

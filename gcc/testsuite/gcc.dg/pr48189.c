@@ -3,7 +3,7 @@
 /* { dg-options "-O --param max-predicted-iterations=0" } */
 
 struct S { int s[8]; };
-  
+
 void
 foo (int *x, struct S *y)
 {

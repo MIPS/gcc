@@ -47,4 +47,3 @@ void func4() {
     func1(bar);
   }
 }
-

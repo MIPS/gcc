@@ -1,4 +1,4 @@
-/* This testcase used to fail because of a bug in 
+/* This testcase used to fail because of a bug in
    arm.md:*minmax_arithsi.  */
 
 /* { dg-do run } */

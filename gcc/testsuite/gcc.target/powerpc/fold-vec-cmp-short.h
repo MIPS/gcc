@@ -79,4 +79,3 @@ test6_ne (vector unsigned short x, vector unsigned short y)
 {
   return vec_cmpne (x, y);
 }
-

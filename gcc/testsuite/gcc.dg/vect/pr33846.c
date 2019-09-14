@@ -20,4 +20,3 @@ void _mix_some_samples (intptr_t buf, int *mix_buffer, int mix_size)
     p++;
   }
 }
-

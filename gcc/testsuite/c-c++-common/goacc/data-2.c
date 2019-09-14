@@ -20,4 +20,3 @@ foo (void)
 #pragma acc enter for /* { dg-error "expected 'data' after" } */
 #pragma acc enter data2 /* { dg-error "expected 'data' after" } */
 }
-

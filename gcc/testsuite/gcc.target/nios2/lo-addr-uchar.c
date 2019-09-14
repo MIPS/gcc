@@ -55,4 +55,3 @@ unsigned short exthu1 (void) { return (unsigned short)(S1); }
 unsigned short exthu2 (int i) { return (unsigned short)(S2[i]); }
 unsigned short exthu3 (void) { return (unsigned short)(S3.x2); }
 unsigned short exthu4 (int i) { return (unsigned short)(S4[i].x2); }
-

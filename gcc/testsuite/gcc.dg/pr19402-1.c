@@ -26,4 +26,3 @@ long double test_powil(long double x)
 }
 
 /* { dg-final { scan-assembler-not "__builtin_" } } */
-

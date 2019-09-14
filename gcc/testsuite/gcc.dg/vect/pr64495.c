@@ -14,7 +14,7 @@ main ()
       for (; f; f++)
 	if (j)
 	  {
-	    assert(b); 
+	    assert(b);
 	    assert(0);
 	  }
   for (i = 24; i; i--)
@@ -24,9 +24,8 @@ main ()
       *h |= d;
     }
 
-  if (e != 1) 
-    __builtin_abort (); 
+  if (e != 1)
+    __builtin_abort ();
 
   return 0;
 }
-

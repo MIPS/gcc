@@ -37,4 +37,3 @@ norm ()
   static NormFunc f = norm_ < int, A >;
   f = 0;
 }
-

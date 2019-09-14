@@ -1,4 +1,4 @@
-/* Test for proper preparation of the comparison operands for 
+/* Test for proper preparation of the comparison operands for
    generation of a conditional trap.  Produced unrecognizable
    rtl on Sparc.  */
 

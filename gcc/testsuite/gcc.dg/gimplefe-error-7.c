@@ -24,4 +24,3 @@ __GIMPLE() void fn3()
   else
     goto
 } /* { dg-error "expected label" } */
-

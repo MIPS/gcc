@@ -11,4 +11,3 @@ int doo2 = 3;
 __declspec(dllexport) int foo1 (void) { return 0; }
 int foo2 (void) { return 1; }
 int main() { return 0; }
-

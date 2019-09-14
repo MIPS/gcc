@@ -30,7 +30,7 @@ void * foo1b (void)
 }
 
 
-extern void * ffoo1c (void);  
+extern void * ffoo1c (void);
 void * foo1c (void)
 {
   return (void *)ffoo1c;
@@ -52,7 +52,7 @@ void * foo1e (void)
 }
 
 
-extern void * ffoo1f (void);    
+extern void * ffoo1f (void);
 void * foo1f (void)
 {
   if (ffoo1f) /* { dg-warning "" } */

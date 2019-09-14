@@ -11,7 +11,7 @@ void reader()
 {
   int i;
   __transaction_atomic
-    { 
+    {
       for (i = 0; i < 10; i++)
         if (x[i])
           x[i] += DATA_DATA;

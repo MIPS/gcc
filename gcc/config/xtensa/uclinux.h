@@ -66,4 +66,3 @@ along with GCC; see the file COPYING3.  If not see
 #define TARGET_LIBC_HAS_FUNCTION no_c99_libc_has_function
 
 #undef DBX_REGISTER_NUMBER
-

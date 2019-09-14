@@ -12,4 +12,3 @@ void smx_ctx_sysv_create_context() {
     switch (a[0])
       ;
 }
-

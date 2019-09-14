@@ -462,4 +462,3 @@ dump_reg_info (FILE *file)
       fputs (".\n", file);
     }
 }
-

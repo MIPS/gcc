@@ -1,4 +1,4 @@
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-O2 -ftree-loop-distribution -fdump-tree-ldist-all" } */
 
 void foo (int * __restrict__ a,

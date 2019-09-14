@@ -17,4 +17,3 @@ __powitf (TFtype x, int m)
     }
   return m < 0 ? 1/y : y;
 }
-

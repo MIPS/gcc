@@ -9,4 +9,3 @@ int foo(void)
 
   return i;
 }
-

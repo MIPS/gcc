@@ -27,5 +27,5 @@ int main ()
           break;
         c = g;
       }
-  return 0; 
+  return 0;
 }

@@ -30,4 +30,3 @@ void foo (void)
   t_d ggg;
   ggg.f1 = ggg.f2;
 }
-

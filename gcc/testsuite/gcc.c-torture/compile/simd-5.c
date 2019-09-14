@@ -8,5 +8,5 @@ vector64 int b = {2, -2};
 c = -a + b*b*(-1LL);
 /* c is now {-5, -3} */
 
- printf("result is %llx\n", (long long)c); 
+ printf("result is %llx\n", (long long)c);
 }

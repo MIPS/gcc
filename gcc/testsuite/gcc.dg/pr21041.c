@@ -39,4 +39,3 @@ int test (struct args *args, char *init, int a, int b)
 
   return 1;
 }
-

@@ -1,4 +1,4 @@
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-O2 -fno-code-hoisting -fdump-tree-pre-stats" } */
 int *gp;
 int foo(int p)

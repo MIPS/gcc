@@ -21,7 +21,7 @@ void test (void *p, void *dummy)
   if (dummy)
     g (dummy);
 
-  if (p) 
+  if (p)
     {
       flags |= 0x20000000|0x80000000;
 
@@ -34,4 +34,3 @@ void test (void *p, void *dummy)
   if (dummy)
     g (dummy);
 }
-

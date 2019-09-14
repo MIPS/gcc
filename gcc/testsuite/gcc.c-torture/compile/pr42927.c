@@ -21,10 +21,10 @@ void scsires_issue_reservation(scsires_extent_t * new_extent)
   for (i = 0; i < new_extent->num_elements; i++)
     {
       buf[(i * 8)] = new_extent->elements[i].mode;
-      buf[(i * 8) + 1] = ((new_extent->elements[i].length >> 16) & 0xff); 
+      buf[(i * 8) + 1] = ((new_extent->elements[i].length >> 16) & 0xff);
       buf[(i * 8) + 2] = ((new_extent->elements[i].length >> 8) & 0xff);
       buf[(i * 8) + 3] = (new_extent->elements[i].length & 0xff);
-      buf[(i * 8) + 4] = ((new_extent->elements[i].first_block >> 24) & 0xff); 
+      buf[(i * 8) + 4] = ((new_extent->elements[i].first_block >> 24) & 0xff);
       buf[(i * 8) + 5] = ((new_extent->elements[i].first_block >> 16) & 0xff);
       buf[(i * 8) + 6] = ((new_extent->elements[i].first_block >> 8) & 0xff);
       buf[(i * 8) + 7] = (new_extent->elements[i].first_block & 0xff);

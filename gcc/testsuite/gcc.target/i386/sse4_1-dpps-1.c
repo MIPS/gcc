@@ -65,39 +65,39 @@ TEST (void)
   val2.f[2] = 1000.;
   val2.f[3] = 10000.;
 
-  res[0].x = _mm_dp_ps (val1.x, val2.x, HIMASK | lmsk0); 
-  res[1].x = _mm_dp_ps (val1.x, val2.x, HIMASK | lmsk1); 
-  res[2].x = _mm_dp_ps (val1.x, val2.x, HIMASK | lmsk2); 
-  res[3].x = _mm_dp_ps (val1.x, val2.x, HIMASK | lmsk3); 
-  res[4].x = _mm_dp_ps (val1.x, val2.x, HIMASK | lmsk01); 
-  res[5].x = _mm_dp_ps (val1.x, val2.x, HIMASK | lmsk02); 
-  res[6].x = _mm_dp_ps (val1.x, val2.x, HIMASK | lmsk03); 
-  res[7].x = _mm_dp_ps (val1.x, val2.x, HIMASK | lmsk12); 
-  res[8].x = _mm_dp_ps (val1.x, val2.x, HIMASK | lmsk13); 
-  res[9].x = _mm_dp_ps (val1.x, val2.x, HIMASK | lmsk23); 
-  res[10].x = _mm_dp_ps (val1.x, val2.x, HIMASK | (0x0F & ~lmsk0)); 
-  res[11].x = _mm_dp_ps (val1.x, val2.x, HIMASK | (0x0F & ~lmsk1)); 
-  res[12].x = _mm_dp_ps (val1.x, val2.x, HIMASK | (0x0F & ~lmsk2)); 
-  res[13].x = _mm_dp_ps (val1.x, val2.x, HIMASK | (0x0F & ~lmsk3)); 
-  res[14].x = _mm_dp_ps (val1.x, val2.x, HIMASK | lmskN); 
-  res[15].x = _mm_dp_ps (val1.x, val2.x, HIMASK | lmskA); 
+  res[0].x = _mm_dp_ps (val1.x, val2.x, HIMASK | lmsk0);
+  res[1].x = _mm_dp_ps (val1.x, val2.x, HIMASK | lmsk1);
+  res[2].x = _mm_dp_ps (val1.x, val2.x, HIMASK | lmsk2);
+  res[3].x = _mm_dp_ps (val1.x, val2.x, HIMASK | lmsk3);
+  res[4].x = _mm_dp_ps (val1.x, val2.x, HIMASK | lmsk01);
+  res[5].x = _mm_dp_ps (val1.x, val2.x, HIMASK | lmsk02);
+  res[6].x = _mm_dp_ps (val1.x, val2.x, HIMASK | lmsk03);
+  res[7].x = _mm_dp_ps (val1.x, val2.x, HIMASK | lmsk12);
+  res[8].x = _mm_dp_ps (val1.x, val2.x, HIMASK | lmsk13);
+  res[9].x = _mm_dp_ps (val1.x, val2.x, HIMASK | lmsk23);
+  res[10].x = _mm_dp_ps (val1.x, val2.x, HIMASK | (0x0F & ~lmsk0));
+  res[11].x = _mm_dp_ps (val1.x, val2.x, HIMASK | (0x0F & ~lmsk1));
+  res[12].x = _mm_dp_ps (val1.x, val2.x, HIMASK | (0x0F & ~lmsk2));
+  res[13].x = _mm_dp_ps (val1.x, val2.x, HIMASK | (0x0F & ~lmsk3));
+  res[14].x = _mm_dp_ps (val1.x, val2.x, HIMASK | lmskN);
+  res[15].x = _mm_dp_ps (val1.x, val2.x, HIMASK | lmskA);
 
-  masks[0] = HIMASK | lmsk0; 
-  masks[1] = HIMASK | lmsk1; 
-  masks[2] = HIMASK | lmsk2; 
-  masks[3] = HIMASK | lmsk3; 
-  masks[4] = HIMASK | lmsk01; 
-  masks[5] = HIMASK | lmsk02; 
-  masks[6] = HIMASK | lmsk03; 
-  masks[7] = HIMASK | lmsk12; 
-  masks[8] = HIMASK | lmsk13; 
-  masks[9] = HIMASK | lmsk23; 
-  masks[10] = HIMASK | (0x0F & ~lmsk0); 
-  masks[11] = HIMASK | (0x0F & ~lmsk1); 
-  masks[12] = HIMASK | (0x0F & ~lmsk2); 
-  masks[13] = HIMASK | (0x0F & ~lmsk3); 
-  masks[14] = HIMASK | lmskN; 
-  masks[15] = HIMASK | lmskA; 
+  masks[0] = HIMASK | lmsk0;
+  masks[1] = HIMASK | lmsk1;
+  masks[2] = HIMASK | lmsk2;
+  masks[3] = HIMASK | lmsk3;
+  masks[4] = HIMASK | lmsk01;
+  masks[5] = HIMASK | lmsk02;
+  masks[6] = HIMASK | lmsk03;
+  masks[7] = HIMASK | lmsk12;
+  masks[8] = HIMASK | lmsk13;
+  masks[9] = HIMASK | lmsk23;
+  masks[10] = HIMASK | (0x0F & ~lmsk0);
+  masks[11] = HIMASK | (0x0F & ~lmsk1);
+  masks[12] = HIMASK | (0x0F & ~lmsk2);
+  masks[13] = HIMASK | (0x0F & ~lmsk3);
+  masks[14] = HIMASK | lmskN;
+  masks[15] = HIMASK | lmskA;
 
   for (i = 0; i <= 15; i++)
     {
@@ -111,4 +111,4 @@ TEST (void)
 	if ((masks[i] & (1 << j)) && res[i].f[j] != tmp)
 	  abort ();
    }
-} 
+}

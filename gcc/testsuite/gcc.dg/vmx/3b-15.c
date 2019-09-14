@@ -3,7 +3,7 @@
 vector unsigned char
 f (vector unsigned char a, vector unsigned char b, vector unsigned char c)
 {
-  return vec_perm(a,b,c); 
+  return vec_perm(a,b,c);
 }
 
 static void test()

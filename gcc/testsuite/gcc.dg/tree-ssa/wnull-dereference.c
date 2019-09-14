@@ -1,4 +1,4 @@
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* PR c/16531 */
 /* { dg-options "-O2 -fdelete-null-pointer-checks -Wnull-dereference" } */
 /* { dg-skip-if "" keeps_null_pointer_checks } */
@@ -78,5 +78,3 @@ void test9 (struct t **s)
   if (s == 0)
     *s = 0;  /* { dg-warning "null" } */
 }
-
-

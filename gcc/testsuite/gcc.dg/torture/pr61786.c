@@ -1,6 +1,6 @@
 /* { dg-do run } */
 
-int a, *c = &a, d; 
+int a, *c = &a, d;
 char b = 1;
 
 void

@@ -285,4 +285,3 @@ int main(void)
     __builtin_abort ();
   __builtin_exit (0);
 }
-

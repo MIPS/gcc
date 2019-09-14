@@ -384,7 +384,7 @@ merge_and_complain (struct cl_decoded_option **decoded_options,
 	      (*decoded_options)[j].value = 1;
 	    }
 	  break;
- 
+
 
 	case OPT_foffload_abi_:
 	  for (j = 0; j < *decoded_options_count; ++j)
@@ -408,7 +408,7 @@ merge_and_complain (struct cl_decoded_option **decoded_options,
   /* Merge PIC options:
       -fPIC + -fpic = -fpic
       -fPIC + -fno-pic = -fno-pic
-      -fpic/-fPIC + nothin = nothing.  
+      -fpic/-fPIC + nothin = nothing.
      It is a common mistake to mix few -fPIC compiled objects into otherwise
      non-PIC code.  We do not want to build everything with PIC then.
 
@@ -419,7 +419,7 @@ merge_and_complain (struct cl_decoded_option **decoded_options,
 
      It would be good to warn on mismatches, but it is bit hard to do as
      we do not know what nothing translates to.  */
-    
+
   for (unsigned int j = 0; j < *decoded_options_count;)
     if ((*decoded_options)[j].opt_index == OPT_fPIC
         || (*decoded_options)[j].opt_index == OPT_fpic)
@@ -1309,7 +1309,7 @@ run_gcc (unsigned argc, char *argv[])
 	}
 
       if ((p = strrchr (argv[i], '@'))
-	  && p != argv[i] 
+	  && p != argv[i]
 	  && sscanf (p, "@%li%n", &loffset, &consumed) >= 1
 	  && strlen (p) == (unsigned int) consumed)
 	{
@@ -1582,7 +1582,7 @@ cont1:
       obstack_ptr_grow (&argv_obstack, "-o");
       obstack_ptr_grow (&argv_obstack, flto_out);
     }
-  else 
+  else
     {
       const char *list_option = "-fltrans-output-list=";
       size_t list_option_len = strlen (list_option);
@@ -1691,7 +1691,7 @@ cont1:
 	{
 	  for (i = 0; i < ltoobj_argc; ++i)
 	    if (early_debug_object_names[i] != NULL)
-	      printf ("%s\n", early_debug_object_names[i]);	      
+	      printf ("%s\n", early_debug_object_names[i]);
 	}
       /* These now belong to collect2.  */
       free (flto_out);
@@ -1809,7 +1809,7 @@ cont:
 	      if (! save_temps)
 		fprintf (mstream, "\t@-touch -r %s %s.tem > /dev/null 2>&1 "
 			 "&& mv %s.tem %s\n",
-			 input_name, input_name, input_name, input_name); 
+			 input_name, input_name, input_name, input_name);
 	    }
 	  else
 	    {
@@ -1837,7 +1837,7 @@ cont:
 	  fclose (mstream);
 	  if (!jobserver)
 	    {
-	      /* Avoid passing --jobserver-fd= and similar flags 
+	      /* Avoid passing --jobserver-fd= and similar flags
 		 unless jobserver mode is explicitly enabled.  */
 	      putenv (xstrdup ("MAKEFLAGS="));
 	      putenv (xstrdup ("MFLAGS="));
@@ -1874,7 +1874,7 @@ cont:
 	{
 	  for (i = 0; i < ltoobj_argc; ++i)
 	    if (early_debug_object_names[i] != NULL)
-	      printf ("%s\n", early_debug_object_names[i]);	      
+	      printf ("%s\n", early_debug_object_names[i]);
 	}
       nr = 0;
       free (ltrans_priorities);

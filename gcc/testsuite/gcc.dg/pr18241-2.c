@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-std=gnu99 -Wall -Wextra -O1" } */ 
+/* { dg-options "-std=gnu99 -Wall -Wextra -O1" } */
 
 extern void *memset (void*, int, __SIZE_TYPE__);
 extern void abort (void);
@@ -25,15 +25,15 @@ void radix_tree_tag_clear(struct radix_tree_root *root, unsigned long index)
 	struct radix_tree_path path[7], *pathp = path;
 	unsigned int height, shift;
 	volatile unsigned long *addr;
-	
+
 	height = root->height;
-	
+
 	shift = (height - 1) * 6;
 	path[0].slot = &root->rnode;
-	
+
 	while (height > 0) {
 		int offset;
-		
+
 		offset = (index >> shift) & (64-1);
 		pathp[1].offset = offset;
 		pathp[1].node = *pathp[0].slot;
@@ -43,7 +43,7 @@ void radix_tree_tag_clear(struct radix_tree_root *root, unsigned long index)
 		shift -= 6;
 		height--;
 	}
-	
+
 	addr = &(pathp->node->tags[0]) + 1;
 	*addr = 574;
 }
@@ -55,11 +55,11 @@ int main ()
 {
   	r.height = 1;
 	r.rnode = &node;
-	
+
 	memset (&node, 0, sizeof (node));
-	
+
 	node.count = 1;
-	
+
 	radix_tree_tag_clear (&r, 13);
 	return 0;
 }

@@ -22,4 +22,3 @@ foo ()
 
 /* { dg-final { scan-assembler "ld.v2.u64" } } */
 /* { dg-final { scan-assembler "st.v2.u64" } } */
-

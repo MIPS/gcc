@@ -93,12 +93,12 @@ void  test_1 (void)
   dcl_rvc2 ();
   dcl_rvc4 ();
   dcl_rvc8 ();
-  
+
   dcl_rvs1 ();
   dcl_rvs2 ();
   dcl_rvs4 ();
   dcl_rvs8 ();
-  
+
   dcl_rvi1 ();
   dcl_rvi2 ();
   dcl_rvi4 ();
@@ -108,7 +108,7 @@ void  test_1 (void)
   dcl_rvll2 ();
   dcl_rvll4 ();
   dcl_rvll8 ();
-  
+
   dcl_rvf1 ();
   dcl_rvf2 ();
   dcl_rvf4 ();

@@ -17,4 +17,3 @@ r8 (long int mu, int *jr, int *fi, short int dv)
 
   r8 (mu, jr, fi, 1);
 }
-

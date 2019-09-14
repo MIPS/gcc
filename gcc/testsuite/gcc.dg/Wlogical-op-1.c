@@ -74,4 +74,3 @@ void bar()
     if ( b || 1 )           /* { dg-bogus "logical" } */
           (void)testa();
 }
-

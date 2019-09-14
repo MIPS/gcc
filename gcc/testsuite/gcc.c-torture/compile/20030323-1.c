@@ -14,4 +14,3 @@ banana(long citron)
   }
   return 0;
 }
-

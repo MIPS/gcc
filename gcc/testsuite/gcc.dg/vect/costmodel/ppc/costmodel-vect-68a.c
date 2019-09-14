@@ -18,7 +18,7 @@ struct test1{
 };
 
 int main1 ()
-{  
+{
   int i,j;
   struct test1 tmp1;
 
@@ -39,10 +39,10 @@ int main1 ()
 }
 
 int main (void)
-{ 
+{
   check_vect ();
-  
+
   return main1 ();
-} 
+}
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */

@@ -127,5 +127,5 @@ g(vector unsigned char a, ...)
 int main()
 {
   f();
-  return 0; 
+  return 0;
 }

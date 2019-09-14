@@ -32,7 +32,7 @@ do \
  d##TYPE = f2_##TYPE(h3_##TYPE); \
  (void) d##TYPE; \
 } while(0)
- 
+
 DECIMAL_COMPOSITE_DECL(32);  /* { dg-error "incompatible types when assigning to type '\[^\n\]*' from type '\[^\n\]*'" } */
 /* { dg-message "note: expected '\[^'\n\]*' but argument is of type '\[^'\n\]*'" "note: expected" { target *-*-* } .-1 } */
 

@@ -16,6 +16,3 @@ int custom_fsnext( void *sp )
         res = copyNextDtaToAtari();
         return res;
 }
-
-
-

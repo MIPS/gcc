@@ -1,4 +1,4 @@
-/* 
+/*
  * Common code for the pthread-init-*.c tests.
  *
  * Origin: Kaveh Ghazi (ghazi@caip.rutgers.edu) 9/27/2006.

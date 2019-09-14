@@ -14,4 +14,3 @@ void function (void)
 {
   var = JTI_MAX;
 }
- 

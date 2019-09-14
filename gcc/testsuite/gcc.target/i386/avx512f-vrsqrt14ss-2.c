@@ -40,7 +40,7 @@ avx512f_test (void)
     abort();
 
   res3.x = _mm_maskz_rsqrt14_ss(m, s1.x, s2.x);
-  
+
   MASK_ZERO () (res_ref, m, 1);
   if (checkVf (res3.a, res_ref, 4))
     abort();

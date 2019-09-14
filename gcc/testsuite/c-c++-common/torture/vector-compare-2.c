@@ -3,16 +3,16 @@
 #define vector(elcount, type)  \
 __attribute__((vector_size((elcount)*sizeof(type)))) type
 
-/* Check that constant folding in 
+/* Check that constant folding in
    these simple cases works.  */
 vector (4, int)
 foo (vector (4, int) x)
 {
-  return   (x == x) + (x != x) + (x >  x) 
+  return   (x == x) + (x != x) + (x >  x)
 	 + (x <  x) + (x >= x) + (x <= x);
 }
 
-int 
+int
 main (int argc, char *argv[])
 {
   vector (4, int) t = {argc, 2, argc, 42};

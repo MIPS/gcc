@@ -2,7 +2,7 @@
 /* { dg-options "-O -msve-vector-bits=256 --save-temps" } */
 /* { dg-final { check-function-bodies "**" "" } } */
 
-/* Case 5.2: Interleaved elements and constants.  */ 
+/* Case 5.2: Interleaved elements and constants.  */
 
 #include <stdint.h>
 
@@ -22,5 +22,5 @@ typedef int32_t vnx4si __attribute__((vector_size (32)));
 __attribute__((noipa))
 vnx4si foo(int a, int b, int c, int d)
 {
-  return (vnx4si) { a, 1, b, 2, c, 3, d, 4 }; 
+  return (vnx4si) { a, 1, b, 2, c, 3, d, 4 };
 }

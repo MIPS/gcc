@@ -9,7 +9,7 @@
 int tf = 1;
 
 /* This enumeration has an explicit negative value and is therefore signed.  */
-enum mm1 
+enum mm1
 {
   VOID, SI, DI, MAX = -1
 };

@@ -105,7 +105,7 @@ along with GCC; see the file COPYING3.  If not see
 #define STACK_CHECK_STATIC_BUILTIN 1
 
 /* This platform supports the probing method of stack checking (RTP mode).
-   8K is reserved in the stack to propagate exceptions in case of overflow. 
+   8K is reserved in the stack to propagate exceptions in case of overflow.
    On 64-bit targets, we double that size.  */
 #if TARGET_64BIT_DEFAULT
 #define STACK_CHECK_PROTECT 16384

@@ -80,4 +80,3 @@ void Psub(CFI_cdesc_t *this, CFI_cdesc_t *that, int *ierr) {
     *ierr = status;
 
 }
-

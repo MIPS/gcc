@@ -17,4 +17,3 @@ double Evaluate_TPat (void)
                 }
         }
 }
-

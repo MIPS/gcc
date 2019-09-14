@@ -22,7 +22,7 @@ static inline int
 blk_oversized_queue_0 (int* q)
 {
   if (q[2])
-    return q[1] == 5; 
+    return q[1] == 5;
   return (q[0] != 5);
 }
 
@@ -46,7 +46,7 @@ static inline int
 blk_oversized_queue_1 (int* q)
 {
   if (q[2])
-    return q[1] > 5; 
+    return q[1] > 5;
   return (q[0] > 5);
 }
 
@@ -68,7 +68,7 @@ static inline int
 blk_oversized_queue_2 (int* q)
 {
   if (q[2])
-    return q[1] > 5; 
+    return q[1] > 5;
   return (q[0] < 5);
 }
 
@@ -90,7 +90,7 @@ static inline int
 blk_oversized_queue_5 (int* q)
 {
   if (q[2])
-    return q[1] != 0; 
+    return q[1] != 0;
   return q[0] == 0;
 }
 

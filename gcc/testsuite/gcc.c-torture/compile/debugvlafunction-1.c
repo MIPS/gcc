@@ -8,5 +8,3 @@ int dynreplace_add_trampoline(void)
 -(unsigned long) (&dynreplace_trampoline)))
 ];
 }
-
-

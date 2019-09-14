@@ -2,7 +2,7 @@ volatile char y;
 volatile char g;
 
 __attribute__((section(SECTION_NAME)))
-void foo(char x) 
+void foo(char x)
 {
 	switch (x)
 	{

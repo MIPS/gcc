@@ -3,7 +3,7 @@
 /* { dg-final { scan-assembler "\td?ext\t" } } */
 /* { dg-final { scan-assembler "\td?ins\t" } } */
 
-struct A 
+struct A
 {
   unsigned int i : 2;
   unsigned int j : 3;

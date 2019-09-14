@@ -19,7 +19,7 @@ fn1 ()
 int
 main ()
 {
-  char j; 
+  char j;
   for (; a < 1; a++)
     {
       fn1 ();
@@ -29,8 +29,8 @@ main ()
 	g = 0;
     }
 
-  if (h != 1) 
-    __builtin_abort (); 
+  if (h != 1)
+    __builtin_abort ();
 
   return 0;
 }

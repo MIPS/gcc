@@ -18,4 +18,3 @@ f (POINT * ptBuf)
       ptBuf[i].y = ((ptBuf[i].y) << 4);
     }
 }
-

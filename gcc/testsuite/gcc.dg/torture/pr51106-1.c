@@ -11,4 +11,3 @@ foo (int x)
 lab:
   return 0;
 }
-

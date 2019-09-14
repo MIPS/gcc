@@ -8,4 +8,3 @@ baz (void)
 {
   while (1) { ; }
 }
-

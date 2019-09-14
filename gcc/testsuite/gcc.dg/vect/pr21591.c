@@ -19,12 +19,12 @@ void f(void)
    struct a *c = malloc1(sizeof(struct a));
    int i;
 
-   for (i = 0; i < 256; i++) 
+   for (i = 0; i < 256; i++)
    {
       b->a1[i] = i;
       c->a1[i] = i;
    }
-   for (i = 0; i < 256; i++) 
+   for (i = 0; i < 256; i++)
    {
       a->a1[i] = b->a1[i] + c->a1[i];
    }
@@ -34,4 +34,3 @@ void f(void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" } } */
-

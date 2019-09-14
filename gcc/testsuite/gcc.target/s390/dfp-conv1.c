@@ -6,7 +6,7 @@
 /* { dg-do compile } */
 /* { dg-options "-O3 -march=z10 -mzarch" } */
 
-_Decimal32 
+_Decimal32
 foo (_Decimal128 a)
 {
   return (_Decimal32)a;

@@ -15,4 +15,3 @@ void f (void)
       g (tabs);
     }
 }
-

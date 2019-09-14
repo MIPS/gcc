@@ -122,7 +122,7 @@ f_pr90868 (void)
 
   extern int we5;
 #pragma acc declare present_or_copyin(we5)
- 
+
   extern int we6;
 #pragma acc declare present_or_create(we6)
 }
@@ -153,7 +153,7 @@ f_pr90868_2 (void)
 
   extern int we5;
 #pragma acc declare present_or_copyin(we5) /* { dg-error "variable 'we5' used more than once with '#pragma acc declare'" "" { target c } } */
- 
+
   extern int we6;
 #pragma acc declare present_or_create(we6) /* { dg-error "variable 'we6' used more than once with '#pragma acc declare'" "" { target c } } */
 }
@@ -189,7 +189,7 @@ f_pr90868_data (void)
 
     extern int we5;
 # pragma acc declare present_or_copyin(we5) /* { dg-error "variable 'we5' used more than once with '#pragma acc declare'" "" { target c } } */
- 
+
     extern int we6;
 # pragma acc declare present_or_create(we6) /* { dg-error "variable 'we6' used more than once with '#pragma acc declare'" "" { target c } } */
   }

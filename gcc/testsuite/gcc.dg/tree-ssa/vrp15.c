@@ -30,4 +30,3 @@ blah (tree t)
 }
 
 /* { dg-final { scan-tree-dump-times "tree_code_length.42." 1 "vrp1" } } */
-

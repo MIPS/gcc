@@ -7,7 +7,7 @@
    optimized to custom instructions.  Also, -fno-math-errno is required
    to inline lroundf. */
 
-#include <stdio.h> 
+#include <stdio.h>
 #include <math.h>
 
 #pragma GCC target ("custom-frdxhi=40")

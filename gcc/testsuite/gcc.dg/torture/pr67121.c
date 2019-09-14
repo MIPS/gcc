@@ -24,8 +24,8 @@ main ()
     }
   fn1 (g >> 8 & 1);
 
-  if (b != 0) 
-    __builtin_abort (); 
+  if (b != 0)
+    __builtin_abort ();
 
   return 0;
 }

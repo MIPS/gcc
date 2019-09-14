@@ -743,4 +743,3 @@ supports_vec_scatter_store_p ()
 
   return this_fn_optabs->supports_vec_scatter_store;
 }
-

@@ -1,5 +1,5 @@
 /* { dg-require-effective-target ptr32plus } */
-/* { dg-skip-if "The array is too big" { "avr-*-*" "pdp11-*-*" } } */ 
+/* { dg-skip-if "The array is too big" { "avr-*-*" "pdp11-*-*" } } */
 /* { dg-require-stack-size "250*250" } */
 
 char paths[1024];

@@ -587,7 +587,7 @@ void exec_vrshl (void)
   CHECK(TEST_MSG, uint, 32, 4, PRIx32, expected_max_sh_large, CMT);
   CHECK(TEST_MSG, uint, 64, 2, PRIx64, expected_max_sh_large, CMT);
 
-  
+
   /* Test large negative shift amount.  */
   VDUP(vector_shift, , int, s, 8, 8, -10);
   VDUP(vector_shift, , int, s, 16, 4, -20);

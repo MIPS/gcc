@@ -49,8 +49,8 @@ simulate_thread_done ()
    on a typical case, but not drag the test time out too much if a
    hostile condition is interferring.  */
 
-  
-/* Define the threshold instruction count to start pausing the hostile 
+
+/* Define the threshold instruction count to start pausing the hostile
    thread.  To avoid huge potential log files when things are not going well,
    set this number very low.  If a test specifically requires that the forward
    progress guarantee is made, this number should be raised by the testcase. */
@@ -59,7 +59,7 @@ simulate_thread_done ()
 #endif
 
 /* Define the length of pause in cycles for the hostile thread to pause to
-   allow forward progress to be made.  If this number is too low, a 
+   allow forward progress to be made.  If this number is too low, a
    compare_and_swap loop may not have time to finish, especially on a
    128 bit operation. */
 #if !defined (HOSTILE_THREAD_PAUSE)

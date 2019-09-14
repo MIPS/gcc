@@ -104,4 +104,3 @@ void test_flexible_array_member (void)
   T (ax_0_.a + PTRDIFF_MAX);  // { dg-warning "\\\[-Warray-bounds" }
   T (ax_0_.a + SIZE_MAX);     // { dg-warning "\\\[-Warray-bounds" }
 }
-

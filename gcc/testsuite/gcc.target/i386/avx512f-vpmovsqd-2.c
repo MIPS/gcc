@@ -15,7 +15,7 @@ void
 CALC (int *r, long long *s, int mem)
 {
   int i;
-  int len = mem ? SIZE : SIZE_HALF; 
+  int len = mem ? SIZE : SIZE_HALF;
   for (i = 0; i < len; i++)
     {
       if (i < SIZE)

@@ -18,11 +18,11 @@ double __ieee754_pow(double x, double y)
   double z_h,z_l,p_l;
   double t2,r,s,u,v,w;
   int i = 0;
- 
+
   double s_h,t_h;
   double s2,s_l,t_l;
- 
- 
+
+
   v = 1.0/(v+bp);
   uz.d = s_h = s = u*v;
   uz.lo = 0;

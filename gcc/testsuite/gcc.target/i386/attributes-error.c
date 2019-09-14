@@ -9,4 +9,3 @@ void foo5(int i, int j) __attribute__((stdcall, fastcall)); /* { dg-error "not c
 void foo6(int i, int j) __attribute__((cdecl, fastcall)); /* { dg-error "not compatible" } */
 void foo7(int i, int j) __attribute__((cdecl, stdcall)); /* { dg-error "not compatible" } */
 void foo8(int i, int j) __attribute__((regparm(2), fastcall)); /* { dg-error "not compatible" } */
-

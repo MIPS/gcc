@@ -478,7 +478,7 @@ ix86_conditional_register_usage (void)
 
   /*  See the definition of CALL_USED_REGISTERS in i386.h.  */
   c_mask = CALL_USED_REGISTERS_MASK (TARGET_64BIT_MS_ABI);
-  
+
   CLEAR_HARD_REG_SET (reg_class_contents[(int)CLOBBERED_REGS]);
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
@@ -1838,7 +1838,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 
    The midde-end can't deal with the vector types > 16 bytes.  In this
    case, we return the original mode and warn ABI change if CUM isn't
-   NULL. 
+   NULL.
 
    If INT_RETURN is true, warn ABI change if the vector mode isn't
    available for function return value.  */
@@ -3725,7 +3725,7 @@ ix86_function_value_1 (const_tree valtype, const_tree fntype_or_decl,
   if (fntype_or_decl && DECL_P (fntype_or_decl))
     fn = fntype_or_decl;
   fntype = fn ? TREE_TYPE (fn) : fntype_or_decl;
-  
+
   if (ix86_function_type_abi (fntype) == MS_ABI)
     {
       if (TARGET_64BIT)
@@ -3846,7 +3846,7 @@ ix86_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 
 	  /* Unless ABI prescibes otherwise,
 	     MMX/3dNow values are returned in MM0 if available.  */
-	     
+
 	  if (size == 8)
 	    return TARGET_VECT8_RETURNS || !TARGET_MMX;
 
@@ -3954,7 +3954,7 @@ ix86_build_builtin_va_list (void)
 
       /* For SYSV_ABI we use an array of one record.  */
       sysv_va_list_type_node = ix86_build_builtin_va_list_64 ();
-	
+
       /* For MS_ABI we use plain pointer to argument area.  */
       tree char_ptr_type = build_pointer_type (char_type_node);
       tree attr = tree_cons (get_identifier ("ms_abi va_list"), NULL_TREE,
@@ -4838,7 +4838,7 @@ standard_sse_constant_opcode (rtx_insn *insn, rtx *operands)
   else if (x == constm1_rtx || vector_all_ones_operand (x, mode))
     {
       enum attr_mode insn_mode = get_attr_mode (insn);
-      
+
       switch (insn_mode)
 	{
 	case MODE_XI:
@@ -4993,7 +4993,7 @@ ix86_frame_pointer_required (void)
   /* SSE saves require frame-pointer when stack is misaligned.  */
   if (TARGET_64BIT_MS_ABI && ix86_incoming_stack_boundary < 128)
     return true;
-  
+
   /* In ix86_option_override_internal, TARGET_OMIT_LEAF_FRAME_POINTER
      turns off the frame pointer by default.  Turn it back on now if
      we've not got a leaf function.  */
@@ -9495,7 +9495,7 @@ ix86_decompose_address (rtx addr, struct ix86_address *out)
 	  addr = XEXP (addr, 0);
 	  if (CONST_INT_P (addr))
 	    return 0;
-	}	      
+	}
       else if (GET_CODE (addr) == AND
 	       && const_32bit_mask (XEXP (addr, 1), DImode))
 	{
@@ -11090,7 +11090,7 @@ get_dllimport_decl (tree decl, bool beimport)
 #ifdef SUB_TARGET_RECORD_STUB
       SUB_TARGET_RECORD_STUB (name);
 #endif
-    }      
+    }
 
   rtl = gen_const_mem (Pmode, rtl);
   set_mem_alias_set (rtl, ix86_GOT_alias_set ());
@@ -11137,7 +11137,7 @@ legitimize_dllimport_symbol (rtx symbol, bool want_reg)
   return x;
 }
 
-/* Expand SYMBOL into its corresponding dllimport or refptr symbol.  WANT_REG 
+/* Expand SYMBOL into its corresponding dllimport or refptr symbol.  WANT_REG
    is true if we require the result be a register.  */
 
 rtx
@@ -12298,7 +12298,7 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	    case 2:
 	      putc ('w', file);
 	      break;
-  
+
 	    case 4:
 	      putc ('l', file);
 	      break;
@@ -13603,7 +13603,7 @@ ix86_mode_needed (int entity, rtx_insn *insn)
 }
 
 /* Check if a 256bit or 512bit AVX register is referenced in stores.   */
- 
+
 static void
 ix86_check_avx_upper_stores (rtx dest, const_rtx, void *data)
  {
@@ -13612,7 +13612,7 @@ ix86_check_avx_upper_stores (rtx dest, const_rtx, void *data)
       bool *used = (bool *) data;
       *used = true;
     }
- } 
+ }
 
 /* Calculate mode of upper 128bit AVX registers after the insn.  */
 
@@ -15513,7 +15513,7 @@ ix86_output_call_insn (rtx_insn *insn, rtx call_op)
 	      seh_nop_p = true;
 	      break;
 	    }
-	    
+
 	  /* If we get to another real insn, we don't need the nop.  */
 	  if (INSN_P (i))
 	    break;
@@ -16078,7 +16078,7 @@ ix86_dependencies_evaluation_hook (rtx_insn *head, rtx_insn *tail)
 		       using topological ordering in the region.  */
 		    if (rgn == CONTAINING_RGN (e->src->index)
 			&& BLOCK_TO_BB (bb->index) > BLOCK_TO_BB (e->src->index))
-		      add_dependee_for_func_arg (first_arg, e->src); 
+		      add_dependee_for_func_arg (first_arg, e->src);
 		  }
 	      }
 	    insn = first_arg;
@@ -16434,7 +16434,7 @@ ix86_local_alignment (tree exp, machine_mode mode,
      other unit cannot rely on the alignment.
 
      Exclude va_list type.  It is the common case of local array where
-     we cannot benefit from the alignment.  
+     we cannot benefit from the alignment.
 
      TODO: Probably one should optimize for size only when var is not escaping.  */
   if (TARGET_64BIT && optimize_function_for_speed_p (cfun)
@@ -22100,7 +22100,7 @@ extract_base_offset_in_addr (rtx mem, rtx *base, rtx *offset)
   gcc_assert (MEM_P (mem));
 
   addr = XEXP (mem, 0);
-  
+
   if (GET_CODE (addr) == CONST)
     addr = XEXP (addr, 0);
 

@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-O1 -fdump-tree-dom2" } */
-                                                                                
+
 typedef unsigned int cppchar_t;
 void foo (void);
 cppchar_t oof (void);

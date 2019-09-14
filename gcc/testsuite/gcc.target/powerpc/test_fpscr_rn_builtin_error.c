@@ -12,9 +12,8 @@ int main ()
   __builtin_mtfsb0(32);  /* { dg-error "Argument must be a constant between 0 and 31" } */
 
   __builtin_mtfsb1(-1);  /* { dg-error "Argument must be a constant between 0 and 31" } */
-  __builtin_mtfsb1(32);  /* { dg-error "Argument must be a constant between 0 and 31" } */ 
+  __builtin_mtfsb1(32);  /* { dg-error "Argument must be a constant between 0 and 31" } */
 
-  __builtin_set_fpscr_rn(-1);  /* { dg-error "Argument must be a value between 0 and 3" } */ 
-  __builtin_set_fpscr_rn(4);   /* { dg-error "Argument must be a value between 0 and 3" } */ 
+  __builtin_set_fpscr_rn(-1);  /* { dg-error "Argument must be a value between 0 and 3" } */
+  __builtin_set_fpscr_rn(4);   /* { dg-error "Argument must be a value between 0 and 3" } */
 }
-

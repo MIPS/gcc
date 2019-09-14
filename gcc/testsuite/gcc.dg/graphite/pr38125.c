@@ -4,15 +4,15 @@ typedef struct sv TEST_SV;
 typedef struct av TEST_AV;
 typedef struct magic TEST_MAGIC;
 typedef struct xpvav TEST_XPVAV;
-struct sv 
+struct sv
 {
     void* sv_any;
 };
-struct av 
+struct av
 {
     TEST_XPVAV* sv_any;
 };
-struct xpvav 
+struct xpvav
 {
     char* xav_array;
     long int xav_fill;

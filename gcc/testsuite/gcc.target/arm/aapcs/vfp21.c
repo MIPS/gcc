@@ -23,4 +23,3 @@ ARG (__fp16, 3.0f, STACK)
 ARG (float, 2.0f, STACK+4)
 LAST_ARG (double, 4.0, STACK+8)
 #endif
-

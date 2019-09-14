@@ -200,7 +200,7 @@ along with GCC; see the file COPYING3.  If not see
          stack.  Pushing thread allocnos one after another onto the
          stack increases chances of removing copies when the allocnos
          get the same hard reg.
-	 
+
 	 We also use a modification of Chaitin-Briggs algorithm which
          works for intersected register classes of allocnos.  To
          figure out trivial colorability of allocnos, the mentioned
@@ -790,7 +790,7 @@ setup_pressure_classes (void)
   if (targetm.compute_pressure_classes)
     n = targetm.compute_pressure_classes (pressure_classes);
   else
-    { 
+    {
       n = 0;
       for (cl = 0; cl < N_REG_CLASSES; cl++)
 	{
@@ -1305,7 +1305,7 @@ setup_reg_class_relations (void)
 		       & ~no_unit_alloc_regs);
 	 	  if (ira_reg_class_subunion[cl1][cl2] == NO_REGS
 		      || (hard_reg_set_subset_p (temp_set2, temp_hard_regset)
-			  
+
 			  && (temp_set2 != temp_hard_regset
 			      || cl3 == GENERAL_REGS
 			      /* If the allocatable hard register sets are the
@@ -1605,7 +1605,7 @@ ira_init_register_move_cost (machine_mode mode)
       {
 	int cost;
 	enum reg_class *p1, *p2;
-	
+
 	if (last_move_cost[cl1][cl2] == 65535)
 	  {
 	    ira_register_move_cost[mode][cl1][cl2] = 65535;
@@ -1615,29 +1615,29 @@ ira_init_register_move_cost (machine_mode mode)
 	else
 	  {
 	    cost = last_move_cost[cl1][cl2];
-	    
+
 	    for (p2 = &reg_class_subclasses[cl2][0];
 		 *p2 != LIM_REG_CLASSES; p2++)
 	      if (ira_class_hard_regs_num[*p2] > 0
 		  && (ira_reg_class_max_nregs[*p2][mode]
 		      <= ira_class_hard_regs_num[*p2]))
 		cost = MAX (cost, ira_register_move_cost[mode][cl1][*p2]);
-	    
+
 	    for (p1 = &reg_class_subclasses[cl1][0];
 		 *p1 != LIM_REG_CLASSES; p1++)
 	      if (ira_class_hard_regs_num[*p1] > 0
 		  && (ira_reg_class_max_nregs[*p1][mode]
 		      <= ira_class_hard_regs_num[*p1]))
 		cost = MAX (cost, ira_register_move_cost[mode][*p1][cl2]);
-	    
+
 	    ira_assert (cost <= 65535);
 	    ira_register_move_cost[mode][cl1][cl2] = cost;
-	    
+
 	    if (ira_class_subset_p[cl1][cl2])
 	      ira_may_move_in_cost[mode][cl1][cl2] = 0;
 	    else
 	      ira_may_move_in_cost[mode][cl1][cl2] = cost;
-	    
+
 	    if (ira_class_subset_p[cl2][cl1])
 	      ira_may_move_out_cost[mode][cl1][cl2] = 0;
 	    else
@@ -1820,7 +1820,7 @@ ira_setup_alts (rtx_insn *insn)
 		  case '\0':
 		    len = 0;
 		    break;
-		  
+
 		  case '%':
 		    /* The commutative modifier is handled above.  */
 		    break;
@@ -1836,11 +1836,11 @@ ira_setup_alts (rtx_insn *insn)
 		      win_p = true;
 		    }
 		    break;
-		    
+
 		  case 'g':
 		    goto op_success;
 		    break;
-		    
+
 		  default:
 		    {
 		      enum constraint_num cn = lookup_constraint (p);
@@ -1930,7 +1930,7 @@ ira_get_dup_out_num (int op_num, alternative_mask alts)
   for (;;)
     {
       rtx op = recog_data.operand[op_num];
-      
+
       for (curr_alt = 0, ignore_p = !TEST_BIT (alts, curr_alt),
 	   original = -1;;)
 	{
@@ -1960,7 +1960,7 @@ ira_get_dup_out_num (int op_num, alternative_mask alts)
 		    goto fail;
 		  break;
 		}
-		
+
 	      case '0': case '1': case '2': case '3': case '4':
 	      case '5': case '6': case '7': case '8': case '9':
 		if (original != -1 && original != c)
@@ -2029,7 +2029,7 @@ decrease_live_ranges_number (void)
 	  continue;
 	sregno = REGNO (src);
 	dregno = REGNO (dest);
-	
+
 	/* We don't want to mess with hard regs if register classes
 	   are small.  */
 	if (sregno == dregno
@@ -2042,7 +2042,7 @@ decrease_live_ranges_number (void)
 	    || sregno == STACK_POINTER_REGNUM
 	    || dregno == STACK_POINTER_REGNUM)
 	  continue;
-	
+
 	dest_death = NULL_RTX;
 
 	for (p = NEXT_INSN (insn); p; p = NEXT_INSN (p))
@@ -2051,7 +2051,7 @@ decrease_live_ranges_number (void)
 	      continue;
 	    if (BLOCK_FOR_INSN (p) != bb)
 	      break;
-	    
+
 	    if (reg_set_p (src, p) || reg_set_p (dest, p)
 		/* If SRC is an asm-declared register, it must not be
 		   replaced in any asm.  Unfortunately, the REG_EXPR
@@ -2071,20 +2071,20 @@ decrease_live_ranges_number (void)
 		|| (GET_CODE (PATTERN (p)) == USE
 		    && reg_overlap_mentioned_p (src, XEXP (PATTERN (p), 0))))
 	      break;
-	    
+
 	    /* See if all of SRC dies in P.  This test is slightly
 	       more conservative than it needs to be.  */
 	    if ((note = find_regno_note (p, REG_DEAD, sregno))
 		&& GET_MODE (XEXP (note, 0)) == GET_MODE (src))
 	      {
 		int failed = 0;
-		
+
 		/* We can do the optimization.  Scan forward from INSN
 		   again, replacing regs as we go.  Set FAILED if a
 		   replacement can't be done.  In that case, we can't
 		   move the death note for SRC.  This should be
 		   rare.  */
-		
+
 		/* Set to stop at next insn.  */
 		for (q = next_real_insn (insn);
 		     q != next_real_insn (p);
@@ -2101,11 +2101,11 @@ decrease_live_ranges_number (void)
 			if (sregno < FIRST_PSEUDO_REGISTER
 			    && reg_mentioned_p (dest, PATTERN (q)))
 			  failed = 1;
-			
+
 			/* Attempt to replace all uses.  */
 			else if (!validate_replace_rtx (src, dest, q))
 			  failed = 1;
-			
+
 			/* If this succeeded, but some part of the
 			   register is still present, undo the
 			   replacement.  */
@@ -2116,7 +2116,7 @@ decrease_live_ranges_number (void)
 			    failed = 1;
 			  }
 		      }
-		    
+
 		    /* If DEST dies here, remove the death note and
 		       save it for later.  Make sure ALL of DEST dies
 		       here; again, this is overly conservative.  */
@@ -2132,7 +2132,7 @@ decrease_live_ranges_number (void)
 			  }
 		      }
 		  }
-		
+
 		if (! failed)
 		  {
 		    /* Move death note of SRC from P to INSN.  */
@@ -2140,7 +2140,7 @@ decrease_live_ranges_number (void)
 		    XEXP (note, 1) = REG_NOTES (insn);
 		    REG_NOTES (insn) = note;
 		  }
-		
+
 		/* DEST is also dead if INSN has a REG_UNUSED note for
 		   DEST.  */
 		if (! dest_death
@@ -2150,7 +2150,7 @@ decrease_live_ranges_number (void)
 		    PUT_REG_NOTE_KIND (dest_death, REG_DEAD);
 		    remove_note (insn, dest_death);
 		  }
-		
+
 		/* Put death note of DEST on P if we saw it die.  */
 		if (dest_death)
 		  {
@@ -2159,7 +2159,7 @@ decrease_live_ranges_number (void)
 		  }
 		break;
 	      }
-	    
+
 	    /* If SRC is a hard register which is set or killed in
 	       some other way, we can't do this optimization.  */
 	    else if (sregno < FIRST_PSEUDO_REGISTER && dead_or_set_p (p, src))
@@ -2277,7 +2277,7 @@ ira_setup_eliminable_regset (void)
 
   if (frame_pointer_needed)
     df_set_regs_ever_live (HARD_FRAME_POINTER_REGNUM, true);
-    
+
   ira_no_alloc_regs = no_unit_alloc_regs;
   CLEAR_HARD_REG_SET (eliminable_regset);
 
@@ -2359,7 +2359,7 @@ setup_reg_renumber (void)
 	  int i, nwords;
 	  enum reg_class pclass;
 	  ira_object_t obj;
-	  
+
 	  pclass = ira_pressure_class_translate[REGNO_REG_CLASS (hard_regno)];
 	  nwords = ALLOCNO_NUM_OBJECTS (a);
 	  for (i = 0; i < nwords; i++)
@@ -3129,7 +3129,7 @@ process_set_for_memref_referenced_p (rtx memref, rtx x)
     }
   else if (memref_referenced_p (memref, x, false))
     return true;
-  
+
   return false;
 }
 
@@ -3186,7 +3186,7 @@ memref_referenced_p (rtx memref, rtx x, bool read_p)
 	return true;
 
       return memref_referenced_p (memref, XEXP (x, 0), true);
-      
+
     case POST_MODIFY:
     case PRE_MODIFY:
       /* op0 = op0 + op1 */
@@ -3948,7 +3948,7 @@ setup_reg_equiv (void)
 	next_elem = elem->next ();
 	insn = elem->insn ();
 	set = single_set (insn);
-	
+
 	/* Init insns can set up equivalence when the reg is a destination or
 	   a source (in this case the destination is memory).  */
 	if (set != 0 && (REG_P (SET_DEST (set)) || REG_P (SET_SRC (set))))
@@ -3974,7 +3974,7 @@ setup_reg_equiv (void)
 		     && REGNO (SET_DEST (set)) == (unsigned int) i)
 	      x = SET_SRC (set);
 	    else
-	      {      
+	      {
 		gcc_assert (REG_P (SET_SRC (set))
 			    && REGNO (SET_SRC (set)) == (unsigned int) i);
 		x = SET_DEST (set);
@@ -4000,7 +4000,7 @@ setup_reg_equiv (void)
 		else if (function_invariant_p (x))
 		  {
 		    machine_mode mode;
-		    
+
 		    mode = GET_MODE (SET_DEST (set));
 		    if (GET_CODE (x) == PLUS
 			|| x == frame_pointer_rtx || x == arg_pointer_rtx)
@@ -4409,7 +4409,7 @@ rtx_moveable_p (rtx *loc, enum op_type type)
 	return true;
       if (HARD_REGISTER_P (x))
 	return false;
-      
+
       return true;
 
     case MEM:
@@ -4510,7 +4510,7 @@ static vec<rtx> pseudo_replaced_reg;
    (typically induction variables), as this increases the freedom for our
    intended transformation, and does not limit the second instruction
    scheduler pass.  */
-   
+
 static void
 find_moveable_pseudos (void)
 {
@@ -4565,7 +4565,7 @@ find_moveable_pseudos (void)
 	    df_ref def, use;
 
 	    uid_luid[INSN_UID (insn)] = i++;
-	    
+
 	    def = df_single_def (insn_info);
 	    use = df_single_use (insn_info);
 	    if (use
@@ -4635,7 +4635,7 @@ find_moveable_pseudos (void)
 	    for (note = REG_NOTES (def_insn); note; note = XEXP (note, 1))
 	      if (REG_NOTE_KIND (note) == REG_EQUIV && MEM_P (XEXP (note, 0)))
 		break;
-		
+
 	    if (note)
 	      {
 		if (dump_file)
@@ -4823,7 +4823,7 @@ find_moveable_pseudos (void)
 	    }
 	}
     }
-  
+
   FOR_EACH_BB_FN (bb, cfun)
     {
       bitmap_clear (bb_local + bb->index);
@@ -5535,7 +5535,7 @@ do_reload (void)
       FOR_ALL_BB_FN (bb, cfun)
 	bb->loop_father = NULL;
       current_loops = NULL;
-      
+
       regstat_free_ri ();
       regstat_free_n_sets_and_refs ();
     }

@@ -30,4 +30,3 @@ sse2_test (void) {
 	  abort();
     }
 }
-

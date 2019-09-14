@@ -1,4 +1,4 @@
-/* { dg-do run } */ 
+/* { dg-do run } */
 /* { dg-options "-O2" } */
 
 void link_error (void);

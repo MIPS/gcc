@@ -5,7 +5,7 @@ extern void do_something_usefull();
 /* Check that we finish compiling even if instructed to
    flatten a cyclic callgraph.  Verify we correctly
    flatten with another function marked flatten in the
-   callgraph. 
+   callgraph.
 
    Main inline is cureful about indirect calls giving
    precedence to breaking cycle at indirect call sites.

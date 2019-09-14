@@ -10,7 +10,7 @@ struct {
    With Levenshtein distance, the misspelling has an edit distance of 2
    to all 6 of the fields (e.g. via a deletion and a substitution for the
    first three, and via deletion and insertion for the second three).
-   
+
    With Damerau-Levenshtein, the misspelling has an edit distance of 1
    via transposition to "coordz1", and 2 to the other fields.  */
 

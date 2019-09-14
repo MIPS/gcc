@@ -21,7 +21,7 @@ B(n##0) B(n##1) B(n##2) B(n##3) B(n##4) \
 B(n##5) B(n##6) B(n##7) B(n##8) B(n##9)
 #define D(n) \
 C(n##0) C(n##1) B(n##20) B(n##21) B(n##22)
-      
+
 int
 foo (int x)
 {

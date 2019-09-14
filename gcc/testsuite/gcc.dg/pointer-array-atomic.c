@@ -57,4 +57,3 @@ void test(void)
 	(void)(1 ? x1 : z1); /* { dg-warning "pointer type mismatch in conditional expression" } */
 	(void)(1 ? x2 : z2); /* { dg-warning "pointer type mismatch in conditional expression" } */
 }
-

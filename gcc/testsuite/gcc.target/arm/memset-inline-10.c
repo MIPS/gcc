@@ -95,4 +95,3 @@ int foo(char *s)
 
   return 0;
 }
-

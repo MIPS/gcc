@@ -38,5 +38,3 @@ main ()
   foo (6, 3);
   return 0;
 }
-
-

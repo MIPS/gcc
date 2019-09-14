@@ -38,9 +38,9 @@ int main1 (int off)
 }
 
 int main (void)
-{ 
+{
   check_vect ();
-  
+
   main1 (0); /* aligned */
   main1 (OFF); /* unaligned */
   return 0;

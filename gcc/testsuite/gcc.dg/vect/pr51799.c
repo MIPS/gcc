@@ -14,4 +14,3 @@ f0a (uint32_t * __restrict__ result, int8_t * __restrict__ arg1,
       result[idx] = (uint8_t)(((arg1[idx] << 7) + arg4[idx]) * temp_6);
     }
 }
-

@@ -76,4 +76,3 @@ int main()
   testl (34.0l, __builtin_huge_vall());
   return 0;
 }
-

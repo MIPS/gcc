@@ -1,4 +1,4 @@
-/* PR 23572 : warnings for out of range floating-point constants 
+/* PR 23572 : warnings for out of range floating-point constants
    Test that they are NOT pedantic warnings.  */
 /* { dg-do compile } */
 /* { dg-options "-pedantic-errors -std=c99" } */

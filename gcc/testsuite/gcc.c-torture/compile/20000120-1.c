@@ -10,4 +10,3 @@ pad_home1 ()
 		   letters[letter_number + 1] ? letter_number +
 		   1 : 0];
 }
-

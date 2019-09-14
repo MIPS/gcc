@@ -29,7 +29,7 @@ main (void)
 #endif
   if (b != 0 || c != 1)
     abort ();
-  
+
   switch (e)
     {
     case 2:

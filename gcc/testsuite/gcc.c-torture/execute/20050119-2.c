@@ -37,4 +37,3 @@ main (void)
     abort ();
   exit (0);
 }
-

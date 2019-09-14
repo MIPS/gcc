@@ -25,6 +25,3 @@ test03 (const char *s1, int n)
 {
   return __builtin_strncmp (s1, "abcde", n);
 }
-
-
-

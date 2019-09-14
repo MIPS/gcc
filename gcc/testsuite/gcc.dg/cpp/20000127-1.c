@@ -5,7 +5,7 @@
 
 #define foo(bar) bar
 
-int x = 
+int x =
 foo(
     /*
       xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx

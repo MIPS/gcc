@@ -11,13 +11,13 @@ avx_test (void)
     float f[8];
     int   i[8];
   }source1, source2, e;
-  
+
   int i;
   union256 u, s1, s2;
 
   s1.x = _mm256_set_ps (34545, 95567, 23443, 5675, 2323, 67, 2345, 45667);
   s2.x = _mm256_set_ps (674, 57897, 93459, 45624, 54674, 1237, 67436, 79608);
-  
+
   _mm256_storeu_ps (source1.f, s1.x);
   _mm256_storeu_ps (source2.f, s2.x);
 

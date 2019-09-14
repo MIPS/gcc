@@ -28,7 +28,7 @@ int main()
       a[i].y_advance = -i + 3;
       __asm__ volatile ("" : : : "memory");
     }
-  
+
   fn1();
 
   if (c != -32640 || b != 31872)

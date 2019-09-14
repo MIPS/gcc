@@ -39,4 +39,3 @@ template< typename T > struct gstruct_base_tmpl_defn_var_base {
     gstruct_base_tmpl_defn_ptr_base< T > *field2_base_tmpl_defn_var_base_ptr;
     gstruct_base_tmpl_defn_fld_base< T >  field2_base_tmpl_defn_var_base_fld;
 };
-

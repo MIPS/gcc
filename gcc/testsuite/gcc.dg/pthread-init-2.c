@@ -11,4 +11,3 @@
 /* { dg-options "-Wextra -Wall -ansi -D_XOPEN_SOURCE=500" { target { powerpc-ibm-aix* } } } */
 
 #include "pthread-init-common.h"
-

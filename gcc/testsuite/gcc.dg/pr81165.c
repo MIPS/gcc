@@ -44,7 +44,7 @@ void func (){
   char t0 = 0;
   unsigned long t1 = 2LU;
   int i = 0;
-  
+
   if(1>>x2) {
     t0 = -1;
     t1 = (1&(short)(x1^8U))-1;

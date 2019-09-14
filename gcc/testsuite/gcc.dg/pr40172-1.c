@@ -3,7 +3,7 @@
 /* { dg-options "-Wall -W -Werror -Wlogical-op" } */
 
 struct rtx_def;
-typedef struct rtx_def *rtx; 
+typedef struct rtx_def *rtx;
 
 extern int foo;
 extern int bar;

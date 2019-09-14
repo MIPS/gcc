@@ -29,4 +29,3 @@ get_full_feature_matrix (struct TSparse* sparse_feature_matrix, int num_vec)
     }
   }
 }
-

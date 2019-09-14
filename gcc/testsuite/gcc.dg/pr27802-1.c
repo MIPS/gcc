@@ -13,4 +13,3 @@ double foo3() { bar3(); }
 
 double bar4() __attribute__((noreturn));
 double foo4() { bar4(); }
-

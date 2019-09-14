@@ -1,4 +1,4 @@
-/* Verify that overloaded built-ins for vec_sel with 
+/* Verify that overloaded built-ins for vec_sel with
    double inputs for VSX produce the right code.  */
 
 /* { dg-do compile { target { powerpc*-*-linux* } } } */

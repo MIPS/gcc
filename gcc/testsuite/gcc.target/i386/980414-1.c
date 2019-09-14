@@ -73,6 +73,6 @@ int main ()
   y /= z;
   if (y > 0.1)
     abort ();
- 
+
   return 0;
 }

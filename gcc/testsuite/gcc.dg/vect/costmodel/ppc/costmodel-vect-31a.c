@@ -7,9 +7,9 @@
 
 struct t{
   int k[N];
-  int l; 
+  int l;
 };
-  
+
 struct s{
   char a;	/* aligned */
   char b[N-1];  /* unaligned (offset 1B) */
@@ -17,9 +17,9 @@ struct s{
   struct t d;   /* aligned (offset 2NB) */
   struct t e;   /* unaligned (offset 2N+4N+4 B) */
 };
- 
+
 int main1 ()
-{  
+{
   int i;
   struct s tmp;
 
@@ -40,11 +40,11 @@ int main1 ()
 }
 
 int main (void)
-{ 
+{
   check_vect ();
-  
+
   return main1 ();
-} 
+}
 
 /* { dg-final { scan-tree-dump-times "not vectorized: unsupported unaligned store" 1 "vect" { target { ! vect_hw_misalign } } } } */
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 0 "vect" { target { ! vect_hw_misalign } } } } */

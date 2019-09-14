@@ -7,16 +7,16 @@ static int b, c, d, e, h, k, l, m, n, o, r, t, v, w, x, y, z, ad, ae, af, ag, ah
 int a, ao, ap, aq, ar, g, as, at, au, av, aw, ax, ay;
 
 void foo ()
-{ 
+{
   int ba[2], i, j, bb;
   while (b)
-    { 
+    {
       b++;
       while (b)
-	{ 
+	{
 	  for (; aw; aw++)
 	    for (; q; q++)
-	      { 
+	      {
 		short bc[20];
 		if (k)
 		  for (i = 0; i < 4; i++)
@@ -28,7 +28,7 @@ void foo ()
 	      }
 	  for (bb = 0; bb < 5; bb++)
 	    if (m && v)
-	      { 
+	      {
 		printf ("%d", n);
 		v = g && v;
 		n = 0;
@@ -38,21 +38,21 @@ void foo ()
 	  aa++;
 	  x++;
 	  while (1)
-	    { 
+	    {
 	      int bd[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1};
 	      ap = a ? ba[1] : 0;
 	      if (ba[0] && o < ax)
-		{ 
+		{
 		  int be[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1};
 		  for (; ae; ae++)
-		    { 
+		    {
 		      e ^= ba[b] ^ aa;
 		      f = r;
 		      for (; y; y++)
 			aj &= u | ag;
 		      int e[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1};
 		      if (a)
-			{ 
+			{
 			  r = c;
 			  aj &= ag |= aq;
 			}
@@ -71,7 +71,7 @@ void foo ()
 	      ay = c;
 	      int bf[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1};
 	      if (w < f)
-		{ 
+		{
 		  int bg[] = {0};
 		  if (aw)
 		    break;
@@ -81,7 +81,7 @@ void foo ()
 	      for (; w; w--)
 		l = ac ^= al |= b;
 	      for (; k; k = 0)
-		{ 
+		{
 		  int bh = m | s && n;
 		  m = bh;
 		  for (; t; t--)
@@ -89,7 +89,7 @@ void foo ()
 		}
 	      d = an |= b;
 	      if (v)
-		{ 
+		{
 		  int bi[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1};
 		  if (aw)
 		    break;
@@ -100,7 +100,7 @@ void foo ()
 }
 
 int main ()
-{ 
+{
   foo ();
   return 0;
 }

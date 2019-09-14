@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-Wwrite-strings" } */ 
+/* { dg-options "-Wwrite-strings" } */
 /* The purpose of this test is to ensure that line numbers in diagnostics
    are accurate after macros whose arguments contain newlines and are
    substituted multiple times.  The semicolons are on separate lines because

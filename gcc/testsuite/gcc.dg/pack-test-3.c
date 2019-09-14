@@ -41,4 +41,3 @@ typedef struct p3 {
    short field2;
    int field3;
 } p3_t1 __attribute__ ((packed)); /* { dg-warning "attribute ignored" }*/
-

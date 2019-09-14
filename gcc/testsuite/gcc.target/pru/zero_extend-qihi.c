@@ -40,4 +40,3 @@ test_zext_ashl_hi (unsigned char val1, unsigned short val2)
   /* { dg-final { scan-assembler "lsl\\tr14, r14.b0, r14.w1" } } */
   return val1 << val2;
 }
-

@@ -4,9 +4,9 @@
 #include "tree-vect.h"
 
 #define N 26
- 
+
 __attribute__ ((noinline)) int main1 (short X)
-{  
+{
   unsigned char a[N];
   unsigned short b[N];
   unsigned int c[N];
@@ -33,10 +33,10 @@ __attribute__ ((noinline)) int main1 (short X)
 }
 
 int main (void)
-{ 
+{
   check_vect ();
-  
+
   return main1 (3);
-} 
+}
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target { vect_pack_trunc && vect_unpack } } } } */

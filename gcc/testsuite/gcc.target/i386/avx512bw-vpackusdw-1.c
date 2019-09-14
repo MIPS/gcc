@@ -29,4 +29,3 @@ avx512bw_test (void)
   z = _mm_mask_packus_epi32 (z, mz, z, z);
   z = _mm_maskz_packus_epi32 (mz, z, z);
 }
-

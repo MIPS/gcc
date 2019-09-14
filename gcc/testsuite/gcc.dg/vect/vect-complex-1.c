@@ -36,10 +36,10 @@ foo (void)
 
 int
 main (void)
-{ 
+{
   int i;
   check_vect ();
-  
+
   foo ();
 
   /* check results:  */

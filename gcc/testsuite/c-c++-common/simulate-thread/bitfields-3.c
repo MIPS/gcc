@@ -44,7 +44,7 @@ int simulate_thread_final_verify()
 }
 
 __attribute__((noinline))
-void update_c(struct bits *p, int val) 
+void update_c(struct bits *p, int val)
 {
     p -> c = val;
 }

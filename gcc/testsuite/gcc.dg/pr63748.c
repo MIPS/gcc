@@ -34,4 +34,3 @@ test (int op, int noside)
 nosideret:
   return 1;
 }
-

@@ -1,4 +1,4 @@
-/* 
+/*
    { dg-options "-ftrack-macro-expansion=2" }
    { dg-do compile }
  */

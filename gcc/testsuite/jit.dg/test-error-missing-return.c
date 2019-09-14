@@ -37,4 +37,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 		      "function test_fn returns non-void (type: int)"
 		      " but has no blocks");
 }
-

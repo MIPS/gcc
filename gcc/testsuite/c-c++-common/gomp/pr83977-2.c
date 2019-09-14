@@ -13,6 +13,6 @@ foo (int a, int b)
    We shouldn't ICE on it though, nor attempt to generate
    simd clones for the *omp_fn* functions.  */
   #pragma omp parallel
-  bar ();  
+  bar ();
   return a;
 }

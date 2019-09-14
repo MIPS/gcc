@@ -118,4 +118,3 @@ convert (tree type, tree expr)
 
   gcc_unreachable ();
 }
-

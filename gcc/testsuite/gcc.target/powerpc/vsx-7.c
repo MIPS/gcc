@@ -22,4 +22,3 @@ int main2 ()
 */
 
 /* { dg-final { scan-assembler-times "xvcvspdp" 2 } } */
-

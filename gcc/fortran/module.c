@@ -6070,7 +6070,7 @@ write_module (void)
 
   /* Initialize the column counter. */
   module_column = 1;
-  
+
   /* Write the operator interfaces.  */
   mio_lparen ();
 

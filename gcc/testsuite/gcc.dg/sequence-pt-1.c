@@ -22,7 +22,7 @@ foo (int a, int b, int n, int p, int *ptr, struct s *sptr,
      int *ap, int *bp, int **cp, char *ans, int (*fnp[8])(int))
 {
   int len;
-    
+
   a = a++; /* { dg-warning "undefined" "sequence point warning" } */
   a = --a; /* { dg-warning "undefined" "sequence point warning" } */
   a = ++a + b; /* { dg-warning "undefined" "sequence point warning" } */

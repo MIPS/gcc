@@ -34,11 +34,10 @@ int main (void)
     if (z[i+2] != x[i])
       abort ();
   }
-  
+
   return 0;
 }
 
 /* bleah */
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 2 "vect" { target vect_unpack } } } */
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target { ! vect_unpack } } } } */
-

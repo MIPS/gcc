@@ -15,4 +15,3 @@ test_data_class (__ieee128 *p, const int condition_flag)
 
   return scalar_test_data_class (source, condition_flag); /* { dg-error "argument 2 must be a 7-bit unsigned literal" } */
 }
-

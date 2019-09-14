@@ -28,4 +28,3 @@ foo (void)
 }
 
 /* { dg-final { scan-tree-dump-times "Deleted dead store" 2 "dse1" } } */
-

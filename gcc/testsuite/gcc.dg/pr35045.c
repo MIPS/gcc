@@ -24,7 +24,7 @@ mycacoshf (__complex__ float x)
   if (__real__ res < 0.0)
     {
       unsigned a,b,c,d,e,f;
-      res = -res; 
+      res = -res;
       asm __volatile__ ("" : "=r" (a), "=r" (b), "=r" (c), "=r" (d), "=r" (e), "=r" (f));
     }
   return res;

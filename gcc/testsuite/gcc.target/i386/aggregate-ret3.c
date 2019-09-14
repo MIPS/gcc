@@ -24,5 +24,3 @@ bar (void)
 }
 
 /* { dg-final { scan-assembler-not "ret\[ \t\]\\\$4" } } */
-
-

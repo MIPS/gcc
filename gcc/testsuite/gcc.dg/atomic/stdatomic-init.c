@@ -53,7 +53,7 @@ void atomic_init_lit (struct Atomic *pa)
   atomic_init (&pa->c, 0);
   atomic_init (&pa->c, 1);
   atomic_init (&pa->c, 255);
-  
+
   atomic_init (&pa->sc, (signed char)'x');
   atomic_init (&pa->sc, (signed char)0);
   atomic_init (&pa->sc, (signed char)1);
@@ -79,7 +79,7 @@ void atomic_init_lit (struct Atomic *pa)
   atomic_init (&pa->ui, (unsigned int)0);
   atomic_init (&pa->ui, (unsigned int)1);
   atomic_init (&pa->ui, (unsigned int)__INT_MAX__);
-  
+
   atomic_init (&pa->sl, (signed long)0);
   atomic_init (&pa->sl, (signed long)1);
   atomic_init (&pa->sl, (signed long)__LONG_MAX__);
@@ -94,11 +94,11 @@ void atomic_init_lit (struct Atomic *pa)
 
   atomic_init (&pa->ull, (unsigned long long)0);
   atomic_init (&pa->ull, (unsigned long long)1);
-  atomic_init (&pa->ull, (unsigned long long)__LONG_LONG_MAX__); 
+  atomic_init (&pa->ull, (unsigned long long)__LONG_LONG_MAX__);
 
   atomic_init (&pa->sz, 0);
   atomic_init (&pa->sz, 1);
-  atomic_init (&pa->sz, __SIZE_MAX__); 
+  atomic_init (&pa->sz, __SIZE_MAX__);
 }
 
 /* Exercise the atomic_init() macro with an lvalue argument.  */
@@ -112,7 +112,7 @@ void atomic_init_lval (struct Atomic *pa, const struct Value *pv)
   atomic_init (&pa->ss, pv->ss);
   atomic_init (&pa->us, pv->us);
   atomic_init (&pa->si, pv->si);
-  atomic_init (&pa->ui, pv->ui); 
+  atomic_init (&pa->ui, pv->ui);
   atomic_init (&pa->sl, pv->sl);
   atomic_init (&pa->ul, pv->ul);
   atomic_init (&pa->sll, pv->sll);

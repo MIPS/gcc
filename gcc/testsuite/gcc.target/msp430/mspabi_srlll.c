@@ -7,4 +7,3 @@ foo (unsigned long long a)
 {
   return a >> 4;
 }
-

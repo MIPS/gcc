@@ -7,7 +7,7 @@
 int c[N] = {3,2,1,10,1,42,3,4,50,9,32,8,11,10,1,2};
 int a[N+1] = {0,16,32,48,64,128,256,512,0,16,32,48,64,128,256,512,1024};
 
-__attribute__ ((noinline)) void 
+__attribute__ ((noinline)) void
 foo (int *x)
 {
   int i;
@@ -15,7 +15,7 @@ foo (int *x)
 
   curr_a = a[0];
 
-  for (i = 0; i < N; i++) 
+  for (i = 0; i < N; i++)
     {
       flag = *x > c[i];
       next_a = a[i+1];

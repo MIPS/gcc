@@ -71,7 +71,7 @@ static inline
 gcov_position_t
 gcov_position (void)
 {
-  gcov_nonruntime_assert (gcov_var.mode > 0); 
+  gcov_nonruntime_assert (gcov_var.mode > 0);
   return gcov_var.start + gcov_var.offset;
 }
 
@@ -91,7 +91,7 @@ gcov_is_error (void)
 GCOV_LINKAGE inline void
 gcov_rewrite (void)
 {
-  gcov_var.mode = -1; 
+  gcov_var.mode = -1;
   gcov_var.start = 0;
   gcov_var.offset = 0;
   fseek (gcov_var.file, 0L, SEEK_SET);

@@ -52,7 +52,7 @@ int main (int argc, char **argv)
         }
         if (onlylockflag && !Locks)
             fprintf(out, "%s\n", RCSname);
-        if (shownames) 
+        if (shownames)
             while( currdate)
                 recentdate(Head, currdate);
     }
@@ -113,4 +113,3 @@ int recentdate(void *foo, void *bar)
   t = 0; /* this function needs side-effects.  */
   return 0;
 }
-

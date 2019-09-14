@@ -16,4 +16,3 @@ test (void)
   return local_static;
 }
 /* { dg-final { scan-tree-dump-times "return 9" 1 "optimized"} } */
- 

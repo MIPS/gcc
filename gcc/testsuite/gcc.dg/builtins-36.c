@@ -76,4 +76,3 @@ long double test3l(long double x)
 {
 	return cosl(x);
 }
-

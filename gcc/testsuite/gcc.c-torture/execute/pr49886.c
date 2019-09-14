@@ -97,4 +97,3 @@ bar_2 (int * interp, Pcc_cell *c)
   c->bla += 2;
   mark_cell(interp, c);
 }
-

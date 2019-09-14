@@ -12,7 +12,7 @@
 int x (void) __attribute__((noinline));
 int y (void) __attribute__((noinline));
 int xx (void) __attribute__((noinline));
-  
+
 int x (void)
 {
   return 1;

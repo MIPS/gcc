@@ -106,4 +106,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
   note ("my_factorial_must_tail_call returned: %d", val);
   CHECK_VALUE (val, 3628800);
 }
-

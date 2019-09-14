@@ -18,7 +18,7 @@ int
 main ()
 {
   unsigned int eax, ebx, ecx, edx;
- 
+
   if (!__get_cpuid (1, &eax, &ebx, &ecx, &edx))
     return 0;
 

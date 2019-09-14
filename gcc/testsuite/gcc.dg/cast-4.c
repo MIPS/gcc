@@ -1,4 +1,4 @@
-/* Test warnings when casting from a constant integer to pointer.  
+/* Test warnings when casting from a constant integer to pointer.
    Test with -pedantic-errors.  */
 /* Origin: Carlos O'Donell <carlos@codesourcery.com> */
 /* { dg-do compile } */

@@ -4,7 +4,7 @@
 
 double data[16384];
 void donot_prefetch_when_non_constant_step_is_variant(int step, int n)
-{ 
+{
      int a;
      int b;
      for (a = 1; a < step; a++,step*=2) {
@@ -17,10 +17,8 @@ void donot_prefetch_when_non_constant_step_is_variant(int step, int n)
           data[j]   = data[i];
           data[j+1] = data[i+1];
         }
-     } 
+     }
 }
 
 /* { dg-final { scan-tree-dump "Not prefetching" "aprefetch" } } */
 /* { dg-final { scan-tree-dump "loop variant step" "aprefetch" } } */
-
-

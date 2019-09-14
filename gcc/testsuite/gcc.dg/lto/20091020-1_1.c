@@ -12,4 +12,3 @@ int SzArEx_GetFolderFullPackSize(const CSzArEx *p)
 {
   return p->db.NumPackStreams;
 }
-

@@ -23,4 +23,3 @@ void f(double g[][1])
 	}
     }
 }
-

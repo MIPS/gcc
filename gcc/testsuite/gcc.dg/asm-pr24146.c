@@ -13,4 +13,3 @@ void g (void)
 }
 /* { dg-final { scan-assembler "extended asm not discarded" } } */
 /* { dg-final { scan-assembler "simple asm not discarded" } } */
-

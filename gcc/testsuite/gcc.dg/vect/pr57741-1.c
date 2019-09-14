@@ -17,4 +17,3 @@ foo (float *p, float *q, float x)
       g += 0.5f;
     }
 }
-

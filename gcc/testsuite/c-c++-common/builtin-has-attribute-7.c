@@ -338,7 +338,7 @@ void test_ternary_expression (int i)
      to a pointer is ill-formed in C++  */
 # pragma GCC diagnostic ignored "-Wc++-compat"
 
-  A (0, (9 ? (A32_I64){ } : (A32_I64){ })); 
+  A (0, (9 ? (A32_I64){ } : (A32_I64){ }));
   A3 (0, (i ? (A32_I64){ } : (A32_I64){ }), 8);
   A3 (0, (i++ ? (A32_I64){ } : (A32_I64){ }), 16);
   A3 (0, (++i ? (A32_I64){ } : (A32_I64){ }), 32);

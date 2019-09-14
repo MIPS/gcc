@@ -12,5 +12,5 @@
 #undef foo
 #define foo 1
 #if !foo
-#error foo still disabled! 
+#error foo still disabled!
 #endif

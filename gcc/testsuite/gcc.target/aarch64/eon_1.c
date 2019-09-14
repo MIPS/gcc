@@ -36,4 +36,3 @@ test_vec_not (int64x1_t a)
 {
   return ~a;
 }
-

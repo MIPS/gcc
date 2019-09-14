@@ -40,4 +40,3 @@ int f(int x)
 /* VRP2 gets rid of the remaining & 1 operations, x and y are always
    either 0 or 1.  */
 /* { dg-final { scan-tree-dump-times " & 1;" 0 "vrp2" } } */
-

@@ -172,4 +172,3 @@ int main (void)
   if (nfails)
     abort ();
 }
-

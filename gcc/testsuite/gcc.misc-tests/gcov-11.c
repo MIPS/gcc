@@ -14,7 +14,7 @@ int foo (int ix)
 int main ()
 {
   unsigned ix, jx = 0;
-  
+
   for (ix = 10; ix--;) jx += foo (ix); /* count(11) */
 
   return jx != 5;

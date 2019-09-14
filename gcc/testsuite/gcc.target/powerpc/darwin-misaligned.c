@@ -28,5 +28,3 @@ int UDV(S8 rcClip){
 
 	return !(rcClip.sh1 == 1 && rcClip.sh4 == 4);
 }
-	
-

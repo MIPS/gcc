@@ -50,15 +50,15 @@ int simulate_thread_final_verify ()
 
 /* All values written to 'value' alternate between 'zero' and 'max'. Any other
    value detected by simulate_thread_step_verify() between instructions would indicate
-   that the value was only partially written, and would thus fail this 
-   atomicity test.  
+   that the value was only partially written, and would thus fail this
+   atomicity test.
 
    This function tests each different __atomic routine once, with the
    exception of the load instruction which requires special testing.  */
 __attribute__((noinline))
 void simulate_thread_main()
 {
-  
+
   ret = __atomic_exchange_n (&value, max, __ATOMIC_SEQ_CST);
   if (ret != zero || value != max)
     test_abort();

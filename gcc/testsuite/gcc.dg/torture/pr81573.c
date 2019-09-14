@@ -12,5 +12,5 @@ int main ()
     }
   while (a > 1)
     ;
-  return 0; 
+  return 0;
 }

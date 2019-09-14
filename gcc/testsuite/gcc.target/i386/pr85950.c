@@ -11,6 +11,6 @@ int iceil (double x) { return ceil (x); }
 long long llfloor (double x) { return floor (x); }
 long long llceil (double x) { return ceil (x); }
 #endif
-  
+
 /* { dg-final { scan-assembler-times "roundsd" 2 { target ia32 } } } */
 /* { dg-final { scan-assembler-times "roundsd" 4 { target { ! ia32 } } } } */

@@ -27,4 +27,3 @@ func_45 (unsigned long p_46, unsigned char p_47)
   (void *)&l_56 != (void *)&g | !1 == func_4 (0, g_67[2][6][1][0], 0) ^ func_4 (1, 0, 0);
   return 0;
 }
-

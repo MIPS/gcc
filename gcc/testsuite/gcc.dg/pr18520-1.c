@@ -8,4 +8,3 @@ int gsl_isnan (const double x)
 {
   return isnan(x);
 }
-

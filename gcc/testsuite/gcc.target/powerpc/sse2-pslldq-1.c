@@ -20,10 +20,10 @@ static __m128i
 __attribute__((noinline, unused))
 test (__m128i s1)
 {
-  return _mm_slli_si128 (s1, N); 
+  return _mm_slli_si128 (s1, N);
 }
 
-static void 
+static void
 TEST (void)
 {
   union128i_b u, s;

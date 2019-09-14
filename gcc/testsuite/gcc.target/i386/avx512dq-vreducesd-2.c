@@ -52,7 +52,7 @@ TEST (void)
 
   if (check_union128d (res1, res_ref))
     abort ();
- 
+
   MASK_MERGE (d) (res_ref, mask, 1);
 
   if (check_union128d (res2, res_ref))

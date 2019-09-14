@@ -14,4 +14,3 @@ double ndtri(double y0)
 
   return x;
 }
-

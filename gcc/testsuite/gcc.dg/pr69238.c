@@ -23,6 +23,6 @@ main1 (int n)
 
 int
 main (void)
-{ 
+{
   return main1 (N-7);
 }

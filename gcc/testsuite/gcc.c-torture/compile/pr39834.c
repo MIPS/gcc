@@ -5,9 +5,9 @@ typedef enum { False, True } FLAG;
 inline void
 nextfile (FLAG exitiflast)
 {
-  if (exitiflast)     
+  if (exitiflast)
     quit_mined ();
-  else 
+  else
     bottom_line ();
   nextfile (True);
 }

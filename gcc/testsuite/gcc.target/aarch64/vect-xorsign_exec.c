@@ -55,4 +55,3 @@ main (void)
 /* { dg-final { scan-assembler-not "copysign" } } */
 /* { dg-final { scan-assembler-not "\[ \t\]?orr\[ \t\]?" } } */
 /* { dg-final { scan-assembler-not "\[ \t\]?fmul\[ \t\]?" } } */
-

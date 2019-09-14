@@ -38,4 +38,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 		      ("gcc_jit_context_new_function:"
 		       " unrecognized value for enum gcc_jit_function_kind: 42"));
 }
-

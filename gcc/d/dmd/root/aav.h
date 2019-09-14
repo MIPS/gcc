@@ -19,4 +19,3 @@ size_t dmd_aaLen(AA* aa);
 Value* dmd_aaGet(AA** aa, Key key);
 Value dmd_aaGetRvalue(AA* aa, Key key);
 void dmd_aaRehash(AA** paa);
-

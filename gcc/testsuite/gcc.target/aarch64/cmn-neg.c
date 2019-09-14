@@ -29,4 +29,3 @@ main (void)
   foo_s64 (a, b);
   return 0;
 }
-

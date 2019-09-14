@@ -20,10 +20,10 @@ void h (int x)
   unsigned char uc = 3;
   signed char   sc = 3;
 
-  uc = ui; 
-  uc = si; 
-  sc = ui; 
-  sc = si; 
+  uc = ui;
+  uc = si;
+  sc = ui;
+  sc = si;
   fuc (ui);
   fuc (si);
   fsc (ui);
@@ -94,5 +94,3 @@ void h (int x)
 }
 
 unsigned fui (unsigned a) { return a + -1; } /* { dg-warning "unsigned conversion from .int. to .unsigned int. changes value" } */
-
-

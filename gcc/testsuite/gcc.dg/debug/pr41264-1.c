@@ -1,7 +1,7 @@
 /* { dg-do compile } */
 /* { dg-options "-Wno-attributes" } */
 
-#if (__SIZEOF_INT__ <= 2)	
+#if (__SIZEOF_INT__ <= 2)
 typedef unsigned long hashval_t;
 #else
 typedef unsigned int hashval_t;

@@ -1,12 +1,12 @@
 /* CFBase.h
-   
+
    Copyright (C) 2010 Free Software Foundation, Inc.
-   
+
    Written by: Stefan Bidigaray
    Date: January, 2010
-   
+
    This file is part of the GNUstep CoreBase Library.
-   
+
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Lesser General Public
    License as published by the Free Software Foundation; either
@@ -19,8 +19,8 @@
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; see the file COPYING.LIB.
-   If not, see <http://www.gnu.org/licenses/> or write to the 
-   Free Software Foundation, 51 Franklin Street, Fifth Floor, 
+   If not, see <http://www.gnu.org/licenses/> or write to the
+   Free Software Foundation, 51 Franklin Street, Fifth Floor,
    Boston, MA 02110-1301, USA.
 */
 
@@ -403,7 +403,7 @@ CF_EXPORT CFTypeID CFAllocatorGetTypeID (void);
 /** \ingroup CFTypeRef
     \{
  */
-/* These function will be implemented in CFRuntime.c since they 
+/* These function will be implemented in CFRuntime.c since they
    require runtime support. */
 CF_EXPORT CFStringRef CFCopyDescription (CFTypeRef cf);
 

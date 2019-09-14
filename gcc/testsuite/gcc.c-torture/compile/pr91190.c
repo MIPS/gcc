@@ -24,8 +24,8 @@ main ()
       k = o ? : j;
       if (k)
 	for (l = 0; l < 3; l++)
-	  if (m[200000000000000000]) 
+	  if (m[200000000000000000])
 	    __builtin_printf ("%d", f);
     }
-  return 0; 
+  return 0;
 }

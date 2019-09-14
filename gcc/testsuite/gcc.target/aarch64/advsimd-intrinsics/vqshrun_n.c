@@ -92,7 +92,7 @@ FNNAME (INSN)
   CHECK(TEST_MSG, uint, 16, 4, PRIx16, expected_neg, CMT);
   CHECK(TEST_MSG, uint, 32, 2, PRIx32, expected_neg, CMT);
 
-  
+
   /* Fill input vector with max value, to check saturation on
      limits.  */
   VDUP(vector, q, int, s, 16, 8, 0x7FFF);
@@ -109,7 +109,7 @@ FNNAME (INSN)
   CHECK(TEST_MSG, uint, 16, 4, PRIx16, expected_max_sh1, CMT);
   CHECK(TEST_MSG, uint, 32, 2, PRIx32, expected_max_sh1, CMT);
 
-  
+
   /* Fill input vector with positive values, to check normal case.  */
   VDUP(vector, q, int, s, 16, 8, 0x1234);
   VDUP(vector, q, int, s, 32, 4, 0x87654321);

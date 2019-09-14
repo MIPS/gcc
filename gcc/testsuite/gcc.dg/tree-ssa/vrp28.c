@@ -27,5 +27,3 @@ int f3 (unsigned char c)
 }
 
 /* { dg-final { scan-tree-dump-times "if " 0 "vrp1" } } */
-
-

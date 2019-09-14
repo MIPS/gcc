@@ -7,7 +7,7 @@ foo ()
 {
   int ret;
   void *ctx;
-  
+
   ret = __builtin_bpf_helper_rc_repeat (ctx);
 }
 

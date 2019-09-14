@@ -15,29 +15,29 @@ int main1 ()
   /* int -> float */
   for (i = 0; i < N/4; i++)
     {
-      fa[4*i] = (float) ib[4*i];	
-      fa[4*i + 1] = (float) ib[4*i + 1];	
-      fa[4*i + 2] = (float) ib[4*i + 2];	
-      fa[4*i + 3] = (float) ib[4*i + 3];	
+      fa[4*i] = (float) ib[4*i];
+      fa[4*i + 1] = (float) ib[4*i + 1];
+      fa[4*i + 2] = (float) ib[4*i + 2];
+      fa[4*i + 3] = (float) ib[4*i + 3];
     }
 
   /* check results:  */
   for (i = 0; i < N/4; i++)
     {
-      if (fa[4*i] != (float) ib[4*i]      
+      if (fa[4*i] != (float) ib[4*i]
           || fa[4*i + 1] != (float) ib[4*i + 1]
           || fa[4*i + 2] != (float) ib[4*i + 2]
           || fa[4*i + 3] != (float) ib[4*i + 3])
-        abort (); 
-    }   
+        abort ();
+    }
 
   return 0;
 }
 
 int main (void)
-{ 
+{
   check_vect ();
-  
+
   return main1 ();
 }
 

@@ -4080,7 +4080,7 @@ gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
 
 	  if (!VOID_TYPE_P (TREE_TYPE (else_)))
 	    else_ = build_fold_addr_expr_loc (loc, else_);
- 
+
 	  expr
 	    = build3 (COND_EXPR, type, TREE_OPERAND (expr, 0), then_, else_);
 
@@ -7148,7 +7148,7 @@ omp_default_clause (struct gimplify_omp_ctx *ctx, tree decl,
 	  rtype = "teams";
 	else
 	  gcc_unreachable ();
-	
+
 	error ("%qE not specified in enclosing %qs",
 	       DECL_NAME (lang_hooks.decls.omp_report_decl (decl)), rtype);
 	error_at (ctx->location, "enclosing %qs", rtype);
@@ -7189,7 +7189,7 @@ omp_default_clause (struct gimplify_omp_ctx *ctx, tree decl,
 		}
 	    }
 	}
-      
+
       if (TREE_CODE (decl) == PARM_DECL
 	  || (!is_global_var (decl)
 	      && DECL_CONTEXT (decl) == current_function_decl))
@@ -8768,7 +8768,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		      sc = &OMP_CLAUSE_CHAIN (*osc);
 		      if (*sc != c
 			  && (OMP_CLAUSE_MAP_KIND (*sc)
-			      == GOMP_MAP_FIRSTPRIVATE_REFERENCE)) 
+			      == GOMP_MAP_FIRSTPRIVATE_REFERENCE))
 			sc = &OMP_CLAUSE_CHAIN (*sc);
 		      for (; *sc != c; sc = &OMP_CLAUSE_CHAIN (*sc))
 			if (ptr && sc == prev_list_p)

@@ -40,5 +40,3 @@ __ieee754_sinhf(float x)
         }
         return x*shuge;
 }
-
-

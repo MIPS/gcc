@@ -18,7 +18,7 @@ main_test (void)
   const char *const s1 = "hello world";
   const char *s2;
   int n = 6, x;
-  
+
   s2 = s1;
   if (strncmp (++s2, "ello", 3) != 0 || s2 != s1+1)
     abort();
@@ -169,5 +169,5 @@ main_test (void)
   if (strncmp ("allo", ++s2, ++n) >= 0 || s2 != s1+1 || n != 6)
     abort();
 
-#endif  
+#endif
 }

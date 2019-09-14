@@ -56,7 +56,7 @@ TEST (void)
   _MM_EXTRACT_FLOAT (resm[1], val2.x, msk1);
   _MM_EXTRACT_FLOAT (resm[2], val2.x, msk2);
   _MM_EXTRACT_FLOAT (resm[3], val2.x, msk3);
-  
+
   masks[0] = msk0;
   masks[1] = msk1;
   masks[2] = msk2;

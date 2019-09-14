@@ -11,4 +11,3 @@ void foo(void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
-

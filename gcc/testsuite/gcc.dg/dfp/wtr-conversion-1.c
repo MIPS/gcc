@@ -43,7 +43,7 @@ testfunc1 ()
   foo_d128 (d64); /* { dg-bogus "as '_Decimal128' rather than '_Decimal64'" "prototype conversion warning" } */
   foo_d128 (d128); /* { dg-bogus "as '_Decimal128' rather than '_Decimal'" "prototype conversion warning" } */
 }
-  
+
 # 54 "sys-header.h" 3
 /* We are in system headers now, no -Wtraditional warnings should issue.  */
 

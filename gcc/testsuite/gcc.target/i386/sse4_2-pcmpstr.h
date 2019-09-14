@@ -55,7 +55,7 @@ override_invalid (unsigned char res[16][16], int la, int lb,
           }
 }
 
-static void  
+static void
 calc_matrix (__m128i a, int la, __m128i b, int lb, const int mode,
 	     unsigned char res[16][16])
 {
@@ -118,7 +118,7 @@ calc_matrix (__m128i a, int la, __m128i b, int lb, const int mode,
   override_invalid (res, la, lb, mode, (mode & 1) == 0 ? 16 : 8);
 }
 
-static int 
+static int
 calc_res (__m128i a, int la, __m128i b, int lb, const int mode)
 {
   unsigned char mtx[16][16];
@@ -136,7 +136,7 @@ calc_res (__m128i a, int la, __m128i b, int lb, const int mode)
 
   if (la > dim)
     la = dim;
- 
+
   if (lb > dim)
     lb = dim;
 
@@ -171,7 +171,7 @@ calc_res (__m128i a, int la, __m128i b, int lb, const int mode)
 
 	  for (j = 0, k = i; j < dim - i && k < dim; j++, k++)
 	    val &= mtx[k][j];
-	  
+
 	  if (val)
 	    res |= (1 << i);
 	  else
@@ -284,7 +284,7 @@ cmp_indexed (__m128i a, int la, __m128i b, int lb,
   int i, ndx;
   int dim = (mode & 1) == 0 ? 16 : 8;
   int r2;
-  
+
   r2 = calc_res (a, la, b, lb, mode);
 
   ndx = dim;
@@ -311,7 +311,7 @@ cmp_indexed (__m128i a, int la, __m128i b, int lb,
    return ndx;
 }
 
-static __m128i 
+static __m128i
 cmp_masked (__m128i a, int la, __m128i b, int lb,
 	    const int mode, int *res2)
 {
@@ -355,7 +355,7 @@ cmp_masked (__m128i a, int la, __m128i b, int lb,
    return ret.x;
 }
 
-static int 
+static int
 calc_str_len (__m128i a, const int mode)
 {
   union
@@ -410,7 +410,7 @@ cmp_ii (__m128i *a, __m128i *b, const int mode, int *flags)
 
   index = cmp_indexed (*a, la, *b, lb, mode, &res2);
 
-  if (flags != NULL) 
+  if (flags != NULL)
     *flags = cmp_flags (*a, la, *b, lb, mode, res2, 1);
 
   return index;

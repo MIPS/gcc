@@ -43,4 +43,3 @@ int foo_2 (int n, int l, int m, int r)
 
   return 0;
 }
-

@@ -9,18 +9,18 @@ int Chv_countBigEntries (int npivot, int pivotsizes[], int countflag,
   int count;
   int ii, jj, kinc, kk, kstart, stride ;
   for ( ii = 0 ; ii < nD ; ii++ )
-    { 
-      kk = kstart ;  
+    {
+      kk = kstart ;
       kinc = stride ;
       for ( jj = 0 ; jj < ii ; jj++ )
 	{
-	  absval = __builtin_fabs(entries[kk]) ; 
+	  absval = __builtin_fabs(entries[kk]) ;
 	  if ( absval >= droptol )
-	    count++ ;   
-	  kk += kinc ;    
-	  kinc -= 2 ; 
+	    count++ ;
+	  kk += kinc ;
+	  kinc -= 2 ;
 	}
-      kstart-- ;   
+      kstart-- ;
     }
   return count;
 }

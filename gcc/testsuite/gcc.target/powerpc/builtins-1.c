@@ -207,7 +207,7 @@ int main ()
   vector bool long long l10 = vec_mergee (ld, ld);
   vector bool long long l11 = vec_mergeo (ld, ld);
   vector bool long long l15 = vec_and (ld, ld);
-  
+
   vector long long l7 = vec_div (l3, l4);
   vector unsigned long long u5 = vec_div (u3, u4);
   vector long long l12 = vec_mergee (la, lb);
@@ -241,7 +241,7 @@ int main ()
   vector bool int z_bi2 = vec_mergee (bia, bib);
   vector signed int z_si2 = vec_mergee (sia, sib);
   vector unsigned int z_ui2 = vec_mergee (uia, uib);
-  
+
   vector bool char z_bc2 = vec_mergeh (bca, bcb);
   vector signed char z_sc2 = vec_mergeh (sca, scb);
   vector bool int z_bi3 = vec_mergeh (bia, bib);
@@ -252,7 +252,7 @@ int main ()
   vector bool int z_bi4 = vec_mergeo (bia, bib);
   vector signed int z_si4 = vec_mergeo (sia, sib);
   vector unsigned int z_ui4 = vec_mergeo (uia, uib);
-  
+
   vector pixel int z_vp1 = vec_splat (pa, 1);
   vector bool short z_bs2 = vec_splat (bsa, 0);
   vector short signed int z_vss1 = vec_splat (ssa, 2);
@@ -277,8 +277,8 @@ int main ()
    vec_and             xxland
    vec_andc            xxlandc
    vec_cntlz           vclzd, vclzb, vclzw, vclzh
-   vec_cpsgn           xvcpsgnsp           
-   vec_ctf             xvmuldp 
+   vec_cpsgn           xvcpsgnsp
+   vec_ctf             xvmuldp
    vec_cts             vctsxs
    vec_ctu             vctuxs
    vec_div             divd, divdu | __divdi3(), __udivdi3()
@@ -290,7 +290,7 @@ int main ()
    vec_perm            vperm
    vec_round           xvrdpi
    vec_sel             xxsel
-   vec_xor             xxlxor 
+   vec_xor             xxlxor
    vec_rsqrt           xvrsqrtesp
    vec_rsqrte          xvrsqrtesp
    vec_xl              lxvd2x
@@ -353,4 +353,3 @@ int main ()
 /* { dg-final { scan-assembler-times "vcmpequd." 8 } } */
 /* { dg-final { scan-assembler-times "vcmpgtud." 16 } } */
 /* { dg-final { scan-assembler-times "vrfin" 2 } } */
-

@@ -28,11 +28,11 @@ TEST (void)
   __m64_union u, s1, s2;
   __m64_union e;
   int i;
-   
+
   s1.as_m64 = _mm_set_pi32 (30, 90);
   s2.as_m64 = _mm_set_pi32 (76, -100);
   u.as_m64 = test (s1.as_m64, s2.as_m64);
-   
+
   for (i = 0; i < 2; i++)
      e.as_int[i] = s1.as_int[i] + s2.as_int[i];
 

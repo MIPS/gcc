@@ -10,4 +10,3 @@ void breakme()
     rv0 = pretmp;
     rv0->d = 42;
 }
-

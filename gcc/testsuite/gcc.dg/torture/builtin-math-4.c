@@ -246,7 +246,7 @@ int main (void)
   if (__builtin_##FUNC((X), 1, &q) != 0 || q != (R)) \
     link_error (__LINE__); \
 } while (0)
-  
+
   if (sizeof(int)*__CHAR_BIT__ <= __FLT_MANT_DIG__)
   {
     MAXIT(remquof, __INT_MAX__-1.0F, __INT_MAX__-1);
@@ -306,6 +306,6 @@ int main (void)
   TESTIT_LGAMMA_REENT (gamma, 2.0, 0.0, 1); /* gamma_r(2) == 0 */
   TESTIT_LGAMMA_REENT_R (gamma, 2.5, 0.28, 0.29, 1); /* gamma_r(2.5) == 0.284... */
 #endif
-  
+
   return 0;
 }

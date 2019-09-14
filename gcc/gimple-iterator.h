@@ -43,7 +43,7 @@ struct gphi_iterator : public gimple_stmt_iterator
     return as_a <gphi *> (ptr);
   }
 };
- 
+
 enum gsi_iterator_update
 {
   GSI_NEW_STMT,		/* Only valid when single statement is added, move

@@ -21,7 +21,7 @@ struct C
 };
 
 struct z
-{ 
+{
   struct A b2;
   struct B b3;
   struct C b4;

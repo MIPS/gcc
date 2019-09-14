@@ -16,4 +16,3 @@ main()
   if (*ptr)
     __builtin_abort ();
 }
-

@@ -18,7 +18,7 @@ static  int c[N][N] = {{ 1, 2, 3, 4, 5},
 		       {55,60,65,70,75}};
 
 __attribute__ ((noinline))
-int main1 (int A[N][N], int n) 
+int main1 (int A[N][N], int n)
 {
 
   int i,j;
@@ -36,7 +36,7 @@ int main1 (int A[N][N], int n)
 }
 
 int main (void)
-{ 
+{
   int i,j;
 
   check_vect ();
@@ -58,4 +58,3 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
 /* { dg-final { scan-tree-dump-times "possible dependence between data-refs" 0 "vect" } } */
-

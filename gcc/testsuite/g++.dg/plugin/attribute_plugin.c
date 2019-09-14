@@ -30,14 +30,14 @@ static struct attribute_spec user_attr =
 
 /* Plugin callback called during attribute registration */
 
-static void 
-register_attributes (void *event_data, void *data) 
+static void
+register_attributes (void *event_data, void *data)
 {
   warning (0, G_("Callback to register attributes"));
   register_attribute (&user_attr);
 }
 
-/* Callback function to invoke before the function body is genericized.  */ 
+/* Callback function to invoke before the function body is genericized.  */
 
 void
 handle_pre_generic (void *event_data, void *data)

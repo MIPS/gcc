@@ -45,4 +45,3 @@ int test2l(long double x)
 {
   return ilogbl(x);
 }
-

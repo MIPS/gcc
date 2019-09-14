@@ -16,4 +16,3 @@ void foo (unsigned int val)
 
 /* { dg-final { scan-assembler "stwio\\t" } } */
 /* { dg-final { scan-assembler-not "stwio\\t.*%gprel(frob)" } } */
-

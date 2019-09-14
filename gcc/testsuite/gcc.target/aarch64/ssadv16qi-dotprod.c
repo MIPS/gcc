@@ -28,4 +28,3 @@ int foo (void)
 
 /* { dg-final { scan-assembler {\tsabd\t} } } */
 /* { dg-final { scan-assembler {\tudot\t} } } */
-

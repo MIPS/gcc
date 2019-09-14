@@ -8,7 +8,7 @@ void g (S *s);
 void bug1 (void)
 {
   S s;
-  __builtin_memset (&s, 0, sizeof (S)); 
+  __builtin_memset (&s, 0, sizeof (S));
   g (&s);
 }
 

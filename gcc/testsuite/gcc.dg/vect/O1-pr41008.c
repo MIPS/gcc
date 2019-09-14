@@ -18,5 +18,3 @@ void map_do()
 
   foo (jsav, ksav);
 }
-
-

@@ -18,4 +18,3 @@ foo(signed char *p, int n)
 }
 
 /* { dg-final { scan-tree-dump "appears to be a join point for if-convertable diamond" "split-paths" } } */
-

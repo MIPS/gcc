@@ -4,8 +4,8 @@
 #include "tree-vect.h"
 
 #define N 64
-#define SUM 0 
- 
+#define SUM 0
+
 /* Require widening-mult or data-unpacking (for the type promotion).  */
 __attribute__ ((noinline)) int
 main1 (short *in, int off, short scale, int n)
@@ -29,12 +29,12 @@ int main (void)
   check_vect ();
 
   for (i=0; i<N; i++) {
-    X[i] = 16-i; 
+    X[i] = 16-i;
     __asm__ volatile ("");
   }
 
   sum = main1 (X, 1, 16, N-1);
-  
+
   if (sum != SUM)
     abort ();
 

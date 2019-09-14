@@ -32,7 +32,7 @@ extern int b;
 
 int main(void)
 {
-  int k = f2(a); 
+  int k = f2(a);
   int l = f3(b);
   return k + l;
 }

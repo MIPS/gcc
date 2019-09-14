@@ -14,7 +14,7 @@ static void foo6(void) { }
 static void foo7(void);
 void foo7(void) { }
 
-void foo9(void) 
+void foo9(void)
 {
   foo1 = 2;
   foo2 = 3;

@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 16 
+#define N 16
 
 unsigned int b[N];
 unsigned int out[N];
@@ -25,12 +25,12 @@ main1 (unsigned int x, unsigned int y)
   a1 = in[1] + 142;
   a2 = in[2] + 2;
   a3 = in[3] + 31;
- 
+
   b[0] = a0;
   b[1] = a1;
   b[2] = a2;
   b[3] = a3;
-  
+
   out[0] = a0 * x;
   out[1] = a1 * y;
   out[2] = a2 * x;
@@ -48,7 +48,7 @@ main1 (unsigned int x, unsigned int y)
       || b[1] != (in[1] + 142)
       || b[2] != (in[2] + 2)
       || b[3] != (in[3] + 31))
-      
+
     abort();
 
   return 0;
@@ -66,4 +66,3 @@ int main (void)
 /* { dg-final { scan-tree-dump-times "basic block vectorized" 1 "slp2"  } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 1 "slp2" { target { ! {vect_int_mult } } } } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 2 "slp2" { target vect_int_mult } } } */
-  

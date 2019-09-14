@@ -9,7 +9,7 @@ __attribute__((noinline, noclone))
 static void
 test_to_int  (long long *ll1, long long *r)
 {
-  __m64 m = *(__m64 *) ll1; 
+  __m64 m = *(__m64 *) ll1;
   *(int *) r = _m_to_int (m);
 }
 

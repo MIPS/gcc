@@ -66,7 +66,7 @@ TEST (void)
 
   for (i = 0; i < 4; i++)
     {
-      res[i].x = _mm_dp_pd (val1[i].x, val2[i].x, HIMASK | LOMASK); 
+      res[i].x = _mm_dp_pd (val1[i].x, val2[i].x, HIMASK | LOMASK);
       if (memcmp (&res[i], &chk[i], sizeof (chk[i])))
 	abort ();
     }

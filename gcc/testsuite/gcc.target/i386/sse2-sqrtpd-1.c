@@ -19,7 +19,7 @@ static __m128d
 __attribute__((noinline, unused))
 test (__m128d s1)
 {
-  return _mm_sqrt_pd (s1); 
+  return _mm_sqrt_pd (s1);
 }
 
 static void
@@ -28,9 +28,9 @@ TEST (void)
   union128d u, s1;
   double e[2];
   int i;
-   
+
   s1.x = _mm_set_pd (2134.3343,1234.635654);
-  u.x = test (s1.x); 
+  u.x = test (s1.x);
 
   for (i = 0; i < 2; i++)
     {

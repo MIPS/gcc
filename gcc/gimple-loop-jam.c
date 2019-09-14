@@ -41,7 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-vectorizer.h"
 
 /* Unroll and Jam transformation
-   
+
    This is a combination of two transformations, where the second
    is not always valid.  It's applicable if a loop nest has redundancies
    over the iterations of an outer loop while not having that with

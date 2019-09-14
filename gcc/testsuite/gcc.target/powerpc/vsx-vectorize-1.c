@@ -43,7 +43,7 @@ int main (void)
 {
   int i;
   struct foo *p = malloc (2*sizeof (struct foo));
-  
+
   main1 (p);
   return 0;
 }

@@ -12,7 +12,7 @@ int a\u00c4b\u0441\U000003b4e(void) { return 5; }
 
 int main (void)
 {
-  
+
   if (\u00C0() != 1)
     abort ();
   if (\u00c1() != 2)
@@ -23,6 +23,6 @@ int main (void)
     abort ();
   if (a\u00c4b\u0441\U000003b4e() != 5)
     abort ();
-  
+
   return 0;
 }

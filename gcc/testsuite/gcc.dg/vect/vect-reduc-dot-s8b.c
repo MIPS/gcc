@@ -16,11 +16,11 @@ signed char Y[N] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__)));
    casts, since this patch:
 
      2005-12-26  Kazu Hirata  <kazu@codesourcery.com>
-                                                                                                
+
         PR tree-optimization/25125
 
-   When the dot-product is detected, the loop should be vectorized on vect_sdot_qi 
-   targets (targets that support dot-product of signed char).  
+   When the dot-product is detected, the loop should be vectorized on vect_sdot_qi
+   targets (targets that support dot-product of signed char).
    This test would currently fail to vectorize on targets that support
    dot-product of chars into an int accumulator.
    Alternatively, the loop could also be vectorized as widening-mult + summation,
@@ -61,4 +61,3 @@ int main (void)
 /* { dg-final { scan-tree-dump-times "vect_recog_widen_mult_pattern: detected" 1 "vect" } } */
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail *-*-* } } } */
-

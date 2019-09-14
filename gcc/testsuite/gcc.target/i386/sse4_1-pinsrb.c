@@ -92,7 +92,7 @@ TEST (void)
       if (memcmp (&tmp, &res[i], sizeof (tmp)))
 	abort ();
     }
-    
+
   /* Check pinsrb imm8, m8, xmm.  */
   for (i = 0; i < 16; i++)
     {

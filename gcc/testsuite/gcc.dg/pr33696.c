@@ -10,4 +10,3 @@ void write (uint_least32_t chunk_len)
      uint8_t tmp[4];
      foo (-(long)chunk_len - sizeof(tmp));
 }
-

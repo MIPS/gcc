@@ -21,7 +21,7 @@ static inline int source(void)
   asm("" : "=r"(hardreg));
   return hardreg;
 }
-                                                                                
+
 void test(void)
 {
   int t = source();
@@ -35,4 +35,3 @@ void test(void)
 
 /* In particular, hardreg should *not* appear in the call to bar.  */
 /* { dg-final { scan-tree-dump-times "bar \[(\]\[^\n\r\]*_.\[)\]" 1 "optimized" } } */
-

@@ -5,7 +5,7 @@
 /* This compile only test is to detect an assertion failure in stack branch
    development.  */
 void baz (void);
-                       
+
 double foo (void)
 {
   baz ();

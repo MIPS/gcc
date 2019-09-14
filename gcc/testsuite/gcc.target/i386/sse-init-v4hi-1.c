@@ -22,7 +22,7 @@ check (__m64 x, unsigned short *v, int j)
   unsigned int i;
 
   u.x = x;
-  
+
   for (i = 0; i < sizeof (u) / sizeof (v[0]); i++)
     if (i == j)
       {

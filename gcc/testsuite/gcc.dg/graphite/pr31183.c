@@ -1,8 +1,8 @@
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-O2 -ftree-loop-linear" } */
 
 int buf[256 * 9];
-int f() 
+int f()
 {
   int i, j;
 

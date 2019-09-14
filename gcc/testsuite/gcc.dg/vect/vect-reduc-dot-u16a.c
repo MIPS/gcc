@@ -11,7 +11,7 @@
 unsigned short X[N] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__)));
 unsigned short Y[N] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__)));
 
-/* short->short->int dot product. 
+/* short->short->int dot product.
    Not detected as a dot-product pattern.
    Requires support for non-widneing multiplication and widening-summation.  */
 __attribute__ ((noinline)) unsigned int
@@ -48,4 +48,4 @@ int main (void)
 
 /* The initialization loop in main also gets vectorized.  */
 /* { dg-final { scan-tree-dump-times "vect_recog_dot_prod_pattern: detected" 1 "vect" { xfail *-*-* } } } */
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 2 "vect" { target { vect_short_mult && vect_widen_sum_hi_to_si } } } } */ 
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 2 "vect" { target { vect_short_mult && vect_widen_sum_hi_to_si } } } } */

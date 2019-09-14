@@ -1,8 +1,8 @@
 /* Verify __builtin_has_attribute return value for functions.
    { dg-do compile }
    { dg-options "-Wall -ftrack-macro-expansion=0" }
-   { dg-options "-Wall -Wno-narrowing -Wno-unused-local-typedefs -ftrack-macro-expansion=0" { target c++ } } 
-   { dg-additional-options "-DSKIP_ALIAS" { target *-*-darwin* hppa*-*-hpux* } } 
+   { dg-options "-Wall -Wno-narrowing -Wno-unused-local-typedefs -ftrack-macro-expansion=0" { target c++ } }
+   { dg-additional-options "-DSKIP_ALIAS" { target *-*-darwin* hppa*-*-hpux* } }
 */
 
 #define ATTR(...) __attribute__ ((__VA_ARGS__))

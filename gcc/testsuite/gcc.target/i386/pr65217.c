@@ -3,7 +3,7 @@
 /* { dg-final { scan-assembler-not "negl" } } */
 /* { dg-final { scan-assembler-not "andl" } } */
 
-int 
+int
 test(int n)
 {
   if ((n & -n) != n)

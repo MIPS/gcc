@@ -23,4 +23,3 @@ main(int argc, char *argv[])
 
 	abort();
 }
-

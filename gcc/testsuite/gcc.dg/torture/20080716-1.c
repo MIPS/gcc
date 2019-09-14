@@ -27,7 +27,7 @@ static __inline__ unsigned VEC_tree_base_length (const VEC_tree_base *vec_)
 static __inline__ int VEC_tree_base_iterate (const VEC_tree_base *vec_, unsigned ix_, tree *ptr)
 {
   if (vec_ && ix_ < vec_->num) { *ptr = vec_->vec[ix_]; return 1; } else { *ptr = 0; return 0; }
-} 
+}
 extern void abort (void);
 void __attribute__((noinline)) foo (size_t x)
 {

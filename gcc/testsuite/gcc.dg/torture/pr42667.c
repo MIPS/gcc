@@ -10,4 +10,3 @@ void OnDisplay(char * string)
     string = "(none)";
   WriteTextDots(strlen(string));
 }
-

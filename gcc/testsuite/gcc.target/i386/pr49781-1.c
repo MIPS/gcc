@@ -5,7 +5,7 @@
 static int heap[2*(256 +1+29)+1];
 static int heap_len;
 static int heap_max;
-void 
+void
 foo (int elems)
 {
   int n, m;

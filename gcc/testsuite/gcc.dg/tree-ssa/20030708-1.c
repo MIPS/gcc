@@ -38,7 +38,6 @@ nonlocal_mentioned_p (x)
 /* There should be no casts to a short unsigned int since the entire
    set of conditionals should optimize away.  */
 /* { dg-final { scan-tree-dump-times "\\(short unsigned int\\)" 0 "dom2"} } */
-                                                                                
+
 /* There should be no IF conditionals.  */
 /* { dg-final { scan-tree-dump-times "if " 0 "dom2"} } */
-                                                                                

@@ -19,5 +19,3 @@ main()
 	&& f != bigconst) abort ();
     exit (0);
 }
-
-

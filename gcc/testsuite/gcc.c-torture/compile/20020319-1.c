@@ -17,4 +17,3 @@ int zip(void)
 
   return 0;
 }
-

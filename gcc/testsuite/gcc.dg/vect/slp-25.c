@@ -48,10 +48,10 @@ int main1 (int n)
 }
 
 int main (void)
-{ 
+{
 
   check_vect ();
-  
+
   return main1 (N);
 }
 

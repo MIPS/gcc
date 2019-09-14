@@ -4,8 +4,8 @@
 
 typedef struct
 {
-  int m[17];                        
-  int seed;                             
+  int m[17];
+  int seed;
   int i;
   int j;
   int haveRange;

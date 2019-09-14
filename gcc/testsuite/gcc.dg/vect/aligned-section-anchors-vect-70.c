@@ -7,7 +7,7 @@
 /* Increase alignment of struct if an array's offset is multiple of alignment of
    vector type corresponding to it's scalar type.
    For the below test-case:
-   offsetof(e) == 8 bytes. 
+   offsetof(e) == 8 bytes.
    i) For arm: let x = alignment of vector type corresponding to int,
    x == 8 bytes.
    Since offsetof(e) % x == 0, set DECL_ALIGN(a, b, c) to x.

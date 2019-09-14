@@ -22,6 +22,6 @@ int main() {
   ll_to_int ((long long)val, &i);
   if (i != val)
     abort ();
-  
+
   exit (0);
 }

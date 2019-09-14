@@ -34,7 +34,7 @@ TEST (void)
 {
   union128 u, s1;
   float e[4] = {1.1, 2.2, 3.3, 4.4};
- 
+
   s1.x = _mm_set_ps (2134.3343,1234.635654, 1.2234, 876.8976);
 
   u.x = s1.x;
@@ -42,7 +42,7 @@ TEST (void)
 
   e[1] = u.a[1];
   e[2] = u.a[2];
-  e[3] = u.a[3];   
+  e[3] = u.a[3];
 
   if (check_union128 (u, e))
     abort ();

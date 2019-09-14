@@ -4,4 +4,3 @@
 /* { dg-additional-sources vect-simd-clone-12a.c } */
 
 #include "vect-simd-clone-10.c"
-

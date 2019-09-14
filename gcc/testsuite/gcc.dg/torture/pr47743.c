@@ -19,4 +19,3 @@ foo (void *x, int y)
     }
   return a;
 }
-

@@ -23,7 +23,7 @@ static int64_t safe_div_func_int64_t_s_s (int64_t _si1, int64_t _si2)
                   || ((((int8_t)(si1))<((int8_t)0)) && (((int8_t)(si2))<((int8_t)0)) && (((int8_t)(si1)) < ((INT8_MIN)-((int8_t)(si2)))))) \
                  ? ((int8_t)(si1)) \
                  : (((int8_t)(si1)) + ((int8_t)(si2))) \
-                 ) 
+                 )
 
 static int8_t
 safe_add_func_int8_t_s_s(int8_t _si1, int8_t _si2)
@@ -116,4 +116,3 @@ int main (void)
     abort ();
   return 0;
 }
-

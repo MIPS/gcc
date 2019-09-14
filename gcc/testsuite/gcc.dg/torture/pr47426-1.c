@@ -20,4 +20,3 @@ getfoo (void)
 {
   return &foo;
 }
-

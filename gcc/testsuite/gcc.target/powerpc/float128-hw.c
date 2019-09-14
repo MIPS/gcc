@@ -56,4 +56,3 @@ TYPE uint_to_f128 (unsigned int a) { return (TYPE)a; }
 /* { dg-final { scan-assembler 	   {\mxsnmsubqp\M} } } */
 /* { dg-final { scan-assembler 	   {\mxssubqp\M}   } } */
 /* { dg-final { scan-assembler-not {\mbl\M}        } } */
-

@@ -9,4 +9,3 @@ void K (int *gpwgts, int *badminpwgt, int *badmaxpwgt)
     badmaxpwgt[i] = badmaxpwgt[i+1] = gpwgts[i]+gpwgts[i];
   }
 }
-

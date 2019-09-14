@@ -18,13 +18,13 @@ int main ()
     double d;
     unsigned long long ll;
   } conv_val;
-  
+
   unsigned long long ll_value;
   register double  f14;
 
   /* __builtin_set_fpscr_rn() builtin can take a const or a variable
      value between 0 and 3 as the argument.
-     __builtin_mtfsb0 and __builtin_mtfsb1 argument must be a constant 
+     __builtin_mtfsb0 and __builtin_mtfsb1 argument must be a constant
      30 or 31.
   */
 
@@ -40,7 +40,7 @@ int main ()
 #else
        abort();
 #endif
-    }		  
+    }
 
   /* Test float rounding mode builtin with const value argument.  */
   __builtin_set_fpscr_rn(3);
@@ -55,7 +55,7 @@ int main ()
 #else
        abort();
 #endif
-    }		  
+    }
 
   val = 2;
   __builtin_set_fpscr_rn(val);
@@ -70,7 +70,7 @@ int main ()
 #else
        abort();
 #endif
-    }		  
+    }
 
   /* Reset to 0 for testing */
   val = 0;
@@ -87,7 +87,7 @@ int main ()
 #else
        abort();
 #endif
-    }		  
+    }
 
   __builtin_mtfsb0(31);
   conv_val.d = __builtin_mffs();
@@ -100,7 +100,7 @@ int main ()
 #else
        abort();
 #endif
-    }		  
+    }
 
  __builtin_mtfsb1(30);
   conv_val.d = __builtin_mffs();
@@ -113,7 +113,7 @@ int main ()
 #else
        abort();
 #endif
-    }		  
+    }
 
   __builtin_mtfsb0(30);
   conv_val.d = __builtin_mffs();
@@ -126,7 +126,7 @@ int main ()
 #else
        abort();
 #endif
-    }		  
+    }
 
   __builtin_mtfsb1(0);
   conv_val.d = __builtin_mffs();
@@ -139,7 +139,7 @@ int main ()
 #else
        abort();
 #endif
-    }		  
+    }
 
   __builtin_mtfsb0(0);
   conv_val.d = __builtin_mffs();
@@ -152,7 +152,7 @@ int main ()
 #else
        abort();
 #endif
-    }		  
+    }
 
 
   /* Test builtin float rounding mode with variable as argument.  */
@@ -169,7 +169,7 @@ int main ()
 #else
        abort();
 #endif
-    }		  
+    }
 
   val = 3;
   __builtin_set_fpscr_rn(val);
@@ -184,5 +184,5 @@ int main ()
 #else
        abort();
 #endif
-    }		  
+    }
 }

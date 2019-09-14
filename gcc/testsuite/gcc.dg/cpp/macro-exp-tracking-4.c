@@ -10,4 +10,3 @@ foo()
 {
   SQUARE (1 << 0.1);  /* { dg-message "13:invalid operands to binary <<" } */
 }
-

@@ -70,11 +70,11 @@ binfo_or_else (tree base, tree type)
 void
 cxx_readonly_error (location_t loc, tree arg, enum lvalue_use errstring)
 {
- 
+
 /* This macro is used to emit diagnostics to ensure that all format
    strings are complete sentences, visible to gettext and checked at
    compile time.  */
- 
+
 #define ERROR_FOR_ASSIGNMENT(LOC, AS, ASM, IN, DE, ARG)			\
   do {                                                                  \
     switch (errstring)                                                  \
@@ -452,8 +452,8 @@ cxx_incomplete_type_diagnostic (location_t loc, const_tree value,
 {
   bool is_decl = false, complained = false;
 
-  gcc_assert (diag_kind == DK_WARNING 
-	      || diag_kind == DK_PEDWARN 
+  gcc_assert (diag_kind == DK_WARNING
+	      || diag_kind == DK_PEDWARN
 	      || diag_kind == DK_ERROR);
 
   /* Avoid duplicate error message.  */
@@ -2000,7 +2000,7 @@ build_x_arrow (location_t loc, tree expr, tsubst_flags_t complain)
 	  /* This provides a better instantiation backtrace in case of
 	     error.  */
 	  if (fn && DECL_USE_TEMPLATE (fn))
-	    push_tinst_level_loc (fn, 
+	    push_tinst_level_loc (fn,
 				  (current_instantiation () != actual_inst)
 				  ? DECL_SOURCE_LOCATION (fn)
 				  : input_location);

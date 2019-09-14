@@ -35,7 +35,7 @@ avx_test ()
     check(imm, "" #imm "");
 
     for(i = 1; i < 4; i++) e.f[i] = s1[i];
-    
+
     CMP(_CMP_EQ_OQ, !isunordered(s1[0], s2[0]) && s1[0] == s2[0]);
     CMP(_CMP_LT_OS, !isunordered(s1[0], s2[0]) && s1[0] < s2[0]);
     CMP(_CMP_LE_OS, !isunordered(s1[0], s2[0]) && s1[0] <= s2[0]);

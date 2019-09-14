@@ -11,4 +11,3 @@ f0a (int8_t * __restrict__ arg1)
     result += arg1[idx] << (arg1[idx] == arg1[idx]);
   return result;
 }
-

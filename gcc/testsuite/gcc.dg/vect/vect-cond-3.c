@@ -13,19 +13,19 @@ int b[N+1] = {17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1};
 int check_result_a[M] = {1024,1024,1024,256,256,256,256,256,256,256,256,128,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48};
 int check_result_b[M] = {17,17,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
 
-__attribute__ ((noinline)) void 
+__attribute__ ((noinline)) void
 foo ()
 {
   int j, i, x;
   int curr_a, flag, next_a, curr_b, next_b;
 
-  for (j = 0; j < M; j++) 
+  for (j = 0; j < M; j++)
     {
       x = x_in[j];
       curr_a = a[0];
       curr_b = b[0];
 
-      for (i = 0; i < N; i++) 
+      for (i = 0; i < N; i++)
         {
           flag = x > c[i];
           next_a = a[i+1];
@@ -45,7 +45,7 @@ int main (void)
 
   check_vect ();
 
-  for (j = 0; j < M; j++) 
+  for (j = 0; j < M; j++)
     x_in[j] = j;
 
   foo ();
@@ -59,5 +59,3 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "OUTER LOOP VECTORIZED" 1 "vect" { xfail { vect_no_align && { ! vect_hw_misalign } } } } } */
-
-

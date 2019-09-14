@@ -3190,7 +3190,7 @@ build_tree_list_vec (const vec<tree, va_gc> *vec MEM_STAT_DECL)
    purpose and value fields are PURPOSE and VALUE
    and whose TREE_CHAIN is CHAIN.  */
 
-tree 
+tree
 tree_cons (tree purpose, tree value, tree chain MEM_STAT_DECL)
 {
   tree node;
@@ -5239,7 +5239,7 @@ fld_type_variant (tree first, tree t, class free_lang_data_d *fld,
   TYPE_NAME (v) = TYPE_NAME (t);
   TYPE_ATTRIBUTES (v) = TYPE_ATTRIBUTES (t);
   TYPE_CANONICAL (v) = TYPE_CANONICAL (t);
-  /* Variants of incomplete types should have alignment 
+  /* Variants of incomplete types should have alignment
      set to BITS_PER_UNIT.  Do not copy the actual alignment.  */
   if (!RECORD_OR_UNION_TYPE_P (v) || COMPLETE_TYPE_P (v))
     {
@@ -5979,7 +5979,7 @@ find_decls_types_r (tree *tp, int *ws, void *data)
 			  && TREE_CODE (*tem) != PARM_DECL);
 	      *tem = TREE_CHAIN (*tem);
 	    }
-	  else 
+	  else
 	    {
 	      fld_worklist_push (*tem, fld);
 	      tem = &TREE_CHAIN (*tem);
@@ -6393,7 +6393,7 @@ check_lang_type (const_tree cand, const_tree base)
   return lang_hooks.types.type_hash_eq (cand, base);
 }
 
-/* This function checks to see if TYPE matches the size one of the built-in 
+/* This function checks to see if TYPE matches the size one of the built-in
    atomic types, and returns that core atomic type.  */
 
 static tree
@@ -6928,7 +6928,7 @@ type_hash_canon_hash (tree type)
 	  hstate.add_object (TREE_INT_CST_ELT (t, i));
 	break;
       }
-      
+
     case REAL_TYPE:
     case FIXED_POINT_TYPE:
       {
@@ -8230,7 +8230,7 @@ build_nonstandard_integer_type (unsigned HOST_WIDE_INT precision,
 
   if (unsignedp)
     unsignedp = MAX_INT_CACHED_PREC + 1;
-    
+
   if (precision <= MAX_INT_CACHED_PREC)
     {
       itype = nonstandard_integer_type_cache[precision + unsignedp];
@@ -9793,7 +9793,7 @@ static GTY(()) unsigned anon_cnt = 0; /* Saved for PCH.  */
 tree
 make_anon_name ()
 {
-  const char *fmt = 
+  const char *fmt =
 #if !defined (NO_DOT_IN_LABEL)
     "."
 #elif !defined (NO_DOLLAR_IN_LABEL)
@@ -9837,7 +9837,7 @@ get_file_function_name (const char *type)
     p = q = ASTRDUP (first_global_object_name);
   /* If the target is handling the constructors/destructors, they
      will be local to this file and the name is only necessary for
-     debugging purposes. 
+     debugging purposes.
      We also assign sub_I and sub_D sufixes to constructors called from
      the global static constructors.  These are always local.  */
   else if (((type[0] == 'I' || type[0] == 'D') && targetm.have_ctors_dtors)
@@ -10321,7 +10321,7 @@ build_atomic_base (tree type, unsigned int align)
   /* Make sure its not already registered.  */
   if ((t = get_qualified_type (type, TYPE_QUAL_ATOMIC)))
     return t;
-  
+
   t = build_variant_type_copy (type);
   set_type_quals (t, TYPE_QUAL_ATOMIC);
 
@@ -10475,7 +10475,7 @@ build_common_tree_nodes (bool signed_char)
   /* Don't call build_qualified type for atomics.  That routine does
      special processing for atomics, and until they are initialized
      it's better not to make that call.
-     
+
      Check to see if there is a target override for atomic types.  */
 
   atomicQI_type_node = build_atomic_base (unsigned_intQI_type_node,
@@ -10488,7 +10488,7 @@ build_common_tree_nodes (bool signed_char)
 					targetm.atomic_align_for_mode (DImode));
   atomicTI_type_node = build_atomic_base (unsigned_intTI_type_node,
 					targetm.atomic_align_for_mode (TImode));
-  	
+
   access_public_node = get_identifier ("public");
   access_protected_node = get_identifier ("protected");
   access_private_node = get_identifier ("private");
@@ -11727,7 +11727,7 @@ build_call_expr_loc_array (location_t loc, tree fndecl, int n, tree *argarray)
 {
   tree fntype = TREE_TYPE (fndecl);
   tree fn = build1 (ADDR_EXPR, build_pointer_type (fntype), fndecl);
- 
+
   return fold_build_call_array_loc (loc, TREE_TYPE (fntype), fn, n, argarray);
 }
 
@@ -13925,7 +13925,7 @@ verify_type_variant (const_tree t, tree tv)
   /* Type variant can differ by:
 
      - TYPE_QUALS: TYPE_READONLY, TYPE_VOLATILE, TYPE_ATOMIC, TYPE_RESTRICT,
-                   ENCODE_QUAL_ADDR_SPACE. 
+                   ENCODE_QUAL_ADDR_SPACE.
      - main variant may be TYPE_COMPLETE_P and variant types !TYPE_COMPLETE_P
        in this case some values may not be set in the variant types
        (see TYPE_COMPLETE_P checks).
@@ -14004,7 +14004,7 @@ verify_type_variant (const_tree t, tree tv)
   else if (TREE_CODE (t) == ARRAY_TYPE)
     verify_variant_match (TYPE_NONALIASED_COMPONENT);
   /* During LTO we merge variant lists from diferent translation units
-     that may differ BY TYPE_CONTEXT that in turn may point 
+     that may differ BY TYPE_CONTEXT that in turn may point
      to TRANSLATION_UNIT_DECL.
      Ada also builds variants of types with different TYPE_CONTEXT.   */
   if ((!in_lto_p || !TYPE_FILE_SCOPE_P (t)) && 0)
@@ -14179,7 +14179,7 @@ type_with_interoperable_signedness (const_tree type)
 }
 
 /* Return true iff T1 and T2 are structurally identical for what
-   TBAA is concerned.  
+   TBAA is concerned.
    This function is used both by lto.c canonical type merging and by the
    verifier.  If TRUST_TYPE_CANONICAL we do not look into structure of types
    that have TYPE_CANONICAL defined and assume them equivalent.  This is useful
@@ -14607,7 +14607,7 @@ verify_type (const_tree t)
 	  error ("%<TYPE_ARRAY_MAX_SIZE%> not %<INTEGER_CST%>");
 	  debug_tree (TYPE_ARRAY_MAX_SIZE (t));
 	  error_found = true;
-        } 
+        }
     }
   else if (TYPE_MAX_VALUE_RAW (t))
     {
@@ -14767,7 +14767,7 @@ verify_type (const_tree t)
       error ("%<TYPE_CACHED_VALUES_P%> is set while it should not be");
       error_found = true;
     }
-  
+
   /* ipa-devirt makes an assumption that TYPE_METHOD_BASETYPE is always
      TYPE_MAIN_VARIANT and it would be odd to add methods only to variatns
      of a type. */
@@ -15216,7 +15216,7 @@ get_typenode_from_name (const char *name)
    real declaration.
 
    Keep the size up to date in tree.h !  */
-const builtin_structptr_type builtin_structptr_types[6] = 
+const builtin_structptr_type builtin_structptr_types[6] =
 {
   { fileptr_type_node, ptr_type_node, "FILE" },
   { const_tm_ptr_type_node, const_ptr_type_node, "tm" },

@@ -13,4 +13,3 @@ bf (void)
   char v[i];
   af (v);
 }
-

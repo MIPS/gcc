@@ -12,7 +12,7 @@ main ()
 	if (a)
 	  {
 	    char d = a;
-	    b = d ? 1 / d : 0; 
+	    b = d ? 1 / d : 0;
 	  }
 	else
 	  break;

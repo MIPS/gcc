@@ -92,4 +92,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 		       " dereference of non-pointer tmp (type: struct foo)"
 		       " when accessing ->x"));
 }
-

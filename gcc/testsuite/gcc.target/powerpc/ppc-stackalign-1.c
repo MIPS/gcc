@@ -30,6 +30,6 @@ int main (void)
 
   for (i = 1; i < 32; i++)
     f (i);
-  
+
   exit (0);
 }

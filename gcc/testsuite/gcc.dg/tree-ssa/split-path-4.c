@@ -21,4 +21,3 @@ powi_cost (long n)
 }
 
 /* { dg-final { scan-tree-dump-times "Duplicating join block" 1 "split-paths" } } */
-

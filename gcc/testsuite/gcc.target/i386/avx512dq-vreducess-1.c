@@ -19,6 +19,6 @@ avx512dq_test (void)
   x1 = _mm_reduce_ss (x1, x2, IMM);
 
   x1 = _mm_mask_reduce_ss (x1, m, x1, x2, IMM);
- 
+
   x1 = _mm_maskz_reduce_ss (m, x1, x2, IMM);
 }

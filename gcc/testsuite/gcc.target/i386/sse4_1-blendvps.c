@@ -12,7 +12,7 @@
 static void
 init_blendvps (float *src1, float *src2, float *mask)
 {
-  int i, msk, sign = 1; 
+  int i, msk, sign = 1;
 
   msk = -1;
   for (i = 0; i < NUM * 4; i++)

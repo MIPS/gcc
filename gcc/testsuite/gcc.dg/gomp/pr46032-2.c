@@ -26,4 +26,3 @@ foo (void)
 /* { dg-final { scan-tree-dump-times "\\] = 2;" 1 "optimized" } } */
 /* { dg-final { scan-tree-dump-times "\\] = _\[0-9\]*;" 0 "optimized" } } */
 /* { dg-final { scan-tree-dump-times "\\] = " 3 "optimized" } } */
-

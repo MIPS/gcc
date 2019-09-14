@@ -17,4 +17,3 @@ vector int f1()
 /* We should be able to materialize the constant vector without
    any lvewx instructions as it is constant. */
 /* { dg-final { scan-assembler-not "lvewx" } } */
-

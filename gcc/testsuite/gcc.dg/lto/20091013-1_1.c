@@ -110,4 +110,3 @@ int GetTextMetricsW( HDC hdc, TEXTMETRICW *metrics )
     DC * dc;
     return WineEngGetTextMetrics(dc->gdiFont, metrics);
 }
-

@@ -32,4 +32,3 @@ int test_nezeroll(unsigned long long f)
 }
 
 /* { dg-final { scan-tree-dump-times "popcount" 0 "original" } } */
-

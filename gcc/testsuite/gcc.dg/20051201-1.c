@@ -5,7 +5,7 @@
 /* { dg-require-profiling "-fprofile-generate" } */
 /* { dg-options "-O1 -fprofile-generate -Wno-attributes" } */
 
-static __attribute__ ((always_inline)) void 
+static __attribute__ ((always_inline)) void
 baz ()
 {
 }
@@ -22,6 +22,6 @@ int
 foo ()
 {
   long res;
-  
+
   res = bar ();
 }

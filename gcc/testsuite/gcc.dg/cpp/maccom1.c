@@ -11,4 +11,3 @@
 def
 
 /* { dg-final { scan-file maccom1.i "(^|\\n)passed" } } */
-

@@ -2,7 +2,7 @@
 /* { dg-options "-O -msve-vector-bits=256 --save-temps" } */
 /* { dg-final { check-function-bodies "**" "" } } */
 
-/* Case 3: Trailing same element.  */ 
+/* Case 3: Trailing same element.  */
 
 #include <stdint.h>
 

@@ -22,9 +22,9 @@ void f()
 	    ((vector float) {3.1e+08, -1.49e+09, 5.38e+08, -1.3e+09}),
 	    ((vector float) {9.66e+08, 5.5e+08, 1.75e+08, -8.22e+07}),
 	    ((vector float) {-1.72e+08, -2.06e+09, 1.14e+09, -4.64e+08}),
-	    ((vector float) {-1.25e+09, 8.12e+07, -2.02e+09, 4.71e+08}), 
-	    ((vector float){1,1,1,1}), 
-	    ((vector float){2,2,2,2}), 
-	    ((vector float){3,3,3,3}), 
+	    ((vector float) {-1.25e+09, 8.12e+07, -2.02e+09, 4.71e+08}),
+	    ((vector float){1,1,1,1}),
+	    ((vector float){2,2,2,2}),
+	    ((vector float){3,3,3,3}),
 	    962425441);
 }

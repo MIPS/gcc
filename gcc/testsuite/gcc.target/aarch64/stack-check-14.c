@@ -19,6 +19,3 @@ int t2(int x)
    The form can change quite a bit so we just check for two
    probes without looking at the actual address.  */
 /* { dg-final { scan-assembler-times "str\\txzr," 1 } } */
-
-
-

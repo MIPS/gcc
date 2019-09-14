@@ -7,21 +7,16 @@
 /* { dg-final { scan-assembler "\\.arm" } } */
 /* { dg-final { scan-assembler-times "\\.thumb_func" 1} } */
 
-int 
+int
 foo(int a)
 {
   return a ? 1 : 5;
 }
 
-int 
+int
 bar(int a)
 {
   return a ? 1 : 5;
 }
 
 /* { dg-final { scan-assembler-times "ite" 1 { target { arm_thumb2_ok } } } } */
-
-
-
-
-

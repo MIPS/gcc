@@ -30,5 +30,3 @@ int main(void)
   t(1, &b);
   return 0;
 }
-
-

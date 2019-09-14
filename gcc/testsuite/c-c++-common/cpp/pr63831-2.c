@@ -3,4 +3,3 @@
 /* { dg-options "-save-temps" } */
 
 #include "pr63831-1.c"
-

@@ -26,7 +26,7 @@ void foo (void)
   vector unsigned short int vusi1, vusi2, vusiz;
   vector pixel vp1, vp2, vpz;
   vector float vf1, vf2, vfz;
-  
+
   boolVec1 = vec_sld( boolVec1, boolVec1, 4 );
   boolVec2 = vec_sld( boolVec2, boolVec2, 2 );
   boolVec3 = vec_sld( boolVec3, boolVec3, 1 );
@@ -37,7 +37,7 @@ void foo (void)
   vuiz = vec_sld( vui1, vui2, 1 );
   vssiz = vec_sld( vssi1, vssi2, 1 );
   vusiz = vec_sld( vusi1, vusi2, 1 );
-  
+
   vfz = vec_sld( vf1, vf2, 1 );
 
   vpz = vec_sld( vp1, vp2, 1 );

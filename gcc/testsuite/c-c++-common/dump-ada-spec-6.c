@@ -5,6 +5,6 @@ typedef enum {
     Zero
 } MyEnum;
 
-typedef MyEnum SomethingElse; 
+typedef MyEnum SomethingElse;
 
 /* { dg-final { cleanup-ada-spec } } */

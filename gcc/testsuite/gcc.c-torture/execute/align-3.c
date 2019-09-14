@@ -2,7 +2,7 @@
 
 void func(void) __attribute__((aligned(256)));
 
-void func(void) 
+void func(void)
 {
 }
 

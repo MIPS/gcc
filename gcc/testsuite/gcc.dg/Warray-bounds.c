@@ -76,7 +76,7 @@ int* f(void) {
     g(&c.c[0]);
 
     g(&a[-1]);             /* { dg-warning "array subscript" } */
-    g(&b[-1]);             /* { dg-warning "array subscript" } */ 
+    g(&b[-1]);             /* { dg-warning "array subscript" } */
     h(sizeof a[-1]);
     h(sizeof a[10]);
     h(sizeof b[-1]);
@@ -98,4 +98,3 @@ int* f(void) {
     bar (&c);
     return a;
 }
-

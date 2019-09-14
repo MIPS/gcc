@@ -116,4 +116,3 @@ avx_test (void)
   assert (__builtin_memcmp (&e17, &n17, sizeof (e17)) == 0);
   assert (__builtin_memcmp (&e18, &n18, sizeof (e18)) == 0);
 }
-

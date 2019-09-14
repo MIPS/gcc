@@ -12,4 +12,3 @@
    Therefore, we expect a frame record in main and leaf.  */
 
 /* { dg-final { scan-assembler-times "stp\tx29, x30, \\\[sp, -\[0-9\]+\\\]!" 2 } } */
-

@@ -17,4 +17,3 @@ strictly_smaller_name (char *s, char *t)
         return 0;
     }
 }
-

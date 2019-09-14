@@ -115,4 +115,3 @@ struct S13 test_13_4b (void)
 
 #endif /* have __flash1 */
 #endif /* have __memx */
-

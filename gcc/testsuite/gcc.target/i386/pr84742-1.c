@@ -2,7 +2,7 @@
 /* { dg-do compile } */
 /* { dg-options "-O2" } */
 
-void 
+void
 foo ()
 {
   char b = 1;

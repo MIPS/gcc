@@ -14,7 +14,7 @@ main_test (void)
 {
   const char *const s1 = "hello world";
   const char *s2, *s3;
-  
+
   if (strncmp (s1, "hello world", 12) != 0)
     abort();
   if (strncmp ("hello world", s1, 12) != 0)
@@ -65,7 +65,7 @@ main_test (void)
   s2 = s1; s3 = s1+4;
   if (strncmp (++s2, ++s3+2, 1) >= 0 || s2 != s1+1 || s3 != s1+5)
     abort();
-  
+
   /* Test at least one instance of the __builtin_ style.  We do this
      to ensure that it works and that the prototype is correct.  */
   if (__builtin_strncmp ("hello", "a", 100) <= 0)

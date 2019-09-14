@@ -8,4 +8,3 @@ _Complex float foo(void)
   x =  a[1];
   return x;
 }
-

@@ -10,4 +10,3 @@ int fn1 (v4si p)
 {
   return p[0];
 }
-

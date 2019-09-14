@@ -18,7 +18,7 @@ static int
 __attribute__((noinline, unused))
 test (__m128d p)
 {
-  return _mm_movemask_pd (p); 
+  return _mm_movemask_pd (p);
 }
 
 static void
@@ -36,10 +36,10 @@ TEST (void)
   e = 0;
   if (source[0] < 0)
     e |= 1;
-  
+
   if (source[1] < 0)
     e |= 1 << 1;
 
   if (checkVi (&d, &e, 1))
-    abort ();  
+    abort ();
 }

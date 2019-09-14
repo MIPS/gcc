@@ -6,4 +6,3 @@ void InsertMultiPoint(int b) {
     if (b) a = 0;
     print_wkb_byte(a);
 }
-

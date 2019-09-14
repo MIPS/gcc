@@ -40,7 +40,7 @@ testmin (const T *c, T init, T result)
 }
 
 int main (void)
-{ 
+{
   static unsigned char const A[N] = {
     0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
     0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,
@@ -63,7 +63,7 @@ int main (void)
   };
 
   check_vect ();
-  
+
   testmin (A, 10, 1);
   testmin (B, 0x7f, 0x70);
   testmin (C, 0x7f, 0x09);
@@ -74,4 +74,3 @@ int main (void)
 
   return 0;
 }
-

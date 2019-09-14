@@ -3,7 +3,7 @@
 struct S
 {
   int b:4;
-  int c; 
+  int c;
 } e = { -1, 0 };
 
 int d, f;

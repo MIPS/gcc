@@ -49,7 +49,7 @@ darwin_gt_pch_use_address (void *addr, size_t sz, int fd, size_t off)
 
   gcc_assert ((size_t)pch_address_space % pagesize == 0
 	      && sizeof (pch_address_space) % pagesize == 0);
-  
+
   ret = (addr == pch_address_space && sz <= sizeof (pch_address_space));
   if (! ret)
     sz = 0;

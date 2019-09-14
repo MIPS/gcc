@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-O1 -fdump-tree-dom2 -fdump-tree-optimized" } */
-    
+
 extern void abort (void);
 union tree_node;
 typedef union tree_node *tree;
@@ -9,7 +9,7 @@ struct tree_common
 {
   int code;
 };
-struct tree_decl 
+struct tree_decl
 {
   long pointer_alias_set;
 };
@@ -29,7 +29,7 @@ blah (decl, set)
     abort ();
   record_alias_subset (decl->decl.pointer_alias_set);
   if (set != -1)
-    set = 0; 
+    set = 0;
   return set;
 }
 

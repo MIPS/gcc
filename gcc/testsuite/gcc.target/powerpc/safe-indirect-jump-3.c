@@ -9,7 +9,7 @@ void bar (void);
 int foo (int x)
 {
   int a;
-  
+
   switch (x)
     {
     default:

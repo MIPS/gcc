@@ -11,7 +11,7 @@ foo ()
   long res;
   uint64_t flags;
   size_t buf_len;
-  
+
   ret = __builtin_bpf_helper_strtol (buf, buf_len, flags, &res);
 }
 

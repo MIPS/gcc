@@ -32,4 +32,3 @@ constraint_equal (struct constraint a, struct constraint b)
 
 /* { dg-final { scan-tree-dump-times "Deleted dead store: x = " 1 "dse1" } } */
 /* { dg-final { scan-tree-dump-times "Deleted dead store: y = " 1 "dse1" } } */
-

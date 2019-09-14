@@ -12,7 +12,7 @@ swap(struct s* p, struct t* q)
 }
 
 int main()
-{    
+{
   struct t a[2];
   a[0].x = 0x12345678;
   a[1].x = 0x98765432;

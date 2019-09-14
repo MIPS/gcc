@@ -5,7 +5,7 @@ static double a[NMAX][NMAX], b[NMAX][NMAX], c[NMAX][NMAX];
 
 void dsyr2k(int N) {
 	int i,j,k;
-	
+
 #pragma scop
 	for (i=0; i<N; i++) {
 		for (j=0; j<N; j++) {
@@ -17,4 +17,4 @@ void dsyr2k(int N) {
 #pragma endscop
 }
 
-/* { dg-final { scan-tree-dump-times "number of SCoPs: 1" 1 "graphite" { xfail *-*-* } } } */ 
+/* { dg-final { scan-tree-dump-times "number of SCoPs: 1" 1 "graphite" { xfail *-*-* } } } */

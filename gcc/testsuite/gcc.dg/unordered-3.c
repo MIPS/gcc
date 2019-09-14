@@ -77,4 +77,3 @@ int main()
   test2 (1.0);
   return 0;
 }
-

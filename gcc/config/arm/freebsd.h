@@ -175,4 +175,3 @@ while (0)
 #define NEED_INDICATE_EXEC_STACK 1
 
 #define ARM_TARGET2_DWARF_FORMAT (DW_EH_PE_pcrel | DW_EH_PE_indirect)
-

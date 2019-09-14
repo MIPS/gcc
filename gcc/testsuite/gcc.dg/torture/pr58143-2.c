@@ -9,7 +9,7 @@ char foo (unsigned char p)
   return p + 1;
 }
 
-int bar () 
+int bar ()
 {
   for (h = 0; h < 3; h = foo (h))
     {

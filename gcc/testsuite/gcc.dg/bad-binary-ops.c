@@ -71,4 +71,3 @@ int test_4 (void)
           S {aka struct s}
    { dg-end-multiline-output "" } */
 }
-

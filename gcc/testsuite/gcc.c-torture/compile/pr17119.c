@@ -16,4 +16,3 @@ _mesa_DrawPixels (int width, int height, unsigned format,
       break;
     }
 }
-

@@ -15,5 +15,3 @@ void f (long long int p)
   if (p)
     abort ();
 }
-
-

@@ -45,4 +45,3 @@ testul_h (vector unsigned long long vul2, vector unsigned long long vul3)
 
 /* mergeh with longlong types use xxpermdi (1 ea).  */
 /* { dg-final { scan-assembler-times "xxpermdi" 6 } } */
-

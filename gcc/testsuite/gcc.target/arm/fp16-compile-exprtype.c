@@ -23,7 +23,3 @@ main (void)
   CHECK ((__fp16)99.99, __fp16);
   CHECK ((f1+f2, f1), __fp16);
 }
-
-
-
-

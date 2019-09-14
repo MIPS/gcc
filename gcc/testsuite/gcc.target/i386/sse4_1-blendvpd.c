@@ -12,7 +12,7 @@
 static void
 init_blendvpd (double *src1, double *src2, double *mask)
 {
-  int i, msk, sign = 1; 
+  int i, msk, sign = 1;
 
   msk = -1;
   for (i = 0; i < NUM * 2; i++)

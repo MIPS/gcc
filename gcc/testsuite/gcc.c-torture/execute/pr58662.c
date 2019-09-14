@@ -13,7 +13,7 @@ int
 main ()
 {
   char e;
-  d = foo (a == 0, (0, 35536)); 
+  d = foo (a == 0, (0, 35536));
   e = d % 14;
   b = e && c;
   if (b != 0)

@@ -8,7 +8,7 @@ int blah(int a, ...)
   va_start(va,a);
   if (a == 0)
     return -1;
-  else 
+  else
     {
       int i;
       for (i = 0; i < a; i++)

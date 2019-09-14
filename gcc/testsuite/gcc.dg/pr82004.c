@@ -28,5 +28,5 @@ main ()
 	g = g + f;
 	bar (pow (10.0, g));
       }
-  return 0;  
+  return 0;
 }

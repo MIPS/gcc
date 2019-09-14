@@ -24,4 +24,3 @@ void tst(void)
 
 /* { dg-final { scan-tree-dump-times "& 255" 1 "optimized" } } */
 /* { dg-final { scan-tree-dump-times "= \\(signed char\\)" 1 "optimized" } } */
-

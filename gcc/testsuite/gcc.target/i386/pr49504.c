@@ -2,7 +2,7 @@
 /* { dg-do run { target x32 } } */
 /* { dg-options "-O" } */
 
-unsigned long long 
+unsigned long long
 foo (const void* p, unsigned long long q)
 {
   unsigned long long a = (((unsigned long long) ((unsigned long) p)) + q) >> 32;

@@ -20,4 +20,3 @@ void foo(unsigned n)
 
 /* { dg-final { scan-tree-dump-times "MEM" 1 "optimized" } } */
 /* { dg-final { scan-tree-dump-times "\[^\\n\\r\]*= \\* " 0 "optimized" } } */
-

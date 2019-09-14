@@ -17,14 +17,13 @@
 #define bad1 defined
 #if !bad1 Z			/* { dg-warning "may not be portable" } */
 #error Z is defined
-#endif 
+#endif
 
 #if !bad1 (Z)			/* { dg-warning "may not be portable" } */
 #error Z is defined
-#endif 
+#endif
 
 #define bad2 defined (Z
 #if !bad2)			/* { dg-warning "may not be portable" } */
 #error Z is defined
-#endif 
-
+#endif

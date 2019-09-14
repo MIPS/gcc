@@ -18,7 +18,7 @@ static __m128i
 __attribute__((noinline, unused))
 test (__m128i s1, __m128i c)
 {
-  return _mm_sll_epi64 (s1, c); 
+  return _mm_sll_epi64 (s1, c);
 }
 
 static void
@@ -27,7 +27,7 @@ TEST (void)
   union128i_q u, s, c;
   long long e[2] = {0};
   int i;
- 
+
   s.x = _mm_set_epi64x (-1, 0xf);
   c.x = _mm_set_epi64x (60,50);
 
@@ -35,8 +35,8 @@ TEST (void)
 
   if (c.a[0] < 64)
     for (i = 0; i < 2; i++)
-      e[i] = s.a[i] << c.a[0]; 
+      e[i] = s.a[i] << c.a[0];
 
   if (check_union128i_q (u, e))
-    abort (); 
+    abort ();
 }

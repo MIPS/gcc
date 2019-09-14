@@ -1,5 +1,5 @@
 /* { dg-do compile } */
 
-void foo (void) { 
-  void nested () {} 
+void foo (void) {
+  void nested () {}
 }

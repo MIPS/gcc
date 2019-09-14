@@ -23,7 +23,7 @@ int __RTL (startwith ("fwprop1")) test_returning_constant (void)
     ) ;; block 2
   ) ;; insn-chain
   (crtl
-    (return_rtx 
+    (return_rtx
       (reg/i:SI ax)
     ) ;; return_rtx
   ) ;; crtl

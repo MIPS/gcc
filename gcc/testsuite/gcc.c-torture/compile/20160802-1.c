@@ -10,4 +10,3 @@ long g (long width, unsigned long byte) {
     }
   return r_lo + r_hi;
 }
-

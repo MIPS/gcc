@@ -14,4 +14,3 @@ void f(unsigned p)
         if(3 * p + 5 * *pp)
             a = 0;
 }
-

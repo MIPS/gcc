@@ -34,4 +34,3 @@ int foo (unsigned u, int s)
   return 0;
 }
 /* { dg-final { scan-tree-dump-not "if" "cddce1"} } */
-

@@ -12,8 +12,8 @@ signed char Y[N] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__))) = {64,63,6
 
 /* char->short->short dot product.
    The dot-product pattern should be detected.
-   Should be vectorized on vect_sdot_qi targets (targets that support 
-   dot-product of signed char).  
+   Should be vectorized on vect_sdot_qi targets (targets that support
+   dot-product of signed char).
    This test currently fails to vectorize on targets that support
    dot-product of chars into and int accumulator.
    Can also be vectorized as widening-mult + summation,
@@ -47,10 +47,9 @@ int main (void)
 /* { dg-final { scan-tree-dump-times "vect_recog_dot_prod_pattern: detected" 1 "vect" } } */
 /* { dg-final { scan-tree-dump-times "vect_recog_widen_mult_pattern: detected" 1 "vect" } } */
 
-/* When vectorizer is enhanced to vectorize accumulation into short for targets 
+/* When vectorizer is enhanced to vectorize accumulation into short for targets
    that support accumulation into int (e.g. ia64) we'd have:
 dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target vect_sdot_qi } }
 */
 /* In the meantime expect: */
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target { vect_widen_mult_qi_to_hi || vect_unpack } } } } */
-

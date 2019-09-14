@@ -22,4 +22,3 @@ testfunc_01 (volatile const char* ap, volatile char* bp)
   bp[900] = ap[71];
   bp[0] = ap[25];
 }
-

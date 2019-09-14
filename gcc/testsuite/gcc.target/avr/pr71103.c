@@ -1,7 +1,7 @@
 /* { dg-do compile } */
 /* { dg-options "-O1" } */
 
-struct ResponseStruct{                                                                                            
+struct ResponseStruct{
     unsigned char responseLength;
     char *response;
 };
@@ -13,4 +13,3 @@ struct ResponseStruct something(){
     returnValue.response = response;
     return returnValue;
 }
-

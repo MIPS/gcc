@@ -45,4 +45,3 @@ set_size (struct w *w, int new_size, int nodelete, int set_height)
 	  use (c);
     }
 }
-

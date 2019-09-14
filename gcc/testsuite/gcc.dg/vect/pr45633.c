@@ -11,4 +11,3 @@ foo (void)
   for (i = 0; i < 32; i++)
     t[i] -= s[i];
 }
-

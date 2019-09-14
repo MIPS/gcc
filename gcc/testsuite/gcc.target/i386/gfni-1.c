@@ -14,7 +14,7 @@
 
 volatile __m512i x1, x2;
 volatile __mmask64 m64;
- 
+
 void extern
 avx512vl_test (void)
 {

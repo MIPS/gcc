@@ -26,4 +26,3 @@ lbl:
     }
   goto lbl;
 }
-

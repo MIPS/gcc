@@ -18,7 +18,7 @@ int bar (int *y)
   *y--;
   return b;
 }
-   
+
 int
 main (int argc, char *argv [])
 {

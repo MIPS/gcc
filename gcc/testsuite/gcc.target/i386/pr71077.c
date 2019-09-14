@@ -21,7 +21,7 @@ void __attribute__ ((noinline, noclone)) foo (ui n, ui z)
 	  x[i*32 +b] = z;
       y[i] = 0;
     }
-  } 
+  }
 }
 
 static void

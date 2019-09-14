@@ -1,26 +1,26 @@
-/* 
+/*
  * Copyright (C) 1995,1999 Free Software Foundation, Inc.
- * 
+ *
  * Written by:  Adam Fedor <fedor@boulder.colorado.edu>
  * Date: 1995
- * 
+ *
  * This file is part of the GNUstep Base Library.
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2 of the License, or (at your option) any later version.
- * 
+ *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Library General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free
  * Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02111 USA.
- */ 
+ */
 
 #ifndef __NSRange_h_GNUSTEP_BASE_INCLUDE
 #define __NSRange_h_GNUSTEP_BASE_INCLUDE
@@ -114,28 +114,28 @@ NSMaxRange(NSRange range) GS_RANGE_ATTR;
 
 /** Returns top end of range (location + length). */
 GS_RANGE_SCOPE NSUInteger
-NSMaxRange(NSRange range) 
+NSMaxRange(NSRange range)
 {
   return range.location + range.length;
 }
 
-GS_RANGE_SCOPE BOOL 
+GS_RANGE_SCOPE BOOL
 NSLocationInRange(NSUInteger location, NSRange range) GS_RANGE_ATTR;
 
 /** Returns whether location is greater than or equal to range's location
  *  and less than its max.
  */
-GS_RANGE_SCOPE BOOL 
-NSLocationInRange(NSUInteger location, NSRange range) 
+GS_RANGE_SCOPE BOOL
+NSLocationInRange(NSUInteger location, NSRange range)
 {
   return (location >= range.location) && (location < NSMaxRange(range));
 }
 
 /** Convenience method for raising an NSRangeException. */
 GS_EXPORT void _NSRangeExceptionRaise (void);
-/* NB: The implementation of _NSRangeExceptionRaise is: 
+/* NB: The implementation of _NSRangeExceptionRaise is:
    [NSException raise: NSRangeException
-	       format: @"Range location + length too great"]; 
+	       format: @"Range location + length too great"];
 
    _NSRangeExceptionRaise is defined in NSRange.m so that this
    file (NSRange.h) can be included without problems in the

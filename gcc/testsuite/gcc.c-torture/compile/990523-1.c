@@ -6,7 +6,7 @@ int synth_1to1(float  *bandPtr,int channel,unsigned char *out,int *pnt)
   short *samples = (short *) (out+*pnt);
 
   float  *b0;
-  int clip = 0; 
+  int clip = 0;
   int bo1;
 
   {

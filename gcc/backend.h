@@ -1,4 +1,4 @@
-/* Common Backend requirements. 
+/* Common Backend requirements.
 
    Copyright (C) 2015-2019 Free Software Foundation, Inc.
    Contributed by Andrew MacLeod <amacleod@redhat.com>

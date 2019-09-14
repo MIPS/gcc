@@ -14,4 +14,3 @@ int main(void)
   struct a *ap=(struct a *)&b;
   return ((struct b *)&ap->i)->j; /* { dg-bogus "will break strict-aliasing" } */
 }
-

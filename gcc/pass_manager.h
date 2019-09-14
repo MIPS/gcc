@@ -146,4 +146,3 @@ private:
 } // namespace gcc
 
 #endif /* ! GCC_PASS_MANAGER_H */
-

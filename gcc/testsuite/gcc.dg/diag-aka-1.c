@@ -13,7 +13,7 @@ extern IAP arr[];
 void fn1 (B *); /* { dg-message "expected 'B \\*' {aka 'struct A \\*'} but argument is of type 'struct B \\*'" } */
 void fn2 (TFC *);
 
-void 
+void
 bar (B *b, int *i)
 {
   fn1 ((struct B *) b); /* { dg-warning "passing argument" } */

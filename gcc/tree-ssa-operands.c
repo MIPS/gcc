@@ -1348,4 +1348,3 @@ single_imm_use_1 (const ssa_use_operand_t *head,
 
   return single_use;
 }
-

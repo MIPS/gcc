@@ -10,9 +10,9 @@ volatile _Decimal32 d32;
 volatile double d;
 
 CONVERT (100, d, d32, 1.0e96, FE_INEXACT)
-CONVERT (101, d, d32, 1.0e97, FE_OVERFLOW|FE_INEXACT) 
+CONVERT (101, d, d32, 1.0e97, FE_OVERFLOW|FE_INEXACT)
 CONVERT (102, d, d32, -1.0e96, FE_INEXACT)
-CONVERT (103, d, d32, -1.0e97, FE_OVERFLOW|FE_INEXACT) 
+CONVERT (103, d, d32, -1.0e97, FE_OVERFLOW|FE_INEXACT)
 
 /* FIXME: These only result in fp exceptions when libbid is used.
    libdecnumber doesn't work correctly.  */

@@ -58,4 +58,3 @@ testus2_cst(unsigned short x, vector unsigned short v)
 /* { dg-final { scan-assembler-times {\msth\M} 8 { target ilp32 }} } */
 /* { dg-final { scan-assembler-times {\mlvehx\M} 4 { target ilp32 }} } */
 /* { dg-final { scan-assembler-times {\mlxv\M|\mlvx\M} 8 { target ilp32 }} } */
-

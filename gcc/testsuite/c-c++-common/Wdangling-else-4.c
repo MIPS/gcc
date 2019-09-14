@@ -28,4 +28,3 @@ baz (int a, int b, int c)
   else
     bar (2);
 }
-

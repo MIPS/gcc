@@ -12,4 +12,3 @@ test_enqcmds (void)
 {
   return _enqcmds(&w, array);
 }
-

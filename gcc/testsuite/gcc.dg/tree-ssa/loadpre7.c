@@ -1,6 +1,6 @@
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-O2 -fdump-tree-pre-stats" } */
-/* We can't eliminate the *p load here in any sane way, as eshup8 may 
+/* We can't eliminate the *p load here in any sane way, as eshup8 may
    change it.  */
 
 void eshup8 (unsigned short *);

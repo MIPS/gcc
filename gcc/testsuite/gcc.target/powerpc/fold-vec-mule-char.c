@@ -35,4 +35,3 @@ test_uns_odd (vector unsigned char x, vector unsigned char y)
 /* { dg-final { scan-assembler-times "vmulesb" 1 } } */
 /* { dg-final { scan-assembler-times "vmuloub" 1 } } */
 /* { dg-final { scan-assembler-times "vmulosb" 1 } } */
-

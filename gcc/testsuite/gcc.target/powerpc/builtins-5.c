@@ -20,8 +20,8 @@ int main ()
       When compiling on Linux we see the xxlor instruction used as a move in various
       places.  When compiling on AIX, a move instruction is used instead of the xxlor
       instruction.  So, these tests have been isolated into a different file to limit
-      the xxlor instruction use to just the vex_or builtin tests.  */      
-      
+      the xxlor instruction use to just the vex_or builtin tests.  */
+
   vector long long ls = vec_or (la, lb);
   vector long long lt = vec_or (la, ld);
   vector long long lu = vec_or (ld, la);

@@ -2302,7 +2302,7 @@ canonicalize_cond_expr_cond (tree t)
   else if (TREE_CODE (t) == BIT_XOR_EXPR)
     t = build2 (NE_EXPR, TREE_TYPE (t),
 		TREE_OPERAND (t, 0), TREE_OPERAND (t, 1));
-  
+
   if (is_gimple_condexpr (t))
     return t;
 
@@ -2882,7 +2882,7 @@ nonbarrier_call_p (gimple *call)
 }
 
 /* Callback for walk_stmt_load_store_ops.
- 
+
    Return TRUE if OP will dereference the tree stored in DATA, FALSE
    otherwise.
 

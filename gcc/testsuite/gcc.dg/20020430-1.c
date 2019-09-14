@@ -1,7 +1,7 @@
 /* PR opt/6516 */
 /* On x86, something about the structure of this function prevented
    cross-jumping from combining the three arms of the switch statement
-   until the last moment.  After which we did not delete dead code, 
+   until the last moment.  After which we did not delete dead code,
    which left a reference to the deleted ADDR_VEC.  */
 
 /* { dg-do compile { target fpic } } */

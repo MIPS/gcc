@@ -11,4 +11,3 @@ int test (int *addr)
 
 /* { dg-final { scan-assembler "-4096" } } */
 /* { dg-final { scan-assembler-not "ahi" } } */
-

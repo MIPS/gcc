@@ -51,13 +51,13 @@ foo (void)
 
 int
 main (void)
-{ 
+{
   int i;
 
   check_vect ();
   foo ();
 
-  /* Check resiults. */ 
+  /* Check resiults. */
   for (i = 0; i < 16; i++)
     {
       if (cf[i].f1 != res1[i])
@@ -67,7 +67,7 @@ main (void)
 
     }
   return 0;
-} 
+}
 
 /* { dg-final { scan-tree-dump-times "vectorization not profitable" 0 "vect" } } */
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */

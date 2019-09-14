@@ -44,4 +44,3 @@ testld_cst_vbl (vector bool long vbl2)
 }
 
 /* { dg-final { scan-assembler-times {\mlvx\M|\mlxvd2x\M|\mlxv\M} 6 } } */
-

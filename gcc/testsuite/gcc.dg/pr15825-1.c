@@ -15,4 +15,3 @@ unsigned int foo(long long high, int unsigned_p)
 t:
   return i;
 }
-

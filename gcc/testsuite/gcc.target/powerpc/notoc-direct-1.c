@@ -40,4 +40,3 @@ int ww (void)
 /* { dg-final { scan-assembler {yy0@notoc} } } */
 /* { dg-final { scan-assembler {zz1@notoc} } } */
 /* { dg-final { scan-assembler {zz0@notoc} } } */
-

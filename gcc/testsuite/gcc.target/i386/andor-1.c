@@ -7,4 +7,3 @@ unsigned int foo(unsigned int x)
   unsigned int t = x & ~1;
   return t | 1;
 }
-

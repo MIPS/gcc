@@ -18,4 +18,3 @@ foo (struct A *x)
       x->b[i][1] = a[i][1];
     }
 }
-

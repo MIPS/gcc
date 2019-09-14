@@ -17,4 +17,3 @@ void switch_to_stack (my_stack *stack){
         : "+r" (stack->regs)
     );
 }
-

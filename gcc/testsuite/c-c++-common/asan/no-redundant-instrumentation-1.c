@@ -30,7 +30,7 @@ __attribute__((noinline, noclone)) static int
 test1 (int i)
 {
   char foo[4] = {};
-  
+
   /*__builtin___asan_report_store1 called 1 time here to instrument
     the initialization.  */
   foo[i] = 1;

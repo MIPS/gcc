@@ -40,4 +40,3 @@ fpvi_pv_1 (void*);                /* { dg-warning ".alloc_align. attribute argum
 struct S { int i; };
 ALIGN (2) void*
 fpvi_S_2 (int, struct S);         /* { dg-warning ".alloc_align. attribute argument value .2. refers to parameter type .struct S." } */
-

@@ -192,7 +192,7 @@ main (int argc, char *argv[])
   CHECK (plus_fract_sat_short (sf_g, sf_h), -1.0);
   CHECK (plus_fract_sat_regular (f_g, f_h), -1.0);
   CHECK (plus_fract_sat_long (lf_g, lf_h), -1.0);
-  
+
   CHECK (plus_fract_uns_sat_short (sf_e, sf_f), 1.0);
   CHECK (plus_fract_uns_sat_regular (f_e, f_f), 1.0);
   CHECK (plus_fract_uns_sat_long (lf_e, lf_f), 1.0);
@@ -200,7 +200,7 @@ main (int argc, char *argv[])
   CHECK (plus_fract_sat_short (sf_a, sf_b), 0.1);
   CHECK (plus_fract_sat_regular (f_a, f_b), 0.1);
   CHECK (plus_fract_sat_long (lf_a, lf_b), 0.1);
-  
+
   CHECK (plus_fract_uns_sat_short (usf_a, usf_b), 0.7);
   CHECK (plus_fract_uns_sat_regular (uf_a, uf_b), 0.7);
   CHECK (plus_fract_uns_sat_long (ulf_a, ulf_b), 0.7);
@@ -208,7 +208,7 @@ main (int argc, char *argv[])
   CHECK (minus_fract_uns_sat_short (usf_c, usf_d), 0.0);
   CHECK (minus_fract_uns_sat_regular (uf_c, uf_d), 0.0);
   CHECK (minus_fract_uns_sat_short (ulf_c, ulf_d), 0.0);
-  
+
   CHECK (minus_fract_sat_short (sf_c, sf_d), -0.2);
   CHECK (minus_fract_sat_regular (f_c, f_d), -0.2);
   CHECK (minus_fract_sat_long (lf_c, lf_d), -0.2);
@@ -222,7 +222,7 @@ main (int argc, char *argv[])
   CHECK (minus_accum_short (sa_a, sa_b), 2.75);
   CHECK (minus_accum_regular (a_a, a_b), 200.75);
   CHECK (minus_accum_long (la_a, la_b), 2000.75);
-  
+
   CHECK (mult_accum_short (sa_a, sa_b), -1.875);
   CHECK (mult_accum_regular (a_a, a_b), -10075.125);
   CHECK (mult_accum_long (la_a, la_b), -1000750.125);
@@ -232,7 +232,7 @@ main (int argc, char *argv[])
   CHECK (div_accum_long (la_a, la_b), -1000.25/1000.5);
 
   /* Unsigned accum/accum operations, non-saturating.  */
-  
+
   CHECK (plus_accum_uns_short (usa_a, usa_b), 4.25);
   CHECK (plus_accum_uns_regular (ua_a, ua_b), 425.75);
   CHECK (plus_accum_uns_long (ula_a, ula_b), 2550.0);
@@ -240,7 +240,7 @@ main (int argc, char *argv[])
   CHECK (minus_accum_uns_short (usa_a, usa_b), 0.75);
   CHECK (minus_accum_uns_regular (ua_a, ua_b), 85.25);
   CHECK (minus_accum_uns_long (ula_a, ula_b), 551.0);
-  
+
   CHECK (mult_accum_uns_short (usa_a, usa_b), 4.375);
   CHECK (mult_accum_uns_regular (ua_a, ua_b), 43498.875);
   CHECK (mult_accum_uns_long (ula_a, ula_b), 1549724.75);
@@ -250,7 +250,7 @@ main (int argc, char *argv[])
   CHECK (div_accum_uns_long (ula_a, ula_b), 1550.5/999.5);
 
   /* Signed accum/accum operations, saturating.  */
-  
+
   CHECK_EXACT (plus_accum_sat_short (sa_c, sa_d), SACCUM_MAX);
   CHECK_EXACT (plus_accum_sat_short (sa_e, sa_f), SACCUM_MIN);
   CHECK_EXACT (plus_accum_sat_regular (a_c, a_d), ACCUM_MAX);
@@ -271,7 +271,7 @@ main (int argc, char *argv[])
   CHECK_EXACT (mult_accum_sat_regular (a_c, a_e), ACCUM_MIN);
   CHECK_EXACT (mult_accum_sat_long (la_c, la_d), LACCUM_MAX);
   CHECK_EXACT (mult_accum_sat_long (la_c, la_e), LACCUM_MIN);
-  
+
   CHECK_EXACT (div_accum_sat_short (sa_d, sa_g), SACCUM_MAX);
   CHECK_EXACT (div_accum_sat_short (sa_e, sa_g), SACCUM_MIN);
   CHECK_EXACT (div_accum_sat_regular (a_c, a_g), ACCUM_MAX);
@@ -284,7 +284,7 @@ main (int argc, char *argv[])
   CHECK_EXACT (plus_accum_uns_sat_short (usa_c, usa_d), USACCUM_MAX);
   CHECK_EXACT (plus_accum_uns_sat_regular (ua_c, ua_d), UACCUM_MAX);
   CHECK_EXACT (plus_accum_uns_sat_long (ula_c, ula_d), ULACCUM_MAX);
-  
+
   CHECK_EXACT (minus_accum_uns_sat_short (usa_d, usa_c), 0uhk);
   CHECK_EXACT (minus_accum_uns_sat_regular (ua_d, ua_c), 0uk);
   CHECK_EXACT (minus_accum_uns_sat_long (ula_d, ula_c), 0ulk);

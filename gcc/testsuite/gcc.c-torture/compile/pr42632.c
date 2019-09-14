@@ -13,4 +13,3 @@ int ___pskb_trim(void)
   pskb_trim();
   return 0;
 }
-

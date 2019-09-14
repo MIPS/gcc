@@ -15,10 +15,10 @@ match(name, pat)
    if ((negate_range = ((*pat & 0xffffffffffULL) == ((uint64_t)(('!')|0x8000000000ULL)) )) != '\0')
     ++pat;
    while (((c = *pat++) & 0xffffffffffULL) )
-    if ((*pat & 0xffffffffffULL) == ((uint64_t)(('-')|0x8000000000ULL))) 
+    if ((*pat & 0xffffffffffULL) == ((uint64_t)(('-')|0x8000000000ULL)))
       {
        pat += 2;
-      } 
+      }
 
    if (ok == negate_range)
     return(0);
@@ -26,4 +26,3 @@ match(name, pat)
   }
  return(*name == '\0');
 }
-

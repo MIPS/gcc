@@ -20,4 +20,3 @@ void bar()
   const B &b = B();
   g(&b);
 }
-

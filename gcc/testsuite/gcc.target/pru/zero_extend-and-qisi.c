@@ -13,4 +13,3 @@ test_zext_and_hi (unsigned char val1, unsigned int val2)
   /* { dg-final { scan-assembler "and\\tr14, r14.b0, r15" } } */
   return val1 & val2;
 }
-

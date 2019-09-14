@@ -5,7 +5,7 @@
 
 #define N 32
 
-__attribute__ ((noinline)) void 
+__attribute__ ((noinline)) void
 foo (int *__restrict a,
      short *__restrict b,
      int n)
@@ -58,4 +58,3 @@ int main (void)
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 2 "vect" { target vect_widen_mult_hi_to_si } } } */
 /* { dg-final { scan-tree-dump-times {vect_recog_widen_mult_pattern: detected:[^\n]* 2333} 2 "vect" { target vect_widen_mult_hi_to_si_pattern } } } */
 /* { dg-final { scan-tree-dump-times {widen_mult pattern recognized:[^\n]* 2333} 2 "vect" { target vect_widen_mult_hi_to_si_pattern } } } */
-

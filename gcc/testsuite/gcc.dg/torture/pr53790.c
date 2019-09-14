@@ -4,7 +4,7 @@ typedef struct s {
     int value;
 } s_t;
 
-static inline int 
+static inline int
 read(s_t const *var)
 {
   return var->value;

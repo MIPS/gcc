@@ -21,4 +21,3 @@ shift (int32x4_t a, int b)
 {
   return vshrq_n_s32 (a, b);
 }
-

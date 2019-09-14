@@ -32,4 +32,3 @@ carg_test (void)
 			__imag__ __retval = (0);
 			__retval; })), 0, 0, 0);
 }
-

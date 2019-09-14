@@ -35,4 +35,3 @@ not_opt3 (void)
   for (i = 0; i < SIZE; i++)
     a[i] = b[i] - c[i];
 }
-

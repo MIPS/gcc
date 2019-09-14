@@ -19,7 +19,7 @@ void foo(const int * __restrict__ zr_in,
     int zr = zr_in[pi];
     int zi = zi_in[pi];
     int zk = zk_in[pi];
-    
+
     if (zr*zr + zi*zi >= 4) {
       tmp_r = zr;
       tmp_i = zi;

@@ -8,4 +8,3 @@ _Atomic double val0() {return val;} /* { dg-warning "qualifiers ignored" } */
  _Atomic double val0() {return val;}
  ^~~~~~~
 { dg-end-multiline-output "" } */
-

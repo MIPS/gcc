@@ -57,7 +57,7 @@ avx512f_test (void)
 
   if (check_union128d (res3, res_ref))
     abort();
-  
+
   MASK_MERGE (d) (res_ref, mask, 1);
   if (check_union128d (res4, res_ref))
     abort ();
@@ -66,4 +66,3 @@ avx512f_test (void)
   if (check_union128d (res5, res_ref))
     abort ();
 }
-

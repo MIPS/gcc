@@ -28,21 +28,21 @@ TEST (void)
   union128i_w u, s1, s2;
   short e[8];
   int i, tmp;
-   
+
   s1.x = _mm_set_epi16 (10,20,30,90,80,40,100,15);
   s2.x = _mm_set_epi16 (11, 98, 76, 100, 34, 78, 39, 14);
-  u.x = test (s1.x, s2.x); 
-   
+  u.x = test (s1.x, s2.x);
+
   for (i = 0; i < 8; i++)
     {
       tmp = (unsigned short)s1.a[i] - (unsigned short)s2.a[i];
-      
+
       if (tmp > 65535)
         tmp = -1;
 
       if (tmp < 0)
         tmp = 0;
-      
+
       e[i] = tmp;
     }
 

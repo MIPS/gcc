@@ -1,7 +1,7 @@
 /* { dg-do compile { target ia32 } } */
 /* { dg-options "-O2" } */
 
-extern 
+extern
 #ifdef _WIN32
  __declspec (dllimport)
 #endif

@@ -20,7 +20,7 @@ int foo (int n, int l, int m, int r)
     {
       if (l)
         g++;
-      else 
+      else
         goto l;
     }
   else

@@ -13,9 +13,8 @@ int foo(void)
      _err; /*  { dg-bogus "uninitialized" "false warning" } */
    });
 
-   if (err == 0) return 17; 
+   if (err == 0) return 17;
  }
 
  return 18;
 }
-

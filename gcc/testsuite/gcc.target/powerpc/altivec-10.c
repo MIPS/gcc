@@ -15,7 +15,7 @@ typedef union
   vector float  v;
 } vec_float_t;
 
-void 
+void
 check_vec_all_num ()
 {
   vec_float_t a, b, c;
@@ -55,7 +55,7 @@ check_vec_all_num ()
 
 }
 
-void 
+void
 check_cmple()
 {
   vector float a = {1.0, 2.0, 3.0, 4.0};
@@ -70,7 +70,7 @@ check_cmple()
 }
 
 
-int 
+int
 main()
 {
   check_cmple ();

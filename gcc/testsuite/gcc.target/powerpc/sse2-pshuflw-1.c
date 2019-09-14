@@ -20,7 +20,7 @@ static __m128i
 __attribute__((noinline, unused))
 test (__m128i s1)
 {
-  return _mm_shufflelo_epi16 (s1, N); 
+  return _mm_shufflelo_epi16 (s1, N);
 }
 
 static void
@@ -31,7 +31,7 @@ TEST (void)
   int i;
   int m1[4] = { 0x3, 0x3<<2, 0x3<<4, 0x3<<6 };
   int m2[4];
-  
+
   s1.x = _mm_set_epi16 (0, 0, 0xa, 0xbcde, 0, 0, 0xef58, 0xa234);
   u.x = test (s1.x);
 

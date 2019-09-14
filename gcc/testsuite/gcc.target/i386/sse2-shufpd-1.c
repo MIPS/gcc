@@ -20,7 +20,7 @@ static __m128d
 __attribute__((noinline, unused))
 test (__m128d s1, __m128d s2)
 {
-  return _mm_shuffle_pd (s1, s2, N); 
+  return _mm_shuffle_pd (s1, s2, N);
 }
 
 static void
@@ -28,7 +28,7 @@ TEST (void)
 {
   union128d u, s1, s2;
   double e[2] = {0.0};
-   
+
   s1.x = _mm_set_pd (2134.3343,1234.635654);
   s2.x = _mm_set_pd (453.345635,54646.464356);
   u.x = test (s1.x, s2.x);

@@ -2,7 +2,7 @@
 /* { dg-options "-O0" } */
 /* { dg-additional-options "-mregparm=3" { target ia32 } } */
 
-/* Verify that __attribute__((naked)) produces a naked function 
+/* Verify that __attribute__((naked)) produces a naked function
    that does not allocate stack slots for args.  */
 extern void bar (int);
 

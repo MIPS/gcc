@@ -46,7 +46,7 @@
 
   // Zone statistics (not always maintained).
   struct NSZoneStats (*stats)(struct _NSZone *zone);
-  
+
   size_t gran;    // Zone granularity (passed in on initialization)
   NSString *name; // Name of zone (default is 'nil')
   NSZone *next;   // Pointer used for internal management of multiple zones.
@@ -72,7 +72,7 @@ struct _NSZone
   BOOL (*check)(struct _NSZone *zone);
   BOOL (*lookup)(struct _NSZone *zone, void *ptr);
   struct NSZoneStats (*stats)(struct _NSZone *zone);
-  
+
   size_t gran; // Zone granularity
   __unsafe_unretained NSString *name; // Name of zone (default is 'nil')
   NSZone *next;
@@ -314,7 +314,7 @@ NSAllocateCollectable(NSUInteger size, NSUInteger options);
 /** Reallocate memory to be of a different size and/or to have different
  * options settings.  The behavior of options is as for
  * the NSAllocateCollectable() function.
- */ 
+ */
 GS_EXPORT void *
 NSReallocateCollectable(void *ptr, NSUInteger size, NSUInteger options);
 

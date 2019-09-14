@@ -13,4 +13,3 @@ unsigned short f(int y)
    opval = -tmp_b4;
  return opval;
 }
-

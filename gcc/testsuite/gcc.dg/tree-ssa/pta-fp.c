@@ -1,4 +1,4 @@
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-O2 -fdump-tree-alias" } */
 extern double cos (double);
 extern double sin (double);
@@ -14,7 +14,7 @@ double f(double a)
     }
   else
     {
-      c = 1.0; 
+      c = 1.0;
       fp = cos;
     }
   d = fp (a);

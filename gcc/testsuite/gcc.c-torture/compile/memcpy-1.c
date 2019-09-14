@@ -5,5 +5,3 @@ void f(void)
   char *b = &synthetic_first_packet_body[4];
   __builtin_memcpy (b, &OggFLAC__MAPPING_VERSION_MAJOR, (1u));
 }
-
-

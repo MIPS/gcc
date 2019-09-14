@@ -9,7 +9,7 @@
 /* Source: Phil Edwards, 21 Mar 2002.  Copied from extratokens.c and
    modified.  */
 
-#if 1 
+#if 1
 #if 0
 #else foo	/* { dg-bogus "extra tokens" "bad warning" } */
 #endif /	/* { dg-bogus "extra tokens" "bad warning" } */

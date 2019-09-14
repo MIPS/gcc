@@ -6,7 +6,7 @@ void blah (char *);
 void bar ()
 {
   char a[256] = "";
-  a[3] = 0; 
+  a[3] = 0;
   blah (a);
 }
 

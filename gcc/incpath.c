@@ -254,7 +254,7 @@ remove_duplicates (cpp_reader *pfile, struct cpp_dir *head,
 
       if (stat (cur->name, &st))
 	{
-	  /* Dirs that don't exist or have denied permissions are 
+	  /* Dirs that don't exist or have denied permissions are
 	     silently ignored, unless verbose.  */
 	  if ((errno != ENOENT) && (errno != EPERM))
 	    cpp_errno (pfile, CPP_DL_ERROR, cur->name);
@@ -527,4 +527,3 @@ static void hook_void_charptr_charptr_int (const char *sysroot ATTRIBUTE_UNUSED,
 #endif
 
 struct target_c_incpath_s target_c_incpath = { TARGET_EXTRA_PRE_INCLUDES, TARGET_EXTRA_INCLUDES };
-

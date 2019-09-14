@@ -19,7 +19,7 @@ typedef float vnx4sf __attribute__((vector_size (32)));
 /* Predicate vector: 1 0 0 0 ... */
 
 #define MASK_16		{ 0, 17, 18, 19, 4, 21, 22, 23, \
-			  8, 25, 26, 27, 12, 29, 30, 31 } 
+			  8, 25, 26, 27, 12, 29, 30, 31 }
 
 /* Predicate vector: 1 0 ... */
 

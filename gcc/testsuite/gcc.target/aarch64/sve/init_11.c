@@ -17,7 +17,7 @@ typedef int32_t vnx4si __attribute__((vector_size (32)));
 **	...
 */
 __attribute__((noipa))
-vnx4si foo(int a, int b, int f) 
+vnx4si foo(int a, int b, int f)
 {
   return (vnx4si) { a, f, b, f, b, f, b, f };
 }

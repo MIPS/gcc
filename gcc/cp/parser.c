@@ -859,7 +859,7 @@ cp_lexer_get_preprocessor_token (unsigned flags, cp_token *token)
 static bool
 cp_lexer_tokenize (cp_lexer *lexer, int extern_c_depth)
 {
-  enum 
+  enum
   {
     decl_start,
     decl_other,
@@ -24737,7 +24737,7 @@ cp_parser_class_head (cp_parser* parser,
 
   /* If this type was already complete, and we see another definition,
      that's an error.  Likewise if the type is already being defined:
-     this can happen, eg, when it's defined from within an expression 
+     this can happen, eg, when it's defined from within an expression
      (c++/84605).  */
   if (type != error_mark_node
       && (COMPLETE_TYPE_P (type) || TYPE_BEING_DEFINED (type)))

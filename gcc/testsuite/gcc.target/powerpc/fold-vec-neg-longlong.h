@@ -14,4 +14,3 @@ test3 (vector signed long long x)
 {
   return vec_neg (x);
 }
-

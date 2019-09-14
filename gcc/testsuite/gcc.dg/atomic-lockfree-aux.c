@@ -9,9 +9,8 @@
 
 /* Supply a builtin external function which returns a non-standard value so
    it can be detected that it was called.  */
-int 
+int
 __atomic_is_lock_free (size_t s, void *p)
 {
   return 2;
 }
-

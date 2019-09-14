@@ -8,4 +8,3 @@ sum (a first, a second)
 {
   return first + second;
 }
-

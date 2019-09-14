@@ -26,4 +26,3 @@ long long InitializeAttackBoards(void)
   return knight_attacks[0];
 
 }
-

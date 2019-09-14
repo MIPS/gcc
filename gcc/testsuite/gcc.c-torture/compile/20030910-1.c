@@ -8,4 +8,3 @@ void test()
 
   d = __real (dc * dc);
 }
-

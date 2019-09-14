@@ -11,4 +11,3 @@ int tsize[sizeof (decimal128) == 16 ? 1 : -1];
 int salign = __alignof (decimal32);
 int dalign = __alignof (decimal64);
 int talign = __alignof (decimal128);
-

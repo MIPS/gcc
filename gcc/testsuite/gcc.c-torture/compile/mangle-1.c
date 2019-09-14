@@ -14,4 +14,3 @@ int foo(void)
 
 int X2 asm ("x" SEP "0") = 4;
 int X3 asm ("_x" SEP "0") = 5;
-

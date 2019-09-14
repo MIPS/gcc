@@ -3,5 +3,5 @@
 vector unsigned int
 f(vector signed char a)
 {
-  return (vector unsigned int)(a); 
+  return (vector unsigned int)(a);
 }

@@ -149,7 +149,7 @@ void
 bpf_target_macros (cpp_reader *pfile)
 {
   builtin_define ("__BPF__");
-  
+
   if (TARGET_BIG_ENDIAN)
     builtin_define ("__BPF_BIG_ENDIAN__");
   else
@@ -187,7 +187,7 @@ bpf_target_macros (cpp_reader *pfile)
       case LINUX_V5_1: version_code = "0x50100"; break;
       case LINUX_V5_2: version_code = "0x50200"; break;
       default:
-	gcc_unreachable ();      
+	gcc_unreachable ();
       }
 
     kernel_version_code = ACONCAT (("__BPF_KERNEL_VERSION_CODE__=",
@@ -344,7 +344,7 @@ bpf_expand_prologue (void)
       insn = emit_move_insn (stack_pointer_rtx,
 			     hard_frame_pointer_rtx);
       RTX_FRAME_RELATED_P (insn) = 1;
-      
+
       if (size > 0)
 	{
 	  insn = emit_insn (gen_rtx_SET (stack_pointer_rtx,
@@ -509,7 +509,7 @@ bpf_legitimate_address_p (machine_mode mode ATTRIBUTE_UNUSED,
 
 	rtx x0 = XEXP (x, 0);
 	rtx x1 = XEXP (x, 1);
-	
+
 	if (bpf_address_base_p (x0, strict) && GET_CODE (x1) == CONST_INT)
 	  return IN_RANGE (INTVAL (x1), -1 - 0x7fff, 0x7fff);
 
@@ -664,7 +664,7 @@ bpf_output_call (rtx target)
       {
 	const char *function_name = XSTR (target, 0);
 	int code;
-      
+
 	if (strncmp (function_name, "__builtin_bpf_helper_", 21) == 0
 	    && ((code = bpf_helper_code (function_name + 21)) != 0))
 	  {
@@ -792,7 +792,7 @@ bpf_init_builtins (void)
   tree u64t = uint64_type_node;
   tree llt = long_long_integer_type_node;
   tree ullt = long_long_unsigned_type_node;
-  
+
 #define TYPES build_function_type_list
 #define VTYPES build_varargs_function_type_list
 #define DEF_HELPER(V,D,N,T)				\

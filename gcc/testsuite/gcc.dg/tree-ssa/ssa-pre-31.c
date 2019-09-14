@@ -41,6 +41,6 @@ int foo (S1 *root, int N)
     for (j=0;j<1024; j++)
       r = bar(&a[j], root);
   return 0;
-} 
+}
 
 /* { dg-final { scan-tree-dump-times "key" 3 "pre" } } */

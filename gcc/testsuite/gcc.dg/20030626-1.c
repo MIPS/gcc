@@ -7,8 +7,8 @@
 /* Verify that the constant expressions folder doesn't
    throw away the cast operation in the comparison.  */
 
-struct str { 
-  int head; 
+struct str {
+  int head;
   signed char data[8];
 };
 

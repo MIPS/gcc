@@ -80,7 +80,7 @@ typedef union
 #ifdef DEBUG
 #define PRINTF printf
 #else
-#define PRINTF(...)	
+#define PRINTF(...)
 #endif
 
 #define CHECK_EXP(UINON_TYPE, VALUE_TYPE, FMT)		\
@@ -174,7 +174,7 @@ CHECK_FP_ARRAY (f, float, ESP_FLOAT, "%f")
 union ieee754_float
 {
    float d;
-   struct 
+   struct
    {
       unsigned long frac : 23;
       unsigned exp : 8;
@@ -187,7 +187,7 @@ union ieee754_float
 union ieee754_double
 {
    double d;
-   struct 
+   struct
    {
       unsigned long frac1 : 32;
       unsigned long frac0 : 20;

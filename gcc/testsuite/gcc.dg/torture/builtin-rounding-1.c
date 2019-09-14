@@ -27,7 +27,7 @@ main (void)
   TEST(llfloor, 0, 0);
   TEST(lceil,  0, 0);
   TEST(llceil, 0, 0);
-  
+
   TEST(trunc,   6, 6);
   TEST(floor,   6, 6);
   TEST(ceil,    6, 6);
@@ -38,7 +38,7 @@ main (void)
   TEST(llfloor, 6, 6);
   TEST(lceil,  6, 6);
   TEST(llceil, 6, 6);
-  
+
   TEST(trunc,   -8, -8);
   TEST(floor,   -8, -8);
   TEST(ceil,    -8, -8);
@@ -49,7 +49,7 @@ main (void)
   TEST(llfloor, -8, -8);
   TEST(lceil,  -8, -8);
   TEST(llceil, -8, -8);
-  
+
   TEST(trunc,   3.2, 3);
   TEST(floor,   3.2, 3);
   TEST(ceil,    3.2, 4);

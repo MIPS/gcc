@@ -41,7 +41,7 @@ main1 (double x, double max_result)
 
 static void
 avx_test (void)
-{ 
+{
   main1 (100, 100);
   main1 (0, 15);
 }

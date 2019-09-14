@@ -1,4 +1,4 @@
-static void 
+static void
 whichtable(char **pfmt)
 {
   --*pfmt;

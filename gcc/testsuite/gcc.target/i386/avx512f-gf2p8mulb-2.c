@@ -32,7 +32,7 @@ CALC (unsigned char *r, unsigned char *s1, unsigned char *s2)
            if ((result >> bit) & 1)
              result ^= p;
          }
-       r[i] = result; 
+       r[i] = result;
     }
 }
 

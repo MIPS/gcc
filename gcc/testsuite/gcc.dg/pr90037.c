@@ -125,7 +125,7 @@ parse_with_separator (char const *spec, char const *separator,
       if (grp == 0)
         {
 	  unsigned long int tmp = strtoul (g, 0, 10);
-		
+
 	  if (tmp <= (1ul << 31) && (unsigned) tmp != (unsigned) -1)
             gnum = tmp;
           else
@@ -158,4 +158,3 @@ parse_with_separator (char const *spec, char const *separator,
   __builtin_free (gname);
   return error_msg ? error_msg : 0;
 }
-

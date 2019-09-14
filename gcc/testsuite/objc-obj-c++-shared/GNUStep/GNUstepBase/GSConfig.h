@@ -64,7 +64,7 @@
 #ifndef __STDC_CONSTANT_MACROS
 #define __STDC_CONSTANT_MACROS 1
 #endif
-#ifndef __STDC_LIMIT_MACROS 
+#ifndef __STDC_LIMIT_MACROS
 #define __STDC_LIMIT_MACROS 1
 #endif
 
@@ -196,14 +196,14 @@ typedef	gsuaddr gsaddr;
 
 /*
  * PTR Limit information replacements for buggy headers
- */ 
+ */
 #if 0
 #undef INTPTR_MAX
-#define INTPTR_MAX 
+#define INTPTR_MAX
 #undef INTPTR_MIN
-#define INTPTR_MIN 
+#define INTPTR_MIN
 #undef UINTPTR_MAX
-#define UINTPTR_MAX 
+#define UINTPTR_MAX
 #endif
 
 
@@ -459,4 +459,3 @@ typedef	struct {
 #endif
 
 #endif	/* included_GSConfig_h */
-

@@ -19,7 +19,7 @@ __attribute__((noinline, unused))
 test (__m128i s1, __m128i s2)
 {
   __asm("" : "+v"(s1), "+v"(s2));
-  return _mm_packus_epi16 (s1, s2); 
+  return _mm_packus_epi16 (s1, s2);
 }
 
 static void
@@ -29,10 +29,10 @@ TEST (void)
   union128i_ub u;
   unsigned char e[16];
   int i, tmp;
-   
+
   s1.x = _mm_set_epi16 (1, 2, 3, 4, -5, -6, -7, -8);
   s2.x = _mm_set_epi16 (-9, -10, -11, -12, 13, 14, 15, 16);
-  u.x = test (s1.x, s2.x); 
+  u.x = test (s1.x, s2.x);
 
   for (i=0; i<8; i++)
     {

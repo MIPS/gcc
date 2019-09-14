@@ -141,7 +141,7 @@
  * <p>For OSX compatibility, this macro also supports the use of Apple's
  * symbolic constants for version numbering.  Their contants are currently
  * four digit values (two digits for the major version, one for the minor,
- * and one for the subminor). 
+ * and one for the subminor).
  * </p>
  * <p>The Apple compatibility version macros are currently:
  * <ref type="macro" id="MAC_OS_X_VERSION_10_0">MAC_OS_X_VERSION_10_0</ref>,
@@ -262,7 +262,7 @@
 #if __clang__
 #  define GS_UNUSED_IVAR __attribute__((unused))
 #else
-#  define GS_UNUSED_IVAR 
+#  define GS_UNUSED_IVAR
 #endif
 
 
@@ -415,7 +415,7 @@ static inline void gs_consumed(id NS_CONSUMED GS_UNUSED_ARG o) { return; }
 #if defined(__clang__) || GS_GCC_MINREQ(4,2)
 #  define NS_FORMAT_ARGUMENT(A) __attribute__((format_arg(A)))
 #else
-#  define NS_FORMAT_ARGUMENT(F,A) 
+#  define NS_FORMAT_ARGUMENT(F,A)
 #endif
 #endif
 
@@ -424,7 +424,7 @@ static inline void gs_consumed(id NS_CONSUMED GS_UNUSED_ARG o) { return; }
 #if __clang__
 #  define NS_FORMAT_FUNCTION(F,A) __attribute__((format(__NSString__, F, A)))
 #else
-#  define NS_FORMAT_FUNCTION(F,A) 
+#  define NS_FORMAT_FUNCTION(F,A)
 #endif
 #endif
 

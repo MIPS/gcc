@@ -8,4 +8,3 @@
    Neil Booth, 24 Jun 2002.  */
 
 /* { dg-final { scan-file cmdlne-C2.i "dg-final" } } */
-

@@ -36,4 +36,3 @@ Proc_1 (Ptr_Val_Par)
 		&Next_Record->variant.var_1.Int_Comp);
     }
 }
-

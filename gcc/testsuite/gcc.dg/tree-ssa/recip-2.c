@@ -15,7 +15,7 @@ void e(float a, float b, float c, float d, float e, float f)
   d = d / a;
   e = e / a;
   f = f / a;
-  
+
   a = a / c;
   b = b / c;
 

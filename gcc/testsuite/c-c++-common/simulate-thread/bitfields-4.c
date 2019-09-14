@@ -49,7 +49,7 @@ void simulate_thread_main()
 {
   p -> c = 55;
 }
-  
+
 
 int main()
 {

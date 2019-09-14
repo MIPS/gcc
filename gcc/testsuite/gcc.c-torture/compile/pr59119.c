@@ -20,4 +20,3 @@ fill_number(char *buf, const NumberFieldWidths *spec)
         buf += spec->n_spadding;
     }
 }
-

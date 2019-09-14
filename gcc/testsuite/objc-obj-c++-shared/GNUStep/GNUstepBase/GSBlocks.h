@@ -142,4 +142,3 @@ void _Block_release(const void *) __attribute__((weak));
 
 #endif /* __has_include(<objc/blocks_runtime.h>) */
 #endif /* __GSBlocks_h_GNUSTEP_BASE_INCLUDE */
-

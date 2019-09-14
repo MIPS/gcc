@@ -10,7 +10,7 @@ static void
 sse_test (void)
 {
   float nan = __builtin_nanf ("");
-  
+
   __m128 x = _mm_min_ps(_mm_set1_ps(nan), _mm_set1_ps(1.0f));
 
   if (x[0] != 1.0f)

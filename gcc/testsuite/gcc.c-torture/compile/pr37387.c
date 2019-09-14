@@ -8,4 +8,3 @@ void FuncMakeConsequencesPres (long *objDefs1)
            && b <= 0))
     ErrorQuit ();
 }
-

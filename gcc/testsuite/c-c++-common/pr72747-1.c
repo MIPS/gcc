@@ -13,4 +13,3 @@ int main (int argc, char *argv[])
 	return 0;
 }
 /* { dg-final { scan-tree-dump-times " v2 = { 42, 42, 42, 42 }" 1 "gimple" } } */
-

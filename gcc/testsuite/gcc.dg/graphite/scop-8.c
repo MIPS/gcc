@@ -16,7 +16,7 @@ int toto()
 	  for (j = 1; j < 100; j++)
 	    b[i+j] = b[i+j-1] + 2;
 	}
-      else 
+      else
 	a[i][i] = 2;
 
       for (k = 1; k < 100; k++)

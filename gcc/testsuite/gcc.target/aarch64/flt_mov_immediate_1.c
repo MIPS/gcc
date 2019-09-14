@@ -49,4 +49,3 @@ float f4(void)
 
 /* { dg-final { scan-assembler-times "mov\tw\[0-9\]+, 16435"                1 } } */
 /* { dg-final { scan-assembler-times "movk\tw\[0-9\]+, 0xc69c, lsl 16"      1 } } */
-

@@ -33,4 +33,3 @@ bar (union n x)
     }
   return x.i;
 }
-

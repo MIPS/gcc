@@ -19,7 +19,7 @@ void foo (char *dst, const char *src)
   printf ("%c", '\n');
   printf ("%s\n", "hello world");
   printf ("%s\n", src);
-  
+
   fprintf (stdout, "\n");
   fprintf (stdout, "hello world\n");
   fprintf (stdout, "%s", "\n");

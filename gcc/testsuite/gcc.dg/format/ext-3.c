@@ -202,7 +202,7 @@ foo (char *s, size_t m, const struct tm *tp)
   /* { dg-warning "only last 2" "2-digit year" { target *-*-* } .-1 } */
   strftime (s, m, "%#y", tp); /* { dg-warning "flag" "bad %y" } */
   /* { dg-warning "only last 2" "2-digit year" { target *-*-* } .-1 } */
-  
+
   /* GCC also accepts the glibc format extensions %P, %k, %l, %s.  */
   strftime (s, m, "%P%k%l%s", tp);
   /* GCC also accepts the glibc extension of the "O" modifier on some

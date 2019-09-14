@@ -85,4 +85,3 @@ BUILD_VARIANTS (le, <=)
 BUILD_VARIANTS (lt, <)
   return 0;
 }
-

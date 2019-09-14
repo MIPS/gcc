@@ -8,9 +8,9 @@ void f1 (void* p)
   __atomic_compare_exchange(p, p, p, 0, 0, 0); /* { dg-error "must be a non-void pointer type" } */
 }
 
-void f2 (int n) 
-{ 
-  int a[n], b[n]; 
+void f2 (int n)
+{
+  int a[n], b[n];
   __atomic_load (&a, &b, __ATOMIC_SEQ_CST); /* { dg-error "must be a pointer to a constant size" } */
 }
 

@@ -9,6 +9,6 @@
 #define A Something
 #define B C
 #define C K(
-#define K(S) S  
+#define K(S) S
 #define T B A )
 T				/* Expands to <Something>.  */

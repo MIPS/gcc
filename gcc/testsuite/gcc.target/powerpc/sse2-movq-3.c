@@ -19,7 +19,7 @@ __attribute__((noinline, unused))
 test (__m128i b)
 {
   __asm("" : "+v"(b));
-  return _mm_cvtsi128_si64 (b); 
+  return _mm_cvtsi128_si64 (b);
 }
 
 static void

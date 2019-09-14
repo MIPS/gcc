@@ -59,4 +59,3 @@ avx512f_test (void)
   if (check_union128d (res4, res_ref))
     abort ();
 }
-

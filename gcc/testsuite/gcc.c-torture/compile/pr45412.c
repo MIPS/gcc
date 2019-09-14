@@ -19,4 +19,3 @@ foo (void)
   bar ();
   bar ();
 }
-

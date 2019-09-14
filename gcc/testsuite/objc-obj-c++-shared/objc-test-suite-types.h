@@ -1,6 +1,6 @@
 /* Define test-suite types to minimize conditional test-case source.
    Copyright (C) 2011 Free Software Foundation, Inc.
-   Contributed by Iain Sandoe 
+   Contributed by Iain Sandoe
 
 This file is part of GCC.
 

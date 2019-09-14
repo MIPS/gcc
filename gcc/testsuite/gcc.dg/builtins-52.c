@@ -20,4 +20,3 @@ int main()
   test(7.3, 2);
   return 0;
 }
-

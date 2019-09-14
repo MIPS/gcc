@@ -2532,7 +2532,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 			= TYPE_NEXT_VARIANT (TYPE_NEXT_VARIANT (t));
 		      break;
 		    }
-	    }	    
+	    }
 	  else
 	    for (tree t = TYPE_MAIN_VARIANT (remove); ;
 		 t = TYPE_NEXT_VARIANT (t))
@@ -9635,7 +9635,7 @@ void
 finish_function (void)
 {
   tree fndecl = current_function_decl;
-  
+
   if (c_dialect_objc ())
     objc_finish_function ();
 
@@ -11583,7 +11583,7 @@ for_each_global_decl (void (*callback) (tree decl))
   unsigned i;
 
   FOR_EACH_VEC_ELT (*all_translation_units, i, t)
-    { 
+    {
       decls = DECL_INITIAL (t);
       for (decl = BLOCK_VARS (decls); decl; decl = TREE_CHAIN (decl))
 	callback (decl);

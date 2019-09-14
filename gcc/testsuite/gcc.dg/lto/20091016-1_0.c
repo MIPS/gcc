@@ -12,4 +12,3 @@ void *add_stmt (struct stmt_tree_s *x)
 {
   return &x->x_cur_stmt_list;
 }
-

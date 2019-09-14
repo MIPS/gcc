@@ -8,4 +8,3 @@ I_wacom ()
   }
   RequestData (0);
 }
-

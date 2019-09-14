@@ -13,5 +13,3 @@ unsigned f(unsigned a)
 
 /* We want to verify that we replace the b & 1 with b.  */
 /* { dg-final { scan-tree-dump-times "Replaced b_\[0-9\]+ & 1 with b_\[0-9\]+ in" 1 "fre1"} } */
- 
-

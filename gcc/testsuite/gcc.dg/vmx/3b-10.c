@@ -4,12 +4,12 @@ typedef vector unsigned int x;
 
 x f (x a)
 {
-  return vec_addc(a,a); 
+  return vec_addc(a,a);
 }
 
-void g (int b) 
+void g (int b)
 {
-  vec_dst(&b, 3, 3); 
+  vec_dst(&b, 3, 3);
   vec_dst(&b, 1, 1);
 }
 

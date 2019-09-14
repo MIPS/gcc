@@ -18,4 +18,3 @@ void die (char *str, void *fp, int nr)
     dump_stack ();
     while (1);
 }
-

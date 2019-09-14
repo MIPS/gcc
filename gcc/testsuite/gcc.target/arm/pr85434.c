@@ -27,7 +27,7 @@ void doSmth(void *x);
 
 
 void check(int n) {
-  
+
     if (!(n % 2 && n % 3 && n % 5)) {
  __asm__  (   "add    r8, r8, #1;" );
     }

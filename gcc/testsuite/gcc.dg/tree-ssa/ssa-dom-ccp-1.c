@@ -1,4 +1,4 @@
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-O2 -fdump-tree-optimized" } */
 int t(int a) __attribute__ ((const));
 void abort (void);

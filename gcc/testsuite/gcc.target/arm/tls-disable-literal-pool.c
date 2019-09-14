@@ -12,4 +12,3 @@ bar ()
 {
   return x; /* { dg-message "sorry, unimplemented: accessing thread-local storage is not currently supported with -mpure-code or -mslow-flash-data" } */
 }
-

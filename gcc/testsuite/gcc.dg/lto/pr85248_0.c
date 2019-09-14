@@ -5,7 +5,7 @@
 #define STR1(X) #X
 #define STR2(X) STR1(X)
 
-extern void test_alias (int s, int e) 
+extern void test_alias (int s, int e)
   __asm__ (STR2(__USER_LABEL_PREFIX__) "test");
 extern void test_noreturn (int s, int e)
   __asm__ (STR2(__USER_LABEL_PREFIX__)  "test")

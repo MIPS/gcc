@@ -36,7 +36,7 @@ main (void)
   /* Casts between generic and decimal floating point types.  Use a
      value that we can assume can be represented exactly in all
      representations. */
-  
+
   d32 = 2.0df;
   d64 = 2.0dd;
   d128 = 2.0dl;

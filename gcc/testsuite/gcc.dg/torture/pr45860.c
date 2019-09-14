@@ -8,4 +8,3 @@ foo (char *str, int i)
   if (i & 1)
     __builtin_strcpy (str + i, text);
 }
-

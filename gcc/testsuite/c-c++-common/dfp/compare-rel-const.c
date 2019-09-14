@@ -17,7 +17,7 @@ main ()
   /* Compare like-typed constants. */
   if (0.2dd > 0.02e1dd)
     link_error ();
-  
+
   /* Compare decimal float constants of different types. */
   if (-.000005dd >= -.0000049DL)
   link_error();

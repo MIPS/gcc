@@ -3683,7 +3683,7 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform,
 
       gfc_error ("BOZ literal constant near %L cannot be assigned to a "
 		 "%qs variable", &rvalue->where, gfc_typename (&lvalue->ts));
- 
+
       return false;
     }
 

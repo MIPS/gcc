@@ -13,7 +13,7 @@ void globalp(CFI_cdesc_t *this)
   float *pt;
   CFI_index_t lb[] = { 3 };
   CFI_index_t ub[] = { 6 };
-  
+
   if (this->base_addr == NULL)
     {
       status = CFI_allocate(this, lb, ub, 0);

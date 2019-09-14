@@ -11,4 +11,3 @@ void bar (char *s)
 {
   f (__builtin_mempcpy (s, "hi", 3));
 }
-

@@ -20,4 +20,3 @@ testd_h (vector double vd2, vector double vd3)
 }
 
 /* { dg-final { scan-assembler-times "xxpermdi" 2 } } */
-

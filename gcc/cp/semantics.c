@@ -2435,7 +2435,7 @@ perform_koenig_lookup (cp_expr fn_expr, vec<tree, va_gc> *args,
 
   if (fn && template_id && fn != error_mark_node)
     fn = build2 (TEMPLATE_ID_EXPR, unknown_type_node, fn, tmpl_args);
-  
+
   return cp_expr (fn, loc);
 }
 

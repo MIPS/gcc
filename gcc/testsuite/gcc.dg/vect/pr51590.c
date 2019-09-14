@@ -31,4 +31,3 @@ foo (const char *x, struct S *y)
 
   bar (&d);
 }
-

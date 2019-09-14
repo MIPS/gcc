@@ -28,6 +28,6 @@ int main ()
   a = fn1 ();
   b = fn2 ();
   if (a.x == 3.145 && b.x == 3.145)
-    return 0; 
-  abort ();   
+    return 0;
+  abort ();
 }

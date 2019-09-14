@@ -19,7 +19,7 @@ __attribute__((noinline, unused))
 test (long long b)
 {
   __asm("" : "+r" (b));
-  return _mm_cvtsi64_si128 (b); 
+  return _mm_cvtsi64_si128 (b);
 }
 
 static void

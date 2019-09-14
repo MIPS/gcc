@@ -2199,7 +2199,7 @@ defaulted_late_check (tree fn)
     }
 
   /* 8.4.2/2: An explicitly-defaulted function (...) may have an explicit
-     exception-specification only if it is compatible (15.4) with the 
+     exception-specification only if it is compatible (15.4) with the
      exception-specification on the implicit declaration.  If a function
      is explicitly defaulted on its first declaration, (...) it is
      implicitly considered to have the same exception-specification as if

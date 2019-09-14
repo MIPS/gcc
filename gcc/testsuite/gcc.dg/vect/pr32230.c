@@ -18,6 +18,3 @@ const_f (filter_buffer_t *buf)
   for (i = 0; i < 10; i++)
     ((float*) (&((sbuf_header_t *) (__PTRDIFF_TYPE__)((buf) == (filter_buffer_t *)&(buf)->buf[0]))->buf[0]))[i] = val;
 }
-
-
-

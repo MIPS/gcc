@@ -9,7 +9,7 @@ foo ()
   void *skb;
   uint32_t len;
   uint64_t flags;
-  
+
   ret = __builtin_bpf_helper_skb_change_head (skb, len, flags);
 }
 

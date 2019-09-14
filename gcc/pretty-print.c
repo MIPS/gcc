@@ -847,7 +847,7 @@ pp_write_text_to_stream (pretty_printer *pp)
    Flush the formatted text of pretty-printer PP onto the attached stream.
    Replace characters in PPF that have special meaning in a GraphViz .dot
    file.
-   
+
    This routine is not very fast, but it doesn't have to be as this is only
    be used by routines dumping intermediate representations in graph form.  */
 
@@ -1315,7 +1315,7 @@ pp_format (pretty_printer *pp, text_info *text)
 	case 'Z':
 	  {
 	    int *v = va_arg (*text->args_ptr, int *);
-	    unsigned len = va_arg (*text->args_ptr, unsigned); 
+	    unsigned len = va_arg (*text->args_ptr, unsigned);
 
 	    for (unsigned i = 0; i < len; ++i)
 	      {
@@ -2201,10 +2201,10 @@ test_pp_format ()
 			    "foo", 0x12345678);
 
   /* Verify %Z.  */
-  int v[] = { 1, 2, 3 }; 
+  int v[] = { 1, 2, 3 };
   ASSERT_PP_FORMAT_3 ("1, 2, 3 12345678", "%Z %x", v, 3, 0x12345678);
 
-  int v2[] = { 0 }; 
+  int v2[] = { 0 };
   ASSERT_PP_FORMAT_3 ("0 12345678", "%Z %x", v2, 1, 0x12345678);
 
   /* Verify that combinations work, along with unformatted text.  */

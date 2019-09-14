@@ -11,4 +11,3 @@ int foo (bart bar, int m)
     j += bar();
   return j;
 }
-

@@ -914,7 +914,7 @@ is_admissible_throw_operand_or_catch_parameter (tree t, bool is_throw)
   tree type = TREE_TYPE (t);
 
   /* C++11 [except.handle] The exception-declaration shall not denote
-     an incomplete type, an abstract class type, or an rvalue reference 
+     an incomplete type, an abstract class type, or an rvalue reference
      type.  */
 
   /* 15.1/4 [...] The type of the throw-expression shall not be an
@@ -1323,10 +1323,10 @@ tree
 create_try_catch_expr (tree try_expr, tree catch_list)
 {
   location_t loc = EXPR_LOCATION (try_expr);
- 
+
   append_to_statement_list (do_begin_catch (), &catch_list);
   append_to_statement_list (build_throw (NULL_TREE), &catch_list);
-  tree catch_tf_expr = build_stmt (loc, TRY_FINALLY_EXPR, catch_list, 
+  tree catch_tf_expr = build_stmt (loc, TRY_FINALLY_EXPR, catch_list,
 				   do_end_catch (NULL_TREE));
   catch_list = build2 (CATCH_EXPR, void_type_node, NULL_TREE,
 		       catch_tf_expr);

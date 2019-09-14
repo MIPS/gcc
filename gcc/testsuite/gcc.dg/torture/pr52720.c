@@ -12,7 +12,7 @@ static void init_bank_swizzle(struct alu_bank_swizzle *bs)
   for (cycle = 0; cycle < 3; cycle++)
     for (component = 0; component < 4; component++)
       bs->hw_gpr[cycle][component] = -1;
-  for (i = 0; i < 4; i++) 
+  for (i = 0; i < 4; i++)
     bs->hw_cfile_addr[i] = -1;
 }
 int check_and_set_bank_swizzle(int max_slots, int *slots)
@@ -23,7 +23,6 @@ int check_and_set_bank_swizzle(int max_slots, int *slots)
     {
       init_bank_swizzle(&bs);
       if (slots[i])
-	check_vector(&bs); 
+	check_vector(&bs);
     }
 }
-

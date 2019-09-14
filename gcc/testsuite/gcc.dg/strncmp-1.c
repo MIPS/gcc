@@ -74,7 +74,7 @@ static void test_strncmp_ ## SZ ## _ ## ALIGN (void) {     		    \
       if (!((r1 = strncmp(a, b, SZ)) == 0))		   		    \
 	abort ();							    \
     }							                    \
-}                                                                
+}
 
 #ifdef TEST_ALL
 DEF_TEST(1,1)

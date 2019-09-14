@@ -26,6 +26,6 @@
 +#include <stdio.h>
  /* This is missing-header-fixit-2.h, for use by
     missing-header-fixit-2.c  */
- 
+
 { dg-end-multiline-output "" }
 #endif

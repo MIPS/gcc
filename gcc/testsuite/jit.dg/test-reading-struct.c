@@ -132,4 +132,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
   /* Verify that the code correctly returns the product of the fields.  */
   CHECK_VALUE (test_writing (), 35);
 }
-

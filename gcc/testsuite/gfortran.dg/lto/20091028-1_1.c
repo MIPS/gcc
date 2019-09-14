@@ -8,4 +8,3 @@ void int_gen_ti_header_c_ (char * hdrbuf, int * hdrbufsize,
   bcopy (typesize, p, sizeof(int)) ;
   bcopy (Data, p, *Count * *typesize) ;
 }
-

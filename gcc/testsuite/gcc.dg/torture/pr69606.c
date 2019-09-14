@@ -11,10 +11,10 @@ main ()
   int f = 1, g = ~a;
   if (b > f)
     {
-      e = b; 
-      d = b | e; 
+      e = b;
+      d = b | e;
       g = 0;
     }
   c = 1 % g;
-  return 0; 
+  return 0;
 }

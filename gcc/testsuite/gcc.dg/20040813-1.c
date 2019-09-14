@@ -11,4 +11,3 @@ main ()
 }
 
 /* { dg-final { scan-assembler ".stabs.*100,0,2" } } */
-

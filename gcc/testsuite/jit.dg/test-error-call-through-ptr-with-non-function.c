@@ -62,4 +62,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 		      ("gcc_jit_context_new_call_through_ptr:"
 		       " fn_ptr is not a function ptr: some_ptr type: void *"));
 }
-

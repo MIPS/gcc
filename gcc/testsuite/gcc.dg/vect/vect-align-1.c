@@ -42,7 +42,7 @@ int main (void)
   int i;
   struct foo *p = malloc (2*sizeof (struct foo));
   check_vect ();
-  
+
   main1 (p);
   return 0;
 }

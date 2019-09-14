@@ -24,7 +24,7 @@ avx512f_test (void)
   s1.x = _mm_set_ps (-24.043, 68.346, -43.35, 546.46);
   s2.x = _mm_set_ps (222.222, 333.333, 444.444, -2.0);
 
-  res1.x = _mm_rcp14_ss (s1.x, s2.x); 
+  res1.x = _mm_rcp14_ss (s1.x, s2.x);
 
   compute_vrcp14ss (s1.a, s2.a, res_ref);
 
@@ -39,7 +39,7 @@ avx512f_test (void)
     abort();
 
   res3.x = _mm_maskz_rcp14_ss(m, s1.x, s2.x);
-  
+
   MASK_ZERO () (res_ref, m, 1);
   if (checkVf (res3.a, res_ref, 4))
     abort();

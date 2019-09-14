@@ -29,4 +29,3 @@ vector signed long long splats4(void)
 /* { dg-final { scan-assembler-times {\mvspltis[bhw]\M|\mxxspltib\M} 2 } } */
 /* { dg-final { scan-assembler-times {\mvsl[bhwd]\M} 2 } } */
 /* { dg-final { scan-assembler-times {\mlvx\M} 0 } } */
-

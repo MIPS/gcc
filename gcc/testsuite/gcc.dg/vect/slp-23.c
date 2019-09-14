@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 128 
+#define N 128
 
 typedef struct {
    int a;
@@ -30,15 +30,15 @@ main1 (s *arr)
       res[i].d = ptr->d + ptr->d;
       res[i].b = ptr->b + ptr->b;
       res[i].f = ptr->f + ptr->f;
-      res[i].e = ptr->e + ptr->e; 
-      res[i].h = ptr->h + ptr->h;   
+      res[i].e = ptr->e + ptr->e;
+      res[i].h = ptr->h + ptr->h;
       res[i].g = ptr->g + ptr->g;
-      ptr++; 
-    } 
-   
+      ptr++;
+    }
+
   /* check results:  */
   for (i = 0; i < N; i++)
-    { 
+    {
       if (res[i].c != arr[i].c + arr[i].c
           || res[i].a != arr[i].a + arr[i].a
           || res[i].d != arr[i].d + arr[i].d
@@ -84,11 +84,11 @@ int main (void)
 {
   int i;
   s arr[N];
-  
+
   check_vect ();
 
   for (i = 0; i < N; i++)
-    { 
+    {
       arr[i].a = i;
       arr[i].b = i * 2;
       arr[i].c = 17;
@@ -98,7 +98,7 @@ int main (void)
       arr[i].g = i - 3;
       arr[i].h = 56;
       asm volatile ("" ::: "memory");
-    } 
+    }
 
   main1 (arr);
 
@@ -111,4 +111,3 @@ int main (void)
 /* SLP fails for the second loop with variable-length SVE because
    the load size is greater than the minimum vector size.  */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 2 "vect" { target vect_perm xfail { aarch64_sve && vect_variable_length } } } } */
-  

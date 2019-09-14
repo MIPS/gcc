@@ -19,13 +19,13 @@ fn2 ()
       g = c = e;
       for (; a;)
 	b = fn1 (g = d = e, g);
-      f = g; 
+      f = g;
     }
 }
 
 int
 main ()
 {
-  fn2 (); 
+  fn2 ();
   return 0;
 }

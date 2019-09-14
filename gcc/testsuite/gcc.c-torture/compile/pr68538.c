@@ -49,4 +49,3 @@ void cfq_completed_request(struct request *rq)
 	if (rq->active_queue == queue && sync)
 		cfq_arm_slice_timer();
 }
-

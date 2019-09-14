@@ -6,4 +6,3 @@ int foo (int i, int j)
 }
 
 /* { dg-final { scan-tree-dump "j >= i" "gimple" } } */
-

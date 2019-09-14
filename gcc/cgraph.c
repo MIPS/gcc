@@ -1034,7 +1034,7 @@ cgraph_edge::remove (void)
 
 /* Turn edge into speculative call calling N2. Update
    the profile so the direct call is taken COUNT times
-   with FREQUENCY.  
+   with FREQUENCY.
 
    At clone materialization time, the indirect call E will
    be expanded as:
@@ -1046,7 +1046,7 @@ cgraph_edge::remove (void)
 
    At this time the function just creates the direct call,
    the referencd representing the if conditional and attaches
-   them all to the orginal indirect call statement.  
+   them all to the orginal indirect call statement.
 
    Return direct edge created.  */
 
@@ -1114,7 +1114,7 @@ cgraph_edge::speculative_call_info (cgraph_edge *&direct,
 	  gcc_assert (e->speculative && !e->indirect_unknown_callee);
 	}
       else
-	for (e = e->caller->callees; 
+	for (e = e->caller->callees;
 	     e2->call_stmt != e->call_stmt
 	     || e2->lto_stmt_uid != e->lto_stmt_uid;
 	     e = e->next_callee)
@@ -1136,7 +1136,7 @@ cgraph_edge::speculative_call_info (cgraph_edge *&direct,
 
   /* Speculative edge always consist of all three components - direct edge,
      indirect and reference.  */
-  
+
   gcc_assert (e && e2 && ref);
 }
 
@@ -1276,9 +1276,9 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
 	 substitution), forget about speculating.  */
       if (decl)
 	e = e->resolve_speculation (decl);
-      /* If types do not match, speculation was likely wrong. 
+      /* If types do not match, speculation was likely wrong.
          The direct edge was possibly redirected to the clone with a different
-	 signature.  We did not update the call statement yet, so compare it 
+	 signature.  We did not update the call statement yet, so compare it
 	 with the reference that still points to the proper type.  */
       else if (!gimple_check_call_matching_types (e->call_stmt,
 						  ref->referred->decl,
@@ -2122,7 +2122,7 @@ cgraph_node::dump (FILE *f)
 		 IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (thunk.alias)));
       fprintf (f, "\n");
     }
-  
+
   fprintf (f, "  Called by: ");
 
   profile_count sum = profile_count::zero ();
@@ -2151,7 +2151,7 @@ cgraph_node::dump (FILE *f)
       FOR_EACH_ALIAS (this, ref)
 	if (dyn_cast <cgraph_node *> (ref->referring)->count.initialized_p ())
 	  sum += dyn_cast <cgraph_node *> (ref->referring)->count.ipa ();
-  
+
       if (global.inlined_to
 	  || (symtab->state < EXPANSION
 	      && ultimate_alias_target () == this && only_called_directly_p ()))
@@ -2635,7 +2635,7 @@ set_const_flag_1 (cgraph_node *node, bool set_const, bool looping,
 
    When setting the flag be careful about possible interposition and
    do not set the flag for functions that can be interposet and set pure
-   flag for functions that can bind to other definition. 
+   flag for functions that can bind to other definition.
 
    Return true if any change was done. */
 
@@ -2814,7 +2814,7 @@ cgraph_node::can_remove_if_no_direct_calls_p (bool will_inline)
 {
   struct ipa_ref *ref;
 
-  /* For local symbols or non-comdat group it is the same as 
+  /* For local symbols or non-comdat group it is the same as
      can_remove_if_no_direct_calls_p.  */
   if (!externally_visible || !same_comdat_group)
     {
@@ -3547,7 +3547,7 @@ cgraph_node::function_symbol (enum availability *availability,
 /* Walk the alias chain to return the function cgraph_node is alias of.
    Walk through non virtual thunks, too.  Thus we return either a function
    or a virtual thunk node.
-   When AVAILABILITY is non-NULL, get minimal availability in the chain. 
+   When AVAILABILITY is non-NULL, get minimal availability in the chain.
    When REF is non-NULL, assume that reference happens in symbol REF
    when determining the availability.  */
 
@@ -3626,7 +3626,7 @@ cgraph_node::get_untransformed_body (void)
   return true;
 }
 
-/* Prepare function body.  When doing LTO, read cgraph_node's body from disk 
+/* Prepare function body.  When doing LTO, read cgraph_node's body from disk
    if it is not already present.  When some IPA transformations are scheduled,
    apply them.  */
 

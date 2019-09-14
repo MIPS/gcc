@@ -16,4 +16,3 @@ t_frame_run (test6)
 /* { dg-final { scan-assembler-times "str\tx30, \\\[sp\\\]" 1 } } */
 /* { dg-final { scan-assembler "ldr\tx30, \\\[sp\\\]" } } */
 /* { dg-final { scan-assembler "ldr\tx30, \\\[sp\\\]," } } */
-

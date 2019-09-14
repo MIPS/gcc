@@ -221,4 +221,3 @@ unsigned int WineEngGetFontData(GdiFont *font, unsigned int table, unsigned int 
 int WineEngGetLinkedHFont(DC *dc, unsigned short c, HFONT *new_hfont, unsigned int *glyph) {
     return get_glyph_index_linked(0, 0, 0, 0);
 }
-

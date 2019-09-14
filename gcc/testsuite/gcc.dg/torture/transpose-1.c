@@ -10,10 +10,10 @@ void mem_init (void);
 int ARCHnodes, ARCHnodes1;
 int ***vel;
 
-/* The whole matrix VEL is flattened (3 dimensions).  
+/* The whole matrix VEL is flattened (3 dimensions).
    All dimensions are transposed : dim 0 -> dim 2
                                    dim 1 -> dim 0
-                                   dim 2 -> dim 1 
+                                   dim 2 -> dim 1
 */
 /*--------------------------------------------------------------------------*/
 
@@ -60,7 +60,7 @@ mem_init (void)
 {
 
   int i, j, k,d;
- 
+
   d = 0;
   vel = (int ***) malloc (ARCHnodes * sizeof (int **));
 

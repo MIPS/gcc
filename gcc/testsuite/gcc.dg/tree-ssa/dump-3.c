@@ -268,4 +268,3 @@ int main()
 /* { dg-final { scan-tree-dump "string_28 = \"\\\\x1c\";" "optimized" } } */
 /* { dg-final { scan-tree-dump "string_51 = \"3\";" "optimized" } } */
 /* { dg-final { scan-tree-dump "string_255 = \"\\\\xff\";" "optimized" } } */
-

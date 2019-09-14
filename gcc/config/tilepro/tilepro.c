@@ -377,11 +377,11 @@ tilepro_setup_incoming_varargs (cumulative_args_t cum,
 /* Implement TARGET_GIMPLIFY_VA_ARG_EXPR.  Gimplify va_arg by updating
    the va_list structure VALIST as required to retrieve an argument of
    type TYPE, and returning that argument.
-   
+
    ret = va_arg(VALIST, TYPE);
 
    generates code equivalent to:
-  
+
     paddedsize = (sizeof(TYPE) + 3) & -4;
     if ((VALIST.__args + paddedsize > VALIST.__skip)
 	& (VALIST.__args <= VALIST.__skip))
@@ -3333,7 +3333,7 @@ set_frame_related_p (void)
 #define FRP(exp)  (start_sequence (), exp, set_frame_related_p ())
 
 /* This emits code for 'sp += offset'.
-   
+
    The ABI only allows us to modify 'sp' in a single 'addi' or
    'addli', so the backtracer understands it. Larger amounts cannot
    use those instructions, so are added by placing the offset into a
@@ -3461,31 +3461,31 @@ compute_frame_addr (int offset_from_fp, int *next_scratch_regno)
 
 /* The stack frame looks like this:
          +-------------+
-         |    ...      | 
-         |  incoming   | 
-         | stack args  | 
+         |    ...      |
+         |  incoming   |
+         | stack args  |
    AP -> +-------------+
          | caller's HFP|
          +-------------+
          | lr save     |
   HFP -> +-------------+
-         |  var args   | 
+         |  var args   |
          |  reg save   | crtl->args.pretend_args_size bytes
          +-------------+
-         |    ...      | 
+         |    ...      |
          | saved regs  | tilepro_saved_regs_size() bytes
    FP -> +-------------+
-         |    ...      | 
+         |    ...      |
          |   vars      | get_frame_size() bytes
          +-------------+
-         |    ...      | 
-         |  outgoing   | 
+         |    ...      |
+         |  outgoing   |
          |  stack args | crtl->outgoing_args_size bytes
          +-------------+
          | HFP         | 4 bytes (only here if nonleaf / alloca)
          +-------------+
          | callee lr   | 4 bytes (only here if nonleaf / alloca)
-         | save        | 
+         | save        |
    SP -> +-------------+
 
   HFP == incoming SP.
@@ -4193,7 +4193,7 @@ replace_auli_pcrel (rtx_insn *insn)
 
    addli tmp2, got_rtx, got(sym)
    lw    tmp2,    tmp2
-   
+
    If we're compiling -fPIC, we replace the first instruction with:
 
    auli  tmp1, got_rtx, got_ha16(sym)

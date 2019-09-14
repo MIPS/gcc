@@ -18,11 +18,11 @@ int foo (int n, int m, int r)
 
   if (m)
     g++;
-  else 
+  else
     bar();
 
   if (flag)
-    blah(v); /* { dg-bogus "uninitialized" "bogus uninitialized var warning" } */ 
+    blah(v); /* { dg-bogus "uninitialized" "bogus uninitialized var warning" } */
 
   return 0;
 }

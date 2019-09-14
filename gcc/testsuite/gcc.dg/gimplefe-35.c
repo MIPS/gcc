@@ -8,4 +8,3 @@ bb_2:
   x = _Literal (struct X) {};
   return;
 }
-

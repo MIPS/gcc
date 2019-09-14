@@ -19,4 +19,3 @@ foo2(void)
 {
   return a;
 }
-

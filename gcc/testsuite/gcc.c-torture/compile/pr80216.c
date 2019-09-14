@@ -34,4 +34,3 @@ tb (int m6)
     }
   goto o3;
 }
-

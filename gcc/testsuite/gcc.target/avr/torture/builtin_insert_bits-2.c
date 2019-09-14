@@ -65,11 +65,11 @@ void test8 (void)
   for (ib = 0; ib < sizeof (V) / sizeof (*V); ib++)
     {
       unsigned char b = V[ib];
-      
+
       for (iv = 0; iv < sizeof (V) / sizeof (*V); iv++)
         {
           unsigned char v = V[iv];
-          
+
           TEST2 (0x76543210, b, v);
           TEST2 (0xffffffff, b, v);
           TEST2 (0x3210ffff, b, v);
@@ -89,6 +89,6 @@ void test8 (void)
 int main()
 {
   test8();
-  
+
   exit(0);
 }

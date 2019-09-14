@@ -18,7 +18,7 @@ static __m128i
 __attribute__((noinline, unused))
 test (__m128i b)
 {
-  return _mm_move_epi64 (b); 
+  return _mm_move_epi64 (b);
 }
 
 static void

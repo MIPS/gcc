@@ -23,7 +23,7 @@ struct test1 tmp1;
 
 __attribute__ ((noinline))
 int main1 ()
-{  
+{
   int i,j;
 
   /* 1. unaligned */
@@ -70,7 +70,7 @@ int main1 ()
     {
       tmp1.e.n[1][2][i] = 8;
     }
- 
+
   /* check results:  */
   for (i = 3; i <N-3; i++)
     {
@@ -82,11 +82,11 @@ int main1 ()
 }
 
 int main (void)
-{ 
+{
   check_vect ();
-  
+
   return main1 ();
-} 
+}
 
 /* { dg-final { scan-tree-dump-times "vectorized 4 loops" 1 "vect" } } */
 /* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 0 "vect" } } */

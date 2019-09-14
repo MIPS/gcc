@@ -85,7 +85,7 @@ stmt_in_inner_loop_p (class _stmt_vec_info *stmt_info)
   return (bb->loop_father == loop->inner);
 }
 
-/* Record the cost of a statement, either by directly informing the 
+/* Record the cost of a statement, either by directly informing the
    target model or by saving it in a vector for later processing.
    Return a preliminary estimate of the statement's cost.  */
 
@@ -922,7 +922,7 @@ vect_model_simple_cost (stmt_vec_info stmt_info, int ncopies,
 
 
 /* Model cost for type demotion and promotion operations.  PWR is normally
-   zero for single-step promotions and demotions.  It will be one if 
+   zero for single-step promotions and demotions.  It will be one if
    two-step promotion/demotion is required, and so on.  Each additional
    step doubles the number of instructions required.  */
 
@@ -1194,7 +1194,7 @@ vect_model_load_cost (stmt_vec_info stmt_info, unsigned ncopies,
       unsigned n_perms;
       unsigned assumed_nunits
 	= vect_nunits_for_cost (STMT_VINFO_VECTYPE (first_stmt_info));
-      unsigned slp_vf = (ncopies * assumed_nunits) / instance->group_size; 
+      unsigned slp_vf = (ncopies * assumed_nunits) / instance->group_size;
       vect_transform_slp_perm_load (slp_node, vNULL, NULL,
 				    slp_vf, instance, true,
 				    &n_perms);
@@ -1272,7 +1272,7 @@ vect_model_load_cost (stmt_vec_info stmt_info, unsigned ncopies,
     }
   else
     vect_get_load_cost (stmt_info, ncopies, first_stmt_p,
-			&inside_cost, &prologue_cost, 
+			&inside_cost, &prologue_cost,
 			cost_vec, cost_vec, true);
   if (memory_access_type == VMAT_ELEMENTWISE
       || memory_access_type == VMAT_STRIDED_SLP)
@@ -7630,7 +7630,7 @@ vectorizable_store (stmt_vec_info stmt_info, gimple_stmt_iterator *gsi,
       if (slp)
         {
           grouped_store = false;
-          /* VEC_NUM is the number of vect stmts to be created for this 
+          /* VEC_NUM is the number of vect stmts to be created for this
              group.  */
           vec_num = SLP_TREE_NUMBER_OF_VEC_STMTS (slp_node);
 	  first_stmt_info = SLP_TREE_SCALAR_STMTS (slp_node)[0];
@@ -7638,9 +7638,9 @@ vectorizable_store (stmt_vec_info stmt_info, gimple_stmt_iterator *gsi,
 		      == first_stmt_info);
 	  first_dr_info = STMT_VINFO_DR_INFO (first_stmt_info);
 	  op = vect_get_store_rhs (first_stmt_info);
-        } 
+        }
       else
-        /* VEC_NUM is the number of vect stmts to be created for this 
+        /* VEC_NUM is the number of vect stmts to be created for this
            group.  */
 	vec_num = group_size;
 
@@ -8218,7 +8218,7 @@ vectorizable_store (stmt_vec_info stmt_info, gimple_stmt_iterator *gsi,
 		  tree new_temp = make_ssa_name (perm_dest);
 
 		  /* Generate the permute statement.  */
-		  gimple *perm_stmt 
+		  gimple *perm_stmt
 		    = gimple_build_assign (new_temp, VEC_PERM_EXPR, vec_oprnd,
 					   vec_oprnd, perm_mask);
 		  vect_finish_stmt_generation (stmt_info, perm_stmt, gsi);
@@ -10915,7 +10915,7 @@ get_vectype_for_scalar_type_and_size (tree scalar_type, poly_uint64 size)
   /* We can't build a vector type of elements with alignment bigger than
      their size.  */
   else if (nbytes < TYPE_ALIGN_UNIT (scalar_type))
-    scalar_type = lang_hooks.types.type_for_mode (inner_mode, 
+    scalar_type = lang_hooks.types.type_for_mode (inner_mode,
 						  TYPE_UNSIGNED (scalar_type));
 
   /* If we felt back to using the mode fail if there was
@@ -11247,7 +11247,7 @@ supportable_widening_operation (enum tree_code code, stmt_vec_info stmt_info,
 	 vectorization.  */
       /* TODO: Another case in which order doesn't *really* matter is when we
 	 widen and then contract again, e.g. (short)((int)x * y >> 8).
-	 Normally, pack_trunc performs an even/odd permute, whereas the 
+	 Normally, pack_trunc performs an even/odd permute, whereas the
 	 repack from an even/odd expansion would be an interleave, which
 	 would be significantly simpler for e.g. AVX2.  */
       /* In any case, in order to avoid duplicating the code below, recurse

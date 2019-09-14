@@ -15,7 +15,7 @@ main_test(void)
 {
   FILE *s_array[] = {stdout, NULL}, **s_ptr = s_array;
   const char *const s1 = "hello world";
-  
+
   fputs ("", *s_ptr);
   fputs ("\n", *s_ptr);
   fputs ("bye", *s_ptr);
@@ -23,7 +23,7 @@ main_test(void)
   fputs (s1+5, *s_ptr);
   fputs (s1+10, *s_ptr);
   fputs (s1+11, *s_ptr);
-  
+
   /* Check side-effects when transforming fputs -> NOP.  */
   fputs ("", *s_ptr++);
   if (s_ptr != s_array+1 || *s_ptr != 0)

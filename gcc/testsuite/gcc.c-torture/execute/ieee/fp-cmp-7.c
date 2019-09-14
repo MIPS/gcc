@@ -11,4 +11,3 @@ int main ()
   foo (1.0);
   return 0;
 }
-

@@ -6,7 +6,7 @@ typedef unsigned int __u32;
 typedef signed short s16;
 
 
-static inline 
+static inline
 __attribute__((always_inline))
 __attribute__((__const__))
 __u16 __arch_swab16(__u16 x)

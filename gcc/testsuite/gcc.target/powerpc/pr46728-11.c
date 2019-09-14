@@ -26,7 +26,7 @@ main (int argc, char *argv[])
       volatile double x, y;
       x = sqrt (values[i]);
       y = sqrt (sqrt (values[i]));
-  
+
       if (fabs (convert_it (values[i]) / (x * y)) < PREC)
 	abort ();
     }

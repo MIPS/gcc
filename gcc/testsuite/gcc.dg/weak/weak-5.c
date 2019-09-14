@@ -35,7 +35,7 @@ void * foo1b (void)
 }
 
 
-extern int vfoo1c;  
+extern int vfoo1c;
 void * foo1c (void)
 {
   return (void *)&vfoo1c;

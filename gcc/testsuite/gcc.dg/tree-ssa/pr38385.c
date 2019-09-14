@@ -54,17 +54,17 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 
       int losers = 0;
       int bad = 0;
-      
+
       if (!recog_data.alternative_enabled_p[this_alternative_number])
 	{
 	  int i;
-	  
+
 	  for (i = 0; i < recog_data.n_operands; i++)
 	    ;
-	  
+
 	  continue;
 	}
-      
+
       for (i = 0; i < noperands; i++)
 	if (this_alternative_earlyclobber[i]
 	    && (this_alternative_win[i] || this_alternative_match_win[i]))
@@ -72,7 +72,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 	    if (j != noperands)
 	      {
 		losers++;
-		
+
 		for (j = 0; j < noperands; j++)
 		  if (this_alternative_matches[j] == i
 		      && this_alternative_match_win[j])
@@ -83,7 +83,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		    }
 	      }
 	  }
-      
+
       if (losers == 0)
 	{
 	  for (i = 0; i < noperands; i++)
@@ -91,7 +91,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 	      goal_alternative_win[i] = 0;
 	      goal_alternative_match_win[i] = 0;
 	    }
-	  
+
 	  goto finish;
 	}
 
@@ -104,7 +104,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 	    }
 	}
     }
-  
+
 
  finish:
 
@@ -113,7 +113,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
       {
 	rtx op = recog_data.operand[i];
 	int mode = operand_mode[i];
-	
+
 	if (((ix86_preferred_reload_class ((op), (goal_alternative[i])) == 2)
 	     || no_input_reloads)
 	    && mode != 0)
@@ -122,4 +122,3 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 
   return retval;
 }
-

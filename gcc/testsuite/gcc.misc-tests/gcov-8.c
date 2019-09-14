@@ -40,7 +40,7 @@ int main ()
 
   for (ix = 0; ix != 1000; ix++)
     t += foo (ix) + baz (ix);
-  
+
   return t == 0;
 }
 

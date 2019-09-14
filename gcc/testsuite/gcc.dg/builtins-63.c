@@ -25,4 +25,3 @@ int test1l(long double x)
 {
   return isinfl(x);
 }
-

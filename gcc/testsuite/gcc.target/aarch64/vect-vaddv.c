@@ -126,4 +126,3 @@ TEST (f64, q, float64, 2, D)
 
   return 0;
 }
-

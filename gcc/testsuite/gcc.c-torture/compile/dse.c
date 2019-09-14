@@ -16,4 +16,3 @@ copy_thread (struct task_struct *p)
   memset (childregs, 0, sizeof (struct pt_regs));
   childregs->pt_mode = 1;
 }
-

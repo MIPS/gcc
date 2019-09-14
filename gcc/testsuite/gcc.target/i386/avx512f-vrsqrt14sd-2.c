@@ -32,13 +32,13 @@ avx512f_test (void)
 
   res2.x = _mm_set_pd (-4.0, DEFAULT_VALUE);
   res2.x = _mm_mask_rsqrt14_sd(res2.x, m, s1.x, s2.x);
- 
+
   MASK_MERGE (d) (res_ref, m, 1);
   if (checkVd (res2.a, res_ref, 2))
     abort();
 
   res3.x = _mm_maskz_rsqrt14_sd(m, s1.x, s2.x);
-  
+
   MASK_ZERO (d) (res_ref, m, 1);
   if (checkVd (res3.a, res_ref, 2))
     abort();

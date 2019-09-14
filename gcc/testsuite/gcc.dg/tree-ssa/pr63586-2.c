@@ -29,4 +29,3 @@ int f1_int (int x)
 /* { dg-final { scan-tree-dump-times "\\\* 8\\\.0e\\\+0" 1 "reassoc1" } } */
 /* { dg-final { scan-tree-dump-times "\\\* 5\\\.0e\\\+0" 1 "reassoc1" } } */
 /* { dg-final { scan-tree-dump-times "\\\* 6" 1 "reassoc1" } } */
-

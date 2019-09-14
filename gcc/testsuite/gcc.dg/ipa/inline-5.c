@@ -27,7 +27,7 @@ accessreference (struct a *a)
        a.0_1 = a;
 	 Will be eliminated by inlining
        tmp = a.0_1->a;
-	 50% will be eliminated by inlining 
+	 50% will be eliminated by inlining
        t (tmp)  */
   t2(&a);
   return;

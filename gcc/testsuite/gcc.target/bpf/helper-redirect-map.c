@@ -9,7 +9,7 @@ foo ()
   void *map;
   uint32_t key;
   uint64_t flags;
-  
+
   ret = __builtin_bpf_helper_redirect_map (map, key, flags);
 }
 

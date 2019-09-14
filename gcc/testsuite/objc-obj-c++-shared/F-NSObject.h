@@ -26,7 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ >= 1090
 #  import "GNUStep/Foundation/NSObject.h"
-#else 
+#else
 #  import <Foundation/NSObject.h>
 #endif
 

@@ -7,11 +7,11 @@
 unsigned long long
 f (unsigned long long a, unsigned long b)
 {
-  asm ("" : : : 
+  asm ("" : : :
 #ifdef __s390x__
 		"r13", "r14",
 #endif
-		"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", 
+		"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
                 "r8", "r9", "r10", "r11", "r12");
 
   return a << ((b + 3) & 63);

@@ -1,4 +1,4 @@
-/* Verify that structure return doesn't invoke memcpy on 
+/* Verify that structure return doesn't invoke memcpy on
    overlapping objects.  */
 
 extern void abort (void);
@@ -19,7 +19,7 @@ union U {
     int space;
   } b;
 };
-  
+
 struct S f(struct S *p)
 {
   return *p;

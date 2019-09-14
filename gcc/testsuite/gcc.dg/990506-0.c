@@ -5,5 +5,5 @@ x()
 {
   foo (i);
   /* { dg-error "undeclared" "undeclared-variable message" { target *-*-* } .-1 } */
-  /* { dg-message "function it appears in" "reminder message" { target *-*-* } .-2 } */ 
+  /* { dg-message "function it appears in" "reminder message" { target *-*-* } .-2 } */
 }

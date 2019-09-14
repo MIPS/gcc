@@ -12,7 +12,7 @@ void test_1 ()
   /* { dg-message "-: macro .MACRO_1. defined here" "" { target *-*-* } def_of_MACRO_1 }
   /* { dg-begin-multiline-output "" }
  #define MACRO_1(X,Y)
- 
+
      { dg-end-multiline-output "" } */
   /* { dg-error "'MACRO_1' undeclared" "" { target c } use_of_MACRO_1 }
   /* { dg-error "'MACRO_1' was not declared in this scope" "" { target c++ } use_of_MACRO_1 }
@@ -36,7 +36,7 @@ void test_2 ()
   /* { dg-message "-: macro .MACRO_2. defined here" "" { target *-*-* } def_of_MACRO_2 }
   /* { dg-begin-multiline-output "" }
  #define MACRO_2(X,Y)
- 
+
      { dg-end-multiline-output "" } */
   /* { dg-error "'MACRO_2' undeclared" "" { target c } use_of_MACRO_2 } */
   /* { dg-error "'MACRO_2' was not declared in this scope" "" { target c++ } use_of_MACRO_2 } */

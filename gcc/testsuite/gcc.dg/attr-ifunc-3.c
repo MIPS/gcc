@@ -9,7 +9,7 @@ static int __attribute__((noinline))
 {
   if (ptr)
     return ((int (*) (void *))ptr) (0);
-  
+
   printf ("'ere I am JH\n");
   return 0;
 }

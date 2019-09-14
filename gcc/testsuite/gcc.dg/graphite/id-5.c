@@ -12,4 +12,3 @@ void matmul_i1 ()
 	dest_y[x] += abase_n[x];
     }
 }
-

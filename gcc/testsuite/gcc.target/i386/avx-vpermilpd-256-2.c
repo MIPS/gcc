@@ -13,7 +13,7 @@
 void static
 avx_test ()
 {
-    union256d u, src; 
+    union256d u, src;
     union256i_q ctl;
 
     double  s[4] = {39578.467285, 7856.342941, 9674.67456, 13543.9788};
@@ -32,5 +32,3 @@ avx_test ()
     if (check_union256d (u, e))
       abort ();
 }
-
-

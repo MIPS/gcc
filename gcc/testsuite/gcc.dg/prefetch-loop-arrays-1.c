@@ -33,4 +33,3 @@ void byte_re_match_2_internal (struct re_pattern_buffer *bufp)
       ((reg_info[mcnt]).bits.matched_something) = 0;
     }
 }
-

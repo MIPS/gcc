@@ -27,4 +27,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 		      ("gcc_jit_type_get_vector:"
 		       " type is not integral or floating point: void"));
 }
-

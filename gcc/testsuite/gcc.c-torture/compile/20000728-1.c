@@ -1,7 +1,7 @@
 struct clock {
   long sec; long usec;
 };
-        
+
 int foo(void)
 {
   struct clock clock_old = {0, 0};
@@ -13,4 +13,3 @@ int foo(void)
   }
   return 0;
 }
-                                        

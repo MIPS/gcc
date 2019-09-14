@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-O1 -fdump-tree-dom2" } */
-  
+
 extern void abort (void);
 
 union tree_node;

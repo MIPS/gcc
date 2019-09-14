@@ -4,7 +4,7 @@
 
 #include "avx-check.h"
 
-static __m256 
+static __m256
 __attribute__((noinline))
 foo (float *v)
 {

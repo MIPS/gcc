@@ -4,7 +4,7 @@
 /* Test of prohibition on directives which result from macro expansion.
    See also direct2s.c */
 
-/* 
+/*
    { dg-options "-ftrack-macro-expansion=0" }
    { dg-do compile } */
 

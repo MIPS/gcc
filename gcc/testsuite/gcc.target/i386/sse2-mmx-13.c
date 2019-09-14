@@ -8,7 +8,7 @@ __attribute__((noinline, noclone))
 static void
 test_to_long_long  (long long *ll1, long long *r)
 {
-  __m64 m = *(__m64 *) ll1; 
+  __m64 m = *(__m64 *) ll1;
   *r = _mm_cvtm64_si64 (m);
 }
 

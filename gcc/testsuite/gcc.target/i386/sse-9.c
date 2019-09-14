@@ -32,7 +32,7 @@ sse_test (void)
       else
 	errors++;
     }
-   
+
   if (errors != 0)
     abort ();
 }

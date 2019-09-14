@@ -1,8 +1,8 @@
 /* { dg-require-stack-size "256*8+4" } */
 
-int main()                                                                      
-{                                                                               
-  unsigned long long table[256];                                          
+int main()
+{
+  unsigned long long table[256];
   unsigned int i;
   for (i=0; i<256; ++i) {
       unsigned long long j;
@@ -35,4 +35,3 @@ int main()
   }
   return 0;
 }
-

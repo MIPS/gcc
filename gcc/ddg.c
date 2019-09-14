@@ -198,10 +198,10 @@ create_ddg_dep_from_intra_loop_link (ddg_ptr g, ddg_node_ptr src_node,
      the kernel has only one def of the relevant register).
      If the address that is being auto-inc or auto-dec in DEST_NODE
      is used in SRC_NODE then do not remove the edge to make sure
-     reg-moves will not be created for this address.  
+     reg-moves will not be created for this address.
      TODO: support the removal of all anti-deps edges, i.e. including those
      whose register has multiple defs in the loop.  */
-  if (flag_modulo_sched_allow_regmoves 
+  if (flag_modulo_sched_allow_regmoves
       && (t == ANTI_DEP && dt == REG_DEP)
       && !def_has_ccmode_p (dest_node->insn)
       && !autoinc_var_is_used_p (dest_node->insn, src_node->insn))
@@ -330,7 +330,7 @@ add_cross_iteration_register_deps (ddg_ptr g, df_ref last_def)
 	  gcc_assert (first_def_node);
 
          /* Always create the edge if the use node is a branch in
-            order to prevent the creation of reg-moves.  
+            order to prevent the creation of reg-moves.
             If the address that is being auto-inc or auto-dec in LAST_DEF
             is used in USE_INSN then do not remove the edge to make sure
             reg-moves will not be created for that address.  */

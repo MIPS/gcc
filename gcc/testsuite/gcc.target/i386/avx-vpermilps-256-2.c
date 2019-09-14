@@ -34,4 +34,3 @@ avx_test ()
     if (check_union256 (u, e))
       abort ();
 }
-

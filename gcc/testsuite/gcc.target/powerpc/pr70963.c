@@ -18,7 +18,7 @@ static void check (int result, const char *name)
       printf ("fail %s\n", name);
     }
 }
-    
+
 int main (void)
 {
   test ();

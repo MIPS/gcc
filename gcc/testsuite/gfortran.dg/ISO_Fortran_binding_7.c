@@ -41,7 +41,7 @@ int Psuba(CFI_cdesc_t *this, CFI_cdesc_t *that, int Dcase) {
       }
 
     dim = this->dim;
-    if (dim[0].lower_bound != 0 || dim[0].extent != 3) 
+    if (dim[0].lower_bound != 0 || dim[0].extent != 3)
       {
 	printf("FAIL: Dcase %i - dim[0] %i %i %i\n",Dcase, (int) dim[0].lower_bound,
 	      (int)dim[0].extent,(int)dim[0].sm);
@@ -76,7 +76,7 @@ int Psuba(CFI_cdesc_t *this, CFI_cdesc_t *that, int Dcase) {
       }
 
     dim = that->dim;
-    if (dim[0].lower_bound != 0 || dim[0].extent != 1) 
+    if (dim[0].lower_bound != 0 || dim[0].extent != 1)
       {
 	printf("FAIL: Dcase %i - dim[0] %i %i\n",Dcase,(int)dim[0].lower_bound,dim[0].extent);
 	status++;
@@ -87,7 +87,7 @@ int Psuba(CFI_cdesc_t *this, CFI_cdesc_t *that, int Dcase) {
       {
 	printf("FAIL: Dcase %i - value of that %i %f %f\n",Dcase,cu->i,cu->r[0],cu->r[1]);
 	status++;
-      } 
+      }
 
     ct = (float *) ((CFI_cdesc_t *) this)->base_addr;
     if ( fabs(ct[5] +  2.0) > 1.0e-6)
@@ -95,8 +95,6 @@ int Psuba(CFI_cdesc_t *this, CFI_cdesc_t *that, int Dcase) {
 	printf("FAIL: Dcase %i - value of this %f\n",Dcase,ct[5]);
 	status++;
       }
- 
+
     return status;
 }
-
-

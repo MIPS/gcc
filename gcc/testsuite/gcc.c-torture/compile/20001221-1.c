@@ -57,7 +57,7 @@ foo ()
 	   __u->__ui = __c * 0x01010101;
 	   __u = __extension__ ((void *) __u + 4);
 	  case 8:
-	   __u->__ui = __c * 0x01010101; 
+	   __u->__ui = __c * 0x01010101;
 	   __u = __extension__ ((void *) __u + 4);
 	  case 4:
 	   __u->__ui = __c * 0x01010101;

@@ -13,4 +13,3 @@ int main()
   t (); b ();
   return 0;
 }
-

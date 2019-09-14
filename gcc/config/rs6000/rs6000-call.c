@@ -529,15 +529,15 @@ rs6000_discover_homogeneous_aggregate (machine_mode mode, const_tree type,
 
    The AIX ABI for the RS/6000 specifies that all structures are
    returned in memory.  The Darwin ABI does the same.
-   
+
    For the Darwin 64 Bit ABI, a function result can be returned in
    registers or in memory, depending on the size of the return data
    type.  If it is returned in registers, the value occupies the same
    registers as it would if it were the first and only function
    argument.  Otherwise, the function places its result in memory at
    the location pointed to by GPR3.
-   
-   The SVR4 ABI specifies that structures <= 8 bytes are returned in r3/r4, 
+
+   The SVR4 ABI specifies that structures <= 8 bytes are returned in r3/r4,
    but a draft put them in memory, and GCC used to implement the draft
    instead of the final standard.  Therefore, aix_struct_return
    controls this instead of DEFAULT_ABI; V.4 targets needing backward
@@ -1172,10 +1172,10 @@ int
 rs6000_darwin64_struct_check_p (machine_mode mode, const_tree type)
 {
   return rs6000_darwin64_abi
-	 && ((mode == BLKmode 
-	      && TREE_CODE (type) == RECORD_TYPE 
+	 && ((mode == BLKmode
+	      && TREE_CODE (type) == RECORD_TYPE
 	      && int_size_in_bytes (type) > 0)
-	  || (type && TREE_CODE (type) == RECORD_TYPE 
+	  || (type && TREE_CODE (type) == RECORD_TYPE
 	      && int_size_in_bytes (type) == 8)) ? 1 : 0;
 }
 
@@ -1305,7 +1305,7 @@ rs6000_function_arg_advance_1 (CUMULATIVE_ARGS *cum, machine_mode mode,
 	    {
 	      fprintf (stderr, "function_adv: words = %2d, align=%d, size=%d",
 		       cum->words, TYPE_ALIGN (type), size);
-	      fprintf (stderr, 
+	      fprintf (stderr,
 	           "nargs = %4d, proto = %d, mode = %4s (darwin64 abi)\n",
 		       cum->nargs_prototype, cum->prototype,
 		       GET_MODE_NAME (mode));
@@ -2691,9 +2691,9 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   /* We need to deal with the fact that the darwin ppc64 ABI is defined by an
      earlier version of gcc, with the property that it always applied alignment
      adjustments to the va-args (even for zero-sized types).  The cheapest way
-     to deal with this is to replicate the effect of the part of 
-     std_gimplify_va_arg_expr that carries out the align adjust, for the case 
-     of relevance.  
+     to deal with this is to replicate the effect of the part of
+     std_gimplify_va_arg_expr that carries out the align adjust, for the case
+     of relevance.
      We don't need to check for pass-by-reference because of the test above.
      We can return a simplifed answer, since we know there's no offset to add.  */
 
@@ -4279,7 +4279,7 @@ cpu_expand_builtin (enum rs6000_builtins fcode, tree exp ATTRIBUTE_UNUSED,
 #else
   warning (0, "builtin %qs needs GLIBC (2.23 and newer) that exports hardware "
 	   "capability bits", rs6000_builtin_info[(size_t) fcode].name);
-  
+
   /* For old LIBCs, always return FALSE.  */
   emit_move_insn (target, GEN_INT (0));
 #endif /* TARGET_LIBC_PROVIDES_HWCAP_IN_TCB */
@@ -6276,7 +6276,7 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	       (name2) ? name2 : "---", (int) icode,
 	       name3,
 	       func_valid_p ? "" : ", not valid");
-    }	     
+    }
 
   if (!func_valid_p)
     {
@@ -6439,7 +6439,7 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
       if (success)
 	return ret;
-    }  
+    }
 
   unsigned attr = rs6000_builtin_info[uns_fcode].attr & RS6000_BTC_TYPE_MASK;
   /* RS6000_BTC_SPECIAL represents no-operand operators.  */
@@ -6447,7 +6447,7 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	      || attr == RS6000_BTC_BINARY
 	      || attr == RS6000_BTC_TERNARY
 	      || attr == RS6000_BTC_SPECIAL);
-  
+
   /* Handle simple unary operations.  */
   d = bdesc_1arg;
   for (i = 0; i < ARRAY_SIZE (bdesc_1arg); i++, d++)

@@ -14,4 +14,3 @@ int foo (void)
     }
   return x;
 }
-

@@ -18,7 +18,7 @@ static __m128d
 __attribute__((noinline, unused))
 test (__m128d s1, __m128d s2)
 {
-  return _mm_xor_pd (s1, s2); 
+  return _mm_xor_pd (s1, s2);
 }
 
 static void
@@ -31,16 +31,16 @@ TEST (void)
     }source1, source2, e;
 
   union128d u, s1, s2;
-  int i; 
-   
+  int i;
+
   s1.x = _mm_set_pd (11.1321456, 2.287332);
   s2.x = _mm_set_pd (3.37768, 4.43222234);
 
   _mm_storeu_pd (source1.d, s1.x);
   _mm_storeu_pd (source2.d, s2.x);
 
-  u.x = test (s1.x, s2.x); 
- 
+  u.x = test (s1.x, s2.x);
+
   for (i = 0; i < 2; i++)
     e.l[i] = source1.l[i] ^ source2.l[i];
 

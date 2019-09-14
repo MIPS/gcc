@@ -1,4 +1,4 @@
-/* PR 7543. Test operation of -Wparentheses.  Precedence warnings.  
+/* PR 7543. Test operation of -Wparentheses.  Precedence warnings.
    !a | b and !a & b. */
 /* { dg-do compile } */
 /* { dg-options "-Wparentheses" } */

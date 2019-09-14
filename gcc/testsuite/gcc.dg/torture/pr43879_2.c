@@ -14,4 +14,3 @@ static int foo(int *i)
 }
 
 struct TBL tbl = { foo };
-

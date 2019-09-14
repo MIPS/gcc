@@ -29,4 +29,3 @@ void *f3()
 {
   return x; /* { dg-bogus "'x' undeclared" } */
 }
-

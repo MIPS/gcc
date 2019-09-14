@@ -2166,4 +2166,3 @@ vax_starting_frame_offset (void)
      stackadj value.  */
   return TARGET_ELF ? -4 : 0;
 }
-

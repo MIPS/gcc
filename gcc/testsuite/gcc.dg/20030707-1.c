@@ -13,4 +13,3 @@ void temp(double *c)
   *c = atan2(s2,c2);
   t(1/s2);
 }
-

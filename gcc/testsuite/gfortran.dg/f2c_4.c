@@ -2,7 +2,7 @@
     Return value of COMPLEX function is via an extra argument in the
      calling sequence that points to where to store the return value
     Additional underscore appended to function name
-  
+
    Simplified from f2c output and tested with g77 */
 
 /* We used to #include <complex.h>, but this fails for some platforms

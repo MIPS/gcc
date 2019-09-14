@@ -1,7 +1,7 @@
 /* { dg-do run } */
 /* { dg-require-effective-target int32plus } */
 
-int printf (const char *, ...); 
+int printf (const char *, ...);
 
 unsigned a, c, *d, f;
 char b, e;

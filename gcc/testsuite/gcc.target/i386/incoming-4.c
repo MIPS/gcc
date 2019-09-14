@@ -8,7 +8,7 @@
 extern void bar (int *);
 
 __m128
-foo(va_list arg) 
+foo(va_list arg)
 {
   int __attribute((aligned(16))) xxx;
 

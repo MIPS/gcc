@@ -30,4 +30,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
   CHECK_STRING_VALUE (gcc_jit_context_get_last_error (ctxt),
 		      "gcc_jit_context_new_function: NULL return_type");
 }
-

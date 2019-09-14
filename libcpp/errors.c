@@ -154,7 +154,7 @@ cpp_diagnostic_with_line (cpp_reader * pfile, enum cpp_diagnostic_level level,
 			  const char *msgid, va_list *ap)
 {
   bool ret;
-  
+
   if (!pfile->cb.diagnostic)
     abort ();
   rich_location richloc (pfile->line_table, src_loc);

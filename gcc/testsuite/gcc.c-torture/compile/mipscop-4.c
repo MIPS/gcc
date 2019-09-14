@@ -16,4 +16,3 @@ foo ()
   d = c3r1;
   printf ("%d\n", d);
 }
-

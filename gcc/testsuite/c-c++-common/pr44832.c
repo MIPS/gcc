@@ -136,7 +136,7 @@ ix86_expand_vector_init (unsigned char mmx_ok, rtx target, rtx vals)
      || ((enum rtx_code) (x)->code) == CONST_DOUBLE
      || ((enum rtx_code) (x)->code) == CONST_FIXED))
  n_var++, one_var = i;
-      else 
+      else
  all_const_zero = 0;
       if (i > 0 && !rtx_equal_p (x, (((((vals)->u.fld[0]).rt_rtvec))->elem[0])))
  all_same = 0;

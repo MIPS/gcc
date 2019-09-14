@@ -17,4 +17,3 @@ void * C_alloca (size_t size)
   if (stack_dir == 0)
     find_stack_direction ();
 }
-

@@ -14,7 +14,7 @@ write_xf0 (float* f)
 {
   __asm__ __volatile__ ("frchg; fmov.s @%0,fr0; frchg" : : "r" (f) : "memory");
 }
- 
+
 void
 read_xf0 (float* f)
 {

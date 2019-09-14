@@ -3,4 +3,3 @@
 #error import-1c failure
 #endif
 #define IMPORT_1C
-

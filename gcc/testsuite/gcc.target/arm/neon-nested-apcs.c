@@ -16,7 +16,7 @@ float __attribute__((noinline, noclone)) foo (float f)
 {
   int error_reported = 0;
 
-  void __attribute__((noinline, noclone)) 
+  void __attribute__((noinline, noclone))
   nested (int a, int b, int c, int d, float f0, float f1, float f2, float f3)
   {
     float e;

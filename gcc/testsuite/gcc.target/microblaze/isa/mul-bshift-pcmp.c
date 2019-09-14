@@ -14,7 +14,7 @@ int test_mul () {
     m1 = m2 * m3 ;
 
   /* { dg-final { scan-assembler "muli\tr(\[0-9]\|\[1-2]\[0-9]\|3\[0-1]),r(\[0-9]\|\[1-2]\[0-9]\|3\[0-1]),(0x\[0-9a-fA-F]+|\[+-]*\[0-9]+)" } } */
-    m3 = m1 * 1234 ;    
+    m3 = m1 * 1234 ;
 
   /* { dg-final { scan-assembler-not "mulh" } } */
     llp = ((long long)l1 * l2);
@@ -23,7 +23,7 @@ int test_mul () {
     ullp = ((unsigned long long)ul1 * ul2);
 
   /* { dg-final { scan-assembler-not "mulhsu" } } */
-    llp = ((long long)l1 * ul2);        
+    llp = ((long long)l1 * ul2);
 
   /* { dg-final { scan-assembler "bslli\tr(\[0-9]\|\[1-2]\[0-9]\|3\[0-1]),r(\[0-9]\|\[1-2]\[0-9]\|3\[0-1]),25" } } */
     m3 = m2 << 25;
@@ -41,7 +41,7 @@ int test_mul () {
     m1 = m2 / m1;
 
   /* { dg-final { scan-assembler-not "idivu" } } */
-    u1 = u2 / u3;    
+    u1 = u2 / u3;
 
   /* { dg-final { scan-assembler "pcmpne\tr(\[0-9]\|\[1-2]\[0-9]\|3\[0-1]),r(\[0-9]\|\[1-2]\[0-9]\|3\[0-1]),r(\[0-9]\|\[1-2]\[0-9]\|3\[0-1])\[^0-9]" } } */
     m3 = (m3 != m1);
@@ -50,4 +50,3 @@ int test_mul () {
     return (m1 == m2);
 
 }
-

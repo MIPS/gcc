@@ -78,4 +78,3 @@ main (int argc, char** argv)
 }
 
 /* { dg-final { scan-assembler-not "copysign\tw" } } */
-

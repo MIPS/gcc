@@ -13,7 +13,7 @@ STRUCT_128;
 typedef union uint128_bitmap
 {
   STRUCT_128 uint128;
-  
+
     struct
     {
       UInt64 b00 : 1;
@@ -156,9 +156,8 @@ void shift(unsigned char t)
   V.uint128.uint64_lower = (V.uint128.uint64_lower >> 1);
   V.bitmap.b63 = V.bitmap.b64;
   V.uint128.uint64_upper = (V.uint128.uint64_upper >> 1);
-  
+
   V.bitmap.b96 = t;
 }
 
 /* { dg-final { scan-tree-dump-times "basic block vectorized" 0 "slp2" } } */
-

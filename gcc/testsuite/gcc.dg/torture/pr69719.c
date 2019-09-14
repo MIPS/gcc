@@ -1,6 +1,6 @@
 /* { dg-do run } */
 
-int b, c = 1, e, f; 
+int b, c = 1, e, f;
 int a[6][5] = { {0, 0, 0, 0, 0}, {0, 0, 0, 0, 0}, {0, 1, 0, 0, 0} };
 
 void  __attribute__((noinline))
@@ -17,8 +17,8 @@ main ()
 {
   fn1 ();
 
-  if (a[2][1] != 0) 
-    __builtin_abort (); 
+  if (a[2][1] != 0)
+    __builtin_abort ();
 
-  return 0; 
+  return 0;
 }

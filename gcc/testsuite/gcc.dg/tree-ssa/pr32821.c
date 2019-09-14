@@ -11,4 +11,3 @@ main1 (int *arr, int n, int a, int b)
       arr[i] = (m < a ? m - a : b);
     }
 }
-

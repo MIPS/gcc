@@ -33,4 +33,3 @@ main ()
   invert ();
   return 0;
 }
-

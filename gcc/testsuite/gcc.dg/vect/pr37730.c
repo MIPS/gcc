@@ -14,4 +14,3 @@ add_opush (void)
     dtds[i] = &dtd;
   sdp_seq_alloc (dtds);
 }
-

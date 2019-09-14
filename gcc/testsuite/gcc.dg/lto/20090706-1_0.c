@@ -30,7 +30,7 @@ int main (void)
 {
   int z = 5, i;
   struct { struct { char a[z]; } y; unsigned r; } x;
-          
+
   x.y.a[0] = '0';
   x.y.a[1] = '1';
   x.y.a[2] = '2';

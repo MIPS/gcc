@@ -1,4 +1,4 @@
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-O2 -fdump-tree-sink-stats" } */
 extern int foo (int *, int *);
 extern int foo2 (int);

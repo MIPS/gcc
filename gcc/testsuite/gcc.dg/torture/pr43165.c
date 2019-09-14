@@ -10,7 +10,7 @@ struct __attribute__((packed)) S
   unsigned d : 24;
 };
 
-void 
+void
 foo (struct S p)
 {
   for (; p.c; p.c++)

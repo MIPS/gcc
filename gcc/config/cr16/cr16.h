@@ -17,7 +17,7 @@
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING3.  If not see
    <http://www.gnu.org/licenses/>.  */
-   
+
 #ifndef GCC_CR16_H
 #define GCC_CR16_H
 
@@ -101,7 +101,7 @@ while (0)
 
 #define FUNCTION_BOUNDARY   BIGGEST_ALIGNMENT
 
-/* Biggest alignment on CR16C+ is 32-bit as internal bus is AMBA based 
+/* Biggest alignment on CR16C+ is 32-bit as internal bus is AMBA based
    where as CR16C is proprietary internal bus architecture.  */
 #define BIGGEST_ALIGNMENT   ((TARGET_CR16CP) ? 32 : 16)
 
@@ -172,15 +172,15 @@ while (0)
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,        \
   /* r11 r12 r13 ra  sp.  */                          \
     0,  0,  0,  0,  1                                 \
-  }      
+  }
 
 /* 1 for registers not available across function calls.
    These must include the FIXED_REGISTERS and also any
    registers that can be used without being saved.
    The latter must include the registers where values are returned
    and the register where structure-value addresses are passed.
- 
-   On the CR16, calls clobbers r0-r6 (scratch registers), 
+
+   On the CR16, calls clobbers r0-r6 (scratch registers),
    ra (the return address) and sp (the stack pointer).  */
 #define CALL_USED_REGISTERS                           \
   {                                                   \
@@ -198,8 +198,8 @@ while (0)
 #define NOTICE_UPDATE_CC(EXP, INSN) \
    notice_update_cc ((EXP))
 
-/* Interrupt functions can only use registers that have already been 
-   saved by the prologue, even if they would normally be call-clobbered 
+/* Interrupt functions can only use registers that have already been
+   saved by the prologue, even if they would normally be call-clobbered
    Check if sizes are same and then check if it is possible to rename.  */
 #define HARD_REGNO_RENAME_OK(SRC, DEST)                 \
   (!cr16_interrupt_function_p () || (df_regs_ever_live_p (DEST)))
@@ -227,8 +227,8 @@ while (0)
 #define DWARF_FRAME_RETURN_COLUMN	\
   DWARF_FRAME_REGNUM (RETURN_ADDRESS_REGNUM)
 
-#define INCOMING_FRAME_SP_OFFSET		0	
-#define FRAME_POINTER_CFA_OFFSET(FNDECL)	0	
+#define INCOMING_FRAME_SP_OFFSET		0
+#define FRAME_POINTER_CFA_OFFSET(FNDECL)	0
 
 /* A C expression whose value is RTL representing the value of the return
    address for the frame COUNT steps up from the current frame.  */
@@ -272,7 +272,7 @@ enum reg_class
     {0x0000FFFF}  /* ALL_REGS 		: 0 - 15     */  	\
   }
 
-#define TARGET_SMALL_REGISTER_CLASSES_FOR_MODE_P  hook_bool_mode_true 
+#define TARGET_SMALL_REGISTER_CLASSES_FOR_MODE_P  hook_bool_mode_true
 
 #define REGNO_REG_CLASS(REGNO)  cr16_regno_reg_class (REGNO)
 
@@ -313,8 +313,8 @@ enum reg_class
    The size of MODE in double words for the class LONG_REGS.
 
    The following check assumes if the class is not LONG_REGS, then
-   all (NO_REGS, SHORT_REGS, NOSP_REGS and GENERAL_REGS) other classes are 
-   short.  We may have to check if this can cause any degradation in 
+   all (NO_REGS, SHORT_REGS, NOSP_REGS and GENERAL_REGS) other classes are
+   short.  We may have to check if this can cause any degradation in
    performance.  */
 #define CLASS_MAX_NREGS(CLASS, MODE) \
   (CLASS == LONG_REGS \
@@ -393,7 +393,7 @@ struct cumulative_args
 #define CUMULATIVE_ARGS struct cumulative_args
 #endif
 
-/* On the CR16 architecture, Varargs routines should receive their parameters 
+/* On the CR16 architecture, Varargs routines should receive their parameters
    on the stack.  */
 
 #define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
@@ -458,14 +458,14 @@ struct cumulative_args
 /* NEAR_PIC for -fpic option.  */
 
 #define NEAR_PIC 1
-                                      
-/* FAR_PIC for -fPIC option.  */                                                                                       
+
+/* FAR_PIC for -fPIC option.  */
 
 #define FAR_PIC  2
 
 #define PIC_OFFSET_TABLE_REGNUM  12
 
-#define LEGITIMATE_PIC_OPERAND_P(X) legitimate_pic_operand_p (X)       
+#define LEGITIMATE_PIC_OPERAND_P(X) legitimate_pic_operand_p (X)
 
 /* Assembler format.  */
 
@@ -518,7 +518,7 @@ struct cumulative_args
 
 /* Output of dispatch tables.  */
 
-/* Revisit. No PC relative case as label expressions are not 
+/* Revisit. No PC relative case as label expressions are not
    properly supported in binutils else we could have done this:
    #define CASE_VECTOR_PC_RELATIVE (optimize_size ? 1 : 0).  */
 #define CASE_VECTOR_PC_RELATIVE 0

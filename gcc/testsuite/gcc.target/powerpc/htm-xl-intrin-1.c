@@ -29,4 +29,3 @@ foo (void *TM_buff, long *result, unsigned char *code)
   *result++ = __TM_failure_address (TM_buff);
   *result++ = __TM_failure_code (TM_buff);
 }
-

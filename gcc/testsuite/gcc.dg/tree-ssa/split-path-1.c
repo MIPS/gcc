@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 
-#define RGBMAX 255 
+#define RGBMAX 255
 
 unsigned char
 test()
@@ -52,7 +52,7 @@ test()
        *EritePtr++ = xy;
        *EritePtr++ = xk;
        sum += *(--EritePtr);
-       
+
     }
   return sum;
 }

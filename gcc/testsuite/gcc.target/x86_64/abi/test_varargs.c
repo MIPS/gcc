@@ -27,7 +27,7 @@ struct arg *arglist;
 /* This tests the argumentlist to see if it matches the format string which
    is printf-like. Nothing will be printed of course. It can handle ints,
    doubles and void pointers. The given value will be tested against the
-   values given in arglist.  
+   values given in arglist.
    This test only assures that the variable argument passing is working.
    No attempt is made to see if argument passing is done the right way.
    Since the ABI doesn't say how it's done, checking this is not really

@@ -16,12 +16,12 @@ int main ()
   #pragma acc loop gang worker vector
   for (i = 0; i < 10; i++)
     ;
-  
+
   #pragma acc kernels
   #pragma acc loop gang(26)
   for (i = 0; i < 10; i++)
     ;
-  
+
   #pragma acc kernels
   #pragma acc loop gang(v)
   for (i = 0; i < 10; i++)
@@ -135,15 +135,15 @@ int main ()
   #pragma acc kernels
   #pragma acc loop worker(num:length)
   for (i = 0; i < 10; i++)
-    ;  
+    ;
 
   #pragma acc kernels
   #pragma acc loop worker(num:num)
   for (i = 0; i < 10; i++)
-    ;  
+    ;
 
   /* Invalid uses.  */
-  
+
   #pragma acc kernels
   #pragma acc loop gang(16, 24) /* { dg-error "unexpected argument" } */
   for (i = 0; i < 10; i++)

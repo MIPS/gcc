@@ -30,9 +30,9 @@ main ()
 	c = t;
       fn1 (c);
     }
-  
-  if (a[t2] != 0) 
-    __builtin_abort (); 
+
+  if (a[t2] != 0)
+    __builtin_abort ();
 
   return 0;
 }

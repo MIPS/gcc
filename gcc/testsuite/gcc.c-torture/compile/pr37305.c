@@ -16,4 +16,3 @@ func_24 (int32_t p_25)
   if ((safe_mod_u_u (1, 1)) | (safe_add_s_s (g_8, l_30)))
     return 1;
 }
-

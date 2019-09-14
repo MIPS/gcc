@@ -27,4 +27,3 @@ foo ()
   --(char *) q;		/* { dg-error "lvalue" } */
   /* { dg-warning "cast to pointer from integer of different size" "" { target *-*-* } .-1 } */
 }
-

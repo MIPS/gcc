@@ -15,4 +15,3 @@ void *gt_pch_p_20VEC_die_arg_entry_gc (struct die_arg_entry_struct *vec)
 {
     return &(vec->arg);
 }
-

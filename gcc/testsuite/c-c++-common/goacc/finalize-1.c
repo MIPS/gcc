@@ -25,4 +25,3 @@ void f ()
 /* { dg-final { scan-tree-dump-times "(?n)#pragma acc exit data finalize map\\(from:cpo_f\\);$" 1 "original" } }
    { dg-final { scan-tree-dump-times "(?n)#pragma omp target oacc_enter_exit_data finalize map\\(force_from:cpo_f \\\[len: \[0-9\]+\\\]\\)$" 1 "gimple" } } */
 }
-

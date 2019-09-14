@@ -9,7 +9,7 @@ avx_test ()
 {
     int i;
     union256d source1, source2;
-   
+
     double s1[4] = {0, -5463, 86456, 0};
     double s2[4] = {0, -1223, 0,     1};
     int    d[1];
@@ -28,13 +28,12 @@ avx_test ()
 	u2.d = s2[i];
         if (u1.bits.sign && u2.bits.sign)
             z = 0;
-        
+
         if (!u1.bits.sign && u2.bits.sign)
             c = 0;
     }
     e[0] = (c==0 && z==0) ? 1:0;
-    
+
    if (checkVi(d, e, 1))
      abort ();
 }
-

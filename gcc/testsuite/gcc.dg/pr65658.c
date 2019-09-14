@@ -76,7 +76,7 @@ setup (void)
     return 1;
   if (fn4 (101))
     return 1;
-  if (undefinit2 ((void *) problem.l1, problem.l3 * 4))  /* { dg-bogus "problem.l3" "uninitialized variable warning" } */ 
+  if (undefinit2 ((void *) problem.l1, problem.l3 * 4))  /* { dg-bogus "problem.l3" "uninitialized variable warning" } */
     return 1;
 }
 

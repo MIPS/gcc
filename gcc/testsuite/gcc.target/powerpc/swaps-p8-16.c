@@ -34,13 +34,13 @@ __attribute__((noinline)) void foo ()
     cc[i][1] = vec_madd(cc[i][0],vec_splats(brow[1]), ca[i][1]);
     cc[i][1] = vec_madd(cc[i][0],vec_splats(brow[2]), ca[i][2]);
     cc[i][1] = vec_madd(cc[i][0],vec_splats(brow[3]), ca[i][3]);
-    
+
     brow = cb[i][2];
     cc[i][2] = vec_mul(vec_splats(brow[0]), ca[i][0]);
     cc[i][2] = vec_madd(cc[i][0],vec_splats(brow[1]), ca[i][1]);
     cc[i][2] = vec_madd(cc[i][0],vec_splats(brow[2]), ca[i][2]);
     cc[i][2] = vec_madd(cc[i][0],vec_splats(brow[3]), ca[i][3]);
-    
+
     brow = cb[i][3];
     cc[i][3] = vec_mul(vec_splats(brow[0]), ca[i][0]);
     cc[i][3] = vec_madd(cc[i][0],vec_splats(brow[1]), ca[i][1]);

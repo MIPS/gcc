@@ -6,7 +6,7 @@
 int foo (int count)
 {
   int alignment;
- 
+
   alignment = 1;
   while (!(count & alignment)
          && (alignment * 2 * BITS_PER_UNIT)) /* { dg-warning "boolean context" } */

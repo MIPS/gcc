@@ -85,7 +85,7 @@ superloop_at_depth (class loop *loop, unsigned depth)
 
 /* Returns the list of the latch edges of LOOP.  */
 
-static vec<edge> 
+static vec<edge>
 get_loop_latch_edges (const class loop *loop)
 {
   edge_iterator ei;
@@ -1189,7 +1189,7 @@ release_recorded_exits (function *fn)
 
 /* Returns the list of the exit edges of a LOOP.  */
 
-vec<edge> 
+vec<edge>
 get_loop_exit_edges (const class loop *loop)
 {
   vec<edge> edges = vNULL;

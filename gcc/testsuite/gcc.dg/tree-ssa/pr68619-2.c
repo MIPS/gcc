@@ -89,4 +89,3 @@ omp_reduction_init (tree clause, tree type)
 }
 
 /* { dg-final { scan-tree-dump "Marking all outgoing edges of unreachable" "dom2"} } */
-

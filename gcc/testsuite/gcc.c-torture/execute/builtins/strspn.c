@@ -15,7 +15,7 @@ main_test (void)
 {
   const char *const s1 = "hello world";
   char dst[64], *d2;
-  
+
   if (strspn (s1, "hello") != 5)
     abort();
   if (strspn (s1+4, "hello") != 1)

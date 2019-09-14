@@ -6,10 +6,10 @@
 #define N 16
 char x[N] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__)));
 char cb[N] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__))) = {0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45};
- 
+
 __attribute__ ((noinline))
 int main1 (char *y)
-{  
+{
   struct {
     char *p;
     char *q;
@@ -48,11 +48,11 @@ int main1 (char *y)
 }
 
 int main (void)
-{ 
+{
   check_vect ();
-  
+
   return main1 (x);
-} 
+}
 
 /* Currently the loops fail to vectorize due to aliasing problems.
    If/when the aliasing problems are resolved, unalignment may

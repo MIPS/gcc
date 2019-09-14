@@ -8,19 +8,19 @@
 
 float c[N][N], b[N][N], a[N];
 
-__attribute__ ((noinline)) int 
+__attribute__ ((noinline)) int
 main1 ()
 {
   int i, j;
   float diff;
 
-  /* In inner loop vectorization -funsafe-math-optimizations is needed to 
+  /* In inner loop vectorization -funsafe-math-optimizations is needed to
      vectorize the summation. But in outer loop vectorization the order of
      calculation doesn't change, therefore, there is no need in that flag.  */
   for (i = 0; i < N; i++)
     {
       diff = 2;
-      for (j = 0; j < N; j++) 
+      for (j = 0; j < N; j++)
         diff += (b[j][i] - c[j][i]);
 
       a[i] = diff;
@@ -35,18 +35,18 @@ main1 ()
 }
 
 int main (void)
-{ 
+{
   int i, j;
 
   check_vect ();
-  
+
   for (i = 0; i < N; i++)
     for (j = 0; j < N; j++)
       {
         b[i][j] = i+j+5;
         c[i][j] = i+j;
       }
-         
+
   main1 ();
 
   return 0;

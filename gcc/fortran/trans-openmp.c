@@ -3110,7 +3110,7 @@ gfc_trans_oacc_construct (gfc_code *code)
 }
 
 /* update, enter_data, exit_data, cache. */
-static tree 
+static tree
 gfc_trans_oacc_executable_directive (gfc_code *code)
 {
   stmtblock_t block;
@@ -3138,7 +3138,7 @@ gfc_trans_oacc_executable_directive (gfc_code *code)
   gfc_start_block (&block);
   oacc_clauses = gfc_trans_omp_clauses (&block, code->ext.omp_clauses,
 					code->loc);
-  stmt = build1_loc (input_location, construct_code, void_type_node, 
+  stmt = build1_loc (input_location, construct_code, void_type_node,
 		     oacc_clauses);
   gfc_add_expr_to_block (&block, stmt);
   return gfc_finish_block (&block);
@@ -5042,7 +5042,7 @@ gfc_trans_omp_workshare (gfc_code *code, gfc_omp_clauses *clauses)
 	  res = gfc_trans_omp_directive (code);
 	  ompws_flags = saved_ompws_flags;
 	  break;
-	
+
 	default:
 	  gfc_internal_error ("gfc_trans_omp_workshare(): Bad statement code");
 	}

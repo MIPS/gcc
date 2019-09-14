@@ -29,7 +29,7 @@ int result;
 void test_pic (struct bfd_link_info *info)
 {
   if (bfd_link_pic (info))
-    result++;  
+    result++;
 }
 
 int test_exe (struct bfd_link_info *info)

@@ -9,7 +9,7 @@ foo ()
   int ret;
   void *ctx, *buf;
   size_t buf_len;
-  
+
   ret = __builtin_bpf_helper_sysctl_set_new_value (ctx, buf,
 						   buf_len);
 }

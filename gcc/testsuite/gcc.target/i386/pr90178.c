@@ -5,7 +5,7 @@ int*
 find_ptr (int* mem, int sz, int val)
 {
   for (int i = 0; i < sz; i++)
-    if (mem[i] == val) 
+    if (mem[i] == val)
       return &mem[i];
   return 0;
 }

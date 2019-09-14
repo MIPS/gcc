@@ -8,13 +8,13 @@ extern void use (unsigned int x);
 
 int main (void)
 {
-  union 
+  union
     {
       unsigned int x;
       unsigned long pad;
     } A;
 
-  struct 
+  struct
     {
       unsigned int x : 1;
     } B;
@@ -31,4 +31,3 @@ int main (void)
 
   return 0;
 }
-

@@ -1,4 +1,4 @@
-/* Check that we don't use the swap insn for bswap by checking assembler 
+/* Check that we don't use the swap insn for bswap by checking assembler
    output.  The swap instruction was added in v8.  */
 /* { dg-do compile } */
 /* { dg-skip-if "" { "cris*-*-elf" } { "-march*" } { "" } } */

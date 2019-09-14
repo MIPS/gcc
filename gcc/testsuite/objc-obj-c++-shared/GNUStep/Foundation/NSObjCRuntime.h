@@ -279,7 +279,7 @@ DEFINE_BLOCK_TYPE(NSComparator, NSComparisonResult, id, id);
 #endif
 
 /**
- * Declare the foundation export macro as an alias to GS_EXPORT 
+ * Declare the foundation export macro as an alias to GS_EXPORT
  */
 #define FOUNDATION_EXPORT GS_EXPORT
 

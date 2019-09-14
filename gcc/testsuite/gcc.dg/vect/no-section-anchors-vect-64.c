@@ -49,7 +49,7 @@ int main1 ()
         }
     }
 
-  /* check results: */  
+  /* check results: */
   for (i = 0; i < N; i++)
     {
       for (j = 0; j < N; j++)
@@ -59,7 +59,7 @@ int main1 ()
         }
     }
 
-  /* check results: */  
+  /* check results: */
   for (i = 0; i < N; i++)
     {
       for (j = 0; j < N; j++)
@@ -69,7 +69,7 @@ int main1 ()
         }
     }
 
-  /* check results: */  
+  /* check results: */
   for (i = 0; i < N; i++)
     {
       for (j = 0; j < N; j++)
@@ -83,7 +83,7 @@ int main1 ()
 }
 
 int main (void)
-{ 
+{
   check_vect ();
 
   return main1 ();

@@ -268,4 +268,3 @@ f6 (int *a)
     a[i] += omp_get_cancellation ();	/* { dg-error "OpenMP runtime API call '\[^\n\r]*omp_get_cancellation\[^\n\r]*' in a region with 'order\\(concurrent\\)' clause" } */
   }
 }
-

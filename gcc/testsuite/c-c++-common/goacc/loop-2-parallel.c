@@ -24,7 +24,7 @@ void P(void)
 #pragma acc loop vector
 	for (j = 1; j < 10; j++)
 	  { }
-#pragma acc loop worker 
+#pragma acc loop worker
 	for (j = 1; j < 10; j++)
 	  { }
 #pragma acc loop gang // { dg-error "inner loop uses same" }
@@ -41,7 +41,7 @@ void P(void)
 #pragma acc loop worker // { dg-message "containing loop" 2 }
     for (i = 0; i < 10; i++)
       {
-#pragma acc loop vector 
+#pragma acc loop vector
 	for (j = 1; j < 10; j++)
 	  { }
 #pragma acc loop worker // { dg-error "inner loop uses same" }

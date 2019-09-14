@@ -7,4 +7,3 @@ int foo(void)
   s = bar();
   return s;
 }
-

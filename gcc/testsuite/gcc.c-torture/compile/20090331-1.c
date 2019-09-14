@@ -23,4 +23,3 @@ void byte_regex_compile (struct re_pattern_buffer *bufp,
   while (pfrom != begalt)
     *--pto = *--pfrom;
 }
-

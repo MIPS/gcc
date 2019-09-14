@@ -1,8 +1,8 @@
 /* { dg-add-options stack_size } */
 
 /* PR optimization/8750
-   Used to fail under Cygwin with 
-   -O2 -fomit-frame-pointer        
+   Used to fail under Cygwin with
+   -O2 -fomit-frame-pointer
    Testcase by David B. Trout     */
 
 #if defined(STACK_SIZE) && STACK_SIZE < 16000

@@ -11,7 +11,7 @@
    modify it under the terms of the GNU Lesser General Public
    License as published by the Free Software Foundation; either
    version 2 of the License, or (at your option) any later version.
-   
+
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
@@ -42,7 +42,7 @@ extern "C" {
 
 /**
   WARNING: The -compare: method for NSObject is deprecated
-           due to subclasses declaring the same selector with 
+           due to subclasses declaring the same selector with
 	   conflicting signatures.
            Comparision of arbitrary objects is not just meaningless
            but also dangerous as most concrete implementations
@@ -158,7 +158,7 @@ extern "C" {
  * set to YES).<br />
  * Your class then has two options for performing cleanup when the process
  * ends:
- * <p>1. Use the +leak: method to register objects which are simply to be 
+ * <p>1. Use the +leak: method to register objects which are simply to be
  * retained until the process ends, and then either ignored or released
  * depending on the cleanup setting in force.  This mechanism is simple
  * and should be sufficient for many classes.
@@ -239,4 +239,3 @@ extern "C" {
 #endif
 
 #endif	/* INCLUDED_NSObject_GNUstepBase_h */
-

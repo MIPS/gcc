@@ -5,7 +5,7 @@
 
 int __attribute__((noinline,noclone))
 main1 (int len)
-{  
+{
   int s = 0;
   int i = len;
 
@@ -17,15 +17,15 @@ main1 (int len)
 }
 
 int main (void)
-{ 
+{
   int s;
   check_vect ();
-  
+
   s = main1 (26);
   if (s != 182)
     abort ();
 
   return 0;
-} 
+}
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */

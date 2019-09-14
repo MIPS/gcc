@@ -25,4 +25,3 @@ main ()
 /* { dg-final { scan-rtl-dump-times {[0-9][0-9]*: \{\[argp:DI-0x10\]=bx:DI;sp:DI=argp:DI-0x10;\}} 1 "vartrack" } } */
 
 /* { dg-final { scan-rtl-dump-times {[0-9][0-9]*: \{bx:DI=\[argp:DI-0x10\];sp:DI=argp:DI-0x8;\}} 1 "vartrack" } } */
-

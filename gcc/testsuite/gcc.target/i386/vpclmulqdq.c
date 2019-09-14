@@ -14,4 +14,3 @@ avx512vl_test (void)
     x1 = _mm512_clmulepi64_epi128(x1, x2, 3);
     x3 = _mm256_clmulepi64_epi128(x3, x4, 3);
 }
-

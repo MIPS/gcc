@@ -16,7 +16,7 @@ extern void bar (void);
 int
 f0 (int x, int y)
 {
-  asm volatile ("" : : : "memory");  
+  asm volatile ("" : : : "memory");
   return x + y;
 }
 
@@ -25,7 +25,7 @@ f0 (int x, int y)
 int
 f1 (int x, int y)
 {
-  asm volatile ("" : : : "memory");  
+  asm volatile ("" : : : "memory");
   bar ();
 }
 

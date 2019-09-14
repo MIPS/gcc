@@ -1,7 +1,7 @@
 void foo(void *);
 void bar(void *);
 void ndisc_fill_addr_option(unsigned char *opt, int data_len,
-			    unsigned short addr_type) 
+			    unsigned short addr_type)
 {
   int pad;
   if (addr_type == 32)
@@ -12,4 +12,3 @@ void ndisc_fill_addr_option(unsigned char *opt, int data_len,
   opt += pad;
   __builtin_constant_p(data_len) ? foo (opt+2) : bar (opt+2);
 }
-

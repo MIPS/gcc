@@ -4,7 +4,7 @@ __declspec (dllimport) int foo;
 extern int (* import) (void) __attribute__((dllimport));
 int func2 (void) __attribute__((dllexport));
 
-__declspec(dllexport) int 
+__declspec(dllexport) int
 func1 (int a)
 {
   return a + foo;

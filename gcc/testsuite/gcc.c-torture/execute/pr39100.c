@@ -5,12 +5,12 @@ typedef struct E
 {
   int p;
   struct E *n;
-} *EP;   
+} *EP;
 
 typedef struct C
 {
   EP x;
-  short cn, cp; 
+  short cn, cp;
 } *CP;
 
 __attribute__((noinline)) CP
@@ -22,8 +22,8 @@ foo (CP h, EP x)
 
   while (x)
     {
-      n = x->n;   
-      if ((x->p & 1) == 1) 
+      n = x->n;
+      if ((x->p & 1) == 1)
         {
           h->cp++;
           *pa = x;
@@ -34,7 +34,7 @@ foo (CP h, EP x)
           h->cn++;
           *na = x;
           na = &((*na)->n);
-        }    
+        }
       x = n;
     }
   *pa = nl;
@@ -45,7 +45,7 @@ foo (CP h, EP x)
 
 int
 main (void)
-{  
+{
   struct C c = { 0, 0, 0 };
   struct E e[2] = { { 0, &e[1] }, { 1, 0 } };
   EP p;
@@ -59,7 +59,5 @@ main (void)
     __builtin_abort ();
   if (e[0].n)
     __builtin_abort ();
-  return 0;  
+  return 0;
 }
-
-

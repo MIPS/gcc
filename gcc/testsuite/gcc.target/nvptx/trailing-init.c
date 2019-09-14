@@ -1,18 +1,18 @@
 /* { dg-do compile } */
 /* { dg-additional-options "-Wno-pedantic" } */
 
-struct trailing 
+struct trailing
 {
   unsigned m;
   short ary[];
-} trailing = 
+} trailing =
   {.ary = {1}};
 
-struct packed 
+struct packed
 {
   unsigned m;
   short ary[];
-} __attribute__ ((packed)) packed = 
+} __attribute__ ((packed)) packed =
   {.ary = {2}};
 
 /*  { dg-final { scan-assembler ".align 1 .u32 packed\\\[2\\\] = { 0, 2 };" } } */

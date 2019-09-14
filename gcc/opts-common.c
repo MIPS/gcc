@@ -924,7 +924,7 @@ opts_concat (const char *first, ...)
    diagnostics or set state outside of these variables.  */
 
 void
-decode_cmdline_options_to_array (unsigned int argc, const char **argv, 
+decode_cmdline_options_to_array (unsigned int argc, const char **argv,
 				 unsigned int lang_mask,
 				 struct cl_decoded_option **decoded_options,
 				 unsigned int *decoded_options_count)
@@ -1073,7 +1073,7 @@ keep:
       /* We put the last -fdiagnostics-color= at the first position
 	 after argv[0] so it can take effect immediately.  */
       memmove (new_decoded_options + 2, new_decoded_options + 1,
-	       sizeof (struct cl_decoded_option) 
+	       sizeof (struct cl_decoded_option)
 	       * (new_decoded_options_count - 1));
       new_decoded_options[1] = old_decoded_options[fdiagnostics_color_idx];
       new_decoded_options_count++;
@@ -1127,7 +1127,7 @@ handle_option (struct gcc_options *opts,
 					    handlers->target_option_override_hook))
 	  return false;
       }
-  
+
   return true;
 }
 
@@ -1456,21 +1456,21 @@ set_option (struct gcc_options *opts, struct gcc_options *opts_set,
     case CLVC_BIT_SET:
 	if ((value != 0) == (option->var_type == CLVC_BIT_SET))
 	  {
-	    if (option->cl_host_wide_int) 
+	    if (option->cl_host_wide_int)
 	      *(HOST_WIDE_INT *) flag_var |= option->var_value;
-	    else 
+	    else
 	      *(int *) flag_var |= option->var_value;
 	  }
 	else
 	  {
-	    if (option->cl_host_wide_int) 
+	    if (option->cl_host_wide_int)
 	      *(HOST_WIDE_INT *) flag_var &= ~option->var_value;
-	    else 
+	    else
 	      *(int *) flag_var &= ~option->var_value;
 	  }
 	if (set_flag_var)
 	  {
-	    if (option->cl_host_wide_int) 
+	    if (option->cl_host_wide_int)
 	      *(HOST_WIDE_INT *) set_flag_var |= option->var_value;
 	    else
 	      *(int *) set_flag_var |= option->var_value;
@@ -1550,21 +1550,21 @@ option_enabled (int opt_idx, unsigned lang_mask, void *opts)
 	  return *(int *) flag_var != 0;
 
       case CLVC_EQUAL:
-	if (option->cl_host_wide_int) 
+	if (option->cl_host_wide_int)
 	  return *(HOST_WIDE_INT *) flag_var == option->var_value;
 	else
 	  return *(int *) flag_var == option->var_value;
 
       case CLVC_BIT_CLEAR:
-	if (option->cl_host_wide_int) 
+	if (option->cl_host_wide_int)
 	  return (*(HOST_WIDE_INT *) flag_var & option->var_value) == 0;
 	else
 	  return (*(int *) flag_var & option->var_value) == 0;
 
       case CLVC_BIT_SET:
-	if (option->cl_host_wide_int) 
+	if (option->cl_host_wide_int)
 	  return (*(HOST_WIDE_INT *) flag_var & option->var_value) != 0;
-	else 
+	else
 	  return (*(int *) flag_var & option->var_value) != 0;
 
       case CLVC_SIZE:

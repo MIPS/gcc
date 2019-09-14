@@ -1,4 +1,4 @@
-/* This test code is included into vsx-vector-6-be.c and vsx-vector-6-le.c.  
+/* This test code is included into vsx-vector-6-be.c and vsx-vector-6-le.c.
    The two files have the tests for the number of instructions generated for
    LE versus BE.  */
 
@@ -35,7 +35,7 @@ void foo (vector double *out, vector double *in, vector long *p_l, vector bool l
   vector signed int insi0, insi1;
   vector unsigned int inui0, inui1;
   vector unsigned char inuc0, inuc1;
-  
+
   *out++ = vec_abs (in0);
   *out++ = vec_add (in0, in1);
   *out++ = vec_and (in0, in1);
@@ -109,7 +109,7 @@ void foo (vector double *out, vector double *in, vector long *p_l, vector bool l
   *p_f++ = vec_nmadd (inf0, inf1, inf2);
   *p_f++ = vec_or (inf0, inf1);
   *p_f++ = vec_trunc (inf0);
-  
+
   *out++ = vec_or (inbl0, in0);
   *out++ = vec_or (in0, inbl0);
 

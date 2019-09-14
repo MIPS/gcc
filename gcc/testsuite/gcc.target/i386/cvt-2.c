@@ -8,7 +8,7 @@ unsigned int d2ui (double x) { return x; }
 unsigned long f2ul (float x) { return x; }
 unsigned long d2ul (double x) { return x; }
 #endif
-  
+
 /* { dg-final { scan-assembler-times "vcvttss2usi" 1 { target ia32 } } } */
 /* { dg-final { scan-assembler-times "vcvttsd2usi" 1 { target ia32 } } } */
 /* { dg-final { scan-assembler-times "vcvttss2usi" 2 { target { ! ia32 } } } } */

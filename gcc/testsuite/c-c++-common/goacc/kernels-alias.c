@@ -28,4 +28,3 @@ foo (void)
 /* { dg-final { scan-tree-dump-times "clique 1 base 4" 1 "ealias" { xfail *-*-* } } } */
 /* { dg-final { scan-tree-dump-times "clique 1 base 5" 1 "ealias" { xfail *-*-* } } } */
 /* { dg-final { scan-tree-dump-times "(?n)clique .* base .*" 8 "ealias" } } */
-

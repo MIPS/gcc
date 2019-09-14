@@ -1,7 +1,7 @@
 #include "harness.h"
 
-static vector unsigned char 
-zero() 
+static vector unsigned char
+zero()
 {
   /* MCC allocates a stack slot for and loads an uninitialized local
      variable.  */

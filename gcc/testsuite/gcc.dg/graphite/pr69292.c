@@ -16,4 +16,3 @@ foo (double a[20][20], double b[20])
       for (j = 0; j < m[0]; ++j)
 	b[i] = b[i] + a[i][j];
 }
-

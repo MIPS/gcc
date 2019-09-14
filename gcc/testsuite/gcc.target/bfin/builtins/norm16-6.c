@@ -1,7 +1,7 @@
 extern void abort (void);
 extern void exit (int);
 
-typedef short fract16; 
+typedef short fract16;
 
 int main ()
 {
@@ -15,4 +15,3 @@ int main ()
 
   exit (0);
 }
-

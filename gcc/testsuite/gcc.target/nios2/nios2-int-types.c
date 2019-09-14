@@ -29,6 +29,3 @@ extern uintptr_t e;
 unsigned int e;
 extern unsigned int ee;
 uintptr_t ee;
-
-
-

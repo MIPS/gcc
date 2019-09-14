@@ -15,12 +15,12 @@ static __inline__ __attribute__ ((always_inline))
     {
     typeof (v->counter) old_val, new_val;
   __asm__ __volatile__ (
-	"   l     %0,0(%3)\n" 
-	"0: lr    %1,%0\n" 
-	"   ar    %1,%4\n" 
-	"   cs    %0,%1,0(%3)\n" 
-	"   jl    0b": 
-	"=&d" (old_val), "=&d" (new_val), "=m" (((atomic_t *) (v))->counter): 
+	"   l     %0,0(%3)\n"
+	"0: lr    %1,%0\n"
+	"   ar    %1,%4\n"
+	"   cs    %0,%1,0(%3)\n"
+	"   jl    0b":
+	"=&d" (old_val), "=&d" (new_val), "=m" (((atomic_t *) (v))->counter):
 	"a" (v), "d" (1), "m" (((atomic_t *) (v))->counter):
 	"cc", "memory");
     });

@@ -96,7 +96,7 @@ typedef struct sf
 
 extern void func0_asm (double, double, double, double, double, double,
 		       double, double, double, double, double, double,
-		       double, double, 
+		       double, double,
 		       _Decimal64, _Decimal128, _Decimal64);
 
 WRAPPER(func0);
@@ -106,7 +106,7 @@ WRAPPER(func0);
 void __attribute__ ((noinline))
 func0 (double a1, double a2, double a3, double a4, double a5, double a6,
        double a7, double a8, double a9, double a10, double a11, double a12,
-       double a13, double a14, 
+       double a13, double a14,
        _Decimal64 a15, _Decimal128 a16, _Decimal64 a17)
 {
   stack_frame_t *sp;

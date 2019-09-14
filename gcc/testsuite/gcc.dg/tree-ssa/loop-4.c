@@ -42,4 +42,3 @@ void xxx(void)
 /* And the original induction variable should be eliminated.  */
 
 /* { dg-final { scan-tree-dump-times "iter" 0 "optimized" } } */
-

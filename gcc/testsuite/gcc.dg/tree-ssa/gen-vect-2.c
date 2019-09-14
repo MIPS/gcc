@@ -5,7 +5,7 @@
 #include <stdlib.h>
 
 #define N 16
- 
+
 #if __INT_MAX__ == 32767
 typedef char half_word;
 #elif __LONG_MAX__ == 2147483647

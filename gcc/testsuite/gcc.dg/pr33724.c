@@ -17,4 +17,3 @@ void is_same(const struct ipt_entry *a)
 {
   match_different(a->elems);
 }
-

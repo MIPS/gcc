@@ -5,7 +5,7 @@
 /* { dg-additional-sources "atomic-generic-aux.c" } */
 
 /* Test that the generioc atomic builtins execute as expected..
-   sync-mem-generic-aux.c supplies a functional external entry point for 
+   sync-mem-generic-aux.c supplies a functional external entry point for
    the 4 generic functions.  */
 
 #include <stdlib.h>
@@ -55,4 +55,3 @@ main ()
 
   return 0;
 }
-

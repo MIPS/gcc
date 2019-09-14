@@ -10,4 +10,3 @@ p (const double_complex *t, int n)
   for (i = 1; i < n/2; i++)
     s += 2* ({ typeof ( t[i] ) arg = ( t[i] ); (__imag__ arg); }) ;
 }
-

@@ -7,7 +7,7 @@ static double a[NMAX][NMAX], c[NMAX][NMAX];
 typedef __INT32_TYPE__ int32_t;
 typedef __INT64_TYPE__ int64_t;
 
-void dsyrk(int64_t N) 
+void dsyrk(int64_t N)
 {
   int32_t i,j,k;
 

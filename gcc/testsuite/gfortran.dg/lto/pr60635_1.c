@@ -11,4 +11,3 @@ uint16_t bigendc16(union{uint16_t * n;uint8_t* b;}x){
 	((uint16_t)(x.b[0])<<8);
     return res;
 }
-

@@ -2,7 +2,7 @@
 /* { dg-do compile } */
 
 void
-foo () 
+foo ()
 {
   __atomic_fetch_add ();	/* { dg-error "too few arguments to function" } */
 }

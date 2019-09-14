@@ -1,4 +1,4 @@
-/* Check that the mov.w displacement addressing insn is generated and the 
+/* Check that the mov.w displacement addressing insn is generated and the
    base address is adjusted only once.  On SH2A this test is skipped because
    there is a 4 byte mov.w insn that can handle larger displacements.  Thus
    on SH2A the base address will not be adjusted in this case.  */
@@ -23,4 +23,3 @@ testfunc_01 (volatile const short* ap, volatile short* bp)
   bp[9] = ap[7];
   bp[0] = ap[25];
 }
-

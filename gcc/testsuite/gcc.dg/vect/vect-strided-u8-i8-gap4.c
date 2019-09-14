@@ -32,15 +32,15 @@ main1 (s *arr)
       res[i].d = ptr->b + ptr->c;
       res[i].b = ptr->c;
       res[i].f = ptr->f + ptr->e;
-      res[i].e = ptr->b + ptr->e; 
-      res[i].h = ptr->c;   
+      res[i].e = ptr->b + ptr->e;
+      res[i].h = ptr->c;
       res[i].g = ptr->b + ptr->c;
-      ptr++; 
-    } 
-   
+      ptr++;
+    }
+
   /* check results:  */
   for (i = 0; i < N; i++)
-    { 
+    {
       if (res[i].c != arr[i].b + arr[i].c
           || res[i].a != arr[i].c + arr[i].f + arr[i].b
           || res[i].d != arr[i].b + arr[i].c
@@ -55,16 +55,16 @@ main1 (s *arr)
   ptr = arr;
   /* Vectorized as a strided SLP pair.  */
   for (i = 0; i < N; i++)
-    { 
+    {
       res[i].a = ptr->b;
       res[i].b = ptr->c;
-      ptr++; 
+      ptr++;
     }
-  
+
   /* Check results.  */
   for (i = 0; i < N; i++)
     {
-      if (res[i].a != arr[i].b 
+      if (res[i].a != arr[i].b
 	  || res[i].b != arr[i].c)
           abort ();
     }
@@ -76,11 +76,11 @@ int main (void)
 {
   int i;
   s arr[N];
-  
+
   check_vect ();
 
   for (i = 0; i < N; i++)
-    { 
+    {
       arr[i].a = i;
       arr[i].b = i * 2;
       arr[i].c = 17;
@@ -90,7 +90,7 @@ int main (void)
       arr[i].g = i - 3;
       arr[i].h = 56;
       asm volatile ("" ::: "memory");
-    } 
+    }
 
   main1 (arr);
 

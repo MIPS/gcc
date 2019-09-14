@@ -4,4 +4,3 @@ void initNetFlowFunct(void) {
   unsigned int b = (unsigned int)-1;
   p->a = b;
 }
-

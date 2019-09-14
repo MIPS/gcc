@@ -33,7 +33,7 @@ main (void)
 	setp (&p, i);
 	p ();
     }
-  
+
   return 0;
 }
 

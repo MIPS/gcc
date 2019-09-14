@@ -31,4 +31,3 @@ test_func_02 (int* p, int* x)
   *x = r;
   return p;
 }
-

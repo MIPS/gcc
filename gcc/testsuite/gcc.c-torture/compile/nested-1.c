@@ -17,5 +17,3 @@ main(int argc, char **argv)
   printf("%d\n", bar (nested, argc, &t));
   return 0;
 }
-
-

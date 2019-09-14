@@ -29,5 +29,3 @@ main ()
 {
   return 0;
 }
-
-

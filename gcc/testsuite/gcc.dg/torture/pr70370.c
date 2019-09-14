@@ -16,7 +16,7 @@ test2 (_Complex float f)
 
 struct X { int i; };
 
-struct X 
+struct X
 test3 (struct X x)
 {
   __asm__ ("" : "=r" (x.i));
@@ -30,7 +30,7 @@ test4 (struct X x)
   return x;
 }
 
-struct X 
+struct X
 test5 (struct X x)
 {
   __asm__ ("" : "=r" (x));

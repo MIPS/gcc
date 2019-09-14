@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 #include <altivec.h>
-void fu32a(vector unsigned int *u32) 
+void fu32a(vector unsigned int *u32)
 {
   *u32++ = ((vector unsigned int){0,0,0,0});
   *u32++ = ((vector unsigned int){1,1,1,1});
@@ -19,7 +19,7 @@ void fu32a(vector unsigned int *u32)
   *u32++ = ((vector unsigned int){14,14,14,14});
   *u32++ = ((vector unsigned int){15,15,15,15});
 }
-void fu32b(vector unsigned int *u32) 
+void fu32b(vector unsigned int *u32)
 {
   *u32++ = ((vector unsigned int){65537,65537,65537,65537});
   *u32++ = ((vector unsigned int){131074,131074,131074,131074});
@@ -37,7 +37,7 @@ void fu32b(vector unsigned int *u32)
   *u32++ = ((vector unsigned int){917518,917518,917518,917518});
   *u32++ = ((vector unsigned int){983055,983055,983055,983055});
 }
-void fu32c(vector unsigned int *u32) 
+void fu32c(vector unsigned int *u32)
 {
   *u32++ = ((vector unsigned int){16843009,16843009,16843009,16843009});
   *u32++ = ((vector unsigned int){33686018,33686018,33686018,33686018});
@@ -55,7 +55,7 @@ void fu32c(vector unsigned int *u32)
   *u32++ = ((vector unsigned int){235802126,235802126,235802126,235802126});
   *u32++ = ((vector unsigned int){252645135,252645135,252645135,252645135});
 }
-void fu32d(vector unsigned int *u32) 
+void fu32d(vector unsigned int *u32)
 {
   *u32++ = ((vector unsigned int){4042322160,4042322160,4042322160,4042322160});
   *u32++ = ((vector unsigned int){4059165169,4059165169,4059165169,4059165169});
@@ -73,7 +73,7 @@ void fu32d(vector unsigned int *u32)
   *u32++ = ((vector unsigned int){4261281277,4261281277,4261281277,4261281277});
   *u32++ = ((vector unsigned int){4278124286,4278124286,4278124286,4278124286});
 }
-void fu32e(vector unsigned int *u32) 
+void fu32e(vector unsigned int *u32)
 {
   *u32++ = ((vector unsigned int){4293984240,4293984240,4293984240,4293984240});
   *u32++ = ((vector unsigned int){4294049777,4294049777,4294049777,4294049777});
@@ -91,7 +91,7 @@ void fu32e(vector unsigned int *u32)
   *u32++ = ((vector unsigned int){4294836221,4294836221,4294836221,4294836221});
   *u32++ = ((vector unsigned int){4294901758,4294901758,4294901758,4294901758});
 }
-void fu32f(vector unsigned int *u32) 
+void fu32f(vector unsigned int *u32)
 {
   *u32++ = ((vector unsigned int){4294967280,4294967280,4294967280,4294967280});
   *u32++ = ((vector unsigned int){4294967281,4294967281,4294967281,4294967281});
@@ -110,7 +110,7 @@ void fu32f(vector unsigned int *u32)
   *u32++ = ((vector unsigned int){4294967294,4294967294,4294967294,4294967294});
   *u32++ = ((vector unsigned int){4294967295,4294967295,4294967295,4294967295});
 }
-void fu32g(vector unsigned int *u32) 
+void fu32g(vector unsigned int *u32)
 {
   *u32++ = ((vector unsigned int){-252645136,-252645136,-252645136,-252645136});
   *u32++ = ((vector unsigned int){-235802127,-235802127,-235802127,-235802127});
@@ -128,7 +128,7 @@ void fu32g(vector unsigned int *u32)
   *u32++ = ((vector unsigned int){-33686019,-33686019,-33686019,-33686019});
   *u32++ = ((vector unsigned int){-16843010,-16843010,-16843010,-16843010});
 }
-void fu32h(vector unsigned int *u32) 
+void fu32h(vector unsigned int *u32)
 {
   *u32++ = ((vector unsigned int){-983056,-983056,-983056,-983056});
   *u32++ = ((vector unsigned int){-917519,-917519,-917519,-917519});
@@ -146,7 +146,7 @@ void fu32h(vector unsigned int *u32)
   *u32++ = ((vector unsigned int){-131075,-131075,-131075,-131075});
   *u32++ = ((vector unsigned int){-65538,-65538,-65538,-65538});
 }
-void fu32i(vector unsigned int *u32) 
+void fu32i(vector unsigned int *u32)
 {
   *u32++ = ((vector unsigned int){-16,-16,-16,-16});
   *u32++ = ((vector unsigned int){-15,-15,-15,-15});
@@ -165,7 +165,7 @@ void fu32i(vector unsigned int *u32)
   *u32++ = ((vector unsigned int){-2,-2,-2,-2});
   *u32++ = ((vector unsigned int){-1,-1,-1,-1});
 }
-void fu32j(vector unsigned int *u32) 
+void fu32j(vector unsigned int *u32)
 {
   *u32++ = ((vector unsigned int){0xfffffff0,0xfffffff0,0xfffffff0,0xfffffff0});
   *u32++ = ((vector unsigned int){0xfffffff1,0xfffffff1,0xfffffff1,0xfffffff1});
@@ -184,7 +184,7 @@ void fu32j(vector unsigned int *u32)
   *u32++ = ((vector unsigned int){0xfffffffe,0xfffffffe,0xfffffffe,0xfffffffe});
   *u32++ = ((vector unsigned int){0xffffffff,0xffffffff,0xffffffff,0xffffffff});
 }
-void fu32k(vector unsigned int *u32) 
+void fu32k(vector unsigned int *u32)
 {
   *u32++ = ((vector unsigned int){0x00000000,0x00000000,0x00000000,0x00000000});
   *u32++ = ((vector unsigned int){0x00000001,0x00000001,0x00000001,0x00000001});
@@ -203,7 +203,7 @@ void fu32k(vector unsigned int *u32)
   *u32++ = ((vector unsigned int){0x0000000e,0x0000000e,0x0000000e,0x0000000e});
   *u32++ = ((vector unsigned int){0x0000000f,0x0000000f,0x0000000f,0x0000000f});
 }
-void fu32l(vector unsigned int *u32) 
+void fu32l(vector unsigned int *u32)
 {
   *u32++ = ((vector unsigned int){0xfff0fff0,0xfff0fff0,0xfff0fff0,0xfff0fff0});
   *u32++ = ((vector unsigned int){0xfff1fff1,0xfff1fff1,0xfff1fff1,0xfff1fff1});
@@ -222,7 +222,7 @@ void fu32l(vector unsigned int *u32)
   *u32++ = ((vector unsigned int){0xfffefffe,0xfffefffe,0xfffefffe,0xfffefffe});
   *u32++ = ((vector unsigned int){0xffffffff,0xffffffff,0xffffffff,0xffffffff});
 }
-void fu32m(vector unsigned int *u32) 
+void fu32m(vector unsigned int *u32)
 {
   *u32++ = ((vector unsigned int){0x00000000,0x00000000,0x00000000,0x00000000});
   *u32++ = ((vector unsigned int){0x00010001,0x00010001,0x00010001,0x00010001});
@@ -241,7 +241,7 @@ void fu32m(vector unsigned int *u32)
   *u32++ = ((vector unsigned int){0x000e000e,0x000e000e,0x000e000e,0x000e000e});
   *u32++ = ((vector unsigned int){0x000f000f,0x000f000f,0x000f000f,0x000f000f});
 }
-void fu32n(vector unsigned int *u32) 
+void fu32n(vector unsigned int *u32)
 {
   *u32++ = ((vector unsigned int){0xf0f0f0f0,0xf0f0f0f0,0xf0f0f0f0,0xf0f0f0f0});
   *u32++ = ((vector unsigned int){0xf1f1f1f1,0xf1f1f1f1,0xf1f1f1f1,0xf1f1f1f1});
@@ -260,7 +260,7 @@ void fu32n(vector unsigned int *u32)
   *u32++ = ((vector unsigned int){0xfefefefe,0xfefefefe,0xfefefefe,0xfefefefe});
   *u32++ = ((vector unsigned int){0xffffffff,0xffffffff,0xffffffff,0xffffffff});
 }
-void fu32o(vector unsigned int *u32) 
+void fu32o(vector unsigned int *u32)
 {
   *u32++ = ((vector unsigned int){0x00000000,0x00000000,0x00000000,0x00000000});
   *u32++ = ((vector unsigned int){0x01010101,0x01010101,0x01010101,0x01010101});
@@ -279,7 +279,7 @@ void fu32o(vector unsigned int *u32)
   *u32++ = ((vector unsigned int){0x0e0e0e0e,0x0e0e0e0e,0x0e0e0e0e,0x0e0e0e0e});
   *u32++ = ((vector unsigned int){0x0f0f0f0f,0x0f0f0f0f,0x0f0f0f0f,0x0f0f0f0f});
 }
-void fu16a(vector unsigned short *u16) 
+void fu16a(vector unsigned short *u16)
 {
   *u16++ = ((vector unsigned short){0xffff,0xfff0,0xffff,0xfff0,0xffff,0xfff0,0xffff,0xfff0});
   *u16++ = ((vector unsigned short){0xffff,0xfff1,0xffff,0xfff1,0xffff,0xfff1,0xffff,0xfff1});
@@ -298,7 +298,7 @@ void fu16a(vector unsigned short *u16)
   *u16++ = ((vector unsigned short){0xffff,0xfffe,0xffff,0xfffe,0xffff,0xfffe,0xffff,0xfffe});
   *u16++ = ((vector unsigned short){0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff});
 }
-void fu16b(vector unsigned short *u16) 
+void fu16b(vector unsigned short *u16)
 {
   *u16++ = ((vector unsigned short){0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000});
   *u16++ = ((vector unsigned short){0x0000,0x0001,0x0000,0x0001,0x0000,0x0001,0x0000,0x0001});
@@ -317,7 +317,7 @@ void fu16b(vector unsigned short *u16)
   *u16++ = ((vector unsigned short){0x0000,0x000e,0x0000,0x000e,0x0000,0x000e,0x0000,0x000e});
   *u16++ = ((vector unsigned short){0x0000,0x000f,0x0000,0x000f,0x0000,0x000f,0x0000,0x000f});
 }
-void fu16c(vector unsigned short *u16) 
+void fu16c(vector unsigned short *u16)
 {
   *u16++ = ((vector unsigned short){0xfff0,0xfff0,0xfff0,0xfff0,0xfff0,0xfff0,0xfff0,0xfff0});
   *u16++ = ((vector unsigned short){0xfff1,0xfff1,0xfff1,0xfff1,0xfff1,0xfff1,0xfff1,0xfff1});
@@ -336,7 +336,7 @@ void fu16c(vector unsigned short *u16)
   *u16++ = ((vector unsigned short){0xfffe,0xfffe,0xfffe,0xfffe,0xfffe,0xfffe,0xfffe,0xfffe});
   *u16++ = ((vector unsigned short){0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff});
 }
-void fu16d(vector unsigned short *u16) 
+void fu16d(vector unsigned short *u16)
 {
   *u16++ = ((vector unsigned short){0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000});
   *u16++ = ((vector unsigned short){0x0001,0x0001,0x0001,0x0001,0x0001,0x0001,0x0001,0x0001});
@@ -355,7 +355,7 @@ void fu16d(vector unsigned short *u16)
   *u16++ = ((vector unsigned short){0x000e,0x000e,0x000e,0x000e,0x000e,0x000e,0x000e,0x000e});
   *u16++ = ((vector unsigned short){0x000f,0x000f,0x000f,0x000f,0x000f,0x000f,0x000f,0x000f});
 }
-void fu16e(vector unsigned short *u16) 
+void fu16e(vector unsigned short *u16)
 {
   *u16++ = ((vector unsigned short){0xf0f0,0xf0f0,0xf0f0,0xf0f0,0xf0f0,0xf0f0,0xf0f0,0xf0f0});
   *u16++ = ((vector unsigned short){0xf1f1,0xf1f1,0xf1f1,0xf1f1,0xf1f1,0xf1f1,0xf1f1,0xf1f1});
@@ -374,7 +374,7 @@ void fu16e(vector unsigned short *u16)
   *u16++ = ((vector unsigned short){0xfefe,0xfefe,0xfefe,0xfefe,0xfefe,0xfefe,0xfefe,0xfefe});
   *u16++ = ((vector unsigned short){0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff});
 }
-void fu16f(vector unsigned short *u16) 
+void fu16f(vector unsigned short *u16)
 {
   *u16++ = ((vector unsigned short){0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000});
   *u16++ = ((vector unsigned short){0x0101,0x0101,0x0101,0x0101,0x0101,0x0101,0x0101,0x0101});
@@ -393,7 +393,7 @@ void fu16f(vector unsigned short *u16)
   *u16++ = ((vector unsigned short){0x0e0e,0x0e0e,0x0e0e,0x0e0e,0x0e0e,0x0e0e,0x0e0e,0x0e0e});
   *u16++ = ((vector unsigned short){0x0f0f,0x0f0f,0x0f0f,0x0f0f,0x0f0f,0x0f0f,0x0f0f,0x0f0f});
 }
-void fu16g(vector unsigned short *u16) 
+void fu16g(vector unsigned short *u16)
 {
   *u16++ = ((vector unsigned short){0,0,0,0,0,0,0,0});
   *u16++ = ((vector unsigned short){1,1,1,1,1,1,1,1});
@@ -412,7 +412,7 @@ void fu16g(vector unsigned short *u16)
   *u16++ = ((vector unsigned short){14,14,14,14,14,14,14,14});
   *u16++ = ((vector unsigned short){15,15,15,15,15,15,15,15});
 }
-void fu16h(vector unsigned short *u16) 
+void fu16h(vector unsigned short *u16)
 {
   *u16++ = ((vector unsigned short){257,257,257,257,257,257,257,257});
   *u16++ = ((vector unsigned short){514,514,514,514,514,514,514,514});
@@ -430,7 +430,7 @@ void fu16h(vector unsigned short *u16)
   *u16++ = ((vector unsigned short){3598,3598,3598,3598,3598,3598,3598,3598});
   *u16++ = ((vector unsigned short){3855,3855,3855,3855,3855,3855,3855,3855});
 }
-void fu16i(vector unsigned short *u16) 
+void fu16i(vector unsigned short *u16)
 {
   *u16++ = ((vector unsigned short){61680,61680,61680,61680,61680,61680,61680,61680});
   *u16++ = ((vector unsigned short){61937,61937,61937,61937,61937,61937,61937,61937});
@@ -448,7 +448,7 @@ void fu16i(vector unsigned short *u16)
   *u16++ = ((vector unsigned short){65021,65021,65021,65021,65021,65021,65021,65021});
   *u16++ = ((vector unsigned short){65278,65278,65278,65278,65278,65278,65278,65278});
 }
-void fu16j(vector unsigned short *u16) 
+void fu16j(vector unsigned short *u16)
 {
   *u16++ = ((vector unsigned short){65520,65520,65520,65520,65520,65520,65520,65520});
   *u16++ = ((vector unsigned short){65521,65521,65521,65521,65521,65521,65521,65521});
@@ -467,7 +467,7 @@ void fu16j(vector unsigned short *u16)
   *u16++ = ((vector unsigned short){65534,65534,65534,65534,65534,65534,65534,65534});
   *u16++ = ((vector unsigned short){65535,65535,65535,65535,65535,65535,65535,65535});
 }
-void fu16k(vector unsigned short *u16) 
+void fu16k(vector unsigned short *u16)
 {
   *u16++ = ((vector unsigned short){-3856,-3856,-3856,-3856,-3856,-3856,-3856,-3856});
   *u16++ = ((vector unsigned short){-3599,-3599,-3599,-3599,-3599,-3599,-3599,-3599});
@@ -485,7 +485,7 @@ void fu16k(vector unsigned short *u16)
   *u16++ = ((vector unsigned short){-515,-515,-515,-515,-515,-515,-515,-515});
   *u16++ = ((vector unsigned short){-258,-258,-258,-258,-258,-258,-258,-258});
 }
-void fu16l(vector unsigned short *u16) 
+void fu16l(vector unsigned short *u16)
 {
   *u16++ = ((vector unsigned short){-16,-16,-16,-16,-16,-16,-16,-16});
   *u16++ = ((vector unsigned short){-15,-15,-15,-15,-15,-15,-15,-15});
@@ -504,7 +504,7 @@ void fu16l(vector unsigned short *u16)
   *u16++ = ((vector unsigned short){-2,-2,-2,-2,-2,-2,-2,-2});
   *u16++ = ((vector unsigned short){-1,-1,-1,-1,-1,-1,-1,-1});
 }
-void fu8a(vector unsigned char *u8) 
+void fu8a(vector unsigned char *u8)
 {
   *u8++ = ((vector unsigned char){0xff,0xff,0xff,0xf0,0xff,0xff,0xff,0xf0,0xff,0xff,0xff,0xf0,0xff,0xff,0xff,0xf0});
   *u8++ = ((vector unsigned char){0xff,0xff,0xff,0xf1,0xff,0xff,0xff,0xf1,0xff,0xff,0xff,0xf1,0xff,0xff,0xff,0xf1});
@@ -523,7 +523,7 @@ void fu8a(vector unsigned char *u8)
   *u8++ = ((vector unsigned char){0xff,0xff,0xff,0xfe,0xff,0xff,0xff,0xfe,0xff,0xff,0xff,0xfe,0xff,0xff,0xff,0xfe});
   *u8++ = ((vector unsigned char){0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff});
 }
-void fu8b(vector unsigned char *u8) 
+void fu8b(vector unsigned char *u8)
 {
   *u8++ = ((vector unsigned char){0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00});
   *u8++ = ((vector unsigned char){0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x01});
@@ -542,7 +542,7 @@ void fu8b(vector unsigned char *u8)
   *u8++ = ((vector unsigned char){0x00,0x00,0x00,0x0e,0x00,0x00,0x00,0x0e,0x00,0x00,0x00,0x0e,0x00,0x00,0x00,0x0e});
   *u8++ = ((vector unsigned char){0x00,0x00,0x00,0x0f,0x00,0x00,0x00,0x0f,0x00,0x00,0x00,0x0f,0x00,0x00,0x00,0x0f});
 }
-void fu8c(vector unsigned char *u8) 
+void fu8c(vector unsigned char *u8)
 {
   *u8++ = ((vector unsigned char){0xff,0xf0,0xff,0xf0,0xff,0xf0,0xff,0xf0,0xff,0xf0,0xff,0xf0,0xff,0xf0,0xff,0xf0});
   *u8++ = ((vector unsigned char){0xff,0xf1,0xff,0xf1,0xff,0xf1,0xff,0xf1,0xff,0xf1,0xff,0xf1,0xff,0xf1,0xff,0xf1});
@@ -561,7 +561,7 @@ void fu8c(vector unsigned char *u8)
   *u8++ = ((vector unsigned char){0xff,0xfe,0xff,0xfe,0xff,0xfe,0xff,0xfe,0xff,0xfe,0xff,0xfe,0xff,0xfe,0xff,0xfe});
   *u8++ = ((vector unsigned char){0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff});
 }
-void fu8d(vector unsigned char *u8) 
+void fu8d(vector unsigned char *u8)
 {
   *u8++ = ((vector unsigned char){0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00});
   *u8++ = ((vector unsigned char){0x00,0x01,0x00,0x01,0x00,0x01,0x00,0x01,0x00,0x01,0x00,0x01,0x00,0x01,0x00,0x01});
@@ -580,7 +580,7 @@ void fu8d(vector unsigned char *u8)
   *u8++ = ((vector unsigned char){0x00,0x0e,0x00,0x0e,0x00,0x0e,0x00,0x0e,0x00,0x0e,0x00,0x0e,0x00,0x0e,0x00,0x0e});
   *u8++ = ((vector unsigned char){0x00,0x0f,0x00,0x0f,0x00,0x0f,0x00,0x0f,0x00,0x0f,0x00,0x0f,0x00,0x0f,0x00,0x0f});
 }
-void fu8e(vector unsigned char *u8) 
+void fu8e(vector unsigned char *u8)
 {
   *u8++ = ((vector unsigned char){0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00});
   *u8++ = ((vector unsigned char){0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01});
@@ -599,7 +599,7 @@ void fu8e(vector unsigned char *u8)
   *u8++ = ((vector unsigned char){0x0e,0x0e,0x0e,0x0e,0x0e,0x0e,0x0e,0x0e,0x0e,0x0e,0x0e,0x0e,0x0e,0x0e,0x0e,0x0e});
   *u8++ = ((vector unsigned char){0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x0f});
 }
-void fu8f(vector unsigned char *u8) 
+void fu8f(vector unsigned char *u8)
 {
   *u8++ = ((vector unsigned char){0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0});
   *u8++ = ((vector unsigned char){0xf1,0xf1,0xf1,0xf1,0xf1,0xf1,0xf1,0xf1,0xf1,0xf1,0xf1,0xf1,0xf1,0xf1,0xf1,0xf1});
@@ -618,7 +618,7 @@ void fu8f(vector unsigned char *u8)
   *u8++ = ((vector unsigned char){0xfe,0xfe,0xfe,0xfe,0xfe,0xfe,0xfe,0xfe,0xfe,0xfe,0xfe,0xfe,0xfe,0xfe,0xfe,0xfe});
   *u8++ = ((vector unsigned char){0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff});
 }
-void fu8g(vector unsigned char *u8) 
+void fu8g(vector unsigned char *u8)
 {
   *u8++ = ((vector unsigned char){0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0});
   *u8++ = ((vector unsigned char){1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1});
@@ -637,7 +637,7 @@ void fu8g(vector unsigned char *u8)
   *u8++ = ((vector unsigned char){14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14});
   *u8++ = ((vector unsigned char){15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15});
 }
-void fu8h(vector unsigned char *u8) 
+void fu8h(vector unsigned char *u8)
 {
   *u8++ = ((vector unsigned char){240,240,240,240,240,240,240,240,240,240,240,240,240,240,240,240});
   *u8++ = ((vector unsigned char){241,241,241,241,241,241,241,241,241,241,241,241,241,241,241,241});
@@ -656,7 +656,7 @@ void fu8h(vector unsigned char *u8)
   *u8++ = ((vector unsigned char){254,254,254,254,254,254,254,254,254,254,254,254,254,254,254,254});
   *u8++ = ((vector unsigned char){255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255});
 }
-void fu8i(vector unsigned char *u8) 
+void fu8i(vector unsigned char *u8)
 {
   *u8++ = ((vector unsigned char){-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1});
   *u8++ = ((vector unsigned char){-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2});
@@ -675,7 +675,7 @@ void fu8i(vector unsigned char *u8)
   *u8++ = ((vector unsigned char){-15,-15,-15,-15,-15,-15,-15,-15,-15,-15,-15,-15,-15,-15,-15,-15});
   *u8++ = ((vector unsigned char){-16,-16,-16,-16,-16,-16,-16,-16,-16,-16,-16,-16,-16,-16,-16,-16});
 }
-void fs32a(vector signed int *s32) 
+void fs32a(vector signed int *s32)
 {
   *s32++ = ((vector signed int){0,0,0,0});
   *s32++ = ((vector signed int){1,1,1,1});
@@ -694,7 +694,7 @@ void fs32a(vector signed int *s32)
   *s32++ = ((vector signed int){14,14,14,14});
   *s32++ = ((vector signed int){15,15,15,15});
 }
-void fs32b(vector signed int *s32) 
+void fs32b(vector signed int *s32)
 {
   *s32++ = ((vector signed int){65537,65537,65537,65537});
   *s32++ = ((vector signed int){131074,131074,131074,131074});
@@ -712,7 +712,7 @@ void fs32b(vector signed int *s32)
   *s32++ = ((vector signed int){917518,917518,917518,917518});
   *s32++ = ((vector signed int){983055,983055,983055,983055});
 }
-void fs32c(vector signed int *s32) 
+void fs32c(vector signed int *s32)
 {
   *s32++ = ((vector signed int){16843009,16843009,16843009,16843009});
   *s32++ = ((vector signed int){33686018,33686018,33686018,33686018});
@@ -730,7 +730,7 @@ void fs32c(vector signed int *s32)
   *s32++ = ((vector signed int){235802126,235802126,235802126,235802126});
   *s32++ = ((vector signed int){252645135,252645135,252645135,252645135});
 }
-void fs32d(vector signed int *s32) 
+void fs32d(vector signed int *s32)
 {
   *s32++ = ((vector signed int){4042322160,4042322160,4042322160,4042322160});
   *s32++ = ((vector signed int){4059165169,4059165169,4059165169,4059165169});
@@ -748,7 +748,7 @@ void fs32d(vector signed int *s32)
   *s32++ = ((vector signed int){4261281277,4261281277,4261281277,4261281277});
   *s32++ = ((vector signed int){4278124286,4278124286,4278124286,4278124286});
 }
-void fs32e(vector signed int *s32) 
+void fs32e(vector signed int *s32)
 {
   *s32++ = ((vector signed int){4293984240,4293984240,4293984240,4293984240});
   *s32++ = ((vector signed int){4294049777,4294049777,4294049777,4294049777});
@@ -766,7 +766,7 @@ void fs32e(vector signed int *s32)
   *s32++ = ((vector signed int){4294836221,4294836221,4294836221,4294836221});
   *s32++ = ((vector signed int){4294901758,4294901758,4294901758,4294901758});
 }
-void fs32f(vector signed int *s32) 
+void fs32f(vector signed int *s32)
 {
   *s32++ = ((vector signed int){4294967280,4294967280,4294967280,4294967280});
   *s32++ = ((vector signed int){4294967281,4294967281,4294967281,4294967281});
@@ -785,7 +785,7 @@ void fs32f(vector signed int *s32)
   *s32++ = ((vector signed int){4294967294,4294967294,4294967294,4294967294});
   *s32++ = ((vector signed int){4294967295,4294967295,4294967295,4294967295});
 }
-void fs32g(vector signed int *s32) 
+void fs32g(vector signed int *s32)
 {
   *s32++ = ((vector signed int){-252645136,-252645136,-252645136,-252645136});
   *s32++ = ((vector signed int){-235802127,-235802127,-235802127,-235802127});
@@ -803,7 +803,7 @@ void fs32g(vector signed int *s32)
   *s32++ = ((vector signed int){-33686019,-33686019,-33686019,-33686019});
   *s32++ = ((vector signed int){-16843010,-16843010,-16843010,-16843010});
 }
-void fs32h(vector signed int *s32) 
+void fs32h(vector signed int *s32)
 {
   *s32++ = ((vector signed int){-983056,-983056,-983056,-983056});
   *s32++ = ((vector signed int){-917519,-917519,-917519,-917519});
@@ -821,7 +821,7 @@ void fs32h(vector signed int *s32)
   *s32++ = ((vector signed int){-131075,-131075,-131075,-131075});
   *s32++ = ((vector signed int){-65538,-65538,-65538,-65538});
 }
-void fs32i(vector signed int *s32) 
+void fs32i(vector signed int *s32)
 {
   *s32++ = ((vector signed int){-16,-16,-16,-16});
   *s32++ = ((vector signed int){-15,-15,-15,-15});
@@ -840,7 +840,7 @@ void fs32i(vector signed int *s32)
   *s32++ = ((vector signed int){-2,-2,-2,-2});
   *s32++ = ((vector signed int){-1,-1,-1,-1});
 }
-void fs32j(vector signed int *s32) 
+void fs32j(vector signed int *s32)
 {
   *s32++ = ((vector signed int){0xfffffff0,0xfffffff0,0xfffffff0,0xfffffff0});
   *s32++ = ((vector signed int){0xfffffff1,0xfffffff1,0xfffffff1,0xfffffff1});
@@ -859,7 +859,7 @@ void fs32j(vector signed int *s32)
   *s32++ = ((vector signed int){0xfffffffe,0xfffffffe,0xfffffffe,0xfffffffe});
   *s32++ = ((vector signed int){0xffffffff,0xffffffff,0xffffffff,0xffffffff});
 }
-void fs32k(vector signed int *s32) 
+void fs32k(vector signed int *s32)
 {
   *s32++ = ((vector signed int){0x00000000,0x00000000,0x00000000,0x00000000});
   *s32++ = ((vector signed int){0x00000001,0x00000001,0x00000001,0x00000001});
@@ -878,7 +878,7 @@ void fs32k(vector signed int *s32)
   *s32++ = ((vector signed int){0x0000000e,0x0000000e,0x0000000e,0x0000000e});
   *s32++ = ((vector signed int){0x0000000f,0x0000000f,0x0000000f,0x0000000f});
 }
-void fs32l(vector signed int *s32) 
+void fs32l(vector signed int *s32)
 {
   *s32++ = ((vector signed int){0xfff0fff0,0xfff0fff0,0xfff0fff0,0xfff0fff0});
   *s32++ = ((vector signed int){0xfff1fff1,0xfff1fff1,0xfff1fff1,0xfff1fff1});
@@ -897,7 +897,7 @@ void fs32l(vector signed int *s32)
   *s32++ = ((vector signed int){0xfffefffe,0xfffefffe,0xfffefffe,0xfffefffe});
   *s32++ = ((vector signed int){0xffffffff,0xffffffff,0xffffffff,0xffffffff});
 }
-void fs32m(vector signed int *s32) 
+void fs32m(vector signed int *s32)
 {
   *s32++ = ((vector signed int){0x00000000,0x00000000,0x00000000,0x00000000});
   *s32++ = ((vector signed int){0x00010001,0x00010001,0x00010001,0x00010001});
@@ -916,7 +916,7 @@ void fs32m(vector signed int *s32)
   *s32++ = ((vector signed int){0x000e000e,0x000e000e,0x000e000e,0x000e000e});
   *s32++ = ((vector signed int){0x000f000f,0x000f000f,0x000f000f,0x000f000f});
 }
-void fs32n(vector signed int *s32) 
+void fs32n(vector signed int *s32)
 {
   *s32++ = ((vector signed int){0xf0f0f0f0,0xf0f0f0f0,0xf0f0f0f0,0xf0f0f0f0});
   *s32++ = ((vector signed int){0xf1f1f1f1,0xf1f1f1f1,0xf1f1f1f1,0xf1f1f1f1});
@@ -935,7 +935,7 @@ void fs32n(vector signed int *s32)
   *s32++ = ((vector signed int){0xfefefefe,0xfefefefe,0xfefefefe,0xfefefefe});
   *s32++ = ((vector signed int){0xffffffff,0xffffffff,0xffffffff,0xffffffff});
 }
-void fs32o(vector signed int *s32) 
+void fs32o(vector signed int *s32)
 {
   *s32++ = ((vector signed int){0x00000000,0x00000000,0x00000000,0x00000000});
   *s32++ = ((vector signed int){0x01010101,0x01010101,0x01010101,0x01010101});
@@ -954,7 +954,7 @@ void fs32o(vector signed int *s32)
   *s32++ = ((vector signed int){0x0e0e0e0e,0x0e0e0e0e,0x0e0e0e0e,0x0e0e0e0e});
   *s32++ = ((vector signed int){0x0f0f0f0f,0x0f0f0f0f,0x0f0f0f0f,0x0f0f0f0f});
 }
-void fs16a(vector signed short *s16) 
+void fs16a(vector signed short *s16)
 {
   *s16++ = ((vector signed short){0xffff,0xfff0,0xffff,0xfff0,0xffff,0xfff0,0xffff,0xfff0});
   *s16++ = ((vector signed short){0xffff,0xfff1,0xffff,0xfff1,0xffff,0xfff1,0xffff,0xfff1});
@@ -973,7 +973,7 @@ void fs16a(vector signed short *s16)
   *s16++ = ((vector signed short){0xffff,0xfffe,0xffff,0xfffe,0xffff,0xfffe,0xffff,0xfffe});
   *s16++ = ((vector signed short){0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff});
 }
-void fs16b(vector signed short *s16) 
+void fs16b(vector signed short *s16)
 {
   *s16++ = ((vector signed short){0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000});
   *s16++ = ((vector signed short){0x0000,0x0001,0x0000,0x0001,0x0000,0x0001,0x0000,0x0001});
@@ -992,7 +992,7 @@ void fs16b(vector signed short *s16)
   *s16++ = ((vector signed short){0x0000,0x000e,0x0000,0x000e,0x0000,0x000e,0x0000,0x000e});
   *s16++ = ((vector signed short){0x0000,0x000f,0x0000,0x000f,0x0000,0x000f,0x0000,0x000f});
 }
-void fs16c(vector signed short *s16) 
+void fs16c(vector signed short *s16)
 {
   *s16++ = ((vector signed short){0xfff0,0xfff0,0xfff0,0xfff0,0xfff0,0xfff0,0xfff0,0xfff0});
   *s16++ = ((vector signed short){0xfff1,0xfff1,0xfff1,0xfff1,0xfff1,0xfff1,0xfff1,0xfff1});
@@ -1011,7 +1011,7 @@ void fs16c(vector signed short *s16)
   *s16++ = ((vector signed short){0xfffe,0xfffe,0xfffe,0xfffe,0xfffe,0xfffe,0xfffe,0xfffe});
   *s16++ = ((vector signed short){0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff});
 }
-void fs16d(vector signed short *s16) 
+void fs16d(vector signed short *s16)
 {
   *s16++ = ((vector signed short){0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000});
   *s16++ = ((vector signed short){0x0001,0x0001,0x0001,0x0001,0x0001,0x0001,0x0001,0x0001});
@@ -1030,7 +1030,7 @@ void fs16d(vector signed short *s16)
   *s16++ = ((vector signed short){0x000e,0x000e,0x000e,0x000e,0x000e,0x000e,0x000e,0x000e});
   *s16++ = ((vector signed short){0x000f,0x000f,0x000f,0x000f,0x000f,0x000f,0x000f,0x000f});
 }
-void fs16e(vector signed short *s16) 
+void fs16e(vector signed short *s16)
 {
   *s16++ = ((vector signed short){0xf0f0,0xf0f0,0xf0f0,0xf0f0,0xf0f0,0xf0f0,0xf0f0,0xf0f0});
   *s16++ = ((vector signed short){0xf1f1,0xf1f1,0xf1f1,0xf1f1,0xf1f1,0xf1f1,0xf1f1,0xf1f1});
@@ -1049,7 +1049,7 @@ void fs16e(vector signed short *s16)
   *s16++ = ((vector signed short){0xfefe,0xfefe,0xfefe,0xfefe,0xfefe,0xfefe,0xfefe,0xfefe});
   *s16++ = ((vector signed short){0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff});
 }
-void fs16f(vector signed short *s16) 
+void fs16f(vector signed short *s16)
 {
   *s16++ = ((vector signed short){0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000});
   *s16++ = ((vector signed short){0x0101,0x0101,0x0101,0x0101,0x0101,0x0101,0x0101,0x0101});
@@ -1068,7 +1068,7 @@ void fs16f(vector signed short *s16)
   *s16++ = ((vector signed short){0x0e0e,0x0e0e,0x0e0e,0x0e0e,0x0e0e,0x0e0e,0x0e0e,0x0e0e});
   *s16++ = ((vector signed short){0x0f0f,0x0f0f,0x0f0f,0x0f0f,0x0f0f,0x0f0f,0x0f0f,0x0f0f});
 }
-void fs16g(vector signed short *s16) 
+void fs16g(vector signed short *s16)
 {
   *s16++ = ((vector signed short){0,0,0,0,0,0,0,0});
   *s16++ = ((vector signed short){1,1,1,1,1,1,1,1});
@@ -1087,7 +1087,7 @@ void fs16g(vector signed short *s16)
   *s16++ = ((vector signed short){14,14,14,14,14,14,14,14});
   *s16++ = ((vector signed short){15,15,15,15,15,15,15,15});
 }
-void fs16h(vector signed short *s16) 
+void fs16h(vector signed short *s16)
 {
   *s16++ = ((vector signed short){257,257,257,257,257,257,257,257});
   *s16++ = ((vector signed short){514,514,514,514,514,514,514,514});
@@ -1105,7 +1105,7 @@ void fs16h(vector signed short *s16)
   *s16++ = ((vector signed short){3598,3598,3598,3598,3598,3598,3598,3598});
   *s16++ = ((vector signed short){3855,3855,3855,3855,3855,3855,3855,3855});
 }
-void fs16i(vector signed short *s16) 
+void fs16i(vector signed short *s16)
 {
   *s16++ = ((vector signed short){61680,61680,61680,61680,61680,61680,61680,61680});
   *s16++ = ((vector signed short){61937,61937,61937,61937,61937,61937,61937,61937});
@@ -1123,7 +1123,7 @@ void fs16i(vector signed short *s16)
   *s16++ = ((vector signed short){65021,65021,65021,65021,65021,65021,65021,65021});
   *s16++ = ((vector signed short){65278,65278,65278,65278,65278,65278,65278,65278});
 }
-void fs16j(vector signed short *s16) 
+void fs16j(vector signed short *s16)
 {
   *s16++ = ((vector signed short){65520,65520,65520,65520,65520,65520,65520,65520});
   *s16++ = ((vector signed short){65521,65521,65521,65521,65521,65521,65521,65521});
@@ -1142,7 +1142,7 @@ void fs16j(vector signed short *s16)
   *s16++ = ((vector signed short){65534,65534,65534,65534,65534,65534,65534,65534});
   *s16++ = ((vector signed short){65535,65535,65535,65535,65535,65535,65535,65535});
 }
-void fs16k(vector signed short *s16) 
+void fs16k(vector signed short *s16)
 {
   *s16++ = ((vector signed short){-3856,-3856,-3856,-3856,-3856,-3856,-3856,-3856});
   *s16++ = ((vector signed short){-3599,-3599,-3599,-3599,-3599,-3599,-3599,-3599});
@@ -1160,7 +1160,7 @@ void fs16k(vector signed short *s16)
   *s16++ = ((vector signed short){-515,-515,-515,-515,-515,-515,-515,-515});
   *s16++ = ((vector signed short){-258,-258,-258,-258,-258,-258,-258,-258});
 }
-void fs16l(vector signed short *s16) 
+void fs16l(vector signed short *s16)
 {
   *s16++ = ((vector signed short){-16,-16,-16,-16,-16,-16,-16,-16});
   *s16++ = ((vector signed short){-15,-15,-15,-15,-15,-15,-15,-15});
@@ -1179,7 +1179,7 @@ void fs16l(vector signed short *s16)
   *s16++ = ((vector signed short){-2,-2,-2,-2,-2,-2,-2,-2});
   *s16++ = ((vector signed short){-1,-1,-1,-1,-1,-1,-1,-1});
 }
-void fs8a(vector signed char *s8) 
+void fs8a(vector signed char *s8)
 {
   *s8++ = ((vector signed char){0xff,0xff,0xff,0xf0,0xff,0xff,0xff,0xf0,0xff,0xff,0xff,0xf0,0xff,0xff,0xff,0xf0});
   *s8++ = ((vector signed char){0xff,0xff,0xff,0xf1,0xff,0xff,0xff,0xf1,0xff,0xff,0xff,0xf1,0xff,0xff,0xff,0xf1});
@@ -1198,7 +1198,7 @@ void fs8a(vector signed char *s8)
   *s8++ = ((vector signed char){0xff,0xff,0xff,0xfe,0xff,0xff,0xff,0xfe,0xff,0xff,0xff,0xfe,0xff,0xff,0xff,0xfe});
   *s8++ = ((vector signed char){0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff});
 }
-void fs8b(vector signed char *s8) 
+void fs8b(vector signed char *s8)
 {
   *s8++ = ((vector signed char){0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00});
   *s8++ = ((vector signed char){0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x01});
@@ -1217,7 +1217,7 @@ void fs8b(vector signed char *s8)
   *s8++ = ((vector signed char){0x00,0x00,0x00,0x0e,0x00,0x00,0x00,0x0e,0x00,0x00,0x00,0x0e,0x00,0x00,0x00,0x0e});
   *s8++ = ((vector signed char){0x00,0x00,0x00,0x0f,0x00,0x00,0x00,0x0f,0x00,0x00,0x00,0x0f,0x00,0x00,0x00,0x0f});
 }
-void fs8c(vector signed char *s8) 
+void fs8c(vector signed char *s8)
 {
   *s8++ = ((vector signed char){0xff,0xf0,0xff,0xf0,0xff,0xf0,0xff,0xf0,0xff,0xf0,0xff,0xf0,0xff,0xf0,0xff,0xf0});
   *s8++ = ((vector signed char){0xff,0xf1,0xff,0xf1,0xff,0xf1,0xff,0xf1,0xff,0xf1,0xff,0xf1,0xff,0xf1,0xff,0xf1});
@@ -1236,7 +1236,7 @@ void fs8c(vector signed char *s8)
   *s8++ = ((vector signed char){0xff,0xfe,0xff,0xfe,0xff,0xfe,0xff,0xfe,0xff,0xfe,0xff,0xfe,0xff,0xfe,0xff,0xfe});
   *s8++ = ((vector signed char){0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff});
 }
-void fs8d(vector signed char *s8) 
+void fs8d(vector signed char *s8)
 {
   *s8++ = ((vector signed char){0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00});
   *s8++ = ((vector signed char){0x00,0x01,0x00,0x01,0x00,0x01,0x00,0x01,0x00,0x01,0x00,0x01,0x00,0x01,0x00,0x01});
@@ -1255,7 +1255,7 @@ void fs8d(vector signed char *s8)
   *s8++ = ((vector signed char){0x00,0x0e,0x00,0x0e,0x00,0x0e,0x00,0x0e,0x00,0x0e,0x00,0x0e,0x00,0x0e,0x00,0x0e});
   *s8++ = ((vector signed char){0x00,0x0f,0x00,0x0f,0x00,0x0f,0x00,0x0f,0x00,0x0f,0x00,0x0f,0x00,0x0f,0x00,0x0f});
 }
-void fs8e(vector signed char *s8) 
+void fs8e(vector signed char *s8)
 {
   *s8++ = ((vector signed char){0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00});
   *s8++ = ((vector signed char){0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01});
@@ -1274,7 +1274,7 @@ void fs8e(vector signed char *s8)
   *s8++ = ((vector signed char){0x0e,0x0e,0x0e,0x0e,0x0e,0x0e,0x0e,0x0e,0x0e,0x0e,0x0e,0x0e,0x0e,0x0e,0x0e,0x0e});
   *s8++ = ((vector signed char){0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x0f});
 }
-void fs8f(vector signed char *s8) 
+void fs8f(vector signed char *s8)
 {
   *s8++ = ((vector signed char){0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0});
   *s8++ = ((vector signed char){0xf1,0xf1,0xf1,0xf1,0xf1,0xf1,0xf1,0xf1,0xf1,0xf1,0xf1,0xf1,0xf1,0xf1,0xf1,0xf1});
@@ -1293,7 +1293,7 @@ void fs8f(vector signed char *s8)
   *s8++ = ((vector signed char){0xfe,0xfe,0xfe,0xfe,0xfe,0xfe,0xfe,0xfe,0xfe,0xfe,0xfe,0xfe,0xfe,0xfe,0xfe,0xfe});
   *s8++ = ((vector signed char){0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff});
 }
-void fs8g(vector signed char *s8) 
+void fs8g(vector signed char *s8)
 {
   *s8++ = ((vector signed char){0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0});
   *s8++ = ((vector signed char){1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1});
@@ -1312,7 +1312,7 @@ void fs8g(vector signed char *s8)
   *s8++ = ((vector signed char){14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14});
   *s8++ = ((vector signed char){15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15});
 }
-void fs8h(vector signed char *s8) 
+void fs8h(vector signed char *s8)
 {
   *s8++ = ((vector signed char){240,240,240,240,240,240,240,240,240,240,240,240,240,240,240,240});
   *s8++ = ((vector signed char){241,241,241,241,241,241,241,241,241,241,241,241,241,241,241,241});
@@ -1331,7 +1331,7 @@ void fs8h(vector signed char *s8)
   *s8++ = ((vector signed char){254,254,254,254,254,254,254,254,254,254,254,254,254,254,254,254});
   *s8++ = ((vector signed char){255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255});
 }
-void fs8i(vector signed char *s8) 
+void fs8i(vector signed char *s8)
 {
   *s8++ = ((vector signed char){-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1});
   *s8++ = ((vector signed char){-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2});

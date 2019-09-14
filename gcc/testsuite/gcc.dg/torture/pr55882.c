@@ -88,7 +88,7 @@ testfunction(unsigned i)
 extern void abort (void);
 int main ()
 {
-  if (testfunction(0) != 0) 
+  if (testfunction(0) != 0)
     abort ();
   return 0;
 }

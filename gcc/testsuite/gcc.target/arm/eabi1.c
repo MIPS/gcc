@@ -4,7 +4,7 @@
 /* This file tests most of the non-C++ run-time helper functions
    described in Section 4 of the "Run-Time ABI for the ARM
    Architecture".  These are basic tests; they do not try to validate
-   all of the corner cases in these routines.  
+   all of the corner cases in these routines.
 
    The functions not tested here are:
 
@@ -21,7 +21,7 @@
 
    These functions have non-standard calling conventions that would
    require the use of inline assembly to test.  It would be good to
-   add such tests, but they have not yet been implemented.  
+   add such tests, but they have not yet been implemented.
 
    There are also no tests for the "division by zero", "memory copying,
    clearing, and setting" functions.  */
@@ -111,7 +111,7 @@ extern long long __aeabi_uwrite8 (long long, void *);
 #define NUM_CMP_VALUES 6
 
 /* Values picked to cover a range of small, large, positive and negative.  */
-static unsigned int cmp_val[NUM_CMP_VALUES] = 
+static unsigned int cmp_val[NUM_CMP_VALUES] =
 {
   0,
   1,
@@ -338,5 +338,5 @@ int main () {
   for (i = 0; i < 8; i++)
     ieq (bytes[15 + i], (2 + i) * 0x10);
 
-  exit (0);		
+  exit (0);
 }

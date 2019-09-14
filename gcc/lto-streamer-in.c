@@ -268,7 +268,7 @@ lto_location_cache::input_location (location_t *loc, struct bitpack_d *bp,
 
   /* This optimization saves location cache operations druing gimple
      streaming.  */
-     
+
   if (current_file == stream_file && current_line == stream_line
       && current_col == stream_col && current_sysp == stream_sysp)
     {

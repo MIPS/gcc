@@ -91,7 +91,7 @@ f4 (int i)
 top:
 #pragma STDC FLOAT_CONST_DECIMAL64 OFF	/* { dg-warning "invalid location" } */
   if (i == 0)
-    return a;  
+    return a;
   a *= 2.;
   i = 0;
   goto top;

@@ -42,4 +42,3 @@ TEST_VBCAX (int8x16_t, s8)
 TEST_VBCAX (int16x8_t, s16)
 TEST_VBCAX (int32x4_t, s32)
 TEST_VBCAX (int64x2_t, s64)
-

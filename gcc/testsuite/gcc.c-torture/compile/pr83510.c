@@ -83,7 +83,7 @@ void test_2_signed (struct xyz * ctx)
 void test_3 (struct xyz * ctx)
 {
   unsigned int i;
-  
+
   for (i = 0; i < 10; i++) {
     switch (i) {
     case 0x9:
@@ -102,7 +102,7 @@ void test_3 (struct xyz * ctx)
 void test_3_signed (struct xyz * ctx)
 {
   int i;
-  
+
   for (i = 0; i < 10; i++) {
     switch (i) {
     case 0x9:
@@ -121,7 +121,7 @@ void test_3_signed (struct xyz * ctx)
 void test_4 (struct xyz * ctx)
 {
   unsigned int i, j;
-  
+
   for (i = 0; i < 10; i++) {
     switch (i) {
     case 0x9:
@@ -139,7 +139,7 @@ void test_4 (struct xyz * ctx)
 void test_4_signed (struct xyz * ctx)
 {
   int i, j;
-  
+
   for (i = 0; i < 10; i++) {
     switch (i) {
     case 0x9:
@@ -160,7 +160,7 @@ void test_5 (struct xyz * ctx)
   unsigned int i;
   for (i = 10; i < 20; i++) {
     wfm(ctx, i, arr[i - 10]);
-  }    
+  }
 }
 
 void test_5_signed (struct xyz * ctx)
@@ -168,5 +168,5 @@ void test_5_signed (struct xyz * ctx)
   int i;
   for (i = 10; i < 20; i++) {
     wfm(ctx, i, arr[i - 10]);
-  }    
+  }
 }

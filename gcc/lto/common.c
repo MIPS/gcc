@@ -44,4 +44,3 @@ const char *lto_resolution_str[10] __attribute__ ((visibility ("hidden"))) =
   "RESOLVED_DYN",
   "PREVAILING_DEF_IRONLY_EXP",
 };
-

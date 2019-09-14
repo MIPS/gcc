@@ -40,13 +40,13 @@ main (int argc, char *argv[])
 
   for (i = 0; i < NVALS; i++)
     {
-      if (convert_it_1 (values[i]) != 
+      if (convert_it_1 (values[i]) !=
 	  __builtin_powi (values[i], 3) * __builtin_powi (cbrt (values[i]), 1))
 	abort ();
-      if (convert_it_2 (values[i]) != 
+      if (convert_it_2 (values[i]) !=
 	  __builtin_powi (values[i], 3) * __builtin_powi (cbrt (values[i]), 2))
 	abort ();
-      if (convert_it_3 (values[i]) != 
+      if (convert_it_3 (values[i]) !=
 	  __builtin_powi (values[i], -3) * __builtin_powi (cbrt (values[i]), 2))
 	abort ();
       if (convert_it_4 (values[i]) !=

@@ -14,6 +14,6 @@ foo (int x, V2SF a)
     b = a + (V2SF) {1.0f/0.0f - 1.0f/0.0f, 1.0f/0.0f - 1.0f/0.0f};
   while (x--)
     a += b;
-      
+
   return a;
 }

@@ -30,17 +30,17 @@
 #define _C_BYREF        'R'
 #define _C_ONEWAY       'V'
 #define _C_GCINVISIBLE  '!'
-   
+
 #define _F_CONST        0x01
 #define _F_IN           0x01
 #define _F_OUT          0x02
 #define _F_INOUT        0x03
-#define _F_BYCOPY       0x04  
-#define _F_BYREF        0x08  
+#define _F_BYCOPY       0x04
+#define _F_BYREF        0x08
 #define _F_ONEWAY       0x10
 #define _F_GCINVISIBLE  0x20
 
-/* The NeXT runtimes do not include these functions (at least not through 
+/* The NeXT runtimes do not include these functions (at least not through
    any public API).  They are required for the objc/execute/bf-* and bycopy-3. */
 
 struct objc_struct_layout
@@ -48,7 +48,7 @@ struct objc_struct_layout
   const char *original_type;
   const char *type;
   const char *prev_type;
-  unsigned int record_size; 
+  unsigned int record_size;
   unsigned int record_align;
 };
 

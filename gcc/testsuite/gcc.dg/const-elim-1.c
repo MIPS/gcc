@@ -45,4 +45,3 @@ test2(void)
 	use_S(&S);
 	use_cplx(cplx);
 }
-

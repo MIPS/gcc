@@ -5,4 +5,3 @@
 
 long double foo(long double x) { return x; } /* { dg-error "x87 disabled" } */
 long double bar(long double x) { return x; }
-

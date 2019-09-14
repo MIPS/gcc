@@ -33,4 +33,3 @@ unifi_trace (void* ospriv, int level, const char *fmt, ...)
        printf ("%s", s);
      }
 }
-

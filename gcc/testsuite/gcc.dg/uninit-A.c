@@ -92,7 +92,7 @@ qualify_ambiguous_name (id)
   /* If you put straightforward uses of name and ptr_type here
      instead of the if-else sequence below, the warnings go away.
      Therefore I suspect a real bug. */
-  
+
   if (!this_found && !super_found && (decl = IDENTIFIER_LOCAL_VALUE (name)))
     {
       RESOLVE_EXPRESSION_NAME_P (qual_wfl) = 1;
@@ -112,6 +112,6 @@ qualify_ambiguous_name (id)
   else if (TREE_CODE (QUAL_WFL (qual)) == CALL_EXPR
 	   || TREE_CODE (QUAL_WFL (qual)) == ARRAY_REF)
     RESOLVE_EXPRESSION_NAME_P (qual_wfl) = 1;
-  else 
+  else
     RESOLVE_PACKAGE_NAME_P (qual_wfl) = 1;
 }

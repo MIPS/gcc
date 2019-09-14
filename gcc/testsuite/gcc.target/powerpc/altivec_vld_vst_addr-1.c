@@ -181,4 +181,3 @@ test_vst_vector_f (vector float v, vector float *address)
 {
   __builtin_vec_st (v, 0, address);
 }
-

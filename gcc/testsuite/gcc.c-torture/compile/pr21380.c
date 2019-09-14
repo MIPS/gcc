@@ -1,5 +1,5 @@
 void bar (void);
-                                                                                
+
 void
 foo (int *diff)
 {
@@ -9,7 +9,7 @@ foo (int *diff)
   int Sflipped = 0;
   int i;
   int Sturn, Snofit;
-                                                                                
+
   Sturn = 1;
   if (Sturn)
     Stangent = 1;

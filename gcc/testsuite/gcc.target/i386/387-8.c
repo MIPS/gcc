@@ -12,4 +12,3 @@ double f1(double x)
 {
   return 1.0 / tan(x);
 }
-

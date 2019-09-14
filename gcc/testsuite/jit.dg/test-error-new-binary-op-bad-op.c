@@ -34,4 +34,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 		      ("gcc_jit_context_new_binary_op:"
 		       " unrecognized value for enum gcc_jit_binary_op: 42"));
 }
-

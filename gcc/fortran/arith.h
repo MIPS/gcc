@@ -80,4 +80,3 @@ gfc_expr *gfc_hollerith2logical (gfc_expr *, int);
 gfc_expr *gfc_character2character (gfc_expr *, int);
 
 #endif /* GFC_ARITH_H  */
-

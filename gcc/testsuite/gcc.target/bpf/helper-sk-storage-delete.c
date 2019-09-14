@@ -7,7 +7,7 @@ foo ()
 {
   int ret;
   void *map, *sk;
-  
+
   ret = __builtin_bpf_helper_sk_storage_delete (map, sk);
 }
 

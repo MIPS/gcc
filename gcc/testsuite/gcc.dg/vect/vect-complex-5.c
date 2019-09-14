@@ -31,10 +31,10 @@ foo (void)
 
 int
 main (void)
-{ 
+{
   int i;
   check_vect ();
-  
+
   foo ();
 
   return 0;

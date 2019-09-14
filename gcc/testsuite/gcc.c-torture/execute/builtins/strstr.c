@@ -12,7 +12,7 @@ void
 main_test (void)
 {
   const char *const foo = "hello world";
-  
+
   if (strstr (foo, "") != foo)
     abort();
   if (strstr (foo + 4, "") != foo + 4)

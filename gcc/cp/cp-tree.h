@@ -800,7 +800,7 @@ class ovl_iterator {
   {
     return OVL_EXPORT_P (get_using ());
   }
-  
+
   bool hidden_p () const
   {
     return TREE_CODE (ovl) == OVERLOAD && OVL_HIDDEN_P (ovl);
@@ -3652,7 +3652,7 @@ struct GTY(()) lang_decl {
 
       template <typename T> struct S {};
       template <typename T> struct S<T*> {};
-      
+
    the CLASSTPYE_TI_TEMPLATE for S<int*> will be S, not the S<T*>.
 
    For a member class template, CLASSTYPE_TI_TEMPLATE always refers to the
@@ -4751,7 +4751,7 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
    them before instantiation.  */
 #define DECL_TEMPLATE_LAZY_SPECIALIZATIONS_P(NODE)	\
   DECL_LANG_FLAG_8 (TEMPLATE_DECL_CHECK (NODE))
-    
+
 /* Nonzero for a DECL which is actually a template parameter.  Keep
    these checks in ascending tree code order.   */
 #define DECL_TEMPLATE_PARM_P(NODE)		\
@@ -7967,7 +7967,7 @@ extern tree cp_ubsan_maybe_instrument_cast_to_vbase (location_t, tree, tree);
 extern void cp_ubsan_maybe_initialize_vtbl_ptrs (tree);
 
 /* Inline bodies.  */
-  
+
 inline tree
 ovl_first (tree node)
 {

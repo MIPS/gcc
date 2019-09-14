@@ -29,7 +29,7 @@ main1 (int n, float *pb, float *pc)
 
   /* check results:  */
   for (i = 0; i < N; i++)
-    { 
+    {
       if (pa[i] != (pb[i] * pc[i]))
         abort ();
     }

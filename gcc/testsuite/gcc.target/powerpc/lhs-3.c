@@ -18,4 +18,3 @@ unsigned int f (double d)
   u.val = d;
   return u.w2;
 }
-

@@ -28,5 +28,3 @@ foo3 (int b)
   int a = bar ();
   return ( a & ~(1 << (b & 31)));
 }
-
-

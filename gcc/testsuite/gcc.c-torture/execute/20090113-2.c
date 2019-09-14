@@ -157,4 +157,3 @@ int main()
   foobar (&live_throughout);
   return 0;
 }
-

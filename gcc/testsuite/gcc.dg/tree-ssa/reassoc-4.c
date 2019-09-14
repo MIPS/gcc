@@ -1,4 +1,4 @@
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-O2 -fdump-tree-optimized -ffast-math" } */
 float a, b, c, d;
 extern int printf (const char *, ...);

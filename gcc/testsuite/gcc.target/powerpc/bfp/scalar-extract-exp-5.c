@@ -16,5 +16,3 @@ get_exponent (__ieee128 *p)
 
   return scalar_extract_exp (source);	/* { dg-error "requires ISA 3.0 IEEE 128-bit floating point" } */
 }
-
-

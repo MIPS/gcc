@@ -20,4 +20,3 @@ gl (void)
 
   return *oi;
 }
-

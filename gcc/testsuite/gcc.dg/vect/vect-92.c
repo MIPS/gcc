@@ -12,7 +12,7 @@ float pc[N] __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__))) = {0,1,2,3,4,5,
 /* Check handling of unaligned accesses when the misalignment is
    known at compile time and different accesses have the same
    misalignment (e.g. peeling to align one access will align all
-   accesses with the same misalignment.  Also, the number of 
+   accesses with the same misalignment.  Also, the number of
    peeled iterations is known in this case, and the vectorizer
    can use this information (generate prolog and epilog loops
    with known number of iterations, and only if needed).  */

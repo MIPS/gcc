@@ -18,4 +18,3 @@ void gl_GetDoublev( GLcontext *ctx, GLenum pname, GLdouble *params ) {
   for (i=0; i<16; i++)
     params[i] = (GLint) ctx->TextureMatrix[i];
 }
-

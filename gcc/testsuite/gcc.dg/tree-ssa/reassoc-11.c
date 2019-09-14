@@ -1,4 +1,4 @@
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-O2 -fdump-tree-reassoc1" } */
 int main(int a, int b, int c, int d)
 {

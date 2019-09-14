@@ -9,8 +9,6 @@ baz (void)
 {
   int i;
   foo (&i); /* { dg-bogus "is used uninitialized" "uninit i warning" } */
-  if (i) 
+  if (i)
     bar (i);
 }
-
-

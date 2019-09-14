@@ -25,5 +25,3 @@ tui_registers_changed_hook (void)
 
 /* No references to tui_refreshing_registers should remain.  */
 /* { dg-final { scan-tree-dump-not "tui_refreshing_registers" "optimized"} } */
-
-

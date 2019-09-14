@@ -30,4 +30,3 @@ void func_37 (long p_38)
 lbl_270:
   ;
 }
-

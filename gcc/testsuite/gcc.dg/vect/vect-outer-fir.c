@@ -24,7 +24,7 @@ void foo (){
   for (i = 0; i < N; i++) {
     diff = 0;
     for (j = k; j < M; j+=4) {
-      diff += in[j+i]*coeff[j]; 
+      diff += in[j+i]*coeff[j];
     }
     out[i] += diff;
   }
@@ -61,7 +61,7 @@ int main (void)
 
   foo ();
   fir ();
-  
+
   for (i = 0; i < N; i++) {
     if (out[i] != fir_out[i])
       abort ();

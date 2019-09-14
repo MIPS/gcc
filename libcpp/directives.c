@@ -466,7 +466,7 @@ _cpp_handle_directive (cpp_reader *pfile, bool indented)
 	 compiled with -save-temps, we recognize directives in
 	 -fpreprocessed mode only if the # is in column 1.  macro.c
 	 puts a space in front of any '#' at the start of a macro.
-	 
+
 	 We exclude the -fdirectives-only case because macro expansion
 	 has not been performed yet, and block comments can cause spaces
 	 to precede the directive.  */
@@ -837,8 +837,8 @@ do_include_common (cpp_reader *pfile, enum include_type type)
 
   /* Prevent #include recursion.  */
   if (pfile->line_table->depth >= CPP_OPTION (pfile, max_include_depth))
-    cpp_error (pfile, 
-	       CPP_DL_ERROR, 
+    cpp_error (pfile,
+	       CPP_DL_ERROR,
 	       "#include nested depth %u exceeds maximum of %u"
 	       " (use -fmax-include-depth=DEPTH to increase the maximum)",
 	       pfile->line_table->depth,
@@ -935,7 +935,7 @@ strtolinenum (const uchar *str, size_t len, linenum_type *nump, bool *wrapped)
 	return true;
       reg *= 10;
       reg += c - '0';
-      if (reg < reg_prev) 
+      if (reg < reg_prev)
 	*wrapped = true;
       reg_prev = reg;
     }
@@ -1347,7 +1347,7 @@ cpp_register_deferred_pragma (cpp_reader *pfile, const char *space,
       entry->allow_expansion = allow_expansion;
       entry->u.ident = ident;
     }
-}  
+}
 
 /* Register the pragmas the preprocessor itself handles.  */
 void
@@ -1873,7 +1873,7 @@ destringize_and_run (cpp_reader *pfile, const cpp_string *in,
   pfile->directive = save_directive;
 
   /* We always insert at least one token, the directive result.  It'll
-     either be a CPP_PADDING or a CPP_PRAGMA.  In the later case, we 
+     either be a CPP_PADDING or a CPP_PRAGMA.  In the later case, we
      need to insert *all* of the tokens, including the CPP_PRAGMA_EOL.  */
 
   /* If we're not handling the pragma internally, read all of the tokens from
@@ -2665,4 +2665,3 @@ _cpp_bracket_include(cpp_reader *pfile)
 {
   return glue_header_name (pfile);
 }
-

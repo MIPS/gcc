@@ -24,4 +24,3 @@ fn2 (void)
   fn1 ();
   return 0;
 }
-

@@ -10,4 +10,3 @@ test_clearbit (unsigned int val)
   val &= ~(1u << 19);
   return val;
 }
-

@@ -18,4 +18,3 @@ static void test()
   check (vec_extract (vf, 1) == -1, "vec_extract (vf, 1)");
   check (vec_extract (vg, 0) == -2.0f, "vec_extract (vg, 0)");
 }
-

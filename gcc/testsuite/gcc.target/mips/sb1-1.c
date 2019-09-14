@@ -1,5 +1,5 @@
 /* Test SB-1 v2sf extensions.  */
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-march=sb1 -mpaired-single -mgp64 -ffast-math" } */
 /* { dg-skip-if "rsqrt code quality test" { *-*-* } { "-O0" } { "" } } */
 /* { dg-final { scan-assembler "\tdiv.ps\t" } } */

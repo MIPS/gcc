@@ -30,9 +30,9 @@ int main1 (int n, int res)
 }
 
 int main (void)
-{ 
+{
   check_vect ();
-  
+
   main1 (N, 240);
   main1 (N-1, 210);
   return 0;

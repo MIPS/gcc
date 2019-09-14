@@ -7,20 +7,20 @@
 #include "simulate-thread.h"
 
 
-/* Testing load for atomicity is a little trickier.  
+/* Testing load for atomicity is a little trickier.
 
-   Set up the atomic value so that it changes value after every instruction 
+   Set up the atomic value so that it changes value after every instruction
    is executed.
 
    Simply alternating between 2 values wouldn't be sufficient since a load of
    one part, followed by the load of the second part 2 instructions later would
    appear to be valid.
 
-   set up a table of 16 values which change a bit in every byte of the value 
+   set up a table of 16 values which change a bit in every byte of the value
    each time, this will give us a 16 instruction cycle before repetition
    kicks in, which should be sufficient to detect any issues.  Just to be sure,
-   we also change the table cycle size during execution. 
-   
+   we also change the table cycle size during execution.
+
    The end result is that all loads should always get one of the values from
    the table. Any other pattern means the load failed.  */
 
@@ -28,9 +28,9 @@ unsigned short ret;
 unsigned short value = 0;
 unsigned short result = 0;
 unsigned short table[16] = {
-0x0000, 
-0x1111, 
-0x2222, 
+0x0000,
+0x1111,
+0x2222,
 0x3333,
 0x4444,
 0x5555,

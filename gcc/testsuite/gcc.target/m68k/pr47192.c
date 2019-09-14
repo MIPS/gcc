@@ -33,4 +33,3 @@ short V(char cmd)
   stc = sc;
   return d;
 }
-

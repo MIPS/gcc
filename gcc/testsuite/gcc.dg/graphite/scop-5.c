@@ -14,7 +14,7 @@ int toto()
       b = 3;
       bar();
     }
-  else 
+  else
     {
       if (i == 30)
 	{

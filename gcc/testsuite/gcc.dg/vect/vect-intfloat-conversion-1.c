@@ -15,23 +15,23 @@ __attribute__ ((noinline)) int main1 ()
   /* int -> float */
   for (i = 0; i < N; i++)
     {
-      fa[i] = (float) ib[i];	
+      fa[i] = (float) ib[i];
     }
 
   /* check results:  */
   for (i = 0; i < N; i++)
     {
-      if (fa[i] != (float) ib[i]) 
-        abort (); 
-    }   
+      if (fa[i] != (float) ib[i])
+        abort ();
+    }
 
   return 0;
 }
 
 int main (void)
-{ 
+{
   check_vect ();
-  
+
   return main1 ();
 }
 

@@ -11,7 +11,7 @@
 char a = 0;
 char b = 77;
 
-void simulate_thread_other_threads() 
+void simulate_thread_other_threads()
 {
 }
 

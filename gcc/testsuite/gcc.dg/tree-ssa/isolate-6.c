@@ -16,4 +16,3 @@ lower_for (int j)
 }
 
 /* { dg-final { scan-tree-dump-times "__builtin_trap" 1 "isolate-paths"} } */
-

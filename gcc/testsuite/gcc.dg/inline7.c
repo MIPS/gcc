@@ -3,7 +3,7 @@
 extern inline void func1 (void) {
   static int i;  /* { dg-warning "static" } */
 }
-inline void func3 (void) 
+inline void func3 (void)
 {
   static int i;
 }

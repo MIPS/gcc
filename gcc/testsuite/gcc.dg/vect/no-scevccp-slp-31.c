@@ -3,14 +3,14 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 128 
+#define N 128
 
 int
 main1 ()
 {
   int i, j;
   unsigned short out[N*8], a[N][N];
-   
+
  for (i = 0; i < N; i++)
    {
     for (j = 0; j < N; j++)
@@ -26,7 +26,7 @@ main1 ()
   /* check results:  */
  for (i = 0; i < N; i++)
    {
-    for (j = 0; j < N; j++) 
+    for (j = 0; j < N; j++)
       {
         if (a[i][j] != 8)
            abort ();
@@ -53,4 +53,3 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect"  } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 0 "vect"  } } */
-  

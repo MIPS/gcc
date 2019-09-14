@@ -17,7 +17,7 @@ foo (unsigned x, long long y)
       return 1;
     }
   return 0;
-}     
+}
 
 int
 main ()

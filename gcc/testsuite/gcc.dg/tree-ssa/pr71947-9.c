@@ -13,5 +13,3 @@ int f(int x, int y)
   return ret;
 }
 /* { dg-final { scan-tree-dump "Replaced redundant expr \[^\r\n\]* with .\(x|y\)."  "dom2" } } */
-
-

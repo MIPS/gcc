@@ -9,6 +9,6 @@ struct A
 };
 
 int foo(struct A a)
-{ 
+{
     return (a,a).x[0];
 }

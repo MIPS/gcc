@@ -28,4 +28,3 @@ void m(void)
   magic_namee=magic_namee>=0?0:1;
   magic_namef=magic_namef>=0?0:1;
 }
-

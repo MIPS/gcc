@@ -9,7 +9,7 @@ foo ()
   int size;
   void *dst;
   const void *unsafe_ptr;
-  
+
   ret = __builtin_bpf_helper_probe_read_str (dst, size, unsafe_ptr);
 }
 

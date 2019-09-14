@@ -84,7 +84,7 @@ BOOL class_conformsToProtocol (Class class_, Protocol *protocol)
 #define protocol_getName(P) [P name]
 #define protocol_isEqual(P,Q) [P isEqual: Q]
 
-struct objc_method_description protocol_getMethodDescription (Protocol *protocol, 
+struct objc_method_description protocol_getMethodDescription (Protocol *protocol,
 							      SEL selector,
 							      BOOL requiredMethod,
 							      BOOL instanceMethod)
@@ -113,4 +113,3 @@ struct objc_method_description protocol_getMethodDescription (Protocol *protocol
 # endif /* __NEXT_RUNTIME__ */
 
 #endif /* _TESTSUITE_RUNTIME_H_ */
-

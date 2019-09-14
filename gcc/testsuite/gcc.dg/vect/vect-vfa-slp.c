@@ -17,7 +17,7 @@ struct S X[N] = {10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16,
                  16, 17, 17, 18, 18, 19, 19, 20, 20, 21, 21, 22, 22,
 		 23, 23, 24, 24, 25, 25};
 struct S Y[N] = {};
- 
+
 __attribute__ ((noinline)) void
 foo (struct S * in, struct S * out)
 {
@@ -32,13 +32,13 @@ foo (struct S * in, struct S * out)
 
 int
 main (void)
-{ 
+{
   int i;
 
   check_vect ();
 
   foo (X, Y);
-  
+
   /* check results:  */
   for (i = 0; i < N; i++)
     {
@@ -50,6 +50,6 @@ main (void)
 
     }
   return 0;
-} 
+}
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */

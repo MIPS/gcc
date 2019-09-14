@@ -13,4 +13,3 @@ foo (void)
   int e5 = v.d;
   __asm__ volatile ("" : : "nro" (e1), "nro" (e2), "nro" (e3), "nro" (e4), "nro" (e5));
 }
-

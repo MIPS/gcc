@@ -7,10 +7,10 @@
 // 8083. warn about odd casts
 
 typedef int YYSTYPE;
-typedef struct tDefEntry 
+typedef struct tDefEntry
 {
   unsigned t;
-  
+
 } tDefEntry;
 struct incomplete;
 
@@ -20,9 +20,8 @@ YYSTYPE
          YYSTYPE  list )
  {
      tDefEntry** ppT   = (tDefEntry**)&list; // { dg-warning "type-punned pointer will" }
- 
+
      struct incomplete *p = (struct incomplete *)&list; // { dg-warning "type-punning to incomplete" }
-     
+
      return list;
  }
-

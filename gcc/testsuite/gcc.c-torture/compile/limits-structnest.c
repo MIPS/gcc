@@ -20,4 +20,4 @@
 
 LIM4(struct s)
   int x;
-RBR4   
+RBR4

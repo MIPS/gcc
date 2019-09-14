@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-std=gnu99 -Wall -Wextra -O1" } */ 
+/* { dg-options "-std=gnu99 -Wall -Wextra -O1" } */
 
 extern void *memset (void*, int, __SIZE_TYPE__);
 extern void abort (void);
@@ -27,12 +27,12 @@ static inline void tag_clear(struct radix_tree_node *node, int tag, int offset)
 {
 	int nr;
 	volatile unsigned long *addr;
-#if(__SIZEOF_INT__ >= 4)	
+#if(__SIZEOF_INT__ >= 4)
 	int mask;
 #else
 	long mask;
 #endif
-	
+
 	nr = offset;
 	addr = &node->tags[tag][0];
 
@@ -46,21 +46,21 @@ void *radix_tree_tag_clear(struct radix_tree_root *root, unsigned long index, in
 	struct radix_tree_path path[7], *pathp = path;
 	unsigned int height, shift;
 	void *ret = 0;
-	
+
 	height = root->height;
 	if (index > height_to_maxindex[height])
 		goto out;
-	
+
 	shift = (height - 1) * 6;
 	pathp->node = 0;
 	pathp->slot = &root->rnode;
-	
+
 	while (height > 0) {
 		int offset;
-		
+
 		if (*pathp->slot == 0)
 			goto out;
-		
+
 		offset = (index >> shift) & (64-1);
 		pathp[1].offset = offset;
 		pathp[1].node = *pathp[0].slot;
@@ -70,14 +70,14 @@ void *radix_tree_tag_clear(struct radix_tree_root *root, unsigned long index, in
 		shift -= 6;
 		height--;
 	}
-	
+
 	ret = *pathp[0].slot;
 	if (ret == 0)
 		goto out;
-	
+
 	do {
 		int idx;
-		
+
 		tag_clear(pathp[0].node, tag, pathp[0].offset);
 		for (idx = 0; idx < 2; idx++) {
 			if (pathp[0].node->tags[tag][idx])
@@ -94,17 +94,17 @@ int main ()
 	struct radix_tree_root r;
 	struct radix_tree_node node;
 	void *p = (void *) 0xdeadbeef;
-	
+
   	r.height = 1;
 	r.rnode = &node;
-	
+
 	memset (&node, 0, sizeof (node));
-	
+
 	node.count = 1;
 	node.slots [13] = p;
-	
+
 	radix_tree_tag_clear (&r, 13, 1);
-	
+
 	if (r.rnode->slots[13] != p)
 		abort ();
 	return 0;

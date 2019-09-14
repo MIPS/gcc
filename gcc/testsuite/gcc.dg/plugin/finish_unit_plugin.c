@@ -1,5 +1,5 @@
 /* This plugin creates a fake function in the FINISH_UNIT callback, in
- * other words right after compilation of the translation unit. 
+ * other words right after compilation of the translation unit.
 */
 #include "gcc-plugin.h"
 #include "config.h"

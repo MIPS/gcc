@@ -25,7 +25,7 @@ int
 main ()
 {
   init ();
-  
+
   d32a = (d32b, d32c);
   if (d32a != d32c)
     FAILURE

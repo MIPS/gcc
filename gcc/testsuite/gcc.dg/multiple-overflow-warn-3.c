@@ -9,5 +9,3 @@ g (void)
   /* { dg-warning "overflow" "" { target *-*-* } .-1 } */
   return wc;
 }
-
-

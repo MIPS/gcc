@@ -16,4 +16,3 @@ void f(float *__restrict__ qa, float *__restrict__ qb,
     qcm[i] = qc[i]/a;
   }
 }
-

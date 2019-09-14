@@ -15,4 +15,3 @@ register STR **strp;
     while (size--)
      (*strp)->str_pok &= ~128;
 }
-

@@ -57,4 +57,3 @@ event_alloc (int cpu)
 
  return event;
 }
-

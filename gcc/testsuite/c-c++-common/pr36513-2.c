@@ -3,7 +3,7 @@
 /* { dg-options "-Wlogical-op" } */
 #ifdef __cplusplus
 #include <cstring>
-#else 
+#else
 #include <string.h>
 #endif
 int main2 ()

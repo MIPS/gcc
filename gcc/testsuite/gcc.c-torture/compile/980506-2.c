@@ -85,5 +85,3 @@ float __nextafterf(float x, float y)
  }
  return x;
 }
-
-

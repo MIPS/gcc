@@ -12,4 +12,3 @@ void bar (int j)
 }
 
 /* { dg-final { scan-tree-dump "\\\[1, 10\\\]" "evrp" } } */
-

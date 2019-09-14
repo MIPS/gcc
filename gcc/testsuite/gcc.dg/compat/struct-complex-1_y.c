@@ -21,4 +21,3 @@ foo(struct stc x)
 #else
 int dummy_y;
 #endif
-

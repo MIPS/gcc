@@ -12,4 +12,3 @@ foo (__simd128_int16_t *p)
   *p = (__simd128_int16_t)__builtin_neon_vaddlsv8qi (a, b); /* { dg-error "You must enable NEON instructions .*" } */
 
 }
-

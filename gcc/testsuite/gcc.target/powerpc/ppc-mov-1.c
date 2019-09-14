@@ -49,4 +49,3 @@ double __floor(double x)
   x = temp.dbl_val;
   return x;
 }
-

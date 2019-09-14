@@ -27,7 +27,7 @@ int main( ) {
   double r_cx43 = __real__(cx43);
   double i_cx43 = __imag__(cx43);
 
-  if( (r_cx == r_cx43) && (i_cx == i_cx43) ) { 
+  if( (r_cx == r_cx43) && (i_cx == i_cx43) ) {
     return 0;
   } else {
     abort ();

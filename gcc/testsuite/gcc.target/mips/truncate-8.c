@@ -15,4 +15,3 @@ foo (struct s *x)
 {
   return x->a;
 }
-

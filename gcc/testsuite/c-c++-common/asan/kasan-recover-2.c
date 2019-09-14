@@ -8,4 +8,3 @@ foo (int *p)
 }
 
 /* { dg-final { scan-assembler "__asan_store4_noabort" } } */
-

@@ -20,4 +20,3 @@ int_as_float (int val)
   u.i = val;
   return u.f;
 }
-

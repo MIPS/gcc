@@ -25,4 +25,3 @@ main ()
   if (boo () != 3)
     abort ();
 }
-

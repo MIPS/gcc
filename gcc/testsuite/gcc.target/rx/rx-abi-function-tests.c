@@ -133,7 +133,7 @@ main (void)
   TEST2 (_COM_DIV64u, 6ULL, 3ULL, 2ULL);
   TEST2 (_COM_SHLL64, 6LL, 3, 48LL);
   TEST2 (_COM_SHLR64, 8LL, 2, 2LL);
-  TEST2 (_COM_SHAR64, -1LL, 2, -1LL);  
+  TEST2 (_COM_SHAR64, -1LL, 2, -1LL);
   TEST1 (_COM_CONVf64s, -2.0f, -2LL);
   TEST1 (_COM_CONVf64u, 2.0f, 2ULL);
   TEST1 (_COM_CONVd64s, -2.0, -2LL);
@@ -173,7 +173,7 @@ main (void)
   TEST_CMP (_COM_CMPGEd, 1.0, 2.0, 0, 1, 1);
   TEST_CMP (_COM_CMPEQd, 1.0, 2.0, 0, 1, 0);
   TEST_CMP (_COM_CMPNEd, 1.0, 2.0, 1, 0, 1);
-  
+
 #ifdef DEBUG
   printf ("Tests finished\n");
 #endif

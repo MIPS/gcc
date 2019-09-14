@@ -10,4 +10,3 @@ void foo(char *in, char *out, int num)
     out[i] = (ovec[i] = in[i]);
   out[num] = ovec[num/2];
 }
-

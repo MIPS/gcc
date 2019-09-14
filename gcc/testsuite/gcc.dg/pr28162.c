@@ -14,4 +14,3 @@ void Lag_max_wght(float corr[], long wght_flg)
         }
      }
 }
-

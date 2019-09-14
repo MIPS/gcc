@@ -13,11 +13,10 @@ void link_error (void);
 
 int
 main()
-{ 
+{
   *ptr=1;
   typefun (0);
   if (*ptr)
     __builtin_abort ();
   return 0;
 }
-

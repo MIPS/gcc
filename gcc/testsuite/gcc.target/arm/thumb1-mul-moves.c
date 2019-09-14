@@ -8,4 +8,3 @@ int f(int x)
 }
 
 /* { dg-final { scan-assembler-not "mov\[\\t \]*r0," } } */
-

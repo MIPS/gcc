@@ -76,4 +76,3 @@ f8 (int *p, int *q)
   for (i = 0; i < 1024; i++)
     p[i] = q[i] + 1;
 }
-

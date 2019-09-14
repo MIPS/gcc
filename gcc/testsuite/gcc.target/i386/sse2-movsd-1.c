@@ -18,7 +18,7 @@ static __m128d
 __attribute__((noinline, unused))
 test (double *p)
 {
-  return _mm_load_sd (p); 
+  return _mm_load_sd (p);
 }
 
 static void

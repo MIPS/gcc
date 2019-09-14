@@ -5,19 +5,19 @@
    Date: 1995
    Written by:  Richard Frith-Macdonald <rfm@gnu.org>
    Date: 2002
-   
+
    This file is part of the GNUstep Base Library.
 
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Lesser General Public
    License as published by the Free Software Foundation; either
    version 2 of the License, or (at your option) any later version.
-   
+
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
    Library General Public License for more details.
-   
+
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
    Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
@@ -25,7 +25,7 @@
 
     AutogsdocSource: Additions/GSObjCRuntime.m
 
-   */ 
+   */
 
 #ifndef __GSObjCRuntime_h_GNUSTEP_BASE_INCLUDE
 #define __GSObjCRuntime_h_GNUSTEP_BASE_INCLUDE
@@ -492,7 +492,7 @@ GSLastErrorStr(long error_id) GS_DEPRECATED_FUNC;
  * deallocation when you need to work with a vararg list of objects.<br />
  * The objects are unpacked from the vararg list into two 'C' arrays and
  * then a code fragment you specify is able to make use of them before
- * that 'C' array is destroyed. 
+ * that 'C' array is destroyed.
  * </p>
  * <p>The firstObject argument is the name of the formal parameter in your
  * method or function which precedes the ', ...' denoting variable args.
@@ -572,7 +572,7 @@ GSLastErrorStr(long error_id) GS_DEPRECATED_FUNC;
  * deallocation when you need to work with a vararg list of objects.<br />
  * The objects are unpacked from the vararg list into a 'C' array and
  * then a code fragment you specify is able to make use of them before
- * that 'C' array is destroyed. 
+ * that 'C' array is destroyed.
  * </p>
  * <p>The firstObject argument is the name of the formal parameter in your
  * method or function which precedes the ', ...' denoting variable args.

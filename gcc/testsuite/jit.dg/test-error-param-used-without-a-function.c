@@ -53,4 +53,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 		       " (in statement: return i;)"
 		       " but is not associated with any function"))
 }
-

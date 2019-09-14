@@ -14,4 +14,3 @@ int main()
     link_error ();
   return 0;
 }
-

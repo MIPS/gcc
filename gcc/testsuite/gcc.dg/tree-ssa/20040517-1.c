@@ -1,17 +1,17 @@
 /* { dg-do compile } */
 /* { dg-options "-O1 -fdump-tree-alias-vops" } */
 extern void abort (void);
-int a; 
- 
+int a;
+
 extern void __attribute__ ((malloc)) *foo ();
- 
-void bar (void) 
-{ 
-  a = 1; 
-  foo (); 
-  if (a) 
-    abort (); 
-} 
+
+void bar (void)
+{
+  a = 1;
+  foo ();
+  if (a)
+    abort ();
+}
 
 /* We used to treat malloc functions like pure and const functions, but
    malloc functions may clobber global memory.  Only the function result

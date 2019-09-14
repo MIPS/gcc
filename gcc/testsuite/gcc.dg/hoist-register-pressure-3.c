@@ -33,4 +33,3 @@ long foo (long x, long y, long z)
 
   return 0;
 }
-

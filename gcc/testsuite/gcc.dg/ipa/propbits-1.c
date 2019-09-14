@@ -1,7 +1,7 @@
 /* { dg-do compile } */
 /* { dg-options "-O2 -fno-early-inlining -fdump-ipa-cp" } */
 
-__attribute__((noinline)) 
+__attribute__((noinline))
 static int f(int x)
 {
   int some_op(int);

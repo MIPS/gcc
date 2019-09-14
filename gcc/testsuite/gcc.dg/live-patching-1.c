@@ -15,7 +15,7 @@ static int bar (int b)
 
 int main()
 {
-  sum = foo (m) + bar (n); 
+  sum = foo (m) + bar (n);
   return 0;
 }
 

@@ -11,6 +11,6 @@ void f(void)
 	unsigned char *b;
 
         a.a = 0;
-	b = (unsigned char *)&a;	
-        g(b);           
+	b = (unsigned char *)&a;
+        g(b);
 }

@@ -18,7 +18,7 @@ static __m128i
 __attribute__((noinline, unused))
 test (__m128i s1, __m128i c)
 {
-  return _mm_srl_epi16 (s1, c); 
+  return _mm_srl_epi16 (s1, c);
 }
 
 static void
@@ -29,7 +29,7 @@ TEST (void)
   short e[8] = {0};
   unsigned short tmp;
   int i;
- 
+
   s.x = _mm_set_epi16 (1, -2, 3, 4, 5, 6, -0x7000, 0x9000);
   c.x = _mm_set_epi64x (12, 13);
 
@@ -43,5 +43,5 @@ TEST (void)
       }
 
   if (check_union128i_w (u, e))
-    abort (); 
+    abort ();
 }

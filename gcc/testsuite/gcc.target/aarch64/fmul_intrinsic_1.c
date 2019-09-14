@@ -111,5 +111,3 @@ main (int argc, char **argv)
    vmulq_lane_f64.
    vmulq_laneq_f64.  */
 /* { dg-final { scan-assembler-times "fmul\\tv\[0-9\]+\.2d, v\[0-9\]+\.2d, v\[0-9\]+\.d\\\[\[0-9\]+\\\]" 3 } } */
-
-

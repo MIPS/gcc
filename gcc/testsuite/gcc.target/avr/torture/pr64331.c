@@ -12,7 +12,7 @@ void foo2 (T2 *t, int x)
   if (x != t->a)
     {
       t->a = x;
-  
+
       if (x && x == t->b)
 	t->a = 20;
     }

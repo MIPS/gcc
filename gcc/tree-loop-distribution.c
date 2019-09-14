@@ -1168,7 +1168,7 @@ destroy_loop (class loop *loop)
 
 /* Generates code for PARTITION.  Return whether LOOP needs to be destroyed.  */
 
-static bool 
+static bool
 generate_code_for_partition (class loop *loop,
 			     partition *partition, bool copy_p)
 {

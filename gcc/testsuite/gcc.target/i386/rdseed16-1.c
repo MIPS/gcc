@@ -10,4 +10,3 @@ rdseed_test (unsigned short *p)
     volatile int r;
     r = _rdseed16_step (p);
 }
-

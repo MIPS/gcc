@@ -105,4 +105,3 @@ test6_andc (vector unsigned char x, vector unsigned char y)
 
 /* { dg-final { scan-assembler-times {\mxxland\M} 6 } } */
 /* { dg-final { scan-assembler-times {\mxxlandc\M} 6 } } */
-

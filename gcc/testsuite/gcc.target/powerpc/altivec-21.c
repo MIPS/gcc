@@ -15,4 +15,3 @@ void foo(pvecfunc pvf) {
    (*pvf)  (4, 4.0, v); /* { dg-error "AltiVec argument passed to unprototyped function" "" { target ilp32 } } */
 #endif /* __LP64__ */
 }
-

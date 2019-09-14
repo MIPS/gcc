@@ -49,6 +49,6 @@ finish_struct (tree t, tree fieldlist, tree attributes)
 	  x = x->common.chain;
 	} while (x != 0);
     }
-  
+
   bar1 (&fieldlist);
 }

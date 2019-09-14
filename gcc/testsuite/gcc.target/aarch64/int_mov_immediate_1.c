@@ -56,4 +56,3 @@ long f8(void)
 /* { dg-final { scan-assembler-times "movk\tx\[0-9\]+, 0x111, lsl 48"  1 } } */
 /* { dg-final { scan-assembler-times "movk\tx\[0-9\]+, 0x1ff, lsl 16"  1 } } */
 /* { dg-final { scan-assembler-times "movk\tx\[0-9\]+, 0x1, lsl 32"    1 } } */
-

@@ -67,4 +67,3 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 		       " not enough arguments to fn_ptr: some_fn_ptr"
 		       " (got 0 args, expected 1)"));
 }
-

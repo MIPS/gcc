@@ -8,4 +8,3 @@ unsigned int functest (unsigned int x)
 
 /* { dg-final { scan-assembler "rbit\tw" } } */
 /* { dg-final { scan-assembler "clz\tw" } } */
-

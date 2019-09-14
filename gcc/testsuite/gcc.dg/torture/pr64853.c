@@ -37,8 +37,8 @@ main ()
 {
   fn2 (a);
 
-  if (b != 0) 
-    __builtin_abort (); 
+  if (b != 0)
+    __builtin_abort ();
 
   return 0;
 }
