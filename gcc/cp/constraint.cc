@@ -2289,19 +2289,6 @@ constraints_satisfied_p (tree t, tree args)
   return true;
 }
 
-
-/* Evaluate the given constraint, returning boolean_true_node if the
-   constraint is satisfied and boolean_false_node otherwise. */
-
-tree
-evaluate_constraints (tree constr, tree args)
-{
-  // FIXME: This doesn't seem right right. This should go away
-  // in favor of just the satisfy_constraint function.
-  gcc_assert (false);
-  return satisfy_constraint (constr, args);
-}
-
 /* Evaluate a concept check of the form C<ARGS>, returning either TRUE
    or FALSE. If ARGS contains any template parameters, this returns the
    check. If satisfaction yields a hard error, diagnose the error.  */
