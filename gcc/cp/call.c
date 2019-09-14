@@ -2746,6 +2746,16 @@ add_builtin_candidate (struct z_candidate **candidates, enum tree_code code,
      where  LR  is  the  result of the usual arithmetic conversions between
      types L and R.
 
+     For every integral type T there exists a candidate operator function of
+     the form
+
+       std::strong_ordering operator<=>(T, T);
+
+     For every pair of floating-point types L and R, there exists a candidate
+     operator function of the form
+
+       std::partial_ordering operator<=>(L, R);
+
    14For every pair of types T and I, where T  is  a  cv-qualified  or  cv-
      unqualified  complete  object  type and I is a promoted integral type,
      there exist candidate operator functions of the form
@@ -2767,11 +2777,15 @@ add_builtin_candidate (struct z_candidate **candidates, enum tree_code code,
 	     bool    operator>=(T, T);
 	     bool    operator==(T, T);
 	     bool    operator!=(T, T);
+	     R       operator<=>(T, T);
+
+     where R is the result type specified in [expr.spaceship].
 
    17For every pointer to member type T,  there  exist  candidate  operator
      functions of the form
 	     bool    operator==(T, T);
-	     bool    operator!=(T, T);  */
+	     bool    operator!=(T, T);
+	     std::strong_equality operator<=>(T, T);  */
 
     case MINUS_EXPR:
       if (TYPE_PTROB_P (type1) && TYPE_PTROB_P (type2))
@@ -2789,6 +2803,11 @@ add_builtin_candidate (struct z_candidate **candidates, enum tree_code code,
 	break;
       return;
 
+      /* This isn't exactly what's specified above for operator<=>, but it's
+	 close enough.  In particular, we don't care about the return type
+	 specified above; it doesn't participate in overload resolution and it
+	 doesn't affect the semantics of the built-in operator.  */
+    case SPACESHIP_EXPR:
     case EQ_EXPR:
     case NE_EXPR:
       if ((TYPE_PTRMEMFUNC_P (type1) && TYPE_PTRMEMFUNC_P (type2))
@@ -3143,6 +3162,7 @@ add_builtin_candidates (struct z_candidate **candidates, enum tree_code code,
     case LE_EXPR:
     case GT_EXPR:
     case GE_EXPR:
+    case SPACESHIP_EXPR:
       enum_p = 1;
       /* Fall through.  */
 
@@ -6241,6 +6261,7 @@ build_new_op_1 (const op_location_t &loc, enum tree_code code, int flags,
       if (complain & tf_warning && warn_tautological_compare)
 	warn_tautological_cmp (loc, code, arg1, arg2);
       /* Fall through.  */
+    case SPACESHIP_EXPR:
     case PLUS_EXPR:
     case MINUS_EXPR:
     case MULT_EXPR:

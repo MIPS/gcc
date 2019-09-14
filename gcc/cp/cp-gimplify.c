@@ -1138,6 +1138,73 @@ cp_fold_function (tree fndecl)
   cp_walk_tree (&DECL_SAVED_TREE (fndecl), cp_fold_r, &pset, NULL);
 }
 
+/* Turn <=> with type TYPE and operands OP0 and OP1 into GENERIC.  */
+
+tree
+genericize_spaceship (tree type, tree op0, tree op1)
+{
+  /* FIXME maybe optimize based on knowledge of representation? */
+
+  tree type_id = TYPE_IDENTIFIER (type);
+  if (id_equal (type_id, "strong_equality"))
+    {
+      tree eq = lookup_qualified_name (type, "equal");
+      tree ne = lookup_qualified_name (type, "nonequal");
+      tree comp = fold_build2 (EQ_EXPR, boolean_type_node, op0, op1);
+      return fold_build3 (COND_EXPR, type, comp, eq, ne);
+    }
+  else if (id_equal (type_id, "weak_equality"))
+    {
+      tree eq = lookup_qualified_name (type, "equivalent");
+      tree ne = lookup_qualified_name (type, "nonequivalent");
+      tree comp = fold_build2 (EQ_EXPR, boolean_type_node, op0, op1);
+      return fold_build3 (COND_EXPR, type, comp, eq, ne);
+    }
+
+  tree r = NULL_TREE;
+  op0 = save_expr (op0);
+  op1 = save_expr (op1);
+  if (id_equal (type_id, "strong_ordering"))
+    {
+      tree eq = lookup_qualified_name (type, "equal");
+      tree gt = lookup_qualified_name (type, "greater");
+      tree lt = lookup_qualified_name (type, "less");
+      /* op0 == op1 ? equal : op0 < op1 ? less : greater */
+      tree comp = fold_build2 (LT_EXPR, boolean_type_node, op0, op1);
+      r = fold_build3 (COND_EXPR, type, comp, lt, gt);
+      comp = fold_build2 (EQ_EXPR, boolean_type_node, op0, op1);
+      r = fold_build3 (COND_EXPR, type, comp, eq, r);
+    }
+  else if (id_equal (type_id, "partial_ordering"))
+    {
+      tree eq = lookup_qualified_name (type, "equivalent");
+      tree gt = lookup_qualified_name (type, "greater");
+      tree lt = lookup_qualified_name (type, "less");
+      tree uo = lookup_qualified_name (type, "unordered");
+      /* op0 == op1 ? equivalent : op0 < op1 ? less :
+	 op0 > op1 ? greater : unordered */
+      tree comp = fold_build2 (GT_EXPR, boolean_type_node, op0, op1);
+      r = fold_build3 (COND_EXPR, type, comp, gt, uo);
+      comp = fold_build2 (LT_EXPR, boolean_type_node, op0, op1);
+      r = fold_build3 (COND_EXPR, type, comp, lt, r);
+      comp = fold_build2 (EQ_EXPR, boolean_type_node, op0, op1);
+      r = fold_build3 (COND_EXPR, type, comp, eq, r);
+    }
+  else
+    gcc_unreachable ();
+  return r;
+}
+
+/* Turn SPACESHIP_EXPR EXPR into GENERIC.  */
+
+static tree genericize_spaceship (tree expr)
+{
+  tree type = TREE_TYPE (expr);
+  tree op0 = TREE_OPERAND (expr, 0);
+  tree op1 = TREE_OPERAND (expr, 1);
+  return genericize_spaceship (type, op0, op1);
+}
+
 /* Perform any pre-gimplification lowering of C++ front end trees to
    GENERIC.  */
 
@@ -1566,6 +1633,10 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 
     case BREAK_STMT:
       genericize_break_stmt (stmt_p);
+      break;
+
+    case SPACESHIP_EXPR:
+      *stmt_p = genericize_spaceship (*stmt_p);
       break;
 
     case OMP_FOR:
