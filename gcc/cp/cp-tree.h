@@ -270,9 +270,6 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
    then deletes the entire object.  */
 #define deleting_dtor_identifier	cp_global_trees[CPTI_DELETING_DTOR_IDENTIFIER]
 
-#define ovl_op_identifier(ISASS, CODE)  (OVL_OP_INFO(ISASS, CODE)->identifier)
-#define assign_op_identifier (ovl_op_info[true][OVL_OP_NOP_EXPR].identifier)
-#define call_op_identifier (ovl_op_info[false][OVL_OP_CALL_EXPR].identifier)
 /* The name used for conversion operators -- but note that actual
    conversion functions use special identifiers outside the identifier
    table.  */
@@ -5190,6 +5187,7 @@ enum special_function_kind {
 			      destroyed.  */
   sfk_conversion,	   /* A conversion operator.  */
   sfk_deduction_guide,	   /* A class template deduction guide.  */
+  sfk_comparison,	   /* A comparison operator (e.g. ==, <, or <=>).  */
   sfk_virtual_destructor   /* Used by member synthesis fns.  */
 };
 
@@ -5799,6 +5797,12 @@ extern GTY(()) unsigned char ovl_op_alternate[OVL_OP_MAX];
   (&ovl_op_info[IDENTIFIER_KIND_BIT_0 (NODE)][IDENTIFIER_CP_INDEX (NODE)])
 #define IDENTIFIER_OVL_OP_FLAGS(NODE) \
   (IDENTIFIER_OVL_OP_INFO (NODE)->flags)
+
+inline tree ovl_op_identifier (bool isass, tree_code code)
+{ return OVL_OP_INFO(isass, code)->identifier; }
+inline tree ovl_op_identifier (tree_code code) { return ovl_op_identifier (false, code); }
+#define assign_op_identifier (ovl_op_info[true][OVL_OP_NOP_EXPR].identifier)
+#define call_op_identifier (ovl_op_info[false][OVL_OP_CALL_EXPR].identifier)
 
 /* A type-qualifier, or bitmask therefore, using the TYPE_QUAL
    constants.  */
@@ -7397,6 +7401,7 @@ enum compare_bounds_t { bounds_none, bounds_either, bounds_first };
 extern bool cxx_mark_addressable		(tree, bool = false);
 extern int string_conv_p			(const_tree, const_tree, int);
 extern tree cp_truthvalue_conversion		(tree);
+extern tree contextual_conv_bool		(tree, tsubst_flags_t);
 extern tree condition_conversion		(tree);
 extern tree require_complete_type		(tree);
 extern tree require_complete_type_sfinae	(tree, tsubst_flags_t);
