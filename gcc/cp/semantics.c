@@ -9559,6 +9559,7 @@ finish_static_assert (tree condition, tree message, location_t location,
   else
     {
       location_t saved_loc = input_location;
+
       input_location = location;
       if (TREE_CODE (condition) == INTEGER_CST
           && integer_zerop (condition))

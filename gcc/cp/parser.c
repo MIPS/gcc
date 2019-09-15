@@ -16116,7 +16116,7 @@ cp_parser_template_parameter (cp_parser* parser, bool *is_non_type,
     return error_mark_node;
 
   /* If the parameter declaration is marked as a parameter pack, set
-     IS_PARAMETER_PACK to notify the caller.  */
+   *IS_PARAMETER_PACK to notify the caller.  */
   if (parameter_declarator->template_parameter_pack_p)
     *is_parameter_pack = true;
 

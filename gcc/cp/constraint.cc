@@ -105,7 +105,7 @@ check_constraint_operands (location_t loc, cp_expr lhs, cp_expr rhs)
     {
       if (known_non_bool_p (t2))
 	{
-	  loc = make_location(loc, loc1, loc2);
+	  loc = make_location (loc, loc1, loc2);
 	  error_at (loc, "neither constraint operand has type %<bool%>");
 	}
       else
@@ -248,7 +248,7 @@ contains_wildcard_p (tree args)
 }
 
 /*---------------------------------------------------------------------------
-		    Resolution of qualified concept names
+                    Resolution of qualified concept names
 ---------------------------------------------------------------------------*/
 
 /* This facility is used to resolve constraint checks from requirement
@@ -292,20 +292,20 @@ resolve_function_concept_overload (tree ovl, tree args)
          non-deduced contexts using placeholder arguments. */
       tree fn = DECL_TEMPLATE_RESULT (tmpl);
       if (DECL_ARGUMENTS (fn))
-	continue;
+        continue;
       if (!DECL_DECLARED_CONCEPT_P (fn))
-	continue;
+        continue;
 
       /* Remember the candidate if we can deduce a substitution.  */
       ++processing_template_decl;
       tree parms = TREE_VALUE (DECL_TEMPLATE_PARMS (tmpl));
       if (tree subst = coerce_template_parms (parms, args, tmpl))
-	{
-	  if (subst == error_mark_node)
-	    ++nerrs;
-	  else
+        {
+          if (subst == error_mark_node)
+            ++nerrs;
+          else
 	    cands = tree_cons (subst, fn, cands);
-	}
+        }
       --processing_template_decl;
     }
 
@@ -451,7 +451,7 @@ finish_type_constraints (tree spec, tree args, tsubst_flags_t complain)
 }
 
 /*---------------------------------------------------------------------------
-		       Expansion of concept definitions
+                       Expansion of concept definitions
 ---------------------------------------------------------------------------*/
 
 /* Returns the expression of a function concept. */
@@ -1759,15 +1759,15 @@ declare_constraint_vars (tree parms, tree vars)
   for (tree t = parms; t; t = DECL_CHAIN (t))
     {
       if (DECL_PACK_P (t))
-       {
-         tree pack = extract_fnparm_pack (t, &s);
-         register_local_specialization (pack, t);
-       }
+        {
+          tree pack = extract_fnparm_pack (t, &s);
+          register_local_specialization (pack, t);
+        }
       else
-       {
-         register_local_specialization (s, t);
-         s = DECL_CHAIN (s);
-       }
+        {
+          register_local_specialization (s, t);
+          s = DECL_CHAIN (s);
+        }
     }
   return vars;
 }
@@ -1876,7 +1876,7 @@ tsubst_requires_expr (tree t, tree args,
 
 tree
 tsubst_constraint_info (tree t, tree args,
-			tsubst_flags_t complain, tree in_decl)
+                        tsubst_flags_t complain, tree in_decl)
 {
   if (!t || t == error_mark_node || !check_constraint_info (t))
     return NULL_TREE;
@@ -1945,7 +1945,7 @@ tsubst_parameter_mapping (tree map, tree args, subst_info info)
 }
 
 /*---------------------------------------------------------------------------
-			Constraint satisfaction
+                        Constraint satisfaction
 ---------------------------------------------------------------------------*/
 
 static int satisfying_constraint = 0;
@@ -2362,7 +2362,7 @@ evaluate_concept (tree c, tree args)
 }
 
 /*---------------------------------------------------------------------------
-		Semantic analysis of requires-expressions
+                Semantic analysis of requires-expressions
 ---------------------------------------------------------------------------*/
 
 /* Finish a requires expression for the given PARMS (possibly
@@ -2494,7 +2494,7 @@ check_constrained_friend (tree fn, tree reqs)
 }
 
 /*---------------------------------------------------------------------------
-			Equivalence of constraints
+                        Equivalence of constraints
 ---------------------------------------------------------------------------*/
 
 /* Returns true when A and B are equivalent constraints.  */
@@ -2517,7 +2517,7 @@ equivalently_constrained (tree d1, tree d2)
 }
 
 /*---------------------------------------------------------------------------
-		     Partial ordering of constraints
+                     Partial ordering of constraints
 ---------------------------------------------------------------------------*/
 
 /* Returns true when the the constraints in A subsume those in B.  */
@@ -2589,7 +2589,7 @@ at_least_as_constrained (tree d1, tree d2)
 
 
 /*---------------------------------------------------------------------------
-			Constraint diagnostics
+                        Constraint diagnostics
 ---------------------------------------------------------------------------*/
 
 /* The number of detailed constraint failures.  */
