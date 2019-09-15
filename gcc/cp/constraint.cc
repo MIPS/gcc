@@ -2080,7 +2080,9 @@ satisfy_atom (tree t, tree args, subst_info info)
      the arguments provided to the instantiation.  */
   tree map = tsubst_parameter_mapping (ATOMIC_CONSTR_MAP (t), args, info);
   if (map == error_mark_node)
-    return error_mark_node;
+    /* If substitution results in an invalid type or expression, the constraint
+       is not satisfied.  */
+    return boolean_false_node;
 
   /* Rebuild the argument vector from the parameter mapping.  */
   args = get_mapped_args (map);
