@@ -94,32 +94,6 @@ known_non_bool_p (tree t)
 }
 
 static bool
-check_constraint_operands (location_t loc, cp_expr lhs, cp_expr rhs)
-{
-  tree t1 = TREE_TYPE (lhs);
-  tree t2 = TREE_TYPE (rhs);
-  location_t loc1 = lhs.get_location ();
-  location_t loc2 = rhs.get_location ();
-  if (known_non_bool_p (t1))
-    {
-      if (known_non_bool_p (t2))
-	{
-	  loc = make_location (loc, loc1, loc2);
-	  error_at (loc, "neither constraint operand has type %<bool%>");
-	}
-      else
-	error_at (loc1, "constraint operand does not have type %<bool%>");
-      return false;
-    }
-  else if (known_non_bool_p (t2))
-    {
-      error_at (loc2, "constraint operand does not have type %<bool%>");
-      return false;
-    }
-  return true;
-}
-
-static bool
 check_constraint_atom (cp_expr expr)
 {
   if (known_non_bool_p (TREE_TYPE (expr)))
@@ -143,6 +117,12 @@ check_constraint_atom (cp_expr expr)
     }
 
   return true;
+}
+
+static bool
+check_constraint_operands (location_t, cp_expr lhs, cp_expr rhs)
+{
+  return check_constraint_atom (lhs) && check_constraint_atom (rhs);
 }
 
 /* Validate the semantic properties of the constraint expression.  */
