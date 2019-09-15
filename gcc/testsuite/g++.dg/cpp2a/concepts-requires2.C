@@ -62,11 +62,11 @@ template<typename T>
 struct dependent_false : false_type { };
 
 template<typename T>
-  requires (dependent_true<T>{})
+  requires (dependent_true<T>{}) // { dg-message "bool" }
 struct S5 { };
 
 template<typename T>
-  requires (dependent_false<T>{})
+  requires (dependent_false<T>{}) // { dg-message "bool" }
 struct S6 { };
 
 S5<int> x5; // { dg-error "template constraint failure" }
