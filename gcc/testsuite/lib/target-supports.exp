@@ -1087,6 +1087,9 @@ proc check_effective_target_pe_aligned_commons {} {
 
 # Return 1 if the target supports -static
 proc check_effective_target_static {} {
+    if { [istarget arm*-*-uclinuxfdpiceabi] } {
+	return 0;
+    }
     return [check_no_compiler_messages static executable {
 	int main (void) { return 0; }
     } "-static"]
@@ -1206,6 +1209,7 @@ proc check_effective_target_pie { } {
 	 || [istarget *-*-dragonfly*]
 	 || [istarget *-*-freebsd*]
 	 || [istarget *-*-linux*]
+	 || [istarget arm*-*-uclinuxfdpiceabi]
 	 || [istarget *-*-gnu*]
 	 || [istarget *-*-amdhsa]} {
 	return 1;
@@ -3905,7 +3909,7 @@ proc check_effective_target_arm_neon_fp16_hw { } {
 	return 0
     }
     global et_arm_neon_fp16_flags
-    check_runtime_nocache arm_neon_fp16_hw {
+    check_runtime arm_neon_fp16_hw {
 	int
 	main (int argc, char **argv)
 	{
@@ -4158,7 +4162,7 @@ proc check_effective_target_arm_fp16_hw { } {
 	return 0
     }
     global et_arm_fp16_flags
-    check_runtime_nocache arm_fp16_hw {
+    check_runtime arm_fp16_hw {
 	int
 	main (int argc, char **argv)
 	{
@@ -6171,6 +6175,15 @@ proc check_effective_target_vect_avg_qi {} {
 		   && ![check_effective_target_aarch64_sve1_only] }]
 }
 
+# Return 1 if the target plus current options supports both signed
+# and unsigned multiply-high-with-round-and-scale operations
+# on vectors of half-words.
+
+proc check_effective_target_vect_mulhrs_hi {} {
+    return [expr { [istarget aarch64*-*-*]
+		   && [check_effective_target_aarch64_sve2] }]
+}
+
 # Return 1 if the target plus current options supports a vector
 # demotion (packing) of shorts (to chars) and ints (to shorts) 
 # using modulo arithmetic, 0 otherwise.
@@ -6857,6 +6870,7 @@ proc check_effective_target_sync_long_long_runtime { } {
 	      } ""
 	  }])
 	 || [istarget aarch64*-*-*]
+	 || [istarget arm*-*-uclinuxfdpiceabi]
 	 || ([istarget arm*-*-linux-*]
 	     && [check_runtime sync_longlong_runtime {
 		 #include <stdlib.h>
@@ -6916,6 +6930,7 @@ proc check_effective_target_sync_int_long { } {
 	     || [istarget aarch64*-*-*]
 	     || [istarget alpha*-*-*] 
 	     || [istarget arm*-*-linux-*] 
+	     || [istarget arm*-*-uclinuxfdpiceabi] 
 	     || ([istarget arm*-*-*]
 		 && [check_effective_target_arm_acq_rel])
 	     || [istarget bfin*-*linux*]
@@ -6939,6 +6954,7 @@ proc check_effective_target_sync_char_short { } {
 	     || [istarget i?86-*-*] || [istarget x86_64-*-*]
 	     || [istarget alpha*-*-*] 
 	     || [istarget arm*-*-linux-*] 
+	     || [istarget arm*-*-uclinuxfdpiceabi] 
 	     || ([istarget arm*-*-*]
 		 && [check_effective_target_arm_acq_rel])
 	     || [istarget hppa*-*linux*]

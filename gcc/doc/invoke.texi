@@ -406,8 +406,7 @@ Objective-C and Objective-C++ Dialects}.
 -falign-loops[=@var{n}[:@var{m}:[@var{n2}[:@var{m2}]]]] @gol
 -fassociative-math  -fauto-profile  -fauto-profile[=@var{path}] @gol
 -fauto-inc-dec  -fbranch-probabilities @gol
--fbranch-target-load-optimize  -fbranch-target-load-optimize2 @gol
--fbtr-bb-exclusive  -fcaller-saves @gol
+-fcaller-saves @gol
 -fcombine-stack-adjustments  -fconserve-stack @gol
 -fcompare-elim  -fcprop-registers  -fcrossjumping @gol
 -fcse-follow-jumps  -fcse-skip-blocks  -fcx-fortran-rules @gol
@@ -711,7 +710,8 @@ Objective-C and Objective-C++ Dialects}.
 -mrestrict-it @gol
 -mverbose-cost-dump @gol
 -mpure-code @gol
--mcmse}
+-mcmse @gol
+-mfdpic}
 
 @emph{AVR Options}
 @gccoptlist{-mmcu=@var{mcu}  -mabsdata  -maccumulate-args @gol
@@ -10339,6 +10339,14 @@ conflicting translation units.  Specifically
 precedence; and for example @option{-ffp-contract=off} takes precedence
 over @option{-ffp-contract=fast}.  You can override them at link time.
 
+To enable debug info generation you need to supply @option{-g} at
+compile-time.  If any of the input files at link time were built
+with debug info generation enabled the link will enable debug info
+generation as well.  Any elaborate debug info settings
+like the dwarf level @option{-gdwarf-5} need to be explicitly repeated
+at the linker command line and mixing different settings in different
+translation units is discouraged.
+
 If LTO encounters objects with C linkage declared with incompatible
 types in separate translation units to be linked together (undefined
 behavior according to ISO C99 6.2.7), a non-fatal diagnostic may be
@@ -11024,24 +11032,6 @@ They prevent optimizations by the compiler and assembler using relative
 locations inside a translation unit since the locations are unknown until
 link time.  An example of such an optimization is relaxing calls to short call
 instructions.
-
-@item -fbranch-target-load-optimize
-@opindex fbranch-target-load-optimize
-Perform branch target register load optimization before prologue / epilogue
-threading.
-The use of target registers can typically be exposed only during reload,
-thus hoisting loads out of loops and doing inter-block scheduling needs
-a separate optimization pass.
-
-@item -fbranch-target-load-optimize2
-@opindex fbranch-target-load-optimize2
-Perform branch target register load optimization after prologue / epilogue
-threading.
-
-@item -fbtr-bb-exclusive
-@opindex fbtr-bb-exclusive
-When performing branch target register load optimization, don't reuse
-branch target registers within any basic block.
 
 @item -fstdarg-opt
 @opindex fstdarg-opt
@@ -18053,6 +18043,27 @@ MOVT instruction.
 Generate secure code as per the "ARMv8-M Security Extensions: Requirements on
 Development Tools Engineering Specification", which can be found on
 @url{http://infocenter.arm.com/help/topic/com.arm.doc.ecm0359818/ECM0359818_armv8m_security_extensions_reqs_on_dev_tools_1_0.pdf}.
+
+@item -mfdpic
+@itemx -mno-fdpic
+@opindex mfdpic
+@opindex mno-fdpic
+Select the FDPIC ABI, which uses 64-bit function descriptors to
+represent pointers to functions.  When the compiler is configured for
+@code{arm-*-uclinuxfdpiceabi} targets, this option is on by default
+and implies @option{-fPIE} if none of the PIC/PIE-related options is
+provided.  On other targets, it only enables the FDPIC-specific code
+generation features, and the user should explicitly provide the
+PIC/PIE-related options as needed.
+
+Note that static linking is not supported because it would still
+involve the dynamic linker when the program self-relocates.  If such
+behavior is acceptable, use -static and -Wl,-dynamic-linker options.
+
+The opposite @option{-mno-fdpic} option is useful (and required) to
+build the Linux kernel using the same (@code{arm-*-uclinuxfdpiceabi})
+toolchain as the one used to build the userland programs.
+
 @end table
 
 @node AVR Options

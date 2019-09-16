@@ -6114,8 +6114,9 @@ has_designator_problem (reshape_iter *d, tsubst_flags_t complain)
   if (d->cur->index)
     {
       if (complain & tf_error)
-	error ("C99 designator %qE outside aggregate initializer",
-	       d->cur->index);
+	error_at (cp_expr_loc_or_input_loc (d->cur->index),
+		  "C99 designator %qE outside aggregate initializer",
+		  d->cur->index);
       else
 	return true;
     }
@@ -7288,8 +7289,9 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
       if ((flags & LOOKUP_CONSTINIT)
 	  && !(dk == dk_thread || dk == dk_static))
 	{
-	  error ("%<constinit%> can only be applied to a variable with static "
-		 "or thread storage duration");
+	  error_at (DECL_SOURCE_LOCATION (decl),
+		    "%<constinit%> can only be applied to a variable with "
+		    "static or thread storage duration");
 	  return;
 	}
 
@@ -8947,10 +8949,10 @@ grokfndecl (tree ctype,
   if (location == UNKNOWN_LOCATION)
     location = input_location;
 
-  // Was the concept specifier present?
+  /* Was the concept specifier present?  */
   bool concept_p = inlinep & 4;
 
-  // Concept declarations must have a corresponding definition.
+  /* Concept declarations must have a corresponding definition.  */
   if (concept_p && !funcdef_flag)
     {
       error_at (location, "concept %qD has no definition", declarator);
@@ -10628,8 +10630,9 @@ grokdeclarator (const cp_declarator *declarator,
 			     && !uniquely_derived_from_p (ctype,
 							  current_class_type))
 		      {
-			error ("invalid use of qualified-name %<%T::%D%>",
-			       qualifying_scope, decl);
+			error_at (id_declarator->id_loc,
+				  "invalid use of qualified-name %<%T::%D%>",
+				  qualifying_scope, decl);
 			return error_mark_node;
 		      }
 		  }
@@ -10816,8 +10819,9 @@ grokdeclarator (const cp_declarator *declarator,
      keywords shall appear in a decl-specifier-seq."  */
   if (constinit_p && constexpr_p)
     {
-      error_at (min_location (declspecs->locations[ds_constinit],
-			      declspecs->locations[ds_constexpr]),
+      gcc_rich_location richloc (declspecs->locations[ds_constinit]);
+      richloc.add_range (declspecs->locations[ds_constexpr]);
+      error_at (&richloc,
 		"can use at most one of the %<constinit%> and %<constexpr%> "
 		"specifiers");
       return error_mark_node;
@@ -11681,6 +11685,16 @@ grokdeclarator (const cp_declarator *declarator,
 			  "allowed");
 		return error_mark_node;
 	      }
+	    /* Only plain decltype(auto) is allowed.  */
+	    if (tree a = type_uses_auto (type))
+	      {
+		if (AUTO_IS_DECLTYPE (a) && a != type)
+		  {
+		    error_at (typespec_loc, "%qT as type rather than "
+			      "plain %<decltype(auto)%>", type);
+		    return error_mark_node;
+		  }
+	      }
 
 	    if (ctype == NULL_TREE
 		&& decl_context == FIELD
@@ -11821,7 +11835,8 @@ grokdeclarator (const cp_declarator *declarator,
 		&& inner_declarator->u.id.sfk == sfk_destructor
 		&& arg_types != void_list_node)
 	      {
-		error ("destructors may not have parameters");
+		error_at (declarator->id_loc,
+			  "destructors may not have parameters");
 		arg_types = void_list_node;
 		parms = NULL_TREE;
 	      }
@@ -15161,8 +15176,9 @@ build_enumerator (tree name, tree value, tree enumtype, tree attributes,
 	      if (! INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P
 		  (TREE_TYPE (value)))
 		{
-		  error ("enumerator value for %qD must have integral or "
-			 "unscoped enumeration type", name);
+		  error_at (cp_expr_loc_or_input_loc (value),
+			    "enumerator value for %qD must have integral or "
+			    "unscoped enumeration type", name);
 		  value = NULL_TREE;
 		}
 	      else
@@ -16811,20 +16827,20 @@ cp_tree_node_structure (union lang_tree_node * t)
 {
   switch (TREE_CODE (&t->generic))
     {
-    case DEFERRED_PARSE:	return TS_CP_DEFERRED_PARSE;
-    case DEFERRED_NOEXCEPT:	return TS_CP_DEFERRED_NOEXCEPT;
-    case IDENTIFIER_NODE:	return TS_CP_IDENTIFIER;
-    case OVERLOAD:		return TS_CP_OVERLOAD;
-    case TEMPLATE_PARM_INDEX:	return TS_CP_TPI;
-    case PTRMEM_CST:		return TS_CP_PTRMEM;
-    case BASELINK:		return TS_CP_BASELINK;
-    case TEMPLATE_DECL:		return TS_CP_TEMPLATE_DECL;
-    case STATIC_ASSERT:		return TS_CP_STATIC_ASSERT;
     case ARGUMENT_PACK_SELECT:  return TS_CP_ARGUMENT_PACK_SELECT;
-    case TRAIT_EXPR:		return TS_CP_TRAIT_EXPR;
-    case LAMBDA_EXPR:		return TS_CP_LAMBDA_EXPR;
-    case TEMPLATE_INFO:		return TS_CP_TEMPLATE_INFO;
+    case BASELINK:		return TS_CP_BASELINK;
     case CONSTRAINT_INFO:       return TS_CP_CONSTRAINT_INFO;
+    case DEFERRED_NOEXCEPT:	return TS_CP_DEFERRED_NOEXCEPT;
+    case DEFERRED_PARSE:	return TS_CP_DEFERRED_PARSE;
+    case IDENTIFIER_NODE:	return TS_CP_IDENTIFIER;
+    case LAMBDA_EXPR:		return TS_CP_LAMBDA_EXPR;
+    case OVERLOAD:		return TS_CP_OVERLOAD;
+    case PTRMEM_CST:		return TS_CP_PTRMEM;
+    case STATIC_ASSERT:		return TS_CP_STATIC_ASSERT;
+    case TEMPLATE_DECL:		return TS_CP_TEMPLATE_DECL;
+    case TEMPLATE_INFO:		return TS_CP_TEMPLATE_INFO;
+    case TEMPLATE_PARM_INDEX:	return TS_CP_TPI;
+    case TRAIT_EXPR:		return TS_CP_TRAIT_EXPR;
     case USERDEF_LITERAL:	return TS_CP_USERDEF_LITERAL;
     default:			return TS_CP_GENERIC;
     }

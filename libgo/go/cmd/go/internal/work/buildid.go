@@ -203,8 +203,9 @@ func (b *Builder) toolID(name string) string {
 		// On the development branch, use the content ID part of the build ID.
 		id = contentID(f[len(f)-1])
 	} else {
-		// For a release, the output is like: "compile version go1.9.1". Use the whole line.
-		id = f[2]
+		// For a release, the output is like: "compile version go1.9.1 X:framepointer".
+		// Use the whole line.
+		id = strings.TrimSpace(line)
 	}
 
 	b.id.Lock()
@@ -291,14 +292,19 @@ func (b *Builder) gccgoToolID(name, language string) (string, error) {
 				exe = lp
 			}
 		}
-		if _, err := os.Stat(exe); err != nil {
-			return "", fmt.Errorf("%s: can not find compiler %q: %v; output %q", name, exe, err, out)
+		id, err = buildid.ReadFile(exe)
+		if err != nil {
+			return "", err
 		}
-		id = b.fileHash(exe)
+
+		// If we can't find a build ID, use a hash.
+		if id == "" {
+			id = b.fileHash(exe)
+		}
 	}
 
 	b.id.Lock()
-	b.toolIDCache[name] = id
+	b.toolIDCache[key] = id
 	b.id.Unlock()
 
 	return id, nil

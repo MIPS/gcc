@@ -2589,9 +2589,11 @@ Gogo::define_global_names()
   if (this->is_main_package())
     {
       // Every Go program has to import the runtime package, so that
-      // it is properly initialized.
+      // it is properly initialized.  We can't use
+      // predeclared_location here as it will cause runtime functions
+      // to appear to be builtin functions.
       this->import_package("runtime", "_", false, false,
-			   Linemap::predeclared_location());
+			   this->package_->location());
     }
 
   for (Bindings::const_declarations_iterator p =
@@ -8716,7 +8718,13 @@ Named_object::get_backend(Gogo* gogo, std::vector<Bexpression*>& const_decls,
     case NAMED_OBJECT_TYPE:
       {
         Named_type* named_type = this->u_.type_value;
-	if (!Gogo::is_erroneous_name(this->name_) && !named_type->is_alias())
+
+        // No need to do anything for aliases-- whatever has to be done
+        // can be done for the alias target.
+        if (named_type->is_alias())
+          break;
+
+	if (!Gogo::is_erroneous_name(this->name_))
 	  type_decls.push_back(named_type->get_backend(gogo));
 
         // We need to produce a type descriptor for every named

@@ -2438,7 +2438,7 @@ determine_specialization (tree template_id,
       tree fn = TREE_VALUE (candidates);
       *targs_out = copy_node (DECL_TI_ARGS (fn));
 
-      // Propagate the candidate's constraints to the declaration.
+      /* Propagate the candidate's constraints to the declaration.  */
       set_constraints (decl, get_constraints (fn));
 
       /* DECL is a re-declaration or partial instantiation of a template
@@ -7789,13 +7789,13 @@ is_compatible_template_arg (tree parm, tree arg)
 
   tree arg_cons = get_constraints (arg);
 
-  // If the template parameter is constrained, we need to rewrite its
-  // constraints in terms of the ARG's template parameters. This ensures
-  // that all of the template parameter types will have the same depth.
-  //
-  // Note that this is only valid when coerce_template_template_parm is
-  // true for the innermost template parameters of PARM and ARG. In other
-  // words, because coercion is successful, this conversion will be valid.
+  /* If the template parameter is constrained, we need to rewrite its
+     constraints in terms of the ARG's template parameters. This ensures
+     that all of the template parameter types will have the same depth.
+
+     Note that this is only valid when coerce_template_template_parm is
+     true for the innermost template parameters of PARM and ARG. In other
+     words, because coercion is successful, this conversion will be valid.  */
   if (parm_cons)
     {
       tree args = template_parms_to_args (DECL_TEMPLATE_PARMS (arg));
@@ -19905,8 +19905,9 @@ instantiate_template_1 (tree tmpl, tree orig_args, tsubst_flags_t complain)
      instantiate all the alternate entry points as well.  We do this
      by cloning the instantiation of the main entry point, not by
      instantiating the template clones.  */
-  if (DECL_CHAIN (gen_tmpl) && DECL_CLONED_FUNCTION_P (DECL_CHAIN (gen_tmpl)))
-    clone_function_decl (fndecl, /*update_methods=*/false);
+  if (tree chain = DECL_CHAIN (gen_tmpl))
+    if (DECL_P (chain) && DECL_CLONED_FUNCTION_P (chain))
+      clone_function_decl (fndecl, /*update_methods=*/false);
 
   if (!access_ok)
     {
@@ -26709,7 +26710,7 @@ build_non_dependent_expr (tree expr)
   if (TREE_CODE (expr) == COND_EXPR)
     return build3 (COND_EXPR,
 		   TREE_TYPE (expr),
-		   TREE_OPERAND (expr, 0),
+		   build_non_dependent_expr (TREE_OPERAND (expr, 0)),
 		   (TREE_OPERAND (expr, 1)
 		    ? build_non_dependent_expr (TREE_OPERAND (expr, 1))
 		    : build_non_dependent_expr (TREE_OPERAND (expr, 0))),
