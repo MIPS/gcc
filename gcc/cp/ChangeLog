@@ -1,5 +1,12 @@
 2019-09-15  Jason Merrill  <jason@redhat.com>
 
+	* call.c (build_new_op_1): Don't apply any standard conversions to
+	the operands of a built-in operator.  Don't suppress conversions in
+	cp_build_unary_op.
+	* typeck.c (cp_build_unary_op): Do integral promotions for enums.
+
+2019-09-15  Jason Merrill  <jason@redhat.com>
+
 	* name-lookup.c (lookup_qualified_name): Add wrapper overload taking
 	C string rather than identifier.
 	* parser.c (cp_parser_userdef_numeric_literal): Use it.
