@@ -8,10 +8,13 @@ struct string
   bool empty() const;
 };
 
+template<class From, class To>
+concept convertible_to = requires(From (&f)(), void (&g)(To)) { g(f()); };
+
 template<typename T, typename ReturnType>
 concept Concept =
   requires(T t, const string& s) {
-    { t(s) } -> ReturnType;
+    { t(s) } -> convertible_to<ReturnType>;
   };
 
 struct test {

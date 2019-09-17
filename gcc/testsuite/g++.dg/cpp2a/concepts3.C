@@ -1,5 +1,7 @@
 // { dg-do compile { target c++2a } }
 
+template <class T, class U> concept same_as = __is_same_as(T,U);
+
 template<typename T>
 concept C1 = requires (T& t) { 
   t.~T(); 
@@ -7,7 +9,7 @@ concept C1 = requires (T& t) {
 
 template<typename T>
 concept C2 = requires (T& t) { 
-  { t.~T() } -> void;
+  { t.~T() } -> same_as<void>;
 };
 
 template<typename T>

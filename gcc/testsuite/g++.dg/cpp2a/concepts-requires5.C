@@ -1,6 +1,7 @@
 // { dg-do compile { target c++2a } }
+// { dg-additional-options -fconcepts-ts }
 
-// Test conversion requirements
+// Test conversion requirements (not in C++20)
 
 // req9.C
 

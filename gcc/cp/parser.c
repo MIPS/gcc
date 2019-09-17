@@ -27527,6 +27527,8 @@ cp_parser_compound_requirement (cp_parser *parser)
   if (cp_lexer_next_token_is (parser->lexer, CPP_DEREF))
     {
       cp_lexer_consume_token (parser->lexer);
+      cp_token *tok = cp_lexer_peek_token (parser->lexer);
+
       bool saved_result_type_constraint_p = parser->in_result_type_constraint_p;
       parser->in_result_type_constraint_p = true;
       /* C++2a allows either a type-id or a type-constraint. Parsing
@@ -27537,17 +27539,24 @@ cp_parser_compound_requirement (cp_parser *parser)
       if (type == error_mark_node)
         return error_mark_node;
 
+      location_t type_loc = make_location (tok->location, tok->location,
+					   parser->lexer);
+
       /* Check that we haven't written something like 'const C<T>*'.  */
       if (type_uses_auto (type))
 	{
 	  if (!is_auto (type))
 	    {
-	      error_at (input_location,
+	      error_at (type_loc,
 			"result type is not a plain type-constraint");
 	      cp_parser_consume_semicolon_at_end_of_statement (parser);
 	      return error_mark_node;
 	    }
 	}
+      else if (!flag_concepts_ts)
+	/* P1452R2 removed the trailing-return-type option.  */
+	error_at (type_loc,
+		  "return-type-requirement is not a type-constraint");
     }
 
   location_t loc = make_location (expr_token->location,

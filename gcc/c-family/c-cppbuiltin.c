@@ -993,9 +993,8 @@ c_cpp_builtins (cpp_reader *pfile)
       if (flag_concepts)
         {
           if (cxx_dialect >= cxx2a)
-            /* FIXME: Update this to the value required by the IS.
-	       This value indicates support up to P1084 and P1141.  */
-            cpp_define (pfile, "__cpp_concepts=201811");
+            /* FIXME: Update this to the value required by the IS.  */
+            cpp_define (pfile, "__cpp_concepts=201907");
           else
             cpp_define (pfile, "__cpp_concepts=201507");
         }
