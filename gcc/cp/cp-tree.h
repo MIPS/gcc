@@ -7901,7 +7901,7 @@ concept_check_p (const_tree t)
 {
   if (TREE_CODE (t) == CALL_EXPR)
     t = CALL_EXPR_FN (t);
-  if (TREE_CODE (t) == TEMPLATE_ID_EXPR)
+  if (t && TREE_CODE (t) == TEMPLATE_ID_EXPR)
     return concept_definition_p (TREE_OPERAND (t, 0));
   return false;
 }
