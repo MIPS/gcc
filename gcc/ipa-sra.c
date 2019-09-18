@@ -3067,8 +3067,17 @@ process_edge_to_unknown_caller (cgraph_edge *cs)
 	  param_access *pacc = find_param_access (param_desc, ipf->unit_offset,
 						  ipf->unit_size);
 	  gcc_checking_assert (pacc);
-	  bump_reached_size (param_desc, pacc->unit_size, idx);
 	  pacc->certain = true;
+	  if (overlapping_certain_accesses_p (param_desc, NULL))
+	    {
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		fprintf (dump_file, "    ...leading to overlap, "
+			 " disqualifying candidate parameter %u\n",
+			 idx);
+	      param_desc->split_candidate = false;
+	    }
+	  else
+	    bump_reached_size (param_desc, pacc->unit_size, idx);
 	  ipf->aggregate_pass_through = false;
 	  continue;
 	}
@@ -3485,8 +3494,19 @@ param_splitting_across_edge (cgraph_edge *cs)
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		fprintf (dump_file, "  %u->%u: not candidate or by "
 			 "reference in callee\n", idx, i);
-	      bump_reached_size (param_desc, pacc->unit_size, idx);
+
 	      pacc->certain = true;
+	      if (overlapping_certain_accesses_p (param_desc, NULL))
+		{
+		  if (dump_file && (dump_flags & TDF_DETAILS))
+		    fprintf (dump_file, "    ...leading to overlap, "
+			     " disqualifying candidate parameter %u\n",
+			     idx);
+		  param_desc->split_candidate = false;
+		}
+	      else
+		bump_reached_size (param_desc, pacc->unit_size, idx);
+
 	      ipf->aggregate_pass_through = false;
 	      res = true;
 	    }
