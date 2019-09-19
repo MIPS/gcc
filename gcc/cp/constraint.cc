@@ -553,32 +553,49 @@ build_parameter_mapping (tree expr, tree args, tree decl)
   return map;
 }
 
-/* Provides additional context for normalization. The context records the
-   source information that causes the normalization of a term.  */
+/* Provides additional context for normalization.  */
+
 struct norm_info : subst_info
 {
-  norm_info()
-    : subst_info (tf_warning_or_error, NULL_TREE),
+  norm_info(tsubst_flags_t complain)
+    : subst_info (tf_warning_or_error | complain, NULL_TREE),
       context()
   {}
 
   /* Construct a top-level context for DECL.  */
-  norm_info (tree decl)
-    : subst_info (tf_warning_or_error, decl),
-      context (build_tree_list (NULL_TREE, decl))
+
+  norm_info (tree in_decl, tsubst_flags_t complain)
+    : subst_info (tf_warning_or_error | complain, in_decl),
+      context (make_context (in_decl))
   {}
 
-  /* Construct a nested context for the template-id EXPR where PREV is the
-     parent context. Note that the declaration is always that of the
-     template-id expression.  */
-  norm_info (tree expr, tree prev, tree args)
-    : subst_info (tf_warning_or_error, get_concept_check_template (expr)),
-      context (tree_cons (build_parameter_mapping (expr, args, in_decl), expr, prev))
+  bool generate_diagnostics() const
   {
-    gcc_assert (concept_check_p (expr));
+    return complain & tf_norm;
   }
 
-  /* Provides information about the source of a constraint.  */
+  tree make_context(tree in_decl)
+  {
+    if (generate_diagnostics ())
+      return build_tree_list (NULL_TREE, in_decl);
+    return NULL_TREE;
+  }
+
+  void update_context(tree expr, tree args)
+  {
+    if (generate_diagnostics ())
+      {
+	tree map = build_parameter_mapping (expr, args, in_decl);
+	context = tree_cons (map, expr, context);
+      }
+    in_decl = get_concept_check_template (expr);
+  }
+
+  /* Provides information about the source of a constraint. This is a
+     TREE_LIST whose VALUE is either a concept check or a constrained
+     declaration. The PURPOSE, for concept checks is a parameter mapping
+     for that check.  */
+
   tree context;
 };
 
@@ -594,7 +611,9 @@ normalize_logical_operation (tree t, tree args, tree_code c, norm_info info)
   tree t1 = normalize_expression (TREE_OPERAND (t, 1), args, info);
 
   /* Build a new info object for the constraint.  */
-  tree ci = build_tree_list (t, info.context);
+  tree ci = info.generate_diagnostics()
+    ? build_tree_list (t, info.context)
+    : NULL_TREE;
 
   return build2 (c, ci, t0, t1);
 }
@@ -636,8 +655,8 @@ normalize_concept_check (tree check, tree args, norm_info info)
   if (def == error_mark_node)
     return error_mark_node;
 
-  norm_info new_info (check, info.context, args);
-  return normalize_expression (def, subst, new_info);
+  info.update_context (check, args);
+  return normalize_expression (def, subst, info);
 }
 
 /* The normal form of an atom depends on the expression. The normal
@@ -690,21 +709,24 @@ normalize_expression (tree t, tree args, norm_info info)
    to which the constraints belong.  */
 
 static tree
-get_normalized_constraints_from_info (tree ci, tree args, tree in_decl)
+get_normalized_constraints_from_info (tree ci, tree args, tree in_decl, bool diag = false)
 {
   if (ci == NULL_TREE)
     return NULL_TREE;
 
-  if (tree norm = CI_NORMALIZED_CONSTRAINTS (ci))
-    return norm;
+  /* If we're diagnosing errors, use cached constraints, if any.  */
+  if (!diag)
+    if (tree norm = CI_NORMALIZED_CONSTRAINTS (ci))
+      return norm;
 
   /* Substitution errors during normalization are fatal.  */
-  norm_info info (in_decl);
   ++processing_template_decl;
+  norm_info info (in_decl, diag ? tf_norm : tf_none);
   tree t = normalize_expression (CI_ASSOCIATED_CONSTRAINTS (ci), args, info);
   --processing_template_decl;
 
-  CI_NORMALIZED_CONSTRAINTS (ci) = t;
+  if (!diag)
+    CI_NORMALIZED_CONSTRAINTS (ci) = t;
 
   return t;
 }
@@ -712,7 +734,7 @@ get_normalized_constraints_from_info (tree ci, tree args, tree in_decl)
 /* Returns the normalized constraints for the declaration D.  */
 
 static tree
-get_normalized_constraints_from_decl (tree d)
+get_normalized_constraints_from_decl (tree d, bool diag = false)
 {
   tree tmpl;
   tree decl;
@@ -760,7 +782,7 @@ get_normalized_constraints_from_decl (tree d)
 
   tree args = generic_targs_for (tmpl);
   tree ci = get_constraints (decl);
-  return get_normalized_constraints_from_info (ci, args, tmpl);
+  return get_normalized_constraints_from_info (ci, args, tmpl, diag);
 }
 
 /* Returns the normal form of TMPL's definition.  */
@@ -777,7 +799,8 @@ normalize_concept_definition (tree tmpl)
   tree args = generic_targs_for (tmpl);
   tree def = get_concept_definition (DECL_TEMPLATE_RESULT (tmpl));
   ++processing_template_decl;
-  tree norm = normalize_expression (def, args, norm_info (tmpl));
+  norm_info info (tmpl, tf_none);
+  tree norm = normalize_expression (def, args, info);
   --processing_template_decl;
   return norm;
 }
@@ -785,24 +808,24 @@ normalize_concept_definition (tree tmpl)
 /* Returns the normal form of TMPL's requirements.  */
 
 static tree
-normalize_template_requirements (tree tmpl)
+normalize_template_requirements (tree tmpl, bool diag = false)
 {
-  return get_normalized_constraints_from_decl (tmpl);
+  return get_normalized_constraints_from_decl (tmpl, diag);
 }
 
 /* Returns the normal form of TMPL's requirements.  */
 
 static tree
-normalize_nontemplate_requirements (tree decl)
+normalize_nontemplate_requirements (tree decl, bool diag = false)
 {
-  return get_normalized_constraints_from_decl (decl);
+  return get_normalized_constraints_from_decl (decl, diag);
 }
 
 /* Normalize an EXPR as a constraint where EXPR must be a concept check.
    The arguments used for normalization are those provided to the check.  */
 
 static tree
-normalize_constraint_expression (tree expr)
+normalize_constraint_expression (tree expr, bool diag = false)
 {
   if (!expr || expr == error_mark_node)
     return expr;
@@ -810,7 +833,8 @@ normalize_constraint_expression (tree expr)
   gcc_assert (concept_check_p (expr));
   tree id = unpack_concept_check (expr);
   ++processing_template_decl;
-  tree norm = normalize_expression (expr, TREE_OPERAND (id, 1), norm_info ());
+  norm_info info (diag ? tf_norm : tf_none);
+  tree norm = normalize_expression (expr, TREE_OPERAND (id, 1), info);
   --processing_template_decl;
   return norm;
 }
@@ -2943,7 +2967,7 @@ diagnose_constraint_context (tree cxt, tree args)
 static location_t
 get_error_location (tree t)
 {
-  /* If we a specific location give it.  */
+  /* If we have a specific location give it.  */
   tree expr = CONSTR_EXPR (t);
   if (location_t loc = cp_expr_location (expr))
     return loc;
@@ -3164,17 +3188,17 @@ diagnose_declaration_constraints (location_t loc, tree decl, tree args)
 	{
 	  decl = TI_TEMPLATE (ti);
 	  args = TI_ARGS (ti);
-	  norm = normalize_template_requirements (decl);
+	  norm = normalize_template_requirements (decl, true);
 	}
       else
 	{
 	  /* Constrained non-templates should not be supported.  */
 	  args = NULL_TREE;
-	  norm = normalize_nontemplate_requirements (decl);
+	  norm = normalize_nontemplate_requirements (decl, true);
 	}
     }
   else
-    norm = normalize_template_requirements (decl);
+    norm = normalize_template_requirements (decl, true);
 
   /* Find and diagnose the first error.  */
   gcc_assert (norm);
@@ -3188,7 +3212,7 @@ diagnose_declaration_constraints (location_t loc, tree decl, tree args)
 static void
 diagnose_constraint_expression (tree expr, tree args)
 {
-  tree norm = normalize_constraint_expression (expr);
+  tree norm = normalize_constraint_expression (expr, true);
   tree err = find_constraint_failure (norm, args);
   diagnose_constraint_failure (err, args, NULL_TREE);
 }

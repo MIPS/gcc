@@ -1,5 +1,28 @@
 2019-09-19  Andrew Sutton  <asutton@lock3software.com>
 
+	Only build normalization contexts for diagnostics.
+	* constraint.cc (norm_info::norm_info): Take tsbust_flags_t to
+	indicate presence of diagnostics. Remove three-argument constructor.
+	(norm_info::generate_diagnostics): New.
+	(norm_info::make_context): New.
+	(norm_info::update_context): New.
+	(normalize_logical_operation): Conditionally create context.
+	(normalize_concept_check): Conditionally update the context.
+	(get_normalized_constraints_from_info): Don't cache constraints
+	for diagnostics. Force re-normalization. Provide diagnostic hint
+	for norm_info.
+	(get_normalized_constraints_from_decl): Take a diagnostic flag.
+	(normalize_concept_definition): Construct norm_info with no hint.
+	(normalize_template_requirements): Take a diagnostic hint.
+	(normalize_nontemplate_requirements): Likewise.
+	(normalize_constraint_expression): Likewise.
+	(diagnose_constraint_context): Provide a diagnostic hint when getting
+	normalized constraints.
+	* cp-tree.h (enum tsubst_flags): Add tf_norm as a hint to generate
+	normalization context when diagnosing constraint failure.
+
+2019-09-19  Andrew Sutton  <asutton@lock3software.com>
+
 	Cache normalized constraints for declarations.
 	* constraint.cc (get_normalized_constraints_from_info): Cache
 	normalized constraints.

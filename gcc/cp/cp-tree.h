@@ -1534,8 +1534,8 @@ check_constraint_info (tree t)
 #define CONSTR_CHECK(NODE) \
   TREE_CHECK3 (NODE, ATOMIC_CONSTR, CONJ_CONSTR, DISJ_CONSTR)
 
-/* The CONSTR_INFO stores normalization data for a constraint. In particular,
-   it refers to the original expression and the expression or declaration
+/* The CONSTR_INFO stores normalization data for a constraint. It refers to
+   the original expression and the expression or declaration
    from which the constraint was normalized.
 
    This is TREE_LIST whose TREE_PURPOSE is the original expression and whose
@@ -5224,6 +5224,8 @@ enum tsubst_flags {
 				declaration.  */
   tf_no_cleanup = 1 << 10,   /* Do not build a cleanup
 				(build_target_expr and friends) */
+  tf_norm = 1 << 11,		 /* Build diagnostic information during
+				    constraint normalization.  */
   /* Convenient substitution flags combinations.  */
   tf_warning_or_error = tf_warning | tf_error
 };
