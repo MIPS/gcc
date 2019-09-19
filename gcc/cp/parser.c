@@ -16610,7 +16610,7 @@ cp_parser_template_id_expr (cp_parser *parser,
   if (TREE_CODE (x) == TEMPLATE_ID_EXPR
       && concept_check_p (x))
     /* We didn't check the arguments in cp_parser_template_id; do that now.  */
-    return build_concept_id (TREE_OPERAND (x, 0), TREE_OPERAND (x, 1));
+    return build_concept_id (x);
   return x;
 }
 

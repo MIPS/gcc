@@ -1,5 +1,14 @@
 2019-09-19  Andrew Sutton  <asutton@lock3software.com>
 
+	Keep source locations for concept checks.
+	* constraint.cc (build_concept_id): Add an overload. Make the 2
+	parameter version static. Make the 1 parameter version retain the
+	source location of the original expression.
+	* cp-tree.h: Update declarations accordingly.
+	* parser.c (cp_parser_template_id_expr): Call the new function.
+
+2019-09-19  Andrew Sutton  <asutton@lock3software.com>
+
 	Only build normalization contexts for diagnostics.
 	* constraint.cc (norm_info::norm_info): Take tsbust_flags_t to
 	indicate presence of diagnostics. Remove three-argument constructor.

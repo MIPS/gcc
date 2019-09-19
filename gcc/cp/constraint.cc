@@ -1088,13 +1088,25 @@ build_concept_check (tree decl, tree arg, tree rest, tsubst_flags_t complain)
 
 /* Build a template-id that can participate in a concept check.  */
 
-tree
+static tree
 build_concept_id (tree decl, tree args)
 {
   tree check = build_concept_check (decl, args, tf_warning_or_error);
   if (check == error_mark_node)
     return error_mark_node;
   return unpack_concept_check (check);
+}
+
+/* Build a template-id that can participate in a concept check, preserving
+   the source location of the original template-id.  */
+
+tree
+build_concept_id (tree expr)
+{
+  gcc_assert (TREE_CODE (expr) == TEMPLATE_ID_EXPR);
+  tree id = build_concept_id (TREE_OPERAND (expr, 0), TREE_OPERAND (expr, 1));
+  protected_set_expr_location (id, cp_expr_location (expr));
+  return id;
 }
 
 /* Build as template-id with a placeholder that can be used as a
@@ -1112,7 +1124,6 @@ build_type_constraint (tree decl, tree args, tsubst_flags_t complain)
     return error_mark_node;
   return unpack_concept_check (check);
 }
-
 
 /* Returns a TYPE_DECL that contains sufficient information to
    build a template parameter of the same kind as PROTO and

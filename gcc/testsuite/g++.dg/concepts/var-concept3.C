@@ -16,7 +16,7 @@ template<typename U>
   void f1(U) { }
 
 template<typename U>
-  requires C2<U>
+  requires C2<U> // { dg-error "must be called" }
   void f2(U) { }
 
 template<C3 T>  // { dg-error "not a type" }
@@ -25,6 +25,6 @@ template<C3 T>  // { dg-error "not a type" }
 void foo()
 {
   struct S { } s;
-  f2(s); // { dg-error "must be called" }
+  f2(s);
   // f2(0);
 }

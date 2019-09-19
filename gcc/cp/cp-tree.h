@@ -7657,7 +7657,7 @@ extern tree get_template_head_requirements	(tree);
 extern tree get_trailing_function_requirements	(tree);
 extern tree get_shorthand_constraints           (tree);
 
-extern tree build_concept_id			(tree, tree);
+extern tree build_concept_id			(tree);
 extern tree build_type_constraint		(tree, tree, tsubst_flags_t);
 extern tree build_concept_check                 (tree, tree, tsubst_flags_t);
 extern tree build_concept_check                 (tree, tree, tree, tsubst_flags_t);
