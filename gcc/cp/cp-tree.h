@@ -1468,6 +1468,7 @@ struct GTY(()) tree_constraint_info {
   tree template_reqs;
   tree declarator_reqs;
   tree associated_constr;
+  tree normalized_constr;
 };
 
 // Require that pointer P is non-null before returning.
@@ -1505,6 +1506,10 @@ check_constraint_info (tree t)
 /* The computed associated constraint expression for a declaration.  */
 #define CI_ASSOCIATED_CONSTRAINTS(NODE) \
   check_constraint_info (check_nonnull (NODE))->associated_constr
+
+/* The normalized constraints of a declaration.  */
+#define CI_NORMALIZED_CONSTRAINTS(NODE) \
+  check_constraint_info (check_nonnull (NODE))->normalized_constr
 
 /* Access the constraint-expression introduced by the requires-clause
    associate the template parameter list NODE.  */

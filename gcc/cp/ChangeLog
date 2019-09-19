@@ -1,3 +1,12 @@
+2019-09-19  Andrew Sutton  <asutton@lock3software.com>
+
+	Cache normalized constraints for declarations.
+	* constraint.cc (get_normalized_constraints_from_info): Cache
+	normalized constraints.
+	* cp-tree.h (tree_constraint_info): Add a field to store normalized
+	constraints.
+	(CI_NORMALIZED_CONSTRAINTS): New.
+
 2019-09-06  Andrew Sutton  <asutton@lock3software.com>
 
 	Declare concepts after their definition and fix requirement parsing.

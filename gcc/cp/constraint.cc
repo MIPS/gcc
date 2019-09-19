@@ -695,11 +695,17 @@ get_normalized_constraints_from_info (tree ci, tree args, tree in_decl)
   if (ci == NULL_TREE)
     return NULL_TREE;
 
+  if (tree norm = CI_NORMALIZED_CONSTRAINTS (ci))
+    return norm;
+
   /* Substitution errors during normalization are fatal.  */
   norm_info info (in_decl);
   ++processing_template_decl;
   tree t = normalize_expression (CI_ASSOCIATED_CONSTRAINTS (ci), args, info);
   --processing_template_decl;
+
+  CI_NORMALIZED_CONSTRAINTS (ci) = t;
+
   return t;
 }
 
