@@ -2459,7 +2459,7 @@ static tree cp_parser_requirement_parameter_list
   (cp_parser *);
 static tree cp_parser_requirement_body
   (cp_parser *);
-static tree cp_parser_requirement_list
+static tree cp_parser_requirement_seq
   (cp_parser *);
 static tree cp_parser_requirement
   (cp_parser *);
@@ -26963,7 +26963,6 @@ cp_parser_concept_definition (cp_parser *parser)
       cp_parser_consume_semicolon_at_end_of_statement (parser);
       return NULL_TREE;
     }
-  tree decl = start_concept_definition (id.get_location(), id);
 
   if (!cp_parser_require (parser, CPP_EQ, RT_EQ))
     {
@@ -26981,7 +26980,7 @@ cp_parser_concept_definition (cp_parser *parser)
      but continue as if it were.  */
   cp_parser_consume_semicolon_at_end_of_statement (parser);
 
-  return finish_concept_definition (decl, init);
+  return finish_concept_definition (id, init);
 }
 
 // -------------------------------------------------------------------------- //
@@ -27353,7 +27352,7 @@ cp_parser_requirement_body (cp_parser *parser)
   if (!braces.require_open (parser))
     return error_mark_node;
 
-  tree reqs = cp_parser_requirement_list (parser);
+  tree reqs = cp_parser_requirement_seq (parser);
 
   if (!braces.require_close (parser))
     return error_mark_node;
@@ -27361,35 +27360,28 @@ cp_parser_requirement_body (cp_parser *parser)
   return reqs;
 }
 
-/* Parse a list of requirements.
+/* Parse a sequence of requirements.
 
-   requirement-list:
+   requirement-seq:
        requirement
-       requirement-list ';' requirement[opt] */
+       requirement-seq requirement */
 
 static tree
-cp_parser_requirement_list (cp_parser *parser)
+cp_parser_requirement_seq (cp_parser *parser)
 {
   tree result = NULL_TREE;
-  while (true)
+  do
     {
       tree req = cp_parser_requirement (parser);
-      if (req == error_mark_node)
-        return error_mark_node;
+      if (req != error_mark_node)
+	result = tree_cons (NULL_TREE, req, result);
+    } while (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_BRACE));
 
-      result = tree_cons (NULL_TREE, req, result);
+  /* If there are no valid requirements, this is not a valid expression. */
+  if (!result)
+    return error_mark_node;
 
-      /* If we see a semi-colon, consume it. */
-      if (cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))
-	cp_lexer_consume_token (parser->lexer);
-
-      /* Stop processing at the end of the list. */
-      if (cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_BRACE))
-        break;
-    }
-
-  /* Reverse the order of requirements so they are analyzed in
-     declaration order. */
+  /* Reverse the order of requirements so they are analyzed in order. */
   return nreverse (result);
 }
 
@@ -27423,10 +27415,12 @@ static tree
 cp_parser_simple_requirement (cp_parser *parser)
 {
   tree expr = cp_parser_expression (parser, NULL, false, false);
-  if (!expr || expr == error_mark_node)
-    return error_mark_node;
+  if (expr == error_mark_node)
+    cp_parser_skip_to_end_of_statement (parser);
 
-  if (!cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON))
+  cp_parser_consume_semicolon_at_end_of_statement (parser);
+
+  if (!expr || expr == error_mark_node)
     return error_mark_node;
 
   return finish_simple_requirement (cp_expr_location (expr), expr);
@@ -27483,8 +27477,8 @@ cp_parser_type_requirement (cp_parser *parser)
   if (type == error_mark_node)
     cp_parser_skip_to_end_of_statement (parser);
 
-  if (!cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON))
-    return error_mark_node;
+  cp_parser_consume_semicolon_at_end_of_statement (parser);
+
   if (type == error_mark_node)
     return error_mark_node;
 
@@ -27508,11 +27502,23 @@ cp_parser_compound_requirement (cp_parser *parser)
   cp_token *expr_token = cp_lexer_peek_token (parser->lexer);
 
   tree expr = cp_parser_expression (parser, NULL, false, false);
-  if (!expr || expr == error_mark_node)
-    return error_mark_node;
+  if (expr == error_mark_node)
+    cp_parser_skip_to_closing_brace (parser);
 
   if (!braces.require_close (parser))
-    return error_mark_node;
+    {
+      cp_parser_skip_to_end_of_statement (parser);
+      cp_parser_consume_semicolon_at_end_of_statement (parser);
+      return error_mark_node;
+    }
+
+  /* If the expression was invalid, skip the remainder of the requirement.  */
+  if (!expr || expr == error_mark_node)
+    {
+      cp_parser_skip_to_end_of_statement (parser);
+      cp_parser_consume_semicolon_at_end_of_statement (parser);
+      return error_mark_node;
+    }
 
   /* Parse the optional noexcept. */
   bool noexcept_p = false;
@@ -27563,6 +27569,11 @@ cp_parser_compound_requirement (cp_parser *parser)
 				  braces.open_location (),
 				  parser->lexer);
 
+  cp_parser_consume_semicolon_at_end_of_statement (parser);
+
+  if (expr == error_mark_node || type == error_mark_node)
+    return error_mark_node;
+
   return finish_compound_requirement (loc, expr, type, noexcept_p);
 }
 
@@ -27579,8 +27590,11 @@ cp_parser_nested_requirement (cp_parser *parser)
   location_t loc = cp_lexer_peek_token (parser->lexer)->location;
   tree req = cp_parser_constraint_expression (parser);
   if (req == error_mark_node)
-    return error_mark_node;
+    cp_parser_skip_to_end_of_statement (parser);
   loc = make_location (loc, tok->location, parser->lexer);
+  cp_parser_consume_semicolon_at_end_of_statement (parser);
+  if (req == error_mark_node)
+    return error_mark_node;
   return finish_nested_requirement (loc, req);
 }
 

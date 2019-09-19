@@ -50,3 +50,8 @@ static_assert(False<int>); // { dg-error "static assertion failed" }
 void f4(True auto);
 
 template<True T> concept C5 = true; // { dg-error "cannot be constrained" }
+
+
+template<typename T>
+concept Recursive = Recursive<T>; // { dg-error "not declared|expected" }
+

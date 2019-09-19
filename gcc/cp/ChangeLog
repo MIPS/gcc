@@ -1,5 +1,25 @@
 2019-09-06  Andrew Sutton  <asutton@lock3software.com>
 
+	Declare concepts after their definition and fix requirement parsing.
+	* constraint.cc (start_concept_definition): Merge into
+	finish_concept_definition.
+	(normalize_nontemplate_requirements): Gracefully handle errors.
+	(diagnose_atom_failure): Don't assume in_decl is valid.
+	(finish_concept_definition): Take the id (possibly error_mark_node)
+	and definition to build the concept.
+	* cp-tree.h: Update declarations accordingly.
+	* parser.c (cp_parser_requirement_list): Rename to
+	cp_parser_requirement_seq. Rewrite so that semicolons are parsed
+	along with requirements, not the sequence.
+	(cp_parser_concept_definition): Don't declare the concept
+	before parsing the initializer.
+	(cp_parser_simple_requirement): Gracefully handle errors. Use
+	cp_parser_consume_semicolon_at_end_of_statement.
+	(cp_parser_compound_requirement): Likewise.
+	(cp_parser_nested_requirement): Likewise.
+
+2019-09-06  Andrew Sutton  <asutton@lock3software.com>
+
 	PR c++/67682
 	* constraint.cc (get_normalized_constraints_from_decl): Don't adjust
 	the template decl for partial specialization.

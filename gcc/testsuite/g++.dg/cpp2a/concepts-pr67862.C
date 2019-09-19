@@ -41,7 +41,7 @@ template <class X> concept bool cpt_Dimensionality() {
   return detail_concept::match_dimensionality<X>;
 }
 
-template <class X> concept bool cpt_Shaped() { return requires(X x){{x}}; }
+template <class X> concept bool cpt_Shaped() { return requires(X x){{x};}; }
 
 template <class X> concept bool cpt_Dimensioned() { return cpt_Shaped<X>(); }
 
@@ -67,7 +67,7 @@ void cpt_ContinualScalar();
 template <class> concept bool cpt_Scalar() { return cpt_ContinualScalar; }
 
 template <class X> concept bool cpt_FlatEvaluator() {
-  return requires(X x){{x}->cpt_Scalar};
+  return requires(X x){{x}->cpt_Scalar;};
 }
 
 template <class, class> bool k_evaluator_impl;

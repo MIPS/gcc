@@ -2,13 +2,17 @@
 // { dg-do compile { target c++2a } }
 
 template<typename T>
-concept C0 = requires(auto x) { // { dg-error "placeholder type" }
+concept c = true;
+
+template<typename T>
+concept C0 = requires (auto x) { // { dg-error "placeholder type" }
   x;
 };
 
 template<typename T>
-concept C1 = requires(C1 auto x) { // { dg-error "placeholder type" }
-  x;
+concept C1 = requires (C1 auto x) { // { dg-error "not been declared|placeholder|two or more" }
+  x; // { dg-error "not declared" }
+  { x } -> c; // { dg-error "not declared|does not satisfy" }
 };
 
 template<typename T>
@@ -16,7 +20,7 @@ template<typename T>
 void f(T) {}
 
 int main() {
-  f(1);
+  f(1); // { dg-error "cannot call" }
 }
 
 

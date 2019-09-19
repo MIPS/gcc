@@ -1,5 +1,15 @@
 2019-09-06  Andrew Sutton  <asutton@lock3software.com>
 
+	Declare concepts after their definition and fix requirement parsing.
+	* g++.dg/concepts/diagnostic1.C: Fix compiler errors.
+	* g++.dg/concepts/pr67595.C: Likewise.
+	* g++.dg/cpp2a/concepts-pr66962.C: Likewise.
+	* g++.dg/cpp2a/concepts-pr67178.C: Update diagnostics. Add new test.
+	* g++.dg/cpp2a/concepts-pr67862.C: Fix compiler errors.
+	* g++.dg/cpp2a/concepts.C: New test.
+
+2019-09-06  Andrew Sutton  <asutton@lock3software.com>
+
 	PR c++/67682
 	* g++.dg/cpp2a/concepts-pr67682.C: New test.
 

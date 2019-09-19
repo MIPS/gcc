@@ -27251,10 +27251,12 @@ make_constrained_decltype_auto (tree con, tree args)
    the TEMPLATE_DECL. */
 
 tree
-start_concept_definition (location_t loc, tree id)
+finish_concept_definition (cp_expr id, tree init)
 {
   gcc_assert (identifier_p (id));
   gcc_assert (processing_template_decl);
+
+  location_t loc = id.get_location();
 
   /* A concept-definition shall not have associated constraints.  */
   if (TEMPLATE_PARMS_CONSTRAINTS (current_template_parms))
@@ -27268,28 +27270,17 @@ start_concept_definition (location_t loc, tree id)
      scope.  */
   if (TYPE_P (current_scope()) || !DECL_NAMESPACE_SCOPE_P (current_scope ()))
     {
-      error_at (loc, "concept %qE not in namespace scope", id);
+      error_at (loc, "concept %qE not in namespace scope", *id);
       return error_mark_node;
     }
 
   /* Initially build the concept declaration; it's type is bool.  */
-  tree decl = build_lang_decl_loc (loc, CONCEPT_DECL, id, boolean_type_node);
+  tree decl = build_lang_decl_loc (loc, CONCEPT_DECL, *id, boolean_type_node);
   DECL_CONTEXT (decl) = current_scope ();
+  DECL_INITIAL (decl) = init;
 
   /* Push the enclosing template.  */
   return push_template_decl (decl);
-}
-
-/* Bind the concept's initializer to the declaration. Returns the
-   concept definition.  */
-
-tree
-finish_concept_definition (tree decl, tree init)
-{
-  gcc_assert (concept_definition_p (decl) || decl == error_mark_node);
-  if (decl != error_mark_node)
-    DECL_INITIAL (decl) = init;
-  return decl;
 }
 
 /* Given type ARG, return std::initializer_list<ARG>.  */

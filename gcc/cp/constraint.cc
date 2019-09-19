@@ -798,6 +798,9 @@ normalize_nontemplate_requirements (tree decl)
 static tree
 normalize_constraint_expression (tree expr)
 {
+  if (!expr || expr == error_mark_node)
+    return expr;
+
   gcc_assert (concept_check_p (expr));
   tree id = unpack_concept_check (expr);
   ++processing_template_decl;
@@ -2968,7 +2971,12 @@ diagnose_atom_failure (tree t, tree args, tree in_decl)
      aren't satisfied.  */
   if (t == error_mark_node)
     {
-      inform (DECL_SOURCE_LOCATION (in_decl), "invalid constraints");
+      location_t loc;
+      if (in_decl)
+        loc = DECL_SOURCE_LOCATION (in_decl);
+      else
+        loc = cp_expr_loc_or_loc(t, input_location);
+      inform (loc, "invalid constraints");
       return;
     }
 

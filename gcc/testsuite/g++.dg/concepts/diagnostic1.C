@@ -7,7 +7,7 @@ concept bool SameAs = __is_same_as(T, U);
 
 template <class T>
 concept bool R1 = requires (T& t) {
-  { t.begin() } -> T		// { dg-error "no match" }
+  { t.begin() } -> T;		// { dg-error "no match" }
   { t.end() } -> SameAs<T*>;	// { dg-error "does not satisfy" }
 };
 

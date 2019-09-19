@@ -40,7 +40,7 @@ template <class T, class U>
 int Swappable();
 
 template <class T> 
-concept Dereferencable = requires{{0}};
+concept Dereferencable = requires{{0};};
 
 template <Dereferencable R> 
 using RvalueReferenceType = decltype(0);
@@ -57,7 +57,7 @@ using ValueType = _t<value_type<remove_cv_t<T>>>;
 
 template <class I> 
 concept Readable =
-  Movable<I> && DefaultConstructible<I> && Dereferencable<const I> && requires{{0}};
+  Movable<I> && DefaultConstructible<I> && Dereferencable<const I> && requires{{0};};
 
 template <class Out, class T> 
 concept MoveWritable =
