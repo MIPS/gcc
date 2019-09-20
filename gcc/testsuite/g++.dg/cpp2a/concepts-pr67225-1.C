@@ -13,7 +13,7 @@ template <class T> struct WrapT {T t;};
 template <class T>
 concept bool Destructible()
 {
-    return requires(T t, const T ct, WrapT<T>& wt)
+    return requires(T t, const T ct, WrapT<T>& wt) // { dg-message "in requirements" }
     {
         {wt.~WrapT()} noexcept;
         // {&t} -> Same<T*>; // #1

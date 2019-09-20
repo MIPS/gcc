@@ -1,7 +1,7 @@
 // { dg-do compile { target c++2a } }
 
 template <class T, class U>
-concept C = requires (T t, U u) { t + u; };
+concept C = requires (T t, U u) { t + u; }; // { dg-message "in requirements" }
 
 template <class T, class U>
   requires C<T,U>

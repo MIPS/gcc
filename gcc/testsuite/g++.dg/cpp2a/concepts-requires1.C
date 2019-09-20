@@ -16,7 +16,7 @@ void (*fn(int))() requires false;     // { dg-error "return type" }
 void g(int (*)() requires true);      // { dg-error "parameter|non-function" }
 auto* p = new (void(*)(char) requires true); // { dg-error "type-id" }
 void f4(auto a) requires Class<decltype(a)> { }
-void f5(auto a) requires requires (decltype(a) x) { -x; } { }
+void f5(auto a) requires requires (decltype(a) x) { -x; } { } // { dg-message "in requirements" }
 
 struct Test {
   void f(auto a) requires Class<decltype(a)>;

@@ -1222,7 +1222,7 @@ cxx_pretty_printer::expression (tree t)
 	  }
       }
       break;
-      
+
     case LAMBDA_EXPR:
       pp_cxx_ws_string (this, "<lambda>");
       break;
@@ -2936,9 +2936,7 @@ void
 pp_cxx_atomic_constraint (cxx_pretty_printer *pp, tree t)
 {
   /* Emit the expression.  */
-  pp_left_paren (pp);
   pp->expression (ATOMIC_CONSTR_EXPR (t));
-  pp_right_paren (pp);
 
   /* Emit the parameter mapping.  */
   tree map = ATOMIC_CONSTR_MAP (t);

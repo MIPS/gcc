@@ -4,13 +4,13 @@
 template<typename T>
 concept bool C1()
 {
-  return requires (T t) { t.f(); };
+  return requires (T t) { t.f(); }; // { dg-message "in requirements" }
 }
 
 template<typename T>
 concept bool C2()
 {
-  return requires { typename T::type; };
+  return requires { typename T::type; }; // { dg-message "in requirements" }
 }
 
 template<typename T>

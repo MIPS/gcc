@@ -1,9 +1,30 @@
-2019-09-06  Andrew Sutton  <asutton@lock3software.com>
+2019-09-20  Andrew Sutton  <asutton@lock3software.com>
+
+	Summarize constraint contexts for terser errors. Also make sure
+	that nested requirements actually perform satisfaction.
+
+	* g++.dg/concepts/diagnostic1.C: Update diagnostics.
+	* g++.dg/concepts/expression2.C: Likewise.
+	* g++.dg/concepts/fn10.C: Likewise.
+	* g++.dg/concepts/placeholder3.C: Likewise.
+	* g++.dg/concepts/placeholder4.C: Likewise.
+	* g++.dg/cpp2a/concepts-friend1.C: Likewise.
+	* g++.dg/cpp2a/concepts-friend2.C: Likewise.
+	* g++.dg/cpp2a/concepts-noexcept1.C: Likewise.
+	* g++.dg/cpp2a/concepts-pr66844.C: Likewise.
+	* g++.dg/cpp2a/concepts-pr67178.C: Likewise.
+	* g++.dg/cpp2a/concepts-pr67225-1.C: Likewise.
+	* g++.dg/cpp2a/concepts-requires1.C: Likewise.
+	* g++.dg/cpp2a/concepts-requires6.C: Likewise.
+	* g++.dg/cpp2a/concepts-requires8.C: Likewise.
+	* g++.dg/cpp2a/concepts3.C: Likewise.
+
+2019-09-19  Andrew Sutton  <asutton@lock3software.com>
 
 	Keep source locations for concept checks.
 	* g++.dg/cpp2a/var-concept3.C: Update diagnostics.
 
-2019-09-06  Andrew Sutton  <asutton@lock3software.com>
+2019-09-19  Andrew Sutton  <asutton@lock3software.com>
 
 	Declare concepts after their definition and fix requirement parsing.
 	* g++.dg/concepts/diagnostic1.C: Fix compiler errors.

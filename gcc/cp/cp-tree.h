@@ -7640,7 +7640,28 @@ typedef void cp_binding_oracle_function (enum cp_oracle_request, tree identifier
 
 extern cp_binding_oracle_function *cp_binding_oracle;
 
+/* Set during diagnostics to record the failed constraint. This is a
+   TREE_LIST whose VALUE is the constraint and whose PURPOSE are the
+   instantiation arguments Defined in pt.c.  */
+
+extern tree current_failed_constraint;
+
+/* An RAII class to manage the failed constraint.  */
+
+struct diagnosing_failed_constraint
+{
+  diagnosing_failed_constraint (tree t, tree args)
+  {
+    current_failed_constraint = build_tree_list (args, t);
+  }
+  ~diagnosing_failed_constraint ()
+  {
+    current_failed_constraint = NULL_TREE;
+  }
+};
+
 /* in constraint.cc */
+
 extern void init_constraint_processing		();
 extern cp_expr finish_constraint_or_expr	(location_t, cp_expr, cp_expr);
 extern cp_expr finish_constraint_and_expr	(location_t, cp_expr, cp_expr);
@@ -7683,6 +7704,8 @@ extern void check_constrained_friend            (tree, tree);
 extern tree tsubst_requires_expr                (tree, tree, tsubst_flags_t, tree);
 extern tree tsubst_constraint                   (tree, tree, tsubst_flags_t, tree);
 extern tree tsubst_constraint_info              (tree, tree, tsubst_flags_t, tree);
+extern tree tsubst_parameter_mapping		(tree, tree, tsubst_flags_t, tree);
+extern tree get_mapped_args			(tree);
 
 struct parsing_constraint_expression_sentinel
 {

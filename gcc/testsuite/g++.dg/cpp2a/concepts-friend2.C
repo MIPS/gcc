@@ -1,7 +1,7 @@
 // { dg-do compile { target c++2a } }
 
 template<typename T>
-  concept Eq = requires(T t) { t == t; };
+  concept Eq = requires(T t) { t == t; }; // { dg-message "in requirements" }
 
 template<Eq T> struct Foo { };
 

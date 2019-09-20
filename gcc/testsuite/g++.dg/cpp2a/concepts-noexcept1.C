@@ -4,7 +4,7 @@ void f1(int);
 void f2(int) noexcept;
 
 template<typename T>
-concept C1 = requires (T t) {
+concept C1 = requires (T t) { // { dg-message "in requirements" }
   { f1(t) } noexcept;
 };
 

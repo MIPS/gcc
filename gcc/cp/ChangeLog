@@ -1,3 +1,42 @@
+2019-09-20  Andrew Sutton  <asutton@lock3software.com>
+
+Summarize constraint contexts for terser errors. Also make sure
+that nested requirements actually perform satisfaction.
+
+	* constraint.cc (normalize_constraint_expression) Allow normal
+	expressions.
+	(tsubst_nested_requirement): Use constraint satisfaction for
+	nested requirements.
+	(tsubst_parameter_mapping): New non-static overload. Forward to
+	previous definition.
+	(get_mapped_args): Make extern.
+	(diagnose_requires_expr): Don't try to inform about constraint
+	variables.
+	(rebuild_concept_check): Move to error.c.
+	(diagnose_constraint_context_head): Likewise, but rewrite.
+	(diagnose_constraint_context): Likewise.
+	(diagnose_atom_failure): Establish diagnostic context.
+	(diagnose_disjunction_failure): Likewise.
+	(diagnose_declaration_constraints): Create a diagnostic group.
+	* cp-tree.h (current_failed_constraint): New global for communicating
+	with diagnostics.
+	(diagnosing_failed_constraint): RAII class to manage this.
+	(tsubst_parameter_mapping): Declared.
+	(get_mapped_args): Declared.
+	* cxx-pretty-print.c (pp_cxx_atomic_constraint): Don't print
+	parentheses.
+	* error.c (maybe_print_constraint_context): New. Prints a context
+	for a failed constraint.
+	(print_location): New helper function.
+	(rebuild_concept_check) Moved from constraint.cc.
+	(print_constrained_decl_info): New.
+	(print_concept_check_info): New.
+	(print_constraint_context_head): New.
+	(print_requires_expression_info): New.
+	* parser.c (cp_parser_requirement): Make sure there's a location
+	for simple requirements.
+	* pt.c (current_failed_constraint): New.
+
 2019-09-19  Andrew Sutton  <asutton@lock3software.com>
 
 	Keep source locations for concept checks.

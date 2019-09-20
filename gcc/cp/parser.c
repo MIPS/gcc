@@ -27414,7 +27414,8 @@ cp_parser_requirement (cp_parser *parser)
 static tree
 cp_parser_simple_requirement (cp_parser *parser)
 {
-  tree expr = cp_parser_expression (parser, NULL, false, false);
+  location_t start = cp_lexer_peek_token (parser->lexer)->location;
+  cp_expr expr = cp_parser_expression (parser, NULL, false, false);
   if (expr == error_mark_node)
     cp_parser_skip_to_end_of_statement (parser);
 
@@ -27423,7 +27424,12 @@ cp_parser_simple_requirement (cp_parser *parser)
   if (!expr || expr == error_mark_node)
     return error_mark_node;
 
-  return finish_simple_requirement (cp_expr_location (expr), expr);
+  /* Sometimes we don't get locations, so use the cached token location
+     as a reasonable approximation.  */
+  if (expr.get_location() == UNKNOWN_LOCATION)
+    expr.set_location (start);
+
+  return finish_simple_requirement (expr.get_location (), expr);
 }
 
 /* Parse a type requirement

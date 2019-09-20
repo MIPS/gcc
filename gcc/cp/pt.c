@@ -28779,6 +28779,8 @@ init_constraint_processing (void)
   subsumption_table = hash_table<subsumption_hasher>::create_ggc(37);
 }
 
+GTY(()) tree current_failed_constraint;
+
 /* __integer_pack(N) in a pack expansion expands to a sequence of numbers from
    0..N-1.  */
 

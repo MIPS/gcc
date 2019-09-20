@@ -8,7 +8,7 @@ template <typename T, typename U>
 concept SameAs = __is_same_as(T, U);
 
 template <typename T>
-concept C1 = requires(T t) {
+concept C1 = requires(T t) { // { dg-message "in requirements" }
   { t } -> SameAs<T>; // NOTE: t deduced as decltype((t))
   // { dg-error "does not satisfy placeholder constraints" "" { target *-*-* } .-1 }
 };

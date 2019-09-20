@@ -3,17 +3,17 @@
 template <class T, class U> concept same_as = __is_same_as(T,U);
 
 template<typename T>
-concept C1 = requires (T& t) { 
+concept C1 = requires (T& t) { // { dg-message "in requirements" }
   t.~T(); 
 };
 
 template<typename T>
-concept C2 = requires (T& t) { 
+concept C2 = requires (T& t) { // { dg-message "in requirements" }
   { t.~T() } -> same_as<void>;
 };
 
 template<typename T>
-concept C3 = requires {
+concept C3 = requires { // { dg-message "in requirements" }
   typename T::type;
 };
 
