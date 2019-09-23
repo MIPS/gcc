@@ -1,7 +1,54 @@
+2019-09-23  Andrew Sutton  <asutton@lock3software.com>
+
+	Merge diagnostics into satisfaction, so that we reuse the code for
+	the similar tasks. Remove some unused satisfaction and diagnostic
+	code.
+	* constraint.cc (subst_info): Add noisy () and quiet () to test for
+	diagnostic flags.
+	(satisfy_disjunction): Quietly test operands and emit a diagnostic
+	if both fail.
+	(satisfy_atom): Conditionally diagnose errors during satisfaction.
+	(satisfy_constraint): Take subst_info from caller.
+	(satisfy_associated_constraints): Likewise.
+	(satisfy_constraint_expression): Likewise.
+	(satisfy_constraint_expression): Provide empty substitution info.
+	(constraint_expression_satisfied_p): Take subst_info from caller.
+	Don't cache results if we're diagnosing the error (otherwise, we
+	can miss diagnosing errors). New overload that does not take
+	subst_info.
+	(constraints_satisfied_p): Take subst_info from caller. New overload
+	that does not take subst_info.
+	(evaluate_function_concept): Removed (not used).
+	(evaluate_variable_concept): Likewise.
+	(evaluate_concept): Likewise.
+	(constraint_errors): Likewise.
+	(constraint_threshold): Likewise.
+	(elide_constraint_failure_p): Likewise.
+	(get_constraint_location): Removed.
+	(diagnose_trait_expr): Use cp_expr_location instead of
+	get_constraint_location.
+	(diagnose_valid_expression): Likewise.
+	(diagnose_valid_type): Likewise.
+	(diagnose_compound_requirement): Likewise.
+	(diagnose_nested_requirement): Likewise.
+	(diagnose_atomic_constraint): Renamed. Don't substitute through the
+	expression to find errors. We've already done that.
+	(diagnosing_failed_constraint). Moved into constraints.cc. Append
+	failed diagnostic contexts to a list so we can print the full context
+	for nested requirements and deduced type requirements.
+	(find_*_failure): Removed.
+	(diagnose_declaration_constraints): Removed.
+	(diagnose_constraint_expression): Removed.
+	* cp-tree.h (diagnosing_failed_constraint): Moved definition to
+	constraints.cc.
+	(satisfy_constraint_expression): Made static.
+	* error.c (maybe_print_single_constraint_context): New.
+	(maybe_print_constraint_context): Recursively print nested contexts.
+
 2019-09-20  Andrew Sutton  <asutton@lock3software.com>
 
-Summarize constraint contexts for terser errors. Also make sure
-that nested requirements actually perform satisfaction.
+	Summarize constraint contexts for terser errors. Also make sure
+	that nested requirements actually perform satisfaction.
 
 	* constraint.cc (normalize_constraint_expression) Allow normal
 	expressions.

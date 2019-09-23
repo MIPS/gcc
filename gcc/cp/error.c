@@ -3780,20 +3780,18 @@ print_requires_expression_info (diagnostic_context *context, tree constr, tree a
 }
 
 void
-maybe_print_constraint_context (diagnostic_context *context)
+maybe_print_single_constraint_context (diagnostic_context *context, tree failed)
 {
-  if (!current_failed_constraint)
+  if (!failed)
     return;
-  tree constr = TREE_VALUE (current_failed_constraint);
+
+  tree constr = TREE_VALUE (failed);
   if (!constr || constr == error_mark_node)
     return;
   tree cxt = CONSTR_CONTEXT (constr);
   if (!cxt)
     return;
-  tree args = TREE_PURPOSE (current_failed_constraint);
-
-  /* Reset the constraint, so we only print the context once.  */
-  current_failed_constraint = NULL_TREE;
+  tree args = TREE_PURPOSE (failed);
 
   /* Print the stack of requirements.  */
   cxt = print_constraint_context_head (context, cxt, args);
@@ -3809,6 +3807,24 @@ maybe_print_constraint_context (diagnostic_context *context)
   if (TREE_CODE (constr) == ATOMIC_CONSTR
       && TREE_CODE (ATOMIC_CONSTR_EXPR (constr)) == REQUIRES_EXPR)
     print_requires_expression_info (context, constr, args);
+}
+
+void
+maybe_print_constraint_context (diagnostic_context *context)
+{
+  if (!current_failed_constraint)
+    return;
+
+  /* Recursively print nested contexts.  */
+  if (TREE_CHAIN (current_failed_constraint))
+    maybe_print_constraint_context (context);
+
+  /* Print this context.  */
+  maybe_print_single_constraint_context (context, current_failed_constraint);
+
+  /* If we're emitting an error, then consume the entire context so that
+     we don't re-print it for subsequent errors.  */
+  current_failed_constraint = NULL_TREE;
 }
 
 /* Return true iff TYPE_A and TYPE_B are template types that are

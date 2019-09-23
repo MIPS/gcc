@@ -7650,14 +7650,10 @@ extern tree current_failed_constraint;
 
 struct diagnosing_failed_constraint
 {
-  diagnosing_failed_constraint (tree t, tree args)
-  {
-    current_failed_constraint = build_tree_list (args, t);
-  }
-  ~diagnosing_failed_constraint ()
-  {
-    current_failed_constraint = NULL_TREE;
-  }
+  diagnosing_failed_constraint (tree, tree, bool);
+  ~diagnosing_failed_constraint ();
+
+  bool diagnosing_error;
 };
 
 /* in constraint.cc */
@@ -7719,7 +7715,6 @@ extern bool satisfying_constraint_p		();
 extern tree unpack_concept_check		(tree);
 extern tree evaluate_concept_check              (tree);
 extern tree satisfy_constraint_expression	(tree);
-extern tree satisfy_constraint_expression	(tree, tree);
 extern bool constraints_satisfied_p             (tree);
 extern bool constraints_satisfied_p             (tree, tree);
 extern tree lookup_constraint_satisfaction      (tree, tree);
@@ -7731,14 +7726,12 @@ extern tree save_concept_expansion              (tree, tree, tree);
 extern bool* lookup_subsumption_result          (tree, tree);
 extern bool save_subsumption_result             (tree, tree, bool);
 extern tree find_template_parameters		(tree, int);
-
 extern bool equivalent_constraints              (tree, tree);
 extern bool equivalently_constrained            (tree, tree);
 extern bool subsumes_constraints                (tree, tree);
 extern bool strictly_subsumes			(tree, tree, tree);
 extern bool weakly_subsumes			(tree, tree, tree);
 extern int more_constrained                     (tree, tree);
-
 extern void diagnose_constraints                (location_t, tree, tree);
 
 /* in logic.cc */
