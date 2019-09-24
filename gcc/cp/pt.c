@@ -28399,6 +28399,23 @@ append_type_to_template_for_access_check (tree templ,
 					      scope, location);
 }
 
+/* Recursively walk over && expressions searching for EXPR. Return a reference
+   to that expression.  */
+
+static tree *find_template_requirement (tree *t, tree key)
+{
+  if (*t == key)
+    return t;
+  if (TREE_CODE (*t) == TRUTH_ANDIF_EXPR)
+    {
+      if (tree *p = find_template_requirement (&TREE_OPERAND (*t, 0), key))
+	return p;
+      if (tree *p = find_template_requirement (&TREE_OPERAND (*t, 1), key))
+	return p;
+    }
+  return 0;
+}
+
 /* Convert the generic type parameters in PARM that match the types given in the
    range [START_IDX, END_IDX) from the current_template_parms into generic type
    packs.  */
@@ -28420,9 +28437,8 @@ convert_generic_types_to_packs (tree parm, int start_idx, int end_idx)
       /* Create a distinct parameter pack type from the current parm and add it
 	 to the replacement args to tsubst below into the generic function
 	 parameter.  */
-
-      tree o = TREE_TYPE (TREE_VALUE
-			  (TREE_VEC_ELT (current, i)));
+      tree node = TREE_VEC_ELT (current, i);
+      tree o = TREE_TYPE (TREE_VALUE (node));
       tree t = copy_type (o);
       TEMPLATE_TYPE_PARM_INDEX (t)
 	= reduce_template_parm_level (TEMPLATE_TYPE_PARM_INDEX (o),
@@ -28433,7 +28449,26 @@ convert_generic_types_to_packs (tree parm, int start_idx, int end_idx)
       TEMPLATE_TYPE_PARAMETER_PACK (t) = true;
       TYPE_CANONICAL (t) = canonical_type_parameter (t);
       TREE_VEC_ELT (replacement, i) = t;
-      TREE_VALUE (TREE_VEC_ELT (current, i)) = TREE_CHAIN (t);
+
+      /* Replace the current template parameter with new pack.  */
+      TREE_VALUE (node) = TREE_CHAIN (t);
+
+      /* Surgically adjust the associated constraint of adjusted parameter
+         and it's corresponding contribution to the current template
+         requirements.  */
+      if (tree constr = TEMPLATE_PARM_CONSTRAINTS (node))
+	{
+	  tree id = unpack_concept_check (constr);
+	  TREE_VEC_ELT (TREE_OPERAND (id, 1), 0) = template_parm_to_arg (t);
+	  tree fold = finish_left_unary_fold_expr (constr, TRUTH_ANDIF_EXPR);
+	  TEMPLATE_PARM_CONSTRAINTS (node) = fold;
+
+	  /* If there was a constraint, we also need to replace that in
+	     the template requirements, which we've already built.  */
+	  tree *reqs = &TEMPLATE_PARMS_CONSTRAINTS (current_template_parms);
+	  reqs = find_template_requirement (reqs, constr);
+	  *reqs = fold;
+	}
     }
 
   for (int i = end_idx, e = TREE_VEC_LENGTH (current); i < e; ++i)

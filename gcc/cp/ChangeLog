@@ -1,3 +1,12 @@
+2019-09-24  Andrew Sutton  <asutton@lock3software.com>
+
+	Regenerate associated constraints for abbreviated function templates
+	with variadic function arguments.
+	* (find_template_requirement): New. Search for the sub-requirement
+	within the associated constraints.
+	(convert_generic_types_to_packs): Also transform the associated
+	constraint and update the current template requirements.
+
 2019-09-23  Andrew Sutton  <asutton@lock3software.com>
 
 	Remove unused memoization code for constraints and concepts.

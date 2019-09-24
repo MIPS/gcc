@@ -1,3 +1,11 @@
+2019-09-24  Andrew Sutton  <asutton@lock3software.com>
+
+	PR c++/78752
+	Regenerate associated constraints for abbreviated function templates
+	with variadic function arguments.
+	* g++.dg/cpp2a/concepts-fn3.C: New.
+	* g++.dg/cpp2a/concepts-pr78752: New.
+
 2019-09-20  Andrew Sutton  <asutton@lock3software.com>
 
 	Summarize constraint contexts for terser errors. Also make sure
