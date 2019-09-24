@@ -1,3 +1,8 @@
+2019-09-24  Jason Merrill  <jason@redhat.com>
+
+	* parser.c (cp_parser_postfix_expression): Do set location of
+	dependent member call.
+
 2019-09-24  Andrew Sutton  <asutton@lock3software.com>
 
 	Regenerate associated constraints for abbreviated function templates
