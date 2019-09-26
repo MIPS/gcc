@@ -719,6 +719,13 @@ normalize_expression (tree t, tree args, norm_info info)
    can all be recalculated.  */
 static GTY((deletable)) hash_map<tree,tree> *normalized_map;
 
+static tree
+get_normalized_constraints (tree t, tree args, norm_info info)
+{
+  auto_timevar time (TV_CONSTRAINT_NORM);
+  return normalize_expression (t, args, info);
+}
+
 /* Returns the normalized constraints from a constraint-info object
    or NULL_TREE if the constraints are null. ARGS provide the initial
    arguments for normalization and IN_DECL provides the declaration
@@ -733,7 +740,7 @@ get_normalized_constraints_from_info (tree ci, tree args, tree in_decl, bool dia
   /* Substitution errors during normalization are fatal.  */
   ++processing_template_decl;
   norm_info info (in_decl, diag ? tf_norm : tf_none);
-  tree t = normalize_expression (CI_ASSOCIATED_CONSTRAINTS (ci), args, info);
+  tree t = get_normalized_constraints (CI_ASSOCIATED_CONSTRAINTS (ci), args, info);
   --processing_template_decl;
 
   return t;
@@ -818,7 +825,7 @@ normalize_concept_definition (tree tmpl)
   tree def = get_concept_definition (DECL_TEMPLATE_RESULT (tmpl));
   ++processing_template_decl;
   norm_info info (tmpl, tf_none);
-  tree norm = normalize_expression (def, args, info);
+  tree norm = get_normalized_constraints (def, args, info);
   --processing_template_decl;
   hash_map_safe_put (normalized_map, tmpl, norm);
   return norm;
@@ -861,7 +868,7 @@ normalize_constraint_expression (tree expr, bool diag = false)
 
   ++processing_template_decl;
   norm_info info (diag ? tf_norm : tf_none);
-  tree norm = normalize_expression (expr, args, info);
+  tree norm = get_normalized_constraints (expr, args, info);
   --processing_template_decl;
   return norm;
 }
