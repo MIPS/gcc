@@ -1740,8 +1740,20 @@ tsubst_nested_requirement (tree t, tree args, subst_info info)
   /* Ensure that concrete results are satisfied.  */
   if (!uses_template_parms (args))
     {
-      if (!constraints_satisfied_p (expr))
-	return error_mark_node;
+      /* [17.4.1.2] ... lvalue-to-value conversion is performed as necessary,
+         and EXPR shall be a constant expression of type bool.  */
+      tree result = force_rvalue (expr, tf_error);
+      if (result == error_mark_node)
+        return error_mark_node;
+
+      /* FIXME: The expression must have boolean type.  */
+      if (cv_unqualified (TREE_TYPE (result)) != boolean_type_node)
+        return error_mark_node;
+
+      /* Compute the value of the expression.  */
+      result = satisfaction_value (cxx_constant_value (result));
+      if (result == error_mark_node || result == boolean_false_node)
+        return error_mark_node;
     }
 
   return finish_nested_requirement (EXPR_LOCATION (t), expr);
