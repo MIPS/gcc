@@ -1,5 +1,8 @@
 2019-09-27  Jason Merrill  <jason@redhat.com>
 
+	* parser.c (cp_parser_template_introduction): Pedwarn if not
+	-fconcepts-ts.
+
 	* constexpr.c (cxx_fold_indirect_ref): Use similar_type_p.
 	(cxx_eval_indirect_ref): Likewise.  Improve error location.
 

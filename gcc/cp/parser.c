@@ -28729,6 +28729,10 @@ cp_parser_template_introduction (cp_parser* parser, bool member_p)
 					     introduction_loc);
   if (parms && parms != error_mark_node)
     {
+      if (!flag_concepts_ts)
+	pedwarn (introduction_loc, 0, "template-introductions"
+		 " are not part of C++20 concepts [-fconcepts-ts]");
+
       cp_parser_template_declaration_after_parameters (parser, parms,
 						       member_p);
       return true;
