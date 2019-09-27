@@ -1107,4 +1107,37 @@ DEF_GCC_BUILTIN (BUILT_IN_LINE, "LINE", BT_FN_INT, ATTR_NOTHROW_LEAF_LIST)
 /* HSAIL/BRIG frontend builtins.  */
 #include "brig-builtins.def"
 
+
+/* Analyzer builtins.  */
+DEF_BUILTIN (BUILT_IN_ANALYZER_BREAK, "__analyzer_break",
+	     BUILT_IN_NORMAL, BT_FN_VOID, BT_LAST,
+	     false, false, false, ATTR_NULL, true, true)
+
+DEF_BUILTIN (BUILT_IN_ANALYZER_DUMP, "__analyzer_dump",
+	     BUILT_IN_NORMAL, BT_FN_VOID, BT_LAST,
+	     false, false, false, ATTR_NULL, true, true)
+
+DEF_BUILTIN (BUILT_IN_ANALYZER_DUMP_EXPLODED_NODES,
+	     "__analyzer_dump_exploded_nodes",
+	     BUILT_IN_NORMAL, BT_FN_VOID_INT, BT_LAST,
+	     false, false, false, ATTR_NULL, true, true)
+
+DEF_BUILTIN (BUILT_IN_ANALYZER_DUMP_NUM_HEAP_REGIONS,
+	     "__analyzer_dump_num_heap_regions",
+	     BUILT_IN_NORMAL, BT_FN_VOID, BT_LAST,
+	     false, false, false, ATTR_NULL, true, true)
+
+DEF_BUILTIN (BUILT_IN_ANALYZER_DUMP_PATH, "__analyzer_dump_path",
+	     BUILT_IN_NORMAL, BT_FN_VOID, BT_LAST,
+	     false, false, false, ATTR_NULL, true, true)
+
+DEF_BUILTIN (BUILT_IN_ANALYZER_DUMP_REGION_MODEL,
+	     "__analyzer_dump_region_model",
+	     BUILT_IN_NORMAL, BT_FN_VOID, BT_LAST,
+	     false, false, false, ATTR_NULL, true, true)
+
+DEF_BUILTIN (BUILT_IN_ANALYZER_EVAL, "__analyzer_eval",
+	     BUILT_IN_NORMAL, BT_FN_VOID_INT, BT_LAST,
+	     false, false, false, ATTR_NULL, true, true)
+
 #undef DEF_BUILTIN
