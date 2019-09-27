@@ -395,16 +395,15 @@ struct target_hard_regs {
      a pseudo reg whose life crosses calls.  */
   char x_call_used_regs[FIRST_PSEUDO_REGISTER];
 
-  char x_call_really_used_regs[FIRST_PSEUDO_REGISTER];
+  /* For targets that use reload rather than LRA, this is the set
+     of registers that we are able to save and restore around calls
+     (i.e. those for which we know a suitable mode and set of
+     load/store instructions exist).  For LRA targets it contains
+     all registers.
 
-  /* The same info as a HARD_REG_SET.  */
-  HARD_REG_SET x_call_used_reg_set;
-
-  /* Contains registers that are fixed use -- i.e. in fixed_reg_set -- or
-     a function value return register or TARGET_STRUCT_VALUE_RTX or
-     STATIC_CHAIN_REGNUM.  These are the registers that cannot hold quantities
-     across calls even if we are willing to save and restore them.  */
-  HARD_REG_SET x_call_fixed_reg_set;
+     This is legacy information and should be removed if all targets
+     switch to LRA.  */
+  HARD_REG_SET x_savable_regs;
 
   /* Contains registers that are fixed use -- i.e. in fixed_reg_set -- but
      only if they are not merely part of that set because they are global
@@ -419,10 +418,6 @@ struct target_hard_regs {
      that are actually preserved.  We know for sure that those associated
      with the local stack frame are safe, but scant others.  */
   HARD_REG_SET x_regs_invalidated_by_call;
-
-  /* Call used hard registers which cannot be saved because there is no
-     insn for this.  */
-  HARD_REG_SET x_no_caller_save_reg_set;
 
   /* Table of register numbers in the order in which to try to use them.  */
   int x_reg_alloc_order[FIRST_PSEUDO_REGISTER];
@@ -476,18 +471,16 @@ extern struct target_hard_regs *this_target_hard_regs;
   (this_target_hard_regs->x_fixed_reg_set)
 #define fixed_nonglobal_reg_set \
   (this_target_hard_regs->x_fixed_nonglobal_reg_set)
+#ifdef IN_TARGET_CODE
 #define call_used_regs \
   (this_target_hard_regs->x_call_used_regs)
-#define call_really_used_regs \
-  (this_target_hard_regs->x_call_really_used_regs)
-#define call_used_reg_set \
-  (this_target_hard_regs->x_call_used_reg_set)
-#define call_fixed_reg_set \
-  (this_target_hard_regs->x_call_fixed_reg_set)
+#endif
+#define savable_regs \
+  (this_target_hard_regs->x_savable_regs)
 #define regs_invalidated_by_call \
   (this_target_hard_regs->x_regs_invalidated_by_call)
-#define no_caller_save_reg_set \
-  (this_target_hard_regs->x_no_caller_save_reg_set)
+#define call_used_or_fixed_regs \
+  (regs_invalidated_by_call | fixed_reg_set)
 #define reg_alloc_order \
   (this_target_hard_regs->x_reg_alloc_order)
 #define inv_reg_alloc_order \
@@ -515,5 +508,14 @@ extern const char * reg_class_names[];
    REGN can change from mode FROM to mode TO.  */
 #define REG_CAN_CHANGE_MODE_P(REGN, FROM, TO)                          \
   (targetm.can_change_mode_class (FROM, TO, REGNO_REG_CLASS (REGN)))
+
+/* Return true if register REGNO is either fixed or call-used
+   (aka call-clobbered).  */
+
+inline bool
+call_used_or_fixed_reg_p (unsigned int regno)
+{
+  return fixed_regs[regno] || this_target_hard_regs->x_call_used_regs[regno];
+}
 
 #endif /* ! GCC_HARD_REG_SET_H */

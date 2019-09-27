@@ -1094,7 +1094,7 @@ c6x_call_saved_register_used (tree call_expr)
   INIT_CUMULATIVE_ARGS (cum_v, NULL, NULL, 0, 0);
   cum = pack_cumulative_args (&cum_v);
 
-  call_saved_regset = ~call_used_reg_set;
+  call_saved_regset = ~call_used_or_fixed_regs;
   for (i = 0; i < call_expr_nargs (call_expr); i++)
     {
       parameter = CALL_EXPR_ARG (call_expr, i);
@@ -2532,8 +2532,7 @@ static int
 c6x_save_reg (unsigned int regno)
 {
   return ((df_regs_ever_live_p (regno)
-	   && !call_used_regs[regno]
-	   && !fixed_regs[regno])
+	   && !call_used_or_fixed_reg_p (regno))
 	  || (regno == RETURN_ADDR_REGNO
 	      && (df_regs_ever_live_p (regno)
 		  || !crtl->is_leaf))
@@ -6677,6 +6676,28 @@ c6x_modes_tieable_p (machine_mode mode1, machine_mode mode2)
 	      && GET_MODE_SIZE (mode2) <= UNITS_PER_WORD));
 }
 
+/* Implement REGNO_REG_CLASS.  */
+
+enum reg_class
+c6x_regno_reg_class (int reg)
+{
+  if (reg >= REG_A1 && reg <= REG_A2)
+    return PREDICATE_A_REGS;
+
+  if (reg == REG_A0 && TARGET_INSNS_64)
+    return PREDICATE_A_REGS;
+
+  if (reg >= REG_B0 && reg <= REG_B2)
+    return PREDICATE_B_REGS;
+
+  if (A_REGNO_P (reg))
+    return NONPREDICATE_A_REGS;
+
+  if (call_used_or_fixed_reg_p (reg))
+    return CALL_USED_B_REGS;
+
+  return B_REGS;
+}
 
 /* Target Structure.  */
 

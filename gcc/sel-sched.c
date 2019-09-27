@@ -1123,7 +1123,7 @@ init_hard_regs_data (void)
 
   CLEAR_HARD_REG_SET (sel_hrd.regs_ever_used);
   for (cur_reg = 0; cur_reg < FIRST_PSEUDO_REGISTER; cur_reg++)
-    if (df_regs_ever_live_p (cur_reg) || call_used_regs[cur_reg])
+    if (df_regs_ever_live_p (cur_reg) || call_used_or_fixed_reg_p (cur_reg))
       SET_HARD_REG_BIT (sel_hrd.regs_ever_used, cur_reg);
 
   /* Initialize registers that are valid based on mode when this is
@@ -1224,10 +1224,10 @@ mark_unavailable_hard_regs (def_t def, struct reg_rename *reg_rename_p,
     reg_rename_p->unavailable_hard_regs |= sel_hrd.stack_regs;
 #endif
 
-  /* If there's a call on this path, make regs from call_used_reg_set
+  /* If there's a call on this path, make regs from call_used_or_fixed_regs
      unavailable.  */
   if (def->crosses_call)
-    reg_rename_p->unavailable_hard_regs |= call_used_reg_set;
+    reg_rename_p->unavailable_hard_regs |= call_used_or_fixed_regs;
 
   /* Stop here before reload: we need FRAME_REGS, STACK_REGS, and crosses_call,
      but not register classes.  */

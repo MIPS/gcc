@@ -2370,7 +2370,7 @@ setup_reg_renumber (void)
 	    }
 	  if (ALLOCNO_CALLS_CROSSED_NUM (a) != 0
 	      && ira_hard_reg_set_intersection_p (hard_regno, ALLOCNO_MODE (a),
-						  call_used_reg_set))
+						  call_used_or_fixed_regs))
 	    {
 	      ira_assert (!optimize || flag_caller_saves
 			  || (ALLOCNO_CALLS_CROSSED_NUM (a)
@@ -5589,7 +5589,9 @@ do_reload (void)
       poly_int64 size = get_frame_size () + STACK_CHECK_FIXED_FRAME_SIZE;
 
       for (int i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (df_regs_ever_live_p (i) && !fixed_regs[i] && call_used_regs[i])
+	if (df_regs_ever_live_p (i)
+	    && !fixed_regs[i]
+	    && call_used_or_fixed_reg_p (i))
 	  size += UNITS_PER_WORD;
 
       if (constant_lower_bound (size) > STACK_CHECK_MAX_FRAME_SIZE)

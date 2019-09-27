@@ -928,12 +928,12 @@ process_bb_lives (basic_block bb, int &curr_point, bool dead_insn_p)
 	{
 	  call_insn = curr_insn;
 	  if (! flag_ipa_ra && ! targetm.return_call_with_max_clobbers)
-	    last_call_used_reg_set = call_used_reg_set;
+	    last_call_used_reg_set = call_used_or_fixed_regs;
 	  else
 	    {
 	      HARD_REG_SET this_call_used_reg_set;
 	      get_call_reg_set_usage (curr_insn, &this_call_used_reg_set,
-				      call_used_reg_set);
+				      call_used_or_fixed_regs);
 
 	      bool flush = (! hard_reg_set_empty_p (last_call_used_reg_set)
 			    && (last_call_used_reg_set
@@ -1106,7 +1106,7 @@ process_bb_lives (basic_block bb, int &curr_point, bool dead_insn_p)
       if (!cfun->has_nonlocal_label
 	  && has_abnormal_call_or_eh_pred_edge_p (bb))
 	for (px = 0; HARD_REGISTER_NUM_P (px); px++)
-	  if (call_used_regs[px]
+	  if (call_used_or_fixed_reg_p (px)
 #ifdef REAL_PIC_OFFSET_TABLE_REGNUM
 	      /* We should create a conflict of PIC pseudo with PIC
 		 hard reg as PIC hard reg can have a wrong value after

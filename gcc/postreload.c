@@ -1135,7 +1135,7 @@ reload_combine_recognize_pattern (rtx_insn *insn)
 	      if (TEST_HARD_REG_BIT (reg_class_contents[INDEX_REG_CLASS], i)
 		  && reg_state[i].use_index == RELOAD_COMBINE_MAX_USES
 		  && reg_state[i].store_ruid <= reg_state[regno].use_ruid
-		  && (call_used_regs[i] || df_regs_ever_live_p (i))
+		  && (call_used_or_fixed_reg_p (i) || df_regs_ever_live_p (i))
 		  && (!frame_pointer_needed || i != HARD_FRAME_POINTER_REGNUM)
 		  && !fixed_regs[i] && !global_regs[i]
 		  && hard_regno_nregs (i, GET_MODE (reg)) == 1
@@ -1332,7 +1332,7 @@ reload_combine (void)
 	  rtx link;
 	  HARD_REG_SET used_regs;
 
-	  get_call_reg_set_usage (insn, &used_regs, call_used_reg_set);
+	  get_call_reg_set_usage (insn, &used_regs, call_used_or_fixed_regs);
 
 	  for (r = 0; r < FIRST_PSEUDO_REGISTER; r++)
 	    if (TEST_HARD_REG_BIT (used_regs, r))
@@ -2126,7 +2126,7 @@ reload_cse_move2add (rtx_insn *first)
 	{
 	  for (i = FIRST_PSEUDO_REGISTER - 1; i >= 0; i--)
 	    {
-	      if (call_used_regs[i])
+	      if (call_used_or_fixed_reg_p (i))
 		/* Reset the information about this register.  */
 		reg_mode[i] = VOIDmode;
 	    }

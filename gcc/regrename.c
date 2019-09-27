@@ -322,7 +322,7 @@ check_new_reg_p (int reg ATTRIBUTE_UNUSED, int new_reg,
 	|| global_regs[new_reg + i]
 	/* Can't use regs which aren't saved by the prologue.  */
 	|| (! df_regs_ever_live_p (new_reg + i)
-	    && ! call_used_regs[new_reg + i])
+	    && ! call_used_or_fixed_reg_p (new_reg + i))
 #ifdef LEAF_REGISTERS
 	/* We can't use a non-leaf register if we're in a
 	   leaf function.  */
@@ -367,7 +367,7 @@ find_rename_reg (du_head_p this_head, enum reg_class super_class,
      If the chain needs a call-saved register, mark the call-used
      registers as unavailable.  */
   if (this_head->need_caller_save_reg)
-    *unavailable |= call_used_reg_set;
+    *unavailable |= call_used_or_fixed_regs;
 
   /* Mark registers that overlap this chain's lifetime as unavailable.  */
   merge_overlapping_regs (unavailable, this_head);

@@ -192,29 +192,17 @@ init_caller_save (void)
 
   caller_save_initialized_p = true;
 
-  CLEAR_HARD_REG_SET (no_caller_save_reg_set);
   /* First find all the registers that we need to deal with and all
      the modes that they can have.  If we can't find a mode to use,
      we can't have the register live over calls.  */
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    {
-      if (call_used_regs[i]
-          && !TEST_HARD_REG_BIT (call_fixed_reg_set, i))
-	{
-	  for (j = 1; j <= MOVE_MAX_WORDS; j++)
-	    {
-	      regno_save_mode[i][j] = HARD_REGNO_CALLER_SAVE_MODE (i, j,
-								   VOIDmode);
-	      if (regno_save_mode[i][j] == VOIDmode && j == 1)
-		{
-		  SET_HARD_REG_BIT (call_fixed_reg_set, i);
-		}
-	    }
-	}
-      else
-	regno_save_mode[i][1] = VOIDmode;
-    }
+    for (j = 1; j <= MOVE_MAX_WORDS; j++)
+      {
+	regno_save_mode[i][j] = HARD_REGNO_CALLER_SAVE_MODE (i, j, VOIDmode);
+	if (regno_save_mode[i][j] == VOIDmode && j == 1)
+	  CLEAR_HARD_REG_BIT (savable_regs, i);
+      }
 
   /* The following code tries to approximate the conditions under which
      we can easily save and restore a register without scratch registers or
@@ -275,11 +263,7 @@ init_caller_save (void)
 	{
 	  regno_save_mode[i][j] = VOIDmode;
 	  if (j == 1)
-	    {
-	      SET_HARD_REG_BIT (call_fixed_reg_set, i);
-	      if (call_used_regs[i])
-		SET_HARD_REG_BIT (no_caller_save_reg_set, i);
-	    }
+	    CLEAR_HARD_REG_BIT (savable_regs, i);
 	}
 }
 
@@ -442,7 +426,7 @@ setup_save_areas (void)
       freq = REG_FREQ_FROM_BB (BLOCK_FOR_INSN (insn));
       REG_SET_TO_HARD_REG_SET (hard_regs_to_save,
 			       &chain->live_throughout);
-      get_call_reg_set_usage (insn, &used_regs, call_used_reg_set);
+      get_call_reg_set_usage (insn, &used_regs, call_used_or_fixed_regs);
 
       /* Record all registers set in this call insn.  These don't
 	 need to be saved.  N.B. the call insn might set a subreg
@@ -455,8 +439,8 @@ setup_save_areas (void)
       if (SIBLING_CALL_P (insn) && crtl->return_rtx)
 	mark_set_regs (crtl->return_rtx, NULL_RTX, &this_insn_sets);
 
-      used_regs &= ~(call_fixed_reg_set | this_insn_sets);
-      hard_regs_to_save &= used_regs;
+      used_regs &= ~(fixed_reg_set | this_insn_sets);
+      hard_regs_to_save &= used_regs & savable_regs;
       for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
 	if (TEST_HARD_REG_BIT (hard_regs_to_save, regno))
 	  {
@@ -525,7 +509,7 @@ setup_save_areas (void)
 
 	  REG_SET_TO_HARD_REG_SET (hard_regs_to_save,
 				   &chain->live_throughout);
-	  get_call_reg_set_usage (insn, &used_regs, call_used_reg_set);
+	  get_call_reg_set_usage (insn, &used_regs, call_used_or_fixed_regs);
 
 	  /* Record all registers set in this call insn.  These don't
 	     need to be saved.  N.B. the call insn might set a subreg
@@ -539,8 +523,8 @@ setup_save_areas (void)
 	  if (SIBLING_CALL_P (insn) && crtl->return_rtx)
 	    mark_set_regs (crtl->return_rtx, NULL_RTX, &this_insn_sets);
 
-	  used_regs &= ~(call_fixed_reg_set | this_insn_sets);
-	  hard_regs_to_save &= used_regs;
+	  used_regs &= ~(fixed_reg_set | this_insn_sets);
+	  hard_regs_to_save &= used_regs & savable_regs;
 	  for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
 	    if (TEST_HARD_REG_BIT (hard_regs_to_save, regno))
 	      {
@@ -850,11 +834,12 @@ save_call_clobbered_regs (void)
 	      note_stores (insn, mark_set_regs, &this_insn_sets);
 
 	      /* Compute which hard regs must be saved before this call.  */
-	      hard_regs_to_save &= ~(call_fixed_reg_set
+	      hard_regs_to_save &= ~(fixed_reg_set
 				     | this_insn_sets
 				     | hard_regs_saved);
+	      hard_regs_to_save &= savable_regs;
 	      get_call_reg_set_usage (insn, &call_def_reg_set,
-				      call_used_reg_set);
+				      call_used_or_fixed_regs);
 	      hard_regs_to_save &= call_def_reg_set;
 
 	      for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
@@ -870,7 +855,8 @@ save_call_clobbered_regs (void)
 	      
 	      if (cheap
 		  && HARD_REGISTER_P (cheap)
-		  && TEST_HARD_REG_BIT (call_used_reg_set, REGNO (cheap)))
+		  && TEST_HARD_REG_BIT (call_used_or_fixed_regs,
+					REGNO (cheap)))
 		{
 		  rtx dest, newpat;
 		  rtx pat = PATTERN (insn);

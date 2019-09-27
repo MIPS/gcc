@@ -1257,7 +1257,7 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 		  HARD_REG_SET this_call_used_reg_set;
 
 		  get_call_reg_set_usage (insn, &this_call_used_reg_set,
-					  call_used_reg_set);
+					  call_used_or_fixed_regs);
 
 		  /* Don't allocate allocnos that cross setjmps or any
 		     call, if this function receives a nonlocal
@@ -1380,7 +1380,7 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 	  if (!cfun->has_nonlocal_label
 	      && has_abnormal_call_or_eh_pred_edge_p (bb))
 	    for (px = 0; px < FIRST_PSEUDO_REGISTER; px++)
-	      if (call_used_regs[px]
+	      if (call_used_or_fixed_reg_p (px)
 #ifdef REAL_PIC_OFFSET_TABLE_REGNUM
 		  /* We should create a conflict of PIC pseudo with
 		     PIC hard reg as PIC hard reg can have a wrong

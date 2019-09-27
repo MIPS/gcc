@@ -292,7 +292,8 @@ finish_member_template_decl (tree decl)
       return NULL_TREE;
     }
   else if (TREE_CODE (decl) == FIELD_DECL)
-    error ("data member %qD cannot be a member template", decl);
+    error_at (DECL_SOURCE_LOCATION (decl),
+	      "data member %qD cannot be a member template", decl);
   else if (DECL_TEMPLATE_INFO (decl))
     {
       if (!DECL_TEMPLATE_SPECIALIZATION (decl))
@@ -304,7 +305,8 @@ finish_member_template_decl (tree decl)
 	return decl;
     }
   else
-    error ("invalid member template declaration %qD", decl);
+    error_at (DECL_SOURCE_LOCATION (decl),
+	      "invalid member template declaration %qD", decl);
 
   return error_mark_node;
 }
@@ -2800,8 +2802,9 @@ check_explicit_specialization (tree declarator,
 	      /* This case handles bogus declarations like template <>
 		 template <class T> void f<int>(); */
 
-	      error ("template-id %qD in declaration of primary template",
-		     declarator);
+	      error_at (cp_expr_loc_or_input_loc (declarator),
+			"template-id %qE in declaration of primary template",
+			declarator);
 	      return decl;
 	    }
 	}
@@ -2859,8 +2862,9 @@ check_explicit_specialization (tree declarator,
 	     template <class T> void f<int>(); */
 
 	  if (!uses_template_parms (TREE_OPERAND (declarator, 1)))
-	    error ("template-id %qD in declaration of primary template",
-		   declarator);
+	    error_at (cp_expr_loc_or_input_loc (declarator),
+		      "template-id %qE in declaration of primary template",
+		      declarator);
 	  else if (variable_template_p (TREE_OPERAND (declarator, 0)))
 	    {
 	      /* Partial specialization of variable template.  */
@@ -2869,11 +2873,13 @@ check_explicit_specialization (tree declarator,
 	      goto ok;
 	    }
 	  else if (cxx_dialect < cxx14)
-	    error ("non-type partial specialization %qD "
-		   "is not allowed", declarator);
+	    error_at (cp_expr_loc_or_input_loc (declarator),
+		      "non-type partial specialization %qE "
+		      "is not allowed", declarator);
 	  else
-	    error ("non-class, non-variable partial specialization %qD "
-		   "is not allowed", declarator);
+	    error_at (cp_expr_loc_or_input_loc (declarator),
+		      "non-class, non-variable partial specialization %qE "
+		      "is not allowed", declarator);
 	  return decl;
 	ok:;
 	}
@@ -5117,8 +5123,9 @@ process_partial_specialization (tree decl)
             {
               if ((!packed_args && tpd.arg_uses_template_parms[i])
                   || (packed_args && uses_template_parms (arg)))
-                error ("template argument %qE involves template parameter(s)",
-                       arg);
+		error_at (cp_expr_loc_or_input_loc (arg),
+			  "template argument %qE involves template "
+			  "parameter(s)", arg);
               else 
                 {
                   /* Look at the corresponding template parameter,
@@ -5676,7 +5683,8 @@ push_template_decl_real (tree decl, bool is_friend)
 	      /* [temp.mem]
 
 		 A destructor shall not be a member template.  */
-	      error ("destructor %qD declared as member template", decl);
+	      error_at (DECL_SOURCE_LOCATION (decl),
+			"destructor %qD declared as member template", decl);
 	      return error_mark_node;
 	    }
 	  if (IDENTIFIER_NEWDEL_OP_P (DECL_NAME (decl))
@@ -6435,13 +6443,14 @@ convert_nontype_argument_function (tree type, tree expr,
     {
       if (complain & tf_error)
 	{
-	  error ("%qE is not a valid template argument for type %qT",
-		 expr, type);
+	  location_t loc = cp_expr_loc_or_input_loc (expr);
+	  error_at (loc, "%qE is not a valid template argument for type %qT",
+		    expr, type);
 	  if (TYPE_PTR_P (type))
-	    inform (input_location, "it must be the address of a function "
+	    inform (loc, "it must be the address of a function "
 		    "with external linkage");
 	  else
-	    inform (input_location, "it must be the name of a function with "
+	    inform (loc, "it must be the name of a function with "
 		    "external linkage");
 	}
       return NULL_TREE;
@@ -6452,14 +6461,15 @@ convert_nontype_argument_function (tree type, tree expr,
     {
       if (complain & tf_error)
 	{
+	  location_t loc = cp_expr_loc_or_input_loc (expr);
 	  if (cxx_dialect >= cxx11)
-	    error ("%qE is not a valid template argument for type %qT "
-		   "because %qD has no linkage",
-		   expr, type, fn_no_ptr);
+	    error_at (loc, "%qE is not a valid template argument for type "
+		      "%qT because %qD has no linkage",
+		      expr, type, fn_no_ptr);
 	  else
-	    error ("%qE is not a valid template argument for type %qT "
-		   "because %qD does not have external linkage",
-		   expr, type, fn_no_ptr);
+	    error_at (loc, "%qE is not a valid template argument for type "
+		      "%qT because %qD does not have external linkage",
+		      expr, type, fn_no_ptr);
 	}
       return NULL_TREE;
     }
@@ -6486,7 +6496,6 @@ static bool
 check_valid_ptrmem_cst_expr (tree type, tree expr,
 			     tsubst_flags_t complain)
 {
-  location_t loc = cp_expr_loc_or_input_loc (expr);
   tree orig_expr = expr;
   STRIP_NOPS (expr);
   if (null_ptr_cst_p (expr))
@@ -6503,6 +6512,7 @@ check_valid_ptrmem_cst_expr (tree type, tree expr,
     return true;
   if (complain & tf_error)
     {
+      location_t loc = cp_expr_loc_or_input_loc (orig_expr);
       error_at (loc, "%qE is not a valid template argument for type %qT",
 		orig_expr, type);
       if (TREE_CODE (expr) != PTRMEM_CST)
@@ -6800,24 +6810,27 @@ invalid_tparm_referent_p (tree type, tree expr, tsubst_flags_t complain)
 	if (!VAR_P (decl))
 	  {
 	    if (complain & tf_error)
-	      error ("%qE is not a valid template argument of type %qT "
-		     "because %qE is not a variable", expr, type, decl);
+	      error_at (cp_expr_loc_or_input_loc (expr),
+			"%qE is not a valid template argument of type %qT "
+			"because %qE is not a variable", expr, type, decl);
 	    return true;
 	  }
 	else if (cxx_dialect < cxx11 && !DECL_EXTERNAL_LINKAGE_P (decl))
 	  {
 	    if (complain & tf_error)
-	      error ("%qE is not a valid template argument of type %qT "
-		     "in C++98 because %qD does not have external linkage",
-		     expr, type, decl);
+	      error_at (cp_expr_loc_or_input_loc (expr),
+			"%qE is not a valid template argument of type %qT "
+			"in C++98 because %qD does not have external linkage",
+			expr, type, decl);
 	    return true;
 	  }
 	else if ((cxx_dialect >= cxx11 && cxx_dialect < cxx17)
 		 && decl_linkage (decl) == lk_none)
 	  {
 	    if (complain & tf_error)
-	      error ("%qE is not a valid template argument of type %qT "
-		     "because %qD has no linkage", expr, type, decl);
+	      error_at (cp_expr_loc_or_input_loc (expr),
+			"%qE is not a valid template argument of type %qT "
+			"because %qD has no linkage", expr, type, decl);
 	    return true;
 	  }
 	/* C++17: For a non-type template-parameter of reference or pointer
@@ -8298,8 +8311,9 @@ convert_template_argument (tree parm,
       if (val == NULL_TREE)
 	val = error_mark_node;
       else if (val == error_mark_node && (complain & tf_error))
-	error ("could not convert template argument %qE from %qT to %qT",
-	       orig_arg, TREE_TYPE (orig_arg), t);
+	error_at (cp_expr_loc_or_input_loc (orig_arg),
+		  "could not convert template argument %qE from %qT to %qT",
+		  orig_arg, TREE_TYPE (orig_arg), t);
 
       if (INDIRECT_REF_P (val))
         {
@@ -11258,7 +11272,6 @@ apply_late_template_attributes (tree *decl_p, tree attributes, int attr_flags,
 static void
 perform_typedefs_access_check (tree tmpl, tree targs)
 {
-  location_t saved_location;
   unsigned i;
   qualified_typedef_usage_t *iter;
 
@@ -11267,7 +11280,6 @@ perform_typedefs_access_check (tree tmpl, tree targs)
 	  && TREE_CODE (tmpl) != FUNCTION_DECL))
     return;
 
-  saved_location = input_location;
   FOR_EACH_VEC_SAFE_ELT (get_types_needing_access_check (tmpl), i, iter)
     {
       tree type_decl = iter->typedef_decl;
@@ -11283,12 +11295,11 @@ perform_typedefs_access_check (tree tmpl, tree targs)
 
       /* Make access check error messages point to the location
          of the use of the typedef.  */
-      input_location = iter->locus;
+      iloc_sentinel ils (iter->locus);
       perform_or_defer_access_check (TYPE_BINFO (type_scope),
 				     type_decl, type_decl,
 				     tf_warning_or_error);
     }
-    input_location = saved_location;
 }
 
 static tree
@@ -20304,8 +20315,9 @@ instantiate_template_1 (tree tmpl, tree orig_args, tsubst_flags_t complain)
      instantiate all the alternate entry points as well.  We do this
      by cloning the instantiation of the main entry point, not by
      instantiating the template clones.  */
-  if (DECL_CHAIN (gen_tmpl) && DECL_CLONED_FUNCTION_P (DECL_CHAIN (gen_tmpl)))
-    clone_function_decl (fndecl, /*update_methods=*/false);
+  if (tree chain = DECL_CHAIN (gen_tmpl))
+    if (DECL_P (chain) && DECL_CLONED_FUNCTION_P (chain))
+      clone_function_decl (fndecl, /*update_methods=*/false);
 
   if (!access_ok)
     {
@@ -27109,7 +27121,7 @@ build_non_dependent_expr (tree expr)
   if (TREE_CODE (expr) == COND_EXPR)
     return build3 (COND_EXPR,
 		   TREE_TYPE (expr),
-		   TREE_OPERAND (expr, 0),
+		   build_non_dependent_expr (TREE_OPERAND (expr, 0)),
 		   (TREE_OPERAND (expr, 1)
 		    ? build_non_dependent_expr (TREE_OPERAND (expr, 1))
 		    : build_non_dependent_expr (TREE_OPERAND (expr, 0))),

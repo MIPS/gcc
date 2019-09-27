@@ -1651,6 +1651,16 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #undef TARGET_PREDICT_DOLOOP_P
 #define TARGET_PREDICT_DOLOOP_P rs6000_predict_doloop_p
 
+#undef TARGET_HAVE_COUNT_REG_DECR_P
+#define TARGET_HAVE_COUNT_REG_DECR_P true
+
+/* 1000000000 is infinite cost in IVOPTs.  */
+#undef TARGET_DOLOOP_COST_FOR_GENERIC
+#define TARGET_DOLOOP_COST_FOR_GENERIC 1000000000
+
+#undef TARGET_DOLOOP_COST_FOR_ADDRESS
+#define TARGET_DOLOOP_COST_FOR_ADDRESS 1000000000
+
 #undef TARGET_ATOMIC_ASSIGN_EXPAND_FENV
 #define TARGET_ATOMIC_ASSIGN_EXPAND_FENV rs6000_atomic_assign_expand_fenv
 
@@ -1990,7 +2000,7 @@ rs6000_debug_reg_print (int first_regno, int last_regno, const char *reg_name)
 	    comma = ", ";
 	  }
 
-      if (call_used_regs[r])
+      if (call_used_or_fixed_reg_p (r))
 	{
 	  if (len > 70)
 	    {
@@ -8904,42 +8914,37 @@ rs6000_conditional_register_usage (void)
 
   /* 64-bit AIX and Linux reserve GPR13 for thread-private data.  */
   if (TARGET_64BIT)
-    fixed_regs[13] = call_used_regs[13]
-      = call_really_used_regs[13] = 1;
+    fixed_regs[13] = call_used_regs[13] = 1;
 
   /* Conditionally disable FPRs.  */
   if (TARGET_SOFT_FLOAT)
     for (i = 32; i < 64; i++)
-      fixed_regs[i] = call_used_regs[i]
-	= call_really_used_regs[i] = 1;
+      fixed_regs[i] = call_used_regs[i] = 1;
 
   /* The TOC register is not killed across calls in a way that is
      visible to the compiler.  */
   if (DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_ELFv2)
-    call_really_used_regs[2] = 0;
+    call_used_regs[2] = 0;
 
   if (DEFAULT_ABI == ABI_V4 && flag_pic == 2)
     fixed_regs[RS6000_PIC_OFFSET_TABLE_REGNUM] = 1;
 
   if (DEFAULT_ABI == ABI_V4 && flag_pic == 1)
     fixed_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]
-      = call_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]
-      = call_really_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM] = 1;
+      = call_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM] = 1;
 
   if (DEFAULT_ABI == ABI_DARWIN && flag_pic)
     fixed_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]
-      = call_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]
-      = call_really_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM] = 1;
+      = call_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM] = 1;
 
   if (TARGET_TOC && TARGET_MINIMAL_TOC)
-    fixed_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]
-      = call_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM] = 1;
+    fixed_regs[RS6000_PIC_OFFSET_TABLE_REGNUM] = 1;
 
   if (!TARGET_ALTIVEC && !TARGET_VSX)
     {
       for (i = FIRST_ALTIVEC_REGNO; i <= LAST_ALTIVEC_REGNO; ++i)
-	fixed_regs[i] = call_used_regs[i] = call_really_used_regs[i] = 1;
-      call_really_used_regs[VRSAVE_REGNO] = 1;
+	fixed_regs[i] = call_used_regs[i] = 1;
+      call_used_regs[VRSAVE_REGNO] = 1;
     }
 
   if (TARGET_ALTIVEC || TARGET_VSX)
@@ -8948,12 +8953,12 @@ rs6000_conditional_register_usage (void)
   if (TARGET_ALTIVEC_ABI)
     {
       for (i = FIRST_ALTIVEC_REGNO; i < FIRST_ALTIVEC_REGNO + 20; ++i)
-	call_used_regs[i] = call_really_used_regs[i] = 1;
+	call_used_regs[i] = 1;
 
       /* AIX reserves VR20:31 in non-extended ABI mode.  */
       if (TARGET_XCOFF)
 	for (i = FIRST_ALTIVEC_REGNO + 20; i < FIRST_ALTIVEC_REGNO + 32; ++i)
-	  fixed_regs[i] = call_used_regs[i] = call_really_used_regs[i] = 1;
+	  fixed_regs[i] = call_used_regs[i] = 1;
     }
 }
 
@@ -19494,7 +19499,6 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
   /* Lose our funky encoding stuff so it doesn't contaminate the stub.  */
   symb = (*targetm.strip_name_encoding) (symb);
 
-
   length = strlen (symb);
   symbol_name = XALLOCAVEC (char, length + 32);
   GEN_SYMBOL_NAME_FOR_SYMBOL (symbol_name, symb, length);
@@ -19502,13 +19506,9 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
   lazy_ptr_name = XALLOCAVEC (char, length + 32);
   GEN_LAZY_PTR_NAME_FOR_SYMBOL (lazy_ptr_name, symb, length);
 
-  if (flag_pic == 2)
-    switch_to_section (darwin_sections[machopic_picsymbol_stub1_section]);
-  else
-    switch_to_section (darwin_sections[machopic_symbol_stub1_section]);
-
-  if (flag_pic == 2)
+  if (MACHOPIC_PURE)
     {
+      switch_to_section (darwin_sections[machopic_picsymbol_stub1_section]);
       fprintf (file, "\t.align 5\n");
 
       fprintf (file, "%s:\n", stub);
@@ -19519,18 +19519,8 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
       sprintf (local_label_0, "L%u$spb", label);
 
       fprintf (file, "\tmflr r0\n");
-      if (TARGET_LINK_STACK)
-	{
-	  char name[32];
-	  get_ppc476_thunk_name (name);
-	  fprintf (file, "\tbl %s\n", name);
-	  fprintf (file, "%s:\n\tmflr r11\n", local_label_0);
-	}
-      else
-	{
-	  fprintf (file, "\tbcl 20,31,%s\n", local_label_0);
-	  fprintf (file, "%s:\n\tmflr r11\n", local_label_0);
-	}
+      fprintf (file, "\tbcl 20,31,%s\n", local_label_0);
+      fprintf (file, "%s:\n\tmflr r11\n", local_label_0);
       fprintf (file, "\taddis r11,r11,ha16(%s-%s)\n",
 	       lazy_ptr_name, local_label_0);
       fprintf (file, "\tmtlr r0\n");
@@ -19540,8 +19530,9 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
       fprintf (file, "\tmtctr r12\n");
       fprintf (file, "\tbctr\n");
     }
-  else
+  else /* mdynamic-no-pic or mkernel.  */
     {
+      switch_to_section (darwin_sections[machopic_symbol_stub1_section]);
       fprintf (file, "\t.align 4\n");
 
       fprintf (file, "%s:\n", stub);

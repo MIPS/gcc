@@ -1101,7 +1101,8 @@ frv_stack_info (void)
 	default:
 	  for (regno = first; regno <= last; regno++)
 	    {
-	      if ((df_regs_ever_live_p (regno) && !call_used_regs[regno])
+	      if ((df_regs_ever_live_p (regno)
+		   && !call_used_or_fixed_reg_p (regno))
 		  || (crtl->calls_eh_return
 		      && (regno >= FIRST_EH_REGNUM && regno <= LAST_EH_REGNUM))
 		  || (!TARGET_FDPIC && flag_pic
@@ -5201,7 +5202,7 @@ frv_ifcvt_modify_tests (ce_if_block *ce_info, rtx *p_true, rtx *p_false)
      not fixed.  However, allow the ICC/ICR temporary registers to be allocated
      if we did not need to use them in reloading other registers.  */
   memset (&tmp_reg->regs, 0, sizeof (tmp_reg->regs));
-  tmp_reg->regs = call_used_reg_set &~ fixed_reg_set;
+  tmp_reg->regs = regs_invalidated_by_call & ~fixed_reg_set;
   SET_HARD_REG_BIT (tmp_reg->regs, ICC_TEMP);
   SET_HARD_REG_BIT (tmp_reg->regs, ICR_TEMP);
 
