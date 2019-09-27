@@ -269,6 +269,9 @@ Driver Joined Alias(e)
 -extra-warnings
 Common Warning Alias(Wextra)
 
+-analyzer
+Driver Var(analyzer_flag)
+
 -for-assembler
 Driver Separate Alias(Xassembler)
 
