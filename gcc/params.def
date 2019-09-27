@@ -1487,6 +1487,31 @@ DEFPARAM(PARAM_SSA_NAME_DEF_CHAIN_LIMIT,
 	 "a value.",
 	 512, 0, 0)
 
+DEFPARAM(PARAM_ANALYZER_BB_EXPLOSION_FACTOR,
+	 "analyzer-bb-explosion-factor",
+	 "The maximum number of 'after supernode' exploded nodes within the "
+	 "analyzer per supernode, before terminating analysis.",
+	 5, 1, 0)
+
+DEFPARAM(PARAM_ANALYZER_MAX_ENODES_PER_PROGRAM_POINT,
+	 "analyzer-max-enodes-per-program-point",
+	 "The maximum number of exploded nodes per program point within the "
+	 "analyzer, before terminating analysis of that point.",
+	 8, 1, 0)
+
+DEFPARAM(PARAM_ANALYZER_MAX_RECURSION_DEPTH,
+	 "analyzer-max-recursion-depth",
+	 "The maximum number of times a callsite can appear in a call stack "
+	 " within the analyzer, before terminating analysis of a call that "
+	 " would recurse deeper.",
+	 2, 1, 0)
+
+DEFPARAM(PARAM_ANALYZER_MIN_SNODES_FOR_CALL_SUMMARY,
+	 "analyzer-min-snodes-for-call-summary",
+	 "The minimum number of supernodes within a function for the "
+	 "analyzer to consider summarizing its effects at call sites.",
+	 10, 1, 0)
+
 /*
 
 Local variables:
