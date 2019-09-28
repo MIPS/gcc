@@ -715,6 +715,10 @@ normalize_expression (tree t, tree args, norm_info info)
     }
 }
 
+/* Cache of the normalized form of constraints.  Marked as deletable because it
+   can all be recalculated.  */
+static GTY((deletable)) hash_map<tree,tree> *normalized_map;
+
 /* Returns the normalized constraints from a constraint-info object
    or NULL_TREE if the constraints are null. ARGS provide the initial
    arguments for normalization and IN_DECL provides the declaration
@@ -726,19 +730,11 @@ get_normalized_constraints_from_info (tree ci, tree args, tree in_decl, bool dia
   if (ci == NULL_TREE)
     return NULL_TREE;
 
-  /* If we're diagnosing errors, use cached constraints, if any.  */
-  if (!diag)
-    if (tree norm = CI_NORMALIZED_CONSTRAINTS (ci))
-      return norm;
-
   /* Substitution errors during normalization are fatal.  */
   ++processing_template_decl;
   norm_info info (in_decl, diag ? tf_norm : tf_none);
   tree t = normalize_expression (CI_ASSOCIATED_CONSTRAINTS (ci), args, info);
   --processing_template_decl;
-
-  if (!diag)
-    CI_NORMALIZED_CONSTRAINTS (ci) = t;
 
   return t;
 }
@@ -792,9 +788,19 @@ get_normalized_constraints_from_decl (tree d, bool diag = false)
       tmpl = most_general_template (tmpl);
   }
 
+  /* If we're diagnosing errors, use cached constraints, if any.  */
+  if (!diag)
+    if (tree *p = hash_map_safe_get (normalized_map, tmpl))
+      return *p;
+
   tree args = generic_targs_for (tmpl);
   tree ci = get_constraints (decl);
-  return get_normalized_constraints_from_info (ci, args, tmpl, diag);
+  tree norm = get_normalized_constraints_from_info (ci, args, tmpl, diag);
+
+  if (!diag)
+    hash_map_safe_put (normalized_map, tmpl, norm);
+
+  return norm;
 }
 
 /* Returns the normal form of TMPL's definition.  */
@@ -802,8 +808,8 @@ get_normalized_constraints_from_decl (tree d, bool diag = false)
 static tree
 normalize_concept_definition (tree tmpl)
 {
-  /* TODO: Cache the normalized constraint so we don't have to
-     recompute them multiple times.  */
+  if (tree *p = hash_map_safe_get (normalized_map, tmpl))
+    return *p;
   gcc_assert (concept_definition_p (tmpl));
   if (OVL_P (tmpl))
     tmpl = OVL_FIRST (tmpl);
@@ -814,6 +820,7 @@ normalize_concept_definition (tree tmpl)
   norm_info info (tmpl, tf_none);
   tree norm = normalize_expression (def, args, info);
   --processing_template_decl;
+  hash_map_safe_put (normalized_map, tmpl, norm);
   return norm;
 }
 
@@ -3009,3 +3016,5 @@ diagnose_constraints (location_t loc, tree t, tree args)
   else
     constraints_satisfied_p (t, args, info);
 }
+
+#include "gt-cp-constraint.h"

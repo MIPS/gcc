@@ -326,4 +326,24 @@ gt_pch_nx (hash_map<K, V, H> *h, gt_pointer_operator op, void *cookie)
   op (&h->m_table.m_entries, cookie);
 }
 
+/* Like h->get, but handles null h.  */
+template<typename K, typename V, typename H>
+inline V*
+hash_map_safe_get (hash_map<K,V,H> *h, const K& k)
+{
+  if (h)
+    return h->get (k);
+  return NULL;
+}
+
+/* Like h->put, but handles null h.  */
+template<typename K, typename V, typename H>
+inline bool
+hash_map_safe_put (hash_map<K,V,H> *&h, const K& k, const V& v)
+{
+  if (!h)
+    h = h->create_ggc (13);
+  return h->put (k, v);
+}
+
 #endif

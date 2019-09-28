@@ -1,5 +1,12 @@
 2019-09-27  Jason Merrill  <jason@redhat.com>
 
+	* cp-tree.h (struct tree_constraint_info): Remove normalized_constr.
+	(CI_NORMALIZED_CONSTRAINTS): Remove.
+	* constraint.cc (normalized_map): New variable.
+	(get_normalized_constraints_from_info): Remove caching code.
+	(get_normalized_constraints_from_decl): Cache in normalized_map.
+	(normalize_concept_definition): Likewise.
+
 	* parser.c (cp_parser_template_introduction): Pedwarn if not
 	-fconcepts-ts.
 
