@@ -28497,27 +28497,6 @@ convert_generic_types_to_packs (tree parm, int start_idx, int end_idx)
   return tsubst (parm, replacement, tf_none, NULL_TREE);
 }
 
-/* Entries in the decl_constraint hash table. */
-struct GTY((for_user)) constr_entry
-{
-  tree decl;
-  tree ci;
-};
-
-/* Hashing function and equality for constraint entries. */
-struct constr_hasher : ggc_ptr_hash<constr_entry>
-{
-  static hashval_t hash (constr_entry *e)
-  {
-    return (hashval_t)DECL_UID (e->decl);
-  }
-
-  static bool equal (constr_entry *e1, constr_entry *e2)
-  {
-    return e1->decl == e2->decl;
-  }
-};
-
 /* A mapping from declarations to constraint information. Note that
    both templates and their underlying declarations are mapped to the
    same constraint information.
@@ -28525,7 +28504,7 @@ struct constr_hasher : ggc_ptr_hash<constr_entry>
    FIXME: This is defined in pt.c because garbage collection
    code is not being generated for constraint.cc. */
 
-static GTY (()) hash_table<constr_hasher> *decl_constraints;
+static GTY ((cache)) tree_cache_map *decl_constraints;
 
 /* Returns the template constraints of declaration T. If T is not
    constrained, return NULL_TREE. Note that T must be non-null. */
@@ -28541,10 +28520,9 @@ get_constraints (tree t)
   gcc_assert (DECL_P (t));
   if (TREE_CODE (t) == TEMPLATE_DECL)
     t = DECL_TEMPLATE_RESULT (t);
-  constr_entry elt = { t, NULL_TREE };
-  constr_entry* found = decl_constraints->find (&elt);
+  tree* found = decl_constraints->get (t);
   if (found)
-    return found->ci;
+    return *found;
   else
     return NULL_TREE;
 }
@@ -28562,13 +28540,8 @@ set_constraints (tree t, tree ci)
   gcc_assert (t && flag_concepts);
   if (TREE_CODE (t) == TEMPLATE_DECL)
     t = DECL_TEMPLATE_RESULT (t);
-  gcc_assert (!get_constraints (t));
-  constr_entry elt = {t, ci};
-  constr_entry** slot = decl_constraints->find_slot (&elt, INSERT);
-  constr_entry* entry = ggc_alloc<constr_entry> ();
-  *entry = elt;
-  *slot = entry;
-  gcc_assert (get_constraints (t) == ci);
+  bool found = hash_map_safe_put (decl_constraints, t, ci);
+  gcc_assert (!found);
 }
 
 /* Remove the associated constraints of the declaration T.  */
@@ -28580,10 +28553,8 @@ remove_constraints (tree t)
   if (TREE_CODE (t) == TEMPLATE_DECL)
     t = DECL_TEMPLATE_RESULT (t);
 
-  constr_entry elt = {t, NULL_TREE};
-  constr_entry** slot = decl_constraints->find_slot (&elt, NO_INSERT);
-  if (slot)
-    decl_constraints->clear_slot (slot);
+  if (decl_constraints)
+    decl_constraints->remove (t);
 }
 
 static hashval_t
@@ -28680,7 +28651,6 @@ init_constraint_processing (void)
   if (!flag_concepts)
     return;
 
-  decl_constraints = hash_table<constr_hasher>::create_ggc(37);
   subsumption_table = hash_table<subsumption_hasher>::create_ggc(37);
 }
 
