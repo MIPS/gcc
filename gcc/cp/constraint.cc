@@ -2666,19 +2666,6 @@ more_constrained (tree d1, tree d2)
   return winner;
 }
 
-/* Returns true if D1 is at least as constrained as D2. That is, the
-   associated constraints of D1 subsume those of D2, or both declarations
-   are unconstrained. */
-
-bool
-at_least_as_constrained (tree d1, tree d2)
-{
-  tree c1 = get_constraints (d1);
-  tree c2 = get_constraints (d2);
-  return subsumes_constraints (c1, c2);
-}
-
-
 /*---------------------------------------------------------------------------
                         Constraint diagnostics
 ---------------------------------------------------------------------------*/
