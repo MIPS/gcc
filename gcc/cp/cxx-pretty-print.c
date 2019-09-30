@@ -2914,7 +2914,7 @@ pp_cxx_parameter_mapping (cxx_pretty_printer *pp, tree map)
       tree arg = TREE_PURPOSE (p);
 
       if (TYPE_P (parm))
-	pp_cxx_tree_identifier (pp, DECL_NAME (TEMPLATE_TYPE_DECL (parm)));
+	pp->type_id (parm);
       else
 	pp_cxx_tree_identifier (pp, DECL_NAME (TEMPLATE_PARM_DECL (parm)));
 
