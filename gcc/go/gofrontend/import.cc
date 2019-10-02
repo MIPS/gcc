@@ -290,14 +290,8 @@ Import::Import(Stream* stream, Location location)
   : gogo_(NULL), stream_(stream), location_(location), package_(NULL),
     add_to_globals_(false), packages_(), type_data_(), type_pos_(0),
     type_offsets_(), builtin_types_((- SMALLEST_BUILTIN_CODE) + 1),
-    types_(), finalizer_(NULL), version_(EXPORT_FORMAT_UNKNOWN)
+    types_(), version_(EXPORT_FORMAT_UNKNOWN)
 {
-}
-
-Import::~Import()
-{
-  if (this->finalizer_ != NULL)
-    delete this->finalizer_;
 }
 
 // Import the data in the associated stream.
@@ -449,6 +443,14 @@ Import::import(Gogo* gogo, const std::string& local_name,
       this->require_semicolon_if_old_version();
       this->require_c_string("\n");
     }
+
+  // Finalize methods for any imported types. This call is made late in the
+  // import process so as to A) avoid finalization of a type whose methods
+  // refer to types that are only partially read in, and B) capture both the
+  // types imported by read_types() directly, and those imported indirectly
+  // because they are referenced by an imported function or variable.
+  // See issues #33013 and #33219 for more on why this is needed.
+  this->finalize_methods();
 
   return this->package_;
 }
@@ -678,28 +680,28 @@ Import::read_types()
 	this->gogo_->add_named_type(nt);
     }
 
-  // Finalize methods for any imported types. This is done after most of
-  // read_types() is complete so as to avoid method finalization of a type
-  // whose methods refer to types that are only partially read in.
-  // See issue #33013 for more on why this is needed.
-  this->finalize_methods();
-
   return true;
 }
 
 void
 Import::finalize_methods()
 {
-  if (this->finalizer_ == NULL)
-    this->finalizer_ = new Finalize_methods(gogo_);
+  Finalize_methods finalizer(this->gogo_);
   Unordered_set(Type*) real_for_named;
   for (size_t i = 1; i < this->types_.size(); i++)
     {
       Type* type = this->types_[i];
       if (type != NULL && type->named_type() != NULL)
         {
-          this->finalizer_->type(type);
-          real_for_named.insert(type->named_type()->real_type());
+          finalizer.type(type);
+
+	  // If the real type is a struct type, we don't want to
+	  // finalize its methods.  For a named type defined as a
+	  // struct type, we only want to finalize the methods of the
+	  // named type.  This is like Finalize_methods::type.
+	  Type* real_type = type->named_type()->real_type();
+	  if (real_type->struct_type() != NULL)
+	    real_for_named.insert(real_type);
         }
     }
   for (size_t i = 1; i < this->types_.size(); i++)
@@ -708,7 +710,7 @@ Import::finalize_methods()
       if (type != NULL
           && type->named_type() == NULL
           && real_for_named.find(type) == real_for_named.end())
-        this->finalizer_->type(type);
+        finalizer.type(type);
     }
 }
 
@@ -775,7 +777,7 @@ Import::import_var()
 			       this->location_);
   Named_object* no;
   no = vpkg->add_variable(name, var);
-  if (this->add_to_globals_)
+  if (this->add_to_globals_ && vpkg == this->package_)
     this->gogo_->add_dot_import_object(no);
 }
 
@@ -1103,11 +1105,11 @@ Import::read_named_type(int index)
     type = this->types_[index];
   else
     {
-      type = this->read_type();
-
       if (no->is_type_declaration())
 	{
 	  // We can define the type now.
+
+	  type = this->read_type();
 
 	  no = package->add_type(type_name, type, this->location_);
 	  Named_type* ntype = no->type_value();
@@ -1125,14 +1127,18 @@ Import::read_named_type(int index)
 	}
       else if (no->is_type())
 	{
-	  // We have seen this type before.  FIXME: it would be a good
-	  // idea to check that the two imported types are identical,
-	  // but we have not finalized the methods yet, which means
-	  // that we can not reliably compare interface types.
+	  // We have seen this type before.
 	  type = no->type_value();
 
 	  // Don't change the visibility of the existing type.
+
+	  // For older export versions, we need to skip the type
+	  // definition in the stream.
+	  if (this->version_ < EXPORT_FORMAT_V3)
+	    this->read_type();
 	}
+      else
+	go_unreachable();
 
       this->types_[index] = type;
 
@@ -1534,6 +1540,26 @@ Stream_from_file::do_advance(size_t skip)
 }
 
 // Class Import_function_body.
+
+Import_function_body::Import_function_body(Gogo* gogo,
+                                           Import* imp,
+                                           Named_object* named_object,
+                                           const std::string& body,
+                                           size_t off,
+                                           Block* block,
+                                           int indent)
+    : gogo_(gogo), imp_(imp), named_object_(named_object), body_(body),
+      off_(off), indent_(indent), temporaries_(), labels_(),
+      saw_error_(false)
+{
+  this->blocks_.push_back(block);
+}
+
+Import_function_body::~Import_function_body()
+{
+  // At this point we should be left with the original outer block only.
+  go_assert(saw_errors() || this->blocks_.size() == 1);
+}
 
 // The name of the function we are parsing.
 

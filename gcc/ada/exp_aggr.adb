@@ -344,7 +344,7 @@ package body Exp_Aggr is
       Lo   : Node_Id;
       Hi   : Node_Id;
       Indx : Node_Id;
-      Siz  : Int;
+      Size : Uint;
       Lov  : Uint;
       Hiv  : Uint;
 
@@ -468,7 +468,7 @@ package body Exp_Aggr is
          Max_Aggr_Size := 5000;
       end if;
 
-      Siz  := Component_Count (Component_Type (Typ));
+      Size := UI_From_Int (Component_Count (Component_Type (Typ)));
 
       Indx := First_Index (Typ);
       while Present (Indx) loop
@@ -538,14 +538,17 @@ package body Exp_Aggr is
                return False;
             end if;
 
-            Siz := Siz * UI_To_Int (Rng);
-         end;
+            --  Compute the size using universal arithmetic to avoid the
+            --  possibility of overflow on very large aggregates.
 
-         if Siz <= 0
-           or else Siz > Max_Aggr_Size
-         then
-            return False;
-         end if;
+            Size := Size * Rng;
+
+            if Size <= 0
+              or else Size > Max_Aggr_Size
+            then
+               return False;
+            end if;
+         end;
 
          --  Bounds must be in integer range, for later array construction
 
@@ -2072,7 +2075,6 @@ package body Exp_Aggr is
             Choice := First (Choice_List (Assoc));
             while Present (Choice) loop
                if Nkind (Choice) = N_Others_Choice then
-                  Set_Loop_Actions (Assoc, New_List);
                   Others_Assoc := Assoc;
                   exit;
                end if;
@@ -2119,7 +2121,8 @@ package body Exp_Aggr is
 
          if Present (Others_Assoc) then
             declare
-               First : Boolean := True;
+               First    : Boolean := True;
+               Dup_Expr : Node_Id;
 
             begin
                for J in 0 .. Nb_Choices loop
@@ -2157,9 +2160,19 @@ package body Exp_Aggr is
                     or else not Empty_Range (Low, High)
                   then
                      First := False;
+
+                     --  Duplicate the expression in case we will be generating
+                     --  several loops. As a result the expression is no longer
+                     --  shared between the loops and is reevaluated for each
+                     --  such loop.
+
+                     Expr := Get_Assoc_Expr (Others_Assoc);
+                     Dup_Expr := New_Copy_Tree (Expr);
+                     Set_Parent (Dup_Expr, Parent (Expr));
+
+                     Set_Loop_Actions (Others_Assoc, New_List);
                      Append_List
-                       (Gen_Loop (Low, High,
-                          Get_Assoc_Expr (Others_Assoc)), To => New_Code);
+                       (Gen_Loop (Low, High, Dup_Expr), To => New_Code);
                   end if;
                end loop;
             end;
@@ -2686,8 +2699,10 @@ package body Exp_Aggr is
                Discr_Constr :=
                  First_Elmt (Stored_Constraint (Full_View (Base_Typ)));
 
+            --  Otherwise, no discriminant to process
+
             else
-               Discr_Constr := First_Elmt (Stored_Constraint (Typ));
+               Discr_Constr := No_Elmt;
             end if;
 
             while Present (Discr) and then Present (Discr_Constr) loop
@@ -3088,6 +3103,13 @@ package body Exp_Aggr is
               Make_Selected_Component (Loc,
                 Prefix        => New_Copy_Tree (Lhs),
                 Selector_Name => Make_Identifier (Loc, Chars (Expr))));
+
+            --  The generated code will be reanalyzed, but if the reference
+            --  to the discriminant appears within an already analyzed
+            --  expression (e.g. a conditional) we must set its proper entity
+            --  now. Context is an initialization procedure.
+
+            Analyze (Expr);
          end if;
 
          return OK;
@@ -5228,6 +5250,12 @@ package body Exp_Aggr is
          Value     : Uint;
 
       begin
+         --  Back end doesn't know about <>
+
+         if Has_Default_Init_Comps (N) then
+            return False;
+         end if;
+
          --  Recurse as far as possible to find the innermost component type
 
          Ctyp := Etype (N);
@@ -5315,6 +5343,16 @@ package body Exp_Aggr is
          --  Composite types are rejected
 
          else
+            return False;
+         end if;
+
+         --  If the expression has side effects (e.g. contains calls with
+         --  potential side effects) reject as well. We only preanalyze the
+         --  expression to prevent the removal of intended side effects.
+
+         Preanalyze_And_Resolve (Expr, Ctyp);
+
+         if not Side_Effect_Free (Expr) then
             return False;
          end if;
 
@@ -6277,9 +6315,7 @@ package body Exp_Aggr is
       --  previously excluded controlled components but this is an old
       --  oversight: the rules in 7.6 (17) are clear.
 
-      if (not Has_Default_Init_Comps (N)
-           or else Is_Limited_Type (Etype (N)))
-        and then Comes_From_Source (Parent_Node)
+      if Comes_From_Source (Parent_Node)
         and then Parent_Kind = N_Object_Declaration
         and then Present (Expression (Parent_Node))
         and then not
@@ -7463,6 +7499,12 @@ package body Exp_Aggr is
          return;
       end if;
 
+      --  If the pramga Aggregate_Individually_Assign is set, always convert to
+      --  assignments.
+
+      if Aggregate_Individually_Assign then
+         Convert_To_Assignments (N, Typ);
+
       --  Ada 2005 (AI-318-2): We need to convert to assignments if components
       --  are build-in-place function calls. The assignments will each turn
       --  into a build-in-place function call. If components are all static,
@@ -7471,7 +7513,7 @@ package body Exp_Aggr is
       --  Extension aggregates, aggregates in extended return statements, and
       --  aggregates for C++ imported types must be expanded.
 
-      if Ada_Version >= Ada_2005 and then Is_Limited_View (Typ) then
+      elsif Ada_Version >= Ada_2005 and then Is_Limited_View (Typ) then
          if not Nkind_In (Parent (N), N_Component_Association,
                                       N_Object_Declaration)
          then
@@ -7694,15 +7736,36 @@ package body Exp_Aggr is
          P := Parent (P);
       end loop;
 
-      --  Cases where aggregates are supported by the CCG backend
+      --  Check cases where aggregates are supported by the CCG backend
 
       if Nkind (P) = N_Object_Declaration then
-         return True;
+         declare
+            P_Typ : constant Entity_Id := Etype (Defining_Identifier (P));
 
-      elsif Nkind (P) = N_Qualified_Expression
-        and then Nkind_In (Parent (P), N_Allocator, N_Object_Declaration)
-      then
-         return True;
+         begin
+            if Is_Record_Type (P_Typ) then
+               return True;
+            else
+               return Compile_Time_Known_Bounds (P_Typ);
+            end if;
+         end;
+
+      elsif Nkind (P) = N_Qualified_Expression then
+         if Nkind (Parent (P)) = N_Object_Declaration then
+            declare
+               P_Typ : constant Entity_Id :=
+                         Etype (Defining_Identifier (Parent (P)));
+            begin
+               if Is_Record_Type (P_Typ) then
+                  return True;
+               else
+                  return Compile_Time_Known_Bounds (P_Typ);
+               end if;
+            end;
+
+         elsif Nkind (Parent (P)) = N_Allocator then
+            return True;
+         end if;
       end if;
 
       return False;
@@ -8099,13 +8162,15 @@ package body Exp_Aggr is
 
    function Has_Mutable_Components (Typ : Entity_Id) return Boolean is
       Comp : Entity_Id;
+      Ctyp : Entity_Id;
 
    begin
       Comp := First_Component (Typ);
       while Present (Comp) loop
-         if Is_Record_Type (Etype (Comp))
-           and then Has_Discriminants (Etype (Comp))
-           and then not Is_Constrained (Etype (Comp))
+         Ctyp := Underlying_Type (Etype (Comp));
+         if Is_Record_Type (Ctyp)
+           and then Has_Discriminants (Ctyp)
+           and then not Is_Constrained (Ctyp)
          then
             return True;
          end if;

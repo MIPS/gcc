@@ -418,13 +418,19 @@ gimple_register_canonical_type_1 (tree t, hashval_t hash)
   if (RECORD_OR_UNION_TYPE_P (t)
       && odr_type_p (t) && !odr_type_violation_reported_p (t))
     {
-      /* Here we rely on fact that all non-ODR types was inserted into
-	 canonical type hash and thus we can safely detect conflicts between
-	 ODR types and interoperable non-ODR types.  */
-      gcc_checking_assert (type_streaming_finished
-			   && TYPE_MAIN_VARIANT (t) == t);
-      slot = htab_find_slot_with_hash (gimple_canonical_types, t, hash,
-				       NO_INSERT);
+      /* Anonymous namespace types never conflict with non-C++ types.  */
+      if (type_with_linkage_p (t) && type_in_anonymous_namespace_p (t))
+	slot = NULL;
+      else
+	{
+	  /* Here we rely on fact that all non-ODR types was inserted into
+	     canonical type hash and thus we can safely detect conflicts between
+	     ODR types and interoperable non-ODR types.  */
+	  gcc_checking_assert (type_streaming_finished
+			       && TYPE_MAIN_VARIANT (t) == t);
+	  slot = htab_find_slot_with_hash (gimple_canonical_types, t, hash,
+					   NO_INSERT);
+	}
       if (slot && !TYPE_CXX_ODR_P (*(tree *)slot))
 	{
 	  tree nonodr = *(tree *)slot;
@@ -1222,7 +1228,7 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
       compare_values (DECL_IS_NOVOPS);
       compare_values (DECL_IS_RETURNS_TWICE);
       compare_values (DECL_IS_MALLOC);
-      compare_values (DECL_IS_OPERATOR_NEW);
+      compare_values (DECL_IS_OPERATOR_NEW_P);
       compare_values (DECL_DECLARED_INLINE_P);
       compare_values (DECL_STATIC_CHAIN);
       compare_values (DECL_NO_INLINE_WARNING_P);
@@ -1235,7 +1241,7 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
       compare_values (DECL_CXX_CONSTRUCTOR_P);
       compare_values (DECL_CXX_DESTRUCTOR_P);
       if (DECL_BUILT_IN_CLASS (t1) != NOT_BUILT_IN)
-	compare_values (DECL_FUNCTION_CODE);
+	compare_values (DECL_UNCHECKED_FUNCTION_CODE);
     }
 
   if (CODE_CONTAINS_STRUCT (code, TS_TYPE_COMMON))
@@ -1640,11 +1646,14 @@ unify_scc (class data_in *data_in, unsigned from,
       tree t = streamer_tree_cache_get_tree (cache, from + i);
       scc->entries[i] = t;
       /* Do not merge SCCs with local entities inside them.  Also do
-	 not merge TRANSLATION_UNIT_DECLs.  */
+	 not merge TRANSLATION_UNIT_DECLs and anonymous namespace types.  */
       if (TREE_CODE (t) == TRANSLATION_UNIT_DECL
 	  || (VAR_OR_FUNCTION_DECL_P (t)
 	      && !(TREE_PUBLIC (t) || DECL_EXTERNAL (t)))
-	  || TREE_CODE (t) == LABEL_DECL)
+	  || TREE_CODE (t) == LABEL_DECL
+	  || (TYPE_P (t)
+	      && type_with_linkage_p (TYPE_MAIN_VARIANT (t))
+	      && type_in_anonymous_namespace_p (TYPE_MAIN_VARIANT (t))))
 	{
 	  /* Avoid doing any work for these cases and do not worry to
 	     record the SCCs for further merging.  */

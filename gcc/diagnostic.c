@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "edit-context.h"
 #include "selftest.h"
 #include "selftest-diagnostic.h"
+#include "opts.h"
 
 #ifdef HAVE_TERMIOS_H
 # include <termios.h>
@@ -662,8 +663,10 @@ default_diagnostic_finalizer (diagnostic_context *context,
 			      diagnostic_info *diagnostic,
 			      diagnostic_t)
 {
+  char *saved_prefix = pp_take_prefix (context->printer);
+  pp_set_prefix (context->printer, NULL);
   diagnostic_show_locus (context, diagnostic->richloc, diagnostic->kind);
-  pp_destroy_prefix (context->printer);
+  pp_set_prefix (context->printer, saved_prefix);
   pp_flush (context->printer);
 }
 
@@ -696,6 +699,7 @@ diagnostic_classify_diagnostic (diagnostic_context *context,
       if (old_kind == DK_UNSPECIFIED)
 	{
 	  old_kind = !context->option_enabled (option_index,
+					       context->lang_mask,
 					       context->option_state)
 	    ? DK_IGNORED : (context->warning_as_error_requested
 			    ? DK_ERROR : DK_WARNING);
@@ -809,6 +813,9 @@ print_parseable_fixits (pretty_printer *pp, rich_location *richloc)
   gcc_assert (pp);
   gcc_assert (richloc);
 
+  char *saved_prefix = pp_take_prefix (pp);
+  pp_set_prefix (pp, NULL);
+
   for (unsigned i = 0; i < richloc->get_num_fixit_hints (); i++)
     {
       const fixit_hint *hint = richloc->get_fixit_hint (i);
@@ -825,6 +832,8 @@ print_parseable_fixits (pretty_printer *pp, rich_location *richloc)
       print_escaped_string (pp, hint->get_string ());
       pp_newline (pp);
     }
+
+  pp_set_prefix (pp, saved_prefix);
 }
 
 /* Update the diag_class of DIAGNOSTIC based on its location
@@ -957,6 +966,7 @@ diagnostic_report_diagnostic (diagnostic_context *context,
       /* This tests if the user provided the appropriate -Wfoo or
 	 -Wno-foo option.  */
       if (! context->option_enabled (diagnostic->option_index,
+				     context->lang_mask,
 				     context->option_state))
 	return false;
 

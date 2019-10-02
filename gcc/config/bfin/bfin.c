@@ -235,13 +235,13 @@ must_save_p (bool is_inthandler, unsigned regno)
       return (is_eh_return_reg
 	      || (df_regs_ever_live_p (regno)
 		  && !fixed_regs[regno]
-		  && (is_inthandler || !call_used_regs[regno])));
+		  && (is_inthandler || !call_used_or_fixed_reg_p (regno))));
     }
   else if (P_REGNO_P (regno))
     {
       return ((df_regs_ever_live_p (regno)
 	       && !fixed_regs[regno]
-	       && (is_inthandler || !call_used_regs[regno]))
+	       && (is_inthandler || !call_used_or_fixed_reg_p (regno)))
 	      || (is_inthandler
 		  && (ENABLE_WA_05000283 || ENABLE_WA_05000315)
 		  && regno == REG_P5)
@@ -251,9 +251,9 @@ must_save_p (bool is_inthandler, unsigned regno)
 		      || (TARGET_ID_SHARED_LIBRARY && !crtl->is_leaf))));
     }
   else
-    return ((is_inthandler || !call_used_regs[regno])
+    return ((is_inthandler || !call_used_or_fixed_reg_p (regno))
 	    && (df_regs_ever_live_p (regno)
-		|| (!leaf_function_p () && call_used_regs[regno])));
+		|| (!leaf_function_p () && call_used_or_fixed_reg_p (regno))));
 
 }
 
@@ -419,7 +419,7 @@ expand_prologue_reg_save (rtx spreg, int saveall, bool is_inthandler)
     if (saveall 
 	|| (is_inthandler
 	    && (df_regs_ever_live_p (i)
-		|| (!leaf_function_p () && call_used_regs[i]))))
+		|| (!leaf_function_p () && call_used_or_fixed_reg_p (i)))))
       {
 	rtx_insn *insn;
 	if (i == REG_A0 || i == REG_A1)
@@ -458,7 +458,7 @@ expand_epilogue_reg_restore (rtx spreg, bool saveall, bool is_inthandler)
     if (saveall
 	|| (is_inthandler
 	    && (df_regs_ever_live_p (i)
-		|| (!leaf_function_p () && call_used_regs[i]))))
+		|| (!leaf_function_p () && call_used_or_fixed_reg_p (i)))))
       {
 	if (i == REG_A0 || i == REG_A1)
 	  {
@@ -540,7 +540,7 @@ expand_epilogue_reg_restore (rtx spreg, bool saveall, bool is_inthandler)
 
    CUM is as above.
 
-   MODE and TYPE are the mode and type of the current parameter.
+   ARG is the last named argument.
 
    PRETEND_SIZE is a variable that should be set to the amount of stack
    that must be pushed by the prolog to pretend that our caller pushed
@@ -559,8 +559,7 @@ expand_epilogue_reg_restore (rtx spreg, bool saveall, bool is_inthandler)
 
 static void
 setup_incoming_varargs (cumulative_args_t cum,
-			machine_mode mode ATTRIBUTE_UNUSED,
-			tree type ATTRIBUTE_UNUSED, int *pretend_size,
+			const function_arg_info &, int *pretend_size,
 			int no_rtl)
 {
   rtx mem;
@@ -653,7 +652,7 @@ n_regs_saved_by_prologue (void)
     if (all
 	|| (fkind != SUBROUTINE
 	    && (df_regs_ever_live_p (i)
-		|| (!leaf_function_p () && call_used_regs[i]))))
+		|| (!leaf_function_p () && call_used_or_fixed_reg_p (i)))))
       n += i == REG_A0 || i == REG_A1 ? 2 : 1;
 
   return n;
@@ -754,7 +753,7 @@ add_to_reg (rtx reg, HOST_WIDE_INT value, int frame, int epilogue_p)
 	{
 	  int i;
 	  for (i = REG_P0; i <= REG_P5; i++)
-	    if ((df_regs_ever_live_p (i) && ! call_used_regs[i])
+	    if ((df_regs_ever_live_p (i) && ! call_used_or_fixed_reg_p (i))
 		|| (!TARGET_FDPIC
 		    && i == PIC_OFFSET_TABLE_REGNUM
 		    && (crtl->uses_pic_offset_table
@@ -1648,18 +1647,16 @@ init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
   return;
 }
 
-/* Update the data in CUM to advance over an argument
-   of mode MODE and data type TYPE.
-   (TYPE is null for libcalls where that information may not be available.)  */
+/* Update the data in CUM to advance over argument ARG.  */
 
 static void
-bfin_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
-			   const_tree type, bool named ATTRIBUTE_UNUSED)
+bfin_function_arg_advance (cumulative_args_t cum_v,
+			   const function_arg_info &arg)
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
   int count, bytes, words;
 
-  bytes = (mode == BLKmode) ? int_size_in_bytes (type) : GET_MODE_SIZE (mode);
+  bytes = arg.promoted_size_in_bytes ();
   words = (bytes + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 
   cum->words += words;
@@ -1683,24 +1680,17 @@ bfin_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
    Value is zero to push the argument on the stack,
    or a hard register in which to store the argument.
 
-   MODE is the argument's machine mode.
-   TYPE is the data type of the argument (as a tree).
-    This is null for libcalls where that information may
-    not be available.
    CUM is a variable of type CUMULATIVE_ARGS which gives info about
     the preceding args and about the function being called.
-   NAMED is nonzero if this argument is a named parameter
-    (otherwise it is an extra parameter matching an ellipsis).  */
+   ARG is a description of the argument.  */
 
 static rtx
-bfin_function_arg (cumulative_args_t cum_v, machine_mode mode,
-		   const_tree type, bool named ATTRIBUTE_UNUSED)
+bfin_function_arg (cumulative_args_t cum_v, const function_arg_info &arg)
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
-  int bytes
-    = (mode == BLKmode) ? int_size_in_bytes (type) : GET_MODE_SIZE (mode);
+  int bytes = arg.promoted_size_in_bytes ();
 
-  if (mode == VOIDmode)
+  if (arg.end_marker_p ())
     /* Compute operand 2 of the call insn.  */
     return GEN_INT (cum->call_cookie);
 
@@ -1708,7 +1698,7 @@ bfin_function_arg (cumulative_args_t cum_v, machine_mode mode,
     return NULL_RTX;
 
   if (cum->nregs)
-    return gen_rtx_REG (mode, *(cum->arg_regs));
+    return gen_rtx_REG (arg.mode, *(cum->arg_regs));
 
   return NULL_RTX;
 }
@@ -1723,12 +1713,9 @@ bfin_function_arg (cumulative_args_t cum_v, machine_mode mode,
    stack.   */
 
 static int
-bfin_arg_partial_bytes (cumulative_args_t cum, machine_mode mode,
-			tree type ATTRIBUTE_UNUSED,
-			bool named ATTRIBUTE_UNUSED)
+bfin_arg_partial_bytes (cumulative_args_t cum, const function_arg_info &arg)
 {
-  int bytes
-    = (mode == BLKmode) ? int_size_in_bytes (type) : GET_MODE_SIZE (mode);
+  int bytes = arg.promoted_size_in_bytes ();
   int bytes_left = get_cumulative_args (cum)->nregs * UNITS_PER_WORD;
   
   if (bytes == -1)
@@ -1744,11 +1731,9 @@ bfin_arg_partial_bytes (cumulative_args_t cum, machine_mode mode,
 /* Variable sized types are passed by reference.  */
 
 static bool
-bfin_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
-			machine_mode mode ATTRIBUTE_UNUSED,
-			const_tree type, bool named ATTRIBUTE_UNUSED)
+bfin_pass_by_reference (cumulative_args_t, const function_arg_info &arg)
 {
-  return type && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST;
+  return arg.type && TREE_CODE (TYPE_SIZE (arg.type)) != INTEGER_CST;
 }
 
 /* Decide whether a type should be returned in memory (true)
@@ -3497,7 +3482,7 @@ hwloop_optimize (hwloop_info loop)
       for (i = REG_P0; i <= REG_P5; i++)
 	if ((df_regs_ever_live_p (i)
 	     || (funkind (TREE_TYPE (current_function_decl)) == SUBROUTINE
-		 && call_used_regs[i]))
+		 && call_used_or_fixed_reg_p (i)))
 	    && !REGNO_REG_SET_P (df_get_live_out (bb_in), i))
 	  {
 	    scratchreg = gen_rtx_REG (SImode, i);
@@ -4434,7 +4419,7 @@ workaround_speculation (void)
 	     we found earlier.  */
 	  if (recog_memoized (insn) != CODE_FOR_compare_eq)
 	    {
-	      note_stores (PATTERN (insn), note_np_check_stores, NULL);
+	      note_stores (insn, note_np_check_stores, NULL);
 	      if (np_check_regno != -1)
 		{
 		  if (find_regno_note (insn, REG_INC, np_check_regno))
@@ -5498,7 +5483,7 @@ bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
   enum insn_code icode;
   const struct builtin_description *d;
   tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
-  unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
+  unsigned int fcode = DECL_MD_FUNCTION_CODE (fndecl);
   tree arg0, arg1, arg2;
   rtx op0, op1, op2, accvec, pat, tmp1, tmp2, a0reg, a1reg;
   machine_mode tmode, mode0;

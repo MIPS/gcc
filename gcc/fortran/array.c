@@ -1110,19 +1110,54 @@ match_array_cons_element (gfc_constructor_base *result)
   if (m != MATCH_YES)
     return m;
 
+  if (expr->ts.type == BT_BOZ)
+    {
+      gfc_error ("BOZ literal constant at %L cannot appear in an "
+		 "array constructor", &expr->where);
+      goto done;
+    }
+
   if (expr->expr_type == EXPR_FUNCTION
       && expr->ts.type == BT_UNKNOWN
       && strcmp(expr->symtree->name, "null") == 0)
-   {
+    {
       gfc_error ("NULL() at %C cannot appear in an array constructor");
-      gfc_free_expr (expr);
-      return MATCH_ERROR;
-   }
+      goto done;
+    }
 
   gfc_constructor_append_expr (result, expr, &gfc_current_locus);
   return MATCH_YES;
+
+done:
+  gfc_free_expr (expr);
+  return MATCH_ERROR;
 }
 
+
+/* Convert components of an array constructor to the type in ts.  */
+
+static match
+walk_array_constructor (gfc_typespec *ts, gfc_constructor_base head)
+{
+  gfc_constructor *c;
+  gfc_expr *e;
+  match m;
+
+  for (c = gfc_constructor_first (head); c; c = gfc_constructor_next (c))
+    {
+      e = c->expr;
+      if (e->expr_type == EXPR_ARRAY && e->ts.type == BT_UNKNOWN
+	  && !e->ref && e->value.constructor)
+	{
+	  m = walk_array_constructor (ts, e->value.constructor);
+	  if (m == MATCH_ERROR)
+	    return m;
+	}
+      else if (!gfc_convert_type (e, ts, 1) && e->ts.type != BT_UNKNOWN)
+	return MATCH_ERROR;
+  }
+  return MATCH_YES;
+}
 
 /* Match an array constructor.  */
 
@@ -1253,14 +1288,13 @@ done:
 	    }
 	}
 
-      /* Walk the constructor and ensure type conversion for numeric types.  */
+      /* Walk the constructor, and if possible, do type conversion for
+	 numeric types.  */
       if (gfc_numeric_ts (&ts))
 	{
-	  c = gfc_constructor_first (head);
-	  for (; c; c = gfc_constructor_next (c))
-	    if (!gfc_convert_type (c->expr, &ts, 1)
-		&& c->expr->ts.type != BT_UNKNOWN)
-	      return MATCH_ERROR;
+	  m = walk_array_constructor (&ts, head);
+	  if (m == MATCH_ERROR)
+	    return m;
 	}
     }
   else
@@ -2175,6 +2209,9 @@ gfc_copy_iterator (gfc_iterator *src)
   dest->end = gfc_copy_expr (src->end);
   dest->step = gfc_copy_expr (src->step);
   dest->unroll = src->unroll;
+  dest->ivdep = src->ivdep;
+  dest->vector = src->vector;
+  dest->novector = src->novector;
 
   return dest;
 }
@@ -2200,7 +2237,11 @@ spec_dimen_size (gfc_array_spec *as, int dimen, mpz_t *result)
     gfc_internal_error ("spec_dimen_size(): Bad dimension");
 
   if (as->type != AS_EXPLICIT
-      || as->lower[dimen]->expr_type != EXPR_CONSTANT
+      || !as->lower[dimen]
+      || !as->upper[dimen])
+    return false;
+
+  if (as->lower[dimen]->expr_type != EXPR_CONSTANT
       || as->upper[dimen]->expr_type != EXPR_CONSTANT
       || as->lower[dimen]->ts.type != BT_INTEGER
       || as->upper[dimen]->ts.type != BT_INTEGER)

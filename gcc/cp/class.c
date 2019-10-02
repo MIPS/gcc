@@ -994,6 +994,9 @@ add_method (tree type, tree method, bool via_using)
   tree *slot = find_member_slot (type, DECL_NAME (method));
   tree current_fns = slot ? *slot : NULL_TREE;
 
+  /* See below.  */
+  int losem = -1;
+
   /* Check to see if we've already got this method.  */
   for (ovl_iterator iter (current_fns); iter; ++iter)
     {
@@ -1070,9 +1073,48 @@ add_method (tree type, tree method, bool via_using)
       if (compparms (parms1, parms2)
 	  && (!DECL_CONV_FN_P (fn)
 	      || same_type_p (TREE_TYPE (fn_type),
-			      TREE_TYPE (method_type)))
-          && equivalently_constrained (fn, method))
+			      TREE_TYPE (method_type))))
 	{
+          if (!equivalently_constrained (fn, method))
+	    {
+	      special_function_kind sfk = special_memfn_p (method);
+
+	      if (sfk == sfk_none)
+		/* Non-special member functions coexist if they are not
+		   equivalently constrained.  */
+		continue;
+
+	      /* P0848: For special member functions, deleted, unsatisfied, or
+		 less constrained overloads are ineligible.  We implement this
+		 by removing them from CLASSTYPE_MEMBER_VEC.  Destructors don't
+		 use the notion of eligibility, and the selected destructor can
+		 be deleted, but removing unsatisfied or less constrained
+		 overloads has the same effect as overload resolution.  */
+	      bool dtor = (sfk == sfk_destructor);
+	      if (losem == -1)
+		losem = ((!dtor && DECL_DELETED_FN (method))
+			 || !constraints_satisfied_p (method));
+	      bool losef = ((!dtor && DECL_DELETED_FN (fn))
+			    || !constraints_satisfied_p (fn));
+	      int win;
+	      if (losem || losef)
+		win = losem - losef;
+	      else
+		win = more_constrained (fn, method);
+	      if (win > 0)
+		/* Leave FN in the method vec, discard METHOD.  */
+		return false;
+	      else if (win < 0)
+		{
+		  /* Remove FN, add METHOD.  */
+		  current_fns = iter.remove_node (current_fns);
+		  continue;
+		}
+	      else
+		/* Let them coexist for now.  */
+		continue;
+	    }
+
 	  /* If these are versions of the same function, process and
 	     move on.  */
 	  if (TREE_CODE (fn) == FUNCTION_DECL
@@ -2760,31 +2802,36 @@ get_basefndecls (tree name, tree t, vec<tree> *base_fndecls)
     }
 }
 
-/* If this declaration supersedes the declaration of
-   a method declared virtual in the base class, then
-   mark this field as being virtual as well.  */
+/* If this method overrides a virtual method from a base, then mark
+   this member function as being virtual as well.  Do 'final' and
+   'override' checks too.  */
 
 void
 check_for_override (tree decl, tree ctype)
 {
-  bool overrides_found = false;
   if (TREE_CODE (decl) == TEMPLATE_DECL)
     /* In [temp.mem] we have:
 
 	 A specialization of a member function template does not
 	 override a virtual function from a base class.  */
     return;
-  if ((DECL_DESTRUCTOR_P (decl)
-       || IDENTIFIER_VIRTUAL_P (DECL_NAME (decl))
+
+  /* IDENTIFIER_VIRTUAL_P indicates whether the name has ever been
+     used for a vfunc.  That avoids the expensive look_for_overrides
+     call that when we know there's nothing to find.  As conversion
+     operators for the same type can have distinct identifiers, we
+     cannot optimize those in that way.  */
+  if ((IDENTIFIER_VIRTUAL_P (DECL_NAME (decl))
        || DECL_CONV_FN_P (decl))
       && look_for_overrides (ctype, decl)
+      /* Check staticness after we've checked if we 'override'.  */
       && !DECL_STATIC_FUNCTION_P (decl))
-    /* Set DECL_VINDEX to a value that is neither an INTEGER_CST nor
-       the error_mark_node so that we know it is an overriding
-       function.  */
     {
+      /* Set DECL_VINDEX to a value that is neither an INTEGER_CST nor
+	 the error_mark_node so that we know it is an overriding
+	 function.  */
       DECL_VINDEX (decl) = decl;
-      overrides_found = true;
+
       if (warn_override
 	  && !DECL_OVERRIDE_P (decl)
 	  && !DECL_FINAL_P (decl)
@@ -2792,19 +2839,23 @@ check_for_override (tree decl, tree ctype)
 	warning_at (DECL_SOURCE_LOCATION (decl), OPT_Wsuggest_override,
 		    "%qD can be marked override", decl);
     }
+  else if (DECL_OVERRIDE_P (decl))
+    error ("%q+#D marked %<override%>, but does not override", decl);
 
   if (DECL_VIRTUAL_P (decl))
     {
+      /* Remember this identifier is virtual name.  */
+      IDENTIFIER_VIRTUAL_P (DECL_NAME (decl)) = true;
+
       if (!DECL_VINDEX (decl))
+	/* It's a new vfunc.  */
 	DECL_VINDEX (decl) = error_mark_node;
-      IDENTIFIER_VIRTUAL_P (DECL_NAME (decl)) = 1;
+
       if (DECL_DESTRUCTOR_P (decl))
 	TYPE_HAS_NONTRIVIAL_DESTRUCTOR (ctype) = true;
     }
   else if (DECL_FINAL_P (decl))
     error ("%q+#D marked %<final%>, but is not virtual", decl);
-  if (DECL_OVERRIDE_P (decl) && !overrides_found)
-    error ("%q+#D marked %<override%>, but does not override", decl);
 }
 
 /* Warn about hidden virtual functions that are not overridden in t.
@@ -2863,12 +2914,12 @@ warn_hidden (tree t)
 	FOR_EACH_VEC_ELT (base_fndecls, j, base_fndecl)
 	  if (base_fndecl)
 	    {
+	      auto_diagnostic_group d;
 	      /* Here we know it is a hider, and no overrider exists.  */
-	      warning_at (location_of (base_fndecl),
-			  OPT_Woverloaded_virtual,
-			  "%qD was hidden", base_fndecl);
-	      warning_at (location_of (fns),
-			  OPT_Woverloaded_virtual, "  by %qD", fns);
+	      if (warning_at (location_of (base_fndecl),
+			      OPT_Woverloaded_virtual,
+			      "%qD was hidden", base_fndecl))
+		inform (location_of (fns), "  by %qD", fns);
 	    }
       }
 }
@@ -4468,11 +4519,6 @@ check_methods (tree t)
 	      vec_safe_push (CLASSTYPE_PURE_VIRTUALS (t), x);
 	  }
 
-	/* All user-provided destructors are non-trivial.
-	   Constructors and assignment ops are handled in
-	   grok_special_member_properties.  */
-	if (DECL_DESTRUCTOR_P (x) && user_provided_p (x))
-	  TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t) = 1;
 	if (!DECL_VIRTUAL_P (x)
 	    && lookup_attribute ("transaction_safe_dynamic",
 				 DECL_ATTRIBUTES (x)))
@@ -4480,6 +4526,51 @@ check_methods (tree t)
 		    "%<transaction_safe_dynamic%> may only be specified for "
 		    "a virtual function");
       }
+
+  /* Check whether the eligible special member functions (P0848) are
+     user-provided.  add_method arranged that the CLASSTYPE_MEMBER_VEC only
+     has the eligible ones; TYPE_FIELDS also contains ineligible overloads,
+     which is why this needs to be separate from the loop above.  */
+
+  if (tree dtor = CLASSTYPE_DESTRUCTOR (t))
+    {
+      if (TREE_CODE (dtor) == OVERLOAD)
+	{
+	  /* P0848: At the end of the definition of a class, overload
+	     resolution is performed among the prospective destructors declared
+	     in that class with an empty argument list to select the destructor
+	     for the class, also known as the selected destructor. The program
+	     is ill-formed if overload resolution fails. */
+	  auto_diagnostic_group d;
+	  error_at (location_of (t), "destructor for %qT is ambiguous", t);
+	  print_candidates (dtor);
+	}
+      else if (user_provided_p (dtor))
+	TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t) = true;
+    }
+
+  for (ovl_iterator i (CLASSTYPE_CONSTRUCTORS (t)); i; ++i)
+    {
+      tree fn = *i;
+      if (!user_provided_p (fn))
+	/* Might be trivial.  */;
+      else if (copy_fn_p (fn))
+	TYPE_HAS_COMPLEX_COPY_CTOR (t) = true;
+      else if (move_fn_p (fn))
+	TYPE_HAS_COMPLEX_MOVE_CTOR (t) = true;
+    }
+
+  for (ovl_iterator i (get_class_binding_direct (t, assign_op_identifier));
+       i; ++i)
+    {
+      tree fn = *i;
+      if (!user_provided_p (fn))
+	/* Might be trivial.  */;
+      else if (copy_fn_p (fn))
+	TYPE_HAS_COMPLEX_COPY_ASSIGN (t) = true;
+      else if (move_fn_p (fn))
+	TYPE_HAS_COMPLEX_MOVE_ASSIGN (t) = true;
+    }
 }
 
 /* FN is a constructor or destructor.  Clone the declaration to create
@@ -4514,7 +4605,7 @@ build_clone (tree fn, tree name)
     }
   else
     {
-      // Clone constraints.
+      /* Clone constraints.  */
       if (flag_concepts)
         if (tree ci = get_constraints (fn))
           set_constraints (clone, copy_node (ci));
@@ -4608,43 +4699,6 @@ build_clone (tree fn, tree name)
   rest_of_decl_compilation (clone, /*top_level=*/1, at_eof);
 
   return clone;
-}
-
-/* Implementation of DECL_CLONED_FUNCTION and DECL_CLONED_FUNCTION_P, do
-   not invoke this function directly.
-
-   For a non-thunk function, returns the address of the slot for storing
-   the function it is a clone of.  Otherwise returns NULL_TREE.
-
-   If JUST_TESTING, looks through TEMPLATE_DECL and returns NULL if
-   cloned_function is unset.  This is to support the separate
-   DECL_CLONED_FUNCTION and DECL_CLONED_FUNCTION_P modes; using the latter
-   on a template makes sense, but not the former.  */
-
-tree *
-decl_cloned_function_p (const_tree decl, bool just_testing)
-{
-  tree *ptr;
-  if (just_testing)
-    decl = STRIP_TEMPLATE (decl);
-
-  if (TREE_CODE (decl) != FUNCTION_DECL
-      || !DECL_LANG_SPECIFIC (decl)
-      || DECL_LANG_SPECIFIC (decl)->u.fn.thunk_p)
-    {
-#if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
-      if (!just_testing)
-	lang_check_failed (__FILE__, __LINE__, __FUNCTION__);
-      else
-#endif
-	return NULL;
-    }
-
-  ptr = &DECL_LANG_SPECIFIC (decl)->u.fn.u5.cloned_function;
-  if (just_testing && *ptr == NULL_TREE)
-    return NULL;
-  else
-    return ptr;
 }
 
 /* Produce declarations for all appropriate clones of FN.  If
@@ -4950,7 +5004,7 @@ set_method_tm_attributes (tree t)
 /* Returns true if FN is a default constructor.  */
 
 bool
-default_ctor_p (tree fn)
+default_ctor_p (const_tree fn)
 {
   return (DECL_CONSTRUCTOR_P (fn)
 	  && sufficient_parms_p (FUNCTION_FIRST_USER_PARMTYPE (fn)));
@@ -7588,16 +7642,6 @@ pushclass (tree type)
     restore_class_cache ();
 }
 
-/* When we exit a toplevel class scope, we save its binding level so
-   that we can restore it quickly.  Here, we've entered some other
-   class, so we must invalidate our cache.  */
-
-void
-invalidate_class_lookup_cache (void)
-{
-  previous_class_level = NULL;
-}
-
 /* Get out of the current class scope. If we were in a class scope
    previously, that is the one popped to.  */
 
@@ -9094,7 +9138,7 @@ build_ctor_vtbl_group (tree binfo, tree t)
      constructing the addresses of secondary vtables in the
      construction vtable group.  */
   vtbl = build_vtable (t, id, ptr_type_node);
-  DECL_CONSTRUCTION_VTABLE_P (vtbl) = 1;
+
   /* Don't export construction vtables from shared libraries.  Even on
      targets that don't support hidden visibility, this tells
      can_refer_decl_in_current_unit_p not to assume that it's safe to

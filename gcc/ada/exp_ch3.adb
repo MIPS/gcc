@@ -1922,9 +1922,15 @@ package body Exp_Ch3 is
 
          --  Adjust the tag if tagged (because of possible view conversions).
          --  Suppress the tag adjustment when not Tagged_Type_Expansion because
-         --  tags are represented implicitly in objects.
+         --  tags are represented implicitly in objects, and when the record is
+         --  initialized with a raise expression.
 
-         if Is_Tagged_Type (Typ) and then Tagged_Type_Expansion then
+         if Is_Tagged_Type (Typ)
+           and then Tagged_Type_Expansion
+           and then Nkind (Exp) /= N_Raise_Expression
+           and then (Nkind (Exp) /= N_Qualified_Expression
+                       or else Nkind (Expression (Exp)) /= N_Raise_Expression)
+         then
             Append_To (Res,
               Make_Assignment_Statement (Default_Loc,
                 Name       =>
@@ -5518,7 +5524,14 @@ package body Exp_Ch3 is
          --  Note: This code covers access-to-limited-interfaces because they
          --        can be used to reference tasks implementing them.
 
-         elsif Is_Limited_Class_Wide_Type (Desig_Typ)
+         --  Suppress the master creation for access types created for entry
+         --  formal parameters (parameter block component types). Seems like
+         --  suppression should be more general for compiler-generated types,
+         --  but testing Comes_From_Source, like the code above does, may be
+         --  too general in this case (affects some test output)???
+
+         elsif not Is_Param_Block_Component_Type (Ptr_Typ)
+           and then Is_Limited_Class_Wide_Type (Desig_Typ)
            and then Tasking_Allowed
          then
             Build_Class_Wide_Master (Ptr_Typ);
@@ -6305,7 +6318,8 @@ package body Exp_Ch3 is
       -------------------------
 
       function Rewrite_As_Renaming return Boolean is
-      begin
+         Result : constant Boolean :=
+
          --  If the object declaration appears in the form
 
          --    Obj : Ctrl_Typ := Func (...);
@@ -6323,12 +6337,12 @@ package body Exp_Ch3 is
 
          --  This part is disabled for now, because it breaks GPS builds
 
-         return (False -- ???
-             and then Nkind (Expr_Q) = N_Explicit_Dereference
-             and then not Comes_From_Source (Expr_Q)
-             and then Nkind (Original_Node (Expr_Q)) = N_Function_Call
-             and then Nkind (Object_Definition (N)) in N_Has_Entity
-             and then (Needs_Finalization (Entity (Object_Definition (N)))))
+         (False -- ???
+            and then Nkind (Expr_Q) = N_Explicit_Dereference
+            and then not Comes_From_Source (Expr_Q)
+            and then Nkind (Original_Node (Expr_Q)) = N_Function_Call
+            and then Nkind (Object_Definition (N)) in N_Has_Entity
+            and then (Needs_Finalization (Entity (Object_Definition (N)))))
 
            --  If the initializing expression is for a variable with attribute
            --  OK_To_Rename set, then transform:
@@ -6349,6 +6363,14 @@ package body Exp_Ch3 is
                and then Ekind (Entity (Expr_Q)) = E_Variable
                and then OK_To_Rename (Entity (Expr_Q))
                and then Is_Entity_Name (Obj_Def));
+      begin
+         --  Return False if there are any aspect specifications, because
+         --  otherwise we duplicate that corresponding implicit attribute
+         --  definition, and call Insert_Action, which has no place to insert
+         --  the attribute definition. The attribute definition is stored in
+         --  Aspect_Rep_Item, which is not a list.
+
+         return Result and then No (Aspect_Specifications (N));
       end Rewrite_As_Renaming;
 
       --  Local variables
@@ -10313,8 +10335,24 @@ package body Exp_Ch3 is
              Result_Definition        => New_Occurrence_Of (Ret_Type, Loc));
       end if;
 
+      --  Declare an abstract subprogram for primitive subprograms of an
+      --  interface type (except for "=").
+
       if Is_Interface (Tag_Typ) then
-         return Make_Abstract_Subprogram_Declaration (Loc, Spec);
+         if Name /= Name_Op_Eq then
+            return Make_Abstract_Subprogram_Declaration (Loc, Spec);
+
+         --  The equality function (if any) for an interface type is defined
+         --  to be nonabstract, so we create an expression function for it that
+         --  always returns False. Note that the function can never actually be
+         --  invoked because interface types are abstract, so there aren't any
+         --  objects of such types (and their equality operation will always
+         --  dispatch).
+
+         else
+            return Make_Expression_Function
+                     (Loc, Spec, New_Occurrence_Of (Standard_False, Loc));
+         end if;
 
       --  If body case, return empty subprogram body. Note that this is ill-
       --  formed, because there is not even a null statement, and certainly not

@@ -371,6 +371,21 @@ Syntax:
 This configuration pragma is a synonym for pragma Ada_12 and has the
 same syntax and effect.
 
+Pragma Aggregate_Individually_Assign
+====================================
+
+Syntax:
+
+.. code-block:: ada
+
+  pragma Aggregate_Individually_Assign;
+
+Where possible, GNAT will store the binary representation of a record aggregate
+in memory for space and performance reasons. This configuration pragma changes
+this behavior so that record aggregates are instead always converted into
+individual assignment statements.
+
+
 Pragma Allow_Integer_Address
 ============================
 
@@ -440,7 +455,8 @@ not otherwise analyze it. The second optional identifier is also left
 unanalyzed, and by convention is used to control the action of the tool to
 which the annotation is addressed.  The remaining ARG arguments
 can be either string literals or more generally expressions.
-String literals are assumed to be either of type
+String literals (and concatenations of string literals) are assumed to be
+either of type
 ``Standard.String`` or else ``Wide_String`` or ``Wide_Wide_String``
 depending on the character literals they contain.
 All other kinds of arguments are analyzed as expressions, and must be
@@ -3239,7 +3255,7 @@ Ada exceptions, or used to implement run-time functions such as the
 Pragma ``Interrupt_State`` provides a general mechanism for overriding
 such uses of interrupts.  It subsumes the functionality of pragma
 ``Unreserve_All_Interrupts``.  Pragma ``Interrupt_State`` is not
-available on Windows or VMS.  On all other platforms than VxWorks,
+available on Windows.  On all other platforms than VxWorks,
 it applies to signals; on VxWorks, it applies to vectored hardware interrupts
 and may be used to mark interrupts required by the board support package
 as reserved.
@@ -3649,6 +3665,24 @@ the implementation of protected operations must be implemented without locks.
 Compilation fails if the compiler cannot generate lock-free code for the
 operations.
 
+The current conditions required to support this pragma are:
+
+* Protected type declarations may not contain entries
+* Protected subprogram declarations may not have nonelementary parameters
+
+In addition, each protected subprogram body must satisfy:
+
+* May reference only one protected component
+* May not reference nonconstant entities outside the protected subprogram
+  scope.
+* May not contain address representation items, allocators, or quantified
+  expressions.
+* May not contain delay, goto, loop, or procedure-call statements.
+* May not contain exported and imported entities
+* May not dereferenced access values
+* Function calls and attribute references must be static
+
+
 Pragma Loop_Invariant
 =====================
 
@@ -3855,8 +3889,10 @@ Syntax::
 
 This pragma is used to specify the maximum callers per entry queue for
 individual protected entries and entry families. It accepts a single
-positive integer as a parameter and must appear after the declaration
-of an entry.
+integer (-1 or more) as a parameter and must appear after the declaration of an
+entry.
+
+A value of -1 represents no additional restriction on queue length.
 
 Pragma No_Body
 ==============
@@ -3880,6 +3916,20 @@ This is particularly useful during maintenance when a package is modified in
 such a way that a body needed before is no longer needed. The provision of a
 dummy body with a No_Body pragma ensures that there is no interference from
 earlier versions of the package body.
+
+.. _Pragma-No_Caching:
+
+Pragma No_Caching
+=================
+
+Syntax:
+
+.. code-block:: ada
+
+  pragma No_Caching [ (boolean_EXPRESSION) ];
+
+For the semantics of this pragma, see the entry for aspect ``No_Caching`` in
+the SPARK 2014 Reference Manual, section 7.1.2.
 
 Pragma No_Component_Reordering
 ==============================
@@ -3999,22 +4049,6 @@ statement sequence is a call to such a procedure.
 Note that in Ada 2005 mode, this pragma is part of the language. It is
 available in all earlier versions of Ada as an implementation-defined
 pragma.
-
-Pragma No_Run_Time
-==================
-
-Syntax:
-
-
-.. code-block:: ada
-
-  pragma No_Run_Time;
-
-
-This is an obsolete configuration pragma that historically was used to
-set up a runtime library with no object code. It is now used only for
-internal testing. The pragma has been superseded by the reconfigurable
-runtime capability of GNAT.
 
 Pragma No_Strict_Aliasing
 =========================
@@ -6146,7 +6180,7 @@ usually supplied automatically by the project manager. A pragma
 Source_File_Name cannot appear after a :ref:`Pragma_Source_File_Name_Project`.
 
 For more details on the use of the ``Source_File_Name`` pragma, see the
-sections on ``Using Other File Names`` and `Alternative File Naming Schemes'
+sections on `Using Other File Names` and `Alternative File Naming Schemes`
 in the :title:`GNAT User's Guide`.
 
 ..  _Pragma_Source_File_Name_Project:
@@ -7355,6 +7389,7 @@ validity checks as shown in the following example:
   pragma Validity_Checks (On);  -- turn validity checks back on
   A := C;                       -- C will be validity checked
 
+.. _Pragma-Volatile:
 
 Pragma Volatile
 ===============
@@ -7434,27 +7469,32 @@ Syntax:
 
 
 This configuration pragma allows the programmer to specify a set
-of warnings that will be treated as errors. Any warning which
+of warnings that will be treated as errors. Any warning that
 matches the pattern given by the pragma argument will be treated
-as an error. This gives much more precise control that -gnatwe
-which treats all warnings as errors.
+as an error. This gives more precise control than -gnatwe,
+which treats warnings as errors.
 
-The pattern may contain asterisks, which match zero or more characters in
-the message. For example, you can use
-``pragma Warning_As_Error ("bits of*unused")`` to treat the warning
-message ``warning: 960 bits of "a" unused`` as an error. No other regular
-expression notations are permitted. All characters other than asterisk in
-these three specific cases are treated as literal characters in the match.
-The match is case insensitive, for example XYZ matches xyz.
+This pragma can apply to regular warnings (messages enabled by -gnatw)
+and to style warnings (messages that start with "(style)",
+enabled by -gnaty).
+
+The pattern may contain asterisks, which match zero or more characters
+in the message. For example, you can use ``pragma Warning_As_Error
+("bits of*unused")`` to treat the warning message ``warning: 960 bits of
+"a" unused`` as an error. All characters other than asterisk are treated
+as literal characters in the match. The match is case insensitive; for
+example XYZ matches xyz.
 
 Note that the pattern matches if it occurs anywhere within the warning
 message string (it is not necessary to put an asterisk at the start and
 the end of the message, since this is implied).
 
 Another possibility for the static_string_EXPRESSION which works whether
-or not error tags are enabled (*-gnatw.d*) is to use the
+or not error tags are enabled (*-gnatw.d*) is to use a single
 *-gnatw* tag string, enclosed in brackets,
-as shown in the example below, to treat a class of warnings as errors.
+as shown in the example below, to treat one category of warnings as errors.
+Note that if you want to treat multiple categories of warnings as errors,
+you can use multiple pragma Warning_As_Error.
 
 The above use of patterns to match the message applies only to warning
 messages generated by the front end. This pragma can also be applied to
@@ -7652,7 +7692,7 @@ asterisks is similar in effect to specifying ``pragma Warnings (Off)`` except (i
 ``pragma Warnings (On, "***")`` will be required. This can be
 helpful in avoiding forgetting to turn warnings back on.
 
-Note: the debug flag :switch:`-gnatd.i` (``/NOWARNINGS_PRAGMAS`` in VMS) can be
+Note: the debug flag :switch:`-gnatd.i` can be
 used to cause the compiler to entirely ignore all WARNINGS pragmas. This can
 be useful in checking whether obsolete pragmas in existing programs are hiding
 real problems.

@@ -47,6 +47,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "lto-section-names.h"
 #include "intl.h"
+#include "optabs.h"
 
 /* Darwin supports a feature called fix-and-continue, which is used
    for rapid turn around debugging.  When code is compiled with the
@@ -108,8 +109,8 @@ section * darwin_sections[NUM_DARWIN_SECTIONS];
 
 /* While we transition to using in-tests instead of ifdef'd code.  */
 #if !HAVE_lo_sum
-#define gen_macho_high(a,b) (a)
-#define gen_macho_low(a,b,c) (a)
+#define gen_macho_high(m,a,b) (a)
+#define gen_macho_low(m,a,b,c) (a)
 #endif
 
 /* True if we're setting __attribute__ ((ms_struct)).  */
@@ -654,8 +655,8 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
 	    {
 	  /* Create a new register for CSE opportunities.  */
 	  rtx hi_reg = (!can_create_pseudo_p () ? reg : gen_reg_rtx (Pmode));
- 	  emit_insn (gen_macho_high (hi_reg, orig));
- 	  emit_insn (gen_macho_low (reg, hi_reg, orig));
+	  emit_insn (gen_macho_high (Pmode, hi_reg, orig));
+	  emit_insn (gen_macho_low (Pmode, reg, hi_reg, orig));
 	      return reg;
  	    }
 	  else if (DARWIN_X86)
@@ -788,7 +789,7 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
 rtx
 machopic_indirect_call_target (rtx target)
 {
-  if (! darwin_picsymbol_stubs)
+  if (! darwin_symbol_stubs)
     return target;
 
   if (GET_CODE (target) != MEM)
@@ -842,7 +843,7 @@ machopic_legitimize_pic_address (rtx orig, machine_mode mode, rtx reg)
 	{
 	  if (reg == 0)
 	    {
-	      gcc_assert (!reload_in_progress);
+	      gcc_assert (!lra_in_progress);
 	      reg = gen_reg_rtx (Pmode);
 	    }
 
@@ -858,7 +859,7 @@ machopic_legitimize_pic_address (rtx orig, machine_mode mode, rtx reg)
 	      rtx asym = XEXP (orig, 0);
 	      rtx mem;
 
-	      emit_insn (gen_macho_high (temp_reg, asym));
+	      emit_insn (gen_macho_high (Pmode, temp_reg, asym));
 	      mem = gen_const_mem (GET_MODE (orig),
 				   gen_rtx_LO_SUM (Pmode, temp_reg,
 						   copy_rtx (asym)));
@@ -926,7 +927,7 @@ machopic_legitimize_pic_address (rtx orig, machine_mode mode, rtx reg)
 	      emit_use (gen_rtx_REG (Pmode, PIC_OFFSET_TABLE_REGNUM));
 #endif
 
-	      if (reload_in_progress)
+	      if (lra_in_progress)
 		df_set_regs_ever_live (REGNO (pic), true);
 	      pic_ref = gen_rtx_PLUS (Pmode, pic,
 				      machopic_gen_offset (XEXP (orig, 0)));
@@ -950,7 +951,7 @@ machopic_legitimize_pic_address (rtx orig, machine_mode mode, rtx reg)
 
 	      if (reg == 0)
 		{
-		  gcc_assert (!reload_in_progress);
+		  gcc_assert (!lra_in_progress);
 		  reg = gen_reg_rtx (Pmode);
 		}
 
@@ -996,7 +997,7 @@ machopic_legitimize_pic_address (rtx orig, machine_mode mode, rtx reg)
 #if 0
 		  emit_use (pic_offset_table_rtx);
 #endif
-		  if (reload_in_progress)
+		  if (lra_in_progress)
 		    df_set_regs_ever_live (REGNO (pic), true);
 		  pic_ref = gen_rtx_PLUS (Pmode,
 					  pic,
@@ -3268,13 +3269,13 @@ darwin_override_options (void)
      Linkers that don't need stubs, don't need the EH symbol markers either.
   */
 
-  if (!global_options_set.x_darwin_picsymbol_stubs)
+  if (!global_options_set.x_darwin_symbol_stubs)
     {
       if (darwin_target_linker)
 	{
 	  if (strverscmp (darwin_target_linker, MIN_LD64_OMIT_STUBS) < 0)
 	    {
-	      darwin_picsymbol_stubs = true;
+	      darwin_symbol_stubs = true;
 	      ld_needs_eh_markers = true;
 	    }
 	}
@@ -3283,15 +3284,15 @@ darwin_override_options (void)
 	  /* If we don't know the linker version and we're targeting an old
 	     system, we know no better than to assume the use of an earlier
 	     linker.  */
-	  darwin_picsymbol_stubs = true;
+	  darwin_symbol_stubs = true;
 	  ld_needs_eh_markers = true;
 	}
     }
-  else if (DARWIN_X86 && darwin_picsymbol_stubs && TARGET_64BIT)
+  else if (DARWIN_X86 && darwin_symbol_stubs && TARGET_64BIT)
     {
       inform (input_location,
 	      "%<-mpic-symbol-stubs%> is not required for 64b code (ignored)");
-      darwin_picsymbol_stubs = false;
+      darwin_symbol_stubs = false;
     }
 
   if (generating_for_darwin_version >= 9)
@@ -3439,8 +3440,7 @@ darwin_init_cfstring_builtins (unsigned builtin_cfstring)
      in place of the existing, which may be NULL.  */
   DECL_LANG_SPECIFIC (cfsfun) = NULL;
   (*lang_hooks.dup_lang_specific_decl) (cfsfun);
-  DECL_BUILT_IN_CLASS (cfsfun) = BUILT_IN_MD;
-  DECL_FUNCTION_CODE (cfsfun) = darwin_builtin_cfstring;
+  set_decl_built_in_function (cfsfun, BUILT_IN_MD, darwin_builtin_cfstring);
   lang_hooks.builtin_function (cfsfun);
 
   /* extern int __CFConstantStringClassReference[];  */
@@ -3464,7 +3464,7 @@ tree
 darwin_fold_builtin (tree fndecl, int n_args, tree *argp,
 		     bool ARG_UNUSED (ignore))
 {
-  unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
+  unsigned int fcode = DECL_MD_FUNCTION_CODE (fndecl);
 
   if (fcode == darwin_builtin_cfstring)
     {

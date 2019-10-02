@@ -57,6 +57,7 @@ std_headers = \
 	${std_srcdir}/memory \
 	${std_srcdir}/memory_resource \
 	${std_srcdir}/mutex \
+	${std_srcdir}/numbers \
 	${std_srcdir}/numeric \
 	${std_srcdir}/optional \
 	${std_srcdir}/ostream \
@@ -67,6 +68,7 @@ std_headers = \
 	${std_srcdir}/scoped_allocator \
 	${std_srcdir}/set \
 	${std_srcdir}/shared_mutex \
+	${std_srcdir}/span \
 	${std_srcdir}/sstream \
 	${std_srcdir}/stack \
 	${std_srcdir}/stdexcept \

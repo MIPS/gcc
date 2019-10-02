@@ -465,6 +465,9 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, dump_flags_t flags)
     case OMP_CLAUSE_USE_DEVICE_PTR:
       name = "use_device_ptr";
       goto print_remap;
+    case OMP_CLAUSE_USE_DEVICE_ADDR:
+      name = "use_device_addr";
+      goto print_remap;
     case OMP_CLAUSE_IS_DEVICE_PTR:
       name = "is_device_ptr";
       goto print_remap;
@@ -948,6 +951,25 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, dump_flags_t flags)
       pp_right_paren (pp);
       break;
 
+    case OMP_CLAUSE_DEVICE_TYPE:
+      pp_string (pp, "device_type(");
+      switch (OMP_CLAUSE_DEVICE_TYPE_KIND (clause))
+	{
+	case OMP_CLAUSE_DEVICE_TYPE_HOST:
+	  pp_string (pp, "host");
+	  break;
+	case OMP_CLAUSE_DEVICE_TYPE_NOHOST:
+	  pp_string (pp, "nohost");
+	  break;
+	case OMP_CLAUSE_DEVICE_TYPE_ANY:
+	  pp_string (pp, "any");
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+      pp_right_paren (pp);
+      break;
+
     case OMP_CLAUSE_SAFELEN:
       pp_string (pp, "safelen(");
       dump_generic_node (pp, OMP_CLAUSE_SAFELEN_EXPR (clause),
@@ -1042,6 +1064,25 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, dump_flags_t flags)
 
     case OMP_CLAUSE_ORDER:
       pp_string (pp, "order(concurrent)");
+      break;
+
+    case OMP_CLAUSE_BIND:
+      pp_string (pp, "bind(");
+      switch (OMP_CLAUSE_BIND_KIND (clause))
+	{
+	case OMP_CLAUSE_BIND_TEAMS:
+	  pp_string (pp, "teams");
+	  break;
+	case OMP_CLAUSE_BIND_PARALLEL:
+	  pp_string (pp, "parallel");
+	  break;
+	case OMP_CLAUSE_BIND_THREAD:
+	  pp_string (pp, "thread");
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+      pp_right_paren (pp);
       break;
 
     case OMP_CLAUSE__SIMDUID_:
@@ -3259,6 +3300,10 @@ dump_generic_node (pretty_printer *pp, tree node, int spc, dump_flags_t flags,
 
     case OMP_TASKLOOP:
       pp_string (pp, "#pragma omp taskloop");
+      goto dump_omp_loop;
+
+    case OMP_LOOP:
+      pp_string (pp, "#pragma omp loop");
       goto dump_omp_loop;
 
     case OACC_LOOP:

@@ -537,7 +537,8 @@ decode_cmdline_option (const char **argv, unsigned int lang_mask,
 
   extra_args = 0;
 
-  opt_index = find_opt (argv[0] + 1, lang_mask);
+  const char *opt_value = argv[0] + 1;
+  opt_index = find_opt (opt_value, lang_mask);
   i = 0;
   while (opt_index == OPT_SPECIAL_unknown
 	 && i < ARRAY_SIZE (option_map))
@@ -666,7 +667,7 @@ decode_cmdline_option (const char **argv, unsigned int lang_mask,
       size_t new_opt_index = option->alias_target;
 
       if (new_opt_index == OPT_SPECIAL_ignore
-	  || new_opt_index == OPT_SPECIAL_deprecated)
+	  || new_opt_index == OPT_SPECIAL_warn_removed)
 	{
 	  gcc_assert (option->alias_arg == NULL);
 	  gcc_assert (option->neg_alias_arg == NULL);
@@ -745,6 +746,23 @@ decode_cmdline_option (const char **argv, unsigned int lang_mask,
   /* Check if this is a switch for a different front end.  */
   if (!option_ok_for_language (option, lang_mask))
     errors |= CL_ERR_WRONG_LANG;
+  else if (strcmp (option->opt_text, "-Werror=") == 0
+	   && strchr (opt_value, ',') == NULL)
+    {
+      /* Verify that -Werror argument is a valid warning
+	 for a language.  */
+      char *werror_arg = xstrdup (opt_value + 6);
+      werror_arg[0] = 'W';
+
+      size_t warning_index = find_opt (werror_arg, lang_mask);
+      if (warning_index != OPT_SPECIAL_unknown)
+	{
+	  const struct cl_option *warning_option
+	    = &cl_options[warning_index];
+	  if (!option_ok_for_language (warning_option, lang_mask))
+	    errors |= CL_ERR_WRONG_LANG;
+	}
+    }
 
   /* Convert the argument to lowercase if appropriate.  */
   if (arg && option->cl_tolower)
@@ -822,7 +840,7 @@ decode_cmdline_option (const char **argv, unsigned int lang_mask,
 	decoded->canonical_option[i] = NULL;
     }
   if (opt_index != OPT_SPECIAL_unknown && opt_index != OPT_SPECIAL_ignore
-      && opt_index != OPT_SPECIAL_deprecated)
+      && opt_index != OPT_SPECIAL_warn_removed)
     {
       generate_canonical_option (opt_index, arg, value, decoded);
       if (separate_args > 1)
@@ -1000,7 +1018,7 @@ prune_options (struct cl_decoded_option **decoded_options,
 	{
 	case OPT_SPECIAL_unknown:
 	case OPT_SPECIAL_ignore:
-	case OPT_SPECIAL_deprecated:
+	case OPT_SPECIAL_warn_removed:
 	case OPT_SPECIAL_program_name:
 	case OPT_SPECIAL_input_file:
 	  goto keep;
@@ -1330,7 +1348,7 @@ read_cmdline_option (struct gcc_options *opts,
   if (decoded->opt_index == OPT_SPECIAL_ignore)
     return;
 
-  if (decoded->opt_index == OPT_SPECIAL_deprecated)
+  if (decoded->opt_index == OPT_SPECIAL_warn_removed)
     {
       /* Warn only about positive ignored options.  */
       if (decoded->value)
@@ -1508,9 +1526,17 @@ option_flag_var (int opt_index, struct gcc_options *opts)
    or -1 if it isn't a simple on-off switch.  */
 
 int
-option_enabled (int opt_idx, void *opts)
+option_enabled (int opt_idx, unsigned lang_mask, void *opts)
 {
   const struct cl_option *option = &(cl_options[opt_idx]);
+
+  /* A language-specific option can only be considered enabled when it's
+     valid for the current language.  */
+  if (!(option->flags & CL_COMMON)
+      && (option->flags & CL_LANG_ALL)
+      && !(option->flags & lang_mask))
+    return 0;
+
   struct gcc_options *optsg = (struct gcc_options *) opts;
   void *flag_var = option_flag_var (opt_idx, optsg);
 
@@ -1580,7 +1606,7 @@ get_option_state (struct gcc_options *opts, int option,
 
     case CLVC_BIT_CLEAR:
     case CLVC_BIT_SET:
-      state->ch = option_enabled (option, opts);
+      state->ch = option_enabled (option, -1, opts);
       state->data = &state->ch;
       state->size = 1;
       break;
@@ -1627,7 +1653,7 @@ control_warning_option (unsigned int opt_index, int kind, const char *arg,
 	arg = cl_options[opt_index].alias_arg;
       opt_index = cl_options[opt_index].alias_target;
     }
-  if (opt_index == OPT_SPECIAL_ignore || opt_index == OPT_SPECIAL_deprecated)
+  if (opt_index == OPT_SPECIAL_ignore || opt_index == OPT_SPECIAL_warn_removed)
     return;
   if (dc)
     diagnostic_classify_diagnostic (dc, opt_index, (diagnostic_t) kind, loc);

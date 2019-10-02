@@ -1582,7 +1582,7 @@ package body Exp_Ch4 is
       Index_List1 : constant List_Id    := New_List;
       Index_List2 : constant List_Id    := New_List;
 
-      Actuals   : List_Id;
+      First_Idx : Node_Id;
       Formals   : List_Id;
       Func_Name : Entity_Id;
       Func_Body : Node_Id;
@@ -1593,6 +1593,10 @@ package body Exp_Ch4 is
       Ltyp : Entity_Id;
       Rtyp : Entity_Id;
       --  The parameter types to be used for the formals
+
+      New_Lhs : Node_Id;
+      New_Rhs : Node_Id;
+      --  The LHS and RHS converted to the parameter types
 
       function Arr_Attr
         (Arr : Entity_Id;
@@ -1852,7 +1856,7 @@ package body Exp_Ch4 is
                     Statements => New_List (Loop_Stm)));
 
          --  If no separate indexes, return loop statement with explicit
-         --  iteration scheme on its own
+         --  iteration scheme on its own.
 
          else
             Loop_Stm :=
@@ -1962,6 +1966,82 @@ package body Exp_Ch4 is
          pragma Assert (Ltyp = Rtyp);
       end if;
 
+      --  If the array type is distinct from the type of the arguments, it
+      --  is the full view of a private type. Apply an unchecked conversion
+      --  to ensure that analysis of the code below succeeds.
+
+      if No (Etype (Lhs))
+        or else Base_Type (Etype (Lhs)) /= Base_Type (Ltyp)
+      then
+         New_Lhs := OK_Convert_To (Ltyp, Lhs);
+      else
+         New_Lhs := Lhs;
+      end if;
+
+      if No (Etype (Rhs))
+        or else Base_Type (Etype (Rhs)) /= Base_Type (Rtyp)
+      then
+         New_Rhs := OK_Convert_To (Rtyp, Rhs);
+      else
+         New_Rhs := Rhs;
+      end if;
+
+      First_Idx := First_Index (Ltyp);
+
+      --  If optimization is enabled and the array boils down to a couple of
+      --  consecutive elements, generate a simple conjunction of comparisons
+      --  which should be easier to optimize by the code generator.
+
+      if Optimization_Level > 0
+        and then Ltyp = Rtyp
+        and then Is_Constrained (Ltyp)
+        and then Number_Dimensions (Ltyp) = 1
+        and then Nkind (First_Idx) = N_Range
+        and then Compile_Time_Known_Value (Low_Bound (First_Idx))
+        and then Compile_Time_Known_Value (High_Bound (First_Idx))
+        and then Expr_Value (High_Bound (First_Idx)) =
+                                         Expr_Value (Low_Bound (First_Idx)) + 1
+      then
+         declare
+            Ctyp         : constant Entity_Id := Component_Type (Ltyp);
+            L, R         : Node_Id;
+            TestL, TestH : Node_Id;
+            Index_List   : List_Id;
+
+         begin
+            Index_List := New_List (New_Copy_Tree (Low_Bound (First_Idx)));
+
+            L :=
+              Make_Indexed_Component (Loc,
+                Prefix      => New_Copy_Tree (New_Lhs),
+                Expressions => Index_List);
+
+            R :=
+              Make_Indexed_Component (Loc,
+                Prefix      => New_Copy_Tree (New_Rhs),
+                Expressions => Index_List);
+
+            TestL := Expand_Composite_Equality (Nod, Ctyp, L, R, Bodies);
+
+            Index_List := New_List (New_Copy_Tree (High_Bound (First_Idx)));
+
+            L :=
+              Make_Indexed_Component (Loc,
+                Prefix      => New_Lhs,
+                Expressions => Index_List);
+
+            R :=
+              Make_Indexed_Component (Loc,
+                Prefix      => New_Rhs,
+                Expressions => Index_List);
+
+            TestH := Expand_Composite_Equality (Nod, Ctyp, L, R, Bodies);
+
+            return
+              Make_And_Then (Loc, Left_Opnd => TestL, Right_Opnd => TestH);
+         end;
+      end if;
+
       --  Build list of formals for function
 
       Formals := New_List (
@@ -2004,46 +2084,20 @@ package body Exp_Ch4 is
                     Make_Simple_Return_Statement (Loc,
                       Expression => New_Occurrence_Of (Standard_False, Loc)))),
 
-                Handle_One_Dimension (1, First_Index (Ltyp)),
+                Handle_One_Dimension (1, First_Idx),
 
                 Make_Simple_Return_Statement (Loc,
                   Expression => New_Occurrence_Of (Standard_True, Loc)))));
 
-         Set_Has_Completion (Func_Name, True);
-         Set_Is_Inlined (Func_Name);
+      Set_Has_Completion (Func_Name, True);
+      Set_Is_Inlined (Func_Name);
 
-         --  If the array type is distinct from the type of the arguments, it
-         --  is the full view of a private type. Apply an unchecked conversion
-         --  to insure that analysis of the call succeeds.
+      Append_To (Bodies, Func_Body);
 
-         declare
-            L, R : Node_Id;
-
-         begin
-            L := Lhs;
-            R := Rhs;
-
-            if No (Etype (Lhs))
-              or else Base_Type (Etype (Lhs)) /= Base_Type (Ltyp)
-            then
-               L := OK_Convert_To (Ltyp, Lhs);
-            end if;
-
-            if No (Etype (Rhs))
-              or else Base_Type (Etype (Rhs)) /= Base_Type (Rtyp)
-            then
-               R := OK_Convert_To (Rtyp, Rhs);
-            end if;
-
-            Actuals := New_List (L, R);
-         end;
-
-         Append_To (Bodies, Func_Body);
-
-         return
-           Make_Function_Call (Loc,
-             Name                   => New_Occurrence_Of (Func_Name, Loc),
-             Parameter_Associations => Actuals);
+      return
+        Make_Function_Call (Loc,
+          Name                   => New_Occurrence_Of (Func_Name, Loc),
+          Parameter_Associations => New_List (New_Lhs, New_Rhs));
    end Expand_Array_Equality;
 
    -----------------------------
@@ -2757,7 +2811,7 @@ package body Exp_Ch4 is
       --  The J'th entry in an expression node that represents the total length
       --  of operands 1 through J. It is either an integer literal node, or a
       --  reference to a constant entity with the right value, so it is fine
-      --  to just do a Copy_Node to get an appropriate copy. The extra zero'th
+      --  to just do a Copy_Node to get an appropriate copy. The extra zeroth
       --  entry always is set to zero. The length is of type Artyp.
 
       Low_Bound : Node_Id;
@@ -4249,9 +4303,12 @@ package body Exp_Ch4 is
 
       function Size_In_Storage_Elements (E : Entity_Id) return Node_Id;
       --  Given a constrained array type E, returns a node representing the
-      --  code to compute the size in storage elements for the given type.
-      --  This is done without using the attribute (which malfunctions for
-      --  large sizes ???)
+      --  code to compute a close approximation of the size in storage elements
+      --  for the given type; for indexes that are modular types we compute
+      --  'Last - First (instead of 'Length) because for large arrays computing
+      --  'Last -'First + 1 causes overflow. This is done without using the
+      --  attribute 'Size_In_Storage_Elements (which malfunctions for large
+      --  sizes ???).
 
       -------------------------
       -- Rewrite_Coextension --
@@ -4310,17 +4367,77 @@ package body Exp_Ch4 is
          --  just a fraction of a storage element???
 
          declare
+            Idx : Node_Id := First_Index (E);
             Len : Node_Id;
             Res : Node_Id;
             pragma Warnings (Off, Res);
 
          begin
             for J in 1 .. Number_Dimensions (E) loop
-               Len :=
-                 Make_Attribute_Reference (Loc,
-                   Prefix         => New_Occurrence_Of (E, Loc),
-                   Attribute_Name => Name_Length,
-                   Expressions    => New_List (Make_Integer_Literal (Loc, J)));
+
+               if not Is_Modular_Integer_Type (Etype (Idx)) then
+                  Len :=
+                    Make_Attribute_Reference (Loc,
+                      Prefix         => New_Occurrence_Of (E, Loc),
+                      Attribute_Name => Name_Length,
+                      Expressions    => New_List
+                                          (Make_Integer_Literal (Loc, J)));
+
+               --  For indexes that are modular types we cannot generate code
+               --  to compute 'Length since for large arrays 'Last -'First + 1
+               --  causes overflow; therefore we compute 'Last - 'First (which
+               --  is not the exact number of components but it is valid for
+               --  the purpose of this runtime check on 32-bit targets).
+
+               else
+                  declare
+                     Len_Minus_1_Expr : Node_Id;
+                     Test_Gt          : Node_Id;
+
+                  begin
+                     Test_Gt :=
+                       Make_Op_Gt (Loc,
+                         Make_Attribute_Reference (Loc,
+                           Prefix         => New_Occurrence_Of (E, Loc),
+                           Attribute_Name => Name_Last,
+                           Expressions    =>
+                             New_List (Make_Integer_Literal (Loc, J))),
+                         Make_Attribute_Reference (Loc,
+                           Prefix         => New_Occurrence_Of (E, Loc),
+                           Attribute_Name => Name_First,
+                           Expressions    =>
+                             New_List (Make_Integer_Literal (Loc, J))));
+
+                     Len_Minus_1_Expr :=
+                       Convert_To (Standard_Unsigned,
+                         Make_Op_Subtract (Loc,
+                           Make_Attribute_Reference (Loc,
+                             Prefix => New_Occurrence_Of (E, Loc),
+                             Attribute_Name => Name_Last,
+                             Expressions =>
+                               New_List
+                                 (Make_Integer_Literal (Loc, J))),
+                           Make_Attribute_Reference (Loc,
+                             Prefix => New_Occurrence_Of (E, Loc),
+                             Attribute_Name => Name_First,
+                             Expressions =>
+                               New_List
+                                 (Make_Integer_Literal (Loc, J)))));
+
+                     --  Handle superflat arrays, i.e. arrays with such bounds
+                     --  as 4 .. 2, to ensure that the result is correct.
+
+                     --  Generate:
+                     --    (if X'Last > X'First then X'Last - X'First else 0)
+
+                     Len :=
+                       Make_If_Expression (Loc,
+                         Expressions => New_List (
+                           Test_Gt,
+                           Len_Minus_1_Expr,
+                           Make_Integer_Literal (Loc, Uint_0)));
+                  end;
+               end if;
 
                if J = 1 then
                   Res := Len;
@@ -4331,6 +4448,8 @@ package body Exp_Ch4 is
                       Left_Opnd  => Res,
                       Right_Opnd => Len);
                end if;
+
+               Next_Index (Idx);
             end loop;
 
             return
@@ -4356,10 +4475,13 @@ package body Exp_Ch4 is
 
    begin
       --  Warn on the presence of an allocator of an anonymous access type when
-      --  enabled.
+      --  enabled, except when it's an object declaration at library level.
 
       if Warn_On_Anonymous_Allocators
         and then Ekind (PtrT) = E_Anonymous_Access_Type
+        and then not (Is_Library_Level_Entity (PtrT)
+                       and then Nkind (Associated_Node_For_Itype (PtrT)) =
+                                  N_Object_Declaration)
       then
          Error_Msg_N ("?use of an anonymous access type allocator", N);
       end if;
@@ -4573,15 +4695,83 @@ package body Exp_Ch4 is
          --  apply the check for constrained arrays, and manually compute the
          --  value of the attribute ???
 
-         if Is_Array_Type (Etyp) and then Is_Constrained (Etyp) then
-            Insert_Action (N,
-              Make_Raise_Storage_Error (Loc,
-                Condition =>
-                  Make_Op_Gt (Loc,
-                    Left_Opnd  => Size_In_Storage_Elements (Etyp),
-                    Right_Opnd =>
-                      Make_Integer_Literal (Loc, Uint_7 * (Uint_2 ** 29))),
-                Reason    => SE_Object_Too_Large));
+         --  The check on No_Initialization is used here to prevent generating
+         --  this runtime check twice when the allocator is locally replaced by
+         --  the expander with another one.
+
+         if Is_Array_Type (Etyp) and then not No_Initialization (N) then
+            declare
+               Cond    : Node_Id;
+               Ins_Nod : Node_Id   := N;
+               Siz_Typ : Entity_Id := Etyp;
+               Expr    : Node_Id;
+
+            begin
+               --  For unconstrained array types initialized with a qualified
+               --  expression we use its type to perform this check
+
+               if not Is_Constrained (Etyp)
+                 and then not No_Initialization (N)
+                 and then Nkind (Expression (N)) = N_Qualified_Expression
+               then
+                  Expr    := Expression (Expression (N));
+                  Siz_Typ := Etype (Expression (Expression (N)));
+
+                  --  If the qualified expression has been moved to an internal
+                  --  temporary (to remove side effects) then we must insert
+                  --  the runtime check before its declaration to ensure that
+                  --  the check is performed before the execution of the code
+                  --  computing the qualified expression.
+
+                  if Nkind (Expr) = N_Identifier
+                    and then Is_Internal_Name (Chars (Expr))
+                    and then
+                      Nkind (Parent (Entity (Expr))) = N_Object_Declaration
+                  then
+                     Ins_Nod := Parent (Entity (Expr));
+                  else
+                     Ins_Nod := Expr;
+                  end if;
+               end if;
+
+               if Is_Constrained (Siz_Typ)
+                 and then Ekind (Siz_Typ) /= E_String_Literal_Subtype
+               then
+                  --  For CCG targets, the largest array may have up to 2**31-1
+                  --  components (i.e. 2 gigabytes if each array component is
+                  --  one byte). This ensures that fat pointer fields do not
+                  --  overflow, since they are 32-bit integer types, and also
+                  --  ensures that 'Length can be computed at run time.
+
+                  if Modify_Tree_For_C then
+                     Cond :=
+                       Make_Op_Gt (Loc,
+                         Left_Opnd  => Size_In_Storage_Elements (Siz_Typ),
+                         Right_Opnd => Make_Integer_Literal (Loc,
+                                         Uint_2 ** 31 - Uint_1));
+
+                  --  For native targets the largest object is 3.5 gigabytes
+
+                  else
+                     Cond :=
+                       Make_Op_Gt (Loc,
+                         Left_Opnd  => Size_In_Storage_Elements (Siz_Typ),
+                         Right_Opnd => Make_Integer_Literal (Loc,
+                                         Uint_7 * (Uint_2 ** 29)));
+                  end if;
+
+                  Insert_Action (Ins_Nod,
+                    Make_Raise_Storage_Error (Loc,
+                      Condition => Cond,
+                      Reason    => SE_Object_Too_Large));
+
+                  if Entity (Cond) = Standard_True then
+                     Error_Msg_N
+                       ("object too large: Storage_Error will be raised at "
+                        & "run time??", N);
+                  end if;
+               end if;
+            end;
          end if;
       end if;
 
@@ -6139,10 +6329,19 @@ package body Exp_Ch4 is
               --  Similarly, do not rewrite membership as a validity check if
               --  within the predicate function for the type.
 
+              --  Finally, if the original bounds are type conversions, even
+              --  if they have been folded into constants, there are different
+              --  types involved and 'Valid is not appropriate.
+
             then
                if In_Instance
                  or else (Ekind (Current_Scope) = E_Function
                            and then Is_Predicate_Function (Current_Scope))
+               then
+                  null;
+
+               elsif Nkind (Lo_Orig) = N_Type_Conversion
+                 or else Nkind (Hi_Orig) = N_Type_Conversion
                then
                   null;
 
@@ -7926,7 +8125,9 @@ package body Exp_Ch4 is
            and then not Is_Floating_Point_Type (Component_Type (Typl))
            and then not Is_Atomic_Or_VFA (Component_Type (Typl))
            and then not Is_Possibly_Unaligned_Object (Lhs)
+           and then not Is_Possibly_Unaligned_Slice (Lhs)
            and then not Is_Possibly_Unaligned_Object (Rhs)
+           and then not Is_Possibly_Unaligned_Slice (Rhs)
            and then Support_Composite_Compare_On_Target
          then
             null;
@@ -8074,6 +8275,32 @@ package body Exp_Ch4 is
             Insert_Actions      (N, Bodies,           Suppress => All_Checks);
             Analyze_And_Resolve (N, Standard_Boolean, Suppress => All_Checks);
          end if;
+
+      --  If unnesting, handle elementary types whose Equivalent_Types are
+      --  records because there may be padding or undefined fields.
+
+      elsif Unnest_Subprogram_Mode
+        and then Ekind_In (Typl, E_Class_Wide_Type,
+                                 E_Class_Wide_Subtype,
+                                 E_Access_Subprogram_Type,
+                                 E_Access_Protected_Subprogram_Type,
+                                 E_Anonymous_Access_Protected_Subprogram_Type,
+                                 E_Access_Subprogram_Type,
+                                 E_Exception_Type)
+        and then Present (Equivalent_Type (Typl))
+        and then Is_Record_Type (Equivalent_Type (Typl))
+      then
+         Typl := Equivalent_Type (Typl);
+         Remove_Side_Effects (Lhs);
+         Remove_Side_Effects (Rhs);
+         Rewrite (N,
+           Expand_Record_Equality (N, Typl,
+             Unchecked_Convert_To (Typl, Lhs),
+             Unchecked_Convert_To (Typl, Rhs),
+             Bodies));
+
+         Insert_Actions      (N, Bodies,           Suppress => All_Checks);
+         Analyze_And_Resolve (N, Standard_Boolean, Suppress => All_Checks);
       end if;
 
       --  Test if result is known at compile time
@@ -9350,10 +9577,21 @@ package body Exp_Ch4 is
       Typ : constant Entity_Id := Etype (Left_Opnd (N));
 
    begin
-      --  Case of elementary type with standard operator
+      --  Case of elementary type with standard operator.  But if
+      --  unnesting, handle elementary types whose Equivalent_Types are
+      --  records because there may be padding or undefined fields.
 
       if Is_Elementary_Type (Typ)
         and then Sloc (Entity (N)) = Standard_Location
+        and then not (Ekind_In (Typ, E_Class_Wide_Type,
+                                E_Class_Wide_Subtype,
+                                E_Access_Subprogram_Type,
+                                E_Access_Protected_Subprogram_Type,
+                                E_Anonymous_Access_Protected_Subprogram_Type,
+                                E_Access_Subprogram_Type,
+                                E_Exception_Type)
+                        and then Present (Equivalent_Type (Typ))
+                        and then Is_Record_Type (Equivalent_Type (Typ)))
       then
          Binary_Op_Validity_Checks (N);
 
@@ -10141,7 +10379,6 @@ package body Exp_Ch4 is
       Apply_Constraint_Check (Operand, Target_Type, No_Sliding => True);
 
       if Do_Range_Check (Operand) then
-         Set_Do_Range_Check (Operand, False);
          Generate_Range_Check (Operand, Target_Type, CE_Range_Check_Failed);
       end if;
    end Expand_N_Qualified_Expression;
@@ -10191,8 +10428,30 @@ package body Exp_Ch4 is
       Flag      : Entity_Id;
       Scheme    : Node_Id;
       Stmts     : List_Id;
+      Var       : Entity_Id;
 
    begin
+      --  Ensure that the bound variable is properly frozen. We must do
+      --  this before expansion because the expression is about to be
+      --  converted into a loop, and resulting freeze nodes may end up
+      --  in the wrong place in the tree.
+
+      if Present (Iter_Spec) then
+         Var := Defining_Identifier (Iter_Spec);
+      else
+         Var := Defining_Identifier (Loop_Spec);
+      end if;
+
+      declare
+         P : Node_Id := Parent (N);
+      begin
+         while Nkind (P) in N_Subexpr loop
+            P := Parent (P);
+         end loop;
+
+         Freeze_Before (P, Etype (Var));
+      end;
+
       --  Create the declaration of the flag which tracks the status of the
       --  quantified expression. Generate:
 
@@ -10329,12 +10588,6 @@ package body Exp_Ch4 is
 
          Insert_Explicit_Dereference (P);
          Analyze_And_Resolve (P, Designated_Type (Ptyp));
-
-         if Ekind (Etype (P)) = E_Private_Subtype
-           and then Is_For_Access_Subtype (Etype (P))
-         then
-            Set_Etype (P, Base_Type (Etype (P)));
-         end if;
 
          Ptyp := Etype (P);
       end if;
@@ -10802,8 +11055,12 @@ package body Exp_Ch4 is
    procedure Expand_N_Type_Conversion (N : Node_Id) is
       Loc          : constant Source_Ptr := Sloc (N);
       Operand      : constant Node_Id    := Expression (N);
-      Target_Type  : constant Entity_Id  := Etype (N);
+      Operand_Acc  : Node_Id             := Operand;
+      Target_Type  : Entity_Id           := Etype (N);
       Operand_Type : Entity_Id           := Etype (Operand);
+
+      procedure Discrete_Range_Check;
+      --  Handles generation of range check for discrete target value
 
       procedure Handle_Changed_Representation;
       --  This is called in the case of record and array type conversions to
@@ -10826,6 +11083,66 @@ package body Exp_Ch4 is
       function Has_Extra_Accessibility (Id : Entity_Id) return Boolean;
       --  True iff Present (Effective_Extra_Accessibility (Id)) successfully
       --  evaluates to True.
+
+      --------------------------
+      -- Discrete_Range_Check --
+      --------------------------
+
+      --  Case of conversions to a discrete type. We let Generate_Range_Check
+      --  do the heavy lifting, after converting a fixed-point operand to an
+      --  appropriate integer type.
+
+      procedure Discrete_Range_Check is
+         Expr : Node_Id;
+         Ityp : Entity_Id;
+
+      begin
+         --  Nothing to do if conversion was rewritten
+
+         if Nkind (N) /= N_Type_Conversion then
+            return;
+         end if;
+
+         Expr := Expression (N);
+
+         --  Nothing to do if range checks suppressed
+
+         if Range_Checks_Suppressed (Target_Type) then
+            return;
+         end if;
+
+         --  Nothing to do if expression is an entity on which checks have been
+         --  suppressed.
+
+         if Is_Entity_Name (Expr)
+           and then Range_Checks_Suppressed (Entity (Expr))
+         then
+            return;
+         end if;
+
+         --  Before we do a range check, we have to deal with treating
+         --  a fixed-point operand as an integer. The way we do this
+         --  is simply to do an unchecked conversion to an appropriate
+         --  integer type large enough to hold the result.
+
+         if Is_Fixed_Point_Type (Etype (Expr)) then
+            if Esize (Base_Type (Etype (Expr))) > Esize (Standard_Integer) then
+               Ityp := Standard_Long_Long_Integer;
+            else
+               Ityp := Standard_Integer;
+            end if;
+
+            Set_Do_Range_Check (Expr, False);
+            Rewrite (Expr, Unchecked_Convert_To (Ityp, Expr));
+         end if;
+
+         --  Reset overflow flag, since the range check will include
+         --  dealing with possible overflow, and generate the check.
+
+         Set_Do_Overflow_Check (N, False);
+
+         Generate_Range_Check (Expr, Target_Type, CE_Range_Check_Failed);
+      end Discrete_Range_Check;
 
       -----------------------------------
       -- Handle_Changed_Representation --
@@ -11031,24 +11348,24 @@ package body Exp_Ch4 is
 
       --     Tnn : typ'Base := typ'Base (x);
       --     [constraint_error when Tnn < typ'First or else Tnn > typ'Last]
-      --     Tnn
+      --     typ (Tnn)
 
       --  This is necessary when there is a conversion of integer to float or
       --  to fixed-point to ensure that the correct checks are made. It is not
-      --  necessary for float to float where it is enough to simply set the
-      --  Do_Range_Check flag.
+      --  necessary for the float-to-float case where it is enough to just set
+      --  the Do_Range_Check flag on the expression.
 
       procedure Real_Range_Check is
          Btyp : constant Entity_Id := Base_Type (Target_Type);
          Lo   : constant Node_Id   := Type_Low_Bound  (Target_Type);
          Hi   : constant Node_Id   := Type_High_Bound (Target_Type);
-         Xtyp : constant Entity_Id := Etype (Operand);
 
          Conv   : Node_Id;
          Hi_Arg : Node_Id;
          Hi_Val : Node_Id;
          Lo_Arg : Node_Id;
          Lo_Val : Node_Id;
+         Expr   : Entity_Id;
          Tnn    : Entity_Id;
 
       begin
@@ -11057,6 +11374,12 @@ package body Exp_Ch4 is
          if Nkind (N) /= N_Type_Conversion then
             return;
          end if;
+
+         Expr := Expression (N);
+
+         --  Clear the flag once for all
+
+         Set_Do_Range_Check (Expr, False);
 
          --  Nothing to do if range checks suppressed, or target has the same
          --  range as the base type (or is the base type).
@@ -11072,8 +11395,17 @@ package body Exp_Ch4 is
          --  Nothing to do if expression is an entity on which checks have been
          --  suppressed.
 
-         if Is_Entity_Name (Operand)
-           and then Range_Checks_Suppressed (Entity (Operand))
+         if Is_Entity_Name (Expr)
+           and then Range_Checks_Suppressed (Entity (Expr))
+         then
+            return;
+         end if;
+
+         --  Nothing to do if expression was rewritten into a float-to-float
+         --  conversion, since this kind of conversion is handled elsewhere.
+
+         if Is_Floating_Point_Type (Etype (Expr))
+           and then Is_Floating_Point_Type (Target_Type)
          then
             return;
          end if;
@@ -11084,12 +11416,12 @@ package body Exp_Ch4 is
          --  not trust it to be in range (might be infinite)
 
          declare
-            S_Lo : constant Node_Id := Type_Low_Bound (Xtyp);
-            S_Hi : constant Node_Id := Type_High_Bound (Xtyp);
+            S_Lo : constant Node_Id := Type_Low_Bound (Etype (Expr));
+            S_Hi : constant Node_Id := Type_High_Bound (Etype (Expr));
 
          begin
-            if (not Is_Floating_Point_Type (Xtyp)
-                 or else Is_Constrained (Xtyp))
+            if (not Is_Floating_Point_Type (Etype (Expr))
+                 or else Is_Constrained (Etype (Expr)))
               and then Compile_Time_Known_Value (S_Lo)
               and then Compile_Time_Known_Value (S_Hi)
               and then Compile_Time_Known_Value (Hi)
@@ -11102,7 +11434,7 @@ package body Exp_Ch4 is
                   S_Hiv : Ureal;
 
                begin
-                  if Is_Real_Type (Xtyp) then
+                  if Is_Real_Type (Etype (Expr)) then
                      S_Lov := Expr_Value_R (S_Lo);
                      S_Hiv := Expr_Value_R (S_Hi);
                   else
@@ -11114,40 +11446,29 @@ package body Exp_Ch4 is
                     and then S_Lov >= D_Lov
                     and then S_Hiv <= D_Hiv
                   then
-                     --  Unset the range check flag on the current value of
-                     --  Expression (N), since the captured Operand may have
-                     --  been rewritten (such as for the case of a conversion
-                     --  to a fixed-point type).
-
-                     Set_Do_Range_Check (Expression (N), False);
-
                      return;
                   end if;
                end;
             end if;
          end;
 
-         --  For float to float conversions, we are done
-
-         if Is_Floating_Point_Type (Xtyp)
-              and then
-            Is_Floating_Point_Type (Btyp)
-         then
-            return;
-         end if;
-
          --  Otherwise rewrite the conversion as described above
 
-         Conv := Relocate_Node (N);
-         Rewrite (Subtype_Mark (Conv), New_Occurrence_Of (Btyp, Loc));
-         Set_Etype (Conv, Btyp);
+         Conv := Convert_To (Btyp, Expr);
 
-         --  Enable overflow except for case of integer to float conversions,
-         --  where it is never required, since we can never have overflow in
-         --  this case.
+         --  If a conversion is necessary, then copy the specific flags from
+         --  the original one and also move the Do_Overflow_Check flag since
+         --  this new conversion is to the base type.
 
-         if not Is_Integer_Type (Etype (Operand)) then
-            Enable_Overflow_Check (Conv);
+         if Nkind (Conv) = N_Type_Conversion then
+            Set_Conversion_OK  (Conv, Conversion_OK  (N));
+            Set_Float_Truncate (Conv, Float_Truncate (N));
+            Set_Rounded_Result (Conv, Rounded_Result (N));
+
+            if Do_Overflow_Check (N) then
+               Set_Do_Overflow_Check (Conv);
+               Set_Do_Overflow_Check (N, False);
+            end if;
          end if;
 
          Tnn := Make_Temporary (Loc, 'T', Conv);
@@ -11170,26 +11491,23 @@ package body Exp_Ch4 is
          --  in systems where Duration is larger than Long_Integer.
 
          if Is_Ordinary_Fixed_Point_Type (Target_Type)
-           and then Is_Floating_Point_Type (Operand_Type)
-           and then RM_Size (Base_Type (Target_Type)) <=
-                    RM_Size (Standard_Long_Integer)
+           and then Is_Floating_Point_Type (Etype (Expr))
+           and then RM_Size (Btyp) <= RM_Size (Standard_Long_Integer)
            and then Nkind (Lo) = N_Real_Literal
            and then Nkind (Hi) = N_Real_Literal
          then
-            --  Find the integer type of the right size to perform an unchecked
-            --  conversion to the target fixed-point type.
-
             declare
-               Bfx_Type : constant Entity_Id := Base_Type (Target_Type);
-               Expr_Id  : constant Entity_Id :=
-                            Make_Temporary (Loc, 'T', Conv);
+               Expr_Id : constant Entity_Id := Make_Temporary (Loc, 'T', Conv);
                Int_Type : Entity_Id;
 
             begin
-               if RM_Size (Bfx_Type) > RM_Size (Standard_Integer) then
+               --  Find an integer type of the appropriate size to perform an
+               --  unchecked conversion to the target fixed-point type.
+
+               if RM_Size (Btyp) > RM_Size (Standard_Integer) then
                   Int_Type := Standard_Long_Integer;
 
-               elsif RM_Size (Bfx_Type) > RM_Size (Standard_Short_Integer) then
+               elsif RM_Size (Btyp) > RM_Size (Standard_Short_Integer) then
                   Int_Type := Standard_Integer;
 
                else
@@ -11197,9 +11515,9 @@ package body Exp_Ch4 is
                end if;
 
                --  Generate a temporary with the integer value. Required in the
-               --  CCG compiler to ensure that runtime checks reference this
+               --  CCG compiler to ensure that run-time checks reference this
                --  integer expression (instead of the resulting fixed-point
-               --  value) because fixed-point values are handled by means of
+               --  value because fixed-point values are handled by means of
                --  unsigned integer types).
 
                Insert_Action (N,
@@ -11252,7 +11570,8 @@ package body Exp_Ch4 is
                 Attribute_Name => Name_Last);
          end if;
 
-         --  Build code for range checking
+         --  Build code for range checking. Note that checks are suppressed
+         --  here since we don't want a recursive range check popping up.
 
          Insert_Actions (N, New_List (
            Make_Object_Declaration (Loc,
@@ -11273,10 +11592,10 @@ package body Exp_Ch4 is
                   Make_Op_Gt (Loc,
                     Left_Opnd  => Hi_Arg,
                     Right_Opnd => Hi_Val)),
-              Reason   => CE_Range_Check_Failed)));
+              Reason   => CE_Range_Check_Failed)),
+           Suppress => All_Checks);
 
-         Rewrite (N, New_Occurrence_Of (Tnn, Loc));
-         Analyze_And_Resolve (N, Btyp);
+         Rewrite (Expr, New_Occurrence_Of (Tnn, Loc));
       end Real_Range_Check;
 
       -----------------------------
@@ -11454,6 +11773,15 @@ package body Exp_Ch4 is
       --  Case of converting to an access type
 
       if Is_Access_Type (Target_Type) then
+         --  In terms of accessibility rules, an anonymous access discriminant
+         --  is not considered separate from its parent object.
+
+         if Nkind (Operand) = N_Selected_Component
+           and then Ekind (Entity (Selector_Name (Operand))) = E_Discriminant
+           and then Ekind (Operand_Type) = E_Anonymous_Access_Type
+         then
+            Operand_Acc := Original_Node (Prefix (Operand));
+         end if;
 
          --  If this type conversion was internally generated by the front end
          --  to displace the pointer to the object to reference an interface
@@ -11477,9 +11805,9 @@ package body Exp_Ch4 is
          --  other checks may still need to be applied below (such as tagged
          --  type checks).
 
-         elsif Is_Entity_Name (Operand)
-           and then Has_Extra_Accessibility (Entity (Operand))
-           and then Ekind (Etype (Operand)) = E_Anonymous_Access_Type
+         elsif Is_Entity_Name (Operand_Acc)
+           and then Has_Extra_Accessibility (Entity (Operand_Acc))
+           and then Ekind (Etype (Operand_Acc)) = E_Anonymous_Access_Type
            and then (Nkind (Original_Node (N)) /= N_Attribute_Reference
                       or else Attribute_Name (Original_Node (N)) = Name_Access)
          then
@@ -11494,7 +11822,7 @@ package body Exp_Ch4 is
 
             else
                Apply_Accessibility_Check
-                 (Operand, Target_Type, Insert_Node => Operand);
+                 (Operand_Acc, Target_Type, Insert_Node => Operand);
             end if;
 
          --  If the level of the operand type is statically deeper than the
@@ -11768,31 +12096,21 @@ package body Exp_Ch4 is
          then
             Set_Rounded_Result (N);
             Set_Etype (N, Etype (Parent (N)));
+            Target_Type := Etype (N);
          end if;
 
-         --  Otherwise do correct fixed-conversion, but skip these if the
-         --  Conversion_OK flag is set, because from a semantic point of view
-         --  these are simple integer conversions needing no further processing
-         --  (the backend will simply treat them as integers).
+         if Is_Fixed_Point_Type (Target_Type) then
+            Expand_Convert_Fixed_To_Fixed (N);
+            Real_Range_Check;
 
-         if not Conversion_OK (N) then
-            if Is_Fixed_Point_Type (Etype (N)) then
-               Expand_Convert_Fixed_To_Fixed (N);
-               Real_Range_Check;
+         elsif Is_Integer_Type (Target_Type) then
+            Expand_Convert_Fixed_To_Integer (N);
+            Discrete_Range_Check;
 
-            elsif Is_Integer_Type (Etype (N)) then
-               Expand_Convert_Fixed_To_Integer (N);
-
-               --  The result of the conversion might need a range check, so do
-               --  not assume that the result is in bounds.
-
-               Set_Etype (N, Base_Type (Target_Type));
-
-            else
-               pragma Assert (Is_Floating_Point_Type (Etype (N)));
-               Expand_Convert_Fixed_To_Float (N);
-               Real_Range_Check;
-            end if;
+         else
+            pragma Assert (Is_Floating_Point_Type (Target_Type));
+            Expand_Convert_Fixed_To_Float (N);
+            Real_Range_Check;
          end if;
 
       --  Case of conversions to a fixed-point type
@@ -11812,42 +12130,6 @@ package body Exp_Ch4 is
             pragma Assert (Is_Floating_Point_Type (Operand_Type));
             Expand_Convert_Float_To_Fixed (N);
             Real_Range_Check;
-         end if;
-
-      --  Case of float-to-integer conversions
-
-      --  We also handle float-to-fixed conversions with Conversion_OK set
-      --  since semantically the fixed-point target is treated as though it
-      --  were an integer in such cases.
-
-      elsif Is_Floating_Point_Type (Operand_Type)
-        and then
-          (Is_Integer_Type (Target_Type)
-            or else
-          (Is_Fixed_Point_Type (Target_Type) and then Conversion_OK (N)))
-      then
-         --  One more check here, gcc is still not able to do conversions of
-         --  this type with proper overflow checking, and so gigi is doing an
-         --  approximation of what is required by doing floating-point compares
-         --  with the end-point. But that can lose precision in some cases, and
-         --  give a wrong result. Converting the operand to Universal_Real is
-         --  helpful, but still does not catch all cases with 64-bit integers
-         --  on targets with only 64-bit floats.
-
-         --  The above comment seems obsoleted by Apply_Float_Conversion_Check
-         --  Can this code be removed ???
-
-         if Do_Range_Check (Operand) then
-            Rewrite (Operand,
-              Make_Type_Conversion (Loc,
-                Subtype_Mark =>
-                  New_Occurrence_Of (Universal_Real, Loc),
-                Expression =>
-                  Relocate_Node (Operand)));
-
-            Set_Etype (Operand, Universal_Real);
-            Enable_Range_Check (Operand);
-            Set_Do_Range_Check (Expression (Operand), False);
          end if;
 
       --  Case of array conversions
@@ -11932,11 +12214,6 @@ package body Exp_Ch4 is
 
             Analyze_And_Resolve (N, Target_Type);
          end if;
-
-      --  Case of conversions to floating-point
-
-      elsif Is_Floating_Point_Type (Target_Type) then
-         Real_Range_Check;
       end if;
 
       --  At this stage, either the conversion node has been transformed into
@@ -11954,80 +12231,54 @@ package body Exp_Ch4 is
       --  Check: are these rules stated in sinfo??? if so, why restate here???
 
       --  The only remaining step is to generate a range check if we still have
-      --  a type conversion at this stage and Do_Range_Check is set. For now we
-      --  do this only for conversions of discrete types and for float-to-float
-      --  conversions.
+      --  a type conversion at this stage and Do_Range_Check is set. Note that
+      --  we need to deal with at most 8 out of the 9 possible cases of numeric
+      --  conversions here, because the float-to-integer case is entirely dealt
+      --  with by Apply_Float_Conversion_Check.
 
-      if Nkind (N) = N_Type_Conversion then
+      if Nkind (N) = N_Type_Conversion
+        and then Do_Range_Check (Expression (N))
+      then
+         --  Float-to-float conversions
 
-         --  For now we only support floating-point cases where both source
-         --  and target are floating-point types. Conversions where the source
-         --  and target involve integer or fixed-point types are still TBD,
-         --  though not clear whether those can even happen at this point, due
-         --  to transformations above. ???
-
-         if Is_Floating_Point_Type (Etype (N))
+         if Is_Floating_Point_Type (Target_Type)
            and then Is_Floating_Point_Type (Etype (Expression (N)))
          then
-            if Do_Range_Check (Expression (N))
-              and then Is_Floating_Point_Type (Target_Type)
+            --  Reset overflow flag, since the range check will include
+            --  dealing with possible overflow, and generate the check.
+
+            Set_Do_Overflow_Check (N, False);
+
+            Generate_Range_Check
+              (Expression (N), Target_Type, CE_Range_Check_Failed);
+
+         --  Discrete-to-discrete conversions or fixed-point-to-discrete
+         --  conversions when Conversion_OK is set.
+
+         elsif Is_Discrete_Type (Target_Type)
+           and then (Is_Discrete_Type (Etype (Expression (N)))
+                      or else (Is_Fixed_Point_Type (Etype (Expression (N)))
+                                and then Conversion_OK (N)))
+         then
+            --  If Address is either a source type or target type,
+            --  suppress range check to avoid typing anomalies when
+            --  it is a visible integer type.
+
+            if Is_Descendant_Of_Address (Etype (Expression (N)))
+              or else Is_Descendant_Of_Address (Target_Type)
             then
-               Generate_Range_Check
-                 (Expression (N), Target_Type, CE_Range_Check_Failed);
+               Set_Do_Range_Check (Expression (N), False);
+            else
+               Discrete_Range_Check;
             end if;
 
-         --  Discrete-to-discrete conversions
+         --  Conversions to floating- or fixed-point when Conversion_OK is set
 
-         elsif Is_Discrete_Type (Etype (N)) then
-            declare
-               Expr : constant Node_Id := Expression (N);
-               Ftyp : Entity_Id;
-               Ityp : Entity_Id;
-
-            begin
-               if Do_Range_Check (Expr)
-                 and then Is_Discrete_Type (Etype (Expr))
-               then
-                  Set_Do_Range_Check (Expr, False);
-
-                  --  Before we do a range check, we have to deal with treating
-                  --  a fixed-point operand as an integer. The way we do this
-                  --  is simply to do an unchecked conversion to an appropriate
-                  --  integer type large enough to hold the result.
-
-                  --  This code is not active yet, because we are only dealing
-                  --  with discrete types so far ???
-
-                  if Nkind (Expr) in N_Has_Treat_Fixed_As_Integer
-                    and then Treat_Fixed_As_Integer (Expr)
-                  then
-                     Ftyp := Base_Type (Etype (Expr));
-
-                     if Esize (Ftyp) >= Esize (Standard_Integer) then
-                        Ityp := Standard_Long_Long_Integer;
-                     else
-                        Ityp := Standard_Integer;
-                     end if;
-
-                     Rewrite (Expr, Unchecked_Convert_To (Ityp, Expr));
-                  end if;
-
-                  --  Reset overflow flag, since the range check will include
-                  --  dealing with possible overflow, and generate the check.
-                  --  If Address is either a source type or target type,
-                  --  suppress range check to avoid typing anomalies when
-                  --  it is a visible integer type.
-
-                  Set_Do_Overflow_Check (N, False);
-
-                  if not Is_Descendant_Of_Address (Etype (Expr))
-                    and then not Is_Descendant_Of_Address (Target_Type)
-                  then
-                     Generate_Range_Check
-                       (Expr, Target_Type, CE_Range_Check_Failed);
-                  end if;
-               end if;
-            end;
+         elsif Is_Floating_Point_Type (Target_Type)
+           or else (Is_Fixed_Point_Type (Target_Type)
+                     and then Conversion_OK (N))
+         then
+            Real_Range_Check;
          end if;
       end if;
 
@@ -12637,13 +12888,13 @@ package body Exp_Ch4 is
       if Nkind (Parent (Conv)) = N_Attribute_Reference
         and then Attribute_Name (Parent (Conv)) = Name_Round
       then
-         Set_Etype (N, Etype (Parent (Conv)));
+         Set_Etype (N, Base_Type (Etype (Parent (Conv))));
          Set_Rounded_Result (N);
 
       --  Normal case where type comes from conversion above us
 
       else
-         Set_Etype (N, Etype (Conv));
+         Set_Etype (N, Base_Type (Etype (Conv)));
       end if;
    end Fixup_Universal_Fixed_Operation;
 

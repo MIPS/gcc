@@ -118,13 +118,24 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 /* True if pragma ms_struct is in effect.  */
 extern GTY(()) int darwin_ms_struct;
 
-#define DRIVER_SELF_SPECS					\
-  "%{gfull:-g -fno-eliminate-unused-debug-symbols} %<gfull",	\
-  "%{gused:-g -feliminate-unused-debug-symbols} %<gused",	\
-  "%{fapple-kext|mkernel:-static}",				\
-  "%{shared:-Zdynamiclib} %<shared",                            \
-  "%{gsplit-dwarf:%ngsplit-dwarf is not supported on this platform} \
-     %<gsplit-dwarf"
+/* The majority of Darwin's special driver opts are direct access to ld flags
+   (to save the user typing -Wl,xxxxx or Xlinker xxxxx) but we can't process
+   them here, since doing so will make it appear that there are linker infiles
+   and the linker will invoked even when it is not necessary.
+
+   However, a few can be handled and we can elide options that are silently-
+   ignored defaults, plus warn on obsolete ones that no longer function.  */
+#undef SUBTARGET_DRIVER_SELF_SPECS
+#define SUBTARGET_DRIVER_SELF_SPECS					\
+"%{fapple-kext|mkernel:-static}",					\
+"%{gfull:-g -fno-eliminate-unused-debug-symbols} %<gfull",		\
+"%{gsplit-dwarf:%ngsplit-dwarf is not supported on this platform} \
+   %<gsplit-dwarf",							\
+"%{gused:-g -feliminate-unused-debug-symbols} %<gused",			\
+"%{shared:-Zdynamiclib} %<shared",					\
+"%{static:%{Zdynamic:%e conflicting code gen style switches are used}}",\
+"%{y*:%nthe y option is obsolete and ignored} %<y*",			\
+"%<Mach %<X"
 
 #if LD64_HAS_EXPORT_DYNAMIC
 #define DARWIN_RDYNAMIC "%{rdynamic:-export_dynamic}"
@@ -342,13 +353,11 @@ extern GTY(()) int darwin_ms_struct;
    %{Zunexported_symbols_list*:-unexported_symbols_list %*} \
    %{Zweak_reference_mismatches*:-weak_reference_mismatches %*} \
    %{!Zweak_reference_mismatches*:-weak_reference_mismatches non-weak} \
-   %{X} \
-   %{y*} \
    %{w} \
    %{pagezero_size*} %{segs_read_*} %{seglinkedit} %{noseglinkedit}  \
    %{sectalign*} %{sectobjectsymbols*} %{segcreate*} %{whyload} \
    %{whatsloaded} %{dylinker_install_name*} \
-   %{dylinker} %{Mach} "
+   %{dylinker} "
 
 
 /* Machine dependent libraries.  */
@@ -1010,7 +1019,7 @@ extern void darwin_driver_init (unsigned int *,struct cl_decoded_option **);
    _tested_ version known to support this so far.  */
 #define MIN_LD64_NO_COAL_SECTS "236.4"
 
-/* From at least version 62.1, ld64 can build PIC indirection stubs as
+/* From at least version 62.1, ld64 can build symbol indirection stubs as
    needed, and there is no need for the compiler to emit them.  */
 #define MIN_LD64_OMIT_STUBS "62.1"
 

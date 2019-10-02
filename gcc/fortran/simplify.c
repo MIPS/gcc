@@ -211,26 +211,6 @@ gfc_convert_mpz_to_signed (mpz_t x, int bitsize)
 }
 
 
-/* In-place convert BOZ to REAL of the specified kind.  */
-
-static gfc_expr *
-convert_boz (gfc_expr *x, int kind)
-{
-  if (x && x->ts.type == BT_INTEGER && x->is_boz)
-    {
-      gfc_typespec ts;
-      gfc_clear_ts (&ts);
-      ts.type = BT_REAL;
-      ts.kind = kind;
-
-      if (!gfc_convert_boz (x, &ts))
-	return &gfc_bad_expr;
-    }
-
-  return x;
-}
-
-
 /* Test that the expression is a constant array, simplifying if
    we are dealing with a parameter array.  */
 
@@ -1660,12 +1640,6 @@ simplify_cmplx (const char *name, gfc_expr *x, gfc_expr *y, int kind)
 {
   gfc_expr *result;
 
-  if (convert_boz (x, kind) == &gfc_bad_expr)
-    return &gfc_bad_expr;
-
-  if (convert_boz (y, kind) == &gfc_bad_expr)
-    return &gfc_bad_expr;
-
   if (x->expr_type != EXPR_CONSTANT
       || (y != NULL && y->expr_type != EXPR_CONSTANT))
     return NULL;
@@ -2218,9 +2192,6 @@ gfc_simplify_dble (gfc_expr *e)
 
   if (e->expr_type != EXPR_CONSTANT)
     return NULL;
-
-  if (convert_boz (e, gfc_default_double_kind) == &gfc_bad_expr)
-    return &gfc_bad_expr;
 
   result = gfc_convert_constant (e, BT_REAL, gfc_default_double_kind);
   if (result == &gfc_bad_expr)
@@ -2965,15 +2936,7 @@ gfc_simplify_float (gfc_expr *a)
   if (a->expr_type != EXPR_CONSTANT)
     return NULL;
 
-  if (a->is_boz)
-    {
-      if (convert_boz (a, gfc_default_real_kind) == &gfc_bad_expr)
-	return &gfc_bad_expr;
-
-      result = gfc_copy_expr (a);
-    }
-  else
-    result = gfc_int2real (a, gfc_default_real_kind);
+  result = gfc_int2real (a, gfc_default_real_kind);
 
   return range_check (result, "FLOAT");
 }
@@ -3609,6 +3572,15 @@ static gfc_expr *
 simplify_intconv (gfc_expr *e, int kind, const char *name)
 {
   gfc_expr *result = NULL;
+
+  /* Convert BOZ to integer, and return without range checking.  */
+  if (e->ts.type == BT_BOZ)
+    {
+      if (!gfc_boz2int (e, kind))
+	return NULL;
+      result = gfc_copy_expr (e);
+      return result;
+    }
 
   if (e->expr_type != EXPR_CONSTANT)
     return NULL;
@@ -4808,8 +4780,13 @@ gfc_simplify_merge (gfc_expr *tsource, gfc_expr *fsource, gfc_expr *mask)
   gfc_constructor *tsource_ctor, *fsource_ctor, *mask_ctor;
 
   if (mask->expr_type == EXPR_CONSTANT)
-    return gfc_get_parentheses (gfc_copy_expr (mask->value.logical
-					       ? tsource : fsource));
+    {
+      result = gfc_copy_expr (mask->value.logical ? tsource : fsource);
+      /* Parenthesis is needed to get lower bounds of 1.  */
+      result = gfc_get_parentheses (result);
+      gfc_simplify_expr (result, 1);
+      return result;
+    }
 
   if (!mask->rank || !is_constant_array_expr (mask)
       || !is_constant_array_expr (tsource) || !is_constant_array_expr (fsource))
@@ -6497,6 +6474,21 @@ gfc_simplify_real (gfc_expr *e, gfc_expr *k)
   gfc_expr *result = NULL;
   int kind;
 
+  /* Convert BOZ to real, and return without range checking.  */
+  if (e->ts.type == BT_BOZ)
+    {
+      /* Determine kind for conversion of the BOZ.  */
+      if (k)
+	gfc_extract_int (k, &kind);
+      else
+	kind = gfc_default_real_kind;
+
+      if (!gfc_boz2real (e, kind))
+	return NULL;
+      result = gfc_copy_expr (e);
+      return result;
+    }
+
   if (e->ts.type == BT_COMPLEX)
     kind = get_kind (BT_REAL, k, "REAL", e->ts.kind);
   else
@@ -6507,9 +6499,6 @@ gfc_simplify_real (gfc_expr *e, gfc_expr *k)
 
   if (e->expr_type != EXPR_CONSTANT)
     return NULL;
-
-  if (convert_boz (e, kind) == &gfc_bad_expr)
-    return &gfc_bad_expr;
 
   result = gfc_convert_constant (e, BT_REAL, kind);
   if (result == &gfc_bad_expr)
@@ -6684,6 +6673,9 @@ gfc_simplify_reshape (gfc_expr *source, gfc_expr *shape_exp,
   mpz_init (index);
   rank = 0;
 
+  for (i = 0; i < GFC_MAX_DIMENSIONS; i++)
+    x[i] = 0;
+
   for (;;)
     {
       e = gfc_constructor_lookup_expr (shape_exp->value.constructor, rank);
@@ -6708,8 +6700,28 @@ gfc_simplify_reshape (gfc_expr *source, gfc_expr *shape_exp,
     }
   else
     {
-      for (i = 0; i < rank; i++)
-	x[i] = 0;
+      mpz_t size;
+      int order_size, shape_size;
+
+      if (order_exp->rank != shape_exp->rank)
+	{
+	  gfc_error ("Shapes of ORDER at %L and SHAPE at %L are different",
+		     &order_exp->where, &shape_exp->where);
+	  return &gfc_bad_expr;
+	}
+
+      gfc_array_size (shape_exp, &size);
+      shape_size = mpz_get_ui (size);
+      mpz_clear (size);
+      gfc_array_size (order_exp, &size);
+      order_size = mpz_get_ui (size);
+      mpz_clear (size);
+      if (order_size != shape_size)
+	{
+	  gfc_error ("Sizes of ORDER at %L and SHAPE at %L are different",
+		     &order_exp->where, &shape_exp->where);
+	  return &gfc_bad_expr;
+	}
 
       for (i = 0; i < rank; i++)
 	{
@@ -6720,7 +6732,12 @@ gfc_simplify_reshape (gfc_expr *source, gfc_expr *shape_exp,
 
 	  gcc_assert (order[i] >= 1 && order[i] <= rank);
 	  order[i]--;
-	  gcc_assert (x[order[i]] == 0);
+	  if (x[order[i]] != 0)
+	    {
+	      gfc_error ("ORDER at %L is not a permutation of the size of "
+			 "SHAPE at %L", &order_exp->where, &shape_exp->where);
+	      return &gfc_bad_expr;
+	    }
 	  x[order[i]] = 1;
 	}
     }
@@ -8491,6 +8508,12 @@ gfc_convert_constant (gfc_expr *e, bt type, int kind)
 	    {
 	      if (c->expr->expr_type == EXPR_ARRAY)
 		tmp = gfc_convert_constant (c->expr, type, kind);
+	      else if (c->expr->expr_type == EXPR_OP
+		       && c->expr->value.op.op == INTRINSIC_PARENTHESES)
+		{
+		  gfc_simplify_expr (c->expr, 1);
+		  tmp = f (c->expr, kind);
+		}
 	      else
 		tmp = f (c->expr, kind);
 	    }

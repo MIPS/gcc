@@ -2204,9 +2204,8 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	    SET_DECL_DEPENDENT_INIT_P (newdecl, true);
 	  DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (newdecl)
 	    |= DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (olddecl);
-          if (DECL_CLASS_SCOPE_P (olddecl))
-            DECL_DECLARED_CONSTEXPR_P (newdecl)
-	      |= DECL_DECLARED_CONSTEXPR_P (olddecl);
+	  DECL_DECLARED_CONSTEXPR_P (newdecl)
+	    |= DECL_DECLARED_CONSTEXPR_P (olddecl);
 
 	  /* Merge the threadprivate attribute from OLDDECL into NEWDECL.  */
 	  if (DECL_LANG_SPECIFIC (olddecl)
@@ -2293,7 +2292,8 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	  DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (newdecl)
 	    |= DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (olddecl);
 	  DECL_NO_LIMIT_STACK (newdecl) |= DECL_NO_LIMIT_STACK (olddecl);
-	  DECL_IS_OPERATOR_NEW (newdecl) |= DECL_IS_OPERATOR_NEW (olddecl);
+	  if (DECL_IS_OPERATOR_NEW_P (olddecl))
+	    DECL_SET_IS_OPERATOR_NEW (newdecl, true);
 	  DECL_LOOPING_CONST_OR_PURE_P (newdecl)
 	    |= DECL_LOOPING_CONST_OR_PURE_P (olddecl);
 
@@ -2388,7 +2388,6 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       /* Don't really know how much of the language-specific
 	 values we should copy from old to new.  */
       DECL_IN_AGGR_P (newdecl) = DECL_IN_AGGR_P (olddecl);
-      DECL_REPO_AVAILABLE_P (newdecl) = DECL_REPO_AVAILABLE_P (olddecl);
       DECL_INITIALIZED_IN_CLASS_P (newdecl)
 	|= DECL_INITIALIZED_IN_CLASS_P (olddecl);
 
@@ -2543,8 +2542,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       if (fndecl_built_in_p (olddecl)
 	  && (new_defines_function ? GNU_INLINE_P (newdecl) : types_match))
 	{
-	  DECL_BUILT_IN_CLASS (newdecl) = DECL_BUILT_IN_CLASS (olddecl);
-	  DECL_FUNCTION_CODE (newdecl) = DECL_FUNCTION_CODE (olddecl);
+	  copy_decl_built_in_function (newdecl, olddecl);
 	  /* If we're keeping the built-in definition, keep the rtl,
 	     regardless of declaration matches.  */
 	  COPY_DECL_RTL (olddecl, newdecl);
@@ -2565,9 +2563,9 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 		    set_builtin_decl_declared_p (fncode, true);
 		  break;
 		}
-	    }
 
-	  copy_attributes_to_builtin (newdecl);
+	      copy_attributes_to_builtin (newdecl);
+	    }
 	}
       if (new_defines_function)
 	/* If defining a function declared with other language
@@ -3559,7 +3557,7 @@ pop_switch (void)
   location_t switch_location;
 
   /* Emit warnings as needed.  */
-  switch_location = cp_expr_loc_or_loc (cs->switch_stmt, input_location);
+  switch_location = cp_expr_loc_or_input_loc (cs->switch_stmt);
   const bool bool_cond_p
     = (SWITCH_STMT_TYPE (cs->switch_stmt)
        && TREE_CODE (SWITCH_STMT_TYPE (cs->switch_stmt)) == BOOLEAN_TYPE);
@@ -3630,16 +3628,23 @@ case_conversion (tree type, tree value)
 
   value = mark_rvalue_use (value);
 
+  if (INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (type))
+    type = type_promotes_to (type);
+
+  tree ovalue = value;
+  /* The constant-expression VALUE shall be a converted constant expression
+     of the adjusted type of the switch condition, which doesn't allow
+     narrowing conversions.  */
+  value = build_converted_constant_expr (type, value, tf_warning_or_error);
+
   if (cxx_dialect >= cxx11
       && (SCOPED_ENUM_P (type)
-	  || !INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (TREE_TYPE (value))))
-    {
-      if (INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (type))
-	type = type_promotes_to (type);
-      value = (perform_implicit_conversion_flags
-	       (type, value, tf_warning_or_error,
-		LOOKUP_IMPLICIT | LOOKUP_NO_NON_INTEGRAL));
-    }
+	  || !INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (TREE_TYPE (ovalue))))
+    /* Use the converted value.  */;
+  else
+    /* The already integral case.  */
+    value = ovalue;
+
   return cxx_constant_value (value);
 }
 
@@ -4358,12 +4363,14 @@ cxx_init_decl_processing (void)
     deltype = build_exception_variant (deltype, empty_except_spec);
     tree opnew = push_cp_library_fn (NEW_EXPR, newtype, 0);
     DECL_IS_MALLOC (opnew) = 1;
-    DECL_IS_OPERATOR_NEW (opnew) = 1;
+    DECL_SET_IS_OPERATOR_NEW (opnew, true);
     opnew = push_cp_library_fn (VEC_NEW_EXPR, newtype, 0);
     DECL_IS_MALLOC (opnew) = 1;
-    DECL_IS_OPERATOR_NEW (opnew) = 1;
-    push_cp_library_fn (DELETE_EXPR, deltype, ECF_NOTHROW);
-    push_cp_library_fn (VEC_DELETE_EXPR, deltype, ECF_NOTHROW);
+    DECL_SET_IS_OPERATOR_NEW (opnew, true);
+    tree opdel = push_cp_library_fn (DELETE_EXPR, deltype, ECF_NOTHROW);
+    DECL_SET_IS_OPERATOR_DELETE (opdel, true);
+    opdel = push_cp_library_fn (VEC_DELETE_EXPR, deltype, ECF_NOTHROW);
+    DECL_SET_IS_OPERATOR_DELETE (opdel, true);
     if (flag_sized_deallocation)
       {
 	/* Also push the sized deallocation variants:
@@ -4375,8 +4382,10 @@ cxx_init_decl_processing (void)
 	deltype = cp_build_type_attribute_variant (void_ftype_ptr_size,
 						   extvisattr);
 	deltype = build_exception_variant (deltype, empty_except_spec);
-	push_cp_library_fn (DELETE_EXPR, deltype, ECF_NOTHROW);
-	push_cp_library_fn (VEC_DELETE_EXPR, deltype, ECF_NOTHROW);
+	opdel = push_cp_library_fn (DELETE_EXPR, deltype, ECF_NOTHROW);
+	DECL_SET_IS_OPERATOR_DELETE (opdel, true);
+	opdel = push_cp_library_fn (VEC_DELETE_EXPR, deltype, ECF_NOTHROW);
+	DECL_SET_IS_OPERATOR_DELETE (opdel, true);
       }
 
     if (aligned_new_threshold)
@@ -4394,18 +4403,20 @@ cxx_init_decl_processing (void)
 	newtype = build_exception_variant (newtype, new_eh_spec);
 	opnew = push_cp_library_fn (NEW_EXPR, newtype, 0);
 	DECL_IS_MALLOC (opnew) = 1;
-	DECL_IS_OPERATOR_NEW (opnew) = 1;
+	DECL_SET_IS_OPERATOR_NEW (opnew, true);
 	opnew = push_cp_library_fn (VEC_NEW_EXPR, newtype, 0);
 	DECL_IS_MALLOC (opnew) = 1;
-	DECL_IS_OPERATOR_NEW (opnew) = 1;
+	DECL_SET_IS_OPERATOR_NEW (opnew, true);
 
 	/* operator delete (void *, align_val_t); */
 	deltype = build_function_type_list (void_type_node, ptr_type_node,
 					    align_type_node, NULL_TREE);
 	deltype = cp_build_type_attribute_variant (deltype, extvisattr);
 	deltype = build_exception_variant (deltype, empty_except_spec);
-	push_cp_library_fn (DELETE_EXPR, deltype, ECF_NOTHROW);
-	push_cp_library_fn (VEC_DELETE_EXPR, deltype, ECF_NOTHROW);
+	opdel = push_cp_library_fn (DELETE_EXPR, deltype, ECF_NOTHROW);
+	DECL_SET_IS_OPERATOR_DELETE (opdel, true);
+	opdel = push_cp_library_fn (VEC_DELETE_EXPR, deltype, ECF_NOTHROW);
+	DECL_SET_IS_OPERATOR_DELETE (opdel, true);
 
 	if (flag_sized_deallocation)
 	  {
@@ -4415,8 +4426,10 @@ cxx_init_decl_processing (void)
 						NULL_TREE);
 	    deltype = cp_build_type_attribute_variant (deltype, extvisattr);
 	    deltype = build_exception_variant (deltype, empty_except_spec);
-	    push_cp_library_fn (DELETE_EXPR, deltype, ECF_NOTHROW);
-	    push_cp_library_fn (VEC_DELETE_EXPR, deltype, ECF_NOTHROW);
+	    opdel = push_cp_library_fn (DELETE_EXPR, deltype, ECF_NOTHROW);
+	    DECL_SET_IS_OPERATOR_DELETE (opdel, true);
+	    opdel = push_cp_library_fn (VEC_DELETE_EXPR, deltype, ECF_NOTHROW);
+	    DECL_SET_IS_OPERATOR_DELETE (opdel, true);
 	  }
       }
 
@@ -4497,13 +4510,27 @@ cp_fname_init (const char* name, tree *type_p)
 static tree
 cp_make_fname_decl (location_t loc, tree id, int type_dep)
 {
-  const char *const name = (type_dep && in_template_function ()
-			    ? NULL : fname_as_string (type_dep));
+  const char * name = NULL;
+  bool release_name = false;
+  if (!(type_dep && in_template_function ()))
+    {
+      if (current_function_decl == NULL_TREE)
+	name = "top level";
+      else if (type_dep == 1) /* __PRETTY_FUNCTION__ */
+	name = cxx_printable_name (current_function_decl, 2);
+      else if (type_dep == 0) /* __FUNCTION__ */
+	{
+	  name = fname_as_string (type_dep);
+	  release_name = true;
+	}
+      else
+	gcc_unreachable ();
+    }
   tree type;
   tree init = cp_fname_init (name, &type);
   tree decl = build_decl (loc, VAR_DECL, id, type);
 
-  if (name)
+  if (release_name)
     free (CONST_CAST (char *, name));
 
   /* As we're using pushdecl_with_scope, we must set the context.  */
@@ -4948,6 +4975,9 @@ check_tag_decl (cp_decl_specifier_seq *declspecs,
       else if (decl_spec_seq_has_spec_p (declspecs,  ds_constexpr))
         error_at (declspecs->locations[ds_constexpr],
 		  "%<constexpr%> cannot be used for type declarations");
+      else if (decl_spec_seq_has_spec_p (declspecs,  ds_constinit))
+	error_at (declspecs->locations[ds_constinit],
+		  "%<constinit%> cannot be used for type declarations");
     }
 
   if (declspecs->attributes && warn_attributes && declared_type)
@@ -5277,7 +5307,14 @@ start_decl (const cp_declarator *declarator,
     decl = maybe_push_decl (decl);
 
   if (processing_template_decl)
-    decl = push_template_decl (decl);
+    {
+      /* Make sure that for a `constinit' decl push_template_decl creates
+	 a DECL_TEMPLATE_INFO info for us, so that cp_finish_decl can then set
+	 TINFO_VAR_DECLARED_CONSTINIT.  */
+      if (decl_spec_seq_has_spec_p (declspecs, ds_constinit))
+	retrofit_lang_decl (decl);
+      decl = push_template_decl (decl);
+    }
   if (decl == error_mark_node)
     return error_mark_node;
 
@@ -5504,8 +5541,9 @@ check_array_designated_initializer (constructor_elt *ce,
 	    sorry ("non-trivial designated initializers not supported");
 	}
       else
-	error ("C99 designator %qE is not an integral constant-expression",
-	       ce->index);
+	error_at (cp_expr_loc_or_input_loc (ce->index),
+		  "C99 designator %qE is not an integral constant-expression",
+		  ce->index);
 
       return false;
     }
@@ -5883,8 +5921,9 @@ reshape_init_array_1 (tree elt_type, tree max_index, reshape_iter *d,
       /* Pointers initialized to strings must be treated as non-zero
 	 even if the string is empty.  */
       tree init_type = TREE_TYPE (elt_init);
-      if ((POINTER_TYPE_P (elt_type) != POINTER_TYPE_P (init_type))
-	  || !initializer_zerop (elt_init))
+      if ((POINTER_TYPE_P (elt_type) != POINTER_TYPE_P (init_type)))
+	last_nonzero = index;
+      else if (!type_initializer_zero_p (elt_type, elt_init))
 	last_nonzero = index;
 
       /* This can happen with an invalid initializer (c++/54501).  */
@@ -6075,8 +6114,9 @@ has_designator_problem (reshape_iter *d, tsubst_flags_t complain)
   if (d->cur->index)
     {
       if (complain & tf_error)
-	error ("C99 designator %qE outside aggregate initializer",
-	       d->cur->index);
+	error_at (cp_expr_loc_or_input_loc (d->cur->index),
+		  "C99 designator %qE outside aggregate initializer",
+		  d->cur->index);
       else
 	return true;
     }
@@ -6579,11 +6619,12 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
 		 about aggregate initialization of non-aggregate classes.  */
 	      flags |= LOOKUP_ALREADY_DIGESTED;
 	    }
-	  else if (DECL_DECLARED_CONSTEXPR_P (decl))
+	  else if (DECL_DECLARED_CONSTEXPR_P (decl)
+		   || (flags & LOOKUP_CONSTINIT))
 	    {
-	      /* Declared constexpr, but no suitable initializer; massage
-		 init appropriately so we can pass it into store_init_value
-		 for the error.  */
+	      /* Declared constexpr or constinit, but no suitable initializer;
+		 massage init appropriately so we can pass it into
+		 store_init_value for the error.  */
 	      if (CLASS_TYPE_P (type)
 		  && (!init || TREE_CODE (init) == TREE_LIST))
 		{
@@ -7146,6 +7187,10 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	  DECL_INITIAL (decl) = NULL_TREE;
 	}
 
+      /* Handle `constinit' on variable templates.  */
+      if (flags & LOOKUP_CONSTINIT)
+	TINFO_VAR_DECLARED_CONSTINIT (DECL_TEMPLATE_INFO (decl)) = true;
+
       /* Generally, initializers in templates are expanded when the
 	 template is instantiated.  But, if DECL is a variable constant
 	 then it can be used in future constant expressions, so its value
@@ -7237,6 +7282,19 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 
   if (VAR_P (decl))
     {
+      duration_kind dk = decl_storage_duration (decl);
+      /* [dcl.constinit]/1 "The constinit specifier shall be applied
+	 only to a declaration of a variable with static or thread storage
+	 duration."  */
+      if ((flags & LOOKUP_CONSTINIT)
+	  && !(dk == dk_thread || dk == dk_static))
+	{
+	  error_at (DECL_SOURCE_LOCATION (decl),
+		    "%<constinit%> can only be applied to a variable with "
+		    "static or thread storage duration");
+	  return;
+	}
+
       /* If this is a local variable that will need a mangled name,
 	 register it now.  We must do this before processing the
 	 initializer for the variable, since the initialization might
@@ -8891,10 +8949,10 @@ grokfndecl (tree ctype,
   if (location == UNKNOWN_LOCATION)
     location = input_location;
 
-  // Was the concept specifier present?
+  /* Was the concept specifier present?  */
   bool concept_p = inlinep & 4;
 
-  // Concept declarations must have a corresponding definition.
+  /* Concept declarations must have a corresponding definition.  */
   if (concept_p && !funcdef_flag)
     {
       error_at (location, "concept %qD has no definition", declarator);
@@ -9607,10 +9665,12 @@ build_ptrmemfunc_type (tree type)
   TYPE_PTRMEMFUNC_FLAG (t) = 1;
 
   field = build_decl (input_location, FIELD_DECL, pfn_identifier, type);
+  DECL_NONADDRESSABLE_P (field) = 1;
   fields = field;
 
   field = build_decl (input_location, FIELD_DECL, delta_identifier, 
 		      delta_type_node);
+  DECL_NONADDRESSABLE_P (field) = 1;
   DECL_CHAIN (field) = fields;
   fields = field;
 
@@ -10262,19 +10322,20 @@ check_special_function_return_type (special_function_kind sfk,
    error-recovery purposes.  */
 
 tree
-check_var_type (tree identifier, tree type)
+check_var_type (tree identifier, tree type, location_t loc)
 {
   if (VOID_TYPE_P (type))
     {
       if (!identifier)
-	error ("unnamed variable or field declared void");
+	error_at (loc, "unnamed variable or field declared void");
       else if (identifier_p (identifier))
 	{
 	  gcc_assert (!IDENTIFIER_ANY_OP_P (identifier));
-	  error ("variable or field %qE declared void", identifier);
+	  error_at (loc, "variable or field %qE declared void",
+		    identifier);
 	}
       else
-	error ("variable or field declared void");
+	error_at (loc, "variable or field declared void");
       type = error_mark_node;
     }
 
@@ -10461,9 +10522,9 @@ grokdeclarator (const cp_declarator *declarator,
   bool template_parm_flag = false;
   bool typedef_p = decl_spec_seq_has_spec_p (declspecs, ds_typedef);
   bool constexpr_p = decl_spec_seq_has_spec_p (declspecs, ds_constexpr);
+  bool constinit_p = decl_spec_seq_has_spec_p (declspecs, ds_constinit);
   bool late_return_type_p = false;
   bool array_parameter_p = false;
-  location_t saved_loc = input_location;
   tree reqs = NULL_TREE;
 
   signed_p = decl_spec_seq_has_spec_p (declspecs, ds_signed);
@@ -10561,7 +10622,8 @@ grokdeclarator (const cp_declarator *declarator,
 		    ctype = qualifying_scope;
 		    if (!MAYBE_CLASS_TYPE_P (ctype))
 		      {
-			error ("%q#T is not a class or a namespace", ctype);
+			error_at (id_declarator->id_loc,
+				  "%q#T is not a class or namespace", ctype);
 			ctype = NULL_TREE;
 		      }
 		    else if (innermost_code != cdk_function
@@ -10569,8 +10631,9 @@ grokdeclarator (const cp_declarator *declarator,
 			     && !uniquely_derived_from_p (ctype,
 							  current_class_type))
 		      {
-			error ("invalid use of qualified-name %<%T::%D%>",
-			       qualifying_scope, decl);
+			error_at (id_declarator->id_loc,
+				  "invalid use of qualified-name %<%T::%D%>",
+				  qualifying_scope, decl);
 			return error_mark_node;
 		      }
 		  }
@@ -10583,13 +10646,15 @@ grokdeclarator (const cp_declarator *declarator,
 		{
 		  if (innermost_code != cdk_function)
 		    {
-		      error ("declaration of %qD as non-function", decl);
+		      error_at (EXPR_LOCATION (decl),
+				"declaration of %qE as non-function", decl);
 		      return error_mark_node;
 		    }
 		  else if (!qualifying_scope
 			   && !(current_class_type && at_class_scope_p ()))
 		    {
-		      error ("declaration of %qD as non-member", decl);
+		      error_at (EXPR_LOCATION (decl),
+				"declaration of %qE as non-member", decl);
 		      return error_mark_node;
 		    }
 
@@ -10744,6 +10809,25 @@ grokdeclarator (const cp_declarator *declarator,
       return error_mark_node;
     }
 
+  if (constinit_p && typedef_p)
+    {
+      error_at (declspecs->locations[ds_constinit],
+		"%<constinit%> cannot appear in a typedef declaration");
+      return error_mark_node;
+    }
+
+  /* [dcl.spec]/2 "At most one of the constexpr, consteval, and constinit
+     keywords shall appear in a decl-specifier-seq."  */
+  if (constinit_p && constexpr_p)
+    {
+      gcc_rich_location richloc (declspecs->locations[ds_constinit]);
+      richloc.add_range (declspecs->locations[ds_constexpr]);
+      error_at (&richloc,
+		"can use at most one of the %<constinit%> and %<constexpr%> "
+		"specifiers");
+      return error_mark_node;
+    }
+
   /* If there were multiple types specified in the decl-specifier-seq,
      issue an error message.  */
   if (declspecs->multiple_types_p)
@@ -10771,6 +10855,7 @@ grokdeclarator (const cp_declarator *declarator,
   cp_warn_deprecated_use (type);
   if (type && TREE_CODE (type) == TYPE_DECL)
     {
+      cp_warn_deprecated_use_scopes (CP_DECL_CONTEXT (type));
       typedef_decl = type;
       type = TREE_TYPE (typedef_decl);
       if (DECL_ARTIFICIAL (typedef_decl))
@@ -10864,14 +10949,15 @@ grokdeclarator (const cp_declarator *declarator,
     {
       if (! int_n_enabled_p[declspecs->int_n_idx])
 	{
-	  error ("%<__int%d%> is not supported by this target",
-		 int_n_data[declspecs->int_n_idx].bitsize);
+	  error_at (declspecs->locations[ds_type_spec],
+		    "%<__int%d%> is not supported by this target",
+		    int_n_data[declspecs->int_n_idx].bitsize);
 	  explicit_intN = false;
 	}
       /* Don't pedwarn if the alternate "__intN__" form has been used instead
 	 of "__intN".  */
       else if (!int_n_alt && pedantic && ! in_system_header_at (input_location))
-	pedwarn (input_location, OPT_Wpedantic,
+	pedwarn (declspecs->locations[ds_type_spec], OPT_Wpedantic,
 		 "ISO C++ does not support %<__int%d%> for %qs",
 		 int_n_data[declspecs->int_n_idx].bitsize, name);
     }
@@ -11135,6 +11221,12 @@ grokdeclarator (const cp_declarator *declarator,
 		    "a parameter cannot be declared %<constexpr%>");
           constexpr_p = 0;
         }
+      else if (constinit_p)
+	{
+	  error_at (declspecs->locations[ds_constinit],
+		    "a parameter cannot be declared %<constinit%>");
+	  constexpr_p = 0;
+	}
     }
 
   /* Give error if `virtual' is used outside of class declaration.  */
@@ -11168,6 +11260,10 @@ grokdeclarator (const cp_declarator *declarator,
       if (concept_p)
 	error_at (declspecs->locations[ds_concept],
 		  "structured binding declaration cannot be %qs", "concept");
+      /* [dcl.struct.bind] "A cv that includes volatile is deprecated."  */
+      if (type_quals & TYPE_QUAL_VOLATILE)
+	warning_at (declspecs->locations[ds_volatile], OPT_Wvolatile,
+		    "%<volatile%>-qualified structured binding is deprecated");
       switch (storage_class)
 	{
 	case sc_none:
@@ -11236,7 +11332,10 @@ grokdeclarator (const cp_declarator *declarator,
 	   && storage_class != sc_static)
 	  || typedef_p))
     {
-      error ("multiple storage classes in declaration of %qs", name);
+      location_t loc
+	= min_location (declspecs->locations[ds_thread],
+			declspecs->locations[ds_storage_class]);
+      error_at (loc, "multiple storage classes in declaration of %qs", name);
       thread_p = false;
     }
   if (decl_context != NORMAL
@@ -11395,7 +11494,9 @@ grokdeclarator (const cp_declarator *declarator,
 	  type = create_array_type_for_decl (dname, type,
 					     declarator->u.array.bounds,
 					     declarator->id_loc);
-	  if (!valid_array_size_p (input_location, type, dname))
+	  if (!valid_array_size_p (dname
+				   ? declarator->id_loc : input_location,
+				   type, dname))
 	    type = error_mark_node;
 
 	  if (declarator->std_attributes)
@@ -11414,9 +11515,10 @@ grokdeclarator (const cp_declarator *declarator,
 
 	    /* Declaring a function type.  */
 
-	    input_location = declspecs->locations[ds_type_spec];
-	    abstract_virtuals_error (ACU_RETURN, type);
-	    input_location = saved_loc;
+	    {
+	      iloc_sentinel ils (declspecs->locations[ds_type_spec]);
+	      abstract_virtuals_error (ACU_RETURN, type);
+	    }
 
 	    /* Pick up type qualifiers which should be applied to `this'.  */
 	    memfn_quals = declarator->u.function.qualifiers;
@@ -11528,6 +11630,8 @@ grokdeclarator (const cp_declarator *declarator,
 		else if (late_return_type
 			 && sfk != sfk_conversion)
 		  {
+		    if (late_return_type == error_mark_node)
+		      return error_mark_node;
 		    if (cxx_dialect < cxx11)
 		      /* Not using maybe_warn_cpp0x because this should
 			 always be an error.  */
@@ -11556,6 +11660,13 @@ grokdeclarator (const cp_declarator *declarator,
 		if (SCALAR_TYPE_P (type) || VOID_TYPE_P (type))
 		  warning_at (typespec_loc, OPT_Wignored_qualifiers, "type "
 			      "qualifiers ignored on function return type");
+		/* [dcl.fct] "A volatile-qualified return type is
+		   deprecated."  */
+		if (type_quals & TYPE_QUAL_VOLATILE)
+		  warning_at (typespec_loc, OPT_Wvolatile,
+			      "%<volatile%>-qualified return type is "
+			      "deprecated");
+
 		/* We now know that the TYPE_QUALS don't apply to the
 		   decl, but to its return type.  */
 		type_quals = TYPE_UNQUALIFIED;
@@ -11574,6 +11685,23 @@ grokdeclarator (const cp_declarator *declarator,
 		error_at (typespec_loc, "%qs declared as function returning "
 			  "an array", name);
 		return error_mark_node;
+	      }
+	    if (constinit_p)
+	      {
+		error_at (declspecs->locations[ds_constinit],
+			  "%<constinit%> on function return type is not "
+			  "allowed");
+		return error_mark_node;
+	      }
+	    /* Only plain decltype(auto) is allowed.  */
+	    if (tree a = type_uses_auto (type))
+	      {
+		if (AUTO_IS_DECLTYPE (a) && a != type)
+		  {
+		    error_at (typespec_loc, "%qT as type rather than "
+			      "plain %<decltype(auto)%>", type);
+		    return error_mark_node;
+		  }
 	      }
 
 	    if (ctype == NULL_TREE
@@ -11715,7 +11843,8 @@ grokdeclarator (const cp_declarator *declarator,
 		&& inner_declarator->u.id.sfk == sfk_destructor
 		&& arg_types != void_list_node)
 	      {
-		error ("destructors may not have parameters");
+		error_at (declarator->id_loc,
+			  "destructors may not have parameters");
 		arg_types = void_list_node;
 		parms = NULL_TREE;
 	      }
@@ -12144,6 +12273,17 @@ grokdeclarator (const cp_declarator *declarator,
       bool alias_p = decl_spec_seq_has_spec_p (declspecs, ds_alias);
       tree decl;
 
+      if (funcdef_flag)
+	{
+	  if (decl_context == NORMAL)
+	    error_at (id_loc,
+		      "typedef may not be a function definition");
+	  else
+	    error_at (id_loc,
+		      "typedef may not be a member function definition");
+	  return error_mark_node;
+	}
+
       /* This declaration:
 
 	   typedef void f(int) const;
@@ -12374,7 +12514,7 @@ grokdeclarator (const cp_declarator *declarator,
      error message later.  */
   if (decl_context != PARM)
     {
-      type = check_var_type (unqualified_id, type);
+      type = check_var_type (unqualified_id, type, id_loc);
       if (type == error_mark_node)
         return error_mark_node;
     }
@@ -12492,7 +12632,7 @@ grokdeclarator (const cp_declarator *declarator,
 	else if (in_namespace && !friendp)
 	  {
 	    /* Something like struct S { int N::j; };  */
-	    error ("invalid use of %<::%>");
+	    error_at (id_loc, "invalid use of %<::%>");
 	    return error_mark_node;
 	  }
 	else if (FUNC_OR_METHOD_TYPE_P (type) && unqualified_id)
@@ -12547,15 +12687,15 @@ grokdeclarator (const cp_declarator *declarator,
 		if (!ctype)
 		  {
 		    gcc_assert (friendp);
-		    error ("expected qualified name in friend declaration "
-			   "for destructor %qD", uqname);
+		    error_at (id_loc, "expected qualified name in friend "
+			      "declaration for destructor %qD", uqname);
 		    return error_mark_node;
 		  }
 
 		if (!check_dtor_name (ctype, TREE_OPERAND (uqname, 0)))
 		  {
-		    error ("declaration of %qD as member of %qT",
-			   uqname, ctype);
+		    error_at (id_loc, "declaration of %qD as member of %qT",
+			      uqname, ctype);
 		    return error_mark_node;
 		  }
                 if (concept_p)
@@ -12761,9 +12901,16 @@ grokdeclarator (const cp_declarator *declarator,
                 else if (constexpr_p)
 		  {
 		    error_at (declspecs->locations[ds_constexpr],
-			      "non-static data member %qE declared %<constexpr%>",
-			      unqualified_id);
+			      "non-static data member %qE declared "
+			      "%<constexpr%>", unqualified_id);
 		    constexpr_p = false;
+		  }
+		else if (constinit_p)
+		  {
+		    error_at (declspecs->locations[ds_constinit],
+			      "non-static data member %qE declared "
+			      "%<constinit%>", unqualified_id);
+		    constinit_p = false;
 		  }
 		decl = build_decl (id_loc, FIELD_DECL, unqualified_id, type);
 		DECL_NONADDRESSABLE_P (decl) = bitfield;
@@ -13156,7 +13303,9 @@ check_default_argument (tree decl, tree arg, tsubst_flags_t complain)
   /* Avoid redundant -Wzero-as-null-pointer-constant warnings at
      the call sites.  */
   if (TYPE_PTR_OR_PTRMEM_P (decl_type)
-      && null_ptr_cst_p (arg))
+      && null_ptr_cst_p (arg)
+      /* Don't lose side-effects as in PR90473.  */
+      && !TREE_SIDE_EFFECTS (arg))
     return nullptr_node;
 
   /* [dcl.fct.default]
@@ -13197,7 +13346,10 @@ type_is_deprecated (tree type)
       if (TREE_DEPRECATED (TYPE_NAME (type)))
 	return type;
       else
-	return NULL_TREE;
+	{
+	  cp_warn_deprecated_use_scopes (CP_DECL_CONTEXT (TYPE_NAME (type)));
+	  return NULL_TREE;
+	}
     }
 
   /* Do warn about using typedefs to a deprecated class.  */
@@ -13280,6 +13432,13 @@ grokparms (tree parmlist, tree *parms)
 	      if (deptype)
 		cp_warn_deprecated_use (deptype);
 	    }
+
+	  /* [dcl.fct] "A parameter with volatile-qualified type is
+	     deprecated."  */
+	  if (CP_TYPE_VOLATILE_P (type))
+	    warning_at (DECL_SOURCE_LOCATION (decl), OPT_Wvolatile,
+			"%<volatile%>-qualified parameter is "
+			"deprecated");
 
 	  /* Top-level qualifiers on the parameters are
 	     ignored for function types.  */
@@ -13501,15 +13660,11 @@ grok_special_member_properties (tree decl)
 	     are no other parameters or else all other parameters have
 	     default arguments.  */
 	  TYPE_HAS_COPY_CTOR (class_type) = 1;
-	  if (user_provided_p (decl))
-	    TYPE_HAS_COMPLEX_COPY_CTOR (class_type) = 1;
 	  if (ctor > 1)
 	    TYPE_HAS_CONST_COPY_CTOR (class_type) = 1;
 	}
       else if (sufficient_parms_p (FUNCTION_FIRST_USER_PARMTYPE (decl)))
 	TYPE_HAS_DEFAULT_CONSTRUCTOR (class_type) = 1;
-      else if (move_fn_p (decl) && user_provided_p (decl))
-	TYPE_HAS_COMPLEX_MOVE_CTOR (class_type) = 1;
       else if (is_list_ctor (decl))
 	TYPE_HAS_LIST_CTOR (class_type) = 1;
 
@@ -13530,13 +13685,9 @@ grok_special_member_properties (tree decl)
       if (assop)
 	{
 	  TYPE_HAS_COPY_ASSIGN (class_type) = 1;
-	  if (user_provided_p (decl))
-	    TYPE_HAS_COMPLEX_COPY_ASSIGN (class_type) = 1;
 	  if (assop != 1)
 	    TYPE_HAS_CONST_COPY_ASSIGN (class_type) = 1;
 	}
-      else if (move_fn_p (decl) && user_provided_p (decl))
-	TYPE_HAS_COMPLEX_MOVE_ASSIGN (class_type) = 1;
     }
   else if (IDENTIFIER_CONV_OP_P (DECL_NAME (decl)))
     TYPE_HAS_CONVERSION (class_type) = true;
@@ -13661,10 +13812,13 @@ grok_op_properties (tree decl, bool complain)
 	}
 
       if (op_flags & OVL_OP_FLAG_DELETE)
-	coerce_delete_type (decl, loc);
+	{
+	  DECL_SET_IS_OPERATOR_DELETE (decl, true);
+	  coerce_delete_type (decl, loc);
+	}
       else
 	{
-	  DECL_IS_OPERATOR_NEW (decl) = 1;
+	  DECL_SET_IS_OPERATOR_NEW (decl, true);
 	  TREE_TYPE (decl) = coerce_new_type (TREE_TYPE (decl), loc);
 	}
 
@@ -14909,11 +15063,8 @@ finish_enum_value_list (tree enumtype)
      type of the enumeration.  */
   for (values = TYPE_VALUES (enumtype); values; values = TREE_CHAIN (values))
     {
-      location_t saved_location;
-
       decl = TREE_VALUE (values);
-      saved_location = input_location;
-      input_location = DECL_SOURCE_LOCATION (decl);
+      iloc_sentinel ils (DECL_SOURCE_LOCATION (decl));
       if (fixed_underlying_type_p)
         /* If the enumeration type has a fixed underlying type, we
            already checked all of the enumerator values.  */
@@ -14922,8 +15073,6 @@ finish_enum_value_list (tree enumtype)
         value = perform_implicit_conversion (underlying_type,
                                              DECL_INITIAL (decl),
                                              tf_warning_or_error);
-      input_location = saved_location;
-
       /* Do not clobber shared ints.  */
       if (value != error_mark_node)
 	{
@@ -15030,8 +15179,9 @@ build_enumerator (tree name, tree value, tree enumtype, tree attributes,
 	      if (! INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P
 		  (TREE_TYPE (value)))
 		{
-		  error ("enumerator value for %qD must have integral or "
-			 "unscoped enumeration type", name);
+		  error_at (cp_expr_loc_or_input_loc (value),
+			    "enumerator value for %qD must have integral or "
+			    "unscoped enumeration type", name);
 		  value = NULL_TREE;
 		}
 	      else
@@ -15751,13 +15901,6 @@ start_function (cp_decl_specifier_seq *declspecs,
   invoke_plugin_callbacks (PLUGIN_START_PARSE_FUNCTION, decl1);
   if (decl1 == error_mark_node)
     return false;
-  /* If the declarator is not suitable for a function definition,
-     cause a syntax error.  */
-  if (decl1 == NULL_TREE || TREE_CODE (decl1) != FUNCTION_DECL)
-    {
-      error ("invalid function declaration");
-      return false;
-    }
 
   if (DECL_MAIN_P (decl1))
     /* main must return int.  grokfndecl should have corrected it
@@ -16301,6 +16444,7 @@ finish_function (bool inline_p)
 	      && same_type_ignoring_top_level_qualifiers_p
 		  (TREE_TYPE (valtype), TREE_TYPE (current_class_ref))
 	      && global_dc->option_enabled (OPT_Wreturn_type,
+					    global_dc->lang_mask,
 					    global_dc->option_state))
 	    add_return_star_this_fixit (&richloc, fndecl);
 	}
@@ -16410,12 +16554,6 @@ grokmethod (cp_decl_specifier_seq *declspecs,
 
   if (fndecl == error_mark_node)
     return error_mark_node;
-
-  if (fndecl == NULL || TREE_CODE (fndecl) != FUNCTION_DECL)
-    {
-      error ("invalid member function declaration");
-      return error_mark_node;
-    }
 
   if (attrlist)
     cplus_decl_attributes (&fndecl, attrlist, 0);
@@ -16692,20 +16830,20 @@ cp_tree_node_structure (union lang_tree_node * t)
 {
   switch (TREE_CODE (&t->generic))
     {
-    case DEFERRED_PARSE:	return TS_CP_DEFERRED_PARSE;
-    case DEFERRED_NOEXCEPT:	return TS_CP_DEFERRED_NOEXCEPT;
-    case IDENTIFIER_NODE:	return TS_CP_IDENTIFIER;
-    case OVERLOAD:		return TS_CP_OVERLOAD;
-    case TEMPLATE_PARM_INDEX:	return TS_CP_TPI;
-    case PTRMEM_CST:		return TS_CP_PTRMEM;
-    case BASELINK:		return TS_CP_BASELINK;
-    case TEMPLATE_DECL:		return TS_CP_TEMPLATE_DECL;
-    case STATIC_ASSERT:		return TS_CP_STATIC_ASSERT;
     case ARGUMENT_PACK_SELECT:  return TS_CP_ARGUMENT_PACK_SELECT;
-    case TRAIT_EXPR:		return TS_CP_TRAIT_EXPR;
-    case LAMBDA_EXPR:		return TS_CP_LAMBDA_EXPR;
-    case TEMPLATE_INFO:		return TS_CP_TEMPLATE_INFO;
+    case BASELINK:		return TS_CP_BASELINK;
     case CONSTRAINT_INFO:       return TS_CP_CONSTRAINT_INFO;
+    case DEFERRED_NOEXCEPT:	return TS_CP_DEFERRED_NOEXCEPT;
+    case DEFERRED_PARSE:	return TS_CP_DEFERRED_PARSE;
+    case IDENTIFIER_NODE:	return TS_CP_IDENTIFIER;
+    case LAMBDA_EXPR:		return TS_CP_LAMBDA_EXPR;
+    case OVERLOAD:		return TS_CP_OVERLOAD;
+    case PTRMEM_CST:		return TS_CP_PTRMEM;
+    case STATIC_ASSERT:		return TS_CP_STATIC_ASSERT;
+    case TEMPLATE_DECL:		return TS_CP_TEMPLATE_DECL;
+    case TEMPLATE_INFO:		return TS_CP_TEMPLATE_INFO;
+    case TEMPLATE_PARM_INDEX:	return TS_CP_TPI;
+    case TRAIT_EXPR:		return TS_CP_TRAIT_EXPR;
     case USERDEF_LITERAL:	return TS_CP_USERDEF_LITERAL;
     default:			return TS_CP_GENERIC;
     }

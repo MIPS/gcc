@@ -524,6 +524,7 @@ package body Bindgen is
         and then not Configurable_Run_Time_On_Target
       then
          WBI ("   type No_Param_Proc is access procedure;");
+         WBI ("   pragma Favor_Top_Level (No_Param_Proc);");
          WBI ("");
       end if;
 
@@ -1826,18 +1827,25 @@ package body Bindgen is
 
       WBI ("   begin");
 
-      --  Acquire command line arguments if present on target
+      --  Acquire command-line arguments if present on target
 
       if CodePeer_Mode then
          null;
 
       elsif Command_Line_Args_On_Target then
-         WBI ("      gnat_argc := argc;");
-         WBI ("      gnat_argv := argv;");
+
+         --  Initialize gnat_argc/gnat_argv only if not already initialized,
+         --  to avoid losing the result of any command-line processing done by
+         --  earlier GNAT run-time initialization.
+
+         WBI ("      if gnat_argc = 0 then");
+         WBI ("         gnat_argc := argc;");
+         WBI ("         gnat_argv := argv;");
+         WBI ("      end if;");
          WBI ("      gnat_envp := envp;");
          WBI ("");
 
-      --  If configurable run time and no command line args, then nothing needs
+      --  If configurable run-time and no command-line args, then nothing needs
       --  to be done since the gnat_argc/argv/envp variables are suppressed in
       --  this case.
 

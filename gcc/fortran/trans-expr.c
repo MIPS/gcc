@@ -472,11 +472,11 @@ gfc_reset_len (stmtblock_t *block, gfc_expr *expr)
 }
 
 
-/* Obtain the vptr of the last class reference in an expression.
+/* Obtain the last class reference in an expression.
    Return NULL_TREE if no class reference is found.  */
 
 tree
-gfc_get_vptr_from_expr (tree expr)
+gfc_get_class_from_expr (tree expr)
 {
   tree tmp;
   tree type;
@@ -487,7 +487,7 @@ gfc_get_vptr_from_expr (tree expr)
       while (type)
 	{
 	  if (GFC_CLASS_TYPE_P (type))
-	    return gfc_class_vptr_get (tmp);
+	    return tmp;
 	  if (type != TYPE_CANONICAL (type))
 	    type = TYPE_CANONICAL (type);
 	  else
@@ -501,6 +501,23 @@ gfc_get_vptr_from_expr (tree expr)
     tmp = build_fold_indirect_ref_loc (input_location, tmp);
 
   if (GFC_CLASS_TYPE_P (TREE_TYPE (tmp)))
+    return tmp;
+
+  return NULL_TREE;
+}
+
+
+/* Obtain the vptr of the last class reference in an expression.
+   Return NULL_TREE if no class reference is found.  */
+
+tree
+gfc_get_vptr_from_expr (tree expr)
+{
+  tree tmp;
+
+  tmp = gfc_get_class_from_expr (expr);
+
+  if (tmp != NULL_TREE)
     return gfc_class_vptr_get (tmp);
 
   return NULL_TREE;
@@ -10796,7 +10813,8 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
       if (expr1->ts.deferred
 	  && gfc_expr_attr (expr1).allocatable
 	  && gfc_check_dependency (expr1, expr2, true))
-	rse.string_length = gfc_evaluate_now (rse.string_length, &rse.pre);
+	rse.string_length =
+	  gfc_evaluate_now_function_scope (rse.string_length, &rse.pre);
       string_length = rse.string_length;
     }
   else

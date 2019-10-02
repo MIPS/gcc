@@ -543,27 +543,6 @@ compile_file (void)
       process_pending_assemble_externals ();
    }
 
-  /* Emit LTO marker if LTO info has been previously emitted.  This is
-     used by collect2 to determine whether an object file contains IL.
-     We used to emit an undefined reference here, but this produces
-     link errors if an object file with IL is stored into a shared
-     library without invoking lto1.  */
-  if (flag_generate_lto || flag_generate_offload)
-    {
-#if defined ASM_OUTPUT_ALIGNED_DECL_COMMON
-      ASM_OUTPUT_ALIGNED_DECL_COMMON (asm_out_file, NULL_TREE,
-				      "__gnu_lto_v1",
-				      HOST_WIDE_INT_1U, 8);
-#elif defined ASM_OUTPUT_ALIGNED_COMMON
-      ASM_OUTPUT_ALIGNED_COMMON (asm_out_file, "__gnu_lto_v1",
-				 HOST_WIDE_INT_1U, 8);
-#else
-      ASM_OUTPUT_COMMON (asm_out_file, "__gnu_lto_v1",
-			 HOST_WIDE_INT_1U,
-			 HOST_WIDE_INT_1U);
-#endif
-    }
-
   /* Let linker plugin know that this is a slim object and must be LTOed
      even when user did not ask for it.  */
   if (flag_generate_lto && !flag_fat_lto_objects)
@@ -836,9 +815,10 @@ print_switch_values (print_switch_fn_type print_fn)
   pos = print_single_switch (print_fn, 0,
 			     SWITCH_TYPE_DESCRIPTIVE, _("options enabled: "));
 
+  unsigned lang_mask = lang_hooks.option_lang_mask ();
   for (j = 0; j < cl_options_count; j++)
     if (cl_options[j].cl_report
-	&& option_enabled (j, &global_options) > 0)
+	&& option_enabled (j, lang_mask, &global_options) > 0)
       pos = print_single_switch (print_fn, pos,
 				 SWITCH_TYPE_ENABLED, cl_options[j].opt_text);
 
@@ -1109,6 +1089,7 @@ general_init (const char *argv0, bool init_signals)
   /* Initialize the diagnostics reporting machinery, so option parsing
      can give warnings and errors.  */
   diagnostic_initialize (global_dc, N_OPTS);
+  global_dc->lang_mask = lang_hooks.option_lang_mask ();
   /* Set a default printer.  Language specific initializations will
      override it later.  */
   tree_diagnostics_defaults (global_dc);
@@ -1763,19 +1744,11 @@ process_options (void)
   /* Address Sanitizer needs porting to each target architecture.  */
 
   if ((flag_sanitize & SANITIZE_ADDRESS)
-      && !FRAME_GROWS_DOWNWARD)
+      && (!FRAME_GROWS_DOWNWARD || targetm.asan_shadow_offset == NULL))
     {
       warning_at (UNKNOWN_LOCATION, 0,
 		  "%<-fsanitize=address%> and %<-fsanitize=kernel-address%> "
 		  "are not supported for this target");
-      flag_sanitize &= ~SANITIZE_ADDRESS;
-    }
-
-  if ((flag_sanitize & SANITIZE_USER_ADDRESS)
-      && targetm.asan_shadow_offset == NULL)
-    {
-      warning_at (UNKNOWN_LOCATION, 0,
-		  "%<-fsanitize=address%> not supported for this target");
       flag_sanitize &= ~SANITIZE_ADDRESS;
     }
 
@@ -1868,27 +1841,11 @@ backend_init (void)
   init_regs ();
 }
 
-/* Initialize excess precision settings.
-
-   We have no need to modify anything here, just keep track of what the
-   user requested.  We'll figure out any appropriate relaxations
-   later.  */
-
-static void
-init_excess_precision (void)
-{
-  gcc_assert (flag_excess_precision_cmdline != EXCESS_PRECISION_DEFAULT);
-  flag_excess_precision = flag_excess_precision_cmdline;
-}
-
 /* Initialize things that are both lang-dependent and target-dependent.
    This function can be called more than once if target parameters change.  */
 static void
 lang_dependent_init_target (void)
 {
-  /* This determines excess precision settings.  */
-  init_excess_precision ();
-
   /* This creates various _DECL nodes, so needs to be called after the
      front end is initialized.  It also depends on the HAVE_xxx macros
      generated from the target machine description.  */

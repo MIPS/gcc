@@ -3003,6 +3003,8 @@ inform_declaration (tree decl)
 }
 
 /* Build a function call to function FUNCTION with parameters PARAMS.
+   If FUNCTION is the result of resolving an overloaded target built-in,
+   ORIG_FUNDECL is the original function decl, otherwise it is null.
    ORIGTYPES, if not NULL, is a vector of types; each element is
    either NULL or the original type of the corresponding element in
    PARAMS.  The original type may differ from TREE_TYPE of the
@@ -3013,7 +3015,7 @@ inform_declaration (tree decl)
 tree
 build_function_call_vec (location_t loc, vec<location_t> arg_loc,
 			 tree function, vec<tree, va_gc> *params,
-			 vec<tree, va_gc> *origtypes)
+			 vec<tree, va_gc> *origtypes, tree orig_fundecl)
 {
   tree fntype, fundecl = NULL_TREE;
   tree name = NULL_TREE, result;
@@ -3033,6 +3035,8 @@ build_function_call_vec (location_t loc, vec<location_t> arg_loc,
       if (flag_tm)
 	tm_malloc_replacement (function);
       fundecl = function;
+      if (!orig_fundecl)
+	orig_fundecl = fundecl;
       /* Atomic functions have type checking/casting already done.  They are 
 	 often rewritten and don't match the original parameter list.  */
       if (name && !strncmp (IDENTIFIER_POINTER (name), "__atomic_", 9))
@@ -3110,9 +3114,10 @@ build_function_call_vec (location_t loc, vec<location_t> arg_loc,
   argarray = vec_safe_address (params);
 
   /* Check that arguments to builtin functions match the expectations.  */
-  if (fundecl && fndecl_built_in_p (fundecl, BUILT_IN_NORMAL)
-      && !check_builtin_function_arguments (loc, arg_loc, fundecl, nargs,
-					    argarray))
+  if (fundecl
+      && fndecl_built_in_p (fundecl)
+      && !check_builtin_function_arguments (loc, arg_loc, fundecl,
+					    orig_fundecl, nargs, argarray))
     return error_mark_node;
 
   /* Check that the arguments to the function are valid.  */
@@ -6724,6 +6729,21 @@ convert_for_assignment (location_t location, location_t expr_loc, tree type,
 	  default:
 	    gcc_unreachable ();
 	  }
+    }
+
+  if (warn_enum_conversion)
+    {
+      tree checktype = origtype != NULL_TREE ? origtype : rhstype;
+      if (checktype != error_mark_node
+	  && TREE_CODE (checktype) == ENUMERAL_TYPE
+	  && TREE_CODE (type) == ENUMERAL_TYPE
+	  && TYPE_MAIN_VARIANT (checktype) != TYPE_MAIN_VARIANT (type))
+       {
+	  gcc_rich_location loc (location);
+	  warning_at (&loc, OPT_Wenum_conversion,
+		      "implicit conversion from %qT to %qT",
+		      checktype, type);
+       }
     }
 
   if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (rhstype))
@@ -13680,7 +13700,8 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
   /* If ort == C_ORT_OMP_DECLARE_SIMD used as uniform_head instead.  */
   bitmap_initialize (&map_head, &bitmap_default_obstack);
   bitmap_initialize (&map_field_head, &bitmap_default_obstack);
-  /* If ort == C_ORT_OMP used as nontemporal_head instead.  */
+  /* If ort == C_ORT_OMP used as nontemporal_head or use_device_xxx_head
+     instead.  */
   bitmap_initialize (&oacc_reduction_head, &bitmap_default_obstack);
 
   if (ort & C_ORT_ACC)
@@ -14072,13 +14093,19 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	      remove = true;
 	    }
-	  else if (ort == C_ORT_ACC
-		   && OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION)
+	  else if ((ort == C_ORT_ACC
+		    && OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION)
+		   || (ort == C_ORT_OMP
+		       && (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_USE_DEVICE_PTR
+			   || (OMP_CLAUSE_CODE (c)
+			       == OMP_CLAUSE_USE_DEVICE_ADDR))))
 	    {
 	      if (bitmap_bit_p (&oacc_reduction_head, DECL_UID (t)))
 		{
 		  error_at (OMP_CLAUSE_LOCATION (c),
-			    "%qD appears more than once in reduction clauses",
+			    ort == C_ORT_ACC
+			    ? "%qD appears more than once in reduction clauses"
+			    : "%qD appears more than once in data clauses",
 			    t);
 		  remove = true;
 		}
@@ -14609,14 +14636,30 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	case OMP_CLAUSE_IS_DEVICE_PTR:
 	case OMP_CLAUSE_USE_DEVICE_PTR:
 	  t = OMP_CLAUSE_DECL (c);
-	  if (TREE_CODE (TREE_TYPE (t)) != POINTER_TYPE
-	      && TREE_CODE (TREE_TYPE (t)) != ARRAY_TYPE)
+	  if (TREE_CODE (TREE_TYPE (t)) != POINTER_TYPE)
 	    {
-	      error_at (OMP_CLAUSE_LOCATION (c),
-			"%qs variable is neither a pointer nor an array",
-			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
-	      remove = true;
+	      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_USE_DEVICE_PTR
+		  && ort == C_ORT_OMP)
+		{
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "%qs variable is not a pointer",
+			    omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+		  remove = true;
+		}
+	      else if (TREE_CODE (TREE_TYPE (t)) != ARRAY_TYPE)
+		{
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "%qs variable is neither a pointer nor an array",
+			    omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+		  remove = true;
+		}
 	    }
+	  goto check_dup_generic;
+
+	case OMP_CLAUSE_USE_DEVICE_ADDR:
+	  t = OMP_CLAUSE_DECL (c);
+	  if (VAR_P (t) || TREE_CODE (t) == PARM_DECL)
+	    c_mark_addressable (t);
 	  goto check_dup_generic;
 
 	case OMP_CLAUSE_NOWAIT:
@@ -14667,6 +14710,7 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	case OMP_CLAUSE_SECTIONS:
 	case OMP_CLAUSE_TASKGROUP:
 	case OMP_CLAUSE_PROC_BIND:
+	case OMP_CLAUSE_DEVICE_TYPE:
 	case OMP_CLAUSE_PRIORITY:
 	case OMP_CLAUSE_GRAINSIZE:
 	case OMP_CLAUSE_NUM_TASKS:
@@ -14674,6 +14718,7 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	case OMP_CLAUSE_SIMD:
 	case OMP_CLAUSE_HINT:
 	case OMP_CLAUSE_DEFAULTMAP:
+	case OMP_CLAUSE_BIND:
 	case OMP_CLAUSE_NUM_GANGS:
 	case OMP_CLAUSE_NUM_WORKERS:
 	case OMP_CLAUSE_VECTOR_LENGTH:
@@ -14777,6 +14822,13 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 		case OMP_CLAUSE_DEFAULT_UNSPECIFIED:
 		  break;
 		case OMP_CLAUSE_DEFAULT_SHARED:
+		  if ((OMP_CLAUSE_CODE (c) == OMP_CLAUSE_SHARED
+		       || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE)
+		      && c_omp_predefined_variable (t))
+		    /* The __func__ variable and similar function-local
+		       predefined variables may be listed in a shared or
+		       firstprivate clause.  */
+		    break;
 		  share_name = "shared";
 		  break;
 		case OMP_CLAUSE_DEFAULT_PRIVATE:

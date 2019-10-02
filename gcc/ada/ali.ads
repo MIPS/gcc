@@ -725,15 +725,11 @@ package ALI is
       --  Set True if the linker options are from an internal file. This is
       --  used to insert certain standard entries after all the user entries
       --  but before the entries from the run-time.
-
-      Original_Pos : Positive;
-      --  Keep track of original position in the linker options table. This
-      --  is used to implement a stable sort when we sort the linker options
-      --  table.
    end record;
 
-   --  The indexes of active entries in this table range from 1 to the
-   --  value of Linker_Options.Last. The zero'th element is for sort call.
+   --  The indexes of active entries in this table range from 1 to the value of
+   --  Linker_Options.Last. The zeroth element is for convenience if the table
+   --  needs to be sorted.
 
    package Linker_Options is new Table.Table (
      Table_Component_Type => Linker_Option_Record,
@@ -769,9 +765,9 @@ package ALI is
       --  location to the last character on the line.
    end record;
 
-   --  The indexes of active entries in this table range from 1 to the
-   --  value of Linker_Options.Last. The zero'th element is for convenience
-   --  if the table needs to be sorted.
+   --  The indexes of active entries in this table range from 1 to the value of
+   --  Notes.Last. The zeroth element is for convenience if the table needs to
+   --  be sorted.
 
    package Notes is new Table.Table (
      Table_Component_Type => Notes_Record,
@@ -1433,7 +1429,7 @@ package ALI is
    --    both. If both are provided then only the Read_Lines value is used,
    --    and the Ignore_Lines parameter is ignored.
    --
-   --    Read_XREF is set True to read and acquire the cross-reference
+   --    Read_Xref is set True to read and acquire the cross-reference
    --    information. If Read_XREF is set to True, then the effect is to ignore
    --    all lines other than U, W, D and X lines and the Ignore_Lines and
    --    Read_Lines parameters are ignored (i.e. the use of True for Read_XREF

@@ -116,6 +116,7 @@
 #include "rtl-iter.h"
 #include "fibonacci_heap.h"
 #include "print-rtl.h"
+#include "function-abi.h"
 
 typedef fibonacci_heap <long, basic_block_def> bb_heap_t;
 typedef fibonacci_node <long, basic_block_def> bb_heap_node_t;
@@ -1239,7 +1240,7 @@ adjust_insn (basic_block bb, rtx_insn *insn)
   amd.stack_adjust = -VTI (bb)->out.stack_adjust;
 
   amd.store = true;
-  note_stores (PATTERN (insn), adjust_mem_stores, &amd);
+  note_stores (insn, adjust_mem_stores, &amd);
 
   amd.store = false;
   if (GET_CODE (PATTERN (insn)) == PARALLEL
@@ -4900,12 +4901,10 @@ dataflow_set_clear_at_call (dataflow_set *set, rtx_insn *call_insn)
 {
   unsigned int r;
   hard_reg_set_iterator hrsi;
-  HARD_REG_SET invalidated_regs;
 
-  get_call_reg_set_usage (call_insn, &invalidated_regs,
-			  regs_invalidated_by_call);
+  function_abi callee_abi = insn_callee_abi (call_insn);
 
-  EXECUTE_IF_SET_IN_HARD_REG_SET (invalidated_regs, 0, r, hrsi)
+  EXECUTE_IF_SET_IN_HARD_REG_SET (callee_abi.full_reg_clobbers (), 0, r, hrsi)
     var_regno_delete (set, r);
 
   if (MAY_HAVE_DEBUG_BIND_INSNS)
@@ -6293,14 +6292,12 @@ prepare_call_arguments (basic_block bb, rtx_insn *insn)
 		  && targetm.calls.struct_value_rtx (type, 0) == 0)
 		{
 		  tree struct_addr = build_pointer_type (TREE_TYPE (type));
-		  machine_mode mode = TYPE_MODE (struct_addr);
+		  function_arg_info arg (struct_addr, /*named=*/true);
 		  rtx reg;
 		  INIT_CUMULATIVE_ARGS (args_so_far_v, type, NULL_RTX, fndecl,
 					nargs + 1);
-		  reg = targetm.calls.function_arg (args_so_far, mode,
-						    struct_addr, true);
-		  targetm.calls.function_arg_advance (args_so_far, mode,
-						      struct_addr, true);
+		  reg = targetm.calls.function_arg (args_so_far, arg);
+		  targetm.calls.function_arg_advance (args_so_far, arg);
 		  if (reg == NULL_RTX)
 		    {
 		      for (; link; link = XEXP (link, 1))
@@ -6318,11 +6315,9 @@ prepare_call_arguments (basic_block bb, rtx_insn *insn)
 				      nargs);
 	      if (obj_type_ref && TYPE_ARG_TYPES (type) != void_list_node)
 		{
-		  machine_mode mode;
 		  t = TYPE_ARG_TYPES (type);
-		  mode = TYPE_MODE (TREE_VALUE (t));
-		  this_arg = targetm.calls.function_arg (args_so_far, mode,
-							 TREE_VALUE (t), true);
+		  function_arg_info arg (TREE_VALUE (t), /*named=*/true);
+		  this_arg = targetm.calls.function_arg (args_so_far, arg);
 		  if (this_arg && !REG_P (this_arg))
 		    this_arg = NULL_RTX;
 		  else if (this_arg == NULL_RTX)
@@ -6430,30 +6425,24 @@ prepare_call_arguments (basic_block bb, rtx_insn *insn)
 	  }
 	if (t && t != void_list_node)
 	  {
-	    tree argtype = TREE_VALUE (t);
-	    machine_mode mode = TYPE_MODE (argtype);
 	    rtx reg;
-	    if (pass_by_reference (&args_so_far_v, mode, argtype, true))
-	      {
-		argtype = build_pointer_type (argtype);
-		mode = TYPE_MODE (argtype);
-	      }
-	    reg = targetm.calls.function_arg (args_so_far, mode,
-					      argtype, true);
-	    if (TREE_CODE (argtype) == REFERENCE_TYPE
-		&& INTEGRAL_TYPE_P (TREE_TYPE (argtype))
+	    function_arg_info arg (TREE_VALUE (t), /*named=*/true);
+	    apply_pass_by_reference_rules (&args_so_far_v, arg);
+	    reg = targetm.calls.function_arg (args_so_far, arg);
+	    if (TREE_CODE (arg.type) == REFERENCE_TYPE
+		&& INTEGRAL_TYPE_P (TREE_TYPE (arg.type))
 		&& reg
 		&& REG_P (reg)
-		&& GET_MODE (reg) == mode
-		&& (GET_MODE_CLASS (mode) == MODE_INT
-		    || GET_MODE_CLASS (mode) == MODE_PARTIAL_INT)
+		&& GET_MODE (reg) == arg.mode
+		&& (GET_MODE_CLASS (arg.mode) == MODE_INT
+		    || GET_MODE_CLASS (arg.mode) == MODE_PARTIAL_INT)
 		&& REG_P (x)
 		&& REGNO (x) == REGNO (reg)
-		&& GET_MODE (x) == mode
+		&& GET_MODE (x) == arg.mode
 		&& item)
 	      {
 		machine_mode indmode
-		  = TYPE_MODE (TREE_TYPE (argtype));
+		  = TYPE_MODE (TREE_TYPE (arg.type));
 		rtx mem = gen_rtx_MEM (indmode, x);
 		cselib_val *val = cselib_lookup (mem, indmode, 0, VOIDmode);
 		if (val && cselib_preserved_value_p (val))
@@ -6493,8 +6482,7 @@ prepare_call_arguments (basic_block bb, rtx_insn *insn)
 			}
 		  }
 	      }
-	    targetm.calls.function_arg_advance (args_so_far, mode,
-						argtype, true);
+	    targetm.calls.function_arg_advance (args_so_far, arg);
 	    t = TREE_CHAIN (t);
 	  }
       }
@@ -6643,7 +6631,7 @@ add_with_sets (rtx_insn *insn, struct cselib_set *sets, int n_sets)
      insert notes before it without worrying about any
      notes that MO_USEs might emit after the insn.  */
   cui.store_p = true;
-  note_stores (PATTERN (insn), add_stores, &cui);
+  note_stores (insn, add_stores, &cui);
   n2 = VTI (bb)->mos.length () - 1;
   mos = VTI (bb)->mos.address ();
 

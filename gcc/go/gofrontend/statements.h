@@ -24,6 +24,7 @@ class Expression_statement;
 class Block_statement;
 class Return_statement;
 class Thunk_statement;
+class Defer_statement;
 class Goto_statement;
 class Goto_unnamed_statement;
 class Label_statement;
@@ -402,6 +403,11 @@ class Statement
   // it.  Otherwise return NULL.
   Thunk_statement*
   thunk_statement();
+
+  // If this is a defer statement, return it.  Otherwise return NULL.
+  Defer_statement*
+  defer_statement()
+  { return this->convert<Defer_statement, STATEMENT_DEFER>(); }
 
   // If this is a goto statement, return it.  Otherwise return NULL.
   Goto_statement*
@@ -918,6 +924,13 @@ class Expression_statement : public Statement
   bool
   do_may_fall_through() const;
 
+  int
+  do_inlining_cost()
+  { return 0; }
+
+  void
+  do_export_statement(Export_function_body*);
+
   Bstatement*
   do_get_backend(Translate_context* context);
 
@@ -1419,8 +1432,13 @@ class Defer_statement : public Thunk_statement
 {
  public:
   Defer_statement(Call_expression* call, Location location)
-    : Thunk_statement(STATEMENT_DEFER, call, location)
+    : Thunk_statement(STATEMENT_DEFER, call, location),
+      on_stack_(false)
   { }
+
+  void
+  set_on_stack()
+  { this->on_stack_ = true; }
 
  protected:
   Bstatement*
@@ -1428,6 +1446,12 @@ class Defer_statement : public Thunk_statement
 
   void
   do_dump_statement(Ast_dump_context*) const;
+
+ private:
+  static Type*
+  defer_struct_type();
+
+  bool on_stack_;
 };
 
 // A goto statement.

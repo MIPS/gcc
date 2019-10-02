@@ -30,9 +30,9 @@ with Debug_A;  use Debug_A;
 with Einfo;    use Einfo;
 with Errout;   use Errout;
 with Expander; use Expander;
-with Exp_Disp; use Exp_Disp;
 with Exp_Ch6;  use Exp_Ch6;
 with Exp_Ch7;  use Exp_Ch7;
+with Exp_Disp; use Exp_Disp;
 with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
 with Freeze;   use Freeze;
@@ -51,12 +51,12 @@ with Restrict; use Restrict;
 with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
-with Sem_Aux;  use Sem_Aux;
 with Sem_Aggr; use Sem_Aggr;
 with Sem_Attr; use Sem_Attr;
+with Sem_Aux;  use Sem_Aux;
 with Sem_Cat;  use Sem_Cat;
-with Sem_Ch4;  use Sem_Ch4;
 with Sem_Ch3;  use Sem_Ch3;
+with Sem_Ch4;  use Sem_Ch4;
 with Sem_Ch6;  use Sem_Ch6;
 with Sem_Ch8;  use Sem_Ch8;
 with Sem_Ch13; use Sem_Ch13;
@@ -67,9 +67,9 @@ with Sem_Elab; use Sem_Elab;
 with Sem_Elim; use Sem_Elim;
 with Sem_Eval; use Sem_Eval;
 with Sem_Intr; use Sem_Intr;
-with Sem_Util; use Sem_Util;
-with Targparm; use Targparm;
+with Sem_Mech; use Sem_Mech;
 with Sem_Type; use Sem_Type;
+with Sem_Util; use Sem_Util;
 with Sem_Warn; use Sem_Warn;
 with Sinfo;    use Sinfo;
 with Sinfo.CN; use Sinfo.CN;
@@ -77,6 +77,7 @@ with Snames;   use Snames;
 with Stand;    use Stand;
 with Stringt;  use Stringt;
 with Style;    use Style;
+with Targparm; use Targparm;
 with Tbuild;   use Tbuild;
 with Uintp;    use Uintp;
 with Urealp;   use Urealp;
@@ -4190,17 +4191,16 @@ package body Sem_Res is
                      DDT : constant Entity_Id :=
                              Directly_Designated_Type (Base_Type (Etype (F)));
 
-                     New_Itype : Entity_Id;
-
                   begin
+                     --  Displace the pointer to the object to reference its
+                     --  secondary dispatch table.
+
                      if Is_Class_Wide_Type (DDT)
                        and then Is_Interface (DDT)
                      then
-                        New_Itype := Create_Itype (E_Anonymous_Access_Type, A);
-                        Set_Etype (New_Itype, Etype (A));
-                        Set_Directly_Designated_Type
-                          (New_Itype, Directly_Designated_Type (Etype (A)));
-                        Set_Etype (A, New_Itype);
+                        Rewrite (A, Convert_To (Etype (F), Relocate_Node (A)));
+                        Analyze_And_Resolve (A, Etype (F),
+                          Suppress => Access_Check);
                      end if;
 
                      --  Ada 2005, AI-162:If the actual is an allocator, the
@@ -4518,7 +4518,7 @@ package body Sem_Res is
                end if;
             end if;
 
-            if Etype (A) = Any_Type then
+            if A_Typ = Any_Type then
                Set_Etype (N, Any_Type);
                return;
             end if;
@@ -4540,18 +4540,10 @@ package body Sem_Res is
 
                --  Apply required constraint checks
 
-               --  Gigi looks at the check flag and uses the appropriate types.
-               --  For now since one flag is used there is an optimization
-               --  which might not be done in the IN OUT case since Gigi does
-               --  not do any analysis. More thought required about this ???
-
-               --  In fact is this comment obsolete??? doesn't the expander now
-               --  generate all these tests anyway???
-
-               if Is_Scalar_Type (Etype (A)) then
+               if Is_Scalar_Type (A_Typ) then
                   Apply_Scalar_Range_Check (A, F_Typ);
 
-               elsif Is_Array_Type (Etype (A)) then
+               elsif Is_Array_Type (A_Typ) then
                   Apply_Length_Check (A, F_Typ);
 
                elsif Is_Record_Type (F_Typ)
@@ -4622,12 +4614,22 @@ package body Sem_Res is
 
                if Nkind (A) = N_Type_Conversion then
                   if Is_Scalar_Type (A_Typ) then
-                     Apply_Scalar_Range_Check
-                       (Expression (A), Etype (Expression (A)), A_Typ);
 
-                     --  In addition, the returned value of the parameter must
-                     --  satisfy the bounds of the object type (see comment
-                     --  below).
+                     --  Special case here tailored to Exp_Ch6.Is_Legal_Copy,
+                     --  which would prevent the check from being generated.
+                     --  This is for Starlet only though, so long obsolete.
+
+                     if Mechanism (F) = By_Reference
+                       and then Is_Valued_Procedure (Nam)
+                     then
+                        null;
+                     else
+                        Apply_Scalar_Range_Check
+                          (Expression (A), Etype (Expression (A)), A_Typ);
+                     end if;
+
+                     --  In addition the return value must meet the constraints
+                     --  of the object type (see the comment below).
 
                      Apply_Scalar_Range_Check (A, A_Typ, F_Typ);
 
@@ -4651,6 +4653,7 @@ package body Sem_Res is
                     and then Ekind (F) = E_Out_Parameter
                   then
                      Apply_Length_Check (A, F_Typ);
+
                   else
                      Apply_Range_Check (A, A_Typ, F_Typ);
                   end if;
@@ -5671,13 +5674,21 @@ package body Sem_Res is
 
          --  A universal real conditional expression can appear in a fixed-type
          --  context and must be resolved with that context to facilitate the
-         --  code generation in the back end.
+         --  code generation in the back end. However, If the context is
+         --  Universal_fixed (i.e. as an operand of a multiplication/division
+         --  involving a fixed-point operand) the conditional expression must
+         --  resolve to a unique visible fixed_point type, normally Duration.
 
          elsif Nkind_In (N, N_Case_Expression, N_If_Expression)
            and then Etype (N) = Universal_Real
            and then Is_Fixed_Point_Type (B_Typ)
          then
-            Resolve (N, B_Typ);
+            if B_Typ = Universal_Fixed then
+               Resolve (N, Unique_Fixed_Point_Type (N));
+
+            else
+               Resolve (N, B_Typ);
+            end if;
 
          else
             Resolve (N);
@@ -6311,13 +6322,15 @@ package body Sem_Res is
       --  an expression function may appear when it is part of a default
       --  expression in a call to an initialization procedure, and must be
       --  frozen now, even if the body is inserted at a later point.
+      --  Otherwise, the call freezes the expression if expander is active,
+      --  for example as part of an object declaration.
 
       if Is_Entity_Name (Subp)
         and then not In_Spec_Expression
         and then not Is_Expression_Function_Or_Completion (Current_Scope)
         and then
           (not Is_Expression_Function_Or_Completion (Entity (Subp))
-            or else Scope (Entity (Subp)) = Current_Scope)
+            or else Expander_Active)
       then
          if Is_Expression_Function (Entity (Subp)) then
 
@@ -6949,9 +6962,7 @@ package body Sem_Res is
       --  Check the dimensions of the actuals in the call. For function calls,
       --  propagate the dimensions from the returned type to N.
 
-      if not In_Inlined_Body then
-         Analyze_Dimension_Call (N, Nam);
-      end if;
+      Analyze_Dimension_Call (N, Nam);
 
       --  All done, evaluate call and deal with elaboration issues
 
@@ -6966,6 +6977,10 @@ package body Sem_Res is
       --  for later examination by the ABE Processing phase.
 
       Build_Call_Marker (N);
+
+      Mark_Use_Clauses (Subp);
+
+      Warn_On_Overlapping_Actuals (Nam, N);
 
       --  In GNATprove mode, expansion is disabled, but we want to inline some
       --  subprograms to facilitate formal verification. Indirect calls through
@@ -7061,6 +7076,15 @@ package body Sem_Res is
                      end if;
                   end if;
 
+               --  Cannot inline a call inside the definition of a record type,
+               --  typically inside the constraints of the type. Calls in
+               --  default expressions are also not inlined, but this is
+               --  filtered out above when testing In_Default_Expr.
+
+               elsif Is_Record_Type (Current_Scope) then
+                  Cannot_Inline
+                    ("cannot inline & (inside record type)?", N, Nam_UA);
+
                --  With the one-pass inlining technique, a call cannot be
                --  inlined if the corresponding body has not been seen yet.
 
@@ -7106,10 +7130,6 @@ package body Sem_Res is
             end if;
          end if;
       end if;
-
-      Mark_Use_Clauses (Subp);
-
-      Warn_On_Overlapping_Actuals (Nam, N);
    end Resolve_Call;
 
    -----------------------------
@@ -10588,6 +10608,10 @@ package body Sem_Res is
 
          pragma Assert (Found);
          Resolve (P, It1.Typ);
+
+         --  In general the expected type is the type of the context, not the
+         --  type of the candidate selected component.
+
          Set_Etype (N, Typ);
          Set_Entity_With_Checks (S, Comp1);
 
@@ -10599,6 +10623,17 @@ package body Sem_Res is
          --  the point of use. This determines what activation record to use.
 
          if Ekind (Typ) = E_Anonymous_Access_Subprogram_Type then
+            Set_Etype (N, Etype (Comp1));
+
+         --  When the type of the component is an access to a class-wide type
+         --  the relevant type is that of the component (since in such case we
+         --  may need to generate implicit type conversions or dispatching
+         --  calls).
+
+         elsif Is_Access_Type (Typ)
+           and then not Is_Class_Wide_Type (Designated_Type (Typ))
+           and then Is_Class_Wide_Type (Designated_Type (Etype (Comp1)))
+         then
             Set_Etype (N, Etype (Comp1));
          end if;
 
@@ -10625,8 +10660,25 @@ package body Sem_Res is
       if Is_Access_Type (Etype (P)) then
          T := Designated_Type (Etype (P));
          Check_Fully_Declared_Prefix (T, P);
+
       else
          T := Etype (P);
+
+         --  If the prefix is an entity it may have a deferred reference set
+         --  during analysis of the selected component. After resolution we
+         --  can transform it into a proper reference. This prevents spurious
+         --  warnings on useless assignments when the same selected component
+         --  is the actual for an out parameter in a subsequent call.
+
+         if Is_Entity_Name (P)
+           and then Has_Deferred_Reference (Entity (P))
+         then
+            if May_Be_Lvalue (N) then
+               Generate_Reference (Entity (P), P, 'm');
+            else
+               Generate_Reference (Entity (P), P, 'r');
+            end if;
+         end if;
       end if;
 
       --  Set flag for expander if discriminant check required on a component
@@ -11741,6 +11793,8 @@ package body Sem_Res is
         and then (Is_Fixed_Point_Type (Operand_Typ)
                    or else (not GNATprove_Mode
                              and then Is_Floating_Point_Type (Operand_Typ)))
+        and then not Range_Checks_Suppressed (Target_Typ)
+        and then not Range_Checks_Suppressed (Operand_Typ)
       then
          Set_Do_Range_Check (Operand);
       end if;
@@ -12385,7 +12439,8 @@ package body Sem_Res is
             --     ityp (x)
 
             --  with the Float_Truncate flag set to False or True respectively,
-            --  which is more efficient.
+            --  which is more efficient. We reuse Rounding for Machine_Rounding
+            --  as System.Fat_Gen, which is a permissible behavior.
 
             if Is_Floating_Point_Type (Opnd_Typ)
               and then
@@ -12394,6 +12449,7 @@ package body Sem_Res is
                             and then Conversion_OK (N)))
               and then Nkind (Operand) = N_Attribute_Reference
               and then Nam_In (Attribute_Name (Operand), Name_Rounding,
+                                                         Name_Machine_Rounding,
                                                          Name_Truncation)
             then
                declare

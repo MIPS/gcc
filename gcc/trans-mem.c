@@ -3237,8 +3237,7 @@ expand_block_edges (struct tm_region *const region, basic_block bb)
 	  || (gimple_call_flags (call_stmt) & ECF_TM_BUILTIN) == 0)
 	continue;
 
-      if (DECL_FUNCTION_CODE (gimple_call_fndecl (call_stmt))
-	  == BUILT_IN_TM_ABORT)
+      if (gimple_call_builtin_p (call_stmt, BUILT_IN_TM_ABORT))
 	{
 	  // If we have a ``_transaction_cancel [[outer]]'', there is only
 	  // one abnormal edge: to the transaction marked OUTER.
@@ -5010,8 +5009,7 @@ ipa_tm_create_version (struct cgraph_node *old_node)
 	}
 
       tree_function_versioning (old_decl, new_decl,
-				NULL, false, NULL,
-				false, NULL, NULL);
+				NULL,  NULL, false, NULL, NULL);
     }
 
   record_tm_clone_pair (old_decl, new_decl);

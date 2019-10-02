@@ -223,10 +223,17 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   struct __failure_type
   { };
 
-  // Primary type categories.
-
   template<typename>
     struct remove_cv;
+
+  // __remove_cv_t (std::remove_cv_t for C++11).
+  template<typename _Tp>
+    using __remove_cv_t = typename remove_cv<_Tp>::type;
+
+  template<typename>
+    struct is_const;
+
+  // Primary type categories.
 
   template<typename>
     struct __is_void_helper
@@ -239,7 +246,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /// is_void
   template<typename _Tp>
     struct is_void
-    : public __is_void_helper<typename remove_cv<_Tp>::type>::type
+    : public __is_void_helper<__remove_cv_t<_Tp>>::type
     { };
 
   template<typename>
@@ -356,7 +363,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /// is_integral
   template<typename _Tp>
     struct is_integral
-    : public __is_integral_helper<typename remove_cv<_Tp>::type>::type
+    : public __is_integral_helper<__remove_cv_t<_Tp>>::type
     { };
 
   template<typename>
@@ -384,7 +391,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /// is_floating_point
   template<typename _Tp>
     struct is_floating_point
-    : public __is_floating_point_helper<typename remove_cv<_Tp>::type>::type
+    : public __is_floating_point_helper<__remove_cv_t<_Tp>>::type
     { };
 
   /// is_array
@@ -411,7 +418,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /// is_pointer
   template<typename _Tp>
     struct is_pointer
-    : public __is_pointer_helper<typename remove_cv<_Tp>::type>::type
+    : public __is_pointer_helper<__remove_cv_t<_Tp>>::type
     { };
 
   /// is_lvalue_reference
@@ -443,8 +450,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /// is_member_object_pointer
   template<typename _Tp>
     struct is_member_object_pointer
-    : public __is_member_object_pointer_helper<
-				typename remove_cv<_Tp>::type>::type
+    : public __is_member_object_pointer_helper<__remove_cv_t<_Tp>>::type
     { };
 
   template<typename>
@@ -458,8 +464,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /// is_member_function_pointer
   template<typename _Tp>
     struct is_member_function_pointer
-    : public __is_member_function_pointer_helper<
-				typename remove_cv<_Tp>::type>::type
+    : public __is_member_function_pointer_helper<__remove_cv_t<_Tp>>::type
     { };
 
   /// is_enum
@@ -481,105 +486,17 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     { };
 
   /// is_function
-  template<typename>
+  template<typename _Tp>
     struct is_function
+    : public __bool_constant<!is_const<const _Tp>::value> { };
+
+  template<typename _Tp>
+    struct is_function<_Tp&>
     : public false_type { };
 
-  template<typename _Res, typename... _ArgTypes _GLIBCXX_NOEXCEPT_PARM>
-    struct is_function<_Res(_ArgTypes...) _GLIBCXX_NOEXCEPT_QUAL>
-    : public true_type { };
-
-  template<typename _Res, typename... _ArgTypes _GLIBCXX_NOEXCEPT_PARM>
-    struct is_function<_Res(_ArgTypes...) & _GLIBCXX_NOEXCEPT_QUAL>
-    : public true_type { };
-
-  template<typename _Res, typename... _ArgTypes _GLIBCXX_NOEXCEPT_PARM>
-    struct is_function<_Res(_ArgTypes...) && _GLIBCXX_NOEXCEPT_QUAL>
-    : public true_type { };
-
-  template<typename _Res, typename... _ArgTypes _GLIBCXX_NOEXCEPT_PARM>
-    struct is_function<_Res(_ArgTypes......) _GLIBCXX_NOEXCEPT_QUAL>
-    : public true_type { };
-
-  template<typename _Res, typename... _ArgTypes _GLIBCXX_NOEXCEPT_PARM>
-    struct is_function<_Res(_ArgTypes......) & _GLIBCXX_NOEXCEPT_QUAL>
-    : public true_type { };
-
-  template<typename _Res, typename... _ArgTypes _GLIBCXX_NOEXCEPT_PARM>
-    struct is_function<_Res(_ArgTypes......) && _GLIBCXX_NOEXCEPT_QUAL>
-    : public true_type { };
-
-  template<typename _Res, typename... _ArgTypes _GLIBCXX_NOEXCEPT_PARM>
-    struct is_function<_Res(_ArgTypes...) const _GLIBCXX_NOEXCEPT_QUAL>
-    : public true_type { };
-
-  template<typename _Res, typename... _ArgTypes _GLIBCXX_NOEXCEPT_PARM>
-    struct is_function<_Res(_ArgTypes...) const & _GLIBCXX_NOEXCEPT_QUAL>
-    : public true_type { };
-
-  template<typename _Res, typename... _ArgTypes _GLIBCXX_NOEXCEPT_PARM>
-    struct is_function<_Res(_ArgTypes...) const && _GLIBCXX_NOEXCEPT_QUAL>
-    : public true_type { };
-
-  template<typename _Res, typename... _ArgTypes _GLIBCXX_NOEXCEPT_PARM>
-    struct is_function<_Res(_ArgTypes......) const _GLIBCXX_NOEXCEPT_QUAL>
-    : public true_type { };
-
-  template<typename _Res, typename... _ArgTypes _GLIBCXX_NOEXCEPT_PARM>
-    struct is_function<_Res(_ArgTypes......) const & _GLIBCXX_NOEXCEPT_QUAL>
-    : public true_type { };
-
-  template<typename _Res, typename... _ArgTypes _GLIBCXX_NOEXCEPT_PARM>
-    struct is_function<_Res(_ArgTypes......) const && _GLIBCXX_NOEXCEPT_QUAL>
-    : public true_type { };
-
-  template<typename _Res, typename... _ArgTypes _GLIBCXX_NOEXCEPT_PARM>
-    struct is_function<_Res(_ArgTypes...) volatile _GLIBCXX_NOEXCEPT_QUAL>
-    : public true_type { };
-
-  template<typename _Res, typename... _ArgTypes _GLIBCXX_NOEXCEPT_PARM>
-    struct is_function<_Res(_ArgTypes...) volatile & _GLIBCXX_NOEXCEPT_QUAL>
-    : public true_type { };
-
-  template<typename _Res, typename... _ArgTypes _GLIBCXX_NOEXCEPT_PARM>
-    struct is_function<_Res(_ArgTypes...) volatile && _GLIBCXX_NOEXCEPT_QUAL>
-    : public true_type { };
-
-  template<typename _Res, typename... _ArgTypes _GLIBCXX_NOEXCEPT_PARM>
-    struct is_function<_Res(_ArgTypes......) volatile _GLIBCXX_NOEXCEPT_QUAL>
-    : public true_type { };
-
-  template<typename _Res, typename... _ArgTypes _GLIBCXX_NOEXCEPT_PARM>
-    struct is_function<_Res(_ArgTypes......) volatile & _GLIBCXX_NOEXCEPT_QUAL>
-    : public true_type { };
-
-  template<typename _Res, typename... _ArgTypes _GLIBCXX_NOEXCEPT_PARM>
-    struct is_function<_Res(_ArgTypes......) volatile && _GLIBCXX_NOEXCEPT_QUAL>
-    : public true_type { };
-
-  template<typename _Res, typename... _ArgTypes _GLIBCXX_NOEXCEPT_PARM>
-    struct is_function<_Res(_ArgTypes...) const volatile _GLIBCXX_NOEXCEPT_QUAL>
-    : public true_type { };
-
-  template<typename _Res, typename... _ArgTypes _GLIBCXX_NOEXCEPT_PARM>
-    struct is_function<_Res(_ArgTypes...) const volatile & _GLIBCXX_NOEXCEPT_QUAL>
-    : public true_type { };
-
-  template<typename _Res, typename... _ArgTypes _GLIBCXX_NOEXCEPT_PARM>
-    struct is_function<_Res(_ArgTypes...) const volatile && _GLIBCXX_NOEXCEPT_QUAL>
-    : public true_type { };
-
-  template<typename _Res, typename... _ArgTypes _GLIBCXX_NOEXCEPT_PARM>
-    struct is_function<_Res(_ArgTypes......) const volatile _GLIBCXX_NOEXCEPT_QUAL>
-    : public true_type { };
-
-  template<typename _Res, typename... _ArgTypes _GLIBCXX_NOEXCEPT_PARM>
-    struct is_function<_Res(_ArgTypes......) const volatile & _GLIBCXX_NOEXCEPT_QUAL>
-    : public true_type { };
-
-  template<typename _Res, typename... _ArgTypes _GLIBCXX_NOEXCEPT_PARM>
-    struct is_function<_Res(_ArgTypes......) const volatile && _GLIBCXX_NOEXCEPT_QUAL>
-    : public true_type { };
+  template<typename _Tp>
+    struct is_function<_Tp&&>
+    : public false_type { };
 
 #define __cpp_lib_is_null_pointer 201309
 
@@ -594,14 +511,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /// is_null_pointer (LWG 2247).
   template<typename _Tp>
     struct is_null_pointer
-    : public __is_null_pointer_helper<typename remove_cv<_Tp>::type>::type
+    : public __is_null_pointer_helper<__remove_cv_t<_Tp>>::type
     { };
 
-  /// __is_nullptr_t (extension).
+  /// __is_nullptr_t (deprecated extension).
   template<typename _Tp>
     struct __is_nullptr_t
     : public is_null_pointer<_Tp>
-    { };
+    { } _GLIBCXX_DEPRECATED;
 
   // Composite type categories.
 
@@ -658,7 +575,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /// is_member_pointer
   template<typename _Tp>
     struct is_member_pointer
-    : public __is_member_pointer_helper<typename remove_cv<_Tp>::type>::type
+    : public __is_member_pointer_helper<__remove_cv_t<_Tp>>::type
     { };
 
   template<typename, typename>
@@ -669,7 +586,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   // Check if a type is one of the signed integer types.
   template<typename _Tp>
-    using __is_signed_integer = __is_one_of<typename remove_cv<_Tp>::type,
+    using __is_signed_integer = __is_one_of<__remove_cv_t<_Tp>,
 	  signed char, signed short, signed int, signed long,
 	  signed long long
 #if defined(__GLIBCXX_TYPE_INT_N_0)
@@ -688,7 +605,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   // Check if a type is one of the unsigned integer types.
   template<typename _Tp>
-    using __is_unsigned_integer = __is_one_of<typename remove_cv<_Tp>::type,
+    using __is_unsigned_integer = __is_one_of<__remove_cv_t<_Tp>,
 	  unsigned char, unsigned short, unsigned int, unsigned long,
 	  unsigned long long
 #if defined(__GLIBCXX_TYPE_INT_N_0)
@@ -706,20 +623,18 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  >;
 
 
+  // __void_t (std::void_t for C++11)
+  template<typename...> using __void_t = void;
+
   // Utility to detect referenceable types ([defns.referenceable]).
 
-  template<typename _Tp>
+  template<typename _Tp, typename = void>
     struct __is_referenceable
-    : public __or_<is_object<_Tp>, is_reference<_Tp>>::type
+    : public false_type
     { };
 
-  template<typename _Res, typename... _Args _GLIBCXX_NOEXCEPT_PARM>
-    struct __is_referenceable<_Res(_Args...) _GLIBCXX_NOEXCEPT_QUAL>
-    : public true_type
-    { };
-
-  template<typename _Res, typename... _Args _GLIBCXX_NOEXCEPT_PARM>
-    struct __is_referenceable<_Res(_Args......) _GLIBCXX_NOEXCEPT_QUAL>
+  template<typename _Tp>
+    struct __is_referenceable<_Tp, __void_t<_Tp&>>
     : public true_type
     { };
 
@@ -1594,10 +1509,19 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /// remove_cv
   template<typename _Tp>
     struct remove_cv
-    {
-      typedef typename
-      remove_const<typename remove_volatile<_Tp>::type>::type     type;
-    };
+    { using type = _Tp; };
+
+  template<typename _Tp>
+    struct remove_cv<const _Tp>
+    { using type = _Tp; };
+
+  template<typename _Tp>
+    struct remove_cv<volatile _Tp>
+    { using type = _Tp; };
+
+  template<typename _Tp>
+    struct remove_cv<const volatile _Tp>
+    { using type = _Tp; };
 
   /// add_const
   template<typename _Tp>
@@ -1796,7 +1720,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     class __make_unsigned_selector<_Tp, true, false>
     {
       using __unsigned_type
-	= typename __make_unsigned<typename remove_cv<_Tp>::type>::__type;
+	= typename __make_unsigned<__remove_cv_t<_Tp>>::__type;
 
     public:
       using __type
@@ -1950,7 +1874,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     class __make_signed_selector<_Tp, true, false>
     {
       using __signed_type
-	= typename __make_signed<typename remove_cv<_Tp>::type>::__type;
+	= typename __make_signed<__remove_cv_t<_Tp>>::__type;
 
     public:
       using __type
@@ -2076,7 +2000,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /// remove_pointer
   template<typename _Tp>
     struct remove_pointer
-    : public __remove_pointer_helper<_Tp, typename remove_cv<_Tp>::type>
+    : public __remove_pointer_helper<_Tp, __remove_cv_t<_Tp>>
     { };
 
   /// add_pointer
@@ -2192,7 +2116,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   // NB: DR 705.
   template<typename _Up>
     struct __decay_selector<_Up, false, false>
-    { typedef typename remove_cv<_Up>::type __type; };
+    { typedef __remove_cv_t<_Up> __type; };
 
   template<typename _Up>
     struct __decay_selector<_Up, true, false>
@@ -2212,6 +2136,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       typedef typename __decay_selector<__remove_type>::__type type;
     };
 
+  // __decay_t (std::decay_t for C++11).
+  template<typename _Tp>
+    using __decay_t = typename decay<_Tp>::type;
+
   template<typename _Tp>
     class reference_wrapper;
 
@@ -2229,11 +2157,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     };
 
   template<typename _Tp>
-    struct __decay_and_strip
-    {
-      typedef typename __strip_reference_wrapper<
-	typename decay<_Tp>::type>::__type __type;
-    };
+    using __decay_and_strip = __strip_reference_wrapper<__decay_t<_Tp>>;
 
 
   // Primary template.
@@ -2247,8 +2171,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     struct enable_if<true, _Tp>
     { typedef _Tp type; };
 
+  // __enable_if_t (std::enable_if_t for C++11)
+  template<bool _Cond, typename _Tp = void>
+    using __enable_if_t = typename enable_if<_Cond, _Tp>::type;
+
   template<typename... _Cond>
-    using _Require = typename enable_if<__and_<_Cond...>::value>::type;
+    using _Require = __enable_if_t<__and_<_Cond...>::value>;
 
   // Primary template.
   /// Define a member typedef @c type to one of two argument types.
@@ -2261,8 +2189,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     struct conditional<false, _Iftrue, _Iffalse>
     { typedef _Iffalse type; };
 
-  // __void_t (std::void_t for C++11)
-  template<typename...> using __void_t = void;
+  // __remove_cvref_t (std::remove_cvref_t for C++11).
+  template<typename _Tp>
+    using __remove_cvref_t
+     = typename remove_cv<typename remove_reference<_Tp>::type>::type;
 
   /// common_type
   template<typename... _Tp>
@@ -2276,12 +2206,26 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       using __cond_t
 	= decltype(true ? std::declval<_Tp>() : std::declval<_Up>());
 
+    // if decay_t<decltype(false ? declval<D1>() : declval<D2>())>
+    // denotes a valid type, let C denote that type.
     template<typename _Tp, typename _Up>
-      static __success_type<typename decay<__cond_t<_Tp, _Up>>::type>
+      static __success_type<__decay_t<__cond_t<_Tp, _Up>>>
       _S_test(int);
+
+#if __cplusplus > 201703L
+    // Otherwise, if COND-RES(CREF(D1), CREF(D2)) denotes a type,
+    // let C denote the type decay_t<COND-RES(CREF(D1), CREF(D2))>.
+    template<typename _Tp, typename _Up>
+      static __success_type<__remove_cvref_t<__cond_t<const _Tp&, const _Up&>>>
+      _S_test_2(int);
+#endif
 
     template<typename, typename>
       static __failure_type
+      _S_test_2(...);
+
+    template<typename _Tp, typename _Up>
+      static decltype(_S_test_2<_Tp, _Up>(0))
       _S_test(...);
   };
 
@@ -2298,8 +2242,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   // If sizeof...(T) is two, ...
   template<typename _Tp1, typename _Tp2,
-	   typename _Dp1 = typename decay<_Tp1>::type,
-	   typename _Dp2 = typename decay<_Tp2>::type>
+	   typename _Dp1 = __decay_t<_Tp1>, typename _Dp2 = __decay_t<_Tp2>>
     struct __common_type_impl
     {
       // If is_same_v<T1, D1> is false or is_same_v<T2, D2> is false,
@@ -2379,11 +2322,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		    "declval() must not be used!");
       return __declval<_Tp>(0);
     }
-
-  // __remove_cvref_t (std::remove_cvref_t for C++11).
-  template<typename _Tp>
-    using __remove_cvref_t
-     = typename remove_cv<typename remove_reference<_Tp>::type>::type;
 
   /// result_of
   template<typename _Signature>
@@ -2534,13 +2472,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   template<typename _MemPtr, typename _Arg>
     struct __result_of_impl<true, false, _MemPtr, _Arg>
-    : public __result_of_memobj<typename decay<_MemPtr>::type,
+    : public __result_of_memobj<__decay_t<_MemPtr>,
 				typename __inv_unwrap<_Arg>::type>
     { };
 
   template<typename _MemPtr, typename _Arg, typename... _Args>
     struct __result_of_impl<false, true, _MemPtr, _Arg, _Args...>
-    : public __result_of_memfun<typename decay<_MemPtr>::type,
+    : public __result_of_memfun<__decay_t<_MemPtr>,
 				typename __inv_unwrap<_Arg>::type, _Args...>
     { };
 
@@ -2615,10 +2553,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename _Tp>
     using result_of_t = typename result_of<_Tp>::type;
 #endif // C++14
-
-  // __enable_if_t (std::enable_if_t for C++11)
-  template<bool _Cond, typename _Tp = void>
-    using __enable_if_t = typename enable_if<_Cond, _Tp>::type;
 
 #if __cplusplus >= 201703L || !defined(__STRICT_ANSI__) // c++17 or gnu++11
 #define __cpp_lib_void_t 201411
@@ -2695,17 +2629,19 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     { };
 
   template<typename _Tp>
+    _GLIBCXX20_CONSTEXPR
     inline
-    typename enable_if<__and_<__not_<__is_tuple_like<_Tp>>,
-			      is_move_constructible<_Tp>,
-			      is_move_assignable<_Tp>>::value>::type
+    _Require<__not_<__is_tuple_like<_Tp>>,
+	     is_move_constructible<_Tp>,
+	     is_move_assignable<_Tp>>
     swap(_Tp&, _Tp&)
     noexcept(__and_<is_nothrow_move_constructible<_Tp>,
 	            is_nothrow_move_assignable<_Tp>>::value);
 
   template<typename _Tp, size_t _Nm>
+    _GLIBCXX20_CONSTEXPR
     inline
-    typename enable_if<__is_swappable<_Tp>::value>::type
+    __enable_if_t<__is_swappable<_Tp>::value>
     swap(_Tp (&__a)[_Nm], _Tp (&__b)[_Nm])
     noexcept(__is_nothrow_swappable<_Tp>::value);
 
@@ -2881,13 +2817,48 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   // __is_invocable (std::is_invocable for C++11)
 
-  template<typename _Result, typename _Ret, typename = void>
+  // The primary template is used for invalid INVOKE expressions.
+  template<typename _Result, typename _Ret,
+	   bool = is_void<_Ret>::value, typename = void>
     struct __is_invocable_impl : false_type { };
 
+  // Used for valid INVOKE and INVOKE<void> expressions.
   template<typename _Result, typename _Ret>
-    struct __is_invocable_impl<_Result, _Ret, __void_t<typename _Result::type>>
-    : __or_<is_void<_Ret>, is_convertible<typename _Result::type, _Ret>>::type
+    struct __is_invocable_impl<_Result, _Ret,
+			       /* is_void<_Ret> = */ true,
+			       __void_t<typename _Result::type>>
+    : true_type
     { };
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wctor-dtor-privacy"
+  // Used for INVOKE<R> expressions to check the implicit conversion to R.
+  template<typename _Result, typename _Ret>
+    struct __is_invocable_impl<_Result, _Ret,
+			       /* is_void<_Ret> = */ false,
+			       __void_t<typename _Result::type>>
+    {
+    private:
+      // The type of the INVOKE expression.
+      // Unlike declval, this doesn't add_rvalue_reference.
+      static typename _Result::type _S_get();
+
+      template<typename _Tp>
+	static void _S_conv(_Tp);
+
+      // This overload is viable if INVOKE(f, args...) can convert to _Tp.
+      template<typename _Tp, typename = decltype(_S_conv<_Tp>(_S_get()))>
+	static true_type
+	_S_test(int);
+
+      template<typename _Tp>
+	static false_type
+	_S_test(...);
+
+    public:
+      using type = decltype(_S_test<_Ret>(1));
+    };
+#pragma GCC diagnostic pop
 
   template<typename _Fn, typename... _ArgTypes>
     struct __is_invocable
@@ -3226,14 +3197,6 @@ template <typename _From, typename _To>
 #endif // C++17
 
 #if __cplusplus > 201703L
-  /// Byte order
-  enum class endian
-  {
-    little = __ORDER_LITTLE_ENDIAN__,
-    big    = __ORDER_BIG_ENDIAN__,
-    native = __BYTE_ORDER__
-  };
-
   /// Remove references and cv-qualifiers.
   template<typename _Tp>
     struct remove_cvref
@@ -3298,6 +3261,164 @@ template <typename _From, typename _To>
   is_constant_evaluated() noexcept
   { return __builtin_is_constant_evaluated(); }
 #endif
+
+  template<typename _From, typename _To>
+    using __copy_cv = typename __match_cv_qualifiers<_From, _To>::__type;
+
+  template<typename _Xp, typename _Yp>
+    using __cond_res
+      = decltype(false ? declval<_Xp(&)()>()() : declval<_Yp(&)()>()());
+
+  template<typename _Ap, typename _Bp, typename = void>
+    struct __common_ref_impl
+    { };
+
+  // [meta.trans.other], COMMON-REF(A, B)
+  template<typename _Ap, typename _Bp>
+    using __common_ref = typename __common_ref_impl<_Ap, _Bp>::type;
+
+  // If A and B are both lvalue reference types, ...
+  template<typename _Xp, typename _Yp>
+    struct __common_ref_impl<_Xp&, _Yp&,
+      __void_t<__cond_res<__copy_cv<_Xp, _Yp>&, __copy_cv<_Yp, _Xp>&>>>
+    { using type = __cond_res<__copy_cv<_Xp, _Yp>&, __copy_cv<_Yp, _Xp>&>; };
+
+  // let C be remove_reference_t<COMMON-REF(X&, Y&)>&&
+  template<typename _Xp, typename _Yp>
+    using __common_ref_C = remove_reference_t<__common_ref<_Xp&, _Yp&>>&&;
+
+  // If A and B are both rvalue reference types, ...
+  template<typename _Xp, typename _Yp>
+    struct __common_ref_impl<_Xp&&, _Yp&&,
+      _Require<is_convertible<_Xp&&, __common_ref_C<_Xp, _Yp>>,
+	       is_convertible<_Yp&&, __common_ref_C<_Xp, _Yp>>>>
+    { using type = __common_ref_C<_Xp, _Yp>; };
+
+  // let D be COMMON-REF(const X&, Y&)
+  template<typename _Xp, typename _Yp>
+    using __common_ref_D = __common_ref<const _Xp&, _Yp&>;
+
+  // If A is an rvalue reference and B is an lvalue reference, ...
+  template<typename _Xp, typename _Yp>
+    struct __common_ref_impl<_Xp&&, _Yp&,
+      _Require<is_convertible<_Xp&&, __common_ref_D<_Xp, _Yp>>>>
+    { using type = __common_ref_D<_Xp, _Yp>; };
+
+  // If A is an lvalue reference and B is an rvalue reference, ...
+  template<typename _Xp, typename _Yp>
+    struct __common_ref_impl<_Xp&, _Yp&&>
+    : __common_ref_impl<_Yp&&, _Xp&>
+    { };
+
+  template<typename _Tp, typename _Up,
+	   template<typename> class _TQual, template<typename> class _UQual>
+    struct basic_common_reference
+    { };
+
+  template<typename _Tp>
+    struct __xref
+    { template<typename _Up> using __type = __copy_cv<_Tp, _Up>; };
+
+  template<typename _Tp>
+    struct __xref<_Tp&>
+    { template<typename _Up> using __type = __copy_cv<_Tp, _Up>&; };
+
+  template<typename _Tp>
+    struct __xref<_Tp&&>
+    { template<typename _Up> using __type = __copy_cv<_Tp, _Up>&&; };
+
+  template<typename _Tp1, typename _Tp2>
+    using __basic_common_ref
+      = typename basic_common_reference<remove_cvref_t<_Tp1>,
+					remove_cvref_t<_Tp2>,
+					__xref<_Tp1>::template __type,
+					__xref<_Tp2>::template __type>::type;
+
+  template<typename... _Tp>
+    struct common_reference;
+
+  template<typename... _Tp>
+    using common_reference_t = typename common_reference<_Tp...>::type;
+
+  // If sizeof...(T) is zero, there shall be no member type.
+  template<>
+    struct common_reference<>
+    { };
+
+  // If sizeof...(T) is one ...
+  template<typename _Tp0>
+    struct common_reference<_Tp0>
+    { using type = _Tp0; };
+
+  template<typename _Tp1, typename _Tp2, int _Bullet = 1, typename = void>
+    struct __common_reference_impl
+    : __common_reference_impl<_Tp1, _Tp2, _Bullet + 1>
+    { };
+
+  // If sizeof...(T) is two ...
+  template<typename _Tp1, typename _Tp2>
+    struct common_reference<_Tp1, _Tp2>
+    : __common_reference_impl<_Tp1, _Tp2>
+    { };
+
+  // If T1 and T2 are reference types and COMMON-REF(T1, T2) is well-formed, ...
+  template<typename _Tp1, typename _Tp2>
+    struct __common_reference_impl<_Tp1&, _Tp2&, 1,
+				   void_t<__common_ref<_Tp1&, _Tp2&>>>
+    { using type = __common_ref<_Tp1&, _Tp2&>; };
+
+  template<typename _Tp1, typename _Tp2>
+    struct __common_reference_impl<_Tp1&&, _Tp2&&, 1,
+				   void_t<__common_ref<_Tp1&&, _Tp2&&>>>
+    { using type = __common_ref<_Tp1&&, _Tp2&&>; };
+
+  template<typename _Tp1, typename _Tp2>
+    struct __common_reference_impl<_Tp1&, _Tp2&&, 1,
+				   void_t<__common_ref<_Tp1&, _Tp2&&>>>
+    { using type = __common_ref<_Tp1&, _Tp2&&>; };
+
+  template<typename _Tp1, typename _Tp2>
+    struct __common_reference_impl<_Tp1&&, _Tp2&, 1,
+				   void_t<__common_ref<_Tp1&&, _Tp2&>>>
+    { using type = __common_ref<_Tp1&&, _Tp2&>; };
+
+  // Otherwise, if basic_common_reference<...>::type is well-formed, ...
+  template<typename _Tp1, typename _Tp2>
+    struct __common_reference_impl<_Tp1, _Tp2, 2,
+				   void_t<__basic_common_ref<_Tp1, _Tp2>>>
+    { using type = __basic_common_ref<_Tp1, _Tp2>; };
+
+  // Otherwise, if COND-RES(T1, T2) is well-formed, ...
+  template<typename _Tp1, typename _Tp2>
+    struct __common_reference_impl<_Tp1, _Tp2, 3,
+				   void_t<__cond_res<_Tp1, _Tp2>>>
+    { using type = __cond_res<_Tp1, _Tp2>; };
+
+  // Otherwise, if common_type_t<T1, T2> is well-formed, ...
+  template<typename _Tp1, typename _Tp2>
+    struct __common_reference_impl<_Tp1, _Tp2, 4,
+				   void_t<common_type_t<_Tp1, _Tp2>>>
+    { using type = common_type_t<_Tp1, _Tp2>; };
+
+  // Otherwise, there shall be no member type.
+  template<typename _Tp1, typename _Tp2>
+    struct __common_reference_impl<_Tp1, _Tp2, 5, void>
+    { };
+
+  // Otherwise, if sizeof...(T) is greater than two, ...
+  template<typename _Tp1, typename _Tp2, typename... _Rest>
+    struct common_reference<_Tp1, _Tp2, _Rest...>
+    : __common_type_fold<common_reference<_Tp1, _Tp2>,
+			 __common_type_pack<_Rest...>>
+    { };
+
+  // Reuse __common_type_fold for common_reference<T1, T2, Rest...>
+  template<typename _Tp1, typename _Tp2, typename... _Rest>
+    struct __common_type_fold<common_reference<_Tp1, _Tp2>,
+			      __common_type_pack<_Rest...>,
+			      void_t<common_reference_t<_Tp1, _Tp2>>>
+    : public common_reference<common_reference_t<_Tp1, _Tp2>, _Rest...>
+    { };
 
 #endif // C++2a
 

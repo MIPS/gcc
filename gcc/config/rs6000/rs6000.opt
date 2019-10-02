@@ -149,7 +149,7 @@ mno-mfpgpr
 Target RejectNegative Undocumented Ignore
 
 mmfpgpr
-Target RejectNegative Undocumented Deprecated
+Target RejectNegative Undocumented WarnRemoved
 
 maltivec
 Target Report Mask(ALTIVEC) Var(rs6000_isa_flags)
@@ -180,7 +180,7 @@ mno-string
 Target RejectNegative Undocumented Ignore
 
 mstring
-Target RejectNegative Undocumented Deprecated
+Target RejectNegative Undocumented WarnRemoved
 
 msoft-float
 Target Report RejectNegative Mask(SOFT_FLOAT) Var(rs6000_isa_flags)
@@ -388,13 +388,6 @@ mtune=
 Target RejectNegative Joined Var(rs6000_tune_index) Init(-1) Enum(rs6000_cpu_opt_value) Save
 -mtune=	Schedule code for given CPU.
 
-; Only for use in the testsuite.  This simply overrides -mcpu=.  With older
-; versions of Dejagnu the command line arguments you set in RUNTESTFLAGS
-; override those set in the testcases; with this option, the testcase will
-; always win.
-mdejagnu-cpu=
-Target Undocumented RejectNegative Joined Var(rs6000_dejagnu_cpu_index) Init(-1) Enum(rs6000_cpu_opt_value) Save
-
 mtraceback=
 Target RejectNegative Joined Enum(rs6000_traceback_type) Var(rs6000_traceback)
 -mtraceback=[full,part,no]	Select type of traceback table.
@@ -486,7 +479,7 @@ Target Report Mask(CRYPTO) Var(rs6000_isa_flags)
 Use ISA 2.07 Category:Vector.AES and Category:Vector.SHA2 instructions.
 
 mdirect-move
-Target Undocumented Mask(DIRECT_MOVE) Var(rs6000_isa_flags) Deprecated
+Target Undocumented Mask(DIRECT_MOVE) Var(rs6000_isa_flags) WarnRemoved
 
 mhtm
 Target Report Mask(HTM) Var(rs6000_isa_flags)

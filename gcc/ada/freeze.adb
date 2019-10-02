@@ -62,6 +62,7 @@ with Sem_Util;  use Sem_Util;
 with Sinfo;     use Sinfo;
 with Snames;    use Snames;
 with Stand;     use Stand;
+with Stringt;   use Stringt;
 with Targparm;  use Targparm;
 with Tbuild;    use Tbuild;
 with Ttypes;    use Ttypes;
@@ -785,9 +786,7 @@ package body Freeze is
          elsif Has_Size_Clause (T) then
             if RM_Size (T) < S then
                Error_Msg_Uint_1 := S;
-               Error_Msg_NE
-                 ("size for& too small, minimum allowed is ^",
-                  Size_Clause (T), T);
+               Error_Msg_NE (Size_Too_Small_Message, Size_Clause (T), T);
             end if;
 
          --  Set size if not set already
@@ -1525,11 +1524,11 @@ package body Freeze is
       --  so that LSP can be verified/enforced.
 
       Op_Node := First_Elmt (Prim_Ops);
-      Needs_Wrapper := False;
 
       while Present (Op_Node) loop
-         Decls := Empty_List;
-         Prim  := Node (Op_Node);
+         Decls         := Empty_List;
+         Prim          := Node (Op_Node);
+         Needs_Wrapper := False;
 
          if not Comes_From_Source (Prim) and then Present (Alias (Prim)) then
             Par_Prim := Alias (Prim);
@@ -1600,8 +1599,6 @@ package body Freeze is
                     (Par_R, New_List (New_Decl, New_Body));
                end if;
             end;
-
-            Needs_Wrapper := False;
          end if;
 
          Next_Elmt (Op_Node);
@@ -1774,6 +1771,7 @@ package body Freeze is
       New_N :=
         Make_Object_Declaration (Loc,
           Defining_Identifier => Temp,
+          Constant_Present    => True,
           Object_Definition   => New_Occurrence_Of (Typ, Loc),
           Expression          => Relocate_Node (N));
       Insert_Before (Par, New_N);
@@ -3571,7 +3569,8 @@ package body Freeze is
             Error_Msg_N ("\??use explicit size clause to set size", E);
          end if;
 
-         if Is_Array_Type (Typ) then
+         --  Declaring a too-big array in disabled ghost code is OK
+         if Is_Array_Type (Typ) and then not Is_Ignored_Ghost_Entity (E) then
             Check_Large_Modular_Array (Typ);
          end if;
       end Freeze_Object_Declaration;
@@ -6802,7 +6801,7 @@ package body Freeze is
          --  Do not allow a size clause for a type which does not have a size
          --  that is known at compile time
 
-         if Has_Size_Clause (E)
+         if (Has_Size_Clause (E) or else Has_Object_Size_Clause (E))
            and then not Size_Known_At_Compile_Time (E)
          then
             --  Suppress this message if errors posted on E, even if we are
@@ -8002,6 +8001,7 @@ package body Freeze is
       Brng  : constant Node_Id    := Scalar_Range (Btyp);
       BLo   : constant Node_Id    := Low_Bound (Brng);
       BHi   : constant Node_Id    := High_Bound (Brng);
+      Par   : constant Entity_Id  := First_Subtype (Typ);
       Small : constant Ureal      := Small_Value (Typ);
       Loval : Ureal;
       Hival : Ureal;
@@ -8052,6 +8052,16 @@ package body Freeze is
          else
             Set_Esize (Typ, Esize (Base_Type (Typ)));
          end if;
+      end if;
+
+      --  The 'small attribute may have been specified with an aspect,
+      --  in which case it is processed after a subtype declaration, so
+      --  inherit now the specified value.
+
+      if Typ /= Par
+        and then Present (Find_Aspect (Par, Aspect_Small))
+      then
+         Set_Small_Value (Typ, Small_Value (Par));
       end if;
 
       --  Immediate return if the range is already analyzed. This means that
@@ -8764,6 +8774,20 @@ package body Freeze is
         and then not Is_Intrinsic_Subprogram (E)
       then
          Set_Is_Pure (E, False);
+      end if;
+
+      --  For C++ constructors check that their external name has been given
+      --  (either in pragma CPP_Constructor or in a pragma import).
+
+      if Is_Constructor (E)
+        and then
+           (No (Interface_Name (E))
+              or else String_Equal
+                        (L => Strval (Interface_Name (E)),
+                         R => Strval (Get_Default_External_Name (E))))
+      then
+         Error_Msg_N
+           ("'C++ constructor must have external name or link name", E);
       end if;
 
       --  We also reset the Pure indication on a subprogram with an Address

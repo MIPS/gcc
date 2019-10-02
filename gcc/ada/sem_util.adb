@@ -26,7 +26,6 @@
 with Treepr; -- ???For debugging code below
 
 with Aspects;  use Aspects;
-with Atree;    use Atree;
 with Casing;   use Casing;
 with Checks;   use Checks;
 with Debug;    use Debug;
@@ -68,6 +67,7 @@ with Tbuild;   use Tbuild;
 with Ttypes;   use Ttypes;
 with Uname;    use Uname;
 
+with GNAT.Heap_Sort_G;
 with GNAT.HTable; use GNAT.HTable;
 
 package body Sem_Util is
@@ -247,6 +247,39 @@ package body Sem_Util is
 
       return Interface_List (Nod);
    end Abstract_Interface_List;
+
+   ----------------------------------
+   -- Acquire_Warning_Match_String --
+   ----------------------------------
+
+   function Acquire_Warning_Match_String (Str_Lit : Node_Id) return String is
+      S : constant String := To_String (Strval (Str_Lit));
+   begin
+      if S = "" then
+         return "";
+      else
+         --  Put "*" before or after or both, if it's not already there
+
+         declare
+            F : constant Boolean := S (S'First) = '*';
+            L : constant Boolean := S (S'Last) = '*';
+         begin
+            if F then
+               if L then
+                  return S;
+               else
+                  return S & "*";
+               end if;
+            else
+               if L then
+                  return "*" & S;
+               else
+                  return "*" & S & "*";
+               end if;
+            end if;
+         end;
+      end if;
+   end Acquire_Warning_Match_String;
 
    --------------------------------
    -- Add_Access_Type_To_Process --
@@ -5359,11 +5392,12 @@ package body Sem_Util is
    -----------------------------------
 
    function Compile_Time_Constraint_Error
-     (N    : Node_Id;
-      Msg  : String;
-      Ent  : Entity_Id  := Empty;
-      Loc  : Source_Ptr := No_Location;
-      Warn : Boolean    := False) return Node_Id
+     (N         : Node_Id;
+      Msg       : String;
+      Ent       : Entity_Id  := Empty;
+      Loc       : Source_Ptr := No_Location;
+      Warn      : Boolean    := False;
+      Extra_Msg : String     := "") return Node_Id
    is
       Msgc : String (1 .. Msg'Length + 3);
       --  Copy of message, with room for possible ?? or << and ! at end
@@ -5455,6 +5489,12 @@ package body Sem_Util is
                Error_Msg_NEL (Msgc (1 .. Msgl), N, Ent, Eloc);
             else
                Error_Msg_NEL (Msgc (1 .. Msgl), N, Etype (N), Eloc);
+            end if;
+
+            --  Emit any extra message as a continuation
+
+            if Extra_Msg /= "" then
+               Error_Msg_N ('\' & Extra_Msg, N);
             end if;
 
             if Wmsg then
@@ -6490,10 +6530,11 @@ package body Sem_Util is
             return Dynamic_Accessibility_Level (Renamed_Object (E));
          end if;
 
-         if Is_Formal (E) or else Ekind_In (E, E_Variable, E_Constant) then
-            if Present (Extra_Accessibility (E)) then
-               return New_Occurrence_Of (Extra_Accessibility (E), Loc);
-            end if;
+         if (Is_Formal (E)
+              or else Ekind_In (E, E_Variable, E_Constant))
+           and then Present (Get_Accessibility (E))
+         then
+            return New_Occurrence_Of (Get_Accessibility (E), Loc);
          end if;
       end if;
 
@@ -8845,11 +8886,17 @@ package body Sem_Util is
       Variant         : Node_Id;
       Discrete_Choice : Node_Id;
       Comp_Item       : Node_Id;
+      Discrim         : Entity_Id;
+      Discrim_Name    : Node_Id;
 
-      Discrim       : Entity_Id;
-      Discrim_Name  : Node_Id;
-      Discrim_Value : Node_Id;
+      type Discriminant_Value_Status is
+        (Static_Expr, Static_Subtype, Bad);
+      subtype Good_Discrim_Value_Status is Discriminant_Value_Status
+        range Static_Expr .. Static_Subtype; -- range excludes Bad
 
+      Discrim_Value         : Node_Id;
+      Discrim_Value_Subtype : Node_Id;
+      Discrim_Value_Status  : Discriminant_Value_Status := Bad;
    begin
       Report_Errors := False;
 
@@ -8982,26 +9029,73 @@ package body Sem_Util is
       end loop Find_Constraint;
 
       Discrim_Value := Expression (Assoc);
+      if Is_OK_Static_Expression (Discrim_Value) then
+         Discrim_Value_Status := Static_Expr;
+      else
+         if Ada_Version >= Ada_2020 then
+            if Original_Node (Discrim_Value) /= Discrim_Value
+               and then Nkind (Discrim_Value) = N_Type_Conversion
+               and then Etype (Original_Node (Discrim_Value))
+                      = Etype (Expression (Discrim_Value))
+            then
+               Discrim_Value_Subtype := Etype (Original_Node (Discrim_Value));
+               --  An unhelpful (for this code) type conversion may be
+               --  introduced in some cases; deal with it.
+            else
+               Discrim_Value_Subtype := Etype (Discrim_Value);
+            end if;
 
-      if not Is_OK_Static_Expression (Discrim_Value) then
+            if Is_OK_Static_Subtype (Discrim_Value_Subtype) and then
+               not Is_Null_Range (Type_Low_Bound (Discrim_Value_Subtype),
+                                  Type_High_Bound (Discrim_Value_Subtype))
+            then
+               --  Is_Null_Range test doesn't account for predicates, as in
+               --    subtype Null_By_Predicate is Natural
+               --      with Static_Predicate => Null_By_Predicate < 0;
+               --  so test for that null case separately.
 
-         --  If the variant part is governed by a discriminant of the type
-         --  this is an error. If the variant part and the discriminant are
-         --  inherited from an ancestor this is legal (AI05-120) unless the
-         --  components are being gathered for an aggregate, in which case
-         --  the caller must check Report_Errors.
-
-         if Scope (Original_Record_Component
-                     ((Entity (First (Choices (Assoc)))))) = Typ
-         then
-            Error_Msg_FE
-              ("value for discriminant & must be static!",
-               Discrim_Value, Discrim);
-            Why_Not_Static (Discrim_Value);
+               if (not Has_Static_Predicate (Discrim_Value_Subtype))
+                 or else Present (First (Static_Discrete_Predicate
+                                           (Discrim_Value_Subtype)))
+               then
+                  Discrim_Value_Status := Static_Subtype;
+               end if;
+            end if;
          end if;
 
-         Report_Errors := True;
-         return;
+         if Discrim_Value_Status = Bad then
+
+            --  If the variant part is governed by a discriminant of the type
+            --  this is an error. If the variant part and the discriminant are
+            --  inherited from an ancestor this is legal (AI05-220) unless the
+            --  components are being gathered for an aggregate, in which case
+            --  the caller must check Report_Errors.
+            --
+            --  In Ada2020 the above rules are relaxed. A non-static governing
+            --  discriminant is ok as long as it has a static subtype and
+            --  every value of that subtype (and there must be at least one)
+            --  selects the same variant.
+
+            if Scope (Original_Record_Component
+                        ((Entity (First (Choices (Assoc)))))) = Typ
+            then
+               if Ada_Version >= Ada_2020 then
+                  Error_Msg_FE
+                    ("value for discriminant & must be static or " &
+                     "discriminant's nominal subtype must be static " &
+                     "and non-null!",
+                     Discrim_Value, Discrim);
+               else
+                  Error_Msg_FE
+                    ("value for discriminant & must be static!",
+                     Discrim_Value, Discrim);
+               end if;
+               Why_Not_Static (Discrim_Value);
+            end if;
+
+            Report_Errors := True;
+            return;
+         end if;
       end if;
 
       Search_For_Discriminant_Value : declare
@@ -9010,9 +9104,36 @@ package body Sem_Util is
 
          UI_High          : Uint;
          UI_Low           : Uint;
-         UI_Discrim_Value : constant Uint := Expr_Value (Discrim_Value);
+         UI_Discrim_Value : Uint;
 
       begin
+         case Good_Discrim_Value_Status'(Discrim_Value_Status) is
+            when Static_Expr =>
+               UI_Discrim_Value := Expr_Value (Discrim_Value);
+            when Static_Subtype =>
+               --  Arbitrarily pick one value of the subtype and look
+               --  for the variant associated with that value; we will
+               --  check later that the same variant is associated with
+               --  all of the other values of the subtype.
+               if Has_Static_Predicate (Discrim_Value_Subtype) then
+                  declare
+                     Range_Or_Expr : constant Node_Id :=
+                       First (Static_Discrete_Predicate
+                                (Discrim_Value_Subtype));
+                  begin
+                     if Nkind (Range_Or_Expr) = N_Range then
+                        UI_Discrim_Value :=
+                          Expr_Value (Low_Bound (Range_Or_Expr));
+                     else
+                        UI_Discrim_Value := Expr_Value (Range_Or_Expr);
+                     end if;
+                  end;
+               else
+                  UI_Discrim_Value
+                    := Expr_Value (Type_Low_Bound (Discrim_Value_Subtype));
+               end if;
+         end case;
+
          Find_Discrete_Value : while Present (Variant) loop
 
             --  If a choice is a subtype with a static predicate, it must
@@ -9045,7 +9166,7 @@ package body Sem_Util is
       --  The case statement must include a variant that corresponds to the
       --  value of the discriminant, unless the discriminant type has a
       --  static predicate. In that case the absence of an others_choice that
-      --  would cover this value becomes a run-time error (3.8,1 (21.1/2)).
+      --  would cover this value becomes a run-time error (3.8.1 (21.1/2)).
 
       if No (Variant)
         and then not Has_Static_Predicate (Etype (Discrim_Name))
@@ -9061,10 +9182,59 @@ package body Sem_Util is
       --  the same record type.
 
       if Present (Variant) then
+         if Discrim_Value_Status = Static_Subtype then
+            declare
+               Discrim_Value_Subtype_Intervals
+                 : constant Interval_Lists.Discrete_Interval_List
+                 := Interval_Lists.Type_Intervals (Discrim_Value_Subtype);
+
+               Variant_Intervals
+                 : constant Interval_Lists.Discrete_Interval_List
+                 := Interval_Lists.Choice_List_Intervals
+                     (Discrete_Choices => Discrete_Choices (Variant));
+            begin
+               if not Interval_Lists.Is_Subset
+                        (Subset => Discrim_Value_Subtype_Intervals,
+                         Of_Set => Variant_Intervals)
+               then
+                  Error_Msg_NE
+                    ("no single variant is associated with all values of " &
+                     "the subtype of discriminant value &",
+                     Discrim_Value, Discrim);
+                  Report_Errors := True;
+                  return;
+               end if;
+            end;
+         end if;
+
          Gather_Components
            (Typ, Component_List (Variant), Governed_By, Into, Report_Errors);
       end if;
    end Gather_Components;
+
+   -----------------------
+   -- Get_Accessibility --
+   -----------------------
+
+   function Get_Accessibility (E : Entity_Id) return Node_Id is
+   begin
+      --  When minimum accessibility is set for E then we utilize it - except
+      --  in a few edge cases like the expansion of select statements where
+      --  generated subprogram may attempt to unnecessarily use a minimum
+      --  accessibility object declared outside of scope.
+
+      --  To avoid these situations where expansion may get complex we verify
+      --  that the minimum accessibility object is within scope.
+
+      if Ekind (E) in Formal_Kind
+        and then Present (Minimum_Accessibility (E))
+        and then In_Open_Scopes (Scope (Minimum_Accessibility (E)))
+      then
+         return Minimum_Accessibility (E);
+      end if;
+
+      return Extra_Accessibility (E);
+   end Get_Accessibility;
 
    ------------------------
    -- Get_Actual_Subtype --
@@ -9713,16 +9883,28 @@ package body Sem_Util is
    function Get_Max_Queue_Length (Id : Entity_Id) return Uint is
       pragma Assert (Is_Entry (Id));
       Prag : constant Entity_Id := Get_Pragma (Id, Pragma_Max_Queue_Length);
+      Max  : Uint;
 
    begin
-      --  A value of 0 represents no maximum specified, and entries and entry
-      --  families with no Max_Queue_Length aspect or pragma default to it.
+      --  A value of 0 or -1 represents no maximum specified, and entries and
+      --  entry families with no Max_Queue_Length aspect or pragma default to
+      --  it.
 
       if not Present (Prag) then
          return Uint_0;
       end if;
 
-      return Intval (Expression (First (Pragma_Argument_Associations (Prag))));
+      Max := Expr_Value
+        (Expression (First (Pragma_Argument_Associations (Prag))));
+
+      --  Since -1 and 0 are equivalent, return 0 for instances of -1 for
+      --  uniformity.
+
+      if Max = -1 then
+         return Uint_0;
+      end if;
+
+      return Max;
    end Get_Max_Queue_Length;
 
    ------------------------
@@ -12198,15 +12380,15 @@ package body Sem_Util is
          if Is_Generic_Instance (S) then
 
             --  A child instance is always compiled in the context of a parent
-            --  instance. Nevertheless, the actuals are not analyzed in an
+            --  instance. Nevertheless, its actuals must not be analyzed in an
             --  instance context. We detect this case by examining the current
             --  compilation unit, which must be a child instance, and checking
-            --  that it is not currently on the scope stack.
+            --  that it has not been analyzed yet.
 
             if Is_Child_Unit (Curr_Unit)
               and then Nkind (Unit (Cunit (Current_Sem_Unit))) =
                                                      N_Package_Instantiation
-              and then not In_Open_Scopes (Curr_Unit)
+              and then Ekind (Curr_Unit) = E_Void
             then
                return False;
             else
@@ -13508,6 +13690,16 @@ package body Sem_Util is
                              Is_Volatile_Full_Access (Etype (Entity (N)))));
    end Is_Atomic_Or_VFA_Object;
 
+   ----------------------
+   -- Is_Attribute_Old --
+   ----------------------
+
+   function Is_Attribute_Old (N : Node_Id) return Boolean is
+   begin
+      return Nkind (N) = N_Attribute_Reference
+        and then Attribute_Name (N) = Name_Old;
+   end Is_Attribute_Old;
+
    -------------------------
    -- Is_Attribute_Result --
    -------------------------
@@ -14606,8 +14798,11 @@ package body Sem_Util is
       --  Otherwise Id denotes an object
 
       else
+         --  A volatile object for which No_Caching is enabled is not
+         --  effectively volatile.
+
          return
-           Is_Volatile (Id)
+           (Is_Volatile (Id) and then not No_Caching_Enabled (Id))
              or else Has_Volatile_Components (Id)
              or else Is_Effectively_Volatile (Etype (Id));
       end if;
@@ -14667,6 +14862,7 @@ package body Sem_Util is
       return
         Nkind (E) = N_Function_Call
           and then not Configurable_Run_Time_Mode
+          and then Nkind (Original_Node (E)) = N_Attribute_Reference
           and then (Entity (Name (E)) = RTE (RE_Get_Ceiling)
                      or else Entity (Name (E)) = RTE (RO_PE_Get_Ceiling));
    end Is_Expanded_Priority_Attribute;
@@ -20424,6 +20620,21 @@ package body Sem_Util is
                Update_First_Real_Statement
                  (Old_HSS => N,
                   New_HSS => Result);
+
+            --  Update the Chars attribute of identifiers
+
+            elsif Nkind (N) = N_Identifier then
+
+               --  The Entity field of identifiers that denote aspects is used
+               --  to store arbitrary expressions (and hence we must check that
+               --  they reference an actual entity before copying their Chars
+               --  value).
+
+               if Present (Entity (Result))
+                 and then Nkind (Entity (Result)) in N_Entity
+               then
+                  Set_Chars (Result, Chars (Entity (Result)));
+               end if;
             end if;
          end if;
 
@@ -20554,6 +20765,10 @@ package body Sem_Util is
          Old_Next : Node_Id;
 
       begin
+         if No (First_Named_Actual (Old_Call)) then
+            return;
+         end if;
+
          --  Recreate the First/Next_Named_Actual chain of a call by traversing
          --  the chains of both the old and new calls in parallel.
 
@@ -20561,15 +20776,16 @@ package body Sem_Util is
          Old_Act := First (Parameter_Associations (Old_Call));
          while Present (Old_Act) loop
             if Nkind (Old_Act) = N_Parameter_Association
+              and then Explicit_Actual_Parameter (Old_Act)
+                         = First_Named_Actual (Old_Call)
+            then
+               Set_First_Named_Actual (New_Call,
+                 Explicit_Actual_Parameter (New_Act));
+            end if;
+
+            if Nkind (Old_Act) = N_Parameter_Association
               and then Present (Next_Named_Actual (Old_Act))
             then
-               if First_Named_Actual (Old_Call) =
-                    Explicit_Actual_Parameter (Old_Act)
-               then
-                  Set_First_Named_Actual (New_Call,
-                    Explicit_Actual_Parameter (New_Act));
-               end if;
-
                --  Scan the actual parameter list to find the next suitable
                --  named actual. Note that the list may be out of order.
 
@@ -20796,13 +21012,24 @@ package body Sem_Util is
          --  this restriction leads to a performance penalty.
 
          --  ??? this list is flaky, and may hide dormant bugs
+         --  Should functions be included???
+
+         --  Loop parameters appear within quantified expressions and contain
+         --  an entity declaration that must be replaced when the expander is
+         --  active if the expression has been preanalyzed or analyzed.
 
          elsif not Ekind_In (Id, E_Block,
                                  E_Constant,
                                  E_Label,
+                                 E_Loop_Parameter,
                                  E_Procedure,
                                  E_Variable)
            and then not Is_Type (Id)
+         then
+            return;
+
+         elsif Ekind (Id) = E_Loop_Parameter
+           and then No (Etype (Condition (Parent (Parent (Id)))))
          then
             return;
 
@@ -21078,7 +21305,14 @@ package body Sem_Util is
       begin
          pragma Assert (Nkind (N) not in N_Entity);
 
-         if Nkind (N) = N_Expression_With_Actions then
+         --  If the node is a quantified expression and expander is active,
+         --  it contains an implicit declaration that may require a new entity
+         --  when the condition has already been (pre)analyzed.
+
+         if Nkind (N) = N_Expression_With_Actions
+           or else
+             (Nkind (N) = N_Quantified_Expression and then Expander_Active)
+         then
             EWA_Level := EWA_Level + 1;
 
          elsif EWA_Level > 0
@@ -21221,6 +21455,12 @@ package body Sem_Util is
 
       --    * Semantic fields of nodes such as First_Real_Statement must be
       --      updated to reference the proper replicated nodes.
+
+      --  Finally, quantified expressions contain an implicit delaration for
+      --  the bound variable. Given that quantified expressions appearing
+      --  in contracts are copied to create pragmas and eventually checking
+      --  procedures, a new bound variable must be created for each copy, to
+      --  prevent multiple declarations of the same symbol.
 
       --  To meet all these demands, routine New_Copy_Tree is split into two
       --  phases.
@@ -21652,6 +21892,38 @@ package body Sem_Util is
          return True;
       end if;
    end New_Requires_Transient_Scope;
+
+   ------------------------
+   -- No_Caching_Enabled --
+   ------------------------
+
+   function No_Caching_Enabled (Id : Entity_Id) return Boolean is
+      Prag : constant Node_Id := Get_Pragma (Id, Pragma_No_Caching);
+      Arg1 : Node_Id;
+
+   begin
+      if Present (Prag) then
+         Arg1 := First (Pragma_Argument_Associations (Prag));
+
+         --  The pragma has an optional Boolean expression, the related
+         --  property is enabled only when the expression evaluates to True.
+
+         if Present (Arg1) then
+            return Is_True (Expr_Value (Get_Pragma_Arg (Arg1)));
+
+         --  Otherwise the lack of expression enables the property by
+         --  default.
+
+         else
+            return True;
+         end if;
+
+      --  The property was never set in the first place
+
+      else
+         return False;
+      end if;
+   end No_Caching_Enabled;
 
    --------------------------
    -- No_Heap_Finalization --
@@ -25437,6 +25709,210 @@ package body Sem_Util is
       end if;
    end Transfer_Entities;
 
+   ------------------------
+   -- Traverse_More_Func --
+   ------------------------
+
+   function Traverse_More_Func (Node : Node_Id) return Traverse_Final_Result is
+
+      Processing_Itype : Boolean := False;
+      --  Set to True while traversing the nodes under an Itype, to prevent
+      --  looping on Itype handling during that traversal.
+
+      function Process_More (N : Node_Id) return Traverse_Result;
+      --  Wrapper over the Process callback to handle parts of the AST that
+      --  are not normally traversed as syntactic children.
+
+      function Traverse_Rec (N : Node_Id) return Traverse_Final_Result;
+      --  Main recursive traversal implemented as an instantiation of
+      --  Traverse_Func over a modified Process callback.
+
+      ------------------
+      -- Process_More --
+      ------------------
+
+      function Process_More (N : Node_Id) return Traverse_Result is
+
+         procedure Traverse_More (N   : Node_Id;
+                                  Res : in out Traverse_Result);
+         procedure Traverse_More (L   : List_Id;
+                                  Res : in out Traverse_Result);
+         --  Traverse a node or list and update the traversal result to value
+         --  Abandon when needed.
+
+         -------------------
+         -- Traverse_More --
+         -------------------
+
+         procedure Traverse_More (N   : Node_Id;
+                                  Res : in out Traverse_Result)
+         is
+         begin
+            --  Do not process any more nodes if Abandon was reached
+
+            if Res = Abandon then
+               return;
+            end if;
+
+            if Traverse_Rec (N) = Abandon then
+               Res := Abandon;
+            end if;
+         end Traverse_More;
+
+         procedure Traverse_More (L   : List_Id;
+                                  Res : in out Traverse_Result)
+         is
+            N : Node_Id := First (L);
+
+         begin
+            --  Do not process any more nodes if Abandon was reached
+
+            if Res = Abandon then
+               return;
+            end if;
+
+            while Present (N) loop
+               Traverse_More (N, Res);
+               Next (N);
+            end loop;
+         end Traverse_More;
+
+         --  Local variables
+
+         Node   : Node_Id;
+         Result : Traverse_Result;
+
+      --  Start of processing for Process_More
+
+      begin
+         --  Initial callback to Process. Return immediately on Skip/Abandon.
+         --  Otherwise update the value of Node for further processing of
+         --  non-syntactic children.
+
+         Result := Process (N);
+
+         case Result is
+            when OK      => Node := N;
+            when OK_Orig => Node := Original_Node (N);
+            when Skip    => return Skip;
+            when Abandon => return Abandon;
+         end case;
+
+         --  Process the relevant semantic children which are a logical part of
+         --  the AST under this node before returning for the processing of
+         --  syntactic children.
+
+         --  Start with all non-syntactic lists of action nodes
+
+         case Nkind (Node) is
+            when N_Component_Association =>
+               Traverse_More (Loop_Actions (Node),      Result);
+
+            when N_Elsif_Part =>
+               Traverse_More (Condition_Actions (Node), Result);
+
+            when N_Short_Circuit =>
+               Traverse_More (Actions (Node),           Result);
+
+            when N_Case_Expression_Alternative =>
+               Traverse_More (Actions (Node),           Result);
+
+            when N_Iterated_Component_Association =>
+               Traverse_More (Loop_Actions (Node),      Result);
+
+            when N_Iteration_Scheme =>
+               Traverse_More (Condition_Actions (Node), Result);
+
+            when N_If_Expression =>
+               Traverse_More (Then_Actions (Node),      Result);
+               Traverse_More (Else_Actions (Node),      Result);
+
+            --  Various nodes have a field Actions as a syntactic node,
+            --  so it will be traversed in the regular syntactic traversal.
+
+            when N_Compilation_Unit_Aux
+               | N_Compound_Statement
+               | N_Expression_With_Actions
+               | N_Freeze_Entity
+            =>
+               null;
+
+            when others =>
+               null;
+         end case;
+
+         --  If Process_Itypes is True, process unattached nodes which come
+         --  from Itypes. This only concerns currently ranges of scalar
+         --  (possibly as index) types. This traversal is protected against
+         --  looping with Processing_Itype.
+
+         if Process_Itypes
+           and then not Processing_Itype
+           and then Nkind (Node) in N_Has_Etype
+           and then Present (Etype (Node))
+           and then Is_Itype (Etype (Node))
+         then
+            declare
+               Typ : constant Entity_Id := Etype (Node);
+            begin
+               Processing_Itype := True;
+
+               case Ekind (Typ) is
+                  when Scalar_Kind =>
+                     Traverse_More (Scalar_Range (Typ), Result);
+
+                  when Array_Kind =>
+                     declare
+                        Index : Node_Id := First_Index (Typ);
+                        Rng   : Node_Id;
+                     begin
+                        while Present (Index) loop
+                           if Nkind (Index) in N_Has_Entity then
+                              Rng := Scalar_Range (Entity (Index));
+                           else
+                              Rng := Index;
+                           end if;
+
+                           Traverse_More (Rng,          Result);
+                           Next_Index (Index);
+                        end loop;
+                     end;
+                  when others =>
+                     null;
+               end case;
+
+               Processing_Itype := False;
+            end;
+         end if;
+
+         return Result;
+      end Process_More;
+
+      --  Define Traverse_Rec as a renaming of the instantiation, as an
+      --  instantiation cannot complete a previous spec.
+
+      function Traverse_Recursive is new Traverse_Func (Process_More);
+      function Traverse_Rec (N : Node_Id) return Traverse_Final_Result
+                             renames Traverse_Recursive;
+
+   --  Start of processing for Traverse_More_Func
+
+   begin
+      return Traverse_Rec (Node);
+   end Traverse_More_Func;
+
+   ------------------------
+   -- Traverse_More_Proc --
+   ------------------------
+
+   procedure Traverse_More_Proc (Node : Node_Id) is
+      function Traverse is new Traverse_More_Func (Process, Process_Itypes);
+      Discard : Traverse_Final_Result;
+      pragma Warnings (Off, Discard);
+   begin
+      Discard := Traverse (Node);
+   end Traverse_More_Proc;
+
    -----------------------
    -- Type_Access_Level --
    -----------------------
@@ -25809,14 +26285,45 @@ package body Sem_Util is
 
    function Unique_Name (E : Entity_Id) return String is
 
-      --  Names in E_Subprogram_Body or E_Package_Body entities are not
-      --  reliable, as they may not include the overloading suffix. Instead,
-      --  when looking for the name of E or one of its enclosing scope, we get
-      --  the name of the corresponding Unique_Entity.
+      --  Local subprograms
 
-      U : constant Entity_Id := Unique_Entity (E);
+      function Add_Homonym_Suffix (E : Entity_Id) return String;
 
       function This_Name return String;
+
+      ------------------------
+      -- Add_Homonym_Suffix --
+      ------------------------
+
+      function Add_Homonym_Suffix (E : Entity_Id) return String is
+
+         --  Names in E_Subprogram_Body or E_Package_Body entities are not
+         --  reliable, as they may not include the overloading suffix.
+         --  Instead, when looking for the name of E or one of its enclosing
+         --  scope, we get the name of the corresponding Unique_Entity.
+
+         U   : constant Entity_Id := Unique_Entity (E);
+         Nam : constant String := Get_Name_String (Chars (U));
+
+      begin
+         --  If E has homonyms but is not fully qualified, as done in
+         --  GNATprove mode, append the homonym number on the fly. Strip the
+         --  leading space character in the image of natural numbers. Also do
+         --  not print the homonym value of 1.
+
+         if Has_Homonym (U) then
+            declare
+               N : constant Pos := Homonym_Number (U);
+               S : constant String := N'Img;
+            begin
+               if N > 1 then
+                  return Nam & "__" & S (2 .. S'Last);
+               end if;
+            end;
+         end if;
+
+         return Nam;
+      end Add_Homonym_Suffix;
 
       ---------------
       -- This_Name --
@@ -25824,8 +26331,12 @@ package body Sem_Util is
 
       function This_Name return String is
       begin
-         return Get_Name_String (Chars (U));
+         return Add_Homonym_Suffix (E);
       end This_Name;
+
+      --  Local variables
+
+      U : constant Entity_Id := Unique_Entity (E);
 
    --  Start of processing for Unique_Name
 
@@ -25856,16 +26367,17 @@ package body Sem_Util is
                end if;
 
             --  For intances of generic subprograms use the name of the related
-            --  instace and skip the scope of its wrapper package.
+            --  instance and skip the scope of its wrapper package.
 
             elsif Is_Wrapper_Package (S) then
                pragma Assert (Scope (S) = Scope (Related_Instance (S)));
                --  Wrapper package and the instantiation are in the same scope
 
                declare
+                  Related_Name : constant String :=
+                    Add_Homonym_Suffix (Related_Instance (S));
                   Enclosing_Name : constant String :=
-                    Unique_Name (Scope (S)) & "__" &
-                      Get_Name_String (Chars (Related_Instance (S)));
+                    Unique_Name (Scope (S)) & "__" & Related_Name;
 
                begin
                   if Is_Subprogram (U)
@@ -26344,7 +26856,7 @@ package body Sem_Util is
          return;
 
       --  In  an instance, there is an ongoing problem with completion of
-      --  type derived from private types. Their structure is what Gigi
+      --  types derived from private types. Their structure is what Gigi
       --  expects, but the  Etype is the parent type rather than the
       --  derived private type itself. Do not flag error in this case. The
       --  private completion is an entity without a parent, like an Itype.
@@ -26355,7 +26867,17 @@ package body Sem_Util is
       --  same reason: inserted body may be outside of the original package
       --  and only partial views are visible at the point of insertion.
 
-      elsif In_Instance or else In_Inlined_Body then
+      --  If In_Generic_Actual (Expr) is True then we cannot assume that
+      --  the successful semantic analysis of the generic guarantees anything
+      --  useful about type checking of this instance, so we ignore
+      --  In_Instance in that case. There may be cases where this is not
+      --  right (the symptom would probably be rejecting something
+      --  that ought to be accepted) but we don't currently have any
+      --  concrete examples of this.
+
+      elsif (In_Instance and then not In_Generic_Actual (Expr))
+        or else In_Inlined_Body
+      then
          if Etype (Etype (Expr)) = Etype (Expected_Type)
            and then
              (Has_Private_Declaration (Expected_Type)
@@ -26724,6 +27246,367 @@ package body Sem_Util is
          return False;
       end if;
    end Yields_Universal_Type;
+
+   package body Interval_Lists is
+
+      function In_Interval
+        (Value : Uint; Interval : Discrete_Interval) return Boolean;
+      --  Does the given value lie within the given interval?
+
+      -----------------
+      -- In_Interval --
+      -----------------
+      function In_Interval
+        (Value : Uint; Interval : Discrete_Interval) return Boolean is
+      begin
+         return Value >= Interval.Low and then Value <= Interval.High;
+      end In_Interval;
+
+      procedure Check_Consistency (Intervals : Discrete_Interval_List);
+      --  Check that list is sorted, lacks null intervals, and has gaps
+      --  between intervals.
+
+      ------------------------
+      --  Check_Consistency --
+      ------------------------
+      procedure Check_Consistency (Intervals : Discrete_Interval_List) is
+      begin
+         if Serious_Errors_Detected > 0 then
+            return;
+         end if;
+
+         --  low bound is 1 and high bound equals length
+         pragma Assert (Intervals'First = 1 and Intervals'Last >= 0);
+         for Idx in Intervals'Range loop
+            --  each interval is non-null
+            pragma Assert (Intervals (Idx).Low <= Intervals (Idx).High);
+            if Idx /= Intervals'First then
+               --  intervals are sorted with non-empty gaps between them
+               pragma Assert
+                 (Intervals (Idx - 1).High < (Intervals (Idx).Low - 1));
+               null;
+            end if;
+         end loop;
+      end Check_Consistency;
+
+      function Chosen_Interval (Choice : Node_Id) return Discrete_Interval;
+      --  Given an element of a Discrete_Choices list, a
+      --  Static_Discrete_Predicate list, or an Others_Discrete_Choices
+      --  list (but not an N_Others_Choice node) return the corresponding
+      --  interval. If an element that does not represent a single
+      --  contiguous interval due to a static predicate (or which
+      --  represents a single contiguous interval whose bounds depend on
+      --  a static predicate) is encountered, then that is an error on the
+      --  part of whoever built the list in question.
+
+      ---------------------
+      -- Chosen_Interval --
+      ---------------------
+      function Chosen_Interval (Choice : Node_Id) return Discrete_Interval is
+      begin
+         case Nkind (Choice) is
+            when N_Range =>
+               return (Low  => Expr_Value (Low_Bound (Choice)),
+                       High => Expr_Value (High_Bound (Choice)));
+
+            when N_Subtype_Indication =>
+               declare
+                  Range_Exp : constant Node_Id
+                    := Range_Expression (Constraint (Choice));
+               begin
+                  return (Low  => Expr_Value (Low_Bound (Range_Exp)),
+                          High => Expr_Value (High_Bound (Range_Exp)));
+               end;
+
+            when N_Others_Choice =>
+               raise Program_Error;
+
+            when others =>
+               if Is_Entity_Name (Choice) and then Is_Type (Entity (Choice))
+               then
+                  return
+                    (Low  => Expr_Value (Type_Low_Bound (Entity (Choice))),
+                     High => Expr_Value (Type_High_Bound (Entity (Choice))));
+               else
+                  --  an expression
+                  return (Low | High => Expr_Value (Choice));
+               end if;
+         end case;
+      end Chosen_Interval;
+
+      --------------------
+      -- Type_Intervals --
+      --------------------
+      function Type_Intervals
+        (Typ : Entity_Id) return Discrete_Interval_List
+      is
+      begin
+         if Has_Static_Predicate (Typ) then
+            declare
+               --  No sorting or merging needed
+               SDP_List : constant List_Id := Static_Discrete_Predicate (Typ);
+               Range_Or_Expr : Node_Id := First (SDP_List);
+               Result :
+                 Discrete_Interval_List (1 .. List_Length (SDP_List));
+            begin
+               for Idx in Result'Range loop
+                  Result (Idx) := Chosen_Interval (Range_Or_Expr);
+                  Range_Or_Expr := Next (Range_Or_Expr);
+               end loop;
+               pragma Assert (not Present (Range_Or_Expr));
+               Check_Consistency (Result);
+               return Result;
+            end;
+         else
+            declare
+               Low  : constant Uint := Expr_Value (Type_Low_Bound (Typ));
+               High : constant Uint := Expr_Value (Type_High_Bound (Typ));
+            begin
+               if Low > High then
+                  declare
+                     Null_Array : Discrete_Interval_List (1 .. 0);
+                  begin
+                     return Null_Array;
+                  end;
+               else
+                  return (1 => (Low => Low, High => High));
+               end if;
+            end;
+         end if;
+      end Type_Intervals;
+
+      procedure Normalize_Interval_List
+         (List : in out Discrete_Interval_List; Last : out Nat);
+      --  Perform sorting and merging as required by Check_Consistency.
+
+      -----------------------------
+      -- Normalize_Interval_List --
+      -----------------------------
+      procedure Normalize_Interval_List
+        (List : in out Discrete_Interval_List; Last : out Nat) is
+
+         procedure Move_Interval (From, To : Natural);
+         --  Copy interval from one location to another
+
+         function Lt_Interval (Idx1, Idx2 : Natural) return Boolean;
+         --  Compare two list elements
+
+         Temp_0 : Discrete_Interval := (others => Uint_0);
+         --  cope with Heap_Sort_G idiosyncrasies.
+
+         function Read_Interval (From : Natural) return Discrete_Interval;
+         --  Normal array indexing unless From = 0
+
+         -------------------
+         -- Read_Interval --
+         -------------------
+         function Read_Interval (From : Natural) return Discrete_Interval is
+         begin
+            if From = 0 then
+               return Temp_0;
+            else
+               return List (Pos (From));
+            end if;
+         end Read_Interval;
+
+         -------------------
+         -- Move_Interval --
+         -------------------
+         procedure Move_Interval (From, To : Natural) is
+            Rhs : constant Discrete_Interval := Read_Interval (From);
+         begin
+            if To = 0 then
+               Temp_0 := Rhs;
+            else
+               List (Pos (To)) := Rhs;
+            end if;
+         end Move_Interval;
+
+         -----------------
+         -- Lt_Interval --
+         -----------------
+         function Lt_Interval (Idx1, Idx2 : Natural) return Boolean is
+            Elem1  : constant Discrete_Interval := Read_Interval (Idx1);
+            Elem2  : constant Discrete_Interval := Read_Interval (Idx2);
+            Null_1 : constant Boolean := Elem1.Low > Elem1.High;
+            Null_2 : constant Boolean := Elem2.Low > Elem2.High;
+         begin
+            if Null_1 /= Null_2 then
+               --  So that sorting moves null intervals to high end
+               return Null_2;
+            elsif Elem1.Low /= Elem2.Low then
+               return Elem1.Low < Elem2.Low;
+            else
+               return Elem1.High < Elem2.High;
+            end if;
+         end Lt_Interval;
+
+         package Interval_Sorting is
+           new Gnat.Heap_Sort_G (Move_Interval, Lt_Interval);
+
+         function Is_Null (Idx : Pos) return Boolean;
+         --  True iff List (Idx) defines a null range
+
+         function Is_Null (Idx : Pos) return Boolean is
+         begin
+            return List (Idx).Low > List (Idx).High;
+         end Is_Null;
+
+         procedure Merge_Intervals (Null_Interval_Count : out Nat);
+         --  Merge contiguous ranges by replacing one with merged range
+         --  and the other with a null value. Return a count of the
+         --  null intervals, both preexisting and those introduced by
+         --  merging.
+
+         ---------------------
+         -- Merge_Intervals --
+         ---------------------
+         procedure Merge_Intervals (Null_Interval_Count : out Nat) is
+            Not_Null : Pos range List'Range;
+            --  Index of the most recently examined non-null interval
+
+            Null_Interval : constant Discrete_Interval
+              := (Low => Uint_1, High => Uint_0); -- any null range ok here
+         begin
+            if List'Length = 0 or else Is_Null (List'First) then
+               Null_Interval_Count := List'Length;
+               --  no non-null elements, so no merge candidates
+               return;
+            end if;
+
+            Null_Interval_Count := 0;
+            Not_Null := List'First;
+            for Idx in List'First + 1 .. List'Last loop
+               if Is_Null (Idx) then
+                  --  all remaining elements are null
+                  Null_Interval_Count :=
+                    Null_Interval_Count + List (Idx .. List'Last)'Length;
+                  return;
+               elsif List (Idx).Low = List (Not_Null).High + 1 then
+                  --  Merge the two intervals into one; discard the other
+                  List (Not_Null).High := List (Idx).High;
+                  List (Idx) := Null_Interval;
+                  Null_Interval_Count := Null_Interval_Count + 1;
+               else
+                  pragma Assert (List (Idx).Low > List (Not_Null).High);
+                  Not_Null := Idx;
+               end if;
+            end loop;
+         end Merge_Intervals;
+      begin
+         Interval_Sorting.Sort (Natural (List'Last));
+         declare
+            Null_Interval_Count : Nat;
+         begin
+            Merge_Intervals (Null_Interval_Count);
+            Last := List'Last - Null_Interval_Count;
+            if Null_Interval_Count /= 0 then
+               --  Move null intervals introduced during merging to high end
+               Interval_Sorting.Sort (Natural (List'Last));
+            end if;
+         end;
+      end Normalize_Interval_List;
+
+      ---------------------------
+      -- Choice_List_Intervals --
+      ---------------------------
+      function Choice_List_Intervals
+        (Discrete_Choices : List_Id) return Discrete_Interval_List
+      is
+         function Unmerged_Choice_Count return Nat;
+         --  The number of intervals before adjacent intervals are merged.
+
+         ---------------------------
+         -- Unmerged_Choice_Count --
+         ---------------------------
+         function Unmerged_Choice_Count return Nat is
+            Choice : Node_Id := First (Discrete_Choices);
+            Count  : Nat := 0;
+         begin
+            while Present (Choice) loop
+               --  Non-contiguous choices involving static predicates
+               --  have already been normalized away.
+
+               if Nkind (Choice) = N_Others_Choice then
+                  Count :=
+                    Count + List_Length (Others_Discrete_Choices (Choice));
+               else
+                  Count := Count + 1;  -- an ordinary expression or range
+               end if;
+
+               Choice := Next (Choice);
+            end loop;
+            return Count;
+         end Unmerged_Choice_Count;
+
+         Choice : Node_Id := First (Discrete_Choices);
+         Result : Discrete_Interval_List (1 .. Unmerged_Choice_Count);
+         Count  : Nat := 0;
+      begin
+         while Present (Choice) loop
+            if Nkind (Choice) = N_Others_Choice then
+               declare
+                  Others_Choice : Node_Id
+                    := First (Others_Discrete_Choices (Choice));
+               begin
+                  while Present (Others_Choice) loop
+                     Count := Count + 1;
+                     Result (Count) := Chosen_Interval (Others_Choice);
+                     Others_Choice := Next (Others_Choice);
+                  end loop;
+               end;
+            else
+               Count := Count + 1;
+               Result (Count) := Chosen_Interval (Choice);
+            end if;
+            Choice := Next (Choice);
+         end loop;
+         pragma Assert (Count = Result'Last);
+         Normalize_Interval_List (Result, Count);
+         Check_Consistency (Result (1 .. Count));
+         return Result (1 .. Count);
+      end Choice_List_Intervals;
+
+      ---------------
+      -- Is_Subset --
+      ---------------
+      function Is_Subset
+        (Subset, Of_Set : Discrete_Interval_List) return Boolean
+      is
+         --  Returns True iff for each interval of Subset we can find
+         --  a single interval of Of_Set which contains the Subset interval.
+      begin
+         if Of_Set'Length = 0 then
+            return Subset'Length = 0;
+         end if;
+
+         declare
+            Set_Index : Pos range Of_Set'Range := Of_Set'First;
+         begin
+            for Ss_Idx in Subset'Range loop
+               while not In_Interval
+                 (Value    => Subset (Ss_Idx).Low,
+                  Interval => Of_Set (Set_Index))
+               loop
+                  if Set_Index = Of_Set'Last then
+                     return False;
+                  end if;
+                  Set_Index := Set_Index + 1;
+               end loop;
+
+               if not In_Interval
+                 (Value    => Subset (Ss_Idx).High,
+                  Interval => Of_Set (Set_Index))
+               then
+                  return False;
+               end if;
+            end loop;
+         end;
+
+         return True;
+      end Is_Subset;
+
+   end Interval_Lists;
 
 begin
    Erroutc.Subprogram_Name_Ptr := Subprogram_Name'Access;

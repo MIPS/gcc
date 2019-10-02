@@ -3210,6 +3210,8 @@ first_commutative_argument (internal_fn fn)
     case IFN_FNMS:
     case IFN_AVG_FLOOR:
     case IFN_AVG_CEIL:
+    case IFN_MULHS:
+    case IFN_MULHRS:
     case IFN_FMIN:
     case IFN_FMAX:
       return 0;
@@ -3286,7 +3288,9 @@ static void (*const internal_fn_expanders[]) (internal_fn, gcall *) = {
   T (MAX_EXPR, IFN_COND_MAX) \
   T (BIT_AND_EXPR, IFN_COND_AND) \
   T (BIT_IOR_EXPR, IFN_COND_IOR) \
-  T (BIT_XOR_EXPR, IFN_COND_XOR)
+  T (BIT_XOR_EXPR, IFN_COND_XOR) \
+  T (LSHIFT_EXPR, IFN_COND_SHL) \
+  T (RSHIFT_EXPR, IFN_COND_SHR)
 
 /* Return a function that only performs CODE when a certain condition is met
    and that uses a given fallback value otherwise.  For example, if CODE is

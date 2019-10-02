@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "common/common-target.h"
 #include "spellcheck.h"
 #include "opt-suggestions.h"
+#include "diagnostic-color.h"
 
 static void set_Wstrict_aliasing (struct gcc_options *opts, int onoff);
 
@@ -262,6 +263,8 @@ add_comma_separated_to_vector (void **pvec, const char *arg)
       else
 	*w++ = *r++;
     }
+
+  *w = '\0';
   if (*token_start != '\0')
     v->safe_push (token_start);
 
@@ -466,7 +469,6 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_1_PLUS, OPT_ftree_copy_prop, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_dce, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_dominator_opts, NULL, 1 },
-    { OPT_LEVELS_1_PLUS, OPT_ftree_dse, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_fre, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_sink, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_slsr, NULL, 1 },
@@ -477,14 +479,16 @@ static const struct default_options default_options_table[] =
 #if DELAY_SLOTS
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_fdelayed_branch, NULL, 1 },
 #endif
+    { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_fdse, NULL, 1 },
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_fif_conversion, NULL, 1 },
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_fif_conversion2, NULL, 1 },
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_finline_functions_called_once, NULL, 1 },
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_fmove_loop_invariants, NULL, 1 },
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_fssa_phiopt, NULL, 1 },
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_ftree_bit_ccp, NULL, 1 },
-    { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_ftree_sra, NULL, 1 },
+    { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_ftree_dse, NULL, 1 },
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_ftree_pta, NULL, 1 },
+    { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_ftree_sra, NULL, 1 },
 
     /* -O2 and -Os optimizations.  */
     { OPT_LEVELS_2_PLUS, OPT_fcaller_saves, NULL, 1 },
@@ -538,6 +542,7 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_2_PLUS_SPEED_ONLY, OPT_fschedule_insns, NULL, 1 },
 #endif
 
+    /* -O3 and -Os optimizations.  */
 
     /* -O3 optimizations.  */
     { OPT_LEVELS_3_PLUS, OPT_fgcse_after_reload, NULL, 1 },
@@ -1219,6 +1224,10 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
   if (opts->x_flag_live_patching && opts->x_flag_lto)
     sorry ("live patching is not supported with LTO");
 
+  /* Currently vtable verification is not supported for LTO */
+  if (opts->x_flag_vtable_verify && opts->x_flag_lto)
+    sorry ("vtable verification is not supported with LTO");
+
   /* Control IPA optimizations based on different -flive-patching level.  */
   if (opts->x_flag_live_patching)
     {
@@ -1455,10 +1464,37 @@ print_filtered_help (unsigned int include_flags,
 	  else
 	    strcpy (new_help, "\t");
 
+	  /* Set to print whether the option is enabled or disabled,
+	     or, if it's an alias for another option, the name of
+	     the aliased option.  */
+	  bool print_state = false;
+
 	  if (flag_var != NULL
 	      && option->var_type != CLVC_DEFER)
 	    {
-	      if (option->flags & CL_JOINED)
+	      /* If OPTION is only available for a specific subset
+		 of languages other than this one, mention them.  */
+	      bool avail_for_lang = true;
+	      if (unsigned langset = option->flags & CL_LANG_ALL)
+		{
+		  if (!(langset & lang_mask))
+		    {
+		      avail_for_lang = false;
+		      strcat (new_help, _("[available in "));
+		      for (unsigned i = 0, n = 0; (1U << i) < CL_LANG_ALL; ++i)
+			if (langset & (1U << i))
+			  {
+			    if (n++)
+			      strcat (new_help, ", ");
+			    strcat (new_help, lang_names[i]);
+			  }
+		      strcat (new_help, "]");
+		    }
+		}
+	      if (!avail_for_lang)
+		; /* Print nothing else if the option is not available
+		     in the current language.  */
+	      else if (option->flags & CL_JOINED)
 		{
 		  if (option->var_type == CLVC_STRING)
 		    {
@@ -1482,12 +1518,50 @@ print_filtered_help (unsigned int include_flags,
 				"%s", arg);
 		    }
 		  else
-		    sprintf (new_help + strlen (new_help),
-			     "%d", * (int *) flag_var);
+		    {
+		      if (option->cl_host_wide_int)
+			sprintf (new_help + strlen (new_help),
+				 _("%llu bytes"), (unsigned long long)
+				 *(unsigned HOST_WIDE_INT *) flag_var);
+		      else
+			sprintf (new_help + strlen (new_help),
+				 "%i", * (int *) flag_var);
+		    }
 		}
 	      else
-		strcat (new_help, option_enabled (i, opts)
-			? _("[enabled]") : _("[disabled]"));
+		print_state = true;
+	    }
+	  else
+	    /* When there is no argument, print the option state only
+	       if the option takes no argument.  */
+	    print_state = !(option->flags & CL_JOINED);
+
+	  if (print_state)
+	    {
+	      if (option->alias_target < N_OPTS
+		  && option->alias_target != OPT_SPECIAL_warn_removed
+		  && option->alias_target != OPT_SPECIAL_ignore
+		  && option->alias_target != OPT_SPECIAL_input_file
+		  && option->alias_target != OPT_SPECIAL_program_name
+		  && option->alias_target != OPT_SPECIAL_unknown)
+		{
+		  const struct cl_option *target
+		    = &cl_options[option->alias_target];
+		  sprintf (new_help + strlen (new_help), "%s%s",
+			   target->opt_text,
+			   option->alias_arg ? option->alias_arg : "");
+		}
+	      else if (option->alias_target == OPT_SPECIAL_ignore)
+		strcat (new_help, ("[ignored]"));
+	      else
+		{
+		  /* Print the state for an on/off option.  */
+		  int ena = option_enabled (i, lang_mask, opts);
+		  if (ena > 0)
+		    strcat (new_help, _("[enabled]"));
+		  else if (ena == 0)
+		    strcat (new_help, _("[disabled]"));
+		}
 	    }
 
 	  help = new_help;
@@ -2750,6 +2824,15 @@ common_handle_option (struct gcc_options *opts,
       opts->x_flag_lto = value ? "" : NULL;
       break;
 
+    case OPT_flto_:
+      if (strcmp (arg, "none") != 0
+	  && strcmp (arg, "jobserver") != 0
+	  && strcmp (arg, "auto") != 0
+	  && atoi (arg) == 0)
+	error_at (loc,
+		  "unrecognized argument to %<-flto=%> option: %qs", arg);
+      break;
+
     case OPT_w:
       dc->dc_inhibit_warnings = true;
       break;
@@ -2890,9 +2973,8 @@ set_fast_math_flags (struct gcc_options *opts, int set)
     opts->x_flag_errno_math = !set;
   if (set)
     {
-      if (opts->frontend_set_flag_excess_precision_cmdline
-	  == EXCESS_PRECISION_DEFAULT)
-	opts->x_flag_excess_precision_cmdline
+      if (opts->frontend_set_flag_excess_precision == EXCESS_PRECISION_DEFAULT)
+	opts->x_flag_excess_precision
 	  = set ? EXCESS_PRECISION_FAST : EXCESS_PRECISION_DEFAULT;
       if (!opts->frontend_set_flag_signaling_nans)
 	opts->x_flag_signaling_nans = 0;
@@ -2927,8 +3009,7 @@ fast_math_flags_set_p (const struct gcc_options *opts)
 	  && opts->x_flag_finite_math_only
 	  && !opts->x_flag_signed_zeros
 	  && !opts->x_flag_errno_math
-	  && opts->x_flag_excess_precision_cmdline
-	     == EXCESS_PRECISION_FAST);
+	  && opts->x_flag_excess_precision == EXCESS_PRECISION_FAST);
 }
 
 /* Return true iff flags are set as if -ffast-math but using the flags stored

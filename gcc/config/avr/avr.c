@@ -1183,9 +1183,9 @@ avr_regs_to_save (HARD_REG_SET *set)
       if (fixed_regs[reg])
         continue;
 
-      if ((int_or_sig_p && !crtl->is_leaf && call_used_regs[reg])
+      if ((int_or_sig_p && !crtl->is_leaf && call_used_or_fixed_reg_p (reg))
           || (df_regs_ever_live_p (reg)
-              && (int_or_sig_p || !call_used_regs[reg])
+              && (int_or_sig_p || !call_used_or_fixed_reg_p (reg))
               /* Don't record frame pointer registers here.  They are treated
                  indivitually in prologue.  */
               && !(frame_pointer_needed
@@ -1367,7 +1367,7 @@ sequent_regs_live (void)
             continue;
         }
 
-      if (!call_used_regs[reg])
+      if (!call_used_or_fixed_reg_p (reg))
         {
           if (df_regs_ever_live_p (reg))
             {
@@ -3388,14 +3388,13 @@ avr_num_arg_regs (machine_mode mode, const_tree type)
    in a register, and which register.  */
 
 static rtx
-avr_function_arg (cumulative_args_t cum_v, machine_mode mode,
-                  const_tree type, bool named ATTRIBUTE_UNUSED)
+avr_function_arg (cumulative_args_t cum_v, const function_arg_info &arg)
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
-  int bytes = avr_num_arg_regs (mode, type);
+  int bytes = avr_num_arg_regs (arg.mode, arg.type);
 
   if (cum->nregs && bytes <= cum->nregs)
-    return gen_rtx_REG (mode, cum->regno - bytes);
+    return gen_rtx_REG (arg.mode, cum->regno - bytes);
 
   return NULL_RTX;
 }
@@ -3406,11 +3405,11 @@ avr_function_arg (cumulative_args_t cum_v, machine_mode mode,
    in the argument list.  */
 
 static void
-avr_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
-                          const_tree type, bool named ATTRIBUTE_UNUSED)
+avr_function_arg_advance (cumulative_args_t cum_v,
+			  const function_arg_info &arg)
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
-  int bytes = avr_num_arg_regs (mode, type);
+  int bytes = avr_num_arg_regs (arg.mode, arg.type);
 
   cum->nregs -= bytes;
   cum->regno -= bytes;
@@ -3422,7 +3421,7 @@ avr_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
 
   if (cum->regno >= 8
       && cum->nregs >= 0
-      && !call_used_regs[cum->regno])
+      && !call_used_or_fixed_reg_p (cum->regno))
     {
       /* FIXME: We ship info on failing tail-call in struct machine_function.
          This uses internals of calls.c:expand_call() and the way args_so_far
@@ -3569,7 +3568,7 @@ avr_find_unused_d_reg (rtx_insn *insn, rtx exclude)
           && (TREE_THIS_VOLATILE (current_function_decl)
               || cfun->machine->is_OS_task
               || cfun->machine->is_OS_main
-              || (!isr_p && call_used_regs[regno])))
+              || (!isr_p && call_used_or_fixed_reg_p (regno))))
         {
           return reg;
         }
@@ -9553,7 +9552,7 @@ _reg_unused_after (rtx_insn *insn, rtx reg)
 		&& REG_P (XEXP (XEXP (tem, 0), 0))
 		&& reg_overlap_mentioned_p (reg, XEXP (XEXP (tem, 0), 0)))
 	      return 0;
-	  if (call_used_regs[REGNO (reg)])
+	  if (call_used_or_fixed_reg_p (REGNO (reg)))
 	    return 1;
 	}
 
@@ -10163,7 +10162,7 @@ avr_asm_output_aligned_decl_common (FILE * stream,
       return;
     }
 
-  /* __gnu_lto_v1 etc. are just markers for the linker injected by toplev.c.
+  /* __gnu_lto_slim is just a marker for the linker injected by toplev.c.
      There is no need to trigger __do_clear_bss code for them.  */
 
   if (!STR_PREFIX_P (name, "__gnu_lto"))
@@ -12165,8 +12164,8 @@ avr_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
 /* Implement TARGET_HARD_REGNO_CALL_PART_CLOBBERED.  */
 
 static bool
-avr_hard_regno_call_part_clobbered (rtx_insn *insn ATTRIBUTE_UNUSED,
-				    unsigned regno, machine_mode mode)
+avr_hard_regno_call_part_clobbered (unsigned, unsigned regno,
+				    machine_mode mode)
 {
   /* FIXME: This hook gets called with MODE:REGNO combinations that don't
         represent valid hard registers like, e.g. HI:29.  Returning TRUE
@@ -14243,7 +14242,7 @@ avr_expand_builtin (tree exp, rtx target,
 {
   tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
   const char *bname = IDENTIFIER_POINTER (DECL_NAME (fndecl));
-  unsigned int id = DECL_FUNCTION_CODE (fndecl);
+  unsigned int id = DECL_MD_FUNCTION_CODE (fndecl);
   const struct avr_builtin_description *d = &avr_bdesc[id];
   tree arg0;
   rtx op0;
@@ -14395,7 +14394,7 @@ static tree
 avr_fold_builtin (tree fndecl, int n_args ATTRIBUTE_UNUSED, tree *arg,
                   bool ignore ATTRIBUTE_UNUSED)
 {
-  unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
+  unsigned int fcode = DECL_MD_FUNCTION_CODE (fndecl);
   tree val_type = TREE_TYPE (TREE_TYPE (fndecl));
 
   if (!optimize)

@@ -53,6 +53,7 @@ DEFPARAM (PARAM_INLINE_MIN_SPEEDUP,
 	  "inline-min-speedup",
 	  "The minimal estimated speedup allowing inliner to ignore inline-insns-single and inline-insns-auto with -O3 and -Ofast.",
 	  15, 0, 100)
+
 DEFPARAM (PARAM_INLINE_MIN_SPEEDUP_O2,
 	  "inline-min-speedup-O2",
 	  "The minimal estimated speedup allowing inliner to ignore inline-insns-single and inline-insns-auto.",
@@ -240,7 +241,7 @@ DEFPARAM(PARAM_LARGE_UNIT_INSNS,
 DEFPARAM(PARAM_INLINE_UNIT_GROWTH,
 	 "inline-unit-growth",
 	 "How much can given compilation unit grow because of the inlining (in percent).",
-	 60, 0, 0)
+	 40, 0, 0)
 DEFPARAM(PARAM_IPCP_UNIT_GROWTH,
 	 "ipcp-unit-growth",
 	 "How much can given compilation unit grow because of the interprocedural constant propagation (in percent).",
@@ -251,7 +252,7 @@ DEFPARAM(PARAM_EARLY_INLINING_INSNS,
 	 14, 0, 0)
 DEFPARAM(PARAM_EARLY_INLINING_INSNS_O2,
 	 "early-inlining-insns-O2",
-	 "Maximal estimated growth of function body caused by early inlining of single call.",
+	 "Maximal estimated growth of function body caused by early inlining of single call with -O1 and -O2.",
 	 6, 0, 0)
 DEFPARAM(PARAM_LARGE_STACK_FRAME,
 	 "large-stack-frame",
@@ -445,23 +446,31 @@ DEFPARAM(PARAM_SMS_LOOP_AVERAGE_COUNT_THRESHOLD,
 
 DEFPARAM(HOT_BB_COUNT_FRACTION,
 	 "hot-bb-count-fraction",
-	 "Select fraction of the maximal count of repetitions of basic block in program given basic "
-	 "block needs to have to be considered hot (used in non-LTO mode).",
+	 "The denominator n of fraction 1/n of the maximal execution count of "
+	 "a basic block in the entire program that a basic block needs to at "
+	 "least have in order to be considered hot (used in non-LTO mode).",
 	 10000, 0, 0)
+
 DEFPARAM(HOT_BB_COUNT_WS_PERMILLE,
 	 "hot-bb-count-ws-permille",
-         "A basic block profile count is considered hot if it contributes to "
-         "the given permillage of the entire profiled execution (used in LTO mode).",
+	 "The number of most executed permilles of the profiled execution of "
+	 "the entire program to which the execution count of a basic block "
+	 "must be part of in order to be considered hot (used in LTO mode).",
 	 990, 0, 1000)
+
 DEFPARAM(HOT_BB_FREQUENCY_FRACTION,
 	 "hot-bb-frequency-fraction",
-	 "Select fraction of the maximal frequency of executions of basic block in function given basic block needs to have to be considered hot.",
+	 "The denominator n of fraction 1/n of the execution frequency of the "
+	 "entry block of a function that a basic block of this function needs "
+	 "to at least have in order to be considered hot.",
 	 1000, 0, 0)
 
 DEFPARAM(UNLIKELY_BB_COUNT_FRACTION,
 	 "unlikely-bb-count-fraction",
-         "The minimum fraction of profile runs a given basic block execution count must be not to be considered unlikely.",
-	 20, 1, 10000)
+	 "The denominator n of fraction 1/n of the number of profiled runs of "
+	 "the entire program below which the execution count of a basic block "
+	 "must be in order for the basic block to be considered unlikely.",
+	 20, 0, 0)
 
 DEFPARAM (PARAM_ALIGN_THRESHOLD,
 	  "align-threshold",
@@ -1072,6 +1081,13 @@ DEFPARAM (PARAM_IPA_SRA_PTR_GROWTH_FACTOR,
 	  "that ipa-sra replaces a pointer to an aggregate with.",
 	  2, 0, 0)
 
+DEFPARAM (PARAM_IPA_SRA_MAX_REPLACEMENTS,
+	  "ipa-sra-max-replacements",
+	  "Maximum pieces that IPA-SRA tracks per formal parameter, as "
+	  "a consequence, also the maximum number of replacements of a formal "
+	  "parameter.",
+	  8, 0, 16)
+
 DEFPARAM (PARAM_TM_MAX_AGGREGATE_SIZE,
 	  "tm-max-aggregate-size",
 	  "Size in bytes after which thread-local aggregates should be "
@@ -1132,6 +1148,12 @@ DEFPARAM (PARAM_IPA_MAX_AA_STEPS,
 	  "Maximum number of statements that will be visited by IPA formal "
 	  "parameter analysis based on alias analysis in any given function.",
 	  25000, 0, 0)
+
+DEFPARAM (PARAM_IPA_MAX_SWITCH_PREDICATE_BOUNDS,
+	  "ipa-max-switch-predicate-bounds",
+	  "Maximal number of boundary endpoints of case ranges of switch "
+	  "statement used during IPA functoin summary generation.",
+	  5, 0, 0)
 
 /* WHOPR partitioning configuration.  */
 

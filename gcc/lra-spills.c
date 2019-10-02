@@ -243,7 +243,7 @@ assign_spill_hard_regs (int *pseudo_regnos, int n)
   /* Set up reserved hard regs for every program point.	 */
   reserved_hard_regs = XNEWVEC (HARD_REG_SET, lra_live_max_point);
   for (p = 0; p < lra_live_max_point; p++)
-    COPY_HARD_REG_SET (reserved_hard_regs[p], lra_no_alloc_regs);
+    reserved_hard_regs[p] = lra_no_alloc_regs;
   for (i = FIRST_PSEUDO_REGISTER; i < regs_num; i++)
     if (lra_reg_info[i].nrefs != 0
 	&& (hard_regno = lra_get_regno_hard_regno (i)) >= 0)
@@ -274,11 +274,10 @@ assign_spill_hard_regs (int *pseudo_regnos, int n)
 	  continue;
 	}
       lra_assert (spill_class != NO_REGS);
-      COPY_HARD_REG_SET (conflict_hard_regs,
-			 lra_reg_info[regno].conflict_hard_regs);
+      conflict_hard_regs = lra_reg_info[regno].conflict_hard_regs;
       for (r = lra_reg_info[regno].live_ranges; r != NULL; r = r->next)
 	for (p = r->start; p <= r->finish; p++)
-	  IOR_HARD_REG_SET (conflict_hard_regs, reserved_hard_regs[p]);
+	  conflict_hard_regs |= reserved_hard_regs[p];
       spill_class_size = ira_class_hard_regs_num[spill_class];
       mode = lra_reg_info[regno].biggest_mode;
       for (k = 0; k < spill_class_size; k++)
@@ -547,6 +546,19 @@ spill_pseudos (void)
 	  bitmap_and_compl_into (df_get_live_out (bb), spilled_pseudos);
 	}
     }
+}
+
+/* Return true if we need scratch reg assignments.  */
+bool
+lra_need_for_scratch_reg_p (void)
+{
+  int i; max_regno = max_reg_num ();
+
+  for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
+    if (lra_reg_info[i].nrefs != 0 && lra_get_regno_hard_regno (i) < 0
+	&& lra_former_scratch_p (i))
+      return true;
+  return false;
 }
 
 /* Return true if we need to change some pseudos into memory.  */

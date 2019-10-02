@@ -99,6 +99,11 @@ bool gfc_matching_function;
 /* Set upon parsing a !GCC$ unroll n directive for use in the next loop.  */
 int directive_unroll = -1;
 
+/* Set upon parsing supported !GCC$ pragmas for use in the next loop.  */
+bool directive_ivdep = false;
+bool directive_vector = false;
+bool directive_novector = false;
+
 /* Map of middle-end built-ins that should be vectorized.  */
 hash_map<nofree_string_hash, int> *gfc_vectorized_builtins;
 
@@ -547,7 +552,7 @@ match_old_style_init (const char *name)
   match m;
   gfc_symtree *st;
   gfc_symbol *sym;
-  gfc_data *newdata;
+  gfc_data *newdata, *nd;
 
   /* Set up data structure to hold initializers.  */
   gfc_find_sym_tree (name, NULL, 0, &st);
@@ -565,6 +570,26 @@ match_old_style_init (const char *name)
     {
       free (newdata);
       return m;
+    }
+
+  /* Check that a BOZ did not creep into an old-style initialization.  */
+  for (nd = newdata; nd; nd = nd->next)
+    {
+      if (nd->value->expr->ts.type == BT_BOZ
+	  && gfc_invalid_boz ("BOZ at %L cannot appear in an old-style "
+			      "initialization", &nd->value->expr->where))
+	return MATCH_ERROR;
+
+      if (nd->var->expr->ts.type != BT_INTEGER
+	  && nd->var->expr->ts.type != BT_REAL
+	  && nd->value->expr->ts.type == BT_BOZ)
+	{
+	  gfc_error ("BOZ literal constant near %L cannot be assigned to "
+		     "a %qs variable in an old-style initialization",
+		     &nd->value->expr->where,
+		     gfc_typename (&nd->value->expr->ts));
+	  return MATCH_ERROR;
+	}
     }
 
   if (gfc_pure (NULL))
@@ -602,6 +627,14 @@ gfc_match_data (void)
   gfc_expr *e;
   gfc_ref *ref;
   match m;
+  char c;
+
+  /* DATA has been matched.  In free form source code, the next character
+     needs to be whitespace or '(' from an implied do-loop.  Check that
+     here.  */
+  c = gfc_peek_ascii_char ();
+  if (gfc_current_form == FORM_FREE && !gfc_is_whitespace (c) && c != '(')
+    return MATCH_NO;
 
   /* Before parsing the rest of a DATA statement, check F2008:c1206.  */
   if ((gfc_current_state () == COMP_FUNCTION
@@ -1335,9 +1368,9 @@ get_proc_name (const char *name, gfc_symbol **result, bool module_fcn_entry)
 	}
 
       /* Trap declarations of attributes in encompassing scope.  The
-	 signature for this is that ts.kind is set.  Legitimate
-	 references only set ts.type.  */
-      if (sym->ts.kind != 0
+	 signature for this is that ts.kind is nonzero for no-CLASS
+	 entity.  For a CLASS entity, ts.kind is zero.  */
+      if ((sym->ts.kind != 0 || sym->ts.type == BT_CLASS)
 	  && !sym->attr.implicit_type
 	  && sym->attr.proc == 0
 	  && gfc_current_ns->parent != NULL
@@ -3990,7 +4023,6 @@ gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
       return MATCH_YES;
     }
 
-
   m = gfc_match (" type (");
   matched_type = (m == MATCH_YES);
   if (matched_type)
@@ -4038,7 +4070,10 @@ gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
 	m = MATCH_YES;
 
       if (matched_type && m == MATCH_YES && gfc_match_char (')') != MATCH_YES)
-	m = MATCH_ERROR;
+	{
+	  gfc_error ("Malformed type-spec at %C");
+	  return MATCH_ERROR;
+	}
 
       return m;
     }
@@ -4061,8 +4096,12 @@ gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
 	  && !gfc_notify_std (GFC_STD_F2008, "TYPE with "
 			      "intrinsic-type-spec at %C"))
 	return MATCH_ERROR;
+
       if (matched_type && gfc_match_char (')') != MATCH_YES)
-	return MATCH_ERROR;
+	{
+	  gfc_error ("Malformed type-spec at %C");
+	  return MATCH_ERROR;
+	}
 
       ts->type = BT_REAL;
       ts->kind = gfc_default_double_kind;
@@ -4092,7 +4131,10 @@ gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
 	return MATCH_ERROR;
 
       if (matched_type && gfc_match_char (')') != MATCH_YES)
-	return MATCH_ERROR;
+	{
+	  gfc_error ("Malformed type-spec at %C");
+	  return MATCH_ERROR;
+	}
 
       ts->type = BT_COMPLEX;
       ts->kind = gfc_default_double_kind;
@@ -4113,7 +4155,13 @@ gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
       if (m == MATCH_ERROR)
 	return m;
 
-    m = gfc_match_char (')');
+      gfc_gobble_whitespace ();
+      if (gfc_peek_ascii_char () != ')')
+	{
+	  gfc_error ("Malformed type-spec at %C");
+	  return MATCH_ERROR;
+	}
+      m = gfc_match_char (')'); /* Burn closing ')'.  */
     }
 
   if (m != MATCH_YES)
@@ -4396,6 +4444,7 @@ get_kind:
 	      gfc_next_ascii_char ();
 	      return MATCH_YES;
 	    }
+	  gfc_error ("Malformed type-spec at %C");
 	  return MATCH_NO;
 	}
     }
@@ -4409,7 +4458,10 @@ get_kind:
     }
 
   if (matched_type && gfc_match_char (')') != MATCH_YES)
-    return MATCH_ERROR;
+    {
+      gfc_error ("Malformed type-spec at %C");
+      return MATCH_ERROR;
+    }
 
   /* Defer association of the KIND expression of function results
      until after USE and IMPORT statements.  */
@@ -8131,6 +8183,7 @@ gfc_match_end (gfc_statement *st)
 
     case COMP_SELECT:
     case COMP_SELECT_TYPE:
+    case COMP_SELECT_RANK:
       *st = ST_END_SELECT;
       target = " select";
       eos_ok = 0;
@@ -8417,6 +8470,15 @@ attr_decl1 (void)
     {
       m = MATCH_ERROR;
       goto cleanup;
+    }
+
+  /* Check F2018:C822.  */
+  if (sym->attr.dimension && sym->attr.codimension
+      && sym->as && sym->as->rank + sym->as->corank > 15)
+    {
+      gfc_error ("rank + corank of %qs exceeds 15 at %C", sym->name);
+      m = MATCH_ERROR;
+      return m;
     }
 
   if (sym->attr.cray_pointee && sym->as != NULL)
@@ -10182,6 +10244,20 @@ gfc_match_derived_decl (void)
       return MATCH_ERROR;
     }
 
+  /*  In free source form, need to check for TYPE XXX as oppose to TYPEXXX.
+      But, we need to simply return for TYPE(.  */ 
+  if (m == MATCH_NO && gfc_current_form == FORM_FREE)
+    {
+      char c = gfc_peek_ascii_char ();
+      if (c == '(')
+	return m;
+      if (!gfc_is_whitespace (c))
+	{
+	  gfc_error ("Mangled derived type definition at %C");
+	  return MATCH_NO;
+	}
+    }
+
   m = gfc_match (" %n ", name);
   if (m != MATCH_YES)
     return m;
@@ -10189,7 +10265,7 @@ gfc_match_derived_decl (void)
   /* Make sure that we don't identify TYPE IS (...) as a parameterized
      derived type named 'is'.
      TODO Expand the check, when 'name' = "is" by matching " (tname) "
-     and checking if this is a(n intrinsic) typename. his picks up
+     and checking if this is a(n intrinsic) typename.  This picks up
      misplaced TYPE IS statements such as in select_type_1.f03.  */
   if (gfc_peek_ascii_char () == '(')
     {
@@ -11499,4 +11575,54 @@ gfc_match_gcc_builtin (void)
     free (r);
 
   return MATCH_YES;
+}
+
+/* Match an !GCC$ IVDEP statement.
+   When we come here, we have already matched the !GCC$ IVDEP string.  */
+
+match
+gfc_match_gcc_ivdep (void)
+{
+  if (gfc_match_eos () == MATCH_YES)
+    {
+      directive_ivdep = true;
+      return MATCH_YES;
+    }
+
+  gfc_error ("Syntax error in !GCC$ IVDEP directive at %C");
+  return MATCH_ERROR;
+}
+
+/* Match an !GCC$ VECTOR statement.
+   When we come here, we have already matched the !GCC$ VECTOR string.  */
+
+match
+gfc_match_gcc_vector (void)
+{
+  if (gfc_match_eos () == MATCH_YES)
+    {
+      directive_vector = true;
+      directive_novector = false;
+      return MATCH_YES;
+    }
+
+  gfc_error ("Syntax error in !GCC$ VECTOR directive at %C");
+  return MATCH_ERROR;
+}
+
+/* Match an !GCC$ NOVECTOR statement.
+   When we come here, we have already matched the !GCC$ NOVECTOR string.  */
+
+match
+gfc_match_gcc_novector (void)
+{
+  if (gfc_match_eos () == MATCH_YES)
+    {
+      directive_novector = true;
+      directive_vector = false;
+      return MATCH_YES;
+    }
+
+  gfc_error ("Syntax error in !GCC$ NOVECTOR directive at %C");
+  return MATCH_ERROR;
 }

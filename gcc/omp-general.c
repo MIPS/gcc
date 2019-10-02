@@ -48,6 +48,14 @@ omp_find_clause (tree clauses, enum omp_clause_code kind)
   return NULL_TREE;
 }
 
+/* Return true if DECL is a Fortran optional argument.  */
+
+bool
+omp_is_optional_argument (tree decl)
+{
+  return lang_hooks.decls.omp_is_optional_argument (decl);
+}
+
 /* Return true if DECL is a reference type.  */
 
 bool
@@ -156,7 +164,7 @@ omp_extract_for_data (gomp_for *for_stmt, struct omp_for_data *fd,
   int i;
   struct omp_for_data_loop dummy_loop;
   location_t loc = gimple_location (for_stmt);
-  bool simd = gimple_omp_for_kind (for_stmt) & GF_OMP_FOR_SIMD;
+  bool simd = gimple_omp_for_kind (for_stmt) == GF_OMP_FOR_KIND_SIMD;
   bool distribute = gimple_omp_for_kind (for_stmt)
 		    == GF_OMP_FOR_KIND_DISTRIBUTE;
   bool taskloop = gimple_omp_for_kind (for_stmt)

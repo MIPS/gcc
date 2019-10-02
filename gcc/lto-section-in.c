@@ -53,7 +53,8 @@ const char *lto_section_name[LTO_N_SECTION_TYPES] =
   "offload_table",
   "mode_table",
   "hsa",
-  "lto"
+  "lto",
+  "ipa_sra"
 };
 
 /* Hooks so that the ipa passes can call into the lto front end to get
@@ -161,7 +162,8 @@ lto_get_section_data (struct lto_file_decl_data *file_data,
 
       stream = lto_start_uncompression (lto_append_data, &buffer);
       lto_uncompress_block (stream, data, *len);
-      lto_end_uncompression (stream, file_data->lto_section_header.compression);
+      lto_end_uncompression (stream,
+			     file_data->lto_section_header.get_compression ());
 
       *len = buffer.length - header_length;
       data = buffer.data + header_length;

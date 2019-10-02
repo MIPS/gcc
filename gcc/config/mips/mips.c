@@ -5976,17 +5976,16 @@ mips_strict_argument_naming (cumulative_args_t ca ATTRIBUTE_UNUSED)
 /* Implement TARGET_FUNCTION_ARG.  */
 
 static rtx
-mips_function_arg (cumulative_args_t cum_v, machine_mode mode,
-		   const_tree type, bool named)
+mips_function_arg (cumulative_args_t cum_v, const function_arg_info &arg)
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
   struct mips_arg_info info;
 
-  /* We will be called with a mode of VOIDmode after the last argument
+  /* We will be called with an end marker after the last argument
      has been seen.  Whatever we return will be passed to the call expander.
      If we need a MIPS16 fp_code, return a REG with the code stored as
      the mode.  */
-  if (mode == VOIDmode)
+  if (arg.end_marker_p ())
     {
       if (TARGET_MIPS16 && cum->fp_code != 0)
 	return gen_rtx_REG ((machine_mode) cum->fp_code, 0);
@@ -5994,7 +5993,7 @@ mips_function_arg (cumulative_args_t cum_v, machine_mode mode,
 	return NULL;
     }
 
-  mips_get_arg_info (&info, cum, mode, type, named);
+  mips_get_arg_info (&info, cum, arg.mode, arg.type, arg.named);
 
   /* Return straight away if the whole argument is passed on the stack.  */
   if (info.reg_offset == MAX_ARGS_IN_REGISTERS)
@@ -6005,16 +6004,16 @@ mips_function_arg (cumulative_args_t cum_v, machine_mode mode,
      in a floating-point register.  */
   if (TARGET_NEWABI
       && TARGET_HARD_FLOAT
-      && named
-      && type != 0
-      && TREE_CODE (type) == RECORD_TYPE
-      && TYPE_SIZE_UNIT (type)
-      && tree_fits_uhwi_p (TYPE_SIZE_UNIT (type)))
+      && arg.named
+      && arg.type != 0
+      && TREE_CODE (arg.type) == RECORD_TYPE
+      && TYPE_SIZE_UNIT (arg.type)
+      && tree_fits_uhwi_p (TYPE_SIZE_UNIT (arg.type)))
     {
       tree field;
 
       /* First check to see if there is any such field.  */
-      for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
+      for (field = TYPE_FIELDS (arg.type); field; field = DECL_CHAIN (field))
 	if (TREE_CODE (field) == FIELD_DECL
 	    && SCALAR_FLOAT_TYPE_P (TREE_TYPE (field))
 	    && TYPE_PRECISION (TREE_TYPE (field)) == BITS_PER_WORD
@@ -6033,10 +6032,10 @@ mips_function_arg (cumulative_args_t cum_v, machine_mode mode,
 
 	  /* assign_parms checks the mode of ENTRY_PARM, so we must
 	     use the actual mode here.  */
-	  ret = gen_rtx_PARALLEL (mode, rtvec_alloc (info.reg_words));
+	  ret = gen_rtx_PARALLEL (arg.mode, rtvec_alloc (info.reg_words));
 
 	  bitpos = 0;
-	  field = TYPE_FIELDS (type);
+	  field = TYPE_FIELDS (arg.type);
 	  for (i = 0; i < info.reg_words; i++)
 	    {
 	      rtx reg;
@@ -6069,13 +6068,13 @@ mips_function_arg (cumulative_args_t cum_v, machine_mode mode,
      and the imaginary part goes in the upper register.  */
   if (TARGET_NEWABI
       && info.fpr_p
-      && GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT)
+      && GET_MODE_CLASS (arg.mode) == MODE_COMPLEX_FLOAT)
     {
       rtx real, imag;
       machine_mode inner;
       unsigned int regno;
 
-      inner = GET_MODE_INNER (mode);
+      inner = GET_MODE_INNER (arg.mode);
       regno = FP_ARG_FIRST + info.reg_offset;
       if (info.reg_words * UNITS_PER_WORD == GET_MODE_SIZE (inner))
 	{
@@ -6093,23 +6092,23 @@ mips_function_arg (cumulative_args_t cum_v, machine_mode mode,
 				    gen_rtx_REG (inner,
 						 regno + info.reg_words / 2),
 				    GEN_INT (GET_MODE_SIZE (inner)));
-	  return gen_rtx_PARALLEL (mode, gen_rtvec (2, real, imag));
+	  return gen_rtx_PARALLEL (arg.mode, gen_rtvec (2, real, imag));
 	}
     }
 
-  return gen_rtx_REG (mode, mips_arg_regno (&info, TARGET_HARD_FLOAT));
+  return gen_rtx_REG (arg.mode, mips_arg_regno (&info, TARGET_HARD_FLOAT));
 }
 
 /* Implement TARGET_FUNCTION_ARG_ADVANCE.  */
 
 static void
-mips_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
-			   const_tree type, bool named)
+mips_function_arg_advance (cumulative_args_t cum_v,
+			   const function_arg_info &arg)
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
   struct mips_arg_info info;
 
-  mips_get_arg_info (&info, cum, mode, type, named);
+  mips_get_arg_info (&info, cum, arg.mode, arg.type, arg.named);
 
   if (!info.fpr_p)
     cum->gp_reg_found = true;
@@ -6119,7 +6118,7 @@ mips_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
      either the o32 or the o64 ABI, both of which pass at most 2 arguments
      in FPRs.  */
   if (cum->arg_number < 2 && info.fpr_p)
-    cum->fp_code += (mode == SFmode ? 1 : 2) << (cum->arg_number * 2);
+    cum->fp_code += (arg.mode == SFmode ? 1 : 2) << (cum->arg_number * 2);
 
   /* Advance the register count.  This has the effect of setting
      num_gprs to MAX_ARGS_IN_REGISTERS if a doubleword-aligned
@@ -6140,12 +6139,12 @@ mips_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
 /* Implement TARGET_ARG_PARTIAL_BYTES.  */
 
 static int
-mips_arg_partial_bytes (cumulative_args_t cum,
-			machine_mode mode, tree type, bool named)
+mips_arg_partial_bytes (cumulative_args_t cum, const function_arg_info &arg)
 {
   struct mips_arg_info info;
 
-  mips_get_arg_info (&info, get_cumulative_args (cum), mode, type, named);
+  mips_get_arg_info (&info, get_cumulative_args (cum),
+		     arg.mode, arg.type, arg.named);
   return info.stack_words > 0 ? info.reg_words * UNITS_PER_WORD : 0;
 }
 
@@ -6235,38 +6234,34 @@ mips_pad_reg_upward (machine_mode mode, tree type)
 /* Return nonzero when an argument must be passed by reference.  */
 
 static bool
-mips_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
-			machine_mode mode, const_tree type,
-			bool named ATTRIBUTE_UNUSED)
+mips_pass_by_reference (cumulative_args_t, const function_arg_info &arg)
 {
   if (mips_abi == ABI_EABI)
     {
       int size;
 
       /* ??? How should SCmode be handled?  */
-      if (mode == DImode || mode == DFmode
-	  || mode == DQmode || mode == UDQmode
-	  || mode == DAmode || mode == UDAmode)
+      if (arg.mode == DImode || arg.mode == DFmode
+	  || arg.mode == DQmode || arg.mode == UDQmode
+	  || arg.mode == DAmode || arg.mode == UDAmode)
 	return 0;
 
-      size = type ? int_size_in_bytes (type) : GET_MODE_SIZE (mode);
+      size = arg.type_size_in_bytes ();
       return size == -1 || size > UNITS_PER_WORD;
     }
   else
     {
       /* If we have a variable-sized parameter, we have no choice.  */
-      return targetm.calls.must_pass_in_stack (mode, type);
+      return targetm.calls.must_pass_in_stack (arg);
     }
 }
 
 /* Implement TARGET_CALLEE_COPIES.  */
 
 static bool
-mips_callee_copies (cumulative_args_t cum ATTRIBUTE_UNUSED,
-		    machine_mode mode ATTRIBUTE_UNUSED,
-		    const_tree type ATTRIBUTE_UNUSED, bool named)
+mips_callee_copies (cumulative_args_t, const function_arg_info &arg)
 {
-  return mips_abi == ABI_EABI && named;
+  return mips_abi == ABI_EABI && arg.named;
 }
 
 /* See whether VALTYPE is a record whose fields should be returned in
@@ -6546,9 +6541,9 @@ mips_return_in_memory (const_tree type, const_tree fndecl ATTRIBUTE_UNUSED)
 /* Implement TARGET_SETUP_INCOMING_VARARGS.  */
 
 static void
-mips_setup_incoming_varargs (cumulative_args_t cum, machine_mode mode,
-			     tree type, int *pretend_size ATTRIBUTE_UNUSED,
-			     int no_rtl)
+mips_setup_incoming_varargs (cumulative_args_t cum,
+			     const function_arg_info &arg,
+			     int *pretend_size ATTRIBUTE_UNUSED, int no_rtl)
 {
   CUMULATIVE_ARGS local_cum;
   int gp_saved, fp_saved;
@@ -6557,8 +6552,7 @@ mips_setup_incoming_varargs (cumulative_args_t cum, machine_mode mode,
      argument.  Advance a local copy of CUM past the last "real" named
      argument, to find out how many registers are left over.  */
   local_cum = *get_cumulative_args (cum);
-  mips_function_arg_advance (pack_cumulative_args (&local_cum), mode, type,
-			     true);
+  mips_function_arg_advance (pack_cumulative_args (&local_cum), arg);
 
   /* Found out how many registers we need to save.  */
   gp_saved = MAX_ARGS_IN_REGISTERS - local_cum.num_gprs;
@@ -6780,7 +6774,7 @@ mips_std_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
   unsigned HOST_WIDE_INT align, boundary;
   bool indirect;
 
-  indirect = pass_by_reference (NULL, TYPE_MODE (type), type, false);
+  indirect = pass_va_arg_by_reference (type);
   if (indirect)
     type = build_pointer_type (type);
 
@@ -6867,7 +6861,7 @@ mips_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
   tree addr;
   bool indirect_p;
 
-  indirect_p = pass_by_reference (NULL, TYPE_MODE (type), type, 0);
+  indirect_p = pass_va_arg_by_reference (type);
   if (indirect_p)
     type = build_pointer_type (type);
 
@@ -7308,7 +7302,8 @@ mips_output_args_xfer (int fp_code, char direction)
       else
 	mips_output_64bit_xfer (direction, gparg, fparg);
 
-      mips_function_arg_advance (pack_cumulative_args (&cum), mode, NULL, true);
+      function_arg_info arg (mode, /*named=*/true);
+      mips_function_arg_advance (pack_cumulative_args (&cum), arg);
     }
 }
 
@@ -10641,7 +10636,7 @@ mips_global_pointer (void)
   if (TARGET_CALL_SAVED_GP && crtl->is_leaf)
     for (regno = GP_REG_FIRST; regno <= GP_REG_LAST; regno++)
       if (!df_regs_ever_live_p (regno)
-	  && call_really_used_regs[regno]
+	  && call_used_regs[regno]
 	  && !fixed_regs[regno]
 	  && regno != PIC_FUNCTION_ADDR_REGNUM)
 	return regno;
@@ -10794,7 +10789,7 @@ mips_interrupt_extra_call_saved_reg_p (unsigned int regno)
 
       /* Otherwise, return true for registers that aren't ordinarily
 	 call-clobbered.  */
-      return call_really_used_regs[regno];
+      return call_used_regs[regno];
     }
 
   return false;
@@ -10817,12 +10812,12 @@ mips_cfun_call_saved_reg_p (unsigned int regno)
     return true;
 
   /* call_insns preserve $28 unless they explicitly say otherwise,
-     so call_really_used_regs[] treats $28 as call-saved.  However,
+     so call_used_regs[] treats $28 as call-saved.  However,
      we want the ABI property rather than the default call_insn
      property here.  */
   return (regno == GLOBAL_POINTER_REGNUM
 	  ? TARGET_CALL_SAVED_GP
-	  : !call_really_used_regs[regno]);
+	  : !call_used_regs[regno]);
 }
 
 /* Return true if the function body might clobber register REGNO.
@@ -12933,8 +12928,8 @@ mips_hard_regno_scratch_ok (unsigned int regno)
    registers with MODE > 64 bits are part clobbered too.  */
 
 static bool
-mips_hard_regno_call_part_clobbered (rtx_insn *insn ATTRIBUTE_UNUSED,
-				     unsigned int regno, machine_mode mode)
+mips_hard_regno_call_part_clobbered (unsigned int, unsigned int regno,
+				     machine_mode mode)
 {
   if (TARGET_FLOATXX
       && hard_regno_nregs (regno, mode) == 1
@@ -12980,13 +12975,13 @@ mips_class_max_nregs (enum reg_class rclass, machine_mode mode)
   HARD_REG_SET left;
 
   size = 0x8000;
-  COPY_HARD_REG_SET (left, reg_class_contents[(int) rclass]);
+  left = reg_class_contents[rclass];
   if (hard_reg_set_intersect_p (left, reg_class_contents[(int) ST_REGS]))
     {
       if (mips_hard_regno_mode_ok (ST_REG_FIRST, mode))
 	size = MIN (size, 4);
 
-      AND_COMPL_HARD_REG_SET (left, reg_class_contents[(int) ST_REGS]);
+      left &= ~reg_class_contents[ST_REGS];
     }
   if (hard_reg_set_intersect_p (left, reg_class_contents[(int) FP_REGS]))
     {
@@ -12998,7 +12993,7 @@ mips_class_max_nregs (enum reg_class rclass, machine_mode mode)
 	    size = MIN (size, UNITS_PER_FPREG);
 	}
 
-      AND_COMPL_HARD_REG_SET (left, reg_class_contents[(int) FP_REGS]);
+      left &= ~reg_class_contents[FP_REGS];
     }
   if (!hard_reg_set_empty_p (left))
     size = MIN (size, UNITS_PER_WORD);
@@ -14894,8 +14889,7 @@ vr4130_true_reg_dependence_p_1 (rtx x, const_rtx pat ATTRIBUTE_UNUSED,
 static bool
 vr4130_true_reg_dependence_p (rtx insn)
 {
-  note_stores (PATTERN (vr4130_last_insn),
-	       vr4130_true_reg_dependence_p_1, &insn);
+  note_stores (vr4130_last_insn, vr4130_true_reg_dependence_p_1, &insn);
   return insn == 0;
 }
 
@@ -17215,7 +17209,7 @@ mips_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   const struct mips_builtin_description *d;
 
   fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
-  fcode = DECL_FUNCTION_CODE (fndecl);
+  fcode = DECL_MD_FUNCTION_CODE (fndecl);
   gcc_assert (fcode < ARRAY_SIZE (mips_builtins));
   d = &mips_builtins[fcode];
   avail = d->avail ();
@@ -17792,7 +17786,7 @@ r10k_needs_protection_p (rtx_insn *insn)
 
   if (mips_r10k_cache_barrier == R10K_CACHE_BARRIER_STORE)
     {
-      note_stores (PATTERN (insn), r10k_needs_protection_p_store, &insn);
+      note_stores (insn, r10k_needs_protection_p_store, &insn);
       return insn == NULL_RTX;
     }
 
@@ -18301,7 +18295,7 @@ mips_sim_issue_insn (struct mips_sim *state, rtx_insn *insn)
 						    state->insns_left);
 
   mips_sim_insn = insn;
-  note_stores (PATTERN (insn), mips_sim_record_set, state);
+  note_stores (insn, mips_sim_record_set, state);
 }
 
 /* Simulate issuing a NOP in state STATE.  */
@@ -19031,7 +19025,7 @@ mips_reorg_process_insns (void)
 			     &uses);
 		  HARD_REG_SET delay_sets;
 		  CLEAR_HARD_REG_SET (delay_sets);
-		  note_stores (PATTERN (SEQ_END (insn)), record_hard_reg_sets,
+		  note_stores (SEQ_END (insn), record_hard_reg_sets,
 			       &delay_sets);
 
 		  rtx_insn *prev = prev_active_insn (insn);
@@ -19041,8 +19035,7 @@ mips_reorg_process_insns (void)
 		    {
 		      HARD_REG_SET sets;
 		      CLEAR_HARD_REG_SET (sets);
-		      note_stores (PATTERN (prev), record_hard_reg_sets,
-				   &sets);
+		      note_stores (prev, record_hard_reg_sets, &sets);
 
 		      /* Re-order if safe.  */
 		      if (!hard_reg_set_intersect_p (delay_sets, uses)
@@ -20418,7 +20411,6 @@ mips_swap_registers (unsigned int i)
 
   SWAP_INT (fixed_regs[i], fixed_regs[i + 1]);
   SWAP_INT (call_used_regs[i], call_used_regs[i + 1]);
-  SWAP_INT (call_really_used_regs[i], call_really_used_regs[i + 1]);
   SWAP_STRING (reg_names[i], reg_names[i + 1]);
 
 #undef SWAP_STRING
@@ -20438,30 +20430,23 @@ mips_conditional_register_usage (void)
       global_regs[CCDSP_SC_REGNUM] = 1;
     }
   else
-    AND_COMPL_HARD_REG_SET (accessible_reg_set,
-			    reg_class_contents[(int) DSP_ACC_REGS]);
+    accessible_reg_set &= ~reg_class_contents[DSP_ACC_REGS];
 
   if (!ISA_HAS_HILO)
-    AND_COMPL_HARD_REG_SET (accessible_reg_set,
-			    reg_class_contents[(int) MD_REGS]);
+    accessible_reg_set &= ~reg_class_contents[MD_REGS];
 
   if (!TARGET_HARD_FLOAT)
-    {
-      AND_COMPL_HARD_REG_SET (accessible_reg_set,
-			      reg_class_contents[(int) FP_REGS]);
-      AND_COMPL_HARD_REG_SET (accessible_reg_set,
-			      reg_class_contents[(int) ST_REGS]);
-    }
+    accessible_reg_set &= ~(reg_class_contents[FP_REGS]
+			    | reg_class_contents[ST_REGS]);
   else if (!ISA_HAS_8CC)
     {
       /* We only have a single condition-code register.  We implement
 	 this by fixing all the condition-code registers and generating
 	 RTL that refers directly to ST_REG_FIRST.  */
-      AND_COMPL_HARD_REG_SET (accessible_reg_set,
-			      reg_class_contents[(int) ST_REGS]);
+      accessible_reg_set &= ~reg_class_contents[ST_REGS];
       if (!ISA_HAS_CCF)
 	SET_HARD_REG_BIT (accessible_reg_set, FPSW_REGNUM);
-      fixed_regs[FPSW_REGNUM] = call_used_regs[FPSW_REGNUM] = 1;
+      fixed_regs[FPSW_REGNUM] = 1;
     }
   if (TARGET_MIPS16)
     {
@@ -20476,39 +20461,38 @@ mips_conditional_register_usage (void)
 	 and $25 (t9) because it is used as the function call address in
 	 SVR4 PIC code.  */
 
-      fixed_regs[18] = call_used_regs[18] = 1;
-      fixed_regs[19] = call_used_regs[19] = 1;
-      fixed_regs[20] = call_used_regs[20] = 1;
-      fixed_regs[21] = call_used_regs[21] = 1;
-      fixed_regs[22] = call_used_regs[22] = 1;
-      fixed_regs[23] = call_used_regs[23] = 1;
-      fixed_regs[26] = call_used_regs[26] = 1;
-      fixed_regs[27] = call_used_regs[27] = 1;
-      fixed_regs[30] = call_used_regs[30] = 1;
+      fixed_regs[18] = 1;
+      fixed_regs[19] = 1;
+      fixed_regs[20] = 1;
+      fixed_regs[21] = 1;
+      fixed_regs[22] = 1;
+      fixed_regs[23] = 1;
+      fixed_regs[26] = 1;
+      fixed_regs[27] = 1;
+      fixed_regs[30] = 1;
       if (optimize_size)
 	{
-	  fixed_regs[8] = call_used_regs[8] = 1;
-	  fixed_regs[9] = call_used_regs[9] = 1;
-	  fixed_regs[10] = call_used_regs[10] = 1;
-	  fixed_regs[11] = call_used_regs[11] = 1;
-	  fixed_regs[12] = call_used_regs[12] = 1;
-	  fixed_regs[13] = call_used_regs[13] = 1;
-	  fixed_regs[14] = call_used_regs[14] = 1;
-	  fixed_regs[15] = call_used_regs[15] = 1;
+	  fixed_regs[8] = 1;
+	  fixed_regs[9] = 1;
+	  fixed_regs[10] = 1;
+	  fixed_regs[11] = 1;
+	  fixed_regs[12] = 1;
+	  fixed_regs[13] = 1;
+	  fixed_regs[14] = 1;
+	  fixed_regs[15] = 1;
 	}
 
       /* Do not allow HI and LO to be treated as register operands.
 	 There are no MTHI or MTLO instructions (or any real need
 	 for them) and one-way registers cannot easily be reloaded.  */
-      AND_COMPL_HARD_REG_SET (operand_reg_set,
-			      reg_class_contents[(int) MD_REGS]);
+      operand_reg_set &= ~reg_class_contents[MD_REGS];
     }
   /* $f20-$f23 are call-clobbered for n64.  */
   if (mips_abi == ABI_64)
     {
       int regno;
       for (regno = FP_REG_FIRST + 20; regno < FP_REG_FIRST + 24; regno++)
-	call_really_used_regs[regno] = call_used_regs[regno] = 1;
+	call_used_regs[regno] = 1;
     }
   /* Odd registers in the range $f21-$f31 (inclusive) are call-clobbered
      for n32 and o32 FP64.  */
@@ -20518,7 +20502,7 @@ mips_conditional_register_usage (void)
     {
       int regno;
       for (regno = FP_REG_FIRST + 21; regno <= FP_REG_FIRST + 31; regno+=2)
-	call_really_used_regs[regno] = call_used_regs[regno] = 1;
+	call_used_regs[regno] = 1;
     }
   /* Make sure that double-register accumulator values are correctly
      ordered for the current endianness.  */
@@ -22190,7 +22174,7 @@ mips_hard_regno_caller_save_mode (unsigned int regno,
   /* For performance, avoid saving/restoring upper parts of a register
      by returning MODE as save mode when the mode is known.  */
   if (mode == VOIDmode)
-    return choose_hard_reg_mode (regno, nregs, false);
+    return choose_hard_reg_mode (regno, nregs, NULL);
   else
     return mode;
 }

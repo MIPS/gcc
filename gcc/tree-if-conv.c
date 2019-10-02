@@ -436,7 +436,7 @@ fold_or_predicates (location_t loc, tree c1, tree c2)
 
   if (code1 != ERROR_MARK && code2 != ERROR_MARK)
     {
-      tree t = maybe_fold_or_comparisons (code1, op1a, op1b,
+      tree t = maybe_fold_or_comparisons (boolean_type_node, code1, op1a, op1b,
 					  code2, op2a, op2b);
       if (t)
 	return t;
@@ -2141,9 +2141,7 @@ predicate_load_or_store (gimple_stmt_iterator *gsi, gassign *stmt, tree mask)
       new_stmt
 	= gimple_build_call_internal (IFN_MASK_STORE, 4, addr, ptr,
 				      mask, rhs);
-      gimple_set_vuse (new_stmt, gimple_vuse (stmt));
-      gimple_set_vdef (new_stmt, gimple_vdef (stmt));
-      SSA_NAME_DEF_STMT (gimple_vdef (new_stmt)) = new_stmt;
+      gimple_move_vops (new_stmt, stmt);
     }
   gimple_call_set_nothrow (new_stmt, true);
   return new_stmt;
@@ -3062,9 +3060,6 @@ tree_if_conversion (class loop *loop, vec<gimple *> *preds)
      on-the-fly.  */
   combine_blocks (loop);
 
-  /* Delete dead predicate computations.  */
-  ifcvt_local_dce (loop->header);
-
   /* Perform local CSE, this esp. helps the vectorizer analysis if loads
      and stores are involved.  CSE only the loop body, not the entry
      PHIs, those are to be kept in sync with the non-if-converted copy.
@@ -3073,6 +3068,9 @@ tree_if_conversion (class loop *loop, vec<gimple *> *preds)
   bitmap_set_bit (exit_bbs, single_exit (loop)->dest->index);
   bitmap_set_bit (exit_bbs, loop->latch->index);
   todo |= do_rpo_vn (cfun, loop_preheader_edge (loop), exit_bbs);
+
+  /* Delete dead predicate computations.  */
+  ifcvt_local_dce (loop->header);
   BITMAP_FREE (exit_bbs);
 
   todo |= TODO_cleanup_cfg;

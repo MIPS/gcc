@@ -181,10 +181,9 @@ static void m68k_output_dwarf_dtprel (FILE *, int, rtx) ATTRIBUTE_UNUSED;
 static void m68k_trampoline_init (rtx, tree, rtx);
 static poly_int64 m68k_return_pops_args (tree, tree, poly_int64);
 static rtx m68k_delegitimize_address (rtx);
-static void m68k_function_arg_advance (cumulative_args_t, machine_mode,
-				       const_tree, bool);
-static rtx m68k_function_arg (cumulative_args_t, machine_mode,
-			      const_tree, bool);
+static void m68k_function_arg_advance (cumulative_args_t,
+				       const function_arg_info &);
+static rtx m68k_function_arg (cumulative_args_t, const function_arg_info &);
 static bool m68k_cannot_force_const_mem (machine_mode mode, rtx x);
 static bool m68k_output_addr_const_extra (FILE *, rtx);
 static void m68k_init_sync_libfuncs (void) ATTRIBUTE_UNUSED;
@@ -945,7 +944,7 @@ m68k_save_reg (unsigned int regno, bool interrupt_handler)
       if (df_regs_ever_live_p (regno))
 	return true;
 
-      if (!crtl->is_leaf && call_used_regs[regno])
+      if (!crtl->is_leaf && call_used_or_fixed_reg_p (regno))
 	return true;
     }
 
@@ -954,7 +953,7 @@ m68k_save_reg (unsigned int regno, bool interrupt_handler)
     return false;
 
   /* Otherwise save everything that isn't call-clobbered.  */
-  return !call_used_regs[regno];
+  return !call_used_or_fixed_reg_p (regno);
 }
 
 /* Emit RTL for a MOVEM or FMOVEM instruction.  BASE + OFFSET represents
@@ -1464,23 +1463,18 @@ m68k_ok_for_sibcall_p (tree decl, tree exp)
 /* On the m68k all args are always pushed.  */
 
 static rtx
-m68k_function_arg (cumulative_args_t cum ATTRIBUTE_UNUSED,
-		   machine_mode mode ATTRIBUTE_UNUSED,
-		   const_tree type ATTRIBUTE_UNUSED,
-		   bool named ATTRIBUTE_UNUSED)
+m68k_function_arg (cumulative_args_t, const function_arg_info &)
 {
   return NULL_RTX;
 }
 
 static void
-m68k_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
-			   const_tree type, bool named ATTRIBUTE_UNUSED)
+m68k_function_arg_advance (cumulative_args_t cum_v,
+			   const function_arg_info &arg)
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
 
-  *cum += (mode != BLKmode
-	   ? (GET_MODE_SIZE (mode) + 3) & ~3
-	   : (int_size_in_bytes (type) + 3) & ~3);
+  *cum += (arg.promoted_size_in_bytes () + 3) & ~3;
 }
 
 /* Convert X to a legitimate function call memory reference and return the
@@ -6561,7 +6555,7 @@ m68k_conditional_register_usage (void)
   HARD_REG_SET x;
   if (!TARGET_HARD_FLOAT)
     {
-      COPY_HARD_REG_SET (x, reg_class_contents[(int)FP_REGS]);
+      x = reg_class_contents[FP_REGS];
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
         if (TEST_HARD_REG_BIT (x, i))
 	  fixed_regs[i] = call_used_regs[i] = 1;

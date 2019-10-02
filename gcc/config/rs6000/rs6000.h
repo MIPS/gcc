@@ -54,6 +54,13 @@
 #define TARGET_AIX_OS 0
 #endif
 
+/* Turn off TOC support if pc-relative addressing is used.  */
+#define TARGET_TOC             (TARGET_HAS_TOC && !TARGET_PCREL)
+
+/* On 32-bit systems without a TOC or pc-relative addressing, we need to use
+   ADDIS/ADDI to load up the address of a symbol.  */
+#define TARGET_NO_TOC_OR_PCREL (!TARGET_HAS_TOC && !TARGET_PCREL)
+
 /* Control whether function entry points use a "dot" symbol when
    ABI_AIX.  */
 #define DOT_SYMBOLS 1
@@ -69,6 +76,20 @@
 #else
 #define PPC405_ERRATUM77 0
 #endif
+
+#ifndef SUBTARGET_DRIVER_SELF_SPECS
+# define SUBTARGET_DRIVER_SELF_SPECS ""
+#endif
+
+/* Only for use in the testsuite: -mdejagnu-cpu= simply overrides -mcpu=.
+   With older versions of Dejagnu the command line arguments you set in
+   RUNTESTFLAGS override those set in the testcases; with this option,
+   the testcase will always win.  Ditto for -mdejagnu-tune=.  */
+#define DRIVER_SELF_SPECS \
+  "%{mdejagnu-cpu=*: %<mcpu=* -mcpu=%*}", \
+  "%{mdejagnu-tune=*: %<mtune=* -mtune=%*}", \
+  "%{mdejagnu-*: %<mdejagnu-*}", \
+   SUBTARGET_DRIVER_SELF_SPECS
 
 #if CHECKING_P
 #define ASM_OPT_ANY ""
@@ -150,6 +171,7 @@ ASM_OPT_ANY
 #define CPP_DEFAULT_SPEC ""
 
 #define ASM_DEFAULT_SPEC ""
+#define ASM_DEFAULT_EXTRA ""
 
 /* This macro defines names of additional specifications to put in the specs
    that can be used in various specifications like CC1_SPEC.  Its definition
@@ -167,7 +189,7 @@ ASM_OPT_ANY
   { "cpp_default",		CPP_DEFAULT_SPEC },			\
   { "asm_cpu",			ASM_CPU_SPEC },				\
   { "asm_cpu_native",		ASM_CPU_NATIVE_SPEC },			\
-  { "asm_default",		ASM_DEFAULT_SPEC },			\
+  { "asm_default",		ASM_DEFAULT_SPEC ASM_DEFAULT_EXTRA },	\
   { "cc1_cpu",			CC1_CPU_SPEC },				\
   SUBTARGET_EXTRA_SPECS
 
@@ -860,31 +882,6 @@ enum data_align { align_abi, align_opt, align_both };
    1, 1, 1					   \
 }
 
-/* 1 for registers not available across function calls.
-   These must include the FIXED_REGISTERS and also any
-   registers that can be used without being saved.
-   The latter must include the registers where values are returned
-   and the register where structure-value addresses are passed.
-   Aside from that, you can include as many other registers as you like.  */
-
-#define CALL_USED_REGISTERS  \
-  {/* GPRs */					   \
-   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, FIXED_R13, 0, 0, \
-   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-   /* FPRs */					   \
-   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, \
-   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-   /* VRs */					   \
-   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-   /* lr ctr ca ap */				   \
-   1, 1, 1, 1,					   \
-   /* cr0..cr7 */				   \
-   1, 1, 0, 0, 0, 1, 1, 1,			   \
-   /* vrsave vscr sfp */			   \
-   1, 1, 1					   \
-}
-
 /* Like `CALL_USED_REGISTERS' except this macro doesn't require that
    the entire set of `FIXED_REGISTERS' be included.
    (`CALL_USED_REGISTERS' must be a superset of `FIXED_REGISTERS').
@@ -1041,7 +1038,7 @@ enum data_align { align_abi, align_opt, align_both };
    ? DFmode								\
    : (MODE) == TDmode && FP_REGNO_P (REGNO)				\
    ? DImode								\
-   : choose_hard_reg_mode ((REGNO), (NREGS), false))
+   : choose_hard_reg_mode ((REGNO), (NREGS), NULL))
 
 #define VSX_VECTOR_MODE(MODE)		\
 	 ((MODE) == V4SFmode		\
@@ -2550,3 +2547,24 @@ typedef struct GTY(()) machine_function
   IN_RANGE ((VALUE),							\
 	    -(HOST_WIDE_INT_1 << 33),					\
 	    (HOST_WIDE_INT_1 << 33) - 1 - (EXTRA))
+
+/* Define this if some processing needs to be done before outputting the
+   assembler code.  On the PowerPC, we remember if the current insn is a normal
+   prefixed insn where we need to emit a 'p' before the insn.  */
+#define FINAL_PRESCAN_INSN(INSN, OPERANDS, NOPERANDS)			\
+do									\
+  {									\
+    if (TARGET_PREFIXED_ADDR)						\
+      rs6000_final_prescan_insn (INSN, OPERANDS, NOPERANDS);		\
+  }									\
+while (0)
+
+/* Do anything special before emitting an opcode.  We use it to emit a 'p' for
+   prefixed insns that is set in FINAL_PRESCAN_INSN.  */
+#define ASM_OUTPUT_OPCODE(STREAM, OPCODE)				\
+  do									\
+    {									\
+     if (TARGET_PREFIXED_ADDR)						\
+       rs6000_asm_output_opcode (STREAM);				\
+    }									\
+  while (0)

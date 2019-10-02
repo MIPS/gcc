@@ -2972,6 +2972,17 @@ expand_unop (machine_mode mode, optab unoptab, rtx op0, rtx target,
       return target;
     }
 
+  /* Emit ~op0 as op0 ^ -1.  */
+  if (unoptab == one_cmpl_optab
+      && (SCALAR_INT_MODE_P (mode) || GET_MODE_CLASS (mode) == MODE_VECTOR_INT)
+      && optab_handler (xor_optab, mode) != CODE_FOR_nothing)
+    {
+      temp = expand_binop (mode, xor_optab, op0, CONSTM1_RTX (mode),
+			   target, unsignedp, OPTAB_DIRECT);
+      if (temp)
+	return temp;
+    }
+
   if (optab_to_code (unoptab) == NEG)
     {
       /* Try negating floating point values by flipping the sign bit.  */
@@ -3727,7 +3738,7 @@ emit_libcall_block_1 (rtx_insn *insns, rtx target, rtx result, rtx equiv,
 	  data.first = insns;
 	  data.insn = insn;
 	  data.must_stay = 0;
-	  note_stores (PATTERN (insn), no_conflict_move_test, &data);
+	  note_stores (insn, no_conflict_move_test, &data);
 	  if (! data.must_stay)
 	    {
 	      if (PREV_INSN (insn))
@@ -5857,6 +5868,25 @@ expand_vec_cond_expr (tree vec_cond_type, tree op0, tree op1, tree op2,
   icode = get_vcond_icode (mode, cmp_op_mode, unsignedp);
   if (icode == CODE_FOR_nothing)
     {
+      if (tcode == LT_EXPR
+	  && op0a == op0
+	  && TREE_CODE (op0) == VECTOR_CST)
+	{
+	  /* A VEC_COND_EXPR condition could be folded from EQ_EXPR/NE_EXPR
+	     into a constant when only get_vcond_eq_icode is supported.
+	     Verify < 0 and != 0 behave the same and change it to NE_EXPR.  */
+	  unsigned HOST_WIDE_INT nelts;
+	  if (!VECTOR_CST_NELTS (op0).is_constant (&nelts))
+	    {
+	      if (VECTOR_CST_STEPPED_P (op0))
+		return 0;
+	      nelts = vector_cst_encoded_nelts (op0);
+	    }
+	  for (unsigned int i = 0; i < nelts; ++i)
+	    if (tree_int_cst_sgn (vector_cst_elt (op0, i)) == 1)
+	      return 0;
+	  tcode = NE_EXPR;
+	}
       if (tcode == EQ_EXPR || tcode == NE_EXPR)
 	icode = get_vcond_eq_icode (mode, cmp_op_mode);
       if (icode == CODE_FOR_nothing)
@@ -6448,7 +6478,7 @@ expand_atomic_compare_and_swap (rtx *ptarget_bool, rtx *ptarget_oval,
       /* Otherwise, work out if the compare-and-swap succeeded.  */
       cc_reg = NULL_RTX;
       if (have_insn_for (COMPARE, CCmode))
-	note_stores (PATTERN (get_last_insn ()), find_cc_set, &cc_reg);
+	note_stores (get_last_insn (), find_cc_set, &cc_reg);
       if (cc_reg)
 	{
 	  target_bool = emit_store_flag_force (target_bool, EQ, cc_reg,
@@ -7201,7 +7231,7 @@ static bool
 maybe_legitimize_operand (enum insn_code icode, unsigned int opno,
 			  class expand_operand *op)
 {
-  machine_mode mode, imode;
+  machine_mode mode, imode, tmode;
 
   mode = op->mode;
   switch (op->type)
@@ -7248,9 +7278,17 @@ maybe_legitimize_operand (enum insn_code icode, unsigned int opno,
 	gcc_assert (mode != VOIDmode);
 
       imode = insn_data[(int) icode].operand[opno].mode;
+      tmode = (VECTOR_MODE_P (imode) && !VECTOR_MODE_P (mode)
+	       ? GET_MODE_INNER (imode) : imode);
+      if (tmode != VOIDmode && tmode != mode)
+	{
+	  op->value = convert_modes (tmode, mode, op->value, op->unsigned_p);
+	  mode = tmode;
+	}
       if (imode != VOIDmode && imode != mode)
 	{
-	  op->value = convert_modes (imode, mode, op->value, op->unsigned_p);
+	  gcc_assert (VECTOR_MODE_P (imode) && !VECTOR_MODE_P (mode));
+	  op->value = expand_vector_broadcast (imode, op->value);
 	  mode = imode;
 	}
       goto input;

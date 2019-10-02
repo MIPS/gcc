@@ -986,24 +986,24 @@ warn_types_mismatch (tree t1, tree t2, location_t loc1, location_t loc2)
       || (type_with_linkage_p (TYPE_MAIN_VARIANT (t2))
 	  && type_in_anonymous_namespace_p (TYPE_MAIN_VARIANT (t2))))
     {
-      if (type_with_linkage_p (TYPE_MAIN_VARIANT (t1))
-	  && !type_in_anonymous_namespace_p (TYPE_MAIN_VARIANT (t1)))
+      if (!type_with_linkage_p (TYPE_MAIN_VARIANT (t1))
+	  || !type_in_anonymous_namespace_p (TYPE_MAIN_VARIANT (t1)))
 	{
 	  std::swap (t1, t2);
 	  std::swap (loc_t1, loc_t2);
 	}
-      gcc_assert (TYPE_NAME (t1) && TYPE_NAME (t2)
-		  && TREE_CODE (TYPE_NAME (t1)) == TYPE_DECL
-		  && TREE_CODE (TYPE_NAME (t2)) == TYPE_DECL);
+      gcc_assert (TYPE_NAME (t1)
+		  && TREE_CODE (TYPE_NAME (t1)) == TYPE_DECL);
       tree n1 = TYPE_NAME (t1);
-      tree n2 = TYPE_NAME (t2);
+      tree n2 = TYPE_NAME (t2) ? TYPE_NAME (t2) : NULL;
+
       if (TREE_CODE (n1) == TYPE_DECL)
 	n1 = DECL_NAME (n1);
-      if (TREE_CODE (n2) == TYPE_DECL)
+      if (n2 && TREE_CODE (n2) == TYPE_DECL)
 	n2 = DECL_NAME (n2);
       /* Most of the time, the type names will match, do not be unnecesarily
          verbose.  */
-      if (IDENTIFIER_POINTER (n1) != IDENTIFIER_POINTER (n2))
+      if (n1 != n2)
         inform (loc_t1,
 	        "type %qT defined in anonymous namespace cannot match "
 	        "type %qT across the translation unit boundary",
@@ -1613,7 +1613,7 @@ add_type_duplicate (odr_type val, tree type)
   val->types_set->add (type);
 
   if (!odr_hash)
-    return NULL;
+    return false;
 
   gcc_checking_assert (can_be_name_hashed_p (type)
 		       && can_be_name_hashed_p (val->type));
@@ -3426,12 +3426,10 @@ possible_polymorphic_call_target_p (tree otr_type,
 {
   vec <cgraph_node *> targets;
   unsigned int i;
-  enum built_in_function fcode;
   bool final;
 
-  if (TREE_CODE (TREE_TYPE (n->decl)) == FUNCTION_TYPE
-      && ((fcode = DECL_FUNCTION_CODE (n->decl)) == BUILT_IN_UNREACHABLE
-          || fcode == BUILT_IN_TRAP))
+  if (fndecl_built_in_p (n->decl, BUILT_IN_UNREACHABLE)
+      || fndecl_built_in_p (n->decl, BUILT_IN_TRAP))
     return true;
 
   if (is_cxa_pure_virtual_p (n->decl))
@@ -3526,7 +3524,7 @@ likely_target_p (struct cgraph_node *n)
 /* Compare type warning records P1 and P2 and choose one with larger count;
    helper for qsort.  */
 
-int
+static int
 type_warning_cmp (const void *p1, const void *p2)
 {
   const odr_type_warn_count *t1 = (const odr_type_warn_count *)p1;
@@ -3542,7 +3540,7 @@ type_warning_cmp (const void *p1, const void *p2)
 /* Compare decl warning records P1 and P2 and choose one with larger count;
    helper for qsort.  */
 
-int
+static int
 decl_warning_cmp (const void *p1, const void *p2)
 {
   const decl_warn_count *t1 = *(const decl_warn_count * const *)p1;

@@ -140,6 +140,8 @@ DEF_INTERNAL_OPTAB_FN (WHILE_ULT, ECF_CONST | ECF_NOTHROW, while_ult, while)
 DEF_INTERNAL_OPTAB_FN (VEC_SHL_INSERT, ECF_CONST | ECF_NOTHROW,
 		       vec_shl_insert, binary)
 
+DEF_INTERNAL_OPTAB_FN (DIV_POW2, ECF_CONST | ECF_NOTHROW, sdiv_pow2, binary)
+
 DEF_INTERNAL_OPTAB_FN (FMS, ECF_CONST, fms, ternary)
 DEF_INTERNAL_OPTAB_FN (FNMA, ECF_CONST, fnma, ternary)
 DEF_INTERNAL_OPTAB_FN (FNMS, ECF_CONST, fnms, ternary)
@@ -148,6 +150,11 @@ DEF_INTERNAL_SIGNED_OPTAB_FN (AVG_FLOOR, ECF_CONST | ECF_NOTHROW, first,
 			      savg_floor, uavg_floor, binary)
 DEF_INTERNAL_SIGNED_OPTAB_FN (AVG_CEIL, ECF_CONST | ECF_NOTHROW, first,
 			      savg_ceil, uavg_ceil, binary)
+
+DEF_INTERNAL_SIGNED_OPTAB_FN (MULHS, ECF_CONST | ECF_NOTHROW, first,
+			      smulhs, umulhs, binary)
+DEF_INTERNAL_SIGNED_OPTAB_FN (MULHRS, ECF_CONST | ECF_NOTHROW, first,
+			      smulhrs, umulhrs, binary)
 
 DEF_INTERNAL_OPTAB_FN (COND_ADD, ECF_CONST, cond_add, cond_binary)
 DEF_INTERNAL_OPTAB_FN (COND_SUB, ECF_CONST, cond_sub, cond_binary)
@@ -167,6 +174,10 @@ DEF_INTERNAL_OPTAB_FN (COND_IOR, ECF_CONST | ECF_NOTHROW,
 		       cond_ior, cond_binary)
 DEF_INTERNAL_OPTAB_FN (COND_XOR, ECF_CONST | ECF_NOTHROW,
 		       cond_xor, cond_binary)
+DEF_INTERNAL_OPTAB_FN (COND_SHL, ECF_CONST | ECF_NOTHROW,
+		       cond_ashl, cond_binary)
+DEF_INTERNAL_SIGNED_OPTAB_FN (COND_SHR, ECF_CONST | ECF_NOTHROW, first,
+			      cond_ashr, cond_lshr, cond_binary)
 
 DEF_INTERNAL_OPTAB_FN (COND_FMA, ECF_CONST, cond_fma, cond_ternary)
 DEF_INTERNAL_OPTAB_FN (COND_FMS, ECF_CONST, cond_fms, cond_ternary)
@@ -234,6 +245,7 @@ DEF_INTERNAL_FLT_FLOATN_FN (FLOOR, ECF_CONST, floor, unary)
 DEF_INTERNAL_FLT_FLOATN_FN (NEARBYINT, ECF_CONST, nearbyint, unary)
 DEF_INTERNAL_FLT_FLOATN_FN (RINT, ECF_CONST, rint, unary)
 DEF_INTERNAL_FLT_FLOATN_FN (ROUND, ECF_CONST, round, unary)
+DEF_INTERNAL_FLT_FLOATN_FN (ROUNDEVEN, ECF_CONST, roundeven, unary)
 DEF_INTERNAL_FLT_FLOATN_FN (TRUNC, ECF_CONST, btrunc, unary)
 
 /* Binary math functions.  */

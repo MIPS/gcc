@@ -168,11 +168,13 @@ c_diagnostic_finalizer (diagnostic_context *context,
 			diagnostic_info *diagnostic,
 			diagnostic_t)
 {
+  char *saved_prefix = pp_take_prefix (context->printer);
+  pp_set_prefix (context->printer, NULL);
   diagnostic_show_locus (context, diagnostic->richloc, diagnostic->kind);
   /* By default print macro expansion contexts in the diagnostic
      finalizer -- for tokens resulting from macro expansion.  */
   virt_loc_aware_diagnostic_finalizer (context, diagnostic);
-  pp_destroy_prefix (context->printer);
+  pp_set_prefix (context->printer, saved_prefix);
   pp_flush (context->printer);
 }
 
@@ -501,12 +503,6 @@ c_common_handle_option (size_t scode, const char *arg, HOST_WIDE_INT value,
 	cpp_opts->track_macro_expansion = 2;
       break;
 
-    case OPT_frepo:
-      flag_use_repository = value;
-      if (value)
-	flag_implicit_templates = 0;
-      break;
-
     case OPT_ftabstop_:
       /* It is documented that we silently ignore silly values.  */
       if (value >= 1 && value <= 100)
@@ -800,14 +796,13 @@ c_common_post_options (const char **pfilename)
      support.  */
   if (c_dialect_cxx ())
     {
-      if (flag_excess_precision_cmdline == EXCESS_PRECISION_STANDARD)
+      if (flag_excess_precision == EXCESS_PRECISION_STANDARD)
 	sorry ("%<-fexcess-precision=standard%> for C++");
-      flag_excess_precision_cmdline = EXCESS_PRECISION_FAST;
+      flag_excess_precision = EXCESS_PRECISION_FAST;
     }
-  else if (flag_excess_precision_cmdline == EXCESS_PRECISION_DEFAULT)
-    flag_excess_precision_cmdline = (flag_iso
-				     ? EXCESS_PRECISION_STANDARD
-				     : EXCESS_PRECISION_FAST);
+  else if (flag_excess_precision == EXCESS_PRECISION_DEFAULT)
+    flag_excess_precision = (flag_iso ? EXCESS_PRECISION_STANDARD
+				      : EXCESS_PRECISION_FAST);
 
   /* ISO C restricts floating-point expression contraction to within
      source-language expressions (-ffp-contract=on, currently an alias
@@ -915,6 +910,14 @@ c_common_post_options (const char **pfilename)
   /* -Wregister is enabled by default in C++17.  */
   if (!global_options_set.x_warn_register)
     warn_register = cxx_dialect >= cxx17;
+
+  /* -Wcomma-subscript is enabled by default in C++20.  */
+  if (!global_options_set.x_warn_comma_subscript)
+    warn_comma_subscript = (cxx_dialect >= cxx2a && warn_deprecated);
+
+  /* -Wvolatile is enabled by default in C++20.  */
+  if (!global_options_set.x_warn_volatile)
+    warn_volatile = (cxx_dialect >= cxx2a && warn_deprecated);
 
   /* Declone C++ 'structors if -Os.  */
   if (flag_declone_ctor_dtor == -1)
