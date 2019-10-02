@@ -1783,7 +1783,7 @@ tsubst_nested_requirement (tree t, tree args, subst_info info)
 static tree
 tsubst_requirement (tree t, tree args, subst_info info)
 {
-  temp_override<location_t> loc_s (input_location, cp_expr_location (t));
+  iloc_sentinel loc_s (cp_expr_location (t));
   switch (TREE_CODE (t))
     {
     case SIMPLE_REQ:
@@ -2905,7 +2905,7 @@ diagnose_nested_requirement (tree req, tree args)
 static void
 diagnose_requirement (tree req, tree args, tree in_decl)
 {
-  temp_override<location_t> loc_s (input_location, cp_expr_location (req));
+  iloc_sentinel loc_s (cp_expr_location (req));
   switch (TREE_CODE (req))
     {
     case SIMPLE_REQ:
@@ -2963,7 +2963,7 @@ diagnose_atomic_constraint (tree t, tree args, subst_info info)
     }
 
   location_t loc = get_constraint_error_location (t);
-  temp_override<location_t> loc_s (input_location, loc);
+  iloc_sentinel loc_s (loc);
 
   /* Generate better diagnostics for certain kinds of expressions.  */
   tree expr = ATOMIC_CONSTR_EXPR (t);
