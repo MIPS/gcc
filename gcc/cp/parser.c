@@ -26979,7 +26979,7 @@ cp_parser_concept_definition (cp_parser *parser)
       return error_mark_node;
     }
 
-  parsing_constraint_expression_sentinel parsing_constraint;
+  processing_constraint_expression_sentinel parsing_constraint;
   tree init = cp_parser_constraint_expression (parser);
   if (init == error_mark_node)
     cp_parser_skip_to_end_of_statement (parser);
@@ -27190,7 +27190,7 @@ cp_parser_constraint_logical_or_expression (cp_parser *parser)
 static tree
 cp_parser_requires_clause_expression (cp_parser *parser)
 {
-  parsing_constraint_expression_sentinel parsing_constraint;
+  processing_constraint_expression_sentinel parsing_constraint;
   ++processing_template_decl;
   cp_expr expr = cp_parser_constraint_logical_or_expression (parser);
   if (check_for_bare_parameter_packs (expr))
@@ -27211,7 +27211,7 @@ cp_parser_requires_clause_expression (cp_parser *parser)
 static tree
 cp_parser_constraint_expression (cp_parser *parser)
 {
-  parsing_constraint_expression_sentinel parsing_constraint;
+  processing_constraint_expression_sentinel parsing_constraint;
   ++processing_template_decl;
   cp_expr expr = cp_parser_binary_expression (parser, false, true,
 					      PREC_NOT_OPERATOR, NULL);

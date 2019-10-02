@@ -48,24 +48,26 @@ along with GCC; see the file COPYING3.  If not see
 
 static tree satisfaction_value (tree t);
 
-static int parsing_constraint_expr = 0;
+/* When we're parsing or substuting a constraint expression, we have slightly
+   different expression semantics.  In particular, we don't want to reduce a
+   concept-id to a satisfaction value.  */
 
-parsing_constraint_expression_sentinel::
-parsing_constraint_expression_sentinel ()
+processing_constraint_expression_sentinel::
+processing_constraint_expression_sentinel ()
 {
-  ++parsing_constraint_expr;
+  ++scope_chain->x_processing_constraint;
 }
 
-parsing_constraint_expression_sentinel::
-~parsing_constraint_expression_sentinel ()
+processing_constraint_expression_sentinel::
+~processing_constraint_expression_sentinel ()
 {
-  --parsing_constraint_expr;
+  --scope_chain->x_processing_constraint;
 }
 
 bool
-parsing_constraint_expression_p ()
+processing_constraint_expression_p ()
 {
-  return parsing_constraint_expr != 0;
+  return scope_chain->x_processing_constraint != 0;
 }
 
 /*---------------------------------------------------------------------------
@@ -145,7 +147,7 @@ finish_constraint_binary_op (location_t loc,
 			     cp_expr lhs,
 			     cp_expr rhs)
 {
-  gcc_assert (parsing_constraint_expression_p ());
+  gcc_assert (processing_constraint_expression_p ());
   if (lhs == error_mark_node || rhs == error_mark_node)
     return error_mark_node;
   if (!check_constraint_operands (loc, lhs, rhs))
@@ -189,7 +191,7 @@ finish_constraint_primary_expr (cp_expr expr)
 tree
 combine_constraint_expressions (tree lhs, tree rhs)
 {
-  parsing_constraint_expression_sentinel pce;
+  processing_constraint_expression_sentinel pce;
   if (!lhs)
     return rhs;
   if (!rhs)
@@ -2017,31 +2019,16 @@ tsubst_parameter_mapping (tree map, tree args, tsubst_flags_t complain, tree in_
                         Constraint satisfaction
 ---------------------------------------------------------------------------*/
 
-static int satisfying_constraint = 0;
-
-/* Returns true if we are currently satisfying a constraint.
-
-   This is used to guard against recursive calls to evaluate_concept_check
-   during template argument substitution.
-
-   TODO: Do we need this now that we fully normalize prior to evaluation?
-   I think not. */
-
-bool
-satisfying_constraint_p ()
-{
-  return satisfying_constraint;
-}
-
-/* We also don't want to evaluate concept-checks when substituting the
-   constraint-expressions of a declaration.  */
+/* Substitute ARGS into constraint-expression T during instantiation of
+   a member of a class template.  */
 
 tree
 tsubst_constraint (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 {
-  ++satisfying_constraint;
+  /* We also don't want to evaluate concept-checks when substituting the
+     constraint-expressions of a declaration.  */
+  processing_constraint_expression_sentinel s;
   tree expr = tsubst_expr (t, args, complain, in_decl, false);
-  --satisfying_constraint;
   return expr;
 }
 

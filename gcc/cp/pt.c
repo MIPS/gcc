@@ -18602,8 +18602,6 @@ tsubst_lambda_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
   return r;
 }
 
-extern int satisfying_constraint;
-
 /* Like tsubst but deals with expressions and performs semantic
    analysis.  FUNCTION_P is true if T is the "F" in "F (ARGS)".  */
 
@@ -18718,7 +18716,8 @@ tsubst_copy_and_build (tree t,
 
 	    /* Evaluate the concept, if needed.  */
 	    tree args = TREE_OPERAND (id, 1);
-	    if (!uses_template_parms (args) && !satisfying_constraint_p ())
+	    if (!uses_template_parms (args)
+		&& !processing_constraint_expression_p ())
 	      RETURN (evaluate_concept_check (check, complain));
 
 	    RETURN (check);
@@ -19503,7 +19502,8 @@ tsubst_copy_and_build (tree t,
 	    ret = build_concept_check (tmpl, args, tf_warning_or_error);
 
 	    /* Possibly evaluate the check if it is non-dependent.   */
-	    if (!uses_template_parms (args) && !satisfying_constraint_p ())
+	    if (!uses_template_parms (args)
+		&& !processing_constraint_expression_p ())
 	      ret = evaluate_concept_check (ret, complain);
 	  }
 	else
@@ -27054,9 +27054,9 @@ build_non_dependent_expr (tree expr)
       /* Don't do this during nsdmi parsing as it can lead to
 	 unexpected recursive instantiations.  */
       && !parsing_nsdmi ()
-      /* Don't do this during concept expansion either and for
+      /* Don't do this during concept processing either and for
          the same reason.  */
-      && !parsing_constraint_expression_p ())
+      && !processing_constraint_expression_p ())
     fold_non_dependent_expr (expr);
 
   STRIP_ANY_LOCATION_WRAPPER (expr);

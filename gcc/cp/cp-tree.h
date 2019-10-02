@@ -1654,6 +1654,7 @@ struct GTY(()) saved_scope {
 
   int x_processing_template_decl;
   int x_processing_specialization;
+  int x_processing_constraint;
   int suppress_location_wrappers;
   BOOL_BITFIELD x_processing_explicit_instantiation : 1;
   BOOL_BITFIELD need_pop_function_context : 1;
@@ -7722,14 +7723,13 @@ extern tree tsubst_constraint_info              (tree, tree, tsubst_flags_t, tre
 extern tree tsubst_parameter_mapping		(tree, tree, tsubst_flags_t, tree);
 extern tree get_mapped_args			(tree);
 
-struct parsing_constraint_expression_sentinel
+struct processing_constraint_expression_sentinel
 {
-  parsing_constraint_expression_sentinel ();
-  ~parsing_constraint_expression_sentinel ();
+  processing_constraint_expression_sentinel ();
+  ~processing_constraint_expression_sentinel ();
 };
 
-extern bool parsing_constraint_expression_p	();
-extern bool satisfying_constraint_p		();
+extern bool processing_constraint_expression_p	();
 
 extern tree unpack_concept_check		(tree);
 extern tree evaluate_concept_check              (tree, tsubst_flags_t);
