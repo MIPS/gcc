@@ -213,6 +213,8 @@ unpack_concept_check (tree t)
   return t;
 }
 
+/* Extract the TEMPLATE_DECL from a concept check.  */
+
 tree
 get_concept_check_template (tree t)
 {
@@ -272,7 +274,7 @@ resolve_function_concept_overload (tree ovl, tree args)
     {
       tree tmpl = *iter;
       if (TREE_CODE (tmpl) != TEMPLATE_DECL)
-	continue;
+        continue;
 
       /* Don't try to deduce checks for non-concepts. We often end up trying
          to resolve constraints in functional casts as part of a
@@ -732,7 +734,8 @@ get_normalized_constraints (tree t, tree args, norm_info info)
    to which the constraints belong.  */
 
 static tree
-get_normalized_constraints_from_info (tree ci, tree args, tree in_decl, bool diag = false)
+get_normalized_constraints_from_info (tree ci, tree args, tree in_decl,
+				      bool diag = false)
 {
   if (ci == NULL_TREE)
     return NULL_TREE;
@@ -740,7 +743,8 @@ get_normalized_constraints_from_info (tree ci, tree args, tree in_decl, bool dia
   /* Substitution errors during normalization are fatal.  */
   ++processing_template_decl;
   norm_info info (in_decl, diag ? tf_norm : tf_none);
-  tree t = get_normalized_constraints (CI_ASSOCIATED_CONSTRAINTS (ci), args, info);
+  tree t = get_normalized_constraints (CI_ASSOCIATED_CONSTRAINTS (ci),
+				       args, info);
   --processing_template_decl;
 
   return t;
@@ -795,7 +799,7 @@ get_normalized_constraints_from_decl (tree d, bool diag = false)
       tmpl = most_general_template (tmpl);
   }
 
-  /* If we're diagnosing errors, use cached constraints, if any.  */
+  /* If we're not diagnosing errors, use cached constraints, if any.  */
   if (!diag)
     if (tree *p = hash_map_safe_get (normalized_map, tmpl))
       return *p;
@@ -1017,8 +1021,8 @@ build_function_check (tree tmpl, tree args, tsubst_flags_t /*complain*/)
 {
   if (TREE_CODE (tmpl) == TEMPLATE_DECL)
     {
-      /* If we just got a template, Wrap it in an overload, so its going
-         to like any other template-id. */
+      /* If we just got a template, wrap it in an overload so it looks like any
+	 other template-id. */
       tmpl = ovl_make (tmpl);
       TREE_TYPE (tmpl) = boolean_type_node;
     }
@@ -1482,8 +1486,8 @@ finish_template_introduction (tree tmpl_decl,
   for (int i = 0; i < TREE_VEC_LENGTH (parm_list); ++i)
     if (TREE_VALUE (TREE_VEC_ELT (parm_list, i)) == error_mark_node)
       {
-	end_template_decl ();
-	return error_mark_node;
+        end_template_decl ();
+        return error_mark_node;
       }
 
   /* Build a concept check for our constraint.  */
@@ -1531,8 +1535,8 @@ placeholder_extract_concept_and_args (tree t, tree &tmpl, tree &args)
   if (TREE_CODE (t) == TYPE_DECL)
     {
       /* A constrained parameter.  Build a constraint check
-	 based on the prototype parameter and then extract the
-	 arguments from that.  */
+         based on the prototype parameter and then extract the
+         arguments from that.  */
       tree proto = CONSTRAINED_PARM_PROTOTYPE (t);
       tree check = finish_shorthand_constraint (proto, t);
       placeholder_extract_concept_and_args (check, tmpl, args);
@@ -1690,7 +1694,8 @@ static bool
 expression_convertible_p (tree expr, tree type, subst_info info)
 {
   tree conv =
-    perform_direct_initialization_if_possible (type, expr, false, info.complain);
+    perform_direct_initialization_if_possible (type, expr, false,
+					       info.complain);
   if (conv == error_mark_node)
     return false;
   if (conv == NULL_TREE)
@@ -2560,7 +2565,7 @@ check_function_concept (tree fn)
 	    error_at (loc, "definition of concept %qD is empty", fn);
 	}
       else
-	error_at (loc, "definition of concept %qD has multiple statements", fn);
+        error_at (loc, "definition of concept %qD has multiple statements", fn);
     }
 
   return NULL_TREE;
