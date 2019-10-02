@@ -805,7 +805,7 @@ get_normalized_constraints_from_decl (tree d, bool diag = false)
   tree norm = get_normalized_constraints_from_info (ci, args, tmpl, diag);
 
   if (!diag)
-    hash_map_safe_put (normalized_map, tmpl, norm);
+    hash_map_safe_put<hm_ggc> (normalized_map, tmpl, norm);
 
   return norm;
 }
@@ -827,7 +827,7 @@ normalize_concept_definition (tree tmpl)
   norm_info info (tmpl, tf_none);
   tree norm = get_normalized_constraints (def, args, info);
   --processing_template_decl;
-  hash_map_safe_put (normalized_map, tmpl, norm);
+  hash_map_safe_put<hm_ggc> (normalized_map, tmpl, norm);
   return norm;
 }
 

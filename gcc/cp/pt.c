@@ -7530,21 +7530,6 @@ coerce_template_args_for_ttp (tree templ, tree arglist,
 /* A cache of template template parameters with match-all default
    arguments.  */
 static GTY((deletable)) hash_map<tree,tree> *defaulted_ttp_cache;
-static void
-store_defaulted_ttp (tree v, tree t)
-{
-  if (!defaulted_ttp_cache)
-    defaulted_ttp_cache = hash_map<tree,tree>::create_ggc (13);
-  defaulted_ttp_cache->put (v, t);
-}
-static tree
-lookup_defaulted_ttp (tree v)
-{
-  if (defaulted_ttp_cache)
-    if (tree *p = defaulted_ttp_cache->get (v))
-      return *p;
-  return NULL_TREE;
-}
 
 /* T is a bound template template-parameter.  Copy its arguments into default
    arguments of the template template-parameter's template parameters.  */
@@ -7552,8 +7537,8 @@ lookup_defaulted_ttp (tree v)
 static tree
 add_defaults_to_ttp (tree otmpl)
 {
-  if (tree c = lookup_defaulted_ttp (otmpl))
-    return c;
+  if (tree *c = hash_map_safe_get (defaulted_ttp_cache, otmpl))
+    return *c;
 
   tree ntmpl = copy_node (otmpl);
 
@@ -7583,7 +7568,7 @@ add_defaults_to_ttp (tree otmpl)
 	}
     }
 
-  store_defaulted_ttp (otmpl, ntmpl);
+  hash_map_safe_put<hm_ggc> (defaulted_ttp_cache, otmpl, ntmpl);
   return ntmpl;
 }
 
@@ -28540,7 +28525,7 @@ set_constraints (tree t, tree ci)
   gcc_assert (t && flag_concepts);
   if (TREE_CODE (t) == TEMPLATE_DECL)
     t = DECL_TEMPLATE_RESULT (t);
-  bool found = hash_map_safe_put (decl_constraints, t, ci);
+  bool found = hash_map_safe_put<hm_ggc> (decl_constraints, t, ci);
   gcc_assert (!found);
 }
 
