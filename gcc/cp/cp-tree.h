@@ -7732,7 +7732,7 @@ extern bool parsing_constraint_expression_p	();
 extern bool satisfying_constraint_p		();
 
 extern tree unpack_concept_check		(tree);
-extern tree evaluate_concept_check              (tree);
+extern tree evaluate_concept_check              (tree, tsubst_flags_t);
 extern tree satisfy_constraint_expression	(tree);
 extern bool constraints_satisfied_p             (tree);
 extern bool constraints_satisfied_p             (tree, tree);

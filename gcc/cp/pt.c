@@ -18719,7 +18719,7 @@ tsubst_copy_and_build (tree t,
 	    /* Evaluate the concept, if needed.  */
 	    tree args = TREE_OPERAND (id, 1);
 	    if (!uses_template_parms (args) && !satisfying_constraint_p ())
-	      RETURN (evaluate_concept_check (check));
+	      RETURN (evaluate_concept_check (check, complain));
 
 	    RETURN (check);
 	  }
@@ -19504,7 +19504,7 @@ tsubst_copy_and_build (tree t,
 
 	    /* Possibly evaluate the check if it is non-dependent.   */
 	    if (!uses_template_parms (args) && !satisfying_constraint_p ())
-	      ret = evaluate_concept_check (ret);
+	      ret = evaluate_concept_check (ret, complain);
 	  }
 	else
 	  {

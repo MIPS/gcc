@@ -2608,7 +2608,7 @@ finish_call_expr (tree fn, vec<tree, va_gc> **args, bool disallow_virtual,
 
       /* Evaluate the check if it is non-dependent.   */
       if (!uses_template_parms (args))
-	result = evaluate_concept_check (result);
+	result = evaluate_concept_check (result, complain);
     }
   else if (is_overloaded_fn (fn))
     {
@@ -3888,7 +3888,7 @@ finish_id_expression_1 (tree id_expression,
 	  tree tmpl = TREE_OPERAND (decl, 0);
 	  tree args = TREE_OPERAND (decl, 1);
 	  if (!function_concept_p (tmpl) && !uses_template_parms (args))
-	    decl = evaluate_concept_check (decl);
+	    decl = evaluate_concept_check (decl, tf_warning_or_error);
 	}
       else if (scope)
 	{
@@ -3970,7 +3970,7 @@ finish_id_expression_1 (tree id_expression,
 	  tree tmpl = TREE_OPERAND (decl, 0);
 	  tree args = TREE_OPERAND (decl, 1);
 	  if (!function_concept_p (tmpl) && !uses_template_parms (args))
-	    decl = evaluate_concept_check (decl);
+	    decl = evaluate_concept_check (decl, tf_warning_or_error);
 	}
       else
 	{

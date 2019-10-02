@@ -2300,7 +2300,16 @@ static tree
 satisfy_constraint_expression (tree expr, tree args, subst_info info)
 {
   /* Normalize the expression before satisfaction testing.  */
-  tree norm = normalize_constraint_expression (expr);
+  tree norm;
+  if (args == NULL_TREE && concept_check_p (expr))
+    {
+      tree id = unpack_concept_check (expr);
+      args = TREE_OPERAND (id, 1);
+      tree tmpl = get_concept_check_template (id);
+      norm = normalize_concept_definition (tmpl);
+    }
+  else
+    norm = normalize_constraint_expression (expr);
   return satisfy_constraint (norm, args, info);
 }
 
@@ -2435,30 +2444,24 @@ constraints_satisfied_p (tree t, tree args)
    check. If satisfaction yields a hard error, diagnose the error.  */
 
 tree
-evaluate_concept_check (tree check)
+evaluate_concept_check (tree check, tsubst_flags_t complain)
 {
-  // FIXME: This is the same as satisfy_constraint_expression.
+  /* FIXME we ought to be able to pass complain into subst_info rather
+     than repeat satisfaction, but currently that will complain about
+     non-satisfaction as well as errors.  */
   if (check == error_mark_node)
     return error_mark_node;
 
   gcc_assert (concept_check_p (check));
 
-  /* If the arguments are dependent in any way, preserve the check.  */
-  tree id = unpack_concept_check (check);
-  tree args = TREE_OPERAND (id, 1);
-  if (uses_template_parms (args))
-    return check;
-
-  /* Get the normalized expression.  */
-  tree norm = normalize_concept_definition (TREE_OPERAND (id, 0));
-
   subst_info info (tf_none, NULL_TREE);
-  tree result = satisfy_constraint (norm, args, info);
-  if (result == error_mark_node)
+  tree result = satisfy_constraint_expression (check, NULL_TREE, info);
+  if (result == error_mark_node && (complain & tf_error))
     {
-      /* TODO: Improve the diagnostic by replaying it?  */
-      location_t loc = EXPR_LOC_OR_LOC (check, input_location);
+      location_t loc = cp_expr_loc_or_input_loc (check);
       error_at (loc, "concept satisfaction failed");
+      info.complain = complain;
+      satisfy_constraint_expression (check, NULL_TREE, info);
     }
 
   return result;
