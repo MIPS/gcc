@@ -1636,9 +1636,6 @@ tsubst_simple_requirement (tree t, tree args, subst_info info)
 static tree
 tsubst_type_requirement (tree t, tree args, subst_info info)
 {
-  /* Don't diagnose access checks immediately.  */
-  deferring_access_check_sentinel acs (dk_no_deferred);
-
   tree t0 = TREE_OPERAND (t, 0);
   tree type = tsubst (t0, args, info.complain, info.in_decl);
   if (type == error_mark_node)
@@ -2267,6 +2264,9 @@ satisfy_constraint (tree t, tree args, subst_info info)
   /* Turn off template processing. Constraint satisfaction only applies
      to non-dependent terms, so we want to ensure full checking here.  */
   processing_template_decl_sentinel proc (true);
+
+  /* We need to check access during satisfaction.  */
+  deferring_access_check_sentinel acs (dk_no_deferred);
 
   /* Avoid early exit in tsubst and tsubst_copy from null args.  */
   if (args == NULL_TREE)
