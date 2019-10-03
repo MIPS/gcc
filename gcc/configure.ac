@@ -6300,7 +6300,7 @@ all_selected_languages=
 # The other mechanism is a set of hooks for each of the main targets
 # like `clean', `install', etc.
 
-language_hooks="Make-hooks"
+language_hooks="Make-lang-hooks"
 
 for lang in ${srcdir}/*/config-lang.in
 do
@@ -6409,8 +6409,8 @@ done
 # We link each language in with a set of hooks, reached indirectly via
 # lang.${target}.  Only do so for selected languages.
 
-rm -f Make-hooks
-touch Make-hooks
+rm -f Make-lang-hooks
+touch Make-lang-hooks
 target_list="all.cross start.encap rest.encap tags \
 	install-common install-man install-info install-pdf install-html dvi \
 	pdf html uninstall info man srcextra srcman srcinfo \
@@ -6423,7 +6423,160 @@ do
 	do
 		x="$x $lang.$t"
 	done
-	echo "lang.$t: $x" >> Make-hooks
+	echo "lang.$t: $x" >> Make-lang-hooks
+done
+
+# --------------
+# Plugin hooks
+# --------------
+
+# Make empty files to contain the specs and options for each plugin.
+# Then add #include lines to for a compiler that has specs and/or options.
+
+plugin_opt_files=
+plugin_specs_files=
+plugin_tree_files=
+# These (without "all_") are set in each config-plugin.in.
+# `plugin' must be a single word so is spelled singularly.
+all_plugins=
+# List of plugin makefile fragments.
+all_plugin_makefrags=
+
+# These are the plugins that are set in --enable-plugins,
+# and are available in the GCC tree.
+all_selected_plugins=
+
+# Add the plugin fragments.
+# Plugins are added via two mechanisms.  Some information must be
+# recorded in makefile variables, these are defined in config-plugin.in.
+# We accumulate them and plug them into the main Makefile.
+# The other mechanism is a set of hooks for each of the main targets
+# like `clean', `install', etc.
+
+plugin_hooks="Make-plugin-hooks"
+
+for plugin in ${srcdir}/*/config-plugin.in
+do
+changequote(,)dnl
+	test "$plugin" = "${srcdir}/*/config-plugin.in" && continue
+
+        plugin_alias=`sed -n -e 's,^plugin=['"'"'"'"]\(.*\)["'"'"'"'].*$,\1,p' -e 's,^plugin=\([^   ]*\).*$,\1,p' $plugin`
+        if test "x$plugin_alias" = x
+        then
+              echo "$plugin doesn't set \$plugin." 1>&2
+              exit 1
+        fi
+        subdir="`echo $plugin | sed -e 's,^.*/\([^/]*\)/config-plugin.in$,\1,'`"
+        subdirs="$subdirs $subdir"
+
+	# $gcc_subdir is where the gcc integration files are to be found
+	# for a plugin, both for internal compiler purposes (compiler
+	# sources implementing front-end to GCC tree converters), and for
+	# build infrastructure purposes (Make-plugin.in, etc.)
+	#
+	# This will be <subdir> (relative to $srcdir) if a line like 
+	# gcc_subdir="<subdir>" or gcc_subdir=<subdir>
+	# is found in <plugindir>/config-plugin.in, and will remain <plugindir>
+	# otherwise.
+	#
+	# Except for the plugin alias (fetched above), the regular
+	# "config-plugin.in" contents are always retrieved from $gcc_subdir,
+	# so a <plugindir>/config-plugin.in setting gcc_subdir typically sets
+	# only this and the plugin alias.
+
+        gcc_subdir=`sed -n -e 's,^gcc_subdir=['"'"'"'"]\(.*\)["'"'"'"'].*$,\1,p' -e 's,^gcc_subdir=\([^   ]*\).*$,\1,p' $plugin`
+        if [ "$gcc_subdir" = "" ]; then
+           gcc_subdir="$subdir"
+        fi
+
+        case ",$enable_plugins," in
+        *,$plugin_alias,*)
+            all_selected_plugins="$all_selected_plugins $plugin_alias"
+            if test -f $srcdir/$gcc_subdir/plugin-specs.h; then
+                plugin_specs_files="$plugin_specs_files $srcdir/$gcc_subdir/plugin-specs.h"
+	    fi
+	    ;;
+        esac
+changequote([,])dnl
+
+	plugin=
+	boot_plugin=
+	compilers=
+	outputs=
+	gtfiles=
+	subdir_requires=
+	. ${srcdir}/$gcc_subdir/config-plugin.in
+	if test "x$plugin" = x
+	then
+		echo "${srcdir}/$gcc_subdir/config-plugin.in doesn't set \$plugin." 1>&2
+		exit 1
+	fi
+
+	ok=:
+        case ",$enable_plugins," in
+        	*,$plugin_alias,*) ;;
+		*)
+			for i in $subdir_requires; do
+				test -f "${srcdir}/$i/config-plugin.in" && continue
+				ok=false
+				break
+			done
+		;;
+	esac
+	$ok || continue
+
+	all_plugin_makefrags="$all_plugin_makefrags \$(srcdir)/$gcc_subdir/Make-plugin.in"
+	if test -f $srcdir/$gcc_subdir/plugin.opt; then
+	    plugin_opt_files="$plugin_opt_files $srcdir/$gcc_subdir/plugin.opt"
+	    all_opt_files="$all_opt_files $srcdir/$gcc_subdir/plugin.opt"
+	fi
+	if test -f $srcdir/$gcc_subdir/$subdir-tree.def; then
+	    plugin_tree_files="$plugin_tree_files $srcdir/$gcc_subdir/$subdir-tree.def"
+	fi
+	all_plugins="$all_plugins $plugin"
+	all_compilers="$all_compilers $compilers"
+	all_outputs="$all_outputs $outputs"
+	all_gtfiles="$all_gtfiles [[$subdir]] $gtfiles"
+	case ",$enable_plugins," in
+		*,analyzer,*)
+		    AC_DEFINE(ENABLE_ANALYZER, 1, [Define to enable static analyzer.])
+		    enable_analyzer=yes
+		    AC_SUBST(enable_analyzer)
+		    ;;
+		*) ;;
+	esac
+done
+
+check_plugins=
+for plugin in $all_selected_plugins
+do
+	check_plugins="$check_plugins check-$plugin"
+done
+
+selftest_plugins=
+for plugin in $all_selected_plugins
+do
+	selftest_plugins="$selftest_plugins selftest-$plugin"
+done
+
+# We link each plugin in with a set of hooks, reached indirectly via
+# plugin.${target}.  Only do so for selected plugins.
+
+rm -f Make-plugin-hooks
+touch Make-plugin-hooks
+target_list="all.cross start.encap rest.encap tags \
+	install-common install-man install-info install-pdf install-html dvi \
+	pdf html uninstall info man srcextra srcman srcinfo \
+	mostlyclean clean distclean maintainer-clean install-plugin"
+
+for t in $target_list
+do
+	x=
+	for plugin in $all_selected_plugins
+	do
+		x="$x $plugin.$t"
+	done
+	echo "plugin.$t: $x" >> Make-plugin-hooks
 done
 
 # --------
@@ -6481,7 +6634,10 @@ AC_SUBST(all_compilers)
 AC_SUBST(all_gtfiles)
 AC_SUBST(all_lang_makefrags)
 AC_SUBST(all_languages)
+AC_SUBST(all_plugin_makefrags)
 AC_SUBST(all_selected_languages)
+AC_SUBST(all_plugins)
+AC_SUBST(all_selected_plugins)
 AC_SUBST(build_exeext)
 AC_SUBST(build_install_headers_dir)
 AC_SUBST(build_xm_file_list)
@@ -6490,6 +6646,8 @@ AC_SUBST(build_xm_defines)
 AC_SUBST(build_file_translate)
 AC_SUBST(check_languages)
 AC_SUBST(selftest_languages)
+AC_SUBST(check_plugins)
+AC_SUBST(selftest_plugins)
 AC_SUBST(cpp_install_dir)
 AC_SUBST(xmake_file)
 AC_SUBST(tmake_file)
@@ -6515,6 +6673,9 @@ AC_SUBST(install)
 AC_SUBST(lang_opt_files)
 AC_SUBST(lang_specs_files)
 AC_SUBST(lang_tree_files)
+AC_SUBST(plugin_opt_files)
+AC_SUBST(plugin_specs_files)
+AC_SUBST(plugin_tree_files)
 AC_SUBST(local_prefix)
 AC_SUBST(md_file)
 AC_SUBST(objc_boehm_gc)
@@ -6540,6 +6701,7 @@ AC_SUBST(d_target_objs)
 AC_SUBST(target_cpu_default)
 
 AC_SUBST_FILE(language_hooks)
+AC_SUBST_FILE(plugin_hooks)
 
 # Echo link setup.
 if test x${build} = x${host} ; then
@@ -6742,7 +6904,7 @@ AC_MSG_RESULT($ld_pushpopstate_support)
 # AC_CONFIG_SUBDIRS($subdirs)
 
 # Create the Makefile
-# and configure language subdirectories
+# and configure language and plugin subdirectories
 AC_CONFIG_FILES($all_outputs)
 
 AC_CONFIG_COMMANDS([default],

@@ -1707,6 +1707,15 @@ specified languages with the stage-1 compiler by using @command{make
 stage1-bubble all-target}, or run the testsuite on the stage-1 compiler
 for the specified languages using @command{make stage1-start check-gcc}.
 
+@item --enable-plugins=@var{plugin1},@var{plugin2},@dots{}
+Specify that a particular subset of in-tree plugins should be built.
+For a list of valid values for @var{pluginN} you can issue the following
+command in the @file{gcc} directory of your GCC source tree:@*
+@smallexample
+grep ^plugin= */config-plugin.in
+@end smallexample
+If you do not pass this flag, then no in-tree plugins will be built.
+
 @item --disable-libada
 Specify that the run-time libraries and tools used by GNAT should not
 be built.  This can be useful for debugging, or for compatibility with
