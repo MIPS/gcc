@@ -7799,7 +7799,7 @@ extern bool var_in_maybe_constexpr_fn           (tree);
 extern void explain_invalid_constexpr_fn        (tree);
 extern vec<tree> cx_error_context               (void);
 extern tree fold_sizeof_expr			(tree);
-extern void clear_cv_and_fold_caches		(void);
+extern void clear_cv_and_fold_caches		(bool = true);
 extern tree unshare_constructor			(tree CXX_MEM_STAT_INFO);
 
 /* In cp-ubsan.c */
