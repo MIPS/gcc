@@ -6597,6 +6597,12 @@ Supported languages are: ${potential_languages}" "$LINENO" 5
   ac_configure_args=`echo " $ac_configure_args" | sed -e "s/ '--enable-languages=[^ ]*'//g" -e "s/$/ '--enable-languages="$enable_languages"'/" `
 fi
 
+# Look if the user specified --enable-plugins="..."
+if test -d ${srcdir}/gcc; then
+  enable_plugins=`echo "${enable_plugins}" | sed -e 's/[ 	,][ 	,]*/,/g' -e 's/,$//'`
+  ac_configure_args=`echo " $ac_configure_args" | sed -e "s/ '--enable-plugins=[^ ]*'//g" -e "s/$/ '--enable-plugins="$enable_plugins"'/" `
+fi
+
 # Handle --disable-<component> generically.
 for dir in $configdirs $build_configdirs $target_configdirs ; do
   dirname=`echo $dir | sed -e s/target-//g -e s/build-//g -e s/-/_/g`
