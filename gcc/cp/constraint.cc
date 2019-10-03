@@ -2211,7 +2211,7 @@ satisfy_atom (tree t, tree args, subst_info info)
     }
   if (!same_type_p (TREE_TYPE (result), boolean_type_node))
     {
-      if (!info.noisy ())
+      if (info.noisy ())
 	inform (loc, "constraint does not have type %<bool%>");
       return error_mark_node;
     }
