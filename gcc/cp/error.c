@@ -3815,16 +3815,15 @@ maybe_print_constraint_context (diagnostic_context *context)
   if (!current_failed_constraint)
     return;
 
+  tree cur = current_failed_constraint;
+
   /* Recursively print nested contexts.  */
-  if (TREE_CHAIN (current_failed_constraint))
+  current_failed_constraint = TREE_CHAIN (current_failed_constraint);
+  if (current_failed_constraint)
     maybe_print_constraint_context (context);
 
   /* Print this context.  */
-  maybe_print_single_constraint_context (context, current_failed_constraint);
-
-  /* If we're emitting an error, then consume the entire context so that
-     we don't re-print it for subsequent errors.  */
-  current_failed_constraint = NULL_TREE;
+  maybe_print_single_constraint_context (context, cur);
 }
 
 /* Return true iff TYPE_A and TYPE_B are template types that are
