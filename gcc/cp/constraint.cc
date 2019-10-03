@@ -2096,7 +2096,11 @@ struct sat_hasher : ggc_ptr_hash<sat_entry>
   }
 };
 
-static GTY (()) hash_table<sat_hasher> *sat_cache;
+/* Cache the result of satisfy_atom.  */
+static GTY((deletable)) hash_table<sat_hasher> *sat_cache;
+
+/* Cache the result of constraints_satisfied_p.  */
+static GTY((deletable)) hash_map<tree,bool> *decl_satisfied_cache;
 
 static tree
 get_satisfaction (tree constr, tree args)
@@ -2128,9 +2132,11 @@ clear_satisfaction_cache ()
 {
   if (sat_cache)
     sat_cache->empty ();
+  if (decl_satisfied_cache)
+    decl_satisfied_cache->empty ();
 }
 
-/* A tool to help manage satisfaction caching in satisfy_constraint_r_r.
+/* A tool to help manage satisfaction caching in satisfy_constraint_r.
    Note the cache is only used when not diagnosing errors.  */
 
 struct satisfaction_cache
@@ -2492,6 +2498,10 @@ constraints_satisfied_p (tree t, subst_info info)
   /* Update the declaration for diagnostics.  */
   info.in_decl = t;
 
+  if (info.quiet ())
+    if (bool *p = hash_map_safe_get (decl_satisfied_cache, t))
+      return *p;
+
   /* Get the constraints to check for satisfaction. This depends
      on whether we're looking at a template specialization or not. */
   tree norm = NULL_TREE;
@@ -2499,12 +2509,6 @@ constraints_satisfied_p (tree t, subst_info info)
   tree ti = DECL_TEMPLATE_INFO (t);
   if (ti)
     {
-      /* In non-diagnostic mode, check to see if the result is known.  */
-      if (TINFO_CONSTRAINTS_SATISIFIED (ti) && info.quiet ())
-	return true;
-      if (TINFO_CONSTRAINTS_UNSATISIFIED (ti) && info.quiet ())
-	return false;
-
       tree tmpl = TI_TEMPLATE (ti);
       norm = normalize_template_requirements (tmpl, info.noisy ());
 
@@ -2527,14 +2531,8 @@ constraints_satisfied_p (tree t, subst_info info)
       r = (eval == boolean_true_node);
     }
 
-  /* In non-diagnostic mode, cache the result.  */
-  if (ti && info.quiet ())
-    {
-      if (r)
-	TINFO_CONSTRAINTS_SATISIFIED (ti) = true;
-      else
-	TINFO_CONSTRAINTS_UNSATISIFIED (ti) = true;
-    }
+  if (info.quiet ())
+    hash_map_safe_put<hm_ggc> (decl_satisfied_cache, t, r);
 
   return r;
 }

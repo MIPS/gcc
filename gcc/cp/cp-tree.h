@@ -453,7 +453,6 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
       CONSTRUCTOR_C99_COMPOUND_LITERAL (in CONSTRUCTOR)
       OVL_NESTED_P (in OVERLOAD)
       LAMBDA_EXPR_INSTANTIATED (in LAMBDA_EXPR)
-      TINFO_CONSTRAINTS_UNSATISIFIED (in TEMPLATE_INFO)
       Reserved for DECL_MODULE_EXPORT (in DECL_)
    4: IDENTIFIER_MARKED (IDENTIFIER_NODEs)
       TREE_HAS_CONSTRUCTOR (in INDIRECT_REF, SAVE_EXPR, CONSTRUCTOR,
@@ -462,7 +461,6 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
       FUNCTION_REF_QUALIFIED (in FUNCTION_TYPE, METHOD_TYPE)
       OVL_LOOKUP_P (in OVERLOAD)
       LOOKUP_FOUND_P (in RECORD_TYPE, UNION_TYPE, NAMESPACE_DECL)
-      TINFO_CONSTRAINTS_SATISIFIED (in TEMPLATE_INFO)
    5: IDENTIFIER_VIRTUAL_P (in IDENTIFIER_NODE)
       FUNCTION_RVALUE_QUALIFIED (in FUNCTION_TYPE, METHOD_TYPE)
       CALL_EXPR_REVERSE_ARGS (in CALL_EXPR, AGGR_INIT_EXPR)
@@ -1438,13 +1436,6 @@ typedef struct qualified_typedef_usage_s qualified_typedef_usage_t;
    `constinit' specifier.  */
 #define TINFO_VAR_DECLARED_CONSTINIT(NODE) \
   (TREE_LANG_FLAG_2 (TEMPLATE_INFO_CHECK (NODE)))
-
-/* Remember whether constraints for a particular template specialization are
-   satisfied.  If neither flag is set, we haven't decided yet.  */
-#define TINFO_CONSTRAINTS_UNSATISIFIED(NODE) \
-  (TREE_LANG_FLAG_3 (TEMPLATE_INFO_CHECK (NODE)))
-#define TINFO_CONSTRAINTS_SATISIFIED(NODE) \
-  (TREE_LANG_FLAG_4 (TEMPLATE_INFO_CHECK (NODE)))
 
 struct GTY(()) tree_template_info {
   struct tree_base base;
