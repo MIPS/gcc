@@ -47,56 +47,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "type-utils.h"
 
-static bool
-parameter_mapping_equivalent_p (tree t1, tree t2)
-{
-  tree map1 = ATOMIC_CONSTR_MAP (t1);
-  tree map2 = ATOMIC_CONSTR_MAP (t2);
-  while (map1 && map2)
-    {
-      tree arg1 = TREE_PURPOSE (map1);
-      tree arg2 = TREE_PURPOSE (map2);
-      if (!template_args_equal (arg1, arg2))
-	return false;
-      map1 = TREE_CHAIN (map1);
-      map2 = TREE_CHAIN (map2);
-    }
-  return true;
-}
-
-/* 17.4.1.2p2. Two constraints are identical if they are formed
-   from the same expression and the targets of the parameter mapping
-   are equivalent.  */
-
-static bool
-constraint_identical_p (tree t1, tree t2)
-{
-  if (ATOMIC_CONSTR_EXPR (t1) != ATOMIC_CONSTR_EXPR (t2))
-    return false;
-
-  if (!parameter_mapping_equivalent_p (t1, t2))
-    return false;
-
-  return true;
-}
-
-static hashval_t
-hash_atomic_constraint (tree t)
-{
-  /* Hash the identity of the expression.  */
-  hashval_t val = htab_hash_pointer (ATOMIC_CONSTR_EXPR (t));
-
-  /* Hash the targets of the parameter map.  */
-  tree p = ATOMIC_CONSTR_MAP (t);
-  while (p)
-    {
-      val = iterative_hash_template_arg (TREE_PURPOSE (p), val);
-      p = TREE_CHAIN (p);
-    }
-
-  return val;
-}
-
 /* Hash functions for atomic constrains.  */
 
 struct constraint_hash : default_hash_traits<tree>
@@ -108,10 +58,9 @@ struct constraint_hash : default_hash_traits<tree>
 
   static bool equal (tree t1, tree t2)
   {
-    return constraint_identical_p (t1, t2);
+    return atomic_constraints_identical_p (t1, t2);
   }
 };
-
 
 /* A conjunctive or disjunctive clause.
 

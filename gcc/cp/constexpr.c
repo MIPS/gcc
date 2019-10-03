@@ -5802,13 +5802,14 @@ clear_cv_cache (void)
     cv_cache->empty ();
 }
 
-/* Dispose of the whole CV_CACHE and FOLD_CACHE.  */
+/* Dispose of the whole CV_CACHE, FOLD_CACHE, and satisfaction caches.  */
 
 void
 clear_cv_and_fold_caches (void)
 {
   clear_cv_cache ();
   clear_fold_cache ();
+  clear_satisfaction_cache ();
 }
 
 /* Internal function handling expressions in templates for

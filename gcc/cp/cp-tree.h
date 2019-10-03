@@ -7736,6 +7736,7 @@ extern tree evaluate_concept_check              (tree, tsubst_flags_t);
 extern tree satisfy_constraint_expression	(tree);
 extern bool constraints_satisfied_p             (tree);
 extern bool constraints_satisfied_p             (tree, tree);
+extern void clear_satisfaction_cache		();
 extern bool* lookup_subsumption_result          (tree, tree);
 extern bool save_subsumption_result             (tree, tree, bool);
 extern tree find_template_parameters		(tree, int);
@@ -7745,6 +7746,8 @@ extern bool subsumes_constraints                (tree, tree);
 extern bool strictly_subsumes			(tree, tree, tree);
 extern bool weakly_subsumes			(tree, tree, tree);
 extern int more_constrained                     (tree, tree);
+extern bool atomic_constraints_identical_p	(tree, tree);
+extern hashval_t hash_atomic_constraint		(tree);
 extern void diagnose_constraints                (location_t, tree, tree);
 
 /* in logic.cc */

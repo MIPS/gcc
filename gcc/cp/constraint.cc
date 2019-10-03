@@ -569,6 +569,25 @@ build_parameter_mapping (tree expr, tree args, tree decl)
   return map;
 }
 
+/* True if the parameter mappings of two atomic constraints are equivalent.  */
+
+static bool
+parameter_mapping_equivalent_p (tree t1, tree t2)
+{
+  tree map1 = ATOMIC_CONSTR_MAP (t1);
+  tree map2 = ATOMIC_CONSTR_MAP (t2);
+  while (map1 && map2)
+    {
+      tree arg1 = TREE_PURPOSE (map1);
+      tree arg2 = TREE_PURPOSE (map2);
+      if (!template_args_equal (arg1, arg2))
+        return false;
+      map1 = TREE_CHAIN (map1);
+      map2 = TREE_CHAIN (map2);
+    }
+  return true;
+}
+
 /* Provides additional context for normalization.  */
 
 struct norm_info : subst_info
@@ -877,6 +896,39 @@ normalize_constraint_expression (tree expr, bool diag = false)
   tree norm = get_normalized_constraints (expr, args, info);
   --processing_template_decl;
   return norm;
+}
+
+/* 17.4.1.2p2. Two constraints are identical if they are formed
+   from the same expression and the targets of the parameter mapping
+   are equivalent.  */
+
+bool
+atomic_constraints_identical_p (tree t1, tree t2)
+{
+  if (ATOMIC_CONSTR_EXPR (t1) != ATOMIC_CONSTR_EXPR (t2))
+    return false;
+
+  if (!parameter_mapping_equivalent_p (t1, t2))
+    return false;
+
+  return true;
+}
+
+hashval_t
+hash_atomic_constraint (tree t)
+{
+  /* Hash the identity of the expression.  */
+  hashval_t val = htab_hash_pointer (ATOMIC_CONSTR_EXPR (t));
+
+  /* Hash the targets of the parameter map.  */
+  tree p = ATOMIC_CONSTR_MAP (t);
+  while (p)
+    {
+      val = iterative_hash_template_arg (TREE_PURPOSE (p), val);
+      p = TREE_CHAIN (p);
+    }
+
+  return val;
 }
 
 // -------------------------------------------------------------------------- //
@@ -2019,6 +2071,109 @@ tsubst_parameter_mapping (tree map, tree args, tsubst_flags_t complain, tree in_
                         Constraint satisfaction
 ---------------------------------------------------------------------------*/
 
+/* Hash functions for satisfaction entries.  */
+
+struct GTY((for_user)) sat_entry
+{
+  tree constr;
+  tree args;
+  tree result;
+};
+
+struct sat_hasher : ggc_ptr_hash<sat_entry>
+{
+  static hashval_t hash (sat_entry *e)
+  {
+    hashval_t value = hash_atomic_constraint (e->constr);
+    return iterative_hash_template_arg (e->args, value);
+  }
+
+  static bool equal (sat_entry *e1, sat_entry *e2)
+  {
+    if (!atomic_constraints_identical_p (e1->constr, e2->constr))
+      return false;
+    return template_args_equal (e1->args, e2->args);
+  }
+};
+
+static GTY (()) hash_table<sat_hasher> *sat_cache;
+
+static tree
+get_satisfaction (tree constr, tree args)
+{
+  if (!sat_cache)
+    return NULL_TREE;
+  sat_entry elt = { constr, args, NULL_TREE };
+  sat_entry* found = sat_cache->find (&elt);
+  if (found)
+    return found->result;
+  else
+    return NULL_TREE;
+}
+
+static void
+save_satisfaction (tree constr, tree args, tree result)
+{
+  if (!sat_cache)
+    sat_cache = hash_table<sat_hasher>::create_ggc (31);
+  sat_entry elt = {constr, args, result};
+  sat_entry** slot = sat_cache->find_slot (&elt, INSERT);
+  sat_entry* entry = ggc_alloc<sat_entry> ();
+  *entry = elt;
+  *slot = entry;
+}
+
+void
+clear_satisfaction_cache ()
+{
+  if (sat_cache)
+    sat_cache->empty ();
+}
+
+/* A tool to help manage satisfaction caching in satisfy_constraint_r_r.
+   Note the cache is only used when not diagnosing errors.  */
+
+struct satisfaction_cache
+{
+  satisfaction_cache (tree constr, tree args, tsubst_flags_t complain)
+    : constr(constr), args(args), complain(complain)
+  { }
+
+  tree get ()
+  {
+    if (complain == tf_none)
+      return get_satisfaction (constr, args);
+    return NULL_TREE;
+  }
+
+  tree save (tree result)
+  {
+    if (complain == tf_none)
+      save_satisfaction (constr, args, result);
+    return result;
+  }
+
+  tree constr;
+  tree args;
+  tsubst_flags_t complain;
+};
+
+static int satisfying_constraint = 0;
+
+/* Returns true if we are currently satisfying a constraint.
+
+   This is used to guard against recursive calls to evaluate_concept_check
+   during template argument substitution.
+
+   TODO: Do we need this now that we fully normalize prior to evaluation?
+   I think not. */
+
+bool
+satisfying_constraint_p ()
+{
+  return satisfying_constraint;
+}
+
 /* Substitute ARGS into constraint-expression T during instantiation of
    a member of a class template.  */
 
@@ -2150,6 +2305,10 @@ static void diagnose_atomic_constraint (tree, tree, subst_info);
 static tree
 satisfy_atom (tree t, tree args, subst_info info)
 {
+  satisfaction_cache cache (t, args, info.complain);
+  if (tree r = cache.get ())
+    return r;
+
   /* Perform substitution quietly.  */
   subst_info quiet (tf_none, NULL_TREE);
 
@@ -2167,7 +2326,7 @@ satisfy_atom (tree t, tree args, subst_info info)
          is ill-formed.  */
       if (info.noisy())
 	tsubst_parameter_mapping (ATOMIC_CONSTR_MAP (t), args, info);
-      return boolean_false_node;
+      return cache.save (boolean_false_node);
     }
 
   /* Rebuild the argument vector from the parameter mapping.  */
@@ -2182,7 +2341,7 @@ satisfy_atom (tree t, tree args, subst_info info)
 	 is not satisfied. Replay the substitution.  */
       if (info.noisy ())
 	tsubst_expr (expr, args, info.complain, info.in_decl, false);
-      return boolean_false_node;
+      return cache.save (boolean_false_node);
     }
 
   location_t loc = cp_expr_location (expr);
@@ -2194,13 +2353,13 @@ satisfy_atom (tree t, tree args, subst_info info)
     {
       if (info.noisy ())
         inform (loc, "cannot convert constraint to rvalue");
-      return error_mark_node;
+      return cache.save (error_mark_node);
     }
   if (!same_type_p (TREE_TYPE (result), boolean_type_node))
     {
       if (info.noisy ())
 	inform (loc, "constraint does not have type %<bool%>");
-      return error_mark_node;
+      return cache.save (error_mark_node);
     }
 
   /* Compute the value of the constraint.  */
@@ -2208,7 +2367,7 @@ satisfy_atom (tree t, tree args, subst_info info)
   if (result == boolean_false_node && info.noisy ())
     diagnose_atomic_constraint (t, args, info);
 
-  return result;
+  return cache.save (result);
 }
 
 /* Determine if the normalized constraint T is satisfied.
