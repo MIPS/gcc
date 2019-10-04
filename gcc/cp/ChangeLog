@@ -1,3 +1,7 @@
+2019-10-04  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (for_each_template_parm_r): Handle SCOPE_REF.
+
 2019-10-02  Jason Merrill  <jason@redhat.com>
 
 	* typeck2.c (store_init_value): Only clear_cv_and_fold_caches if the

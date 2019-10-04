@@ -10218,6 +10218,11 @@ for_each_template_parm_r (tree *tp, int *walk_subtrees, void *d)
 	return error_mark_node;
       break;
 
+    case SCOPE_REF:
+      if (pfd->include_nondeduced_p)
+	WALK_SUBTREE (TREE_OPERAND (t, 0));
+      break;
+
     case REQUIRES_EXPR:
       {
 	if (!fn)
