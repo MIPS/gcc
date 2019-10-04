@@ -1273,7 +1273,7 @@ get_class_binding_direct (tree klass, tree name, bool want_type)
    special function creation as necessary.  */
 
 tree
-get_class_binding (tree klass, tree name, bool want_type)
+get_class_binding (tree klass, tree name, bool want_type /*=false*/)
 {
   klass = complete_type (klass);
 
