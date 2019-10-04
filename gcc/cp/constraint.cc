@@ -1666,9 +1666,6 @@ hash_placeholder_constraint (tree c)
 static tree
 tsubst_valid_expression_requirement (tree t, tree args, subst_info info)
 {
-  /* Don't diagnose access checks immediately.  */
-  deferring_access_check_sentinel acs (dk_no_deferred);
-
   return tsubst_expr (t, args, info.complain, info.in_decl, false);
 }
 
