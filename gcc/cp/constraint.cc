@@ -971,17 +971,17 @@ associate_classtype_constraints (tree type)
 	 class, then we need match these constraints against those of
 	 original declaration.  */
       if (tree orig_ci = get_constraints (decl))
-	{
-	  if (!equivalent_constraints (ci, orig_ci))
-	    {
+        {
+          if (!equivalent_constraints (ci, orig_ci))
+            {
 	      error ("%qT does not match original declaration", type);
 	      tree tmpl = CLASSTYPE_TI_TEMPLATE (type);
 	      location_t loc = DECL_SOURCE_LOCATION (tmpl);
 	      inform (loc, "original template declaration here");
 	      /* Fall through, so that we define the type anyway.  */
-	    }
-	  return type;
-	}
+            }
+          return type;
+        }
       set_constraints (decl, ci);
     }
   return type;
@@ -1054,8 +1054,8 @@ build_concept_check_arguments (tree arg, tree rest)
       args = make_tree_vec (n + 1);
       TREE_VEC_ELT (args, 0) = arg;
       if (rest)
-	for (int i = 0; i < n; ++i)
-	  TREE_VEC_ELT (args, i + 1) = TREE_VEC_ELT (rest, i);
+        for (int i = 0; i < n; ++i)
+          TREE_VEC_ELT (args, i + 1) = TREE_VEC_ELT (rest, i);
       int def = rest ? GET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (rest) : 0;
       SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (args, def + 1);
     }
@@ -1326,7 +1326,7 @@ get_deduced_wildcard (tree wildcard)
 /* Returns the prototype parameter for the nth deduced wildcard.  */
 
 static tree
-get_introdcution_prototype (tree wildcards, int index)
+get_introduction_prototype (tree wildcards, int index)
 {
   return TREE_TYPE (get_deduced_wildcard (TREE_VEC_ELT (wildcards, index)));
 }
@@ -1459,7 +1459,7 @@ introduce_template_parameters (tree parms, tree wildcards, int& index)
 static tree
 process_introduction_parms (tree parms, tree wildcards, int& index)
 {
-  tree proto = get_introdcution_prototype (wildcards, index);
+  tree proto = get_introduction_prototype (wildcards, index);
   if (template_parameter_pack_p (proto))
     return introduce_template_parameters (parms, wildcards, index);
   else

@@ -19507,12 +19507,10 @@ tsubst_copy_and_build (tree t,
 	      ret = evaluate_concept_check (ret, complain);
 	  }
 	else
-	  {
-	    ret = finish_call_expr (function, &call_args,
-				    /*disallow_virtual=*/qualified_p,
-				    koenig_p,
-				    complain);
-	  }
+	  ret = finish_call_expr (function, &call_args,
+				  /*disallow_virtual=*/qualified_p,
+				  koenig_p,
+				  complain);
 
 	if (ret != error_mark_node)
 	  {
