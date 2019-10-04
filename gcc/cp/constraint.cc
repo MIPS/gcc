@@ -1696,7 +1696,8 @@ tsubst_type_requirement (tree t, tree args, subst_info info)
 
 /* True if TYPE can be deduced from EXPR.
 
-   FIXME: This doesn't appear to support generalized auto.  */
+   FIXME: C++20 compound requirement constraints should be normalized and then
+   satisfied rather than substituted.  */
 
 static bool
 type_deducible_p (tree expr, tree type, tree placeholder, tree args,
@@ -1807,6 +1808,8 @@ tsubst_nested_requirement (tree t, tree args, subst_info info)
   /* Ensure that concrete results are satisfied.  */
   if (!uses_template_parms (args))
     {
+      /* FIXME satisfy_constraint_expression (t0, args, info) */
+
       /* [17.4.1.2] ... lvalue-to-value conversion is performed as necessary,
          and EXPR shall be a constant expression of type bool.  */
       tree result = force_rvalue (expr, tf_error);
