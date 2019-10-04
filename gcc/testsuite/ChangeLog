@@ -1,3 +1,106 @@
+2019-10-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71504
+	* g++.dg/cpp0x/constexpr-array21.C: New test.
+	* g++.dg/cpp1y/constexpr-array7.C: New test.
+	* g++.dg/cpp1z/constexpr-array1.C: New test.
+
+2019-10-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/71504
+	* g++.dg/cpp0x/constexpr-array20.C: New test.
+
+2019-10-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/91974
+	* g++.dg/cpp1z/eval-order5.C: New test.
+
+2019-10-03  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/91497
+	* gfortran.dg/pr91497.f90: New test.
+
+2019-10-03  Jan Hubicka  <hubicka@ucw.cz>
+
+	* g++.dg/tree-ssa/pr61034.C: Add --param max-inline-insns-single-O2=200.
+
+2019-10-03  Dragan Mladjenovic  <dmladjenovic@wavecomp.com>
+
+	PR target/91769
+	* gcc.target/mips/pr91769.c: New test.
+
+2019-10-03  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* g++.dg/cpp0x/gen-attrs-67.C: Expect constructor priorities error
+	on any !init_priority target.
+
+2019-10-03  Thomas Koenig <tkoenig@gcc.gnu.org>
+
+	PR fortran/84487
+	* gfortran.dg/typebound_call_22.f03: xfail.
+
+2019-10-03 Mark Eggleston <mark.eggleston@codethink.com>
+
+	* gfortran.dg/bad_operands.f90: New test.
+	* gfortran.dg/character mismatch.f90: New test.
+	* gfortran.dg/compare_interfaces.f90: New test.
+	* gfortran.dg/hollerith_to_char_parameter_1.f90: New test.
+	* gfortran.dg/hollerith_to_char_parameter_2.f90: New test.
+	* gfortran.dg/widechar_intrinsics_1.f90: Checked for specific character
+	type names instead of "Type of argument".
+	* gfortran.dg/widechar_intrinsics_2.f90: Checked for specific character
+	type names instead of "Type of argument".
+	* gfortran.dg/widechar_intrinsics_3.f90: Checked for specific character
+	type names instead of "Type of argument".
+
+2019-10-02  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/cr-decimal-dig-2.c: New test.
+	* gcc.dg/limits-width-2.c: New test.  Based on limits-width-1.c.
+	* gcc.dg/stdint-width-2.c: New test.  Based on stdint-width-1.c.
+
+2019-10-03  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/diagnostic/integral-array-size-1.C: New.
+	* g++.dg/cpp0x/alias-decl-1.C: Test location(s) too.
+	* g++.dg/init/new43.C: Likewise.
+	* g++.dg/lookup/friend12.C: Likewise.
+	* g++.dg/lookup/pr79766.C: Likewise.
+	* g++.dg/lookup/pr84375.C: Likewise.
+	* g++.dg/other/new-size-type.C: Likewise.
+
+2019-10-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/ext/constexpr-attr-cleanup1.C: New test.
+
+2019-10-02  Martin Sebor  <msebor@redhat.com>
+
+	PR tree-optimization/80936
+	* gcc.dg/Wnonnull-2.c: New test.
+	* gcc.dg/Wnonnull-3.c: New test.
+	* gcc.dg/nonnull-3.c: Expect more warnings.
+
+2019-10-02  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/91784
+	* gfortran.dg/pr91784.f90: New test.
+
+2019-10-02  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/91785
+	* gfortran.dg/pr91785.f90: New test.
+
+2019-10-02  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/91942
+	* gfortran.dg/pr91587.f90: Update dg-error regex.
+	* gfortran.dg/pr91942.f90: New test.
+
+2019-10-02  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/91943
+	gfortran.dg/pr91943.f90
+
 2019-10-02  Jan Hubicka  <hubicka@ucw.cz>
 
 	* g++.dg/tree-ssa/pr53844.C: Add -fno-inline-functions --param

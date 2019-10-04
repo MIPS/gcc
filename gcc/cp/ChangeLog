@@ -1,3 +1,50 @@
+2019-10-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71504
+	* constexpr.c (cxx_fold_indirect_ref_1): New function.
+	(cxx_fold_indirect_ref): Use it.
+
+	PR c++/91974
+	* cp-gimplify.c (cp_gimplify_expr) <case CALL_EXPR>: For
+	-fstrong-eval-order ensure CALL_EXPR_FN side-effects are evaluated
+	before any arguments.  Additionally, ensure CALL_EXPR_FN that isn't
+	invariant nor OBJ_TYPE_REF nor SSA_NAME is forced into a temporary.
+
+2019-10-03  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* init.c (build_new): Use cp_expr_loc_or_input_loc in two places.
+	* name-lookup.c (do_pushdecl): Use DECL_SOURCE_LOCATION.
+	(push_class_level_binding_1): Likewise.
+	(set_decl_namespace): Likewise.
+
+2019-10-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* constexpr.c (cxx_eval_constant_expression) <case CLEANUP_STMT>: If
+	not skipping upon entry to body, run cleanup with the same *jump_target
+	as it started to run the cleanup even if the body returns, breaks or
+	continues.
+	(potential_constant_expression_1): Allow CLEANUP_STMT.
+
+	* constexpr.c (cxx_eval_store_expression): Formatting fix.  Handle
+	const_object_being_modified with array type.
+
+2019-10-02  Jason Merrill  <jason@redhat.com>
+
+	* typeck2.c (store_init_value): Only clear_cv_and_fold_caches if the
+	value is constant.
+
+2019-09-30  Jason Merrill  <jason@redhat.com>
+
+	Use hash_map_safe_* functions.
+	* constexpr.c (maybe_initialize_fundef_copies_table): Remove.
+	(get_fundef_copy): Use hash_map_safe_get_or_insert.
+	* cp-objcp-common.c (cp_get_debug_type): Use hash_map_safe_*.
+	* decl.c (store_decomp_type): Remove.
+	(cp_finish_decomp): Use hash_map_safe_put.
+	* init.c (get_nsdmi): Use hash_map_safe_*.
+	* pt.c (store_defaulted_ttp, lookup_defaulted_ttp): Remove.
+	(add_defaults_to_ttp): Use hash_map_safe_*.
+
 2019-10-02  Richard Biener  <rguenther@suse.de>
 
 	PR c++/91606

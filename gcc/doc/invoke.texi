@@ -6477,13 +6477,14 @@ Do not warn whenever a local variable shadows an instance variable in an
 Objective-C method.
 
 @item -Wshadow=global
-@opindex Wshadow=local
+@opindex Wshadow=global
 The default for @option{-Wshadow}. Warns for any (global) shadowing.
+This warning is enabled by @option{-Wshadow=global}.
 
 @item -Wshadow=local
 @opindex Wshadow=local
 Warn when a local variable shadows another local variable or parameter.
-This warning is enabled by @option{-Wshadow=global}.
+This warning is enabled by @option{-Wshadow=local}.
 
 @item -Wshadow=compatible-local
 @opindex Wshadow=compatible-local
@@ -6515,8 +6516,10 @@ in place of the other, type checking will catch that and emit an error or
 warning. So not warning (about shadowing) in this case will not lead to
 undetected bugs. Use of this flag instead of @option{-Wshadow=local} can
 possibly reduce the number of warnings triggered by intentional shadowing.
+Note that this does also mean that shadowing @code{const char *i} by
+@code{char *i} will not emit a warning.
 
-This warning is enabled by @option{-Wshadow=local}.
+This warning is enabled by @option{-Wshadow=compatible-local}.
 
 @item -Wlarger-than=@var{byte-size}
 @opindex Wlarger-than=
@@ -11214,6 +11217,18 @@ function prologue and epilogue.
 @item uninlined-function-time
 Extra time accounted by inliner for function overhead such as time needed to
 execute function prologue and epilogue
+
+@item inline-heuristics-hint-percent
+@item inline-heuristics-hint-percent-O2
+The scale (in percents) applied to @option{inline-insns-single},
+@option{inline-insns-single-O2}, @option{inline-insns-auto},
+@option{inline-insns-auto-O2} when inline heuristics hints that inlining is
+very profitable (will enable later optimizations).
+
+For functions compiled with optimization levels
+@option{-O3} and @option{-Ofast} parameter
+@option{inline-heuristics-hint-percent} is applied. In other cases
+@option{inline-heuristics-hint-percent-O2} is applied.
 
 @item uninlined-thunk-insns
 @item uninlined-thunk-time
