@@ -400,4 +400,6 @@ extern void mips_bit_clear_info (enum machine_mode, unsigned HOST_WIDE_INT,
 
 extern void mips_split_msa_subreg_move (rtx, rtx);
 
+extern bool mips_expand_mod_pow2 (rtx, rtx, rtx);
+
 #endif /* ! GCC_MIPS_PROTOS_H */

@@ -5170,6 +5170,19 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	  return true;
 	}
 
+      /* Don't force the constant into register during modulo by power of two.
+	 This is needed so that the MIPS-specific modulo pattern will be
+	 selected during the expand phase.  */
+      if (!TARGET_64BIT
+	  && !TARGET_MIPS16
+	  && outer_code == MOD
+	  && mode == DImode
+	  && (exact_log2 (INTVAL (x)) > 0))
+	{
+	  *total = 0;
+	  return true;
+	}
+
       if (TARGET_MIPS16)
 	{
 	  cost = mips16_constant_cost (outer_code, INTVAL (x));
@@ -5493,8 +5506,20 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	}
       /* Fall through.  */
 
-    case SQRT:
     case MOD:
+      /* Modulo by power of two produces (at most) nine instructions.  */
+      if (CONST_INT_P (XEXP (x, 1))
+	  && exact_log2 (INTVAL (XEXP (x, 1))) > 0
+	  && !TARGET_64BIT
+	  && !TARGET_MIPS16
+	  && mode == DImode)
+	{
+	  *total = COSTS_N_INSNS (9);
+	  return true;
+	}
+      /* Fall through.  */
+
+    case SQRT:
       if (float_mode_p)
 	{
 	  *total = mips_fp_div_cost (mode);
@@ -25538,6 +25563,123 @@ mips_prune_insertions_deletions (struct edge_list* edge_list,
 
   sbitmap_free (ifcv_blocks);
   sbitmap_free (insertions);
+}
+
+/* Expand modulo by power of two of DImode values on 32-bit targets.  */
+
+bool
+mips_expand_mod_pow2 (rtx target, rtx op1, rtx op2)
+{
+  HOST_WIDE_INT val, reg_width;
+  rtx out_low, out_high;
+  rtx in_low, in_high;
+  rtx at, temp;
+  rtx comp, cond_operands[4];
+
+  gcc_assert (GET_CODE (op2) == CONST_INT);
+
+  val = INTVAL (op2);
+
+  int logd = exact_log2 (val);
+
+  if (logd <= 0)
+    return false;
+
+  /* Extract lower and upper words of DImode source and destination. */
+  out_low = mips_subword (target, 0);
+  out_high = mips_subword (target, 1);
+
+  in_low = mips_subword (op1, 0);
+  in_high = mips_subword (op1, 1);
+
+  at = gen_reg_rtx (SImode);
+  temp = gen_reg_rtx (SImode);
+
+  reg_width = GET_MODE_BITSIZE (SImode);
+
+  /* Divisor equals 2.  */
+  if (logd == 1)
+    {
+      mips_emit_binary (AND, at, in_low, const1_rtx);
+      mips_emit_binary (ASHIFT, temp, in_low,
+			gen_int_mode (reg_width - 1, SImode));
+      mips_emit_binary (AND, temp, in_high, temp);
+      mips_emit_binary (ASHIFTRT, out_high, temp,
+			gen_int_mode (reg_width - 1, SImode));
+      mips_emit_binary (IOR, out_low, out_high, at);
+
+      return true;
+    }
+  /* Divisor fits into 32 bits.  */
+  else if (logd <= reg_width)
+    {
+      mips_emit_binary (ASHIFTRT, at, in_high,
+			gen_int_mode (reg_width - 1, SImode));
+
+      if (logd == reg_width)
+	mips_emit_move (out_low, in_low);
+      else if (ISA_HAS_EXT_INS || logd <= 16)
+	mips_emit_binary (AND, out_low, in_low,
+			  gen_int_mode ((1 << logd) - 1, SImode));
+      else
+	{
+	  mips_emit_binary (ASHIFT, out_low, in_low,
+			    gen_int_mode (reg_width - logd, SImode));
+	  mips_emit_binary (LSHIFTRT, out_low, out_low,
+			    gen_int_mode (reg_width - logd, SImode));
+	}
+
+      comp = gen_rtx_EQ (VOIDmode, out_low, const0_rtx);
+      cond_operands[0] = at;
+      cond_operands[1] = comp;
+      cond_operands[2] = const0_rtx;
+      cond_operands[3] = at;
+
+      mips_expand_conditional_move (cond_operands);
+      mips_emit_move (out_high, at);
+      if (logd < reg_width)
+	{
+	  mips_emit_binary (ASHIFT, at, at, gen_int_mode (logd, SImode));
+	  mips_emit_binary (IOR, out_low, out_low, at);
+	}
+
+      return true;
+    }
+  /* Divisor is wider than 32 bits.  */
+  else if (logd <= 2 * reg_width - 1)
+    {
+      mips_emit_binary (ASHIFTRT, at, in_high,
+			gen_int_mode (reg_width - 1, SImode));
+      mips_emit_move (temp, in_low);
+
+      if (ISA_HAS_EXT_INS || logd <= 16)
+	mips_emit_binary (AND, out_high, in_high,
+			  gen_int_mode ((1 << (logd - reg_width)) - 1, SImode));
+      else
+	{
+	  mips_emit_binary (ASHIFT, out_high, in_high,
+			    gen_int_mode (2 * reg_width - logd, SImode));
+	  mips_emit_binary (LSHIFTRT, out_high, out_high,
+			    gen_int_mode (2 * reg_width - logd, SImode));
+	}
+      mips_emit_move (out_low, temp);
+      mips_emit_binary (IOR, temp, temp, out_high);
+
+      comp = gen_rtx_EQ (VOIDmode, temp, const0_rtx);
+      cond_operands[0] = at;
+      cond_operands[1] = comp;
+      cond_operands[2] = const0_rtx;
+      cond_operands[3] = at;
+
+      mips_expand_conditional_move (cond_operands);
+      mips_emit_binary (ASHIFT, at, at,
+			gen_int_mode (logd - reg_width, SImode));
+      mips_emit_binary (IOR, out_high, out_high, at);
+
+      return true;
+    }
+
+  return false;
 }
 
 /* Initialize the GCC target structure.  */
