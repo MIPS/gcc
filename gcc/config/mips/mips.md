@@ -812,6 +812,10 @@
 ;; modes.
 (define_mode_iterator GPR2 [SI (DI "TARGET_64BIT")])
 
+;; This mode iterator is used in the same way as GPR, except that it allows
+;; 64-bit patterns on 32-bit targets.
+(define_mode_iterator GPR3 [SI DI])
+
 (define_mode_iterator MOVEP1 [SI SF])
 (define_mode_iterator MOVEP2 [SI SF])
 (define_mode_iterator JOIN_MODE [HI
@@ -3091,7 +3095,31 @@
   [(set_attr "type" "idiv3")
    (set_attr "mode" "<MODE>")])
 
-(define_insn "<u>mod<mode>3"
+(define_expand "<u>mod<mode>3"
+  [(set (match_operand:GPR3 0 "register_operand")
+    (any_mod:GPR3 (match_operand:GPR3 1 "register_operand")
+             (match_operand:GPR3 2 "nonmemory_operand")))]
+  "(TARGET_LOONGSON_2EF || TARGET_LOONGSON_EXT || ISA_HAS_R6<D>DIV)
+   || (!TARGET_64BIT && !TARGET_MIPS16 && <MODE>mode == DImode)"
+{
+  /* In case of DImode signed modulo with power of 2 on 32-bit targets, call
+     the custom expander.  */
+  if (<CODE> == MOD
+      && !TARGET_64BIT
+      && !TARGET_MIPS16
+      && GET_CODE (operands[2]) == CONST_INT)
+    {
+      if (mips_expand_mod_pow2 (operands[0], operands[1], operands[2]))
+        DONE;
+      FAIL;
+    }
+  /* Else, forbid the expand of DImode modulo on 32-bit targets.  */
+  else if ((!TARGET_64BIT && <MODE>mode == DImode)
+           || GET_CODE (operands[2]) == CONST_INT)
+    FAIL;
+})
+
+(define_insn "*<u>mod<mode>3"
   [(set (match_operand:GPR 0 "register_operand" "=&d")
 	(any_mod:GPR (match_operand:GPR 1 "register_operand" "d")
 		     (match_operand:GPR 2 "register_operand" "d")))]
@@ -3106,7 +3134,6 @@
   }
   [(set_attr "type" "idiv3")
    (set_attr "mode" "<MODE>")])
-
 ;;
 ;;  ....................
 ;;
