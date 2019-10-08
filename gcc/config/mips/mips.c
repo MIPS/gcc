@@ -10585,6 +10585,7 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length,
       else if (mips_use_multi_memcpy && TARGET_NANOMIPS == NANOMIPS_NMF
 	       && IN_RANGE (num_units, 2, 8))
 	{
+          gcc_assert (ISA_HAS_UALW_UASW);
 	  rtx part_src = adjust_address (src, BLKmode, offset);
 	  set_mem_size (part_src, num_units * delta);
 	  rtx part_dest = adjust_address (dest, BLKmode, offset);

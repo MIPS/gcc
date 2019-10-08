@@ -1,4 +1,5 @@
 /* { dg-options "-m32 -march=32r6 (REQUIRES_STDLIB)" } */
+/* { dg-additional-options "-mload-store-unaligned" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" "-Os"} { "" } } */
 
 #include <string.h>

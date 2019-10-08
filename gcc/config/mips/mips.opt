@@ -589,3 +589,6 @@ Target Undocumented Var(TARGET_SSDATA) Init(1)
 
 mrelax-saverestore-gp
 Target Undocumented Var(TARGET_RELAX_SAVERESTORE_GP) Init(1)
+
+mload-store-unaligned
+Target Undocumented Var(TARGET_LOAD_STORE_UNALIGNED) Init(0)

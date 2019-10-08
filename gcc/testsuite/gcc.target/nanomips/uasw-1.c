@@ -1,4 +1,5 @@
 /* { dg-options "-m32 -march=32r6" } */
+/* { dg-additional-options "-mload-store-unaligned" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 
 struct S

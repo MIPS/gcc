@@ -1,4 +1,5 @@
 /* { dg-options "-fno-common -march=32r6 (REQUIRES_STDLIB)" } */
+/* { dg-additional-options "-mload-store-unaligned" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" "-Os"} { "" } } */
 /* { dg-final { scan-assembler-not "\tmemcpy" } } */
 /* { dg-final { scan-assembler-times "\tuasw " 8 } } */
