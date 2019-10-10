@@ -1255,7 +1255,7 @@ is_xible (enum tree_code code, tree to, tree from)
    DELETED_P or give an error message MSG with argument ARG.  */
 
 static void
-process_subob_fn (tree fn, special_function_kind sfk, tree *spec_p,
+process_subob_fn (tree fn, special_function_kind /*sfk*/, tree *spec_p,
 		  bool *trivial_p, bool *deleted_p, bool *constexpr_p,
 		  bool diag, tree arg, bool dtor_from_ctor = false)
 {
@@ -1297,9 +1297,7 @@ process_subob_fn (tree fn, special_function_kind sfk, tree *spec_p,
       if (diag)
 	{
 	  inform (DECL_SOURCE_LOCATION (fn),
-		  SFK_DTOR_P (sfk)
-		  ? G_("defaulted destructor calls non-%<constexpr%> %qD")
-		  : G_("defaulted constructor calls non-%<constexpr%> %qD"),
+		  "call to non-%<constexpr%> %qD",
 		  fn);
 	  explain_invalid_constexpr_fn (fn);
 	}

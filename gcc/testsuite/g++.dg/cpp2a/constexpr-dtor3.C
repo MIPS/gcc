@@ -10,7 +10,7 @@ struct S
 struct T	// { dg-message "'T' is not literal because" }
 {		// { dg-message "'T' does not have 'constexpr' destructor" "" { target *-*-* } .-1 }
   constexpr T () : t (0) {}
-  ~T () {}	// { dg-message "defaulted destructor calls non-'constexpr' 'T::~T\\(\\)'" }
+  ~T () {}	// { dg-message "call to non-'constexpr' 'T::~T\\(\\)'" }
   int t;
 };
 struct U : public S
