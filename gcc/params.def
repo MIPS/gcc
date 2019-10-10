@@ -78,7 +78,7 @@ DEFPARAM (PARAM_MAX_INLINE_INSNS_SINGLE,
 DEFPARAM (PARAM_MAX_INLINE_INSNS_SINGLE_O2,
 	  "max-inline-insns-single-O2",
 	  "The maximum number of instructions in a single function eligible for inlining.",
-	  90, 0, 0)
+	  50, 0, 0)
 
 /* The single function inlining limit for functions that are
    inlined by virtue of -finline-functions (-O3).
@@ -138,6 +138,23 @@ DEFPARAM (PARAM_UNINLINED_FUNCTION_THUNK_TIME,
 	  "uninlined-thunk-time",
 	  "Time accounted for function thunk overhead.",
 	  2, 0, 1000000)
+
+DEFPARAM (PARAM_INLINE_WRAPPER_HACK,
+	  "inline-wrapper-hack",
+	  "The maximum number of instructions inline function can grow to via recursive inlining.",
+	  1, 0, 0)
+DEFPARAM (PARAM_INLINE_GROWTH_HACK,
+	  "inline-growth-hack",
+	  "The maximum number of instructions inline function can grow to via recursive inlining.",
+	  1, 0, 0)
+DEFPARAM (PARAM_INLINE_DENOMINATOR_HACK,
+	  "inline-demoninator-hack",
+	  "The maximum number of instructions inline function can grow to via recursive inlining.",
+	  1, 0, 0)
+DEFPARAM (PARAM_INLINE_HINT_HACK,
+	  "inline-hint-hack",
+	  "The maximum number of instructions inline function can grow to via recursive inlining.",
+	  1, 0, 0)
 
 DEFPARAM (PARAM_MAX_INLINE_INSNS_RECURSIVE,
 	  "max-inline-insns-recursive",
