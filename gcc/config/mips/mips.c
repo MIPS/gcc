@@ -24784,7 +24784,7 @@ get_movep_insn_location (rtx_insn *move1, rtx_insn *move2,
   tmp_src2 = NULL;
   move_curr_pos = move2_pos;
 
-  /* Move through program points, tsarting from mpveps2 to find correct one
+  /* Move through program points, starting from move2_pos to find correct one
      for movep instruction.  */
   while (move_curr_pos < rcopies_mtx.length ())
     {
@@ -24884,7 +24884,7 @@ get_movep_insn_location (rtx_insn *move1, rtx_insn *move2,
   int curr_pp = 0, move1_pp = 0, move2_pp = 0;
 
   /* MOVE1_USE is the first insn to USE(dest1) or DEF(src1) and MOVE2_USE is the
-     last insn to USE(dest2) or DEF(src1).  Both exclusive of MOVE1 and MOVE2.
+     last insn to USE(dest2) or DEF(src2).  Both exclusive of MOVE1 and MOVE2.
      MOVE1_PP is the program point at MOVE1_USE while MOVE2_PP is the program
      point at MOVE2_USE.  */
 
@@ -25024,9 +25024,6 @@ mips_get_move_src_copies (basic_block bb, vec<rtx*> &src_copies,
       rtx pattern = PATTERN (insn);
       if (GET_CODE (pattern) == SET)
 	{
-	  /* Move instruction.  There is a new copy.  Create vector with
-	     register copies for that move instruction.  */
-	  rtx *cp = new rtx[GP_REG_NUM*2];
 	  rtx src = SET_SRC (PATTERN (insn));
 	  rtx dst = SET_DEST (PATTERN (insn));
 	  if (!((((REG_P (src) || SUBREG_P (src)) && GP_REG_P ( REGNO (src)))
@@ -25059,6 +25056,9 @@ mips_get_move_src_copies (basic_block bb, vec<rtx*> &src_copies,
 	    if (reg_copies[i] && (REGNO (reg_copies[i]) == ix))
 	      reg_copies[i] = 0;
 
+          /* Move instruction.  There is a new copy.  Create vector with
+             register copies for that move instruction.  */
+          rtx *cp = new rtx[GP_REG_NUM*2];
 	  memcpy (cp, reg_copies, sizeof (rtx) * GP_REG_NUM * 2);
 	  src_copies.safe_push (cp);
 	  move_insns.safe_push (insn);
@@ -25081,7 +25081,7 @@ static void
 update_copy_info (vec<rtx*> &src_copies, rtx_insn *move, unsigned move_pos,
 		  int movep_pos)
 {
-  int curr_pos = move_pos;
+  int curr_pos = movep_pos;
   rtx pattern = PATTERN (move);
   rtx src = SET_SRC (pattern);
   rtx dest = SET_DEST (pattern);
@@ -25090,6 +25090,21 @@ update_copy_info (vec<rtx*> &src_copies, rtx_insn *move, unsigned move_pos,
       || !(REG_P (dest) || SUBREG_P (dest)) || REGNO_OR_0 (src) >= GP_REG_NUM
       || REGNO_OR_0 (dest) >= GP_REG_NUM)
     return;
+
+  while (curr_pos < move_pos)
+    {
+      rtx *reg_copies = src_copies[curr_pos];
+      if (reg_copies)
+        {
+          reg_copies[REGNO_OR_0 (dest)] = 0;
+          for (int i=0; i < GP_REG_NUM; i++)
+            if (reg_copies[i] && (REGNO_OR_0 (reg_copies[i]) == REGNO_OR_0 (dest)))
+                reg_copies[i] = 0;
+        }
+      curr_pos++;
+    }
+
+  curr_pos = move_pos;
 
   while (curr_pos < movep_pos)
     {
@@ -25169,9 +25184,9 @@ mips_check_for_movep (rtx_insn **move, rtx_insn **rmoveinsns, int move_pos[],
 		/* Update copy info related to instructions that are
 		   merged.  */
 		update_copy_info (src_copies, move[i1], move_pos[i1],
-				  movep_pos);
+				  movep_pos != -1 ? movep_pos : move_pos[i2]);
 		update_copy_info (src_copies, move[i2], move_pos[i2],
-				  movep_pos);
+				  movep_pos != -1 ? movep_pos : move_pos[i1]);
 		/* Delete original instructions.  */
 		delete_insn (move[i1]);
 		delete_insn (move[i2]);
@@ -25288,9 +25303,13 @@ mips_check_for_movep (rtx_insn **move, rtx_insn **rmoveinsns, int move_pos[],
 			    }
 
 			  update_copy_info (src_copies, rmove[i1],
-					    rmove_pos[i1], rmovep_pos);
+					    rmove_pos[i1],
+                                            rmovep_pos != -1 ? rmovep_pos :
+                                                               rmove_pos[i2]);
 			  update_copy_info (src_copies, rmove[i2],
-					    rmove_pos[i2], rmovep_pos);
+					    rmove_pos[i2],
+                                            rmovep_pos != -1 ? rmovep_pos :
+                                                               rmove_pos[i1]);
 
 			  /* Delete original instructions.  */
 			  delete_insn (rmove[i1]);

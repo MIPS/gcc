@@ -572,7 +572,7 @@ mopt-movebalc
 Target Undocumented Var(TARGET_OPT_MOVEBALC) Init(1)
 
 mopt-movep
-Target Undocumented Var(TARGET_OPT_MOVEP) Init(0)
+Target Undocumented Var(TARGET_OPT_MOVEP) Init(1)
 
 mmovep-follow-copy-chains
 Target Undocumented Var(mips_movep_follow_copy_chains) Init(1)
