@@ -3175,6 +3175,7 @@ relax_delay_slots (rtx_insn *first)
 	    target_label = find_end_label (target_label);
 
 	  if (target_label && next_active_insn (target_label) == next
+              && ! BARRIER_P (prev_nonnote_nondebug_insn (target_label))
 	      && ! condjump_in_parallel_p (jump_insn)
 	      && ! (next && switch_text_sections_between_p (jump_insn, next)))
 	    {
