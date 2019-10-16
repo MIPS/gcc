@@ -303,6 +303,7 @@ class layout
   bool m_colorize_source_p;
   bool m_show_labels_p;
   bool m_show_line_numbers_p;
+  bool m_use_nn_for_line_numbers_p;
   auto_vec <layout_range> m_layout_ranges;
   auto_vec <const fixit_hint *> m_fixit_hints;
   auto_vec <line_span> m_line_spans;
@@ -849,6 +850,7 @@ layout::layout (diagnostic_context * context,
   m_colorize_source_p (context->colorize_source_p),
   m_show_labels_p (context->show_labels_p),
   m_show_line_numbers_p (context->show_line_numbers_p),
+  m_use_nn_for_line_numbers_p (context->use_nn_for_line_numbers_p),
   m_layout_ranges (richloc->get_num_locations ()),
   m_fixit_hints (richloc->get_num_fixit_hints ()),
   m_line_spans (1 + richloc->get_num_locations ()),
@@ -884,7 +886,7 @@ layout::layout (diagnostic_context * context,
   int highest_line = last_span->m_last_line;
   if (highest_line < 0)
     highest_line = 0;
-  m_linenum_width = num_digits (highest_line);
+  m_linenum_width = num_digits (highest_line, m_use_nn_for_line_numbers_p);
   /* If we're showing jumps in the line-numbering, allow at least 3 chars.  */
   if (m_line_spans.length () > 1)
     m_linenum_width = MAX (m_linenum_width, 3);
@@ -1272,10 +1274,13 @@ layout::print_source_line (linenum_type row, const char *line, int line_width,
 
   if (m_show_line_numbers_p)
     {
-      int width = num_digits (row);
+      int width = num_digits (row, m_use_nn_for_line_numbers_p);
       for (int i = 0; i < m_linenum_width - width; i++)
 	pp_space (m_pp);
-      pp_printf (m_pp, "%i | ", row);
+      if (m_use_nn_for_line_numbers_p)
+	pp_printf (m_pp, "%s | ", "NN");
+      else
+	pp_printf (m_pp, "%i | ", row);
     }
   else
     pp_space (m_pp);
@@ -3778,18 +3783,34 @@ test_line_numbers_multiline_range ()
     = linemap_position_for_line_and_column (line_table, ord_map, 11, 4);
   location_t loc = make_location (caret, start, finish);
 
-  test_diagnostic_context dc;
-  dc.show_line_numbers_p = true;
-  dc.min_margin_width = 0;
-  gcc_rich_location richloc (loc);
-  diagnostic_show_locus (&dc, &richloc, DK_ERROR);
-  ASSERT_STREQ (" 9 | this is line 9\n"
-		"   |         ~~~~~~\n"
-		"10 | this is line 10\n"
-		"   | ~~~~~^~~~~~~~~~\n"
-		"11 | this is line 11\n"
-		"   | ~~~~  \n",
-		pp_formatted_text (dc.printer));
+  {
+    test_diagnostic_context dc;
+    dc.show_line_numbers_p = true;
+    dc.min_margin_width = 0;
+    gcc_rich_location richloc (loc);
+    diagnostic_show_locus (&dc, &richloc, DK_ERROR);
+    ASSERT_STREQ (" 9 | this is line 9\n"
+		  "   |         ~~~~~~\n"
+		  "10 | this is line 10\n"
+		  "   | ~~~~~^~~~~~~~~~\n"
+		  "11 | this is line 11\n"
+		  "   | ~~~~  \n",
+		  pp_formatted_text (dc.printer));
+  }
+
+  /* Verify that obscuring line numbers via "NN" works (and always uses
+     at least two columns).  */
+  {
+    test_diagnostic_context dc;
+    dc.show_line_numbers_p = true;
+    dc.use_nn_for_line_numbers_p = true;
+    dc.min_margin_width = 0;
+    gcc_rich_location richloc (start);
+    diagnostic_show_locus (&dc, &richloc, DK_ERROR);
+    ASSERT_STREQ ("NN | this is line 9\n"
+		  "   |         ^\n",
+		  pp_formatted_text (dc.printer));
+  }
 }
 
 /* Run all of the selftests within this file.  */
