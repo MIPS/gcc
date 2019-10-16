@@ -209,6 +209,7 @@ diagnostic_initialize (diagnostic_context *context, int n_opts)
   context->colorize_source_p = false;
   context->show_labels_p = false;
   context->show_line_numbers_p = false;
+  context->use_nn_for_line_numbers_p = false;
   context->min_margin_width = 0;
   context->show_ruler_p = false;
   context->parseable_fixits_p = false;
@@ -1078,14 +1079,20 @@ diagnostic_report_diagnostic (diagnostic_context *context,
   return true;
 }
 
-/* Get the number of digits in the decimal representation of VALUE.  */
+/* Get the number of digits in the decimal representation of VALUE.
+
+   If USE_NN_P is true, return 2 (for the case where all numbers are to
+   be printed as just "NN").  */
 
 int
-num_digits (int value)
+num_digits (int value, bool use_nn_p)
 {
   /* Perhaps simpler to use log10 for this, but doing it this way avoids
      using floating point.  */
   gcc_assert (value >= 0);
+
+  if (use_nn_p)
+    return 2;
 
   if (value == 0)
     return 1;
@@ -1885,6 +1892,8 @@ test_num_digits ()
   ASSERT_EQ (7, num_digits (9999999));
   ASSERT_EQ (8, num_digits (10000000));
   ASSERT_EQ (8, num_digits (99999999));
+
+  ASSERT_EQ (2, num_digits (1000, true));
 }
 
 /* Run all of the selftests within this file.  */
