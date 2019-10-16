@@ -2390,6 +2390,10 @@ common_handle_option (struct gcc_options *opts,
       dc->show_line_numbers_p = value;
       break;
 
+    case OPT_fdiagnostics_nn_line_numbers:
+      dc->use_nn_for_line_numbers_p = value;
+      break;
+
     case OPT_fdiagnostics_color_:
       diagnostic_color_init (dc, value);
       break;
