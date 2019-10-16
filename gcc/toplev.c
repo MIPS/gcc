@@ -1102,6 +1102,8 @@ general_init (const char *argv0, bool init_signals)
     = global_options_init.x_flag_diagnostics_show_line_numbers;
   global_dc->use_nn_for_line_numbers_p
     = global_options_init.x_flag_diagnostics_nn_line_numbers;
+  global_dc->show_metadata
+    = global_options_init.x_flag_diagnostics_show_metadata;
   global_dc->show_option_requested
     = global_options_init.x_flag_diagnostics_show_option;
   global_dc->min_margin_width
