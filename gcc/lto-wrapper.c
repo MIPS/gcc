@@ -260,6 +260,7 @@ merge_and_complain (struct cl_decoded_option **decoded_options,
 	case OPT_fdiagnostics_show_caret:
 	case OPT_fdiagnostics_show_labels:
 	case OPT_fdiagnostics_show_line_numbers:
+	case OPT_fdiagnostics_nn_line_numbers:
 	case OPT_fdiagnostics_show_option:
 	case OPT_fdiagnostics_show_location_:
 	case OPT_fshow_column:
@@ -605,6 +606,7 @@ append_compiler_options (obstack *argv_obstack, struct cl_decoded_option *opts,
 	case OPT_fdiagnostics_show_caret:
 	case OPT_fdiagnostics_show_labels:
 	case OPT_fdiagnostics_show_line_numbers:
+	case OPT_fdiagnostics_nn_line_numbers:
 	case OPT_fdiagnostics_show_option:
 	case OPT_fdiagnostics_show_location_:
 	case OPT_fshow_column:
@@ -653,6 +655,7 @@ append_diag_options (obstack *argv_obstack, struct cl_decoded_option *opts,
 	case OPT_fdiagnostics_format_:
 	case OPT_fdiagnostics_show_caret:
 	case OPT_fdiagnostics_show_labels:
+	case OPT_fdiagnostics_nn_line_numbers:
 	case OPT_fdiagnostics_show_line_numbers:
 	case OPT_fdiagnostics_show_option:
 	case OPT_fdiagnostics_show_location_:

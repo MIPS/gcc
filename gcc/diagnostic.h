@@ -233,6 +233,10 @@ struct diagnostic_context
      showing line numbers?  */
   bool show_line_numbers_p;
 
+  /* When printing line numbers, should the actual numbers be replaced with
+     "NN"? (for ease of DejaGnu testing)  */
+  bool use_nn_for_line_numbers_p;
+
   /* If printing source code, what should the minimum width of the margin
      be?  Line numbers will be right-aligned, and padded to this width.  */
   int min_margin_width;
@@ -432,6 +436,6 @@ extern void diagnostic_output_format_init (diagnostic_context *,
 					   enum diagnostics_output_format);
 
 /* Compute the number of digits in the decimal representation of an integer.  */
-extern int num_digits (int);
+extern int num_digits (int, bool use_nn_p = false);
 
 #endif /* ! GCC_DIAGNOSTIC_H */

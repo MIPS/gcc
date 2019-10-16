@@ -278,6 +278,7 @@ Objective-C and Objective-C++ Dialects}.
 -fdiagnostics-format=@r{[}text@r{|}json@r{]}  @gol
 -fno-diagnostics-show-option  -fno-diagnostics-show-caret @gol
 -fno-diagnostics-show-labels  -fno-diagnostics-show-line-numbers @gol
+-fdiagnostics-nn-line-numbers @gol
 -fdiagnostics-minimum-margin-width=@var{width} @gol
 -fdiagnostics-parseable-fixits  -fdiagnostics-generate-patch @gol
 -fdiagnostics-show-template-tree  -fno-elide-type @gol
@@ -4027,6 +4028,12 @@ the vertical bars and the ``char *'' and ``long int'' text).
 By default, when printing source code (via @option{-fdiagnostics-show-caret}),
 a left margin is printed, showing line numbers.  This option suppresses this
 left margin.
+
+@item -fdiagnostics-nn-line-numbers
+@opindex fdiagnostics-nn-line-numbers
+When printing source code in diagnostics, replace line numbers ``NN''.
+This option is intended for GCC developers, to make it easier to write
+certain kinds of automated test.
 
 @item -fdiagnostics-minimum-margin-width=@var{width}
 @opindex fdiagnostics-minimum-margin-width
