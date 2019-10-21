@@ -1194,6 +1194,7 @@ edge_badness (struct cgraph_edge *edge, bool dump)
 	 growth ...
 	*/
       if (growth > overall_growth
+	  && PARAM_VALUE (PARAM_INLINE_WRAPPER_HACK)
 	  /* ... and having only one caller which is not inlined ... */
 	  && callee_info->single_caller
 	  && !edge->caller->global.inlined_to
@@ -1231,7 +1232,8 @@ edge_badness (struct cgraph_edge *edge, bool dump)
 	      overall_growth = caller_growth;
 	    }
 	}
-      if (overall_growth > 0)
+      if (overall_growth > 0
+	  && PARAM_VALUE (PARAM_INLINE_GROWTH_HACK))
         {
 	  /* Strongly preffer functions with few callers that can be inlined
 	     fully.  The square root here leads to smaller binaries at average.
@@ -1243,7 +1245,8 @@ edge_badness (struct cgraph_edge *edge, bool dump)
 	    overall_growth += 256 * 256 - 256;
 	  denominator *= overall_growth;
         }
-      denominator *= ipa_fn_summaries->get (caller)->self_size + growth;
+      if (PARAM_VALUE (PARAM_INLINE_DENOMINATOR_HACK))
+        denominator *= ipa_fn_summaries->get (caller)->size + growth;
 
       badness = - numerator / denominator;
 
@@ -1286,6 +1289,8 @@ edge_badness (struct cgraph_edge *edge, bool dump)
     }
   gcc_checking_assert (badness != 0);
 
+      if (PARAM_VALUE (PARAM_INLINE_HINT_HACK))
+	{
   if (edge->recursive_p ())
     badness = badness.shift (badness > 0 ? 4 : -4);
   if ((hints & (INLINE_HINT_indirect_call
@@ -1303,6 +1308,7 @@ edge_badness (struct cgraph_edge *edge, bool dump)
     badness = badness.shift (badness > 0 ? -4 : 4);
   else if ((hints & INLINE_HINT_declared_inline))
     badness = badness.shift (badness > 0 ? -3 : 3);
+	}
   if (dump)
     fprintf (dump_file, "      Adjusted by hints %f\n", badness.to_double ());
   return badness;
