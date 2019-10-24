@@ -519,7 +519,11 @@ print_node (FILE *file, const char *prefix, tree node, int indent,
 	  if (code == FUNCTION_DECL && fndecl_built_in_p (node))
 	    {
 	      if (DECL_BUILT_IN_CLASS (node) == BUILT_IN_MD)
-		fprintf (file, " built-in: BUILT_IN_MD:%d", DECL_FUNCTION_CODE (node));
+		fprintf (file, " built-in: BUILT_IN_MD:%d",
+			 DECL_MD_FUNCTION_CODE (node));
+	      else if (DECL_BUILT_IN_CLASS (node) == BUILT_IN_FRONTEND)
+		fprintf (file, " built-in: BUILT_IN_FRONTEND:%d",
+			 DECL_FE_FUNCTION_CODE (node));
 	      else
 		fprintf (file, " built-in: %s:%s",
 			 built_in_class_names[(int) DECL_BUILT_IN_CLASS (node)],
@@ -601,7 +605,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent,
       if (TYPE_NO_FORCE_BLK (node))
 	fputs (" no-force-blk", file);
 
-      if (TYPE_STRING_FLAG (node))
+      if (code == ARRAY_TYPE && TYPE_STRING_FLAG (node))
 	fputs (" string-flag", file);
 
       if (TYPE_NEEDS_CONSTRUCTING (node))
@@ -613,6 +617,11 @@ print_node (FILE *file, const char *prefix, tree node, int indent,
 	   || code == ARRAY_TYPE)
 	  && TYPE_REVERSE_STORAGE_ORDER (node))
 	fputs (" reverse-storage-order", file);
+
+      if ((code == RECORD_TYPE
+	   || code == UNION_TYPE)
+	  && TYPE_CXX_ODR_P (node))
+	fputs (" cxx-odr-p", file);
 
       /* The transparent-union flag is used for different things in
 	 different nodes.  */

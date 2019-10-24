@@ -36,6 +36,7 @@ std_headers = \
 	${std_srcdir}/chrono \
 	${std_srcdir}/codecvt \
 	${std_srcdir}/complex \
+	${std_srcdir}/concepts \
 	${std_srcdir}/condition_variable \
 	${std_srcdir}/deque \
 	${std_srcdir}/execution \
@@ -57,6 +58,7 @@ std_headers = \
 	${std_srcdir}/memory \
 	${std_srcdir}/memory_resource \
 	${std_srcdir}/mutex \
+	${std_srcdir}/numbers \
 	${std_srcdir}/numeric \
 	${std_srcdir}/optional \
 	${std_srcdir}/ostream \
@@ -67,6 +69,7 @@ std_headers = \
 	${std_srcdir}/scoped_allocator \
 	${std_srcdir}/set \
 	${std_srcdir}/shared_mutex \
+	${std_srcdir}/span \
 	${std_srcdir}/sstream \
 	${std_srcdir}/stack \
 	${std_srcdir}/stdexcept \
@@ -149,6 +152,7 @@ bits_headers = \
 	${bits_srcdir}/random.h \
 	${bits_srcdir}/random.tcc \
 	${bits_srcdir}/range_access.h \
+	${bits_srcdir}/range_cmp.h \
 	${bits_srcdir}/refwrap.h \
 	${bits_srcdir}/regex.h \
 	${bits_srcdir}/regex.tcc \
@@ -1012,6 +1016,7 @@ allstamped = \
 # catenation.
 allcreated = \
 	${host_builddir}/c++config.h \
+	${host_builddir}/largefile-config.h \
 	${thread_host_headers} \
 	${pch_build}
 
@@ -1235,10 +1240,29 @@ stamp-float128:
 	echo 'undef _GLIBCXX_USE_FLOAT128' > stamp-float128
 endif
 
+# This header is not installed, it's only used to build libstdc++ itself.
+${host_builddir}/largefile-config.h: ${CONFIG_HEADER} \
+				     ${glibcxx_srcdir}/include/bits/c++config
+	@echo '#if defined _GLIBCXX_CXX_CONFIG_H || defined _FEATURES_H' > $@
+	@echo '# error "This file must be included before any others"' >> $@
+	@echo '#endif' >> $@
+	@echo >> $@
+	@echo '/* Enable large inode numbers on Mac OS X 10.5.  */' >> $@
+	@echo '#ifndef _DARWIN_USE_64_BIT_INODE' >> $@
+	@echo '# define _DARWIN_USE_64_BIT_INODE 1' >> $@
+	@echo '#endif' >> $@
+	@echo >> $@
+	@echo '/* Number of bits in a file offset, on hosts where this is settable. */' >> $@
+	@grep '_FILE_OFFSET_BITS' ${CONFIG_HEADER} >> $@
+	@echo >> $@
+	@echo '/* Define for large files, on AIX-style hosts. */' >> $@
+	@grep '_LARGE_FILES' ${CONFIG_HEADER} >> $@
+
 # NB: The non-empty default ldbl_compat works around an AIX sed
 # oddity, see libstdc++/31957 for details.
 ${host_builddir}/c++config.h: ${CONFIG_HEADER} \
 			      ${glibcxx_srcdir}/include/bits/c++config \
+			      ${host_builddir}/largefile-config.h \
 			      stamp-${host_alias} \
 			      ${toplevel_srcdir}/gcc/DATESTAMP \
 			      stamp-namespace-version \
@@ -1276,6 +1300,9 @@ ${host_builddir}/c++config.h: ${CONFIG_HEADER} \
 	    -e 's/PACKAGE/_GLIBCXX_PACKAGE/g' \
 	    -e 's/VERSION/_GLIBCXX_VERSION/g' \
 	    -e 's/WORDS_/_GLIBCXX_WORDS_/g' \
+	    -e 's/_DARWIN_USE_64_BIT_INODE/_GLIBCXX_DARWIN_USE_64_BIT_INODE/g' \
+	    -e 's/_FILE_OFFSET_BITS/_GLIBCXX_FILE_OFFSET_BITS/g' \
+	    -e 's/_LARGE_FILES/_GLIBCXX_LARGE_FILES/g' \
 	    -e 's/ICONV_CONST/_GLIBCXX_ICONV_CONST/g' \
 	    -e '/[	 ]_GLIBCXX_LONG_DOUBLE_COMPAT[	 ]/d' \
 	    < ${CONFIG_HEADER} >> $@ ;\
@@ -1354,8 +1381,8 @@ endif
 # This is a subset of the full install-headers rule.  We only need <ciso646>,
 # <cstddef>, <cfloat>, <limits>, <climits>, <version>, <cstdint>, <cstdlib>,
 # <new>, <typeinfo>, <exception>, <initializer_list>, <cstdalign>, <cstdarg>,
-# <cstdbool>, <type_traits>, <bit>, <atomic>, and any files which they include
-# (and which we provide).
+# <concepts>, <cstdbool>, <type_traits>, <bit>, <atomic>,
+# and any files which they include (and which we provide).
 # <new>, <typeinfo>, <exception>, and <initializer_list> are installed by
 # libsupc++, so only the others and the sub-includes are copied here.
 install-freestanding-headers:
@@ -1368,7 +1395,7 @@ install-freestanding-headers:
 	  ${glibcxx_srcdir}/$(CPU_DEFINES_SRCDIR)/cpu_defines.h; do \
 	  $(INSTALL_DATA) $${file} $(DESTDIR)${host_installdir}; done
 	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${std_builddir}
-	for file in limits type_traits atomic bit version; do \
+	for file in limits type_traits atomic bit concepts version; do \
 	  $(INSTALL_DATA) ${std_builddir}/$${file} $(DESTDIR)${gxx_include_dir}/${std_builddir}; done
 	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${c_base_builddir}
 	for file in ciso646 cstddef cfloat climits cstdint cstdlib \

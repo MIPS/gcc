@@ -31,7 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Match an end of OpenMP directive.  End of OpenMP directive is optional
    whitespace, followed by '\n' or comment '!'.  */
 
-match
+static match
 gfc_match_omp_eos (void)
 {
   locus old_loc;
@@ -56,6 +56,17 @@ gfc_match_omp_eos (void)
   gfc_current_locus = old_loc;
   return MATCH_NO;
 }
+
+match
+gfc_match_omp_eos_error (void)
+{
+  if (gfc_match_omp_eos() == MATCH_YES)
+    return MATCH_YES;
+
+  gfc_error ("Unexpected junk at %C");
+  return MATCH_ERROR;
+}
+
 
 /* Free an omp_clauses structure.  */
 
@@ -780,6 +791,7 @@ enum omp_mask1
   OMP_CLAUSE_SIMD,
   OMP_CLAUSE_THREADS,
   OMP_CLAUSE_USE_DEVICE_PTR,
+  OMP_CLAUSE_USE_DEVICE_ADDR,  /* Actually, OpenMP 5.0.  */
   OMP_CLAUSE_NOWAIT,
   /* This must come last.  */
   OMP_MASK1_LAST
@@ -1849,6 +1861,11 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 		   ("use_device_ptr (",
 		    &c->lists[OMP_LIST_USE_DEVICE_PTR], false) == MATCH_YES)
 	    continue;
+	  if ((mask & OMP_CLAUSE_USE_DEVICE_ADDR)
+	      && gfc_match_omp_variable_list
+		   ("use_device_addr (",
+		    &c->lists[OMP_LIST_USE_DEVICE_ADDR], false) == MATCH_YES)
+	    continue;
 	  break;
 	case 'v':
 	  /* VECTOR_LENGTH must be matched before VECTOR, because the latter
@@ -1922,6 +1939,8 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 
   if (gfc_match_omp_eos () != MATCH_YES)
     {
+      if (!gfc_error_flag_test ())
+	gfc_error ("Failed to match clause at %C");
       gfc_free_omp_clauses (c);
       return MATCH_ERROR;
     }
@@ -2477,7 +2496,7 @@ cleanup:
    | OMP_CLAUSE_IS_DEVICE_PTR)
 #define OMP_TARGET_DATA_CLAUSES \
   (omp_mask (OMP_CLAUSE_DEVICE) | OMP_CLAUSE_MAP | OMP_CLAUSE_IF	\
-   | OMP_CLAUSE_USE_DEVICE_PTR)
+   | OMP_CLAUSE_USE_DEVICE_PTR | OMP_CLAUSE_USE_DEVICE_ADDR)
 #define OMP_TARGET_ENTER_DATA_CLAUSES \
   (omp_mask (OMP_CLAUSE_DEVICE) | OMP_CLAUSE_MAP | OMP_CLAUSE_IF	\
    | OMP_CLAUSE_DEPEND | OMP_CLAUSE_NOWAIT)
@@ -3842,10 +3861,6 @@ check_array_not_assumed (gfc_symbol *sym, locus loc, const char *name)
   if (sym->as && sym->as->type == AS_ASSUMED_RANK)
     gfc_error ("Assumed rank array %qs in %s clause at %L",
 	       sym->name, name, &loc);
-  if (sym->as && sym->as->type == AS_DEFERRED && sym->attr.pointer
-      && !sym->attr.contiguous)
-    gfc_error ("Noncontiguous deferred shape array %qs in %s clause at %L",
-	       sym->name, name, &loc);
 }
 
 static void
@@ -4006,7 +4021,7 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
     = { "PRIVATE", "FIRSTPRIVATE", "LASTPRIVATE", "COPYPRIVATE", "SHARED",
 	"COPYIN", "UNIFORM", "ALIGNED", "LINEAR", "DEPEND", "MAP",
 	"TO", "FROM", "REDUCTION", "DEVICE_RESIDENT", "LINK", "USE_DEVICE",
-	"CACHE", "IS_DEVICE_PTR", "USE_DEVICE_PTR" };
+	"CACHE", "IS_DEVICE_PTR", "USE_DEVICE_PTR", "USE_DEVICE_ADDR" };
 
   if (omp_clauses == NULL)
     return;
@@ -4208,8 +4223,21 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
 		  continue;
 	      }
 	  }
-	gfc_error ("Object %qs is not a variable at %L", n->sym->name,
-		   &n->where);
+	if (list == OMP_LIST_MAP
+	    && n->sym->attr.flavor == FL_PARAMETER)
+	  {
+	    if (openacc)
+	      gfc_error ("Object %qs is not a variable at %L; parameters"
+			 " cannot be and need not be copied", n->sym->name,
+			 &n->where);
+	    else
+	      gfc_error ("Object %qs is not a variable at %L; parameters"
+			 " cannot be and need not be mapped", n->sym->name,
+			 &n->where);
+	  }
+	else
+	  gfc_error ("Object %qs is not a variable at %L", n->sym->name,
+		     &n->where);
       }
 
   for (list = 0; list < OMP_LIST_NUM; list++)
@@ -4550,8 +4578,26 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
 		}
 	    break;
 	  case OMP_LIST_IS_DEVICE_PTR:
+	    if (!n->sym->attr.dummy)
+	      gfc_error ("Non-dummy object %qs in %s clause at %L",
+			 n->sym->name, name, &n->where);
+	    if (n->sym->attr.allocatable
+		|| (n->sym->ts.type == BT_CLASS
+		    && CLASS_DATA (n->sym)->attr.allocatable))
+	      gfc_error ("ALLOCATABLE object %qs in %s clause at %L",
+			 n->sym->name, name, &n->where);
+	    if (n->sym->attr.pointer
+		|| (n->sym->ts.type == BT_CLASS
+		    && CLASS_DATA (n->sym)->attr.pointer))
+	      gfc_error ("POINTER object %qs in %s clause at %L",
+			 n->sym->name, name, &n->where);
+	    if (n->sym->attr.value)
+	      gfc_error ("VALUE object %qs in %s clause at %L",
+			 n->sym->name, name, &n->where);
+	    break;
 	  case OMP_LIST_USE_DEVICE_PTR:
-	    /* FIXME: Handle these.  */
+	  case OMP_LIST_USE_DEVICE_ADDR:
+	    /* FIXME: Handle OMP_LIST_USE_DEVICE_PTR.  */
 	    break;
 	  default:
 	    for (; n != NULL; n = n->next)
@@ -6035,15 +6081,11 @@ gfc_resolve_oacc_declare (gfc_namespace *ns)
 	for (n = oc->clauses->lists[list]; n; n = n->next)
 	  {
 	    n->sym->mark = 0;
-	    if (n->sym->attr.function || n->sym->attr.subroutine)
+	    if (n->sym->attr.flavor != FL_VARIABLE
+		&& (n->sym->attr.flavor != FL_PROCEDURE
+		    || n->sym->result != n->sym))
 	      {
 		gfc_error ("Object %qs is not a variable at %L",
-			   n->sym->name, &oc->loc);
-		continue;
-	      }
-	    if (n->sym->attr.flavor == FL_PARAMETER)
-	      {
-		gfc_error ("PARAMETER object %qs is not allowed at %L",
 			   n->sym->name, &oc->loc);
 		continue;
 	      }

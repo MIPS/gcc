@@ -188,8 +188,9 @@ dump_stmt_cost (FILE *f, void *data, int count, enum vect_cost_for_stmt kind,
 
 /* For mapping simduid to vectorization factor.  */
 
-struct simduid_to_vf : free_ptr_hash<simduid_to_vf>
+class simduid_to_vf : public free_ptr_hash<simduid_to_vf>
 {
+public:
   unsigned int simduid;
   poly_uint64 vf;
 
@@ -288,10 +289,7 @@ adjust_simduid_builtins (hash_table<simduid_to_vf> *htab)
 		       : BUILT_IN_GOMP_ORDERED_END);
 		  gimple *g
 		    = gimple_build_call (builtin_decl_explicit (bcode), 0);
-		  tree vdef = gimple_vdef (stmt);
-		  gimple_set_vdef (g, vdef);
-		  SSA_NAME_DEF_STMT (vdef) = g;
-		  gimple_set_vuse (g, gimple_vuse (stmt));
+		  gimple_move_vops (g, stmt);
 		  gsi_replace (&i, g, true);
 		  continue;
 		}
@@ -632,15 +630,17 @@ vec_info::replace_stmt (gimple_stmt_iterator *gsi, stmt_vec_info stmt_info,
 stmt_vec_info
 vec_info::new_stmt_vec_info (gimple *stmt)
 {
-  stmt_vec_info res = XCNEW (struct _stmt_vec_info);
+  stmt_vec_info res = XCNEW (class _stmt_vec_info);
   res->vinfo = this;
   res->stmt = stmt;
 
   STMT_VINFO_TYPE (res) = undef_vec_info_type;
   STMT_VINFO_RELEVANT (res) = vect_unused_in_scope;
   STMT_VINFO_VECTORIZABLE (res) = true;
-  STMT_VINFO_VEC_REDUCTION_TYPE (res) = TREE_CODE_REDUCTION;
-  STMT_VINFO_VEC_CONST_COND_REDUC_CODE (res) = ERROR_MARK;
+  STMT_VINFO_REDUC_TYPE (res) = TREE_CODE_REDUCTION;
+  STMT_VINFO_REDUC_CODE (res) = ERROR_MARK;
+  STMT_VINFO_REDUC_FN (res) = IFN_LAST;
+  STMT_VINFO_REDUC_IDX (res) = -1;
   STMT_VINFO_SLP_VECT_ONLY (res) = false;
 
   if (gimple_code (stmt) == GIMPLE_PHI
@@ -713,7 +713,7 @@ vec_info::free_stmt_vec_info (stmt_vec_info stmt_info)
    clear loop constraint LOOP_C_FINITE.  */
 
 void
-vect_free_loop_info_assumptions (struct loop *loop)
+vect_free_loop_info_assumptions (class loop *loop)
 {
   scev_reset_htab ();
   /* We need to explicitly reset upper bound information since they are
@@ -728,7 +728,7 @@ vect_free_loop_info_assumptions (struct loop *loop)
    guarding it.  */
 
 gimple *
-vect_loop_vectorized_call (struct loop *loop, gcond **cond)
+vect_loop_vectorized_call (class loop *loop, gcond **cond)
 {
   basic_block bb = loop_preheader_edge (loop)->src;
   gimple *g;
@@ -764,11 +764,11 @@ vect_loop_vectorized_call (struct loop *loop, gcond **cond)
    internal call.  */
 
 static gimple *
-vect_loop_dist_alias_call (struct loop *loop)
+vect_loop_dist_alias_call (class loop *loop)
 {
   basic_block bb;
   basic_block entry;
-  struct loop *outer, *orig;
+  class loop *outer, *orig;
   gimple_stmt_iterator gsi;
   gimple *g;
 
@@ -823,7 +823,7 @@ set_uid_loop_bbs (loop_vec_info loop_vinfo, gimple *loop_vectorized_call)
   tree arg = gimple_call_arg (loop_vectorized_call, 1);
   basic_block *bbs;
   unsigned int i;
-  struct loop *scalar_loop = get_loop (cfun, tree_to_shwi (arg));
+  class loop *scalar_loop = get_loop (cfun, tree_to_shwi (arg));
 
   LOOP_VINFO_SCALAR_LOOP (loop_vinfo) = scalar_loop;
   gcc_checking_assert (vect_loop_vectorized_call (scalar_loop)
@@ -944,7 +944,7 @@ try_vectorize_loop_1 (hash_table<simduid_to_vf> *&simduid_to_vf_htab,
 	      fold_loop_internal_call (loop_vectorized_call,
 				       boolean_true_node);
 	      loop_vectorized_call = NULL;
-	      ret |= TODO_cleanup_cfg;
+	      ret |= TODO_cleanup_cfg | TODO_update_ssa_only_virtuals;
 	    }
 	}
       /* If outer loop vectorization fails for LOOP_VECTORIZED guarded
@@ -971,7 +971,7 @@ try_vectorize_loop_1 (hash_table<simduid_to_vf> *&simduid_to_vf_htab,
   unsigned HOST_WIDE_INT bytes;
   if (dump_enabled_p ())
     {
-      if (current_vector_size.is_constant (&bytes))
+      if (loop_vinfo->vector_size.is_constant (&bytes))
 	dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, vect_location,
 			 "loop vectorized using %wu byte vectors\n", bytes);
       else
@@ -1046,7 +1046,7 @@ vectorize_loops (void)
   unsigned int i;
   unsigned int num_vectorized_loops = 0;
   unsigned int vect_loops_num;
-  struct loop *loop;
+  class loop *loop;
   hash_table<simduid_to_vf> *simduid_to_vf_htab = NULL;
   hash_table<simd_array_to_simduid> *simd_array_to_simduid_htab = NULL;
   bool any_ifcvt_loops = false;
@@ -1097,7 +1097,7 @@ vectorize_loops (void)
 		&& vect_loop_vectorized_call (loop->inner))
 	      {
 		tree arg = gimple_call_arg (loop_vectorized_call, 0);
-		struct loop *vector_loop
+		class loop *vector_loop
 		  = get_loop (cfun, tree_to_shwi (arg));
 		if (vector_loop && vector_loop != loop)
 		  {
@@ -1347,7 +1347,8 @@ get_vec_alignment_for_array_type (tree type)
   gcc_assert (TREE_CODE (type) == ARRAY_TYPE);
   poly_uint64 array_size, vector_size;
 
-  tree vectype = get_vectype_for_scalar_type (strip_array_types (type));
+  tree scalar_type = strip_array_types (type);
+  tree vectype = get_vectype_for_scalar_type_and_size (scalar_type, 0);
   if (!vectype
       || !poly_int_tree_p (TYPE_SIZE (type), &array_size)
       || !poly_int_tree_p (TYPE_SIZE (vectype), &vector_size)
@@ -1514,4 +1515,37 @@ simple_ipa_opt_pass *
 make_pass_ipa_increase_alignment (gcc::context *ctxt)
 {
   return new pass_ipa_increase_alignment (ctxt);
+}
+
+/* If the condition represented by T is a comparison or the SSA name
+   result of a comparison, extract the comparison's operands.  Represent
+   T as NE_EXPR <T, 0> otherwise.  */
+
+void
+scalar_cond_masked_key::get_cond_ops_from_tree (tree t)
+{
+  if (TREE_CODE_CLASS (TREE_CODE (t)) == tcc_comparison)
+    {
+      this->code = TREE_CODE (t);
+      this->op0 = TREE_OPERAND (t, 0);
+      this->op1 = TREE_OPERAND (t, 1);
+      return;
+    }
+
+  if (TREE_CODE (t) == SSA_NAME)
+    if (gassign *stmt = dyn_cast<gassign *> (SSA_NAME_DEF_STMT (t)))
+      {
+	tree_code code = gimple_assign_rhs_code (stmt);
+	if (TREE_CODE_CLASS (code) == tcc_comparison)
+	  {
+	    this->code = code;
+	    this->op0 = gimple_assign_rhs1 (stmt);
+	    this->op1 = gimple_assign_rhs2 (stmt);
+	    return;
+	  }
+      }
+
+  this->code = NE_EXPR;
+  this->op0 = t;
+  this->op1 = build_zero_cst (TREE_TYPE (t));
 }

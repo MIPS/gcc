@@ -555,7 +555,7 @@ ifcombine_ifandif (basic_block inner_cond_bb, bool inner_inv,
 	return false;
       /* Don't return false so fast, try maybe_fold_or_comparisons?  */
 
-      if (!(t = maybe_fold_and_comparisons (inner_cond_code,
+      if (!(t = maybe_fold_and_comparisons (boolean_type_node, inner_cond_code,
 					    gimple_cond_lhs (inner_cond),
 					    gimple_cond_rhs (inner_cond),
 					    outer_cond_code,
@@ -599,6 +599,12 @@ ifcombine_ifandif (basic_block inner_cond_bb, bool inner_inv,
       t = canonicalize_cond_expr_cond (t);
       if (!t)
 	return false;
+      if (!is_gimple_condexpr_for_cond (t))
+	{
+	  gsi = gsi_for_stmt (inner_cond);
+	  t = force_gimple_operand_gsi_1 (&gsi, t, is_gimple_condexpr_for_cond,
+					  NULL, true, GSI_SAME_STMT);
+	}
       gimple_cond_set_condition_from_tree (inner_cond, t);
       update_stmt (inner_cond);
 

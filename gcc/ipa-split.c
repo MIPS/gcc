@@ -108,8 +108,9 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Per basic block info.  */
 
-struct split_bb_info
+class split_bb_info
 {
+public:
   unsigned int size;
   sreal time;
 };
@@ -118,8 +119,9 @@ static vec<split_bb_info> bb_info_vec;
 
 /* Description of split point.  */
 
-struct split_point
+class split_point
 {
+public:
   /* Size of the partitions.  */
   sreal header_time, split_time;
   unsigned int header_size, split_size;
@@ -144,7 +146,7 @@ struct split_point
 
 /* Best split point found.  */
 
-struct split_point best_split_point;
+class split_point best_split_point;
 
 /* Set of basic blocks that are not allowed to dominate a split point.  */
 
@@ -191,7 +193,7 @@ test_nonssa_use (gimple *, tree t, tree, void *data)
 /* Dump split point CURRENT.  */
 
 static void
-dump_split_point (FILE * file, struct split_point *current)
+dump_split_point (FILE * file, class split_point *current)
 {
   fprintf (file,
 	   "Split point at BB %i\n"
@@ -210,7 +212,7 @@ dump_split_point (FILE * file, struct split_point *current)
    Parameters are the same as for consider_split.  */
 
 static bool
-verify_non_ssa_vars (struct split_point *current, bitmap non_ssa_vars,
+verify_non_ssa_vars (class split_point *current, bitmap non_ssa_vars,
 		     basic_block return_bb)
 {
   bitmap seen = BITMAP_ALLOC (NULL);
@@ -404,7 +406,7 @@ dominated_by_forbidden (basic_block bb)
 /* For give split point CURRENT and return block RETURN_BB return 1
    if ssa name VAL is set by split part and 0 otherwise.  */
 static bool
-split_part_set_ssa_name_p (tree val, struct split_point *current,
+split_part_set_ssa_name_p (tree val, class split_point *current,
 			   basic_block return_bb)
 {
   if (TREE_CODE (val) != SSA_NAME)
@@ -421,7 +423,7 @@ split_part_set_ssa_name_p (tree val, struct split_point *current,
    See if we can split function here.  */
 
 static void
-consider_split (struct split_point *current, bitmap non_ssa_vars,
+consider_split (class split_point *current, bitmap non_ssa_vars,
 		basic_block return_bb)
 {
   tree parm;
@@ -979,8 +981,9 @@ visit_bb (basic_block bb, basic_block return_bb,
 
 /* Stack entry for recursive DFS walk in find_split_point.  */
 
-struct stack_entry
+class stack_entry
 {
+public:
   /* Basic block we are examining.  */
   basic_block bb;
 
@@ -1032,7 +1035,7 @@ find_split_points (basic_block return_bb, sreal overall_time, int overall_size)
   stack_entry first;
   vec<stack_entry> stack = vNULL;
   basic_block bb;
-  struct split_point current;
+  class split_point current;
 
   current.header_time = overall_time;
   current.header_size = overall_size;
@@ -1178,7 +1181,7 @@ find_split_points (basic_block return_bb, sreal overall_time, int overall_size)
 /* Split function at SPLIT_POINT.  */
 
 static void
-split_function (basic_block return_bb, struct split_point *split_point,
+split_function (basic_block return_bb, class split_point *split_point,
 		bool add_tsan_func_exit)
 {
   vec<tree> args_to_pass = vNULL;
@@ -1323,13 +1326,38 @@ split_function (basic_block return_bb, struct split_point *split_point,
 	  }
     }
 
+  ipa_param_adjustments *adjustments;
+  bool skip_return = (!split_part_return_p
+		      || !split_point->split_part_set_retval);
+  /* TODO: Perhaps get rid of args_to_skip entirely, after we make sure the
+     debug info generation and discrepancy avoiding works well too.  */
+  if ((args_to_skip && !bitmap_empty_p (args_to_skip))
+      || skip_return)
+    {
+      vec<ipa_adjusted_param, va_gc> *new_params = NULL;
+      unsigned j;
+      for (parm = DECL_ARGUMENTS (current_function_decl), j = 0;
+	   parm; parm = DECL_CHAIN (parm), j++)
+	if (!args_to_skip || !bitmap_bit_p (args_to_skip, j))
+	  {
+	    ipa_adjusted_param adj;
+	    memset (&adj, 0, sizeof (adj));
+	    adj.op = IPA_PARAM_OP_COPY;
+	    adj.base_index = j;
+	    adj.prev_clone_index = j;
+	    vec_safe_push (new_params, adj);
+	  }
+      adjustments = new ipa_param_adjustments (new_params, j, skip_return);
+    }
+  else
+    adjustments = NULL;
+
   /* Now create the actual clone.  */
   cgraph_edge::rebuild_edges ();
   node = cur_node->create_version_clone_with_body
-    (vNULL, NULL, args_to_skip,
-     !split_part_return_p || !split_point->split_part_set_retval,
+    (vNULL, NULL, adjustments,
      split_point->split_bbs, split_point->entry_bb, "part");
-
+  delete adjustments;
   node->split_part = true;
 
   if (cur_node->same_comdat_group)
@@ -1348,10 +1376,7 @@ split_function (basic_block return_bb, struct split_point *split_point,
      changes.  For partial inlining we however cannot expect the part
      of builtin implementation to have same semantic as the whole.  */
   if (fndecl_built_in_p (node->decl))
-    {
-      DECL_BUILT_IN_CLASS (node->decl) = NOT_BUILT_IN;
-      DECL_FUNCTION_CODE (node->decl) = (enum built_in_function) 0;
-    }
+    set_decl_built_in_function (node->decl, NOT_BUILT_IN, 0);
 
   /* If return_bb contains any clobbers that refer to SSA_NAMEs
      set in the split part, remove them.  Also reset debug stmts that
@@ -1469,6 +1494,7 @@ split_function (basic_block return_bb, struct split_point *split_point,
 	      = gimple_build_debug_bind (ddecl, unshare_expr (arg), call);
 	    gsi_insert_after (&gsi, def_temp, GSI_NEW_STMT);
 	  }
+      BITMAP_FREE (args_to_skip);
     }
 
   /* We avoid address being taken on any variable used by split part,

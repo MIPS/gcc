@@ -63,7 +63,7 @@ struct omp_for_data
   int collapse;  /* Collapsed loops, 1 for a non-collapsed loop.  */
   int ordered;
   bool have_nowait, have_ordered, simd_schedule, have_reductemp;
-  bool have_pointer_condtemp;
+  bool have_pointer_condtemp, have_scantemp, have_nonctrl_scantemp;
   int lastprivate_conditional;
   unsigned char sched_modifiers;
   enum omp_clause_schedule_kind sched_kind;
@@ -73,6 +73,8 @@ struct omp_for_data
 #define OACC_FN_ATTRIB "oacc function"
 
 extern tree omp_find_clause (tree clauses, enum omp_clause_code kind);
+extern bool omp_is_allocatable_or_ptr (tree decl);
+extern bool omp_is_optional_argument (tree decl);
 extern bool omp_is_reference (tree decl);
 extern void omp_adjust_for_condition (location_t loc, enum tree_code *cond_code,
 				      tree *n2, tree v, tree step);

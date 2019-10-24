@@ -53,6 +53,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "dce.h"
 #include "dbgcnt.h"
 #include "rtl-iter.h"
+#include "regs.h"
+#include "function-abi.h"
 
 #define FORWARDER_BLOCK_P(BB) ((BB)->flags & BB_FORWARDER_BLOCK)
 
@@ -1224,6 +1226,9 @@ old_insns_match_p (int mode ATTRIBUTE_UNUSED, rtx_insn *i1, rtx_insn *i2)
 		}
 	    }
 	}
+
+      if (insn_callee_abi (i1) != insn_callee_abi (i2))
+        return dir_none;
     }
 
   /* If both i1 and i2 are frame related, verify all the CFA notes
@@ -1256,7 +1261,7 @@ old_insns_match_p (int mode ATTRIBUTE_UNUSED, rtx_insn *i1, rtx_insn *i2)
 	if (REG_NOTE_KIND (note) == REG_DEAD && STACK_REG_P (XEXP (note, 0)))
 	  SET_HARD_REG_BIT (i2_regset, REGNO (XEXP (note, 0)));
 
-      if (!hard_reg_set_equal_p (i1_regset, i2_regset))
+      if (i1_regset != i2_regset)
 	return dir_none;
     }
 #endif
@@ -3184,7 +3189,10 @@ cleanup_cfg (int mode)
 	      && !delete_trivially_dead_insns (get_insns (), max_reg_num ()))
 	    break;
 	  if ((mode & CLEANUP_CROSSJUMP) && crossjumps_occurred)
-	    run_fast_dce ();
+	    {
+	      run_fast_dce ();
+	      mode &= ~CLEANUP_FORCE_FAST_DCE;
+	    }
 	}
       else
 	break;
@@ -3192,6 +3200,9 @@ cleanup_cfg (int mode)
 
   if (mode & CLEANUP_CROSSJUMP)
     remove_fake_exit_edges ();
+
+  if (mode & CLEANUP_FORCE_FAST_DCE)
+    run_fast_dce ();
 
   /* Don't call delete_dead_jumptables in cfglayout mode, because
      that function assumes that jump tables are in the insns stream.

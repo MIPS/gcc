@@ -35,14 +35,17 @@ along with GCC; see the file COPYING3.  If not see
       several things.
 
          - A typedef named 'value_type' to the value type (from above).
+	 Provided a suitable Descriptor class it may be a user-defined,
+	 non-POD type.
 
          - A static member function named 'hash' that takes a value_type
          (or 'const value_type &') and returns a hashval_t value.
 
          - A typedef named 'compare_type' that is used to test when a value
-         is found.  This type is the comparison type.  Usually, it will be the
-         same as value_type.  If it is not the same type, you must generally
-         explicitly compute hash values and pass them to the hash table.
+	 is found.  This type is the comparison type.  Usually, it will be
+	 the same as value_type and may be a user-defined, non-POD type.
+	 If it is not the same type, you must generally explicitly compute
+	 hash values and pass them to the hash table.
 
          - A static member function named 'equal' that takes a value_type
          and a compare_type, and returns a bool.  Both arguments can be
@@ -303,6 +306,8 @@ extern unsigned int hash_table_sanitize_eq_limit;
 extern unsigned int hash_table_higher_prime_index (unsigned long n)
    ATTRIBUTE_PURE;
 
+extern ATTRIBUTE_NORETURN ATTRIBUTE_COLD void hashtab_chk_error ();
+
 /* Return X % Y using multiplicative inverse values INV and SHIFT.
 
    The multiplicative inverses computed above are for 32-bit types,
@@ -503,6 +508,9 @@ public:
     }
 
 private:
+  /* FIXME: Make the class assignable.  See pr90959.  */
+  void operator= (hash_table&);
+
   template<typename T> friend void gt_ggc_mx (hash_table<T> *);
   template<typename T> friend void gt_pch_nx (hash_table<T> *);
   template<typename T> friend void
@@ -655,7 +663,7 @@ hash_table<Descriptor, Lazy, Allocator>::hash_table (const hash_table &h,
 	  if (is_deleted (entry))
 	    mark_deleted (nentries[i]);
 	  else if (!is_empty (entry))
-	    nentries[i] = entry;
+	    new ((void*) (nentries + i)) value_type (entry);
 	}
       m_entries = nentries;
     }
@@ -834,9 +842,8 @@ hash_table<Descriptor, Lazy, Allocator>::empty_slow ()
   size_t size = m_size;
   size_t nsize = size;
   value_type *entries = m_entries;
-  int i;
 
-  for (i = size - 1; i >= 0; i--)
+  for (size_t i = size - 1; i < size; i--)
     if (!is_empty (entries[i]) && !is_deleted (entries[i]))
       Descriptor::remove (entries[i]);
 
@@ -848,8 +855,9 @@ hash_table<Descriptor, Lazy, Allocator>::empty_slow ()
 
   if (nsize != size)
     {
-      int nindex = hash_table_higher_prime_index (nsize);
-      int nsize = prime_tab[nindex].prime;
+      unsigned int nindex = hash_table_higher_prime_index (nsize);
+
+      nsize = prime_tab[nindex].prime;
 
       if (!m_ggc)
 	Allocator <value_type> ::data_free (m_entries);
@@ -1008,18 +1016,6 @@ hash_table<Descriptor, Lazy, Allocator>
 
   m_n_elements++;
   return &m_entries[index];
-}
-
-/* Report a hash table checking error.  */
-
-ATTRIBUTE_NORETURN ATTRIBUTE_COLD
-static void
-hashtab_chk_error ()
-{
-  fprintf (stderr, "hash table checking failed: "
-	   "equal operator returns true for a pair "
-	   "of values with a different hash value\n");
-  gcc_unreachable ();
 }
 
 /* Verify that all existing elements in th hash table which are

@@ -200,6 +200,9 @@ extern unsigned aarch64_architecture_version;
 #define AARCH64_FL_SVE2_SHA3	(1ULL << 31)
 #define AARCH64_FL_SVE2_BITPERM	(1ULL << 32)
 
+/* Transactional Memory Extension.  */
+#define AARCH64_FL_TME	      (1ULL << 33)  /* Has TME instructions.  */
+
 /* Has FP and SIMD.  */
 #define AARCH64_FL_FPSIMD     (AARCH64_FL_FP | AARCH64_FL_SIMD)
 
@@ -243,7 +246,9 @@ extern unsigned aarch64_architecture_version;
 #define AARCH64_ISA_SHA3	   (aarch64_isa_flags & AARCH64_FL_SHA3)
 #define AARCH64_ISA_F16FML	   (aarch64_isa_flags & AARCH64_FL_F16FML)
 #define AARCH64_ISA_RCPC8_4	   (aarch64_isa_flags & AARCH64_FL_RCPC8_4)
+#define AARCH64_ISA_RNG		   (aarch64_isa_flags & AARCH64_FL_RNG)
 #define AARCH64_ISA_V8_5	   (aarch64_isa_flags & AARCH64_FL_V8_5)
+#define AARCH64_ISA_TME		   (aarch64_isa_flags & AARCH64_FL_TME)
 
 /* Crypto is an optional extension to AdvSIMD.  */
 #define TARGET_CRYPTO (TARGET_SIMD && AARCH64_ISA_CRYPTO)
@@ -285,8 +290,20 @@ extern unsigned aarch64_architecture_version;
 /* ARMv8.3-A features.  */
 #define TARGET_ARMV8_3	(AARCH64_ISA_V8_3)
 
+/* Javascript conversion instruction from Armv8.3-a.  */
+#define TARGET_JSCVT	(TARGET_FLOAT && AARCH64_ISA_V8_3)
+
 /* Armv8.3-a Complex number extension to AdvSIMD extensions.  */
 #define TARGET_COMPLEX (TARGET_SIMD && TARGET_ARMV8_3)
+
+/* Floating-point rounding instructions from Armv8.5-a.  */
+#define TARGET_FRINT (AARCH64_ISA_V8_5 && TARGET_FLOAT)
+
+/* TME instructions are enabled.  */
+#define TARGET_TME (AARCH64_ISA_TME)
+
+/* Random number instructions from Armv8.5-a.  */
+#define TARGET_RNG (AARCH64_ISA_RNG)
 
 /* Make sure this is always defined so we don't have to check for ifdefs
    but rather use normal ifs.  */
@@ -557,6 +574,9 @@ extern unsigned aarch64_architecture_version;
 #define FP_LO_REGNUM_P(REGNO)            \
   (((unsigned) (REGNO - V0_REGNUM)) <= (V15_REGNUM - V0_REGNUM))
 
+#define FP_LO8_REGNUM_P(REGNO)            \
+  (((unsigned) (REGNO - V0_REGNUM)) <= (V7_REGNUM - V0_REGNUM))
+
 #define PR_REGNUM_P(REGNO)\
   (((unsigned) (REGNO - P0_REGNUM)) <= (P15_REGNUM - P0_REGNUM))
 
@@ -575,6 +595,7 @@ enum reg_class
   GENERAL_REGS,
   STACK_REG,
   POINTER_REGS,
+  FP_LO8_REGS,
   FP_LO_REGS,
   FP_REGS,
   POINTER_AND_FP_REGS,
@@ -594,6 +615,7 @@ enum reg_class
   "GENERAL_REGS",				\
   "STACK_REG",					\
   "POINTER_REGS",				\
+  "FP_LO8_REGS",				\
   "FP_LO_REGS",					\
   "FP_REGS",					\
   "POINTER_AND_FP_REGS",			\
@@ -610,6 +632,7 @@ enum reg_class
   { 0x7fffffff, 0x00000000, 0x00000003 },	/* GENERAL_REGS */	\
   { 0x80000000, 0x00000000, 0x00000000 },	/* STACK_REG */		\
   { 0xffffffff, 0x00000000, 0x00000003 },	/* POINTER_REGS */	\
+  { 0x00000000, 0x000000ff, 0x00000000 },       /* FP_LO8_REGS  */	\
   { 0x00000000, 0x0000ffff, 0x00000000 },       /* FP_LO_REGS  */	\
   { 0x00000000, 0xffffffff, 0x00000000 },       /* FP_REGS  */		\
   { 0xffffffff, 0xffffffff, 0x00000003 },	/* POINTER_AND_FP_REGS */\
@@ -765,6 +788,8 @@ enum aarch64_abi_type
 enum arm_pcs
 {
   ARM_PCS_AAPCS64,		/* Base standard AAPCS for 64 bit.  */
+  ARM_PCS_SIMD,			/* For aarch64_vector_pcs functions.  */
+  ARM_PCS_TLSDESC,		/* For targets of tlsdesc calls.  */
   ARM_PCS_UNKNOWN
 };
 
@@ -856,7 +881,7 @@ typedef struct
 /* MOVE_RATIO dictates when we will use the move_by_pieces infrastructure.
    move_by_pieces will continually copy the largest safe chunks.  So a
    7-byte copy is a 4-byte + 2-byte + byte copy.  This proves inefficient
-   for both size and speed of copy, so we will instead use the "movmem"
+   for both size and speed of copy, so we will instead use the "cpymem"
    standard name to implement the copy.  This logic does not apply when
    targeting -mstrict-align, so keep a sensible default in that case.  */
 #define MOVE_RATIO(speed) \

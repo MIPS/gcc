@@ -56,7 +56,7 @@ class fibonacci_node
 public:
   /* Default constructor.  */
   fibonacci_node (): m_parent (NULL), m_child (NULL), m_left (this),
-    m_right (this), m_degree (0), m_mark (0)
+    m_right (this), m_data (NULL), m_degree (0), m_mark (0)
   {
   }
 
@@ -162,19 +162,19 @@ public:
   fibonacci_node_t *insert (K key, V *data);
 
   /* Return true if no entry is present.  */
-  bool empty ()
+  bool empty () const
   {
     return m_nodes == 0;
   }
 
   /* Return the number of nodes.  */
-  size_t nodes ()
+  size_t nodes () const
   {
     return m_nodes;
   }
 
   /* Return minimal key presented in the heap.  */
-  K min_key ()
+  K min_key () const
   {
     if (m_min == NULL)
       gcc_unreachable ();
@@ -206,7 +206,7 @@ public:
   V *extract_min (bool release = true);
 
   /* Return value associated with minimum node in the heap.  */
-  V *min ()
+  V *min () const
   {
     if (m_min == NULL)
       return NULL;

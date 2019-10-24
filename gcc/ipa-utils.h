@@ -93,6 +93,9 @@ bool odr_or_derived_type_p (const_tree t);
 bool odr_types_equivalent_p (tree type1, tree type2);
 bool odr_type_violation_reported_p (tree type);
 tree prevailing_odr_type (tree type);
+void enable_odr_based_tbaa (tree type);
+bool odr_based_tbaa_p (const_tree type);
+void set_type_canonical_for_odr_type (tree type, tree canonical);
 
 /* Return vector containing possible targets of polymorphic call E.
    If COMPLETEP is non-NULL, store true if the list is complete. 
@@ -205,6 +208,8 @@ type_with_linkage_p (const_tree t)
   if (!TYPE_CONTEXT (t))
     return false;
 
+  gcc_checking_assert (TREE_CODE (t) == ENUMERAL_TYPE || TYPE_CXX_ODR_P (t));
+
   return true;
 }
 
@@ -240,7 +245,6 @@ odr_type_p (const_tree t)
   gcc_checking_assert (in_lto_p || flag_lto);
   return TYPE_NAME (t) && TREE_CODE (TYPE_NAME (t)) == TYPE_DECL
          && DECL_ASSEMBLER_NAME_SET_P (TYPE_NAME (t));
-  return false;
 }
 
 #endif  /* GCC_IPA_UTILS_H  */

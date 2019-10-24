@@ -18,7 +18,6 @@
 #include "runtime.h"
 #include "arch.h"
 #include "defs.h"
-#include "go-type.h"
 
 #ifdef USING_SPLIT_STACK
 
@@ -65,7 +64,7 @@ static void gscanstack(G*);
 #define __thread
 #endif
 
-static __thread G *g;
+__thread G *g __asm__(GOSYM_PREFIX "runtime.g");
 
 #ifndef SETCONTEXT_CLOBBERS_TLS
 
@@ -320,7 +319,7 @@ runtime_mcall(FuncVal *fv)
 	if(gp != nil) {
 
 #ifdef USING_SPLIT_STACK
-		__splitstack_getcontext((void*)(&g->stackcontext[0]));
+		__splitstack_getcontext((void*)(&gp->stackcontext[0]));
 #else
 		// We have to point to an address on the stack that is
 		// below the saved registers.

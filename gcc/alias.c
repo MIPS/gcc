@@ -793,8 +793,16 @@ alias_ptr_types_compatible_p (tree t1, tree t2)
       || ref_all_alias_ptr_type_p (t2))
     return false;
 
-  return (TYPE_MAIN_VARIANT (TREE_TYPE (t1))
-	  == TYPE_MAIN_VARIANT (TREE_TYPE (t2)));
+    /* This function originally abstracts from simply comparing
+       get_deref_alias_set so that we are sure this still computes
+       the same result after LTO type merging is applied.
+       When in LTO type merging is done we can actually do this compare.
+    */
+  if (in_lto_p)
+    return get_deref_alias_set (t1) == get_deref_alias_set (t2);
+  else
+    return (TYPE_MAIN_VARIANT (TREE_TYPE (t1))
+	    == TYPE_MAIN_VARIANT (TREE_TYPE (t2)));
 }
 
 /* Create emptry alias set entry.  */
@@ -1202,47 +1210,52 @@ record_component_aliases (tree type)
     case RECORD_TYPE:
     case UNION_TYPE:
     case QUAL_UNION_TYPE:
-      for (field = TYPE_FIELDS (type); field != 0; field = DECL_CHAIN (field))
-	if (TREE_CODE (field) == FIELD_DECL && !DECL_NONADDRESSABLE_P (field))
-	  {
-	    /* LTO type merging does not make any difference between 
-	       component pointer types.  We may have
+      {
+	/* LTO non-ODR type merging does not make any difference between 
+	   component pointer types.  We may have
 
-	       struct foo {int *a;};
+	   struct foo {int *a;};
 
-	       as TYPE_CANONICAL of 
+	   as TYPE_CANONICAL of 
 
-	       struct bar {float *a;};
+	   struct bar {float *a;};
 
-	       Because accesses to int * and float * do not alias, we would get
-	       false negative when accessing the same memory location by
-	       float ** and bar *. We thus record the canonical type as:
+	   Because accesses to int * and float * do not alias, we would get
+	   false negative when accessing the same memory location by
+	   float ** and bar *. We thus record the canonical type as:
 
-	       struct {void *a;};
+	   struct {void *a;};
 
-	       void * is special cased and works as a universal pointer type.
-	       Accesses to it conflicts with accesses to any other pointer
-	       type.  */
-	    tree t = TREE_TYPE (field);
-	    if (in_lto_p)
-	      {
-		/* VECTOR_TYPE and ARRAY_TYPE share the alias set with their
-		   element type and that type has to be normalized to void *,
-		   too, in the case it is a pointer. */
-		while (!canonical_type_used_p (t) && !POINTER_TYPE_P (t))
-		  {
-		    gcc_checking_assert (TYPE_STRUCTURAL_EQUALITY_P (t));
-		    t = TREE_TYPE (t);
-		  }
-		if (POINTER_TYPE_P (t))
-		  t = ptr_type_node;
-		else if (flag_checking)
-		  gcc_checking_assert (get_alias_set (t)
-				       == get_alias_set (TREE_TYPE (field)));
-	      }
+	   void * is special cased and works as a universal pointer type.
+	   Accesses to it conflicts with accesses to any other pointer
+	   type.  */
+	bool void_pointers = in_lto_p
+			     && (!odr_type_p (type)
+				 || !odr_based_tbaa_p (type));
+	for (field = TYPE_FIELDS (type); field != 0; field = DECL_CHAIN (field))
+	  if (TREE_CODE (field) == FIELD_DECL && !DECL_NONADDRESSABLE_P (field))
+	    {
+	      tree t = TREE_TYPE (field);
+	      if (void_pointers)
+		{
+		  /* VECTOR_TYPE and ARRAY_TYPE share the alias set with their
+		     element type and that type has to be normalized to void *,
+		     too, in the case it is a pointer. */
+		  while (!canonical_type_used_p (t) && !POINTER_TYPE_P (t))
+		    {
+		      gcc_checking_assert (TYPE_STRUCTURAL_EQUALITY_P (t));
+		      t = TREE_TYPE (t);
+		    }
+		  if (POINTER_TYPE_P (t))
+		    t = ptr_type_node;
+		  else if (flag_checking)
+		    gcc_checking_assert (get_alias_set (t)
+					 == get_alias_set (TREE_TYPE (field)));
+		}
 
-	    record_alias_subset (superset, get_alias_set (t));
-	  }
+	      record_alias_subset (superset, get_alias_set (t));
+	    }
+      }
       break;
 
     case COMPLEX_TYPE:
@@ -1541,16 +1554,6 @@ record_set (rtx dest, const_rtx set, void *data ATTRIBUTE_UNUSED)
       if (GET_CODE (set) == CLOBBER)
 	{
 	  new_reg_base_value[regno] = 0;
-	  return;
-	}
-      /* A CLOBBER_HIGH only wipes out the old value if the mode of the old
-	 value is greater than that of the clobber.  */
-      else if (GET_CODE (set) == CLOBBER_HIGH)
-	{
-	  if (new_reg_base_value[regno] != 0
-	      && reg_is_clobbered_by_clobber_high (
-		   regno, GET_MODE (new_reg_base_value[regno]), XEXP (set, 0)))
-	    new_reg_base_value[regno] = 0;
 	  return;
 	}
 
@@ -3255,7 +3258,8 @@ memory_modified_in_insn_p (const_rtx mem, const_rtx insn)
   if (CALL_P (insn))
     return true;
   memory_modified = false;
-  note_stores (PATTERN (insn), memory_modified_1, CONST_CAST_RTX(mem));
+  note_stores (as_a<const rtx_insn *> (insn), memory_modified_1,
+	       CONST_CAST_RTX(mem));
   return memory_modified;
 }
 
@@ -3383,7 +3387,7 @@ init_alias_analysis (void)
 		      && find_reg_note (insn, REG_NOALIAS, NULL_RTX))
 		    record_set (SET_DEST (PATTERN (insn)), NULL_RTX, NULL);
 		  else
-		    note_stores (PATTERN (insn), record_set, NULL);
+		    note_stores (insn, record_set, NULL);
 
 		  set = single_set (insn);
 

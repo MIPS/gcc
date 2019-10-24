@@ -762,6 +762,15 @@ format_item_1:
       error = unexpected_end;
       goto syntax;
 
+    case FMT_RPAREN:
+      if (flag_dec_blank_format_item)
+	goto finished;
+      else
+	{
+	  error = G_("Missing item in format string at %L");
+	  goto syntax;
+	}
+
     default:
       error = unexpected_element;
       goto syntax;
@@ -1473,24 +1482,29 @@ match_vtag (const io_tag *tag, gfc_expr **v)
       return MATCH_ERROR;
     }
 
-  if (result->symtree->n.sym->attr.intent == INTENT_IN)
+  if (result->symtree)
     {
-      gfc_error ("Variable %s cannot be INTENT(IN) at %C", tag->name);
-      gfc_free_expr (result);
-      return MATCH_ERROR;
-    }
+      bool impure;
 
-  bool impure = gfc_impure_variable (result->symtree->n.sym);
-  if (impure && gfc_pure (NULL))
-    {
-      gfc_error ("Variable %s cannot be assigned in PURE procedure at %C",
-		 tag->name);
-      gfc_free_expr (result);
-      return MATCH_ERROR;
-    }
+      if (result->symtree->n.sym->attr.intent == INTENT_IN)
+	{
+	  gfc_error ("Variable %s cannot be INTENT(IN) at %C", tag->name);
+	  gfc_free_expr (result);
+	  return MATCH_ERROR;
+	}
 
-  if (impure)
-    gfc_unset_implicit_pure (NULL);
+      impure = gfc_impure_variable (result->symtree->n.sym);
+      if (impure && gfc_pure (NULL))
+	{
+	  gfc_error ("Variable %s cannot be assigned in PURE procedure at %C",
+		     tag->name);
+	  gfc_free_expr (result);
+	  return MATCH_ERROR;
+	}
+
+      if (impure)
+	gfc_unset_implicit_pure (NULL);
+    }
 
   *v = result;
   return MATCH_YES;
@@ -1506,7 +1520,16 @@ match_out_tag (const io_tag *tag, gfc_expr **result)
 
   m = match_vtag (tag, result);
   if (m == MATCH_YES)
-    gfc_check_do_variable ((*result)->symtree);
+    {
+      if ((*result)->symtree)
+	gfc_check_do_variable ((*result)->symtree);
+
+      if ((*result)->expr_type == EXPR_CONSTANT)
+	{
+	  gfc_error ("Expecting a variable at %L", &(*result)->where);
+	  return MATCH_ERROR;
+	}
+    }
 
   return m;
 }
@@ -2836,7 +2859,7 @@ match_filepos (gfc_statement st, gfc_exec_op op)
 
   m = match_file_element (fp);
   if (m == MATCH_ERROR)
-    goto done;
+    goto cleanup;
   if (m == MATCH_NO)
     {
       m = gfc_match_expr (&fp->unit);
@@ -3319,6 +3342,14 @@ gfc_resolve_dt (gfc_dt *dt, locus *loc)
       return false;
     }
 
+  if (e->symtree && e->symtree->n.sym->attr.flavor == FL_PARAMETER
+      && e->ts.type == BT_CHARACTER)
+    {
+      gfc_error ("UNIT specification at %L must "
+      "not be a character PARAMETER", &e->where);
+      return false;
+    }
+
   if (gfc_resolve_expr (e)
       && (e->ts.type != BT_INTEGER
 	  && (e->ts.type != BT_CHARACTER || e->expr_type != EXPR_VARIABLE)))
@@ -3640,7 +3671,17 @@ match_io_element (io_kind k, gfc_code **cpp)
     {
       m = gfc_match_variable (&expr, 0);
       if (m == MATCH_NO)
-	gfc_error ("Expected variable in READ statement at %C");
+	{
+	  gfc_error ("Expecting variable in READ statement at %C");
+	  m = MATCH_ERROR;
+	}
+
+      if (m == MATCH_YES && expr->expr_type == EXPR_CONSTANT)
+	{
+	  gfc_error ("Expecting variable or io-implied-do in READ statement "
+		   "at %L", &expr->where);
+	  m = MATCH_ERROR;
+	}
 
       if (m == MATCH_YES
 	  && expr->expr_type == EXPR_VARIABLE
@@ -3650,7 +3691,6 @@ match_io_element (io_kind k, gfc_code **cpp)
 		     &expr->where);
 	  m = MATCH_ERROR;
 	}
-
     }
   else
     {
@@ -3658,6 +3698,15 @@ match_io_element (io_kind k, gfc_code **cpp)
       if (m == MATCH_NO)
 	gfc_error ("Expected expression in %s statement at %C",
 		   io_kind_name (k));
+
+      if (m == MATCH_YES && expr->ts.type == BT_BOZ)
+	{
+	  if (gfc_invalid_boz ("BOZ literal constant at %L cannot appear in "
+				"an output IO list", &gfc_current_locus))
+	    return MATCH_ERROR;
+	  if (!gfc_boz2int (expr, gfc_max_integer_kind))
+	    return MATCH_ERROR;
+	};
     }
 
   if (m == MATCH_YES && k == M_READ && gfc_check_do_variable (expr->symtree))
@@ -4614,6 +4663,17 @@ gfc_match_inquire (void)
 	goto cleanup;
       if (m == MATCH_NO)
 	goto syntax;
+
+      for (gfc_code *c = code; c; c = c->next)
+	if (c->expr1 && c->expr1->expr_type == EXPR_FUNCTION
+	    && c->expr1->symtree && c->expr1->symtree->n.sym->attr.function
+	    && !c->expr1->symtree->n.sym->attr.external
+	    && strcmp (c->expr1->symtree->name, "null") == 0)
+	  {
+	    gfc_error ("NULL() near %L cannot appear in INQUIRE statement",
+		       &c->expr1->where);
+	    goto cleanup;
+	  }
 
       new_st.op = EXEC_IOLENGTH;
       new_st.expr1 = inquire->iolength;

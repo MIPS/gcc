@@ -314,9 +314,6 @@ emission of floating point pcs attributes.  */
 /* Nonzero if disallow volatile memory access in IT block.  */
 #define TARGET_NO_VOLATILE_CE		(arm_arch_no_volatile_ce)
 
-/* Should NEON be used for 64-bits bitops.  */
-#define TARGET_PREFER_NEON_64BITS (prefer_neon_for_64bits)
-
 /* Should constant I be slplit for OP.  */
 #define DONT_EARLY_SPLIT_CONSTANT(i, op) \
 				((optimize >= 2) \
@@ -509,10 +506,6 @@ extern int arm_arch_thumb_hwdiv;
 
 /* Nonzero if chip disallows volatile memory access in IT block.  */
 extern int arm_arch_no_volatile_ce;
-
-/* Nonzero if we should use Neon to handle 64-bits operations rather
-   than core registers.  */
-extern int prefer_neon_for_64bits;
 
 /* Nonzero if we shouldn't use literal pools.  */
 #ifndef USED_FOR_TARGET
@@ -893,6 +886,9 @@ extern int arm_arch_cmse;
    Pascal), so the following is not true.  */
 #define STATIC_CHAIN_REGNUM	12
 
+/* r9 is the FDPIC register (base register for GOT and FUNCDESC accesses).  */
+#define FDPIC_REGNUM		9
+
 /* Define this to be where the real frame pointer is if it is not possible to
    work out the offset between the frame pointer and the automatic variables
    until after register allocation has taken place.  FRAME_POINTER_REGNUM
@@ -1073,9 +1069,8 @@ extern int arm_regs_in_sequence[];
 /* Use different register alloc ordering for Thumb.  */
 #define ADJUST_REG_ALLOC_ORDER arm_order_regs_for_local_alloc ()
 
-/* Tell IRA to use the order we define rather than messing it up with its
-   own cost calculations.  */
-#define HONOR_REG_ALLOC_ORDER 1
+/* Tell IRA to use the order we define when optimizing for size.  */
+#define HONOR_REG_ALLOC_ORDER optimize_function_for_size_p (cfun)
 
 /* Interrupt functions can only use registers that have already been
    saved by the prologue, even if they would normally be
@@ -1600,7 +1595,7 @@ typedef struct
 #define INIT_EXPANDERS  arm_init_expanders ()
 
 /* Length in units of the trampoline for entering a nested function.  */
-#define TRAMPOLINE_SIZE  (TARGET_32BIT ? 16 : 20)
+#define TRAMPOLINE_SIZE  (TARGET_FDPIC ? 32 : (TARGET_32BIT ? 16 : 20))
 
 /* Alignment required for a trampoline in bits.  */
 #define TRAMPOLINE_ALIGNMENT  32
@@ -1949,6 +1944,10 @@ extern unsigned arm_pic_register;
    data addresses in memory.  */
 #define PIC_OFFSET_TABLE_REGNUM arm_pic_register
 
+/* For FDPIC, the FDPIC register is call-clobbered (otherwise PLT
+   entries would need to handle saving and restoring it).  */
+#define PIC_OFFSET_TABLE_REG_CALL_CLOBBERED TARGET_FDPIC
+
 /* We can't directly access anything that contains a symbol,
    nor can we indirect via the constant pool.  One exception is
    UNSPEC_TLS, which is always PIC.  */
@@ -1960,6 +1959,13 @@ extern unsigned arm_pic_register;
 	       && (symbol_mentioned_p (get_pool_constant (X))		\
 		   || label_mentioned_p (get_pool_constant (X)))))	\
 	 || tls_mentioned_p (X))
+
+/* We may want to save the PIC register if it is a dedicated one.  */
+#define PIC_REGISTER_MAY_NEED_SAVING			\
+  (flag_pic						\
+   && !TARGET_SINGLE_PIC_BASE				\
+   && !TARGET_FDPIC					\
+   && arm_pic_register != INVALID_REGNUM)
 
 /* We need to know when we are making a constant pool; this determines
    whether data needs to be in the GOT or can be referenced via a GOT

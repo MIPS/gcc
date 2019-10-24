@@ -309,7 +309,7 @@
   if (!TARGET_PREFIXED_ADDR)
     return 0;
 
-  return SIGNED_34BIT_OFFSET_P (INTVAL (op), 0);
+  return SIGNED_34BIT_OFFSET_P (INTVAL (op));
 })
 
 ;; Return 1 if op is a register that is not special.
@@ -703,15 +703,20 @@
 ;; memory references.  So this function allows us to recognize volatile
 ;; references where it's safe.
 (define_predicate "volatile_mem_operand"
-  (and (and (match_code "mem")
-	    (match_test "MEM_VOLATILE_P (op)"))
+  (and (match_code "mem")
+       (match_test "MEM_VOLATILE_P (op)")
        (if_then_else (match_test "reload_completed")
 	 (match_operand 0 "memory_operand")
 	 (match_test "memory_address_p (mode, XEXP (op, 0))"))))
 
+;; Return 1 if the operand is a volatile or non-volatile memory operand.
+(define_predicate "any_memory_operand"
+  (ior (match_operand 0 "memory_operand")
+       (match_operand 0 "volatile_mem_operand")))
+
 ;; Return 1 if the operand is an offsettable memory operand.
 (define_predicate "offsettable_mem_operand"
-  (and (match_operand 0 "memory_operand")
+  (and (match_operand 0 "any_memory_operand")
        (match_test "offsettable_nonstrict_memref_p (op)")))
 
 ;; Return 1 if the operand is a simple offsettable memory operand
@@ -846,8 +851,7 @@
 ;; Return 1 if OP is a constant but not a valid add_operand.
 (define_predicate "non_add_cint_operand"
   (and (match_code "const_int")
-       (match_test "!satisfies_constraint_I (op)
-		    && !satisfies_constraint_L (op)")))
+       (not (match_operand 0 "add_operand"))))
 
 ;; Return 1 if the operand is a constant that can be used as the operand
 ;; of an AND, OR or XOR.
@@ -891,11 +895,10 @@
 
 ;; Return 1 if the operand is a general non-special register or memory operand.
 (define_predicate "reg_or_mem_operand"
-  (ior (match_operand 0 "memory_operand")
+  (ior (match_operand 0 "gpc_reg_operand")
+       (match_operand 0 "any_memory_operand")
        (and (match_code "mem")
-	    (match_test "macho_lo_sum_memory_operand (op, mode)"))
-       (match_operand 0 "volatile_mem_operand")
-       (match_operand 0 "gpc_reg_operand")))
+	    (match_test "macho_lo_sum_memory_operand (op, mode)"))))
 
 ;; Return 1 if the operand is CONST_DOUBLE 0, register or memory operand.
 (define_predicate "zero_reg_mem_operand"
@@ -925,10 +928,18 @@
 
   if (gpc_reg_operand (inner, mode))
     return true;
-  if (!memory_operand (inner, mode))
+  if (!any_memory_operand (inner, mode))
     return false;
 
   addr = XEXP (inner, 0);
+
+  /* The LWA instruction uses the DS-form instruction format which requires
+     that the bottom two bits of the offset must be 0.  The prefixed PLWA does
+     not have this restriction.  While the actual load from memory is 32-bits,
+     we pass in DImode here to test for using a DS instruction.  */
+  if (address_is_prefixed (addr, DImode, NON_PREFIXED_DS))
+    return true;
+
   if (GET_CODE (addr) == PRE_INC
       || GET_CODE (addr) == PRE_DEC
       || (GET_CODE (addr) == PRE_MODIFY
@@ -1027,7 +1038,7 @@
 	       const_double,const_wide_int,const_vector,const_int")
 {
   /* Memory is always valid.  */
-  if (memory_operand (op, mode))
+  if (any_memory_operand (op, mode))
     return 1;
 
   /* For floating-point, easy constants are valid.  */
@@ -1622,45 +1633,7 @@
   return GET_CODE (op) == UNSPEC && XINT (op, 1) == UNSPEC_TOCREL;
 })
 
-;; Return true if the operand is a pc-relative address.
-(define_predicate "pcrel_address"
-  (match_code "label_ref,symbol_ref,const")
-{
-  if (!TARGET_PCREL)
-    return false;
-
-  /* Discard any CONST's.  */
-  if (GET_CODE (op) == CONST)
-    op = XEXP (op, 0);
-
-  /* Validate offset.  */
-  if (GET_CODE (op) == PLUS)
-    {
-      rtx op0 = XEXP (op, 0);
-      rtx op1 = XEXP (op, 1);
-
-      if (!CONST_INT_P (op1) || !SIGNED_34BIT_OFFSET_P (INTVAL (op1), 0))
-	return false;
-
-      op = op0;
-    }
-
-  return LABEL_REF_P (op) || SYMBOL_REF_PCREL_P (op);
-})
-
-;; Return 1 if op is a prefixed memory operand
-(define_predicate "prefixed_mem_operand"
-  (match_code "mem")
-{
-  return rs6000_prefixed_address (XEXP (op, 0), GET_MODE (op));
-})
-
-;; Return 1 if op is a memory operand that is not a prefixed memory
-;; operand.
-(define_predicate "non_prefixed_mem_operand"
-  (and (match_operand 0 "memory_operand")
-       (not (match_operand 0 "prefixed_mem_operand"))))
-
+
 ;; Match the first insn (addis) in fusing the combination of addis and loads to
 ;; GPR registers on power8.
 (define_predicate "fusion_gpr_addis"
@@ -1817,3 +1790,28 @@
 
   return 0;
 })
+
+
+;; Return true if the operand is a PC-relative address of a local symbol or a
+;; label that can be used directly in a memory operation.
+(define_predicate "pcrel_local_address"
+  (match_code "label_ref,symbol_ref,const")
+{
+  enum insn_form iform = address_to_insn_form (op, mode, NON_PREFIXED_DEFAULT);
+  return iform == INSN_FORM_PCREL_LOCAL;
+})
+
+;; Return true if the operand is a PC-relative external symbol whose address
+;; can be loaded into a register.
+(define_predicate "pcrel_external_address"
+  (match_code "symbol_ref,const")
+{
+  enum insn_form iform = address_to_insn_form (op, mode, NON_PREFIXED_DEFAULT);
+  return iform == INSN_FORM_PCREL_EXTERNAL;
+})
+
+;; Return true if the address is PC-relative and the symbol is either local or
+;; external.
+(define_predicate "pcrel_local_or_external_address"
+  (ior (match_operand 0 "pcrel_local_address")
+       (match_operand 0 "pcrel_external_address")))

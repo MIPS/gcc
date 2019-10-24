@@ -134,7 +134,7 @@ extern tree fold_call_stmt (gcall *, bool);
 extern void set_builtin_user_assembler_name (tree decl, const char *asmspec);
 extern bool is_simple_builtin (tree);
 extern bool is_inexpensive_builtin (tree);
-extern tree compute_objsize (tree, int);
+extern tree compute_objsize (tree, int, tree * = NULL);
 
 extern bool readonly_data_expr (tree exp);
 extern bool init_target_chars (void);
@@ -150,5 +150,6 @@ extern internal_fn replacement_internal_fn (gcall *);
 
 extern void warn_string_no_nul (location_t, const char *, tree, tree);
 extern tree unterminated_array (tree, tree * = NULL, bool * = NULL);
+extern bool builtin_with_linkage_p (tree);
 
 #endif /* GCC_BUILTINS_H */

@@ -106,6 +106,8 @@ split_double_mode (machine_mode mode, rtx operands[],
 {
   machine_mode half_mode;
   unsigned int byte;
+  rtx mem_op = NULL_RTX;
+  int mem_num = 0;
 
   switch (mode)
     {
@@ -129,8 +131,18 @@ split_double_mode (machine_mode mode, rtx operands[],
          but we still have to handle it.  */
       if (MEM_P (op))
 	{
-	  lo_half[num] = adjust_address (op, half_mode, 0);
-	  hi_half[num] = adjust_address (op, half_mode, byte);
+	  if (mem_op && rtx_equal_p (op, mem_op))
+	    {
+	      lo_half[num] = lo_half[mem_num];
+	      hi_half[num] = hi_half[mem_num];
+	    }
+	  else
+	    {
+	      mem_op = op;
+	      mem_num = num;
+	      lo_half[num] = adjust_address (op, half_mode, 0);
+	      hi_half[num] = adjust_address (op, half_mode, byte);
+	    }
 	}
       else
 	{
@@ -1122,8 +1134,6 @@ ix86_split_idivmod (machine_mode mode, rtx operands[],
   rtx_insn *insn;
   rtx scratch, tmp0, tmp1, tmp2;
   rtx (*gen_divmod4_1) (rtx, rtx, rtx, rtx);
-  rtx (*gen_zero_extend) (rtx, rtx);
-  rtx (*gen_test_ccno_1) (rtx, rtx);
 
   switch (mode)
     {
@@ -1135,21 +1145,16 @@ ix86_split_idivmod (machine_mode mode, rtx operands[],
 	  else
 	    gen_divmod4_1
 	      = unsigned_p ? gen_udivmodsi4_zext_2 : gen_divmodsi4_zext_2;
-	  gen_zero_extend = gen_zero_extendqisi2;
 	}
       else
-	{
-	  gen_divmod4_1
-	    = unsigned_p ? gen_udivmodsi4_zext_1 : gen_divmodsi4_zext_1;
-	  gen_zero_extend = gen_zero_extendqidi2;
-	}
-      gen_test_ccno_1 = gen_testsi_ccno_1;
+	gen_divmod4_1
+	  = unsigned_p ? gen_udivmodsi4_zext_1 : gen_divmodsi4_zext_1;
       break;
+
     case E_DImode:
       gen_divmod4_1 = unsigned_p ? gen_udivmoddi4_1 : gen_divmoddi4_1;
-      gen_test_ccno_1 = gen_testdi_ccno_1;
-      gen_zero_extend = gen_zero_extendqidi2;
       break;
+
     default:
       gcc_unreachable ();
     }
@@ -1164,7 +1169,7 @@ ix86_split_idivmod (machine_mode mode, rtx operands[],
   emit_move_insn (scratch, operands[2]);
   scratch = expand_simple_binop (mode, IOR, scratch, operands[3],
 				 scratch, 1, OPTAB_DIRECT);
-  emit_insn (gen_test_ccno_1 (scratch, GEN_INT (-0x100)));
+  emit_insn (gen_test_ccno_1 (mode, scratch, GEN_INT (-0x100)));
   tmp0 = gen_rtx_REG (CCNOmode, FLAGS_REG);
   tmp0 = gen_rtx_EQ (VOIDmode, tmp0, const0_rtx);
   tmp0 = gen_rtx_IF_THEN_ELSE (VOIDmode, tmp0,
@@ -1227,7 +1232,9 @@ ix86_split_idivmod (machine_mode mode, rtx operands[],
 
   /* Zero extend quotient from AL.  */
   tmp1 = gen_lowpart (QImode, tmp0);
-  insn = emit_insn (gen_zero_extend (operands[0], tmp1));
+  insn = emit_insn (gen_extend_insn
+		    (operands[0], tmp1,
+		     GET_MODE (operands[0]), QImode, 1));
   set_unique_reg_note (insn, REG_EQUAL, div);
 
   emit_label (end_label);
@@ -1687,7 +1694,7 @@ ix86_expand_adjust_ufix_to_sfix_si (rtx val, rtx *xorp)
 				 OPTAB_DIRECT);
   else
     {
-      rtx two31 = GEN_INT (HOST_WIDE_INT_1U << 31);
+      rtx two31 = gen_int_mode (HOST_WIDE_INT_1U << 31, SImode);
       two31 = ix86_build_const_vector (intmode, 1, two31);
       *xorp = expand_simple_binop (intmode, AND,
 				   gen_lowpart (intmode, tmp[0]),
@@ -1850,7 +1857,7 @@ void
 ix86_expand_copysign (rtx operands[])
 {
   machine_mode mode, vmode;
-  rtx dest, op0, op1, mask, nmask;
+  rtx dest, op0, op1, mask;
 
   dest = operands[0];
   op0 = operands[1];
@@ -1862,13 +1869,15 @@ ix86_expand_copysign (rtx operands[])
     vmode = V4SFmode;
   else if (mode == DFmode)
     vmode = V2DFmode;
-  else
+  else if (mode == TFmode)
     vmode = mode;
+  else
+    gcc_unreachable ();
+
+  mask = ix86_build_signbit_mask (vmode, 0, 0);
 
   if (CONST_DOUBLE_P (op0))
     {
-      rtx (*copysign_insn)(rtx, rtx, rtx, rtx);
-
       if (real_isneg (CONST_DOUBLE_REAL_VALUE (op0)))
 	op0 = simplify_unary_operation (ABS, mode, op0, mode);
 
@@ -1886,32 +1895,14 @@ ix86_expand_copysign (rtx operands[])
       else if (op0 != CONST0_RTX (mode))
 	op0 = force_reg (mode, op0);
 
-      mask = ix86_build_signbit_mask (vmode, 0, 0);
-
-      if (mode == SFmode)
-	copysign_insn = gen_copysignsf3_const;
-      else if (mode == DFmode)
-	copysign_insn = gen_copysigndf3_const;
-      else
-	copysign_insn = gen_copysigntf3_const;
-
-      emit_insn (copysign_insn (dest, op0, op1, mask));
+      emit_insn (gen_copysign3_const (mode, dest, op0, op1, mask));
     }
   else
     {
-      rtx (*copysign_insn)(rtx, rtx, rtx, rtx, rtx, rtx);
+      rtx nmask = ix86_build_signbit_mask (vmode, 0, 1);
 
-      nmask = ix86_build_signbit_mask (vmode, 0, 1);
-      mask = ix86_build_signbit_mask (vmode, 0, 0);
-
-      if (mode == SFmode)
-	copysign_insn = gen_copysignsf3_var;
-      else if (mode == DFmode)
-	copysign_insn = gen_copysigndf3_var;
-      else
-	copysign_insn = gen_copysigntf3_var;
-
-      emit_insn (copysign_insn (dest, NULL_RTX, op0, op1, nmask, mask));
+      emit_insn (gen_copysign3_var
+		 (mode, dest, NULL_RTX, op0, op1, nmask, mask));
     }
 }
 
@@ -2020,7 +2011,6 @@ ix86_split_copysign_var (rtx operands[])
 void
 ix86_expand_xorsign (rtx operands[])
 {
-  rtx (*xorsign_insn)(rtx, rtx, rtx, rtx);
   machine_mode mode, vmode;
   rtx dest, op0, op1, mask;
 
@@ -2031,21 +2021,15 @@ ix86_expand_xorsign (rtx operands[])
   mode = GET_MODE (dest);
 
   if (mode == SFmode)
-    {
-      xorsign_insn = gen_xorsignsf3_1;
-      vmode = V4SFmode;
-    }
+    vmode = V4SFmode;
   else if (mode == DFmode)
-    {
-      xorsign_insn = gen_xorsigndf3_1;
-      vmode = V2DFmode;
-    }
+    vmode = V2DFmode;
   else
     gcc_unreachable ();
 
   mask = ix86_build_signbit_mask (vmode, 0, 0);
 
-  emit_insn (xorsign_insn (dest, op0, op1, mask));
+  emit_insn (gen_xorsign3_1 (mode, dest, op0, op1, mask));
 }
 
 /* Deconstruct an xorsign operation into bit masks.  */
@@ -2224,22 +2208,9 @@ ix86_expand_branch (enum rtx_code code, rtx op0, rtx op1, rtx label)
 
 	  case LT: case LTU: case GE: case GEU:
 	    {
-	      rtx (*cmp_insn) (rtx, rtx);
-	      rtx (*sbb_insn) (rtx, rtx, rtx);
 	      bool uns = (code == LTU || code == GEU);
-
-	      if (TARGET_64BIT)
-		{
-		  cmp_insn = gen_cmpdi_1;
-		  sbb_insn
-		    = uns ? gen_subdi3_carry_ccc : gen_subdi3_carry_ccgz;
-		}
-	      else
-		{
-		  cmp_insn = gen_cmpsi_1;
-		  sbb_insn
-		    = uns ? gen_subsi3_carry_ccc : gen_subsi3_carry_ccgz;
-		}
+	      rtx (*sbb_insn) (machine_mode, rtx, rtx, rtx)
+		= uns ? gen_sub3_carry_ccc : gen_sub3_carry_ccgz;
 
 	      if (!nonimmediate_operand (lo[0], submode))
 		lo[0] = force_reg (submode, lo[0]);
@@ -2252,11 +2223,12 @@ ix86_expand_branch (enum rtx_code code, rtx op0, rtx op1, rtx label)
 		  || (!uns && !x86_64_general_operand (hi[1], submode)))
 		hi[1] = force_reg (submode, hi[1]);
 
-	      emit_insn (cmp_insn (lo[0], lo[1]));
-	      emit_insn (sbb_insn (gen_rtx_SCRATCH (submode), hi[0], hi[1]));
+	      emit_insn (gen_cmp_1 (submode, lo[0], lo[1]));
+
+	      tmp = gen_rtx_SCRATCH (submode);
+	      emit_insn (sbb_insn (submode, tmp, hi[0], hi[1]));
 
 	      tmp = gen_rtx_REG (uns ? CCCmode : CCGZmode, FLAGS_REG);
-
 	      ix86_expand_branch (code, tmp, const0_rtx, label);
 	      return;
 	    }
@@ -2326,16 +2298,16 @@ ix86_unordered_fp_compare (enum rtx_code code)
 
   switch (code)
     {
-    case GT:
-    case GE:
     case LT:
     case LE:
+    case GT:
+    case GE:
+    case LTGT:
       return false;
 
     case EQ:
     case NE:
 
-    case LTGT:
     case UNORDERED:
     case ORDERED:
     case UNLT:
@@ -2848,7 +2820,7 @@ ix86_expand_int_addcc (rtx operands[])
 {
   enum rtx_code code = GET_CODE (operands[1]);
   rtx flags;
-  rtx (*insn)(rtx, rtx, rtx, rtx, rtx);
+  rtx (*insn) (machine_mode, rtx, rtx, rtx, rtx, rtx);
   rtx compare_op;
   rtx val = const0_rtx;
   bool fpcmp = false;
@@ -2886,46 +2858,11 @@ ix86_expand_int_addcc (rtx operands[])
 
   /* Construct either adc or sbb insn.  */
   if ((code == LTU) == (operands[3] == constm1_rtx))
-    {
-      switch (mode)
-	{
-	  case E_QImode:
-	    insn = gen_subqi3_carry;
-	    break;
-	  case E_HImode:
-	    insn = gen_subhi3_carry;
-	    break;
-	  case E_SImode:
-	    insn = gen_subsi3_carry;
-	    break;
-	  case E_DImode:
-	    insn = gen_subdi3_carry;
-	    break;
-	  default:
-	    gcc_unreachable ();
-	}
-    }
+    insn = gen_sub3_carry;
   else
-    {
-      switch (mode)
-	{
-	  case E_QImode:
-	    insn = gen_addqi3_carry;
-	    break;
-	  case E_HImode:
-	    insn = gen_addhi3_carry;
-	    break;
-	  case E_SImode:
-	    insn = gen_addsi3_carry;
-	    break;
-	  case E_DImode:
-	    insn = gen_adddi3_carry;
-	    break;
-	  default:
-	    gcc_unreachable ();
-	}
-    }
-  emit_insn (insn (operands[0], operands[2], val, flags, compare_op));
+    insn = gen_add3_carry;
+
+  emit_insn (insn (mode, operands[0], operands[2], val, flags, compare_op));
 
   return true;
 }
@@ -5571,6 +5508,7 @@ ix86_split_ashl (rtx *operands, rtx scratch, machine_mode mode)
   rtx (*gen_ashl3)(rtx, rtx, rtx);
   rtx (*gen_shld)(rtx, rtx, rtx);
   int half_width = GET_MODE_BITSIZE (mode) >> 1;
+  machine_mode half_mode;
 
   rtx low[2], high[2];
   int count;
@@ -5602,6 +5540,7 @@ ix86_split_ashl (rtx *operands, rtx scratch, machine_mode mode)
     }
 
   split_double_mode (mode, operands, 1, low, high);
+  half_mode = mode == DImode ? SImode : DImode;
 
   gen_ashl3 = mode == DImode ? gen_ashlsi3 : gen_ashldi3;
 
@@ -5635,7 +5574,6 @@ ix86_split_ashl (rtx *operands, rtx scratch, machine_mode mode)
 	 pentium4 a bit; no one else seems to care much either way.  */
       else
 	{
-	  machine_mode half_mode;
 	  rtx (*gen_lshr3)(rtx, rtx, rtx);
 	  rtx (*gen_and3)(rtx, rtx, rtx);
 	  rtx (*gen_xor3)(rtx, rtx, rtx);
@@ -5644,7 +5582,6 @@ ix86_split_ashl (rtx *operands, rtx scratch, machine_mode mode)
 
 	  if (mode == DImode)
 	    {
-	      half_mode = SImode;
 	      gen_lshr3 = gen_lshrsi3;
 	      gen_and3 = gen_andsi3;
 	      gen_xor3 = gen_xorsi3;
@@ -5652,7 +5589,6 @@ ix86_split_ashl (rtx *operands, rtx scratch, machine_mode mode)
 	    }
 	  else
 	    {
-	      half_mode = DImode;
 	      gen_lshr3 = gen_lshrdi3;
 	      gen_and3 = gen_anddi3;
 	      gen_xor3 = gen_xordi3;
@@ -5701,19 +5637,12 @@ ix86_split_ashl (rtx *operands, rtx scratch, machine_mode mode)
 
   if (TARGET_CMOVE && scratch)
     {
-      rtx (*gen_x86_shift_adj_1)(rtx, rtx, rtx, rtx)
-	= mode == DImode ? gen_x86_shiftsi_adj_1 : gen_x86_shiftdi_adj_1;
-
       ix86_expand_clear (scratch);
-      emit_insn (gen_x86_shift_adj_1 (high[0], low[0], operands[2], scratch));
+      emit_insn (gen_x86_shift_adj_1
+		 (half_mode, high[0], low[0], operands[2], scratch));
     }
   else
-    {
-      rtx (*gen_x86_shift_adj_2)(rtx, rtx, rtx)
-	= mode == DImode ? gen_x86_shiftsi_adj_2 : gen_x86_shiftdi_adj_2;
-
-      emit_insn (gen_x86_shift_adj_2 (high[0], low[0], operands[2]));
-    }
+    emit_insn (gen_x86_shift_adj_2 (half_mode, high[0], low[0], operands[2]));
 }
 
 void
@@ -5764,34 +5693,30 @@ ix86_split_ashr (rtx *operands, rtx scratch, machine_mode mode)
     }
   else
     {
+      machine_mode half_mode;
+
       gen_shrd = mode == DImode ? gen_x86_shrd : gen_x86_64_shrd;
 
      if (!rtx_equal_p (operands[0], operands[1]))
 	emit_move_insn (operands[0], operands[1]);
 
       split_double_mode (mode, operands, 1, low, high);
+      half_mode = mode == DImode ? SImode : DImode;
 
       emit_insn (gen_shrd (low[0], high[0], operands[2]));
       emit_insn (gen_ashr3 (high[0], high[0], operands[2]));
 
       if (TARGET_CMOVE && scratch)
 	{
-	  rtx (*gen_x86_shift_adj_1)(rtx, rtx, rtx, rtx)
-	    = mode == DImode ? gen_x86_shiftsi_adj_1 : gen_x86_shiftdi_adj_1;
-
 	  emit_move_insn (scratch, high[0]);
 	  emit_insn (gen_ashr3 (scratch, scratch,
 				GEN_INT (half_width - 1)));
-	  emit_insn (gen_x86_shift_adj_1 (low[0], high[0], operands[2],
-					  scratch));
+	  emit_insn (gen_x86_shift_adj_1
+		     (half_mode, low[0], high[0], operands[2], scratch));
 	}
       else
-	{
-	  rtx (*gen_x86_shift_adj_3)(rtx, rtx, rtx)
-	    = mode == DImode ? gen_x86_shiftsi_adj_3 : gen_x86_shiftdi_adj_3;
-
-	  emit_insn (gen_x86_shift_adj_3 (low[0], high[0], operands[2]));
-	}
+	emit_insn (gen_x86_shift_adj_3
+		   (half_mode, low[0], high[0], operands[2]));
     }
 }
 
@@ -5833,32 +5758,28 @@ ix86_split_lshr (rtx *operands, rtx scratch, machine_mode mode)
     }
   else
     {
+      machine_mode half_mode;
+
       gen_shrd = mode == DImode ? gen_x86_shrd : gen_x86_64_shrd;
 
       if (!rtx_equal_p (operands[0], operands[1]))
 	emit_move_insn (operands[0], operands[1]);
 
       split_double_mode (mode, operands, 1, low, high);
+      half_mode = mode == DImode ? SImode : DImode;
 
       emit_insn (gen_shrd (low[0], high[0], operands[2]));
       emit_insn (gen_lshr3 (high[0], high[0], operands[2]));
 
       if (TARGET_CMOVE && scratch)
 	{
-	  rtx (*gen_x86_shift_adj_1)(rtx, rtx, rtx, rtx)
-	    = mode == DImode ? gen_x86_shiftsi_adj_1 : gen_x86_shiftdi_adj_1;
-
 	  ix86_expand_clear (scratch);
-	  emit_insn (gen_x86_shift_adj_1 (low[0], high[0], operands[2],
-					  scratch));
+	  emit_insn (gen_x86_shift_adj_1
+		     (half_mode, low[0], high[0], operands[2], scratch));
 	}
       else
-	{
-	  rtx (*gen_x86_shift_adj_2)(rtx, rtx, rtx)
-	    = mode == DImode ? gen_x86_shiftsi_adj_2 : gen_x86_shiftdi_adj_2;
-
-	  emit_insn (gen_x86_shift_adj_2 (low[0], high[0], operands[2]));
-	}
+	emit_insn (gen_x86_shift_adj_2
+		   (half_mode, low[0], high[0], operands[2]));
     }
 }
 
@@ -5887,7 +5808,7 @@ counter_mode (rtx count_exp)
 
 
 static void
-expand_set_or_movmem_via_loop (rtx destmem, rtx srcmem,
+expand_set_or_cpymem_via_loop (rtx destmem, rtx srcmem,
 			       rtx destptr, rtx srcptr, rtx value,
 			       rtx count, machine_mode mode, int unroll,
 			       int expected_size, bool issetmem)
@@ -6040,7 +5961,7 @@ scale_counter (rtx countreg, int scale)
    Other arguments have same meaning as for previous function.  */
 
 static void
-expand_set_or_movmem_via_rep (rtx destmem, rtx srcmem,
+expand_set_or_cpymem_via_rep (rtx destmem, rtx srcmem,
 			   rtx destptr, rtx srcptr, rtx value, rtx orig_value,
 			   rtx count,
 			   machine_mode mode, bool issetmem)
@@ -6207,7 +6128,7 @@ ix86_expand_aligntest (rtx variable, int value, bool epilogue)
 /* Output code to copy at most count & (max_size - 1) bytes from SRC to DEST.  */
 
 static void
-expand_movmem_epilogue (rtx destmem, rtx srcmem,
+expand_cpymem_epilogue (rtx destmem, rtx srcmem,
 			rtx destptr, rtx srcptr, rtx count, int max_size)
 {
   rtx src, dest;
@@ -6232,7 +6153,7 @@ expand_movmem_epilogue (rtx destmem, rtx srcmem,
     {
       count = expand_simple_binop (GET_MODE (count), AND, count, GEN_INT (max_size - 1),
 				    count, 1, OPTAB_DIRECT);
-      expand_set_or_movmem_via_loop (destmem, srcmem, destptr, srcptr, NULL,
+      expand_set_or_cpymem_via_loop (destmem, srcmem, destptr, srcptr, NULL,
 				     count, QImode, 1, 4, false);
       return;
     }
@@ -6381,7 +6302,7 @@ expand_setmem_epilogue_via_loop (rtx destmem, rtx destptr, rtx value,
 {
   count = expand_simple_binop (counter_mode (count), AND, count,
 			       GEN_INT (max_size - 1), count, 1, OPTAB_DIRECT);
-  expand_set_or_movmem_via_loop (destmem, NULL, destptr, NULL,
+  expand_set_or_cpymem_via_loop (destmem, NULL, destptr, NULL,
 				 gen_lowpart (QImode, value), count, QImode,
 				 1, max_size / 2, true);
 }
@@ -6502,7 +6423,7 @@ ix86_adjust_counter (rtx countreg, HOST_WIDE_INT value)
    Return value is updated DESTMEM.  */
 
 static rtx
-expand_set_or_movmem_prologue (rtx destmem, rtx srcmem,
+expand_set_or_cpymem_prologue (rtx destmem, rtx srcmem,
 				  rtx destptr, rtx srcptr, rtx value,
 				  rtx vec_value, rtx count, int align,
 				  int desired_alignment, bool issetmem)
@@ -6535,7 +6456,7 @@ expand_set_or_movmem_prologue (rtx destmem, rtx srcmem,
    or setmem sequence that is valid for SIZE..2*SIZE-1 bytes
    and jump to DONE_LABEL.  */
 static void
-expand_small_movmem_or_setmem (rtx destmem, rtx srcmem,
+expand_small_cpymem_or_setmem (rtx destmem, rtx srcmem,
 			       rtx destptr, rtx srcptr,
 			       rtx value, rtx vec_value,
 			       rtx count, int size,
@@ -6661,7 +6582,7 @@ expand_small_movmem_or_setmem (rtx destmem, rtx srcmem,
    done_label:
   */
 static void
-expand_set_or_movmem_prologue_epilogue_by_misaligned_moves (rtx destmem, rtx srcmem,
+expand_set_or_cpymem_prologue_epilogue_by_misaligned_moves (rtx destmem, rtx srcmem,
 							    rtx *destptr, rtx *srcptr,
 							    machine_mode mode,
 							    rtx value, rtx vec_value,
@@ -6702,7 +6623,7 @@ expand_set_or_movmem_prologue_epilogue_by_misaligned_moves (rtx destmem, rtx src
 
       /* Handle sizes > 3.  */
       for (;size2 > 2; size2 >>= 1)
-	expand_small_movmem_or_setmem (destmem, srcmem,
+	expand_small_cpymem_or_setmem (destmem, srcmem,
 				       *destptr, *srcptr,
 				       value, vec_value,
 				       *count,
@@ -6857,7 +6778,7 @@ expand_set_or_movmem_prologue_epilogue_by_misaligned_moves (rtx destmem, rtx src
    is returned, but also of SRC, which is passed as a pointer for that
    reason.  */
 static rtx
-expand_set_or_movmem_constant_prologue (rtx dst, rtx *srcp, rtx destreg,
+expand_set_or_cpymem_constant_prologue (rtx dst, rtx *srcp, rtx destreg,
 					   rtx srcreg, rtx value, rtx vec_value,
 					   int desired_align, int align_bytes,
 					   bool issetmem)
@@ -7300,7 +7221,7 @@ ix86_copy_addr_to_reg (rtx addr)
      3) Main body: the copying loop itself, copying in SIZE_NEEDED chunks
 	with specified algorithm.  */
 bool
-ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
+ix86_expand_set_or_cpymem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
 			   rtx align_exp, rtx expected_align_exp,
 			   rtx expected_size_exp, rtx min_size_exp,
 			   rtx max_size_exp, rtx probable_max_size_exp,
@@ -7522,7 +7443,7 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
   if (misaligned_prologue_used)
     {
       /* Misaligned move prologue handled small blocks by itself.  */
-      expand_set_or_movmem_prologue_epilogue_by_misaligned_moves
+      expand_set_or_cpymem_prologue_epilogue_by_misaligned_moves
 	   (dst, src, &destreg, &srcreg,
 	    move_mode, promoted_val, vec_promoted_val,
 	    &count_exp,
@@ -7639,7 +7560,7 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
 	  dst = change_address (dst, BLKmode, destreg);
 	  if (!issetmem)
 	    src = change_address (src, BLKmode, srcreg);
-	  dst = expand_set_or_movmem_prologue (dst, src, destreg, srcreg,
+	  dst = expand_set_or_cpymem_prologue (dst, src, destreg, srcreg,
 					    promoted_val, vec_promoted_val,
 					    count_exp, align, desired_align,
 					    issetmem);
@@ -7653,7 +7574,7 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
 	{
 	  /* If we know how many bytes need to be stored before dst is
 	     sufficiently aligned, maintain aliasing info accurately.  */
-	  dst = expand_set_or_movmem_constant_prologue (dst, &src, destreg,
+	  dst = expand_set_or_cpymem_constant_prologue (dst, &src, destreg,
 							   srcreg,
 							   promoted_val,
 							   vec_promoted_val,
@@ -7712,19 +7633,19 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
     case loop_1_byte:
     case loop:
     case unrolled_loop:
-      expand_set_or_movmem_via_loop (dst, src, destreg, srcreg, promoted_val,
+      expand_set_or_cpymem_via_loop (dst, src, destreg, srcreg, promoted_val,
 				     count_exp, move_mode, unroll_factor,
 				     expected_size, issetmem);
       break;
     case vector_loop:
-      expand_set_or_movmem_via_loop (dst, src, destreg, srcreg,
+      expand_set_or_cpymem_via_loop (dst, src, destreg, srcreg,
 				     vec_promoted_val, count_exp, move_mode,
 				     unroll_factor, expected_size, issetmem);
       break;
     case rep_prefix_8_byte:
     case rep_prefix_4_byte:
     case rep_prefix_1_byte:
-      expand_set_or_movmem_via_rep (dst, src, destreg, srcreg, promoted_val,
+      expand_set_or_cpymem_via_rep (dst, src, destreg, srcreg, promoted_val,
 				       val_exp, count_exp, move_mode, issetmem);
       break;
     }
@@ -7777,7 +7698,7 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
 				    vec_promoted_val, count_exp,
 				    epilogue_size_needed);
 	  else
-	    expand_movmem_epilogue (dst, src, destreg, srcreg, count_exp,
+	    expand_cpymem_epilogue (dst, src, destreg, srcreg, count_exp,
 				    epilogue_size_needed);
 	}
     }
@@ -9659,15 +9580,6 @@ ix86_expand_args_builtin (const struct builtin_description *d,
     case USI_FTYPE_V32HI_V32HI_INT_USI:
     case UHI_FTYPE_V16HI_V16HI_INT_UHI:
     case UQI_FTYPE_V8HI_V8HI_INT_UQI:
-    case V32HI_FTYPE_V32HI_V32HI_V32HI_INT:
-    case V16HI_FTYPE_V16HI_V16HI_V16HI_INT:
-    case V8HI_FTYPE_V8HI_V8HI_V8HI_INT:
-    case V8SI_FTYPE_V8SI_V8SI_V8SI_INT:
-    case V4DI_FTYPE_V4DI_V4DI_V4DI_INT:
-    case V8DI_FTYPE_V8DI_V8DI_V8DI_INT:
-    case V16SI_FTYPE_V16SI_V16SI_V16SI_INT:
-    case V2DI_FTYPE_V2DI_V2DI_V2DI_INT:
-    case V4SI_FTYPE_V4SI_V4SI_V4SI_INT:
       nargs = 4;
       mask_pos = 1;
       nargs_constant = 1;
@@ -11078,7 +10990,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
   tree arg0, arg1, arg2, arg3, arg4;
   rtx op0, op1, op2, op3, op4, pat, pat2, insn;
   machine_mode mode0, mode1, mode2, mode3, mode4;
-  unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
+  unsigned int fcode = DECL_MD_FUNCTION_CODE (fndecl);
 
   /* For CPU builtins that can be folded, fold first and expand the fold.  */
   switch (fcode)
@@ -11293,12 +11205,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
       op0 = expand_normal (arg0);
 
       op0 = ix86_zero_extend_to_Pmode (op0);
-
-      insn = (TARGET_64BIT
-	      ? gen_umonitor_di (op0)
-	      : gen_umonitor_si (op0));
-
-      emit_insn (insn);
+      emit_insn (gen_umonitor (Pmode, op0));
       return 0;
 
     case IX86_BUILTIN_UMWAIT:
@@ -11429,6 +11336,79 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
 
       emit_move_insn (target, op0);
       return target;
+
+    case IX86_BUILTIN_2INTERSECTD512:
+    case IX86_BUILTIN_2INTERSECTQ512:
+    case IX86_BUILTIN_2INTERSECTD256:
+    case IX86_BUILTIN_2INTERSECTQ256:
+    case IX86_BUILTIN_2INTERSECTD128:
+    case IX86_BUILTIN_2INTERSECTQ128:
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
+      arg2 = CALL_EXPR_ARG (exp, 2);
+      arg3 = CALL_EXPR_ARG (exp, 3);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
+      op2 = expand_normal (arg2);
+      op3 = expand_normal (arg3);
+
+      if (!address_operand (op0, VOIDmode))
+	{
+	  op0 = convert_memory_address (Pmode, op0);
+	  op0 = copy_addr_to_reg (op0);
+	}
+      if (!address_operand (op1, VOIDmode))
+	{
+	  op1 = convert_memory_address (Pmode, op1);
+	  op1 = copy_addr_to_reg (op1);
+	}
+
+      switch (fcode)
+	{
+	case IX86_BUILTIN_2INTERSECTD512:
+	  mode4 = P2HImode;
+	  icode = CODE_FOR_avx512vp2intersect_2intersectv16si;
+	  break;
+	case IX86_BUILTIN_2INTERSECTQ512:
+	  mode4 = P2QImode;
+	  icode = CODE_FOR_avx512vp2intersect_2intersectv8di;
+	  break;
+	case IX86_BUILTIN_2INTERSECTD256:
+	  mode4 = P2QImode;
+	  icode = CODE_FOR_avx512vp2intersect_2intersectv8si;
+	  break;
+	case IX86_BUILTIN_2INTERSECTQ256:
+	  mode4 = P2QImode;
+	  icode = CODE_FOR_avx512vp2intersect_2intersectv4di;
+	  break;
+	case IX86_BUILTIN_2INTERSECTD128:
+	  mode4 = P2QImode;
+	  icode = CODE_FOR_avx512vp2intersect_2intersectv4si;
+	  break;
+	case IX86_BUILTIN_2INTERSECTQ128:
+	  mode4 = P2QImode;
+	  icode = CODE_FOR_avx512vp2intersect_2intersectv2di;
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+
+      mode2 = insn_data[icode].operand[1].mode;
+      mode3 = insn_data[icode].operand[2].mode;
+      if (!insn_data[icode].operand[1].predicate (op2, mode2))
+	op2 = copy_to_mode_reg (mode2, op2);
+      if (!insn_data[icode].operand[2].predicate (op3, mode3))
+	op3 = copy_to_mode_reg (mode3, op3);
+
+      op4 = gen_reg_rtx (mode4);
+      emit_insn (GEN_FCN (icode) (op4, op2, op3));
+      mode0 = mode4 == P2HImode ? HImode : QImode;
+      emit_move_insn (gen_rtx_MEM (mode0, op0),
+		      gen_lowpart (mode0, op4));
+      emit_move_insn (gen_rtx_MEM (mode0, op1),
+		      gen_highpart (mode0, op4));
+
+      return 0;
 
     case IX86_BUILTIN_RDPMC:
     case IX86_BUILTIN_RDTSC:
@@ -12567,7 +12547,7 @@ rdseed_step:
 		  tree fndecl = gimple_call_fndecl (def_stmt);
 		  if (fndecl
 		      && fndecl_built_in_p (fndecl, BUILT_IN_MD))
-		    switch ((unsigned int) DECL_FUNCTION_CODE (fndecl))
+		    switch (DECL_MD_FUNCTION_CODE (fndecl))
 		      {
 		      case IX86_BUILTIN_CMPPD:
 		      case IX86_BUILTIN_CMPPS:
@@ -13415,6 +13395,9 @@ ix86_expand_vector_init_one_nonzero (bool mmx_ok, machine_mode mode,
     case E_V8HImode:
       use_vector_set = TARGET_SSE2;
       break;
+    case E_V8QImode:
+      use_vector_set = TARGET_MMX_WITH_SSE && TARGET_SSE4_1;
+      break;
     case E_V4HImode:
       use_vector_set = TARGET_SSE || TARGET_3DNOW_A;
       break;
@@ -13622,6 +13605,8 @@ ix86_expand_vector_init_one_var (bool mmx_ok, machine_mode mode,
       wmode = V8HImode;
       goto widen;
     case E_V8QImode:
+      if (TARGET_MMX_WITH_SSE && TARGET_SSE4_1)
+	break;
       wmode = V4HImode;
       goto widen;
     widen:
@@ -14275,8 +14260,13 @@ ix86_expand_vector_set (bool mmx_ok, rtx target, rtx val, int elt)
 
   switch (mode)
     {
-    case E_V2SFmode:
     case E_V2SImode:
+      use_vec_merge = TARGET_MMX_WITH_SSE && TARGET_SSE4_1;
+      if (use_vec_merge)
+	break;
+      /* FALLTHRU */
+
+    case E_V2SFmode:
       if (mmx_ok)
 	{
 	  tmp = gen_reg_rtx (GET_MODE_INNER (mode));
@@ -14305,6 +14295,17 @@ ix86_expand_vector_set (bool mmx_ok, rtx target, rtx val, int elt)
       return;
 
     case E_V2DFmode:
+      /* NB: For ELT == 0, use standard scalar operation patterns which
+	 preserve the rest of the vector for combiner:
+
+	 (vec_merge:V2DF
+	   (vec_duplicate:V2DF (reg:DF))
+	   (reg:V2DF)
+	   (const_int 1))
+       */
+      if (elt == 0)
+	goto do_vec_merge;
+
       {
 	rtx op0, op1;
 
@@ -14430,6 +14431,7 @@ ix86_expand_vector_set (bool mmx_ok, rtx target, rtx val, int elt)
       break;
 
     case E_V8QImode:
+      use_vec_merge = TARGET_MMX_WITH_SSE && TARGET_SSE4_1;
       break;
 
     case E_V32QImode:
@@ -14602,6 +14604,7 @@ quarter:
     }
   else if (use_vec_merge)
     {
+do_vec_merge:
       tmp = gen_rtx_VEC_DUPLICATE (mode, val);
       tmp = gen_rtx_VEC_MERGE (mode, tmp, target,
 			       GEN_INT (HOST_WIDE_INT_1U << elt));
@@ -14631,6 +14634,11 @@ ix86_expand_vector_extract (bool mmx_ok, rtx target, rtx vec, int elt)
   switch (mode)
     {
     case E_V2SImode:
+      use_vec_extr = TARGET_MMX_WITH_SSE && TARGET_SSE4_1;
+      if (use_vec_extr)
+	break;
+      /* FALLTHRU */
+
     case E_V2SFmode:
       if (!mmx_ok)
 	break;
@@ -14726,6 +14734,17 @@ ix86_expand_vector_extract (bool mmx_ok, rtx target, rtx vec, int elt)
 
     case E_V16QImode:
       use_vec_extr = TARGET_SSE4_1;
+      if (!use_vec_extr
+	  && TARGET_SSE2
+	  && elt == 0
+	  && (optimize_insn_for_size_p () || TARGET_INTER_UNIT_MOVES_FROM_VEC))
+	{
+	  tmp = gen_reg_rtx (SImode);
+	  ix86_expand_vector_extract (false, tmp, gen_lowpart (V4SImode, vec),
+				      0);
+	  emit_insn (gen_rtx_SET (target, gen_lowpart (QImode, tmp)));
+	  return;
+	}
       break;
 
     case E_V8SFmode:
@@ -14869,7 +14888,10 @@ ix86_expand_vector_extract (bool mmx_ok, rtx target, rtx vec, int elt)
       return;
 
     case E_V8QImode:
+      use_vec_extr = TARGET_MMX_WITH_SSE && TARGET_SSE4_1;
       /* ??? Could extract the appropriate HImode element and shift.  */
+      break;
+
     default:
       break;
     }
@@ -15881,8 +15903,70 @@ ix86_expand_rint (rtx operand0, rtx operand1)
   emit_move_insn (operand0, res);
 }
 
+/* Expand SSE2 sequence for computing floor or ceil
+   from OPERAND1 storing into OPERAND0.  */
+void
+ix86_expand_floorceil (rtx operand0, rtx operand1, bool do_floor)
+{
+  /* C code for the stuff we expand below.
+	double xa = fabs (x), x2;
+        if (!isless (xa, TWO52))
+          return x;
+	x2 = (double)(long)x;
+     Compensate.  Floor:
+	if (x2 > x)
+	  x2 -= 1;
+     Compensate.  Ceil:
+	if (x2 < x)
+	  x2 += 1;
+	if (HONOR_SIGNED_ZEROS (mode))
+	  return copysign (x2, x);
+	return x2;
+   */
+  machine_mode mode = GET_MODE (operand0);
+  rtx xa, xi, TWO52, tmp, one, res, mask;
+  rtx_code_label *label;
+
+  TWO52 = ix86_gen_TWO52 (mode);
+
+  /* Temporary for holding the result, initialized to the input
+     operand to ease control flow.  */
+  res = gen_reg_rtx (mode);
+  emit_move_insn (res, operand1);
+
+  /* xa = abs (operand1) */
+  xa = ix86_expand_sse_fabs (res, &mask);
+
+  /* if (!isless (xa, TWO52)) goto label; */
+  label = ix86_expand_sse_compare_and_jump (UNLE, TWO52, xa, false);
+
+  /* xa = (double)(long)x */
+  xi = gen_reg_rtx (mode == DFmode ? DImode : SImode);
+  expand_fix (xi, res, 0);
+  expand_float (xa, xi, 0);
+
+  /* generate 1.0 */
+  one = force_reg (mode, const_double_from_real_value (dconst1, mode));
+
+  /* Compensate: xa = xa - (xa > operand1 ? 1 : 0) */
+  tmp = ix86_expand_sse_compare_mask (UNGT, xa, res, !do_floor);
+  emit_insn (gen_rtx_SET (tmp, gen_rtx_AND (mode, one, tmp)));
+  tmp = expand_simple_binop (mode, do_floor ? MINUS : PLUS,
+			     xa, tmp, NULL_RTX, 0, OPTAB_DIRECT);
+  emit_move_insn (res, tmp);
+
+  if (HONOR_SIGNED_ZEROS (mode))
+    ix86_sse_copysign_to_positive (res, res, force_reg (mode, operand1), mask);
+
+  emit_label (label);
+  LABEL_NUSES (label) = 1;
+
+  emit_move_insn (operand0, res);
+}
+
 /* Expand SSE2 sequence for computing floor or ceil from OPERAND1 storing
-   into OPERAND0.  */
+   into OPERAND0 without relying on DImode truncation via cvttsd2siq
+   that is only available on 64bit targets.  */
 void
 ix86_expand_floorceildf_32 (rtx operand0, rtx operand1, bool do_floor)
 {
@@ -15944,141 +16028,8 @@ ix86_expand_floorceildf_32 (rtx operand0, rtx operand1, bool do_floor)
   emit_move_insn (operand0, res);
 }
 
-/* Expand SSE2 sequence for computing floor or ceil from OPERAND1 storing
-   into OPERAND0.  */
-void
-ix86_expand_floorceil (rtx operand0, rtx operand1, bool do_floor)
-{
-  /* C code for the stuff we expand below.
-	double xa = fabs (x), x2;
-        if (!isless (xa, TWO52))
-          return x;
-	x2 = (double)(long)x;
-     Compensate.  Floor:
-	if (x2 > x)
-	  x2 -= 1;
-     Compensate.  Ceil:
-	if (x2 < x)
-	  x2 += 1;
-	if (HONOR_SIGNED_ZEROS (mode))
-	  return copysign (x2, x);
-	return x2;
-   */
-  machine_mode mode = GET_MODE (operand0);
-  rtx xa, xi, TWO52, tmp, one, res, mask;
-  rtx_code_label *label;
-
-  TWO52 = ix86_gen_TWO52 (mode);
-
-  /* Temporary for holding the result, initialized to the input
-     operand to ease control flow.  */
-  res = gen_reg_rtx (mode);
-  emit_move_insn (res, operand1);
-
-  /* xa = abs (operand1) */
-  xa = ix86_expand_sse_fabs (res, &mask);
-
-  /* if (!isless (xa, TWO52)) goto label; */
-  label = ix86_expand_sse_compare_and_jump (UNLE, TWO52, xa, false);
-
-  /* xa = (double)(long)x */
-  xi = gen_reg_rtx (mode == DFmode ? DImode : SImode);
-  expand_fix (xi, res, 0);
-  expand_float (xa, xi, 0);
-
-  /* generate 1.0 */
-  one = force_reg (mode, const_double_from_real_value (dconst1, mode));
-
-  /* Compensate: xa = xa - (xa > operand1 ? 1 : 0) */
-  tmp = ix86_expand_sse_compare_mask (UNGT, xa, res, !do_floor);
-  emit_insn (gen_rtx_SET (tmp, gen_rtx_AND (mode, one, tmp)));
-  tmp = expand_simple_binop (mode, do_floor ? MINUS : PLUS,
-			     xa, tmp, NULL_RTX, 0, OPTAB_DIRECT);
-  emit_move_insn (res, tmp);
-
-  if (HONOR_SIGNED_ZEROS (mode))
-    ix86_sse_copysign_to_positive (res, res, force_reg (mode, operand1), mask);
-
-  emit_label (label);
-  LABEL_NUSES (label) = 1;
-
-  emit_move_insn (operand0, res);
-}
-
-/* Expand SSE sequence for computing round from OPERAND1 storing
-   into OPERAND0.  Sequence that works without relying on DImode truncation
-   via cvttsd2siq that is only available on 64bit targets.  */
-void
-ix86_expand_rounddf_32 (rtx operand0, rtx operand1)
-{
-  /* C code for the stuff we expand below.
-        double xa = fabs (x), xa2, x2;
-        if (!isless (xa, TWO52))
-          return x;
-     Using the absolute value and copying back sign makes
-     -0.0 -> -0.0 correct.
-        xa2 = xa + TWO52 - TWO52;
-     Compensate.
-	dxa = xa2 - xa;
-        if (dxa <= -0.5)
-          xa2 += 1;
-        else if (dxa > 0.5)
-          xa2 -= 1;
-        x2 = copysign (xa2, x);
-        return x2;
-   */
-  machine_mode mode = GET_MODE (operand0);
-  rtx xa, xa2, dxa, TWO52, tmp, half, mhalf, one, res, mask;
-  rtx_code_label *label;
-
-  TWO52 = ix86_gen_TWO52 (mode);
-
-  /* Temporary for holding the result, initialized to the input
-     operand to ease control flow.  */
-  res = gen_reg_rtx (mode);
-  emit_move_insn (res, operand1);
-
-  /* xa = abs (operand1) */
-  xa = ix86_expand_sse_fabs (res, &mask);
-
-  /* if (!isless (xa, TWO52)) goto label; */
-  label = ix86_expand_sse_compare_and_jump (UNLE, TWO52, xa, false);
-
-  /* xa2 = xa + TWO52 - TWO52; */
-  xa2 = expand_simple_binop (mode, PLUS, xa, TWO52, NULL_RTX, 0, OPTAB_DIRECT);
-  xa2 = expand_simple_binop (mode, MINUS, xa2, TWO52, xa2, 0, OPTAB_DIRECT);
-
-  /* dxa = xa2 - xa; */
-  dxa = expand_simple_binop (mode, MINUS, xa2, xa, NULL_RTX, 0, OPTAB_DIRECT);
-
-  /* generate 0.5, 1.0 and -0.5 */
-  half = force_reg (mode, const_double_from_real_value (dconsthalf, mode));
-  one = expand_simple_binop (mode, PLUS, half, half, NULL_RTX, 0, OPTAB_DIRECT);
-  mhalf = expand_simple_binop (mode, MINUS, half, one, NULL_RTX,
-			       0, OPTAB_DIRECT);
-
-  /* Compensate.  */
-  tmp = gen_reg_rtx (mode);
-  /* xa2 = xa2 - (dxa > 0.5 ? 1 : 0) */
-  tmp = ix86_expand_sse_compare_mask (UNGT, dxa, half, false);
-  emit_insn (gen_rtx_SET (tmp, gen_rtx_AND (mode, one, tmp)));
-  xa2 = expand_simple_binop (mode, MINUS, xa2, tmp, NULL_RTX, 0, OPTAB_DIRECT);
-  /* xa2 = xa2 + (dxa <= -0.5 ? 1 : 0) */
-  tmp = ix86_expand_sse_compare_mask (UNGE, mhalf, dxa, false);
-  emit_insn (gen_rtx_SET (tmp, gen_rtx_AND (mode, one, tmp)));
-  xa2 = expand_simple_binop (mode, PLUS, xa2, tmp, NULL_RTX, 0, OPTAB_DIRECT);
-
-  /* res = copysign (xa2, operand1) */
-  ix86_sse_copysign_to_positive (res, xa2, force_reg (mode, operand1), mask);
-
-  emit_label (label);
-  LABEL_NUSES (label) = 1;
-
-  emit_move_insn (operand0, res);
-}
-
-/* Expand SSE sequence for computing trunc from OPERAND1 storing
-   into OPERAND0.  */
+/* Expand SSE sequence for computing trunc
+   from OPERAND1 storing into OPERAND0.  */
 void
 ix86_expand_trunc (rtx operand0, rtx operand1)
 {
@@ -16123,7 +16074,8 @@ ix86_expand_trunc (rtx operand0, rtx operand1)
 }
 
 /* Expand SSE sequence for computing trunc from OPERAND1 storing
-   into OPERAND0.  */
+   into OPERAND0 without relying on DImode truncation via cvttsd2siq
+   that is only available on 64bit targets.  */
 void
 ix86_expand_truncdf_32 (rtx operand0, rtx operand1)
 {
@@ -16180,8 +16132,8 @@ ix86_expand_truncdf_32 (rtx operand0, rtx operand1)
   emit_move_insn (operand0, res);
 }
 
-/* Expand SSE sequence for computing round from OPERAND1 storing
-   into OPERAND0.  */
+/* Expand SSE sequence for computing round
+   from OPERAND1 storing into OPERAND0.  */
 void
 ix86_expand_round (rtx operand0, rtx operand1)
 {
@@ -16223,6 +16175,77 @@ ix86_expand_round (rtx operand0, rtx operand1)
 
   /* res = copysign (xa, operand1) */
   ix86_sse_copysign_to_positive (res, xa, force_reg (mode, operand1), mask);
+
+  emit_label (label);
+  LABEL_NUSES (label) = 1;
+
+  emit_move_insn (operand0, res);
+}
+
+/* Expand SSE sequence for computing round from OPERAND1 storing
+   into OPERAND0 without relying on DImode truncation via cvttsd2siq
+   that is only available on 64bit targets.  */
+void
+ix86_expand_rounddf_32 (rtx operand0, rtx operand1)
+{
+  /* C code for the stuff we expand below.
+        double xa = fabs (x), xa2, x2;
+        if (!isless (xa, TWO52))
+          return x;
+     Using the absolute value and copying back sign makes
+     -0.0 -> -0.0 correct.
+        xa2 = xa + TWO52 - TWO52;
+     Compensate.
+	dxa = xa2 - xa;
+        if (dxa <= -0.5)
+          xa2 += 1;
+        else if (dxa > 0.5)
+          xa2 -= 1;
+        x2 = copysign (xa2, x);
+        return x2;
+   */
+  machine_mode mode = GET_MODE (operand0);
+  rtx xa, xa2, dxa, TWO52, tmp, half, mhalf, one, res, mask;
+  rtx_code_label *label;
+
+  TWO52 = ix86_gen_TWO52 (mode);
+
+  /* Temporary for holding the result, initialized to the input
+     operand to ease control flow.  */
+  res = gen_reg_rtx (mode);
+  emit_move_insn (res, operand1);
+
+  /* xa = abs (operand1) */
+  xa = ix86_expand_sse_fabs (res, &mask);
+
+  /* if (!isless (xa, TWO52)) goto label; */
+  label = ix86_expand_sse_compare_and_jump (UNLE, TWO52, xa, false);
+
+  /* xa2 = xa + TWO52 - TWO52; */
+  xa2 = expand_simple_binop (mode, PLUS, xa, TWO52, NULL_RTX, 0, OPTAB_DIRECT);
+  xa2 = expand_simple_binop (mode, MINUS, xa2, TWO52, xa2, 0, OPTAB_DIRECT);
+
+  /* dxa = xa2 - xa; */
+  dxa = expand_simple_binop (mode, MINUS, xa2, xa, NULL_RTX, 0, OPTAB_DIRECT);
+
+  /* generate 0.5, 1.0 and -0.5 */
+  half = force_reg (mode, const_double_from_real_value (dconsthalf, mode));
+  one = expand_simple_binop (mode, PLUS, half, half, NULL_RTX, 0, OPTAB_DIRECT);
+  mhalf = expand_simple_binop (mode, MINUS, half, one, NULL_RTX,
+			       0, OPTAB_DIRECT);
+
+  /* Compensate.  */
+  /* xa2 = xa2 - (dxa > 0.5 ? 1 : 0) */
+  tmp = ix86_expand_sse_compare_mask (UNGT, dxa, half, false);
+  emit_insn (gen_rtx_SET (tmp, gen_rtx_AND (mode, tmp, one)));
+  xa2 = expand_simple_binop (mode, MINUS, xa2, tmp, NULL_RTX, 0, OPTAB_DIRECT);
+  /* xa2 = xa2 + (dxa <= -0.5 ? 1 : 0) */
+  tmp = ix86_expand_sse_compare_mask (UNGE, mhalf, dxa, false);
+  emit_insn (gen_rtx_SET (tmp, gen_rtx_AND (mode, tmp, one)));
+  xa2 = expand_simple_binop (mode, PLUS, xa2, tmp, NULL_RTX, 0, OPTAB_DIRECT);
+
+  /* res = copysign (xa2, operand1) */
+  ix86_sse_copysign_to_positive (res, xa2, force_reg (mode, operand1), mask);
 
   emit_label (label);
   LABEL_NUSES (label) = 1;
@@ -16363,7 +16386,7 @@ expand_vselect_vconcat (rtx target, rtx op0, rtx op1,
   return ok;
 }
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Try to implement D
+/* A subroutine of ix86_expand_vec_perm_const_1.  Try to implement D
    using movss or movsd.  */
 static bool
 expand_vec_perm_movs (struct expand_vec_perm_d *d)
@@ -16399,14 +16422,15 @@ expand_vec_perm_movs (struct expand_vec_perm_d *d)
   return true;
 }
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Try to implement D
+/* A subroutine of ix86_expand_vec_perm_const_1.  Try to implement D
    in terms of blendp[sd] / pblendw / pblendvb / vpblendd.  */
 
 static bool
 expand_vec_perm_blend (struct expand_vec_perm_d *d)
 {
   machine_mode mmode, vmode = d->vmode;
-  unsigned i, mask, nelt = d->nelt;
+  unsigned i, nelt = d->nelt;
+  unsigned HOST_WIDE_INT mask;
   rtx target, op0, op1, maskop, x;
   rtx rperm[32], vperm;
 
@@ -16460,7 +16484,7 @@ expand_vec_perm_blend (struct expand_vec_perm_d *d)
     case E_V16SImode:
     case E_V8DImode:
       for (i = 0; i < nelt; ++i)
-	mask |= (d->perm[i] >= nelt) << i;
+	mask |= ((unsigned HOST_WIDE_INT) (d->perm[i] >= nelt)) << i;
       break;
 
     case E_V2DImode:
@@ -16623,7 +16647,7 @@ expand_vec_perm_blend (struct expand_vec_perm_d *d)
   return true;
 }
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Try to implement D
+/* A subroutine of ix86_expand_vec_perm_const_1.  Try to implement D
    in terms of the variable form of vpermilps.
 
    Note that we will have already failed the immediate input vpermilps,
@@ -16699,7 +16723,7 @@ valid_perm_using_mode_p (machine_mode vmode, struct expand_vec_perm_d *d)
   return true;
 }
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Try to implement D
+/* A subroutine of ix86_expand_vec_perm_const_1.  Try to implement D
    in terms of pshufb, vpperm, vpermq, vpermd, vpermps or vperm2i128.  */
 
 static bool
@@ -17016,7 +17040,7 @@ ix86_expand_vec_one_operand_perm_avx512 (struct expand_vec_perm_d *d)
 
 static bool expand_vec_perm_palignr (struct expand_vec_perm_d *d, bool);
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Try to instantiate D
+/* A subroutine of ix86_expand_vec_perm_const_1.  Try to instantiate D
    in a single instruction.  */
 
 static bool
@@ -17206,7 +17230,7 @@ expand_vec_perm_1 (struct expand_vec_perm_d *d)
   return false;
 }
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Try to implement D
+/* A subroutine of ix86_expand_vec_perm_const_1.  Try to implement D
    in terms of a pair of pshuflw + pshufhw instructions.  */
 
 static bool
@@ -17247,7 +17271,7 @@ expand_vec_perm_pshuflw_pshufhw (struct expand_vec_perm_d *d)
   return true;
 }
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Try to simplify
+/* A subroutine of ix86_expand_vec_perm_const_1.  Try to simplify
    the permutation using the SSSE3 palignr instruction.  This succeeds
    when all of the elements in PERM fit within one vector and we merely
    need to shift them down so that a single vector permutation has a
@@ -17464,7 +17488,7 @@ expand_vec_perm_pblendv (struct expand_vec_perm_d *d)
 
 static bool expand_vec_perm_interleave3 (struct expand_vec_perm_d *d);
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Try to simplify
+/* A subroutine of ix86_expand_vec_perm_const_1.  Try to simplify
    a two vector permutation into a single vector permutation by using
    an interleave operation to merge the vectors.  */
 
@@ -17742,7 +17766,7 @@ expand_vec_perm_interleave2 (struct expand_vec_perm_d *d)
   return true;
 }
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Try to simplify
+/* A subroutine of ix86_expand_vec_perm_const_1.  Try to simplify
    a single vector cross-lane permutation into vpermq followed
    by any of the single insn permutations.  */
 
@@ -17823,7 +17847,7 @@ expand_vec_perm_vpermq_perm_1 (struct expand_vec_perm_d *d)
 
 static bool canonicalize_perm (struct expand_vec_perm_d *d);
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Try to expand
+/* A subroutine of ix86_expand_vec_perm_const_1.  Try to expand
    a vector permutation using two instructions, vperm2f128 resp.
    vperm2i128 followed by any single in-lane permutation.  */
 
@@ -17940,7 +17964,7 @@ expand_vec_perm_vperm2f128 (struct expand_vec_perm_d *d)
   return false;
 }
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Try to simplify
+/* A subroutine of ix86_expand_vec_perm_const_1.  Try to simplify
    a two vector permutation using 2 intra-lane interleave insns
    and cross-lane shuffle for 32-byte vectors.  */
 
@@ -18016,7 +18040,7 @@ expand_vec_perm_interleave3 (struct expand_vec_perm_d *d)
   return true;
 }
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Try to implement
+/* A subroutine of ix86_expand_vec_perm_const_1.  Try to implement
    a single vector permutation using a single intra-lane vector
    permutation, vperm2f128 swapping the lanes and vblend* insn blending
    the non-swapped and swapped vectors together.  */
@@ -18084,7 +18108,7 @@ expand_vec_perm_vperm2f128_vblend (struct expand_vec_perm_d *d)
   return true;
 }
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Implement a V4DF
+/* A subroutine of ix86_expand_vec_perm_const_1.  Implement a V4DF
    permutation using two vperm2f128, followed by a vshufpd insn blending
    the two vectors together.  */
 
@@ -18132,6 +18156,106 @@ expand_vec_perm_2vperm2f128_vshuf (struct expand_vec_perm_d *d)
 
   gcc_assert (ok);
 
+  return true;
+}
+
+static bool ix86_expand_vec_perm_const_1 (struct expand_vec_perm_d *);
+
+/* A subroutine of ix86_expand_vec_perm_const_1.  Try to implement
+   a two vector permutation using two intra-lane vector
+   permutations, vperm2f128 swapping the lanes and vblend* insn blending
+   the non-swapped and swapped vectors together.  */
+
+static bool
+expand_vec_perm2_vperm2f128_vblend (struct expand_vec_perm_d *d)
+{
+  struct expand_vec_perm_d dfirst, dsecond, dthird;
+  unsigned i, j, msk, nelt = d->nelt, nelt2 = nelt / 2, which1 = 0, which2 = 0;
+  rtx_insn *seq1, *seq2;
+  bool ok;
+  rtx (*blend) (rtx, rtx, rtx, rtx) = NULL;
+
+  if (!TARGET_AVX
+      || TARGET_AVX2
+      || (d->vmode != V8SFmode && d->vmode != V4DFmode)
+      || d->one_operand_p)
+    return false;
+
+  dfirst = *d;
+  dsecond = *d;
+  for (i = 0; i < nelt; i++)
+    {
+      dfirst.perm[i] = 0xff;
+      dsecond.perm[i] = 0xff;
+    }
+  for (i = 0, msk = 0; i < nelt; i++)
+    {
+      j = (d->perm[i] & nelt2) ? i | nelt2 : i & ~nelt2;
+      if (j == i)
+	{
+	  dfirst.perm[j] = d->perm[i];
+	  which1 |= (d->perm[i] < nelt ? 1 : 2);
+	}
+      else
+	{
+	  dsecond.perm[j] = d->perm[i];
+	  which2 |= (d->perm[i] < nelt ? 1 : 2);
+	  msk |= (1U << i);
+	}
+    }
+  if (msk == 0 || msk == (1U << nelt) - 1)
+    return false;
+
+  if (!d->testing_p)
+    {
+      dfirst.target = gen_reg_rtx (dfirst.vmode);
+      dsecond.target = gen_reg_rtx (dsecond.vmode);
+    }
+
+  for (i = 0; i < nelt; i++)
+    {
+      if (dfirst.perm[i] == 0xff)
+	dfirst.perm[i] = (which1 == 2 ? i + nelt : i);
+      if (dsecond.perm[i] == 0xff)
+	dsecond.perm[i] = (which2 == 2 ? i + nelt : i);
+    }
+  canonicalize_perm (&dfirst);
+  start_sequence ();
+  ok = ix86_expand_vec_perm_const_1 (&dfirst);
+  seq1 = get_insns ();
+  end_sequence ();
+
+  if (!ok)
+    return false;
+
+  canonicalize_perm (&dsecond);
+  start_sequence ();
+  ok = ix86_expand_vec_perm_const_1 (&dsecond);
+  seq2 = get_insns ();
+  end_sequence ();
+
+  if (!ok)
+    return false;
+
+  if (d->testing_p)
+    return true;
+
+  emit_insn (seq1);
+  emit_insn (seq2);
+
+  dthird = *d;
+  dthird.op0 = dsecond.target;
+  dthird.op1 = dsecond.target;
+  dthird.one_operand_p = true;
+  dthird.target = gen_reg_rtx (dthird.vmode);
+  for (i = 0; i < nelt; i++)
+    dthird.perm[i] = i ^ nelt2;
+
+  ok = expand_vec_perm_1 (&dthird);
+  gcc_assert (ok);
+
+  blend = d->vmode == V8SFmode ? gen_avx_blendps256 : gen_avx_blendpd256;
+  emit_insn (blend (d->target, dfirst.target, dthird.target, GEN_INT (msk)));
   return true;
 }
 
@@ -18524,7 +18648,7 @@ expand_vec_perm_even_odd_trunc (struct expand_vec_perm_d *d)
   return true;
 }
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Implement extract-even
+/* A subroutine of ix86_expand_vec_perm_const_1.  Implement extract-even
    and extract-odd permutations.  */
 
 static bool
@@ -18733,7 +18857,7 @@ expand_vec_perm_even_odd_1 (struct expand_vec_perm_d *d, unsigned odd)
   return true;
 }
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Pattern match
+/* A subroutine of ix86_expand_vec_perm_const_1.  Pattern match
    extract-even and extract-odd permutations.  */
 
 static bool
@@ -18752,7 +18876,7 @@ expand_vec_perm_even_odd (struct expand_vec_perm_d *d)
   return expand_vec_perm_even_odd_1 (d, odd);
 }
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Implement broadcast
+/* A subroutine of ix86_expand_vec_perm_const_1.  Implement broadcast
    permutations.  We assume that expand_vec_perm_1 has already failed.  */
 
 static bool
@@ -18831,7 +18955,7 @@ expand_vec_perm_broadcast_1 (struct expand_vec_perm_d *d)
     }
 }
 
-/* A subroutine of ix86_expand_vec_perm_builtin_1.  Pattern match
+/* A subroutine of ix86_expand_vec_perm_const_1.  Pattern match
    broadcast permutations.  */
 
 static bool
@@ -19127,6 +19251,10 @@ ix86_expand_vec_perm_const_1 (struct expand_vec_perm_d *d)
       return true;
     }
 
+  /* Even longer, including recursion to ix86_expand_vec_perm_const_1.  */
+  if (expand_vec_perm2_vperm2f128_vblend (d))
+    return true;
+
   return false;
 }
 
@@ -19139,7 +19267,7 @@ canonicalize_perm (struct expand_vec_perm_d *d)
   int i, which, nelt = d->nelt;
 
   for (i = which = 0; i < nelt; ++i)
-      which |= (d->perm[i] < nelt ? 1 : 2);
+    which |= (d->perm[i] < nelt ? 1 : 2);
 
   d->one_operand_p = true;
   switch (which)
@@ -19786,8 +19914,7 @@ ix86_expand_sse2_mulvxdi3 (rtx op0, rtx op1, rtx op2)
       emit_insn (gen_vec_widen_umult_even_v4si (t5, 
 					gen_lowpart (V4SImode, op1),
 					gen_lowpart (V4SImode, op2)));
-      op0 = expand_binop (mode, add_optab, t5, t4, op0, 1, OPTAB_DIRECT);
-
+      force_expand_binop (mode, add_optab, t5, t4, op0, 1, OPTAB_DIRECT);
     }
   else
     {
@@ -19844,7 +19971,7 @@ ix86_expand_sse2_mulvxdi3 (rtx op0, rtx op1, rtx op2)
    should be encoded with notrack prefix.  */
 
 bool
-ix86_notrack_prefixed_insn_p (rtx insn)
+ix86_notrack_prefixed_insn_p (rtx_insn *insn)
 {
   if (!insn || !((flag_cf_protection & CF_BRANCH)))
     return false;

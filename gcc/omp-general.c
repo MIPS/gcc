@@ -48,6 +48,22 @@ omp_find_clause (tree clauses, enum omp_clause_code kind)
   return NULL_TREE;
 }
 
+/* True if OpenMP should regard this DECL as being a scalar which has Fortran's
+   allocatable or pointer attribute.  */
+bool
+omp_is_allocatable_or_ptr (tree decl)
+{
+  return lang_hooks.decls.omp_is_allocatable_or_ptr (decl);
+}
+
+/* Return true if DECL is a Fortran optional argument.  */
+
+bool
+omp_is_optional_argument (tree decl)
+{
+  return lang_hooks.decls.omp_is_optional_argument (decl);
+}
+
 /* Return true if DECL is a reference type.  */
 
 bool
@@ -156,7 +172,7 @@ omp_extract_for_data (gomp_for *for_stmt, struct omp_for_data *fd,
   int i;
   struct omp_for_data_loop dummy_loop;
   location_t loc = gimple_location (for_stmt);
-  bool simd = gimple_omp_for_kind (for_stmt) & GF_OMP_FOR_SIMD;
+  bool simd = gimple_omp_for_kind (for_stmt) == GF_OMP_FOR_KIND_SIMD;
   bool distribute = gimple_omp_for_kind (for_stmt)
 		    == GF_OMP_FOR_KIND_DISTRIBUTE;
   bool taskloop = gimple_omp_for_kind (for_stmt)
@@ -169,6 +185,8 @@ omp_extract_for_data (gomp_for *for_stmt, struct omp_for_data *fd,
   fd->have_ordered = false;
   fd->have_reductemp = false;
   fd->have_pointer_condtemp = false;
+  fd->have_scantemp = false;
+  fd->have_nonctrl_scantemp = false;
   fd->lastprivate_conditional = 0;
   fd->tiling = NULL_TREE;
   fd->collapse = 1;
@@ -230,6 +248,12 @@ omp_extract_for_data (gomp_for *for_stmt, struct omp_for_data *fd,
       case OMP_CLAUSE__CONDTEMP_:
 	if (POINTER_TYPE_P (TREE_TYPE (OMP_CLAUSE_DECL (t))))
 	  fd->have_pointer_condtemp = true;
+	break;
+      case OMP_CLAUSE__SCANTEMP_:
+	fd->have_scantemp = true;
+	if (!OMP_CLAUSE__SCANTEMP__ALLOC (t)
+	    && !OMP_CLAUSE__SCANTEMP__CONTROL (t))
+	  fd->have_nonctrl_scantemp = true;
 	break;
       default:
 	break;

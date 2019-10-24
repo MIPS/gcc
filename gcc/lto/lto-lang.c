@@ -247,6 +247,7 @@ static GTY(()) tree signed_size_type_node;
 int flag_isoc94;
 int flag_isoc99;
 int flag_isoc11;
+int flag_isoc2x;
 
 /* Attribute handlers.  */
 
@@ -927,7 +928,8 @@ lto_post_options (const char **pfilename ATTRIBUTE_UNUSED)
 
   /* Excess precision other than "fast" requires front-end
      support.  */
-  flag_excess_precision_cmdline = EXCESS_PRECISION_FAST;
+  if (flag_excess_precision == EXCESS_PRECISION_DEFAULT)
+    flag_excess_precision = EXCESS_PRECISION_FAST;
 
   /* When partitioning, we can tear appart STRING_CSTs uses from the same
      TU into multiple partitions.  Without constant merging the constants
@@ -1259,10 +1261,12 @@ lto_build_c_type_nodes (void)
       for (i = 0; i < NUM_INT_N_ENTS; i++)
 	if (int_n_enabled_p[i])
 	  {
-	    char name[50];
+	    char name[50], altname[50];
 	    sprintf (name, "__int%d unsigned", int_n_data[i].bitsize);
+	    sprintf (altname, "__int%d__ unsigned", int_n_data[i].bitsize);
 
-	    if (strcmp (name, SIZE_TYPE) == 0)
+	    if (strcmp (name, SIZE_TYPE) == 0
+		|| strcmp (altname, SIZE_TYPE) == 0)
 	      {
 		intmax_type_node = int_n_trees[i].signed_type;
 		uintmax_type_node = int_n_trees[i].unsigned_type;

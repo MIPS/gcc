@@ -83,6 +83,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "real.h"
 #include "langhooks.h"
 #include "sbitmap.h"
+#include "function-abi.h"
 
 bool
 default_legitimate_address_p (machine_mode mode ATTRIBUTE_UNUSED,
@@ -193,11 +194,8 @@ default_expand_builtin_saveregs (void)
 }
 
 void
-default_setup_incoming_varargs (cumulative_args_t ca ATTRIBUTE_UNUSED,
-				machine_mode mode ATTRIBUTE_UNUSED,
-				tree type ATTRIBUTE_UNUSED,
-				int *pretend_arg_size ATTRIBUTE_UNUSED,
-				int second_time ATTRIBUTE_UNUSED)
+default_setup_incoming_varargs (cumulative_args_t,
+				const function_arg_info &, int *, int)
 {
 }
 
@@ -323,22 +321,19 @@ default_cxx_get_cookie_size (tree type)
    of the TARGET_PASS_BY_REFERENCE hook uses just MUST_PASS_IN_STACK.  */
 
 bool
-hook_pass_by_reference_must_pass_in_stack (cumulative_args_t c ATTRIBUTE_UNUSED,
-	machine_mode mode ATTRIBUTE_UNUSED, const_tree type ATTRIBUTE_UNUSED,
-	bool named_arg ATTRIBUTE_UNUSED)
+hook_pass_by_reference_must_pass_in_stack (cumulative_args_t,
+					   const function_arg_info &arg)
 {
-  return targetm.calls.must_pass_in_stack (mode, type);
+  return targetm.calls.must_pass_in_stack (arg);
 }
 
 /* Return true if a parameter follows callee copies conventions.  This
    version of the hook is true for all named arguments.  */
 
 bool
-hook_callee_copies_named (cumulative_args_t ca ATTRIBUTE_UNUSED,
-			  machine_mode mode ATTRIBUTE_UNUSED,
-			  const_tree type ATTRIBUTE_UNUSED, bool named)
+hook_callee_copies_named (cumulative_args_t, const function_arg_info &arg)
 {
-  return named;
+  return arg.named;
 }
 
 /* Emit to STREAM the assembler syntax for insn operand X.  */
@@ -643,6 +638,19 @@ default_has_ifunc_p (void)
   return HAVE_GNU_INDIRECT_FUNCTION;
 }
 
+/* Return true if we predict the loop LOOP will be transformed to a
+   low-overhead loop, otherwise return false.
+
+   By default, false is returned, as this hook's applicability should be
+   verified for each target.  Target maintainers should re-define the hook
+   if the target can take advantage of it.  */
+
+bool
+default_predict_doloop_p (class loop *loop ATTRIBUTE_UNUSED)
+{
+  return false;
+}
+
 /* NULL if INSN insn is valid within a low-overhead loop, otherwise returns
    an error message.
 
@@ -737,28 +745,22 @@ default_builtin_reciprocal (tree)
 }
 
 bool
-hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false (
-	cumulative_args_t ca ATTRIBUTE_UNUSED,
-	machine_mode mode ATTRIBUTE_UNUSED,
-	const_tree type ATTRIBUTE_UNUSED, bool named ATTRIBUTE_UNUSED)
+hook_bool_CUMULATIVE_ARGS_arg_info_false (cumulative_args_t,
+					  const function_arg_info &)
 {
   return false;
 }
 
 bool
-hook_bool_CUMULATIVE_ARGS_mode_tree_bool_true (
-	cumulative_args_t ca ATTRIBUTE_UNUSED,
-	machine_mode mode ATTRIBUTE_UNUSED,
-	const_tree type ATTRIBUTE_UNUSED, bool named ATTRIBUTE_UNUSED)
+hook_bool_CUMULATIVE_ARGS_arg_info_true (cumulative_args_t,
+					 const function_arg_info &)
 {
   return true;
 }
 
 int
-hook_int_CUMULATIVE_ARGS_mode_tree_bool_0 (
-	cumulative_args_t ca ATTRIBUTE_UNUSED,
-	machine_mode mode ATTRIBUTE_UNUSED,
-	tree type ATTRIBUTE_UNUSED, bool named ATTRIBUTE_UNUSED)
+hook_int_CUMULATIVE_ARGS_arg_info_0 (cumulative_args_t,
+				     const function_arg_info &)
 {
   return 0;
 }
@@ -770,10 +772,7 @@ hook_void_CUMULATIVE_ARGS_tree (cumulative_args_t ca ATTRIBUTE_UNUSED,
 }
 
 void
-default_function_arg_advance (cumulative_args_t ca ATTRIBUTE_UNUSED,
-			      machine_mode mode ATTRIBUTE_UNUSED,
-			      const_tree type ATTRIBUTE_UNUSED,
-			      bool named ATTRIBUTE_UNUSED)
+default_function_arg_advance (cumulative_args_t, const function_arg_info &)
 {
   gcc_unreachable ();
 }
@@ -814,19 +813,13 @@ default_function_arg_padding (machine_mode mode, const_tree type)
 }
 
 rtx
-default_function_arg (cumulative_args_t ca ATTRIBUTE_UNUSED,
-		      machine_mode mode ATTRIBUTE_UNUSED,
-		      const_tree type ATTRIBUTE_UNUSED,
-		      bool named ATTRIBUTE_UNUSED)
+default_function_arg (cumulative_args_t, const function_arg_info &)
 {
   gcc_unreachable ();
 }
 
 rtx
-default_function_incoming_arg (cumulative_args_t ca ATTRIBUTE_UNUSED,
-			       machine_mode mode ATTRIBUTE_UNUSED,
-			       const_tree type ATTRIBUTE_UNUSED,
-			       bool named ATTRIBUTE_UNUSED)
+default_function_incoming_arg (cumulative_args_t, const function_arg_info &)
 {
   gcc_unreachable ();
 }
@@ -1059,12 +1052,6 @@ poly_int64
 default_return_pops_args (tree, tree, poly_int64)
 {
   return 0;
-}
-
-reg_class_t
-default_branch_target_register_class (void)
-{
-  return NO_REGS;
 }
 
 reg_class_t
@@ -1353,7 +1340,7 @@ default_empty_mask_is_expensive (unsigned ifn)
    array of three unsigned ints, set it to zero, and return its address.  */
 
 void *
-default_init_cost (struct loop *loop_info ATTRIBUTE_UNUSED)
+default_init_cost (class loop *loop_info ATTRIBUTE_UNUSED)
 {
   unsigned *cost = XNEWVEC (unsigned, 3);
   cost[vect_prologue] = cost[vect_body] = cost[vect_epilogue] = 0;
@@ -1366,7 +1353,7 @@ default_init_cost (struct loop *loop_info ATTRIBUTE_UNUSED)
 
 unsigned
 default_add_stmt_cost (void *data, int count, enum vect_cost_for_stmt kind,
-		       struct _stmt_vec_info *stmt_info, int misalign,
+		       class _stmt_vec_info *stmt_info, int misalign,
 		       enum vect_cost_model_location where)
 {
   unsigned *cost = (unsigned *) data;
@@ -1733,9 +1720,9 @@ get_move_ratio (bool speed_p ATTRIBUTE_UNUSED)
 #ifdef MOVE_RATIO
   move_ratio = (unsigned int) MOVE_RATIO (speed_p);
 #else
-#if defined (HAVE_movmemqi) || defined (HAVE_movmemhi) || defined (HAVE_movmemsi) || defined (HAVE_movmemdi) || defined (HAVE_movmemti)
+#if defined (HAVE_cpymemqi) || defined (HAVE_cpymemhi) || defined (HAVE_cpymemsi) || defined (HAVE_cpymemdi) || defined (HAVE_cpymemti)
   move_ratio = 2;
-#else /* No movmem patterns, pick a default.  */
+#else /* No cpymem patterns, pick a default.  */
   move_ratio = ((speed_p) ? 15 : 3);
 #endif
 #endif
@@ -1743,7 +1730,7 @@ get_move_ratio (bool speed_p ATTRIBUTE_UNUSED)
 }
 
 /* Return TRUE if the move_by_pieces/set_by_pieces infrastructure should be
-   used; return FALSE if the movmem/setmem optab should be expanded, or
+   used; return FALSE if the cpymem/setmem optab should be expanded, or
    a call to memcpy emitted.  */
 
 bool
@@ -1942,8 +1929,9 @@ default_dwarf_frame_reg_mode (int regno)
 {
   machine_mode save_mode = reg_raw_mode[regno];
 
-  if (targetm.hard_regno_call_part_clobbered (NULL, regno, save_mode))
-    save_mode = choose_hard_reg_mode (regno, 1, true);
+  if (targetm.hard_regno_call_part_clobbered (eh_edge_abi.id (),
+					      regno, save_mode))
+    save_mode = choose_hard_reg_mode (regno, 1, &eh_edge_abi);
   return save_mode;
 }
 
@@ -2164,7 +2152,7 @@ std_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
   if (ARGS_GROW_DOWNWARD)
     gcc_unreachable ();
 
-  indirect = pass_by_reference (NULL, TYPE_MODE (type), type, false);
+  indirect = pass_va_arg_by_reference (type);
   if (indirect)
     type = build_pointer_type (type);
 
@@ -2176,11 +2164,11 @@ std_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 
       real_part = std_gimplify_va_arg_expr (valist,
 					    TREE_TYPE (type), pre_p, NULL);
-      real_part = get_initialized_tmp_var (real_part, pre_p, NULL);
+      real_part = get_initialized_tmp_var (real_part, pre_p);
 
       imag_part = std_gimplify_va_arg_expr (unshare_expr (valist),
 					    TREE_TYPE (type), pre_p, NULL);
-      imag_part = get_initialized_tmp_var (imag_part, pre_p, NULL);
+      imag_part = get_initialized_tmp_var (imag_part, pre_p);
 
       return build2 (COMPLEX_EXPR, type, real_part, imag_part);
    }
@@ -2198,7 +2186,7 @@ std_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
   boundary /= BITS_PER_UNIT;
 
   /* Hoist the valist value into a temporary for the moment.  */
-  valist_tmp = get_initialized_tmp_var (valist, pre_p, NULL);
+  valist_tmp = get_initialized_tmp_var (valist, pre_p);
 
   /* va_list pointer is aligned to PARM_BOUNDARY.  If argument actually
      requires greater alignment, we must perform dynamic alignment.  */
@@ -2259,15 +2247,6 @@ std_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
     addr = build_va_arg_indirect_ref (addr);
 
   return build_va_arg_indirect_ref (addr);
-}
-
-void
-default_setup_incoming_vararg_bounds (cumulative_args_t ca ATTRIBUTE_UNUSED,
-				      machine_mode mode ATTRIBUTE_UNUSED,
-				      tree type ATTRIBUTE_UNUSED,
-				      int *pretend_arg_size ATTRIBUTE_UNUSED,
-				      int second_time ATTRIBUTE_UNUSED)
-{
 }
 
 /* An implementation of TARGET_CAN_USE_DOLOOP_P for targets that do
@@ -2384,11 +2363,6 @@ default_speculation_safe_value (machine_mode mode ATTRIBUTE_UNUSED,
 #endif
 
   return result;
-}
-
-void
-default_remove_extra_call_preserved_regs (rtx_insn *, HARD_REG_SET *)
-{
 }
 
 #include "gt-targhooks.h"

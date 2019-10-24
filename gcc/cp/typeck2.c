@@ -885,15 +885,33 @@ store_init_value (tree decl, tree init, vec<tree, va_gc>** cleanups, int flags)
       if (!TYPE_REF_P (type))
 	TREE_CONSTANT (decl) = const_init && decl_maybe_constant_var_p (decl);
       if (!const_init)
-	value = oldval;
+	{
+	  /* [dcl.constinit]/2 "If a variable declared with the constinit
+	     specifier has dynamic initialization, the program is
+	     ill-formed."  */
+	  if (flags & LOOKUP_CONSTINIT)
+	    {
+	      error_at (location_of (decl),
+			"%<constinit%> variable %qD does not have a constant "
+			"initializer", decl);
+	      if (require_constant_expression (value))
+		cxx_constant_init (value, decl);
+	      value = error_mark_node;
+	    }
+	  else
+	    value = oldval;
+	}
     }
-  value = cp_fully_fold_init (value);
+  /* Don't fold initializers of automatic variables in constexpr functions,
+     that might fold away something that needs to be diagnosed at constexpr
+     evaluation time.  */
+  if (!current_function_decl
+      || !DECL_DECLARED_CONSTEXPR_P (current_function_decl)
+      || TREE_STATIC (decl))
+    value = cp_fully_fold_init (value);
 
   /* Handle aggregate NSDMI in non-constant initializers, too.  */
   value = replace_placeholders (value, decl);
-
-  /* DECL may change value; purge caches.  */
-  clear_cv_and_fold_caches ();
 
   /* If the initializer is not a constant, fill in DECL_INITIAL with
      the bits that are constant, and then return an expression that
@@ -903,6 +921,10 @@ store_init_value (tree decl, tree init, vec<tree, va_gc>** cleanups, int flags)
 	  || vla_type_p (type)
 	  || ! reduced_constant_expression_p (value)))
     return split_nonconstant_init (decl, value);
+
+  /* DECL may change value; purge caches.  */
+  clear_cv_and_fold_caches (TREE_STATIC (decl));
+
   /* If the value is a constant, just put it in DECL_INITIAL.  If DECL
      is an automatic variable, the middle end will turn this into a
      dynamic initialization later.  */
@@ -1006,7 +1028,7 @@ check_narrowing (tree type, tree init, tsubst_flags_t complain, bool const_only)
 
   if (!ok)
     {
-      location_t loc = cp_expr_loc_or_loc (init, input_location);
+      location_t loc = cp_expr_loc_or_input_loc (init);
       if (cxx_dialect == cxx98)
 	{
 	  if (complain & tf_warning)
@@ -1085,7 +1107,7 @@ digest_init_r (tree type, tree init, int nested, int flags,
 					complain))
     return error_mark_node;
 
-  location_t loc = cp_expr_loc_or_loc (init, input_location);
+  location_t loc = cp_expr_loc_or_input_loc (init);
 
   tree stripped_init = init;
 
@@ -1402,7 +1424,7 @@ process_init_constructor_array (tree type, tree init, int nested, int flags,
       if (nested == 2 && !domain && !vec_safe_is_empty (v))
 	{
 	  if (complain & tf_error)
-	    error_at (cp_expr_loc_or_loc (init, input_location),
+	    error_at (cp_expr_loc_or_input_loc (init),
 		      "initialization of flexible array member "
 		      "in a nested context");
 	  return PICFLAG_ERRONEOUS;
@@ -2053,11 +2075,11 @@ build_m_component_ref (tree datum, tree component, tsubst_flags_t complain)
   tree binfo;
   tree ctype;
 
-  if (error_operand_p (datum) || error_operand_p (component))
-    return error_mark_node;
-
   datum = mark_lvalue_use (datum);
   component = mark_rvalue_use (component);
+
+  if (error_operand_p (datum) || error_operand_p (component))
+    return error_mark_node;
 
   ptrmem_type = TREE_TYPE (component);
   if (!TYPE_PTRMEM_P (ptrmem_type))
@@ -2220,8 +2242,7 @@ build_functional_cast (tree exp, tree parms, tsubst_flags_t complain)
       if (!CLASS_PLACEHOLDER_TEMPLATE (anode))
 	{
 	  if (complain & tf_error)
-	    error_at (DECL_SOURCE_LOCATION (TEMPLATE_TYPE_DECL (anode)),
-		      "invalid use of %qT", anode);
+	    error ("invalid use of %qT", anode);
 	  return error_mark_node;
 	}
       else if (!parms)

@@ -101,6 +101,17 @@ else version (OpenBSD)
     ssize_t readv(int, const scope iovec*, int);
     ssize_t writev(int, const scope iovec*, int);
 }
+else version (OpenBSD)
+{
+    struct iovec
+    {
+        void*  iov_base;
+        size_t iov_len;
+    }
+
+    ssize_t readv(int, in iovec*, int);
+    ssize_t writev(int, in iovec*, int);
+}
 else version (DragonFlyBSD)
 {
     struct iovec

@@ -422,7 +422,7 @@ namespace __variant
       constexpr bool
       _M_valid() const noexcept
       {
-	if constexpr (__never_valueless<_Types...>())
+	if constexpr (__variant::__never_valueless<_Types...>())
 	  return true;
 	return this->_M_index != __index_type(variant_npos);
       }
@@ -456,7 +456,7 @@ namespace __variant
       constexpr bool
       _M_valid() const noexcept
       {
-	if constexpr (__never_valueless<_Types...>())
+	if constexpr (__variant::__never_valueless<_Types...>())
 	  return true;
 	return this->_M_index != __index_type(variant_npos);
       }
@@ -799,7 +799,7 @@ namespace __variant
 
       template <typename... _Types>
 	struct _Variant_never_valueless<variant<_Types...>>
-	: bool_constant<__never_valueless<_Types...>()> {};
+	: bool_constant<__variant::__never_valueless<_Types...>()> {};
 
       static constexpr bool value =
 	(is_same_v<_Maybe_variant_cookie, __variant_cookie>
@@ -1518,7 +1518,15 @@ namespace __variant
       { return !this->_M_valid(); }
 
       constexpr size_t index() const noexcept
-      { return size_t(typename _Base::__index_type(this->_M_index + 1)) - 1; }
+      {
+	using __index_type = typename _Base::__index_type;
+	if constexpr (__detail::__variant::__never_valueless<_Types...>())
+	  return this->_M_index;
+	else if constexpr (sizeof...(_Types) <= __index_type(-1) / 2)
+	  return make_signed_t<__index_type>(this->_M_index);
+	else
+	  return size_t(__index_type(this->_M_index + 1)) - 1;
+      }
 
       void
       swap(variant& __rhs)

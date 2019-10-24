@@ -201,27 +201,25 @@
   (ior (match_operand 0 "arm_rhs_operand")
        (match_operand 0 "arm_neg_immediate_operand")))
 
-(define_predicate "arm_anddi_operand_neon"
+(define_predicate "arm_adddi_operand"
   (ior (match_operand 0 "s_register_operand")
        (and (match_code "const_int")
-	    (match_test "const_ok_for_dimode_op (INTVAL (op), AND)"))
-       (match_operand 0 "neon_inv_logic_op2")))
+	    (match_test "const_ok_for_dimode_op (INTVAL (op), PLUS)"))))
 
-(define_predicate "arm_iordi_operand_neon"
+(define_predicate "arm_anddi_operand"
   (ior (match_operand 0 "s_register_operand")
        (and (match_code "const_int")
-	    (match_test "const_ok_for_dimode_op (INTVAL (op), IOR)"))
-       (match_operand 0 "neon_logic_op2")))
+	    (match_test "const_ok_for_dimode_op (INTVAL (op), AND)"))))
+
+(define_predicate "arm_iordi_operand"
+  (ior (match_operand 0 "s_register_operand")
+       (and (match_code "const_int")
+	    (match_test "const_ok_for_dimode_op (INTVAL (op), IOR)"))))
 
 (define_predicate "arm_xordi_operand"
   (ior (match_operand 0 "s_register_operand")
        (and (match_code "const_int")
 	    (match_test "const_ok_for_dimode_op (INTVAL (op), XOR)"))))
-
-(define_predicate "arm_adddi_operand"
-  (ior (match_operand 0 "s_register_operand")
-       (and (match_code "const_int")
-	    (match_test "const_ok_for_dimode_op (INTVAL (op), PLUS)"))))
 
 (define_predicate "arm_addimm_operand"
   (ior (match_operand 0 "arm_immediate_operand")
@@ -229,6 +227,12 @@
 
 (define_predicate "arm_not_operand"
   (ior (match_operand 0 "arm_rhs_operand")
+       (match_operand 0 "arm_not_immediate_operand")))
+
+;; A constant that can be used with ADC(SBC) or SBC(ADC) when bit-wise
+;; inverted.  Similar to arm_not_operand, but excludes registers.
+(define_predicate "arm_adcimm_operand"
+  (ior (match_operand 0 "arm_immediate_operand")
        (match_operand 0 "arm_not_immediate_operand")))
 
 (define_predicate "arm_di_operand"
@@ -357,6 +361,48 @@
 
 (define_special_predicate "lt_ge_comparison_operator"
   (match_code "lt,ge"))
+
+(define_special_predicate "arm_carry_operation"
+  (match_code "geu,ltu")
+  {
+    if (XEXP (op, 1) != const0_rtx)
+      return false;
+
+    rtx op0 = XEXP (op, 0);
+
+    if (!REG_P (op0) || REGNO (op0) != CC_REGNUM)
+      return false;
+
+    machine_mode ccmode = GET_MODE (op0);
+    if (ccmode == CC_Cmode)
+      return GET_CODE (op) == LTU;
+    else if (ccmode == CCmode || ccmode == CC_RSBmode || ccmode == CC_ADCmode)
+      return GET_CODE (op) == GEU;
+
+    return false;
+  }
+)
+
+;; Match a "borrow" operation for use with SBC.  The precise code will
+;; depend on the form of the comparison.  This is generally the inverse of
+;; a carry operation, since the logic of SBC uses "not borrow" in it's
+;; calculation.
+(define_special_predicate "arm_borrow_operation"
+  (match_code "geu,ltu")
+  {
+    if (XEXP (op, 1) != const0_rtx)
+      return false;
+    rtx op0 = XEXP (op, 0);
+    if (!REG_P (op0) || REGNO (op0) != CC_REGNUM)
+      return false;
+    machine_mode ccmode = GET_MODE (op0);
+    if (ccmode == CC_Cmode)
+      return GET_CODE (op) == GEU;
+    else if (ccmode == CCmode || ccmode == CC_RSBmode || ccmode == CC_ADCmode)
+      return GET_CODE (op) == LTU;
+    return false;
+  }
+)
 
 ;; The vsel instruction only accepts the ARM condition codes listed below.
 (define_special_predicate "arm_vsel_comparison_operator"
@@ -693,3 +739,7 @@
   (ior (and (match_code "symbol_ref")
 	    (match_test "!arm_is_long_call_p (SYMBOL_REF_DECL (op))"))
        (match_operand 0 "s_register_operand")))
+
+(define_special_predicate "aligned_operand"
+  (ior (not (match_code "mem"))
+       (match_test "MEM_ALIGN (op) >= GET_MODE_ALIGNMENT (mode)")))

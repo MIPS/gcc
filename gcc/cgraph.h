@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "profile-count.h"
 #include "ipa-ref.h"
 #include "plugin-api.h"
+#include "ipa-param-manipulation.h"
 
 extern void debuginfo_early_init (void);
 extern void debuginfo_init (void);
@@ -100,8 +101,8 @@ enum symbol_partitioning_class
 
 /* Base of all entries in the symbol table.
    The symtab_node is inherited by cgraph and varpol nodes.  */
-class GTY((desc ("%h.type"), tag ("SYMTAB_SYMBOL"),
-	   chain_next ("%h.next"), chain_prev ("%h.previous")))
+struct GTY((desc ("%h.type"), tag ("SYMTAB_SYMBOL"),
+	    chain_next ("%h.next"), chain_prev ("%h.previous")))
   symtab_node
 {
 public:
@@ -134,6 +135,9 @@ public:
 
   /* Dump symtab node to F.  */
   void dump (FILE *f);
+
+  /* Dump symtab callgraph in graphviz format.  */
+  void dump_graphviz (FILE *f);
 
   /* Dump symtab node to stderr.  */
   void DEBUG_FUNCTION debug (void);
@@ -644,8 +648,10 @@ symtab_node::checking_verify_symtab_nodes (void)
 }
 
 /* Walk all aliases for NODE.  */
-#define FOR_EACH_ALIAS(node, alias) \
-  for (unsigned x_i = 0; node->iterate_direct_aliases (x_i, alias); x_i++)
+#define FOR_EACH_ALIAS(NODE, ALIAS)				\
+  for (unsigned ALIAS##_iter_ = 0;				\
+       (NODE)->iterate_direct_aliases (ALIAS##_iter_, ALIAS);	\
+       ALIAS##_iter_++)
 
 /* This is the information that is put into the cgraph local structure
    to recover a function.  */
@@ -737,23 +743,31 @@ struct GTY(()) cgraph_global_info {
    will be replaced by another tree while versioning.  */
 struct GTY(()) ipa_replace_map
 {
-  /* The tree that will be replaced.  */
-  tree old_tree;
   /* The new (replacing) tree.  */
   tree new_tree;
   /* Parameter number to replace, when old_tree is NULL.  */
   int parm_num;
-  /* True when a substitution should be done, false otherwise.  */
-  bool replace_p;
-  /* True when we replace a reference to old_tree.  */
-  bool ref_p;
 };
 
 struct GTY(()) cgraph_clone_info
 {
+  /* Constants discovered by IPA-CP, i.e. which parameter should be replaced
+     with what.  */
   vec<ipa_replace_map *, va_gc> *tree_map;
-  bitmap args_to_skip;
-  bitmap combined_args_to_skip;
+  /* Parameter modification that IPA-SRA decided to perform.  */
+  ipa_param_adjustments *param_adjustments;
+  /* Lists of dummy-decl and offset pairs representing split formal parameters
+     in the caller.  Offsets of all new replacements are enumerated, those
+     coming from the same original parameter have the same dummy decl stored
+     along with them.
+
+     Dummy decls sit in call statement arguments followed by new parameter
+     decls (or their SSA names) in between (caller) clone materialization and
+     call redirection.  Redirection then recognizes the dummy variable and
+     together with the stored offsets can reconstruct what exactly the new
+     parameter decls represent and can leave in place only those that the
+     callee expects.  */
+  vec<ipa_param_performed_split, va_gc> *performed_splits;
 };
 
 enum cgraph_simd_clone_arg_type
@@ -912,8 +926,8 @@ struct cgraph_edge_hasher : ggc_ptr_hash<cgraph_edge>
 /* The cgraph data structure.
    Each function decl has assigned cgraph_node listing callees and callers.  */
 
-struct GTY((tag ("SYMTAB_FUNCTION"))) cgraph_node : public symtab_node {
-public:
+struct GTY((tag ("SYMTAB_FUNCTION"))) cgraph_node : public symtab_node
+{
   friend class symbol_table;
 
   /* Remove the node from cgraph and all inline clones inlined into it.
@@ -973,15 +987,16 @@ public:
 			     vec<cgraph_edge *> redirect_callers,
 			     bool call_duplication_hook,
 			     cgraph_node *new_inlined_to,
-			     bitmap args_to_skip, const char *suffix = NULL);
+			     ipa_param_adjustments *param_adjustments,
+			     const char *suffix = NULL);
 
   /* Create callgraph node clone with new declaration.  The actual body will be
      copied later at compilation stage.  The name of the new clone will be
      constructed from the name of the original node, SUFFIX and NUM_SUFFIX.  */
   cgraph_node *create_virtual_clone (vec<cgraph_edge *> redirect_callers,
 				     vec<ipa_replace_map *, va_gc> *tree_map,
-				     bitmap args_to_skip, const char * suffix,
-				     unsigned num_suffix);
+				     ipa_param_adjustments *param_adjustments,
+				     const char * suffix, unsigned num_suffix);
 
   /* cgraph node being removed from symbol table; see if its entry can be
    replaced by other inline clone.  */
@@ -1030,9 +1045,10 @@ public:
      Return the new version's cgraph node.  */
   cgraph_node *create_version_clone_with_body
     (vec<cgraph_edge *> redirect_callers,
-     vec<ipa_replace_map *, va_gc> *tree_map, bitmap args_to_skip,
-     bool skip_return, bitmap bbs_to_copy, basic_block new_entry_block,
-     const char *clone_name, tree target_attributes = NULL_TREE);
+     vec<ipa_replace_map *, va_gc> *tree_map,
+     ipa_param_adjustments *param_adjustments,
+     bitmap bbs_to_copy, basic_block new_entry_block, const char *clone_name,
+     tree target_attributes = NULL_TREE);
 
   /* Insert a new cgraph_function_version_info node into cgraph_fnver_htab
      corresponding to cgraph_node.  */
@@ -1106,6 +1122,9 @@ public:
   /* Dump call graph node to file F.  */
   void dump (FILE *f);
 
+  /* Dump call graph node to file F.  */
+  void dump_graphviz (FILE *f);
+
   /* Dump call graph node to stderr.  */
   void DEBUG_FUNCTION debug (void);
 
@@ -1125,7 +1144,7 @@ public:
   void release_body (bool keep_arguments = false);
 
   /* Return the DECL_STRUCT_FUNCTION of the function.  */
-  struct function *get_fun (void);
+  struct function *get_fun () const;
 
   /* cgraph_node is no longer nested function; update cgraph accordingly.  */
   void unnest (void);
@@ -1144,14 +1163,15 @@ public:
 
   /* Create edge from a given function to CALLEE in the cgraph.  */
   cgraph_edge *create_edge (cgraph_node *callee,
-			    gcall *call_stmt, profile_count count);
+			    gcall *call_stmt, profile_count count,
+			    bool cloning_p = false);
 
   /* Create an indirect edge with a yet-undetermined callee where the call
      statement destination is a formal parameter of the caller with index
      PARAM_INDEX. */
   cgraph_edge *create_indirect_edge (gcall *call_stmt, int ecf_flags,
 				     profile_count count,
-				     bool compute_indirect_info = true);
+				     bool cloning_p = false);
 
   /* Like cgraph_create_edge walk the clone tree and update all clones sharing
    same function body.  If clones already have edge for OLD_STMT; only
@@ -1362,7 +1382,7 @@ public:
   static cgraph_local_info *local_info (tree decl);
 
   /* Return local info for the compiled function.  */
-  static struct cgraph_rtl_info *rtl_info (tree);
+  static struct cgraph_rtl_info *rtl_info (const_tree);
 
   /* Return the cgraph node that has ASMNAME for its DECL_ASSEMBLER_NAME.
      Return NULL if there's no such node.  */
@@ -1505,7 +1525,7 @@ struct cgraph_node_set_def
 typedef cgraph_node_set_def *cgraph_node_set;
 typedef struct varpool_node_set_def *varpool_node_set;
 
-class varpool_node;
+struct varpool_node;
 
 /* A varpool node set is a collection of varpool nodes.  A varpool node
    can appear in multiple sets.  */
@@ -1619,7 +1639,7 @@ public:
 
   /* LTO streaming.  */
   void stream_out (struct output_block *) const;
-  void stream_in (struct lto_input_block *, struct data_in *data_in);
+  void stream_in (class lto_input_block *, class data_in *data_in);
 
 private:
   bool combine_speculation_with (tree, HOST_WIDE_INT, bool, tree);
@@ -1632,8 +1652,9 @@ private:
 
 /* Structure containing additional information about an indirect call.  */
 
-struct GTY(()) cgraph_indirect_call_info
+class GTY(()) cgraph_indirect_call_info
 {
+public:
   /* When agg_content is set, an offset where the call pointer is located
      within the aggregate.  */
   HOST_WIDE_INT offset;
@@ -1673,9 +1694,11 @@ struct GTY(()) cgraph_indirect_call_info
   unsigned vptr_changed : 1;
 };
 
-struct GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_caller"),
-	    for_user)) cgraph_edge {
-  friend class cgraph_node;
+class GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_caller"),
+	   for_user)) cgraph_edge
+{
+public:
+  friend struct cgraph_node;
   friend class symbol_table;
 
   /* Remove the edge in the cgraph.  */
@@ -1737,7 +1760,7 @@ struct GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_caller"),
   /* Return true when the edge represents a direct recursion.  */
   bool recursive_p (void);
 
-  /* Return true if the call can be hot.  */
+  /* Return true if the edge may be considered hot.  */
   bool maybe_hot_p (void);
 
   /* Get unique identifier of the edge.  */
@@ -1856,8 +1879,8 @@ private:
 /* The varpool data structure.
    Each static variable decl has assigned varpool_node.  */
 
-class GTY((tag ("SYMTAB_VARIABLE"))) varpool_node : public symtab_node {
-public:
+struct GTY((tag ("SYMTAB_VARIABLE"))) varpool_node : public symtab_node
+{
   /* Dump given varpool node to F.  */
   void dump (FILE *f);
 
@@ -2018,12 +2041,6 @@ is_a_helper <varpool_node *>::test (symtab_node *p)
   return p && p->type == SYMTAB_VARIABLE;
 }
 
-/* Macros to access the next item in the list of free cgraph nodes and
-   edges. */
-#define NEXT_FREE_NODE(NODE) dyn_cast<cgraph_node *> ((NODE)->next)
-#define SET_NEXT_FREE_NODE(NODE,NODE2) ((NODE))->next = NODE2
-#define NEXT_FREE_EDGE(EDGE) (EDGE)->prev_caller
-
 typedef void (*cgraph_edge_hook)(cgraph_edge *, void *);
 typedef void (*cgraph_node_hook)(cgraph_node *, void *);
 typedef void (*varpool_node_hook)(varpool_node *, void *);
@@ -2074,12 +2091,23 @@ struct asmname_hasher : ggc_ptr_hash <symtab_node>
 class GTY((tag ("SYMTAB"))) symbol_table
 {
 public:
-  friend class symtab_node;
-  friend class cgraph_node;
-  friend class cgraph_edge;
+  friend struct symtab_node;
+  friend struct cgraph_node;
+  friend struct cgraph_edge;
 
-  symbol_table (): cgraph_max_uid (1), cgraph_max_summary_id (0),
-  edges_max_uid (1), edges_max_summary_id (0)
+  symbol_table (): 
+  cgraph_count (0), cgraph_max_uid (1), cgraph_max_summary_id (0),
+  edges_count (0), edges_max_uid (1), edges_max_summary_id (0),
+  cgraph_released_summary_ids (), edge_released_summary_ids (),
+  nodes (NULL), asmnodes (NULL), asm_last_node (NULL),
+  order (0), global_info_ready (false), state (PARSING),
+  function_flags_ready (false), cpp_implicit_aliases_done (false),
+  section_hash (NULL), assembler_name_hash (NULL), init_priority_hash (NULL),
+  dump_file (NULL), ipa_clones_dump_file (NULL), cloned_nodes (),
+  m_first_edge_removal_hook (NULL), m_first_cgraph_removal_hook (NULL),
+  m_first_edge_duplicated_hook (NULL), m_first_cgraph_duplicated_hook (NULL),
+  m_first_cgraph_insertion_hook (NULL), m_first_varpool_insertion_hook (NULL),
+  m_first_varpool_removal_hook (NULL)
   {
   }
 
@@ -2279,20 +2307,31 @@ public:
   /* Dump symbol table to F.  */
   void dump (FILE *f);
 
+  /* Dump symbol table to F in graphviz format.  */
+  void dump_graphviz (FILE *f);
+
   /* Dump symbol table to stderr.  */
   void DEBUG_FUNCTION debug (void);
 
   /* Assign a new summary ID for the callgraph NODE.  */
   inline int assign_summary_id (cgraph_node *node)
   {
-    node->m_summary_id = cgraph_max_summary_id++;
+    if (!cgraph_released_summary_ids.is_empty ())
+      node->m_summary_id = cgraph_released_summary_ids.pop ();
+    else
+      node->m_summary_id = cgraph_max_summary_id++;
+
     return node->m_summary_id;
   }
 
   /* Assign a new summary ID for the callgraph EDGE.  */
   inline int assign_summary_id (cgraph_edge *edge)
   {
-    edge->m_summary_id = edges_max_summary_id++;
+    if (!edge_released_summary_ids.is_empty ())
+      edge->m_summary_id = edge_released_summary_ids.pop ();
+    else
+      edge->m_summary_id = edges_max_summary_id++;
+
     return edge->m_summary_id;
   }
 
@@ -2308,14 +2347,18 @@ public:
   int edges_max_uid;
   int edges_max_summary_id;
 
+  /* Vector of released summary IDS for cgraph nodes.  */
+  vec<int> GTY ((skip)) cgraph_released_summary_ids;
+
+  /* Vector of released summary IDS for cgraph nodes.  */
+  vec<int> GTY ((skip)) edge_released_summary_ids;
+
+  /* Return symbol used to separate symbol name from suffix.  */
+  static char symbol_suffix_separator ();
+
   symtab_node* GTY(()) nodes;
   asm_node* GTY(()) asmnodes;
   asm_node* GTY(()) asm_last_node;
-  cgraph_node* GTY(()) free_nodes;
-
-  /* Head of a linked list of unused (freed) call graph edges.
-     Do not GTY((delete)) this list so UIDs gets reliably recycled.  */
-  cgraph_edge * GTY(()) free_edges;
 
   /* The order index of the next symtab node to be created.  This is
      used so that we can sort the cgraph nodes in order by when we saw
@@ -2342,9 +2385,6 @@ public:
 
   FILE* GTY ((skip)) dump_file;
 
-  /* Return symbol used to separate symbol name from suffix.  */
-  static char symbol_suffix_separator ();
-
   FILE* GTY ((skip)) ipa_clones_dump_file;
 
   hash_set <const cgraph_node *> GTY ((skip)) cloned_nodes;
@@ -2354,11 +2394,12 @@ private:
   inline cgraph_node * allocate_cgraph_symbol (void);
 
   /* Allocate a cgraph_edge structure and fill it with data according to the
-     parameters of which only CALLEE can be NULL (when creating an indirect call
-     edge).  */
+     parameters of which only CALLEE can be NULL (when creating an indirect
+     call edge).  CLONING_P should be set if properties that are copied from an
+     original edge should not be calculated.  */
   cgraph_edge *create_edge (cgraph_node *caller, cgraph_node *callee,
 			    gcall *call_stmt, profile_count count,
-			    bool indir_unknown_callee);
+			    bool indir_unknown_callee, bool cloning_p);
 
   /* Put the edge onto the free list.  */
   void free_edge (cgraph_edge *e);
@@ -2443,14 +2484,12 @@ tree clone_function_name (tree decl, const char *suffix,
 tree clone_function_name (tree decl, const char *suffix);
 
 void tree_function_versioning (tree, tree, vec<ipa_replace_map *, va_gc> *,
-			       bool, bitmap, bool, bitmap, basic_block);
+			       ipa_param_adjustments *,
+			       bool, bitmap, basic_block);
 
 void dump_callgraph_transformation (const cgraph_node *original,
 				    const cgraph_node *clone,
 				    const char *suffix);
-tree cgraph_build_function_type_skip_args (tree orig_type, bitmap args_to_skip,
-					   bool skip_return);
-
 /* In cgraphbuild.c  */
 int compute_call_stmt_bb_frequency (tree, basic_block bb);
 void record_references_in_initializer (tree, bool);
@@ -2675,15 +2714,9 @@ inline void
 symbol_table::release_symbol (cgraph_node *node)
 {
   cgraph_count--;
-
-  /* Clear out the node to NULL all pointers and add the node to the free
-     list.  */
-  int summary_id = node->m_summary_id;
-  memset (node, 0, sizeof (*node));
-  node->type = SYMTAB_FUNCTION;
-  node->m_summary_id = summary_id;
-  SET_NEXT_FREE_NODE (node, free_nodes);
-  free_nodes = node;
+  if (node->m_summary_id != -1)
+    cgraph_released_summary_ids.safe_push (node->m_summary_id);
+  ggc_free (node);
 }
 
 /* Allocate new callgraph node.  */
@@ -2693,17 +2726,9 @@ symbol_table::allocate_cgraph_symbol (void)
 {
   cgraph_node *node;
 
-  if (free_nodes)
-    {
-      node = free_nodes;
-      free_nodes = NEXT_FREE_NODE (node);
-    }
-  else
-    {
-      node = ggc_cleared_alloc<cgraph_node> ();
-      node->m_summary_id = -1;
-    }
-
+  node = ggc_cleared_alloc<cgraph_node> ();
+  node->type = SYMTAB_FUNCTION;
+  node->m_summary_id = -1;
   node->m_uid = cgraph_max_uid++;
   return node;
 }

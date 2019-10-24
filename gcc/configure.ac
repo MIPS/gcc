@@ -962,6 +962,20 @@ AC_SUBST(CONFIGURE_SPECS)
 ACX_PKGVERSION([GCC])
 ACX_BUGURL([https://gcc.gnu.org/bugs/])
 
+# Allow overriding the default URL for documentation
+AC_ARG_WITH(documentation-root-url,
+    AS_HELP_STRING([--with-documentation-root-url=URL],
+                   [Root for documentation URLs]),
+    [case "$withval" in
+      yes) AC_MSG_ERROR([documentation root URL not specified]) ;;
+      no)  AC_MSG_ERROR([documentation root URL not specified]) ;;
+      *)   DOCUMENTATION_ROOT_URL="$withval"
+	   ;;
+     esac],
+     DOCUMENTATION_ROOT_URL="https://gcc.gnu.org/onlinedocs/gcc/"
+)
+AC_SUBST(DOCUMENTATION_ROOT_URL)
+
 # Sanity check enable_languages in case someone does not run the toplevel
 # configure # script.
 AC_ARG_ENABLE(languages,
@@ -983,6 +997,16 @@ AC_ARG_ENABLE(languages,
 		;;
 esac],
 [enable_languages=c])
+
+# If top-level libada has been disabled, then wire in install-gnatlib
+# invocation with `make install', so that one can build and install
+# the library manually with `make -C gcc all gnatlib gnattools install'.
+if test x"$enable_libada" = xno; then
+  gnat_install_lib=gnat-install-lib
+else
+  gnat_install_lib=
+fi
+AC_SUBST(gnat_install_lib)
 
 if test x"$enable_as_accelerator_for" != x; then
   AC_DEFINE(ACCEL_COMPILER, 1,
@@ -1259,6 +1283,72 @@ if test $gcc_cv_header_inttypes_h = yes; then
   AC_DEFINE(HAVE_INTTYPES_H, 1,
 	[Define if you have a working <inttypes.h> header file.])
 fi
+
+# Look for the ZSTD package.
+ZSTD_INCLUDE=
+ZSTD_LIB=
+AC_SUBST(ZSTD_INCLUDE)
+AC_SUBST(ZSTD_LIB)
+ZSTD_CPPFLAGS=
+ZSTD_LDFLAGS=
+AC_ARG_WITH(zstd,
+	[AS_HELP_STRING([--with-zstd=PATH],
+		[specify prefix directory for installed zstd library.
+		 Equivalent to --with-zstd-include=PATH/include
+		 plus --with-zstd-lib=PATH/lib])])
+AC_ARG_WITH(zstd-include,
+	[AS_HELP_STRING([--with-zstd-include=PATH],
+		[specify directory for installed zstd include files])])
+AC_ARG_WITH(zstd-lib,
+	[AS_HELP_STRING([--with-zstd-lib=PATH],
+		[specify directory for the installed zstd library])])
+case "x$with_zstd" in
+  x) ;;
+  xno)
+    ZSTD_INCLUDE=no
+    ZSTD_LIB=no
+    ;;
+  *) ZSTD_INCLUDE=$with_zstd/include
+     ZSTD_LIB=$with_zstd/lib
+     ;;
+esac
+if test "x$with_zstd_include" != x; then
+  ZSTD_INCLUDE=$with_zstd_include
+fi
+if test "x$with_zstd_lib" != x; then
+  ZSTD_LIB=$with_zstd_lib
+fi
+if test "x$ZSTD_INCLUDE" != x \
+   && test "x$ZSTD_INCLUDE" != xno; then
+  ZSTD_CPPFLAGS=-I$ZSTD_INCLUDE
+fi
+if test "x$ZSTD_LIB" != x \
+   && test "x$ZSTD_LIB" != xno; then
+  ZSTD_LDFLAGS=-L$ZSTD_LIB
+fi
+
+CXXFLAGS="$CXXFLAGS $ZSTD_CPPFLAGS"
+LDFLAGS="$LDFLAGS $ZSTD_LDFLAGS"
+
+AC_MSG_CHECKING(for zstd.h)
+AC_CACHE_VAL(gcc_cv_header_zstd_h,
+[AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
+[[#include <zstd.h>]])],
+  [gcc_cv_header_zstd_h=yes],
+  [gcc_cv_header_zstd_h=no])])
+AC_MSG_RESULT($gcc_cv_header_zstd_h)
+if test $gcc_cv_header_zstd_h = yes; then
+  AC_DEFINE(HAVE_ZSTD_H, 1,
+	[Define if you have a working <zstd.h> header file.])
+fi
+
+# LTO can use zstd compression algorithm
+save_LIBS="$LIBS"
+LIBS=
+AC_SEARCH_LIBS(ZSTD_compress, zstd)
+ZSTD_LIB="$LIBS"
+LIBS="$save_LIBS"
+AC_SUBST(ZSTD_LIB)
 
 dnl Disabled until we have a complete test for buggy enum bitfields.
 dnl gcc_AC_C_ENUM_BF_UNSIGNED
@@ -2686,17 +2776,13 @@ if test $in_tree_ld != yes ; then
 	#
 	# ld: Software Generation Utilities - Solaris Link Editors: 5.11-1.1701:onnv-ab196087-6931056-03/25/10
 	#
-	# In Solaris 11.4, this was changed to
-	#
-	# ld: Solaris ELF Utilities: 11.4-1.3123
-	#
 	# ld and ld.so.1 are guaranteed to be updated in lockstep, so ld version
 	# numbers can be used in ld.so.1 feature checks even if a different
 	# linker is configured.
 	ld_ver=`$gcc_cv_ld -V 2>&1`
-	if echo "$ld_ver" | $EGREP 'Solaris Link Editors|Solaris ELF Utilities' > /dev/null; then
+	if echo "$ld_ver" | grep 'Solaris Link Editors' > /dev/null; then
 	  ld_vers=`echo $ld_ver | sed -n \
-	    -e 's,^.*: \(5\|1[0-9]\)\.[0-9][0-9]*-\([0-9]\.[0-9][0-9]*\).*$,\2,p'`
+	    -e 's,^.*: 5\.[0-9][0-9]*-\([0-9]\.[0-9][0-9]*\).*$,\1,p'`
 	  ld_vers_major=`expr "$ld_vers" : '\([0-9]*\)'`
 	  ld_vers_minor=`expr "$ld_vers" : '[0-9]*\.\([0-9]*\)'`
 	fi
@@ -4879,6 +4965,20 @@ pointers into PC-relative form.])
 	[Requesting --with-nan= requires assembler support for -mnan=])
     fi
     ;;
+    msp430-*-*)
+    # Earlier GAS versions generically support .gnu_attribute, but the
+    # msp430 assembler will not do anything with it.
+    gcc_GAS_CHECK_FEATURE([.gnu_attribute support],
+      gcc_cv_as_msp430_gnu_attribute, [2,33,50],,
+      [.gnu_attribute 4,1],,
+      [AC_DEFINE(HAVE_AS_GNU_ATTRIBUTE, 1,
+	  [Define if your assembler supports .gnu_attribute.])])
+    gcc_GAS_CHECK_FEATURE([.mspabi_attribute support],
+      gcc_cv_as_msp430_mspabi_attribute, [2,33,50],,
+      [.mspabi_attribute 4,1],,
+      [AC_DEFINE(HAVE_AS_MSPABI_ATTRIBUTE, 1,
+	  [Define if your assembler supports .mspabi_attribute.])])
+    ;;
     riscv*-*-*)
     gcc_GAS_CHECK_FEATURE([.attribute support],
       gcc_cv_as_riscv_attribute, [2,32,0],,
@@ -4939,7 +5039,7 @@ esac
 # version to the per-target configury.
 case "$cpu_type" in
   aarch64 | alpha | arc | arm | avr | bfin | cris | csky | i386 | m32c | m68k \
-  | microblaze | mips | nds32 | nios2 | pa | riscv | rs6000 | score | sparc | spu \
+  | microblaze | mips | nds32 | nios2 | pa | riscv | rs6000 | score | sparc \
   | tilegx | tilepro | visium | xstormy16 | xtensa)
     insn="nop"
     ;;

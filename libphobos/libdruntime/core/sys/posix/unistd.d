@@ -2424,6 +2424,31 @@ else version (OpenBSD)
     int        usleep(useconds_t) @trusted;
     pid_t      vfork();
 }
+else version (OpenBSD)
+{
+    char*      crypt(in char*, in char*);
+    //char*      ctermid(char*);
+    void       encrypt(ref char[64], int) @trusted;
+    int        fchdir(int) @trusted;
+    c_long     gethostid() @trusted;
+    pid_t      getpgid(pid_t) @trusted;
+    pid_t      getsid(pid_t) @trusted;
+    char*      getwd(char*);
+    int        lchown(in char*, uid_t, gid_t);
+    int        lockf(int, int, off_t) @trusted;
+    int        nice(int) @trusted;
+    ssize_t    pread(int, void*, size_t, off_t);
+    ssize_t    pwrite(int, in void*, size_t, off_t);
+    int        setpgrp(pid_t, pid_t) @trusted;
+    int        setregid(gid_t, gid_t) @trusted;
+    int        setreuid(uid_t, uid_t) @trusted;
+    void       swab(in void*, void*, ssize_t);
+    void       sync() @trusted;
+    int        truncate(in char*, off_t);
+    useconds_t ualarm(useconds_t, useconds_t) @trusted;
+    int        usleep(useconds_t) @trusted;
+    pid_t      vfork();
+}
 else version (DragonFlyBSD)
 {
     char*      crypt(const scope char*, const scope char*);

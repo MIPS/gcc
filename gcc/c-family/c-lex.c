@@ -353,13 +353,14 @@ c_common_has_attribute (cpp_reader *pfile)
 	      else if (is_attribute_p ("deprecated", attr_name))
 		result = 201309;
 	      else if (is_attribute_p ("maybe_unused", attr_name)
-		       || is_attribute_p ("nodiscard", attr_name)
 		       || is_attribute_p ("fallthrough", attr_name))
 		result = 201603;
 	      else if (is_attribute_p ("no_unique_address", attr_name)
 		       || is_attribute_p ("likely", attr_name)
 		       || is_attribute_p ("unlikely", attr_name))
 		result = 201803;
+	      else if (is_attribute_p ("nodiscard", attr_name))
+		result = 201907;
 	      if (result)
 		attr_name = NULL_TREE;
 	    }
@@ -394,7 +395,6 @@ enum cpp_ttype
 c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
 		  int lex_flags)
 {
-  static bool no_more_pch;
   const cpp_token *tok;
   enum cpp_ttype type;
   unsigned char add_flags = 0;
@@ -627,12 +627,6 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
 
   if (cpp_flags)
     *cpp_flags = tok->flags | add_flags;
-
-  if (!no_more_pch)
-    {
-      no_more_pch = true;
-      c_common_no_more_pch ();
-    }
 
   timevar_pop (TV_CPP);
 

@@ -183,7 +183,7 @@ record_temporary_equivalences_from_phis (edge e,
 	  else if (TREE_CODE (src) == INTEGER_CST)
 	    new_vr->set (src);
 	  else
-	    new_vr->set_varying ();
+	    new_vr->set_varying (TREE_TYPE (src));
 
 	  /* This is a temporary range for DST, so push it.  */
 	  evrp_range_analyzer->push_value_range (dst, new_vr);
@@ -331,6 +331,7 @@ record_temporary_equivalences_from_stmts_at_dest (edge e,
 	{
 	  tree fndecl = gimple_call_fndecl (stmt);
 	  if (fndecl
+	      && fndecl_built_in_p (fndecl, BUILT_IN_NORMAL)
 	      && (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_OBJECT_SIZE
 		  || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CONSTANT_P))
 	    continue;
@@ -1361,7 +1362,6 @@ thread_across_edge (gcond *dummy_cond,
 
         x = new jump_thread_edge (taken_edge, EDGE_COPY_SRC_JOINER_BLOCK);
 	path->safe_push (x);
-	found = false;
 	found = thread_around_empty_blocks (taken_edge,
 					    dummy_cond,
 					    avail_exprs_stack,

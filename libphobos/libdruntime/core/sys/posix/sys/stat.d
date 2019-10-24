@@ -2162,6 +2162,19 @@ else version (OpenBSD)
 
     int mknod(const scope char*, mode_t, dev_t);
 }
+else version (OpenBSD)
+{
+    enum S_IFMT     = 0xF000; // octal 0170000
+    enum S_IFBLK    = 0x6000; // octal 0060000
+    enum S_IFCHR    = 0x2000; // octal 0020000
+    enum S_IFIFO    = 0x1000; // octal 0010000
+    enum S_IFREG    = 0x8000; // octal 0100000
+    enum S_IFDIR    = 0x4000; // octal 0040000
+    enum S_IFLNK    = 0xA000; // octal 0120000
+    enum S_IFSOCK   = 0xC000; // octal 0140000
+
+    int mknod(in char*, mode_t, dev_t);
+}
 else version (DragonFlyBSD)
 {
     enum S_IFMT     = 0xF000; // octal 0170000

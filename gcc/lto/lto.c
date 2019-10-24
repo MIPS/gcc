@@ -107,6 +107,12 @@ lto_materialize_function (struct cgraph_node *node)
 	return;
       if (DECL_FUNCTION_PERSONALITY (decl) && !first_personality_decl)
 	first_personality_decl = DECL_FUNCTION_PERSONALITY (decl);
+      /* If the file contains a function with a language specific EH
+	 personality set or with EH enabled initialize the backend EH
+	 machinery.  */
+      if (DECL_FUNCTION_PERSONALITY (decl)
+	  || opt_for_fn (decl, flag_exceptions))
+	lto_init_eh ();
     }
 
   /* Let the middle end know about the function.  */
@@ -298,6 +304,14 @@ lto_wpa_write_files (void)
 
   timevar_push (TV_WHOPR_WPA_IO);
 
+  cgraph_node *node;
+  /* Do body modifications needed for streaming before we fork out
+     worker processes.  */
+  FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (node)
+    if (!node->clone_of && gimple_has_body_p (node->decl))
+      lto_prepare_function_for_streaming (node);
+
+  ggc_trim ();
   /* Generate a prefix for the LTRANS unit files.  */
   blen = strlen (ltrans_output_list);
   temp_filename = (char *) xmalloc (blen + sizeof ("2147483648.o"));

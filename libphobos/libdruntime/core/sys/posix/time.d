@@ -346,6 +346,30 @@ else version (OpenBSD)
     int timer_getoverrun(timer_t);
     int timer_settime(timer_t, int, const scope itimerspec*, itimerspec*);
 }
+else version (OpenBSD)
+{
+    struct itimerspec
+    {
+        timespec it_interval;
+        timespec it_value;
+    }
+
+    enum CLOCK_REALTIME      = 0;
+    enum TIMER_ABSTIME       = 0x1;
+
+    alias int clockid_t; // <sys/_types.h>
+    alias int timer_t;
+
+    int clock_getres(clockid_t, timespec*);
+    int clock_gettime(clockid_t, timespec*);
+    int clock_settime(clockid_t, in timespec*);
+    int nanosleep(in timespec*, timespec*);
+    int timer_create(clockid_t, sigevent*, timer_t*);
+    int timer_delete(timer_t);
+    int timer_gettime(timer_t, itimerspec*);
+    int timer_getoverrun(timer_t);
+    int timer_settime(timer_t, int, in itimerspec*, itimerspec*);
+}
 else version (Solaris)
 {
     enum CLOCK_PROCESS_CPUTIME_ID = 5; // <sys/time_impl.h>
@@ -517,6 +541,13 @@ else version (OpenBSD)
     tm*   gmtime_r(const scope time_t*, tm*);
     tm*   localtime_r(const scope time_t*, tm*);
 }
+else version (OpenBSD)
+{
+    char* asctime_r(in tm*, char*);
+    char* ctime_r(in time_t*, char*);
+    tm*   gmtime_r(in time_t*, tm*);
+    tm*   localtime_r(in time_t*, tm*);
+}
 else version (DragonFlyBSD)
 {
     char* asctime_r(const scope tm*, char*);
@@ -600,6 +631,11 @@ else version (OpenBSD)
 {
     //tm*   getdate(const scope char*);
     char* strptime(const scope char*, const scope char*, tm*);
+}
+else version (OpenBSD)
+{
+    //tm*   getdate(in char*);
+    char* strptime(in char*, in char*, tm*);
 }
 else version (DragonFlyBSD)
 {
