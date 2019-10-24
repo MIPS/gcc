@@ -1,4 +1,4 @@
-// Test with all operators explicitly defaulted.
+// Test with only spaceship defaulted.
 // { dg-do run { target c++2a } }
 
 #include <compare>
@@ -7,12 +7,12 @@ struct D
 {
   int i;
   auto operator<=>(const D& x) const = default;
-  auto operator==(const D& x) const = default;
-  auto operator!=(const D& x) const = default;
-  auto operator<(const D& x) const = default;
-  auto operator<=(const D& x) const = default;
-  auto operator>(const D& x) const = default;
-  auto operator>=(const D& x) const = default;
+  // auto operator==(const D& x) const = default;
+  // auto operator!=(const D& x) const = default;
+  // auto operator<(const D& x) const = default;
+  // auto operator<=(const D& x) const = default;
+  // auto operator>(const D& x) const = default;
+  // auto operator>=(const D& x) const = default;
 };
 
 #define assert(X) do { if (!(X)) __builtin_abort(); } while (0)

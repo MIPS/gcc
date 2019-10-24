@@ -5550,6 +5550,10 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, TYPENAME_FLAG };
 #define LOOKUP_ALLOW_FLEXARRAY_INIT (LOOKUP_DELEGATING_CONS << 1)
 /* Require constant initialization of a non-constant variable.  */
 #define LOOKUP_CONSTINIT (LOOKUP_ALLOW_FLEXARRAY_INIT << 1)
+/* Reverse the order of the first two parameters.  */
+#define LOOKUP_REWRITTEN (LOOKUP_CONSTINIT << 1)
+/* Reverse the order of the first two parameters.  */
+#define LOOKUP_REVERSED (LOOKUP_REWRITTEN << 1)
 
 #define LOOKUP_NAMESPACES_ONLY(F)  \
   (((F) & LOOKUP_PREFER_NAMESPACES) && !((F) & LOOKUP_PREFER_TYPES))
