@@ -717,12 +717,6 @@ else version (OpenBSD)
     int getrusage(int, rusage*);
     int setrlimit(int, const scope rlimit*);
 }
-else version (OpenBSD)
-{
-    int getrlimit(int, rlimit*);
-    int getrusage(int, rusage*);
-    int setrlimit(int, in rlimit*);
-}
 else version (DragonFlyBSD)
 {
     int getrlimit(int, rlimit*);

@@ -104,16 +104,6 @@ else version (OpenBSD)
 
     int utime(const scope char*, const scope utimbuf*);
 }
-else version (OpenBSD)
-{
-    struct utimbuf
-    {
-        time_t  actime;
-        time_t  modtime;
-    }
-
-    int utime(in char*, in utimbuf*);
-}
 else version (DragonFlyBSD)
 {
     struct utimbuf

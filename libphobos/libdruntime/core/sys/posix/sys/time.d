@@ -189,32 +189,6 @@ else version (OpenBSD)
     int setitimer(int, const scope itimerval*, itimerval*);
     int utimes(const scope char*, ref const(timeval)[2]);
 }
-else version (OpenBSD)
-{
-    struct timeval
-    {
-        time_t      tv_sec;
-        suseconds_t tv_usec;
-    }
-
-    struct itimerval
-    {
-        timeval it_interval;
-        timeval it_value;
-    }
-
-    // non-standard
-    struct timezone_t
-    {
-        int tz_minuteswest;
-        int tz_dsttime;
-    }
-
-    int getitimer(int, itimerval*);
-    int gettimeofday(timeval*, timezone_t*);
-    int setitimer(int, in itimerval*, itimerval*);
-    int utimes(in char*, ref const(timeval)[2]);
-}
 else version (DragonFlyBSD)
 {
     struct timeval

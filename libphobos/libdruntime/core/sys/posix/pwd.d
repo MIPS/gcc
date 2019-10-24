@@ -258,7 +258,7 @@ else version (CRuntime_Bionic)
 }
 else version (CRuntime_Musl)
 {
-    int getpwnam_r(in char*, passwd*, char*, size_t, passwd**);
+    int getpwnam_r(const scope char*, passwd*, char*, size_t, passwd**);
     int getpwuid_r(uid_t, passwd*, char*, size_t, passwd**);
 }
 else version (CRuntime_UClibc)
@@ -328,8 +328,9 @@ else version (CRuntime_Bionic)
 }
 else version (CRuntime_Musl)
 {
-    int getpwnam_r(const scope char*, passwd*, char*, size_t, passwd**);
-    int getpwuid_r(uid_t, passwd*, char*, size_t, passwd**);
+    void    endpwent();
+    passwd* getpwent();
+    void    setpwent();
 }
 else version (CRuntime_UClibc)
 {
