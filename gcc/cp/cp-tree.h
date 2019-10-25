@@ -7454,6 +7454,13 @@ extern tree build_x_binary_op			(const op_location_t &,
 						 enum tree_code, tree,
 						 enum tree_code, tree *,
 						 tsubst_flags_t);
+inline tree build_x_binary_op (const op_location_t &loc,
+			       enum tree_code code, tree arg1, tree arg2,
+			       tsubst_flags_t complain)
+{
+  return build_x_binary_op (loc, code, arg1, TREE_CODE (arg1), arg2,
+			    TREE_CODE (arg2), NULL, complain);
+}
 extern tree build_x_array_ref			(location_t, tree, tree,
 						 tsubst_flags_t);
 extern tree build_x_unary_op			(location_t,
