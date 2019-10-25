@@ -6129,7 +6129,7 @@ reshape_init_r (tree type, reshape_iter *d, bool first_initializer_p,
 			       (CONSTRUCTOR_ELT (stripped_init,0)->value))))
 		{
 		  if (complain & tf_error)
-		    error ("too many braces around scalar initializer"
+		    error ("too many braces around scalar initializer "
 		           "for type %qT", type);
 		  init = error_mark_node;
 		}
@@ -9554,10 +9554,12 @@ build_ptrmemfunc_type (tree type)
   TYPE_PTRMEMFUNC_FLAG (t) = 1;
 
   field = build_decl (input_location, FIELD_DECL, pfn_identifier, type);
+  DECL_NONADDRESSABLE_P (field) = 1;
   fields = field;
 
   field = build_decl (input_location, FIELD_DECL, delta_identifier, 
 		      delta_type_node);
+  DECL_NONADDRESSABLE_P (field) = 1;
   DECL_CHAIN (field) = fields;
   fields = field;
 

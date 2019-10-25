@@ -32468,6 +32468,14 @@ cp_parser_omp_var_list_no_open (cp_parser *parser, enum omp_clause_code kind,
 	    decl = TREE_OPERAND (decl, 0);
 	  cp_lexer_consume_token (parser->lexer);
 	}
+      else if (cp_parser_is_keyword (token, RID_FUNCTION_NAME)
+	       || cp_parser_is_keyword (token, RID_PRETTY_FUNCTION_NAME)
+	       || cp_parser_is_keyword (token, RID_C99_FUNCTION_NAME))
+	{
+	  cp_id_kind idk;
+	  decl = cp_parser_primary_expression (parser, false, false, false,
+					       &idk);
+	}
       else
 	{
 	  name = cp_parser_id_expression (parser, /*template_p=*/false,
@@ -34896,8 +34904,10 @@ cp_parser_omp_clause_dist_schedule (cp_parser *parser, tree list,
   else if (!cp_parser_require (parser, CPP_CLOSE_PAREN, RT_COMMA_CLOSE_PAREN))
     goto resync_fail;
 
-  check_no_duplicate_clause (list, OMP_CLAUSE_DIST_SCHEDULE, "dist_schedule",
-			     location);
+  /* check_no_duplicate_clause (list, OMP_CLAUSE_DIST_SCHEDULE,
+				"dist_schedule", location); */
+  if (omp_find_clause (list, OMP_CLAUSE_DIST_SCHEDULE))
+    warning_at (location, 0, "too many %qs clauses", "dist_schedule");
   OMP_CLAUSE_CHAIN (c) = list;
   return c;
 

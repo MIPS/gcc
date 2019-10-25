@@ -1,3 +1,52 @@
+2019-10-22  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/92174
+	* decl.c (attr_decl1): Move check for F2018:C822 from here ...
+	* array.c (gfc_set_array_spec): ... to here. 
+
+2019-10-18  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/69455
+	* trans-decl.c (generate_local_decl): Avoid misconstructed
+	intrinsic modules in a BLOCK construct.
+
+2019-10-18  Tobias Burnus  <tobias@codesourcery.com>
+
+	Backport from mainline
+	2019-10-18  Tobias Burnus  <tobias@codesourcery.com>
+
+	PR fortran/91586
+	* class.c (gfc_find_derived_vtab): Return NULL
+	instead of deref'ing NULL pointer.
+
+2019-10-17  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/83113
+	PR fortran/89943
+	decl.c (gfc_match_function_decl): Ignore duplicate BIND(C) for function
+	declaration in submodule.  Implement at check for F2018 C1550.
+	(gfc_match_entry): Use temporary for locus, which allows removal of
+	one gfc_error_now().
+	(gfc_match_subroutine): Ignore duplicate BIND(C) for subroutine
+	declaration in submodule.  Implement at check for F2018 C1550.
+
+2019-10-11  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/91715
+	* decl.c (gfc_match_prefix): If matching a type-spec returns an error,
+	it's an error so re-act correctly.
+
+2019-10-11  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/91649
+	check.c (gfc_check_findloc): Additional checking for valid arguments
+
+2019-10-10  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/91801
+	* simplify.c (gfc_simplify_reshape): Convert a gcc_assert into a
+	gfc_error as a user can easily hit the condition.
+
 2019-10-07  Thomas Koenig <tkoenig@gcc.gnu.org>
 
 	Backport from trunk
