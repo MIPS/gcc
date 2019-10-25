@@ -1267,7 +1267,6 @@ locate_fn_flags (tree type, tree name, tree argtype, int flags,
     }
 
   ob = build_stub_object (cp_build_reference_type (type, false));
-
   releasing_vec args;
   if (argtype)
     {
