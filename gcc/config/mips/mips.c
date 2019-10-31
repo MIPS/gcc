@@ -3357,7 +3357,11 @@ mips_classify_symbol_1 (const_rtx x, enum mips_symbol_context context,
 	    }
 	  else
 	    {
-	      if (TARGET_PCREL
+	      if (context == SYMBOL_CONTEXT_CALL
+                   && SYMBOL_REF_FUNCTION_P (x)
+                   && !SYMBOL_REF_WEAK (x))
+                return SYMBOL_ABSOLUTE;
+              else if (TARGET_PCREL
 		  && TARGET_NANOMIPS == NANOMIPS_NMF
 		  && context == SYMBOL_CONTEXT_LEA)
 		return SYMBOL_LAPC48_NANO;
