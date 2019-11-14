@@ -228,15 +228,6 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define TARGET_MFCRF 0
 #endif
 
-/* Define TARGET_TLS_MARKERS if the target assembler does not support
-   arg markers for __tls_get_addr calls.  */
-#ifndef HAVE_AS_TLS_MARKERS
-#undef  TARGET_TLS_MARKERS
-#define TARGET_TLS_MARKERS 0
-#else
-#define TARGET_TLS_MARKERS tls_markers
-#endif
-
 #ifndef TARGET_SECURE_PLT
 #define TARGET_SECURE_PLT 0
 #endif
@@ -1488,13 +1479,6 @@ enum rs6000_pltseq_enum {
 #define IS_V4_FP_ARGS(OP) \
   ((INTVAL (OP) & (CALL_V4_CLEAR_FP_ARGS | CALL_V4_SET_FP_ARGS)) != 0)
 
-/* Whether OP is an UNSPEC used in !TARGET_TLS_MARKER calls.  */
-#define IS_NOMARK_TLSGETADDR(OP)		\
-  (!TARGET_TLS_MARKERS				\
-   && GET_CODE (OP) == UNSPEC			\
-   && (XINT (OP, 1) == UNSPEC_TLSGD		\
-       || XINT (OP, 1) == UNSPEC_TLSLD))
-
 /* We don't have prologue and epilogue functions to save/restore
    everything for most ABIs.  */
 #define WORLD_SAVE_P(INFO) 0
@@ -1847,9 +1831,19 @@ extern scalar_int_mode rs6000_pmode;
 /* Adjust the length of an INSN.  LENGTH is the currently-computed length and
    should be adjusted to reflect any required changes.  This macro is used when
    there is some systematic length adjustment required that would be difficult
-   to express in the length attribute.  */
+   to express in the length attribute.
 
-/* #define ADJUST_INSN_LENGTH(X,LENGTH) */
+   In the PowerPC, we use this to adjust the length of an instruction if one or
+   more prefixed instructions are generated, using the attribute
+   num_prefixed_insns.  A prefixed instruction is 8 bytes instead of 4, but the
+   hardware requires that a prefied instruciton does not cross a 64-byte
+   boundary.  This means the compiler has to assume the length of the first
+   prefixed instruction is 12 bytes instead of 8 bytes.  Since the length is
+   already set for the non-prefixed instruction, we just need to udpate for the
+   difference.  */
+
+#define ADJUST_INSN_LENGTH(INSN,LENGTH)					\
+  (LENGTH) = rs6000_adjust_insn_length ((INSN), (LENGTH))
 
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a
    COMPARE, return the mode to be used for the comparison.  For

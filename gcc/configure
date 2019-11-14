@@ -701,6 +701,7 @@ build_exeext
 all_selected_languages
 all_languages
 all_lang_makefrags
+all_lang_configurefrags
 all_gtfiles
 all_compilers
 srcdir
@@ -774,6 +775,7 @@ LIBINTL_DEP
 LIBINTL
 USE_NLS
 get_gcc_base_ver
+HAVE_AUTO_BUILD
 extra_opt_files
 extra_modes_file
 NATIVE_SYSTEM_HEADER_DIR
@@ -811,10 +813,13 @@ LN
 LN_S
 AWK
 SET_MAKE
+omp_device_property_deps
+omp_device_properties
 accel_dir_suffix
 real_target_noncanonical
 enable_as_accelerator
 gnat_install_lib
+DOCUMENTATION_ROOT_URL
 REPORT_BUGS_TEXI
 REPORT_BUGS_TO
 PKGVERSION
@@ -960,6 +965,7 @@ enable_gcov
 with_specs
 with_pkgversion
 with_bugurl
+with_documentation_root_url
 enable_languages
 with_multilib_list
 with_zstd
@@ -986,6 +992,7 @@ with_plugin_ld
 enable_gnu_indirect_function
 enable_initfini_array
 enable_comdat
+enable_newlib_nano_formatted_io
 enable_standard_branch_protection
 enable_fix_cortex_a53_835769
 enable_fix_cortex_a53_843419
@@ -1714,6 +1721,8 @@ Optional Features:
                           glibc systems
   --enable-initfini-array	use .init_array/.fini_array sections
   --enable-comdat         enable COMDAT group support
+  --enable-newlib-nano-formatted-io
+                          Use nano version formatted IO
 
   --enable-standard-branch-protection
                           enable Branch Target Identification Mechanism and
@@ -1788,6 +1797,8 @@ Optional Packages:
   --with-specs=SPECS      add SPECS to driver command-line processing
   --with-pkgversion=PKG   Use PKG in the version string in place of "GCC"
   --with-bugurl=URL       Direct users to URL to report a bug
+  --with-documentation-root-url=URL
+                          Root for documentation URLs
   --with-multilib-list    select multilibs (AArch64, SH and x86-64 only)
   --with-zstd=PATH        specify prefix directory for installed zstd library.
                           Equivalent to --with-zstd-include=PATH/include plus
@@ -7802,6 +7813,23 @@ fi
 
 
 
+# Allow overriding the default URL for documentation
+
+# Check whether --with-documentation-root-url was given.
+if test "${with_documentation_root_url+set}" = set; then :
+  withval=$with_documentation_root_url; case "$withval" in
+      yes) as_fn_error $? "documentation root URL not specified" "$LINENO" 5 ;;
+      no)  as_fn_error $? "documentation root URL not specified" "$LINENO" 5 ;;
+      *)   DOCUMENTATION_ROOT_URL="$withval"
+	   ;;
+     esac
+else
+  DOCUMENTATION_ROOT_URL="https://gcc.gnu.org/onlinedocs/gcc/"
+
+fi
+
+
+
 # Sanity check enable_languages in case someone does not run the toplevel
 # configure # script.
 # Check whether --enable-languages was given.
@@ -7864,6 +7892,22 @@ for tgt in `echo $enable_offload_targets | sed 's/,/ /g'`; do
     enable_hsa=1
   else
     enable_offloading=1
+    case "$tgt" in
+      *-intelmicemul-*)
+	omp_device_property=omp-device-properties-i386
+	omp_device_property_tmake_file="${omp_device_property_tmake_file} \$(srcdir)/config/i386/t-omp-device"
+	;;
+      gcn*-*)
+	omp_device_property=omp-device-properties-gcn
+	omp_device_property_tmake_file="${omp_device_property_tmake_file} \$(srcdir)/config/gcn/t-omp-device"
+	;;
+      nvptx*-*)
+	omp_device_property=omp-device-properties-nvptx
+	omp_device_property_tmake_file="${omp_device_property_tmake_file} \$(srcdir)/config/nvptx/t-omp-device"
+	;;
+    esac
+    omp_device_properties="${omp_device_properties} ${tgt}=${omp_device_property}"
+    omp_device_property_deps="${omp_device_property_deps} ${omp_device_property}"
   fi
 
   if test x"$offload_targets" = x; then
@@ -7872,6 +7916,9 @@ for tgt in `echo $enable_offload_targets | sed 's/,/ /g'`; do
     offload_targets="$offload_targets,$tgt"
   fi
 done
+
+
+
 
 cat >>confdefs.h <<_ACEOF
 #define OFFLOAD_TARGETS "$offload_targets"
@@ -10013,7 +10060,7 @@ LIBS="$save_LIBS"
 for ac_func in times clock kill getrlimit setrlimit atoq \
 	popen sysconf strsignal getrusage nl_langinfo \
 	gettimeofday mbstowcs wcswidth mmap setlocale \
-	clearerr_unlocked feof_unlocked   ferror_unlocked fflush_unlocked fgetc_unlocked fgets_unlocked   fileno_unlocked fprintf_unlocked fputc_unlocked fputs_unlocked   fread_unlocked fwrite_unlocked getchar_unlocked getc_unlocked   putchar_unlocked putc_unlocked madvise
+	clearerr_unlocked feof_unlocked   ferror_unlocked fflush_unlocked fgetc_unlocked fgets_unlocked   fileno_unlocked fprintf_unlocked fputc_unlocked fputs_unlocked   fread_unlocked fwrite_unlocked getchar_unlocked getc_unlocked   putchar_unlocked putc_unlocked madvise mallinfo
 do :
   as_ac_var=`$as_echo "ac_cv_func_$ac_func" | $as_tr_sh`
 ac_fn_cxx_check_func "$LINENO" "$ac_func" "$as_ac_var"
@@ -11427,6 +11474,61 @@ fi
 done
 
 
+for ac_func in mallinfo
+do
+  ac_tr_decl=`$as_echo "HAVE_DECL_$ac_func" | $as_tr_cpp`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether $ac_func is declared" >&5
+$as_echo_n "checking whether $ac_func is declared... " >&6; }
+if eval \${gcc_cv_have_decl_$ac_func+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#undef $ac_tr_decl
+#define $ac_tr_decl 1
+
+#include "ansidecl.h"
+#include "system.h"
+#ifdef HAVE_MALLOC_H
+#include <malloc.h>
+#endif
+
+
+int
+main ()
+{
+#ifndef $ac_func
+char *(*pfn) = (char *(*)) $ac_func ;
+#endif
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_cxx_try_compile "$LINENO"; then :
+  eval "gcc_cv_have_decl_$ac_func=yes"
+else
+  eval "gcc_cv_have_decl_$ac_func=no"
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+
+if eval "test \"`echo '$gcc_cv_have_decl_'$ac_func`\" = yes"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; } ; cat >>confdefs.h <<_ACEOF
+#define $ac_tr_decl 1
+_ACEOF
+
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; } ; cat >>confdefs.h <<_ACEOF
+#define $ac_tr_decl 0
+_ACEOF
+
+fi
+
+done
+
+
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -12112,6 +12214,7 @@ done
 if test x$host = x$build
 then
 	build_auto=auto-host.h
+	HAVE_AUTO_BUILD='# '
 else
 	# We create a subdir, then run autoconf in the subdir.
 	# To prevent recursion we set host and build for the new
@@ -12134,7 +12237,10 @@ else
 	GMPINC="" CPPFLAGS="${CPPFLAGS} -DGENERATOR_FILE" \
 	${realsrcdir}/configure \
 		--enable-languages=${enable_languages-all} \
-		--target=$target_alias --host=$build_alias --build=$build_alias
+		${enable_obsolete+--enable-obsolete="$enable_obsolete"} \
+		${enable_option_checking+--enable-option-checking="$enable_option_checking"} \
+		--target=$target_alias --host=$build_alias \
+		--build=$build_alias || exit # retaining $tempdir
 
 	# We just finished tests for the build machine, so rename
 	# the file auto-build.h in the gcc directory.
@@ -12142,7 +12248,9 @@ else
 	cd ..
 	rm -rf $tempdir
 	build_auto=auto-build.h
+	HAVE_AUTO_BUILD=
 fi
+
 
 
 tm_file="${tm_file} defaults.h"
@@ -12502,7 +12610,7 @@ do
 		tmake_file_="${tmake_file_} \$(srcdir)/config/$f"
 	fi
 done
-tmake_file="${tmake_file_}"
+tmake_file="${tmake_file_}${omp_device_property_tmake_file}"
 
 out_object_file=`basename $out_file .c`.o
 common_out_object_file=`basename $common_out_file .c`.o
@@ -18830,7 +18938,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18833 "configure"
+#line 18941 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -18936,7 +19044,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18939 "configure"
+#line 19047 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -24456,6 +24564,19 @@ $as_echo "#define HAVE_GAS_DISCRIMINATOR 1" >>confdefs.h
 fi
 
 
+# Catch the newlib flag of the same name so we can gate GCC features on it.
+# Check whether --enable-newlib-nano-formatted-io was given.
+if test "${enable_newlib_nano_formatted_io+set}" = set; then :
+  enableval=$enable_newlib_nano_formatted_io; case "${enableval}" in
+  yes|no)
+    ;;
+  *)
+    as_fn_error $? "unknown newlib-nano-formatted-io setting $enableval" "$LINENO" 5
+    ;;
+esac
+fi
+
+
 # Thread-local storage - the check is heavily parameterized.
 conftest_s=
 tls_first_major=
@@ -27196,42 +27317,6 @@ $as_echo "#define HAVE_AS_GNU_ATTRIBUTE 1" >>confdefs.h
 fi
 
 
-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking assembler for tls marker support" >&5
-$as_echo_n "checking assembler for tls marker support... " >&6; }
-if ${gcc_cv_as_powerpc_tls_markers+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  gcc_cv_as_powerpc_tls_markers=no
-    if test $in_tree_gas = yes; then
-    if test $gcc_cv_gas_vers -ge `expr \( \( 2 \* 1000 \) + 20 \) \* 1000 + 0`
-  then gcc_cv_as_powerpc_tls_markers=yes
-fi
-  elif test x$gcc_cv_as != x; then
-    $as_echo ' bl __tls_get_addr(x@tlsgd)' > conftest.s
-    if { ac_try='$gcc_cv_as $gcc_cv_as_flags  -o conftest.o conftest.s >&5'
-  { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_try\""; } >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
-  test $ac_status = 0; }; }
-    then
-	gcc_cv_as_powerpc_tls_markers=yes
-    else
-      echo "configure: failed program was" >&5
-      cat conftest.s >&5
-    fi
-    rm -f conftest.o conftest.s
-  fi
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $gcc_cv_as_powerpc_tls_markers" >&5
-$as_echo "$gcc_cv_as_powerpc_tls_markers" >&6; }
-if test $gcc_cv_as_powerpc_tls_markers = yes; then
-
-$as_echo "#define HAVE_AS_TLS_MARKERS 1" >>confdefs.h
-
-fi
-
-
     { $as_echo "$as_me:${as_lineno-$LINENO}: checking assembler for prologue entry point marker support" >&5
 $as_echo_n "checking assembler for prologue entry point marker support... " >&6; }
 if ${gcc_cv_as_powerpc_entry_markers+:} false; then :
@@ -27772,6 +27857,85 @@ fi
        && test x$with_nan != x; then
       as_fn_error $? "Requesting --with-nan= requires assembler support for -mnan=" "$LINENO" 5
     fi
+    ;;
+    msp430-*-*)
+    # Earlier GAS versions generically support .gnu_attribute, but the
+    # msp430 assembler will not do anything with it.
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking assembler for .gnu_attribute support" >&5
+$as_echo_n "checking assembler for .gnu_attribute support... " >&6; }
+if ${gcc_cv_as_msp430_gnu_attribute+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  gcc_cv_as_msp430_gnu_attribute=no
+    if test $in_tree_gas = yes; then
+    if test $gcc_cv_gas_vers -ge `expr \( \( 2 \* 1000 \) + 33 \) \* 1000 + 50`
+  then gcc_cv_as_msp430_gnu_attribute=yes
+fi
+  elif test x$gcc_cv_as != x; then
+    $as_echo '.gnu_attribute 4,1' > conftest.s
+    if { ac_try='$gcc_cv_as $gcc_cv_as_flags  -o conftest.o conftest.s >&5'
+  { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_try\""; } >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; }
+    then
+	gcc_cv_as_msp430_gnu_attribute=yes
+    else
+      echo "configure: failed program was" >&5
+      cat conftest.s >&5
+    fi
+    rm -f conftest.o conftest.s
+  fi
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $gcc_cv_as_msp430_gnu_attribute" >&5
+$as_echo "$gcc_cv_as_msp430_gnu_attribute" >&6; }
+if test $gcc_cv_as_msp430_gnu_attribute = yes; then
+
+$as_echo "#define HAVE_AS_GNU_ATTRIBUTE 1" >>confdefs.h
+
+fi
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking assembler for .mspabi_attribute support" >&5
+$as_echo_n "checking assembler for .mspabi_attribute support... " >&6; }
+if ${gcc_cv_as_msp430_mspabi_attribute+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  gcc_cv_as_msp430_mspabi_attribute=no
+    if test $in_tree_gas = yes; then
+    if test $gcc_cv_gas_vers -ge `expr \( \( 2 \* 1000 \) + 33 \) \* 1000 + 50`
+  then gcc_cv_as_msp430_mspabi_attribute=yes
+fi
+  elif test x$gcc_cv_as != x; then
+    $as_echo '.mspabi_attribute 4,1' > conftest.s
+    if { ac_try='$gcc_cv_as $gcc_cv_as_flags  -o conftest.o conftest.s >&5'
+  { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_try\""; } >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; }
+    then
+	gcc_cv_as_msp430_mspabi_attribute=yes
+    else
+      echo "configure: failed program was" >&5
+      cat conftest.s >&5
+    fi
+    rm -f conftest.o conftest.s
+  fi
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $gcc_cv_as_msp430_mspabi_attribute" >&5
+$as_echo "$gcc_cv_as_msp430_mspabi_attribute" >&6; }
+if test $gcc_cv_as_msp430_mspabi_attribute = yes; then
+
+$as_echo "#define HAVE_AS_MSPABI_ATTRIBUTE 1" >>confdefs.h
+
+fi
+
+    if test x$enable_newlib_nano_formatted_io = xyes; then
+
+$as_echo "#define HAVE_NEWLIB_NANO_FORMATTED_IO 1" >>confdefs.h
+
+      fi
     ;;
     riscv*-*-*)
     { $as_echo "$as_me:${as_lineno-$LINENO}: checking assembler for .attribute support" >&5
@@ -29729,7 +29893,8 @@ lang_tree_files=
 all_languages=
 all_compilers=
 all_outputs='Makefile'
-# List of language makefile fragments.
+# List of language configure and makefile fragments.
+all_lang_configurefrags=
 all_lang_makefrags=
 # Additional files for gengtype
 all_gtfiles="$target_gtfiles"
@@ -29815,6 +29980,7 @@ do
 	esac
 	$ok || continue
 
+	all_lang_configurefrags="$all_lang_configurefrags \$(srcdir)/$gcc_subdir/config-lang.in"
 	all_lang_makefrags="$all_lang_makefrags \$(srcdir)/$gcc_subdir/Make-lang.in"
 	if test -f $srcdir/$gcc_subdir/lang.opt; then
 	    lang_opt_files="$lang_opt_files $srcdir/$gcc_subdir/lang.opt"
@@ -29921,6 +30087,7 @@ fi
 
 
 # Substitute configuration variables
+
 
 
 

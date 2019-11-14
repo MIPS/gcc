@@ -48,6 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify.h"
 #include "substring-locations.h"
 #include "spellcheck.h"
+#include "c-spellcheck.h"
 #include "selftest.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
@@ -351,9 +352,9 @@ const struct c_common_resword c_common_reswords[] =
   { "_Float32x",        RID_FLOAT32X,  D_CONLY },
   { "_Float64x",        RID_FLOAT64X,  D_CONLY },
   { "_Float128x",       RID_FLOAT128X, D_CONLY },
-  { "_Decimal32",       RID_DFLOAT32,  D_CONLY | D_EXT },
-  { "_Decimal64",       RID_DFLOAT64,  D_CONLY | D_EXT },
-  { "_Decimal128",      RID_DFLOAT128, D_CONLY | D_EXT },
+  { "_Decimal32",       RID_DFLOAT32,  D_CONLY },
+  { "_Decimal64",       RID_DFLOAT64,  D_CONLY },
+  { "_Decimal128",      RID_DFLOAT128, D_CONLY },
   { "_Fract",           RID_FRACT,     D_CONLY | D_EXT },
   { "_Accum",           RID_ACCUM,     D_CONLY | D_EXT },
   { "_Sat",             RID_SAT,       D_CONLY | D_EXT },
@@ -458,6 +459,7 @@ const struct c_common_resword c_common_reswords[] =
   { "char32_t",		RID_CHAR32,	D_CXXONLY | D_CXX11 | D_CXXWARN },
   { "class",		RID_CLASS,	D_CXX_OBJC | D_CXXWARN },
   { "const",		RID_CONST,	0 },
+  { "consteval",	RID_CONSTEVAL,	D_CXXONLY | D_CXX20 | D_CXXWARN },
   { "constexpr",	RID_CONSTEXPR,	D_CXXONLY | D_CXX11 | D_CXXWARN },
   { "constinit",	RID_CONSTINIT,	D_CXXONLY | D_CXX20 | D_CXXWARN },
   { "const_cast",	RID_CONSTCAST,	D_CXXONLY | D_CXXWARN },
@@ -1009,7 +1011,8 @@ c_build_vec_perm_expr (location_t loc, tree v0, tree v1, tree mask,
       || mask == error_mark_node)
     return error_mark_node;
 
-  if (!VECTOR_INTEGER_TYPE_P (TREE_TYPE (mask)))
+  if (!gnu_vector_type_p (TREE_TYPE (mask))
+      || !VECTOR_INTEGER_TYPE_P (TREE_TYPE (mask)))
     {
       if (complain)
 	error_at (loc, "%<__builtin_shuffle%> last argument must "
@@ -1017,8 +1020,8 @@ c_build_vec_perm_expr (location_t loc, tree v0, tree v1, tree mask,
       return error_mark_node;
     }
 
-  if (!VECTOR_TYPE_P (TREE_TYPE (v0))
-      || !VECTOR_TYPE_P (TREE_TYPE (v1)))
+  if (!gnu_vector_type_p (TREE_TYPE (v0))
+      || !gnu_vector_type_p (TREE_TYPE (v1)))
     {
       if (complain)
 	error_at (loc, "%<__builtin_shuffle%> arguments must be vectors");
@@ -1093,8 +1096,9 @@ c_build_vec_convert (location_t loc1, tree expr, location_t loc2, tree type,
   if (error_operand_p (expr))
     return error_mark_node;
 
-  if (!VECTOR_INTEGER_TYPE_P (TREE_TYPE (expr))
-      && !VECTOR_FLOAT_TYPE_P (TREE_TYPE (expr)))
+  if (!gnu_vector_type_p (TREE_TYPE (expr))
+      || (!VECTOR_INTEGER_TYPE_P (TREE_TYPE (expr))
+	  && !VECTOR_FLOAT_TYPE_P (TREE_TYPE (expr))))
     {
       if (complain)
 	error_at (loc1, "%<__builtin_convertvector%> first argument must "
@@ -1102,7 +1106,8 @@ c_build_vec_convert (location_t loc1, tree expr, location_t loc2, tree type,
       return error_mark_node;
     }
 
-  if (!VECTOR_INTEGER_TYPE_P (type) && !VECTOR_FLOAT_TYPE_P (type))
+  if (!gnu_vector_type_p (type)
+      || (!VECTOR_INTEGER_TYPE_P (type) && !VECTOR_FLOAT_TYPE_P (type)))
     {
       if (complain)
 	error_at (loc2, "%<__builtin_convertvector%> second argument must "
@@ -4467,8 +4472,7 @@ c_common_nodes_and_builtins (void)
       va_list_ref_type_node = build_reference_type (va_list_type_node);
     }
 
-  if (!flag_preprocess_only)
-    c_define_builtins (va_list_ref_type_node, va_list_arg_type_node);
+  c_define_builtins (va_list_ref_type_node, va_list_arg_type_node);
 
   main_identifier_node = get_identifier ("main");
 
@@ -7713,6 +7717,52 @@ set_underlying_type (tree x)
     }
 }
 
+/* Return true if it is worth exposing the DECL_ORIGINAL_TYPE of TYPE to
+   the user in diagnostics, false if it would be better to use TYPE itself.
+   TYPE is known to satisfy typedef_variant_p.  */
+
+bool
+user_facing_original_type_p (const_tree type)
+{
+  gcc_assert (typedef_variant_p (type));
+  tree decl = TYPE_NAME (type);
+
+  /* Look through any typedef in "user" code.  */
+  if (!DECL_IN_SYSTEM_HEADER (decl) && !DECL_IS_BUILTIN (decl))
+    return true;
+
+  /* If the original type is also named and is in the user namespace,
+     assume it too is a user-facing type.  */
+  tree orig_type = DECL_ORIGINAL_TYPE (decl);
+  if (tree orig_id = TYPE_IDENTIFIER (orig_type))
+    if (!name_reserved_for_implementation_p (IDENTIFIER_POINTER (orig_id)))
+      return true;
+
+  switch (TREE_CODE (orig_type))
+    {
+    /* Don't look through to an anonymous vector type, since the syntax
+       we use for them in diagnostics isn't real C or C++ syntax.
+       And if ORIG_TYPE is named but in the implementation namespace,
+       TYPE is likely to be more meaningful to the user.  */
+    case VECTOR_TYPE:
+      return false;
+
+    /* Don't expose anonymous tag types that are presumably meant to be
+       known by their typedef name.  Also don't expose tags that are in
+       the implementation namespace, such as:
+
+         typedef struct __foo foo;  */
+    case RECORD_TYPE:
+    case UNION_TYPE:
+    case ENUMERAL_TYPE:
+      return false;
+
+    /* Look through to anything else.  */
+    default:
+      return true;
+    }
+}
+
 /* Record the types used by the current global variable declaration
    being parsed, so that we can decide later to emit their debug info.
    Those types are in types_used_by_cur_var_decl, and we are going to
@@ -7977,7 +8027,7 @@ convert_vector_to_array_for_subscript (location_t loc,
 				       tree *vecp, tree index)
 {
   bool ret = false;
-  if (VECTOR_TYPE_P (TREE_TYPE (*vecp)))
+  if (gnu_vector_type_p (TREE_TYPE (*vecp)))
     {
       tree type = TREE_TYPE (*vecp);
 
@@ -8013,7 +8063,7 @@ scalar_to_vector (location_t loc, enum tree_code code, tree op0, tree op1,
   bool integer_only_op = false;
   enum stv_conv ret = stv_firstarg;
 
-  gcc_assert (VECTOR_TYPE_P (type0) || VECTOR_TYPE_P (type1));
+  gcc_assert (gnu_vector_type_p (type0) || gnu_vector_type_p (type1));
   switch (code)
     {
       /* Most GENERIC binary expressions require homogeneous arguments.
@@ -8064,7 +8114,7 @@ scalar_to_vector (location_t loc, enum tree_code code, tree op0, tree op1,
       case LT_EXPR:
       case GT_EXPR:
       /* What about UNLT_EXPR?  */
-	if (VECTOR_TYPE_P (type0))
+	if (gnu_vector_type_p (type0))
 	  {
 	    ret = stv_secondarg;
 	    std::swap (type0, type1);

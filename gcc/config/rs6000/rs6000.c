@@ -62,7 +62,6 @@
 #include "gimple-ssa.h"
 #include "gimple-walk.h"
 #include "intl.h"
-#include "params.h"
 #include "tm-constrs.h"
 #include "tree-vectorizer.h"
 #include "target-globals.h"
@@ -80,6 +79,7 @@
 #include "tree-vrp.h"
 #include "tree-ssanames.h"
 #include "rs6000-internal.h"
+#include "opts.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -1427,6 +1427,9 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #define TARGET_VECTORIZE_FINISH_COST rs6000_finish_cost
 #undef TARGET_VECTORIZE_DESTROY_COST_DATA
 #define TARGET_VECTORIZE_DESTROY_COST_DATA rs6000_destroy_cost_data
+
+#undef TARGET_LOOP_UNROLL_ADJUST
+#define TARGET_LOOP_UNROLL_ADJUST rs6000_loop_unroll_adjust
 
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS rs6000_init_builtins
@@ -4511,34 +4514,36 @@ rs6000_option_override_internal (bool global_init_p)
 
   if (global_init_p)
     {
-      maybe_set_param_value (PARAM_SIMULTANEOUS_PREFETCHES,
-			     rs6000_cost->simultaneous_prefetches,
-			     global_options.x_param_values,
-			     global_options_set.x_param_values);
-      maybe_set_param_value (PARAM_L1_CACHE_SIZE, rs6000_cost->l1_cache_size,
-			     global_options.x_param_values,
-			     global_options_set.x_param_values);
-      maybe_set_param_value (PARAM_L1_CACHE_LINE_SIZE,
-			     rs6000_cost->cache_line_size,
-			     global_options.x_param_values,
-			     global_options_set.x_param_values);
-      maybe_set_param_value (PARAM_L2_CACHE_SIZE, rs6000_cost->l2_cache_size,
-			     global_options.x_param_values,
-			     global_options_set.x_param_values);
+      SET_OPTION_IF_UNSET (&global_options, &global_options_set,
+			   param_simultaneous_prefetches,
+			   rs6000_cost->simultaneous_prefetches);
+      SET_OPTION_IF_UNSET (&global_options, &global_options_set,
+			   param_l1_cache_size,
+			   rs6000_cost->l1_cache_size);
+      SET_OPTION_IF_UNSET (&global_options, &global_options_set,
+			   param_l1_cache_line_size,
+			   rs6000_cost->cache_line_size);
+      SET_OPTION_IF_UNSET (&global_options, &global_options_set,
+			   param_l2_cache_size,
+			   rs6000_cost->l2_cache_size);
 
       /* Increase loop peeling limits based on performance analysis. */
-      maybe_set_param_value (PARAM_MAX_PEELED_INSNS, 400,
-			     global_options.x_param_values,
-			     global_options_set.x_param_values);
-      maybe_set_param_value (PARAM_MAX_COMPLETELY_PEELED_INSNS, 400,
-			     global_options.x_param_values,
-			     global_options_set.x_param_values);
+      SET_OPTION_IF_UNSET (&global_options, &global_options_set,
+			   param_max_peeled_insns, 400);
+      SET_OPTION_IF_UNSET (&global_options, &global_options_set,
+			   param_max_completely_peeled_insns, 400);
 
       /* Use the 'model' -fsched-pressure algorithm by default.  */
-      maybe_set_param_value (PARAM_SCHED_PRESSURE_ALGORITHM,
-			     SCHED_PRESSURE_MODEL,
-			     global_options.x_param_values,
-			     global_options_set.x_param_values);
+      SET_OPTION_IF_UNSET (&global_options, &global_options_set,
+			   param_sched_pressure_algorithm,
+			   SCHED_PRESSURE_MODEL);
+
+      /* Explicit -funroll-loops turns -munroll-only-small-loops off.  */
+      if (((global_options_set.x_flag_unroll_loops && flag_unroll_loops)
+	   || (global_options_set.x_flag_unroll_all_loops
+	       && flag_unroll_all_loops))
+	  && !global_options_set.x_unroll_only_small_loops)
+	unroll_only_small_loops = 0;
 
       /* If using typedef char *va_list, signal that
 	 __builtin_va_start (&ap, 0) can be optimized to
@@ -4763,15 +4768,17 @@ rs6000_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
   switch (type_of_cost)
     {
       case scalar_stmt:
-      case scalar_load:
       case scalar_store:
       case vector_stmt:
-      case vector_load:
       case vector_store:
       case vec_to_scalar:
       case scalar_to_vec:
       case cond_branch_not_taken:
         return 1;
+      case scalar_load:
+      case vector_load:
+	/* Like rs6000_insn_cost, make load insns cost a bit more.  */
+	  return 2;
 
       case vec_perm:
 	/* Power7 has only one permute unit, make it a bit expensive.  */
@@ -4781,52 +4788,55 @@ rs6000_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
 	  return 1;
 
       case vec_promote_demote:
-        if (TARGET_VSX)
-          return 4;
-        else
-          return 1;
+	/* Power7 has only one permute/pack unit, make it a bit expensive.  */
+	if (TARGET_VSX && rs6000_tune == PROCESSOR_POWER7)
+	  return 4;
+	else
+	  return 1;
 
       case cond_branch_taken:
         return 3;
 
       case unaligned_load:
       case vector_gather_load:
+	/* Like rs6000_insn_cost, make load insns cost a bit more.  */
 	if (TARGET_EFFICIENT_UNALIGNED_VSX)
-	  return 1;
+	  return 2;
 
-        if (TARGET_VSX && TARGET_ALLOW_MOVMISALIGN)
-          {
-            elements = TYPE_VECTOR_SUBPARTS (vectype);
-            if (elements == 2)
-              /* Double word aligned.  */
-              return 2;
+	if (TARGET_VSX && TARGET_ALLOW_MOVMISALIGN)
+	  {
+	    elements = TYPE_VECTOR_SUBPARTS (vectype);
+	    if (elements == 2)
+	      /* Double word aligned.  */
+	      return 4;
 
-            if (elements == 4)
-              {
-                switch (misalign)
-                  {
-                    case 8:
-                      /* Double word aligned.  */
-                      return 2;
+	    if (elements == 4)
+	      {
+		switch (misalign)
+		  {
+		  case 8:
+		    /* Double word aligned.  */
+		    return 4;
 
-                    case -1:
-                      /* Unknown misalignment.  */
-                    case 4:
-                    case 12:
-                      /* Word aligned.  */
-                      return 22;
+		  case -1:
+		    /* Unknown misalignment.  */
+		  case 4:
+		  case 12:
+		    /* Word aligned.  */
+		    return 33;
 
-                    default:
-                      gcc_unreachable ();
-                  }
-              }
-          }
+		  default:
+		    gcc_unreachable ();
+		  }
+	      }
+	  }
 
-        if (TARGET_ALTIVEC)
-          /* Misaligned loads are not supported.  */
-          gcc_unreachable ();
+	if (TARGET_ALTIVEC)
+	  /* Misaligned loads are not supported.  */
+	  gcc_unreachable ();
 
-        return 2;
+	/* Like rs6000_insn_cost, make load insns cost a bit more.  */
+	return 4;
 
       case unaligned_store:
       case vector_scatter_store:
@@ -5078,6 +5088,25 @@ static void
 rs6000_destroy_cost_data (void *data)
 {
   free (data);
+}
+
+/* Implement targetm.loop_unroll_adjust.  */
+
+static unsigned
+rs6000_loop_unroll_adjust (unsigned nunroll, struct loop *loop)
+{
+   if (unroll_only_small_loops)
+    {
+      /* TODO: This is hardcoded to 10 right now.  It can be refined, for
+	 example we may want to unroll very small loops more times (4 perhaps).
+	 We also should use a PARAM for this.  */
+      if (loop->ninsns <= 10)
+	return MIN (2, nunroll);
+      else
+	return 0;
+    }
+
+  return nunroll;
 }
 
 /* Handler for the Mathematical Acceleration Subsystem (mass) interface to a
@@ -7250,6 +7279,13 @@ quad_address_p (rtx addr, machine_mode mode, bool strict)
   if (VECTOR_MODE_P (mode) && !mode_supports_dq_form (mode))
     return false;
 
+  /* Is this a valid prefixed address?  If the bottom four bits of the offset
+     are non-zero, we could use a prefixed instruction (which does not have the
+     DQ-form constraint that the traditional instruction had) instead of
+     forcing the unaligned offset to a GPR.  */
+  if (address_is_prefixed (addr, mode, NON_PREFIXED_DQ))
+    return true;
+
   if (GET_CODE (addr) != PLUS)
     return false;
 
@@ -7321,6 +7357,103 @@ address_offset (rtx op)
   return NULL_RTX;
 }
 
+/* This tests that a lo_sum {constant, symbol, symbol+offset} is valid for
+   the mode.  If we can't find (or don't know) the alignment of the symbol
+   we assume (optimistically) that it's sufficiently aligned [??? maybe we
+   should be pessimistic].  Offsets are validated in the same way as for
+   reg + offset.  */
+static bool
+darwin_rs6000_legitimate_lo_sum_const_p (rtx x, machine_mode mode)
+{
+  /* We should not get here with this.  */
+  gcc_checking_assert (! mode_supports_dq_form (mode));
+
+  if (GET_CODE (x) == CONST)
+    x = XEXP (x, 0);
+
+  if (GET_CODE (x) == UNSPEC && XINT (x, 1) == UNSPEC_MACHOPIC_OFFSET)
+    x =  XVECEXP (x, 0, 0);
+
+  rtx sym = NULL_RTX;
+  unsigned HOST_WIDE_INT offset = 0;
+
+  if (GET_CODE (x) == PLUS)
+    {
+      sym = XEXP (x, 0);
+      if (! SYMBOL_REF_P (sym))
+	return false;
+      if (!CONST_INT_P (XEXP (x, 1)))
+	return false;
+      offset = INTVAL (XEXP (x, 1));
+    }
+  else if (SYMBOL_REF_P (x))
+    sym = x;
+  else if (CONST_INT_P (x))
+    offset = INTVAL (x);
+  else if (GET_CODE (x) == LABEL_REF)
+    offset = 0; // We assume code labels are Pmode aligned
+  else
+    return false; // not sure what we have here.
+
+  /* If we don't know the alignment of the thing to which the symbol refers,
+     we assume optimistically it is "enough".
+     ??? maybe we should be pessimistic instead.  */
+  unsigned align = 0;
+
+  if (sym)
+    {
+      tree decl = SYMBOL_REF_DECL (sym);
+#if TARGET_MACHO
+      if (MACHO_SYMBOL_INDIRECTION_P (sym))
+      /* The decl in an indirection symbol is the original one, which might
+	 be less aligned than the indirection.  Our indirections are always
+	 pointer-aligned.  */
+	;
+      else
+#endif
+      if (decl && DECL_ALIGN (decl))
+	align = DECL_ALIGN_UNIT (decl);
+   }
+
+  unsigned int extra = 0;
+  switch (mode)
+    {
+    case E_DFmode:
+    case E_DDmode:
+    case E_DImode:
+      /* If we are using VSX scalar loads, restrict ourselves to reg+reg
+	 addressing.  */
+      if (VECTOR_MEM_VSX_P (mode))
+	return false;
+
+      if (!TARGET_POWERPC64)
+	extra = 4;
+      else if ((offset & 3) || (align & 3))
+	return false;
+      break;
+
+    case E_TFmode:
+    case E_IFmode:
+    case E_KFmode:
+    case E_TDmode:
+    case E_TImode:
+    case E_PTImode:
+      extra = 8;
+      if (!TARGET_POWERPC64)
+	extra = 12;
+      else if ((offset & 3) || (align & 3))
+	return false;
+      break;
+
+    default:
+      break;
+    }
+
+  /* We only care if the access(es) would cause a change to the high part.  */
+  offset = ((offset & 0xffff) ^ 0x8000) - 0x8000;
+  return SIGNED_16BIT_OFFSET_EXTRA_P (offset, extra);
+}
+
 /* Return true if the MEM operand is a memory operand suitable for use
    with a (full width, possibly multiple) gpr load/store.  On
    powerpc64 this means the offset must be divisible by 4.
@@ -7351,7 +7484,20 @@ mem_operand_gpr (rtx op, machine_mode mode)
       && legitimate_indirect_address_p (XEXP (addr, 0), false))
     return true;
 
-  /* Don't allow non-offsettable addresses.  See PRs 83969 and 84279.  */
+  /* Allow prefixed instructions if supported.  If the bottom two bits of the
+     offset are non-zero, we could use a prefixed instruction (which does not
+     have the DS-form constraint that the traditional instruction had) instead
+     of forcing the unaligned offset to a GPR.  */
+  if (address_is_prefixed (addr, mode, NON_PREFIXED_DS))
+    return true;
+
+  /* We need to look through Mach-O PIC unspecs to determine if a lo_sum is
+     really OK.  Doing this early avoids teaching all the other machinery
+     about them.  */
+  if (TARGET_MACHO && GET_CODE (addr) == LO_SUM)
+    return darwin_rs6000_legitimate_lo_sum_const_p (XEXP (addr, 1), mode);
+
+  /* Only allow offsettable addresses.  See PRs 83969 and 84279.  */
   if (!rs6000_offsettable_memref_p (op, mode, false))
     return false;
 
@@ -7384,6 +7530,13 @@ mem_operand_ds_form (rtx op, machine_mode mode)
   unsigned HOST_WIDE_INT offset;
   int extra;
   rtx addr = XEXP (op, 0);
+
+  /* Allow prefixed instructions if supported.  If the bottom two bits of the
+     offset are non-zero, we could use a prefixed instruction (which does not
+     have the DS-form constraint that the traditional instruction had) instead
+     of forcing the unaligned offset to a GPR.  */
+  if (address_is_prefixed (addr, mode, NON_PREFIXED_DS))
+    return true;
 
   if (!offsettable_address_p (false, mode, addr))
     return false;
@@ -7754,7 +7907,10 @@ rs6000_legitimate_offset_address_p (machine_mode mode, rtx x,
       break;
     }
 
-  return SIGNED_16BIT_OFFSET_EXTRA_P (offset, extra);
+  if (TARGET_PREFIXED_ADDR)
+    return SIGNED_34BIT_OFFSET_EXTRA_P (offset, extra);
+  else
+    return SIGNED_16BIT_OFFSET_EXTRA_P (offset, extra);
 }
 
 bool
@@ -8339,41 +8495,6 @@ rs6000_legitimize_tls_address_aix (rtx addr, enum tls_model model)
   return dest;
 }
 
-/* Output arg setup instructions for a !TARGET_TLS_MARKERS
-   __tls_get_addr call.  */
-
-void
-rs6000_output_tlsargs (rtx *operands)
-{
-  /* Set up operands for output_asm_insn, without modifying OPERANDS.  */
-  rtx op[3];
-
-  /* The set dest of the call, ie. r3, which is also the first arg reg.  */
-  op[0] = operands[0];
-  /* The TLS symbol from global_tlsarg stashed as CALL operand 2.  */
-  op[1] = XVECEXP (operands[2], 0, 0);
-  if (XINT (operands[2], 1) == UNSPEC_TLSGD)
-    {
-      /* The GOT register.  */
-      op[2] = XVECEXP (operands[2], 0, 1);
-      if (TARGET_CMODEL != CMODEL_SMALL)
-	output_asm_insn ("addis %0,%2,%1@got@tlsgd@ha\n\t"
-			 "addi %0,%0,%1@got@tlsgd@l", op);
-      else
-	output_asm_insn ("addi %0,%2,%1@got@tlsgd", op);
-    }
-  else if (XINT (operands[2], 1) == UNSPEC_TLSLD)
-    {
-      if (TARGET_CMODEL != CMODEL_SMALL)
-	output_asm_insn ("addis %0,%1,%&@got@tlsld@ha\n\t"
-			 "addi %0,%0,%&@got@tlsld@l", op);
-      else
-	output_asm_insn ("addi %0,%1,%&@got@tlsld", op);
-    }
-  else
-    gcc_unreachable ();
-}
-
 /* Passes the tls arg value for global dynamic and local dynamic
    emit_library_call_value in rs6000_legitimize_tls_address to
    rs6000_call_aix and rs6000_call_sysv.  This is used to emit the
@@ -8392,7 +8513,8 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
     return rs6000_legitimize_tls_address_aix (addr, model);
 
   dest = gen_reg_rtx (Pmode);
-  if (model == TLS_MODEL_LOCAL_EXEC && rs6000_tls_size == 16)
+  if (model == TLS_MODEL_LOCAL_EXEC
+      && (rs6000_tls_size == 16 || rs6000_pcrel_p (cfun)))
     {
       rtx tlsreg;
 
@@ -8439,7 +8561,9 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
 	 them in the .got section.  So use a pointer to the .got section,
 	 not one to secondary TOC sections used by 64-bit -mminimal-toc,
 	 or to secondary GOT sections used by 32-bit -fPIC.  */
-      if (TARGET_64BIT)
+      if (rs6000_pcrel_p (cfun))
+	got = const0_rtx;
+      else if (TARGET_64BIT)
 	got = gen_rtx_REG (Pmode, 2);
       else
 	{
@@ -8475,16 +8599,10 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
 	  rtx arg = gen_rtx_UNSPEC (Pmode, gen_rtvec (2, addr, got),
 				    UNSPEC_TLSGD);
 	  tga = rs6000_tls_get_addr ();
+	  rtx argreg = gen_rtx_REG (Pmode, 3);
+	  emit_insn (gen_rtx_SET (argreg, arg));
 	  global_tlsarg = arg;
-	  if (TARGET_TLS_MARKERS)
-	    {
-	      rtx argreg = gen_rtx_REG (Pmode, 3);
-	      emit_insn (gen_rtx_SET (argreg, arg));
-	      emit_library_call_value (tga, dest, LCT_CONST, Pmode,
-				       argreg, Pmode);
-	    }
-	  else
-	    emit_library_call_value (tga, dest, LCT_CONST, Pmode);
+	  emit_library_call_value (tga, dest, LCT_CONST, Pmode, argreg, Pmode);
 	  global_tlsarg = NULL_RTX;
 
 	  /* Make a note so that the result of this call can be CSEd.  */
@@ -8497,16 +8615,10 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
 	  rtx arg = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, got), UNSPEC_TLSLD);
 	  tga = rs6000_tls_get_addr ();
 	  tmp1 = gen_reg_rtx (Pmode);
+	  rtx argreg = gen_rtx_REG (Pmode, 3);
+	  emit_insn (gen_rtx_SET (argreg, arg));
 	  global_tlsarg = arg;
-	  if (TARGET_TLS_MARKERS)
-	    {
-	      rtx argreg = gen_rtx_REG (Pmode, 3);
-	      emit_insn (gen_rtx_SET (argreg, arg));
-	      emit_library_call_value (tga, tmp1, LCT_CONST, Pmode,
-				       argreg, Pmode);
-	    }
-	  else
-	    emit_library_call_value (tga, tmp1, LCT_CONST, Pmode);
+	  emit_library_call_value (tga, tmp1, LCT_CONST, Pmode, argreg, Pmode);
 	  global_tlsarg = NULL_RTX;
 
 	  /* Make a note so that the result of this call can be CSEd.  */
@@ -8514,7 +8626,7 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
 	  rtx uns = gen_rtx_UNSPEC (Pmode, vec, UNSPEC_TLS_GET_ADDR);
 	  set_unique_reg_note (get_last_insn (), REG_EQUAL, uns);
 
-	  if (rs6000_tls_size == 16)
+	  if (rs6000_tls_size == 16 || rs6000_pcrel_p (cfun))
 	    {
 	      if (TARGET_64BIT)
 		insn = gen_tls_dtprel_64 (dest, tmp1, addr);
@@ -8555,7 +8667,14 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
 	  else
 	    insn = gen_tls_got_tprel_32 (tmp2, got, addr);
 	  emit_insn (insn);
-	  if (TARGET_64BIT)
+	  if (rs6000_pcrel_p (cfun))
+	    {
+	      if (TARGET_64BIT)
+		insn = gen_tls_tls_pcrel_64 (dest, tmp2, addr);
+	      else
+		insn = gen_tls_tls_pcrel_32 (dest, tmp2, addr);
+	    }
+	  else if (TARGET_64BIT)
 	    insn = gen_tls_tls_64 (dest, tmp2, addr);
 	  else
 	    insn = gen_tls_tls_32 (dest, tmp2, addr);
@@ -8651,6 +8770,11 @@ rs6000_legitimate_address_p (machine_mode mode, rtx x, bool reg_ok_strict)
       && mode_supports_pre_incdec_p (mode)
       && legitimate_indirect_address_p (XEXP (x, 0), reg_ok_strict))
     return 1;
+
+  /* Handle prefixed addresses (PC-relative or 34-bit offset).  */
+  if (address_is_prefixed (x, mode, NON_PREFIXED_DEFAULT))
+    return 1;
+
   /* Handle restricted vector d-form offsets in ISA 3.0.  */
   if (quad_offset_p)
     {
@@ -8709,7 +8833,11 @@ rs6000_legitimate_address_p (machine_mode mode, rtx x, bool reg_ok_strict)
 	  || (!avoiding_indexed_address_p (mode)
 	      && legitimate_indexed_address_p (XEXP (x, 1), reg_ok_strict)))
       && rtx_equal_p (XEXP (XEXP (x, 1), 0), XEXP (x, 0)))
-    return 1;
+    {
+      /* There is no prefixed version of the load/store with update.  */
+      rtx addr = XEXP (x, 1);
+      return !address_is_prefixed (addr, mode, NON_PREFIXED_DEFAULT);
+    }
   if (reg_offset_p && !quad_offset_p
       && legitimate_lo_sum_address_p (mode, x, reg_ok_strict))
     return 1;
@@ -8773,7 +8901,10 @@ rs6000_mode_dependent_address (const_rtx addr)
 	{
 	  HOST_WIDE_INT val = INTVAL (XEXP (addr, 1));
 	  HOST_WIDE_INT extra = TARGET_POWERPC64 ? 8 : 12;
-	  return !SIGNED_16BIT_OFFSET_EXTRA_P (val, extra);
+	  if (TARGET_PREFIXED_ADDR)
+	    return !SIGNED_34BIT_OFFSET_EXTRA_P (val, extra);
+	  else
+	    return !SIGNED_16BIT_OFFSET_EXTRA_P (val, extra);
 	}
       break;
 
@@ -10089,14 +10220,6 @@ validate_condition_mode (enum rtx_code code, machine_mode mode)
 		  && code != UNEQ && code != LTGT
 		  && code != UNGT && code != UNLT
 		  && code != UNGE && code != UNLE));
-
-  /* These should never be generated except for
-     flag_finite_math_only.  */
-  gcc_assert (mode != CCFPmode
-	      || flag_finite_math_only
-	      || (code != LE && code != GE
-		  && code != UNEQ && code != LTGT
-		  && code != UNGT && code != UNLT));
 
   /* These are invalid; the information is not there.  */
   gcc_assert (mode != CCEQmode || code == EQ || code == NE);
@@ -13290,14 +13413,12 @@ rs6000_call_template_1 (rtx *operands, unsigned int funop, bool sibcall)
 
   char arg[12];
   arg[0] = 0;
-  if (TARGET_TLS_MARKERS && GET_CODE (operands[funop + 1]) == UNSPEC)
+  if (GET_CODE (operands[funop + 1]) == UNSPEC)
     {
       if (XINT (operands[funop + 1], 1) == UNSPEC_TLSGD)
 	sprintf (arg, "(%%%u@tlsgd)", funop + 1);
       else if (XINT (operands[funop + 1], 1) == UNSPEC_TLSLD)
 	sprintf (arg, "(%%&@tlsld)");
-      else
-	gcc_unreachable ();
     }
 
   /* The magic 32768 offset here corresponds to the offset of
@@ -13438,7 +13559,7 @@ rs6000_indirect_call_template_1 (rtx *operands, unsigned int funop,
       const char *rel64 = TARGET_64BIT ? "64" : "";
       char tls[29];
       tls[0] = 0;
-      if (TARGET_TLS_MARKERS && GET_CODE (operands[funop + 1]) == UNSPEC)
+      if (GET_CODE (operands[funop + 1]) == UNSPEC)
 	{
 	  if (XINT (operands[funop + 1], 1) == UNSPEC_TLSGD)
 	    sprintf (tls, ".reloc .,R_PPC%s_TLSGD,%%%u\n\t",
@@ -13446,8 +13567,6 @@ rs6000_indirect_call_template_1 (rtx *operands, unsigned int funop,
 	  else if (XINT (operands[funop + 1], 1) == UNSPEC_TLSLD)
 	    sprintf (tls, ".reloc .,R_PPC%s_TLSLD,%%&\n\t",
 		     rel64);
-	  else
-	    gcc_unreachable ();
 	}
 
       const char *notoc = rs6000_pcrel_p (cfun) ? "_NOTOC" : "";
@@ -13534,7 +13653,7 @@ rs6000_pltseq_template (rtx *operands, int which)
   const char *rel64 = TARGET_64BIT ? "64" : "";
   char tls[30];
   tls[0] = 0;
-  if (TARGET_TLS_MARKERS && GET_CODE (operands[3]) == UNSPEC)
+  if (GET_CODE (operands[3]) == UNSPEC)
     {
       char off = which == RS6000_PLTSEQ_PLT_PCREL34 ? '8' : '4';
       if (XINT (operands[3], 1) == UNSPEC_TLSGD)
@@ -13543,8 +13662,6 @@ rs6000_pltseq_template (rtx *operands, int which)
       else if (XINT (operands[3], 1) == UNSPEC_TLSLD)
 	sprintf (tls, ".reloc .-%c,R_PPC%s_TLSLD,%%&\n\t",
 		 off, rel64);
-      else
-	gcc_unreachable ();
     }
 
   gcc_assert (DEFAULT_ABI == ABI_ELFv2 || DEFAULT_ABI == ABI_V4);
@@ -20936,14 +21053,32 @@ rs6000_insn_cost (rtx_insn *insn, bool speed)
   if (recog_memoized (insn) < 0)
     return 0;
 
+  /* If we are optimizing for size, just use the length.  */
   if (!speed)
     return get_attr_length (insn);
 
+  /* Use the cost if provided.  */
   int cost = get_attr_cost (insn);
   if (cost > 0)
     return cost;
 
-  int n = get_attr_length (insn) / 4;
+  /* If the insn tells us how many insns there are, use that.  Otherwise use
+     the length/4.  Adjust the insn length to remove the extra size that
+     prefixed instructions take.  */
+  int n = get_attr_num_insns (insn);
+  if (n == 0)
+    {
+      int length = get_attr_length (insn);
+      if (get_attr_prefixed (insn) == PREFIXED_YES)
+	{
+	  int adjust = 0;
+	  ADJUST_INSN_LENGTH (insn, adjust);
+	  length -= adjust;
+	}
+
+      n = length / 4;
+    }
+
   enum attr_type type = get_attr_type (insn);
 
   switch (type)
@@ -22793,9 +22928,6 @@ static struct rs6000_opt_var const rs6000_opt_vars[] =
   { "align-branch-targets",
     offsetof (struct gcc_options, x_TARGET_ALIGN_BRANCH_TARGETS),
     offsetof (struct cl_target_option, x_TARGET_ALIGN_BRANCH_TARGETS), },
-  { "tls-markers",
-    offsetof (struct gcc_options, x_tls_markers),
-    offsetof (struct cl_target_option, x_tls_markers), },
   { "sched-prolog",
     offsetof (struct gcc_options, x_TARGET_SCHED_PROLOG),
     offsetof (struct cl_target_option, x_TARGET_SCHED_PROLOG), },
@@ -23927,25 +24059,31 @@ rs6000_can_inline_p (tree caller, tree callee)
   tree caller_tree = DECL_FUNCTION_SPECIFIC_TARGET (caller);
   tree callee_tree = DECL_FUNCTION_SPECIFIC_TARGET (callee);
 
-  /* If callee has no option attributes, then it is ok to inline.  */
+  /* If the callee has no option attributes, then it is ok to inline.  */
   if (!callee_tree)
     ret = true;
 
-  /* If caller has no option attributes, but callee does then it is not ok to
-     inline.  */
-  else if (!caller_tree)
-    ret = false;
-
   else
     {
-      struct cl_target_option *caller_opts = TREE_TARGET_OPTION (caller_tree);
+      HOST_WIDE_INT caller_isa;
       struct cl_target_option *callee_opts = TREE_TARGET_OPTION (callee_tree);
+      HOST_WIDE_INT callee_isa = callee_opts->x_rs6000_isa_flags;
+      HOST_WIDE_INT explicit_isa = callee_opts->x_rs6000_isa_flags_explicit;
 
-      /* Callee's options should a subset of the caller's, i.e. a vsx function
-	 can inline an altivec function but a non-vsx function can't inline a
-	 vsx function.  */
-      if ((caller_opts->x_rs6000_isa_flags & callee_opts->x_rs6000_isa_flags)
-	  == callee_opts->x_rs6000_isa_flags)
+      /* If the caller has option attributes, then use them.
+	 Otherwise, use the command line options.  */
+      if (caller_tree)
+	caller_isa = TREE_TARGET_OPTION (caller_tree)->x_rs6000_isa_flags;
+      else
+	caller_isa = rs6000_isa_flags;
+
+      /* The callee's options must be a subset of the caller's options, i.e.
+	 a vsx function may inline an altivec function, but a no-vsx function
+	 must not inline a vsx function.  However, for those options that the
+	 callee has explicitly enabled or disabled, then we must enforce that
+	 the callee's and caller's options match exactly; see PR70010.  */
+      if (((caller_isa & callee_isa) == callee_isa)
+	  && (caller_isa & explicit_isa) == (callee_isa & explicit_isa))
 	ret = true;
     }
 
@@ -24941,6 +25079,37 @@ rs6000_asm_output_opcode (FILE *stream)
   return;
 }
 
+/* Adjust the length of an INSN.  LENGTH is the currently-computed length and
+   should be adjusted to reflect any required changes.  This macro is used when
+   there is some systematic length adjustment required that would be difficult
+   to express in the length attribute.
+
+   In the PowerPC, we use this to adjust the length of an instruction if one or
+   more prefixed instructions are generated, using the attribute
+   num_prefixed_insns.  A prefixed instruction is 8 bytes instead of 4, but the
+   hardware requires that a prefied instruciton does not cross a 64-byte
+   boundary.  This means the compiler has to assume the length of the first
+   prefixed instruction is 12 bytes instead of 8 bytes.  Since the length is
+   already set for the non-prefixed instruction, we just need to udpate for the
+   difference.  */
+
+int
+rs6000_adjust_insn_length (rtx_insn *insn, int length)
+{
+  if (TARGET_PREFIXED_ADDR && NONJUMP_INSN_P (insn))
+    {
+      rtx pattern = PATTERN (insn);
+      if (GET_CODE (pattern) != USE && GET_CODE (pattern) != CLOBBER
+	  && get_attr_prefixed (insn) == PREFIXED_YES)
+	{
+	  int num_prefixed = get_attr_max_prefixed_insns (insn);
+	  length += 4 * (num_prefixed + 1);
+	}
+    }
+
+  return length;
+}
+
 
 #ifdef HAVE_GAS_HIDDEN
 # define USE_HIDDEN_LINKONCE 1
@@ -25864,8 +26033,8 @@ rs6000_generate_float2_double_code (rtx dst, rtx src1, rtx src2)
   rtx_tmp2 = gen_reg_rtx (V4SFmode);
   rtx_tmp3 = gen_reg_rtx (V4SFmode);
 
-  emit_insn (gen_vsx_xvcdpsp (rtx_tmp2, rtx_tmp0));
-  emit_insn (gen_vsx_xvcdpsp (rtx_tmp3, rtx_tmp1));
+  emit_insn (gen_vsx_xvcvdpsp (rtx_tmp2, rtx_tmp0));
+  emit_insn (gen_vsx_xvcvdpsp (rtx_tmp3, rtx_tmp1));
 
   if (BYTES_BIG_ENDIAN)
     emit_insn (gen_p8_vmrgew_v4sf (dst, rtx_tmp2, rtx_tmp3));

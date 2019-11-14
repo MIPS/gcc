@@ -378,6 +378,7 @@ unpack_ts_type_common_value_fields (struct bitpack_d *bp, tree expr)
   TYPE_RESTRICT (expr) = (unsigned) bp_unpack_value (bp, 1);
   TYPE_USER_ALIGN (expr) = (unsigned) bp_unpack_value (bp, 1);
   TYPE_READONLY (expr) = (unsigned) bp_unpack_value (bp, 1);
+  TYPE_LANG_FLAG_0 (expr) = (unsigned) bp_unpack_value (bp, 1);
   if (RECORD_OR_UNION_TYPE_P (expr))
     {
       TYPE_TRANSPARENT_AGGR (expr) = (unsigned) bp_unpack_value (bp, 1);
@@ -797,7 +798,6 @@ lto_input_ts_function_decl_tree_pointers (class lto_input_block *ib,
 	cl_optimization_restore (&tmp, TREE_OPTIMIZATION (opts));
 	finish_options (&tmp, &global_options_set, UNKNOWN_LOCATION);
 	opts = build_optimization_node (&tmp);
-	finalize_options_struct (&tmp);
 	DECL_FUNCTION_SPECIFIC_OPTIMIZATION (expr) = opts;
       }
   }

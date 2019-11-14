@@ -79,7 +79,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts.h"
 #include "gimplify.h"
 #include "predict.h"
-#include "params.h"
 #include "real.h"
 #include "langhooks.h"
 #include "sbitmap.h"
@@ -1415,9 +1414,11 @@ default_ref_may_alias_errno (ao_ref *ref)
   if (TYPE_UNSIGNED (TREE_TYPE (base))
       || TYPE_MODE (TREE_TYPE (base)) != TYPE_MODE (integer_type_node))
     return false;
-  /* The default implementation assumes an errno location
-     declaration is never defined in the current compilation unit.  */
+  /* The default implementation assumes an errno location declaration
+     is never defined in the current compilation unit and may not be
+     aliased by a local variable.  */
   if (DECL_P (base)
+      && DECL_EXTERNAL (base)
       && !TREE_STATIC (base))
     return true;
   else if (TREE_CODE (base) == MEM_REF
@@ -2164,11 +2165,11 @@ std_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 
       real_part = std_gimplify_va_arg_expr (valist,
 					    TREE_TYPE (type), pre_p, NULL);
-      real_part = get_initialized_tmp_var (real_part, pre_p, NULL);
+      real_part = get_initialized_tmp_var (real_part, pre_p);
 
       imag_part = std_gimplify_va_arg_expr (unshare_expr (valist),
 					    TREE_TYPE (type), pre_p, NULL);
-      imag_part = get_initialized_tmp_var (imag_part, pre_p, NULL);
+      imag_part = get_initialized_tmp_var (imag_part, pre_p);
 
       return build2 (COMPLEX_EXPR, type, real_part, imag_part);
    }
@@ -2186,7 +2187,7 @@ std_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
   boundary /= BITS_PER_UNIT;
 
   /* Hoist the valist value into a temporary for the moment.  */
-  valist_tmp = get_initialized_tmp_var (valist, pre_p, NULL);
+  valist_tmp = get_initialized_tmp_var (valist, pre_p);
 
   /* va_list pointer is aligned to PARM_BOUNDARY.  If argument actually
      requires greater alignment, we must perform dynamic alignment.  */
@@ -2274,17 +2275,18 @@ default_max_noce_ifcvt_seq_cost (edge e)
 {
   bool predictable_p = predictable_edge_p (e);
 
-  enum compiler_param param
-    = (predictable_p
-       ? PARAM_MAX_RTL_IF_CONVERSION_PREDICTABLE_COST
-       : PARAM_MAX_RTL_IF_CONVERSION_UNPREDICTABLE_COST);
-
-  /* If we have a parameter set, use that, otherwise take a guess using
-     BRANCH_COST.  */
-  if (global_options_set.x_param_values[param])
-    return PARAM_VALUE (param);
+  if (predictable_p)
+    {
+      if (global_options_set.x_param_max_rtl_if_conversion_predictable_cost)
+	return param_max_rtl_if_conversion_predictable_cost;
+    }
   else
-    return BRANCH_COST (true, predictable_p) * COSTS_N_INSNS (3);
+    {
+      if (global_options_set.x_param_max_rtl_if_conversion_unpredictable_cost)
+	return param_max_rtl_if_conversion_unpredictable_cost;
+    }
+
+  return BRANCH_COST (true, predictable_p) * COSTS_N_INSNS (3);
 }
 
 /* Default implementation of TARGET_MIN_ARITHMETIC_PRECISION.  */

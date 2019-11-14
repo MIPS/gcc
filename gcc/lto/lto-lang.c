@@ -247,6 +247,7 @@ static GTY(()) tree signed_size_type_node;
 int flag_isoc94;
 int flag_isoc99;
 int flag_isoc11;
+int flag_isoc2x;
 
 /* Attribute handlers.  */
 
@@ -304,7 +305,8 @@ handle_const_attribute (tree *node, tree ARG_UNUSED (name),
 			tree ARG_UNUSED (args), int ARG_UNUSED (flags),
 			bool * ARG_UNUSED (no_add_attrs))
 {
-  if (!fndecl_built_in_p (*node))
+  if (TREE_CODE (*node) != FUNCTION_DECL
+      || !fndecl_built_in_p (*node))
     inform (UNKNOWN_LOCATION, "%s:%s: %E: %E", __FILE__, __func__, *node, name);
 
   tree type = TREE_TYPE (*node);

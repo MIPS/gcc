@@ -181,7 +181,7 @@ enum rid
   RID_CONSTEXPR, RID_DECLTYPE, RID_NOEXCEPT, RID_NULLPTR, RID_STATIC_ASSERT,
 
   /* C++20 */
-  RID_CONSTINIT,
+  RID_CONSTINIT, RID_CONSTEVAL,
 
   /* char8_t */
   RID_CHAR8,
@@ -757,6 +757,16 @@ extern bool done_lexing;
 #define C_TYPE_OBJECT_OR_INCOMPLETE_P(type) \
   (!C_TYPE_FUNCTION_P (type))
 
+/* Return true if TYPE is a vector type that should be subject to the GNU
+   vector extensions (as opposed to a vector type that is used only for
+   the purposes of defining target-specific built-in functions).  */
+
+inline bool
+gnu_vector_type_p (const_tree type)
+{
+  return TREE_CODE (type) == VECTOR_TYPE && !TYPE_INDIVISIBLE_P (type);
+}
+
 struct visibility_flags
 {
   unsigned inpragma : 1;	/* True when in #pragma GCC visibility.  */
@@ -801,6 +811,7 @@ extern void c_register_addr_space (const char *str, addr_space_t as);
 extern bool in_late_binary_op;
 extern const char *c_addr_space_name (addr_space_t as);
 extern tree identifier_global_value (tree);
+extern bool names_builtin_p (const char *);
 extern tree c_linkage_bindings (tree);
 extern void record_builtin_type (enum rid, const char *, tree);
 extern tree build_void_list_node (void);
@@ -1022,6 +1033,7 @@ extern bool c_cpp_diagnostic (cpp_reader *, enum cpp_diagnostic_level,
 			      const char *, va_list *)
      ATTRIBUTE_GCC_DIAG(5,0);
 extern int c_common_has_attribute (cpp_reader *);
+extern int c_common_has_builtin (cpp_reader *);
 
 extern bool parse_optimize_options (tree, bool);
 
@@ -1063,6 +1075,7 @@ extern tree builtin_type_for_size (int, bool);
 extern void c_common_mark_addressable_vec (tree);
 
 extern void set_underlying_type (tree);
+extern bool user_facing_original_type_p (const_tree);
 extern void record_types_used_by_current_var_decl (tree);
 extern vec<tree, va_gc> *make_tree_vector (void);
 extern void release_tree_vector (vec<tree, va_gc> *);
@@ -1189,6 +1202,8 @@ extern tree c_omp_declare_simd_clauses_to_numbers (tree, tree);
 extern void c_omp_declare_simd_clauses_to_decls (tree, tree);
 extern bool c_omp_predefined_variable (tree);
 extern enum omp_clause_default_kind c_omp_predetermined_sharing (tree);
+extern tree c_omp_check_context_selector (location_t, tree);
+extern void c_omp_mark_declare_variant (location_t, tree, tree);
 
 /* Return next tree in the chain for chain_next walking of tree nodes.  */
 static inline tree

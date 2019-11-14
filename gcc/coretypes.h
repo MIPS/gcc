@@ -341,6 +341,7 @@ namespace gcc {
 }
 
 typedef std::pair <tree, tree> tree_pair;
+typedef std::pair <const char *, int> string_int_pair;
 
 /* Define a name->value mapping.  */
 template <typename ValueType>
@@ -378,7 +379,8 @@ enum function_class {
   function_c99_misc,
   function_c99_math_complex,
   function_sincos,
-  function_c11_misc
+  function_c11_misc,
+  function_c2x_misc
 };
 
 /* Enumerate visibility settings.  This is deliberately ordered from most

@@ -527,9 +527,10 @@ forward_propagate_into_gimple_cond (gcond *stmt)
   tmp = forward_propagate_into_comparison_1 (stmt, code,
 					     boolean_type_node,
 					     rhs1, rhs2);
-  if (tmp)
+  if (tmp
+      && is_gimple_condexpr_for_cond (tmp))
     {
-      if (dump_file && tmp)
+      if (dump_file)
 	{
 	  fprintf (dump_file, "  Replaced '");
 	  print_gimple_expr (dump_file, stmt, 0);
@@ -607,7 +608,7 @@ forward_propagate_into_cond (gimple_stmt_iterator *gsi_p)
   if (tmp
       && is_gimple_condexpr (tmp))
     {
-      if (dump_file && tmp)
+      if (dump_file)
 	{
 	  fprintf (dump_file, "  Replaced '");
 	  print_generic_expr (dump_file, cond);
@@ -1426,8 +1427,10 @@ simplify_builtin_call (gimple_stmt_iterator *gsi_p, tree callee2)
 	      if (!is_gimple_val (ptr1))
 		ptr1 = force_gimple_operand_gsi (gsi_p, ptr1, true, NULL_TREE,
 						 true, GSI_SAME_STMT);
-	      gimple_call_set_fndecl (stmt2,
-				      builtin_decl_explicit (BUILT_IN_MEMCPY));
+	      tree fndecl = builtin_decl_explicit (BUILT_IN_MEMCPY);
+	      gimple_call_set_fndecl (stmt2, fndecl);
+	      gimple_call_set_fntype (as_a <gcall *> (stmt2),
+				      TREE_TYPE (fndecl));
 	      gimple_call_set_arg (stmt2, 0, ptr1);
 	      gimple_call_set_arg (stmt2, 1, new_str_cst);
 	      gimple_call_set_arg (stmt2, 2,
@@ -1783,7 +1786,7 @@ simplify_bitfield_ref (gimple_stmt_iterator *gsi)
 {
   gimple *stmt = gsi_stmt (*gsi);
   gimple *def_stmt;
-  tree op, op0, op1, op2;
+  tree op, op0, op1;
   tree elem_type;
   unsigned idx, size;
   enum tree_code code;
@@ -1801,20 +1804,7 @@ simplify_bitfield_ref (gimple_stmt_iterator *gsi)
     return false;
 
   op1 = TREE_OPERAND (op, 1);
-  op2 = TREE_OPERAND (op, 2);
   code = gimple_assign_rhs_code (def_stmt);
-
-  if (code == CONSTRUCTOR)
-    {
-      tree tem = fold_ternary (BIT_FIELD_REF, TREE_TYPE (op),
-			       gimple_assign_rhs1 (def_stmt), op1, op2);
-      if (!tem || !valid_gimple_rhs_p (tem))
-	return false;
-      gimple_assign_set_rhs_from_tree (gsi, tem);
-      update_stmt (gsi_stmt (*gsi));
-      return true;
-    }
-
   elem_type = TREE_TYPE (TREE_TYPE (op0));
   if (TREE_TYPE (op) != elem_type)
     return false;

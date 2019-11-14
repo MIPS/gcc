@@ -125,12 +125,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa.h"
 #include "cfgloop.h"
 #include "tree-scalar-evolution.h"
-#include "params.h"
 #include "tree-affine.h"
 #include "tree-ssa-propagate.h"
 #include "tree-ssa-address.h"
 #include "builtins.h"
 #include "tree-vectorizer.h"
+#include "dbgcnt.h"
 
 /* FIXME: Expressions are expanded to RTL in this pass to determine the
    cost of different addressing modes.  This should be moved to a TBD
@@ -151,8 +151,8 @@ avg_loop_niter (class loop *loop)
     {
       niter = likely_max_stmt_executions_int (loop);
 
-      if (niter == -1 || niter > PARAM_VALUE (PARAM_AVG_LOOP_NITER))
-	return PARAM_VALUE (PARAM_AVG_LOOP_NITER);
+      if (niter == -1 || niter > param_avg_loop_niter)
+	return param_avg_loop_niter;
     }
 
   return niter;
@@ -715,19 +715,19 @@ struct iv_ca_delta
 /* Bound on number of candidates below that all candidates are considered.  */
 
 #define CONSIDER_ALL_CANDIDATES_BOUND \
-  ((unsigned) PARAM_VALUE (PARAM_IV_CONSIDER_ALL_CANDIDATES_BOUND))
+  ((unsigned) param_iv_consider_all_candidates_bound)
 
 /* If there are more iv occurrences, we just give up (it is quite unlikely that
    optimizing such a loop would help, and it would take ages).  */
 
 #define MAX_CONSIDERED_GROUPS \
-  ((unsigned) PARAM_VALUE (PARAM_IV_MAX_CONSIDERED_USES))
+  ((unsigned) param_iv_max_considered_uses)
 
 /* If there are at most this number of ivs in the set, try removing unnecessary
    ivs from the set always.  */
 
 #define ALWAYS_PRUNE_CAND_SET_BOUND \
-  ((unsigned) PARAM_VALUE (PARAM_IV_ALWAYS_PRUNE_CAND_SET_BOUND))
+  ((unsigned) param_iv_always_prune_cand_set_bound)
 
 /* The list of trees for that the decl_rtl field must be reset is stored
    here.  */
@@ -4087,6 +4087,92 @@ get_computation_at (class loop *loop, gimple *at,
     return NULL_TREE;
   unshare_aff_combination (&aff);
   return fold_convert (type, aff_combination_to_tree (&aff));
+}
+
+/* Like get_computation_at, but try harder, even if the computation
+   is more expensive.  Intended for debug stmts.  */
+
+static tree
+get_debug_computation_at (class loop *loop, gimple *at,
+			  struct iv_use *use, struct iv_cand *cand)
+{
+  if (tree ret = get_computation_at (loop, at, use, cand))
+    return ret;
+
+  tree ubase = use->iv->base, ustep = use->iv->step;
+  tree cbase = cand->iv->base, cstep = cand->iv->step;
+  tree var;
+  tree utype = TREE_TYPE (ubase), ctype = TREE_TYPE (cbase);
+  widest_int rat;
+
+  /* We must have a precision to express the values of use.  */
+  if (TYPE_PRECISION (utype) >= TYPE_PRECISION (ctype))
+    return NULL_TREE;
+
+  /* Try to handle the case that get_computation_at doesn't,
+     try to express
+     use = ubase + (var - cbase) / ratio.  */
+  if (!constant_multiple_of (cstep, fold_convert (TREE_TYPE (cstep), ustep),
+			     &rat))
+    return NULL_TREE;
+
+  bool neg_p = false;
+  if (wi::neg_p (rat))
+    {
+      if (TYPE_UNSIGNED (ctype))
+	return NULL_TREE;
+      neg_p = true;
+      rat = wi::neg (rat);
+    }
+
+  /* If both IVs can wrap around and CAND doesn't have a power of two step,
+     it is unsafe.  Consider uint16_t CAND with step 9, when wrapping around,
+     the values will be ... 0xfff0, 0xfff9, 2, 11 ... and when use is say
+     uint8_t with step 3, those values divided by 3 cast to uint8_t will be
+     ... 0x50, 0x53, 0, 3 ... rather than expected 0x50, 0x53, 0x56, 0x59.  */
+  if (!use->iv->no_overflow
+      && !cand->iv->no_overflow
+      && !integer_pow2p (cstep))
+    return NULL_TREE;
+
+  int bits = wi::exact_log2 (rat);
+  if (bits == -1)
+    bits = wi::floor_log2 (rat) + 1;
+  if (!cand->iv->no_overflow
+      && TYPE_PRECISION (utype) + bits > TYPE_PRECISION (ctype))
+    return NULL_TREE;
+
+  var = var_at_stmt (loop, cand, at);
+
+  if (POINTER_TYPE_P (ctype))
+    {
+      ctype = unsigned_type_for (ctype);
+      cbase = fold_convert (ctype, cbase);
+      cstep = fold_convert (ctype, cstep);
+      var = fold_convert (ctype, var);
+    }
+
+  if (stmt_after_increment (loop, cand, at))
+    var = fold_build2 (MINUS_EXPR, TREE_TYPE (var), var,
+		       unshare_expr (cstep));
+
+  var = fold_build2 (MINUS_EXPR, TREE_TYPE (var), var, cbase);
+  var = fold_build2 (EXACT_DIV_EXPR, TREE_TYPE (var), var,
+		     wide_int_to_tree (TREE_TYPE (var), rat));
+  if (POINTER_TYPE_P (utype))
+    {
+      var = fold_convert (sizetype, var);
+      if (neg_p)
+	var = fold_build1 (NEGATE_EXPR, sizetype, var);
+      var = fold_build2 (POINTER_PLUS_EXPR, utype, ubase, var);
+    }
+  else
+    {
+      var = fold_convert (utype, var);
+      var = fold_build2 (neg_p ? MINUS_EXPR : PLUS_EXPR, utype,
+			 ubase, var);
+    }
+  return var;
 }
 
 /* Adjust the cost COST for being in loop setup rather than loop body.
@@ -7523,6 +7609,7 @@ remove_unused_ivs (struct ivopts_data *data, bitmap toremove)
 	      struct iv_use dummy_use;
 	      struct iv_cand *best_cand = NULL, *cand;
 	      unsigned i, best_pref = 0, cand_pref;
+	      tree comp = NULL_TREE;
 
 	      memset (&dummy_use, 0, sizeof (dummy_use));
 	      dummy_use.iv = info->iv;
@@ -7543,20 +7630,23 @@ remove_unused_ivs (struct ivopts_data *data, bitmap toremove)
 		    ? 1 : 0;
 		  if (best_cand == NULL || best_pref < cand_pref)
 		    {
-		      best_cand = cand;
-		      best_pref = cand_pref;
+		      tree this_comp
+			= get_debug_computation_at (data->current_loop,
+						    SSA_NAME_DEF_STMT (def),
+						    &dummy_use, cand);
+		      if (this_comp)
+			{
+			  best_cand = cand;
+			  best_pref = cand_pref;
+			  comp = this_comp;
+			}
 		    }
 		}
 
 	      if (!best_cand)
 		continue;
 
-	      tree comp = get_computation_at (data->current_loop,
-					      SSA_NAME_DEF_STMT (def),
-					      &dummy_use, best_cand);
-	      if (!comp)
-		continue;
-
+	      comp = unshare_expr (comp);
 	      if (count > 1)
 		{
 		  tree vexpr = make_node (DEBUG_EXPR_DECL);
@@ -7953,6 +8043,9 @@ tree_ssa_iv_optimize (void)
   /* Optimize the loops starting with the innermost ones.  */
   FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
     {
+      if (!dbg_cnt (ivopts_loop))
+	continue;
+
       if (dump_file && (dump_flags & TDF_DETAILS))
 	flow_loop_dump (loop, dump_file, NULL, 1);
 

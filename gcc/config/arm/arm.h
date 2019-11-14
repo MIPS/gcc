@@ -723,6 +723,10 @@ extern int arm_arch_cmse;
 	                goto.  Without it fp appears to be used and the
 			elimination code won't get rid of sfp.  It tracks
 			fp exactly at all times.
+	apsrq		Nor this, it is used to track operations on the Q bit
+			of APSR by ACLE saturating intrinsics.
+	apsrge		Nor this, it is used to track operations on the GE bits
+			of APSR by ACLE SIMD32 intrinsics
 
    *: See TARGET_CONDITIONAL_REGISTER_USAGE  */
 
@@ -770,7 +774,7 @@ extern int arm_arch_cmse;
   1,1,1,1,1,1,1,1,		\
   1,1,1,1,			\
   /* Specials.  */		\
-  1,1,1,1			\
+  1,1,1,1,1,1			\
 }
 
 /* 1 for registers not available across function calls.
@@ -800,7 +804,7 @@ extern int arm_arch_cmse;
   1,1,1,1,1,1,1,1,		\
   1,1,1,1,			\
   /* Specials.  */		\
-  1,1,1,1			\
+  1,1,1,1,1,1			\
 }
 
 #ifndef SUBTARGET_CONDITIONAL_REGISTER_USAGE
@@ -975,10 +979,11 @@ extern int arm_arch_cmse;
   ((((REGNUM) - FIRST_VFP_REGNUM) & 3) == 0 \
    && (LAST_VFP_REGNUM - (REGNUM) >= 2 * (N) - 1))
 
-/* The number of hard registers is 16 ARM + 1 CC + 1 SFP + 1 AFP.  */
+/* The number of hard registers is 16 ARM + 1 CC + 1 SFP + 1 AFP
+   + 1 APSRQ + 1 APSRGE.  */
 /* Intel Wireless MMX Technology registers add 16 + 4 more.  */
 /* VFP (VFP3) adds 32 (64) + 1 VFPCC.  */
-#define FIRST_PSEUDO_REGISTER   104
+#define FIRST_PSEUDO_REGISTER   106
 
 #define DBX_REGISTER_NUMBER(REGNO) arm_dbx_register_number (REGNO)
 
@@ -1062,15 +1067,14 @@ extern int arm_regs_in_sequence[];
   /* Registers not for general use.  */		\
   CC_REGNUM, VFPCC_REGNUM,			\
   FRAME_POINTER_REGNUM, ARG_POINTER_REGNUM,	\
-  SP_REGNUM, PC_REGNUM 				\
+  SP_REGNUM, PC_REGNUM, APSRQ_REGNUM, APSRGE_REGNUM	\
 }
 
 /* Use different register alloc ordering for Thumb.  */
 #define ADJUST_REG_ALLOC_ORDER arm_order_regs_for_local_alloc ()
 
-/* Tell IRA to use the order we define rather than messing it up with its
-   own cost calculations.  */
-#define HONOR_REG_ALLOC_ORDER 1
+/* Tell IRA to use the order we define when optimizing for size.  */
+#define HONOR_REG_ALLOC_ORDER optimize_function_for_size_p (cfun)
 
 /* Interrupt functions can only use registers that have already been
    saved by the prologue, even if they would normally be
@@ -1402,6 +1406,9 @@ typedef struct GTY(()) machine_function
 }
 machine_function;
 #endif
+
+#define ARM_Q_BIT_READ (arm_q_bit_access ())
+#define ARM_GE_BITS_READ (arm_ge_bits_access ())
 
 /* As in the machine_function, a global set of call-via labels, for code 
    that is in text_section.  */

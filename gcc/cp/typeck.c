@@ -35,7 +35,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "convert.h"
 #include "c-family/c-objc.h"
 #include "c-family/c-ubsan.h"
-#include "params.h"
 #include "gcc-rich-location.h"
 #include "stringpool.h"
 #include "attribs.h"
@@ -52,9 +51,9 @@ static tree cp_pointer_int_sum (location_t, enum tree_code, tree, tree,
 				tsubst_flags_t);
 static tree rationalize_conditional_expr (enum tree_code, tree, 
 					  tsubst_flags_t);
-static int comp_ptr_ttypes_real (tree, tree, int);
+static bool comp_ptr_ttypes_real (tree, tree, int);
 static bool comp_except_types (tree, tree, bool);
-static bool comp_array_types (const_tree, const_tree, bool);
+static bool comp_array_types (const_tree, const_tree, compare_bounds_t, bool);
 static tree pointer_diff (location_t, tree, tree, tree, tsubst_flags_t, tree *);
 static tree get_delta_difference (tree, tree, bool, bool, tsubst_flags_t);
 static void casts_away_constness_r (tree *, tree *, tsubst_flags_t);
@@ -450,25 +449,26 @@ type_after_usual_arithmetic_conversions (tree t1, tree t2)
 }
 
 static void
-composite_pointer_error (diagnostic_t kind, tree t1, tree t2,
+composite_pointer_error (const op_location_t &location,
+			 diagnostic_t kind, tree t1, tree t2,
 			 composite_pointer_operation operation)
 {
   switch (operation)
     {
     case CPO_COMPARISON:
-      emit_diagnostic (kind, input_location, 0,
+      emit_diagnostic (kind, location, 0,
 		       "comparison between "
 		       "distinct pointer types %qT and %qT lacks a cast",
 		       t1, t2);
       break;
     case CPO_CONVERSION:
-      emit_diagnostic (kind, input_location, 0,
+      emit_diagnostic (kind, location, 0,
 		       "conversion between "
 		       "distinct pointer types %qT and %qT lacks a cast",
 		       t1, t2);
       break;
     case CPO_CONDITIONAL_EXPR:
-      emit_diagnostic (kind, input_location, 0,
+      emit_diagnostic (kind, location, 0,
 		       "conditional expression between "
 		       "distinct pointer types %qT and %qT lacks a cast",
 		       t1, t2);
@@ -482,7 +482,8 @@ composite_pointer_error (diagnostic_t kind, tree t1, tree t2,
    case.  See that function for documentation of the parameters.  */
 
 static tree
-composite_pointer_type_r (tree t1, tree t2, 
+composite_pointer_type_r (const op_location_t &location,
+			  tree t1, tree t2, 
 			  composite_pointer_operation operation,
 			  tsubst_flags_t complain)
 {
@@ -515,15 +516,16 @@ composite_pointer_type_r (tree t1, tree t2,
   else if ((TYPE_PTR_P (pointee1) && TYPE_PTR_P (pointee2))
 	   || (TYPE_PTRMEM_P (pointee1) && TYPE_PTRMEM_P (pointee2)))
     {
-      result_type = composite_pointer_type_r (pointee1, pointee2, operation,
-					      complain);
+      result_type = composite_pointer_type_r (location, pointee1, pointee2,
+					      operation, complain);
       if (result_type == error_mark_node)
 	return error_mark_node;
     }
   else
     {
       if (complain & tf_error)
-	composite_pointer_error (DK_PERMERROR, t1, t2, operation);
+	composite_pointer_error (location, DK_PERMERROR,
+				 t1, t2, operation);
       else
 	return error_mark_node;
       result_type = void_type_node;
@@ -539,7 +541,8 @@ composite_pointer_type_r (tree t1, tree t2,
 			TYPE_PTRMEM_CLASS_TYPE (t2)))
 	{
 	  if (complain & tf_error)
-	    composite_pointer_error (DK_PERMERROR, t1, t2, operation);
+	    composite_pointer_error (location, DK_PERMERROR,
+				     t1, t2, operation);
 	  else
 	    return error_mark_node;
 	}
@@ -563,7 +566,8 @@ composite_pointer_type_r (tree t1, tree t2,
    pointers-to-members as per [expr.eq].  */
 
 tree
-composite_pointer_type (tree t1, tree t2, tree arg1, tree arg2,
+composite_pointer_type (const op_location_t &location,
+			tree t1, tree t2, tree arg1, tree arg2,
 			composite_pointer_operation operation, 
 			tsubst_flags_t complain)
 {
@@ -605,17 +609,17 @@ composite_pointer_type (tree t1, tree t2, tree arg1, tree arg2,
 	      switch (operation)
 		{
 		case CPO_COMPARISON:
-		  pedwarn (input_location, OPT_Wpedantic, 
+		  pedwarn (location, OPT_Wpedantic, 
 			   "ISO C++ forbids comparison between pointer "
 			   "of type %<void *%> and pointer-to-function");
 		  break;
 		case CPO_CONVERSION:
-		  pedwarn (input_location, OPT_Wpedantic,
+		  pedwarn (location, OPT_Wpedantic,
 			   "ISO C++ forbids conversion between pointer "
 			   "of type %<void *%> and pointer-to-function");
 		  break;
 		case CPO_CONDITIONAL_EXPR:
-		  pedwarn (input_location, OPT_Wpedantic,
+		  pedwarn (location, OPT_Wpedantic,
 			   "ISO C++ forbids conditional expression between "
 			   "pointer of type %<void *%> and "
 			   "pointer-to-function");
@@ -672,7 +676,7 @@ composite_pointer_type (tree t1, tree t2, tree arg1, tree arg2,
       else
         {
           if (complain & tf_error)
-	    composite_pointer_error (DK_ERROR, t1, t2, operation);
+	    composite_pointer_error (location, DK_ERROR, t1, t2, operation);
           return error_mark_node;
         }
     }
@@ -695,19 +699,19 @@ composite_pointer_type (tree t1, tree t2, tree arg1, tree arg2,
             switch (operation)
               {
               case CPO_COMPARISON:
-                error ("comparison between distinct "
-                       "pointer-to-member types %qT and %qT lacks a cast",
-                       t1, t2);
+                error_at (location, "comparison between distinct "
+			  "pointer-to-member types %qT and %qT lacks a cast",
+			  t1, t2);
                 break;
               case CPO_CONVERSION:
-                error ("conversion between distinct "
-                       "pointer-to-member types %qT and %qT lacks a cast",
-                       t1, t2);
+                error_at (location, "conversion between distinct "
+			  "pointer-to-member types %qT and %qT lacks a cast",
+			  t1, t2);
                 break;
               case CPO_CONDITIONAL_EXPR:
-                error ("conditional expression between distinct "
-                       "pointer-to-member types %qT and %qT lacks a cast",
-                       t1, t2);
+                error_at (location, "conditional expression between distinct "
+			  "pointer-to-member types %qT and %qT lacks a cast",
+			  t1, t2);
                 break;
               default:
                 gcc_unreachable ();
@@ -716,7 +720,7 @@ composite_pointer_type (tree t1, tree t2, tree arg1, tree arg2,
         }
     }
 
-  return composite_pointer_type_r (t1, t2, operation, complain);
+  return composite_pointer_type_r (location, t1, t2, operation, complain);
 }
 
 /* Return the merged type of two types.
@@ -951,7 +955,8 @@ common_pointer_type (tree t1, tree t2)
               || (TYPE_PTRDATAMEM_P (t1) && TYPE_PTRDATAMEM_P (t2))
               || (TYPE_PTRMEMFUNC_P (t1) && TYPE_PTRMEMFUNC_P (t2)));
 
-  return composite_pointer_type (t1, t2, error_mark_node, error_mark_node,
+  return composite_pointer_type (input_location, t1, t2,
+				 error_mark_node, error_mark_node,
                                  CPO_CONVERSION, tf_warning_or_error);
 }
 
@@ -1084,11 +1089,15 @@ comp_except_specs (const_tree t1, const_tree t2, int exact)
   return exact == ce_derived || base == NULL_TREE || length == list_length (t1);
 }
 
-/* Compare the array types T1 and T2.  ALLOW_REDECLARATION is true if
-   [] can match [size].  */
+/* Compare the array types T1 and T2.  CB says how we should behave when
+   comparing array bounds: bounds_none doesn't allow dimensionless arrays,
+   bounds_either says than any array can be [], bounds_first means that
+   onlt T1 can be an array with unknown bounds.  STRICT is true if
+   qualifiers must match when comparing the types of the array elements.  */
 
 static bool
-comp_array_types (const_tree t1, const_tree t2, bool allow_redeclaration)
+comp_array_types (const_tree t1, const_tree t2, compare_bounds_t cb,
+		  bool strict)
 {
   tree d1;
   tree d2;
@@ -1098,7 +1107,9 @@ comp_array_types (const_tree t1, const_tree t2, bool allow_redeclaration)
     return true;
 
   /* The type of the array elements must be the same.  */
-  if (!same_type_p (TREE_TYPE (t1), TREE_TYPE (t2)))
+  if (strict
+      ? !same_type_p (TREE_TYPE (t1), TREE_TYPE (t2))
+      : !similar_type_p (TREE_TYPE (t1), TREE_TYPE (t2)))
     return false;
 
   d1 = TYPE_DOMAIN (t1);
@@ -1119,8 +1130,10 @@ comp_array_types (const_tree t1, const_tree t2, bool allow_redeclaration)
        declarations for an array object can specify
        array types that differ by the presence or absence of a major
        array bound (_dcl.array_).  */
-  if (!d1 || !d2)
-    return allow_redeclaration;
+  if (!d1 && d2)
+    return cb >= bounds_either;
+  else if (d1 && !d2)
+    return cb == bounds_either;
 
   /* Check that the dimensions are the same.  */
 
@@ -1368,7 +1381,9 @@ structural_comptypes (tree t1, tree t2, int strict)
 
     case ARRAY_TYPE:
       /* Target types must match incl. qualifiers.  */
-      if (!comp_array_types (t1, t2, !!(strict & COMPARE_REDECLARATION)))
+      if (!comp_array_types (t1, t2, ((strict & COMPARE_REDECLARATION)
+				      ? bounds_either : bounds_none),
+			     /*strict=*/true))
 	return false;
       break;
 
@@ -1482,7 +1497,7 @@ comptypes (tree t1, tree t2, int strict)
 	   perform a deep check. */
 	return structural_comptypes (t1, t2, strict);
 
-      if (flag_checking && USE_CANONICAL_TYPES)
+      if (flag_checking && param_use_canonical_types)
 	{
 	  bool result = structural_comptypes (t1, t2, strict);
 	  
@@ -1503,7 +1518,7 @@ comptypes (tree t1, tree t2, int strict)
 	  
 	  return result;
 	}
-      if (!flag_checking && USE_CANONICAL_TYPES)
+      if (!flag_checking && param_use_canonical_types)
 	return TYPE_CANONICAL (t1) == TYPE_CANONICAL (t2);
       else
 	return structural_comptypes (t1, t2, strict);
@@ -1549,10 +1564,10 @@ similar_type_p (tree type1, tree type2)
   if (same_type_ignoring_top_level_qualifiers_p (type1, type2))
     return true;
 
-  /* FIXME This ought to handle ARRAY_TYPEs too.  */
   if ((TYPE_PTR_P (type1) && TYPE_PTR_P (type2))
-      || (TYPE_PTRDATAMEM_P (type1) && TYPE_PTRDATAMEM_P (type2)))
-    return comp_ptr_ttypes_const (type1, type2);
+      || (TYPE_PTRDATAMEM_P (type1) && TYPE_PTRDATAMEM_P (type2))
+      || (TREE_CODE (type1) == ARRAY_TYPE && TREE_CODE (type2) == ARRAY_TYPE))
+    return comp_ptr_ttypes_const (type1, type2, bounds_either);
 
   return false;
 }
@@ -1758,8 +1773,9 @@ cxx_sizeof_expr (tree e, tsubst_flags_t complain)
   else if (is_overloaded_fn (e))
     {
       if (complain & tf_error)
-        permerror (input_location, "ISO C++ forbids applying %<sizeof%> to an expression of "
-                   "function type");
+	permerror (cp_expr_loc_or_input_loc (e),
+		   "ISO C++ forbids applying %<sizeof%> to an expression "
+		   "of function type");
       else
         return error_mark_node;
       e = char_type_node;
@@ -1820,8 +1836,9 @@ cxx_alignof_expr (tree e, tsubst_flags_t complain)
   else if (is_overloaded_fn (e))
     {
       if (complain & tf_error)
-        permerror (input_location, "ISO C++ forbids applying %<__alignof%> to an expression of "
-                   "function type");
+	permerror (cp_expr_loc_or_input_loc (e),
+		   "ISO C++ forbids applying %<__alignof%> to an expression "
+		   "of function type");
       else
         return error_mark_node;
       if (TREE_CODE (e) == FUNCTION_DECL)
@@ -3550,6 +3567,10 @@ cp_build_array_ref (location_t loc, tree array, tree idx,
   {
     tree ar = cp_default_conversion (array, complain);
     tree ind = cp_default_conversion (idx, complain);
+    tree first = NULL_TREE;
+
+    if (flag_strong_eval_order == 2 && TREE_SIDE_EFFECTS (ind))
+      ar = first = save_expr (ar);
 
     /* Put the integer in IND to simplify error checking.  */
     if (TREE_CODE (TREE_TYPE (ar)) == INTEGER_TYPE)
@@ -3573,11 +3594,10 @@ cp_build_array_ref (location_t loc, tree array, tree idx,
 
     warn_array_subscript_with_type_char (loc, idx);
 
-    ret = cp_build_indirect_ref (cp_build_binary_op (input_location,
-						     PLUS_EXPR, ar, ind,
-						     complain),
-                                 RO_ARRAY_INDEXING,
-                                 complain);
+    ret = cp_build_binary_op (input_location, PLUS_EXPR, ar, ind, complain);
+    if (first)
+      ret = build2_loc (loc, COMPOUND_EXPR, TREE_TYPE (ret), first, ret);
+    ret = cp_build_indirect_ref (ret, RO_ARRAY_INDEXING, complain);
     protected_set_expr_location (ret, loc);
     if (non_lvalue)
       ret = non_lvalue_loc (loc, ret);
@@ -3850,26 +3870,6 @@ cp_build_function_call_vec (tree function, vec<tree, va_gc> **params,
 
   if (TREE_CODE (function) == FUNCTION_DECL)
     {
-      /* If the function is a non-template member function
-         or a non-template friend, then we need to check the
-         constraints.
-
-        Note that if overload resolution failed with a single
-        candidate this function will be used to explicitly diagnose
-        the failure for the single call expression. The check is
-        technically redundant since we also would have failed in
-        add_function_candidate. */
-      if (flag_concepts
-          && (complain & tf_error)
-          && !constraints_satisfied_p (function))
-        {
-          auto_diagnostic_group d;
-          error ("cannot call function %qD", function);
-          location_t loc = DECL_SOURCE_LOCATION (function);
-          diagnose_constraints (loc, function, NULL_TREE);
-          return error_mark_node;
-        }
-
       if (!mark_used (function, complain))
 	return error_mark_node;
       fndecl = function;
@@ -4475,7 +4475,8 @@ cp_build_binary_op (const op_location_t &location,
       if (t != error_mark_node)
 	{
 	  if (complain & tf_error)
-	    permerror (input_location, "assuming cast to type %qT from overloaded function",
+	    permerror (location,
+		       "assuming cast to type %qT from overloaded function",
 		       TREE_TYPE (t));
 	  op0 = t;
 	}
@@ -4486,7 +4487,8 @@ cp_build_binary_op (const op_location_t &location,
       if (t != error_mark_node)
 	{
 	  if (complain & tf_error)
-	    permerror (input_location, "assuming cast to type %qT from overloaded function",
+	    permerror (location,
+		       "assuming cast to type %qT from overloaded function",
 		       TREE_TYPE (t));
 	  op1 = t;
 	}
@@ -4809,16 +4811,16 @@ cp_build_binary_op (const op_location_t &location,
 		{
 		  if ((complain & tf_warning)
 		      && c_inhibit_evaluation_warnings == 0)
-		    warning (OPT_Wshift_count_negative,
-			     "right shift count is negative");
+		    warning_at (location, OPT_Wshift_count_negative,
+				"right shift count is negative");
 		}
 	      else
 		{
 		  if (compare_tree_int (const_op1, TYPE_PRECISION (type0)) >= 0
 		      && (complain & tf_warning)
 		      && c_inhibit_evaluation_warnings == 0)
-		    warning (OPT_Wshift_count_overflow,
-			     "right shift count >= width of type");
+		    warning_at (location, OPT_Wshift_count_overflow,
+				"right shift count >= width of type");
 		}
 	    }
 	  /* Avoid converting op1 to result_type later.  */
@@ -4856,24 +4858,24 @@ cp_build_binary_op (const op_location_t &location,
 	      && tree_int_cst_sgn (const_op0) < 0
 	      && (complain & tf_warning)
 	      && c_inhibit_evaluation_warnings == 0)
-	    warning (OPT_Wshift_negative_value,
-		     "left shift of negative value");
+	    warning_at (location, OPT_Wshift_negative_value,
+			"left shift of negative value");
 	  if (TREE_CODE (const_op1) == INTEGER_CST)
 	    {
 	      if (tree_int_cst_lt (const_op1, integer_zero_node))
 		{
 		  if ((complain & tf_warning)
 		      && c_inhibit_evaluation_warnings == 0)
-		    warning (OPT_Wshift_count_negative,
-			     "left shift count is negative");
+		    warning_at (location, OPT_Wshift_count_negative,
+				"left shift count is negative");
 		}
 	      else if (compare_tree_int (const_op1,
 					 TYPE_PRECISION (type0)) >= 0)
 		{
 		  if ((complain & tf_warning)
 		      && c_inhibit_evaluation_warnings == 0)
-		    warning (OPT_Wshift_count_overflow,
-			     "left shift count >= width of type");
+		    warning_at (location, OPT_Wshift_count_overflow,
+				"left shift count >= width of type");
 		}
 	      else if (TREE_CODE (const_op0) == INTEGER_CST
 		       && (complain & tf_warning))
@@ -4884,35 +4886,6 @@ cp_build_binary_op (const op_location_t &location,
 	}
       break;
 
-    case RROTATE_EXPR:
-    case LROTATE_EXPR:
-      if (code0 == INTEGER_TYPE && code1 == INTEGER_TYPE)
-	{
-	  result_type = type0;
-	  if (TREE_CODE (op1) == INTEGER_CST)
-	    {
-	      if (tree_int_cst_lt (op1, integer_zero_node))
-		{
-		  if (complain & tf_warning)
-		    warning (0, (code == LROTATE_EXPR)
-			          ? G_("left rotate count is negative")
-   			          : G_("right rotate count is negative"));
-		}
-	      else if (compare_tree_int (op1, TYPE_PRECISION (type0)) >= 0)
-		{
-		  if (complain & tf_warning)
-		    warning (0, (code == LROTATE_EXPR) 
-                                  ? G_("left rotate count >= width of type")
-                                  : G_("right rotate count >= width of type"));
-		}
-	    }
-	  /* Convert the shift-count to an integer, regardless of
-	     size of value being shifted.  */
-	  if (TYPE_MAIN_VARIANT (TREE_TYPE (op1)) != integer_type_node)
-	    op1 = cp_convert (integer_type_node, op1, complain);
-	}
-      break;
-
     case EQ_EXPR:
     case NE_EXPR:
       if (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE)
@@ -4920,8 +4893,9 @@ cp_build_binary_op (const op_location_t &location,
       if ((complain & tf_warning)
 	  && c_inhibit_evaluation_warnings == 0
 	  && (FLOAT_TYPE_P (type0) || FLOAT_TYPE_P (type1)))
-	warning (OPT_Wfloat_equal,
-		 "comparing floating-point with %<==%> or %<!=%> is unsafe");
+	warning_at (location, OPT_Wfloat_equal,
+		    "comparing floating-point with %<==%> "
+		    "or %<!=%> is unsafe");
       if (complain & tf_warning)
 	{
 	  tree stripped_orig_op0 = tree_strip_any_location_wrapper (orig_op0);
@@ -4930,8 +4904,9 @@ cp_build_binary_op (const op_location_t &location,
 	       && !integer_zerop (cp_fully_fold (op1)))
 	      || (TREE_CODE (stripped_orig_op1) == STRING_CST
 		  && !integer_zerop (cp_fully_fold (op0))))
-	    warning (OPT_Waddress, "comparison with string literal results "
-		     "in unspecified behavior");
+	    warning_at (location, OPT_Waddress,
+			"comparison with string literal results in "
+			"unspecified behavior");
 	}
 
       build_type = boolean_type_node;
@@ -4947,7 +4922,8 @@ cp_build_binary_op (const op_location_t &location,
 		   && TYPE_PTR_P (type1) && integer_zerop (op1)))
 	{
 	  if (TYPE_PTR_P (type1))
-	    result_type = composite_pointer_type (type0, type1, op0, op1,
+	    result_type = composite_pointer_type (location,
+						  type0, type1, op0, op1,
 						  CPO_COMPARISON, complain);
 	  else
 	    result_type = type0;
@@ -4955,11 +4931,11 @@ cp_build_binary_op (const op_location_t &location,
 	  if (char_type_p (TREE_TYPE (orig_op1)))
 	    {
 	      auto_diagnostic_group d;
-	      if (warning (OPT_Wpointer_compare,
-			     "comparison between pointer and zero character "
-			     "constant"))
-		inform (input_location,
-			  "did you mean to dereference the pointer?");
+	      if (warning_at (location, OPT_Wpointer_compare,
+			      "comparison between pointer and zero character "
+			      "constant"))
+		inform (location,
+			"did you mean to dereference the pointer?");
 	    }
 	  warn_for_null_address (location, op0, complain);
 	}
@@ -4970,7 +4946,8 @@ cp_build_binary_op (const op_location_t &location,
 		   && TYPE_PTR_P (type0) && integer_zerop (op0)))
 	{
 	  if (TYPE_PTR_P (type0))
-	    result_type = composite_pointer_type (type0, type1, op0, op1,
+	    result_type = composite_pointer_type (location,
+						  type0, type1, op0, op1,
 						  CPO_COMPARISON, complain);
 	  else
 	    result_type = type1;
@@ -4978,17 +4955,18 @@ cp_build_binary_op (const op_location_t &location,
 	  if (char_type_p (TREE_TYPE (orig_op0)))
 	    {
 	      auto_diagnostic_group d;
-	      if (warning (OPT_Wpointer_compare,
+	      if (warning_at (location, OPT_Wpointer_compare,
 			     "comparison between pointer and zero character "
 			     "constant"))
-		inform (input_location,
+		inform (location,
 			"did you mean to dereference the pointer?");
 	    }
 	  warn_for_null_address (location, op1, complain);
 	}
       else if ((code0 == POINTER_TYPE && code1 == POINTER_TYPE)
 	       || (TYPE_PTRDATAMEM_P (type0) && TYPE_PTRDATAMEM_P (type1)))
-	result_type = composite_pointer_type (type0, type1, op0, op1,
+	result_type = composite_pointer_type (location,
+					      type0, type1, op0, op1,
 					      CPO_COMPARISON, complain);
       else if (null_ptr_cst_p (orig_op0) && null_ptr_cst_p (orig_op1))
 	/* One of the operands must be of nullptr_t type.  */
@@ -4996,8 +4974,9 @@ cp_build_binary_op (const op_location_t &location,
       else if (code0 == POINTER_TYPE && code1 == INTEGER_TYPE)
 	{
 	  result_type = type0;
-	  if (complain & tf_error) 
-            permerror (input_location, "ISO C++ forbids comparison between pointer and integer");
+	  if (complain & tf_error)
+	    permerror (location, "ISO C++ forbids comparison between "
+		       "pointer and integer");
           else
             return error_mark_node;
 	}
@@ -5005,7 +4984,8 @@ cp_build_binary_op (const op_location_t &location,
 	{
 	  result_type = type1;
 	  if (complain & tf_error)
-	    permerror (input_location, "ISO C++ forbids comparison between pointer and integer");
+	    permerror (location, "ISO C++ forbids comparison between "
+		       "pointer and integer");
           else
             return error_mark_node;
 	}
@@ -5065,7 +5045,7 @@ cp_build_binary_op (const op_location_t &location,
 	  tree delta0;
 	  tree delta1;
 
-	  type = composite_pointer_type (type0, type1, op0, op1, 
+	  type = composite_pointer_type (location, type0, type1, op0, op1, 
 					 CPO_COMPARISON, complain);
 
 	  if (!same_type_p (TREE_TYPE (op0), type))
@@ -5179,7 +5159,8 @@ cp_build_binary_op (const op_location_t &location,
 	   && (code1 == INTEGER_TYPE || code1 == REAL_TYPE))
 	shorten = 1;
       else if (code0 == POINTER_TYPE && code1 == POINTER_TYPE)
-	result_type = composite_pointer_type (type0, type1, op0, op1,
+	result_type = composite_pointer_type (location,
+					      type0, type1, op0, op1,
 					      CPO_COMPARISON, complain);
       break;
 
@@ -5187,12 +5168,14 @@ cp_build_binary_op (const op_location_t &location,
     case GE_EXPR:
     case LT_EXPR:
     case GT_EXPR:
+    case SPACESHIP_EXPR:
       if (TREE_CODE (orig_op0) == STRING_CST
 	  || TREE_CODE (orig_op1) == STRING_CST)
 	{
 	  if (complain & tf_warning)
-	    warning (OPT_Waddress, "comparison with string literal results "
-				   "in unspecified behavior");
+	    warning_at (location, OPT_Waddress,
+			"comparison with string literal results "
+			"in unspecified behavior");
 	}
 
       if (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE)
@@ -5240,6 +5223,13 @@ cp_build_binary_op (const op_location_t &location,
 			  "types %qT and %qT", type0, type1);
 	    }
 
+	  if (resultcode == SPACESHIP_EXPR)
+	    {
+	      if (complain & tf_error)
+		sorry_at (location, "three-way comparison of vectors");
+	      return error_mark_node;
+	    }
+
 	  /* Always construct signed integer vector type.  */
 	  intt = c_common_type_for_size
 	    (GET_MODE_BITSIZE (SCALAR_TYPE_MODE (TREE_TYPE (type0))), 0);
@@ -5261,21 +5251,22 @@ cp_build_binary_op (const op_location_t &location,
 	       || code1 == ENUMERAL_TYPE))
 	short_compare = 1;
       else if (code0 == POINTER_TYPE && code1 == POINTER_TYPE)
-	result_type = composite_pointer_type (type0, type1, op0, op1,
+	result_type = composite_pointer_type (location,
+					      type0, type1, op0, op1,
 					      CPO_COMPARISON, complain);
       else if (code0 == POINTER_TYPE && null_ptr_cst_p (orig_op1))
 	{
 	  result_type = type0;
 	  if (extra_warnings && (complain & tf_warning))
-	    warning (OPT_Wextra,
-		     "ordered comparison of pointer with integer zero");
+	    warning_at (location, OPT_Wextra,
+			"ordered comparison of pointer with integer zero");
 	}
       else if (code1 == POINTER_TYPE && null_ptr_cst_p (orig_op0))
 	{
 	  result_type = type1;
 	  if (extra_warnings && (complain & tf_warning))
-	    warning (OPT_Wextra,
-		     "ordered comparison of pointer with integer zero");
+	    warning_at (location, OPT_Wextra,
+			"ordered comparison of pointer with integer zero");
 	}
       else if (null_ptr_cst_p (orig_op0) && null_ptr_cst_p (orig_op1))
 	/* One of the operands must be of nullptr_t type.  */
@@ -5284,16 +5275,18 @@ cp_build_binary_op (const op_location_t &location,
 	{
 	  result_type = type0;
 	  if (complain & tf_error)
-	    permerror (input_location, "ISO C++ forbids comparison between pointer and integer");
-          else
+	    permerror (location, "ISO C++ forbids comparison between "
+		       "pointer and integer");
+	  else
             return error_mark_node;
 	}
       else if (code0 == INTEGER_TYPE && code1 == POINTER_TYPE)
 	{
 	  result_type = type1;
 	  if (complain & tf_error)
-	    permerror (input_location, "ISO C++ forbids comparison between pointer and integer");
-          else
+	    permerror (location, "ISO C++ forbids comparison between "
+		       "pointer and integer");
+	  else
             return error_mark_node;
 	}
 
@@ -5370,6 +5363,60 @@ cp_build_binary_op (const op_location_t &location,
 				  "to match other operand of binary "
 				  "expression",
 				  location);
+    }
+
+  if (code == SPACESHIP_EXPR)
+    {
+      iloc_sentinel s (location);
+
+      tree orig_type0 = TREE_TYPE (orig_op0);
+      tree_code orig_code0 = TREE_CODE (orig_type0);
+      tree orig_type1 = TREE_TYPE (orig_op1);
+      tree_code orig_code1 = TREE_CODE (orig_type1);
+      if (!result_type)
+	/* Nope.  */;
+      else if ((orig_code0 == BOOLEAN_TYPE) != (orig_code1 == BOOLEAN_TYPE))
+	/* "If one of the operands is of type bool and the other is not, the
+	   program is ill-formed."  */
+	result_type = NULL_TREE;
+      else if (code0 == POINTER_TYPE && orig_code0 != POINTER_TYPE
+	       && code1 == POINTER_TYPE && orig_code1 != POINTER_TYPE)
+	/* We only do array/function-to-pointer conversion if "at least one of
+	   the operands is of pointer type".  */
+	result_type = NULL_TREE;
+      else if (TYPE_PTRFN_P (result_type) || NULLPTR_TYPE_P (result_type))
+	/* <=> no longer supports equality relations.  */
+	result_type = NULL_TREE;
+      else if (orig_code0 == ENUMERAL_TYPE && orig_code1 == ENUMERAL_TYPE
+	       && !(same_type_ignoring_top_level_qualifiers_p
+		    (orig_type0, orig_type1)))
+	/* "If both operands have arithmetic types, or one operand has integral
+	   type and the other operand has unscoped enumeration type, the usual
+	   arithmetic conversions are applied to the operands."  So we don't do
+	   arithmetic conversions if the operands both have enumeral type.  */
+	result_type = NULL_TREE;
+
+      if (result_type)
+	build_type = spaceship_type (result_type, complain);
+
+      if (result_type && arithmetic_types_p)
+	{
+	  /* If a narrowing conversion is required, other than from an integral
+	     type to a floating point type, the program is ill-formed.  */
+	  bool ok = true;
+	  if (TREE_CODE (result_type) == REAL_TYPE
+	      && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (orig_op0)))
+	    /* OK */;
+	  else if (!check_narrowing (result_type, orig_op0, complain))
+	    ok = false;
+	  if (TREE_CODE (result_type) == REAL_TYPE
+	      && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (orig_op1)))
+	    /* OK */;
+	  else if (!check_narrowing (result_type, orig_op1, complain))
+	    ok = false;
+	  if (!ok && !(complain & tf_error))
+	    return error_mark_node;
+	}
     }
 
   if (!result_type)
@@ -5555,6 +5602,17 @@ cp_build_binary_op (const op_location_t &location,
   if (build_type == NULL_TREE)
     build_type = result_type;
 
+  if (doing_shift
+      && flag_strong_eval_order == 2
+      && TREE_SIDE_EFFECTS (op1)
+      && !processing_template_decl)
+    {
+      /* In C++17, in both op0 << op1 and op0 >> op1 op0 is sequenced before
+	 op1, so if op1 has side-effects, use SAVE_EXPR around op0.  */
+      op0 = cp_save_expr (op0);
+      instrument_expr = op0;
+    }
+
   if (sanitize_flags_p ((SANITIZE_SHIFT
 			 | SANITIZE_DIVIDE | SANITIZE_FLOAT_DIVIDE))
       && current_function_decl != NULL_TREE
@@ -5566,6 +5624,7 @@ cp_build_binary_op (const op_location_t &location,
       op1 = cp_save_expr (op1);
       op0 = fold_non_dependent_expr (op0, complain);
       op1 = fold_non_dependent_expr (op1, complain);
+      tree instrument_expr1 = NULL_TREE;
       if (doing_div_or_mod
 	  && sanitize_flags_p (SANITIZE_DIVIDE | SANITIZE_FLOAT_DIVIDE))
 	{
@@ -5578,10 +5637,15 @@ cp_build_binary_op (const op_location_t &location,
 	    cop0 = cp_convert (orig_type, op0, complain);
 	  if (TREE_TYPE (cop1) != orig_type)
 	    cop1 = cp_convert (orig_type, op1, complain);
-	  instrument_expr = ubsan_instrument_division (location, cop0, cop1);
+	  instrument_expr1 = ubsan_instrument_division (location, cop0, cop1);
 	}
       else if (doing_shift && sanitize_flags_p (SANITIZE_SHIFT))
-	instrument_expr = ubsan_instrument_shift (location, code, op0, op1);
+	instrument_expr1 = ubsan_instrument_shift (location, code, op0, op1);
+      if (instrument_expr != NULL)
+	instrument_expr = add_stmt_to_compound (instrument_expr,
+						instrument_expr1);
+      else
+	instrument_expr = instrument_expr1;
     }
 
   result = build2_loc (location, resultcode, build_type, op0, op1);
@@ -5819,10 +5883,10 @@ build_x_unary_op (location_t loc, enum tree_code code, cp_expr xarg,
 	  if (DECL_CONSTRUCTOR_P (fn) || DECL_DESTRUCTOR_P (fn))
 	    {
 	      if (complain & tf_error)
-		error (DECL_CONSTRUCTOR_P (fn)
-		       ? G_("taking address of constructor %qD")
-		       : G_("taking address of destructor %qD"),
-		       fn);
+		error_at (loc, DECL_CONSTRUCTOR_P (fn)
+			  ? G_("taking address of constructor %qD")
+			  : G_("taking address of destructor %qD"),
+			  fn);
 	      return error_mark_node;
 	    }
 	}
@@ -5837,19 +5901,19 @@ build_x_unary_op (location_t loc, enum tree_code code, cp_expr xarg,
 	    {
 	      if (complain & tf_error)
 		{
-		  error ("invalid use of %qE to form a "
-			 "pointer-to-member-function", xarg.get_value ());
+		  error_at (loc, "invalid use of %qE to form a "
+			    "pointer-to-member-function", xarg.get_value ());
 		  if (TREE_CODE (xarg) != OFFSET_REF)
-		    inform (input_location, "  a qualified-id is required");
+		    inform (loc, "  a qualified-id is required");
 		}
 	      return error_mark_node;
 	    }
 	  else
 	    {
 	      if (complain & tf_error)
-		error ("parentheses around %qE cannot be used to form a"
-		       " pointer-to-member-function",
-		       xarg.get_value ());
+		error_at (loc, "parentheses around %qE cannot be used to "
+			  "form a pointer-to-member-function",
+			  xarg.get_value ());
 	      else
 		return error_mark_node;
 	      PTRMEM_OK_P (xarg) = 1;
@@ -5928,15 +5992,22 @@ cp_truthvalue_conversion (tree expr)
     return c_common_truthvalue_conversion (input_location, expr);
 }
 
+/* Returns EXPR contextually converted to bool.  */
+
+tree
+contextual_conv_bool (tree expr, tsubst_flags_t complain)
+{
+  return perform_implicit_conversion_flags (boolean_type_node, expr,
+					    complain, LOOKUP_NORMAL);
+}
+
 /* Just like cp_truthvalue_conversion, but we want a CLEANUP_POINT_EXPR.  This
    is a low-level function; most callers should use maybe_convert_cond.  */
 
 tree
 condition_conversion (tree expr)
 {
-  tree t;
-  t = perform_implicit_conversion_flags (boolean_type_node, expr,
-					 tf_warning_or_error, LOOKUP_NORMAL);
+  tree t = contextual_conv_bool (expr, tf_warning_or_error);
   if (!processing_template_decl)
     t = fold_build_cleanup_point_expr (boolean_type_node, t);
   return t;
@@ -6167,6 +6238,16 @@ cp_build_addr_expr_1 (tree arg, bool strict_lvalue, tsubst_flags_t complain)
     {
       tree stripped_arg = tree_strip_any_location_wrapper (arg);
       if (TREE_CODE (stripped_arg) == FUNCTION_DECL
+	  && DECL_IMMEDIATE_FUNCTION_P (stripped_arg)
+	  && (current_function_decl == NULL_TREE
+	      || !DECL_IMMEDIATE_FUNCTION_P (current_function_decl)))
+	{
+	  if (complain & tf_error)
+	    error ("taking address of an immediate function %qD",
+		   stripped_arg);
+	  return error_mark_node;
+	}
+      if (TREE_CODE (stripped_arg) == FUNCTION_DECL
 	  && !mark_used (stripped_arg, complain) && !(complain & tf_error))
 	return error_mark_node;
       val = build_address (arg);
@@ -6278,7 +6359,7 @@ cp_build_unary_op (enum tree_code code, tree xarg, bool noconvert,
 		       : _("wrong type argument to unary plus"));
 	else
 	  {
-	    if (!noconvert && CP_INTEGRAL_TYPE_P (TREE_TYPE (arg)))
+	    if (!noconvert && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (arg)))
 	      arg = cp_perform_integral_promotions (arg, complain);
 
 	    /* Make sure the result is not an lvalue: a unary plus or minus
@@ -6303,7 +6384,7 @@ cp_build_unary_op (enum tree_code code, tree xarg, bool noconvert,
 						   | WANT_VECTOR_OR_COMPLEX,
 						   arg, true)))
 	errstring = _("wrong type argument to bit-complement");
-      else if (!noconvert && CP_INTEGRAL_TYPE_P (TREE_TYPE (arg)))
+      else if (!noconvert && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (arg)))
 	{
 	  /* Warn if the expression has boolean value.  */
 	  if (TREE_CODE (TREE_TYPE (arg)) == BOOLEAN_TYPE
@@ -6523,7 +6604,7 @@ cp_build_unary_op (enum tree_code code, tree xarg, bool noconvert,
 		    return error_mark_node;
 		  }
 		/* Otherwise, [depr.incr.bool] says this is deprecated.  */
-		else if (!in_system_header_at (input_location))
+		else
 		  warning (OPT_Wdeprecated, "use of an operand of type %qT "
 			   "in %<operator++%> is deprecated",
 			   boolean_type_node);
@@ -7858,7 +7939,7 @@ build_const_cast_1 (tree dst_type, tree expr, tsubst_flags_t complain,
 
   if (TYPE_PTR_P (src_type) || TYPE_PTRDATAMEM_P (src_type))
     {
-      if (comp_ptr_ttypes_const (dst_type, src_type))
+      if (comp_ptr_ttypes_const (dst_type, src_type, bounds_none))
 	{
 	  if (valid_p)
 	    {
@@ -8348,8 +8429,8 @@ cp_build_modify_expr (location_t loc, tree lhs, enum tree_code modifycode,
 	  if (newrhs == error_mark_node)
 	    {
 	      if (complain & tf_error)
-		error ("  in evaluation of %<%Q(%#T, %#T)%>", modifycode,
-		       TREE_TYPE (lhs), TREE_TYPE (rhs));
+		inform (loc, "  in evaluation of %<%Q(%#T, %#T)%>",
+			modifycode, TREE_TYPE (lhs), TREE_TYPE (rhs));
 	      return error_mark_node;
 	    }
 
@@ -8584,7 +8665,7 @@ get_delta_difference_1 (tree from, tree to, bool c_cast_p,
       if (!(complain & tf_error))
 	return error_mark_node;
 
-      error ("   in pointer to member function conversion");
+      inform (input_location, "   in pointer to member function conversion");
       return size_zero_node;
     }
   else if (binfo)
@@ -8645,7 +8726,7 @@ get_delta_difference (tree from, tree to,
 	  return error_mark_node;
 
 	error_not_base_type (from, to);
-	error ("   in pointer to member conversion");
+	inform (input_location, "   in pointer to member conversion");
       	result = size_zero_node;
       }
     else
@@ -8664,7 +8745,7 @@ get_delta_difference (tree from, tree to,
 	      return error_mark_node;
 
 	    error_not_base_type (from, to);
-	    error ("   in pointer to member conversion");
+	    inform (input_location, "   in pointer to member conversion");
 	    result = size_zero_node;
 	  }
       }
@@ -9345,8 +9426,10 @@ maybe_warn_about_returning_address_of_local (tree retval)
 	  tree base = DECL_DECOMP_BASE (whats_returned);
 	  if (TYPE_REF_P (TREE_TYPE (base)))
 	    {
-	      tree init = DECL_INITIAL (base);
-	      return maybe_warn_about_returning_address_of_local (init);
+	      if (tree init = DECL_INITIAL (base))
+		return maybe_warn_about_returning_address_of_local (init);
+	      else
+		return false;
 	    }
 	}
       bool w = false;
@@ -9383,8 +9466,19 @@ maybe_warn_about_returning_address_of_local (tree retval)
 bool
 decl_in_std_namespace_p (tree decl)
 {
-  return (decl != NULL_TREE
-	  && DECL_NAMESPACE_STD_P (decl_namespace_context (decl)));
+  while (decl)
+    {
+      decl = decl_namespace_context (decl);
+      if (DECL_NAMESPACE_STD_P (decl))
+	return true;
+      /* Allow inline namespaces inside of std namespace, e.g. with
+	 --enable-symvers=gnu-versioned-namespace std::forward would be
+	 actually std::_8::forward.  */
+      if (!DECL_NAMESPACE_INLINE_P (decl))
+	return false;
+      decl = CP_DECL_CONTEXT (decl);
+    }
+  return false;
 }
 
 /* Returns true if FN, a CALL_EXPR, is a call to std::forward.  */
@@ -9635,7 +9729,8 @@ check_return_expr (tree retval, bool *no_warning)
 	  if (!retval)
 	    retval = void_node;
 	  auto_node = type_uses_auto (pattern);
-	  type = do_auto_deduction (pattern, retval, auto_node);
+	  type = do_auto_deduction (pattern, retval, auto_node,
+				    tf_warning_or_error, adc_return_type);
 	}
 
       if (type == error_mark_node)
@@ -9682,7 +9777,7 @@ check_return_expr (tree retval, bool *no_warning)
 	   type.  In that case, we have to evaluate the expression for
 	   its side-effects.  */
 	finish_expr_stmt (retval);
-      else
+      else if (retval != error_mark_node)
 	permerror (input_location,
 		   "return-statement with a value, in function "
 		   "returning %qT", valtype);
@@ -9883,7 +9978,7 @@ check_return_expr (tree retval, bool *no_warning)
    If CONSTP is positive, then all outer pointers have been
    const-qualified.  */
 
-static int
+static bool
 comp_ptr_ttypes_real (tree to, tree from, int constp)
 {
   bool to_more_cv_qualified = false;
@@ -9892,24 +9987,25 @@ comp_ptr_ttypes_real (tree to, tree from, int constp)
   for (; ; to = TREE_TYPE (to), from = TREE_TYPE (from))
     {
       if (TREE_CODE (to) != TREE_CODE (from))
-	return 0;
+	return false;
 
       if (TREE_CODE (from) == OFFSET_TYPE
 	  && !same_type_p (TYPE_OFFSET_BASETYPE (from),
 			   TYPE_OFFSET_BASETYPE (to)))
-	return 0;
+	return false;
 
-      /* Const and volatile mean something different for function types,
-	 so the usual checks are not appropriate.  */
-      if (!FUNC_OR_METHOD_TYPE_P (to))
+      /* Const and volatile mean something different for function and
+	 array types, so the usual checks are not appropriate.  We'll
+	 check the array type elements in further iterations.  */
+      if (!FUNC_OR_METHOD_TYPE_P (to) && TREE_CODE (to) != ARRAY_TYPE)
 	{
 	  if (!at_least_as_qualified_p (to, from))
-	    return 0;
+	    return false;
 
 	  if (!at_least_as_qualified_p (from, to))
 	    {
 	      if (constp == 0)
-		return 0;
+		return false;
 	      to_more_cv_qualified = true;
 	    }
 
@@ -9920,7 +10016,17 @@ comp_ptr_ttypes_real (tree to, tree from, int constp)
       if (VECTOR_TYPE_P (to))
 	is_opaque_pointer = vector_targets_convertible_p (to, from);
 
-      if (!TYPE_PTR_P (to) && !TYPE_PTRDATAMEM_P (to))
+      /* P0388R4 allows a conversion from int[N] to int[] but not the
+	 other way round.  When both arrays have bounds but they do
+	 not match, then no conversion is possible.  */
+      if (TREE_CODE (to) == ARRAY_TYPE
+	  && !comp_array_types (to, from, bounds_first, /*strict=*/false))
+	return false;
+
+      if (!TYPE_PTR_P (to)
+	  && !TYPE_PTRDATAMEM_P (to)
+	  /* CWG 330 says we need to look through arrays.  */
+	  && TREE_CODE (to) != ARRAY_TYPE)
 	return ((constp >= 0 || to_more_cv_qualified)
 		&& (is_opaque_pointer
 		    || same_type_ignoring_top_level_qualifiers_p (to, from)));
@@ -10023,10 +10129,10 @@ ptr_reasonably_similar (const_tree to, const_tree from)
 
 /* Return true if TO and FROM (both of which are POINTER_TYPEs or
    pointer-to-member types) are the same, ignoring cv-qualification at
-   all levels.  */
+   all levels.  CB says how we should behave when comparing array bounds.  */
 
 bool
-comp_ptr_ttypes_const (tree to, tree from)
+comp_ptr_ttypes_const (tree to, tree from, compare_bounds_t cb)
 {
   bool is_opaque_pointer = false;
 
@@ -10043,7 +10149,14 @@ comp_ptr_ttypes_const (tree to, tree from)
       if (VECTOR_TYPE_P (to))
 	is_opaque_pointer = vector_targets_convertible_p (to, from);
 
-      if (!TYPE_PTR_P (to))
+      if (TREE_CODE (to) == ARRAY_TYPE
+	  /* Ignore cv-qualification, but if we see e.g. int[3] and int[4],
+	     we must fail.  */
+	  && !comp_array_types (to, from, cb, /*strict=*/false))
+	return false;
+
+      /* CWG 330 says we need to look through arrays.  */
+      if (!TYPE_PTR_P (to) && TREE_CODE (to) != ARRAY_TYPE)
 	return (is_opaque_pointer
 		|| same_type_ignoring_top_level_qualifiers_p (to, from));
     }
@@ -10326,7 +10439,8 @@ lvalue_or_else (tree ref, enum lvalue_use use, tsubst_flags_t complain)
       if (!(complain & tf_error))
 	return 0;
       /* Make this a permerror because we used to accept it.  */
-      permerror (input_location, "using rvalue as lvalue");
+      permerror (cp_expr_loc_or_input_loc (ref),
+		 "using rvalue as lvalue");
     }
   return 1;
 }

@@ -2066,6 +2066,9 @@ simplify_parameter_variable (gfc_expr *p, int type)
 
   e->rank = p->rank;
 
+  if (e->ts.type == BT_CHARACTER && e->ts.u.cl == NULL)
+    e->ts.u.cl = gfc_new_charlen (gfc_current_ns, p->ts.u.cl);
+
   /* Do not copy subobject refs for constant.  */
   if (e->expr_type != EXPR_CONSTANT && p->ref != NULL)
     e->ref = gfc_copy_ref (p->ref);
@@ -3717,6 +3720,12 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform,
 	 converted to any other type.  */
       if ((gfc_numeric_ts (&lvalue->ts) && gfc_numeric_ts (&rvalue->ts))
 	  || rvalue->ts.type == BT_HOLLERITH)
+	return true;
+
+      if (flag_dec_char_conversions && (gfc_numeric_ts (&lvalue->ts)
+	  || lvalue->ts.type == BT_LOGICAL)
+	  && rvalue->ts.type == BT_CHARACTER
+	  && rvalue->ts.kind == gfc_default_character_kind)
 	return true;
 
       if (lvalue->ts.type == BT_LOGICAL && rvalue->ts.type == BT_LOGICAL)

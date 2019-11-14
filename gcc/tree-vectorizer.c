@@ -637,8 +637,7 @@ vec_info::new_stmt_vec_info (gimple *stmt)
   STMT_VINFO_TYPE (res) = undef_vec_info_type;
   STMT_VINFO_RELEVANT (res) = vect_unused_in_scope;
   STMT_VINFO_VECTORIZABLE (res) = true;
-  STMT_VINFO_VEC_REDUCTION_TYPE (res) = TREE_CODE_REDUCTION;
-  STMT_VINFO_VEC_COND_REDUC_CODE (res) = ERROR_MARK;
+  STMT_VINFO_REDUC_TYPE (res) = TREE_CODE_REDUCTION;
   STMT_VINFO_REDUC_CODE (res) = ERROR_MARK;
   STMT_VINFO_REDUC_FN (res) = IFN_LAST;
   STMT_VINFO_REDUC_IDX (res) = -1;
@@ -866,8 +865,7 @@ set_uid_loop_bbs (loop_vec_info loop_vinfo, gimple *loop_vectorized_call)
 
 static unsigned
 try_vectorize_loop_1 (hash_table<simduid_to_vf> *&simduid_to_vf_htab,
-		      unsigned *num_vectorized_loops,
-		      loop_p loop, loop_vec_info orig_loop_vinfo,
+		      unsigned *num_vectorized_loops, loop_p loop,
 		      gimple *loop_vectorized_call,
 		      gimple *loop_dist_alias_call)
 {
@@ -875,6 +873,7 @@ try_vectorize_loop_1 (hash_table<simduid_to_vf> *&simduid_to_vf_htab,
   vec_info_shared shared;
   auto_purge_vect_location sentinel;
   vect_location = find_loop_location (loop);
+
   if (LOCATION_LOCUS (vect_location.get_location_t ()) != UNKNOWN_LOCATION
       && dump_enabled_p ())
     dump_printf (MSG_NOTE | MSG_PRIORITY_INTERNALS,
@@ -882,10 +881,17 @@ try_vectorize_loop_1 (hash_table<simduid_to_vf> *&simduid_to_vf_htab,
 		 LOCATION_FILE (vect_location.get_location_t ()),
 		 LOCATION_LINE (vect_location.get_location_t ()));
 
-  /* Try to analyze the loop, retaining an opt_problem if dump_enabled_p.  */
-  opt_loop_vec_info loop_vinfo
-    = vect_analyze_loop (loop, orig_loop_vinfo, &shared);
-  loop->aux = loop_vinfo;
+  opt_loop_vec_info loop_vinfo = opt_loop_vec_info::success (NULL);
+  /* In the case of epilogue vectorization the loop already has its
+     loop_vec_info set, we do not require to analyze the loop in this case.  */
+  if (loop_vec_info vinfo = loop_vec_info_for_loop (loop))
+    loop_vinfo = opt_loop_vec_info::success (vinfo);
+  else
+    {
+      /* Try to analyze the loop, retaining an opt_problem if dump_enabled_p.  */
+      loop_vinfo = vect_analyze_loop (loop, &shared);
+      loop->aux = loop_vinfo;
+    }
 
   if (!loop_vinfo)
     if (dump_enabled_p ())
@@ -972,7 +978,7 @@ try_vectorize_loop_1 (hash_table<simduid_to_vf> *&simduid_to_vf_htab,
   unsigned HOST_WIDE_INT bytes;
   if (dump_enabled_p ())
     {
-      if (current_vector_size.is_constant (&bytes))
+      if (loop_vinfo->vector_size.is_constant (&bytes))
 	dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, vect_location,
 			 "loop vectorized using %wu byte vectors\n", bytes);
       else
@@ -1013,8 +1019,13 @@ try_vectorize_loop_1 (hash_table<simduid_to_vf> *&simduid_to_vf_htab,
 
   /* Epilogue of vectorized loop must be vectorized too.  */
   if (new_loop)
-    ret |= try_vectorize_loop_1 (simduid_to_vf_htab, num_vectorized_loops,
-				 new_loop, loop_vinfo, NULL, NULL);
+    {
+      /* Don't include vectorized epilogues in the "vectorized loops" count.
+       */
+      unsigned dont_count = *num_vectorized_loops;
+      ret |= try_vectorize_loop_1 (simduid_to_vf_htab, &dont_count,
+				   new_loop, NULL, NULL);
+    }
 
   return ret;
 }
@@ -1030,8 +1041,7 @@ try_vectorize_loop (hash_table<simduid_to_vf> *&simduid_to_vf_htab,
 	|| loop->force_vectorize))
     return 0;
 
-  return try_vectorize_loop_1 (simduid_to_vf_htab, num_vectorized_loops,
-			       loop, NULL,
+  return try_vectorize_loop_1 (simduid_to_vf_htab, num_vectorized_loops, loop,
 			       vect_loop_vectorized_call (loop),
 			       vect_loop_dist_alias_call (loop));
 }
@@ -1348,7 +1358,8 @@ get_vec_alignment_for_array_type (tree type)
   gcc_assert (TREE_CODE (type) == ARRAY_TYPE);
   poly_uint64 array_size, vector_size;
 
-  tree vectype = get_vectype_for_scalar_type (strip_array_types (type));
+  tree scalar_type = strip_array_types (type);
+  tree vectype = get_vectype_for_scalar_type_and_size (scalar_type, 0);
   if (!vectype
       || !poly_int_tree_p (TYPE_SIZE (type), &array_size)
       || !poly_int_tree_p (TYPE_SIZE (vectype), &vector_size)
@@ -1515,4 +1526,37 @@ simple_ipa_opt_pass *
 make_pass_ipa_increase_alignment (gcc::context *ctxt)
 {
   return new pass_ipa_increase_alignment (ctxt);
+}
+
+/* If the condition represented by T is a comparison or the SSA name
+   result of a comparison, extract the comparison's operands.  Represent
+   T as NE_EXPR <T, 0> otherwise.  */
+
+void
+scalar_cond_masked_key::get_cond_ops_from_tree (tree t)
+{
+  if (TREE_CODE_CLASS (TREE_CODE (t)) == tcc_comparison)
+    {
+      this->code = TREE_CODE (t);
+      this->op0 = TREE_OPERAND (t, 0);
+      this->op1 = TREE_OPERAND (t, 1);
+      return;
+    }
+
+  if (TREE_CODE (t) == SSA_NAME)
+    if (gassign *stmt = dyn_cast<gassign *> (SSA_NAME_DEF_STMT (t)))
+      {
+	tree_code code = gimple_assign_rhs_code (stmt);
+	if (TREE_CODE_CLASS (code) == tcc_comparison)
+	  {
+	    this->code = code;
+	    this->op0 = gimple_assign_rhs1 (stmt);
+	    this->op1 = gimple_assign_rhs2 (stmt);
+	    return;
+	  }
+      }
+
+  this->code = NE_EXPR;
+  this->op0 = t;
+  this->op1 = build_zero_cst (TREE_TYPE (t));
 }

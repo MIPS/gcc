@@ -405,6 +405,7 @@ grok_array_decl (location_t loc, tree array_expr, tree index_exp,
   else
     {
       tree p1, p2, i1, i2;
+      bool swapped = false;
 
       /* Otherwise, create an ARRAY_REF for a pointer or array type.
 	 It is a little-known fact that, if `a' is an array and `i' is
@@ -431,7 +432,7 @@ grok_array_decl (location_t loc, tree array_expr, tree index_exp,
       if (p1 && i2)
 	array_expr = p1, index_exp = i2;
       else if (i1 && p2)
-	array_expr = p2, index_exp = i1;
+	swapped = true, array_expr = p2, index_exp = i1;
       else
 	{
 	  error_at (loc, "invalid types %<%T[%T]%> for array subscript",
@@ -447,7 +448,12 @@ grok_array_decl (location_t loc, tree array_expr, tree index_exp,
       else
 	array_expr = mark_lvalue_use_nonread (array_expr);
       index_exp = mark_rvalue_use (index_exp);
-      expr = build_array_ref (input_location, array_expr, index_exp);
+      if (swapped
+	  && flag_strong_eval_order == 2
+	  && (TREE_SIDE_EFFECTS (array_expr) || TREE_SIDE_EFFECTS (index_exp)))
+	expr = build_array_ref (input_location, index_exp, array_expr);
+      else
+	expr = build_array_ref (input_location, array_expr, index_exp);
     }
   if (processing_template_decl && expr != error_mark_node)
     {
@@ -983,6 +989,9 @@ grokfield (const cp_declarator *declarator,
     flags = LOOKUP_NORMAL;
   else
     flags = LOOKUP_IMPLICIT;
+
+  if (decl_spec_seq_has_spec_p (declspecs, ds_constinit))
+    flags |= LOOKUP_CONSTINIT;
 
   switch (TREE_CODE (value))
     {
@@ -1549,8 +1558,12 @@ cplus_decl_attributes (tree *decl, tree attributes, int flags)
 	attributes = tree_cons (get_identifier ("omp declare target implicit"),
 				NULL_TREE, attributes);
       else
-	attributes = tree_cons (get_identifier ("omp declare target"),
-				NULL_TREE, attributes);
+	{
+	  attributes = tree_cons (get_identifier ("omp declare target"),
+				  NULL_TREE, attributes);
+	  attributes = tree_cons (get_identifier ("omp declare target block"),
+				  NULL_TREE, attributes);
+	}
     }
 
   if (processing_template_decl)
@@ -1608,7 +1621,8 @@ build_anon_union_vars (tree type, tree object)
      just give an error.  */
   if (TREE_CODE (type) != UNION_TYPE)
     {
-      error ("anonymous struct not inside named type");
+      error_at (DECL_SOURCE_LOCATION (TYPE_MAIN_DECL (type)),
+		"anonymous struct not inside named type");
       return error_mark_node;
     }
 
@@ -5458,6 +5472,17 @@ mark_used (tree decl, tsubst_flags_t complain)
     used_types_insert (DECL_CONTEXT (decl));
 
   if (TREE_CODE (decl) == FUNCTION_DECL
+      && DECL_MAYBE_DELETED (decl))
+    {
+      /* ??? Switch other defaulted functions to use DECL_MAYBE_DELETED?  */
+      gcc_assert (special_function_p (decl) == sfk_comparison);
+
+      ++function_depth;
+      synthesize_method (decl);
+      --function_depth;
+    }
+
+  if (TREE_CODE (decl) == FUNCTION_DECL
       && !maybe_instantiate_noexcept (decl, complain))
     return false;
 
@@ -5509,6 +5534,21 @@ mark_used (tree decl, tsubst_flags_t complain)
      them instantiated for reduction clauses which inline them by hand
      directly.  */
   maybe_instantiate_decl (decl);
+
+  if (flag_concepts && TREE_CODE (decl) == FUNCTION_DECL
+      && !constraints_satisfied_p (decl))
+    {
+      if (complain & tf_error)
+	{
+	  auto_diagnostic_group d;
+	  error ("use of function %qD with unsatisfied constraints",
+		 decl);
+	  location_t loc = DECL_SOURCE_LOCATION (decl);
+	  inform (loc, "declared here");
+	  diagnose_constraints (loc, decl, NULL_TREE);
+	}
+      return false;
+    }
 
   if (processing_template_decl || in_template_function ())
     return true;
@@ -5563,7 +5603,6 @@ mark_used (tree decl, tsubst_flags_t complain)
 
   /* Is it a synthesized method that needs to be synthesized?  */
   if (TREE_CODE (decl) == FUNCTION_DECL
-      && DECL_NONSTATIC_MEMBER_FUNCTION_P (decl)
       && DECL_DEFAULTED_FN (decl)
       /* A function defaulted outside the class is synthesized either by
 	 cp_finish_decl or instantiate_decl.  */
@@ -5581,7 +5620,8 @@ mark_used (tree decl, tsubst_flags_t complain)
       /* Remember the current location for a function we will end up
 	 synthesizing.  Then we can inform the user where it was
 	 required in the case of error.  */
-      DECL_SOURCE_LOCATION (decl) = input_location;
+      if (DECL_ARTIFICIAL (decl))
+	DECL_SOURCE_LOCATION (decl) = input_location;
 
       /* Synthesizing an implicitly defined member function will result in
 	 garbage collection.  We must treat this situation as if we were

@@ -1,3 +1,27 @@
+2019-11-11  Janne Blomqvist  <jb@gcc.gnu.org>
+
+        PR fortran/91828
+        * configure.ac: Bump minimum MPFR to 3.1.0, recommended to 3.1.6+.
+        * configure: Regenerated.
+
+2019-10-21  Jason Merrill  <jason@redhat.com>
+
+	* .gitattributes: Also check ChangeLog whitespace.
+
+2019-10-21  Andrew Burgess  <andrew.burgess@embecosm.com>
+
+	* contrib/dg-extract-results.sh: Add support for KPASS.
+	* contrib/dg-extract-results.py: Likewise.
+
+2019-10-17  Jason Merrill  <jason@redhat.com>
+
+	* .gitattributes: Avoid {} in filename pattern.
+
+2019-10-08  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* MAINTAINERS: Add back Trevor Smigiel; move into Write After
+	Approval section.
+
 2019-10-01  Frederik Harwath <frederik@codesourcery.com>
 
 	* MAINTAINERS: Add myself to Write After Approval

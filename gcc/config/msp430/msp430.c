@@ -35,6 +35,7 @@
 #include "tm_p.h"
 #include "regs.h"
 #include "emit-rtl.h"
+#include "varasm.h"
 #include "diagnostic-core.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -46,12 +47,15 @@
 #include "builtins.h"
 #include "intl.h"
 #include "msp430-devices.h"
+#include "incpath.h"
+#include "prefix.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
 
 
 static void msp430_compute_frame_info (void);
+static bool use_32bit_hwmult (void);
 
 
 
@@ -82,7 +86,7 @@ struct GTY(()) machine_function
 };
 
 /* This is our init_machine_status, as set in
-   msp_option_override.  */
+   msp430_option_override.  */
 static struct machine_function *
 msp430_init_machine_status (void)
 {
@@ -263,9 +267,6 @@ msp430_option_override (void)
   else if (!TARGET_LARGE && msp430_code_region == MSP430_REGION_UPPER)
     error ("%<-mcode-region=upper%> requires the large memory model "
 	   "(%<-mlarge%>)");
-  else if (!TARGET_LARGE && msp430_code_region == MSP430_REGION_LOWER)
-    error ("%<-mcode-region=lower%> requires the large memory model "
-	   "(%<-mlarge%>)");
 
   if (!TARGET_LARGE && msp430_data_region == MSP430_REGION_EITHER)
     error ("%<-mdata-region=either%> requires the large memory model "
@@ -273,10 +274,6 @@ msp430_option_override (void)
   else if (!TARGET_LARGE && msp430_data_region == MSP430_REGION_UPPER)
     error ("%<-mdata-region=upper%> requires the large memory model "
 	   "(%<-mlarge%>)");
-  else if (!TARGET_LARGE && msp430_data_region == MSP430_REGION_LOWER)
-    error ("%<-mdata-region=lower%> requires the large memory model "
-	   "(%<-mlarge%>)");
-
 
   if (flag_exceptions || flag_non_call_exceptions
       || flag_unwind_tables || flag_asynchronous_unwind_tables)
@@ -290,6 +287,12 @@ msp430_option_override (void)
      possible to build newlib with -Os enabled.  Until now...  */
   if (TARGET_OPT_SPACE && optimize < 3)
     optimize_size = 1;
+
+#ifndef HAVE_NEWLIB_NANO_FORMATTED_IO
+  if (TARGET_TINY_PRINTF)
+    error ("GCC must be configured with %<--enable-newlib-nano-formatted-io%> "
+	   "to use %<-mtiny-printf%>");
+#endif
 }
 
 #undef  TARGET_SCALAR_MODE_SUPPORTED_P
@@ -338,28 +341,9 @@ msp430_hard_regno_nregs (unsigned int, machine_mode mode)
 	  / UNITS_PER_WORD);
 }
 
-/* Implements HARD_REGNO_NREGS_HAS_PADDING.  */
-int
-msp430_hard_regno_nregs_has_padding (int regno ATTRIBUTE_UNUSED,
-				     machine_mode mode)
-{
-  if (mode == PSImode && msp430x)
-    return 1;
-  return ((GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1)
-	  / UNITS_PER_WORD);
-}
-
-/* Implements HARD_REGNO_NREGS_WITH_PADDING.  */
-int
-msp430_hard_regno_nregs_with_padding (int regno ATTRIBUTE_UNUSED,
-				      machine_mode mode)
-{
-  if (mode == PSImode)
-    return 2;
-  if (mode == CPSImode)
-    return 4;
-  return msp430_hard_regno_nregs (regno, mode);
-}
+/* subreg_get_info correctly handles PSImode registers, so defining
+   HARD_REGNO_NREGS_HAS_PADDING and HARD_REGNO_NREGS_WITH_PADDING
+   has no effect.  */
 
 #undef TARGET_HARD_REGNO_MODE_OK
 #define TARGET_HARD_REGNO_MODE_OK msp430_hard_regno_mode_ok
@@ -948,12 +932,17 @@ msp430_legitimate_address_p (machine_mode mode ATTRIBUTE_UNUSED,
       return false;
 
     case PLUS:
+    case POST_INC:
       if (REG_P (XEXP (x, 0)))
 	{
 	  if (GET_MODE (x) != GET_MODE (XEXP (x, 0)))
 	    return false;
 	  if (!reg_ok_for_addr (XEXP (x, 0), strict))
 	    return false;
+	  if (GET_CODE (x) == POST_INC)
+	    /* At this point, if the original rtx was a post_inc, we don't have
+	       anything further to check.  */
+	    return true;
 	  switch (GET_CODE (XEXP (x, 1)))
 	    {
 	    case CONST:
@@ -1386,7 +1375,7 @@ msp430_section_attr (tree * node,
   if (has_attr (ATTR_NOINIT, *node))
     message = G_("ignoring attribute %qE because it conflicts with "
 		 "attribute %<noinit%>");
-  else if (has_attr ("section", *node))
+  else if (has_attr ("section", *node) && !TREE_NAME_EQ (name, "lower"))
     message = G_("ignoring attribute %qE because it conflicts with "
 		 "attribute %<section%>");
   /* It does not make sense to use upper/lower/either attributes without
@@ -1564,12 +1553,14 @@ msp430_handle_generic_attribute (tree *node,
 {
   const char *message = NULL;
 
+  /* The front end has set up an exclusion between the "noinit" and "section"
+     attributes.  */
   if (!(TREE_NAME_EQ (name, ATTR_NOINIT) || TREE_NAME_EQ (name, "section")))
     return NULL_TREE;
 
-  /* The front end has set up an exclusion between the "noinit" and "section"
-     attributes.  */
-  if (has_attr (ATTR_LOWER, *node))
+  /* We allow the "lower" attribute to be used on variables with the "section"
+     attribute.  */
+  if (has_attr (ATTR_LOWER, *node) && !TREE_NAME_EQ (name, "section"))
     message = G_("ignoring attribute %qE because it conflicts with "
 		 "attribute %<lower%>");
   else if (has_attr (ATTR_UPPER, *node))
@@ -1589,6 +1580,55 @@ msp430_handle_generic_attribute (tree *node,
     }
 
   return NULL_TREE;
+}
+
+/* Given a non-automatic VAR_DECL which can possibly have a section, return
+   true if the variable will definitely be placed in the lower memory
+   region (below address 0x10000).  */
+static bool
+msp430_var_in_low_mem (tree decl)
+{
+  gcc_assert (VAR_P (decl));
+
+  /* "noinit" variables are always placed in the lower memory region.  */
+  if (has_attr (ATTR_UPPER, decl)
+      || has_attr (ATTR_EITHER, decl)
+      || has_attr (ATTR_PERSIST, decl)
+      /* Unless the variable is marked with the lower or noinit attribute, we
+	 cannot assume that it is in the lower region if it is marked with the
+	 section attribute or -mdata-region={upper,either,none} have been
+	 passed.
+	 The noinit and section attributes conflict.  */
+      || (!has_attr (ATTR_LOWER, decl) && !has_attr (ATTR_NOINIT, decl)
+	  && (has_attr ("section", decl)
+	      || msp430_data_region == MSP430_REGION_UPPER
+	      || msp430_data_region == MSP430_REGION_EITHER
+	      || msp430_data_region == MSP430_REGION_ANY)))
+    return false;
+  return true;
+}
+
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO msp430_encode_section_info
+
+/* Encode whether a SYMBOL_REF is definitely in the lower memory region.  */
+static void
+msp430_encode_section_info (tree decl, rtx rtl, int first)
+{
+  rtx symbol;
+  default_encode_section_info (decl, rtl, first);
+
+  /* Careful not to prod global register variables.  */
+  if (!MEM_P (rtl))
+    return;
+  symbol = XEXP (rtl, 0);
+  if (GET_CODE (symbol) != SYMBOL_REF)
+    return;
+
+  if (VAR_P (decl)
+      && (TREE_STATIC (decl) || DECL_EXTERNAL (decl))
+      && msp430_var_in_low_mem (decl))
+    SYMBOL_REF_FLAGS (symbol) = SYMBOL_FLAG_LOW_MEM;
 }
 
 #undef  TARGET_ASM_FUNCTION_PROLOGUE
@@ -1744,14 +1784,16 @@ gen_prefix (tree decl)
   if (has_section_name (".lowtext", decl))
     return NULL;
 
-  /* If the object has __attribute__((lower)) then use the ".lower." prefix.  */
+  /* Memory regions require the large memory model.  */
+  if (!TARGET_LARGE)
+    return NULL;
+
+  /* Note that we always apply the lower prefix when the attribute has been
+     used.  But we only apply the lower prefix when the lower region has been
+     specified by a command line option if -muse-lower-region-prefix has also
+     been passed.  */
   if (has_attr (ATTR_LOWER, decl))
     return lower_prefix;
-
-  /* If we are compiling for the MSP430 then we do not support the upper
-     region.  */
-  if (! msp430x)
-    return NULL;
 
   if (has_attr (ATTR_UPPER, decl))
     return upper_prefix;
@@ -1761,7 +1803,8 @@ gen_prefix (tree decl)
 
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
-      if (msp430_code_region == MSP430_REGION_LOWER)
+      if ((msp430_code_region == MSP430_REGION_LOWER)
+	  && TARGET_USE_LOWER_REGION_PREFIX)
 	return lower_prefix;
 
       if (msp430_code_region == MSP430_REGION_UPPER)
@@ -1772,7 +1815,8 @@ gen_prefix (tree decl)
     }
   else
     {
-      if (msp430_data_region == MSP430_REGION_LOWER)
+      if ((msp430_data_region == MSP430_REGION_LOWER)
+	  && TARGET_USE_LOWER_REGION_PREFIX)
 	return lower_prefix;
 
       if (msp430_data_region == MSP430_REGION_UPPER)
@@ -1966,7 +2010,6 @@ msp430_unique_section (tree decl, int reloc)
 /* Emit a declaration of a common symbol.
    If a data region is in use then put the symbol into the
    equivalent .bss section instead.  */
-
 void
 msp430_output_aligned_decl_common (FILE *		  stream,
 				   const tree		  decl,
@@ -1976,7 +2019,9 @@ msp430_output_aligned_decl_common (FILE *		  stream,
 {
   /* Only emit a common symbol if the variable does not have a specific section
      assigned.  */
-  if (msp430_data_region == MSP430_REGION_ANY
+  if ((msp430_data_region == MSP430_REGION_ANY
+       || ((msp430_data_region == MSP430_REGION_LOWER)
+	   && !TARGET_USE_LOWER_REGION_PREFIX))
       && !(decl != NULL_TREE && DECL_SECTION_NAME (decl))
       && !has_attr (ATTR_EITHER, decl)
       && !has_attr (ATTR_LOWER, decl)
@@ -2021,6 +2066,80 @@ msp430_output_aligned_decl_common (FILE *		  stream,
     }
 }
 
+#undef TARGET_ASM_FILE_END
+#define TARGET_ASM_FILE_END msp430_file_end
+
+/* Emit MSPABI and GNU object attributes.
+   Tags and values for MSPABI attributes are:
+   OFBA_MSPABI_Tag_ISA		4
+     MSP430	1
+     MSP430X	2
+   OFBA_MSPABI_Tag_Code_Model	6
+     Small 	1
+     Large	2
+   OFBA_MSPABI_Tag_Data_Model	8
+     Small 	1
+     Large	2
+     Restricted	3 (Unused by GNU)
+   OFBA_MSPABI_Tag_enum_size	10 (Unused by GNU)
+   Note that Code_Model and Data_Model are always equal for GNU.
+   We define a new .gnu_attribute to keep track of the data region used.
+   Tag_GNU_MSP430_Data_Region	4
+     LOWER	1
+     ANY	2
+   See binutils-gdb/include/elf/msp430.h for the full details.  */
+static void
+msp430_file_end (void)
+{
+#ifdef HAVE_AS_GNU_ATTRIBUTE
+  /* Enum for tag names.  */
+  enum
+    {
+      OFBA_MSPABI_Tag_ISA = 4,
+      OFBA_MSPABI_Tag_Code_Model = 6,
+      OFBA_MSPABI_Tag_Data_Model = 8,
+      Tag_GNU_MSP430_Data_Region = 4
+    };
+  /* Enum for tag values.  */
+  enum
+    {
+      OFBA_MSPABI_Val_ISA_MSP430 = 1,
+      OFBA_MSPABI_Val_ISA_MSP430X = 2,
+      OFBA_MSPABI_Val_Model_Small = 1,
+      OFBA_MSPABI_Val_Model_Large = 2,
+      Tag_GNU_MSP430_Data_Region_Lower = 1,
+      Tag_GNU_MSP430_Data_Region_Any = 2
+    };
+  /* .mspabi_attribute is a GNU assembler directive only.  The assembler will
+     construct a .MSP430.attributes section based on the options it is invoked
+     with.  The values it reads from these directives are used for validating
+     those options.  */
+  const char *msp430_attr = ".mspabi_attribute";
+  const char *gnu_attr = ".gnu_attribute";
+
+  /* Emit .mspabi_attribute directive for OFBA_MSPABI_Tag_ISA.  */
+  fprintf (asm_out_file, "\t%s %d, %d\n", msp430_attr, OFBA_MSPABI_Tag_ISA,
+	   msp430x ? OFBA_MSPABI_Val_ISA_MSP430X : OFBA_MSPABI_Val_ISA_MSP430);
+  /* Emit .mspabi_attribute directive for OFBA_MSPABI_Tag_Code_Model.  */
+  fprintf (asm_out_file, "\t%s %d, %d\n", msp430_attr,
+	   OFBA_MSPABI_Tag_Code_Model,
+	   TARGET_LARGE ? OFBA_MSPABI_Val_Model_Large
+	   : OFBA_MSPABI_Val_Model_Small);
+  /* Emit .mspabi_attribute directive for OFBA_MSPABI_Tag_Data_Model.  */
+  fprintf (asm_out_file, "\t%s %d, %d\n", msp430_attr,
+	   OFBA_MSPABI_Tag_Data_Model,
+	   TARGET_LARGE ? OFBA_MSPABI_Val_Model_Large
+	   : OFBA_MSPABI_Val_Model_Small);
+#ifdef HAVE_AS_MSPABI_ATTRIBUTE
+  /* Emit .gnu_attribute directive for Tag_GNU_MSP430_Data_Region.  */
+  fprintf (asm_out_file, "\t%s %d, %d\n", gnu_attr, Tag_GNU_MSP430_Data_Region,
+	   msp430_data_region == MSP430_REGION_LOWER
+	   ? Tag_GNU_MSP430_Data_Region_Lower
+	   : Tag_GNU_MSP430_Data_Region_Any);
+#endif
+#endif
+}
+
 bool
 msp430_do_not_relax_short_jumps (void)
 {
@@ -2031,9 +2150,7 @@ msp430_do_not_relax_short_jumps (void)
      end up in a low section.  */
   return
     msp430_code_region == MSP430_REGION_EITHER
-    || msp430_code_region == MSP430_REGION_LOWER
-    || has_attr (ATTR_EITHER, current_function_decl)
-    || has_attr (ATTR_LOWER, current_function_decl);
+    || has_attr (ATTR_EITHER, current_function_decl);
 }
 
 enum msp430_builtin
@@ -2484,7 +2601,7 @@ msp430_expand_epilogue (int is_eh)
   else if (is_reentrant_func ())
     emit_insn (gen_enable_interrupts ());
 
-  emit_jump_insn (gen_msp_return ());
+  emit_jump_insn (gen_msp430_return ());
 }
 
 /* Implements EH_RETURN_STACKADJ_RTX.  Saved and used later in
@@ -2583,7 +2700,7 @@ void
 msp430_expand_helper (rtx *operands, const char *helper_name,
 		      bool const_variants)
 {
-  rtx c, f;
+  rtx c, fusage, fsym;
   char *helper_const = NULL;
   int arg1 = 12;
   int arg2 = 13;
@@ -2592,8 +2709,14 @@ msp430_expand_helper (rtx *operands, const char *helper_name,
   machine_mode arg1mode = GET_MODE (operands[1]);
   machine_mode arg2mode = GET_MODE (operands[2]);
   int have_430x = msp430x ? 1 : 0;
+  int expand_mpy = strncmp (helper_name, "__mspabi_mpy",
+			    sizeof ("__mspabi_mpy") - 1) == 0;
+  /* This function has been used incorrectly if CONST_VARIANTS is TRUE for a
+     hwmpy function.  */
+  gcc_assert (!(expand_mpy && const_variants));
 
-  if (CONST_INT_P (operands[2]))
+  /* Emit size-optimal insns for small shifts we can easily do inline.  */
+  if (CONST_INT_P (operands[2]) && !expand_mpy)
     {
       int i;
 
@@ -2610,6 +2733,10 @@ msp430_expand_helper (rtx *operands, const char *helper_name,
 	}
     }
 
+  if (arg1mode != VOIDmode && arg2mode != VOIDmode)
+    /* Modes of arguments must be equal if not constants.  */
+    gcc_assert (arg1mode == arg2mode);
+
   if (arg1mode == VOIDmode)
     arg1mode = arg0mode;
   if (arg2mode == VOIDmode)
@@ -2622,12 +2749,13 @@ msp430_expand_helper (rtx *operands, const char *helper_name,
     }
   else if (arg1mode == DImode)
     {
-      /* Shift value in R8:R11, shift amount in R12.  */
       arg1 = 8;
       arg1sz = 4;
       arg2 = 12;
     }
 
+  /* Use the "const_variant" of a shift library function if requested.
+     These are faster, but have larger code size.  */
   if (const_variants
       && CONST_INT_P (operands[2])
       && INTVAL (operands[2]) >= 1
@@ -2641,25 +2769,58 @@ msp430_expand_helper (rtx *operands, const char *helper_name,
 		(int) INTVAL (operands[2]));
     }
 
+  /* Setup the arguments to the helper function.  */
   emit_move_insn (gen_rtx_REG (arg1mode, arg1),
 		  operands[1]);
   if (!helper_const)
     emit_move_insn (gen_rtx_REG (arg2mode, arg2),
 		    operands[2]);
 
-  c = gen_call_value_internal (gen_rtx_REG (arg0mode, 12),
-			       gen_rtx_SYMBOL_REF (VOIDmode, helper_const
-						   ? helper_const
-						   : helper_name),
-			       GEN_INT (0));
+  if (expand_mpy)
+    {
+      if (msp430_use_f5_series_hwmult ())
+	fsym = gen_rtx_SYMBOL_REF (VOIDmode, concat (helper_name,
+						     "_f5hw", NULL));
+      else if (use_32bit_hwmult ())
+	{
+	  /* When the arguments are 16-bits, the 16-bit hardware multiplier is
+	     used.  */
+	  if (arg1mode == HImode)
+	    fsym = gen_rtx_SYMBOL_REF (VOIDmode, concat (helper_name,
+							 "_hw", NULL));
+	  else
+	    fsym = gen_rtx_SYMBOL_REF (VOIDmode, concat (helper_name,
+							 "_hw32", NULL));
+	}
+      /* 16-bit hardware multiply.  */
+      else if (msp430_has_hwmult ())
+	fsym = gen_rtx_SYMBOL_REF (VOIDmode, concat (helper_name,
+						     "_hw", NULL));
+      else
+	fsym = gen_rtx_SYMBOL_REF (VOIDmode, helper_name);
+    }
+  else
+    fsym = gen_rtx_SYMBOL_REF (VOIDmode,
+			       helper_const ? helper_const : helper_name);
+
+  c = gen_call_value_internal (gen_rtx_REG (arg0mode, 12), fsym, GEN_INT (0));
+
   c = emit_call_insn (c);
   RTL_CONST_CALL_P (c) = 1;
 
-  f = 0;
-  use_regs (&f, arg1, arg1sz);
+  /* Add register usage information for the arguments to the call.  */
+  fusage = NULL;
+  use_regs (&fusage, arg1, arg1sz);
   if (!helper_const)
-    use_regs (&f, arg2, 1);
-  add_function_usage_to (c, f);
+    {
+      /* If we are expanding a shift, we only need to use the low register
+	 for the shift amount.  */
+      if (!expand_mpy)
+	use_regs (&fusage, arg2, 1);
+      else
+	use_regs (&fusage, arg2, arg1sz);
+    }
+  add_function_usage_to (c, fusage);
 
   emit_move_insn (operands[0],
 		  /* Return value will always start in R12.  */
@@ -2688,6 +2849,7 @@ rtx
 msp430_subreg (machine_mode mode, rtx r, machine_mode omode, int byte)
 {
   rtx rv;
+  gcc_assert (mode == HImode);
 
   if (GET_CODE (r) == SUBREG
       && SUBREG_BYTE (r) == 0)
@@ -2704,7 +2866,15 @@ msp430_subreg (machine_mode mode, rtx r, machine_mode omode, int byte)
 	rv = simplify_gen_subreg (mode, ireg, imode, byte);
     }
   else if (GET_CODE (r) == MEM)
-    rv = adjust_address (r, mode, byte);
+    {
+      /* When byte == 2, we can be certain that we were already called with an
+	 identical rtx with byte == 0.  So we don't need to do anything to
+	 get a 2 byte offset of a (mem (post_inc)) rtx, since the address has
+	 already been offset by the post_inc itself.  */
+      if (GET_CODE (XEXP (r, 0)) == POST_INC && byte == 2)
+	byte = 0;
+      rv = adjust_address (r, mode, byte);
+    }
   else if (GET_CODE (r) == SYMBOL_REF
 	   && (byte == 0 || byte == 2)
 	   && mode == HImode)
@@ -2719,6 +2889,41 @@ msp430_subreg (machine_mode mode, rtx r, machine_mode omode, int byte)
     gcc_unreachable ();
 
   return rv;
+}
+
+int
+msp430_split_addsi (rtx *operands)
+{
+  operands[3] = msp430_subreg (HImode, operands[0], SImode, 0);
+  operands[4] = msp430_subreg (HImode, operands[1], SImode, 0);
+  operands[5] = msp430_subreg (HImode, operands[2], SImode, 0);
+  operands[6] = msp430_subreg (HImode, operands[0], SImode, 2);
+  operands[7] = msp430_subreg (HImode, operands[1], SImode, 2);
+  operands[8] = msp430_subreg (HImode, operands[2], SImode, 2);
+
+  /* BZ 64160: Do not use this splitter when the dest partially overlaps the
+     source.  */
+  if (reg_overlap_mentioned_p (operands[3], operands[7])
+      || reg_overlap_mentioned_p (operands[3], operands[8]))
+    return 1;
+
+  if (GET_CODE (operands[5]) == CONST_INT)
+    operands[9] = GEN_INT (INTVAL (operands[5]) & 0xffff);
+  /* Handle post_inc, for example:
+     (set (reg:SI)
+	  (plus:SI (reg:SI)
+		   (mem:SI (post_inc:PSI (reg:PSI))))).  */
+  else if (MEM_P (operands[5]) && GET_CODE (XEXP (operands[5], 0)) == POST_INC)
+    {
+      /* Strip out the post_inc from (mem (post_inc (reg))).  */
+      operands[9] = XEXP (XEXP (operands[5], 0), 0);
+      operands[9] = gen_rtx_MEM (HImode, operands[9]);
+      /* Then zero extend as normal.  */
+      operands[9] = gen_rtx_ZERO_EXTEND (SImode, operands[9]);
+    }
+  else
+    operands[9] = gen_rtx_ZERO_EXTEND (SImode, operands[5]);
+  return 0;
 }
 
 /* Called by movsi_x to generate the HImode operands.  */
@@ -2926,20 +3131,22 @@ use_32bit_hwmult (void)
 /* Returns true if the current MCU does not have a
    hardware multiplier of any kind.  */
 
-static bool
-msp430_no_hwmult (void)
+bool
+msp430_has_hwmult (void)
 {
   static const char * cached_match = NULL;
   static bool cached_result;
 
   if (msp430_hwmult_type == MSP430_HWMULT_NONE)
-    return true;
-
-  if (msp430_hwmult_type != MSP430_HWMULT_AUTO)
     return false;
 
-  if (target_mcu == NULL)
+  /* TRUE for any other explicit hwmult specified.  */
+  if (msp430_hwmult_type != MSP430_HWMULT_AUTO)
     return true;
+
+  /* Now handle -mhwmult=auto.  */
+  if (target_mcu == NULL)
+    return false;
 
   if (target_mcu == cached_match)
     return cached_result;
@@ -2948,11 +3155,11 @@ msp430_no_hwmult (void)
 
   msp430_extract_mcu_data (target_mcu);
   if (extracted_mcu_data.name != NULL)
-    return cached_result = extracted_mcu_data.hwmpy == 0;
+    return cached_result = extracted_mcu_data.hwmpy != 0;
 
   /* If we do not recognise the MCU name, we assume that it does not support
      any kind of hardware multiply - this is the safest assumption to make.  */
-  return cached_result = true;
+  return cached_result = false;
 }
 
 /* This function does the same as the default, but it will replace GCC
@@ -2972,13 +3179,13 @@ msp430_output_labelref (FILE *file, const char *name)
 
   /* If we have been given a specific MCU name then we may be
      able to make use of its hardware multiply capabilities.  */
-  if (msp430_hwmult_type != MSP430_HWMULT_NONE)
+  if (msp430_has_hwmult ())
     {
       if (strcmp ("__mspabi_mpyi", name) == 0)
 	{
 	  if (msp430_use_f5_series_hwmult ())
 	    name = "__mulhi2_f5";
-	  else if (! msp430_no_hwmult ())
+	  else
 	    name = "__mulhi2";
 	}
       else if (strcmp ("__mspabi_mpyl", name) == 0)
@@ -2987,7 +3194,7 @@ msp430_output_labelref (FILE *file, const char *name)
 	    name = "__mulsi2_f5";
 	  else if (use_32bit_hwmult ())
 	    name = "__mulsi2_hw32";
-	  else if (! msp430_no_hwmult ())
+	  else
 	    name = "__mulsi2";
 	}
     }
@@ -3060,6 +3267,10 @@ msp430_print_operand_addr (FILE * file, machine_mode /*mode*/, rtx addr)
       fprintf (file, "@");
       break;
 
+    case POST_INC:
+      fprintf (file, "@%s+", reg_names[REGNO (XEXP (addr, 0))]);
+      return;
+
     case CONST:
     case CONST_INT:
     case SYMBOL_REF:
@@ -3072,6 +3283,67 @@ msp430_print_operand_addr (FILE * file, machine_mode /*mode*/, rtx addr)
     }
 
   msp430_print_operand_raw (file, addr);
+}
+
+/* We can only allow signed 15-bit indexes i.e. +/-32K.  */
+static bool
+msp430_check_index_not_high_mem (rtx op)
+{
+  if (CONST_INT_P (op)
+      && IN_RANGE (INTVAL (op), HOST_WIDE_INT_M1U << 15, (1 << 15) - 1))
+    return true;
+  return false;
+}
+
+/* If this returns true, we don't need a 430X insn.  */
+static bool
+msp430_check_plus_not_high_mem (rtx op)
+{
+  if (GET_CODE (op) != PLUS)
+    return false;
+  rtx op0 = XEXP (op, 0);
+  rtx op1 = XEXP (op, 1);
+  if (SYMBOL_REF_P (op0)
+      && (SYMBOL_REF_FLAGS (op0) & SYMBOL_FLAG_LOW_MEM)
+      && msp430_check_index_not_high_mem (op1))
+    return true;
+  return false;
+}
+
+/* Determine whether an RTX is definitely not a MEM referencing an address in
+   the upper memory region.  Returns true if we've decided the address will be
+   in the lower memory region, or the RTX is not a MEM.  Returns false
+   otherwise.
+   The Ys constraint will catch (mem (plus (const/reg)) but we catch cases
+   involving a symbol_ref here.  */
+bool
+msp430_op_not_in_high_mem (rtx op)
+{
+  rtx op0;
+
+  if (!TARGET_LARGE || !MEM_P (op))
+    return true;
+
+  op0 = XEXP (op, 0);
+
+  if (SYMBOL_REF_P (op0) && (SYMBOL_REF_FLAGS (op0) & SYMBOL_FLAG_LOW_MEM))
+    /* msp430_encode_section_info decided this mem will be in lower
+       memory.  */
+    return true;
+
+  /* Check possibilites for (mem (plus)).
+     e.g. (mem (const (plus ((symbol_ref) (const_int))))) : &addr+2.  */
+  if (msp430_check_plus_not_high_mem (op0)
+      || ((GET_CODE (op0) == CONST)
+	  && msp430_check_plus_not_high_mem (XEXP (op0, 0))))
+    return true;
+
+  /* An absolute 16-bit address is allowed.  */
+  if ((CONST_INT_P (op0) && (IN_RANGE (INTVAL (op0), 0, (1 << 16) - 1))))
+    return true;
+
+  /* Return false when undecided.  */
+  return false;
 }
 
 #undef  TARGET_PRINT_OPERAND
@@ -3245,15 +3517,21 @@ msp430_print_operand (FILE * file, rtx op, int letter)
 
     case 'X':
       /* This is used to turn, for example, an ADD opcode into an ADDX
-	 opcode when we're using 20-bit addresses.  */
-      if (TARGET_LARGE || GET_MODE (op) == PSImode)
+	 opcode when we're using 20-bit addresses.
+	 This can be used for insns which have only one operand which might be
+	 a mem.
+	 If an insn has two different operands which could be memory operands,
+	 then the "Yx" constraint must be used to determine if the X suffix is
+	 required by checking both operands.  */
+      if (GET_MODE (op) == PSImode
+	  || !msp430_op_not_in_high_mem (op))
 	fprintf (file, "X");
-      /* We don't care which operand we use, but we want 'X' in the MD
-	 file, so we do it this way.  */
       return;
 
     case 'x':
-      /* Similarly, but only for PSImodes.  BIC, for example, needs this.  */
+      /* Similarly, but only for PSImodes.  BIC, and other insn patterns using
+	 the QHI mode iterator (which includes, QI, HI, and PSImode) use
+	 this.  */
       if (GET_MODE (op) == PSImode)
 	fprintf (file, "X");
       return;
@@ -3363,6 +3641,27 @@ rtx
 msp430_incoming_return_addr_rtx (void)
 {
   return gen_rtx_MEM (Pmode, stack_pointer_rtx);
+}
+
+/* If the path to the MSP430-GCC support files has been found by examining
+   an environment variable (see msp430_check_env_var_for_devices in
+   msp430-devices.c), or -mdevices-csv-loc=, register this path as an include
+   directory so the user can #include msp430.h without needing to specify the
+   path to the support files with -I.  */
+void
+msp430_register_pre_includes (const char *sysroot ATTRIBUTE_UNUSED,
+			      const char *iprefix ATTRIBUTE_UNUSED,
+			      int stdinc ATTRIBUTE_UNUSED)
+{
+  char *include_dir;
+  if (msp430_devices_csv_loc)
+    include_dir = xstrdup (msp430_devices_csv_loc);
+  else if (msp430_check_env_var_for_devices (&include_dir))
+    return;
+  include_dir = msp430_dirname (include_dir);
+
+  include_dir = update_path (include_dir, "");
+  add_path (include_dir, INC_SYSTEM, false, false);
 }
 
 /* Instruction generation stuff.  */

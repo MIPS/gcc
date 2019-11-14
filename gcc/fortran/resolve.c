@@ -3243,19 +3243,14 @@ resolve_function (gfc_expr *expr)
     return t;
 
   /* Walk the argument list looking for invalid BOZ.  */
-  if (expr->value.function.esym)
-    {
-      gfc_actual_arglist *a;
-
-      for (a = expr->value.function.actual; a; a = a->next)
-	if (a->expr && a->expr->ts.type == BT_BOZ)
-	  {
-	    gfc_error ("A BOZ literal constant at %L cannot appear as an "
-			"actual argument in a function reference",
-			&a->expr->where);
-	    return false;
-	  }
-    }
+  for (arg = expr->value.function.actual; arg; arg = arg->next)
+    if (arg->expr && arg->expr->ts.type == BT_BOZ)
+      {
+	gfc_error ("A BOZ literal constant at %L cannot appear as an "
+		   "actual argument in a function reference",
+		   &arg->expr->where);
+	return false;
+      }
 
   temp = need_full_assumed_size;
   need_full_assumed_size = 0;
@@ -6553,21 +6548,6 @@ resolve_typebound_function (gfc_expr* e)
   overridable = !e->value.compcall.tbp->non_overridable;
   if (expr && expr->ts.type == BT_CLASS && e->value.compcall.name)
     {
-      /* If the base_object is not a variable, the corresponding actual
-	 argument expression must be stored in e->base_expression so
-	 that the corresponding tree temporary can be used as the base
-	 object in gfc_conv_procedure_call.  */
-      if (expr->expr_type != EXPR_VARIABLE)
-	{
-	  gfc_actual_arglist *args;
-
-	  for (args= e->value.function.actual; args; args = args->next)
-	    {
-	      if (expr == args->expr)
-		expr = args->expr;
-	    }
-	}
-
       /* Since the typebound operators are generic, we have to ensure
 	 that any delays in resolution are corrected and that the vtab
 	 is present.  */
@@ -10596,6 +10576,8 @@ gfc_resolve_blocks (gfc_code *b, gfc_namespace *ns)
 	case EXEC_OACC_PARALLEL:
 	case EXEC_OACC_KERNELS_LOOP:
 	case EXEC_OACC_KERNELS:
+	case EXEC_OACC_SERIAL_LOOP:
+	case EXEC_OACC_SERIAL:
 	case EXEC_OACC_DATA:
 	case EXEC_OACC_HOST_DATA:
 	case EXEC_OACC_LOOP:
@@ -10709,6 +10691,18 @@ resolve_ordinary_assign (gfc_code *code, gfc_namespace *ns)
   lhs = code->expr1;
   rhs = code->expr2;
 
+  if ((gfc_numeric_ts (&lhs->ts) || lhs->ts.type == BT_LOGICAL)
+      && rhs->ts.type == BT_CHARACTER
+      && rhs->expr_type != EXPR_CONSTANT)
+    {
+      /* Use of -fdec-char-conversions allows assignment of character data
+	 to non-character variables.  This not permited for nonconstant
+	 strings.  */
+      gfc_error ("Cannot convert %s to %s at %L", gfc_typename (rhs),
+		 gfc_typename (lhs), &rhs->where);
+      return false;
+    }
+
   /* Handle the case of a BOZ literal on the RHS.  */
   if (rhs->ts.type == BT_BOZ)
     {
@@ -10789,9 +10783,12 @@ resolve_ordinary_assign (gfc_code *code, gfc_namespace *ns)
 			"component in a PURE procedure",
 			&rhs->where);
 	  else
-	    gfc_error ("The impure variable at %L is assigned to "
-			"a derived type variable with a POINTER "
-			"component in a PURE procedure (12.6)",
+	  /* F2008, C1283 (4).  */
+	    gfc_error ("In a pure subprogram an INTENT(IN) dummy argument "
+			"shall not be used as the expr at %L of an intrinsic "
+			"assignment statement in which the variable is of a "
+			"derived type if the derived type has a pointer "
+			"component at any level of component selection.",
 			&rhs->where);
 	  return rval;
 	}
@@ -11544,6 +11541,8 @@ gfc_resolve_code (gfc_code *code, gfc_namespace *ns)
 	    case EXEC_OACC_PARALLEL:
 	    case EXEC_OACC_KERNELS_LOOP:
 	    case EXEC_OACC_KERNELS:
+	    case EXEC_OACC_SERIAL_LOOP:
+	    case EXEC_OACC_SERIAL:
 	    case EXEC_OACC_DATA:
 	    case EXEC_OACC_HOST_DATA:
 	    case EXEC_OACC_LOOP:
@@ -11957,6 +11956,8 @@ start:
 	case EXEC_OACC_PARALLEL:
 	case EXEC_OACC_KERNELS_LOOP:
 	case EXEC_OACC_KERNELS:
+	case EXEC_OACC_SERIAL_LOOP:
+	case EXEC_OACC_SERIAL:
 	case EXEC_OACC_DATA:
 	case EXEC_OACC_HOST_DATA:
 	case EXEC_OACC_LOOP:
@@ -12283,6 +12284,9 @@ is_non_constant_shape_array (gfc_symbol *sym)
 	 simplification now.  */
       for (i = 0; i < sym->as->rank + sym->as->corank; i++)
 	{
+	  if (i == GFC_MAX_DIMENSIONS)
+	    break;
+
 	  e = sym->as->lower[i];
 	  if (e && (!resolve_index_expr(e)
 		    || !gfc_is_constant_expr (e)))
@@ -16791,8 +16795,8 @@ resolve_equivalence (gfc_equiv *eq)
 }
 
 
-/* Function called by resolve_fntype to flag other symbol used in the
-   length type parameter specification of function resuls.  */
+/* Function called by resolve_fntype to flag other symbols used in the
+   length type parameter specification of function results.  */
 
 static bool
 flag_fn_result_spec (gfc_expr *expr,

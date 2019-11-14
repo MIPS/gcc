@@ -239,7 +239,8 @@ along with GCC; see the file COPYING3.  If not see
 #undef TARGET_ASM_OUTPUT_IDENT
 #define TARGET_ASM_OUTPUT_IDENT default_asm_output_ident_directive
 
-/* Darwin profiling -- call mcount.  */
+/* Darwin profiling -- call mcount.
+   If we need a stub, then we unconditionally mark it as used.  */
 #undef FUNCTION_PROFILER
 #define FUNCTION_PROFILER(FILE, LABELNO)				\
   do {									\
@@ -248,7 +249,6 @@ along with GCC; see the file COPYING3.  If not see
       {									\
 	const char *name = machopic_mcount_stub_name ();		\
 	fprintf (FILE, "\tcall %s\n", name+1);  /*  skip '&'  */	\
-	machopic_validate_stub_or_non_lazy_ptr (name);			\
       }									\
     else fprintf (FILE, "\tcall mcount\n");				\
   } while (0)
@@ -324,10 +324,8 @@ along with GCC; see the file COPYING3.  If not see
         }								\
     }
 
-/* This needs to move since i386 uses the first flag and other flags are
-   used in Mach-O.  */
-#undef MACHO_SYMBOL_FLAG_VARIABLE
-#define MACHO_SYMBOL_FLAG_VARIABLE ((SYMBOL_FLAG_MACH_DEP) << 3)
+/* First available SYMBOL flag bit for use by subtargets.  */
+#define SYMBOL_FLAG_SUBT_DEP (SYMBOL_FLAG_MACH_DEP << 5)
 
 #undef MACHOPIC_NL_SYMBOL_PTR_SECTION
 #define MACHOPIC_NL_SYMBOL_PTR_SECTION \

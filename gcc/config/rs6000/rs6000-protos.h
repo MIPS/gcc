@@ -139,7 +139,6 @@ extern bool valid_sf_si_move (rtx, rtx, machine_mode);
 extern void rs6000_emit_move (rtx, rtx, machine_mode);
 extern bool rs6000_legitimate_offset_address_p (machine_mode, rtx,
 						bool, bool);
-extern void rs6000_output_tlsargs (rtx *);
 extern rtx rs6000_find_base_term (rtx);
 extern rtx rs6000_return_addr (int, rtx);
 extern void rs6000_output_symbol_ref (FILE*, rtx);
@@ -194,6 +193,7 @@ extern bool prefixed_store_p (rtx_insn *);
 extern bool prefixed_paddi_p (rtx_insn *);
 extern void rs6000_asm_output_opcode (FILE *);
 extern void rs6000_final_prescan_insn (rtx_insn *, rtx [], int);
+extern int rs6000_adjust_insn_length (rtx_insn *, int);
 
 /* Return true if the address can be used for a prefixed load, store, or add
    immediate instructions that cannot be used with a non-prefixed instruction.

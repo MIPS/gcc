@@ -2731,13 +2731,11 @@ create_var_decl (tree name, tree asm_name, tree type, tree init,
       && !have_global_bss_p ())
     DECL_COMMON (var_decl) = 1;
 
-  /* Do not emit debug info for a CONST_DECL if optimization isn't enabled,
-     since we will create an associated variable.  Likewise for an external
-     constant whose initializer is not absolute, because this would mean a
-     global relocation in a read-only section which runs afoul of the PE-COFF
-     run-time relocation mechanism.  */
+  /* Do not emit debug info if not requested, or for an external constant whose
+     initializer is not absolute because this would require a global relocation
+     in a read-only section which runs afoul of the PE-COFF run-time relocation
+     mechanism.  */
   if (!debug_info_p
-      || (TREE_CODE (var_decl) == CONST_DECL && !optimize)
       || (extern_flag
 	  && constant_p
 	  && init
@@ -5840,6 +5838,11 @@ gnat_write_global_declarations (void)
 	&& DECL_FUNCTION_IS_DEF (iter))
       debug_hooks->early_global_decl (iter);
 
+  /* Output global constants.  */
+  FOR_EACH_VEC_SAFE_ELT (global_decls, i, iter)
+    if (TREE_CODE (iter) == CONST_DECL && !DECL_IGNORED_P (iter))
+      debug_hooks->early_global_decl (iter);
+
   /* Then output the global variables.  We need to do that after the debug
      information for global types is emitted so that they are finalized.  Skip
      external global variables, unless we need to emit debug info for them:
@@ -6901,6 +6904,7 @@ def_builtin_1 (enum built_in_function fncode,
 static int flag_isoc94 = 0;
 static int flag_isoc99 = 0;
 static int flag_isoc11 = 0;
+static int flag_isoc2x = 0;
 
 /* Install what the common builtins.def offers plus our local additions.
 

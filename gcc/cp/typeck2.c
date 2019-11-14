@@ -902,7 +902,13 @@ store_init_value (tree decl, tree init, vec<tree, va_gc>** cleanups, int flags)
 	    value = oldval;
 	}
     }
-  value = cp_fully_fold_init (value);
+  /* Don't fold initializers of automatic variables in constexpr functions,
+     that might fold away something that needs to be diagnosed at constexpr
+     evaluation time.  */
+  if (!current_function_decl
+      || !DECL_DECLARED_CONSTEXPR_P (current_function_decl)
+      || TREE_STATIC (decl))
+    value = cp_fully_fold_init (value);
 
   /* Handle aggregate NSDMI in non-constant initializers, too.  */
   value = replace_placeholders (value, decl);
@@ -917,7 +923,7 @@ store_init_value (tree decl, tree init, vec<tree, va_gc>** cleanups, int flags)
     return split_nonconstant_init (decl, value);
 
   /* DECL may change value; purge caches.  */
-  clear_cv_and_fold_caches ();
+  clear_cv_and_fold_caches (TREE_STATIC (decl));
 
   /* If the value is a constant, just put it in DECL_INITIAL.  If DECL
      is an automatic variable, the middle end will turn this into a
@@ -932,7 +938,8 @@ store_init_value (tree decl, tree init, vec<tree, va_gc>** cleanups, int flags)
    constants.  */
 
 bool
-check_narrowing (tree type, tree init, tsubst_flags_t complain, bool const_only)
+check_narrowing (tree type, tree init, tsubst_flags_t complain,
+		 bool const_only/*= false*/)
 {
   tree ftype = unlowered_expr_type (init);
   bool ok = true;
@@ -1011,6 +1018,11 @@ check_narrowing (tree type, tree init, tsubst_flags_t complain, bool const_only)
 	    ok = true;
 	}
     }
+  else if (TREE_CODE (type) == BOOLEAN_TYPE
+	   && (TYPE_PTR_P (ftype) || TYPE_PTRMEM_P (ftype)))
+    /* This hasn't actually made it into C++20 yet, but let's add it now to get
+       an idea of the impact.  */
+    ok = (cxx_dialect < cxx2a);
 
   bool almost_ok = ok;
   if (!ok && !CONSTANT_CLASS_P (init) && (complain & tf_warning_or_error))
@@ -2236,8 +2248,7 @@ build_functional_cast (tree exp, tree parms, tsubst_flags_t complain)
       if (!CLASS_PLACEHOLDER_TEMPLATE (anode))
 	{
 	  if (complain & tf_error)
-	    error_at (DECL_SOURCE_LOCATION (TEMPLATE_TYPE_DECL (anode)),
-		      "invalid use of %qT", anode);
+	    error ("invalid use of %qT", anode);
 	  return error_mark_node;
 	}
       else if (!parms)

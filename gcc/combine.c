@@ -100,7 +100,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "rtlhooks-def.h"
 #include "expr.h"
-#include "params.h"
 #include "tree-pass.h"
 #include "valtrack.h"
 #include "rtl-iter.h"
@@ -1251,7 +1250,7 @@ combine_instructions (rtx_insn *f, unsigned int nregs)
   init_reg_last ();
   setup_incoming_promotions (first);
   last_bb = ENTRY_BLOCK_PTR_FOR_FN (cfun);
-  int max_combine = PARAM_VALUE (PARAM_MAX_COMBINE_INSNS);
+  int max_combine = param_max_combine_insns;
 
   FOR_EACH_BB_FN (this_basic_block, cfun)
     {
@@ -1600,7 +1599,8 @@ setup_incoming_promotions (rtx_insn *first)
          function lie within the current compilation unit.  (This does
 	 take into account the exporting of a function via taking its
 	 address, and so forth.)  */
-      strictly_local = cgraph_node::local_info (current_function_decl)->local;
+      strictly_local
+	= cgraph_node::local_info_node (current_function_decl)->local;
 
       /* The mode and signedness of the argument before any promotions happen
          (equal to the mode of the pseudo holding it at that stage).  */
@@ -5680,6 +5680,7 @@ subst (rtx x, rtx from, rtx to, int in_dest, int in_cond, int unique_copy)
 		}
 	      else if (CONST_SCALAR_INT_P (new_rtx)
 		       && (GET_CODE (x) == ZERO_EXTEND
+			   || GET_CODE (x) == SIGN_EXTEND
 			   || GET_CODE (x) == FLOAT
 			   || GET_CODE (x) == UNSIGNED_FLOAT))
 		{
@@ -13280,7 +13281,7 @@ record_value_for_reg (rtx reg, rtx_insn *insn, rtx value)
 	    {
 	      /* If there are two or more occurrences of REG in VALUE,
 		 prevent the value from growing too much.  */
-	      if (count_rtxs (tem) > MAX_LAST_VALUE_RTL)
+	      if (count_rtxs (tem) > param_max_last_value_rtl)
 		tem = gen_rtx_CLOBBER (GET_MODE (tem), const0_rtx);
 	    }
 

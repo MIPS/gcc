@@ -49,7 +49,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-vectorizer.h"
 #include "expr.h"
 #include "builtins.h"
-#include "params.h"
 #include "tree-cfg.h"
 #include "tree-hash-traits.h"
 #include "vec-perm-indices.h"
@@ -185,7 +184,7 @@ vect_mark_for_runtime_alias_test (ddr_p ddr, loop_vec_info loop_vinfo)
 {
   class loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
 
-  if ((unsigned) PARAM_VALUE (PARAM_VECT_MAX_VERSION_FOR_ALIAS_CHECKS) == 0)
+  if ((unsigned) param_vect_max_version_for_alias_checks == 0)
     return opt_result::failure_at (vect_location,
 				   "will not create alias checks, as"
 				   " --param vect-max-version-for-alias-checks"
@@ -937,6 +936,18 @@ vect_compute_data_ref_alignment (dr_vec_info *dr_info)
   poly_uint64 vector_alignment
     = exact_div (vect_calculate_target_alignment (dr_info), BITS_PER_UNIT);
   DR_TARGET_ALIGNMENT (dr_info) = vector_alignment;
+
+  /* If the main loop has peeled for alignment we have no way of knowing
+     whether the data accesses in the epilogues are aligned.  We can't at
+     compile time answer the question whether we have entered the main loop or
+     not.  Fixes PR 92351.  */
+  if (loop_vinfo)
+    {
+      loop_vec_info orig_loop_vinfo = LOOP_VINFO_ORIG_LOOP_INFO (loop_vinfo);
+      if (orig_loop_vinfo
+	  && LOOP_VINFO_PEELING_FOR_ALIGNMENT (orig_loop_vinfo) != 0)
+	return;
+    }
 
   unsigned HOST_WIDE_INT vect_align_c;
   if (!vector_alignment.is_constant (&vect_align_c))
@@ -2074,7 +2085,9 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
       if (do_peeling)
         {
           unsigned max_allowed_peel
-            = PARAM_VALUE (PARAM_VECT_MAX_PEELING_FOR_ALIGNMENT);
+	    = param_vect_max_peeling_for_alignment;
+	  if (flag_vect_cost_model == VECT_COST_MODEL_CHEAP)
+	    max_allowed_peel = 0;
           if (max_allowed_peel != (unsigned)-1)
             {
               unsigned max_peel = npeel;
@@ -2168,15 +2181,16 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
   /* (2) Versioning to force alignment.  */
 
   /* Try versioning if:
-     1) optimize loop for speed
+     1) optimize loop for speed and the cost-model is not cheap
      2) there is at least one unsupported misaligned data ref with an unknown
         misalignment, and
      3) all misaligned data refs with a known misalignment are supported, and
      4) the number of runtime alignment checks is within reason.  */
 
-  do_versioning =
-	optimize_loop_nest_for_speed_p (loop)
-	&& (!loop->inner); /* FORNOW */
+  do_versioning
+    = (optimize_loop_nest_for_speed_p (loop)
+       && !loop->inner /* FORNOW */
+       && flag_vect_cost_model != VECT_COST_MODEL_CHEAP);
 
   if (do_versioning)
     {
@@ -2212,7 +2226,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 
               if (known_alignment_for_access_p (dr_info)
                   || LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo).length ()
-                     >= (unsigned) PARAM_VALUE (PARAM_VECT_MAX_VERSION_FOR_ALIGNMENT_CHECKS))
+		  >= (unsigned) param_vect_max_version_for_alignment_checks)
                 {
                   do_versioning = false;
                   break;
@@ -3641,13 +3655,14 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
     dump_printf_loc (MSG_NOTE, vect_location,
 		     "improved number of alias checks from %d to %d\n",
 		     may_alias_ddrs.length (), count);
-  if ((int) count > PARAM_VALUE (PARAM_VECT_MAX_VERSION_FOR_ALIAS_CHECKS))
+  unsigned limit = param_vect_max_version_for_alias_checks;
+  if (flag_simd_cost_model == VECT_COST_MODEL_CHEAP)
+    limit = param_vect_max_version_for_alias_checks * 6 / 10;
+  if (count > limit)
     return opt_result::failure_at
       (vect_location,
-       "number of versioning for alias "
-       "run-time tests exceeds %d "
-       "(--param vect-max-version-for-alias-checks)\n",
-       PARAM_VALUE (PARAM_VECT_MAX_VERSION_FOR_ALIAS_CHECKS));
+       "number of versioning for alias run-time tests exceeds %d "
+       "(--param vect-max-version-for-alias-checks)\n", limit);
 
   return opt_result::success ();
 }
@@ -3655,28 +3670,22 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 /* Check whether we can use an internal function for a gather load
    or scatter store.  READ_P is true for loads and false for stores.
    MASKED_P is true if the load or store is conditional.  MEMORY_TYPE is
-   the type of the memory elements being loaded or stored.  OFFSET_BITS
-   is the number of bits in each scalar offset and OFFSET_SIGN is the
-   sign of the offset.  SCALE is the amount by which the offset should
+   the type of the memory elements being loaded or stored.  OFFSET_TYPE
+   is the type of the offset that is being applied to the invariant
+   base address.  SCALE is the amount by which the offset should
    be multiplied *after* it has been converted to address width.
 
-   Return true if the function is supported, storing the function
-   id in *IFN_OUT and the type of a vector element in *ELEMENT_TYPE_OUT.  */
+   Return true if the function is supported, storing the function id in
+   *IFN_OUT and the vector type for the offset in *OFFSET_VECTYPE_OUT.  */
 
 bool
-vect_gather_scatter_fn_p (bool read_p, bool masked_p, tree vectype,
-			  tree memory_type, unsigned int offset_bits,
-			  signop offset_sign, int scale,
-			  internal_fn *ifn_out, tree *element_type_out)
+vect_gather_scatter_fn_p (vec_info *vinfo, bool read_p, bool masked_p,
+			  tree vectype, tree memory_type, tree offset_type,
+			  int scale, internal_fn *ifn_out,
+			  tree *offset_vectype_out)
 {
   unsigned int memory_bits = tree_to_uhwi (TYPE_SIZE (memory_type));
   unsigned int element_bits = tree_to_uhwi (TYPE_SIZE (TREE_TYPE (vectype)));
-  if (offset_bits > element_bits)
-    /* Internal functions require the offset to be the same width as
-       the vector elements.  We can extend narrower offsets, but it isn't
-       safe to truncate wider offsets.  */
-    return false;
-
   if (element_bits != memory_bits)
     /* For now the vector elements must be the same width as the
        memory elements.  */
@@ -3689,14 +3698,28 @@ vect_gather_scatter_fn_p (bool read_p, bool masked_p, tree vectype,
   else
     ifn = masked_p ? IFN_MASK_SCATTER_STORE : IFN_SCATTER_STORE;
 
-  /* Test whether the target supports this combination.  */
-  if (!internal_gather_scatter_fn_supported_p (ifn, vectype, memory_type,
-					       offset_sign, scale))
-    return false;
+  for (;;)
+    {
+      tree offset_vectype = get_vectype_for_scalar_type (vinfo, offset_type);
+      if (!offset_vectype)
+	return false;
 
-  *ifn_out = ifn;
-  *element_type_out = TREE_TYPE (vectype);
-  return true;
+      /* Test whether the target supports this combination.  */
+      if (internal_gather_scatter_fn_supported_p (ifn, vectype, memory_type,
+						  offset_vectype, scale))
+	{
+	  *ifn_out = ifn;
+	  *offset_vectype_out = offset_vectype;
+	  return true;
+	}
+
+      if (TYPE_PRECISION (offset_type) >= POINTER_SIZE
+	  && TYPE_PRECISION (offset_type) >= element_bits)
+	return false;
+
+      offset_type = build_nonstandard_integer_type
+	(TYPE_PRECISION (offset_type) * 2, TYPE_UNSIGNED (offset_type));
+    }
 }
 
 /* STMT_INFO is a call to an internal gather load or scatter store function.
@@ -3739,7 +3762,7 @@ vect_check_gather_scatter (stmt_vec_info stmt_info, loop_vec_info loop_vinfo,
   machine_mode pmode;
   int punsignedp, reversep, pvolatilep = 0;
   internal_fn ifn;
-  tree element_type;
+  tree offset_vectype;
   bool masked_p = false;
 
   /* See whether this is already a call to a gather/scatter internal function.
@@ -3900,13 +3923,18 @@ vect_check_gather_scatter (stmt_vec_info stmt_info, loop_vec_info loop_vinfo,
 	    {
 	      int new_scale = tree_to_shwi (op1);
 	      /* Only treat this as a scaling operation if the target
-		 supports it.  */
+		 supports it for at least some offset type.  */
 	      if (use_ifn_p
-		  && !vect_gather_scatter_fn_p (DR_IS_READ (dr), masked_p,
-						vectype, memory_type, 1,
-						TYPE_SIGN (TREE_TYPE (op0)),
+		  && !vect_gather_scatter_fn_p (loop_vinfo, DR_IS_READ (dr),
+						masked_p, vectype, memory_type,
+						signed_char_type_node,
 						new_scale, &ifn,
-						&element_type))
+						&offset_vectype)
+		  && !vect_gather_scatter_fn_p (loop_vinfo, DR_IS_READ (dr),
+						masked_p, vectype, memory_type,
+						unsigned_char_type_node,
+						new_scale, &ifn,
+						&offset_vectype))
 		break;
 	      scale = new_scale;
 	      off = op0;
@@ -3920,20 +3948,22 @@ vect_check_gather_scatter (stmt_vec_info stmt_info, loop_vec_info loop_vinfo,
 	  if (!POINTER_TYPE_P (TREE_TYPE (op0))
 	      && !INTEGRAL_TYPE_P (TREE_TYPE (op0)))
 	    break;
+
+	  /* Don't include the conversion if the target is happy with
+	     the current offset type.  */
+	  if (use_ifn_p
+	      && vect_gather_scatter_fn_p (loop_vinfo, DR_IS_READ (dr),
+					   masked_p, vectype, memory_type,
+					   TREE_TYPE (off), scale, &ifn,
+					   &offset_vectype))
+	    break;
+
 	  if (TYPE_PRECISION (TREE_TYPE (op0))
 	      == TYPE_PRECISION (TREE_TYPE (off)))
 	    {
 	      off = op0;
 	      continue;
 	    }
-
-	  /* The internal functions need the offset to be the same width
-	     as the elements of VECTYPE.  Don't include operations that
-	     cast the offset from that width to a different width.  */
-	  if (use_ifn_p
-	      && (int_size_in_bytes (TREE_TYPE (vectype))
-		  == int_size_in_bytes (TREE_TYPE (off))))
-	    break;
 
 	  if (TYPE_PRECISION (TREE_TYPE (op0))
 	      < TYPE_PRECISION (TREE_TYPE (off)))
@@ -3961,10 +3991,9 @@ vect_check_gather_scatter (stmt_vec_info stmt_info, loop_vec_info loop_vinfo,
 
   if (use_ifn_p)
     {
-      if (!vect_gather_scatter_fn_p (DR_IS_READ (dr), masked_p, vectype,
-				     memory_type, TYPE_PRECISION (offtype),
-				     TYPE_SIGN (offtype), scale, &ifn,
-				     &element_type))
+      if (!vect_gather_scatter_fn_p (loop_vinfo, DR_IS_READ (dr), masked_p,
+				     vectype, memory_type, offtype, scale,
+				     &ifn, &offset_vectype))
 	return false;
     }
   else
@@ -3984,7 +4013,8 @@ vect_check_gather_scatter (stmt_vec_info stmt_info, loop_vec_info loop_vinfo,
 	return false;
 
       ifn = IFN_LAST;
-      element_type = TREE_TYPE (vectype);
+      /* The offset vector type will be read from DECL when needed.  */
+      offset_vectype = NULL_TREE;
     }
 
   info->ifn = ifn;
@@ -3992,9 +4022,9 @@ vect_check_gather_scatter (stmt_vec_info stmt_info, loop_vec_info loop_vinfo,
   info->base = base;
   info->offset = off;
   info->offset_dt = vect_unknown_def_type;
-  info->offset_vectype = NULL_TREE;
+  info->offset_vectype = offset_vectype;
   info->scale = scale;
-  info->element_type = element_type;
+  info->element_type = TREE_TYPE (vectype);
   info->memory_type = memory_type;
   return true;
 }
@@ -4277,7 +4307,7 @@ vect_analyze_data_refs (vec_info *vinfo, poly_uint64 *min_vf, bool *fatal)
 	{
 	  if (nested_in_vect_loop_p (loop, stmt_info))
 	    return opt_result::failure_at (stmt_info->stmt,
-					   "not vectorized:"
+					   "not vectorized: "
 					   "not suitable for strided load %G",
 					   stmt_info->stmt);
 	  STMT_VINFO_STRIDED_P (stmt_info) = true;
@@ -4339,7 +4369,7 @@ vect_analyze_data_refs (vec_info *vinfo, poly_uint64 *min_vf, bool *fatal)
       /* Set vectype for STMT.  */
       scalar_type = TREE_TYPE (DR_REF (dr));
       STMT_VINFO_VECTYPE (stmt_info)
-	= get_vectype_for_scalar_type (scalar_type);
+	= get_vectype_for_scalar_type (vinfo, scalar_type);
       if (!STMT_VINFO_VECTYPE (stmt_info))
         {
           if (dump_enabled_p ())
@@ -4387,7 +4417,8 @@ vect_analyze_data_refs (vec_info *vinfo, poly_uint64 *min_vf, bool *fatal)
 	  if (!vect_check_gather_scatter (stmt_info,
 					  as_a <loop_vec_info> (vinfo),
 					  &gs_info)
-	      || !get_vectype_for_scalar_type (TREE_TYPE (gs_info.offset)))
+	      || !get_vectype_for_scalar_type (vinfo,
+					       TREE_TYPE (gs_info.offset)))
 	    {
 	      if (fatal)
 		*fatal = false;

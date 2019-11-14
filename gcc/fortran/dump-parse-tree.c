@@ -559,6 +559,16 @@ show_expr (gfc_expr *p)
 	  fputc (')', dumpfile);
 	  break;
 
+	case BT_BOZ:
+	  if (p->boz.rdx == 2)
+	    fputs ("b'", dumpfile);
+	  else if (p->boz.rdx == 8)
+	    fputs ("o'", dumpfile);
+	  else
+	    fputs ("z'", dumpfile);
+	  fprintf (dumpfile, "%s'", p->boz.str);
+	  break;
+
 	case BT_HOLLERITH:
 	  fprintf (dumpfile, HOST_WIDE_INT_PRINT_DEC "H",
 		   p->representation.length);
@@ -1644,6 +1654,8 @@ show_omp_node (int level, gfc_code *c)
     case EXEC_OACC_PARALLEL: name = "PARALLEL"; is_oacc = true; break;
     case EXEC_OACC_KERNELS_LOOP: name = "KERNELS LOOP"; is_oacc = true; break;
     case EXEC_OACC_KERNELS: name = "KERNELS"; is_oacc = true; break;
+    case EXEC_OACC_SERIAL_LOOP: name = "SERIAL LOOP"; is_oacc = true; break;
+    case EXEC_OACC_SERIAL: name = "SERIAL"; is_oacc = true; break;
     case EXEC_OACC_DATA: name = "DATA"; is_oacc = true; break;
     case EXEC_OACC_HOST_DATA: name = "HOST_DATA"; is_oacc = true; break;
     case EXEC_OACC_LOOP: name = "LOOP"; is_oacc = true; break;
@@ -1719,6 +1731,8 @@ show_omp_node (int level, gfc_code *c)
     case EXEC_OACC_PARALLEL:
     case EXEC_OACC_KERNELS_LOOP:
     case EXEC_OACC_KERNELS:
+    case EXEC_OACC_SERIAL_LOOP:
+    case EXEC_OACC_SERIAL:
     case EXEC_OACC_DATA:
     case EXEC_OACC_HOST_DATA:
     case EXEC_OACC_LOOP:
@@ -2908,6 +2922,8 @@ show_code_node (int level, gfc_code *c)
     case EXEC_OACC_PARALLEL:
     case EXEC_OACC_KERNELS_LOOP:
     case EXEC_OACC_KERNELS:
+    case EXEC_OACC_SERIAL_LOOP:
+    case EXEC_OACC_SERIAL:
     case EXEC_OACC_DATA:
     case EXEC_OACC_HOST_DATA:
     case EXEC_OACC_LOOP:

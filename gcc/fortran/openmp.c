@@ -31,7 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Match an end of OpenMP directive.  End of OpenMP directive is optional
    whitespace, followed by '\n' or comment '!'.  */
 
-match
+static match
 gfc_match_omp_eos (void)
 {
   locus old_loc;
@@ -56,6 +56,17 @@ gfc_match_omp_eos (void)
   gfc_current_locus = old_loc;
   return MATCH_NO;
 }
+
+match
+gfc_match_omp_eos_error (void)
+{
+  if (gfc_match_omp_eos() == MATCH_YES)
+    return MATCH_YES;
+
+  gfc_error ("Unexpected junk at %C");
+  return MATCH_ERROR;
+}
+
 
 /* Free an omp_clauses structure.  */
 
@@ -915,10 +926,11 @@ omp_inv_mask::omp_inv_mask (const omp_mask &m) : omp_mask (m)
    mapping.  */
 
 static bool
-gfc_match_omp_map_clause (gfc_omp_namelist **list, gfc_omp_map_op map_op)
+gfc_match_omp_map_clause (gfc_omp_namelist **list, gfc_omp_map_op map_op,
+			  bool allow_common)
 {
   gfc_omp_namelist **head = NULL;
-  if (gfc_match_omp_variable_list ("", list, false, NULL, &head, true)
+  if (gfc_match_omp_variable_list ("", list, allow_common, NULL, &head, true)
       == MATCH_YES)
     {
       gfc_omp_namelist *n;
@@ -1040,7 +1052,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 	  if ((mask & OMP_CLAUSE_COPY)
 	      && gfc_match ("copy ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_TOFROM))
+					   OMP_MAP_TOFROM, true))
 	    continue;
 	  if (mask & OMP_CLAUSE_COPYIN)
 	    {
@@ -1048,7 +1060,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 		{
 		  if (gfc_match ("copyin ( ") == MATCH_YES
 		      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-						   OMP_MAP_TO))
+						   OMP_MAP_TO, true))
 		    continue;
 		}
 	      else if (gfc_match_omp_variable_list ("copyin (",
@@ -1059,7 +1071,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 	  if ((mask & OMP_CLAUSE_COPYOUT)
 	      && gfc_match ("copyout ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_FROM))
+					   OMP_MAP_FROM, true))
 	    continue;
 	  if ((mask & OMP_CLAUSE_COPYPRIVATE)
 	      && gfc_match_omp_variable_list ("copyprivate (",
@@ -1069,7 +1081,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 	  if ((mask & OMP_CLAUSE_CREATE)
 	      && gfc_match ("create ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_ALLOC))
+					   OMP_MAP_ALLOC, true))
 	    continue;
 	  break;
 	case 'd':
@@ -1105,7 +1117,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 	  if ((mask & OMP_CLAUSE_DELETE)
 	      && gfc_match ("delete ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_RELEASE))
+					   OMP_MAP_RELEASE, true))
 	    continue;
 	  if ((mask & OMP_CLAUSE_DEPEND)
 	      && gfc_match ("depend ( ") == MATCH_YES)
@@ -1157,12 +1169,12 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 	      && openacc
 	      && gfc_match ("device ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_FORCE_TO))
+					   OMP_MAP_FORCE_TO, true))
 	    continue;
 	  if ((mask & OMP_CLAUSE_DEVICEPTR)
 	      && gfc_match ("deviceptr ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_FORCE_DEVICEPTR))
+					   OMP_MAP_FORCE_DEVICEPTR, false))
 	    continue;
 	  if ((mask & OMP_CLAUSE_DEVICE_RESIDENT)
 	      && gfc_match_omp_variable_list
@@ -1240,7 +1252,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 	  if ((mask & OMP_CLAUSE_HOST_SELF)
 	      && gfc_match ("host ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_FORCE_FROM))
+					   OMP_MAP_FORCE_FROM, true))
 	    continue;
 	  break;
 	case 'i':
@@ -1512,47 +1524,47 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 	  if ((mask & OMP_CLAUSE_COPY)
 	      && gfc_match ("pcopy ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_TOFROM))
+					   OMP_MAP_TOFROM, true))
 	    continue;
 	  if ((mask & OMP_CLAUSE_COPYIN)
 	      && gfc_match ("pcopyin ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_TO))
+					   OMP_MAP_TO, true))
 	    continue;
 	  if ((mask & OMP_CLAUSE_COPYOUT)
 	      && gfc_match ("pcopyout ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_FROM))
+					   OMP_MAP_FROM, true))
 	    continue;
 	  if ((mask & OMP_CLAUSE_CREATE)
 	      && gfc_match ("pcreate ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_ALLOC))
+					   OMP_MAP_ALLOC, true))
 	    continue;
 	  if ((mask & OMP_CLAUSE_PRESENT)
 	      && gfc_match ("present ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_FORCE_PRESENT))
+					   OMP_MAP_FORCE_PRESENT, false))
 	    continue;
 	  if ((mask & OMP_CLAUSE_COPY)
 	      && gfc_match ("present_or_copy ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_TOFROM))
+					   OMP_MAP_TOFROM, true))
 	    continue;
 	  if ((mask & OMP_CLAUSE_COPYIN)
 	      && gfc_match ("present_or_copyin ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_TO))
+					   OMP_MAP_TO, true))
 	    continue;
 	  if ((mask & OMP_CLAUSE_COPYOUT)
 	      && gfc_match ("present_or_copyout ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_FROM))
+					   OMP_MAP_FROM, true))
 	    continue;
 	  if ((mask & OMP_CLAUSE_CREATE)
 	      && gfc_match ("present_or_create ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_ALLOC))
+					   OMP_MAP_ALLOC, true))
 	    continue;
 	  if ((mask & OMP_CLAUSE_PRIORITY)
 	      && c->priority == NULL
@@ -1770,7 +1782,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 	  if ((mask & OMP_CLAUSE_HOST_SELF)
 	      && gfc_match ("self ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_FORCE_FROM))
+					   OMP_MAP_FORCE_FROM, true))
 	    continue;
 	  if ((mask & OMP_CLAUSE_SEQ)
 	      && !c->seq
@@ -1952,6 +1964,12 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
    | OMP_CLAUSE_COPY | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT		      \
    | OMP_CLAUSE_CREATE | OMP_CLAUSE_PRESENT | OMP_CLAUSE_DEFAULT	      \
    | OMP_CLAUSE_WAIT)
+#define OACC_SERIAL_CLAUSES \
+  (omp_mask (OMP_CLAUSE_IF) | OMP_CLAUSE_ASYNC | OMP_CLAUSE_REDUCTION	      \
+   | OMP_CLAUSE_COPY | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT		      \
+   | OMP_CLAUSE_CREATE | OMP_CLAUSE_PRESENT | OMP_CLAUSE_DEVICEPTR	      \
+   | OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE | OMP_CLAUSE_DEFAULT	      \
+   | OMP_CLAUSE_WAIT)
 #define OACC_DATA_CLAUSES \
   (omp_mask (OMP_CLAUSE_IF) | OMP_CLAUSE_DEVICEPTR  | OMP_CLAUSE_COPY	      \
    | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT | OMP_CLAUSE_CREATE		      \
@@ -1965,6 +1983,8 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
   (OACC_LOOP_CLAUSES | OACC_PARALLEL_CLAUSES)
 #define OACC_KERNELS_LOOP_CLAUSES \
   (OACC_LOOP_CLAUSES | OACC_KERNELS_CLAUSES)
+#define OACC_SERIAL_LOOP_CLAUSES \
+  (OACC_LOOP_CLAUSES | OACC_SERIAL_CLAUSES)
 #define OACC_HOST_DATA_CLAUSES omp_mask (OMP_CLAUSE_USE_DEVICE)
 #define OACC_DECLARE_CLAUSES \
   (omp_mask (OMP_CLAUSE_COPY) | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT	      \
@@ -2023,6 +2043,20 @@ match
 gfc_match_oacc_kernels (void)
 {
   return match_acc (EXEC_OACC_KERNELS, OACC_KERNELS_CLAUSES);
+}
+
+
+match
+gfc_match_oacc_serial_loop (void)
+{
+  return match_acc (EXEC_OACC_SERIAL_LOOP, OACC_SERIAL_LOOP_CLAUSES);
+}
+
+
+match
+gfc_match_oacc_serial (void)
+{
+  return match_acc (EXEC_OACC_SERIAL, OACC_SERIAL_CLAUSES);
 }
 
 
@@ -3771,6 +3805,7 @@ oacc_is_loop (gfc_code *code)
 {
   return code->op == EXEC_OACC_PARALLEL_LOOP
 	 || code->op == EXEC_OACC_KERNELS_LOOP
+	 || code->op == EXEC_OACC_SERIAL_LOOP
 	 || code->op == EXEC_OACC_LOOP;
 }
 
@@ -3849,10 +3884,6 @@ check_array_not_assumed (gfc_symbol *sym, locus loc, const char *name)
 	       sym->name, name, &loc);
   if (sym->as && sym->as->type == AS_ASSUMED_RANK)
     gfc_error ("Assumed rank array %qs in %s clause at %L",
-	       sym->name, name, &loc);
-  if (sym->as && sym->as->type == AS_DEFERRED && sym->attr.pointer
-      && !sym->attr.contiguous)
-    gfc_error ("Noncontiguous deferred shape array %qs in %s clause at %L",
 	       sym->name, name, &loc);
 }
 
@@ -4618,7 +4649,9 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
 				 n->sym->name, name, &n->where);
 		  }
 		if (code
-		    && (oacc_is_loop (code) || code->op == EXEC_OACC_PARALLEL))
+		    && (oacc_is_loop (code)
+			|| code->op == EXEC_OACC_PARALLEL
+			|| code->op == EXEC_OACC_SERIAL))
 		  check_array_not_assumed (n->sym, n->where, name);
 		else if (n->sym->as && n->sym->as->type == AS_ASSUMED_SIZE)
 		  gfc_error ("Assumed size array %qs in %s clause at %L",
@@ -5810,6 +5843,8 @@ oacc_code_to_statement (gfc_code *code)
       return ST_OACC_PARALLEL;
     case EXEC_OACC_KERNELS:
       return ST_OACC_KERNELS;
+    case EXEC_OACC_SERIAL:
+      return ST_OACC_SERIAL;
     case EXEC_OACC_DATA:
       return ST_OACC_DATA;
     case EXEC_OACC_HOST_DATA:
@@ -5818,6 +5853,8 @@ oacc_code_to_statement (gfc_code *code)
       return ST_OACC_PARALLEL_LOOP;
     case EXEC_OACC_KERNELS_LOOP:
       return ST_OACC_KERNELS_LOOP;
+    case EXEC_OACC_SERIAL_LOOP:
+      return ST_OACC_SERIAL_LOOP;
     case EXEC_OACC_LOOP:
       return ST_OACC_LOOP;
     case EXEC_OACC_ATOMIC:
@@ -6155,6 +6192,7 @@ gfc_resolve_oacc_directive (gfc_code *code, gfc_namespace *ns ATTRIBUTE_UNUSED)
     {
     case EXEC_OACC_PARALLEL:
     case EXEC_OACC_KERNELS:
+    case EXEC_OACC_SERIAL:
     case EXEC_OACC_DATA:
     case EXEC_OACC_HOST_DATA:
     case EXEC_OACC_UPDATE:
@@ -6166,6 +6204,7 @@ gfc_resolve_oacc_directive (gfc_code *code, gfc_namespace *ns ATTRIBUTE_UNUSED)
       break;
     case EXEC_OACC_PARALLEL_LOOP:
     case EXEC_OACC_KERNELS_LOOP:
+    case EXEC_OACC_SERIAL_LOOP:
     case EXEC_OACC_LOOP:
       resolve_oacc_loop (code);
       break;
