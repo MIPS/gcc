@@ -29,6 +29,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "tree-dfa.h"
 #include "stringpool.h"
+#include "convert.h"
+#include "target.h"
 #include "selftest.h"
 #include "diagnostic-color.h"
 #include "diagnostic-metadata.h"
@@ -4694,6 +4696,56 @@ region_model::get_region_for_label (tree label)
   return func_reg->get_or_create (this, func_rid, label, TREE_TYPE (label));
 }
 
+/* Build a cast of SRC_EXPR to DST_TYPE, or return NULL_TREE.
+
+   Adapted from gcc::jit::playback::context::build_cast, which in turn is
+   adapted from
+     - c/c-typeck.c:build_c_cast
+     - c/c-convert.c: convert
+     - convert.h
+   Only some kinds of cast are currently supported here.  */
+
+static tree
+build_cast (tree dst_type, tree src_expr)
+{
+  tree result = targetm.convert_to_type (dst_type, src_expr);
+  if (result)
+    return result;
+  enum tree_code dst_code = TREE_CODE (dst_type);
+  switch (dst_code)
+    {
+    case INTEGER_TYPE:
+    case ENUMERAL_TYPE:
+      result = convert_to_integer (dst_type, src_expr);
+      goto maybe_fold;
+
+    case BOOLEAN_TYPE:
+      /* Compare with c_objc_common_truthvalue_conversion and
+	 c_common_truthvalue_conversion. */
+      /* For now, convert to: (src_expr != 0)  */
+      result = build2 (NE_EXPR, dst_type,
+		       src_expr,
+		       build_int_cst (TREE_TYPE (src_expr), 0));
+      goto maybe_fold;
+
+    case REAL_TYPE:
+      result = convert_to_real (dst_type, src_expr);
+      goto maybe_fold;
+
+    case POINTER_TYPE:
+      result = build1 (NOP_EXPR, dst_type, src_expr);
+      goto maybe_fold;
+
+    default:
+      return NULL_TREE;
+
+    maybe_fold:
+      if (TREE_CODE (result) != C_MAYBE_CONST_EXPR)
+	result = fold (result);
+      return result;
+    }
+}
+
 /* If the type of SID's underlying value is DST_TYPE, return SID.
    Otherwise, attempt to create (or reuse) an svalue representing an access
    of SID as a DST_TYPE and return that value's svalue_id.  */
@@ -4740,7 +4792,8 @@ region_model::maybe_cast_1 (tree dst_type, svalue_id sid)
   /* Attempt to cast constants.  */
   if (tree src_cst = sval->maybe_get_constant ())
     {
-      tree dst = convert (dst_type, src_cst);
+      tree dst = build_cast (dst_type, src_cst);
+      gcc_assert (dst != NULL_TREE);
       if (CONSTANT_CLASS_P (dst))
 	return get_or_create_constant_svalue (dst);
     }
