@@ -382,11 +382,10 @@ The checkers are currently hardcoded and don't allow for user extensibility
 (e.g. adding allocate/release pairs).
 @item
 Although the analyzer's test suite has a proof-of-concept test case for
-LTO, it will crash on anything non-trivial.  There are various
+LTO, LTO support hasn't had extensive testing.  There are various
 lang-specific things in the analyzer that assume C rather than LTO.
-For example, casts are currently implemented via @code{convert}, and this
-leads to an ICE on LTO.  Similarly, SSA names are printed to the user in
-``raw'' form, rather than printing the underlying variable name.
+For example, SSA names are printed to the user in ``raw'' form, rather
+than printing the underlying variable name.
 @end itemize
 
 Some ideas for other checkers
