@@ -39,8 +39,10 @@ along with GCC; see the file COPYING3.  If not see
   NEXT_PASS (pass_lower_tm);
   NEXT_PASS (pass_refactor_eh);
   NEXT_PASS (pass_lower_eh);
+  NEXT_PASS (pass_coroutine_lower_builtins);
   NEXT_PASS (pass_build_cfg);
   NEXT_PASS (pass_warn_function_return);
+  NEXT_PASS (pass_coroutine_early_expand_ifns);
   NEXT_PASS (pass_expand_omp);
   NEXT_PASS (pass_warn_printf);
   NEXT_PASS (pass_walloca, /*strict_mode_p=*/true);
@@ -394,6 +396,7 @@ along with GCC; see the file COPYING3.  If not see
   NEXT_PASS (pass_cleanup_eh);
   NEXT_PASS (pass_lower_resx);
   NEXT_PASS (pass_nrv);
+  NEXT_PASS (pass_coroutine_finalize_frame);
   NEXT_PASS (pass_cleanup_cfg_post_optimizing);
   NEXT_PASS (pass_warn_function_noreturn);
   NEXT_PASS (pass_gen_hsail);
