@@ -521,8 +521,12 @@ impl_region_model_context::on_state_leak (const state_machine &sm,
 	}
     }
 
-  sm.on_leak (&sm_ctxt, m_enode_for_diag->get_supernode (), m_stmt,
-	      leaked_tree, state);
+  pending_diagnostic *pd = sm.on_leak (leaked_tree);
+  if (pd)
+    m_eg->get_diagnostic_manager ().add_diagnostic
+      (&sm, m_enode_for_diag, m_enode_for_diag->get_supernode (),
+       m_stmt, &stmt_finder,
+       leaked_tree, state, pd);
 }
 
 /* Implementation of region_model_context::on_inherited_svalue vfunc

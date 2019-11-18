@@ -73,16 +73,16 @@ public:
 			     const gimple *stmt,
 			     tree lhs, enum tree_code op, tree rhs) const = 0;
 
-  virtual void on_leak (sm_context *sm_ctxt,
-			const supernode *node,
-			const gimple *stmt,
-			tree var,
-			state_machine::state_t state) const = 0;
-
   /* Return true if it safe to discard the given state (to help
      when simplifying state objects).
      States that need leak detection should return false.  */
   virtual bool can_purge_p (state_t s) const = 0;
+
+  /* Called when VAR leaks (and !can_purge_p).  */
+  virtual pending_diagnostic *on_leak (tree var ATTRIBUTE_UNUSED) const
+  {
+    return NULL;
+  }
 
   void validate (state_t s) const;
 
