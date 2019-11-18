@@ -54,12 +54,8 @@ public:
 		     enum tree_code op,
 		     tree rhs) const FINAL OVERRIDE;
 
-  void on_leak (sm_context *sm_ctxt,
-		const supernode *node,
-		const gimple *stmt,
-		tree var,
-		state_machine::state_t state) const FINAL OVERRIDE;
   bool can_purge_p (state_t s) const FINAL OVERRIDE;
+  pending_diagnostic *on_leak (tree var) const FINAL OVERRIDE;
 
   /* Start state.  */
   state_t m_start;
@@ -761,23 +757,6 @@ malloc_state_machine::on_condition (sm_context *sm_ctxt,
     }
 }
 
-/* Implementation of state_machine::on_leak vfunc for malloc_state_machine.
-   Complain about leaks of pointers in state 'unchecked' and 'nonnull'.  */
-
-void
-malloc_state_machine::on_leak (sm_context *sm_ctxt,
-			       const supernode *node,
-			       const gimple *stmt,
-			       tree var,
-			       state_machine::state_t state ATTRIBUTE_UNUSED)
-  const
-{
-  sm_ctxt->warn_for_state (node, stmt, var, m_unchecked,
-			   new malloc_leak (*this, var));
-  sm_ctxt->warn_for_state (node, stmt, var, m_nonnull,
-			   new malloc_leak (*this, var));
-}
-
 /* Implementation of state_machine::can_purge_p vfunc for malloc_state_machine.
    Don't allow purging of pointers in state 'unchecked' or 'nonnull'
    (to avoid false leak reports).  */
@@ -786,6 +765,16 @@ bool
 malloc_state_machine::can_purge_p (state_t s) const
 {
   return s != m_unchecked && s != m_nonnull;
+}
+
+/* Implementation of state_machine::on_leak vfunc for malloc_state_machine
+   (for complaining about leaks of pointers in state 'unchecked' and
+   'nonnull').  */
+
+pending_diagnostic *
+malloc_state_machine::on_leak (tree var) const
+{
+  return new malloc_leak (*this, var);
 }
 
 } // anonymous namespace

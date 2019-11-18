@@ -55,11 +55,6 @@ public:
 		     enum tree_code op,
 		     tree rhs) const FINAL OVERRIDE;
 
-  void on_leak (sm_context *sm_ctxt,
-		const supernode *node,
-		const gimple *stmt,
-		tree var,
-		state_machine::state_t state) const FINAL OVERRIDE;
   bool can_purge_p (state_t s) const FINAL OVERRIDE;
 
   /* Start state.  */
@@ -308,17 +303,6 @@ taint_state_machine::on_condition (sm_context *sm_ctxt,
     default:
       break;
     }
-}
-
-void
-taint_state_machine::on_leak (sm_context *sm_ctxt ATTRIBUTE_UNUSED,
-			      const supernode *node ATTRIBUTE_UNUSED,
-			      const gimple *stmt ATTRIBUTE_UNUSED,
-			      tree var ATTRIBUTE_UNUSED,
-			      state_machine::state_t state ATTRIBUTE_UNUSED)
-  const
-{
-  /* Empty.  */
 }
 
 bool

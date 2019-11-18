@@ -8,12 +8,12 @@ static jmp_buf env;
 
 static void inner (void)
 {
-  longjmp (env, 1); /* { dg-warning "leak of 'ptr'" "" { xfail *-*-* } } */
+  longjmp (env, 1); /* { dg-warning "leak of 'ptr'" } */
 }
 
 static void middle (void)
 {
-  void *ptr = malloc (1024); /* { dg-message "allocated here"  "" { xfail *-*-* } }  */
+  void *ptr = malloc (1024); /* { dg-message "allocated here" }  */
   inner ();
   free (ptr);
 }

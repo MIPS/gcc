@@ -52,12 +52,8 @@ public:
 		     enum tree_code op,
 		     tree rhs) const FINAL OVERRIDE;
 
-  void on_leak (sm_context *sm_ctxt,
-		const supernode *node,
-		const gimple *stmt,
-		tree var,
-		state_machine::state_t state) const FINAL OVERRIDE;
   bool can_purge_p (state_t s) const FINAL OVERRIDE;
+  pending_diagnostic *on_leak (tree var) const FINAL OVERRIDE;
 
   /* Start state.  */
   state_t m_start;
@@ -299,24 +295,6 @@ fileptr_state_machine::on_condition (sm_context *sm_ctxt,
     }
 }
 
-/* Implementation of state_machine::on_leak vfunc for
-   fileptr_state_machine.
-   Complain about leaks of FILE * in state 'unchecked' and 'nonnull'.  */
-
-void
-fileptr_state_machine::on_leak (sm_context *sm_ctxt,
-				const supernode *node,
-				const gimple *stmt,
-				tree var,
-				state_machine::state_t state ATTRIBUTE_UNUSED)
-  const
-{
-  sm_ctxt->warn_for_state (node, stmt, var, m_unchecked,
-			   new file_leak (*this, var));
-  sm_ctxt->warn_for_state (node, stmt, var, m_nonnull,
-			   new file_leak (*this, var));
-}
-
 /* Implementation of state_machine::can_purge_p vfunc for fileptr_state_machine.
    Don't allow purging of pointers in state 'unchecked' or 'nonnull'
    (to avoid false leak reports).  */
@@ -325,6 +303,16 @@ bool
 fileptr_state_machine::can_purge_p (state_t s) const
 {
   return s != m_unchecked && s != m_nonnull;
+}
+
+/* Implementation of state_machine::on_leak vfunc for
+   fileptr_state_machine, for complaining about leaks of FILE * in
+   state 'unchecked' and 'nonnull'.  */
+
+pending_diagnostic *
+fileptr_state_machine::on_leak (tree var) const
+{
+  return new file_leak (*this, var);
 }
 
 } // anonymous namespace
