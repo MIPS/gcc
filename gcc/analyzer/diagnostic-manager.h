@@ -45,7 +45,8 @@ public:
 	    /* We don't compare m_stmt_finder.  */
 	    && m_var == other.m_var
 	    && m_state == other.m_state
-	    && m_d->equal_p (*other.m_d));
+	    && m_d->equal_p (*other.m_d)
+	    && m_trailing_eedge == other.m_trailing_eedge);
   }
 
   //private:
@@ -57,6 +58,7 @@ public:
   tree m_var;
   state_machine::state_t m_state;
   pending_diagnostic *m_d;
+  exploded_edge *m_trailing_eedge;
 };
 
 /* A class with responsibility for saving pending diagnostics, so that
@@ -92,6 +94,15 @@ public:
 			      const exploded_path &epath,
 			      const gimple *stmt,
 			      int num_dupes);
+
+  unsigned get_num_diagnostics () const
+  {
+    return m_saved_diagnostics.length ();
+  }
+  saved_diagnostic *get_saved_diagnostic (unsigned idx)
+  {
+    return m_saved_diagnostics[idx];
+  }
 
 private:
   void build_emission_path (const exploded_graph &eg,

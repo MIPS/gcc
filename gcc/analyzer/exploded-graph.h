@@ -627,10 +627,10 @@ public:
   exploded_node *get_or_create_node (const program_point &point,
 				     const program_state &state,
 				     state_change *change);
-  void add_edge (exploded_node *src, exploded_node *dest,
-		 const superedge *sedge,
-		 const state_change &change,
-		 rewind_info_t *rewind_info = NULL);
+  exploded_edge *add_edge (exploded_node *src, exploded_node *dest,
+			   const superedge *sedge,
+			   const state_change &change,
+			   rewind_info_t *rewind_info = NULL);
 
   per_program_point_data *
   get_or_create_per_program_point_data (const program_point &);

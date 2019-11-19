@@ -47,7 +47,7 @@ saved_diagnostic::saved_diagnostic (const state_machine *sm,
     outlive that.  */
   m_stmt_finder (stmt_finder ? stmt_finder->clone () : NULL),
   m_var (var), m_state (state),
-  m_d (d)
+  m_d (d), m_trailing_eedge (NULL)
 {
   gcc_assert (m_stmt || m_stmt_finder);
 
@@ -426,6 +426,13 @@ diagnostic_manager::emit_saved_diagnostic (const exploded_graph &eg,
      snodes.  */
   emission_path.add_final_event (sd.m_sm, epath.get_final_enode (), stmt,
 				 sd.m_var, sd.m_state);
+
+  /* The "final" event might not be final; if the saved_diagnostic has a
+     trailing eedge stashed, add any events for it.  This is for use
+     in handling longjmp, to show where a longjmp is rewinding to.  */
+  if (sd.m_trailing_eedge)
+    add_events_for_eedge (*sd.m_trailing_eedge, eg.get_ext_state (),
+			  &emission_path);
 
   emission_path.prepare_for_emission (sd.m_d);
 
