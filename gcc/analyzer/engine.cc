@@ -1083,6 +1083,13 @@ exploded_node::on_longjmp (exploded_graph &eg,
 	      >= setjmp_point.get_stack_depth ());
 
   /* Update the state for use by the destination node.  */
+
+  /* Stash the current number of diagnostics so that we can update
+     any that this adds to show where the longjmp is rewinding to.  */
+
+  diagnostic_manager *dm = &eg.get_diagnostic_manager ();
+  unsigned prev_num_diagnostics = dm->get_num_diagnostics ();
+
   new_region_model->on_longjmp (longjmp_call, setjmp_call,
 				setjmp_point.get_stack_depth (), ctxt);
 
@@ -1095,9 +1102,46 @@ exploded_node::on_longjmp (exploded_graph &eg,
 
   /* Create custom exploded_edge for a longjmp.  */
   if (next)
-    eg.add_edge (const_cast<exploded_node *> (this), next, NULL,
-		 change,
-		 new rewind_info_t (enode_origin));
+    {
+      exploded_edge *eedge
+	= eg.add_edge (const_cast<exploded_node *> (this), next, NULL,
+		       change,
+		       new rewind_info_t (enode_origin));
+
+      /* For any diagnostics that were queued here (such as leaks) we want
+	 the checker_path to show the rewinding events after the "final event"
+	 so that the user sees where the longjmp is rewinding to (otherwise the
+	 path is meaningless).
+
+	 For example, we want to emit something like:
+                        |   NN | {
+                        |   NN |   longjmp (env, 1);
+                        |      |   ~~~~~~~~~~~~~~~~
+                        |      |   |
+                        |      |   (10) 'ptr' leaks here; was allocated at (7)
+                        |      |   (11) rewinding from 'longjmp' in 'inner'...
+                        |
+          <-------------+
+          |
+        'outer': event 12
+          |
+          |   NN |   i = setjmp(env);
+          |      |       ^~~~~~
+          |      |       |
+          |      |       (12) ...to 'setjmp' in 'outer' (saved at (2))
+
+	 where the "final" event above is event (10), but we want to append
+	 events (11) and (12) afterwards.
+
+	 Do this by setting m_trailing_eedge on any diagnostics that were
+	 just saved.  */
+      unsigned num_diagnostics = dm->get_num_diagnostics ();
+      for (unsigned i = prev_num_diagnostics; i < num_diagnostics; i++)
+	{
+	  saved_diagnostic *sd = dm->get_saved_diagnostic (i);
+	  sd->m_trailing_eedge = eedge;
+	}
+    }
 }
 
 /* Subroutine of exploded_graph::process_node for finding the successors
@@ -1768,9 +1812,10 @@ exploded_graph::get_or_create_node (const program_point &point,
 
 /* Add an exploded_edge from SRC to DEST, recording its association
    with SEDGE (which may be NULL), and, if non-NULL, taking ownership
-   of REWIND_INFO.  */
+   of REWIND_INFO.
+   Return the newly-created eedge.  */
 
-void
+exploded_edge *
 exploded_graph::add_edge (exploded_node *src, exploded_node *dest,
 			  const superedge *sedge,
 			  const state_change &change,
@@ -1778,6 +1823,7 @@ exploded_graph::add_edge (exploded_node *src, exploded_node *dest,
 {
   exploded_edge *e = new exploded_edge (src, dest, sedge, change, rewind_info);
   digraph::add_edge (e);
+  return e;
 }
 
 /* Ensure that this graph has per-program_point-data for POINT;

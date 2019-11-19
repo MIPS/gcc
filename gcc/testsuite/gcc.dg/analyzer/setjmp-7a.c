@@ -85,7 +85,7 @@ void outer (void)
            |      |   |
            |      |   (8) calling 'inner' from 'middle'
            |
-           +--> 'inner': events 9-10
+           +--> 'inner': events 9-11
                   |
                   |   NN | static void inner (void)
                   |      |             ^~~~~
@@ -96,6 +96,15 @@ void outer (void)
                   |      |   ~~~~~~~~~~~~~~~~
                   |      |   |
                   |      |   (10) 'ptr' leaks here; was allocated at (7)
+                  |      |   (11) rewinding from 'longjmp' in 'inner'...
                   |
+    <-------------+
+    |
+  'outer': event 12
+    |
+    |   NN |   i = setjmp(env);
+    |      |       ^~~~~~
+    |      |       |
+    |      |       (12) ...to 'setjmp' in 'outer' (saved at (2))
+    |
     { dg-end-multiline-output "" } */
-// TODO: show the rewind to the setjmp
