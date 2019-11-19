@@ -499,8 +499,8 @@ public:
     return *m_events[idx];
   }
 
-
   void dump (pretty_printer *pp) const;
+  void debug () const;
 
   void maybe_log (logger *logger, const char *desc) const;
 
