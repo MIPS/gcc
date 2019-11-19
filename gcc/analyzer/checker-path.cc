@@ -883,6 +883,25 @@ checker_path::maybe_log (logger *logger, const char *desc) const
     }
 }
 
+/* Print a multiline form of this path to STDERR.  */
+
+DEBUG_FUNCTION void
+checker_path::debug () const
+{
+  checker_event *e;
+  int i;
+  FOR_EACH_VEC_ELT (m_events, i, e)
+    {
+      label_text event_desc (e->get_desc (false));
+      fprintf (stderr,
+	       "[%i]: %s \"%s\"\n",
+	       i,
+	       event_kind_to_string (m_events[i]->m_kind),
+	       event_desc.m_buffer);
+      event_desc.maybe_free ();
+    }
+}
+
 /* Add a warning_event to the end of this path.  */
 
 void
