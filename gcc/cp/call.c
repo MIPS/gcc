@@ -5198,7 +5198,7 @@ build_conditional_expr_1 (const op_location_t &loc,
 
       if (!COMPARISON_CLASS_P (arg1))
 	{
-	  tree cmp_type = build_same_sized_truth_vector_type (arg1_type);
+	  tree cmp_type = truth_type_for (arg1_type);
 	  arg1 = build2 (NE_EXPR, cmp_type, arg1, build_zero_cst (arg1_type));
 	}
       return build3_loc (loc, VEC_COND_EXPR, arg2_type, arg1, arg2, arg3);
@@ -7598,7 +7598,8 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	/* direct_reference_binding might have inserted a ck_qual under
 	   this ck_ref_bind for the benefit of conversion sequence ranking.
 	   Ignore the conversion; we'll create our own below.  */
-	if (next_conversion (convs)->kind == ck_qual)
+	if (next_conversion (convs)->kind == ck_qual
+	    && !convs->need_temporary_p)
 	  {
 	    gcc_assert (same_type_p (TREE_TYPE (expr),
 				     next_conversion (convs)->type));

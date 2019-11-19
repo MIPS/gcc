@@ -288,7 +288,7 @@ static bool arm_builtin_support_vector_misalignment (machine_mode mode,
 static void arm_conditional_register_usage (void);
 static enum flt_eval_method arm_excess_precision (enum excess_precision_type);
 static reg_class_t arm_preferred_rename_class (reg_class_t rclass);
-static void arm_autovectorize_vector_sizes (vector_sizes *, bool);
+static unsigned int arm_autovectorize_vector_modes (vector_modes *, bool);
 static int arm_default_branch_cost (bool, bool);
 static int arm_cortex_a5_branch_cost (bool, bool);
 static int arm_cortex_m_branch_cost (bool, bool);
@@ -325,6 +325,9 @@ static unsigned int arm_hard_regno_nregs (unsigned int, machine_mode);
 static bool arm_hard_regno_mode_ok (unsigned int, machine_mode);
 static bool arm_modes_tieable_p (machine_mode, machine_mode);
 static HOST_WIDE_INT arm_constant_alignment (const_tree, HOST_WIDE_INT);
+static rtx_insn * thumb1_md_asm_adjust (vec<rtx> &, vec<rtx> &,
+					vec<const char *> &, vec<rtx> &,
+					HARD_REG_SET &);
 
 /* Table of machine attributes.  */
 static const struct attribute_spec arm_attribute_table[] =
@@ -524,9 +527,9 @@ static const struct attribute_spec arm_attribute_table[] =
 #define TARGET_ARRAY_MODE_SUPPORTED_P arm_array_mode_supported_p
 #undef TARGET_VECTORIZE_PREFERRED_SIMD_MODE
 #define TARGET_VECTORIZE_PREFERRED_SIMD_MODE arm_preferred_simd_mode
-#undef TARGET_VECTORIZE_AUTOVECTORIZE_VECTOR_SIZES
-#define TARGET_VECTORIZE_AUTOVECTORIZE_VECTOR_SIZES \
-  arm_autovectorize_vector_sizes
+#undef TARGET_VECTORIZE_AUTOVECTORIZE_VECTOR_MODES
+#define TARGET_VECTORIZE_AUTOVECTORIZE_VECTOR_MODES \
+  arm_autovectorize_vector_modes
 
 #undef  TARGET_MACHINE_DEPENDENT_REORG
 #define TARGET_MACHINE_DEPENDENT_REORG arm_reorg
@@ -816,6 +819,9 @@ static const struct attribute_spec arm_attribute_table[] =
 
 #undef TARGET_CONSTANT_ALIGNMENT
 #define TARGET_CONSTANT_ALIGNMENT arm_constant_alignment
+
+#undef TARGET_MD_ASM_ADJUST
+#define TARGET_MD_ASM_ADJUST arm_md_asm_adjust
 
 /* Obstack for minipool constant handling.  */
 static struct obstack minipool_obstack;
@@ -2938,6 +2944,11 @@ arm_option_params_internal (void)
   /* For THUMB2, we limit the conditional sequence to one IT block.  */
   if (TARGET_THUMB2)
     max_insns_skipped = MIN (max_insns_skipped, MAX_INSN_PER_IT_BLOCK);
+
+  if (TARGET_THUMB1)
+    targetm.md_asm_adjust = thumb1_md_asm_adjust;
+  else
+    targetm.md_asm_adjust = arm_md_asm_adjust;
 }
 
 /* True if -mflip-thumb should next add an attribute for the default
@@ -15376,7 +15387,7 @@ arm_select_cc_mode (enum rtx_code op, rtx x, rtx y)
 	  || GET_CODE (x) == ASHIFT || GET_CODE (x) == ASHIFTRT
 	  || GET_CODE (x) == ROTATERT
 	  || (TARGET_32BIT && GET_CODE (x) == ZERO_EXTRACT)))
-    return CC_NOOVmode;
+    return CC_NZmode;
 
   /* A comparison of ~reg with a const is really a special
      canoncialization of compare (~const, reg), which is a reverse
@@ -15492,11 +15503,11 @@ arm_gen_dicompare_reg (rtx_code code, rtx x, rtx y, rtx scratch)
 	      }
 
 	    rtx clobber = gen_rtx_CLOBBER (VOIDmode, scratch);
-	    cc_reg = gen_rtx_REG (CC_NOOVmode, CC_REGNUM);
+	    cc_reg = gen_rtx_REG (CC_NZmode, CC_REGNUM);
 
 	    rtx set
 	      = gen_rtx_SET (cc_reg,
-			     gen_rtx_COMPARE (CC_NOOVmode,
+			     gen_rtx_COMPARE (CC_NZmode,
 					      gen_rtx_IOR (SImode, x_lo, x_hi),
 					      const0_rtx));
 	    emit_insn (gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, set,
@@ -23881,7 +23892,7 @@ maybe_get_arm_condition_code (rtx comparison)
 	return code;
       return ARM_NV;
 
-    case E_CC_NOOVmode:
+    case E_CC_NZmode:
       switch (comp_code)
 	{
 	case NE: return ARM_NE;
@@ -25304,7 +25315,7 @@ thumb1_final_prescan_insn (rtx_insn *insn)
 	  cfun->machine->thumb1_cc_insn = insn;
 	  cfun->machine->thumb1_cc_op0 = SET_DEST (set);
 	  cfun->machine->thumb1_cc_op1 = const0_rtx;
-	  cfun->machine->thumb1_cc_mode = CC_NOOVmode;
+	  cfun->machine->thumb1_cc_mode = CC_NZmode;
 	  if (INSN_CODE (insn) == CODE_FOR_thumb1_subsi3_insn)
 	    {
 	      rtx src1 = XEXP (SET_SRC (set), 1);
@@ -29012,14 +29023,15 @@ arm_vector_alignment (const_tree type)
   return align;
 }
 
-static void
-arm_autovectorize_vector_sizes (vector_sizes *sizes, bool)
+static unsigned int
+arm_autovectorize_vector_modes (vector_modes *modes, bool)
 {
   if (!TARGET_NEON_VECTORIZE_DOUBLE)
     {
-      sizes->safe_push (16);
-      sizes->safe_push (8);
+      modes->safe_push (V16QImode);
+      modes->safe_push (V8QImode);
     }
+  return 0;
 }
 
 static bool
@@ -30486,7 +30498,7 @@ arm_emit_coreregs_64bit_shift (enum rtx_code code, rtx out, rtx in,
   else
     {
       /* We have a shift-by-register.  */
-      rtx cc_reg = gen_rtx_REG (CC_NOOVmode, CC_REGNUM);
+      rtx cc_reg = gen_rtx_REG (CC_NZmode, CC_REGNUM);
 
       /* This alternative requires the scratch registers.  */
       gcc_assert (scratch1 && REG_P (scratch1));
@@ -32523,6 +32535,23 @@ arm_run_selftests (void)
 #undef TARGET_RUN_TARGET_SELFTESTS
 #define TARGET_RUN_TARGET_SELFTESTS selftest::arm_run_selftests
 #endif /* CHECKING_P */
+
+/* Worker function for TARGET_MD_ASM_ADJUST, while in thumb1 mode.
+   Unlike the arm version, we do NOT implement asm flag outputs.  */
+
+rtx_insn *
+thumb1_md_asm_adjust (vec<rtx> &outputs, vec<rtx> &/*inputs*/,
+		      vec<const char *> &constraints,
+		      vec<rtx> &/*clobbers*/, HARD_REG_SET &/*clobbered_regs*/)
+{
+  for (unsigned i = 0, n = outputs.length (); i < n; ++i)
+    if (strncmp (constraints[i], "=@cc", 4) == 0)
+      {
+	sorry ("asm flags not supported in thumb1 mode");
+	break;
+      }
+  return NULL;
+}
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

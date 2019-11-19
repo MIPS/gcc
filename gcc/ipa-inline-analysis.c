@@ -179,7 +179,7 @@ simple_edge_hints (struct cgraph_edge *edge)
    size, since we always need both metrics eventually.  */
 
 sreal
-do_estimate_edge_time (struct cgraph_edge *edge)
+do_estimate_edge_time (struct cgraph_edge *edge, sreal *ret_nonspec_time)
 {
   sreal time, nonspec_time;
   int size;
@@ -211,7 +211,7 @@ do_estimate_edge_time (struct cgraph_edge *edge)
 	  nonspec_time = e->entry.nonspec_time;
 	  hints = e->entry.hints;
 	  if (flag_checking
-	      && !edge->callee->count.ipa_p ())
+	      && !callee->count.ipa_p ())
 	    {
 	      sreal chk_time, chk_nonspec_time;
 	      int chk_size, chk_min_size;
@@ -275,6 +275,8 @@ do_estimate_edge_time (struct cgraph_edge *edge)
       hints |= simple_edge_hints (edge);
       entry->hints = hints + 1;
     }
+  if (ret_nonspec_time)
+    *ret_nonspec_time = nonspec_time;
   return time;
 }
 

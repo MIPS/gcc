@@ -3496,8 +3496,8 @@ proc check_effective_target_arm_vfp_ok_nocache { } {
     global et_arm_vfp_flags
     set et_arm_vfp_flags ""
     if { [check_effective_target_arm32] } {
-	foreach flags {"-mfpu=vfp" "-mfpu=vfp -mfloat-abi=softfp" "-mpu=vfp -mfloat-abi=hard"} {
-	    if { [check_no_compiler_messages_nocache arm_fp_ok object {
+	foreach flags {"-mfpu=vfp" "-mfpu=vfp -mfloat-abi=softfp" "-mfpu=vfp -mfloat-abi=hard"} {
+	    if { [check_no_compiler_messages_nocache arm_vfp_ok object {
 		#ifndef __ARM_FP
 		#error __ARM_FP not defined
 		#endif
@@ -6457,6 +6457,13 @@ proc check_effective_target_vect_natural_alignment { } {
     verbose "check_effective_target_vect_natural_alignment:\
 	     returning $et_vect_natural_alignment" 2
     return $et_vect_natural_alignment
+}
+
+# Return true if the target supports the check_raw_ptrs and check_war_ptrs
+# optabs on vectors.
+
+proc check_effective_target_vect_check_ptrs { } {
+    return [check_effective_target_aarch64_sve2]
 }
 
 # Return true if fully-masked loops are supported.
