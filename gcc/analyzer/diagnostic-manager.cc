@@ -1076,10 +1076,12 @@ diagnostic_manager::prune_path (checker_path *path,
   do
     {
       changed = false;
-      int idx = path->m_events.length () - 3;
-      while (idx >= 0 && idx < (signed)path->m_events.length ())
+      int idx = path->m_events.length () - 1;
+      while (idx >= 0)
 	{
-	  if (path->m_events[idx]->is_call_p ()
+	  /* Prune [..., call, function-entry, return, ...] triples.  */
+	  if (idx + 2 < (signed)path->m_events.length ()
+	      && path->m_events[idx]->is_call_p ()
 	      && path->m_events[idx + 1]->is_function_entry_p ()
 	      && path->m_events[idx + 2]->is_return_p ())
 	    {
@@ -1095,7 +1097,31 @@ diagnostic_manager::prune_path (checker_path *path,
 	      path->delete_event (idx + 1);
 	      path->delete_event (idx);
 	      changed = true;
+	      idx--;
+	      continue;
 	    }
+
+	  /* Prune [..., call, return, ...] pairs
+	     (for -fanalyzer-verbosity=0).  */
+	  if (idx + 1 < (signed)path->m_events.length ()
+	      && path->m_events[idx]->is_call_p ()
+	      && path->m_events[idx + 1]->is_return_p ())
+	    {
+	      if (get_logger ())
+		{
+		  label_text desc (path->m_events[idx]->get_desc (false));
+		  log ("filtering events %i-%i:"
+		       " irrelevant call/return: %s",
+		       idx, idx + 1, desc.m_buffer);
+		  desc.maybe_free ();
+		}
+	      path->delete_event (idx + 1);
+	      path->delete_event (idx);
+	      changed = true;
+	      idx--;
+	      continue;
+	    }
+
 	  idx--;
 	}
 
