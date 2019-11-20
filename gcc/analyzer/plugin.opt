@@ -22,6 +22,22 @@
 
 ; Please try to keep this file in ASCII collating order.
 
+-param=analyzer-bb-explosion-factor=
+Common Joined UInteger Var(param_analyzer_bb_explosion_factor) Init(5) Param
+The maximum number of 'after supernode' exploded nodes within the analyzer per supernode, before terminating analysis.
+
+-param=analyzer-max-enodes-per-program-point=
+Common Joined UInteger Var(param_analyzer_max_enodes_per_program_point) Init(8) Param
+The maximum number of exploded nodes per program point within the analyzer, before terminating analysis of that point.
+
+-param=analyzer-max-recursion-depth=
+Common Joined UInteger Var(param_analyzer_max_recursion_depth) Init(2) Param
+The maximum number of times a callsite can appear in a call stack within the analyzer, before terminating analysis of a call tha would recurse deeper.
+
+-param=analyzer-min-snodes-for-call-summary=
+Common Joined UInteger Var(param_analyzer_min_snodes_for_call_summary) Init(10) Param
+The minimum number of supernodes within a function for the analyzer to consider summarizing its effects at call sites.
+
 Wanalyzer-double-fclose
 Common Var(warn_analyzer_double_fclose) Init(1) Warning
 Warn about code paths in which a stdio FILE can be closed more than once.
