@@ -26,7 +26,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "timevar.h"
 #include "ipa-utils.h"
-#include "params.h"
 #include "analyzer/analyzer.h"
 #include "analyzer/analysis-plan.h"
 #include "analyzer/supergraph.h"
@@ -108,7 +107,7 @@ analysis_plan::use_summary_p (const cgraph_edge *edge) const
   /* Require the callee to be sufficiently complex to be worth
      summarizing.  */
   if ((int)m_sg.get_num_snodes (callee->get_fun ())
-      < PARAM_VALUE (PARAM_ANALYZER_MIN_SNODES_FOR_CALL_SUMMARY))
+      < param_analyzer_min_snodes_for_call_summary)
     return false;
 
   return true;
