@@ -99,6 +99,11 @@ bool gfc_matching_function;
 /* Set upon parsing a !GCC$ unroll n directive for use in the next loop.  */
 int directive_unroll = -1;
 
+/* Set upon parsing supported !GCC$ pragmas for use in the next loop.  */
+bool directive_ivdep = false;
+bool directive_vector = false;
+bool directive_novector = false;
+
 /* Map of middle-end built-ins that should be vectorized.  */
 hash_map<nofree_string_hash, int> *gfc_vectorized_builtins;
 
@@ -2644,7 +2649,7 @@ variable_decl (int elem)
       then we want to set the type & bail out.  */
   if (flag_cray_pointer && !gfc_comp_struct (gfc_current_state ()))
     {
-      gfc_find_symbol (name, gfc_current_ns, 1, &sym);
+      gfc_find_symbol (name, gfc_current_ns, 0, &sym);
       if (sym != NULL && sym->attr.cray_pointee)
 	{
 	  m = MATCH_YES;
@@ -3991,7 +3996,6 @@ gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
       return MATCH_YES;
     }
 
-
   m = gfc_match (" type (");
   matched_type = (m == MATCH_YES);
   if (matched_type)
@@ -4039,7 +4043,10 @@ gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
 	m = MATCH_YES;
 
       if (matched_type && m == MATCH_YES && gfc_match_char (')') != MATCH_YES)
-	m = MATCH_ERROR;
+	{
+	  gfc_error ("Malformed type-spec at %C");
+	  return MATCH_ERROR;
+	}
 
       return m;
     }
@@ -4062,8 +4069,12 @@ gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
 	  && !gfc_notify_std (GFC_STD_F2008, "TYPE with "
 			      "intrinsic-type-spec at %C"))
 	return MATCH_ERROR;
+
       if (matched_type && gfc_match_char (')') != MATCH_YES)
-	return MATCH_ERROR;
+	{
+	  gfc_error ("Malformed type-spec at %C");
+	  return MATCH_ERROR;
+	}
 
       ts->type = BT_REAL;
       ts->kind = gfc_default_double_kind;
@@ -4093,7 +4104,10 @@ gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
 	return MATCH_ERROR;
 
       if (matched_type && gfc_match_char (')') != MATCH_YES)
-	return MATCH_ERROR;
+	{
+	  gfc_error ("Malformed type-spec at %C");
+	  return MATCH_ERROR;
+	}
 
       ts->type = BT_COMPLEX;
       ts->kind = gfc_default_double_kind;
@@ -4114,7 +4128,13 @@ gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
       if (m == MATCH_ERROR)
 	return m;
 
-    m = gfc_match_char (')');
+      gfc_gobble_whitespace ();
+      if (gfc_peek_ascii_char () != ')')
+	{
+	  gfc_error ("Malformed type-spec at %C");
+	  return MATCH_ERROR;
+	}
+      m = gfc_match_char (')'); /* Burn closing ')'.  */
     }
 
   if (m != MATCH_YES)
@@ -4397,6 +4417,7 @@ get_kind:
 	      gfc_next_ascii_char ();
 	      return MATCH_YES;
 	    }
+	  gfc_error ("Malformed type-spec at %C");
 	  return MATCH_NO;
 	}
     }
@@ -4410,7 +4431,10 @@ get_kind:
     }
 
   if (matched_type && gfc_match_char (')') != MATCH_YES)
-    return MATCH_ERROR;
+    {
+      gfc_error ("Malformed type-spec at %C");
+      return MATCH_ERROR;
+    }
 
   /* Defer association of the KIND expression of function results
      until after USE and IMPORT statements.  */
@@ -6145,13 +6169,17 @@ gfc_match_prefix (gfc_typespec *ts)
 	  found_prefix = true;
 	}
 
-      if (!seen_type && ts != NULL
-	  && gfc_match_decl_type_spec (ts, 0) == MATCH_YES
-	  && gfc_match_space () == MATCH_YES)
+      if (!seen_type && ts != NULL)
 	{
-
-	  seen_type = true;
-	  found_prefix = true;
+	  match m;
+	  m = gfc_match_decl_type_spec (ts, 0);
+	  if (m == MATCH_ERROR)
+	    goto error;
+	  if (m == MATCH_YES && gfc_match_space () == MATCH_YES)
+	    {
+	      seen_type = true;
+	      found_prefix = true;
+	    }
 	}
 
       if (gfc_match ("elemental% ") == MATCH_YES)
@@ -7202,13 +7230,16 @@ gfc_match_function_decl (void)
   if (sym->attr.is_bind_c == 1)
     {
       sym->attr.is_bind_c = 0;
-      if (sym->old_symbol != NULL)
-        gfc_error_now ("BIND(C) attribute at %L can only be used for "
-                       "variables or common blocks",
-                       &(sym->old_symbol->declared_at));
-      else
-        gfc_error_now ("BIND(C) attribute at %L can only be used for "
-                       "variables or common blocks", &gfc_current_locus);
+
+      if (gfc_state_stack->previous
+	  && gfc_state_stack->previous->state != COMP_SUBMODULE)
+	{
+	  locus loc;
+	  loc = sym->old_symbol != NULL
+	    ? sym->old_symbol->declared_at : gfc_current_locus;
+	  gfc_error_now ("BIND(C) attribute at %L can only be used for "
+			 "variables or common blocks", &loc);
+	}
     }
 
   if (found_match != MATCH_YES)
@@ -7221,6 +7252,24 @@ gfc_match_function_decl (void)
       else
 	found_match = suffix_match;
     }
+
+  /* F2018 C1550 (R1526) If MODULE appears in the prefix of a module
+     subprogram and a binding label is specified, it shall be the
+     same as the binding label specified in the corresponding module
+     procedure interface body.  */
+    if (sym->attr.is_bind_c && sym->attr.module_procedure && sym->old_symbol
+  	&& strcmp (sym->name, sym->old_symbol->name) == 0
+	&& strcmp (sym->binding_label, sym->old_symbol->binding_label) != 0)
+      {
+	  const char *null = "NULL", *s1, *s2;
+	  s1 = sym->binding_label;
+	  if (!s1) s1 = null;
+	  s2 = sym->old_symbol->binding_label;
+	  if (!s2) s2 = null;
+          gfc_error ("Mismatch in BIND(C) names (%qs/%qs) at %C", s1, s2);
+	  sym->refs++;	/* Needed to avoid an ICE in gfc_release_symbol */
+	  return MATCH_ERROR;
+      }
 
   if(found_match != MATCH_YES)
     m = MATCH_ERROR;
@@ -7460,15 +7509,15 @@ gfc_match_entry (void)
      not allowed for procedures.  */
   if (entry->attr.is_bind_c == 1)
     {
+      locus loc;
+
       entry->attr.is_bind_c = 0;
-      if (entry->old_symbol != NULL)
-        gfc_error_now ("BIND(C) attribute at %L can only be used for "
-                       "variables or common blocks",
-                       &(entry->old_symbol->declared_at));
-      else
-        gfc_error_now ("BIND(C) attribute at %L can only be used for "
-                       "variables or common blocks", &gfc_current_locus);
-    }
+
+      loc = entry->old_symbol != NULL
+	? entry->old_symbol->declared_at : gfc_current_locus; 
+      gfc_error_now ("BIND(C) attribute at %L can only be used for "
+		     "variables or common blocks", &loc);
+     }
 
   /* Check what next non-whitespace character is so we can tell if there
      is the required parens if we have a BIND(C).  */
@@ -7668,13 +7717,16 @@ gfc_match_subroutine (void)
   if (sym->attr.is_bind_c == 1)
     {
       sym->attr.is_bind_c = 0;
-      if (sym->old_symbol != NULL)
-        gfc_error_now ("BIND(C) attribute at %L can only be used for "
-                       "variables or common blocks",
-                       &(sym->old_symbol->declared_at));
-      else
-        gfc_error_now ("BIND(C) attribute at %L can only be used for "
-                       "variables or common blocks", &gfc_current_locus);
+
+      if (gfc_state_stack->previous
+	  && gfc_state_stack->previous->state != COMP_SUBMODULE)
+	{
+	  locus loc;
+	  loc = sym->old_symbol != NULL
+	    ? sym->old_symbol->declared_at : gfc_current_locus;
+	  gfc_error_now ("BIND(C) attribute at %L can only be used for "
+			 "variables or common blocks", &loc);
+	}
     }
 
   /* C binding names are not allowed for internal procedures.  */
@@ -7715,6 +7767,24 @@ gfc_match_subroutine (void)
           gfc_error ("Missing required parentheses before BIND(C) at %C");
           return MATCH_ERROR;
         }
+
+      /* F2018 C1550 (R1526) If MODULE appears in the prefix of a module
+	 subprogram and a binding label is specified, it shall be the
+	 same as the binding label specified in the corresponding module
+	 procedure interface body.  */
+      if (sym->attr.module_procedure && sym->old_symbol
+  	  && strcmp (sym->name, sym->old_symbol->name) == 0
+	  && strcmp (sym->binding_label, sym->old_symbol->binding_label) != 0)
+	{
+	  const char *null = "NULL", *s1, *s2;
+	  s1 = sym->binding_label;
+	  if (!s1) s1 = null;
+	  s2 = sym->old_symbol->binding_label;
+	  if (!s2) s2 = null;
+          gfc_error ("Mismatch in BIND(C) names (%qs/%qs) at %C", s1, s2);
+	  sym->refs++;	/* Needed to avoid an ICE in gfc_release_symbol */
+	  return MATCH_ERROR;
+	}
 
       /* Scan the dummy arguments for an alternate return.  */
       for (arg = sym->formal; arg; arg = arg->next)
@@ -10161,6 +10231,20 @@ gfc_match_derived_decl (void)
       return MATCH_ERROR;
     }
 
+  /*  In free source form, need to check for TYPE XXX as oppose to TYPEXXX.
+      But, we need to simply return for TYPE(.  */ 
+  if (m == MATCH_NO && gfc_current_form == FORM_FREE)
+    {
+      char c = gfc_peek_ascii_char ();
+      if (c == '(')
+	return m;
+      if (!gfc_is_whitespace (c))
+	{
+	  gfc_error ("Mangled derived type definition at %C");
+	  return MATCH_NO;
+	}
+    }
+
   m = gfc_match (" %n ", name);
   if (m != MATCH_YES)
     return m;
@@ -10168,7 +10252,7 @@ gfc_match_derived_decl (void)
   /* Make sure that we don't identify TYPE IS (...) as a parameterized
      derived type named 'is'.
      TODO Expand the check, when 'name' = "is" by matching " (tname) "
-     and checking if this is a(n intrinsic) typename. his picks up
+     and checking if this is a(n intrinsic) typename.  This picks up
      misplaced TYPE IS statements such as in select_type_1.f03.  */
   if (gfc_peek_ascii_char () == '(')
     {
@@ -11471,4 +11555,54 @@ gfc_match_gcc_builtin (void)
     free (r);
 
   return MATCH_YES;
+}
+
+/* Match an !GCC$ IVDEP statement.
+   When we come here, we have already matched the !GCC$ IVDEP string.  */
+
+match
+gfc_match_gcc_ivdep (void)
+{
+  if (gfc_match_eos () == MATCH_YES)
+    {
+      directive_ivdep = true;
+      return MATCH_YES;
+    }
+
+  gfc_error ("Syntax error in !GCC$ IVDEP directive at %C");
+  return MATCH_ERROR;
+}
+
+/* Match an !GCC$ VECTOR statement.
+   When we come here, we have already matched the !GCC$ VECTOR string.  */
+
+match
+gfc_match_gcc_vector (void)
+{
+  if (gfc_match_eos () == MATCH_YES)
+    {
+      directive_vector = true;
+      directive_novector = false;
+      return MATCH_YES;
+    }
+
+  gfc_error ("Syntax error in !GCC$ VECTOR directive at %C");
+  return MATCH_ERROR;
+}
+
+/* Match an !GCC$ NOVECTOR statement.
+   When we come here, we have already matched the !GCC$ NOVECTOR string.  */
+
+match
+gfc_match_gcc_novector (void)
+{
+  if (gfc_match_eos () == MATCH_YES)
+    {
+      directive_novector = true;
+      directive_vector = false;
+      return MATCH_YES;
+    }
+
+  gfc_error ("Syntax error in !GCC$ NOVECTOR directive at %C");
+  return MATCH_ERROR;
 }

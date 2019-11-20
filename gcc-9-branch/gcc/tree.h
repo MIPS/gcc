@@ -4525,12 +4525,6 @@ extern tree first_field (const_tree);
 extern bool initializer_zerop (const_tree, bool * = NULL);
 extern bool initializer_each_zero_or_onep (const_tree);
 
-/* Analogous to initializer_zerop but also examines the type for
-   which the initializer is being used.  Unlike initializer_zerop,
-   considers empty strings to be zero initializers for arrays and
-   non-zero for pointers.  */
-extern bool type_initializer_zero_p (tree, tree);
-
 extern wide_int vector_cst_int_elt (const_tree, unsigned int);
 extern tree vector_cst_elt (const_tree, unsigned int);
 
@@ -5952,12 +5946,12 @@ type_has_mode_precision_p (const_tree t)
 
    Note that it is different from the DECL_IS_BUILTIN accessor.  For
    instance, user declared prototypes of C library functions are not
-   DECL_IS_BUILTIN but may be DECL_BUILT_IN.  */
+   DECL_IS_BUILTIN but may be fndecl_built_in_p.  */
 
 inline bool
 fndecl_built_in_p (const_tree node)
 {
-  return (DECL_BUILT_IN_CLASS (node) != NOT_BUILT_IN);
+  return DECL_BUILT_IN_CLASS (node) != NOT_BUILT_IN;
 }
 
 /* Return true if a FUNCTION_DECL NODE is a GCC built-in function
@@ -5966,7 +5960,7 @@ fndecl_built_in_p (const_tree node)
 inline bool
 fndecl_built_in_p (const_tree node, built_in_class klass)
 {
-  return (fndecl_built_in_p (node) && DECL_BUILT_IN_CLASS (node) == klass);
+  return fndecl_built_in_p (node) && DECL_BUILT_IN_CLASS (node) == klass;
 }
 
 /* Return true if a FUNCTION_DECL NODE is a GCC built-in function

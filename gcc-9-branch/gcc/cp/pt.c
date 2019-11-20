@@ -6353,6 +6353,8 @@ check_valid_ptrmem_cst_expr (tree type, tree expr,
 static bool
 has_value_dependent_address (tree op)
 {
+  STRIP_ANY_LOCATION_WRAPPER (op);
+
   /* We could use get_inner_reference here, but there's no need;
      this is only relevant for template non-type arguments, which
      can only be expressed as &id-expression.  */
@@ -25231,8 +25233,9 @@ invalid_nontype_parm_type_p (tree type, tsubst_flags_t complain)
     {
       if (cxx_dialect < cxx2a)
 	{
-	  error ("non-type template parameters of class type only available "
-		 "with %<-std=c++2a%> or %<-std=gnu++2a%>");
+	  if (complain & tf_error)
+	    error ("non-type template parameters of class type only available "
+		   "with %<-std=c++2a%> or %<-std=gnu++2a%>");
 	  return true;
 	}
       if (dependent_type_p (type))
@@ -26714,7 +26717,7 @@ build_non_dependent_expr (tree expr)
   if (TREE_CODE (expr) == COND_EXPR)
     return build3 (COND_EXPR,
 		   TREE_TYPE (expr),
-		   TREE_OPERAND (expr, 0),
+		   build_non_dependent_expr (TREE_OPERAND (expr, 0)),
 		   (TREE_OPERAND (expr, 1)
 		    ? build_non_dependent_expr (TREE_OPERAND (expr, 1))
 		    : build_non_dependent_expr (TREE_OPERAND (expr, 0))),

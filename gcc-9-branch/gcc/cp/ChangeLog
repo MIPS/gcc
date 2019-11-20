@@ -1,3 +1,171 @@
+2019-11-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/90767
+	* call.c (complain_about_no_candidates_for_method_call): If
+	conv->from is not a type, pass to complain_about_bad_argument
+	lvalue_type of conv->from.
+
+	Backported from mainline
+	2019-11-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/92504
+	* semantics.c (handle_omp_for_class_iterator): Don't call
+	cp_fully_fold on cond.
+
+2019-11-08  Marek Polacek  <polacek@redhat.com>
+
+	Backported from mainline
+	2019-10-29  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/90998 - ICE with copy elision in init by ctor and -Wconversion.
+	* call.c (joust): Don't attempt to warn if ->second_conv is null.
+
+2019-11-08  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2019-11-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/92343
+	* constexpr.c (potential_constant_expression_1): Return true rather
+	than false for PREDICT_EXPR.
+
+	2019-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/90947
+	* cp-tree.h (type_initializer_zero_p): Declare.
+	* decl.c (reshape_init_array_1): Formatting fix.
+	* tree.c (type_initializer_zero_p): New function.  Moved from
+	../tree.c, use next_initializable_field, formatting fix.  Return
+	false for TYPE_NON_AGGREGATE_CLASS types.
+
+	2019-10-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/85887
+	* decl.c (expand_static_init): Drop ECF_LEAF from __cxa_guard_acquire
+	and __cxa_guard_release.
+
+	2019-10-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/92015
+	* constexpr.c (cxx_eval_component_reference, cxx_eval_bit_field_ref):
+	Use STRIP_ANY_LOCATION_WRAPPER on CONSTRUCTOR elts.
+
+2019-10-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/92201
+	* cp-gimplify.c (cp_gimplify_expr): If gimplify_to_rvalue changes the
+	function pointer type, re-add cast to the original one.
+
+2018-10-26  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Backport from mainline
+
+	2019-06-01  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	PR c++/85254
+	* class.c (fixup_type_variants): Handle CLASSTYPE_FINAL.
+
+2019-10-24  Marek Polacek  <polacek@redhat.com>
+
+	* decl.c (reshape_init_r): Add missing space.
+
+2019-10-22  Marek Polacek  <polacek@redhat.com>
+
+	Backported from mainline
+	2019-10-21  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/92106 - ICE with structured bindings and -Wreturn-local-addr.
+	* typeck.c (maybe_warn_about_returning_address_of_local): Avoid
+	recursing on null initializer and return false instead.
+
+	PR c++/92062 - ODR-use ignored for static member of class template.
+	* pt.c (has_value_dependent_address): Strip location wrappers.
+
+2019-10-21  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2019-10-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/91974
+	* cp-gimplify.c (cp_gimplify_expr) <case CALL_EXPR>: For
+	-fstrong-eval-order ensure CALL_EXPR_FN side-effects are evaluated
+	before any arguments.  Additionally, ensure CALL_EXPR_FN that isn't
+	invariant nor OBJ_TYPE_REF nor SSA_NAME is forced into a temporary.
+
+	2019-09-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/88203
+	* parser.c (cp_parser_omp_var_list_no_open): Parse predefined
+	variables.
+	* semantics.c (finish_omp_clauses): Allow predefined variables in
+	shared and firstprivate clauses, even when they are predetermined
+	shared.
+	* cp-gimplify.c (cxx_omp_predetermined_sharing_1): Return
+	OMP_CLAUSE_DEFAULT_SHARED for predefined variables.
+
+	2019-08-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/91401
+	* parser.c (cp_parser_omp_clause_dist_schedule): Comment out the
+	check_no_duplicate_clause call, instead emit a warning for duplicate
+	dist_schedule clauses.
+
+2019-10-16  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2019-10-02  Richard Biener  <rguenther@suse.de>
+
+	PR c++/91606
+	* decl.c (build_ptrmemfunc_type): Mark pointer-to-member
+	fat pointer structure members as DECL_NONADDRESSABLE_P.
+
+2019-10-08  Marek Polacek  <polacek@redhat.com>
+
+	Backported from mainline
+	2019-09-15  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/91740 - ICE with constexpr call and ?: in ARRAY_REF.
+	* pt.c (build_non_dependent_expr): Call build_non_dependent_expr for
+	the first operand.
+
+2019-09-28  Marek Polacek  <polacek@redhat.com>
+
+	Backported from mainline
+	2019-09-28  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/91923 - failure-to-SFINAE with class type NTTP in C++17.
+	* pt.c (invalid_nontype_parm_type_p): Only emit errors when
+	tf_error.
+
+2019-09-10  Marek Polacek  <polacek@redhat.com>
+
+	Backported from mainline
+	2019-09-10  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/91705 - constexpr evaluation rejects ++/-- on floats.
+	* constexpr.c (cxx_eval_increment_expression): Call fold_simple on
+	the offset.
+
+2019-09-01  Marek Polacek  <polacek@redhat.com>
+
+	Backported from mainline
+	2019-09-01  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/91129 - wrong error with binary op in template argument.
+	* typeck.c (warn_for_null_address): Use fold_for_warn instead of
+	fold_non_dependent_expr.
+	(cp_build_binary_op): Likewise.
+
+2019-08-31  Iain Sandoe  <iain@sandoe.co.uk>
+
+	Backported from mainline
+	2019-08-23  Iain Sandoe  <iain@sandoe.co.uk>
+
+	PR pch/61250
+	* parser.c (cp_parser_initial_pragma): Call c_common_no_more_pch ()
+	after determining that the first token is not
+	PRAGMA_GCC_PCH_PREPROCESS.
+
 2019-08-23  Marek Polacek  <polacek@redhat.com>
 
 	Backported from mainline

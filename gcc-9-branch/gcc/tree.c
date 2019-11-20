@@ -5777,7 +5777,8 @@ free_lang_data_in_decl (tree decl, struct free_lang_data_d *fld)
       while (*nextp)
 	{
 	  tree var = *nextp;
-	  if (fndecl_built_in_p (var))
+	  if (TREE_CODE (var) == FUNCTION_DECL
+	      && fndecl_built_in_p (var))
 	    *nextp = TREE_CHAIN (var);
 	  else
 	    nextp = &TREE_CHAIN (var);
@@ -5936,8 +5937,9 @@ find_decls_types_r (tree *tp, int *ws, void *data)
     {
       for (tree *tem = &BLOCK_VARS (t); *tem; )
 	{
-	  if (TREE_CODE (*tem) != VAR_DECL
-	      || !auto_var_in_fn_p (*tem, DECL_CONTEXT (*tem)))
+	  if (TREE_CODE (*tem) != LABEL_DECL
+	      && (TREE_CODE (*tem) != VAR_DECL
+		  || !auto_var_in_fn_p (*tem, DECL_CONTEXT (*tem))))
 	    {
 	      gcc_assert (TREE_CODE (*tem) != RESULT_DECL
 			  && TREE_CODE (*tem) != PARM_DECL);
@@ -6106,6 +6108,13 @@ find_decls_types_in_node (struct cgraph_node *n, struct free_lang_data_d *fld)
 	    {
 	      tree arg = gimple_op (stmt, i);
 	      find_decls_types (arg, fld);
+	      /* find_decls_types doesn't walk TREE_PURPOSE of TREE_LISTs,
+		 which we need for asm stmts.  */
+	      if (arg
+		  && TREE_CODE (arg) == TREE_LIST
+		  && TREE_PURPOSE (arg)
+		  && gimple_code (stmt) == GIMPLE_ASM)
+		find_decls_types (TREE_PURPOSE (arg), fld);
 	    }
 	}
     }
@@ -11354,73 +11363,6 @@ initializer_each_zero_or_onep (const_tree expr)
     default:
       return false;
     }
-}
-
-/* Given an initializer INIT for a TYPE, return true if INIT is zero
-   so that it can be replaced by value initialization.  This function
-   distinguishes betwen empty strings as initializers for arrays and
-   for pointers (which make it return false).  */
-
-bool
-type_initializer_zero_p (tree type, tree init)
-{
-  if (type  == error_mark_node || init == error_mark_node)
-    return false;
-
-  STRIP_NOPS (init);
-
-  if (POINTER_TYPE_P (type))
-    return TREE_CODE (init) != STRING_CST && initializer_zerop (init);
-
-  if (TREE_CODE (init) != CONSTRUCTOR)
-    return initializer_zerop (init);
-
-  if (TREE_CODE (type) == ARRAY_TYPE)
-    {
-      tree elt_type = TREE_TYPE (type);
-      elt_type = TYPE_MAIN_VARIANT (elt_type);
-      if (elt_type == char_type_node)
-	return initializer_zerop (init);
-
-      tree elt_init;
-      unsigned HOST_WIDE_INT i;
-      FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (init), i, elt_init)
-	if (!type_initializer_zero_p (elt_type, elt_init))
-	  return false;
-      return true;
-    }
-
-  if (TREE_CODE (type) != RECORD_TYPE)
-    return initializer_zerop (init);
-
-  tree fld = TYPE_FIELDS (type);
-
-  tree fld_init;
-  unsigned HOST_WIDE_INT i;
-  FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (init), i, fld_init)
-    {
-      /* Advance to the next member, skipping over everything that
-	 canot be initialized (including unnamed bit-fields).  */
-      while (TREE_CODE (fld) != FIELD_DECL
-	     || DECL_ARTIFICIAL (fld)
-	     || (DECL_BIT_FIELD (fld) && !DECL_NAME (fld)))
-	{
-	  fld = DECL_CHAIN (fld);
-	  if (!fld)
-	    return true;
-	  continue;
-	}
-
-      tree fldtype = TREE_TYPE (fld);
-      if (!type_initializer_zero_p (fldtype, fld_init))
-	return false;
-
-      fld = DECL_CHAIN (fld);
-      if (!fld)
-	break;
-    }
-
-  return true;
 }
 
 /* Check if vector VEC consists of all the equal elements and

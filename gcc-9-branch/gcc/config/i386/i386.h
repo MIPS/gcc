@@ -640,7 +640,7 @@ extern tree x86_mfence;
 /* Replace MACH-O, ifdefs by in-line tests, where possible. 
    (a) Macros defined in config/i386/darwin.h  */
 #define TARGET_MACHO 0
-#define TARGET_MACHO_BRANCH_ISLANDS 0
+#define TARGET_MACHO_SYMBOL_STUBS 0
 #define MACHOPIC_ATT_STUB 0
 /* (b) Macros defined in config/darwin.h  */
 #define MACHO_DYNAMIC_NO_PIC_P 0
@@ -2380,7 +2380,7 @@ const wide_int_bitmask PTA_CANNONLAKE = PTA_SKYLAKE | PTA_AVX512F
   | PTA_AVX512VBMI | PTA_AVX512IFMA | PTA_SHA;
 const wide_int_bitmask PTA_ICELAKE_CLIENT = PTA_CANNONLAKE | PTA_AVX512VNNI
   | PTA_GFNI | PTA_VAES | PTA_AVX512VBMI2 | PTA_VPCLMULQDQ | PTA_AVX512BITALG
-  | PTA_RDPID | PTA_CLWB;
+  | PTA_RDPID | PTA_CLWB | PTA_AVX512VPOPCNTDQ;
 const wide_int_bitmask PTA_ICELAKE_SERVER = PTA_ICELAKE_CLIENT | PTA_PCONFIG
   | PTA_WBNOINVD;
 const wide_int_bitmask PTA_KNL = PTA_BROADWELL | PTA_AVX512PF | PTA_AVX512ER

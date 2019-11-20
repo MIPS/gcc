@@ -843,6 +843,10 @@ gfc_set_array_spec (gfc_symbol *sym, gfc_array_spec *as, locus *error_loc)
 
       sym->as->cotype = as->cotype;
       sym->as->corank = as->corank;
+      /* Check F2018:C822.  */
+      if (sym->as->rank + sym->as->corank > GFC_MAX_DIMENSIONS)
+	goto too_many;
+
       for (i = 0; i < as->corank; i++)
 	{
 	  sym->as->lower[sym->as->rank + i] = as->lower[i];
@@ -861,6 +865,10 @@ gfc_set_array_spec (gfc_symbol *sym, gfc_array_spec *as, locus *error_loc)
       sym->as->cray_pointee = as->cray_pointee;
       sym->as->cp_was_assumed = as->cp_was_assumed;
 
+      /* Check F2018:C822.  */
+      if (sym->as->rank + sym->as->corank > GFC_MAX_DIMENSIONS)
+	goto too_many;
+
       for (i = 0; i < sym->as->corank; i++)
 	{
 	  sym->as->lower[as->rank + i] = sym->as->lower[i];
@@ -875,6 +883,12 @@ gfc_set_array_spec (gfc_symbol *sym, gfc_array_spec *as, locus *error_loc)
 
   free (as);
   return true;
+
+too_many:
+
+  gfc_error ("rank + corank of %qs exceeds %d at %C", sym->name,
+	     GFC_MAX_DIMENSIONS);
+  return false;
 }
 
 
@@ -1124,6 +1138,31 @@ match_array_cons_element (gfc_constructor_base *result)
 }
 
 
+/* Convert components of an array constructor to the type in ts.  */
+
+static match
+walk_array_constructor (gfc_typespec *ts, gfc_constructor_base head)
+{
+  gfc_constructor *c;
+  gfc_expr *e;
+  match m;
+
+  for (c = gfc_constructor_first (head); c; c = gfc_constructor_next (c))
+    {
+      e = c->expr;
+      if (e->expr_type == EXPR_ARRAY && e->ts.type == BT_UNKNOWN
+	  && !e->ref && e->value.constructor)
+	{
+	  m = walk_array_constructor (ts, e->value.constructor);
+	  if (m == MATCH_ERROR)
+	    return m;
+	}
+      else if (!gfc_convert_type (e, ts, 1) && e->ts.type != BT_UNKNOWN)
+	return MATCH_ERROR;
+  }
+  return MATCH_YES;
+}
+
 /* Match an array constructor.  */
 
 match
@@ -1253,14 +1292,13 @@ done:
 	    }
 	}
 
-      /* Walk the constructor and ensure type conversion for numeric types.  */
+      /* Walk the constructor, and if possible, do type conversion for
+	 numeric types.  */
       if (gfc_numeric_ts (&ts))
 	{
-	  c = gfc_constructor_first (head);
-	  for (; c; c = gfc_constructor_next (c))
-	    if (!gfc_convert_type (c->expr, &ts, 1)
-		&& c->expr->ts.type != BT_UNKNOWN)
-	      return MATCH_ERROR;
+	  m = walk_array_constructor (&ts, head);
+	  if (m == MATCH_ERROR)
+	    return m;
 	}
     }
   else
@@ -2175,6 +2213,9 @@ gfc_copy_iterator (gfc_iterator *src)
   dest->end = gfc_copy_expr (src->end);
   dest->step = gfc_copy_expr (src->step);
   dest->unroll = src->unroll;
+  dest->ivdep = src->ivdep;
+  dest->vector = src->vector;
+  dest->novector = src->novector;
 
   return dest;
 }

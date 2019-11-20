@@ -1,3 +1,283 @@
+2019-10-28  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/abi/post/hppa-linux-gnu/baseline_symbols.txt: Update.
+
+2019-10-24  Jonathan Wakely  <jwakely@redhat.com>
+
+	Backport from mainline
+	2019-05-31  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/90682
+	* libsupc++/eh_term_handler.cc: Include eh_term_handler.h to get
+	definition of _GLIBCXX_DEFAULT_TERM_HANDLER.
+	* libsupc++/eh_term_handler.h: New header defining
+	_GLIBCXX_DEFAULT_TERM_HANDLER.
+	* libsupc++/eh_terminate.cc: Include eh_term_handler.h.
+	(set_terminate): Restore default handler when argument is null.
+	(set_unexpected): Likewise.
+	* testsuite/18_support/set_terminate.cc: New test.
+	* testsuite/18_support/set_unexpected.cc: New test.
+
+	Backport from mainline
+	2019-05-01  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/61761
+	* include/std/complex (__complex_proj): Return parameter unchanged.
+	[_GLIBCXX_USE_C99_COMPLEX] (__complex_proj): Change overloads for
+	floating-point types to take std::complex arguments.
+	[_GLIBCXX_USE_C99_MATH_TR1] (__complex_proj): Add overloads for
+	floating-point types.
+	* testsuite/26_numerics/complex/proj.cc: New test.
+
+	Backport from mainline
+	2019-06-06  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/23_containers/deque/requirements/dr438/assign_neg.cc: Add
+	dg-prune-output for different C++98 diagnostic.
+	* testsuite/23_containers/deque/requirements/dr438/constructor_1_neg.cc:
+	Likewise.
+	* testsuite/23_containers/deque/requirements/dr438/constructor_2_neg.cc:
+	Likewise.
+	* testsuite/23_containers/deque/requirements/dr438/insert_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/assign_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/constructor_1_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/constructor_2_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/insert_neg.cc:
+	Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/assign_neg.cc:
+	Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_2_neg.cc: Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/insert_neg.cc:
+	Likewise.
+	* testsuite/libstdc++-prettyprinters/compat.cc: Do not run for C++98.
+
+	Backport from mainline
+	2019-06-06  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/20_util/is_nothrow_invocable/value.cc: Test converting to
+	void.
+	* testsuite/experimental/names.cc: Do not run for C++98 mode. Do not
+	include Library Fundamentals or Networking headers in C++11 mode.
+	* testsuite/ext/char8_t/atomic-1.cc: Do not run for C++98 mode.
+
+	Backport from mainline
+	2019-05-14  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/util/testsuite_allocator.h (memory_resource)
+	(default_resource_mgr): Fix indentation.
+
+	Backport from mainline
+	2019-08-30  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/89164
+	* include/bits/stl_algobase.h (__copy_move): Give descriptive names
+	to template parameters.
+	* include/bits/stl_uninitialized.h (uninitialized_copy)
+	(uninitialized_fill, uninitialized_fill_n): Add static assertions to
+	diagnose invalid uses.
+	* testsuite/20_util/specialized_algorithms/uninitialized_copy/1.cc:
+	Adjust expected error.
+	* testsuite/20_util/specialized_algorithms/uninitialized_copy/89164.cc:
+	New test.
+	* testsuite/20_util/specialized_algorithms/uninitialized_copy_n/
+	89164.cc: New test.
+	* testsuite/20_util/specialized_algorithms/uninitialized_fill/89164.cc:
+	New test.
+	* testsuite/20_util/specialized_algorithms/uninitialized_fill_n/
+	89164.cc: New test.
+	* testsuite/23_containers/vector/cons/89164.cc: New test.
+	* testsuite/23_containers/vector/cons/89164_c++17.cc: New test.
+
+	Backport from mainline
+	2019-10-22  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/memoryfwd.h (uses_allocator): Do not declare for C++98.
+	* testsuite/17_intro/names.cc: Check uses_allocator in C++98.
+
+	Backport from mainline
+	2019-10-18  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/92143
+	* libsupc++/new_opa.cc (operator new) [__APPLE__]: Increase alignment
+	to at least sizeof(void*).
+
+	Backport from mainline
+	2019-06-06  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/23_containers/unordered_map/requirements/debug_container.cc:
+	Do not test allocator rebinding extension for C++2a.
+	* testsuite/23_containers/unordered_set/allocator/ext_ptr.cc: Change
+	dg-do directive for C++17 and C++2a.
+
+	Backport from mainline
+	2019-05-23  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/20_util/function_objects/invoke/1.cc: Add more tests.
+	Move C++17-specific tests to ...
+	* testsuite/20_util/function_objects/invoke/3.cc: New test.
+	* testsuite/23_containers/unordered_set/allocator/ext_ptr.cc: Change
+	"compile" test to "run".
+
+	Backport from mainline
+	2019-10-08  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/Makefile.am (doc-html-docbook-regenerate): New target.
+	(${docbook_outdir}/html): Do not create unused 'html/ext' directory.
+	* doc/Makefile.in: Regenerate.
+	* doc/xml/manual/documentation_hacking.xml: Document new target.
+	* doc/html/*: Regenerate.
+
+	* doc/xml/manual/allocator.xml: Use archived copy of CUJ article.
+
+	Backport from mainline
+	2019-05-31  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/xml/manual/allocator.xml: Move hoard.org back to http.
+
+	Backport from mainline
+	2019-08-15  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/91456
+	* include/bits/std_function.h (__check_func_return_type): Remove.
+	(function::_Callable): Use std::__is_invocable_impl instead of
+	__check_func_return_type.
+	* include/std/type_traits (__is_invocable_impl): Add another defaulted
+	template parameter. Define a separate partial specialization for
+	INVOKE and INVOKE<void>. For INVOKE<R> replace is_convertible check
+	with a check that models delayed temporary materialization.
+	* testsuite/20_util/function/91456.cc: New test.
+	* testsuite/20_util/is_invocable/91456.cc: New test.
+
+	Backport from mainline
+	2019-09-30  Andreas Tobler  <andreast@gcc.gnu.org>
+
+	* include/experimental/internet: Include netinet/in.h if we have
+	_GLIBCXX_HAVE_NETINET_IN_H defined.
+
+	Backport from mainline
+	2019-09-26  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/experimental/internet (operator==, operator<): Fix loop
+	condition to avoid reading past the end of the array.
+
+	Backport from mainline
+	2019-08-06  Jonathan Wakely  <jwakely@redhat.com>
+
+	P1651R0 bind_front should not unwrap reference_wrapper
+	* include/std/functional (bind_front): Don't unwrap reference_wrapper.
+	* include/std/version (__cpp_lib_bind_front): Update value.
+	* testsuite/20_util/function_objects/bind_front/1.cc: Fix test for
+	feature test macro.
+	* testsuite/20_util/function_objects/bind_front/2.cc: New test.
+
+	Backport from mainline
+	2019-10-11  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/92059
+	* include/tr2/dynamic_bitset (__dynamic_bitset_base): Define all
+	special member functions as defaulted. Add noexcept to most members.
+	(__dynamic_bitset_base(size_t, unsigned long long, const _Alloc&)):
+	Mask off unwanted bits in the __val parameter. Avoid undefined left
+	shifts.
+	(__dynamic_bitset_base::_M_assign): Remove.
+	(__dynamic_bitset_base::_M_do_reset): Use std::fill.
+	(__dynamic_bitset_base::_M_are_all_aux): Avoid integer promotion when
+	block_type has lower rank than int.
+	(dynamic_bitset): Add noexcept to most members. Use injected-class-name
+	in return types and parameter types.
+	(dynamic_bitset::_M_Nb): Add default member initializer.
+	(dynamic_bitset(), dynamic_bitset(const dynamic_bitset&)): Define as
+	defaulted.
+	(dynamic_bitset(dynamic_bitset&&)): Clear source object after move.
+	(dynamic_bitset::operator=(const dynamic_bitset&)): Define as
+	defaulted.
+	(dynamic_bitset::operator=(dynamic_bitset&&)): Add noexcept-specifier.
+	Define without using swap, to propagate allocator correctly.
+	(dynamic_bitset(const char*, const _Alloc&)): Use strlen.
+	(dynamic_bitset::_M_do_sanitize, dynamic_bitset::_M_do_fill): Use
+	casts to avoid unwanted integer promotions.
+	(dynamic_bitset::_M_copy_from_ptr): Rearrange template parameters and
+	add default template arguments and default argument to simplify usage.
+	(dynamic_bitset::_M_copy_from_string): Adjust call to _M_copy_from_ptr.
+	(operator==(const dynamic_bitset&, const dynamic_bitset&))
+	(operator<(const dynamic_bitset&, const dynamic_bitset&)): Use _M_Nb.
+	* include/tr2/dynamic_bitset.tcc (dynamic_bitset::_M_copy_from_ptr):
+	Adjust template parameters to match declaration.
+	* testsuite/tr2/dynamic_bitset/cmp.cc: New test.
+	* testsuite/tr2/dynamic_bitset/cons.cc: New test.
+	* testsuite/tr2/dynamic_bitset/copy.cc: New test.
+	* testsuite/tr2/dynamic_bitset/move.cc: New test.
+	* testsuite/tr2/dynamic_bitset/pr92059.cc: New test.
+
+2019-09-12  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/91748
+	* include/bits/stl_algo.h (for_each_n): Fix random access iterator
+	case.
+	* testsuite/25_algorithms/for_each/for_each_n.cc: Test with random
+	access iterators.
+
+2019-09-11  Jonathan Wakely  <jwakely@redhat.com>
+
+	* python/libstdcxx/v6/xmethods.py (SharedPtrUseCountWorker.__call__):
+	Fix syntax error.
+
+2019-09-09  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	Update docs for p858 - Constexpr iterator changes available since 9.1.
+	* doc/xml/manual/status_cxx2020.xml: Update p0858r0 status.
+
+2019-09-02  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/abi.xml: Document 9.x library versions.
+	* doc/html/*: Regenerate.
+
+2019-09-02  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/abi/post/i386-solaris2.10/baseline_symbols.txt: Regenerate.
+	* config/abi/post/i386-solaris2.10/amd64/baseline_symbols.txt: Likewise.
+	* config/abi/post/i386-solaris2.11/baseline_symbols.txt: Likewise.
+	* config/abi/post/i386-solaris2.11/amd64/baseline_symbols.txt: Likewise.
+	* config/abi/post/sparc-solaris2.10/baseline_symbols.txt: Likewise.
+	* config/abi/post/sparc-solaris2.10/sparcv9/baseline_symbols.txt:
+	Likewise.
+	* config/abi/post/sparc-solaris2.11/baseline_symbols.txt: Likewise.
+	* config/abi/post/sparc-solaris2.11/sparcv9/baseline_symbols.txt:
+	Likewise.
+
+2019-08-29  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/91067
+	* acinclude.m4 (libtool_VERSION): Bump to 6:28:0.
+	* configure: Regenerate.
+	* config/abi/pre/gnu.ver (GLIBCXX_3.4.28): Add new version. Export
+	missing symbols.
+	* testsuite/27_io/filesystem/iterators/91067.cc: Test move
+	constructors.
+	* testsuite/util/testsuite_abi.cc: Add new symbol version.
+
+2019-08-29  Jakub Jelinek  <jakub@redhat.com
+
+	* config/abi/post/aarch64-linux-gnu/baseline_symbols.txt: Update.
+	* config/abi/post/s390x-linux-gnu/baseline_symbols.txt: Update.
+
+2019-08-28  Jonathan Wakely  <jwakely@redhat.com>
+
+	* config/abi/post/i386-linux-gnu/baseline_symbols.txt: Update.
+	* config/abi/post/i486-linux-gnu/baseline_symbols.txt: Update.
+	* config/abi/post/powerpc-linux-gnu/baseline_symbols.txt: Update.
+	* config/abi/post/powerpc64-linux-gnu/32/baseline_symbols.txt: Update.
+	* config/abi/post/powerpc64-linux-gnu/baseline_symbols.txt: Update.
+	* config/abi/post/x86_64-linux-gnu/32/baseline_symbols.txt: Update.
+	* config/abi/post/x86_64-linux-gnu/baseline_symbols.txt: Update.
+
 2019-08-23  Joseph Myers  <joseph@codesourcery.com>
 
 	* src/filesystem/ops-common.h [_GLIBCXX_FILESYSTEM_IS_WINDOWS]

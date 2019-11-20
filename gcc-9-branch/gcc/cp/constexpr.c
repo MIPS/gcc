@@ -2703,7 +2703,10 @@ cxx_eval_component_reference (const constexpr_ctx *ctx, tree t,
 	  : field == part)
 	{
 	  if (value)
-	    return value;
+	    {
+	      STRIP_ANY_LOCATION_WRAPPER (value);
+	      return value;
+	    }
 	  else
 	    /* We're in the middle of initializing it.  */
 	    break;
@@ -2793,6 +2796,7 @@ cxx_eval_bit_field_ref (const constexpr_ctx *ctx, tree t,
   FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (whole), i, field, value)
     {
       tree bitpos = bit_position (field);
+      STRIP_ANY_LOCATION_WRAPPER (value);
       if (bitpos == start && DECL_SIZE (field) == TREE_OPERAND (t, 1))
 	return value;
       if (TREE_CODE (TREE_TYPE (field)) == INTEGER_TYPE
@@ -3972,6 +3976,10 @@ cxx_eval_increment_expression (const constexpr_ctx *ctx, tree t,
   tree op = TREE_OPERAND (t, 0);
   tree offset = TREE_OPERAND (t, 1);
   gcc_assert (TREE_CONSTANT (offset));
+
+  /* OFFSET is constant, but perhaps not constant enough.  We need to
+     e.g. bash FLOAT_EXPRs to REAL_CSTs.  */
+  offset = fold_simple (offset);
 
   /* The operand as an lvalue.  */
   op = cxx_eval_constant_expression (ctx, op, true,
@@ -5917,6 +5925,7 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict, bool now,
     case LABEL_DECL:
     case LABEL_EXPR:
     case CASE_LABEL_EXPR:
+    case PREDICT_EXPR:
     case CONST_DECL:
     case SIZEOF_EXPR:
     case ALIGNOF_EXPR:
@@ -6751,7 +6760,6 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict, bool now,
 
     case CLEANUP_STMT:
     case EMPTY_CLASS_EXPR:
-    case PREDICT_EXPR:
       return false;
 
     case GOTO_EXPR:

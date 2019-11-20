@@ -7058,6 +7058,8 @@ omp_default_clause (struct gimplify_omp_ctx *ctx, tree decl,
   kind = lang_hooks.decls.omp_predetermined_sharing (decl);
   if (kind != OMP_CLAUSE_DEFAULT_UNSPECIFIED)
     default_kind = kind;
+  else if (VAR_P (decl) && TREE_STATIC (decl) && DECL_IN_CONSTANT_POOL (decl))
+    default_kind = OMP_CLAUSE_DEFAULT_SHARED;
 
   switch (default_kind)
     {
@@ -8716,8 +8718,8 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 			      break;
 			    if (scp)
 			      continue;
-			    gcc_assert (offset == NULL_TREE
-					|| poly_int_tree_p (offset));
+			    gcc_assert (offset2 == NULL_TREE
+					|| poly_int_tree_p (offset2));
 			    tree d1 = OMP_CLAUSE_DECL (*sc);
 			    tree d2 = OMP_CLAUSE_DECL (c);
 			    while (TREE_CODE (d1) == ARRAY_REF)
