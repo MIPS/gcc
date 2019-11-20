@@ -342,9 +342,39 @@ each duplicate warning's shortest path is feasible, rejecting any
 warnings for which the shortest path is infeasible (which could lead to
 false negatives).
 
-We use the shortest feasible path through the exploded_graph (a list of
-edges) to build a @code{diagnostic_path} (a list of events for the
-diagnostic subsystem).
+We use the shortest feasible @code{exploded_path} through the
+@code{exploded_graph} (a list of @code{exploded_edge *}) to build a
+@code{diagnostic_path} (a list of events for the diagnostic subsystem) -
+specifically a @code{checker_path}.
+
+Having built the @code{checker_path}, we prune it to try to eliminate
+events that aren't relevant, to minimize how much the user has to read.
+
+After pruning, we notify each event in the path of its ID and record the
+IDs of interesting events, allowing for events to refer to other events
+in their descriptions.  The @code{pending_diagnostic} class has various
+vfuncs to support emitting more precise descriptions, so that e.g.
+
+@itemize @bullet
+@item
+a deref-of-unchecked-malloc diagnostic might use:
+@smallexample
+  returning possibly-NULL pointer to 'make_obj' from 'allocator'
+@end smallexample
+for a @code{return_event} to make it clearer how the unchecked value moves
+from callee back to caller
+@item
+a double-free diagnostic might use:
+@smallexample
+  second 'free' here; first 'free' was at (3)
+@end smallexample
+and a use-after-free might use
+@smallexample
+  use after 'free' here; memory was freed at (2)
+@end smallexample
+@end itemize
+
+At this point we can emit the diagnostic.
 
 @subsection Limitations
 
@@ -442,21 +472,18 @@ will dump just the number of nodes, and their IDs.
 
 will also dump all of the states within those nodes.
 
-@code{region_model::get_value_by_name} can be used when inserting custom
-debugging code (e.g. adding it @code{region_model::validate} to detect the
-point at which a named variable acquires an unexpected state).
-
 @subsection Other Debugging Techniques
 
 One approach when tracking down where a particular bogus state is
 introduced into the @code{exploded_graph} is to add custom code to
 @code{region_model::validate}.
 
-For example, this custom code breaks with an assertion failure when a
-variable called @code{ptr} acquires a value that's unknown:
+For example, this custom code (added to @code{region_model::validate})
+breaks with an assertion failure when a variable called @code{ptr}
+acquires a value that's unknown, using
+@code{region_model::get_value_by_name} to locate the variable
 
 @smallexample
-
     /* Find a variable matching "ptr".  */
     svalue_id sid = get_value_by_name ("ptr");
     if (!sid.null_p ())
