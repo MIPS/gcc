@@ -112,7 +112,8 @@ json_from_metadata (const diagnostic_metadata *metadata)
   json::object *metadata_obj = new json::object ();
 
   if (metadata->get_cwe ())
-    metadata_obj->set ("cwe", new json::number (metadata->get_cwe ()));
+    metadata_obj->set ("cwe",
+		       new json::integer_number (metadata->get_cwe ()));
 
   return metadata_obj;
 }
