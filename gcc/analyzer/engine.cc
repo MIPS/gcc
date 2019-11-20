@@ -23,7 +23,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
-#include "params.h"
 #include "gcc-rich-location.h"
 #include "analyzer/exploded-graph.h"
 #include "analyzer/analysis-plan.h"
@@ -1719,7 +1718,7 @@ exploded_graph::get_or_create_node (const program_point &point,
   /* Impose a limit on the number of enodes per program point, and
      simply stop if we exceed it.  */
   if ((int)per_point_data->m_enodes.length ()
-      > PARAM_VALUE (PARAM_ANALYZER_MAX_ENODES_PER_PROGRAM_POINT))
+      > param_analyzer_max_enodes_per_program_point)
     {
       log ("not creating enode; too many at program point");
       warning_at (point.get_location (), OPT_Wanalyzer_too_complex,
@@ -2044,8 +2043,7 @@ exploded_graph::process_worklist ()
 	 entry ENs, one per phi; the number of PK_AFTER_SUPERNODE ought
 	 to be equivalent to the number of supernodes multiplied by the
 	 number of states.  */
-      const int limit
-	= m_sg.num_nodes () * PARAM_VALUE (PARAM_ANALYZER_BB_EXPLOSION_FACTOR);
+      const int limit = m_sg.num_nodes () * param_analyzer_bb_explosion_factor;
       if (m_global_stats.m_num_nodes[PK_AFTER_SUPERNODE] > limit)
 	{
 	  log ("bailing out; too many nodes");

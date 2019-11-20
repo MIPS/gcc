@@ -25,7 +25,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "gimple-pretty-print.h"
 #include "gcc-rich-location.h"
-#include "params.h"
 #include "analyzer/program-point.h"
 #include "analyzer/exploded-graph.h"
 #include "analyzer/analysis-plan.h"
@@ -262,7 +261,7 @@ program_point::on_edge (exploded_graph &eg,
 	   applies to recursion (and mutual recursion), not to
 	   general call stacks.  */
 	if (m_call_string.calc_recursion_depth ()
-	    > PARAM_VALUE (PARAM_ANALYZER_MAX_RECURSION_DEPTH))
+	    > param_analyzer_max_recursion_depth)
 	  {
 	    eg.log ("rejecting call edge: recursion limit exceeded");
 	    // TODO: issue a sorry for this?
