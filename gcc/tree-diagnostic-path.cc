@@ -484,7 +484,8 @@ default_tree_diagnostic_path_printer (diagnostic_context *context,
    doesn't have access to trees (for m_fndecl).  */
 
 json::value *
-default_tree_make_json_for_path (diagnostic_context *, const diagnostic_path *path)
+default_tree_make_json_for_path (diagnostic_context *,
+				 const diagnostic_path *path)
 {
   json::array *path_array = new json::array ();
   for (unsigned i = 0; i < path->num_events (); i++)
@@ -504,7 +505,8 @@ default_tree_make_json_for_path (diagnostic_context *, const diagnostic_path *pa
 	    = identifier_to_locale (lang_hooks.decl_printable_name (fndecl, 2));
 	  event_obj->set ("function", new json::string (function));
 	}
-      event_obj->set ("depth", new json::number (event.get_stack_depth ()));
+      event_obj->set ("depth",
+		      new json::integer_number (event.get_stack_depth ()));
       path_array->append (event_obj);
     }
   return path_array;
