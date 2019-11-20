@@ -1,5 +1,10 @@
+2019-11-20 Jan Hubicka  <hubicka@ucw.cz>
+
+	* reset to gcc9 style -O2 inlining.
+
 2019-11-14 Jan Hubicka  <hubicka@ucw.cz>
 
+	1574187387000.2215fdeda1210c2c02e5a06987b1d3524625535e
 	* merge from trunk
 
 2019-10-03 Jan Hubicka  <hubicka@ucw.cz>
