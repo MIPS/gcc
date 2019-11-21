@@ -103,7 +103,7 @@ Common Joined UInteger Var(param_early_inlining_insns) Init(14) Param
 Maximal estimated growth of function body caused by early inlining of single call with -O3 and -Ofast.
 
 -param=early-inlining-insns-O2=
-Common Joined UInteger Var(param_early_inlining_insns_o2) Init(6) Param
+Common Joined UInteger Var(param_early_inlining_insns_o2) Init(14) Param
 Maximal estimated growth of function body caused by early inlining of single call with -O1 and -O2.
 
 -param=fsm-maximum-phi-arguments=
@@ -183,7 +183,7 @@ Common Joined UInteger Var(param_inline_heuristics_hint_percent) Init(600) Integ
 The scale (in percents) applied to inline-insns-single and auto limits when heuristics hints that inlining is very profitable with -O3 and -Ofast.
 
 -param=inline-heuristics-hint-percent-O2=
-Common Joined UInteger Var(param_inline_heuristics_hint_percent_o2) Init(200) IntegerRange(100, 1000000) Param
+Common Joined UInteger Var(param_inline_heuristics_hint_percent_o2) Init(600) IntegerRange(100, 1000000) Param
 The scale (in percents) applied to inline-insns-single and auto limits when heuristics hints that inlining is very profitable.
 
 -param=inline-min-speedup=
@@ -191,7 +191,7 @@ Common Joined UInteger Var(param_inline_min_speedup) Init(15) IntegerRange(0, 10
 The minimal estimated speedup allowing inliner to ignore inline-insns-single and inline-insns-auto with -O3 and -Ofast.
 
 -param=inline-min-speedup-O2=
-Common Joined UInteger Var(param_inline_min_speedup_o2) Init(30) IntegerRange(0, 100) Param
+Common Joined UInteger Var(param_inline_min_speedup_o2) Init(15) IntegerRange(0, 100) Param
 The minimal estimated speedup allowing inliner to ignore inline-insns-single and inline-insns-auto.
 
 -param=inline-unit-growth=
@@ -467,7 +467,7 @@ Common Joined UInteger Var(param_max_hoist_depth) Init(30) Param
 Maximum depth of search in the dominator tree for expressions to hoist.
 
 -param=max-inline-insns-auto=
-Common Joined UInteger Var(param_max_inline_insns_auto) Init(15) Optimization Param
+Common Joined UInteger Var(param_max_inline_insns_auto) Init(30) Optimization Param
 The maximum number of instructions when automatically inlining.
 
 -param=max-inline-insns-recursive=
@@ -483,7 +483,7 @@ Common Joined UInteger Var(param_max_inline_insns_single) Init(200) Param
 The maximum number of instructions in a single function eligible for inlining with -O3 and -Ofast.
 
 -param=max-inline-insns-single-O2=
-Common Joined UInteger Var(param_max_inline_insns_single_o2) Init(70) Param
+Common Joined UInteger Var(param_max_inline_insns_single_o2) Init(200) Param
 The maximum number of instructions in a single function eligible for inlining.
 
 -param=max-inline-insns-size=
