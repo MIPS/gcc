@@ -535,11 +535,11 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_3_PLUS, OPT_fsplit_paths, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_ftree_loop_distribute_patterns, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_ftree_loop_distribution, NULL, 1 },
-    { OPT_LEVELS_3_PLUS, OPT_ftree_loop_vectorize, NULL, 1 },
+    { OPT_LEVELS_2_PLUS, OPT_ftree_loop_vectorize, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_ftree_partial_pre, NULL, 1 },
-    { OPT_LEVELS_3_PLUS, OPT_ftree_slp_vectorize, NULL, 1 },
+    { OPT_LEVELS_2_PLUS, OPT_ftree_slp_vectorize, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_funswitch_loops, NULL, 1 },
-    { OPT_LEVELS_3_PLUS, OPT_fvect_cost_model_, NULL, VECT_COST_MODEL_DYNAMIC },
+    { OPT_LEVELS_2_PLUS, OPT_fvect_cost_model_, NULL, VECT_COST_MODEL_DYNAMIC },
     { OPT_LEVELS_3_PLUS, OPT_fversion_loops_for_strides, NULL, 1 },
 
     /* -O3 parameters.  */
