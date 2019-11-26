@@ -5639,6 +5639,16 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
       if (reg_or_0_operand (XEXP (x, 1), VOIDmode)
 	  || reg_or_0_operand (XEXP (x, 2), VOIDmode))
 	*total = 0;
+      if (outer_code == SET)
+	{
+	  /* Conditional moves on r6 only allow one parameter to be a register
+	     (the other parameter is zero).  Increase the cost of conditional
+	     moves which allow both parameters to be registers.  */
+	  if (mips_isa_rev == 6
+	      && register_operand (XEXP (x, 1), VOIDmode)
+	      && register_operand (XEXP (x, 2), VOIDmode))
+	    *total = 1;
+	}
       return false;
 
     default:
