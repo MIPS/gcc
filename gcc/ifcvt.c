@@ -1860,6 +1860,137 @@ noce_try_cmove (struct noce_if_info *if_info)
   return FALSE;
 }
 
+/* If the target has a conditional move which accepts two registers, do not
+   try synthesized conditional XOR/IOR, as it will not yield any benefits.  */
+
+static bool
+noce_try_synthesized_xor_ok (struct noce_if_info *if_info)
+{
+  rtx testreg = gen_rtx_REG (word_mode, LAST_VIRTUAL_REGISTER + 1);
+
+  rtx if_then_else = gen_rtx_IF_THEN_ELSE (word_mode,
+					    if_info->cond,
+					    const0_rtx, if_info->x);
+
+  rtx if_then_else_2 = gen_rtx_IF_THEN_ELSE (word_mode,
+					      if_info->cond,
+					      testreg, if_info->x);
+
+  return rtx_cost (if_then_else_2, word_mode, SET, 1, true)
+	  > rtx_cost (if_then_else, word_mode, SET, 1, true);
+}
+
+/* Expand "if (test) x ^= C;" as
+
+   a = 0;
+   if (test) a = C;
+   x ^= a;
+
+   This lowers the number of necessary conditional moves on some targets.
+
+   We allow for maximum of three instructions in the then block.
+   First one loads the constant into a register.  Second one is an actual
+   XOR/IOR instruction.  Third one is a zero or sign extend.  */
+
+static bool
+noce_try_synthesized_xor (struct noce_if_info *if_info)
+{
+  enum rtx_code code = GET_CODE (if_info->cond);
+
+  if (code != NE && code != EQ)
+    return FALSE;
+
+  /* Fail if there is an else block. */
+  if (if_info->else_bb)
+    return FALSE;
+
+  /* We allow for the final instruction in the basic block to be sign or
+     zero extend.  */
+  rtx a = if_info->a;
+  rtx_insn *insn_a = if_info->insn_a;
+  if ((GET_CODE (a) == ZERO_EXTEND
+       || GET_CODE (a) == SIGN_EXTEND)
+      && single_set (prev_nonnote_nondebug_insn (insn_a)))
+    {
+      a = SET_SRC (single_set (prev_nonnote_nondebug_insn (insn_a)));
+      insn_a = prev_nonnote_nondebug_insn (insn_a);
+    }
+
+  /* Check that the operation is indeed XOR or IOR.  Also check that we don't
+     have any more instructions in the then block.  */
+  enum rtx_code opcode = GET_CODE (a);
+  if (opcode != XOR
+      && opcode != IOR)
+    return FALSE;
+
+  rtx xor_src = XEXP (a, 0);
+  rtx xor_const = XEXP (a, 1);
+  xor_src = GET_CODE (xor_src) == SUBREG ? SUBREG_REG (xor_src) : xor_src;
+
+  /* Check if the instruction prior to XOR or IOR loads the constant into
+     the register.  */
+  rtx_insn *prev = prev_nonnote_nondebug_insn (insn_a);
+  if (BLOCK_FOR_INSN (insn_a) == BLOCK_FOR_INSN (prev))
+    {
+      if (GET_CODE (xor_const) != REG)
+	return FALSE;
+
+      a = single_set (prev);
+      if (a != NULL_RTX
+	   && rtx_equal_p (SET_DEST (a), xor_const)
+	   && GET_CODE (SET_SRC (a)) == CONST_INT)
+	xor_const = SET_SRC (a);
+      else
+	return FALSE;
+
+      /* This must be the first instruction of the basic block.  */
+      if (BLOCK_FOR_INSN (prev)
+	   == BLOCK_FOR_INSN (prev_nonnote_nondebug_insn (prev)))
+	return FALSE;
+    }
+  else if (GET_CODE (xor_const) == REG)
+    return FALSE;
+
+  if (!rtx_equal_p (xor_src, if_info->x))
+    return FALSE;
+
+  start_sequence();
+
+  machine_mode mode = GET_MODE (if_info->x);
+  rtx const_reg = gen_reg_rtx (mode);
+  rtx target = gen_reg_rtx (mode);
+
+  noce_emit_move_insn (const_reg, xor_const);
+  target = noce_emit_cmove (if_info, target, code,
+			     XEXP (if_info->cond, 0),
+			     XEXP (if_info->cond, 1),
+			     const_reg, const0_rtx);
+  if (!target)
+    {
+      end_sequence ();
+      return FALSE;
+    }
+
+  target = expand_simple_binop (GET_MODE (if_info->x), opcode,
+				 if_info->x, target, if_info->x,
+				 0, OPTAB_WIDEN);
+  if (!target)
+    {
+      end_sequence ();
+      return FALSE;
+    }
+
+  rtx_insn* seq = end_ifcvt_sequence (if_info);
+  if (!seq || !targetm.noce_conversion_profitable_p (seq, if_info))
+    return FALSE;
+
+  emit_insn_before_setloc (seq, if_info->jump,
+			    INSN_LOCATION (if_info->insn_a));
+  if_info->transform_name = "noce_try_synthesized_xor";
+
+  return TRUE;
+}
+
 /* Return true if X contains a conditional code mode rtx.  */
 
 static bool
@@ -3595,6 +3726,10 @@ noce_process_if_block (struct noce_if_info *if_info)
       if (noce_try_addcc (if_info))
 	goto success;
       if (noce_try_store_flag_mask (if_info))
+	goto success;
+      if (HAVE_conditional_move
+	   && noce_try_synthesized_xor_ok (if_info)
+	   && noce_try_synthesized_xor (if_info))
 	goto success;
       if (HAVE_conditional_move
 	  && noce_try_cmove_arith (if_info))
