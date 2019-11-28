@@ -1,13 +1,5 @@
 2019-11-20 Jan Hubicka  <hubicka@ucw.cz>
 
-	* enable vectorizer
-
-2019-11-20 Jan Hubicka  <hubicka@ucw.cz>
-
-	* -O3 like inlining
-
-2019-11-20 Jan Hubicka  <hubicka@ucw.cz>
-
 	* back to trunk
 
 2019-11-20 Jan Hubicka  <hubicka@ucw.cz>
