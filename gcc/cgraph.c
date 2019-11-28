@@ -3060,6 +3060,13 @@ cgraph_node::verify_node (void)
       error ("inline clone in same comdat group list");
       error_found = true;
     }
+  if (inlined_to && !count.compatible_p (inlined_to->count))
+    {
+      error ("inline clone count is not compatible");
+      count.debug ();
+      inlined_to->count.debug ();
+      error_found = true;
+    }
   if (!definition && !in_other_partition && local)
     {
       error ("local symbols must be defined");
@@ -3086,6 +3093,13 @@ cgraph_node::verify_node (void)
 	{
 	  error ("aux field set for indirect edge from %s",
 		 identifier_to_locale (e->caller->name ()));
+	  error_found = true;
+	}
+      if (!e->count.compatible_p (count))
+	{
+	  error ("edge count is not compatible with function count");
+	  e->count.debug ();
+	  count.debug ();
 	  error_found = true;
 	}
       if (!e->indirect_unknown_callee
@@ -3136,6 +3150,13 @@ cgraph_node::verify_node (void)
     {
       if (e->verify_count ())
 	error_found = true;
+      if (!e->count.compatible_p (count))
+	{
+	  error ("edge count is not compatible with function count");
+	  e->count.debug ();
+	  count.debug ();
+	  error_found = true;
+	}
       if (gimple_has_body_p (e->caller->decl)
 	  && !e->caller->inlined_to
 	  && !e->speculative
