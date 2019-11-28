@@ -1247,7 +1247,8 @@ vect_build_slp_tree (vec_info *vinfo,
       return *leader;
     }
   poly_uint64 this_max_nunits = 1;
-  slp_tree res = vect_build_slp_tree_2 (vinfo, stmts, group_size, max_nunits,
+  slp_tree res = vect_build_slp_tree_2 (vinfo, stmts, group_size,
+					&this_max_nunits,
 					matches, npermutes, tree_size, bst_map);
   if (res)
     {
@@ -1409,10 +1410,11 @@ vect_build_slp_tree_2 (vec_info *vinfo,
 					matches, npermutes,
 					&this_tree_size, bst_map)) != NULL)
 	{
-	  /* If we have all children of child built up from scalars then just
-	     throw that away and build it up this node from scalars.  */
+	  /* If we have all children of a non-unary child built up from
+	     scalars then just throw that away and build it up this node
+	     from scalars.  */
 	  if (is_a <bb_vec_info> (vinfo)
-	      && !SLP_TREE_CHILDREN (child).is_empty ()
+	      && SLP_TREE_CHILDREN (child).length () > 1
 	      /* ???  Rejecting patterns this way doesn't work.  We'd have to
 		 do extra work to cancel the pattern so the uses see the
 		 scalar version.  */
@@ -1548,10 +1550,11 @@ vect_build_slp_tree_2 (vec_info *vinfo,
 					    tem, npermutes,
 					    &this_tree_size, bst_map)) != NULL)
 	    {
-	      /* If we have all children of child built up from scalars then
-		 just throw that away and build it up this node from scalars.  */
+	      /* If we have all children of a non-unary child built up from
+		 scalars then just throw that away and build it up this node
+		 from scalars.  */
 	      if (is_a <bb_vec_info> (vinfo)
-		  && !SLP_TREE_CHILDREN (child).is_empty ()
+		  && SLP_TREE_CHILDREN (child).length () > 1
 		  /* ???  Rejecting patterns this way doesn't work.  We'd have
 		     to do extra work to cancel the pattern so the uses see the
 		     scalar version.  */
@@ -2183,6 +2186,10 @@ vect_analyze_slp_instance (vec_info *vinfo,
 	  else
 	    return false;
 	}
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_NOTE, vect_location,
+			 "Analyzing vectorizable constructor: %G\n",
+			 stmt_info->stmt);
     }
   else
     {
@@ -2252,18 +2259,6 @@ vect_analyze_slp_instance (vec_info *vinfo,
 	  /* Fatal mismatch.  */
 	  matches[group_size / const_max_nunits * const_max_nunits] = false;
 	  vect_free_slp_tree (node, false);
-	}
-      else if (constructor
-	       && SLP_TREE_DEF_TYPE (node) != vect_internal_def)
-	{
-	  /* CONSTRUCTOR vectorization relies on a vector stmt being
-	     generated, that doesn't work for fully external ones.  */
-	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			     "Build SLP failed: CONSTRUCTOR of external "
-			     "or constant elements\n");
-	  vect_free_slp_tree (node, false);
-	  return false;
 	}
       else
 	{
@@ -2549,7 +2544,9 @@ vect_detect_hybrid_slp_stmts (slp_tree node, unsigned i, slp_vect_type stype,
 
   /* We need to union stype over the incoming graph edges but we still
      want to limit recursion to stay O(N+E).  */
-  bool only_edge = (++visited.get_or_insert (node) < node->refcnt);
+  unsigned visited_cnt = ++visited.get_or_insert (node);
+  gcc_assert (visited_cnt <= node->refcnt);
+  bool only_edge = (visited_cnt != node->refcnt);
 
   /* Propagate hybrid down the SLP tree.  */
   if (stype == hybrid)
@@ -2687,12 +2684,19 @@ vect_detect_hybrid_slp (loop_vec_info loop_vinfo)
   /* Then walk the SLP instance trees marking stmts with uses in
      non-SLP stmts as hybrid, also propagating hybrid down the
      SLP tree, collecting the above info on-the-fly.  */
-  hash_map<slp_tree, unsigned> visited;
-  FOR_EACH_VEC_ELT (slp_instances, i, instance)
+  for (unsigned j = 0;; ++j)
     {
-      for (unsigned i = 0; i < SLP_INSTANCE_GROUP_SIZE (instance); ++i)
-	vect_detect_hybrid_slp_stmts (SLP_INSTANCE_TREE (instance),
-				      i, pure_slp, visited);
+      hash_map<slp_tree, unsigned> visited;
+      bool any = false;
+      FOR_EACH_VEC_ELT (slp_instances, i, instance)
+	if (j < SLP_INSTANCE_GROUP_SIZE (instance))
+	  {
+	    any = true;
+	    vect_detect_hybrid_slp_stmts (SLP_INSTANCE_TREE (instance),
+					  j, pure_slp, visited);
+	  }
+      if (!any)
+	break;
     }
 }
 
@@ -2939,7 +2943,12 @@ vect_slp_analyze_operations (vec_info *vinfo)
       if (!vect_slp_analyze_node_operations (vinfo,
 					     SLP_INSTANCE_TREE (instance),
 					     instance, visited, lvisited,
-					     &cost_vec))
+					     &cost_vec)
+	  /* Instances with a root stmt require vectorized defs for the
+	     SLP tree root.  */
+	  || (SLP_INSTANCE_ROOT_STMT (instance)
+	      && (SLP_TREE_DEF_TYPE (SLP_INSTANCE_TREE (instance))
+		  != vect_internal_def)))
         {
 	  slp_tree node = SLP_INSTANCE_TREE (instance);
 	  stmt_vec_info stmt_info = SLP_TREE_SCALAR_STMTS (node)[0];
@@ -3123,31 +3132,22 @@ vect_slp_check_for_constructors (bb_vec_info bb_vinfo)
   gimple_stmt_iterator gsi;
 
   for (gsi = bb_vinfo->region_begin;
-      gsi_stmt (gsi) != gsi_stmt (bb_vinfo->region_end); gsi_next (&gsi))
+       gsi_stmt (gsi) != gsi_stmt (bb_vinfo->region_end); gsi_next (&gsi))
     {
-      gimple *stmt = gsi_stmt (gsi);
+      gassign *stmt = dyn_cast <gassign *> (gsi_stmt (gsi));
+      if (!stmt || gimple_assign_rhs_code (stmt) != CONSTRUCTOR)
+	continue;
 
-      if (is_gimple_assign (stmt)
-	  && gimple_assign_rhs_code (stmt) == CONSTRUCTOR
-	  && TREE_CODE (gimple_assign_lhs (stmt)) == SSA_NAME
-	  && TREE_CODE (TREE_TYPE (gimple_assign_lhs (stmt))) == VECTOR_TYPE)
-	{
-	  tree rhs = gimple_assign_rhs1 (stmt);
+      tree rhs = gimple_assign_rhs1 (stmt);
+      if (!VECTOR_TYPE_P (TREE_TYPE (rhs))
+	  || maybe_ne (TYPE_VECTOR_SUBPARTS (TREE_TYPE (rhs)),
+		       CONSTRUCTOR_NELTS (rhs))
+	  || VECTOR_TYPE_P (TREE_TYPE (CONSTRUCTOR_ELT (rhs, 0)->value))
+	  || uniform_vector_p (rhs))
+	continue;
 
-	  if (CONSTRUCTOR_NELTS (rhs) == 0)
-	    continue;
-
-	  poly_uint64 subparts = TYPE_VECTOR_SUBPARTS (TREE_TYPE (rhs));
-
-	  if (maybe_ne (subparts, CONSTRUCTOR_NELTS (rhs)))
-	    continue;
-
-	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_NOTE, vect_location,
-			     "Found vectorizable constructor: %G\n", stmt);
-	  stmt_vec_info stmt_info = bb_vinfo->lookup_stmt (stmt);
-	  BB_VINFO_GROUPED_STORES (bb_vinfo).safe_push (stmt_info);
-	}
+      stmt_vec_info stmt_info = bb_vinfo->lookup_stmt (stmt);
+      BB_VINFO_GROUPED_STORES (bb_vinfo).safe_push (stmt_info);
     }
 }
 
@@ -4165,6 +4165,7 @@ vect_schedule_slp_instance (slp_tree node, slp_instance instance)
 
   /* Handle two-operation SLP nodes by vectorizing the group with
      both operations and then performing a merge.  */
+  bool done_p = false;
   if (SLP_TREE_TWO_OPERATORS (node))
     {
       gassign *stmt = as_a <gassign *> (stmt_info->stmt);
@@ -4235,10 +4236,11 @@ vect_schedule_slp_instance (slp_tree node, slp_instance instance)
 	    }
 	  v0.release ();
 	  v1.release ();
-	  return;
+	  done_p = true;
 	}
     }
-  vect_transform_stmt (stmt_info, &si, node, instance);
+  if (!done_p)
+    vect_transform_stmt (stmt_info, &si, node, instance);
 
   /* Restore stmt def-types.  */
   FOR_EACH_VEC_ELT (SLP_TREE_CHILDREN (node), i, child)

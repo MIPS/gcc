@@ -1,3 +1,45 @@
+2019-11-25  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/91985
+	* c-decl.c (finish_declspecs): Use int instead of decimal
+	floating-point types if decimal floating-point not supported.
+
+2019-11-25  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-tree.h (struct c_declarator): Use a structure for id member.
+	* c-decl.c (grokdeclarator): Extract attributes from cdk_id
+	declarators at the start, not when handling individual declarators
+	later.  Use u.id.id instead of u.id.
+	(grokfield): Use u.id.id instead of u.id.
+	(build_id_declarator): Set u.id.id and u.id.attrs.
+	(finish_declspecs): Handle postfix attributes in case of typedef
+	name or typeof used.
+	* c-parser.c (c_parser_direct_declarator)
+	(c_parser_direct_declarator_inner): Place declarator for
+	attributes inside that for function or array, not outside.  Set
+	u.id.attrs for identifiers.
+	(c_parser_parameter_declaration): Use u.id.id instead of u.id.
+	* gimple-parser.c (c_parser_gimple_declaration): Use u.id.id
+	instead of u.id.
+
+2019-11-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/90677
+	* c-decl.c (identifier_global_tag): Define.
+
+2019-11-20  Richard Biener  <rguenther@suse.de>
+
+	PR c/92088
+	* c-decl.c (grokdeclarator): Prevent inlining of nested
+	function with VLA arguments.
+
+2019-11-20  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-decl.c (c_warn_type_attributes): New function.
+	(groktypename, grokdeclarator, finish_declspecs): Call
+	c_warn_type_attributes before applying attributes to types.
+	* c-tree.h (c_warn_type_attributes): Declare.
+
 2019-11-19  Joseph Myers  <joseph@codesourcery.com>
 
 	* c-decl.c (c_warn_unused_attributes): Use pedwarn not warning for

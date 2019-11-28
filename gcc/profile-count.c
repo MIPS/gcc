@@ -105,7 +105,7 @@ profile_count::debug () const
   fprintf (stderr, "\n");
 }
 
-/* Return true if THIS differs from OTHER; tolerate small diferences.  */
+/* Return true if THIS differs from OTHER; tolerate small differences.  */
 
 bool
 profile_count::differs_from_p (profile_count other) const
@@ -186,7 +186,7 @@ profile_probability::debug () const
   fprintf (stderr, "\n");
 }
 
-/* Return true if THIS differs from OTHER; tolerate small diferences.  */
+/* Return true if THIS differs from OTHER; tolerate small differences.  */
 
 bool
 profile_probability::differs_from_p (profile_probability other) const
@@ -310,6 +310,20 @@ profile_count::to_sreal_scale (profile_count in, bool *known) const
     }
   if (known)
     *known = true;
+  /* Watch for cases where one count is IPA and other is not.  */
+  if (in.ipa ().initialized_p ())
+    {
+      gcc_checking_assert (ipa ().initialized_p ());
+      /* If current count is inter-procedurally 0 and IN is inter-procedurally
+	 non-zero, return 0.  */
+      if (in.ipa ().nonzero_p ()
+	  && !ipa().nonzero_p ())
+	return 0;
+    }
+  else 
+    /* We can handle correctly 0 IPA count within locally estimated
+       profile, but otherwise we are lost and this should not happen.   */
+    gcc_checking_assert (!ipa ().initialized_p () || !ipa ().nonzero_p ());
   if (*this == zero ())
     return 0;
   if (m_val == in.m_val)
@@ -388,7 +402,7 @@ profile_count::from_gcov_type (gcov_type v, profile_quality quality)
   }
 
 /* COUNT1 times event happens with *THIS probability, COUNT2 times OTHER
-   happens with COUNT2 probablity. Return probablity that either *THIS or
+   happens with COUNT2 probability.  Return probability that either *THIS or
    OTHER happens.  */
 
 profile_probability
@@ -398,7 +412,7 @@ profile_probability::combine_with_count (profile_count count1,
 {
   /* If probabilities are same, we are done.
      If counts are nonzero we can distribute accordingly. In remaining
-     cases just avreage the values and hope for the best.  */
+     cases just average the values and hope for the best.  */
   if (*this == other || count1 == count2
       || (count2 == profile_count::zero ()
 	  && !(count1 == profile_count::zero ())))

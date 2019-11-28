@@ -460,9 +460,15 @@ struct c_declarator {
   /* Except for cdk_id, the contained declarator.  For cdk_id, NULL.  */
   struct c_declarator *declarator;
   union {
-    /* For identifiers, an IDENTIFIER_NODE or NULL_TREE if an abstract
-       declarator.  */
-    tree id;
+    /* For identifiers.  */
+    struct {
+      /* An IDENTIFIER_NODE, or NULL_TREE if an abstract
+	 declarator.  */
+      tree id;
+      /* Any attributes (which apply to the declaration rather than to
+	 the type described by the outer declarators).  */
+      tree attrs;
+    } id;
     /* For functions.  */
     struct c_arg_info *arg_info;
     /* For arrays.  */
@@ -596,6 +602,7 @@ extern tree c_builtin_function (tree);
 extern tree c_builtin_function_ext_scope (tree);
 extern tree c_simulate_builtin_function_decl (tree);
 extern void c_warn_unused_attributes (tree);
+extern tree c_warn_type_attributes (tree);
 extern void shadow_tag (const struct c_declspecs *);
 extern void shadow_tag_warned (const struct c_declspecs *, int);
 extern tree start_enum (location_t, struct c_enum_contents *, tree);

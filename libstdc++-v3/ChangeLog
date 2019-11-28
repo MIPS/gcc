@@ -1,3 +1,47 @@
+2019-11-26  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/debug/helper_functions.h (__valid_range_aux): Use C++98
+	std::input_iterator_tag default constructor invocation.
+
+	* include/debug/array (array<>::fill): Add C++20 constexpr.
+	(array<>::swap): Likewise.
+
+	* include/debug/safe_iterator.h
+	[__cpp_lib_concepts](_Safe_iterator<>::iterator_concept): Define for
+	C++20.
+
+2019-11-25  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/iterator_concepts.h (ranges::iter_swap): Fix parameter
+	types of poison pill overload. Use remove_reference_t when checking
+	constraints.
+	* include/bits/stl_iterator.h (move_sentinel): Define for C++20.
+	(move_iterator): Adjust definitions of nested types for C++20. Add
+	hidden friends for move_sentinel operations, iter_move and iter_swap.
+	(common_iterator, counted_iterator): Define for C++20.
+	* testsuite/24_iterators/move_iterator/cust.cc: New test.
+	* testsuite/24_iterators/move_iterator/sentinel.cc: New test.
+	* testsuite/24_iterators/common_iterator/1.cc: New test.
+	* testsuite/24_iterators/counted_iterator/1.cc: New test.
+
+	PR libstdc++/91786
+	* include/bits/fs_path.h (filesystem_error): Move definition before
+	the use in u8path.
+
+2019-11-24  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/debug/functions.h: Remove <bits/move.h> include.
+	(__check_singular_aux, __check_singular): Move...
+	* include/debug/helper_functions.h:
+	(__check_singular_aux, __check_singular): ...here.
+	(__valid_range_aux): Adapt to use latter.
+	* testsuite/25_algorithms/copy/debug/2_neg.cc: New.
+
+2019-11-20  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* doc/html/api.html: Use https for gcc.gnu.org.
+	* doc/xml/api.xml: Likewise.
+
 2019-11-19  Jonathan Wakely  <jwakely@redhat.com>
 
 	* include/bits/regex.h (ranges::__detail::__enable_view_impl): Fix
@@ -510,7 +554,7 @@
 	* doc/xml/manual/codecvt.xml: Switch pubs.opengroup.org to https.
 	* doc/xml/manual/locale.xml (LC_ALL): Ditto.
 	* doc/xml/manual/messages.xml: Ditto.
-	
+
 2019-10-26  John David Anglin  <danglin@gcc.gnu.org>
 
 	* config/abi/post/hppa-linux-gnu/baseline_symbols.txt: Update.
@@ -539,7 +583,7 @@
 	pubs.opengroup.org to https.
 
 2019-10-25  Gerald Pfeifer  <gerald@pfeifer.com>
-	
+
 	* doc/xml/gnu/gpl-3.0.xml: Switch www.gnu.org to https.
 
 2019-09-09  Edward Smith-Rowland  <3dw4rd@verizon.net>
@@ -2608,7 +2652,7 @@
 	PSTL backend if no TBB present.
 	* testsuite/utils/pstl/test_utils.h: Remove check for
 	_PSTL_USE_PAR_POLICIES
-	
+
 2019-06-07  Jonathan Wakely  <jwakely@redhat.com>
 
 	* testsuite/24_iterators/container_access.cc: Move dg-options before
@@ -4404,7 +4448,7 @@
 	Document PSTL linker flags
 
 	* doc/xml/manual/using.xml: Add PSTL linker flags to table 3.1.
-	
+
 2019-04-23  Jonathan Wakely  <jwakely@redhat.com>
 
 	* include/std/variant (__detail::__variant::_Traits): Make
@@ -4486,7 +4530,7 @@
 
 	* include/bits/c++config: Remove explicit PSTL configuration
 	macros and use definitions from <pstl/pstl_config.h>.
-	
+
 2019-04-20  Thomas Rodgers <trodgers@redhat.com>
 
 	Cleanup algorithm implementations
@@ -4496,9 +4540,9 @@
 	(equal): Qualify call to std::equal().
 	(partial_sort): Forward execution policy.
 	(inplace_merge): Forward execution policy.
-	
+
 2019-04-19  Thomas Rodgers <trodgers@redhat.com>
-	
+
 	Improve implementation of parallel equal()
 	* include/pstl/algorithm_impl.h
 	(__internal::__brick_equal): use "4 iterator" version of
@@ -4513,7 +4557,7 @@
 	* include/pstl/glue_algorithm_impl.h
 	(std::equal): dispatch to "4 iterator" version of
 	__internal::__pattern_equal().
-	
+
 2019-04-17  Jonathan Wakely  <jwakely@redhat.com>
 
 	PR libstdc++/90105
@@ -4554,7 +4598,7 @@
 	* testsuite/20_util/optional/observers/4.cc: Likewise.
 
 2019-04-12  Thomas Rodgers  <trodgers@redhat.com>
-	
+
 	* include/pstl/algorithm_impl.h: Uglify identfiers.
 	* include/pstl/numeric_impl.h:  Uglify identfiers.
 	* include/pstl/parallel_backend_tbb.h: Uglify identfiers.
@@ -4835,7 +4879,7 @@
 	avoid -Wconversion warnings.
 
 2019-03-21  Thomas Rodgers  <trodgers@redhat.com>
-	
+
 	* include/Makefile.am (std_header): Add ${std_srcdir}/execution.
 	(pstl_srcdir, pstl_builddir, pstl_headers): New variables.
 	(allstamped): Add stamp-pstl.

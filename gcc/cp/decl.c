@@ -7998,7 +7998,7 @@ get_tuple_decomp_init (tree decl, unsigned i)
 /* It's impossible to recover the decltype of a tuple decomposition variable
    based on the actual type of the variable, so store it in a hash table.  */
 
-static GTY((cache)) tree_cache_map *decomp_type_table;
+static GTY((cache)) decl_tree_cache_map *decomp_type_table;
 
 tree
 lookup_decomp_type (tree v)
@@ -14548,7 +14548,7 @@ check_elaborated_type_specifier (enum tag_types tag_code,
 	   && !DECL_SELF_REFERENCE_P (decl)
 	   && tag_code != typename_type)
     {
-      if (alias_template_specialization_p (type))
+      if (alias_template_specialization_p (type, nt_opaque))
 	error ("using alias template specialization %qT after %qs",
 	       type, tag_name (tag_code));
       else

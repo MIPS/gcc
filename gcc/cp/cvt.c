@@ -847,6 +847,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags,
 	      /* Prevent bogus -Wint-in-bool-context warnings coming
 		 from c_common_truthvalue_conversion down the line.  */
 	      warning_sentinel w (warn_int_in_bool_context);
+	      warning_sentinel c (warn_sign_compare);
 	      return cp_truthvalue_conversion (e, complain);
 	    }
 	}
@@ -1134,6 +1135,12 @@ convert_to_void (tree expr, impl_conv_void implicit, tsubst_flags_t complain)
         error_at (loc, "pseudo-destructor is not called");
       return error_mark_node;
     }
+
+  /* Explicitly evaluate void-converted concept checks since their
+     satisfaction may produce ill-formed programs.  */
+   if (concept_check_p (expr))
+     expr = evaluate_concept_check (expr, tf_warning_or_error);
+
   if (VOID_TYPE_P (TREE_TYPE (expr)))
     return expr;
   switch (TREE_CODE (expr))
