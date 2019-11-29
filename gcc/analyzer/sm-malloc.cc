@@ -532,8 +532,8 @@ public:
 	gimple *def_stmt = SSA_NAME_DEF_STMT (change.m_expr);
 	if (gcall *call = dyn_cast <gcall *> (def_stmt))
 	  {
-	    if (is_named_call_p (call, "alloca", 1)
-		|| is_named_call_p (call, "__builtin_alloca", 1))
+	    if (is_special_named_call_p (call, "alloca", 1)
+		|| is_special_named_call_p (call, "__builtin_alloca", 1))
 	      {
 		m_kind = KIND_ALLOCA;
 		return label_text::borrow
@@ -582,63 +582,63 @@ malloc_state_machine::on_stmt (sm_context *sm_ctxt,
 			       const gimple *stmt) const
 {
   if (const gcall *call = dyn_cast <const gcall *> (stmt))
-    {
-      if (is_named_call_p (call, "malloc", 1)
-	  || is_named_call_p (call, "calloc", 2))
-	{
-	  tree lhs = gimple_call_lhs (call);
-	  if (lhs)
-	    {
-	      lhs = sm_ctxt->get_readable_tree (lhs);
-	      sm_ctxt->on_transition (node, stmt, lhs, m_start, m_unchecked);
-	    }
-	  else
-	    {
-	      /* TODO: report leak.  */
-	    }
-	  return true;
-	}
+    if (tree callee_fndecl = sm_ctxt->get_fndecl_for_call (call))
+      {
+	if (is_named_call_p (callee_fndecl, "malloc", call, 1)
+	    || is_named_call_p (callee_fndecl, "calloc", call, 2))
+	  {
+	    tree lhs = gimple_call_lhs (call);
+	    if (lhs)
+	      {
+		lhs = sm_ctxt->get_readable_tree (lhs);
+		sm_ctxt->on_transition (node, stmt, lhs, m_start, m_unchecked);
+	      }
+	    else
+	      {
+		/* TODO: report leak.  */
+	      }
+	    return true;
+	  }
 
-      if (is_named_call_p (call, "alloca", 1)
-	  || is_named_call_p (call, "__builtin_alloca", 1))
-	{
-	  tree lhs = gimple_call_lhs (call);
-	  if (lhs)
-	    {
-	      lhs = sm_ctxt->get_readable_tree (lhs);
-	      sm_ctxt->on_transition (node, stmt, lhs, m_start, m_non_heap);
-	    }
-	  return true;
-	}
+	if (is_named_call_p (callee_fndecl, "alloca", call, 1)
+	    || is_named_call_p (callee_fndecl, "__builtin_alloca", call, 1))
+	  {
+	    tree lhs = gimple_call_lhs (call);
+	    if (lhs)
+	      {
+		lhs = sm_ctxt->get_readable_tree (lhs);
+		sm_ctxt->on_transition (node, stmt, lhs, m_start, m_non_heap);
+	      }
+	    return true;
+	  }
 
-      if (is_named_call_p (call, "free", 1))
-	{
-	  tree arg = gimple_call_arg (call, 0);
+	if (is_named_call_p (callee_fndecl, "free", call, 1))
+	  {
+	    tree arg = gimple_call_arg (call, 0);
 
-	  arg = sm_ctxt->get_readable_tree (arg);
+	    arg = sm_ctxt->get_readable_tree (arg);
 
-	  /* start/unchecked/nonnull -> freed.  */
-	  sm_ctxt->on_transition (node, stmt, arg, m_start, m_freed);
-	  sm_ctxt->on_transition (node, stmt, arg, m_unchecked, m_freed);
-	  sm_ctxt->on_transition (node, stmt, arg, m_nonnull, m_freed);
+	    /* start/unchecked/nonnull -> freed.  */
+	    sm_ctxt->on_transition (node, stmt, arg, m_start, m_freed);
+	    sm_ctxt->on_transition (node, stmt, arg, m_unchecked, m_freed);
+	    sm_ctxt->on_transition (node, stmt, arg, m_nonnull, m_freed);
 
-	  /* Keep state "null" as-is, rather than transitioning to "free";
-	     we don't want want to complain about double-free of NULL.  */
+	    /* Keep state "null" as-is, rather than transitioning to "free";
+	       we don't want want to complain about double-free of NULL.  */
 
-	  /* freed -> stop, with warning.  */
-	  sm_ctxt->warn_for_state (node, stmt, arg, m_freed,
-				   new double_free (*this, arg));
-	  sm_ctxt->on_transition (node, stmt, arg, m_freed, m_stop);
+	    /* freed -> stop, with warning.  */
+	    sm_ctxt->warn_for_state (node, stmt, arg, m_freed,
+				     new double_free (*this, arg));
+	    sm_ctxt->on_transition (node, stmt, arg, m_freed, m_stop);
 
-	  /* non-heap -> stop, with warning.  */
-	  sm_ctxt->warn_for_state (node, stmt, arg, m_non_heap,
-				   new free_of_non_heap (*this, arg));
-	  sm_ctxt->on_transition (node, stmt, arg, m_non_heap, m_stop);
-	  return true;
-	}
+	    /* non-heap -> stop, with warning.  */
+	    sm_ctxt->warn_for_state (node, stmt, arg, m_non_heap,
+				     new free_of_non_heap (*this, arg));
+	    sm_ctxt->on_transition (node, stmt, arg, m_non_heap, m_stop);
+	    return true;
+	  }
 
-      /* Handle "__attribute__((nonnull))".   */
-      if (tree callee_fndecl = gimple_call_fndecl (stmt))
+	/* Handle "__attribute__((nonnull))".   */
 	{
 	  tree fntype = TREE_TYPE (callee_fndecl);
 	  bitmap nonnull_args = get_nonnull_args (fntype);
@@ -669,7 +669,7 @@ malloc_state_machine::on_stmt (sm_context *sm_ctxt,
 	      BITMAP_FREE (nonnull_args);
 	    }
 	}
-    }
+      }
 
   if (tree lhs = is_zero_assignment (stmt))
     {

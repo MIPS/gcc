@@ -68,9 +68,11 @@ class state_change;
 
 ////////////////////////////////////////////////////////////////////////////
 
-extern bool is_named_call_p (const gcall *call, const char *funcname);
-extern bool is_named_call_p (const gcall *call, const char *funcname,
-			     unsigned int num_args);
+extern bool is_special_named_call_p (const gcall *call, const char *funcname,
+				     unsigned int num_args);
+extern bool is_named_call_p (tree fndecl, const char *funcname);
+extern bool is_named_call_p (tree fndecl, const char *funcname,
+			     const gcall *call, unsigned int num_args);
 extern bool is_setjmp_call_p (const gimple *stmt);
 extern bool is_longjmp_call_p (const gcall *call);
 

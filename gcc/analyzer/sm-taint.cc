@@ -198,22 +198,23 @@ taint_state_machine::on_stmt (sm_context *sm_ctxt,
 			       const gimple *stmt) const
 {
   if (const gcall *call = dyn_cast <const gcall *> (stmt))
-    {
-      if (is_named_call_p (call, "fread", 4))
-	{
-	  tree arg = gimple_call_arg (call, 0);
-	  arg = sm_ctxt->get_readable_tree (arg);
+    if (tree callee_fndecl = sm_ctxt->get_fndecl_for_call (call))
+      {
+	if (is_named_call_p (callee_fndecl, "fread", call, 4))
+	  {
+	    tree arg = gimple_call_arg (call, 0);
+	    arg = sm_ctxt->get_readable_tree (arg);
 
-	  sm_ctxt->on_transition (node, stmt, arg, m_start, m_tainted);
+	    sm_ctxt->on_transition (node, stmt, arg, m_start, m_tainted);
 
-	  /* Dereference an ADDR_EXPR.  */
-	  // TODO: should the engine do this?
-	  if (TREE_CODE (arg) == ADDR_EXPR)
-	    sm_ctxt->on_transition (node, stmt, TREE_OPERAND (arg, 0),
-				    m_start, m_tainted);
-	  return true;
-	}
-    }
+	    /* Dereference an ADDR_EXPR.  */
+	    // TODO: should the engine do this?
+	    if (TREE_CODE (arg) == ADDR_EXPR)
+	      sm_ctxt->on_transition (node, stmt, TREE_OPERAND (arg, 0),
+				      m_start, m_tainted);
+	    return true;
+	  }
+      }
   // TODO: ...etc; many other sources of untrusted data
 
   if (const gassign *assign = dyn_cast <const gassign *> (stmt))

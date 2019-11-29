@@ -55,3 +55,27 @@ void test_4 (void *q, void *r)
 
   free(p);
 }
+
+/* Verify that we detect passing NULL to a __attribute__((nonnull)) function
+   when it's called via a function pointer.  */
+
+typedef void (*bar_t)(void *ptrA, void *ptrB, void *ptrC);
+
+static bar_t __attribute__((noinline))
+get_bar (void)
+{
+  return bar;
+}
+
+void test_5 (void *q, void *r)
+{
+  void *p = malloc(1024); /* { dg-message "\\(1\\) this call could return NULL" } */
+  bar_t cb = get_bar ();
+  cb(p, q, r); /* { dg-warning "use of possibly-NULL 'p' where non-null expected" } */
+  /* { dg-message "argument 1 \\('p'\\) from \\(1\\) could be NULL where non-null expected" "" { target *-*-* } .-1 } */
+  /* TODO: do we want an event showing where cb is assigned "bar"?  */
+
+  cb(p, q, r);
+
+  free(p);
+}

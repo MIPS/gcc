@@ -217,44 +217,46 @@ fileptr_state_machine::on_stmt (sm_context *sm_ctxt,
 				const gimple *stmt) const
 {
   if (const gcall *call = dyn_cast <const gcall *> (stmt))
-    {
-      if (is_named_call_p (call, "fopen", 2))
-	{
-	  tree lhs = gimple_call_lhs (call);
-	  if (lhs)
-	    {
-	      lhs = sm_ctxt->get_readable_tree (lhs);
-	      sm_ctxt->on_transition (node, stmt, lhs, m_start, m_unchecked);
-	    }
-	  else
-	    {
-	      /* TODO: report leak.  */
-	    }
-	  return true;
-	}
+    if (tree callee_fndecl = sm_ctxt->get_fndecl_for_call (call))
+      {
+	if (is_named_call_p (callee_fndecl, "fopen", call, 2))
+	  {
+	    tree lhs = gimple_call_lhs (call);
+	    if (lhs)
+	      {
+		lhs = sm_ctxt->get_readable_tree (lhs);
+		sm_ctxt->on_transition (node, stmt, lhs, m_start, m_unchecked);
+	      }
+	    else
+	      {
+		/* TODO: report leak.  */
+	      }
+	    return true;
+	  }
 
-      if (is_named_call_p (call, "fclose", 1))
-	{
-	  tree arg = gimple_call_arg (call, 0);
-	  arg = sm_ctxt->get_readable_tree (arg);
+	if (is_named_call_p (callee_fndecl, "fclose", call, 1))
+	  {
+	    tree arg = gimple_call_arg (call, 0);
+	    arg = sm_ctxt->get_readable_tree (arg);
 
-	  sm_ctxt->on_transition (node, stmt, arg, m_start, m_closed);
+	    sm_ctxt->on_transition (node, stmt, arg, m_start, m_closed);
 
-	  // TODO: is it safe to call fclose (NULL) ?
-	  sm_ctxt->on_transition (node, stmt, arg, m_unchecked, m_closed);
-	  sm_ctxt->on_transition (node, stmt, arg, m_null, m_closed);
+	    // TODO: is it safe to call fclose (NULL) ?
+	    sm_ctxt->on_transition (node, stmt, arg, m_unchecked, m_closed);
+	    sm_ctxt->on_transition (node, stmt, arg, m_null, m_closed);
 
-	  sm_ctxt->on_transition (node, stmt , arg, m_nonnull, m_closed);
+	    sm_ctxt->on_transition (node, stmt , arg, m_nonnull, m_closed);
 
-	  sm_ctxt->warn_for_state (node, stmt, arg, m_closed,
-				   new double_fclose (*this, arg));
-	  sm_ctxt->on_transition (node, stmt, arg, m_closed, m_stop);
-	  return true;
-	}
+	    sm_ctxt->warn_for_state (node, stmt, arg, m_closed,
+				     new double_fclose (*this, arg));
+	    sm_ctxt->on_transition (node, stmt, arg, m_closed, m_stop);
+	    return true;
+	  }
 
-      // TODO: operations on closed file
-      // etc
-    }
+	// TODO: operations on closed file
+	// etc
+      }
+
   return false;
 }
 

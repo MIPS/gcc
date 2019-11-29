@@ -4125,69 +4125,75 @@ region_model::on_call_pre (const gcall *call, region_model_context *ctxt)
   /* Check for uses of poisoned values.
      For now, special-case "free", to avoid warning about "use-after-free"
      when "double free" would be more precise.  */
-  if (!is_named_call_p (call, "free", 1))
+  if (!is_special_named_call_p (call, "free", 1))
     for (unsigned i = 0; i < gimple_call_num_args (call); i++)
       check_for_poison (gimple_call_arg (call, i), ctxt);
 
-  if (is_named_call_p (call, "malloc", 1))
+  if (tree callee_fndecl = get_fndecl_for_call (call, ctxt))
     {
-      // TODO: capture size as a svalue?
-      region_id new_rid = add_new_malloc_region ();
-      if (!lhs_rid.null_p ())
+      if (is_named_call_p (callee_fndecl, "malloc", call, 1))
 	{
-	  svalue_id ptr_sid
-	    = get_or_create_ptr_svalue (lhs_type, new_rid);
-	  set_value (lhs_rid, ptr_sid, ctxt);
-	}
-      return;
-    }
-  else if (is_named_call_p (call, "__builtin_alloca", 1))
-    {
-      region_id frame_rid = get_current_frame_id ();
-      region_id new_rid = add_region (new symbolic_region (frame_rid, false));
-      if (!lhs_rid.null_p ())
-	{
-	  svalue_id ptr_sid
-	    = get_or_create_ptr_svalue (lhs_type, new_rid);
-	  set_value (lhs_rid, ptr_sid, ctxt);
-	}
-      return;
-    }
-  else if (is_named_call_p (call, "strlen", 1))
-    {
-      region_id buf_rid = deref_rvalue (gimple_call_arg (call, 0), ctxt);
-      svalue_id buf_sid = get_region (buf_rid)->get_value (*this, true, ctxt);
-      if (tree cst_expr = maybe_get_constant (buf_sid))
-	{
-	  if (TREE_CODE (cst_expr) == STRING_CST
-	      && !lhs_rid.null_p ())
+	  // TODO: capture size as a svalue?
+	  region_id new_rid = add_new_malloc_region ();
+	  if (!lhs_rid.null_p ())
 	    {
-	      /* TREE_STRING_LENGTH is sizeof, not strlen.  */
-	      int sizeof_cst = TREE_STRING_LENGTH (cst_expr);
-	      int strlen_cst = sizeof_cst - 1;
-	      tree t_cst = build_int_cst (lhs_type, strlen_cst);
-	      svalue_id result_sid
-		= get_or_create_constant_svalue (t_cst);
-	      set_value (lhs_rid, result_sid, ctxt);
-	      return;
+	      svalue_id ptr_sid
+		= get_or_create_ptr_svalue (lhs_type, new_rid);
+	      set_value (lhs_rid, ptr_sid, ctxt);
 	    }
+	  return;
 	}
-      /* Otherwise an unknown value.  */
-    }
-  else if (is_named_call_p (call, "__analyzer_dump_num_heap_regions", 0))
-    {
-      /* Handle the builtin "__analyzer_dump_num_heap_regions" by emitting
-	 a warning (for use in DejaGnu tests).  */
-      int num_heap_regions = 0;
-      region_id heap_rid = get_root_region ()->ensure_heap_region (this);
-      unsigned i;
-      region *region;
-      FOR_EACH_VEC_ELT (m_regions, i, region)
-	if (region->get_parent () == heap_rid)
-	  num_heap_regions++;
-      /* Use quotes to ensure the output isn't truncated.  */
-      warning_at (call->location, 0,
-		  "num heap regions: %qi", num_heap_regions);
+      else if (is_named_call_p (callee_fndecl, "__builtin_alloca", call, 1))
+	{
+	  region_id frame_rid = get_current_frame_id ();
+	  region_id new_rid
+	    = add_region (new symbolic_region (frame_rid, false));
+	  if (!lhs_rid.null_p ())
+	    {
+	      svalue_id ptr_sid
+		= get_or_create_ptr_svalue (lhs_type, new_rid);
+	      set_value (lhs_rid, ptr_sid, ctxt);
+	    }
+	  return;
+	}
+      else if (is_named_call_p (callee_fndecl, "strlen", call, 1))
+	{
+	  region_id buf_rid = deref_rvalue (gimple_call_arg (call, 0), ctxt);
+	  svalue_id buf_sid
+	    = get_region (buf_rid)->get_value (*this, true, ctxt);
+	  if (tree cst_expr = maybe_get_constant (buf_sid))
+	    {
+	      if (TREE_CODE (cst_expr) == STRING_CST
+		  && !lhs_rid.null_p ())
+		{
+		  /* TREE_STRING_LENGTH is sizeof, not strlen.  */
+		  int sizeof_cst = TREE_STRING_LENGTH (cst_expr);
+		  int strlen_cst = sizeof_cst - 1;
+		  tree t_cst = build_int_cst (lhs_type, strlen_cst);
+		  svalue_id result_sid
+		    = get_or_create_constant_svalue (t_cst);
+		  set_value (lhs_rid, result_sid, ctxt);
+		  return;
+		}
+	    }
+	  /* Otherwise an unknown value.  */
+	}
+      else if (is_named_call_p (callee_fndecl,
+				"__analyzer_dump_num_heap_regions", call, 0))
+	{
+	  /* Handle the builtin "__analyzer_dump_num_heap_regions" by emitting
+	     a warning (for use in DejaGnu tests).  */
+	  int num_heap_regions = 0;
+	  region_id heap_rid = get_root_region ()->ensure_heap_region (this);
+	  unsigned i;
+	  region *region;
+	  FOR_EACH_VEC_ELT (m_regions, i, region)
+	    if (region->get_parent () == heap_rid)
+	      num_heap_regions++;
+	  /* Use quotes to ensure the output isn't truncated.  */
+	  warning_at (call->location, 0,
+		      "num heap regions: %qi", num_heap_regions);
+	}
     }
 
   /* Unrecognized call.  */
@@ -4225,32 +4231,33 @@ region_model::on_call_post (const gcall *call, region_model_context *ctxt)
      (in region_model::eval_condition_without_cm), and thus transition
      all pointers to the region to the "freed" state together, regardless
      of casts.  */
-  if (is_named_call_p (call, "free", 1))
-    {
-      tree ptr = gimple_call_arg (call, 0);
-      svalue_id ptr_sid = get_rvalue (ptr, ctxt);
-      svalue *ptr_sval = get_svalue (ptr_sid);
-      if (region_svalue *ptr_to_region_sval
-	  = ptr_sval->dyn_cast_region_svalue ())
-	{
-	  /* If the ptr points to an underlying heap region, delete it,
-	     poisoning pointers.  */
-	  region_id pointee_rid = ptr_to_region_sval->get_pointee ();
-	  region_id heap_rid = get_root_region ()->ensure_heap_region (this);
-	  if (!pointee_rid.null_p ()
-	      && get_region (pointee_rid)->get_parent () == heap_rid)
-	    {
-	      purge_stats stats;
-	      delete_region_and_descendents (pointee_rid,
-					     POISON_KIND_FREED,
-					     &stats, ctxt->get_logger ());
-	      purge_unused_svalues (&stats, ctxt);
-	      validate ();
-	      // TODO: do anything with stats?
-	    }
-	}
-      return;
-    }
+  if (tree callee_fndecl = get_fndecl_for_call (call, ctxt))
+    if (is_named_call_p (callee_fndecl, "free", call, 1))
+      {
+	tree ptr = gimple_call_arg (call, 0);
+	svalue_id ptr_sid = get_rvalue (ptr, ctxt);
+	svalue *ptr_sval = get_svalue (ptr_sid);
+	if (region_svalue *ptr_to_region_sval
+	    = ptr_sval->dyn_cast_region_svalue ())
+	  {
+	    /* If the ptr points to an underlying heap region, delete it,
+	       poisoning pointers.  */
+	    region_id pointee_rid = ptr_to_region_sval->get_pointee ();
+	    region_id heap_rid = get_root_region ()->ensure_heap_region (this);
+	    if (!pointee_rid.null_p ()
+		&& get_region (pointee_rid)->get_parent () == heap_rid)
+	      {
+		purge_stats stats;
+		delete_region_and_descendents (pointee_rid,
+					       POISON_KIND_FREED,
+					       &stats, ctxt->get_logger ());
+		purge_unused_svalues (&stats, ctxt);
+		validate ();
+		// TODO: do anything with stats?
+	      }
+	  }
+	return;
+      }
 }
 
 /* Update this model for the RETURN_STMT, using CTXT to report any
@@ -6354,6 +6361,32 @@ region_model::get_or_create_view (region_id raw_rid, tree type)
     }
 
   return raw_rid;
+}
+
+/* Attempt to get the fndecl used at CALL, if known, or NULL_TREE
+   otherwise.  */
+
+tree
+region_model::get_fndecl_for_call (const gcall *call,
+				   region_model_context *ctxt)
+{
+  tree fn_ptr = gimple_call_fn (call);
+  if (fn_ptr == NULL_TREE)
+    return NULL_TREE;
+  svalue_id fn_ptr_sid = get_rvalue (fn_ptr, ctxt);
+  svalue *fn_ptr_sval = get_svalue (fn_ptr_sid);
+  if (region_svalue *fn_ptr_ptr = fn_ptr_sval->dyn_cast_region_svalue ())
+    {
+      region_id fn_rid = fn_ptr_ptr->get_pointee ();
+      code_region *code = get_root_region ()->get_code_region (this);
+      if (code)
+	{
+	  tree fn_decl = code->get_tree_for_child_region (fn_rid);
+	  return fn_decl;
+	}
+    }
+
+  return NULL_TREE;
 }
 
 ////////////////////////////////////////////////////////////////////////////

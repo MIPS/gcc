@@ -112,6 +112,12 @@ class sm_context
 public:
   virtual ~sm_context () {}
 
+  /* Get the fndecl used at call, or NULL_TREE.
+     Use in preference to gimple_call_fndecl (and gimple_call_addr_fndecl),
+     since it can look through function pointer assignments and
+     other callback handling.  */
+  virtual tree get_fndecl_for_call (const gcall *call) = 0;
+
   /* Called by state_machine in response to pattern matches:
      if VAR is in state FROM, transition it to state TO, potentially
      recording the "origin" of the state as ORIGIN.

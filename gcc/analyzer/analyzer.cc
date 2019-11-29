@@ -28,10 +28,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "analyzer/analyzer.h"
 
-/* Helper function for checkers.  Is the CALL to the given function name?  */
+/* Helper function for checkers.  Is the CALL to the given function name,
+   and with the given number of arguments?
+
+   This doesn't resolve function pointers via the region model;
+   is_named_call_p should be used instead, using a fndecl from
+   get_fndecl_for_call; this function should only be used for special cases
+   where it's not practical to get at the region model, or for special
+   analyzer functions such as __analyzer_dump.  */
 
 bool
-is_named_call_p (const gcall *call, const char *funcname)
+is_special_named_call_p (const gcall *call, const char *funcname,
+			 unsigned int num_args)
 {
   gcc_assert (funcname);
 
@@ -39,19 +47,31 @@ is_named_call_p (const gcall *call, const char *funcname)
   if (!fndecl)
     return false;
 
+  return is_named_call_p (fndecl, funcname, call, num_args);
+}
+
+/* Helper function for checkers.  Does FNDECL have the given FUNCNAME?  */
+
+bool
+is_named_call_p (tree fndecl, const char *funcname)
+{
+  gcc_assert (fndecl);
+  gcc_assert (funcname);
+
   return 0 == strcmp (IDENTIFIER_POINTER (DECL_NAME (fndecl)), funcname);
 }
 
-/* Helper function for checkers.  Is the CALL to the given function name,
-   and with the given number of arguments?  */
+/* Helper function for checkers.  Does FNDECL have the given FUNCNAME, and
+   does CALL have the given number of arguments?  */
 
 bool
-is_named_call_p (const gcall *call, const char *funcname,
-		 unsigned int num_args)
+is_named_call_p (tree fndecl, const char *funcname,
+		 const gcall *call, unsigned int num_args)
 {
+  gcc_assert (fndecl);
   gcc_assert (funcname);
 
-  if (!is_named_call_p (call, funcname))
+  if (!is_named_call_p (fndecl, funcname))
     return false;
 
   if (gimple_call_num_args (call) != num_args)
@@ -67,7 +87,7 @@ is_setjmp_call_p (const gimple *stmt)
 {
   /* TODO: is there a less hacky way to check for "setjmp"?  */
   if (const gcall *call = dyn_cast <const gcall *> (stmt))
-    if (is_named_call_p (call, "_setjmp", 1))
+    if (is_special_named_call_p (call, "_setjmp", 1))
       return true;
 
   return false;
@@ -79,7 +99,7 @@ bool
 is_longjmp_call_p (const gcall *call)
 {
   /* TODO: is there a less hacky way to check for "longjmp"?  */
-  if (is_named_call_p (call, "longjmp", 2))
+  if (is_special_named_call_p (call, "longjmp", 2))
     return true;
 
   return false;

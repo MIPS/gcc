@@ -177,6 +177,15 @@ public:
   {
   }
 
+  tree get_fndecl_for_call (const gcall *call) FINAL OVERRIDE
+  {
+    impl_region_model_context old_ctxt
+      (m_eg, m_enode_for_diag, NULL, NULL/*m_enode->get_state ()*/,
+       m_change, call);
+    region_model *model = m_new_state->m_region_model;
+    return model->get_fndecl_for_call (call, &old_ctxt);
+  }
+
   void on_transition (const supernode *node  ATTRIBUTE_UNUSED,
 		      const gimple *stmt  ATTRIBUTE_UNUSED,
 		      tree var,
@@ -881,25 +890,25 @@ exploded_node::on_stmt (exploded_graph &eg,
   if (const gcall *call = dyn_cast <const gcall *> (stmt))
     {
       /* Debugging/test support.  */
-      if (is_named_call_p (call, "__analyzer_dump", 0))
+      if (is_special_named_call_p (call, "__analyzer_dump", 0))
 	{
 	  /* Handle the builtin "__analyzer_dump" by dumping state
 	     to stderr.  */
 	  dump (eg.get_ext_state ());
 	}
-      else if (is_named_call_p (call, "__analyzer_dump_path", 0))
+      else if (is_special_named_call_p (call, "__analyzer_dump_path", 0))
 	{
 	  /* Handle the builtin "__analyzer_dump_path" by queuing a
 	     diagnostic at this exploded_node.  */
 	  ctxt.warn (new dump_path_diagnostic ());
 	}
-      else if (is_named_call_p (call, "__analyzer_dump_region_model", 0))
+      else if (is_special_named_call_p (call, "__analyzer_dump_region_model", 0))
 	{
 	  /* Handle the builtin "__analyzer_dump_region_model" by dumping
 	     the region model's state to stderr.  */
 	  state->m_region_model->dump (false);
 	}
-      else if (is_named_call_p (call, "__analyzer_eval", 1))
+      else if (is_special_named_call_p (call, "__analyzer_eval", 1))
 	{
 	  /* Handle the builtin "__analyzer_eval" by evaluating the input
 	     and dumping as a dummy warning, so that test cases can use
@@ -913,7 +922,7 @@ exploded_node::on_stmt (exploded_graph &eg,
 						     &ctxt);
 	  warning_at (call->location, 0, "%s", t.as_string ());
 	}
-      else if (is_named_call_p (call, "__analyzer_break", 0))
+      else if (is_special_named_call_p (call, "__analyzer_break", 0))
 	{
 	  /* Handle the builtin "__analyzer_break" by triggering a
 	     breakpoint.  */
@@ -2151,7 +2160,7 @@ stmt_requires_new_enode_p (const gimple *stmt,
      "__analyzer_dump_exploded_nodes", so they always appear at the
      start of an exploded_node.  */
   if (const gcall *call = dyn_cast <const gcall *> (stmt))
-    if (is_named_call_p (call, "__analyzer_dump_exploded_nodes",
+    if (is_special_named_call_p (call, "__analyzer_dump_exploded_nodes",
 			 1))
       return true;
 
@@ -3065,7 +3074,8 @@ exploded_graph::dump_exploded_nodes () const
 
       if (const gimple *stmt = enode->get_stmt ())
 	if (const gcall *call = dyn_cast <const gcall *> (stmt))
-	  if (is_named_call_p (call, "__analyzer_dump_exploded_nodes", 1))
+	  if (is_special_named_call_p (call, "__analyzer_dump_exploded_nodes",
+				       1))
 	    {
 	      if (seen.contains (stmt))
 		continue;

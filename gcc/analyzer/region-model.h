@@ -1749,6 +1749,9 @@ class region_model
 					     region_model_context *ctxt);
   region_id get_or_create_view (region_id raw_rid, tree type);
 
+  tree get_fndecl_for_call (const gcall *call,
+			    region_model_context *ctxt);
+
  private:
   region_id get_lvalue_1 (path_var pv, region_model_context *ctxt);
   svalue_id get_rvalue_1 (path_var pv, region_model_context *ctxt);

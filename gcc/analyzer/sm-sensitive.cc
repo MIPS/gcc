@@ -135,33 +135,34 @@ sensitive_state_machine::on_stmt (sm_context *sm_ctxt,
 				  const gimple *stmt) const
 {
   if (const gcall *call = dyn_cast <const gcall *> (stmt))
-    {
-      if (is_named_call_p (call, "getpass", 1))
-	{
-	  tree lhs = gimple_call_lhs (call);
-	  if (lhs)
-	    sm_ctxt->on_transition (node, stmt, lhs, m_start, m_sensitive);
-	  return true;
-	}
-      else if (is_named_call_p (call, "fprintf")
-	       || is_named_call_p (call, "printf"))
-	{
-	  /* Handle a match at any position in varargs.  */
-	  for (unsigned idx = 1; idx < gimple_call_num_args (call); idx++)
-	    {
-	      tree arg = gimple_call_arg (call, idx);
-	      warn_for_any_exposure (sm_ctxt, node, stmt, arg);
-	    }
-	  return true;
-	}
-      else if (is_named_call_p (call, "fwrite", 4))
-	{
-	  tree arg = gimple_call_arg (call, 0);
-	  warn_for_any_exposure (sm_ctxt, node, stmt, arg);
-	  return true;
-	}
-      // TODO: ...etc.  This is just a proof-of-concept at this point.
-    }
+    if (tree callee_fndecl = sm_ctxt->get_fndecl_for_call (call))
+      {
+	if (is_named_call_p (callee_fndecl, "getpass", call, 1))
+	  {
+	    tree lhs = gimple_call_lhs (call);
+	    if (lhs)
+	      sm_ctxt->on_transition (node, stmt, lhs, m_start, m_sensitive);
+	    return true;
+	  }
+	else if (is_named_call_p (callee_fndecl, "fprintf")
+		 || is_named_call_p (callee_fndecl, "printf"))
+	  {
+	    /* Handle a match at any position in varargs.  */
+	    for (unsigned idx = 1; idx < gimple_call_num_args (call); idx++)
+	      {
+		tree arg = gimple_call_arg (call, idx);
+		warn_for_any_exposure (sm_ctxt, node, stmt, arg);
+	      }
+	    return true;
+	  }
+	else if (is_named_call_p (callee_fndecl, "fwrite", call, 4))
+	  {
+	    tree arg = gimple_call_arg (call, 0);
+	    warn_for_any_exposure (sm_ctxt, node, stmt, arg);
+	    return true;
+	  }
+	// TODO: ...etc.  This is just a proof-of-concept at this point.
+      }
   return false;
 }
 
