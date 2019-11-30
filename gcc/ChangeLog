@@ -1,3 +1,252 @@
+2019-11-30  Maciej W. Rozycki  <macro@wdc.com>
+
+	* gcc.c (process_command): Only warn about an ineffective `-x'
+	option if any input files have actually been supplied.
+
+2019-11-30  Maciej W. Rozycki  <macro@wdc.com>
+
+	* doc/install.texi (Options specification): Remove the list of
+	target library subdirectories supporting
+	`--enable-version-specific-runtime-libs'.  Document defaults for
+	the option.
+
+2019-11-29  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/92283
+	* lra.c (lra): Update reg notes after inheritance sub-pass and
+	before constraint sub-pass.
+
+2019-11-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/91003
+	* tree-vect-slp.c (vect_mask_constant_operand_p): Pass in the
+	operand number, avoid handling the non-condition operands of
+	COND_EXPRs as comparisons.
+	(vect_get_constant_vectors): Pass down the operand number.
+	(vect_get_slp_defs): Likewise.
+
+2019-11-29  Frederik Harwath  <frederik@codesourcery.com>
+
+	* gimple-match-head.c (maybe_resimplify_conditional_op): Use
+  	generic_expr_could_trap_p to check if the condition of COND_EXPR or
+  	VEC_COND_EXPR can trap.
+
+2019-11-29  Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR tree-optimization/92677
+	* tree-vect-loop.c (vect_dissolve_slp_only_groups): Set the gap
+	to zero when dissolving a group of strided accesses.
+
+2019-11-29  Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR tree-optimization/92596
+	* tree-vect-stmts.c (vectorizable_call): Punt on hybrid mask/nonmask
+	operations.
+	(vectorizable_operation): Likewise, instead of relying on
+	vect_get_mask_type_for_stmt to do this.
+	(vect_get_vector_types_for_stmt): Always return a vector type
+	immediately, rather than deferring the choice for boolean results.
+	Use a vector mask type instead of a normal vector if
+	vect_use_mask_type_p.
+	(vect_get_mask_type_for_stmt): Delete.
+	* tree-vect-loop.c (vect_determine_vf_for_stmt_1): Remove
+	mask_producers argument and special boolean_type_node handling.
+	(vect_determine_vf_for_stmt): Remove mask_producers argument and
+	update calls to vect_determine_vf_for_stmt_1.  Remove doubled call.
+	(vect_determine_vectorization_factor): Update call accordingly.
+	* tree-vect-slp.c (vect_build_slp_tree_1): Remove special
+	boolean_type_node handling.
+	(vect_slp_analyze_node_operations_1): Likewise.
+
+2019-11-29  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* tree-vectorizer.h (stmt_vec_info::mask_precision): New field.
+	(vect_use_mask_type_p): New function.
+	* tree-vect-patterns.c (vect_init_pattern_stmt): Copy the
+	mask precision to the pattern statement.
+	(append_pattern_def_seq): Add a scalar_type_for_mask parameter
+	and use it to initialize the new stmt's mask precision.
+	(search_type_for_mask_1): Delete.
+	(search_type_for_mask): Replace with...
+	(integer_type_for_mask): ...this new function.  Use the information
+	cached in the stmt_vec_info.
+	(vect_recog_bool_pattern): Update accordingly.
+	(build_mask_conversion): Pass the scalar type associated with the
+	mask type to append_pattern_def_seq.
+	(vect_recog_mask_conversion_pattern): Likewise.  Call
+	integer_type_for_mask instead of search_type_for_mask.
+	(vect_convert_mask_for_vectype): Call integer_type_for_mask instead
+	of search_type_for_mask.
+	(possible_vector_mask_operation_p): New function.
+	(vect_determine_mask_precision): Likewise.
+	(vect_determine_stmt_precisions): Call it.
+
+2019-11-29  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* tree-vectorizer.h (get_mask_type_for_scalar_type): Replace
+	the slp_tree parameter with a group size parameter.
+	(vect_get_mask_type_for_stmt): Likewise.
+	* tree-vect-stmts.c (get_mask_type_for_scalar_type): Likewise.
+	(vect_get_mask_type_for_stmt): Likewise.
+	* tree-vect-slp.c (vect_slp_analyze_node_operations_1): Update
+	call accordingly.
+
+2019-11-29  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* tree-vect-stmts.c (vectorizable_operation): Punt early
+	on codes that are handled elsewhere.
+
+2019-11-29  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* doc/sourcebuild.texi (vect_bool_cmp): Document.
+	* tree-vect-patterns.c (search_type_for_mask_1): If neither
+	operand to a boolean comparison is a natural vector mask,
+	handle both operands like normal integers instead.
+
+2019-11-29  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-sccvn.c (vn_walk_cb_data::push_partial_def): Bail
+	out early for too large objects.
+
+2019-11-29  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/92476
+	* ipa-cp.c (set_single_call_flag): Set node_calling_single_call in
+	the summary only if the summary exists.
+	(find_more_scalar_values_for_callers_subset): Check node_dead in
+	the summary only if the summary exists.
+	(ipcp_store_bits_results): Ignore nodes without lattices.
+	(ipcp_store_vr_results): Likewise.
+	* cgraphclones.c: Include ipa-fnsummary.h and ipa-prop.h and the
+	header files required by them.
+	(cgraph_node::expand_all_artificial_thunks): Analyze expanded thunks.
+
+2019-11-29  Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR tree-optimization/92710
+	* tree-vect-stmts.c (vectorizable_simd_clone_call): Reject
+	vector mask arguments.
+
+2019-11-29  Jan Hubicka  <hubicka@ucw.cz>
+
+	* profile-count.c (profile_count::to_cgraph_frequency,
+	profile_count::to_sreal_scale): Check for compaibility of counts.
+	* profile-count.h (compatible_p): Make public; add checking for
+	global0 versus global types.
+	* cgraph.c (cgraph_node::verify_node): Verify count compatibility.
+
+2019-11-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/92715
+	* tree-ssa-forwprop.c (simplify_vector_constructor): Bail
+	out for uniform vectors and source vectors with less elements
+	than the destination.
+
+2019-11-29  Martin Liska  <mliska@suse.cz>
+
+	PR lto/91574
+	* ipa-devirt.c (types_same_for_odr): Check for existence
+	of TYPE_NAMEs first.
+
+2019-11-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/92704
+	* tree-if-conv.c (combine_blocks): Deal with virtual PHIs
+	in loops performing only loads.
+
+2019-11-29  Julian Brown  <julian@codesourcery.com>
+
+	* builtin-types.def (BT_DFLOAT32_PTR, BT_DFLOAT64_PTR,
+	BT_DFLOAT128_PTR) Remove.
+	* tree-core.h (TI_DFLOAT32_PTR_TYPE, TI_DFLOAT64_PTR_TYPE,
+	TI_DFLOAT128_PTR_TYPE): Remove.
+	* tree.c (build_common_type_nodes): Remove dfloat32_ptr_type_node,
+	dfloat64_ptr_type_node and dfloat128_ptr_type_node initialisation.
+	* tree.h (dfloat32_ptr_type_node, dfloat64_ptr_type_node,
+	dfloat128_ptr_type_node): Remove macros.
+
+2019-11-28  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.md (*movsi_internal1): Fix formatting.  Improve
+	formatting.
+	(*movdi_internal64): Ditto.
+
+2019-11-28  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/92602
+	* config/rs6000/rs6000.md (bswap<mode>2_load for HSI): Change the
+	indexed_or_indirect_operand to be memory_operand.
+	(bswap<mode>2_store for HSI): Ditto.
+	(bswapdi2_load): Ditto.
+	(bswapdi2_store): Ditto.
+
+2019-11-28  Martin Liska  <mliska@suse.cz>
+
+	PR debug/46558
+	* dbgcnt.c (dbg_cnt_list_all_counters): Mark table
+	headers for translation.
+
+2019-11-28  Martin Liska  <mliska@suse.cz>
+
+	PR lto/92609
+	* ipa-devirt.c (warn_types_mismatch): Use TYPE_MAIN_VARIANT
+	consistently.
+
+2019-11-28  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-inline.c (want_early_inline_function_p): Remove leftover optimize
+	checks.
+
+2019-11-28  Jan Hubicka  <hubicka@ucw.cz>
+
+	* profile-count.c (profile_count::combine_with_ipa_count): Return
+	uninitialized count if called on ininitialized count.
+
+2019-11-28  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-inline-transform.c (inline_transform): Scale profile before
+	redirecting.
+
+2019-11-28  Jan Hubicka  <hubicka@ucw.cz>
+
+	* profile-count.h (profile_count::max): Work on profiles of different
+	type.
+	(profile_count::apply_scale): Be sure that ret is not local or global0
+	type if num is global.
+
+2019-11-28  Jan Hubicka  <hubicka@ucw.cz>
+
+	* profile-count.h (profile_count::max): Work on profiles of different
+	type.
+	(profile_count::apply_scale): Be sure that ret is not local or global0
+	type if num is global.
+
+2019-11-28  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/92697
+	* cgraph.c (cgraph_node_cannot_be_local_p_1): Return true for
+	ifunc_resolvers.
+	* symtab.c (symtab_node::dump_base): Dump ifunc_resolver flag.
+	Removed trailig whitespace.
+
+2019-11-28  Jan Hubicka  <hubicka@ucw.cz>
+
+	* profile-count.h (profile_count::combine_with_ipa_count_within):
+	Declare.
+	* profile-count.c (profile_count::combine_with_ipa_count_within):
+	New.
+	* cgraphclones.c (cgraph_edge::clone, cgraph_node::create_clone): Use
+	it.
+
+2019-11-28  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-utils.c (ipa_merge_profiles): Be sure that all type transtions
+	of counters are done same way.
+
+2019-11-28  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-cp.c (update_profiling_info): Fix scaling.
+
 2019-11-28  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/92645

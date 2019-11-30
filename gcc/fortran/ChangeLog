@@ -1,3 +1,14 @@
+2019-11-30  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/91783
+	* dependency.c (gfc_dep_resolver): Do not look at _data
+	component if present.
+
+2019-11-28  Jerry DeLisle  <jvdelisle@gcc.ngu.org>
+
+	PR fortran/90374
+	* io.c (check_format): Allow zero width expoenent with e0.
+
 2019-11-27  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/91944

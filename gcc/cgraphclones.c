@@ -273,6 +273,8 @@ cgraph_node::expand_all_artificial_thunks ()
 	  {
 	    thunk->thunk.thunk_p = false;
 	    thunk->analyze ();
+	    ipa_analyze_node (thunk);
+	    inline_analyze_function (thunk);
 	  }
 	ipa_analyze_node (thunk);
 	inline_analyze_function (thunk);

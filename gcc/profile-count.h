@@ -1079,7 +1079,6 @@ public:
     {
       if (*this == zero ())
 	return *this;
-
       if (num == zero ())
 	return num;
       if (!initialized_p () || !num.initialized_p () || !den.initialized_p ())
@@ -1094,10 +1093,11 @@ public:
       ret.m_val = MIN (val, max_count);
       ret.m_quality = MIN (MIN (MIN (m_quality, ADJUSTED),
 			        num.m_quality), den.m_quality);
-      /* Be sure that ret is not local or global0 type 
-	 if num is global.  */
-      if (num.ipa_p () && (!ret.ipa_p () || !(ret.ipa () == ret)))
-	ret.m_quality = MIN (num.m_quality, GUESSED);
+      /* Be sure that ret is not local if num is global.
+	 Also ensure that ret is not global0 when num is global.  */
+      if (num.ipa_p ())
+	ret.m_quality = MAX (ret.m_quality,
+			     num == num.ipa () ? GUESSED : num.m_quality);
       return ret;
     }
 
@@ -1174,8 +1174,8 @@ public:
       if (*this == overall && m_quality == PRECISE)
 	return profile_probability::always ();
       profile_probability ret;
-
       gcc_checking_assert (compatible_p (overall));
+
       if (overall.m_val < m_val)
 	{
 	  ret.m_val = profile_probability::max_probability;
