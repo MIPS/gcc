@@ -1,3 +1,112 @@
+2019-12-02  Martin Liska  <mliska@suse.cz>
+
+	* ipa-devirt.c (warn_types_mismatch): Use get_odr_name_for_type
+	function.
+	(debug_tree_odr_name): New.
+	* ipa-utils.h (get_odr_name_for_type): New.
+
+2019-12-02  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/92742
+	* tree-vect-loop.c (vect_fixup_reduc_chain): Do not
+	touch the def-type but verify it is consistent with the
+	original stmts.
+
+2019-12-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/92712
+	* match.pd ((A * B) +- A -> (B +- 1) * A,
+	A +- (A * B) -> (1 +- B) * A): Allow optimizing signed integers
+	even when we don't know anything about range of A, but do know
+	something about range of B and the simplification won't introduce
+	new UB.
+
+2019-12-02  Feng Xue  <fxue@os.amperecomputing.com>
+
+	PR ipa/92133
+	* doc/invoke.texi (ipa-cp-max-recursive-depth): Document new option.
+	(ipa-cp-min-recursive-probability): Likewise.
+	* params.opt (ipa-cp-max-recursive-depth): New.
+	(ipa-cp-min-recursive-probability): Likewise.
+	* ipa-cp.c (ipcp_lattice<valtype>::add_value): Add two new parameters
+	val_p and unlimited.
+	(self_recursively_generated_p): New function.
+	(get_val_across_arith_op): Likewise.
+	(propagate_vals_across_arith_jfunc): Add constant propagation for
+	self-recursive function.
+	(incorporate_penalties): Do not penalize pure self-recursive function.
+	(good_cloning_opportunity_p): Dump node_is_self_scc flag.
+	(propagate_constants_topo): Set node_is_self_scc flag for cgraph node.
+	(get_info_about_necessary_edges): Relax hotness check for edge to
+	self-recursive function.
+	* ipa-prop.h (ipa_node_params): Add new field node_is_self_scc.
+
+2019-12-01  Sandra Loosemore  <sandra@codesourcery.com>
+
+	PR target/92499
+
+	* config/nios2/nios2.c (nios2_in_small_data_p): Do not consider
+	objects of flexible types to be small if they have internal linkage
+	or are declared extern.
+	* config/nios2/nios2.h (ASM_OUTPUT_ALIGNED_LOCAL): Replace with...
+	(ASM_OUTPUT_ALIGNED_DECL_LOCAL): ...this.  Use targetm.in_small_data_p
+	instead of the size of the object initializer.
+	* tree.c (flexible_array_type_p): Move from C front end, and
+	generalize to handle fields in non-C structures.
+	* tree.h (flexible_array_type_p): Declare.
+
+2019-11-30  Jan Hubicka  <hubicka@ucw.cz>
+
+	* profile-count.h (profile_count::operator<): Use IPA value for
+	comparsion.
+	(profile_count::operator>): Likewise.
+	(profile_count::operator<=): Likewise.
+	(profile_count::operator>=): Likewise.
+	* predict.c (maybe_hot_count_p): Do not convert to gcov_type.
+
+2019-11-30  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-inline.c (compute_max_insns): Return int64_t.
+	(inline_small_functions): Simplify.
+
+2019-11-30  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree-cfg.c (execute_fixup_cfg): Update also max_bb_count when
+	scaling happen.
+
+2019-11-30  Jan Hubicka  <hubicka@ucw.cz>
+
+	* cgraph.h (symtab_node): Add symver flag.
+	* cgraphunit.c (process_symver_attribute): New.
+	(process_common_attributes): Use process_symver_attribute.
+	* lto-cgraph.c (lto_output_node): Stream symver.
+	(lto_output_varpool_node): Stream symver.
+	(input_overwrite_node): Stream symver.
+	(input_varpool_node): Stream symver.
+	* output.h (do_assemble_symver): Decalre.
+	* symtab.c (symtab_node::dump_base): Dump symver.
+	(symtab_node::verify_base): Verify symver.
+	(symtab_node::resolve_alias): Handle symver.
+	* varasm.c (do_assemble_symver): New function.
+	* varpool.c (varpool_node::assemble_aliases): Use it.
+	* doc/extend.texi: (symver attribute): Document.
+	* config/elfos.h (ASM_OUTPUT_SYMVER_DIRECTIVE): New.
+
+2019-11-30  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* target.h (type_context_kind): New enum.
+	(verify_type_context): Declare.
+	* target.def (verify_type_context): New target hook.
+	* doc/tm.texi.in (TARGET_VERIFY_TYPE_CONTEXT): Likewise.
+	* doc/tm.texi: Regenerate.
+	* tree.c (verify_type_context): New function.
+	* config/aarch64/aarch64-protos.h (aarch64_sve::verify_type_context):
+	Declare.
+	* config/aarch64/aarch64-sve-builtins.cc (verify_type_context):
+	New function.
+	* config/aarch64/aarch64.c (aarch64_verify_type_context): Likewise.
+	(TARGET_VERIFY_TYPE_CONTEXT): Define.
+
 2019-11-30  Jan Hubicka  <hubicka@ucw.cz>
 
 	* cgraph.c (cgraph_node::dump): Dump unit_id and merged_extern_inline.
@@ -4457,7 +4566,7 @@
 	(lto_free_file_name_hash): New function.
 	* lto-streamer.h (lto_free_file_name_hash): New.
 
-2019-11-07  Feng Xue <fxue@os.amperecomputing.com>
+2019-11-07  Feng Xue  <fxue@os.amperecomputing.com>
 
 	PR tree-optimization/89134
 	* doc/invoke.texi (min-loop-cond-split-prob): Document new --params.

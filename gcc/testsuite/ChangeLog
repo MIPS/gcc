@@ -1,3 +1,56 @@
+2019-12-02  Martin Liska  <mliska@suse.cz>
+
+	* g++.dg/lto/odr-7_0.C: New test.
+	* g++.dg/lto/odr-7_1.C: New test.
+
+2019-11-30  Jan Hubicka  <hubicka@ucw.cz>
+
+	* g++.dg/lto/inline-crossmodule-1_0.C: fix template.
+
+2019-12-02  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/92742
+	* gcc.dg/torture/pr92742.c: New testcase.
+
+2019-12-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/92712
+	* gcc.dg/tree-ssa/pr92712-1.c: New test.
+	* gcc.dg/tree-ssa/pr92712-2.c: New test.
+	* gcc.dg/tree-ssa/pr92712-3.c: New test.
+	* gfortran.dg/loop_versioning_1.f90: Adjust expected number of
+	likely to be innermost dimension messages.
+	* gfortran.dg/loop_versioning_10.f90: Likewise.
+	* gfortran.dg/loop_versioning_6.f90: Likewise.
+
+2019-12-02  Feng Xue  <fxue@os.amperecomputing.com>
+
+	PR ipa/92133
+	* gcc.dg/ipa/ipa-clone-2.c: New test.
+
+2019-12-01  Sandra Loosemore  <sandra@codesourcery.com>
+
+	PR target/92499
+
+	* gcc.target/nios2/pr92499-1.c: New.
+	* gcc.target/nios2/pr92499-2.c: New.
+	* gcc.target/nios2/pr92499-3.c: New.
+
+2019-12-02  Luo Xiong Hu  <luoxhu@linux.ibm.com>
+
+	testsuite/pr92398
+	* gcc.target/powerpc/pr72804.c: Split the store function to...
+	* gcc.target/powerpc/pr92398.h: ... this one.  New.
+	* gcc.target/powerpc/pr92398.p9+.c: New.
+	* gcc.target/powerpc/pr92398.p9-.c: New.
+	* lib/target-supports.exp (check_effective_target_p8): New.
+	(check_effective_target_p9+): New.
+
+2019-11-30  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* gcc.target/aarch64/sve/acle/general-c/sizeless-1.c: New test.
+	* gcc.target/aarch64/sve/acle/general-c/sizeless-2.c: Likewise.
+
 2019-11-30  Jan Hubicka  <hubicka@ucw.cz>
 
 	* g++.dg/lto/inline-crossmodule-1.h: New testcase.
