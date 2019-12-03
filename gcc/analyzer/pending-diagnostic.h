@@ -50,11 +50,12 @@ struct state_change : public event_desc
 		tree origin,
 		state_machine::state_t old_state,
 		state_machine::state_t new_state,
-		diagnostic_event_id_t event_id)
+		diagnostic_event_id_t event_id,
+		const state_change_event &event)
   : event_desc (colorize),
     m_expr (expr), m_origin (origin),
     m_old_state (old_state), m_new_state (new_state),
-    m_event_id (event_id)
+    m_event_id (event_id), m_event (event)
   {}
 
   bool is_global_p () const { return m_expr == NULL_TREE; }
@@ -64,6 +65,7 @@ struct state_change : public event_desc
   state_machine::state_t m_old_state;
   state_machine::state_t m_new_state;
   diagnostic_event_id_t m_event_id;
+  const state_change_event &m_event;
 };
 
 /* For use by pending_diagnostic::describe_call_with_state.  */

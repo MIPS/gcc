@@ -50,6 +50,7 @@ struct model_merger;
 struct svalue_id_merger_mapping;
 struct canonicalization;
 class pending_diagnostic;
+class state_change_event;
 class checker_path;
 class extrinsic_state;
 class sm_state_map;

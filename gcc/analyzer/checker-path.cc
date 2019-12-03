@@ -229,7 +229,7 @@ state_change_event::get_desc (bool can_colorize) const
       label_text custom_desc
 	= m_pending_diagnostic->describe_state_change
 	    (evdesc::state_change (can_colorize, m_var, m_origin,
-				   m_from, m_to, m_emission_id));
+				   m_from, m_to, m_emission_id, *this));
       if (custom_desc.m_buffer)
 	{
 	  if (flag_analyzer_verbose_state_changes)
