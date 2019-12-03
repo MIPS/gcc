@@ -339,12 +339,16 @@ path_summary::print (diagnostic_context *dc, bool show_depths) const
 	      cur_indent += strlen (push_prefix);
 	    }
 	}
-      print_fndecl (pp, range->m_fndecl, true);
+      if (range->m_fndecl)
+	{
+	  print_fndecl (pp, range->m_fndecl, true);
+	  pp_string (pp, ": ");
+	}
       if (range->m_start_idx == range->m_end_idx)
-	pp_printf (pp, ": event %i",
+	pp_printf (pp, "event %i",
 		   range->m_start_idx + 1);
       else
-	pp_printf (pp, ": events %i-%i",
+	pp_printf (pp, "events %i-%i",
 		   range->m_start_idx + 1, range->m_end_idx + 1);
       if (show_depths)
 	pp_printf (pp, " (depth %i)", range->m_stack_depth);
@@ -387,36 +391,41 @@ path_summary::print (diagnostic_context *dc, bool show_depths) const
 
 	  if (range->m_stack_depth > next_range->m_stack_depth)
 	    {
-	      /* Show returning from stack frame(s), by printing
-		 something like:
-		 "                   |\n"
-		 "     <------------ +\n"
-		 "     |\n".  */
+	      if (vbar_column_for_depth.get (next_range->m_stack_depth))
+		{
+		  /* Show returning from stack frame(s), by printing
+		     something like:
+		     "                   |\n"
+		     "     <------------ +\n"
+		     "     |\n".  */
+		  int vbar_for_next_frame
+		    = *vbar_column_for_depth.get (next_range->m_stack_depth);
 
-	      gcc_assert (vbar_column_for_depth.get
-			  (next_range->m_stack_depth));
+		  int indent_for_next_frame
+		    = vbar_for_next_frame - per_frame_indent;
+		  write_indent (pp, vbar_for_next_frame);
+		  pp_string (pp, start_line_color);
+		  pp_character (pp, '<');
+		  for (int i = indent_for_next_frame + per_frame_indent;
+		       i < cur_indent + per_frame_indent - 1; i++)
+		    pp_character (pp, '-');
+		  pp_character (pp, '+');
+		  pp_string (pp, end_line_color);
+		  pp_newline (pp);
+		  cur_indent = indent_for_next_frame;
 
-	      int vbar_for_next_frame
-		= *vbar_column_for_depth.get (next_range->m_stack_depth);
-
-	      int indent_for_next_frame
-		= vbar_for_next_frame - per_frame_indent;
-	      write_indent (pp, vbar_for_next_frame);
-	      pp_string (pp, start_line_color);
-	      pp_character (pp, '<');
-	      for (int i = indent_for_next_frame + per_frame_indent;
-		   i < cur_indent + per_frame_indent - 1; i++)
-		pp_character (pp, '-');
-	      pp_character (pp, '+');
-	      pp_string (pp, end_line_color);
-	      pp_newline (pp);
-	      cur_indent = indent_for_next_frame;
-
-	      write_indent (pp, vbar_for_next_frame);
-	      pp_string (pp, start_line_color);
-	      pp_printf (pp, "|");
-	      pp_string (pp, end_line_color);
-	      pp_newline (pp);
+		  write_indent (pp, vbar_for_next_frame);
+		  pp_string (pp, start_line_color);
+		  pp_printf (pp, "|");
+		  pp_string (pp, end_line_color);
+		  pp_newline (pp);
+		}
+	      else
+		{
+		  /* Handle disjoint paths (e.g. a callback at some later
+		     time).  */
+		  cur_indent = base_indent;
+		}
 	    }
 	  else if (range->m_stack_depth < next_range->m_stack_depth)
 	    {

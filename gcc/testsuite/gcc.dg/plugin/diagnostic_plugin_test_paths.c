@@ -341,11 +341,92 @@ example_2 ()
     }
 }
 
+/* Example 3: an interprocedural path with a callback.  */
+
+static void
+example_3 ()
+{
+  gimple_stmt_iterator gsi;
+  basic_block bb;
+
+  event_location_t entry_to_custom_logger;
+  event_location_t call_to_fprintf;
+
+  event_location_t entry_to_int_handler;
+  event_location_t call_to_custom_logger;
+
+  event_location_t entry_to_register_handler;
+  event_location_t call_to_signal;
+
+  event_location_t entry_to_test;
+  event_location_t call_to_register_handler;
+
+  cgraph_node *node;
+  FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (node)
+    {
+      function *fun = node->get_fun ();
+      FOR_EACH_BB_FN (bb, fun)
+	{
+	  check_for_named_function (fun, "custom_logger",
+				    &entry_to_custom_logger);
+	  check_for_named_function (fun, "int_handler",
+				    &entry_to_int_handler);
+	  check_for_named_function (fun, "register_handler",
+				    &entry_to_register_handler);
+	  check_for_named_function (fun, "test",
+				    &entry_to_test);
+	  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	    {
+	      gimple *stmt = gsi_stmt (gsi);
+	      if (gcall *call = check_for_named_call (stmt, "fprintf", 3))
+		call_to_fprintf.set (call, fun);
+	      if (gcall *call = check_for_named_call (stmt, "custom_logger", 1))
+		call_to_custom_logger.set (call, fun);
+	      if (gcall *call = check_for_named_call (stmt, "register_handler",
+						      0))
+		call_to_register_handler.set (call, fun);
+	      if (gcall *call = check_for_named_call (stmt, "signal", 2))
+		call_to_signal.set (call, fun);
+	    }
+	}
+    }
+
+  if (call_to_fprintf.m_fun)
+    {
+      auto_diagnostic_group d;
+
+      gcc_rich_location richloc (call_to_fprintf.m_loc);
+      test_diagnostic_path path (global_dc->printer);
+      path.add_entry (entry_to_test, 1, "test");
+      path.add_call (call_to_register_handler, 1,
+		     entry_to_register_handler, "register_handler");
+      path.add_event (call_to_signal.m_loc, call_to_signal.m_fun->decl,
+		      2, "registering 'int_handler' as signal handler");
+      path.add_event (UNKNOWN_LOCATION, NULL_TREE, 0,
+		      "later on, when the signal is delivered to the process");
+      path.add_entry (entry_to_int_handler, 1, "int_handler");
+      path.add_call (call_to_custom_logger, 1,
+		     entry_to_custom_logger, "custom_logger");
+      path.add_leaf_call (call_to_fprintf, 2, "fprintf");
+
+      richloc.set_path (&path);
+
+      diagnostic_metadata m;
+      /* CWE-479: Signal Handler Use of a Non-reentrant Function.  */
+      m.add_cwe (479);
+
+      warning_at (&richloc, m, 0,
+		  "call to %qs from within signal handler",
+		  "fprintf");
+    }
+}
+
 unsigned int
 pass_test_show_path::execute (function *)
 {
   example_1 ();
   example_2 ();
+  example_3 ();
 
   return 0;
 }
