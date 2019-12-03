@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 struct foo
 {
@@ -1075,4 +1076,9 @@ void test_52 (struct big b)
   memcpy (&d, &b, sizeof (struct big));
   __analyzer_eval (b.ia[0] == d.ia[0]); /* { dg-warning "TRUE" "" { xfail *-*-* } } */
   /* { dg-warning "UNKNOWN" "" { target *-*-* } .-1 } */
+}
+
+void test_53 (const char *msg)
+{
+  (void)fprintf(stderr, "LOG: %s", msg);
 }
