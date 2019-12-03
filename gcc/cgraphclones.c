@@ -279,8 +279,6 @@ cgraph_node::expand_all_artificial_thunks ()
 	    ipa_analyze_node (thunk);
 	    inline_analyze_function (thunk);
 	  }
-	ipa_analyze_node (thunk);
-	inline_analyze_function (thunk);
 	thunk->expand_all_artificial_thunks ();
       }
     else
