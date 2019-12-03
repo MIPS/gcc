@@ -1,3 +1,80 @@
+2019-12-03  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/92758
+	* tree-ssa-forwprop.c (simplify_vector_constructor): Restore
+	operation on uniform vectors.
+
+2019-12-03  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/92645
+	* gimple-fold.c (gimple_fold_builtin_memory_op): Fold memcpy
+	from or to a properly aligned register variable.
+
+2019-12-03  Matthias Klose  <doko@ubuntu.com>
+
+	* Makefile.in (SOURCES): Add doc/lto-dump.1.
+	(install-man): Add $(LTO_DUMP_INSTALL_NAME)$(man1ext).
+	($(LTO_DUMP_INSTALL_NAME)$(man1ext): New.
+
+2019-12-03  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/92751
+	* tree-ssa-sccvn.c (vn_walk_cb_data::push_partial_def): Fail
+	when a clobber ends up in the partial-def vector.
+	(vn_reference_lookup_3): Let clobbers be handled by the
+	assignment from CTOR handling.
+
+2019-12-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/92734
+	* match.pd ((CST1 - A) +- CST2 -> CST3 - A,
+	CST1 - (CST2 - A) -> CST3 + A): Handle nop casts around
+	inner subtraction.
+
+2019-12-03  Uroš Bizjak  <ubizjak@gmail.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/92744
+	* config/i386/i386.md (peephole2 for *swap<mode>): Use
+	general_reg_operand predicates instead of register_operand.
+
+2019-12-03  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/92645
+	* tree-ssa.c (execute_update_addresses_taken): Avoid representing
+	a full def of a vector via a BIT_INSERT_EXPR.
+
+2019-12-02  Bill Schmidt  <wschmidt@linux.ibm.com>
+
+	* config/rs6000/rs6000-call.c (rs6000_invalid_builtin): Make
+	static.
+	* config/rs6000/rs6000-internal.h (rs6000_invalid_builtin): Remove
+	decl.
+
+2019-12-02  Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR middle-end/92741
+	* fold-const.c (fold_convertible_p): Check vector types more
+	thoroughly.
+
+2019-12-02  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_report_sve_required): New function.
+	(aarch64_expand_mov_immediate): Use it when attempting to measure
+	the length of an SVE vector.
+	(aarch64_mov_operand_p): Only allow SVE CNT immediates when
+	SVE is enabled.
+
+2019-12-02  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* config/aarch64/aarch64-sve-builtins.h
+	(gimple_folder::force_vector): Declare.
+	* config/aarch64/aarch64-sve-builtins.cc
+	(gimple_folder::force_vector): New function.
+	* config/aarch64/aarch64-sve-builtins-base.cc
+	(svcmp_impl::fold): Likewise.
+	(svdup_impl::fold): Handle svdup_z too.
+
 2019-12-02  Martin Liska  <mliska@suse.cz>
 
 	* ipa-devirt.c (warn_types_mismatch): Use get_odr_name_for_type

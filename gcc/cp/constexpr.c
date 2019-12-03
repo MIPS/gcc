@@ -1441,6 +1441,26 @@ cxx_bind_parameters_in_call (const constexpr_ctx *ctx, tree t,
 	    arg = adjust_temp_type (type, arg);
 	  if (!TREE_CONSTANT (arg))
 	    *non_constant_args = true;
+	  /* For virtual calls, adjust the this argument, so that it is
+	     the object on which the method is called, rather than
+	     one of its bases.  */
+	  if (i == 0 && DECL_VIRTUAL_P (fun))
+	    {
+	      tree addr = arg;
+	      STRIP_NOPS (addr);
+	      if (TREE_CODE (addr) == ADDR_EXPR)
+		{
+		  tree obj = TREE_OPERAND (addr, 0);
+		  while (TREE_CODE (obj) == COMPONENT_REF
+			 && DECL_FIELD_IS_BASE (TREE_OPERAND (obj, 1))
+			 && !same_type_ignoring_top_level_qualifiers_p
+					(TREE_TYPE (obj), DECL_CONTEXT (fun)))
+		    obj = TREE_OPERAND (obj, 0);
+		  if (obj != TREE_OPERAND (addr, 0))
+		    arg = build_fold_addr_expr_with_type (obj,
+							  TREE_TYPE (arg));
+		}
+	    }
 	  TREE_VEC_ELT (binds, i) = arg;
 	}
       parms = TREE_CHAIN (parms);
@@ -5548,6 +5568,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 	tree obj = OBJ_TYPE_REF_OBJECT (t);
 	obj = cxx_eval_constant_expression (ctx, obj, lval, non_constant_p,
 					    overflow_p);
+	STRIP_NOPS (obj);
 	/* We expect something in the form of &x.D.2103.D.2094; get x. */
 	if (TREE_CODE (obj) != ADDR_EXPR
 	    || !DECL_P (get_base_address (TREE_OPERAND (obj, 0))))
