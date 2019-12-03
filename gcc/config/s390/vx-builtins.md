@@ -183,10 +183,11 @@
 ; vec_revb (vec_insert_and_zero(x))             bswap-and-replicate-1.c
 ; vllebrzh, vllebrzf, vllebrzg
 (define_insn "*vec_insert_and_zero_bswap<mode>"
-  [(set (match_operand:V_HW_HSD                    0 "register_operand" "=v")
+  [(set (match_operand:V_HW_HSD                    0 "register_operand"       "=v")
 	(bswap:V_HW_HSD (unspec:V_HW_HSD
-			 [(match_operand:<non_vec> 1 "memory_operand"    "R")]
-			 UNSPEC_VEC_INSERT_AND_ZERO)))]
+			 [(match_operand:<non_vec> 1 "memory_operand"          "R")]
+			 UNSPEC_VEC_INSERT_AND_ZERO)))
+   (use (match_operand:V16QI                       2 "permute_pattern_operand" "X"))]
   "TARGET_VXE2"
   "vllebrz<bhfgq>\t%v0,%1"
   [(set_attr "op_type" "VRX")])
@@ -2045,7 +2046,7 @@
 ;;
 
 ; vfcesbs, vfcedbs, wfcexbs, vfchsbs, vfchdbs, wfchxbs, vfchesbs, vfchedbs, wfchexbs
-(define_insn "*vec_cmp<insn_cmp><mode>_cconly"
+(define_insn "*vec_cmp<insn_cmp><VF_HW:mode>_cconly"
   [(set (reg:VFCMP CC_REGNUM)
 	(compare:VFCMP (match_operand:VF_HW 0 "register_operand" "v")
 		       (match_operand:VF_HW 1 "register_operand" "v")))
@@ -2146,7 +2147,7 @@
   "<vw>fmax<sdx>b\t%v0,%v1,%v2,%b3"
   [(set_attr "op_type" "VRR")])
 
-; The element reversal builtins introduced with arch13 have been made
+; The element reversal builtins introduced with z15 have been made
 ; available also for older CPUs down to z13.
 (define_expand "eltswap<mode>"
   [(set (match_operand:VEC_HW                 0 "nonimmediate_operand" "")
@@ -2180,8 +2181,8 @@
    vster<bhfgq>\t%v1,%v0"
   [(set_attr "op_type" "*,VRX,VRX")])
 
-; arch13 has instructions for doing element reversal from mem to reg
-; or the other way around.  For reg to reg or on pre arch13 machines
+; z15 has instructions for doing element reversal from mem to reg
+; or the other way around.  For reg to reg or on pre z15 machines
 ; we have to emulate it with vector permute.
 (define_insn_and_split "*eltswap<mode>_emu"
   [(set (match_operand:VEC_HW                 0 "nonimmediate_operand" "=vR")
@@ -2243,12 +2244,13 @@
 ; vec_revb (vec_insert (*a, vec_revb (b), 1))      set-element-bswap-1.c
 ; vlebrh, vlebrf, vlebrg
 (define_insn "*vec_set_bswap_vec<mode>"
-  [(set (match_operand:V_HW_HSD                                     0 "register_operand" "=v")
+  [(set (match_operand:V_HW_HSD                                     0 "register_operand"       "=v")
 	(bswap:V_HW_HSD
-	 (unspec:V_HW_HSD [(match_operand:<non_vec>                 1 "memory_operand"    "R")
-		           (match_operand:SI                        2 "const_int_operand" "C")
-			   (bswap:V_HW_HSD (match_operand:V_HW_HSD  3 "register_operand"  "0"))]
-			  UNSPEC_VEC_SET)))]
+	 (unspec:V_HW_HSD [(match_operand:<non_vec>                 1 "memory_operand"          "R")
+		           (match_operand:SI                        2 "const_int_operand"       "C")
+			   (bswap:V_HW_HSD (match_operand:V_HW_HSD  3 "register_operand"        "0"))]
+			  UNSPEC_VEC_SET)))
+   (use (match_operand:V16QI                                        4 "permute_pattern_operand" "X"))]
   "TARGET_VXE2 && UINTVAL (operands[2]) < GET_MODE_NUNITS (<V_HW_HSD:MODE>mode)"
   "vlebr<bhfgq>\t%v0,%1,%2"
   [(set_attr "op_type" "VRX")])

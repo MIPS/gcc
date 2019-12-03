@@ -169,8 +169,10 @@ useless_type_conversion_p (tree outer_type, tree inner_type)
 
       /* Nor are conversions from array types with non-constant size to
          array types with constant size or to different size.  */
-      if (type_size_known_constant_p (outer_type)
-	  && (!type_size_known_constant_p (inner_type)
+      if (TYPE_SIZE (outer_type)
+	  && TREE_CODE (TYPE_SIZE (outer_type)) == INTEGER_CST
+	  && (!TYPE_SIZE (inner_type)
+	      || TREE_CODE (TYPE_SIZE (inner_type)) != INTEGER_CST
 	      || !tree_int_cst_equal (TYPE_SIZE (outer_type),
 				      TYPE_SIZE (inner_type))))
 	return false;
@@ -474,7 +476,7 @@ create_tmp_var (tree type, const char *prefix)
      The processing for variable sizes is performed in gimple_add_tmp_var,
      point at which it really matters and possibly reached via paths not going
      through this function, e.g. after direct calls to create_tmp_var_raw.  */
-  gcc_assert (!TREE_ADDRESSABLE (type) && TYPE_LAID_OUT_P (type));
+  gcc_assert (!TREE_ADDRESSABLE (type) && COMPLETE_TYPE_P (type));
 
   tmp_var = create_tmp_var_raw (type, prefix);
   gimple_add_tmp_var (tmp_var);
@@ -526,37 +528,40 @@ void
 extract_ops_from_tree (tree expr, enum tree_code *subcode_p, tree *op1_p,
 		       tree *op2_p, tree *op3_p)
 {
-  enum gimple_rhs_class grhs_class;
-
   *subcode_p = TREE_CODE (expr);
-  grhs_class = get_gimple_rhs_class (*subcode_p);
-
-  if (grhs_class == GIMPLE_TERNARY_RHS)
+  switch (get_gimple_rhs_class (*subcode_p))
     {
-      *op1_p = TREE_OPERAND (expr, 0);
-      *op2_p = TREE_OPERAND (expr, 1);
-      *op3_p = TREE_OPERAND (expr, 2);
+    case GIMPLE_TERNARY_RHS:
+      {
+	*op1_p = TREE_OPERAND (expr, 0);
+	*op2_p = TREE_OPERAND (expr, 1);
+	*op3_p = TREE_OPERAND (expr, 2);
+	break;
+      }
+    case GIMPLE_BINARY_RHS:
+      {
+	*op1_p = TREE_OPERAND (expr, 0);
+	*op2_p = TREE_OPERAND (expr, 1);
+	*op3_p = NULL_TREE;
+	break;
+      }
+    case GIMPLE_UNARY_RHS:
+      {
+	*op1_p = TREE_OPERAND (expr, 0);
+	*op2_p = NULL_TREE;
+	*op3_p = NULL_TREE;
+	break;
+      }
+    case GIMPLE_SINGLE_RHS:
+      {
+	*op1_p = expr;
+	*op2_p = NULL_TREE;
+	*op3_p = NULL_TREE;
+	break;
+      }
+    default:
+      gcc_unreachable ();
     }
-  else if (grhs_class == GIMPLE_BINARY_RHS)
-    {
-      *op1_p = TREE_OPERAND (expr, 0);
-      *op2_p = TREE_OPERAND (expr, 1);
-      *op3_p = NULL_TREE;
-    }
-  else if (grhs_class == GIMPLE_UNARY_RHS)
-    {
-      *op1_p = TREE_OPERAND (expr, 0);
-      *op2_p = NULL_TREE;
-      *op3_p = NULL_TREE;
-    }
-  else if (grhs_class == GIMPLE_SINGLE_RHS)
-    {
-      *op1_p = expr;
-      *op2_p = NULL_TREE;
-      *op3_p = NULL_TREE;
-    }
-  else
-    gcc_unreachable ();
 }
 
 /* Extract operands for a GIMPLE_COND statement out of COND_EXPR tree COND.  */
@@ -569,6 +574,7 @@ gimple_cond_get_ops_from_tree (tree cond, enum tree_code *code_p,
 	      || TREE_CODE (cond) == TRUTH_NOT_EXPR
 	      || is_gimple_min_invariant (cond)
 	      || SSA_VAR_P (cond));
+  gcc_checking_assert (!tree_could_throw_p (cond));
 
   extract_ops_from_tree (cond, code_p, lhs_p, rhs_p);
 
@@ -600,15 +606,31 @@ is_gimple_lvalue (tree t)
 	  || TREE_CODE (t) == BIT_FIELD_REF);
 }
 
-/*  Return true if T is a GIMPLE condition.  */
+/* Helper for is_gimple_condexpr and is_gimple_condexpr_for_cond.  */
+
+static bool
+is_gimple_condexpr_1 (tree t, bool allow_traps)
+{
+  return (is_gimple_val (t) || (COMPARISON_CLASS_P (t)
+				&& (allow_traps || !tree_could_throw_p (t))
+				&& is_gimple_val (TREE_OPERAND (t, 0))
+				&& is_gimple_val (TREE_OPERAND (t, 1))));
+}
+
+/* Return true if T is a GIMPLE condition.  */
 
 bool
 is_gimple_condexpr (tree t)
 {
-  return (is_gimple_val (t) || (COMPARISON_CLASS_P (t)
-				&& !tree_could_throw_p (t)
-				&& is_gimple_val (TREE_OPERAND (t, 0))
-				&& is_gimple_val (TREE_OPERAND (t, 1))));
+  return is_gimple_condexpr_1 (t, true);
+}
+
+/* Like is_gimple_condexpr, but does not allow T to trap.  */
+
+bool
+is_gimple_condexpr_for_cond (tree t)
+{
+  return is_gimple_condexpr_1 (t, false);
 }
 
 /* Return true if T is a gimple address.  */

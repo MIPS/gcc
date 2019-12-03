@@ -219,12 +219,7 @@ rtx_alloc_stat_v (RTX_CODE code MEM_STAT_DECL, int extra)
   rtx rt = ggc_alloc_rtx_def_stat (RTX_CODE_SIZE (code) + extra
 				   PASS_MEM_STAT);
 
-  /* We want to clear everything up to the FLD array.  Normally, this
-     is one int, but we don't want to assume that and it isn't very
-     portable anyway; this is.  */
-
-  memset (rt, 0, RTX_HDR_SIZE);
-  PUT_CODE (rt, code);
+  rtx_init (rt, code);
 
   if (GATHER_STATISTICS)
     {
@@ -314,10 +309,6 @@ copy_rtx (rtx orig)
 	  && ORIGINAL_REGNO (XEXP (orig, 0)) == REGNO (XEXP (orig, 0)))
 	return orig;
       break;
-
-    case CLOBBER_HIGH:
-	gcc_assert (REG_P (XEXP (orig, 0)));
-	return orig;
 
     case CONST:
       if (shared_const_p (orig))
@@ -746,6 +737,8 @@ classify_insn (rtx x)
     return CALL_INSN;
   if (ANY_RETURN_P (x))
     return JUMP_INSN;
+  if (GET_CODE (x) == ASM_OPERANDS && ASM_OPERANDS_LABEL_VEC (x))
+    return JUMP_INSN;
   if (GET_CODE (x) == SET)
     {
       if (GET_CODE (SET_DEST (x)) == PC)
@@ -771,6 +764,9 @@ classify_insn (rtx x)
 		 && GET_CODE (SET_SRC (XVECEXP (x, 0, j))) == CALL)
 	  return CALL_INSN;
       if (has_return_p)
+	return JUMP_INSN;
+      if (GET_CODE (XVECEXP (x, 0, 0)) == ASM_OPERANDS
+	  && ASM_OPERANDS_LABEL_VEC (XVECEXP (x, 0, 0)))
 	return JUMP_INSN;
     }
 #ifdef GENERATOR_FILE

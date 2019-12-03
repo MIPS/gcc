@@ -616,7 +616,7 @@ static const char *const target_machine = TARGET_MACHINE;
 
    Return 0 if not found, otherwise return its name, allocated with malloc.  */
 
-#if defined (OBJECT_FORMAT_NONE) || defined (OBJECT_FORMAT_COFF)
+#ifdef OBJECT_FORMAT_NONE
 
 /* Add an entry for the object file NAME to object file list LIST.
    New entries are added at the end of the list. The original pointer
@@ -636,7 +636,7 @@ add_lto_object (struct lto_object_list *list, const char *name)
 
   list->last = n;
 }
-#endif
+#endif /* OBJECT_FORMAT_NONE */
 
 
 /* Perform a link-time recompilation and relink if any of the object
@@ -701,7 +701,8 @@ maybe_run_lto_and_relink (char **lto_ld_argv, char **object_lst,
       size_t num_files;
 
       if (!lto_wrapper)
-	fatal_error (input_location, "COLLECT_LTO_WRAPPER must be set");
+	fatal_error (input_location, "environment variable "
+		     "%<COLLECT_LTO_WRAPPER%> must be set");
 
       num_lto_c_args++;
 
@@ -823,6 +824,30 @@ maybe_run_lto_and_relink (char **lto_ld_argv, char **object_lst,
     }
   else
     post_ld_pass (false); /* No LTO objects were found, no temp file.  */
+}
+/* Entry point for linker invoation.  Called from main in collect2.c.
+   LD_ARGV is an array of arguments for the linker.  */
+
+static void
+do_link (char **ld_argv)
+{
+  struct pex_obj *pex;
+  const char *prog = "ld";
+  pex = collect_execute (prog, ld_argv, NULL, NULL,
+			 PEX_LAST | PEX_SEARCH,
+			 HAVE_GNU_LD && at_file_supplied);
+  int ret = collect_wait (prog, pex);
+  if (ret)
+    {
+      error ("ld returned %d exit status", ret);
+      exit (ret);
+    }
+  else
+    {
+      /* We have just successfully produced an output file, so assume that we
+	 may unlink it if need be for now on.  */
+      may_unlink_output_file = true;
+    }
 }
 
 /* Main program.  */
@@ -1396,7 +1421,7 @@ main (int argc, char **argv)
 
 		  stream = fopen (list_filename, "r");
 		  if (stream == NULL)
-		    fatal_error (input_location, "can%'t open %s: %m",
+		    fatal_error (input_location, "cannot open %s: %m",
 				 list_filename);
 
 		  while (fgets (buf, sizeof buf, stream) != NULL)
@@ -1516,7 +1541,7 @@ main (int argc, char **argv)
 		      enum demangling_styles style
 			= cplus_demangle_name_to_style (arg+11);
 		      if (style == unknown_demangling)
-			error ("unknown demangling style '%s'", arg+11);
+			error ("unknown demangling style %qs", arg+11);
 		      else
 			current_demangling_style = style;
 		    }
@@ -1640,7 +1665,7 @@ main (int argc, char **argv)
       printf ("  --help          Display this information\n");
       printf ("  -v, --version   Display this program's version number\n");
       printf ("\n");
-      printf ("Overview: http://gcc.gnu.org/onlinedocs/gccint/Collect2.html\n");
+      printf ("Overview: https://gcc.gnu.org/onlinedocs/gccint/Collect2.html\n");
       printf ("Report bugs: %s\n", bug_report_url);
       printf ("\n");
     }
@@ -1703,7 +1728,7 @@ main (int argc, char **argv)
        functions from precise cross reference insertions by the compiler.  */
 
     if (early_exit || ld1_filter != SCAN_NOTHING)
-      do_tlink (ld1_argv, object_lst);
+      do_link (ld1_argv);
 
     if (early_exit)
       {
@@ -1761,10 +1786,10 @@ main (int argc, char **argv)
 #endif
       )
     {
-      /* Do tlink without additional code generation now if we didn't
+      /* Do link without additional code generation now if we didn't
 	 do it earlier for scanning purposes.  */
       if (ld1_filter == SCAN_NOTHING)
-	do_tlink (ld1_argv, object_lst);
+	do_link (ld1_argv);
 
       if (lto_mode)
         maybe_run_lto_and_relink (ld1_argv, object_lst, object, false);
@@ -1867,13 +1892,13 @@ main (int argc, char **argv)
 
   fork_execute ("gcc",  c_argv, at_file_supplied);
 #ifdef COLLECT_EXPORT_LIST
-  /* On AIX we must call tlink because of possible templates resolution.  */
-  do_tlink (ld2_argv, object_lst);
+  /* On AIX we must call link because of possible templates resolution.  */
+  do_link (ld2_argv);
 
   if (lto_mode)
     maybe_run_lto_and_relink (ld2_argv, object_lst, object, false);
 #else
-  /* Otherwise, simply call ld because tlink is already done.  */
+  /* Otherwise, simply call ld because link is already done.  */
   if (lto_mode)
     maybe_run_lto_and_relink (ld2_argv, object_lst, object, true);
   else
@@ -2382,7 +2407,7 @@ is_lto_object_file (const char *prog_name)
     return true;
 
   if (errmsg)
-    fatal_error (0, "%s: %s\n", errmsg, xstrerror (err));
+    fatal_error (0, "%s: %s", errmsg, xstrerror (err));
   return false;
 }
 
@@ -2422,7 +2447,7 @@ scan_prog_file (const char *prog_name, scanpass which_pass,
 
   /* If we do not have an `nm', complain.  */
   if (nm_file_name == 0)
-    fatal_error (input_location, "cannot find 'nm'");
+    fatal_error (input_location, "cannot find %<nm%>");
 
   nm_argv[argc++] = nm_file_name;
   if (NM_FLAGS[0] != '\0')
@@ -2448,7 +2473,7 @@ scan_prog_file (const char *prog_name, scanpass which_pass,
 
   pex = pex_init (PEX_USE_PIPES, "collect2", NULL);
   if (pex == NULL)
-    fatal_error (input_location, "pex_init failed: %m");
+    fatal_error (input_location, "%<pex_init%> failed: %m");
 
   errmsg = pex_run (pex, 0, nm_file_name, real_nm_argv, NULL, HOST_BIT_BUCKET,
 		    &err);
@@ -2470,7 +2495,7 @@ scan_prog_file (const char *prog_name, scanpass which_pass,
 
   inf = pex_read_output (pex, 0);
   if (inf == NULL)
-    fatal_error (input_location, "can%'t open nm output: %m");
+    fatal_error (input_location, "cannot open nm output: %m");
 
   if (debug)
     fprintf (stderr, "\nnm output with constructors/destructors.\n");
@@ -2593,7 +2618,7 @@ scan_libraries (const char *prog_name)
   /* If we do not have an `ldd', complain.  */
   if (ldd_file_name == 0)
     {
-      error ("cannot find 'ldd'");
+      error ("cannot find %<ldd%>");
       return;
     }
 
@@ -2639,7 +2664,7 @@ scan_libraries (const char *prog_name)
 
   inf = pex_read_output (pex, 0);
   if (inf == NULL)
-    fatal_error (input_location, "can%'t open ldd output: %m");
+    fatal_error (input_location, "cannot open ldd output: %m");
 
   if (debug)
     notice ("\nldd output with constructors/destructors.\n");
@@ -2669,8 +2694,8 @@ scan_libraries (const char *prog_name)
       if (access (name, R_OK) == 0)
 	add_to_list (&libraries, name);
       else
-	fatal_error (input_location, "unable to open dynamic dependency '%s'",
-		     buf);
+	fatal_error (input_location, "unable to open dynamic dependency "
+		     "%qs", buf);
 
       if (debug)
 	fprintf (stderr, "\t%s\n", buf);
@@ -2798,10 +2823,8 @@ scan_prog_file (const char *prog_name, scanpass which_pass,
   LDFILE *ldptr = NULL;
   int sym_index, sym_count;
   int is_shared = 0;
-  int found_lto = 0;
 
-  if (which_pass != PASS_FIRST && which_pass != PASS_OBJ
-      && which_pass != PASS_LTOINFO)
+  if (which_pass != PASS_FIRST && which_pass != PASS_OBJ)
     return;
 
 #ifdef COLLECT_EXPORT_LIST
@@ -2814,7 +2837,6 @@ scan_prog_file (const char *prog_name, scanpass which_pass,
      eliminate scan_libraries() function.  */
   do
     {
-      found_lto = 0;
 #endif
       /* Some platforms (e.g. OSF4) declare ldopen as taking a
 	 non-const char * filename parameter, even though it will not
@@ -2856,19 +2878,6 @@ scan_prog_file (const char *prog_name, scanpass which_pass,
 		      if (*name == '.')
 			++name;
 #endif
-
-                      if (which_pass == PASS_LTOINFO)
-                        {
-			  if (found_lto)
-			    continue;
-			  if (strncmp (name, "__gnu_lto_v1", 12) == 0)
-			    {
-			      add_lto_object (&lto_objects, prog_name);
-			      found_lto = 1;
-			      break;
-			    }
-			  continue;
-			}
 
 		      switch (is_ctor_dtor (name))
 			{

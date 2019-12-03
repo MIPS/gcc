@@ -471,6 +471,7 @@ attempt_change (rtx new_addr, rtx inc_reg)
   int regno;
   rtx mem = *mem_insn.mem_loc;
   machine_mode mode = GET_MODE (mem);
+  int align = MEM_ALIGN (mem);
   rtx new_mem;
   int old_cost = 0;
   int new_cost = 0;
@@ -478,6 +479,7 @@ attempt_change (rtx new_addr, rtx inc_reg)
 
   PUT_MODE (mem_tmp, mode);
   XEXP (mem_tmp, 0) = new_addr;
+  set_mem_align (mem_tmp, align);
 
   old_cost = (set_src_cost (mem, mode, speed)
 	      + set_rtx_cost (PATTERN (inc_insn.insn), speed));
@@ -1439,10 +1441,9 @@ merge_in_block (int max_reg, basic_block bb)
 	  continue;
 	}
 
-      /* This continue is deliberate.  We do not want the uses of the
-	 jump put into reg_next_use because it is not considered safe to
-	 combine a preincrement with a jump.  */
-      if (JUMP_P (insn))
+      /* Reload should handle auto-inc within a jump correctly, while LRA
+	 is known to have issues with autoinc.  */
+      if (JUMP_P (insn) && targetm.lra_p ())
 	continue;
 
       if (dump_file)

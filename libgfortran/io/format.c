@@ -925,7 +925,7 @@ parse_format_list (st_parameter_dt *dtp, bool *seen_dd)
       tail->repeat = repeat;
 
       u = format_lex (fmt);
-      if (t == FMT_G && u == FMT_ZERO)
+      if (u == FMT_ZERO)
 	{
 	  *seen_dd = true;
 	  if (notification_std (GFC_STD_F2008) == NOTIFICATION_ERROR
@@ -944,10 +944,8 @@ parse_format_list (st_parameter_dt *dtp, bool *seen_dd)
 
 	  u = format_lex (fmt);
 	  if (u != FMT_POSINT)
-	    {
-	      fmt->error = posint_required;
-	      goto finished;
-	    }
+	    notify_std (&dtp->common, GFC_STD_F2003,
+			"Positive width required");
 	  tail->u.real.d = fmt->value;
 	  break;
 	}
@@ -956,12 +954,33 @@ parse_format_list (st_parameter_dt *dtp, bool *seen_dd)
 	  *seen_dd = true;
 	  if (u != FMT_POSINT && u != FMT_ZERO)
 	    {
+	      if (dtp->common.flags & IOPARM_DT_DEC_EXT)
+		{
+		  tail->u.real.w = DEFAULT_WIDTH;
+		  tail->u.real.d = 0;
+		  tail->u.real.e = -1;
+		  fmt->saved_token = u;
+		  break;
+		}
 	      fmt->error = nonneg_required;
 	      goto finished;
 	    }
 	}
+      else if (u == FMT_ZERO)
+	{
+	  fmt->error = posint_required;
+	  goto finished;
+	}
       else if (u != FMT_POSINT)
 	{
+	  if (dtp->common.flags & IOPARM_DT_DEC_EXT)
+	    {
+	      tail->u.real.w = DEFAULT_WIDTH;
+	      tail->u.real.d = 0;
+	      tail->u.real.e = -1;
+	      fmt->saved_token = u;
+	      break;
+	    }
 	  fmt->error = posint_required;
 	  goto finished;
 	}
@@ -1009,10 +1028,18 @@ parse_format_list (st_parameter_dt *dtp, bool *seen_dd)
 	  t = format_lex (fmt);
 	  if (t != FMT_POSINT)
 	    {
-	      fmt->error = "Positive exponent width required in format";
-	      goto finished;
+	      if (t == FMT_ZERO)
+		{
+		  notify_std (&dtp->common, GFC_STD_F2018,
+			      "Positive exponent width required");
+		}
+	      else
+		{
+		  fmt->error = "Positive exponent width required in "
+			       "format string at %L";
+		  goto finished;
+		}
 	    }
-
 	  tail->u.real.e = fmt->value;
 	}
 
@@ -1100,6 +1127,13 @@ parse_format_list (st_parameter_dt *dtp, bool *seen_dd)
 	{
 	  if (t != FMT_POSINT)
 	    {
+	      if (dtp->common.flags & IOPARM_DT_DEC_EXT)
+		{
+		  tail->u.integer.w = DEFAULT_WIDTH;
+		  tail->u.integer.m = -1;
+		  fmt->saved_token = t;
+		  break;
+		}
 	      fmt->error = posint_required;
 	      goto finished;
 	    }
@@ -1108,6 +1142,13 @@ parse_format_list (st_parameter_dt *dtp, bool *seen_dd)
 	{
 	  if (t != FMT_ZERO && t != FMT_POSINT)
 	    {
+	      if (dtp->common.flags & IOPARM_DT_DEC_EXT)
+		{
+		  tail->u.integer.w = DEFAULT_WIDTH;
+		  tail->u.integer.m = -1;
+		  fmt->saved_token = t;
+		  break;
+		}
 	      fmt->error = nonneg_required;
 	      goto finished;
 	    }

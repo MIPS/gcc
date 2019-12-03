@@ -113,6 +113,9 @@ struct copy_body_data
   /* True if trees may not be unshared.  */
   bool do_not_unshare;
 
+  /* True if trees should not be folded during the copying.  */
+  bool do_not_fold;
+
   /* True if new declarations may not be created during type remapping.  */
   bool prevent_decl_creation_for_types;
 
@@ -160,11 +163,24 @@ struct copy_body_data
      when inlining a call within an OpenMP SIMD-on-SIMT loop.  */
   vec<tree> *dst_simt_vars;
 
+  /* Basic block to which clobbers for local variables from the inline
+     function that need to live in memory should be added.  */
+  basic_block eh_landing_pad_dest;
+
   /* If clobbers for local variables from the inline function
      that need to live in memory should be added to EH landing pads
      outside of the inlined function, this should be the number
      of basic blocks in the caller before inlining.  Zero otherwise.  */
   int add_clobbers_to_eh_landing_pads;
+
+  /* Class managing changes to function parameters and return value planned
+     during IPA stage.  */
+  class ipa_param_body_adjustments *param_body_adjs;
+
+  /* Hash set of SSA names that have been killed during call graph edge
+   redirection and should not be introduced into debug statements or NULL if no
+   SSA_NAME was deleted during redirections happened.  */
+  hash_set <tree> *killed_new_ssa_names;
 };
 
 /* Weights of constructions for estimate_num_insns.  */
@@ -233,6 +249,8 @@ extern bool debug_find_tree (tree, tree);
 extern tree copy_fn (tree, tree&, tree&);
 extern const char *copy_forbidden (struct function *fun);
 extern tree copy_decl_for_dup_finish (copy_body_data *id, tree decl, tree copy);
+extern tree copy_decl_to_var (tree, copy_body_data *);
+extern tree force_value_to_type (tree type, tree value);
 
 /* This is in tree-inline.c since the routine uses
    data structures from the inliner.  */

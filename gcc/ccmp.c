@@ -58,9 +58,6 @@ ccmp_tree_comparison_p (tree t, basic_block bb)
   if (bb != gimple_bb (g))
     return false;
   tcode = gimple_assign_rhs_code (g);
-  /* For booleans, ~X is equivalent to X == 0.  */
-  if (tcode == BIT_NOT_EXPR && TREE_CODE (TREE_TYPE (t)) == BOOLEAN_TYPE)
-    return true;
   return TREE_CODE_CLASS (tcode) == tcc_comparison;
 }
 
@@ -143,17 +140,9 @@ get_compare_parts (tree t, int *up, rtx_code *rcode,
     {
       *up = TYPE_UNSIGNED (TREE_TYPE (gimple_assign_rhs1 (g)));
       code = gimple_assign_rhs_code (g);
+      *rcode = get_rtx_code (code, *up);
       *rhs1 = gimple_assign_rhs1 (g);
-      if (code == BIT_NOT_EXPR)
-	{
-	  *rcode = EQ;
-	  *rhs2 = build_zero_cst (TREE_TYPE (t));
-	}
-      else
-	{
-	  *rcode = get_rtx_code (code, *up);
-	  *rhs2 = gimple_assign_rhs2 (g);
-	}
+      *rhs2 = gimple_assign_rhs2 (g);
     }
   else
     {
@@ -198,12 +187,11 @@ expand_ccmp_next (tree op, tree_code code, rtx prev,
 static rtx
 expand_ccmp_expr_1 (gimple *g, rtx_insn **prep_seq, rtx_insn **gen_seq)
 {
-  tree exp = gimple_assign_rhs_to_tree (g);
-  tree_code code = TREE_CODE (exp);
+  tree_code code = gimple_assign_rhs_code (g);
   basic_block bb = gimple_bb (g);
 
-  tree op0 = TREE_OPERAND (exp, 0);
-  tree op1 = TREE_OPERAND (exp, 1);
+  tree op0 = gimple_assign_rhs1 (g);
+  tree op1 = gimple_assign_rhs2 (g);
   gimple *gs0 = get_gimple_for_ssa_name (op0);
   gimple *gs1 = get_gimple_for_ssa_name (op1);
   rtx tmp;
@@ -236,11 +224,8 @@ expand_ccmp_expr_1 (gimple *g, rtx_insn **prep_seq, rtx_insn **gen_seq)
 	  if (tmp != NULL)
 	    {
 	      ret = expand_ccmp_next (op1, code, tmp, &prep_seq_1, &gen_seq_1);
-	      if (ret)
-		{
-		  cost1 = seq_cost (prep_seq_1, speed_p);
-		  cost1 += seq_cost (gen_seq_1, speed_p);
-		}
+	      cost1 = seq_cost (prep_seq_1, speed_p);
+	      cost1 += seq_cost (gen_seq_1, speed_p);
 	    }
 
 	  /* FIXME: Temporary workaround for PR69619.
@@ -248,24 +233,19 @@ expand_ccmp_expr_1 (gimple *g, rtx_insn **prep_seq, rtx_insn **gen_seq)
 	     If gs0 and gs1 are complex, the cost will be high, so avoid
 	     reevaluation if above an arbitrary threshold.  */
 	  rtx_insn *prep_seq_2, *gen_seq_2;
-	  if (ret == NULL || cost1 < COSTS_N_INSNS (25))
+	  if (tmp == NULL || cost1 < COSTS_N_INSNS (25))
 	    tmp2 = targetm.gen_ccmp_first (&prep_seq_2, &gen_seq_2, rcode1,
 					   logical_op1_rhs1, logical_op1_rhs2);
-	  if (!ret && !tmp2)
+	  if (!tmp && !tmp2)
 	    return NULL_RTX;
 	  if (tmp2 != NULL)
 	    {
 	      ret2 = expand_ccmp_next (op0, code, tmp2, &prep_seq_2,
 				       &gen_seq_2);
-	      if (ret2)
-		{
-		  cost2 = seq_cost (prep_seq_2, speed_p);
-		  cost2 += seq_cost (gen_seq_2, speed_p);
-		}
-	      else if (!ret)
-		return NULL_RTX;
+	      cost2 = seq_cost (prep_seq_2, speed_p);
+	      cost2 += seq_cost (gen_seq_2, speed_p);
 	    }
-	  if (!ret || cost2 < cost1)
+	  if (cost2 < cost1)
 	    {
 	      *prep_seq = prep_seq_2;
 	      *gen_seq = gen_seq_2;

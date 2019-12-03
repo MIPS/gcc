@@ -91,7 +91,7 @@ particular release.
       <code class="code">std::type_info::name()</code> is the mangled type name.
       You will need to call <code class="code">c++filt</code> and pass the names as
       command-line parameters to demangle them, or call a
-      <a class="link" href="ext_demangling.html" title="Chapter 29. Demangling">runtime demangler function</a>.
+      <a class="link" href="ext_demangling.html" title="Chapter 28. Demangling">runtime demangler function</a>.
    </p><p><span class="emphasis"><em>[20.1.5]/5</em></span> <span class="emphasis"><em>"Implementors are encouraged to
       supply libraries that can accept allocators that encapsulate more
       general memory models and that support non-equal instances.  In such
@@ -303,18 +303,38 @@ particular release.
       <code class="classname">minstd_rand0</code>.
    </p><p>
       <span class="emphasis"><em> 26.5.6 [rand.device] </em></span>
-      The default <code class="code">token</code> argument to the
-      <code class="classname">random_device</code> constructor is
-      <code class="literal">"default"</code>. Other valid arguments are
-      <code class="literal">"/dev/random"</code> and <code class="literal">"/dev/urandom"</code>,
-      which determine the character special file to read random bytes from.
-      The <code class="literal">"default"</code> token will read bytes from a hardware
-      RNG if available (currently this only supports the IA-32 RDRAND
-      instruction) otherwise it is equivalent to
-      <code class="literal">"/dev/urandom"</code>.
+      The <code class="code">token</code> parameter of the
+      <code class="classname">random_device</code> constructor can be used to select
+      a specific source of random bytes. The valid token values are shown
+      in the list below.
+      The default constructor uses the token <code class="literal">"default"</code>.
+      </p><div class="variablelist"><dl class="variablelist"><dt><span class="term"><code class="literal">"default"</code></span></dt><dd>
+          Select the first available source from the other entries below.
+          This is the only token that is always valid.
+        </dd><dt><span class="term"><code class="literal">"rand_s"</code></span></dt><dd>
+          Use the MSVCRT <code class="function">rand_s</code> function.
+          This token is only valid for mingw-w64 targets.
+        </dd><dt><span class="term"><code class="literal">"rdseed"</code>, </span><span class="term"><code class="literal">"rdrand"</code> or <code class="literal">"rdrnd"</code></span></dt><dd>
+          Use the IA-32 <code class="literal">RDSEED</code> or <code class="literal">RDRAND</code>
+          instruction to read from an on-chip hardware random number generator.
+          These tokens are only valid for x86 and x86_64 targets when both
+          the assembler and CPU support the corresponding instruction.
+        </dd><dt><span class="term"><code class="literal">"/dev/urandom"</code>, </span><span class="term"><code class="literal">"/dev/random"</code></span></dt><dd>
+          Use the named character special file to read random bytes from.
+          These tokens are only valid when the device files are present
+          and readable by the current user.
+        </dd><dt><span class="term"><code class="literal">"mt19937"</code>, </span><span class="term">seed value</span></dt><dd>
+          When no source of nondeterministic random numbers is available a
+          <code class="classname">mersenne_twister_engine</code> will be used.
+          An integer seed value can be used as the token and will be converted
+          to an <code class="code">unsigned long</code> using <code class="function">strtoul</code>.
+          These tokens are only valid when no other source of random bytes
+          is available.
+        </dd></dl></div><p>
       An exception of type <code class="classname">runtime_error</code> will be
-      thrown if a <code class="classname">random_device</code> object cannot open
-      or read from the source of random bytes.
+      thrown if a <code class="classname">random_device</code> object is constructed
+      with an invalid token, or if it cannot open or read from the source
+      of random bytes.
    </p><p>
       <span class="emphasis"><em>26.5.8.1 [rand.dist.general]</em></span>
       The algorithms used by the distributions should be documented here.
@@ -354,26 +374,25 @@ particular release.
       is subject to change at any time. Any use of
       <code class="classname">native_handle</code> is inherently non-portable and
       not guaranteed to work between major releases of GCC.
-      </p><div class="itemizedlist"><ul class="itemizedlist" style="list-style-type: disc; "><li class="listitem"><p><code class="classname">thread</code>: The native handle type is
-            a typedef for <code class="code">__gthread_t</code> i.e. <code class="code">pthread_t</code>
-            when GCC is configured with the <code class="literal">posix</code> thread
-            model. The value of the native handle is undefined for a thread
+      </p><div class="variablelist"><dl class="variablelist"><dt><span class="term"><code class="classname">thread</code></span></dt><dd>
+            The native handle type is a typedef for <code class="code">__gthread_t</code>
+            i.e. <code class="code">pthread_t</code> when GCC is configured with the
+            <code class="literal">posix</code> thread model.
+            The value of the native handle is undefined for a thread
             which is not joinable.
-         </p></li><li class="listitem"><p><code class="classname">mutex</code> and
-            <code class="classname">timed_mutex</code>:
+         </dd><dt><span class="term"><code class="classname">mutex</code>, </span><span class="term"><code class="classname">timed_mutex</code></span></dt><dd>
             The native handle type is <code class="code">__gthread_mutex_t*</code> i.e.
             <code class="code">pthread_mutex_t*</code> for the <code class="literal">posix</code>
             thread model.
-         </p></li><li class="listitem"><p><code class="classname">recursive_mutex</code> and
-         <code class="classname">recursive_timed_mutex</code>:
+         </dd><dt><span class="term"><code class="classname">recursive_mutex</code>, </span><span class="term"><code class="classname">recursive_timed_mutex</code></span></dt><dd>
             The native handle type is <code class="code">__gthread_recursive_mutex_t*</code>
             i.e. <code class="code">pthread_mutex_t*</code> for the <code class="literal">posix</code>
             thread model.
-         </p></li><li class="listitem"><p><code class="classname">condition_variable</code>: The native
-            handle type is <code class="code">__gthread_cond_t*</code> i.e.
+         </dd><dt><span class="term"><code class="classname">condition_variable</code></span></dt><dd>
+            The native handle type is <code class="code">__gthread_cond_t*</code> i.e.
             <code class="code">pthread_cond_t*</code> for the <code class="literal">posix</code>
             thread model.
-         </p></li></ul></div><p>
+         </dd></dl></div><p>
    </p><p>
       <span class="emphasis"><em>30.6.1 [futures.overview]/2</em></span>
       <code class="code">launch</code> is a scoped enumeration type with
@@ -490,7 +509,7 @@ not in any particular release.
 	<a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3916.pdf" target="_top">
 	  N3916
 	</a>
-      </td><td align="left">Polymorphic memory resources</td><td align="left">Partial</td><td align="left">Library Fundamentals TS</td></tr><tr><td align="left">
+      </td><td align="left">Polymorphic memory resources</td><td align="left">Partial (missing pool resource and buffer resource classes)</td><td align="left">Library Fundamentals TS</td></tr><tr><td align="left">
 	<a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3920.html" target="_top">
 	  N3920
 	</a>
@@ -526,8 +545,8 @@ presence of the required flag.
 This section describes the C++17 and library TS support in mainline GCC SVN,
 not in any particular release.
 </p><p>
-The following table lists new library features that have been accepted into
-the C++17 working draft. The "Proposal" column provides a link to the
+The following table lists new library features that are included in
+the C++17 standard. The "Proposal" column provides a link to the
 ISO C++ committee proposal that describes the feature, while the "Status"
 column indicates the first version of GCC that contains an implementation of
 this feature (if it has been implemented).
@@ -669,7 +688,7 @@ Feature-testing recommendations for C++</a>.
 	<a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0040r3.html" target="_top">
 	P0040R3
 	</a>
-      </td><td align="center"> 7.1 </td><td align="left"><code class="code"> </code></td></tr><tr><td align="left"> <code class="code">shared_ptr::weak_type</code></td><td align="left">
+      </td><td align="center"> 7.1 </td><td align="left"><code class="code">__cpp_lib_raw_memory_algorithms &gt;= 201606L</code></td></tr><tr><td align="left"> <code class="code">shared_ptr::weak_type</code></td><td align="left">
 	<a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2015/p0163r0.html" target="_top">
 	P0163R0
 	</a>
@@ -759,13 +778,14 @@ Feature-testing recommendations for C++</a>.
 	<a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2015/p0031r0.html" target="_top">
 	P0031R0
 	</a>
-      </td><td align="center"> 7.1 </td><td align="left"><code class="code"> __cpp_lib_array_constexpr &gt;= 201603 </code></td></tr><tr bgcolor="#C8B0B0"><td align="left"> The Parallelism TS Should be Standardized	 </td><td align="left">
+      </td><td align="center"> 7.1 </td><td align="left"><code class="code"> __cpp_lib_array_constexpr &gt;= 201603 </code></td></tr><tr bgcolor="#B0B0B0"><td align="left"> The Parallelism TS Should be Standardized	 </td><td align="left">
 	<a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0024r2.html" target="_top">
 	P0024R2
 	</a>
-      </td><td align="center"> No </td><td align="left"><code class="code"> __has_include(&lt;execution&gt;) </code>,
+      </td><td align="center"> 9.1 </td><td align="left"><code class="code"> __has_include(&lt;execution&gt;) </code>,
 	     <code class="code"> __cpp_lib_execution &gt;= 201603 </code>,
 	     <code class="code"> __cpp_lib_parallel_algorithm &gt;= 201603 </code>
+             (requires linking with <code class="code">-ltbb</code>, see Note 3)
       </td></tr><tr><td align="left"> An algorithm to "clamp" a value between a pair of boundary values </td><td align="left">
 	<a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2015/p0025r0.html" target="_top">
 	P0025R0
@@ -783,7 +803,7 @@ Feature-testing recommendations for C++</a>.
 	P0226R1
 	</a>
       </td><td align="center"> 7.1 </td><td align="left"><code class="code"> __cpp_lib_math_special_functions &gt;= 201603 </code>
-	     (see Note 3)
+	     (see Note 4)
       </td></tr><tr><td align="left">Adopt the File System TS for C++17	 </td><td align="left">
 	<a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0218r1.html" target="_top">
 	P0218R1
@@ -846,7 +866,11 @@ Note 2: This feature is supported in older releases but the
 <code class="code">__cpp_lib</code> macro is not defined to the right value
 (or not defined at all) until the version shown in parentheses.
 </p><p>
-Note 3: The mathematical special functions are enabled in C++17 mode from
+Note 3: The Parallel Algorithms have an external dependency on Intel TBB 2018
+or later. If the <code class="filename">&lt;execution&gt;</code>
+header is included then <code class="code">-ltbb</code> must be used to link to TBB.
+</p><p>
+Note 4: The mathematical special functions are enabled in C++17 mode from
 GCC 7.1 onwards. For GCC 6.x or for C++11/C++14 define
 <code class="code">__STDCPP_WANT_MATH_SPEC_FUNCS__</code> to a non-zero value
 and test for <code class="code">__STDCPP_MATH_SPEC_FUNCS__ &gt;= 201003L</code>.
@@ -920,7 +944,11 @@ and test for <code class="code">__STDCPP_MATH_SPEC_FUNCS__ &gt;= 201003L</code>.
       <code class="classname">variant</code> supports over-aligned types.
    </p><p>
       <span class="emphasis"><em>23.7.10 [variant.bad.access]</em></span>
-      <code class="code">what()</code> returns <code class="literal">"Unexpected index"</code>.
+      <code class="code">what()</code> returns one of the strings
+      <code class="literal">"std::get: variant is valueless"</code>,
+      <code class="literal">"std::get: wrong index for variant"</code>,
+      <code class="literal">"std::visit: variant is valueless"</code>,
+      or <code class="literal">"std::visit&lt;R&gt;: variant is valueless"</code>.
    </p><p>
       <span class="emphasis"><em>23.12.5.2 [memory.resource.pool.options]</em></span>
       Let S equal <code class="code">numeric_limits&lt;size_t&gt;::digits</code>.
@@ -973,7 +1001,7 @@ and test for <code class="code">__STDCPP_MATH_SPEC_FUNCS__ &gt;= 201003L</code>.
    </p><p>
       <span class="emphasis"><em>30.10.2.1 [fs.conform.9945]</em></span>
       The behavior of the filesystem library implementation will depend on
-      the target operating system. Some features will not be not supported
+      the target operating system. Some features will not be supported
       on some targets.
    </p><p>
       <span class="emphasis"><em>30.10.5 [fs.filesystem.syn]</em></span>
@@ -1025,19 +1053,19 @@ Feature-testing recommendations for C++</a>.
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0674r1.html" target="_top">
 	P0674R1
 	</a>
-      </td><td align="center"> </td><td align="left"> </td></tr><tr bgcolor="#C8B0B0"><td align="left">  Floating Point Atomic </td><td align="left">
+      </td><td align="center"> </td><td align="left"> </td></tr><tr><td align="left">  Floating Point Atomic </td><td align="left">
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0020r6.html" target="_top">
 	P0020R6
 	</a>
-      </td><td align="center"> </td><td align="left"> </td></tr><tr bgcolor="#C8B0B0"><td align="left">  C++ Synchronized Buffered Ostream </td><td align="left">
+      </td><td align="center"> 10.1 </td><td align="left"> </td></tr><tr bgcolor="#C8B0B0"><td align="left">  C++ Synchronized Buffered Ostream </td><td align="left">
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0053r7.pdf" target="_top">
 	P0053R7
 	</a>
-      </td><td align="center"> </td><td align="left"> </td></tr><tr bgcolor="#C8B0B0"><td align="left">  Add constexpr modifiers to functions in <code class="code">&lt;algorithm&gt;</code> and <code class="code">&lt;utility&gt;</code> Headers </td><td align="left">
+      </td><td align="center"> </td><td align="left"> </td></tr><tr><td align="left">  Add constexpr modifiers to functions in <code class="code">&lt;algorithm&gt;</code> and <code class="code">&lt;utility&gt;</code> Headers </td><td align="left">
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0202r3.html" target="_top">
 	P0202R3
 	</a>
-      </td><td align="center"> </td><td align="left"> </td></tr><tr><td align="left">  Constexpr for <code class="code">std::complex</code> </td><td align="left">
+      </td><td align="center"> 10.1 </td><td align="left"> <code class="code">__cpp_lib_constexpr_algorithms &gt;= 201703L</code> </td></tr><tr><td align="left">  Constexpr for <code class="code">std::complex</code> </td><td align="left">
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0415r1.html" target="_top">
 	P0415R1
 	</a>
@@ -1077,15 +1105,15 @@ Feature-testing recommendations for C++</a>.
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0768r1.pdf" target="_top">
 	P0768R1
 	</a>
-      </td><td align="center"> </td><td align="left"> </td></tr><tr bgcolor="#C8B0B0"><td align="left">  Treating Unnecessary <code class="code">decay</code> </td><td align="left">
+      </td><td align="center"> </td><td align="left"> </td></tr><tr><td align="left">  Treating Unnecessary <code class="code">decay</code> </td><td align="left">
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0777r1.pdf" target="_top">
 	P0777R1
 	</a>
-      </td><td align="center"> </td><td align="left"> </td></tr><tr bgcolor="#C8B0B0"><td align="left">  <code class="code">&lt;span&gt;</code> </td><td align="left">
+      </td><td align="center"> 9.1 </td><td align="left"> </td></tr><tr><td align="left">  <code class="code">&lt;span&gt;</code> </td><td align="left">
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0122r7.pdf" target="_top">
 	P0122R7
 	</a>
-      </td><td align="center"> </td><td align="left"> </td></tr><tr bgcolor="#C8B0B0"><td align="left">  Extending chrono to Calendars and Time Zones </td><td align="left">
+      </td><td align="center"> 10.1 </td><td align="left"> <code class="code">__cpp_lib_span &gt;= 201803L</code> </td></tr><tr bgcolor="#C8B0B0"><td align="left">  Extending chrono to Calendars and Time Zones </td><td align="left">
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0355r7.html" target="_top">
 	P0355R7
 	</a>
@@ -1105,11 +1133,12 @@ Feature-testing recommendations for C++</a>.
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0809r0.pdf" target="_top">
 	P0809R0
 	</a>
-      </td><td align="center"> </td><td align="left"> </td></tr><tr bgcolor="#C8B0B0"><td align="left">  Constexpr iterator requirements </td><td align="left">
+      </td><td align="center"> </td><td align="left"> </td></tr><tr><td align="left">  Constexpr iterator requirements </td><td align="left">
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0858r0.html" target="_top">
 	P0858R0
 	</a>
-      </td><td align="center"> </td><td align="left"> </td></tr><tr bgcolor="#C8B0B0"><td align="left">  Symmetry for spaceship </td><td align="left">
+      </td><td align="center"> 9.1 </td><td align="left"> <code class="code">__cpp_lib_string_view &gt;= 201803L</code>
+      and <code class="code">__cpp_lib_array_constexpr &gt;= 201803L</code> </td></tr><tr bgcolor="#C8B0B0"><td align="left">  Symmetry for spaceship </td><td align="left">
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0905r1.html" target="_top">
 	P0905R1
 	</a>
@@ -1117,11 +1146,11 @@ Feature-testing recommendations for C++</a>.
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0966r1.html" target="_top">
 	P0966R1
 	</a>
-      </td><td align="center"> </td><td align="left"> </td></tr><tr bgcolor="#C8B0B0"><td align="left">  Atomic Ref </td><td align="left">
+      </td><td align="center"> </td><td align="left"> </td></tr><tr><td align="left">  Atomic Ref </td><td align="left">
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0019r8.html" target="_top">
 	P0019R8
 	</a>
-      </td><td align="center"> </td><td align="left"> </td></tr><tr><td align="left">  Checking for Existence of an Element in Associative Containers </td><td align="left">
+      </td><td align="center"> 10.1 </td><td align="left"> <code class="code">__cpp_lib_atomic_ref &gt;= 201806L</code> </td></tr><tr><td align="left">  Checking for Existence of an Element in Associative Containers </td><td align="left">
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0458r2.html" target="_top">
 	P0458R2
 	</a>
@@ -1173,11 +1202,11 @@ Feature-testing recommendations for C++</a>.
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0788r3.pdf" target="_top">
 	P0788R3
 	</a>
-      </td><td align="center"> </td><td align="left"> </td></tr><tr bgcolor="#C8B0B0"><td align="left">  Constexpr for <code class="code">swap</code> and swap related functions </td><td align="left">
+      </td><td align="center"> </td><td align="left"> </td></tr><tr><td align="left">  Constexpr for <code class="code">swap</code> and swap related functions </td><td align="left">
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0879r0.html" target="_top">
 	P0879R0
 	</a>
-      </td><td align="center"> </td><td align="left"> </td></tr><tr><td align="left">  The <code class="code">identity</code> metafunction </td><td align="left">
+      </td><td align="center"> 10.1 </td><td align="left"> <code class="code">__cpp_lib_constexpr_algorithms &gt;= 201806L</code> </td></tr><tr><td align="left">  The <code class="code">identity</code> metafunction </td><td align="left">
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0887r1.pdf" target="_top">
 	P0887R1
 	</a>
@@ -1185,11 +1214,11 @@ Feature-testing recommendations for C++</a>.
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0892r2.html" target="_top">
 	P0892R2
 	</a>
-      </td><td align="center"> Note 1 </td><td align="left"> </td></tr><tr bgcolor="#C8B0B0"><td align="left">  Standard Library Concepts </td><td align="left">
+      </td><td align="center"> Note 1 </td><td align="left"> </td></tr><tr><td align="left">  Standard Library Concepts </td><td align="left">
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0898r3.pdf" target="_top">
 	P0898R3
 	</a>
-      </td><td align="center"> </td><td align="left"> </td></tr><tr><td align="left">  Eradicating unnecessarily explicit default constructors from the standard library </td><td align="left">
+      </td><td align="center"> 10.1 </td><td align="left"> <code class="code">__cpp_lib_concepts &gt;= 201806L</code> </td></tr><tr><td align="left">  Eradicating unnecessarily explicit default constructors from the standard library </td><td align="left">
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0935r0.html" target="_top">
 	P0935R0
 	</a>
@@ -1197,11 +1226,11 @@ Feature-testing recommendations for C++</a>.
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0941r2.html" target="_top">
 	P0941R2
 	</a>
-      </td><td align="center"> 5.1 </td><td align="left"> </td></tr><tr bgcolor="#C8B0B0"><td align="left">  <code class="code">constexpr</code> comparison operators for <code class="code">std::array</code> </td><td align="left">
+      </td><td align="center"> 5.1 </td><td align="left"> </td></tr><tr><td align="left">  <code class="code">constexpr</code> comparison operators for <code class="code">std::array</code> </td><td align="left">
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1023r0.pdf" target="_top">
 	P1023R0
 	</a>
-      </td><td align="center"> </td><td align="left"> </td></tr><tr bgcolor="#C8B0B0"><td align="left">  Update The Reference To The Unicode Standard </td><td align="left">
+      </td><td align="center"> 10.1 </td><td align="left"> </td></tr><tr bgcolor="#C8B0B0"><td align="left">  Update The Reference To The Unicode Standard </td><td align="left">
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1025r1.html" target="_top">
 	P1025R1
 	</a>
@@ -1233,7 +1262,9 @@ Feature-testing recommendations for C++</a>.
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0591r4.pdf" target="_top">
 	P0591R4
 	</a>
-      </td><td align="center"> 9.1 </td><td align="left"> </td></tr><tr><td align="left">  P0595R2 <code class="code">std::is_constant_evaluated()</code> </td><td align="left">
+      </td><td align="center"> 9.1 </td><td align="left">
+        <code class="code">std::scoped_allocator_adaptor</code> changes missing in 9.1.0
+      </td></tr><tr><td align="left">  P0595R2 <code class="code">std::is_constant_evaluated()</code> </td><td align="left">
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0595r2.html" target="_top">
 	P0595R2
 	</a>
@@ -1241,15 +1272,15 @@ Feature-testing recommendations for C++</a>.
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0602r4.html" target="_top">
 	P0602R4
 	</a>
-      </td><td align="center"> 8.3 </td><td align="left"> </td></tr><tr bgcolor="#C8B0B0"><td align="left">  A sane <code class="code">variant</code> converting constructor </td><td align="left">
+      </td><td align="center"> 8.3 </td><td align="left"> </td></tr><tr><td align="left">  A sane <code class="code">variant</code> converting constructor </td><td align="left">
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0608r3.html" target="_top">
 	P0608R3
 	</a>
-      </td><td align="center"> </td><td align="left"> </td></tr><tr bgcolor="#C8B0B0"><td align="left">  <code class="code">visit&lt;R&gt;</code>: Explicit Return Type for <code class="code">visit</code> </td><td align="left">
+      </td><td align="center"> 10.1 </td><td align="left"> </td></tr><tr><td align="left">  <code class="code">visit&lt;R&gt;</code>: Explicit Return Type for <code class="code">visit</code> </td><td align="left">
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0655r1.pdf" target="_top">
 	P0655R1
 	</a>
-      </td><td align="center"> </td><td align="left"> </td></tr><tr><td align="left">  <code class="code">std::function</code> move constructor should be <code class="code">noexcept</code> </td><td align="left">
+      </td><td align="center"> 9.1 </td><td align="left"> </td></tr><tr><td align="left">  <code class="code">std::function</code> move constructor should be <code class="code">noexcept</code> </td><td align="left">
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0771r1.pdf" target="_top">
 	P0771R1
 	</a>
@@ -1285,11 +1316,11 @@ Feature-testing recommendations for C++</a>.
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1032r1.html" target="_top">
 	P1032R1
 	</a>
-      </td><td align="center"> </td><td align="left"> </td></tr><tr bgcolor="#C8B0B0"><td align="left">  Should Span be Regular? </td><td align="left">
+      </td><td align="center"> </td><td align="left"> </td></tr><tr><td align="left">  Should Span be Regular? </td><td align="left">
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1085r2.md" target="_top">
 	P1085R2
 	</a>
-      </td><td align="center"> </td><td align="left"> </td></tr><tr><td align="left">  Editorial Guidance for merging P0019r8 and P0528r3 </td><td align="left">
+      </td><td align="center"> 10.1 </td><td align="left"> <code class="code">__cpp_lib_span &gt;= 201902L</code> </td></tr><tr><td align="left">  Editorial Guidance for merging P0019r8 and P0528r3 </td><td align="left">
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1123r0.html" target="_top">
 	P1123R0
 	</a>
@@ -1297,11 +1328,11 @@ Feature-testing recommendations for C++</a>.
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1148r0.pdf" target="_top">
 	P1148R0
 	</a>
-      </td><td align="center"> </td><td align="left"> </td></tr><tr bgcolor="#C8B0B0"><td align="left">  Make stateful allocator propagation more consistent for <code class="code">operator+(basic_string)</code> </td><td align="left">
+      </td><td align="center"> </td><td align="left"> </td></tr><tr><td align="left">  Make stateful allocator propagation more consistent for <code class="code">operator+(basic_string)</code> </td><td align="left">
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1165r1.html" target="_top">
 	P1165R1
 	</a>
-      </td><td align="center"> </td><td align="left"> </td></tr><tr><td align="left">  Adopt Consistent Container Erasure from Library Fundamentals 2 for C++20 </td><td align="left">
+      </td><td align="center"> 10.1 </td><td align="left"> </td></tr><tr><td align="left">  Adopt Consistent Container Erasure from Library Fundamentals 2 for C++20 </td><td align="left">
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1209r0.html" target="_top">
 	P1209R0
 	</a>
@@ -1317,15 +1348,164 @@ Feature-testing recommendations for C++</a>.
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1248r1.html" target="_top">
 	P1248R1
 	</a>
-      </td><td align="center"> </td><td align="left"> </td></tr><tr bgcolor="#C8B0B0"><td align="left">  Improving Completeness Requirements for Type Traits </td><td align="left">
+      </td><td align="center"> </td><td align="left"> </td></tr><tr bgcolor="#B0B0B0"><td align="left">  Improving Completeness Requirements for Type Traits </td><td align="left">
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1285r0.pdf" target="_top">
 	P1285R0
 	</a>
-      </td><td align="center"> </td><td align="left"> </td></tr><tr bgcolor="#B0B0B0"><td align="left">  Missing feature test macros </td><td align="left">
+      </td><td align="center"> Partial </td><td align="left"> </td></tr><tr><td align="left">  Well-behaved interpolation for numbers and pointers </td><td align="left">
+        <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p0811r3.html" target="_top">
+	P0811R3
+	</a>
+      </td><td align="center"> 9.1 </td><td align="left"> <code class="code">__cpp_lib_interpolate &gt;= 201902L</code> </td></tr><tr><td align="left">  Missing feature test macros </td><td align="left">
         <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1353r0.html" target="_top">
 	P1353R0
 	</a>
-      </td><td align="center"> Partial </td><td align="left"> </td></tr></tbody></table></div></div><br class="table-break" /><p>
+      </td><td align="center"> 9.1 </td><td align="left"> </td></tr><tr><td align="left">
+        <code class="classname">polymorphic_allocator&lt;&gt;</code>
+        as a vocabulary type
+      </td><td align="left">
+        <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p0339r6.pdf" target="_top">
+        P0339R6
+	</a>
+      </td><td align="center"> 9.1 </td><td align="left"> </td></tr><tr><td align="left"> Making std::underlying_type SFINAE-friendly </td><td align="left">
+        <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p0340r3.html" target="_top">
+        P0340R3
+	</a>
+      </td><td align="center"> 9.1 </td><td align="left"> </td></tr><tr bgcolor="#C8B0B0"><td align="left">
+        I Stream, You Stream, We All Stream for
+        <code class="classname">istream_iterator</code>
+      </td><td align="left">
+        <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p0738r2.html" target="_top">
+        P0738R2
+	</a>
+      </td><td align="center"> </td><td align="left"> </td></tr><tr><td align="left">
+        Mandating the Standard Library:
+        Clause 16 - Language support library
+      </td><td align="left">
+        <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p1458r1.pdf" target="_top">
+        P1458R1
+	</a>
+      </td><td align="center"> </td><td align="left"> Note 1 </td></tr><tr><td align="left">
+        Mandating the Standard Library:
+        Clause 18 - Diagnostics library
+      </td><td align="left">
+        <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p1458r1.pdf" target="_top">
+        P1459R1
+	</a>
+      </td><td align="center"> </td><td align="left"> Note 1 </td></tr><tr><td align="left">
+        Mandating the Standard Library:
+        Clause 20 - Strings library
+      </td><td align="left">
+        <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p1462r1.html" target="_top">
+        P1462R1
+	</a>
+      </td><td align="center"> </td><td align="left"> Note 1 </td></tr><tr><td align="left">
+        Mandating the Standard Library:
+        Clause 21 - Containers library
+      </td><td align="left">
+        <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p1463r1.pdf" target="_top">
+        P1463R1
+	</a>
+      </td><td align="center"> 10 </td><td align="left"> </td></tr><tr bgcolor="#C8B0B0"><td align="left">
+        Mandating the Standard Library:
+        Clause 22 - Iterators library
+      </td><td align="left">
+        <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p1464r1.pdf" target="_top">
+        P1464R1
+	</a>
+      </td><td align="center"> </td><td align="left"> </td></tr><tr><td align="left"> Make <code class="code">create_directory()</code> Intuitive </td><td align="left">
+        <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p1164r1.pdf" target="_top">
+        P1164R1
+	</a>
+      </td><td align="center"> 8.3 </td><td align="left"> Treated as a DR for C++17 </td></tr><tr bgcolor="#C8B0B0"><td align="left">
+        Target Vectorization Policies from Parallelism V2 TS to C++20
+      </td><td align="left">
+        <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p1001r2.html" target="_top">
+        P1001R2
+	</a>
+      </td><td align="center"> </td><td align="left"> </td></tr><tr><td align="left"> Signed ssize() functions, unsigned size() functions </td><td align="left">
+        <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p1227r2.html" target="_top">
+        P1227R2
+	</a>
+      </td><td align="center"> 10.1 </td><td align="left"> </td></tr><tr bgcolor="#C8B0B0"><td align="left"> Ranges Design Cleanup </td><td align="left">
+        <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p1252r2.pdf" target="_top">
+        P1252R2
+	</a>
+      </td><td align="center"> </td><td align="left"> </td></tr><tr><td align="left">
+        Usability Enhancements for <code class="classname">std::span</code>
+      </td><td align="left">
+        <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p1024r3.pdf" target="_top">
+        P1024R3
+	</a>
+      </td><td align="center"> 10.1 </td><td align="left"> <code class="code">__cpp_lib_span &gt;= 201902L</code> </td></tr><tr><td align="left"> Traits for [Un]bounded Arrays </td><td align="left">
+        <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p1357r1.pdf" target="_top">
+        P1357R1
+	</a>
+      </td><td align="center"> 9.1 </td><td align="left"> <code class="code">__cpp_lib_bounded_array_traits &gt;= 201902L</code> </td></tr><tr><td align="left"> std::to_array </td><td align="left">
+        <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p0325r4.html" target="_top">
+	P0325R4
+	</a>
+      </td><td align="center"> 10.1 </td><td align="left"> <code class="code">__cpp_lib_to_array &gt;= 201907L</code> </td></tr><tr><td align="left"> Bit operations </td><td align="left">
+        <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p0553r4.html" target="_top">
+	P0553R4
+	</a>
+      </td><td align="center"> 10.1 </td><td align="left"> <code class="code">__cpp_lib_bitops &gt;= 201907L</code> </td></tr><tr><td align="left"> Mathematical constants </td><td align="left">
+        <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p0631r8.pdf" target="_top">
+	P0631R8
+	</a>
+      </td><td align="center"> 10.1 </td><td align="left"> <code class="code">__cpp_lib_math_constants &gt;= 201907L</code> </td></tr><tr bgcolor="#C8B0B0"><td align="left"> Layout-compatibility and pointer-interconvertibility traits </td><td align="left">
+        <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p0466r5.pdf" target="_top">
+	P0466R5
+	</a>
+      </td><td align="center"> </td><td align="left">
+        <code class="code">__cpp_lib_is_layout_compatible &gt;= 201907L</code>,
+        <code class="code">__cpp_lib_is_layout_interconvertible &gt;= 201907L</code>,
+      </td></tr><tr><td align="left"> std::stop_token and std::jthread </td><td align="left">
+        <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p0660r10.pdf" target="_top">
+	P0660R10
+	</a>
+      </td><td align="center"> 10.1 </td><td align="left"> <code class="code">__cpp_lib_jthread &gt;= 201907L</code> </td></tr><tr bgcolor="#C8B0B0"><td align="left"> Text formatting </td><td align="left">
+        <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p0645r10.html" target="_top">
+	P0645R10
+	</a>
+      </td><td align="center"> </td><td align="left">
+        <code class="code">__cpp_lib_format &gt;= 201907L</code>,
+      </td></tr><tr><td align="left"> constexpr std::invoke and related utilities </td><td align="left">
+        <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p1065r2.html" target="_top">
+	P1065R2
+	</a>
+      </td><td align="center"> 10.1 </td><td align="left"> <code class="code">__cpp_lib_constexpr_invoke &gt;= 201907L</code> </td></tr><tr><td align="left"> constexpr std::allocator and related utilities </td><td align="left">
+        <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p0784r7.html" target="_top">
+	P0784R7
+	</a>
+      </td><td align="center"> 10.1 </td><td align="left"> <code class="code">__cpp_constexpr_dynamic_alloc &gt;= 201907L</code> </td></tr><tr bgcolor="#C8B0B0"><td align="left"> Atomic waiting and notifying, std::semaphore, std::latch and std::barrier </td><td align="left">
+        <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p1135r6.html" target="_top">
+	P1135R6
+	</a>
+      </td><td align="center"> </td><td align="left">
+        <code class="code">__cpp_lib_atomic_lock_free_type_aliases &gt;= 201907L</code> in &lt;atomic&gt;,
+        <code class="code">__cpp_lib_atomic_flag_test &gt;= 201907L</code> in &lt;atomic&gt;,
+        <code class="code">__cpp_lib_atomic_wait &gt;= 201907L</code> in &lt;atomic&gt;,
+        <code class="code">__cpp_lib_semaphore &gt;= 201907L</code> in &lt;semaphore&gt;,
+        <code class="code">__cpp_lib_latch &gt;= 201907L</code> in &lt;latch&gt;,
+        <code class="code">__cpp_lib_barrier &gt;= 201907L</code> in &lt;barrier&gt;
+      </td></tr><tr bgcolor="#C8B0B0"><td align="left"> std::source_location </td><td align="left">
+        <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p1208r6.pdf" target="_top">
+	P1208R6
+	</a>
+      </td><td align="center"> </td><td align="left">
+        <code class="code">__cpp_lib_source_location &gt;= 201907L</code>,
+      </td></tr><tr bgcolor="#C8B0B0"><td align="left"> Adding &lt;=&gt; to the standard library </td><td align="left">
+        <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p1614r2.html" target="_top">
+	P1614R2
+	</a>
+      </td><td align="center"> </td><td align="left">
+        <code class="code">__cpp_lib_spaceship &gt;= 201907L</code>,
+      </td></tr><tr bgcolor="#C8B0B0"><td align="left"> Efficient access to std::basic_stringbuf's Buffer </td><td align="left">
+        <a class="link" href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p0408r7.pdf" target="_top">
+	P0408R7
+	</a>
+      </td><td align="center"> </td><td align="left"> </td></tr></tbody></table></div></div><br class="table-break" /><p>
 Note 1: The changes in the proposal either do not affect the code in libstdc++,
 or the changes are not required for conformance.
 </p><div class="section"><div class="titlepage"><div><div><h4 class="title"><a id="iso.2020.specific"></a>Implementation Specific Behavior</h4></div></div></div><p>For behaviour which is also specified by previous standards,

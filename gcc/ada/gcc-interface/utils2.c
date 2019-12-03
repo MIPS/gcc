@@ -1996,7 +1996,7 @@ build_simple_component_ref (tree record, tree field, bool no_fold)
   tree type = TYPE_MAIN_VARIANT (TREE_TYPE (record));
   tree ref;
 
-  gcc_assert (RECORD_OR_UNION_TYPE_P (type) && TYPE_LAID_OUT_P (type));
+  gcc_assert (RECORD_OR_UNION_TYPE_P (type) && COMPLETE_TYPE_P (type));
 
   /* Try to fold a conversion from another record or union type unless the type
      contains a placeholder as it might be needed for a later substitution.  */

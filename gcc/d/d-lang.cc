@@ -276,6 +276,9 @@ d_init_options (unsigned int, cl_decoded_option *decoded_options)
   global.params.useOut = true;
   global.params.useArrayBounds = BOUNDSCHECKdefault;
   global.params.useSwitchError = true;
+  global.params.useModuleInfo = true;
+  global.params.useTypeInfo = true;
+  global.params.useExceptions = true;
   global.params.useInline = false;
   global.params.obj = true;
   global.params.hdrStripPlainFunctions = true;
@@ -446,7 +449,7 @@ d_handle_option (size_t scode, const char *arg, HOST_WIDE_INT value,
 	  break;
 	}
 
-      error ("bad argument for -fdebug %qs", arg);
+      error ("bad argument for %<-fdebug%>: %qs", arg);
       break;
 
     case OPT_fdoc:
@@ -467,8 +470,16 @@ d_handle_option (size_t scode, const char *arg, HOST_WIDE_INT value,
       global.params.ddocfiles->push (arg);
       break;
 
+    case OPT_fdruntime:
+      global.params.betterC = !value;
+      break;
+
     case OPT_fdump_d_original:
       global.params.vcg_ast = value;
+      break;
+
+    case OPT_fexceptions:
+      global.params.useExceptions = value;
       break;
 
     case OPT_fignore_unknown_pragmas:
@@ -486,11 +497,11 @@ d_handle_option (size_t scode, const char *arg, HOST_WIDE_INT value,
     case OPT_fmodule_file_:
       global.params.modFileAliasStrings->push (arg);
       if (!strchr (arg, '='))
-	error ("bad argument for -fmodule-file %qs", arg);
+	error ("bad argument for %<-fmodule-file%>: %qs", arg);
       break;
 
     case OPT_fmoduleinfo:
-      global.params.betterC = !value;
+      global.params.useModuleInfo = value;
       break;
 
     case OPT_fonly_:
@@ -507,6 +518,10 @@ d_handle_option (size_t scode, const char *arg, HOST_WIDE_INT value,
 
     case OPT_frelease:
       global.params.release = value;
+      break;
+
+    case OPT_frtti:
+      global.params.useTypeInfo = value;
       break;
 
     case OPT_fswitch_errors:
@@ -573,7 +588,7 @@ d_handle_option (size_t scode, const char *arg, HOST_WIDE_INT value,
 	  break;
 	}
 
-      error ("bad argument for -fversion %qs", arg);
+      error ("bad argument for %<-fversion%>: %qs", arg);
       break;
 
     case OPT_H:
@@ -728,6 +743,20 @@ d_post_options (const char ** fn)
 	global.params.useSwitchError = false;
     }
 
+  if (global.params.betterC)
+    {
+      if (!global_options_set.x_flag_moduleinfo)
+	global.params.useModuleInfo = false;
+
+      if (!global_options_set.x_flag_rtti)
+	global.params.useTypeInfo = false;
+
+      if (!global_options_set.x_flag_exceptions)
+	global.params.useExceptions = false;
+
+      global.params.checkAction = CHECKACTION_halt;
+    }
+
   /* Turn off partitioning unless it was explicitly requested, as it doesn't
      work with D exception chaining, where EH handler uses LSDA to determine
      whether two thrown exception are in the same context.  */
@@ -743,8 +772,8 @@ d_post_options (const char ** fn)
   if (global_options_set.x_flag_max_errors)
     global.errorLimit = flag_max_errors;
 
-  if (flag_excess_precision_cmdline == EXCESS_PRECISION_DEFAULT)
-    flag_excess_precision_cmdline = EXCESS_PRECISION_STANDARD;
+  if (flag_excess_precision == EXCESS_PRECISION_DEFAULT)
+    flag_excess_precision = EXCESS_PRECISION_STANDARD;
 
   if (global.params.useUnitTests)
     global.params.useAssert = true;
@@ -982,7 +1011,7 @@ d_parse_file (void)
   /* In this mode, the first file name is supposed to be a duplicate
      of one of the input files.  */
   if (d_option.fonly && strcmp (d_option.fonly, main_input_filename) != 0)
-    error ("-fonly= argument is different from first input file name");
+    error ("%<-fonly=%> argument is different from first input file name");
 
   for (size_t i = 0; i < num_in_fnames; i++)
     {
@@ -1331,6 +1360,17 @@ d_type_for_mode (machine_mode mode, int unsignedp)
   if (mode == TYPE_MODE (build_pointer_type (d_int_type)))
     return build_pointer_type (d_int_type);
 
+  for (int i = 0; i < NUM_INT_N_ENTS; i ++)
+    {
+      if (int_n_enabled_p[i] && mode == int_n_data[i].m)
+	{
+	  if (unsignedp)
+	    return int_n_trees[i].unsigned_type;
+	  else
+	    return int_n_trees[i].signed_type;
+	}
+    }
+
   if (COMPLEX_MODE_P (mode))
     {
       machine_mode inner_mode;
@@ -1378,6 +1418,17 @@ d_type_for_size (unsigned bits, int unsignedp)
 
   if (bits <= TYPE_PRECISION (d_cent_type))
     return unsignedp ? d_ucent_type : d_cent_type;
+
+  for (int i = 0; i < NUM_INT_N_ENTS; i ++)
+    {
+      if (int_n_enabled_p[i] && bits == int_n_data[i].bitsize)
+	{
+	  if (unsignedp)
+	    return int_n_trees[i].unsigned_type;
+	  else
+	    return int_n_trees[i].signed_type;
+	}
+    }
 
   return 0;
 }

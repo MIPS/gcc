@@ -630,7 +630,8 @@ plugin_pragma_push_user_expression (cpp_reader *)
 	 usable.  */
       tree this_val = lookup_name (get_identifier ("this"));
       current_class_ref = !this_val ? NULL_TREE
-	: cp_build_indirect_ref (this_val, RO_NULL, tf_warning_or_error);
+	: cp_build_indirect_ref (input_location, this_val, RO_NULL,
+				 tf_warning_or_error);
       current_class_ptr = this_val;
     }
 }
@@ -941,7 +942,7 @@ plugin_add_using_namespace (cc1_plugin::connection *,
 
   gcc_assert (TREE_CODE (used_ns) == NAMESPACE_DECL);
 
-  finish_namespace_using_directive (used_ns, NULL_TREE);
+  finish_using_directive (used_ns, NULL_TREE);
 
   return 1;
 }
@@ -1019,7 +1020,7 @@ plugin_add_using_decl (cc1_plugin::connection *,
     {
       /* We can't be at local scope.  */
       gcc_assert (at_namespace_scope_p ());
-      finish_namespace_using_decl (target, tcontext, identifier);
+      finish_nonmember_using_decl (tcontext, identifier);
     }
 
   return 1;

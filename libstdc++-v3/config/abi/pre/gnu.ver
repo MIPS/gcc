@@ -80,9 +80,8 @@ GLIBCXX_3.4 {
 #     std::domain_error::d*;
 #     std::domain_error::~d*;
       std::d[p-z]*;
-      std::e[a-q]*;
       std::error[^_]*;
-      std::e[s-z]*;
+      std::exception::*;
       std::gslice*;
       std::h[^a]*;
       std::i[a-m]*;
@@ -299,7 +298,8 @@ GLIBCXX_3.4 {
     _ZNSbIwSt11char_traitsIwESaIwEE12_S_constructE[jmy]wRKS1_;
     _ZNSbIwSt11char_traitsIwESaIwEE12_S_empty_repEv;
     _ZNSbIwSt11char_traitsIwESaIwEE13_S_copy_chars*;
-    _ZNSbIwSt11char_traitsIwESaIwEE[0-9][0-9]_M_replace*;
+    _ZNSbIwSt11char_traitsIwESaIwEE14_M_replace_aux*;
+    _ZNSbIwSt11char_traitsIwESaIwEE15_M_replace_safe*;
     _ZNSbIwSt11char_traitsIwESaIwEE4_Rep10_M_destroy*;
     _ZNSbIwSt11char_traitsIwESaIwEE4_Rep10_M_dispose*;
     _ZNSbIwSt11char_traitsIwESaIwEE4_Rep10_M_refcopyEv;
@@ -2200,10 +2200,14 @@ GLIBCXX_3.4.26 {
     _ZNSt10filesystem16weakly_canonical*;
 
     _ZNKSt10filesystem18directory_iteratordeEv;
-    _ZNKSt10filesystem28recursive_directory_iterator5depthEv;
-    _ZNKSt10filesystem28recursive_directory_iteratordeEv;
     _ZNSt10filesystem18directory_iteratorC[12]ERKNS_4pathENS_17directory_optionsEPSt10error_code;
+    _ZNSt10filesystem18directory_iterator9incrementERSt10error_code;
     _ZNSt10filesystem18directory_iteratorppEv;
+    _ZNKSt10filesystem28recursive_directory_iterator7optionsEv;
+    _ZNKSt10filesystem28recursive_directory_iterator5depthEv;
+    _ZNKSt10filesystem28recursive_directory_iterator17recursion_pendingEv;
+    _ZNSt10filesystem28recursive_directory_iterator25disable_recursion_pendingEv;
+    _ZNKSt10filesystem28recursive_directory_iteratordeEv;
     _ZNSt10filesystem28recursive_directory_iterator3popERSt10error_code;
     _ZNSt10filesystem28recursive_directory_iterator3popEv;
     _ZNSt10filesystem28recursive_directory_iterator9incrementERSt10error_code;
@@ -2213,10 +2217,14 @@ GLIBCXX_3.4.26 {
     _ZNSt10filesystem28recursive_directory_iteratorppEv;
 
     _ZNKSt10filesystem7__cxx1118directory_iteratordeEv;
-    _ZNKSt10filesystem7__cxx1128recursive_directory_iterator5depthEv;
-    _ZNKSt10filesystem7__cxx1128recursive_directory_iteratordeEv;
     _ZNSt10filesystem7__cxx1118directory_iteratorC[12]ERKNS0_4pathENS_17directory_optionsEPSt10error_code;
+    _ZNSt10filesystem7__cxx1118directory_iterator9incrementERSt10error_code;
     _ZNSt10filesystem7__cxx1118directory_iteratorppEv;
+    _ZNKSt10filesystem7__cxx1128recursive_directory_iterator7optionsEv;
+    _ZNKSt10filesystem7__cxx1128recursive_directory_iterator5depthEv;
+    _ZNKSt10filesystem7__cxx1128recursive_directory_iterator17recursion_pendingEv;
+    _ZNKSt10filesystem7__cxx1128recursive_directory_iteratordeEv;
+    _ZNSt10filesystem7__cxx1128recursive_directory_iterator25disable_recursion_pendingEv;
     _ZNSt10filesystem7__cxx1128recursive_directory_iterator3popERSt10error_code;
     _ZNSt10filesystem7__cxx1128recursive_directory_iterator3popEv;
     _ZNSt10filesystem7__cxx1128recursive_directory_iterator9incrementERSt10error_code;
@@ -2225,17 +2233,17 @@ GLIBCXX_3.4.26 {
     _ZNSt10filesystem7__cxx1128recursive_directory_iteratoraSEOS1_;
     _ZNSt10filesystem7__cxx1128recursive_directory_iteratorppEv;
 
-    _ZNSt12__shared_ptrINSt10filesystem4_DirELN9__gnu_cxx12_Lock_policyE2EEC1Ev;
-    _ZNSt12__shared_ptrINSt10filesystem4_DirELN9__gnu_cxx12_Lock_policyE2EEC1EOS4_;
-    _ZNSt12__shared_ptrINSt10filesystem4_DirELN9__gnu_cxx12_Lock_policyE2EEaSEOS4_;
-    _ZNSt12__shared_ptrINSt10filesystem28recursive_directory_iterator10_Dir_stackELN9__gnu_cxx12_Lock_policyE2EEC1Ev;
-    _ZNSt12__shared_ptrINSt10filesystem28recursive_directory_iterator10_Dir_stackELN9__gnu_cxx12_Lock_policyE2EEC1EOS5_;
+    _ZNSt12__shared_ptrINSt10filesystem4_DirELN9__gnu_cxx12_Lock_policyE[012]EEC1Ev;
+    _ZNSt12__shared_ptrINSt10filesystem4_DirELN9__gnu_cxx12_Lock_policyE[012]EEC1EOS4_;
+    _ZNSt12__shared_ptrINSt10filesystem4_DirELN9__gnu_cxx12_Lock_policyE[012]EEaSEOS4_;
+    _ZNSt12__shared_ptrINSt10filesystem28recursive_directory_iterator10_Dir_stackELN9__gnu_cxx12_Lock_policyE[012]EEC1Ev;
+    _ZNSt12__shared_ptrINSt10filesystem28recursive_directory_iterator10_Dir_stackELN9__gnu_cxx12_Lock_policyE[012]EEC1EOS5_;
 
-    _ZNSt12__shared_ptrINSt10filesystem7__cxx114_DirELN9__gnu_cxx12_Lock_policyE2EEC1Ev;
-    _ZNSt12__shared_ptrINSt10filesystem7__cxx114_DirELN9__gnu_cxx12_Lock_policyE2EEC1EOS5_;
-    _ZNSt12__shared_ptrINSt10filesystem7__cxx114_DirELN9__gnu_cxx12_Lock_policyE2EEaSEOS5_;
-    _ZNSt12__shared_ptrINSt10filesystem7__cxx1128recursive_directory_iterator10_Dir_stackELN9__gnu_cxx12_Lock_policyE2EEC1Ev;
-    _ZNSt12__shared_ptrINSt10filesystem7__cxx1128recursive_directory_iterator10_Dir_stackELN9__gnu_cxx12_Lock_policyE2EEC1EOS6_;
+    _ZNSt12__shared_ptrINSt10filesystem7__cxx114_DirELN9__gnu_cxx12_Lock_policyE[012]EEC1Ev;
+    _ZNSt12__shared_ptrINSt10filesystem7__cxx114_DirELN9__gnu_cxx12_Lock_policyE[012]EEC1EOS5_;
+    _ZNSt12__shared_ptrINSt10filesystem7__cxx114_DirELN9__gnu_cxx12_Lock_policyE[012]EEaSEOS5_;
+    _ZNSt12__shared_ptrINSt10filesystem7__cxx1128recursive_directory_iterator10_Dir_stackELN9__gnu_cxx12_Lock_policyE[012]EEC1Ev;
+    _ZNSt12__shared_ptrINSt10filesystem7__cxx1128recursive_directory_iterator10_Dir_stackELN9__gnu_cxx12_Lock_policyE[012]EEC1EOS6_;
 
     # basic_ostream::operator<<(nullptr_t)
     _ZNSolsEDn;
@@ -2256,6 +2264,34 @@ GLIBCXX_3.4.26 {
     _ZT[ISV]St7codecvtID[is]Du*E;
 
 } GLIBCXX_3.4.25;
+
+GLIBCXX_3.4.27 {
+
+    # __shared_ptr<_Dir>::__shared_ptr() (base object ctor)
+    _ZNSt12__shared_ptrINSt10filesystem4_DirELN9__gnu_cxx12_Lock_policyE[012]EEC2Ev;
+    _ZNSt12__shared_ptrINSt10filesystem7__cxx114_DirELN9__gnu_cxx12_Lock_policyE[012]EEC2Ev;
+
+    # __shared_ptr<recursive_directory_iterator::_Dir_stack>::__shared_ptr() (base object ctor)
+    _ZNSt12__shared_ptrINSt10filesystem28recursive_directory_iterator10_Dir_stackELN9__gnu_cxx12_Lock_policyE[012]EEC2Ev;
+    _ZNSt12__shared_ptrINSt10filesystem7__cxx1128recursive_directory_iterator10_Dir_stackELN9__gnu_cxx12_Lock_policyE[012]EEC2Ev;
+
+    # recursive_directory_iterator::operator=(const recursive_directory_iterator&)
+    _ZNSt10filesystem28recursive_directory_iteratoraSERKS0_;
+    _ZNSt10filesystem7__cxx1128recursive_directory_iteratoraSERKS1_;
+
+} GLIBCXX_3.4.26;
+
+GLIBCXX_3.4.28 {
+
+    # __shared_ptr<_Dir>::__shared_ptr(__shared_ptr&&) (base object ctor)
+    _ZNSt12__shared_ptrINSt10filesystem4_DirELN9__gnu_cxx12_Lock_policyE[012]EEC2EOS4_;
+    _ZNSt12__shared_ptrINSt10filesystem7__cxx114_DirELN9__gnu_cxx12_Lock_policyE[012]EEC2EOS5_;
+
+    # __shared_ptr<recursive_directory_iterator::_Dir_stack>::__shared_ptr(__shared_ptr&&) (base object ctor)
+    _ZNSt12__shared_ptrINSt10filesystem28recursive_directory_iterator10_Dir_stackELN9__gnu_cxx12_Lock_policyE[012]EEC2EOS5_;
+    _ZNSt12__shared_ptrINSt10filesystem7__cxx1128recursive_directory_iterator10_Dir_stackELN9__gnu_cxx12_Lock_policyE[012]EEC2EOS6_;
+
+} GLIBCXX_3.4.27;
 
 # Symbols in the support library (libsupc++) have their own tag.
 CXXABI_1.3 {

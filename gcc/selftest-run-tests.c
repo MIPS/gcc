@@ -90,6 +90,7 @@ selftest::run_tests ()
      rely on.  */
   diagnostic_show_locus_c_tests ();
   diagnostic_c_tests ();
+  diagnostic_format_json_cc_tests ();
   edit_context_c_tests ();
   fold_const_c_tests ();
   spellcheck_c_tests ();
@@ -107,6 +108,7 @@ selftest::run_tests ()
   store_merging_c_tests ();
   predict_c_tests ();
   simplify_rtx_c_tests ();
+  dbgcnt_c_tests ();
 
   /* Run any lang-specific selftests.  */
   lang_hooks.run_lang_selftests ();

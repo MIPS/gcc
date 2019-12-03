@@ -30,7 +30,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "backend.h"
 #include "cfghooks.h"
 #include "domwalk.h"
-#include "params.h"
 #include "tree.h"
 #include "gimple.h"
 #include "ssa.h"
@@ -1105,14 +1104,12 @@ assign_parameter_index_in_region (tree name, sese_info_p region)
   gcc_assert (TREE_CODE (name) == SSA_NAME
 	      && INTEGRAL_TYPE_P (TREE_TYPE (name))
 	      && ! defined_in_sese_p (name, region->region));
-
   int i;
   tree p;
   FOR_EACH_VEC_ELT (region->params, i, p)
     if (p == name)
       return;
 
-  i = region->params.length ();
   region->params.safe_push (name);
 }
 
@@ -1417,9 +1414,13 @@ build_alias_set (scop_p scop)
   int i, j;
   int *all_vertices;
 
+  struct loop *nest
+    = find_common_loop (scop->scop_info->region.entry->dest->loop_father,
+			scop->scop_info->region.exit->src->loop_father);
+
   FOR_EACH_VEC_ELT (scop->drs, i, dr1)
     for (j = i+1; scop->drs.iterate (j, &dr2); j++)
-      if (dr_may_alias_p (dr1->dr, dr2->dr, true))
+      if (dr_may_alias_p (dr1->dr, dr2->dr, nest))
 	{
 	  /* Dependences in the same alias set need to be handled
 	     by just looking at DR_ACCESS_FNs.  */
@@ -1637,7 +1638,7 @@ build_scops (vec<scop_p> *scops)
 	  continue;
 	}
 
-      unsigned max_arrays = PARAM_VALUE (PARAM_GRAPHITE_MAX_ARRAYS_PER_SCOP);
+      unsigned max_arrays = param_graphite_max_arrays_per_scop;
       if (max_arrays > 0
 	  && scop->drs.length () >= max_arrays)
 	{
@@ -1650,7 +1651,7 @@ build_scops (vec<scop_p> *scops)
 	}
 
       find_scop_parameters (scop);
-      graphite_dim_t max_dim = PARAM_VALUE (PARAM_GRAPHITE_MAX_NB_SCOP_PARAMS);
+      graphite_dim_t max_dim = param_graphite_max_nb_scop_params;
       if (max_dim > 0
 	  && scop_nb_params (scop) > max_dim)
 	{

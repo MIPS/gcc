@@ -43,6 +43,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "asan.h"
 #include "cfgloop.h"
 
+/* Disable warnings about quoting issues in the pp_xxx calls below
+   that (intentionally) don't follow GCC diagnostic conventions.  */
+#if __GNUC__ >= 10
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wformat-diag"
+#endif
+
 #define INDENT(SPACE)							\
   do { int i; for (i = 0; i < SPACE; i++) pp_space (buffer); } while (0)
 
@@ -423,9 +430,22 @@ dump_binary_rhs (pretty_printer *buffer, gassign *gs, int spc,
   enum tree_code code = gimple_assign_rhs_code (gs);
   switch (code)
     {
-    case COMPLEX_EXPR:
     case MIN_EXPR:
     case MAX_EXPR:
+      if (flags & TDF_GIMPLE)
+	{
+	  pp_string (buffer, code == MIN_EXPR ? "__MIN (" : "__MAX (");
+	  dump_generic_node (buffer, gimple_assign_rhs1 (gs), spc, flags,
+			     false);
+	  pp_string (buffer, ", ");
+	  dump_generic_node (buffer, gimple_assign_rhs2 (gs), spc, flags,
+			     false);
+	  pp_string (buffer, ")");
+	  break;
+	}
+      else
+	gcc_fallthrough ();
+    case COMPLEX_EXPR:
     case VEC_WIDEN_MULT_HI_EXPR:
     case VEC_WIDEN_MULT_LO_EXPR:
     case VEC_WIDEN_MULT_EVEN_EXPR:
@@ -516,13 +536,19 @@ dump_ternary_rhs (pretty_printer *buffer, gassign *gs, int spc,
       break;
     
     case VEC_PERM_EXPR:
-      pp_string (buffer, "VEC_PERM_EXPR <");
+      if (flags & TDF_GIMPLE)
+	pp_string (buffer, "__VEC_PERM (");
+      else
+	pp_string (buffer, "VEC_PERM_EXPR <");
       dump_generic_node (buffer, gimple_assign_rhs1 (gs), spc, flags, false);
       pp_string (buffer, ", ");
       dump_generic_node (buffer, gimple_assign_rhs2 (gs), spc, flags, false);
       pp_string (buffer, ", ");
       dump_generic_node (buffer, gimple_assign_rhs3 (gs), spc, flags, false);
-      pp_greater (buffer);
+      if (flags & TDF_GIMPLE)
+	pp_right_paren (buffer);
+      else
+	pp_greater (buffer);
       break;
 
     case REALIGN_LOAD_EXPR:
@@ -554,21 +580,39 @@ dump_ternary_rhs (pretty_printer *buffer, gassign *gs, int spc,
       break;
 
     case BIT_INSERT_EXPR:
-      pp_string (buffer, "BIT_INSERT_EXPR <");
-      dump_generic_node (buffer, gimple_assign_rhs1 (gs), spc, flags, false);
-      pp_string (buffer, ", ");
-      dump_generic_node (buffer, gimple_assign_rhs2 (gs), spc, flags, false);
-      pp_string (buffer, ", ");
-      dump_generic_node (buffer, gimple_assign_rhs3 (gs), spc, flags, false);
-      pp_string (buffer, " (");
-      if (INTEGRAL_TYPE_P (TREE_TYPE (gimple_assign_rhs2 (gs))))
-	pp_decimal_int (buffer,
-			TYPE_PRECISION (TREE_TYPE (gimple_assign_rhs2 (gs))));
+      if (flags & TDF_GIMPLE)
+	{
+	  pp_string (buffer, "__BIT_INSERT (");
+	  dump_generic_node (buffer, gimple_assign_rhs1 (gs), spc,
+			     flags | TDF_SLIM, false);
+	  pp_string (buffer, ", ");
+	  dump_generic_node (buffer, gimple_assign_rhs2 (gs), spc,
+			     flags | TDF_SLIM, false);
+	  pp_string (buffer, ", ");
+	  dump_generic_node (buffer, gimple_assign_rhs3 (gs), spc,
+			     flags | TDF_SLIM, false);
+	  pp_right_paren (buffer);
+	}
       else
-	dump_generic_node (buffer,
-			   TYPE_SIZE (TREE_TYPE (gimple_assign_rhs2 (gs))),
-			   spc, flags, false);
-      pp_string (buffer, " bits)>");
+	{
+	  pp_string (buffer, "BIT_INSERT_EXPR <");
+	  dump_generic_node (buffer, gimple_assign_rhs1 (gs),
+			     spc, flags, false);
+	  pp_string (buffer, ", ");
+	  dump_generic_node (buffer, gimple_assign_rhs2 (gs),
+			     spc, flags, false);
+	  pp_string (buffer, ", ");
+	  dump_generic_node (buffer, gimple_assign_rhs3 (gs),
+			     spc, flags, false);
+	  if (INTEGRAL_TYPE_P (TREE_TYPE (gimple_assign_rhs2 (gs))))
+	    {
+	      pp_string (buffer, " (");
+	      pp_decimal_int (buffer, TYPE_PRECISION
+			      (TREE_TYPE (gimple_assign_rhs2 (gs))));
+	      pp_string (buffer, " bits)");
+	    }
+	  pp_greater (buffer);
+	}
       break;
 
     default:
@@ -1188,6 +1232,8 @@ dump_gimple_try (pretty_printer *buffer, gtry *gs, int spc,
       newline_and_indent (buffer, spc + 2);
       pp_right_brace (buffer);
 
+      gimple_seq seq = gimple_try_cleanup (gs);
+
       if (gimple_try_kind (gs) == GIMPLE_TRY_CATCH)
 	{
 	  newline_and_indent (buffer, spc);
@@ -1201,12 +1247,28 @@ dump_gimple_try (pretty_printer *buffer, gtry *gs, int spc,
 	  pp_string (buffer, "finally");
 	  newline_and_indent (buffer, spc + 2);
 	  pp_left_brace (buffer);
+
+	  if (seq && is_a <geh_else *> (gimple_seq_first_stmt (seq))
+	      && gimple_seq_nondebug_singleton_p (seq))
+	    {
+	      geh_else *stmt = as_a <geh_else *> (gimple_seq_first_stmt (seq));
+	      seq = gimple_eh_else_n_body (stmt);
+	      pp_newline (buffer);
+	      dump_gimple_seq (buffer, seq, spc + 4, flags);
+	      newline_and_indent (buffer, spc + 2);
+	      pp_right_brace (buffer);
+	      seq = gimple_eh_else_e_body (stmt);
+	      newline_and_indent (buffer, spc);
+	      pp_string (buffer, "else");
+	      newline_and_indent (buffer, spc + 2);
+	      pp_left_brace (buffer);
+	    }
 	}
       else
 	pp_string (buffer, " <UNKNOWN GIMPLE_TRY> {");
 
       pp_newline (buffer);
-      dump_gimple_seq (buffer, gimple_try_cleanup (gs), spc + 4, flags);
+      dump_gimple_seq (buffer, seq, spc + 4, flags);
       newline_and_indent (buffer, spc + 2);
       pp_right_brace (buffer);
     }
@@ -1614,6 +1676,9 @@ dump_gimple_omp_target (pretty_printer *buffer, gomp_target *gs,
     case GF_OMP_TARGET_KIND_OACC_PARALLEL:
       kind = " oacc_parallel";
       break;
+    case GF_OMP_TARGET_KIND_OACC_SERIAL:
+      kind = " oacc_serial";
+      break;
     case GF_OMP_TARGET_KIND_OACC_DATA:
       kind = " oacc_data";
       break;
@@ -1759,9 +1824,6 @@ dump_gimple_omp_block (pretty_printer *buffer, gimple *gs, int spc,
 	case GIMPLE_OMP_MASTER:
 	  pp_string (buffer, "#pragma omp master");
 	  break;
-	case GIMPLE_OMP_TASKGROUP:
-	  pp_string (buffer, "#pragma omp taskgroup");
-	  break;
 	case GIMPLE_OMP_SECTION:
 	  pp_string (buffer, "#pragma omp section");
 	  break;
@@ -1828,6 +1890,34 @@ dump_gimple_omp_ordered (pretty_printer *buffer, gomp_ordered *gs,
     {
       pp_string (buffer, "#pragma omp ordered");
       dump_omp_clauses (buffer, gimple_omp_ordered_clauses (gs), spc, flags);
+      if (!gimple_seq_empty_p (gimple_omp_body (gs)))
+	{
+	  newline_and_indent (buffer, spc + 2);
+	  pp_left_brace (buffer);
+	  pp_newline (buffer);
+	  dump_gimple_seq (buffer, gimple_omp_body (gs), spc + 4, flags);
+	  newline_and_indent (buffer, spc + 2);
+	  pp_right_brace (buffer);
+	}
+    }
+}
+
+/* Dump a GIMPLE_OMP_SCAN tuple on the pretty_printer BUFFER.  */
+
+static void
+dump_gimple_omp_scan (pretty_printer *buffer, gomp_scan *gs,
+		      int spc, dump_flags_t flags)
+{
+  if (flags & TDF_RAW)
+    dump_gimple_fmt (buffer, spc, flags, "%G <%+BODY <%S> >", gs,
+		     gimple_omp_body (gs));
+  else
+    {
+      if (gimple_omp_scan_clauses (gs))
+	{
+	  pp_string (buffer, "#pragma omp scan");
+	  dump_omp_clauses (buffer, gimple_omp_scan_clauses (gs), spc, flags);
+	}
       if (!gimple_seq_empty_p (gimple_omp_body (gs)))
 	{
 	  newline_and_indent (buffer, spc + 2);
@@ -2612,6 +2702,11 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple *gs, int spc,
 			       flags);
       break;
 
+    case GIMPLE_OMP_SCAN:
+      dump_gimple_omp_scan (buffer, as_a <gomp_scan *> (gs), spc,
+			    flags);
+      break;
+
     case GIMPLE_OMP_CRITICAL:
       dump_gimple_omp_critical (buffer, as_a <gomp_critical *> (gs), spc,
 				flags);
@@ -2704,6 +2799,10 @@ dump_gimple_bb_header (FILE *outf, basic_block bb, int indent,
 	  fprintf (outf, "%*s__BB(%d", indent, "", bb->index);
 	  if (bb->loop_father->header == bb)
 	    fprintf (outf, ",loop_header(%d)", bb->loop_father->num);
+	  if (bb->count.initialized_p ())
+	    fprintf (outf, ",%s(%d)",
+		     profile_quality_as_string (bb->count.quality ()),
+		     bb->count.value ());
 	  fprintf (outf, "):\n");
 	}
       else
@@ -2760,6 +2859,15 @@ pp_cfg_jump (pretty_printer *buffer, edge e, dump_flags_t flags)
     {
       pp_string (buffer, "goto __BB");
       pp_decimal_int (buffer, e->dest->index);
+      if (e->probability.initialized_p ())
+	{
+	  pp_string (buffer, "(");
+	  pp_string (buffer,
+		     profile_quality_as_string (e->probability.quality ()));
+	  pp_string (buffer, "(");
+	  pp_decimal_int (buffer, e->probability.value ());
+	  pp_string (buffer, "))");
+	}
       pp_semicolon (buffer);
     }
   else
@@ -2929,6 +3037,14 @@ percent_G_format (text_info *text)
 {
   gimple *stmt = va_arg (*text->args_ptr, gimple*);
 
+  /* Fall back on the rich location if the statement doesn't have one.  */
+  location_t loc = gimple_location (stmt);
+  if (loc == UNKNOWN_LOCATION)
+    loc = text->m_richloc->get_loc ();
   tree block = gimple_block (stmt);
-  percent_K_format (text, gimple_location (stmt), block);
+  percent_K_format (text, loc, block);
 }
+
+#if __GNUC__ >= 10
+#  pragma GCC diagnostic pop
+#endif

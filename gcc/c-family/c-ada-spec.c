@@ -25,7 +25,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "stringpool.h"
 #include "tree.h"
-#include "c-common.h"
 #include "c-ada-spec.h"
 #include "fold-const.h"
 #include "c-pragma.h"
@@ -680,8 +679,10 @@ compare_node (const void *lp, const void *rp)
 {
   const_tree lhs = *((const tree *) lp);
   const_tree rhs = *((const tree *) rp);
+  const int ret
+    = compare_location (decl_sloc (lhs, true), decl_sloc (rhs, true));
 
-  return compare_location (decl_sloc (lhs, true), decl_sloc (rhs, true));
+  return ret ? ret : DECL_UID (lhs) - DECL_UID (rhs);
 }
 
 /* Compare two comments (LP and RP) by their source location.  */
@@ -1024,7 +1025,9 @@ get_underlying_decl (tree type)
 
   if (TYPE_P (type))
     {
-      type = TYPE_MAIN_VARIANT (type);
+      /* Strip qualifiers but do not look through typedefs.  */
+      if (TYPE_QUALS_NO_ADDR_SPACE (type))
+	type = TYPE_MAIN_VARIANT (type);
 
       /* type is a typedef.  */
       if (TYPE_NAME (type) && DECL_P (TYPE_NAME (type)))
@@ -1588,14 +1591,13 @@ dump_ada_function_declaration (pretty_printer *buffer, tree func,
 			       bool is_method, bool is_constructor,
 			       bool is_destructor, int spc)
 {
-  tree arg;
-  const tree node = TREE_TYPE (func);
+  tree type = TREE_TYPE (func);
+  tree arg = TYPE_ARG_TYPES (type);
+  tree t;
   char buf[17];
-  int num = 0, num_args = 0, have_args = true, have_ellipsis = false;
+  int num, num_args = 0, have_args = true, have_ellipsis = false;
 
   /* Compute number of arguments.  */
-  arg = TYPE_ARG_TYPES (node);
-
   if (arg)
     {
       while (TREE_CHAIN (arg) && arg != error_mark_node)
@@ -1626,25 +1628,29 @@ dump_ada_function_declaration (pretty_printer *buffer, tree func,
       pp_left_paren (buffer);
     }
 
+  /* For a function, see if we have the corresponding arguments.  */
   if (TREE_CODE (func) == FUNCTION_DECL)
-    arg = DECL_ARGUMENTS (func);
+    {
+      arg = DECL_ARGUMENTS (func);
+      for (t = arg, num = 0; t; t = DECL_CHAIN (t))
+	num++;
+      if (num < num_args)
+	arg = NULL_TREE;
+    }
   else
     arg = NULL_TREE;
 
-  if (arg == NULL_TREE)
+  /* Otherwise, only print the types.  */
+  if (!arg)
     {
       have_args = false;
-      arg = TYPE_ARG_TYPES (node);
-
-      if (arg && TREE_CODE (TREE_VALUE (arg)) == VOID_TYPE)
-	arg = NULL_TREE;
+      arg = TYPE_ARG_TYPES (type);
     }
 
   if (is_constructor)
     arg = TREE_CHAIN (arg);
 
-  /* Print the argument names (if available) & types.  */
-
+  /* Print the argument names (if available) and types.  */
   for (num = 1; num <= num_args; num++)
     {
       if (have_args)
@@ -1662,13 +1668,13 @@ dump_ada_function_declaration (pretty_printer *buffer, tree func,
 	      pp_string (buffer, buf);
 	    }
 
-	  dump_ada_node (buffer, TREE_TYPE (arg), node, spc, false, true);
+	  dump_ada_node (buffer, TREE_TYPE (arg), type, spc, false, true);
 	}
       else
 	{
 	  sprintf (buf, "arg%d : ", num);
 	  pp_string (buffer, buf);
-	  dump_ada_node (buffer, TREE_VALUE (arg), node, spc, false, true);
+	  dump_ada_node (buffer, TREE_VALUE (arg), type, spc, false, true);
 	}
 
       /* If the type is a pointer to a tagged type, we need to differentiate
@@ -1706,11 +1712,11 @@ dump_ada_function_declaration (pretty_printer *buffer, tree func,
   if (num_args > 0)
     pp_right_paren (buffer);
 
-  if (is_constructor || !VOID_TYPE_P (TREE_TYPE (node)))
+  if (is_constructor || !VOID_TYPE_P (TREE_TYPE (type)))
     {
       pp_string (buffer, " return ");
-      tree type = is_constructor ? DECL_CONTEXT (func) : TREE_TYPE (node);
-      dump_ada_node (buffer, type, type, spc, false, true);
+      tree rtype = is_constructor ? DECL_CONTEXT (func) : TREE_TYPE (type);
+      dump_ada_node (buffer, rtype, rtype, spc, false, true);
     }
 }
 
@@ -2015,6 +2021,22 @@ dump_ada_enum_type (pretty_printer *buffer, tree node, int spc)
     }
 }
 
+/* Return true if NODE is the __float128/_Float128 type.  */
+
+static bool
+is_float128 (tree node)
+{
+  if (!TYPE_NAME (node) || TREE_CODE (TYPE_NAME (node)) != TYPE_DECL)
+    return false;
+
+  tree name = DECL_NAME (TYPE_NAME (node));
+
+  if (IDENTIFIER_POINTER (name) [0] != '_')
+    return false;
+
+  return id_equal (name, "__float128") || id_equal (name, "_Float128");
+}
+
 static bool bitfield_used = false;
 
 /* Recursively dump in BUFFER Ada declarations corresponding to NODE of type
@@ -2068,7 +2090,13 @@ dump_ada_node (pretty_printer *buffer, tree node, tree type, int spc,
       break;
 
     case COMPLEX_TYPE:
-      pp_string (buffer, "<complex>");
+      if (is_float128 (TREE_TYPE (node)))
+	{
+	  append_withs ("Interfaces.C.Extensions", false);
+	  pp_string (buffer, "Extensions.CFloat_128");
+	}
+      else
+	pp_string (buffer, "<complex>");
       break;
 
     case ENUMERAL_TYPE:
@@ -2079,11 +2107,7 @@ dump_ada_node (pretty_printer *buffer, tree node, tree type, int spc,
       break;
 
     case REAL_TYPE:
-      if (TYPE_NAME (node)
-	  && TREE_CODE (TYPE_NAME (node)) == TYPE_DECL
-	  && IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (node))) [0] == '_'
-	  && (id_equal (DECL_NAME (TYPE_NAME (node)), "_Float128")
-	      || id_equal (DECL_NAME (TYPE_NAME (node)), "__float128")))
+      if (is_float128 (node))
 	{
 	  append_withs ("Interfaces.C.Extensions", false);
 	  pp_string (buffer, "Extensions.Float_128");
@@ -2432,6 +2456,9 @@ dump_forward_type (pretty_printer *buffer, tree type, tree t, int spc)
   if (DECL_SOURCE_FILE (decl) != DECL_SOURCE_FILE (t))
     return;
 
+  if (TREE_CODE (type) == FUNCTION_TYPE)
+    return;
+
   /* Generate an incomplete type declaration.  */
   pp_string (buffer, "type ");
   dump_ada_node (buffer, decl, NULL_TREE, spc, false, true);
@@ -2500,7 +2527,10 @@ dump_nested_type (pretty_printer *buffer, tree field, tree t, tree parent,
       while (TREE_CODE (tmp) == ARRAY_TYPE)
 	tmp = TREE_TYPE (tmp);
       decl = get_underlying_decl (tmp);
-      if (decl && !DECL_NAME (decl) && !TREE_VISITED (decl))
+      if (decl
+	  && !DECL_NAME (decl)
+	  && DECL_SOURCE_FILE (decl) == DECL_SOURCE_FILE (t)
+	  && !TREE_VISITED (decl))
 	{
 	  /* Generate full declaration.  */
 	  dump_nested_type (buffer, decl, t, parent, spc);
@@ -2659,6 +2689,19 @@ print_destructor (pretty_printer *buffer, tree t, tree type)
   tree decl_name = DECL_NAME (TYPE_NAME (type));
 
   pp_string (buffer, "Delete_");
+  if (strncmp (IDENTIFIER_POINTER (DECL_NAME (t)), "__dt_del", 8) == 0)
+    pp_string (buffer, "And_Free_");
+  pp_ada_tree_identifier (buffer, decl_name, t, false);
+}
+
+/* Dump in BUFFER assignment operator spec corresponding to T.  */
+
+static void
+print_assignment_operator (pretty_printer *buffer, tree t, tree type)
+{
+  tree decl_name = DECL_NAME (TYPE_NAME (type));
+
+  pp_string (buffer, "Assign_");
   pp_ada_tree_identifier (buffer, decl_name, t, false);
 }
 
@@ -2901,6 +2944,7 @@ dump_ada_declaration (pretty_printer *buffer, tree t, tree type, int spc)
       bool is_method = TREE_CODE (TREE_TYPE (t)) == METHOD_TYPE;
       tree decl_name = DECL_NAME (t);
       bool is_abstract = false;
+      bool is_assignment_operator = false;
       bool is_constructor = false;
       bool is_destructor = false;
       bool is_copy_constructor = false;
@@ -2912,6 +2956,7 @@ dump_ada_declaration (pretty_printer *buffer, tree t, tree type, int spc)
       if (cpp_check)
 	{
 	  is_abstract = cpp_check (t, IS_ABSTRACT);
+	  is_assignment_operator = cpp_check (t, IS_ASSIGNMENT_OPERATOR);
 	  is_constructor = cpp_check (t, IS_CONSTRUCTOR);
 	  is_destructor = cpp_check (t, IS_DESTRUCTOR);
 	  is_copy_constructor = cpp_check (t, IS_COPY_CONSTRUCTOR);
@@ -2929,9 +2974,17 @@ dump_ada_declaration (pretty_printer *buffer, tree t, tree type, int spc)
 	  if (DECL_ARTIFICIAL (t))
 	    return 0;
 
-	  /* Only consider constructors/destructors for complete objects.  */
+	  /* Only consider complete constructors and deleting destructors.  */
 	  if (strncmp (IDENTIFIER_POINTER (decl_name), "__ct_comp", 9) != 0
-	      && strncmp (IDENTIFIER_POINTER (decl_name), "__dt_comp", 9) != 0)
+	      && strncmp (IDENTIFIER_POINTER (decl_name), "__dt_comp", 9) != 0
+	      && strncmp (IDENTIFIER_POINTER (decl_name), "__dt_del", 8) != 0)
+	    return 0;
+	}
+
+      else if (is_assignment_operator)
+	{
+	  /* ??? Skip implicit or non-method assignment operators for now.  */
+	  if (DECL_ARTIFICIAL (t) || !is_method)
 	    return 0;
 	}
 
@@ -2957,6 +3010,8 @@ dump_ada_declaration (pretty_printer *buffer, tree t, tree type, int spc)
 	print_constructor (buffer, t, type);
       else if (is_destructor)
 	print_destructor (buffer, t, type);
+      else if (is_assignment_operator)
+	print_assignment_operator (buffer, t, type);
       else
 	dump_ada_decl_name (buffer, t, false);
 

@@ -487,7 +487,7 @@ make_complex_modes (enum mode_class cl,
 
 /* For all modes in class CL, construct vector modes of width WIDTH,
    having as many components as necessary.  ORDER is the sorting order
-   of the mode (smaller numbers having higher priority).  */
+   of the mode, with smaller numbers indicating a higher priority.  */
 #define VECTOR_MODES_WITH_PREFIX(PREFIX, C, W, ORDER) \
   make_vector_modes (MODE_##C, #PREFIX, W, ORDER, __FILE__, __LINE__)
 #define VECTOR_MODES(C, W) VECTOR_MODES_WITH_PREFIX (V, C, W, 0)

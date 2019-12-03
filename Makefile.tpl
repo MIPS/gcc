@@ -201,6 +201,7 @@ HOST_EXPORTS = \
 	AR="$(AR)"; export AR; \
 	AS="$(AS)"; export AS; \
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
+	CXX_FOR_BUILD="$(CXX_FOR_BUILD)"; export CXX_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
 	LDFLAGS="$(STAGE1_LDFLAGS) $(LDFLAGS)"; export LDFLAGS; \
@@ -624,6 +625,7 @@ BASE_FLAGS_TO_PASS =[+ FOR flags_to_pass +][+ IF optional +] \
 	"[+flag+]=$([+flag+])"[+ ENDIF optional+][+ ENDFOR flags_to_pass +][+ FOR bootstrap-stage +] \
 	"STAGE[+id+]_CFLAGS=$(STAGE[+id+]_CFLAGS)" \
 	"STAGE[+id+]_CXXFLAGS=$(STAGE[+id+]_CXXFLAGS)" \
+	"STAGE[+id+]_GENERATOR_CFLAGS=$(STAGE[+id+]_GENERATOR_CFLAGS)" \
 	"STAGE[+id+]_TFLAGS=$(STAGE[+id+]_TFLAGS)"[+ ENDFOR bootstrap-stage +] \
 	$(CXX_FOR_TARGET_FLAG_TO_PASS) \
 	"TFLAGS=$(TFLAGS)" \
@@ -1193,6 +1195,7 @@ all-stage[+id+]-[+prefix+][+module+]: configure-stage[+id+]-[+prefix+][+module+]
 		CXXFLAGS="$(CXXFLAGS_FOR_TARGET)" \
 		LIBCFLAGS="$(LIBCFLAGS_FOR_TARGET)"[+ ELSE prefix +] \
 		CFLAGS="$(STAGE[+id+]_CFLAGS)" \
+		GENERATOR_CFLAGS="$(STAGE[+id+]_GENERATOR_CFLAGS)" \
 		CXXFLAGS="$(STAGE[+id+]_CXXFLAGS)"[+ IF prev +] \
 		LIBCFLAGS="$(STAGE[+id+]_CFLAGS)"[+ ELSE prev +] \
 		LIBCFLAGS="$(LIBCFLAGS)"[+ ENDIF prev +][+ ENDIF prefix +] \
@@ -1675,7 +1678,7 @@ do-clean: clean-stage[+id+]
         sed=`echo stage[+id+] | sed 's,^stage,,;s,.,.,g'`; \
 	files=`find stage[+id+]-* -name "*$(objext)" -print | \
 		 sed -n s,^stage$$sed-,,p`; \
-	for file in $${files}; do \
+	for file in $${files} ${extra-compare}; do \
 	  f1=$$r/stage[+prev+]-$$file; f2=$$r/stage[+id+]-$$file; \
 	  if test ! -f $$f1; then continue; fi; \
 	  $(do-[+compare-target+]) > /dev/null 2>&1; \

@@ -42,7 +42,7 @@
 #endif
 
 #include "config.h"
-#include "gstdint.h"
+#include <stdint.h>
 #include "libgomp-plugin.h"
 #include "gomp-constants.h"
 
@@ -105,6 +105,69 @@ extern void gomp_aligned_free (void *);
 /* Avoid conflicting prototypes of alloca() in system headers by using
    GCC's builtin alloca().  */
 #define gomp_alloca(x)  __builtin_alloca(x)
+
+/* Optimized allocators for team-specific data that will die with the team.  */
+
+#ifdef __AMDGCN__
+/* The arena is initialized in config/gcn/team.c.  */
+#define TEAM_ARENA_SIZE  64*1024  /* Must match the value in plugin-gcn.c.  */
+#define TEAM_ARENA_START 16  /* LDS offset of free pointer.  */
+#define TEAM_ARENA_FREE  24  /* LDS offset of free pointer.  */
+#define TEAM_ARENA_END   32  /* LDS offset of end pointer.  */
+
+static inline void * __attribute__((malloc))
+team_malloc (size_t size)
+{
+  /* 4-byte align the size.  */
+  size = (size + 3) & ~3;
+
+  /* Allocate directly from the arena.
+     The compiler does not support DS atomics, yet. */
+  void *result;
+  asm ("ds_add_rtn_u64 %0, %1, %2\n\ts_waitcnt 0"
+       : "=v"(result) : "v"(TEAM_ARENA_FREE), "v"(size), "e"(1L) : "memory");
+
+  /* Handle OOM.  */
+  if (result + size > *(void * __lds *)TEAM_ARENA_END)
+    {
+      /* While this is experimental, let's make sure we know when OOM
+	 happens.  */
+      const char msg[] = "GCN team arena exhausted\n";
+      write (2, msg, sizeof(msg)-1);
+
+      /* Fall back to using the heap (slowly).  */
+      result = gomp_malloc (size);
+    }
+  return result;
+}
+
+static inline void * __attribute__((malloc))
+team_malloc_cleared (size_t size)
+{
+  char *result = team_malloc (size);
+
+  /* Clear the allocated memory.  */
+  __builtin_memset (result, 0, size);
+
+  return result;
+}
+
+static inline void
+team_free (void *ptr)
+{
+  /* The whole arena is freed when the kernel exits.
+     However, if we fell back to using heap then we should free it.
+     It would be better if this function could be a no-op, but at least
+     LDS loads are cheap.  */
+  if (ptr < *(void * __lds *)TEAM_ARENA_START
+      || ptr >= *(void * __lds *)TEAM_ARENA_END)
+    free (ptr);
+}
+#else
+#define team_malloc(...) gomp_malloc (__VA_ARGS__)
+#define team_malloc_cleared(...) gomp_malloc_cleared (__VA_ARGS__)
+#define team_free(...) free (__VA_ARGS__)
+#endif
 
 /* error.c */
 
@@ -692,6 +755,24 @@ static inline struct gomp_thread *gomp_thread (void)
   asm ("mov.u32 %0, %%tid.y;" : "=r" (tid));
   return nvptx_thrs + tid;
 }
+#elif defined __AMDGCN__
+static inline struct gomp_thread *gcn_thrs (void)
+{
+  /* The value is at the bottom of LDS.  */
+  struct gomp_thread * __lds *thrs = (struct gomp_thread * __lds *)4;
+  return *thrs;
+}
+static inline void set_gcn_thrs (struct gomp_thread *val)
+{
+  /* The value is at the bottom of LDS.  */
+  struct gomp_thread * __lds *thrs = (struct gomp_thread * __lds *)4;
+  *thrs = val;
+}
+static inline struct gomp_thread *gomp_thread (void)
+{
+  int tid = __builtin_gcn_dim_pos(1);
+  return gcn_thrs () + tid;
+}
 #elif defined HAVE_TLS || defined USE_EMUTLS
 extern __thread struct gomp_thread gomp_tls_data;
 static inline struct gomp_thread *gomp_thread (void)
@@ -903,6 +984,11 @@ struct target_mem_desc {
    artificial pointer to "omp declare target link" object.  */
 #define REFCOUNT_LINK (~(uintptr_t) 1)
 
+/* Special offset values.  */
+#define OFFSET_INLINED (~(uintptr_t) 0)
+#define OFFSET_POINTER (~(uintptr_t) 1)
+#define OFFSET_STRUCT (~(uintptr_t) 2)
+
 struct splay_tree_key_s {
   /* Address of the host object.  */
   uintptr_t host_start;
@@ -949,24 +1035,31 @@ typedef struct acc_dispatch_t
   /* Execute.  */
   __typeof (GOMP_OFFLOAD_openacc_exec) *exec_func;
 
-  /* Async cleanup callback registration.  */
-  __typeof (GOMP_OFFLOAD_openacc_register_async_cleanup)
-    *register_async_cleanup_func;
-
-  /* Asynchronous routines.  */
-  __typeof (GOMP_OFFLOAD_openacc_async_test) *async_test_func;
-  __typeof (GOMP_OFFLOAD_openacc_async_test_all) *async_test_all_func;
-  __typeof (GOMP_OFFLOAD_openacc_async_wait) *async_wait_func;
-  __typeof (GOMP_OFFLOAD_openacc_async_wait_async) *async_wait_async_func;
-  __typeof (GOMP_OFFLOAD_openacc_async_wait_all) *async_wait_all_func;
-  __typeof (GOMP_OFFLOAD_openacc_async_wait_all_async)
-    *async_wait_all_async_func;
-  __typeof (GOMP_OFFLOAD_openacc_async_set_async) *async_set_async_func;
-
   /* Create/destroy TLS data.  */
   __typeof (GOMP_OFFLOAD_openacc_create_thread_data) *create_thread_data_func;
   __typeof (GOMP_OFFLOAD_openacc_destroy_thread_data)
     *destroy_thread_data_func;
+  
+  struct {
+    /* Once created and put into the "active" list, asyncqueues are then never
+       destructed and removed from the "active" list, other than if the TODO
+       device is shut down.  */
+    gomp_mutex_t lock;
+    int nasyncqueue;
+    struct goacc_asyncqueue **asyncqueue;
+    struct goacc_asyncqueue_list *active;
+
+    __typeof (GOMP_OFFLOAD_openacc_async_construct) *construct_func;
+    __typeof (GOMP_OFFLOAD_openacc_async_destruct) *destruct_func;
+    __typeof (GOMP_OFFLOAD_openacc_async_test) *test_func;
+    __typeof (GOMP_OFFLOAD_openacc_async_synchronize) *synchronize_func;
+    __typeof (GOMP_OFFLOAD_openacc_async_serialize) *serialize_func;
+    __typeof (GOMP_OFFLOAD_openacc_async_queue_callback) *queue_callback_func;
+
+    __typeof (GOMP_OFFLOAD_openacc_async_exec) *exec_func;
+    __typeof (GOMP_OFFLOAD_openacc_async_dev2host) *dev2host_func;
+    __typeof (GOMP_OFFLOAD_openacc_async_host2dev) *host2dev_func;
+  } async;
 
   /* NVIDIA target specific routines.  */
   struct {
@@ -1053,17 +1146,33 @@ enum gomp_map_vars_kind
   GOMP_MAP_VARS_ENTER_DATA
 };
 
-extern void gomp_acc_insert_pointer (size_t, void **, size_t *, void *);
+extern void gomp_acc_insert_pointer (size_t, void **, size_t *, void *, int);
 extern void gomp_acc_remove_pointer (void *, size_t, bool, int, int, int);
 extern void gomp_acc_declare_allocate (bool, size_t, void **, size_t *,
 				       unsigned short *);
+struct gomp_coalesce_buf;
+extern void gomp_copy_host2dev (struct gomp_device_descr *,
+				struct goacc_asyncqueue *, void *, const void *,
+				size_t, struct gomp_coalesce_buf *);
+extern void gomp_copy_dev2host (struct gomp_device_descr *,
+				struct goacc_asyncqueue *, void *, const void *,
+				size_t);
 
 extern struct target_mem_desc *gomp_map_vars (struct gomp_device_descr *,
 					      size_t, void **, void **,
 					      size_t *, void *, bool,
 					      enum gomp_map_vars_kind);
+extern struct target_mem_desc *gomp_map_vars_async (struct gomp_device_descr *,
+						    struct goacc_asyncqueue *,
+						    size_t, void **, void **,
+						    size_t *, void *, bool,
+						    enum gomp_map_vars_kind);
+extern void gomp_unmap_tgt (struct target_mem_desc *);
 extern void gomp_unmap_vars (struct target_mem_desc *, bool);
+extern void gomp_unmap_vars_async (struct target_mem_desc *, bool,
+				   struct goacc_asyncqueue *);
 extern void gomp_init_device (struct gomp_device_descr *);
+extern bool gomp_fini_device (struct gomp_device_descr *);
 extern void gomp_free_memmap (struct splay_tree_s *);
 extern void gomp_unload_device (struct gomp_device_descr *);
 extern bool gomp_remove_var (struct gomp_device_descr *, splay_tree_key);

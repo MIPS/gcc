@@ -316,7 +316,7 @@ get_array_length (tree exp, Type *type)
       return d_array_length (exp);
 
     default:
-      error ("can't determine the length of a %qs", type->toChars ());
+      error ("cannot determine the length of a %qs", type->toChars ());
       return error_mark_node;
     }
 }
@@ -651,9 +651,11 @@ build_address (tree exp)
   if (TREE_CODE (exp) == CONST_DECL)
     exp = DECL_INITIAL (exp);
 
-  /* Some expression lowering may request an address of a compile-time constant.
-     Make sure it is assigned to a location we can reference.  */
-  if (CONSTANT_CLASS_P (exp) && TREE_CODE (exp) != STRING_CST)
+  /* Some expression lowering may request an address of a compile-time constant,
+     or other non-lvalue expression.  Make sure it is assigned to a location we
+     can reference.  */
+  if ((CONSTANT_CLASS_P (exp) && TREE_CODE (exp) != STRING_CST)
+      || TREE_CODE (exp) == CALL_EXPR)
     exp = force_target_expr (exp);
 
   d_mark_addressable (exp);
@@ -1397,7 +1399,7 @@ build_boolop (tree_code code, tree arg0, tree arg1)
       /* Build a vector comparison.
 	 VEC_COND_EXPR <e1 op e2, { -1, -1, -1, -1 }, { 0, 0, 0, 0 }>; */
       tree type = TREE_TYPE (arg0);
-      tree cmptype = build_same_sized_truth_vector_type (type);
+      tree cmptype = truth_type_for (type);
       tree cmp = fold_build2_loc (input_location, code, cmptype, arg0, arg1);
 
       return fold_build3_loc (input_location, VEC_COND_EXPR, type, cmp,
@@ -1762,7 +1764,10 @@ build_bounds_condition (const Loc& loc, tree index, tree len, bool inclusive)
      have already taken care of implicit casts to unsigned.  */
   tree condition = fold_build2 (inclusive ? GT_EXPR : GE_EXPR,
 				d_bool_type, index, len);
-  tree boundserr = d_assert_call (loc, LIBCALL_ARRAY_BOUNDS);
+  /* Terminate the program with a trap if no D runtime present.  */
+  tree boundserr = (global.params.checkAction == CHECKACTION_D)
+    ? d_assert_call (loc, LIBCALL_ARRAY_BOUNDS)
+    : build_call_expr (builtin_decl_explicit (BUILT_IN_TRAP), 0);
 
   return build_condition (TREE_TYPE (index), condition, boundserr, index);
 }
@@ -2542,7 +2547,7 @@ build_closure (FuncDeclaration *fd)
     return;
 
   tree type = FRAMEINFO_TYPE (ffi);
-  gcc_assert (TYPE_LAID_OUT_P (type));
+  gcc_assert (COMPLETE_TYPE_P (type));
 
   tree decl, decl_ref;
 
@@ -2652,7 +2657,7 @@ get_frameinfo (FuncDeclaration *fd)
 	      FRAMEINFO_CREATES_FRAME (ffi) = 0;
 	      FRAMEINFO_STATIC_CHAIN (ffi) = 1;
 	      FRAMEINFO_IS_CLOSURE (ffi) = FRAMEINFO_IS_CLOSURE (ffo);
-	      gcc_assert (TYPE_LAID_OUT_P (FRAMEINFO_TYPE (ffo)));
+	      gcc_assert (COMPLETE_TYPE_P (FRAMEINFO_TYPE (ffo)));
 	      FRAMEINFO_TYPE (ffi) = FRAMEINFO_TYPE (ffo);
 	      break;
 	    }

@@ -19,6 +19,7 @@
 
 #include <list>
 #include <testsuite_hooks.h>
+#include <testsuite_allocator.h>
 
 // libstdc++/29134
 void test01()
@@ -26,13 +27,14 @@ void test01()
   typedef std::list<int> list_type;
   list_type l;
 
-#if ! defined _GLIBCXX_DEBUG && ! defined _GLIBCXX_PROFILE
-  using std::_List_node;
-#else
+#ifdef _GLIBCXX_DEBUG
   using std::_GLIBCXX_STD_C::_List_node;
+#else
+  using std::_List_node;
 #endif
 
-  VERIFY( l.max_size() == std::allocator<_List_node<int> >().max_size() );
+  std::allocator<_List_node<int> > a;
+  VERIFY( l.max_size() == __gnu_test::max_size(a) );
 }
 
 int main()

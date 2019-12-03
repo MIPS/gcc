@@ -299,7 +299,7 @@ gen_type (const char *ret_val, tree t, formals_style style)
 	  return ret_val;
 
 	case ARRAY_TYPE:
-	  if (!type_size_known_constant_p (t))
+	  if (!COMPLETE_TYPE_P (t) || TREE_CODE (TYPE_SIZE (t)) != INTEGER_CST)
 	    ret_val = gen_type (concat (ret_val, "[]", NULL),
 				TREE_TYPE (t), style);
 	  else if (int_size_in_bytes (t) == 0)

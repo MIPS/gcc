@@ -38,6 +38,8 @@
  * Contains an implementation class for ov_tree_.
  */
 
+#ifdef PB_DS_CLASS_C_DEC
+
 PB_DS_CLASS_T_DEC
 typename PB_DS_CLASS_C_DEC::value_allocator
 PB_DS_CLASS_C_DEC::s_value_alloc;
@@ -101,11 +103,11 @@ copy_from_range(It first_it, It last_it)
 {
 #ifdef PB_DS_DATA_TRUE_INDICATOR
   typedef std::map<key_type, mapped_type, Cmp_Fn,
-		   typename _Alloc::template rebind<value_type>::other>
+		   typename rebind_traits<_Alloc, value_type>::allocator_type>
     map_type;
 #else
   typedef std::set<key_type, Cmp_Fn,
-		   typename _Alloc::template rebind<Key>::other>
+		   typename rebind_traits<_Alloc, Key>::allocator_type>
     map_type;
 #endif
 
@@ -255,3 +257,4 @@ update(node_iterator nd_it, Node_Update* p_update)
       node_update::operator()(nd_it, end_it);
     }
 }
+#endif

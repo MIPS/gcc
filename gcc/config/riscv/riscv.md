@@ -156,7 +156,7 @@
 (define_attr "type"
   "unknown,branch,jump,call,load,fpload,store,fpstore,
    mtc,mfc,const,arith,logical,shift,slt,imul,idiv,move,fmove,fadd,fmul,
-   fmadd,fdiv,fcmp,fcvt,fsqrt,multi,auipc,nop,ghost"
+   fmadd,fdiv,fcmp,fcvt,fsqrt,multi,auipc,sfb_alu,nop,ghost"
   (cond [(eq_attr "got" "load") (const_string "load")
 
 	 ;; If a doubleword move uses these expensive instructions,
@@ -1051,7 +1051,9 @@
   "@
    #
    lwu\t%0,%1"
-  "&& reload_completed && REG_P (operands[1])"
+  "&& reload_completed
+   && REG_P (operands[1])
+   && !paradoxical_subreg_p (operands[0])"
   [(set (match_dup 0)
 	(ashift:DI (match_dup 1) (const_int 32)))
    (set (match_dup 0)
@@ -1068,7 +1070,9 @@
   "@
    #
    lhu\t%0,%1"
-  "&& reload_completed && REG_P (operands[1])"
+  "&& reload_completed
+   && REG_P (operands[1])
+   && !paradoxical_subreg_p (operands[0])"
   [(set (match_dup 0)
 	(ashift:GPR (match_dup 1) (match_dup 2)))
    (set (match_dup 0)
@@ -1117,7 +1121,9 @@
   "@
    #
    l<SHORT:size>\t%0,%1"
-  "&& reload_completed && REG_P (operands[1])"
+  "&& reload_completed
+   && REG_P (operands[1])
+   && !paradoxical_subreg_p (operands[0])"
   [(set (match_dup 0) (ashift:SI (match_dup 1) (match_dup 2)))
    (set (match_dup 0) (ashiftrt:SI (match_dup 0) (match_dup 2)))]
 {
@@ -1278,7 +1284,8 @@
   ""
   [(const_int 0)]
 {
-  riscv_move_integer (operands[2], operands[0], INTVAL (operands[1]));
+  riscv_move_integer (operands[2], operands[0], INTVAL (operands[1]),
+		      <GPR:MODE>mode, TRUE);
   DONE;
 })
 
@@ -1287,11 +1294,11 @@
   [(set (match_operand:P 0 "register_operand")
 	(match_operand:P 1))
    (clobber (match_operand:P 2 "register_operand"))]
-  "riscv_split_symbol (operands[2], operands[1], MAX_MACHINE_MODE, NULL)"
+  "riscv_split_symbol (operands[2], operands[1], MAX_MACHINE_MODE, NULL, TRUE)"
   [(set (match_dup 0) (match_dup 3))]
 {
   riscv_split_symbol (operands[2], operands[1],
-		     MAX_MACHINE_MODE, &operands[3]);
+		      MAX_MACHINE_MODE, &operands[3], TRUE);
 })
 
 ;; 64-bit integer moves
@@ -1497,7 +1504,7 @@
   DONE;
 })
 
-(define_expand "movmemsi"
+(define_expand "cpymemsi"
   [(parallel [(set (match_operand:BLK 0 "general_operand")
 		   (match_operand:BLK 1 "general_operand"))
 	      (use (match_operand:SI 2 ""))
@@ -1765,31 +1772,38 @@
 ;; Handle AND with 2^N-1 for N from 12 to XLEN.  This can be split into
 ;; two logical shifts.  Otherwise it requires 3 instructions: lui,
 ;; xor/addi/srli, and.
+
+;; Generating a temporary for the shift output gives better combiner results;
+;; and also fixes a problem where op0 could be a paradoxical reg and shifting
+;; by amounts larger than the size of the SUBREG_REG doesn't work.
 (define_split
   [(set (match_operand:GPR 0 "register_operand")
 	(and:GPR (match_operand:GPR 1 "register_operand")
-		 (match_operand:GPR 2 "p2m1_shift_operand")))]
+		 (match_operand:GPR 2 "p2m1_shift_operand")))
+   (clobber (match_operand:GPR 3 "register_operand"))]
   ""
- [(set (match_dup 0)
+ [(set (match_dup 3)
        (ashift:GPR (match_dup 1) (match_dup 2)))
   (set (match_dup 0)
-       (lshiftrt:GPR (match_dup 0) (match_dup 2)))]
+       (lshiftrt:GPR (match_dup 3) (match_dup 2)))]
 {
-  operands[2] = GEN_INT (BITS_PER_WORD
+  /* Op2 is a VOIDmode constant, so get the mode size from op1.  */
+  operands[2] = GEN_INT (GET_MODE_BITSIZE (GET_MODE (operands[1]))
 			 - exact_log2 (INTVAL (operands[2]) + 1));
 })
-  
+
 ;; Handle AND with 0xF...F0...0 where there are 32 to 63 zeros.  This can be
 ;; split into two shifts.  Otherwise it requires 3 instructions: li, sll, and.
 (define_split
   [(set (match_operand:DI 0 "register_operand")
 	(and:DI (match_operand:DI 1 "register_operand")
-		(match_operand:DI 2 "high_mask_shift_operand")))]
+		(match_operand:DI 2 "high_mask_shift_operand")))
+   (clobber (match_operand:DI 3 "register_operand"))]
   "TARGET_64BIT"
-  [(set (match_dup 0)
+  [(set (match_dup 3)
 	(lshiftrt:DI (match_dup 1) (match_dup 2)))
    (set (match_dup 0)
-	(ashift:DI (match_dup 0) (match_dup 2)))]
+	(ashift:DI (match_dup 3) (match_dup 2)))]
 {
   operands[2] = GEN_INT (ctz_hwi (INTVAL (operands[2])));
 })
@@ -1803,31 +1817,52 @@
 
 ;; Conditional branches
 
-(define_insn "*branch_order<mode>"
+(define_insn "*branch<mode>"
   [(set (pc)
 	(if_then_else
 	 (match_operator 1 "order_operator"
 			 [(match_operand:X 2 "register_operand" "r")
-			  (match_operand:X 3 "register_operand" "r")])
+			  (match_operand:X 3 "reg_or_0_operand" "rJ")])
 	 (label_ref (match_operand 0 "" ""))
 	 (pc)))]
   ""
-  "b%C1\t%2,%3,%0"
+  "b%C1\t%2,%z3,%0"
   [(set_attr "type" "branch")
    (set_attr "mode" "none")])
 
-(define_insn "*branch_zero<mode>"
-  [(set (pc)
-	(if_then_else
-	 (match_operator 1 "signed_order_operator"
-			 [(match_operand:X 2 "register_operand" "r")
-			  (const_int 0)])
-	 (label_ref (match_operand 0 "" ""))
-	 (pc)))]
-  ""
-  "b%C1z\t%2,%0"
-  [(set_attr "type" "branch")
-   (set_attr "mode" "none")])
+;; Patterns for implementations that optimize short forward branches.
+
+(define_expand "mov<mode>cc"
+  [(set (match_operand:GPR 0 "register_operand")
+	(if_then_else:GPR (match_operand 1 "comparison_operator")
+			  (match_operand:GPR 2 "register_operand")
+			  (match_operand:GPR 3 "sfb_alu_operand")))]
+  "TARGET_SFB_ALU"
+{
+  rtx cmp = operands[1];
+  /* We only handle word mode integer compares for now.  */
+  if (GET_MODE (XEXP (cmp, 0)) != word_mode)
+    FAIL;
+  riscv_expand_conditional_move (operands[0], operands[2], operands[3],
+				 GET_CODE (cmp), XEXP (cmp, 0), XEXP (cmp, 1));
+  DONE;
+})
+
+(define_insn "*mov<GPR:mode><X:mode>cc"
+  [(set (match_operand:GPR 0 "register_operand" "=r,r")
+	(if_then_else:GPR
+	 (match_operator 5 "order_operator"
+		[(match_operand:X 1 "register_operand" "r,r")
+		 (match_operand:X 2 "reg_or_0_operand" "rJ,rJ")])
+	 (match_operand:GPR 3 "register_operand" "0,0")
+	 (match_operand:GPR 4 "sfb_alu_operand" "rJ,IL")))]
+  "TARGET_SFB_ALU"
+  "@
+   b%C5 %1,%z2,1f; mv %0,%z4; 1: # movcc
+   b%C5 %1,%z2,1f; li %0,%4; 1: # movcc"
+  [(set_attr "length" "8")
+   (set_attr "type" "sfb_alu")
+   (set_attr "mode" "<GPR:MODE>")])
 
 ;; Used to implement built-in functions.
 (define_expand "condjump"
@@ -2032,7 +2067,7 @@
   ""
   "slt%i2<u>\t%0,zero,%1"
   [(set_attr "type" "slt")
-   (set_attr "mode" "<MODE>")])
+   (set_attr "mode" "<X:MODE>")])
 
 (define_insn "*slt<u>_<X:mode><GPR:mode>"
   [(set (match_operand:GPR           0 "register_operand" "= r")
@@ -2041,7 +2076,7 @@
   ""
   "slt%i2<u>\t%0,%1,%2"
   [(set_attr "type" "slt")
-   (set_attr "mode" "<MODE>")])
+   (set_attr "mode" "<X:MODE>")])
 
 (define_insn "*sle<u>_<X:mode><GPR:mode>"
   [(set (match_operand:GPR           0 "register_operand" "=r")
@@ -2053,7 +2088,7 @@
   return "slt%i2<u>\t%0,%1,%2";
 }
   [(set_attr "type" "slt")
-   (set_attr "mode" "<MODE>")])
+   (set_attr "mode" "<X:MODE>")])
 
 ;;
 ;;  ....................

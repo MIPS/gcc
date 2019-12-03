@@ -7,8 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef __PSTL_parallel_backend_utils_H
-#define __PSTL_parallel_backend_utils_H
+#ifndef _PSTL_PARALLEL_BACKEND_UTILS_H
+#define _PSTL_PARALLEL_BACKEND_UTILS_H
 
 #include <iterator>
 #include <utility>
@@ -53,7 +53,7 @@ struct __serial_move_merge
                _RandomAccessIterator2 __ye, _RandomAccessIterator3 __zs, _Compare __comp)
     {
         auto __n = _M_nmerge;
-        assert(__n > 0);
+        _PSTL_ASSERT(__n > 0);
         if (__xs != __xe)
         {
             if (__ys != __ye)
@@ -145,7 +145,7 @@ class __stack
 
     ~__stack()
     {
-        assert(size() <= _M_maxsize);
+        _PSTL_ASSERT(size() <= _M_maxsize);
         while (!empty())
             pop();
     }
@@ -158,20 +158,20 @@ class __stack
     size_t
     size() const
     {
-        assert(_M_ptr - _M_buf.get() <= _M_maxsize);
-        assert(_M_ptr - _M_buf.get() >= 0);
+        _PSTL_ASSERT(_M_ptr - _M_buf.get() <= _M_maxsize);
+        _PSTL_ASSERT(_M_ptr - _M_buf.get() >= 0);
         return _M_ptr - _M_buf.get();
     }
     bool
     empty() const
     {
-        assert(_M_ptr >= _M_buf.get());
+        _PSTL_ASSERT(_M_ptr >= _M_buf.get());
         return _M_ptr == _M_buf.get();
     }
     void
     push(const _ValueType& __v)
     {
-        assert(size() < _M_maxsize);
+        _PSTL_ASSERT(size() < _M_maxsize);
         new (_M_ptr) _ValueType(__v);
         ++_M_ptr;
     }
@@ -183,7 +183,7 @@ class __stack
     void
     pop()
     {
-        assert(_M_ptr > _M_buf.get());
+        _PSTL_ASSERT(_M_ptr > _M_buf.get());
         --_M_ptr;
         (*_M_ptr).~_ValueType();
     }
@@ -192,4 +192,4 @@ class __stack
 } // namespace __par_backend
 } // namespace __pstl
 
-#endif /* __PSTL_parallel_backend_utils_H */
+#endif /* _PSTL_PARALLEL_BACKEND_UTILS_H */

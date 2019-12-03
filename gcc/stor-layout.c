@@ -42,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify.h"
 #include "attribs.h"
 #include "debug.h"
+#include "calls.h"
 
 /* Data type for the expressions representing sizes of data types.
    It is the first integer type laid out.  */
@@ -514,18 +515,43 @@ mode_for_vector (scalar_mode innermode, poly_uint64 nunits)
   return opt_machine_mode ();
 }
 
-/* Return the mode for a vector that has NUNITS integer elements of
-   INT_BITS bits each, if such a mode exists.  The mode can be either
-   an integer mode or a vector mode.  */
+/* If a piece of code is using vector mode VECTOR_MODE and also wants
+   to operate on elements of mode ELEMENT_MODE, return the vector mode
+   it should use for those elements.  If NUNITS is nonzero, ensure that
+   the mode has exactly NUNITS elements, otherwise pick whichever vector
+   size pairs the most naturally with VECTOR_MODE; this may mean choosing
+   a mode with a different size and/or number of elements, depending on
+   what the target prefers.  Return an empty opt_machine_mode if there
+   is no supported vector mode with the required properties.
+
+   Unlike mode_for_vector. any returned mode is guaranteed to satisfy
+   both VECTOR_MODE_P and targetm.vector_mode_supported_p.  */
 
 opt_machine_mode
-mode_for_int_vector (unsigned int int_bits, poly_uint64 nunits)
+related_vector_mode (machine_mode vector_mode, scalar_mode element_mode,
+		     poly_uint64 nunits)
 {
+  gcc_assert (VECTOR_MODE_P (vector_mode));
+  return targetm.vectorize.related_mode (vector_mode, element_mode, nunits);
+}
+
+/* If a piece of code is using vector mode VECTOR_MODE and also wants
+   to operate on integer vectors with the same element size and number
+   of elements, return the vector mode it should use.  Return an empty
+   opt_machine_mode if there is no supported vector mode with the
+   required properties.
+
+   Unlike mode_for_vector. any returned mode is guaranteed to satisfy
+   both VECTOR_MODE_P and targetm.vector_mode_supported_p.  */
+
+opt_machine_mode
+related_int_vector_mode (machine_mode vector_mode)
+{
+  gcc_assert (VECTOR_MODE_P (vector_mode));
   scalar_int_mode int_mode;
-  machine_mode vec_mode;
-  if (int_mode_for_size (int_bits, 0).exists (&int_mode)
-      && mode_for_vector (int_mode, nunits).exists (&vec_mode))
-    return vec_mode;
+  if (int_mode_for_mode (GET_MODE_INNER (vector_mode)).exists (&int_mode))
+    return related_vector_mode (vector_mode, int_mode,
+				GET_MODE_NUNITS (vector_mode));
   return opt_machine_mode ();
 }
 
@@ -683,7 +709,8 @@ layout_decl (tree decl, unsigned int known_align)
 	  /* See if we can use an ordinary integer mode for a bit-field.
 	     Conditions are: a fixed size that is correct for another mode,
 	     occupying a complete byte or bytes on proper boundary.  */
-	  if (type_size_known_constant_p (type)
+	  if (TYPE_SIZE (type) != 0
+	      && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
 	      && GET_MODE_CLASS (TYPE_MODE (type)) == MODE_INT)
 	    {
 	      machine_mode xmode;
@@ -1859,8 +1886,9 @@ compute_record_mode (tree type)
        || (TREE_CODE (type) == UNION_TYPE
 	   && (GET_MODE_CLASS (mode) == MODE_INT
 	       || (GET_MODE_CLASS (mode) == MODE_PARTIAL_INT
-		   && targetm.calls.pass_by_reference (pack_cumulative_args (0),
-						       mode, type, 0)))))
+		   && (targetm.calls.pass_by_reference
+		       (pack_cumulative_args (0),
+			function_arg_info (type, mode, /*named=*/false)))))))
       && mode != VOIDmode
       && known_eq (GET_MODE_BITSIZE (mode), type_size))
     ;
@@ -2544,7 +2572,8 @@ layout_type (tree type)
 	  TYPE_TYPELESS_STORAGE (type) = TYPE_TYPELESS_STORAGE (element);
 	/* When the element size is constant, check that it is at least as
 	   large as the element alignment.  */
-	if (type_size_known_constant_p (element)
+	if (TYPE_SIZE_UNIT (element)
+	    && TREE_CODE (TYPE_SIZE_UNIT (element)) == INTEGER_CST
 	    /* If TYPE_SIZE_UNIT overflowed, then it is certainly larger than
 	       TYPE_ALIGN_UNIT.  */
 	    && !TREE_OVERFLOW (TYPE_SIZE_UNIT (element))
@@ -2714,10 +2743,12 @@ initialize_sizetypes (void)
       for (i = 0; i < NUM_INT_N_ENTS; i++)
 	if (int_n_enabled_p[i])
 	  {
-	    char name[50];
+	    char name[50], altname[50];
 	    sprintf (name, "__int%d unsigned", int_n_data[i].bitsize);
+	    sprintf (altname, "__int%d__ unsigned", int_n_data[i].bitsize);
 
-	    if (strcmp (name, SIZETYPE) == 0)
+	    if (strcmp (name, SIZETYPE) == 0
+		|| strcmp (altname, SIZETYPE) == 0)
 	      {
 		precision = int_n_data[i].bitsize;
 	      }

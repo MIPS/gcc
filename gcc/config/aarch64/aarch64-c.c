@@ -69,6 +69,8 @@ aarch64_define_unconditional_macros (cpp_reader *pfile)
   builtin_define ("__ARM_FEATURE_UNALIGNED");
   builtin_define ("__ARM_PCS_AAPCS64");
   builtin_define_with_int_value ("__ARM_SIZEOF_WCHAR_T", WCHAR_TYPE_SIZE / 8);
+
+  builtin_define ("__GCC_ASM_FLAG_OUTPUTS__");
 }
 
 /* Undefine/redefine macros that depend on the current backend state and may
@@ -110,6 +112,7 @@ aarch64_update_cpp_builtins (cpp_reader *pfile)
   aarch64_def_or_undef (TARGET_CRC32, "__ARM_FEATURE_CRC32", pfile);
   aarch64_def_or_undef (TARGET_DOTPROD, "__ARM_FEATURE_DOTPROD", pfile);
   aarch64_def_or_undef (TARGET_COMPLEX, "__ARM_FEATURE_COMPLEX", pfile);
+  aarch64_def_or_undef (TARGET_JSCVT, "__ARM_FEATURE_JCVT", pfile);
 
   cpp_undef (pfile, "__AARCH64_CMODEL_TINY__");
   cpp_undef (pfile, "__AARCH64_CMODEL_SMALL__");
@@ -146,7 +149,9 @@ aarch64_update_cpp_builtins (cpp_reader *pfile)
 	bits = 0;
       builtin_define_with_int_value ("__ARM_FEATURE_SVE_BITS", bits);
     }
+  aarch64_def_or_undef (TARGET_SVE2, "__ARM_FEATURE_SVE2", pfile);
 
+  aarch64_def_or_undef (TARGET_LSE, "__ARM_FEATURE_ATOMICS", pfile);
   aarch64_def_or_undef (TARGET_AES, "__ARM_FEATURE_AES", pfile);
   aarch64_def_or_undef (TARGET_SHA2, "__ARM_FEATURE_SHA2", pfile);
   aarch64_def_or_undef (TARGET_SHA3, "__ARM_FEATURE_SHA3", pfile);
@@ -154,6 +159,11 @@ aarch64_update_cpp_builtins (cpp_reader *pfile)
   aarch64_def_or_undef (TARGET_SM4, "__ARM_FEATURE_SM3", pfile);
   aarch64_def_or_undef (TARGET_SM4, "__ARM_FEATURE_SM4", pfile);
   aarch64_def_or_undef (TARGET_F16FML, "__ARM_FEATURE_FP16_FML", pfile);
+
+  aarch64_def_or_undef (TARGET_FRINT, "__ARM_FEATURE_FRINT", pfile);
+  aarch64_def_or_undef (TARGET_TME, "__ARM_FEATURE_TME", pfile);
+  aarch64_def_or_undef (TARGET_RNG, "__ARM_FEATURE_RNG", pfile);
+  aarch64_def_or_undef (TARGET_MEMTAG, "__ARM_FEATURE_MEMORY_TAGGING", pfile);
 
   /* Not for ACLE, but required to keep "float.h" correct if we switch
      target between implementations that do or do not support ARMv8.2-A
@@ -264,23 +274,21 @@ aarch64_resolve_overloaded_builtin (unsigned int uncast_location,
   vec<tree, va_gc> *arglist = (uncast_arglist
 			       ? (vec<tree, va_gc> *) uncast_arglist
 			       : &empty);
-  unsigned int code = DECL_FUNCTION_CODE (fndecl);
+  unsigned int code = DECL_MD_FUNCTION_CODE (fndecl);
   unsigned int subcode = code >> AARCH64_BUILTIN_SHIFT;
   tree new_fndecl;
   switch (code & AARCH64_BUILTIN_CLASS)
     {
     case AARCH64_BUILTIN_GENERAL:
-      return NULL_TREE;
-
+      return aarch64_resolve_overloaded_builtin_general (location, fndecl,
+							 uncast_arglist);
     case AARCH64_BUILTIN_SVE:
       new_fndecl = aarch64_sve::resolve_overloaded_builtin (location, subcode,
 							    arglist);
       break;
     }
-  if (!new_fndecl)
-    return NULL_TREE;
-  if (new_fndecl == error_mark_node)
-    return error_mark_node;
+  if (new_fndecl == NULL_TREE || new_fndecl == error_mark_node)
+    return new_fndecl;
   return build_function_call_vec (location, vNULL, new_fndecl, arglist,
 				  NULL, fndecl);
 }
@@ -291,7 +299,7 @@ aarch64_check_builtin_call (location_t loc, vec<location_t> arg_loc,
 			    tree fndecl, tree orig_fndecl,
 			    unsigned int nargs, tree *args)
 {
-  unsigned int code = DECL_FUNCTION_CODE (fndecl);
+  unsigned int code = DECL_MD_FUNCTION_CODE (fndecl);
   unsigned int subcode = code >> AARCH64_BUILTIN_SHIFT;
   switch (code & AARCH64_BUILTIN_CLASS)
     {

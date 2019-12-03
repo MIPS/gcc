@@ -10,15 +10,15 @@
     TYPE a[N], b[N];						\
     for (int i = 0; i < N; ++i)					\
       {								\
-	a[i] = i * i + i % 5;					\
-	b[i] = i * 3 + i % 7;					\
+	a[i] = (TYPE) i * i + i % 5;				\
+	b[i] = (TYPE) i * 3 + i % 7;				\
 	asm volatile ("" ::: "memory");				\
       }								\
     test_##TYPE (a, b, N);					\
     for (int i = 0; i < N; ++i)					\
       {								\
-	TYPE expected = ((i * i + i % 5)			\
-			 + (i * 3 + i % 7) * FACTOR);		\
+	TYPE expected = ((TYPE) (i * i + i % 5)			\
+			 + ((TYPE) i * 3 + i % 7) * FACTOR);	\
 	if (a[i] != expected)					\
 	  __builtin_abort ();					\
       }								\

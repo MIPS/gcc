@@ -10,7 +10,7 @@ AC_INIT(package-unused, version-unused,, libgo)
 AC_CONFIG_SRCDIR(Makefile.am)
 AC_CONFIG_HEADER(config.h)
 
-libtool_VERSION=14:0:0
+libtool_VERSION=15:0:0
 AC_SUBST(libtool_VERSION)
 
 AM_ENABLE_MULTILIB(, ..)
@@ -26,6 +26,7 @@ m4_rename([_AC_ARG_VAR_PRECIOUS],[glibgo_PRECIOUS])
 m4_define([_AC_ARG_VAR_PRECIOUS],[])
 AC_PROG_CC
 AC_PROG_GO
+AM_PROG_AS
 m4_rename_force([glibgo_PRECIOUS],[_AC_ARG_VAR_PRECIOUS])
 
 AC_SUBST(CFLAGS)
@@ -128,7 +129,7 @@ if test "$with_libffi" != no; then
 fi
 AC_SUBST(LIBFFI)
 AC_SUBST(LIBFFIINCS)
-AM_CONDITIONAL(USE_LIBFFI, test "$with_liffi" != "no")
+AM_CONDITIONAL(USE_LIBFFI, test "$with_libffi" != "no")
 
 # See if the user wants to configure without libatomic. This is useful if we are
 # on an architecture for which libgo does not need an atomic support library and
@@ -153,7 +154,7 @@ AC_SUBST(go_include)
 # All known GOOS values.  This is the union of all operating systems
 # supported by the gofrontend and all operating systems supported by
 # the gc toolchain.
-ALLGOOS="aix android darwin dragonfly freebsd hurd irix js linux netbsd openbsd plan9 rtems solaris windows"
+ALLGOOS="aix android darwin dragonfly freebsd hurd illumos irix js linux netbsd openbsd plan9 rtems solaris windows"
 
 is_darwin=no
 is_freebsd=no
@@ -353,6 +354,8 @@ AC_SUBST(GOARCH)
 AC_SUBST(ALLGOARCH)
 AC_SUBST(ALLGOARCHFAMILY)
 
+AM_CONDITIONAL(LIBGO_IS_X86, test "$GOARCH" = "386" -o "$GOARCH" = "amd64" -o "$GOARCH" = "amd64p32")
+
 FUNCTION_DESCRIPTORS=false
 case ${host} in
   rs6000*-*-* | powerpc*-*-*)
@@ -397,7 +400,7 @@ case "$target" in
 	# msghdr in <sys/socket.h>.
 	OSCFLAGS="$OSCFLAGS -D_XOPEN_SOURCE=500"
 	;;
-    *-*-solaris2.1[[01]])
+    *-*-solaris2.*)
 	# Solaris 10+ needs this so struct msghdr gets the msg_control
 	# etc. fields in <sys/socket.h> (_XPG4_2).  _XOPEN_SOURCE=600 as
 	# above doesn't work with C99.
@@ -874,7 +877,7 @@ else
   multilib_arg=
 fi
 
-AC_CONFIG_FILES(Makefile testsuite/Makefile)
+AC_CONFIG_FILES(Makefile testsuite/Makefile testsuite/libgo-test-support.exp)
 
 AC_CONFIG_COMMANDS([default],
 [if test -n "$CONFIG_FILES"; then

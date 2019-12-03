@@ -46,6 +46,16 @@
   (and (match_code "symbol_ref, label_ref, const, const_int, const_wide_int, const_double, const_vector")
        (match_test "CONSTANT_P (op)")))
 
+; An operand used as vector permutation pattern
+
+; This in particular accepts constants which would otherwise be
+; rejected.  These constants require special post reload handling
+
+(define_special_predicate "permute_pattern_operand"
+  (and (match_code "const_vector,mem,reg,subreg")
+       (match_test "GET_MODE (op) == V16QImode")
+       (match_test "!MEM_P (op) || s390_mem_constraint (\"R\", op)")))
+
 ;; Return true if OP is a valid S-type operand.
 
 (define_predicate "s_operand"
@@ -546,3 +556,38 @@
 {
   return memory_operand (op, mode) && !contains_symbol_ref_p (op);
 })
+
+;; Check for a valid shift count operand with an implicit
+;; shift truncation mask of 63.
+
+(define_predicate "shift_count_operand"
+ (and (match_code "reg, subreg, and, plus, const_int")
+  (match_test "CONST_INT_P (op) || GET_MODE (op) == E_QImode"))
+{
+  return s390_valid_shift_count (op, 63);
+}
+)
+
+;; This is used as operand predicate.  As we do not know
+;; the mode of the first operand here and the shift truncation
+;; mask depends on the mode, we cannot check the mask.
+;; This is supposed to happen in the insn condition which
+;; calls s390_valid_shift_count with the proper mode size.
+;; We need two separate predicates for non-vector and vector
+;; shifts since the (less restrictive) insn condition is checked
+;; after the more restrictive operand predicate which will
+;; disallow the operand before we can check the condition.
+
+(define_predicate "shift_count_operand_vec"
+ (and (match_code "reg, subreg, and, plus, const_int")
+  (match_test "CONST_INT_P (op) || GET_MODE (op) == E_QImode"))
+{
+  return s390_valid_shift_count (op, 0);
+}
+)
+
+; An integer constant which can be used in a signed add with overflow
+; pattern without being reloaded.
+(define_predicate "addv_const_operand"
+  (and (match_code "const_int")
+       (match_test "INTVAL (op) >= -32768 && INTVAL (op) <= 32767")))

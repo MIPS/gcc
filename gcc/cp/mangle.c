@@ -414,8 +414,7 @@ canonicalize_for_substitution (tree node)
       else
 	node = cp_build_qualified_type (TYPE_MAIN_VARIANT (node),
 					cp_type_quals (node));
-      if (TREE_CODE (node) == FUNCTION_TYPE
-	  || TREE_CODE (node) == METHOD_TYPE)
+      if (FUNC_OR_METHOD_TYPE_P (node))
 	{
 	  node = build_ref_qualified_type (node, type_memfn_rqual (orig));
 	  tree r = canonical_eh_spec (TYPE_RAISES_EXCEPTIONS (orig));
@@ -874,7 +873,16 @@ decl_mangling_context (tree decl)
   else if (template_type_parameter_p (decl))
      /* template type parms have no mangling context.  */
       return NULL_TREE;
-  return CP_DECL_CONTEXT (decl);
+
+  tcontext = CP_DECL_CONTEXT (decl);
+
+  /* Ignore the artificial declare reduction functions.  */
+  if (tcontext
+      && TREE_CODE (tcontext) == FUNCTION_DECL
+      && DECL_OMP_DECLARE_REDUCTION_P (tcontext))
+    return decl_mangling_context (tcontext);
+
+  return tcontext;
 }
 
 /* <name> ::= <unscoped-name>
@@ -1366,8 +1374,7 @@ write_unqualified_name (tree decl)
 	      type = TREE_TYPE (fn_type);
 	    }
 	  else if (FNDECL_USED_AUTO (decl))
-	    type = (DECL_STRUCT_FUNCTION (decl)->language
-		    ->x_auto_return_pattern);
+	    type = DECL_SAVED_AUTO_RETURN_TYPE (decl);
 	  else
 	    type = DECL_CONV_FN_TYPE (decl);
 	  write_conversion_operator_name (type);
@@ -2006,8 +2013,7 @@ write_local_name (tree function, const tree local_entity,
       write_name (entity, /*ignore_local_scope=*/1);
       if (DECL_DISCRIMINATOR_P (local_entity)
 	  && !(TREE_CODE (local_entity) == TYPE_DECL
-	       && (LAMBDA_TYPE_P (TREE_TYPE (local_entity))
-		   || TYPE_UNNAMED_P (TREE_TYPE (local_entity)))))
+	       && TYPE_ANON_P (TREE_TYPE (local_entity))))
 	write_discriminator (discriminator_for_local_entity (local_entity));
     }
 }
@@ -2071,8 +2077,7 @@ write_type (tree type)
 	  t = cp_build_type_attribute_variant (t, attrs);
 	}
       gcc_assert (t != type);
-      if (TREE_CODE (t) == FUNCTION_TYPE
-	  || TREE_CODE (t) == METHOD_TYPE)
+      if (FUNC_OR_METHOD_TYPE_P (t))
 	{
 	  t = build_ref_qualified_type (t, type_memfn_rqual (type));
 	  if (flag_noexcept_type)
@@ -2103,8 +2108,7 @@ write_type (tree type)
 
       /* See through any typedefs.  */
       type = TYPE_MAIN_VARIANT (type);
-      if (TREE_CODE (type) == FUNCTION_TYPE
-	  || TREE_CODE (type) == METHOD_TYPE)
+      if (FUNC_OR_METHOD_TYPE_P (type))
 	type = cxx_copy_lang_qualifiers (type, type_orig);
 
       /* According to the C++ ABI, some library classes are passed the
@@ -2309,11 +2313,11 @@ write_type (tree type)
 	      break;
 
 	    case TYPEOF_TYPE:
-	      sorry ("mangling typeof, use decltype instead");
+	      sorry ("mangling %<typeof%>, use %<decltype%> instead");
 	      break;
 
 	    case UNDERLYING_TYPE:
-	      sorry ("mangling __underlying_type");
+	      sorry ("mangling %<__underlying_type%>");
 	      break;
 
 	    case LANG_TYPE:
@@ -3136,18 +3140,48 @@ write_expression (tree expr)
     }
   else if (code == CONSTRUCTOR)
     {
-      vec<constructor_elt, va_gc> *elts = CONSTRUCTOR_ELTS (expr);
-      unsigned i; tree val;
+      bool braced_init = BRACE_ENCLOSED_INITIALIZER_P (expr);
+      tree etype = TREE_TYPE (expr);
 
-      if (BRACE_ENCLOSED_INITIALIZER_P (expr))
+      if (braced_init)
 	write_string ("il");
       else
 	{
 	  write_string ("tl");
-	  write_type (TREE_TYPE (expr));
+	  write_type (etype);
 	}
-      FOR_EACH_CONSTRUCTOR_VALUE (elts, i, val)
-	write_expression (val);
+
+      if (!initializer_zerop (expr) || !trivial_type_p (etype))
+	{
+	  /* Convert braced initializer lists to STRING_CSTs so that
+	     A<"Foo"> mangles the same as A<{'F', 'o', 'o', 0}> while
+	     still using the latter mangling for strings that
+	     originated as braced initializer lists.  */
+	  expr = braced_lists_to_strings (etype, expr);
+
+	  if (TREE_CODE (expr) == CONSTRUCTOR)
+	    {
+	      vec<constructor_elt, va_gc> *elts = CONSTRUCTOR_ELTS (expr);
+	      unsigned last_nonzero = -1, i;
+	      tree val;
+
+	      FOR_EACH_CONSTRUCTOR_VALUE (elts, i, val)
+		if (!initializer_zerop (val))
+		  last_nonzero = i;
+
+	      FOR_EACH_CONSTRUCTOR_VALUE (elts, i, val)
+		{
+		  if (i > last_nonzero)
+		    break;
+		  write_expression (val);
+		}
+	    }
+	  else
+	    {
+	      gcc_assert (TREE_CODE (expr) == STRING_CST);
+	      write_expression (expr);
+	    }
+	}
       write_char ('E');
     }
   else if (code == LAMBDA_EXPR)
@@ -3252,8 +3286,7 @@ write_expression (tree expr)
 
 	    /* Mangle a dependent name as the name, not whatever happens to
 	       be the first function in the overload set.  */
-	    if ((TREE_CODE (fn) == FUNCTION_DECL
-		 || TREE_CODE (fn) == OVERLOAD)
+	    if (OVL_P (fn)
 		&& type_dependent_expression_p_push (expr))
 	      fn = OVL_NAME (fn);
 
@@ -3353,8 +3386,14 @@ write_expression (tree expr)
 static void
 write_template_arg_literal (const tree value)
 {
-  write_char ('L');
-  write_type (TREE_TYPE (value));
+  if (TREE_CODE (value) == STRING_CST)
+    /* Temporarily mangle strings as braced initializer lists.  */
+    write_string ("tl");
+  else
+    write_char ('L');
+
+  tree valtype = TREE_TYPE (value);
+  write_type (valtype);
 
   /* Write a null member pointer value as (type)0, regardless of its
      real representation.  */
@@ -3370,7 +3409,9 @@ write_template_arg_literal (const tree value)
       case INTEGER_CST:
 	gcc_assert (!same_type_p (TREE_TYPE (value), boolean_type_node)
 		    || integer_zerop (value) || integer_onep (value));
-	write_integer_cst (value);
+	if (!(abi_version_at_least (14)
+	      && NULLPTR_TYPE_P (TREE_TYPE (value))))
+	  write_integer_cst (value);
 	break;
 
       case REAL_CST:
@@ -3397,8 +3438,31 @@ write_template_arg_literal (const tree value)
 	break;
 
       case STRING_CST:
-	sorry ("string literal in function template signature");
-	break;
+	{
+	  /* Mangle strings the same as braced initializer lists.  */
+	  unsigned n = TREE_STRING_LENGTH (value);
+	  const char *str = TREE_STRING_POINTER (value);
+
+	  /* Count the number of trailing nuls and subtract them from
+	     STRSIZE because they don't need to be mangled.  */
+	  for (const char *p = str + n - 1; ; --p)
+	    {
+	      if (*p || p == str)
+		{
+		  n -= str + n - !!*p - p;
+		  break;
+		}
+	    }
+	  tree eltype = TREE_TYPE (valtype);
+	  for (const char *p = str; n--; ++p)
+	    {
+	      write_char ('L');
+	      write_type (eltype);
+	      write_unsigned_number (*(const unsigned char*)p);
+	      write_string ("E");
+	    }
+	  break;
+	}
 
       default:
 	gcc_unreachable ();
@@ -3738,7 +3802,6 @@ static tree
 mangle_decl_string (const tree decl)
 {
   tree result;
-  location_t saved_loc = input_location;
   tree saved_fn = NULL_TREE;
   bool template_p = false;
 
@@ -3756,7 +3819,7 @@ mangle_decl_string (const tree decl)
 	  current_function_decl = NULL_TREE;
 	}
     }
-  input_location = DECL_SOURCE_LOCATION (decl);
+  iloc_sentinel ils (DECL_SOURCE_LOCATION (decl));
 
   start_mangling (decl);
 
@@ -3775,7 +3838,6 @@ mangle_decl_string (const tree decl)
       pop_tinst_level ();
       current_function_decl = saved_fn;
     }
-  input_location = saved_loc;
 
   return result;
 }

@@ -200,7 +200,7 @@ gen_stdcall_or_fastcall_suffix (tree decl, tree id, bool fastcall)
 	  HOST_WIDE_INT parm_size;
 	  HOST_WIDE_INT parm_boundary_bytes = PARM_BOUNDARY / BITS_PER_UNIT;
 
-	  if (! TYPE_LAID_OUT_P (arg))
+	  if (! COMPLETE_TYPE_P (arg))
 	    break;
 
 	  parm_size = int_size_in_bytes (arg);

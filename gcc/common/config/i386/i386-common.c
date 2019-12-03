@@ -88,6 +88,7 @@ along with GCC; see the file COPYING3.  If not see
   (OPTION_MASK_ISA_AVX512VPOPCNTDQ | OPTION_MASK_ISA_AVX512F_SET)
 #define OPTION_MASK_ISA_AVX512BITALG_SET \
   (OPTION_MASK_ISA_AVX512BITALG | OPTION_MASK_ISA_AVX512F_SET)
+#define OPTION_MASK_ISA_AVX512BF16_SET OPTION_MASK_ISA_AVX512BF16
 #define OPTION_MASK_ISA_RTM_SET OPTION_MASK_ISA_RTM
 #define OPTION_MASK_ISA_PRFCHW_SET OPTION_MASK_ISA_PRFCHW
 #define OPTION_MASK_ISA_RDSEED_SET OPTION_MASK_ISA_RDSEED
@@ -99,6 +100,7 @@ along with GCC; see the file COPYING3.  If not see
 #define OPTION_MASK_ISA_XSAVEC_SET \
   (OPTION_MASK_ISA_XSAVEC | OPTION_MASK_ISA_XSAVE_SET)
 #define OPTION_MASK_ISA_CLWB_SET OPTION_MASK_ISA_CLWB
+#define OPTION_MASK_ISA_AVX512VP2INTERSECT_SET OPTION_MASK_ISA_AVX512VP2INTERSECT
 
 /* SSE4 includes both SSE4.1 and SSE4.2. -msse4 should be the same
    as -msse4.2.  */
@@ -155,6 +157,7 @@ along with GCC; see the file COPYING3.  If not see
 #define OPTION_MASK_ISA_MOVDIR64B_SET OPTION_MASK_ISA_MOVDIR64B
 #define OPTION_MASK_ISA_WAITPKG_SET OPTION_MASK_ISA_WAITPKG
 #define OPTION_MASK_ISA_CLDEMOTE_SET OPTION_MASK_ISA_CLDEMOTE
+#define OPTION_MASK_ISA_ENQCMD_SET OPTION_MASK_ISA_ENQCMD
 
 /* Define a set of ISAs which aren't available when a given ISA is
    disabled.  MMX and SSE ISAs are handled separately.  */
@@ -215,6 +218,7 @@ along with GCC; see the file COPYING3.  If not see
 #define OPTION_MASK_ISA_AVX512VNNI_UNSET OPTION_MASK_ISA_AVX512VNNI
 #define OPTION_MASK_ISA_AVX512VPOPCNTDQ_UNSET OPTION_MASK_ISA_AVX512VPOPCNTDQ
 #define OPTION_MASK_ISA_AVX512BITALG_UNSET OPTION_MASK_ISA_AVX512BITALG
+#define OPTION_MASK_ISA_AVX512BF16_UNSET OPTION_MASK_ISA_AVX512BF16
 #define OPTION_MASK_ISA_RTM_UNSET OPTION_MASK_ISA_RTM
 #define OPTION_MASK_ISA_PRFCHW_UNSET OPTION_MASK_ISA_PRFCHW
 #define OPTION_MASK_ISA_RDSEED_UNSET OPTION_MASK_ISA_RDSEED
@@ -236,6 +240,8 @@ along with GCC; see the file COPYING3.  If not see
 #define OPTION_MASK_ISA_MOVDIR64B_UNSET OPTION_MASK_ISA_MOVDIR64B
 #define OPTION_MASK_ISA_WAITPKG_UNSET OPTION_MASK_ISA_WAITPKG
 #define OPTION_MASK_ISA_CLDEMOTE_UNSET OPTION_MASK_ISA_CLDEMOTE
+#define OPTION_MASK_ISA_ENQCMD_UNSET OPTION_MASK_ISA_ENQCMD
+#define OPTION_MASK_ISA_AVX512VP2INTERSECT_UNSET OPTION_MASK_ISA_AVX512VP2INTERSECT
 
 /* SSE4 includes both SSE4.1 and SSE4.2.  -mno-sse4 should the same
    as -mno-sse4.1. */
@@ -276,9 +282,14 @@ along with GCC; see the file COPYING3.  If not see
    | OPTION_MASK_ISA_SSE_UNSET)
 
 #define OPTION_MASK_ISA2_AVX512F_UNSET \
-  (OPTION_MASK_ISA_AVX5124FMAPS_UNSET | OPTION_MASK_ISA_AVX5124VNNIW_UNSET)
+  (OPTION_MASK_ISA_AVX512BF16_UNSET \
+   | OPTION_MASK_ISA_AVX5124FMAPS_UNSET \
+   | OPTION_MASK_ISA_AVX5124VNNIW_UNSET \
+   | OPTION_MASK_ISA_AVX512VP2INTERSECT_UNSET)
 #define OPTION_MASK_ISA2_GENERAL_REGS_ONLY_UNSET \
   (OPTION_MASK_ISA2_AVX512F_UNSET)
+
+#define OPTION_MASK_ISA2_AVX512BW_UNSET OPTION_MASK_ISA_AVX512BF16_UNSET
 
 /* Set 1 << value as value of -malign-FLAG option.  */
 
@@ -653,6 +664,19 @@ ix86_handle_option (struct gcc_options *opts,
 	}
       return true;
 
+    case OPT_menqcmd:
+      if (value)
+	{
+	  opts->x_ix86_isa_flags2 |= OPTION_MASK_ISA_ENQCMD_SET;
+	  opts->x_ix86_isa_flags2_explicit |= OPTION_MASK_ISA_ENQCMD_SET;
+	}
+      else
+	{
+	  opts->x_ix86_isa_flags2 &= ~OPTION_MASK_ISA_ENQCMD_UNSET;
+	  opts->x_ix86_isa_flags2_explicit |= OPTION_MASK_ISA_ENQCMD_UNSET;
+	}
+      return true;
+
     case OPT_mavx5124fmaps:
       if (value)
 	{
@@ -738,6 +762,21 @@ ix86_handle_option (struct gcc_options *opts,
 	}
       return true;
 
+    case OPT_mavx512bf16:
+      if (value)
+	{
+	  opts->x_ix86_isa_flags2 |= OPTION_MASK_ISA_AVX512BF16_SET;
+	  opts->x_ix86_isa_flags2_explicit |= OPTION_MASK_ISA_AVX512BF16_SET;
+	  opts->x_ix86_isa_flags |= OPTION_MASK_ISA_AVX512BW_SET;
+	  opts->x_ix86_isa_flags_explicit |= OPTION_MASK_ISA_AVX512BW_SET;
+	}
+      else
+	{
+	  opts->x_ix86_isa_flags2 &= ~OPTION_MASK_ISA_AVX512BF16_UNSET;
+	  opts->x_ix86_isa_flags2_explicit |= OPTION_MASK_ISA_AVX512BF16_UNSET;
+	}
+      return true;
+
     case OPT_msgx:
       if (value)
 	{
@@ -800,6 +839,8 @@ ix86_handle_option (struct gcc_options *opts,
 	{
 	  opts->x_ix86_isa_flags &= ~OPTION_MASK_ISA_AVX512BW_UNSET;
 	  opts->x_ix86_isa_flags_explicit |= OPTION_MASK_ISA_AVX512BW_UNSET;
+	  opts->x_ix86_isa_flags2 &= ~OPTION_MASK_ISA2_AVX512BW_UNSET;
+	  opts->x_ix86_isa_flags2_explicit |= OPTION_MASK_ISA2_AVX512BW_UNSET;
 	}
       return true;
 
@@ -839,6 +880,23 @@ ix86_handle_option (struct gcc_options *opts,
 	{
 	  opts->x_ix86_isa_flags &= ~OPTION_MASK_ISA_AVX512VBMI_UNSET;
 	  opts->x_ix86_isa_flags_explicit |= OPTION_MASK_ISA_AVX512VBMI_UNSET;
+	}
+      return true;
+
+    case OPT_mavx512vp2intersect:
+      if (value)
+	{
+	  opts->x_ix86_isa_flags2 |= OPTION_MASK_ISA_AVX512VP2INTERSECT_SET;
+	  opts->x_ix86_isa_flags2_explicit |=
+	    OPTION_MASK_ISA_AVX512VP2INTERSECT_SET;
+	  opts->x_ix86_isa_flags |= OPTION_MASK_ISA_AVX512F_SET;
+	  opts->x_ix86_isa_flags_explicit |= OPTION_MASK_ISA_AVX512F_SET;
+	}
+      else
+	{
+	  opts->x_ix86_isa_flags2 &= ~OPTION_MASK_ISA_AVX512VP2INTERSECT_UNSET;
+	  opts->x_ix86_isa_flags2_explicit |=
+	    OPTION_MASK_ISA_AVX512VP2INTERSECT_UNSET;
 	}
       return true;
 
@@ -1508,6 +1566,8 @@ const char *const processor_names[] =
   "icelake-client",
   "icelake-server",
   "cascadelake",
+  "tigerlake",
+  "cooperlake",
   "intel",
   "geode",
   "k6",
@@ -1590,6 +1650,8 @@ const pta processor_alias_table[] =
     PTA_ICELAKE_SERVER},
   {"cascadelake", PROCESSOR_CASCADELAKE, CPU_HASWELL,
     PTA_CASCADELAKE},
+  {"tigerlake", PROCESSOR_TIGERLAKE, CPU_HASWELL, PTA_TIGERLAKE},
+  {"cooperlake", PROCESSOR_COOPERLAKE, CPU_HASWELL, PTA_COOPERLAKE},
   {"bonnell", PROCESSOR_BONNELL, CPU_ATOM, PTA_BONNELL},
   {"atom", PROCESSOR_BONNELL, CPU_ATOM, PTA_BONNELL},
   {"silvermont", PROCESSOR_SILVERMONT, CPU_SLM, PTA_SILVERMONT},
@@ -1702,7 +1764,7 @@ const pta processor_alias_table[] =
       | PTA_RDRND | PTA_MOVBE | PTA_MWAITX | PTA_ADX | PTA_RDSEED
       | PTA_CLZERO | PTA_CLFLUSHOPT | PTA_XSAVEC | PTA_XSAVES
       | PTA_SHA | PTA_LZCNT | PTA_POPCNT},
-  {"znver2", PROCESSOR_ZNVER2, CPU_ZNVER1,
+  {"znver2", PROCESSOR_ZNVER2, CPU_ZNVER2,
     PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
       | PTA_SSE4A | PTA_CX16 | PTA_ABM | PTA_SSSE3 | PTA_SSE4_1
       | PTA_SSE4_2 | PTA_AES | PTA_PCLMUL | PTA_AVX | PTA_AVX2

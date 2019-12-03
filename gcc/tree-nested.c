@@ -153,7 +153,8 @@ create_tmp_var_for (struct nesting_info *info, tree type, const char *prefix)
      frontend, something is wrong.  Note that we explicitly allow
      incomplete types here, since we create them ourselves here.  */
   gcc_assert (!TREE_ADDRESSABLE (type));
-  gcc_assert (!type_size_known_variable_p (type));
+  gcc_assert (!TYPE_SIZE_UNIT (type)
+	      || TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST);
 
   tmp_var = create_tmp_var_raw (type, prefix);
   DECL_CONTEXT (tmp_var) = info->context;
@@ -166,6 +167,16 @@ create_tmp_var_for (struct nesting_info *info, tree type, const char *prefix)
   info->new_local_var_chain = tmp_var;
 
   return tmp_var;
+}
+
+/* Like build_simple_mem_ref, but set TREE_THIS_NOTRAP on the result.  */
+
+static tree
+build_simple_mem_ref_notrap (tree ptr)
+{
+  tree t = build_simple_mem_ref (ptr);
+  TREE_THIS_NOTRAP (t) = 1;
+  return t;
 }
 
 /* Take the address of EXP to be used within function CONTEXT.
@@ -876,7 +887,7 @@ get_static_chain (struct nesting_info *info, tree target_context,
 	{
 	  tree field = get_chain_field (i);
 
-	  x = build_simple_mem_ref (x);
+	  x = build_simple_mem_ref_notrap (x);
 	  x = build3 (COMPONENT_REF, TREE_TYPE (field), x, field, NULL_TREE);
 	  x = init_tmp_var (info, x, gsi);
 	}
@@ -913,12 +924,12 @@ get_frame_field (struct nesting_info *info, tree target_context,
 	{
 	  tree field = get_chain_field (i);
 
-	  x = build_simple_mem_ref (x);
+	  x = build_simple_mem_ref_notrap (x);
 	  x = build3 (COMPONENT_REF, TREE_TYPE (field), x, field, NULL_TREE);
 	  x = init_tmp_var (info, x, gsi);
 	}
 
-      x = build_simple_mem_ref (x);
+      x = build_simple_mem_ref_notrap (x);
     }
 
   x = build3 (COMPONENT_REF, TREE_TYPE (field), x, field, NULL_TREE);
@@ -962,16 +973,16 @@ get_nonlocal_debug_decl (struct nesting_info *info, tree decl)
       for (i = info->outer; i->context != target_context; i = i->outer)
 	{
 	  field = get_chain_field (i);
-	  x = build_simple_mem_ref (x);
+	  x = build_simple_mem_ref_notrap (x);
 	  x = build3 (COMPONENT_REF, TREE_TYPE (field), x, field, NULL_TREE);
 	}
-      x = build_simple_mem_ref (x);
+      x = build_simple_mem_ref_notrap (x);
     }
 
   field = lookup_field_for_decl (i, decl, INSERT);
   x = build3 (COMPONENT_REF, TREE_TYPE (field), x, field, NULL_TREE);
   if (use_pointer_in_frame (decl))
-    x = build_simple_mem_ref (x);
+    x = build_simple_mem_ref_notrap (x);
 
   /* ??? We should be remapping types as well, surely.  */
   new_decl = build_decl (DECL_SOURCE_LOCATION (decl),
@@ -1059,7 +1070,7 @@ convert_nonlocal_reference_op (tree *tp, int *walk_subtrees, void *data)
 	    if (use_pointer_in_frame (t))
 	      {
 		x = init_tmp_var (info, x, &wi->gsi);
-		x = build_simple_mem_ref (x);
+		x = build_simple_mem_ref_notrap (x);
 	      }
 	  }
 
@@ -1216,6 +1227,7 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_TO_DECLARE:
 	case OMP_CLAUSE_LINK:
 	case OMP_CLAUSE_USE_DEVICE_PTR:
+	case OMP_CLAUSE_USE_DEVICE_ADDR:
 	case OMP_CLAUSE_IS_DEVICE_PTR:
 	do_decl_clause:
 	  decl = OMP_CLAUSE_DECL (clause);
@@ -1342,11 +1354,14 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_THREADS:
 	case OMP_CLAUSE_SIMD:
 	case OMP_CLAUSE_DEFAULTMAP:
+	case OMP_CLAUSE_ORDER:
 	case OMP_CLAUSE_SEQ:
 	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_AUTO:
 	case OMP_CLAUSE_IF_PRESENT:
 	case OMP_CLAUSE_FINALIZE:
+	case OMP_CLAUSE__CONDTEMP_:
+	case OMP_CLAUSE__SCANTEMP_:
 	  break;
 
 	  /* The following clause belongs to the OpenACC cache directive, which
@@ -1617,6 +1632,7 @@ convert_nonlocal_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
     case GIMPLE_OMP_SECTION:
     case GIMPLE_OMP_MASTER:
     case GIMPLE_OMP_ORDERED:
+    case GIMPLE_OMP_SCAN:
       walk_body (convert_nonlocal_reference_stmt, convert_nonlocal_reference_op,
 	         info, gimple_omp_body_ptr (stmt));
       break;
@@ -1932,6 +1948,7 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_TO_DECLARE:
 	case OMP_CLAUSE_LINK:
 	case OMP_CLAUSE_USE_DEVICE_PTR:
+	case OMP_CLAUSE_USE_DEVICE_ADDR:
 	case OMP_CLAUSE_IS_DEVICE_PTR:
 	do_decl_clause:
 	  decl = OMP_CLAUSE_DECL (clause);
@@ -2069,11 +2086,14 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_THREADS:
 	case OMP_CLAUSE_SIMD:
 	case OMP_CLAUSE_DEFAULTMAP:
+	case OMP_CLAUSE_ORDER:
 	case OMP_CLAUSE_SEQ:
 	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_AUTO:
 	case OMP_CLAUSE_IF_PRESENT:
 	case OMP_CLAUSE_FINALIZE:
+	case OMP_CLAUSE__CONDTEMP_:
+	case OMP_CLAUSE__SCANTEMP_:
 	  break;
 
 	  /* The following clause belongs to the OpenACC cache directive, which
@@ -2319,6 +2339,7 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
     case GIMPLE_OMP_SECTION:
     case GIMPLE_OMP_MASTER:
     case GIMPLE_OMP_ORDERED:
+    case GIMPLE_OMP_SCAN:
       walk_body (convert_local_reference_stmt, convert_local_reference_op,
 		 info, gimple_omp_body_ptr (stmt));
       break;
@@ -2828,6 +2849,7 @@ convert_gimple_call (gimple_stmt_iterator *gsi, bool *handled_ops_p,
     case GIMPLE_OMP_MASTER:
     case GIMPLE_OMP_TASKGROUP:
     case GIMPLE_OMP_ORDERED:
+    case GIMPLE_OMP_SCAN:
     case GIMPLE_OMP_CRITICAL:
       walk_body (convert_gimple_call, NULL, info, gimple_omp_body_ptr (stmt));
       break;

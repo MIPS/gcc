@@ -192,6 +192,16 @@ extern unsigned aarch64_architecture_version;
 /* Execution and Data Prediction Restriction instructions supported.  */
 #define AARCH64_FL_PREDRES    (1 << 27)
 
+/* SVE2 instruction supported.  */
+#define AARCH64_FL_SVE2		(1 << 28)
+#define AARCH64_FL_SVE2_AES	(1 << 29)
+#define AARCH64_FL_SVE2_SM4	(1 << 30)
+#define AARCH64_FL_SVE2_SHA3	(1ULL << 31)
+#define AARCH64_FL_SVE2_BITPERM	(1ULL << 32)
+
+/* Transactional Memory Extension.  */
+#define AARCH64_FL_TME	      (1ULL << 33)  /* Has TME instructions.  */
+
 /* Has FP and SIMD.  */
 #define AARCH64_FL_FPSIMD     (AARCH64_FL_FP | AARCH64_FL_SIMD)
 
@@ -225,6 +235,7 @@ extern unsigned aarch64_architecture_version;
 #define AARCH64_ISA_V8_2	   (aarch64_isa_flags & AARCH64_FL_V8_2)
 #define AARCH64_ISA_F16		   (aarch64_isa_flags & AARCH64_FL_F16)
 #define AARCH64_ISA_SVE            (aarch64_isa_flags & AARCH64_FL_SVE)
+#define AARCH64_ISA_SVE2	   (aarch64_isa_flags & AARCH64_FL_SVE2)
 #define AARCH64_ISA_V8_3	   (aarch64_isa_flags & AARCH64_FL_V8_3)
 #define AARCH64_ISA_DOTPROD	   (aarch64_isa_flags & AARCH64_FL_DOTPROD)
 #define AARCH64_ISA_AES	           (aarch64_isa_flags & AARCH64_FL_AES)
@@ -234,7 +245,10 @@ extern unsigned aarch64_architecture_version;
 #define AARCH64_ISA_SHA3	   (aarch64_isa_flags & AARCH64_FL_SHA3)
 #define AARCH64_ISA_F16FML	   (aarch64_isa_flags & AARCH64_FL_F16FML)
 #define AARCH64_ISA_RCPC8_4	   (aarch64_isa_flags & AARCH64_FL_RCPC8_4)
+#define AARCH64_ISA_RNG		   (aarch64_isa_flags & AARCH64_FL_RNG)
 #define AARCH64_ISA_V8_5	   (aarch64_isa_flags & AARCH64_FL_V8_5)
+#define AARCH64_ISA_TME		   (aarch64_isa_flags & AARCH64_FL_TME)
+#define AARCH64_ISA_MEMTAG	   (aarch64_isa_flags & AARCH64_FL_MEMTAG)
 
 /* Crypto is an optional extension to AdvSIMD.  */
 #define TARGET_CRYPTO (TARGET_SIMD && AARCH64_ISA_CRYPTO)
@@ -270,11 +284,29 @@ extern unsigned aarch64_architecture_version;
 /* SVE instructions, enabled through +sve.  */
 #define TARGET_SVE (AARCH64_ISA_SVE)
 
+/* SVE2 instructions, enabled through +sve2.  */
+#define TARGET_SVE2 (AARCH64_ISA_SVE2)
+
 /* ARMv8.3-A features.  */
 #define TARGET_ARMV8_3	(AARCH64_ISA_V8_3)
 
+/* Javascript conversion instruction from Armv8.3-a.  */
+#define TARGET_JSCVT	(TARGET_FLOAT && AARCH64_ISA_V8_3)
+
 /* Armv8.3-a Complex number extension to AdvSIMD extensions.  */
 #define TARGET_COMPLEX (TARGET_SIMD && TARGET_ARMV8_3)
+
+/* Floating-point rounding instructions from Armv8.5-a.  */
+#define TARGET_FRINT (AARCH64_ISA_V8_5 && TARGET_FLOAT)
+
+/* TME instructions are enabled.  */
+#define TARGET_TME (AARCH64_ISA_TME)
+
+/* Random number instructions from Armv8.5-a.  */
+#define TARGET_RNG (AARCH64_ISA_RNG)
+
+/* Memory Tagging instructions optional to Armv8.5 enabled through +memtag.  */
+#define TARGET_MEMTAG (AARCH64_ISA_V8_5 && AARCH64_ISA_MEMTAG)
 
 /* Make sure this is always defined so we don't have to check for ifdefs
    but rather use normal ifs.  */
@@ -451,9 +483,10 @@ extern unsigned aarch64_architecture_version;
 #define ARG_POINTER_REGNUM		AP_REGNUM
 #define FIRST_PSEUDO_REGISTER		(FFRT_REGNUM + 1)
 
-/* The number of (integer) argument register available.  */
+/* The number of argument registers available for each class.  */
 #define NUM_ARG_REGS			8
 #define NUM_FP_ARG_REGS			8
+#define NUM_PR_ARG_REGS			4
 
 /* A Homogeneous Floating-Point or Short-Vector Aggregate may have at most
    four members.  */
@@ -511,6 +544,18 @@ extern unsigned aarch64_architecture_version;
 #define ASM_DECLARE_FUNCTION_NAME(STR, NAME, DECL)	\
   aarch64_declare_function_name (STR, NAME, DECL)
 
+/* Output assembly strings for alias definition.  */
+#define ASM_OUTPUT_DEF_FROM_DECLS(STR, DECL, TARGET) \
+  aarch64_asm_output_alias (STR, DECL, TARGET)
+
+/* Output assembly strings for undefined extern symbols.  */
+#undef ASM_OUTPUT_EXTERNAL
+#define ASM_OUTPUT_EXTERNAL(STR, DECL, NAME) \
+  aarch64_asm_output_external (STR, DECL, NAME)
+
+/* Output assembly strings after .cfi_startproc is emitted.  */
+#define ASM_POST_CFI_STARTPROC  aarch64_post_cfi_startproc
+
 /* For EH returns X4 contains the stack adjustment.  */
 #define EH_RETURN_STACKADJ_RTX	gen_rtx_REG (Pmode, R4_REGNUM)
 #define EH_RETURN_HANDLER_RTX  aarch64_eh_return_handler_rtx ()
@@ -567,6 +612,8 @@ enum reg_class
   PR_LO_REGS,
   PR_HI_REGS,
   PR_REGS,
+  FFR_REGS,
+  PR_AND_FFR_REGS,
   ALL_REGS,
   LIM_REG_CLASSES		/* Last */
 };
@@ -587,6 +634,8 @@ enum reg_class
   "PR_LO_REGS",					\
   "PR_HI_REGS",					\
   "PR_REGS",					\
+  "FFR_REGS",					\
+  "PR_AND_FFR_REGS",				\
   "ALL_REGS"					\
 }
 
@@ -604,6 +653,8 @@ enum reg_class
   { 0x00000000, 0x00000000, 0x00000ff0 },	/* PR_LO_REGS */	\
   { 0x00000000, 0x00000000, 0x000ff000 },	/* PR_HI_REGS */	\
   { 0x00000000, 0x00000000, 0x000ffff0 },	/* PR_REGS */		\
+  { 0x00000000, 0x00000000, 0x00300000 },	/* FFR_REGS */		\
+  { 0x00000000, 0x00000000, 0x003ffff0 },	/* PR_AND_FFR_REGS */	\
   { 0xffffffff, 0xffffffff, 0x000fffff }	/* ALL_REGS */		\
 }
 
@@ -679,7 +730,7 @@ extern enum aarch64_processor aarch64_tune;
 #ifdef HAVE_POLY_INT_H
 struct GTY (()) aarch64_frame
 {
-  HOST_WIDE_INT reg_offset[FIRST_PSEUDO_REGISTER];
+  poly_int64 reg_offset[LAST_SAVED_REGNUM + 1];
 
   /* The number of extra stack bytes taken up by register varargs.
      This area is allocated by the callee at the very top of the
@@ -687,9 +738,12 @@ struct GTY (()) aarch64_frame
      STACK_BOUNDARY.  */
   HOST_WIDE_INT saved_varargs_size;
 
-  /* The size of the saved callee-save int/FP registers.  */
+  /* The size of the callee-save registers with a slot in REG_OFFSET.  */
+  poly_int64 saved_regs_size;
 
-  HOST_WIDE_INT saved_regs_size;
+  /* The size of the callee-save registers with a slot in REG_OFFSET that
+     are saved below the hard frame pointer.  */
+  poly_int64 below_hard_fp_saved_regs_size;
 
   /* Offset from the base of the frame (incomming SP) to the
      top of the locals area.  This value is always a multiple of
@@ -717,6 +771,10 @@ struct GTY (()) aarch64_frame
      It may be non-zero if no push is used (ie. callee_adjust == 0).  */
   poly_int64 callee_offset;
 
+  /* The size of the stack adjustment before saving or after restoring
+     SVE registers.  */
+  poly_int64 sve_callee_adjust;
+
   /* The size of the stack adjustment after saving callee-saves.  */
   poly_int64 final_adjust;
 
@@ -725,6 +783,11 @@ struct GTY (()) aarch64_frame
 
   unsigned wb_candidate1;
   unsigned wb_candidate2;
+
+  /* Big-endian SVE frames need a spare predicate register in order
+     to save vector registers in the correct layout for unwinding.
+     This is the register they should use.  */
+  unsigned spare_pred_reg;
 
   bool laid_out;
 };
@@ -753,6 +816,10 @@ enum aarch64_abi_type
 enum arm_pcs
 {
   ARM_PCS_AAPCS64,		/* Base standard AAPCS for 64 bit.  */
+  ARM_PCS_SIMD,			/* For aarch64_vector_pcs functions.  */
+  ARM_PCS_SVE,			/* For functions that pass or return
+				   values in SVE registers.  */
+  ARM_PCS_TLSDESC,		/* For targets of tlsdesc calls.  */
   ARM_PCS_UNKNOWN
 };
 
@@ -779,6 +846,8 @@ typedef struct
   int aapcs_nextncrn;		/* Next next core register number.  */
   int aapcs_nvrn;		/* Next Vector register number.  */
   int aapcs_nextnvrn;		/* Next Next Vector register number.  */
+  int aapcs_nprn;		/* Next Predicate register number.  */
+  int aapcs_nextnprn;		/* Next Next Predicate register number.  */
   rtx aapcs_reg;		/* Register assigned to this argument.  This
 				   is NULL_RTX if this parameter goes on
 				   the stack.  */
@@ -789,6 +858,8 @@ typedef struct
 				   aapcs_reg == NULL_RTX.  */
   int aapcs_stack_size;		/* The total size (in words, per 8 byte) of the
 				   stack arg area so far.  */
+  bool silent_p;		/* True if we should act silently, rather than
+				   raise an error for invalid calls.  */
 } CUMULATIVE_ARGS;
 #endif
 
@@ -844,7 +915,7 @@ typedef struct
 /* MOVE_RATIO dictates when we will use the move_by_pieces infrastructure.
    move_by_pieces will continually copy the largest safe chunks.  So a
    7-byte copy is a 4-byte + 2-byte + byte copy.  This proves inefficient
-   for both size and speed of copy, so we will instead use the "movmem"
+   for both size and speed of copy, so we will instead use the "cpymem"
    standard name to implement the copy.  This logic does not apply when
    targeting -mstrict-align, so keep a sensible default in that case.  */
 #define MOVE_RATIO(speed) \
@@ -1096,7 +1167,8 @@ extern poly_uint16 aarch64_sve_vg;
 #define BITS_PER_SVE_VECTOR (poly_uint16 (aarch64_sve_vg * 64))
 #define BYTES_PER_SVE_VECTOR (poly_uint16 (aarch64_sve_vg * 8))
 
-/* The number of bytes in an SVE predicate.  */
+/* The number of bits and bytes in an SVE predicate.  */
+#define BITS_PER_SVE_PRED BYTES_PER_SVE_VECTOR
 #define BYTES_PER_SVE_PRED aarch64_sve_vg
 
 /* The SVE mode for a vector of bytes.  */

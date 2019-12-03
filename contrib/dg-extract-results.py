@@ -117,7 +117,7 @@ class Prog:
         self.tool_re = re.compile (r'^\t\t=== (.*) tests ===$')
         self.result_re = re.compile (r'^(PASS|XPASS|FAIL|XFAIL|UNRESOLVED'
                                      r'|WARNING|ERROR|UNSUPPORTED|UNTESTED'
-                                     r'|KFAIL):\s*(.+)')
+                                     r'|KFAIL|KPASS):\s*(.+)')
         self.completed_re = re.compile (r'.* completed at (.*)')
         # Pieces of text to write at the head of the output.
         # start_line is a pair in which the first element is a datetime
@@ -296,7 +296,7 @@ class Prog:
                 # If we have a time out warning, make sure it appears
                 # before the following testcase diagnostic: we insert
                 # the testname before 'program' so that sort faces a
-                # list of testhanes.
+                # list of testnames.
                 if line.startswith ('WARNING: program timed out'):
                   has_warning = 1
                 else:

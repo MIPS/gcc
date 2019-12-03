@@ -35,7 +35,8 @@ extern tree cp_get_global_decls ();
 extern tree cp_pushdecl (tree);
 extern void cp_register_dumps (gcc::dump_manager *);
 extern tree cxx_make_type_hook			(tree_code);
-extern tree cxx_build_enum (location_t, const char *, vec<string_int_pair>);
+extern tree cxx_simulate_enum_decl (location_t, const char *,
+				    vec<string_int_pair>);
 
 /* Lang hooks that are shared between C++ and ObjC++ are defined here.  Hooks
    specific to C++ or ObjC++ go in cp/cp-lang.c and objcp/objcp-lang.c,
@@ -101,8 +102,9 @@ extern tree cxx_build_enum (location_t, const char *, vec<string_int_pair>);
 #define LANG_HOOKS_BUILTIN_FUNCTION cxx_builtin_function
 #undef  LANG_HOOKS_BUILTIN_FUNCTION_EXT_SCOPE
 #define LANG_HOOKS_BUILTIN_FUNCTION_EXT_SCOPE cxx_builtin_function_ext_scope
-#undef  LANG_HOOKS_BUILTIN_FUNCTION_GLOBAL_MD
-#define LANG_HOOKS_BUILTIN_FUNCTION_GLOBAL_MD cxx_builtin_function_global_md
+#undef  LANG_HOOKS_SIMULATE_BUILTIN_FUNCTION_DECL
+#define LANG_HOOKS_SIMULATE_BUILTIN_FUNCTION_DECL \
+  cxx_simulate_builtin_function_decl
 #undef	LANG_HOOKS_TYPE_HASH_EQ
 #define LANG_HOOKS_TYPE_HASH_EQ	cxx_type_hash_eq
 #undef	LANG_HOOKS_COPY_LANG_QUALIFIERS
@@ -131,8 +133,8 @@ extern tree cxx_build_enum (location_t, const char *, vec<string_int_pair>);
 
 #undef LANG_HOOKS_MAKE_TYPE
 #define LANG_HOOKS_MAKE_TYPE cxx_make_type_hook
-#undef LANG_HOOKS_BUILD_ENUM
-#define LANG_HOOKS_BUILD_ENUM cxx_build_enum
+#undef LANG_HOOKS_SIMULATE_ENUM_DECL
+#define LANG_HOOKS_SIMULATE_ENUM_DECL cxx_simulate_enum_decl
 #undef LANG_HOOKS_TYPE_FOR_MODE
 #define LANG_HOOKS_TYPE_FOR_MODE c_common_type_for_mode
 #undef LANG_HOOKS_TYPE_FOR_SIZE

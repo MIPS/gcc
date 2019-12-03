@@ -120,6 +120,7 @@ public:
   unsigned int encoded_nelts () const;
   bool encoded_full_vector_p () const;
   T elt (unsigned int) const;
+  unsigned int count_dups (int, int, int) const;
 
   bool operator == (const Derived &) const;
   bool operator != (const Derived &x) const { return !operator == (x); }
@@ -356,6 +357,24 @@ vector_builder<T, Shape, Derived>::binary_encoded_nelts (T vec1, T vec2)
   if (nelts.is_constant (&const_nelts))
     return MIN (npatterns * nelts_per_pattern, const_nelts);
   return npatterns * nelts_per_pattern;
+}
+
+/* Return the number of leading duplicate elements in the range
+   [START:END:STEP].  The value is always at least 1.  */
+
+template<typename T, typename Shape, typename Derived>
+unsigned int
+vector_builder<T, Shape, Derived>::count_dups (int start, int end,
+					       int step) const
+{
+  gcc_assert ((end - start) % step == 0);
+
+  unsigned int ndups = 1;
+  for (int i = start + step;
+       i != end && derived ()->equal_p (elt (i), elt (start));
+       i += step)
+    ndups++;
+  return ndups;
 }
 
 /* Change the encoding to NPATTERNS patterns of NELTS_PER_PATTERN each,

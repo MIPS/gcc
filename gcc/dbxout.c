@@ -1093,7 +1093,7 @@ dbxout_typedefs (tree syms)
 	  tree type = TREE_TYPE (syms);
 	  if (TYPE_NAME (type)
 	      && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
-	      && (TYPE_LAID_OUT_P (type) || VOID_TYPE_P (type))
+	      && COMPLETE_OR_VOID_TYPE_P (type)
 	      && ! TREE_ASM_WRITTEN (TYPE_NAME (type)))
 	    dbxout_symbol (TYPE_NAME (type), 0);
 	}
@@ -1881,7 +1881,7 @@ dbxout_type (tree type, int full)
 	 and either that's all we want or that's the best we could do,
 	 don't repeat the cross reference.
 	 Sun dbx crashes if we do.  */
-      if (! full || !TYPE_LAID_OUT_P (type)
+      if (! full || !COMPLETE_TYPE_P (type)
 	  /* No way in DBX fmt to describe a variable size.  */
 	  || ! tree_fits_uhwi_p (TYPE_SIZE (type)))
 	return;
@@ -1906,7 +1906,7 @@ dbxout_type (tree type, int full)
 	 && ! (TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
 	       && DECL_IGNORED_P (TYPE_NAME (type)))
 	 && !full)
-	|| !TYPE_LAID_OUT_P (type)
+	|| !COMPLETE_TYPE_P (type)
 	/* No way in DBX fmt to describe a variable size.  */
 	|| ! tree_fits_uhwi_p (TYPE_SIZE (type)))
       {
@@ -2164,7 +2164,7 @@ dbxout_type (tree type, int full)
 	     && ! (TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
 		   && DECL_IGNORED_P (TYPE_NAME (type)))
 	     && !full)
-	    || !TYPE_LAID_OUT_P (type)
+	    || !COMPLETE_TYPE_P (type)
 	    /* No way in DBX fmt to describe a variable size.  */
 	    || ! tree_fits_uhwi_p (TYPE_SIZE (type)))
 	  {
@@ -2289,7 +2289,7 @@ dbxout_type (tree type, int full)
 	   && ! (TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
 		 && DECL_IGNORED_P (TYPE_NAME (type)))
 	   && !full)
-	  || !TYPE_LAID_OUT_P (type))
+	  || !COMPLETE_TYPE_P (type))
 	{
 	  stabstr_S ("xe");
 	  dbxout_type_name (type);
@@ -2815,7 +2815,7 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
 		   from explicit ones that might be found in C.  */
 		&& DECL_ARTIFICIAL (decl)
                 /* Do not generate a tag for incomplete records.  */
-                && TYPE_LAID_OUT_P (type)
+                && COMPLETE_TYPE_P (type)
 		/* Do not generate a tag for records of variable size,
 		   since this type cannot be properly described in the
 		   DBX format, and it confuses some tools such as objdump.  */
@@ -2870,7 +2870,7 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
 	if (tag_needed && TYPE_NAME (type) != 0
 	    && (TREE_CODE (TYPE_NAME (type)) == IDENTIFIER_NODE
 		|| (DECL_NAME (TYPE_NAME (type)) != 0))
-	    && TYPE_LAID_OUT_P (type)
+	    && COMPLETE_TYPE_P (type)
 	    && !TREE_ASM_WRITTEN (TYPE_NAME (type)))
 	  {
 	    /* For a TYPE_DECL with no name, but the type has a name,

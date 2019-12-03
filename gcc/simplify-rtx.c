@@ -1499,12 +1499,12 @@ simplify_unary_operation_1 (enum rtx_code code, machine_mode mode, rtx op)
 	  && CONST_INT_P (XEXP (op, 1))
 	  && XEXP (XEXP (op, 0), 1) == XEXP (op, 1)
 	  && (op_mode = as_a <scalar_int_mode> (GET_MODE (op)),
-	      GET_MODE_BITSIZE (op_mode) > INTVAL (XEXP (op, 1))))
+	      GET_MODE_PRECISION (op_mode) > INTVAL (XEXP (op, 1))))
 	{
 	  scalar_int_mode tmode;
-	  gcc_assert (GET_MODE_BITSIZE (int_mode)
-		      > GET_MODE_BITSIZE (op_mode));
-	  if (int_mode_for_size (GET_MODE_BITSIZE (op_mode)
+	  gcc_assert (GET_MODE_PRECISION (int_mode)
+		      > GET_MODE_PRECISION (op_mode));
+	  if (int_mode_for_size (GET_MODE_PRECISION (op_mode)
 				 - INTVAL (XEXP (op, 1)), 1).exists (&tmode))
 	    {
 	      rtx inner =
@@ -1730,19 +1730,18 @@ simplify_const_unary_operation (enum rtx_code code, machine_mode mode,
       }
       if (CONST_SCALAR_INT_P (op) || CONST_DOUBLE_AS_FLOAT_P (op))
 	return gen_const_vec_duplicate (mode, op);
-      unsigned int n_elts;
       if (GET_CODE (op) == CONST_VECTOR
-	  && GET_MODE_NUNITS (mode).is_constant (&n_elts))
+	  && (CONST_VECTOR_DUPLICATE_P (op)
+	      || CONST_VECTOR_NUNITS (op).is_constant ()))
 	{
-	  /* This must be constant if we're duplicating it to a constant
-	     number of elements.  */
-	  unsigned int in_n_elts = CONST_VECTOR_NUNITS (op).to_constant ();
-	  gcc_assert (in_n_elts < n_elts);
-	  gcc_assert ((n_elts % in_n_elts) == 0);
-	  rtvec v = rtvec_alloc (n_elts);
-	  for (unsigned i = 0; i < n_elts; i++)
-	    RTVEC_ELT (v, i) = CONST_VECTOR_ELT (op, i % in_n_elts);
-	  return gen_rtx_CONST_VECTOR (mode, v);
+	  unsigned int npatterns = (CONST_VECTOR_DUPLICATE_P (op)
+				    ? CONST_VECTOR_NPATTERNS (op)
+				    : CONST_VECTOR_NUNITS (op).to_constant ());
+	  gcc_assert (multiple_p (GET_MODE_NUNITS (mode), npatterns));
+	  rtx_vector_builder builder (mode, npatterns, 1);
+	  for (unsigned i = 0; i < npatterns; i++)
+	    builder.quick_push (CONST_VECTOR_ELT (op, i));
+	  return builder.build ();
 	}
     }
 
@@ -2126,6 +2125,132 @@ simplify_associative_operation (enum rtx_code code, machine_mode mode,
   return 0;
 }
 
+/* Return a mask describing the COMPARISON.  */
+static int
+comparison_to_mask (enum rtx_code comparison)
+{
+  switch (comparison)
+    {
+    case LT:
+      return 8;
+    case GT:
+      return 4;
+    case EQ:
+      return 2;
+    case UNORDERED:
+      return 1;
+
+    case LTGT:
+      return 12;
+    case LE:
+      return 10;
+    case GE:
+      return 6;
+    case UNLT:
+      return 9;
+    case UNGT:
+      return 5;
+    case UNEQ:
+      return 3;
+
+    case ORDERED:
+      return 14;
+    case NE:
+      return 13;
+    case UNLE:
+      return 11;
+    case UNGE:
+      return 7;
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
+/* Return a comparison corresponding to the MASK.  */
+static enum rtx_code
+mask_to_comparison (int mask)
+{
+  switch (mask)
+    {
+    case 8:
+      return LT;
+    case 4:
+      return GT;
+    case 2:
+      return EQ;
+    case 1:
+      return UNORDERED;
+
+    case 12:
+      return LTGT;
+    case 10:
+      return LE;
+    case 6:
+      return GE;
+    case 9:
+      return UNLT;
+    case 5:
+      return UNGT;
+    case 3:
+      return UNEQ;
+
+    case 14:
+      return ORDERED;
+    case 13:
+      return NE;
+    case 11:
+      return UNLE;
+    case 7:
+      return UNGE;
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
+/* Simplify a logical operation CODE with result mode MODE, operating on OP0
+   and OP1, which should be both relational operations.  Return 0 if no such
+   simplification is possible.  */
+rtx
+simplify_logical_relational_operation (enum rtx_code code, machine_mode mode,
+				       rtx op0, rtx op1)
+{
+  /* We only handle IOR of two relational operations.  */
+  if (code != IOR)
+    return 0;
+
+  if (!(COMPARISON_P (op0) && COMPARISON_P (op1)))
+    return 0;
+
+  if (!(rtx_equal_p (XEXP (op0, 0), XEXP (op1, 0))
+	&& rtx_equal_p (XEXP (op0, 1), XEXP (op1, 1))))
+    return 0;
+
+  enum rtx_code code0 = GET_CODE (op0);
+  enum rtx_code code1 = GET_CODE (op1);
+
+  /* We don't handle unsigned comparisons currently.  */
+  if (code0 == LTU || code0 == GTU || code0 == LEU || code0 == GEU)
+    return 0;
+  if (code1 == LTU || code1 == GTU || code1 == LEU || code1 == GEU)
+    return 0;
+
+  int mask0 = comparison_to_mask (code0);
+  int mask1 = comparison_to_mask (code1);
+
+  int mask = mask0 | mask1;
+
+  if (mask == 15)
+    return const_true_rtx;
+
+  code = mask_to_comparison (mask);
+
+  op0 = XEXP (op1, 0);
+  op1 = XEXP (op1, 1);
+
+  return simplify_gen_relational (code, mode, VOIDmode, op0, op1);
+}
 
 /* Simplify a binary operation CODE with result mode MODE, operating on OP0
    and OP1.  Return 0 if no simplification is possible.
@@ -2882,22 +3007,15 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
 	    }
 	}
 
-      /* (ior (cmp1 x y) (cmp2 x y)) -> (cmp3 x y).  */
-      if (COMPARISON_P (op0)
-	  && COMPARISON_P (op1)
-	  && rtx_equal_p (XEXP (op0, 0), XEXP (op1, 0))
-	  && rtx_equal_p (XEXP (op0, 1), XEXP (op1, 1)))
-	{
-	  rtx_code cond = bit_ior_conditions (GET_CODE (op0), GET_CODE (op1));
-	  if (cond != UNKNOWN)
-	    return gen_rtx_fmt_ee (cond, mode, XEXP (op0, 0), XEXP (op0, 1));
-	}
-
       tem = simplify_byte_swapping_operation (code, mode, op0, op1);
       if (tem)
 	return tem;
 
       tem = simplify_associative_operation (code, mode, op0, op1);
+      if (tem)
+	return tem;
+
+      tem = simplify_logical_relational_operation (code, mode, op0, op1);
       if (tem)
 	return tem;
       break;
@@ -3324,17 +3442,6 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
 	  && GET_CODE (XEXP (op0, 1)) == NOT
 	  && rtx_equal_p (op1, XEXP (XEXP (op0, 1), 0)))
 	return simplify_gen_binary (AND, mode, op1, XEXP (op0, 0));
-
-      /* (and (cmp1 x y) (cmp2 x y)) -> (cmp3 x y).  */
-      if (COMPARISON_P (op0)
-	  && COMPARISON_P (op1)
-	  && rtx_equal_p (XEXP (op0, 0), XEXP (op1, 0))
-	  && rtx_equal_p (XEXP (op0, 1), XEXP (op1, 1)))
-	{
-	  rtx_code cond = bit_and_conditions (GET_CODE (op0), GET_CODE (op1));
-	  if (cond != UNKNOWN)
-	    return gen_rtx_fmt_ee (cond, mode, XEXP (op0, 0), XEXP (op0, 1));
-	}
 
       tem = simplify_byte_swapping_operation (code, mode, op0, op1);
       if (tem)
@@ -4074,6 +4181,27 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
   return 0;
 }
 
+/* Return true if binary operation OP distributes over addition in operand
+   OPNO, with the other operand being held constant.  OPNO counts from 1.  */
+
+static bool
+distributes_over_addition_p (rtx_code op, int opno)
+{
+  switch (op)
+    {
+    case PLUS:
+    case MINUS:
+    case MULT:
+      return true;
+
+    case ASHIFT:
+      return opno == 1;
+
+    default:
+      return false;
+    }
+}
+
 rtx
 simplify_const_binary_operation (enum rtx_code code, machine_mode mode,
 				 rtx op0, rtx op1)
@@ -4083,8 +4211,32 @@ simplify_const_binary_operation (enum rtx_code code, machine_mode mode,
       && GET_CODE (op0) == CONST_VECTOR
       && GET_CODE (op1) == CONST_VECTOR)
     {
+      bool step_ok_p;
+      if (CONST_VECTOR_STEPPED_P (op0)
+	  && CONST_VECTOR_STEPPED_P (op1))
+	/* We can operate directly on the encoding if:
+
+	      a3 - a2 == a2 - a1 && b3 - b2 == b2 - b1
+	    implies
+	      (a3 op b3) - (a2 op b2) == (a2 op b2) - (a1 op b1)
+
+	   Addition and subtraction are the supported operators
+	   for which this is true.  */
+	step_ok_p = (code == PLUS || code == MINUS);
+      else if (CONST_VECTOR_STEPPED_P (op0))
+	/* We can operate directly on stepped encodings if:
+
+	     a3 - a2 == a2 - a1
+	   implies:
+	     (a3 op c) - (a2 op c) == (a2 op c) - (a1 op c)
+
+	   which is true if (x -> x op c) distributes over addition.  */
+	step_ok_p = distributes_over_addition_p (code, 1);
+      else
+	/* Similarly in reverse.  */
+	step_ok_p = distributes_over_addition_p (code, 2);
       rtx_vector_builder builder;
-      if (!builder.new_binary_operation (mode, op0, op1, false))
+      if (!builder.new_binary_operation (mode, op0, op1, step_ok_p))
 	return 0;
 
       unsigned int count = builder.encoded_nelts ();
@@ -5843,14 +5995,6 @@ simplify_ternary_operation (enum rtx_code code, machine_mode mode,
 	    return simplified;
 	}
 
-      /* (if_then_else (cmp1 X1 Y1) (cmp X2 Y2) (const_int 0))
-	 -> (and (cmp1 X1 Y1) (cmp2 X2 Y2)).  */
-      if (COMPARISON_P (op0)
-	  && COMPARISON_P (op1)
-	  && op2 == const0_rtx
-	  && GET_MODE (op0) == GET_MODE (op1))
-	return simplify_gen_binary (AND, mode, op0, op1);
-
       if (COMPARISON_P (op0) && ! side_effects_p (op0))
 	{
 	  machine_mode cmp_mode = (GET_MODE (XEXP (op0, 0)) == VOIDmode
@@ -6161,6 +6305,7 @@ native_encode_rtx (machine_mode mode, rtx x, vec<target_unit> &bytes,
       first_byte %= elt_bytes;
       while (num_bytes > 0)
 	{
+	  /* Work out how many bytes we want from element ELT.  */
 	  unsigned int chunk_bytes = MIN (num_bytes, elt_bytes - first_byte);
 	  if (!native_encode_rtx (GET_MODE_INNER (mode),
 				  CONST_VECTOR_ELT (x, elt), bytes,
@@ -6192,12 +6337,21 @@ native_encode_rtx (machine_mode mode, rtx x, vec<target_unit> &bytes,
 	 and WORDS_BIG_ENDIAN.  Use the subreg machinery to get the lsb
 	 position of each byte.  */
       rtx_mode_t value (x, smode);
+      wide_int_ref value_wi (value);
       for (unsigned int byte = first_byte; byte < end_byte; ++byte)
 	{
 	  /* Always constant because the inputs are.  */
 	  unsigned int lsb
 	    = subreg_size_lsb (1, mode_bytes, byte).to_constant ();
-	  bytes.quick_push (wi::extract_uhwi (value, lsb, BITS_PER_UNIT));
+	  /* Operate directly on the encoding rather than using
+	     wi::extract_uhwi, so that we preserve the sign or zero
+	     extension for modes that are not a whole number of bits in
+	     size.  (Zero extension is only used for the combination of
+	     innermode == BImode && STORE_FLAG_VALUE == 1).  */
+	  unsigned int elt = lsb / HOST_BITS_PER_WIDE_INT;
+	  unsigned int shift = lsb % HOST_BITS_PER_WIDE_INT;
+	  unsigned HOST_WIDE_INT uhwi = value_wi.elt (elt);
+	  bytes.quick_push (uhwi >> shift);
 	}
       return true;
     }
@@ -6322,7 +6476,8 @@ native_decode_rtx (machine_mode mode, vec<target_unit> bytes,
     }
 
   scalar_int_mode imode;
-  if (is_a <scalar_int_mode> (mode, &imode))
+  if (is_a <scalar_int_mode> (mode, &imode)
+      && GET_MODE_PRECISION (imode) <= MAX_BITSIZE_MODE_ANY_INT)
     {
       /* Pull the bytes msb first, so that we can use simple
 	 shift-and-insert wide_int operations.  */
@@ -6476,23 +6631,35 @@ simplify_const_vector_subreg (machine_mode outermode, rtx x,
   unsigned int out_sequence_bits
     = least_common_multiple (x_sequence_bits, out_elt_bits);
 
-  /* Don't try to read more bytes than are available, which can happen
-     for constant-sized vectors if OUTERMODE has larger elements than
-     INNERMODE.  The general subreg handling can deal with that case,
-     so there's no point complicating things here.  */
+  /* Work out the number of interleaved patterns in the output vector
+     and the number of encoded elements per pattern.  */
+  unsigned int out_npatterns = out_sequence_bits / out_elt_bits;
   unsigned int nelts_per_pattern = CONST_VECTOR_NELTS_PER_PATTERN (x);
-  unsigned int buffer_bytes = CEIL (nelts_per_pattern * out_sequence_bits,
-				    BITS_PER_UNIT);
-  if (known_gt (first_byte + buffer_bytes, GET_MODE_SIZE (innermode)))
+
+  /* The encoding scheme requires the number of elements to be a multiple
+     of the number of patterns, so that each pattern appears at least once
+     and so that the same number of elements appear from each pattern.  */
+  bool ok_p = multiple_p (GET_MODE_NUNITS (outermode), out_npatterns);
+  unsigned int const_nunits;
+  if (GET_MODE_NUNITS (outermode).is_constant (&const_nunits)
+      && (!ok_p || out_npatterns * nelts_per_pattern > const_nunits))
+    {
+      /* Either the encoding is invalid, or applying it would give us
+	 more elements than we need.  Just encode each element directly.  */
+      out_npatterns = const_nunits;
+      nelts_per_pattern = 1;
+    }
+  else if (!ok_p)
     return NULL_RTX;
 
   /* Get enough bytes of X to form the new encoding.  */
+  unsigned int buffer_bits = out_npatterns * nelts_per_pattern * out_elt_bits;
+  unsigned int buffer_bytes = CEIL (buffer_bits, BITS_PER_UNIT);
   auto_vec<target_unit, 128> buffer (buffer_bytes);
   if (!native_encode_rtx (innermode, x, buffer, first_byte, buffer_bytes))
     return NULL_RTX;
 
   /* Reencode the bytes as OUTERMODE.  */
-  unsigned int out_npatterns = out_sequence_bits / out_elt_bits;
   return native_decode_vector_rtx (outermode, buffer, 0, out_npatterns,
 				   nelts_per_pattern);
 }
@@ -6511,27 +6678,42 @@ simplify_immed_subreg (fixed_size_mode outermode, rtx x,
   unsigned int buffer_bytes = GET_MODE_SIZE (outermode);
   auto_vec<target_unit, 128> buffer (buffer_bytes);
 
+  /* Some ports misuse CCmode.  */
+  if (GET_MODE_CLASS (outermode) == MODE_CC && CONST_INT_P (x))
+    return x;
+
   /* Paradoxical subregs read undefined values for bytes outside of the
-     inner value.  For consistency, treat all the extra bytes as zero.  */
+     inner value.  However, we have traditionally always sign-extended
+     integer constants and zero-extended others.  */
   unsigned int inner_bytes = buffer_bytes;
   if (paradoxical_subreg_p (outermode, innermode))
     {
       if (!GET_MODE_SIZE (innermode).is_constant (&inner_bytes))
 	return NULL_RTX;
 
+      target_unit filler = 0;
+      if (CONST_SCALAR_INT_P (x) && wi::neg_p (rtx_mode_t (x, innermode)))
+	filler = -1;
+
       /* Add any leading bytes due to big-endian layout.  The number of
 	 bytes must be constant because both modes have constant size.  */
       unsigned int leading_bytes
 	= -byte_lowpart_offset (outermode, innermode).to_constant ();
-      buffer.quick_grow_cleared (leading_bytes);
+      for (unsigned int i = 0; i < leading_bytes; ++i)
+	buffer.quick_push (filler);
+
+      if (!native_encode_rtx (innermode, x, buffer, first_byte, inner_bytes))
+	return NULL_RTX;
+
+      /* Add any trailing bytes due to little-endian layout.  */
+      while (buffer.length () < buffer_bytes)
+	buffer.quick_push (filler);
     }
-
-  if (!native_encode_rtx (innermode, x, buffer, first_byte, inner_bytes))
-    return NULL_RTX;
-
-  /* Add any trailing zero bytes due to a paraodixcal subreg.  */
-  buffer.quick_grow_cleared (buffer_bytes);
-
+  else
+    {
+      if (!native_encode_rtx (innermode, x, buffer, first_byte, inner_bytes))
+	return NULL_RTX;
+      }
   return native_decode_rtx (outermode, buffer, 0);
 }
 
@@ -6796,6 +6978,17 @@ simplify_subreg (machine_mode outermode, rtx op,
 	}
     }
 
+  /* If OP is a vector comparison and the subreg is not changing the
+     number of elements or the size of the elements, change the result
+     of the comparison to the new mode.  */
+  if (COMPARISON_P (op)
+      && VECTOR_MODE_P (outermode)
+      && VECTOR_MODE_P (innermode)
+      && known_eq (GET_MODE_NUNITS (outermode), GET_MODE_NUNITS (innermode))
+      && known_eq (GET_MODE_UNIT_SIZE (outermode),
+		    GET_MODE_UNIT_SIZE (innermode)))
+    return simplify_gen_relational (GET_CODE (op), outermode, innermode,
+				    XEXP (op, 0), XEXP (op, 1));
   return NULL_RTX;
 }
 
@@ -7028,6 +7221,18 @@ test_vector_ops_duplicate (machine_mode mode, rtx scalar_reg)
       && mode_for_vector (inner_mode, 2).exists (&narrower_mode)
       && VECTOR_MODE_P (narrower_mode))
     {
+      /* Test VEC_DUPLICATE of a vector.  */
+      rtx_vector_builder nbuilder (narrower_mode, 2, 1);
+      nbuilder.quick_push (const0_rtx);
+      nbuilder.quick_push (const1_rtx);
+      rtx_vector_builder builder (mode, 2, 1);
+      builder.quick_push (const0_rtx);
+      builder.quick_push (const1_rtx);
+      ASSERT_RTX_EQ (builder.build (),
+		     simplify_unary_operation (VEC_DUPLICATE, mode,
+					       nbuilder.build (),
+					       narrower_mode));
+
       /* Test VEC_SELECT of a vector.  */
       rtx vec_par
 	= gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, const1_rtx, const0_rtx));
@@ -7100,6 +7305,58 @@ test_vector_ops_series (machine_mode mode, rtx scalar_reg)
   ASSERT_RTX_EQ (series_0_m1,
 		 simplify_binary_operation (VEC_SERIES, mode, const0_rtx,
 					    constm1_rtx));
+
+  /* Test NEG on constant vector series.  */
+  ASSERT_RTX_EQ (series_0_m1,
+		 simplify_unary_operation (NEG, mode, series_0_1, mode));
+  ASSERT_RTX_EQ (series_0_1,
+		 simplify_unary_operation (NEG, mode, series_0_m1, mode));
+
+  /* Test PLUS and MINUS on constant vector series.  */
+  rtx scalar2 = gen_int_mode (2, inner_mode);
+  rtx scalar3 = gen_int_mode (3, inner_mode);
+  rtx series_1_1 = gen_const_vec_series (mode, const1_rtx, const1_rtx);
+  rtx series_0_2 = gen_const_vec_series (mode, const0_rtx, scalar2);
+  rtx series_1_3 = gen_const_vec_series (mode, const1_rtx, scalar3);
+  ASSERT_RTX_EQ (series_1_1,
+		 simplify_binary_operation (PLUS, mode, series_0_1,
+					    CONST1_RTX (mode)));
+  ASSERT_RTX_EQ (series_0_m1,
+		 simplify_binary_operation (PLUS, mode, CONST0_RTX (mode),
+					    series_0_m1));
+  ASSERT_RTX_EQ (series_1_3,
+		 simplify_binary_operation (PLUS, mode, series_1_1,
+					    series_0_2));
+  ASSERT_RTX_EQ (series_0_1,
+		 simplify_binary_operation (MINUS, mode, series_1_1,
+					    CONST1_RTX (mode)));
+  ASSERT_RTX_EQ (series_1_1,
+		 simplify_binary_operation (MINUS, mode, CONST1_RTX (mode),
+					    series_0_m1));
+  ASSERT_RTX_EQ (series_1_1,
+		 simplify_binary_operation (MINUS, mode, series_1_3,
+					    series_0_2));
+
+  /* Test MULT between constant vectors.  */
+  rtx vec2 = gen_const_vec_duplicate (mode, scalar2);
+  rtx vec3 = gen_const_vec_duplicate (mode, scalar3);
+  rtx scalar9 = gen_int_mode (9, inner_mode);
+  rtx series_3_9 = gen_const_vec_series (mode, scalar3, scalar9);
+  ASSERT_RTX_EQ (series_0_2,
+		 simplify_binary_operation (MULT, mode, series_0_1, vec2));
+  ASSERT_RTX_EQ (series_3_9,
+		 simplify_binary_operation (MULT, mode, vec3, series_1_3));
+  if (!GET_MODE_NUNITS (mode).is_constant ())
+    ASSERT_FALSE (simplify_binary_operation (MULT, mode, series_0_1,
+					     series_0_1));
+
+  /* Test ASHIFT between constant vectors.  */
+  ASSERT_RTX_EQ (series_0_2,
+		 simplify_binary_operation (ASHIFT, mode, series_0_1,
+					    CONST1_RTX (mode)));
+  if (!GET_MODE_NUNITS (mode).is_constant ())
+    ASSERT_FALSE (simplify_binary_operation (ASHIFT, mode, CONST1_RTX (mode),
+					     series_0_1));
 }
 
 /* Verify simplify_merge_mask works correctly.  */
@@ -7165,6 +7422,165 @@ test_vec_merge (machine_mode mode)
 		 simplify_rtx (nvm));
 }
 
+/* Test subregs of integer vector constant X, trying elements in
+   the range [ELT_BIAS, ELT_BIAS + constant_lower_bound (NELTS)),
+   where NELTS is the number of elements in X.  Subregs involving
+   elements [ELT_BIAS, ELT_BIAS + FIRST_VALID) are expected to fail.  */
+
+static void
+test_vector_subregs_modes (rtx x, poly_uint64 elt_bias = 0,
+			   unsigned int first_valid = 0)
+{
+  machine_mode inner_mode = GET_MODE (x);
+  scalar_mode int_mode = GET_MODE_INNER (inner_mode);
+
+  for (unsigned int modei = 0; modei < NUM_MACHINE_MODES; ++modei)
+    {
+      machine_mode outer_mode = (machine_mode) modei;
+      if (!VECTOR_MODE_P (outer_mode))
+	continue;
+
+      unsigned int outer_nunits;
+      if (GET_MODE_INNER (outer_mode) == int_mode
+	  && GET_MODE_NUNITS (outer_mode).is_constant (&outer_nunits)
+	  && multiple_p (GET_MODE_NUNITS (inner_mode), outer_nunits))
+	{
+	  /* Test subregs in which the outer mode is a smaller,
+	     constant-sized vector of the same element type.  */
+	  unsigned int limit
+	    = constant_lower_bound (GET_MODE_NUNITS (inner_mode));
+	  for (unsigned int elt = 0; elt < limit; elt += outer_nunits)
+	    {
+	      rtx expected = NULL_RTX;
+	      if (elt >= first_valid)
+		{
+		  rtx_vector_builder builder (outer_mode, outer_nunits, 1);
+		  for (unsigned int i = 0; i < outer_nunits; ++i)
+		    builder.quick_push (CONST_VECTOR_ELT (x, elt + i));
+		  expected = builder.build ();
+		}
+	      poly_uint64 byte = (elt_bias + elt) * GET_MODE_SIZE (int_mode);
+	      ASSERT_RTX_EQ (expected,
+			     simplify_subreg (outer_mode, x,
+					      inner_mode, byte));
+	    }
+	}
+      else if (known_eq (GET_MODE_SIZE (outer_mode),
+			 GET_MODE_SIZE (inner_mode))
+	       && known_eq (elt_bias, 0U)
+	       && (GET_MODE_CLASS (outer_mode) != MODE_VECTOR_BOOL
+		   || known_eq (GET_MODE_BITSIZE (outer_mode),
+				GET_MODE_NUNITS (outer_mode)))
+	       && (!FLOAT_MODE_P (outer_mode)
+		   || (FLOAT_MODE_FORMAT (outer_mode)->ieee_bits
+		       == GET_MODE_UNIT_PRECISION (outer_mode)))
+	       && (GET_MODE_SIZE (inner_mode).is_constant ()
+		   || !CONST_VECTOR_STEPPED_P (x)))
+	{
+	  /* Try converting to OUTER_MODE and back.  */
+	  rtx outer_x = simplify_subreg (outer_mode, x, inner_mode, 0);
+	  ASSERT_TRUE (outer_x != NULL_RTX);
+	  ASSERT_RTX_EQ (x, simplify_subreg (inner_mode, outer_x,
+					     outer_mode, 0));
+	}
+    }
+
+  if (BYTES_BIG_ENDIAN == WORDS_BIG_ENDIAN)
+    {
+      /* Test each byte in the element range.  */
+      unsigned int limit
+	= constant_lower_bound (GET_MODE_SIZE (inner_mode));
+      for (unsigned int i = 0; i < limit; ++i)
+	{
+	  unsigned int elt = i / GET_MODE_SIZE (int_mode);
+	  rtx expected = NULL_RTX;
+	  if (elt >= first_valid)
+	    {
+	      unsigned int byte_shift = i % GET_MODE_SIZE (int_mode);
+	      if (BYTES_BIG_ENDIAN)
+		byte_shift = GET_MODE_SIZE (int_mode) - byte_shift - 1;
+	      rtx_mode_t vec_elt (CONST_VECTOR_ELT (x, elt), int_mode);
+	      wide_int shifted_elt
+		= wi::lrshift (vec_elt, byte_shift * BITS_PER_UNIT);
+	      expected = immed_wide_int_const (shifted_elt, QImode);
+	    }
+	  poly_uint64 byte = elt_bias * GET_MODE_SIZE (int_mode) + i;
+	  ASSERT_RTX_EQ (expected,
+			 simplify_subreg (QImode, x, inner_mode, byte));
+	}
+    }
+}
+
+/* Test constant subregs of integer vector mode INNER_MODE, using 1
+   element per pattern.  */
+
+static void
+test_vector_subregs_repeating (machine_mode inner_mode)
+{
+  poly_uint64 nunits = GET_MODE_NUNITS (inner_mode);
+  unsigned int min_nunits = constant_lower_bound (nunits);
+  scalar_mode int_mode = GET_MODE_INNER (inner_mode);
+  unsigned int count = gcd (min_nunits, 8);
+
+  rtx_vector_builder builder (inner_mode, count, 1);
+  for (unsigned int i = 0; i < count; ++i)
+    builder.quick_push (gen_int_mode (8 - i, int_mode));
+  rtx x = builder.build ();
+
+  test_vector_subregs_modes (x);
+  if (!nunits.is_constant ())
+    test_vector_subregs_modes (x, nunits - min_nunits);
+}
+
+/* Test constant subregs of integer vector mode INNER_MODE, using 2
+   elements per pattern.  */
+
+static void
+test_vector_subregs_fore_back (machine_mode inner_mode)
+{
+  poly_uint64 nunits = GET_MODE_NUNITS (inner_mode);
+  unsigned int min_nunits = constant_lower_bound (nunits);
+  scalar_mode int_mode = GET_MODE_INNER (inner_mode);
+  unsigned int count = gcd (min_nunits, 4);
+
+  rtx_vector_builder builder (inner_mode, count, 2);
+  for (unsigned int i = 0; i < count; ++i)
+    builder.quick_push (gen_int_mode (i, int_mode));
+  for (unsigned int i = 0; i < count; ++i)
+    builder.quick_push (gen_int_mode (-(int) i, int_mode));
+  rtx x = builder.build ();
+
+  test_vector_subregs_modes (x);
+  if (!nunits.is_constant ())
+    test_vector_subregs_modes (x, nunits - min_nunits, count);
+}
+
+/* Test constant subregs of integer vector mode INNER_MODE, using 3
+   elements per pattern.  */
+
+static void
+test_vector_subregs_stepped (machine_mode inner_mode)
+{
+  /* Build { 0, 1, 2, 3, ... }.  */
+  scalar_mode int_mode = GET_MODE_INNER (inner_mode);
+  rtx_vector_builder builder (inner_mode, 1, 3);
+  for (unsigned int i = 0; i < 3; ++i)
+    builder.quick_push (gen_int_mode (i, int_mode));
+  rtx x = builder.build ();
+
+  test_vector_subregs_modes (x);
+}
+
+/* Test constant subregs of integer vector mode INNER_MODE.  */
+
+static void
+test_vector_subregs (machine_mode inner_mode)
+{
+  test_vector_subregs_repeating (inner_mode);
+  test_vector_subregs_fore_back (inner_mode);
+  test_vector_subregs_stepped (inner_mode);
+}
+
 /* Verify some simplifications involving vectors.  */
 
 static void
@@ -7179,7 +7595,10 @@ test_vector_ops ()
 	  test_vector_ops_duplicate (mode, scalar_reg);
 	  if (GET_MODE_CLASS (mode) == MODE_VECTOR_INT
 	      && maybe_gt (GET_MODE_NUNITS (mode), 2))
-	    test_vector_ops_series (mode, scalar_reg);
+	    {
+	      test_vector_ops_series (mode, scalar_reg);
+	      test_vector_subregs (mode);
+	    }
 	  test_vec_merge (mode);
 	}
     }

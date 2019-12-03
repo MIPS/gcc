@@ -63,12 +63,19 @@ lto_cgraph_replace_node (struct cgraph_node *node,
     prevailing_node->forced_by_abi = true;
   if (node->address_taken)
     {
-      gcc_assert (!prevailing_node->global.inlined_to);
+      gcc_assert (!prevailing_node->inlined_to);
       prevailing_node->mark_address_taken ();
     }
   if (node->definition && prevailing_node->definition
       && DECL_COMDAT (node->decl) && DECL_COMDAT (prevailing_node->decl))
     prevailing_node->merged_comdat = true;
+  else if ((node->definition || node->body_removed)
+	   && DECL_DECLARED_INLINE_P (node->decl)
+	   && DECL_EXTERNAL (node->decl)
+	   && prevailing_node->definition)
+    prevailing_node->merged_extern_inline = true;
+  prevailing_node->merged_comdat |= node->merged_comdat;
+  prevailing_node->merged_extern_inline |= node->merged_extern_inline;
 
   /* Redirect all incoming edges.  */
   compatible_p
@@ -242,12 +249,13 @@ warn_type_compatibility_p (tree prevailing_type, tree type,
 
   /* We cannot use types_compatible_p because we permit some changes
      across types.  For example unsigned size_t and "signed size_t" may be
-     compatible when merging C and Fortran types.
-
-     While global declarations are never variadic, we can recurse here
-     for function parameter types.  */
-  if (type_size_known_constant_p (type)
-      && type_size_known_constant_p (prevailing_type)
+     compatible when merging C and Fortran types.  */
+  if (COMPLETE_TYPE_P (prevailing_type)
+      && COMPLETE_TYPE_P (type)
+      /* While global declarations are never variadic, we can recurse here
+	 for function parameter types.  */
+      && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
+      && TREE_CODE (TYPE_SIZE (prevailing_type)) == INTEGER_CST
       && !tree_int_cst_equal (TYPE_SIZE (type), TYPE_SIZE (prevailing_type)))
     {
        /* As a special case do not warn about merging
@@ -555,7 +563,8 @@ lto_symtab_merge_p (tree prevailing, tree decl)
 	}
       if (fndecl_built_in_p (prevailing)
 	  && (DECL_BUILT_IN_CLASS (prevailing) != DECL_BUILT_IN_CLASS (decl)
-	      || DECL_FUNCTION_CODE (prevailing) != DECL_FUNCTION_CODE (decl)))
+	      || (DECL_UNCHECKED_FUNCTION_CODE (prevailing)
+		  != DECL_UNCHECKED_FUNCTION_CODE (decl))))
 	{
 	  if (dump_file)
 	    fprintf (dump_file, "Not merging decls; "
@@ -798,8 +807,8 @@ lto_symtab_merge_decls_1 (symtab_node *first)
 	{
 	  for (e = prevailing->next_sharing_asm_name;
 	       e; e = e->next_sharing_asm_name)
-	    if (!TYPE_LAID_OUT_P (TREE_TYPE (prevailing->decl))
-		&& TYPE_LAID_OUT_P (TREE_TYPE (e->decl))
+	    if (!COMPLETE_TYPE_P (TREE_TYPE (prevailing->decl))
+		&& COMPLETE_TYPE_P (TREE_TYPE (e->decl))
 		&& lto_symtab_symbol_p (e))
 	      prevailing = e;
 	}
@@ -908,7 +917,7 @@ lto_symtab_merge_symbols_1 (symtab_node *prevailing)
       cgraph_node *ce = dyn_cast <cgraph_node *> (e);
 
       if ((!TREE_PUBLIC (e->decl) && !DECL_EXTERNAL (e->decl))
-	  || (ce != NULL && ce->global.inlined_to))
+	  || (ce != NULL && ce->inlined_to))
 	continue;
       symtab_node *to = symtab_node::get (lto_symtab_prevailing_decl (e->decl));
 

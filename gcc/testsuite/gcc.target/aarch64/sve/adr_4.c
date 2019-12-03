@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -ftree-vectorize -msve-vector-bits=scalable" } */
+/* { dg-options "-O2 -ftree-vectorize" } */
 
 #define FACTOR 16
 #include "adr_1.c"

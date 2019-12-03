@@ -911,6 +911,9 @@ finalize_component (gfc_expr *expr, gfc_symbol *derived, gfc_component *comp,
   if (!comp_is_finalizable (comp))
     return;
 
+  if (comp->finalized)
+    return;
+
   e = gfc_copy_expr (expr);
   if (!e->ref)
     e->ref = ref = gfc_get_ref ();
@@ -1038,6 +1041,7 @@ finalize_component (gfc_expr *expr, gfc_symbol *derived, gfc_component *comp,
 			    sub_ns);
       gfc_free_expr (e);
     }
+  comp->finalized = true;
 }
 
 
@@ -2236,6 +2240,9 @@ gfc_find_derived_vtab (gfc_symbol *derived)
   /* If the type is a class container, use the underlying derived type.  */
   if (!derived->attr.unlimited_polymorphic && derived->attr.is_class)
     derived = gfc_get_derived_super_type (derived);
+
+  if (!derived)
+    return NULL;
 
   /* Find the gsymbol for the module of use associated derived types.  */
   if ((derived->attr.use_assoc || derived->attr.used_in_submodule)

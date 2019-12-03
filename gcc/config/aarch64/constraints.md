@@ -39,6 +39,10 @@
 (define_register_constraint "y" "FP_LO8_REGS"
   "Floating point and SIMD vector registers V0 - V7.")
 
+(define_constraint "c"
+ "@internal The condition code register."
+  (match_operand 0 "cc_register"))
+
 (define_constraint "I"
  "A constant that can be used with an ADD operation."
  (and (match_code "const_int")
@@ -376,6 +380,13 @@
       (match_test "aarch64_simd_scalar_immediate_valid_for_move (op,
 						 QImode)")))
 
+(define_constraint "Dt"
+  "@internal
+ A const_double which is the reciprocal of an exact power of two, can be
+ used in an scvtf with fract bits operation"
+ (and (match_code "const_double")
+      (match_test "aarch64_fpconst_pow2_recip (op) > 0")))
+
 (define_constraint "Dl"
   "@internal
  A constraint that matches vector of immediates for left shifts."
@@ -454,7 +465,7 @@
   "@internal
    A constraint that matches an immediate operand valid for SVE UMAX
    and UMIN operations."
- (match_operand 0 "aarch64_sve_umaxmin_immediate"))
+ (match_operand 0 "aarch64_sve_vsb_immediate"))
 
 (define_constraint "vsc"
   "@internal
@@ -506,15 +517,9 @@
 
 (define_constraint "vsm"
   "@internal
-   A constraint that matches an immediate operand valid for SVE MUL
-   operations."
- (match_operand 0 "aarch64_sve_mul_immediate"))
-
-(define_constraint "vsx"
-  "@internal
-   A constraint that matches an AND immediate value that makes the AND
-   equivalent to UXT[BHW]"
- (match_operand 0 "aarch64_sve_uxt_immediate"))
+   A constraint that matches an immediate operand valid for SVE MUL,
+   SMAX and SMIN operations."
+ (match_operand 0 "aarch64_sve_vsm_immediate"))
 
 (define_constraint "vsA"
   "@internal
@@ -531,11 +536,11 @@
 
 (define_constraint "vsM"
   "@internal
-   A constraint that matches an imediate operand valid for SVE FMUL
+   A constraint that matches an immediate operand valid for SVE FMUL
    operations."
  (match_operand 0 "aarch64_sve_float_mul_immediate"))
 
 (define_constraint "vsN"
   "@internal
    A constraint that matches the negative of vsA"
- (match_operand 0 "aarch64_sve_float_arith_with_sub_immediate"))
+ (match_operand 0 "aarch64_sve_float_negated_arith_immediate"))
