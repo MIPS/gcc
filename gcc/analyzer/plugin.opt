@@ -70,6 +70,10 @@ Wanalyzer-possible-null-dereference
 Common Var(warn_analyzer_possible_null_dereference) Init(1) Warning
 Warn about code paths in which a possibly-NULL pointer is dereferenced.
 
+Wanalyzer-unsafe-call-within-signal-handler
+Common Var(warn_analyzer_unsafe_call_within_signal_handler) Init(1) Warning
+Warn about code paths in which an async-signal-unsafe function is called from a signal handler.
+
 Wanalyzer-null-argument
 Common Var(warn_analyzer_null_argument) Init(1) Warning
 Warn about code paths in which NULL is passed to a must-not-be-NULL function argument.

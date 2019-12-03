@@ -308,6 +308,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wno-analyzer-null-dereference @gol
 -Wno-analyzer-stale-setjmp-buffer @gol
 -Wno-analyzer-tainted-array-index @gol
+-Wno-analyzer-unsafe-call-within-signal-handler @gol
 -Wno-analyzer-use-after-free @gol
 -Wno-analyzer-use-of-pointer-in-stale-stack-frame @gol
 -Wno-analyzer-use-of-uninitialized-value @gol
@@ -407,6 +408,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wanalyzer-possible-null-dereference @gol
 -Wanalyzer-stale-setjmp-buffer @gol
 -Wanalyzer-tainted-array-index @gol
+-Wanalyzer-unsafe-call-within-signal-handler @gol
 -Wanalyzer-use-after-free @gol
 -Wanalyzer-use-of-pointer-in-stale-stack-frame @gol
 -Wanalyzer-use-of-uninitialized-value @gol
@@ -6551,6 +6553,16 @@ This diagnostic warns for paths through the code in which a value
 that could be under an attacker's control is used as the index
 of an array access without being sanitized.
 
+@item -Wno-analyzer-unsafe-call-within-signal-handler
+@opindex Wanalyzer-unsafe-call-within-signal-handler
+@opindex Wno-analyzer-unsafe-call-within-signal-handler
+This warning requires @option{-fanalyzer}, which enables it; use
+@option{-Wno-analyzer-unsafe-call-within-signal-handler} to disable it.
+
+This diagnostic warns for paths through the code in which a
+function known to be async-signal-unsafe (such as @code{fprintf}) is
+called from a signal handler.
+
 @item -Wno-analyzer-use-after-free
 @opindex Wanalyzer-use-after-free
 @opindex Wno-analyzer-use-after-free
@@ -8273,6 +8285,7 @@ Enabling this option effectively enables the following warnings:
 -Wanalyzer-null-argument @gol
 -Wanalyzer-null-dereference @gol
 -Wanalyzer-tainted-array-index @gol
+-Wanalyzer-unsafe-call-within-signal-handler @gol
 -Wanalyzer-use-after-free @gol
 -Wanalyzer-use-of-uninitialized-value @gol
 -Wanalyzer-use-of-pointer-in-stale-stack-frame @gol

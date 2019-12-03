@@ -76,6 +76,7 @@ analyzer_OBJS = \
 	analyzer/sm-malloc.o \
 	analyzer/sm-pattern-test.o \
 	analyzer/sm-sensitive.o \
+	analyzer/sm-signal.o \
 	analyzer/sm-taint.o \
 	analyzer/state-purge.o \
 	analyzer/supergraph.o \
