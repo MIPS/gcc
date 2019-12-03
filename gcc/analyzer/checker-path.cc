@@ -44,6 +44,8 @@ event_kind_to_string (enum event_kind ek)
       gcc_unreachable ();
     case EK_DEBUG:
       return "EK_DEBUG";
+    case EK_CUSTOM:
+      return "EK_CUSTOM";
     case EK_STMT:
       return "EK_STMT";
     case EK_FUNCTION_ENTRY:
@@ -123,6 +125,20 @@ checker_event::prepare_for_emission (checker_path *,
 
 label_text
 debug_event::get_desc (bool) const
+{
+  return label_text::borrow (m_desc);
+}
+
+////////////////////////////////////////////////////////////////////////////
+
+/* class custom_event : public checker_event.  */
+
+/* Implementation of diagnostic_event::get_desc vfunc for
+   custom_event.
+   Use the saved string as the event's description.  */
+
+label_text
+custom_event::get_desc (bool) const
 {
   return label_text::borrow (m_desc);
 }

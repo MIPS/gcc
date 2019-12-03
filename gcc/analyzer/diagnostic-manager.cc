@@ -919,6 +919,10 @@ diagnostic_manager::prune_path (checker_path *path,
 	    }
 	  break;
 
+	case EK_CUSTOM:
+	  /* Don't filter custom events.  */
+	  break;
+
 	case EK_STMT:
 	  {
 	    /* If this stmt is the origin of "var", update var.  */

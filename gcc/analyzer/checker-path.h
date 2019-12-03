@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 enum event_kind
 {
   EK_DEBUG,
+  EK_CUSTOM,
   EK_STMT,
   EK_FUNCTION_ENTRY,
   EK_STATE_CHANGE,
@@ -57,6 +58,7 @@ extern const char *event_kind_to_string (enum event_kind ek);
    diagnostic_event
      checker_event
        debug_event (EK_DEBUG)
+       custom_event (EK_CUSTOM)
        statement_event (EK_STMT)
        function_entry_event (EK_FUNCTION_ENTRY)
        state_change_event (EK_STATE_CHANGE)
@@ -136,6 +138,34 @@ public:
   checker_event *clone () const FINAL OVERRIDE
   {
     return new debug_event (m_loc, m_fndecl, m_depth, m_desc);
+  }
+
+private:
+  char *m_desc;
+};
+
+/* A concrete event subclass for custom events.  These are not filtered,
+   as they are likely to be pertinent to the diagnostic.  */
+
+class custom_event : public checker_event
+{
+public:
+  custom_event (location_t loc, tree fndecl, int depth,
+		const char *desc)
+  : checker_event (EK_CUSTOM, loc, fndecl, depth),
+    m_desc (xstrdup (desc))
+  {
+  }
+  ~custom_event ()
+  {
+    free (m_desc);
+  }
+
+  label_text get_desc (bool) const FINAL OVERRIDE;
+
+  checker_event *clone () const FINAL OVERRIDE
+  {
+    return new custom_event (m_loc, m_fndecl, m_depth, m_desc);
   }
 
 private:
