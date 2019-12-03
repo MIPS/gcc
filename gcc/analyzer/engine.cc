@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gcc-rich-location.h"
 #include "analyzer/exploded-graph.h"
 #include "analyzer/analysis-plan.h"
+#include "analyzer/checker-path.h"
 #include "analyzer/state-purge.h"
 
 /* For an overview, see gcc/doc/analyzer.texi.  */
@@ -1247,6 +1248,66 @@ exploded_node::dump_succs_and_preds (FILE *outf) const
 
 ////////////////////////////////////////////////////////////////////////////
 
+/* class rewind_info_t : public exploded_edge::custom_info_t.  */
+
+/* Implementation of exploded_edge::custom_info_t::update_model vfunc
+   for rewind_info_t.
+
+   Update state for the special-case of a rewind of a longjmp
+   to a setjmp (which doesn't have a superedge, but does affect
+   state).  */
+
+void
+rewind_info_t::update_model (region_model *model,
+			     const exploded_edge &eedge)
+{
+  const exploded_node &src_enode = *eedge.m_src;
+  const program_point &src_point = src_enode.get_point ();
+
+  const gimple *last_stmt
+    = src_point.get_supernode ()->get_last_stmt ();
+  gcc_assert (last_stmt);
+  const gcall *longjmp_call = as_a <const gcall *> (last_stmt);
+
+  const program_point &longjmp_point = eedge.m_src->get_point ();
+  const program_point &setjmp_point = eedge.m_dest->get_point ();
+
+  gcc_assert (longjmp_point.get_stack_depth ()
+	      >= setjmp_point.get_stack_depth ());
+
+  model->on_longjmp (longjmp_call,
+		     get_setjmp_call (),
+		     setjmp_point.get_stack_depth (), NULL);
+}
+
+/* Implementation of exploded_edge::custom_info_t::add_events_to_path vfunc
+   for rewind_info_t.  */
+
+void
+rewind_info_t::add_events_to_path (checker_path *emission_path,
+				   const exploded_edge &eedge)
+{
+  const exploded_node *src_node = eedge.m_src;
+  const program_point &src_point = src_node->get_point ();
+  const int src_stack_depth = src_point.get_stack_depth ();
+  const exploded_node *dst_node = eedge.m_dest;
+  const program_point &dst_point = dst_node->get_point ();
+  const int dst_stack_depth = dst_point.get_stack_depth ();
+
+  emission_path->add_event
+    (new rewind_from_longjmp_event
+     (&eedge, src_point.get_supernode ()->get_end_location (),
+      src_point.get_fndecl (),
+      src_stack_depth));
+  emission_path->add_event
+    (new rewind_to_setjmp_event
+     (&eedge, get_setjmp_call ()->location,
+      dst_point.get_fndecl (),
+      dst_stack_depth, this));
+}
+
+////////////////////////////////////////////////////////////////////////////
+
 /* class exploded_edge : public dedge.  */
 
 /* exploded_edge's ctor.  */
@@ -1254,9 +1315,9 @@ exploded_node::dump_succs_and_preds (FILE *outf) const
 exploded_edge::exploded_edge (exploded_node *src, exploded_node *dest,
 			      const superedge *sedge,
 			      const state_change &change,
-			      rewind_info_t *rewind_info)
+			      custom_info_t *custom_info)
 : dedge (src, dest), m_sedge (sedge), m_change (change),
-  m_rewind_info (rewind_info)
+  m_custom_info (custom_info)
 {
   change.validate (dest->get_state ());
 }
@@ -1265,7 +1326,7 @@ exploded_edge::exploded_edge (exploded_node *src, exploded_node *dest,
 
 exploded_edge::~exploded_edge ()
 {
-  delete m_rewind_info;
+  delete m_custom_info;
 }
 
 /* Implementation of dedge::dump_dot vfunc for exploded_edge.
@@ -1300,7 +1361,7 @@ exploded_edge::dump_dot (graphviz_out *gv, const dump_args_t &args) const
 	style = "\"dotted\"";
 	break;
       }
-  if (m_rewind_info)
+  if (m_custom_info)
     {
       color = "red";
       style = "\"dotted\"";
@@ -1316,8 +1377,8 @@ exploded_edge::dump_dot (graphviz_out *gv, const dump_args_t &args) const
 
   if (m_sedge)
     m_sedge->dump_label_to_pp (pp, false);
-  else if (m_rewind_info)
-    pp_string (pp, "rewind");
+  else if (m_custom_info)
+    m_custom_info->print (pp);
 
   m_change.dump (pp, args.m_eg.get_ext_state ());
   //pp_write_text_as_dot_label_to_stream (pp, /*for_record=*/false);
@@ -1859,9 +1920,9 @@ exploded_edge *
 exploded_graph::add_edge (exploded_node *src, exploded_node *dest,
 			  const superedge *sedge,
 			  const state_change &change,
-			  rewind_info_t *rewind_info)
+			  exploded_edge::custom_info_t *custom_info)
 {
-  exploded_edge *e = new exploded_edge (src, dest, sedge, change, rewind_info);
+  exploded_edge *e = new exploded_edge (src, dest, sedge, change, custom_info);
   digraph::add_edge (e);
   return e;
 }
@@ -2569,7 +2630,10 @@ exploded_path::feasible_p (logger *logger) const
 	  if (!model.maybe_update_for_edge (*sedge, last_stmt, NULL))
 	    {
 	      if (logger)
-		logger->log ("rejecting due to region model");
+		{
+		  logger->log ("rejecting due to region model");
+		  model.dump_to_pp (logger->get_printer (), false);
+		}
 	      return false;
 	    }
 	}
@@ -2589,26 +2653,8 @@ exploded_path::feasible_p (logger *logger) const
 	      if (logger)
 		logger->log ("  pushing frame for %qD", fun->decl);
 	    }
-	  else if (eedge->m_rewind_info)
-	    {
-	      /* Update state for the special-case of a rewind of a longjmp
-		 to a setjmp (which doesn't have a superedge, but does affect
-		 state).  */
-	      const gimple *last_stmt
-		= src_point.get_supernode ()->get_last_stmt ();
-	      gcc_assert (last_stmt);
-	      const gcall *longjmp_call = as_a <const gcall *> (last_stmt);
-
-	      const program_point &longjmp_point = eedge->m_src->get_point ();
-	      const program_point &setjmp_point = eedge->m_dest->get_point ();
-
-	      gcc_assert (longjmp_point.get_stack_depth ()
-			  >= setjmp_point.get_stack_depth ());
-
-	      model.on_longjmp (longjmp_call,
-				eedge->m_rewind_info->get_setjmp_call (),
-				setjmp_point.get_stack_depth (), NULL);
-	    }
+	  else if (eedge->m_custom_info)
+	    eedge->m_custom_info->update_model (&model, *eedge);
 	}
 
       /* Handle phi nodes on an edge leaving a PK_BEFORE_SUPERNODE (to

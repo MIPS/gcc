@@ -252,15 +252,72 @@ public:
   const int m_index;
 };
 
+/* An edge within the exploded graph.
+   Some exploded_edges have an underlying superedge; others don't.  */
+
+class exploded_edge : public dedge<eg_traits>
+{
+ public:
+  /* Abstract base class for associating custom data with an
+     exploded_edge, for handling non-standard edges such as
+     rewinding from a longjmp, signal handlers, etc.  */
+  class custom_info_t
+  {
+  public:
+    virtual ~custom_info_t () {}
+
+    /* Hook for making .dot label more readable .  */
+    virtual void print (pretty_printer *pp) = 0;
+
+    /* Hook for updating MODEL within exploded_path::feasible_p.  */
+    virtual void update_model (region_model *model,
+			       const exploded_edge &eedge) = 0;
+
+    virtual void add_events_to_path (checker_path *emission_path,
+				     const exploded_edge &eedge) = 0;
+  };
+
+  exploded_edge (exploded_node *src, exploded_node *dest,
+		 const superedge *sedge,
+		 const state_change &change,
+		 custom_info_t *custom_info);
+  ~exploded_edge ();
+  void dump_dot (graphviz_out *gv, const dump_args_t &args)
+    const FINAL OVERRIDE;
+
+  //private:
+  const superedge *const m_sedge;
+
+  const state_change m_change;
+
+  /* NULL for most edges; will be non-NULL for special cases
+     such as an unwind from a longjmp to a setjmp, or when
+     a signal is delivered to a signal-handler.
+
+     Owned by this class.  */
+  custom_info_t *m_custom_info;
+};
+
 /* Extra data for an exploded_edge that represents a rewind from a
    longjmp to a setjmp.  */
 
-class rewind_info_t
+class rewind_info_t : public exploded_edge::custom_info_t
 {
 public:
   rewind_info_t (const exploded_node *enode_origin)
   : m_enode_origin (enode_origin)
   {}
+
+  void print (pretty_printer *pp) FINAL OVERRIDE
+  {
+    pp_string (pp, "rewind");
+  }
+
+  void update_model (region_model *model,
+		     const exploded_edge &eedge) FINAL OVERRIDE;
+
+  void add_events_to_path (checker_path *emission_path,
+			   const exploded_edge &eedge) FINAL OVERRIDE;
 
   const program_point &get_setjmp_point () const
   {
@@ -283,30 +340,6 @@ public:
 
 private:
   const exploded_node *m_enode_origin;
-};
-
-/* An edge within the exploded graph.
-   Some exploded_edges have an underlying superedge; others don't.  */
-
-class exploded_edge : public dedge<eg_traits>
-{
- public:
-  exploded_edge (exploded_node *src, exploded_node *dest,
-		 const superedge *sedge,
-		 const state_change &change,
-		 rewind_info_t *rewind_info);
-  ~exploded_edge ();
-  void dump_dot (graphviz_out *gv, const dump_args_t &args)
-    const FINAL OVERRIDE;
-
-  //private:
-  const superedge *const m_sedge;
-
-  const state_change m_change;
-
-  /* NULL for most edges; will be non-NULL for an unwind from a longjmp
-     to a setjmp (owned by this class).  */
-  rewind_info_t *m_rewind_info;
 };
 
 /* Statistics about aspects of an exploded_graph.  */
@@ -665,7 +698,7 @@ public:
   exploded_edge *add_edge (exploded_node *src, exploded_node *dest,
 			   const superedge *sedge,
 			   const state_change &change,
-			   rewind_info_t *rewind_info = NULL);
+			   exploded_edge::custom_info_t *custom = NULL);
 
   per_program_point_data *
   get_or_create_per_program_point_data (const program_point &);

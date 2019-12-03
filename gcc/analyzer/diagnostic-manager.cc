@@ -655,7 +655,6 @@ diagnostic_manager::add_events_for_eedge (const exploded_edge &eedge,
 {
   const exploded_node *src_node = eedge.m_src;
   const program_point &src_point = src_node->get_point ();
-  const int src_stack_depth = src_point.get_stack_depth ();
   const exploded_node *dst_node = eedge.m_dest;
   const program_point &dst_point = dst_node->get_point ();
   const int dst_stack_depth = dst_point.get_stack_depth ();
@@ -693,20 +692,10 @@ diagnostic_manager::add_events_for_eedge (const exploded_edge &eedge,
   for_each_state_change (src_state, dst_state, ext_state,
 			 &visitor);
 
-  /* Add events for rewinding from a longjmp to a setjmp.  */
-  if (eedge.m_rewind_info)
-    {
-      emission_path->add_event
-	(new rewind_from_longjmp_event
-	 (&eedge, src_point.get_supernode ()->get_end_location (),
-	  src_point.get_fndecl (),
-	  src_stack_depth));
-      emission_path->add_event
-	(new rewind_to_setjmp_event
-	 (&eedge, eedge.m_rewind_info->get_setjmp_call ()->location,
-	  dst_point.get_fndecl (),
-	  dst_stack_depth));
-    }
+  /* Allow non-standard edges to add events, e.g. when rewinding from
+     longjmp to a setjmp.  */
+  if (eedge.m_custom_info)
+    eedge.m_custom_info->add_events_to_path (emission_path, eedge);
 
   /* Add events for superedges, function entries, and for statements.  */
   switch (dst_point.get_kind ())

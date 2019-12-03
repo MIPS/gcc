@@ -428,8 +428,10 @@ class rewind_to_setjmp_event : public rewind_event
 {
 public:
   rewind_to_setjmp_event (const exploded_edge *eedge,
-			  location_t loc, tree fndecl, int depth)
-  : rewind_event (eedge, EK_REWIND_TO_SETJMP, loc, fndecl, depth)
+			  location_t loc, tree fndecl, int depth,
+			  const rewind_info_t *rewind_info)
+  : rewind_event (eedge, EK_REWIND_TO_SETJMP, loc, fndecl, depth),
+    m_rewind_info (rewind_info)
   {
   }
 
@@ -438,7 +440,8 @@ public:
   rewind_to_setjmp_event *clone () const FINAL OVERRIDE
   {
     return new rewind_to_setjmp_event (get_eedge (),
-				       m_loc, m_fndecl, m_depth);
+				       m_loc, m_fndecl, m_depth,
+				       m_rewind_info);
   }
 
   void prepare_for_emission (checker_path *path,
@@ -447,6 +450,7 @@ public:
 
 private:
   diagnostic_event_id_t m_original_setjmp_event_id;
+  const rewind_info_t *m_rewind_info;
 };
 
 /* Concrete subclass of checker_event for use at the end of a path:

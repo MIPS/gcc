@@ -705,7 +705,7 @@ rewind_event::rewind_event (const exploded_edge *eedge,
 : checker_event (kind, loc, fndecl, depth),
   m_eedge (eedge)
 {
-  gcc_assert (m_eedge->m_rewind_info);
+  gcc_assert (m_eedge->m_custom_info); // a rewind_info_t
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -789,7 +789,7 @@ rewind_to_setjmp_event::prepare_for_emission (checker_path *path,
 					      diagnostic_event_id_t emission_id)
 {
   checker_event::prepare_for_emission (path, pd, emission_id);
-  path->get_setjmp_event (get_eedge ()->m_rewind_info->get_enode_origin (),
+  path->get_setjmp_event (m_rewind_info->get_enode_origin (),
 			  &m_original_setjmp_event_id);
 }
 

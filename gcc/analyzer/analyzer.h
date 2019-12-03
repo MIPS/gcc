@@ -65,6 +65,7 @@ class analysis_plan;
 class state_purge_map;
 class state_purge_per_ssa_name;
 class state_change;
+class rewind_info_t;
 
 ////////////////////////////////////////////////////////////////////////////
 
