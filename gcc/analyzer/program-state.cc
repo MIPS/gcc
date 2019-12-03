@@ -35,6 +35,13 @@ along with GCC; see the file COPYING3.  If not see
 
 /* class sm_state_map.  */
 
+/* sm_state_map's ctor.  */
+
+sm_state_map::sm_state_map ()
+: m_map (), m_global_state (0)
+{
+}
+
 /* Clone the sm_state_map.  */
 
 sm_state_map *
@@ -80,13 +87,20 @@ sm_state_map::clone_with_remapping (const one_way_svalue_id_map &id_map) const
 void
 sm_state_map::print (const state_machine &sm, pretty_printer *pp) const
 {
+  bool first = true;
   pp_string (pp, "{");
+  if (m_global_state != 0)
+    {
+      pp_printf (pp, "global: %s", sm.get_state_name (m_global_state));
+      first = false;
+    }
   for (typename map_t::iterator iter = m_map.begin ();
        iter != m_map.end ();
        ++iter)
     {
-      if (iter != m_map.begin ())
+      if (!first)
 	pp_string (pp, ", ");
+      first = false;
       svalue_id sid = (*iter).first;
       sid.print (pp);
 
@@ -118,7 +132,7 @@ sm_state_map::dump (const state_machine &sm) const
 bool
 sm_state_map::is_empty_p () const
 {
-  return m_map.elements () == 0;
+  return m_map.elements () == 0 && m_global_state == 0;
 }
 
 /* Generate a hash value for this sm_state_map.  */
@@ -142,6 +156,7 @@ sm_state_map::hash () const
       inchash::add (e.m_origin, hstate);
       result ^= hstate.end ();
     }
+  result ^= m_global_state;
 
   return result;
 }
@@ -151,6 +166,9 @@ sm_state_map::hash () const
 bool
 sm_state_map::operator== (const sm_state_map &other) const
 {
+  if (m_global_state != other.m_global_state)
+    return false;
+
   if (m_map.elements () != other.m_map.elements ())
     return false;
 
@@ -259,6 +277,22 @@ sm_state_map::impl_set_state (svalue_id sid, state_machine::state_t state,
     }
   gcc_assert (!sid.null_p ());
   m_map.put (sid, entry_t (state, origin));
+}
+
+/* Set the "global" state within this state map to STATE.  */
+
+void
+sm_state_map::set_global_state (state_machine::state_t state)
+{
+  m_global_state = state;
+}
+
+/* Get the "global" state within this state map.  */
+
+state_machine::state_t
+sm_state_map::get_global_state () const
+{
+  return m_global_state;
 }
 
 /* Handle CALL to unknown FNDECL with an unknown function body, which

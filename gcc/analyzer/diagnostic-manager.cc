@@ -471,6 +471,8 @@ get_any_origin (const gimple *stmt,
   if (!stmt)
     return NULL_TREE;
 
+  gcc_assert (dst_rep);
+
   if (const gassign *assign = dyn_cast <const gassign *> (stmt))
     {
       tree lhs = gimple_assign_lhs (assign);
@@ -522,6 +524,33 @@ public:
     : m_eedge (eedge),
       m_emission_path (emission_path)
   {}
+
+  bool on_global_state_change (const state_machine &sm,
+			       state_machine::state_t src_sm_val,
+			       state_machine::state_t dst_sm_val)
+    FINAL OVERRIDE
+  {
+    const exploded_node *src_node = m_eedge.m_src;
+    const program_point &src_point = src_node->get_point ();
+    const int src_stack_depth = src_point.get_stack_depth ();
+    const exploded_node *dst_node = m_eedge.m_dest;
+    const gimple *stmt = src_point.get_stmt ();
+    const supernode *supernode = src_point.get_supernode ();
+    const program_state &dst_state = dst_node->get_state ();
+
+    int stack_depth = src_stack_depth;
+
+    m_emission_path->add_event (new state_change_event (supernode,
+							stmt,
+							stack_depth,
+							sm,
+							NULL_TREE,
+							src_sm_val,
+							dst_sm_val,
+							NULL_TREE,
+							dst_state));
+    return false;
+  }
 
   bool on_state_change (const state_machine &sm,
 			state_machine::state_t src_sm_val,
@@ -575,18 +604,19 @@ public:
 
 /* Compare SRC_STATE and DST_STATE (which use EXT_STATE), and call
    VISITOR's on_state_change for every sm-state change that occurs
-   to a tree.
+   to a tree, and on_global_state_change for every global state change
+   that occurs.
 
    This determines the state changes that ought to be reported to
    the user: a combination of the effects of changes to sm_state_map
    (which maps svalues to sm-states), and of region_model changes
    (which map trees to svalues).
 
-   Bail out early and return true if any call to on_state_change returns
-   true, otherwise return false.
+   Bail out early and return true if any call to on_global_state_change
+   or on_state_change returns true, otherwise return false.
 
    This is split out to make it easier to experiment with changes to
-   exploded_node granulairy (so that we can observe what state changes
+   exploded_node granularity (so that we can observe what state changes
    lead to state_change_events being emitted).  */
 
 bool
@@ -604,6 +634,15 @@ for_each_state_change (const program_state &src_state,
       const state_machine &sm = ext_state.get_sm (i);
       const sm_state_map &src_smap = *src_state.m_checker_states[i];
       const sm_state_map &dst_smap = *dst_state.m_checker_states[i];
+
+      /* Add events for any global state changes.  */
+      if (src_smap.get_global_state () != dst_smap.get_global_state ())
+	if (visitor->on_global_state_change (sm,
+					     src_smap.get_global_state (),
+					     dst_smap.get_global_state ()))
+	  return true;
+
+      /* Add events for per-svalue state changes.  */
       for (sm_state_map::iterator_t iter = dst_smap.begin ();
 	   iter != dst_smap.end ();
 	   ++iter)
@@ -856,8 +895,14 @@ diagnostic_manager::prune_path (checker_path *path,
       if (get_logger ())
 	{
 	  if (sm)
-	    log ("considering event %i, with var: %qE, state: %qs",
-		 idx, var, sm->get_state_name (state));
+	    {
+	      if (var)
+		log ("considering event %i, with var: %qE, state: %qs",
+		     idx, var, sm->get_state_name (state));
+	      else
+		log ("considering event %i, with global state: %qs",
+		     idx, sm->get_state_name (state));
+	    }
 	  else
 	    log ("considering event %i", idx);
 	}
@@ -877,14 +922,17 @@ diagnostic_manager::prune_path (checker_path *path,
 	case EK_STMT:
 	  {
 	    /* If this stmt is the origin of "var", update var.  */
-	    statement_event *stmt_event = (statement_event *)base_event;
-	    tree new_var = get_any_origin (stmt_event->m_stmt, var,
-					   stmt_event->m_dst_state);
-	    if (new_var)
+	    if (var)
 	      {
-		log ("event %i: switching var of interest from %qE to %qE",
-		     idx, var, new_var);
-		var = new_var;
+		statement_event *stmt_event = (statement_event *)base_event;
+		tree new_var = get_any_origin (stmt_event->m_stmt, var,
+					       stmt_event->m_dst_state);
+		if (new_var)
+		  {
+		    log ("event %i: switching var of interest from %qE to %qE",
+			 idx, var, new_var);
+		    var = new_var;
+		  }
 	      }
 	    if (m_verbosity < 3)
 	      {
@@ -1007,28 +1055,24 @@ diagnostic_manager::prune_path (checker_path *path,
 	  // TODO: potentially update var/state based on return value,
 	  // args etc
 	  {
-	    return_event *event = (return_event *)base_event;
-	    const callgraph_superedge& cg_superedge
-	      = event->get_callgraph_superedge ();
-	    callsite_expr expr;
-	    tree callee_var
-	      = cg_superedge.map_expr_from_caller_to_callee (var, &expr);
-	    if (callee_var)
+	    if (var)
 	      {
-		if (var)
-		  log ("event %i:"
-		       " switching var of interest"
-		       " from %qE in caller to %qE in callee",
-		       idx, var, callee_var);
-		else
-		  // TODO: how does this happen?
-		  log ("event %i:"
-		       " switching var of interest"
-		       " from NULL in caller to %qE in callee",
-		       idx, callee_var);
-		var = callee_var;
-		if (expr.return_value_p ())
-		  event->record_critical_state (var, state);
+		return_event *event = (return_event *)base_event;
+		const callgraph_superedge& cg_superedge
+		  = event->get_callgraph_superedge ();
+		callsite_expr expr;
+		tree callee_var
+		  = cg_superedge.map_expr_from_caller_to_callee (var, &expr);
+		if (callee_var)
+		  {
+		    log ("event %i:"
+			 " switching var of interest"
+			 " from %qE in caller to %qE in callee",
+			 idx, var, callee_var);
+		    var = callee_var;
+		    if (expr.return_value_p ())
+		      event->record_critical_state (var, state);
+		  }
 	      }
 	  }
 	  break;

@@ -104,6 +104,22 @@ start_start_p (state_machine::state_t state)
 
 ////////////////////////////////////////////////////////////////////////////
 
+/* Abstract base class for state machines to pass to
+   sm_context::on_custom_transition for handling non-standard transitions
+   (e.g. adding a node and edge to simulate registering a callback and having
+   the callback be called later).  */
+
+class custom_transition
+{
+public:
+  virtual ~custom_transition () {}
+  virtual void impl_transition (exploded_graph *eg,
+				exploded_node *src_enode,
+				int sm_idx) = 0;
+};
+
+////////////////////////////////////////////////////////////////////////////
+
 /* Abstract base class giving an interface for the state machine to call
    the checker engine, at a particular stmt.  */
 
@@ -139,6 +155,13 @@ public:
   {
     return expr;
   }
+
+  virtual state_machine::state_t get_global_state () const = 0;
+  virtual void set_global_state (state_machine::state_t) = 0;
+
+  /* A vfunc for handling custom transitions, such as when registering
+     a signal handler.  */
+  virtual void on_custom_transition (custom_transition *transition) = 0;
 
 protected:
   sm_context (int sm_idx, const state_machine &sm)

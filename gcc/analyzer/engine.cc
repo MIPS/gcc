@@ -234,9 +234,16 @@ public:
 
     impl_region_model_context old_ctxt
       (m_eg, m_enode_for_diag, m_old_state, m_new_state, m_change, NULL);
-    svalue_id var_old_sid
-      = m_old_state->m_region_model->get_rvalue (var, &old_ctxt);
-    state_machine::state_t current = m_old_smap->get_state (var_old_sid);
+    state_machine::state_t current;
+    if (var)
+      {
+	svalue_id var_old_sid
+	  = m_old_state->m_region_model->get_rvalue (var, &old_ctxt);
+	current = m_old_smap->get_state (var_old_sid);
+      }
+    else
+      current = m_old_smap->get_global_state ();
+
     if (state == current)
       {
 	m_eg.get_diagnostic_manager ().add_diagnostic
@@ -273,6 +280,23 @@ public:
     // TODO: should we also consider (and consolidate) equiv classes?
     pvs.qsort (readability_comparator);
     return pvs[0].m_tree;
+  }
+
+  state_machine::state_t get_global_state () const FINAL OVERRIDE
+  {
+    return m_old_state->m_checker_states[m_sm_idx]->get_global_state ();
+  }
+
+  void set_global_state (state_machine::state_t state) FINAL OVERRIDE
+  {
+    m_new_state->m_checker_states[m_sm_idx]->set_global_state (state);
+  }
+
+  void on_custom_transition (custom_transition *transition) FINAL OVERRIDE
+  {
+    transition->impl_transition (&m_eg,
+				 const_cast<exploded_node *> (m_enode_for_diag),
+				 m_sm_idx);
   }
 
   exploded_graph &m_eg;
@@ -718,10 +742,13 @@ exploded_node::get_dot_fillcolor () const
   int i;
   sm_state_map *smap;
   FOR_EACH_VEC_ELT (state.m_checker_states, i, smap)
-    for (sm_state_map::iterator_t iter = smap->begin ();
+    {
+      for (sm_state_map::iterator_t iter = smap->begin ();
 	 iter != smap->end ();
-	 ++iter)
-      total_sm_state += (*iter).second.m_state;
+	   ++iter)
+	total_sm_state += (*iter).second.m_state;
+      total_sm_state += smap->get_global_state ();
+    }
 
   if (total_sm_state > 0)
     {

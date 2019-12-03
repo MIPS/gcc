@@ -136,6 +136,8 @@ public:
   typedef hash_map <svalue_id, entry_t> map_t;
   typedef typename map_t::iterator iterator_t;
 
+  sm_state_map ();
+
   sm_state_map *clone () const;
 
   sm_state_map *
@@ -168,6 +170,9 @@ public:
 		       state_machine::state_t state,
 		       svalue_id origin);
 
+  void set_global_state (state_machine::state_t state);
+  state_machine::state_t get_global_state () const;
+
   void purge_for_unknown_fncall (const exploded_graph &eg,
 				 const state_machine &sm,
 				 const gcall *call, tree fndecl,
@@ -194,6 +199,7 @@ public:
 
 private:
   map_t m_map;
+  state_machine::state_t m_global_state;
 };
 
 /* A class for representing the state of interest at a given path of
@@ -283,6 +289,11 @@ class state_change_visitor
 {
 public:
   virtual ~state_change_visitor () {}
+
+  /* Return true for early exit, false to keep iterating.  */
+  virtual bool on_global_state_change (const state_machine &sm,
+				       state_machine::state_t src_sm_val,
+				       state_machine::state_t dst_sm_val) = 0;
 
   /* Return true for early exit, false to keep iterating.  */
   virtual bool on_state_change (const state_machine &sm,

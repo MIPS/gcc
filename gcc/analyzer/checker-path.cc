@@ -246,21 +246,33 @@ state_change_event::get_desc (bool can_colorize) const
     }
 
   /* Fallback description.  */
-  if (m_origin)
-    return make_label_text
-      (can_colorize,
-       "state of %qE: %qs -> %qs (origin: %qE)",
-       m_var,
-       m_sm.get_state_name (m_from),
-       m_sm.get_state_name (m_to),
-       m_origin);
+  if (m_var)
+    {
+      if (m_origin)
+	return make_label_text
+	  (can_colorize,
+	   "state of %qE: %qs -> %qs (origin: %qE)",
+	   m_var,
+	   m_sm.get_state_name (m_from),
+	   m_sm.get_state_name (m_to),
+	   m_origin);
+      else
+	return make_label_text
+	  (can_colorize,
+	   "state of %qE: %qs -> %qs (origin: NULL)",
+	   m_var,
+	   m_sm.get_state_name (m_from),
+	   m_sm.get_state_name (m_to));
+    }
   else
-    return make_label_text
-      (can_colorize,
-       "state of %qE: %qs -> %qs (origin: NULL)",
-       m_var,
-       m_sm.get_state_name (m_from),
-       m_sm.get_state_name (m_to));
+    {
+      gcc_assert (m_origin == NULL_TREE);
+      return make_label_text
+	(can_colorize,
+	 "global state: %qs -> %qs",
+	 m_sm.get_state_name (m_from),
+	 m_sm.get_state_name (m_to));
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////

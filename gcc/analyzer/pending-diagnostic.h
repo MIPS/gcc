@@ -57,6 +57,8 @@ struct state_change : public event_desc
     m_event_id (event_id)
   {}
 
+  bool is_global_p () const { return m_expr == NULL_TREE; }
+
   tree m_expr;
   tree m_origin;
   state_machine::state_t m_old_state;
