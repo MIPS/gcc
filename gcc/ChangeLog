@@ -1,3 +1,40 @@
+2019-12-04  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/arm/arm.c (arm_option_override_internal):
+	Use max_cond_insns from CPU tuning unless -mrestrict-it is used.
+
+2019-12-04  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/aarch64/aarch64.c
+	(thunderxt88_tunings): Use AARCH64_FUSE_ALU_BRANCH.
+	(thunderx_tunings): Likewise.
+	(tsv110_tunings): Use AARCH64_FUSE_ALU_BRANCH and AARCH64_FUSE_ALU_CBZ.
+	(thunderx2t99_tunings): Likewise.
+	(aarch_macro_fusion_pair_p): Add support for AARCH64_FUSE_CMP_BRANCH.
+	* config/aarch64/aarch64-fusion-pairs.def: Add ALU_CBZ fusion.
+
+2019-12-04  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-sccvn.c (vn_reference_lookup_3): Properly guard
+	empty CTOR and memset partial-def registering.  Take advantage
+	of fancy offset analysis in memset handling.
+
+2019-12-04  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* fold-const.c (native_encode_vector_part): Handle
+	VECTOR_BOOLEAN_TYPE_Ps that have subbyte precision.
+	(native_decode_vector_tree): Delete, moving the bulk of the code to...
+	(native_interpret_vector_part): ...this new function.  Use a pointer
+	and length instead of a vec<> and start index.
+	(native_interpret_vector): Use native_interpret_vector_part.
+	(fold_view_convert_vector_encoding): Likewise.
+
+2019-12-04  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-sccvn.c (vn_walk_cb_data::push_partial_def): Handle
+	non-constant defs in the most trivial way.
+	(vn_reference_lookup_3): Also push down SSA partial defs.
+
 2019-12-04  Martin Liska  <mliska@suse.cz>
 
 	* tree-switch-conversion.c (switch_decision_tree::try_switch_expansion):
