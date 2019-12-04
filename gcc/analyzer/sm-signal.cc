@@ -173,6 +173,7 @@ public:
 
   void add_events_to_path (checker_path *emission_path,
 			   const exploded_edge &eedge ATTRIBUTE_UNUSED)
+    FINAL OVERRIDE
   {
     emission_path->add_event
       (new custom_event (UNKNOWN_LOCATION, NULL_TREE, 0,
