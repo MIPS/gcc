@@ -105,6 +105,8 @@ public:
   iterator end () const { return m_map.end (); }
 
 private:
+  DISABLE_COPY_AND_ASSIGN (state_purge_map);
+
   const supergraph &m_sg;
   map_t m_map;
 };

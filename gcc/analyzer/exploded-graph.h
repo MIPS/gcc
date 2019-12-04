@@ -241,6 +241,8 @@ class exploded_node : public dnode<eg_traits>
   void dump_succs_and_preds (FILE *outf) const;
 
 private:
+  DISABLE_COPY_AND_ASSIGN (exploded_node);
+
   const char * get_dot_fillcolor () const;
 
   /* The <program_point, program_state> pair.  This is const, as it
@@ -296,6 +298,9 @@ class exploded_edge : public dedge<eg_traits>
 
      Owned by this class.  */
   custom_info_t *m_custom_info;
+
+private:
+  DISABLE_COPY_AND_ASSIGN (exploded_edge);
 };
 
 /* Extra data for an exploded_edge that represents a rewind from a
@@ -733,6 +738,8 @@ public:
   { return &m_per_call_string_data; }
 
 private:
+  DISABLE_COPY_AND_ASSIGN (exploded_graph);
+
   const supergraph &m_sg;
 
   /* Map from point/state to exploded node.

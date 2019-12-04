@@ -42,6 +42,8 @@ public:
   bool use_summary_p (const cgraph_edge *edge) const;
 
 private:
+  DISABLE_COPY_AND_ASSIGN (analysis_plan);
+
   const supergraph &m_sg;
 
   /* Result of ipa_reverse_postorder.  */

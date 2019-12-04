@@ -59,6 +59,9 @@ public:
   state_machine::state_t m_state;
   pending_diagnostic *m_d;
   exploded_edge *m_trailing_eedge;
+
+private:
+  DISABLE_COPY_AND_ASSIGN (saved_diagnostic);
 };
 
 /* A class with responsibility for saving pending diagnostics, so that

@@ -90,6 +90,8 @@ protected:
   state_t add_state (const char *name);
 
 private:
+  DISABLE_COPY_AND_ASSIGN (state_machine);
+
   const char *m_name;
   auto_vec<const char *> m_state_names;
 };
