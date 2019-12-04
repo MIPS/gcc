@@ -1567,6 +1567,9 @@ class auto_delete_vec : public auto_vec <T *>
   auto_delete_vec (size_t s) : auto_vec <T *> (s) {}
 
   ~auto_delete_vec ();
+
+private:
+  DISABLE_COPY_AND_ASSIGN(auto_delete_vec<T>);
 };
 
 /* Conditionally allocate heap memory for VEC and its internal vector.  */
