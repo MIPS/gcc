@@ -204,6 +204,8 @@ enum cp_tree_index
 
     CPTI_ANY_TARG,
 
+    CPTI_SOURCE_LOCATION_IMPL,
+
     CPTI_MAX
 };
 
@@ -355,6 +357,9 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 
 /* A node which matches any template argument.  */
 #define any_targ_node			cp_global_trees[CPTI_ANY_TARG]
+
+/* std::source_location::__impl class.  */
+#define source_location_impl		cp_global_trees[CPTI_SOURCE_LOCATION_IMPL]
 
 /* Node to indicate default access. This must be distinct from the
    access nodes in tree.h.  */
@@ -4249,7 +4254,7 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
    As an extension, we also treat vectors as aggregates.  Keep these
    checks in ascending code order.  */
 #define CP_AGGREGATE_TYPE_P(TYPE)				\
-  (TREE_CODE (TYPE) == VECTOR_TYPE				\
+  (gnu_vector_type_p (TYPE)					\
    || TREE_CODE (TYPE) == ARRAY_TYPE				\
    || (CLASS_TYPE_P (TYPE) && COMPLETE_TYPE_P (TYPE) && !CLASSTYPE_NON_AGGREGATE (TYPE)))
 
@@ -4324,6 +4329,11 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
    one designated-initializer-clause), or a C99 designator.  */
 #define CONSTRUCTOR_IS_DESIGNATED_INIT(NODE) \
   (TREE_LANG_FLAG_6 (CONSTRUCTOR_CHECK (NODE)))
+
+/* True if this CONSTRUCTOR comes from a parenthesized list of values, e.g.
+   A(1, 2, 3).  */
+#define CONSTRUCTOR_IS_PAREN_INIT(NODE) \
+  (CONSTRUCTOR_CHECK(NODE)->base.private_flag)
 
 /* True if NODE represents a conversion for direct-initialization in a
    template.  Set by perform_implicit_conversion_flags.  */
@@ -5583,6 +5593,8 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, TYPENAME_FLAG };
    args), then we swap the conversions back in build_new_op_1 (so they
    correspond to the order of the args in the candidate).  */
 #define LOOKUP_REVERSED (LOOKUP_REWRITTEN << 1)
+/* We're initializing an aggregate from a parenthesized list of values.  */
+#define LOOKUP_AGGREGATE_PAREN_INIT (LOOKUP_REVERSED << 1)
 
 #define LOOKUP_NAMESPACES_ONLY(F)  \
   (((F) & LOOKUP_PREFER_NAMESPACES) && !((F) & LOOKUP_PREFER_TYPES))
@@ -6175,6 +6187,7 @@ struct GTY((chain_next ("%h.next"))) tinst_level {
 enum cp_built_in_function {
   CP_BUILT_IN_IS_CONSTANT_EVALUATED,
   CP_BUILT_IN_INTEGER_PACK,
+  CP_BUILT_IN_SOURCE_LOCATION,
   CP_BUILT_IN_LAST
 };
 
@@ -7728,6 +7741,7 @@ extern void clear_fold_cache			(void);
 extern tree lookup_hotness_attribute		(tree);
 extern tree process_stmt_hotness_attribute	(tree, location_t);
 extern bool simple_empty_class_p		(tree, tree, tree_code);
+extern tree fold_builtin_source_location	(location_t);
 
 /* in name-lookup.c */
 extern tree strip_using_decl                    (tree);

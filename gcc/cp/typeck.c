@@ -4547,7 +4547,8 @@ cp_build_binary_op (const op_location_t &location,
 
   /* In case when one of the operands of the binary operation is
      a vector and another is a scalar -- convert scalar to vector.  */
-  if ((code0 == VECTOR_TYPE) != (code1 == VECTOR_TYPE))
+  if ((gnu_vector_type_p (type0) && code1 != VECTOR_TYPE)
+      || (gnu_vector_type_p (type1) && code0 != VECTOR_TYPE))
     {
       enum stv_conv convert_flag = scalar_to_vector (location, code, op0, op1,
 						     complain & tf_error);
@@ -4740,7 +4741,7 @@ cp_build_binary_op (const op_location_t &location,
     case TRUTH_ORIF_EXPR:
     case TRUTH_AND_EXPR:
     case TRUTH_OR_EXPR:
-      if (!VECTOR_TYPE_P (type0) && VECTOR_TYPE_P (type1))
+      if (!VECTOR_TYPE_P (type0) && gnu_vector_type_p (type1))
 	{
 	  if (!COMPARISON_CLASS_P (op1))
 	    op1 = cp_build_binary_op (EXPR_LOCATION (op1), NE_EXPR, op1,
@@ -4758,7 +4759,8 @@ cp_build_binary_op (const op_location_t &location,
 	  else
 	    gcc_unreachable ();
 	}
-      if (VECTOR_TYPE_P (type0))
+      if (gnu_vector_type_p (type0)
+	  && (!VECTOR_TYPE_P (type1) || gnu_vector_type_p (type1)))
 	{
 	  if (!COMPARISON_CLASS_P (op0))
 	    op0 = cp_build_binary_op (EXPR_LOCATION (op0), NE_EXPR, op0,
@@ -4791,13 +4793,15 @@ cp_build_binary_op (const op_location_t &location,
 	 Also set SHORT_SHIFT if shifting rightward.  */
 
     case RSHIFT_EXPR:
-      if (code0 == VECTOR_TYPE && code1 == INTEGER_TYPE
-          && TREE_CODE (TREE_TYPE (type0)) == INTEGER_TYPE)
+      if (gnu_vector_type_p (type0)
+	  && code1 == INTEGER_TYPE
+	  && TREE_CODE (TREE_TYPE (type0)) == INTEGER_TYPE)
         {
           result_type = type0;
           converted = 1;
         }
-      else if (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE
+      else if (gnu_vector_type_p (type0)
+	       && gnu_vector_type_p (type1)
 	       && TREE_CODE (TREE_TYPE (type0)) == INTEGER_TYPE
 	       && TREE_CODE (TREE_TYPE (type1)) == INTEGER_TYPE
 	       && known_eq (TYPE_VECTOR_SUBPARTS (type0),
@@ -4837,13 +4841,15 @@ cp_build_binary_op (const op_location_t &location,
       break;
 
     case LSHIFT_EXPR:
-      if (code0 == VECTOR_TYPE && code1 == INTEGER_TYPE
+      if (gnu_vector_type_p (type0)
+	  && code1 == INTEGER_TYPE
           && TREE_CODE (TREE_TYPE (type0)) == INTEGER_TYPE)
         {
           result_type = type0;
           converted = 1;
         }
-      else if (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE
+      else if (gnu_vector_type_p (type0)
+	       && gnu_vector_type_p (type1)
 	       && TREE_CODE (TREE_TYPE (type0)) == INTEGER_TYPE
 	       && TREE_CODE (TREE_TYPE (type1)) == INTEGER_TYPE
 	       && known_eq (TYPE_VECTOR_SUBPARTS (type0),
@@ -4896,7 +4902,7 @@ cp_build_binary_op (const op_location_t &location,
 
     case EQ_EXPR:
     case NE_EXPR:
-      if (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE)
+      if (gnu_vector_type_p (type0) && gnu_vector_type_p (type1))
 	goto vector_compare;
       if ((complain & tf_warning)
 	  && c_inhibit_evaluation_warnings == 0
@@ -5186,7 +5192,7 @@ cp_build_binary_op (const op_location_t &location,
 			"in unspecified behavior");
 	}
 
-      if (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE)
+      if (gnu_vector_type_p (type0) && gnu_vector_type_p (type1))
 	{
 	vector_compare:
 	  tree intt;
@@ -5341,7 +5347,7 @@ cp_build_binary_op (const op_location_t &location,
     {
       arithmetic_types_p = 0;
       /* Vector arithmetic is only allowed when both sides are vectors.  */
-      if (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE)
+      if (gnu_vector_type_p (type0) && gnu_vector_type_p (type1))
 	{
 	  if (!tree_int_cst_equal (TYPE_SIZE (type0), TYPE_SIZE (type1))
 	      || !vector_types_compatible_elements_p (type0, type1))
@@ -6070,6 +6076,7 @@ cp_build_addr_expr_1 (tree arg, bool strict_lvalue, tsubst_flags_t complain)
     return error_mark_node;
 
   argtype = lvalue_type (arg);
+  location_t loc = cp_expr_loc_or_input_loc (arg);
 
   gcc_assert (!(identifier_p (arg) && IDENTIFIER_ANY_OP_P (arg)));
 
@@ -6103,12 +6110,14 @@ cp_build_addr_expr_1 (tree arg, bool strict_lvalue, tsubst_flags_t complain)
 	  else if (current_class_type
 		   && TREE_OPERAND (arg, 0) == current_class_ref)
 	    /* An expression like &memfn.  */
-	    permerror (input_location, "ISO C++ forbids taking the address of an unqualified"
+	    permerror (loc,
+		       "ISO C++ forbids taking the address of an unqualified"
 		       " or parenthesized non-static member function to form"
 		       " a pointer to member function.  Say %<&%T::%D%>",
 		       base, name);
 	  else
-	    permerror (input_location, "ISO C++ forbids taking the address of a bound member"
+	    permerror (loc,
+		       "ISO C++ forbids taking the address of a bound member"
 		       " function to form a pointer to member function."
 		       "  Say %<&%T::%D%>",
 		       base, name);
@@ -6135,7 +6144,7 @@ cp_build_addr_expr_1 (tree arg, bool strict_lvalue, tsubst_flags_t complain)
       if (kind == clk_none)
 	{
 	  if (complain & tf_error)
-	    lvalue_error (cp_expr_loc_or_input_loc (arg), lv_addressof);
+	    lvalue_error (loc, lv_addressof);
 	  return error_mark_node;
 	}
       if (strict_lvalue && (kind & (clk_rvalueref|clk_class)))
@@ -6143,8 +6152,7 @@ cp_build_addr_expr_1 (tree arg, bool strict_lvalue, tsubst_flags_t complain)
 	  if (!(complain & tf_error))
 	    return error_mark_node;
 	  /* Make this a permerror because we used to accept it.  */
-	  permerror (cp_expr_loc_or_input_loc (arg),
-		     "taking address of rvalue");
+	  permerror (loc, "taking address of rvalue");
 	}
     }
 
@@ -6154,13 +6162,13 @@ cp_build_addr_expr_1 (tree arg, bool strict_lvalue, tsubst_flags_t complain)
       arg = build1 (CONVERT_EXPR, type, arg);
       return arg;
     }
-  else if (pedantic && DECL_MAIN_P (arg))
+  else if (pedantic && DECL_MAIN_P (tree_strip_any_location_wrapper (arg)))
     {
       /* ARM $3.4 */
       /* Apparently a lot of autoconf scripts for C++ packages do this,
 	 so only complain if -Wpedantic.  */
       if (complain & (flag_pedantic_errors ? tf_error : tf_warning))
-	pedwarn (input_location, OPT_Wpedantic,
+	pedwarn (loc, OPT_Wpedantic,
 		 "ISO C++ forbids taking address of function %<::main%>");
       else if (flag_pedantic_errors)
 	return error_mark_node;
@@ -6218,7 +6226,8 @@ cp_build_addr_expr_1 (tree arg, bool strict_lvalue, tsubst_flags_t complain)
 	if (TYPE_REF_P (TREE_TYPE (t)))
 	  {
 	    if (complain & tf_error)
-	      error ("cannot create pointer to reference member %qD", t);
+	      error_at (loc,
+			"cannot create pointer to reference member %qD", t);
 	    return error_mark_node;
 	  }
 
@@ -6238,8 +6247,7 @@ cp_build_addr_expr_1 (tree arg, bool strict_lvalue, tsubst_flags_t complain)
   if (bitfield_p (arg))
     {
       if (complain & tf_error)
-	error_at (cp_expr_loc_or_input_loc (arg),
-		  "attempt to take address of bit-field");
+	error_at (loc, "attempt to take address of bit-field");
       return error_mark_node;
     }
 
@@ -6254,8 +6262,8 @@ cp_build_addr_expr_1 (tree arg, bool strict_lvalue, tsubst_flags_t complain)
 	      || !DECL_IMMEDIATE_FUNCTION_P (current_function_decl)))
 	{
 	  if (complain & tf_error)
-	    error ("taking address of an immediate function %qD",
-		   stripped_arg);
+	    error_at (loc, "taking address of an immediate function %qD",
+		      stripped_arg);
 	  return error_mark_node;
 	}
       if (TREE_CODE (stripped_arg) == FUNCTION_DECL
@@ -6433,7 +6441,7 @@ cp_build_unary_op (enum tree_code code, tree xarg, bool noconvert,
       break;
 
     case TRUTH_NOT_EXPR:
-      if (VECTOR_TYPE_P (TREE_TYPE (arg)))
+      if (gnu_vector_type_p (TREE_TYPE (arg)))
 	return cp_build_binary_op (input_location, EQ_EXPR, arg,
 				   build_zero_cst (TREE_TYPE (arg)), complain);
       arg = perform_implicit_conversion (boolean_type_node, arg,
@@ -7809,9 +7817,9 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
 		 "is conditionally-supported");
       return build_nop_reinterpret (type, expr);
     }
-  else if (VECTOR_TYPE_P (type))
+  else if (gnu_vector_type_p (type))
     return convert_to_vector (type, expr);
-  else if (VECTOR_TYPE_P (intype)
+  else if (gnu_vector_type_p (intype)
 	   && INTEGRAL_OR_ENUMERATION_TYPE_P (type))
     return convert_to_integer_nofold (type, expr);
   else
@@ -9676,6 +9684,7 @@ check_return_expr (tree retval, bool *no_warning)
      the declared type is incomplete.  */
   tree functype;
   int fn_returns_value_p;
+  location_t loc = cp_expr_loc_or_input_loc (retval);
 
   *no_warning = false;
 
@@ -9689,7 +9698,7 @@ check_return_expr (tree retval, bool *no_warning)
   if (DECL_DESTRUCTOR_P (current_function_decl))
     {
       if (retval)
-	error ("returning a value from a destructor");
+	error_at (loc, "returning a value from a destructor");
       return NULL_TREE;
     }
   else if (DECL_CONSTRUCTOR_P (current_function_decl))
@@ -9700,7 +9709,7 @@ check_return_expr (tree retval, bool *no_warning)
 	error ("cannot return from a handler of a function-try-block of a constructor");
       else if (retval)
 	/* You can't return a value from a constructor.  */
-	error ("returning a value from a constructor");
+	error_at (loc, "returning a value from a constructor");
       return NULL_TREE;
     }
 
@@ -9762,11 +9771,11 @@ check_return_expr (tree retval, bool *no_warning)
       else if (!same_type_p (type, functype))
 	{
 	  if (LAMBDA_FUNCTION_P (current_function_decl))
-	    error ("inconsistent types %qT and %qT deduced for "
-		   "lambda return type", functype, type);
+	    error_at (loc, "inconsistent types %qT and %qT deduced for "
+		      "lambda return type", functype, type);
 	  else
-	    error ("inconsistent deduction for auto return type: "
-		   "%qT and then %qT", functype, type);
+	    error_at (loc, "inconsistent deduction for auto return type: "
+		      "%qT and then %qT", functype, type);
 	}
       functype = type;
     }
@@ -9800,8 +9809,7 @@ check_return_expr (tree retval, bool *no_warning)
 	   its side-effects.  */
 	finish_expr_stmt (retval);
       else if (retval != error_mark_node)
-	permerror (input_location,
-		   "return-statement with a value, in function "
+	permerror (loc, "return-statement with a value, in function "
 		   "returning %qT", valtype);
       current_function_returns_null = 1;
 
@@ -9857,7 +9865,8 @@ check_return_expr (tree retval, bool *no_warning)
 	}
 
       if (warn)
-	warning (OPT_Weffc__, "%<operator=%> should return a reference to %<*this%>");
+	warning_at (loc, OPT_Weffc__,
+		    "%<operator=%> should return a reference to %<*this%>");
     }
 
   if (dependent_type_p (functype)

@@ -5093,7 +5093,8 @@ build_conditional_expr_1 (const op_location_t &loc,
   orig_arg2 = arg2;
   orig_arg3 = arg3;
 
-  if (VECTOR_INTEGER_TYPE_P (TREE_TYPE (arg1)))
+  if (gnu_vector_type_p (TREE_TYPE (arg1))
+      && VECTOR_INTEGER_TYPE_P (TREE_TYPE (arg1)))
     {
       tree arg1_type = TREE_TYPE (arg1);
 
@@ -5172,7 +5173,8 @@ build_conditional_expr_1 (const op_location_t &loc,
 	  arg3_type = vtype;
 	}
 
-      if (VECTOR_TYPE_P (arg2_type) != VECTOR_TYPE_P (arg3_type))
+      if ((gnu_vector_type_p (arg2_type) && !VECTOR_TYPE_P (arg3_type))
+	  || (gnu_vector_type_p (arg3_type) && !VECTOR_TYPE_P (arg2_type)))
 	{
 	  enum stv_conv convert_flag =
 	    scalar_to_vector (loc, VEC_COND_EXPR, arg2, arg3,
@@ -5203,7 +5205,9 @@ build_conditional_expr_1 (const op_location_t &loc,
 	    }
 	}
 
-      if (!same_type_p (arg2_type, arg3_type)
+      if (!gnu_vector_type_p (arg2_type)
+	  || !gnu_vector_type_p (arg3_type)
+	  || !same_type_p (arg2_type, arg3_type)
 	  || maybe_ne (TYPE_VECTOR_SUBPARTS (arg1_type),
 		       TYPE_VECTOR_SUBPARTS (arg2_type))
 	  || TYPE_SIZE (arg1_type) != TYPE_SIZE (arg2_type))
@@ -10124,6 +10128,38 @@ build_new_method_call_1 (tree instance, tree fns, vec<tree, va_gc> **args,
 
   if (!any_viable_p)
     {
+      /* [dcl.init], 17.6.2.2:
+
+	 Otherwise, if no constructor is viable, the destination type is
+	 a (possibly cv-qualified) aggregate class A, and the initializer
+	 is a parenthesized expression-list, the object is initialized as
+	 follows...
+
+	 We achieve this by building up a CONSTRUCTOR, as for list-init,
+	 and setting CONSTRUCTOR_IS_PAREN_INIT to distinguish between
+	 the two.  */
+      if (DECL_CONSTRUCTOR_P (fn)
+	  && !(flags & LOOKUP_ONLYCONVERTING)
+	  && !cp_unevaluated_operand
+	  && cxx_dialect >= cxx2a
+	  && CP_AGGREGATE_TYPE_P (basetype)
+	  && !user_args->is_empty ())
+	{
+	  /* Create a CONSTRUCTOR from ARGS, e.g. {1, 2} from <1, 2>.  */
+	  tree list = build_tree_list_vec (user_args);
+	  tree ctor = build_constructor_from_list (init_list_type_node, list);
+	  CONSTRUCTOR_IS_DIRECT_INIT (ctor) = true;
+	  CONSTRUCTOR_IS_PAREN_INIT (ctor) = true;
+	  if (is_dummy_object (instance))
+	    return ctor;
+	  else
+	    {
+	      ctor = digest_init (basetype, ctor, complain);
+	      ctor = build2 (INIT_EXPR, TREE_TYPE (instance), instance, ctor);
+	      TREE_SIDE_EFFECTS (ctor) = true;
+	      return ctor;
+	    }
+	}
       if (complain & tf_error)
 	complain_about_no_candidates_for_method_call (instance, candidates,
 						      explicit_targs, basetype,
@@ -11789,9 +11825,16 @@ perform_direct_initialization_if_possible (tree type,
      If the destination type is a (possibly cv-qualified) class type:
 
      -- If the initialization is direct-initialization ...,
-     constructors are considered. ... If no constructor applies, or
-     the overload resolution is ambiguous, the initialization is
-     ill-formed.  */
+     constructors are considered.
+
+       -- If overload resolution is successful, the selected constructor
+       is called to initialize the object, with the initializer expression
+       or expression-list as its argument(s).
+
+       -- Otherwise, if no constructor is viable, the destination type is
+       a (possibly cv-qualified) aggregate class A, and the initializer is
+       a parenthesized expression-list, the object is initialized as
+       follows...  */
   if (CLASS_TYPE_P (type))
     {
       releasing_vec args (make_tree_vector_single (expr));
@@ -12147,6 +12190,12 @@ extend_ref_init_temps (tree decl, tree init, vec<tree, va_gc> **cleanups)
 	ctor = TARGET_EXPR_INITIAL (ctor);
       if (TREE_CODE (ctor) == CONSTRUCTOR)
 	{
+	  /* [dcl.init] When initializing an aggregate from a parenthesized list
+	     of values... a temporary object bound to a reference does not have
+	     its lifetime extended.  */
+	  if (CONSTRUCTOR_IS_PAREN_INIT (ctor))
+	    return init;
+
 	  if (is_std_init_list (type))
 	    {
 	      /* The temporary array underlying a std::initializer_list
