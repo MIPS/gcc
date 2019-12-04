@@ -48,6 +48,8 @@ class logger
   void exit_scope (const char *scope_name);
 
 private:
+  DISABLE_COPY_AND_ASSIGN (logger);
+
   int m_refcount;
   FILE *m_f_out;
   int m_indent_level;
@@ -65,6 +67,8 @@ public:
   ~log_scope ();
 
  private:
+  DISABLE_COPY_AND_ASSIGN (log_scope);
+
   logger *m_logger;
   const char *m_name;
 };
@@ -134,6 +138,8 @@ class log_user
   void exit_scope (const char *scope_name);
 
  private:
+  DISABLE_COPY_AND_ASSIGN (log_user);
+
   logger *m_logger;
 };
 
