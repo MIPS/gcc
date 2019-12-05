@@ -4993,7 +4993,7 @@ init_dynamic_diag_info (void)
   /* Similar to the above but for diagnostic_event_id_t*.  */
   if (!local_event_ptr_node
       || local_event_ptr_node == void_type_node)
-    local_event_ptr_node = get_pointer_to_named_type ("diagnostic_event_id_t");
+    local_event_ptr_node = get_named_type ("diagnostic_event_id_t");
 
   static tree hwi;
 
