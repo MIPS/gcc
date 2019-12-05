@@ -69,7 +69,7 @@ shortest_paths<GraphTraits, Path_t>::shortest_paths (const graph_t &graph,
   m_dist (graph.m_nodes.length ()),
   m_prev (graph.m_nodes.length ())
 {
-  auto_client_timevar tv ("shortest_paths");
+  auto_timevar tv (TV_ANALYZER_SHORTEST_PATHS);
 
   auto_vec<int> queue (graph.m_nodes.length ());
 

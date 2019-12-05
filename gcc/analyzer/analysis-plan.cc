@@ -19,16 +19,18 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
-#include "gcc-plugin.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "options.h"
 #include "cgraph.h"
 #include "timevar.h"
 #include "ipa-utils.h"
 #include "analyzer/analyzer.h"
 #include "analyzer/analysis-plan.h"
 #include "analyzer/supergraph.h"
+
+#if ENABLE_ANALYZER
 
 /* class analysis_plan.  */
 
@@ -41,7 +43,7 @@ analysis_plan::analysis_plan (const supergraph &sg, logger *logger)
   m_index_by_uid (symtab->cgraph_max_uid)
 {
   LOG_SCOPE (logger);
-  auto_client_timevar tv ("creating analysis plan");
+  auto_timevar time (TV_ANALYZER_PLAN);
 
   m_num_cgraph_nodes = ipa_reverse_postorder (m_cgraph_node_postorder);
   gcc_assert (m_num_cgraph_nodes == symtab->cgraph_count);
@@ -112,3 +114,5 @@ analysis_plan::use_summary_p (const cgraph_edge *edge) const
 
   return true;
 }
+
+#endif /* #if ENABLE_ANALYZER */

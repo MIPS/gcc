@@ -21,10 +21,11 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
-#include "gcc-plugin.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "function.h"
+#include "basic-block.h"
 #include "gimple.h"
 #include "diagnostic-path.h"
 #include "diagnostic-metadata.h"
@@ -33,6 +34,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "analyzer/exploded-graph.h"
 #include "analyzer/pending-diagnostic.h"
 #include "analyzer/sm.h"
+
+#if ENABLE_ANALYZER
 
 namespace {
 
@@ -303,3 +306,5 @@ make_signal_state_machine (logger *logger)
 {
   return new signal_state_machine (logger);
 }
+
+#endif /* #if ENABLE_ANALYZER */

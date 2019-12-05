@@ -19,13 +19,15 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
-#include "gcc-plugin.h"
 #include "system.h"
 #include "coretypes.h"
 #include "pretty-print.h"
 #include "tree.h"
+#include "options.h"
 #include "analyzer/call-string.h"
 #include "analyzer/supergraph.h"
+
+#if ENABLE_ANALYZER
 
 /* class call_string.  */
 
@@ -218,3 +220,5 @@ call_string::validate () const
       gcc_assert (e->get_caller_function ()
 		  == m_return_edges[i - 1]->get_callee_function ());
 }
+
+#endif /* #if ENABLE_ANALYZER */

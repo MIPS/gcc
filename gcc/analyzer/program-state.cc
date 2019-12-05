@@ -19,7 +19,6 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
-#include "gcc-plugin.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
@@ -30,6 +29,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "analyzer/exploded-graph.h"
 #include "analyzer/state-purge.h"
 #include "analyzer/analyzer-selftests.h"
+
+#if ENABLE_ANALYZER
 
 ////////////////////////////////////////////////////////////////////////////
 
@@ -1316,3 +1317,5 @@ analyzer_program_state_cc_tests ()
 } // namespace selftest
 
 #endif /* CHECKING_P */
+
+#endif /* #if ENABLE_ANALYZER */

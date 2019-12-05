@@ -19,7 +19,6 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
-#include "gcc-plugin.h"
 #include "system.h"
 #include "coretypes.h"
 #include "diagnostic.h"
@@ -27,6 +26,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "analyzer/digraph.h"
 #include "analyzer/shortest-paths.h"
 #include "selftest.h"
+
+#if ENABLE_ANALYZER
 
 #if CHECKING_P
 
@@ -187,3 +188,5 @@ analyzer_digraph_cc_tests ()
 } // namespace selftest
 
 #endif /* #if CHECKING_P */
+
+#endif /* #if ENABLE_ANALYZER */

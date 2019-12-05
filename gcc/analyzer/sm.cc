@@ -19,13 +19,17 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
-#include "gcc-plugin.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "function.h"
+#include "basic-block.h"
 #include "gimple.h"
+#include "options.h"
 #include "analyzer/analyzer.h"
 #include "analyzer/sm.h"
+
+#if ENABLE_ANALYZER
 
 ////////////////////////////////////////////////////////////////////////////
 
@@ -134,3 +138,5 @@ make_checkers (auto_delete_vec <state_machine> &out, logger *logger)
 					  (*sm)->get_name ()));
     }
 }
+
+#endif /* #if ENABLE_ANALYZER */

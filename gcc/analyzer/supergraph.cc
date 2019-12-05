@@ -19,7 +19,6 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
-#include "gcc-plugin.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
@@ -29,6 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "vec.h"
 #include "ggc.h"
 #include "basic-block.h"
+#include "function.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
@@ -41,9 +41,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "graphviz.h"
 #include "cgraph.h"
 #include "tree-dfa.h"
+#include "cfganal.h"
 #include "analyzer/analyzer.h"
 #include "analyzer/supergraph.h"
 #include "analyzer/analyzer-logging.h"
+
+#if ENABLE_ANALYZER
 
 /* Get the cgraph_edge, but only if there's an underlying function body.  */
 
@@ -70,7 +73,7 @@ supergraph_call_edge (function *fun, gimple *stmt)
 
 supergraph::supergraph (logger *logger)
 {
-  auto_client_timevar tv ("building supergraph");
+  auto_timevar tv (TV_ANALYZER_SUPERGRAPH);
 
   LOG_FUNC (logger);
 
@@ -948,3 +951,5 @@ callgraph_superedge::map_expr_from_callee_to_caller (tree callee_expr,
 
   return NULL_TREE;
 }
+
+#endif /* #if ENABLE_ANALYZER */

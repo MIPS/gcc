@@ -28,6 +28,8 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "analyzer/analyzer-logging.h"
 
+#if ENABLE_ANALYZER
+
 /* Implementation of class logger.  */
 
 /* ctor for logger.  */
@@ -218,3 +220,5 @@ log_user::set_logger (logger *logger)
     m_logger->decref ("log_user::set_logger");
   m_logger = logger;
 }
+
+#endif /* #if ENABLE_ANALYZER */

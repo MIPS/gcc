@@ -19,16 +19,20 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
-#include "gcc-plugin.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "function.h"
+#include "basic-block.h"
 #include "gimple.h"
+#include "options.h"
 #include "diagnostic-path.h"
 #include "diagnostic-metadata.h"
 #include "analyzer/analyzer.h"
 #include "analyzer/pending-diagnostic.h"
 #include "analyzer/sm.h"
+
+#if ENABLE_ANALYZER
 
 namespace {
 
@@ -326,3 +330,5 @@ make_fileptr_state_machine (logger *logger)
 {
   return new fileptr_state_machine (logger);
 }
+
+#endif /* #if ENABLE_ANALYZER */

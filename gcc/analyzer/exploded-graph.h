@@ -21,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_ANALYZER_EXPLODED_GRAPH_H
 #define GCC_ANALYZER_EXPLODED_GRAPH_H
 
+#include "alloc-pool.h"
 #include "fibonacci_heap.h"
 #include "analyzer/analyzer-logging.h"
 #include "analyzer/constraint-manager.h"

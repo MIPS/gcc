@@ -19,14 +19,17 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
-#include "gcc-plugin.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "function.h"
+#include "basic-block.h"
 #include "gimple.h"
 #include "diagnostic.h"
 #include "intl.h"
 #include "analyzer/analyzer.h"
+
+#if ENABLE_ANALYZER
 
 /* Helper function for checkers.  Is the CALL to the given function name,
    and with the given number of arguments?
@@ -143,3 +146,5 @@ make_label_text (bool can_colorize, const char *fmt, ...)
   delete pp;
   return result;
 }
+
+#endif /* #if ENABLE_ANALYZER */

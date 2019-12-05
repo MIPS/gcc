@@ -21,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_ANALYZER_REGION_MODEL_H
 #define GCC_ANALYZER_REGION_MODEL_H
 
+#include "sbitmap.h"
 #include "ordered-hash-map.h"
 #include "pretty-print.h"
 #include "selftest.h"

@@ -19,10 +19,11 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
-#include "gcc-plugin.h"
 #include "system.h"
 #include "coretypes.h"
 #include "analyzer/graphviz.h"
+
+#if ENABLE_ANALYZER
 
 /* graphviz_out's ctor, wrapping PP.  */
 
@@ -99,3 +100,5 @@ graphviz_out::end_tr ()
   pp_string (m_pp, "</TD></TR>");
   pp_write_text_to_stream (m_pp);
 }
+
+#endif /* #if ENABLE_ANALYZER */

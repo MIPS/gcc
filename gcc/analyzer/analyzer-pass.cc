@@ -19,11 +19,12 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
-#include "gcc-plugin.h"
 #include "system.h"
 #include "coretypes.h"
 #include "context.h"
 #include "tree-pass.h"
+#include "diagnostic.h"
+#include "options.h"
 #include "analyzer/engine.h"
 
 namespace {
@@ -35,7 +36,7 @@ const pass_data pass_data_analyzer =
   IPA_PASS, /* type */
   "analyzer", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  TV_NONE, /* tv_id */
+  TV_ANALYZER, /* tv_id */
   PROP_ssa, /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
@@ -62,15 +63,31 @@ public:
   {}
 
   /* opt_pass methods: */
+  bool gate (function *) FINAL OVERRIDE;
   unsigned int execute (function *) FINAL OVERRIDE;
 }; // class pass_analyzer
+
+/* Only run the analyzer if -fanalyzer.  */
+
+bool
+pass_analyzer::gate (function *)
+{
+  return flag_analyzer != 0;
+}
 
 /* Entrypoint for the analyzer pass.  */
 
 unsigned int
 pass_analyzer::execute (function *)
 {
+#if ENABLE_ANALYZER
   run_checkers ();
+#else
+  sorry ("%qs was not enabled in this build of GCC"
+	 " (missing configure-time option %qs)",
+	 "-fanalyzer", "--enable-analyzer");
+#endif
+
   return 0;
 }
 
@@ -78,26 +95,8 @@ pass_analyzer::execute (function *)
 
 /* Make an instance of the analyzer pass.  */
 
-static ipa_opt_pass_d *
+ipa_opt_pass_d *
 make_pass_analyzer (gcc::context *ctxt)
 {
   return new pass_analyzer (ctxt);
-}
-
-/* Register the analyzer pass with GCC's pass manager.
-   Called by plugin_init.  */
-
-void
-register_analyzer_pass ()
-{
-  static struct register_pass_info pass_info;
-
-  /* IPA-LTO pass.  */
-  pass_info.pass = make_pass_analyzer (g);
-  pass_info.reference_pass_name = "whole-program";
-  pass_info.ref_pass_instance_number = 1;
-  pass_info.pos_op = PASS_POS_INSERT_BEFORE;
-
-  register_callback ("analyzer", PLUGIN_PASS_MANAGER_SETUP, NULL,
-		     &pass_info);
 }

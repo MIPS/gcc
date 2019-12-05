@@ -3965,7 +3965,6 @@ driver_handle_option (struct gcc_options *opts,
       add_linker_option ("--target-help", 13);
       break;
 
-    case OPT_fanalyzer:
     case OPT__no_sysroot_suffix:
     case OPT_pass_exit_codes:
     case OPT_print_search_dirs:
@@ -4609,17 +4608,6 @@ process_command (unsigned int decoded_options_count,
       read_cmdline_option (&global_options, &global_options_set,
 			   decoded_options + j, UNKNOWN_LOCATION,
 			   CL_DRIVER, &handlers, global_dc);
-    }
-
-  if (flag_analyzer)
-    {
-#ifdef ENABLE_ANALYZER
-      save_switch ("-fplugin=analyzer_plugin", 0, NULL, true, true);
-#else
-      sorry ("%qs was not enabled in this build of GCC"
-	     " (missing configure-time option %qs)",
-	     "-fanalyzer", "--enable-plugins=analyzer");
-#endif
     }
 
   /* If the user didn't specify any, default to all configured offload

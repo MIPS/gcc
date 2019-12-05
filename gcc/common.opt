@@ -990,7 +990,8 @@ Common Report Var(flag_store_data_races) Optimization
 Allow the compiler to introduce new data races on stores.
 
 fanalyzer
-Driver Var(flag_analyzer)
+Common Var(flag_analyzer)
+Enable static analysis pass.
 
 fargument-alias
 Common Ignore

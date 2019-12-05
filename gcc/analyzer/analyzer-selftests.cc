@@ -19,7 +19,6 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
-#include "gcc-plugin.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
@@ -48,12 +47,14 @@ build_global_decl (const char *name, tree type)
 void
 run_analyzer_selftests ()
 {
+#if ENABLE_ANALYZER
   analyzer_constraint_manager_cc_tests ();
   analyzer_digraph_cc_tests ();
   analyzer_program_point_cc_tests ();
   analyzer_program_state_cc_tests ();
   analyzer_region_model_cc_tests ();
   analyzer_tristate_cc_tests ();
+#endif /* #if ENABLE_ANALYZER */
 }
 
 } /* end of namespace selftest.  */

@@ -19,21 +19,25 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
-#include "gcc-plugin.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "function.h"
+#include "basic-block.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "graphviz.h"
+#include "options.h"
 #include "cgraph.h"
 #include "tree-dfa.h"
 #include "stringpool.h"
 #include "convert.h"
 #include "target.h"
-#include "selftest.h"
+#include "fold-const.h"
+#include "tree-pretty-print.h"
 #include "diagnostic-color.h"
 #include "diagnostic-metadata.h"
+#include "selftest.h"
 #include "analyzer/analyzer.h"
 #include "analyzer/analyzer-logging.h"
 #include "analyzer/tristate.h"
@@ -43,7 +47,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "analyzer/pending-diagnostic.h"
 #include "analyzer/analyzer-selftests.h"
 
+#if ENABLE_ANALYZER
+
 ////////////////////////////////////////////////////////////////////////////
+
+/* Dump T to PP in language-independent form, for debugging/logging/dumping
+   purposes.  */
+
+static void
+dump_tree (pretty_printer *pp, tree t)
+{
+  dump_generic_node (pp, t, 0, TDF_SLIM, 0);
+}
 
 /* Dump this path_var to PP (which must support %E for trees).
 
@@ -3456,9 +3471,9 @@ region_model::dump_to_pp (pretty_printer *pp, bool summarize) const
 			   && CONSTANT_CLASS_P (rhs_tree)))
 		    {
 		      dump_separator (pp, &is_first);
-		      PUSH_IGNORE_WFORMAT
-			pp_printf (pp, "%E == %E", lhs_tree, rhs_tree);
-		      POP_IGNORE_WFORMAT
+		      dump_tree (pp, lhs_tree);
+		      pp_string (pp, " == ");
+		      dump_tree (pp, rhs_tree);
 		    }
 		}
 	    }
@@ -3477,10 +3492,9 @@ region_model::dump_to_pp (pretty_printer *pp, bool summarize) const
 	      && !(CONSTANT_CLASS_P (lhs_tree) && CONSTANT_CLASS_P (rhs_tree)))
 	    {
 	      dump_separator (pp, &is_first);
-	      PUSH_IGNORE_WFORMAT
-		pp_printf (pp, "%E %s %E",
-			   lhs_tree, constraint_op_code (c->m_op), rhs_tree);
-	      POP_IGNORE_WFORMAT
+	      dump_tree (pp, lhs_tree);
+	      pp_printf (pp, " %s ", constraint_op_code (c->m_op));
+	      dump_tree (pp, rhs_tree);
 	   }
 	}
 
@@ -3554,10 +3568,7 @@ dump_vec_of_tree (pretty_printer *pp,
     {
       if (i > 0)
 	pp_string (pp, ", ");
-
-      PUSH_IGNORE_WFORMAT
-	pp_printf (pp, "%E", key);
-      POP_IGNORE_WFORMAT
+      dump_tree (pp, key);
     }
   pp_printf (pp, "}: %s", label);
 }
@@ -3610,20 +3621,22 @@ region_model::dump_summary_of_map (pretty_printer *pp,
 	    region_id pointee_rid = region_sval->get_pointee ();
 	    tree pointee = get_representative_path_var (pointee_rid).m_tree;
 	    dump_separator (pp, is_first);
-	    PUSH_IGNORE_WFORMAT
-	      if (pointee)
-		pp_printf (pp, "%E: &%E", key, pointee);
-	      else
-		pp_printf (pp, "%E: NULL", key);
-	    POP_IGNORE_WFORMAT
+	    dump_tree (pp, key);
+	    pp_string (pp, ": ");
+	    if (pointee)
+	      {
+		pp_character (pp, '&');
+		dump_tree (pp, pointee);
+	      }
+	    else
+	      pp_string (pp, "NULL");
 	  }
 	  break;
 	case SK_CONSTANT:
 	  dump_separator (pp, is_first);
-	  PUSH_IGNORE_WFORMAT
-	    pp_printf (pp, "%E: %E", key,
-		       sval->dyn_cast_constant_svalue ()->get_constant ());
-	  POP_IGNORE_WFORMAT
+	  dump_tree (pp, key);
+	  pp_string (pp, ": ");
+	  dump_tree (pp, sval->dyn_cast_constant_svalue ()->get_constant ());
 	  break;
 	case SK_UNKNOWN:
 	  unknown_keys.safe_push (key);
@@ -3637,9 +3650,8 @@ region_model::dump_summary_of_map (pretty_printer *pp,
 	    else
 	      {
 		dump_separator (pp, is_first);
-		PUSH_IGNORE_WFORMAT
-		  pp_printf (pp, "%E: %s", key, poison_kind_to_str (pkind));
-		POP_IGNORE_WFORMAT
+		dump_tree (pp, key);
+		pp_printf (pp, ": %s", poison_kind_to_str (pkind));
 	      }
 	  }
 	  break;
@@ -7787,3 +7799,5 @@ analyzer_region_model_cc_tests ()
 } // namespace selftest
 
 #endif /* CHECKING_P */
+
+#endif /* #if ENABLE_ANALYZER */

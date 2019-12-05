@@ -19,10 +19,10 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
-#include "gcc-plugin.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "gcc-rich-location.h"
 #include "analyzer/exploded-graph.h"
 #include "analyzer/analysis-plan.h"
@@ -30,6 +30,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "analyzer/state-purge.h"
 
 /* For an overview, see gcc/doc/analyzer.texi.  */
+
+#if ENABLE_ANALYZER
 
 static int readability_comparator (const void *p1, const void *p2);
 
@@ -1470,7 +1472,7 @@ strongly_connected_components (const supergraph &sg, logger *logger)
 : m_sg (sg), m_per_node (m_sg.num_nodes ())
 {
   LOG_SCOPE (logger);
-  auto_client_timevar tv ("computing scc");
+  auto_timevar tv (TV_ANALYZER_SCC);
 
   for (int i = 0; i < m_sg.num_nodes (); i++)
     m_per_node.quick_push (per_node_data ());
@@ -2082,7 +2084,7 @@ void
 exploded_graph::process_worklist ()
 {
   LOG_SCOPE (get_logger ());
-  auto_client_timevar tv ("exploded_graph::process_worklist");
+  auto_timevar tv (TV_ANALYZER_WORKLIST);
 
   while (m_worklist.length () > 0)
     {
@@ -3048,7 +3050,7 @@ exploded_graph::dump_exploded_nodes () const
 
   if (flag_dump_analyzer_exploded_nodes)
     {
-      auto_client_timevar tv ("-fdump-analyzer-exploded-nodes");
+      auto_timevar tv (TV_ANALYZER_DUMP);
       gcc_rich_location richloc (UNKNOWN_LOCATION);
       unsigned i;
       exploded_node *enode;
@@ -3079,7 +3081,7 @@ exploded_graph::dump_exploded_nodes () const
   /* Dump the egraph in textual form to a dump file.  */
   if (flag_dump_analyzer_exploded_nodes_2)
     {
-      auto_client_timevar tv ("-fdump-analyzer-exploded-nodes-2");
+      auto_timevar tv (TV_ANALYZER_DUMP);
       char *filename
 	= concat (dump_base_name, ".eg.txt", NULL);
       FILE *outf = fopen (filename, "w");
@@ -3109,7 +3111,7 @@ exploded_graph::dump_exploded_nodes () const
   /* Dump the egraph in textual form to multiple dump files, one per enode.  */
   if (flag_dump_analyzer_exploded_nodes_3)
     {
-      auto_client_timevar tv ("-fdump-analyzer-exploded-nodes-3");
+      auto_timevar tv (TV_ANALYZER_DUMP);
 
       unsigned i;
       exploded_node *enode;
@@ -3458,7 +3460,7 @@ dump_callgraph (const supergraph &sg, const char *filename,
 static void
 dump_callgraph (const supergraph &sg, const exploded_graph *eg)
 {
-  auto_client_timevar tv ("writing .callgraph.dot");
+  auto_timevar tv (TV_ANALYZER_DUMP);
   char *filename = concat (dump_base_name, ".callgraph.dot", NULL);
   dump_callgraph (sg, filename, eg);
   free (filename);
@@ -3488,7 +3490,7 @@ impl_run_checkers (logger *logger)
 
   if (flag_dump_analyzer_supergraph)
     {
-      auto_client_timevar tv ("writing .supergraph.dot");
+      auto_timevar tv (TV_ANALYZER_DUMP);
       char *filename = concat (dump_base_name, ".supergraph.dot", NULL);
       supergraph::dump_args_t args ((enum supergraph_dot_flags)0, NULL);
       sg.dump_dot (filename, args);
@@ -3497,7 +3499,7 @@ impl_run_checkers (logger *logger)
 
   if (flag_dump_analyzer_state_purge)
     {
-      auto_client_timevar tv ("writing .state-purge.dot");
+      auto_timevar tv (TV_ANALYZER_DUMP);
       state_purge_annotator a (purge_map);
       char *filename = concat (dump_base_name, ".state-purge.dot", NULL);
       supergraph::dump_args_t args ((enum supergraph_dot_flags)0, &a);
@@ -3533,7 +3535,7 @@ impl_run_checkers (logger *logger)
 
   if (flag_dump_analyzer_exploded_graph)
     {
-      auto_client_timevar tv ("writing .eg.dot");
+      auto_timevar tv (TV_ANALYZER_DUMP);
       char *filename
 	= concat (dump_base_name, ".eg.dot", NULL);
       exploded_graph::dump_args_t args (eg);
@@ -3561,8 +3563,6 @@ impl_run_checkers (logger *logger)
 void
 run_checkers ()
 {
-  auto_client_timevar tv ("run_checkers");
-
   /* Handle -fdump-analyzer and -fdump-analyzer-stderr.  */
   FILE *dump_fout = NULL;
   /* Track if we're responsible for closing dump_fout.  */
@@ -3594,3 +3594,5 @@ run_checkers ()
   if (owns_dump_fout)
     fclose (dump_fout);
 }
+
+#endif /* #if ENABLE_ANALYZER */

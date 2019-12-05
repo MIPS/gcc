@@ -19,17 +19,21 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
-#include "gcc-plugin.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "function.h"
+#include "basic-block.h"
 #include "gimple.h"
 #include "gimple-pretty-print.h"
+#include "fold-const.h"
 #include "analyzer/analyzer.h"
 #include "analyzer/checker-path.h"
 #include "analyzer/supergraph.h"
 #include "analyzer/diagnostic-manager.h"
 #include "analyzer/exploded-graph.h"
+
+#if ENABLE_ANALYZER
 
 ////////////////////////////////////////////////////////////////////////////
 
@@ -944,3 +948,5 @@ checker_path::add_final_event (const state_machine *sm,
 			 sm, var, state);
   add_event (end_of_path);
 }
+
+#endif /* #if ENABLE_ANALYZER */

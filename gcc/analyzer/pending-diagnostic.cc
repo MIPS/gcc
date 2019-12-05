@@ -19,7 +19,6 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
-#include "gcc-plugin.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
@@ -27,6 +26,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "analyzer/analyzer.h"
 #include "analyzer/pending-diagnostic.h"
+
+#if ENABLE_ANALYZER
 
 /* Generate a label_text by printing FMT.
 
@@ -59,3 +60,5 @@ evdesc::event_desc::formatted_print (const char *fmt, ...) const
   delete pp;
   return result;
 }
+
+#endif /* #if ENABLE_ANALYZER */

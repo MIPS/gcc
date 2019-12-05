@@ -19,22 +19,26 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
-#include "gcc-plugin.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
 #include "timevar.h"
 #include "tree-ssa-alias.h"
+#include "function.h"
+#include "basic-block.h"
 #include "gimple.h"
 #include "stringpool.h"
 #include "tree-vrp.h"
 #include "gimple-ssa.h"
 #include "tree-ssanames.h"
 #include "tree-phinodes.h"
+#include "options.h"
 #include "ssa-iterators.h"
 #include "gimple-pretty-print.h"
 #include "analyzer/analyzer.h"
 #include "analyzer/state-purge.h"
+
+#if ENABLE_ANALYZER
 
 /* state_purge_map's ctor.  Walk all SSA names in all functions, building
    a state_purge_per_ssa_name instance for each.  */
@@ -45,7 +49,7 @@ state_purge_map::state_purge_map (const supergraph &sg,
 {
   LOG_FUNC (logger);
 
-  auto_client_timevar tv ("state_purge_map ctor");
+  auto_timevar tv (TV_ANALYZER_STATE_PURGE);
 
   cgraph_node *node;
   FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (node)
@@ -519,3 +523,5 @@ state_purge_annotator::add_stmt_annotations (graphviz_out *gv,
   print_vec_of_names (gv, "needed here", needed);
   print_vec_of_names (gv, "not needed here", not_needed);
 }
+
+#endif /* #if ENABLE_ANALYZER */

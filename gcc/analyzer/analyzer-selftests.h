@@ -30,7 +30,7 @@ extern tree build_global_decl (const char *name, tree type);
 extern void run_analyzer_selftests ();
 
 /* Declarations for specific families of tests (by source file), in
-   alphabetical order, for the checker plugin.  */
+   alphabetical order.  */
 extern void analyzer_checker_script_cc_tests ();
 extern void analyzer_constraint_manager_cc_tests ();
 extern void analyzer_digraph_cc_tests ();

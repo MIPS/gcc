@@ -19,7 +19,6 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
-#include "gcc-plugin.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
@@ -30,6 +29,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "analyzer/diagnostic-manager.h"
 #include "analyzer/exploded-graph.h"
 #include "analyzer/checker-path.h"
+
+#if ENABLE_ANALYZER
 
 /* class saved_diagnostic.  */
 
@@ -370,7 +371,7 @@ void
 diagnostic_manager::emit_saved_diagnostics (const exploded_graph &eg)
 {
   LOG_SCOPE (get_logger ());
-  auto_client_timevar tv ("emit saved diagnostics");
+  auto_timevar tv (TV_ANALYZER_DIAGNOSTICS);
   log ("# saved diagnostics: %i", m_saved_diagnostics.length ());
 
   if (m_saved_diagnostics.length () == 0)
@@ -1185,3 +1186,5 @@ diagnostic_manager::prune_path (checker_path *path,
 
   path->maybe_log (get_logger (), "pruned");
 }
+
+#endif /* #if ENABLE_ANALYZER */

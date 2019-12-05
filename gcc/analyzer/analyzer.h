@@ -21,6 +21,8 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_ANALYZER_ANALYZER_H
 #define GCC_ANALYZER_ANALYZER_H
 
+#include "function.h"
+
 /* Forward decls of common types, with indentation to show inheritance.  */
 
 class graphviz_out;

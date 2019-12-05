@@ -19,11 +19,12 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
-#include "gcc-plugin.h"
 #include "system.h"
 #include "coretypes.h"
 #include "analyzer/tristate.h"
 #include "selftest.h"
+
+#if ENABLE_ANALYZER
 
 const char *
 tristate::as_string () const
@@ -220,3 +221,5 @@ analyzer_tristate_cc_tests ()
 } // namespace selftest
 
 #endif /* CHECKING_P */
+
+#endif /* #if ENABLE_ANALYZER */

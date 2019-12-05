@@ -19,7 +19,6 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
-#include "gcc-plugin.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
@@ -28,6 +27,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "analyzer/program-point.h"
 #include "analyzer/exploded-graph.h"
 #include "analyzer/analysis-plan.h"
+
+#if ENABLE_ANALYZER
 
 /* Get a string for PK.  */
 
@@ -517,3 +518,5 @@ analyzer_program_point_cc_tests ()
 } // namespace selftest
 
 #endif /* CHECKING_P */
+
+#endif /* #if ENABLE_ANALYZER */

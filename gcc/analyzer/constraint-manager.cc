@@ -19,18 +19,22 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
-#include "gcc-plugin.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "function.h"
+#include "basic-block.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
-#include "graphviz.h"
+#include "fold-const.h"
 #include "selftest.h"
 #include "analyzer/analyzer.h"
+#include "analyzer/graphviz.h"
 #include "analyzer/supergraph.h"
 #include "analyzer/constraint-manager.h"
 #include "analyzer/analyzer-selftests.h"
+
+#if ENABLE_ANALYZER
 
 /* One of the end-points of a range.  */
 
@@ -2261,3 +2265,5 @@ analyzer_constraint_manager_cc_tests ()
 } // namespace selftest
 
 #endif /* CHECKING_P */
+
+#endif /* #if ENABLE_ANALYZER */
