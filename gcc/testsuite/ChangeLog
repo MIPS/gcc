@@ -1,3 +1,136 @@
+2019-12-06  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/92819
+	* gcc.target/i386/pr92819-1.c: New testcase.
+	* gcc.target/i386/pr92803.c: Adjust.
+
+2019-12-05  Martin Sebor  <msebor@redhat.com>
+
+	PR testsuite/92829
+	* gcc.dg/Warray-bounds-56.c: Rearrange code to avoid powerpc64*
+	failures.
+
+2019-12-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/92768
+	* gcc.dg/pr92768.c: Add -w -Wno-psabi to dg-options.
+
+2019-12-05  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* g++.target/nios2/hello-pie.C: New.
+	* g++.target/nios2/nios2.exp: New.
+
+2019-12-05  Marek Polacek  <polacek@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/91353 - P1331R2: Allow trivial default init in constexpr contexts.
+	* g++.dg/cpp0x/constexpr-array6.C: Adjust dg-error.
+	* g++.dg/cpp0x/constexpr-ctor.C: Likewise.
+	* g++.dg/cpp0x/constexpr-diag3.C: Likewise.
+	* g++.dg/cpp0x/constexpr-diag4.C: Likewise.
+	* g++.dg/cpp0x/constexpr-ex3.C: Likewise.
+	* g++.dg/cpp0x/constexpr-template2.C: Likewise.
+	* g++.dg/cpp0x/constexpr-union2.C: Likewise.
+	* g++.dg/cpp0x/lambda/lambda-mangle.C: Rip out a piece of code ...
+	* g++.dg/cpp0x/lambda/lambda-mangle6.C: ... and put it here.
+	* g++.dg/cpp0x/pr79118.C: Adjust dg-error.
+	* g++.dg/cpp1y/constexpr-83921-3.C: Likewise.
+	* g++.dg/cpp1y/constexpr-neg1.C: Likewise.
+	* g++.dg/cpp1z/constexpr-lambda12.C: Likewise.
+	* g++.dg/cpp1z/feat-cxx1z.C: Use -std=c++17.
+	* g++.dg/cpp2a/constexpr-init1.C: New test.
+	* g++.dg/cpp2a/constexpr-init2.C: New test.
+	* g++.dg/cpp2a/constexpr-init3.C: New test.
+	* g++.dg/cpp2a/constexpr-init4.C: New test.
+	* g++.dg/cpp2a/constexpr-init5.C: New test.
+	* g++.dg/cpp2a/constexpr-init6.C: New test.
+	* g++.dg/cpp2a/constexpr-init7.C: New test.
+	* g++.dg/cpp2a/constexpr-init8.C: New test.
+	* g++.dg/cpp2a/constexpr-init9.C: New test.
+	* g++.dg/cpp2a/constexpr-init10.C: New test.
+	* g++.dg/cpp2a/constexpr-init11.C: New test.
+	* g++.dg/cpp2a/constexpr-init12.C: New test.
+	* g++.dg/cpp2a/constexpr-init13.C: New test.
+	* g++.dg/cpp2a/constexpr-init14.C: New test.
+	* g++.dg/cpp2a/constexpr-init15.C: New test.
+	* g++.dg/cpp2a/constexpr-try5.C: Adjust dg-error.
+	* g++.dg/cpp2a/feat-cxx2a.C: Test __cpp_constexpr.
+	* g++.dg/cpp2a/lambda-mangle.C: New test.
+	* g++.dg/debug/dwarf2/pr44641.C: Skip for c++2a.
+	* g++.dg/ext/stmtexpr21.C: Adjust dg-error.
+
+2019-12-05  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/92271 - make __is_same alias for __is_same_as.
+	* g++.dg/ext/is_same.C: New test.
+
+2019-12-05  Tobias Burnus  <tobias@codesourcery.com>
+
+	* testsuite/libgomp.fortran/use_device_ptr-optional-2.f90: Add
+	'type(c_ptr), value' test case. Conditionally map the per-value
+	passed arguments.
+
+2019-12-05  Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR middle-end/92768
+	* gcc.dg/pr92768.c: New test.
+
+2019-12-05  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/92818
+	* gcc.target/i386/pr92818.c: New testcase.
+
+2019-12-05  Frederik Harwath  <frederik@codesourcery.com>
+
+	* gcc.dg/asm-4.c: Skip on target amdgcn-*-*.
+
+2019-12-05  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/92803
+	* gcc.target/i386/pr92803.c: New testcase.
+
+2019-12-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/92781
+	* gfortran.dg/pr92781.f90: New test.
+
+2019-12-05  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/diagnostic/functional-cast-to-array-type-1.C: New.
+	* g++.dg/cpp0x/auto25.C: Check location(s) too.
+	* g++.dg/cpp0x/auto28.C: Likewise.
+	* g++.dg/init/reference2.C: Likewise.
+	* g++.dg/parse/template2.C: Likewise.
+	* g++.dg/template/error8.C: Likewise.
+	* g++.old-deja/g++.ns/crash3.C: Likewise.
+	* g++.old-deja/g++.ns/template7.C: Likewise.
+	* g++.old-deja/g++.pt/crash8.C: Likewise.
+
+2019-12-03  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/91582
+	* c-c++-common/Wstringop-truncation.c: Remove xfails.
+	* g++.dg/warn/Wstringop-overflow-4.C: New test.
+	* gcc/testsuite/g++.dg/ext/attr-alloc_size.C: Suppress -Warray-bounds.
+	* gcc.dg/Wstringop-overflow-25.c: New test.
+	* gcc/testsuite/gcc.dg/attr-alloc_size.c: Suppress -Warray-bounds.
+	* gcc/testsuite/gcc.dg/attr-copy-2.c: Same.
+	* gcc.dg/builtin-stringop-chk-5.c: Remove xfails.
+	* gcc.dg/builtin-stringop-chk-8.c: Same.  Correct the text of expected
+	warnings.
+	* gcc.target/i386/pr82002-2a.c: Prune expected warning.
+	* gcc.target/i386/pr82002-2b.c: Same.
+
+2019-12-04  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/36941
+	PR c/88827
+	* gcc.dg/lvalue-9.c, gcc.dg/lvalue-10.c: New tests.
+	* gcc.dg/array-8.c, gcc.dg/enum-incomplete-1.c,
+	gcc.dg/enum-incomplete-3.c, gcc.dg/noncompile/incomplete-3.c,
+	gcc.dg/pr48552-1.c, gcc.dg/pr48552-2.c, gcc.dg/pr63543.c,
+	gcc.dg/pr69796.c: Update expected diagnostics.
+
 2019-12-04  Richard Sandiford  <richard.sandiford@arm.com>
 
 	* gcc.target/aarch64/sve/acle/general/whilelt_5.c: New test.
@@ -6,7 +139,7 @@
 
 	* gcc.dg/tree-ssa/ssa-fre-84.c: New testcase.
 
-2019-12-12  Tobias Burnus  <tobias@codesourcery.com>
+2019-12-04  Tobias Burnus  <tobias@codesourcery.com>
 
 	PR fortran/92754
 	gfortran.dg/intrinsic_9.f90: New.

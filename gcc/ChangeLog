@@ -1,3 +1,161 @@
+2019-12-06  Jan Hubicka  <hubicka@ucw.cz>
+
+	* cgraphclones.c (cgraph_node::create_clone): Only localize toplevel
+	functions, not inline clones.
+
+2019-12-06  Jan Hubicka  <hubicka@ucw.cz>
+
+	* cfgexpand.c (expand_debug_expr): Do not ICE on SAD_EXPR.
+
+2019-12-06  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (c_expr::gen_transform): Emit newlines from line
+	number changes rather than after every semicolon.
+
+2019-12-06  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/92819
+	* match.pd (VEC_PERM_EXPR -> BIT_INSERT_EXPR): Handle inserts
+	into the last lane.  For two-element vectors try inserting
+	into the last lane when inserting into the first fails.
+
+2019-12-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* common.opt (fprofile-partial-training): Terminate description with
+	full stop.
+
+2019-12-05  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/92622
+	* tree-vrp.c (vrp_prop::check_array_ref): Avoid using a variable
+	left uninitialized by get_addr_base_and_unit_offset on failure.
+
+2019-12-05  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-prop.c (ipa_set_jf_unknown): Do not clear bits and m_vr.
+	(detect_type_change_from_memory_writes): Remoe parameter JFUNC.
+	(detect_type_change): Likewise.
+	(detect_type_change_ssa): Likewise.
+	(ipa_analyze_virtual_call_uses): Update.
+
+2019-12-05  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* config/nios2/linux.h (LINK_EH_SPEC): Define.
+
+2019-12-05  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-inline-transform.c (inline_call): Fix maintenatnce of comdat_local
+
+2019-12-05  Jan Hubicka  <hubicka@ucw.cz>
+
+	* cgraphclones.c (localize_profile): New function.
+	(cgraph_node::create_clone): Use it for partial profiles.
+	* common.opt (fprofile-partial-training): New flag.
+	* doc/invoke.texi (-fprofile-partial-training): Document.
+	* ipa-cp.c (update_profiling_info): For partial profiles do not
+	set function profile to zero.
+	* profile.c (compute_branch_probabilities): With partial profile
+	watch if edge count is zero and turn all probabilities to guessed.
+	(compute_branch_probabilities): For partial profiles do not apply
+	profile when entry count is zero.
+	* tree-profile.c (tree_profiling): Only do value_profile_transformations
+	when profile is read.
+
+2019-12-05  Sudakshina Das  <sudi.das@arm.com>
+
+	* tree-vect-loop.c (vect_model_reduction_cost): Remove reduction_type
+	check from if condition.
+
+2019-12-05  Tobias Burnus  <tobias@codesourcery.com>
+
+	* omp-low.c (lower_omp_target): For use_device_ptr/use_derice_addr
+	and Fortran's optional arguments, unconditionally add the is-present
+	condition before the libgomp call.
+
+2019-12-05  Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR middle-end/92768
+	* tree-core.h (OEP_BITWISE): New flag.
+	* fold-const.c (operand_compare::operand_equal_p): Handle it.
+	* tree-vector-builder.h (tree_vector_builder::equal_p): Pass it.
+
+2019-12-05  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/92818
+	* tree-ssa-forwprop.c (simplify_vector_constructor): Improve
+	heuristics on what don't care element to choose.
+	* match.pd (VEC_PERM_EXPR -> BIT_INSERT_EXPR): Fix typo.
+
+2019-12-05  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/92817
+	* coverage.c (build_gcov_exit_decl): Remove superfluous
+	void_type_node.
+
+2019-12-05  Jozef Lawrynowicz  <jozef.l@mittosystems.com>
+
+	* config/msp430/msp430.md (cbranch<mode>4): Use
+	msp430_general_dst_nonv_operand instead of nonimmediate_operand for
+	dest operand of CMP instruction.
+	(cbranchpsi4_real): Likewise.
+	(cbranchqi4_real): Likewise.
+	(cbranchhi4_real): Likewise.
+	(cbranchpsi4_reversed): Likewise.
+	(cbranchqi4_reversed): Likewise.
+	(cbranchhi4_reversed): Likewise.
+
+2019-12-05  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/92803
+	* tree-ssa-forwprop.c (simplify_vector_constructor): Fix
+	invariant vector construction.
+
+2019-12-05  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/91971
+	* coverage.c (coverage_init): Mangle full path
+	only when -fprofile-dir is used.
+
+2019-12-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/92791
+	* config/i386/i386.md (movstrict<mode>): Move test for
+	TARGET_PARTIAL_REG_STALL and not optimizing for size from
+	expander's condition to the body - FAIL; in that case.
+
+2019-12-03  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/91582
+	* builtins.c (gimple_call_alloc_size): New function.
+	(compute_objsize): Add argument.  Call gimple_call_alloc_size.
+	Handle variable offsets and indices.
+	* builtins.h (gimple_call_alloc_size): Declare.
+	(compute_objsize): Add argument.
+	* gcc/gimple-ssa-warn-restrict.c: Remove assertions.
+	* tree-ssa-strlen.c (handle_store): Handle calls to allocated objects.
+
+2019-12-04  Julian Brown  <julian@codesourcery.com>
+
+	* config/gcn/gcn.h (FIXED_REGISTERS): Make s6/s7 fixed registers.
+
+2019-12-04  Peter Bergner <bergner@linux.ibm.com>
+
+	PR bootstrap/92661
+	* config/rs6000/rs6000-c.c (struct altivec_builtin_types): Move to
+	rs6000.h.
+	(altivec_overloaded_builtins): Move to rs6000-call.c.
+	* config/rs6000/rs6000.h (struct altivec_builtin_types): Moved from
+	rs6000-c.c.
+	* config/rs6000/rs6000-call.c (rs6000_builtin_info): Make static.
+	(altivec_overloaded_builtins): Moved from rs6000-c.c.
+	(rs6000_common_init_builtins): Do no define builtins that overload
+	builtins that have been disabled.
+
+2019-12-04  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/arm/arm.c (arm_option_override_internal):
+	Use max_cond_insns from CPU tuning unless -mrestrict-it is used.
+
 2019-12-04  Wilco Dijkstra  <wdijkstr@arm.com>
 
 	* config/aarch64/aarch64.c
@@ -1362,7 +1520,7 @@
 	(ipa_update_overall_fn_summary): Add RESET parameter.
 	* ipa-fnsummary.h (ipa_update_overall_fn_summary): Update prototype.
 	* ipa-inline-transform.c (inline_call): Enable incremental updates.
-	
+
 2019-11-20  Richard Sandiford  <richard.sandiford@arm.com>
 
 	* tree-vect-slp.c (vect_schedule_slp_instance): Restore stmt

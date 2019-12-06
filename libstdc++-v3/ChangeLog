@@ -1,3 +1,44 @@
+2019-12-05  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/23_containers/span/lwg3255.cc: Fix test. Constructing a
+	span of non-const elements should not be possible from a const array
+	or an array of const elements.
+
+2019-12-05  JeanHeyd "ThePhD" Meneide  <phdofthehouse@gmail.com>
+
+	Implement P1872R0 and P1394R0 for std::span
+	* include/bits/range_access.h (__adl_begin, __adl_end): Remove.
+	(sentinel_t, range_value_t, range_reference_t)
+	(range_rvalue_reference_t, __forwarding_range, disable_sized_range)
+	(output_range, input_range, forward_range, bidirectional_range)
+	(random_access_range, contiguous_range, common_range): Move here from
+	<ranges>, to make this the "ranges lite" internal header.
+	* include/std/ranges: Move basic aliases and concepts to
+	<bits/range_access.h>.
+	* include/std/span: Use concepts and ranges:: calls instead of
+	enable_if and friends.
+	* include/std/type_traits: Add __is_array_convertible trait.
+
+2019-12-05  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/stl_algobase.h (lexicographical_compare_three_way):
+	Define for C++20.
+	* testsuite/25_algorithms/lexicographical_compare_three_way/1.cc: New
+	test.
+	* testsuite/25_algorithms/lexicographical_compare_three_way/
+	constexpr.cc: New test.
+
+	* python/libstdcxx/v6/printers.py (StdCmpCatPrinter): New printer.
+	* testsuite/libstdc++-prettyprinters/cxx20.cc: New test.
+
+	* include/bits/cpp_type_traits.h (__is_byte<char8_t>): Add
+	specialization.
+	* include/std/array (operator<=>): Likewise.
+	* testsuite/23_containers/array/comparison_operators/constexpr.cc:
+	Test three-way comparisons and arrays of unsigned char.
+	* testsuite/23_containers/array/tuple_interface/get_neg.cc: Adjust
+	dg-error line numbers.
+
 2019-12-03  Jonathan Wakely  <jwakely@redhat.com>
 
 	* include/bits/stl_pair.h [__cpp_lib_three_way_comparison]
