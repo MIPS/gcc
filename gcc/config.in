@@ -76,7 +76,7 @@
 #endif
 
 
-/* Define to enable static analyzer. */
+/* Define 0/1 if static analyzer feature is enabled. */
 #ifndef USED_FOR_TARGET
 #undef ENABLE_ANALYZER
 #endif

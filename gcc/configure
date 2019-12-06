@@ -1686,7 +1686,7 @@ Optional Features:
   --enable-tls            enable or disable generation of tls code overriding
                           the assembler check for tls support
   --enable-vtable-verify  enable vtable verification feature
-  --enable-analyzer       enable -fanalyzer static analyzer
+  --disable-analyzer      disable -fanalyzer static analyzer
   --enable-objc-gc        enable the use of Boehm's garbage collector with the
                           GNU Objective-C runtime
   --disable-shared        don't provide a shared libgcc
@@ -7713,7 +7713,7 @@ else
 	analyzer=1
 fi
 else
-  analyzer=0
+  analyzer=1
 fi
 
 
