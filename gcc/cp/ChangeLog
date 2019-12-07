@@ -1,3 +1,63 @@
+2019-12-07  Jason Merrill  <jason@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/92831
+	* call.c (build_conditional_expr_1): For ?: with omitted middle
+	operand use cp_stabilize_reference if arg1 is glvalue_p rather than
+	just if it is lvalue_p.
+
+2019-12-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_diagnose_invalid_type_name): Mention
+	that concept is also available with -std=c++2a.
+
+	PR c++/92831 - CWG 1299, not extending temporary lifetime for ?:
+	* cp-tree.h (extend_ref_init_temps): Add a new argument with NULL
+	default arg.
+	* call.c (set_up_extended_ref_temp): Add COND_GUARD argument, pass it
+	down to extend_ref_init_temps.  Before pushing cleanup, if COND_GUARD
+	is non-NULL, create a bool temporary if needed, initialize to false
+	and guard the cleanup with the temporary being true.
+	(extend_ref_init_temps_1): Add COND_GUARD argument, pass it down
+	to recursive calls and set_up_extended_ref_temp.  Handle COND_EXPR.
+	(extend_ref_init_temps): Add COND_GUARD argument, pass it down to
+	recursive calls and to extend_ref_init_temps_1.
+
+2019-12-06  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* decl.c (start_decl_1): Use verify_type_context to check whether
+	the target allows variables of a particular type to have static
+	or thread-local storage duration.
+	(check_array_initializer): Use verify_type_context to check whether
+	the target allows a particular type to be used as an array element.
+	(create_array_type_for_decl): Likewise.
+	(cp_finish_decl): Use verify_type_context to check whether
+	the target allows static member variables of a particular type.
+	(grokdeclarator): Likewise.  Also use verify_type_context to check
+	whether the target allows non-static member variables of a particular
+	type.
+	* except.c: Include target.h.
+	(is_admissible_throw_operand_or_catch_parameter): Use
+	verify_type_context to check whether the target allows particular
+	types to be thrown and caught.
+	* typeck2.c (add_exception_specifier): Likewise.
+	* init.c (build_new_1): Use verify_type_context to check whether
+	the target allows particular types to be dynamically allocated.
+	(build_vec_delete_1, build_delete): Use verify_type_context to check
+	whether the target allows particular types to be deleted.
+	* lambda.c (add_capture): Use verify_type_context to check
+	whether the target allows particular types to be captured by copy.
+	* pt.c: Include target.h.
+	(instantiate_class_template_1): Use verify_type_context to check
+	whether the target allows non-static member variables of a particular
+	type.
+	* typeck.c (cxx_alignof_expr): Use verify_type_context to check
+	whether the target allows the alignment of a particular type
+	to be measured.
+	(pointer_diff, cp_build_unary_op): Use verify_type_context to check
+	whether the target allows arithmetic involving pointers to particular
+	types.
+
 2019-12-05  Marek Polacek  <polacek@redhat.com>
 	    Jakub Jelinek  <jakub@redhat.com>
 
