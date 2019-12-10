@@ -2095,16 +2095,7 @@ gomp_exit_data (struct gomp_device_descr *devicep, size_t mapnum,
 					  - k->host_start),
 				cur_node.host_end - cur_node.host_start);
 	  if (k->refcount == 0)
-	    {
-	      splay_tree_remove (&devicep->mem_map, k);
-	      if (k->link_key)
-		splay_tree_insert (&devicep->mem_map,
-				   (splay_tree_node) k->link_key);
-	      if (k->tgt->refcount > 1)
-		k->tgt->refcount--;
-	      else
-		gomp_unmap_tgt (k->tgt);
-	    }
+	    gomp_remove_var (devicep, k);
 
 	  break;
 	default:
@@ -2906,7 +2897,6 @@ gomp_target_init (void)
 		current_device.type = current_device.get_type_func ();
 		current_device.mem_map.root = NULL;
 		current_device.state = GOMP_DEVICE_UNINITIALIZED;
-		current_device.openacc.data_environ = NULL;
 		for (i = 0; i < new_num_devices; i++)
 		  {
 		    current_device.target_id = i;

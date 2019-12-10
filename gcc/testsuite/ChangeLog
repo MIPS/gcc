@@ -1,3 +1,171 @@
+2019-12-10  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* gcc.target/aarch64/sve/mixed_size_7.c: New test.
+
+2019-12-10  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* gcc.target/aarch64/sve/mixed_size_6.c: New test.
+
+2019-12-10  Frederik Harwath  <frederik@codesourcery.com>
+
+	* c-c++-common/goacc/clause-locations.c: New test.
+	* gfortran.dg/goacc/clause-locations.f90: New test.
+
+2019-12-10  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* gcc.target/aarch64/sve/acle/general/debug_4.c: New test.
+
+2019-12-10  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* gcc.target/aarch64/sve/clastb_9.c: New test.
+
+2019-12-10  Tobias Burnus  <tobias@codesourcery.com>
+
+	PR fortran/92872
+	* gfortran.dg/bind_c_optional-1.f90: New.
+
+2019-12-10  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* gcc.dg/lto/tag-1_0.c, gcc.dg/lto/tag-1_1.c: New test.
+
+2019-12-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.target/i386/avx512f-vmovntpd-2.c: Ensure res is 64-byte aligned.
+	* gcc.target/i386/avx512f-vmovntps-2.c: Likewise.
+
+2019-12-09  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc.dg/plugin/diagnostic_plugin_test_show_locus.c
+	(custom_diagnostic_finalizer): Add pp_newline call before call to
+	diagnostic_show_locus.
+
+2019-12-09  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* c-c++-common/Wcast-align.c: Check location(s) too.
+	* c-c++-common/Wcast-function-type.c: Likewise.
+	* c-c++-common/Wint-to-pointer-cast-1.c: Likewise.
+	* c-c++-common/Wint-to-pointer-cast-2.c: Likewise.
+	* c-c++-common/Wint-to-pointer-cast-3.c: Likewise.
+	* g++.dg/Wcast-function-type.C: Likewise.
+	* g++.dg/addr_builtin-1.C: Likewise.
+	* g++.dg/conversion/const2.C: Likewise.
+	* g++.dg/conversion/dynamic1.C: Likewise.
+	* g++.dg/conversion/ptrmem2.C: Likewise.
+	* g++.dg/conversion/ptrmem3.C: Likewise.
+	* g++.dg/conversion/qual3.C: Likewise.
+	* g++.dg/conversion/reinterpret3.C: Likewise.
+	* g++.dg/cpp0x/constexpr-cast.C: Likewise.
+	* g++.dg/cpp0x/lambda/lambda-conv11.C: Likewise.
+	* g++.dg/cpp0x/nullptr04.C: Likewise.
+	* g++.dg/cpp0x/reinterpret_cast2.C: Likewise.
+	* g++.dg/cpp0x/rv-cast2.C: Likewise.
+	* g++.dg/cpp1y/lambda-conv1.C: Likewise.
+	* g++.dg/cpp1z/noexcept-type7.C: Likewise.
+	* g++.dg/cpp2a/array-conv9.C: Likewise.
+	* g++.dg/expr/cast11.C: Likewise.
+	* g++.dg/expr/static_cast8.C: Likewise.
+	* g++.dg/ext/vector6.C: Likewise.
+	* g++.dg/other/conversion1.C: Likewise.
+	* g++.dg/parse/pr26997.C: Likewise.
+	* g++.dg/rtti/no-rtti.C: Likewise.
+	* g++.dg/tc1/dr137.C: Likewise.
+	* g++.dg/template/cast4.C: Likewise.
+	* g++.dg/warn/Wcast-qual1.C: Likewise.
+	* g++.dg/warn/Wcast-qual2.C: Likewise.
+	* g++.dg/warn/Wconditionally-supported-1.C: Likewise.
+	* g++.dg/warn/Wuseless-cast.C: Likewise.
+	* g++.dg/warn/pr35711.C: Likewise.
+	* g++.old-deja/g++.bugs/900227_01.C: Likewise.
+	* g++.old-deja/g++.bugs/900404_07.C: Likewise.
+	* g++.old-deja/g++.jason/overload1.C: Likewise.
+	* g++.old-deja/g++.jason/rfg26.C: Likewise.
+	* g++.old-deja/g++.jason/rvalue3.C: Likewise.
+	* g++.old-deja/g++.jason/warning2.C: Likewise.
+	* g++.old-deja/g++.mike/dyncast4.C: Likewise.
+	* g++.old-deja/g++.mike/dyncast6.C: Likewise.
+	* g++.old-deja/g++.mike/p11482.C: Likewise.
+	* g++.old-deja/g++.mike/p2573.C: Likewise.
+	* g++.old-deja/g++.mike/p2855.C: Likewise.
+	* g++.old-deja/g++.mike/p7476.C: Likewise.
+	* g++.old-deja/g++.mike/p8039.C: Likewise.
+	* g++.old-deja/g++.other/cast2.C: Likewise.
+	* g++.old-deja/g++.other/cast3.C: Likewise.
+	* g++.old-deja/g++.other/dcast1.C: Likewise.
+	* g++.old-deja/g++.other/dcast2.C: Likewise.
+
+2019-12-09  Lewis Hyatt  <lhyatt@gmail.com>
+
+	PR preprocessor/49973
+	* gcc.dg/plugin/diagnostic_plugin_test_show_locus.c
+	(test_show_locus): Tweak so that expected output is the same as
+	before the diagnostic-show-locus.c changes.
+	* gcc.dg/cpp/pr66415-1.c: Likewise.
+
+2019-12-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/lto23.adb: New test.
+
+2019-12-09  Joseph Myers  <joseph@codesourcery.com>
+
+	PR middle-end/91226
+	* gcc.dg/dfp/bid-non-canonical-d128-1.c,
+	gcc.dg/dfp/bid-non-canonical-d128-2.c,
+	gcc.dg/dfp/bid-non-canonical-d128-3.c,
+	gcc.dg/dfp/bid-non-canonical-d128-4.c,
+	gcc.dg/dfp/bid-non-canonical-d32-1.c,
+	gcc.dg/dfp/bid-non-canonical-d32-2.c,
+	gcc.dg/dfp/bid-non-canonical-d64-1.c,
+	gcc.dg/dfp/bid-non-canonical-d64-2.c: New tests.
+
+2019-12-09  Matthew Malcomson  <matthew.malcomson@arm.com>
+
+	PR middle-end/92410
+	* gcc.dg/torture/pr92410.c: New test.
+
+2019-12-09  Sudakshina Das  <sudi.das@arm.com>
+
+	* gcc.dg/vect/vect-shift-5.c: New test.
+
+2019-12-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/92834
+	* gcc.dg/tree-ssa/pr92834.c: New test.
+
+2019-12-09  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	PR tree-optimization/89007
+	* gcc.target/aarch64/sve/pr89007-1.c: New test.
+	* gcc.target/aarch64/sve/pr89007-2.c: Likewise.
+
+2019-12-09  Hongtao Liu  <hongtao@intel.com>
+
+	* gcc.target/i386/pr92686.inc: New file.
+	* gcc.target/i386/avx512bw-pr92686-vpcmp-1.c: New test.
+	* gcc.target/i386/avx512bw-pr92686-vpcmp-intelasm-1.c: Ditto.
+	* gcc.target/i386/avx512bw-pr92686-vpcmp-2.c: Ditto.
+	* gcc.target/i386/avx512vl-pr92686-vpcmp-1.c: Ditto.
+	* gcc.target/i386/avx512vl-pr92686-vpcmp-intelasm-1.c: Ditto.
+	* gcc.target/i386/avx512vl-pr92686-vpcmp-2.c: Ditto.
+	* gcc.target/i386/avx512bw-pr92686-movcc-1.c: Ditto.
+	* gcc.target/i386/avx512bw-pr92686-movcc-2.c: Ditto.
+	* gcc.target/i386/avx512vl-pr92686-movcc-1.c: Ditto.
+	* gcc.target/i386/avx512vl-pr92686-movcc-2.c: Ditto.
+	* gcc.target/i386/avx512vl-pr88547-1.c: Adjust testcase.
+	* gcc.target/i386/pr88547-1.c: Ditto.
+
+2019-12-08  Andrew Pinski  <apinski@marvell.com>
+
+	* gcc.c-torture/execute/bswap-3.c: New test.
+
+2019-12-08  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Revert:
+
+	2019-12-05  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* g++.target/nios2/hello-pie.C: New.
+	* g++.target/nios2/nios2.exp: New.
+
 2018-12-08  Thomas Koenig  <tkoenig@gcc.gnu.org>
 
 	PR fortran/92780
