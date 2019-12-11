@@ -868,7 +868,10 @@ hash_table<Descriptor, Lazy, Allocator>::empty_slow ()
       m_size_prime_index = nindex;
     }
   else
-    memset ((void *) entries, 0, size * sizeof (value_type));
+    {
+      for (size_t i = 0; i < size; i++)
+	mark_empty (entries[i]);
+    }
 
   m_n_deleted = 0;
   m_n_elements = 0;
