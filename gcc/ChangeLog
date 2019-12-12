@@ -1,3 +1,113 @@
+2019-12-12  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-prop.c (read_ipcp_transformation_info): Fix undefined ordering
+	of execution of function call parameters.
+
+2019-12-12  Vineet Gupta  <vgupta@synopsys.com>
+
+	* config/arc/arc-modes.def (CC_FPUE): New Mode CC_FPUE which
+	helps codegen generate exceptions even for quiet NaN.
+	* config/arc/arc.c (arc_init_reg_tables): Handle New CC_FPUE mode.
+	(get_arc_condition_code): Likewise.
+	(arc_select_cc_mode): LT, LE, GT, GE to use the New CC_FPUE mode.
+	* config/arc/arc.h (REVERSE_CONDITION): Handle New CC_FPUE mode.
+	* config/arc/predicates.md (proper_comparison_operator): Likewise.
+	* config/arc/fpu.md (cmpsf_fpu_trap): New Pattern for CC_FPUE.
+	(cmpdf_fpu_trap): Likewise.
+
+2019-12-12  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/arc.md (iterator SDF): Check TARGET_FP_DP_BASE.
+	(cstoredi4): Use TARGET_HARD_FLOAT.
+
+2019-12-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* opts.c (default_options_table): Move -ftree-loop-distribute-patterns
+	entry from -O3 or later section to -O2 or later section.
+	* doc/invoke.texi (-ftree-loop-distribute-patterns): Mention the
+	option is enabled by default at -O2+ rather than just at -O3.
+
+	PR target/92723
+	* tree-vect-patterns.c (vect_recog_rotate_pattern): If dt is not
+	vect_internal_def, use oprnd1 as is, without trying to cast it.
+	Formatting fix.
+
+2019-12-11  Martin Sebor  <msebor@redhat.com>
+
+	* builtins.c (compute_objsize): Add an argument and set it to offset
+	into destination.
+	* builtins.h (compute_objsize): Add an argument.
+	* tree-object-size.c (addr_object_size): Add an argument and set it
+	to offset into destination.
+	(compute_builtin_object_size): Same.
+	* tree-object-size.h (compute_builtin_object_size): Add an argument.
+	* tree-ssa-strlen.c (get_addr_stridx): Add an argument and set it
+	to offset into destination.
+	(maybe_warn_overflow): New function.
+	(handle_store): Call maybe_warn_overflow to issue warnings.
+
+2019-12-11  Jozef Lawrynowicz  <jozef.l@mittosystems.com>
+
+	* config/msp430/msp430.h (STARTFILE_SPEC) [!fexceptions]: Use
+	crtbegin_no_eh.o if building for the C language.
+	[fno-exceptions]: Use crtbegin_no_eh.o if building for any language
+	except C.
+	(ENDFILE_SPEC) [!fexceptions]: Use crtend_no_eh.o if building for 
+	the C language.
+	[fno-exceptions]: Use crtend_no_eh.o if building for any language
+	except C.
+	* config/msp430/t-msp430: Add -fno-exceptions multilib.
+	* doc/install.texi: Document --disable-no-exceptions multilib configure
+	option.
+	* doc/sourcebuild.texi: Document exceptions_enabled effective target.
+
+2019-12-11  David Malcolm  <dmalcolm@redhat.com>
+
+	* pretty-print.c (pretty_printer::pretty_printer): New copy-ctor.
+	(pretty_printer::clone): New vfunc implementation.
+	* pretty-print.h (format_postprocessor::clone): New pure vfunc
+	decl.
+	(pretty_printer::pretty_printer): New copy-ctor decl.
+	(pretty_printer::clone): New vfunc decl.
+
+2019-12-11  David Malcolm  <dmalcolm@redhat.com>
+
+	* function-tests.c (selftest::make_fndecl): Make non-static.
+	* selftest.h (selftest::make_fndecl): New decl.
+
+2019-12-11  Lewis Hyatt  <lhyatt@gmail.com>
+
+	PR 91853
+	* pretty-print.c (pp_quoted_string): Avoid hex-escaping valid
+	multibyte input.  Fix off-by-one-bug printing the last byte before a
+	hex-escaped output.
+	(pp_character): Don't apply line wrapping in the middle of multibyte
+	characters.
+	(test_utf8): New test.
+	(pretty_print_c_tests): Call the new test.
+
+2019-12-11  Richard Earnshaw  <rearnsha@arm.com>
+
+	* config/arm/arm-cpus.in (ALL_SIMD_EXTERNAL): New fgroup.
+	(ALL_SIMD): Use it.
+	(ALL_FPU_EXTERNAL): New fgroup.
+	(ALL_FP): Use it.
+	(cortex-a55, cortex-a75, cortex-a76, cortex-a76ae): Remove redundant
+	+simd from architecture specification.
+	(cortex-a77, neoverse-n1, cortex-a75.cortex-a55): Likewise.
+	* config/arm/arm.c (isa_all_fpubits, fpu_bitlist): Rename to ...
+	(isa_all_fpubits_internal, fpu_bitlist_internal): ... these.
+	(isa_all_fpbits): New bitmap.
+	(arm_option_override): Initialize it.
+	(arm_configure_build_target): If the target isa does not have any
+	FP enabled, do not warn about mismatches in FP-related feature bits.
+
+2019-12-11  Stam Markianos-Wright  <stam.markianos-wright@arm.com>
+
+	* real.c (struct arm_bfloat_half_format,
+	encode_arm_bfloat_half, decode_arm_bfloat_half): New.
+	* real.h (arm_bfloat_half_format): New.
+
 2019-12-11  Hongtao Liu  <hongtao.liu@intel.com>
 
 	PR target/92865

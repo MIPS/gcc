@@ -2226,9 +2226,18 @@ package body Sem_Ch10 is
 
          --  If the subunit occurs within a child unit, we must restore the
          --  immediate visibility of any siblings that may occur in context.
+         --  In addition, we must reset the previous visibility of the
+         --  parent unit which is now on the scope stack. This is because
+         --  the Previous_Visibility was previously set when removing the
+         --  context. This is necessary to prevent the parent entity from
+         --  remaining visible after the subunit is compiled. This only
+         --  has an effect if a homonym exists in a body to be processed
+         --  later if inlining is enabled.
 
          if Present (Enclosing_Child) then
             Install_Siblings (Enclosing_Child, L);
+            Scope_Stack.Table (Scope_Stack.Last).Previous_Visibility :=
+              False;
          end if;
 
          Push_Scope (Scop);
@@ -5326,6 +5335,20 @@ package body Sem_Ch10 is
          then
             Error_Msg_N
               ("instantiation depends on itself", Name (With_Clause));
+
+         elsif not Analyzed (Uname)
+           and then Is_Internal_Unit (Current_Sem_Unit)
+           and then not Is_Visible_Lib_Unit (Uname)
+           and then No (Scope (Uname))
+         then
+            if Is_Predefined_Unit (Current_Sem_Unit) then
+               Error_Msg_N
+                 ("predefined unit depends on itself", Name (With_Clause));
+            else
+               Error_Msg_N
+                 ("GNAT-defined unit depends on itself", Name (With_Clause));
+            end if;
+            return;
 
          elsif not Is_Visible_Lib_Unit (Uname) then
 

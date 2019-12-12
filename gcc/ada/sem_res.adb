@@ -8478,15 +8478,19 @@ package body Sem_Res is
                Get_First_Interp (N, I, It);
 
                --  If the equality is user-defined, the type of the operands
-               --  matches that of the formals. For a predefined operqtor,
+               --  matches that of the formals. For a predefined operator,
                --  it is the scope that matters, given that the predefined
                --  equality has Any_Type formals. In either case the result
-               --  type (most often Booleam) must match the context .
+               --  type (most often Boolean) must match the context. The scope
+               --  is either that of the type, if there is a generated equality
+               --  (when there is an equality for the component type), or else
+               --  Standard otherwise.
 
                while Present (It.Typ) loop
                   if Etype (It.Nam) = Typ
                     and then
                      (Etype (First_Entity (It.Nam)) = Etype (L)
+                       or else Scope (It.Nam) = Standard_Standard
                        or else Scope (It.Nam) = Scope (T))
                   then
                      Set_Entity (N, It.Nam);

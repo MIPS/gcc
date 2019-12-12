@@ -11013,7 +11013,8 @@ package body Exp_Ch4 is
 
       --    5. Prefix of an address attribute (this is an error which is caught
       --       elsewhere, and the expansion would interfere with generating the
-      --       error message).
+      --       error message) or of a size attribute (because 'Size may change
+      --       when applied to the temporary instead of the slice directly).
 
       if not Is_Packed (Typ) then
 
@@ -11039,7 +11040,8 @@ package body Exp_Ch4 is
          return;
 
       elsif Nkind (Parent (N)) = N_Attribute_Reference
-        and then Attribute_Name (Parent (N)) = Name_Address
+        and then (Attribute_Name (Parent (N)) = Name_Address
+                   or else Attribute_Name (Parent (N)) = Name_Size)
       then
          return;
 
@@ -11838,7 +11840,7 @@ package body Exp_Ch4 is
            --  The case where the target type is an anonymous access type of
            --  a discriminant is excluded, because the level of such a type
            --  depends on the context and currently the level returned for such
-           --  types is zero, resulting in warnings about about check failures
+           --  types is zero, resulting in warnings about check failures
            --  in certain legal cases involving class-wide interfaces as the
            --  designated type (some cases, such as return statements, are
            --  checked at run time, but not clear if these are handled right
@@ -12318,8 +12320,8 @@ package body Exp_Ch4 is
 
    --  Remove the unchecked expression node from the tree. Its job was simply
    --  to make sure that its constituent expression was handled with checks
-   --  off, and now that that is done, we can remove it from the tree, and
-   --  indeed must, since Gigi does not expect to see these nodes.
+   --  off, and now that is done, we can remove it from the tree, and indeed
+   --  must, since Gigi does not expect to see these nodes.
 
    procedure Expand_N_Unchecked_Expression (N : Node_Id) is
       Exp : constant Node_Id := Expression (N);
