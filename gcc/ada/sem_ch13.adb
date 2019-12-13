@@ -154,6 +154,10 @@ package body Sem_Ch13 is
    --  that do not specify a representation characteristic are operational
    --  attributes.
 
+   function Is_Type_Related_Rep_Item (N : Node_Id) return Boolean;
+   --  Returns True for a representation clause/pragma that specifies a
+   --  type-related representation (as opposed to operational) aspect.
+
    function Is_Predicate_Static
      (Expr : Node_Id;
       Nam  : Name_Id) return Boolean;
@@ -3475,11 +3479,14 @@ package body Sem_Ch13 is
                   --  don't do this in GNATprove mode, because it brings no
                   --  benefit for proof and causes annoynace for flow analysis,
                   --  which prefers to be as close to the original source code
-                  --  as possible.
+                  --  as possible. Also we don't do this when analyzing generic
+                  --  units since it causes spurious visibility errors in the
+                  --  preanalysis of instantiations.
 
                   if not (ASIS_Mode or GNATprove_Mode)
                     and then (Pname = Name_Postcondition
                                or else not Class_Present (Aspect))
+                    and then not Inside_A_Generic
                   then
                      while Nkind (Expr) = N_And_Then loop
                         Insert_After (Aspect,
@@ -3786,6 +3793,15 @@ package body Sem_Ch13 is
 
             if Present (Aitem) then
                Set_From_Aspect_Specification (Aitem);
+            end if;
+
+            --  For an aspect that applies to a type, indicate whether it
+            --  appears on a partial view of the type.
+
+            if Is_Type (E)
+              and then Is_Private_Type (E)
+            then
+               Set_Aspect_On_Partial_View (Aspect);
             end if;
 
             --  In the context of a compilation unit, we directly put the
@@ -12273,6 +12289,59 @@ package body Sem_Ch13 is
       end if;
    end Is_Predicate_Static;
 
+   ------------------------------
+   -- Is_Type_Related_Rep_Item --
+   ------------------------------
+
+   function Is_Type_Related_Rep_Item (N : Node_Id) return Boolean is
+   begin
+      case Nkind (N) is
+         when N_Attribute_Definition_Clause =>
+            declare
+               Id : constant Attribute_Id := Get_Attribute_Id (Chars (N));
+               --  See AARM 13.1(8.f-8.x) list items that end in "clause"
+               --  ???: include any GNAT-defined attributes here?
+            begin
+               return    Id = Attribute_Component_Size
+                 or else Id = Attribute_Bit_Order
+                 or else Id = Attribute_Storage_Pool
+                 or else Id = Attribute_Stream_Size
+                 or else Id = Attribute_Machine_Radix;
+            end;
+
+         when N_Pragma =>
+            case Get_Pragma_Id (N) is
+               --  See AARM 13.1(8.f-8.x) list items that start with "pragma"
+               --  ???: include any GNAT-defined pragmas here?
+               when Pragma_Pack
+                  | Pragma_Import
+                  | Pragma_Export
+                  | Pragma_Convention
+                  | Pragma_Atomic
+                  | Pragma_Independent
+                  | Pragma_Volatile
+                  | Pragma_Atomic_Components
+                  | Pragma_Independent_Components
+                  | Pragma_Volatile_Components
+                  | Pragma_Discard_Names
+               =>
+                  return True;
+               when others =>
+                  null;
+            end case;
+
+         when N_Enumeration_Representation_Clause
+            | N_Record_Representation_Clause
+         =>
+            return True;
+
+         when others =>
+            null;
+      end case;
+
+      return False;
+   end Is_Type_Related_Rep_Item;
+
    ---------------------
    -- Kill_Rep_Clause --
    ---------------------
@@ -12955,7 +13024,7 @@ package body Sem_Ch13 is
       end if;
 
       --  No error, but one more warning to consider. The RM (surprisingly)
-      --  allows this pattern:
+      --  allows this pattern in some cases:
 
       --    type S is ...
       --    primitive operations for S
@@ -12964,7 +13033,7 @@ package body Sem_Ch13 is
 
       --  Meaning that calls on the primitive operations of S for values of
       --  type R may require possibly expensive implicit conversion operations.
-      --  This is not an error, but is worth a warning.
+      --  So even when this is not an error, it is still worth a warning.
 
       if not Relaxed_RM_Semantics and then Is_Type (T) then
          declare
@@ -12972,26 +13041,47 @@ package body Sem_Ch13 is
 
          begin
             if Present (DTL)
-              and then Has_Primitive_Operations (Base_Type (T))
 
-              --  For now, do not generate this warning for the case of aspect
-              --  specification using Ada 2012 syntax, since we get wrong
-              --  messages we do not understand. The whole business of derived
-              --  types and rep items seems a bit confused when aspects are
-              --  used, since the aspects are not evaluated till freeze time.
+              --  For now, do not generate this warning for the case of
+              --  aspect specification using Ada 2012 syntax, since we get
+              --  wrong messages we do not understand. The whole business
+              --  of derived types and rep items seems a bit confused when
+              --  aspects are used, since the aspects are not evaluated
+              --  till freeze time. However, AI12-0109 confirms (in an AARM
+              --  ramification) that inheritance in this case is required
+              --  to work.
 
               and then not From_Aspect_Specification (N)
             then
-               Error_Msg_Sloc := Sloc (DTL);
-               Error_Msg_N
-                 ("representation item for& appears after derived type "
-                  & "declaration#??", N);
-               Error_Msg_NE
-                 ("\may result in implicit conversions for primitive "
-                  & "operations of&??", N, T);
-               Error_Msg_NE
-                 ("\to change representations when called with arguments "
-                  & "of type&??", N, DTL);
+               if Is_By_Reference_Type (T)
+                 and then not Is_Tagged_Type (T)
+                 and then Is_Type_Related_Rep_Item (N)
+                 and then (Ada_Version >= Ada_2012
+                            or else Has_Primitive_Operations (Base_Type (T)))
+               then
+                  --  Treat as hard error (AI12-0109, binding interpretation).
+                  --  Implementing a change of representation is not really
+                  --  an option in the case of a by-reference type, so we
+                  --  take this path for all Ada dialects if primitive
+                  --  operations are present.
+                  Error_Msg_Sloc := Sloc (DTL);
+                  Error_Msg_N
+                    ("representation item for& appears after derived type "
+                     & "declaration#", N);
+
+               elsif Has_Primitive_Operations (Base_Type (T)) then
+                  Error_Msg_Sloc := Sloc (DTL);
+
+                  Error_Msg_N
+                    ("representation item for& appears after derived type "
+                     & "declaration#??", N);
+                  Error_Msg_NE
+                    ("\may result in implicit conversions for primitive "
+                     & "operations of&??", N, T);
+                  Error_Msg_NE
+                    ("\to change representations when called with arguments "
+                     & "of type&??", N, DTL);
+               end if;
             end if;
          end;
       end if;

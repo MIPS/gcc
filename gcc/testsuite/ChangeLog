@@ -1,3 +1,33 @@
+2019-12-13  Dennis Zhang  <dennis.zhang@arm.com>
+
+	* gcc.target/aarch64/pragma_cpp_predefs_2.c: Add tests for i8mm
+	and bf16 features.
+
+2019-12-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/92908
+	* gcc.target/i386/avx512bw-pr92908.c: New test.
+
+2019-12-13  Andrew Pinski  <apinski@marvell.com>
+
+	* gcc.c-torture/execute/pr86659-1.c: New test.
+	* gcc.c-torture/execute/pr86659-2.c: New test.
+
+2019-12-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/92904
+	* gcc.c-torture/execute/pr92904.c: New test.
+
+2019-12-12  Harald Anlauf  <anlauf@gmx.de>
+
+	PR fortran/92898
+	* gfortran.dg/pr92898.f90: New test.
+
+2019-12-12  Sudakshina Das  <sudi.das@arm.com>
+
+	PR testsuite/92870
+	* gcc.dg/vect/vect-shift-5.c: Add target to scan-tree-dump.
+
 2019-12-12  Ed Schonberg  <schonberg@adacore.com>
 
 	* gnat.dg/warn24.adb: Remove expected warning.

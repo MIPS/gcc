@@ -1446,6 +1446,9 @@ package Sem_Util is
    --  package specification. The package must be on the scope stack, and the
    --  corresponding private part must not.
 
+   function In_While_Loop_Condition (N : Node_Id) return Boolean;
+   --  Returns true if the expression N occurs within the condition of a while
+
    function Incomplete_Or_Partial_View (Id : Entity_Id) return Entity_Id;
    --  Given the entity of a constant or a type, retrieve the incomplete or
    --  partial view of the same entity. Note that Id may not have a partial
@@ -1528,7 +1531,7 @@ package Sem_Util is
 
    function Is_Atomic_Object (N : Node_Id) return Boolean;
    --  Determine whether arbitrary node N denotes a reference to an atomic
-   --  object as per Ada RM C.6(12).
+   --  object as per Ada RM C.6(7) and the crucial remark in C.6(8).
 
    --  WARNING: There is a matching C declaration of this subprogram in fe.h
 

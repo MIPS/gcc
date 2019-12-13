@@ -6612,6 +6612,13 @@ package body Sem_Util is
          end if;
       end if;
 
+      --  Handle a constant-folded conditional expression by avoiding use of
+      --  the original node.
+
+      if Nkind_In (Expr, N_Case_Expression, N_If_Expression) then
+         Expr := N;
+      end if;
+
       --  Unimplemented: Ptr.all'Access, where Ptr has Extra_Accessibility ???
 
       case Nkind (Expr) is
@@ -12848,6 +12855,30 @@ package body Sem_Util is
         and then not In_Private_Part (Scope_Id);
    end In_Visible_Part;
 
+   -----------------------------
+   -- In_While_Loop_Condition --
+   -----------------------------
+
+   function In_While_Loop_Condition (N : Node_Id) return Boolean is
+      Prev : Node_Id := N;
+      P    : Node_Id := Parent (N);
+      --  P and Prev will be used for traversing the AST, while maintaining an
+      --  invariant that P = Parent (Prev).
+   begin
+      loop
+         if No (P) then
+            return False;
+         elsif Nkind (P) = N_Iteration_Scheme
+           and then Prev = Condition (P)
+         then
+            return True;
+         else
+            Prev := P;
+            P := Parent (P);
+         end if;
+      end loop;
+   end In_While_Loop_Condition;
+
    --------------------------------
    -- Incomplete_Or_Partial_View --
    --------------------------------
@@ -13693,54 +13724,33 @@ package body Sem_Util is
    ----------------------
 
    function Is_Atomic_Object (N : Node_Id) return Boolean is
-      function Is_Atomic_Entity (Id : Entity_Id) return Boolean;
-      pragma Inline (Is_Atomic_Entity);
-      --  Determine whether arbitrary entity Id is either atomic or has atomic
+      function Prefix_Has_Atomic_Components (Pref : Node_Id) return Boolean;
+      --  Determine whether prefix Pref of an indexed component has atomic
       --  components.
 
-      function Is_Atomic_Prefix (Pref : Node_Id) return Boolean;
-      --  Determine whether prefix Pref of an indexed or selected component is
-      --  an atomic object.
+      ---------------------------------
+      -- Prefix_Has_Atomic_Components --
+      ---------------------------------
 
-      ----------------------
-      -- Is_Atomic_Entity --
-      ----------------------
-
-      function Is_Atomic_Entity (Id : Entity_Id) return Boolean is
-      begin
-         return Is_Atomic (Id) or else Has_Atomic_Components (Id);
-      end Is_Atomic_Entity;
-
-      ----------------------
-      -- Is_Atomic_Prefix --
-      ----------------------
-
-      function Is_Atomic_Prefix (Pref : Node_Id) return Boolean is
+      function Prefix_Has_Atomic_Components (Pref : Node_Id) return Boolean is
          Typ : constant Entity_Id := Etype (Pref);
 
       begin
          if Is_Access_Type (Typ) then
             return Has_Atomic_Components (Designated_Type (Typ));
 
-         elsif Is_Atomic_Entity (Typ) then
+         elsif Has_Atomic_Components (Typ) then
             return True;
 
          elsif Is_Entity_Name (Pref)
-           and then Is_Atomic_Entity (Entity (Pref))
+           and then Has_Atomic_Components (Entity (Pref))
          then
             return True;
 
-         elsif Nkind (Pref) = N_Indexed_Component then
-            return Is_Atomic_Prefix (Prefix (Pref));
-
-         elsif Nkind (Pref) = N_Selected_Component then
-            return
-              Is_Atomic_Prefix (Prefix (Pref))
-                or else Is_Atomic (Entity (Selector_Name (Pref)));
+         else
+            return False;
          end if;
-
-         return False;
-      end Is_Atomic_Prefix;
+      end Prefix_Has_Atomic_Components;
 
    --  Start of processing for Is_Atomic_Object
 
@@ -13749,12 +13759,13 @@ package body Sem_Util is
          return Is_Atomic_Object_Entity (Entity (N));
 
       elsif Nkind (N) = N_Indexed_Component then
-         return Is_Atomic (Etype (N)) or else Is_Atomic_Prefix (Prefix (N));
+         return
+           Is_Atomic (Etype (N))
+             or else Prefix_Has_Atomic_Components (Prefix (N));
 
       elsif Nkind (N) = N_Selected_Component then
          return
            Is_Atomic (Etype (N))
-             or else Is_Atomic_Prefix (Prefix (N))
              or else Is_Atomic (Entity (Selector_Name (N)));
       end if;
 
@@ -13779,8 +13790,8 @@ package body Sem_Util is
    function Is_Atomic_Or_VFA_Object (N : Node_Id) return Boolean is
    begin
       return Is_Atomic_Object (N)
-        or else (Is_Object_Reference (N)
-                   and then Is_Entity_Name (N)
+        or else (Is_Entity_Name (N)
+                   and then Is_Object (Entity (N))
                    and then (Is_Volatile_Full_Access (Entity (N))
                                 or else
                              Is_Volatile_Full_Access (Etype (Entity (N)))));
@@ -23295,13 +23306,16 @@ package body Sem_Util is
          Item := Corresponding_Aspect (Item);
       end if;
 
-      --  Retrieve the name of the aspect/pragma. Note that Pre, Pre_Class,
+      --  Retrieve the name of the aspect/pragma. As assertion pragmas from
+      --  a generic instantiation might have been rewritten into pragma Check,
+      --  we look at the original node for Item. Note also that Pre, Pre_Class,
       --  Post and Post_Class rewrite their pragma identifier to preserve the
-      --  original name.
+      --  original name, so we look at the original node for the identifier.
       --  ??? this is kludgey
 
       if Nkind (Item) = N_Pragma then
-         Item_Nam := Chars (Original_Node (Pragma_Identifier (Item)));
+         Item_Nam :=
+           Chars (Original_Node (Pragma_Identifier (Original_Node (Item))));
 
       else
          pragma Assert (Nkind (Item) = N_Aspect_Specification);
@@ -24714,8 +24728,9 @@ package body Sem_Util is
          --  A selective accept body appears within a task type, but the
          --  enclosing subprogram is the procedure of the task body.
 
-         elsif Ekind (Curr) = E_Task_Type
-           and then Outer = Task_Body_Procedure (Curr)
+         elsif Ekind (Implementation_Base_Type (Curr)) = E_Task_Type
+           and then
+             Outer = Task_Body_Procedure (Implementation_Base_Type (Curr))
          then
             return True;
 
@@ -24756,8 +24771,9 @@ package body Sem_Util is
          if Curr = Outer then
             return True;
 
-         elsif Ekind (Curr) = E_Task_Type
-           and then Outer = Task_Body_Procedure (Curr)
+         elsif Ekind (Implementation_Base_Type (Curr)) = E_Task_Type
+           and then
+             Outer = Task_Body_Procedure (Implementation_Base_Type (Curr))
          then
             return True;
 
