@@ -106,6 +106,15 @@ impl_region_model_context::on_svalue_purge (svalue_id first_unused_sid,
   return total;
 }
 
+void
+impl_region_model_context::on_unknown_change (svalue_id sid)
+{
+  int sm_idx;
+  sm_state_map *smap;
+  FOR_EACH_VEC_ELT (m_new_state->m_checker_states, sm_idx, smap)
+    smap->on_unknown_change (sid);
+}
+
 /* class setjmp_svalue : public svalue.  */
 
 /* Compare the fields of this setjmp_svalue with OTHER, returning true
@@ -847,7 +856,7 @@ exploded_node::dump (const extrinsic_state &ext_state) const
 /* Return true if FNDECL has a gimple body.  */
 // TODO: is there a pre-canned way to do this?
 
-static bool
+bool
 fndecl_has_gimple_body_p (tree fndecl)
 {
   if (fndecl == NULL_TREE)
@@ -906,6 +915,10 @@ exploded_node::on_stmt (exploded_graph &eg,
   if (const greturn *return_ = dyn_cast <const greturn *> (stmt))
     state->m_region_model->on_return (return_, &ctxt);
 
+  /* Track whether we have a gcall to a function that's not recognized by
+     anything, for which we don't have a function body, or for which we
+     don't know the fndecl.  */
+  bool unknown_side_effects = false;
   if (const gcall *call = dyn_cast <const gcall *> (stmt))
     {
       /* Debugging/test support.  */
@@ -948,6 +961,11 @@ exploded_node::on_stmt (exploded_graph &eg,
 	  /* TODO: is there a good cross-platform way to do this?  */
 	  raise (SIGINT);
 	}
+      else if (is_special_named_call_p (call, "__analyzer_dump_exploded_nodes",
+					1))
+	{
+	  /* This is handled elsewhere.  */
+	}
       else if (is_setjmp_call_p (stmt))
 	state->m_region_model->on_setjmp (call, this, &ctxt);
       else if (is_longjmp_call_p (call))
@@ -956,7 +974,7 @@ exploded_node::on_stmt (exploded_graph &eg,
 	  return on_stmt_flags::terminate_path ();
 	}
       else
-	state->m_region_model->on_call_pre (call, &ctxt);
+	unknown_side_effects = state->m_region_model->on_call_pre (call, &ctxt);
     }
 
   bool any_sm_changes = false;
@@ -972,7 +990,9 @@ exploded_node::on_stmt (exploded_graph &eg,
 			    change,
 			    old_smap, new_smap);
       /* Allow the state_machine to handle the stmt.  */
-      if (!sm.on_stmt (&ctxt, snode, stmt))
+      if (sm.on_stmt (&ctxt, snode, stmt))
+	unknown_side_effects = false;
+      else
 	{
 	  /* For those stmts that were not handled by the state machine.  */
 	  if (const gcall *call = dyn_cast <const gcall *> (stmt))
@@ -990,7 +1010,7 @@ exploded_node::on_stmt (exploded_graph &eg,
     }
 
   if (const gcall *call = dyn_cast <const gcall *> (stmt))
-    state->m_region_model->on_call_post (call, &ctxt);
+    state->m_region_model->on_call_post (call, unknown_side_effects, &ctxt);
 
   return on_stmt_flags (any_sm_changes);
 }
