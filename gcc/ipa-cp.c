@@ -2369,12 +2369,10 @@ propagate_vr_across_jump_function (cgraph_edge *cs, ipa_jump_func *jfunc,
 
       value_range vr;
       if (TREE_CODE_CLASS (operation) == tcc_unary)
-	{
-	  ipa_vr_operation_and_type_effects (&vr,
-					     &src_lats->m_value_range.m_vr,
-					     operation, param_type,
-					     operand_type);
-	}
+	ipa_vr_operation_and_type_effects (&vr,
+					   &src_lats->m_value_range.m_vr,
+					   operation, param_type,
+					   operand_type);
       /* A crude way to prevent unbounded number of value range updates
 	 in SCC components.  We should allow limited number of updates within
 	 SCC, too.  */
@@ -2400,7 +2398,7 @@ propagate_vr_across_jump_function (cgraph_edge *cs, ipa_jump_func *jfunc,
 						     NOP_EXPR,
 						     param_type,
 						     jfunc->m_vr->type ()))
-		vr.intersect (*jfunc->m_vr);
+		vr.intersect (jvr);
 	    }
 	  return dest_lat->meet_with (&vr);
 	}
@@ -4295,6 +4293,15 @@ update_profiling_info (struct cgraph_node *orig_node,
 
   remainder = orig_node_count.combine_with_ipa_count (orig_node_count.ipa ()
 						      - new_sum.ipa ());
+
+  /* With partial train run we do not want to assume that original's
+     count is zero whenever we redurect all executed edges to clone.
+     Simply drop profile to local one in this case.  */
+  if (remainder.ipa_p () && !remainder.ipa ().nonzero_p ()
+      && orig_node->count.ipa_p () && orig_node->count.ipa ().nonzero_p ()
+      && flag_profile_partial_training)
+    remainder = remainder.guessed_local ();
+
   new_sum = orig_node_count.combine_with_ipa_count (new_sum);
   new_node->count = new_sum;
   orig_node->count = remainder;
@@ -4557,6 +4564,25 @@ self_recursive_pass_through_p (cgraph_edge *cs, ipa_jump_func *jfunc, int i)
   return false;
 }
 
+/* Return true, if JFUNC, which describes a part of an aggregate represented
+   or pointed to by the i-th parameter of call CS, is a simple no-operation
+   pass-through function to itself.  */
+
+static bool
+self_recursive_agg_pass_through_p (cgraph_edge *cs, ipa_agg_jf_item *jfunc,
+				   int i)
+{
+  enum availability availability;
+  if (cs->caller == cs->callee->function_symbol (&availability)
+      && availability > AVAIL_INTERPOSABLE
+      && jfunc->jftype == IPA_JF_LOAD_AGG
+      && jfunc->offset == jfunc->value.load_agg.offset
+      && jfunc->value.pass_through.operation == NOP_EXPR
+      && jfunc->value.pass_through.formal_id == i)
+    return true;
+  return false;
+}
+
 /* Given a NODE, and a subset of its CALLERS, try to populate blanks slots in
    KNOWN_CSTS with constants that are also known for all of the CALLERS.  */
 
@@ -4749,10 +4775,19 @@ intersect_with_plats (class ipcp_param_lattices *plats,
 	  if (aglat->offset - offset == item->offset)
 	    {
 	      gcc_checking_assert (item->value);
-	      if (aglat->is_single_const ()
-		  && values_equal_for_ipcp_p (item->value,
-					      aglat->values->value))
-		found = true;
+	      if (aglat->is_single_const ())
+		{
+		  tree value = aglat->values->value;
+
+		  if (values_equal_for_ipcp_p (item->value, value))
+		    found = true;
+		  else if (item->value == error_mark_node)
+		    {
+		      /* Replace unknown place holder value with real one.  */
+		      item->value = value;
+		      found = true;
+		    }
+		}
 	      break;
 	    }
 	  aglat = aglat->next;
@@ -4820,6 +4855,12 @@ intersect_with_agg_replacements (struct cgraph_node *node, int index,
 	    {
 	      if (values_equal_for_ipcp_p (item->value, av->value))
 		found = true;
+	      else if (item->value == error_mark_node)
+		{
+		  /* Replace place holder value with real one.  */
+		  item->value = av->value;
+		  found = true;
+		}
 	      break;
 	    }
 	}
@@ -4924,17 +4965,31 @@ intersect_aggregates_with_edge (struct cgraph_edge *cs, int index,
 	for (unsigned i = 0; i < jfunc->agg.items->length (); i++)
 	  {
 	    struct ipa_agg_jf_item *agg_item = &(*jfunc->agg.items)[i];
-	    tree value = ipa_agg_value_from_node (caller_info, cs->caller,
-						  agg_item);
-	    if (value)
+	    struct ipa_agg_value agg_value;
+
+	    if (self_recursive_agg_pass_through_p (cs, agg_item, index))
 	      {
-		struct ipa_agg_value agg_value;
-
-		agg_value.offset = agg_item->offset;
-		agg_value.value = value;
-
-		inter.safe_push (agg_value);
+		/* For a self-recursive call, if aggregate jump function is a
+		   simple pass-through, the exact value that it stands for is
+		   not known at this point, which must comes from other call
+		   sites.  But we still need to add a place holder in value
+		   sets to indicate it, here we use error_mark_node to
+		   represent the special unknown value, which will be replaced
+		   with real one during later intersecting operations.  */
+		agg_value.value = error_mark_node;
 	      }
+	    else
+	      {
+		tree value = ipa_agg_value_from_node (caller_info, cs->caller,
+						      agg_item);
+		if (!value)
+		  continue;
+
+		agg_value.value = value;
+	      }
+
+	    agg_value.offset = agg_item->offset;
+	    inter.safe_push (agg_value);
 	  }
       else
 	FOR_EACH_VEC_ELT (inter, k, item)
@@ -4953,11 +5008,27 @@ intersect_aggregates_with_edge (struct cgraph_edge *cs, int index,
 		  break;
 		if (ti->offset == item->offset)
 		  {
-		    tree value = ipa_agg_value_from_node (caller_info,
-							  cs->caller, ti);
-		    if (value
-			&& values_equal_for_ipcp_p (item->value, value))
-		      found = true;
+		    tree value;
+
+		    if (self_recursive_agg_pass_through_p (cs, ti, index))
+		      {
+			/* A simple aggregate pass-through in self-recursive
+			   call should lead to same value.  */
+			found = true;
+		      }
+		    else if ((value = ipa_agg_value_from_node (caller_info,
+							     cs->caller, ti)))
+		      {
+			if (values_equal_for_ipcp_p (item->value, value))
+			  found = true;
+			else if (item->value == error_mark_node)
+			  {
+			    /* Replace unknown place holder value with real
+			       one.  */
+			    item->value = value;
+			    found = true;
+			  }
+		      }
 		    break;
 		  }
 		l++;
@@ -5032,6 +5103,9 @@ find_aggregate_values_for_callers_subset (struct cgraph_node *node,
 
 	  if (!item->value)
 	    continue;
+
+	  /* All values must be real values, not unknown place holders.  */
+	  gcc_assert (item->value != error_mark_node);
 
 	  v = ggc_alloc<ipa_agg_replacement_value> ();
 	  v->index = i;
@@ -5110,7 +5184,6 @@ cgraph_edge_brings_all_agg_vals_for_node (struct cgraph_edge *cs,
 
   for (i = 0; i < count; i++)
     {
-      static vec<ipa_agg_value> values = vNULL;
       class ipcp_param_lattices *plats;
       bool interesting = false;
       for (struct ipa_agg_replacement_value *av = aggval; av; av = av->next)
@@ -5126,7 +5199,7 @@ cgraph_edge_brings_all_agg_vals_for_node (struct cgraph_edge *cs,
       if (plats->aggs_bottom)
 	return false;
 
-      values = intersect_aggregates_with_edge (cs, i, values);
+      vec<ipa_agg_value> values = intersect_aggregates_with_edge (cs, i, vNULL);
       if (!values.exists ())
 	return false;
 
@@ -5150,6 +5223,7 @@ cgraph_edge_brings_all_agg_vals_for_node (struct cgraph_edge *cs,
 		return false;
 	      }
 	  }
+      values.release ();
     }
   return true;
 }
@@ -5654,7 +5728,7 @@ ipcp_store_vr_results (void)
       ipa_node_params *info = IPA_NODE_REF (node);
       bool found_useful_result = false;
 
-      if (!opt_for_fn (node->decl, flag_ipa_vrp))
+      if (!info || !opt_for_fn (node->decl, flag_ipa_vrp))
 	{
 	  if (dump_file)
 	    fprintf (dump_file, "Not considering %s for VR discovery "

@@ -59,7 +59,6 @@ static tree get_delta_difference (tree, tree, bool, bool, tsubst_flags_t);
 static void casts_away_constness_r (tree *, tree *, tsubst_flags_t);
 static bool casts_away_constness (tree, tree, tsubst_flags_t);
 static bool maybe_warn_about_returning_address_of_local (tree);
-static tree lookup_destructor (tree, tree, tree, tsubst_flags_t);
 static void error_args_num (location_t, tree, bool);
 static int convert_arguments (tree, vec<tree, va_gc> **, tree, int,
                               tsubst_flags_t);
@@ -1426,7 +1425,8 @@ structural_comptypes (tree t1, tree t2, int strict)
       break;
 
     case VECTOR_TYPE:
-      if (maybe_ne (TYPE_VECTOR_SUBPARTS (t1), TYPE_VECTOR_SUBPARTS (t2))
+      if (gnu_vector_type_p (t1) != gnu_vector_type_p (t2)
+	  || maybe_ne (TYPE_VECTOR_SUBPARTS (t1), TYPE_VECTOR_SUBPARTS (t2))
 	  || !same_type_p (TREE_TYPE (t1), TREE_TYPE (t2)))
 	return false;
       break;
@@ -1663,8 +1663,8 @@ compparms (const_tree parms1, const_tree parms2)
    SIZEOF_EXPR.  */
 
 tree
-cxx_sizeof_or_alignof_type (tree type, enum tree_code op, bool std_alignof,
-			    bool complain)
+cxx_sizeof_or_alignof_type (location_t loc, tree type, enum tree_code op,
+			    bool std_alignof, bool complain)
 {
   gcc_assert (op == SIZEOF_EXPR || op == ALIGNOF_EXPR);
   if (type == error_mark_node)
@@ -1675,7 +1675,7 @@ cxx_sizeof_or_alignof_type (tree type, enum tree_code op, bool std_alignof,
     {
       if (complain)
 	{
-	  pedwarn (input_location, OPT_Wpointer_arith,
+	  pedwarn (loc, OPT_Wpointer_arith,
 		   "invalid application of %qs to a member function",
 		   OVL_OP_INFO (false, op)->name);
 	  return size_one_node;
@@ -1702,10 +1702,11 @@ cxx_sizeof_or_alignof_type (tree type, enum tree_code op, bool std_alignof,
       TREE_READONLY (value) = 1;
       if (op == ALIGNOF_EXPR && std_alignof)
 	ALIGNOF_EXPR_STD_P (value) = true;
+      SET_EXPR_LOCATION (value, loc);
       return value;
     }
 
-  return c_sizeof_or_alignof_type (input_location, complete_type (type),
+  return c_sizeof_or_alignof_type (loc, complete_type (type),
 				   op == SIZEOF_EXPR, std_alignof,
 				   complain);
 }
@@ -1724,13 +1725,14 @@ cxx_sizeof_nowarn (tree type)
   else if (!COMPLETE_TYPE_P (type))
     return size_zero_node;
   else
-    return cxx_sizeof_or_alignof_type (type, SIZEOF_EXPR, false, false);
+    return cxx_sizeof_or_alignof_type (input_location, type,
+				       SIZEOF_EXPR, false, false);
 }
 
 /* Process a sizeof expression where the operand is an expression.  */
 
 static tree
-cxx_sizeof_expr (tree e, tsubst_flags_t complain)
+cxx_sizeof_expr (location_t loc, tree e, tsubst_flags_t complain)
 {
   if (e == error_mark_node)
     return error_mark_node;
@@ -1740,10 +1742,12 @@ cxx_sizeof_expr (tree e, tsubst_flags_t complain)
       e = build_min (SIZEOF_EXPR, size_type_node, e);
       TREE_SIDE_EFFECTS (e) = 0;
       TREE_READONLY (e) = 1;
+      SET_EXPR_LOCATION (e, loc);
 
       return e;
     }
 
+  location_t e_loc = cp_expr_loc_or_loc (e, loc);
   STRIP_ANY_LOCATION_WRAPPER (e);
 
   /* To get the size of a static data member declared as an array of
@@ -1758,8 +1762,9 @@ cxx_sizeof_expr (tree e, tsubst_flags_t complain)
       && (complain & tf_warning))
     {
       auto_diagnostic_group d;
-      if (warning (OPT_Wsizeof_array_argument, "%<sizeof%> on array function "
-		   "parameter %qE will return size of %qT", e, TREE_TYPE (e)))
+      if (warning_at (e_loc, OPT_Wsizeof_array_argument,
+		      "%<sizeof%> on array function parameter %qE "
+		      "will return size of %qT", e, TREE_TYPE (e)))
 	inform (DECL_SOURCE_LOCATION (e), "declared here");
     }
 
@@ -1768,7 +1773,7 @@ cxx_sizeof_expr (tree e, tsubst_flags_t complain)
   if (bitfield_p (e))
     {
       if (complain & tf_error)
-	error_at (cp_expr_loc_or_input_loc (e),
+	error_at (e_loc,
 		  "invalid application of %<sizeof%> to a bit-field");
       else
         return error_mark_node;
@@ -1777,9 +1782,8 @@ cxx_sizeof_expr (tree e, tsubst_flags_t complain)
   else if (is_overloaded_fn (e))
     {
       if (complain & tf_error)
-	permerror (cp_expr_loc_or_input_loc (e),
-		   "ISO C++ forbids applying %<sizeof%> to an expression "
-		   "of function type");
+	permerror (e_loc, "ISO C++ forbids applying %<sizeof%> to "
+		   "an expression of function type");
       else
         return error_mark_node;
       e = char_type_node;
@@ -1787,7 +1791,7 @@ cxx_sizeof_expr (tree e, tsubst_flags_t complain)
   else if (type_unknown_p (e))
     {
       if (complain & tf_error)
-        cxx_incomplete_type_error (e, TREE_TYPE (e));
+        cxx_incomplete_type_error (e_loc, e, TREE_TYPE (e));
       else
         return error_mark_node;
       e = char_type_node;
@@ -1795,7 +1799,8 @@ cxx_sizeof_expr (tree e, tsubst_flags_t complain)
   else
     e = TREE_TYPE (e);
 
-  return cxx_sizeof_or_alignof_type (e, SIZEOF_EXPR, false, complain & tf_error);
+  return cxx_sizeof_or_alignof_type (loc, e, SIZEOF_EXPR, false,
+				     complain & tf_error);
 }
 
 /* Implement the __alignof keyword: Return the minimum required
@@ -1804,7 +1809,7 @@ cxx_sizeof_expr (tree e, tsubst_flags_t complain)
    "aligned" __attribute__ specification).  */
 
 static tree
-cxx_alignof_expr (tree e, tsubst_flags_t complain)
+cxx_alignof_expr (location_t loc, tree e, tsubst_flags_t complain)
 {
   tree t;
 
@@ -1816,15 +1821,17 @@ cxx_alignof_expr (tree e, tsubst_flags_t complain)
       e = build_min (ALIGNOF_EXPR, size_type_node, e);
       TREE_SIDE_EFFECTS (e) = 0;
       TREE_READONLY (e) = 1;
+      SET_EXPR_LOCATION (e, loc);
 
       return e;
     }
 
+  location_t e_loc = cp_expr_loc_or_loc (e, loc);
   STRIP_ANY_LOCATION_WRAPPER (e);
 
   e = mark_type_use (e);
 
-  if (!verify_type_context (input_location, TCTX_ALIGNOF, TREE_TYPE (e),
+  if (!verify_type_context (loc, TCTX_ALIGNOF, TREE_TYPE (e),
 			    !(complain & tf_error)))
     {
       if (!(complain & tf_error))
@@ -1836,7 +1843,7 @@ cxx_alignof_expr (tree e, tsubst_flags_t complain)
   else if (bitfield_p (e))
     {
       if (complain & tf_error)
-	error_at (cp_expr_loc_or_input_loc (e),
+	error_at (e_loc,
 		  "invalid application of %<__alignof%> to a bit-field");
       else
         return error_mark_node;
@@ -1848,9 +1855,8 @@ cxx_alignof_expr (tree e, tsubst_flags_t complain)
   else if (is_overloaded_fn (e))
     {
       if (complain & tf_error)
-	permerror (cp_expr_loc_or_input_loc (e),
-		   "ISO C++ forbids applying %<__alignof%> to an expression "
-		   "of function type");
+	permerror (e_loc, "ISO C++ forbids applying %<__alignof%> to "
+		   "an expression of function type");
       else
         return error_mark_node;
       if (TREE_CODE (e) == FUNCTION_DECL)
@@ -1861,28 +1867,30 @@ cxx_alignof_expr (tree e, tsubst_flags_t complain)
   else if (type_unknown_p (e))
     {
       if (complain & tf_error)
-        cxx_incomplete_type_error (e, TREE_TYPE (e));
+        cxx_incomplete_type_error (e_loc, e, TREE_TYPE (e));
       else
         return error_mark_node;
       t = size_one_node;
     }
   else
-    return cxx_sizeof_or_alignof_type (TREE_TYPE (e), ALIGNOF_EXPR, false,
+    return cxx_sizeof_or_alignof_type (loc, TREE_TYPE (e),
+				       ALIGNOF_EXPR, false,
                                        complain & tf_error);
 
-  return fold_convert (size_type_node, t);
+  return fold_convert_loc (loc, size_type_node, t);
 }
 
 /* Process a sizeof or alignof expression E with code OP where the operand
    is an expression.  */
 
 tree
-cxx_sizeof_or_alignof_expr (tree e, enum tree_code op, bool complain)
+cxx_sizeof_or_alignof_expr (location_t loc, tree e, enum tree_code op,
+			    bool complain)
 {
   if (op == SIZEOF_EXPR)
-    return cxx_sizeof_expr (e, complain? tf_warning_or_error : tf_none);
+    return cxx_sizeof_expr (loc, e, complain? tf_warning_or_error : tf_none);
   else
-    return cxx_alignof_expr (e, complain? tf_warning_or_error : tf_none);
+    return cxx_alignof_expr (loc, e, complain? tf_warning_or_error : tf_none);
 }
 
 /*  Build a representation of an expression 'alignas(E).'  Return the
@@ -1906,7 +1914,8 @@ cxx_alignas_expr (tree e)
 	   alignas(type-id ), it shall have the same effect as
 	   alignas(alignof(type-id )).  */
 
-    return cxx_sizeof_or_alignof_type (e, ALIGNOF_EXPR, true, false);
+    return cxx_sizeof_or_alignof_type (input_location,
+				       e, ALIGNOF_EXPR, true, false);
   
   /* If we reach this point, it means the alignas expression if of
      the form "alignas(assignment-expression)", so we should follow
@@ -2696,7 +2705,7 @@ build_class_member_access_expr (cp_expr object, tree member,
 /* Return the destructor denoted by OBJECT.SCOPE::DTOR_NAME, or, if
    SCOPE is NULL, by OBJECT.DTOR_NAME, where DTOR_NAME is ~type.  */
 
-static tree
+tree
 lookup_destructor (tree object, tree scope, tree dtor_name,
 		   tsubst_flags_t complain)
 {
@@ -5418,7 +5427,11 @@ cp_build_binary_op (const op_location_t &location,
 	result_type = NULL_TREE;
 
       if (result_type)
-	build_type = spaceship_type (result_type, complain);
+	{
+	  build_type = spaceship_type (result_type, complain);
+	  if (build_type == error_mark_node)
+	    return error_mark_node;
+	}
 
       if (result_type && arithmetic_types_p)
 	{
@@ -6460,7 +6473,7 @@ cp_build_unary_op (enum tree_code code, tree xarg, bool noconvert,
 				   build_zero_cst (TREE_TYPE (arg)), complain);
       arg = perform_implicit_conversion (boolean_type_node, arg,
 					 complain);
-      val = invert_truthvalue_loc (input_location, arg);
+      val = invert_truthvalue_loc (location, arg);
       if (arg != error_mark_node)
 	return val;
       errstring = _("in argument to unary !");
@@ -7093,8 +7106,9 @@ cp_build_compound_expr (tree lhs, tree rhs, tsubst_flags_t complain)
 */
 
 static bool
-check_for_casting_away_constness (tree src_type, tree dest_type,
-				  enum tree_code cast, tsubst_flags_t complain)
+check_for_casting_away_constness (location_t loc, tree src_type,
+				  tree dest_type, enum tree_code cast,
+				  tsubst_flags_t complain)
 {
   /* C-style casts are allowed to cast away constness.  With
      WARN_CAST_QUAL, we still want to issue a warning.  */
@@ -7108,23 +7122,23 @@ check_for_casting_away_constness (tree src_type, tree dest_type,
     {
     case CAST_EXPR:
       if (complain & tf_warning)
-	warning (OPT_Wcast_qual,
-		 "cast from type %qT to type %qT casts away qualifiers",
-		 src_type, dest_type);
+	warning_at (loc, OPT_Wcast_qual,
+		    "cast from type %qT to type %qT casts away qualifiers",
+		    src_type, dest_type);
       return false;
-      
+
     case STATIC_CAST_EXPR:
       if (complain & tf_error)
-	error ("%<static_cast%> from type %qT to type %qT casts away "
-	       "qualifiers",
-	       src_type, dest_type);
+	error_at (loc, "%<static_cast%> from type %qT to type %qT casts "
+		  "away qualifiers",
+		  src_type, dest_type);
       return true;
-      
+
     case REINTERPRET_CAST_EXPR:
       if (complain & tf_error)
-	error ("%<reinterpret_cast%> from type %qT to type %qT casts away "
-	       "qualifiers",
-	       src_type, dest_type);
+	error_at (loc, "%<reinterpret_cast%> from type %qT to type %qT "
+		  "casts away qualifiers",
+		  src_type, dest_type);
       return true;
 
     default:
@@ -7134,7 +7148,8 @@ check_for_casting_away_constness (tree src_type, tree dest_type,
 
 /* Warns if the cast from expression EXPR to type TYPE is useless.  */
 void
-maybe_warn_about_useless_cast (tree type, tree expr, tsubst_flags_t complain)
+maybe_warn_about_useless_cast (location_t loc, tree type, tree expr,
+			       tsubst_flags_t complain)
 {
   if (warn_useless_cast
       && complain & tf_warning)
@@ -7144,22 +7159,22 @@ maybe_warn_about_useless_cast (tree type, tree expr, tsubst_flags_t complain)
 	       ? xvalue_p (expr) : lvalue_p (expr))
 	   && same_type_p (TREE_TYPE (expr), TREE_TYPE (type)))
 	  || same_type_p (TREE_TYPE (expr), type))
-	warning (OPT_Wuseless_cast, "useless cast to type %q#T", type);
+	warning_at (loc, OPT_Wuseless_cast,
+		    "useless cast to type %q#T", type);
     }
 }
 
 /* Warns if the cast ignores cv-qualifiers on TYPE.  */
-void
-maybe_warn_about_cast_ignoring_quals (tree type, tsubst_flags_t complain)
+static void
+maybe_warn_about_cast_ignoring_quals (location_t loc, tree type,
+				      tsubst_flags_t complain)
 {
   if (warn_ignored_qualifiers
       && complain & tf_warning
       && !CLASS_TYPE_P (type)
       && (cp_type_quals (type) & (TYPE_QUAL_CONST|TYPE_QUAL_VOLATILE)))
-    {
-      warning (OPT_Wignored_qualifiers, "type qualifiers ignored on cast "
-	       "result type");
-    }
+    warning_at (loc, OPT_Wignored_qualifiers,
+		"type qualifiers ignored on cast result type");
 }
 
 /* Convert EXPR (an expression with pointer-to-member type) to TYPE
@@ -7218,7 +7233,7 @@ convert_ptrmem (tree type, tree expr, bool allow_inverse_p,
    indicate whether or not the cast was valid.  */
 
 static tree
-build_static_cast_1 (tree type, tree expr, bool c_cast_p,
+build_static_cast_1 (location_t loc, tree type, tree expr, bool c_cast_p,
 		     bool *valid_p, tsubst_flags_t complain)
 {
   tree intype;
@@ -7287,7 +7302,7 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
       if (sanitize_flags_p (SANITIZE_VPTR))
 	{
 	  tree ubsan_check
-	    = cp_ubsan_maybe_instrument_downcast (input_location, type,
+	    = cp_ubsan_maybe_instrument_downcast (loc, type,
 						  intype, expr);
 	  if (ubsan_check)
 	    expr = ubsan_check;
@@ -7445,7 +7460,8 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
 	return expr;
 
       if (!c_cast_p
-	  && check_for_casting_away_constness (intype, type, STATIC_CAST_EXPR,
+	  && check_for_casting_away_constness (loc, intype, type,
+					       STATIC_CAST_EXPR,
 					       complain))
 	return error_mark_node;
       base = lookup_base (TREE_TYPE (type), TREE_TYPE (intype),
@@ -7457,7 +7473,7 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
       if (sanitize_flags_p (SANITIZE_VPTR))
 	{
 	  tree ubsan_check
-	    = cp_ubsan_maybe_instrument_downcast (input_location, type,
+	    = cp_ubsan_maybe_instrument_downcast (loc, type,
 						  intype, expr);
 	  if (ubsan_check)
 	    expr = ubsan_check;
@@ -7494,7 +7510,7 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
       if (can_convert (t1, t2, complain) || can_convert (t2, t1, complain))
 	{
 	  if (!c_cast_p
-	      && check_for_casting_away_constness (intype, type,
+	      && check_for_casting_away_constness (loc, intype, type,
 						   STATIC_CAST_EXPR,
 						   complain))
 	    return error_mark_node;
@@ -7516,7 +7532,8 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
       && TYPE_PTROB_P (type))
     {
       if (!c_cast_p
-	  && check_for_casting_away_constness (intype, type, STATIC_CAST_EXPR,
+	  && check_for_casting_away_constness (loc, intype, type,
+					       STATIC_CAST_EXPR,
 					       complain))
 	return error_mark_node;
       if (processing_template_decl)
@@ -7531,7 +7548,8 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
 /* Return an expression representing static_cast<TYPE>(EXPR).  */
 
 tree
-build_static_cast (tree type, tree oexpr, tsubst_flags_t complain)
+build_static_cast (location_t loc, tree type, tree oexpr,
+		   tsubst_flags_t complain)
 {
   tree expr = oexpr;
   tree result;
@@ -7548,7 +7566,9 @@ build_static_cast (tree type, tree oexpr, tsubst_flags_t complain)
       expr = build_min (STATIC_CAST_EXPR, type, oexpr);
       /* We don't know if it will or will not have side effects.  */
       TREE_SIDE_EFFECTS (expr) = 1;
-      return convert_from_reference (expr);
+      result = convert_from_reference (expr);
+      protected_set_expr_location (result, loc);
+      return result;
     }
   else if (processing_template_decl)
     expr = build_non_dependent_expr (expr);
@@ -7560,24 +7580,25 @@ build_static_cast (tree type, tree oexpr, tsubst_flags_t complain)
       && TREE_TYPE (expr) == TREE_TYPE (TREE_OPERAND (expr, 0)))
     expr = TREE_OPERAND (expr, 0);
 
-  result = build_static_cast_1 (type, expr, /*c_cast_p=*/false, &valid_p,
-                                complain);
+  result = build_static_cast_1 (loc, type, expr, /*c_cast_p=*/false,
+				&valid_p, complain);
   if (valid_p)
     {
       if (result != error_mark_node)
 	{
-	  maybe_warn_about_useless_cast (type, expr, complain);
-	  maybe_warn_about_cast_ignoring_quals (type, complain);
+	  maybe_warn_about_useless_cast (loc, type, expr, complain);
+	  maybe_warn_about_cast_ignoring_quals (loc, type, complain);
 	}
       if (processing_template_decl)
 	goto tmpl;
+      protected_set_expr_location (result, loc);
       return result;
     }
 
   if (complain & tf_error)
     {
-      error ("invalid %<static_cast%> from type %qT to type %qT",
-	     TREE_TYPE (expr), type);
+      error_at (loc, "invalid %<static_cast%> from type %qT to type %qT",
+		TREE_TYPE (expr), type);
       if ((TYPE_PTR_P (type) || TYPE_REF_P (type))
 	  && CLASS_TYPE_P (TREE_TYPE (type))
 	    && !COMPLETE_TYPE_P (TREE_TYPE (type)))
@@ -7651,8 +7672,9 @@ build_nop_reinterpret (tree type, tree expr)
    indicate whether or not reinterpret_cast was valid.  */
 
 static tree
-build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
-			  bool *valid_p, tsubst_flags_t complain)
+build_reinterpret_cast_1 (location_t loc, tree type, tree expr,
+			  bool c_cast_p, bool *valid_p,
+			  tsubst_flags_t complain)
 {
   tree intype;
 
@@ -7688,9 +7710,9 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
       else if (!lvalue_p (expr))
 	{
           if (complain & tf_error)
-            error ("invalid cast of an rvalue expression of type "
-                   "%qT to type %qT",
-                   intype, type);
+            error_at (loc, "invalid cast of an rvalue expression of type "
+		      "%qT to type %qT",
+		      intype, type);
 	  return error_mark_node;
 	}
 
@@ -7701,8 +7723,8 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
           && (complain & tf_warning)
 	  && (comptypes (TREE_TYPE (intype), TREE_TYPE (type),
 			 COMPARE_BASE | COMPARE_DERIVED)))
-	warning (0, "casting %qT to %qT does not dereference pointer",
-		 intype, type);
+	warning_at (loc, 0, "casting %qT to %qT does not dereference pointer",
+		    intype, type);
 
       expr = cp_build_addr_expr (expr, complain);
 
@@ -7711,7 +7733,7 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
 
       if (expr != error_mark_node)
 	expr = build_reinterpret_cast_1
-	  (build_pointer_type (TREE_TYPE (type)), expr, c_cast_p,
+	  (loc, build_pointer_type (TREE_TYPE (type)), expr, c_cast_p,
 	   valid_p, complain);
       if (expr != error_mark_node)
 	/* cp_build_indirect_ref isn't right for rvalue refs.  */
@@ -7758,7 +7780,7 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
       if (TYPE_PRECISION (type) < TYPE_PRECISION (intype))
         {
           if (complain & tf_error)
-            permerror (input_location, "cast from %qH to %qI loses precision",
+            permerror (loc, "cast from %qH to %qI loses precision",
                        intype, type);
           else
             return error_mark_node;
@@ -7782,9 +7804,9 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
       if ((complain & tf_warning)
 	  && !cxx_safe_function_type_cast_p (TREE_TYPE (type),
 					     TREE_TYPE (intype)))
-	warning (OPT_Wcast_function_type,
-		 "cast between incompatible function types"
-		 " from %qH to %qI", intype, type);
+	warning_at (loc, OPT_Wcast_function_type,
+		    "cast between incompatible function types"
+		    " from %qH to %qI", intype, type);
       return build_nop_reinterpret (type, expr);
     }
   else if (TYPE_PTRMEMFUNC_P (type) && TYPE_PTRMEMFUNC_P (intype))
@@ -7793,16 +7815,16 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
 	  && !cxx_safe_function_type_cast_p
 		(TREE_TYPE (TYPE_PTRMEMFUNC_FN_TYPE_RAW (type)),
 		 TREE_TYPE (TYPE_PTRMEMFUNC_FN_TYPE_RAW (intype))))
-	warning (OPT_Wcast_function_type,
-		 "cast between incompatible pointer to member types"
-		 " from %qH to %qI", intype, type);
+	warning_at (loc, OPT_Wcast_function_type,
+		    "cast between incompatible pointer to member types"
+		    " from %qH to %qI", intype, type);
       return build_nop_reinterpret (type, expr);
     }
   else if ((TYPE_PTRDATAMEM_P (type) && TYPE_PTRDATAMEM_P (intype))
 	   || (TYPE_PTROBV_P (type) && TYPE_PTROBV_P (intype)))
     {
       if (!c_cast_p
-	  && check_for_casting_away_constness (intype, type,
+	  && check_for_casting_away_constness (loc, intype, type,
 					       REINTERPRET_CAST_EXPR,
 					       complain))
 	return error_mark_node;
@@ -7815,8 +7837,9 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
 	  && COMPLETE_TYPE_P (TREE_TYPE (intype))
 	  && min_align_of_type (TREE_TYPE (type))
 	     > min_align_of_type (TREE_TYPE (intype)))
-	warning (OPT_Wcast_align, "cast from %qH to %qI "
-		 "increases required alignment of target type", intype, type);
+	warning_at (loc, OPT_Wcast_align, "cast from %qH to %qI "
+		    "increases required alignment of target type",
+		    intype, type);
 
       if (warn_strict_aliasing <= 2)
 	/* strict_aliasing_warning STRIP_NOPs its expr.  */
@@ -7830,13 +7853,13 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
       if (complain & tf_warning)
 	/* C++11 5.2.10 p8 says that "Converting a function pointer to an
 	   object pointer type or vice versa is conditionally-supported."  */
-	warning (OPT_Wconditionally_supported,
-		 "casting between pointer-to-function and pointer-to-object "
-		 "is conditionally-supported");
+	warning_at (loc, OPT_Wconditionally_supported,
+		    "casting between pointer-to-function and "
+		    "pointer-to-object is conditionally-supported");
       return build_nop_reinterpret (type, expr);
     }
   else if (gnu_vector_type_p (type))
-    return convert_to_vector (type, expr);
+    return convert_to_vector (type, rvalue (expr));
   else if (gnu_vector_type_p (intype)
 	   && INTEGRAL_OR_ENUMERATION_TYPE_P (type))
     return convert_to_integer_nofold (type, expr);
@@ -7845,7 +7868,8 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
       if (valid_p)
 	*valid_p = false;
       if (complain & tf_error)
-        error ("invalid cast from type %qT to type %qT", intype, type);
+        error_at (loc, "invalid cast from type %qT to type %qT",
+		  intype, type);
       return error_mark_node;
     }
 
@@ -7857,7 +7881,8 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
 }
 
 tree
-build_reinterpret_cast (tree type, tree expr, tsubst_flags_t complain)
+build_reinterpret_cast (location_t loc, tree type, tree expr,
+			tsubst_flags_t complain)
 {
   tree r;
 
@@ -7872,16 +7897,19 @@ build_reinterpret_cast (tree type, tree expr, tsubst_flags_t complain)
 	  && type_dependent_expression_p (expr))
 	/* There might turn out to be side effects inside expr.  */
 	TREE_SIDE_EFFECTS (t) = 1;
-      return convert_from_reference (t);
+      r = convert_from_reference (t);
+      protected_set_expr_location (r, loc);
+      return r;
     }
 
-  r = build_reinterpret_cast_1 (type, expr, /*c_cast_p=*/false,
+  r = build_reinterpret_cast_1 (loc, type, expr, /*c_cast_p=*/false,
 				/*valid_p=*/NULL, complain);
   if (r != error_mark_node)
     {
-      maybe_warn_about_useless_cast (type, expr, complain);
-      maybe_warn_about_cast_ignoring_quals (type, complain);
+      maybe_warn_about_useless_cast (loc, type, expr, complain);
+      maybe_warn_about_cast_ignoring_quals (loc, type, complain);
     }
+  protected_set_expr_location (r, loc);
   return r;
 }
 
@@ -7893,8 +7921,8 @@ build_reinterpret_cast (tree type, tree expr, tsubst_flags_t complain)
    whether or not the conversion succeeded.  */
 
 static tree
-build_const_cast_1 (tree dst_type, tree expr, tsubst_flags_t complain,
-		    bool *valid_p)
+build_const_cast_1 (location_t loc, tree dst_type, tree expr,
+		    tsubst_flags_t complain, bool *valid_p)
 {
   tree src_type;
   tree reference_type;
@@ -7913,19 +7941,19 @@ build_const_cast_1 (tree dst_type, tree expr, tsubst_flags_t complain,
   if (!INDIRECT_TYPE_P (dst_type) && !TYPE_PTRDATAMEM_P (dst_type))
     {
       if (complain & tf_error)
-	error ("invalid use of %<const_cast%> with type %qT, "
-	       "which is not a pointer, "
-	       "reference, nor a pointer-to-data-member type", dst_type);
+	error_at (loc, "invalid use of %<const_cast%> with type %qT, "
+		  "which is not a pointer, reference, "
+		  "nor a pointer-to-data-member type", dst_type);
       return error_mark_node;
     }
 
   if (TREE_CODE (TREE_TYPE (dst_type)) == FUNCTION_TYPE)
     {
       if (complain & tf_error)
-	error ("invalid use of %<const_cast%> with type %qT, "
-	       "which is a pointer or reference to a function type",
-	       dst_type);
-      return error_mark_node;
+	error_at (loc, "invalid use of %<const_cast%> with type %qT, "
+		  "which is a pointer or reference to a function type",
+		  dst_type);
+       return error_mark_node;
     }
 
   /* A prvalue of non-class type is cv-unqualified.  */
@@ -7964,10 +7992,10 @@ build_const_cast_1 (tree dst_type, tree expr, tsubst_flags_t complain,
       else
 	{
 	  if (complain & tf_error)
-	    error ("invalid %<const_cast%> of an rvalue of type %qT "
-		   "to type %qT",
-		   src_type, dst_type);
-	  return error_mark_node;
+	    error_at (loc, "invalid %<const_cast%> of an rvalue of type %qT "
+		      "to type %qT",
+		      src_type, dst_type);
+ 	  return error_mark_node;
 	}
       dst_type = build_pointer_type (TREE_TYPE (dst_type));
       src_type = build_pointer_type (src_type);
@@ -7992,16 +8020,16 @@ build_const_cast_1 (tree dst_type, tree expr, tsubst_flags_t complain,
 	      *valid_p = true;
 	      /* This cast is actually a C-style cast.  Issue a warning if
 		 the user is making a potentially unsafe cast.  */
-	      check_for_casting_away_constness (src_type, dst_type,
+	      check_for_casting_away_constness (loc, src_type, dst_type,
 						CAST_EXPR, complain);
 	      /* ??? comp_ptr_ttypes_const ignores TYPE_ALIGN.  */
 	      if ((STRICT_ALIGNMENT || warn_cast_align == 2)
 		  && (complain & tf_warning)
 		  && min_align_of_type (TREE_TYPE (dst_type))
 		     > min_align_of_type (TREE_TYPE (src_type)))
-		warning (OPT_Wcast_align, "cast from %qH to %qI "
-			 "increases required alignment of target type",
-			 src_type, dst_type);
+		warning_at (loc, OPT_Wcast_align, "cast from %qH to %qI "
+			    "increases required alignment of target type",
+			    src_type, dst_type);
 	    }
 	  if (reference_type)
 	    {
@@ -8029,18 +8057,19 @@ build_const_cast_1 (tree dst_type, tree expr, tsubst_flags_t complain,
       else if (valid_p
 	       && !at_least_as_qualified_p (TREE_TYPE (dst_type),
 					    TREE_TYPE (src_type)))
-	check_for_casting_away_constness (src_type, dst_type, CAST_EXPR,
-					  complain);
+	check_for_casting_away_constness (loc, src_type, dst_type,
+					  CAST_EXPR, complain);
     }
 
   if (complain & tf_error)
-    error ("invalid %<const_cast%> from type %qT to type %qT",
-	   src_type, dst_type);
+    error_at (loc, "invalid %<const_cast%> from type %qT to type %qT",
+	      src_type, dst_type);
   return error_mark_node;
 }
 
 tree
-build_const_cast (tree type, tree expr, tsubst_flags_t complain)
+build_const_cast (location_t loc, tree type, tree expr,
+		  tsubst_flags_t complain)
 {
   tree r;
 
@@ -8055,24 +8084,27 @@ build_const_cast (tree type, tree expr, tsubst_flags_t complain)
 	  && type_dependent_expression_p (expr))
 	/* There might turn out to be side effects inside expr.  */
 	TREE_SIDE_EFFECTS (t) = 1;
-      return convert_from_reference (t);
+      r = convert_from_reference (t);
+      protected_set_expr_location (r, loc);
+      return r;
     }
 
-  r = build_const_cast_1 (type, expr, complain, /*valid_p=*/NULL);
+  r = build_const_cast_1 (loc, type, expr, complain, /*valid_p=*/NULL);
   if (r != error_mark_node)
     {
-      maybe_warn_about_useless_cast (type, expr, complain);
-      maybe_warn_about_cast_ignoring_quals (type, complain);
+      maybe_warn_about_useless_cast (loc, type, expr, complain);
+      maybe_warn_about_cast_ignoring_quals (loc, type, complain);
     }
+  protected_set_expr_location (r, loc);
   return r;
 }
 
 /* Like cp_build_c_cast, but for the c-common bits.  */
 
 tree
-build_c_cast (location_t /*loc*/, tree type, tree expr)
+build_c_cast (location_t loc, tree type, tree expr)
 {
-  return cp_build_c_cast (type, expr, tf_warning_or_error);
+  return cp_build_c_cast (loc, type, expr, tf_warning_or_error);
 }
 
 /* Like the "build_c_cast" used for c-common, but using cp_expr to
@@ -8082,7 +8114,7 @@ build_c_cast (location_t /*loc*/, tree type, tree expr)
 cp_expr
 build_c_cast (location_t loc, tree type, cp_expr expr)
 {
-  cp_expr result = cp_build_c_cast (type, expr, tf_warning_or_error);
+  cp_expr result = cp_build_c_cast (loc, type, expr, tf_warning_or_error);
   result.set_location (loc);
   return result;
 }
@@ -8091,7 +8123,8 @@ build_c_cast (location_t loc, tree type, cp_expr expr)
    TYPE of expression EXPR.  */
 
 tree
-cp_build_c_cast (tree type, tree expr, tsubst_flags_t complain)
+cp_build_c_cast (location_t loc, tree type, tree expr,
+		 tsubst_flags_t complain)
 {
   tree value = expr;
   tree result;
@@ -8130,7 +8163,8 @@ cp_build_c_cast (tree type, tree expr, tsubst_flags_t complain)
       if (TYPE_PTR_P (TREE_TYPE (expr)))
 	{
           if (complain & tf_error)
-            permerror (input_location, "ISO C++ forbids casting to an array type %qT", type);
+            permerror (loc, "ISO C++ forbids casting to an array type %qT",
+		       type);
           else
             return error_mark_node;
 	  type = build_pointer_type (TREE_TYPE (type));
@@ -8138,7 +8172,8 @@ cp_build_c_cast (tree type, tree expr, tsubst_flags_t complain)
       else
 	{
           if (complain & tf_error)
-            error ("ISO C++ forbids casting to an array type %qT", type);
+            error_at (loc, "ISO C++ forbids casting to an array type %qT",
+		      type);
 	  return error_mark_node;
 	}
     }
@@ -8146,7 +8181,7 @@ cp_build_c_cast (tree type, tree expr, tsubst_flags_t complain)
   if (FUNC_OR_METHOD_TYPE_P (type))
     {
       if (complain & tf_error)
-        error ("invalid cast to function type %qT", type);
+        error_at (loc, "invalid cast to function type %qT", type);
       return error_mark_node;
     }
 
@@ -8156,28 +8191,28 @@ cp_build_c_cast (tree type, tree expr, tsubst_flags_t complain)
       && TYPE_PRECISION (type) > TYPE_PRECISION (TREE_TYPE (value))
       /* Don't warn about converting any constant.  */
       && !TREE_CONSTANT (value))
-    warning_at (input_location, OPT_Wint_to_pointer_cast, 
+    warning_at (loc, OPT_Wint_to_pointer_cast, 
 		"cast to pointer from integer of different size");
 
   /* A C-style cast can be a const_cast.  */
-  result = build_const_cast_1 (type, value, complain & tf_warning,
+  result = build_const_cast_1 (loc, type, value, complain & tf_warning,
 			       &valid_p);
   if (valid_p)
     {
       if (result != error_mark_node)
 	{
-	  maybe_warn_about_useless_cast (type, value, complain);
-	  maybe_warn_about_cast_ignoring_quals (type, complain);
+	  maybe_warn_about_useless_cast (loc, type, value, complain);
+	  maybe_warn_about_cast_ignoring_quals (loc, type, complain);
 	}
       return result;
     }
 
   /* Or a static cast.  */
-  result = build_static_cast_1 (type, value, /*c_cast_p=*/true,
+  result = build_static_cast_1 (loc, type, value, /*c_cast_p=*/true,
 				&valid_p, complain);
   /* Or a reinterpret_cast.  */
   if (!valid_p)
-    result = build_reinterpret_cast_1 (type, value, /*c_cast_p=*/true,
+    result = build_reinterpret_cast_1 (loc, type, value, /*c_cast_p=*/true,
 				       &valid_p, complain);
   /* The static_cast or reinterpret_cast may be followed by a
      const_cast.  */
@@ -8188,8 +8223,8 @@ cp_build_c_cast (tree type, tree expr, tsubst_flags_t complain)
     {
       tree result_type;
 
-      maybe_warn_about_useless_cast (type, value, complain);
-      maybe_warn_about_cast_ignoring_quals (type, complain);
+      maybe_warn_about_useless_cast (loc, type, value, complain);
+      maybe_warn_about_cast_ignoring_quals (loc, type, complain);
 
       /* Non-class rvalues always have cv-unqualified type.  */
       if (!CLASS_TYPE_P (type))
@@ -8204,7 +8239,7 @@ cp_build_c_cast (tree type, tree expr, tsubst_flags_t complain)
 	 to succeed.  */
       if (!same_type_p (non_reference (type), non_reference (result_type)))
 	{
-	  result = build_const_cast_1 (type, result, false, &valid_p);
+	  result = build_const_cast_1 (loc, type, result, false, &valid_p);
 	  gcc_assert (valid_p);
 	}
       return result;
@@ -8896,7 +8931,7 @@ build_ptrmemfunc (tree type, tree pfn, int force, bool c_cast_p,
 	  if (same_type_p (to_type, pfn_type))
 	    return pfn;
 	  else if (integer_zerop (n) && TREE_CODE (pfn) != CONSTRUCTOR)
-	    return build_reinterpret_cast (to_type, pfn, 
+	    return build_reinterpret_cast (input_location, to_type, pfn, 
                                            complain);
 	}
 
@@ -8930,7 +8965,7 @@ build_ptrmemfunc (tree type, tree pfn, int force, bool c_cast_p,
   /* Handle null pointer to member function conversions.  */
   if (null_ptr_cst_p (pfn))
     {
-      pfn = cp_build_c_cast (type, pfn, complain);
+      pfn = cp_build_c_cast (input_location, type, pfn, complain);
       return build_ptrmemfunc1 (to_type,
 				integer_zero_node,
 				pfn);
@@ -9085,7 +9120,7 @@ convert_for_assignment (tree type, tree rhs,
 	{
 	  warning_sentinel w (warn_useless_cast);
 	  warning_sentinel w2 (warn_ignored_qualifiers);
-	  rhs = cp_build_c_cast (type, elt, complain);
+	  rhs = cp_build_c_cast (rhs_loc, type, elt, complain);
 	}
       else
 	rhs = error_mark_node;

@@ -6321,7 +6321,9 @@ extern tree convert_for_arg_passing		(tree, tree, tsubst_flags_t);
 extern bool is_properly_derived_from		(tree, tree);
 extern tree initialize_reference		(tree, tree, int,
 						 tsubst_flags_t);
-extern tree extend_ref_init_temps		(tree, tree, vec<tree, va_gc>**);
+extern tree extend_ref_init_temps		(tree, tree,
+						 vec<tree, va_gc>**,
+						 tree * = NULL);
 extern tree make_temporary_var_for_ref_to_temp	(tree, tree);
 extern bool type_has_extended_temps		(tree);
 extern tree strip_top_quals			(tree);
@@ -6655,7 +6657,7 @@ extern void init_exception_processing		(void);
 extern tree expand_start_catch_block		(tree);
 extern void expand_end_catch_block		(void);
 extern tree build_exc_ptr			(void);
-extern tree build_throw				(tree);
+extern tree build_throw				(location_t, tree);
 extern int nothrow_libfn_p			(const_tree);
 extern void check_handlers			(tree);
 extern tree finish_noexcept_expr		(tree, tsubst_flags_t);
@@ -6672,7 +6674,6 @@ extern tree begin_eh_spec_block			(void);
 extern void finish_eh_spec_block		(tree, tree);
 extern tree build_eh_type_type			(tree);
 extern tree cp_protect_cleanup_actions		(void);
-extern tree create_try_catch_expr               (tree, tree);
 extern tree template_parms_to_args		(tree);
 extern tree template_parms_level_to_args	(tree);
 extern tree generic_targs_for			(tree);
@@ -6998,7 +6999,8 @@ extern tree build_typeid			(tree, tsubst_flags_t);
 extern tree get_tinfo_decl			(tree);
 extern tree get_typeid				(tree, tsubst_flags_t);
 extern tree build_headof			(tree);
-extern tree build_dynamic_cast			(tree, tree, tsubst_flags_t);
+extern tree build_dynamic_cast			(location_t, tree, tree,
+						 tsubst_flags_t);
 extern void emit_support_tinfos			(void);
 extern bool emit_tinfo_decl			(tree);
 
@@ -7357,6 +7359,7 @@ extern tree build_min_non_dep_call_vec		(tree, tree, vec<tree, va_gc> *);
 extern vec<tree, va_gc>* vec_copy_and_insert    (vec<tree, va_gc>*, tree, unsigned);
 extern tree build_cplus_new			(tree, tree, tsubst_flags_t);
 extern tree build_local_temp			(tree);
+extern bool is_local_temp			(tree);
 extern tree build_aggr_init_expr		(tree, tree);
 extern tree get_target_expr			(tree);
 extern tree get_target_expr_sfinae		(tree, tsubst_flags_t);
@@ -7484,8 +7487,10 @@ extern bool compparms				(const_tree, const_tree);
 extern int comp_cv_qualification		(const_tree, const_tree);
 extern int comp_cv_qualification		(int, int);
 extern int comp_cv_qual_signature		(tree, tree);
-extern tree cxx_sizeof_or_alignof_expr		(tree, enum tree_code, bool);
-extern tree cxx_sizeof_or_alignof_type		(tree, enum tree_code, bool, bool);
+extern tree cxx_sizeof_or_alignof_expr		(location_t, tree,
+						 enum tree_code, bool);
+extern tree cxx_sizeof_or_alignof_type		(location_t, tree,
+						 enum tree_code, bool, bool);
 extern tree cxx_alignas_expr                    (tree);
 extern tree cxx_sizeof_nowarn                   (tree);
 extern tree is_bitfield_expr_with_lowered_type  (const_tree);
@@ -7497,6 +7502,7 @@ extern tree build_class_member_access_expr      (cp_expr, tree, tree, bool,
 						 tsubst_flags_t);
 extern tree finish_class_member_access_expr     (cp_expr, tree, bool,
 						 tsubst_flags_t);
+extern tree lookup_destructor			(tree, tree, tree, tsubst_flags_t);
 extern tree build_x_indirect_ref		(location_t, tree,
 						 ref_operator,
 						 tsubst_flags_t);
@@ -7547,13 +7553,17 @@ extern tree build_x_compound_expr		(location_t, tree, tree,
 						 tsubst_flags_t);
 extern tree build_compound_expr                 (location_t, tree, tree);
 extern tree cp_build_compound_expr		(tree, tree, tsubst_flags_t);
-extern tree build_static_cast			(tree, tree, tsubst_flags_t);
-extern tree build_reinterpret_cast		(tree, tree, tsubst_flags_t);
-extern tree build_const_cast			(tree, tree, tsubst_flags_t);
+extern tree build_static_cast			(location_t, tree, tree,
+						 tsubst_flags_t);
+extern tree build_reinterpret_cast		(location_t, tree, tree,
+						 tsubst_flags_t);
+extern tree build_const_cast			(location_t, tree, tree,
+						 tsubst_flags_t);
 extern tree build_c_cast			(location_t, tree, tree);
 extern cp_expr build_c_cast			(location_t loc, tree type,
 						 cp_expr expr);
-extern tree cp_build_c_cast			(tree, tree, tsubst_flags_t);
+extern tree cp_build_c_cast			(location_t, tree, tree,
+						 tsubst_flags_t);
 extern cp_expr build_x_modify_expr		(location_t, tree,
 						 enum tree_code, tree,
 						 tsubst_flags_t);
@@ -7596,7 +7606,7 @@ extern tree cp_build_binary_op                  (const op_location_t &,
 extern tree build_x_vec_perm_expr               (location_t,
 						 tree, tree, tree,
 						 tsubst_flags_t);
-#define cxx_sizeof(T)  cxx_sizeof_or_alignof_type (T, SIZEOF_EXPR, false, true)
+#define cxx_sizeof(T)  cxx_sizeof_or_alignof_type (input_location, T, SIZEOF_EXPR, false, true)
 extern tree build_simple_component_ref		(tree, tree);
 extern tree build_ptrmemfunc_access_expr	(tree, tree);
 extern tree build_address			(tree);
@@ -7613,7 +7623,8 @@ extern int lvalue_or_else			(tree, enum lvalue_use,
 extern void check_template_keyword		(tree);
 extern bool check_raw_literal_operator		(const_tree decl);
 extern bool check_literal_operator_args		(const_tree, bool *, bool *);
-extern void maybe_warn_about_useless_cast       (tree, tree, tsubst_flags_t);
+extern void maybe_warn_about_useless_cast       (location_t, tree, tree,
+						 tsubst_flags_t);
 extern tree cp_perform_integral_promotions      (tree, tsubst_flags_t);
 
 extern tree finish_left_unary_fold_expr      (tree, int);
@@ -7681,7 +7692,8 @@ extern tree build_scoped_ref			(tree, tree, tree *);
 extern tree build_x_arrow			(location_t, tree,
 						 tsubst_flags_t);
 extern tree build_m_component_ref		(tree, tree, tsubst_flags_t);
-extern tree build_functional_cast		(tree, tree, tsubst_flags_t);
+extern tree build_functional_cast		(location_t, tree, tree,
+						 tsubst_flags_t);
 extern tree add_exception_specifier		(tree, tree, tsubst_flags_t);
 extern tree merge_exception_specifiers		(tree, tree);
 

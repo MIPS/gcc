@@ -2054,6 +2054,8 @@ convert_lvalue_to_rvalue (location_t loc, struct c_expr exp,
     mark_exp_read (exp.value);
   if (convert_p)
     exp = default_function_array_conversion (loc, exp);
+  if (!VOID_TYPE_P (TREE_TYPE (exp.value)))
+    exp.value = require_complete_type (loc, exp.value);
   if (really_atomic_lvalue (exp.value))
     {
       vec<tree, va_gc> *params;
@@ -2550,16 +2552,6 @@ build_indirect_ref (location_t loc, tree ptr, ref_operator errstring)
 
 	  ref = build1 (INDIRECT_REF, t, pointer);
 
-	  if (!COMPLETE_OR_VOID_TYPE_P (t) && TREE_CODE (t) != ARRAY_TYPE)
-	    {
-	      if (!C_TYPE_ERROR_REPORTED (TREE_TYPE (ptr)))
-		{
-		  error_at (loc, "dereferencing pointer to incomplete type "
-			    "%qT", t);
-		  C_TYPE_ERROR_REPORTED (TREE_TYPE (ptr)) = 1;
-		}
-	      return error_mark_node;
-	    }
 	  if (VOID_TYPE_P (t) && c_inhibit_evaluation_warnings == 0)
 	    warning_at (loc, 0, "dereferencing %<void *%> pointer");
 
@@ -12905,7 +12897,6 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 	  return error_mark_node;
 	}
       if (TREE_CODE (t) == COMPONENT_REF
-	  && ort == C_ORT_OMP
 	  && (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
 	      || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_TO
 	      || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FROM))
@@ -12926,6 +12917,15 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 		  return error_mark_node;
 		}
 	      t = TREE_OPERAND (t, 0);
+	      if (ort == C_ORT_ACC && TREE_CODE (t) == MEM_REF)
+		{
+		  if (maybe_ne (mem_ref_offset (t), 0))
+		    error_at (OMP_CLAUSE_LOCATION (c),
+			      "cannot dereference %qE in %qs clause", t,
+			      omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+		  else
+		    t = TREE_OPERAND (t, 0);
+		}
 	    }
 	}
       if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
@@ -13011,7 +13011,18 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
     length = fold_convert (sizetype, length);
   if (low_bound == NULL_TREE)
     low_bound = integer_zero_node;
-
+  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
+      && (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_ATTACH
+	  || OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_DETACH))
+    {
+      if (length != integer_one_node)
+	{
+	  error_at (OMP_CLAUSE_LOCATION (c),
+		    "expected single pointer in %qs clause",
+		    c_omp_map_clause_name (c, ort == C_ORT_ACC));
+	  return error_mark_node;
+	}
+    }
   if (length != NULL_TREE)
     {
       if (!integer_nonzerop (length))
@@ -13430,6 +13441,7 @@ handle_omp_array_sections (tree c, enum c_omp_region_type ort)
 	switch (OMP_CLAUSE_MAP_KIND (c))
 	  {
 	  case GOMP_MAP_ALLOC:
+	  case GOMP_MAP_IF_PRESENT:
 	  case GOMP_MAP_TO:
 	  case GOMP_MAP_FROM:
 	  case GOMP_MAP_TOFROM:
@@ -13451,7 +13463,11 @@ handle_omp_array_sections (tree c, enum c_omp_region_type ort)
       if (ort != C_ORT_OMP && ort != C_ORT_ACC)
 	OMP_CLAUSE_SET_MAP_KIND (c2, GOMP_MAP_POINTER);
       else if (TREE_CODE (t) == COMPONENT_REF)
-	OMP_CLAUSE_SET_MAP_KIND (c2, GOMP_MAP_ALWAYS_POINTER);
+	{
+	  gomp_map_kind k = (ort == C_ORT_ACC) ? GOMP_MAP_ATTACH_DETACH
+					       : GOMP_MAP_ALWAYS_POINTER;
+	  OMP_CLAUSE_SET_MAP_KIND (c2, k);
+	}
       else
 	OMP_CLAUSE_SET_MAP_KIND (c2, GOMP_MAP_FIRSTPRIVATE_POINTER);
       if (OMP_CLAUSE_MAP_KIND (c2) != GOMP_MAP_FIRSTPRIVATE_POINTER
@@ -13686,6 +13702,35 @@ c_omp_finish_iterators (tree iter)
       TREE_VEC_ELT (it, 4) = orig_step;
     }
   return ret;
+}
+
+/* Ensure that pointers are used in OpenACC attach and detach clauses.
+   Return true if an error has been detected.  */
+
+static bool
+c_oacc_check_attachments (tree c)
+{
+  if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP)
+    return false;
+
+  /* OpenACC attach / detach clauses must be pointers.  */
+  if (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_ATTACH
+      || OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_DETACH)
+    {
+      tree t = OMP_CLAUSE_DECL (c);
+
+      while (TREE_CODE (t) == TREE_LIST)
+	t = TREE_CHAIN (t);
+
+      if (TREE_CODE (TREE_TYPE (t)) != POINTER_TYPE)
+	{
+	  error_at (OMP_CLAUSE_LOCATION (c), "expected pointer in %qs clause",
+		    c_omp_map_clause_name (c, true));
+	  return true;
+	}
+    }
+
+  return false;
 }
 
 /* For all elements of CLAUSES, validate them against their constraints.
@@ -14441,6 +14486,8 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 			}
 		    }
 		}
+	      if (c_oacc_check_attachments (c))
+		remove = true;
 	      break;
 	    }
 	  if (t == error_mark_node)
@@ -14448,8 +14495,13 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	      remove = true;
 	      break;
 	    }
+	  /* OpenACC attach / detach clauses must be pointers.  */
+	  if (c_oacc_check_attachments (c))
+	    {
+	      remove = true;
+	      break;
+	    }
 	  if (TREE_CODE (t) == COMPONENT_REF
-	      && (ort & C_ORT_OMP)
 	      && OMP_CLAUSE_CODE (c) != OMP_CLAUSE__CACHE_)
 	    {
 	      if (DECL_BIT_FIELD (TREE_OPERAND (t, 1)))
@@ -14484,6 +14536,15 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 		      break;
 		    }
 		  t = TREE_OPERAND (t, 0);
+		  if (ort == C_ORT_ACC && TREE_CODE (t) == MEM_REF)
+		    {
+		      if (maybe_ne (mem_ref_offset (t), 0))
+			error_at (OMP_CLAUSE_LOCATION (c),
+				  "cannot dereference %qE in %qs clause", t,
+				  omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+		      else
+			t = TREE_OPERAND (t, 0);
+		    }
 		}
 	      if (remove)
 		break;

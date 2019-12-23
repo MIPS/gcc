@@ -2797,7 +2797,7 @@ plugin_build_unary_expr (cc1_plugin::connection *self,
       break;
 
     case THROW_EXPR:
-      result = build_throw (op0);
+      result = build_throw (input_location, op0);
       break;
 
     case TYPEID_EXPR:
@@ -2806,7 +2806,8 @@ plugin_build_unary_expr (cc1_plugin::connection *self,
 
     case SIZEOF_EXPR:
     case ALIGNOF_EXPR:
-      result = cxx_sizeof_or_alignof_expr (op0, opcode, true);
+      result = cxx_sizeof_or_alignof_expr (input_location,
+					   op0, opcode, true);
       break;
 
     case DELETE_EXPR:
@@ -3048,7 +3049,8 @@ plugin_build_unary_type_expr (cc1_plugin::connection *self,
 
     default:
       /* Use the C++11 alignof semantics.  */
-      result = cxx_sizeof_or_alignof_type (type, opcode, true, true);
+      result = cxx_sizeof_or_alignof_type (input_location, type,
+					   opcode, true, true);
     }
 
   if (template_dependent_p)
@@ -3064,7 +3066,8 @@ plugin_build_cast_expr (cc1_plugin::connection *self,
 			gcc_expr operand2)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
-  tree (*build_cast)(tree type, tree expr, tsubst_flags_t complain) = NULL;
+  tree (*build_cast)(location_t loc, tree type, tree expr,
+		     tsubst_flags_t complain) = NULL;
   tree type = convert_in (operand1);
   tree expr = convert_in (operand2);
 
@@ -3101,7 +3104,7 @@ plugin_build_cast_expr (cc1_plugin::connection *self,
   if (!template_dependent_p)
     processing_template_decl--;
 
-  tree val = build_cast (type, expr, tf_error);
+  tree val = build_cast (input_location, type, expr, tf_error);
 
   if (template_dependent_p)
     processing_template_decl--;
@@ -3155,7 +3158,7 @@ plugin_build_expression_list_expr (cc1_plugin::connection *self,
     case CHARS2 ('c', 'v'): // conversion with parenthesized expression list
       gcc_assert (TYPE_P (type));
       args = args_to_tree_list (values_in);
-      result = build_functional_cast (type, args, tf_error);
+      result = build_functional_cast (input_location, type, args, tf_error);
       break;
 
     case CHARS2 ('t', 'l'): // conversion with braced expression list

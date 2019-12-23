@@ -107,7 +107,7 @@ secure_getenv (const char *name)
 /* }}}  */
 /* {{{ Types  */
 
-/* GCN-specific implmentation of the GOMP_PLUGIN_acc_thread data.  */
+/* GCN-specific implementation of the GOMP_PLUGIN_acc_thread data.  */
 
 struct gcn_thread
 {
@@ -408,7 +408,7 @@ struct agent_info
   /* Whether the agent has been initialized.  The fields below are usable only
      if it has been.  */
   bool initialized;
-  /* Precomuted check for problem architectures.  */
+  /* Precomputed check for problem architectures.  */
   bool gfx900_p;
 
   /* Command queues of the agent.  */
@@ -3236,6 +3236,17 @@ GOMP_OFFLOAD_get_num_devices (void)
   return hsa_context.agent_count;
 }
 
+union gomp_device_property_value
+GOMP_OFFLOAD_get_property (int device, int prop)
+{
+  /* Stub. Check device and return default value for unsupported properties. */
+  /* TODO: Implement this function. */
+  get_agent_info (device);
+
+  union gomp_device_property_value nullval = { .val = 0 };
+  return nullval;
+}
+
 /* Initialize device (agent) number N so that it can be used for computation.
    Return TRUE on success.  */
 
@@ -3858,7 +3869,7 @@ GOMP_OFFLOAD_openacc_async_construct (int device)
   return aq;
 }
 
-/* Destroy an exisiting asynchronous thread and queue.  Waits for any
+/* Destroy an existing asynchronous thread and queue.  Waits for any
    currently-running task to complete, but cancels any queued tasks.  */
 
 bool

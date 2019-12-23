@@ -1,6 +1,8 @@
 // { dg-do compile { target aarch64*-*-* } }
 // { dg-options "-Wclass-memaccess" }
 
+#pragma GCC target "+sve"
+
 typedef __SIZE_TYPE__ size_t;
 inline void *operator new (size_t, void *__p) throw() { return __p; }
 

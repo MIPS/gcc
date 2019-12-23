@@ -744,7 +744,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags,
       else if (TREE_CODE (type) == COMPLEX_TYPE)
 	return convert_to_complex_maybe_fold (type, e, dofold);
       else if (VECTOR_TYPE_P (type))
-	return convert_to_vector (type, e);
+	return convert_to_vector (type, rvalue (e));
       else if (TREE_CODE (e) == TARGET_EXPR)
 	{
 	  /* Don't build a NOP_EXPR of class type.  Instead, change the
@@ -881,7 +881,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags,
 		      in_vtype, type);
 	  return error_mark_node;
 	}
-      return convert_to_vector (type, e);
+      return convert_to_vector (type, rvalue (e));
     }
   if (code == REAL_TYPE || code == COMPLEX_TYPE)
     {
@@ -1044,12 +1044,13 @@ maybe_warn_nodiscard (tree expr, impl_conv_void implicit)
       tree args = TREE_VALUE (attr);
       if (args)
 	msg.escape (TREE_STRING_POINTER (TREE_VALUE (args)));
-      const char* format = (msg ?
-	G_("ignoring return value of %qD, "
-	   "declared with attribute %<nodiscard%>: %<%s%>") :
-	G_("ignoring return value of %qD, "
-	   "declared with attribute %<nodiscard%>%s"));
-      const char* raw_msg = msg ? msg : "";
+      const char *format
+	= (msg
+	   ? G_("ignoring return value of %qD, "
+		"declared with attribute %<nodiscard%>: %<%s%>")
+	   : G_("ignoring return value of %qD, "
+		"declared with attribute %<nodiscard%>%s"));
+      const char *raw_msg = msg ? (const char *) msg : "";
       auto_diagnostic_group d;
       if (warning_at (loc, OPT_Wunused_result, format, fn, raw_msg))
 	inform (DECL_SOURCE_LOCATION (fn), "declared here");
@@ -1061,12 +1062,13 @@ maybe_warn_nodiscard (tree expr, impl_conv_void implicit)
       tree args = TREE_VALUE (attr);
       if (args)
 	msg.escape (TREE_STRING_POINTER (TREE_VALUE (args)));
-      const char* format = msg ?
-	G_("ignoring returned value of type %qT, "
-	   "declared with attribute %<nodiscard%>: %<%s%>") :
-	G_("ignoring returned value of type %qT, "
-	   "declared with attribute %<nodiscard%>%s");
-      const char* raw_msg = msg ? msg : "";
+      const char *format
+	= (msg
+	   ? G_("ignoring returned value of type %qT, "
+		"declared with attribute %<nodiscard%>: %<%s%>")
+	   : G_("ignoring returned value of type %qT, "
+		"declared with attribute %<nodiscard%>%s"));
+      const char *raw_msg = msg ? (const char *) msg : "";
       auto_diagnostic_group d;
       if (warning_at (loc, OPT_Wunused_result, format, rettype, raw_msg))
 	{

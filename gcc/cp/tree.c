@@ -425,7 +425,8 @@ cp_stabilize_reference (tree ref)
 	  /* This inhibits warnings in, eg, cxx_mark_addressable
 	     (c++/60955).  */
 	  warning_sentinel s (extra_warnings);
-	  ref = build_static_cast (type, ref, tf_error);
+	  ref = build_static_cast (input_location, type, ref,
+				   tf_error);
 	}
     }
 
@@ -536,6 +537,17 @@ build_local_temp (tree type)
   DECL_CONTEXT (slot) = current_function_decl;
   layout_decl (slot, 0);
   return slot;
+}
+
+/* Return whether DECL is such a local temporary (or one from
+   create_tmp_var_raw).  */
+
+bool
+is_local_temp (tree decl)
+{
+  return (VAR_P (decl) && DECL_ARTIFICIAL (decl)
+	  && !TREE_STATIC (decl)
+	  && DECL_FUNCTION_SCOPE_P (decl));
 }
 
 /* Set various status flags when building an AGGR_INIT_EXPR object T.  */
@@ -1222,7 +1234,8 @@ move (tree expr)
   tree type = TREE_TYPE (expr);
   gcc_assert (!TYPE_REF_P (type));
   type = cp_build_reference_type (type, /*rval*/true);
-  return build_static_cast (type, expr, tf_warning_or_error);
+  return build_static_cast (input_location, type, expr,
+			    tf_warning_or_error);
 }
 
 /* Used by the C++ front end to build qualified array types.  However,
@@ -3343,6 +3356,7 @@ build_min_non_dep (enum tree_code code, tree non_dep, ...)
     non_dep = TREE_OPERAND (non_dep, 0);
 
   t = make_node (code);
+  SET_EXPR_LOCATION (t, cp_expr_loc_or_input_loc (non_dep));
   length = TREE_CODE_LENGTH (code);
   TREE_TYPE (t) = unlowered_expr_type (non_dep);
   TREE_SIDE_EFFECTS (t) = TREE_SIDE_EFFECTS (non_dep);
@@ -4445,7 +4459,13 @@ structural_type_p (tree t, bool explain)
       if (TREE_PRIVATE (m) || TREE_PROTECTED (m))
 	{
 	  if (explain)
-	    inform (location_of (m), "%qD is not public", m);
+	    {
+	      if (DECL_FIELD_IS_BASE (m))
+		inform (location_of (m), "base class %qT is not public",
+			TREE_TYPE (m));
+	      else
+		inform (location_of (m), "%qD is not public", m);
+	    }
 	  return false;
 	}
       if (!structural_type_p (TREE_TYPE (m)))

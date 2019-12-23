@@ -767,6 +767,10 @@ massage_constexpr_body (tree fun, tree body)
 static bool
 cx_check_missing_mem_inits (tree ctype, tree body, bool complain)
 {
+  /* We allow uninitialized bases/fields in C++20.  */
+  if (cxx_dialect >= cxx2a)
+    return false;
+
   unsigned nelts = 0;
   
   if (body)
@@ -815,7 +819,7 @@ cx_check_missing_mem_inits (tree ctype, tree body, bool complain)
 	    continue;
 	  if (ANON_AGGR_TYPE_P (TREE_TYPE (field)))
 	    {
-	      /* Recurse to check the anonummous aggregate member.  */
+	      /* Recurse to check the anonymous aggregate member.  */
 	      bad |= cx_check_missing_mem_inits
 		(TREE_TYPE (field), NULL_TREE, complain);
 	      if (bad && !complain)
@@ -881,16 +885,16 @@ register_constexpr_fundef (tree fun, tree body)
       return NULL;
     }
 
-  if (!potential_rvalue_constant_expression (massaged))
-    {
-      if (!DECL_GENERATED_P (fun))
-	require_potential_rvalue_constant_expression (massaged);
-      return NULL;
-    }
+  bool potential = potential_rvalue_constant_expression (massaged);
+  if (!potential && !DECL_GENERATED_P (fun))
+    require_potential_rvalue_constant_expression (massaged);
 
   if (DECL_CONSTRUCTOR_P (fun)
       && cx_check_missing_mem_inits (DECL_CONTEXT (fun),
 				     massaged, !DECL_GENERATED_P (fun)))
+    potential = false;
+
+  if (!potential && !DECL_GENERATED_P (fun))
     return NULL;
 
   /* Create the constexpr function table if necessary.  */
@@ -912,6 +916,12 @@ register_constexpr_fundef (tree fun, tree body)
   slot = constexpr_fundef_table->find_slot (&entry, INSERT);
   if (clear_ctx)
     DECL_CONTEXT (DECL_RESULT (fun)) = NULL_TREE;
+
+  if (!potential)
+    /* For a template instantiation, we want to remember the pre-generic body
+       for explain_invalid_constexpr_fn, but do tell cxx_eval_call_expression
+       that it doesn't need to bother trying to expand the function.  */
+    entry.result = error_mark_node;
 
   gcc_assert (*slot == NULL);
   *slot = ggc_alloc<constexpr_fundef> ();
@@ -958,11 +968,15 @@ explain_invalid_constexpr_fn (tree fun)
     {
       /* Then if it's OK, the body.  */
       if (!DECL_DECLARED_CONSTEXPR_P (fun)
-	  && !LAMBDA_TYPE_P (CP_DECL_CONTEXT (fun)))
+	  && DECL_DEFAULTED_FN (fun))
 	explain_implicit_non_constexpr (fun);
       else
 	{
-	  body = massage_constexpr_body (fun, DECL_SAVED_TREE (fun));
+	  if (constexpr_fundef *fd = retrieve_constexpr_fundef (fun))
+	    body = fd->body;
+	  else
+	    body = DECL_SAVED_TREE (fun);
+	  body = massage_constexpr_body (fun, body);
 	  require_potential_rvalue_constant_expression (body);
 	  if (DECL_CONSTRUCTOR_P (fun))
 	    cx_check_missing_mem_inits (DECL_CONTEXT (fun), body, true);
@@ -1437,9 +1451,6 @@ cxx_bind_parameters_in_call (const constexpr_ctx *ctx, tree t,
 
       if (!*non_constant_p)
 	{
-	  /* Unsharing here isn't necessary for correctness, but it
-	     significantly improves memory performance for some reason.  */
-	  arg = unshare_constructor (arg);
 	  /* Make sure the binding has the same type as the parm.  But
 	     only for constant args.  */
 	  if (!TYPE_REF_P (type))
@@ -1918,6 +1929,7 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
     {
       new_call.fundef = retrieve_constexpr_fundef (fun);
       if (new_call.fundef == NULL || new_call.fundef->body == NULL
+	  || new_call.fundef->result == error_mark_node
 	  || fun == current_function_decl)
         {
 	  if (!ctx->quiet)
@@ -1955,19 +1967,11 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
      this function exits.  */
   class free_bindings
   {
+    tree *bindings;
   public:
-    tree &bindings;
-    bool do_free;
-    free_bindings (tree &b): bindings (b), do_free(true) { }
-    void preserve () { do_free = false; }
-    ~free_bindings () {
-      if (do_free)
-	{
-	  for (int i = 0; i < TREE_VEC_LENGTH (bindings); ++i)
-	    free_constructor (TREE_VEC_ELT (bindings, i));
-	  ggc_free (bindings);
-	}
-    }
+    free_bindings (tree &b): bindings (&b) { }
+    ~free_bindings () { if (bindings) ggc_free (*bindings); }
+    void preserve () { bindings = NULL; }
   } fb (new_call.bindings);
 
   if (*non_constant_p)
@@ -2070,7 +2074,18 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
 	  for (int i = 0; i < TREE_VEC_LENGTH (bound); ++i)
 	    {
 	      tree arg = TREE_VEC_ELT (bound, i);
-	      /* Don't share a CONSTRUCTOR that might be changed.  */
+	      if (entry)
+		{
+		  /* Unshare args going into the hash table to separate them
+		     from the caller's context, for better GC and to avoid
+		     problems with verify_gimple.  */
+		  arg = unshare_expr_without_location (arg);
+		  TREE_VEC_ELT (bound, i) = arg;
+		}
+	      /* Don't share a CONSTRUCTOR that might be changed.  This is not
+		 redundant with the unshare just above; we also don't want to
+		 change the argument values in the hash table.  XXX Could we
+		 unshare lazily in cxx_eval_store_expression?  */
 	      arg = unshare_constructor (arg);
 	      if (TREE_CODE (arg) == CONSTRUCTOR)
 		vec_safe_push (ctors, arg);
@@ -2179,15 +2194,26 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
 	entry->result = result;
     }
 
-  /* The result of a constexpr function must be completely initialized.  */
-  if (TREE_CODE (result) == CONSTRUCTOR)
+  /* The result of a constexpr function must be completely initialized.
+
+     However, in C++20, a constexpr constructor doesn't necessarily have
+     to initialize all the fields, so we don't clear CONSTRUCTOR_NO_CLEARING
+     in order to detect reading an unitialized object in constexpr instead
+     of value-initializing it.  (reduced_constant_expression_p is expected to
+     take care of clearing the flag.)  */
+  if (TREE_CODE (result) == CONSTRUCTOR
+      && (cxx_dialect < cxx2a
+	  || !DECL_CONSTRUCTOR_P (fun)))
     clear_no_implicit_zero (result);
 
   pop_cx_call_context ();
   return result;
 }
 
-/* FIXME speed this up, it's taking 16% of compile time on sieve testcase.  */
+/* Return true if T is a valid constant initializer.  If a CONSTRUCTOR
+   initializes all the members, the CONSTRUCTOR_NO_CLEARING flag will be
+   cleared.
+   FIXME speed this up, it's taking 16% of compile time on sieve testcase.  */
 
 bool
 reduced_constant_expression_p (tree t)
@@ -2209,6 +2235,12 @@ reduced_constant_expression_p (tree t)
 	  if (TREE_CODE (TREE_TYPE (t)) == VECTOR_TYPE)
 	    /* An initialized vector would have a VECTOR_CST.  */
 	    return false;
+	  else if (cxx_dialect >= cxx2a
+		   /* An ARRAY_TYPE doesn't have any TYPE_FIELDS.  */
+		   && (TREE_CODE (TREE_TYPE (t)) == ARRAY_TYPE
+		       /* A union only initializes one member.  */
+		       || TREE_CODE (TREE_TYPE (t)) == UNION_TYPE))
+	    field = NULL_TREE;
 	  else
 	    field = next_initializable_field (TYPE_FIELDS (TREE_TYPE (t)));
 	}
@@ -2222,14 +2254,20 @@ reduced_constant_expression_p (tree t)
 	    return false;
 	  if (field)
 	    {
-	      if (idx != field)
-		return false;
+	      /* Empty class field may or may not have an initializer.  */
+	      for (; idx != field;
+		   field = next_initializable_field (DECL_CHAIN (field)))
+		if (!is_really_empty_class (TREE_TYPE (field),
+					    /*ignore_vptr*/false))
+		  return false;
 	      field = next_initializable_field (DECL_CHAIN (field));
 	    }
 	}
-      if (field)
-	return false;
-      else if (CONSTRUCTOR_NO_CLEARING (t))
+      /* There could be a non-empty field at the end.  */
+      for (; field; field = next_initializable_field (DECL_CHAIN (field)))
+	if (!is_really_empty_class (TREE_TYPE (field), /*ignore_vptr*/false))
+	  return false;
+      if (CONSTRUCTOR_NO_CLEARING (t))
 	/* All the fields are initialized.  */
 	CONSTRUCTOR_NO_CLEARING (t) = false;
       return true;

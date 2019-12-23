@@ -3915,7 +3915,7 @@ vect_model_reduction_cost (stmt_vec_info stmt_info, internal_fn reduc_fn,
       /* No extra instructions needed in the prologue.  */
       prologue_cost = 0;
 
-      if (reduction_type == EXTRACT_LAST_REDUCTION || reduc_fn != IFN_LAST)
+      if (reduc_fn != IFN_LAST)
 	/* Count one reduction-like operation per vector.  */
 	inside_cost = record_stmt_cost (cost_vec, ncopies, vec_to_scalar,
 					stmt_info, 0, vect_body);
@@ -4534,7 +4534,10 @@ vect_create_epilog_for_reduction (stmt_vec_info stmt_info,
      containing the last time the condition passed for that vector lane.
      The first match will be a 1 to allow 0 to be used for non-matching
      indexes.  If there are no matches at all then the vector will be all
-     zeroes.  */
+     zeroes.
+   
+     PR92772: This algorithm is broken for architectures that support
+     masked vectors, but do not provide fold_extract_last.  */
   if (STMT_VINFO_REDUC_TYPE (reduc_info) == COND_REDUCTION)
     {
       auto_vec<std::pair<tree, bool>, 2> ccompares;
@@ -5054,6 +5057,8 @@ vect_create_epilog_for_reduction (stmt_vec_info stmt_info,
 	      tree scalar_value
 		= PHI_ARG_DEF_FROM_EDGE (orig_phis[i]->stmt,
 					 loop_preheader_edge (loop));
+	      scalar_value = gimple_convert (&seq, TREE_TYPE (vectype),
+					     scalar_value);
 	      vector_identity = gimple_build_vector_from_val (&seq, vectype,
 							      scalar_value);
 	    }
@@ -6196,8 +6201,9 @@ vectorizable_reduction (stmt_vec_info stmt_info, slp_tree slp_node,
 	  return false;
 	}
 
-      if (direct_internal_fn_supported_p (IFN_FOLD_EXTRACT_LAST,
-					  vectype_in, OPTIMIZE_FOR_SPEED))
+      if (reduc_chain_length == 1
+	  && direct_internal_fn_supported_p (IFN_FOLD_EXTRACT_LAST,
+					     vectype_in, OPTIMIZE_FOR_SPEED))
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,

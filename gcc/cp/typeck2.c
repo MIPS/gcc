@@ -602,7 +602,7 @@ cxx_incomplete_type_error (location_t loc, const_tree value, const_tree type)
    generated statements.  */
 
 static bool
-split_nonconstant_init_1 (tree dest, tree init)
+split_nonconstant_init_1 (tree dest, tree init, bool nested)
 {
   unsigned HOST_WIDE_INT idx, tidx = HOST_WIDE_INT_M1U;
   tree field_index, value;
@@ -626,6 +626,12 @@ split_nonconstant_init_1 (tree dest, tree init)
 	  tree code = build_vec_init (dest, NULL_TREE, init, false, 1,
 				      tf_warning_or_error);
 	  add_stmt (code);
+	  if (nested)
+	    /* Also clean up the whole array if something later in an enclosing
+	       init-list throws.  */
+	    if (tree cleanup = cxx_maybe_build_cleanup (dest,
+							tf_warning_or_error))
+	    finish_eh_cleanup (cleanup);
 	  return true;
 	}
       /* FALLTHRU */
@@ -655,7 +661,7 @@ split_nonconstant_init_1 (tree dest, tree init)
 		sub = build3 (COMPONENT_REF, inner_type, dest, field_index,
 			      NULL_TREE);
 
-	      if (!split_nonconstant_init_1 (sub, value))
+	      if (!split_nonconstant_init_1 (sub, value, true))
 		complete_p = false;
 	      else
 		{
@@ -749,6 +755,7 @@ split_nonconstant_init_1 (tree dest, tree init)
 
   /* The rest of the initializer is now a constant. */
   TREE_CONSTANT (init) = 1;
+  TREE_SIDE_EFFECTS (init) = 0;
 
   /* We didn't split out anything.  */
   if (num_split_elts == 0)
@@ -774,11 +781,19 @@ split_nonconstant_init (tree dest, tree init)
     {
       init = cp_fully_fold_init (init);
       code = push_stmt_list ();
-      if (split_nonconstant_init_1 (dest, init))
+      if (split_nonconstant_init_1 (dest, init, false))
 	init = NULL_TREE;
       code = pop_stmt_list (code);
-      DECL_INITIAL (dest) = init;
-      TREE_READONLY (dest) = 0;
+      if (VAR_P (dest) && !is_local_temp (dest))
+	{
+	  DECL_INITIAL (dest) = init;
+	  TREE_READONLY (dest) = 0;
+	}
+      else if (init)
+	{
+	  tree ie = build2 (INIT_EXPR, void_type_node, dest, init);
+	  code = add_stmt_to_compound (ie, code);
+	}
     }
   else if (TREE_CODE (init) == STRING_CST
 	   && array_of_runtime_bound_p (TREE_TYPE (dest)))
@@ -2228,8 +2243,9 @@ build_m_component_ref (tree datum, tree component, tsubst_flags_t complain)
 
 /* Return a tree node for the expression TYPENAME '(' PARMS ')'.  */
 
-tree
-build_functional_cast (tree exp, tree parms, tsubst_flags_t complain)
+static tree
+build_functional_cast_1 (location_t loc, tree exp, tree parms,
+			 tsubst_flags_t complain)
 {
   /* This is either a call to a constructor,
      or a C cast in C++'s `functional' notation.  */
@@ -2255,7 +2271,7 @@ build_functional_cast (tree exp, tree parms, tsubst_flags_t complain)
   if (TREE_CODE (type) == ARRAY_TYPE)
     {
       if (complain & tf_error)
-	error ("functional cast to array type %qT", type);
+	error_at (loc, "functional cast to array type %qT", type);
       return error_mark_node;
     }
 
@@ -2264,7 +2280,7 @@ build_functional_cast (tree exp, tree parms, tsubst_flags_t complain)
       if (!CLASS_PLACEHOLDER_TEMPLATE (anode))
 	{
 	  if (complain & tf_error)
-	    error ("invalid use of %qT", anode);
+	    error_at (loc, "invalid use of %qT", anode);
 	  return error_mark_node;
 	}
       else if (!parms)
@@ -2277,8 +2293,8 @@ build_functional_cast (tree exp, tree parms, tsubst_flags_t complain)
 	  if (type == error_mark_node)
 	    {
 	      if (complain & tf_error)
-		error ("cannot deduce template arguments for %qT from %<()%>",
-		       anode);
+		error_at (loc, "cannot deduce template arguments "
+			  "for %qT from %<()%>", anode);
 	      return error_mark_node;
 	    }
 	}
@@ -2297,7 +2313,7 @@ build_functional_cast (tree exp, tree parms, tsubst_flags_t complain)
       if (TYPE_REF_P (type) && !parms)
 	{
 	  if (complain & tf_error)
-	    error ("invalid value-initialization of reference type");
+	    error_at (loc, "invalid value-initialization of reference type");
 	  return error_mark_node;
 	}
 
@@ -2318,7 +2334,7 @@ build_functional_cast (tree exp, tree parms, tsubst_flags_t complain)
 
       /* This must build a C cast.  */
       parms = build_x_compound_expr_from_list (parms, ELK_FUNC_CAST, complain);
-      return cp_build_c_cast (type, parms, complain);
+      return cp_build_c_cast (loc, type, parms, complain);
     }
 
   /* Prepare to evaluate as a call to a constructor.  If this expression
@@ -2339,7 +2355,7 @@ build_functional_cast (tree exp, tree parms, tsubst_flags_t complain)
      conversion is equivalent (in definedness, and if defined in
      meaning) to the corresponding cast expression.  */
   if (parms && TREE_CHAIN (parms) == NULL_TREE)
-    return cp_build_c_cast (type, TREE_VALUE (parms), complain);
+    return cp_build_c_cast (loc, type, TREE_VALUE (parms), complain);
 
   /* [expr.type.conv]
 
@@ -2366,6 +2382,15 @@ build_functional_cast (tree exp, tree parms, tsubst_flags_t complain)
     return error_mark_node;
 
   return build_cplus_new (type, exp, complain);
+}
+
+tree
+build_functional_cast (location_t loc, tree exp, tree parms,
+		       tsubst_flags_t complain)
+{
+  tree result = build_functional_cast_1 (loc, exp, parms, complain);
+  protected_set_expr_location (result, loc);
+  return result;  
 }
 
 

@@ -912,7 +912,6 @@ class cpp_string_location_reader {
  private:
   location_t m_loc;
   int m_offset_per_column;
-  line_maps *m_line_table;
 };
 
 /* A class for storing the source ranges of all of the characters within
@@ -1319,5 +1318,16 @@ extern bool cpp_userdef_char_p
   (enum cpp_ttype type);
 extern const char * cpp_get_userdef_suffix
   (const cpp_token *);
+
+/* In charset.c */
+int cpp_byte_column_to_display_column (const char *data, int data_length,
+				       int column);
+inline int cpp_display_width (const char *data, int data_length)
+{
+    return cpp_byte_column_to_display_column (data, data_length, data_length);
+}
+int cpp_display_column_to_byte_column (const char *data, int data_length,
+				       int display_col);
+int cpp_wcwidth (cppchar_t c);
 
 #endif /* ! LIBCPP_CPPLIB_H */

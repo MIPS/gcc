@@ -1334,6 +1334,10 @@ fdiagnostics-show-option
 Common Var(flag_diagnostics_show_option) Init(1)
 Amend appropriate diagnostic messages with the command line option that controls them.
 
+fdiagnostics-show-cwe
+Common Var(flag_diagnostics_show_cwe) Init(1)
+Print CWE identifiers for diagnostic messages, where available.
+
 fdiagnostics-minimum-margin-width=
 Common Joined UInteger Var(diagnostics_minimum_margin_width) Init(6)
 Set minimum width of left margin of source code when showing source.
@@ -2160,6 +2164,10 @@ fprofile-generate=
 Common Joined RejectNegative
 Enable common options for generating profile info for profile feedback directed optimizations, and set -fprofile-dir=.
 
+fprofile-partial-training
+Common Report Var(flag_profile_partial_training) Optimization
+Do not assume that functions never executed during the train run are cold.
+
 fprofile-use
 Common Var(flag_profile_use)
 Enable common options for performing profile feedback directed optimizations.
@@ -2177,7 +2185,7 @@ Common Report Var(profile_report)
 Report on consistency of profile.
 
 fprofile-reorder-functions
-Common Report Var(flag_profile_reorder_functions)
+Common Report Var(flag_profile_reorder_functions) Optimization
 Enable function reordering that improves code placement.
 
 fpatchable-function-entry=
@@ -2582,7 +2590,7 @@ EnumValue
 Enum(tls_model) String(local-exec) Value(TLS_MODEL_LOCAL_EXEC)
 
 ftoplevel-reorder
-Common Report Var(flag_toplevel_reorder) Init(2)
+Common Report Var(flag_toplevel_reorder) Init(2) Optimization
 Reorder top level functions, variables, and asms.
 
 ftracer

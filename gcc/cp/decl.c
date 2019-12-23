@@ -2977,20 +2977,14 @@ redeclaration_error_message (tree newdecl, tree olddecl)
     {
       tree nt, ot;
 
-      if (TREE_CODE (DECL_TEMPLATE_RESULT (newdecl)) == TYPE_DECL)
-	{
-	  if (COMPLETE_TYPE_P (TREE_TYPE (newdecl))
-	      && COMPLETE_TYPE_P (TREE_TYPE (olddecl)))
-	    return G_("redefinition of %q#D");
-	  return NULL;
-	}
-
       if (TREE_CODE (DECL_TEMPLATE_RESULT (newdecl)) == CONCEPT_DECL)
         return G_("redefinition of %q#D");
 
-      if (TREE_CODE (DECL_TEMPLATE_RESULT (newdecl)) != FUNCTION_DECL
-	  || (DECL_TEMPLATE_RESULT (newdecl)
-	      == DECL_TEMPLATE_RESULT (olddecl)))
+      if (TREE_CODE (DECL_TEMPLATE_RESULT (newdecl)) != FUNCTION_DECL)
+	return redeclaration_error_message (DECL_TEMPLATE_RESULT (newdecl),
+					    DECL_TEMPLATE_RESULT (olddecl));
+
+      if (DECL_TEMPLATE_RESULT (newdecl) == DECL_TEMPLATE_RESULT (olddecl))
 	return NULL;
 
       nt = DECL_TEMPLATE_RESULT (newdecl);
@@ -5865,8 +5859,12 @@ check_for_uninitialized_const_var (tree decl, bool constexpr_context_p,
      7.1.6 */
   if (VAR_P (decl)
       && !TYPE_REF_P (type)
-      && (constexpr_context_p
-	  || CP_TYPE_CONST_P (type) || var_in_constexpr_fn (decl))
+      && (CP_TYPE_CONST_P (type)
+	  /* C++20 permits trivial default initialization in constexpr
+	     context (P1331R2).  */
+	  || (cxx_dialect < cxx2a
+	      && (constexpr_context_p
+		  || var_in_constexpr_fn (decl))))
       && !DECL_NONTRIVIALLY_INITIALIZED_P (decl))
     {
       tree field = default_init_uninitialized_part (type);
@@ -5875,7 +5873,7 @@ check_for_uninitialized_const_var (tree decl, bool constexpr_context_p,
 
       bool show_notes = true;
 
-      if (!constexpr_context_p)
+      if (!constexpr_context_p || cxx_dialect >= cxx2a)
 	{
 	  if (CP_TYPE_CONST_P (type))
 	    {
@@ -5945,7 +5943,11 @@ next_initializable_field (tree field)
 	 && (TREE_CODE (field) != FIELD_DECL
 	     || DECL_UNNAMED_BIT_FIELD (field)
 	     || (DECL_ARTIFICIAL (field)
-		 && !(cxx_dialect >= cxx17 && DECL_FIELD_IS_BASE (field)))))
+		 /* In C++17, don't skip base class fields.  */
+		 && !(cxx_dialect >= cxx17 && DECL_FIELD_IS_BASE (field))
+		 /* Don't skip vptr fields.  We might see them when we're
+		    called from reduced_constant_expression_p.  */
+		 && !DECL_VIRTUAL_P (field))))
     field = DECL_CHAIN (field);
 
   return field;
@@ -6397,14 +6399,13 @@ reshape_init_r (tree type, reshape_iter *d, bool first_initializer_p,
 	       by the front end.  Here we have e.g. {.__pfn=0B, .__delta=0},
 	       which is missing outermost braces.  We should warn below, and
 	       one of the routines below will wrap it in additional { }.  */;
-	  /* For a nested compound literal, there is no need to reshape since
-	     we called reshape_init in finish_compound_literal, before calling
-	     digest_init.  */
-	  else if (COMPOUND_LITERAL_P (stripped_init)
-		   /* Similarly, a CONSTRUCTOR of the target's type is a
-		      previously digested initializer.  */
-		   || same_type_ignoring_top_level_qualifiers_p (type,
-								 init_type))
+	  /* For a nested compound literal, proceed to specialized routines,
+	     to handle initialization of arrays and similar.  */
+	  else if (COMPOUND_LITERAL_P (stripped_init))
+	    gcc_assert (!BRACE_ENCLOSED_INITIALIZER_P (stripped_init));
+	  /* A CONSTRUCTOR of the target's type is a previously
+	     digested initializer.  */
+	  else if (same_type_ignoring_top_level_qualifiers_p (type, init_type))
 	    {
 	      ++d->cur;
 	      gcc_assert (!BRACE_ENCLOSED_INITIALIZER_P (stripped_init));
@@ -6482,7 +6483,8 @@ reshape_init (tree type, tree init, tsubst_flags_t complain)
 	{
 	  warning_sentinel w (warn_useless_cast);
 	  warning_sentinel w2 (warn_ignored_qualifiers);
-	  return cp_build_c_cast (type, elt, tf_warning_or_error);
+	  return cp_build_c_cast (input_location, type, elt,
+				  tf_warning_or_error);
 	}
       else
 	return error_mark_node;
@@ -6535,8 +6537,7 @@ check_array_initializer (tree decl, tree type, tree init)
       return true;
     }
 
-  location_t loc = (decl && DECL_P (decl)
-		    ? DECL_SOURCE_LOCATION (decl) : input_location);
+  location_t loc = (decl ? location_of (decl) : input_location);
   if (!verify_type_context (loc, TCTX_ARRAY_ELEMENT, element_type))
     return true;
 
@@ -6777,7 +6778,8 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
 	      if (CLASS_TYPE_P (type)
 		  && (!init || TREE_CODE (init) == TREE_LIST))
 		{
-		  init = build_functional_cast (type, init, tf_none);
+		  init = build_functional_cast (input_location, type,
+						init, tf_none);
 		  if (TREE_CODE (init) == TARGET_EXPR)
 		    TARGET_EXPR_DIRECT_INIT_P (init) = true;
 		}
@@ -10216,13 +10218,16 @@ fold_sizeof_expr (tree t)
 {
   tree r;
   if (SIZEOF_EXPR_TYPE_P (t))
-    r = cxx_sizeof_or_alignof_type (TREE_TYPE (TREE_OPERAND (t, 0)),
+    r = cxx_sizeof_or_alignof_type (EXPR_LOCATION (t),
+				    TREE_TYPE (TREE_OPERAND (t, 0)),
 				    SIZEOF_EXPR, false, false);
   else if (TYPE_P (TREE_OPERAND (t, 0)))
-    r = cxx_sizeof_or_alignof_type (TREE_OPERAND (t, 0), SIZEOF_EXPR,
+    r = cxx_sizeof_or_alignof_type (EXPR_LOCATION (t),
+				    TREE_OPERAND (t, 0), SIZEOF_EXPR,
 				    false, false);
   else
-    r = cxx_sizeof_or_alignof_expr (TREE_OPERAND (t, 0), SIZEOF_EXPR,
+    r = cxx_sizeof_or_alignof_expr (EXPR_LOCATION (t),
+				    TREE_OPERAND (t, 0), SIZEOF_EXPR,
 				    false);
   if (r == error_mark_node)
     r = size_one_node;

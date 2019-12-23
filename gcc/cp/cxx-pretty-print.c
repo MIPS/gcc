@@ -2661,7 +2661,7 @@ pp_cxx_trait_expression (cxx_pretty_printer *pp, tree t)
       pp_cxx_ws_string (pp, "__is_polymorphic");
       break;
     case CPTK_IS_SAME_AS:
-      pp_cxx_ws_string (pp, "__is_same_as");
+      pp_cxx_ws_string (pp, "__is_same");
       break;
     case CPTK_IS_STD_LAYOUT:
       pp_cxx_ws_string (pp, "__is_std_layout");
@@ -2967,4 +2967,12 @@ cxx_pretty_printer::cxx_pretty_printer ()
 {
   type_specifier_seq = (pp_fun) pp_cxx_type_specifier_seq;
   parameter_list = (pp_fun) pp_cxx_parameter_declaration_clause;
+}
+
+/* cxx_pretty_printer's implementation of pretty_printer::clone vfunc.  */
+
+pretty_printer *
+cxx_pretty_printer::clone () const
+{
+  return new cxx_pretty_printer (*this);
 }
