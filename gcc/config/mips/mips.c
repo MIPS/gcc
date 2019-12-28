@@ -28489,9 +28489,8 @@ nanomips_move_balc_p (rtx *operands)
 {
   if (TARGET_NANOMIPS != NANOMIPS_NMF)
     return false;
-  if (GET_MODE (operands[0]) != ptr_mode
-      || (GET_MODE (operands[0]) != GET_MODE (operands[1])
-           && !CONST_INT_P (operands[1])))
+  if (GET_MODE (operands[1]) != ptr_mode
+      || GET_MODE (operands[0]) != GET_MODE (operands[1]))
     return false;
   if (REGNO (operands[0]) != 4 && REGNO (operands[0]) != 5)
     return false;
