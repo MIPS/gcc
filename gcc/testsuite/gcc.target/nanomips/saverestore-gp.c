@@ -13,6 +13,6 @@ extern __attribute__((visibility("hidden"))) int foo (void);
 
 int fun3 (void) { return foo(); }
 
-/* { dg-final {scan-assembler-not "\t\.reloc\t1f,R_NANOMIPS_SAVERESTORE,fun1\n" } } */
+/* { dg-final {scan-assembler-times "\t\.reloc\t1f,R_NANOMIPS_SAVERESTORE,fun1\n" 2 } } */
 /* { dg-final {scan-assembler-times "\t\.reloc\t1f,R_NANOMIPS_SAVERESTORE,fun2\n" 2 } } */
 /* { dg-final {scan-assembler-not "\t\.reloc\t1f,R_NANOMIPS_SAVERESTORE,fun3\n" } } */

@@ -14902,9 +14902,6 @@ mips_use_saverestore_gp_relaxation_p (struct mips_frame_info *frame)
       frame->total_size == 16)
     return false;
 
-  if (frame->total_size == 16 && frame->num_gp == 1)
-    return false;
-
   return true;
 }
 
