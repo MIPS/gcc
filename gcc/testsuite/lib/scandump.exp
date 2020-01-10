@@ -30,12 +30,36 @@ proc dump-suffix { arg } {
 # Argument 0 is the src file
 # Argument 1 is the dump base suffix
 proc dump-base { args } {
+    global additional_sources_used
     set src [lindex $args 0]
     set dumpbase_suf [lindex $args 1]
+    # The dump basename may vary depending on the output name, on
+    # whether there are multiple sources.  We use -dumpbase "" in
+    # dg-defs to base compilation dumps only on the source basename.
     set dumpbase $src
     if { [string length $dumpbase_suf] != 0 } {
 	regsub {[.][^.]*$} $src $dumpbase_suf dumpbase
     }
+    # # the basename of the
+    # # output may be combined with the source name to form dump
+    # # output names.  Instead of varying depending on the executable
+    # # name, gcc-defs.exp makes this more predictable by passing
+    # # -dumpdir and -dumpbase options to make the prefix match the
+    # # source name when we have multiple sources.  When dumpbase_suf is
+    # # to replace the original source suffix, we are dealing with a
+    # # link-time (optimization or offloading) dump, whose dump names
+    # # are based on the specified dumpbase alone.  For other tests, the
+    # # dump name depends on the number of inputs: we rely on
+    # # additional_sources_used to tell whether we : if there is more than
+    # # one input, the dump name combines the
+    # set dumpbase [file rootname $src]
+    # if { [string length $dumpbase_suf] != 0 } {
+    # 	set dumpbase "${dumpbase}$dumpbase_suf"
+    # } elseif  { [string length $additional_sources_used] != 0 } {
+    # 	set dumpbase "$dumpbase-$src"
+    # } else {
+    # 	set dumpbase "$src"
+    # }
     return $dumpbase
 }
 

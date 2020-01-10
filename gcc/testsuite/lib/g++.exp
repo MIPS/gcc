@@ -327,7 +327,7 @@ proc g++_target_compile { source dest type options } {
         append board_info($tboard,multilib_flags) " $flags_to_postpone"
     }
 
-    set options [dg-additional-files-options $options $source]
+    set options [dg-additional-files-options $options $source $type]
 
     set result [target_compile $source $dest $type $options]
 
