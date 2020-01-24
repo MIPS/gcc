@@ -25320,7 +25320,8 @@ mips_max_noce_ifcvt_seq_cost (edge e)
   if (global_options_set.x_param_values[param])
     return PARAM_VALUE (param);
   else
-    return BRANCH_COST (true, predictable_p) * COSTS_N_INSNS (4);
+    return BRANCH_COST (true, predictable_p)
+	   * COSTS_N_INSNS (mips_isa_rev == 6 ? 4 : 3);
 }
 
 /* Return true if SEQ is a good candidate as a replacement for the
