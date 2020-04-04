@@ -7956,6 +7956,8 @@
       }
     else
       {
+	/* Check the other two registers.  */
+	gcc_assert (!reg_overlap_mentioned_p (operands[2], operands[1]));
 	output_asm_insn (mips_output_move (insn, operands[2], operands[3]),
 			 &operands[2]);
 	output_asm_insn (mips_output_move (insn, operands[0], operands[1]),
