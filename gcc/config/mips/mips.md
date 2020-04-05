@@ -7983,7 +7983,7 @@
     /* Reg-renaming pass reuses base register if it is dead after bonded loads.
        Hardware does not bond those loads, even when they are consecutive.
        However, order of the loads need to be checked for correctness.  */
-    if (!load_p || !reg_overlap_mentioned_p (operands[0], operands[1]))
+    if (!load_p || !reg_overlap_mentioned_p (operands[0], operands[3]))
       {
 	output_asm_insn (mips_output_move (insn, operands[0], operands[1]),
 			 operands);
@@ -7992,6 +7992,8 @@
       }
     else
       {
+	/* Check the other two registers.  */
+	gcc_assert (!reg_overlap_mentioned_p (operands[2], operands[1]));
 	output_asm_insn (mips_output_move (insn, operands[2], operands[3]),
 			 &operands[2]);
 	output_asm_insn (mips_output_move (insn, operands[0], operands[1]),
@@ -8046,13 +8048,15 @@
     /* Reg-renaming pass reuses base register if it is dead after bonded loads.
        Hardware does not bond those loads, even when they are consecutive.
        However, order of the loads need to be checked for correctness.  */
-    if (!reg_overlap_mentioned_p (operands[0], operands[1]))
+    if (!reg_overlap_mentioned_p (operands[0], operands[3]))
       {
 	output_asm_insn ("lh<u>\t%0,%1", operands);
 	output_asm_insn ("lh<u>\t%2,%3", operands);
       }
     else
       {
+	/* Check the other two registers.  */
+	gcc_assert (!reg_overlap_mentioned_p (operands[2], operands[1]));
 	output_asm_insn ("lh<u>\t%2,%3", operands);
 	output_asm_insn ("lh<u>\t%0,%1", operands);
       }
