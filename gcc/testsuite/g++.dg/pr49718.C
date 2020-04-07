@@ -4,7 +4,7 @@
 /* { dg-additional-options "-mno-relax-pic-calls" { target mips*-*-* } } */
 /* { dg-final { scan-assembler-times "__cyg_profile_func_enter" 1 { target { ! { hppa*-*-hpux* || nanomips*-*-* } } } } } */
 /* { dg-final { scan-assembler-times "__cyg_profile_func_enter,%r" 1 { target hppa*-*-hpux* } } } */
-/* { dg-final { scan-assembler "\t(balc|lw|lapc\.b).*__cyg_profile_func_enter" { target nanomips*-*-* } } } */
+/* { dg-final { scan-assembler "\t(balc|lw|lapc\.b|li).*__cyg_profile_func_enter" { target nanomips*-*-* } } } */
 
 #define NOINSTR __attribute__((no_instrument_function))
 

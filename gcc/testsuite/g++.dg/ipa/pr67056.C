@@ -1,6 +1,7 @@
 /* { dg-do run } */
 /* { dg-options "-std=c++11 -O3 -fdump-ipa-cp"  } */
 /* { dg-additional-options "-fPIC" { target fpic } } */
+/* { dg-skip-if "need PC-relative for PIC" { nanomips*-*-* } { "-mno-pcrel" } { "" } } */
 #include <memory>
 
 class EmptyClass {
