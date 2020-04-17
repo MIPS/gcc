@@ -137,7 +137,12 @@ void SleepForSeconds(int seconds) {
 }
 
 void SleepForMillis(int millis) {
+  #if SANITIZER_UCLIBC
+  struct timespec tv = {0, millis * 1000000};
+  nanosleep (&tv, NULL);
+  #else
   usleep(millis * 1000);
+  #endif
 }
 
 void Abort() {

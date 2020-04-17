@@ -58,7 +58,7 @@
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#if !SANITIZER_OPENBSD
+#if !SANITIZER_OPENBSD && !SANITIZER_UCLIBC
 #include <ucontext.h>
 #endif
 #if SANITIZER_OPENBSD

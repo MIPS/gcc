@@ -85,14 +85,10 @@ namespace __sanitizer {
   const unsigned struct_kernel_stat_sz = 144;
   const unsigned struct_kernel_stat64_sz = 104;
 #elif defined(__mips__)
-  #ifdef __UCLIBC__ /* 32-bit only */
-  const unsigned struct_kernel_stat_sz = 152;
-  #else
   const unsigned struct_kernel_stat_sz =
                  SANITIZER_ANDROID ? FIRST_32_SECOND_64(104, 128) :
                                      FIRST_32_SECOND_64(144, 216);
   const unsigned struct_kernel_stat64_sz = 104;
-  #endif
 #elif defined(__s390__) && !defined(__s390x__)
   const unsigned struct_kernel_stat_sz = 64;
   const unsigned struct_kernel_stat64_sz = 104;
@@ -330,7 +326,7 @@ namespace __sanitizer {
     uptr iov_len;
   };
 
-#if !SANITIZER_ANDROID
+#if !SANITIZER_ANDROID && !SANITIZER_UCLIBC
   struct __sanitizer_ifaddrs {
     struct __sanitizer_ifaddrs *ifa_next;
     char *ifa_name;
