@@ -28,7 +28,9 @@
 #include <net/if.h>
 #include <netdb.h>
 #include <poll.h>
+#if !SANITIZER_UCLIBC
 #include <pthread.h>
+#endif
 #include <pwd.h>
 #include <signal.h>
 #include <stddef.h>
@@ -53,8 +55,10 @@
 
 #if !SANITIZER_ANDROID
 #include <sys/mount.h>
+#if !SANITIZER_UCLIBC
 #include <sys/timeb.h>
 #include <utmpx.h>
+#endif
 #endif
 
 #if SANITIZER_LINUX
@@ -115,7 +119,9 @@
 #endif
 
 #if SANITIZER_LINUX || SANITIZER_FREEBSD
-# include <utime.h>
+# if !SANITIZER_UCLIBC
+#  include <utime.h>
+# endif
 # include <sys/ptrace.h>
 # if defined(__mips64) || defined(__aarch64__) || defined(__arm__)
 #  include <asm/ptrace.h>
@@ -130,12 +136,10 @@ typedef struct user_fpregs elf_fpregset_t;
 # include <semaphore.h>
 #endif
 
-#if !SANITIZER_ANDROID
+#if !SANITIZER_ANDROID && !SANITIZER_UCLIBC
 #include <ifaddrs.h>
 #include <sys/ucontext.h>
-#if !SANITIZER_UCLIBC
 #include <wordexp.h>
-#endif
 #endif
 
 #if SANITIZER_LINUX && !SANITIZER_ANDROID
@@ -219,13 +223,16 @@ namespace __sanitizer {
   unsigned timeval_sz = sizeof(timeval);
   unsigned uid_t_sz = sizeof(uid_t);
   unsigned gid_t_sz = sizeof(gid_t);
+  #if !SANITIZER_UCLIBC
   unsigned mbstate_t_sz = sizeof(mbstate_t);
+  #endif
   unsigned sigset_t_sz = sizeof(sigset_t);
   unsigned struct_timezone_sz = sizeof(struct timezone);
   unsigned struct_tms_sz = sizeof(struct tms);
   unsigned struct_sigevent_sz = sizeof(struct sigevent);
+  #if !SANITIZER_UCLIBC
   unsigned struct_sched_param_sz = sizeof(struct sched_param);
-
+  #endif
 
 #if SANITIZER_MAC && !SANITIZER_IOS
   unsigned struct_statfs64_sz = sizeof(struct statfs64);
@@ -251,7 +258,9 @@ namespace __sanitizer {
 #if SANITIZER_LINUX || SANITIZER_FREEBSD
   unsigned struct_rlimit_sz = sizeof(struct rlimit);
   unsigned struct_timespec_sz = sizeof(struct timespec);
+  #if !SANITIZER_UCLIBC
   unsigned struct_utimbuf_sz = sizeof(struct utimbuf);
+  #endif
   unsigned struct_itimerspec_sz = sizeof(struct itimerspec);
 #endif // SANITIZER_LINUX || SANITIZER_FREEBSD
 
@@ -302,7 +311,7 @@ namespace __sanitizer {
 #if !SANITIZER_MAC && !SANITIZER_FREEBSD
   unsigned struct_utmp_sz = sizeof(struct utmp);
 #endif
-#if !SANITIZER_ANDROID
+#if !SANITIZER_ANDROID && !SANITIZER_UCLIBC
   unsigned struct_utmpx_sz = sizeof(struct utmpx);
 #endif
 
@@ -326,7 +335,7 @@ unsigned struct_ElfW_Phdr_sz = sizeof(ElfW(Phdr));
 unsigned struct_ElfW_Phdr_sz = sizeof(Elf_Phdr);
 #endif
 
-#if (SANITIZER_LINUX || SANITIZER_FREEBSD) && !SANITIZER_ANDROID
+#if (SANITIZER_LINUX || SANITIZER_FREEBSD) && !SANITIZER_ANDROID && !SANITIZER_UCLIBC
   int glob_nomatch = GLOB_NOMATCH;
   int glob_altdirfunc = GLOB_ALTDIRFUNC;
 #endif
@@ -1193,7 +1202,7 @@ CHECK_TYPE_SIZE(clock_t);
 CHECK_TYPE_SIZE(clockid_t);
 #endif
 
-#if !SANITIZER_ANDROID
+#if !SANITIZER_ANDROID && !SANITIZER_UCLIBC
 CHECK_TYPE_SIZE(ifaddrs);
 CHECK_SIZE_AND_OFFSET(ifaddrs, ifa_next);
 CHECK_SIZE_AND_OFFSET(ifaddrs, ifa_name);
@@ -1223,7 +1232,7 @@ CHECK_SIZE_AND_OFFSET(ifaddrs, ifa_data);
 COMPILER_CHECK(sizeof(__sanitizer_struct_mallinfo) == sizeof(struct mallinfo));
 #endif
 
-#if !SANITIZER_ANDROID
+#if !SANITIZER_ANDROID && !SANITIZER_UCLIBC
 CHECK_TYPE_SIZE(timeb);
 CHECK_SIZE_AND_OFFSET(timeb, time);
 CHECK_SIZE_AND_OFFSET(timeb, millitm);
@@ -1288,7 +1297,7 @@ CHECK_SIZE_AND_OFFSET(FILE, _chain);
 CHECK_SIZE_AND_OFFSET(FILE, _fileno);
 #endif
 
-#if SANITIZER_LINUX && !SANITIZER_ANDROID
+#if SANITIZER_LINUX && !SANITIZER_ANDROID && !SANITIZER_UCLIBC
 COMPILER_CHECK(sizeof(__sanitizer__obstack_chunk) <= sizeof(_obstack_chunk));
 CHECK_SIZE_AND_OFFSET(_obstack_chunk, limit);
 CHECK_SIZE_AND_OFFSET(_obstack_chunk, prev);
