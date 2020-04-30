@@ -658,6 +658,7 @@ link_liblsan
 link_libubsan
 link_libtsan
 link_libasan
+link_libsan_rpath
 LSAN_SUPPORTED_FALSE
 LSAN_SUPPORTED_TRUE
 TSAN_SUPPORTED_FALSE
@@ -12329,7 +12330,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 12332 "configure"
+#line 12333 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -12435,7 +12436,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 12438 "configure"
+#line 12439 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -15900,6 +15901,10 @@ $as_echo "$ac_cv_lib_dl_dlsym" >&6; }
 if test "x$ac_cv_lib_dl_dlsym" = xyes; then :
   link_sanitizer_common="-ldl $link_sanitizer_common"
 fi
+
+
+lt_multi_os_dir=`$CC $CPPFLAGS $CFLAGS $LDFLAGS -print-multi-os-directory 2>/dev/null`
+link_libsan_rpath="-rpath-link=${prefix}/mips-mti-linux-gnu/lib/$lt_multi_os_dir"
 
 
 # Set up the set of additional libraries that we need to link against for libasan.
