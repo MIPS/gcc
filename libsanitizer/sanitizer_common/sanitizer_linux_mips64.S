@@ -7,7 +7,7 @@
 #endif
 
 // Further contents are mips64 only:
-#if defined(__linux__) && defined(__mips64)
+#if defined(__linux__) && defined(__mips64) && (_MIPS_SIM == _ABI64)
 
 .section .text
 .set noreorder
