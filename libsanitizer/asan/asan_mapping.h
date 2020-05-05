@@ -65,6 +65,13 @@
 // || `[0x0aaa0000, 0x0bff3fff]` || LowShadow  ||
 // || `[0x00000000, 0x0aa9ffff]` || LowMem     ||
 //
+// Default Linux/MIPS64 n32 ABI mapping:
+// || `[0x40000000, 0xffffffff]` || HighMem    ||
+// || `[0x28000000, 0x3fffffff]` || HighShadow ||
+// || `[0x24000000, 0x27ffffff]` || ShadowGap  ||
+// || `[0x20000000, 0x23ffffff]` || LowShadow  ||
+// || `[0x00000000, 0x1fffffff]` || LowMem     ||
+//
 // Default Linux/MIPS64 mapping:
 // || `[0x4000000000, 0xffffffffff]` || HighMem    ||
 // || `[0x2800000000, 0x3fffffffff]` || HighShadow ||
@@ -176,7 +183,11 @@ static const u64 kDefaultShort64bitShadowOffset =
     0x7FFFFFFF & (~0xFFFULL << kDefaultShadowScale);  // < 2G.
 static const u64 kAArch64_ShadowOffset64 = 1ULL << 36;
 static const u64 kRiscv64_ShadowOffset64 = 0x20000000;
+#if _MIPS_SIM==_ABIN32
+static const u64 kMIPS32_ShadowOffset32 = 1ULL << 29;
+#else
 static const u64 kMIPS32_ShadowOffset32 = 0x0aaa0000;
+#endif
 static const u64 kMIPS64_ShadowOffset64 = 1ULL << 37;
 static const u64 kPPC64_ShadowOffset64 = 1ULL << 41;
 static const u64 kSystemZ_ShadowOffset64 = 1ULL << 52;
