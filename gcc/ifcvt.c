@@ -1948,7 +1948,7 @@ noce_try_synthesized_xor (struct noce_if_info *if_info)
 	   == BLOCK_FOR_INSN (prev_nonnote_nondebug_insn (prev)))
 	return FALSE;
     }
-  else if (GET_CODE (xor_const) == REG)
+  else if (GET_CODE (xor_const) != CONST_INT)
     return FALSE;
 
   if (!rtx_equal_p (xor_src, if_info->x))
