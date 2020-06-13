@@ -20297,6 +20297,13 @@ mips_option_override (void)
       target_flags |= MASK_LOONGSON_EXT;
     }
 
+  /* -fsanitize=address needs to turn on -fasynchronous-unwind-tables in order
+     for tracebacks to be complete but not if any -fasynchronous-unwind-tables
+     options were already specified.  */
+  if (flag_sanitize & SANITIZE_USER_ADDRESS
+      && !global_options_set.x_flag_asynchronous_unwind_tables)
+    flag_asynchronous_unwind_tables = 1;
+
   /* .eh_frame addresses should be the same width as a C pointer.
      Most MIPS ABIs support only one pointer size, so the assembler
      will usually know exactly how big an .eh_frame address is.
