@@ -22565,7 +22565,7 @@ mips_asan_shadow_offset (void)
       case ABI_N32:
 	return (HOST_WIDE_INT_1 << 29);
       case ABI_64:
-	return (HOST_WIDE_INT_1 << 36);
+	return (HOST_WIDE_INT_1 << 37);
       case ABI_32:
       default:
 	return HOST_WIDE_INT_C (0x0aaa0000);
