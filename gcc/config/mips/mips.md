@@ -7940,7 +7940,9 @@
 	(match_operand:JOIN_MODE 1 "nonimmediate_or_0_operand" "m,m,dJ,f"))
    (set (match_operand:JOIN_MODE 2 "nonimmediate_operand" "=d,f,m,m")
 	(match_operand:JOIN_MODE 3 "nonimmediate_or_0_operand" "m,m,dJ,f"))]
-  "ENABLE_LD_ST_PAIRS"
+  "ENABLE_LD_ST_PAIRS
+   && (mips_load_store_bonding_p (operands, <JOIN_MODE:MODE>mode)
+       || reload_completed)"
   {
     bool load_p = (which_alternative == 0 || which_alternative == 1);
     /* Reg-renaming pass reuses base register if it is dead after bonded loads.
