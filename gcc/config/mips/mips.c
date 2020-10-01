@@ -9066,7 +9066,8 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length,
 		      MIN (MEM_ALIGN (src), MEM_ALIGN (dest)), 0);
     }
 
-  if (ENABLE_LD_ST_PAIRS)
+  /* Bond load/store only when optimize.  */
+  if (ENABLE_LD_ST_PAIRS && optimize)
     mips_load_store_bond_insns ();
 }
 
