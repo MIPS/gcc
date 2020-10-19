@@ -56,7 +56,11 @@ SIZE(libat_test_and_set) (UTYPE *mptr, int smodel)
   if (N < WORDSIZE)
     {
       wptr = (UWORD *)((uintptr_t)mptr & -WORDSIZE);
-      shift = SIZE(INVERT_MASK);
+#if WORDS_BIGENDIAN
+      shift = (WORDSIZE - N) * CHAR_BIT;
+#else
+      shift = 0;
+#endif
     }
   else
     {
