@@ -79,7 +79,11 @@ SIZE(libat_load) (UTYPE *mptr, int smodel)
   pre_barrier (smodel);
 
   wptr = (UWORD *)((uintptr_t)mptr & -WORDSIZE);
-  shift = (((uintptr_t)mptr % WORDSIZE) * CHAR_BIT) ^ SIZE(INVERT_MASK);
+#if WORDS_BIGENDIAN
+  shift = (WORDSIZE - N - ((uintptr_t)mptr % WORDSIZE)) * CHAR_BIT;
+#else
+  shift = ((uintptr_t)mptr % WORDSIZE) * CHAR_BIT;
+#endif
 
   /* Exchange 0 with 0, placing the old value of *WPTR in T.  */
   t = 0;

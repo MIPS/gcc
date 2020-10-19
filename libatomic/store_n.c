@@ -75,7 +75,11 @@ SIZE(libat_store) (UTYPE *mptr, UTYPE newval, int smodel)
   pre_barrier (smodel);
 
   wptr = (UWORD *)((uintptr_t)mptr & -WORDSIZE);
-  shift = (((uintptr_t)mptr % WORDSIZE) * CHAR_BIT) ^ SIZE(INVERT_MASK);
+#if WORDS_BIGENDIAN
+  shift = (WORDSIZE - N - ((uintptr_t)mptr % WORDSIZE)) * CHAR_BIT;
+#else
+  shift = ((uintptr_t)mptr % WORDSIZE) * CHAR_BIT;
+#endif
   mask = SIZE(MASK) << shift;
 
   wnewval = (UWORD)newval << shift;

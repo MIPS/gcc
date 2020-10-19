@@ -114,7 +114,11 @@ SIZE(C2(libat_fetch_,NAME)) (UTYPE *mptr, UTYPE opval, int smodel)
   pre_barrier (smodel);
 
   wptr = (UWORD *)((uintptr_t)mptr & -WORDSIZE);
-  shift = (((uintptr_t)mptr % WORDSIZE) * CHAR_BIT) ^ SIZE(INVERT_MASK);
+#if WORDS_BIGENDIAN
+  shift = (WORDSIZE - N - ((uintptr_t)mptr % WORDSIZE)) * CHAR_BIT;
+#else
+  shift = ((uintptr_t)mptr % WORDSIZE) * CHAR_BIT;
+#endif
   mask = SIZE(MASK) << shift;
 
   wopval = (UWORD)opval << shift;
@@ -138,7 +142,11 @@ SIZE(C3(libat_,NAME,_fetch)) (UTYPE *mptr, UTYPE opval, int smodel)
   pre_barrier (smodel);
 
   wptr = (UWORD *)((uintptr_t)mptr & -WORDSIZE);
-  shift = (((uintptr_t)mptr % WORDSIZE) * CHAR_BIT) ^ SIZE(INVERT_MASK);
+#if WORDS_BIGENDIAN
+  shift = (WORDSIZE - N - ((uintptr_t)mptr % WORDSIZE)) * CHAR_BIT;
+#else
+  shift = ((uintptr_t)mptr % WORDSIZE) * CHAR_BIT;
+#endif
   mask = SIZE(MASK) << shift;
 
   wopval = (UWORD)opval << shift;

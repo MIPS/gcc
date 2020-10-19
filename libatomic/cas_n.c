@@ -61,7 +61,11 @@ SIZE(libat_compare_exchange) (UTYPE *mptr, UTYPE *eptr, UTYPE newval,
   if (N < WORDSIZE)
     {
       wptr = (UWORD *)((uintptr_t)mptr & -WORDSIZE);
-      shift = (((uintptr_t)mptr % WORDSIZE) * CHAR_BIT) ^ SIZE(INVERT_MASK);
+#if WORDS_BIGENDIAN
+      shift = (WORDSIZE - N - ((uintptr_t)mptr % WORDSIZE)) * CHAR_BIT;
+#else
+      shift = ((uintptr_t)mptr % WORDSIZE) * CHAR_BIT;
+#endif
       mask = SIZE(MASK) << shift;
     }
   else
