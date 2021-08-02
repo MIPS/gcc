@@ -45,6 +45,11 @@ case "${target}" in
 	;;
   arm*-*-linux*)
 	;;
+  mips*-*-linux*)
+	if echo "int x = __mips64;" | $CC $CFLAGS -c -x c -o /dev/null - > /dev/null 2>&1; then
+		SANITIZER_COMMON_TARGET_DEPENDENT_OBJECTS=sanitizer_linux_mips64.lo
+	fi
+	;;
   aarch64*-*-linux*)
 	if test x$ac_cv_sizeof_void_p = x8; then
 		TSAN_SUPPORTED=yes
