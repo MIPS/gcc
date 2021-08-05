@@ -2403,7 +2403,8 @@ enum reg_class
    scalars last so that they too are close to the stack pointer */
 #define FRAME_GROWS_DOWNWARD ((TARGET_MIPS16			    \
 			       && TARGET_FRAME_GROWS_DOWNWARDS)     \
-			      || flag_stack_protect)
+			      || flag_stack_protect		    \
+			      || (flag_sanitize & SANITIZE_ADDRESS) != 0)
 
 /* Size of the area allocated in the frame to save the GP.  */
 

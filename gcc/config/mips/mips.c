@@ -24988,6 +24988,14 @@ mips_bit_clear_p (enum machine_mode mode, unsigned HOST_WIDE_INT m)
 
   return false;
 }
+
+/* Implement the TARGET_ASAN_SHADOW_OFFSET hook.  */
+
+static unsigned HOST_WIDE_INT
+mips_asan_shadow_offset (void)
+{
+  return 0x0aaa0000;
+}
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -25264,6 +25272,9 @@ mips_bit_clear_p (enum machine_mode mode, unsigned HOST_WIDE_INT m)
 /* The architecture reserves bit 0 for MIPS16 so use bit 1 for descriptors.  */
 #undef TARGET_CUSTOM_FUNCTION_DESCRIPTORS
 #define TARGET_CUSTOM_FUNCTION_DESCRIPTORS 2
+
+#undef TARGET_ASAN_SHADOW_OFFSET
+#define TARGET_ASAN_SHADOW_OFFSET mips_asan_shadow_offset
 
 #undef TARGET_ASM_SELECT_SECTION
 #define TARGET_ASM_SELECT_SECTION mips_asm_select_section
