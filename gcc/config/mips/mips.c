@@ -24994,7 +24994,16 @@ mips_bit_clear_p (enum machine_mode mode, unsigned HOST_WIDE_INT m)
 static unsigned HOST_WIDE_INT
 mips_asan_shadow_offset (void)
 {
-  return 0x0aaa0000;
+  switch (mips_abi)
+    {
+      case ABI_N32:
+	return (HOST_WIDE_INT_1 << 29);
+      case ABI_64:
+	return (HOST_WIDE_INT_1 << 36);
+      case ABI_32:
+      default:
+	return HOST_WIDE_INT_C (0x0aaa0000);
+    }
 }
 
 /* Initialize the GCC target structure.  */
