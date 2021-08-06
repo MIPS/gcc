@@ -100,7 +100,7 @@ uptr GetMaxVirtualAddress() {
   // This should (does) work for both PowerPC64 Endian modes.
   // Similarly, aarch64 has multiple address space layouts: 39, 42 and 47-bit.
   return (1ULL << (MostSignificantSetBitIndex(GET_CURRENT_FRAME()) + 1)) - 1;
-# elif defined(__mips64)
+# elif SANITIZER_MIPS64
   return (1ULL << 40) - 1;  // 0x000000ffffffffffUL;
 # elif defined(__s390x__)
   return (1ULL << 53) - 1;  // 0x001fffffffffffffUL;

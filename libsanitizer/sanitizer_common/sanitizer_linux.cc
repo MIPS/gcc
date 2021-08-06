@@ -33,7 +33,7 @@
 // format. Struct kernel_stat is defined as 'struct stat' in asm/stat.h. To
 // access stat from asm/stat.h, without conflicting with definition in
 // sys/stat.h, we use this trick.
-#if defined(__mips64)
+#if SANITIZER_MIPS64
 #include <asm/unistd.h>
 #include <sys/types.h>
 #define stat kernel_stat
@@ -91,7 +91,7 @@ const int FUTEX_WAKE = 1;
 // x32 (which defines __x86_64__) has SANITIZER_WORDSIZE == 32
 // but it still needs to use 64-bit syscalls.
 #if SANITIZER_LINUX && (defined(__x86_64__) || defined(__powerpc64__) || \
-    SANITIZER_WORDSIZE == 64)
+    SANITIZER_WORDSIZE == 64 || _MIPS_SIM == _ABIN32)
 # define SANITIZER_LINUX_USES_64BIT_SYSCALLS 1
 #else
 # define SANITIZER_LINUX_USES_64BIT_SYSCALLS 0
@@ -199,7 +199,13 @@ static void stat64_to_stat(struct stat64 *in, struct stat *out) {
 }
 #endif
 
-#if defined(__mips64)
+#if SANITIZER_MIPS64
+// Undefine compatibility macros from <sys/stat.h>
+// so that they would not clash with the kernel_stat
+// st_[a|m|c]time fields
+#undef st_atime
+#undef st_mtime
+#undef st_ctime
 static void kernel_stat_to_stat(struct kernel_stat *in, struct stat *out) {
   internal_memset(out, 0, sizeof(*out));
   out->st_dev = in->st_dev;
@@ -226,7 +232,7 @@ uptr internal_stat(const char *path, void *buf) {
   return internal_syscall(SYSCALL(newfstatat), AT_FDCWD, (uptr)path,
                           (uptr)buf, 0);
 #elif SANITIZER_LINUX_USES_64BIT_SYSCALLS
-# if defined(__mips64)
+# if SANITIZER_MIPS64
   // For mips64, stat syscall fills buffer in the format of kernel_stat
   struct kernel_stat kbuf;
   int res = internal_syscall(SYSCALL(stat), path, &kbuf);
