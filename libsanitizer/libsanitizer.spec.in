@@ -9,3 +9,5 @@
 
 *link_liblsan: @link_liblsan@
 
+*link_libsan_rpath: @link_libsan_rpath@
+
