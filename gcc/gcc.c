@@ -701,13 +701,13 @@ proper position among the other output files.  */
 #define STATIC_LIBTSAN_LIBS \
   " %{static-libtsan|static:%:include(libsanitizer.spec)%(link_libtsan)}"
 #ifdef LIBTSAN_EARLY_SPEC
-#define LIBTSAN_SPEC STATIC_LIBTSAN_LIBS
+#define LIBTSAN_SPEC STATIC_LIBTSAN_LIBS LIBSAN_RPATH
 #elif defined(HAVE_LD_STATIC_DYNAMIC)
 #define LIBTSAN_SPEC "%{static-libtsan:" LD_STATIC_OPTION \
 		     "} -ltsan %{static-libtsan:" LD_DYNAMIC_OPTION "}" \
 		     STATIC_LIBTSAN_LIBS
 #else
-#define LIBTSAN_SPEC "-ltsan" STATIC_LIBTSAN_LIBS
+#define LIBTSAN_SPEC "-ltsan" STATIC_LIBTSAN_LIBS LIBSAN_RPATH
 #endif
 #endif
 
@@ -719,13 +719,13 @@ proper position among the other output files.  */
 #define STATIC_LIBLSAN_LIBS \
   " %{static-liblsan|static:%:include(libsanitizer.spec)%(link_liblsan)}"
 #ifdef LIBLSAN_EARLY_SPEC
-#define LIBLSAN_SPEC STATIC_LIBLSAN_LIBS
+#define LIBLSAN_SPEC STATIC_LIBLSAN_LIBS LIBSAN_RPATH
 #elif defined(HAVE_LD_STATIC_DYNAMIC)
 #define LIBLSAN_SPEC "%{static-liblsan:" LD_STATIC_OPTION \
 		     "} -llsan %{static-liblsan:" LD_DYNAMIC_OPTION "}" \
 		     STATIC_LIBLSAN_LIBS
 #else
-#define LIBLSAN_SPEC "-llsan" STATIC_LIBLSAN_LIBS
+#define LIBLSAN_SPEC "-llsan" STATIC_LIBLSAN_LIBS LIBSAN_RPATH
 #endif
 #endif
 
