@@ -41,7 +41,7 @@ void InitializeShadowMemory() {
 #if defined(__x86_64__)
   const uptr kMadviseRangeBeg  = 0x7f0000000000ull;
   const uptr kMadviseRangeSize = 0x010000000000ull;
-#elif defined(__mips64)
+#elif SANITIZER_MIPS64
   const uptr kMadviseRangeBeg  = 0xff00000000ull;
   const uptr kMadviseRangeSize = 0x0100000000ull;
 #elif defined(__aarch64__)

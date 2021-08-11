@@ -51,7 +51,7 @@ using namespace __tsan;  // NOLINT
 #endif
 
 
-#ifdef __mips__
+#if SANITIZER_MIPS64
 const int kSigCount = 129;
 #else
 const int kSigCount = 65;
@@ -62,7 +62,7 @@ struct my_siginfo_t {
   u64 opaque[128 / sizeof(u64)];
 };
 
-#ifdef __mips__
+#if SANITIZER_MIPS64
 struct ucontext_t {
   u64 opaque[768 / sizeof(u64) + 1];
 };
@@ -73,7 +73,7 @@ struct ucontext_t {
 };
 #endif
 
-#if defined(__x86_64__) || defined(__mips__) || SANITIZER_PPC64V1
+#if defined(__x86_64__) || SANITIZER_MIPS64 || SANITIZER_PPC64V1
 #define PTHREAD_ABI_BASE  "GLIBC_2.3.2"
 #elif defined(__aarch64__) || SANITIZER_PPC64V2
 #define PTHREAD_ABI_BASE  "GLIBC_2.17"
@@ -117,7 +117,7 @@ const int SIGFPE = 8;
 const int SIGSEGV = 11;
 const int SIGPIPE = 13;
 const int SIGTERM = 15;
-#if defined(__mips__) || SANITIZER_FREEBSD || SANITIZER_MAC
+#if SANITIZER_MIPS64 || SANITIZER_FREEBSD || SANITIZER_MAC
 const int SIGBUS = 10;
 const int SIGSYS = 12;
 #else
@@ -154,7 +154,7 @@ struct sigaction_t {
 };
 #else
 struct sigaction_t {
-#ifdef __mips__
+#if SANITIZER_MIPS64
   u32 sa_flags;
 #endif
   union {
@@ -169,7 +169,7 @@ struct sigaction_t {
   int sa_flags;
 #else
   __sanitizer_sigset_t sa_mask;
-#ifndef __mips__
+#if SANITIZER_MIPS64 == 0
   int sa_flags;
 #endif
   void (*sa_restorer)();
@@ -183,7 +183,7 @@ const sighandler_t SIG_ERR = (sighandler_t)-1;
 #if SANITIZER_FREEBSD || SANITIZER_MAC
 const int SA_SIGINFO = 0x40;
 const int SIG_SETMASK = 3;
-#elif defined(__mips__)
+#elif SANITIZER_MIPS64
 const int SA_SIGINFO = 8;
 const int SIG_SETMASK = 3;
 #else
@@ -481,7 +481,7 @@ static void LongJmp(ThreadState *thr, uptr *env) {
 #elif defined(SANITIZER_LINUX)
 # ifdef __aarch64__
   uptr mangled_sp = env[13];
-# elif defined(__mips64)
+# elif SANITIZER_MIPS64
   uptr mangled_sp = env[1];
 # else
   uptr mangled_sp = env[6];

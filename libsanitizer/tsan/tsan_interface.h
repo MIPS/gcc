@@ -145,7 +145,7 @@ typedef unsigned short     a16;  // NOLINT
 typedef unsigned int       a32;
 typedef unsigned long long a64;  // NOLINT
 #if !SANITIZER_GO && (defined(__SIZEOF_INT128__) \
-    || (__clang_major__ * 100 + __clang_minor__ >= 302)) && !defined(__mips64)
+    || (__clang_major__ * 100 + __clang_minor__ >= 302)) && (SANITIZER_MIPS64 == 0)
 __extension__ typedef __int128 a128;
 # define __TSAN_HAS_INT128 1
 #else

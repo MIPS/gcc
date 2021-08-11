@@ -62,7 +62,7 @@ struct Mapping {
 };
 
 #define TSAN_MID_APP_RANGE 1
-#elif defined(__mips64)
+#elif SANITIZER_MIPS64
 /*
 C/C++ on linux/mips64
 0100 0000 00 - 0200 0000 00: main binary

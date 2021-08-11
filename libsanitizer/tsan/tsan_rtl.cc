@@ -222,7 +222,7 @@ static void StartBackgroundThread() {
   ctx->background_thread = internal_start_thread(&BackgroundThread, 0);
 }
 
-#ifndef __mips__
+#if SANITIZER_MIPS64 == 0
 static void StopBackgroundThread() {
   atomic_store(&ctx->stop_background_thread, 1, memory_order_relaxed);
   internal_join_thread(ctx->background_thread);
@@ -369,7 +369,7 @@ void Initialize(ThreadState *thr) {
   // On MIPS, TSan initialization is run before
   // __pthread_initialize_minimal_internal() is finished, so we can not spawn
   // new threads.
-#ifndef __mips__
+#if SANITIZER_MIPS64 == 0
   StartBackgroundThread();
   SetSandboxingCallback(StopBackgroundThread);
 #endif
