@@ -1113,11 +1113,12 @@ asan_emit_stack_protection (rtx base, rtx pbase, unsigned int alignb,
     }
   /* Align base if target is STRICT_ALIGNMENT.  */
   if (STRICT_ALIGNMENT)
-    base = expand_binop (Pmode, and_optab, base,
-			 gen_int_mode (-((GET_MODE_ALIGNMENT (SImode)
-					  << ASAN_SHADOW_SHIFT)
-					 / BITS_PER_UNIT), Pmode), NULL_RTX,
-			 1, OPTAB_DIRECT);
+    {
+      const HOST_WIDE_INT align
+	= (GET_MODE_ALIGNMENT (SImode) / BITS_PER_UNIT) << ASAN_SHADOW_SHIFT;
+      base = expand_binop (Pmode, and_optab, base, gen_int_mode (-align, Pmode),
+			   NULL_RTX, 1, OPTAB_DIRECT);
+    }
 
   if (use_after_return_class == -1 && pbase)
     emit_move_insn (pbase, base);
