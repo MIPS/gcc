@@ -22368,13 +22368,6 @@ mips_option_override (void)
 	      "-mcompact-branches=never");
     }
 
-  // Fix E87. If mips_cb is not MIPS_CB_NEVER and ISA has compact branches,
-  // force to use MIPS_CB_ALWAYS.
-  if (mips_cb != MIPS_CB_NEVER && ISA_HAS_COMPACT_BRANCHES)
-    {
-      mips_cb = MIPS_CB_ALWAYS;
-    }
-
   if (is_micromips && TARGET_MSA)
     error ("unsupported combination: %s", "-mmicromips -mmsa");
 
