@@ -1905,10 +1905,12 @@ noce_try_synthesized_xor (struct noce_if_info *if_info)
      zero extend.  */
   rtx a = if_info->a;
   rtx_insn *insn_a = if_info->insn_a;
+  bool need_extend_insn = false;
   if ((GET_CODE (a) == ZERO_EXTEND
        || GET_CODE (a) == SIGN_EXTEND)
       && single_set (prev_nonnote_nondebug_insn (insn_a)))
     {
+      need_extend_insn = true;
       a = SET_SRC (single_set (prev_nonnote_nondebug_insn (insn_a)));
       insn_a = prev_nonnote_nondebug_insn (insn_a);
     }
@@ -1922,7 +1924,6 @@ noce_try_synthesized_xor (struct noce_if_info *if_info)
 
   rtx xor_src = XEXP (a, 0);
   rtx xor_const = XEXP (a, 1);
-  xor_src = GET_CODE (xor_src) == SUBREG ? SUBREG_REG (xor_src) : xor_src;
 
   /* Check if the instruction prior to XOR or IOR loads the constant into
      the register.  */
@@ -1948,12 +1949,20 @@ noce_try_synthesized_xor (struct noce_if_info *if_info)
   else if (GET_CODE (xor_const) != CONST_INT)
     return FALSE;
 
-  if (!rtx_equal_p (xor_src, if_info->x))
-    return FALSE;
+  if (GET_CODE (xor_src) == SUBREG)
+    {
+      if (!rtx_equal_p (SUBREG_REG (xor_src), if_info->x))
+	return FALSE;
+    }
+  else
+    {
+      if (!rtx_equal_p (xor_src, if_info->x))
+        return FALSE;
+    }
 
   start_sequence();
 
-  machine_mode mode = GET_MODE (if_info->x);
+  machine_mode mode = GET_MODE (xor_src);
   rtx const_reg = gen_reg_rtx (mode);
   rtx target = gen_reg_rtx (mode);
 
@@ -1968,13 +1977,43 @@ noce_try_synthesized_xor (struct noce_if_info *if_info)
       return FALSE;
     }
 
-  target = expand_simple_binop (GET_MODE (if_info->x), opcode,
-				 if_info->x, target, if_info->x,
-				 0, OPTAB_WIDEN);
-  if (!target)
+  if (need_extend_insn)
     {
-      end_sequence ();
-      return FALSE;
+      rtx target2 = gen_reg_rtx (mode);
+      target2 = expand_simple_binop (mode, opcode, xor_src, target, target2,
+				     0, OPTAB_DIRECT);
+      if (!target2)
+	{
+	  end_sequence ();
+	  return FALSE;
+	}
+
+      machine_mode extend_mode = GET_MODE (XEXP (if_info->a, 0));
+      if (mode != extend_mode)
+	{
+	  mode = extend_mode;
+	  target2 = gen_rtx_SUBREG(mode, target2, 0);
+	}
+
+      rtx_insn *pat = gen_extend_insn (if_info->x, target2,
+				       GET_MODE (if_info->x), mode,
+				       GET_CODE (if_info->a) == ZERO_EXTEND);
+      target = emit_insn (pat);
+      if (!target)
+	{
+	  end_sequence ();
+	  return FALSE;
+	}
+    }
+  else
+    {
+      target = expand_simple_binop (mode, opcode, xor_src, target, if_info->x,
+				     0, OPTAB_DIRECT);
+      if (!target)
+	{
+	  end_sequence ();
+	  return FALSE;
+	}
     }
 
   rtx_insn* seq = end_ifcvt_sequence (if_info);
