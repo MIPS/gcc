@@ -1992,7 +1992,7 @@ noce_try_synthesized_xor (struct noce_if_info *if_info)
       if (mode != extend_mode)
 	{
 	  mode = extend_mode;
-	  target2 = gen_rtx_SUBREG(mode, target2, 0);
+	  target2 = gen_lowpart_SUBREG(mode, target2);
 	}
 
       rtx_insn *pat = gen_extend_insn (if_info->x, target2,
