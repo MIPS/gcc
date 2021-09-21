@@ -731,17 +731,21 @@ proper position among the other output files.  */
 #define STACK_SPLIT_SPEC " %{fsplit-stack: --wrap=pthread_create}"
 #endif
 
+#ifndef LIBSAN_RPATH
+#define LIBSAN_RPATH " %:include(libsanitizer.spec)%(link_libsan_rpath)"
+#endif
+
 #ifndef LIBASAN_SPEC
 #define STATIC_LIBASAN_LIBS \
   " %{static-libasan|static:%:include(libsanitizer.spec)%(link_libasan)}"
 #ifdef LIBASAN_EARLY_SPEC
-#define LIBASAN_SPEC STATIC_LIBASAN_LIBS
+#define LIBASAN_SPEC STATIC_LIBASAN_LIBS LIBSAN_RPATH
 #elif defined(HAVE_LD_STATIC_DYNAMIC)
 #define LIBASAN_SPEC "%{static-libasan:" LD_STATIC_OPTION \
 		     "} -lasan %{static-libasan:" LD_DYNAMIC_OPTION "}" \
 		     STATIC_LIBASAN_LIBS
 #else
-#define LIBASAN_SPEC "-lasan" STATIC_LIBASAN_LIBS
+#define LIBASAN_SPEC "-lasan" STATIC_LIBASAN_LIBS LIBSAN_RPATH
 #endif
 #endif
 
@@ -809,9 +813,9 @@ proper position among the other output files.  */
 #ifdef HAVE_LD_STATIC_DYNAMIC
 #define LIBUBSAN_SPEC "%{static-libubsan:" LD_STATIC_OPTION \
 		     "} -lubsan %{static-libubsan:" LD_DYNAMIC_OPTION "}" \
-		     STATIC_LIBUBSAN_LIBS
+		     STATIC_LIBUBSAN_LIBS LIBSAN_RPATH
 #else
-#define LIBUBSAN_SPEC "-lubsan" STATIC_LIBUBSAN_LIBS
+#define LIBUBSAN_SPEC "-lubsan" STATIC_LIBUBSAN_LIBS LIBSAN_RPATH
 #endif
 #endif
 
