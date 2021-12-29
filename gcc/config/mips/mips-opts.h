@@ -60,4 +60,11 @@ enum mips_explicit_relocs {
   MIPS_EXPLICIT_RELOCS_BASE,
   MIPS_EXPLICIT_RELOCS_PCREL
 };
+
+/* Enumerates the setting of the -mclib= option.  */
+enum mips_lib_setting {
+  MIPS_LIB_NEWLIB,
+  MIPS_LIB_SMALL,
+  MIPS_LIB_TINY
+};
 #endif
