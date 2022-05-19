@@ -1,5 +1,4 @@
-/* Copyright (C) 2022 Free Software Foundation, Inc.
-   Contributed by Mohamed Atef <mohamedatef1698@gmail.com>.
+/* Contributed by Mohamed Atef <mohamedatef1698@gmail.com>.
    This file is part of the GNU Offloading and Multi Processing Library
    (libgomp).
    Libgomp is free software; you can redistribute it and/or modify it
