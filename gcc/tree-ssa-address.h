@@ -38,6 +38,8 @@ tree create_mem_ref (gimple_stmt_iterator *, tree,
 		     class aff_tree *, tree, tree, tree, bool);
 extern void copy_ref_info (tree, tree);
 tree maybe_fold_tmr (tree);
+bool multiplier_allowed_in_address_p (HOST_WIDE_INT ratio, machine_mode mode,
+				 addr_space_t as);
 
 extern unsigned int preferred_mem_scale_factor (tree base,
 						machine_mode mem_mode,

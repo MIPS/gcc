@@ -561,7 +561,7 @@ add_to_parts (struct mem_address *parts, tree elt)
    validity for a memory reference accessing memory of mode MODE in address
    space AS.  */
 
-static bool
+bool
 multiplier_allowed_in_address_p (HOST_WIDE_INT ratio, machine_mode mode,
 				 addr_space_t as)
 {
