@@ -4637,6 +4637,135 @@ get_address_cost_ainc (poly_int64 ainc_step, poly_int64 ainc_offset,
   return infinite_cost;
 }
 
+static void
+compute_symbol_and_var_present (tree e1, tree e2,
+       bool *symbol_present, bool *var_present)
+{
+  poly_uint64_pod off1, off2;
+
+  e1 = strip_offset (e1, &off1);
+  e2 = strip_offset (e2, &off2);
+
+  STRIP_NOPS (e1);
+  STRIP_NOPS (e2);
+
+  if (TREE_CODE (e1) == ADDR_EXPR)
+    {
+      poly_int64_pod diff;
+      if (ptr_difference_const (e1, e2, &diff))
+  {
+    *symbol_present = false;
+    *var_present = false;
+    return;
+  }
+
+      if (integer_zerop (e2))
+  {
+    tree core;
+    poly_int64_pod bitsize;
+    poly_int64_pod bitpos;
+    widest_int mul;
+    tree toffset;
+    machine_mode mode;
+    int unsignedp, reversep, volatilep;
+
+    core = get_inner_reference (TREE_OPERAND (e1, 0), &bitsize, &bitpos,
+      &toffset, &mode, &unsignedp, &reversep, &volatilep);
+
+    if (toffset != 0
+    || !constant_multiple_p (bitpos, BITS_PER_UNIT, &mul)
+    || reversep
+    || !VAR_P (core))
+      {
+    *symbol_present = false;
+    *var_present = true;
+    return;
+      }
+
+    if (TREE_STATIC (core)
+    || DECL_EXTERNAL (core))
+      {
+    *symbol_present = true;
+    *var_present = false;
+    return;
+      }
+
+    *symbol_present = false;
+    *var_present = true;
+    return;
+  }
+
+      *symbol_present = false;
+      *var_present = true;
+    }
+  *symbol_present = false;
+
+  if (operand_equal_p (e1, e2, 0))
+    {
+      *var_present = false;
+      return;
+    }
+
+  *var_present = true;
+}
+
+static void
+compute_min_and_max_offset (addr_space_t as,
+       machine_mode mem_mode, poly_int64_pod *min_offset,
+       poly_int64_pod *max_offset)
+{
+  machine_mode address_mode = targetm.addr_space.address_mode (as);
+  HOST_WIDE_INT i;
+  poly_int64_pod off, width;
+  rtx addr;
+  rtx reg1;
+
+  reg1 = gen_raw_REG (address_mode, LAST_VIRTUAL_REGISTER + 1);
+
+  width = GET_MODE_BITSIZE (address_mode) - 1;
+  if (known_gt (width, HOST_BITS_PER_WIDE_INT - 1))
+	  width = HOST_BITS_PER_WIDE_INT - 1;
+  gcc_assert (width.is_constant ());
+  addr = gen_rtx_fmt_ee (PLUS, address_mode, reg1, NULL_RTX);
+
+  off = 0;
+  for (i = width.to_constant (); i >= 0; i--)
+    {
+      off = -(HOST_WIDE_INT_1U << i);
+      XEXP (addr, 1) = gen_int_mode (off, address_mode);
+      if (memory_address_addr_space_p (mem_mode, addr, as))
+    break;
+    }
+  if (i == -1)
+    *min_offset = 0;
+  else
+    *min_offset = off;
+  // *min_offset = (i == -1? 0 : off);
+
+  for (i = width.to_constant (); i >= 0; i--)
+    {
+      off = (HOST_WIDE_INT_1U << i) - 1;
+      XEXP (addr, 1) = gen_int_mode (off, address_mode);
+      if (memory_address_addr_space_p (mem_mode, addr, as))
+    break;
+    /* For some strict-alignment targets, the offset must be naturally
+      aligned.  Try an aligned offset if mem_mode is not QImode.  */
+      off = mem_mode != QImode
+      ? (HOST_WIDE_INT_1U << i)
+      - (GET_MODE_SIZE (mem_mode))
+      : 0;
+      if (known_gt (off, 0))
+    {
+      XEXP (addr, 1) = gen_int_mode (off, address_mode);
+      if (memory_address_addr_space_p (mem_mode, addr, as))
+    break;
+    }
+    }
+  if (i == -1)
+	  off = 0;
+  *max_offset = off;
+}
+
 /* Return cost of computing USE's address expression by using CAND.
    AFF_INV and AFF_VAR represent invariant and variant parts of the
    address expression, respectively.  If AFF_INV is simple, store
@@ -4665,6 +4794,13 @@ get_address_cost (struct ivopts_data *data, struct iv_use *use,
   /* Only true if ratio != 1.  */
   bool ok_with_ratio_p = false;
   bool ok_without_ratio_p = false;
+  tree ubase = use->iv->base;
+  tree cbase = cand->iv->base, cstep = cand->iv->step;
+  tree utype = TREE_TYPE (ubase), ctype;
+  unsigned HOST_WIDE_INT cstepi;
+  bool symbol_present = false, var_present = false, stmt_is_after_increment;
+  poly_int64_pod min_offset, max_offset;
+  bool offset_p, ratio_p;
 
   if (!aff_combination_const_p (aff_inv))
     {
@@ -4778,16 +4914,74 @@ get_address_cost (struct ivopts_data *data, struct iv_use *use,
   gcc_assert (memory_address_addr_space_p (mem_mode, addr, as));
   cost += address_cost (addr, mem_mode, as, speed);
 
-  if (parts.symbol != NULL_TREE)
-    cost.complexity += 1;
-  /* Don't increase the complexity of adding a scaled index if it's
-     the only kind of index that the target allows.  */
-  if (parts.step != NULL_TREE && ok_without_ratio_p)
-    cost.complexity += 1;
-  if (parts.base != NULL_TREE && parts.index != NULL_TREE)
-    cost.complexity += 1;
-  if (parts.offset != NULL_TREE && !integer_zerop (parts.offset))
-    cost.complexity += 1;
+  if (cst_and_fits_in_hwi (cstep))
+    cstepi = int_cst_value (cstep);
+  else
+    cstepi = 0;
+
+  STRIP_NOPS (cbase);
+  ctype = TREE_TYPE (cbase);
+
+  stmt_is_after_increment = stmt_after_increment (data->current_loop, cand,
+    use->stmt);
+
+  if (cst_and_fits_in_hwi (cbase))
+    compute_symbol_and_var_present (ubase, build_int_cst (utype, 0),
+      &symbol_present, &var_present);
+  else if (ratio == 1)
+    {
+      tree real_cbase = cbase;
+
+      /* Check to see if any adjustment is needed.  */
+      if (!cst_and_fits_in_hwi (cstep) && stmt_is_after_increment)
+	{
+	  aff_tree real_cbase_aff;
+	  aff_tree cstep_aff;
+
+	  tree_to_aff_combination (cbase, TREE_TYPE (real_cbase),
+				   &real_cbase_aff);
+	  tree_to_aff_combination (cstep, TREE_TYPE (cstep), &cstep_aff);
+
+	  aff_combination_add (&real_cbase_aff, &cstep_aff);
+	  real_cbase = aff_combination_to_tree (&real_cbase_aff);
+	}
+    compute_symbol_and_var_present (ubase, real_cbase,
+      &symbol_present, &var_present);
+    }
+  else if (!POINTER_TYPE_P (ctype)
+	   && multiplier_allowed_in_address_p
+		(ratio, mem_mode,
+			TYPE_ADDR_SPACE (TREE_TYPE (utype))))
+    {
+      tree real_cbase = cbase;
+
+      if (cstepi == 0 && stmt_is_after_increment)
+	{
+	  if (POINTER_TYPE_P (ctype))
+	    real_cbase = fold_build2 (POINTER_PLUS_EXPR, ctype, cbase, cstep);
+	  else
+	    real_cbase = fold_build2 (PLUS_EXPR, ctype, cbase, cstep);
+	}
+      real_cbase = fold_build2 (MULT_EXPR, ctype, real_cbase,
+				build_int_cst (ctype, ratio));
+    compute_symbol_and_var_present (ubase, real_cbase,
+      &symbol_present, &var_present);
+    }
+  else
+    {
+    compute_symbol_and_var_present (ubase, build_int_cst (utype, 0),
+      &symbol_present, &var_present);
+    }
+
+  compute_min_and_max_offset (as, mem_mode, &min_offset, &max_offset);
+  offset_p = maybe_ne (aff_inv->offset, 0)
+       && known_le (min_offset, aff_inv->offset)
+       && known_le (aff_inv->offset, max_offset);
+  ratio_p = (ratio != 1
+	     && multiplier_allowed_in_address_p (ratio, mem_mode, as));
+
+  cost.complexity = (symbol_present != 0) + (var_present != 0)
+       + offset_p + ratio_p;
 
   return cost;
 }
