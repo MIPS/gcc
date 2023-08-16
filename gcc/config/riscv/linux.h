@@ -61,6 +61,11 @@ along with GCC; see the file COPYING3.  If not see
 	-dynamic-linker " GNU_USER_DYNAMIC_LINKER "}} \
     %{static:-static} %{static-pie:-static -pie --no-dynamic-linker -z text}}"
 
+#undef SYSROOT_SUFFIX_SPEC
+#define SYSROOT_SUFFIX_SPEC "/riscv%{mbig-endian:eb}"
+
+#define SYSROOT_HEADERS_SUFFIX_SPEC SYSROOT_SUFFIX_SPEC
+
 #define STARTFILE_PREFIX_SPEC 			\
    "/lib" XLEN_SPEC "/" ABI_SPEC "/ "		\
    "/usr/lib" XLEN_SPEC "/" ABI_SPEC "/ "	\
