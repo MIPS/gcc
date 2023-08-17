@@ -18,11 +18,11 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 #define LINK_SPEC "\
--melf" XLEN_SPEC DEFAULT_ENDIAN_SPEC "riscv \
-%{mno-relax:--no-relax} \
 -X \
 %{mbig-endian:-EB} \
 %{mlittle-endian:-EL} \
+-melf" XLEN_SPEC "%{mbig-endian:b}%{mlittle-endian:l}riscv \
+%{mno-relax:--no-relax} \
 %{shared}"
 
 /* Link against Newlib libraries, because the ELF backend assumes Newlib.

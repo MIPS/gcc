@@ -48,11 +48,11 @@ along with GCC; see the file COPYING3.  If not see
   "%{mabi=ilp32:_ilp32}"
 
 #define LINK_SPEC "\
--melf" XLEN_SPEC DEFAULT_ENDIAN_SPEC "riscv" LD_EMUL_SUFFIX " \
-%{mno-relax:--no-relax} \
 -X \
 %{mbig-endian:-EB} \
 %{mlittle-endian:-EL} \
+-melf" XLEN_SPEC "%{mbig-endian:b}%{mlittle-endian:l}riscv" LD_EMUL_SUFFIX " \
+%{mno-relax:--no-relax} \
 %{shared} \
   %{!shared: \
     %{!static: \

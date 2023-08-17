@@ -52,6 +52,45 @@ extern const char *riscv_default_mtune (int argc, const char **argv);
 extern const char *riscv_multi_lib_check (int argc, const char **argv);
 extern const char *riscv_arch_help (int argc, const char **argv);
 
+#ifdef TARGET_BIG_ENDIAN_DEFAULT
+#define TARGET_ENDIAN_DEFAULT MASK_BIG_ENDIAN
+#else
+#define TARGET_ENDIAN_DEFAULT 0
+#endif
+
+/* We must pass -EB to the linker by default for big endian embedded
+   targets using linker scripts with a OUTPUT_FORMAT line.  Otherwise, the
+   linker will default to using little-endian output files.  The OUTPUT_FORMAT
+   line must be in the linker script, otherwise -EB/-EL will not work.  */
+
+#ifndef ENDIAN_SPEC
+#if TARGET_ENDIAN_DEFAULT == 0
+#define ENDIAN_SPEC "%{!mbig-endian:-mlittle-endian} %{mbig-endian:-mbig-endian}"
+#else
+#define ENDIAN_SPEC "%{!mlittle-endian:-mbig-endian} %{mlittle-endian:-mlittle-endian}"
+#endif
+#endif
+
+
+/* CC1_SPEC is the set of arguments to pass to the compiler proper.  */
+
+#undef CC1_SPEC
+#define CC1_SPEC "\
+%{mbig-endian} %{mlittle-endian} %{mbig-endian:%{mlittle-endian:%emay not use both -mbig-endian and -mlittle-endian}}"
+
+/* This macro defines names of additional specifications to put in the specs
+   that can be used in various specifications like CC1_SPEC.  Its definition
+   is an initializer with a subgrouping for each command option.
+
+   Each subgrouping contains a string constant, that defines the
+   specification name, and a string constant that used by the GCC driver
+   program.
+
+   Do not define this macro if it does not need to do anything.  */
+
+#define EXTRA_SPECS							\
+  { "endian_spec", ENDIAN_SPEC }
+
 # define EXTRA_SPEC_FUNCTIONS						\
   { "riscv_expand_arch", riscv_expand_arch },				\
   { "riscv_expand_arch_from_cpu", riscv_expand_arch_from_cpu },		\
@@ -95,9 +134,18 @@ extern const char *riscv_arch_help (int argc, const char **argv);
 #define STRINGIZING(s) __STRINGIZING(s)
 #define __STRINGIZING(s) #s
 
+#ifndef MULTILIB_ENDIAN_DEFAULT
+#if TARGET_ENDIAN_DEFAULT == 0
+#define MULTILIB_ENDIAN_DEFAULT "mlittle-endian"
+#else
+#define MULTILIB_ENDIAN_DEFAULT "mbig-endian"
+#endif
+#endif
+
 #define MULTILIB_DEFAULTS \
   {"march=" STRINGIZING (TARGET_RISCV_DEFAULT_ARCH), \
-   "mabi=" STRINGIZING (TARGET_RISCV_DEFAULT_ABI) }
+   "mabi=" STRINGIZING (TARGET_RISCV_DEFAULT_ABI), \
+   MULTILIB_ENDIAN_DEFAULT }
 
 #undef ASM_SPEC
 #define ASM_SPEC "\
@@ -117,7 +165,10 @@ ASM_MISA_SPEC
 "%{print-supported-extensions:%:riscv_arch_help()} "		\
 "%{-print-supported-extensions:%:riscv_arch_help()} "		\
 "%{march=*:%:riscv_expand_arch(%*)} "				\
-"%{!march=*:%{mcpu=*:%:riscv_expand_arch_from_cpu(%*)}} "
+"%{!march=*:%{mcpu=*:%:riscv_expand_arch_from_cpu(%*)}} "	\
+/* Make sure that an endian option is always present.This makes	\
+   things like LINK_SPEC easier to write.  */			\
+"%{!mbig-endian:%{!mlittle-endian:%(endian_spec)}}"
 
 #define LOCAL_LABEL_PREFIX	"."
 #define USER_LABEL_PREFIX	""

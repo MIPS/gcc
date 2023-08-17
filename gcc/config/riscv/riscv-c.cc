@@ -48,6 +48,11 @@ riscv_cpu_cpp_builtins (cpp_reader *pfile)
 {
   builtin_define ("__riscv");
 
+  if (TARGET_BIG_ENDIAN)
+    builtin_define ("__riscv_big_endian");
+  else
+    builtin_define ("__riscv_little_endian");
+
   if (TARGET_RVC || TARGET_ZCA)
     builtin_define ("__riscv_compressed");
 
