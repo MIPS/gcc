@@ -694,3 +694,7 @@ Specifies whether the fence.tso instruction should be used.
 mautovec-segment
 Target Integer Var(riscv_mautovec_segment) Init(1)
 Enable (default) or disable generation of vector segment load/store instructions.
+
+mremove-back-to-back-branches
+Target Var(TARGET_REMOVE_BACK_TO_BACK_BRANCHES) Init(0)
+Emit nop to remove back-to-back branches.
