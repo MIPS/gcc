@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-march=rv64gc_xmipslsp -mtune=mips-p8700" { target { rv64 } } } */
+/* { dg-options "-march=rv64gc_xmipslsp -mtune=mips-p8700 -mno-double-align" { target { rv64 } } } */
 /* { dg-skip-if "" { *-*-* } { "-O0" "-O1" "-Og" } } */
 
 #define MYTEST(name, mytype) \

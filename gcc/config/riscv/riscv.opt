@@ -698,3 +698,7 @@ Enable (default) or disable generation of vector segment load/store instructions
 mremove-back-to-back-branches
 Target Var(TARGET_REMOVE_BACK_TO_BACK_BRANCHES) Init(0)
 Emit nop to remove back-to-back branches.
+
+mdouble-align
+Target Var(TARGET_DOUBLE_ALIGN) Init(1)
+Ensure double alignment for load/store pair instructions.
