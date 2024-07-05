@@ -11748,7 +11748,11 @@ riscv_avoid_hazard (rtx_insn *after, rtx_insn *insn)
       || get_attr_type (insn) != TYPE_BRANCH)
     return;
 
-  emit_insn_after (gen_nop(), after);
+  /* Emit align label.  */
+  rtx_code_label *label = gen_label_rtx();
+  LABEL_NUSES (label) = 1;
+  emit_label_after (label, after);
+  emit_insn_after (gen_hazard_nop(), after);
 }
 
 /* Entry point called from riscv_reorg to remove back-to-back branches

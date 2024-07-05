@@ -319,6 +319,14 @@ ASM_MISA_SPEC
 #define LOCAL_ALIGNMENT(TYPE, ALIGN) \
   RISCV_EXPAND_ALIGNMENT (true, TYPE, ALIGN)
 
+#define LABEL_ALIGN(A_LABEL) \
+(									\
+  (PREV_INSN (A_LABEL)							\
+   && NONJUMP_INSN_P (PREV_INSN (A_LABEL))				\
+   && GET_CODE (PATTERN (PREV_INSN (A_LABEL))) == UNSPEC_VOLATILE	\
+   && XINT (PATTERN (PREV_INSN (A_LABEL)), 1) == UNSPECV_HAZARD_NOP)	\
+   ? 3 : align_labels)
+
 /* Define if operations between registers always perform the operation
    on the full register even if a narrower mode is specified.  */
 #define WORD_REGISTER_OPERATIONS 1
