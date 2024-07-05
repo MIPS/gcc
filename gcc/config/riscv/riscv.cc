@@ -91,6 +91,14 @@ along with GCC; see the file COPYING3.  If not see
 #define	TARGET_COND_MOV						\
    (TARGET_SFB_ALU || TARGET_XTHEADCONDMOV || TARGET_XMIPSCMOV)
 
+/* True if INSN is a riscv.md pattern or asm statement.  */
+/* ???  This test exists through the compiler, perhaps it should be
+	moved to rtl.h.  */
+#define USEFUL_INSN_P(INSN)						\
+  (NONDEBUG_INSN_P (INSN)						\
+   && GET_CODE (PATTERN (INSN)) != USE					\
+   && GET_CODE (PATTERN (INSN)) != CLOBBER)
+
 /* True if X is an UNSPEC wrapper around a SYMBOL_REF or LABEL_REF.  */
 #define UNSPEC_ADDRESS_P(X)					\
   (GET_CODE (X) == UNSPEC					\
@@ -11725,6 +11733,45 @@ riscv_promote_function_mode (const_tree type ATTRIBUTE_UNUSED,
   return smode;
 }
 
+/* If there is a hazard between INSN and a previous instruction, avoid it by
+   inserting nops after instruction AFTER.  */
+
+void
+riscv_avoid_hazard (rtx_insn *after, rtx_insn *insn)
+{
+  /* If there are nonjump instructions, just return.  */
+  if (NONJUMP_INSN_P (after) || NONJUMP_INSN_P (insn))
+    return;
+
+  /* If there are not back-to-back branches, just return.  */
+  if (get_attr_type (after) != TYPE_BRANCH
+      || get_attr_type (insn) != TYPE_BRANCH)
+    return;
+
+  emit_insn_after (gen_nop(), after);
+}
+
+/* Entry point called from riscv_reorg to remove back-to-back branches
+   via inserting nops when -mremove-back-to-back-branches is in use.  */
+
+void
+riscv_remove_back_to_back_branches (void)
+{
+  rtx_insn *insn, *last_insn, *next_insn;
+
+  last_insn = 0;
+  for (insn = get_insns (); insn != 0; insn = next_insn)
+    {
+      next_insn = NEXT_INSN (insn);
+      if (USEFUL_INSN_P (insn))
+	{
+	  if (last_insn != 0)
+	    riscv_avoid_hazard (last_insn, insn);
+	  last_insn = insn;
+	}
+    }
+}
+
 /* Implement TARGET_MACHINE_DEPENDENT_REORG.  */
 
 static void
@@ -11733,6 +11780,8 @@ riscv_reorg (void)
   /* Do nothing unless we have -msave-restore */
   if (TARGET_SAVE_RESTORE)
     riscv_remove_unneeded_save_restore_calls ();
+  else if (TARGET_REMOVE_BACK_TO_BACK_BRANCHES)
+    riscv_remove_back_to_back_branches ();
 }
 
 /* Return nonzero if register FROM_REGNO can be renamed to register
