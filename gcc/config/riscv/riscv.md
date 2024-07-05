@@ -152,6 +152,8 @@
   ;; XTheadInt unspec
   UNSPECV_XTHEADINT_PUSH
   UNSPECV_XTHEADINT_POP
+
+  UNSPECV_HAZARD_NOP
 ])
 
 (define_constants

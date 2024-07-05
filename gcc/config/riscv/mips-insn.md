@@ -217,3 +217,9 @@
   [(set_attr "move_type" "load")
    (set_attr "mode" "SI")])
 
+(define_insn "hazard_nop"
+  [(unspec_volatile [(const_int 0)] UNSPECV_HAZARD_NOP)]
+  ""
+  "# branch to branch hazard"
+  [(set_attr "type" "ghost")
+   (set_attr "mode" "none")])
