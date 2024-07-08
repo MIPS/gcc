@@ -702,3 +702,19 @@ Emit nop to remove back-to-back branches.
 mdouble-align
 Target Var(TARGET_DOUBLE_ALIGN) Init(1)
 Ensure double alignment for load/store pair instructions.
+
+mbranch-imm
+Target Warn(%qs is deprecated)
+Enable branch immediate instructions.
+
+mlsa
+Target Warn(%qs is deprecated)
+Enable left-shift add instructions.
+
+mext
+Target Warn(%qs is deprecated)
+Enable custom ext instructions.
+
+mins
+Target Warn(%qs is deprecated)
+Enable custom ins instructions.
