@@ -223,3 +223,18 @@
   "# branch to branch hazard"
   [(set_attr "type" "ghost")
    (set_attr "mode" "none")])
+
+;; Combine lh and right shift 8 to lb.
+(define_peephole2
+  [(set (match_operand:SI 0 "register_operand")
+       (sign_extend:SI (mem:HI (match_operand 1 "nonimmediate_operand"))))
+   (set (match_operand:DI 2 "register_operand")
+       (sign_extend:DI (ashiftrt:SI (match_dup 0) (const_int 8))))]
+  "TARGET_64BIT && !BYTES_BIG_ENDIAN
+   && (REGNO (operands[0]) == REGNO (operands[2])
+       || peep2_reg_dead_p (0, operands[0]))"
+  [(set (match_operand:DI 2 "register_operand")
+       (sign_extend:DI (mem:QI (plus:DI (match_operand 1
+                                         "nonimmediate_operand")
+                                        (const_int 1)))))]
+  "")
