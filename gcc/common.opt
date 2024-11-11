@@ -3082,6 +3082,10 @@ fthread-jumps
 Common Var(flag_thread_jumps) Optimization
 Perform jump threading optimizations.
 
+fthread-jumps-first
+Common Var(flag_thread_jumps_first) Optimization
+Perform first set of jump threading optimizations.
+
 ftime-report
 Common Var(time_report)
 Report the time taken by each compiler pass.
