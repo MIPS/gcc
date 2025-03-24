@@ -12306,7 +12306,10 @@ proc check_vect_support_and_set_flags { } {
     } elseif [istarget amdgcn-*-*] {
 	set dg-do-what-default run
     } elseif [istarget riscv*-*-*] {
-	if [check_effective_target_riscv_v] {
+	# Return 0 for big-endian targets.
+	if [check_effective_target_be] {
+	    return 0
+        } elseif [check_effective_target_riscv_v] {
 	    set dg-do-what-default run
 	    if [check_effective_target_riscv_v_misalign_ok] {
 		lappend DEFAULT_VECTCFLAGS "-mno-vector-strict-align"

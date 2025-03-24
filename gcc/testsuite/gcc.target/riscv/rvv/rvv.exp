@@ -21,6 +21,11 @@ if ![istarget riscv*-*-*] then {
   return
 }
 
+# Return for big-endian targets.
+if [check_effective_target_be] then {
+  return
+}
+
 # Load support procs.
 load_lib gcc-dg.exp
 
