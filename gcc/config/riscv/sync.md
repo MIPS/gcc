@@ -137,7 +137,7 @@
 	   (match_operand:SI 2 "const_int_operand")] ;; model
 	 UNSPEC_SYNC_OLD_OP))
    (clobber (match_scratch:GPR 3 "=&r"))]	     ;; tmp_1
-  "!TARGET_ZAAMO && TARGET_ZALRSC"
+  "(!TARGET_ZAAMO || TARGET_PREFER_LRSC) && TARGET_ZALRSC"
   {
     return "1:\;"
 	   "lr.<amo>%I2\t%3, %0\;"
@@ -190,7 +190,7 @@
 	   (match_operand:SI 3 "const_int_operand")] ;; model
 	 UNSPEC_SYNC_OLD_OP))
    (clobber (match_scratch:GPR 4 "=&r"))]	  ;; tmp_1
-  "!TARGET_ZAAMO && TARGET_ZALRSC"
+  "(!TARGET_ZAAMO || TARGET_PREFER_LRSC) && TARGET_ZALRSC"
   {
     return "1:\;"
 	   "lr.<amo>%I3\t%0, %1\;"
@@ -407,7 +407,7 @@
    (set (match_dup 1)
 	(match_operand:GPR 2 "reg_or_0_operand" "rJ"))
    (clobber (match_scratch:GPR 4 "=&r"))]	  ;; tmp_1
-  "!TARGET_ZAAMO && TARGET_ZALRSC"
+  "(!TARGET_ZAAMO || TARGET_PREFER_LRSC) && TARGET_ZALRSC"
   {
     return "1:\;"
 	   "lr.<amo>%I3\t%0, %1\;"

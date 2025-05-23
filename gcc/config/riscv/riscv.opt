@@ -718,3 +718,7 @@ Enable custom ext instructions.
 mins
 Target Warn(%qs is deprecated)
 Enable custom ins instructions.
+
+mprefer-lrsc
+Target Var(TARGET_PREFER_LRSC) Init(0)
+Prefer to emit LR/SC instead of AMO for atomic builtin functions.
