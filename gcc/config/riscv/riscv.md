@@ -3299,7 +3299,7 @@
 			  (match_operand:GPR 2 "movcc_operand")
 			  (match_operand:GPR 3 "movcc_operand")))]
   "TARGET_SFB_ALU || TARGET_XTHEADCONDMOV || TARGET_ZICOND_LIKE
-   || TARGET_MOVCC"
+   || TARGET_MOVCC || TARGET_XMIPSCMOV"
 {
   if (riscv_expand_conditional_move (operands[0], operands[1],
 				     operands[2], operands[3]))
@@ -4846,6 +4846,7 @@
 (include "vector-crypto.md")
 (include "vector-bfloat16.md")
 (include "zicond.md")
+(include "mips-insn.md")
 (include "sfb.md")
 (include "zc.md")
 (include "corev.md")

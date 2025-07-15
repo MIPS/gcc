@@ -523,6 +523,11 @@ int riscv_xventana_subext
 Mask(XVENTANACONDOPS) Var(riscv_xventana_subext)
 
 TargetVariable
+int riscv_xmips_subext
+
+Mask(XMIPSCMOV) Var(riscv_xmips_subext)
+
+TargetVariable
 int riscv_sifive_subext
 
 Mask(XSFVCP) Var(riscv_sifive_subext)
