@@ -527,6 +527,8 @@ int riscv_xmips_subext
 
 Mask(XMIPSCMOV) Var(riscv_xmips_subext)
 
+Mask(XMIPSCBOP) Var(riscv_xmips_subext)
+
 TargetVariable
 int riscv_sifive_subext
 
