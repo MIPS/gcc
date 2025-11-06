@@ -1314,8 +1314,10 @@ extern void riscv_remove_unneeded_save_restore_calls (void);
 /* TARGET_DAIMYO checks if cores are from Wave Computing/MIPS.  */
 #define TARGET_DAIMYO (riscv_microarchitecture == mips_p8700)
 
+/* Enable load store bonding for daimyo.  */
 #define ENABLE_LD_ST_PAIRS \
-  (TARGET_XMIPSLSP || TARGET_LOAD_STORE_BONDING)
+  ((TARGET_XMIPSLSP || TARGET_LOAD_STORE_BONDING) && \
+   TARGET_DAIMYO)
 
 #define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) \
   ((VALUE) = GET_MODE_UNIT_BITSIZE (MODE), 2)
