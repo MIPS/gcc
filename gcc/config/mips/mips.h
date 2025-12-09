@@ -1687,7 +1687,7 @@ FP_ASM_SPEC "\
 
 /* long double is not a fixed mode, but the idea is that, if we
    support long double, we also want a 128-bit integer type.  */
-#define MAX_FIXED_MODE_SIZE MIPS_LONG_DOUBLE_TYPE_SIZE
+#define MAX_FIXED_MODE_SIZE (TARGET_64BIT ? 128 : 64)
 
 /* Width in bits of a pointer.  */
 #ifndef POINTER_SIZE
