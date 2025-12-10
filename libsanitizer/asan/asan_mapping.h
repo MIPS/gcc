@@ -65,6 +65,13 @@
 // || `[0x0aaa0000, 0x0bff3fff]` || LowShadow  ||
 // || `[0x00000000, 0x0aa9ffff]` || LowMem     ||
 //
+// Default Linux/MIPS64 n32 ABI mapping:
+// || `[0x40000000, 0xffffffff]` || HighMem    ||
+// || `[0x28000000, 0x3fffffff]` || HighShadow ||
+// || `[0x24000000, 0x27ffffff]` || ShadowGap  ||
+// || `[0x20000000, 0x23ffffff]` || LowShadow  ||
+// || `[0x00000000, 0x1fffffff]` || LowMem     ||
+//
 // Default Linux/MIPS64 mapping:
 // || `[0x4000000000, 0xffffffffff]` || HighMem    ||
 // || `[0x2800000000, 0x3fffffffff]` || HighShadow ||
@@ -168,6 +175,8 @@
 #elif SANITIZER_WORDSIZE == 32
 #  if SANITIZER_ANDROID
 #    define ASAN_SHADOW_OFFSET_DYNAMIC
+#  elif _MIPS_SIM==_ABIN32
+#    define ASAN_SHADOW_OFFSET_CONST 0x20000000
 #  elif defined(__mips__)
 #    define ASAN_SHADOW_OFFSET_CONST 0x0aaa0000
 #  elif SANITIZER_FREEBSD
