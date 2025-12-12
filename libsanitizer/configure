@@ -661,6 +661,7 @@ link_libubsan
 link_libtsan
 link_libhwasan
 link_libasan
+link_libsan_rpath
 HWASAN_SUPPORTED_FALSE
 HWASAN_SUPPORTED_TRUE
 LSAN_SUPPORTED_FALSE
@@ -16130,6 +16131,10 @@ $as_echo "$ac_cv_lib_dl_dlsym" >&6; }
 if test "x$ac_cv_lib_dl_dlsym" = xyes; then :
   link_sanitizer_common="-ldl $link_sanitizer_common"
 fi
+
+
+lt_multi_os_dir=`$CC $CPPFLAGS $CFLAGS $LDFLAGS -print-multi-os-directory 2>/dev/null`
+link_libsan_rpath="-rpath-link=${prefix}/mips-img-linux-gnu/lib/$lt_multi_os_dir"
 
 
 # Set up the set of additional libraries that we need to link against for libasan.
