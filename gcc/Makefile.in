@@ -3527,7 +3527,11 @@ stmp-int-hdrs: $(STMP_FIXINC) $(T_GLIMITS_H) $(T_STDINT_GCC_H) $(USER_H) fixinc_
 	set -e; for ml in `cat fixinc_list`; do \
 	  sysroot_headers_suffix=`echo $${ml} | sed -e 's/;.*$$//'`; \
 	  multi_dir=`echo $${ml} | sed -e 's/^[^;]*;//'`; \
-	  include_dir=include$${multi_dir}; \
+	  if [ x$(STMP_FIXINC) != x ]; then \
+	    include_dir=include-fixed$${multi_dir}; \
+	  else \
+	    include_dir=include$${multi_dir}; \
+	  fi; \
 	  if $(LIMITS_H_TEST) ; then \
 	    cat $(srcdir)/limitx.h $(T_GLIMITS_H) $(srcdir)/limity.h > tmp-xlimits.h; \
 	  else \
@@ -3654,6 +3658,13 @@ stmp-fixinc: gsyslimits.h macro_list fixinc_list \
 	      cd $(build_objdir)/fixincludes && \
 	      $(SHELL) ./fixinc.sh "$${gcc_dir}/$${fix_dir}" \
 	        $(BUILD_SYSTEM_HEADER_DIR) $(OTHER_FIXINCLUDES_DIRS) ); \
+	    rm -f $${fix_dir}/syslimits.h; \
+	    if [ -f $${fix_dir}/limits.h ]; then \
+	      mv $${fix_dir}/limits.h $${fix_dir}/syslimits.h; \
+	    else \
+	      cp $(srcdir)/gsyslimits.h $${fix_dir}/syslimits.h; \
+	    fi; \
+	    chmod a+r $${fix_dir}/syslimits.h; \
 	  done; \
 	fi
 	$(STAMP) stmp-fixinc
@@ -4450,7 +4461,11 @@ install-mkheaders: stmp-int-hdrs install-itoolsdirs \
 	set -e; for ml in `cat fixinc_list`; do \
 	  multi_dir=`echo $${ml} | sed -e 's/^[^;]*;//'`; \
 	  $(mkinstalldirs) $(DESTDIR)$(itoolsdatadir)/include$${multi_dir}; \
-	  $(INSTALL_DATA) include$${multi_dir}/limits.h $(DESTDIR)$(itoolsdatadir)/include$${multi_dir}/limits.h; \
+	  if [ x$(STMP_FIXINC) != x ]; then \
+	    $(INSTALL_DATA) include-fixed$${multi_dir}/limits.h $(DESTDIR)$(itoolsdatadir)/include$${multi_dir}/limits.h; \
+	  else \
+	    $(INSTALL_DATA) include$${multi_dir}/limits.h $(DESTDIR)$(itoolsdatadir)/include$${multi_dir}/limits.h; \
+	  fi \
 	done
 	$(INSTALL_SCRIPT) $(srcdir)/../mkinstalldirs \
 		$(DESTDIR)$(itoolsdir)/mkinstalldirs ; \
