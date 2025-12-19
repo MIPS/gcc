@@ -4252,7 +4252,7 @@ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 int
 main ()
 {
-printf ("hello world\n");
+//printf ("hello world\n");
   ;
   return 0;
 }
