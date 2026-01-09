@@ -12024,15 +12024,15 @@ riscv_output_join2_insns (rtx *operands, machine_mode mode, bool load_p,
 	   && REGNO (reg2) != REGNO (base1)) || !load_p)) {
     if (offset1 < offset2) {
       if (load_p)
-	return mode == DImode ? "ldp\t%0,%2,%1" : "lwp\t%0,%2,%1";
+	return mode == DImode ? ".option push\n.option arch,+xmipslsp\nmips.ldp\t%0,%2,%1\n.option pop" : ".option push\n.option arch,+xmipslsp\nmips.lwp\t%0,%2,%1\n.option pop";
       else
-	return mode == DImode ? "sdp\t%z1,%z3,%0" : "swp\t%z1,%z3,%0";
+	return mode == DImode ? ".option push\n.option arch,+xmipslsp\nmips.sdp\t%z1,%z3,%0\n.option pop" : ".option push\n.option arch,+xmipslsp\nmips.swp\t%z1,%z3,%0\n.option pop";
     }
     else {
       if (load_p)
-	return mode == DImode ? "ldp\t%2,%0,%3" : "lwp\t%2,%0,%3";
+	return mode == DImode ? ".option push\n.option arch,+xmipslsp\nmips.ldp\t%2,%0,%3\n.option pop" : ".option push\n.option arch,+xmipslsp\nmips.lwp\t%2,%0,%3\n.option pop";
       else
-	return mode == DImode ? "sdp\t%z3,%z1,%2" : "swp\t%z3,%z1,%2";
+	return mode == DImode ? ".option push\n.option arch,+xmipslsp\nmips.sdp\t%z3,%z1,%2\n.option pop" : ".option push\n.option arch,+xmipslsp\nmips.swp\t%z3,%z1,%2\n.option pop";
     }
   }
 

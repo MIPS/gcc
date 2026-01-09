@@ -1319,7 +1319,7 @@ extern void riscv_remove_unneeded_save_restore_calls (void);
 
 /* Enable load store bonding for daimyo.  */
 #define ENABLE_LD_ST_PAIRS \
-  ((TARGET_XMIPSLSP || TARGET_LOAD_STORE_BONDING) && \
+  ((TARGET_LOAD_STORE_PAIRS || TARGET_LOAD_STORE_BONDING) && \
    TARGET_DAIMYO)
 
 #define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) \
