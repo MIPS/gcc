@@ -89,7 +89,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Target variants that support full conditional move.  */
 #define	TARGET_COND_MOV						\
-   (TARGET_SFB_ALU || TARGET_XTHEADCONDMOV || TARGET_XMIPSCMOV)
+   (TARGET_SFB_ALU || TARGET_XTHEADCONDMOV || (TARGET_DAIMYO && TARGET_CCMOV))
 
 /* True if INSN is a riscv.md pattern or asm statement.  */
 /* ???  This test exists through the compiler, perhaps it should be
@@ -5307,7 +5307,7 @@ canonicalize_comparands (rtx_code code, rtx *op0, rtx *op1)
     *op1 = force_reg (word_mode, *op1);
 }
 
-/* Emit target specific conditional move like TARGET_XMIPSCMOV etc.  */
+/* Emit target specific conditional move like TARGET_CCMOV etc.  */
 bool
 riscv_target_conditional_move (rtx dest, rtx op0, rtx op1, rtx_code code,
 				rtx cons, rtx alt)
@@ -5319,7 +5319,7 @@ riscv_target_conditional_move (rtx dest, rtx op0, rtx op1, rtx_code code,
   cons = force_reg (dst_mode, cons);
   alt = force_reg (dst_mode, alt);
 
-  if (TARGET_XMIPSCMOV)
+  if (TARGET_DAIMYO && TARGET_CCMOV)
     {
       if (code == EQ || code == NE)
 	{

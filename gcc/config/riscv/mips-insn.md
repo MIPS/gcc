@@ -23,13 +23,13 @@
 				    (match_operand:X 2 "const_0_operand" "J"))
 			  (match_operand:GPR 3 "reg_or_0_operand" "rJ")
 			  (match_operand:GPR 4 "reg_or_0_operand" "rJ")))]
-  "TARGET_XMIPSCMOV"
+  "TARGET_DAIMYO && TARGET_CCMOV"
 {
   enum rtx_code code = <CODE>;
   if (code == NE)
-    return "mips.ccmov\t%0,%1,%z3,%z4";
+    return ".option push\n.option arch,+xmipscmov\nmips.ccmov\t%0,%1,%z3,%z4\n.option pop";
   else
-    return "mips.ccmov\t%0,%1,%z4,%z3";
+    return ".option push\n.option arch,+xmipscmov\nmips.ccmov\t%0,%1,%z4,%z3\n.option pop";
 }
 [(set_attr "type" "condmove")
  (set_attr "mode" "<GPR:MODE>")])
