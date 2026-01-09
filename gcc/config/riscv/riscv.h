@@ -1314,6 +1314,9 @@ extern void riscv_remove_unneeded_save_restore_calls (void);
 /* TARGET_DAIMYO checks if cores are from Wave Computing/MIPS.  */
 #define TARGET_DAIMYO (riscv_microarchitecture == mips_p8700)
 
+/* TARGET_USE_MIPS_PREF checks if we want to use mips.pref.  */
+#define TARGET_USE_MIPS_PREF (riscv_microarchitecture == mips_p8700)
+
 /* Enable load store bonding for daimyo.  */
 #define ENABLE_LD_ST_PAIRS \
   ((TARGET_XMIPSLSP || TARGET_LOAD_STORE_BONDING) && \

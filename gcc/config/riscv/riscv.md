@@ -4408,16 +4408,16 @@
   [(prefetch (match_operand 0 "prefetch_operand" "Qr,ZD")
 	     (match_operand 1 "imm5_operand" "i,i")
 	     (match_operand 2 "const_int_operand" "n,n"))]
-  "TARGET_ZICBOP || TARGET_XMIPSCBOP"
+  "TARGET_ZICBOP || TARGET_USE_MIPS_PREF"
 {
-  if (TARGET_XMIPSCBOP)
+  if (TARGET_USE_MIPS_PREF)
     {
       /* Mips Prefetch write is nop for p8700.  */
       if (operands[1] != CONST0_RTX (GET_MODE (operands[1])))
 	return "nop";
 
       operands[1] = riscv_prefetch_cookie (operands[1], operands[2]);
-      return "mips.pref\t%1,%a0";
+      return ".option push\n.option arch,+xmipscbop\nmips.pref\t%1,%a0\n.option pop";
     }
 
   switch (INTVAL (operands[1]))

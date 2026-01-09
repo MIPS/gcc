@@ -14604,7 +14604,7 @@ riscv_prefetch_offset_address_p (rtx x, machine_mode mode)
   if (riscv_classify_address (&addr, x, mode, false)
       && addr.type == ADDRESS_REG)
     {
-      if (TARGET_XMIPSCBOP)
+      if (TARGET_USE_MIPS_PREF)
 	return (CONST_INT_P (addr.offset)
 		&& MIPS_RISCV_9BIT_OFFSET_P (INTVAL (addr.offset)));
     }
