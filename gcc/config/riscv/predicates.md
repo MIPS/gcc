@@ -53,7 +53,7 @@
 
 ;; MIPS specific or Standard RISCV Extension
 (define_predicate "prefetch_operand"
-  (if_then_else (match_test "TARGET_XMIPSCBOP")
+  (if_then_else (match_test "TARGET_USE_MIPS_PREF")
       (match_operand 0 "mips_prefetch_operand")
       (match_operand 0 "zicbop_prefetch_operand")))
 
