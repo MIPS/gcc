@@ -613,8 +613,7 @@ else
 fi
 
 if [ -z "${with_multisubdir}" ]; then
-  ml_top_subdir=`${CC-gcc} --print-multi-directory 2>/dev/null`
-  ml_subdir=/$ml_top_subdir
+  ml_subdir=
   ml_builddotdot=
   : # ml_srcdotdot= # already set
 else
