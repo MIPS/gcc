@@ -438,6 +438,7 @@ static const struct riscv_ext_version riscv_ext_version_table[] =
 
   {"xmipscmov", ISA_SPEC_CLASS_NONE, 1, 0},
   {"xmipscbop", ISA_SPEC_CLASS_NONE, 1, 0},
+  {"xmipsexectl", ISA_SPEC_CLASS_NONE, 1, 0},
   {"xmipslsp", ISA_SPEC_CLASS_NONE, 1, 0},
 
   {"xsfvcp",   ISA_SPEC_CLASS_NONE, 1, 0},
