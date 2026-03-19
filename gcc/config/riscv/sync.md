@@ -108,7 +108,7 @@
    (match_operand:SI 2 "const_int_operand")]		     ;; model
   "TARGET_ZAAMO || TARGET_ZALRSC"
 {
-  if (TARGET_ZAAMO)
+  if (!TARGET_ZALRSC || (TARGET_ZAAMO && !TARGET_PREFER_LRSC))
     emit_insn (gen_amo_atomic_<atomic_optab><mode> (operands[0], operands[1],
 						    operands[2]));
   else
@@ -157,7 +157,7 @@
    (match_operand:SI 3 "const_int_operand")]		     ;; model
   "TARGET_ZAAMO || TARGET_ZALRSC"
   {
-    if (TARGET_ZAAMO)
+    if (!TARGET_ZALRSC || (TARGET_ZAAMO && !TARGET_PREFER_LRSC))
       emit_insn (gen_amo_atomic_fetch_<atomic_optab><mode> (operands[0], operands[1],
 							    operands[2], operands[3]));
     else
@@ -376,7 +376,7 @@
    (match_operand:SI 3 "const_int_operand")] ;; model
   "TARGET_ZAAMO || TARGET_ZALRSC"
   {
-    if (TARGET_ZAAMO)
+    if (!TARGET_ZALRSC || (TARGET_ZAAMO && !TARGET_PREFER_LRSC))
       emit_insn (gen_amo_atomic_exchange<mode> (operands[0], operands[1],
 					    operands[2], operands[3]));
     else
@@ -814,7 +814,7 @@
   rtx shifted_set = gen_reg_rtx (SImode);
   riscv_lshift_subword (QImode, set, shift, &shifted_set);
 
-  if (TARGET_ZAAMO)
+  if (TARGET_ZAAMO || (TARGET_ZAAMO && !TARGET_PREFER_LRSC))
     emit_insn (gen_amo_atomic_fetch_orsi (old, aligned_mem, shifted_set, model));
   else if (TARGET_ZALRSC)
     emit_insn (gen_lrsc_atomic_fetch_orsi (old, aligned_mem, shifted_set, model));
