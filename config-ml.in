@@ -613,12 +613,13 @@ else
 fi
 
 if [ -z "${with_multisubdir}" ]; then
-  if [ ${host} = riscv*-*-* ]; then
-    ml_subdir=
-  else
+  case "${host}" in
+  riscv*-*-*) ml_subdir= ;;
+  *)
     ml_top_subdir=`${CC-gcc} --print-multi-directory 2>/dev/null`
     ml_subdir=/$ml_top_subdir
-  fi
+    ;;
+  esac
   ml_builddotdot=
   : # ml_srcdotdot= # already set
 else
